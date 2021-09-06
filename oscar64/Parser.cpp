@@ -44,6 +44,14 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 
 		break;
 
+	case TK_STATIC:
+		mScanner->NextToken();
+		return ParseBaseTypeDeclaration(flags | DTF_STATIC);
+
+	case TK_EXTERN:
+		mScanner->NextToken();
+		return ParseBaseTypeDeclaration(flags | DTF_EXTERN);
+
 	case TK_CONST:
 		mScanner->NextToken();
 		return ParseBaseTypeDeclaration(flags | DTF_CONST);
@@ -638,6 +646,8 @@ Declaration* Parser::ParseDeclaration(bool variable)
 		{
 			if (variable)
 			{
+				ndec->mFlags |= ndec->mBase->mFlags & (DTF_CONST | DTF_STATIC | DTF_VOLATILE | DTF_EXTERN);
+
 				if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 					ndec->mType = DT_CONST_FUNCTION;
 
@@ -783,6 +793,7 @@ Expression* Parser::ParseSimpleExpression(void)
 	case TK_VOLATILE:
 	case TK_STRUCT:
 	case TK_TYPEDEF:
+	case TK_STATIC:
 		exp = ParseDeclarationExpression();
 		break;
 	case TK_INTEGER:
@@ -885,9 +896,16 @@ Expression* Parser::ParseSimpleExpression(void)
 			}
 			else if (dec->mType == DT_VARIABLE || dec->mType == DT_ARGUMENT)
 			{
-				exp = new Expression(mScanner->mLocation, EX_VARIABLE);
-				exp->mDecValue = dec;
-				exp->mDecType = dec->mBase;
+				if ((dec->mFlags & DTF_STATIC) && (dec->mFlags & DTF_CONST) && dec->mValue && dec->mBase->IsNumericType())
+				{
+					exp = dec->mValue;
+				}
+				else
+				{
+					exp = new Expression(mScanner->mLocation, EX_VARIABLE);
+					exp->mDecValue = dec;
+					exp->mDecType = dec->mBase;
+				}
 				mScanner->NextToken();
 			}
 			else if (dec->mType <= DT_TYPE_FUNCTION)

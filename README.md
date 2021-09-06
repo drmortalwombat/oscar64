@@ -47,7 +47,6 @@ The first release of the compiler is severely limited considering it is only two
 
 * All global variables are considered volatile
 * No loop opmtimization
-* Static const not propagated
 * Poor bookeeping of callee saved registers
 * Missing livetime reduction of intermediates
 * No block domination analysis

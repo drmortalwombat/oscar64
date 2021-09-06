@@ -38,6 +38,8 @@ enum Token
 	TK_UNION,
 	TK_ENUM,
 	TK_SIZEOF,
+	TK_STATIC,
+	TK_EXTERN,
 
 	TK_ASM,
 
