@@ -100,15 +100,15 @@ The current byte code program counter is (ip),y. The interpreter loop guarantees
 
 The intermediate code generator assumes a large number of registers so the zero page is used for this purpose.  The allocation is not yet final:
 
-**0x02-0x02** spilling of y register
-**0x03-0x09** workspace for mul/div and floating point routines
-**0x19-0x1a** instruction pointer
-**0x1b-0x1e** integer and floating point accumulator
-**0x1f-0x22** pointers for indirect addressing
-**0x23-0x24** stack pointer
-**0x25-0x26** frame pointer
-**0x43-0x52** caller saved registers
-**0x53-0x8f** callee saved registers
+* **0x02-0x02** spilling of y register
+* **0x03-0x09** workspace for mul/div and floating point routines
+* **0x19-0x1a** instruction pointer
+* **0x1b-0x1e** integer and floating point accumulator
+* **0x1f-0x22** pointers for indirect addressing
+* **0x23-0x24** stack pointer
+* **0x25-0x26** frame pointer
+* **0x43-0x52** caller saved registers
+* **0x53-0x8f** callee saved registers
 
 
 
