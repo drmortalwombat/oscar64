@@ -175,18 +175,18 @@ public:
 class ByteCodeBasicBlock
 {
 public:
-	DynamicArray<uint8>					code;
-	int									num;
+	DynamicArray<uint8>					mCode;
+	int									mIndex;
 
-	ByteCodeBasicBlock				*	trueJump, * falseJump;
-	ByteCodeBasicBlock				*	trueLink, * falseLink;
-	ByteCode							branch;
+	ByteCodeBasicBlock				*	mTrueJump, * mFalseJump;
+	ByteCodeBasicBlock				*	mTrueLink, * mFalseLink;
+	ByteCode							mBranch;
 
 	GrowingArray<ByteCodeInstruction>	mIns;
 	GrowingArray<ByteCodeRelocation>	mRelocations;
 
 	int						mOffset, mSize;
-	bool					placed, copied, knownShortBranch, killed, bypassed, mAssembled;
+	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled;
 
 	ByteCodeBasicBlock(void);
 

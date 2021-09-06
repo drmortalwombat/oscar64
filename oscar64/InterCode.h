@@ -116,8 +116,8 @@ typedef GrowingArray<InterVariable>				GrowingVariableArray;
 class ValueSet
 {
 protected:
-	InterInstructionPtr	* instructions;
-	int								num, size;
+	InterInstructionPtr	* mInstructions;
+	int								mNum, mSize;
 public:
 	ValueSet(void);
 	ValueSet(const ValueSet& values);
@@ -137,96 +137,96 @@ class TempForwardingTable
 protected:
 	struct Assoc
 	{
-		int	assoc, succ, pred;
+		int	mAssoc, mSucc, mPred;
 
 		Assoc(void) {}
-		Assoc(int assoc, int succ, int pred) { this->assoc = assoc; this->succ = succ; this->pred = pred; }
-		Assoc(const Assoc& assoc) { this->assoc = assoc.assoc; this->succ = assoc.succ; this->pred = assoc.pred; }
+		Assoc(int assoc, int succ, int pred) { this->mAssoc = assoc; this->mSucc = succ; this->mPred = pred; }
+		Assoc(const Assoc& assoc) { this->mAssoc = assoc.mAssoc; this->mSucc = assoc.mSucc; this->mPred = assoc.mPred; }
 	};
 
-	GrowingArray<Assoc>		assoc;
+	GrowingArray<Assoc>		mAssoc;
 
 public:
-	TempForwardingTable(void) : assoc(Assoc(-1, -1, -1))
+	TempForwardingTable(void) : mAssoc(Assoc(-1, -1, -1))
 	{
 	}
 
-	TempForwardingTable(const TempForwardingTable & table) : assoc(Assoc(-1, -1, -1))
+	TempForwardingTable(const TempForwardingTable & table) : mAssoc(Assoc(-1, -1, -1))
 	{
-		for (int i = 0; i < table.assoc.Size(); i++)
+		for (int i = 0; i < table.mAssoc.Size(); i++)
 		{
-			assoc[i].assoc = table.assoc[i].assoc;
-			assoc[i].succ = table.assoc[i].succ;
-			assoc[i].pred = table.assoc[i].pred;
+			mAssoc[i].mAssoc = table.mAssoc[i].mAssoc;
+			mAssoc[i].mSucc = table.mAssoc[i].mSucc;
+			mAssoc[i].mPred = table.mAssoc[i].mPred;
 		}
 	}
 
 	void SetSize(int size)
 	{
 		int i;
-		assoc.SetSize(size);
+		mAssoc.SetSize(size);
 
 		for (i = 0; i < size; i++)
-			assoc[i] = Assoc(i, i, i);
+			mAssoc[i] = Assoc(i, i, i);
 	}
 
 	void Reset(void)
 	{
 		int i;
 
-		for (i = 0; i < assoc.Size(); i++)
-			assoc[i] = Assoc(i, i, i);
+		for (i = 0; i < mAssoc.Size(); i++)
+			mAssoc[i] = Assoc(i, i, i);
 	}
 
 	int operator[](int n)
 	{
-		return assoc[n].assoc;
+		return mAssoc[n].mAssoc;
 	}
 
 	void Destroy(int n)
 	{
 		int i, j;
 
-		if (assoc[n].assoc == n)
+		if (mAssoc[n].mAssoc == n)
 		{
-			i = assoc[n].succ;
+			i = mAssoc[n].mSucc;
 			while (i != n)
 			{
-				j = assoc[i].succ;
-				assoc[i] = Assoc(i, i, i);
+				j = mAssoc[i].mSucc;
+				mAssoc[i] = Assoc(i, i, i);
 				i = j;
 			}
 		}
 		else
 		{
-			assoc[assoc[n].pred].succ = assoc[n].succ;
-			assoc[assoc[n].succ].pred = assoc[n].pred;
+			mAssoc[mAssoc[n].mPred].mSucc = mAssoc[n].mSucc;
+			mAssoc[mAssoc[n].mSucc].mPred = mAssoc[n].mPred;
 		}
 
-		assoc[n] = Assoc(n, n, n);
+		mAssoc[n] = Assoc(n, n, n);
 	}
 
 	void Build(int from, int to)
 	{
 		int i;
 
-		from = assoc[from].assoc;
-		to = assoc[to].assoc;
+		from = mAssoc[from].mAssoc;
+		to = mAssoc[to].mAssoc;
 
 		if (from != to)
 		{
-			i = assoc[from].succ;
+			i = mAssoc[from].mSucc;
 			while (i != from)
 			{
-				assoc[i].assoc = to;
-				i = assoc[i].succ;
+				mAssoc[i].mAssoc = to;
+				i = mAssoc[i].mSucc;
 			}
-			assoc[from].assoc = to;
+			mAssoc[from].mAssoc = to;
 
-			assoc[assoc[to].succ].pred = assoc[from].pred;
-			assoc[assoc[from].pred].succ = assoc[to].succ;
-			assoc[to].succ = from;
-			assoc[from].pred = to;
+			mAssoc[mAssoc[to].mSucc].mPred = mAssoc[from].mPred;
+			mAssoc[mAssoc[from].mPred].mSucc = mAssoc[to].mSucc;
+			mAssoc[to].mSucc = from;
+			mAssoc[from].mPred = to;
 		}
 	}
 };
@@ -256,22 +256,18 @@ public:
 class InterInstruction
 {
 public:
-	InterCode							code;
-	InterType							ttype, stype[3];
-	int									ttemp, stemp[3];
-	bool								sfinal[3];
-	__int64								siconst[3];
-	double								sfconst[3];
-	int									spconst[3];
-	InterMemory							mem;
-	InterOperator						oper;
-	int									opsize;
-	int									vindex;
-	__int64								ivalue;
-	double								fvalue;
-	bool								zeroFrame;
-	Location							loc;
-	InterCodeBasicBlock				*	exceptionJump;
+	InterCode							mCode;
+	InterType							mTType, mSType[3];
+	int									mTTemp, mSTemp[3];
+	bool								mSFinal[3];
+	__int64								mSIntConst[3];
+	InterMemory							mMemory;
+	InterOperator						mOperator;
+	int									mOperandSize;
+	int									mVarIndex;
+	__int64								mIntValue;
+	double								mFloatValue;
+	Location							mLocation;
 
 	InterInstruction(void);
 	void SetCode(const Location & loc, InterCode code);
@@ -350,16 +346,15 @@ public:
 class InterCodeBasicBlock
 {
 public:
-	int								num, numEntries;
-	InterCodeBasicBlock* trueJump, * falseJump;
-	GrowingInstructionArray			code;
+	int								mIndex, mNumEntries;
+	InterCodeBasicBlock* mTrueJump, * mFalseJump;
+	GrowingInstructionArray			mInstructions;
 
-	bool								visited;
-	int								entryISP, entryPSP, entryFSP;
+	bool								mVisited;
 
-	NumberSet						localRequiredTemps, localProvidedTemps;
-	NumberSet						entryRequiredTemps, entryProvidedTemps;
-	NumberSet						exitRequiredTemps, exitProvidedTemps;
+	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
+	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
+	NumberSet						mExitRequiredTemps, exitProvidedTemps;
 
 	NumberSet						mLocalRequiredVars, mLocalProvidedVars;
 	NumberSet						mEntryRequiredVars, mEntryProvidedVars;
@@ -389,8 +384,8 @@ public:
 	bool BuildGlobalRequiredVariableSet(const GrowingVariableArray& localVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars);
 
-	GrowingIntArray			entryRenameTable;
-	GrowingIntArray			exitRenameTable;
+	GrowingIntArray			mEntryRenameTable;
+	GrowingIntArray			mExitRenameTable;
 
 	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num, int fixed);
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);
@@ -427,16 +422,16 @@ class InterCodeModule;
 class InterCodeProcedure
 {
 protected:
-	GrowingIntArray						renameTable, renameUnionTable, globalRenameTable;
-	TempForwardingTable					tempForwardingTable;
-	GrowingInstructionPtrArray			valueForwardingTable;
+	GrowingIntArray						mRenameTable, mRenameUnionTable, mGlobalRenameTable;
+	TempForwardingTable					mTempForwardingTable;
+	GrowingInstructionPtrArray			mValueForwardingTable;
 	int									numFixedTemporaries;
-	NumberSet							localAliasedSet;
+	NumberSet							mLocalAliasedSet;
 
 	void ResetVisited(void);
 public:
-	GrowingInterCodeBasicBlockPtrArray	blocks;	
-	GrowingTypeArray					temporaries;
+	GrowingInterCodeBasicBlockPtrArray	mBlocks;	
+	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset;
 	int									mTempSize, mCommonFrameSize;
 	bool								mLeafProcedure;
