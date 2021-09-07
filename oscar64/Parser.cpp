@@ -44,14 +44,6 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 
 		break;
 
-	case TK_STATIC:
-		mScanner->NextToken();
-		return ParseBaseTypeDeclaration(flags | DTF_STATIC);
-
-	case TK_EXTERN:
-		mScanner->NextToken();
-		return ParseBaseTypeDeclaration(flags | DTF_EXTERN);
-
 	case TK_CONST:
 		mScanner->NextToken();
 		return ParseBaseTypeDeclaration(flags | DTF_CONST);
@@ -615,11 +607,22 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 Declaration* Parser::ParseDeclaration(bool variable)
 {
 	bool	definingType = false;
+	uint32	storageFlags = 0;
 
 	if (mScanner->mToken == TK_TYPEDEF)
 	{
 		definingType = true;
 		variable = false;
+		mScanner->NextToken();
+	}
+	else if (mScanner->mToken == TK_STATIC)
+	{
+		storageFlags |= DTF_STATIC;
+		mScanner->NextToken();
+	}
+	else if (mScanner->mToken == TK_EXTERN)
+	{
+		storageFlags |= DTF_EXTERN;
 		mScanner->NextToken();
 	}
 
@@ -646,7 +649,8 @@ Declaration* Parser::ParseDeclaration(bool variable)
 		{
 			if (variable)
 			{
-				ndec->mFlags |= ndec->mBase->mFlags & (DTF_CONST | DTF_STATIC | DTF_VOLATILE | DTF_EXTERN);
+				ndec->mFlags |= storageFlags;
+				ndec->mFlags |= ndec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
 
 				if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 					ndec->mType = DT_CONST_FUNCTION;
