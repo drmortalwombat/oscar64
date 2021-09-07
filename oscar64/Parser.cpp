@@ -469,7 +469,8 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 				else
 				{
 					Declaration* ndec = new Declaration(dec->mLocation, DT_CONST_DATA);
-					ndec->mValue = exp;
+					ndec->mData = dec->mData;
+					ndec->mSize = dec->mSize;
 					ndec->mBase = dtype;
 					dec = ndec;
 				}

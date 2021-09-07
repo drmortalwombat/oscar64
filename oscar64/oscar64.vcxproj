@@ -151,6 +151,7 @@
     <ClCompile Include="Ident.cpp" />
     <ClCompile Include="InterCode.cpp" />
     <ClCompile Include="InterCodeGenerator.cpp" />
+    <ClCompile Include="NativeCodeGenerator.cpp" />
     <ClCompile Include="NumberSet.cpp" />
     <ClCompile Include="oscar64.cpp" />
     <ClCompile Include="Parser.cpp" />
@@ -171,6 +172,7 @@
     <ClInclude Include="InterCode.h" />
     <ClInclude Include="InterCodeGenerator.h" />
     <ClInclude Include="MachineTypes.h" />
+    <ClInclude Include="NativeCodeGenerator.h" />
     <ClInclude Include="NumberSet.h" />
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Preprocessor.h" />
