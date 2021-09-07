@@ -33,6 +33,9 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -i=../include -rt=../include/crt.c -e arrayinittest.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -i=../include -rt=../include/crt.c -e array2stringinittest.c
+if %errorlevel% neq 0 goto :error
+
 exit /b 0
 :error
 echo Failed with error #%errorlevel%.
