@@ -253,26 +253,11 @@ public:
 	ByteCodeGenerator(void);
 	~ByteCodeGenerator(void);
 
-	void WriteBasicHeader(void);
-	void WriteByteCodeHeader(void);
-	void SetBasicEntry(int index);
-
-	bool WritePRGFile(const char* filename);
-	bool WriteMapFile(const char* filename);
-
-	void WriteAsmFile(FILE * file);
-
-	void ResolveRelocations(void);
-
-	int AddGlobal(int index, const Ident* ident, int size, const uint8* data, bool assembler);
-
-	void AddAddress(int index, bool function, int address, int size, const Ident * ident, bool assembler);
-
 	struct Address
 	{
 		int				mIndex, mAddress, mSize;
 		bool			mFunction, mAssembler;
-		const Ident	*	mIdent;
+		const Ident* mIdent;
 	};
 
 	GrowingArray<Address>				mProcedureAddr, mGlobalAddr;
@@ -282,4 +267,22 @@ public:
 
 	uint8	mMemory[0x10000];
 	int		mProgEnd, mProgStart, mProgEntry;
+
+	void WriteBasicHeader(void);
+	void WriteByteCodeHeader(void);
+	void SetBasicEntry(int index);
+
+	bool WritePRGFile(const char* filename);
+	bool WriteMapFile(const char* filename);
+
+	void WriteAsmFile(FILE * file);
+
+	void WriteAsmFile(FILE* file, Address & addr);
+
+	void ResolveRelocations(void);
+
+	int AddGlobal(int index, const Ident* ident, int size, const uint8* data, bool assembler);
+
+	void AddAddress(int index, bool function, int address, int size, const Ident * ident, bool assembler);
+
 };

@@ -9,15 +9,15 @@ class NativeCodeBasicBlock;
 class NativeCodeInstruction
 {
 public:
-	NativeCodeInstruction(AsmInsType type, AsmInsMode mode);
+	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, int varIndex = -1, bool lower = true, bool upper = true);
 
 	AsmInsType		mType;
 	AsmInsMode		mMode;
 
 	int				mAddress, mVarIndex;
-	bool			mGlobal;
+	bool			mLower, mUpper;
 
-	void Assemble(ByteCodeGenerator* generator, NativeCodeBasicBlock* block);
+	void Assemble(NativeCodeBasicBlock* block);
 };
 
 class NativeCodeBasicBlock
@@ -36,21 +36,30 @@ public:
 	GrowingArray<ByteCodeRelocation>	mRelocations;
 
 	int						mOffset, mSize;
-	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled;
+	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame;
 
-	int PutBranch(ByteCodeGenerator* generator, AsmInsType code, int offset);
+	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
+	int PutJump(NativeCodeProcedure* proc, int offset);
 
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
 	void CalculateOffset(int& total);
-	void CopyCode(ByteCodeGenerator* generator, uint8* target);
 
-	void Assemble(ByteCodeGenerator* generator);
+	void CopyCode(NativeCodeProcedure* proc, uint8* target);
+	void Assemble(void);
 	void Compile(InterCodeProcedure* iproc, NativeCodeProcedure* proc, InterCodeBasicBlock* block);
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
 
+	void LoadConstant(InterCodeProcedure* proc, const InterInstruction& ins);
+	void StoreValue(InterCodeProcedure* proc, const InterInstruction& ins);
+	void LoadValue(InterCodeProcedure* proc, const InterInstruction& ins);
+	void LoadStoreValue(InterCodeProcedure* proc, const InterInstruction& rins, const InterInstruction& wins);
+	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction& ins);
+	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction& ins);
+	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
+	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins);
 };
 
 class NativeCodeProcedure
@@ -62,10 +71,14 @@ class NativeCodeProcedure
 		NativeCodeBasicBlock* entryBlock, * exitBlock;
 		NativeCodeBasicBlock** tblocks;
 
-		int		mProgStart, mProgSize;
+		int		mProgStart, mProgSize, mIndex;
+		bool	mNoFrame;
 
-		void Compile(ByteCodeGenerator* generator, InterCodeProcedure* proc);
+		GrowingArray<ByteCodeRelocation>	mRelocations;
+
+		void Compile( ByteCodeGenerator * generator, InterCodeProcedure* proc);
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
+		NativeCodeBasicBlock* TransientBlock(void);
 
 };
 

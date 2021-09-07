@@ -405,7 +405,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 
 		ByteCodeRelocation	rl;
 		rl.mAddr = block->mCode.Size();
-		rl.mFunction = false;
+		rl.mFunction = mFunction;
 		rl.mLower = true;
 		rl.mUpper = true;
 		rl.mIndex = mVIndex;
@@ -1481,6 +1481,7 @@ void ByteCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterInst
 		ByteCodeInstruction	bins(BC_JSR);
 		bins.mRelocate = true;
 		bins.mVIndex = ins.mVarIndex;
+		bins.mFunction = ins.mMemory == IM_PROCEDURE;
 		mIns.Push(bins);
 	}
 }
@@ -3394,78 +3395,88 @@ void ByteCodeGenerator::WriteAsmFile(FILE* file)
 {
 	for (int i = 0; i < mGlobalAddr.Size(); i++)
 	{
-		if (mGlobalAddr[i].mAssembler)
+		WriteAsmFile(file, mGlobalAddr[i]);
+	}
+	for (int i = 0; i < mProcedureAddr.Size(); i++)
+	{
+		WriteAsmFile(file, mProcedureAddr[i]);
+	}
+}
+
+void ByteCodeGenerator::WriteAsmFile(FILE * file, Address & addr)
+{
+
+	if (addr.mAssembler)
+	{
+		fprintf(file, "--------------------------------------------------------------------\n");
+		if (addr.mIdent)
+			fprintf(file, "%s:\n", addr.mIdent->mString);
+
+		int		ip = addr.mAddress;
+		while (ip < addr.mAddress + addr.mSize)
 		{
-			fprintf(file, "--------------------------------------------------------------------\n");
-			if (mGlobalAddr[i].mIdent)
-				fprintf(file, "%s:\n", mGlobalAddr[i].mIdent->mString);
+			int			iip = ip;
+			uint8	opcode = mMemory[ip++];
+			AsmInsData	d = DecInsData[opcode];
+			int	addr = 0;
 
-			int		ip = mGlobalAddr[i].mAddress;
-			while (ip < mGlobalAddr[i].mAddress + mGlobalAddr[i].mSize)
+			switch (d.mMode)
 			{
-				int			iip = ip;
-				uint8	opcode = mMemory[ip++];
-				AsmInsData	d = DecInsData[opcode];
-				int	addr = 0;
-
-				switch (d.mMode)
-				{
-				case ASMIM_IMPLIED:
-					fprintf(file, "%04x : %04x %02x __ __ %s\n", iip, ip, mMemory[ip], AsmInstructionNames[d.mType]);
-					break;
-				case ASMIM_IMMEDIATE:
-					addr = mMemory[ip++];
-					fprintf(file, "%04x : %04x %02x %02x __ %s #$%02x\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
-					break;
-				case ASMIM_ZERO_PAGE:
-					addr = mMemory[ip++];
-					fprintf(file, "%04x : %04x %02x %02x __ %s $%02x\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
-					break;
-				case ASMIM_ZERO_PAGE_X:
-					addr = mMemory[ip++];
-					fprintf(file, "%04x : %04x %02x %02x __ %s $%02x,x\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
-					break;
-				case ASMIM_ZERO_PAGE_Y:
-					addr = mMemory[ip++];
-					fprintf(file, "%04x : %04x %02x %02x __ %s $%02x,y\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
-					break;
-				case ASMIM_ABSOLUTE:
-					addr = mMemory[ip] + 256 * mMemory[ip + 1];
-					fprintf(file, "%04x : %04x %02x %02x %02x %s $%04x\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr);
-					ip += 2;
-					break;
-				case ASMIM_ABSOLUTE_X:
-					addr = mMemory[ip] + 256 * mMemory[ip + 1];
-					fprintf(file, "%04x : %04x %02x %02x %02x %s $%04x,x\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr);
-					ip += 2;
-					break;
-				case ASMIM_ABSOLUTE_Y:
-					addr = mMemory[ip] + 256 * mMemory[ip + 1];
-					fprintf(file, "%04x : %04x %02x %02x %02x %s $%04x,y\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr);
-					ip += 2;
-					break;
-				case ASMIM_INDIRECT:
-					addr = mMemory[ip] + 256 * mMemory[ip + 1];
-					ip += 2;
-					fprintf(file, "%04x : %04x %02x %02x %02x %s ($%04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr);
-					break;
-				case ASMIM_INDIRECT_X:
-					addr = mMemory[ip++];
-					fprintf(file, "%04x : %04x %02x %02x __ %s ($%02x,x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
-					break;
-				case ASMIM_INDIRECT_Y:
-					addr = mMemory[ip++];
-					fprintf(file, "%04x : %04x %02x %02x __ %s ($%02x),y\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
-					break;
-				case ASMIM_RELATIVE:
-					addr = mMemory[ip++];
-					if (addr & 0x80)
-						addr = addr + ip - 256;
-					else
-						addr = addr + ip;
-					fprintf(file, "%04x : %04x %02x %02x __ %s $%02x\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
-					break;
-				}
+			case ASMIM_IMPLIED:
+				fprintf(file, "%04x : %02x __ __ %s\n", iip, mMemory[ip], AsmInstructionNames[d.mType]);
+				break;
+			case ASMIM_IMMEDIATE:
+				addr = mMemory[ip++];
+				fprintf(file, "%04x : %02x %02x __ %s #$%02x\n", iip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
+				break;
+			case ASMIM_ZERO_PAGE:
+				addr = mMemory[ip++];
+				fprintf(file, "%04x : %02x %02x __ %s $%02x\n", iip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
+				break;
+			case ASMIM_ZERO_PAGE_X:
+				addr = mMemory[ip++];
+				fprintf(file, "%04x : %02x %02x __ %s $%02x,x\n", iip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
+				break;
+			case ASMIM_ZERO_PAGE_Y:
+				addr = mMemory[ip++];
+				fprintf(file, "%04x : %02x %02x __ %s $%02x,y\n", iip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
+				break;
+			case ASMIM_ABSOLUTE:
+				addr = mMemory[ip] + 256 * mMemory[ip + 1];
+				fprintf(file, "%04x : %02x %02x %02x %s $%04x\n", iip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr);
+				ip += 2;
+				break;
+			case ASMIM_ABSOLUTE_X:
+				addr = mMemory[ip] + 256 * mMemory[ip + 1];
+				fprintf(file, "%04x : %02x %02x %02x %s $%04x,x\n", iip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr);
+				ip += 2;
+				break;
+			case ASMIM_ABSOLUTE_Y:
+				addr = mMemory[ip] + 256 * mMemory[ip + 1];
+				fprintf(file, "%04x : %02x %02x %02x %s $%04x,y\n", iip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr);
+				ip += 2;
+				break;
+			case ASMIM_INDIRECT:
+				addr = mMemory[ip] + 256 * mMemory[ip + 1];
+				ip += 2;
+				fprintf(file, "%04x : %02x %02x %02x %s ($%04x)\n", iip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr);
+				break;
+			case ASMIM_INDIRECT_X:
+				addr = mMemory[ip++];
+				fprintf(file, "%04x : %02x %02x __ %s ($%02x,x)\n", iip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
+				break;
+			case ASMIM_INDIRECT_Y:
+				addr = mMemory[ip++];
+				fprintf(file, "%04x : %02x %02x __ %s ($%02x),y\n", iip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
+				break;
+			case ASMIM_RELATIVE:
+				addr = mMemory[ip++];
+				if (addr & 0x80)
+					addr = addr + ip - 256;
+				else
+					addr = addr + ip;
+				fprintf(file, "%04x : %02x %02x __ %s $%02x\n", iip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr);
+				break;
 			}
 		}
 	}

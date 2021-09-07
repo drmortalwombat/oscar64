@@ -4,6 +4,7 @@
 #include "InterCodeGenerator.h"
 #include "InterCode.h"
 #include "ByteCodeGenerator.h"
+#include "NativeCodeGenerator.h"
 #include "Emulator.h"
 #include <stdio.h>
 
@@ -85,27 +86,38 @@ bool Compiler::GenerateCode(void)
 
 	for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
 	{
-		ByteCodeProcedure* bgproc = new ByteCodeProcedure();
+		InterCodeProcedure* proc = mInterCodeModule->mProcedures[i];
 
-		mInterCodeModule->mProcedures[i]->ReduceTemporaries();
+		proc->ReduceTemporaries();
 
 #if _DEBUG
-		mInterCodeModule->mProcedures[i]->Disassemble("final");
+		proc->Disassemble("final");
 #endif
 
-		bgproc->Compile(mByteCodeGenerator, mInterCodeModule->mProcedures[i]);
-		mByteCodeFunctions.Push(bgproc);
 
-#if _DEBUG
-		FILE* file;
-		fopen_s(&file, "r:\\cldiss.txt", "a");
-
-		if (file)
+		if (proc->mNativeProcedure)
 		{
-			bgproc->Disassemble(file, mByteCodeGenerator, mInterCodeModule->mProcedures[i]);
-			fclose(file);
+			NativeCodeProcedure* ncproc = new NativeCodeProcedure();
+			ncproc->Compile(mByteCodeGenerator, proc);
 		}
+		else
+		{
+			ByteCodeProcedure* bgproc = new ByteCodeProcedure();
+
+			bgproc->Compile(mByteCodeGenerator, proc);
+			mByteCodeFunctions.Push(bgproc);
+
+#if _DEBUG
+			FILE* file;
+			fopen_s(&file, "r:\\cldiss.txt", "a");
+
+			if (file)
+			{
+				bgproc->Disassemble(file, mByteCodeGenerator, mInterCodeModule->mProcedures[i]);
+				fclose(file);
+			}
 #endif
+		}
 	}
 
 	for (int i = 0; i < 128; i++)

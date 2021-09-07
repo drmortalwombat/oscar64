@@ -1397,7 +1397,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					mErrors->Error(exp->mLocation, "Not enough arguments for function call");
 
 				InterInstruction	cins;
-				cins.mCode = IC_CALL;
+				if (exp->mLeft->mDecValue->mFlags & DTF_NATIVE)
+					cins.mCode = IC_JSR;
+				else
+					cins.mCode = IC_CALL;
 				cins.mSType[0] = IT_POINTER;
 				cins.mSTemp[0] = vl.mTemp;
 				if (ftype->mBase->mType != DT_TYPE_VOID)
@@ -2209,6 +2212,9 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mIdent);
 	dec->mVarIndex = proc->mID;
+
+	if (dec->mFlags & DTF_NATIVE)
+		proc->mNativeProcedure = true;
 
 	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock();
 

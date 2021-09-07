@@ -253,6 +253,9 @@ public:
 	}
 };
 
+
+typedef GrowingArray<InterVariable::Reference>		GrowingInterVariableReferenceArray;
+
 class InterInstruction
 {
 public:
@@ -415,6 +418,8 @@ public:
 	void CollectOuterFrame(int level, int& size);
 
 	bool IsLeafProcedure(void);
+
+	void PeepholeOptimization(void);
 };
 
 class InterCodeModule;
@@ -434,7 +439,7 @@ public:
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset;
 	int									mTempSize, mCommonFrameSize;
-	bool								mLeafProcedure;
+	bool								mLeafProcedure, mNativeProcedure;
 
 	InterCodeModule					*	mModule;
 	int									mID;
@@ -463,6 +468,7 @@ protected:
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);
 	void TempForwarding(void);
+	void RemoveUnusedInstructions(void);
 
 	void DisassembleDebug(const char* name);
 };

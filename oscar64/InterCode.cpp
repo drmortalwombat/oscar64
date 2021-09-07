@@ -2554,9 +2554,12 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 
 			switch (mInstructions[i].mCode)
 			{
+			case IC_CONSTANT:
+				if (mInstructions[i].mTType != IT_POINTER)
+					break;
+
 			case IC_STORE:
 			case IC_LOAD:
-			case IC_CONSTANT:
 			case IC_JSR:
 				if (mInstructions[i].mMemory == IM_GLOBAL)
 				{
@@ -2619,7 +2622,7 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
-			if (mInstructions[i].mCode == IC_CALL)
+			if (mInstructions[i].mCode == IC_CALL || mInstructions[i].mCode == IC_JSR)
 				return false;
 
 		if (mTrueJump && !mTrueJump->IsLeafProcedure())
@@ -2630,6 +2633,91 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 
 	return true;
 }
+
+void InterCodeBasicBlock::PeepholeOptimization(void)
+{
+	int		i;
+	
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		bool	changed;
+		do
+		{
+			int	j = 0;
+			for (i = 0; i < mInstructions.Size(); i++)
+			{
+				if (mInstructions[i].mCode != IC_NONE)
+				{
+					mInstructions[j++] = mInstructions[i];
+				}
+			}
+			mInstructions.SetSize(j);
+
+			changed = false;
+
+			for (i = 0; i < mInstructions.Size(); i++)
+			{
+				if (i + 2 < mInstructions.Size())
+				{
+					if (mInstructions[i + 0].mTTemp >= 0 &&
+						mInstructions[i + 1].mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1].mSTemp[0] == mInstructions[i].mTTemp &&
+						(mInstructions[i + 2].mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2].mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2].mSTemp[0] == mInstructions[i].mTTemp && mInstructions[i + 2].mSFinal[0])
+					{
+						mInstructions[i + 0].mTTemp = mInstructions[i + 1].mTTemp;
+						mInstructions[i + 1].mCode = IC_NONE;
+						mInstructions[i + 2].mSTemp[0] = mInstructions[i + 1].mTTemp;
+						mInstructions[i + 2].mSFinal[0] = false;
+						changed = true;
+					}
+					else if (mInstructions[i + 0].mTTemp >= 0 &&
+						mInstructions[i + 1].mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1].mSTemp[0] == mInstructions[i].mTTemp &&
+						(mInstructions[i + 2].mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2].mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2].mSTemp[1] == mInstructions[i].mTTemp && mInstructions[i + 2].mSFinal[1])
+					{
+						mInstructions[i + 0].mTTemp = mInstructions[i + 1].mTTemp;
+						mInstructions[i + 1].mCode = IC_NONE;
+						mInstructions[i + 2].mSTemp[1] = mInstructions[i + 1].mTTemp;
+						mInstructions[i + 2].mSFinal[1] = false;
+						changed = true;
+					}
+
+					// Postincrement artifact
+					if (mInstructions[i + 0].mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1].mCode == IC_BINARY_OPERATOR &&
+						mInstructions[i + 1].mSTemp[0] < 0 &&
+						mInstructions[i + 0].mSTemp[0] == mInstructions[i + 1].mSTemp[1] &&
+						mInstructions[i + 0].mSTemp[0] == mInstructions[i + 1].mTTemp)
+					{
+						InterInstruction	ins = mInstructions[i + 1];
+						int		ttemp = mInstructions[i + 1].mTTemp;
+						int	k = i + 1;
+						while (k + 2 < mInstructions.Size() &&
+							mInstructions[k + 1].mSTemp[0] != ttemp &&
+							mInstructions[k + 1].mSTemp[1] != ttemp &&
+							mInstructions[k + 1].mSTemp[2] != ttemp &&
+							mInstructions[k + 1].mTTemp != ttemp)
+						{
+							mInstructions[k] = mInstructions[k + 1];
+							k++;
+						}
+						if (k > i + 1)
+						{
+							mInstructions[k] = ins;
+							changed = true;
+						}
+					}
+				}
+
+
+			}
+
+		} while (changed);
+
+		if (mTrueJump) mTrueJump->PeepholeOptimization();
+		if (mFalseJump) mFalseJump->PeepholeOptimization();
+	}
+}
+
 
 void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars)
 {
@@ -2783,7 +2871,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), 
 	mRenameTable(-1), mRenameUnionTable(-1), mGlobalRenameTable(-1),
 	mValueForwardingTable(NULL), mLocalVars(InterVariable()), mModule(mod),
-	mIdent(ident)
+	mIdent(ident), mNativeProcedure(false), mLeafProcedure(false)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
@@ -2964,6 +3052,27 @@ void InterCodeProcedure::TempForwarding(void)
 	DisassembleDebug("temp forwarding");
 }
 
+void InterCodeProcedure::RemoveUnusedInstructions(void)
+{
+	int	numTemps = mTemporaries.Size();
+
+	do {
+		ResetVisited();
+		mBlocks[0]->BuildLocalTempSets(numTemps, numFixedTemporaries);
+
+		ResetVisited();
+		mBlocks[0]->BuildGlobalProvidedTempSet(NumberSet(numTemps));
+
+		NumberSet	totalRequired2(numTemps);
+
+		do {
+			ResetVisited();
+		} while (mBlocks[0]->BuildGlobalRequiredTempSet(totalRequired2));
+
+		ResetVisited();
+	} while (mBlocks[0]->RemoveUnusedResultInstructions(numFixedTemporaries));
+}
+
 void InterCodeProcedure::Close(void)
 {
 	int				i, j, k, start;
@@ -3139,25 +3248,18 @@ void InterCodeProcedure::Close(void)
 	// Now remove unused instructions
 	//
 
-	do {
-		ResetVisited();
-		mBlocks[0]->BuildLocalTempSets(numTemps, numFixedTemporaries);
-
-		ResetVisited();
-		mBlocks[0]->BuildGlobalProvidedTempSet(NumberSet(numTemps));
-
-		NumberSet	totalRequired2(numTemps);
-
-		do {
-			ResetVisited();
-		} while (mBlocks[0]->BuildGlobalRequiredTempSet(totalRequired2));
-
-		ResetVisited();
-	} while (mBlocks[0]->RemoveUnusedResultInstructions(numFixedTemporaries));
+	RemoveUnusedInstructions();
 
 	DisassembleDebug("removed unused instructions 2");
 
 
+	ResetVisited();
+	mBlocks[0]->PeepholeOptimization();
+
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	DisassembleDebug("Peephole optimized");
 
 	FastNumberSet	activeSet(numTemps);
 
@@ -3172,6 +3274,8 @@ void InterCodeProcedure::Close(void)
 
 
 	mTemporaries.SetSize(activeSet.Num());
+
+
 
 	ResetVisited();
 	mBlocks[0]->ShrinkActiveTemporaries(activeSet, mTemporaries);

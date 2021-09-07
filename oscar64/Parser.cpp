@@ -2106,6 +2106,21 @@ void Parser::ParsePragma(void)
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "native"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+			if (mScanner->mToken == TK_IDENT)
+			{
+				Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
+				if (dec && dec->mType == DT_CONST_FUNCTION)
+					dec->mFlags |= DTF_NATIVE;
+				else
+					mErrors->Error(mScanner->mLocation, "Native function not found");
+				mScanner->NextToken();
+			}
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else if (!strcmp(mScanner->mTokenIdent->mString, "startup"))
 		{
 			if (mCompilationUnits->mStartup)
