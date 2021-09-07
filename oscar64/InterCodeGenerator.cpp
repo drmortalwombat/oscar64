@@ -424,6 +424,46 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				return ExValue(dec->mBase, ins.mTTemp);
 			}
 
+			case DT_CONST_STRUCT:
+			{
+				if (dec->mVarIndex < 0)
+				{
+					InterVariable	var;
+					var.mOffset = 0;
+					var.mSize = dec->mSize;
+					var.mData = nullptr;
+					var.mIdent = dec->mIdent;
+
+					uint8* d = new uint8[dec->mSize];
+					memset(d, 0, dec->mSize);
+					var.mData = d;
+
+					GrowingArray<InterVariable::Reference>	references({ 0 });
+					BuildInitializer(proc->mModule, d, 0, dec, references);
+					var.mNumReferences = references.Size();
+					if (var.mNumReferences)
+					{
+						var.mReferences = new InterVariable::Reference[var.mNumReferences];
+						for (int i = 0; i < var.mNumReferences; i++)
+							var.mReferences[i] = references[i];
+					}
+
+					dec->mVarIndex = proc->mModule->mGlobalVars.Size();
+					var.mIndex = dec->mVarIndex;
+					proc->mModule->mGlobalVars.Push(var);
+				}
+
+				InterInstruction	ins;
+				ins.mCode = IC_CONSTANT;
+				ins.mTType = IT_POINTER;
+				ins.mTTemp = proc->AddTemporary(IT_POINTER);
+				ins.mIntValue = 0;
+				ins.mVarIndex = dec->mVarIndex;
+				ins.mMemory = IM_GLOBAL;
+				block->Append(ins);
+				return ExValue(dec->mBase, ins.mTTemp, 1);
+			}
+
 			default:
 				mErrors->Error(dec->mLocation, "Unimplemented constant type");
 			}

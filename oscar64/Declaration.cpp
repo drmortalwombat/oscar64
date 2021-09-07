@@ -331,7 +331,7 @@ Expression* Expression::ConstantFold(void)
 }
 
 Declaration::Declaration(const Location& loc, DecType type)
-	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr)
+	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1)
 {}
 
 Declaration::~Declaration(void)
