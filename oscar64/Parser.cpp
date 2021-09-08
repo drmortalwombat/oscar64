@@ -2186,6 +2186,56 @@ void Parser::ParsePragma(void)
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "runtime"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+			const Ident* rtident = nullptr;
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				rtident = mScanner->mTokenIdent;
+				mScanner->NextToken();
+			}
+			else
+				mErrors->Error(mScanner->mLocation, "Identifier expected");
+
+			ConsumeToken(TK_COMMA);
+			if (mScanner->mToken == TK_IDENT)
+			{
+				Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
+				if (dec && dec->mType == DT_CONST_ASSEMBLER)
+				{
+					mScanner->NextToken();
+					if (ConsumeTokenIf(TK_DOT))
+					{
+						if (mScanner->mToken == TK_IDENT)
+						{
+							Declaration* ndec = dec->mBase->mScope->Lookup(mScanner->mTokenIdent);
+							if (ndec)
+								dec = ndec;
+							else
+								mErrors->Error(mScanner->mLocation, "Label not found in assembler code");
+							mScanner->NextToken();
+						}
+						else
+							mErrors->Error(mScanner->mLocation, "Identifier expected");
+					}
+
+					if (rtident)
+					{
+						mCompilationUnits->mRuntimeScope->Insert(rtident, dec);
+					}
+				}
+				else
+				{
+					mErrors->Error(mScanner->mLocation, "Runtime function not found");
+					mScanner->NextToken();
+				}
+
+			}
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else
 		{
 			mScanner->NextToken();

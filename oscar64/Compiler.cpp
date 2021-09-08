@@ -120,6 +120,45 @@ bool Compiler::GenerateCode(void)
 		}
 	}
 
+	// Compile used runtime functions
+
+	for (int i = 0; i < mByteCodeGenerator->mRelocations.Size(); i++)
+	{
+		if (mByteCodeGenerator->mRelocations[i].mRuntime)
+		{
+			Declaration* bcdec = mCompilationUnits->mRuntimeScope->Lookup(Ident::Unique(mByteCodeGenerator->mRelocations[i].mRuntime));
+			if (bcdec)
+			{
+				int	index = -1, offset = 0;
+				if (bcdec->mType == DT_CONST_ASSEMBLER)
+				{
+					if (bcdec->mVarIndex < 0)
+						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue);
+					index = bcdec->mVarIndex;
+				}
+				else if (bcdec->mType == DT_LABEL)
+				{
+					if (bcdec->mBase->mVarIndex < 0)
+						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue);
+					index = bcdec->mBase->mVarIndex;
+					offset = bcdec->mInteger;
+				}
+
+				assert(index > 0);
+				mInterCodeModule->UseGlobal(index);
+
+				mByteCodeGenerator->mRelocations[i].mIndex = index;
+				mByteCodeGenerator->mRelocations[i].mOffset = offset;
+			}
+			else
+			{
+				mErrors->Error(loc, "Missing runtime code implementation", mByteCodeGenerator->mRelocations[i].mRuntime);
+			}
+		}
+	}
+
+	// Compile used byte code functions
+
 	for (int i = 0; i < 128; i++)
 	{
 		if (mByteCodeGenerator->mByteCodeUsed[i])
@@ -152,7 +191,14 @@ bool Compiler::GenerateCode(void)
 				rel.mUpper = true;
 				rel.mIndex = index;
 				rel.mOffset = offset;
+				rel.mRuntime = nullptr;
 				mByteCodeGenerator->mRelocations.Push(rel);
+			}
+			else
+			{
+				char	n[10];
+				sprintf_s(n, "%d", i);
+				mErrors->Error(loc, "Missing byte code implementation", n);
 			}
 		}
 	}
@@ -177,6 +223,7 @@ bool Compiler::GenerateCode(void)
 				rel.mUpper = ref.mUpper;
 				rel.mIndex = ref.mIndex;
 				rel.mOffset = ref.mOffset;
+				rel.mRuntime = nullptr;
 				mByteCodeGenerator->mRelocations.Push(rel);
 			}
 		}

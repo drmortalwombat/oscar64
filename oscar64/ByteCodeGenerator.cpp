@@ -187,6 +187,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 			rl.mUpper = true;
 			rl.mIndex = mVIndex;
 			rl.mOffset = mValue;
+			rl.mRuntime = nullptr;
 			block->mRelocations.Push(rl);
 			block->PutWord(0);
 		}
@@ -233,6 +234,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 			rl.mUpper = true;
 			rl.mIndex = mVIndex;
 			rl.mOffset = mValue;
+			rl.mRuntime = nullptr;
 			block->mRelocations.Push(rl);
 			block->PutWord(0);
 		}
@@ -253,6 +255,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 			rl.mUpper = true;
 			rl.mIndex = mVIndex;
 			rl.mOffset = mValue;
+			rl.mRuntime = nullptr;
 			block->mRelocations.Push(rl);
 			block->PutWord(0);
 		}
@@ -410,6 +413,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		rl.mUpper = true;
 		rl.mIndex = mVIndex;
 		rl.mOffset = 0;
+		rl.mRuntime = nullptr;
 		block->mRelocations.Push(rl);
 
 		block->PutWord(0);
@@ -1483,6 +1487,22 @@ void ByteCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterInst
 		bins.mVIndex = ins.mVarIndex;
 		bins.mFunction = ins.mMemory == IM_PROCEDURE;
 		mIns.Push(bins);
+	}
+
+	if (ins.mTTemp >= 0)
+	{
+		if (ins.mTType == IT_FLOAT)
+		{
+			ByteCodeInstruction	bins(BC_STORE_REG_32);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+			mIns.Push(bins);
+		}
+		else
+		{
+			ByteCodeInstruction	bins(BC_STORE_REG_16);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+			mIns.Push(bins);
+		}
 	}
 }
 

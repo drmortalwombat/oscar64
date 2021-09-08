@@ -10,12 +10,14 @@ class NativeCodeInstruction
 {
 public:
 	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, int varIndex = -1, bool lower = true, bool upper = true);
+	NativeCodeInstruction(const char* runtime);
 
 	AsmInsType		mType;
 	AsmInsMode		mMode;
 
 	int				mAddress, mVarIndex;
 	bool			mLower, mUpper;
+	const char	*	mRuntime;
 
 	void Assemble(NativeCodeBasicBlock* block);
 };
@@ -46,17 +48,18 @@ public:
 
 	void CopyCode(NativeCodeProcedure* proc, uint8* target);
 	void Assemble(void);
-	void Compile(InterCodeProcedure* iproc, NativeCodeProcedure* proc, InterCodeBasicBlock* block);
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
 
+	void LoadValueToReg(InterCodeProcedure* proc, const InterInstruction& ins, int reg, const NativeCodeInstruction * ainsl, const NativeCodeInstruction* ainsh);
+
 	void LoadConstant(InterCodeProcedure* proc, const InterInstruction& ins);
 	void StoreValue(InterCodeProcedure* proc, const InterInstruction& ins);
 	void LoadValue(InterCodeProcedure* proc, const InterInstruction& ins);
 	void LoadStoreValue(InterCodeProcedure* proc, const InterInstruction& rins, const InterInstruction& wins);
-	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction& ins);
+	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction& ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction& ins);
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins);
@@ -73,12 +76,17 @@ class NativeCodeProcedure
 
 		int		mProgStart, mProgSize, mIndex;
 		bool	mNoFrame;
+		int		mTempBlocks;
 
 		GrowingArray<ByteCodeRelocation>	mRelocations;
 
 		void Compile( ByteCodeGenerator * generator, InterCodeProcedure* proc);
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
+		NativeCodeBasicBlock* AllocateBlock(void);
 		NativeCodeBasicBlock* TransientBlock(void);
+
+		void CompileInterBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* iblock, NativeCodeBasicBlock*block);
+
 
 };
 

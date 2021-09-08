@@ -24,6 +24,8 @@ public:
 	Declaration* mStartup;
 	Declaration* mByteCodes[128];
 
+	DeclarationScope* mRuntimeScope;
+
 	bool AddUnit(Location & location, const char* name, const char * from);
 	CompilationUnit* PendingUnit(void);
 protected:

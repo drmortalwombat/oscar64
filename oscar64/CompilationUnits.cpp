@@ -9,6 +9,7 @@ CompilationUnits::CompilationUnits(Errors * errors)
 	mCompilationUnits = nullptr; 
 	mPendingUnits = nullptr;
 	mScope = new DeclarationScope(nullptr);
+	mRuntimeScope = new DeclarationScope(nullptr);
 	mStartup = nullptr;
 
 	for (int i = 0; i < 128; i++)

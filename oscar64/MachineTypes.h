@@ -7,6 +7,7 @@ typedef	signed char	 int8;
 typedef signed short	int16;
 typedef signed short	int32;
 
+static const uint8 BC_REG_WORK = 0x03;
 static const uint8 BC_REG_IP = 0x19;
 static const uint8 BC_REG_ACCU = 0x1b;
 static const uint8 BC_REG_ADDR = 0x1f;

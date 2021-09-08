@@ -143,9 +143,10 @@ class ByteCodeGenerator;
 class ByteCodeRelocation
 {
 public:
-	uint16		mAddr;
-	bool		mFunction, mLower, mUpper;
-	uint16		mIndex, mOffset;
+	uint16			mAddr;
+	bool			mFunction, mLower, mUpper;
+	uint16			mIndex, mOffset;
+	const char  *	mRuntime;
 };
 
 class ByteCodeBasicBlock;

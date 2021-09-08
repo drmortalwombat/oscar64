@@ -38,7 +38,31 @@ incip:
 
 #pragma startup(startup)
 
-// divide accu by tmp
+__asm negaccu
+{
+		sec
+		lda	#0
+		sbc	accu
+		sta	accu
+		lda	#0
+		sbc	accu + 1
+		sta	accu + 1
+		rts
+}
+
+__asm negtmp
+{
+		sec
+		lda	#0
+		sbc	tmp
+		sta	tmp
+		lda	#0
+		sbc	tmp + 1
+		sta	tmp + 1
+		rts
+}
+
+// divide accu by tmp result in accu, remainder in tmp + 2
 
 __asm divmod
 {
@@ -68,6 +92,77 @@ W1:		dey
 		ldy	tmpy
 		rts	
 }
+
+// Multiply accu by tmp result in tmp + 2
+
+__asm mul16
+{
+		lda	#0
+		sta	tmp + 2
+		sta	tmp + 3
+
+		ldx	#16
+L1:		lsr	tmp + 1
+		ror	tmp
+		bcc	W1
+		clc
+		lda	tmp + 2
+		adc	accu
+		sta	tmp + 2
+		lda	tmp + 3
+		adc	accu + 1
+		sta	tmp + 3
+W1:		asl	accu
+		rol	accu + 1
+		dex
+		bne	L1
+		rts
+}
+
+__asm divs16
+{
+		bit	accu + 1
+		bpl	L1
+		jsr	negaccu
+		bit	tmp + 1
+		bpl	L2
+		jsr	negtmp
+L3:		jmp	divmod
+L1:		bit	tmp + 1
+		bpl	L3
+		jsr	negtmp
+L2:		jsr	divmod
+		jmp	negaccu
+}
+
+__asm mods16
+{
+		bit	accu + 1
+		bpl	L1
+		jsr	negaccu
+		bit	tmp + 1
+		bpl	L2
+		jsr	negtmp
+L3:		jmp	divmod
+L1:		bit	tmp + 1
+		bpl	L3
+		jsr	negtmp
+L2:		jsr	divmod
+		sec
+		lda	#0
+		sbc	tmp + 2
+		sta	tmp + 2
+		lda	#0
+		sbc	tmp + 3
+		sta	tmp + 3
+		rts
+}
+
+#pragma runtime(mul16, mul16);
+#pragma runtime(divu16, divmod);
+#pragma runtime(modu16, divmod);
+#pragma runtime(divs16, divs16);
+#pragma runtime(mods16, mods16);
 		
 /*
 !align 255, 0
@@ -982,30 +1077,6 @@ __asm inp_binop_modr_u16
 }
 
 #pragma	bytecode(BC_BINOP_MODR_U16, inp_binop_modr_u16)
-
-__asm negaccu
-{
-		sec
-		lda	#0
-		sbc	accu
-		sta	accu
-		lda	#0
-		sbc	accu + 1
-		sta	accu + 1
-		rts
-}
-
-__asm negtmp
-{
-		sec
-		lda	#0
-		sbc	tmp
-		sta	tmp
-		lda	#0
-		sbc	tmp + 1
-		sta	tmp + 1
-		rts
-}
 
 __asm inp_binop_divr_s16
 {
