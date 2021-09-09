@@ -50,6 +50,8 @@ public:
 	void Assemble(void);
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
+	void PeepHoleOptimizer(void);
+
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
 
@@ -64,6 +66,8 @@ public:
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins);
 	void NumericConversion(InterCodeProcedure* proc, const InterInstruction& ins);
+
+	bool CheckPredAccuStore(int reg);
 };
 
 class NativeCodeProcedure

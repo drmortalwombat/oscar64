@@ -264,6 +264,7 @@ public:
 	int									mTTemp, mSTemp[3];
 	bool								mSFinal[3];
 	__int64								mSIntConst[3];
+	double								mSFloatConst[3];
 	InterMemory							mMemory;
 	InterOperator						mOperator;
 	int									mOperandSize;

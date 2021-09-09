@@ -65,7 +65,7 @@ void Emulator::DumpCycles(void)
 	}
 	
 	printf("Total Cycles %d\n", totalCycles);
-	return;
+//	return;
 
 	for (int i = 0; i < numTops; i++)
 	{
@@ -380,7 +380,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			t = (mMemory[addr] >> 1) | ((mRegP & STATUS_CARRY) << 7);
 			mMemory[addr] = t & 255;
 			UpdateStatusCarry(t & 255, c != 0);
-			cycles++;
+			cycles += 2;
 		}
 		break;
 	case ASMIT_RTI:

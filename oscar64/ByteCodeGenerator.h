@@ -210,6 +210,7 @@ public:
 	void IntConstToAccu(__int64 val);
 	void IntConstToAddr(__int64 val);
 	void FloatConstToAccu(double val);
+	void FloatConstToWork(double val);
 	void CopyValue(InterCodeProcedure* proc, const InterInstruction& ins);
 	void LoadConstant(InterCodeProcedure* proc, const InterInstruction& ins);
 	void StoreDirectValue(InterCodeProcedure* proc, const InterInstruction & ins);

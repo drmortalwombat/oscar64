@@ -119,6 +119,34 @@ W1:		asl	accu
 		rts
 }
 
+__asm mul16by8
+{
+		lda	#0
+		sta	tmp + 2
+		sta	tmp + 3
+
+		lda	tmp
+		lsr
+		bcc	L2
+L1:
+		tax
+		clc
+		lda	tmp + 2
+		adc	accu
+		sta	tmp + 2
+		lda	tmp + 3
+		adc	accu + 1
+		sta	tmp + 3
+		txa
+L2:	
+		asl	accu + 0
+		rol	accu + 1
+		lsr
+		bcs	L1
+		bne	L2
+		rts
+}
+
 __asm divs16
 {
 		bit	accu + 1
@@ -159,6 +187,7 @@ L2:		jsr	divmod
 }
 
 #pragma runtime(mul16, mul16);
+#pragma runtime(mul16by8, mul16by8);
 #pragma runtime(divu16, divmod);
 #pragma runtime(modu16, divmod);
 #pragma runtime(divs16, divs16);
@@ -1827,11 +1856,14 @@ __asm faddsub
 		sta	accu + 2
 		beq	fas_aligned
 W1:
-		lsr	accu + 2
+		lda accu + 2
+L1:		
+		lsr
 		ror	accu + 1
 		ror	accu
 		inx
-		bne	W1
+		bne	L1
+		sta	accu + 2
 		lda	tmp + 5
 		sta	tmp + 4
 		jmp	fas_aligned
@@ -1840,12 +1872,13 @@ fas_align2nd:
 		// check if second operand is below rounding
 		cpx	#24	
 		bcs	fas_done
-
-L2:		lsr	tmp + 2
+		lda tmp + 2
+L2:		lsr
 		ror	tmp + 1
 		ror	tmp
 		dex
 		bne	L2
+		sta tmp + 2
 
 fas_aligned:
 		lda	accu + 3
@@ -1960,8 +1993,8 @@ __asm fmul8
 		bcc	L2
 L1:		tax
 		clc
-		lda	tmp + 6
-		adc	accu
+		tya
+		adc	tmp + 6
 		sta	tmp + 6
 		lda	tmp + 7
 		adc	accu + 1
@@ -2011,6 +2044,7 @@ W2:
 		sta	tmp + 7
 		sta	tmp + 8
 		
+		ldy accu
 		lda	tmp
 		jsr	fmul8
 		lda	tmp + 1
@@ -2055,7 +2089,9 @@ W3:		and	#$7f
 __asm inp_binop_mul_f32
 {
 		jsr	freg.split_exp
+		sty tmpy
 		jsr fmul
+		ldy tmpy
 		jmp	startup.exec
 }
 
