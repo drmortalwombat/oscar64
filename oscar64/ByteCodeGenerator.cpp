@@ -2540,7 +2540,7 @@ ByteCodeBasicBlock* ByteCodeBasicBlock::BypassEmptyBlocks(void)
 {
 	if (mBypassed)
 		return this;
-	else if (!mFalseJump && mCode.Size() == 0)
+	else if (!mFalseJump && mCode.Size() == 0 && this != mTrueJump)
 		return mTrueJump->BypassEmptyBlocks();
 	else
 	{
@@ -2558,7 +2558,7 @@ ByteCodeBasicBlock* ByteCodeBasicBlock::BypassEmptyBlocks(void)
 void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, uint8 * target)
 {
 	int i;
-	int next;
+	int next, end;
 	int pos, at;
 	uint8 b;
 
@@ -2573,7 +2573,8 @@ void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, uint8 * target)
 			generator->mRelocations.Push(rl);
 		}
 
-		next = mOffset + mCode.Size();
+		end = mOffset + mCode.Size();
+		next = mOffset + mSize;
 
 		if (mFalseJump)
 		{
@@ -2581,29 +2582,29 @@ void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, uint8 * target)
 			{
 				if (mTrueJump->mOffset <= mOffset)
 				{
-					next += PutBranch(generator, mBranch, mTrueJump->mOffset - next);
-					next += PutBranch(generator, BC_JUMPS, mFalseJump->mOffset - next);
+					end += PutBranch(generator, mBranch, mTrueJump->mOffset - end);
+					end += PutBranch(generator, BC_JUMPS, mFalseJump->mOffset - end);
 					
 				}
 				else
 				{
-					next += PutBranch(generator, InvertBranchCondition(mBranch), mFalseJump->mOffset - next);
+					end += PutBranch(generator, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
 				}
 			}
 			else
 			{
-				next += PutBranch(generator, mBranch, mTrueJump->mOffset - next);
+				end += PutBranch(generator, mBranch, mTrueJump->mOffset - end);
 			}
 		}
 		else if (mTrueJump)
 		{
 			if (mTrueJump->mOffset != next)
 			{
-				next += PutBranch(generator, BC_JUMPS, mTrueJump->mOffset - next);
+				end += PutBranch(generator, BC_JUMPS, mTrueJump->mOffset - end);
 			}
 		}
 
-		assert(next - mOffset == mSize);
+		assert(end == next);
 
 		for (i = 0; i < mCode.Size(); i++)
 		{

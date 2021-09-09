@@ -1767,7 +1767,7 @@ split_exp:
 		sta	tmp + 2
 		lda	$03, x
 		sta	tmp + 3
-
+split_texp:
 		lda	tmp + 2
 		asl	
 		lda	tmp + 3
@@ -1805,10 +1805,8 @@ W1:
 		rts
 }
 		
-__asm inp_binop_add_f32
+__asm faddsub
 {
-		jsr	freg.split_exp
-faddsub:
 		sec
 		lda	tmp + 4
 		sbc	tmp + 5
@@ -1881,7 +1879,7 @@ fas_done:
 		and	#$7f
 		sta	accu + 2
 W2:				
-		jmp	startup.exec
+		rts
 
 fas_sub:	
 		sec
@@ -1929,6 +1927,15 @@ fas_zero:
 		sta	accu + 1
 		sta	accu + 2
 		sta	accu + 3
+		rts
+
+}	
+
+
+__asm inp_binop_add_f32
+{
+		jsr	freg.split_exp
+		jsr faddsub
 		jmp	startup.exec
 }
 
@@ -1940,7 +1947,8 @@ __asm inp_binop_sub_f32
 		lda	tmp + 3
 		eor	#$80
 		sta	tmp + 3
-		jmp	inp_binop_add_f32.faddsub
+		jsr	faddsub
+		jmp	startup.exec
 }
 
 #pragma	bytecode(BC_BINOP_SUB_F32, inp_binop_sub_f32)
@@ -1979,16 +1987,14 @@ W1:
 		rts
 }
 
-__asm inp_binop_mul_f32
+__asm fmul
 {
-		jsr	freg.split_exp
-		
 		lda	accu
 		ora	accu + 1
 		ora	accu + 2
 		bne	W1
 		sta	accu + 3
-		jmp	startup.exec
+		rts
 W1:
 		lda	tmp
 		ora	tmp + 1
@@ -1998,7 +2004,7 @@ W1:
 		sta	accu + 1
 		sta	accu + 2
 		sta	accu + 3
-		jmp	startup.exec
+		rts
 W2:	
 		lda	#0
 		sta	tmp + 6
@@ -2043,21 +2049,24 @@ W3:		and	#$7f
 		sta	accu + 1
 		lda	tmp + 6
 		sta	accu
+		rts
+}
+
+__asm inp_binop_mul_f32
+{
+		jsr	freg.split_exp
+		jsr fmul
 		jmp	startup.exec
 }
 
-#pragma	bytecode(BC_BINOP_MUL_F32, inp_binop_mul_f32)
-
-__asm inp_binop_div_f32
+__asm fdiv
 {
-		jsr	freg.split_exp
-
 		lda	accu
 		ora	accu + 1
 		ora	accu + 2
 		bne	W1
 		sta	accu + 3
-		jmp	startup.exec
+		rts
 W1:
 		lda	accu + 3
 		eor	tmp + 3
@@ -2131,11 +2140,83 @@ W4:
 		sta	accu + 1
 		lda	tmp + 6
 		sta	accu
+		rts
+}
 
+#pragma	bytecode(BC_BINOP_MUL_F32, inp_binop_mul_f32)
+
+__asm inp_binop_div_f32
+{
+		jsr	freg.split_exp
+		jsr fdiv
 		jmp	startup.exec
 }
 
 #pragma	bytecode(BC_BINOP_DIV_F32, inp_binop_div_f32)
+
+__asm fcmp
+{
+		lda	accu + 3
+		eor	tmp + 3
+		and	#$80
+		beq	W1
+		
+		// different sig, check zero case
+
+		lda	accu + 3
+		and	#$7f
+		ora	accu + 2
+		ora	accu + 1
+		ora	accu
+		bne	W2
+		
+		lda	tmp + 3
+		
+		and	#$7f
+		ora	tmp + 2
+		ora	tmp + 1
+		ora	tmp + 0
+		beq	fcmpeq
+W2:		lda	accu + 3
+		bmi	fcmpgt
+		bpl	fcmplt		
+		
+W1:		
+		// same sign
+		lda	accu + 3
+		cmp	tmp + 3
+		bne	W3
+		lda	accu + 2
+		cmp	tmp + 2
+		bne	W3
+		lda	accu + 1
+		cmp	tmp + 1
+		bne	W3
+		lda	accu
+		cmp	tmp
+		bne	W3
+
+fcmpeq:
+		lda	#0
+		rts
+		
+W3:		bcs	W4
+
+		bit	accu + 3
+		bmi	fcmplt
+		
+fcmpgt:
+		lda	#1
+		rts
+
+W4:		bit	accu + 3
+		bmi	fcmpgt
+
+fcmplt:
+		lda	#$ff
+		rts
+}
+
 
 __asm inp_binop_cmp_f32
 {
@@ -2223,7 +2304,7 @@ __asm inp_op_negate_f32
 
 #pragma	bytecode(BC_OP_NEGATE_F32, inp_op_negate_f32)
 
-__asm uin16_to_float
+__asm uint16_to_float
 {
 		lda	accu
 		ora	accu + 1
@@ -2256,20 +2337,11 @@ W2:
 		rts
 }
 
-__asm inp_conv_u16_f32	
-{
-		jsr	uin16_to_float
-		jmp	startup.exec
-}
-
-#pragma	bytecode(BC_CONV_U16_F32, inp_conv_u16_f32)
-
-__asm inp_conv_i16_f32		
+__asm sint16_to_float
 {
 		bit	accu + 1
 		bmi	W1
-		jsr	uin16_to_float
-		jmp	startup.exec
+		jmp	uint16_to_float
 W1:		
 		sec
 		lda	#0
@@ -2278,16 +2350,31 @@ W1:
 		lda	#0
 		sbc	accu + 1
 		sta	accu + 1	
-		jsr	uin16_to_float
+		jsr	uint16_to_float
 		lda	accu + 3
 		ora	#$80
 		sta	accu + 3
+		rts
+}
+
+
+__asm inp_conv_u16_f32	
+{
+		jsr	uint16_to_float
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_CONV_U16_F32, inp_conv_u16_f32)
+
+__asm inp_conv_i16_f32		
+{
+		jsr	sint16_to_float
 		jmp	startup.exec
 }
 
 #pragma	bytecode(BC_CONV_I16_F32, inp_conv_i16_f32)
 
-__asm inp_conv_f32_i16
+__asm f32_to_i16
 {
 		jsr	freg.split_aexp
 		lda	tmp + 4
@@ -2296,7 +2383,7 @@ __asm inp_conv_f32_i16
 		lda	#0
 		sta	accu
 		sta	accu + 1
-		jmp	startup.exec
+		rts
 W1:
 		sec
 		sbc	#$8e
@@ -2324,18 +2411,24 @@ W3:
 		lda	#0
 		sbc	accu + 2
 		sta	accu + 1
-		jmp	startup.exec
+		rts
 W4:
 		lda	accu + 1
 		sta	accu
 		lda	accu + 2
 		sta	accu + 1
+		rts
+}
+
+__asm inp_conv_f32_i16
+{
+		jsr	f32_to_i16
 		jmp	startup.exec
 }
 
 #pragma	bytecode(BC_CONV_F32_I16, inp_conv_f32_i16)
 
-__asm inp_conv_f32_u16
+__asm f32_to_u16
 {
 		jsr	freg.split_aexp
 		lda	tmp + 4
@@ -2344,7 +2437,7 @@ __asm inp_conv_f32_u16
 		lda	#0
 		sta	accu
 		sta	accu + 1
-		jmp	startup.exec
+		rts
 W1:
 		sec
 		sbc	#$8e
@@ -2353,7 +2446,7 @@ W1:
 		lda	#$ff
 		sta	accu
 		sta	accu + 1
-		jmp	startup.exec
+		rts
 W3:
 		tax
 L1:
@@ -2366,7 +2459,26 @@ W2:
 		sta	accu
 		lda	accu + 2
 		sta	accu + 1
-		
+
+		rts
+}
+
+#pragma runtime(fsplita, freg.split_aexp)
+#pragma runtime(fsplitt, freg.split_texp)
+#pragma runtime(fmergea, freg.merge_aexp)
+#pragma runtime(faddsub, faddsub)
+#pragma runtime(fmul, fmul)
+#pragma runtime(fdiv, fdiv)
+#pragma runtime(fcmp, fcmp)
+#pragma runtime(ffromi, sint16_to_float)
+#pragma runtime(ffromu, uint16_to_float)
+#pragma runtime(ftoi, f32_to_i16)
+#pragma runtime(ftou, f32_to_u16)
+
+
+__asm inp_conv_f32_u16
+{
+		jsr f32_to_u16
 		jmp	startup.exec
 }
 
@@ -2384,14 +2496,24 @@ __asm inp_op_abs_f32
 
 unsigned char ubitmask[8] = {0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff};
 
-__asm fround {		
+__asm fround {
+ffloor:
+		bit	accu + 3
+		bpl	frdown
+		bmi	frup
+
+fceil:
+		bit	accu + 3
+		bmi	frdown
+		bpl	frup
+
 frdzero:
 		lda	#0
 		sta	accu
 		sta	accu + 1
 		sta	accu + 2
 		sta	accu + 3
-		jmp	startup.exec
+		rts
 		
 frdown:
 		lda	tmp + 4
@@ -2437,8 +2559,7 @@ frd2:
 		jmp	frd3
 
 frd3:
-		jsr	freg.merge_aexp
-		jmp	startup.exec
+		jmp	freg.merge_aexp
 
 frone:
 		lda	#$7f
@@ -2448,8 +2569,8 @@ frone:
 		sta	accu + 1
 		lda	#$80
 		sta	accu + 2
-		jsr	freg.merge_aexp
-		jmp	startup.exec
+		jmp	freg.merge_aexp
+
 frup:
 		lda	accu
 		ora	accu + 1
@@ -2528,17 +2649,32 @@ fru2:
 W3:		sta	accu + 2		
 		jmp	frdown		
 fru3:
-		jsr	freg.merge_aexp
-		jmp	startup.exec
+		jmp	freg.merge_aexp
 }
+
+#pragma runtime(fsplita, freg.split_aexp)
+#pragma runtime(fsplitt, freg.split_texp)
+#pragma runtime(fmergea, freg.merge_aexp)
+#pragma runtime(faddsub, faddsub)
+#pragma runtime(fmul, fmul)
+#pragma runtime(fdiv, fdiv)
+#pragma runtime(fcmp, fcmp)
+#pragma runtime(ffromi, sint16_to_float)
+#pragma runtime(ffromu, uint16_to_float)
+#pragma runtime(ftoi, f32_to_i16)
+#pragma runtime(ftou, f32_to_u16)
+#pragma runtime(ffloor, fround.ffloor)
+#pragma runtime(fceil, fround.fceil)
 
 __asm inp_op_floor_f32
 {
 		jsr	freg.split_aexp
 		bit	accu + 3
 		bpl	W1
-		jmp	fround.frup
-W1:		jmp	fround.frdown
+		jsr	fround.frup
+		jmp	startup.exec
+W1:		jsr	fround.frdown
+		jmp	startup.exec
 }
 
 #pragma	bytecode(BC_OP_FLOOR_F32, inp_op_floor_f32)
@@ -2549,8 +2685,10 @@ __asm inp_op_ceil_f32
 		jsr	freg.split_aexp
 		bit	accu + 3
 		bpl	W1
-		jmp	fround.frdown
-W1:		jmp	fround.frup		
+		jsr	fround.frdown
+		jmp	startup.exec
+W1:		jsr	fround.frup		
+		jmp	startup.exec
 }
 
 #pragma	bytecode(BC_OP_CEIL_F32, inp_op_ceil_f32)

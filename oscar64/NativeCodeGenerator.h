@@ -63,6 +63,7 @@ public:
 	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction& ins);
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins);
+	void NumericConversion(InterCodeProcedure* proc, const InterInstruction& ins);
 };
 
 class NativeCodeProcedure
