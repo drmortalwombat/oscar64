@@ -6,6 +6,24 @@
 class NativeCodeProcedure;
 class NativeCodeBasicBlock;
 
+struct NativeRegisterData
+{
+	bool		mImmediate, mZeroPage;
+	int			mValue;
+
+	NativeRegisterData(void);
+
+	void Reset(void);
+};
+
+struct NativeRegisterDataSet
+{
+	NativeRegisterData		mRegs[261];
+
+	void Reset(void);
+	void ResetZeroPage(int addr);
+};
+
 class NativeCodeInstruction
 {
 public:
@@ -20,6 +38,9 @@ public:
 	const char	*	mRuntime;
 
 	void Assemble(NativeCodeBasicBlock* block);
+	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
+	bool IsUsedResultInstructions(NumberSet& requiredTemps);
+	bool ValueForwarding(NativeRegisterDataSet& data);
 };
 
 class NativeCodeBasicBlock
@@ -38,7 +59,7 @@ public:
 	GrowingArray<ByteCodeRelocation>	mRelocations;
 
 	int						mOffset, mSize;
-	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame;
+	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited;
 
 	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
 	int PutJump(NativeCodeProcedure* proc, int offset);
@@ -63,11 +84,20 @@ public:
 	void LoadStoreValue(InterCodeProcedure* proc, const InterInstruction& rins, const InterInstruction& wins);
 	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction& ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction& ins);
-	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
+	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins);
 	void NumericConversion(InterCodeProcedure* proc, const InterInstruction& ins);
 
 	bool CheckPredAccuStore(int reg);
+
+	NumberSet		mLocalRequiredRegs, mLocalProvidedRegs;
+	NumberSet		mEntryRequiredRegs, mEntryProvidedRegs;
+	NumberSet		mExitRequiredRegs, mExitProvidedRegs;
+
+	void BuildLocalRegSets(void);
+	void BuildGlobalProvidedRegSet(NumberSet fromProvidedTemps);
+	bool BuildGlobalRequiredRegSet(NumberSet& fromRequiredTemps);
+	bool RemoveUnusedResultInstructions(void);
 };
 
 class NativeCodeProcedure
@@ -84,6 +114,7 @@ class NativeCodeProcedure
 		int		mTempBlocks;
 
 		GrowingArray<ByteCodeRelocation>	mRelocations;
+		GrowingArray < NativeCodeBasicBlock*>	 mBlocks;
 
 		void Compile( ByteCodeGenerator * generator, InterCodeProcedure* proc);
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
@@ -92,6 +123,8 @@ class NativeCodeProcedure
 
 		void CompileInterBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* iblock, NativeCodeBasicBlock*block);
 
+		void BuildDataFlowSets(void);
+		void ResetVisited(void);
 
 };
 
