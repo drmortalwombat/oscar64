@@ -40,7 +40,8 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 			dec->mSize = 1;
 			mScanner->NextToken();
 		}
-		break;
+		else
+			dec->mSize = 2;
 
 		break;
 

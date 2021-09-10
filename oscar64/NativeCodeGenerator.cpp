@@ -525,6 +525,13 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data)
 				mType = ASMIT_NOP;
 				changed = true;
 			}
+			else if (data.mRegs[mAddress].mImmediate)
+			{
+				data.mRegs[CPU_REG_A] = data.mRegs[mAddress];
+				mAddress = data.mRegs[CPU_REG_A].mValue;
+				mMode = ASMIM_IMMEDIATE;
+				changed = true;
+			}
 			else
 			{
 				data.mRegs[CPU_REG_A].Reset();
@@ -547,6 +554,13 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data)
 				mType = ASMIT_NOP;
 				changed = true;
 			}
+			else if (data.mRegs[mAddress].mImmediate)
+			{
+				data.mRegs[CPU_REG_X] = data.mRegs[mAddress];
+				mAddress = data.mRegs[CPU_REG_X].mValue;
+				mMode = ASMIM_IMMEDIATE;
+				changed = true;
+			}
 			else
 			{
 				data.mRegs[CPU_REG_X].Reset();
@@ -567,6 +581,13 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data)
 			if (data.mRegs[CPU_REG_Y].mZeroPage && data.mRegs[CPU_REG_Y].mValue == mAddress)
 			{
 				mType = ASMIT_NOP;
+				changed = true;
+			}
+			else if (data.mRegs[mAddress].mImmediate)
+			{
+				data.mRegs[CPU_REG_Y] = data.mRegs[mAddress];
+				mAddress = data.mRegs[CPU_REG_Y].mValue;
+				mMode = ASMIM_IMMEDIATE;
 				changed = true;
 			}
 			else
@@ -789,14 +810,17 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 		break;
 
 	case ASMIT_CMP:
+	case ASMIT_STA:
 		if (!providedTemps[CPU_REG_A])
 			requiredTemps += CPU_REG_A;
 		break;
 	case ASMIT_CPX:
+	case ASMIT_STX:
 		if (!providedTemps[CPU_REG_X])
 			requiredTemps += CPU_REG_X;
 		break;
 	case ASMIT_CPY:
+	case ASMIT_STY:
 		if (!providedTemps[CPU_REG_Y])
 			requiredTemps += CPU_REG_Y;
 		break;

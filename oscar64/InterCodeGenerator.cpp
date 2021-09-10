@@ -650,16 +650,25 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							oins.mOperator = IA_MUL;
 							break;
 						case TK_ASSIGN_DIV:
-							oins.mOperator = IA_DIVS;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins.mOperator = IA_DIVS;
+							else
+								oins.mOperator = IA_DIVU;
 							break;
 						case TK_ASSIGN_MOD:
-							oins.mOperator = IA_MODS;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins.mOperator = IA_MODS;
+							else
+								oins.mOperator = IA_MODU;
 							break;
 						case TK_ASSIGN_SHL:
 							oins.mOperator = IA_SHL;
 							break;
 						case TK_ASSIGN_SHR:
-							oins.mOperator = IA_SHR;
+							if (vll.mType->mFlags & DTF_SIGNED)
+								oins.mOperator = IA_SAR;
+							else
+								oins.mOperator = IA_SHR;
 							break;
 						case TK_ASSIGN_AND:
 							oins.mOperator = IA_AND;
@@ -1418,7 +1427,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				xins.mIntValue = atotal;
 				block->Append(xins);
 
-				return ExValue(vl.mType->mBase, cins.mTTemp);
+				return ExValue(ftype->mBase, cins.mTTemp);
 			}
 
 		}
