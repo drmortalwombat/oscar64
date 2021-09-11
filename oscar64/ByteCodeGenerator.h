@@ -134,7 +134,9 @@ enum ByteCode
 	BC_JSR,
 
 	BC_COPY,
-	BC_COPY_LONG
+	BC_COPY_LONG,
+
+	BC_NATIVE = 0x75
 };
 
 class ByteCodeProcedure;

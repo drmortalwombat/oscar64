@@ -143,7 +143,13 @@ bool Compiler::GenerateCode(void)
 					index = bcdec->mBase->mVarIndex;
 					offset = bcdec->mInteger;
 				}
-
+				else if (bcdec->mType == DT_VARIABLE)
+				{
+					if (bcdec->mBase->mVarIndex < 0)
+						mInterCodeGenerator->InitGlobalVariable(mInterCodeModule, bcdec);
+					index = bcdec->mVarIndex;
+					offset = bcdec->mOffset + mByteCodeGenerator->mRelocations[i].mOffset;
+				}
 				assert(index > 0);
 				mInterCodeModule->UseGlobal(index);
 

@@ -22,6 +22,7 @@ public:
 
 	InterCodeProcedure* TranslateProcedure(InterCodeModule* mod, Expression* exp, Declaration * dec);
 	void TranslateAssembler(InterCodeModule* mod, Expression * exp);
+	void InitGlobalVariable(InterCodeModule* mod, Declaration* dec);
 protected:
 
 	Errors* mErrors;
@@ -30,7 +31,6 @@ protected:
 	ExValue CoerceType(InterCodeProcedure* proc, InterCodeBasicBlock*& block, ExValue v, Declaration * type);
 	ExValue TranslateExpression(Declaration * procType, InterCodeProcedure * proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock);
 	void TranslateLogic(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock* block, InterCodeBasicBlock* tblock, InterCodeBasicBlock* fblock, Expression* exp);
-	void InitGlobalVariable(InterCodeModule* mod, Declaration* dec);
 
 	void BuildInitializer(InterCodeModule* mod, uint8 * dp, int offset, Declaration* data, GrowingArray<InterVariable::Reference> & references);
 };

@@ -341,9 +341,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins.mTType = InterTypeOf(dec->mBase);
 				ins.mTTemp = proc->AddTemporary(ins.mTType);
 				if (ins.mTType == IT_SIGNED)
+				{
+					if (dec->mInteger < -32768 || dec->mInteger > 32767)
+						mErrors->Warning(dec->mLocation, "Integer constant truncated");
 					ins.mIntValue = short(dec->mInteger);
+				}
 				else
+				{
+					if (dec->mInteger < 0 || dec->mInteger > 65535)
+						mErrors->Warning(dec->mLocation, "Unsigned integer constant truncated");
 					ins.mIntValue = unsigned short(dec->mInteger);
+				}
 				block->Append(ins);
 				return ExValue(dec->mBase, ins.mTTemp);
 
@@ -597,32 +605,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 					else
 					{
-						if (vll.mType->IsIntegerType() && vr.mType->mType == DT_TYPE_FLOAT)
-						{
-							InterInstruction	cins;
-							cins.mCode = IC_CONVERSION_OPERATOR;
-							cins.mOperator = IA_FLOAT2INT;
-							cins.mSType[0] = InterTypeOf(vr.mType);
-							cins.mSTemp[0] = vr.mTemp;
-							cins.mTType = InterTypeOf(vll.mType);
-							cins.mTTemp = proc->AddTemporary(cins.mTType);
-							vr.mTemp = cins.mTTemp;
-							vr.mType = TheSignedIntTypeDeclaration;
-							block->Append(cins);
-						}
-						else if (vll.mType->mType == DT_TYPE_FLOAT && vr.mType->IsIntegerType())
-						{
-							InterInstruction	cins;
-							cins.mCode = IC_CONVERSION_OPERATOR;
-							cins.mOperator = IA_INT2FLOAT;
-							cins.mSType[0] = InterTypeOf(vr.mType);
-							cins.mSTemp[0] = vr.mTemp;
-							cins.mTType = InterTypeOf(vll.mType);;
-							cins.mTTemp = proc->AddTemporary(cins.mTType);
-							vr.mTemp = cins.mTTemp;
-							vr.mType = TheFloatTypeDeclaration;
-							block->Append(cins);
-						}
+						vr = CoerceType(proc, block, vr, vll.mType);
 
 						InterInstruction	oins;
 						oins.mCode = IC_BINARY_OPERATOR;
@@ -1406,7 +1389,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					mErrors->Error(exp->mLocation, "Not enough arguments for function call");
 
 				InterInstruction	cins;
-				if (exp->mLeft->mDecValue->mFlags & DTF_NATIVE)
+				if (exp->mLeft->mDecValue && exp->mLeft->mDecValue->mFlags & DTF_NATIVE)
 					cins.mCode = IC_JSR;
 				else
 					cins.mCode = IC_CALL;
@@ -2139,9 +2122,26 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		__int64	t = cast.i;
 		for (int i = 0; i < 4; i++)
 		{
-			dp[i] = t & 0xff;
+			dp[offset + i] = t & 0xff;
 			t >>= 8;
 		}
+	}
+	else if (data->mType == DT_CONST_FUNCTION)
+	{
+		if (data->mVarIndex < 0)
+		{
+			InterCodeProcedure* cproc = this->TranslateProcedure(mod, data->mValue, data);
+			cproc->ReduceTemporaries();
+		}
+
+		InterVariable::Reference	ref;
+		ref.mAddr = offset;
+		ref.mLower = true;
+		ref.mUpper = true;
+		ref.mFunction = true;
+		ref.mIndex = data->mVarIndex;
+		ref.mOffset = 0;
+		references.Push(ref);
 	}
 	else if (data->mType == DT_CONST_POINTER)
 	{

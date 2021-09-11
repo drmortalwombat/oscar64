@@ -28,19 +28,23 @@ class NativeCodeInstruction
 {
 public:
 	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, int varIndex = -1, bool lower = true, bool upper = true);
+	NativeCodeInstruction(AsmInsType type, AsmInsMode mode, const char* runtime, int address = 0, bool lower = true, bool upper = true);
 	NativeCodeInstruction(const char* runtime);
 
 	AsmInsType		mType;
 	AsmInsMode		mMode;
 
 	int				mAddress, mVarIndex;
-	bool			mLower, mUpper;
+	bool			mLower, mUpper, mFunction;
 	const char	*	mRuntime;
 
 	void Assemble(NativeCodeBasicBlock* block);
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
 	bool ValueForwarding(NativeRegisterDataSet& data);
+
+	bool LoadsAccu(void) const;
+	bool ChangesAddress(void) const;
 };
 
 class NativeCodeBasicBlock
@@ -77,6 +81,7 @@ public:
 	void PutWord(uint16 code);
 
 	void LoadValueToReg(InterCodeProcedure* proc, const InterInstruction& ins, int reg, const NativeCodeInstruction * ainsl, const NativeCodeInstruction* ainsh);
+	void LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction& ins, InterType type, int reg);
 
 	void LoadConstant(InterCodeProcedure* proc, const InterInstruction& ins);
 	void StoreValue(InterCodeProcedure* proc, const InterInstruction& ins);
@@ -88,6 +93,12 @@ public:
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins);
 	void NumericConversion(InterCodeProcedure* proc, const InterInstruction& ins);
 
+	void CallAssembler(InterCodeProcedure* proc, const InterInstruction& ins);
+	void CallFunction(InterCodeProcedure* proc, const InterInstruction& ins);
+
+	void ShiftRegisterLeft(InterCodeProcedure* proc, int reg, int shift);
+	int ShortMultiply(InterCodeProcedure* proc, const InterInstruction& ins, const InterInstruction* sins, int index, int mul);
+
 	bool CheckPredAccuStore(int reg);
 
 	NumberSet		mLocalRequiredRegs, mLocalProvidedRegs;
@@ -98,6 +109,8 @@ public:
 	void BuildGlobalProvidedRegSet(NumberSet fromProvidedTemps);
 	bool BuildGlobalRequiredRegSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(void);
+
+	bool MoveLoadStoreUp(int at);
 };
 
 class NativeCodeProcedure

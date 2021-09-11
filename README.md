@@ -51,6 +51,7 @@ The first release of the compiler is severely limited considering it is only two
 * Missing livetime reduction of intermediates
 * No block domination analysis
 * No register use for arguments
+* Auto variables places on fixed stack for known call sequence
 
 ### Intermediate code generation
 
@@ -59,7 +60,8 @@ The first release of the compiler is severely limited considering it is only two
 
 ### Native code generation
 
-* Missing
+* Calling non native functions missing
+* More byte operation optimisation required
 
 ## Implementation Details
 
@@ -108,6 +110,15 @@ The intermediate code generator assumes a large number of registers so the zero 
 * **0x25-0x26** frame pointer
 * **0x43-0x52** caller saved registers
 * **0x53-0x8f** callee saved registers
+
+Routines can be marked to be compiled to 6502 machine code with the native pragma:
+
+    void Plot(int x, int y)
+    {
+    	(*Bitmap)[y >> 3][x >> 3][y & 7] |= 0x80 >> (x & 7);
+    }
+
+    #pragma native(Plot)
 
 
 

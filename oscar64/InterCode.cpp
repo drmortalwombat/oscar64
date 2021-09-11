@@ -1593,6 +1593,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 			ins.mMemory = tvalue[ins.mSTemp[0]]->mMemory;
 			ins.mVarIndex = tvalue[ins.mSTemp[0]]->mVarIndex;
 			ins.mOperandSize = tvalue[ins.mSTemp[0]]->mOperandSize;
+			ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
 			ins.mSTemp[0] = -1;
 		}
 
@@ -2707,6 +2708,9 @@ static bool CanBypassStore(const InterInstruction& sins, const InterInstruction&
 		else
 			return false;
 	}
+
+	if (sins.mMemory == IM_FRAME && (bins.mCode == IC_PUSH_FRAME || bins.mCode == IC_POP_FRAME))
+		return false;
 
 	// Side effects
 	if (bins.mCode == IC_CALL || bins.mCode == IC_JSR)

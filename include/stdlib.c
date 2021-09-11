@@ -1,6 +1,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "stdio.h"
+#include "math.h"
 
 void itoa(int n, char * s, int radix)
 {
@@ -162,6 +163,90 @@ int atoi(const char * s)
 		v = -v;
 	
 	return v;		
+}
+
+const float tpow10[7] = {1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0};
+
+float atof(const char * s)
+{
+	char	c;
+	while ((c = *s++) <= ' ')
+		if (!c) return 0;
+	
+	bool neg = false;
+	if (c == '-')
+	{
+		neg = true;
+		c = *s++;
+	}
+	else if (c == '+')
+		c = *s++;
+	
+	float	v = 0;
+	while (c >= '0' && c <= '9')
+	{
+		v = v * 10 + (c - '0');
+		c = *s++;
+	}
+
+	if (c == '.')
+	{
+		float	d = 1.0;
+		c = *s++;
+		while (c >= '0' && c <= '9')
+		{
+			v = v * 10 + (c - '0');
+			d = d * 10;
+			c = *s++;
+		}
+
+		v /= d;
+	}
+
+	if (c == 'e' || c == 'E')
+	{
+		c = *s++;
+		bool	eneg = false;
+		if (c == '-')
+		{
+			eneg = true;
+			c = *s++;
+		}
+		else if (c == '+')
+			c = *s++;
+
+		int	e = 0;
+		while (c >= '0' && c <= '9')
+		{
+			e = e * 10 + (c - '0');
+			c = *s++;
+		}
+
+		if (eneg)
+		{
+			while (e > 6)
+			{
+				v /= 1000000.0;
+				e -= 6;
+			}
+			v /= tpow10[e];
+		}
+		else
+		{
+			while (e > 6)
+			{
+				v *= 1000000.0;
+				e -= 6;
+			}
+			v *= tpow10[e];
+		}
+		
+	}
+	
+	if (neg)
+		v = -v;
+	
+	return v;	
 }
 
 void exit(int status)

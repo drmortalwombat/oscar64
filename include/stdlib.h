@@ -9,6 +9,8 @@ void ftoa(float f, char * s);
 
 int atoi(const char * s);
 
+float atof(const char * s);
+
 void exit(int status);
 
 void * malloc(unsigned int size);

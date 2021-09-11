@@ -176,7 +176,7 @@ float log10(float f)
 
 float pow(float p, float q)
 {
-	return exp(p * log(q));
+	return exp(q * log(p));
 }
 
 float sqrt(float f)

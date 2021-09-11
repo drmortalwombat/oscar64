@@ -804,11 +804,11 @@ Expression* Parser::ParseSimpleExpression(void)
 		break;
 	case TK_INTEGER:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+		dec->mInteger = mScanner->mTokenInteger;
 		if (dec->mInteger < 32768)
 			dec->mBase = TheSignedIntTypeDeclaration;
 		else
 			dec->mBase = TheUnsignedIntTypeDeclaration;
-		dec->mInteger = mScanner->mTokenInteger;
 		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		exp->mDecValue = dec;
 		exp->mDecType = dec->mBase;
@@ -993,6 +993,8 @@ Expression* Parser::ParsePostfixExpression(void)
 			else
 				mErrors->Error(mScanner->mLocation, "']' expected");
 			nexp->mDecType = exp->mDecType->mBase;
+			if (!nexp->mDecType)
+				nexp->mDecType = TheVoidTypeDeclaration;
 			exp = nexp;
 		}
 		else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
@@ -2224,9 +2226,13 @@ void Parser::ParsePragma(void)
 					}
 
 					if (rtident)
-					{
 						mCompilationUnits->mRuntimeScope->Insert(rtident, dec);
-					}
+				}
+				else if (dec && dec->mType == DT_VARIABLE && (dec->mFlags & DTF_GLOBAL))
+				{
+					if (rtident)
+						mCompilationUnits->mRuntimeScope->Insert(rtident, dec);
+					mScanner->NextToken();
 				}
 				else
 				{
