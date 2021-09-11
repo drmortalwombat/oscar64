@@ -21,8 +21,12 @@ public:
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
 
+	bool mNativeCode;
+
 	bool ParseSource(void);
 	bool GenerateCode(void);
 	bool WriteOutputFile(const char* targetPath);
 	int ExecuteCode(void);
+
+	void ForceNativeCode(bool native);
 };

@@ -111,6 +111,10 @@ int main(int argc, const char** argv)
 				{
 					strcpy_s(crtPath, arg + 4);
 				}
+				else if (arg[1] == 'n')
+				{
+					compiler->ForceNativeCode(true);
+				}
 				else if (arg[1] == 'e')
 				{
 					emulate = true;

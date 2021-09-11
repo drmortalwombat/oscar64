@@ -1906,6 +1906,8 @@ Expression* Parser::ParseAssemblerOperand(void)
 		}
 		else
 			mErrors->Error(mScanner->mLocation, "Constant for upper byte operator expected");
+
+		return exp;
 	}
 	else
 		return ParseAssemblerAddOperand();

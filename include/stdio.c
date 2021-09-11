@@ -162,7 +162,7 @@ void nformf(const sinfo * si, char * str, float f, char type)
 	int	exp = 0;
 
 	int	fdigits = si->precision >= 0 ? si->precision : 6;
-		
+
 	if (f != 0.0)
 	{
 		while (f >= 1000.0)

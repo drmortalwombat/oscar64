@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 Compiler::Compiler(void)
-	: mByteCodeFunctions(nullptr)
+	: mByteCodeFunctions(nullptr), mNativeCode(false)
 {
 	mErrors = new Errors();
 	mCompilationUnits = new CompilationUnits(mErrors);
@@ -22,6 +22,11 @@ Compiler::Compiler(void)
 Compiler::~Compiler(void)
 {
 
+}
+
+void Compiler::ForceNativeCode(bool native)
+{
+	mNativeCode = native;
 }
 
 bool Compiler::ParseSource(void)
@@ -89,6 +94,9 @@ bool Compiler::GenerateCode(void)
 		InterCodeProcedure* proc = mInterCodeModule->mProcedures[i];
 
 		proc->ReduceTemporaries();
+
+		if (mNativeCode)
+			proc->mNativeProcedure = true;
 
 #if _DEBUG
 		proc->Disassemble("final");
