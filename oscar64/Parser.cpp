@@ -677,6 +677,21 @@ Declaration* Parser::ParseDeclaration(bool variable)
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
 								mErrors->Error(ndec->mLocation, "Function declaration differs");
+							else
+							{
+								// 
+								// Take parameter names from new declaration
+								//
+								Declaration* npdec = ndec->mBase->mParams, *ppdec = pdec->mBase->mParams;
+								while (npdec && ppdec)
+								{
+									if (npdec->mIdent)
+										ppdec->mIdent = npdec->mIdent;
+									npdec = npdec->mNext;
+									ppdec = ppdec->mNext;
+								}
+							}
+
 							ndec = pdec;
 						}
 						else
@@ -1818,7 +1833,82 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 
 Expression* Parser::ParseAssemblerOperand(void)
 {
-	return ParseAssemblerAddOperand();
+	if (mScanner->mToken == TK_LESS_THAN)
+	{
+		mScanner->NextToken();
+		Expression* exp = ParseAssemblerOperand();
+
+		if (exp->mType == EX_CONSTANT)
+		{
+			if (exp->mDecValue->mType == DT_CONST_INTEGER)
+			{
+				Declaration* dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+				dec->mInteger = exp->mDecValue->mInteger & 0xff;
+				dec->mBase = TheUnsignedIntTypeDeclaration;
+				exp->mDecValue = dec;			
+			}
+			else if (exp->mDecValue->mType == DT_LABEL)
+			{
+				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
+				ndec->mBase = exp->mDecValue;
+				ndec->mOffset = 0;
+				ndec->mFlags |= DTF_LOWER_BYTE;
+				exp->mDecValue = ndec;
+			}
+			else if (exp->mDecValue->mType == DT_LABEL_REF)
+			{
+				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
+				ndec->mBase = exp->mDecValue->mBase;
+				ndec->mOffset = exp->mDecValue->mOffset;
+				ndec->mFlags |= DTF_LOWER_BYTE;
+				exp->mDecValue = ndec;
+			}
+			else
+				mErrors->Error(mScanner->mLocation, "Label or integer value for lower byte operator expected");
+		}
+		else
+			mErrors->Error(mScanner->mLocation, "Constant for lower byte operator expected");
+
+		return exp;
+	}
+	else if (mScanner->mToken == TK_GREATER_THAN)
+	{
+		mScanner->NextToken();
+		Expression* exp = ParseAssemblerOperand();
+
+		if (exp->mType == EX_CONSTANT)
+		{
+			if (exp->mDecValue->mType == DT_CONST_INTEGER)
+			{
+				Declaration* dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+				dec->mInteger = (exp->mDecValue->mInteger >> 8) & 0xff;
+				dec->mBase = TheUnsignedIntTypeDeclaration;
+				exp->mDecValue = dec;
+			}
+			else if (exp->mDecValue->mType == DT_LABEL)
+			{
+				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
+				ndec->mBase = exp->mDecValue;
+				ndec->mOffset = 0;
+				ndec->mFlags |= DTF_UPPER_BYTE;
+				exp->mDecValue = ndec;
+			}
+			else if (exp->mDecValue->mType == DT_LABEL_REF)
+			{
+				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
+				ndec->mBase = exp->mDecValue->mBase;
+				ndec->mOffset = exp->mDecValue->mOffset;
+				ndec->mFlags |= DTF_UPPER_BYTE;
+				exp->mDecValue = ndec;
+			}
+			else
+				mErrors->Error(mScanner->mLocation, "Label or integer value for lower byte operator expected");
+		}
+		else
+			mErrors->Error(mScanner->mLocation, "Constant for upper byte operator expected");
+	}
+	else
+		return ParseAssemblerAddOperand();
 }
 
 Expression* Parser::ParseAssembler(void)

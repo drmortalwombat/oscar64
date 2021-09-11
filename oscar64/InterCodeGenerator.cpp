@@ -185,6 +185,26 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 		case ASMIM_IMPLIED:
 			break;
 		case ASMIM_IMMEDIATE:
+			if (aexp->mType == DT_CONST_INTEGER)
+				d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
+			else if (aexp->mType == DT_LABEL_REF)
+			{
+				if (aexp->mBase->mBase->mVarIndex < 0)
+					TranslateAssembler(mod, aexp->mBase->mBase->mValue);
+
+				InterVariable::Reference	ref;
+				ref.mFunction = false;
+				ref.mUpper = aexp->mFlags & DTF_UPPER_BYTE;
+				ref.mLower = !(aexp->mFlags & DTF_UPPER_BYTE);
+				ref.mAddr = offset;
+				ref.mIndex = aexp->mBase->mBase->mVarIndex;
+				ref.mOffset = aexp->mOffset + aexp->mBase->mInteger;
+
+				references.Push(ref);
+
+				offset += 1;
+			}
+			break;
 		case ASMIM_ZERO_PAGE:
 		case ASMIM_ZERO_PAGE_X:
 		case ASMIM_INDIRECT_X:

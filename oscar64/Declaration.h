@@ -53,6 +53,9 @@ static const uint32	DTF_CONST		= 0x00000040;
 static const uint32	DTF_VOLATILE	= 0x00000080;
 static const uint32	DTF_EXTERN		= 0x00000100;
 static const uint32 DTF_NATIVE		= 0x00000200;
+static const uint32 DTF_UPPER_BYTE  = 0x00000400;
+static const uint32 DTF_LOWER_BYTE  = 0x00000800;
+
 
 class Declaration;
 

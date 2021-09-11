@@ -16,7 +16,7 @@ __asm startup
 		sta	sp
 		lda	StackTop + 1
 		sta	sp + 1
-
+pexec:
 		ldy	#0
 exec:
 		lda	(ip), y
@@ -37,6 +37,36 @@ incip:
 }
 
 #pragma startup(startup)
+
+__asm bcexec
+{
+		lda ip
+		pha
+		lda ip + 1
+		pha
+		lda accu
+		sta ip
+		lda accu + 1
+		sta ip + 1
+
+		ldy	#0
+		lda	#<done
+		sta	(sp), y
+		iny
+		lda	#>done
+		sta	(sp), y
+		jmp	startup.pexec
+done:	nop
+		pla
+		pla
+		pla
+		sta ip + 1
+		pla
+		sta ip
+		rts		
+}
+
+#pragma runtime(bcexec, bcexec)
 
 __asm negaccu
 {
@@ -1772,8 +1802,7 @@ __asm inp_call
 		sta	ip
 		lda	addr + 1
 		sta	ip + 1
-		ldy	#0
-		jmp	startup.exec
+		jmp	startup.pexec
 }
 
 #pragma	bytecode(BC_CALL, inp_call)
