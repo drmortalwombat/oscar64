@@ -449,7 +449,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins.mVarIndex = dec->mVarIndex;
 				ins.mMemory = IM_GLOBAL;
 				block->Append(ins);
-				return ExValue(dec->mBase, ins.mTTemp);
+				return ExValue(dec->mBase, ins.mTTemp, 1);
 			}
 
 			case DT_CONST_STRUCT:

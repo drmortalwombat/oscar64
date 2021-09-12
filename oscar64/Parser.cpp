@@ -326,9 +326,9 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		{
 			Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_ARRAY);
 			ndec->mSize = 0;
-			ndec->mFlags |= DTF_DEFINED;
+			ndec->mFlags = 0;
 			mScanner->NextToken();
-			if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
+			if (mScanner->mToken != TK_CLOSE_BRACKET)
 			{
 				Expression* exp = ParseRExpression();
 				if (exp->mType == EX_CONSTANT && exp->mDecType->IsIntegerType() && exp->mDecValue->mType == DT_CONST_INTEGER)
@@ -509,7 +509,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 
 	if (dtype->mType == DT_TYPE_ARRAY || dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
 	{
-		if (!(dtype->mFlags & DTF_DEFINED))
+		if (dtype->mType != DT_TYPE_ARRAY && !(dtype->mFlags & DTF_DEFINED))
 		{
 			if (dtype->mIdent)
 				mErrors->Error(mScanner->mLocation, "Constant for undefined type", dtype->mIdent->mString);
@@ -527,10 +527,10 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			if (dtype->mType == DT_TYPE_ARRAY)
 			{
 				int	index = 0;
-				while (index < dtype->mSize)
+				while (!(dtype->mFlags & DTF_DEFINED) || index < dtype->mSize)
 				{
 					Expression* texp = ParseInitExpression(dtype->mBase);
-					Declaration* cdec = CopyConstantInitializer(index * dtype->mBase->mSize, dtype->mBase, texp);
+					Declaration* cdec = CopyConstantInitializer(index, dtype->mBase, texp);
 
 					if (last)
 						last->mNext = cdec;
@@ -538,11 +538,17 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 						dec->mParams = cdec;
 					last = cdec;
 
-					index++;
+					index += dtype->mBase->mSize;
 					if (!ConsumeTokenIf(TK_COMMA))
 						break;
 					if (mScanner->mToken == TK_CLOSE_BRACE)
 						break;
+				}
+
+				if (!(dtype->mFlags & DTF_DEFINED))
+				{
+					dtype->mFlags |= DTF_DEFINED;
+					dtype->mSize = index;
 				}
 			}
 			else
@@ -575,6 +581,12 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 		}
 		else if (mScanner->mToken == TK_STRING && dtype->mType == DT_TYPE_ARRAY && dtype->mBase->mType == DT_TYPE_INTEGER && dtype->mBase->mSize == 1)
 		{
+			if (!(dtype->mFlags & DTF_DEFINED))
+			{
+				dtype->mFlags |= DTF_DEFINED;
+				dtype->mSize = strlen(mScanner->mTokenString) + 1;
+			}
+
 			dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);
 			dec->mBase = dtype;
 			dec->mSize = dtype->mSize;
@@ -737,6 +749,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			{
 				mScanner->NextToken();
 				ndec->mValue = ParseInitExpression(ndec->mBase);
+				ndec->mSize = ndec->mBase->mSize;
 			}
 		}
 
