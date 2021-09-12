@@ -503,18 +503,26 @@ __asm inp_load_abs_u8
 		lda	(ip), y
 		sta	addr + 1
 		iny
-inp_load_addr_u8:
 		lda	(ip), y
 		tax
-		iny		
 		sty	tmpy
 		ldy	#0
+L0:
 		lda	(addr), y
 		sta	$00, x
 		lda	#0
 		sta	$01, x
 		ldy	tmpy
+		iny		
 		jmp	startup.exec
+inp_load_addr_u8:
+		lda	(ip), y
+		tax
+		iny		
+		lda	(ip), y
+		sty	tmpy
+		tay
+		jmp	L0
 }
 		
 #pragma	bytecode(BC_LOAD_ABS_U8, inp_load_abs_u8)
@@ -528,12 +536,11 @@ __asm inp_load_abs_s8
 		lda	(ip), y
 		sta	addr + 1
 		iny
-inp_load_addr_s8:
 		lda	(ip), y
 		tax
-		iny		
 		sty	tmpy
 		ldy	#0
+L0:
 		lda	(addr), y
 		sta	$00, x
 		bmi	W1
@@ -542,7 +549,16 @@ inp_load_addr_s8:
 W1:		lda	#$ff
 		sta	$01, x
 		ldy	tmpy
+		iny		
 		jmp	startup.exec
+inp_load_addr_s8:
+		lda	(ip), y
+		tax
+		iny		
+		lda	(ip), y
+		sty	tmpy
+		tay
+		jmp	L0
 }
 
 #pragma	bytecode(BC_LOAD_ABS_I8, inp_load_abs_s8)
@@ -556,19 +572,28 @@ __asm inp_load_abs_16
 		lda	(ip), y
 		sta	addr + 1
 		iny
-inp_load_addr_16:
 		lda	(ip), y
 		tax
-		iny		
 		sty	tmpy
 		ldy	#0
+L0:
 		lda	(addr), y
 		sta	$00, x
 		iny
 		lda	(addr), y
 		sta	$01, x
 		ldy	tmpy
+		iny		
 		jmp	startup.exec
+
+inp_load_addr_16:
+		lda	(ip), y
+		tax
+		iny		
+		lda	(ip), y
+		sty	tmpy
+		tay
+		jmp L0
 }
 
 #pragma	bytecode(BC_LOAD_ABS_16, inp_load_abs_16)
@@ -582,12 +607,12 @@ __asm inp_load_abs_32
 		lda	(ip), y
 		sta	addr + 1
 		iny
-inp_load_addr_32:
 		lda	(ip), y
 		tax
-		iny		
 		sty	tmpy
 		ldy	#0
+L0:
+
 		lda	(addr), y
 		sta	$00, x
 		iny
@@ -600,7 +625,17 @@ inp_load_addr_32:
 		lda	(addr), y
 		sta	$03, x
 		ldy	tmpy
+		iny		
 		jmp	startup.exec
+
+inp_load_addr_32:
+		lda	(ip), y
+		tax
+		iny		
+		lda	(ip), y
+		sty	tmpy
+		tay
+		jmp L0
 }
 		
 #pragma	bytecode(BC_LOAD_ABS_32, inp_load_abs_32)
@@ -614,16 +649,26 @@ __asm inp_store_abs_8
 		lda	(ip), y
 		sta	addr + 1
 		iny
+		lda	(ip), y
+		tax
+		sty	tmpy
+		ldy	#0
+L0:
+
+		lda	$00, x
+		sta	(addr), y
+		ldy	tmpy
+		iny		
+		jmp	startup.exec
+
 inp_store_addr_8:
 		lda	(ip), y
 		tax
 		iny		
+		lda	(ip), y
 		sty	tmpy
-		ldy	#0
-		lda	$00, x
-		sta	(addr), y
-		ldy	tmpy
-		jmp	startup.exec
+		tay
+		jmp L0
 }
 
 #pragma	bytecode(BC_STORE_ABS_8, inp_store_abs_8)
@@ -637,19 +682,28 @@ __asm inp_store_abs_16
 		lda	(ip), y
 		sta	addr + 1
 		iny
-inp_store_addr_16:
 		lda	(ip), y
 		tax
-		iny		
 		sty	tmpy
 		ldy	#0
+L0:
 		lda	$00, x
 		sta	(addr), y
 		iny
 		lda	$01, x
 		sta	(addr), y
 		ldy	tmpy
+		iny		
 		jmp	startup.exec
+
+inp_store_addr_16:
+		lda	(ip), y
+		tax
+		iny		
+		lda	(ip), y
+		sty	tmpy
+		tay
+		jmp	L0
 }
 
 #pragma	bytecode(BC_STORE_ABS_16, inp_store_abs_16)
@@ -663,12 +717,11 @@ __asm inp_store_abs_32
 		lda	(ip), y
 		sta	addr + 1
 		iny
-inp_store_addr_32:
 		lda	(ip), y
 		tax
-		iny		
 		sty	tmpy
 		ldy	#0
+L0:
 		lda	$00, x
 		sta	(addr), y
 		iny
@@ -681,7 +734,17 @@ inp_store_addr_32:
 		lda	$03, x
 		sta	(addr), y
 		ldy	tmpy
+		iny
 		jmp	startup.exec
+
+inp_store_addr_32:
+		lda	(ip), y
+		tax
+		iny		
+		lda	(ip), y
+		sty	tmpy
+		tay
+		jmp	L0
 }
 
 #pragma	bytecode(BC_STORE_ABS_32, inp_store_abs_32)

@@ -214,7 +214,8 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 	case BC_LOAD_REG_32:
 	case BC_STORE_REG_32:
 	case BC_ADDR_REG:
-		block->PutCode(generator, mCode); block->PutByte(mRegister);
+		block->PutCode(generator, mCode); 
+		block->PutByte(mRegister);
 		break;
 
 	case BC_LOAD_ABS_U8:
@@ -428,6 +429,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 	case BC_STORE_ADDR_32:
 		block->PutCode(generator, mCode);
 		block->PutByte(mRegister);
+		block->PutByte(mValue);
 		break;
 
 	case BC_COPY:
@@ -678,6 +680,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 						bins.mRegister = BC_REG_ACCU;
 						bins.mRegisterFinal = ins.mSFinal[0];
+						bins.mValue = 0;
 						mIns.Push(bins);
 					}
 				}
@@ -733,6 +736,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
 						bins.mRegisterFinal = ins.mSFinal[0];
+						bins.mValue = 0;
 						mIns.Push(bins);
 					}
 				}
@@ -760,6 +764,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					mIns.Push(lins);
 					ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 					bins.mRegister = BC_REG_ACCU;
+					bins.mValue = ins.mSIntConst[1];
 					mIns.Push(bins);
 				}
 			}
@@ -774,6 +779,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
 					bins.mRegisterFinal = ins.mSFinal[0];
+					bins.mValue = ins.mSIntConst[1];
 					mIns.Push(bins);
 				}
 			}
@@ -826,6 +832,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						mIns.Push(lins);
 						ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 						bins.mRegister = BC_REG_ACCU;
+						bins.mValue = 0;
 						mIns.Push(bins);
 					}
 				}
@@ -881,6 +888,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
 						bins.mRegisterFinal = ins.mSFinal[0];
+						bins.mValue = 0;
 						mIns.Push(bins);
 					}
 				}
@@ -908,6 +916,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					mIns.Push(lins);
 					ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 					bins.mRegister = BC_REG_ACCU;
+					bins.mValue = ins.mSIntConst[1];
 					mIns.Push(bins);
 				}
 			}
@@ -922,6 +931,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
 					bins.mRegisterFinal = ins.mSFinal[0];
+					bins.mValue = ins.mSIntConst[1];
 					mIns.Push(bins);
 				}
 			}
@@ -976,6 +986,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 							mIns.Push(lins);
 							ByteCodeInstruction	bins(BC_STORE_ADDR_8);
 							bins.mRegister = BC_REG_ACCU;
+							bins.mValue = 0;
 							mIns.Push(bins);
 						}
 					}
@@ -1028,6 +1039,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 							mIns.Push(lins);
 							ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 							bins.mRegister = BC_REG_ACCU;
+							bins.mValue = 0;
 							mIns.Push(bins);
 						}
 					}
@@ -1087,6 +1099,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 							ByteCodeInstruction	bins(BC_STORE_ADDR_8);
 							bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
 							bins.mRegisterFinal = ins.mSFinal[0];
+							bins.mValue = 0;
 							mIns.Push(bins);
 						}
 					}
@@ -1144,6 +1157,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 							ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 							bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
 							bins.mRegisterFinal = ins.mSFinal[0];
+							bins.mValue = 0;
 							mIns.Push(bins);
 						}
 					}
@@ -1174,12 +1188,14 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						ByteCodeInstruction	bins(BC_STORE_ADDR_8);
 						bins.mRegister = BC_REG_ACCU;
+						bins.mValue = ins.mSIntConst[1];
 						mIns.Push(bins);
 					}
 					else if (ins.mOperandSize == 2)
 					{
 						ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 						bins.mRegister = BC_REG_ACCU;
+						bins.mValue = ins.mSIntConst[1];
 						mIns.Push(bins);
 					}
 				}
@@ -1197,6 +1213,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						ByteCodeInstruction	bins(BC_STORE_ADDR_8);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
 						bins.mRegisterFinal = ins.mSFinal[0];
+						bins.mValue = ins.mSIntConst[1];
 						mIns.Push(bins);
 					}
 					else if (ins.mOperandSize == 2)
@@ -1204,6 +1221,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
 						bins.mRegisterFinal = ins.mSFinal[0];
+						bins.mValue = ins.mSIntConst[1];
 						mIns.Push(bins);
 					}
 				}
@@ -1257,6 +1275,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 					mIns.Push(lins);
 					ByteCodeInstruction	bins(BC_LOAD_ADDR_32);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+					bins.mValue = 0;
 					mIns.Push(bins);
 				}
 			}
@@ -1271,6 +1290,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				mIns.Push(lins);
 				ByteCodeInstruction	bins(BC_LOAD_ADDR_32);
 				bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+				bins.mValue = ins.mSIntConst[0];
 				mIns.Push(bins);
 			}
 		}
@@ -1318,6 +1338,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 					mIns.Push(lins);
 					ByteCodeInstruction	bins(BC_LOAD_ADDR_16);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+					bins.mValue = 0;
 					mIns.Push(bins);
 				}
 			}
@@ -1332,6 +1353,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				mIns.Push(lins);
 				ByteCodeInstruction	bins(BC_LOAD_ADDR_16);
 				bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+				bins.mValue = ins.mSIntConst[0];
 				mIns.Push(bins);
 			}
 		}
@@ -1381,6 +1403,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 						mIns.Push(lins);
 						ByteCodeInstruction	bins(ins.mTType == IT_SIGNED ? BC_LOAD_ADDR_I8 : BC_LOAD_ADDR_U8);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+						bins.mValue = 0;
 						mIns.Push(bins);
 					}
 				}
@@ -1426,6 +1449,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 						mIns.Push(lins);
 						ByteCodeInstruction	bins(BC_LOAD_ADDR_16);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+						bins.mValue = 0;
 						mIns.Push(bins);
 					}
 				}
@@ -1446,12 +1470,14 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 					{
 						ByteCodeInstruction	bins(BC_LOAD_ADDR_I8);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+						bins.mValue = ins.mSIntConst[0];
 						mIns.Push(bins);
 					}
 					else
 					{
 						ByteCodeInstruction	bins(BC_LOAD_ADDR_U8);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+						bins.mValue = ins.mSIntConst[0];
 						mIns.Push(bins);
 					}
 				}
@@ -1459,6 +1485,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				{
 					ByteCodeInstruction	bins(BC_LOAD_ADDR_16);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+					bins.mValue = ins.mSIntConst[0];
 					mIns.Push(bins);
 				}
 			}
@@ -3354,33 +3381,33 @@ void ByteCodeProcedure::Disassemble(FILE * file, ByteCodeGenerator * generator, 
 			break;
 
 		case BC_LOAD_ADDR_U8:
-			fprintf(file, "MOVUB\t%s, (ADDR)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
-			i++;
+			fprintf(file, "MOVUB\t%s, (ADDR + %d)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc), generator->mMemory[mProgStart + i + 1]);
+			i += 2;
 			break;
 		case BC_LOAD_ADDR_I8:
-			fprintf(file, "MOVSB\t%s, (ADDR)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
-			i++;
+			fprintf(file, "MOVSB\t%s, (ADDR + %d)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc), generator->mMemory[mProgStart + i + 1]);
+			i += 2;
 			break;
 		case BC_LOAD_ADDR_16:
-			fprintf(file, "MOV\t%s, (ADDR)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
-			i++;
+			fprintf(file, "MOV\t%s, (ADDR + %d)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc), generator->mMemory[mProgStart + i + 1]);
+			i += 2;
 			break;
 		case BC_LOAD_ADDR_32:
-			fprintf(file, "MOVD\t%s, (ADDR)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
-			i++;
+			fprintf(file, "MOVD\t%s, (ADDR + %d)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc), generator->mMemory[mProgStart + i + 1]);
+			i += 2;
 			break;
 
 		case BC_STORE_ADDR_8:
-			fprintf(file, "MOVB\t(ADDR), %s", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
-			i++;
+			fprintf(file, "MOVB\t(ADDR + %d), %s", generator->mMemory[mProgStart + i + 1], TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
+			i += 2;
 			break;
 		case BC_STORE_ADDR_16:
-			fprintf(file, "MOV\t(ADDR), %s", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
-			i++;
+			fprintf(file, "MOV\t(ADDR + %d), %s", generator->mMemory[mProgStart + i + 1], TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
+			i += 2;
 			break;
 		case BC_STORE_ADDR_32:
-			fprintf(file, "MOV\t(ADDR), %s", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
-			i++;
+			fprintf(file, "MOV\t(ADDR + %d), %s", generator->mMemory[mProgStart + i + 1], TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
+			i += 2;
 			break;
 
 		}

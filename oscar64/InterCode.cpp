@@ -271,19 +271,22 @@ static bool StoreAliasing(const InterInstruction * lins, const InterInstruction*
 	int			lvindex, svindex;
 	int			loffset, soffset;
 
-	if (MemRange(lins, tvalue, lmem, lvindex, loffset) && MemRange(sins, tvalue, smem, svindex, soffset))
+	if (MemRange(lins, tvalue, lmem, lvindex, loffset))
 	{
-		if (smem == lmem && svindex == lvindex)
+		if (MemRange(sins, tvalue, smem, svindex, soffset))
 		{
-			if (soffset + sins->mOperandSize >= loffset && loffset + lins->mOperandSize >= soffset)
-				return true;
+			if (smem == lmem && svindex == lvindex)
+			{
+				if (soffset + sins->mOperandSize >= loffset && loffset + lins->mOperandSize >= soffset)
+					return true;
+			}
+
+			return false;
 		}
 
-		return false;
+		if (lmem == IM_LOCAL)
+			return aliasedLocals[lvindex];
 	}
-
-	if (lmem == IM_LOCAL)
-		return aliasedLocals[lvindex];
 
 	return true;
 }
@@ -463,6 +466,7 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		while (i < mNum &&
 			(mInstructions[i]->mCode != IC_LEA ||
 				mInstructions[i]->mSTemp[0] != ins.mSTemp[0] ||
+				mInstructions[i]->mSIntConst[0] != ins.mSIntConst[0] ||
 				mInstructions[i]->mSTemp[1] != ins.mSTemp[1]))
 		{
 			i++;
@@ -922,10 +926,25 @@ InterInstruction::InterInstruction(void)
 	mSType[1] = IT_NONE;
 	mSType[2] = IT_NONE;
 
+	mSIntConst[0] = 0;
+	mSIntConst[1] = 0;
+	mSIntConst[2] = 0;
+
+	mSFloatConst[0] = 0;
+	mSFloatConst[1] = 0;
+	mSFloatConst[2] = 0;
+	mMemory = IM_NONE;
+	mOperandSize = 0;
+	mVarIndex = -1;
+	mIntValue = 0;
+	mFloatValue = 0;
+
 	mTTemp = INVALID_TEMPORARY;
 	mSTemp[0] = INVALID_TEMPORARY;
 	mSTemp[1] = INVALID_TEMPORARY;
 	mSTemp[2] = INVALID_TEMPORARY;
+
+	mSFinal[0] = mSFinal[1] = mSFinal[2] = false;
 }
 
 void InterInstruction::SetCode(const Location& loc, InterCode code)
@@ -1449,7 +1468,9 @@ void InterInstruction::Disassemble(FILE* file)
 		if (this->mCode == IC_CONSTANT)
 		{
 			if (mTType == IT_POINTER)
-				fprintf(file, "C%d", mOperandSize);
+			{
+				fprintf(file, "C%c%d(%d:%d)", memchars[mMemory], mOperandSize, mVarIndex, mIntValue);
+			}
 			else if (mTType == IT_FLOAT)
 				fprintf(file, "C%f", mFloatValue);
 			else
@@ -1571,12 +1592,19 @@ static void OptimizeAddress(InterInstruction& ins, const GrowingInstructionPtrAr
 
 	if (ins.mSTemp[offset] >= 0 && tvalue[ins.mSTemp[offset]])
 	{
-		if (tvalue[ins.mSTemp[offset]]->mCode == IC_CONSTANT)
+		InterInstruction* ains = tvalue[ins.mSTemp[offset]];
+
+		if (ains->mCode == IC_CONSTANT)
 		{
-			ins.mSIntConst[offset] = tvalue[ins.mSTemp[offset]]->mIntValue;
-			ins.mVarIndex = tvalue[ins.mSTemp[offset]]->mVarIndex;
-			ins.mMemory = tvalue[ins.mSTemp[offset]]->mMemory;
+			ins.mSIntConst[offset] = ains->mIntValue;
+			ins.mVarIndex = ains->mVarIndex;
+			ins.mMemory = ains->mMemory;
 			ins.mSTemp[offset] = -1;
+		}
+		else if (ains->mCode == IC_LEA && ains->mSTemp[0] < 0 && ains->mSTemp[1] >= 0 && tvalue[ains->mSTemp[1]])
+		{
+			ins.mSIntConst[offset] = ains->mSIntConst[0];
+			ins.mSTemp[offset] = ains->mSTemp[1];
 		}
 	}
 }
@@ -1670,6 +1698,11 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 				ins.mSTemp[0] = ins.mSTemp[1];
 				ins.mSTemp[1] = -1;
 				assert(ins.mSTemp[0] >= 0);
+			}
+			else
+			{
+				ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
+				ins.mSTemp[0] = -1;
 			}
 		}
 		break;
