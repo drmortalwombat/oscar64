@@ -284,6 +284,7 @@ public:
 	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps, int numStaticTemps);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, InterInstruction* pre, NumberSet& requiredTemps);
 	void PerformValueForwarding(GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
+	void BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps);
 
 	void LocalRenameRegister(GrowingIntArray& renameTable, int& num, int fixed);
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
@@ -382,6 +383,7 @@ public:
 	void BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps);
 	bool BuildGlobalRequiredTempSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(int numStaticTemps);
+	void BuildCallerSaveTempSet(NumberSet& callerSaveTemps);
 
 	void BuildLocalVariableSets(const GrowingVariableArray& localVars);
 	void BuildGlobalProvidedVariableSet(const GrowingVariableArray& localVars, NumberSet fromProvidedVars);

@@ -1143,6 +1143,19 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 	return changed;
 }
 
+void InterInstruction::BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps)
+{
+	if (mTTemp >= 0)
+		requiredTemps -= mTTemp;
+
+	if (mCode == IC_CALL || mCode == IC_JSR)
+		callerSaveTemps |= requiredTemps;
+
+	if (mSTemp[0] >= 0) requiredTemps += mSTemp[0];
+	if (mSTemp[1] >= 0) requiredTemps += mSTemp[1];
+	if (mSTemp[2] >= 0) requiredTemps += mSTemp[2];
+}
+
 bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, InterInstruction* pre, NumberSet& requiredTemps)
 {
 	bool	changed = false;
@@ -2232,6 +2245,25 @@ bool InterCodeBasicBlock::RemoveUnusedResultInstructions(int numStaticTemps)
 	}
 
 	return changed;
+}
+
+void InterCodeBasicBlock::BuildCallerSaveTempSet(NumberSet& callerSaveTemps)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		NumberSet		requiredTemps(mExitRequiredTemps);
+		int i;
+
+		for (i = mInstructions.Size() - 1; i >= 0; i--)
+			mInstructions[i].BuildCallerSaveTempSet(requiredTemps, callerSaveTemps);
+	
+		if (mTrueJump)
+			mTrueJump->BuildCallerSaveTempSet(callerSaveTemps);
+		if (mFalseJump)
+			mFalseJump->BuildCallerSaveTempSet(callerSaveTemps);
+	}
 }
 
 
@@ -3564,25 +3596,31 @@ void InterCodeProcedure::ReduceTemporaries(void)
 		ResetVisited();
 	} while (mBlocks[0]->BuildGlobalRequiredTempSet(totalRequired3));
 
+
+	NumberSet	callerSaved(numRenamedTemps);
+	ResetVisited();
+	mBlocks[0]->BuildCallerSaveTempSet(callerSaved);
+
+	int		callerSavedTemps = 0, calleeSavedTemps = 16;
+
 	mTempOffset.SetSize(0);
-	int	offset = 0;
-	if (!mLeafProcedure)
-		offset += 16;
 
 	for (int i = 0; i < mTemporaries.Size(); i++)
 	{
-		mTempOffset.Push(offset);
-		switch (mTemporaries[i])
+		int size = mTemporaries[i] == IT_FLOAT ? 4 : 2;
+
+		if (callerSavedTemps + size <= 16 && !callerSaved[i])
 		{
-		case IT_FLOAT:
-			offset += 4;
-			break;
-		default:
-			offset += 2;
-			break;
+			mTempOffset.Push(callerSavedTemps);
+			callerSavedTemps += size;
+		}
+		else
+		{
+			mTempOffset.Push(calleeSavedTemps);
+			calleeSavedTemps += size;
 		}
 	}
-	mTempSize = offset;
+	mTempSize = calleeSavedTemps;
 }
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
