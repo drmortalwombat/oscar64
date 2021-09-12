@@ -269,7 +269,7 @@ void nformf(const sinfo * si, char * str, float f, char type)
 	}
 }
 
-void sformat(void * data, putstrfn fn, const char * fmt, int * fps)
+void * sformat(void * data, putstrfn fn, const char * fmt, int * fps)
 {
 	const char	*	p = fmt;
 	char		c, buff[21];
@@ -381,6 +381,8 @@ void sformat(void * data, putstrfn fn, const char * fmt, int * fps)
 		data = fn(data, buff);
 		bi = 0;				
 	}
+
+	return data;
 }
 
 void printf(const char * fmt, ...)

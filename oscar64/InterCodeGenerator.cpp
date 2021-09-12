@@ -1852,6 +1852,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				// no need for actual operation when casting pointer to pointer
 				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference);
 			}
+			else if (exp->mLeft->mDecType->mType != DT_TYPE_VOID && vr.mType->mType == DT_TYPE_VOID)
+			{
+				mErrors->Error(exp->mLocation, "Cannot cast void object to non void object");
+				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference);
+			}
 			else
 			{
 				vr = Dereference(proc, block, vr);

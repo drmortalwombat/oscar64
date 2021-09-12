@@ -84,6 +84,12 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -i=../include -rt=../include/crt.c -e -n floatstringtest.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -i=../include -rt=../include/crt.c -e qsorttest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -i=../include -rt=../include/crt.c -e -n qsorttest.c
+if %errorlevel% neq 0 goto :error
+
 exit /b 0
 :error
 echo Failed with error #%errorlevel%.

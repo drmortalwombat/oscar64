@@ -604,8 +604,8 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 		}
 		else
 		{
-			mErrors->Error(mScanner->mLocation, "Struct/Array constant expression expected");
-			dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+			exp = ParseRExpression();
+			return exp;
 		}
 
 		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
