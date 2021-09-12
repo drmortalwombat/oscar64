@@ -15,6 +15,92 @@ Parser::~Parser(void)
 
 }
 
+Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
+{
+	const Ident* structName = nullptr;
+
+	Declaration	*	dec = new Declaration(mScanner->mLocation, dt);
+
+	mScanner->NextToken();
+	if (mScanner->mToken == TK_IDENT)
+	{
+		structName = mScanner->mTokenIdent;
+		mScanner->NextToken();
+		Declaration* pdec = mScope->Insert(structName, dec);
+		if (pdec)
+		{
+			if (pdec->mType == dt && (pdec->mFlags & DTF_DEFINED))
+			{
+				dec = pdec;
+			}
+			else
+			{
+				mErrors->Error(mScanner->mLocation, "Error duplicate struct declaration", structName->mString);
+			}
+		}
+	}
+
+	dec->mIdent = structName;
+	dec->mScope = new DeclarationScope(nullptr);
+
+	if (mScanner->mToken == TK_OPEN_BRACE)
+	{
+		mScanner->NextToken();
+		Declaration* mlast = nullptr;
+		for (;;)
+		{
+			Declaration* mdec = ParseDeclaration(false);
+			while (mdec)
+			{
+				if (!(mdec->mBase->mFlags & DTF_DEFINED))
+					mErrors->Error(mdec->mLocation, "Undefined type used in struct member declaration");
+				mdec->mType = DT_ELEMENT;
+				if (dt == DT_TYPE_UNION)
+				{
+					mdec->mOffset = 0;
+					if (mdec->mBase->mSize > dec->mSize)
+						dec->mSize = mdec->mBase->mSize;
+				}
+				else
+				{
+					mdec->mOffset = dec->mSize;
+					dec->mSize += mdec->mBase->mSize;
+				}
+				dec->mScope->Insert(mdec->mIdent, mdec);
+				if (mlast)
+					mlast->mNext = mdec;
+				else
+					dec->mParams = mdec;
+				mlast = mdec;
+				mdec = mdec->mNext;
+			}
+
+			if (mScanner->mToken == TK_SEMICOLON)
+				mScanner->NextToken();
+			else
+			{
+				mErrors->Error(mScanner->mLocation, "';' expected");
+				break;
+			}
+
+			if (mScanner->mToken == TK_CLOSE_BRACE)
+			{
+				mScanner->NextToken();
+				break;
+			}
+		}
+
+		if (mlast)
+			mlast->mNext = nullptr;
+		else
+			dec->mParams = nullptr;
+
+		dec->mFlags |= DTF_DEFINED;
+	}
+
+	return dec;
+}
+
 Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 {
 	Declaration* dec = nullptr;
@@ -176,81 +262,11 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 		break;
 	}
 	case TK_STRUCT:
-	{
-		const Ident* structName = nullptr;
-
-		dec = new Declaration(mScanner->mLocation, DT_TYPE_STRUCT);
-
-		mScanner->NextToken();
-		if (mScanner->mToken == TK_IDENT)
-		{
-			structName = mScanner->mTokenIdent;
-			mScanner->NextToken();
-			Declaration	*	pdec = mScope->Insert(structName, dec);
-			if (pdec)
-			{
-				if (pdec->mType == DT_TYPE_STRUCT && (pdec->mFlags & DTF_DEFINED))
-				{
-					dec = pdec;
-				}
-				else
-				{
-					mErrors->Error(mScanner->mLocation, "Error duplicate struct declaration", structName->mString);
-				}
-			}
-		}
-
-		dec->mIdent = structName;
-		dec->mScope = new DeclarationScope(nullptr);
-
-		if (mScanner->mToken == TK_OPEN_BRACE)
-		{
-			mScanner->NextToken();
-			Declaration* mlast = nullptr;
-			for (;;)
-			{
-				Declaration* mdec = ParseDeclaration(false);
-				while (mdec)
-				{
-					if (!(mdec->mBase->mFlags & DTF_DEFINED))
-						mErrors->Error(mdec->mLocation, "Undefined type used in struct member declaration");
-					mdec->mType = DT_ELEMENT;
-					mdec->mOffset = dec->mSize;
-					dec->mSize += mdec->mBase->mSize;
-					dec->mScope->Insert(mdec->mIdent, mdec);
-					if (mlast)
-						mlast->mNext = mdec;
-					else
-						dec->mParams = mdec;
-					mlast = mdec;
-					mdec = mdec->mNext;
-				}
-
-				if (mScanner->mToken == TK_SEMICOLON)
-					mScanner->NextToken();
-				else
-				{
-					mErrors->Error(mScanner->mLocation, "';' expected");
-					break;
-				}
-
-				if (mScanner->mToken == TK_CLOSE_BRACE)
-				{
-					mScanner->NextToken();
-					break;
-				}
-			}
-
-			if (mlast)
-				mlast->mNext = nullptr;
-			else
-				dec->mParams = nullptr;
-
-			dec->mFlags |= DTF_DEFINED;
-		}
+		dec = ParseStructDeclaration(flags, DT_TYPE_STRUCT);
 		break;
-	}
-
+	case TK_UNION:
+		dec = ParseStructDeclaration(flags, DT_TYPE_UNION);
+		break;
 	default:
 		mErrors->Error(mScanner->mLocation, "Declaration starts with invalid token", TokenNames[mScanner->mToken]);
 		mScanner->NextToken();
@@ -491,7 +507,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	Expression* exp = nullptr;
 	Declaration* dec;
 
-	if (dtype->mType == DT_TYPE_ARRAY || dtype->mType == DT_TYPE_STRUCT)
+	if (dtype->mType == DT_TYPE_ARRAY || dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
 	{
 		if (!(dtype->mFlags & DTF_DEFINED))
 		{
@@ -813,6 +829,7 @@ Expression* Parser::ParseSimpleExpression(void)
 	case TK_CONST:
 	case TK_VOLATILE:
 	case TK_STRUCT:
+	case TK_UNION:
 	case TK_TYPEDEF:
 	case TK_STATIC:
 		exp = ParseDeclarationExpression();
@@ -1058,7 +1075,7 @@ Expression* Parser::ParsePostfixExpression(void)
 				dexp->mDecType = exp->mDecType->mBase;
 				dexp->mLeft = exp;
 
-				if (dexp->mDecType->mType == DT_TYPE_STRUCT)
+				if (dexp->mDecType->mType == DT_TYPE_STRUCT || dexp->mDecType->mType == DT_TYPE_UNION)
 				{
 					Expression* nexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 					nexp->mLeft = dexp;
@@ -1087,7 +1104,7 @@ Expression* Parser::ParsePostfixExpression(void)
 		else if (mScanner->mToken == TK_DOT)
 		{
 			mScanner->NextToken();
-			if (exp->mDecType->mType == DT_TYPE_STRUCT)
+			if (exp->mDecType->mType == DT_TYPE_STRUCT || exp->mDecType->mType == DT_TYPE_UNION)
 			{
 				Expression* nexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 				nexp->mLeft = exp;

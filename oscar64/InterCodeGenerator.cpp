@@ -2,7 +2,7 @@
 #include <crtdbg.h>
 
 InterCodeGenerator::InterCodeGenerator(Errors* errors)
-	: mErrors(errors)
+	: mErrors(errors), mForceNativeCode(false)
 {
 
 }
@@ -539,7 +539,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (vl.mType->mFlags & DTF_CONST)
 				mErrors->Error(exp->mLocation, "Cannot assign to const type");
 
-			if (vl.mType->mType == DT_TYPE_STRUCT || vl.mType->mType == DT_TYPE_ARRAY)
+			if (vl.mType->mType == DT_TYPE_STRUCT || vl.mType->mType == DT_TYPE_ARRAY || vl.mType->mType == DT_TYPE_UNION)
 			{
 				vr = Dereference(proc, block, vr, 1);
 				vl = Dereference(proc, block, vl, 1);
@@ -2241,6 +2241,9 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mIdent);
 	dec->mVarIndex = proc->mID;
+
+	if (mForceNativeCode)
+		dec->mFlags |= DTF_NATIVE;
 
 	if (dec->mFlags & DTF_NATIVE)
 		proc->mNativeProcedure = true;

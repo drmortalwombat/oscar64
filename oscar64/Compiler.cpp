@@ -59,6 +59,7 @@ bool Compiler::GenerateCode(void)
 		return false;
 	}
 
+	mInterCodeGenerator->mForceNativeCode = mNativeCode;
 	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue);
 
 	if (mErrors->mErrorCount != 0)
@@ -94,9 +95,6 @@ bool Compiler::GenerateCode(void)
 		InterCodeProcedure* proc = mInterCodeModule->mProcedures[i];
 
 		proc->ReduceTemporaries();
-
-		if (mNativeCode)
-			proc->mNativeProcedure = true;
 
 #if _DEBUG
 		proc->Disassemble("final");
@@ -279,7 +277,7 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 		if (file)
 		{
 			for (int i = 0; i < mByteCodeFunctions.Size(); i++)
-				mByteCodeFunctions[i]->Disassemble(file, mByteCodeGenerator, mInterCodeModule->mProcedures[i]);
+				mByteCodeFunctions[i]->Disassemble(file, mByteCodeGenerator, mInterCodeModule->mProcedures[mByteCodeFunctions[i]->mID]);
 
 			mByteCodeGenerator->WriteAsmFile(file);
 

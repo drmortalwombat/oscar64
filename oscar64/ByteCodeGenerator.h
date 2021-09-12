@@ -241,7 +241,7 @@ public:
 	ByteCodeBasicBlock	* entryBlock, * exitBlock;
 	ByteCodeBasicBlock	** tblocks;
 
-	int		mProgStart, mProgSize;
+	int		mProgStart, mProgSize, mID;
 
 	void Compile(ByteCodeGenerator* generator, InterCodeProcedure* proc);
 	ByteCodeBasicBlock * CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);

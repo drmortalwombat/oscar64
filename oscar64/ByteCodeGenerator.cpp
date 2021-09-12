@@ -2852,6 +2852,8 @@ ByteCodeProcedure::~ByteCodeProcedure(void)
 
 void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure* proc)
 {
+	mID = proc->mID;
+
 	tblocks = new ByteCodeBasicBlock * [proc->mBlocks.Size()];
 	for (int i = 0; i < proc->mBlocks.Size(); i++)
 		tblocks[i] = nullptr;

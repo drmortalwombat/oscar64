@@ -19,6 +19,7 @@ public:
 		{}
 	};
 
+	bool		mForceNativeCode;
 
 	InterCodeProcedure* TranslateProcedure(InterCodeModule* mod, Expression* exp, Declaration * dec);
 	void TranslateAssembler(InterCodeModule* mod, Expression * exp);
