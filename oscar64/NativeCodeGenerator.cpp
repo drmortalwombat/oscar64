@@ -2384,6 +2384,8 @@ void NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterI
 
 	if (ins.mTType == IT_FLOAT)
 	{
+		int	sreg0 = ins.mSTemp[0] < 0 ? -1 : BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
+
 		if (ins.mSTemp[1] < 0)
 		{
 			union { float f; unsigned int v; } cc;
@@ -2406,6 +2408,8 @@ void NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterI
 		{
 			// cull previous store from accu to temp using direcrt forwarding
 			mIns.SetSize(mIns.Size() - 8);
+			if (sreg0 == BC_REG_TMP + proc->mTempOffset[ins.mSTemp[1]])
+				sreg0 = BC_REG_ACCU;
 		}
 		else
 		{
@@ -2439,13 +2443,13 @@ void NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterI
 		}
 		else
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]] + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 0));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]] + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 1));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 1));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]] + 2));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 2));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 2));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]] + 3));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 3));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
 		}
 

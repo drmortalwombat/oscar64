@@ -1400,7 +1400,7 @@ void InterInstruction::Disassemble(FILE* file)
 			fprintf(file, "MOVE");
 			break;
 		case IC_BINARY_OPERATOR:
-			fprintf(file, "BINOP");
+			fprintf(file, "BINOP%d", mOperator);
 			break;
 		case IC_UNARY_OPERATOR:
 			fprintf(file, "UNOP");
