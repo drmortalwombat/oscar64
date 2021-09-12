@@ -46,6 +46,7 @@ public:
 
 	bool LoadsAccu(void) const;
 	bool ChangesAddress(void) const;
+	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 };
 
 class NativeCodeBasicBlock

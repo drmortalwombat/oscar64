@@ -123,13 +123,16 @@ public:
 	ValueSet(const ValueSet& values);
 	~ValueSet(void);
 
+	ValueSet& operator=(const ValueSet& values);
+
 	void FlushAll(void);
 	void FlushCallAliases(void);
 
 	void RemoveValue(int index);
 	void InsertValue(InterInstruction& ins);
 
-	void UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals);
+	void UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
+	void Intersect(ValueSet& set);
 };
 
 class TempForwardingTable
@@ -276,13 +279,13 @@ public:
 	InterInstruction(void);
 	void SetCode(const Location & loc, InterCode code);
 
-	void CollectLocalAddressTemps(GrowingIntArray& localTable);
-	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals);
+	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
+	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 
 	void FilterTempUsage(NumberSet& requiredVars, NumberSet& providedVars);
 	void FilterVarsUsage(const GrowingVariableArray& localVars, NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps, int numStaticTemps);
-	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, InterInstruction* pre, NumberSet& requiredTemps);
+	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredTemps);
 	void PerformValueForwarding(GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	void BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps);
 
@@ -297,7 +300,7 @@ public:
 	void CollectActiveTemporaries(FastNumberSet& set);
 	void ShrinkActiveTemporaries(FastNumberSet& set, GrowingTypeArray& temporaries);
 	
-	void CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray& localTypes);
+	void CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray& localTypes, FastNumberSet& complexParams, FastNumberSet& simpleParams, GrowingTypeArray& paramTypes);
 	void SimpleLocalToTemp(int vindex, int temp);
 
 	void Disassemble(FILE* file);
@@ -351,11 +354,11 @@ public:
 class InterCodeBasicBlock
 {
 public:
-	int								mIndex, mNumEntries;
+	int								mIndex, mNumEntries, mNumEntered;
 	InterCodeBasicBlock* mTrueJump, * mFalseJump;
 	GrowingInstructionArray			mInstructions;
 
-	bool								mVisited;
+	bool								mVisited, mInPath, mLoopHead;
 
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
@@ -364,6 +367,9 @@ public:
 	NumberSet						mLocalRequiredVars, mLocalProvidedVars;
 	NumberSet						mEntryRequiredVars, mEntryProvidedVars;
 	NumberSet						mExitRequiredVars, mExitProvidedVars;
+
+	GrowingInstructionPtrArray		mMergeTValues;
+	ValueSet						mMergeValues;
 
 	InterCodeBasicBlock(void);
 	~InterCodeBasicBlock(void);
@@ -376,8 +382,8 @@ public:
 
 	void LocalToTemp(int vindex, int temp);
 
-	void CollectLocalAddressTemps(GrowingIntArray& localTable);
-	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals);
+	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
+	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 
 	void BuildLocalTempSets(int num, int numFixed);
 	void BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps);
@@ -399,13 +405,13 @@ public:
 
 	void CheckValueUsage(InterInstruction& ins, const GrowingInstructionPtrArray& tvalue);
 	void PerformTempForwarding(TempForwardingTable& forwardingTable);
-	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals);
+	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 
 	void BuildCollisionTable(NumberSet* collisionSets);
 	void ReduceTemporaries(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
-	void CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray & localTypes);
+	void CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray & localTypes, FastNumberSet& complexParams, FastNumberSet& simpleParams, GrowingTypeArray& paramTypes);
 	void SimpleLocalToTemp(int vindex, int temp);
 
 	void CollectActiveTemporaries(FastNumberSet& set);
@@ -434,7 +440,7 @@ protected:
 	TempForwardingTable					mTempForwardingTable;
 	GrowingInstructionPtrArray			mValueForwardingTable;
 	int									numFixedTemporaries;
-	NumberSet							mLocalAliasedSet;
+	NumberSet							mLocalAliasedSet, mParamAliasedSet;
 
 	void ResetVisited(void);
 public:

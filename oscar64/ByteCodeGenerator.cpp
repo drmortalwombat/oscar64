@@ -55,38 +55,11 @@ bool ByteCodeInstruction::IsStore(void) const
 
 bool ByteCodeInstruction::ChangesAccu(void) const
 {
-	if (mCode == BC_LOAD_REG_16 || mCode == BC_LOAD_REG_32)
-		return true;
-	if (mCode >= BC_BINOP_ADDR_16 && mCode <= BC_BINOP_SHRR_I16)
-		return true;
-	if (mCode >= BC_BINOP_CMPUR_16 && mCode <= BC_BINOP_CMPSI_16)
-		return true;
-	if (mCode >= BC_OP_NEGATE_16 && mCode <= BC_OP_INVERT_16)
-		return true;
-	if (mCode >= BC_BINOP_ADD_F32 && mCode <= BC_OP_CEIL_F32)
-		return true;
-	if (mCode >= BC_CONV_U16_F32 && mCode <= BC_CONV_F32_I16)
-		return true;
-	if (mCode >= BC_BINOP_SHLI_16 && mCode <= BC_BINOP_SHRI_U16)
-		return true;
-	if (mCode >= BC_SET_EQ && mCode <= BC_SET_LE)
-		return true;
-	if (mCode == BC_JSR || mCode == BC_CALL)
-		return true;
-
 	return ChangesRegister(BC_REG_ACCU);
-
 }
 
 bool ByteCodeInstruction::ChangesAddr(void) const
 {
-	if (mCode == BC_ADDR_REG)
-		return true;
-	if (mCode >= BC_LOAD_ABS_U8 && mCode <= BC_STORE_ABS_32)
-		return true;
-	if (mCode == BC_JSR || mCode == BC_CALL)
-		return true;
-
 	return ChangesRegister(BC_REG_ADDR);
 }
 
@@ -157,6 +130,38 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 		if (mCode >= BC_BINOP_ADDI_16 && mCode <= BC_BINOP_MULI8_16)
 			return true;
 		if (mCode == BC_CALL)
+			return true;
+	}
+
+	if (reg == BC_REG_ACCU)
+	{
+		if (mCode == BC_LOAD_REG_16 || mCode == BC_LOAD_REG_32)
+			return true;
+		if (mCode >= BC_BINOP_ADDR_16 && mCode <= BC_BINOP_SHRR_I16)
+			return true;
+		if (mCode >= BC_BINOP_CMPUR_16 && mCode <= BC_BINOP_CMPSI_16)
+			return true;
+		if (mCode >= BC_OP_NEGATE_16 && mCode <= BC_OP_INVERT_16)
+			return true;
+		if (mCode >= BC_BINOP_ADD_F32 && mCode <= BC_OP_CEIL_F32)
+			return true;
+		if (mCode >= BC_CONV_U16_F32 && mCode <= BC_CONV_F32_I16)
+			return true;
+		if (mCode >= BC_BINOP_SHLI_16 && mCode <= BC_BINOP_SHRI_U16)
+			return true;
+		if (mCode >= BC_SET_EQ && mCode <= BC_SET_LE)
+			return true;
+		if (mCode == BC_JSR || mCode == BC_CALL)
+			return true;
+	}
+
+	if (reg == BC_REG_ADDR)
+	{
+		if (mCode == BC_ADDR_REG)
+			return true;
+		if (mCode >= BC_LOAD_ABS_U8 && mCode <= BC_STORE_ABS_32)
+			return true;
+		if (mCode == BC_JSR || mCode == BC_CALL)
 			return true;
 	}
 
@@ -2537,6 +2542,16 @@ void ByteCodeBasicBlock::PeepHoleOptimizer(void)
 					mIns[i + 0].mCode = BC_NOP;
 					mBranch = TransposeBranchCondition(mBranch);
 				}
+				else if (mIns[i + 0].mCode == BC_LOAD_REG_16 &&
+					mIns[i + 1].mCode == BC_STORE_REG_16 &&
+					mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister)
+				{
+					mIns[i + 2].mCode = BC_NOP;
+				}
+				else if (mIns[i + 0].mCode == BC_CONST_16 && mIns[i + 2].mCode == BC_CONST_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 0].mValue == mIns[i + 2].mValue && !mIns[i + 1].ChangesRegister(mIns[i + 0].mRegister))
+				{
+					mIns[i + 2].mCode = BC_NOP;
+				}
 			}
 			if (i + 1 < mIns.Size())
 			{
@@ -2601,6 +2616,13 @@ void ByteCodeBasicBlock::PeepHoleOptimizer(void)
 					mIns[i + 1].mCode = BC_NOP;
 					progress = true;
 				}
+				else if (mIns[i].mCode == BC_LOAD_LOCAL_16 && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+				{
+					mIns[i].mRegister = BC_REG_ADDR;
+					mIns[i + 1].mCode = BC_NOP;
+					progress = true;
+				}
+
 			}
 
 			if ((mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32) && accuTemp == mIns[i].mRegister)
@@ -2948,9 +2970,12 @@ const char* ByteCodeProcedure::TempName(uint8 tmp, char* buffer, InterCodeProced
 	else if (tmp >= BC_REG_TMP && tmp < BC_REG_TMP + proc->mTempSize)
 	{
 		int	i = 0;
-		while (i + 1 < proc->mTempOffset.Size() && proc->mTempOffset[i + 1] <= tmp - BC_REG_TMP)
+		while (i < proc->mTempOffset.Size() && proc->mTempOffset[i] != tmp - BC_REG_TMP)
 			i++;
-		sprintf_s(buffer, 10, "T%d", i);
+		if (i < proc->mTempOffset.Size())
+			sprintf_s(buffer, 10, "T%d", i);
+		else
+			sprintf_s(buffer, 10, "$%02x", tmp);
 		return buffer;
 	}
 	else

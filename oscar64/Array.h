@@ -199,6 +199,14 @@ public:
 		for (i = 0; i < size; i++) array[i] = a.array[i];
 	}
 
+	GrowingArray & operator=(const GrowingArray& a)
+	{
+		Grow(a.size, true);
+		int i;
+		for (i = 0; i < size; i++) array[i] = a.array[i];
+		return *this;
+	}
+
 	~GrowingArray(void)
 	{
 		delete[] array;

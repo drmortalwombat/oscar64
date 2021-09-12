@@ -549,6 +549,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 				{
 					dtype->mFlags |= DTF_DEFINED;
 					dtype->mSize = index;
+					dec->mSize = index;
 				}
 			}
 			else
