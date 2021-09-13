@@ -93,7 +93,7 @@ public:
 	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction& ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction& ins);
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
-	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins);
+	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void NumericConversion(InterCodeProcedure* proc, const InterInstruction& ins);
 	void CopyValue(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeProcedure* nproc);
 
