@@ -65,7 +65,7 @@ void Emulator::DumpCycles(void)
 	}
 	
 	printf("Total Cycles %d\n", totalCycles);
-	return;
+//	return;
 
 	for (int i = 0; i < numTops; i++)
 	{

@@ -2162,9 +2162,16 @@ W2:
 		
 		ldy accu
 		lda	tmp
+		bne	W4
+		lda tmp + 1
+		beq W5
+		bne W6
+W4:
 		jsr	fmul8
 		lda	tmp + 1
+W6:		
 		jsr	fmul8
+W5:		
 		lda	tmp + 2
 		jsr	fmul8
 		
@@ -2614,19 +2621,6 @@ W2:
 
 		rts
 }
-
-#pragma runtime(fsplita, freg.split_aexp)
-#pragma runtime(fsplitt, freg.split_texp)
-#pragma runtime(fmergea, freg.merge_aexp)
-#pragma runtime(faddsub, faddsub)
-#pragma runtime(fmul, fmul)
-#pragma runtime(fdiv, fdiv)
-#pragma runtime(fcmp, fcmp)
-#pragma runtime(ffromi, sint16_to_float)
-#pragma runtime(ffromu, uint16_to_float)
-#pragma runtime(ftoi, f32_to_i16)
-#pragma runtime(ftou, f32_to_u16)
-
 
 __asm inp_conv_f32_u16
 {
