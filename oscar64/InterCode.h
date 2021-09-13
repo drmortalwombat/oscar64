@@ -293,6 +293,7 @@ public:
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
 	void PerformTempForwarding(TempForwardingTable& forwardingTable);
+	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 
 	void BuildCollisionTable(NumberSet& liveTemps, NumberSet* collisionSets);
 	void ReduceTemporaries(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
@@ -384,6 +385,9 @@ public:
 
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
+
+	void CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps);
+	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 
 	void BuildLocalTempSets(int num, int numFixed);
 	void BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps);
@@ -478,6 +482,7 @@ protected:
 	void RenameTemporaries(void);
 	void TempForwarding(void);
 	void RemoveUnusedInstructions(void);
+	bool GlobalConstantPropagation(void);
 
 	void DisassembleDebug(const char* name);
 };

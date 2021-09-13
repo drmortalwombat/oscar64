@@ -1118,6 +1118,49 @@ static void PerformTempDefineForwarding(int temp, TempForwardingTable& forwardin
 	}
 }
 
+bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& ctemps)
+{
+	switch (mCode)
+	{
+	case IC_LOAD:
+		if (mSTemp[0] >= 0 && ctemps[mSTemp[0]])
+		{
+			InterInstruction* ains = ctemps[mSTemp[0]];
+			mSIntConst[0] = ains->mIntValue;
+			mVarIndex = ains->mVarIndex;
+			mMemory = ains->mMemory;
+			mSTemp[0] = -1;
+			return true;
+		}
+		break;
+	case IC_STORE:
+		if (mSTemp[1] >= 0 && ctemps[mSTemp[1]])
+		{
+			InterInstruction* ains = ctemps[mSTemp[1]];
+			mSIntConst[1] = ains->mIntValue;
+			mVarIndex = ains->mVarIndex;
+			mMemory = ains->mMemory;
+			mSTemp[1] = -1;
+			return true;
+		}
+		break;
+	case IC_LOAD_TEMPORARY:
+		if (mSTemp[0] >= 0 && ctemps[mSTemp[0]])
+		{
+			InterInstruction* ains = ctemps[mSTemp[0]];
+			mCode = IC_CONSTANT;
+			mIntValue = ains->mIntValue;
+			mFloatValue = ains->mFloatValue;
+			mVarIndex = ains->mVarIndex;
+			mMemory = ains->mMemory;
+			mSTemp[0] = -1;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void InterInstruction::PerformTempForwarding(TempForwardingTable& forwardingTable)
 {
 	PerformTempUseForwarding(mSTemp[0], forwardingTable);
@@ -2185,6 +2228,60 @@ void InterCodeBasicBlock::MarkAliasedLocalTemps(const GrowingIntArray& localTabl
 		if (mTrueJump) mTrueJump->MarkAliasedLocalTemps(localTable, aliasedLocals, paramTable, aliasedParams);
 		if (mFalseJump) mFalseJump->MarkAliasedLocalTemps(localTable, aliasedLocals, paramTable, aliasedParams);
 	}
+}
+
+void  InterCodeBasicBlock::CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps)
+{
+	int i;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (i = 0; i < mInstructions.Size(); i++)
+		{
+			int		ttemp = mInstructions[i].mTTemp;
+			if (ttemp >= 0)
+			{
+				if (assignedTemps[ttemp])
+					ctemps[ttemp] = nullptr;
+				else
+				{
+					assignedTemps += ttemp;
+					if (mInstructions[i].mCode == IC_CONSTANT)
+						ctemps[ttemp] = &(mInstructions[i]);
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CollectConstTemps(ctemps, assignedTemps);
+		if (mFalseJump) mFalseJump->CollectConstTemps(ctemps, assignedTemps);
+	}
+}
+
+bool InterCodeBasicBlock::PropagateConstTemps(const GrowingInstructionPtrArray& ctemps)
+{
+	bool	changed = false;
+
+	int i;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i].PropagateConstTemps(ctemps))
+				changed = true;
+		}
+
+		if (mTrueJump && mTrueJump->PropagateConstTemps(ctemps))
+			changed = true;
+		if (mFalseJump && mFalseJump->PropagateConstTemps(ctemps))
+			changed = true;
+	}
+
+	return changed;
 }
 
 void InterCodeBasicBlock::BuildLocalTempSets(int num, int numFixed)
@@ -3472,6 +3569,8 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mBlocks[0]->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet);
 
+	GlobalConstantPropagation();
+
 	DisassembleDebug("machine value forwarding");
 
 	//
@@ -3575,7 +3674,9 @@ void InterCodeProcedure::Close(void)
 
 	RenameTemporaries();
 
-	TempForwarding();
+	do {
+		TempForwarding();
+	} while (GlobalConstantPropagation());
 
 	//
 	// Now remove unused instructions
@@ -3633,6 +3734,20 @@ void InterCodeProcedure::MapVariables(void)
 			mLocalSize += mLocalVars[i].mSize;
 		}
 	}
+}
+
+bool InterCodeProcedure::GlobalConstantPropagation(void)
+{
+
+	NumberSet					assignedTemps(mTemporaries.Size());
+	GrowingInstructionPtrArray	ctemps(nullptr);
+
+
+	ResetVisited();
+	mBlocks[0]->CollectConstTemps(ctemps, assignedTemps);
+
+	ResetVisited();
+	return mBlocks[0]->PropagateConstTemps(ctemps);
 }
 
 void InterCodeProcedure::ReduceTemporaries(void)

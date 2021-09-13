@@ -1,5 +1,7 @@
 #pragma once
 
+#include <assert.h>
+
 typedef unsigned __int32		uint32;
 
 class NumberSet
@@ -35,6 +37,7 @@ public:
 
 __forceinline NumberSet& NumberSet::operator+=(int elem)
 {
+	assert(elem >= 0 && elem < size);
 	bits[elem >> 5] |= (1UL << (elem & 31));
 
 	return *this;
@@ -42,6 +45,7 @@ __forceinline NumberSet& NumberSet::operator+=(int elem)
 
 __forceinline NumberSet& NumberSet::operator-=(int elem)
 {
+	assert(elem >= 0 && elem < size);
 	bits[elem >> 5] &= ~(1UL << (elem & 31));
 
 	return *this;
@@ -49,6 +53,7 @@ __forceinline NumberSet& NumberSet::operator-=(int elem)
 
 __forceinline bool NumberSet::operator[](int elem) const
 {
+	assert(elem >= 0 && elem < size);
 	return (bits[elem >> 5] & (1UL << (elem & 31))) != 0;
 }
 
