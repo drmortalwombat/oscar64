@@ -164,6 +164,28 @@ public:
 		}
 	}
 
+	TempForwardingTable& operator=(const TempForwardingTable& table)
+	{
+		mAssoc.SetSize(table.mAssoc.Size());
+		for (int i = 0; i < table.mAssoc.Size(); i++)
+		{
+			mAssoc[i].mAssoc = table.mAssoc[i].mAssoc;
+			mAssoc[i].mSucc = table.mAssoc[i].mSucc;
+			mAssoc[i].mPred = table.mAssoc[i].mPred;
+		}
+
+		return *this;
+	}
+
+	void Intersect(const TempForwardingTable& table)
+	{
+		for (int i = 0; i < table.mAssoc.Size(); i++)
+		{
+			if (mAssoc[i].mAssoc != table.mAssoc[i].mAssoc)
+				this->Destroy(i);
+		}
+	}
+
 	void SetSize(int size)
 	{
 		int i;
@@ -371,6 +393,7 @@ public:
 
 	GrowingInstructionPtrArray		mMergeTValues;
 	ValueSet						mMergeValues;
+	TempForwardingTable				mMergeForwardingTable;
 
 	InterCodeBasicBlock(void);
 	~InterCodeBasicBlock(void);

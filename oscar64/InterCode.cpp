@@ -2339,12 +2339,36 @@ void InterCodeBasicBlock::PerformTempForwarding(TempForwardingTable& forwardingT
 
 	if (!mVisited)
 	{
-		mVisited = true;
-
 		TempForwardingTable	localForwardingTable(forwardingTable);
 
-		if (mNumEntries > 1)
+		if (mLoopHead)
+		{
 			localForwardingTable.Reset();
+		}
+#if 0
+		else if (mNumEntries > 1)
+		{
+			lvalues.FlushAll();
+			ltvalue.Clear();
+		}
+#endif
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				localForwardingTable.Intersect(mMergeForwardingTable);
+			}
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mMergeForwardingTable = localForwardingTable;
+				return;
+			}
+		}
+
+		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
@@ -3087,6 +3111,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 1].mSIntConst[0] >>= shift;
 						mInstructions[i + 0].mOperator = IA_AND;
 						mInstructions[i + 0].mSIntConst[0] = ~((1LL << shift) - 1);
+						changed = true;
 					}
 					else if (
 						mInstructions[i + 0].mCode == IC_BINARY_OPERATOR && mInstructions[i + 0].mOperator == IA_SAR && mInstructions[i + 0].mSTemp[0] < 0 &&
@@ -3098,8 +3123,17 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 1].mSIntConst[1] >>= shift;
 						mInstructions[i + 0].mOperator = IA_AND;
 						mInstructions[i + 0].mSIntConst[0] = ~((1LL << shift) - 1);
+						changed = true;
 					}
-
+					else if (
+						mInstructions[i + 1].mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1].mTTemp] && !mExitRequiredTemps[mInstructions[i + 1].mSTemp[0]] &&
+						mInstructions[i + 0].mTTemp == mInstructions[i + 1].mSTemp[0])
+					{
+						mInstructions[i + 0].mTTemp = mInstructions[i + 1].mTTemp;
+						mInstructions[i + 1].mTTemp = mInstructions[i + 1].mSTemp[0];
+						mInstructions[i + 1].mSTemp[0] = mInstructions[i + 0].mTTemp;
+						changed = true;
+					}
 
 					// Postincrement artifact
 					if (mInstructions[i + 0].mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1].mCode == IC_BINARY_OPERATOR &&
@@ -3111,6 +3145,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						int		ttemp = mInstructions[i + 1].mTTemp;
 						int	k = i + 1;
 						while (k + 2 < mInstructions.Size() &&
+							mInstructions[k + 1].mCode != IC_RELATIONAL_OPERATOR &&
 							mInstructions[k + 1].mSTemp[0] != ttemp &&
 							mInstructions[k + 1].mSTemp[1] != ttemp &&
 							mInstructions[k + 1].mSTemp[2] != ttemp &&
