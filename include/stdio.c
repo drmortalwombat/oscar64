@@ -6,6 +6,10 @@ void putchar(char c)
 	__asm {
 		ldy	#2
 		lda	(fp), y
+		cmp #10
+		bne	w1
+		lda #13
+	w1:
 		jsr	0xffd2
 	}
 }
@@ -33,6 +37,10 @@ void puts(const char * str)
 		lda	(0x02), y
 		beq	done
 	loop:
+		cmp #10
+		bne	w1
+		lda #13
+	w1:
 		jsr	0xffd2		
 		inc	0x02
 		bne	next
