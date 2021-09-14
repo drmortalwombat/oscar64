@@ -447,7 +447,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		return false;
 		break;
 	}
-
+		
 	return true;
 }
 
@@ -582,15 +582,26 @@ int Emulator::Emulate(int startIP)
 			int	accu = mMemory[BC_REG_ACCU] + 256 * mMemory[BC_REG_ACCU + 1];
 			int	ptr = mMemory[BC_REG_ADDR] + 256 * mMemory[BC_REG_ADDR + 1];
 			int	sp = mMemory[BC_REG_STACK] + 256 * mMemory[BC_REG_STACK + 1];
-			printf("%04x  (A:%04x P:%04x S:%04x) %04x %04x %04x %04x  %04x %04x %04x %04x\n", addr, accu, ptr, sp,
+			printf("%04x  (A:%04x P:%04x S:%04x) %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x\n", addr, accu, ptr, sp,
 				mMemory[BC_REG_TMP +  0] + 256 * mMemory[BC_REG_TMP +  1],
 				mMemory[BC_REG_TMP +  2] + 256 * mMemory[BC_REG_TMP +  3],
 				mMemory[BC_REG_TMP +  4] + 256 * mMemory[BC_REG_TMP +  5],
 				mMemory[BC_REG_TMP +  6] + 256 * mMemory[BC_REG_TMP +  7],
+
 				mMemory[BC_REG_TMP +  8] + 256 * mMemory[BC_REG_TMP +  9],
 				mMemory[BC_REG_TMP + 10] + 256 * mMemory[BC_REG_TMP + 11],
 				mMemory[BC_REG_TMP + 12] + 256 * mMemory[BC_REG_TMP + 13],
-				mMemory[BC_REG_TMP + 14] + 256 * mMemory[BC_REG_TMP + 15]
+				mMemory[BC_REG_TMP + 14] + 256 * mMemory[BC_REG_TMP + 15],
+
+				mMemory[BC_REG_TMP + 16] + 256 * mMemory[BC_REG_TMP + 17],
+				mMemory[BC_REG_TMP + 18] + 256 * mMemory[BC_REG_TMP + 19],
+				mMemory[BC_REG_TMP + 20] + 256 * mMemory[BC_REG_TMP + 21],
+				mMemory[BC_REG_TMP + 22] + 256 * mMemory[BC_REG_TMP + 23],
+
+				mMemory[BC_REG_TMP + 24] + 256 * mMemory[BC_REG_TMP + 25],
+				mMemory[BC_REG_TMP + 26] + 256 * mMemory[BC_REG_TMP + 27],
+				mMemory[BC_REG_TMP + 28] + 256 * mMemory[BC_REG_TMP + 29],
+				mMemory[BC_REG_TMP + 30] + 256 * mMemory[BC_REG_TMP + 31]
 			);
 		}
 

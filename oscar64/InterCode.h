@@ -45,6 +45,8 @@ enum InterType
 	IT_POINTER
 };
 
+extern int InterTypeSize[];
+
 enum InterMemory
 {
 	IM_NONE,

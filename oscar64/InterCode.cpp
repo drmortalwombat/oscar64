@@ -5,6 +5,16 @@
 #include <math.h>
 #include <crtdbg.h>
 
+int InterTypeSize[] = {
+	0,
+	1,
+	1,
+	2,
+	4,
+	4,
+	2
+};
+
 ValueSet::ValueSet(void)
 {
 	mSize = 32;
@@ -1448,17 +1458,21 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 	case IC_LOAD:
 		if (mMemory == IM_LOCAL && mSTemp[0] < 0)
 		{
-			localTypes[mVarIndex] = mTType;
-			if (mOperandSize == 2)
+			if (localTypes[mVarIndex] == IT_NONE || localTypes[mVarIndex] == mTType)
+			{
+				localTypes[mVarIndex] = mTType;
 				simpleLocals += mVarIndex;
+			}
 			else
 				complexLocals += mVarIndex;
 		}
 		else if (mMemory == IM_PARAM && mSTemp[0] < 0)
 		{
-			paramTypes[mVarIndex] = mTType;
-			if (mOperandSize == 2)
+			if (paramTypes[mVarIndex] == IT_NONE || paramTypes[mVarIndex] == mTType)
+			{
+				paramTypes[mVarIndex] = mTType;
 				simpleParams += mVarIndex;
+			}
 			else
 				complexParams += mVarIndex;
 		}
@@ -1466,17 +1480,21 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 	case IC_STORE:
 		if (mMemory == IM_LOCAL && mSTemp[1] < 0)
 		{
-			localTypes[mVarIndex] = mSType[0];
-			if (mOperandSize == 2)
+			if (localTypes[mVarIndex] == IT_NONE || localTypes[mVarIndex] == mSType[0])
+			{
+				localTypes[mVarIndex] = mSType[0];
 				simpleLocals += mVarIndex;
+			}
 			else
 				complexLocals += mVarIndex;
 		}
 		else if (mMemory == IM_PARAM && mSTemp[1] < 0)
 		{
-			paramTypes[mVarIndex] = mSType[0];
-			if (mOperandSize == 2)
+			if (paramTypes[mVarIndex] == IT_NONE || paramTypes[mVarIndex] == mSType[0])
+			{
+				localTypes[mVarIndex] = mSType[0];
 				simpleParams += mVarIndex;
+			}
 			else
 				complexParams += mVarIndex;
 		}
@@ -1518,6 +1536,7 @@ void InterInstruction::SimpleLocalToTemp(int vindex, int temp)
 			{
 				mCode = IC_CONSTANT;
 				mIntValue = mSIntConst[0];
+				mFloatValue = mSFloatConst[0];
 			}
 			else
 			{
@@ -3846,7 +3865,7 @@ void InterCodeProcedure::ReduceTemporaries(void)
 
 		for (j = numFixedTemporaries; j < numTemps; j++)
 		{
-			if (mRenameTable[j] >= 0 && (collisionSet[i][j] || !TypeCompatible(mTemporaries[j], mTemporaries[i])))
+			if (mRenameTable[j] >= 0 && (collisionSet[i][j] || InterTypeSize[mTemporaries[j]] != InterTypeSize[mTemporaries[i]]))
 			{
 				usedTemps += mRenameTable[j];
 			}
@@ -3890,7 +3909,7 @@ void InterCodeProcedure::ReduceTemporaries(void)
 
 	for (int i = 0; i < mTemporaries.Size(); i++)
 	{
-		int size = mTemporaries[i] == IT_FLOAT ? 4 : 2;
+		int size = InterTypeSize[mTemporaries[i]];
 
 		if (callerSavedTemps + size <= 16 && !callerSaved[i])
 		{

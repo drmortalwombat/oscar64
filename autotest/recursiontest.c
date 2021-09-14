@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 int fib(int a) 
 {
@@ -75,7 +76,7 @@ void btest(void)
 	}
 	
 	collect(tree, buff)[0] = 0;
-	
+
 	assert(strcmp(buff, " DEHLLLOORW") == 0);	
 }
 

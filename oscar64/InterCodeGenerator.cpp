@@ -824,6 +824,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (!vr.mType->IsIntegerType())
 				mErrors->Error(exp->mLocation, "Index operand is not integral number");
 
+			vr = CoerceType(proc, block, vr, TheSignedIntTypeDeclaration);
+
 			InterInstruction	cins;
 			cins.mCode = IC_CONSTANT;
 			cins.mIntValue = vl.mType->mBase->mSize;
@@ -1441,6 +1443,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						if (!pdec->mBase->CanAssign(vr.mType))
 							mErrors->Error(texp->mLocation, "Cannot assign incompatible types");
 						vr = CoerceType(proc, block, vr, pdec->mBase);
+					}
+					else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
+					{
+						vr = CoerceType(proc, block, vr, TheSignedIntTypeDeclaration);
 					}
 
 					InterInstruction	wins;
@@ -2274,7 +2280,7 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 
 		InterInstruction	ins;
 		ins.mCode = IC_BRANCH;
-		ins.mSType[0] = IT_BOOL;
+		ins.mSType[0] = InterTypeOf(vr.mType);
 		ins.mSTemp[0] = vr.mTemp;
 		block->Append(ins);
 
