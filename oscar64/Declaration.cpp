@@ -470,7 +470,7 @@ bool Declaration::IsNumericType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM;
 }
 
-Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstSignedCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration, * TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration;
+Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration, * TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration;
 
 void InitDeclarations(void)
 {
@@ -495,13 +495,14 @@ void InitDeclarations(void)
 	TheSignedCharTypeDeclaration->mSize = 1;
 	TheSignedCharTypeDeclaration->mFlags = DTF_DEFINED | DTF_SIGNED;
 
-	TheConstSignedCharTypeDeclaration = new Declaration(noloc, DT_TYPE_INTEGER);
-	TheConstSignedCharTypeDeclaration->mSize = 1;
-	TheConstSignedCharTypeDeclaration->mFlags = DTF_DEFINED | DTF_SIGNED | DTF_CONST;
+	TheConstCharTypeDeclaration = new Declaration(noloc, DT_TYPE_INTEGER);
+	TheConstCharTypeDeclaration->mSize = 1;
+	TheConstCharTypeDeclaration->mFlags = DTF_DEFINED | DTF_CONST;
 
 	TheUnsignedCharTypeDeclaration = new Declaration(noloc, DT_TYPE_INTEGER);
 	TheUnsignedCharTypeDeclaration->mSize = 1;
 	TheUnsignedCharTypeDeclaration->mFlags = DTF_DEFINED;
+	TheCharTypeDeclaration = TheUnsignedCharTypeDeclaration;
 
 	TheBoolTypeDeclaration = new Declaration(noloc, DT_TYPE_BOOL);
 	TheBoolTypeDeclaration->mSize = 1;

@@ -226,6 +226,33 @@ static double ConstantFolding(InterOperator oper, double val1, double val2 = 0.0
 	}
 }
 
+static void ConversionConstantFold(InterInstruction& ins, InterInstruction * cins)
+{
+	switch (ins.mOperator)
+	{
+	case IA_INT2FLOAT:
+		ins.mCode = IC_CONSTANT;
+		ins.mFloatValue = (double)(cins->mIntValue);
+		ins.mSTemp[0] = -1;
+		break;
+	case IA_FLOAT2INT:
+		ins.mCode = IC_CONSTANT;
+		ins.mIntValue = (int)(cins->mFloatValue);
+		ins.mSTemp[0] = -1;
+		break;
+	case IA_EXT8TO16S:
+		ins.mCode = IC_CONSTANT;
+		ins.mIntValue = (char)(cins->mIntValue);
+		ins.mSTemp[0] = -1;
+		break;
+	case IA_EXT8TO16U:
+		ins.mCode = IC_CONSTANT;
+		ins.mIntValue = (unsigned char)(cins->mIntValue);
+		ins.mSTemp[0] = -1;
+		break;
+	}
+}
+
 void ValueSet::InsertValue(InterInstruction& ins)
 {
 	InterInstructionPtr* nins;
@@ -717,14 +744,11 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		break;
 
 	case IC_CONVERSION_OPERATOR:
-		if (ins.mOperator == IA_INT2FLOAT)
+		if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
 		{
-			if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			ConversionConstantFold(ins, tvalue[ins.mSTemp[0]]);
+			if (ins.mTType == IT_FLOAT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mFloatValue = (double)(tvalue[ins.mSTemp[0]]->mIntValue);
-				ins.mSTemp[0] = -1;
-
 				i = 0;
 				while (i < mNum &&
 					(mInstructions[i]->mCode != IC_CONSTANT ||
@@ -748,31 +772,32 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 			}
 			else
 			{
-				i = 0;
-				while (i < mNum &&
-					(mInstructions[i]->mCode != IC_CONVERSION_OPERATOR ||
-						mInstructions[i]->mOperator != ins.mOperator ||
-						mInstructions[i]->mSTemp[0] != ins.mSTemp[0]))
-				{
-					i++;
-				}
-
-				if (i < mNum)
-				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mTTemp;
-					ins.mSType[0] = mInstructions[i]->mTType;
-					ins.mSTemp[1] = -1;
-					assert(ins.mSTemp[0] >= 0);
-				}
-				else
-				{
-					InsertValue(ins);
-				}
+				InsertValue(ins);
 			}
 		}
-		else if (ins.mOperator == IA_FLOAT2INT)
+		else
 		{
+			i = 0;
+			while (i < mNum &&
+				(mInstructions[i]->mCode != IC_CONVERSION_OPERATOR ||
+					mInstructions[i]->mOperator != ins.mOperator ||
+					mInstructions[i]->mSTemp[0] != ins.mSTemp[0]))
+			{
+				i++;
+			}
+
+			if (i < mNum)
+			{
+				ins.mCode = IC_LOAD_TEMPORARY;
+				ins.mSTemp[0] = mInstructions[i]->mTTemp;
+				ins.mSType[0] = mInstructions[i]->mTType;
+				ins.mSTemp[1] = -1;
+				assert(ins.mSTemp[0] >= 0);
+			}
+			else
+			{
+				InsertValue(ins);
+			}
 		}
 		break;
 
@@ -992,7 +1017,7 @@ void InterInstruction::SetCode(const Location& loc, InterCode code)
 
 static bool TypeInteger(InterType t)
 {
-	return t == IT_UNSIGNED || t == IT_SIGNED || t == IT_BOOL || t == IT_POINTER;
+	return t == IT_INT8 || t == IT_INT16 || t == IT_INT32 || t == IT_BOOL || t == IT_POINTER;
 }
 
 static bool TypeCompatible(InterType t1, InterType t2)
@@ -1002,7 +1027,7 @@ static bool TypeCompatible(InterType t1, InterType t2)
 
 static bool TypeArithmetic(InterType t)
 {
-	return t == IT_UNSIGNED || t == IT_SIGNED || t == IT_BOOL || t == IT_FLOAT;
+	return t == IT_INT8 || t == IT_INT16 || t == IT_INT32 || t == IT_BOOL || t == IT_FLOAT;
 }
 
 static InterType TypeCheckArithmecitResult(InterType t1, InterType t2)
@@ -1010,7 +1035,7 @@ static InterType TypeCheckArithmecitResult(InterType t1, InterType t2)
 	if (t1 == IT_FLOAT && t2 == IT_FLOAT)
 		return IT_FLOAT;
 	else if (TypeInteger(t1) && TypeInteger(t2))
-		return IT_SIGNED;
+		return t1 > t2 ? t1 : t2;
 	else
 		throw InterCodeTypeMismatchException();
 }
@@ -1068,7 +1093,7 @@ void InterInstruction::CollectLocalAddressTemps(GrowingIntArray& localTable, Gro
 
 void InterInstruction::MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams)
 {
-	if (mCode == IC_STORE)
+	if (mCode == IC_STORE && mSTemp[0] >= 0)
 	{
 		int	l = localTable[mSTemp[0]];
 		if (l >= 0)
@@ -1578,7 +1603,7 @@ void InterInstruction::Disassemble(FILE* file)
 			fprintf(file, "RET");
 			break;
 		}
-		static char typechars[] = "NUSFPB";
+		static char typechars[] = "NBCILFP";
 
 		fprintf(file, "\t");
 		if (mTTemp >= 0) fprintf(file, "R%d(%c)", mTTemp, typechars[mTType]);
@@ -1803,10 +1828,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 			case IT_POINTER:
 				break;
 			default:
-				if (ins.mSType[0] == IT_UNSIGNED)
-					ins.mSIntConst[0] = unsigned short (tvalue[ins.mSTemp[0]]->mIntValue);
-				else
-					ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
+				ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
 				ins.mSTemp[0] = -1;
 				break;
 			}
@@ -1823,6 +1845,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 				ins.mMemory = tvalue[ins.mSTemp[1]]->mMemory;
 				ins.mVarIndex = tvalue[ins.mSTemp[1]]->mVarIndex;
 				ins.mIntValue = tvalue[ins.mSTemp[1]]->mIntValue + tvalue[ins.mSTemp[0]]->mIntValue;
+				ins.mOperandSize = tvalue[ins.mSTemp[1]]->mOperandSize;
 				ins.mSTemp[0] = -1;
 				ins.mSTemp[1] = -1;
 			}
@@ -1847,7 +1870,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 			ins.mCode = IC_LOAD_TEMPORARY;
 			assert(ins.mSTemp[0] >= 0);
 		}
-		else if ((ins.mSType[0] == IT_SIGNED || ins.mSType[0] == IT_UNSIGNED) && ins.mTType == IT_POINTER)
+		else if (TypeInteger(ins.mSType[0]) && ins.mTType == IT_POINTER)
 		{
 			if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
 			{
@@ -1870,10 +1893,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 			case IT_POINTER:
 				break;
 			default:
-				if (ins.mSType[0] == IT_UNSIGNED)
-					ins.mSIntConst[0] = unsigned short(tvalue[ins.mSTemp[0]]->mIntValue);
-				else
-					ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
+				ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
 				ins.mSTemp[0] = -1;
 				break;
 			}
@@ -2129,7 +2149,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 			{
 				ins.mCode = IC_CONSTANT;
 				ins.mIntValue = ConstantRelationalFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mFloatValue, tvalue[ins.mSTemp[0]]->mFloatValue);
-				ins.mTType = IT_SIGNED;
+				ins.mTType = IT_BOOL;
 				ins.mSTemp[0] = -1;
 				ins.mSTemp[1] = -1;
 			}

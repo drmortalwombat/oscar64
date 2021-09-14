@@ -21,6 +21,7 @@ const char* TokenNames[] = {
 		"'char'",
 		"'float'",
 		"'unsigned'",
+		"'signed'",
 		"'switch'",
 		"'case'",
 		"'default'",
@@ -922,6 +923,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_LONG;
 				else if (!strcmp(tkident, "unsigned"))
 					mToken = TK_UNSIGNED;
+				else if (!strcmp(tkident, "signed"))
+					mToken = TK_SIGNED;
 				else if (!strcmp(tkident, "const"))
 					mToken = TK_CONST;
 				else if (!strcmp(tkident, "volatile"))

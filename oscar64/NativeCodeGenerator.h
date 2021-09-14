@@ -64,7 +64,7 @@ public:
 	GrowingArray<NativeCodeInstruction>	mIns;
 	GrowingArray<ByteCodeRelocation>	mRelocations;
 
-	int						mOffset, mSize;
+	int						mOffset, mSize, mNumEntries;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited;
 
 	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
@@ -113,6 +113,9 @@ public:
 	void BuildGlobalProvidedRegSet(NumberSet fromProvidedTemps);
 	bool BuildGlobalRequiredRegSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(void);
+
+	void CountEntries(void);
+	bool MergeBasicBlocks(void);
 
 	bool MoveLoadStoreUp(int at);
 };

@@ -223,71 +223,6 @@ L2:		jsr	divmod
 #pragma runtime(divs16, divs16);
 #pragma runtime(mods16, mods16);
 		
-/*
-!align 255, 0
-inptable	
-		!word	inp_nop
-		!word	inp_exit
-		
-		!word	inp_const_p8, inp_const_n8, inp_const_16, inp_const_32
-
-		!word	inp_load_reg_16, inp_store_reg_16, inp_addr_reg, inp_load_reg_32, inp_store_reg_32
-
-		!word	inp_load_abs_u8, inp_load_abs_s8, inp_load_abs_16, inp_load_abs_32
-		!word	inp_store_abs_8, inp_store_abs_16, inp_store_abs_32
-		!word	inp_lea_abs
-		
-		!word	inp_load_local_u8, inp_load_local_s8, inp_load_local_16, inp_load_local_32
-		!word	inp_store_local_8, inp_store_local_16, inp_store_local_32
-		!word	inp_lea_local
-		
-		!word	inp_store_frame_8, inp_store_frame_16, inp_store_frame_32
-
-		!word	inp_load_addr_u8, inp_load_addr_s8, inp_load_addr_16, inp_load_addr_32
-		!word	inp_store_addr_8, inp_store_addr_16, inp_store_addr_32	
-
-		!word	inp_binop_addr_16, inp_binop_subr_16
-		!word	inp_binop_andr_16, inp_binop_orr_16, inp_binop_xorr_16
-		!word	inp_binop_mulr_16, inp_binop_divr_u16, inp_binop_modr_u16, inp_binop_divr_s16, inp_binop_modr_s16
-		!word	inp_binop_shlr_16, inp_binop_shrr_u16, inp_binop_shrr_s16
-		
-		!word	inp_binop_addi_16, inp_binop_subi_16, inp_binop_andi_16, inp_binop_ori_16, inp_binop_muli8_16
-		!word	inp_binop_shli_16, inp_binop_shri_u16, inp_binop_shri_s16
-		
-		!word	inp_binop_cmpr_u16, inp_binop_cmpr_s16
-		!word	inp_binop_cmpi_u16, inp_binop_cmpi_s16
-		
-		!word	inp_op_negate_16, inp_op_invert_16
-	
-		!word	inp_binop_add_f32, inp_binop_sub_f32, inp_binop_mul_f32, inp_binop_div_f32
-		!word	inp_binop_cmp_f32
-		!word	inp_op_negate_f32, inp_op_abs_f32, inp_op_floor_f32, inp_op_ceil_f32
-		
-		!word	inp_conv_u16_f32, inp_conv_i16_f32, inp_conv_f32_u16, inp_conv_f32_i16
-	
-		!word	inp_jumps
-		!word	inp_branchs_eq, inp_branchs_ne 
-		!word	inp_branchs_gt, inp_branchs_ge 
-		!word	inp_branchs_lt, inp_branchs_le
-
-		!word	inp_jumpf
-		!word	inp_branchf_eq, inp_branchf_ne 
-		!word	inp_branchf_gt, inp_branchf_ge 
-		!word	inp_branchf_lt, inp_branchf_le
-
-		!word	inp_set_eq, inp_set_ne 
-		!word	inp_set_gt, inp_set_ge 
-		!word	inp_set_lt, inp_set_le
-
-		!word	inp_enter
-		!word	inp_return
-		!word	inp_call
-		!word	inp_push_frame, inp_pop_frame
-		
-		!word	inp_jsr
-		
-		!word	inp_copy, inp_copyl
-*/
 
 __asm inp_nop
 {
@@ -480,6 +415,21 @@ __asm inp_store_reg_32
 }
 
 #pragma	bytecode(BC_STORE_REG_32, inp_store_reg_32)
+
+__asm inp_conv_s8_s16
+{
+		lda	(ip), y
+		tax
+		iny
+		lda #$80
+		and	$00, x
+		bpl	W1
+		lda	#$ff
+W1:		sta $01, x
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_CONV_I8_I16, inp_conv_s8_s16)
 
 __asm inp_addr_reg
 {

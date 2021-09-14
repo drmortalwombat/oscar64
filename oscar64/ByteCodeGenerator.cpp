@@ -364,6 +364,11 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		block->PutCode(generator, mCode);
 		break;
 
+	case BC_CONV_I8_I16:
+		block->PutCode(generator, mCode);
+		block->PutByte(mRegister);
+		break;
+
 	case BC_JUMPS:
 	case BC_BRANCHS_EQ:
 	case BC_BRANCHS_NE:
@@ -1371,7 +1376,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 			{
 				if (ins.mMemory == IM_GLOBAL)
 				{
-					ByteCodeInstruction	bins(ins.mTType == IT_SIGNED ? BC_LOAD_ABS_I8 : BC_LOAD_ABS_U8);
+					ByteCodeInstruction	bins(BC_LOAD_ABS_U8);
 					bins.mRelocate = true;
 					bins.mVIndex = ins.mVarIndex;
 					bins.mValue = ins.mSIntConst[0];
@@ -1380,7 +1385,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				}
 				else if (ins.mMemory == IM_ABSOLUTE)
 				{
-					ByteCodeInstruction	bins(ins.mTType == IT_SIGNED ? BC_LOAD_ABS_I8 : BC_LOAD_ABS_U8);
+					ByteCodeInstruction	bins(BC_LOAD_ABS_U8);
 					bins.mValue = ins.mSIntConst[0];
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
 					mIns.Push(bins);
@@ -1395,7 +1400,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 
 					if (index <= 255)
 					{
-						ByteCodeInstruction	bins(ins.mTType == IT_SIGNED ? BC_LOAD_LOCAL_I8 : BC_LOAD_LOCAL_U8);
+						ByteCodeInstruction	bins(BC_LOAD_LOCAL_U8);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
 						bins.mValue = index;
 						mIns.Push(bins);
@@ -1406,7 +1411,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 						lins.mRegister = BC_REG_ADDR;
 						lins.mValue = index;
 						mIns.Push(lins);
-						ByteCodeInstruction	bins(ins.mTType == IT_SIGNED ? BC_LOAD_ADDR_I8 : BC_LOAD_ADDR_U8);
+						ByteCodeInstruction	bins(BC_LOAD_ADDR_U8);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
 						bins.mValue = 0;
 						mIns.Push(bins);
@@ -1471,20 +1476,10 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 
 				if (ins.mOperandSize == 1)
 				{
-					if (ins.mTType == IT_SIGNED)
-					{
-						ByteCodeInstruction	bins(BC_LOAD_ADDR_I8);
-						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
-						bins.mValue = ins.mSIntConst[0];
-						mIns.Push(bins);
-					}
-					else
-					{
-						ByteCodeInstruction	bins(BC_LOAD_ADDR_U8);
-						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
-						bins.mValue = ins.mSIntConst[0];
-						mIns.Push(bins);
-					}
+					ByteCodeInstruction	bins(BC_LOAD_ADDR_U8);
+					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+					bins.mValue = ins.mSIntConst[0];
+					mIns.Push(bins);
 				}
 				else if (ins.mOperandSize == 2)
 				{
@@ -1820,7 +1815,8 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 		lins.mRegisterFinal = ins.mSFinal[0];
 		mIns.Push(lins);
 
-		ByteCodeInstruction	bins(ins.mTType == IT_SIGNED ? BC_CONV_F32_I16 : BC_CONV_F32_U16);
+		ByteCodeInstruction	bins(BC_CONV_F32_I16);
+//		ByteCodeInstruction	bins(ins.mTType == IT_SIGNED ? BC_CONV_F32_I16 : BC_CONV_F32_U16);
 		mIns.Push(bins);
 
 		ByteCodeInstruction	sins(BC_STORE_REG_16);
@@ -1835,7 +1831,8 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 		lins.mRegisterFinal = ins.mSFinal[0];
 		mIns.Push(lins);
 
-		ByteCodeInstruction	bins(ins.mSType[0] == IT_SIGNED ? BC_CONV_I16_F32 : BC_CONV_U16_F32);
+		ByteCodeInstruction	bins(BC_CONV_I16_F32);
+//		ByteCodeInstruction	bins(ins.mSType[0] == IT_SIGNED ? BC_CONV_I16_F32 : BC_CONV_U16_F32);
 		mIns.Push(bins);
 
 		ByteCodeInstruction	sins(BC_STORE_REG_32);
@@ -1843,6 +1840,59 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 		mIns.Push(sins);
 
 	} break;
+	case IA_EXT8TO16S:
+	{
+		if (ins.mSTemp[0] == ins.mTTemp)
+		{
+			ByteCodeInstruction	cins(BC_CONV_I8_I16);
+			cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+			cins.mRegisterFinal = ins.mSFinal[0];
+			mIns.Push(cins);
+		}
+		else
+		{
+			ByteCodeInstruction	lins(BC_LOAD_REG_16);
+			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
+			lins.mRegisterFinal = ins.mSFinal[0];
+			mIns.Push(lins);
+
+			ByteCodeInstruction	cins(BC_CONV_I8_I16);
+			cins.mRegister = BC_REG_ACCU;
+			mIns.Push(cins);
+
+			ByteCodeInstruction	sins(BC_STORE_REG_16);
+			sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+			mIns.Push(sins);
+		}
+	}	break;
+	case IA_EXT8TO16U:
+	{
+		if (ins.mSTemp[0] == ins.mTTemp)
+		{
+			ByteCodeInstruction	cins(BC_BINOP_ANDI_16);
+			cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+			cins.mRegisterFinal = ins.mSFinal[0];
+			cins.mValue = 0x00ff;
+			mIns.Push(cins);
+		}
+		else
+		{
+			ByteCodeInstruction	lins(BC_LOAD_REG_16);
+			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mSTemp[0]];
+			lins.mRegisterFinal = ins.mSFinal[0];
+			mIns.Push(lins);
+
+			ByteCodeInstruction	cins(BC_BINOP_ANDI_16);
+			cins.mRegister = BC_REG_ACCU;
+			cins.mValue = 0x00ff;
+			mIns.Push(cins);
+
+			ByteCodeInstruction	sins(BC_STORE_REG_16);
+			sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins.mTTemp];
+			mIns.Push(sins);
+		}
+	}	break;
+
 	}
 }
 
@@ -2622,7 +2672,24 @@ void ByteCodeBasicBlock::PeepHoleOptimizer(void)
 					mIns[i + 1].mCode = BC_NOP;
 					progress = true;
 				}
-
+				else if (mIns[i].mCode == BC_LOAD_ABS_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+				{
+					mIns[i].mCode = BC_LOAD_ABS_I8;
+					mIns[i + 1].mCode = BC_NOP;
+					progress = true;
+				}
+				else if (mIns[i].mCode == BC_LOAD_LOCAL_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+				{
+					mIns[i].mCode = BC_LOAD_LOCAL_I8;
+					mIns[i + 1].mCode = BC_NOP;
+					progress = true;
+				}
+				else if (mIns[i].mCode == BC_LOAD_ADDR_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+				{
+					mIns[i].mCode = BC_LOAD_ADDR_I8;
+					mIns[i + 1].mCode = BC_NOP;
+					progress = true;
+				}
 			}
 
 			if ((mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32) && accuTemp == mIns[i].mRegister)
@@ -3204,6 +3271,11 @@ void ByteCodeProcedure::Disassemble(FILE * file, ByteCodeGenerator * generator, 
 		case BC_BINOP_MULI8_16:
 			fprintf(file, "MUL\t%s, #%d", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc), generator->mMemory[mProgStart + i + 1]);
 			i += 2;
+			break;
+
+		case BC_CONV_I8_I16:
+			fprintf(file, "SEXT8\t%s", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc));
+			i ++;
 			break;
 
 		case BC_BINOP_SHLI_16:

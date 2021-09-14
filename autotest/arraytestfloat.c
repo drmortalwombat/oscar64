@@ -8,6 +8,7 @@ float sum(float * a, int s)
 	{
 		sum += a[i];
 	}
+
 	return sum;
 }
 
@@ -18,6 +19,7 @@ int main(void)
 	{
 		a[i] = i % 10;
 	}
+	
 	assert(sum(a, 100) == 450);
 	return 0;
 }

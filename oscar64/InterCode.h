@@ -37,11 +37,12 @@ enum InterCode
 enum InterType
 {
 	IT_NONE,
-	IT_UNSIGNED,
-	IT_SIGNED,
+	IT_BOOL,
+	IT_INT8,
+	IT_INT16,
+	IT_INT32,
 	IT_FLOAT,
-	IT_POINTER,
-	IT_BOOL
+	IT_POINTER
 };
 
 enum InterMemory
@@ -89,7 +90,14 @@ enum InterOperator
 	IA_CMPGU,
 	IA_CMPLU,
 	IA_FLOAT2INT,
-	IA_INT2FLOAT
+	IA_INT2FLOAT,
+
+	IA_EXT8TO16U,
+	IA_EXT8TO32U,
+	IA_EXT16TO32U,
+	IA_EXT8TO16S,
+	IA_EXT8TO32S,
+	IA_EXT16TO32S
 };
 
 class InterInstruction;

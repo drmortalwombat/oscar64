@@ -20,8 +20,14 @@ static inline InterType InterTypeOf(const Declaration* dec)
 	case DT_TYPE_VOID:
 		return IT_NONE;
 	case DT_TYPE_INTEGER:
+		if (dec->mSize == 1)
+			return IT_INT8;
+		else if (dec->mSize == 2)
+			return IT_INT16;
+		else
+			return IT_INT32;
 	case DT_TYPE_ENUM:
-		return (dec->mFlags & DTF_SIGNED) ? IT_SIGNED : IT_UNSIGNED;
+		return IT_INT8;
 	case DT_TYPE_BOOL:
 		return IT_BOOL;
 	case DT_TYPE_FLOAT:
@@ -55,31 +61,101 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 
 InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* proc, InterCodeBasicBlock*& block, ExValue v, Declaration* type)
 {
+	int		stemp = v.mTemp;
+
 	if (v.mType->IsIntegerType() && type->mType == DT_TYPE_FLOAT)
 	{
+		if (v.mType->mSize == 1)
+		{
+			if (v.mType->mFlags & DTF_SIGNED)
+			{
+				InterInstruction	xins;
+				xins.mCode = IC_CONVERSION_OPERATOR;
+				xins.mOperator = IA_EXT8TO16S;
+				xins.mSType[0] = IT_INT8;
+				xins.mSTemp[0] = stemp;
+				xins.mTType = IT_INT16;
+				xins.mTTemp = proc->AddTemporary(IT_INT16);
+				block->Append(xins);
+				stemp = xins.mTTemp;
+			}
+			else
+			{
+				InterInstruction	xins;
+				xins.mCode = IC_CONVERSION_OPERATOR;
+				xins.mOperator = IA_EXT8TO16U;
+				xins.mSType[0] = IT_INT8;
+				xins.mSTemp[0] = stemp;
+				xins.mTType = IT_INT16;
+				xins.mTTemp = proc->AddTemporary(IT_INT16);
+				block->Append(xins);
+				stemp = xins.mTTemp;
+			}
+		}
+
 		InterInstruction	cins;
 		cins.mCode = IC_CONVERSION_OPERATOR;
 		cins.mOperator = IA_INT2FLOAT;
-		cins.mSType[0] = InterTypeOf(v.mType);
-		cins.mSTemp[0] = v.mTemp;
+		cins.mSType[0] = IT_INT16;
+		cins.mSTemp[0] = stemp;
 		cins.mTType = IT_FLOAT;
-		cins.mTTemp = proc->AddTemporary(cins.mTType);
+		cins.mTTemp = proc->AddTemporary(IT_FLOAT);
+		block->Append(cins);
+
 		v.mTemp = cins.mTTemp;
 		v.mType = type;
-		block->Append(cins);
 	}
 	else if (v.mType->mType == DT_TYPE_FLOAT && type->IsIntegerType())
 	{
 		InterInstruction	cins;
 		cins.mCode = IC_CONVERSION_OPERATOR;
 		cins.mOperator = IA_FLOAT2INT;
-		cins.mSType[0] = InterTypeOf(v.mType);
+		cins.mSType[0] = IT_FLOAT;
 		cins.mSTemp[0] = v.mTemp;
-		cins.mTType = InterTypeOf(type);
-		cins.mTTemp = proc->AddTemporary(cins.mTType);
+		cins.mTType = IT_INT16;
+		cins.mTTemp = proc->AddTemporary(IT_INT16);
+		block->Append(cins);
 		v.mTemp = cins.mTTemp;
 		v.mType = type;
-		block->Append(cins);
+	}
+	else if (v.mType->mSize < type->mSize)
+	{
+		if (v.mType->mSize == 1 && type->mSize == 2)
+		{
+			if (v.mType->mFlags & DTF_SIGNED)
+			{
+				InterInstruction	xins;
+				xins.mCode = IC_CONVERSION_OPERATOR;
+				xins.mOperator = IA_EXT8TO16S;
+				xins.mSType[0] = IT_INT8;
+				xins.mSTemp[0] = stemp;
+				xins.mTType = IT_INT16;
+				xins.mTTemp = proc->AddTemporary(IT_INT16);
+				block->Append(xins);
+				stemp = xins.mTTemp;
+			}
+			else
+			{
+				InterInstruction	xins;
+				xins.mCode = IC_CONVERSION_OPERATOR;
+				xins.mOperator = IA_EXT8TO16U;
+				xins.mSType[0] = IT_INT8;
+				xins.mSTemp[0] = stemp;
+				xins.mTType = IT_INT16;
+				xins.mTTemp = proc->AddTemporary(IT_INT16);
+				block->Append(xins);
+				stemp = xins.mTTemp;
+			}
+		}
+
+		v.mTemp = stemp;
+		v.mType = type;
+	}
+	else
+	{
+		// ignore size reduction
+
+		v.mType = type;
 	}
 
 	return v;
@@ -87,21 +163,21 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 
 static inline bool InterTypeTypeInteger(InterType t)
 {
-	return t == IT_UNSIGNED || t == IT_SIGNED || t == IT_BOOL;
+	return t == IT_INT8 || t == IT_INT16 || t == IT_INT32 || t == IT_BOOL;
 }
 
 static inline InterType InterTypeOfArithmetic(InterType t1, InterType t2)
 {
 	if (t1 == IT_FLOAT || t2 == IT_FLOAT)
 		return IT_FLOAT;
-	else if (t1 == IT_SIGNED && t2 == IT_SIGNED)
-		return IT_SIGNED;
+	else if (InterTypeTypeInteger(t1) && InterTypeTypeInteger(t2))
+		return t1 > t2 ? t1 : t2;
 	else if (t1 == IT_POINTER && t2 == IT_POINTER)
-		return IT_SIGNED;
+		return IT_INT16;
 	else if (t1 == IT_POINTER || t2 == IT_POINTER)
 		return IT_POINTER;
 	else
-		return IT_UNSIGNED;
+		return IT_INT16;
 }
 
 void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* dec)
@@ -360,17 +436,37 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins.mCode = IC_CONSTANT;
 				ins.mTType = InterTypeOf(dec->mBase);
 				ins.mTTemp = proc->AddTemporary(ins.mTType);
-				if (ins.mTType == IT_SIGNED)
+				if (ins.mTType == IT_INT8)
 				{
-					if (dec->mInteger < -32768 || dec->mInteger > 32767)
-						mErrors->Warning(dec->mLocation, "Integer constant truncated");
+					if (dec->mFlags & DTF_SIGNED)
+					{
+						if (dec->mInteger < -128 || dec->mInteger > 127)
+							mErrors->Warning(dec->mLocation, "Integer constant truncated");
+					}
+					else
+					{
+						if (dec->mInteger < 0 || dec->mInteger > 255)
+							mErrors->Warning(dec->mLocation, "Unsigned integer constant truncated");
+					}
+					ins.mIntValue = char(dec->mInteger);
+				}
+				else if (ins.mTType == IT_INT8)
+				{
+					if (dec->mFlags & DTF_SIGNED)
+					{
+						if (dec->mInteger < -32768 || dec->mInteger > 32767)
+							mErrors->Warning(dec->mLocation, "Integer constant truncated");
+					}
+					else
+					{
+						if (dec->mInteger < 0 || dec->mInteger > 65535)
+							mErrors->Warning(dec->mLocation, "Unsigned integer constant truncated");
+					}
 					ins.mIntValue = short(dec->mInteger);
 				}
 				else
 				{
-					if (dec->mInteger < 0 || dec->mInteger > 65535)
-						mErrors->Warning(dec->mLocation, "Unsigned integer constant truncated");
-					ins.mIntValue = unsigned short(dec->mInteger);
+					ins.mIntValue = dec->mInteger;
 				}
 				block->Append(ins);
 				return ExValue(dec->mBase, ins.mTTemp);
@@ -533,8 +629,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vr = TranslateExpression(procType, proc, block, exp->mRight, breakBlock, continueBlock);
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock);
 
-			if (!vl.mType->CanAssign(vr.mType))
-				mErrors->Error(exp->mLocation, "Cannot assign incompatible types");
+			if (exp->mToken == TK_ASSIGN || !(vl.mType->mType == IT_POINTER && vr.mType->IsIntegerType() && (exp->mToken == TK_ASSIGN_ADD || exp->mToken == TK_ASSIGN_SUB)))
+			{
+				if (!vl.mType->CanAssign(vr.mType))
+					mErrors->Error(exp->mLocation, "Cannot assign incompatible types");
+			} 
 
 			if (vl.mType->mFlags & DTF_CONST)
 				mErrors->Error(exp->mLocation, "Cannot assign to const type");
@@ -597,31 +696,34 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						if (!vr.mType->IsIntegerType())
 							mErrors->Error(exp->mLocation, "Invalid argument for pointer inc/dec");
 
-						cins.mTType = IT_SIGNED;
+						cins.mTType = IT_INT16;
 						cins.mTTemp = proc->AddTemporary(cins.mTType);
 						block->Append(cins);
 
 						InterInstruction	mins;
 						mins.mCode = IC_BINARY_OPERATOR;
 						mins.mOperator = IA_MUL;
-						mins.mSType[0] = IT_SIGNED;
+						mins.mSType[0] = IT_INT16;
 						mins.mSTemp[0] = vr.mTemp;
-						mins.mSType[1] = IT_SIGNED;
+						mins.mSType[1] = IT_INT16;
 						mins.mSTemp[1] = cins.mTTemp;
-						mins.mTType = IT_SIGNED;
+						mins.mTType = IT_INT16;
 						mins.mTTemp = proc->AddTemporary(mins.mTType);
 						block->Append(mins);
 
 						InterInstruction	ains;
 						ains.mCode = IC_LEA;
 						ains.mMemory = IM_INDIRECT;
-						ains.mSType[0] = IT_SIGNED;
+						ains.mSType[0] = IT_INT16;
 						ains.mSTemp[0] = mins.mTTemp;
 						ains.mSType[1] = IT_POINTER;
-						ains.mSTemp[1] = vl.mTemp;
+						ains.mSTemp[1] = vll.mTemp;
 						ains.mTType = IT_POINTER;
 						ains.mTTemp = proc->AddTemporary(ains.mTType);
 						block->Append(ains);
+
+						vr.mTemp = ains.mTTemp;
+						vr.mType = vll.mType;
 					}
 					else
 					{
@@ -692,32 +794,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else
 				{
-					if (vl.mType->IsIntegerType() && vr.mType->mType == DT_TYPE_FLOAT)
-					{
-						InterInstruction	cins;
-						cins.mCode = IC_CONVERSION_OPERATOR;
-						cins.mOperator = IA_FLOAT2INT;
-						cins.mSType[0] = InterTypeOf(vr.mType);
-						cins.mSTemp[0] = vr.mTemp;
-						cins.mTType = InterTypeOf(vl.mType);
-						cins.mTTemp = proc->AddTemporary(cins.mTType);
-						vr.mTemp = cins.mTTemp;
-						vr.mType = TheSignedIntTypeDeclaration;
-						block->Append(cins);
-					}
-					else if (vl.mType->mType == DT_TYPE_FLOAT && vr.mType->IsIntegerType())
-					{
-						InterInstruction	cins;
-						cins.mCode = IC_CONVERSION_OPERATOR;
-						cins.mOperator = IA_INT2FLOAT;
-						cins.mSType[0] = InterTypeOf(vr.mType);
-						cins.mSTemp[0] = vr.mTemp;
-						cins.mTType = InterTypeOf(vl.mType);;
-						cins.mTTemp = proc->AddTemporary(cins.mTType);
-						vr.mTemp = cins.mTTemp;
-						vr.mType = TheFloatTypeDeclaration;
-						block->Append(cins);
-					}
+					vr = CoerceType(proc, block, vr, vl.mType);
 				}
 
 				ins.mCode = IC_STORE;
@@ -750,25 +827,25 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	cins;
 			cins.mCode = IC_CONSTANT;
 			cins.mIntValue = vl.mType->mBase->mSize;
-			cins.mTType = IT_SIGNED;
+			cins.mTType = IT_INT16;
 			cins.mTTemp = proc->AddTemporary(cins.mTType);
 			block->Append(cins);
 
 			InterInstruction	mins;
 			mins.mCode = IC_BINARY_OPERATOR;
 			mins.mOperator = IA_MUL;
-			mins.mSType[0] = IT_SIGNED;
+			mins.mSType[0] = IT_INT16;
 			mins.mSTemp[0] = vr.mTemp;
-			mins.mSType[1] = IT_SIGNED;
+			mins.mSType[1] = IT_INT16;
 			mins.mSTemp[1] = cins.mTTemp;
-			mins.mTType = IT_SIGNED;			
+			mins.mTType = IT_INT16;
 			mins.mTTemp = proc->AddTemporary(mins.mTType);
 			block->Append(mins);
 
 			InterInstruction	ains;
 			ains.mCode = IC_LEA;
 			ains.mMemory = IM_INDIRECT;
-			ains.mSType[0] = IT_SIGNED;
+			ains.mSType[0] = IT_INT16;
 			ains.mSTemp[0] = mins.mTTemp;
 			ains.mSType[1] = IT_POINTER;
 			ains.mSTemp[1] = vl.mTemp;
@@ -790,14 +867,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	cins;
 			cins.mCode = IC_CONSTANT;
 			cins.mIntValue = exp->mDecValue->mOffset;
-			cins.mTType = IT_SIGNED;
+			cins.mTType = IT_INT16;
 			cins.mTTemp = proc->AddTemporary(cins.mTType);
 			block->Append(cins);
 
 			InterInstruction	ains;
 			ains.mCode = IC_LEA;
 			ains.mMemory = IM_INDIRECT;
-			ains.mSType[0] = IT_SIGNED;
+			ains.mSType[0] = IT_INT16;
 			ains.mSTemp[0] = cins.mTTemp;
 			ains.mSType[1] = IT_POINTER;
 			ains.mSTemp[1] = vl.mTemp;
@@ -846,24 +923,24 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else
 						mErrors->Error(exp->mLocation, "Invalid pointer operation");
 
-					cins.mTType = IT_SIGNED;
+					cins.mTType = IT_INT16;
 					cins.mTTemp = proc->AddTemporary(cins.mTType);
 					block->Append(cins);
 
 					InterInstruction	mins;
 					mins.mCode = IC_BINARY_OPERATOR;
 					mins.mOperator = IA_MUL;
-					mins.mSType[0] = IT_SIGNED;
+					mins.mSType[0] = IT_INT16;
 					mins.mSTemp[0] = vr.mTemp;
-					mins.mSType[1] = IT_SIGNED;
+					mins.mSType[1] = IT_INT16;
 					mins.mSTemp[1] = cins.mTTemp;
-					mins.mTType = IT_SIGNED;
+					mins.mTType = IT_INT16;
 					mins.mTTemp = proc->AddTemporary(mins.mTType);
 					block->Append(mins);
 
 					ins.mCode = IC_LEA;
 					ins.mMemory = IM_INDIRECT;
-					ins.mSType[0] = IT_SIGNED;
+					ins.mSType[0] = IT_INT16;
 					ins.mSTemp[0] = mins.mTTemp;
 					ins.mSType[1] = IT_POINTER;
 					ins.mSTemp[1] = vl.mTemp;
@@ -879,42 +956,42 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						clins.mCode = IC_TYPECAST;
 						clins.mSTemp[0] = vl.mTemp;
 						clins.mSType[0] = IT_POINTER;
-						clins.mTType = IT_SIGNED;
+						clins.mTType = IT_INT16;
 						clins.mTTemp = proc->AddTemporary(clins.mTType);
 						block->Append(clins);
 
 						crins.mCode = IC_TYPECAST;
 						crins.mSTemp[0] = vr.mTemp;
 						crins.mSType[0] = IT_POINTER;
-						crins.mTType = IT_SIGNED;
+						crins.mTType = IT_INT16;
 						crins.mTTemp = proc->AddTemporary(crins.mTType);
 						block->Append(crins);
 
 						InterInstruction	cins;
 						cins.mCode = IC_CONSTANT;
 						cins.mIntValue = vl.mType->mBase->mSize;
-						cins.mTType = IT_SIGNED;
+						cins.mTType = IT_INT16;
 						cins.mTTemp = proc->AddTemporary(cins.mTType);
 						block->Append(cins);
 
 						InterInstruction	sins, dins;
 						sins.mCode = IC_BINARY_OPERATOR;
 						sins.mOperator = IA_SUB;
-						sins.mSType[0] = IT_SIGNED;
+						sins.mSType[0] = IT_INT16;
 						sins.mSTemp[0] = crins.mTTemp;
-						sins.mSType[1] = IT_SIGNED;
+						sins.mSType[1] = IT_INT16;
 						sins.mSTemp[1] = clins.mTTemp;
-						sins.mTType = IT_SIGNED;
+						sins.mTType = IT_INT16;
 						sins.mTTemp = proc->AddTemporary(sins.mTType);
 						block->Append(sins);
 
 						dins.mCode = IC_BINARY_OPERATOR;
 						dins.mOperator = IA_DIVS;
-						dins.mSType[0] = IT_SIGNED;
+						dins.mSType[0] = IT_INT16;
 						dins.mSTemp[0] = cins.mTTemp;
-						dins.mSType[1] = IT_SIGNED;
+						dins.mSType[1] = IT_INT16;
 						dins.mSTemp[1] = sins.mTTemp;
-						dins.mTType = IT_SIGNED;
+						dins.mTType = IT_INT16;
 						dins.mTTemp = proc->AddTemporary(dins.mTType);
 						block->Append(dins);
 
@@ -933,34 +1010,22 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (!vr.mType->IsNumericType())
 					mErrors->Error(exp->mLocation, "Right hand operand type is not numeric");
 
-				if (vl.mType->IsIntegerType() && vr.mType->mType == DT_TYPE_FLOAT)
-				{
-					InterInstruction	cins;
-					cins.mCode = IC_CONVERSION_OPERATOR;
-					cins.mOperator = IA_INT2FLOAT;
-					cins.mSType[0] = InterTypeOf(vl.mType);
-					cins.mSTemp[0] = vl.mTemp;
-					cins.mTType = IT_FLOAT;
-					cins.mTTemp = proc->AddTemporary(cins.mTType);
-					vl.mTemp = cins.mTTemp;
-					vl.mType = TheFloatTypeDeclaration;
-					block->Append(cins);
-				}
-				else if (vl.mType->mType == DT_TYPE_FLOAT && vr.mType->IsIntegerType())
-				{
-					InterInstruction	cins;
-					cins.mCode = IC_CONVERSION_OPERATOR;
-					cins.mOperator = IA_INT2FLOAT;
-					cins.mSType[0] = InterTypeOf(vr.mType);
-					cins.mSTemp[0] = vr.mTemp;
-					cins.mTType = IT_FLOAT;
-					cins.mTTemp = proc->AddTemporary(cins.mTType);
-					vr.mTemp = cins.mTTemp;
-					vr.mType = TheFloatTypeDeclaration;
-					block->Append(cins);
-				}
+				Declaration* dtype;
+				if (vr.mType->mType == DT_TYPE_FLOAT || vl.mType->mType == DT_TYPE_FLOAT)
+					dtype = TheFloatTypeDeclaration;
+				else if (vr.mType->mSize < vl.mType->mSize && (vl.mType->mFlags & DTF_SIGNED))
+					dtype = TheSignedIntTypeDeclaration;
+				else if (vl.mType->mSize < vr.mType->mSize && (vr.mType->mFlags & DTF_SIGNED))
+					dtype = TheSignedIntTypeDeclaration;
+				else if ((vr.mType->mFlags & DTF_SIGNED) && (vl.mType->mFlags & DTF_SIGNED))
+					dtype = TheSignedIntTypeDeclaration;
+				else
+					dtype = TheUnsignedIntTypeDeclaration;
 
-				bool	signedOP = (vl.mType->mFlags & DTF_SIGNED) && (vr.mType->mFlags & DTF_SIGNED);
+				vl = CoerceType(proc, block, vl, dtype);
+				vr = CoerceType(proc, block, vr, dtype);
+
+				bool	signedOP = dtype->mFlags & DTF_SIGNED;
 
 				ins.mCode = IC_BINARY_OPERATOR;
 				switch (exp->mToken)
@@ -1028,7 +1093,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			bool	ftype = vl.mType->mType == DT_TYPE_FLOAT;
 
 			cins.mCode = IC_CONSTANT;
-			cins.mTType = ftype ? IT_FLOAT : IT_SIGNED;
+			cins.mTType = ftype ? IT_FLOAT : IT_INT16;
 			cins.mTTemp = proc->AddTemporary(cins.mTType);
 			if (vdl.mType->mType == DT_TYPE_POINTER)
 				cins.mIntValue = exp->mToken == TK_INC ? vdl.mType->mBase->mSize : -(vdl.mType->mBase->mSize);
@@ -1080,7 +1145,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			bool	ftype = vl.mType->mType == DT_TYPE_FLOAT;
 
 			cins.mCode = IC_CONSTANT;
-			cins.mTType = ftype ? IT_FLOAT : IT_SIGNED;
+			cins.mTType = ftype ? IT_FLOAT : IT_INT16;
 			cins.mTTemp = proc->AddTemporary(cins.mTType);
 			if (vdl.mType->mType == DT_TYPE_POINTER)
 				cins.mIntValue = exp->mToken == TK_INC ? vdl.mType->mBase->mSize : -(vdl.mType->mBase->mSize);
@@ -1175,37 +1240,31 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			InterInstruction	ins;
 
-			bool	signedCompare = (vl.mType->mFlags & DTF_SIGNED) && (vr.mType->mFlags & DTF_SIGNED);
+			Declaration* dtype = TheSignedIntTypeDeclaration;
 
-			if (!(vl.mType->mType == DT_TYPE_POINTER || vl.mType->IsNumericType()))
+			if (vl.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_POINTER)
+			{
+				dtype = vl.mType;
+				if (!vl.mType->IsSame(vr.mType))
+					mErrors->Error(exp->mLocation, "Incompatible pointer types");
+			}
+			else if (!vl.mType->IsNumericType() || !vr.mType->IsNumericType())
 				mErrors->Error(exp->mLocation, "Not a numeric or pointer type");
+			else if (vr.mType->mType == DT_TYPE_FLOAT || vl.mType->mType == DT_TYPE_FLOAT)
+				dtype = TheFloatTypeDeclaration;
+			else if (vr.mType->mSize < vl.mType->mSize && (vl.mType->mFlags & DTF_SIGNED))
+				dtype = TheSignedIntTypeDeclaration;
+			else if (vl.mType->mSize < vr.mType->mSize && (vr.mType->mFlags & DTF_SIGNED))
+				dtype = TheSignedIntTypeDeclaration;
+			else if ((vr.mType->mFlags & DTF_SIGNED) && (vl.mType->mFlags & DTF_SIGNED))
+				dtype = TheSignedIntTypeDeclaration;
+			else
+				dtype = TheUnsignedIntTypeDeclaration;
 
-			if (vl.mType->IsIntegerType() && vr.mType->mType == DT_TYPE_FLOAT)
-			{
-				InterInstruction	cins;
-				cins.mCode = IC_CONVERSION_OPERATOR;
-				cins.mOperator = IA_INT2FLOAT;
-				cins.mSType[0] = InterTypeOf(vl.mType);
-				cins.mSTemp[0] = vl.mTemp;
-				cins.mTType = IT_FLOAT;
-				cins.mTTemp = proc->AddTemporary(cins.mTType);
-				vl.mTemp = cins.mTTemp;
-				vl.mType = TheFloatTypeDeclaration;
-				block->Append(cins);
-			}
-			else if (vl.mType->mType == DT_TYPE_FLOAT && vr.mType->IsIntegerType())
-			{
-				InterInstruction	cins;
-				cins.mCode = IC_CONVERSION_OPERATOR;
-				cins.mOperator = IA_INT2FLOAT;
-				cins.mSType[0] = InterTypeOf(vr.mType);
-				cins.mSTemp[0] = vr.mTemp;
-				cins.mTType = IT_FLOAT;
-				cins.mTTemp = proc->AddTemporary(cins.mTType);
-				vr.mTemp = cins.mTTemp;
-				vr.mType = TheFloatTypeDeclaration;
-				block->Append(cins);
-			}
+			vl = CoerceType(proc, block, vl, dtype);
+			vr = CoerceType(proc, block, vr, dtype);
+
+			bool	signedCompare = dtype->mFlags & DTF_SIGNED;
 
 			ins.mCode = IC_RELATIONAL_OPERATOR;
 			switch (exp->mToken)
@@ -1737,74 +1796,57 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vr = Dereference(proc, fblock, vr);
 
 			int			ttemp;
-			InterType	ttype;
+			InterType	ttype, stypel, styper;
+
+			stypel = InterTypeOf(vl.mType);
+			styper = InterTypeOf(vr.mType);
+
 			Declaration* dtype;
-			if (vl.mType->mType == DT_TYPE_FLOAT || vr.mType->mType == DT_TYPE_FLOAT)
+			if (stypel == IT_POINTER || styper == IT_POINTER)
 			{
-				ttype = IT_FLOAT;
-				dtype = TheFloatTypeDeclaration;
-			}
-			else if (vl.mType->IsIntegerType() && vr.mType->IsIntegerType())
-			{
-				ttype = ((vl.mType->mFlags & DTF_SIGNED) && (vr.mType->mFlags & DTF_SIGNED)) ? IT_SIGNED : IT_UNSIGNED;
-				dtype = vl.mType;
-			}
-			else if (vl.mType->mType == DT_TYPE_POINTER && vl.mType->IsSame(vr.mType))
-			{
+				if (!vl.mType->IsSame(vr.mType))
+					mErrors->Error(exp->mLocation, "Incompatible conditional types");
+				
 				ttype = IT_POINTER;
 				dtype = vl.mType;
 			}
+			else if (stypel == styper)
+			{
+				ttype = stypel;
+				dtype = vl.mType;
+			}
+			else if (stypel > styper)
+			{
+				ttype = stypel;
+				dtype = vl.mType;
+
+				vr = CoerceType(proc, fblock, vr, dtype);
+			}
 			else
 			{
-				mErrors->Error(exp->mLocation, "Incompatible conditional types");
-				ttype = IT_SIGNED;
-				dtype = TheVoidTypeDeclaration;
+				ttype = styper;
+				dtype = vr.mType;
+
+				vl = CoerceType(proc, tblock, vl, dtype);
 			}
+
 			ttemp = proc->AddTemporary(ttype);
 
-			if (ttype == IT_FLOAT && vr.mType->IsIntegerType())
-			{
-				InterInstruction	ins;
-				ins.mCode = IC_CONVERSION_OPERATOR;
-				ins.mOperator = IA_INT2FLOAT;
-				ins.mSType[0] = InterTypeOf(vr.mType);
-				ins.mSTemp[0] = vr.mTemp;
-				ins.mTType = ttype;
-				ins.mTTemp = ttemp;
-				fblock->Append(ins);
-			}
-			else
-			{
-				InterInstruction	ins;
-				ins.mCode = IC_LOAD_TEMPORARY;
-				ins.mSType[0] = InterTypeOf(vr.mType);
-				ins.mSTemp[0] = vr.mTemp;
-				ins.mTType = ttype;
-				ins.mTTemp = ttemp;
-				fblock->Append(ins);
-			}
+			InterInstruction	rins;
+			rins.mCode = IC_LOAD_TEMPORARY;
+			rins.mSType[0] = InterTypeOf(vr.mType);
+			rins.mSTemp[0] = vr.mTemp;
+			rins.mTType = ttype;
+			rins.mTTemp = ttemp;
+			fblock->Append(rins);
 
-			if (ttype == IT_FLOAT && vl.mType->IsIntegerType())
-			{
-				InterInstruction	ins;
-				ins.mCode = IC_CONVERSION_OPERATOR;
-				ins.mOperator = IA_INT2FLOAT;
-				ins.mSType[0] = InterTypeOf(vl.mType);
-				ins.mSTemp[0] = vl.mTemp;
-				ins.mTType = ttype;
-				ins.mTTemp = ttemp;
-				tblock->Append(ins);
-			}
-			else
-			{
-				InterInstruction	ins;
-				ins.mCode = IC_LOAD_TEMPORARY;
-				ins.mSType[0] = InterTypeOf(vl.mType);
-				ins.mSTemp[0] = vl.mTemp;
-				ins.mTType = ttype;
-				ins.mTTemp = ttemp;
-				tblock->Append(ins);
-			}
+			InterInstruction	lins;
+			lins.mCode = IC_LOAD_TEMPORARY;
+			lins.mSType[0] = InterTypeOf(vl.mType);
+			lins.mSTemp[0] = vl.mTemp;
+			lins.mTType = ttype;
+			lins.mTTemp = ttemp;
+			tblock->Append(lins);
 
 			tblock->Append(jins);
 			tblock->Close(eblock, nullptr);

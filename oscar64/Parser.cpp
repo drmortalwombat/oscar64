@@ -131,6 +131,29 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 
 		break;
 
+	case TK_SIGNED:
+		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
+		dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
+		mScanner->NextToken();
+		if (mScanner->mToken == TK_INT || mScanner->mToken == TK_SHORT)
+		{
+			dec->mSize = 2;
+			mScanner->NextToken();
+		}
+		else if (mScanner->mToken == TK_LONG)
+		{
+			dec->mSize = 4;
+			mScanner->NextToken();
+		}
+		else if (mScanner->mToken == TK_CHAR)
+		{
+			dec->mSize = 1;
+			mScanner->NextToken();
+		}
+		else
+			dec->mSize = 2;
+		break;
+
 	case TK_CONST:
 		mScanner->NextToken();
 		return ParseBaseTypeDeclaration(flags | DTF_CONST);
@@ -157,14 +180,14 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 	case TK_CHAR:
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
 		dec->mSize = 1;
-		dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
+		dec->mFlags = flags | DTF_DEFINED;
 		mScanner->NextToken();
 		break;
 
 	case TK_BOOL:
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_BOOL);
 		dec->mSize = 1;
-		dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
+		dec->mFlags = flags | DTF_DEFINED;
 		mScanner->NextToken();
 		break;
 
@@ -840,6 +863,7 @@ Expression* Parser::ParseSimpleExpression(void)
 	case TK_BOOL:
 	case TK_VOID:
 	case TK_UNSIGNED:
+	case TK_SIGNED:
 	case TK_CONST:
 	case TK_VOLATILE:
 	case TK_STRUCT:
@@ -878,7 +902,7 @@ Expression* Parser::ParseSimpleExpression(void)
 		dec->mVarIndex = -1;
 		dec->mBase = new Declaration(mScanner->mLocation, DT_TYPE_ARRAY);
 		dec->mBase->mSize = dec->mSize;
-		dec->mBase->mBase = TheConstSignedCharTypeDeclaration;
+		dec->mBase->mBase = TheConstCharTypeDeclaration;
 		dec->mBase->mFlags |= DTF_DEFINED;
 		uint8* d = new uint8[dec->mSize];
 		dec->mData = d;
@@ -1206,6 +1230,12 @@ Expression* Parser::ParseMulExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParsePrefixExpression();
+
+		if (nexp->mLeft->mDecType->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->mType == DT_TYPE_FLOAT)
+			nexp->mDecType = TheFloatTypeDeclaration;
+		else
+			nexp->mDecType = exp->mDecType;
+
 		exp = nexp->ConstantFold();
 	}
 
@@ -1223,6 +1253,15 @@ Expression* Parser::ParseAddExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseMulExpression();
+		if (nexp->mLeft->mDecType->mType == DT_TYPE_POINTER && nexp->mRight->mDecType->IsIntegerType())
+			nexp->mDecType = nexp->mLeft->mDecType;
+		else if (nexp->mRight->mDecType->mType == DT_TYPE_POINTER && nexp->mLeft->mDecType->IsIntegerType())
+			nexp->mDecType = nexp->mRight->mDecType;
+		else if (nexp->mLeft->mDecType->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->mType == DT_TYPE_FLOAT)
+			nexp->mDecType = TheFloatTypeDeclaration;
+		else
+			nexp->mDecType = exp->mDecType;
+
 		exp = nexp->ConstantFold();
 	}
 
@@ -1240,6 +1279,8 @@ Expression* Parser::ParseShiftExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseAddExpression();
+		nexp->mDecType = exp->mDecType;
+
 		exp = nexp->ConstantFold();
 	}
 
@@ -1257,6 +1298,8 @@ Expression* Parser::ParseRelationalExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseShiftExpression();
+		nexp->mDecType = TheBoolTypeDeclaration;
+
 		exp = nexp->ConstantFold();
 	}
 
@@ -1274,6 +1317,8 @@ Expression* Parser::ParseBinaryAndExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseRelationalExpression();
+		nexp->mDecType = exp->mDecType;
+
 		exp = nexp->ConstantFold();
 	}
 
@@ -1291,6 +1336,7 @@ Expression* Parser::ParseBinaryXorExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseBinaryAndExpression();
+		nexp->mDecType = exp->mDecType;
 		exp = nexp->ConstantFold();
 	}
 
@@ -1308,6 +1354,7 @@ Expression* Parser::ParseBinaryOrExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseBinaryXorExpression();
+		nexp->mDecType = exp->mDecType;
 		exp = nexp->ConstantFold();
 	}
 
@@ -1325,6 +1372,7 @@ Expression* Parser::ParseLogicAndExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseBinaryOrExpression();
+		nexp->mDecType = TheBoolTypeDeclaration;
 		exp = nexp->ConstantFold();
 	}
 
@@ -1342,6 +1390,7 @@ Expression* Parser::ParseLogicOrExpression(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseLogicAndExpression();
+		nexp->mDecType = TheBoolTypeDeclaration;
 		exp = nexp->ConstantFold();
 	}
 
