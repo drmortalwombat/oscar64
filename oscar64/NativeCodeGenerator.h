@@ -83,25 +83,25 @@ public:
 	void PutWord(uint16 code);
 
 	void CheckFrameIndex(int & reg, int & index, int size);
-	void LoadValueToReg(InterCodeProcedure* proc, const InterInstruction& ins, int reg, const NativeCodeInstruction * ainsl, const NativeCodeInstruction* ainsh);
-	void LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction& ins, InterType type, int reg);
+	void LoadValueToReg(InterCodeProcedure* proc, const InterInstruction * ins, int reg, const NativeCodeInstruction * ainsl, const NativeCodeInstruction* ainsh);
+	void LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction * ins, InterType type, int reg);
 
-	void LoadConstant(InterCodeProcedure* proc, const InterInstruction& ins);
-	void StoreValue(InterCodeProcedure* proc, const InterInstruction& ins);
-	void LoadValue(InterCodeProcedure* proc, const InterInstruction& ins);
-	void LoadStoreValue(InterCodeProcedure* proc, const InterInstruction& rins, const InterInstruction& wins);
-	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction& ins, const InterInstruction* sins1, const InterInstruction* sins0);
-	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction& ins);
-	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
-	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction& ins, const InterInstruction* sins1, const InterInstruction* sins0);
-	void NumericConversion(InterCodeProcedure* proc, const InterInstruction& ins);
-	void CopyValue(InterCodeProcedure* proc, const InterInstruction& ins, NativeCodeProcedure* nproc);
+	void LoadConstant(InterCodeProcedure* proc, const InterInstruction * ins);
+	void StoreValue(InterCodeProcedure* proc, const InterInstruction * ins);
+	void LoadValue(InterCodeProcedure* proc, const InterInstruction * ins);
+	void LoadStoreValue(InterCodeProcedure* proc, const InterInstruction * rins, const InterInstruction * wins);
+	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
+	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction * ins);
+	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
+	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
+	void NumericConversion(InterCodeProcedure* proc, const InterInstruction * ins);
+	void CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc);
 
-	void CallAssembler(InterCodeProcedure* proc, const InterInstruction& ins);
-	void CallFunction(InterCodeProcedure* proc, const InterInstruction& ins);
+	void CallAssembler(InterCodeProcedure* proc, const InterInstruction * ins);
+	void CallFunction(InterCodeProcedure* proc, const InterInstruction * ins);
 
 	void ShiftRegisterLeft(InterCodeProcedure* proc, int reg, int shift);
-	int ShortMultiply(InterCodeProcedure* proc, const InterInstruction& ins, const InterInstruction* sins, int index, int mul);
+	int ShortMultiply(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins, int index, int mul);
 
 	bool CheckPredAccuStore(int reg);
 

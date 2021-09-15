@@ -115,7 +115,7 @@ typedef GrowingArray<InterType>					GrowingTypeArray;
 typedef GrowingArray<int>						GrowingIntArray;
 typedef GrowingArray<InterInstructionPtr>		GrowingInstructionPtrArray;
 typedef GrowingArray<InterCodeBasicBlockPtr>	GrowingInterCodeBasicBlockPtrArray;
-typedef GrowingArray<InterInstruction>			GrowingInstructionArray;
+typedef GrowingArray<InterInstruction *>		GrowingInstructionArray;
 typedef GrowingArray<InterCodeProcedurePtr	>	GrowingInterCodeProcedurePtrArray;
 
 
@@ -139,9 +139,9 @@ public:
 	void FlushCallAliases(void);
 
 	void RemoveValue(int index);
-	void InsertValue(InterInstruction& ins);
+	void InsertValue(InterInstruction * ins);
 
-	void UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
+	void UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
 	void Intersect(ValueSet& set);
 };
 
@@ -308,7 +308,10 @@ public:
 	double								mFloatValue;
 	Location							mLocation;
 
+	bool								mInUse;
+
 	InterInstruction(void);
+
 	void SetCode(const Location & loc, InterCode code);
 
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
@@ -408,7 +411,7 @@ public:
 	InterCodeBasicBlock(void);
 	~InterCodeBasicBlock(void);
 
-	void Append(InterInstruction & code);
+	void Append(InterInstruction * code);
 	void Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump);
 
 	void CollectEntries(void);
@@ -440,7 +443,7 @@ public:
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
-	void CheckValueUsage(InterInstruction& ins, const GrowingInstructionPtrArray& tvalue);
+	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue);
 	void PerformTempForwarding(TempForwardingTable& forwardingTable);
 	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);

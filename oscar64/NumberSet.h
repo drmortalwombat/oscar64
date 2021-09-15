@@ -92,7 +92,7 @@ __forceinline bool FastNumberSet::operator[](int elem)
 {
 	uint32 dw = buffer[size + elem];
 
-	return (dw < num&& buffer[dw] == elem);
+	return (dw < num && buffer[dw] == elem);
 }
 
 __forceinline FastNumberSet& FastNumberSet::operator+=(int elem)

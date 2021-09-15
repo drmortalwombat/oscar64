@@ -236,34 +236,34 @@ static double ConstantFolding(InterOperator oper, double val1, double val2 = 0.0
 	}
 }
 
-static void ConversionConstantFold(InterInstruction& ins, InterInstruction * cins)
+static void ConversionConstantFold(InterInstruction * ins, InterInstruction * cins)
 {
-	switch (ins.mOperator)
+	switch (ins->mOperator)
 	{
 	case IA_INT2FLOAT:
-		ins.mCode = IC_CONSTANT;
-		ins.mFloatValue = (double)(cins->mIntValue);
-		ins.mSTemp[0] = -1;
+		ins->mCode = IC_CONSTANT;
+		ins->mFloatValue = (double)(cins->mIntValue);
+		ins->mSTemp[0] = -1;
 		break;
 	case IA_FLOAT2INT:
-		ins.mCode = IC_CONSTANT;
-		ins.mIntValue = (int)(cins->mFloatValue);
-		ins.mSTemp[0] = -1;
+		ins->mCode = IC_CONSTANT;
+		ins->mIntValue = (int)(cins->mFloatValue);
+		ins->mSTemp[0] = -1;
 		break;
 	case IA_EXT8TO16S:
-		ins.mCode = IC_CONSTANT;
-		ins.mIntValue = (char)(cins->mIntValue);
-		ins.mSTemp[0] = -1;
+		ins->mCode = IC_CONSTANT;
+		ins->mIntValue = (char)(cins->mIntValue);
+		ins->mSTemp[0] = -1;
 		break;
 	case IA_EXT8TO16U:
-		ins.mCode = IC_CONSTANT;
-		ins.mIntValue = (unsigned char)(cins->mIntValue);
-		ins.mSTemp[0] = -1;
+		ins->mCode = IC_CONSTANT;
+		ins->mIntValue = (unsigned char)(cins->mIntValue);
+		ins->mSTemp[0] = -1;
 		break;
 	}
 }
 
-void ValueSet::InsertValue(InterInstruction& ins)
+void ValueSet::InsertValue(InterInstruction * ins)
 {
 	InterInstructionPtr* nins;
 	int								i;
@@ -278,7 +278,7 @@ void ValueSet::InsertValue(InterInstruction& ins)
 		mInstructions = nins;
 	}
 
-	mInstructions[mNum++] = &ins;
+	mInstructions[mNum++] = ins;
 }
 
 static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtrArray& tvalue, InterMemory& mem, int& vindex, int& offset)
@@ -365,11 +365,11 @@ void ValueSet::Intersect(ValueSet& set)
 	mNum = k;
 }
 
-void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams)
+void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams)
 {
 	int	i, value, temp;
 
-	temp = ins.mTTemp;
+	temp = ins->mTTemp;
 
 	if (temp >= 0)
 	{
@@ -392,39 +392,39 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 
 	for (i = 0; i < 3; i++)
 	{
-		temp = ins.mSTemp[i];
+		temp = ins->mSTemp[i];
 		if (temp >= 0 && tvalue[temp])
 		{
-			ins.mSTemp[i] = tvalue[temp]->mTTemp;
+			ins->mSTemp[i] = tvalue[temp]->mTTemp;
 		}
 	}
 
-	switch (ins.mCode)
+	switch (ins->mCode)
 	{
 	case IC_LOAD:
 		i = 0;
 		while (i < mNum &&
 			(mInstructions[i]->mCode != IC_LOAD ||
-				mInstructions[i]->mSTemp[0] != ins.mSTemp[0] ||
-				mInstructions[i]->mOperandSize != ins.mOperandSize))
+				mInstructions[i]->mSTemp[0] != ins->mSTemp[0] ||
+				mInstructions[i]->mOperandSize != ins->mOperandSize))
 		{
 			i++;
 		}
 
 		if (i < mNum)
 		{
-			ins.mCode = IC_LOAD_TEMPORARY;
-			ins.mSTemp[0] = mInstructions[i]->mTTemp;
-			ins.mSType[0] = mInstructions[i]->mTType;
-			assert(ins.mSTemp[0] >= 0);
+			ins->mCode = IC_LOAD_TEMPORARY;
+			ins->mSTemp[0] = mInstructions[i]->mTTemp;
+			ins->mSType[0] = mInstructions[i]->mTType;
+			assert(ins->mSTemp[0] >= 0);
 		}
 		else
 		{
 			i = 0;
 			while (i < mNum &&
 				(mInstructions[i]->mCode != IC_STORE ||
-					mInstructions[i]->mSTemp[1] != ins.mSTemp[0] ||
-					mInstructions[i]->mOperandSize != ins.mOperandSize))
+					mInstructions[i]->mSTemp[1] != ins->mSTemp[0] ||
+					mInstructions[i]->mOperandSize != ins->mOperandSize))
 			{
 				i++;
 			}
@@ -433,17 +433,17 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 			{
 				if (mInstructions[i]->mSTemp[0] < 0)
 				{
-					ins.mCode = IC_CONSTANT;
-					ins.mSTemp[0] = -1;
-					ins.mSType[0] = mInstructions[i]->mSType[0];
-					ins.mIntValue = mInstructions[i]->mSIntConst[0];
+					ins->mCode = IC_CONSTANT;
+					ins->mSTemp[0] = -1;
+					ins->mSType[0] = mInstructions[i]->mSType[0];
+					ins->mIntValue = mInstructions[i]->mSIntConst[0];
 				}
 				else
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mSTemp[0];
-					ins.mSType[0] = mInstructions[i]->mSType[0];
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = mInstructions[i]->mSTemp[0];
+					ins->mSType[0] = mInstructions[i]->mSType[0];
+					assert(ins->mSTemp[0] >= 0);
 				}
 			}
 			else
@@ -457,7 +457,7 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		i = 0;
 		while (i < mNum)
 		{
-			if ((mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE) && StoreAliasing(mInstructions[i], &ins, tvalue, aliasedLocals, aliasedParams))
+			if ((mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE) && StoreAliasing(mInstructions[i], ins, tvalue, aliasedLocals, aliasedParams))
 			{
 				mNum--;
 				if (mNum > 0)
@@ -473,7 +473,7 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		i = 0;
 		while (i < mNum)
 		{
-			if ((mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE) && StoreAliasing(mInstructions[i], &ins, tvalue, aliasedLocals, aliasedParams))
+			if ((mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE) && StoreAliasing(mInstructions[i], ins, tvalue, aliasedLocals, aliasedParams))
 			{
 				mNum--;
 				if (mNum > 0)
@@ -486,14 +486,14 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		break;
 
 	case IC_CONSTANT:
-		switch (ins.mTType)
+		switch (ins->mTType)
 		{
 		case IT_FLOAT:
 			i = 0;
 			while (i < mNum &&
 				(mInstructions[i]->mCode != IC_CONSTANT ||
-					mInstructions[i]->mTType != ins.mTType ||
-					mInstructions[i]->mFloatValue != ins.mFloatValue))
+					mInstructions[i]->mTType != ins->mTType ||
+					mInstructions[i]->mFloatValue != ins->mFloatValue))
 			{
 				i++;
 			}
@@ -502,10 +502,10 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 			i = 0;
 			while (i < mNum &&
 				(mInstructions[i]->mCode != IC_CONSTANT ||
-					mInstructions[i]->mTType != ins.mTType ||
-					mInstructions[i]->mIntValue != ins.mIntValue ||
-					mInstructions[i]->mMemory != ins.mMemory ||
-					mInstructions[i]->mVarIndex != ins.mVarIndex))
+					mInstructions[i]->mTType != ins->mTType ||
+					mInstructions[i]->mIntValue != ins->mIntValue ||
+					mInstructions[i]->mMemory != ins->mMemory ||
+					mInstructions[i]->mVarIndex != ins->mVarIndex))
 			{
 				i++;
 			}
@@ -515,8 +515,8 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 			i = 0;
 			while (i < mNum &&
 				(mInstructions[i]->mCode != IC_CONSTANT ||
-					mInstructions[i]->mTType != ins.mTType ||
-					mInstructions[i]->mIntValue != ins.mIntValue))
+					mInstructions[i]->mTType != ins->mTType ||
+					mInstructions[i]->mIntValue != ins->mIntValue))
 			{
 				i++;
 			}
@@ -524,10 +524,10 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 
 		if (i < mNum)
 		{
-			ins.mCode = IC_LOAD_TEMPORARY;
-			ins.mSTemp[0] = mInstructions[i]->mTTemp;
-			ins.mSType[0] = mInstructions[i]->mTType;
-			assert(ins.mSTemp[0] >= 0);
+			ins->mCode = IC_LOAD_TEMPORARY;
+			ins->mSTemp[0] = mInstructions[i]->mTTemp;
+			ins->mSType[0] = mInstructions[i]->mTType;
+			assert(ins->mSTemp[0] >= 0);
 		}
 		else
 		{
@@ -539,20 +539,20 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		i = 0;
 		while (i < mNum &&
 			(mInstructions[i]->mCode != IC_LEA ||
-				mInstructions[i]->mSTemp[0] != ins.mSTemp[0] ||
-				mInstructions[i]->mSIntConst[0] != ins.mSIntConst[0] ||
-				mInstructions[i]->mSTemp[1] != ins.mSTemp[1]))
+				mInstructions[i]->mSTemp[0] != ins->mSTemp[0] ||
+				mInstructions[i]->mSIntConst[0] != ins->mSIntConst[0] ||
+				mInstructions[i]->mSTemp[1] != ins->mSTemp[1]))
 		{
 			i++;
 		}
 
 		if (i < mNum)
 		{
-			ins.mCode = IC_LOAD_TEMPORARY;
-			ins.mSTemp[0] = mInstructions[i]->mTTemp;
-			ins.mSType[0] = mInstructions[i]->mTType;
-			ins.mSTemp[1] = -1;
-			assert(ins.mSTemp[0] >= 0);
+			ins->mCode = IC_LOAD_TEMPORARY;
+			ins->mSTemp[0] = mInstructions[i]->mTTemp;
+			ins->mSType[0] = mInstructions[i]->mTType;
+			ins->mSTemp[1] = -1;
+			assert(ins->mSTemp[0] >= 0);
 		}
 		else
 		{
@@ -561,32 +561,32 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		break;
 
 	case IC_BINARY_OPERATOR:
-		switch (ins.mSType[0])
+		switch (ins->mSType[0])
 		{
 		case IT_FLOAT:
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT &&
-				ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT &&
+				ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mFloatValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mFloatValue, tvalue[ins.mSTemp[0]]->mFloatValue);
-				ins.mSTemp[0] = -1;
-				ins.mSTemp[1] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mFloatValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[1]]->mFloatValue, tvalue[ins->mSTemp[0]]->mFloatValue);
+				ins->mSTemp[0] = -1;
+				ins->mSTemp[1] = -1;
 
 				i = 0;
 				while (i < mNum &&
 					(mInstructions[i]->mCode != IC_CONSTANT ||
-						mInstructions[i]->mTType != ins.mTType ||
-						mInstructions[i]->mFloatValue != ins.mFloatValue))
+						mInstructions[i]->mTType != ins->mTType ||
+						mInstructions[i]->mFloatValue != ins->mFloatValue))
 				{
 					i++;
 				}
 
 				if (i < mNum)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mTTemp;
-					ins.mSType[0] = mInstructions[i]->mTType;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = mInstructions[i]->mTTemp;
+					ins->mSType[0] = mInstructions[i]->mTType;
+					assert(ins->mSTemp[0] >= 0);
 				}
 				else
 				{
@@ -598,20 +598,20 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 				i = 0;
 				while (i < mNum &&
 					(mInstructions[i]->mCode != IC_BINARY_OPERATOR ||
-						mInstructions[i]->mOperator != ins.mOperator ||
-						mInstructions[i]->mSTemp[0] != ins.mSTemp[0] ||
-						mInstructions[i]->mSTemp[1] != ins.mSTemp[1]))
+						mInstructions[i]->mOperator != ins->mOperator ||
+						mInstructions[i]->mSTemp[0] != ins->mSTemp[0] ||
+						mInstructions[i]->mSTemp[1] != ins->mSTemp[1]))
 				{
 					i++;
 				}
 
 				if (i < mNum)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mTTemp;
-					ins.mSType[0] = mInstructions[i]->mTType;
-					ins.mSTemp[1] = -1;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = mInstructions[i]->mTTemp;
+					ins->mSType[0] = mInstructions[i]->mTType;
+					ins->mSTemp[1] = -1;
+					assert(ins->mSTemp[0] >= 0);
 				}
 				else
 				{
@@ -622,104 +622,104 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		case IT_POINTER:
 			break;
 		default:
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT &&
-				ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT &&
+				ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mIntValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mIntValue, tvalue[ins.mSTemp[0]]->mIntValue);
-				ins.mSTemp[0] = -1;
-				ins.mSTemp[1] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mIntValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[1]]->mIntValue, tvalue[ins->mSTemp[0]]->mIntValue);
+				ins->mSTemp[0] = -1;
+				ins->mSTemp[1] = -1;
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 
 				return;
 			}
 
-			if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				if ((ins.mOperator == IA_ADD || ins.mOperator == IA_SUB ||
-					ins.mOperator == IA_OR || ins.mOperator == IA_XOR ||
-					ins.mOperator == IA_SHL || ins.mOperator == IA_SHR || ins.mOperator == IA_SAR) && tvalue[ins.mSTemp[0]]->mIntValue == 0 ||
-					(ins.mOperator == IA_MUL || ins.mOperator == IA_DIVU || ins.mOperator == IA_DIVS) && tvalue[ins.mSTemp[0]]->mIntValue == 1 ||
-					(ins.mOperator == IA_AND) && tvalue[ins.mSTemp[0]]->mIntValue == -1)
+				if ((ins->mOperator == IA_ADD || ins->mOperator == IA_SUB ||
+					ins->mOperator == IA_OR || ins->mOperator == IA_XOR ||
+					ins->mOperator == IA_SHL || ins->mOperator == IA_SHR || ins->mOperator == IA_SAR) && tvalue[ins->mSTemp[0]]->mIntValue == 0 ||
+					(ins->mOperator == IA_MUL || ins->mOperator == IA_DIVU || ins->mOperator == IA_DIVS) && tvalue[ins->mSTemp[0]]->mIntValue == 1 ||
+					(ins->mOperator == IA_AND) && tvalue[ins->mSTemp[0]]->mIntValue == -1)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = ins.mSTemp[1];
-					ins.mSType[0] = ins.mSType[1];
-					ins.mSTemp[1] = -1;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = ins->mSTemp[1];
+					ins->mSType[0] = ins->mSType[1];
+					ins->mSTemp[1] = -1;
+					assert(ins->mSTemp[0] >= 0);
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 
 					return;
 				}
-				else if ((ins.mOperator == IA_MUL || ins.mOperator == IA_AND) && tvalue[ins.mSTemp[0]]->mIntValue == 0)
+				else if ((ins->mOperator == IA_MUL || ins->mOperator == IA_AND) && tvalue[ins->mSTemp[0]]->mIntValue == 0)
 				{
-					ins.mCode = IC_CONSTANT;
-					ins.mIntValue = 0;
-					ins.mSTemp[0] = -1;
-					ins.mSTemp[1] = -1;
+					ins->mCode = IC_CONSTANT;
+					ins->mIntValue = 0;
+					ins->mSTemp[0] = -1;
+					ins->mSTemp[1] = -1;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 
 					return;
 				}
 			}
-			else if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT)
+			else if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT)
 			{
-				if ((ins.mOperator == IA_ADD || ins.mOperator == IA_OR || ins.mOperator == IA_XOR) && tvalue[ins.mSTemp[1]]->mIntValue == 0 ||
-					(ins.mOperator == IA_MUL) && tvalue[ins.mSTemp[1]]->mIntValue == 1 ||
-					(ins.mOperator == IA_AND) && tvalue[ins.mSTemp[1]]->mIntValue == -1)
+				if ((ins->mOperator == IA_ADD || ins->mOperator == IA_OR || ins->mOperator == IA_XOR) && tvalue[ins->mSTemp[1]]->mIntValue == 0 ||
+					(ins->mOperator == IA_MUL) && tvalue[ins->mSTemp[1]]->mIntValue == 1 ||
+					(ins->mOperator == IA_AND) && tvalue[ins->mSTemp[1]]->mIntValue == -1)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[1] = -1;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[1] = -1;
+					assert(ins->mSTemp[0] >= 0);
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 
 					return;
 				}
-				else if ((ins.mOperator == IA_MUL || ins.mOperator == IA_AND ||
-					ins.mOperator == IA_SHL || ins.mOperator == IA_SHR || ins.mOperator == IA_SAR) && tvalue[ins.mSTemp[1]]->mIntValue == 0)
+				else if ((ins->mOperator == IA_MUL || ins->mOperator == IA_AND ||
+					ins->mOperator == IA_SHL || ins->mOperator == IA_SHR || ins->mOperator == IA_SAR) && tvalue[ins->mSTemp[1]]->mIntValue == 0)
 				{
-					ins.mCode = IC_CONSTANT;
-					ins.mIntValue = 0;
-					ins.mSTemp[0] = -1;
-					ins.mSTemp[1] = -1;
+					ins->mCode = IC_CONSTANT;
+					ins->mIntValue = 0;
+					ins->mSTemp[0] = -1;
+					ins->mSTemp[1] = -1;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 
 					return;
 				}
-				else if (ins.mOperator == IA_SUB && tvalue[ins.mSTemp[1]]->mIntValue == 0)
+				else if (ins->mOperator == IA_SUB && tvalue[ins->mSTemp[1]]->mIntValue == 0)
 				{
-					ins.mCode = IC_UNARY_OPERATOR;
-					ins.mOperator = IA_NEG;
-					ins.mSTemp[1] = -1;
+					ins->mCode = IC_UNARY_OPERATOR;
+					ins->mOperator = IA_NEG;
+					ins->mSTemp[1] = -1;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 
 					return;
 				}
 			}
-			else if (ins.mSTemp[0] == ins.mSTemp[1])
+			else if (ins->mSTemp[0] == ins->mSTemp[1])
 			{
-				if (ins.mOperator == IA_SUB || ins.mOperator == IA_XOR)
+				if (ins->mOperator == IA_SUB || ins->mOperator == IA_XOR)
 				{
-					ins.mCode = IC_CONSTANT;
-					ins.mIntValue = 0;
-					ins.mSTemp[0] = -1;
-					ins.mSTemp[1] = -1;
+					ins->mCode = IC_CONSTANT;
+					ins->mIntValue = 0;
+					ins->mSTemp[0] = -1;
+					ins->mSTemp[1] = -1;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 
 					return;
 				}
-				else if (ins.mOperator == IA_AND || ins.mOperator == IA_OR)
+				else if (ins->mOperator == IA_AND || ins->mOperator == IA_OR)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[1] = -1;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[1] = -1;
+					assert(ins->mSTemp[0] >= 0);
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 
@@ -730,20 +730,20 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 			i = 0;
 			while (i < mNum &&
 				(mInstructions[i]->mCode != IC_BINARY_OPERATOR ||
-					mInstructions[i]->mOperator != ins.mOperator ||
-					mInstructions[i]->mSTemp[0] != ins.mSTemp[0] ||
-					mInstructions[i]->mSTemp[1] != ins.mSTemp[1]))
+					mInstructions[i]->mOperator != ins->mOperator ||
+					mInstructions[i]->mSTemp[0] != ins->mSTemp[0] ||
+					mInstructions[i]->mSTemp[1] != ins->mSTemp[1]))
 			{
 				i++;
 			}
 
 			if (i < mNum)
 			{
-				ins.mCode = IC_LOAD_TEMPORARY;
-				ins.mSTemp[0] = mInstructions[i]->mTTemp;
-				ins.mSType[0] = mInstructions[i]->mTType;
-				ins.mSTemp[1] = -1;
-				assert(ins.mSTemp[0] >= 0);
+				ins->mCode = IC_LOAD_TEMPORARY;
+				ins->mSTemp[0] = mInstructions[i]->mTTemp;
+				ins->mSType[0] = mInstructions[i]->mTType;
+				ins->mSTemp[1] = -1;
+				assert(ins->mSTemp[0] >= 0);
 			}
 			else
 			{
@@ -754,26 +754,26 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		break;
 
 	case IC_CONVERSION_OPERATOR:
-		if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
-			ConversionConstantFold(ins, tvalue[ins.mSTemp[0]]);
-			if (ins.mTType == IT_FLOAT)
+			ConversionConstantFold(ins, tvalue[ins->mSTemp[0]]);
+			if (ins->mTType == IT_FLOAT)
 			{
 				i = 0;
 				while (i < mNum &&
 					(mInstructions[i]->mCode != IC_CONSTANT ||
-						mInstructions[i]->mTType != ins.mTType ||
-						mInstructions[i]->mFloatValue != ins.mFloatValue))
+						mInstructions[i]->mTType != ins->mTType ||
+						mInstructions[i]->mFloatValue != ins->mFloatValue))
 				{
 					i++;
 				}
 
 				if (i < mNum)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mTTemp;
-					ins.mSType[0] = mInstructions[i]->mTType;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = mInstructions[i]->mTTemp;
+					ins->mSType[0] = mInstructions[i]->mTType;
+					assert(ins->mSTemp[0] >= 0);
 				}
 				else
 				{
@@ -790,19 +790,19 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 			i = 0;
 			while (i < mNum &&
 				(mInstructions[i]->mCode != IC_CONVERSION_OPERATOR ||
-					mInstructions[i]->mOperator != ins.mOperator ||
-					mInstructions[i]->mSTemp[0] != ins.mSTemp[0]))
+					mInstructions[i]->mOperator != ins->mOperator ||
+					mInstructions[i]->mSTemp[0] != ins->mSTemp[0]))
 			{
 				i++;
 			}
 
 			if (i < mNum)
 			{
-				ins.mCode = IC_LOAD_TEMPORARY;
-				ins.mSTemp[0] = mInstructions[i]->mTTemp;
-				ins.mSType[0] = mInstructions[i]->mTType;
-				ins.mSTemp[1] = -1;
-				assert(ins.mSTemp[0] >= 0);
+				ins->mCode = IC_LOAD_TEMPORARY;
+				ins->mSTemp[0] = mInstructions[i]->mTTemp;
+				ins->mSType[0] = mInstructions[i]->mTType;
+				ins->mSTemp[1] = -1;
+				assert(ins->mSTemp[0] >= 0);
 			}
 			else
 			{
@@ -812,30 +812,30 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		break;
 
 	case IC_UNARY_OPERATOR:
-		switch (ins.mSType[0])
+		switch (ins->mSType[0])
 		{
 		case IT_FLOAT:
-			if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mFloatValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[0]]->mFloatValue);
-				ins.mSTemp[0] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mFloatValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[0]]->mFloatValue);
+				ins->mSTemp[0] = -1;
 
 				i = 0;
 				while (i < mNum &&
 					(mInstructions[i]->mCode != IC_CONSTANT ||
-						mInstructions[i]->mTType != ins.mTType ||
-						mInstructions[i]->mFloatValue != ins.mFloatValue))
+						mInstructions[i]->mTType != ins->mTType ||
+						mInstructions[i]->mFloatValue != ins->mFloatValue))
 				{
 					i++;
 				}
 
 				if (i < mNum)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mTTemp;
-					ins.mSType[0] = mInstructions[i]->mTType;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = mInstructions[i]->mTTemp;
+					ins->mSType[0] = mInstructions[i]->mTType;
+					assert(ins->mSTemp[0] >= 0);
 				}
 				else
 				{
@@ -847,19 +847,19 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 				i = 0;
 				while (i < mNum &&
 					(mInstructions[i]->mCode != IC_UNARY_OPERATOR ||
-						mInstructions[i]->mOperator != ins.mOperator ||
-						mInstructions[i]->mSTemp[0] != ins.mSTemp[0]))
+						mInstructions[i]->mOperator != ins->mOperator ||
+						mInstructions[i]->mSTemp[0] != ins->mSTemp[0]))
 				{
 					i++;
 				}
 
 				if (i < mNum)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mTTemp;
-					ins.mSType[0] = mInstructions[i]->mTType;
-					ins.mSTemp[1] = -1;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = mInstructions[i]->mTTemp;
+					ins->mSType[0] = mInstructions[i]->mTType;
+					ins->mSTemp[1] = -1;
+					assert(ins->mSTemp[0] >= 0);
 				}
 				else
 				{
@@ -870,27 +870,27 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		case IT_POINTER:
 			break;
 		default:
-			if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mIntValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[0]]->mIntValue);
-				ins.mSTemp[0] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mIntValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[0]]->mIntValue);
+				ins->mSTemp[0] = -1;
 
 				i = 0;
 				while (i < mNum &&
 					(mInstructions[i]->mCode != IC_CONSTANT ||
-						mInstructions[i]->mTType != ins.mTType ||
-						mInstructions[i]->mIntValue != ins.mIntValue))
+						mInstructions[i]->mTType != ins->mTType ||
+						mInstructions[i]->mIntValue != ins->mIntValue))
 				{
 					i++;
 				}
 
 				if (i < mNum)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mTTemp;
-					ins.mSType[0] = mInstructions[i]->mTType;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = mInstructions[i]->mTTemp;
+					ins->mSType[0] = mInstructions[i]->mTType;
+					assert(ins->mSTemp[0] >= 0);
 				}
 				else
 				{
@@ -902,18 +902,18 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 				i = 0;
 				while (i < mNum &&
 					(mInstructions[i]->mCode != IC_UNARY_OPERATOR ||
-						mInstructions[i]->mOperator != ins.mOperator ||
-						mInstructions[i]->mSTemp[0] != ins.mSTemp[0]))
+						mInstructions[i]->mOperator != ins->mOperator ||
+						mInstructions[i]->mSTemp[0] != ins->mSTemp[0]))
 				{
 					i++;
 				}
 
 				if (i < mNum)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = mInstructions[i]->mTTemp;
-					ins.mSType[0] = mInstructions[i]->mTType;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = mInstructions[i]->mTTemp;
+					ins->mSType[0] = mInstructions[i]->mTType;
+					assert(ins->mSTemp[0] >= 0);
 				}
 				else
 				{
@@ -925,16 +925,16 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		break;
 
 	case IC_RELATIONAL_OPERATOR:
-		switch (ins.mSType[1])
+		switch (ins->mSType[1])
 		{
 		case IT_FLOAT:
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT &&
-				ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT &&
+				ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mIntValue = ConstantRelationalFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mFloatValue, tvalue[ins.mSTemp[0]]->mFloatValue);
-				ins.mSTemp[0] = -1;
-				ins.mSTemp[1] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mIntValue = ConstantRelationalFolding(ins->mOperator, tvalue[ins->mSTemp[1]]->mFloatValue, tvalue[ins->mSTemp[0]]->mFloatValue);
+				ins->mSTemp[0] = -1;
+				ins->mSTemp[1] = -1;
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 			}
@@ -942,39 +942,39 @@ void ValueSet::UpdateValue(InterInstruction& ins, const GrowingInstructionPtrArr
 		case IT_POINTER:
 			break;
 		default:
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT &&
-				ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT &&
+				ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mIntValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mIntValue, tvalue[ins.mSTemp[0]]->mIntValue);
-				ins.mSTemp[0] = -1;
-				ins.mSTemp[1] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mIntValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[1]]->mIntValue, tvalue[ins->mSTemp[0]]->mIntValue);
+				ins->mSTemp[0] = -1;
+				ins->mSTemp[1] = -1;
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 			}
-			else if (ins.mSTemp[1] == ins.mSTemp[0])
+			else if (ins->mSTemp[1] == ins->mSTemp[0])
 			{
-				ins.mCode = IC_CONSTANT;
+				ins->mCode = IC_CONSTANT;
 
-				switch (ins.mOperator)
+				switch (ins->mOperator)
 				{
 				case IA_CMPEQ:
 				case IA_CMPGES:
 				case IA_CMPLES:
 				case IA_CMPGEU:
 				case IA_CMPLEU:
-					ins.mIntValue = 1;
+					ins->mIntValue = 1;
 					break;
 				case IA_CMPNE:
 				case IA_CMPGS:
 				case IA_CMPLS:
 				case IA_CMPGU:
 				case IA_CMPLU:
-					ins.mIntValue = 0;
+					ins->mIntValue = 0;
 					break;
 				}
-				ins.mSTemp[0] = -1;
-				ins.mSTemp[1] = -1;
+				ins->mSTemp[0] = -1;
+				ins->mSTemp[1] = -1;
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
 			}
@@ -1017,6 +1017,7 @@ InterInstruction::InterInstruction(void)
 	mSTemp[2] = INVALID_TEMPORARY;
 
 	mSFinal[0] = mSFinal[1] = mSFinal[2] = false;
+	mInUse = false;
 }
 
 void InterInstruction::SetCode(const Location& loc, InterCode code)
@@ -1631,16 +1632,16 @@ void InterInstruction::Disassemble(FILE* file)
 		if (mSTemp[1] >= 0) 
 			fprintf(file, "R%d(%c%c), ", mSTemp[1], typechars[mSType[1]], mSFinal[1] ? 'F' : '-');
 		else if (this->mCode == IC_STORE)
-			fprintf(file, "V%d+%d, ", mVarIndex, mSIntConst[1]);
+			fprintf(file, "V%d+%d, ", mVarIndex, int(mSIntConst[1]));
 		if (mSTemp[0] >= 0)
 			fprintf(file, "R%d(%c%c)", mSTemp[0], typechars[mSType[0]], mSFinal[0] ? 'F' : '-');
 		else if (this->mCode == IC_LOAD)
-			fprintf(file, "V%d+%d", mVarIndex, mSIntConst[0]);
+			fprintf(file, "V%d+%d", mVarIndex, int(mSIntConst[0]));
 		if (this->mCode == IC_CONSTANT)
 		{
 			if (mTType == IT_POINTER)
 			{
-				fprintf(file, "C%c%d(%d:%d)", memchars[mMemory], mOperandSize, mVarIndex, mIntValue);
+				fprintf(file, "C%c%d(%d:%d)", memchars[mMemory], mOperandSize, mVarIndex, int(mIntValue));
 			}
 			else if (mTType == IT_FLOAT)
 				fprintf(file, "C%f", mFloatValue);
@@ -1653,7 +1654,7 @@ void InterInstruction::Disassemble(FILE* file)
 }
 
 InterCodeBasicBlock::InterCodeBasicBlock(void)
-	: mInstructions(InterInstruction()), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr)
+	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr)
 {
 	mInPath = false;
 	mLoopHead = false;
@@ -1664,8 +1665,10 @@ InterCodeBasicBlock::~InterCodeBasicBlock(void)
 }
 
 
-void InterCodeBasicBlock::Append(InterInstruction & code)
+void InterCodeBasicBlock::Append(InterInstruction * code)
 {
+	assert(!(code->mInUse));
+	code->mInUse = true;
 	this->mInstructions.Push(code);
 }
 
@@ -1703,14 +1706,14 @@ void InterCodeBasicBlock::GenerateTraces(void)
 
 		for (;;)
 		{
-			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0].mCode == IC_JUMP)
+			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP)
 			{
 				mTrueJump->mNumEntries--;
 				mTrueJump = mTrueJump->mTrueJump;
 				if (mTrueJump)
 					mTrueJump->mNumEntries++;
 			}
-			else if (mFalseJump && mFalseJump->mInstructions.Size() == 1 && mFalseJump->mInstructions[0].mCode == IC_JUMP)
+			else if (mFalseJump && mFalseJump->mInstructions.Size() == 1 && mFalseJump->mInstructions[0]->mCode == IC_JUMP)
 			{
 				mFalseJump->mNumEntries--;
 				mFalseJump = mFalseJump->mTrueJump;
@@ -1723,7 +1726,7 @@ void InterCodeBasicBlock::GenerateTraces(void)
 
 				mInstructions.Pop();
 				for (i = 0; i < mTrueJump->mInstructions.Size(); i++)
-					mInstructions.Push(mTrueJump->mInstructions[i]);
+					mInstructions.Push(new InterInstruction(* (mTrueJump->mInstructions[i]) ));
 
 				mFalseJump = mTrueJump->mFalseJump;
 				mTrueJump = mTrueJump->mTrueJump;
@@ -1765,68 +1768,68 @@ static bool IsSimpleAddressMultiply(int val)
 	return false;
 }
 
-static void OptimizeAddress(InterInstruction& ins, const GrowingInstructionPtrArray& tvalue, int offset)
+static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, int offset)
 {
-	ins.mSIntConst[offset] = 0;
+	ins->mSIntConst[offset] = 0;
 
-	if (ins.mSTemp[offset] >= 0 && tvalue[ins.mSTemp[offset]])
+	if (ins->mSTemp[offset] >= 0 && tvalue[ins->mSTemp[offset]])
 	{
-		InterInstruction* ains = tvalue[ins.mSTemp[offset]];
+		InterInstruction* ains = tvalue[ins->mSTemp[offset]];
 
 		if (ains->mCode == IC_CONSTANT)
 		{
-			ins.mSIntConst[offset] = ains->mIntValue;
-			ins.mVarIndex = ains->mVarIndex;
-			ins.mMemory = ains->mMemory;
-			ins.mSTemp[offset] = -1;
+			ins->mSIntConst[offset] = ains->mIntValue;
+			ins->mVarIndex = ains->mVarIndex;
+			ins->mMemory = ains->mMemory;
+			ins->mSTemp[offset] = -1;
 		}
 		else if (ains->mCode == IC_LEA && ains->mSTemp[0] < 0 && ains->mSTemp[1] >= 0 && tvalue[ains->mSTemp[1]])
 		{
-			ins.mSIntConst[offset] = ains->mSIntConst[0];
-			ins.mSTemp[offset] = ains->mSTemp[1];
+			ins->mSIntConst[offset] = ains->mSIntConst[0];
+			ins->mSTemp[offset] = ains->mSTemp[1];
 		}
 	}
 }
 
 
-void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingInstructionPtrArray& tvalue)
+void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue)
 {
-	switch (ins.mCode)
+	switch (ins->mCode)
 	{
 	case IC_CALL:
 	case IC_JSR:
-		if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
-			ins.mMemory = tvalue[ins.mSTemp[0]]->mMemory;
-			ins.mVarIndex = tvalue[ins.mSTemp[0]]->mVarIndex;
-			ins.mOperandSize = tvalue[ins.mSTemp[0]]->mOperandSize;
-			ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
-			ins.mSTemp[0] = -1;
+			ins->mMemory = tvalue[ins->mSTemp[0]]->mMemory;
+			ins->mVarIndex = tvalue[ins->mSTemp[0]]->mVarIndex;
+			ins->mOperandSize = tvalue[ins->mSTemp[0]]->mOperandSize;
+			ins->mSIntConst[0] = tvalue[ins->mSTemp[0]]->mIntValue;
+			ins->mSTemp[0] = -1;
 		}
 
 		break;
 	case IC_LOAD_TEMPORARY:
-		if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
-			switch (ins.mSType[0])
+			switch (ins->mSType[0])
 			{
 			case IT_FLOAT:
-				ins.mCode = IC_CONSTANT;
-				ins.mFloatValue = tvalue[ins.mSTemp[0]]->mFloatValue;
-				ins.mSTemp[0] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mFloatValue = tvalue[ins->mSTemp[0]]->mFloatValue;
+				ins->mSTemp[0] = -1;
 				break;
 			case IT_POINTER:
-				ins.mCode = IC_CONSTANT;
-				ins.mMemory = tvalue[ins.mSTemp[0]]->mMemory;
-				ins.mVarIndex = tvalue[ins.mSTemp[0]]->mVarIndex;
-				ins.mIntValue = tvalue[ins.mSTemp[0]]->mIntValue;
-				ins.mOperandSize = tvalue[ins.mSTemp[0]]->mOperandSize;
-				ins.mSTemp[0] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mMemory = tvalue[ins->mSTemp[0]]->mMemory;
+				ins->mVarIndex = tvalue[ins->mSTemp[0]]->mVarIndex;
+				ins->mIntValue = tvalue[ins->mSTemp[0]]->mIntValue;
+				ins->mOperandSize = tvalue[ins->mSTemp[0]]->mOperandSize;
+				ins->mSTemp[0] = -1;
 				break;
 			default:
-				ins.mCode = IC_CONSTANT;
-				ins.mIntValue = tvalue[ins.mSTemp[0]]->mIntValue;
-				ins.mSTemp[0] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mIntValue = tvalue[ins->mSTemp[0]]->mIntValue;
+				ins->mSTemp[0] = -1;
 				break;
 			}
 		}
@@ -1836,167 +1839,167 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 		OptimizeAddress(ins, tvalue, 0);
 		break;
 	case IC_STORE:
-		if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
-			switch (ins.mSType[0])
+			switch (ins->mSType[0])
 			{
 			case IT_FLOAT:
-				ins.mSFloatConst[0] = tvalue[ins.mSTemp[0]]->mFloatValue;
-				ins.mSTemp[0] = -1;
+				ins->mSFloatConst[0] = tvalue[ins->mSTemp[0]]->mFloatValue;
+				ins->mSTemp[0] = -1;
 				break;
 			case IT_POINTER:
 				break;
 			default:
-				ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
-				ins.mSTemp[0] = -1;
+				ins->mSIntConst[0] = tvalue[ins->mSTemp[0]]->mIntValue;
+				ins->mSTemp[0] = -1;
 				break;
 			}
 		}
 		OptimizeAddress(ins, tvalue, 1);
 		break;
 	case IC_LEA:
-		if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mTType = IT_POINTER;
-				ins.mMemory = tvalue[ins.mSTemp[1]]->mMemory;
-				ins.mVarIndex = tvalue[ins.mSTemp[1]]->mVarIndex;
-				ins.mIntValue = tvalue[ins.mSTemp[1]]->mIntValue + tvalue[ins.mSTemp[0]]->mIntValue;
-				ins.mOperandSize = tvalue[ins.mSTemp[1]]->mOperandSize;
-				ins.mSTemp[0] = -1;
-				ins.mSTemp[1] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mTType = IT_POINTER;
+				ins->mMemory = tvalue[ins->mSTemp[1]]->mMemory;
+				ins->mVarIndex = tvalue[ins->mSTemp[1]]->mVarIndex;
+				ins->mIntValue = tvalue[ins->mSTemp[1]]->mIntValue + tvalue[ins->mSTemp[0]]->mIntValue;
+				ins->mOperandSize = tvalue[ins->mSTemp[1]]->mOperandSize;
+				ins->mSTemp[0] = -1;
+				ins->mSTemp[1] = -1;
 			}
-			else if (tvalue[ins.mSTemp[0]]->mIntValue == 0)
+			else if (tvalue[ins->mSTemp[0]]->mIntValue == 0)
 			{
-				ins.mCode = IC_LOAD_TEMPORARY;
-				ins.mSType[0] = ins.mSType[1];
-				ins.mSTemp[0] = ins.mSTemp[1];
-				ins.mSTemp[1] = -1;
-				assert(ins.mSTemp[0] >= 0);
+				ins->mCode = IC_LOAD_TEMPORARY;
+				ins->mSType[0] = ins->mSType[1];
+				ins->mSTemp[0] = ins->mSTemp[1];
+				ins->mSTemp[1] = -1;
+				assert(ins->mSTemp[0] >= 0);
 			}
 			else
 			{
-				ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
-				ins.mSTemp[0] = -1;
+				ins->mSIntConst[0] = tvalue[ins->mSTemp[0]]->mIntValue;
+				ins->mSTemp[0] = -1;
 			}
 		}
 		break;
 	case IC_TYPECAST:
-		if (ins.mSType[0] == ins.mTType)
+		if (ins->mSType[0] == ins->mTType)
 		{
-			ins.mCode = IC_LOAD_TEMPORARY;
-			assert(ins.mSTemp[0] >= 0);
+			ins->mCode = IC_LOAD_TEMPORARY;
+			assert(ins->mSTemp[0] >= 0);
 		}
-		else if (TypeInteger(ins.mSType[0]) && ins.mTType == IT_POINTER)
+		else if (TypeInteger(ins->mSType[0]) && ins->mTType == IT_POINTER)
 		{
-			if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mTType = IT_POINTER;
-				ins.mMemory = IM_ABSOLUTE;
-				ins.mVarIndex = 0;
-				ins.mIntValue = tvalue[ins.mSTemp[0]]->mIntValue;
-				ins.mSTemp[0] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mTType = IT_POINTER;
+				ins->mMemory = IM_ABSOLUTE;
+				ins->mVarIndex = 0;
+				ins->mIntValue = tvalue[ins->mSTemp[0]]->mIntValue;
+				ins->mSTemp[0] = -1;
 			}
 		}
 		break;
 	case IC_RETURN_VALUE:
-		if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
-			switch (ins.mSType[0])
+			switch (ins->mSType[0])
 			{
 			case IT_FLOAT:
 				break;
 			case IT_POINTER:
 				break;
 			default:
-				ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
-				ins.mSTemp[0] = -1;
+				ins->mSIntConst[0] = tvalue[ins->mSTemp[0]]->mIntValue;
+				ins->mSTemp[0] = -1;
 				break;
 			}
 		}
 		break;
 	case IC_BINARY_OPERATOR:
-		switch (ins.mSType[0])
+		switch (ins->mSType[0])
 		{
 		case IT_FLOAT:
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT)
 			{
-				if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+				if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 				{
-					ins.mCode = IC_CONSTANT;
-					ins.mFloatValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mFloatValue, tvalue[ins.mSTemp[0]]->mFloatValue);
-					ins.mSTemp[0] = -1;
-					ins.mSTemp[1] = -1;
+					ins->mCode = IC_CONSTANT;
+					ins->mFloatValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[1]]->mFloatValue, tvalue[ins->mSTemp[0]]->mFloatValue);
+					ins->mSTemp[0] = -1;
+					ins->mSTemp[1] = -1;
 				}
 				else
 				{
-					ins.mSFloatConst[1] = tvalue[ins.mSTemp[1]]->mFloatValue;
-					ins.mSTemp[1] = -1;
+					ins->mSFloatConst[1] = tvalue[ins->mSTemp[1]]->mFloatValue;
+					ins->mSTemp[1] = -1;
 
-					if (ins.mOperator == IA_ADD && ins.mSFloatConst[1] == 0)
+					if (ins->mOperator == IA_ADD && ins->mSFloatConst[1] == 0)
 					{
-						ins.mCode = IC_LOAD_TEMPORARY;
-						assert(ins.mSTemp[0] >= 0);
+						ins->mCode = IC_LOAD_TEMPORARY;
+						assert(ins->mSTemp[0] >= 0);
 					}
-					else if (ins.mOperator == IA_MUL)
+					else if (ins->mOperator == IA_MUL)
 					{
-						if (ins.mSFloatConst[1] == 1.0)
+						if (ins->mSFloatConst[1] == 1.0)
 						{
-							ins.mCode = IC_LOAD_TEMPORARY;
-							assert(ins.mSTemp[0] >= 0);
+							ins->mCode = IC_LOAD_TEMPORARY;
+							assert(ins->mSTemp[0] >= 0);
 						}
-						else if (ins.mSFloatConst[1] == 0.0)
+						else if (ins->mSFloatConst[1] == 0.0)
 						{
-							ins.mCode = IC_CONSTANT;
-							ins.mFloatValue = 0.0;
-							ins.mSTemp[0] = -1;
-							ins.mSTemp[1] = -1;
+							ins->mCode = IC_CONSTANT;
+							ins->mFloatValue = 0.0;
+							ins->mSTemp[0] = -1;
+							ins->mSTemp[1] = -1;
 						}
-						else if (ins.mSFloatConst[1] == 2.0)
+						else if (ins->mSFloatConst[1] == 2.0)
 						{
-							ins.mOperator = IA_ADD;
-							ins.mSTemp[1] = ins.mSTemp[0];
-							assert(ins.mSTemp[0] >= 0);
+							ins->mOperator = IA_ADD;
+							ins->mSTemp[1] = ins->mSTemp[0];
+							assert(ins->mSTemp[0] >= 0);
 						}
 					}
 				}
 			}
-			else if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			else if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mSFloatConst[0] = tvalue[ins.mSTemp[0]]->mFloatValue;
-				ins.mSTemp[0] = -1;
+				ins->mSFloatConst[0] = tvalue[ins->mSTemp[0]]->mFloatValue;
+				ins->mSTemp[0] = -1;
 
-				if (ins.mOperator == IA_ADD && ins.mSFloatConst[0] == 0)
+				if (ins->mOperator == IA_ADD && ins->mSFloatConst[0] == 0)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = ins.mSTemp[1];
-					ins.mSTemp[1] = -1;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = ins->mSTemp[1];
+					ins->mSTemp[1] = -1;
+					assert(ins->mSTemp[0] >= 0);
 				}
-				else if (ins.mOperator == IA_MUL)
+				else if (ins->mOperator == IA_MUL)
 				{
-					if (ins.mSFloatConst[0] == 1.0)
+					if (ins->mSFloatConst[0] == 1.0)
 					{
-						ins.mCode = IC_LOAD_TEMPORARY;
-						ins.mSTemp[0] = ins.mSTemp[1];
-						ins.mSTemp[1] = -1;
-						assert(ins.mSTemp[0] >= 0);
+						ins->mCode = IC_LOAD_TEMPORARY;
+						ins->mSTemp[0] = ins->mSTemp[1];
+						ins->mSTemp[1] = -1;
+						assert(ins->mSTemp[0] >= 0);
 					}
-					else if (ins.mSFloatConst[0] == 0.0)
+					else if (ins->mSFloatConst[0] == 0.0)
 					{
-						ins.mCode = IC_CONSTANT;
-						ins.mFloatValue = 0.0;
-						ins.mSTemp[0] = -1;
-						ins.mSTemp[1] = -1;
+						ins->mCode = IC_CONSTANT;
+						ins->mFloatValue = 0.0;
+						ins->mSTemp[0] = -1;
+						ins->mSTemp[1] = -1;
 					}
-					else if (ins.mSFloatConst[0] == 2.0)
+					else if (ins->mSFloatConst[0] == 2.0)
 					{
-						ins.mOperator = IA_ADD;
-						ins.mSTemp[0] = ins.mSTemp[1];
-						assert(ins.mSTemp[0] >= 0);
+						ins->mOperator = IA_ADD;
+						ins->mSTemp[0] = ins->mSTemp[1];
+						assert(ins->mSTemp[0] >= 0);
 					}
 				}
 			}
@@ -2004,138 +2007,138 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 		case IT_POINTER:
 			break;
 		default:
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT)
 			{
-				if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+				if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 				{
-					ins.mCode = IC_CONSTANT;
-					ins.mIntValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mIntValue, tvalue[ins.mSTemp[0]]->mIntValue);
-					ins.mSTemp[0] = -1;
-					ins.mSTemp[1] = -1;
+					ins->mCode = IC_CONSTANT;
+					ins->mIntValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[1]]->mIntValue, tvalue[ins->mSTemp[0]]->mIntValue);
+					ins->mSTemp[0] = -1;
+					ins->mSTemp[1] = -1;
 				}
 				else
 				{
-					ins.mSIntConst[1] = tvalue[ins.mSTemp[1]]->mIntValue;
-					ins.mSTemp[1] = -1;
+					ins->mSIntConst[1] = tvalue[ins->mSTemp[1]]->mIntValue;
+					ins->mSTemp[1] = -1;
 #if 1
-					if (ins.mOperator == IA_ADD && ins.mSIntConst[1] == 0)
+					if (ins->mOperator == IA_ADD && ins->mSIntConst[1] == 0)
 					{
-						ins.mCode = IC_LOAD_TEMPORARY;
-						assert(ins.mSTemp[0] >= 0);
+						ins->mCode = IC_LOAD_TEMPORARY;
+						assert(ins->mSTemp[0] >= 0);
 					}
-					else if (ins.mOperator == IA_MUL)
+					else if (ins->mOperator == IA_MUL)
 					{
-						if (ins.mSIntConst[1] == 1)
+						if (ins->mSIntConst[1] == 1)
 						{
-							ins.mCode = IC_LOAD_TEMPORARY;
-							assert(ins.mSTemp[0] >= 0);
+							ins->mCode = IC_LOAD_TEMPORARY;
+							assert(ins->mSTemp[0] >= 0);
 						}
-						else if (ins.mSIntConst[1] == 2)
+						else if (ins->mSIntConst[1] == 2)
 						{
-							ins.mOperator = IA_SHL;
-							ins.mSTemp[1] = ins.mSTemp[0];
-							ins.mSType[1] = ins.mSType[0];
-							ins.mSTemp[0] = -1;
-							ins.mSIntConst[0] = 1;
+							ins->mOperator = IA_SHL;
+							ins->mSTemp[1] = ins->mSTemp[0];
+							ins->mSType[1] = ins->mSType[0];
+							ins->mSTemp[0] = -1;
+							ins->mSIntConst[0] = 1;
 						}
-						else if (ins.mSIntConst[1] == 4)
+						else if (ins->mSIntConst[1] == 4)
 						{
-							ins.mOperator = IA_SHL;
-							ins.mSTemp[1] = ins.mSTemp[0];
-							ins.mSType[1] = ins.mSType[0];
-							ins.mSTemp[0] = -1;
-							ins.mSIntConst[0] = 2;
+							ins->mOperator = IA_SHL;
+							ins->mSTemp[1] = ins->mSTemp[0];
+							ins->mSType[1] = ins->mSType[0];
+							ins->mSTemp[0] = -1;
+							ins->mSIntConst[0] = 2;
 						}
-						else if (ins.mSIntConst[1] == 8)
+						else if (ins->mSIntConst[1] == 8)
 						{
-							ins.mOperator = IA_SHL;
-							ins.mSTemp[1] = ins.mSTemp[0];
-							ins.mSType[1] = ins.mSType[0];
-							ins.mSTemp[0] = -1;
-							ins.mSIntConst[0] = 3;
+							ins->mOperator = IA_SHL;
+							ins->mSTemp[1] = ins->mSTemp[0];
+							ins->mSType[1] = ins->mSType[0];
+							ins->mSTemp[0] = -1;
+							ins->mSIntConst[0] = 3;
 						}
 
 					}
 #endif
 				}
 			}
-			else if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			else if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
-				ins.mSTemp[0] = -1;
+				ins->mSIntConst[0] = tvalue[ins->mSTemp[0]]->mIntValue;
+				ins->mSTemp[0] = -1;
 
-				if (ins.mOperator == IA_ADD && ins.mSIntConst[0] == 0)
+				if (ins->mOperator == IA_ADD && ins->mSIntConst[0] == 0)
 				{
-					ins.mCode = IC_LOAD_TEMPORARY;
-					ins.mSTemp[0] = ins.mSTemp[1];
-					ins.mSTemp[1] = -1;
-					assert(ins.mSTemp[0] >= 0);
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSTemp[0] = ins->mSTemp[1];
+					ins->mSTemp[1] = -1;
+					assert(ins->mSTemp[0] >= 0);
 				}
-				else if (ins.mOperator == IA_MUL)
+				else if (ins->mOperator == IA_MUL)
 				{
-					if (ins.mSIntConst[0] == 1)
+					if (ins->mSIntConst[0] == 1)
 					{
-						ins.mCode = IC_LOAD_TEMPORARY;
-						ins.mSTemp[0] = ins.mSTemp[1];
-						ins.mSTemp[1] = -1;
-						assert(ins.mSTemp[0] >= 0);
+						ins->mCode = IC_LOAD_TEMPORARY;
+						ins->mSTemp[0] = ins->mSTemp[1];
+						ins->mSTemp[1] = -1;
+						assert(ins->mSTemp[0] >= 0);
 					}
-					else if (ins.mSIntConst[0] == 2)
+					else if (ins->mSIntConst[0] == 2)
 					{
-						ins.mOperator = IA_SHL;
-						ins.mSIntConst[0] = 1;
+						ins->mOperator = IA_SHL;
+						ins->mSIntConst[0] = 1;
 					}
-					else if (ins.mSIntConst[0] == 4)
+					else if (ins->mSIntConst[0] == 4)
 					{
-						ins.mOperator = IA_SHL;
-						ins.mSIntConst[0] = 2;
+						ins->mOperator = IA_SHL;
+						ins->mSIntConst[0] = 2;
 					}
-					else if (ins.mSIntConst[0] == 8)
+					else if (ins->mSIntConst[0] == 8)
 					{
-						ins.mOperator = IA_SHL;
-						ins.mSIntConst[0] = 3;
+						ins->mOperator = IA_SHL;
+						ins->mSIntConst[0] = 3;
 					}
 				}
 			}
 
-			if (ins.mSTemp[1] < 0 && ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_BINARY_OPERATOR)
+			if (ins->mSTemp[1] < 0 && ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_BINARY_OPERATOR)
 			{
-				InterInstruction* pins = tvalue[ins.mSTemp[0]];
-				if (ins.mOperator == pins->mOperator && (ins.mOperator == IA_ADD || ins.mOperator == IA_MUL || ins.mOperator == IA_AND || ins.mOperator == IA_OR))
+				InterInstruction* pins = tvalue[ins->mSTemp[0]];
+				if (ins->mOperator == pins->mOperator && (ins->mOperator == IA_ADD || ins->mOperator == IA_MUL || ins->mOperator == IA_AND || ins->mOperator == IA_OR))
 				{
 					if (pins->mSTemp[1] < 0)
 					{
-						ins.mSIntConst[1] = ConstantFolding(ins.mOperator, ins.mSIntConst[1], pins->mSIntConst[1]);
-						ins.mSTemp[0] = pins->mSTemp[0];
+						ins->mSIntConst[1] = ConstantFolding(ins->mOperator, ins->mSIntConst[1], pins->mSIntConst[1]);
+						ins->mSTemp[0] = pins->mSTemp[0];
 					}
 					else if (pins->mSTemp[0] < 0)
 					{
-						ins.mSIntConst[1] = ConstantFolding(ins.mOperator, ins.mSIntConst[1], pins->mSIntConst[0]);
-						ins.mSTemp[0] = pins->mSTemp[1];
+						ins->mSIntConst[1] = ConstantFolding(ins->mOperator, ins->mSIntConst[1], pins->mSIntConst[0]);
+						ins->mSTemp[0] = pins->mSTemp[1];
 					}
 				}
 			}
-			else if (ins.mSTemp[0] < 0 && ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_BINARY_OPERATOR)
+			else if (ins->mSTemp[0] < 0 && ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_BINARY_OPERATOR)
 			{
-				InterInstruction* pins = tvalue[ins.mSTemp[1]];
-				if (ins.mOperator == pins->mOperator && (ins.mOperator == IA_ADD || ins.mOperator == IA_MUL || ins.mOperator == IA_AND || ins.mOperator == IA_OR))
+				InterInstruction* pins = tvalue[ins->mSTemp[1]];
+				if (ins->mOperator == pins->mOperator && (ins->mOperator == IA_ADD || ins->mOperator == IA_MUL || ins->mOperator == IA_AND || ins->mOperator == IA_OR))
 				{
 					if (pins->mSTemp[1] < 0)
 					{
-						ins.mSIntConst[0] = ConstantFolding(ins.mOperator, ins.mSIntConst[0], pins->mSIntConst[1]);
-						ins.mSTemp[1] = pins->mSTemp[0];
+						ins->mSIntConst[0] = ConstantFolding(ins->mOperator, ins->mSIntConst[0], pins->mSIntConst[1]);
+						ins->mSTemp[1] = pins->mSTemp[0];
 					}
 					else if (pins->mSTemp[0] < 0)
 					{
-						ins.mSIntConst[0] = ConstantFolding(ins.mOperator, ins.mSIntConst[0], pins->mSIntConst[0]);
-						ins.mSTemp[1] = pins->mSTemp[1];
+						ins->mSIntConst[0] = ConstantFolding(ins->mOperator, ins->mSIntConst[0], pins->mSIntConst[0]);
+						ins->mSTemp[1] = pins->mSTemp[1];
 					}
 				}
-				else if (ins.mOperator == IA_SHL && (pins->mOperator == IA_SHR || pins->mOperator == IA_SAR) && pins->mSTemp[0] < 0 && ins.mSIntConst[0] == pins->mSIntConst[0])
+				else if (ins->mOperator == IA_SHL && (pins->mOperator == IA_SHR || pins->mOperator == IA_SAR) && pins->mSTemp[0] < 0 && ins->mSIntConst[0] == pins->mSIntConst[0])
 				{
-					ins.mOperator = IA_AND;
-					ins.mSIntConst[0] = -1LL << ins.mSIntConst[0];
-					ins.mSTemp[1] = pins->mSTemp[1];
+					ins->mOperator = IA_AND;
+					ins->mSIntConst[0] = -1LL << ins->mSIntConst[0];
+					ins->mSTemp[1] = pins->mSTemp[1];
 				}
 			}
 
@@ -2143,14 +2146,14 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 		}
 		break;
 	case IC_UNARY_OPERATOR:
-		switch (ins.mSType[0])
+		switch (ins->mSType[0])
 		{
 		case IT_FLOAT:
-			if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mFloatValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[0]]->mFloatValue);
-				ins.mSTemp[0] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mFloatValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[0]]->mFloatValue);
+				ins->mSTemp[0] = -1;
 			}
 			break;
 		case IT_POINTER:
@@ -2160,77 +2163,77 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction& ins, const GrowingIn
 		}
 		break;
 	case IC_RELATIONAL_OPERATOR:
-		switch (ins.mSType[1])
+		switch (ins->mSType[1])
 		{
 		case IT_FLOAT:
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT &&
-				ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT &&
+				ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mIntValue = ConstantRelationalFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mFloatValue, tvalue[ins.mSTemp[0]]->mFloatValue);
-				ins.mTType = IT_BOOL;
-				ins.mSTemp[0] = -1;
-				ins.mSTemp[1] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mIntValue = ConstantRelationalFolding(ins->mOperator, tvalue[ins->mSTemp[1]]->mFloatValue, tvalue[ins->mSTemp[0]]->mFloatValue);
+				ins->mTType = IT_BOOL;
+				ins->mSTemp[0] = -1;
+				ins->mSTemp[1] = -1;
 			}
 			else
 			{
-				if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT)
+				if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT)
 				{
-					ins.mSFloatConst[1] = tvalue[ins.mSTemp[1]]->mFloatValue;
-					ins.mSTemp[1] = -1;
+					ins->mSFloatConst[1] = tvalue[ins->mSTemp[1]]->mFloatValue;
+					ins->mSTemp[1] = -1;
 				}
-				else if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+				else if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 				{
-					ins.mSFloatConst[0] = tvalue[ins.mSTemp[0]]->mFloatValue;
-					ins.mSTemp[0] = -1;
+					ins->mSFloatConst[0] = tvalue[ins->mSTemp[0]]->mFloatValue;
+					ins->mSTemp[0] = -1;
 				}
 			}
 			break;
 		case IT_POINTER:
-			if (ins.mOperator == IA_CMPEQ || ins.mOperator == IA_CMPNE)
+			if (ins->mOperator == IA_CMPEQ || ins->mOperator == IA_CMPNE)
 			{
-				if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+				if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 				{
-					ins.mOperandSize = tvalue[ins.mSTemp[0]]->mOperandSize;
-					ins.mSTemp[0] = -1;
+					ins->mOperandSize = tvalue[ins->mSTemp[0]]->mOperandSize;
+					ins->mSTemp[0] = -1;
 				}
-				else if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT)
+				else if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT)
 				{
-					ins.mOperandSize = tvalue[ins.mSTemp[1]]->mOperandSize;
-					ins.mSTemp[1] = -1;
+					ins->mOperandSize = tvalue[ins->mSTemp[1]]->mOperandSize;
+					ins->mSTemp[1] = -1;
 				}
 			}
 			break;
 		default:
-			if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT &&
-				ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+			if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT &&
+				ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 			{
-				ins.mCode = IC_CONSTANT;
-				ins.mIntValue = ConstantFolding(ins.mOperator, tvalue[ins.mSTemp[1]]->mIntValue, tvalue[ins.mSTemp[0]]->mIntValue);
-				ins.mSTemp[0] = -1;
-				ins.mSTemp[1] = -1;
+				ins->mCode = IC_CONSTANT;
+				ins->mIntValue = ConstantFolding(ins->mOperator, tvalue[ins->mSTemp[1]]->mIntValue, tvalue[ins->mSTemp[0]]->mIntValue);
+				ins->mSTemp[0] = -1;
+				ins->mSTemp[1] = -1;
 			}
 			else
 			{
-				if (ins.mSTemp[1] >= 0 && tvalue[ins.mSTemp[1]] && tvalue[ins.mSTemp[1]]->mCode == IC_CONSTANT)
+				if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT)
 				{
-					ins.mSIntConst[1] = tvalue[ins.mSTemp[1]]->mIntValue;
-					ins.mSTemp[1] = -1;
+					ins->mSIntConst[1] = tvalue[ins->mSTemp[1]]->mIntValue;
+					ins->mSTemp[1] = -1;
 				}
-				else if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+				else if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 				{
-					ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
-					ins.mSTemp[0] = -1;
+					ins->mSIntConst[0] = tvalue[ins->mSTemp[0]]->mIntValue;
+					ins->mSTemp[0] = -1;
 				}
 			}
 			break;
 		}
 		break;
 	case IC_BRANCH:
-		if (ins.mSTemp[0] >= 0 && tvalue[ins.mSTemp[0]] && tvalue[ins.mSTemp[0]]->mCode == IC_CONSTANT)
+		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
-			ins.mSIntConst[0] = tvalue[ins.mSTemp[0]]->mIntValue;
-			ins.mSTemp[0] = -1;
+			ins->mSIntConst[0] = tvalue[ins->mSTemp[0]]->mIntValue;
+			ins->mSTemp[0] = -1;
 		}
 		break;
 	}
@@ -2246,7 +2249,7 @@ void InterCodeBasicBlock::CollectLocalAddressTemps(GrowingIntArray& localTable, 
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
-			mInstructions[i].CollectLocalAddressTemps(localTable, paramTable);
+			mInstructions[i]->CollectLocalAddressTemps(localTable, paramTable);
 
 		if (mTrueJump) mTrueJump->CollectLocalAddressTemps(localTable, paramTable);
 		if (mFalseJump) mFalseJump->CollectLocalAddressTemps(localTable, paramTable);
@@ -2262,7 +2265,7 @@ void InterCodeBasicBlock::MarkAliasedLocalTemps(const GrowingIntArray& localTabl
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
-			mInstructions[i].MarkAliasedLocalTemps(localTable, aliasedLocals, paramTable, aliasedParams);
+			mInstructions[i]->MarkAliasedLocalTemps(localTable, aliasedLocals, paramTable, aliasedParams);
 
 		if (mTrueJump) mTrueJump->MarkAliasedLocalTemps(localTable, aliasedLocals, paramTable, aliasedParams);
 		if (mFalseJump) mFalseJump->MarkAliasedLocalTemps(localTable, aliasedLocals, paramTable, aliasedParams);
@@ -2279,7 +2282,7 @@ void  InterCodeBasicBlock::CollectConstTemps(GrowingInstructionPtrArray& ctemps,
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			int		ttemp = mInstructions[i].mTTemp;
+			int		ttemp = mInstructions[i]->mTTemp;
 			if (ttemp >= 0)
 			{
 				if (assignedTemps[ttemp])
@@ -2287,8 +2290,8 @@ void  InterCodeBasicBlock::CollectConstTemps(GrowingInstructionPtrArray& ctemps,
 				else
 				{
 					assignedTemps += ttemp;
-					if (mInstructions[i].mCode == IC_CONSTANT)
-						ctemps[ttemp] = &(mInstructions[i]);
+					if (mInstructions[i]->mCode == IC_CONSTANT)
+						ctemps[ttemp] = mInstructions[i];
 				}
 			}
 		}
@@ -2310,7 +2313,7 @@ bool InterCodeBasicBlock::PropagateConstTemps(const GrowingInstructionPtrArray& 
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			if (mInstructions[i].PropagateConstTemps(ctemps))
+			if (mInstructions[i]->PropagateConstTemps(ctemps))
 				changed = true;
 		}
 
@@ -2341,7 +2344,7 @@ void InterCodeBasicBlock::BuildLocalTempSets(int num, int numFixed)
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].FilterTempUsage(mLocalRequiredTemps, mLocalProvidedTemps);
+			mInstructions[i]->FilterTempUsage(mLocalRequiredTemps, mLocalProvidedTemps);
 		}
 
 		mEntryRequiredTemps = mLocalRequiredTemps;
@@ -2411,7 +2414,7 @@ void InterCodeBasicBlock::PerformTempForwarding(TempForwardingTable& forwardingT
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].PerformTempForwarding(localForwardingTable);
+			mInstructions[i]->PerformTempForwarding(localForwardingTable);
 		}
 
 		if (mTrueJump) mTrueJump->PerformTempForwarding(localForwardingTable);
@@ -2465,10 +2468,10 @@ bool InterCodeBasicBlock::RemoveUnusedResultInstructions(int numStaticTemps)
 
 		for (i = mInstructions.Size() - 1; i > 0; i--)
 		{
-			if (mInstructions[i].RemoveUnusedResultInstructions(&(mInstructions[i - 1]), requiredTemps, numStaticTemps))
+			if (mInstructions[i]->RemoveUnusedResultInstructions(mInstructions[i - 1], requiredTemps, numStaticTemps))
 				changed = true;
 		}
-		if (mInstructions[0].RemoveUnusedResultInstructions(NULL, requiredTemps, numStaticTemps))
+		if (mInstructions[0]->RemoveUnusedResultInstructions(NULL, requiredTemps, numStaticTemps))
 			changed = true;
 
 		if (mTrueJump)
@@ -2496,7 +2499,7 @@ void InterCodeBasicBlock::BuildCallerSaveTempSet(NumberSet& callerSaveTemps)
 		int i;
 
 		for (i = mInstructions.Size() - 1; i >= 0; i--)
-			mInstructions[i].BuildCallerSaveTempSet(requiredTemps, callerSaveTemps);
+			mInstructions[i]->BuildCallerSaveTempSet(requiredTemps, callerSaveTemps);
 	
 		if (mTrueJump)
 			mTrueJump->BuildCallerSaveTempSet(callerSaveTemps);
@@ -2524,7 +2527,7 @@ void InterCodeBasicBlock::BuildLocalVariableSets(const GrowingVariableArray& loc
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].FilterVarsUsage(localVars, mLocalRequiredVars, mLocalProvidedVars);
+			mInstructions[i]->FilterVarsUsage(localVars, mLocalRequiredVars, mLocalProvidedVars);
 		}
 
 		mEntryRequiredVars = mLocalRequiredVars;
@@ -2592,7 +2595,7 @@ bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArr
 
 		for (i = mInstructions.Size() - 1; i >= 0; i--)
 		{
-			if (mInstructions[i].RemoveUnusedStoreInstructions(localVars, requiredVars))
+			if (mInstructions[i]->RemoveUnusedStoreInstructions(localVars, requiredVars))
 				changed = true;
 		}
 
@@ -2667,7 +2670,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
 			lvalues.UpdateValue(mInstructions[i], ltvalue, aliasedLocals, aliasedParams);
-			mInstructions[i].PerformValueForwarding(ltvalue, tvalid);
+			mInstructions[i]->PerformValueForwarding(ltvalue, tvalid);
 		}
 
 		if (mTrueJump) mTrueJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams);
@@ -2701,7 +2704,7 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
 			CheckValueUsage(mInstructions[i], ltvalue);
-			mInstructions[i].PerformValueForwarding(ltvalue, tvalid);
+			mInstructions[i]->PerformValueForwarding(ltvalue, tvalid);
 		}
 
 		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid);
@@ -2773,7 +2776,7 @@ void InterCodeBasicBlock::LocalRenameRegister(const GrowingIntArray& renameTable
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].LocalRenameRegister(mExitRenameTable, num, fixed);
+			mInstructions[i]->LocalRenameRegister(mExitRenameTable, num, fixed);
 		}
 
 		if (mTrueJump) mTrueJump->LocalRenameRegister(mExitRenameTable, num, fixed);
@@ -2812,7 +2815,7 @@ void InterCodeBasicBlock::GlobalRenameRegister(const GrowingIntArray& renameTabl
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].GlobalRenameRegister(renameTable, temporaries);
+			mInstructions[i]->GlobalRenameRegister(renameTable, temporaries);
 		}
 
 		if (mTrueJump) mTrueJump->GlobalRenameRegister(renameTable, temporaries);
@@ -2845,7 +2848,7 @@ void InterCodeBasicBlock::BuildCollisionTable(NumberSet* collisionSets)
 
 		for (i = mInstructions.Size() - 1; i >= 0; i--)
 		{
-			mInstructions[i].BuildCollisionTable(requiredTemps, collisionSets);
+			mInstructions[i]->BuildCollisionTable(requiredTemps, collisionSets);
 		}
 
 		if (mTrueJump) mTrueJump->BuildCollisionTable(collisionSets);
@@ -2863,7 +2866,7 @@ void InterCodeBasicBlock::ReduceTemporaries(const GrowingIntArray& renameTable, 
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].ReduceTemporaries(renameTable, temporaries);
+			mInstructions[i]->ReduceTemporaries(renameTable, temporaries);
 		}
 
 		if (mTrueJump) mTrueJump->ReduceTemporaries(renameTable, temporaries);
@@ -2909,22 +2912,22 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 		{
 			bool	found = false;
 
-			switch (mInstructions[i].mCode)
+			switch (mInstructions[i]->mCode)
 			{
 			case IC_CONSTANT:
-				if (mInstructions[i].mTType != IT_POINTER)
+				if (mInstructions[i]->mTType != IT_POINTER)
 					break;
 
 			case IC_STORE:
 			case IC_LOAD:
 			case IC_JSR:
-				if (mInstructions[i].mMemory == IM_GLOBAL)
+				if (mInstructions[i]->mMemory == IM_GLOBAL)
 				{
-					UseGlobal(globalVars, mInstructions[i].mVarIndex);
+					UseGlobal(globalVars, mInstructions[i]->mVarIndex);
 				}
-				else if (mInstructions[i].mMemory == IM_LOCAL)
+				else if (mInstructions[i]->mMemory == IM_LOCAL)
 				{
-					localVars[mInstructions[i].mVarIndex].mUsed = true;
+					localVars[mInstructions[i]->mVarIndex].mUsed = true;
 				}
 				break;
 			}
@@ -2945,21 +2948,21 @@ void InterCodeBasicBlock::CollectOuterFrame(int level, int& size)
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			if (mInstructions[i].mCode == IC_PUSH_FRAME)
+			if (mInstructions[i]->mCode == IC_PUSH_FRAME)
 			{
 				level++;
 				if (level == 1)
 				{
-					if (mInstructions[i].mIntValue > size)
-						size = mInstructions[i].mIntValue;
-					mInstructions[i].mCode = IC_NONE;
+					if (mInstructions[i]->mIntValue > size)
+						size = mInstructions[i]->mIntValue;
+					mInstructions[i]->mCode = IC_NONE;
 				}
 			}
-			else if (mInstructions[i].mCode == IC_POP_FRAME)
+			else if (mInstructions[i]->mCode == IC_POP_FRAME)
 			{
 				if (level == 1)
 				{
-					mInstructions[i].mCode = IC_NONE;
+					mInstructions[i]->mCode = IC_NONE;
 				}
 				level--;
 			}
@@ -2979,7 +2982,7 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
-			if (mInstructions[i].mCode == IC_CALL || mInstructions[i].mCode == IC_JSR)
+			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_JSR)
 				return false;
 
 		if (mTrueJump && !mTrueJump->IsLeafProcedure())
@@ -2991,42 +2994,42 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 	return true;
 }
 
-static bool CanBypassLoad(const InterInstruction& lins, const InterInstruction& bins)
+static bool CanBypassLoad(const InterInstruction * lins, const InterInstruction * bins)
 {
 	// Check ambiguity
-	if (bins.mCode == IC_STORE || bins.mCode == IC_COPY)
+	if (bins->mCode == IC_STORE || bins->mCode == IC_COPY)
 		return false;
 
 	// Side effects
-	if (bins.mCode == IC_CALL || bins.mCode == IC_JSR)
+	if (bins->mCode == IC_CALL || bins->mCode == IC_JSR)
 		return false;
 
 	// True data dependency
-	if (lins.mTTemp == bins.mSTemp[0] || lins.mTTemp == bins.mSTemp[1] || lins.mTTemp == bins.mSTemp[2])
+	if (lins->mTTemp == bins->mSTemp[0] || lins->mTTemp == bins->mSTemp[1] || lins->mTTemp == bins->mSTemp[2])
 		return false;
 
 	// False data dependency
-	if (lins.mSTemp[0] >= 0 && lins.mSTemp[0] == bins.mTTemp)
+	if (lins->mSTemp[0] >= 0 && lins->mSTemp[0] == bins->mTTemp)
 		return false;
 
 	return true;
 }
 
-static bool CanBypassStore(const InterInstruction& sins, const InterInstruction& bins)
+static bool CanBypassStore(const InterInstruction * sins, const InterInstruction * bins)
 {
-	if (bins.mCode == IC_COPY || bins.mCode == IC_PUSH_FRAME)
+	if (bins->mCode == IC_COPY || bins->mCode == IC_PUSH_FRAME)
 		return false;
 
 	// Check ambiguity
-	if (bins.mCode == IC_STORE || bins.mCode == IC_LOAD)
+	if (bins->mCode == IC_STORE || bins->mCode == IC_LOAD)
 	{
-		if (sins.mMemory == IM_LOCAL)
+		if (sins->mMemory == IM_LOCAL)
 		{
-			if (bins.mMemory == IM_PARAM || bins.mMemory == IM_GLOBAL)
+			if (bins->mMemory == IM_PARAM || bins->mMemory == IM_GLOBAL)
 				;
-			else if (bins.mMemory == IM_LOCAL)
+			else if (bins->mMemory == IM_LOCAL)
 			{
-				if (bins.mVarIndex == sins.mVarIndex)
+				if (bins->mVarIndex == sins->mVarIndex)
 					return false;
 			}
 			else
@@ -3036,15 +3039,15 @@ static bool CanBypassStore(const InterInstruction& sins, const InterInstruction&
 			return false;
 	}
 
-	if (sins.mMemory == IM_FRAME && (bins.mCode == IC_PUSH_FRAME || bins.mCode == IC_POP_FRAME))
+	if (sins->mMemory == IM_FRAME && (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME))
 		return false;
 
 	// Side effects
-	if (bins.mCode == IC_CALL || bins.mCode == IC_JSR)
+	if (bins->mCode == IC_CALL || bins->mCode == IC_JSR)
 		return false;
 
 	// True data dependency
-	if (bins.mTTemp >= 0 && (bins.mTTemp == sins.mSTemp[0] || bins.mTTemp == sins.mSTemp[1]))
+	if (bins->mTTemp >= 0 && (bins->mTTemp == sins->mSTemp[0] || bins->mTTemp == sins->mSTemp[1]))
 		return false;
 
 	return true;
@@ -3065,9 +3068,9 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 		while (i >= 0)
 		{
 			// move loads down
-			if (mInstructions[i].mCode == IC_LOAD)
+			if (mInstructions[i]->mCode == IC_LOAD)
 			{
-				InterInstruction	ins(mInstructions[i]);
+				InterInstruction	*	ins(mInstructions[i]);
 				int j = i;
 				while (j + 2 < mInstructions.Size() && CanBypassLoad(ins, mInstructions[j + 1]))
 				{
@@ -3085,9 +3088,9 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 		while (i < mInstructions.Size())
 		{
 			// move stores up
-			if (mInstructions[i].mCode == IC_STORE)
+			if (mInstructions[i]->mCode == IC_STORE)
 			{
-				InterInstruction	ins(mInstructions[i]);
+				InterInstruction	*	ins(mInstructions[i]);
 				int j = i;
 				while (j > 0 && CanBypassStore(ins, mInstructions[j - 1]))
 				{
@@ -3107,7 +3110,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 			int	j = 0;
 			for (i = 0; i < mInstructions.Size(); i++)
 			{
-				if (mInstructions[i].mCode != IC_NONE)
+				if (mInstructions[i]->mCode != IC_NONE)
 				{
 					mInstructions[j++] = mInstructions[i];
 				}
@@ -3120,75 +3123,75 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 			{
 				if (i + 2 < mInstructions.Size())
 				{
-					if (mInstructions[i + 0].mTTemp >= 0 &&
-						mInstructions[i + 1].mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1].mSTemp[0] == mInstructions[i].mTTemp &&
-						(mInstructions[i + 2].mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2].mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2].mSTemp[0] == mInstructions[i].mTTemp && mInstructions[i + 2].mSFinal[0])
+					if (mInstructions[i + 0]->mTTemp >= 0 &&
+						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSTemp[0] == mInstructions[i]->mTTemp &&
+						(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSTemp[0] == mInstructions[i]->mTTemp && mInstructions[i + 2]->mSFinal[0])
 					{
-						mInstructions[i + 0].mTTemp = mInstructions[i + 1].mTTemp;
-						mInstructions[i + 1].mCode = IC_NONE;
-						mInstructions[i + 2].mSTemp[0] = mInstructions[i + 1].mTTemp;
-						mInstructions[i + 2].mSFinal[0] = false;
+						mInstructions[i + 0]->mTTemp = mInstructions[i + 1]->mTTemp;
+						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 2]->mSTemp[0] = mInstructions[i + 1]->mTTemp;
+						mInstructions[i + 2]->mSFinal[0] = false;
 						changed = true;
 					}
-					else if (mInstructions[i + 0].mTTemp >= 0 &&
-						mInstructions[i + 1].mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1].mSTemp[0] == mInstructions[i].mTTemp &&
-						(mInstructions[i + 2].mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2].mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2].mSTemp[1] == mInstructions[i].mTTemp && mInstructions[i + 2].mSFinal[1])
+					else if (mInstructions[i + 0]->mTTemp >= 0 &&
+						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSTemp[0] == mInstructions[i]->mTTemp &&
+						(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSTemp[1] == mInstructions[i]->mTTemp && mInstructions[i + 2]->mSFinal[1])
 					{
-						mInstructions[i + 0].mTTemp = mInstructions[i + 1].mTTemp;
-						mInstructions[i + 1].mCode = IC_NONE;
-						mInstructions[i + 2].mSTemp[1] = mInstructions[i + 1].mTTemp;
-						mInstructions[i + 2].mSFinal[1] = false;
-						changed = true;
-					}
-					else if (
-						mInstructions[i + 0].mCode == IC_BINARY_OPERATOR && mInstructions[i + 0].mOperator == IA_SAR && mInstructions[i + 0].mSTemp[0] < 0 &&
-						mInstructions[i + 1].mCode == IC_BINARY_OPERATOR && mInstructions[i + 1].mOperator == IA_MUL && mInstructions[i + 1].mSTemp[0] < 0 &&
-						mInstructions[i + 1].mSTemp[1] == mInstructions[i + 0].mTTemp && mInstructions[i + 1].mSFinal[1] &&
-						(mInstructions[i + 1].mSIntConst[0] & (1LL << mInstructions[i + 0].mSIntConst[0])) == 0)
-					{
-						int	shift = mInstructions[i + 0].mSIntConst[0];
-						mInstructions[i + 1].mSIntConst[0] >>= shift;
-						mInstructions[i + 0].mOperator = IA_AND;
-						mInstructions[i + 0].mSIntConst[0] = ~((1LL << shift) - 1);
+						mInstructions[i + 0]->mTTemp = mInstructions[i + 1]->mTTemp;
+						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 2]->mSTemp[1] = mInstructions[i + 1]->mTTemp;
+						mInstructions[i + 2]->mSFinal[1] = false;
 						changed = true;
 					}
 					else if (
-						mInstructions[i + 0].mCode == IC_BINARY_OPERATOR && mInstructions[i + 0].mOperator == IA_SAR && mInstructions[i + 0].mSTemp[0] < 0 &&
-						mInstructions[i + 1].mCode == IC_BINARY_OPERATOR && mInstructions[i + 1].mOperator == IA_MUL && mInstructions[i + 1].mSTemp[1] < 0 &&
-						mInstructions[i + 1].mSTemp[0] == mInstructions[i + 0].mTTemp && mInstructions[i + 1].mSFinal[0] &&
-						(mInstructions[i + 1].mSIntConst[1] & (1LL << mInstructions[i + 0].mSIntConst[0])) == 0)
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SAR && mInstructions[i + 0]->mSTemp[0] < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSTemp[0] < 0 &&
+						mInstructions[i + 1]->mSTemp[1] == mInstructions[i + 0]->mTTemp && mInstructions[i + 1]->mSFinal[1] &&
+						(mInstructions[i + 1]->mSIntConst[0] & (1LL << mInstructions[i + 0]->mSIntConst[0])) == 0)
 					{
-						int	shift = mInstructions[i + 0].mSIntConst[0];
-						mInstructions[i + 1].mSIntConst[1] >>= shift;
-						mInstructions[i + 0].mOperator = IA_AND;
-						mInstructions[i + 0].mSIntConst[0] = ~((1LL << shift) - 1);
+						int	shift = mInstructions[i + 0]->mSIntConst[0];
+						mInstructions[i + 1]->mSIntConst[0] >>= shift;
+						mInstructions[i + 0]->mOperator = IA_AND;
+						mInstructions[i + 0]->mSIntConst[0] = ~((1LL << shift) - 1);
 						changed = true;
 					}
 					else if (
-						mInstructions[i + 1].mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1].mTTemp] && !mExitRequiredTemps[mInstructions[i + 1].mSTemp[0]] &&
-						mInstructions[i + 0].mTTemp == mInstructions[i + 1].mSTemp[0])
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SAR && mInstructions[i + 0]->mSTemp[0] < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSTemp[1] < 0 &&
+						mInstructions[i + 1]->mSTemp[0] == mInstructions[i + 0]->mTTemp && mInstructions[i + 1]->mSFinal[0] &&
+						(mInstructions[i + 1]->mSIntConst[1] & (1LL << mInstructions[i + 0]->mSIntConst[0])) == 0)
 					{
-						mInstructions[i + 0].mTTemp = mInstructions[i + 1].mTTemp;
-						mInstructions[i + 1].mTTemp = mInstructions[i + 1].mSTemp[0];
-						mInstructions[i + 1].mSTemp[0] = mInstructions[i + 0].mTTemp;
+						int	shift = mInstructions[i + 0]->mSIntConst[0];
+						mInstructions[i + 1]->mSIntConst[1] >>= shift;
+						mInstructions[i + 0]->mOperator = IA_AND;
+						mInstructions[i + 0]->mSIntConst[0] = ~((1LL << shift) - 1);
+						changed = true;
+					}
+					else if (
+						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1]->mTTemp] && !mExitRequiredTemps[mInstructions[i + 1]->mSTemp[0]] &&
+						mInstructions[i + 0]->mTTemp == mInstructions[i + 1]->mSTemp[0])
+					{
+						mInstructions[i + 0]->mTTemp = mInstructions[i + 1]->mTTemp;
+						mInstructions[i + 1]->mTTemp = mInstructions[i + 1]->mSTemp[0];
+						mInstructions[i + 1]->mSTemp[0] = mInstructions[i + 0]->mTTemp;
 						changed = true;
 					}
 
 					// Postincrement artifact
-					if (mInstructions[i + 0].mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1].mCode == IC_BINARY_OPERATOR &&
-						mInstructions[i + 1].mSTemp[0] < 0 &&
-						mInstructions[i + 0].mSTemp[0] == mInstructions[i + 1].mSTemp[1] &&
-						mInstructions[i + 0].mSTemp[0] == mInstructions[i + 1].mTTemp)
+					if (mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+						mInstructions[i + 1]->mSTemp[0] < 0 &&
+						mInstructions[i + 0]->mSTemp[0] == mInstructions[i + 1]->mSTemp[1] &&
+						mInstructions[i + 0]->mSTemp[0] == mInstructions[i + 1]->mTTemp)
 					{
-						InterInstruction	ins = mInstructions[i + 1];
-						int		ttemp = mInstructions[i + 1].mTTemp;
+						InterInstruction	*	ins = mInstructions[i + 1];
+						int		ttemp = mInstructions[i + 1]->mTTemp;
 						int	k = i + 1;
 						while (k + 2 < mInstructions.Size() &&
-							mInstructions[k + 1].mCode != IC_RELATIONAL_OPERATOR &&
-							mInstructions[k + 1].mSTemp[0] != ttemp &&
-							mInstructions[k + 1].mSTemp[1] != ttemp &&
-							mInstructions[k + 1].mSTemp[2] != ttemp &&
-							mInstructions[k + 1].mTTemp != ttemp)
+							mInstructions[k + 1]->mCode != IC_RELATIONAL_OPERATOR &&
+							mInstructions[k + 1]->mSTemp[0] != ttemp &&
+							mInstructions[k + 1]->mSTemp[1] != ttemp &&
+							mInstructions[k + 1]->mSTemp[2] != ttemp &&
+							mInstructions[k + 1]->mTTemp != ttemp)
 						{
 							mInstructions[k] = mInstructions[k + 1];
 							k++;
@@ -3224,19 +3227,19 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 		{
 			bool	found = false;
 
-			switch (mInstructions[i].mCode)
+			switch (mInstructions[i]->mCode)
 			{
 			case IC_STORE:
 			case IC_LOAD:							
 			case IC_CONSTANT:
 			case IC_JSR:
-				if (mInstructions[i].mMemory == IM_LOCAL)
+				if (mInstructions[i]->mMemory == IM_LOCAL)
 				{
-					int	size = mInstructions[i].mOperandSize + mInstructions[i].mIntValue;
-					if (size > localVars[mInstructions[i].mVarIndex].mSize)
-						localVars[mInstructions[i].mVarIndex].mSize = size;
-					if (mInstructions[i].mCode == IC_CONSTANT)
-						localVars[mInstructions[i].mVarIndex].mAliased = true;
+					int	size = mInstructions[i]->mOperandSize + mInstructions[i]->mIntValue;
+					if (size > localVars[mInstructions[i]->mVarIndex].mSize)
+						localVars[mInstructions[i]->mVarIndex].mSize = size;
+					if (mInstructions[i]->mCode == IC_CONSTANT)
+						localVars[mInstructions[i]->mVarIndex].mAliased = true;
 				}
 				break;
 			}
@@ -3257,7 +3260,7 @@ void InterCodeBasicBlock::CollectSimpleLocals(FastNumberSet& complexLocals, Fast
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
+			mInstructions[i]->CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
 		}
 
 		if (mTrueJump) mTrueJump->CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
@@ -3275,7 +3278,7 @@ void InterCodeBasicBlock::SimpleLocalToTemp(int vindex, int temp)
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].SimpleLocalToTemp(vindex, temp);
+			mInstructions[i]->SimpleLocalToTemp(vindex, temp);
 		}
 
 		if (mTrueJump) mTrueJump->SimpleLocalToTemp(vindex, temp);
@@ -3294,7 +3297,7 @@ void InterCodeBasicBlock::CollectActiveTemporaries(FastNumberSet& set)
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].CollectActiveTemporaries(set);
+			mInstructions[i]->CollectActiveTemporaries(set);
 		}
 
 		if (mTrueJump) mTrueJump->CollectActiveTemporaries(set);
@@ -3312,7 +3315,7 @@ void InterCodeBasicBlock::ShrinkActiveTemporaries(FastNumberSet& set, GrowingTyp
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i].ShrinkActiveTemporaries(set, temporaries);
+			mInstructions[i]->ShrinkActiveTemporaries(set, temporaries);
 		}
 
 		if (mTrueJump) mTrueJump->ShrinkActiveTemporaries(set, temporaries);
@@ -3346,10 +3349,10 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			if (mInstructions[i].mCode != IT_NONE)
+			if (mInstructions[i]->mCode != IT_NONE)
 			{
 				fprintf(file, "%04x\t", i);
-				mInstructions[i].Disassemble(file);
+				mInstructions[i]->Disassemble(file);
 			}
 		}
 
