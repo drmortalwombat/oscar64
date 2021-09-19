@@ -22,18 +22,6 @@
         }
         "Entry"
         {
-        "MsmKey" = "8:_10AA1A8F5637EB7BCE5B2C363F0D2715"
-        "OwnerKey" = "8:_FB2E467BC172457785F4279BB0BFE8B6"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_284672F9297967D1B24B7BBC58FB364F"
-        "OwnerKey" = "8:_FB2E467BC172457785F4279BB0BFE8B6"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
         "MsmKey" = "8:_317711E6E48744A18655469B4C53767E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -60,12 +48,6 @@
         {
         "MsmKey" = "8:_A32310DEFD4E41118CD7D36A8614C0D4"
         "OwnerKey" = "8:_UNDEFINED"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_A34F785CB2CDC70381777BD1CC2CE2D8"
-        "OwnerKey" = "8:_FB2E467BC172457785F4279BB0BFE8B6"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -223,46 +205,6 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_10AA1A8F5637EB7BCE5B2C363F0D2715"
-            {
-            "SourcePath" = "8:VCRUNTIME140D.dll"
-            "TargetName" = "8:VCRUNTIME140D.dll"
-            "Tag" = "8:"
-            "Folder" = "8:_C95D3F098F884652A04D707B55B980EE"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:TRUE"
-            "IsolateTo" = "8:"
-            }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_284672F9297967D1B24B7BBC58FB364F"
-            {
-            "SourcePath" = "8:VERSION.dll"
-            "TargetName" = "8:VERSION.dll"
-            "Tag" = "8:"
-            "Folder" = "8:_C95D3F098F884652A04D707B55B980EE"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:TRUE"
-            "IsolateTo" = "8:"
-            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_317711E6E48744A18655469B4C53767E"
             {
             "SourcePath" = "8:..\\include\\math.c"
@@ -361,26 +303,6 @@
             "Register" = "3:1"
             "Exclude" = "11:FALSE"
             "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            }
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A34F785CB2CDC70381777BD1CC2CE2D8"
-            {
-            "SourcePath" = "8:ucrtbased.dll"
-            "TargetName" = "8:ucrtbased.dll"
-            "Tag" = "8:"
-            "Folder" = "8:_C95D3F098F884652A04D707B55B980EE"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:TRUE"
             "IsolateTo" = "8:"
             }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D0E45B48D76B4407B0BDE4378C1DB2C7"
@@ -590,15 +512,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{7BECBC9C-5747-4DC7-9269-74622309CE77}"
-        "PackageCode" = "8:{B46B4FD6-08B7-407A-9F78-7A6676D5123D}"
+        "ProductCode" = "8:{F445EC12-D294-4466-A17F-16892657646C}"
+        "PackageCode" = "8:{C263EE73-C81E-4C63-9EEA-4FD3EA106F58}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.0.28"
+        "ProductVersion" = "8:1.0.29"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
