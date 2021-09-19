@@ -455,6 +455,10 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 		{
 			return mBase->IsSame(fromType);
 		}
+		else if (mBase->mType == DT_TYPE_VOID && fromType->mType == DT_TYPE_ASSEMBLER)
+		{
+			return true;
+		}
 	}
 
 	return false;

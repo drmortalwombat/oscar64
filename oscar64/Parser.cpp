@@ -751,7 +751,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 					}
 				}
 
-				if (mGlobals == mScope)
+				if (mGlobals == mScope || (ndec->mFlags & DTF_STATIC))
 				{
 					ndec->mFlags |= DTF_GLOBAL;
 					ndec->mVarIndex = -1;
@@ -962,7 +962,7 @@ Expression* Parser::ParseSimpleExpression(void)
 		dec = mScope->Lookup(mScanner->mTokenIdent);
 		if (dec)
 		{
-			if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION)
+			if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
 			{
 				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 				exp->mDecValue = dec;

@@ -2243,6 +2243,20 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 			t >>= 8;
 		}
 	}
+	else if (data->mType == DT_CONST_ASSEMBLER)
+	{
+		if (data->mVarIndex < 0)
+			TranslateAssembler(mod, data->mValue);
+
+		InterVariable::Reference	ref;
+		ref.mAddr = offset;
+		ref.mUpper = true;
+		ref.mLower = true;
+		ref.mFunction = false;
+		ref.mIndex = data->mVarIndex;
+		ref.mOffset = 0;
+		references.Push(ref);
+	}
 	else if (data->mType == DT_CONST_FUNCTION)
 	{
 		if (data->mVarIndex < 0)
