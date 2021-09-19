@@ -369,6 +369,10 @@ void * sformat(void * data, putstrfn fn, const char * fmt, int * fps)
 			{
 				data = fn(data, (char *)*fps++);
 			}
+			else if (c == 'c')
+			{
+				buff[bi++] = *fps++;
+			}
 			else if (c)
 			{
 				buff[bi++] = c;

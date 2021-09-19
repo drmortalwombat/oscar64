@@ -3365,7 +3365,7 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 }
 
 InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & location, const Ident* ident)
-	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), 
+	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), mTempSizes(0), 
 	mRenameTable(-1), mRenameUnionTable(-1), mGlobalRenameTable(-1),
 	mValueForwardingTable(NULL), mLocalVars(InterVariable()), mModule(mod),
 	mIdent(ident), mNativeProcedure(false), mLeafProcedure(false)
@@ -3917,11 +3917,13 @@ void InterCodeProcedure::ReduceTemporaries(void)
 		if (callerSavedTemps + size <= 16 && !callerSaved[i])
 		{
 			mTempOffset.Push(callerSavedTemps);
+			mTempSizes.Push(size);
 			callerSavedTemps += size;
 		}
 		else
 		{
 			mTempOffset.Push(calleeSavedTemps);
+			mTempSizes.Push(size);
 			calleeSavedTemps += size;
 		}
 	}

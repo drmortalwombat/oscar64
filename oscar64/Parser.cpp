@@ -1202,7 +1202,12 @@ Expression* Parser::ParsePrefixExpression(void)
 			if (nexp->mToken == TK_MUL)
 			{
 				if (nexp->mLeft->mDecType->mType == DT_TYPE_POINTER || nexp->mLeft->mDecType->mType == DT_TYPE_ARRAY)
+				{
+					// no pointer to function dereferencing
+					if (nexp->mLeft->mDecType->mBase->mType == DT_TYPE_FUNCTION)
+						return nexp->mLeft;
 					nexp->mDecType = nexp->mLeft->mDecType;
+				}
 				else
 					mErrors->Error(nexp->mLocation, "Pointer or array type expected");
 			}

@@ -486,7 +486,7 @@ protected:
 public:
 	GrowingInterCodeBasicBlockPtrArray	mBlocks;	
 	GrowingTypeArray					mTemporaries;
-	GrowingIntArray						mTempOffset;
+	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize;
 	bool								mLeafProcedure, mNativeProcedure;
 

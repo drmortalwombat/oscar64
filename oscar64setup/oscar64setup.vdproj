@@ -22,6 +22,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_11003A1822704117BBF4B206A133EAD9"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_317711E6E48744A18655469B4C53767E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -41,6 +47,12 @@
         "Entry"
         {
         "MsmKey" = "8:_9D0D7A63D6C848CD85489D6E7C43AFAD"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_A27837E885F24200AC5CD5D9F8A0C2A4"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -205,6 +217,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_11003A1822704117BBF4B206A133EAD9"
+            {
+            "SourcePath" = "8:..\\include\\conio.h"
+            "TargetName" = "8:conio.h"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_317711E6E48744A18655469B4C53767E"
             {
             "SourcePath" = "8:..\\include\\math.c"
@@ -269,6 +301,26 @@
             {
             "SourcePath" = "8:..\\include\\stdio.h"
             "TargetName" = "8:stdio.h"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A27837E885F24200AC5CD5D9F8A0C2A4"
+            {
+            "SourcePath" = "8:..\\include\\conio.c"
+            "TargetName" = "8:conio.c"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
             "Condition" = "8:"
@@ -513,7 +565,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
         "ProductCode" = "8:{3661BD30-0CEA-48FD-9F79-F3EE87E35F13}"
-        "PackageCode" = "8:{E524D01A-EAC6-47DD-A7F3-1E088056634C}"
+        "PackageCode" = "8:{A215641A-3D35-468B-AAAA-AB1067861712}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
@@ -1034,7 +1086,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_FB2E467BC172457785F4279BB0BFE8B6"
             {
-            "SourcePath" = "8:..\\Release\\oscar64.exe"
+            "SourcePath" = "8:..\\Debug\\oscar64.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_C95D3F098F884652A04D707B55B980EE"

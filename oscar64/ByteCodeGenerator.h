@@ -2,6 +2,7 @@
 
 #include "InterCode.h"
 #include "Ident.h"
+#include "Disassembler.h"
 
 enum ByteCode
 {
@@ -258,7 +259,7 @@ public:
 
 	void Disassemble(FILE * file, ByteCodeGenerator* generator, InterCodeProcedure* proc);
 protected:
-	const char* TempName(uint8 tmp, char * buffer, InterCodeProcedure* proc);
+	ByteCodeDisassembler	mDisassembler;
 };
 
 class ByteCodeGenerator
