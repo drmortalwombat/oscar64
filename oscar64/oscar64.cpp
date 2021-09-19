@@ -53,7 +53,7 @@ int main(int argc, const char** argv)
 	InitDeclarations();
 	InitAssembler();
 
-	if (argc > 0)
+	if (argc > 1)
 	{
 		char	basePath[200], crtPath[200], includePath[200], targetPath[200];
 		char	strProductName[100], strProductVersion[200];
@@ -119,6 +119,21 @@ int main(int argc, const char** argv)
 				{
 					emulate = true;
 				}
+				else if (arg[1] == 'd')
+				{
+					char	def[100];
+					int i = 2;
+					while (arg[i] && arg[i] != '=')
+					{
+						def[i - 2] = arg[i];
+						i++;
+					}
+					def[i - 2] = 0;
+					if (arg[i] == '=')
+						compiler->AddDefine(Ident::Unique(def), _strdup(arg + i + 1));
+					else
+						compiler->AddDefine(Ident::Unique(def), "");
+				}
 				else
 					compiler->mErrors->Error(loc, "Invalid command line argument", arg);
 			}
@@ -147,7 +162,8 @@ int main(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-cr=runtime.c] [-e] {source.c}\n");
+		printf("oscar64 {-i=includePath} [-o=output.prg] [-cr=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}\n");
+
 		return 0;
 	}
 

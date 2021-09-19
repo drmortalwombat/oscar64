@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 Compiler::Compiler(void)
-	: mByteCodeFunctions(nullptr), mNativeCode(false)
+	: mByteCodeFunctions(nullptr), mNativeCode(false), mDefines({nullptr, nullptr})
 {
 	mErrors = new Errors();
 	mCompilationUnits = new CompilationUnits(mErrors);
@@ -29,6 +29,15 @@ void Compiler::ForceNativeCode(bool native)
 	mNativeCode = native;
 }
 
+void Compiler::AddDefine(const Ident* ident, const char* value)
+{
+	Define	define;
+	define.mIdent = ident;
+	define.mValue = value;
+	mDefines.Push(define);
+}
+
+
 bool Compiler::ParseSource(void)
 {
 	CompilationUnit* cunit;
@@ -37,6 +46,10 @@ bool Compiler::ParseSource(void)
 		if (mPreprocessor->OpenSource(cunit->mFileName, true))
 		{
 			Scanner* scanner = new Scanner(mErrors, mPreprocessor);
+
+			for (int i = 0; i < mDefines.Size(); i++)
+				scanner->AddMacro(mDefines[i].mIdent, mDefines[i].mValue);
+
 			Parser* parser = new Parser(mErrors, scanner, mCompilationUnits);
 
 			parser->Parse();

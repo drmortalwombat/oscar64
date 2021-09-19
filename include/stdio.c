@@ -356,6 +356,7 @@ void * sformat(void * data, putstrfn fn, const char * fmt, int * fps)
 				nformi(&si, buff, *fps++, false);
 				data = fn(data, buff);
 			}
+#ifndef NOFLOAT
 			else if (c == 'f' || c == 'g' || c == 'e')
 			{
 				nformf(&si, buff, *(float *)fps, c);
@@ -363,6 +364,7 @@ void * sformat(void * data, putstrfn fn, const char * fmt, int * fps)
 				fps ++;
 				fps ++;
 			}
+#endif			
 			else if (c == 's')
 			{
 				data = fn(data, (char *)*fps++);

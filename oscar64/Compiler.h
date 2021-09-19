@@ -23,10 +23,19 @@ public:
 
 	bool mNativeCode;
 
+	struct Define
+	{
+		const Ident* mIdent;
+		const char* mValue;
+	};
+
+	GrowingArray<Define>	mDefines;
+
 	bool ParseSource(void);
 	bool GenerateCode(void);
 	bool WriteOutputFile(const char* targetPath);
 	int ExecuteCode(void);
 
 	void ForceNativeCode(bool native);
+	void AddDefine(const Ident* ident, const char* value);
 };

@@ -340,6 +340,13 @@ static inline int HexValue(char ch)
 		return 0;
 }
 
+void Scanner::AddMacro(const Ident* ident, const char* value)
+{
+	Macro* macro = new Macro(ident);
+	macro->SetString(value);
+	mDefines->Insert(macro);
+}
+
 void Scanner::NextToken(void)
 {
 	for (;;)
@@ -636,6 +643,29 @@ void Scanner::NextRawToken(void)
 			}
 			break;
 		case '%':
+			if (mAssemblerMode)
+			{
+				int	n = 0;
+				__int64	mant = 0;
+				while (NextChar())
+				{
+					if (mTokenChar >= '0' && mTokenChar <= '9')
+						mant = mant * 16 + (int)mTokenChar - (int)'0';
+					else if (mTokenChar >= 'a' && mTokenChar <= 'f')
+						mant = mant * 16 + 10 + (int)mTokenChar - (int)'a';
+					else if (mTokenChar >= 'A' && mTokenChar <= 'F')
+						mant = mant * 16 + 10 + (int)mTokenChar - (int)'A';
+					else
+						break;
+					n++;
+				}
+
+				if (n == 0)
+					mErrors->Error(mLocation, "Missing digits in hex constant");
+
+				mToken = TK_INTEGER;
+				mTokenInteger = mant;
+			}
 			mToken = TK_MOD;
 			NextChar();
 			if (mTokenChar == '=')
@@ -1190,6 +1220,24 @@ void Scanner::ParseNumberToken(void)
 
 		if (n == 0)
 			Error("Missing digits in hex constant");
+
+		mToken = TK_INTEGER;
+		mTokenInteger = mant;
+	}
+	else if (mant == 0 && (mTokenChar == 'b' || mTokenChar == 'B'))
+	{
+		int	n = 0;
+		while (NextChar())
+		{
+			if (mTokenChar >= '0' && mTokenChar <= '1')
+				mant = mant * 2 + (int)mTokenChar - (int)'0';
+			else
+				break;
+			n++;
+		}
+
+		if (n == 0)
+			Error("Missing digits in binary constant");
 
 		mToken = TK_INTEGER;
 		mTokenInteger = mant;

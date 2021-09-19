@@ -192,6 +192,8 @@ public:
 	void SetAssemblerMode(bool mode);
 
 	bool			mAssemblerMode;
+
+	void AddMacro(const Ident* ident, const char* value);
 protected:
 	void NextRawToken(void);
 
