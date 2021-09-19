@@ -1035,6 +1035,25 @@ __asm inp_store_frame_32
 
 #pragma	bytecode(BC_STORE_FRAME_32, inp_store_frame_32)
 
+__asm inp_lea_frame
+{
+		lda	(ip), y
+		tax
+		iny
+		clc
+		lda	(ip), y
+		adc	sp
+		sta	$00, x
+		iny
+		lda	(ip), y
+		adc	sp + 1
+		sta	$01, x
+		iny
+		jmp	startup.exec
+}
+		
+#pragma	bytecode(BC_LEA_FRAME, inp_lea_frame)
+
 __asm inp_op_negate_16
 {
 		sec

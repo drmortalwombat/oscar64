@@ -86,7 +86,7 @@ bool ByteCodeInstruction::LoadsRegister(uint32 reg) const
 			return true;
 		if (mCode >= BC_CONST_8 && mCode <= BC_CONST_32)
 			return true;
-		if (mCode == BC_LEA_ABS || mCode == BC_LEA_LOCAL)
+		if (mCode == BC_LEA_ABS || mCode == BC_LEA_LOCAL || mCode == BC_LEA_FRAME)
 			return true;
 	}
 
@@ -136,7 +136,7 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 			return true;
 		if (mCode >= BC_CONST_8 && mCode <= BC_CONST_32)
 			return true;
-		if (mCode == BC_LEA_ABS || mCode == BC_LEA_LOCAL)
+		if (mCode == BC_LEA_ABS || mCode == BC_LEA_LOCAL || mCode == BC_LEA_FRAME)
 			return true;
 		if (mCode >= BC_BINOP_ADDI_16 && mCode <= BC_BINOP_MULI8_16)
 			return true;
@@ -302,6 +302,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		break;
 
 	case BC_LEA_LOCAL:
+	case BC_LEA_FRAME:
 		block->PutCode(generator, mCode);
 		block->PutByte(mRegister); 
 		block->PutWord(uint16(mValue));
@@ -619,6 +620,13 @@ void ByteCodeBasicBlock::LoadConstant(InterCodeProcedure* proc, const InterInstr
 			ByteCodeInstruction	bins(BC_LEA_LOCAL);
 			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 			bins.mValue = ins->mIntValue + ins->mVarIndex + proc->mLocalSize + 2;
+			mIns.Push(bins);
+		}
+		else if (ins->mMemory == IM_FRAME)
+		{
+			ByteCodeInstruction	bins(BC_LEA_FRAME);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+			bins.mValue = ins->mVarIndex + ins->mSIntConst[1] + 2;
 			mIns.Push(bins);
 		}
 		else if (ins->mMemory == IM_PROCEDURE)
@@ -3237,6 +3245,11 @@ void ByteCodeProcedure::Disassemble(FILE * file, ByteCodeGenerator * generator, 
 
 		case BC_LEA_LOCAL:
 			fprintf(file, "LEA\t%s, %d(FP)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc), uint16(generator->mMemory[mProgStart + i + 1] + 256 * generator->mMemory[mProgStart + i + 2]));
+			i += 3;
+			break;
+
+		case BC_LEA_FRAME:
+			fprintf(file, "LEA\t%s, %d(SP)", TempName(generator->mMemory[mProgStart + i + 0], tbuffer, proc), uint16(generator->mMemory[mProgStart + i + 1] + 256 * generator->mMemory[mProgStart + i + 2]));
 			i += 3;
 			break;
 

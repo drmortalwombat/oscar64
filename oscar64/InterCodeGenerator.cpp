@@ -1435,37 +1435,66 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					vr = TranslateExpression(procType, proc, block, texp, breakBlock, continueBlock);
 
-					if (vr.mType->mType != DT_TYPE_ARRAY)
-						vr = Dereference(proc, block, vr);
-
-					if (pdec)
+					if (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION)
 					{
-						if (!pdec->mBase->CanAssign(vr.mType))
+						if (pdec && !pdec->mBase->CanAssign(vr.mType))
 							mErrors->Error(texp->mLocation, "Cannot assign incompatible types");
-						vr = CoerceType(proc, block, vr, pdec->mBase);
-					}
-					else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
-					{
-						vr = CoerceType(proc, block, vr, TheSignedIntTypeDeclaration);
-					}
 
-					InterInstruction	*	wins = new InterInstruction();
-					wins->mCode = IC_STORE;
-					wins->mMemory = IM_INDIRECT;
-					wins->mSType[0] = InterTypeOf(vr.mType);;
-					wins->mSTemp[0] = vr.mTemp;
-					wins->mSType[1] = IT_POINTER;
-					wins->mSTemp[1] = ains->mTTemp;
-					if (pdec)
-						wins->mOperandSize = pdec->mSize;
-					else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
-						wins->mOperandSize = vr.mType->mSize;
+						vr = Dereference(proc, block, vr, 1);
+
+						if (vr.mReference != 1)
+							mErrors->Error(exp->mLeft->mLocation, "Not an adressable expression");
+
+						InterInstruction* cins = new InterInstruction();
+						cins->mCode = IC_COPY;
+						cins->mMemory = IM_INDIRECT;
+						cins->mSType[0] = IT_POINTER;
+						cins->mSTemp[0] = vr.mTemp;
+						cins->mSType[1] = IT_POINTER;
+						cins->mSTemp[1] = ains->mTTemp;
+						cins->mOperandSize = vr.mType->mSize;
+						block->Append(cins);
+
+						atotal += cins->mOperandSize;
+					}
 					else
-						wins->mOperandSize = 2;
+					{
+						if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
+							vr = Dereference(proc, block, vr, 1);
+						else
+							vr = Dereference(proc, block, vr);
 
-					block->Append(wins);
+						if (pdec)
+						{
+							if (!pdec->mBase->CanAssign(vr.mType))
+								mErrors->Error(texp->mLocation, "Cannot assign incompatible types");
+							vr = CoerceType(proc, block, vr, pdec->mBase);
+						}
+						else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
+						{
+							vr = CoerceType(proc, block, vr, TheSignedIntTypeDeclaration);
+						}
 
-					atotal += wins->mOperandSize;
+
+						InterInstruction* wins = new InterInstruction();
+						wins->mCode = IC_STORE;
+						wins->mMemory = IM_INDIRECT;
+						wins->mSType[0] = InterTypeOf(vr.mType);;
+						wins->mSTemp[0] = vr.mTemp;
+						wins->mSType[1] = IT_POINTER;
+						wins->mSTemp[1] = ains->mTTemp;
+						if (pdec)
+							wins->mOperandSize = pdec->mSize;
+						else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
+							wins->mOperandSize = vr.mType->mSize;
+						else
+							wins->mOperandSize = 2;
+
+						block->Append(wins);
+
+						atotal += wins->mOperandSize;
+					}
+
 					if (pdec)
 						pdec = pdec->mNext;
 				}
@@ -1541,6 +1570,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (cexp->mAsmInsType != ASMIT_BYTE)
 				{
 					int	opcode = AsmInsOpcodes[cexp->mAsmInsType][cexp->mAsmInsMode];
+					if (opcode < 0)
+						mErrors->Error(cexp->mLocation, "Invalid opcode adressing mode");
 					d[offset++] = opcode;
 				}
 

@@ -405,7 +405,12 @@ bool Declaration::IsSame(const Declaration* dec) const
 	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
 		return true;
 	else if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_ENUM)
-		return false;
+	{
+		if (mIdent == dec->mIdent)
+			return true;
+		else
+			return false;
+	}
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 		return mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_FUNCTION)
@@ -456,6 +461,10 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 			return mBase->IsSame(fromType);
 		}
 		else if (mBase->mType == DT_TYPE_VOID && fromType->mType == DT_TYPE_ASSEMBLER)
+		{
+			return true;
+		}
+		else if (mBase->mType == DT_TYPE_VOID && fromType->mType == DT_TYPE_FUNCTION)
 		{
 			return true;
 		}

@@ -40,8 +40,11 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 		}
 	}
 
-	dec->mIdent = structName;
-	dec->mScope = new DeclarationScope(nullptr);
+	if (!dec->mIdent || !dec->mScope)
+	{
+		dec->mIdent = structName;
+		dec->mScope = new DeclarationScope(nullptr);
+	}
 
 	if (mScanner->mToken == TK_OPEN_BRACE)
 	{
