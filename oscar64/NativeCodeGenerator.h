@@ -47,6 +47,7 @@ public:
 	bool LoadsAccu(void) const;
 	bool ChangesAddress(void) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
+	bool IsCommutative(void) const;
 };
 
 class NativeCodeBasicBlock

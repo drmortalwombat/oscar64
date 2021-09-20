@@ -71,7 +71,7 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 		mLive |= LIVE_CPU_REG_Z;
 	if (requiredTemps[CPU_REG_C])
 		mLive |= LIVE_CPU_REG_C;
-	if (mMode == ASMIM_ZERO_PAGE)
+	if (mMode == ASMIM_ZERO_PAGE && requiredTemps[mAddress])
 		mLive |= LIVE_MEM;
 
 	if (mType == ASMIT_JSR)
@@ -444,6 +444,11 @@ bool NativeCodeInstruction::ChangesAddress(void) const
 		return mType == ASMIT_INC || mType == ASMIT_DEC || mType == ASMIT_ASL || mType == ASMIT_LSR || mType == ASMIT_ROL || mType == ASMIT_ROR || mType == ASMIT_STA || mType == ASMIT_STX || mType == ASMIT_STY;
 	else
 		return false;
+}
+
+bool NativeCodeInstruction::IsCommutative(void) const
+{
+	return mType == ASMIT_ADC || mType == ASMIT_AND || mType == ASMIT_ORA || mType == ASMIT_EOR;
 }
 
 
@@ -4079,6 +4084,16 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mAddress = 1;
 						mIns[i + 2].mType = ASMIT_STA;
 						progress = true;
+					}
+					else if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode != ASMIM_ZERO_PAGE &&
+						mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 2].mAddress &&
+						mIns[i + 2].IsCommutative() && HasAsmInstructionMode(mIns[i + 2].mType, mIns[i + 1].mMode) &&
+						(mIns[i + 2].mLive & LIVE_MEM) == 0)
+					{
+						mIns[i + 1].mType = mIns[i + 2].mType;
+						mIns[i + 0].mType = ASMIT_NOP;
+						mIns[i + 2].mType = ASMIT_NOP;
 					}
 				}
 
