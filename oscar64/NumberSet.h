@@ -61,7 +61,7 @@ __forceinline bool NumberSet::operator[](int elem) const
 class FastNumberSet
 {
 protected:
-	uint32	* buffer;
+	uint32	*	buffer;
 	int			size, num, asize;
 public:
 	FastNumberSet(void);
@@ -92,14 +92,14 @@ __forceinline bool FastNumberSet::operator[](int elem)
 {
 	uint32 dw = buffer[size + elem];
 
-	return (dw < num && buffer[dw] == elem);
+	return (dw < uint32(num) && buffer[dw] == elem);
 }
 
 __forceinline FastNumberSet& FastNumberSet::operator+=(int elem)
 {
 	uint32 dw = buffer[size + elem];
 
-	if (dw >= num || buffer[dw] != elem)
+	if (dw >= uint32(num) || buffer[dw] != elem)
 	{
 		buffer[num] = elem;
 		buffer[size + elem] = num;
@@ -113,7 +113,7 @@ __forceinline FastNumberSet& FastNumberSet::operator-=(int elem)
 {
 	uint32 dw = buffer[size + elem];
 
-	if (dw < num && buffer[dw] == elem)
+	if (dw < uint32(num) && buffer[dw] == elem)
 	{
 		num--;
 		buffer[dw] = buffer[num];

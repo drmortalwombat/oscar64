@@ -1,8 +1,8 @@
 #include "InterCodeGenerator.h"
 #include <crtdbg.h>
 
-InterCodeGenerator::InterCodeGenerator(Errors* errors)
-	: mErrors(errors), mForceNativeCode(false)
+InterCodeGenerator::InterCodeGenerator(Errors* errors, Linker* linker)
+	: mErrors(errors), mLinker(linker), mForceNativeCode(false)
 {
 
 }
@@ -182,37 +182,30 @@ static inline InterType InterTypeOfArithmetic(InterType t1, InterType t2)
 
 void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* dec)
 {
-	if (dec->mVarIndex < 0)
+	if (!dec->mLinkerObject)
 	{
-		InterVariable	var;
-		var.mOffset = 0;
-		var.mSize = dec->mSize;
-		var.mData = nullptr;
-		var.mIdent = dec->mIdent;
+		InterVariable	*	var = new InterVariable();
+		var->mOffset = 0;
+		var->mSize = dec->mSize;
+		var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
+		var->mIdent = dec->mIdent;
+
+		var->mIndex = mod->mGlobalVars.Size();
+		mod->mGlobalVars.Push(var);
+
+		dec->mVarIndex = var->mIndex;
+		dec->mLinkerObject = var->mLinkerObject;
+
+		uint8* d = var->mLinkerObject->AddSpace(var->mSize);
 		if (dec->mValue)
 		{
 			if (dec->mValue->mType == EX_CONSTANT)
-			{
-				uint8* d = new uint8[dec->mSize];
-				memset(d, 0, dec->mSize);
-				var.mData = d;
-
-				GrowingArray<InterVariable::Reference>	references({ 0 });
-				BuildInitializer(mod, d, 0, dec->mValue->mDecValue, references);
-				var.mNumReferences = references.Size();
-				if (var.mNumReferences)
-				{
-					var.mReferences = new InterVariable::Reference[var.mNumReferences];
-					for (int i = 0; i < var.mNumReferences; i++)
-						var.mReferences[i] = references[i];
-				}
+			{				
+				BuildInitializer(mod, d, 0, dec->mValue->mDecValue, var);
 			}
 			else
 				mErrors->Error(dec->mLocation, "Non constant initializer");
 		}
-		dec->mVarIndex = mod->mGlobalVars.Size();
-		var.mIndex = dec->mVarIndex;
-		mod->mGlobalVars.Push(var);
 	}
 }
 
@@ -226,22 +219,11 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 		cexp = cexp->mRight;
 	}
 
-	InterVariable	var;
-	var.mOffset = 0;
-	var.mSize = osize;
-	uint8* d = new uint8[osize];
-	var.mData = d;
-	var.mAssembler = true;
+	Declaration* dec = exp->mDecValue;
 
-	var.mIndex = mod->mGlobalVars.Size();
-	if (exp->mDecValue)
-	{
-		exp->mDecValue->mVarIndex = var.mIndex;
-		var.mIdent = exp->mDecValue->mIdent;
-	}
-	mod->mGlobalVars.Push(var);
+	dec->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_NATIVE_CODE);
 
-	GrowingArray<InterVariable::Reference>	references({ 0 });
+	uint8* d = dec->mLinkerObject->AddSpace(osize);
 
 	cexp = exp;
 	while (cexp)
@@ -265,18 +247,36 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
 			else if (aexp->mType == DT_LABEL_REF)
 			{
-				if (aexp->mBase->mBase->mVarIndex < 0)
+				if (!aexp->mBase->mBase->mLinkerObject)
 					TranslateAssembler(mod, aexp->mBase->mBase->mValue);
 
-				InterVariable::Reference	ref;
-				ref.mFunction = false;
-				ref.mUpper = aexp->mFlags & DTF_UPPER_BYTE;
-				ref.mLower = !(aexp->mFlags & DTF_UPPER_BYTE);
-				ref.mAddr = offset;
-				ref.mIndex = aexp->mBase->mBase->mVarIndex;
-				ref.mOffset = aexp->mOffset + aexp->mBase->mInteger;
+				LinkerReference	ref;
+				ref.mObject = dec->mLinkerObject;
+				ref.mOffset = offset;
+				ref.mHighByte = aexp->mFlags & DTF_UPPER_BYTE;
+				ref.mLowByte = !(aexp->mFlags & DTF_UPPER_BYTE);
+				ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
+				ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
+				mLinker->AddReference(ref);
 
-				references.Push(ref);
+				offset += 1;
+			}
+			else if (aexp->mType == DT_FUNCTION_REF)
+			{
+				if (!aexp->mBase->mLinkerObject)
+				{
+					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mBase->mValue, aexp->mBase);
+					cproc->ReduceTemporaries();
+				}
+
+				LinkerReference	ref;
+				ref.mObject = dec->mLinkerObject;
+				ref.mOffset = offset;
+				ref.mHighByte = aexp->mFlags & DTF_UPPER_BYTE;
+				ref.mLowByte = !(aexp->mFlags & DTF_UPPER_BYTE);
+				ref.mRefObject = aexp->mBase->mLinkerObject;
+				ref.mRefOffset = aexp->mOffset;
+				mLinker->AddReference(ref);
 
 				offset += 1;
 			}
@@ -298,52 +298,49 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 			}
 			else if (aexp->mType == DT_LABEL)
 			{
-				if (aexp->mBase->mVarIndex < 0)
+				if (!aexp->mBase->mLinkerObject)
 					TranslateAssembler(mod, aexp->mBase->mValue);
 
-				InterVariable::Reference	ref;
-				ref.mFunction = false;
-				ref.mUpper = true;
-				ref.mLower = true;
-				ref.mAddr = offset;
-				ref.mIndex = aexp->mBase->mVarIndex;
-				ref.mOffset = aexp->mInteger;
-
-				references.Push(ref);
+				LinkerReference	ref;
+				ref.mObject = dec->mLinkerObject;
+				ref.mOffset = offset;
+				ref.mHighByte = true;
+				ref.mLowByte = true;
+				ref.mRefObject = aexp->mBase->mLinkerObject;
+				ref.mRefOffset = aexp->mInteger;
+				mLinker->AddReference(ref);
 
 				offset += 2;
 			}
 			else if (aexp->mType == DT_LABEL_REF)
 			{
-				if (aexp->mBase->mBase->mVarIndex < 0)
+				if (!aexp->mBase->mBase->mLinkerObject)
 					TranslateAssembler(mod, aexp->mBase->mBase->mValue);
 
-				InterVariable::Reference	ref;
-				ref.mFunction = false;
-				ref.mUpper = true;
-				ref.mLower = true;
-				ref.mAddr = offset;
-				ref.mIndex = aexp->mBase->mBase->mVarIndex;
-				ref.mOffset = aexp->mOffset + aexp->mBase->mInteger;
-
-				references.Push(ref);
+				LinkerReference	ref;
+				ref.mObject = dec->mLinkerObject;
+				ref.mOffset = offset;
+				ref.mHighByte = true;
+				ref.mLowByte = true;
+				ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
+				ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
+				mLinker->AddReference(ref);
 
 				offset += 2;
 			}
 			else if (aexp->mType == DT_CONST_ASSEMBLER)
 			{
-				if (aexp->mVarIndex < 0)
+				if (!aexp->mLinkerObject)
 					TranslateAssembler(mod, aexp->mValue);
 
-				InterVariable::Reference	ref;
-				ref.mFunction = false;
-				ref.mUpper = true;
-				ref.mLower = true;
-				ref.mAddr = offset;
-				ref.mIndex = aexp->mVarIndex;
-				ref.mOffset = 0;
-
-				references.Push(ref);
+				LinkerReference	ref;
+				ref.mObject = dec->mLinkerObject;
+				ref.mOffset = offset;
+				ref.mHighByte = true;
+				ref.mLowByte = true;
+				ref.mRefObject = aexp->mLinkerObject;
+				ref.mRefOffset = 0;
+				mLinker->AddReference(ref);
 
 				offset += 2;
 			}
@@ -353,15 +350,14 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				{
 					InitGlobalVariable(mod, aexp);
 
-					InterVariable::Reference	ref;
-					ref.mFunction = false;
-					ref.mUpper = true;
-					ref.mLower = true;
-					ref.mAddr = offset;
-					ref.mIndex = aexp->mVarIndex;
-					ref.mOffset = 0;
-
-					references.Push(ref);
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					ref.mHighByte = true;
+					ref.mLowByte = true;
+					ref.mRefObject = aexp->mLinkerObject;
+					ref.mRefOffset = 0;
+					mLinker->AddReference(ref);
 
 					offset += 2;
 				}
@@ -372,18 +368,55 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				{
 					InitGlobalVariable(mod, aexp->mBase);
 
-					InterVariable::Reference	ref;
-					ref.mFunction = false;
-					ref.mUpper = true;
-					ref.mLower = true;
-					ref.mAddr = offset;
-					ref.mIndex = aexp->mBase->mVarIndex;
-					ref.mOffset = aexp->mOffset;
-
-					references.Push(ref);
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					ref.mHighByte = true;
+					ref.mLowByte = true;
+					ref.mRefObject = aexp->mBase->mLinkerObject;
+					ref.mRefOffset = aexp->mOffset;
+					mLinker->AddReference(ref);
 
 					offset += 2;
 				}
+			}
+			else if (aexp->mType == DT_CONST_FUNCTION)
+			{
+				if (!aexp->mLinkerObject)
+				{
+					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mValue, aexp);
+					cproc->ReduceTemporaries();
+				}
+
+				LinkerReference	ref;
+				ref.mObject = dec->mLinkerObject;
+				ref.mOffset = offset;
+				ref.mHighByte = true;
+				ref.mLowByte = true;
+				ref.mRefObject = aexp->mLinkerObject;
+				ref.mRefOffset = 0;
+				mLinker->AddReference(ref);
+
+				offset += 2;
+			}
+			else if (aexp->mType == DT_FUNCTION_REF)
+			{
+				if (!aexp->mBase->mLinkerObject)
+				{
+					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mBase->mValue, aexp->mBase);
+					cproc->ReduceTemporaries();
+				}
+
+				LinkerReference	ref;
+				ref.mObject = dec->mLinkerObject;
+				ref.mOffset = offset;
+				ref.mHighByte = true;
+				ref.mLowByte = true;
+				ref.mRefObject = aexp->mBase->mLinkerObject;
+				ref.mRefOffset = aexp->mOffset;
+				mLinker->AddReference(ref);
+
+				offset += 2;
 			}
 			break;
 		case ASMIM_RELATIVE:
@@ -396,16 +429,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 	}
 
 	assert(offset == osize);
-
-	InterVariable& ivar(mod->mGlobalVars[var.mIndex]);
-
-	ivar.mNumReferences = references.Size();
-	if (ivar.mNumReferences)
-	{
-		ivar.mReferences = new InterVariable::Reference[ivar.mNumReferences];
-		for (int i = 0; i < ivar.mNumReferences; i++)
-			ivar.mReferences[i] = references[i];
-	}
 }
 
 InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock)
@@ -500,7 +523,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			case DT_CONST_FUNCTION:
 			{
-				if (dec->mVarIndex < 0)
+				if (!dec->mLinkerObject)
 				{
 					InterCodeProcedure* cproc = this->TranslateProcedure(proc->mModule, dec->mValue, dec);
 					cproc->ReduceTemporaries();
@@ -511,6 +534,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mTType = InterTypeOf(dec->mBase);
 				ins->mTTemp = proc->AddTemporary(ins->mTType);
 				ins->mVarIndex = dec->mVarIndex;
+				ins->mLinkerObject = dec->mLinkerObject;
 				ins->mMemory = IM_PROCEDURE;
 				ins->mIntValue = 0;
 				block->Append(ins);
@@ -525,15 +549,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			case DT_CONST_DATA:
 			{
-				if (dec->mVarIndex < 0)
+				if (!dec->mLinkerObject)
 				{
 					dec->mVarIndex = proc->mModule->mGlobalVars.Size();
-					InterVariable	var;
-					var.mIndex = dec->mVarIndex;
-					var.mIdent = dec->mIdent;
-					var.mOffset = 0;
-					var.mSize = dec->mSize;
-					var.mData = dec->mData;
+					InterVariable* var = new InterVariable();
+					var->mIndex = dec->mVarIndex;
+					var->mIdent = dec->mIdent;
+					var->mOffset = 0;
+					var->mSize = dec->mSize;
+					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
+					dec->mLinkerObject = var->mLinkerObject;
+					var->mLinkerObject->AddData(dec->mData, dec->mSize);
 					proc->mModule->mGlobalVars.Push(var);
 				}
 
@@ -543,6 +569,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mTTemp = proc->AddTemporary(IT_POINTER);
 				ins->mIntValue = 0;
 				ins->mVarIndex = dec->mVarIndex;
+				ins->mLinkerObject = dec->mLinkerObject;
 				ins->mMemory = IM_GLOBAL;
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mTTemp, 1);
@@ -550,31 +577,21 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			case DT_CONST_STRUCT:
 			{
-				if (dec->mVarIndex < 0)
+				if (!dec->mLinkerObject)
 				{
-					InterVariable	var;
-					var.mOffset = 0;
-					var.mSize = dec->mSize;
-					var.mData = nullptr;
-					var.mIdent = dec->mIdent;
-
-					uint8* d = new uint8[dec->mSize];
-					memset(d, 0, dec->mSize);
-					var.mData = d;
-
-					GrowingArray<InterVariable::Reference>	references({ 0 });
-					BuildInitializer(proc->mModule, d, 0, dec, references);
-					var.mNumReferences = references.Size();
-					if (var.mNumReferences)
-					{
-						var.mReferences = new InterVariable::Reference[var.mNumReferences];
-						for (int i = 0; i < var.mNumReferences; i++)
-							var.mReferences[i] = references[i];
-					}
-
+					InterVariable	* var = new InterVariable();
+					var->mOffset = 0;
+					var->mSize = dec->mSize;
+					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
+					dec->mLinkerObject = var->mLinkerObject;
+					var->mIdent = dec->mIdent;
 					dec->mVarIndex = proc->mModule->mGlobalVars.Size();
-					var.mIndex = dec->mVarIndex;
+					var->mIndex = dec->mVarIndex;
 					proc->mModule->mGlobalVars.Push(var);
+
+					uint8* d = var->mLinkerObject->AddSpace(dec->mSize);;
+
+					BuildInitializer(proc->mModule, d, 0, dec, var);
 				}
 
 				InterInstruction	*	ins = new InterInstruction();
@@ -583,6 +600,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mTTemp = proc->AddTemporary(IT_POINTER);
 				ins->mIntValue = 0;
 				ins->mVarIndex = dec->mVarIndex;
+				ins->mLinkerObject = dec->mLinkerObject;
 				ins->mMemory = IM_GLOBAL;
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mTTemp, 1);
@@ -610,6 +628,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 				InitGlobalVariable(proc->mModule, dec);
 				ins->mMemory = IM_GLOBAL;
+				ins->mLinkerObject = dec->mLinkerObject;
 			}
 			else
 				ins->mMemory = IM_LOCAL;
@@ -1531,202 +1550,21 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 		case EX_ASSEMBLER:
 		{
-			int	offset = 0, osize = 0;
-			Expression* cexp = exp;
-			while (cexp)
-			{
-				osize += AsmInsSize(cexp->mAsmInsType, cexp->mAsmInsMode);
-				cexp = cexp->mRight;
-			}
+			TranslateAssembler(proc->mModule, exp);
 
-			InterInstruction	*	ins = new InterInstruction();
-			ins->mCode = IC_CONSTANT;
-			ins->mTType = IT_POINTER;
-			ins->mTTemp = proc->AddTemporary(ins->mTType);
-			ins->mOperandSize = osize;
-			ins->mIntValue = 0;
-
-			InterVariable	var;
-			var.mOffset = 0;
-			var.mSize = osize;
-			uint8* d = new uint8[osize];
-			var.mData = d;
-			var.mAssembler = true;
-
-			
-			var.mIndex = proc->mModule->mGlobalVars.Size();
-			if (exp->mDecValue)
-			{
-				exp->mDecValue->mVarIndex = var.mIndex;
-				var.mIdent = exp->mDecValue->mIdent;
-			}
-			proc->mModule->mGlobalVars.Push(var);
-
-			GrowingArray<InterVariable::Reference>	references({ 0 });
-
-			cexp = exp;
-			while (cexp)
-			{
-				if (cexp->mAsmInsType != ASMIT_BYTE)
-				{
-					int	opcode = AsmInsOpcodes[cexp->mAsmInsType][cexp->mAsmInsMode];
-					if (opcode < 0)
-						mErrors->Error(cexp->mLocation, "Invalid opcode adressing mode");
-					d[offset++] = opcode;
-				}
-
-				Declaration* aexp = nullptr;
-				if (cexp->mLeft)
-					aexp = cexp->mLeft->mDecValue;
-
-				switch (cexp->mAsmInsMode)
-				{
-				case ASMIM_IMPLIED:
-					break;
-				case ASMIM_IMMEDIATE:
-					if (aexp->mType == DT_CONST_INTEGER)
-						d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
-					else if (aexp->mType == DT_LABEL_REF)
-					{
-						if (aexp->mBase->mBase->mVarIndex < 0)
-						{
-							InterCodeBasicBlock* bblock = nullptr;
-							TranslateExpression(procType, proc, bblock, aexp->mBase->mBase->mValue, breakBlock, continueBlock);
-						}
-
-						InterVariable::Reference	ref;
-						ref.mFunction = false;
-						ref.mUpper = aexp->mFlags & DTF_UPPER_BYTE;
-						ref.mLower = !(aexp->mFlags & DTF_UPPER_BYTE);
-						ref.mAddr = offset;
-						ref.mIndex = aexp->mBase->mBase->mVarIndex;
-						ref.mOffset = aexp->mOffset + aexp->mBase->mInteger;
-
-						references.Push(ref);
-
-						offset += 1;
-					}
-					break;
-				case ASMIM_ZERO_PAGE:
-				case ASMIM_ZERO_PAGE_X:
-				case ASMIM_INDIRECT_X:
-				case ASMIM_INDIRECT_Y:
-					d[offset++] = aexp->mInteger;
-					break;
-				case ASMIM_ABSOLUTE:
-				case ASMIM_INDIRECT:
-				case ASMIM_ABSOLUTE_X:
-				case ASMIM_ABSOLUTE_Y:
-					if (aexp->mType == DT_CONST_INTEGER)
-					{
-						d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
-						d[offset++] = cexp->mLeft->mDecValue->mInteger >> 8;
-					}
-					else if (aexp->mType == DT_LABEL)
-					{
-						if (aexp->mBase->mVarIndex < 0)
-						{
-							InterCodeBasicBlock* bblock = nullptr;
-							TranslateExpression(procType, proc, bblock, aexp->mBase->mValue, breakBlock, continueBlock);
-						}
-
-						InterVariable::Reference	ref;
-						ref.mFunction = false;
-						ref.mUpper = true;
-						ref.mLower = true;
-						ref.mAddr = offset;
-						ref.mIndex = aexp->mBase->mVarIndex;
-						ref.mOffset = aexp->mInteger;
-
-						references.Push(ref);
-
-						offset += 2;
-					}
-					else if (aexp->mType == DT_LABEL_REF)
-					{
-						if (aexp->mBase->mBase->mVarIndex < 0)
-						{
-							InterCodeBasicBlock* bblock = nullptr;
-							TranslateExpression(procType, proc, bblock, aexp->mBase->mBase->mValue, breakBlock, continueBlock);
-						}
-
-						InterVariable::Reference	ref;
-						ref.mFunction = false;
-						ref.mUpper = true;
-						ref.mLower = true;
-						ref.mAddr = offset;
-						ref.mIndex = aexp->mBase->mBase->mVarIndex;
-						ref.mOffset = aexp->mOffset + aexp->mBase->mInteger;
-
-						references.Push(ref);
-
-						offset += 2;
-					}
-					else if (aexp->mType == DT_CONST_ASSEMBLER)
-					{
-						if (aexp->mVarIndex < 0)
-						{
-							InterCodeBasicBlock* bblock = nullptr;
-							TranslateExpression(procType, proc, bblock, aexp->mValue, breakBlock, continueBlock);
-						}
-
-						InterVariable::Reference	ref;
-						ref.mFunction = false;
-						ref.mUpper = true;
-						ref.mLower = true;
-						ref.mAddr = offset;
-						ref.mIndex = aexp->mVarIndex;
-						ref.mOffset = 0;
-
-						references.Push(ref);
-
-						offset += 2;
-					}
-					else if (aexp->mType == DT_VARIABLE)
-					{
-						if (aexp->mFlags & DTF_GLOBAL)
-						{
-							InitGlobalVariable(proc->mModule, aexp);
-
-							InterVariable::Reference	ref;
-							ref.mFunction = false;
-							ref.mUpper = true;
-							ref.mLower = true;
-							ref.mAddr = offset;
-							ref.mIndex = aexp->mVarIndex;
-							ref.mOffset = 0;
-
-							references.Push(ref);
-
-							offset += 2;
-						}
-					}
-					break;
-				case ASMIM_RELATIVE:
-					d[offset] = aexp->mInteger - offset - 1;
-					offset++;
-					break;
-				}
-
-				cexp = cexp->mRight;
-			}
-
-			assert(offset == osize);
-
-			InterVariable& ivar(proc->mModule->mGlobalVars[var.mIndex]);
-
-			ivar.mNumReferences = references.Size();
-			if (ivar.mNumReferences)
-			{
-				ivar.mReferences = new InterVariable::Reference[ivar.mNumReferences];
-				for (int i = 0; i < ivar.mNumReferences; i++)
-					ivar.mReferences[i] = references[i];
-			}
+			Declaration* dec = exp->mDecValue;
 
 			if (block)
 			{
+				InterInstruction* ins = new InterInstruction();
+				ins->mCode = IC_CONSTANT;
+				ins->mTType = IT_POINTER;
+				ins->mTTemp = proc->AddTemporary(ins->mTType);
+				ins->mOperandSize = dec->mSize;
+				ins->mIntValue = 0;
 				ins->mMemory = IM_GLOBAL;
-				ins->mVarIndex = var.mIndex;
+				ins->mLinkerObject = dec->mLinkerObject;
+				ins->mVarIndex = dec->mVarIndex;
 				block->Append(ins);
 
 				InterInstruction	*	jins = new InterInstruction();
@@ -2233,7 +2071,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 	}
 }
 
-void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int offset, Declaration* data, GrowingArray<InterVariable::Reference>& references)
+void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int offset, Declaration* data, InterVariable * variable)
 {
 	if (data->mType == DT_CONST_DATA)
 	{
@@ -2244,7 +2082,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		Declaration* mdec = data->mParams;
 		while (mdec)
 		{
-			BuildInitializer(mod, dp, offset + mdec->mOffset, mdec, references);
+			BuildInitializer(mod, dp, offset + mdec->mOffset, mdec, variable);
 			mdec = mdec->mNext;
 		}
 	}
@@ -2276,63 +2114,66 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	}
 	else if (data->mType == DT_CONST_ASSEMBLER)
 	{
-		if (data->mVarIndex < 0)
+		if (!data->mLinkerObject)
 			TranslateAssembler(mod, data->mValue);
 
-		InterVariable::Reference	ref;
-		ref.mAddr = offset;
-		ref.mUpper = true;
-		ref.mLower = true;
-		ref.mFunction = false;
-		ref.mIndex = data->mVarIndex;
-		ref.mOffset = 0;
-		references.Push(ref);
+		LinkerReference	ref;
+		ref.mObject = variable->mLinkerObject;
+		ref.mOffset = offset;
+		ref.mHighByte = true;
+		ref.mLowByte = true;
+		ref.mRefObject = data->mLinkerObject;
+		ref.mRefOffset = 0;
+		mLinker->AddReference(ref);
 	}
 	else if (data->mType == DT_CONST_FUNCTION)
 	{
-		if (data->mVarIndex < 0)
+		if (!data->mLinkerObject)
 		{
 			InterCodeProcedure* cproc = this->TranslateProcedure(mod, data->mValue, data);
 			cproc->ReduceTemporaries();
 		}
 
-		InterVariable::Reference	ref;
-		ref.mAddr = offset;
-		ref.mLower = true;
-		ref.mUpper = true;
-		ref.mFunction = true;
-		ref.mIndex = data->mVarIndex;
-		ref.mOffset = 0;
-		references.Push(ref);
+		LinkerReference	ref;
+		ref.mObject = variable->mLinkerObject;
+		ref.mOffset = offset;
+		ref.mHighByte = true;
+		ref.mLowByte = true;
+		ref.mRefObject = data->mLinkerObject;
+		ref.mRefOffset = 0;
+		mLinker->AddReference(ref);
 	}
 	else if (data->mType == DT_CONST_POINTER)
 	{
 		Expression* exp = data->mValue;
 		Declaration* dec = exp->mDecValue;
 
-		InterVariable::Reference	ref;
-		ref.mAddr = offset;
-		ref.mLower = true;
-		ref.mUpper = true;
+		LinkerReference	ref;
+		ref.mObject = variable->mLinkerObject;
+		ref.mOffset = offset;
+		ref.mHighByte = true;
+		ref.mLowByte = true;
+
 		switch (dec->mType)
 		{
 		case DT_CONST_DATA:
 		{
-			if (dec->mVarIndex < 0)
+			if (!dec->mLinkerObject)
 			{
 				dec->mVarIndex = mod->mGlobalVars.Size();
-				InterVariable	var;
-				var.mIndex = dec->mVarIndex;
-				var.mOffset = 0;
-				var.mSize = dec->mSize;
-				var.mData = dec->mData;
-				var.mIdent = dec->mIdent;
+				InterVariable* var = new InterVariable();
+				var->mIndex = dec->mVarIndex;
+				var->mOffset = 0;
+				var->mSize = dec->mSize;
+				var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
+				dec->mLinkerObject = var->mLinkerObject;
+				var->mLinkerObject->AddData(dec->mData, dec->mSize);
 				mod->mGlobalVars.Push(var);
 			}
-			ref.mFunction = false;
-			ref.mIndex = dec->mVarIndex;
-			ref.mOffset = 0;
-			references.Push(ref);
+
+			ref.mRefObject = dec->mLinkerObject;
+			ref.mRefOffset = 0;
+			mLinker->AddReference(ref);
 			break;
 		}
 		}
@@ -2381,8 +2222,10 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 
 InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod, Expression* exp, Declaration * dec)
 {
-	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mIdent);
+	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mIdent, mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_BYTE_CODE));
+
 	dec->mVarIndex = proc->mID;
+	dec->mLinkerObject = proc->mLinkerObject;
 
 	if (mForceNativeCode)
 		dec->mFlags |= DTF_NATIVE;

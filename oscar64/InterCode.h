@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include "MachineTypes.h"
 #include "Ident.h"
+#include "Linker.h"
 
 enum InterCode
 {
@@ -119,7 +120,7 @@ typedef GrowingArray<InterInstruction *>		GrowingInstructionArray;
 typedef GrowingArray<InterCodeProcedurePtr	>	GrowingInterCodeProcedurePtrArray;
 
 
-typedef GrowingArray<InterVariable>				GrowingVariableArray;
+typedef GrowingArray<InterVariable * >			GrowingVariableArray;
 
 #define INVALID_TEMPORARY	(-1)
 
@@ -269,27 +270,19 @@ public:
 class InterVariable
 {
 public:
-	bool				mUsed, mAliased, mPlaced, mAssembler;
-	int					mIndex, mSize, mOffset, mAddr;
-	int					mNumReferences;
-	const uint8		*	mData;
-	const Ident		*	mIdent;
-
-	struct Reference
-	{
-		uint16		mAddr;
-		bool		mFunction, mLower, mUpper;
-		uint16		mIndex, mOffset;
-	}	*mReferences;
+	Location						mLocation;
+	bool							mUsed, mAliased;
+	int								mIndex, mSize, mOffset, mAddr;
+	int								mNumReferences;
+	const Ident					*	mIdent;
+	LinkerObject				*	mLinkerObject;
 
 	InterVariable(void)
-		: mUsed(false), mAliased(false), mPlaced(false), mIndex(-1), mSize(0), mOffset(0), mNumReferences(0), mData(nullptr), mIdent(nullptr), mReferences(nullptr), mAssembler(false)
+		: mUsed(false), mAliased(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr)
 	{
 	}
 };
 
-
-typedef GrowingArray<InterVariable::Reference>		GrowingInterVariableReferenceArray;
 
 class InterInstruction
 {
@@ -307,6 +300,7 @@ public:
 	__int64								mIntValue;
 	double								mFloatValue;
 	Location							mLocation;
+	LinkerObject					*	mLinkerObject;
 
 	bool								mInUse;
 
@@ -497,9 +491,11 @@ public:
 	GrowingVariableArray				mLocalVars;
 
 	Location							mLocation;
-	const Ident						*	mIdent;
+	const Ident						*	mIdent, * mSection;
 
-	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident);
+	LinkerObject					*	mLinkerObject;
+
+	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
 	~InterCodeProcedure(void);
 
 	int AddTemporary(InterType type);
@@ -532,6 +528,4 @@ public:
 	GrowingInterCodeProcedurePtrArray	mProcedures;
 
 	GrowingVariableArray				mGlobalVars;
-
-	void UseGlobal(int index);
 };

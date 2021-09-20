@@ -21,22 +21,27 @@ enum LinkerObjectType
 	LOT_STACK
 };
 
-struct LinkerReference
+class LinkerObject;
+
+class LinkerReference
 {
-	int		mID, mOffset;
-	int		mRefID, mRefOffset;
+public:
+	LinkerObject* mObject, * mRefObject;
+	int		mOffset, mRefOffset;
 	bool	mLowByte, mHighByte;
 };
 
-struct LinkerSection
+class LinkerSection
 {
+public:
 	const Ident* mIdent;
 	int	mID;		
 	int	mStart, mSize, mUsed;
 };
 
-struct LinkerObject
+class LinkerObject
 {
+public:
 	Location	mLocation;
 	const Ident* mIdent, * mSection;
 	LinkerObjectType	mType;
@@ -46,6 +51,10 @@ struct LinkerObject
 	LinkerSection* mLinkerSection;
 	uint8* mData;
 	InterCodeProcedure* mProc;
+	bool	mReferenced;
+
+	void AddData(const uint8* data, int size);
+	uint8* AddSpace(int size);
 };
 
 class Linker
@@ -56,10 +65,7 @@ public:
 
 	int AddSection(const Ident* section, int start, int size);
 
-	int AddObject(const Location & location, const Ident* ident, const Ident* section, LinkerObjectType type);
-	void AddObjectData(int id, const uint8* data, int size);
-	uint8 * AddObjectSpace(int id, int size);
-	void AttachObjectProcedure(int id, InterCodeProcedure* proc);
+	LinkerObject * AddObject(const Location & location, const Ident* ident, const Ident* section, LinkerObjectType type);
 
 	void AddReference(const LinkerReference& ref);
 
@@ -72,13 +78,14 @@ public:
 	GrowingArray<LinkerObject*>		mObjects;
 
 	uint8	mMemory[0x10000];
+	int	mProgramStart, mProgramEnd;
+
+	void ReferenceObject(LinkerObject* obj);
 
 	void Link(void);
 protected:
 	NativeCodeDisassembler	mNativeDisassembler;
 	ByteCodeDisassembler	mByteCodeDisassembler;
-
-	int	mProgramStart, mProgramEnd;
 
 	Errors* mErrors;
 };

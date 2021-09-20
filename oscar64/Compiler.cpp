@@ -12,10 +12,12 @@ Compiler::Compiler(void)
 	: mByteCodeFunctions(nullptr), mNativeCode(false), mDefines({nullptr, nullptr})
 {
 	mErrors = new Errors();
+	mLinker = new Linker(mErrors);
 	mCompilationUnits = new CompilationUnits(mErrors);
 	mPreprocessor = new Preprocessor(mErrors);
-	mByteCodeGenerator = new ByteCodeGenerator();
-	mInterCodeGenerator = new InterCodeGenerator(mErrors);
+	mByteCodeGenerator = new ByteCodeGenerator(mErrors, mLinker);
+	mInterCodeGenerator = new InterCodeGenerator(mErrors, mLinker);
+	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker);
 	mInterCodeModule = new InterCodeModule();
 }
 
@@ -61,6 +63,44 @@ bool Compiler::ParseSource(void)
 	return mErrors->mErrorCount == 0;
 }
 
+void Compiler::RegisterRuntime(const Location & loc, const Ident* ident)
+{
+	Declaration* bcdec = mCompilationUnits->mRuntimeScope->Lookup(ident);
+	if (bcdec)
+	{
+		LinkerObject* linkerObject = nullptr;
+		int			offset = 0;
+
+		if (bcdec->mType == DT_CONST_ASSEMBLER)
+		{
+			if (!bcdec->mLinkerObject)
+				mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue);
+			linkerObject = bcdec->mLinkerObject;
+		}
+		else if (bcdec->mType == DT_LABEL)
+		{
+			if (!bcdec->mBase->mLinkerObject)
+				mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue);
+
+			linkerObject = bcdec->mBase->mLinkerObject;
+			offset = bcdec->mInteger;
+		}
+		else if (bcdec->mType == DT_VARIABLE)
+		{
+			if (!bcdec->mBase->mLinkerObject)
+				mInterCodeGenerator->InitGlobalVariable(mInterCodeModule, bcdec);
+			linkerObject = bcdec->mLinkerObject;
+			offset = bcdec->mOffset;
+		}
+
+		mNativeCodeGenerator->RegisterRuntime(ident, linkerObject, offset);
+	}
+	else
+	{
+		mErrors->Error(loc, "Missing runtime code implementation", ident->mString);
+	}
+}
+
 bool Compiler::GenerateCode(void)
 {
 	Location	loc;
@@ -72,23 +112,21 @@ bool Compiler::GenerateCode(void)
 		return false;
 	}
 
+	const Ident* sectionStartup = Ident::Unique("startup");
+	const Ident* sectionBytecode = Ident::Unique("bytecode");
+	const Ident* sectionCode = Ident::Unique("code");
+
+	mLinker->AddSection(sectionStartup, 0x0801, 0x00ff);
+	mLinker->AddSection(sectionBytecode, 0x0900, 0x0100);
+	mLinker->AddSection(sectionCode, 0x0a00, 0x8000);
+
+	dcrtstart->mSection = sectionStartup;
+
 	mInterCodeGenerator->mForceNativeCode = mNativeCode;
 	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue);
 
 	if (mErrors->mErrorCount != 0)
 		return false;
-
-	mByteCodeGenerator->WriteBasicHeader();
-
-	mInterCodeModule->UseGlobal(dcrtstart->mVarIndex);
-
-	InterVariable& vmain(mInterCodeModule->mGlobalVars[dcrtstart->mVarIndex]);
-	vmain.mAddr = mByteCodeGenerator->AddGlobal(vmain.mIndex, vmain.mIdent, vmain.mSize, vmain.mData, vmain.mAssembler);
-	vmain.mPlaced = true;
-	mByteCodeGenerator->SetBasicEntry(dcrtstart->mVarIndex);
-
-	mByteCodeGenerator->mProgEnd = 0x0a00;
-	mByteCodeGenerator->WriteByteCodeHeader();
 
 	const Ident* imain = Ident::Unique("main");
 	Declaration* dmain = mCompilationUnits->mScope->Lookup(imain);
@@ -97,6 +135,28 @@ bool Compiler::GenerateCode(void)
 		mErrors->Error(loc, "main function not found");
 		return false;
 	}
+
+	// Register native runtime functions
+
+	RegisterRuntime(loc, Ident::Unique("mul16by8"));
+	RegisterRuntime(loc, Ident::Unique("fsplitt"));
+	RegisterRuntime(loc, Ident::Unique("faddsub"));
+	RegisterRuntime(loc, Ident::Unique("fmul"));
+	RegisterRuntime(loc, Ident::Unique("fdiv"));
+	RegisterRuntime(loc, Ident::Unique("mul16"));
+	RegisterRuntime(loc, Ident::Unique("divs16"));
+	RegisterRuntime(loc, Ident::Unique("mods16"));
+	RegisterRuntime(loc, Ident::Unique("divu16"));
+	RegisterRuntime(loc, Ident::Unique("modu16"));
+	RegisterRuntime(loc, Ident::Unique("bitshift"));
+	RegisterRuntime(loc, Ident::Unique("ffloor"));
+	RegisterRuntime(loc, Ident::Unique("fceil"));
+	RegisterRuntime(loc, Ident::Unique("ftoi"));
+	RegisterRuntime(loc, Ident::Unique("ffromi"));
+	RegisterRuntime(loc, Ident::Unique("fcmp"));
+	RegisterRuntime(loc, Ident::Unique("bcexec"));
+
+	//
 
 	InterCodeProcedure* iproc = mInterCodeGenerator->TranslateProcedure(mInterCodeModule, dmain->mValue, dmain);
 
@@ -116,8 +176,8 @@ bool Compiler::GenerateCode(void)
 
 		if (proc->mNativeProcedure)
 		{
-			NativeCodeProcedure* ncproc = new NativeCodeProcedure();
-			ncproc->Compile(mByteCodeGenerator, proc);
+			NativeCodeProcedure* ncproc = new NativeCodeProcedure(mNativeCodeGenerator);
+			ncproc->Compile(proc);
 		}
 		else
 		{
@@ -125,64 +185,12 @@ bool Compiler::GenerateCode(void)
 
 			bgproc->Compile(mByteCodeGenerator, proc);
 			mByteCodeFunctions.Push(bgproc);
-
-#if _DEBUG
-			FILE* file;
-			fopen_s(&file, "r:\\cldiss.txt", "a");
-
-			if (file)
-			{
-				bgproc->Disassemble(file, mByteCodeGenerator, mInterCodeModule->mProcedures[i]);
-				fclose(file);
-			}
-#endif
-		}
-	}
-
-	// Compile used runtime functions
-
-	for (int i = 0; i < mByteCodeGenerator->mRelocations.Size(); i++)
-	{
-		if (mByteCodeGenerator->mRelocations[i].mRuntime)
-		{
-			Declaration* bcdec = mCompilationUnits->mRuntimeScope->Lookup(Ident::Unique(mByteCodeGenerator->mRelocations[i].mRuntime));
-			if (bcdec)
-			{
-				int	index = -1, offset = 0;
-				if (bcdec->mType == DT_CONST_ASSEMBLER)
-				{
-					if (bcdec->mVarIndex < 0)
-						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue);
-					index = bcdec->mVarIndex;
-				}
-				else if (bcdec->mType == DT_LABEL)
-				{
-					if (bcdec->mBase->mVarIndex < 0)
-						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue);
-					index = bcdec->mBase->mVarIndex;
-					offset = bcdec->mInteger;
-				}
-				else if (bcdec->mType == DT_VARIABLE)
-				{
-					if (bcdec->mBase->mVarIndex < 0)
-						mInterCodeGenerator->InitGlobalVariable(mInterCodeModule, bcdec);
-					index = bcdec->mVarIndex;
-					offset = bcdec->mOffset + mByteCodeGenerator->mRelocations[i].mOffset;
-				}
-				assert(index > 0);
-				mInterCodeModule->UseGlobal(index);
-
-				mByteCodeGenerator->mRelocations[i].mIndex = index;
-				mByteCodeGenerator->mRelocations[i].mOffset = offset;
-			}
-			else
-			{
-				mErrors->Error(loc, "Missing runtime code implementation", mByteCodeGenerator->mRelocations[i].mRuntime);
-			}
 		}
 	}
 
 	// Compile used byte code functions
+
+	LinkerObject* byteCodeObject = mLinker->AddObject(loc, Ident::Unique("bytecode"), sectionBytecode, LOT_RUNTIME);
 
 	for (int i = 0; i < 128; i++)
 	{
@@ -191,33 +199,33 @@ bool Compiler::GenerateCode(void)
 			Declaration* bcdec = mCompilationUnits->mByteCodes[i];
 			if (bcdec)
 			{
-				int	index = -1, offset = 0;
+				LinkerObject* linkerObject = nullptr;
+
+				int	offset = 0;
 				if (bcdec->mType == DT_CONST_ASSEMBLER)
 				{
-					if (bcdec->mVarIndex < 0)
+					if (!bcdec->mLinkerObject)
 						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue);
-					index = bcdec->mVarIndex;
+					linkerObject = bcdec->mLinkerObject;
 				}
 				else if (bcdec->mType == DT_LABEL)
 				{
-					if (bcdec->mBase->mVarIndex < 0)
+					if (!bcdec->mBase->mLinkerObject)
 						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue);
-					index = bcdec->mBase->mVarIndex;
+					linkerObject = bcdec->mBase->mLinkerObject;
 					offset = bcdec->mInteger;
 				}
 
-				assert(index > 0);
-				mInterCodeModule->UseGlobal(index);
+				assert(linkerObject);
 
-				ByteCodeRelocation	rel;
-				rel.mAddr = 0x900 + 2 * i;
-				rel.mFunction = false;
-				rel.mLower = true;
-				rel.mUpper = true;
-				rel.mIndex = index;
-				rel.mOffset = offset;
-				rel.mRuntime = nullptr;
-				mByteCodeGenerator->mRelocations.Push(rel);
+				LinkerReference	lref;
+				lref.mObject = byteCodeObject;
+				lref.mLowByte = true;
+				lref.mHighByte = true;
+				lref.mOffset = 2 * i;
+				lref.mRefObject = linkerObject;
+				lref.mRefOffset = offset;
+				mLinker->AddReference(lref);
 			}
 			else
 			{
@@ -228,33 +236,10 @@ bool Compiler::GenerateCode(void)
 		}
 	}
 
-	for (int i = 0; i < mInterCodeModule->mGlobalVars.Size(); i++)
-	{
-		InterVariable& var(mInterCodeModule->mGlobalVars[i]);
-		if (var.mUsed)
-		{
-			if (!var.mPlaced)
-			{
-				var.mAddr = mByteCodeGenerator->AddGlobal(var.mIndex, var.mIdent, var.mSize, var.mData, var.mAssembler);
-				var.mPlaced = true;
-			}
-			for (int j = 0; j < var.mNumReferences; j++)
-			{
-				InterVariable::Reference& ref(var.mReferences[j]);
-				ByteCodeRelocation	rel;
-				rel.mAddr = var.mAddr + ref.mAddr;
-				rel.mFunction = ref.mFunction;
-				rel.mLower = ref.mLower;
-				rel.mUpper = ref.mUpper;
-				rel.mIndex = ref.mIndex;
-				rel.mOffset = ref.mOffset;
-				rel.mRuntime = nullptr;
-				mByteCodeGenerator->mRelocations.Push(rel);
-			}
-		}
-	}
+	mLinker->ReferenceObject(dcrtstart->mLinkerObject);
+	mLinker->ReferenceObject(byteCodeObject);
 
-	mByteCodeGenerator->ResolveRelocations();
+	mLinker->Link();
 
 	return mErrors->mErrorCount == 0;
 }
@@ -277,26 +262,13 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 	strcat_s(asmPath, "asm");
 
 	printf("Writing <%s>\n", prgPath);
-	mByteCodeGenerator->WritePRGFile(prgPath);
+	mLinker->WritePrgFile(prgPath);
 
 	printf("Writing <%s>\n", mapPath);
-	mByteCodeGenerator->WriteMapFile(mapPath);
+	mLinker->WriteMapFile(mapPath);
 
 	printf("Writing <%s>\n", asmPath);
-	{
-		FILE* file;
-		fopen_s(&file, asmPath, "w");
-
-		if (file)
-		{
-			for (int i = 0; i < mByteCodeFunctions.Size(); i++)
-				mByteCodeFunctions[i]->Disassemble(file, mByteCodeGenerator, mInterCodeModule->mProcedures[mByteCodeFunctions[i]->mID]);
-
-			mByteCodeGenerator->WriteAsmFile(file);
-
-			fclose(file);
-		}
-	}
+	mLinker->WriteAsmFile(asmPath);
 
 	return true;
 }
@@ -307,9 +279,9 @@ int Compiler::ExecuteCode(void)
 
 	printf("Running emulation...\n");
 	Emulator* emu = new Emulator();
-	memcpy(emu->mMemory + mByteCodeGenerator->mProgStart, mByteCodeGenerator->mMemory + mByteCodeGenerator->mProgStart, mByteCodeGenerator->mProgEnd - mByteCodeGenerator->mProgStart);
-	emu->mMemory[0x2d] = mByteCodeGenerator->mProgEnd & 0xff;
-	emu->mMemory[0x2e] = mByteCodeGenerator->mProgEnd >> 8;
+	memcpy(emu->mMemory + mLinker->mProgramStart, mLinker->mMemory + mLinker->mProgramStart, mLinker->mProgramEnd - mLinker->mProgramStart);
+	emu->mMemory[0x2d] = mLinker->mProgramEnd & 0xff;
+	emu->mMemory[0x2e] = mLinker->mProgramEnd >> 8;
 	int ecode = emu->Emulate(2061);
 	printf("Emulation result %d\n", ecode);
 

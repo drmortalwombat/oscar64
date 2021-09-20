@@ -43,7 +43,7 @@ static ByteCode TransposeBranchCondition(ByteCode code)
 }
 
 ByteCodeInstruction::ByteCodeInstruction(ByteCode code)
-	: mCode(code), mRelocate(false), mFunction(false), mRegisterFinal(false), mVIndex(-1), mValue(0), mRegister(0)
+	: mCode(code), mRelocate(false), mRegisterFinal(false), mLinkerObject(nullptr), mValue(0), mRegister(0)
 {
 }
 
@@ -199,15 +199,15 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		{
 			block->PutCode(generator, mCode);
 			block->PutByte(mRegister);
-			ByteCodeRelocation	rl;
-			rl.mAddr = block->mCode.Size();
-			rl.mFunction = mFunction;
-			rl.mLower = true;
-			rl.mUpper = true;
-			rl.mIndex = mVIndex;
-			rl.mOffset = mValue;
-			rl.mRuntime = nullptr;
+
+			LinkerReference	rl;
+			rl.mOffset = block->mCode.Size();
+			rl.mLowByte = true;
+			rl.mHighByte = true;
+			rl.mRefObject = mLinkerObject;
+			rl.mRefOffset = mValue;
 			block->mRelocations.Push(rl);
+
 			block->PutWord(0);
 		}
 		else if (mValue >= 0 && mValue < 255)
@@ -249,14 +249,12 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		block->PutCode(generator, mCode);
 		if (mRelocate)
 		{
-			ByteCodeRelocation	rl;
-			rl.mAddr = block->mCode.Size();
-			rl.mFunction = mFunction;
-			rl.mLower = true;
-			rl.mUpper = true;
-			rl.mIndex = mVIndex;
-			rl.mOffset = mValue;
-			rl.mRuntime = nullptr;
+			LinkerReference	rl;
+			rl.mOffset = block->mCode.Size();
+			rl.mLowByte = true;
+			rl.mHighByte = true;
+			rl.mRefObject = mLinkerObject;
+			rl.mRefOffset = mValue;
 			block->mRelocations.Push(rl);
 			block->PutWord(0);
 		}
@@ -270,14 +268,12 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		block->PutCode(generator, mCode); block->PutByte(mRegister);
 		if (mRelocate)
 		{
-			ByteCodeRelocation	rl;
-			rl.mAddr = block->mCode.Size();
-			rl.mFunction = mFunction;
-			rl.mLower = true;
-			rl.mUpper = true;
-			rl.mIndex = mVIndex;
-			rl.mOffset = mValue;
-			rl.mRuntime = nullptr;
+			LinkerReference	rl;
+			rl.mOffset = block->mCode.Size();
+			rl.mLowByte = true;
+			rl.mHighByte = true;
+			rl.mRefObject = mLinkerObject;
+			rl.mRefOffset = mValue;
 			block->mRelocations.Push(rl);
 			block->PutWord(0);
 		}
@@ -435,14 +431,12 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 	{
 		block->PutCode(generator, mCode);
 
-		ByteCodeRelocation	rl;
-		rl.mAddr = block->mCode.Size();
-		rl.mFunction = mFunction;
-		rl.mLower = true;
-		rl.mUpper = true;
-		rl.mIndex = mVIndex;
-		rl.mOffset = 0;
-		rl.mRuntime = nullptr;
+		LinkerReference	rl;
+		rl.mOffset = block->mCode.Size();
+		rl.mLowByte = true;
+		rl.mHighByte = true;
+		rl.mRefObject = mLinkerObject;
+		rl.mRefOffset = 0;
 		block->mRelocations.Push(rl);
 
 		block->PutWord(0);
@@ -595,10 +589,9 @@ void ByteCodeBasicBlock::LoadConstant(InterCodeProcedure* proc, const InterInstr
 		{
 			ByteCodeInstruction	bins(BC_LEA_ABS);
 			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
-			bins.mVIndex = ins->mVarIndex;
+			bins.mLinkerObject = ins->mLinkerObject;
 			bins.mValue = ins->mIntValue;
 			bins.mRelocate = true;
-			bins.mFunction = false;
 			mIns.Push(bins);
 		}
 		else if (ins->mMemory == IM_ABSOLUTE)
@@ -612,7 +605,7 @@ void ByteCodeBasicBlock::LoadConstant(InterCodeProcedure* proc, const InterInstr
 		{
 			ByteCodeInstruction	bins(BC_LEA_LOCAL);
 			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
-			bins.mValue = ins->mIntValue + proc->mLocalVars[ins->mVarIndex].mOffset;
+			bins.mValue = ins->mIntValue + proc->mLocalVars[ins->mVarIndex]->mOffset;
 			mIns.Push(bins);
 		}
 		else if (ins->mMemory == IM_PARAM)
@@ -633,10 +626,9 @@ void ByteCodeBasicBlock::LoadConstant(InterCodeProcedure* proc, const InterInstr
 		{
 			ByteCodeInstruction	bins(BC_CONST_16);
 			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
-			bins.mVIndex = ins->mVarIndex;
+			bins.mLinkerObject = ins->mLinkerObject;
 			bins.mValue = 0;
 			bins.mRelocate = true;
-			bins.mFunction = true;
 			mIns.Push(bins);
 		}
 	}
@@ -686,7 +678,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				{
 					ByteCodeInstruction	bins(BC_STORE_ABS_32);
 					bins.mRelocate = true;
-					bins.mVIndex = ins->mVarIndex;
+					bins.mLinkerObject = ins->mLinkerObject;
 					bins.mValue = ins->mSIntConst[1];
 					bins.mRegister = BC_REG_ACCU;
 					mIns.Push(bins);
@@ -702,7 +694,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				{
 					int	index = ins->mSIntConst[1];
 					if (ins->mMemory == IM_LOCAL)
-						index += proc->mLocalVars[ins->mVarIndex].mOffset;
+						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -742,7 +734,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				{
 					ByteCodeInstruction	bins(BC_STORE_ABS_32);
 					bins.mRelocate = true;
-					bins.mVIndex = ins->mVarIndex;
+					bins.mLinkerObject = ins->mLinkerObject;
 					bins.mValue = ins->mSIntConst[1];
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
 					mIns.Push(bins);
@@ -758,7 +750,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				{
 					int	index = ins->mSIntConst[1];
 					if (ins->mMemory == IM_LOCAL)
-						index += proc->mLocalVars[ins->mVarIndex].mOffset;
+						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -840,7 +832,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				{
 					ByteCodeInstruction	bins(BC_STORE_ABS_16);
 					bins.mRelocate = true;
-					bins.mVIndex = ins->mVarIndex;
+					bins.mLinkerObject = ins->mLinkerObject;
 					bins.mValue = ins->mSIntConst[1];
 					bins.mRegister = BC_REG_ACCU;
 					mIns.Push(bins);
@@ -856,7 +848,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				{
 					int	index = ins->mSIntConst[1];
 					if (ins->mMemory == IM_LOCAL)
-						index += proc->mLocalVars[ins->mVarIndex].mOffset;
+						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -893,7 +885,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				{
 					ByteCodeInstruction	bins(BC_STORE_ABS_16);
 					bins.mRelocate = true;
-					bins.mVIndex = ins->mVarIndex;
+					bins.mLinkerObject = ins->mLinkerObject;
 					bins.mValue = ins->mSIntConst[1];
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
 					mIns.Push(bins);
@@ -910,7 +902,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				{
 					int	index = ins->mSIntConst[1];
 					if (ins->mMemory == IM_LOCAL)
-						index += proc->mLocalVars[ins->mVarIndex].mOffset;
+						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -994,7 +986,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						ByteCodeInstruction	bins(BC_STORE_ABS_8);
 						bins.mRelocate = true;
-						bins.mVIndex = ins->mVarIndex;
+						bins.mLinkerObject = ins->mLinkerObject;
 						bins.mValue = ins->mSIntConst[1];
 						bins.mRegister = BC_REG_ACCU;
 						mIns.Push(bins);
@@ -1010,7 +1002,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						int	index = ins->mSIntConst[1];
 						if (ins->mMemory == IM_LOCAL)
-							index += proc->mLocalVars[ins->mVarIndex].mOffset;
+							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 						else
 							index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -1047,7 +1039,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						ByteCodeInstruction	bins(BC_STORE_ABS_16);
 						bins.mRelocate = true;
-						bins.mVIndex = ins->mVarIndex;
+						bins.mLinkerObject = ins->mLinkerObject;
 						bins.mValue = ins->mSIntConst[1];
 						bins.mRegister = BC_REG_ACCU;
 						mIns.Push(bins);
@@ -1063,7 +1055,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						int	index = ins->mSIntConst[1];
 						if (ins->mMemory == IM_LOCAL)
-							index += proc->mLocalVars[ins->mVarIndex].mOffset;
+							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 						else
 							index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -1103,7 +1095,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						ByteCodeInstruction	bins(BC_STORE_ABS_8);
 						bins.mRelocate = true;
-						bins.mVIndex = ins->mVarIndex;
+						bins.mLinkerObject = ins->mLinkerObject;
 						bins.mValue = ins->mSIntConst[1];
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
 						bins.mRegisterFinal = ins->mSFinal[0];
@@ -1121,7 +1113,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						int	index = ins->mSIntConst[1];
 						if (ins->mMemory == IM_LOCAL)
-							index += proc->mLocalVars[ins->mVarIndex].mOffset;
+							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 						else
 							index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -1161,7 +1153,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						ByteCodeInstruction	bins(BC_STORE_ABS_16);
 						bins.mRelocate = true;
-						bins.mVIndex = ins->mVarIndex;
+						bins.mLinkerObject = ins->mLinkerObject;
 						bins.mValue = ins->mSIntConst[1];
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
 						bins.mRegisterFinal = ins->mSFinal[0];
@@ -1179,7 +1171,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					{
 						int	index = ins->mSIntConst[1];
 						if (ins->mMemory == IM_LOCAL)
-							index += proc->mLocalVars[ins->mVarIndex].mOffset;
+							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 						else
 							index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -1283,7 +1275,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 			{
 				ByteCodeInstruction	bins(BC_LOAD_ABS_32);
 				bins.mRelocate = true;
-				bins.mVIndex = ins->mVarIndex;
+				bins.mLinkerObject = ins->mLinkerObject;
 				bins.mValue = ins->mSIntConst[0];
 				bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 				mIns.Push(bins);
@@ -1299,7 +1291,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 			{
 				int	index = ins->mSIntConst[0];
 				if (ins->mMemory == IM_LOCAL)
-					index += proc->mLocalVars[ins->mVarIndex].mOffset;
+					index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 				else
 					index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -1346,7 +1338,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 			{
 				ByteCodeInstruction	bins(BC_LOAD_ABS_16);
 				bins.mRelocate = true;
-				bins.mVIndex = ins->mVarIndex;
+				bins.mLinkerObject = ins->mLinkerObject;
 				bins.mValue = ins->mSIntConst[0];
 				bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 				mIns.Push(bins);
@@ -1362,7 +1354,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 			{
 				int	index = ins->mSIntConst[0];
 				if (ins->mMemory == IM_LOCAL)
-					index += proc->mLocalVars[ins->mVarIndex].mOffset;
+					index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 				else
 					index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -1411,7 +1403,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				{
 					ByteCodeInstruction	bins((ins->mTType == IT_BOOL || ins->mTType == IT_INT8) ? BC_LOAD_ABS_8 : BC_LOAD_ABS_U8);
 					bins.mRelocate = true;
-					bins.mVIndex = ins->mVarIndex;
+					bins.mLinkerObject = ins->mLinkerObject;
 					bins.mValue = ins->mSIntConst[0];
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 					mIns.Push(bins);
@@ -1427,7 +1419,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				{
 					int	index = ins->mSIntConst[0];
 					if (ins->mMemory == IM_LOCAL)
-						index += proc->mLocalVars[ins->mVarIndex].mOffset;
+						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -1457,7 +1449,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				{
 					ByteCodeInstruction	bins(BC_LOAD_ABS_16);
 					bins.mRelocate = true;
-					bins.mVIndex = ins->mVarIndex;
+					bins.mLinkerObject = ins->mLinkerObject;
 					bins.mValue = ins->mSIntConst[0];
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 					mIns.Push(bins);
@@ -1473,7 +1465,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				{
 					int	index = ins->mSIntConst[0];
 					if (ins->mMemory == IM_LOCAL)
-						index += proc->mLocalVars[ins->mVarIndex].mOffset;
+						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
 
@@ -1573,8 +1565,7 @@ void ByteCodeBasicBlock::CallFunction(InterCodeProcedure* proc, const InterInstr
 	{
 		ByteCodeInstruction	bins(BC_LEA_ABS);
 		bins.mRelocate = true;
-		bins.mFunction = true;
-		bins.mVIndex = ins->mVarIndex;
+		bins.mLinkerObject = ins->mLinkerObject;
 		bins.mValue = 0;
 		bins.mRegister = BC_REG_ADDR;
 		mIns.Push(bins);
@@ -1604,8 +1595,7 @@ void ByteCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterInst
 	{
 		ByteCodeInstruction	bins(BC_JSR);
 		bins.mRelocate = true;
-		bins.mVIndex = ins->mVarIndex;
-		bins.mFunction = ins->mMemory == IM_PROCEDURE;
+		bins.mLinkerObject = ins->mLinkerObject;
 		bins.mValue = ins->mSIntConst[0];
 		mIns.Push(bins);
 	}
@@ -2813,7 +2803,7 @@ ByteCodeBasicBlock* ByteCodeBasicBlock::BypassEmptyBlocks(void)
 	}
 }
 
-void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, uint8 * target)
+void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, LinkerObject* linkerObject, uint8 * target)
 {
 	int i;
 	int next, end;
@@ -2826,9 +2816,10 @@ void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, uint8 * target)
 
 		for (int i = 0; i < mRelocations.Size(); i++)
 		{
-			ByteCodeRelocation	rl = mRelocations[i];
-			rl.mAddr += target - generator->mMemory + mOffset;
-			generator->mRelocations.Push(rl);
+			LinkerReference	rl = mRelocations[i];
+			rl.mObject = linkerObject;
+			rl.mOffset += mOffset;
+			generator->mLinker->AddReference(rl);
 		}
 
 		end = mOffset + mCode.Size();
@@ -2869,8 +2860,8 @@ void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, uint8 * target)
 			mCode.Lookup(i, target[i + mOffset]);
 		}
 
-		if (mTrueJump) mTrueJump->CopyCode(generator, target);
-		if (mFalseJump) mFalseJump->CopyCode(generator, target);
+		if (mTrueJump) mTrueJump->CopyCode(generator, linkerObject, target);
+		if (mFalseJump) mFalseJump->CopyCode(generator, linkerObject, target);
 	}
 }
 
@@ -3046,13 +3037,10 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 
 	lentryBlock->CalculateOffset(total);
 
-	generator->AddAddress(proc->mID, true, generator->mProgEnd, total, proc->mIdent, false);
+	uint8	*	data = proc->mLinkerObject->AddSpace(total);
 
-	mProgStart = generator->mProgEnd;
-	lentryBlock->CopyCode(generator, generator->mMemory + generator->mProgEnd);
+	lentryBlock->CopyCode(generator, proc->mLinkerObject, data);
 	mProgSize = total; 
-
-	generator->mProgEnd += total;
 }
 
 ByteCodeBasicBlock* ByteCodeProcedure::CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* sblock)
@@ -3067,265 +3055,19 @@ ByteCodeBasicBlock* ByteCodeProcedure::CompileBlock(InterCodeProcedure* iproc, I
 	return block;
 }
 
-void ByteCodeProcedure::Disassemble(FILE* file, ByteCodeGenerator* generator, InterCodeProcedure* proc)
-{
-	mDisassembler.Disassemble(file, generator->mMemory, mProgStart, mProgSize, proc);
-}
 
-ByteCodeGenerator::ByteCodeGenerator(void)
-	: mProcedureAddr({ 0 }), mGlobalAddr({ 0 }), mRelocations({ 0 })
+ByteCodeGenerator::ByteCodeGenerator(Errors* errors, Linker* linker)
+	: mErrors(errors), mLinker(linker)
 {
-	mProgStart = mProgEnd = 0x0801;
 	for (int i = 0; i < 128; i++)
 		mByteCodeUsed[i] = false;
+
+	mByteCodeUsed[BC_LEA_ABS] = true;
+	mByteCodeUsed[BC_CALL] = true;
+	mByteCodeUsed[BC_EXIT] = true;
+	mByteCodeUsed[BC_NATIVE] = true;
 }
 
 ByteCodeGenerator::~ByteCodeGenerator(void)
 {
 }
-
-int ByteCodeGenerator::AddGlobal(int index, const Ident* ident, int size, const uint8* data, bool assembler)
-{
-	int	addr = mProgEnd;
-
-	AddAddress(index, false, addr, size, ident, assembler);
-
-	if (data)
-	{
-		for (int i = 0; i < size; i++)
-			mMemory[mProgEnd + i] = data[i];
-	}
-	else
-	{
-		for (int i = 0; i < size; i++)
-			mMemory[mProgEnd + i] = 0;
-	}
-		
-	mProgEnd += size;
-
-	return addr;
-}
-
-void ByteCodeGenerator::AddAddress(int index, bool function, int address, int size, const Ident* ident, bool assembler)
-{
-	Address	addr;
-	addr.mIndex = index;
-	addr.mFunction = function;
-	addr.mAddress = address;
-	addr.mSize = size;
-	addr.mIdent = ident;
-	addr.mAssembler = assembler;
-	if (function)
-		mProcedureAddr[index] = addr;
-	else
-		mGlobalAddr[index] = addr;
-}
-
-
-void ByteCodeGenerator::WriteBasicHeader(void)
-{
-	mMemory[mProgEnd++] = 0x0b;
-	mMemory[mProgEnd++] = 0x08;
-	mMemory[mProgEnd++] = 0x0a;
-	mMemory[mProgEnd++] = 0x00;
-	mMemory[mProgEnd++] = 0x9e;
-	mMemory[mProgEnd++] = 0x32;
-	mMemory[mProgEnd++] = 0x30;
-	mMemory[mProgEnd++] = 0x36;
-	mMemory[mProgEnd++] = 0x31;
-	mMemory[mProgEnd++] = 0x00;
-	mMemory[mProgEnd++] = 0x00;
-	mMemory[mProgEnd++] = 0x00;
-}
-
-void ByteCodeGenerator::SetBasicEntry(int index)
-{
-	mProgEntry = index;
-}
-
-void ByteCodeGenerator::WriteByteCodeHeader(void)
-{
-	int	n = mProgEnd + 6;
-
-	mMemory[mProgEnd++] = BC_LEA_ABS * 2;
-	mMemory[mProgEnd++] = BC_REG_ADDR;
-	mMemory[mProgEnd++] = n & 255;
-	mMemory[mProgEnd++] = n >> 8;
-	mMemory[mProgEnd++] = BC_CALL * 2;
-	mMemory[mProgEnd++] = BC_EXIT * 2;
-
-	mByteCodeUsed[BC_LEA_ABS] = true;
-	mByteCodeUsed[BC_CALL] = true;
-	mByteCodeUsed[BC_EXIT] = true;
-}
-
-void ByteCodeGenerator::ResolveRelocations(void)
-{
-	for (int i = 0; i < mRelocations.Size(); i++)
-	{
-		int	dp = mRelocations[i].mAddr;
-		int	sp;
-		if (mRelocations[i].mFunction)
-			sp = mProcedureAddr[mRelocations[i].mIndex].mAddress + mRelocations[i].mOffset;
-		else
-			sp = mGlobalAddr[mRelocations[i].mIndex].mAddress + mRelocations[i].mOffset;
-		if (mRelocations[i].mLower)
-			mMemory[dp++] = sp & 255;
-		if (mRelocations[i].mUpper)
-			mMemory[dp++] = sp >> 8;
-	}
-
-	int	entry = mGlobalAddr[mProgEntry].mAddress;
-
-	mMemory[mProgStart + 5] = (entry / 1000) % 10 + '0';
-	mMemory[mProgStart + 6] = (entry / 100) % 10 + '0';
-	mMemory[mProgStart + 7] = (entry / 10) % 10 + '0';
-	mMemory[mProgStart + 8] = entry % 10 + '0';
-}
-
-bool ByteCodeGenerator::WritePRGFile(const char* filename)
-{
-	FILE* file;
-	fopen_s(&file, filename, "wb");
-	if (file)
-	{
-		mMemory[mProgStart - 2] = mProgStart & 0xff;
-		mMemory[mProgStart - 1] = mProgStart >> 8;
-
-		int	done = fwrite(mMemory  + mProgStart - 2, 1, mProgEnd - mProgStart + 2, file);
-		fclose(file);
-		return done == mProgEnd - mProgStart + 2;
-	}
-	else
-		return false;
-}
-
-void ByteCodeGenerator::WriteAsmFile(FILE* file)
-{
-	for (int i = 0; i < mGlobalAddr.Size(); i++)
-	{
-		WriteAsmFile(file, mGlobalAddr[i]);
-	}
-	for (int i = 0; i < mProcedureAddr.Size(); i++)
-	{
-		WriteAsmFile(file, mProcedureAddr[i]);
-	}
-}
-
-void ByteCodeGenerator::WriteAsmFile(FILE * file, Address & addr)
-{
-
-	if (addr.mAssembler)
-	{
-		fprintf(file, "--------------------------------------------------------------------\n");
-		if (addr.mIdent)
-			fprintf(file, "%s:\n", addr.mIdent->mString);
-
-		int		ip = addr.mAddress;
-		while (ip < addr.mAddress + addr.mSize)
-		{
-			int			iip = ip;
-			uint8	opcode = mMemory[ip++];
-			AsmInsData	d = DecInsData[opcode];
-			int	addr = 0;
-
-			switch (d.mMode)
-			{
-			case ASMIM_IMPLIED:
-				fprintf(file, "%04x : %02x __ __ %s\n", iip, mMemory[iip], AsmInstructionNames[d.mType]);
-				break;
-			case ASMIM_IMMEDIATE:
-				addr = mMemory[ip++];
-				fprintf(file, "%04x : %02x %02x __ %s #$%02x\n", iip, mMemory[iip], mMemory[iip + 1], AsmInstructionNames[d.mType], addr);
-				break;
-			case ASMIM_ZERO_PAGE:
-				addr = mMemory[ip++];
-				fprintf(file, "%04x : %02x %02x __ %s $%02x\n", iip, mMemory[iip], mMemory[iip + 1], AsmInstructionNames[d.mType], addr);
-				break;
-			case ASMIM_ZERO_PAGE_X:
-				addr = mMemory[ip++];
-				fprintf(file, "%04x : %02x %02x __ %s $%02x,x\n", iip, mMemory[iip], mMemory[iip + 1], AsmInstructionNames[d.mType], addr);
-				break;
-			case ASMIM_ZERO_PAGE_Y:
-				addr = mMemory[ip++];
-				fprintf(file, "%04x : %02x %02x __ %s $%02x,y\n", iip, mMemory[iip], mMemory[iip + 1], AsmInstructionNames[d.mType], addr);
-				break;
-			case ASMIM_ABSOLUTE:
-				addr = mMemory[ip] + 256 * mMemory[ip + 1];
-				fprintf(file, "%04x : %02x %02x %02x %s $%04x\n", iip, mMemory[iip], mMemory[iip + 1], mMemory[iip + 2], AsmInstructionNames[d.mType], addr);
-				ip += 2;
-				break;
-			case ASMIM_ABSOLUTE_X:
-				addr = mMemory[ip] + 256 * mMemory[ip + 1];
-				fprintf(file, "%04x : %02x %02x %02x %s $%04x,x\n", iip, mMemory[iip], mMemory[iip + 1], mMemory[iip + 2], AsmInstructionNames[d.mType], addr);
-				ip += 2;
-				break;
-			case ASMIM_ABSOLUTE_Y:
-				addr = mMemory[ip] + 256 * mMemory[ip + 1];
-				fprintf(file, "%04x : %02x %02x %02x %s $%04x,y\n", iip, mMemory[iip], mMemory[iip + 1], mMemory[iip + 2], AsmInstructionNames[d.mType], addr);
-				ip += 2;
-				break;
-			case ASMIM_INDIRECT:
-				addr = mMemory[ip] + 256 * mMemory[ip + 1];
-				ip += 2;
-				fprintf(file, "%04x : %02x %02x %02x %s ($%04x)\n", iip, mMemory[iip], mMemory[iip + 1], mMemory[iip + 2], AsmInstructionNames[d.mType], addr);
-				break;
-			case ASMIM_INDIRECT_X:
-				addr = mMemory[ip++];
-				fprintf(file, "%04x : %02x %02x __ %s ($%02x,x)\n", iip, mMemory[iip], mMemory[iip + 1], AsmInstructionNames[d.mType], addr);
-				break;
-			case ASMIM_INDIRECT_Y:
-				addr = mMemory[ip++];
-				fprintf(file, "%04x : %02x %02x __ %s ($%02x),y\n", iip, mMemory[iip], mMemory[iip + 1], AsmInstructionNames[d.mType], addr);
-				break;
-			case ASMIM_RELATIVE:
-				addr = mMemory[ip++];
-				if (addr & 0x80)
-					addr = addr + ip - 256;
-				else
-					addr = addr + ip;
-				fprintf(file, "%04x : %02x %02x __ %s $%02x\n", iip, mMemory[iip], mMemory[iip + 1], AsmInstructionNames[d.mType], addr);
-				break;
-			}
-		}
-	}
-}
-
-bool ByteCodeGenerator::WriteMapFile(const char* filename)
-{
-	FILE* file;
-	fopen_s(&file, filename, "wb");
-	if (file)
-	{
-		for (int i = 0; i < mProcedureAddr.Size(); i++)
-		{
-			if (mProcedureAddr[i].mIdent)
-				fprintf(file, "%04x - %04x : F %s\n", mProcedureAddr[i].mAddress, mProcedureAddr[i].mAddress + mProcedureAddr[i].mSize, mProcedureAddr[i].mIdent->mString);
-			else
-				fprintf(file, "%04x - %04x : F\n", mProcedureAddr[i].mAddress, mProcedureAddr[i].mAddress + mProcedureAddr[i].mSize);
-		}
-
-		for (int i = 0; i < mGlobalAddr.Size(); i++)
-		{
-			if (mGlobalAddr[i].mAssembler)
-			{
-				if (mGlobalAddr[i].mIdent)
-					fprintf(file, "%04x - %04x : A %s\n", mGlobalAddr[i].mAddress, mGlobalAddr[i].mAddress + mGlobalAddr[i].mSize, mGlobalAddr[i].mIdent->mString);
-				else
-					fprintf(file, "%04x - %04x : A\n", mGlobalAddr[i].mAddress, mGlobalAddr[i].mAddress + mGlobalAddr[i].mSize);
-			}
-			else
-			{
-				if (mGlobalAddr[i].mIdent)
-					fprintf(file, "%04x - %04x : V %s\n", mGlobalAddr[i].mAddress, mGlobalAddr[i].mAddress + mGlobalAddr[i].mSize, mGlobalAddr[i].mIdent->mString);
-				else
-					fprintf(file, "%04x - %04x : V\n", mGlobalAddr[i].mAddress, mGlobalAddr[i].mAddress + mGlobalAddr[i].mSize);
-			}
-		}
-
-		return true;
-	}
-	else
-		return false;
-}
-

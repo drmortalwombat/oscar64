@@ -1,10 +1,12 @@
 #pragma once
 
-#include "ByteCodeGenerator.h"
 #include "Assembler.h"
+#include "Linker.h"
+#include "InterCode.h"
 
 class NativeCodeProcedure;
 class NativeCodeBasicBlock;
+class NativeCodeGenerator;
 
 struct NativeRegisterData
 {
@@ -24,20 +26,22 @@ struct NativeRegisterDataSet
 	void ResetZeroPage(int addr);
 };
 
+static const uint32 NCIF_LOWER = 0x00000001;
+static const uint32 NCIF_UPPER = 0x00000002;
+static const uint32 NCIF_RUNTIME = 0x00000004;
+
 class NativeCodeInstruction
 {
 public:
-	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, int varIndex = -1, bool lower = true, bool upper = true);
-	NativeCodeInstruction(AsmInsType type, AsmInsMode mode, const char* runtime, int address = 0, bool lower = true, bool upper = true);
-	NativeCodeInstruction(const char* runtime);
+	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER);
 
 	AsmInsType		mType;
 	AsmInsMode		mMode;
 
-	int				mAddress, mVarIndex;
-	bool			mLower, mUpper, mFunction;
-	const char	*	mRuntime;
+	int				mAddress;
+	uint32			mFlags;
 	uint32			mLive;
+	LinkerObject*	mLinkerObject;
 
 	void Assemble(NativeCodeBasicBlock* block);
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
@@ -63,7 +67,7 @@ public:
 	AsmInsType							mBranch;
 
 	GrowingArray<NativeCodeInstruction>	mIns;
-	GrowingArray<ByteCodeRelocation>	mRelocations;
+	GrowingArray<LinkerReference>	mRelocations;
 
 	int						mOffset, mSize, mNumEntries;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited;
@@ -91,18 +95,18 @@ public:
 	void StoreValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void LoadValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void LoadStoreValue(InterCodeProcedure* proc, const InterInstruction * rins, const InterInstruction * wins);
-	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
-	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction * ins);
+	void BinaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
+	void UnaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
-	void NumericConversion(InterCodeProcedure* proc, const InterInstruction * ins);
+	void NumericConversion(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc);
 
 	void CallAssembler(InterCodeProcedure* proc, const InterInstruction * ins);
-	void CallFunction(InterCodeProcedure* proc, const InterInstruction * ins);
+	void CallFunction(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 
 	void ShiftRegisterLeft(InterCodeProcedure* proc, int reg, int shift);
-	int ShortMultiply(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins, int index, int mul);
+	int ShortMultiply(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins, int index, int mul);
 
 	bool CheckPredAccuStore(int reg);
 
@@ -124,20 +128,22 @@ public:
 class NativeCodeProcedure
 {
 	public:
-		NativeCodeProcedure(void);
+		NativeCodeProcedure(NativeCodeGenerator* generator);
 		~NativeCodeProcedure(void);
 
 		NativeCodeBasicBlock* entryBlock, * exitBlock;
 		NativeCodeBasicBlock** tblocks;
 
+		NativeCodeGenerator* mGenerator;
+
 		int		mProgStart, mProgSize, mIndex;
 		bool	mNoFrame;
 		int		mTempBlocks;
 
-		GrowingArray<ByteCodeRelocation>	mRelocations;
+		GrowingArray<LinkerReference>	mRelocations;
 		GrowingArray < NativeCodeBasicBlock*>	 mBlocks;
 
-		void Compile( ByteCodeGenerator * generator, InterCodeProcedure* proc);
+		void Compile(InterCodeProcedure* proc);
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
 		NativeCodeBasicBlock* AllocateBlock(void);
 		NativeCodeBasicBlock* TransientBlock(void);
@@ -149,3 +155,24 @@ class NativeCodeProcedure
 
 };
 
+class NativeCodeGenerator
+{
+public:
+	NativeCodeGenerator(Errors * errors, Linker* linker);
+	~NativeCodeGenerator(void);
+
+	void RegisterRuntime(const Ident * ident, LinkerObject * object, int offset);
+
+	struct Runtime
+	{
+		const Ident		*	mIdent;
+		LinkerObject	*	mLinkerObject;
+		int					mOffset;
+	};
+
+	Runtime& ResolveRuntime(const Ident* ident);
+
+	Errors* mErrors;
+	Linker* mLinker;
+	GrowingArray<Runtime>	mRuntime;
+};

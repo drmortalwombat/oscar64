@@ -2,6 +2,22 @@
 #include <string.h>
 #include <stdio.h>
 
+
+void LinkerObject::AddData(const uint8* data, int size)
+{
+	mSize = size;
+	mData = new uint8[size];
+	memcpy(mData, data, size);
+}
+
+uint8* LinkerObject::AddSpace(int size)
+{
+	mSize = size;
+	mData = new uint8[size];
+	memset(mData, 0, size);
+	return mData;
+}
+
 Linker::Linker(Errors* errors)
 	: mErrors(errors), mSections(nullptr), mReferences(nullptr), mObjects(nullptr)
 {
@@ -25,7 +41,7 @@ int Linker::AddSection(const Ident* section, int start, int size)
 	return lsec->mID;
 }
 
-int Linker::AddObject(const Location& location, const Ident* ident, const Ident* section, LinkerObjectType type)
+LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, const Ident* section, LinkerObjectType type)
 {
 	LinkerObject* obj = new LinkerObject;
 	obj->mLocation = location;
@@ -36,31 +52,9 @@ int Linker::AddObject(const Location& location, const Ident* ident, const Ident*
 	obj->mIdent = ident;
 	obj->mSection = section;
 	obj->mProc = nullptr;
+	obj->mReferenced = false;
 	mObjects.Push(obj);
-	return obj->mID;
-}
-
-void Linker::AddObjectData(int id, const uint8* data, int size)
-{
-	LinkerObject* obj = mObjects[id];
-	obj->mSize = size;
-	obj->mData = new uint8[size];
-	memcpy(obj->mData, data, size);
-}
-
-uint8* Linker::AddObjectSpace(int id, int size)
-{
-	LinkerObject* obj = mObjects[id];
-	obj->mSize = size;
-	obj->mData = new uint8[size];
-	memset(obj->mData, 0, size);
-	return obj->mData;
-}
-
-void Linker::AttachObjectProcedure(int id, InterCodeProcedure* proc)
-{
-	LinkerObject* obj = mObjects[id];
-	obj->mProc = proc;
+	return obj;
 }
 
 void Linker::AddReference(const LinkerReference& ref)
@@ -69,30 +63,46 @@ void Linker::AddReference(const LinkerReference& ref)
 	mReferences.Push(nref);	
 }
 
+void Linker::ReferenceObject(LinkerObject* obj)
+{
+	if (!obj->mReferenced)
+	{
+		obj->mReferenced = true;
+		for (int i = 0; i < mReferences.Size(); i++)
+		{
+			LinkerReference* ref = mReferences[i];
+			if (ref->mObject == obj)
+				ReferenceObject(ref->mRefObject);
+		}
+	}
+}
+
 void Linker::Link(void)
 {
 	for (int i = 0; i < mObjects.Size(); i++)
 	{
 		LinkerObject* obj = mObjects[i];
-		LinkerSection* lsec;
-		int j = 0;
-		while (j < mSections.Size() && !(mSections[j]->mIdent == obj->mSection && mSections[j]->mUsed + obj->mSize <= mSections[j]->mSize))
-			j++;
-		if (j < mSections.Size())
+		if (obj->mReferenced)
 		{
-			LinkerSection* lsec = mSections[j];
-			obj->mLinkerSection = lsec;
-			obj->mAddress = lsec->mUsed;
-			lsec->mUsed += obj->mSize;
-			memcpy(mMemory + obj->mAddress, obj->mData, obj->mSize);
+			LinkerSection* lsec;
+			int j = 0;
+			while (j < mSections.Size() && !(mSections[j]->mIdent == obj->mSection && mSections[j]->mUsed + obj->mSize <= mSections[j]->mSize))
+				j++;
+			if (j < mSections.Size())
+			{
+				LinkerSection* lsec = mSections[j];
+				obj->mLinkerSection = lsec;
+				obj->mAddress = lsec->mUsed;
+				lsec->mUsed += obj->mSize;
+			}
+			else
+				mErrors->Error(obj->mLocation, "Out of space in section", obj->mSection->mString);
 		}
-		else
-			mErrors->Error(obj->mLocation, "Out of space in section", obj->mSection->mString);
 	}
 
 	if (mErrors->mErrorCount == 0)
 	{
-		mProgramStart = 0xffff;
+		mProgramStart = 0x0801;
 		mProgramEnd = 0x0801;
 
 		int	address = 0;
@@ -114,23 +124,29 @@ void Linker::Link(void)
 		for (int i = 0; i < mObjects.Size(); i++)
 		{
 			LinkerObject* obj = mObjects[i];
-			obj->mAddress += obj->mLinkerSection->mStart;
+			if (obj->mReferenced)
+			{
+				obj->mAddress += obj->mLinkerSection->mStart;
+				memcpy(mMemory + obj->mAddress, obj->mData, obj->mSize);
+			}
 		}
 
 		for (int i = 0; i < mReferences.Size(); i++)
 		{
 			LinkerReference* ref = mReferences[i];
-			LinkerObject* obj = mObjects[ref->mID];
-			LinkerObject* robj = mObjects[ref->mRefID];
+			LinkerObject* obj = ref->mObject;
+			if (obj->mReferenced)
+			{
+				LinkerObject* robj = ref->mRefObject;
 
-			int			raddr = robj->mAddress + ref->mRefOffset;
-			uint8* dp = mMemory + obj->mAddress + ref->mOffset;
+				int			raddr = robj->mAddress + ref->mRefOffset;
+				uint8* dp = mMemory + obj->mAddress + ref->mOffset;
 
-			if (ref->mLowByte)
-				*dp++ = raddr & 0xff;
-			if (ref->mHighByte)
-				*dp++ = (raddr >> 8) & 0xff;
-
+				if (ref->mLowByte)
+					*dp++ = raddr & 0xff;
+				if (ref->mHighByte)
+					*dp++ = (raddr >> 8) & 0xff;
+			}
 		}
 	}
 }
@@ -175,10 +191,13 @@ bool Linker::WriteMapFile(const char* filename)
 		{
 			LinkerObject* obj = mObjects[i];
 
-			if (obj->mIdent)
-				fprintf(file, "%04x - %04x : %s, %s:%s\n", obj->mAddress, obj->mAddress + obj->mSize, obj->mIdent->mString, LinkerObjectTypeNames[obj->mType], obj->mSection->mString);
-			else
-				fprintf(file, "%04x - %04x : *, %s:%s\n", obj->mAddress, obj->mAddress + obj->mSize, LinkerObjectTypeNames[obj->mType], obj->mSection->mString);
+			if (obj->mReferenced)
+			{
+				if (obj->mIdent)
+					fprintf(file, "%04x - %04x : %s, %s:%s\n", obj->mAddress, obj->mAddress + obj->mSize, obj->mIdent->mString, LinkerObjectTypeNames[obj->mType], obj->mSection->mString);
+				else
+					fprintf(file, "%04x - %04x : *, %s:%s\n", obj->mAddress, obj->mAddress + obj->mSize, LinkerObjectTypeNames[obj->mType], obj->mSection->mString);
+			}
 		}
 
 		fclose(file);
@@ -199,14 +218,17 @@ bool Linker::WriteAsmFile(const char* filename)
 		{
 			LinkerObject* obj = mObjects[i];
 
-			switch (obj->mType)
+			if (obj->mReferenced)
 			{
-			case LOT_BYTE_CODE:
-				mByteCodeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc);
-				break;
-			case LOT_NATIVE_CODE:
-				mNativeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc);
-				break;
+				switch (obj->mType)
+				{
+				case LOT_BYTE_CODE:
+					mByteCodeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent);
+					break;
+				case LOT_NATIVE_CODE:
+					mNativeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent);
+					break;
+				}
 			}
 		}
 

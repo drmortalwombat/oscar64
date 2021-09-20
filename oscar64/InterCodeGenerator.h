@@ -2,11 +2,12 @@
 
 #include "Parser.h"
 #include "InterCode.h"
+#include "Linker.h"
 
 class InterCodeGenerator
 {
 public:
-	InterCodeGenerator(Errors * errors);
+	InterCodeGenerator(Errors * errors, Linker * linker);
 	~InterCodeGenerator(void);
 
 	struct ExValue
@@ -27,11 +28,12 @@ public:
 protected:
 
 	Errors* mErrors;
+	Linker* mLinker;
 
 	ExValue Dereference(InterCodeProcedure* proc, InterCodeBasicBlock*& block, ExValue v, int level = 0);
 	ExValue CoerceType(InterCodeProcedure* proc, InterCodeBasicBlock*& block, ExValue v, Declaration * type);
 	ExValue TranslateExpression(Declaration * procType, InterCodeProcedure * proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock);
 	void TranslateLogic(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock* block, InterCodeBasicBlock* tblock, InterCodeBasicBlock* fblock, Expression* exp);
 
-	void BuildInitializer(InterCodeModule* mod, uint8 * dp, int offset, Declaration* data, GrowingArray<InterVariable::Reference> & references);
+	void BuildInitializer(InterCodeModule* mod, uint8 * dp, int offset, Declaration* data, InterVariable * variable);
 };

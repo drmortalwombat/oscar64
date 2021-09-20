@@ -1,15 +1,28 @@
 // crt.c
 #include <crt.h>
 
-unsigned int CodeStart	=	0x0a00;
 unsigned int StackTop	=	0xa000 - 2;
 
+int main(void);
 
 __asm startup
 {
-		lda	CodeStart + 0
+		byt	0x0b
+		byt 0x08
+		byt	0x0a
+		byt	0x00
+		byt	0x9e
+		byt	0x32
+		byt	0x30
+		byt	0x36
+		byt	0x31
+		byt	0x00
+		byt	0x00
+		byt	0x00
+
+		lda	#<bcode
 		sta	ip
-		lda	CodeStart + 1
+		lda	#>bcode
 		sta	ip + 1
 		
 		lda	StackTop + 0
@@ -34,6 +47,13 @@ incip:
 		bcc	execjmp	
 		inc	ip + 1		
 		bne	execjmp
+bcode:		
+		byt	BC_LEA_ABS * 2
+		byt	addr
+		byt	<main
+		byt	>main
+		byt	BC_CALL * 2
+		byt	BC_EXIT * 2
 }
 
 #pragma startup(startup)

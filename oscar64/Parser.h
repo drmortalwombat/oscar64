@@ -14,6 +14,8 @@ public:
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
 	
+	const Ident* mCodeSection, * mDataSection;
+
 	void Parse(void);
 protected:
 	bool ConsumeToken(Token token);
@@ -36,6 +38,7 @@ protected:
 	Expression* ParseAssembler(void);
 
 	Expression* ParseAssemblerBaseOperand(void);
+	Expression* ParseAssemblerMulOperand(void);
 	Expression* ParseAssemblerAddOperand(void);
 	Expression* ParseAssemblerOperand(void);
 

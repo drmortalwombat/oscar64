@@ -453,7 +453,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 
 int Emulator::Emulate(int startIP)
 {
-	int	trace = 0;
+	int	trace = 3;
 
 	for (int i = 0; i < 0x10000; i++)
 		mCycles[i] = 0;
@@ -577,7 +577,7 @@ int Emulator::Emulate(int startIP)
 				break;
 		}
 
-		if ((trace & 1) && ip == 0x0823)
+		if ((trace & 1) && ip == 0x0821)
 		{
 			int	accu = mMemory[BC_REG_ACCU] + 256 * mMemory[BC_REG_ACCU + 1];
 			int	ptr = mMemory[BC_REG_ADDR] + 256 * mMemory[BC_REG_ADDR + 1];

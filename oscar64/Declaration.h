@@ -5,6 +5,8 @@
 #include "MachineTypes.h"
 #include "Assembler.h"
 
+class LinkerObject;
+
 enum DecType
 {
 	DT_TYPE_VOID,
@@ -38,6 +40,7 @@ enum DecType
 	DT_ANON,
 	DT_LABEL,
 	DT_VARIABLE_REF,
+	DT_FUNCTION_REF,
 	DT_LABEL_REF
 };
 
@@ -153,8 +156,9 @@ public:
 	__int64				mInteger;
 	double				mNumber;
 	uint32				mFlags;
-	const Ident		*	mIdent;
+	const Ident		*	mIdent, * mSection;
 	const uint8* mData;
+	LinkerObject	*	mLinkerObject;
 
 	bool CanAssign(const Declaration* fromType) const;
 	bool IsSame(const Declaration* dec) const;

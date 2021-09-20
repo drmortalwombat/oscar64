@@ -235,7 +235,7 @@ int FastNumberSet::Index(int elem)
 {
 	uint32 dw = buffer[size + elem];
 
-	if (dw < num && buffer[dw] == elem)
+	if (dw < uint32(num) && buffer[dw] == elem)
 		return dw;
 	else
 		return -1;

@@ -1,6 +1,7 @@
 #include "Disassembler.h"
 #include "ByteCodeGenerator.h"
 #include "Assembler.h"
+#include "InterCode.h"
 
 ByteCodeDisassembler::ByteCodeDisassembler(void)
 {
@@ -36,11 +37,13 @@ const char* ByteCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodePro
 	}
 }
 
-void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc)
+void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident* ident)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");
-	if (proc->mIdent)
+	if (proc && proc->mIdent)
 		fprintf(file, "%s:\n", proc->mIdent->mString);
+	else if (ident)
+		fprintf(file, "%s:\n", ident->mString);
 
 	char	tbuffer[10];
 #if 0
@@ -539,11 +542,13 @@ NativeCodeDisassembler::~NativeCodeDisassembler(void)
 
 }
 
-void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc)
+void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident * ident)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");
-	if (proc->mIdent)
+	if (proc && proc->mIdent)
 		fprintf(file, "%s:\n", proc->mIdent->mString);
+	else if (ident)
+		fprintf(file, "%s:\n", ident->mString);
 
 	char	tbuffer[10];
 
@@ -566,15 +571,15 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 			break;
 		case ASMIM_ZERO_PAGE:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s $%02x\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
 			break;
 		case ASMIM_ZERO_PAGE_X:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s $%02x,x\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s %s,x\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
 			break;
 		case ASMIM_ZERO_PAGE_Y:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s $%02x,y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s %s,y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
 			break;
 		case ASMIM_ABSOLUTE:
 			addr = memory[ip] + 256 * memory[ip + 1];
@@ -598,11 +603,11 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 			break;
 		case ASMIM_INDIRECT_X:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s ($%02x,x)\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s (%s,x)\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
 			break;
 		case ASMIM_INDIRECT_Y:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s ($%02x),y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s (%s),y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
 			break;
 		case ASMIM_RELATIVE:
 			addr = memory[ip++];
@@ -627,6 +632,16 @@ const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeP
 	else if (tmp >= BC_REG_ACCU && tmp <= BC_REG_ACCU + 3)
 	{
 		sprintf_s(buffer, 10, "ACCU + %d", tmp - BC_REG_ACCU);
+		return buffer;
+	}
+	else if (tmp >= BC_REG_STACK && tmp <= BC_REG_STACK + 1)
+	{
+		sprintf_s(buffer, 10, "SP + %d", tmp - BC_REG_STACK);
+		return buffer;
+	}
+	else if (tmp >= BC_REG_LOCALS && tmp <= BC_REG_LOCALS + 3)
+	{
+		sprintf_s(buffer, 10, "FP + %d", tmp - BC_REG_LOCALS);
 		return buffer;
 	}
 	else if (proc && tmp >= BC_REG_TMP && tmp < BC_REG_TMP + proc->mTempSize)

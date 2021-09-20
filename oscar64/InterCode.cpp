@@ -1010,6 +1010,7 @@ InterInstruction::InterInstruction(void)
 	mVarIndex = -1;
 	mIntValue = 0;
 	mFloatValue = 0;
+	mLinkerObject = nullptr;
 
 	mTTemp = INVALID_TEMPORARY;
 	mSTemp[0] = INVALID_TEMPORARY;
@@ -1134,7 +1135,7 @@ void InterInstruction::FilterVarsUsage(const GrowingVariableArray& localVars, Nu
 	else if (mCode == IC_STORE && mMemory == IM_LOCAL)
 	{
 		assert(mSTemp[1] < 0);
-		if (!providedVars[mVarIndex] && (mSIntConst[1] != 0 || mOperandSize != localVars[mVarIndex].mSize))
+		if (!providedVars[mVarIndex] && (mSIntConst[1] != 0 || mOperandSize != localVars[mVarIndex]->mSize))
 			requiredVars += mVarIndex;
 		providedVars += mVarIndex;
 	}
@@ -1163,6 +1164,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 		{
 			InterInstruction* ains = ctemps[mSTemp[0]];
 			mSIntConst[0] = ains->mIntValue;
+			mLinkerObject = ains->mLinkerObject;
 			mVarIndex = ains->mVarIndex;
 			mMemory = ains->mMemory;
 			mSTemp[0] = -1;
@@ -1174,6 +1176,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 		{
 			InterInstruction* ains = ctemps[mSTemp[1]];
 			mSIntConst[1] = ains->mIntValue;
+			mLinkerObject = ains->mLinkerObject;
 			mVarIndex = ains->mVarIndex;
 			mMemory = ains->mMemory;
 			mSTemp[1] = -1;
@@ -1187,6 +1190,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			mCode = IC_CONSTANT;
 			mIntValue = ains->mIntValue;
 			mFloatValue = ains->mFloatValue;
+			mLinkerObject = ains->mLinkerObject;
 			mVarIndex = ains->mVarIndex;
 			mMemory = ains->mMemory;
 			mSTemp[0] = -1;
@@ -1295,11 +1299,11 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 	{
 		if (mMemory == IM_LOCAL)
 		{
-			if (localVars[mVarIndex].mAliased)
+			if (localVars[mVarIndex]->mAliased)
 				;
 			else if (requiredTemps[mVarIndex])
 			{
-				if (mSIntConst[1] == 0 && mOperandSize == localVars[mVarIndex].mSize)
+				if (mSIntConst[1] == 0 && mOperandSize == localVars[mVarIndex]->mSize)
 					requiredTemps -= mVarIndex;
 			}
 			else
@@ -1779,6 +1783,7 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 		if (ains->mCode == IC_CONSTANT)
 		{
 			ins->mSIntConst[offset] = ains->mIntValue;
+			ins->mLinkerObject = ains->mLinkerObject;
 			ins->mVarIndex = ains->mVarIndex;
 			ins->mMemory = ains->mMemory;
 			ins->mSTemp[offset] = -1;
@@ -1801,6 +1806,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
 			ins->mMemory = tvalue[ins->mSTemp[0]]->mMemory;
+			ins->mLinkerObject = tvalue[ins->mSTemp[0]]->mLinkerObject;
 			ins->mVarIndex = tvalue[ins->mSTemp[0]]->mVarIndex;
 			ins->mOperandSize = tvalue[ins->mSTemp[0]]->mOperandSize;
 			ins->mSIntConst[0] = tvalue[ins->mSTemp[0]]->mIntValue;
@@ -1821,6 +1827,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			case IT_POINTER:
 				ins->mCode = IC_CONSTANT;
 				ins->mMemory = tvalue[ins->mSTemp[0]]->mMemory;
+				ins->mLinkerObject = tvalue[ins->mSTemp[0]]->mLinkerObject;
 				ins->mVarIndex = tvalue[ins->mSTemp[0]]->mVarIndex;
 				ins->mIntValue = tvalue[ins->mSTemp[0]]->mIntValue;
 				ins->mOperandSize = tvalue[ins->mSTemp[0]]->mOperandSize;
@@ -1865,6 +1872,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mCode = IC_CONSTANT;
 				ins->mTType = IT_POINTER;
 				ins->mMemory = tvalue[ins->mSTemp[1]]->mMemory;
+				ins->mLinkerObject = tvalue[ins->mSTemp[1]]->mLinkerObject;
 				ins->mVarIndex = tvalue[ins->mSTemp[1]]->mVarIndex;
 				ins->mIntValue = tvalue[ins->mSTemp[1]]->mIntValue + tvalue[ins->mSTemp[0]]->mIntValue;
 				ins->mOperandSize = tvalue[ins->mSTemp[1]]->mOperandSize;
@@ -2874,32 +2882,6 @@ void InterCodeBasicBlock::ReduceTemporaries(const GrowingIntArray& renameTable, 
 	}
 }
 
-static void UseGlobal(GrowingVariableArray& globalVars, int index)
-{
-	if (!globalVars[index].mUsed)
-	{
-		globalVars[index].mUsed = true;
-		for (int i = 0; i < globalVars[index].mNumReferences; i++)
-		{
-			if (!globalVars[index].mReferences[i].mFunction)
-				UseGlobal(globalVars, globalVars[index].mReferences[i].mIndex);
-		}
-	}
-}
-
-void InterCodeModule::UseGlobal(int index)
-{
-	if (!mGlobalVars[index].mUsed)
-	{
-		mGlobalVars[index].mUsed = true;
-		for (int i = 0; i < mGlobalVars[index].mNumReferences; i++)
-		{
-			if (!mGlobalVars[index].mReferences[i].mFunction)
-				UseGlobal( mGlobalVars[index].mReferences[i].mIndex);
-		}
-	}
-}
-
 void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars)
 {
 	int i;
@@ -2921,13 +2903,9 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 			case IC_STORE:
 			case IC_LOAD:
 			case IC_JSR:
-				if (mInstructions[i]->mMemory == IM_GLOBAL)
+				if (mInstructions[i]->mMemory == IM_LOCAL)
 				{
-					UseGlobal(globalVars, mInstructions[i]->mVarIndex);
-				}
-				else if (mInstructions[i]->mMemory == IM_LOCAL)
-				{
-					localVars[mInstructions[i]->mVarIndex].mUsed = true;
+					localVars[mInstructions[i]->mVarIndex]->mUsed = true;
 				}
 				break;
 			}
@@ -3236,10 +3214,10 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 				if (mInstructions[i]->mMemory == IM_LOCAL)
 				{
 					int	size = mInstructions[i]->mOperandSize + mInstructions[i]->mIntValue;
-					if (size > localVars[mInstructions[i]->mVarIndex].mSize)
-						localVars[mInstructions[i]->mVarIndex].mSize = size;
+					if (size > localVars[mInstructions[i]->mVarIndex]->mSize)
+						localVars[mInstructions[i]->mVarIndex]->mSize = size;
 					if (mInstructions[i]->mCode == IC_CONSTANT)
-						localVars[mInstructions[i]->mVarIndex].mAliased = true;
+						localVars[mInstructions[i]->mVarIndex]->mAliased = true;
 				}
 				break;
 			}
@@ -3364,14 +3342,16 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 	}
 }
 
-InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & location, const Ident* ident)
+InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & location, const Ident* ident, LinkerObject * linkerObject)
 	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), mTempSizes(0), 
 	mRenameTable(-1), mRenameUnionTable(-1), mGlobalRenameTable(-1),
-	mValueForwardingTable(NULL), mLocalVars(InterVariable()), mModule(mod),
-	mIdent(ident), mNativeProcedure(false), mLeafProcedure(false)
+	mValueForwardingTable(nullptr), mLocalVars(nullptr), mModule(mod),
+	mIdent(ident), mLinkerObject(linkerObject),
+	mNativeProcedure(false), mLeafProcedure(false)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
+	mLinkerObject->mProc = this;
 }
 
 InterCodeProcedure::~InterCodeProcedure(void)
@@ -3694,7 +3674,7 @@ void InterCodeProcedure::Close(void)
 		for (int i = 0; i < mLocalVars.Size(); i++)
 		{
 			if (mLocalAliasedSet[i])
-				mLocalVars[i].mAliased = true;
+				mLocalVars[i]->mAliased = true;
 		}
 
 		//
@@ -3805,10 +3785,10 @@ void InterCodeProcedure::MapVariables(void)
 	mLocalSize = 0;
 	for (int i = 0; i < mLocalVars.Size(); i++)
 	{
-		if (mLocalVars[i].mUsed)
+		if (mLocalVars[i]->mUsed)
 		{
-			mLocalVars[i].mOffset = mLocalSize;
-			mLocalSize += mLocalVars[i].mSize;
+			mLocalVars[i]->mOffset = mLocalSize;
+			mLocalSize += mLocalVars[i]->mSize;
 		}
 	}
 }
@@ -3958,7 +3938,7 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 }
 
 InterCodeModule::InterCodeModule(void)
-	: mGlobalVars(InterVariable()), mProcedures(nullptr)
+	: mGlobalVars(nullptr), mProcedures(nullptr)
 {
 }
 

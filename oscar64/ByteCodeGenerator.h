@@ -153,15 +153,6 @@ enum ByteCode
 class ByteCodeProcedure;
 class ByteCodeGenerator;
 
-class ByteCodeRelocation
-{
-public:
-	uint16			mAddr;
-	bool			mFunction, mLower, mUpper;
-	uint16			mIndex, mOffset;
-	const char  *	mRuntime;
-};
-
 class ByteCodeBasicBlock;
 
 class ByteCodeInstruction
@@ -173,8 +164,9 @@ public:
 
 	ByteCode	mCode;
 	uint32		mRegister;
-	int			mValue, mVIndex;
-	bool		mRelocate, mFunction, mRegisterFinal;
+	int			mValue;
+	bool		mRelocate, mRegisterFinal;
+	LinkerObject* mLinkerObject;
 
 	bool IsStore(void) const;
 	bool ChangesAccu(void) const;
@@ -197,7 +189,7 @@ public:
 	ByteCode							mBranch;
 
 	GrowingArray<ByteCodeInstruction>	mIns;
-	GrowingArray<ByteCodeRelocation>	mRelocations;
+	GrowingArray<LinkerReference>	mRelocations;
 
 	int						mOffset, mSize;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled;
@@ -218,7 +210,7 @@ public:
 
 	ByteCodeBasicBlock* BypassEmptyBlocks(void);
 	void CalculateOffset(int& total);
-	void CopyCode(ByteCodeGenerator* generator, uint8* target);
+	void CopyCode(ByteCodeGenerator* generator, LinkerObject * linkerObject, uint8* target);
 
 	void IntConstToAccu(__int64 val);
 	void IntConstToAddr(__int64 val);
@@ -252,12 +244,11 @@ public:
 	ByteCodeBasicBlock	* entryBlock, * exitBlock;
 	ByteCodeBasicBlock	** tblocks;
 
-	int		mProgStart, mProgSize, mID;
+	int		mProgSize, mID;
 
 	void Compile(ByteCodeGenerator* generator, InterCodeProcedure* proc);
 	ByteCodeBasicBlock * CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
 
-	void Disassemble(FILE * file, ByteCodeGenerator* generator, InterCodeProcedure* proc);
 protected:
 	ByteCodeDisassembler	mDisassembler;
 };
@@ -265,39 +256,15 @@ protected:
 class ByteCodeGenerator
 {
 public:
-	ByteCodeGenerator(void);
+	ByteCodeGenerator(Errors* errors, Linker* linker);
 	~ByteCodeGenerator(void);
 
-	struct Address
-	{
-		int				mIndex, mAddress, mSize;
-		bool			mFunction, mAssembler;
-		const Ident* mIdent;
-	};
-
-	GrowingArray<Address>				mProcedureAddr, mGlobalAddr;
-	GrowingArray<ByteCodeRelocation>	mRelocations;
+	Errors* mErrors;
+	Linker* mLinker;
 
 	bool	mByteCodeUsed[128];
-
-	uint8	mMemory[0x10000];
-	int		mProgEnd, mProgStart, mProgEntry;
 
 	void WriteBasicHeader(void);
 	void WriteByteCodeHeader(void);
 	void SetBasicEntry(int index);
-
-	bool WritePRGFile(const char* filename);
-	bool WriteMapFile(const char* filename);
-
-	void WriteAsmFile(FILE * file);
-
-	void WriteAsmFile(FILE* file, Address & addr);
-
-	void ResolveRelocations(void);
-
-	int AddGlobal(int index, const Ident* ident, int size, const uint8* data, bool assembler);
-
-	void AddAddress(int index, bool function, int address, int size, const Ident * ident, bool assembler);
-
 };
