@@ -2692,21 +2692,46 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 
 	if (!mVisited)
 	{
+		GrowingInstructionPtrArray	ltvalue(tvalue);
+
+		if (mLoopHead)
+		{
+			ltvalue.Clear();
+		}
+#if 0
+		else if (mNumEntries > 1)
+		{
+			lvalues.FlushAll();
+			ltvalue.Clear();
+		}
+#endif
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (mMergeTValues[i] != ltvalue[i])
+						ltvalue[i] = nullptr;
+				}
+			}
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mMergeTValues = ltvalue;
+				return;
+			}
+		}
+
 		mVisited = true;
 
-		GrowingInstructionPtrArray ltvalue(tvalue);
-
 		tvalid.Clear();
-
-		if (mNumEntries != 1)
-			ltvalue.Clear();
-		else
+		for (i = 0; i < ltvalue.Size(); i++)
 		{
-			for (i = 0; i < tvalue.Size(); i++)
-			{
-				if (ltvalue[i])
-					tvalid += i;
-			}
+			if (ltvalue[i])
+				tvalid += i;
 		}
 
 		for (i = 0; i < mInstructions.Size(); i++)
