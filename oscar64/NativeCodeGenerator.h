@@ -49,6 +49,7 @@ public:
 	bool ValueForwarding(NativeRegisterDataSet& data);
 
 	bool LoadsAccu(void) const;
+	bool ChangesAccuAndFlag(void) const;
 	bool ChangesAddress(void) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
@@ -123,6 +124,9 @@ public:
 	bool MergeBasicBlocks(void);
 
 	bool MoveLoadStoreUp(int at);
+
+	bool ValueForwarding(const NativeRegisterDataSet& data);
+
 };
 
 class NativeCodeProcedure

@@ -2,6 +2,7 @@
 
 #include "Declaration.h"
 #include "Errors.h"
+#include "Linker.h"
 
 class CompilationUnit
 {
@@ -25,6 +26,8 @@ public:
 	Declaration* mByteCodes[128];
 
 	DeclarationScope* mRuntimeScope;
+
+	LinkerSection* mSectionCode, * mSectionData, * mSectionBSS, * mSectionHeap, * mSectionStack;
 
 	bool AddUnit(Location & location, const char* name, const char * from);
 	CompilationUnit* PendingUnit(void);

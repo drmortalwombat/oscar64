@@ -9,8 +9,8 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 	mGlobals = new DeclarationScope(compilationUnits->mScope);
 	mScope = mGlobals;
 
-	mCodeSection = Ident::Unique("code");
-	mDataSection = Ident::Unique("code");
+	mCodeSection = compilationUnits->mSectionCode;
+	mDataSection = compilationUnits->mSectionData;
 }
 
 Parser::~Parser(void)

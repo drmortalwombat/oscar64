@@ -6,6 +6,7 @@
 #include "Assembler.h"
 
 class LinkerObject;
+class LinkerSection;
 
 enum DecType
 {
@@ -156,8 +157,9 @@ public:
 	__int64				mInteger;
 	double				mNumber;
 	uint32				mFlags;
-	const Ident		*	mIdent, * mSection;
-	const uint8* mData;
+	const Ident		*	mIdent;
+	LinkerSection	*	mSection;
+	const uint8		*	mData;
 	LinkerObject	*	mLinkerObject;
 
 	bool CanAssign(const Declaration* fromType) const;

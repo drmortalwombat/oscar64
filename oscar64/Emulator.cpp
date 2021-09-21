@@ -582,7 +582,7 @@ int Emulator::Emulate(int startIP)
 			int	accu = mMemory[BC_REG_ACCU] + 256 * mMemory[BC_REG_ACCU + 1];
 			int	ptr = mMemory[BC_REG_ADDR] + 256 * mMemory[BC_REG_ADDR + 1];
 			int	sp = mMemory[BC_REG_STACK] + 256 * mMemory[BC_REG_STACK + 1];
-			printf("%04x  (A:%04x P:%04x S:%04x) %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x\n", addr, accu, ptr, sp,
+			printf("%04x  (A:%04x P:%04x S:%04x) %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x : %04x\n", addr, accu, ptr, sp,
 				mMemory[BC_REG_TMP +  0] + 256 * mMemory[BC_REG_TMP +  1],
 				mMemory[BC_REG_TMP +  2] + 256 * mMemory[BC_REG_TMP +  3],
 				mMemory[BC_REG_TMP +  4] + 256 * mMemory[BC_REG_TMP +  5],
@@ -601,7 +601,11 @@ int Emulator::Emulate(int startIP)
 				mMemory[BC_REG_TMP + 24] + 256 * mMemory[BC_REG_TMP + 25],
 				mMemory[BC_REG_TMP + 26] + 256 * mMemory[BC_REG_TMP + 27],
 				mMemory[BC_REG_TMP + 28] + 256 * mMemory[BC_REG_TMP + 29],
-				mMemory[BC_REG_TMP + 30] + 256 * mMemory[BC_REG_TMP + 31]
+				mMemory[BC_REG_TMP + 30] + 256 * mMemory[BC_REG_TMP + 31],
+
+				mMemory[0x9f9e] + 256 * mMemory[0x9f9f]
+
+
 			);
 		}
 

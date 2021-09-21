@@ -14,7 +14,7 @@ public:
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
 	
-	const Ident* mCodeSection, * mDataSection;
+	LinkerSection	* mCodeSection, * mDataSection;
 
 	void Parse(void);
 protected:

@@ -19,6 +19,12 @@ Compiler::Compiler(void)
 	mInterCodeGenerator = new InterCodeGenerator(mErrors, mLinker);
 	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker);
 	mInterCodeModule = new InterCodeModule();
+
+	mCompilationUnits->mSectionCode = mLinker->AddSection(Ident::Unique("code"), 0);
+	mCompilationUnits->mSectionData = mLinker->AddSection(Ident::Unique("data"), 0);
+	mCompilationUnits->mSectionBSS = mLinker->AddSection(Ident::Unique("bss"), 0);
+	mCompilationUnits->mSectionHeap = mLinker->AddSection(Ident::Unique("heap"), 0);
+	mCompilationUnits->mSectionStack = mLinker->AddSection(Ident::Unique("stack"), 0);
 }
 
 Compiler::~Compiler(void)
@@ -112,13 +118,25 @@ bool Compiler::GenerateCode(void)
 		return false;
 	}
 
-	const Ident* sectionStartup = Ident::Unique("startup");
-	const Ident* sectionBytecode = Ident::Unique("bytecode");
-	const Ident* sectionCode = Ident::Unique("code");
+	const Ident* identStartup = Ident::Unique("startup");
+	const Ident* identBytecode = Ident::Unique("bytecode");
+	const Ident* identMain = Ident::Unique("main");
+	const Ident* identCode = Ident::Unique("code");
 
-	mLinker->AddSection(sectionStartup, 0x0801, 0x00ff);
-	mLinker->AddSection(sectionBytecode, 0x0900, 0x0100);
-	mLinker->AddSection(sectionCode, 0x0a00, 0x8000);
+	LinkerRegion * regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0900);
+	LinkerRegion * regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
+	LinkerRegion * regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
+
+	LinkerSection * sectionStartup = mLinker->AddSection(identStartup, 0);
+	LinkerSection * sectionBytecode = mLinker->AddSection(identBytecode, 0);
+
+	regionStartup->mSections.Push(sectionStartup);
+	regionBytecode->mSections.Push(sectionBytecode);
+	regionMain->mSections.Push(mCompilationUnits->mSectionCode);
+	regionMain->mSections.Push(mCompilationUnits->mSectionData);
+	regionMain->mSections.Push(mCompilationUnits->mSectionBSS);
+	regionMain->mSections.Push(mCompilationUnits->mSectionHeap);
+	regionMain->mSections.Push(mCompilationUnits->mSectionStack);
 
 	dcrtstart->mSection = sectionStartup;
 
@@ -127,14 +145,6 @@ bool Compiler::GenerateCode(void)
 
 	if (mErrors->mErrorCount != 0)
 		return false;
-
-	const Ident* imain = Ident::Unique("main");
-	Declaration* dmain = mCompilationUnits->mScope->Lookup(imain);
-	if (!dmain)
-	{
-		mErrors->Error(loc, EERR_OBJECT_NOT_FOUND, "main function not found");
-		return false;
-	}
 
 	// Register native runtime functions
 
@@ -157,8 +167,6 @@ bool Compiler::GenerateCode(void)
 	RegisterRuntime(loc, Ident::Unique("bcexec"));
 
 	//
-
-	InterCodeProcedure* iproc = mInterCodeGenerator->TranslateProcedure(mInterCodeModule, dmain->mValue, dmain);
 
 	if (mErrors->mErrorCount != 0)
 		return false;

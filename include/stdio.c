@@ -101,14 +101,14 @@ void * putstrstr(void * handle, const char * str)
 struct sinfo
 {
 	char		fill;
-	int			width, precision;
+	char		width, precision;
 	unsigned	base;
 	bool		sign, left, prefix;
 };
 
-void nformi(const sinfo * si, char * str, int v, bool s)
+int nformi(const sinfo * si, char * str, int v, bool s)
 {
-	char	buffer[10];
+	char * sp = str;
 
 	unsigned int u = v;
 	bool	neg = false;
@@ -119,7 +119,7 @@ void nformi(const sinfo * si, char * str, int v, bool s)
 		u = -v;
 	}
 
-	int	i = 0;
+	char	i = 10;
 	while (u > 0)
 	{
 		int	c = u % si->base;
@@ -127,49 +127,53 @@ void nformi(const sinfo * si, char * str, int v, bool s)
 			c += 'A' - 10;
 		else
 			c += '0';
-		buffer[i++] = c;
+		sp[--i] = c;
 		u /= si->base;
 	}
 
-	int	digits = si->precision >= 0 ? si->precision : 1;
+	int	digits = si->precision != 255 ? 10 - si->precision : 9;
 
-	while (i < digits)
-		buffer[i++] = '0';
+	while (i > digits)
+		sp[--i] = '0';
 
 	if (si->prefix && si->base == 16)
 	{
-		buffer[i++] = 'X';
-		buffer[i++] = '0';
+		sp[--i] = 'X';
+		sp[--i] = '0';
 	}
 
 	if (neg)
-		buffer[i++] = '-';
+		sp[--i] = '-';
 	else if (si->sign)
-		buffer[i++] = '+';
+		sp[--i] = '+';
 
-	while (i < si->width)
-		buffer[i++] = si->fill;
+	while (i > 10 - si->width)
+		sp[--i] = si->fill;
 
-	while (i > 0)
-		*str++ = buffer[--i];
-	*str++ = 0;
+	char j = 0;
+	while (i < 10)
+		sp[j++] = sp[i++];
+
+	return j;
 }
 
-void nformf(const sinfo * si, char * str, float f, char type)
+int nformf(const sinfo * si, char * str, float f, char type)
 {
-	int	d = 0;
+	char 	* 	sp = str;
+
+	char	d = 0;
 
 	if (f < 0.0)
 	{
 		f = -f;
-		str[d++] = '-';
+		sp[d++] = '-';
 	}
 	else if (si->sign)
-		str[d++] = '+';		
+		sp[d++] = '+';		
 		
 	int	exp = 0;
 
-	int	fdigits = si->precision >= 0 ? si->precision : 6;
+	char	fdigits = si->precision != 255 ? si->precision : 6;
 
 	if (f != 0.0)
 	{
@@ -193,7 +197,7 @@ void nformf(const sinfo * si, char * str, float f, char type)
 		
 	}
 	
-	int digits = fdigits + 1;
+	char digits = fdigits + 1;
 	bool	fexp = type == 'e';
 
 	if (type == 'g')
@@ -211,10 +215,10 @@ void nformf(const sinfo * si, char * str, float f, char type)
 		}
 		digits = fdigits + exp + 1;
 
-		float	s = 0.5;
-		for(int i=1; i<digits; i++)
-			s /= 10.0;
-		f += s;
+		float	r = 0.5;
+		for(char i=1; i<digits; i++)
+			r /= 10.0;
+		f += r;
 		if (f >= 10.0)
 		{
 			f /= 10.0;
@@ -223,10 +227,10 @@ void nformf(const sinfo * si, char * str, float f, char type)
 	}
 	else
 	{
-		float	s = 0.5;
-		for(int i=0; i<fdigits; i++)
-			s /= 10.0;
-		f += s;
+		float	r = 0.5;
+		for(char i=0; i<fdigits; i++)
+			r /= 10.0;
+		f += r;
 		if (f >= 10.0)
 		{
 			f /= 10.0;
@@ -234,53 +238,55 @@ void nformf(const sinfo * si, char * str, float f, char type)
 		}
 	}
 	
-	int	pdigits = digits - fdigits;
+	char	pdigits = digits - fdigits;
 
 	if (digits > 20)
 		digits = 20;
 
 	if (pdigits == 0)
-		str[d++] = '0';
+		sp[d++] = '0';
 
-	for(int i=0; i<digits; i++)
+	for(char i=0; i<digits; i++)
 	{
 		if (i == pdigits)
-			str[d++] = '.';
+			sp[d++] = '.';
 		int c = (int)f;
 		f -= (float)c;
 		f *= 10.0;
-		str[d++] = c + '0';
+		sp[d++] = c + '0';
 	}
 
 	if (fexp)
 	{
-		str[d++] = 'E';
+		sp[d++] = 'E';
 		if (exp < 0)
 		{
-			str[d++] = '-';
+			sp[d++] = '-';
 			exp = -exp;
 		}
 		else
-			str[d++] = '+';
+			sp[d++] = '+';
 		
-		str[d++] = exp / 10 + '0';
-		str[d++] = exp % 10 + '0';		
+		sp[d++] = exp / 10 + '0';
+		sp[d++] = exp % 10 + '0';		
 	}
 		
-	str[d++] = 0;		
 	if (d < si->width)
 	{
-		for(int i=0; i<=d; i++)
-			str[si->width - i] = str[d - i];
-		for(int i=0; i<si->width-d; i++)
-			str[i] = ' '
+		for(char i=1; i<=d; i++)
+			sp[si->width - i] = sp[d - i];
+		for(char i=0; i<si->width-d; i++)
+			sp[i] = ' ';
+		d = si->width;
 	}
+
+	return d;
 }
 
-void * sformat(void * data, putstrfn fn, const char * fmt, int * fps)
+char * sformat(char * buff, const char * fmt, int * fps, bool print)
 {
 	const char	*	p = fmt;
-	char		c, buff[21];
+	char		c;
 	int			bi = 0;
 	sinfo		si;
 	
@@ -290,15 +296,20 @@ void * sformat(void * data, putstrfn fn, const char * fmt, int * fps)
 		{			
 			if (bi)
 			{
-				buff[bi] = 0;
-				data = fn(data, buff);
-				bi = 0;				
+				if (print)
+				{
+					buff[bi] = 0;
+					puts(buff);
+				}
+				else
+					buff += bi;
+				bi = 0;
 			}
 			c = *p++;
 
 			si.base = 10;
 			si.width = 1;
-			si.precision = -1;
+			si.precision = 255;
 			si.fill = ' ';
 			si.sign = false;
 			si.left = false;
@@ -342,32 +353,35 @@ void * sformat(void * data, putstrfn fn, const char * fmt, int * fps)
 
 			if (c == 'd')
 			{
-				nformi(&si, buff, *fps++, true);
-				data = fn(data, buff);
+				bi = nformi(&si, buff, *fps++, true);
 			}
 			else if (c == 'u')
 			{
-				nformi(&si, buff, *fps++, false);
-				data = fn(data, buff);
+				bi = nformi(&si, buff, *fps++, false);
 			}
 			else if (c == 'x')
 			{
 				si.base = 16;
-				nformi(&si, buff, *fps++, false);
-				data = fn(data, buff);
+				bi = nformi(&si, buff, *fps++, false);
 			}
 #ifndef NOFLOAT
 			else if (c == 'f' || c == 'g' || c == 'e')
 			{
-				nformf(&si, buff, *(float *)fps, c);
-				data = fn(data, buff);
+				bi = nformf(&si, buff, *(float *)fps, c);
 				fps ++;
 				fps ++;
 			}
 #endif			
 			else if (c == 's')
 			{
-				data = fn(data, (char *)*fps++);
+				char * sp = (char *)*fps++;
+				if (print)
+					puts(sp);
+				else
+				{
+					while (char c = *sp++)
+						*buff++ = c;
+				}
 			}
 			else if (c == 'c')
 			{
@@ -381,32 +395,40 @@ void * sformat(void * data, putstrfn fn, const char * fmt, int * fps)
 		else
 		{
 			buff[bi++] = c;
-			if (bi == 10)
+			if (bi >= 10)
 			{
-				buff[bi] = 0;
-				data = fn(data, buff);
-				bi = 0;				
+				if (print)
+				{
+					buff[bi] = 0;
+					puts(buff);
+				}
+				else
+					buff += bi;
+				bi = 0;
 			}
 		}
 	}
+	buff[bi] = 0;
 	if (bi)
 	{
-		buff[bi] = 0;
-		data = fn(data, buff);
-		bi = 0;				
+		if (print)
+			puts(buff);
+		else
+			buff += bi;
 	}
 
-	return data;
+	return buff;
 }
 
 void printf(const char * fmt, ...)
 {
-	sformat(nullptr, putstrio, fmt, (int *)&fmt + 1);
+	char	buff[40];
+	sformat(buff, fmt, (int *)&fmt + 1, true);
 }
 
 int sprintf(char * str, const char * fmt, ...)
 {
-	char * d = (char *)(sformat(str, putstrstr, fmt, (int *)&fmt + 1));
+	char * d = sformat(str, fmt, (int *)&fmt + 1, false);
 	return d - str;
 }
 

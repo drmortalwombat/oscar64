@@ -1591,6 +1591,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				else if (!procType->mBase->CanAssign(vr.mType))
 					mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
 
+				vr = CoerceType(proc, block, vr, procType->mBase);
+
 				ins->mSType[0] = InterTypeOf(vr.mType);
 				ins->mSTemp[0] = vr.mTemp;
 				ins->mCode = IC_RETURN_VALUE;

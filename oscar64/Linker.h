@@ -22,6 +22,19 @@ enum LinkerObjectType
 };
 
 class LinkerObject;
+class LinkerSection;
+
+class LinkerRegion
+{
+public:
+	const Ident* mIdent;
+
+	int		mStart, mEnd, mUsed;
+
+	GrowingArray<LinkerSection*>	mSections;
+
+	LinkerRegion(void);
+};
 
 class LinkerReference
 {
@@ -35,23 +48,25 @@ class LinkerSection
 {
 public:
 	const Ident* mIdent;
-	int	mID;		
-	int	mStart, mSize, mUsed;
+
+	GrowingArray <LinkerObject*>	 mObjects;
+
+	LinkerSection(void);
 };
 
 class LinkerObject
 {
 public:
 	Location	mLocation;
-	const Ident* mIdent, * mSection;
+	const Ident* mIdent;
 	LinkerObjectType	mType;
 	int	mID;
 	int	mAddress;
 	int	mSize;
-	LinkerSection* mLinkerSection;
+	LinkerSection* mSection;
 	uint8* mData;
 	InterCodeProcedure* mProc;
-	bool	mReferenced;
+	bool	mReferenced, mPlaced;
 
 	void AddData(const uint8* data, int size);
 	uint8* AddSpace(int size);
@@ -63,9 +78,11 @@ public:
 	Linker(Errors * errors);
 	~Linker(void);
 
-	int AddSection(const Ident* section, int start, int size);
+	LinkerRegion * AddRegion(const Ident* region, int start, int end);
+	LinkerSection * AddSection(const Ident* section, uint32 flags);
+	LinkerSection* FindSection(const Ident* section);
 
-	LinkerObject * AddObject(const Location & location, const Ident* ident, const Ident* section, LinkerObjectType type);
+	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type);
 
 	void AddReference(const LinkerReference& ref);
 
@@ -74,6 +91,7 @@ public:
 	bool WriteAsmFile(const char* filename);
 
 	GrowingArray<LinkerReference*>	mReferences;
+	GrowingArray<LinkerRegion*>		mRegions;
 	GrowingArray<LinkerSection*>	mSections;
 	GrowingArray<LinkerObject*>		mObjects;
 
