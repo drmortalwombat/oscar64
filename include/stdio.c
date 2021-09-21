@@ -131,7 +131,7 @@ int nformi(const sinfo * si, char * str, int v, bool s)
 		u /= si->base;
 	}
 
-	int	digits = si->precision != 255 ? 10 - si->precision : 9;
+	char	digits = si->precision != 255 ? 10 - si->precision : 9;
 
 	while (i > digits)
 		sp[--i] = '0';

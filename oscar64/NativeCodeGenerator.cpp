@@ -3496,6 +3496,90 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 			break;
 		}
 	}
+	else if (ins->mSTemp[1] < 0 && ins->mSIntConst[1] == 0 || ins->mSTemp[0] < 0 && ins->mSIntConst[0] == 0)
+	{
+		int	rt = ins->mSTemp[1];
+		if (rt < 0)
+		{
+			rt = ins->mSTemp[0];
+			switch (op)
+			{
+			case IA_CMPLEU:
+				op = IA_CMPGEU;
+				break;
+			case IA_CMPGEU:
+				op = IA_CMPLEU;
+				break;
+			case IA_CMPLU:
+				op = IA_CMPGU;
+				break;
+			case IA_CMPGU:
+				op = IA_CMPLU;
+				break;
+			case IA_CMPLES:
+				op = IA_CMPGES;
+				break;
+			case IA_CMPGES:
+				op = IA_CMPLES;
+				break;
+			case IA_CMPLS:
+				op = IA_CMPGS;
+				break;
+			case IA_CMPGS:
+				op = IA_CMPLS;
+				break;
+			}
+		}
+
+		switch (op)
+		{
+		case IA_CMPEQ:
+		case IA_CMPLEU:
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			this->Close(trueJump, falseJump, ASMIT_BEQ);
+			break;
+		case IA_CMPNE:
+		case IA_CMPGU:
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			this->Close(trueJump, falseJump, ASMIT_BNE);
+			break;
+		case IA_CMPGEU:
+			this->Close(trueJump, nullptr, ASMIT_JMP);
+			break;
+		case IA_CMPLU:
+			this->Close(falseJump, nullptr, ASMIT_JMP);
+			break;
+		case IA_CMPGES:
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			this->Close(trueJump, falseJump, ASMIT_BPL);
+			break;
+		case IA_CMPLS:
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			this->Close(trueJump, falseJump, ASMIT_BMI);
+			break;
+		case IA_CMPGS:
+		{
+			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			this->Close(eblock, falseJump, ASMIT_BPL);
+			eblock->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
+			eblock->Close(trueJump, falseJump, ASMIT_BNE);
+			break;
+		}
+		case IA_CMPLES:
+		{
+			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			this->Close(eblock, trueJump, ASMIT_BPL);
+			eblock->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
+			eblock->Close(trueJump, falseJump, ASMIT_BEQ);
+			break;
+		}
+
+		}
+	}
 	else
 	{
 		NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
@@ -4398,6 +4482,16 @@ void NativeCodeBasicBlock::CalculateOffset(int& total)
 			else
 			{
 				// neither falseJump nor trueJump have been placed
+				// 
+				
+				if (mTrueJump->mFalseJump == mFalseJump || mTrueJump->mTrueJump == mFalseJump)
+				{
+					NativeCodeBasicBlock* block = mFalseJump;
+					mFalseJump = mTrueJump;
+					mTrueJump = block;
+					mBranch = InvertBranchCondition(mBranch);
+				}
+
 				// this may lead to some undo operation...
 				// first assume a full size branch:
 
