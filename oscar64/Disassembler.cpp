@@ -647,7 +647,7 @@ const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeP
 	else if (proc && tmp >= BC_REG_TMP && tmp < BC_REG_TMP + proc->mTempSize)
 	{
 		int	i = 0;
-		while (i < proc->mTempOffset.Size() && tmp >= proc->mTempOffset[i] + BC_REG_TMP && tmp < proc->mTempOffset[i] + proc->mTempSizes[i] + BC_REG_TMP)
+		while (i < proc->mTempOffset.Size() && !(tmp >= proc->mTempOffset[i] + BC_REG_TMP && tmp < proc->mTempOffset[i] + proc->mTempSizes[i] + BC_REG_TMP))
 			i++;
 		if (i < proc->mTempOffset.Size())
 			sprintf_s(buffer, 10, "T%d + %d", i, tmp - (proc->mTempOffset[i] + BC_REG_TMP));

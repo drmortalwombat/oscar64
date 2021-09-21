@@ -3919,11 +3919,12 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 		{
 			mIns[i].ValueForwarding(data);
 		}
-
+#if 1
 		if (mFalseJump)
 		{
 			switch (mBranch)
 			{
+#if 1
 			case ASMIT_BCS:
 				if (data.mRegs[CPU_REG_C].mImmediate)
 				{
@@ -3944,17 +3945,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					changed = true;
 				}
 				break;
+#endif
+#if 1
 			case ASMIT_BNE:
-				if (data.mRegs[CPU_REG_Z].mImmediate)
-				{
-					mBranch = ASMIT_JMP;
-					if (data.mRegs[CPU_REG_Z].mValue)
-						mTrueJump = mFalseJump;
-					mFalseJump = nullptr;
-					changed = true;
-				}
-				break;
-			case ASMIT_BEQ:
 				if (data.mRegs[CPU_REG_Z].mImmediate)
 				{
 					mBranch = ASMIT_JMP;
@@ -3964,11 +3957,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					changed = true;
 				}
 				break;
+			case ASMIT_BEQ:
+				if (data.mRegs[CPU_REG_Z].mImmediate)
+				{
+					mBranch = ASMIT_JMP;
+					if (data.mRegs[CPU_REG_Z].mValue)
+						mTrueJump = mFalseJump;
+					mFalseJump = nullptr;
+					changed = true;
+				}
+				break;
+#endif
 			case ASMIT_BPL:
 				if (data.mRegs[CPU_REG_Z].mImmediate)
 				{
 					mBranch = ASMIT_JMP;
-					if (!(data.mRegs[CPU_REG_Z].mValue & 0x80))
+					if ((data.mRegs[CPU_REG_Z].mValue & 0x80))
 						mTrueJump = mFalseJump;
 					mFalseJump = nullptr;
 					changed = true;
@@ -3978,7 +3982,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 				if (data.mRegs[CPU_REG_Z].mImmediate)
 				{
 					mBranch = ASMIT_JMP;
-					if (data.mRegs[CPU_REG_Z].mValue & 0x80)
+					if (!(data.mRegs[CPU_REG_Z].mValue & 0x80))
 						mTrueJump = mFalseJump;
 					mFalseJump = nullptr;
 					changed = true;
@@ -3986,7 +3990,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 				break;
 			}
 		}
+#endif
 
+#if 1
 		// move load store pairs up to initial store
 
 		for (int i = 2; i + 2 < mIns.Size(); i++)
@@ -3997,6 +4003,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					changed = true;
 			}
 		}
+#endif
 
 		bool	progress = false;
 		do {
@@ -4022,6 +4029,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 
 			for (int i = 0; i < mIns.Size(); i++)
 			{
+#if 1
 				if (mIns[i].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0)
 				{
 					mIns[i].mType = ASMIT_LDA;
@@ -4137,6 +4145,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2].mAddress = mIns[i + 0].mAddress;
 					}
 				}
+#endif
 			}
 
 			if (progress)

@@ -3213,11 +3213,15 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 			case IC_JSR:
 				if (mInstructions[i]->mMemory == IM_LOCAL)
 				{
+					int varIndex = mInstructions[i]->mVarIndex;
+					if (!localVars[varIndex])
+						localVars[varIndex] = new InterVariable;
+
 					int	size = mInstructions[i]->mOperandSize + mInstructions[i]->mIntValue;
-					if (size > localVars[mInstructions[i]->mVarIndex]->mSize)
-						localVars[mInstructions[i]->mVarIndex]->mSize = size;
+					if (size > localVars[varIndex]->mSize)
+						localVars[varIndex]->mSize = size;
 					if (mInstructions[i]->mCode == IC_CONSTANT)
-						localVars[mInstructions[i]->mVarIndex]->mAliased = true;
+						localVars[varIndex]->mAliased = true;
 				}
 				break;
 			}
@@ -3785,7 +3789,7 @@ void InterCodeProcedure::MapVariables(void)
 	mLocalSize = 0;
 	for (int i = 0; i < mLocalVars.Size(); i++)
 	{
-		if (mLocalVars[i]->mUsed)
+		if (mLocalVars[i] && mLocalVars[i]->mUsed)
 		{
 			mLocalVars[i]->mOffset = mLocalSize;
 			mLocalSize += mLocalVars[i]->mSize;

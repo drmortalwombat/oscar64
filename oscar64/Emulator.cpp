@@ -453,7 +453,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 
 int Emulator::Emulate(int startIP)
 {
-	int	trace = 3;
+	int	trace = 0;
 
 	for (int i = 0; i < 0x10000; i++)
 		mCycles[i] = 0;
