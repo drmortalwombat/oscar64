@@ -204,7 +204,7 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 				BuildInitializer(mod, d, 0, dec->mValue->mDecValue, var);
 			}
 			else
-				mErrors->Error(dec->mLocation, "Non constant initializer");
+				mErrors->Error(dec->mLocation, EERR_CONSTANT_INITIALIZER, "Non constant initializer");
 		}
 	}
 }
@@ -464,12 +464,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (dec->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -128 || dec->mInteger > 127)
-							mErrors->Warning(dec->mLocation, "Integer constant truncated");
+							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 255)
-							mErrors->Warning(dec->mLocation, "Unsigned integer constant truncated");
+							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
 					}
 					ins->mIntValue = char(dec->mInteger);
 				}
@@ -478,12 +478,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (dec->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -32768 || dec->mInteger > 32767)
-							mErrors->Warning(dec->mLocation, "Integer constant truncated");
+							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 65535)
-							mErrors->Warning(dec->mLocation, "Unsigned integer constant truncated");
+							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
 					}
 					ins->mIntValue = short(dec->mInteger);
 				}
@@ -607,7 +607,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 
 			default:
-				mErrors->Error(dec->mLocation, "Unimplemented constant type");
+				mErrors->Error(dec->mLocation, EERR_CONSTANT_TYPE, "Unimplemented constant type");
 			}
 
 			return ExValue(TheVoidTypeDeclaration);
@@ -637,7 +637,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(ins);
 
 			if (!(dec->mBase->mFlags & DTF_DEFINED))
-				mErrors->Error(dec->mLocation, "Undefined variable type");
+				mErrors->Error(dec->mLocation, EERR_VARIABLE_TYPE, "Undefined variable type");
 
 			return ExValue(dec->mBase, ins->mTTemp, 1);
 		}
@@ -651,11 +651,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (exp->mToken == TK_ASSIGN || !(vl.mType->mType == IT_POINTER && vr.mType->IsIntegerType() && (exp->mToken == TK_ASSIGN_ADD || exp->mToken == TK_ASSIGN_SUB)))
 			{
 				if (!vl.mType->CanAssign(vr.mType))
-					mErrors->Error(exp->mLocation, "Cannot assign incompatible types");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 			} 
 
 			if (vl.mType->mFlags & DTF_CONST)
-				mErrors->Error(exp->mLocation, "Cannot assign to const type");
+				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot assign to const type");
 
 			if (vl.mType->mType == DT_TYPE_STRUCT || vl.mType->mType == DT_TYPE_ARRAY || vl.mType->mType == DT_TYPE_UNION)
 			{
@@ -663,9 +663,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = Dereference(proc, block, vl, 1);
 
 				if (vl.mReference != 1)
-					mErrors->Error(exp->mLeft->mLocation, "Not a left hand expression");
+					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not a left hand expression");
 				if (vr.mReference != 1)
-					mErrors->Error(exp->mLeft->mLocation, "Not an adressable expression");
+					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an adressable expression");
 
 				
 				InterInstruction	*	ins = new InterInstruction();
@@ -688,7 +688,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = Dereference(proc, block, vl, 1);
 
 				if (vl.mReference != 1)
-					mErrors->Error(exp->mLeft->mLocation, "Not a left hand expression");
+					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not a left hand expression");
 
 				InterInstruction	*	ins = new InterInstruction();
 
@@ -710,10 +710,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							cins->mIntValue = -vl.mType->mBase->mSize;
 						}
 						else
-							mErrors->Error(exp->mLocation, "Invalid pointer assignment");
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer assignment");
 
 						if (!vr.mType->IsIntegerType())
-							mErrors->Error(exp->mLocation, "Invalid argument for pointer inc/dec");
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Invalid argument for pointer inc/dec");
 
 						cins->mTType = IT_INT16;
 						cins->mTTemp = proc->AddTemporary(cins->mTType);
@@ -758,9 +758,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						oins->mTTemp = proc->AddTemporary(oins->mTType);
 
 						if (!vll.mType->IsNumericType())
-							mErrors->Error(exp->mLocation, "Left hand element type is not numeric");
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Left hand element type is not numeric");
 						if (!vr.mType->IsNumericType())
-							mErrors->Error(exp->mLocation, "Right hand element type is not numeric");
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Right hand element type is not numeric");
 
 						switch (exp->mToken)
 						{
@@ -838,10 +838,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vr = Dereference(proc, block, vr);
 
 			if (vl.mType->mType != DT_TYPE_ARRAY && vl.mType->mType != DT_TYPE_POINTER)
-				mErrors->Error(exp->mLocation, "Invalid type for indexing");
+				mErrors->Error(exp->mLocation, EERR_INVALID_INDEX, "Invalid type for indexing");
 
 			if (!vr.mType->IsIntegerType())
-				mErrors->Error(exp->mLocation, "Index operand is not integral number");
+				mErrors->Error(exp->mLocation, EERR_INVALID_INDEX, "Index operand is not integral number");
 
 			vr = CoerceType(proc, block, vr, TheSignedIntTypeDeclaration);
 
@@ -883,7 +883,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vl = Dereference(proc, block, vl, 1);
 
 			if (vl.mReference != 1)
-				mErrors->Error(exp->mLocation, "Not an addressable expression");
+				mErrors->Error(exp->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 			InterInstruction	*	cins = new InterInstruction();
 			cins->mCode = IC_CONSTANT;
@@ -942,7 +942,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						cins->mIntValue = -vl.mType->mBase->mSize;
 					}
 					else
-						mErrors->Error(exp->mLocation, "Invalid pointer operation");
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
 
 					cins->mTType = IT_INT16;
 					cins->mTTemp = proc->AddTemporary(cins->mTType);
@@ -1019,7 +1019,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						return ExValue(TheSignedIntTypeDeclaration, dins->mTTemp);
 					}
 					else
-						mErrors->Error(exp->mLocation, "Invalid pointer operation");
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
 				}
 			}
 			else
@@ -1027,9 +1027,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = Dereference(proc, block, vl);
 
 				if (!vl.mType->IsNumericType())
-					mErrors->Error(exp->mLocation, "Left hand operand type is not numeric");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Left hand operand type is not numeric");
 				if (!vr.mType->IsNumericType())
-					mErrors->Error(exp->mLocation, "Right hand operand type is not numeric");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Right hand operand type is not numeric");
 
 				Declaration* dtype;
 				if (vr.mType->mType == DT_TYPE_FLOAT || vl.mType->mType == DT_TYPE_FLOAT)
@@ -1102,10 +1102,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vl = Dereference(proc, block, vl, 1);
 
 			if (vl.mReference != 1)
-				mErrors->Error(exp->mLeft->mLocation, "Not a left hand expression");
+				mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not a left hand expression");
 
 			if (vl.mType->mFlags & DTF_CONST)
-				mErrors->Error(exp->mLocation, "Cannot change const value");
+				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot change const value");
 
 			InterInstruction	*	cins = new InterInstruction(), *	ains = new InterInstruction(), *	rins = new InterInstruction(), *	sins = new InterInstruction();
 
@@ -1121,7 +1121,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else if (vdl.mType->IsNumericType())
 				cins->mIntValue = exp->mToken == TK_INC ? 1 : -1;
 			else
-				mErrors->Error(exp->mLocation, "Not a numeric value or pointer");
+				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric value or pointer");
 
 			block->Append(cins);
 
@@ -1154,10 +1154,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vl = Dereference(proc, block, vl, 1);
 
 			if (vl.mReference != 1)
-				mErrors->Error(exp->mLeft->mLocation, "Not a left hand expression");
+				mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not a left hand expression");
 
 			if (vl.mType->mFlags & DTF_CONST)
-				mErrors->Error(exp->mLocation, "Cannot change const value");
+				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot change const value");
 
 			InterInstruction	*	cins = new InterInstruction(), *	ains = new InterInstruction(), *	rins = new InterInstruction(), *	sins = new InterInstruction();
 
@@ -1173,7 +1173,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else if (vdl.mType->IsNumericType())
 				cins->mIntValue = exp->mToken == TK_INC ? 1 : -1;
 			else
-				mErrors->Error(exp->mLocation, "Not a numeric value or pointer");
+				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric value or pointer");
 			block->Append(cins);
 
 			ains->mCode = IC_BINARY_OPERATOR;
@@ -1216,23 +1216,23 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			case TK_SUB:
 				vl = Dereference(proc, block, vl);
 				if (!vl.mType->IsNumericType())
-					mErrors->Error(exp->mLocation, "Not a numeric type");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric type");
 				ins->mOperator = IA_NEG;
 				break;
 			case TK_BINARY_NOT:
 				vl = Dereference(proc, block, vl);
 				if (!(vl.mType->mType == DT_TYPE_POINTER || vl.mType->IsNumericType()))
-					mErrors->Error(exp->mLocation, "Not a numeric or pointer type");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric or pointer type");
 				ins->mOperator = IA_NOT;
 				break;
 			case TK_MUL:
 				if (vl.mType->mType != DT_TYPE_POINTER)
-					mErrors->Error(exp->mLocation, "Not a pointer type");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a pointer type");
 				return ExValue(vl.mType->mBase, vl.mTemp, vl.mReference + 1);
 			case TK_BINARY_AND:
 			{
 				if (vl.mReference < 1)
-					mErrors->Error(exp->mLocation, "Not an addressable value");
+					mErrors->Error(exp->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable value");
 
 				Declaration* dec = new Declaration(exp->mLocation, DT_TYPE_POINTER);
 				dec->mBase = vl.mType;
@@ -1267,10 +1267,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 				dtype = vl.mType;
 				if (!vl.mType->IsSame(vr.mType))
-					mErrors->Error(exp->mLocation, "Incompatible pointer types");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types");
 			}
 			else if (!vl.mType->IsNumericType() || !vr.mType->IsNumericType())
-				mErrors->Error(exp->mLocation, "Not a numeric or pointer type");
+				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric or pointer type");
 			else if (vr.mType->mType == DT_TYPE_FLOAT || vl.mType->mType == DT_TYPE_FLOAT)
 				dtype = TheFloatTypeDeclaration;
 			else if (vr.mType->mSize < vl.mType->mSize && (vl.mType->mFlags & DTF_SIGNED))
@@ -1334,7 +1334,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					vr = Dereference(proc, block, vr);
 
 					if (decf->mBase->mParams->CanAssign(vr.mType))
-						mErrors->Error(exp->mLocation, "Cannot assign incompatible types");
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 					vr = CoerceType(proc, block, vr, decf->mBase->mParams);
 
 					InterInstruction	*	ins = new InterInstruction();
@@ -1354,7 +1354,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					vr = Dereference(proc, block, vr);
 
 					if (decf->mBase->mParams->CanAssign(vr.mType))
-						mErrors->Error(exp->mLocation, "Cannot assign incompatible types");
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 					vr = CoerceType(proc, block, vr, decf->mBase->mParams);
 
 					InterInstruction	*	ins = new InterInstruction();
@@ -1374,7 +1374,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					vr = Dereference(proc, block, vr);
 
 					if (decf->mBase->mParams->CanAssign(vr.mType))
-						mErrors->Error(exp->mLocation, "Cannot assign incompatible types");
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 					vr = CoerceType(proc, block, vr, decf->mBase->mParams);
 
 					InterInstruction	*	ins = new InterInstruction();
@@ -1389,7 +1389,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					return ExValue(TheFloatTypeDeclaration, ins->mTTemp);
 				}
 				else
-					mErrors->Error(exp->mLeft->mDecValue->mLocation, "Unknown intrinsic function", iname->mString);
+					mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname->mString);
 
 				return ExValue(TheVoidTypeDeclaration);
 			}
@@ -1435,7 +1435,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 					else
 					{
-						mErrors->Error(pex->mLocation, "Too many arguments for function call");
+						mErrors->Error(pex->mLocation, EERR_WRONG_PARAMETER, "Too many arguments for function call");
 					}
 					block->Append(ains);
 
@@ -1457,12 +1457,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION)
 					{
 						if (pdec && !pdec->mBase->CanAssign(vr.mType))
-							mErrors->Error(texp->mLocation, "Cannot assign incompatible types");
+							mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 
 						vr = Dereference(proc, block, vr, 1);
 
 						if (vr.mReference != 1)
-							mErrors->Error(exp->mLeft->mLocation, "Not an adressable expression");
+							mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an adressable expression");
 
 						InterInstruction* cins = new InterInstruction();
 						cins->mCode = IC_COPY;
@@ -1486,7 +1486,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						if (pdec)
 						{
 							if (!pdec->mBase->CanAssign(vr.mType))
-								mErrors->Error(texp->mLocation, "Cannot assign incompatible types");
+								mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 							vr = CoerceType(proc, block, vr, pdec->mBase);
 						}
 						else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
@@ -1519,7 +1519,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 
 				if (pdec)
-					mErrors->Error(exp->mLocation, "Not enough arguments for function call");
+					mErrors->Error(exp->mLocation, EERR_WRONG_PARAMETER, "Not enough arguments for function call");
 
 				InterInstruction	*	cins = new InterInstruction();
 				if (exp->mLeft->mDecValue && exp->mLeft->mDecValue->mFlags & DTF_NATIVE)
@@ -1587,9 +1587,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vr = Dereference(proc, block, vr);
 
 				if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
-					mErrors->Error(exp->mLocation, "Function has void return type");
+					mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
 				else if (!procType->mBase->CanAssign(vr.mType))
-					mErrors->Error(exp->mLocation, "Cannot return incompatible type");
+					mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
 
 				ins->mSType[0] = InterTypeOf(vr.mType);
 				ins->mSTemp[0] = vr.mTemp;
@@ -1598,7 +1598,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else
 			{
 				if (procType->mBase && procType->mBase->mType != DT_TYPE_VOID)
-					mErrors->Error(exp->mLocation, "Function has non void return type");
+					mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has non void return type");
 
 				ins->mCode = IC_RETURN;
 			}
@@ -1624,7 +1624,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				proc->Append(block);
 			}
 			else
-				mErrors->Error(exp->mLocation, "No break target");
+				mErrors->Error(exp->mLocation, EERR_INVALID_BREAK, "No break target");
 
 			return ExValue(TheVoidTypeDeclaration);
 		}
@@ -1642,7 +1642,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				proc->Append(block);
 			}
 			else
-				mErrors->Error(exp->mLocation, "No continue target");
+				mErrors->Error(exp->mLocation, EERR_INVALID_CONTINUE, "No continue target");
 
 			return ExValue(TheVoidTypeDeclaration);
 		}
@@ -1705,7 +1705,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (stypel == IT_POINTER || styper == IT_POINTER)
 			{
 				if (!vl.mType->IsSame(vr.mType))
-					mErrors->Error(exp->mLocation, "Incompatible conditional types");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible conditional types");
 				
 				ttype = IT_POINTER;
 				dtype = vl.mType;
@@ -1796,7 +1796,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (exp->mLeft->mDecType->mType != DT_TYPE_VOID && vr.mType->mType == DT_TYPE_VOID)
 			{
-				mErrors->Error(exp->mLocation, "Cannot cast void object to non void object");
+				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Cannot cast void object to non void object");
 				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference);
 			}
 			else
@@ -2033,7 +2033,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						block = dblock;
 					}
 					else
-						mErrors->Error(cexp->mLocation, "Duplicate default");
+						mErrors->Error(cexp->mLocation, EERR_DUPLICATE_DEFAULT, "Duplicate default");
 				}
 
 				if (cexp->mRight)
@@ -2065,7 +2065,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			return ExValue(TheVoidTypeDeclaration);
 		}
 		default:
-			mErrors->Error(exp->mLocation, "Unimplemented expression");
+			mErrors->Error(exp->mLocation, EERR_UNIMPLEMENTED, "Unimplemented expression");
 			return ExValue(TheVoidTypeDeclaration);
 		}
 	}
@@ -2242,7 +2242,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	if (dec->mFlags & DTF_DEFINED)
 		TranslateExpression(dec->mBase, proc, exitBlock, exp, nullptr, nullptr);
 	else
-		mErrors->Error(dec->mLocation, "Calling undefined function", dec->mIdent->mString);
+		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent->mString);
 
 	InterInstruction	*	ins = new InterInstruction();
 	ins->mCode = IC_RETURN;

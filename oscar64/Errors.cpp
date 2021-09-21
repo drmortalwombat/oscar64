@@ -8,23 +8,24 @@ Errors::Errors(void)
 
 }
 
-void Errors::Warning(const Location& loc, const char* error)
+void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char* info) 
 {
-	printf("Warning %s in %s: %d, %d\n", error, loc.mFileName, loc.mLine, loc.mColumn);
-}
+	const char* level = "info";
+	if (eid >= EERR_GENERIC)
+	{
+		level = "error";
+		mErrorCount++;
+	}
+	else if (eid >= EWARN_GENERIC)
+	{
+		level = "warning";
+	}
 
-void Errors::Error(const Location& loc, const char* error)
-{
-	printf("Error %s in %s: %d, %d\n", error, loc.mFileName, loc.mLine, loc.mColumn);
-	mErrorCount++;
-	if (mErrorCount > 10)
-		exit(10);
-}
+	if (info)
+		printf("%s(%d, %d) : error %d: %s '%s'\n", loc.mFileName, loc.mLine, loc.mColumn, eid, msg, info);
+	else
+		printf("%s(%d, %d) : error %d: %s\n", loc.mFileName, loc.mLine, loc.mColumn, eid, msg);
 
-void Errors::Error(const Location& loc, const char* error, const char* info)
-{
-	printf("Error %s '%s' in %s: %d, %d\n", error, info, loc.mFileName, loc.mLine, loc.mColumn);
-	mErrorCount++;
 	if (mErrorCount > 10)
 		exit(10);
 }

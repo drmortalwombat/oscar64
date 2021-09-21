@@ -55,7 +55,7 @@ bool CompilationUnits::AddUnit(Location& location, const char* name, const char*
 
 	if (_access(filename, 0) != 0)
 	{
-		mErrors->Error(location, "Could not open source file.", filename);
+		mErrors->Error(location, EERR_FILE_NOT_FOUND, "Could not open source file.", filename);
 		return false;
 	}
 

@@ -359,7 +359,7 @@ void Scanner::NextToken(void)
 			else if (mPrepPending > 0)
 				mPrepPending--;
 			else
-				mErrors->Error(mLocation, "Unexpected #endif");
+				mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Unexpected #endif");
 		}
 		else if (mToken == TK_EOF)
 		{
@@ -379,14 +379,14 @@ void Scanner::NextToken(void)
 			if (mToken == TK_STRING)
 			{
 				if (!mPreprocessor->OpenSource(mTokenString, true))
-					mErrors->Error(mLocation, "Could not open source file", mTokenString);
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
 			else if (mToken == TK_LESS_THAN)
 			{
 				mOffset--;
 				StringToken('>');
 				if (!mPreprocessor->OpenSource(mTokenString, false))
-					mErrors->Error(mLocation, "Could not open source file", mTokenString);
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
 		}
 		else if (mToken == TK_PREP_DEFINE)
@@ -410,7 +410,7 @@ void Scanner::NextToken(void)
 							NextRawToken();
 						}
 						else
-							mErrors->Error(mLocation, "Invalid define argument");
+							mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define argument");
 
 					} while (mToken == TK_COMMA);
 
@@ -419,7 +419,7 @@ void Scanner::NextToken(void)
 						// No need to goto next token, mOffset is already behind it
 					}
 					else
-						mErrors->Error(mLocation, "')' expected in defined parameter list");
+						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "')' expected in defined parameter list");
 				}
 
 				macro->SetString(mLine + mOffset);
@@ -501,19 +501,19 @@ void Scanner::NextToken(void)
 								if (mLine[mOffset] == ',')
 									mOffset++;
 								else
-									mErrors->Error(mLocation, "Invalid define expansion argument");
+									mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define expansion argument");
 							}
 							else
 							{
 								if (mLine[mOffset] == ')')
 									mOffset++;
 								else
-									mErrors->Error(mLocation, "Invalid define expansion closing argument");
+									mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define expansion closing argument");
 							}
 						}
 					}
 					else
-						mErrors->Error(mLocation, "Missing arguments for macro expansion");
+						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Missing arguments for macro expansion");
 					NextChar();
 				}
 				else
@@ -661,7 +661,7 @@ void Scanner::NextRawToken(void)
 				}
 
 				if (n == 0)
-					mErrors->Error(mLocation, "Missing digits in hex constant");
+					mErrors->Error(mLocation, EERR_SYNTAX, "Missing digits in hex constant");
 
 				mToken = TK_INTEGER;
 				mTokenInteger = mant;
@@ -870,7 +870,7 @@ void Scanner::NextRawToken(void)
 				else if (!strcmp(tkprep, "pragma"))
 					mToken = TK_PREP_PRAGMA;
 				else
-					mErrors->Error(mLocation, "Invalid preprocessor command", tkprep);
+					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", tkprep);
 			}
 			else
 			{
@@ -900,7 +900,7 @@ void Scanner::NextRawToken(void)
 				}
 
 				if (n == 0)
-					mErrors->Error(mLocation, "Missing digits in hex constant");
+					mErrors->Error(mLocation, EERR_SYNTAX, "Missing digits in hex constant");
 
 				mToken = TK_INTEGER;
 				mTokenInteger = mant;
@@ -1021,12 +1021,12 @@ void Scanner::NextRawToken(void)
 
 void Scanner::Warning(const char* error) 
 {
-	mErrors->Warning(mLocation, error);
+	mErrors->Error(mLocation, EWARN_SYNTAX, error);
 }
 
 void Scanner::Error(const char* error)
 {
-	mErrors->Error(mLocation, error);
+	mErrors->Error(mLocation, EERR_SYNTAX, error);
 }
 
 void Scanner::StringToken(char terminator)
@@ -1071,7 +1071,7 @@ void Scanner::StringToken(char terminator)
 				if (IsHex(c0) && IsHex(c1))
 					mTokenChar = 16 * HexValue(c0) + HexValue(c1);
 				else
-					mErrors->Error(mLocation, "Invalid hex escape code");
+					mErrors->Error(mLocation, EERR_SYNTAX, "Invalid hex escape code");
 			}
 				break;
 			default:
@@ -1139,7 +1139,7 @@ void Scanner::CharToken(void)
 			if (IsHex(c0) && IsHex(c1))
 				mTokenChar = 16 * HexValue(c0) + HexValue(c1);
 			else
-				mErrors->Error(mLocation, "Invalid hex escape code");
+				mErrors->Error(mLocation, EERR_SYNTAX, "Invalid hex escape code");
 		}
 		break;
 		default:

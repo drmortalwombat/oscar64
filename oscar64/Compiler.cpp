@@ -57,7 +57,7 @@ bool Compiler::ParseSource(void)
 			parser->Parse();
 		}
 		else
-			mErrors->Error(cunit->mLocation, "Could not open source file", cunit->mFileName);
+			mErrors->Error(cunit->mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", cunit->mFileName);
 	}
 
 	return mErrors->mErrorCount == 0;
@@ -97,7 +97,7 @@ void Compiler::RegisterRuntime(const Location & loc, const Ident* ident)
 	}
 	else
 	{
-		mErrors->Error(loc, "Missing runtime code implementation", ident->mString);
+		mErrors->Error(loc, EERR_RUNTIME_CODE, "Missing runtime code implementation", ident->mString);
 	}
 }
 
@@ -108,7 +108,7 @@ bool Compiler::GenerateCode(void)
 	Declaration* dcrtstart = mCompilationUnits->mStartup;
 	if (!dcrtstart)
 	{
-		mErrors->Error(loc, "Runtime startup not found");
+		mErrors->Error(loc, EERR_RUNTIME_CODE, "Runtime startup not found");
 		return false;
 	}
 
@@ -132,7 +132,7 @@ bool Compiler::GenerateCode(void)
 	Declaration* dmain = mCompilationUnits->mScope->Lookup(imain);
 	if (!dmain)
 	{
-		mErrors->Error(loc, "main function not found");
+		mErrors->Error(loc, EERR_OBJECT_NOT_FOUND, "main function not found");
 		return false;
 	}
 
@@ -231,7 +231,7 @@ bool Compiler::GenerateCode(void)
 			{
 				char	n[10];
 				sprintf_s(n, "%d", i);
-				mErrors->Error(loc, "Missing byte code implementation", n);
+				mErrors->Error(loc, EERR_RUNTIME_CODE, "Missing byte code implementation", n);
 			}
 		}
 	}
@@ -289,7 +289,7 @@ int Compiler::ExecuteCode(void)
 	{
 		char	sd[20];
 		sprintf_s(sd, "%d", ecode);
-		mErrors->Error(loc, "Execution failed", sd);
+		mErrors->Error(loc, EERR_EXECUTION_FAILED, "Execution failed", sd);
 	}
 
 	return ecode;

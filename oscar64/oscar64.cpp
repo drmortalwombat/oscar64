@@ -135,7 +135,7 @@ int main(int argc, const char** argv)
 						compiler->AddDefine(Ident::Unique(def), "");
 				}
 				else
-					compiler->mErrors->Error(loc, "Invalid command line argument", arg);
+					compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
 			}
 			else
 			{

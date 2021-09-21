@@ -96,7 +96,7 @@ void Linker::Link(void)
 				lsec->mUsed += obj->mSize;
 			}
 			else
-				mErrors->Error(obj->mLocation, "Out of space in section", obj->mSection->mString);
+				mErrors->Error(obj->mLocation, EERR_OUT_OF_MEMORY, "Out of space in section", obj->mSection->mString);
 		}
 	}
 

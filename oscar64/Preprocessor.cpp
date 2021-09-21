@@ -4,6 +4,13 @@
 SourcePath::SourcePath(const char* path)
 {
 	strcpy_s(mPathName, path);
+	char* p = mPathName;
+	while (*p)
+	{
+		if (*p == '\\')
+			*p = '/';
+		p++;
+	}
 }
 
 SourcePath::~SourcePath(void)

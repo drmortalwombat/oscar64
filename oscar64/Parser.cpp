@@ -38,7 +38,7 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 			}
 			else
 			{
-				mErrors->Error(mScanner->mLocation, "Error duplicate struct declaration", structName->mString);
+				mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Error duplicate struct declaration", structName->mString);
 			}
 		}
 	}
@@ -59,7 +59,7 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 			while (mdec)
 			{
 				if (!(mdec->mBase->mFlags & DTF_DEFINED))
-					mErrors->Error(mdec->mLocation, "Undefined type used in struct member declaration");
+					mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
 				mdec->mType = DT_ELEMENT;
 				if (dt == DT_TYPE_UNION)
 				{
@@ -85,7 +85,7 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 				mScanner->NextToken();
 			else
 			{
-				mErrors->Error(mScanner->mLocation, "';' expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
 				break;
 			}
 
@@ -217,12 +217,12 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 			mScanner->NextToken();
 		else if (!dec)
 		{
-			mErrors->Error(mScanner->mLocation, "Identifier not defined", mScanner->mTokenIdent->mString);
+			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", mScanner->mTokenIdent->mString);
 			mScanner->NextToken();
 		}
 		else
 		{			
-			mErrors->Error(mScanner->mLocation, "Identifier is no type", mScanner->mTokenIdent->mString);
+			mErrors->Error(mScanner->mLocation, EERR_NOT_A_TYPE, "Identifier is no type", mScanner->mTokenIdent->mString);
 			mScanner->NextToken();
 		}
 		break;
@@ -239,7 +239,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 			dec->mIdent = mScanner->mTokenIdent;
 			
 			if (mScope->Insert(dec->mIdent, dec))
-				mErrors->Error(dec->mLocation, "Duplicate name");
+				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name");
 			mScanner->NextToken();
 		}
 
@@ -258,7 +258,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 					{
 						cdec->mIdent = mScanner->mTokenIdent;
 						if (mScope->Insert(cdec->mIdent, cdec) != nullptr)
-							mErrors->Error(mScanner->mLocation, "Duplicate declaration", mScanner->mTokenIdent->mString);
+							mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate declaration", mScanner->mTokenIdent->mString);
 						mScanner->NextToken();
 					}
 					if (mScanner->mToken == TK_ASSIGN)
@@ -268,7 +268,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 						if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
 							nitem = int(exp->mDecValue->mInteger);
 						else
-							mErrors->Error(mScanner->mLocation, "Integer constant expected");
+							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_TYPE, "Integer constant expected");
 					}
 					cdec->mInteger = nitem++;
 
@@ -282,10 +282,10 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 			if (mScanner->mToken == TK_CLOSE_BRACE)
 				mScanner->NextToken();
 			else
-				mErrors->Error(mScanner->mLocation, "'}' expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 		}
 		else
-			mErrors->Error(mScanner->mLocation, "'{' expected");
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
 
 		dec->mFlags |= DTF_DEFINED;
 		break;
@@ -297,7 +297,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 		dec = ParseStructDeclaration(flags, DT_TYPE_UNION);
 		break;
 	default:
-		mErrors->Error(mScanner->mLocation, "Declaration starts with invalid token", TokenNames[mScanner->mToken]);
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Declaration starts with invalid token", TokenNames[mScanner->mToken]);
 		mScanner->NextToken();
 	}
 
@@ -333,7 +333,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 			mScanner->NextToken();
 		else
-			mErrors->Error(mScanner->mLocation, "')' expected");
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
 		dec = vdec;
 	}
 	else if (mScanner->mToken == TK_IDENT)
@@ -364,13 +364,13 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				if (exp->mType == EX_CONSTANT && exp->mDecType->IsIntegerType() && exp->mDecValue->mType == DT_CONST_INTEGER)
 					ndec->mSize = int(exp->mDecValue->mInteger);
 				else
-					mErrors->Error(exp->mLocation, "Constant integer expression expected");
+					mErrors->Error(exp->mLocation, EERR_CONSTANT_TYPE, "Constant integer expression expected");
 				ndec->mFlags |= DTF_DEFINED;
 			}
 			if (mScanner->mToken == TK_CLOSE_BRACKET)
 				mScanner->NextToken();
 			else
-				mErrors->Error(mScanner->mLocation, "']' expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "']' expected");
 			ndec->mBase = dec;
 			dec = ndec;
 		}
@@ -400,13 +400,13 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 					if (adec->mBase->mType == DT_TYPE_VOID)
 					{
 						if (pdec)
-							mErrors->Error(pdec->mLocation, "Invalid void argument");
+							mErrors->Error(pdec->mLocation, EERR_WRONG_PARAMETER, "Invalid void argument");
 						break;
 					}
 					else
 					{
 						if (!(adec->mBase->mFlags & DTF_DEFINED))
-							mErrors->Error(adec->mLocation, "Type of argument not defined");
+							mErrors->Error(adec->mLocation, EERR_UNDEFINED_OBJECT, "Type of argument not defined");
 
 						adec->mType = DT_ARGUMENT;
 						adec->mVarIndex = vi;
@@ -429,7 +429,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 					mScanner->NextToken();
 				else
-					mErrors->Error(mScanner->mLocation, "')' expected");
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
 			}
 			else
 				mScanner->NextToken();
@@ -467,7 +467,7 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 	if (exp->mType == EX_CONSTANT)
 	{
 		if (!dtype->CanAssign(exp->mDecType))
-			mErrors->Error(exp->mLocation, "Incompatible constant initializer");
+			mErrors->Error(exp->mLocation, EERR_CONSTANT_INITIALIZER, "Incompatible constant initializer");
 		else
 		{
 			if (dec->mType == DT_CONST_FLOAT)
@@ -528,7 +528,7 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 		}
 	}
 	else
-		mErrors->Error(exp->mLocation, "Constant initializer expected");
+		mErrors->Error(exp->mLocation, EERR_CONSTANT_INITIALIZER, "Constant initializer expected");
 
 	return dec;
 }
@@ -543,9 +543,9 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 		if (dtype->mType != DT_TYPE_ARRAY && !(dtype->mFlags & DTF_DEFINED))
 		{
 			if (dtype->mIdent)
-				mErrors->Error(mScanner->mLocation, "Constant for undefined type", dtype->mIdent->mString);
+				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined type", dtype->mIdent->mString);
 			else
-				mErrors->Error(mScanner->mLocation, "Constant for undefined annonymous type");
+				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined annonymous type");
 		}
 		if (ConsumeTokenIf(TK_OPEN_BRACE))
 		{
@@ -633,7 +633,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 				strcpy_s((char *)d, dec->mSize, mScanner->mTokenString);
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "String constant is too large for char array");
+				mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "String constant is too large for char array");
 
 			mScanner->NextToken();
 		}
@@ -707,7 +707,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			{
 				Declaration* pdec = mScope->Insert(ndec->mIdent, ndec->mBase);
 				if (pdec)
-					mErrors->Error(ndec->mLocation, "Duplicate type declaration", ndec->mIdent->mString);
+					mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate type declaration", ndec->mIdent->mString);
 			}
 		}
 		else
@@ -732,7 +732,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 						pdec = mCompilationUnits->mScope->Insert(ndec->mIdent, ndec);
 						Declaration	*	ldec = mScope->Insert(ndec->mIdent, pdec ? pdec : ndec);
 						if (ldec && ldec != pdec)
-							mErrors->Error(ndec->mLocation, "Duplicate definition");
+							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition");
 					}
 					else
 						pdec = mScope->Insert(ndec->mIdent, ndec);
@@ -742,7 +742,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 						if (pdec->mType == DT_CONST_FUNCTION && ndec->mBase->mType == DT_TYPE_FUNCTION)
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
-								mErrors->Error(ndec->mLocation, "Function declaration differs");
+								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs");
 							else
 							{
 								// 
@@ -761,7 +761,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 							ndec = pdec;
 						}
 						else
-							mErrors->Error(ndec->mLocation, "Duplicate variable declaration", ndec->mIdent->mString);
+							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate variable declaration", ndec->mIdent->mString);
 					}
 				}
 
@@ -798,7 +798,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 			{
 				if (ndec->mFlags & DTF_DEFINED)
-					mErrors->Error(ndec->mLocation, "Duplicate function definition");
+					mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate function definition");
 
 				ndec->mVarIndex = -1;
 				ndec->mValue = ParseFunction(ndec->mBase);
@@ -1005,13 +1005,13 @@ Expression* Parser::ParseSimpleExpression(void)
 			}
 			else
 			{
-				mErrors->Error(mScanner->mLocation, "Invalid identifier", mScanner->mTokenIdent->mString);
+				mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid identifier", mScanner->mTokenIdent->mString);
 				mScanner->NextToken();
 			}
 		}
 		else
 		{
-			mErrors->Error(mScanner->mLocation, "Unknown identifier", mScanner->mTokenIdent->mString);
+			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent->mString);
 			mScanner->NextToken();
 		}
 
@@ -1033,7 +1033,7 @@ Expression* Parser::ParseSimpleExpression(void)
 		if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 			mScanner->NextToken();
 		else
-			mErrors->Error(mScanner->mLocation, "')' expected");
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
 
 		if (exp->mType == EX_TYPE)
 		{
@@ -1045,7 +1045,7 @@ Expression* Parser::ParseSimpleExpression(void)
 		}
 		break;
 	default:
-		mErrors->Error(mScanner->mLocation, "Term starts with invalid token", TokenNames[mScanner->mToken]);
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Term starts with invalid token", TokenNames[mScanner->mToken]);
 		mScanner->NextToken();
 	}
 
@@ -1068,7 +1068,7 @@ Expression* Parser::ParsePostfixExpression(void)
 		if (mScanner->mToken == TK_OPEN_BRACKET)
 		{
 			if (exp->mDecType->mType != DT_TYPE_ARRAY && exp->mDecType->mType != DT_TYPE_POINTER)
-				mErrors->Error(mScanner->mLocation, "Array expected for indexing");
+				mErrors->Error(mScanner->mLocation, EERR_INVALID_INDEX, "Array expected for indexing");
 			mScanner->NextToken();
 			Expression* nexp = new Expression(mScanner->mLocation, EX_INDEX);
 			nexp->mLeft = exp;
@@ -1076,7 +1076,7 @@ Expression* Parser::ParsePostfixExpression(void)
 			if (mScanner->mToken == TK_CLOSE_BRACKET)
 				mScanner->NextToken();
 			else
-				mErrors->Error(mScanner->mLocation, "']' expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "']' expected");
 			nexp->mDecType = exp->mDecType->mBase;
 			if (!nexp->mDecType)
 				nexp->mDecType = TheVoidTypeDeclaration;
@@ -1091,7 +1091,7 @@ Expression* Parser::ParsePostfixExpression(void)
 			{
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Function expected for call");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
 
 			mScanner->NextToken();
 			Expression* nexp = new Expression(mScanner->mLocation, EX_CALL);
@@ -1142,17 +1142,17 @@ Expression* Parser::ParsePostfixExpression(void)
 							exp = nexp;
 						}
 						else
-							mErrors->Error(mScanner->mLocation, "Struct member identifier not found", mScanner->mTokenIdent->mString);
+							mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent->mString);
 						mScanner->NextToken();
 					}
 					else
-						mErrors->Error(mScanner->mLocation, "Struct member identifier expected");
+						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Struct member identifier expected");
 				}
 				else
-					mErrors->Error(mScanner->mLocation, "Struct expected");
+					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Pointer expected");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Pointer expected");
 		}
 		else if (mScanner->mToken == TK_DOT)
 		{
@@ -1171,14 +1171,14 @@ Expression* Parser::ParsePostfixExpression(void)
 						exp = nexp;
 					}
 					else
-						mErrors->Error(mScanner->mLocation, "Struct member identifier not found", mScanner->mTokenIdent->mString);
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent->mString);
 					mScanner->NextToken();
 				}
 				else
-					mErrors->Error(mScanner->mLocation, "Struct member identifier expected");
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Struct member identifier expected");
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Struct expected");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
 		}
 		else
 			return exp;
@@ -1221,7 +1221,7 @@ Expression* Parser::ParsePrefixExpression(void)
 					nexp->mDecType = nexp->mLeft->mDecType;
 				}
 				else
-					mErrors->Error(nexp->mLocation, "Pointer or array type expected");
+					mErrors->Error(nexp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Pointer or array type expected");
 			}
 			else if (nexp->mToken == TK_BINARY_AND)
 			{
@@ -1449,14 +1449,14 @@ Expression* Parser::ParseParenthesisExpression(void)
 	if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 		mScanner->NextToken();
 	else
-		mErrors->Error(mScanner->mLocation, "'(' expected");
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'(' expected");
 
 	Expression* exp = ParseExpression();
 
 	if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 		mScanner->NextToken();
 	else
-		mErrors->Error(mScanner->mLocation, "')' expected");
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
 
 	return exp;
 }
@@ -1554,7 +1554,7 @@ Expression* Parser::ParseStatement(void)
 
 			} while (mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_EOF);
 			if (mScanner->mToken != TK_CLOSE_BRACE)
-				mErrors->Error(mScanner->mLocation, "'}' expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 			mScanner->NextToken();
 		}
 		else
@@ -1607,7 +1607,7 @@ Expression* Parser::ParseStatement(void)
 				exp->mLeft = ParseParenthesisExpression();
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "'while' expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'while' expected");
 			break;
 		case TK_FOR:
 			mScanner->NextToken();
@@ -1624,24 +1624,24 @@ Expression* Parser::ParseStatement(void)
 				if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
 				else
-					mErrors->Error(mScanner->mLocation, "';' expected");
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
 				exp->mLeft->mLeft->mLeft = ParseExpression();
 				if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
 				else
-					mErrors->Error(mScanner->mLocation, "';' expected");
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 					exp->mLeft->mLeft->mRight = ParseExpression();
 				if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 					mScanner->NextToken();
 				else
-					mErrors->Error(mScanner->mLocation, "')' expected");
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
 				exp->mRight = ParseStatement();
 
 				mScope = mScope->mParent;
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "'(' expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'(' expected");
 			break;
 		case TK_SWITCH:
 			mScanner->NextToken();
@@ -1672,7 +1672,7 @@ Expression* Parser::ParseStatement(void)
 				if (mScanner->mToken == TK_CLOSE_BRACE)
 					mScanner->NextToken();
 				else
-					mErrors->Error(mScanner->mLocation, "'}' expected");
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 			}
 			break;
 		default:
@@ -1696,10 +1696,10 @@ Expression* Parser::ParseSwitchStatement(void)
 		if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 			mScanner->NextToken();
 		else
-			mErrors->Error(mScanner->mLocation, "')' expected");
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
 	}
 	else
-		mErrors->Error(mScanner->mLocation, "'(' expected");
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'(' expected");
 
 	if (mScanner->mToken == TK_OPEN_BRACE)
 	{
@@ -1724,7 +1724,7 @@ Expression* Parser::ParseSwitchStatement(void)
 					if (mScanner->mToken == TK_COLON)
 						mScanner->NextToken();
 					else
-						mErrors->Error(mScanner->mLocation, "':' expected");
+						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "':' expected");
 
 					Expression* csexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
 					csexp->mLeft = cexp;
@@ -1744,7 +1744,7 @@ Expression* Parser::ParseSwitchStatement(void)
 					if (mScanner->mToken == TK_COLON)
 						mScanner->NextToken();
 					else
-						mErrors->Error(mScanner->mLocation, "':' expected");
+						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "':' expected");
 
 					Expression * csexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
 					csexp->mLeft = cexp;					
@@ -1772,10 +1772,10 @@ Expression* Parser::ParseSwitchStatement(void)
 		if (mScanner->mToken == TK_CLOSE_BRACE)
 			mScanner->NextToken();
 		else
-			mErrors->Error(mScanner->mLocation, "'}' expected");
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 	}
 	else
-		mErrors->Error(mScanner->mLocation, "'{' expected");
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
 
 	return sexp;
 }
@@ -1805,7 +1805,7 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 			exp->mDecType = dec->mBase;
 		}
 		else
-			mErrors->Error(exp->mLocation, "Cannot negate expression");
+			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Cannot negate expression");
 		break;
 
 	case TK_INTEGER:
@@ -1868,16 +1868,16 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 						exp->mDecType = TheUnsignedIntTypeDeclaration;
 					}
 					else
-						mErrors->Error(mScanner->mLocation, "Assembler label not found", mScanner->mTokenIdent->mString);
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Assembler label not found", mScanner->mTokenIdent->mString);
 				}
 				mScanner->NextToken();
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Identifier for qualification expected");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Identifier for qualification expected");
 		}
 		break;
 	default:
-		mErrors->Error(mScanner->mLocation, "Invalid assembler operand");
+		mErrors->Error(mScanner->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid assembler operand");
 	}
 
 	if (!exp)
@@ -1925,7 +1925,7 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 				exp->mDecValue = ndec;
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Integer offset expected");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Integer offset expected");
 		}
 		else if (nexp->mLeft->mDecValue->mType == DT_CONST_FUNCTION)
 		{
@@ -1938,7 +1938,7 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 				exp->mDecValue = ndec;
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Integer offset expected");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Integer offset expected");
 		}
 		else if (nexp->mLeft->mDecValue->mType == DT_LABEL)
 		{
@@ -1951,7 +1951,7 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 				exp->mDecValue = ndec;
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Integer offset expected");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Integer offset expected");
 		}
 		else
 			exp = nexp->ConstantFold();
@@ -2024,10 +2024,10 @@ Expression* Parser::ParseAssemblerOperand(void)
 				exp->mDecValue = ndec;
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Label or integer value for lower byte operator expected");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Label or integer value for lower byte operator expected");
 		}
 		else
-			mErrors->Error(mScanner->mLocation, "Constant for lower byte operator expected");
+			mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Constant for lower byte operator expected");
 
 		return exp;
 	}
@@ -2094,10 +2094,10 @@ Expression* Parser::ParseAssemblerOperand(void)
 				exp->mDecValue = ndec;
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Label or integer value for lower byte operator expected");
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Label or integer value for lower byte operator expected");
 		}
 		else
-			mErrors->Error(mScanner->mLocation, "Constant for upper byte operator expected");
+			mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Constant for upper byte operator expected");
 
 		return exp;
 	}
@@ -2154,7 +2154,7 @@ Expression* Parser::ParseAssembler(void)
 				const Ident* label = mScanner->mTokenIdent;
 				mScanner->NextToken();
 				if (mScanner->mToken != TK_COLON)
-					mErrors->Error(mScanner->mLocation, "':' expected");
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "':' expected");
 				else
 					mScanner->NextToken();
 
@@ -2162,7 +2162,7 @@ Expression* Parser::ParseAssembler(void)
 				if (dec)
 				{
 					if (dec->mType != DT_LABEL || dec->mBase)
-						mErrors->Error(mScanner->mLocation, "Duplicate label definition");
+						mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate label definition");
 				}
 				else
 					dec = new Declaration(mScanner->mLocation, DT_LABEL);
@@ -2199,10 +2199,10 @@ Expression* Parser::ParseAssembler(void)
 							if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 								mScanner->NextToken();
 							else
-								mErrors->Error(mScanner->mLocation, "')' expected");
+								mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
 						}
 						else
-							mErrors->Error(mScanner->mLocation, "',x' expected");
+							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "',x' expected");
 					}
 					else if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 					{
@@ -2216,7 +2216,7 @@ Expression* Parser::ParseAssembler(void)
 								mScanner->NextToken();
 							}
 							else
-								mErrors->Error(mScanner->mLocation, "',y' expected");
+								mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "',y' expected");
 						}
 						else
 						{
@@ -2224,7 +2224,7 @@ Expression* Parser::ParseAssembler(void)
 						}
 					}
 					else
-						mErrors->Error(mScanner->mLocation, "',' or ')' expected");
+						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "',' or ')' expected");
 				}
 				else
 				{
@@ -2243,7 +2243,7 @@ Expression* Parser::ParseAssembler(void)
 							mScanner->NextToken();
 						}
 						else
-							mErrors->Error(mScanner->mLocation, "',x' or ',y' expected");
+							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "',x' or ',y' expected");
 					}
 					else
 					{
@@ -2269,7 +2269,7 @@ Expression* Parser::ParseAssembler(void)
 
 				if (mScanner->mToken != TK_EOL)
 				{
-					mErrors->Error(mScanner->mLocation, "End of line expected");
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "End of line expected");
 				}
 
 				while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_EOF)
@@ -2287,7 +2287,7 @@ Expression* Parser::ParseAssembler(void)
 		}
 		else
 		{
-			mErrors->Error(mScanner->mLocation, "Invalid assembler token");
+			mErrors->Error(mScanner->mLocation, EERR_ASM_INVALID_INSTRUCTION, "Invalid assembler token");
 
 			while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_EOF)
 				mScanner->NextToken();
@@ -2339,7 +2339,7 @@ bool Parser::ConsumeToken(Token token)
 	{
 		char	buffer[100];
 		sprintf_s(buffer, "%s expected", TokenNames[token]);
-		mErrors->Error(mScanner->mLocation, buffer);
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, buffer);
 		return false;
 	}
 }
@@ -2392,7 +2392,7 @@ void Parser::ParsePragma(void)
 				if (dec && dec->mType == DT_CONST_FUNCTION)
 					dec->mFlags |= DTF_INTRINSIC;
 				else
-					mErrors->Error(mScanner->mLocation, "Intrinsic function not found");
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Intrinsic function not found");
 				mScanner->NextToken();
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
@@ -2407,7 +2407,7 @@ void Parser::ParsePragma(void)
 				if (dec && dec->mType == DT_CONST_FUNCTION)
 					dec->mFlags |= DTF_NATIVE;
 				else
-					mErrors->Error(mScanner->mLocation, "Native function not found");
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Native function not found");
 				mScanner->NextToken();
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
@@ -2415,7 +2415,7 @@ void Parser::ParsePragma(void)
 		else if (!strcmp(mScanner->mTokenIdent->mString, "startup"))
 		{
 			if (mCompilationUnits->mStartup)
-				mErrors->Error(mScanner->mLocation, "Duplicate startup pragma");
+				mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate startup pragma");
 
 			mScanner->NextToken();
 			ConsumeToken(TK_OPEN_PARENTHESIS);
@@ -2425,7 +2425,7 @@ void Parser::ParsePragma(void)
 				if (dec && dec->mType == DT_CONST_ASSEMBLER)
 					mCompilationUnits->mStartup = dec;
 				else
-					mErrors->Error(mScanner->mLocation, "Startup function not found");
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Startup function not found");
 				mScanner->NextToken();
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
@@ -2451,26 +2451,26 @@ void Parser::ParsePragma(void)
 							if (ndec)
 								dec = ndec;
 							else
-								mErrors->Error(mScanner->mLocation, "Label not found in assembler code");
+								mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Label not found in assembler code");
 							mScanner->NextToken();
 						}
 						else
-							mErrors->Error(mScanner->mLocation, "Identifier expected");
+							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
 					}
 
 					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER && exp->mDecValue->mInteger >= 0 && exp->mDecValue->mInteger < 128)
 					{
 						if (mCompilationUnits->mByteCodes[exp->mDecValue->mInteger])
-							mErrors->Error(mScanner->mLocation, "Duplicate bytecode function");
+							mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate bytecode function");
 
 						mCompilationUnits->mByteCodes[exp->mDecValue->mInteger] = dec;
 					}
 					else
-						mErrors->Error(exp->mLocation, "Numeric value for byte code expected");
+						mErrors->Error(exp->mLocation, EERR_CONSTANT_TYPE, "Numeric value for byte code expected");
 				}
 				else
 				{
-					mErrors->Error(mScanner->mLocation, "Bytecode function not found");
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Bytecode function not found");
 					mScanner->NextToken();
 				}
 
@@ -2489,7 +2489,7 @@ void Parser::ParsePragma(void)
 				mScanner->NextToken();
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Identifier expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
 
 			ConsumeToken(TK_COMMA);
 			if (mScanner->mToken == TK_IDENT)
@@ -2506,11 +2506,11 @@ void Parser::ParsePragma(void)
 							if (ndec)
 								dec = ndec;
 							else
-								mErrors->Error(mScanner->mLocation, "Label not found in assembler code");
+								mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Label not found in assembler code");
 							mScanner->NextToken();
 						}
 						else
-							mErrors->Error(mScanner->mLocation, "Identifier expected");
+							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
 					}
 
 					if (rtident)
@@ -2524,7 +2524,7 @@ void Parser::ParsePragma(void)
 				}
 				else
 				{
-					mErrors->Error(mScanner->mLocation, "Runtime function not found");
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Runtime function not found");
 					mScanner->NextToken();
 				}
 
@@ -2540,11 +2540,11 @@ void Parser::ParsePragma(void)
 					mScanner->NextToken();
 				ConsumeToken(TK_CLOSE_PARENTHESIS);
 			}
-			mErrors->Error(mScanner->mLocation, "Unknown pragma, ignored", mScanner->mTokenIdent->mString);
+			mErrors->Error(mScanner->mLocation, EWARN_UNKNOWN_PRAGMA, "Unknown pragma, ignored", mScanner->mTokenIdent->mString);
 		}
 	}
 	else
-		mErrors->Error(mScanner->mLocation, "Invalid pragma directive");
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Invalid pragma directive");
 }
 
 void Parser::Parse(void)
@@ -2578,11 +2578,11 @@ void Parser::Parse(void)
 					if (mScanner->mToken == TK_CLOSE_BRACE)
 						mScanner->NextToken();
 					else
-						mErrors->Error(mScanner->mLocation, "'}' expected");
+						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 				}
 			}
 			else
-				mErrors->Error(mScanner->mLocation, "Identifier expected");
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
 		}
 		else if (mScanner->mToken == TK_SEMICOLON)
 			mScanner->NextToken();
