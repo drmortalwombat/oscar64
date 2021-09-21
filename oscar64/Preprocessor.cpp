@@ -1,5 +1,6 @@
 #include "Preprocessor.h"
 #include <string.h>
+#include <stdlib.h>
 
 SourcePath::SourcePath(const char* path)
 {
@@ -49,19 +50,31 @@ SourceFile::~SourceFile(void)
 
 bool SourceFile::Open(const char* name, const char* path)
 {
-	strcpy_s(mFileName, path);
-	int	n = strlen(mFileName);
+	char	fname[200];
 
-	if (n > 0 && mFileName[n - 1] != '/')
+	strcpy_s(fname, path);
+	int	n = strlen(fname);
+
+	if (n > 0 && fname[n - 1] != '/')
 	{
-		mFileName[n++] = '/';
-		mFileName[n] = 0;
+		fname[n++] = '/';
+		fname[n] = 0;
 	}
 
-	strcat_s(mFileName + n, sizeof(mFileName) - n, name);
+	strcat_s(fname + n, sizeof(fname) - n, name);
 
-	if (!fopen_s(&mFile, mFileName, "r"))
+	if (!fopen_s(&mFile, fname, "r"))
+	{
+		_fullpath(mFileName, fname, sizeof(mFileName));
+		char* p = mFileName;
+		while (*p)
+		{
+			if (*p == '\\')
+				*p = '/';
+			p++;
+		}
 		return true;
+	}
 
 	return false;
 }

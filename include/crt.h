@@ -160,6 +160,4 @@ enum ByteCode
 	BC_NATIVE = 0x75
 };
 
-#pragma compile("crt.c")
-
 #endif
