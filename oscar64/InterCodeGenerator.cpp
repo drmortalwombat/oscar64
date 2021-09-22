@@ -719,6 +719,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						cins->mTTemp = proc->AddTemporary(cins->mTType);
 						block->Append(cins);
 
+						vr = CoerceType(proc, block, vr, TheSignedIntTypeDeclaration);
+
 						InterInstruction	*	mins = new InterInstruction();
 						mins->mCode = IC_BINARY_OPERATOR;
 						mins->mOperator = IA_MUL;

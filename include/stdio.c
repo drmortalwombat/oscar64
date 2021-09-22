@@ -287,7 +287,7 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 {
 	const char	*	p = fmt;
 	char		c;
-	int			bi = 0;
+	char		bi = 0;
 	sinfo		si;
 	
 	while (c = *p++)

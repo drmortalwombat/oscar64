@@ -124,6 +124,7 @@ public:
 	bool MergeBasicBlocks(void);
 
 	bool MoveLoadStoreUp(int at);
+	bool FindAddressSumY(int at, int reg, int& breg, int& ireg);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
 

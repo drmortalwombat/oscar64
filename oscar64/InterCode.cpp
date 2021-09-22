@@ -1387,7 +1387,8 @@ void InterInstruction::GlobalRenameRegister(const GrowingIntArray& renameTable, 
 	if (mTTemp >= 0)
 	{
 		mTTemp = renameTable[mTTemp];
-		temporaries[mTTemp] = mTType;
+		if (InterTypeSize[mTType] > InterTypeSize[temporaries[mTTemp]])
+			temporaries[mTTemp] = mTType;
 	}
 }
 
@@ -3529,7 +3530,7 @@ void InterCodeProcedure::RenameTemporaries(void)
 		mGlobalRenameTable[i] = mGlobalRenameTable[j];
 	}
 
-	mTemporaries.SetSize(numRenamedTemps);
+	mTemporaries.SetSize(numRenamedTemps, true);
 
 	//
 	// Set global temporary IDs
@@ -3794,7 +3795,7 @@ void InterCodeProcedure::Close(void)
 	mBlocks[0]->CollectActiveTemporaries(activeSet);
 
 
-	mTemporaries.SetSize(activeSet.Num());
+	mTemporaries.SetSize(activeSet.Num(), true);
 
 
 
@@ -3892,7 +3893,7 @@ void InterCodeProcedure::ReduceTemporaries(void)
 		if (j >= numRenamedTemps) numRenamedTemps = j + 1;
 	}
 
-	mTemporaries.SetSize(numRenamedTemps);
+	mTemporaries.SetSize(numRenamedTemps, true);
 
 	ResetVisited();
 	mBlocks[0]->GlobalRenameRegister(mRenameTable, mTemporaries);
@@ -3959,6 +3960,16 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 	{
 		fprintf(file, "--------------------------------------------------------------------\n");
 		fprintf(file, "%s : %s:%d\n", name, mLocation.mFileName, mLocation.mLine);
+
+		if (mTempOffset.Size())
+		{
+			static char typechars[] = "NBCILFP";
+			for (int i = 0; i < mTemporaries.Size(); i++)
+			{
+				fprintf(file, "$%02x T%d(%c), ", mTempOffset[i], i, typechars[mTemporaries[i]]);
+			}
+		}
+		fprintf(file, "\n");
 
 		ResetVisited();
 		mBlocks[0]->Disassemble(file, dumpSets);

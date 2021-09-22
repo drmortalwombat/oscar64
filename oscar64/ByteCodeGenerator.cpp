@@ -47,6 +47,7 @@ ByteCodeInstruction::ByteCodeInstruction(ByteCode code)
 {
 }
 
+
 bool ByteCodeInstruction::IsStore(void) const
 {
 	return
@@ -2506,241 +2507,259 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 	this->Close(proc->CompileBlock(iproc, sblock->mTrueJump), nullptr, BC_JUMPS);
 }
 
-void ByteCodeBasicBlock::PeepHoleOptimizer(void)
+
+bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 {
-	int	accuReg = -1;
+	bool	changed = false;
 
-	bool	progress = false;
-	do	{
-		progress = false;
+	if (!mVisited)
+	{
+		mVisited = true;
 
-		int i = 0;
-		int j = 0;
-		while (i < mIns.Size())
-		{
-			if (mIns[i].mCode == BC_NOP)
-				;
-			else
+		int	accuReg = -1;
+
+		bool	progress = false;
+		do {
+			progress = false;
+
+			int i = 0;
+			int j = 0;
+			while (i < mIns.Size())
 			{
-				if (i != j)
-					mIns[j] = mIns[i];
-				j++;
+				if (mIns[i].mCode == BC_NOP)
+					;
+				else
+				{
+					if (i != j)
+						mIns[j] = mIns[i];
+					j++;
+				}
+				i++;
 			}
-			i++;
-		}
-		mIns.SetSize(j);
-		
-		int	accuTemp = -1, addrTemp = -1;
+			mIns.SetSize(j);
 
-		for (int i = 0; i < mIns.Size(); i++)
-		{
-			if (i + 2 < mIns.Size())
+			int	accuTemp = -1, addrTemp = -1;
+
+			for (int i = 0; i < mIns.Size(); i++)
 			{
-				if (mIns[i].mCode == BC_LOAD_LOCAL_16 &&
-					mIns[i + 1].mCode == BC_LOAD_LOCAL_16 && mIns[i + 1].mRegister != BC_REG_ACCU && mIns[i + 1].mRegister != mIns[i].mRegister &&
-					mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i + 2].mRegister == mIns[i].mRegister && mIns[i + 2].mRegisterFinal)
+				if (i + 2 < mIns.Size())
 				{
-					mIns[i].mRegister = BC_REG_ACCU;
-					mIns[i + 2].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_16 &&
-					!mIns[i + 1].ChangesAccu() && mIns[i + 1].mRegister != mIns[i].mRegister &&
-					mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i].mRegister == mIns[i + 2].mRegister)
-				{
-					mIns[i + 2].mCode = BC_NOP;
-					if (mIns[i + 2].mRegisterFinal)
+					if (mIns[i].mCode == BC_LOAD_LOCAL_16 &&
+						mIns[i + 1].mCode == BC_LOAD_LOCAL_16 && mIns[i + 1].mRegister != BC_REG_ACCU && mIns[i + 1].mRegister != mIns[i].mRegister &&
+						mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i + 2].mRegister == mIns[i].mRegister && mIns[i + 2].mRegisterFinal)
+					{
+						mIns[i].mRegister = BC_REG_ACCU;
+						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_16 &&
+						!mIns[i + 1].ChangesAccu() && mIns[i + 1].mRegister != mIns[i].mRegister &&
+						mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i].mRegister == mIns[i + 2].mRegister)
+					{
+						mIns[i + 2].mCode = BC_NOP;
+						if (mIns[i + 2].mRegisterFinal)
+							mIns[i].mCode = BC_NOP;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_32 &&
+						!mIns[i + 1].ChangesAccu() && mIns[i + 1].mRegister != mIns[i].mRegister &&
+						mIns[i + 2].mCode == BC_LOAD_REG_32 && mIns[i].mRegister == mIns[i + 2].mRegister)
+					{
+						mIns[i + 2].mCode = BC_NOP;
+						if (mIns[i + 2].mRegisterFinal)
+							mIns[i].mCode = BC_NOP;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_16 &&
+						!mIns[i + 1].ChangesAccu() && mIns[i + 1].mRegister != mIns[i].mRegister &&
+						mIns[i + 2].IsStore() && mIns[i].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
+					{
 						mIns[i].mCode = BC_NOP;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_32 &&
-					!mIns[i + 1].ChangesAccu() && mIns[i + 1].mRegister != mIns[i].mRegister &&
-					mIns[i + 2].mCode == BC_LOAD_REG_32 && mIns[i].mRegister == mIns[i + 2].mRegister)
-				{
-					mIns[i + 2].mCode = BC_NOP;
-					if (mIns[i + 2].mRegisterFinal)
-						mIns[i].mCode = BC_NOP;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_16 &&
-					!mIns[i + 1].ChangesAccu() && mIns[i + 1].mRegister != mIns[i].mRegister &&
-					mIns[i + 2].IsStore() && mIns[i].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
-				{
-					mIns[i].mCode = BC_NOP;
-					mIns[i + 2].mRegister = BC_REG_ACCU;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_16 &&
-					!mIns[i + 1].ChangesAddr() && mIns[i + 1].mRegister != mIns[i].mRegister &&
-					mIns[i + 2].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
-				{
-					mIns[i].mCode = BC_ADDR_REG;
-					mIns[i].mRegister = BC_REG_ACCU;
-					mIns[i + 2].mCode = BC_NOP;
-				}
-				else if (
-					mIns[i + 2].mCode == BC_BINOP_ADDR_16 &&
-					mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
-					mIns[i + 0].LoadsRegister(mIns[i + 2].mRegister) && mIns[i + 2].mRegisterFinal)
-				{
-					mIns[i + 0].mRegister = BC_REG_ACCU;
-					mIns[i + 1].mCode = mIns[i + 2].mCode;
-					mIns[i + 2].mCode = BC_NOP;
-				}
-				else if (
-					mIns[i + 2].mCode == BC_BINOP_ADDR_16 &&
-					mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
-					mIns[i + 0].mCode == BC_STORE_REG_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
-				{
-					mIns[i + 0].mCode = BC_NOP;;
-					mIns[i + 1].mCode = mIns[i + 2].mCode;
-					mIns[i + 2].mCode = BC_NOP;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_32 &&
-					mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
-					mIns[i + 2].IsCommutative() && mIns[i].mRegister == mIns[i + 2].mRegister)
-				{
-					if (mIns[i + 2].mRegisterFinal)
+						mIns[i + 2].mRegister = BC_REG_ACCU;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_16 &&
+						!mIns[i + 1].ChangesAddr() && mIns[i + 1].mRegister != mIns[i].mRegister &&
+						mIns[i + 2].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
+					{
+						mIns[i].mCode = BC_ADDR_REG;
+						mIns[i].mRegister = BC_REG_ACCU;
+						mIns[i + 2].mCode = BC_NOP;
+					}
+					else if (
+						mIns[i + 2].mCode == BC_BINOP_ADDR_16 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
+						mIns[i + 0].LoadsRegister(mIns[i + 2].mRegister) && mIns[i + 2].mRegisterFinal)
+					{
+						mIns[i + 0].mRegister = BC_REG_ACCU;
+						mIns[i + 1].mCode = mIns[i + 2].mCode;
+						mIns[i + 2].mCode = BC_NOP;
+					}
+					else if (
+						mIns[i + 2].mCode == BC_BINOP_ADDR_16 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
+						mIns[i + 0].mCode == BC_STORE_REG_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
+					{
+						mIns[i + 0].mCode = BC_NOP;;
+						mIns[i + 1].mCode = mIns[i + 2].mCode;
+						mIns[i + 2].mCode = BC_NOP;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_32 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
+						mIns[i + 2].IsCommutative() && mIns[i].mRegister == mIns[i + 2].mRegister)
+					{
+						if (mIns[i + 2].mRegisterFinal)
+							mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 2].mRegister = mIns[i + 1].mRegister;
+						mIns[i + 2].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_16 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
+						mIns[i + 2].IsCommutative() && mIns[i].mRegister == mIns[i + 2].mRegister)
+					{
+						if (mIns[i + 2].mRegisterFinal)
+							mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 2].mRegister = mIns[i + 1].mRegister;
+						mIns[i + 2].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+					}
+					else if (mIns[i + 0].mCode == BC_STORE_REG_32 &&
+						mIns[i + 2].mCode == BC_BINOP_CMP_F32 && mIns[i + 2].mRegister == mIns[i + 0].mRegister && mIns[i + 2].mRegisterFinal &&
+						mIns[i + 1].LoadsRegister(BC_REG_ACCU) && i + 3 == mIns.Size())
+					{
+						mIns[i + 1].mRegister = mIns[i + 0].mRegister;
 						mIns[i + 0].mCode = BC_NOP;
-					mIns[i + 1].mCode = BC_NOP;
-					mIns[i + 2].mRegister = mIns[i + 1].mRegister;
-					mIns[i + 2].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+						mBranch = TransposeBranchCondition(mBranch);
+					}
+					else if (mIns[i + 0].mCode == BC_LOAD_REG_16 &&
+						mIns[i + 1].mCode == BC_STORE_REG_16 &&
+						mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister)
+					{
+						mIns[i + 2].mCode = BC_NOP;
+					}
+					else if (mIns[i + 0].mCode == BC_CONST_16 && mIns[i + 2].mCode == BC_CONST_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 0].mValue == mIns[i + 2].mValue && !mIns[i + 1].ChangesRegister(mIns[i + 0].mRegister))
+					{
+						mIns[i + 2].mCode = BC_NOP;
+					}
 				}
-				else if (mIns[i].mCode == BC_STORE_REG_16 &&
-					mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
-					mIns[i + 2].IsCommutative() && mIns[i].mRegister == mIns[i + 2].mRegister)
+				if (i + 1 < mIns.Size())
 				{
-					if (mIns[i + 2].mRegisterFinal)
-						mIns[i + 0].mCode = BC_NOP;
-					mIns[i + 1].mCode = BC_NOP;
-					mIns[i + 2].mRegister = mIns[i + 1].mRegister;
-					mIns[i + 2].mRegisterFinal = mIns[i + 1].mRegisterFinal;
-				}
-				else if (mIns[i + 0].mCode == BC_STORE_REG_32 &&
-					mIns[i + 2].mCode == BC_BINOP_CMP_F32 && mIns[i + 2].mRegister == mIns[i + 0].mRegister && mIns[i + 2].mRegisterFinal &&
-					mIns[i + 1].LoadsRegister(BC_REG_ACCU) && i + 3 == mIns.Size())
-				{
-					mIns[i + 1].mRegister = mIns[i + 0].mRegister;
-					mIns[i + 0].mCode = BC_NOP;
-					mBranch = TransposeBranchCondition(mBranch);
-				}
-				else if (mIns[i + 0].mCode == BC_LOAD_REG_16 &&
-					mIns[i + 1].mCode == BC_STORE_REG_16 &&
-					mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister)
-				{
-					mIns[i + 2].mCode = BC_NOP;
-				}
-				else if (mIns[i + 0].mCode == BC_CONST_16 && mIns[i + 2].mCode == BC_CONST_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 0].mValue == mIns[i + 2].mValue && !mIns[i + 1].ChangesRegister(mIns[i + 0].mRegister))
-				{
-					mIns[i + 2].mCode = BC_NOP;
-				}
-			}
-			if (i + 1 < mIns.Size())
-			{
-				if (mIns[i].mCode == BC_STORE_REG_16 && mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i].mRegister == mIns[i + 1].mRegister)
-				{
-					mIns[i + 1].mCode = BC_NOP;
-					if (mIns[i + 1].mRegisterFinal)
+					if (mIns[i].mCode == BC_STORE_REG_16 && mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i + 1].mCode = BC_NOP;
+						if (mIns[i + 1].mRegisterFinal)
+							mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_LOAD_REG_16 && mIns[i + 1].mCode == BC_STORE_REG_16 && mIns[i].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_32 && mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i + 1].mCode = BC_NOP;
+						if (mIns[i + 1].mRegisterFinal)
+							mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_LOAD_REG_32 && mIns[i + 1].mCode == BC_STORE_REG_32 && mIns[i].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_16 && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i].mCode = BC_ADDR_REG;
+						mIns[i].mRegister = BC_REG_ACCU;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i].LoadsRegister(mIns[i + 1].mRegister) && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i].mRegister = BC_REG_ACCU;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i].LoadsRegister(mIns[i + 1].mRegister) && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i].mRegister = BC_REG_ACCU;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_16 && mIns[i + 1].StoresRegister(mIns[i].mRegister) && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i + 1].mRegister = BC_REG_ACCU;
 						mIns[i].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_LOAD_REG_16 && mIns[i + 1].mCode == BC_STORE_REG_16 && mIns[i].mRegister == mIns[i + 1].mRegister)
-				{
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_32 && mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i].mRegister == mIns[i + 1].mRegister)
-				{
-					mIns[i + 1].mCode = BC_NOP;
-					if (mIns[i + 1].mRegisterFinal)
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_32 && mIns[i + 1].StoresRegister(mIns[i].mRegister) && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i + 1].mRegister = BC_REG_ACCU;
 						mIns[i].mCode = BC_NOP;
-					progress = true;
+						progress = true;
+					}
+					else if (mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i].LoadsRegister(mIns[i + 1].mRegister) && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i].mRegister = BC_REG_ACCU;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_LOAD_LOCAL_16 && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i].mRegister = BC_REG_ADDR;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_LOAD_ABS_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i].mCode = BC_LOAD_ABS_I8;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_LOAD_LOCAL_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i].mCode = BC_LOAD_LOCAL_I8;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_LOAD_ADDR_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i].mCode = BC_LOAD_ADDR_I8;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
 				}
-				else if (mIns[i].mCode == BC_LOAD_REG_32 && mIns[i + 1].mCode == BC_STORE_REG_32 && mIns[i].mRegister == mIns[i + 1].mRegister)
-				{
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_16 && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i].mCode = BC_ADDR_REG;
-					mIns[i].mRegister = BC_REG_ACCU;
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i].LoadsRegister(mIns[i + 1].mRegister) && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i].mRegister = BC_REG_ACCU;
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i].LoadsRegister(mIns[i + 1].mRegister) && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i].mRegister = BC_REG_ACCU;
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_16 && mIns[i + 1].StoresRegister(mIns[i].mRegister) && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i + 1].mRegister = BC_REG_ACCU;
+
+				if ((mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32) && accuTemp == mIns[i].mRegister)
 					mIns[i].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_STORE_REG_32 && mIns[i + 1].StoresRegister(mIns[i].mRegister) && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i + 1].mRegister = BC_REG_ACCU;
+				if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister == addrTemp)
 					mIns[i].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i].LoadsRegister(mIns[i + 1].mRegister) && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i].mRegister = BC_REG_ACCU;
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_LOAD_LOCAL_16 && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i].mRegister = BC_REG_ADDR;
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_LOAD_ABS_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i].mCode = BC_LOAD_ABS_I8;
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_LOAD_LOCAL_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i].mCode = BC_LOAD_LOCAL_I8;
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
-				else if (mIns[i].mCode == BC_LOAD_ADDR_U8 && mIns[i + 1].mCode == BC_CONV_I8_I16 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
-				{
-					mIns[i].mCode = BC_LOAD_ADDR_I8;
-					mIns[i + 1].mCode = BC_NOP;
-					progress = true;
-				}
+
+				if (mIns[i].ChangesAccu())
+					accuTemp = -1;
+				if (mIns[i].ChangesAddr())
+					addrTemp = -1;
+				if (accuTemp != -1 && mIns[i].ChangesRegister(accuTemp))
+					accuTemp = -1;
+				if (addrTemp != -1 && mIns[i].ChangesRegister(addrTemp))
+					addrTemp = -1;
+
+				if (mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32)
+					accuTemp = mIns[i].mRegister;
+				if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister != BC_REG_ACCU)
+					addrTemp = mIns[i].mRegister;
 			}
 
-			if ((mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32) && accuTemp == mIns[i].mRegister)
-				mIns[i].mCode = BC_NOP;
-			if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister == addrTemp)
-				mIns[i].mCode = BC_NOP;
+			if (progress)
+				changed = true;
+		} while (progress);
 
-			if (mIns[i].ChangesAccu())
-				accuTemp = -1;
-			if (mIns[i].ChangesAddr())
-				addrTemp = -1;
-			if (accuTemp != -1 && mIns[i].ChangesRegister(accuTemp))
-				accuTemp = -1;
-			if (addrTemp != -1 && mIns[i].ChangesRegister(addrTemp))
-				addrTemp = -1;
+		if (mTrueJump && mTrueJump->PeepHoleOptimizer())
+			changed = true;
+		if (mFalseJump && mFalseJump->PeepHoleOptimizer())
+			changed = true;
+	}
 
-			if (mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32)
-				accuTemp = mIns[i].mRegister;
-			if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister != BC_REG_ACCU)
-				addrTemp = mIns[i].mRegister;
-		}
-	} while (progress);
+	return changed;
 }
 
 void ByteCodeBasicBlock::Assemble(ByteCodeGenerator* generator)
@@ -2748,8 +2767,6 @@ void ByteCodeBasicBlock::Assemble(ByteCodeGenerator* generator)
 	if (!mAssembled)
 	{
 		mAssembled = true;
-
-		PeepHoleOptimizer();
 
 		for (int i = 0; i < mIns.Size(); i++)
 			mIns[i].Assemble(generator, this);
@@ -2987,6 +3004,7 @@ void ByteCodeBasicBlock::CalculateOffset(int& total)
 }
 
 ByteCodeProcedure::ByteCodeProcedure(void)
+	: mBlocks(nullptr)
 {
 }
 
@@ -3000,13 +3018,16 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 {
 	mID = proc->mID;
 
-	tblocks = new ByteCodeBasicBlock * [proc->mBlocks.Size()];
-	for (int i = 0; i < proc->mBlocks.Size(); i++)
+	mNumBlocks = proc->mBlocks.Size();
+
+	tblocks = new ByteCodeBasicBlock * [mNumBlocks];
+	for (int i = 0; i < mNumBlocks; i++)
 		tblocks[i] = nullptr;
 
 	int		tempSave = proc->mTempSize > 16 ? proc->mTempSize - 16 : 0;
 
 	entryBlock = new ByteCodeBasicBlock();
+	mBlocks.Push(entryBlock);
 	entryBlock->PutCode(generator, BC_ENTER); entryBlock->PutWord(proc->mLocalSize + 2 + tempSave); entryBlock->PutByte(tempSave);
 
 	if (!proc->mLeafProcedure)
@@ -3018,6 +3039,7 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 	tblocks[0] = entryBlock;
 
 	exitBlock = new ByteCodeBasicBlock();
+	mBlocks.Push(exitBlock);
 
 	if (!proc->mLeafProcedure)
 	{
@@ -3027,6 +3049,11 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 	exitBlock->PutCode(generator, BC_RETURN); exitBlock->PutByte(tempSave); exitBlock->PutWord(proc->mLocalSize + 2 + tempSave);
 
 	entryBlock->Compile(proc, this, proc->mBlocks[0]);
+
+	bool	progress = false;
+	ResetVisited();
+	progress = entryBlock->PeepHoleOptimizer();
+
 	entryBlock->Assemble(generator);
 
 	int	total;
@@ -3049,12 +3076,20 @@ ByteCodeBasicBlock* ByteCodeProcedure::CompileBlock(InterCodeProcedure* iproc, I
 		return tblocks[sblock->mIndex];
 
 	ByteCodeBasicBlock	*	block = new ByteCodeBasicBlock();
+	mBlocks.Push(block);
 	tblocks[sblock->mIndex] = block;
 	block->Compile(iproc, this, sblock);
 	
 	return block;
 }
 
+void ByteCodeProcedure::ResetVisited(void)
+{
+	for (int i = 0; i < mBlocks.Size(); i++)
+	{
+		mBlocks[i]->mVisited = false;
+	}
+}
 
 ByteCodeGenerator::ByteCodeGenerator(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker)

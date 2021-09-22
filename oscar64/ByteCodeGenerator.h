@@ -176,6 +176,8 @@ public:
 	bool StoresRegister(uint32 reg) const;
 
 	bool IsCommutative(void) const;
+
+	bool ValueForwarding(ByteCodeInstruction*& accuIns, ByteCodeInstruction*& addrIns);
 };
 
 class ByteCodeBasicBlock
@@ -192,7 +194,7 @@ public:
 	GrowingArray<LinkerReference>	mRelocations;
 
 	int						mOffset, mSize;
-	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled;
+	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mVisited;
 
 	ByteCodeBasicBlock(void);
 
@@ -230,7 +232,7 @@ public:
 	void BinaryIntOperator(InterCodeProcedure* proc, const InterInstruction * ins, ByteCode code);
 	void NumericConversion(InterCodeProcedure* proc, const InterInstruction * ins);
 
-	void PeepHoleOptimizer(void);
+	bool PeepHoleOptimizer(void);
 };
 
 class ByteCodeGenerator;
@@ -243,11 +245,14 @@ public:
 
 	ByteCodeBasicBlock	* entryBlock, * exitBlock;
 	ByteCodeBasicBlock	** tblocks;
+	GrowingArray < ByteCodeBasicBlock*>	 mBlocks;
 
-	int		mProgSize, mID;
+	int		mProgSize, mID, mNumBlocks;
 
 	void Compile(ByteCodeGenerator* generator, InterCodeProcedure* proc);
 	ByteCodeBasicBlock * CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
+
+	void ResetVisited(void);
 
 protected:
 	ByteCodeDisassembler	mDisassembler;
