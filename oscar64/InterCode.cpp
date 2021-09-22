@@ -505,7 +505,8 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					mInstructions[i]->mTType != ins->mTType ||
 					mInstructions[i]->mIntValue != ins->mIntValue ||
 					mInstructions[i]->mMemory != ins->mMemory ||
-					mInstructions[i]->mVarIndex != ins->mVarIndex))
+					mInstructions[i]->mVarIndex != ins->mVarIndex ||
+					mInstructions[i]->mLinkerObject != ins->mLinkerObject))
 			{
 				i++;
 			}

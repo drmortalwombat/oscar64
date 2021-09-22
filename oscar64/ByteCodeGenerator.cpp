@@ -1436,7 +1436,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 						lins.mRegister = BC_REG_ADDR;
 						lins.mValue = index;
 						mIns.Push(lins);
-						ByteCodeInstruction	bins((ins->mTType == IT_BOOL || ins->mTType == IT_INT8) ? BC_LOAD_LOCAL_8 : BC_LOAD_ADDR_U8);
+						ByteCodeInstruction	bins((ins->mTType == IT_BOOL || ins->mTType == IT_INT8) ? BC_LOAD_ADDR_8 : BC_LOAD_ADDR_U8);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 						bins.mValue = 0;
 						mIns.Push(bins);

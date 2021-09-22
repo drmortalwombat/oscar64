@@ -1960,6 +1960,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock);
 			vl = Dereference(proc, block, vl);
+			vl = CoerceType(proc, block, vl, TheSignedIntTypeDeclaration);
 
 			InterCodeBasicBlock	* dblock = nullptr;
 			InterCodeBasicBlock* sblock = block;
@@ -1983,6 +1984,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					vr = TranslateExpression(procType, proc, sblock, cexp->mLeft, breakBlock, continueBlock);
 					vr = Dereference(proc, sblock, vr);
+					vr = CoerceType(proc, sblock, vr, TheSignedIntTypeDeclaration);
 
 					InterInstruction	*	cins = new InterInstruction();
 					cins->mCode = IC_RELATIONAL_OPERATOR;
