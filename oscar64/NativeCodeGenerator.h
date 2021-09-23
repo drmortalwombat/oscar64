@@ -51,6 +51,8 @@ public:
 	bool LoadsAccu(void) const;
 	bool ChangesAccuAndFlag(void) const;
 	bool ChangesAddress(void) const;
+	bool ChangesAccu(void) const;
+	bool RequiresAccu(void) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
 };
@@ -101,7 +103,7 @@ public:
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void NumericConversion(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
-	void CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc);
+	NativeCodeBasicBlock * CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc);
 
 	void CallAssembler(InterCodeProcedure* proc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
@@ -124,7 +126,8 @@ public:
 	bool MergeBasicBlocks(void);
 
 	bool MoveLoadStoreUp(int at);
-	bool FindAddressSumY(int at, int reg, int& breg, int& ireg);
+	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
+	bool FindGlobalAddress(int at, int reg, int& apos);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
 

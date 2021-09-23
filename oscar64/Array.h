@@ -237,6 +237,18 @@ public:
 		return array[--size];
 	}
 
+	void Insert(int at, T t)
+	{
+		Grow(size + 1, false);
+		int	j = size - 1;
+		while (j > at)
+		{
+			array[j] = array[j - 1];
+			j--;
+		}
+		array[at] = t;
+	}
+
 	__forceinline T Top(void) const
 	{
 		return array[size - 1];

@@ -286,6 +286,7 @@ int nformf(const sinfo * si, char * str, float f, char type)
 char * sformat(char * buff, const char * fmt, int * fps, bool print)
 {
 	const char	*	p = fmt;
+	char 	* 	bp = buff;
 	char		c;
 	char		bi = 0;
 	sinfo		si;
@@ -298,11 +299,11 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 			{
 				if (print)
 				{
-					buff[bi] = 0;
-					puts(buff);
+					bp[bi] = 0;
+					puts(bp);
 				}
 				else
-					buff += bi;
+					bp += bi;
 				bi = 0;
 			}
 			c = *p++;
@@ -353,21 +354,21 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 
 			if (c == 'd')
 			{
-				bi = nformi(&si, buff, *fps++, true);
+				bi = nformi(&si, bp, *fps++, true);
 			}
 			else if (c == 'u')
 			{
-				bi = nformi(&si, buff, *fps++, false);
+				bi = nformi(&si, bp, *fps++, false);
 			}
 			else if (c == 'x')
 			{
 				si.base = 16;
-				bi = nformi(&si, buff, *fps++, false);
+				bi = nformi(&si, bp, *fps++, false);
 			}
 #ifndef NOFLOAT
 			else if (c == 'f' || c == 'g' || c == 'e')
 			{
-				bi = nformf(&si, buff, *(float *)fps, c);
+				bi = nformf(&si, bp, *(float *)fps, c);
 				fps ++;
 				fps ++;
 			}
@@ -380,49 +381,49 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 				else
 				{
 					while (char c = *sp++)
-						*buff++ = c;
+						*bp++ = c;
 				}
 			}
 			else if (c == 'c')
 			{
-				buff[bi++] = *fps++;
+				bp[bi++] = *fps++;
 			}
 			else if (c)
 			{
-				buff[bi++] = c;
+				bp[bi++] = c;
 			}
 		}
 		else
 		{
-			buff[bi++] = c;
-			if (bi >= 10)
+			bp[bi++] = c;
+			if (bi >= 40)
 			{
 				if (print)
 				{
-					buff[bi] = 0;
-					puts(buff);
+					bp[bi] = 0;
+					puts(bp);
 				}
 				else
-					buff += bi;
+					bp += bi;
 				bi = 0;
 			}
 		}
 	}
-	buff[bi] = 0;
+	bp[bi] = 0;
 	if (bi)
 	{
 		if (print)
-			puts(buff);
+			puts(bp);
 		else
-			buff += bi;
+			bp += bi;
 	}
 
-	return buff;
+	return bp;
 }
 
 void printf(const char * fmt, ...)
 {
-	char	buff[40];
+	char	buff[50];
 	sformat(buff, fmt, (int *)&fmt + 1, true);
 }
 
