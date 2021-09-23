@@ -180,6 +180,8 @@ public:
 	int				mOffset;
 	const char	*	mLine;
 
+	char			mCharMap[256];
+
 	const Ident	*	mTokenIdent;
 	char			mTokenString[1024], mTokenChar;
 

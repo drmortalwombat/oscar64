@@ -2531,6 +2531,47 @@ void Parser::ParsePragma(void)
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "charmap")) 
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+			if (mScanner->mToken == TK_INTEGER)
+			{
+				int	cindex = mScanner->mTokenInteger;
+				mScanner->NextToken();
+				ConsumeToken(TK_COMMA);
+
+				if (mScanner->mToken == TK_INTEGER)
+				{
+					int	ccode = mScanner->mTokenInteger;
+					int	ccount = 1;
+					mScanner->NextToken();
+					if (ConsumeTokenIf(TK_COMMA))
+					{
+						if (mScanner->mToken == TK_INTEGER)
+						{
+							ccount = mScanner->mTokenInteger;
+							mScanner->NextToken();
+						}
+						else
+							mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Character run expected");
+					}
+
+					for (int i = 0; i < ccount; i++)
+					{
+						mScanner->mCharMap[cindex] = ccode;
+						cindex = (cindex + 1) & 255;
+						ccode = (ccode + 1) & 255;
+					}
+				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Character code expected");
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Character index expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else
 		{
 			mScanner->NextToken();
