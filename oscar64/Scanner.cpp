@@ -252,9 +252,11 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 {
 	mOffset = 0;
 	mLine = mPreprocessor->mLine;
-	mPrepCondition = 0;
-	mPrepPending = 0;
+	mPrepCondFalse = 0;
+	mPrepCondDepth = 0;
+	mPrepCondExit = 0;
 	mAssemblerMode = false;
+	mPreprocessorMode = false;
 	mMacroExpansion = nullptr;
 
 	mDefines = new MacroDict();
@@ -358,12 +360,70 @@ void Scanner::NextToken(void)
 		NextRawToken();
 		if (mToken == TK_PREP_ENDIF)
 		{
-			if (mPrepCondition > 0)
-				mPrepCondition--;
-			else if (mPrepPending > 0)
-				mPrepPending--;
+			if (mPrepCondFalse > 0)
+				mPrepCondFalse--;
+			else if (mPrepCondExit)
+				mPrepCondExit = false;
+			else if (mPrepCondDepth > 0)
+				mPrepCondDepth--;
 			else
 				mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Unexpected #endif");
+		}
+		else if (mToken == TK_PREP_ELSE)
+		{
+			if (mPrepCondExit)
+			{
+
+			}
+			else if (mPrepCondFalse == 1)
+			{
+				mPrepCondFalse = 0;
+				mPrepCondDepth++;
+			}
+			else if (mPrepCondFalse > 1)
+			{
+			}
+			else if (mPrepCondDepth > 0)
+			{
+				mPrepCondExit = true;
+			}
+			else
+				mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Unexpected #else");
+		}
+		else if (mToken == TK_PREP_ELIF)
+		{
+			if (mPrepCondExit)
+			{
+
+			}
+			else if (mPrepCondFalse == 1)
+			{
+				mPreprocessorMode = true;
+				mPrepCondFalse = 0;
+
+				NextToken();
+				int v = PrepParseConditional();
+				if (v)
+				{
+					mPrepCondFalse = 0;
+					mPrepCondDepth++;
+				}
+				else
+					mPrepCondFalse++;
+
+				mPreprocessorMode = false;
+				if (mToken != TK_EOL)
+					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "End of line expected");
+			}
+			else if (mPrepCondFalse > 1)
+			{
+			}
+			else if (mPrepCondDepth > 0)
+			{
+				mPrepCondExit = true;
+			}
+			else
+				mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Unexpected #else");
 		}
 		else if (mToken == TK_EOF)
 		{
@@ -372,10 +432,10 @@ void Scanner::NextToken(void)
 			mToken = TK_NONE;
 			mOffset = 0;
 		}
-		else if (mPrepCondition > 0)
+		else if (mPrepCondFalse > 0 || mPrepCondExit)
 		{
-			if (mToken == TK_PREP_IFDEF || mToken == TK_PREP_IFNDEF)
-				mPrepCondition++;
+			if (mToken == TK_PREP_IFDEF || mToken == TK_PREP_IFNDEF || mToken == TK_PREP_IF)
+				mPrepCondFalse++;
 		}
 		else if (mToken == TK_PREP_INCLUDE)
 		{
@@ -439,9 +499,9 @@ void Scanner::NextToken(void)
 			{
 				Macro	*	 def = mDefines->Lookup(mTokenIdent);
 				if (def)
-					mPrepPending++;
+					mPrepCondDepth++;
 				else
-					mPrepCondition++;
+					mPrepCondFalse++;
 			}
 		}
 		else if (mToken == TK_PREP_IFNDEF)
@@ -451,10 +511,23 @@ void Scanner::NextToken(void)
 			{
 				Macro	* def = mDefines->Lookup(mTokenIdent);
 				if (!def)
-					mPrepPending++;
+					mPrepCondDepth++;
 				else
-					mPrepCondition++;
+					mPrepCondFalse++;
 			}
+		}
+		else if (mToken == TK_PREP_IF)
+		{
+			mPreprocessorMode = true;
+			NextToken();
+			int v = PrepParseConditional();
+			if (v)
+				mPrepCondDepth++;
+			else
+				mPrepCondFalse++;
+			mPreprocessorMode = false;
+			if (mToken != TK_EOL)
+				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "End of line expected");
 		}
 		else if (mToken == TK_IDENT)
 		{
@@ -551,7 +624,7 @@ void Scanner::NextRawToken(void)
 
 		while (IsWhitespace(mTokenChar))
 		{
-			if (mAssemblerMode && mTokenChar == '\n')
+			if ((mAssemblerMode || mPreprocessorMode) && mTokenChar == '\n')
 			{
 				mToken = TK_EOL;
 				NextChar();
@@ -1320,4 +1393,235 @@ void Scanner::ParseNumberToken(void)
 			mToken = TK_NUMBER;
 		}
 	}
+}
+
+
+int64 Scanner::PrepParseSimple(void)
+{
+	int64	v = 0;
+	
+	switch (mToken)
+	{
+	case TK_INTEGER:
+		v = mTokenInteger;
+		NextToken();
+		break;
+	case TK_SUB:
+		NextToken();
+		v = -PrepParseSimple();
+		break;
+	case TK_LOGICAL_NOT:
+		NextToken();
+		v = !PrepParseSimple();
+		break;
+	case TK_BINARY_NOT:
+		NextToken();
+		v = ~PrepParseSimple();
+		break;
+	case TK_OPEN_PARENTHESIS:
+		NextToken();
+		v = PrepParseConditional();
+		if (mToken == TK_CLOSE_PARENTHESIS)
+			NextToken();
+		else
+			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "')' expected");
+		break;
+	default:
+		mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor token", TokenName(mToken));
+		if (mToken != TK_EOL)
+			NextToken();
+	}
+	
+	return v;
+}
+
+int64 Scanner::PrepParseMul(void)
+{
+	int64	v = PrepParseSimple();
+	int64	u;
+	for (;;)
+	{
+		switch (mToken)
+		{
+		case TK_MUL:
+			NextToken();
+			v *= PrepParseSimple();
+			break;
+		case TK_DIV:
+			NextToken();
+			u = PrepParseSimple();
+			if (u == 0)
+				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Division by zero");
+			else
+				v /= u;
+			break;
+		case TK_MOD:
+			u = PrepParseSimple();
+			if (u == 0)
+				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Division by zero");
+			else
+				v %= u;
+			break;
+		default:
+			return v;
+		}
+	}
+}
+
+int64 Scanner::PrepParseAdd(void)
+{
+	int64	v = PrepParseMul();
+	for (;;)
+	{
+		switch (mToken)
+		{
+		case TK_ADD:
+			NextToken();
+			v += PrepParseMul();
+			break;
+		case TK_SUB:
+			NextToken();
+			v -= PrepParseMul();
+			break;
+		default:
+			return v;
+		}
+	}
+}
+
+int64 Scanner::PrepParseShift(void)
+{
+	int64	v = PrepParseAdd();
+	for (;;)
+	{
+		switch (mToken)
+		{
+		case TK_LEFT_SHIFT:
+			NextToken();
+			v <<= PrepParseAdd();
+			break;
+		case TK_RIGHT_SHIFT:
+			NextToken();
+			v >>= PrepParseAdd();
+			break;
+		default:
+			return v;
+		}
+	}
+}
+
+int64 Scanner::PrepParseRel(void)
+{
+	int64	v = PrepParseShift();
+	for (;;)
+	{
+		switch (mToken)
+		{
+		case TK_LESS_THAN:
+			NextToken();
+			v = v < PrepParseShift();
+			break;
+		case TK_GREATER_THAN:
+			NextToken();
+			v = v > PrepParseShift();
+			break;
+		case TK_LESS_EQUAL:
+			NextToken();
+			v = v <= PrepParseShift();
+			break;
+		case TK_GREATER_EQUAL:
+			NextToken();
+			v = v >= PrepParseShift();
+			break;
+		case TK_EQUAL:
+			NextToken();
+			v = v == PrepParseShift();
+			break;
+		case TK_NOT_EQUAL:
+			NextToken();
+			v = v != PrepParseShift();
+			break;
+		default:
+			return v;
+		}
+	}
+
+}
+
+int64 Scanner::PrepParseBinaryAnd(void)
+{
+	int64	v = PrepParseRel();
+	while (mToken == TK_BINARY_AND)
+	{
+		NextToken();
+		v &= PrepParseRel();
+	}
+	return v;
+}
+
+int64 Scanner::PrepParseBinaryXor(void)
+{
+	int64	v = PrepParseBinaryAnd();
+	while (mToken == TK_BINARY_XOR)
+	{
+		NextToken();
+		v ^= PrepParseBinaryAnd();
+	}
+	return v;
+}
+
+int64 Scanner::PrepParseBinaryOr(void)
+{
+	int64	v = PrepParseBinaryXor();
+	while (mToken == TK_BINARY_OR)
+	{
+		NextToken();
+		v |= PrepParseBinaryXor();
+	}
+	return v;
+}
+
+int64 Scanner::PrepParseLogicalAnd(void) 
+{
+	int64	v = PrepParseBinaryOr();
+	while (mToken == TK_LOGICAL_AND)
+	{
+		NextToken();
+		if (!PrepParseBinaryOr())
+			v = 0;
+	}
+	return v;
+}
+
+int64 Scanner::PrepParseLogicalOr(void)
+{
+	int64	v = PrepParseLogicalAnd();
+	while (mToken == TK_LOGICAL_OR)
+	{
+		NextToken();
+		if (PrepParseLogicalAnd())
+			v = 1;
+	}
+	return v;
+}
+
+int64 Scanner::PrepParseConditional(void)
+{
+	int64	v = PrepParseLogicalOr();
+	if (mToken == TK_QUESTIONMARK)
+	{
+		NextToken();
+		int64	vt = PrepParseConditional();
+		if (mToken == TK_COLON)
+			NextToken();
+		else
+			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "':' expected");
+		int64	vf = PrepParseConditional();
+		if (v)
+			v = vt;
+		else
+			v = vf;
+	}
+
+	return v;
 }

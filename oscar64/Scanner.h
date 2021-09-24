@@ -175,7 +175,8 @@ public:
 	Errors* mErrors;
 	Preprocessor	*	mPreprocessor;
 
-	int				mPrepCondition, mPrepPending;
+	int				mPrepCondFalse, mPrepCondDepth;
+	bool			mPrepCondExit;
 
 	int				mOffset;
 	const char	*	mLine;
@@ -194,6 +195,7 @@ public:
 	void SetAssemblerMode(bool mode);
 
 	bool			mAssemblerMode;
+	bool			mPreprocessorMode;
 
 	void AddMacro(const Ident* ident, const char* value);
 protected:
@@ -214,5 +216,17 @@ protected:
 	void CharToken(void);
 	bool NextChar(void);
 	void ParseNumberToken(void);
+
+	int64 PrepParseSimple(void);
+	int64 PrepParseMul(void);
+	int64 PrepParseAdd(void);
+	int64 PrepParseShift(void);
+	int64 PrepParseRel(void);
+	int64 PrepParseBinaryAnd(void);
+	int64 PrepParseBinaryXor(void);
+	int64 PrepParseBinaryOr(void);
+	int64 PrepParseLogicalAnd(void);
+	int64 PrepParseLogicalOr(void);
+	int64 PrepParseConditional(void);
 
 };

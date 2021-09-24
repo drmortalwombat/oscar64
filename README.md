@@ -13,19 +13,24 @@ The resulting compiler is a frankenstein constructed from a converted javascript
 
 The performance of interpreted code is clearly not as good as native machine code but the penalty for 16bit code is around 40-50% and less than 10% for floating point.  Code that can use 8bit my suffer up to a factor of 10 to 20.
 
+The goal is to implement the actual C standard and not some subset for performance reasons.  So the compiler must support:
+
+* Floating point
+* Recursion
+* Multi dimensional arrays
+* Pointer to structs
+
+
 ## Limits and Errors
 
-The first release of the compiler is severely limited considering it is only two weeks old, so there is quite a lot missing or broken.  I hope to cross out most of the problems in the coming weeks.
+After four weeks, the compiler has now matured significantly.  There are still several open areas.
 
 ### Language
 
-* No union type
 * No long integer
 * No struct function return
 * Missing const checks for structs and enums
-* No static variables in functions
 * Missing warnings for all kind of abuses
-* no #if in preprocessor
 
 ### Linker
 
@@ -34,7 +39,6 @@ The first release of the compiler is severely limited considering it is only two
 
 ### Standard Libraries
 
-* Limited formatting in printf
 * No file functions
 
 ### Runtime
@@ -46,12 +50,11 @@ The first release of the compiler is severely limited considering it is only two
 ### Optimizing
 
 * All global variables are considered volatile
-* No loop opmtimization
+* Simple loop opmtimization
 * Poor bookeeping of callee saved registers
-* Missing livetime reduction of intermediates
-* No block domination analysis
+* Partial block domination analysis
 * No register use for arguments
-* Auto variables places on fixed stack for known call sequence
+* Auto variables placed on fixed stack for known call sequence
 
 ### Intermediate code generation
 
@@ -60,8 +63,23 @@ The first release of the compiler is severely limited considering it is only two
 
 ### Native code generation
 
-* Calling non native functions missing
 * More byte operation optimisation required
+* Simple loop detection and optimisation not complete
+
+## Compiler arguments
+
+The compiler is command line driven, and creates an executable .prg file.
+
+    oscar64 {-i=includePath} [-o=output.prg] [-cr=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}
+	
+* -i : additional include paths
+* -o : optional output file name
+* -cr : alternative runtime library, replaces the crt.c
+* -e : execute the result in the integrated emulator
+* -n : create pure native code for all functions
+* -d : define a symbol (e.g. NOFLOAT to avoid float code in printf)
+
+A list of source files can be provided.
 
 ## Implementation Details
 
@@ -69,6 +87,9 @@ The compiler does a full program compile, the linker step is part of the compila
 		
     #pragma compile("stdio.c")
 
+The character map for string and char constants can be changed with a pragma to match a custon character set or PETSCII.
+
+    #pragma charmap(char, code [,count])
 
 The byte code interpreter is compiled by the compiler itself and placed in the source file "crt.c".  Functions implementing byte codes are marked with a pragma:
 
@@ -119,7 +140,6 @@ Routines can be marked to be compiled to 6502 machine code with the native pragm
     }
 
     #pragma native(Plot)
-
 
 
 
