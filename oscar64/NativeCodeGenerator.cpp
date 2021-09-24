@@ -2800,8 +2800,16 @@ void NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, NativeCodePr
 						insl = NativeCodeInstruction(atype, ASMIM_ZERO_PAGE, treg);
 						insh = NativeCodeInstruction(atype, ASMIM_ZERO_PAGE, treg + 1);
 
-						LoadValueToReg(proc, sins1, treg, nullptr, nullptr);
-						LoadValueToReg(proc, sins0, treg, &insl, &insh);
+						if (sins1->mTTemp == ins->mTTemp)
+						{
+							LoadValueToReg(proc, sins1, treg, nullptr, nullptr);
+							LoadValueToReg(proc, sins0, treg, &insl, &insh);
+						}
+						else
+						{
+							LoadValueToReg(proc, sins0, treg, nullptr, nullptr);
+							LoadValueToReg(proc, sins1, treg, &insl, &insh);
+						}
 					}
 					else if (sins1)
 					{
@@ -3384,6 +3392,9 @@ void NativeCodeBasicBlock::UnaryOperator(InterCodeProcedure* proc, NativeCodePro
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 2));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]] + 3));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+
+			NativeCodeGenerator::Runtime& frx(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplita")));
+			mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frx.mOffset, frx.mLinkerObject, NCIF_RUNTIME));
 
 			if (ins->mOperator == IA_FLOOR)
 			{
@@ -4813,6 +4824,7 @@ NativeCodeBasicBlock::NativeCodeBasicBlock(void)
 	mCopied = false;
 	mKnownShortBranch = false;
 	mBypassed = false;
+	mAssembled = false;
 }
 
 NativeCodeBasicBlock::~NativeCodeBasicBlock(void)
@@ -4906,8 +4918,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	tblocks[0] = entryBlock;
 
-	exitBlock = new NativeCodeBasicBlock();
-	exitBlock->mNoFrame = mNoFrame;
+	exitBlock = AllocateBlock();
 	mBlocks.Push(exitBlock);
 
 	if (!proc->mLeafProcedure)
@@ -4960,7 +4971,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	CompileInterBlock(proc, proc->mBlocks[0], entryBlock);
 
-#if 1
+#if 0
 	bool	changed;
 	do
 	{
@@ -5119,6 +5130,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			else if (i + 2 < iblock->mInstructions.Size() &&
 				ins->mOperandSize >= 2 &&
 				iblock->mInstructions[i + 1]->mCode == IC_LOAD && iblock->mInstructions[i + 1]->mOperandSize == 2 &&
+				iblock->mInstructions[i + 1]->mTTemp != ins->mTTemp &&
 				iblock->mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR &&
 				iblock->mInstructions[i + 2]->mSTemp[0] == iblock->mInstructions[i + 1]->mTTemp && iblock->mInstructions[i + 2]->mSFinal[0] &&
 				iblock->mInstructions[i + 2]->mSTemp[1] == ins->mTTemp && iblock->mInstructions[i + 2]->mSFinal[1])
@@ -5129,6 +5141,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			else if (i + 2 < iblock->mInstructions.Size() &&
 				ins->mOperandSize >= 2 &&
 				iblock->mInstructions[i + 1]->mCode == IC_LOAD && iblock->mInstructions[i + 1]->mOperandSize == 2 &&
+				iblock->mInstructions[i + 1]->mTTemp != ins->mTTemp &&
 				iblock->mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR &&
 				iblock->mInstructions[i + 2]->mSTemp[1] == iblock->mInstructions[i + 1]->mTTemp && iblock->mInstructions[i + 2]->mSFinal[1] &&
 				iblock->mInstructions[i + 2]->mSTemp[0] == ins->mTTemp && iblock->mInstructions[i + 2]->mSFinal[0])

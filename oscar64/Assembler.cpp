@@ -1,5 +1,3 @@
-#pragma once
-
 #include "Assembler.h"
 #include <assert.h>
 

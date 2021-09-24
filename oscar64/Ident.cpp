@@ -1,4 +1,5 @@
 #include "Ident.h"
+#include "MachineTypes.h"
 #include <string.h>
 
 Ident::~Ident()
@@ -21,7 +22,7 @@ unsigned int IHash(const char* str)
 
 Ident::Ident(const char* str, unsigned int hash)
 {
-	ptrdiff_t	ssize = strlen(str);
+	int	ssize = strlen(str);
 	mString = new char[ssize + 1];
 	strcpy_s(mString, ssize + 1, str);
 

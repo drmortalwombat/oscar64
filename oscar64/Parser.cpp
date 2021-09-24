@@ -650,7 +650,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	else
 	{
 		exp = ParseRExpression();
-		if (dtype->mType == DT_TYPE_POINTER && exp->mDecType && exp->mDecType->mType == DT_TYPE_ARRAY)
+		if (dtype->mType == DT_TYPE_POINTER && exp->mDecType && exp->mDecType->mType == DT_TYPE_ARRAY && exp->mType == EX_CONSTANT)
 		{
 			Declaration* ndec = new Declaration(exp->mDecValue->mLocation, DT_CONST_POINTER);
 			ndec->mValue = exp;

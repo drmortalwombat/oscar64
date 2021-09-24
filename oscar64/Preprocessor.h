@@ -2,11 +2,12 @@
 
 #include "Errors.h"
 #include <stdio.h>
+#include "MachineTypes.h"
 
 class SourceFile
 {
 public:
-	char			mFileName[200];
+	char			mFileName[MAXPATHLEN];
 
 	SourceFile	*	mUp, * mNext;
 	Location		mLocation;
@@ -25,7 +26,7 @@ protected:
 class SourcePath
 {
 public:
-	char			mPathName[200];
+	char			mPathName[MAXPATHLEN];
 
 	SourcePath* mNext;
 

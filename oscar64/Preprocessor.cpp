@@ -65,6 +65,8 @@ bool SourceFile::Open(const char* name, const char* path)
 
 	if (!fopen_s(&mFile, fname, "r"))
 	{
+		printf("<%s>\n", fname);
+
 		_fullpath(mFileName, fname, sizeof(mFileName));
 		char* p = mFileName;
 		while (*p)

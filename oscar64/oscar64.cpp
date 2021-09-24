@@ -1,7 +1,10 @@
 #include <stdio.h>
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include "Compiler.h"
 
+#ifdef _WIN32
 bool GetProductAndVersion(char* strProductName, char* strProductVersion)
 {
 	// get the filename of the executable containing the version resource
@@ -46,7 +49,7 @@ bool GetProductAndVersion(char* strProductName, char* strProductVersion)
 
 	return true;
 }
-
+#endif
 
 int main(int argc, const char** argv)
 {
@@ -58,13 +61,17 @@ int main(int argc, const char** argv)
 		char	basePath[200], crtPath[200], includePath[200], targetPath[200];
 		char	strProductName[100], strProductVersion[200];
 
+#ifdef _WIN32
 		if (GetProductAndVersion(strProductName, strProductVersion))
 		{
 			printf("Starting %s %s\n", strProductName, strProductVersion);
 		}
 
 		DWORD length = ::GetModuleFileNameA(NULL, basePath, sizeof(basePath));
-
+#else
+		strcpy(basePath, argv[0]);
+		int length = strlen(basePath);
+#endif
 		while (length > 0 && basePath[length - 1] != '/' && basePath[length - 1] != '\\')
 			length--;
 

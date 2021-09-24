@@ -532,11 +532,12 @@ ByteCodeBasicBlock::ByteCodeBasicBlock(void)
 	mTrueLink = mFalseLink = NULL;
 	mOffset = 0x7fffffff;
 	mCopied = false;
+	mAssembled = false;
 	mKnownShortBranch = false;
 	mBypassed = false;
 }
 
-void ByteCodeBasicBlock::IntConstToAccu(__int64 val)
+void ByteCodeBasicBlock::IntConstToAccu(int64 val)
 {
 	ByteCodeInstruction	ins(BC_CONST_16);
 	ins.mRegister = BC_REG_ACCU;
@@ -565,7 +566,7 @@ void ByteCodeBasicBlock::FloatConstToWork(double val)
 }
 
 
-void ByteCodeBasicBlock::IntConstToAddr(__int64 val)
+void ByteCodeBasicBlock::IntConstToAddr(int64 val)
 {
 	ByteCodeInstruction	ins(BC_CONST_16);
 	ins.mRegister = BC_REG_ADDR;
@@ -2769,7 +2770,9 @@ void ByteCodeBasicBlock::Assemble(ByteCodeGenerator* generator)
 		mAssembled = true;
 
 		for (int i = 0; i < mIns.Size(); i++)
+		{
 			mIns[i].Assemble(generator, this);
+		}
 
 		if (this->mTrueJump)
 			this->mTrueJump->Assemble(generator);

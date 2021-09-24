@@ -246,7 +246,7 @@ Expression* Expression::ConstantFold(void)
 	{
 		if (mLeft->mDecValue->mType == DT_CONST_INTEGER && mRight->mDecValue->mType == DT_CONST_INTEGER)
 		{
-			__int64	ival, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
+			int64	ival, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
 
 			switch (mToken)
 			{

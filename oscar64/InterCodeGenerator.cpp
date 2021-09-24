@@ -1,5 +1,4 @@
 #include "InterCodeGenerator.h"
-#include <crtdbg.h>
 
 InterCodeGenerator::InterCodeGenerator(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker), mForceNativeCode(false)
@@ -648,7 +647,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vr = TranslateExpression(procType, proc, block, exp->mRight, breakBlock, continueBlock);
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock);
 
-			if (exp->mToken == TK_ASSIGN || !(vl.mType->mType == IT_POINTER && vr.mType->IsIntegerType() && (exp->mToken == TK_ASSIGN_ADD || exp->mToken == TK_ASSIGN_SUB)))
+			if (exp->mToken == TK_ASSIGN || !(vl.mType->mType == DT_TYPE_POINTER && vr.mType->IsIntegerType() && (exp->mToken == TK_ASSIGN_ADD || exp->mToken == TK_ASSIGN_SUB)))
 			{
 				if (!vl.mType->CanAssign(vr.mType))
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
@@ -2094,7 +2093,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	}
 	else if (data->mType == DT_CONST_INTEGER)
 	{
-		__int64	t = data->mInteger;
+		int64	t = data->mInteger;
 		for (int i = 0; i < data->mBase->mSize; i++)
 		{
 			dp[offset + i] = uint8(t & 0xff);
@@ -2103,7 +2102,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	}
 	else if (data->mType == DT_CONST_ADDRESS)
 	{
-		__int64	t = data->mInteger;
+		int64	t = data->mInteger;
 		dp[offset + 0] = uint8(t & 0xff);
 		dp[offset + 1] = t >> 8;
 	}
@@ -2111,7 +2110,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	{
 		union { float f; uint32 i; } cast;
 		cast.f = data->mNumber;
-		__int64	t = cast.i;
+		int64	t = cast.i;
 		for (int i = 0; i < 4; i++)
 		{
 			dp[offset + i] = t & 0xff;
@@ -2254,8 +2253,6 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	ins->mCode = IC_RETURN;
 	exitBlock->Append(ins);
 	exitBlock->Close(nullptr, nullptr);
-
-	_CrtCheckMemory();
 
 	proc->Close();
 

@@ -2,7 +2,7 @@
 
 #include <assert.h>
 
-typedef unsigned __int32		uint32;
+#include "MachineTypes.h"
 
 class NumberSet
 {
@@ -35,7 +35,7 @@ public:
 	int Size(void) { return size; }
 };
 
-__forceinline NumberSet& NumberSet::operator+=(int elem)
+inline NumberSet& NumberSet::operator+=(int elem)
 {
 	assert(elem >= 0 && elem < size);
 	bits[elem >> 5] |= (1UL << (elem & 31));
@@ -43,7 +43,7 @@ __forceinline NumberSet& NumberSet::operator+=(int elem)
 	return *this;
 }
 
-__forceinline NumberSet& NumberSet::operator-=(int elem)
+inline NumberSet& NumberSet::operator-=(int elem)
 {
 	assert(elem >= 0 && elem < size);
 	bits[elem >> 5] &= ~(1UL << (elem & 31));
@@ -51,7 +51,7 @@ __forceinline NumberSet& NumberSet::operator-=(int elem)
 	return *this;
 }
 
-__forceinline bool NumberSet::operator[](int elem) const
+inline bool NumberSet::operator[](int elem) const
 {
 	assert(elem >= 0 && elem < size);
 	return (bits[elem >> 5] & (1UL << (elem & 31))) != 0;
@@ -88,14 +88,14 @@ public:
 	int Index(int elem);
 };
 
-__forceinline bool FastNumberSet::operator[](int elem)
+inline bool FastNumberSet::operator[](int elem)
 {
 	uint32 dw = buffer[size + elem];
 
 	return (dw < uint32(num) && buffer[dw] == elem);
 }
 
-__forceinline FastNumberSet& FastNumberSet::operator+=(int elem)
+inline FastNumberSet& FastNumberSet::operator+=(int elem)
 {
 	uint32 dw = buffer[size + elem];
 
@@ -109,7 +109,7 @@ __forceinline FastNumberSet& FastNumberSet::operator+=(int elem)
 	return *this;
 }
 
-__forceinline FastNumberSet& FastNumberSet::operator-=(int elem)
+inline FastNumberSet& FastNumberSet::operator-=(int elem)
 {
 	uint32 dw = buffer[size + elem];
 
@@ -123,7 +123,7 @@ __forceinline FastNumberSet& FastNumberSet::operator-=(int elem)
 	return *this;
 }
 
-__forceinline int FastNumberSet::Element(int i)
+inline int FastNumberSet::Element(int i)
 {
 	if (i < num)
 		return buffer[i];

@@ -3,6 +3,7 @@
 #include <math.h>
 #include <string.h>
 #include <assert.h>
+#include "MachineTypes.h"
 
 
 const char* TokenNames[] = {
@@ -649,7 +650,7 @@ void Scanner::NextRawToken(void)
 			if (mAssemblerMode)
 			{
 				int	n = 0;
-				__int64	mant = 0;
+				int64	mant = 0;
 				while (NextChar())
 				{
 					if (mTokenChar >= '0' && mTokenChar <= '9')
@@ -888,7 +889,7 @@ void Scanner::NextRawToken(void)
 			if (mAssemblerMode)
 			{
 				int	n = 0;
-				__int64	mant = 0;
+				int64	mant = 0;
 				while (NextChar())
 				{
 					if (mTokenChar >= '0' && mTokenChar <= '9')
@@ -1203,7 +1204,7 @@ bool Scanner::NextChar(void)
 
 void Scanner::ParseNumberToken(void)
 {
-	unsigned __int64	mant = (int)mTokenChar - (int)'0';
+	uint64	mant = (int)mTokenChar - (int)'0';
 
 	NextChar();
 

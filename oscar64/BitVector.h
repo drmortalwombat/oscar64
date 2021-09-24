@@ -232,8 +232,7 @@ inline BitVector BitVector::operator*(const int n) const
 		if (dw < vv.dwsize)
 			vv.bits[dw++] = merge;
 
-		if (dw > vv.dwsize)
-			__asm int 3
+		assert(dw <= vv.dwsize);
 	}
 
 	return vv;

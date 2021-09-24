@@ -291,18 +291,18 @@ public:
 	InterType							mTType, mSType[3];
 	int									mTTemp, mSTemp[3];
 	bool								mSFinal[3];
-	__int64								mSIntConst[3];
+	int64								mSIntConst[3];
 	double								mSFloatConst[3];
 	InterMemory							mMemory;
 	InterOperator						mOperator;
 	int									mOperandSize;
 	int									mVarIndex;
-	__int64								mIntValue;
+	int64								mIntValue;
 	double								mFloatValue;
 	Location							mLocation;
 	LinkerObject					*	mLinkerObject;
 
-	bool								mInUse;
+	bool								mInUse, mInvariant;
 
 	InterInstruction(void);
 
@@ -385,10 +385,10 @@ class InterCodeBasicBlock
 {
 public:
 	int								mIndex, mNumEntries, mNumEntered;
-	InterCodeBasicBlock* mTrueJump, * mFalseJump;
+	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mDominator;
 	GrowingInstructionArray			mInstructions;
 
-	bool								mVisited, mInPath, mLoopHead;
+	bool							mVisited, mInPath, mLoopHead;
 
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
@@ -463,6 +463,9 @@ public:
 	bool IsLeafProcedure(void);
 
 	void PeepholeOptimization(void);
+	void SingleBlockLoopOptimisation(void);
+
+	InterCodeBasicBlock* PropagateDominator(InterCodeProcedure * proc);
 };
 
 class InterCodeModule;
@@ -478,7 +481,8 @@ protected:
 
 	void ResetVisited(void);
 public:
-	GrowingInterCodeBasicBlockPtrArray	mBlocks;	
+	InterCodeBasicBlock				*	mEntryBlock;
+	GrowingInterCodeBasicBlockPtrArray	mBlocks;
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize;
@@ -515,6 +519,7 @@ protected:
 	void TempForwarding(void);
 	void RemoveUnusedInstructions(void);
 	bool GlobalConstantPropagation(void);
+	void BuildDominators(void);
 
 	void DisassembleDebug(const char* name);
 };

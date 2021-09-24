@@ -3,7 +3,6 @@
 #include "InterCode.h"
 #include <stdio.h>
 #include <math.h>
-#include <crtdbg.h>
 
 int InterTypeSize[] = {
 	0,
@@ -86,7 +85,7 @@ void ValueSet::FlushCallAliases(void)
 	}
 }
 
-static __int64 ConstantFolding(InterOperator oper, __int64 val1, __int64 val2)
+static int64 ConstantFolding(InterOperator oper, int64 val1, int64 val2)
 {
 	switch (oper)
 	{
@@ -100,13 +99,13 @@ static __int64 ConstantFolding(InterOperator oper, __int64 val1, __int64 val2)
 		return val1 * val2;
 		break;
 	case IA_DIVU:
-		return (unsigned __int64)val1 / (unsigned __int64)val2;
+		return (uint64)val1 / (uint64)val2;
 		break;
 	case IA_DIVS:
 		return val1 / val2;
 		break;
 	case IA_MODU:
-		return (unsigned __int64)val1 % (unsigned __int64)val2;
+		return (uint64)val1 % (uint64)val2;
 		break;
 	case IA_MODS:
 		return val1 % val2;
@@ -130,7 +129,7 @@ static __int64 ConstantFolding(InterOperator oper, __int64 val1, __int64 val2)
 		return val1 << val2;
 		break;
 	case IA_SHR:
-		return (unsigned __int64)val1 >> (unsigned __int64)val2;
+		return (uint64)val1 >> (uint64)val2;
 		break;
 	case IA_SAR:
 		return val1 >> val2;
@@ -154,23 +153,23 @@ static __int64 ConstantFolding(InterOperator oper, __int64 val1, __int64 val2)
 		return val1 < val2 ? 1 : 0;
 		break;
 	case IA_CMPGEU:
-		return (unsigned __int64)val1 >= (unsigned __int64)val2 ? 1 : 0;
+		return (uint64)val1 >= (uint64)val2 ? 1 : 0;
 		break;
 	case IA_CMPLEU:
-		return (unsigned __int64)val1 <= (unsigned __int64)val2 ? 1 : 0;
+		return (uint64)val1 <= (uint64)val2 ? 1 : 0;
 		break;
 	case IA_CMPGU:
-		return (unsigned __int64)val1 > (unsigned __int64)val2 ? 1 : 0;
+		return (uint64)val1 > (uint64)val2 ? 1 : 0;
 		break;
 	case IA_CMPLU:
-		return (unsigned __int64)val1 < (unsigned __int64)val2 ? 1 : 0;
+		return (uint64)val1 < (uint64)val2 ? 1 : 0;
 		break;
 	default:
 		return 0;
 	}
 }
 
-static __int64 ConstantRelationalFolding(InterOperator oper, double val1, double val2)
+static int64 ConstantRelationalFolding(InterOperator oper, double val1, double val2)
 {
 	switch (oper)
 	{
@@ -1652,7 +1651,13 @@ void InterInstruction::Disassemble(FILE* file)
 			else if (mTType == IT_FLOAT)
 				fprintf(file, "C%f", mFloatValue);
 			else
+			{
+#ifdef _WIN32
 				fprintf(file, "C%I64d", mIntValue);
+#else
+				fprintf(file, "C%lld", mIntValue);
+#endif
+			}
 		}
 
 		fprintf(file, "\n");
@@ -1660,7 +1665,7 @@ void InterInstruction::Disassemble(FILE* file)
 }
 
 InterCodeBasicBlock::InterCodeBasicBlock(void)
-	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr)
+	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mDominator(nullptr)
 {
 	mInPath = false;
 	mLoopHead = false;
@@ -2476,13 +2481,16 @@ bool InterCodeBasicBlock::RemoveUnusedResultInstructions(int numStaticTemps)
 		for (i = 0; i < numStaticTemps; i++)
 			requiredTemps += i;
 
-		for (i = mInstructions.Size() - 1; i > 0; i--)
+		if (mInstructions.Size() > 0)
 		{
-			if (mInstructions[i]->RemoveUnusedResultInstructions(mInstructions[i - 1], requiredTemps, numStaticTemps))
+			for (i = mInstructions.Size() - 1; i > 0; i--)
+			{
+				if (mInstructions[i]->RemoveUnusedResultInstructions(mInstructions[i - 1], requiredTemps, numStaticTemps))
+					changed = true;
+			}
+			if (mInstructions[0]->RemoveUnusedResultInstructions(NULL, requiredTemps, numStaticTemps))
 				changed = true;
 		}
-		if (mInstructions[0]->RemoveUnusedResultInstructions(NULL, requiredTemps, numStaticTemps))
-			changed = true;
 
 		if (mTrueJump)
 		{
@@ -3058,6 +3066,173 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 	return true;
 }
 
+InterCodeBasicBlock* InterCodeBasicBlock::PropagateDominator(InterCodeProcedure* proc)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump)
+			mTrueJump = mTrueJump->PropagateDominator(proc);
+		if (mFalseJump)
+			mFalseJump = mFalseJump->PropagateDominator(proc);
+
+		if (mLoopHead)
+		{
+			mDominator = new InterCodeBasicBlock();
+			proc->Append(mDominator);
+			mDominator->Close(this, nullptr);
+		}
+	}
+
+	return mDominator ? mDominator : this;
+}
+
+bool IsMoveable(InterCode code)
+{
+	if (HasSideEffect(code) || code == IC_COPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
+		return false;
+	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
+		return false;
+
+	return true;
+}
+
+void InterCodeBasicBlock::SingleBlockLoopOptimisation(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
+		{
+			for (int i = 0; i < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+				ins->mInvariant = true;
+
+				if (!IsMoveable(ins->mCode))
+					ins->mInvariant = false;
+				else if (ins->mCode == IC_LOAD)
+				{
+					if (ins->mSTemp[0] >= 0)
+					{
+						ins->mInvariant = false;
+					}
+					else
+					{
+						for (int j = 0; j < mInstructions.Size(); j++)
+						{
+							InterInstruction* sins = mInstructions[j];
+							if (sins->mCode == IC_STORE)
+							{
+								if (sins->mSTemp[1] >= 0)
+								{
+									ins->mInvariant = false;
+								}
+								else if (ins->mMemory == sins->mMemory && ins->mVarIndex == sins->mVarIndex && ins->mLinkerObject == sins->mLinkerObject)
+								{
+									ins->mInvariant = false;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			enum Dependency
+			{
+				DEP_UNKNOWN,
+				DEP_DEFINED,
+				DEP_ITERATED,
+				DEP_VARIABLE
+			};
+
+			GrowingArray<Dependency>			dep(DEP_UNKNOWN);
+			GrowingArray<InterInstructionPtr>	tvalues(nullptr);
+
+			for (int i = 0; i < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+				int t = ins->mTTemp;
+				if (t >= 0)
+				{
+					if (HasSideEffect(ins->mCode) || !ins->mInvariant)
+						dep[t] = DEP_VARIABLE;
+					else if (dep[t] == DEP_UNKNOWN)
+						dep[t] = DEP_DEFINED;
+					else if (dep[t] == DEP_DEFINED)
+					{
+						dep[t] = DEP_VARIABLE;
+						ins->mInvariant = false;
+					}
+				}
+			}
+
+			for (int i = 0; i < dep.Size(); i++)
+			{
+				if (dep[i] == DEP_DEFINED)
+					dep[i] = DEP_ITERATED;
+			}
+
+			bool	changed;
+			do
+			{
+				changed = false;
+
+				for (int i = 0; i < mInstructions.Size(); i++)
+				{
+					InterInstruction* ins = mInstructions[i];
+					int t = ins->mTTemp;
+					if (t >= 0)
+					{
+						if (dep[t] < DEP_VARIABLE)
+						{
+							if (ins->mSTemp[0] >= 0 && dep[ins->mSTemp[0]] >= DEP_ITERATED ||
+								ins->mSTemp[1] >= 0 && dep[ins->mSTemp[1]] >= DEP_ITERATED ||
+								ins->mSTemp[2] >= 0 && dep[ins->mSTemp[2]] >= DEP_ITERATED)
+							{
+								dep[t] = DEP_VARIABLE;
+								ins->mInvariant = false;
+								changed = true;
+							}
+							else
+							{
+								dep[t] = DEP_DEFINED;
+							}
+						}
+					}
+				}
+
+			} while (changed);
+
+#if 1
+			int	j = 0;
+			for (int i = 0; i < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+				if (ins->mInvariant)
+				{
+					mDominator->mInstructions.Push(ins);
+				}
+				else
+				{
+					mInstructions[j++] = ins;
+				}
+			}
+			if (j != mInstructions.Size())
+				printf("Moved %d %d\n", mIndex, mInstructions.Size() - j);
+			mInstructions.SetSize(j);
+#endif
+		}
+
+		if (mTrueJump)
+			mTrueJump->SingleBlockLoopOptimisation();
+		if (mFalseJump)
+			mFalseJump->SingleBlockLoopOptimisation();
+	}
+}
+
 void InterCodeBasicBlock::PeepholeOptimization(void)
 {
 	int		i;
@@ -3358,7 +3533,7 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			if (mInstructions[i]->mCode != IT_NONE)
+			if (mInstructions[i]->mCode != IC_NONE)
 			{
 				fprintf(file, "%04x\t", i);
 				mInstructions[i]->Disassemble(file);
@@ -3425,18 +3600,18 @@ void InterCodeProcedure::BuildTraces(void)
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
 		mBlocks[i]->mNumEntries = 0;
-	mBlocks[0]->CollectEntries();
+	mEntryBlock->CollectEntries();
 
 	//
 	// Build traces
 	//
 	ResetVisited();
-	mBlocks[0]->GenerateTraces();
+	mEntryBlock->GenerateTraces();
 
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
 		mBlocks[i]->mNumEntries = 0;
-	mBlocks[0]->CollectEntries();
+	mEntryBlock->CollectEntries();
 
 	DisassembleDebug("BuildTraces");
 }
@@ -3449,13 +3624,13 @@ void InterCodeProcedure::BuildDataFlowSets(void)
 	//	Build set with local provided/required temporaries
 	//
 	ResetVisited();
-	mBlocks[0]->BuildLocalTempSets(numTemps, numFixedTemporaries);
+	mEntryBlock->BuildLocalTempSets(numTemps, numFixedTemporaries);
 
 	//
 	// Build set of globaly provided temporaries
 	//
 	ResetVisited();
-	mBlocks[0]->BuildGlobalProvidedTempSet(NumberSet(numTemps));
+	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps));
 
 	//
 	// Build set of globaly required temporaries, might need
@@ -3465,7 +3640,7 @@ void InterCodeProcedure::BuildDataFlowSets(void)
 
 	do {
 		ResetVisited();
-	} while (mBlocks[0]->BuildGlobalRequiredTempSet(totalRequired));
+	} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired));
 }
 
 void InterCodeProcedure::RenameTemporaries(void)
@@ -3487,7 +3662,7 @@ void InterCodeProcedure::RenameTemporaries(void)
 	// First localy rename all temporaries
 	//
 	ResetVisited();
-	mBlocks[0]->LocalRenameRegister(mRenameTable, numRename, numFixedTemporaries);
+	mEntryBlock->LocalRenameRegister(mRenameTable, numRename, numFixedTemporaries);
 
 	DisassembleDebug("local renamed temps");
 
@@ -3506,7 +3681,7 @@ void InterCodeProcedure::RenameTemporaries(void)
 	mRenameTable.SetSize(numTemps, true);
 
 	ResetVisited();
-	mBlocks[0]->BuildGlobalRenameRegisterTable(mRenameTable, mRenameUnionTable);
+	mEntryBlock->BuildGlobalRenameRegisterTable(mRenameTable, mRenameUnionTable);
 
 	//
 	// Now calculate the global temporary IDs for all local ids
@@ -3536,7 +3711,7 @@ void InterCodeProcedure::RenameTemporaries(void)
 	// Set global temporary IDs
 	//
 	ResetVisited();
-	mBlocks[0]->GlobalRenameRegister(mGlobalRenameTable, mTemporaries);
+	mEntryBlock->GlobalRenameRegister(mGlobalRenameTable, mTemporaries);
 
 	numTemps = numRenamedTemps;
 
@@ -3558,7 +3733,7 @@ void InterCodeProcedure::TempForwarding(void)
 
 	mTempForwardingTable.Reset();
 	ResetVisited();
-	mBlocks[0]->PerformTempForwarding(mTempForwardingTable);
+	mEntryBlock->PerformTempForwarding(mTempForwardingTable);
 
 	DisassembleDebug("temp forwarding");
 }
@@ -3569,19 +3744,19 @@ void InterCodeProcedure::RemoveUnusedInstructions(void)
 
 	do {
 		ResetVisited();
-		mBlocks[0]->BuildLocalTempSets(numTemps, numFixedTemporaries);
+		mEntryBlock->BuildLocalTempSets(numTemps, numFixedTemporaries);
 
 		ResetVisited();
-		mBlocks[0]->BuildGlobalProvidedTempSet(NumberSet(numTemps));
+		mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps));
 
 		NumberSet	totalRequired2(numTemps);
 
 		do {
 			ResetVisited();
-		} while (mBlocks[0]->BuildGlobalRequiredTempSet(totalRequired2));
+		} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired2));
 
 		ResetVisited();
-	} while (mBlocks[0]->RemoveUnusedResultInstructions(numFixedTemporaries));
+	} while (mEntryBlock->RemoveUnusedResultInstructions(numFixedTemporaries));
 }
 
 void InterCodeProcedure::Close(void)
@@ -3589,23 +3764,22 @@ void InterCodeProcedure::Close(void)
 	int				i, j, k, start;
 	GrowingTypeArray	tstack(IT_NONE);
 
-	_CrtCheckMemory();
-
 	numFixedTemporaries = 0;
+	mEntryBlock = mBlocks[0];
 
 	DisassembleDebug("start");
 
 	BuildTraces();
 
 	ResetVisited();
-	mLeafProcedure = mBlocks[0]->IsLeafProcedure();
+	mLeafProcedure = mEntryBlock->IsLeafProcedure();
 
 	if (!mLeafProcedure)
 	{
 		int		size = 0;
 
 		ResetVisited();
-		mBlocks[0]->CollectOuterFrame(0, size);
+		mEntryBlock->CollectOuterFrame(0, size);
 		mCommonFrameSize = size;
 	}
 	else
@@ -3624,7 +3798,7 @@ void InterCodeProcedure::Close(void)
 	//
 	GrowingIntArray		localTable(-1), paramTable(-1);
 	ResetVisited();
-	mBlocks[0]->CollectLocalAddressTemps(localTable, paramTable);
+	mEntryBlock->CollectLocalAddressTemps(localTable, paramTable);
 
 	int			nlocals = 0, nparams = 0;
 	for (int i = 0; i < localTable.Size(); i++)
@@ -3637,7 +3811,7 @@ void InterCodeProcedure::Close(void)
 	mLocalAliasedSet.Reset(nlocals);
 	mParamAliasedSet.Reset(nparams);
 	ResetVisited();
-	mBlocks[0]->MarkAliasedLocalTemps(localTable, mLocalAliasedSet, paramTable, mParamAliasedSet);
+	mEntryBlock->MarkAliasedLocalTemps(localTable, mLocalAliasedSet, paramTable, mParamAliasedSet);
 
 	//
 	//	Now forward constant values
@@ -3648,14 +3822,14 @@ void InterCodeProcedure::Close(void)
 	mValueForwardingTable.SetSize(numTemps, true);
 
 	ResetVisited();
-	mBlocks[0]->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet);
+	mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet);
 
 	DisassembleDebug("value forwarding");
 
 	mValueForwardingTable.Clear();
 
 	ResetVisited();
-	mBlocks[0]->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet);
+	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet);
 
 	GlobalConstantPropagation();
 
@@ -3669,7 +3843,7 @@ void InterCodeProcedure::Close(void)
 	mTempForwardingTable.SetSize(numTemps);
 
 	ResetVisited();
-	mBlocks[0]->PerformTempForwarding(mTempForwardingTable);
+	mEntryBlock->PerformTempForwarding(mTempForwardingTable);
 
 	DisassembleDebug("temp forwarding 2");
 
@@ -3680,24 +3854,24 @@ void InterCodeProcedure::Close(void)
 
 	do {
 		ResetVisited();
-		mBlocks[0]->BuildLocalTempSets(numTemps, numFixedTemporaries);
+		mEntryBlock->BuildLocalTempSets(numTemps, numFixedTemporaries);
 
 		ResetVisited();
-		mBlocks[0]->BuildGlobalProvidedTempSet(NumberSet(numTemps));
+		mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps));
 
 		NumberSet	totalRequired2(numTemps);
 
 		do {
 			ResetVisited();
-		} while (mBlocks[0]->BuildGlobalRequiredTempSet(totalRequired2));
+		} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired2));
 
 		ResetVisited();
-	} while (mBlocks[0]->RemoveUnusedResultInstructions(numFixedTemporaries));
+	} while (mEntryBlock->RemoveUnusedResultInstructions(numFixedTemporaries));
 
 	DisassembleDebug("removed unused instructions");
 
 	ResetVisited();
-	mBlocks[0]->CollectVariables(mModule->mGlobalVars, mLocalVars);
+	mEntryBlock->CollectVariables(mModule->mGlobalVars, mLocalVars);
 
 
 	if (mLocalVars.Size() > 0)
@@ -3714,19 +3888,19 @@ void InterCodeProcedure::Close(void)
 
 		do {
 			ResetVisited();
-			mBlocks[0]->BuildLocalVariableSets(mLocalVars);
+			mEntryBlock->BuildLocalVariableSets(mLocalVars);
 
 			ResetVisited();
-			mBlocks[0]->BuildGlobalProvidedVariableSet(mLocalVars, NumberSet(mLocalVars.Size()));
+			mEntryBlock->BuildGlobalProvidedVariableSet(mLocalVars, NumberSet(mLocalVars.Size()));
 
 			NumberSet	totalRequired2(mLocalVars.Size());
 
 			do {
 				ResetVisited();
-			} while (mBlocks[0]->BuildGlobalRequiredVariableSet(mLocalVars, totalRequired2));
+			} while (mEntryBlock->BuildGlobalRequiredVariableSet(mLocalVars, totalRequired2));
 
 			ResetVisited();
-		} while (mBlocks[0]->RemoveUnusedStoreInstructions(mLocalVars));
+		} while (mEntryBlock->RemoveUnusedStoreInstructions(mLocalVars));
 
 		DisassembleDebug("removed unused local stores");
 	}
@@ -3742,7 +3916,7 @@ void InterCodeProcedure::Close(void)
 	GrowingTypeArray	paramTypes(IT_NONE);
 
 	ResetVisited();
-	mBlocks[0]->CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
+	mEntryBlock->CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
 
 	for (int i = 0; i < simpleLocals.Num(); i++)
 	{
@@ -3750,7 +3924,7 @@ void InterCodeProcedure::Close(void)
 		if (!complexLocals[vi])
 		{
 			ResetVisited();
-			mBlocks[0]->SimpleLocalToTemp(vi, AddTemporary(localTypes[vi]));
+			mEntryBlock->SimpleLocalToTemp(vi, AddTemporary(localTypes[vi]));
 		}
 	}
 
@@ -3774,9 +3948,30 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("removed unused instructions 2");
 
+	TempForwarding();
+
+	BuildDominators();
+	DisassembleDebug("added dominators");
+
+	BuildDataFlowSets();
 
 	ResetVisited();
-	mBlocks[0]->PeepholeOptimization();
+	mEntryBlock->PeepholeOptimization();
+
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	DisassembleDebug("Peephole optimized");
+
+	ResetVisited();
+	mEntryBlock->SingleBlockLoopOptimisation();
+
+	DisassembleDebug("single block loop opt");
+
+	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->PeepholeOptimization();
 
 	TempForwarding();
 	RemoveUnusedInstructions();
@@ -3792,7 +3987,7 @@ void InterCodeProcedure::Close(void)
 		activeSet += i;
 
 	ResetVisited();
-	mBlocks[0]->CollectActiveTemporaries(activeSet);
+	mEntryBlock->CollectActiveTemporaries(activeSet);
 
 
 	mTemporaries.SetSize(activeSet.Num(), true);
@@ -3800,19 +3995,17 @@ void InterCodeProcedure::Close(void)
 
 
 	ResetVisited();
-	mBlocks[0]->ShrinkActiveTemporaries(activeSet, mTemporaries);
+	mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
 
 	MapVariables();
 
 	DisassembleDebug("mapped variabled");
-
-	_CrtCheckMemory();
 }
 
 void InterCodeProcedure::MapVariables(void)
 {
 	ResetVisited();
-	mBlocks[0]->MapVariables(mModule->mGlobalVars, mLocalVars);
+	mEntryBlock->MapVariables(mModule->mGlobalVars, mLocalVars);
 	mLocalSize = 0;
 	for (int i = 0; i < mLocalVars.Size(); i++)
 	{
@@ -3824,6 +4017,17 @@ void InterCodeProcedure::MapVariables(void)
 	}
 }
 
+void InterCodeProcedure::BuildDominators(void)
+{
+	ResetVisited();
+	mEntryBlock = mEntryBlock->PropagateDominator(this);
+
+	ResetVisited();
+	for (int i = 0; i < mBlocks.Size(); i++)
+		mBlocks[i]->mNumEntries = 0;
+	mEntryBlock->CollectEntries();
+}
+
 bool InterCodeProcedure::GlobalConstantPropagation(void)
 {
 
@@ -3832,10 +4036,10 @@ bool InterCodeProcedure::GlobalConstantPropagation(void)
 
 
 	ResetVisited();
-	mBlocks[0]->CollectConstTemps(ctemps, assignedTemps);
+	mEntryBlock->CollectConstTemps(ctemps, assignedTemps);
 
 	ResetVisited();
-	return mBlocks[0]->PropagateConstTemps(ctemps);
+	return mEntryBlock->PropagateConstTemps(ctemps);
 }
 
 void InterCodeProcedure::ReduceTemporaries(void)
@@ -3845,16 +4049,16 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	int numTemps = mTemporaries.Size();
 
 	ResetVisited();
-	mBlocks[0]->BuildLocalTempSets(numTemps, numFixedTemporaries);
+	mEntryBlock->BuildLocalTempSets(numTemps, numFixedTemporaries);
 
 	ResetVisited();
-	mBlocks[0]->BuildGlobalProvidedTempSet(NumberSet(numTemps));
+	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps));
 
 	NumberSet	totalRequired2(numTemps);
 
 	do {
 		ResetVisited();
-	} while (mBlocks[0]->BuildGlobalRequiredTempSet(totalRequired2));
+	} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired2));
 
 	collisionSet = new NumberSet[numTemps];
 
@@ -3862,7 +4066,7 @@ void InterCodeProcedure::ReduceTemporaries(void)
 		collisionSet[i].Reset(numTemps);
 
 	ResetVisited();
-	mBlocks[0]->BuildCollisionTable(collisionSet);
+	mEntryBlock->BuildCollisionTable(collisionSet);
 
 	mRenameTable.SetSize(numTemps, true);
 
@@ -3896,26 +4100,26 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	mTemporaries.SetSize(numRenamedTemps, true);
 
 	ResetVisited();
-	mBlocks[0]->GlobalRenameRegister(mRenameTable, mTemporaries);
+	mEntryBlock->GlobalRenameRegister(mRenameTable, mTemporaries);
 
 	delete[] collisionSet;
 
 	ResetVisited();
-	mBlocks[0]->BuildLocalTempSets(numRenamedTemps, numFixedTemporaries);
+	mEntryBlock->BuildLocalTempSets(numRenamedTemps, numFixedTemporaries);
 
 	ResetVisited();
-	mBlocks[0]->BuildGlobalProvidedTempSet(NumberSet(numRenamedTemps));
+	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numRenamedTemps));
 
 	NumberSet	totalRequired3(numRenamedTemps);
 
 	do {
 		ResetVisited();
-	} while (mBlocks[0]->BuildGlobalRequiredTempSet(totalRequired3));
+	} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired3));
 
 
 	NumberSet	callerSaved(numRenamedTemps);
 	ResetVisited();
-	mBlocks[0]->BuildCallerSaveTempSet(callerSaved);
+	mEntryBlock->BuildCallerSaveTempSet(callerSaved);
 
 	int		callerSavedTemps = 0, calleeSavedTemps = 16;
 
@@ -3972,7 +4176,7 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 		fprintf(file, "\n");
 
 		ResetVisited();
-		mBlocks[0]->Disassemble(file, dumpSets);
+		mEntryBlock->Disassemble(file, dumpSets);
 
 		fclose(file);
 	}

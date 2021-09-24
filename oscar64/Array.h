@@ -212,26 +212,26 @@ public:
 		delete[] array;
 	}
 
-	__forceinline T& operator[](int n)
+	T& operator[](int n)
 	{
 		assert(n >= 0);
 		if (n >= size) Grow(n + 1, false);
 		return array[n];
 	}
 
-	__forceinline T operator[](int n) const
+	T operator[](int n) const
 	{
 		assert(n >= 0);
 		if (n >= size) return empty;
 		else return array[n];
 	}
 
-	__forceinline void Push(T t)
+	void Push(T t)
 	{
 		(*this)[size] = t;
 	}
 
-	__forceinline T Pop(void)
+	T Pop(void)
 	{
 		assert(size > 0);
 		return array[--size];
@@ -249,21 +249,21 @@ public:
 		array[at] = t;
 	}
 
-	__forceinline T Top(void) const
+	T Top(void) const
 	{
 		return array[size - 1];
 	}
 
-	__forceinline bool IsEmpty(void) const { return size == 0; }
+	bool IsEmpty(void) const { return size == 0; }
 
-	__forceinline int Size(void) const { return size; }
+	int Size(void) const { return size; }
 
-	__forceinline void SetSize(int size, bool clear = false)
+	void SetSize(int size, bool clear = false)
 	{
 		Grow(size, clear);
 	}
 
-	__forceinline void Clear(void)
+	void Clear(void)
 	{
 		Grow(size, true);
 	}

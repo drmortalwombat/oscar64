@@ -214,8 +214,8 @@ public:
 	void CalculateOffset(int& total);
 	void CopyCode(ByteCodeGenerator* generator, LinkerObject * linkerObject, uint8* target);
 
-	void IntConstToAccu(__int64 val);
-	void IntConstToAddr(__int64 val);
+	void IntConstToAccu(int64 val);
+	void IntConstToAddr(int64 val);
 	void FloatConstToAccu(double val);
 	void FloatConstToWork(double val);
 	void CopyValue(InterCodeProcedure* proc, const InterInstruction * ins);

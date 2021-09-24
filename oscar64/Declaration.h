@@ -154,7 +154,7 @@ public:
 	Expression*			mValue;
 	DeclarationScope*	mScope;
 	int					mOffset, mSize, mVarIndex;
-	__int64				mInteger;
+	int64				mInteger;
 	double				mNumber;
 	uint32				mFlags;
 	const Ident		*	mIdent;
