@@ -1,5 +1,6 @@
-// short index ops
+
 #include <stdio.h>
+#include <assert.h>
 
 char a[20];
 
@@ -10,7 +11,8 @@ int main(void)
 	char x = 0;
 	for(char i=0; i<20; i++)
 		x += a[i];
-		
-	printf("Sum %d\n", x);
+
+	assert(x == 190);
+
 	return 0;
 }

@@ -96,6 +96,12 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -e -n loopdomtest.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e byteindextest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n byteindextest.c
+if %errorlevel% neq 0 goto :error
+
 exit /b 0
 :error
 echo Failed with error #%errorlevel%.

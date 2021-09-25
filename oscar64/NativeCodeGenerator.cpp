@@ -779,10 +779,19 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data)
 		switch (mType)
 		{
 		case ASMIT_LDA:
-			if (data.mRegs[CPU_REG_A].mZeroPage && data.mRegs[CPU_REG_A].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data.mRegs[CPU_REG_A].mZeroPage && data.mRegs[CPU_REG_A].mValue == mAddress)
 			{
-				mType = ASMIT_NOP;
-				mMode = ASMIM_IMPLIED;
+				if (mLive & LIVE_CPU_REG_Z)
+				{
+					mType = ASMIT_ORA;
+					mMode = ASMIM_IMMEDIATE;
+					mAddress = 0;
+				}
+				else
+				{
+					mType = ASMIT_NOP;
+					mMode = ASMIM_IMPLIED;
+				}
 				changed = true;
 			}
 			else if (data.mRegs[mAddress].mImmediate)
