@@ -1498,7 +1498,7 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 		{
 			if (paramTypes[mVarIndex] == IT_NONE || paramTypes[mVarIndex] == mSType[0])
 			{
-				localTypes[mVarIndex] = mSType[0];
+				paramTypes[mVarIndex] = mSType[0];
 				simpleParams += mVarIndex;
 			}
 			else

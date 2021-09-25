@@ -287,6 +287,19 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			i += 2;
 			break;
 
+		case BC_BINOP_ADDI_8:
+			fprintf(file, "ADDB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			i += 2;
+			break;
+		case BC_BINOP_ANDI_8:
+			fprintf(file, "ANDB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			i += 2;
+			break;
+		case BC_BINOP_ORI_8:
+			fprintf(file, "ORB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			i += 2;
+			break;
+
 		case BC_CONV_I8_I16:
 			fprintf(file, "SEXT8\t%s", TempName(memory[start + i + 0], tbuffer, proc));
 			i++;

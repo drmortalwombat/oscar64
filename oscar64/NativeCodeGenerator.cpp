@@ -5390,7 +5390,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		}	break;
 
 		case IC_RELATIONAL_OPERATOR:
-			if (iblock->mInstructions[i + 1]->mCode == IC_BRANCH)
+			if (iblock->mInstructions[i + 1]->mCode == IC_BRANCH && iblock->mInstructions[i + 1]->mSFinal[0])
 			{
 				block->RelationalOperator(iproc, ins, this, CompileBlock(iproc, iblock->mTrueJump), CompileBlock(iproc, iblock->mFalseJump));
 				return;

@@ -1383,6 +1383,49 @@ __asm inp_binop_addi_16
 
 #pragma	bytecode(BC_BINOP_ADDI_16, inp_binop_addi_16)
 
+__asm inp_binop_addi_8
+{
+		lda	(ip), y
+		iny
+		tax
+		clc
+		lda	$00, x
+		adc	(ip), y
+		iny
+		sta	$00, x
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_BINOP_ADDI_8, inp_binop_addi_8)
+
+__asm inp_binop_andi_8
+{
+		lda	(ip), y
+		iny
+		tax
+		lda	$00, x
+		and	(ip), y
+		iny
+		sta	$00, x
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_BINOP_ANDI_8, inp_binop_andi_8)
+
+__asm inp_binop_ori_8
+{
+		lda	(ip), y
+		iny
+		tax
+		lda	$00, x
+		ora (ip), y
+		iny
+		sta	$00, x
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_BINOP_ORI_8, inp_binop_ori_8)
+
 __asm inp_binop_subi_16
 {
 		lda	(ip), y

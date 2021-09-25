@@ -139,7 +139,7 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 			return true;
 		if (mCode == BC_LEA_ABS || mCode == BC_LEA_LOCAL || mCode == BC_LEA_FRAME)
 			return true;
-		if (mCode >= BC_BINOP_ADDI_16 && mCode <= BC_BINOP_MULI8_16)
+		if (mCode >= BC_BINOP_ADDI_16 && mCode <= BC_BINOP_ORI_8)
 			return true;
 		if (mCode == BC_CALL)
 			return true;
@@ -331,6 +331,9 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		block->PutWord(uint16(mValue));
 		break;
 	case BC_BINOP_MULI8_16:
+	case BC_BINOP_ADDI_8:
+	case BC_BINOP_ANDI_8:
+	case BC_BINOP_ORI_8:
 		block->PutCode(generator, mCode);
 		block->PutByte(mRegister);
 		block->PutByte(mValue);
@@ -1799,7 +1802,25 @@ static ByteCode ByteCodeBinImmOperator(const InterInstruction * ins)
 	case IA_ADD: return BC_BINOP_ADDI_16;
 	case IA_SUB: return BC_BINOP_SUBI_16;
 	case IA_AND: return BC_BINOP_ANDI_16;
-	case IA_OR: return BC_BINOP_ORI_16;
+	case IA_OR:  return BC_BINOP_ORI_16;
+	case IA_SHL: return BC_BINOP_SHLI_16;
+	case IA_SHR: return BC_BINOP_SHRI_U16;
+	case IA_SAR: return BC_BINOP_SHRI_I16;
+	case IA_MUL: return BC_BINOP_MULI8_16;
+
+	default:
+		return BC_EXIT;
+	}
+}
+
+static ByteCode ByteCodeBinSizeImmOperator(const InterInstruction* ins)
+{
+	switch (ins->mOperator)
+	{
+	case IA_ADD: return InterTypeSize[ins->mTType] == 1 ? BC_BINOP_ADDI_8 : BC_BINOP_ADDI_16;
+	case IA_SUB: return BC_BINOP_SUBI_16;
+	case IA_AND: return InterTypeSize[ins->mTType] == 1 ? BC_BINOP_ANDI_8 : BC_BINOP_ANDI_16;
+	case IA_OR:  return InterTypeSize[ins->mTType] == 1 ? BC_BINOP_ORI_8 : BC_BINOP_ORI_16;
 	case IA_SHL: return BC_BINOP_SHLI_16;
 	case IA_SHR: return BC_BINOP_SHRI_U16;
 	case IA_SAR: return BC_BINOP_SHRI_I16;
@@ -2009,12 +2030,13 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 		{
 			ByteCode	bc = ByteCodeBinRegOperator(ins);
 			ByteCode	bci = ByteCodeBinImmOperator(ins);
+			ByteCode	bcis = ByteCodeBinSizeImmOperator(ins);
 
 			if (ins->mSTemp[1] < 0)
 			{
-				if (ins->mSTemp[0] == ins->mTTemp && InterTypeSize[ins->mTType] == 2)
+				if (ins->mSTemp[0] == ins->mTTemp)
 				{
-					ByteCodeInstruction	bins(bci);
+					ByteCodeInstruction	bins(bcis);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 					bins.mValue = ins->mSIntConst[1];
 					mIns.Push(bins);
@@ -2033,9 +2055,9 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 			else if (ins->mSTemp[0] < 0)
 			{
-				if (ins->mSTemp[1] == ins->mTTemp && InterTypeSize[ins->mTType] == 2)
+				if (ins->mSTemp[1] == ins->mTTemp)
 				{
-					ByteCodeInstruction	bins(bci);
+					ByteCodeInstruction	bins(bcis);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 					bins.mValue = ins->mSIntConst[0];
 					mIns.Push(bins);
@@ -2091,7 +2113,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			{
 				if (ins->mSTemp[1] == ins->mTTemp)
 				{
-					ByteCodeInstruction	bins(BC_BINOP_ADDI_16);
+					ByteCodeInstruction	bins(InterTypeSize[ins->mSType[0]] == 1 ? BC_BINOP_ADDI_8 : BC_BINOP_ADDI_16);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 					bins.mValue = - ins->mSIntConst[0];
 					mIns.Push(bins);
@@ -2425,7 +2447,7 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 		}	break;
 
 		case IC_RELATIONAL_OPERATOR:
-			if (sblock->mInstructions[i + 1]->mCode == IC_BRANCH)
+			if (sblock->mInstructions[i + 1]->mCode == IC_BRANCH && sblock->mInstructions[i + 1]->mSFinal[0])
 			{
 				ByteCode code = RelationalOperator(iproc, ins);
 				this->Close(proc->CompileBlock(iproc, sblock->mTrueJump), proc->CompileBlock(iproc, sblock->mFalseJump), code);
@@ -2637,6 +2659,12 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2].mCode = BC_NOP;
 					}
 					else if (mIns[i + 0].mCode == BC_CONST_16 && mIns[i + 2].mCode == BC_CONST_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 0].mValue == mIns[i + 2].mValue && !mIns[i + 1].ChangesRegister(mIns[i + 0].mRegister))
+					{
+						mIns[i + 2].mCode = BC_NOP;
+					}
+					else if (mIns[i + 0].mCode >= BC_SET_EQ && mIns[i + 0].mCode <= BC_SET_LE &&
+						mIns[i + 1].mCode == BC_STORE_REG_8 &&
+						mIns[i + 2].mCode == BC_LOAD_REG_8 && mIns[i + 1].mRegister == mIns[i + 2].mRegister)
 					{
 						mIns[i + 2].mCode = BC_NOP;
 					}
