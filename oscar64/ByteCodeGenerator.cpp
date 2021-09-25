@@ -2012,7 +2012,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 
 			if (ins->mSTemp[1] < 0)
 			{
-				if (ins->mSTemp[0] == ins->mTTemp)
+				if (ins->mSTemp[0] == ins->mTTemp && InterTypeSize[ins->mTType] == 2)
 				{
 					ByteCodeInstruction	bins(bci);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
@@ -2021,7 +2021,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 					return;
 				}
 
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSType[0]] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
 				lins.mRegisterFinal = ins->mSFinal[0];
 				mIns.Push(lins);
@@ -2033,7 +2033,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 			else if (ins->mSTemp[0] < 0)
 			{
-				if (ins->mSTemp[1] == ins->mTTemp)
+				if (ins->mSTemp[1] == ins->mTTemp && InterTypeSize[ins->mTType] == 2)
 				{
 					ByteCodeInstruction	bins(bci);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
@@ -2042,7 +2042,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 					return;
 				}
 
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSType[1]] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[1]];
 				lins.mRegisterFinal = ins->mSFinal[1];
 				mIns.Push(lins);
@@ -2319,7 +2319,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 		} break;
 		}
 
-		ByteCodeInstruction	sins(BC_STORE_REG_16);
+		ByteCodeInstruction	sins(InterTypeSize[ins->mSType[1]] == 1 ? BC_STORE_REG_8 : BC_STORE_REG_16);
 		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 		mIns.Push(sins);
 	}

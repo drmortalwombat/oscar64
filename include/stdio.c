@@ -238,6 +238,7 @@ int nformf(const sinfo * si, char * str, float f, char type)
 		}
 	}
 	
+
 	char	pdigits = digits - fdigits;
 
 	if (digits > 20)
@@ -267,10 +268,10 @@ int nformf(const sinfo * si, char * str, float f, char type)
 		else
 			sp[d++] = '+';
 		
-		sp[d++] = exp / 10 + '0';
+		sp[d++] = exp / 10 + '0'; 
 		sp[d++] = exp % 10 + '0';		
 	}
-		
+
 	if (d < si->width)
 	{
 		for(char i=1; i<=d; i++)

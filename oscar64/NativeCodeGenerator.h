@@ -86,6 +86,7 @@ public:
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
 	bool PeepHoleOptimizer(void);
+	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
 
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
