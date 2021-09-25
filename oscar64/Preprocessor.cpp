@@ -65,8 +65,6 @@ bool SourceFile::Open(const char* name, const char* path)
 
 	if (!fopen_s(&mFile, fname, "r"))
 	{
-		printf("<%s>\n", fname);
-
 		_fullpath(mFileName, fname, sizeof(mFileName));
 		char* p = mFileName;
 		while (*p)
@@ -108,7 +106,7 @@ bool Preprocessor::NextLine(void)
 	return false;
 }
 
-bool Preprocessor::OpenSource(const char* name, bool local)
+bool Preprocessor::OpenSource(const char * reason, const char* name, bool local)
 {
 	if (mSource)
 		mSource->mLocation = mLocation;
@@ -144,7 +142,7 @@ bool Preprocessor::OpenSource(const char* name, bool local)
 	
 	if (ok)
 	{
-		printf("Reading %s\n", source->mFileName);
+		printf("%s \"%s\"\n", reason, source->mFileName);
 		source->mUp = mSource;
 		mSource = source;
 		mLocation.mFileName = mSource->mFileName;

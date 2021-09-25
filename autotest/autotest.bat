@@ -1,99 +1,99 @@
 @echo off
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e stdlibtest.c
+..\release\oscar64 -e stdlibtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n stdlibtest.c
+..\release\oscar64 -e -n stdlibtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e testint16.c
+..\release\oscar64 -e testint16.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n testint16.c
+..\release\oscar64 -e -n testint16.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e recursiontest.c
+..\release\oscar64 -e recursiontest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n recursiontest.c
+..\release\oscar64 -e -n recursiontest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e strcmptest.c
+..\release\oscar64 -e strcmptest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n strcmptest.c
+..\release\oscar64 -e -n strcmptest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e arraytest.c
+..\release\oscar64 -e arraytest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n arraytest.c
+..\release\oscar64 -e -n arraytest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e arraytestfloat.c
+..\release\oscar64 -e arraytestfloat.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n arraytestfloat.c
+..\release\oscar64 -e -n arraytestfloat.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e optiontest.c
+..\release\oscar64 -e optiontest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n optiontest.c
+..\release\oscar64 -e -n optiontest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e floatcmptest.c
+..\release\oscar64 -e floatcmptest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n floatcmptest.c
+..\release\oscar64 -e -n floatcmptest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e floatmultest.c
+..\release\oscar64 -e floatmultest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n floatmultest.c
+..\release\oscar64 -e -n floatmultest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e staticconsttest.c
+..\release\oscar64 -e staticconsttest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n staticconsttest.c
+..\release\oscar64 -e -n staticconsttest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e arrayinittest.c
+..\release\oscar64 -e arrayinittest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n arrayinittest.c
+..\release\oscar64 -e -n arrayinittest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e array2stringinittest.c
+..\release\oscar64 -e array2stringinittest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n array2stringinittest.c
+..\release\oscar64 -e -n array2stringinittest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e testint16cmp.c
+..\release\oscar64 -e testint16cmp.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n testint16cmp.c
+..\release\oscar64 -e -n testint16cmp.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e floatstringtest.c
+..\release\oscar64 -e floatstringtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n floatstringtest.c
+..\release\oscar64 -e -n floatstringtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e qsorttest.c
+..\release\oscar64 -e qsorttest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n qsorttest.c
+..\release\oscar64 -e -n qsorttest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e loopdomtest.c
+..\release\oscar64 -e loopdomtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -i=../include -rt=../include/crt.c -e -n loopdomtest.c
+..\release\oscar64 -e -n loopdomtest.c
 if %errorlevel% neq 0 goto :error
 
 exit /b 0

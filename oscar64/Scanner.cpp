@@ -442,14 +442,14 @@ void Scanner::NextToken(void)
 			NextRawToken();
 			if (mToken == TK_STRING)
 			{
-				if (!mPreprocessor->OpenSource(mTokenString, true))
+				if (!mPreprocessor->OpenSource("Including", mTokenString, true))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
 			else if (mToken == TK_LESS_THAN)
 			{
 				mOffset--;
 				StringToken('>');
-				if (!mPreprocessor->OpenSource(mTokenString, false))
+				if (!mPreprocessor->OpenSource("Including", mTokenString, false))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
 		}

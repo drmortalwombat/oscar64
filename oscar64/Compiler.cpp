@@ -20,11 +20,14 @@ Compiler::Compiler(void)
 	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker);
 	mInterCodeModule = new InterCodeModule();
 
-	mCompilationUnits->mSectionCode = mLinker->AddSection(Ident::Unique("code"), 0);
-	mCompilationUnits->mSectionData = mLinker->AddSection(Ident::Unique("data"), 0);
-	mCompilationUnits->mSectionBSS = mLinker->AddSection(Ident::Unique("bss"), 0);
-	mCompilationUnits->mSectionHeap = mLinker->AddSection(Ident::Unique("heap"), 0);
-	mCompilationUnits->mSectionStack = mLinker->AddSection(Ident::Unique("stack"), 0);
+	mCompilationUnits->mLinker = mLinker;
+
+	mCompilationUnits->mSectionCode = mLinker->AddSection(Ident::Unique("code"), LST_DATA);
+	mCompilationUnits->mSectionData = mLinker->AddSection(Ident::Unique("data"), LST_DATA);
+	mCompilationUnits->mSectionBSS = mLinker->AddSection(Ident::Unique("bss"), LST_BSS);
+	mCompilationUnits->mSectionHeap = mLinker->AddSection(Ident::Unique("heap"), LST_HEAP);
+	mCompilationUnits->mSectionStack = mLinker->AddSection(Ident::Unique("stack"), LST_STACK);
+	mCompilationUnits->mSectionStack->mSize = 4096;
 }
 
 Compiler::~Compiler(void)
@@ -51,7 +54,7 @@ bool Compiler::ParseSource(void)
 	CompilationUnit* cunit;
 	while (mErrors->mErrorCount == 0 && (cunit = mCompilationUnits->PendingUnit()))
 	{
-		if (mPreprocessor->OpenSource(cunit->mFileName, true))
+		if (mPreprocessor->OpenSource("Compiling", cunit->mFileName, true))
 		{
 			Scanner* scanner = new Scanner(mErrors, mPreprocessor);
 
@@ -123,20 +126,33 @@ bool Compiler::GenerateCode(void)
 	const Ident* identMain = Ident::Unique("main");
 	const Ident* identCode = Ident::Unique("code");
 
-	LinkerRegion * regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0900);
-	LinkerRegion * regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
-	LinkerRegion * regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
+	LinkerRegion* regionStartup = mLinker->FindRegion(identStartup);
+	if (!regionStartup)		
+		regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0900);
+	
+	LinkerRegion* regionBytecode = mLinker->FindRegion(identBytecode);
+	if (!regionBytecode)		
+		regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
 
-	LinkerSection * sectionStartup = mLinker->AddSection(identStartup, 0);
-	LinkerSection * sectionBytecode = mLinker->AddSection(identBytecode, 0);
+	LinkerRegion* regionMain = mLinker->FindRegion(identMain);
+
+	LinkerSection * sectionStartup = mLinker->AddSection(identStartup, LST_DATA);
+	LinkerSection * sectionBytecode = mLinker->AddSection(identBytecode, LST_DATA);
 
 	regionStartup->mSections.Push(sectionStartup);
 	regionBytecode->mSections.Push(sectionBytecode);
-	regionMain->mSections.Push(mCompilationUnits->mSectionCode);
-	regionMain->mSections.Push(mCompilationUnits->mSectionData);
-	regionMain->mSections.Push(mCompilationUnits->mSectionBSS);
-	regionMain->mSections.Push(mCompilationUnits->mSectionHeap);
-	regionMain->mSections.Push(mCompilationUnits->mSectionStack);
+
+	if (!mLinker->IsSectionPlaced(mCompilationUnits->mSectionCode))
+	{
+		if (!regionMain)
+			regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
+
+		regionMain->mSections.Push(mCompilationUnits->mSectionCode);
+		regionMain->mSections.Push(mCompilationUnits->mSectionData);
+		regionMain->mSections.Push(mCompilationUnits->mSectionBSS);
+		regionMain->mSections.Push(mCompilationUnits->mSectionHeap);
+		regionMain->mSections.Push(mCompilationUnits->mSectionStack);
+	}
 
 	dcrtstart->mSection = sectionStartup;
 

@@ -1,7 +1,9 @@
 // crt.c
 #include <crt.h>
 
-unsigned int StackTop	=	0xa000 - 2;
+void StackStart, StackEnd;
+
+#pragma section(stack, 0x0000, StackStart, StackEnd)
 
 int main(void);
 
@@ -25,9 +27,9 @@ __asm startup
 		lda	#>bcode
 		sta	ip + 1
 		
-		lda	StackTop + 0
+		lda	#<StackEnd - 2
 		sta	sp
-		lda	StackTop + 1
+		lda	#>StackEnd - 2
 		sta	sp + 1
 pexec:
 		ldy	#0

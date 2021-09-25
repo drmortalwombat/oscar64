@@ -3220,8 +3220,10 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(void)
 					mInstructions[j++] = ins;
 				}
 			}
+#ifdef _DEBUG
 			if (j != mInstructions.Size())
 				printf("Moved %d %d\n", mIndex, mInstructions.Size() - j);
+#endif
 			mInstructions.SetSize(j);
 #endif
 		}

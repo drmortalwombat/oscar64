@@ -75,14 +75,12 @@ int main(int argc, const char** argv)
 		while (length > 0 && basePath[length - 1] != '/' && basePath[length - 1] != '\\')
 			length--;
 
-#ifdef _DEBUG
 		if (length > 0)
 		{
 			length--;
 			while (length > 0 && basePath[length - 1] != '/' && basePath[length - 1] != '\\')
 				length--;
 		}
-#endif
 
 		basePath[length] = 0;
 

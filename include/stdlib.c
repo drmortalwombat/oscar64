@@ -270,14 +270,19 @@ struct Heap {
 
 bool	freeHeapInit = false;
 
+void HeapStart, HeapEnd;
+
+#pragma section(heap, 0x0000, HeapStart, HeapEnd)
+
+
 void * malloc(unsigned int size)
 {
 	size = (size + 7) & ~3;
 	if (!freeHeapInit)
 	{
-		freeHeap = (Heap *)*(int *)0x2d;
+		freeHeap = (Heap *)&HeapStart;
 		freeHeap->next = nullptr;
-		freeHeap->size = 0xa000 - 4096 - (int)freeHeap;		
+		freeHeap->size = (unsigned int)&HeapEnd - (unsigned int)&HeapStart;
 		freeHeapInit = true;
 	}
 	

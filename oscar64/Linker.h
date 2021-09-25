@@ -18,7 +18,19 @@ enum LinkerObjectType
 	LOT_RUNTIME,	
 	LOT_DATA,
 	LOT_BSS,
-	LOT_STACK
+	LOT_HEAP,
+	LOT_STACK,
+	LOT_SECTION_START,
+	LOT_SECTION_END
+};
+
+enum LinkerSectionType
+{
+	LST_NONE,
+	LST_DATA,
+	LST_BSS,
+	LST_HEAP,
+	LST_STACK	
 };
 
 class LinkerObject;
@@ -51,6 +63,10 @@ public:
 
 	GrowingArray <LinkerObject*>	 mObjects;
 
+
+	int								mStart, mEnd, mSize;
+	LinkerSectionType				mType;
+
 	LinkerSection(void);
 };
 
@@ -79,8 +95,12 @@ public:
 	~Linker(void);
 
 	LinkerRegion * AddRegion(const Ident* region, int start, int end);
-	LinkerSection * AddSection(const Ident* section, uint32 flags);
+	LinkerRegion* FindRegion(const Ident* region);
+
+	LinkerSection * AddSection(const Ident* section, LinkerSectionType type);
 	LinkerSection* FindSection(const Ident* section);
+
+	bool IsSectionPlaced(LinkerSection* section);
 
 	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type);
 

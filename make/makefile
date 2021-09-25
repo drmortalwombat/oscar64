@@ -4,7 +4,7 @@ sources = $(wildcard ../oscar64/*.cpp)
 objects = $(patsubst ../oscar64/%.cpp,%.o,$(sources))
 
 CXX = g++
-CPPFLAGS = -g -O -march=athlon64 -mfpmath=sse
+CPPFLAGS = -g -O2
  
 
 ifdef WINDIR
@@ -29,8 +29,8 @@ endif
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$
 
-oscar64 : $(objects)
-	g++ $(CPPFLAGS) $(linklibs) $(objects) -o oscar64
+../bin/oscar64 : $(objects)
+	g++ $(CPPFLAGS) $(linklibs) $(objects) -o ../bin/oscar64
 
 .PHONY : clean
 clean :

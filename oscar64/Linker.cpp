@@ -49,10 +49,22 @@ LinkerRegion* Linker::AddRegion(const Ident* region, int start, int end)
 	return lrgn;
 }
 
-LinkerSection* Linker::AddSection(const Ident* section, uint32 flags)
+LinkerRegion* Linker::FindRegion(const Ident* region)
+{
+	for (int i = 0; i < mRegions.Size(); i++)
+	{
+		if (mRegions[i]->mIdent == region)
+			return mRegions[i];
+	}
+
+	return nullptr;
+}
+
+LinkerSection* Linker::AddSection(const Ident* section, LinkerSectionType type)
 {
 	LinkerSection* lsec = new LinkerSection;
 	lsec->mIdent = section;
+	lsec->mType = type;
 	mSections.Push(lsec);
 	return lsec;
 
@@ -67,6 +79,19 @@ LinkerSection* Linker::FindSection(const Ident* section)
 	}
 
 	return nullptr;
+}
+
+bool Linker::IsSectionPlaced(LinkerSection* section)
+{
+	for (int i = 0; i < mRegions.Size(); i++)
+	{
+		LinkerRegion* rgn = mRegions[i];
+		for (int j = 0; j < rgn->mSections.Size(); j++)
+			if (section == rgn->mSections[j])
+				return true;
+	}
+
+	return false;
 }
 
 LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, LinkerSection * section, LinkerObjectType type)
@@ -112,6 +137,13 @@ void Linker::Link(void)
 	if (mErrors->mErrorCount == 0)
 	{
 
+		for (int i = 0; i < mSections.Size(); i++)
+		{
+			LinkerSection* lsec = mSections[i];
+			lsec->mStart = 0x10000;
+			lsec->mEnd = 0x0000;
+		}
+
 		// Move objects into regions
 
 		for (int i = 0; i < mRegions.Size(); i++)
@@ -128,6 +160,11 @@ void Linker::Link(void)
 						lobj->mPlaced = true;
 						lobj->mAddress = lrgn->mStart + lrgn->mUsed;
 						lrgn->mUsed += lobj->mSize;
+
+						if (lobj->mAddress < lsec->mStart)
+							lsec->mStart = lobj->mAddress;
+						if (lobj->mAddress + lobj->mSize > lsec->mEnd)
+							lsec->mEnd = lobj->mAddress + lobj->mSize;
 					}
 				}
 			}
@@ -147,10 +184,49 @@ void Linker::Link(void)
 				mProgramEnd = address;
 		}
 
+		// Place stack segment
+		
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion* lrgn = mRegions[i];
+			for (int j = 0; j < lrgn->mSections.Size(); j++)
+			{
+				LinkerSection* lsec = lrgn->mSections[j];
+
+				if (lsec->mType == LST_STACK)
+				{
+					lsec->mStart = lrgn->mEnd - lsec->mSize;
+					lsec->mEnd = lrgn->mEnd;
+					lrgn->mEnd = lsec->mStart;
+				}
+			}
+		}
+
+		// Now expand the heap section to cover the reaminder of the region
+
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion* lrgn = mRegions[i];
+			for (int j = 0; j < lrgn->mSections.Size(); j++)
+			{
+				LinkerSection* lsec = lrgn->mSections[j];
+
+				if (lsec->mType == LST_HEAP)
+				{
+					lsec->mStart = lrgn->mStart + lrgn->mUsed;
+					lsec->mEnd = lrgn->mEnd;
+				}
+			}
+		}
+
 		for (int i = 0; i < mObjects.Size(); i++)
 		{
 			LinkerObject* obj = mObjects[i];
-			if (obj->mReferenced)
+			if (obj->mType == LOT_SECTION_START)
+				obj->mAddress = obj->mSection->mStart;
+			else if (obj->mType == LOT_SECTION_END)
+				obj->mAddress = obj->mSection->mEnd;
+			else if (obj->mReferenced)
 			{
 				memcpy(mMemory + obj->mAddress, obj->mData, obj->mSize);
 			}
@@ -186,7 +262,10 @@ static const char * LinkerObjectTypeNames[] =
 	"RUNTIME",
 	"DATA",
 	"BSS",
-	"STACK"
+	"HEAP",
+	"STACK",
+	"START",
+	"END"
 };
 
 bool Linker::WritePrgFile(const char* filename)

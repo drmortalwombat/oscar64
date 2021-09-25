@@ -48,7 +48,7 @@ public:
 	void AddPath(const char* path);
 	bool NextLine(void);
 
-	bool OpenSource(const char* name, bool local);
+	bool OpenSource(const char* reason, const char* name, bool local);
 	bool CloseSource(void);
 
 	Preprocessor(Errors * errors);

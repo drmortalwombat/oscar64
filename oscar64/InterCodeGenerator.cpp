@@ -195,6 +195,11 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		dec->mVarIndex = var->mIndex;
 		dec->mLinkerObject = var->mLinkerObject;
 
+		if (dec->mFlags & DTF_SECTION_START)
+			dec->mLinkerObject->mType = LOT_SECTION_START;
+		else if (dec->mFlags & DTF_SECTION_END)
+			dec->mLinkerObject->mType = LOT_SECTION_END;
+
 		uint8* d = var->mLinkerObject->AddSpace(var->mSize);
 		if (dec->mValue)
 		{
@@ -260,6 +265,26 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 
 				offset += 1;
 			}
+			else if (aexp->mType == DT_VARIABLE_REF)
+			{
+				if (aexp->mBase->mFlags & DTF_GLOBAL)
+				{
+					InitGlobalVariable(mod, aexp->mBase);
+
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					ref.mHighByte = aexp->mFlags & DTF_UPPER_BYTE;
+					ref.mLowByte = !(aexp->mFlags & DTF_UPPER_BYTE);
+					ref.mRefObject = aexp->mBase->mLinkerObject;
+					ref.mRefOffset = aexp->mOffset;
+					mLinker->AddReference(ref);
+
+					offset += 1;
+				}
+				else
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid immediate operand");
+			}
 			else if (aexp->mType == DT_FUNCTION_REF)
 			{
 				if (!aexp->mBase->mLinkerObject)
@@ -279,6 +304,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 
 				offset += 1;
 			}
+			else
+				mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid immediate operand");
 			break;
 		case ASMIM_ZERO_PAGE:
 		case ASMIM_ZERO_PAGE_X:

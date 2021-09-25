@@ -2572,6 +2572,129 @@ void Parser::ParsePragma(void)
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "region"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				const Ident* regionIdent = mScanner->mTokenIdent;
+				mScanner->NextToken();
+
+				Expression* exp;
+				int	start = 0, end = 0, flags = 0;
+
+				ConsumeToken(TK_COMMA);
+				
+				exp = ParseRExpression();
+				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+					start = exp->mDecValue->mInteger;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for start expected");
+				
+				ConsumeToken(TK_COMMA);
+				
+				exp = ParseRExpression();
+				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+					end = exp->mDecValue->mInteger;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for end expected");
+				
+				ConsumeToken(TK_COMMA);
+
+				exp = ParseRExpression();
+				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+					flags = exp->mDecValue->mInteger;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for flags expected");
+
+				LinkerRegion* rgn = mCompilationUnits->mLinker->FindRegion(regionIdent);
+				if (!rgn)
+					rgn = mCompilationUnits->mLinker->AddRegion(regionIdent, start, end);
+				else if (rgn->mStart != start || rgn->mEnd != end)
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Conflicting linker region definition");
+
+				ConsumeToken(TK_COMMA);
+				ConsumeToken(TK_OPEN_BRACE);
+				if (!ConsumeTokenIf(TK_CLOSE_BRACE))
+				{
+					do {
+						if (mScanner->mToken == TK_IDENT)
+						{
+							LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(mScanner->mTokenIdent);
+							if (lsec)
+							{
+								rgn->mSections.Push(lsec);
+							}
+							else
+								mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name not defined");
+							mScanner->NextToken();
+						}
+						else
+							mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");
+					} while (ConsumeTokenIf(TK_COMMA));
+					ConsumeToken(TK_CLOSE_BRACE);
+				}
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Region name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "section"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				const Ident* sectionIdent = mScanner->mTokenIdent;
+				mScanner->NextToken();
+
+				int	flags = 0;
+				Expression* exp;
+				Declaration* dstart = nullptr, * dend = nullptr;
+
+				ConsumeToken(TK_COMMA);
+
+				exp = ParseRExpression();
+				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+					flags = exp->mDecValue->mInteger;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for flags expected");
+
+				if (ConsumeTokenIf(TK_COMMA))
+				{
+					exp = ParseExpression();
+					if (exp->mDecValue && exp->mDecValue->mType == DT_VARIABLE)
+						dstart = exp->mDecValue;
+
+					if (ConsumeTokenIf(TK_COMMA))
+					{
+						exp = ParseExpression();
+						if (exp->mDecValue && exp->mDecValue->mType == DT_VARIABLE)
+							dend = exp->mDecValue;
+					}
+				}
+
+				LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(sectionIdent);
+				if (dstart)
+				{
+					dstart->mSection = lsec;
+					dstart->mFlags |= DTF_SECTION_START;
+				}
+				if (dend)
+				{
+					dend->mSection = lsec;
+					dend->mFlags |= DTF_SECTION_END;
+				}
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else
 		{
 			mScanner->NextToken();

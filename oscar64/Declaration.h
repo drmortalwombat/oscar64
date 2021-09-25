@@ -47,19 +47,20 @@ enum DecType
 
 // TypeFlags
 
-static const uint32	DTF_SIGNED		= 0x00000001;
-static const uint32	DTF_DEFINED		= 0x00000002;
-static const uint32	DTF_GLOBAL		= 0x00000004;
-static const uint32	DTF_VARIADIC	= 0x00000008;
-static const uint32	DTF_INTRINSIC	= 0x00000010;
-static const uint32	DTF_STATIC		= 0x00000020;
-static const uint32	DTF_CONST		= 0x00000040;
-static const uint32	DTF_VOLATILE	= 0x00000080;
-static const uint32	DTF_EXTERN		= 0x00000100;
-static const uint32 DTF_NATIVE		= 0x00000200;
-static const uint32 DTF_UPPER_BYTE  = 0x00000400;
-static const uint32 DTF_LOWER_BYTE  = 0x00000800;
-
+static const uint32	DTF_SIGNED			= 0x00000001;
+static const uint32	DTF_DEFINED			= 0x00000002;
+static const uint32	DTF_GLOBAL			= 0x00000004;
+static const uint32	DTF_VARIADIC		= 0x00000008;
+static const uint32	DTF_INTRINSIC		= 0x00000010;
+static const uint32	DTF_STATIC			= 0x00000020;
+static const uint32	DTF_CONST			= 0x00000040;
+static const uint32	DTF_VOLATILE		= 0x00000080;
+static const uint32	DTF_EXTERN			= 0x00000100;
+static const uint32 DTF_NATIVE			= 0x00000200;
+static const uint32 DTF_UPPER_BYTE		= 0x00000400;
+static const uint32 DTF_LOWER_BYTE		= 0x00000800;
+static const uint32 DTF_SECTION_START	= 0x00001000;
+static const uint32 DTF_SECTION_END		= 0x00002000;
 
 class Declaration;
 
