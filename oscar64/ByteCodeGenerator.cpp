@@ -105,6 +105,32 @@ bool ByteCodeInstruction::IsCommutative(void) const
 	return false;
 }
 
+bool ByteCodeInstruction::IsLocalStore(void) const
+{
+	return mCode >= BC_STORE_LOCAL_8 && mCode <= BC_STORE_LOCAL_32;
+}
+
+bool ByteCodeInstruction::IsLocalLoad(void) const
+{
+	return mCode >= BC_LOAD_LOCAL_8 && mCode <= BC_LOAD_LOCAL_32 || mCode == BC_COPY;
+}
+
+bool ByteCodeInstruction::IsLocalAccess(void) const
+{
+	return IsLocalStore() || IsLocalLoad();
+}
+
+
+bool ByteCodeInstruction::IsSame(const ByteCodeInstruction& ins) const
+{
+	if (mCode == ins.mCode && mValue == ins.mValue && mRegister == ins.mRegister && mLinkerObject == ins.mLinkerObject)
+	{
+		return true;
+	}
+
+	return false;
+}
+
 bool ByteCodeInstruction::StoresRegister(uint32 reg) const
 {
 	if (mRegister == reg)
@@ -529,7 +555,7 @@ int ByteCodeBasicBlock::PutBranch(ByteCodeGenerator* generator, ByteCode code, i
 }
 
 ByteCodeBasicBlock::ByteCodeBasicBlock(void)
-	: mRelocations({ 0 }), mIns(ByteCodeInstruction(BC_NOP))
+	: mRelocations({ 0 }), mIns(ByteCodeInstruction(BC_NOP)), mEntryBlocks(nullptr)
 {
 	mTrueJump = mFalseJump = NULL;
 	mTrueLink = mFalseLink = NULL;
@@ -2530,6 +2556,78 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 	this->Close(proc->CompileBlock(iproc, sblock->mTrueJump), nullptr, BC_JUMPS);
 }
 
+void ByteCodeBasicBlock::CollectEntryBlocks(ByteCodeBasicBlock* block)
+{
+	if (block)
+		mEntryBlocks.Push(block);
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump)
+			mTrueJump->CollectEntryBlocks(this);
+		if (mFalseJump)
+			mFalseJump->CollectEntryBlocks(this);
+	}
+}
+
+bool ByteCodeBasicBlock::SameTail(ByteCodeInstruction& ins)
+{
+	if (mIns.Size() > 0)
+		return mIns[mIns.Size() - 1].IsSame(ins);
+	else
+		return false;
+}
+
+bool ByteCodeBasicBlock::JoinTailCodeSequences(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mEntryBlocks.Size() > 1)
+		{
+			int i = 0;
+			while (i < mEntryBlocks.Size() && mEntryBlocks[i]->mBranch == BC_JUMPS)
+				i++;
+			if (i == mEntryBlocks.Size())
+			{
+				ByteCodeBasicBlock* eb = mEntryBlocks[0];
+
+				while (eb->mIns.Size() > 0)
+				{
+					ByteCodeInstruction& ins(eb->mIns[eb->mIns.Size() - 1]);
+					i = 1;
+					while (i < mEntryBlocks.Size() && mEntryBlocks[i]->SameTail(ins))
+						i++;
+					if (i == mEntryBlocks.Size())
+					{
+						mIns.Insert(0, ins);
+						for (int i = 0; i < mEntryBlocks.Size(); i++)
+						{
+							ByteCodeBasicBlock* b = mEntryBlocks[i];
+							b->mIns.SetSize(b->mIns.Size() - 1);
+						}
+						changed = true;
+					}
+					else
+						break;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->JoinTailCodeSequences())
+			changed = true;
+		if (mFalseJump && mFalseJump->JoinTailCodeSequences())
+			changed = true;
+	}
+
+	return changed;
+}
+
 
 bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 {
@@ -2582,6 +2680,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2].mCode = BC_NOP;
 						if (mIns[i + 2].mRegisterFinal)
 							mIns[i].mCode = BC_NOP;
+						progress = true;
 					}
 					else if (mIns[i].mCode == BC_STORE_REG_32 &&
 						!mIns[i + 1].ChangesAccu() && mIns[i + 1].mRegister != mIns[i].mRegister &&
@@ -2590,6 +2689,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2].mCode = BC_NOP;
 						if (mIns[i + 2].mRegisterFinal)
 							mIns[i].mCode = BC_NOP;
+						progress = true;
 					}
 					else if (mIns[i].mCode == BC_STORE_REG_16 &&
 						!mIns[i + 1].ChangesAccu() && mIns[i + 1].mRegister != mIns[i].mRegister &&
@@ -2597,6 +2697,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 					{
 						mIns[i].mCode = BC_NOP;
 						mIns[i + 2].mRegister = BC_REG_ACCU;
+						progress = true;
 					}
 					else if (mIns[i].mCode == BC_STORE_REG_16 &&
 						!mIns[i + 1].ChangesAddr() && mIns[i + 1].mRegister != mIns[i].mRegister &&
@@ -2605,6 +2706,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i].mCode = BC_ADDR_REG;
 						mIns[i].mRegister = BC_REG_ACCU;
 						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
 					}
 					else if (
 						mIns[i + 2].mCode == BC_BINOP_ADDR_16 &&
@@ -2614,6 +2716,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 0].mRegister = BC_REG_ACCU;
 						mIns[i + 1].mCode = mIns[i + 2].mCode;
 						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
 					}
 					else if (
 						mIns[i + 2].mCode == BC_BINOP_ADDR_16 &&
@@ -2623,6 +2726,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 0].mCode = BC_NOP;;
 						mIns[i + 1].mCode = mIns[i + 2].mCode;
 						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
 					}
 					else if (mIns[i].mCode == BC_STORE_REG_32 &&
 						mIns[i + 1].mCode == BC_LOAD_REG_32 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
@@ -2633,6 +2737,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mCode = BC_NOP;
 						mIns[i + 2].mRegister = mIns[i + 1].mRegister;
 						mIns[i + 2].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+						progress = true;
 					}
 					else if (mIns[i].mCode == BC_STORE_REG_16 &&
 						mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i + 1].mRegister != mIns[i + 2].mRegister &&
@@ -2643,6 +2748,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mCode = BC_NOP;
 						mIns[i + 2].mRegister = mIns[i + 1].mRegister;
 						mIns[i + 2].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+						progress = true;
 					}
 					else if (mIns[i + 0].mCode == BC_STORE_REG_32 &&
 						mIns[i + 2].mCode == BC_BINOP_CMP_F32 && mIns[i + 2].mRegister == mIns[i + 0].mRegister && mIns[i + 2].mRegisterFinal &&
@@ -2651,24 +2757,34 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mRegister = mIns[i + 0].mRegister;
 						mIns[i + 0].mCode = BC_NOP;
 						mBranch = TransposeBranchCondition(mBranch);
+						progress = true;
 					}
 					else if (mIns[i + 0].mCode == BC_LOAD_REG_16 &&
 						mIns[i + 1].mCode == BC_STORE_REG_16 &&
 						mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister)
 					{
 						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
 					}
 					else if (mIns[i + 0].mCode == BC_CONST_16 && mIns[i + 2].mCode == BC_CONST_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 0].mValue == mIns[i + 2].mValue && !mIns[i + 1].ChangesRegister(mIns[i + 0].mRegister))
 					{
 						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
 					}
 					else if (mIns[i + 0].mCode >= BC_SET_EQ && mIns[i + 0].mCode <= BC_SET_LE &&
 						mIns[i + 1].mCode == BC_STORE_REG_8 &&
 						mIns[i + 2].mCode == BC_LOAD_REG_8 && mIns[i + 1].mRegister == mIns[i + 2].mRegister)
 					{
 						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i + 0].IsLocalStore() && mIns[i + 2].IsSame(mIns[i + 0]) && !mIns[i + 1].IsLocalAccess() && mIns[i + 1].mCode != BC_JSR)
+					{
+						mIns[i + 0].mCode = BC_NOP;
+						progress = true;
 					}
 				}
+
 				if (i + 1 < mIns.Size())
 				{
 					if (mIns[i].mCode == BC_STORE_REG_16 && mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i].mRegister == mIns[i + 1].mRegister)
@@ -2756,12 +2872,30 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mCode = BC_NOP;
 						progress = true;
 					}
+					else if (mIns[i].mCode == BC_BINOP_ADDI_16 && mIns[i + 1].mCode == BC_BINOP_ADDI_16 && mIns[i].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i + 1].mValue += mIns[i].mValue;
+						mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_BINOP_ADDI_16 && mIns[i].mValue == 0)
+					{
+						mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
 				}
 
 				if ((mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32) && accuTemp == mIns[i].mRegister)
+				{
 					mIns[i].mCode = BC_NOP;
+					progress = true;
+				}
+
 				if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister == addrTemp)
+				{
 					mIns[i].mCode = BC_NOP;
+					progress = true;
+				}
 
 				if (mIns[i].ChangesAccu())
 					accuTemp = -1;
@@ -3072,6 +3206,32 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 	exitBlock = new ByteCodeBasicBlock();
 	mBlocks.Push(exitBlock);
 
+	entryBlock->Compile(proc, this, proc->mBlocks[0]);
+
+#if 1
+	bool	progress = false;
+
+	do {
+
+		progress = false;
+
+		ResetVisited();
+		progress = entryBlock->PeepHoleOptimizer();
+
+		ResetVisited();
+		for (int i = 0; i < mBlocks.Size(); i++)
+			mBlocks[i]->mEntryBlocks.SetSize(0);
+		entryBlock->CollectEntryBlocks(nullptr);
+
+		ResetVisited();
+		if (entryBlock->JoinTailCodeSequences())
+			progress = true;
+
+	} while (progress);
+#endif
+
+	entryBlock->Assemble(generator);
+
 	if (!proc->mLeafProcedure)
 	{
 		exitBlock->PutCode(generator, BC_POP_FRAME);
@@ -3079,13 +3239,6 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 	}
 	exitBlock->PutCode(generator, BC_RETURN); exitBlock->PutByte(tempSave); exitBlock->PutWord(proc->mLocalSize + 2 + tempSave);
 
-	entryBlock->Compile(proc, this, proc->mBlocks[0]);
-
-	bool	progress = false;
-	ResetVisited();
-	progress = entryBlock->PeepHoleOptimizer();
-
-	entryBlock->Assemble(generator);
 
 	int	total;
 

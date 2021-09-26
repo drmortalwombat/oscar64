@@ -178,8 +178,12 @@ public:
 	bool ChangesRegister(uint32 reg) const;
 	bool LoadsRegister(uint32 reg) const;
 	bool StoresRegister(uint32 reg) const;
+	bool IsLocalStore(void) const;
+	bool IsLocalLoad(void) const;
+	bool IsLocalAccess(void) const;
 
 	bool IsCommutative(void) const;
+	bool IsSame(const ByteCodeInstruction& ins) const;
 
 	bool ValueForwarding(ByteCodeInstruction*& accuIns, ByteCodeInstruction*& addrIns);
 };
@@ -196,6 +200,7 @@ public:
 
 	GrowingArray<ByteCodeInstruction>	mIns;
 	GrowingArray<LinkerReference>	mRelocations;
+	GrowingArray<ByteCodeBasicBlock*>	mEntryBlocks;
 
 	int						mOffset, mSize;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mVisited;
@@ -235,6 +240,11 @@ public:
 	ByteCode RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins);
 	void BinaryIntOperator(InterCodeProcedure* proc, const InterInstruction * ins, ByteCode code);
 	void NumericConversion(InterCodeProcedure* proc, const InterInstruction * ins);
+
+	void CollectEntryBlocks(ByteCodeBasicBlock * block);
+
+	bool JoinTailCodeSequences(void);
+	bool SameTail(ByteCodeInstruction& ins);
 
 	bool PeepHoleOptimizer(void);
 };

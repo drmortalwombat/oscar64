@@ -12,7 +12,7 @@ int main(void)
 	
 	for(i=0; i<50; i++)
 	{		
-//		printf("%d %f %f %f\n", i, i * c, a, i * c - a);
+		printf("%d %f %f %f\n", i, i * c, a, i * c - a);
 		assert(i * c == a);
 		a += c;
 	}
@@ -21,7 +21,7 @@ int main(void)
 	
 	for(i=1; i<50; i++)
 	{		
-//		printf("%d %f %f %f\n", i, i * d, a, fabs(i * d - a) / i);
+		printf("%d %f %f %f\n", i, i * d, a, fabs(i * d - a) / i);
 		assert(fabs(i * d - a) < i * 1.0e-6);
 		a += d;
 	}

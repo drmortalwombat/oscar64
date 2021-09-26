@@ -48,12 +48,14 @@ public:
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
 	bool ValueForwarding(NativeRegisterDataSet& data);
 
+
 	bool LoadsAccu(void) const;
 	bool ChangesAccuAndFlag(void) const;
 	bool ChangesAddress(void) const;
 	bool ChangesAccu(void) const;
 	bool RequiresAccu(void) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
+	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
 };
 
@@ -71,6 +73,8 @@ public:
 
 	GrowingArray<NativeCodeInstruction>	mIns;
 	GrowingArray<LinkerReference>	mRelocations;
+
+	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int						mOffset, mSize, mNumEntries;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited;
@@ -131,6 +135,11 @@ public:
 	bool FindGlobalAddress(int at, int reg, int& apos);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
+
+	void CollectEntryBlocks(NativeCodeBasicBlock* block);
+
+	bool JoinTailCodeSequences(void);
+	bool SameTail(const NativeCodeInstruction& ins) const;
 
 };
 

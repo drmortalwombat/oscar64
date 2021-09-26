@@ -495,6 +495,35 @@ bool NativeCodeInstruction::IsCommutative(void) const
 }
 
 
+bool NativeCodeInstruction::IsSame(const NativeCodeInstruction& ins) const
+{
+	if (mType == ins.mType && mMode == ins.mMode)
+	{
+		switch (mMode)
+		{
+		case ASMIM_IMPLIED:
+			return true;
+		case ASMIM_IMMEDIATE:
+		case ASMIM_ZERO_PAGE:
+		case ASMIM_ZERO_PAGE_X:
+		case ASMIM_ZERO_PAGE_Y:
+		case ASMIM_INDIRECT_X:
+		case ASMIM_INDIRECT_Y:
+			return ins.mAddress == mAddress;
+		case ASMIM_IMMEDIATE_ADDRESS:
+			return (ins.mLinkerObject == mLinkerObject && ins.mAddress == mAddress && ins.mFlags == mFlags);
+		case ASMIM_ABSOLUTE:
+		case ASMIM_ABSOLUTE_X:
+		case ASMIM_ABSOLUTE_Y:
+			return (ins.mLinkerObject == mLinkerObject && ins.mAddress == mAddress);
+		default:
+			return false;
+		}
+	}
+	else
+		return false;
+}
+
 bool NativeCodeInstruction::SameEffectiveAddress(const NativeCodeInstruction& ins) const
 {
 	if (mMode != ins.mMode)
@@ -4124,6 +4153,79 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 	return changed;
 }
 
+void NativeCodeBasicBlock::CollectEntryBlocks(NativeCodeBasicBlock* block)
+{
+	if (block)
+		mEntryBlocks.Push(block);
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump)
+			mTrueJump->CollectEntryBlocks(this);
+		if (mFalseJump)
+			mFalseJump->CollectEntryBlocks(this);
+	}
+}
+
+bool NativeCodeBasicBlock::SameTail(const NativeCodeInstruction& ins) const
+{
+	if (mIns.Size() > 0)
+		return mIns[mIns.Size() - 1].IsSame(ins);
+	else
+		return false;
+}
+
+bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mEntryBlocks.Size() > 1)
+		{
+			int i = 0;
+			while (i < mEntryBlocks.Size() && mEntryBlocks[i]->mBranch == ASMIT_JMP)
+				i++;
+			if (i == mEntryBlocks.Size())
+			{
+				NativeCodeBasicBlock* eb = mEntryBlocks[0];
+
+				while (eb->mIns.Size() > 0)
+				{
+					NativeCodeInstruction& ins(eb->mIns[eb->mIns.Size() - 1]);
+					i = 1;
+					while (i < mEntryBlocks.Size() && mEntryBlocks[i]->SameTail(ins))
+						i++;
+					if (i == mEntryBlocks.Size())
+					{
+						mIns.Insert(0, ins);
+						for (int i = 0; i < mEntryBlocks.Size(); i++)
+						{
+							NativeCodeBasicBlock* b = mEntryBlocks[i];
+							b->mIns.SetSize(b->mIns.Size() - 1);
+						}
+						changed = true;
+					}
+					else
+						break;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->JoinTailCodeSequences())
+			changed = true;
+		if (mFalseJump && mFalseJump->JoinTailCodeSequences())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
 bool NativeCodeBasicBlock::FindGlobalAddress(int at, int reg, int& apos)
 {
 	int j = at - 4;
@@ -4986,7 +5088,7 @@ void NativeCodeBasicBlock::CalculateOffset(int& total)
 }
 
 NativeCodeBasicBlock::NativeCodeBasicBlock(void)
-	: mIns(NativeCodeInstruction(ASMIT_INV, ASMIM_IMPLIED)), mRelocations({ 0 })
+	: mIns(NativeCodeInstruction(ASMIT_INV, ASMIM_IMPLIED)), mRelocations({ 0 }), mEntryBlocks(nullptr)
 {
 	mTrueJump = mFalseJump = NULL;
 	mOffset = 0x7fffffff;
@@ -5173,6 +5275,15 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 		ResetVisited();
 		if (entryBlock->MergeBasicBlocks())
+			changed = true;
+
+		ResetVisited();
+		for (int i = 0; i < mBlocks.Size(); i++)
+			mBlocks[i]->mEntryBlocks.SetSize(0);
+		entryBlock->CollectEntryBlocks(nullptr);
+
+		ResetVisited();
+		if (entryBlock->JoinTailCodeSequences())
 			changed = true;
 
 	} while (changed);

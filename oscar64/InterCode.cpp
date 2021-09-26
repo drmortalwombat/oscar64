@@ -3243,9 +3243,25 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 	{
 		mVisited = true;
 
+		// Remove none instructions
+
+		int	j = 0;
+		for (i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i]->mCode != IC_NONE)
+			{
+				mInstructions[j++] = mInstructions[i];
+			}
+		}
+		mInstructions.SetSize(j);
+
 		// shorten lifespan
 
-		int i = mInstructions.Size() - 2;
+		int	limit = mInstructions.Size() - 1;
+		if (limit >= 2 && mInstructions[limit]->mCode == IC_BRANCH)
+			limit -= 2;
+
+		int i = limit;
 
 		while (i >= 0)
 		{
@@ -3254,7 +3270,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 			{
 				InterInstruction	*	ins(mInstructions[i]);
 				int j = i;
-				while (j + 2 < mInstructions.Size() && CanBypassLoad(ins, mInstructions[j + 1]))
+				while (j < limit && CanBypassLoad(ins, mInstructions[j + 1]))
 				{
 					mInstructions[j] = mInstructions[j + 1];
 					j++;
