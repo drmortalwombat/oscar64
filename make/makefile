@@ -35,7 +35,7 @@ endif
 
 .PHONY : clean
 clean :
-	-rm *.o *.d oscar64
+	-rm *.o *.d ../bin/oscar64
 
 ifeq ($(UNAME_S), Darwin)
 

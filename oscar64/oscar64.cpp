@@ -1,6 +1,8 @@
 #include <stdio.h>
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
 #endif
 #include "Compiler.h"
 
@@ -69,8 +71,10 @@ int main(int argc, const char** argv)
 
 		DWORD length = ::GetModuleFileNameA(NULL, basePath, sizeof(basePath));
 #else
-		strcpy(basePath, argv[0]);
-		int length = strlen(basePath);
+		int length = readlink("/proc/self/exe", basePath, sizeof(basePath));
+
+//		strcpy(basePath, argv[0]);
+//		int length = strlen(basePath);
 #endif
 		while (length > 0 && basePath[length - 1] != '/' && basePath[length - 1] != '\\')
 			length--;
