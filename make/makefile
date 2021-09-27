@@ -6,7 +6,8 @@ objects = $(patsubst ../oscar64/%.cpp,%.o,$(sources))
 CXX = c++
 CPPFLAGS = -g -O2 -std=c++11 -Wno-switch
  
-
+ $(shell mkdir -p ../bin)
+ 
 ifdef WINDIR
 	linklibs = -lpthread
 else
