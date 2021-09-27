@@ -546,6 +546,650 @@ bool NativeCodeInstruction::SameEffectiveAddress(const NativeCodeInstruction& in
 	}
 }
 
+bool NativeCodeInstruction::ApplySimulation(const NativeRegisterDataSet& data)
+{
+	switch (mType)
+	{
+	case ASMIT_LDA:
+	case ASMIT_LDX:
+	case ASMIT_LDY:
+	case ASMIT_CMP:
+	case ASMIT_CPX:
+	case ASMIT_CPY:
+		if (mMode == ASMIM_ZERO_PAGE && data.mRegs[mAddress].mImmediate)
+		{
+			mMode = ASMIM_IMMEDIATE;
+			mAddress = data.mRegs[mAddress].mValue;
+			return true;
+		}
+		break;
+	}
+
+	return false;
+}
+
+void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
+{
+	int	reg = -1;
+	if (mMode == ASMIM_ZERO_PAGE)
+		reg = mAddress;
+	else if (mMode == ASMIM_IMPLIED)
+		reg = CPU_REG_A;
+
+	switch (mType)
+	{
+	case ASMIT_JSR:
+		data.mRegs[CPU_REG_C].mImmediate = false;
+		data.mRegs[CPU_REG_Z].mImmediate = false;
+		data.mRegs[CPU_REG_A].mImmediate = false;
+		data.mRegs[CPU_REG_X].mImmediate = false;
+		data.mRegs[CPU_REG_Y].mImmediate = false;
+
+		for (int i = 0; i < 4; i++)
+		{
+			data.mRegs[BC_REG_ACCU + i].mImmediate = false;
+			data.mRegs[BC_REG_WORK + i].mImmediate = false;
+			data.mRegs[BC_REG_ADDR + i].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_ROL:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_C].mImmediate)
+			{
+				int	t = (data.mRegs[reg].mValue << 1) | data.mRegs[CPU_REG_C].mValue;
+				data.mRegs[CPU_REG_C].mValue = t >= 256;
+				data.mRegs[reg].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_ROR:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_C].mImmediate)
+			{
+				int	t = (data.mRegs[reg].mValue >> 1) | (data.mRegs[CPU_REG_C].mValue << 7);
+				data.mRegs[CPU_REG_C].mValue = data.mRegs[reg].mValue & 1;
+				data.mRegs[reg].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_ASL:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate)
+			{
+				int	t = (data.mRegs[reg].mValue << 1);
+				data.mRegs[CPU_REG_C].mValue = t >= 256;
+				data.mRegs[reg].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_LSR:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate)
+			{
+				int	t = (data.mRegs[reg].mValue >> 1);
+				data.mRegs[CPU_REG_C].mValue = data.mRegs[reg].mValue & 1;
+				data.mRegs[reg].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_INC:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate)
+			{
+				data.mRegs[reg].mValue = (data.mRegs[reg].mValue + 1) & 255;
+				data.mRegs[CPU_REG_Z].mValue = data.mRegs[reg].mValue;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		break;
+
+	case ASMIT_DEC:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate)
+			{
+				data.mRegs[reg].mValue = (data.mRegs[reg].mValue + 1) & 255;
+				data.mRegs[CPU_REG_Z].mValue = data.mRegs[reg].mValue;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		break;
+
+	case ASMIT_ADC:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_A].mImmediate && data.mRegs[CPU_REG_C].mImmediate)
+			{
+				int	t = data.mRegs[reg].mValue + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
+				data.mRegs[CPU_REG_C].mValue = t >= 256;
+				data.mRegs[CPU_REG_A].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_A].mImmediate = false;
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_SBC:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_A].mImmediate && data.mRegs[CPU_REG_C].mImmediate)
+			{
+				int	t = (data.mRegs[reg].mValue ^ 0xff) + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
+				data.mRegs[CPU_REG_C].mValue = t >= 256;
+				data.mRegs[CPU_REG_A].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_A].mImmediate = false;
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_AND:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_A].mImmediate)
+			{
+				int	t = data.mRegs[reg].mValue & data.mRegs[CPU_REG_A].mValue;
+				data.mRegs[CPU_REG_A].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else if ((data.mRegs[reg].mImmediate && data.mRegs[reg].mValue == 0) || (data.mRegs[CPU_REG_A].mImmediate && data.mRegs[CPU_REG_A].mValue == 0))
+			{
+				data.mRegs[CPU_REG_A].mValue = 0;
+				data.mRegs[CPU_REG_A].mImmediate = true;
+				data.mRegs[CPU_REG_Z].mValue = 0;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_A].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_ORA:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_A].mImmediate)
+			{
+				int	t = data.mRegs[reg].mValue | data.mRegs[CPU_REG_A].mValue;
+				data.mRegs[CPU_REG_A].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else if ((data.mRegs[reg].mImmediate && data.mRegs[reg].mValue == 0xff) || (data.mRegs[CPU_REG_A].mImmediate && data.mRegs[CPU_REG_A].mValue == 0xff))
+			{
+				data.mRegs[CPU_REG_A].mValue = 0xff;
+				data.mRegs[CPU_REG_A].mImmediate = true;
+				data.mRegs[CPU_REG_Z].mValue = 0xff;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_A].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_EOR:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_A].mImmediate)
+			{
+				int	t = data.mRegs[reg].mValue | data.mRegs[CPU_REG_A].mValue;
+				data.mRegs[CPU_REG_A].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_A].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_INX:
+		if (data.mRegs[CPU_REG_X].mImmediate)
+		{
+			data.mRegs[CPU_REG_X].mValue = (data.mRegs[CPU_REG_X].mValue + 1) & 255;
+			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_X].mValue;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_DEX:
+		if (data.mRegs[CPU_REG_X].mImmediate)
+		{
+			data.mRegs[CPU_REG_X].mValue = (data.mRegs[CPU_REG_X].mValue - 1) & 255;
+			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_X].mValue;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_INY:
+		if (data.mRegs[CPU_REG_Y].mImmediate)
+		{
+			data.mRegs[CPU_REG_Y].mValue = (data.mRegs[CPU_REG_Y].mValue + 1) & 255;
+			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_Y].mValue;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_DEY:
+		if (data.mRegs[CPU_REG_Y].mImmediate)
+		{
+			data.mRegs[CPU_REG_Y].mValue = (data.mRegs[CPU_REG_Y].mValue - 1) & 255;
+			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_Y].mValue;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_TXA:
+		if (data.mRegs[CPU_REG_X].mImmediate)
+		{
+			data.mRegs[CPU_REG_A].mValue = data.mRegs[CPU_REG_X].mValue;
+			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_X].mValue;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_TYA:
+		if (data.mRegs[CPU_REG_Y].mImmediate)
+		{
+			data.mRegs[CPU_REG_A].mValue = data.mRegs[CPU_REG_Y].mValue;
+			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_Y].mValue;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_TAX:
+		if (data.mRegs[CPU_REG_A].mImmediate)
+		{
+			data.mRegs[CPU_REG_X].mValue = data.mRegs[CPU_REG_A].mValue;
+			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_X].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_TAY:
+		if (data.mRegs[CPU_REG_A].mImmediate)
+		{
+			data.mRegs[CPU_REG_Y].mValue = data.mRegs[CPU_REG_A].mValue;
+			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_Y].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_CMP:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_A].mImmediate)
+			{
+				int	t = (data.mRegs[reg].mValue ^ 0xff) + data.mRegs[CPU_REG_A].mValue + 1;
+				data.mRegs[CPU_REG_C].mValue = t >= 256;
+				data.mRegs[CPU_REG_C].mImmediate = true;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_CPX:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_X].mImmediate)
+			{
+				int	t = (data.mRegs[reg].mValue ^ 0xff) + data.mRegs[CPU_REG_X].mValue + 1;
+				data.mRegs[CPU_REG_C].mValue = t >= 256;
+				data.mRegs[CPU_REG_C].mImmediate = true;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_CPY:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate && data.mRegs[CPU_REG_Y].mImmediate)
+			{
+				int	t = (data.mRegs[reg].mValue ^ 0xff) + data.mRegs[CPU_REG_Y].mValue + 1;
+				data.mRegs[CPU_REG_C].mValue = t >= 256;
+				data.mRegs[CPU_REG_C].mImmediate = true;
+				data.mRegs[CPU_REG_Z].mValue = t & 255;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_C].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_C].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_LDA:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate)
+			{
+				int	t = data.mRegs[reg].mValue;
+				data.mRegs[CPU_REG_A].mValue = t;
+				data.mRegs[CPU_REG_A].mImmediate = true;
+				data.mRegs[CPU_REG_Z].mValue = t;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_A].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else if (mMode == ASMIM_IMMEDIATE)
+		{
+			data.mRegs[CPU_REG_A].mValue = mAddress;
+			data.mRegs[CPU_REG_A].mImmediate = true;
+			data.mRegs[CPU_REG_Z].mValue = mAddress;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_A].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_LDX:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate)
+			{
+				int	t = data.mRegs[reg].mValue;
+				data.mRegs[CPU_REG_X].mValue = t;
+				data.mRegs[CPU_REG_X].mImmediate = true;
+				data.mRegs[CPU_REG_Z].mValue = t;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_X].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else if (mMode == ASMIM_IMMEDIATE)
+		{
+			data.mRegs[CPU_REG_X].mValue = mAddress;
+			data.mRegs[CPU_REG_X].mImmediate = true;
+			data.mRegs[CPU_REG_Z].mValue = mAddress;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_X].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_LDY:
+		if (reg >= 0)
+		{
+			if (data.mRegs[reg].mImmediate)
+			{
+				int	t = data.mRegs[reg].mValue;
+				data.mRegs[CPU_REG_Y].mValue = t;
+				data.mRegs[CPU_REG_Y].mImmediate = true;
+				data.mRegs[CPU_REG_Z].mValue = t;
+				data.mRegs[CPU_REG_Z].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_Y].mImmediate = false;
+				data.mRegs[CPU_REG_Z].mImmediate = false;
+			}
+		}
+		else if (mMode == ASMIM_IMMEDIATE)
+		{
+			data.mRegs[CPU_REG_Y].mValue = mAddress;
+			data.mRegs[CPU_REG_Y].mImmediate = true;
+			data.mRegs[CPU_REG_Z].mValue = mAddress;
+			data.mRegs[CPU_REG_Z].mImmediate = true;
+		}
+		else
+		{
+			data.mRegs[CPU_REG_Y].mImmediate = false;
+			data.mRegs[CPU_REG_Z].mImmediate = false;
+		}
+		break;
+
+	case ASMIT_STA:
+		if (reg >= 0)
+		{
+			if (data.mRegs[CPU_REG_A].mImmediate)
+			{
+				data.mRegs[reg].mValue = data.mRegs[CPU_REG_A].mValue;
+				data.mRegs[reg].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+			}
+		}
+		break;
+
+	case ASMIT_STX:
+		if (reg >= 0)
+		{
+			if (data.mRegs[CPU_REG_X].mImmediate)
+			{
+				data.mRegs[reg].mValue = data.mRegs[CPU_REG_X].mValue;
+				data.mRegs[reg].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+			}
+		}
+		break;
+
+	case ASMIT_STY:
+		if (reg >= 0)
+		{
+			if (data.mRegs[CPU_REG_Y].mImmediate)
+			{
+				data.mRegs[reg].mValue = data.mRegs[CPU_REG_Y].mValue;
+				data.mRegs[reg].mImmediate = true;
+			}
+			else
+			{
+				data.mRegs[reg].mImmediate = false;
+			}
+		}
+		break;
+	}
+}
+
 bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data)
 {
 	bool	changed = false;
@@ -4169,6 +4813,73 @@ void NativeCodeBasicBlock::CollectEntryBlocks(NativeCodeBasicBlock* block)
 	}
 }
 
+void NativeCodeBasicBlock::BuildEntryDataSet(const NativeRegisterDataSet& set)
+{
+	if (!mVisited)
+		mEntryRegisterDataSet = set;
+	else
+	{
+		bool	changed = false;
+		for (int i = 0; i < NUM_REGS; i++)
+		{
+			if (set.mRegs[i].mImmediate)
+			{
+				if (mEntryRegisterDataSet.mRegs[i].mImmediate && set.mRegs[i].mValue != mEntryRegisterDataSet.mRegs[i].mValue)
+				{
+					mEntryRegisterDataSet.mRegs[i].mImmediate = false;
+					mVisited = false;
+				}
+			}
+			else if (mEntryRegisterDataSet.mRegs[i].mImmediate)
+			{
+				mEntryRegisterDataSet.mRegs[i].mImmediate = false;
+				mVisited = false;
+			}
+		}
+	}
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		NativeRegisterDataSet	nset = mEntryRegisterDataSet;
+
+		for (int i = 0; i < mIns.Size(); i++)
+			mIns[i].Simulate(nset);
+
+		if (mTrueJump)
+			mTrueJump->BuildEntryDataSet(nset);
+		if (mFalseJump)
+			mFalseJump->BuildEntryDataSet(nset);
+	}
+}
+
+bool NativeCodeBasicBlock::ApplyEntryDataSet(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		NativeRegisterDataSet	nset = mEntryRegisterDataSet;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (mIns[i].ApplySimulation(nset))
+				changed = true;
+			mIns[i].Simulate(nset);
+		}
+
+		if (mTrueJump && mTrueJump->ApplyEntryDataSet())
+			changed = true;
+		if (mFalseJump && mFalseJump->ApplyEntryDataSet())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::SameTail(const NativeCodeInstruction& ins) const
 {
 	if (mIns.Size() > 0)
@@ -4544,6 +5255,67 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 					changed = true;
 				}
 			}
+			else if (mIns[sz - 3].mType == ASMIT_INC && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && mIns[sz - 3].mAddress == mIns[sz - 2].mAddress &&
+				mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Y)) &&
+				mBranch == ASMIT_BCC)
+			{
+				// check for usage of Y register
+
+				bool	yother = false, yindex = false, lchanged = false;
+				int		lreg = mIns[sz - 1].mAddress;
+				int		zreg = mIns[sz - 3].mAddress;
+
+				for (int i = 0; i < sz - 4; i++)
+				{
+					if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].ChangesAddress())
+						lchanged = true;
+					if (mIns[i].mType == ASMIT_INY || mIns[i].mType == ASMIT_DEY || mIns[i].mType == ASMIT_TAY)
+						yother = true;
+					else if (mIns[i].mType == ASMIT_LDY)
+					{
+						if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+							yindex = true;
+						else
+							yother = true;
+					}
+					else if (mIns[i].mType == ASMIT_LDX && mIns[i].mAddress == zreg)
+						yother = true;
+					else if (!yindex && (mIns[i].mType == ASMIT_STY || mIns[i].mType == ASMIT_TYA || mIns[i].mMode == ASMIM_ABSOLUTE_Y || mIns[i].mMode == ASMIM_INDIRECT_Y))
+						yother = true;
+				}
+
+				if (!yother && !lchanged)
+				{
+					NativeCodeBasicBlock* lblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* eblock = proc->AllocateBlock();
+					for (int i = 0; i + 3 < sz; i++)
+					{
+						if (mIns[i].mType != ASMIT_LDY)
+							lblock->mIns.Push(mIns[i]);
+						else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+							lblock->mIns.Push(NativeCodeInstruction(ASMIT_TYA, ASMIM_IMPLIED));
+					}
+					lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+					lblock->mIns.Push(NativeCodeInstruction(ASMIT_CPY, ASMIM_ZERO_PAGE, lreg));
+					lblock->mBranch = mBranch;
+					lblock->mTrueJump = lblock;
+					lblock->mFalseJump = eblock;
+
+					eblock->mIns.Push(NativeCodeInstruction(ASMIT_STY, ASMIM_ZERO_PAGE, zreg));
+					eblock->mBranch = ASMIT_JMP;
+					eblock->mTrueJump = mFalseJump;
+					eblock->mFalseJump = nullptr;
+
+					mIns.Clear();
+					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, zreg));
+					mBranch = ASMIT_JMP;
+					mTrueJump = lblock;
+					mFalseJump = nullptr;
+
+					changed = true;
+				}
+			}
 
 		}
 
@@ -4675,6 +5447,15 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mType = ASMIT_NOP;
 						mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
 					}
+					else if (
+						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 0].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[i + 1].mType = ASMIT_STA;
+						mIns[i + 0].mType = ASMIT_ASL;
+						mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					}
 
 					if (
 						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
@@ -4754,11 +5535,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2].mType = ASMIT_NOP;
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
+						mIns[i + 1].mType == ASMIT_DEC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
+						!(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_MEM)))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_SEC; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mType = ASMIT_SBC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 1;
+						progress = true;
+					}
 #if 1
 					if (
 						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
 						mIns[i + 1].mType == ASMIT_LDA &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Y)))
+						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mLive & LIVE_MEM))
 					{
 						int	apos, breg, ireg;
 						if (FindAddressSumY(i, mIns[i + 2].mAddress, apos, breg, ireg))
@@ -4769,6 +5561,11 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 								mIns[apos + 3].mMode = ASMIM_IMPLIED;
 								mIns[apos + 6].mType = ASMIT_NOP;
 								mIns[apos + 6].mMode = ASMIM_IMPLIED;
+							}
+							if (mIns[i + 2].mLive & LIVE_CPU_REG_Y)
+							{
+								mIns.Insert(i + 3, NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+								mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
 							}
 							if (mIns[i + 1].mMode != ASMIM_INDIRECT_Y && mIns[i + 1].mMode != ASMIM_ABSOLUTE_Y)
 							{
@@ -4799,6 +5596,28 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mType = ASMIT_NOP;
 						mIns[i + 2].mType = ASMIT_NOP;
 						mIns[i + 3].mType = ASMIT_INC;
+						progress = true;
+					}
+					else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
+						mIns[i + 1].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+						(mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
+						(mIns[i + 3].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_A)) == 0)
+					{
+						mIns[i + 0].mType = ASMIT_NOP;
+						mIns[i + 1].mType = ASMIT_NOP;
+						mIns[i + 2].mType = ASMIT_NOP;
+						mIns[i + 3].mType = ASMIT_DEC;
+						progress = true;
+					}
+					else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
+						mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff)== 0xff &&
+						(mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
+						(mIns[i + 3].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_A)) == 0)
+					{
+						mIns[i + 0].mType = ASMIT_NOP;
+						mIns[i + 1].mType = ASMIT_NOP;
+						mIns[i + 2].mType = ASMIT_NOP;
+						mIns[i + 3].mType = ASMIT_DEC;
 						progress = true;
 					}
 
@@ -4880,7 +5699,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BypassEmptyBlocks(void)
 {
 	if (mBypassed)
 		return this;
-	else if (!mFalseJump && mCode.Size() == 0)
+	else if (!mFalseJump && mCode.Size() == 0 && this != mTrueJump)
 		return mTrueJump->BypassEmptyBlocks();
 	else
 	{
@@ -4931,7 +5750,7 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 		}
 		else if (mTrueJump)
 		{
-			if (mTrueJump->mOffset != next)
+			if (mTrueJump == this || mTrueJump->mOffset != next)
 			{
 				next += PutJump(proc, mTrueJump->mOffset - next);
 			}
@@ -5286,6 +6105,14 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		if (entryBlock->JoinTailCodeSequences())
 			changed = true;
 
+		ResetVisited();
+		NativeRegisterDataSet	data;
+		entryBlock->BuildEntryDataSet(data);
+
+		ResetVisited();
+		if (entryBlock->ApplyEntryDataSet())
+			changed = true;
+
 	} while (changed);
 
 #endif
@@ -5510,7 +6337,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		}	break;
 
 		case IC_RELATIONAL_OPERATOR:
-			if (iblock->mInstructions[i + 1]->mCode == IC_BRANCH && iblock->mInstructions[i + 1]->mSFinal[0])
+			if (i + 1 < iblock->mInstructions.Size() && iblock->mInstructions[i + 1]->mCode == IC_BRANCH && iblock->mInstructions[i + 1]->mSFinal[0])
 			{
 				block->RelationalOperator(iproc, ins, this, CompileBlock(iproc, iblock->mTrueJump), CompileBlock(iproc, iblock->mFalseJump));
 				return;

@@ -1019,6 +1019,7 @@ InterInstruction::InterInstruction(void)
 
 	mSFinal[0] = mSFinal[1] = mSFinal[2] = false;
 	mInUse = false;
+	mVolatile = false;
 }
 
 void InterInstruction::SetCode(const Location& loc, InterCode code)
@@ -3115,7 +3116,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(void)
 					ins->mInvariant = false;
 				else if (ins->mCode == IC_LOAD)
 				{
-					if (ins->mSTemp[0] >= 0)
+					if (ins->mSTemp[0] >= 0 || ins->mVolatile)
 					{
 						ins->mInvariant = false;
 					}

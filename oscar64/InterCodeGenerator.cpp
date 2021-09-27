@@ -50,6 +50,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 		ins->mTType = v.mReference == 1 ? InterTypeOf(v.mType) : IT_POINTER;
 		ins->mTTemp = proc->AddTemporary(ins->mTType);
 		ins->mOperandSize = v.mReference == 1 ? v.mType->mSize : 2;
+		if (v.mType->mFlags & DTF_VOLATILE)
+			ins->mVolatile = true;
 		block->Append(ins);
 
 		v = ExValue(v.mType, ins->mTTemp, v.mReference - 1);
@@ -324,17 +326,22 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 			}
 			else if (aexp->mType == DT_LABEL)
 			{
-				if (!aexp->mBase->mLinkerObject)
-					TranslateAssembler(mod, aexp->mBase->mValue);
+				if (aexp->mBase)
+				{
+					if (!aexp->mBase->mLinkerObject)
+						TranslateAssembler(mod, aexp->mBase->mValue);
 
-				LinkerReference	ref;
-				ref.mObject = dec->mLinkerObject;
-				ref.mOffset = offset;
-				ref.mHighByte = true;
-				ref.mLowByte = true;
-				ref.mRefObject = aexp->mBase->mLinkerObject;
-				ref.mRefOffset = aexp->mInteger;
-				mLinker->AddReference(ref);
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					ref.mHighByte = true;
+					ref.mLowByte = true;
+					ref.mRefObject = aexp->mBase->mLinkerObject;
+					ref.mRefOffset = aexp->mInteger;
+					mLinker->AddReference(ref);
+				}
+				else
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label");
 
 				offset += 2;
 			}

@@ -26,6 +26,7 @@ struct NativeRegisterDataSet
 	void ResetZeroPage(int addr);
 };
 
+
 static const uint32 NCIF_LOWER = 0x00000001;
 static const uint32 NCIF_UPPER = 0x00000002;
 static const uint32 NCIF_RUNTIME = 0x00000004;
@@ -48,6 +49,8 @@ public:
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
 	bool ValueForwarding(NativeRegisterDataSet& data);
 
+	void Simulate(NativeRegisterDataSet& data);
+	bool ApplySimulation(const NativeRegisterDataSet& data);
 
 	bool LoadsAccu(void) const;
 	bool ChangesAccuAndFlag(void) const;
@@ -141,6 +144,10 @@ public:
 	bool JoinTailCodeSequences(void);
 	bool SameTail(const NativeCodeInstruction& ins) const;
 
+	NativeRegisterDataSet	mEntryRegisterDataSet;
+
+	void BuildEntryDataSet(const NativeRegisterDataSet& set);
+	bool ApplyEntryDataSet(void);
 };
 
 class NativeCodeProcedure

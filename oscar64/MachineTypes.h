@@ -10,13 +10,17 @@ typedef unsigned short		uint16;
 typedef unsigned int		uint32;
 typedef	signed char			int8;
 typedef signed short		int16;
-typedef signed short		int32;
+typedef signed int			int32;
 #ifdef _WIN32
 typedef __int64				int64;
 typedef unsigned __int64	uint64;
 #define MAXPATHLEN	_MAX_PATH
 #else
+#if __APPLE__
+#include "limits.h"
+#else /* __linux__ */
 #include "linux/limits.h"
+#endif
 
 typedef long long			int64;
 typedef unsigned long long	uint64;

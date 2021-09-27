@@ -2473,7 +2473,7 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 		}	break;
 
 		case IC_RELATIONAL_OPERATOR:
-			if (sblock->mInstructions[i + 1]->mCode == IC_BRANCH && sblock->mInstructions[i + 1]->mSFinal[0])
+			if (i + 1 < sblock->mInstructions.Size() && sblock->mInstructions[i + 1]->mCode == IC_BRANCH && sblock->mInstructions[i + 1]->mSFinal[0])
 			{
 				ByteCode code = RelationalOperator(iproc, ins);
 				this->Close(proc->CompileBlock(iproc, sblock->mTrueJump), proc->CompileBlock(iproc, sblock->mFalseJump), code);

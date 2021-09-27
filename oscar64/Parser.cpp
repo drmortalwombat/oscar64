@@ -1920,7 +1920,7 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
 				ndec->mBase = nexp->mLeft->mDecValue;
-				ndec->mOffset = int(nexp->mRight->mDecValue->mInteger);
+				ndec->mOffset = nexp->mToken == TK_SUB ? -int(nexp->mRight->mDecValue->mInteger) : int(nexp->mRight->mDecValue->mInteger);
 				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 				exp->mDecValue = ndec;
 			}
@@ -1933,7 +1933,7 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_FUNCTION_REF);
 				ndec->mBase = nexp->mLeft->mDecValue;
-				ndec->mOffset = int(nexp->mRight->mDecValue->mInteger);
+				ndec->mOffset = nexp->mToken == TK_SUB ? -int(nexp->mRight->mDecValue->mInteger) : int(nexp->mRight->mDecValue->mInteger);
 				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 				exp->mDecValue = ndec;
 			}
@@ -1946,7 +1946,7 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 			{
 				Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL_REF);
 				ndec->mBase = nexp->mLeft->mDecValue;
-				ndec->mOffset = int(nexp->mRight->mDecValue->mInteger);
+				ndec->mOffset = nexp->mToken == TK_SUB ? -int(nexp->mRight->mDecValue->mInteger) : int(nexp->mRight->mDecValue->mInteger);
 				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 				exp->mDecValue = ndec;
 			}

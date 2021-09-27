@@ -302,7 +302,7 @@ public:
 	Location							mLocation;
 	LinkerObject					*	mLinkerObject;
 
-	bool								mInUse, mInvariant;
+	bool								mInUse, mInvariant, mVolatile;
 
 	InterInstruction(void);
 
