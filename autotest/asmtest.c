@@ -20,7 +20,7 @@ int asum(int a, int b)
 
 int bsum(int a, int b)
 {
-	printf("Hello\n");
+	puts("Hello\n");
 
 	__asm 
 	{

@@ -229,8 +229,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 
 			LinkerReference	rl;
 			rl.mOffset = block->mCode.Size();
-			rl.mLowByte = true;
-			rl.mHighByte = true;
+			rl.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
 			rl.mRefObject = mLinkerObject;
 			rl.mRefOffset = mValue;
 			block->mRelocations.Push(rl);
@@ -278,8 +277,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		{
 			LinkerReference	rl;
 			rl.mOffset = block->mCode.Size();
-			rl.mLowByte = true;
-			rl.mHighByte = true;
+			rl.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
 			rl.mRefObject = mLinkerObject;
 			rl.mRefOffset = mValue;
 			block->mRelocations.Push(rl);
@@ -297,8 +295,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		{
 			LinkerReference	rl;
 			rl.mOffset = block->mCode.Size();
-			rl.mLowByte = true;
-			rl.mHighByte = true;
+			rl.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
 			rl.mRefObject = mLinkerObject;
 			rl.mRefOffset = mValue;
 			block->mRelocations.Push(rl);
@@ -463,8 +460,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 
 		LinkerReference	rl;
 		rl.mOffset = block->mCode.Size();
-		rl.mLowByte = true;
-		rl.mHighByte = true;
+		rl.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
 		rl.mRefObject = mLinkerObject;
 		rl.mRefOffset = 0;
 		block->mRelocations.Push(rl);
@@ -2454,7 +2450,8 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 		case IC_CALL:
 			CallFunction(iproc, ins);
 			break;
-		case IC_JSR:
+		case IC_CALL_NATIVE:
+		case IC_ASSEMBLER:
 			CallAssembler(iproc, ins);
 			break;
 		case IC_PUSH_FRAME: 
@@ -3001,7 +2998,7 @@ void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, LinkerObject* li
 			LinkerReference	rl = mRelocations[i];
 			rl.mObject = linkerObject;
 			rl.mOffset += mOffset;
-			generator->mLinker->AddReference(rl);
+			linkerObject->AddReference(rl);
 		}
 
 		end = mOffset + mCode.Size();

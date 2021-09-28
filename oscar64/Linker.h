@@ -48,12 +48,16 @@ public:
 	LinkerRegion(void);
 };
 
+static const uint32	LREF_LOWBYTE	=	0x00000001;
+static const uint32	LREF_HIGHBYTE	=	0x00000002;
+static const uint32 LREF_PARAM_PTR	=	0x00000004;
+
 class LinkerReference
 {
 public:
 	LinkerObject* mObject, * mRefObject;
 	int		mOffset, mRefOffset;
-	bool	mLowByte, mHighByte;
+	uint32	mFlags;
 };
 
 class LinkerSection
@@ -70,22 +74,34 @@ public:
 	LinkerSection(void);
 };
 
+static const uint32 LOBJF_REFERENCED = 0x00000001;
+static const uint32 LOBJF_PLACED	 = 0x00000002;
+static const uint32 LOBJF_NO_FRAME	 = 0x00000004;
+static const uint32 LOBJF_INLINE	 = 0x00000008;
+
 class LinkerObject
 {
 public:
-	Location	mLocation;
-	const Ident* mIdent;
+	Location			mLocation;
+	const Ident		*	mIdent;
 	LinkerObjectType	mType;
-	int	mID;
-	int	mAddress;
-	int	mSize;
-	LinkerSection* mSection;
-	uint8* mData;
+	int					mID;
+	int					mAddress;
+	int					mSize;
+	LinkerSection	*	mSection;
+	uint8			*	mData;
 	InterCodeProcedure* mProc;
-	bool	mReferenced, mPlaced;
+	uint32				mFlags;
+
+	LinkerObject(void);
+	~LinkerObject(void);
 
 	void AddData(const uint8* data, int size);
 	uint8* AddSpace(int size);
+
+	GrowingArray<LinkerReference*>	mReferences;
+
+	void AddReference(const LinkerReference& ref);
 };
 
 class Linker
@@ -104,7 +120,7 @@ public:
 
 	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type);
 
-	void AddReference(const LinkerReference& ref);
+//	void AddReference(const LinkerReference& ref);
 
 	bool WritePrgFile(const char* filename);
 	bool WriteMapFile(const char* filename);
@@ -120,6 +136,7 @@ public:
 
 	void ReferenceObject(LinkerObject* obj);
 
+	void CollectReferences(void);
 	void Link(void);
 protected:
 	NativeCodeDisassembler	mNativeDisassembler;

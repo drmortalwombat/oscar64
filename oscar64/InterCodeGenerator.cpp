@@ -259,11 +259,13 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				LinkerReference	ref;
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
-				ref.mHighByte = aexp->mFlags & DTF_UPPER_BYTE;
-				ref.mLowByte = !(aexp->mFlags & DTF_UPPER_BYTE);
+				if (aexp->mFlags & DTF_UPPER_BYTE)
+					ref.mFlags = LREF_HIGHBYTE;
+				else
+					ref.mFlags = LREF_LOWBYTE;
 				ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
-				mLinker->AddReference(ref);
+				dec->mLinkerObject->AddReference(ref);
 
 				offset += 1;
 			}
@@ -276,11 +278,13 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
-					ref.mHighByte = aexp->mFlags & DTF_UPPER_BYTE;
-					ref.mLowByte = !(aexp->mFlags & DTF_UPPER_BYTE);
+					if (aexp->mFlags & DTF_UPPER_BYTE)
+						ref.mFlags = LREF_HIGHBYTE;
+					else
+						ref.mFlags = LREF_LOWBYTE;
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
-					mLinker->AddReference(ref);
+					dec->mLinkerObject->AddReference(ref);
 
 					offset += 1;
 				}
@@ -298,11 +302,13 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				LinkerReference	ref;
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
-				ref.mHighByte = aexp->mFlags & DTF_UPPER_BYTE;
-				ref.mLowByte = !(aexp->mFlags & DTF_UPPER_BYTE);
+				if (aexp->mFlags & DTF_UPPER_BYTE)
+					ref.mFlags = LREF_HIGHBYTE;
+				else
+					ref.mFlags = LREF_LOWBYTE;
 				ref.mRefObject = aexp->mBase->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset;
-				mLinker->AddReference(ref);
+				dec->mLinkerObject->AddReference(ref);
 
 				offset += 1;
 			}
@@ -313,7 +319,20 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 		case ASMIM_ZERO_PAGE_X:
 		case ASMIM_INDIRECT_X:
 		case ASMIM_INDIRECT_Y:
-			d[offset++] = aexp->mInteger;
+			if (aexp->mFlags & DTF_PARAM_PTR)
+			{
+				LinkerReference	ref;
+				ref.mObject = dec->mLinkerObject;
+				ref.mOffset = offset;
+				ref.mFlags = LREF_PARAM_PTR;
+				ref.mRefObject = dec->mLinkerObject;
+				ref.mRefOffset = 0;
+				dec->mLinkerObject->AddReference(ref);
+
+				offset += 1;
+			}
+			else
+				d[offset++] = aexp->mInteger;
 			break;
 		case ASMIM_ABSOLUTE:
 		case ASMIM_INDIRECT:
@@ -334,11 +353,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
-					ref.mHighByte = true;
-					ref.mLowByte = true;
+					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mInteger;
-					mLinker->AddReference(ref);
+					dec->mLinkerObject->AddReference(ref);
 				}
 				else
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label");
@@ -353,11 +371,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				LinkerReference	ref;
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
-				ref.mHighByte = true;
-				ref.mLowByte = true;
+				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
-				mLinker->AddReference(ref);
+				dec->mLinkerObject->AddReference(ref);
 
 				offset += 2;
 			}
@@ -369,11 +386,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				LinkerReference	ref;
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
-				ref.mHighByte = true;
-				ref.mLowByte = true;
+				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ref.mRefObject = aexp->mLinkerObject;
 				ref.mRefOffset = 0;
-				mLinker->AddReference(ref);
+				dec->mLinkerObject->AddReference(ref);
 
 				offset += 2;
 			}
@@ -386,11 +402,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
-					ref.mHighByte = true;
-					ref.mLowByte = true;
+					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mLinkerObject;
 					ref.mRefOffset = 0;
-					mLinker->AddReference(ref);
+					dec->mLinkerObject->AddReference(ref);
 
 					offset += 2;
 				}
@@ -404,11 +419,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 					LinkerReference	ref;
 					ref.mObject = dec->mLinkerObject;
 					ref.mOffset = offset;
-					ref.mHighByte = true;
-					ref.mLowByte = true;
+					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
-					mLinker->AddReference(ref);
+					dec->mLinkerObject->AddReference(ref);
 
 					offset += 2;
 				}
@@ -424,11 +438,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				LinkerReference	ref;
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
-				ref.mHighByte = true;
-				ref.mLowByte = true;
+				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ref.mRefObject = aexp->mLinkerObject;
 				ref.mRefOffset = 0;
-				mLinker->AddReference(ref);
+				dec->mLinkerObject->AddReference(ref);
 
 				offset += 2;
 			}
@@ -443,11 +456,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				LinkerReference	ref;
 				ref.mObject = dec->mLinkerObject;
 				ref.mOffset = offset;
-				ref.mHighByte = true;
-				ref.mLowByte = true;
+				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ref.mRefObject = aexp->mBase->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset;
-				mLinker->AddReference(ref);
+				dec->mLinkerObject->AddReference(ref);
 
 				offset += 2;
 			}
@@ -1560,7 +1572,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				InterInstruction	*	cins = new InterInstruction();
 				if (exp->mLeft->mDecValue && exp->mLeft->mDecValue->mFlags & DTF_NATIVE)
-					cins->mCode = IC_JSR;
+					cins->mCode = IC_CALL_NATIVE;
 				else
 					cins->mCode = IC_CALL;
 				cins->mSType[0] = IT_POINTER;
@@ -1593,6 +1605,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (block)
 			{
+				dec->mLinkerObject->mFlags |= LOBJF_INLINE;
+
 				InterInstruction* ins = new InterInstruction();
 				ins->mCode = IC_CONSTANT;
 				ins->mTType = IT_POINTER;
@@ -1605,7 +1619,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				block->Append(ins);
 
 				InterInstruction	*	jins = new InterInstruction();
-				jins->mCode = IC_JSR;
+				jins->mCode = IC_ASSEMBLER;
 				jins->mSType[0] = IT_POINTER;
 				jins->mSTemp[0] = ins->mTTemp;
 
@@ -2161,11 +2175,10 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		LinkerReference	ref;
 		ref.mObject = variable->mLinkerObject;
 		ref.mOffset = offset;
-		ref.mHighByte = true;
-		ref.mLowByte = true;
+		ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 		ref.mRefObject = data->mLinkerObject;
 		ref.mRefOffset = 0;
-		mLinker->AddReference(ref);
+		variable->mLinkerObject->AddReference(ref);
 	}
 	else if (data->mType == DT_CONST_FUNCTION)
 	{
@@ -2178,11 +2191,10 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		LinkerReference	ref;
 		ref.mObject = variable->mLinkerObject;
 		ref.mOffset = offset;
-		ref.mHighByte = true;
-		ref.mLowByte = true;
+		ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 		ref.mRefObject = data->mLinkerObject;
 		ref.mRefOffset = 0;
-		mLinker->AddReference(ref);
+		variable->mLinkerObject->AddReference(ref);
 	}
 	else if (data->mType == DT_CONST_POINTER)
 	{
@@ -2192,8 +2204,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		LinkerReference	ref;
 		ref.mObject = variable->mLinkerObject;
 		ref.mOffset = offset;
-		ref.mHighByte = true;
-		ref.mLowByte = true;
+		ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 
 		switch (dec->mType)
 		{
@@ -2214,7 +2225,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 
 			ref.mRefObject = dec->mLinkerObject;
 			ref.mRefOffset = 0;
-			mLinker->AddReference(ref);
+			variable->mLinkerObject->AddReference(ref);
 			break;
 		}
 		}

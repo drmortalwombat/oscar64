@@ -5,9 +5,9 @@ int kbhit(void)
 	__asm
 	{
 		lda $c6
-		sta	0x1b
+		sta	accu
 		lda	#0
-		sta	0x1c		
+		sta	accu + 1		
 	}
 }
 
@@ -20,10 +20,10 @@ int getche(void)
 		cmp	#0
 		beq	L1
 
-		sta	0x1b
+		sta	accu
 		jsr $ffd2
 		lda	#0
-		sta	0x1c		
+		sta	accu + 1		
 	}
 
 }
@@ -37,9 +37,9 @@ int getch(void)
 		cmp	#0
 		beq	L1
 
-		sta	0x1b
+		sta	accu
 		lda	#0
-		sta	0x1c		
+		sta	accu + 1		
 	}
 }
 
@@ -90,9 +90,9 @@ int wherex(void)
 	__asm
 	{
 		lda $d3
-		sta	0x1b
+		sta	accu
 		lda	#0
-		sta	0x1c		
+		sta	accu + 1		
 	}
 }
 
@@ -101,8 +101,8 @@ int wherey(void)
 	__asm
 	{
 		lda $d6
-		sta	0x1b
+		sta	accu
 		lda	#0
-		sta	0x1c		
+		sta	accu + 1		
 	}
 }

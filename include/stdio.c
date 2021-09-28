@@ -18,16 +18,16 @@ char getchar(void)
 {
 	__asm {
 		jsr	0xffcf
-		sta	0x1b
+		sta	accu
 		lda	#0
-		sta	0x1c
+		sta	accu + 1
 	}
 }
 
 void puts(const char * str)
 {
 	__asm {
-		ldy	#2
+		ldy	#str
 		lda	(fp), y
 		sta 0x02
 		iny

@@ -245,12 +245,11 @@ bool Compiler::GenerateCode(void)
 
 				LinkerReference	lref;
 				lref.mObject = byteCodeObject;
-				lref.mLowByte = true;
-				lref.mHighByte = true;
+				lref.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
 				lref.mOffset = 2 * i;
 				lref.mRefObject = linkerObject;
 				lref.mRefOffset = offset;
-				mLinker->AddReference(lref);
+				byteCodeObject->AddReference(lref);
 			}
 			else
 			{
@@ -260,6 +259,8 @@ bool Compiler::GenerateCode(void)
 			}
 		}
 	}
+
+	mLinker->CollectReferences();
 
 	mLinker->ReferenceObject(dcrtstart->mLinkerObject);
 	mLinker->ReferenceObject(byteCodeObject);

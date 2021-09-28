@@ -2117,6 +2117,7 @@ Expression* Parser::ParseAssembler(void)
 	decfp->mBase = TheUnsignedIntTypeDeclaration;
 	decfp->mSize = 2;
 	decfp->mInteger = BC_REG_LOCALS;
+	decfp->mFlags = DTF_PARAM_PTR;
 	mScope->Insert(decfp->mIdent, decfp);
 
 	Declaration* decaccu = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);

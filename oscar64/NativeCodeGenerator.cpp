@@ -1923,6 +1923,23 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 {
 	if (mType == ASMIT_BYTE)
 		block->PutByte(mAddress);
+	else if (mType == ASMIT_JSR && (mLinkerObject->mFlags & LOBJF_INLINE))
+	{
+		int	pos = block->mCode.Size();
+		for (int i = 0; i < mLinkerObject->mSize - 1; i++)
+			block->PutByte(mLinkerObject->mData[i]);
+		for (int i = 0; i < mLinkerObject->mReferences.Size(); i++)
+		{
+			LinkerReference	rl = *(mLinkerObject->mReferences[i]);
+			rl.mOffset += pos;
+			if (rl.mRefObject == rl.mObject)
+			{
+				rl.mRefObject = nullptr;
+				rl.mRefOffset += pos;
+			}
+			block->mRelocations.Push(rl);
+		}
+	}
 	else
 	{
 		if (mMode == ASMIM_IMMEDIATE_ADDRESS)
@@ -1947,8 +1964,11 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			{
 				LinkerReference		rl;
 				rl.mOffset = block->mCode.Size();
-				rl.mLowByte = mFlags & NCIF_LOWER;
-				rl.mHighByte = mFlags & NCIF_UPPER;
+				rl.mFlags = 0;
+				if (mFlags & NCIF_LOWER)
+					rl.mFlags |= LREF_LOWBYTE;
+				if (mFlags & NCIF_UPPER)
+					rl.mFlags |= LREF_HIGHBYTE;
 				rl.mRefObject = mLinkerObject;
 
 				rl.mRefObject = mLinkerObject;
@@ -1969,8 +1989,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			{
 				LinkerReference		rl;
 				rl.mOffset = block->mCode.Size();
-				rl.mLowByte = true;
-				rl.mHighByte = true;
+				rl.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				rl.mRefObject = mLinkerObject;
 				rl.mRefOffset = mAddress;
 				block->mRelocations.Push(rl);
@@ -2038,8 +2057,7 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, int offset)
 	LinkerReference		rl;
 	rl.mObject = nullptr;
 	rl.mOffset = mCode.Size();
-	rl.mLowByte = true;
-	rl.mHighByte = true;
+	rl.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 	rl.mRefObject = nullptr;
 	rl.mRefOffset = mOffset + mCode.Size() + offset - 1;
 	mRelocations.Push(rl);
@@ -2065,8 +2083,7 @@ int NativeCodeBasicBlock::PutBranch(NativeCodeProcedure* proc, AsmInsType code, 
 		LinkerReference		rl;
 		rl.mObject = nullptr;
 		rl.mOffset = mCode.Size();
-		rl.mLowByte = true;
-		rl.mHighByte = true;
+		rl.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 		rl.mRefObject = nullptr;
 		rl.mRefOffset = mOffset + mCode.Size() + offset - 3;
 		mRelocations.Push(rl);
@@ -4596,6 +4613,9 @@ void NativeCodeBasicBlock::CallFunction(InterCodeProcedure* proc, NativeCodeProc
 
 void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterInstruction * ins)
 {
+	if (ins->mCode == IC_ASSEMBLER && mNoFrame)
+		ins->mLinkerObject->mFlags |= LOBJF_NO_FRAME;
+
 	mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSIntConst[0], ins->mLinkerObject));
 	
 	if (ins->mTTemp >= 0)
@@ -6128,6 +6148,9 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mNoFrame = proc->mLocalSize == 0 && tempSave == 0 && proc->mLeafProcedure;
 
+	if (mNoFrame)
+		proc->mLinkerObject->mFlags |= LOBJF_NO_FRAME;
+
 	entryBlock = new NativeCodeBasicBlock();
 	mBlocks.Push(entryBlock);
 	entryBlock->mNoFrame = mNoFrame;
@@ -6316,7 +6339,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		rl.mObject = proc->mLinkerObject;
 		if (!rl.mRefObject)
 			rl.mRefObject = proc->mLinkerObject;
-		mGenerator->mLinker->AddReference(rl);
+		proc->mLinkerObject->AddReference(rl);
 	}
 }
 
@@ -6493,7 +6516,8 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		case IC_CALL:
 			block->CallFunction(iproc, this, ins);
 			break;
-		case IC_JSR:
+		case IC_CALL_NATIVE:
+		case IC_ASSEMBLER:
 			block->CallAssembler(iproc, ins);
 			break;
 		case IC_PUSH_FRAME:

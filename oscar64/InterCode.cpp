@@ -982,7 +982,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 		}
 		break;
 	case IC_CALL:
-	case IC_JSR:
+	case IC_CALL_NATIVE:
 		FlushCallAliases();
 		break;
 
@@ -1216,7 +1216,7 @@ void InterInstruction::PerformTempForwarding(TempForwardingTable& forwardingTabl
 
 bool HasSideEffect(InterCode code)
 {
-	return code == IC_CALL || code == IC_JSR;
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER;
 }
 
 bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps, int numStaticTemps)
@@ -1277,7 +1277,7 @@ void InterInstruction::BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSe
 	if (mTTemp >= 0)
 		requiredTemps -= mTTemp;
 
-	if (mCode == IC_CALL || mCode == IC_JSR)
+	if (mCode == IC_CALL || mCode == IC_CALL_NATIVE)
 		callerSaveTemps |= requiredTemps;
 
 	if (mSTemp[0] >= 0) requiredTemps += mSTemp[0];
@@ -1616,7 +1616,10 @@ void InterInstruction::Disassemble(FILE* file)
 		case IC_CALL:
 			fprintf(file, "CALL");
 			break;
-		case IC_JSR:
+		case IC_CALL_NATIVE:
+			fprintf(file, "CALLN");
+			break;
+		case IC_ASSEMBLER:
 			fprintf(file, "JSR");
 			break;
 		case IC_RETURN_VALUE:
@@ -1810,7 +1813,8 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 	switch (ins->mCode)
 	{
 	case IC_CALL:
-	case IC_JSR:
+	case IC_CALL_NATIVE:
+	case IC_ASSEMBLER:
 		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
 		{
 			ins->mMemory = tvalue[ins->mSTemp[0]]->mMemory;
@@ -2938,7 +2942,7 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 
 			case IC_STORE:
 			case IC_LOAD:
-			case IC_JSR:
+			case IC_CALL_NATIVE:
 				if (mInstructions[i]->mMemory == IM_LOCAL)
 				{
 					localVars[mInstructions[i]->mVarIndex]->mUsed = true;
@@ -2996,7 +3000,7 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
-			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_JSR)
+			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE)
 				return false;
 
 		if (mTrueJump && !mTrueJump->IsLeafProcedure())
@@ -3015,7 +3019,7 @@ static bool CanBypassLoad(const InterInstruction * lins, const InterInstruction 
 		return false;
 
 	// Side effects
-	if (bins->mCode == IC_CALL || bins->mCode == IC_JSR)
+	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
 		return false;
 
 	// True data dependency
@@ -3057,7 +3061,7 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 		return false;
 
 	// Side effects
-	if (bins->mCode == IC_CALL || bins->mCode == IC_JSR)
+	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
 		return false;
 
 	// True data dependency
@@ -3431,7 +3435,8 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 			case IC_STORE:
 			case IC_LOAD:							
 			case IC_CONSTANT:
-			case IC_JSR:
+			case IC_CALL_NATIVE:
+			case IC_ASSEMBLER:
 				if (mInstructions[i]->mMemory == IM_LOCAL)
 				{
 					int varIndex = mInstructions[i]->mVarIndex;
