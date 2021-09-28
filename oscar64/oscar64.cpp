@@ -74,10 +74,8 @@ int main(int argc, const char** argv)
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
 
-		if (_NSGetExecutablePath(basePath, &length) != 0) {
-			// Buffer size is too small.
-			return false;
-	}
+		_NSGetExecutablePath(basePath, &length);
+
 #else
 		int length = readlink("/proc/self/exe", basePath, sizeof(basePath));
 
