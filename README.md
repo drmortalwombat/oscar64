@@ -70,7 +70,7 @@ After four weeks, the compiler has now matured significantly.  There are still s
 
 The compiler is command line driven, and creates an executable .prg file.
 
-    oscar64 {-i=includePath} [-o=output.prg] [-cr=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}
+    oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}
 	
 * -i : additional include paths
 * -o : optional output file name

@@ -171,7 +171,7 @@ int main(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-cr=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}\n");
+		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}\n");
 
 		return 0;
 	}
