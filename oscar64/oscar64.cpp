@@ -71,10 +71,19 @@ int main(int argc, const char** argv)
 
 		DWORD length = ::GetModuleFileNameA(NULL, basePath, sizeof(basePath));
 #else
+#ifdef __APPLE__
+		uint32_t length = sizeof(basePath);
+
+		if (_NSGetExecutablePath(basePath, &length) != 0) {
+			// Buffer size is too small.
+			return false;
+	}
+#else
 		int length = readlink("/proc/self/exe", basePath, sizeof(basePath));
 
 //		strcpy(basePath, argv[0]);
 //		int length = strlen(basePath);
+#endif
 #endif
 		while (length > 0 && basePath[length - 1] != '/' && basePath[length - 1] != '\\')
 			length--;
