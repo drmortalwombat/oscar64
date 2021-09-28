@@ -102,6 +102,12 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -e -n byteindextest.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e asmtest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n asmtest.c
+if %errorlevel% neq 0 goto :error
+
 exit /b 0
 :error
 echo Failed with error #%errorlevel%.

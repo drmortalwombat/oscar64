@@ -4,6 +4,15 @@
 #include <stdio.h>
 #include "MachineTypes.h"
 
+class SourceStack
+{
+public:
+	SourceStack* mUp;
+
+	int				mFilePos;
+	Location		mLocation;
+};
+
 class SourceFile
 {
 public:
@@ -11,6 +20,7 @@ public:
 
 	SourceFile	*	mUp, * mNext;
 	Location		mLocation;
+	SourceStack	*	mStack;
 
 	bool ReadLine(char* line);
 
@@ -19,6 +29,11 @@ public:
 
 	bool Open(const char* name, const char * path);
 	void Close(void);
+
+	bool PushSource(void);
+	bool PopSource(void);
+	bool DropSource(void);
+
 protected:
 	FILE* mFile;
 };
@@ -50,6 +65,10 @@ public:
 
 	bool OpenSource(const char* reason, const char* name, bool local);
 	bool CloseSource(void);
+
+	bool PushSource(void);
+	bool PopSource(void);
+	bool DropSource(void);
 
 	Preprocessor(Errors * errors);
 	~Preprocessor(void);

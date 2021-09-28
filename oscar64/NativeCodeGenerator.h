@@ -57,6 +57,8 @@ public:
 	bool ChangesAddress(void) const;
 	bool ChangesAccu(void) const;
 	bool RequiresAccu(void) const;
+	bool RequiresYReg(void) const;
+	bool ChangesYReg(void) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;

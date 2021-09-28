@@ -34,7 +34,7 @@ bool SourceFile::ReadLine(char* line)
 }
 
 SourceFile::SourceFile(void) 
-	: mFile(nullptr), mFileName{ 0 }
+	: mFile(nullptr), mFileName{ 0 }, mStack(nullptr)
 {
 
 }
@@ -86,6 +86,40 @@ void SourceFile::Close(void)
 		fclose(mFile);
 		mFile = nullptr;
 	}
+}
+
+bool SourceFile::PushSource(void)
+{
+	SourceStack* stack = new SourceStack();
+	stack->mUp = mStack;
+	mStack = stack;
+	stack->mFilePos = ftell(mFile);
+	return true;
+}
+
+bool SourceFile::PopSource(void)
+{
+	SourceStack* stack = mStack;
+	if (stack)
+	{
+		fseek(mFile, stack->mFilePos, SEEK_SET);
+		mStack = mStack->mUp;
+		return true;
+	}
+	else
+		return false;
+}
+
+bool SourceFile::DropSource(void)
+{
+	SourceStack* stack = mStack;
+	if (stack)
+	{
+		mStack = mStack->mUp;
+		return true;
+	}
+	else
+		return false;
 }
 
 bool Preprocessor::NextLine(void)
@@ -169,6 +203,21 @@ bool Preprocessor::CloseSource(void)
 	}
 	
 	return false;
+}
+
+bool Preprocessor::PushSource(void)
+{
+	return mSource->PushSource();
+}
+
+bool Preprocessor::PopSource(void)
+{
+	return mSource->PopSource();
+}
+
+bool Preprocessor::DropSource(void)
+{
+	return mSource->DropSource();
 }
 
 Preprocessor::Preprocessor(Errors* errors)

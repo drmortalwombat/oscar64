@@ -121,7 +121,11 @@ const char* TokenNames[] = {
 		"'#endif'",
 		"'#ifdef'",
 		"'#ifndef'",
-		"'#pragma'"
+		"'#pragma'",
+
+		"'#assign'",
+		"'#repeat'",
+		"'#until'"
 };
 
 
@@ -529,6 +533,54 @@ void Scanner::NextToken(void)
 			if (mToken != TK_EOL)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "End of line expected");
 		}
+		else if (mToken == TK_PREP_ASSIGN)
+		{
+			mPreprocessorMode = true;
+			NextRawToken();
+			if (mToken == TK_IDENT)
+			{
+				const Ident* ident = mTokenIdent;
+
+				NextToken();
+
+				int v = PrepParseConditional();
+				Macro* macro = mDefines->Lookup(ident);
+				if (!macro)
+				{
+					macro = new Macro(ident);
+					mDefines->Insert(macro);
+				}
+				char	buffer[20];
+				sprintf_s(buffer, "%d", v);
+				macro->SetString(buffer);
+				mPreprocessorMode = false;
+				if (mToken != TK_EOL)
+					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "End of line expected");
+			}
+		}
+		else if (mToken == TK_PREP_REPEAT)
+		{
+			mPreprocessor->PushSource();
+		}
+		else if (mToken == TK_PREP_UNTIL)
+		{
+			mPreprocessorMode = true;
+			NextToken();
+			int v = PrepParseConditional();
+			if (mToken != TK_EOL)
+				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "End of line expected");
+
+			if (v)
+				mPreprocessor->DropSource();
+			else
+			{
+				mPreprocessor->PopSource();
+				mPreprocessor->PushSource();
+				mPreprocessor->NextLine();
+				mOffset = 0;
+			}
+			mPreprocessorMode = false;
+		}
 		else if (mToken == TK_IDENT)
 		{
 			Macro* def = nullptr;
@@ -917,7 +969,7 @@ void Scanner::NextRawToken(void)
 
 		case '#':
 		{
-			if (!mAssemblerMode)
+			if (!mAssemblerMode || mOffset == 1)
 			{
 				int		n = 0;
 				char	tkprep[128];
@@ -946,6 +998,12 @@ void Scanner::NextRawToken(void)
 					mToken = TK_PREP_ENDIF;
 				else if (!strcmp(tkprep, "pragma"))
 					mToken = TK_PREP_PRAGMA;
+				else if (!strcmp(tkprep, "assign"))
+					mToken = TK_PREP_ASSIGN;
+				else if (!strcmp(tkprep, "repeat"))
+					mToken = TK_PREP_REPEAT;
+				else if (!strcmp(tkprep, "until"))
+					mToken = TK_PREP_UNTIL;
 				else
 					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", tkprep);
 			}
