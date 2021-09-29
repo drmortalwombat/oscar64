@@ -108,6 +108,12 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -e -n asmtest.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e bitshifttest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n bitshifttest.c
+if %errorlevel% neq 0 goto :error
+
 exit /b 0
 :error
 echo Failed with error #%errorlevel%.

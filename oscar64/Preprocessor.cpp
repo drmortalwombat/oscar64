@@ -207,11 +207,13 @@ bool Preprocessor::CloseSource(void)
 
 bool Preprocessor::PushSource(void)
 {
+	mSource->mLocation = mLocation;
 	return mSource->PushSource();
 }
 
 bool Preprocessor::PopSource(void)
 {
+	mLocation = mSource->mLocation;
 	return mSource->PopSource();
 }
 

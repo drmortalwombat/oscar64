@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <assert.h>
 
 unsigned shl1b(int n)
 {
@@ -73,22 +74,123 @@ unsigned shr8n(int n)
 
 #pragma native(shr8n)
 
+void shl16b(unsigned xu, int xi)
+{
+	unsigned	ua[16];
+	int			ia[16];
+#assign s 0
+#repeat
+	ua[s] = xu << s;
+	ia[s] = xi << s;
+#assign s s + 1
+#until s == 16	
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ua[i] == xu << i);
+		assert(ia[i] == xi << i);
+	}
+}
+
+void shr16b(unsigned xu, int xi)
+{
+	unsigned	ua[16];
+	int			ia[16];
+#assign s 0
+#repeat
+	ua[s] = xu >> s;
+	ia[s] = xi >> s;
+#assign s s + 1
+#until s == 16	
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ua[i] == xu >> i);
+		assert(ia[i] == xi >> i);
+	}
+}
+
+void shl16n(unsigned xu, int xi)
+{
+	unsigned	ua[16];
+	int			ia[16];
+#assign s 0
+#repeat
+	ua[s] = xu << s;
+	ia[s] = xi << s;
+#assign s s + 1
+#until s == 16	
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ua[i] == xu << i);
+		assert(ia[i] == xi << i);
+	}
+}
+
+void shr16n(unsigned xu, int xi)
+{
+	unsigned	ua[16];
+	int			ia[16];
+#assign s 0
+#repeat
+	ua[s] = xu >> s;
+	ia[s] = xi >> s;
+#assign s s + 1
+#until s == 16	
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ua[i] == xu >> i);
+		assert(ia[i] == xi >> i);
+	}
+}
+
+#pragma native(shl16n)
+#pragma native(shr16n)
+
 int main(void)
 {
 	for(int i=0; i<32; i++)
 	{
 		printf("1: %.4x : %.4x | %.4x : %.4x\n", shl1b(i), shl1n(i), shr1b(i), shr1n(i));
+		assert(shl1b(i) == shl1n(i));
+		assert(shr1b(i) == shr1n(i));
 	}
 
 	for(int i=0; i<32; i++)
 	{
 		printf("4: %.4x : %.4x | %.4x : %.4x\n", shl4b(i), shl4n(i), shr4b(i), shr4n(i));
+		assert(shl4b(i) == shl4n(i));
+		assert(shr4b(i) == shr4n(i));
 	}
 
 	for(int i=0; i<32; i++)
 	{
 		printf("8: %.4x : %.4x | %.4x : %.4x\n", shl8b(i), shl8n(i), shr8b(i), shr8n(i));
+		assert(shl8b(i) == shl8n(i));
+		assert(shr8b(i) == shr8n(i));
 	}
+
+	shl16b(0x0000, 0x0000);
+	shl16b(0xffff, 0xffff);
+	shl16b(0x1234, 0x1234);
+	shl16b(0xfedc, 0xfedc);
+
+	shr16b(0x0000, 0x0000);
+	shr16b(0xffff, 0xffff);
+	shr16b(0x1234, 0x1234);
+	shr16b(0xfedc, 0xfedc);
+
+	shl16n(0x0000, 0x0000);
+	shl16n(0xffff, 0xffff);
+	shl16n(0x1234, 0x1234);
+	shl16n(0xfedc, 0xfedc);
+
+	shr16n(0x0000, 0x0000);
+	shr16n(0xffff, 0xffff);
+	shr16n(0x1234, 0x1234);
+	shr16n(0xfedc, 0xfedc);
 
 	return 0;
 }
