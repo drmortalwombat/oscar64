@@ -78,7 +78,7 @@ int main(int argc, const char** argv)
 		uint32_t length = sizeof(basePath);
 
 		_NSGetExecutablePath(basePath, &length);
-
+		length = strlen(basePath);
 #else
 		int length = readlink("/proc/self/exe", basePath, sizeof(basePath));
 
