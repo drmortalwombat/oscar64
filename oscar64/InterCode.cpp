@@ -3577,11 +3577,12 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mRenameTable(-1), mRenameUnionTable(-1), mGlobalRenameTable(-1),
 	mValueForwardingTable(nullptr), mLocalVars(nullptr), mModule(mod),
 	mIdent(ident), mLinkerObject(linkerObject),
-	mNativeProcedure(false), mLeafProcedure(false)
+	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
 	mLinkerObject->mProc = this;
+	mCallerSavedTemps = 16;
 }
 
 InterCodeProcedure::~InterCodeProcedure(void)
@@ -4024,6 +4025,20 @@ void InterCodeProcedure::Close(void)
 	MapVariables();
 
 	DisassembleDebug("mapped variabled");
+
+	ReduceTemporaries();
+
+	DisassembleDebug("Reduced Temporaries");
+}
+
+void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)
+{
+	mCalledFunctions.Push(proc);
+}
+
+void InterCodeProcedure::CallsFunctionPointer(void)
+{
+	mCallsFunctionPointer = true;
 }
 
 void InterCodeProcedure::MapVariables(void)
@@ -4145,7 +4160,21 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	ResetVisited();
 	mEntryBlock->BuildCallerSaveTempSet(callerSaved);
 
-	int		callerSavedTemps = 0, calleeSavedTemps = 16;
+	int		callerSavedTemps = 0, calleeSavedTemps = 16, freeCallerSavedTemps = 0, freeTemps = 0;
+	
+	if (mCallsFunctionPointer)
+		freeCallerSavedTemps = 16;
+	else
+	{
+		for (int i = 0; i < mCalledFunctions.Size(); i++)
+		{
+			InterCodeProcedure* proc = mCalledFunctions[i];
+			if (proc->mCallerSavedTemps > freeCallerSavedTemps)
+				freeCallerSavedTemps = proc->mCallerSavedTemps;
+		}
+	}
+
+	callerSavedTemps = freeCallerSavedTemps;
 
 	mTempOffset.SetSize(0);
 
@@ -4153,7 +4182,13 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	{
 		int size = InterTypeSize[mTemporaries[i]];
 
-		if (callerSavedTemps + size <= 16 && !callerSaved[i])
+		if (freeTemps + size <= freeCallerSavedTemps && !callerSaved[i])
+		{
+			mTempOffset.Push(freeTemps);
+			mTempSizes.Push(size);
+			freeTemps += size;
+		}
+		else if (callerSavedTemps + size <= 16)
 		{
 			mTempOffset.Push(callerSavedTemps);
 			mTempSizes.Push(size);
@@ -4167,6 +4202,7 @@ void InterCodeProcedure::ReduceTemporaries(void)
 		}
 	}
 	mTempSize = calleeSavedTemps;
+	mCallerSavedTemps = callerSavedTemps;
 }
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)

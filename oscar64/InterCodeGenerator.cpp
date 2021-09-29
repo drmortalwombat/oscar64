@@ -296,7 +296,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				if (!aexp->mBase->mLinkerObject)
 				{
 					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mBase->mValue, aexp->mBase);
-					cproc->ReduceTemporaries();
 				}
 
 				LinkerReference	ref;
@@ -432,7 +431,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				if (!aexp->mLinkerObject)
 				{
 					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mValue, aexp);
-					cproc->ReduceTemporaries();
 				}
 
 				LinkerReference	ref;
@@ -450,7 +448,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression * e
 				if (!aexp->mBase->mLinkerObject)
 				{
 					InterCodeProcedure* cproc = this->TranslateProcedure(mod, aexp->mBase->mValue, aexp->mBase);
-					cproc->ReduceTemporaries();
 				}
 
 				LinkerReference	ref;
@@ -571,7 +568,6 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (!dec->mLinkerObject)
 				{
 					InterCodeProcedure* cproc = this->TranslateProcedure(proc->mModule, dec->mValue, dec);
-					cproc->ReduceTemporaries();
 				}
 
 				InterInstruction	*	ins = new InterInstruction();
@@ -1461,6 +1457,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (ftype->mType == DT_TYPE_POINTER)
 					ftype = ftype->mBase;
 
+				if (exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION)
+					proc->AddCalledFunction(proc->mModule->mProcedures[exp->mLeft->mDecValue->mVarIndex]);
+				else
+					proc->CallsFunctionPointer();
+
 				Declaration* pdec = ftype->mParams;
 				Expression* pex = exp->mRight;
 				while (pex)
@@ -2185,7 +2186,6 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		if (!data->mLinkerObject)
 		{
 			InterCodeProcedure* cproc = this->TranslateProcedure(mod, data->mValue, data);
-			cproc->ReduceTemporaries();
 		}
 
 		LinkerReference	ref;

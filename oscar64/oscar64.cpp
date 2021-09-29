@@ -4,6 +4,9 @@
 #else
 #include <unistd.h>
 #endif
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #include "Compiler.h"
 
 #ifdef _WIN32

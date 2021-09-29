@@ -486,8 +486,9 @@ public:
 	GrowingInterCodeBasicBlockPtrArray	mBlocks;
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
-	int									mTempSize, mCommonFrameSize;
-	bool								mLeafProcedure, mNativeProcedure;
+	int									mTempSize, mCommonFrameSize, mCallerSavedTemps;
+	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer;
+	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 
 	InterCodeModule					*	mModule;
 	int									mID;
@@ -509,6 +510,9 @@ public:
 	void Close(void);
 
 //	void Set(InterCodeIDMapper* mapper, BitVector localStructure, Scanner scanner, bool debug);
+
+	void AddCalledFunction(InterCodeProcedure* proc);
+	void CallsFunctionPointer(void);
 
 	void MapVariables(void);
 	void ReduceTemporaries(void);

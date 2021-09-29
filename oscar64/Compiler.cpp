@@ -192,7 +192,7 @@ bool Compiler::GenerateCode(void)
 	{
 		InterCodeProcedure* proc = mInterCodeModule->mProcedures[i];
 
-		proc->ReduceTemporaries();
+//		proc->ReduceTemporaries();
 
 #if _DEBUG
 		proc->Disassemble("final");
