@@ -81,7 +81,7 @@ public:
 
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
-	int						mOffset, mSize, mNumEntries;
+	int						mOffset, mSize, mNumEntries, mFrameOffset;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited;
 
 	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
@@ -163,7 +163,7 @@ class NativeCodeProcedure
 
 		NativeCodeGenerator* mGenerator;
 
-		int		mProgStart, mProgSize, mIndex;
+		int		mProgStart, mProgSize, mIndex, mFrameOffset;
 		bool	mNoFrame;
 		int		mTempBlocks;
 

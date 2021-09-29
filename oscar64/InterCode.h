@@ -459,7 +459,7 @@ public:
 	void CollectVariables(GrowingVariableArray & globalVars, GrowingVariableArray & localVars);
 	void MapVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars);
 	
-	void CollectOuterFrame(int level, int& size);
+	void CollectOuterFrame(int level, int& size, bool& inner, bool& inlineAssembler);
 
 	bool IsLeafProcedure(void);
 
@@ -487,7 +487,7 @@ public:
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps;
-	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer;
+	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 
 	InterCodeModule					*	mModule;

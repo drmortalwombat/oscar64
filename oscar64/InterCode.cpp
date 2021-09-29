@@ -2966,7 +2966,7 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 	}
 }
 
-void InterCodeBasicBlock::CollectOuterFrame(int level, int& size)
+void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, bool &inlineAssembler)
 {
 	int i;
 
@@ -2985,6 +2985,8 @@ void InterCodeBasicBlock::CollectOuterFrame(int level, int& size)
 						size = mInstructions[i]->mIntValue;
 					mInstructions[i]->mCode = IC_NONE;
 				}
+				else
+					inner = true;
 			}
 			else if (mInstructions[i]->mCode == IC_POP_FRAME)
 			{
@@ -2994,10 +2996,12 @@ void InterCodeBasicBlock::CollectOuterFrame(int level, int& size)
 				}
 				level--;
 			}
+			else if (mInstructions[i]->mCode == IC_ASSEMBLER)
+				inlineAssembler = true;
 		}
 
-		if (mTrueJump) mTrueJump->CollectOuterFrame(level, size);
-		if (mFalseJump) mFalseJump->CollectOuterFrame(level, size);
+		if (mTrueJump) mTrueJump->CollectOuterFrame(level, size, inner, inlineAssembler);
+		if (mFalseJump) mFalseJump->CollectOuterFrame(level, size, inner, inlineAssembler);
 	}
 }
 
@@ -3809,12 +3813,14 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mLeafProcedure = mEntryBlock->IsLeafProcedure();
 
+	mHasDynamicStack = false;
+	mHasInlineAssembler = false;
 	if (!mLeafProcedure)
 	{
 		int		size = 0;
 
 		ResetVisited();
-		mEntryBlock->CollectOuterFrame(0, size);
+		mEntryBlock->CollectOuterFrame(0, size, mHasDynamicStack, mHasInlineAssembler);
 		mCommonFrameSize = size;
 	}
 	else

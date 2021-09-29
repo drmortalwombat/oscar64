@@ -2133,6 +2133,7 @@ void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure * proc, const In
 				index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 			else
 				index += ins->mVarIndex + proc->mLocalSize + 2;
+			index += mFrameOffset;
 			CheckFrameIndex(areg, index, 2);
 
 			if (index != 0)
@@ -2232,6 +2233,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
+					index += mFrameOffset;
 					CheckFrameIndex(reg, index, 4);
 
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2306,6 +2308,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
+					index += mFrameOffset;
 					CheckFrameIndex(reg, index, 4);
 
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2408,6 +2411,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
+					index += mFrameOffset;
 					CheckFrameIndex(reg, index, 2);
 
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2453,6 +2457,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
+					index += mFrameOffset;
 					CheckFrameIndex(reg, index, 2);
 
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2529,6 +2534,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 						else
 							index += ins->mVarIndex + proc->mLocalSize + 2;
+						index += mFrameOffset;
 						CheckFrameIndex(reg, index, 1);
 
 						mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2568,6 +2574,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 						else
 							index += ins->mVarIndex + proc->mLocalSize + 2;
+						index += mFrameOffset;
 						CheckFrameIndex(reg, index, 2);
 
 						mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2612,6 +2619,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 						else
 							index += ins->mVarIndex + proc->mLocalSize + 2;
+						index += mFrameOffset;
 						CheckFrameIndex(reg, index, 1);
 
 						mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2652,6 +2660,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 						else
 							index += ins->mVarIndex + proc->mLocalSize + 2;
+						index += mFrameOffset;
 						CheckFrameIndex(reg, index, 2);
 
 						mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2748,7 +2757,8 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 						index += proc->mLocalVars[rins->mVarIndex]->mOffset;
 					else
 						index += rins->mVarIndex + proc->mLocalSize + 2;
-					CheckFrameIndex(areg, index, 4);
+					index += mFrameOffset;
+					CheckFrameIndex(areg, index, 1);
 
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, areg));
@@ -2781,6 +2791,7 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 						index += proc->mLocalVars[wins->mVarIndex]->mOffset;
 					else
 						index += wins->mVarIndex + proc->mLocalSize + 2;
+					index += mFrameOffset;
 					CheckFrameIndex(areg, index, 1);
 
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2842,6 +2853,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 					index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 				else
 					index += ins->mVarIndex + proc->mLocalSize + 2;
+				index += mFrameOffset;
 				CheckFrameIndex(areg, index, 4);
 
 				mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2921,6 +2933,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 					index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 				else
 					index += ins->mVarIndex + proc->mLocalSize + 2;
+				index += mFrameOffset;
 				CheckFrameIndex(areg, index, 2);
 
 				mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -2990,7 +3003,8 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
-					CheckFrameIndex(areg, index, 2);
+					index += mFrameOffset;
+					CheckFrameIndex(areg, index, 1);
 
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, areg));
@@ -3055,6 +3069,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
 					else
 						index += ins->mVarIndex + proc->mLocalSize + 2;
+					index += mFrameOffset;
 					CheckFrameIndex(areg, index, 2);
 
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
@@ -6186,7 +6201,8 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	int		tempSave = proc->mTempSize > 16 ? proc->mTempSize - 16 : 0;
 	int		stackExpand = tempSave + proc->mLocalSize + 2;
 
-	mNoFrame = proc->mLocalSize == 0 && tempSave == 0 && proc->mLeafProcedure;
+	mFrameOffset = 0;
+	mNoFrame = proc->mLocalSize == 0 && tempSave == 0 && !proc->mHasDynamicStack && !(proc->mHasInlineAssembler && !proc->mLeafProcedure);
 
 	if (mNoFrame)
 		proc->mLinkerObject->mFlags |= LOBJF_NO_FRAME;
@@ -6247,8 +6263,12 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		entryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 		entryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, ((proc->mCommonFrameSize + 2) >> 8) & 0xff));
 		entryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+
+		if (mNoFrame)
+			mFrameOffset = proc->mCommonFrameSize + 2;
 	}
 
+	entryBlock->mFrameOffset = mFrameOffset;
 
 	tblocks[0] = entryBlock;
 
@@ -6412,6 +6432,7 @@ NativeCodeBasicBlock* NativeCodeProcedure::AllocateBlock(void)
 {
 	NativeCodeBasicBlock* block = new NativeCodeBasicBlock();
 	block->mNoFrame = mNoFrame;
+	block->mFrameOffset = mFrameOffset;
 	block->mIndex = mTempBlocks++;
 	mBlocks.Push(block);
 
@@ -6425,6 +6446,7 @@ NativeCodeBasicBlock* NativeCodeProcedure::CompileBlock(InterCodeProcedure* ipro
 
 	NativeCodeBasicBlock* block = new NativeCodeBasicBlock();
 	block->mNoFrame = mNoFrame;
+	block->mFrameOffset = mFrameOffset;
 	mBlocks.Push(block);
 
 	tblocks[sblock->mIndex] = block;
