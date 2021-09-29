@@ -1804,6 +1804,16 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 			ins->mSIntConst[offset] = ains->mSIntConst[0];
 			ins->mSTemp[offset] = ains->mSTemp[1];
 		}
+		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSTemp[0] < 0 && ains->mSTemp[1] >= 0 && tvalue[ains->mSTemp[1]] && ains->mSIntConst[0] >= 0)
+		{
+			ins->mSIntConst[offset] = ains->mSIntConst[0];
+			ins->mSTemp[offset] = ains->mSTemp[1];
+		}
+		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSTemp[1] < 0 && ains->mSTemp[0] >= 0 && tvalue[ains->mSTemp[0]] && ains->mSIntConst[1] >= 0)
+		{
+			ins->mSIntConst[offset] = ains->mSIntConst[1];
+			ins->mSTemp[offset] = ains->mSTemp[0];
+		}
 	}
 }
 

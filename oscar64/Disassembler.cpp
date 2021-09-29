@@ -628,7 +628,7 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 				addr = addr + ip - 256;
 			else
 				addr = addr + ip;
-			fprintf(file, "%04x : %02x %02x __ %s $%02x\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], addr);
+			fprintf(file, "%04x : %02x %02x __ %s $%04x\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], addr);
 			break;
 		}
 	}
