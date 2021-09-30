@@ -1571,6 +1571,42 @@ void ByteCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const In
 			mIns.Push(sins);
 		}
 	}
+	else if (ins->mSTemp[1] < 0)
+	{
+		if (ins->mMemory == IM_GLOBAL)
+		{
+			ByteCodeInstruction	bins(BC_LEA_ABS);
+			bins.mRegister = BC_REG_ACCU;
+			bins.mLinkerObject = ins->mLinkerObject;
+			bins.mValue = ins->mIntValue;
+			bins.mRelocate = true;
+			mIns.Push(bins);
+		}
+		else if (ins->mMemory == IM_ABSOLUTE)
+		{
+			ByteCodeInstruction	bins(BC_LEA_ABS);
+			bins.mRegister = BC_REG_ACCU;
+			bins.mValue = ins->mIntValue;
+			mIns.Push(bins);
+		}
+		else if (ins->mMemory == IM_PROCEDURE)
+		{
+			ByteCodeInstruction	bins(BC_CONST_16);
+			bins.mRegister = BC_REG_ACCU;
+			bins.mLinkerObject = ins->mLinkerObject;
+			bins.mValue = 0;
+			bins.mRelocate = true;
+			mIns.Push(bins);
+		}
+
+		ByteCodeInstruction	ains(BC_BINOP_ADDR_16);
+		ains.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+		ains.mRegisterFinal = ins->mSFinal[0];
+		mIns.Push(ains);
+		ByteCodeInstruction	sins(BC_STORE_REG_16);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+		mIns.Push(sins);
+	}
 	else
 	{
 		ByteCodeInstruction	lins(BC_LOAD_REG_16);

@@ -138,6 +138,7 @@ public:
 	bool MoveLoadStoreUp(int at);
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
+	bool FindGlobalAddressSumY(int at, int reg, int& apos, int& ireg);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
 

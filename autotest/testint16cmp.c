@@ -61,6 +61,8 @@ bool nge(int a, int b)
 
 #pragma native(nge)
 
+
+
 bool beqz(int a)
 {
 	return a == 0;
@@ -121,6 +123,71 @@ bool ngez(int a)
 
 #pragma native(ngez)
 
+
+
+
+bool beq1(int a)
+{
+	return a == 1;
+}
+
+bool blt1(int a)
+{
+	return a < 1;
+}
+
+bool bgt1(int a)
+{
+	return a > 1;
+}
+
+bool ble1(int a)
+{
+	return a <= 1;
+}
+
+bool bge1(int a)
+{
+	return a >= 1;
+}
+
+bool neq1(int a)
+{
+	return a == 1;
+}
+
+#pragma native(neq1)
+
+bool nlt1(int a)
+{
+	return a < 1;
+}
+
+#pragma native(nlt1)
+
+bool ngt1(int a)
+{
+	return a > 1;
+}
+
+#pragma native(ngt1)
+
+bool nle1(int a)
+{
+	return a <= 1;
+}
+
+#pragma native(nle1)
+
+bool nge1(int a)
+{
+	return a >= 1;
+}
+
+#pragma native(nge1)
+
+
+
 void cmp(int a, int b)
 {
 	bool	beqf = beq(a, b), bltf = blt(a, b), bgtf = bgt(a, b), blef = ble(a, b), bgef = bge(a, b);
@@ -143,6 +210,21 @@ void cmpz(int a)
 	
 	printf("BYTE   %d, 0 : EQ %d LT %d GT %d\r", a, beqf, bltf, bgtf);
 	printf("NATIVE %d, 0 : EQ %d LT %d GT %d\r", a, neqf, nltf, ngtf);
+	
+	assert(beqf == neqf);
+	assert(bltf == nltf);
+	assert(bgtf == ngtf);	
+	assert(blef == nlef);
+	assert(bgef == ngef);	
+}
+
+void cmp1(int a)
+{
+	bool	beqf = beq1(a), bltf = blt1(a), bgtf = bgt1(a), blef = ble1(a), bgef = bge1(a);
+	bool	neqf = neq1(a), nltf = nlt1(a), ngtf = ngt1(a), nlef = nle1(a), ngef = nge1(a);
+	
+	printf("BYTE   %d, 1 : EQ %d LT %d GT %d LE %d GE %d\r", a, beqf, bltf, bgtf, blef, bgef);
+	printf("NATIVE %d, 1 : EQ %d LT %d GT %d LE %d GE %d\r", a, neqf, nltf, ngtf, nlef, ngef);
 	
 	assert(beqf == neqf);
 	assert(bltf == nltf);
@@ -228,6 +310,22 @@ int main(void)
 	cmpz(-256);
 	cmpz(-10000);
 	cmpz(-20000);
+
+	cmp1(0);
+	cmp1(1);
+	cmp1(2);
+	cmp1(3);
+	cmp1(255);
+	cmp1(256);
+	cmp1(10000);
+	cmp1(20000);
+	cmp1(-1);
+	cmp1(-2);
+	cmp1(-3);
+	cmp1(-255);
+	cmp1(-256);
+	cmp1(-10000);
+	cmp1(-20000);
 
 	return 0;
 	

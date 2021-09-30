@@ -1915,6 +1915,15 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mSTemp[0] = -1;
 			}
 		}
+		else if (ins->mSTemp[1] >= 0 && tvalue[ins->mSTemp[1]] && tvalue[ins->mSTemp[1]]->mCode == IC_CONSTANT && tvalue[ins->mSTemp[1]]->mMemory == IM_GLOBAL)
+		{
+			ins->mMemory = tvalue[ins->mSTemp[1]]->mMemory;
+			ins->mLinkerObject = tvalue[ins->mSTemp[1]]->mLinkerObject;
+			ins->mVarIndex = tvalue[ins->mSTemp[1]]->mVarIndex;
+			ins->mIntValue = tvalue[ins->mSTemp[1]]->mIntValue + tvalue[ins->mSTemp[0]]->mIntValue;
+			ins->mOperandSize = tvalue[ins->mSTemp[1]]->mOperandSize;
+			ins->mSTemp[1] = -1;
+		}
 		break;
 	case IC_TYPECAST:
 		if (ins->mSType[0] == ins->mTType)
