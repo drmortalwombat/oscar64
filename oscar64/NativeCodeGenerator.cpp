@@ -3237,13 +3237,13 @@ void NativeCodeBasicBlock::ShiftRegisterLeft(InterCodeProcedure* proc, int reg, 
 	}
 	else
 	{
-		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, reg + 0));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, reg + 1));
 		for (int i = 0; i < shift; i++)
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_IMPLIED));
-			mIns.Push(NativeCodeInstruction(ASMIT_ROL, ASMIM_ZERO_PAGE, reg + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_ZERO_PAGE, reg));
+			mIns.Push(NativeCodeInstruction(ASMIT_ROL, ASMIM_IMPLIED));
 		}
-		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 0));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
 	}
 }
 
@@ -5055,18 +5055,22 @@ bool NativeCodeBasicBlock::RemoveUnusedResultInstructions(void)
 	return changed;
 }
 
-void NativeCodeBasicBlock::CountEntries(void)
+void NativeCodeBasicBlock::CountEntries(NativeCodeBasicBlock * fromJump)
 {
+	if (mNumEntries == 0)
+		mFromJump = fromJump;
+	else
+		mFromJump = nullptr;
 	mNumEntries++;
-	
+
 	if (!mVisited)
 	{
 		mVisited = true;
 
 		if (mTrueJump)
-			mTrueJump->CountEntries();
+			mTrueJump->CountEntries(this);
 		if (mFalseJump)
-			mFalseJump->CountEntries();
+			mFalseJump->CountEntries(this);
 	}
 }
 
@@ -5258,7 +5262,7 @@ bool NativeCodeBasicBlock::FindGlobalAddress(int at, int reg, int& apos)
 	return false;
 }
 
-bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, int& apos, int& ireg)
+bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, const NativeCodeInstruction*& ains, int& ireg)
 {
 	int j = at - 7;
 	while (j >= 0)
@@ -5271,14 +5275,44 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, int& apos, int
 			mIns[j + 5].mType == ASMIT_ADC && mIns[j + 5].mMode == ASMIM_IMMEDIATE && mIns[j + 5].mAddress == 0 &&
 			mIns[j + 6].mType == ASMIT_STA && mIns[j + 6].mMode == ASMIM_ZERO_PAGE && mIns[j + 6].mAddress == reg + 1)
 		{
-			apos = j + 0;
+			ains = &(mIns[j + 1]);
 			ireg = mIns[j + 2].mAddress;
+
+			int	k = j + 7;
+			while (k < at)
+			{
+				if (mIns[k].mMode == ASMIM_ZERO_PAGE && mIns[k].mAddress == ireg && mIns[k].ChangesAddress())
+					return false;
+				k++;
+			}
+
 			return true;
 		}
 		if (mIns[j + 6].mMode == ASMIM_ZERO_PAGE && (mIns[j + 6].mAddress == reg || mIns[j + 6].mAddress == reg + 1) && mIns[j + 6].ChangesAddress())
 			return false;
 
 		j--;
+	}
+
+	if (mFromJump)
+	{
+		while (j >= -6)
+		{
+			if (mIns[j + 6].mMode == ASMIM_ZERO_PAGE && (mIns[j + 6].mAddress == reg || mIns[j + 6].mAddress == reg + 1) && mIns[j + 6].ChangesAddress())
+				return false;
+			j--;
+		}
+		if (mFromJump->FindGlobalAddressSumY(mFromJump->mIns.Size(), reg, ains, ireg))
+		{
+			int	k = 0;
+			while (k < at)
+			{
+				if (mIns[k].mMode == ASMIM_ZERO_PAGE && mIns[k].mAddress == ireg && mIns[k].ChangesAddress())
+					return false;
+				k++;
+			}
+			return true;
+		}
 	}
 
 	return false;
@@ -5940,10 +5974,12 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 #if 1
 					if (
 						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 1].mLive & LIVE_MEM ))
+						mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
 					{
+						const NativeCodeInstruction* ains;
+
 						int	apos, breg, ireg;
-						if (FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
+						if (!(mIns[i + 1].mLive & LIVE_MEM) && FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
 						{
 							if (breg == mIns[i + 1].mAddress)
 							{
@@ -5962,7 +5998,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 							mIns[i + 1].mAddress = breg;
 							progress = true;
 						}
-						else if (FindGlobalAddressSumY(i, mIns[i + 1].mAddress, apos, ireg))
+						else if (FindGlobalAddressSumY(i, mIns[i + 1].mAddress, ains, ireg))
 						{
 							if (mIns[i + 1].mLive & LIVE_CPU_REG_Y)
 							{
@@ -5974,8 +6010,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 							mIns[i + 0].mAddress = ireg;
 
 							mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
-							mIns[i + 1].mLinkerObject = mIns[apos + 1].mLinkerObject;
-							mIns[i + 1].mAddress = mIns[apos + 1].mAddress;
+							mIns[i + 1].mLinkerObject = ains->mLinkerObject;
+							mIns[i + 1].mAddress = ains->mAddress;
 							progress = true;
 						}
 					}
@@ -6058,6 +6094,15 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					{
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						mIns[i + 2].mType = ASMIT_CLC; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_LDA &&
+						mIns[i + 1].mType == ASMIT_STA && 
+						mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
+					{
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
 						progress = true;
 					}
 #if 1
@@ -6602,8 +6647,11 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	{
 		ResetVisited();
 		for (int i = 0; i < mBlocks.Size(); i++)
+		{
 			mBlocks[i]->mNumEntries = 0;
-		entryBlock->CountEntries();
+			mBlocks[i]->mFromJump = nullptr;
+		}
+		entryBlock->CountEntries(nullptr);
 
 		do
 		{

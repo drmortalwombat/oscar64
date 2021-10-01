@@ -73,7 +73,7 @@ public:
 	DynamicArray<uint8>					mCode;
 	int									mIndex;
 
-	NativeCodeBasicBlock* mTrueJump, * mFalseJump;
+	NativeCodeBasicBlock* mTrueJump, * mFalseJump, * mFromJump;
 	AsmInsType							mBranch;
 
 	GrowingArray<NativeCodeInstruction>	mIns;
@@ -132,13 +132,13 @@ public:
 	bool BuildGlobalRequiredRegSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(void);
 
-	void CountEntries(void);
+	void CountEntries(NativeCodeBasicBlock* fromJump);
 	bool MergeBasicBlocks(void);
 
 	bool MoveLoadStoreUp(int at);
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
-	bool FindGlobalAddressSumY(int at, int reg, int& apos, int& ireg);
+	bool FindGlobalAddressSumY(int at, int reg, const NativeCodeInstruction * & ains, int& ireg);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
 
