@@ -151,7 +151,31 @@ enum ByteCode
 	BC_COPY,
 	BC_COPY_LONG,
 
-	BC_NATIVE = 0x75
+	BC_EXTRT,
+
+	BC_NATIVE = 0x75,
+
+	BC_CONV_I16_I32 = 0x80,
+	BC_CONV_U16_U32,
+
+	BC_OP_NEGATE_32,
+	BC_OP_INVERT_32,
+
+	BC_BINOP_ADD_L32,
+	BC_BINOP_SUB_L32,
+	BC_BINOP_AND_L32,
+	BC_BINOP_OR_L32,
+	BC_BINOP_XOR_L32,
+	BC_BINOP_MUL_L32,
+	BC_BINOP_DIV_U32,
+	BC_BINOP_MOD_U32,
+	BC_BINOP_DIV_I32,
+	BC_BINOP_MOD_I32,
+	BC_BINOP_SHL_L32,
+	BC_BINOP_SHR_U32,
+	BC_BINOP_SHR_I32,
+	BC_BINOP_CMP_U32,
+	BC_BINOP_CMP_S32
 };
 
 class ByteCodeProcedure;
@@ -171,6 +195,7 @@ public:
 	int			mValue;
 	bool		mRelocate, mRegisterFinal;
 	LinkerObject* mLinkerObject;
+	const char* mRuntime;
 
 	bool IsStore(void) const;
 	bool ChangesAccu(void) const;
@@ -223,6 +248,8 @@ public:
 	void CalculateOffset(int& total);
 	void CopyCode(ByteCodeGenerator* generator, LinkerObject * linkerObject, uint8* target);
 
+	void LongConstToAccu(int64 val);
+	void LongConstToWork(int64 val);
 	void IntConstToAccu(int64 val);
 	void IntConstToAddr(int64 val);
 	void FloatConstToAccu(double val);
@@ -282,6 +309,7 @@ public:
 	Linker* mLinker;
 
 	bool	mByteCodeUsed[128];
+	LinkerObject* mExtByteCodes[128];
 
 	void WriteBasicHeader(void);
 	void WriteByteCodeHeader(void);

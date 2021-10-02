@@ -16,7 +16,7 @@ CompilationUnits::CompilationUnits(Errors * errors)
 	mRuntimeScope = new DeclarationScope(nullptr);
 	mStartup = nullptr;
 
-	for (int i = 0; i < 128; i++)
+	for (int i = 0; i < 256; i++)
 		mByteCodes[i] = nullptr;
 }
 

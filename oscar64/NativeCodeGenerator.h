@@ -8,10 +8,20 @@ class NativeCodeProcedure;
 class NativeCodeBasicBlock;
 class NativeCodeGenerator;
 
+enum NativeRegisterDataMode
+{
+	NRDM_UNKNOWN,
+	NRDM_IMMEDIATE,
+	NRDM_IMMEDIATE_ADDRESS,
+	NRDM_ZERO_PAGE
+};
+
 struct NativeRegisterData
 {
-	bool		mImmediate, mZeroPage;
-	int			mValue;
+	NativeRegisterDataMode	mMode;
+	int						mValue;
+	uint32					mFlags;
+	LinkerObject		*	mLinkerObject;
 
 	NativeRegisterData(void);
 

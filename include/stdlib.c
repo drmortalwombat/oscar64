@@ -3,7 +3,7 @@
 #include "stdio.h"
 #include "math.h"
 
-void itoa(int n, char * s, int radix)
+void itoa(int n, char * s, unsigned radix)
 {
 	bool neg = n < 0;
 	if (neg)
@@ -35,7 +35,7 @@ void itoa(int n, char * s, int radix)
 	}
 }
 
-void utoa(unsigned int n, char * s, unsigned int radix)
+void utoa(unsigned int n, char * s, unsigned radix)
 {	
 	int	i = 0;
     do {
@@ -56,6 +56,61 @@ void utoa(unsigned int n, char * s, unsigned int radix)
 		s[i] = c;
 	}
 }
+
+void ltoa(long n, char * s, unsigned radix)
+{
+	bool neg = n < 0;
+	if (neg)
+	{
+		n = - n;
+	}
+	
+	int	i = 0;
+    do {
+		int	d = n % radix;
+		if (d < 10)
+			d += '0';
+		else
+			d += 'A' - 10;
+		s[i++] = d;
+    } while ((n /= radix) > 0);
+
+	if (neg)
+	{
+		s[i++] = '-';
+	}
+	s[i] = 0;
+	int	j = 0;
+	while (j + 1 < i)
+	{
+		char c = s[j];
+		s[j++] = s[--i];
+		s[i] = c;
+	}
+}
+
+void ultoa(unsigned long n, char * s, unsigned radix)
+{	
+	int	i = 0;
+    do {
+		unsigned int	d = n % radix;
+		if (d < 10)
+			d += '0';
+		else
+			d += 'A' - 10;
+		s[i++] = d;
+    } while ((n /= radix) > 0);
+
+	s[i] = 0;
+	int	j = 0;
+	while (j + 1 < i)
+	{
+		char c = s[j];
+		s[j++] = s[--i];
+		s[i] = c;
+	}
+}
+
 
 void ftoa(float f, char * s)
 {

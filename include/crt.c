@@ -64,7 +64,7 @@ __asm bcexec
 {
 		lda ip
 		pha
-		lda ip + 1
+		lda ip + 1	
 		pha
 		lda accu
 		sta ip
@@ -141,6 +141,58 @@ W1:		dey
 		bne	L1
 		rol	accu
 		rol	accu + 1
+		ldy	tmpy
+		rts	
+}
+
+// divide accu by tmp result in accu, remainder in tmp + 4
+
+__asm divmod32
+{
+		sty	tmpy
+		lda	#0
+		sta	tmp + 4
+		sta	tmp + 5
+		sta	tmp + 6
+		sta	tmp + 7
+		ldy	#32
+		clc
+L1:		rol	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+		rol	tmp + 4
+		rol	tmp + 5
+		rol	tmp + 6
+		rol	tmp + 7
+		
+		lda	tmp + 4
+		cmp	tmp + 0
+		lda	tmp + 5
+		sbc	tmp + 1
+		lda	tmp + 6
+		sbc	tmp + 2
+		lda	tmp + 7
+		sbc	tmp + 3
+		bcc	W1
+		lda	tmp + 4
+		sbc	tmp + 0
+		sta tmp + 4
+		lda	tmp + 5
+		sbc	tmp + 1
+		sta tmp + 5
+		lda	tmp + 6
+		sbc	tmp + 2
+		sta tmp + 6
+		lda	tmp + 7
+		sbc	tmp + 3
+		sta tmp + 7
+W1:		dey
+		bne	L1
+		rol	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
 		ldy	tmpy
 		rts	
 }
@@ -2972,3 +3024,491 @@ W1:		jsr	fround.frup
 
 #pragma	bytecode(BC_OP_CEIL_F32, inp_op_ceil_f32)
 
+__asm inp_op_extrt
+{
+		lda	(ip), y
+		iny
+		sta	c1 + 1
+		lda	(ip), y
+		iny
+		sta	c1 + 2
+		lda	(ip), y
+		iny
+		tax
+c1:		jsr $0000
+		jmp	startup.exec		
+}
+
+#pragma bytecode(BC_EXTRT, inp_op_extrt)
+
+
+__asm inp_op_ext_u16
+{
+		lda	#0
+		sta	accu + 2
+		sta	accu + 3
+}
+
+#pragma bytecode(BC_CONV_U16_U32, inp_op_ext_u16)
+
+
+__asm inp_op_ext_s16
+{
+		lda	accu + 1
+		ora #$7f
+		bmi w1
+		lda #0
+w1:
+		sta	accu + 2
+		sta	accu + 3
+}
+
+#pragma bytecode(BC_CONV_I16_I32, inp_op_ext_s16)
+
+__asm inp_op_invert_32
+{
+		lda	accu + 0
+		eor #$ff
+		sta accu + 0
+		lda	accu + 1
+		eor #$ff
+		sta accu + 1
+		lda	accu + 2
+		eor #$ff
+		sta accu + 2
+		lda	accu + 3
+		eor #$ff
+		sta accu + 3
+}
+
+#pragma bytecode(BC_OP_INVERT_32, inp_op_invert_32)
+
+__asm inp_op_negate_32
+{
+		jmp	negaccu
+}
+
+#pragma bytecode(BC_OP_NEGATE_32, inp_op_negate_32)
+
+
+__asm inp_op_addr_32
+{
+		clc
+		lda	accu + 0
+		adc $00, x
+		sta accu + 0
+		lda	accu + 1
+		adc $01, x
+		sta accu + 1
+		lda	accu + 2
+		adc $02, x
+		sta accu + 2
+		lda	accu + 3
+		adc $03, x
+		sta accu + 3
+}
+
+#pragma bytecode(BC_BINOP_ADD_L32, inp_op_addr_32)
+
+__asm inp_op_subr_32
+{
+		sec
+		lda	accu + 0
+		sbc $00, x
+		sta accu + 0
+		lda	accu + 1
+		sbc $01, x
+		sta accu + 1
+		lda	accu + 2
+		sbc $02, x
+		sta accu + 2
+		lda	accu + 3
+		sbc $03, x
+		sta accu + 3
+}
+
+#pragma bytecode(BC_BINOP_SUB_L32, inp_op_subr_32)
+
+__asm inp_op_andr_32
+{
+		lda	accu + 0
+		and $00, x
+		sta accu + 0
+		lda	accu + 1
+		and $01, x
+		sta accu + 1
+		lda	accu + 2
+		and $02, x
+		sta accu + 2
+		lda	accu + 3
+		and $03, x
+		sta accu + 3
+}
+
+#pragma bytecode(BC_BINOP_AND_L32, inp_op_andr_32)
+
+__asm inp_op_orr_32
+{
+		lda	accu + 0
+		ora $00, x
+		sta accu + 0
+		lda	accu + 1
+		ora $01, x
+		sta accu + 1
+		lda	accu + 2
+		ora $02, x
+		sta accu + 2
+		lda	accu + 3
+		ora $03, x
+		sta accu + 3
+}
+
+#pragma bytecode(BC_BINOP_OR_L32, inp_op_orr_32)
+
+__asm inp_op_xorr_32
+{
+		lda	accu + 0
+		eor $00, x
+		sta accu + 0
+		lda	accu + 1
+		eor $01, x
+		sta accu + 1
+		lda	accu + 2
+		eor $02, x
+		sta accu + 2
+		lda	accu + 3
+		eor $03, x
+		sta accu + 3
+}
+
+#pragma bytecode(BC_BINOP_XOR_L32, inp_op_xorr_32)
+
+__asm inp_op_mulr_32
+{
+		lda	#0
+		sta	tmp + 4
+		sta	tmp + 5
+		sta	tmp + 6
+		sta	tmp + 7
+
+		lda	$00, x
+		sta	tmp + 0
+		lda	$01, x
+		sta	tmp + 1
+		lda	$02, x
+		sta	tmp + 2
+		lda	$03, x
+		sta	tmp + 3
+		ldx	#32
+L1:		lsr	tmp + 3
+		ror	tmp + 2
+		ror	tmp + 1
+		ror	tmp + 0
+		bcc	W1
+		clc
+		lda	tmp + 4
+		adc	accu
+		sta	tmp + 4
+		lda	tmp + 5
+		adc	accu + 1
+		sta	tmp + 5
+		lda	tmp + 6
+		adc	accu + 2
+		sta	tmp + 6
+		lda	tmp + 7
+		adc	accu + 3
+		sta	tmp + 7
+W1:		asl	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+		dex
+		bne	L1
+		lda	tmp + 4
+		sta	accu
+		lda	tmp + 5
+		sta	accu + 1
+		lda	tmp + 6
+		sta	accu + 2
+		lda	tmp + 7
+		sta	accu + 3
+}
+
+#pragma bytecode(BC_BINOP_MUL_L32, inp_op_mulr_32)
+
+__asm negaccu32
+{
+		sec
+		lda	#0
+		sbc	accu
+		sta	accu
+		lda	#0
+		sbc	accu + 1
+		sta	accu + 1
+		lda	#0
+		sbc	accu + 2
+		sta	accu + 2
+		lda	#0
+		sbc	accu + 3
+		sta	accu + 3
+		rts
+}
+
+__asm negtmp32
+{
+		sec
+		lda	#0
+		sbc	tmp
+		sta	tmp
+		lda	#0
+		sbc	tmp + 1
+		sta	tmp + 1
+		lda	#0
+		sbc	tmp + 2
+		sta	tmp + 2
+		lda	#0
+		sbc	tmp + 3
+		sta	tmp + 3
+		rts
+}
+
+__asm inp_binop_div_u32
+{
+		lda	$00, x
+		sta	tmp + 0
+		lda	$01, x
+		sta	tmp + 1
+		lda	$02, x
+		sta	tmp + 2
+		lda	$03, x
+		sta	tmp + 3
+		jsr	divmod32
+}
+
+#pragma	bytecode(BC_BINOP_DIV_U32, inp_binop_div_u32)
+
+__asm inp_binop_mod_u32
+{
+		lda	$00, x
+		sta	tmp + 0
+		lda	$01, x
+		sta	tmp + 1
+		lda	$02, x
+		sta	tmp + 2
+		lda	$03, x
+		sta	tmp + 3
+		jsr	divmod32
+		lda	tmp + 4
+		sta	accu
+		lda	tmp + 5
+		sta	accu + 1
+		lda	tmp + 6
+		sta	accu + 2
+		lda	tmp + 7
+		sta	accu + 3
+}
+
+#pragma	bytecode(BC_BINOP_MOD_U32, inp_binop_mod_u32)
+
+__asm inp_binop_div_s32
+{
+		lda	$00, x
+		sta	tmp + 0
+		lda	$01, x
+		sta	tmp + 1
+		lda	$02, x
+		sta	tmp + 2
+		lda	$03, x
+		sta	tmp + 3
+		bit	accu + 3
+		bpl	L1
+		jsr	negaccu32
+		bit	tmp + 3
+		bpl	L2
+		jsr	negtmp32
+L3:		jsr	divmod32
+		rts
+L1:		bit	tmp + 3
+		bpl	L3
+		jsr	negtmp32
+L2:		jsr	divmod32
+		jsr	negaccu32
+}
+
+#pragma	bytecode(BC_BINOP_DIV_I32, inp_binop_div_s32)
+
+__asm inp_binop_mod_s32
+{
+		lda	$00, x
+		sta	tmp + 0
+		lda	$01, x
+		sta	tmp + 1
+		lda	$02, x
+		sta	tmp + 2
+		lda	$03, x
+		sta	tmp + 3
+		bit	accu + 3
+		bpl	L1
+		jsr	negaccu32
+		bit	tmp + 3
+		bpl	L2
+		jsr	negtmp32
+L3:		jsr	divmod32
+		lda	tmp + 4
+		sta	accu
+		lda	tmp + 5
+		sta	accu + 1
+		lda	tmp + 6
+		sta	accu + 2
+		lda	tmp + 7
+		sta	accu + 3
+		rts
+L1:		bit	tmp + 3
+		bpl	L3
+		jsr	negtmp32
+L2:		jsr	divmod32
+		lda	tmp + 4
+		sta	accu
+		lda	tmp + 5
+		sta	accu + 1
+		lda	tmp + 6
+		sta	accu + 2
+		lda	tmp + 7
+		sta	accu + 3
+		jsr	negaccu32
+}
+
+#pragma	bytecode(BC_BINOP_MOD_I32, inp_binop_mod_s32)
+
+__asm inp_op_shl_l32
+{
+		lda $00, x
+		and #31
+		beq W1
+		tax
+		lda accu + 0
+L1:		asl
+		rol accu + 1
+		rol accu + 2
+		rol accu + 3
+		dex
+		bne L1
+		sta accu + 0
+W1:
+}
+
+#pragma bytecode(BC_BINOP_SHL_L32, inp_op_shl_l32)
+
+
+__asm inp_op_shr_u32
+{
+		lda $00, x
+		and #31
+		beq W1
+		tax
+		lda accu + 3
+L1:		lsr
+		ror accu + 2
+		ror accu + 1
+		ror accu + 0
+		dex
+		bne L1
+		sta accu + 3
+W1:
+}
+
+#pragma bytecode(BC_BINOP_SHR_U32, inp_op_shr_u32)
+
+__asm inp_op_shr_s32
+{
+		lda $00, x
+		and #31
+		beq W1
+		tax
+		lda accu + 3
+L1:		cmp #$80
+		ror
+		ror accu + 2
+		ror accu + 1
+		ror accu + 0
+		dex
+		bne L1
+		sta accu + 3
+W1:
+}
+
+#pragma bytecode(BC_BINOP_SHR_I32, inp_op_shr_s32)
+
+__asm inp_op_cmp_u32
+{
+		lda	$03, x
+		cmp	accu + 3
+		bne	cmpne
+		lda	$02, x
+		cmp	accu + 2
+		bne	cmpne
+		lda	$01, x
+		cmp	accu + 1
+		bne	cmpne
+		lda	$00 , x
+		cmp	accu
+		bne	cmpne
+
+		lda	#0
+		sta	accu
+		sta	accu + 1
+		rts
+cmp_lt:		
+		lda	#$ff
+		sta	accu
+		sta	accu +1 
+		rts
+cmpne:
+		bcc	cmp_lt
+		lda	#1
+		sta	accu
+		lda	#0
+		sta	accu + 1
+		rts
+}
+
+#pragma bytecode(BC_BINOP_CMP_U32, inp_op_cmp_u32)
+
+__asm inp_op_cmp_s32
+{
+		lda	accu + 3
+		eor	#$80
+		sta	accu + 3
+		lda	$03, x
+		eor #$80
+		cmp	accu + 3
+		bne	cmpne
+		lda	$02, x
+		cmp	accu + 2
+		bne	cmpne
+		lda	$01, x
+		cmp	accu + 1
+		bne	cmpne
+		lda	$00 , x
+		cmp	accu
+		bne	cmpne
+
+		lda	#0
+		sta	accu
+		sta	accu + 1
+		rts
+cmp_lt:		
+		lda	#$ff
+		sta	accu
+		sta	accu +1 
+		rts
+cmpne:
+		bcc	cmp_lt
+		lda	#1
+		sta	accu
+		lda	#0
+		sta	accu + 1
+		rts
+}
+
+#pragma bytecode(BC_BINOP_CMP_S32, inp_op_cmp_s32)

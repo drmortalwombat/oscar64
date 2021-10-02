@@ -183,7 +183,24 @@ bool Compiler::GenerateCode(void)
 	RegisterRuntime(loc, Ident::Unique("fcmp"));
 	RegisterRuntime(loc, Ident::Unique("bcexec"));
 
-	//
+	// Register extended byte code functions
+
+	for (int i = 0; i < 128; i++)
+	{
+		Declaration* bcdec = mCompilationUnits->mByteCodes[i + 128];
+		if (bcdec)
+		{
+			LinkerObject* linkerObject = nullptr;
+
+			int	offset = 0;
+			if (bcdec->mType == DT_CONST_ASSEMBLER)
+			{
+				if (!bcdec->mLinkerObject)
+					mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue);
+				mByteCodeGenerator->mExtByteCodes[i] = bcdec->mLinkerObject;
+			}
+		}
+	}
 
 	if (mErrors->mErrorCount != 0)
 		return false;

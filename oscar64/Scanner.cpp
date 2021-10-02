@@ -32,6 +32,9 @@ const char* TokenNames[] = {
 		"'long'",
 		"'continue'",
 		"'integer'",
+		"'integeru'",
+		"'integerl'",
+		"'integerul'",
 		"'bool'",
 		"'const'",
 		"'volatile'",
@@ -1037,7 +1040,13 @@ void Scanner::NextRawToken(void)
 				if (n == 0)
 					mErrors->Error(mLocation, EERR_SYNTAX, "Missing digits in hex constant");
 
-				mToken = TK_INTEGER;
+				if (mTokenChar == 'L' || mTokenChar == 'l')
+				{
+					NextChar();
+					mToken = TK_INTEGERUL;
+				}
+				else
+					mToken = TK_INTEGERU;
 				mTokenInteger = mant;
 			}
 			else
@@ -1288,7 +1297,7 @@ void Scanner::CharToken(void)
 
 	if (mLine[mOffset] && mLine[mOffset] == '\'')
 	{
-		mToken = TK_INTEGER;
+		mToken = TK_INTEGERU;
 		mOffset++;
 		NextChar();
 	}
@@ -1358,7 +1367,14 @@ void Scanner::ParseNumberToken(void)
 		if (n == 0)
 			Error("Missing digits in hex constant");
 
-		mToken = TK_INTEGER;
+		if (mTokenChar == 'L' || mTokenChar == 'l')
+		{
+			NextChar();
+			mToken = TK_INTEGERUL;
+		}
+		else
+			mToken = TK_INTEGERU;
+
 		mTokenInteger = mant;
 	}
 	else if (mant == 0 && (mTokenChar == 'b' || mTokenChar == 'B'))
@@ -1376,7 +1392,13 @@ void Scanner::ParseNumberToken(void)
 		if (n == 0)
 			Error("Missing digits in binary constant");
 
-		mToken = TK_INTEGER;
+		if (mTokenChar == 'L' || mTokenChar == 'l')
+		{
+			NextChar();
+			mToken = TK_INTEGERUL;
+		}
+		else
+			mToken = TK_INTEGERU;
 		mTokenInteger = mant;
 	}
 	else
@@ -1397,7 +1419,27 @@ void Scanner::ParseNumberToken(void)
 
 		if (mTokenChar != '.')
 		{
-			mToken = TK_INTEGER;
+			if (mTokenChar == 'U' || mTokenChar == 'u')
+			{
+				NextChar();
+				if (mTokenChar == 'L' || mTokenChar == 'l')
+				{
+					NextChar();
+					mToken = TK_INTEGERUL;
+				}
+				else
+					mToken = TK_INTEGERU;
+			}
+			else
+			{
+				if (mTokenChar == 'L' || mTokenChar == 'l')
+				{
+					NextChar();
+					mToken = TK_INTEGERL;
+				}
+				else
+					mToken = TK_INTEGER;
+			}
 			mTokenInteger = mant;
 		}
 		else
@@ -1461,6 +1503,9 @@ int64 Scanner::PrepParseSimple(void)
 	switch (mToken)
 	{
 	case TK_INTEGER:
+	case TK_INTEGERU:
+	case TK_INTEGERL:
+	case TK_INTEGERUL:
 		v = mTokenInteger;
 		NextToken();
 		break;

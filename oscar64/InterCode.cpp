@@ -251,12 +251,22 @@ static void ConversionConstantFold(InterInstruction * ins, InterInstruction * ci
 		break;
 	case IA_EXT8TO16S:
 		ins->mCode = IC_CONSTANT;
-		ins->mIntValue = (char)(cins->mIntValue);
+		ins->mIntValue = (int8)(cins->mIntValue);
 		ins->mSTemp[0] = -1;
 		break;
 	case IA_EXT8TO16U:
 		ins->mCode = IC_CONSTANT;
-		ins->mIntValue = (unsigned char)(cins->mIntValue);
+		ins->mIntValue = (uint8)(cins->mIntValue);
+		ins->mSTemp[0] = -1;
+		break;
+	case IA_EXT16TO32S:
+		ins->mCode = IC_CONSTANT;
+		ins->mIntValue = (int16)(cins->mIntValue);
+		ins->mSTemp[0] = -1;
+		break;
+	case IA_EXT16TO32U:
+		ins->mCode = IC_CONSTANT;
+		ins->mIntValue = (uint16)(cins->mIntValue);
 		ins->mSTemp[0] = -1;
 		break;
 	}

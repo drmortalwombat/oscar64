@@ -483,7 +483,8 @@ bool Declaration::IsNumericType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM;
 }
 
-Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration, * TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration;
+Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
+Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 
 void InitDeclarations(void)
 {
@@ -503,6 +504,14 @@ void InitDeclarations(void)
 	TheUnsignedIntTypeDeclaration = new Declaration(noloc, DT_TYPE_INTEGER);
 	TheUnsignedIntTypeDeclaration->mSize = 2;
 	TheUnsignedIntTypeDeclaration->mFlags = DTF_DEFINED;
+
+	TheSignedLongTypeDeclaration = new Declaration(noloc, DT_TYPE_INTEGER);
+	TheSignedLongTypeDeclaration->mSize = 4;
+	TheSignedLongTypeDeclaration->mFlags = DTF_DEFINED | DTF_SIGNED;
+
+	TheUnsignedLongTypeDeclaration = new Declaration(noloc, DT_TYPE_INTEGER);
+	TheUnsignedLongTypeDeclaration->mSize = 4;
+	TheUnsignedLongTypeDeclaration->mFlags = DTF_DEFINED;
 
 	TheSignedCharTypeDeclaration = new Declaration(noloc, DT_TYPE_INTEGER);
 	TheSignedCharTypeDeclaration->mSize = 1;

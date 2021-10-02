@@ -23,7 +23,7 @@ public:
 	CompilationUnit* mCompilationUnits, * mPendingUnits;
 
 	Declaration* mStartup;
-	Declaration* mByteCodes[128];
+	Declaration* mByteCodes[256];
 
 	DeclarationScope* mRuntimeScope;
 

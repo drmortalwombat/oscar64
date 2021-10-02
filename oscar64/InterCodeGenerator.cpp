@@ -148,6 +148,33 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 				stemp = xins->mTTemp;
 			}
 		}
+		else if (v.mType->mSize == 2 && type->mSize == 4)
+		{
+			if (v.mType->mFlags & DTF_SIGNED)
+			{
+				InterInstruction* xins = new InterInstruction();
+				xins->mCode = IC_CONVERSION_OPERATOR;
+				xins->mOperator = IA_EXT16TO32S;
+				xins->mSType[0] = IT_INT16;
+				xins->mSTemp[0] = stemp;
+				xins->mTType = IT_INT32;
+				xins->mTTemp = proc->AddTemporary(IT_INT32);
+				block->Append(xins);
+				stemp = xins->mTTemp;
+			}
+			else
+			{
+				InterInstruction* xins = new InterInstruction();
+				xins->mCode = IC_CONVERSION_OPERATOR;
+				xins->mOperator = IA_EXT16TO32U;
+				xins->mSType[0] = IT_INT16;
+				xins->mSTemp[0] = stemp;
+				xins->mTType = IT_INT32;
+				xins->mTTemp = proc->AddTemporary(IT_INT32);
+				block->Append(xins);
+				stemp = xins->mTTemp;
+			}
+		}
 
 		v.mTemp = stemp;
 		v.mType = type;
@@ -507,27 +534,44 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						if (dec->mInteger < -128 || dec->mInteger > 127)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+						ins->mIntValue = int8(dec->mInteger);
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 255)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
+						ins->mIntValue = uint8(dec->mInteger);
 					}
-					ins->mIntValue = char(dec->mInteger);
 				}
-				else if (ins->mTType == IT_INT8)
+				else if (ins->mTType == IT_INT16)
 				{
 					if (dec->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -32768 || dec->mInteger > 32767)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+						ins->mIntValue = int16(dec->mInteger);
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 65535)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
+						ins->mIntValue = uint16(dec->mInteger);
 					}
-					ins->mIntValue = short(dec->mInteger);
+				}
+				else if (ins->mTType == IT_INT32)
+				{
+					if (dec->mFlags & DTF_SIGNED)
+					{
+						if (dec->mInteger < -2147483648LL || dec->mInteger > 2147483647LL)
+							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+						ins->mIntValue = int32(dec->mInteger);
+					}
+					else
+					{
+						if (dec->mInteger < 0 || dec->mInteger > 4294967296LL)
+							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
+						ins->mIntValue = uint32(dec->mInteger);
+					}
 				}
 				else
 				{
@@ -1080,13 +1124,33 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (vr.mType->mType == DT_TYPE_FLOAT || vl.mType->mType == DT_TYPE_FLOAT)
 					dtype = TheFloatTypeDeclaration;
 				else if (vr.mType->mSize < vl.mType->mSize && (vl.mType->mFlags & DTF_SIGNED))
-					dtype = TheSignedIntTypeDeclaration;
+				{
+					if (vl.mType->mSize == 4)
+						dtype = TheSignedLongTypeDeclaration;
+					else
+						dtype = TheSignedIntTypeDeclaration;
+				}
 				else if (vl.mType->mSize < vr.mType->mSize && (vr.mType->mFlags & DTF_SIGNED))
-					dtype = TheSignedIntTypeDeclaration;
+				{
+					if (vr.mType->mSize == 4)
+						dtype = TheSignedLongTypeDeclaration;
+					else
+						dtype = TheSignedIntTypeDeclaration;
+				}
 				else if ((vr.mType->mFlags & DTF_SIGNED) && (vl.mType->mFlags & DTF_SIGNED))
-					dtype = TheSignedIntTypeDeclaration;
+				{
+					if (vl.mType->mSize == 4)
+						dtype = TheSignedLongTypeDeclaration;
+					else
+						dtype = TheSignedIntTypeDeclaration;
+				}
 				else
-					dtype = TheUnsignedIntTypeDeclaration;
+				{
+					if (vl.mType->mSize == 4 || vr.mType->mSize == 4)
+						dtype = TheUnsignedLongTypeDeclaration;
+					else
+						dtype = TheUnsignedIntTypeDeclaration;
+				}
 
 				vl = CoerceType(proc, block, vl, dtype);
 				vr = CoerceType(proc, block, vr, dtype);
@@ -1319,13 +1383,33 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else if (vr.mType->mType == DT_TYPE_FLOAT || vl.mType->mType == DT_TYPE_FLOAT)
 				dtype = TheFloatTypeDeclaration;
 			else if (vr.mType->mSize < vl.mType->mSize && (vl.mType->mFlags & DTF_SIGNED))
-				dtype = TheSignedIntTypeDeclaration;
+			{
+				if (vl.mType->mSize == 4)
+					dtype = TheSignedLongTypeDeclaration;
+				else
+					dtype = TheSignedIntTypeDeclaration;
+			}
 			else if (vl.mType->mSize < vr.mType->mSize && (vr.mType->mFlags & DTF_SIGNED))
-				dtype = TheSignedIntTypeDeclaration;
+			{
+				if (vr.mType->mSize == 4)
+					dtype = TheSignedLongTypeDeclaration;
+				else
+					dtype = TheSignedIntTypeDeclaration;
+			}
 			else if ((vr.mType->mFlags & DTF_SIGNED) && (vl.mType->mFlags & DTF_SIGNED))
-				dtype = TheSignedIntTypeDeclaration;
+			{
+				if (vl.mType->mSize == 4)
+					dtype = TheSignedLongTypeDeclaration;
+				else
+					dtype = TheSignedIntTypeDeclaration;
+			}
 			else
-				dtype = TheUnsignedIntTypeDeclaration;
+			{
+				if (vl.mType->mSize == 4 || vr.mType->mSize == 4)
+					dtype = TheUnsignedLongTypeDeclaration;
+				else
+					dtype = TheUnsignedIntTypeDeclaration;
+			}
 
 			vl = CoerceType(proc, block, vl, dtype);
 			vr = CoerceType(proc, block, vr, dtype);

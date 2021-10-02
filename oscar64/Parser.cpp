@@ -899,6 +899,39 @@ Expression* Parser::ParseSimpleExpression(void)
 
 		mScanner->NextToken();
 		break;
+	case TK_INTEGERU:
+		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+		dec->mInteger = mScanner->mTokenInteger;
+		dec->mBase = TheUnsignedIntTypeDeclaration;
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+
+		mScanner->NextToken();
+		break;
+	case TK_INTEGERL:
+		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+		dec->mInteger = mScanner->mTokenInteger;
+		if (dec->mInteger < 0x80000000)
+			dec->mBase = TheSignedLongTypeDeclaration;
+		else
+			dec->mBase = TheUnsignedLongTypeDeclaration;
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+
+		mScanner->NextToken();
+		break;
+	case TK_INTEGERUL:
+		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+		dec->mInteger = mScanner->mTokenInteger;
+		dec->mBase = TheUnsignedLongTypeDeclaration;
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+
+		mScanner->NextToken();
+		break;
 	case TK_NUMBER:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_FLOAT);
 		dec->mBase = TheFloatTypeDeclaration;
@@ -1821,6 +1854,16 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 
 		mScanner->NextToken();
 		break;
+	case TK_INTEGERU:
+		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+		dec->mInteger = mScanner->mTokenInteger;
+		dec->mBase = TheUnsignedIntTypeDeclaration;
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+
+		mScanner->NextToken();
+		break;
 
 	case TK_IDENT:
 		dec = mScope->Lookup(mScanner->mTokenIdent);
@@ -2459,7 +2502,7 @@ void Parser::ParsePragma(void)
 							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
 					}
 
-					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER && exp->mDecValue->mInteger >= 0 && exp->mDecValue->mInteger < 128)
+					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER && exp->mDecValue->mInteger >= 0 && exp->mDecValue->mInteger < 256)
 					{
 						if (mCompilationUnits->mByteCodes[exp->mDecValue->mInteger])
 							mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate bytecode function");

@@ -102,6 +102,9 @@ bool ByteCodeInstruction::IsCommutative(void) const
 	if (mCode == BC_BINOP_ADD_F32 || mCode == BC_BINOP_MUL_F32)
 		return true;
 
+	if (mCode == BC_BINOP_ADD_L32 || mCode == BC_BINOP_AND_L32 || mCode == BC_BINOP_OR_L32 || mCode == BC_BINOP_XOR_L32 || mCode == BC_BINOP_MUL_L32)
+		return true;
+
 	return false;
 }
 
@@ -190,6 +193,8 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 		if (mCode >= BC_SET_EQ && mCode <= BC_SET_LE)
 			return true;
 		if (mCode == BC_JSR || mCode == BC_CALL)
+			return true;
+		if (mCode >= BC_CONV_I16_I32 && mCode <= BC_BINOP_CMP_S32)
 			return true;
 	}
 
@@ -495,6 +500,39 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		}
 		break;
 
+	case BC_CONV_I16_I32:
+	case BC_CONV_U16_U32:
+	case BC_OP_NEGATE_32:
+	case BC_OP_INVERT_32:
+	case BC_BINOP_ADD_L32:
+	case BC_BINOP_SUB_L32:
+	case BC_BINOP_AND_L32:
+	case BC_BINOP_OR_L32:
+	case BC_BINOP_XOR_L32:
+	case BC_BINOP_MUL_L32:
+	case BC_BINOP_DIV_U32:
+	case BC_BINOP_MOD_U32:
+	case BC_BINOP_DIV_I32:
+	case BC_BINOP_MOD_I32:
+	case BC_BINOP_SHL_L32:
+	case BC_BINOP_SHR_U32:
+	case BC_BINOP_SHR_I32:
+	case BC_BINOP_CMP_U32:
+	case BC_BINOP_CMP_S32:
+		{
+		block->PutCode(generator, BC_EXTRT);
+
+		LinkerReference	rl;
+		rl.mOffset = block->mCode.Size();
+		rl.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
+		rl.mRefObject = generator->mExtByteCodes[mCode - 128];
+		rl.mRefOffset = 0;
+		block->mRelocations.Push(rl);
+		block->PutWord(0);
+		block->PutByte(mRegister);
+		break;
+	}
+
 	default:
 		assert(false);
 	}
@@ -568,6 +606,22 @@ void ByteCodeBasicBlock::IntConstToAccu(int64 val)
 	ins.mRegister = BC_REG_ACCU;
 	ins.mValue = int(val);
 	mIns.Push(ins);
+}
+
+void ByteCodeBasicBlock::LongConstToAccu(int64 val)
+{
+	ByteCodeInstruction	bins(BC_CONST_32);
+	bins.mRegister = BC_REG_ACCU;
+	bins.mValue = int(val);
+	mIns.Push(bins);
+}
+
+void ByteCodeBasicBlock::LongConstToWork(int64 val)
+{
+	ByteCodeInstruction	bins(BC_CONST_32);
+	bins.mRegister = BC_REG_WORK;
+	bins.mValue = int(val);
+	mIns.Push(bins);
 }
 
 void ByteCodeBasicBlock::FloatConstToAccu(double val)
@@ -662,6 +716,13 @@ void ByteCodeBasicBlock::LoadConstant(InterCodeProcedure* proc, const InterInstr
 	else if (ins->mTType == IT_BOOL || ins->mTType == IT_INT8)
 	{
 		ByteCodeInstruction	bins(BC_CONST_8);
+		bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+		bins.mValue = ins->mIntValue;
+		mIns.Push(bins);
+	}
+	else if (ins->mTType == IT_INT32)
+	{
+		ByteCodeInstruction	bins(BC_CONST_32);
 		bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 		bins.mValue = ins->mIntValue;
 		mIns.Push(bins);
@@ -1005,7 +1066,10 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 		{
 			if (ins->mSTemp[0] < 0)
 			{
-				IntConstToAccu(ins->mSIntConst[0]);
+				if (ins->mOperandSize <= 2)
+					IntConstToAccu(ins->mSIntConst[0]);
+				else
+					LongConstToAccu(ins->mSIntConst[0]);
 
 				if (ins->mOperandSize == 1)
 				{
@@ -1108,6 +1172,59 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					else if (ins->mMemory == IM_FRAME)
 					{
 						ByteCodeInstruction	bins(BC_STORE_FRAME_16);
+						bins.mRegister = BC_REG_ACCU;
+						bins.mValue = ins->mVarIndex + ins->mSIntConst[1] + 2;
+						mIns.Push(bins);
+					}
+				}
+				else if (ins->mOperandSize == 4)
+				{
+					if (ins->mMemory == IM_GLOBAL)
+					{
+						ByteCodeInstruction	bins(BC_STORE_ABS_32);
+						bins.mRelocate = true;
+						bins.mLinkerObject = ins->mLinkerObject;
+						bins.mValue = ins->mSIntConst[1];
+						bins.mRegister = BC_REG_ACCU;
+						mIns.Push(bins);
+					}
+					else if (ins->mMemory == IM_ABSOLUTE)
+					{
+						ByteCodeInstruction	bins(BC_STORE_ABS_32);
+						bins.mValue = ins->mSIntConst[1];
+						bins.mRegister = BC_REG_ACCU;
+						mIns.Push(bins);
+					}
+					else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
+					{
+						int	index = ins->mSIntConst[1];
+						if (ins->mMemory == IM_LOCAL)
+							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
+						else
+							index += ins->mVarIndex + proc->mLocalSize + 2;
+
+						if (index <= 252)
+						{
+							ByteCodeInstruction	bins(BC_STORE_LOCAL_32);
+							bins.mRegister = BC_REG_ACCU;
+							bins.mValue = index;
+							mIns.Push(bins);
+						}
+						else
+						{
+							ByteCodeInstruction	lins(BC_LEA_LOCAL);
+							lins.mRegister = BC_REG_ADDR;
+							lins.mValue = index;
+							mIns.Push(lins);
+							ByteCodeInstruction	bins(BC_STORE_ADDR_32);
+							bins.mRegister = BC_REG_ACCU;
+							bins.mValue = 0;
+							mIns.Push(bins);
+						}
+					}
+					else if (ins->mMemory == IM_FRAME)
+					{
+						ByteCodeInstruction	bins(BC_STORE_FRAME_32);
 						bins.mRegister = BC_REG_ACCU;
 						bins.mValue = ins->mVarIndex + ins->mSIntConst[1] + 2;
 						mIns.Push(bins);
@@ -1226,6 +1343,64 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					else if (ins->mMemory == IM_FRAME)
 					{
 						ByteCodeInstruction	bins(BC_STORE_FRAME_16);
+						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+						bins.mRegisterFinal = ins->mSFinal[0];
+						bins.mValue = ins->mVarIndex + ins->mSIntConst[1] + 2;
+						mIns.Push(bins);
+					}
+				}
+				else if (ins->mOperandSize == 4)
+				{
+					if (ins->mMemory == IM_GLOBAL)
+					{
+						ByteCodeInstruction	bins(BC_STORE_ABS_32);
+						bins.mRelocate = true;
+						bins.mLinkerObject = ins->mLinkerObject;
+						bins.mValue = ins->mSIntConst[1];
+						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+						bins.mRegisterFinal = ins->mSFinal[0];
+						mIns.Push(bins);
+					}
+					else if (ins->mMemory == IM_ABSOLUTE)
+					{
+						ByteCodeInstruction	bins(BC_STORE_ABS_32);
+						bins.mValue = ins->mSIntConst[1];
+						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+						bins.mRegisterFinal = ins->mSFinal[0];
+						mIns.Push(bins);
+					}
+					else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
+					{
+						int	index = ins->mSIntConst[1];
+						if (ins->mMemory == IM_LOCAL)
+							index += proc->mLocalVars[ins->mVarIndex]->mOffset;
+						else
+							index += ins->mVarIndex + proc->mLocalSize + 2;
+
+						if (index <= 252)
+						{
+							ByteCodeInstruction	bins(BC_STORE_LOCAL_32);
+							bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+							bins.mRegisterFinal = ins->mSFinal[0];
+							bins.mValue = index;
+							mIns.Push(bins);
+						}
+						else
+						{
+							ByteCodeInstruction	lins(BC_LEA_LOCAL);
+							lins.mRegister = BC_REG_ADDR;
+							lins.mValue = index;
+							mIns.Push(lins);
+							ByteCodeInstruction	bins(BC_STORE_ADDR_32);
+							bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+							bins.mRegisterFinal = ins->mSFinal[0];
+							bins.mValue = 0;
+							mIns.Push(bins);
+						}
+					}
+					else if (ins->mMemory == IM_FRAME)
+					{
+						ByteCodeInstruction	bins(BC_STORE_FRAME_32);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
 						bins.mRegisterFinal = ins->mSFinal[0];
 						bins.mValue = ins->mVarIndex + ins->mSIntConst[1] + 2;
@@ -1238,7 +1413,10 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 		{
 			if (ins->mSTemp[0] < 0)
 			{
-				IntConstToAccu(ins->mSIntConst[0]);
+				if (ins->mOperandSize <= 2)
+					IntConstToAccu(ins->mSIntConst[0]);
+				else
+					LongConstToAccu(ins->mSIntConst[0]);
 
 				if (ins->mMemory == IM_INDIRECT)
 				{
@@ -1256,6 +1434,13 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					else if (ins->mOperandSize == 2)
 					{
 						ByteCodeInstruction	bins(BC_STORE_ADDR_16);
+						bins.mRegister = BC_REG_ACCU;
+						bins.mValue = ins->mSIntConst[1];
+						mIns.Push(bins);
+					}
+					else if (ins->mOperandSize == 4)
+					{
+						ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 						bins.mRegister = BC_REG_ACCU;
 						bins.mValue = ins->mSIntConst[1];
 						mIns.Push(bins);
@@ -1281,6 +1466,14 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					else if (ins->mOperandSize == 2)
 					{
 						ByteCodeInstruction	bins(BC_STORE_ADDR_16);
+						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+						bins.mRegisterFinal = ins->mSFinal[0];
+						bins.mValue = ins->mSIntConst[1];
+						mIns.Push(bins);
+					}
+					else if (ins->mOperandSize == 4)
+					{
+						ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
 						bins.mRegisterFinal = ins->mSFinal[0];
 						bins.mValue = ins->mSIntConst[1];
@@ -1516,6 +1709,52 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 					}
 				}
 			}
+			else if (ins->mOperandSize == 4)
+			{
+				if (ins->mMemory == IM_GLOBAL)
+				{
+					ByteCodeInstruction	bins(BC_LOAD_ABS_32);
+					bins.mRelocate = true;
+					bins.mLinkerObject = ins->mLinkerObject;
+					bins.mValue = ins->mSIntConst[0];
+					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+					mIns.Push(bins);
+				}
+				else if (ins->mMemory == IM_ABSOLUTE)
+				{
+					ByteCodeInstruction	bins(BC_LOAD_ABS_32);
+					bins.mValue = ins->mSIntConst[0];
+					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+					mIns.Push(bins);
+				}
+				else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
+				{
+					int	index = ins->mSIntConst[0];
+					if (ins->mMemory == IM_LOCAL)
+						index += proc->mLocalVars[ins->mVarIndex]->mOffset;
+					else
+						index += ins->mVarIndex + proc->mLocalSize + 2;
+
+					if (index <= 252)
+					{
+						ByteCodeInstruction	bins(BC_LOAD_LOCAL_32);
+						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+						bins.mValue = index;
+						mIns.Push(bins);
+					}
+					else
+					{
+						ByteCodeInstruction	lins(BC_LEA_LOCAL);
+						lins.mRegister = BC_REG_ADDR;
+						lins.mValue = index;
+						mIns.Push(lins);
+						ByteCodeInstruction	bins(BC_LOAD_ADDR_32);
+						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+						bins.mValue = 0;
+						mIns.Push(bins);
+					}
+				}
+			}
 		}
 		else
 		{
@@ -1536,6 +1775,13 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				else if (ins->mOperandSize == 2)
 				{
 					ByteCodeInstruction	bins(BC_LOAD_ADDR_16);
+					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+					bins.mValue = ins->mSIntConst[0];
+					mIns.Push(bins);
+				}
+				else if (ins->mOperandSize == 4)
+				{
+					ByteCodeInstruction	bins(BC_LOAD_ADDR_32);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
 					bins.mValue = ins->mSIntConst[0];
 					mIns.Push(bins);
@@ -1745,6 +1991,38 @@ ByteCode ByteCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const 
 		cins.mRegisterFinal = ins->mSFinal[1];
 		mIns.Push(cins);
 	}
+	else if (ins->mSType[0] == IT_INT32)
+	{
+		if (ins->mSTemp[0] < 0)
+		{
+			LongConstToAccu(ins->mSIntConst[0]);
+		}
+		else
+		{
+			ByteCodeInstruction	lins(BC_LOAD_REG_32);
+			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+			lins.mRegisterFinal = ins->mSFinal[0];
+			mIns.Push(lins);
+		}
+
+
+		ByteCodeInstruction	cins(BC_BINOP_CMP_U32);
+		if (csigned)
+			cins.mCode = BC_BINOP_CMP_S32;
+
+		if (ins->mSTemp[1] < 0)
+		{
+			LongConstToWork(ins->mSIntConst[1]);
+			cins.mRegister = BC_REG_WORK;
+		}
+		else
+		{
+			cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[1]];
+		}
+
+		cins.mRegisterFinal = ins->mSFinal[1];
+		mIns.Push(cins);
+	}
 	else
 	{
 		if (ins->mSTemp[1] < 0)
@@ -1823,6 +2101,29 @@ static ByteCode ByteCodeBinRegOperator(const InterInstruction * ins)
 		case IA_MUL: return BC_BINOP_MUL_F32;
 		case IA_DIVU: return BC_BINOP_DIV_F32;
 		case IA_DIVS: return BC_BINOP_DIV_F32;
+
+		default:
+			return BC_EXIT;
+		}
+	}
+	else if (ins->mTType == IT_INT32)
+	{
+		switch (ins->mOperator)
+		{
+		case IA_ADD: return BC_BINOP_ADD_L32;
+		case IA_SUB: return BC_BINOP_SUB_L32;
+		case IA_MUL: return BC_BINOP_MUL_L32;
+		case IA_DIVU: return BC_BINOP_DIV_U32;
+		case IA_MODU: return BC_BINOP_MOD_U32;
+		case IA_DIVS: return BC_BINOP_DIV_I32;
+		case IA_MODS: return BC_BINOP_MOD_I32;
+		case IA_AND: return BC_BINOP_AND_L32;
+		case IA_OR: return BC_BINOP_OR_L32;
+		case IA_XOR: return BC_BINOP_XOR_L32;
+
+		case IA_SHL: return BC_BINOP_SHL_L32;
+		case IA_SHR: return BC_BINOP_SHR_U32;
+		case IA_SAR: return BC_BINOP_SHR_I32;
 
 		default:
 			return BC_EXIT;
@@ -1972,7 +2273,38 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 			mIns.Push(sins);
 		}
 	}	break;
+	case IA_EXT16TO32S:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_16);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+		lins.mRegisterFinal = ins->mSFinal[0];
+		mIns.Push(lins);
 
+		ByteCodeInstruction	cins(BC_CONV_I16_I32);
+		cins.mRegister = 0;
+		mIns.Push(cins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+		mIns.Push(sins);
+	}	break;
+
+	case IA_EXT16TO32U:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_16);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+		lins.mRegisterFinal = ins->mSFinal[0];
+		mIns.Push(lins);
+
+		ByteCodeInstruction	cins(BC_CONV_U16_U32);
+		cins.mRuntime = "lextu16";
+		cins.mRegister = 0;
+		mIns.Push(cins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+		mIns.Push(sins);
+	}	break;
 	}
 }
 
@@ -2005,6 +2337,31 @@ void ByteCodeBasicBlock::UnaryOperator(InterCodeProcedure* proc, const InterInst
 		case IA_CEIL:
 		{
 			ByteCodeInstruction	oins(BC_OP_CEIL_F32);
+			mIns.Push(oins);
+		}	break;
+		}
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+		mIns.Push(sins);
+	}
+	else if (ins->mTType == IT_INT32)
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_32);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+		lins.mRegisterFinal = ins->mSFinal[0];
+		mIns.Push(lins);
+
+		switch (ins->mOperator)
+		{
+		case IA_NEG:
+		{
+			ByteCodeInstruction	oins(BC_OP_NEGATE_32);
+			mIns.Push(oins);
+		}	break;
+		case IA_NOT:
+		{
+			ByteCodeInstruction	oins(BC_OP_INVERT_32);
 			mIns.Push(oins);
 		}	break;
 		}
@@ -2064,6 +2421,41 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 		if (ins->mSTemp[0] < 0)
 		{
 			FloatConstToWork(ins->mSFloatConst[0]);
+			bins.mRegister = BC_REG_WORK;
+		}
+		else if (ins->mSTemp[1] == ins->mSTemp[0])
+			bins.mRegister = BC_REG_ACCU;
+		else
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]];
+
+		bins.mRegisterFinal = ins->mSFinal[0];
+		mIns.Push(bins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mTTemp];
+		mIns.Push(sins);
+	}
+	else if (ins->mTType == IT_INT32)
+	{
+		ByteCode	bc = ByteCodeBinRegOperator(ins);
+
+		if (ins->mSTemp[1] < 0)
+		{
+			LongConstToAccu(ins->mSIntConst[1]);
+		}
+		else
+		{
+			ByteCodeInstruction	lins(BC_LOAD_REG_32);
+			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSTemp[1]];
+			lins.mRegisterFinal = ins->mSFinal[1];
+			mIns.Push(lins);
+		}
+
+		ByteCodeInstruction	bins(bc);
+
+		if (ins->mSTemp[0] < 0)
+		{
+			LongConstToWork(ins->mSIntConst[0]);
 			bins.mRegister = BC_REG_WORK;
 		}
 		else if (ins->mSTemp[1] == ins->mSTemp[0])
@@ -3312,7 +3704,10 @@ ByteCodeGenerator::ByteCodeGenerator(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker)
 {
 	for (int i = 0; i < 128; i++)
+	{
 		mByteCodeUsed[i] = false;
+		mExtByteCodes[i] = nullptr;
+	}
 
 	mByteCodeUsed[BC_LEA_ABS] = true;
 	mByteCodeUsed[BC_CALL] = true;

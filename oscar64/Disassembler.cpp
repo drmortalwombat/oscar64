@@ -538,6 +538,10 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			i += 2;
 			break;
 
+		case BC_EXTRT:
+			fprintf(file, "EXTRT\t%s, %08x", TempName(memory[start + i + 2], tbuffer, proc), uint16(memory[start + i + 0] + 256 * memory[start + i + 1]));
+			i += 3;
+			break;
 		}
 
 		fprintf(file, "\n");

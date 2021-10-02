@@ -1,15 +1,20 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
-void itoa(int n, char * s, int radix);
+void itoa(int n, char * s, unsigned radix);
 
-void utoa(unsigned int n, char * s, unsigned int radix);
+void utoa(unsigned int n, char * s, unsigned radix);
 
 void ftoa(float f, char * s);
+
+void ltoa(long n, char * s, unsigned radix);
+
+void ultoa(unsigned long n, char * s, unsigned radix);
 
 int atoi(const char * s);
 
 float atof(const char * s);
+
 
 void exit(int status);
 
