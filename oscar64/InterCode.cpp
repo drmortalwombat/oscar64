@@ -2786,6 +2786,19 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 
 		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid);
 		if (mFalseJump) mFalseJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid);
+
+		if (mInstructions.Size() > 0 && mInstructions[mInstructions.Size() - 1]->mCode == IC_BRANCH && mInstructions[mInstructions.Size() - 1]->mSTemp[0] < 0)
+		{
+			mInstructions[mInstructions.Size() - 1]->mCode = IC_JUMP;
+			if (!mInstructions[mInstructions.Size() - 1]->mSIntConst[0])
+			{
+				mTrueJump->mNumEntries--;
+				mTrueJump = mFalseJump;
+			}
+			else
+				mFalseJump->mNumEntries--;
+			mFalseJump = nullptr;
+		}
 	}
 }
 

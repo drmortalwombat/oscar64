@@ -5844,6 +5844,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterIn
 	if (ins->mCode == IC_ASSEMBLER && mNoFrame)
 		ins->mLinkerObject->mFlags |= LOBJF_NO_FRAME;
 
+	assert(ins->mLinkerObject);
 	mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSIntConst[0], ins->mLinkerObject));
 	
 	if (ins->mTTemp >= 0)

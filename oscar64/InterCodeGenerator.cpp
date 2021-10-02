@@ -1531,7 +1531,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				return ExValue(TheVoidTypeDeclaration);
 			}
-			else if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && (exp->mLeft->mDecValue->mFlags & DTF_INLINE))
+			else if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && (exp->mLeft->mDecValue->mFlags & DTF_INLINE) && !(inlineMapper && inlineMapper->mDepth > 3))
 			{
 				Declaration* fdec = exp->mLeft->mDecValue;
 				Expression* fexp = fdec->mValue;
@@ -1539,6 +1539,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				InlineMapper	nmapper;
 				nmapper.mReturn = new InterCodeBasicBlock();
+				if (inlineMapper)
+					nmapper.mDepth = inlineMapper->mDepth + 1;
 				proc->Append(nmapper.mReturn);
 
 				Declaration* pdec = ftype->mParams;

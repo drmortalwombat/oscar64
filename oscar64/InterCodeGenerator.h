@@ -34,10 +34,10 @@ protected:
 	{
 		GrowingArray<int>		mParams;
 		InterCodeBasicBlock	*	mReturn;
-		int						mResult;
+		int						mResult, mDepth;
 
 		InlineMapper(void)
-			: mParams(-1), mResult(-1)
+			: mParams(-1), mResult(-1), mDepth(0)
 		{}
 	};
 
