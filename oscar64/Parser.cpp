@@ -690,6 +690,11 @@ Declaration* Parser::ParseDeclaration(bool variable)
 		storageFlags |= DTF_EXTERN;
 		mScanner->NextToken();
 	}
+	else if (mScanner->mToken == TK_INLINE)
+	{
+		storageFlags |= DTF_INLINE;
+		mScanner->NextToken();
+	}
 
 	Declaration* bdec = ParseBaseTypeDeclaration(0);
 
@@ -803,6 +808,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 				ndec->mVarIndex = -1;
 				ndec->mValue = ParseFunction(ndec->mBase);
 				ndec->mFlags |= DTF_DEFINED;
+				ndec->mNumVars = mLocalIndex;
 			}
 			return rdec;
 		}

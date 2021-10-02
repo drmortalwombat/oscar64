@@ -62,6 +62,7 @@ static const uint32 DTF_LOWER_BYTE		= 0x00000800;
 static const uint32 DTF_SECTION_START	= 0x00001000;
 static const uint32 DTF_SECTION_END		= 0x00002000;
 static const uint32 DTF_PARAM_PTR		= 0x00004000;
+static const uint32 DTF_INLINE			= 0x00008000;
 
 class Declaration;
 
@@ -155,7 +156,7 @@ public:
 	Declaration*		mBase, *mParams, * mNext;
 	Expression*			mValue;
 	DeclarationScope*	mScope;
-	int					mOffset, mSize, mVarIndex;
+	int					mOffset, mSize, mVarIndex, mNumVars;
 	int64				mInteger;
 	double				mNumber;
 	uint32				mFlags;

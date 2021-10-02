@@ -44,6 +44,7 @@ enum Token
 	TK_SIZEOF,
 	TK_STATIC,
 	TK_EXTERN,
+	TK_INLINE,
 
 	TK_ASM,
 
