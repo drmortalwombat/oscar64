@@ -157,6 +157,57 @@ int nformi(const sinfo * si, char * str, int v, bool s)
 	return j;
 }
 
+int nforml(const sinfo * si, char * str, long v, bool s)
+{
+	char * sp = str;
+
+	unsigned long u = v;
+	bool	neg = false;
+
+	if (s && v < 0)
+	{
+		neg = true;
+		u = -v;
+	}
+
+	char	i = 16;
+	while (u > 0)
+	{
+		int	c = u % si->base;
+		if (c >= 10)
+			c += 'A' - 10;
+		else
+			c += '0';
+		sp[--i] = c;
+		u /= si->base;
+	}
+
+	char	digits = si->precision != 255 ? 16 - si->precision : 15;
+
+	while (i > digits)
+		sp[--i] = '0';
+
+	if (si->prefix && si->base == 16)
+	{
+		sp[--i] = 'X';
+		sp[--i] = '0';
+	}
+
+	if (neg)
+		sp[--i] = '-';
+	else if (si->sign)
+		sp[--i] = '+';
+
+	while (i > 16 - si->width)
+		sp[--i] = si->fill;
+
+	char j = 0;
+	while (i < 16)
+		sp[j++] = sp[i++];
+
+	return j;
+}
+
 int nformf(const sinfo * si, char * str, float f, char type)
 {
 	char 	* 	sp = str;
@@ -366,6 +417,29 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 				si.base = 16;
 				bi = nformi(&si, bp, *fps++, false);
 			}
+#ifndef NOLONG
+			else if (c == 'l')
+			{
+				long l = *(long *)fps;
+				fps ++;
+				fps ++;
+
+				c = *p++;
+				if (c == 'd')
+				{
+					bi = nforml(&si, bp, l, true);
+				}
+				else if (c == 'u')
+				{
+					bi = nforml(&si, bp, l, false);
+				}
+				else if (c == 'x')
+				{
+					si.base = 16;
+					bi = nforml(&si, bp, l, false);
+				}
+			}
+#endif
 #ifndef NOFLOAT
 			else if (c == 'f' || c == 'g' || c == 'e')
 			{

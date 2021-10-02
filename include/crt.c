@@ -114,6 +114,43 @@ __asm negtmp
 		rts
 }
 
+__asm negaccu32
+{
+		sec
+		lda	#0
+		sbc	accu
+		sta	accu
+		lda	#0
+		sbc	accu + 1
+		sta	accu + 1
+		lda	#0
+		sbc	accu + 2
+		sta	accu + 2
+		lda	#0
+		sbc	accu + 3
+		sta	accu + 3
+		rts
+}
+
+__asm negtmp32
+{
+		sec
+		lda	#0
+		sbc	tmp
+		sta	tmp
+		lda	#0
+		sbc	tmp + 1
+		sta	tmp + 1
+		lda	#0
+		sbc	tmp + 2
+		sta	tmp + 2
+		lda	#0
+		sbc	tmp + 3
+		sta	tmp + 3
+		rts
+}
+
+
 // divide accu by tmp result in accu, remainder in tmp + 2
 
 __asm divmod
@@ -223,6 +260,42 @@ W1:		asl	accu
 		rts
 }
 
+__asm mul32
+{
+		lda	#0
+		sta	tmp + 4
+		sta	tmp + 5
+		sta	tmp + 6
+		sta	tmp + 7
+
+		ldx	#32
+L1:		lsr	tmp + 3
+		ror	tmp + 2
+		ror	tmp + 1
+		ror	tmp + 0
+		bcc	W1
+		clc
+		lda	tmp + 4
+		adc	accu
+		sta	tmp + 4
+		lda	tmp + 5
+		adc	accu + 1
+		sta	tmp + 5
+		lda	tmp + 6
+		adc	accu + 2
+		sta	tmp + 6
+		lda	tmp + 7
+		adc	accu + 3
+		sta	tmp + 7
+W1:		asl	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+		dex
+		bne	L1
+		rts
+}
+
 __asm mul16by8
 {
 		lda	#0
@@ -290,6 +363,51 @@ L2:		jsr	divmod
 		rts
 }
 
+__asm divs32
+{
+		bit	accu + 3
+		bpl	L1
+		jsr	negaccu32
+		bit	tmp + 3
+		bpl	L2
+		jsr	negtmp32
+L3:		jmp	divmod32
+L1:		bit	tmp + 3
+		bpl	L3
+		jsr	negtmp32
+L2:		jsr	divmod32
+		jmp	negaccu32
+}
+
+__asm mods32
+{
+		bit	accu + 3
+		bpl	L1
+		jsr	negaccu32
+		bit	tmp + 3
+		bpl	L2
+		jsr	negtmp32
+L3:		jmp	divmod32
+L1:		bit	tmp + 3
+		bpl	L3
+		jsr	negtmp32
+L2:		jsr	divmod32
+		sec
+		lda	#0
+		sbc	tmp + 4
+		sta	tmp + 4
+		lda	#0
+		sbc	tmp + 5
+		sta	tmp + 5
+		lda	#0
+		sbc	tmp + 6
+		sta	tmp + 6
+		lda	#0
+		sbc	tmp + 7
+		sta	tmp + 7
+		rts
+}
+
 #pragma runtime(mul16, mul16);
 #pragma runtime(mul16by8, mul16by8);
 #pragma runtime(divu16, divmod);
@@ -297,6 +415,13 @@ L2:		jsr	divmod
 #pragma runtime(divs16, divs16);
 #pragma runtime(mods16, mods16);
 		
+#pragma runtime(mul32, mul32);
+#pragma runtime(divu32, divmod32);
+#pragma runtime(modu32, divmod32);
+#pragma runtime(divs32, divs32);
+#pragma runtime(mods32, mods32);
+
+	
 
 __asm inp_nop
 {
@@ -3083,12 +3208,8 @@ __asm inp_op_invert_32
 
 #pragma bytecode(BC_OP_INVERT_32, inp_op_invert_32)
 
-__asm inp_op_negate_32
-{
-		jmp	negaccu
-}
 
-#pragma bytecode(BC_OP_NEGATE_32, inp_op_negate_32)
+#pragma bytecode(BC_OP_NEGATE_32, negaccu32)
 
 
 __asm inp_op_addr_32
@@ -3235,42 +3356,6 @@ W1:		asl	accu
 }
 
 #pragma bytecode(BC_BINOP_MUL_L32, inp_op_mulr_32)
-
-__asm negaccu32
-{
-		sec
-		lda	#0
-		sbc	accu
-		sta	accu
-		lda	#0
-		sbc	accu + 1
-		sta	accu + 1
-		lda	#0
-		sbc	accu + 2
-		sta	accu + 2
-		lda	#0
-		sbc	accu + 3
-		sta	accu + 3
-		rts
-}
-
-__asm negtmp32
-{
-		sec
-		lda	#0
-		sbc	tmp
-		sta	tmp
-		lda	#0
-		sbc	tmp + 1
-		sta	tmp + 1
-		lda	#0
-		sbc	tmp + 2
-		sta	tmp + 2
-		lda	#0
-		sbc	tmp + 3
-		sta	tmp + 3
-		rts
-}
 
 __asm inp_binop_div_u32
 {

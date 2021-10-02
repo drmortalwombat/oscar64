@@ -160,10 +160,13 @@ Expression* Expression::ConstantFold(void)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration	*	dec = new Declaration(mLocation, DT_CONST_INTEGER);
-				dec->mBase = TheSignedIntTypeDeclaration;
+				if (mLeft->mDecValue->mBase->mSize <= 2)
+					dec->mBase = TheSignedIntTypeDeclaration;
+				else
+					dec->mBase = TheSignedLongTypeDeclaration;
 				dec->mInteger = - mLeft->mDecValue->mInteger;
 				ex->mDecValue = dec;
-				ex->mDecType = TheSignedIntTypeDeclaration;
+				ex->mDecType = dec->mBase;
 				return ex;
 			}
 			case TK_BINARY_NOT:
@@ -286,7 +289,10 @@ Expression* Expression::ConstantFold(void)
 
 			Expression* ex = new Expression(mLocation, EX_CONSTANT);
 			Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-			dec->mBase = ival < 32768 ? TheSignedIntTypeDeclaration : TheUnsignedIntTypeDeclaration;
+			if (mLeft->mDecValue->mBase->mSize <= 2 && mRight->mDecValue->mBase->mSize <= 2)
+				dec->mBase = ival < 32768 ? TheSignedIntTypeDeclaration : TheUnsignedIntTypeDeclaration;
+			else
+				dec->mBase = ival < 2147483648 ? TheSignedLongTypeDeclaration : TheUnsignedLongTypeDeclaration;
 			dec->mInteger = ival;
 			ex->mDecValue = dec;
 			ex->mDecType = dec->mBase;

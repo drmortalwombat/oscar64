@@ -149,6 +149,82 @@ void shr16n(unsigned xu, int xi)
 #pragma native(shl16n)
 #pragma native(shr16n)
 
+
+void shl32b(unsigned long xu, long xi)
+{
+	unsigned long	ua[32];
+	long			ia[32];
+#assign s 0
+#repeat
+	ua[s] = xu << s;
+	ia[s] = xi << s;
+#assign s s + 1
+#until s == 32
+
+	for(int i=0; i<32; i++)
+	{
+		assert(ua[i] == xu << i);
+		assert(ia[i] == xi << i);
+	}
+}
+
+void shr32b(unsigned long xu, long xi)
+{
+	unsigned long	ua[32];
+	long			ia[32];
+#assign s 0
+#repeat
+	ua[s] = xu >> s;
+	ia[s] = xi >> s;
+#assign s s + 1
+#until s == 32
+
+	for(int i=0; i<32; i++)
+	{
+		assert(ua[i] == xu >> i);
+		assert(ia[i] == xi >> i);
+	}
+}
+
+void shl32n(unsigned long xu, long xi)
+{
+	unsigned long	ua[32];
+	long			ia[32];
+#assign s 0
+#repeat
+	ua[s] = xu << s;
+	ia[s] = xi << s;
+#assign s s + 1
+#until s == 32	
+
+	for(int i=0; i<32; i++)
+	{
+		assert(ua[i] == xu << i);
+		assert(ia[i] == xi << i);
+	}
+}
+
+void shr32n(unsigned long xu, long xi)
+{
+	unsigned long	ua[32];
+	long			ia[32];
+#assign s 0
+#repeat
+	ua[s] = xu >> s;
+	ia[s] = xi >> s;
+#assign s s + 1
+#until s == 32
+
+	for(int i=0; i<32; i++)
+	{
+		assert(ua[i] == xu >> i);
+		assert(ia[i] == xi >> i);
+	}
+}
+
+#pragma native(shl32n)
+#pragma native(shr32n)
+
 int main(void)
 {
 	for(int i=0; i<32; i++)
@@ -191,6 +267,26 @@ int main(void)
 	shr16n(0xffff, 0xffff);
 	shr16n(0x1234, 0x1234);
 	shr16n(0xfedc, 0xfedc);
+
+	shl32b(0x00000000UL, 0x00000000L);
+	shl32b(0xffffffffUL, 0xffffffffL);
+	shl32b(0x12345678UL, 0x12345678L);
+	shl32b(0xfedcba98UL, 0xfedcba98L);
+
+	shr32b(0x00000000UL, 0x00000000L);
+	shr32b(0xffffffffUL, 0xffffffffL);
+	shr32b(0x12345678UL, 0x12345678L);
+	shr32b(0xfedcba98UL, 0xfedcba98L);
+
+	shl32n(0x00000000UL, 0x00000000L);
+	shl32n(0xffffffffUL, 0xffffffffL);
+	shl32n(0x12345678UL, 0x12345678L);
+	shl32n(0xfedcba98UL, 0xfedcba98L);
+
+	shr32n(0x00000000UL, 0x00000000L);
+	shr32n(0xffffffffUL, 0xffffffffL);
+	shr32n(0x12345678UL, 0x12345678L);
+	shr32n(0xfedcba98UL, 0xfedcba98L);
 
 	return 0;
 }

@@ -530,7 +530,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mTTemp = proc->AddTemporary(ins->mTType);
 				if (ins->mTType == IT_INT8)
 				{
-					if (dec->mFlags & DTF_SIGNED)
+					if (dec->mBase->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -128 || dec->mInteger > 127)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
@@ -545,7 +545,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else if (ins->mTType == IT_INT16)
 				{
-					if (dec->mFlags & DTF_SIGNED)
+					if (dec->mBase->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -32768 || dec->mInteger > 32767)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
@@ -560,7 +560,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else if (ins->mTType == IT_INT32)
 				{
-					if (dec->mFlags & DTF_SIGNED)
+					if (dec->mBase->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -2147483648LL || dec->mInteger > 2147483647LL)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");

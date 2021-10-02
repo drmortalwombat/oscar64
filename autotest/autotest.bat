@@ -12,6 +12,12 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -e -n testint16.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e testint32.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n testint32.c
+if %errorlevel% neq 0 goto :error
+
 ..\release\oscar64 -e recursiontest.c
 if %errorlevel% neq 0 goto :error
 
@@ -76,6 +82,12 @@ if %errorlevel% neq 0 goto :error
 if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -n testint16cmp.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e testint32cmp.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n testint32cmp.c
 if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e floatstringtest.c

@@ -1367,13 +1367,27 @@ void Scanner::ParseNumberToken(void)
 		if (n == 0)
 			Error("Missing digits in hex constant");
 
-		if (mTokenChar == 'L' || mTokenChar == 'l')
+		if (mTokenChar == 'U' || mTokenChar == 'u')
 		{
 			NextChar();
-			mToken = TK_INTEGERUL;
+			if (mTokenChar == 'L' || mTokenChar == 'l')
+			{
+				NextChar();
+				mToken = TK_INTEGERUL;
+			}
+			else
+				mToken = TK_INTEGERU;
 		}
 		else
-			mToken = TK_INTEGERU;
+		{
+			if (mTokenChar == 'L' || mTokenChar == 'l')
+			{
+				NextChar();
+				mToken = TK_INTEGERL;
+			}
+			else
+				mToken = TK_INTEGER;
+		}
 
 		mTokenInteger = mant;
 	}
@@ -1392,13 +1406,27 @@ void Scanner::ParseNumberToken(void)
 		if (n == 0)
 			Error("Missing digits in binary constant");
 
-		if (mTokenChar == 'L' || mTokenChar == 'l')
+		if (mTokenChar == 'U' || mTokenChar == 'u')
 		{
 			NextChar();
-			mToken = TK_INTEGERUL;
+			if (mTokenChar == 'L' || mTokenChar == 'l')
+			{
+				NextChar();
+				mToken = TK_INTEGERUL;
+			}
+			else
+				mToken = TK_INTEGERU;
 		}
 		else
-			mToken = TK_INTEGERU;
+		{
+			if (mTokenChar == 'L' || mTokenChar == 'l')
+			{
+				NextChar();
+				mToken = TK_INTEGERL;
+			}
+			else
+				mToken = TK_INTEGER;
+		}
 		mTokenInteger = mant;
 	}
 	else

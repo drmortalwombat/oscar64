@@ -27,14 +27,12 @@ After four weeks, the compiler has now matured significantly.  There are still s
 
 ### Language
 
-* No long integer
 * No struct function return
 * Missing const checks for structs and enums
 * Missing warnings for all kind of abuses
 
 ### Linker
 
-* No explicit sections for code, data bss or stack
 * No media file import
 
 ### Standard Libraries
@@ -49,9 +47,7 @@ After four weeks, the compiler has now matured significantly.  There are still s
 
 ### Optimizing
 
-* All global variables are considered volatile
 * Simple loop opmtimization
-* Poor bookeeping of callee saved registers
 * Partial block domination analysis
 * No register use for arguments
 * Auto variables placed on fixed stack for known call sequence
@@ -74,12 +70,14 @@ The compiler is command line driven, and creates an executable .prg file.
 	
 * -i : additional include paths
 * -o : optional output file name
-* -cr : alternative runtime library, replaces the crt.c
+* -rt : alternative runtime library, replaces the crt.c
 * -e : execute the result in the integrated emulator
 * -n : create pure native code for all functions
-* -d : define a symbol (e.g. NOFLOAT to avoid float code in printf)
+* -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)
 
 A list of source files can be provided.
+
+
 
 ## Implementation Details
 

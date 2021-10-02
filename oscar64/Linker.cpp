@@ -110,6 +110,21 @@ bool Linker::IsSectionPlaced(LinkerSection* section)
 	return false;
 }
 
+LinkerObject* Linker::FindObjectByAddr(int addr)
+{
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* lobj = mObjects[i];
+		if (lobj->mFlags & LOBJF_PLACED)
+		{
+			if (lobj->mAddress == addr)
+				return lobj;
+		}
+	}
+
+	return nullptr;
+}
+
 LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, LinkerSection * section, LinkerObjectType type)
 {
 	LinkerObject* obj = new LinkerObject;
@@ -353,10 +368,10 @@ bool Linker::WriteAsmFile(const char* filename)
 				switch (obj->mType)
 				{
 				case LOT_BYTE_CODE:
-					mByteCodeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent);
+					mByteCodeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				case LOT_NATIVE_CODE:
-					mNativeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent);
+					mNativeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				}
 			}

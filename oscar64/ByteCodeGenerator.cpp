@@ -2919,7 +2919,7 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 		case IC_RETURN_VALUE:
 			if (ins->mSTemp[0] < 0)
 				IntConstToAccu(ins->mSIntConst[0]);
-			else if (ins->mSType[0] == IT_FLOAT)
+			else if (ins->mSType[0] == IT_FLOAT || ins->mSType[0] == IT_INT32)
 			{
 				ByteCodeInstruction	lins(BC_LOAD_REG_32);
 				lins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mSTemp[0]];

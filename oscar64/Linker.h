@@ -116,6 +116,8 @@ public:
 	LinkerSection * AddSection(const Ident* section, LinkerSectionType type);
 	LinkerSection* FindSection(const Ident* section);
 
+	LinkerObject* FindObjectByAddr(int addr);
+
 	bool IsSectionPlaced(LinkerSection* section);
 
 	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type);

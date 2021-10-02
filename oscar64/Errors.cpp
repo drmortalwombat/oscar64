@@ -22,9 +22,9 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char
 	}
 
 	if (info)
-		printf("%s(%d, %d) : error %d: %s '%s'\n", loc.mFileName, loc.mLine, loc.mColumn, eid, msg, info);
+		printf("%s(%d, %d) : %s %d: %s '%s'\n", loc.mFileName, loc.mLine, loc.mColumn, level ,eid, msg, info);
 	else
-		printf("%s(%d, %d) : error %d: %s\n", loc.mFileName, loc.mLine, loc.mColumn, eid, msg);
+		printf("%s(%d, %d) : %s %d: %s\n", loc.mFileName, loc.mLine, loc.mColumn, level, eid, msg);
 
 	if (mErrorCount > 10)
 		exit(10);
