@@ -40,6 +40,7 @@ struct NativeRegisterDataSet
 static const uint32 NCIF_LOWER = 0x00000001;
 static const uint32 NCIF_UPPER = 0x00000002;
 static const uint32 NCIF_RUNTIME = 0x00000004;
+static const uint32 NCIF_YZERO = 0x00000008;
 
 class NativeCodeInstruction
 {
