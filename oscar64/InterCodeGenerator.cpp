@@ -1890,7 +1890,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					ins->mSType[1] = ains->mTType;
 					ins->mSTemp[1] = ains->mTTemp;
+					ins->mMemory = IM_INDIRECT;
 					ins->mCode = IC_STORE;
+					ins->mOperandSize = ains->mOperandSize;
 				}
 				else
 					ins->mCode = IC_RETURN_VALUE;

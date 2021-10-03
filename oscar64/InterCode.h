@@ -33,7 +33,8 @@ enum InterCode
 	IC_RETURN_VALUE,
 	IC_RETURN_STRUCT,
 	IC_RETURN,
-	IC_ASSEMBLER
+	IC_ASSEMBLER,
+	IC_JUMPF
 };
 
 enum InterType
@@ -442,6 +443,7 @@ public:
 	void PerformTempForwarding(TempForwardingTable& forwardingTable);
 	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
+	bool EliminateDeadBranches(void);
 
 	void BuildCollisionTable(NumberSet* collisionSets);
 	void ReduceTemporaries(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);

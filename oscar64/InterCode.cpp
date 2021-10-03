@@ -991,6 +991,16 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			break;
 		}
 		break;
+	case IC_BRANCH:
+		if (ins->mSTemp[0] >= 0 && tvalue[ins->mSTemp[0]] && tvalue[ins->mSTemp[0]]->mCode == IC_CONSTANT)
+		{
+			if (tvalue[ins->mSTemp[0]]->mIntValue)
+				ins->mCode = IC_JUMP;
+			else
+				ins->mCode = IC_JUMPF;
+			ins->mSTemp[0] = -1;
+		}
+		break;
 	case IC_CALL:
 	case IC_CALL_NATIVE:
 		FlushCallAliases();
@@ -1616,6 +1626,9 @@ void InterInstruction::Disassemble(FILE* file)
 			break;
 		case IC_JUMP:
 			fprintf(file, "JUMP");
+			break;
+		case IC_JUMPF:
+			fprintf(file, "JUMPF");
 			break;
 		case IC_PUSH_FRAME:
 			fprintf(file, "PUSHF\t%d", int(mIntValue));
@@ -2786,20 +2799,41 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 
 		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid);
 		if (mFalseJump) mFalseJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid);
+	}
+}
 
-		if (mInstructions.Size() > 0 && mInstructions[mInstructions.Size() - 1]->mCode == IC_BRANCH && mInstructions[mInstructions.Size() - 1]->mSTemp[0] < 0)
+
+bool InterCodeBasicBlock::EliminateDeadBranches(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mInstructions.Size() > 0)
 		{
-			mInstructions[mInstructions.Size() - 1]->mCode = IC_JUMP;
-			if (!mInstructions[mInstructions.Size() - 1]->mSIntConst[0])
+			if (mInstructions[mInstructions.Size() - 1]->mCode == IC_JUMP && mFalseJump)
 			{
+				mFalseJump->mNumEntries--;
+				mFalseJump = nullptr;
+				changed = true;
+			}
+			else if (mInstructions[mInstructions.Size() - 1]->mCode == IC_JUMPF)
+			{
+				mInstructions[mInstructions.Size() - 1]->mCode = IC_JUMP;
 				mTrueJump->mNumEntries--;
 				mTrueJump = mFalseJump;
+				mFalseJump = nullptr;
+				changed = true;
 			}
-			else
-				mFalseJump->mNumEntries--;
-			mFalseJump = nullptr;
 		}
+
+		if (mTrueJump && mTrueJump->EliminateDeadBranches()) changed = true;
+		if (mFalseJump && mFalseJump->EliminateDeadBranches()) changed = true;
 	}
+
+	return changed;
 }
 
 static void Union(GrowingIntArray& table, int i, int j)
@@ -3886,16 +3920,33 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->MarkAliasedLocalTemps(localTable, mLocalAliasedSet, paramTable, mParamAliasedSet);
 
-	//
-	//	Now forward constant values
-	//
 	ValueSet		valueSet;
 	FastNumberSet	tvalidSet(numTemps);
 
-	mValueForwardingTable.SetSize(numTemps, true);
 
-	ResetVisited();
-	mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet);
+	bool	eliminated;
+	//
+	//	Now forward constant values
+	//
+	do {
+		valueSet.FlushAll();
+		mValueForwardingTable.SetSize(numTemps, true);
+		tvalidSet.Clear();
+
+		ResetVisited();
+		mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet);
+
+		ResetVisited();
+		eliminated = mEntryBlock->EliminateDeadBranches();
+		if (eliminated)
+		{
+			ResetVisited();
+			for (int i = 0; i < mBlocks.Size(); i++)
+				mBlocks[i]->mNumEntries = 0;
+			mEntryBlock->CollectEntries();
+		}
+	} while (eliminated);
+
 
 	DisassembleDebug("value forwarding");
 
