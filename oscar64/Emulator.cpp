@@ -65,7 +65,7 @@ void Emulator::DumpCycles(void)
 	}
 	
 	printf("Total Cycles %d\n", totalCycles);
-	return;
+//	return;
 
 	for (int i = 0; i < numTops; i++)
 	{
@@ -468,8 +468,24 @@ int Emulator::Emulate(int startIP)
 	mMemory[0x1fe] = 0xff;
 	mMemory[0x1ff] = 0xff;
 
+	int		ticks = 0;
 	while (mIP != 0)
 	{
+		ticks++;
+		if (ticks > 4500)
+		{
+			mMemory[0xa2]++;
+			if (!mMemory[0xa2])
+			{
+				mMemory[0xa1]++;
+				if (!mMemory[0xa1])
+				{
+					mMemory[0xa0]++;
+				}
+			}
+			ticks = 0;
+		}
+
 		if (mIP == 0xffd2)
 		{
 			if (mRegA == 13)
@@ -577,7 +593,7 @@ int Emulator::Emulate(int startIP)
 				break;
 		}
 
-		if ((trace & 1) && ip == 0x0821)
+		if ((trace & 1) && ip == 0x081f)
 		{
 			int	accu = mMemory[BC_REG_ACCU] + 256 * mMemory[BC_REG_ACCU + 1];
 			int	ptr = mMemory[BC_REG_ADDR] + 256 * mMemory[BC_REG_ADDR + 1];

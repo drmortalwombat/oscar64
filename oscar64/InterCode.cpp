@@ -1396,6 +1396,10 @@ void InterInstruction::LocalRenameRegister(GrowingIntArray& renameTable, int& nu
 		renameTable[mTTemp] = num;
 		mTTemp = num++;
 	}
+#if 0
+	if (mCode == IC_LOAD_TEMPORARY && mSTemp[0] < 0)
+		mCode = IC_CONSTANT;
+#endif
 }
 
 void InterInstruction::GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries)
@@ -1410,6 +1414,10 @@ void InterInstruction::GlobalRenameRegister(const GrowingIntArray& renameTable, 
 		if (InterTypeSize[mTType] > InterTypeSize[temporaries[mTTemp]])
 			temporaries[mTTemp] = mTType;
 	}
+#if 0
+	if (mCode == IC_LOAD_TEMPORARY && mSTemp[0] < 0)
+		mCode = IC_CONSTANT;
+#endif
 }
 
 static void UpdateCollisionSet(NumberSet& liveTemps, NumberSet* collisionSets, int temp)
@@ -2888,8 +2896,15 @@ void InterCodeBasicBlock::LocalRenameRegister(const GrowingIntArray& renameTable
 			}
 			else if (mEntryRequiredTemps[i])
 			{
-				mEntryRenameTable[i] = renameTable[i];
-				mExitRenameTable[i] = renameTable[i];
+				if (renameTable[i] < 0)
+				{
+					mExitRenameTable[i] = mEntryRenameTable[i] = num++;
+				}
+				else
+				{
+					mEntryRenameTable[i] = renameTable[i];
+					mExitRenameTable[i] = renameTable[i];
+				}
 			}
 			else
 			{

@@ -411,8 +411,11 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 						adec->mType = DT_ARGUMENT;
 						adec->mVarIndex = vi;
 						adec->mOffset = 0;
-						adec->mSize = adec->mBase->mSize;
-						vi += adec->mBase->mSize;
+						if (adec->mBase->mType == DT_TYPE_ARRAY)
+							adec->mSize = 2;
+						else
+							adec->mSize = adec->mBase->mSize;
+						vi += adec->mSize;
 						if (pdec)
 							pdec->mNext = adec;
 						else

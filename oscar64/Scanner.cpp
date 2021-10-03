@@ -464,7 +464,7 @@ void Scanner::NextToken(void)
 		else if (mToken == TK_PREP_DEFINE)
 		{
 			NextRawToken();
-			if (mToken == TK_IDENT)
+			if (mToken == TK_IDENT || mToken >= TK_IF && mToken <= TK_ASM || mToken == TK_TRUE || mToken == TK_FALSE)
 			{
 				Macro* macro = new Macro(mTokenIdent);
 
@@ -472,19 +472,26 @@ void Scanner::NextToken(void)
 				{
 					NextRawToken();
 
-					// Macro with argument
-					do 
+					if (mTokenChar == ')')
 					{
 						NextRawToken();
-						if (mToken == TK_IDENT)
+					}
+					else
+					{
+						// Macro with argument
+						do
 						{
-							macro->AddArgument(mTokenIdent);
 							NextRawToken();
-						}
-						else
-							mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define argument");
+							if (mToken == TK_IDENT)
+							{
+								macro->AddArgument(mTokenIdent);
+								NextRawToken();
+							}
+							else
+								mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define argument");
 
-					} while (mToken == TK_COMMA);
+						} while (mToken == TK_COMMA);
+					}
 
 					if (mToken == TK_CLOSE_PARENTHESIS)
 					{

@@ -19,14 +19,13 @@ static inline InterType InterTypeOf(const Declaration* dec)
 	case DT_TYPE_VOID:
 		return IT_NONE;
 	case DT_TYPE_INTEGER:
+	case DT_TYPE_ENUM:
 		if (dec->mSize == 1)
 			return IT_INT8;
 		else if (dec->mSize == 2)
 			return IT_INT16;
 		else
 			return IT_INT32;
-	case DT_TYPE_ENUM:
-		return IT_INT8;
 	case DT_TYPE_BOOL:
 		return IT_BOOL;
 	case DT_TYPE_FLOAT:
@@ -709,6 +708,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ins->mIntValue = dec->mOffset;
 			ins->mVarIndex = dec->mVarIndex;
 
+			int ref = 1;
 			if (dec->mType == DT_ARGUMENT)
 			{
 				if (inlineMapper)
@@ -718,12 +718,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else
 					ins->mMemory = IM_PARAM;
+				if (dec->mBase->mType == DT_TYPE_ARRAY)
+				{
+					ref = 2;
+					ins->mOperandSize = 2;
+				}
 			}
 			else if (dec->mFlags & DTF_GLOBAL)
 			{
 				InitGlobalVariable(proc->mModule, dec);
 				ins->mMemory = IM_GLOBAL;
 				ins->mLinkerObject = dec->mLinkerObject;
+				ins->mVarIndex = dec->mVarIndex;
 			}
 			else
 				ins->mMemory = IM_LOCAL;
@@ -733,7 +739,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (!(dec->mBase->mFlags & DTF_DEFINED))
 				mErrors->Error(dec->mLocation, EERR_VARIABLE_TYPE, "Undefined variable type");
 
-			return ExValue(dec->mBase, ins->mTTemp, 1);
+			return ExValue(dec->mBase, ins->mTTemp, ref);
 		}
 
 
@@ -1384,7 +1390,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (vl.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_POINTER)
 			{
 				dtype = vl.mType;
-				if (!vl.mType->IsSame(vr.mType))
+				if (vl.mType->IsIntegerType() || vr.mType->IsIntegerType())
+					;
+				else if (!vl.mType->IsSame(vr.mType))
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types");
 			}
 			else if (!vl.mType->IsNumericType() || !vr.mType->IsNumericType())
@@ -1703,7 +1711,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						ains->mVarIndex = pdec->mVarIndex;
 						ains->mIntValue = pdec->mOffset;
-						ains->mOperandSize = pdec->mSize;
+						if (pdec->mBase->mType == DT_TYPE_ARRAY)
+							ains->mOperandSize = 2;
+						else
+							ains->mOperandSize = pdec->mSize;
 					}
 					else if (ftype->mFlags & DTF_VARIADIC)
 					{
@@ -1781,7 +1792,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						wins->mSType[1] = IT_POINTER;
 						wins->mSTemp[1] = ains->mTTemp;
 						if (pdec)
-							wins->mOperandSize = pdec->mSize;
+						{
+							if (pdec->mBase->mType == DT_TYPE_ARRAY)
+								wins->mOperandSize = 2;
+							else
+								wins->mOperandSize = pdec->mSize;
+						}
 						else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
 							wins->mOperandSize = vr.mType->mSize;
 						else
@@ -1967,17 +1983,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			InterInstruction	*	zins = new InterInstruction();
 			zins->mCode = IC_CONSTANT;
-			zins->mTType = InterTypeOf(vr.mType);
+			zins->mTType = InterTypeOf(vl.mType);
 			zins->mTTemp = proc->AddTemporary(zins->mTType);
 			zins->mIntValue = 0;
 			block->Append(zins);
 
 			InterInstruction	*	ins = new InterInstruction();
 			ins->mCode = IC_RELATIONAL_OPERATOR;
-			ins->mOperator = IA_CMPNE;
-			ins->mSType[0] = InterTypeOf(vr.mType);
+			ins->mOperator = IA_CMPEQ;
+			ins->mSType[0] = InterTypeOf(vl.mType);
 			ins->mSTemp[0] = zins->mTTemp;
-			ins->mSType[1] = InterTypeOf(vr.mType);
+			ins->mSType[1] = InterTypeOf(vl.mType);
 			ins->mSTemp[1] = vl.mTemp;
 			ins->mTType = IT_BOOL;
 			ins->mTTemp = proc->AddTemporary(ins->mTType);

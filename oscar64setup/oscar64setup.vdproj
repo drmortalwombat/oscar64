@@ -28,6 +28,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_216D2A5FECF74C96A4964A74DFEB8552"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_317711E6E48744A18655469B4C53767E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -47,6 +53,12 @@
         "Entry"
         {
         "MsmKey" = "8:_585B41257840451B8AF01582B8B032D1"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_8B258D238AC44D43A7DC654AFE0B9D8B"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -88,6 +100,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_E5405BA024FB44FB8A71DC51B3B35428"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_E54AFD61BAD0414C9C5B2EFF31DA01FA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -107,6 +125,12 @@
         "Entry"
         {
         "MsmKey" = "8:_EDDED74E9AC24D9C8C7811F3A20ACA53"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_F8F279E2317342BB8F6FD09FE8FE4EF5"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -243,6 +267,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_216D2A5FECF74C96A4964A74DFEB8552"
+            {
+            "SourcePath" = "8:..\\include\\stdbool.h"
+            "TargetName" = "8:stdbool.h"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_317711E6E48744A18655469B4C53767E"
             {
             "SourcePath" = "8:..\\include\\math.c"
@@ -307,6 +351,26 @@
             {
             "SourcePath" = "8:..\\include\\petscii.h"
             "TargetName" = "8:petscii.h"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8B258D238AC44D43A7DC654AFE0B9D8B"
+            {
+            "SourcePath" = "8:..\\include\\time.h"
+            "TargetName" = "8:time.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
             "Condition" = "8:"
@@ -443,6 +507,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E5405BA024FB44FB8A71DC51B3B35428"
+            {
+            "SourcePath" = "8:..\\include\\stdint.h"
+            "TargetName" = "8:stdint.h"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E54AFD61BAD0414C9C5B2EFF31DA01FA"
             {
             "SourcePath" = "8:..\\include\\assert.h"
@@ -507,6 +591,26 @@
             {
             "SourcePath" = "8:..\\include\\stdio.c"
             "TargetName" = "8:stdio.c"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_F8F279E2317342BB8F6FD09FE8FE4EF5"
+            {
+            "SourcePath" = "8:..\\include\\time.c"
+            "TargetName" = "8:time.c"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
             "Condition" = "8:"
@@ -602,7 +706,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
         "ProductCode" = "8:{DD6A1D1D-E6A7-4EB4-912E-725CBB8EB76F}"
-        "PackageCode" = "8:{5524804F-A9C3-411D-92CD-F805012EBDAE}"
+        "PackageCode" = "8:{6A7C50E8-23AF-4F35-8542-FB26343A6248}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
@@ -1123,7 +1227,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_FB2E467BC172457785F4279BB0BFE8B6"
             {
-            "SourcePath" = "8:..\\Release\\oscar64.exe"
+            "SourcePath" = "8:..\\Debug\\oscar64.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_607E75AF0E2A4CB9908C4C39DF8FE6E4"

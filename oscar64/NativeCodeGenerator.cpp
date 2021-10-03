@@ -3730,8 +3730,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		case IA_AND:
 		case IA_XOR:
 		{
-			if (sins1)	LoadValueToReg(proc, sins1, BC_REG_ACCU, nullptr, nullptr);
-			if (sins0)	LoadValueToReg(proc, sins0, BC_REG_ACCU, nullptr, nullptr);
+			if (sins1)	LoadValueToReg(proc, sins1, BC_REG_TMP + proc->mTempOffset[ins->mSTemp[1]], nullptr, nullptr);
+			if (sins0)	LoadValueToReg(proc, sins0, BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]], nullptr, nullptr);
 
 			AsmInsType	atype;
 			switch (ins->mOperator)
@@ -5835,6 +5835,13 @@ void NativeCodeBasicBlock::CallFunction(InterCodeProcedure* proc, NativeCodeProc
 				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
 				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 1));
 			}
+			if (InterTypeSize[ins->mTType] > 2)
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 2));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 2));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 3));
+			}
 		}
 	}
 }
@@ -5868,6 +5875,13 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterIn
 			{
 				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
 				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 1));
+			}
+			if (InterTypeSize[ins->mTType] > 2)
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 2));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 2));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 3));
 			}
 		}
 	}

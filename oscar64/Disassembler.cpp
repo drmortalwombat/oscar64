@@ -581,7 +581,7 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 	else if (ident)
 		fprintf(file, "%s:\n", ident->mString);
 
-	char	tbuffer[10];
+	char	tbuffer[10], abuffer[10];
 
 	int		ip = start;
 	while (ip < start + size)
@@ -614,17 +614,17 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 			break;
 		case ASMIM_ABSOLUTE:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s $%04x\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr);
+			fprintf(file, "%04x : %02x %02x %02x %s %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], AddrName(addr, abuffer, linker));
 			ip += 2;
 			break;
 		case ASMIM_ABSOLUTE_X:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s $%04x,x\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr);
+			fprintf(file, "%04x : %02x %02x %02x %s %s,x\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], AddrName(addr, abuffer, linker));
 			ip += 2;
 			break;
 		case ASMIM_ABSOLUTE_Y:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s $%04x,y\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr);
+			fprintf(file, "%04x : %02x %02x %02x %s %s,y\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], AddrName(addr, abuffer, linker));
 			ip += 2;
 			break;
 		case ASMIM_INDIRECT:
@@ -652,6 +652,20 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 	}
 
 }
+
+const char* NativeCodeDisassembler::AddrName(int addr, char* buffer, Linker* linker)
+{
+	if (linker)
+	{
+		LinkerObject* obj = linker->FindObjectByAddr(addr);
+		if (obj && obj->mIdent)
+			return obj->mIdent->mString;
+	}
+
+	sprintf_s(buffer, 10, "$%04x", addr);
+	return buffer;
+}
+
 
 const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeProcedure* proc)
 {
