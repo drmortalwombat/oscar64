@@ -126,6 +126,50 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -e -n bitshifttest.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e arrparam.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n arrparam.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e bsstest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n bsstest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e copyintvec.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n copyintvec.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e divmodtest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n divmodtest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e enumswitch.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n enumswitch.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e incvector.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n incvector.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e structoffsettest2.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n structoffsettest2.c
+if %errorlevel% neq 0 goto :error
+
+
+
 exit /b 0
 :error
 echo Failed with error #%errorlevel%.

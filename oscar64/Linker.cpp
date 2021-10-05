@@ -61,6 +61,7 @@ LinkerRegion* Linker::AddRegion(const Ident* region, int start, int end)
 	lrgn->mStart = start;
 	lrgn->mEnd = end;
 	lrgn->mUsed = 0;
+	lrgn->mNonzero = 0;
 	mRegions.Push(lrgn);
 	return lrgn;
 }
@@ -117,7 +118,7 @@ LinkerObject* Linker::FindObjectByAddr(int addr)
 		LinkerObject* lobj = mObjects[i];
 		if (lobj->mFlags & LOBJF_PLACED)
 		{
-			if (lobj->mAddress == addr)
+			if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize)
 				return lobj;
 		}
 	}
@@ -195,6 +196,9 @@ void Linker::Link(void)
 						lobj->mAddress = lrgn->mStart + lrgn->mUsed;
 						lrgn->mUsed += lobj->mSize;
 
+						if (lsec->mType == LST_DATA)
+							lrgn->mNonzero = lrgn->mUsed;
+
 						if (lobj->mAddress < lsec->mStart)
 							lsec->mStart = lobj->mAddress;
 						if (lobj->mAddress + lobj->mSize > lsec->mEnd)
@@ -212,9 +216,9 @@ void Linker::Link(void)
 		for (int i = 0; i < mRegions.Size(); i++)
 		{
 			LinkerRegion* lrgn = mRegions[i];
-			address = lrgn->mStart + lrgn->mUsed;
+			address = lrgn->mStart + lrgn->mNonzero;
 
-			if (lrgn->mUsed && address > mProgramEnd)
+			if (lrgn->mNonzero && address > mProgramEnd)
 				mProgramEnd = address;
 		}
 
@@ -236,7 +240,7 @@ void Linker::Link(void)
 			}
 		}
 
-		// Now expand the heap section to cover the reaminder of the region
+		// Now expand the heap section to cover the remainder of the region
 
 		for (int i = 0; i < mRegions.Size(); i++)
 		{
@@ -309,6 +313,14 @@ static const char * LinkerObjectTypeNames[] =
 	"END"
 };
 
+static const char* LinkerSectionTypeNames[] = {
+	"NONE",
+	"DATA",
+	"BSS",
+	"HEAP",
+	"STACK"
+};
+
 bool Linker::WritePrgFile(const char* filename)
 {
 	FILE* file;
@@ -332,6 +344,25 @@ bool Linker::WriteMapFile(const char* filename)
 	fopen_s(&file, filename, "wb");
 	if (file)
 	{
+		fprintf(file, "sections\n");
+		for (int i = 0; i <  mSections.Size(); i++)
+		{
+			LinkerSection* lsec = mSections[i];
+
+			fprintf(file, "%04x - %04x : %s, %s\n", lsec->mStart, lsec->mEnd, LinkerSectionTypeNames[lsec->mType], lsec->mIdent->mString);
+		}
+
+		fprintf(file, "\nregions\n");
+
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion	* lrgn = mRegions[i];
+
+			fprintf(file, "%04x - %04x : %04x, %04x, %s\n", lrgn->mStart, lrgn->mEnd, lrgn->mNonzero, lrgn->mUsed, lrgn->mIdent->mString);
+		}
+
+		fprintf(file, "\nobjects\n");
+
 		for (int i = 0; i < mObjects.Size(); i++)
 		{
 			LinkerObject* obj = mObjects[i];

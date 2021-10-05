@@ -326,7 +326,7 @@ int Compiler::ExecuteCode(void)
 	Location	loc;
 
 	printf("Running emulation...\n");
-	Emulator* emu = new Emulator();
+	Emulator* emu = new Emulator(mLinker);
 	memcpy(emu->mMemory + mLinker->mProgramStart, mLinker->mMemory + mLinker->mProgramStart, mLinker->mProgramEnd - mLinker->mProgramStart);
 	emu->mMemory[0x2d] = mLinker->mProgramEnd & 0xff;
 	emu->mMemory[0x2e] = mLinker->mProgramEnd >> 8;

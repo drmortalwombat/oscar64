@@ -97,10 +97,14 @@ inline bool FastNumberSet::operator[](int elem)
 
 inline FastNumberSet& FastNumberSet::operator+=(int elem)
 {
+	assert(elem < size);
+
 	uint32 dw = buffer[size + elem];
 
 	if (dw >= uint32(num) || buffer[dw] != elem)
 	{
+		assert(num < size);
+
 		buffer[num] = elem;
 		buffer[size + elem] = num;
 		num++;

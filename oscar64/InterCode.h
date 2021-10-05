@@ -441,7 +441,7 @@ public:
 
 	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue);
 	void PerformTempForwarding(TempForwardingTable& forwardingTable);
-	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
+	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	bool EliminateDeadBranches(void);
 
@@ -466,7 +466,7 @@ public:
 	bool IsLeafProcedure(void);
 
 	void PeepholeOptimization(void);
-	void SingleBlockLoopOptimisation(void);
+	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);
 
 	InterCodeBasicBlock* PropagateDominator(InterCodeProcedure * proc);
 };
@@ -495,7 +495,7 @@ public:
 	InterCodeModule					*	mModule;
 	int									mID;
 
-	int									mLocalSize;
+	int									mLocalSize, mNumLocals;
 	GrowingVariableArray				mLocalVars;
 
 	Location							mLocation;

@@ -3,10 +3,12 @@
 #include "Assembler.h"
 #include "MachineTypes.h"
 
+class Linker;
+
 class Emulator
 {
 public:
-	Emulator(void);
+	Emulator(Linker * linker);
 	~Emulator(void);
 
 	uint8		mMemory[0x10000];
@@ -14,6 +16,8 @@ public:
 
 	int		mIP;
 	uint8	mRegA, mRegX, mRegY, mRegS, mRegP;
+
+	Linker* mLinker;
 
 	int Emulate(int startIP);
 	bool EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, int & cycles);

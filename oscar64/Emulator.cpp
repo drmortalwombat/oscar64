@@ -1,7 +1,9 @@
 #include "Emulator.h"
+#include "Linker.h"
 #include <stdio.h>
 
-Emulator::Emulator(void)
+Emulator::Emulator(Linker* linker)
+	: mLinker(linker)
 {
 	for (int i = 0; i < 0x10000; i++)
 		mMemory[i] = 0;
@@ -40,6 +42,9 @@ void Emulator::DumpCycles(void)
 	int		topIP[101], topCycles[101];
 
 	int		totalCycles = 0;
+	
+	GrowingArray<LinkerObject*> lobjs(nullptr);
+	GrowingArray<int>			lobjc(0);
 
 	for (int i = 0; i < 0x10000; i++)
 	{
@@ -47,10 +52,18 @@ void Emulator::DumpCycles(void)
 		totalCycles += cycles;
 		if (cycles > 0)
 		{
-			if (numTops == 0 || cycles > topCycles[numTops])
+			if (mLinker)
 			{
-				if (numTops < 40)
-					numTops++;
+				LinkerObject* lobj = mLinker->FindObjectByAddr(i);
+				if (lobj)
+				{
+					lobjs[lobj->mID] = lobj;
+					lobjc[lobj->mID] += cycles;
+				}
+			}
+
+			if (numTops == 0 || cycles > topCycles[numTops - 1])
+			{
 				int j = numTops;
 				while (j > 0 && topCycles[j-1] < cycles)
 				{
@@ -60,6 +73,9 @@ void Emulator::DumpCycles(void)
 				}
 				topCycles[j] = cycles;
 				topIP[j] = i;
+
+				if (numTops < 40)
+					numTops++;
 			}
 		}
 	}
@@ -72,6 +88,35 @@ void Emulator::DumpCycles(void)
 		printf("  %2d : %04x : %d\n", i, topIP[i], topCycles[i]);
 	}
 
+	numTops = 0;
+	for (int i = 0; i < lobjc.Size(); i++)
+	{
+		int	cycles = lobjc[i];
+		if (cycles > 0)
+		{
+			if (numTops == 0 || cycles > topCycles[numTops - 1])
+			{
+				int j = numTops;
+				while (j > 0 && topCycles[j - 1] < cycles)
+				{
+					topCycles[j] = topCycles[j - 1];
+					topIP[j] = topIP[j - 1];
+					j--;
+				}
+				topCycles[j] = cycles;
+				topIP[j] = i;
+
+				if (numTops < 40)
+					numTops++;
+			}
+		}
+
+	}
+
+	for (int i = 0; i < numTops; i++)
+	{
+		printf("  %2d : %s : %d\n", i, lobjs[topIP[i]]->mIdent->mString, topCycles[i]);
+	}
 }
 
 bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, int & cycles)

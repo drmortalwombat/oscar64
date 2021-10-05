@@ -41,7 +41,7 @@ class LinkerRegion
 public:
 	const Ident* mIdent;
 
-	int		mStart, mEnd, mUsed;
+	int		mStart, mEnd, mUsed, mNonzero;
 
 	GrowingArray<LinkerSection*>	mSections;
 

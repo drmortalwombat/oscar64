@@ -732,7 +732,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mVarIndex = dec->mVarIndex;
 			}
 			else
+			{
+				if (inlineMapper)
+					ins->mVarIndex += inlineMapper->mVarIndex;
+
 				ins->mMemory = IM_LOCAL;
+			}
 
 			block->Append(ins);
 
@@ -1547,6 +1552,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				InlineMapper	nmapper;
 				nmapper.mReturn = new InterCodeBasicBlock();
+				nmapper.mVarIndex = proc->mNumLocals;
+				proc->mNumLocals += fdec->mNumVars;
 				if (inlineMapper)
 					nmapper.mDepth = inlineMapper->mDepth + 1;
 				proc->Append(nmapper.mReturn);
@@ -1555,7 +1562,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				Expression* pex = exp->mRight;
 				while (pex)
 				{
-					int	nindex = fdec->mNumVars++;
+					int	nindex = proc->mNumLocals++;
 					Declaration* vdec = new Declaration(pex->mLocation, DT_VARIABLE);
 
 					InterInstruction* ains = new InterInstruction();
@@ -1571,7 +1578,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						vdec->mVarIndex = nindex;
 						vdec->mBase = pdec->mBase;
-						vdec->mSize = pdec->mSize;
+						if (pdec->mBase->mType == DT_TYPE_ARRAY)
+							ains->mOperandSize = 2;
+						else
+							ains->mOperandSize = pdec->mSize;
+						vdec->mSize = ains->mOperandSize;
 						vdec->mIdent = pdec->mIdent;
 					}
 					else
@@ -1621,7 +1632,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					wins->mSType[1] = IT_POINTER;
 					wins->mSTemp[1] = ains->mTTemp;
 					if (pdec)
-						wins->mOperandSize = pdec->mSize;
+					{
+						if (pdec->mBase->mType == DT_TYPE_ARRAY)
+							wins->mOperandSize = 2;
+						else
+							wins->mOperandSize = pdec->mSize;
+					}
 					else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
 						wins->mOperandSize = vr.mType->mSize;
 					else
@@ -1638,7 +1654,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				Declaration* rdec = nullptr;
 				if (ftype->mBase->mType != DT_TYPE_VOID)
 				{
-					int	nindex = fdec->mNumVars++;
+					int	nindex = proc->mNumLocals++;
 					nmapper.mResult = nindex;
 
 					rdec = new Declaration(ftype->mLocation, DT_VARIABLE);
@@ -1647,7 +1663,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					rdec->mSize = rdec->mBase->mSize;
 				}
 
-				vl = TranslateExpression(procType, proc, block, fexp, nullptr, nullptr, &nmapper);
+				vl = TranslateExpression(ftype, proc, block, fexp, nullptr, nullptr, &nmapper);
 
 				InterInstruction* jins = new InterInstruction();
 				jins->mCode = IC_JUMP;
@@ -1924,7 +1940,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mCode = IC_RETURN;
 			}
 
-			block->Append(ins);
+			if (ins->mCode != IC_NONE)
+				block->Append(ins);
+
 			if (inlineMapper)
 			{
 				InterInstruction* jins = new InterInstruction();
@@ -2144,9 +2162,50 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			break;
 
 		case EX_LOGICAL_AND:
+		case EX_LOGICAL_OR:
 		{
+			InterInstruction* jins0 = new InterInstruction();
+			jins0->mCode = IC_JUMP;
+			InterInstruction* jins1 = new InterInstruction();
+			jins1->mCode = IC_JUMP;
 
-		}
+			InterCodeBasicBlock* tblock = new InterCodeBasicBlock();
+			proc->Append(tblock);
+			InterCodeBasicBlock* fblock = new InterCodeBasicBlock();
+			proc->Append(fblock);
+			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
+			proc->Append(eblock);
+
+			TranslateLogic(procType, proc, block, tblock, fblock, exp, inlineMapper);
+
+			int	ttemp = proc->AddTemporary(IT_BOOL);
+
+			InterInstruction* tins = new InterInstruction();
+			tins->mCode = IC_CONSTANT;
+			tins->mIntValue = 1;
+			tins->mTType = IT_BOOL;
+			tins->mTTemp = ttemp;
+			tblock->Append(tins);
+
+			InterInstruction* fins = new InterInstruction();
+			fins->mCode = IC_CONSTANT;
+			fins->mIntValue = 0;
+			fins->mTType = IT_BOOL;
+			fins->mTTemp = ttemp;
+			fblock->Append(fins);
+
+			tblock->Append(jins0);
+			tblock->Close(eblock, nullptr);
+
+			fblock->Append(jins1);
+			fblock->Close(eblock, nullptr);
+
+			block = eblock;
+
+			return ExValue(TheBoolTypeDeclaration, ttemp);
+
+		} break;
+
 		case EX_WHILE:
 		{
 			InterInstruction	*	jins0 = new InterInstruction();
@@ -2553,6 +2612,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 	dec->mVarIndex = proc->mID;
 	dec->mLinkerObject = proc->mLinkerObject;
+	proc->mNumLocals = dec->mNumVars;
 
 	if (mForceNativeCode)
 		dec->mFlags |= DTF_NATIVE;

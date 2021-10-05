@@ -1,9 +1,10 @@
 // crt.c
 #include <crt.h>
 
-void StackStart, StackEnd;
+void StackStart, StackEnd, BSSStart, BSSEnd;
 
 #pragma section(stack, 0x0000, StackStart, StackEnd)
+#pragma section(bss, 0x0000, BSSStart, BSSEnd)
 
 int main(void);
 
@@ -21,6 +22,40 @@ __asm startup
 		byt	0x00
 		byt	0x00
 		byt	0x00
+
+// Clear BSS Segment
+
+		lda #<BSSStart
+		sta ip
+		lda #>BSSStart
+		sta ip + 1
+
+		sec
+		lda #>BSSEnd
+		sbc #>BSSStart
+		beq w1
+		tax
+		lda #0
+		ldy #0
+l1:		sta (ip), y
+		iny
+		bne l1
+		inc ip + 1
+		dex
+		bne l1
+w1:
+		sec
+		lda #<BSSEnd
+		sbc #<BSSStart
+		beq w2
+		tay
+		lda #0
+l2:		dey
+		sta (ip), y
+		bne l2
+w2:
+
+// Init byte code
 
 		lda	#<bcode
 		sta	ip
@@ -155,10 +190,67 @@ __asm negtmp32
 
 __asm divmod
 {
-		sty	tmpy
 		lda	#0
 		sta	tmp + 2
 		sta	tmp + 3
+
+		lda accu + 1
+		bne WB
+		lda	tmp + 1
+		bne BW
+
+// byte / byte
+BB:
+		lda #0
+		ldx	#8
+		asl	accu
+LBB1:	rol
+		cmp	tmp
+		bcc	WBB1
+		sbc	tmp
+WBB1:	rol	accu
+		dex
+		bne	LBB1
+		sta	tmp + 2
+		rts	
+	
+// byte / word -> 0
+BW: 
+		lda	accu
+		sta tmp + 2
+		lda accu + 1
+		sta tmp + 3
+		lda #0
+		sta accu
+		sta accu + 1
+		rts
+
+WB:				
+		lda tmp + 1
+		bne WW
+		lda tmp
+		bmi WW
+
+// word / byte
+
+		lda #0
+		ldx	#16
+		asl	accu
+		rol	accu + 1		
+LWB1:	rol
+		cmp	tmp
+		bcc	WWB1
+		sbc	tmp
+WWB1:	rol	accu
+		rol	accu + 1
+		dex
+		bne	LWB1
+		sta tmp + 2
+		rts	
+
+// word / word
+WW:
+		sty	tmpy
 		ldy	#16
 		clc
 L1:		rol	accu

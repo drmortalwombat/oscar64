@@ -11,6 +11,7 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 
 	mCodeSection = compilationUnits->mSectionCode;
 	mDataSection = compilationUnits->mSectionData;
+	mBSSection = compilationUnits->mSectionBSS;
 }
 
 Parser::~Parser(void)
@@ -230,8 +231,8 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 	case TK_ENUM:
 	{
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_ENUM);
-		dec->mFlags = flags | DTF_SIGNED;
-		dec->mSize = 2;
+		dec->mFlags = flags;
+		dec->mSize = 1;
 
 		mScanner->NextToken();
 		if (mScanner->mToken == TK_IDENT)
@@ -271,6 +272,10 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_TYPE, "Integer constant expected");
 					}
 					cdec->mInteger = nitem++;
+					if (dec->mInteger < 0)
+						dec->mFlags |= DTF_SIGNED;
+					if (cdec->mInteger < -128 || cdec->mInteger > 127)
+						dec->mSize = 2;
 
 					if (mScanner->mToken == TK_COMMA)
 						mScanner->NextToken();
@@ -340,7 +345,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 	{
 		dec = new Declaration(mScanner->mLocation, DT_VARIABLE);
 		dec->mIdent = mScanner->mTokenIdent;
-		dec->mSection = mDataSection;
+		dec->mSection = mBSSection;
 		dec->mBase = nullptr;
 		mScanner->NextToken();
 	}
@@ -795,6 +800,8 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			{
 				mScanner->NextToken();
 				ndec->mValue = ParseInitExpression(ndec->mBase);
+				if (ndec->mFlags & DTF_GLOBAL)
+					ndec->mSection = mDataSection;
 				ndec->mSize = ndec->mBase->mSize;
 			}
 		}

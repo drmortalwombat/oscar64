@@ -44,7 +44,10 @@ const char* ByteCodeDisassembler::AddrName(int addr, char* buffer, Linker* linke
 	{
 		LinkerObject* obj = linker->FindObjectByAddr(addr);
 		if (obj && obj->mIdent)
-			return obj->mIdent->mString;
+		{
+			sprintf_s(buffer, 40, "%s + %d", obj->mIdent->mString, addr - obj->mAddress);
+			return buffer;
+		}
 	}
 
 	sprintf_s(buffer, 10, "$%04x", addr);
@@ -59,7 +62,7 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 	else if (ident)
 		fprintf(file, "%s:\n", ident->mString);
 
-	char	tbuffer[10], abuffer[10];
+	char	tbuffer[10], abuffer[100];
 #if 0
 	for (int i = 0; i < proc->mTemporaries.Size(); i++)
 		printf("T%d = $%.2x\n", i, BC_REG_TMP + proc->mTempOffset[i]);
@@ -581,7 +584,7 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 	else if (ident)
 		fprintf(file, "%s:\n", ident->mString);
 
-	char	tbuffer[10], abuffer[10];
+	char	tbuffer[10], abuffer[100];
 
 	int		ip = start;
 	while (ip < start + size)
@@ -659,7 +662,10 @@ const char* NativeCodeDisassembler::AddrName(int addr, char* buffer, Linker* lin
 	{
 		LinkerObject* obj = linker->FindObjectByAddr(addr);
 		if (obj && obj->mIdent)
-			return obj->mIdent->mString;
+		{
+			sprintf_s(buffer, 40, "%s + %d", obj->mIdent->mString, addr - obj->mAddress);
+			return buffer;
+		}
 	}
 
 	sprintf_s(buffer, 10, "$%04x", addr);

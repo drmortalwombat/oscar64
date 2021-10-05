@@ -2930,6 +2930,21 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 
 }
 
+void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* wins)
+{
+	int size = wins->mOperandSize;
+
+	mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+	mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[rins->mSTemp[0]]));
+	mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[wins->mSTemp[1]]));
+	for (int i = 1; i < size; i++)
+	{
+		mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[rins->mSTemp[0]]));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[wins->mSTemp[1]]));
+	}
+}
+
 void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterInstruction * rins, const InterInstruction * wins)
 {
 	if (rins->mTType == IT_FLOAT)
@@ -3019,6 +3034,50 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 				}
 			}
 		}
+	}
+}
+
+void NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, int oindex, const InterInstruction* wins)
+{
+	int size = wins->mOperandSize;
+
+	AsmInsType	at = ASMIT_ADC;
+
+	switch (oins->mOperator)
+	{
+	case IA_ADD:
+		mIns.Push(NativeCodeInstruction(ASMIT_CLC));
+		at = ASMIT_ADC;
+		break;
+	case IA_SUB:
+		mIns.Push(NativeCodeInstruction(ASMIT_SEC));
+		at = ASMIT_SBC;
+		break;
+	case IA_AND:
+		mIns.Push(NativeCodeInstruction(ASMIT_SEC));
+		at = ASMIT_AND;
+		break;
+	case IA_OR:
+		mIns.Push(NativeCodeInstruction(ASMIT_SEC));
+		at = ASMIT_ORA;
+		break;
+	case IA_XOR:
+		mIns.Push(NativeCodeInstruction(ASMIT_SEC));
+		at = ASMIT_EOR;
+		break;
+	}
+
+	mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+	for (int i = 0; i < size; i++)
+	{
+		if (i != 0)
+			mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[rins->mSTemp[0]]));
+		if (oins->mSTemp[oindex] < 0)
+			mIns.Push(NativeCodeInstruction(at, ASMIM_IMMEDIATE, (oins->mSIntConst[oindex] >> (8 * i)) & 0xff));
+		else
+			mIns.Push(NativeCodeInstruction(at, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[oins->mSTemp[oindex]] + i));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[wins->mSTemp[1]]));
 	}
 }
 
@@ -5100,13 +5159,14 @@ void NativeCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, NativeCod
 
 	} break;
 	case IA_EXT8TO16S:
-		mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, 0));
 		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]]));
 		if (ins->mSTemp[0] != ins->mTTemp)
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp]));
-		mIns.Push(NativeCodeInstruction(ASMIT_BPL, ASMIM_RELATIVE, 1));
-		mIns.Push(NativeCodeInstruction(ASMIT_DEX, ASMIM_IMPLIED));
-		mIns.Push(NativeCodeInstruction(ASMIT_STX, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 1));
+		mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_IMPLIED));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0x00));
+		mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0xff));
+		mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0xff));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 1));
 		break;
 	case IA_EXT8TO16U:
 		if (ins->mSTemp[0] != ins->mTTemp)
@@ -5118,7 +5178,6 @@ void NativeCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, NativeCod
 		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 1));
 		break;
 	case IA_EXT16TO32S:
-		mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, 0));
 		if (ins->mSTemp[0] != ins->mTTemp)
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]]));
@@ -5127,10 +5186,12 @@ void NativeCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, NativeCod
 		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSTemp[0]] + 1));
 		if (ins->mSTemp[0] != ins->mTTemp)
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 1));
-		mIns.Push(NativeCodeInstruction(ASMIT_BPL, ASMIM_RELATIVE, 1));
-		mIns.Push(NativeCodeInstruction(ASMIT_DEX, ASMIM_IMPLIED));
-		mIns.Push(NativeCodeInstruction(ASMIT_STX, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 2));
-		mIns.Push(NativeCodeInstruction(ASMIT_STX, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 3));
+		mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_IMPLIED));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0x00));
+		mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0xff));
+		mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0xff));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 2));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mTTemp] + 3));
 		break;
 	case IA_EXT16TO32U:
 		if (ins->mSTemp[0] != ins->mTTemp)
@@ -7939,6 +8000,44 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			{
 				block->LoadStoreValue(iproc, ins, iblock->mInstructions[i + 1]);
 				i++;
+			}
+			else if (i + 1 < iblock->mInstructions.Size() &&
+				iblock->mInstructions[i + 1]->mCode == IC_STORE &&
+				iblock->mInstructions[i + 1]->mSTemp[0] == ins->mTTemp &&
+				iblock->mInstructions[i + 1]->mSFinal[0] &&
+				ins->mMemory == IM_INDIRECT && iblock->mInstructions[i + 1]->mMemory == IM_INDIRECT &&
+				ins->mSIntConst[0] == 0 && iblock->mInstructions[i + 1]->mSIntConst[1] == 0)
+			{
+				block->LoadStoreIndirectValue(iproc, ins, iblock->mInstructions[i + 1]);
+				i++;
+			}
+			else if (i + 2 < iblock->mInstructions.Size() &&
+				(ins->mTType == IT_INT8 || ins->mTType == IT_INT16 || ins->mTType == IT_INT32) &&
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+				(iblock->mInstructions[i + 1]->mOperator == IA_ADD || iblock->mInstructions[i + 1]->mOperator == IA_SUB ||
+					iblock->mInstructions[i + 1]->mOperator == IA_AND || iblock->mInstructions[i + 1]->mOperator == IA_OR || iblock->mInstructions[i + 1]->mOperator == IA_XOR) &&
+				iblock->mInstructions[i + 1]->mSTemp[0] == ins->mTTemp && iblock->mInstructions[i + 1]->mSFinal[0] &&
+				iblock->mInstructions[i + 2]->mCode == IC_STORE &&
+				iblock->mInstructions[i + 2]->mSTemp[0] == iblock->mInstructions[i + 1]->mTTemp && iblock->mInstructions[i + 2]->mSFinal[0] &&
+				ins->mMemory == IM_INDIRECT && iblock->mInstructions[i + 2]->mMemory == IM_INDIRECT &&
+				ins->mSIntConst[0] == 0 && iblock->mInstructions[i + 2]->mSIntConst[1] == 0)
+			{
+				block->LoadOpStoreIndirectValue(iproc, ins, iblock->mInstructions[i + 1], 1, iblock->mInstructions[i + 2]);
+				i += 2;
+			}
+			else if (i + 2 < iblock->mInstructions.Size() &&
+				(ins->mTType == IT_INT8 || ins->mTType == IT_INT16 || ins->mTType == IT_INT32) &&
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+				(iblock->mInstructions[i + 1]->mOperator == IA_ADD || iblock->mInstructions[i + 1]->mOperator == IA_SUB ||
+					iblock->mInstructions[i + 1]->mOperator == IA_AND || iblock->mInstructions[i + 1]->mOperator == IA_OR || iblock->mInstructions[i + 1]->mOperator == IA_XOR) &&
+				iblock->mInstructions[i + 1]->mSTemp[1] == ins->mTTemp && iblock->mInstructions[i + 1]->mSFinal[1] &&
+				iblock->mInstructions[i + 2]->mCode == IC_STORE &&
+				iblock->mInstructions[i + 2]->mSTemp[0] == iblock->mInstructions[i + 1]->mTTemp && iblock->mInstructions[i + 2]->mSFinal[0] &&
+				ins->mMemory == IM_INDIRECT && iblock->mInstructions[i + 2]->mMemory == IM_INDIRECT &&
+				ins->mSIntConst[0] == 0 && iblock->mInstructions[i + 2]->mSIntConst[1] == 0)
+			{
+				block->LoadOpStoreIndirectValue(iproc, ins, iblock->mInstructions[i + 1], 0, iblock->mInstructions[i + 2]);
+				i += 2;
 			}
 			else if (i + 1 < iblock->mInstructions.Size() &&
 				ins->mOperandSize >= 2 &&

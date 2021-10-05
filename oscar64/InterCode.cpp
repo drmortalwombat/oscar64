@@ -1752,21 +1752,21 @@ void InterCodeBasicBlock::GenerateTraces(void)
 
 		for (;;)
 		{
-			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP)
+			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP && !mTrueJump->mLoopHead)
 			{
 				mTrueJump->mNumEntries--;
 				mTrueJump = mTrueJump->mTrueJump;
 				if (mTrueJump)
 					mTrueJump->mNumEntries++;
 			}
-			else if (mFalseJump && mFalseJump->mInstructions.Size() == 1 && mFalseJump->mInstructions[0]->mCode == IC_JUMP)
+			else if (mFalseJump && mFalseJump->mInstructions.Size() == 1 && mFalseJump->mInstructions[0]->mCode == IC_JUMP && !mFalseJump->mLoopHead)
 			{
 				mFalseJump->mNumEntries--;
 				mFalseJump = mFalseJump->mTrueJump;
 				if (mFalseJump)
 					mFalseJump->mNumEntries++;
 			}
-			else if (mTrueJump && !mFalseJump && ((mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1))
+			else if (mTrueJump && !mFalseJump && ((mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead)
 			{
 				mTrueJump->mNumEntries--;
 
@@ -2688,7 +2688,7 @@ bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArr
 
 }
 
-void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams)
+void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int& spareTemps)
 {
 	int i;
 
@@ -2742,12 +2742,169 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
+			InterInstruction* ins = mInstructions[i];
+
+#if 1
+			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && ins->mTType == IT_INT16 && spareTemps + 1 < tvalid.Size())
+			{
+				InterInstruction* mi0 = ltvalue[ins->mSTemp[0]], * mi1 = ltvalue[ins->mSTemp[1]];
+
+				if (mi0 && mi1 && mi1->mCode == IC_CONSTANT && mi0->mCode == IC_BINARY_OPERATOR && mi0->mOperator == IA_ADD)
+				{
+					InterInstruction* ai0 = ltvalue[mi0->mSTemp[0]], * ai1 = ltvalue[mi0->mSTemp[1]];
+					if (ai0 && ai0->mCode == IC_CONSTANT)
+					{
+						InterInstruction* nai = new InterInstruction();
+						nai->mCode = IC_BINARY_OPERATOR;
+						nai->mOperator = IA_MUL;
+						nai->mSTemp[0] = mi0->mSTemp[1];
+						nai->mSType[0] = IT_INT16;
+						nai->mSTemp[1] = ins->mSTemp[1];
+						nai->mSType[1] = IT_INT16;
+						nai->mTTemp = spareTemps++;
+						nai->mTType = IT_INT16;
+						mInstructions.Insert(i, nai);
+
+						ltvalue[nai->mTTemp] = nullptr;
+
+						InterInstruction* cai = new InterInstruction();
+						cai->mCode = IC_CONSTANT;
+						cai->mTTemp = spareTemps++;
+						cai->mTType = IT_INT16;
+						cai->mIntValue = ai0->mIntValue * mi1->mIntValue;
+						mInstructions.Insert(i, cai);
+
+						ltvalue[cai->mTTemp] = nullptr;
+
+						ins->mOperator = IA_ADD;
+						ins->mSTemp[1] = nai->mTTemp;
+						ins->mSTemp[0] = cai->mTTemp;
+
+						printf("MADD0\n");
+					}
+					else if (ai1 && ai1->mCode == IC_CONSTANT)
+					{
+						printf("MADD1\n");
+					}
+				}
+			}
+#endif
+#if 1
+			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && ins->mTType == IT_INT16 && spareTemps < tvalid.Size())
+			{
+				InterInstruction* mi0 = ltvalue[ins->mSTemp[0]], * mi1 = ltvalue[ins->mSTemp[1]];
+
+				if (mi0 && mi1)
+				{
+					if (mi1->mCode == IC_CONSTANT && mi0->mCode == IC_BINARY_OPERATOR && mi0->mOperator == IA_ADD)
+					{
+						InterInstruction* ai0 = ltvalue[mi0->mSTemp[0]], * ai1 = ltvalue[mi0->mSTemp[1]];
+						if (ai0 && ai1)
+						{
+							if (ai0 && ai0->mCode == IC_CONSTANT)
+							{
+								printf("ADDADD00\n");
+							}
+							else if (ai1 && ai1->mCode == IC_CONSTANT)
+							{
+								printf("ADDADD01\n");
+							}
+						}
+					}
+					else if (mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && mi1->mOperator == IA_ADD)
+					{
+						InterInstruction* ai0 = ltvalue[mi1->mSTemp[0]], * ai1 = ltvalue[mi1->mSTemp[1]];
+						if (ai0 && ai1)
+						{
+							if (ai0 && ai0->mCode == IC_CONSTANT)
+							{
+								InterInstruction* cai = new InterInstruction();
+								cai->mCode = IC_CONSTANT;
+								cai->mTTemp = spareTemps++;
+								cai->mTType = IT_INT16;
+								cai->mIntValue = ai0->mIntValue + mi0->mIntValue;
+								mInstructions.Insert(i, cai);
+
+								ltvalue[cai->mTTemp] = nullptr;
+
+								ins->mSTemp[1] = mi1->mSTemp[1];
+								ins->mSTemp[0] = cai->mTTemp;
+
+								printf("ADDADD10\n");
+							}
+							else if (ai1 && ai1->mCode == IC_CONSTANT)
+							{
+								printf("ADDADD11\n");
+							}
+						}
+					}
+				}
+			}
+
+			if (ins->mCode == IC_LEA && spareTemps < tvalid.Size())
+			{
+				InterInstruction* li0 = ltvalue[ins->mSTemp[0]], * li1 = ltvalue[ins->mSTemp[1]];
+
+				if (li0 && li1)
+				{
+					if (li1->mCode != IC_CONSTANT && li0->mCode == IC_BINARY_OPERATOR && li0->mOperator == IA_ADD)
+					{
+						InterInstruction* ai0 = ltvalue[li0->mSTemp[0]], * ai1 = ltvalue[li0->mSTemp[1]];
+						if (ai0 && ai1 && ai0->mCode == IC_CONSTANT && ai0->mIntValue >= 0)
+						{
+							InterInstruction* nai = new InterInstruction();
+							nai->mCode = IC_LEA;
+							nai->mMemory = IM_INDIRECT;
+							nai->mSTemp[0] = li0->mSTemp[1];
+							nai->mSType[0] = IT_INT16;
+							nai->mSTemp[1] = ins->mSTemp[1];
+							nai->mSType[1] = IT_POINTER;
+							nai->mTTemp = spareTemps++;
+							nai->mTType = IT_POINTER;
+							mInstructions.Insert(i, nai);
+
+							ltvalue[nai->mTTemp] = nullptr;
+
+							ins->mSTemp[1] = nai->mTTemp;
+							ins->mSTemp[0] = li0->mSTemp[0];
+
+							printf("LADD0 %d %x\n", mIndex, i);
+						}
+						else if (ai1 && ai1->mCode == IC_CONSTANT)
+						{
+							printf("LADD1\n");
+						}
+					}
+					else if (li0->mCode == IC_CONSTANT && li1->mCode == IC_LEA)
+					{
+						InterInstruction* ai0 = ltvalue[li1->mSTemp[0]], * ai1 = ltvalue[li1->mSTemp[1]];
+						if (ai0 && ai1 && ai0->mCode == IC_CONSTANT && ai0->mIntValue >= 0)
+						{
+							InterInstruction* cai = new InterInstruction();
+							cai->mCode = IC_CONSTANT;
+							cai->mTTemp = spareTemps++;
+							cai->mTType = IT_INT16;
+							cai->mIntValue = ai0->mIntValue + li0->mIntValue;
+							mInstructions.Insert(i, cai);
+
+							ins->mSTemp[0] = cai->mTTemp;
+							ins->mSTemp[1] = li1->mSTemp[1];
+
+							ltvalue[cai->mTTemp] = nullptr;
+
+							printf("LEAEA %d %x\n", mIndex, i);
+						}
+					}
+				}
+			}
+
+#endif
 			lvalues.UpdateValue(mInstructions[i], ltvalue, aliasedLocals, aliasedParams);
 			mInstructions[i]->PerformValueForwarding(ltvalue, tvalid);
 		}
 
-		if (mTrueJump) mTrueJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams);
-		if (mFalseJump) mFalseJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams);
+		if (mTrueJump) mTrueJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps);
+		if (mFalseJump) mFalseJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps);
 	}
 }
 
@@ -3198,7 +3355,7 @@ bool IsMoveable(InterCode code)
 	return true;
 }
 
-void InterCodeBasicBlock::SingleBlockLoopOptimisation(void)
+void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedParams)
 {
 	if (!mVisited)
 	{
@@ -3228,7 +3385,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(void)
 							{
 								if (sins->mSTemp[1] >= 0)
 								{
-									ins->mInvariant = false;
+									if (ins->mMemory != IM_PARAM || aliasedParams[ins->mVarIndex])
+										ins->mInvariant = false;
 								}
 								else if (ins->mMemory == sins->mMemory && ins->mVarIndex == sins->mVarIndex && ins->mLinkerObject == sins->mLinkerObject)
 								{
@@ -3329,9 +3487,9 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(void)
 		}
 
 		if (mTrueJump)
-			mTrueJump->SingleBlockLoopOptimisation();
+			mTrueJump->SingleBlockLoopOptimisation(aliasedParams);
 		if (mFalseJump)
-			mFalseJump->SingleBlockLoopOptimisation();
+			mFalseJump->SingleBlockLoopOptimisation(aliasedParams);
 	}
 }
 
@@ -3719,7 +3877,10 @@ void InterCodeProcedure::BuildTraces(void)
 //
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
+	{
 		mBlocks[i]->mNumEntries = 0;
+		mBlocks[i]->mLoopHead = false;
+	}
 	mEntryBlock->CollectEntries();
 
 	//
@@ -3936,7 +4097,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->MarkAliasedLocalTemps(localTable, mLocalAliasedSet, paramTable, mParamAliasedSet);
 
 	ValueSet		valueSet;
-	FastNumberSet	tvalidSet(numTemps);
+	FastNumberSet	tvalidSet(numTemps + 32);
 
 
 	bool	eliminated;
@@ -3946,26 +4107,30 @@ void InterCodeProcedure::Close(void)
 	do {
 		valueSet.FlushAll();
 		mValueForwardingTable.SetSize(numTemps, true);
-		tvalidSet.Clear();
+		tvalidSet.Reset(numTemps + 32);
 
 		ResetVisited();
-		mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet);
+		mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet, numTemps);
 
 		ResetVisited();
 		eliminated = mEntryBlock->EliminateDeadBranches();
 		if (eliminated)
 		{
+			BuildTraces();
+			/*
 			ResetVisited();
 			for (int i = 0; i < mBlocks.Size(); i++)
 				mBlocks[i]->mNumEntries = 0;
 			mEntryBlock->CollectEntries();
+			*/
 		}
 	} while (eliminated);
 
 
 	DisassembleDebug("value forwarding");
 
-	mValueForwardingTable.Clear();
+	mValueForwardingTable.SetSize(numTemps, true);
+	mTemporaries.SetSize(numTemps, true);
 
 	ResetVisited();
 	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet);
@@ -4103,7 +4268,7 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Peephole optimized");
 
 	ResetVisited();
-	mEntryBlock->SingleBlockLoopOptimisation();
+	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet);
 
 	DisassembleDebug("single block loop opt");
 
