@@ -45,6 +45,53 @@ char * strcpy(char * dst, const char * src)
 }
 #endif
 
+#if 1
+int strcmp(const char * ptr1, const char * ptr2)
+{
+		__asm 
+	{
+		ldy	#ptr1
+		lda	(fp), y
+		sta $1f
+		iny
+		lda	(fp), y
+		sta $20
+
+		ldy #ptr2
+		lda	(fp), y
+		sta $1b
+		iny
+		lda	(fp), y
+		sta $1c
+		
+		ldy #0
+	L1: lda ($1f), y
+		beq W1
+		cmp ($1b), y
+		bne W2
+		iny
+		bne L1
+		inc $1c
+		inc $20
+		bne L1
+	W2:	bcs gt
+		lda #$ff
+		sta accu
+		sta accu + 1
+		rts
+	gt: lda #$01
+		sta accu
+		lda #$00
+		sta accu + 1
+		rts
+	W1:	cmp ($1b), y
+		bne W2
+		lda #$00
+		sta accu
+		sta accu + 1
+	}
+}
+#else
 int strcmp(const char * ptr1, const char * ptr2)
 {
 	const char	*	p = ptr1, * q = ptr2;
@@ -59,6 +106,8 @@ int strcmp(const char * ptr1, const char * ptr2)
 	else
 		return 1;
 }
+#endif
+
 
 int strlen(const char * str)
 {

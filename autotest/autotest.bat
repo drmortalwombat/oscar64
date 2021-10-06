@@ -30,6 +30,12 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -e -n strcmptest.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e strcmptest2.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n strcmptest2.c
+if %errorlevel% neq 0 goto :error
+
 ..\release\oscar64 -e arraytest.c
 if %errorlevel% neq 0 goto :error
 

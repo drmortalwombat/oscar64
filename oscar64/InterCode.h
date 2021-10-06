@@ -285,16 +285,26 @@ public:
 	}
 };
 
+class InterOperand
+{
+public:
+	int			mTemp;
+	InterType	mType;
+	bool		mFinal;
+	int64		mIntConst;
+	double		mFloatConst;
+
+	InterOperand(void)
+		: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0)
+	{}
+};
 
 class InterInstruction
 {
 public:
 	InterCode							mCode;
-	InterType							mTType, mSType[3];
-	int									mTTemp, mSTemp[3];
-	bool								mSFinal[3];
-	int64								mSIntConst[3];
-	double								mSFloatConst[3];
+	InterOperand						mSrc[3];
+	InterOperand						mDst;
 	InterMemory							mMemory;
 	InterOperator						mOperator;
 	int									mOperandSize;
