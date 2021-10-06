@@ -303,11 +303,11 @@ class InterInstruction
 {
 public:
 	InterCode							mCode;
-	InterOperand						mSrc[3];
+	InterOperand						mSrc[8];
 	InterOperand						mDst;
 	InterMemory							mMemory;
 	InterOperator						mOperator;
-	int									mOperandSize;
+	int									mOperandSize, mNumOperands;
 	int									mVarIndex;
 	int64								mIntValue;
 	double								mFloatValue;
@@ -317,6 +317,9 @@ public:
 	bool								mInUse, mInvariant, mVolatile;
 
 	InterInstruction(void);
+
+	bool ReferencesTemp(int temp) const;
+	bool UsesTemp(int temp) const;
 
 	void SetCode(const Location & loc, InterCode code);
 

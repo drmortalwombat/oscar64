@@ -374,6 +374,16 @@ void ValueSet::Intersect(ValueSet& set)
 	mNum = k;
 }
 
+bool InterInstruction::ReferencesTemp(int temp) const
+{
+	if (temp == mDst.mTemp)
+		return true;
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp == temp)
+			return temp;
+	return false;
+}
+
 void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams)
 {
 	int	i, value, temp;
@@ -385,10 +395,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 		i = 0;
 		while (i < mNum)
 		{
-			if (temp == mInstructions[i]->mDst.mTemp ||
-				temp == mInstructions[i]->mSrc[0].mTemp ||
-				temp == mInstructions[i]->mSrc[1].mTemp ||
-				temp == mInstructions[i]->mSrc[2].mTemp)
+			if (mInstructions[i]->ReferencesTemp(temp))
 			{
 				mNum--;
 				if (i < mNum)
@@ -399,7 +406,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 		}
 	}
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < ins->mNumOperands; i++)
 	{
 		temp = ins->mSrc[i].mTemp;
 		if (temp >= 0 && tvalue[temp])
@@ -1019,6 +1026,7 @@ InterInstruction::InterInstruction(void)
 	mIntValue = 0;
 	mFloatValue = 0;
 	mLinkerObject = nullptr;
+	mNumOperands = 3;
 
 	mInUse = false;
 	mVolatile = false;
@@ -1121,9 +1129,8 @@ void InterInstruction::MarkAliasedLocalTemps(const GrowingIntArray& localTable, 
 
 void InterInstruction::FilterTempUsage(NumberSet& requiredTemps, NumberSet& providedTemps)
 {
-	FilterTempUseUsage(requiredTemps, providedTemps, mSrc[0].mTemp);
-	FilterTempUseUsage(requiredTemps, providedTemps, mSrc[1].mTemp);
-	FilterTempUseUsage(requiredTemps, providedTemps, mSrc[2].mTemp);
+	for(int i=0; i<mNumOperands; i++)
+		FilterTempUseUsage(requiredTemps, providedTemps, mSrc[i].mTemp);
 	FilterTempDefineUsage(requiredTemps, providedTemps, mDst.mTemp);
 }
 
@@ -1206,9 +1213,8 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 
 void InterInstruction::PerformTempForwarding(TempForwardingTable& forwardingTable)
 {
-	PerformTempUseForwarding(mSrc[0].mTemp, forwardingTable);
-	PerformTempUseForwarding(mSrc[1].mTemp, forwardingTable);
-	PerformTempUseForwarding(mSrc[2].mTemp, forwardingTable);
+	for(int i=0; i<mNumOperands; i++)
+		PerformTempUseForwarding(mSrc[i].mTemp, forwardingTable);
 	PerformTempDefineForwarding(mDst.mTemp, forwardingTable);
 	if (mCode == IC_LOAD_TEMPORARY && mDst.mTemp != mSrc[0].mTemp)
 	{
@@ -1232,9 +1238,8 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 
 		mCode = IC_NONE;
 		mDst.mTemp = -1;
-		mSrc[0].mTemp = -1;
-		mSrc[1].mTemp = -1;
-		mSrc[2].mTemp = -1;
+		for (int i = 0; i < mNumOperands; i++)
+			mSrc[i].mTemp = -1;
 
 		changed = true;
 	}
@@ -1246,9 +1251,8 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 			{
 				mCode = IC_NONE;
 				mDst.mTemp = -1;
-				mSrc[0].mTemp = -1;
-				mSrc[1].mTemp = -1;
-				mSrc[2].mTemp = -1;
+				for (int i = 0; i < mNumOperands; i++)
+					mSrc[i].mTemp = -1;
 
 				changed = true;
 			}
@@ -1263,13 +1267,15 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 			requiredTemps -= mDst.mTemp;
 	}
 
-	if (mSrc[0].mTemp >= 0) mSrc[0].mFinal = !requiredTemps[mSrc[0].mTemp] && mSrc[0].mTemp >= numStaticTemps;
-	if (mSrc[1].mTemp >= 0) mSrc[1].mFinal = !requiredTemps[mSrc[1].mTemp] && mSrc[1].mTemp >= numStaticTemps;
-	if (mSrc[2].mTemp >= 0) mSrc[2].mFinal = !requiredTemps[mSrc[2].mTemp] && mSrc[2].mTemp >= numStaticTemps;
+	for (int i = 0; i < mNumOperands; i++)
+	{
+		if (mSrc[i].mTemp >= 0) mSrc[i].mFinal = !requiredTemps[mSrc[i].mTemp] && mSrc[i].mTemp >= numStaticTemps;
+	}
 
-	if (mSrc[0].mTemp >= 0) requiredTemps += mSrc[0].mTemp;
-	if (mSrc[1].mTemp >= 0) requiredTemps += mSrc[1].mTemp;
-	if (mSrc[2].mTemp >= 0) requiredTemps += mSrc[2].mTemp;
+	for (int i = 0; i < mNumOperands; i++)
+	{
+		if (mSrc[i].mTemp >= 0) requiredTemps += mSrc[i].mTemp;
+	}
 
 	return changed;
 }
@@ -1282,9 +1288,8 @@ void InterInstruction::BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSe
 	if (mCode == IC_CALL || mCode == IC_CALL_NATIVE)
 		callerSaveTemps |= requiredTemps;
 
-	if (mSrc[0].mTemp >= 0) requiredTemps += mSrc[0].mTemp;
-	if (mSrc[1].mTemp >= 0) requiredTemps += mSrc[1].mTemp;
-	if (mSrc[2].mTemp >= 0) requiredTemps += mSrc[2].mTemp;
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp >= 0) requiredTemps += mSrc[i].mTemp;
 }
 
 bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredTemps)
@@ -1320,6 +1325,14 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 	return changed;
 }
 
+bool InterInstruction::UsesTemp(int temp) const
+{
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp == temp)
+			return true;
+	return false;
+}
+
 static void DestroySourceValues(int temp, GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid)
 {
 	int i, j;
@@ -1334,7 +1347,7 @@ static void DestroySourceValues(int temp, GrowingInstructionPtrArray& tvalue, Fa
 
 			ins = tvalue[j];
 
-			if (ins->mSrc[0].mTemp == temp || ins->mSrc[1].mTemp == temp || ins->mSrc[2].mTemp == temp)
+			if (ins->UsesTemp(temp))
 			{
 				tvalue[j] = NULL;
 				tvalid -= j;
@@ -1369,9 +1382,8 @@ void InterInstruction::PerformValueForwarding(GrowingInstructionPtrArray& tvalue
 
 void InterInstruction::LocalRenameRegister(GrowingIntArray& renameTable, int& num, int fixed)
 {
-	if (mSrc[0].mTemp >= 0) mSrc[0].mTemp = renameTable[mSrc[0].mTemp];
-	if (mSrc[1].mTemp >= 0) mSrc[1].mTemp = renameTable[mSrc[1].mTemp];
-	if (mSrc[2].mTemp >= 0) mSrc[2].mTemp = renameTable[mSrc[2].mTemp];
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp >= 0) mSrc[i].mTemp = renameTable[mSrc[i].mTemp];
 
 	if (mDst.mTemp >= fixed)
 	{
@@ -1386,9 +1398,8 @@ void InterInstruction::LocalRenameRegister(GrowingIntArray& renameTable, int& nu
 
 void InterInstruction::GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries)
 {
-	if (mSrc[0].mTemp >= 0) mSrc[0].mTemp = renameTable[mSrc[0].mTemp];
-	if (mSrc[1].mTemp >= 0) mSrc[1].mTemp = renameTable[mSrc[1].mTemp];
-	if (mSrc[2].mTemp >= 0) mSrc[2].mTemp = renameTable[mSrc[2].mTemp];
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp >= 0) mSrc[i].mTemp = renameTable[mSrc[i].mTemp];
 
 	if (mDst.mTemp >= 0)
 	{
@@ -1429,16 +1440,14 @@ void InterInstruction::BuildCollisionTable(NumberSet& liveTemps, NumberSet* coll
 		liveTemps -= mDst.mTemp;
 	}
 
-	UpdateCollisionSet(liveTemps, collisionSets, mSrc[0].mTemp);
-	UpdateCollisionSet(liveTemps, collisionSets, mSrc[1].mTemp);
-	UpdateCollisionSet(liveTemps, collisionSets, mSrc[2].mTemp);
+	for (int i = 0; i < mNumOperands; i++)
+		UpdateCollisionSet(liveTemps, collisionSets, mSrc[i].mTemp);
 }
 
 void InterInstruction::ReduceTemporaries(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries)
 {
-	if (mSrc[0].mTemp >= 0) mSrc[0].mTemp = renameTable[mSrc[0].mTemp];
-	if (mSrc[1].mTemp >= 0) mSrc[1].mTemp = renameTable[mSrc[1].mTemp];
-	if (mSrc[2].mTemp >= 0) mSrc[2].mTemp = renameTable[mSrc[2].mTemp];
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp >= 0) mSrc[i].mTemp = renameTable[mSrc[i].mTemp];
 
 	if (mDst.mTemp >= 0)
 	{
@@ -1451,9 +1460,8 @@ void InterInstruction::ReduceTemporaries(const GrowingIntArray& renameTable, Gro
 void InterInstruction::CollectActiveTemporaries(FastNumberSet& set)
 {
 	if (mDst.mTemp >= 0) set += mDst.mTemp;
-	if (mSrc[0].mTemp >= 0) set += mSrc[0].mTemp;
-	if (mSrc[1].mTemp >= 0) set += mSrc[1].mTemp;
-	if (mSrc[2].mTemp >= 0) set += mSrc[2].mTemp;
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp >= 0) set += mSrc[i].mTemp;
 }
 
 void InterInstruction::ShrinkActiveTemporaries(FastNumberSet& set, GrowingTypeArray& temporaries)
@@ -1463,9 +1471,8 @@ void InterInstruction::ShrinkActiveTemporaries(FastNumberSet& set, GrowingTypeAr
 		mDst.mTemp = set.Index(mDst.mTemp);
 		temporaries[mDst.mTemp] = mDst.mType;
 	}
-	if (mSrc[0].mTemp >= 0) mSrc[0].mTemp = set.Index(mSrc[0].mTemp);
-	if (mSrc[1].mTemp >= 0) mSrc[1].mTemp = set.Index(mSrc[1].mTemp);
-	if (mSrc[2].mTemp >= 0) mSrc[2].mTemp = set.Index(mSrc[2].mTemp);
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp >= 0) mSrc[i].mTemp = set.Index(mSrc[i].mTemp);
 }
 
 void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray& localTypes, FastNumberSet& complexParams, FastNumberSet& simpleParams, GrowingTypeArray& paramTypes)
@@ -1650,6 +1657,7 @@ void InterInstruction::Disassemble(FILE* file)
 		fprintf(file, "\t");
 		if (mDst.mTemp >= 0) fprintf(file, "R%d(%c)", mDst.mTemp, typechars[mDst.mType]);
 		fprintf(file, "\t<-\t");
+
 		if (mSrc[2].mTemp >= 0) fprintf(file, "R%d(%c%c), ", mSrc[2].mTemp, typechars[mSrc[2].mType], mSrc[2].mFinal ? 'F' : '-');
 		if (mSrc[1].mTemp >= 0) 
 			fprintf(file, "R%d(%c%c), ", mSrc[1].mTemp, typechars[mSrc[1].mType], mSrc[1].mFinal ? 'F' : '-');
@@ -3257,7 +3265,7 @@ static bool CanBypassLoad(const InterInstruction * lins, const InterInstruction 
 		return false;
 
 	// True data dependency
-	if (lins->mDst.mTemp == bins->mSrc[0].mTemp || lins->mDst.mTemp == bins->mSrc[1].mTemp || lins->mDst.mTemp == bins->mSrc[2].mTemp)
+	if (bins->UsesTemp(lins->mDst.mTemp))
 		return false;
 
 	// False data dependency
@@ -3428,9 +3436,10 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					{
 						if (dep[t] < DEP_VARIABLE)
 						{
-							if (ins->mSrc[0].mTemp >= 0 && dep[ins->mSrc[0].mTemp] >= DEP_ITERATED ||
-								ins->mSrc[1].mTemp >= 0 && dep[ins->mSrc[1].mTemp] >= DEP_ITERATED ||
-								ins->mSrc[2].mTemp >= 0 && dep[ins->mSrc[2].mTemp] >= DEP_ITERATED)
+							int j = 0;
+							while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && dep[ins->mSrc[j].mTemp] >= DEP_ITERATED))
+								j++;
+							if (j < ins->mNumOperands)
 							{
 								dep[t] = DEP_VARIABLE;
 								ins->mInvariant = false;
@@ -3626,10 +3635,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						int	k = i + 1;
 						while (k + 2 < mInstructions.Size() &&
 							mInstructions[k + 1]->mCode != IC_RELATIONAL_OPERATOR &&
-							mInstructions[k + 1]->mSrc[0].mTemp != ttemp &&
-							mInstructions[k + 1]->mSrc[1].mTemp != ttemp &&
-							mInstructions[k + 1]->mSrc[2].mTemp != ttemp &&
-							mInstructions[k + 1]->mDst.mTemp != ttemp)
+							!mInstructions[k + 1]->ReferencesTemp(ttemp))							
 						{
 							mInstructions[k] = mInstructions[k + 1];
 							k++;
