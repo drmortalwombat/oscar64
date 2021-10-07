@@ -81,7 +81,7 @@ public:
 	NativeCodeBasicBlock(void);
 	~NativeCodeBasicBlock(void);
 
-	DynamicArray<uint8>					mCode;
+	GrowingArray<uint8>					mCode;
 	int									mIndex;
 
 	NativeCodeBasicBlock* mTrueJump, * mFalseJump, * mFromJump;

@@ -1896,10 +1896,6 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 			exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 			if (dec->mType == DT_ARGUMENT)
 			{
-				Declaration* ndec = new Declaration(exp->mLocation, DT_CONST_INTEGER);
-				ndec->mBase = TheUnsignedIntTypeDeclaration;
-				ndec->mInteger = 2 + dec->mVarIndex;
-				dec = ndec;
 				exp->mDecType = TheUnsignedIntTypeDeclaration;
 			}
 			else if (dec->mType == DT_CONST_ASSEMBLER)
@@ -2171,14 +2167,6 @@ Expression* Parser::ParseAssembler(void)
 
 	mScanner->SetAssemblerMode(true);
 
-	Declaration* decfp = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
-	decfp->mIdent = Ident::Unique("fp");
-	decfp->mBase = TheUnsignedIntTypeDeclaration;
-	decfp->mSize = 2;
-	decfp->mInteger = BC_REG_LOCALS;
-	decfp->mFlags = DTF_PARAM_PTR;
-	mScope->Insert(decfp->mIdent, decfp);
-
 	Declaration* decaccu = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 	decaccu->mIdent = Ident::Unique("accu");
 	decaccu->mBase = TheUnsignedIntTypeDeclaration;
@@ -2314,14 +2302,20 @@ Expression* Parser::ParseAssembler(void)
 					}
 				}
 
-				if (ilast->mLeft && ilast->mLeft->mDecValue && ilast->mLeft->mDecValue->mType == DT_CONST_INTEGER && ilast->mLeft->mDecValue->mInteger < 256)
+				if (ilast->mLeft && ilast->mLeft->mDecValue)
 				{
-					if (ilast->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_ZERO_PAGE))
-						ilast->mAsmInsMode = ASMIM_ZERO_PAGE;
-					else if (ilast->mAsmInsMode == ASMIM_ABSOLUTE_X && HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_ZERO_PAGE_X))
-						ilast->mAsmInsMode = ASMIM_ZERO_PAGE_X;
-					else if (ilast->mAsmInsMode == ASMIM_ABSOLUTE_Y && HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_ZERO_PAGE_Y))
-						ilast->mAsmInsMode = ASMIM_ZERO_PAGE_Y;
+					if ((ilast->mLeft->mDecValue->mType == DT_CONST_INTEGER && ilast->mLeft->mDecValue->mInteger < 256) ||
+						(ilast->mLeft->mDecValue->mType == DT_VARIABLE_REF && !(ilast->mLeft->mDecValue->mBase->mFlags & DTF_GLOBAL)) ||
+						(ilast->mLeft->mDecValue->mType == DT_VARIABLE && !(ilast->mLeft->mDecValue->mFlags & DTF_GLOBAL)) ||
+						 ilast->mLeft->mDecValue->mType == DT_ARGUMENT)
+					{
+						if (ilast->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_ZERO_PAGE))
+							ilast->mAsmInsMode = ASMIM_ZERO_PAGE;
+						else if (ilast->mAsmInsMode == ASMIM_ABSOLUTE_X && HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_ZERO_PAGE_X))
+							ilast->mAsmInsMode = ASMIM_ZERO_PAGE_X;
+						else if (ilast->mAsmInsMode == ASMIM_ABSOLUTE_Y && HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_ZERO_PAGE_Y))
+							ilast->mAsmInsMode = ASMIM_ZERO_PAGE_Y;
+					}
 				}
 
 				if (ilast->mAsmInsType == ASMIT_BYTE)

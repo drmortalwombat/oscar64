@@ -87,6 +87,14 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 		{
 			requiredTemps += BC_REG_LOCALS;
 			requiredTemps += BC_REG_LOCALS + 1;
+			if (mLinkerObject)
+			{
+				for (int i = 0; i < mLinkerObject->mNumTemporaries; i++)
+				{
+					for (int j = 0; j < mLinkerObject->mTempSizes[i]; j++)
+						requiredTemps += mLinkerObject->mTemporaries[i] + j;
+				}
+			}
 		}
 
 		return true;
@@ -1968,13 +1976,20 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 		for (int i = 0; i < mLinkerObject->mReferences.Size(); i++)
 		{
 			LinkerReference	rl = *(mLinkerObject->mReferences[i]);
-			rl.mOffset += pos;
-			if (rl.mRefObject == rl.mObject)
+			if (rl.mFlags & LREF_TEMPORARY)
 			{
-				rl.mRefObject = nullptr;
-				rl.mRefOffset += pos;
+				block->mCode[pos + rl.mOffset] += mLinkerObject->mTemporaries[rl.mRefOffset];
 			}
-			block->mRelocations.Push(rl);
+			else
+			{
+				rl.mOffset += pos;
+				if (rl.mRefObject == rl.mObject)
+				{
+					rl.mRefObject = nullptr;
+					rl.mRefOffset += pos;
+				}
+				block->mRelocations.Push(rl);
+			}
 		}
 	}
 	else
@@ -2047,13 +2062,13 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 
 void NativeCodeBasicBlock::PutByte(uint8 code)
 {
-	this->mCode.Insert(code);
+	this->mCode.Push(code);
 }
 
 void NativeCodeBasicBlock::PutWord(uint16 code)
 {
-	this->mCode.Insert((uint8)(code & 0xff));
-	this->mCode.Insert((uint8)(code >> 8));
+	this->mCode.Push((uint8)(code & 0xff));
+	this->mCode.Push((uint8)(code >> 8));
 }
 
 static AsmInsType InvertBranchCondition(AsmInsType code)
@@ -5940,8 +5955,15 @@ void NativeCodeBasicBlock::CallFunction(InterCodeProcedure* proc, NativeCodeProc
 
 void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterInstruction * ins)
 {
-	if (ins->mCode == IC_ASSEMBLER && mNoFrame)
-		ins->mLinkerObject->mFlags |= LOBJF_NO_FRAME;
+	if (ins->mCode == IC_ASSEMBLER)
+	{
+		for (int i = 1; i < ins->mNumOperands; i++)
+		{
+			ins->mLinkerObject->mTemporaries[i - 1] = BC_REG_TMP + proc->mTempOffset[ins->mSrc[i].mTemp];
+			ins->mLinkerObject->mTempSizes[i - 1] = InterTypeSize[ins->mSrc[i].mType];
+		}
+		ins->mLinkerObject->mNumTemporaries = ins->mNumOperands - 1;
+	}
 
 	assert(ins->mLinkerObject);
 	mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, ins->mLinkerObject));
@@ -7503,7 +7525,7 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 
 		for (i = 0; i < mCode.Size(); i++)
 		{
-			mCode.Lookup(i, target[i + mOffset]);
+			target[i + mOffset] = mCode[i];
 		}
 
 		for (int i = 0; i < mRelocations.Size(); i++)
@@ -7650,7 +7672,7 @@ void NativeCodeBasicBlock::CalculateOffset(int& total)
 }
 
 NativeCodeBasicBlock::NativeCodeBasicBlock(void)
-	: mIns(NativeCodeInstruction(ASMIT_INV, ASMIM_IMPLIED)), mRelocations({ 0 }), mEntryBlocks(nullptr)
+	: mIns(NativeCodeInstruction(ASMIT_INV, ASMIM_IMPLIED)), mRelocations({ 0 }), mEntryBlocks(nullptr), mCode(0)
 {
 	mTrueJump = mFalseJump = NULL;
 	mOffset = 0x7fffffff;

@@ -12,7 +12,7 @@ LinkerSection::LinkerSection(void)
 {}
 
 LinkerObject::LinkerObject(void)
-	: mReferences(nullptr)
+	: mReferences(nullptr), mNumTemporaries(0)
 {}
 
 LinkerObject::~LinkerObject(void)
@@ -285,13 +285,8 @@ void Linker::Link(void)
 					*dp++ = raddr & 0xff;
 				if (ref->mFlags & LREF_HIGHBYTE)
 					*dp++ = (raddr >> 8) & 0xff;
-				if (ref->mFlags & LREF_PARAM_PTR)
-				{
-					if (obj->mFlags & LOBJF_NO_FRAME)
-						*dp++ = BC_REG_STACK;
-					else
-						*dp++ = BC_REG_LOCALS;
-				}
+				if (ref->mFlags & LREF_TEMPORARY)
+					*dp += obj->mTemporaries[ref->mRefOffset];
 			}
 		}
 	}

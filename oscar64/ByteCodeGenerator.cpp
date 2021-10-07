@@ -1906,6 +1906,27 @@ void ByteCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterInst
 		bins.mRelocate = true;
 		bins.mLinkerObject = ins->mLinkerObject;
 		bins.mValue = ins->mSrc[0].mIntConst;
+		for (int i = 1; i < ins->mNumOperands; i++)
+			ins->mLinkerObject->mTemporaries[i - 1] = BC_REG_TMP + proc->mTempOffset[ins->mSrc[i].mTemp];
+		mIns.Push(bins);
+	}
+
+	if (ins->mDst.mTemp >= 0)
+	{
+		ByteCodeInstruction	bins(StoreTypedTmpCodes[ins->mDst.mType]);
+		bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(bins);
+	}
+}
+
+void ByteCodeBasicBlock::CallNative(InterCodeProcedure* proc, const InterInstruction* ins)
+{
+	if (ins->mSrc[0].mTemp < 0)
+	{
+		ByteCodeInstruction	bins(BC_JSR);
+		bins.mRelocate = true;
+		bins.mLinkerObject = ins->mLinkerObject;
+		bins.mValue = ins->mSrc[0].mIntConst;
 		mIns.Push(bins);
 	}
 
@@ -2879,6 +2900,8 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			CallFunction(iproc, ins);
 			break;
 		case IC_CALL_NATIVE:
+			CallNative(iproc, ins);
+			break;
 		case IC_ASSEMBLER:
 			CallAssembler(iproc, ins);
 			break;

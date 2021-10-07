@@ -23,7 +23,7 @@ public:
 	bool		mForceNativeCode;
 
 	InterCodeProcedure* TranslateProcedure(InterCodeModule* mod, Expression* exp, Declaration * dec);
-	void TranslateAssembler(InterCodeModule* mod, Expression * exp);
+	void TranslateAssembler(InterCodeModule* mod, Expression * exp, GrowingArray<Declaration *>	* refvars);
 	void InitGlobalVariable(InterCodeModule* mod, Declaration* dec);
 protected:
 

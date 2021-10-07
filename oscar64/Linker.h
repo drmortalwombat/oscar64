@@ -50,7 +50,7 @@ public:
 
 static const uint32	LREF_LOWBYTE	=	0x00000001;
 static const uint32	LREF_HIGHBYTE	=	0x00000002;
-static const uint32 LREF_PARAM_PTR	=	0x00000004;
+static const uint32 LREF_TEMPORARY  =	0x00000004;
 
 class LinkerReference
 {
@@ -92,6 +92,8 @@ public:
 	uint8			*	mData;
 	InterCodeProcedure* mProc;
 	uint32				mFlags;
+	uint8				mTemporaries[16], mTempSizes[16];
+	int					mNumTemporaries;
 
 	LinkerObject(void);
 	~LinkerObject(void);

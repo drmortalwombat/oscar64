@@ -83,13 +83,13 @@ void Compiler::RegisterRuntime(const Location & loc, const Ident* ident)
 		if (bcdec->mType == DT_CONST_ASSEMBLER)
 		{
 			if (!bcdec->mLinkerObject)
-				mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue);
+				mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue, nullptr);
 			linkerObject = bcdec->mLinkerObject;
 		}
 		else if (bcdec->mType == DT_LABEL)
 		{
 			if (!bcdec->mBase->mLinkerObject)
-				mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue);
+				mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue, nullptr);
 
 			linkerObject = bcdec->mBase->mLinkerObject;
 			offset = bcdec->mInteger;
@@ -157,7 +157,7 @@ bool Compiler::GenerateCode(void)
 	dcrtstart->mSection = sectionStartup;
 
 	mInterCodeGenerator->mForceNativeCode = mNativeCode;
-	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue);
+	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue, nullptr);
 
 	if (mErrors->mErrorCount != 0)
 		return false;
@@ -201,7 +201,7 @@ bool Compiler::GenerateCode(void)
 			if (bcdec->mType == DT_CONST_ASSEMBLER)
 			{
 				if (!bcdec->mLinkerObject)
-					mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue);
+					mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue, nullptr);
 				mByteCodeGenerator->mExtByteCodes[i] = bcdec->mLinkerObject;
 			}
 		}
@@ -252,13 +252,13 @@ bool Compiler::GenerateCode(void)
 				if (bcdec->mType == DT_CONST_ASSEMBLER)
 				{
 					if (!bcdec->mLinkerObject)
-						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue);
+						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue, nullptr);
 					linkerObject = bcdec->mLinkerObject;
 				}
 				else if (bcdec->mType == DT_LABEL)
 				{
 					if (!bcdec->mBase->mLinkerObject)
-						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue);
+						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue, nullptr);
 					linkerObject = bcdec->mBase->mLinkerObject;
 					offset = bcdec->mInteger;
 				}

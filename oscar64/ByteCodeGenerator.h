@@ -261,6 +261,7 @@ public:
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, const InterInstruction * ins);
 	void CallAssembler(InterCodeProcedure* proc, const InterInstruction * ins);
+	void CallNative(InterCodeProcedure* proc, const InterInstruction* ins);
 	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction * ins);
 	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction * ins);
 	void BinaryRROperator(InterCodeProcedure* proc, const InterInstruction * ins);
