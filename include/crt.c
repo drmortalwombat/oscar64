@@ -526,6 +526,8 @@ __asm inp_exit
 {
 		lda	#$4c
 		sta	$54
+		lda #0
+		sta $13
 		rts
 }
 

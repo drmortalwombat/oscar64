@@ -680,7 +680,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 Declaration* Parser::ParseDeclaration(bool variable)
 {
 	bool	definingType = false;
-	uint32	storageFlags = 0;
+	uint32	storageFlags = 0, typeFlags = 0;
 
 	if (mScanner->mToken == TK_TYPEDEF)
 	{
@@ -688,19 +688,29 @@ Declaration* Parser::ParseDeclaration(bool variable)
 		variable = false;
 		mScanner->NextToken();
 	}
-	else if (mScanner->mToken == TK_STATIC)
+	else 
+		
+	if (mScanner->mToken == TK_STATIC)
 	{
 		storageFlags |= DTF_STATIC;
 		mScanner->NextToken();
 	}
-	else if (mScanner->mToken == TK_EXTERN)
+	
+	if (mScanner->mToken == TK_EXTERN)
 	{
 		storageFlags |= DTF_EXTERN;
 		mScanner->NextToken();
 	}
-	else if (mScanner->mToken == TK_INLINE)
+	
+	if (mScanner->mToken == TK_INLINE)
 	{
 		storageFlags |= DTF_INLINE;
+		mScanner->NextToken();
+	}
+
+	if (mScanner->mToken == TK_FASTCALL)
+	{
+		typeFlags |= DTF_FASTCALL;
 		mScanner->NextToken();
 	}
 
@@ -734,6 +744,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 				{
 					ndec->mType = DT_CONST_FUNCTION;
 					ndec->mSection = mCodeSection;
+					ndec->mBase->mFlags |= typeFlags;
 				}
 
 				if (ndec->mIdent)

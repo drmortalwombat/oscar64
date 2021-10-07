@@ -61,6 +61,7 @@ static const uint32 DTF_UPPER_BYTE		= 0x00000400;
 static const uint32 DTF_LOWER_BYTE		= 0x00000800;
 static const uint32 DTF_SECTION_START	= 0x00001000;
 static const uint32 DTF_SECTION_END		= 0x00002000;
+static const uint32 DTF_FASTCALL		= 0x00004000;
 static const uint32 DTF_INLINE			= 0x00008000;
 
 class Declaration;

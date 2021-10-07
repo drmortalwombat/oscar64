@@ -758,6 +758,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mMemory = IM_LOCAL;
 					ins->mVarIndex = inlineMapper->mParams[ins->mVarIndex];
 				}
+				else if (procType->mFlags & DTF_FASTCALL)
+					ins->mMemory = IM_FPARAM;
 				else
 					ins->mMemory = IM_PARAM;
 				if (dec->mBase->mType == DT_TYPE_ARRAY)
@@ -1739,17 +1741,25 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				int	atotal = 0;
 
-				int	findex = block->mInstructions.Size();
 				InterCodeBasicBlock* fblock = block;
 
-				InterInstruction	*	fins = new InterInstruction();
-				fins->mCode = IC_PUSH_FRAME;
-				fins->mIntValue = atotal;
-				block->Append(fins);
-
-				Declaration	* ftype = vl.mType;
+				Declaration* ftype = vl.mType;
 				if (ftype->mType == DT_TYPE_POINTER)
 					ftype = ftype->mBase;
+
+				InterInstruction* fins = nullptr;
+
+				if (ftype->mFlags & DTF_FASTCALL)
+				{
+
+				}
+				else
+				{
+					fins = new InterInstruction();
+					fins->mCode = IC_PUSH_FRAME;
+					fins->mIntValue = atotal;
+					block->Append(fins);
+				}
 
 				if (exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION)
 					proc->AddCalledFunction(proc->mModule->mProcedures[exp->mLeft->mDecValue->mVarIndex]);
@@ -1764,7 +1774,6 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ains->mCode = IC_CONSTANT;
 					ains->mDst.mType = IT_POINTER;
 					ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
-					ains->mMemory = IM_FRAME;
 					if (pdec)
 					{
 						ains->mVarIndex = pdec->mVarIndex;
@@ -1784,6 +1793,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						mErrors->Error(pex->mLocation, EERR_WRONG_PARAMETER, "Too many arguments for function call");
 					}
+
+					if (ftype->mFlags & DTF_FASTCALL)
+					{
+						ains->mMemory = IM_FPARAM;
+						ains->mIntValue = 0;
+					}
+					else
+						ains->mMemory = IM_FRAME;
+
 					block->Append(ains);
 
 					Expression* texp;
@@ -1888,12 +1906,20 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				block->Append(cins);
 
-				fblock->mInstructions[findex]->mIntValue = atotal;
 
-				InterInstruction	*	xins = new InterInstruction();
-				xins->mCode = IC_POP_FRAME;
-				xins->mIntValue = atotal;
-				block->Append(xins);
+				if (ftype->mFlags & DTF_FASTCALL)
+				{
+					
+				}
+				else
+				{
+					fins->mIntValue = atotal;
+
+					InterInstruction* xins = new InterInstruction();
+					xins->mCode = IC_POP_FRAME;
+					xins->mIntValue = atotal;
+					block->Append(xins);
+				}
 
 				return ExValue(ftype->mBase, cins->mDst.mTemp);
 			}
@@ -1939,7 +1965,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					Declaration* vdec = refvars[i];
 					if (vdec->mType == DT_ARGUMENT)
 					{
-						vins->mMemory = IM_PARAM;
+						if (procType->mFlags & DTF_FASTCALL)
+							vins->mMemory = IM_FPARAM;
+						else
+							vins->mMemory = IM_PARAM;
 						vins->mOperandSize = vdec->mSize;
 						vins->mIntValue = vdec->mOffset;
 						vins->mVarIndex = vdec->mVarIndex;
@@ -2697,6 +2726,13 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 	if (dec->mFlags & DTF_NATIVE)
 		proc->mNativeProcedure = true;
+
+	if (dec->mBase->mFlags & DTF_FASTCALL)
+	{
+		dec->mLinkerObject->mNumTemporaries = 1;
+		dec->mLinkerObject->mTemporaries[0] = BC_REG_FPARAMS;
+		dec->mLinkerObject->mTempSizes[0] = 8;
+	}
 
 	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock();
 

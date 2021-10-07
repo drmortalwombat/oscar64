@@ -45,6 +45,7 @@ enum Token
 	TK_STATIC,
 	TK_EXTERN,
 	TK_INLINE,
+	TK_FASTCALL,
 
 	TK_ASM,
 

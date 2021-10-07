@@ -350,7 +350,7 @@ static bool StoreAliasing(const InterInstruction * lins, const InterInstruction*
 
 		if (lmem == IM_LOCAL)
 			return aliasedLocals[lvindex];
-		else if (lmem == IM_PARAM)
+		else if (lmem == IM_PARAM || lmem == IM_FPARAM)
 			return aliasedParams[lvindex];
 	}
 
@@ -1097,14 +1097,14 @@ void InterInstruction::CollectLocalAddressTemps(GrowingIntArray& localTable, Gro
 	{
 		if (mDst.mType == IT_POINTER && mMemory == IM_LOCAL)
 			localTable[mDst.mTemp] = mVarIndex;
-		else if (mDst.mType == IT_POINTER && mMemory == IM_PARAM)
+		else if (mDst.mType == IT_POINTER && (mMemory == IM_PARAM || mMemory == IM_FPARAM))
 			paramTable[mDst.mTemp] = mVarIndex;
 	}
 	else if (mCode == IC_LEA)
 	{
 		if (mMemory == IM_LOCAL)
 			localTable[mDst.mTemp] = localTable[mSrc[1].mTemp];
-		else if (mMemory == IM_PARAM)
+		else if (mMemory == IM_PARAM || mMemory == IM_FPARAM)
 			paramTable[mDst.mTemp] = paramTable[mSrc[1].mTemp];
 	}
 	else if (mCode == IC_LOAD_TEMPORARY)
@@ -1490,7 +1490,7 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 			else
 				complexLocals += mVarIndex;
 		}
-		else if (mMemory == IM_PARAM && mSrc[0].mTemp < 0)
+		else if ((mMemory == IM_PARAM || mMemory == IM_FPARAM) && mSrc[0].mTemp < 0)
 		{
 			if (paramTypes[mVarIndex] == IT_NONE || paramTypes[mVarIndex] == mDst.mType)
 			{
@@ -1512,7 +1512,7 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 			else
 				complexLocals += mVarIndex;
 		}
-		else if (mMemory == IM_PARAM && mSrc[1].mTemp < 0)
+		else if ((mMemory == IM_PARAM || mMemory == IM_FPARAM) && mSrc[1].mTemp < 0)
 		{
 			if (paramTypes[mVarIndex] == IT_NONE || paramTypes[mVarIndex] == mSrc[0].mType)
 			{
@@ -1526,13 +1526,13 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 	case IC_LEA:
 		if (mMemory == IM_LOCAL && mSrc[1].mTemp < 0)
 			complexLocals += mVarIndex;
-		else if (mMemory == IM_PARAM && mSrc[1].mTemp < 0)
+		else if ((mMemory == IM_PARAM || mMemory == IM_FPARAM) && mSrc[1].mTemp < 0)
 			complexParams += mVarIndex;
 		break;
 	case IC_CONSTANT:
 		if (mDst.mType == IT_POINTER && mMemory == IM_LOCAL)
 			complexLocals += mVarIndex;
-		else if (mDst.mType == IT_POINTER && mMemory == IM_PARAM)
+		else if (mDst.mType == IT_POINTER && (mMemory == IM_PARAM || mMemory == IM_FPARAM))
 			complexParams += mVarIndex;
 		break;
 	}
@@ -1579,7 +1579,7 @@ void InterInstruction::Disassemble(FILE* file)
 {
 	if (this->mCode != IC_NONE)
 	{
-		static char memchars[] = "NPLGFPITA";
+		static char memchars[] = "NPLGFPITAZ";
 
 		fprintf(file, "\t");
 		switch (this->mCode)
@@ -3285,7 +3285,7 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 	{
 		if (sins->mMemory == IM_LOCAL)
 		{
-			if (bins->mMemory == IM_PARAM || bins->mMemory == IM_GLOBAL)
+			if (bins->mMemory == IM_PARAM || bins->mMemory == IM_GLOBAL || bins->mMemory == IM_FPARAM)
 				;
 			else if (bins->mMemory == IM_LOCAL)
 			{

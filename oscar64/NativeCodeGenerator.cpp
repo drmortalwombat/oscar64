@@ -2177,6 +2177,13 @@ void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure * proc, const In
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mIntValue >> 8) & 0xff));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
 		}
+		else if (ins->mMemory == IM_FPARAM)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, BC_REG_FPARAMS + ins->mVarIndex + ins->mIntValue));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
+		}
 		else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 		{
 			int	index = ins->mIntValue;
@@ -2288,6 +2295,17 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 24) & 0xff));
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 3));
 				}
+				else if (ins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 8) & 0xff));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 1));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 16) & 0xff));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 2));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 24) & 0xff));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 3));
+				}
 				else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 				{
 					int	index = ins->mSrc[1].mIntConst;
@@ -2362,6 +2380,17 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 2));
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 3));
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 3));
+				}
+				else if (ins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 1));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 1));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 2));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 2));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 3));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 3));
 				}
 				else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 				{
@@ -2466,6 +2495,13 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 1));
 				}
+				else if (ins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 1));
+				}
 				else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 				{
 					int	index = ins->mSrc[1].mIntConst;
@@ -2511,6 +2547,13 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst));
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 1));
+				}
+				else if (ins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 1));
 				}
 				else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 				{
@@ -2589,6 +2632,11 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst));
 					}
+					else if (ins->mMemory == IM_FPARAM)
+					{
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+					}
 					else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 					{
 						int	index = ins->mSrc[1].mIntConst;
@@ -2628,6 +2676,13 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst));
 						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 1));
+					}
+					else if (ins->mMemory == IM_FPARAM)
+					{
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 1));
 					}
 					else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 					{
@@ -2682,6 +2737,17 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 2));
 						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 24) & 0xff));
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 3));
+					}
+					else if (ins->mMemory == IM_FPARAM)
+					{
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 1));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 16) & 0xff));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 2));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 24) & 0xff));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 3));
 					}
 					else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 					{
@@ -2740,6 +2806,11 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst));
 					}
+					else if (ins->mMemory == IM_FPARAM)
+					{
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+					}
 					else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 					{
 						int	index = ins->mSrc[1].mIntConst;
@@ -2779,6 +2850,13 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst));
 						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 1));
+					}
+					else if (ins->mMemory == IM_FPARAM)
+					{
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 1));
 					}
 					else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 					{
@@ -2834,6 +2912,17 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 2));
 						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 3));
 						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + 3));
+					}
+					else if (ins->mMemory == IM_FPARAM)
+					{
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 1));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 2));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 2));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 3));
+						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[1].mIntConst + 3));
 					}
 					else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 					{
@@ -2984,6 +3073,10 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 				{
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, rins->mSrc[0].mIntConst));
 				}
+				else if (rins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + rins->mVarIndex + rins->mSrc[0].mIntConst));
+				}
 				else if (rins->mMemory == IM_LOCAL || rins->mMemory == IM_PARAM)
 				{
 					int	index = rins->mSrc[0].mIntConst;
@@ -3017,6 +3110,10 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 				else if (wins->mMemory == IM_ABSOLUTE)
 				{
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, wins->mSrc[1].mIntConst));
+				}
+				else if (wins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + wins->mVarIndex + wins->mSrc[1].mIntConst));
 				}
 				else if (wins->mMemory == IM_LOCAL || wins->mMemory == IM_PARAM)
 				{
@@ -3124,6 +3221,17 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + 3));
 				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 3));
 			}
+			else if (ins->mMemory == IM_FPARAM)
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst + 1));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst + 2));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 2));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst + 3));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 3));
+			}
 			else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 			{
 				int	index = ins->mSrc[0].mIntConst;
@@ -3204,6 +3312,22 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				if (ainsh) mIns.Push(*ainsh);
 				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
 			}
+			else if (ins->mMemory == IM_FPARAM)
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst));
+				if (ainsl)
+				{
+					if (ainsl->mType == ASMIT_ADC)
+						mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
+					else if (ainsl->mType == ASMIT_SBC)
+						mIns.Push(NativeCodeInstruction(ASMIT_SEC, ASMIM_IMPLIED));
+					mIns.Push(*ainsl);
+				}
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst + 1));
+				if (ainsh) mIns.Push(*ainsh);
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
+			}
 			else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 			{
 				int	index = ins->mSrc[0].mIntConst;
@@ -3274,6 +3398,10 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				{
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst));
 				}
+				else if (ins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst));
+				}
 				else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 				{
 					int	index = ins->mSrc[0].mIntConst;
@@ -3340,6 +3468,22 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 					if (ainsh) mIns.Push(*ainsh);
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
 				}
+				else if (ins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst));
+					if (ainsl)
+					{
+						if (ainsl->mType == ASMIT_ADC)
+							mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
+						else if (ainsl->mType == ASMIT_SBC)
+							mIns.Push(NativeCodeInstruction(ASMIT_SEC, ASMIM_IMPLIED));
+						mIns.Push(*ainsl);
+					}
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst + 1));
+					if (ainsh) mIns.Push(*ainsh);
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
+				}
 				else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
 				{
 					int	index = ins->mSrc[0].mIntConst;
@@ -3390,6 +3534,17 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + 2));
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 2));
 					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + 3));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 3));
+				}
+				else if (ins->mMemory == IM_FPARAM)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst + 1));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst + 2));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 2));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst + 3));
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, reg + 3));
 				}
 				else if (ins->mMemory == IM_LOCAL || ins->mMemory == IM_PARAM)
@@ -5862,6 +6017,15 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mLinkerObject, NCIF_UPPER));
+			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
+		}
+		else if (ins->mMemory == IM_FPARAM)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, BC_REG_FPARAMS + ins->mVarIndex + ins->mSrc[0].mIntConst));
+			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
 			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
 		}

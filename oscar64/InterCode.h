@@ -60,7 +60,8 @@ enum InterMemory
 	IM_PROCEDURE,
 	IM_INDIRECT,
 	IM_TEMPORARY,
-	IM_ABSOLUTE
+	IM_ABSOLUTE,
+	IM_FPARAM,
 };
 
 enum InterOperator

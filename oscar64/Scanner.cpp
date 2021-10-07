@@ -46,6 +46,7 @@ const char* TokenNames[] = {
 		"'static'",
 		"'extern'",
 		"'inline'",
+		"'__fastcall'",
 
 		"__asm",
 
@@ -1151,6 +1152,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_EXTERN;
 				else if (!strcmp(tkident, "inline"))
 					mToken = TK_INLINE;
+				else if (!strcmp(tkident, "__fastcall"))
+					mToken = TK_FASTCALL;
 				else if (!strcmp(tkident, "__asm"))
 					mToken = TK_ASM;
 				else
