@@ -62,21 +62,18 @@ void Emulator::DumpCycles(void)
 				}
 			}
 
-			if (numTops == 0 || cycles > topCycles[numTops - 1])
+			int j = numTops;
+			while (j > 0 && topCycles[j-1] < cycles)
 			{
-				int j = numTops;
-				while (j > 0 && topCycles[j-1] < cycles)
-				{
-					topCycles[j] = topCycles[j - 1];
-					topIP[j] = topIP[j - 1];
-					j--;
-				}
-				topCycles[j] = cycles;
-				topIP[j] = i;
-
-				if (numTops < 40)
-					numTops++;
+				topCycles[j] = topCycles[j - 1];
+				topIP[j] = topIP[j - 1];
+				j--;
 			}
+			topCycles[j] = cycles;
+			topIP[j] = i;
+
+			if (numTops < 40)
+				numTops++;
 		}
 	}
 	
@@ -94,28 +91,26 @@ void Emulator::DumpCycles(void)
 		int	cycles = lobjc[i];
 		if (cycles > 0)
 		{
-			if (numTops == 0 || cycles > topCycles[numTops - 1])
+			int j = numTops;
+			while (j > 0 && topCycles[j - 1] < cycles)
 			{
-				int j = numTops;
-				while (j > 0 && topCycles[j - 1] < cycles)
-				{
-					topCycles[j] = topCycles[j - 1];
-					topIP[j] = topIP[j - 1];
-					j--;
-				}
-				topCycles[j] = cycles;
-				topIP[j] = i;
-
-				if (numTops < 40)
-					numTops++;
+				topCycles[j] = topCycles[j - 1];
+				topIP[j] = topIP[j - 1];
+				j--;
 			}
+			topCycles[j] = cycles;
+			topIP[j] = i;
+
+			if (numTops < 40)
+				numTops++;
 		}
 
 	}
 
 	for (int i = 0; i < numTops; i++)
 	{
-		printf("  %2d : %s : %d\n", i, lobjs[topIP[i]]->mIdent->mString, topCycles[i]);
+		if (lobjs[topIP[i]]->mIdent)
+			printf("  %2d : %s : %d\n", i, lobjs[topIP[i]]->mIdent->mString, topCycles[i]);
 	}
 }
 

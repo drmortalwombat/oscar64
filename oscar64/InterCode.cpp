@@ -309,6 +309,8 @@ static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtr
 			mem = ins->mConst.mMemory;
 			vindex = ins->mConst.mVarIndex;
 			offset = ins->mConst.mIntConst;
+
+			return true;
 		}
 		else if (ins->mCode == IC_LEA)
 		{
