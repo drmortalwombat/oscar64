@@ -289,15 +289,27 @@ public:
 class InterOperand
 {
 public:
-	int			mTemp;
-	InterType	mType;
-	bool		mFinal;
-	int64		mIntConst;
-	double		mFloatConst;
+	int					mTemp;
+	InterType			mType;
+	bool				mFinal;
+	int64				mIntConst;
+	double				mFloatConst;
+	int					mVarIndex, mOperandSize;
+	LinkerObject	*	mLinkerObject;
+	InterMemory			mMemory;
 
 	InterOperand(void)
-		: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0)
+		: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0), mVarIndex(-1), mOperandSize(0), mLinkerObject(nullptr), mMemory(IM_NONE)
 	{}
+#if 0
+	bool Same(const InterOperand& op) const
+	{
+		if (mType != op.mType || mTemp != op.mTemp)
+			return false;
+		
+		return true;
+	}
+#endif
 };
 
 class InterInstruction
@@ -306,14 +318,10 @@ public:
 	InterCode							mCode;
 	InterOperand						mSrc[8];
 	InterOperand						mDst;
-	InterMemory							mMemory;
+	InterOperand						mConst;
 	InterOperator						mOperator;
-	int									mOperandSize, mNumOperands;
-	int									mVarIndex;
-	int64								mIntValue;
-	double								mFloatValue;
+	int									mNumOperands;
 	Location							mLocation;
-	LinkerObject					*	mLinkerObject;
 
 	bool								mInUse, mInvariant, mVolatile;
 

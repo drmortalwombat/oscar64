@@ -1,6 +1,7 @@
 #include "string.h"
 
-#if 1
+#if 0
+/*
 char * strcpy(char * dst, const char * src)
 {
 	__asm 
@@ -33,6 +34,7 @@ char * strcpy(char * dst, const char * src)
 
 	}
 }
+*/
 #else
 char * strcpy(char * dst, const char * src)
 {
@@ -45,7 +47,8 @@ char * strcpy(char * dst, const char * src)
 }
 #endif
 
-#if 1
+#if 0
+/*
 int strcmp(const char * ptr1, const char * ptr2)
 {
 		__asm 
@@ -63,7 +66,7 @@ int strcmp(const char * ptr1, const char * ptr2)
 		iny
 		lda	(fp), y
 		sta $1c
-		
+
 		ldy #0
 	L1: lda ($1f), y
 		beq W1
@@ -91,6 +94,7 @@ int strcmp(const char * ptr1, const char * ptr2)
 		sta accu + 1
 	}
 }
+*/
 #else
 int strcmp(const char * ptr1, const char * ptr2)
 {
@@ -136,39 +140,24 @@ void * memset(void * dst, int value, int size)
 {
 	__asm
 	{
-			ldy	#dst
-			lda	(fp), y
-			sta $1f
-			iny
-			lda	(fp), y
-			sta $20
+			lda	value
 
-			ldy #size
-			lda	(fp), y
-			sta	$1b	
-			iny
-			lda	(fp), y
-			sta	$1c
-
-			ldy	#value
-			lda	(fp), y
-
-			ldx	$1c
+			ldx	size + 1
 			beq	_w1
 			ldy	#0
 	_loop1:
-			sta ($1f), y
+			sta (dst), y
 			iny
 			bne	_loop1
-			inc $20
+			inc dst + 1
 			dex
 			bne	_loop1
 	_w1:
-			ldy	$1b
+			ldy	size
 			beq	_w2
 	_loop2:
 			dey
-			sta ($1f), y
+			sta (dst), y
 			bne _loop2
 	_w2:
 	}

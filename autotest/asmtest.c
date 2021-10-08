@@ -4,16 +4,12 @@ int asum(int a, int b)
 {
 	__asm 
 	{
-		ldy	#a
 		clc
-		lda	(fp), y
-		ldy	#b
-		adc	(fp), y
+		lda	a
+		adc	b
 		sta	accu
-		ldy	#a + 1
-		lda	(fp), y
-		ldy	#b + 1
-		adc	(fp), y
+		lda	a + 1
+		adc	b + 1
 		sta	accu + 1
 	}
 }
@@ -24,16 +20,12 @@ int bsum(int a, int b)
 
 	__asm 
 	{
-		ldy	#a
 		clc
-		lda	(fp), y
-		ldy	#b
-		adc	(fp), y
+		lda	a
+		adc	b
 		sta	accu
-		ldy	#a + 1
-		lda	(fp), y
-		ldy	#b + 1
-		adc	(fp), y
+		lda	a + 1
+		adc	b + 1
 		sta	accu + 1
 	}
 }

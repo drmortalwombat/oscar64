@@ -688,30 +688,31 @@ Declaration* Parser::ParseDeclaration(bool variable)
 		variable = false;
 		mScanner->NextToken();
 	}
-	else 
-		
-	if (mScanner->mToken == TK_STATIC)
+	else
 	{
-		storageFlags |= DTF_STATIC;
-		mScanner->NextToken();
-	}
-	
-	if (mScanner->mToken == TK_EXTERN)
-	{
-		storageFlags |= DTF_EXTERN;
-		mScanner->NextToken();
-	}
-	
-	if (mScanner->mToken == TK_INLINE)
-	{
-		storageFlags |= DTF_INLINE;
-		mScanner->NextToken();
-	}
+		if (mScanner->mToken == TK_STATIC)
+		{
+			storageFlags |= DTF_STATIC;
+			mScanner->NextToken();
+		}
 
-	if (mScanner->mToken == TK_FASTCALL)
-	{
-		typeFlags |= DTF_FASTCALL;
-		mScanner->NextToken();
+		if (mScanner->mToken == TK_EXTERN)
+		{
+			storageFlags |= DTF_EXTERN;
+			mScanner->NextToken();
+		}
+
+		if (mScanner->mToken == TK_INLINE)
+		{
+			storageFlags |= DTF_INLINE;
+			mScanner->NextToken();
+		}
+
+		if (mScanner->mToken == TK_FASTCALL)
+		{
+			typeFlags |= DTF_FASTCALL;
+			mScanner->NextToken();
+		}
 	}
 
 	Declaration* bdec = ParseBaseTypeDeclaration(0);
@@ -1980,7 +1981,7 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseAssemblerMulOperand();
-		if (nexp->mLeft->mDecValue->mType == DT_VARIABLE)
+		if (nexp->mLeft->mDecValue->mType == DT_VARIABLE || nexp->mLeft->mDecValue->mType == DT_ARGUMENT)
 		{
 			if (nexp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{

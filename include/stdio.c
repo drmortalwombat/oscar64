@@ -4,9 +4,7 @@
 void putchar(char c)
 {
 	__asm {
-		ldy	#2
-		lda	(fp), y
-		cmp #10
+		lda c
 		bne	w1
 		lda #13
 	w1:
@@ -27,14 +25,8 @@ char getchar(void)
 void puts(const char * str)
 {
 	__asm {
-		ldy	#str
-		lda	(fp), y
-		sta 0x02
-		iny
-		lda	(fp), y
-		sta 0x03
 		ldy	#0
-		lda	(0x02), y
+		lda	(str), y
 		beq	done
 	loop:
 		cmp #10
@@ -42,12 +34,12 @@ void puts(const char * str)
 		lda #13
 	w1:
 		jsr	0xffd2		
-		inc	0x02
+		inc	str
 		bne	next
-		inc	0x03
+		inc	str + 1
 	next:
 		ldy	#0
-		lda	(0x02), y
+		lda	(str), y
 		bne	loop
 	done:
 	}
@@ -56,25 +48,19 @@ void puts(const char * str)
 char * gets(char * str)
 {
 	__asm {
-		ldy	#2
-		lda	(fp), y
-		sta 0x02
-		iny
-		lda	(fp), y
-		sta 0x03
 	loop:
 		jsr	0xffcf
 		ldy	#0
 		cmp	#13
 		beq	done
-		sta	(0x02), y
-		inc	0x02
+		sta	(str), y
+		inc	str
 		bne	loop
-		inc	0x03
+		inc	srt + 1
 		bne	loop
 	done:		
 		lda	#0
-		sta	(0x02), y
+		sta	(str), y
 	}
 	
 	return str;

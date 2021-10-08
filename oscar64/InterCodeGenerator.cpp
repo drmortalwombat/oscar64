@@ -43,12 +43,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 	{
 		InterInstruction	*	ins = new InterInstruction();
 		ins->mCode = IC_LOAD;
-		ins->mMemory = IM_INDIRECT;
+		ins->mSrc[0].mMemory = IM_INDIRECT;
 		ins->mSrc[0].mType = IT_POINTER;
 		ins->mSrc[0].mTemp = v.mTemp;
 		ins->mDst.mType = v.mReference == 1 ? InterTypeOf(v.mType) : IT_POINTER;
 		ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-		ins->mOperandSize = v.mReference == 1 ? v.mType->mSize : 2;
+		ins->mSrc[0].mOperandSize = v.mReference == 1 ? v.mType->mSize : 2;
 		if (v.mType->mFlags & DTF_VOLATILE)
 			ins->mVolatile = true;
 		block->Append(ins);
@@ -575,13 +575,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						if (dec->mInteger < -128 || dec->mInteger > 127)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
-						ins->mIntValue = int8(dec->mInteger);
+						ins->mConst.mIntConst = int8(dec->mInteger);
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 255)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
-						ins->mIntValue = uint8(dec->mInteger);
+						ins->mConst.mIntConst = uint8(dec->mInteger);
 					}
 				}
 				else if (ins->mDst.mType == IT_INT16)
@@ -590,13 +590,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						if (dec->mInteger < -32768 || dec->mInteger > 32767)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
-						ins->mIntValue = int16(dec->mInteger);
+						ins->mConst.mIntConst = int16(dec->mInteger);
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 65535)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
-						ins->mIntValue = uint16(dec->mInteger);
+						ins->mConst.mIntConst = uint16(dec->mInteger);
 					}
 				}
 				else if (ins->mDst.mType == IT_INT32)
@@ -605,18 +605,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						if (dec->mInteger < -2147483648LL || dec->mInteger > 2147483647LL)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
-						ins->mIntValue = int32(dec->mInteger);
+						ins->mConst.mIntConst = int32(dec->mInteger);
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 4294967296LL)
 							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
-						ins->mIntValue = uint32(dec->mInteger);
+						ins->mConst.mIntConst = uint32(dec->mInteger);
 					}
 				}
 				else
 				{
-					ins->mIntValue = dec->mInteger;
+					ins->mConst.mIntConst = dec->mInteger;
 				}
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mDst.mTemp);
@@ -629,7 +629,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mCode = IC_CONSTANT;
 				ins->mDst.mType = InterTypeOf(dec->mBase);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-				ins->mFloatValue = dec->mNumber;
+				ins->mConst.mFloatConst = dec->mNumber;
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mDst.mTemp);
 
@@ -641,8 +641,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mCode = IC_CONSTANT;
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
-				ins->mIntValue = dec->mInteger;
-				ins->mMemory = IM_ABSOLUTE;
+				ins->mConst.mIntConst = dec->mInteger;
+				ins->mConst.mMemory = IM_ABSOLUTE;
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mDst.mTemp);
 
@@ -659,10 +659,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mCode = IC_CONSTANT;
 				ins->mDst.mType = InterTypeOf(dec->mBase);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-				ins->mVarIndex = dec->mVarIndex;
-				ins->mLinkerObject = dec->mLinkerObject;
-				ins->mMemory = IM_PROCEDURE;
-				ins->mIntValue = 0;
+				ins->mConst.mVarIndex = dec->mVarIndex;
+				ins->mConst.mLinkerObject = dec->mLinkerObject;
+				ins->mConst.mMemory = IM_PROCEDURE;
+				ins->mConst.mIntConst = 0;
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mDst.mTemp);
 
@@ -693,10 +693,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mCode = IC_CONSTANT;
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
-				ins->mIntValue = 0;
-				ins->mVarIndex = dec->mVarIndex;
-				ins->mLinkerObject = dec->mLinkerObject;
-				ins->mMemory = IM_GLOBAL;
+				ins->mConst.mIntConst = 0;
+				ins->mConst.mVarIndex = dec->mVarIndex;
+				ins->mConst.mLinkerObject = dec->mLinkerObject;
+				ins->mConst.mMemory = IM_GLOBAL;
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mDst.mTemp, 1);
 			}
@@ -724,10 +724,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mCode = IC_CONSTANT;
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
-				ins->mIntValue = 0;
-				ins->mVarIndex = dec->mVarIndex;
-				ins->mLinkerObject = dec->mLinkerObject;
-				ins->mMemory = IM_GLOBAL;
+				ins->mConst.mIntConst = 0;
+				ins->mConst.mVarIndex = dec->mVarIndex;
+				ins->mConst.mLinkerObject = dec->mLinkerObject;
+				ins->mConst.mMemory = IM_GLOBAL;
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mDst.mTemp, 1);
 			}
@@ -746,41 +746,41 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ins->mCode = IC_CONSTANT;
 			ins->mDst.mType = IT_POINTER;
 			ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-			ins->mOperandSize = dec->mSize;
-			ins->mIntValue = dec->mOffset;
-			ins->mVarIndex = dec->mVarIndex;
+			ins->mConst.mOperandSize = dec->mSize;
+			ins->mConst.mIntConst = dec->mOffset;
+			ins->mConst.mVarIndex = dec->mVarIndex;
 
 			int ref = 1;
 			if (dec->mType == DT_ARGUMENT)
 			{
 				if (inlineMapper)
 				{
-					ins->mMemory = IM_LOCAL;
-					ins->mVarIndex = inlineMapper->mParams[ins->mVarIndex];
+					ins->mConst.mMemory = IM_LOCAL;
+					ins->mConst.mVarIndex = inlineMapper->mParams[dec->mOffset];
 				}
 				else if (procType->mFlags & DTF_FASTCALL)
-					ins->mMemory = IM_FPARAM;
+					ins->mConst.mMemory = IM_FPARAM;
 				else
-					ins->mMemory = IM_PARAM;
+					ins->mConst.mMemory = IM_PARAM;
 				if (dec->mBase->mType == DT_TYPE_ARRAY)
 				{
 					ref = 2;
-					ins->mOperandSize = 2;
+					ins->mConst.mOperandSize = 2;
 				}
 			}
 			else if (dec->mFlags & DTF_GLOBAL)
 			{
 				InitGlobalVariable(proc->mModule, dec);
-				ins->mMemory = IM_GLOBAL;
-				ins->mLinkerObject = dec->mLinkerObject;
-				ins->mVarIndex = dec->mVarIndex;
+				ins->mConst.mMemory = IM_GLOBAL;
+				ins->mConst.mLinkerObject = dec->mLinkerObject;
+				ins->mConst.mVarIndex = dec->mVarIndex;
 			}
 			else
 			{
 				if (inlineMapper)
-					ins->mVarIndex += inlineMapper->mVarIndex;
+					ins->mConst.mVarIndex += inlineMapper->mVarIndex;
 
-				ins->mMemory = IM_LOCAL;
+				ins->mConst.mMemory = IM_LOCAL;
 			}
 
 			block->Append(ins);
@@ -819,12 +819,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				
 				InterInstruction	*	ins = new InterInstruction();
 				ins->mCode = IC_COPY;
-				ins->mMemory = IM_INDIRECT;
+				ins->mConst.mMemory = IM_INDIRECT;
 				ins->mSrc[0].mType = IT_POINTER;
 				ins->mSrc[0].mTemp = vr.mTemp;
 				ins->mSrc[1].mType = IT_POINTER;
 				ins->mSrc[1].mTemp = vl.mTemp;
-				ins->mOperandSize = vl.mType->mSize;
+				ins->mConst.mOperandSize = vl.mType->mSize;
 				block->Append(ins);
 			}
 			else
@@ -852,11 +852,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						if (exp->mToken == TK_ASSIGN_ADD)
 						{
-							cins->mIntValue = vl.mType->mBase->mSize;
+							cins->mConst.mIntConst = vl.mType->mBase->mSize;
 						}
 						else if (exp->mToken == TK_ASSIGN_SUB)
 						{
-							cins->mIntValue = -vl.mType->mBase->mSize;
+							cins->mConst.mIntConst = -vl.mType->mBase->mSize;
 						}
 						else
 							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer assignment");
@@ -883,7 +883,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						InterInstruction	*	ains = new InterInstruction();
 						ains->mCode = IC_LEA;
-						ains->mMemory = IM_INDIRECT;
+						ains->mSrc[1].mMemory = IM_INDIRECT;
 						ains->mSrc[0].mType = IT_INT16;
 						ains->mSrc[0].mTemp = mins->mDst.mTemp;
 						ains->mSrc[1].mType = IT_POINTER;
@@ -968,12 +968,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 
 				ins->mCode = IC_STORE;
-				ins->mMemory = IM_INDIRECT;
+				ins->mSrc[1].mMemory = IM_INDIRECT;
 				ins->mSrc[0].mType = InterTypeOf(vr.mType);
 				ins->mSrc[0].mTemp = vr.mTemp;
 				ins->mSrc[1].mType = IT_POINTER;
 				ins->mSrc[1].mTemp = vl.mTemp;
-				ins->mOperandSize = vl.mType->mSize;
+				ins->mSrc[1].mOperandSize = vl.mType->mSize;
 				block->Append(ins);
 			}
 			}
@@ -998,7 +998,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			InterInstruction	*	cins = new InterInstruction();
 			cins->mCode = IC_CONSTANT;
-			cins->mIntValue = vl.mType->mBase->mSize;
+			cins->mConst.mIntConst = vl.mType->mBase->mSize;
 			cins->mDst.mType = IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 			block->Append(cins);
@@ -1016,7 +1016,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			InterInstruction	*	ains = new InterInstruction();
 			ains->mCode = IC_LEA;
-			ains->mMemory = IM_INDIRECT;
+			ains->mSrc[1].mMemory = IM_INDIRECT;
 			ains->mSrc[0].mType = IT_INT16;
 			ains->mSrc[0].mTemp = mins->mDst.mTemp;
 			ains->mSrc[1].mType = IT_POINTER;
@@ -1038,14 +1038,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			InterInstruction	*	cins = new InterInstruction();
 			cins->mCode = IC_CONSTANT;
-			cins->mIntValue = exp->mDecValue->mOffset;
+			cins->mConst.mIntConst = exp->mDecValue->mOffset;
 			cins->mDst.mType = IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 			block->Append(cins);
 
 			InterInstruction	*	ains = new InterInstruction();
 			ains->mCode = IC_LEA;
-			ains->mMemory = IM_INDIRECT;
+			ains->mSrc[1].mMemory = IM_INDIRECT;
 			ains->mSrc[0].mType = IT_INT16;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;
 			ains->mSrc[1].mType = IT_POINTER;
@@ -1086,11 +1086,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					if (exp->mToken == TK_ADD)
 					{
-						cins->mIntValue = vl.mType->mBase->mSize;
+						cins->mConst.mIntConst = vl.mType->mBase->mSize;
 					}
 					else if (exp->mToken == TK_SUB)
 					{
-						cins->mIntValue = -vl.mType->mBase->mSize;
+						cins->mConst.mIntConst = -vl.mType->mBase->mSize;
 					}
 					else
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
@@ -1113,7 +1113,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					block->Append(mins);
 
 					ins->mCode = IC_LEA;
-					ins->mMemory = IM_INDIRECT;
+					ins->mSrc[1].mMemory = IM_INDIRECT;
 					ins->mSrc[0].mType = IT_INT16;
 					ins->mSrc[0].mTemp = mins->mDst.mTemp;
 					ins->mSrc[1].mType = IT_POINTER;
@@ -1143,7 +1143,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						InterInstruction	*	cins = new InterInstruction();
 						cins->mCode = IC_CONSTANT;
-						cins->mIntValue = vl.mType->mBase->mSize;
+						cins->mConst.mIntConst = vl.mType->mBase->mSize;
 						cins->mDst.mType = IT_INT16;
 						cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 						block->Append(cins);
@@ -1290,9 +1290,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			cins->mDst.mType = ftype ? IT_FLOAT : IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 			if (vdl.mType->mType == DT_TYPE_POINTER)
-				cins->mIntValue = exp->mToken == TK_INC ? vdl.mType->mBase->mSize : -(vdl.mType->mBase->mSize);
+				cins->mConst.mIntConst = exp->mToken == TK_INC ? vdl.mType->mBase->mSize : -(vdl.mType->mBase->mSize);
 			else if (vdl.mType->IsNumericType())
-				cins->mIntValue = exp->mToken == TK_INC ? 1 : -1;
+				cins->mConst.mIntConst = exp->mToken == TK_INC ? 1 : -1;
 			else
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric value or pointer");
 
@@ -1309,12 +1309,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(ains);
 
 			sins->mCode = IC_STORE;
-			sins->mMemory = IM_INDIRECT;
+			sins->mSrc[1].mMemory = IM_INDIRECT;
 			sins->mSrc[0].mType = ains->mDst.mType;
 			sins->mSrc[0].mTemp = ains->mDst.mTemp;
 			sins->mSrc[1].mType = IT_POINTER;
 			sins->mSrc[1].mTemp = vl.mTemp;
-			sins->mOperandSize = vl.mType->mSize;
+			sins->mSrc[1].mOperandSize = vl.mType->mSize;
 			block->Append(sins);
 
 			return ExValue(vdl.mType, ains->mDst.mTemp);
@@ -1342,9 +1342,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			cins->mDst.mType = ftype ? IT_FLOAT : IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 			if (vdl.mType->mType == DT_TYPE_POINTER)
-				cins->mIntValue = exp->mToken == TK_INC ? vdl.mType->mBase->mSize : -(vdl.mType->mBase->mSize);
+				cins->mConst.mIntConst = exp->mToken == TK_INC ? vdl.mType->mBase->mSize : -(vdl.mType->mBase->mSize);
 			else if (vdl.mType->IsNumericType())
-				cins->mIntValue = exp->mToken == TK_INC ? 1 : -1;
+				cins->mConst.mIntConst = exp->mToken == TK_INC ? 1 : -1;
 			else
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric value or pointer");
 			block->Append(cins);
@@ -1360,12 +1360,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(ains);
 
 			sins->mCode = IC_STORE;
-			sins->mMemory = IM_INDIRECT;
+			sins->mSrc[1].mMemory = IM_INDIRECT;
 			sins->mSrc[0].mType = ains->mDst.mType;
 			sins->mSrc[0].mTemp = ains->mDst.mTemp;
 			sins->mSrc[1].mType = IT_POINTER;
 			sins->mSrc[1].mTemp = vl.mTemp;
-			sins->mOperandSize = vl.mType->mSize;
+			sins->mSrc[1].mOperandSize = vl.mType->mSize;
 			block->Append(sins);
 
 			return ExValue(vdl.mType, vdl.mTemp);
@@ -1613,8 +1613,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ains->mCode = IC_CONSTANT;
 					ains->mDst.mType = IT_POINTER;
 					ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
-					ains->mMemory = IM_LOCAL;
-					ains->mVarIndex = nindex;
+					ains->mConst.mMemory = IM_LOCAL;
+					ains->mConst.mVarIndex = nindex;
 					
 					if (pdec)
 					{
@@ -1623,10 +1623,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vdec->mVarIndex = nindex;
 						vdec->mBase = pdec->mBase;
 						if (pdec->mBase->mType == DT_TYPE_ARRAY)
-							ains->mOperandSize = 2;
+							ains->mConst.mOperandSize = 2;
 						else
-							ains->mOperandSize = pdec->mSize;
-						vdec->mSize = ains->mOperandSize;
+							ains->mConst.mOperandSize = pdec->mSize;
+						vdec->mSize = ains->mConst.mOperandSize;
 						vdec->mIdent = pdec->mIdent;
 					}
 					else
@@ -1670,7 +1670,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					InterInstruction* wins = new InterInstruction();
 					wins->mCode = IC_STORE;
-					wins->mMemory = IM_INDIRECT;
+					wins->mSrc[1].mMemory = IM_INDIRECT;
 					wins->mSrc[0].mType = InterTypeOf(vr.mType);;
 					wins->mSrc[0].mTemp = vr.mTemp;
 					wins->mSrc[1].mType = IT_POINTER;
@@ -1678,14 +1678,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (pdec)
 					{
 						if (pdec->mBase->mType == DT_TYPE_ARRAY)
-							wins->mOperandSize = 2;
+							wins->mSrc[1].mOperandSize = 2;
 						else
-							wins->mOperandSize = pdec->mSize;
+							wins->mSrc[1].mOperandSize = pdec->mSize;
 					}
 					else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
-						wins->mOperandSize = vr.mType->mSize;
+						wins->mSrc[1].mOperandSize = vr.mType->mSize;
 					else
-						wins->mOperandSize = 2;
+						wins->mSrc[1].mOperandSize = 2;
 
 					block->Append(wins);
 					if (pdec)
@@ -1722,10 +1722,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mCode = IC_CONSTANT;
 					ins->mDst.mType = IT_POINTER;
 					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-					ins->mOperandSize = rdec->mSize;
-					ins->mIntValue = rdec->mOffset;
-					ins->mVarIndex = rdec->mVarIndex;
-					ins->mMemory = IM_LOCAL;
+					ins->mConst.mOperandSize = rdec->mSize;
+					ins->mConst.mIntConst = rdec->mOffset;
+					ins->mConst.mVarIndex = rdec->mVarIndex;
+					ins->mConst.mMemory = IM_LOCAL;
 
 					block->Append(ins);
 
@@ -1757,7 +1757,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					fins = new InterInstruction();
 					fins->mCode = IC_PUSH_FRAME;
-					fins->mIntValue = atotal;
+					fins->mConst.mIntConst = atotal;
 					block->Append(fins);
 				}
 
@@ -1776,18 +1776,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 					if (pdec)
 					{
-						ains->mVarIndex = pdec->mVarIndex;
-						ains->mIntValue = pdec->mOffset;
+						ains->mConst.mVarIndex = pdec->mVarIndex;
+						ains->mConst.mIntConst = pdec->mOffset;
 						if (pdec->mBase->mType == DT_TYPE_ARRAY)
-							ains->mOperandSize = 2;
+							ains->mConst.mOperandSize = 2;
 						else
-							ains->mOperandSize = pdec->mSize;
+							ains->mConst.mOperandSize = pdec->mSize;
 					}
 					else if (ftype->mFlags & DTF_VARIADIC)
 					{
-						ains->mVarIndex = atotal;
-						ains->mIntValue = 0;
-						ains->mOperandSize = 2;
+						ains->mConst.mVarIndex = atotal;
+						ains->mConst.mIntConst = 0;
+						ains->mConst.mOperandSize = 2;
 					}
 					else
 					{
@@ -1796,11 +1796,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					if (ftype->mFlags & DTF_FASTCALL)
 					{
-						ains->mMemory = IM_FPARAM;
-						ains->mIntValue = 0;
+						ains->mConst.mMemory = IM_FPARAM;
+						ains->mConst.mIntConst = 0;
 					}
 					else
-						ains->mMemory = IM_FRAME;
+						ains->mConst.mMemory = IM_FRAME;
 
 					block->Append(ains);
 
@@ -1831,15 +1831,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						InterInstruction* cins = new InterInstruction();
 						cins->mCode = IC_COPY;
-						cins->mMemory = IM_INDIRECT;
+						cins->mConst.mMemory = IM_INDIRECT;
 						cins->mSrc[0].mType = IT_POINTER;
 						cins->mSrc[0].mTemp = vr.mTemp;
 						cins->mSrc[1].mType = IT_POINTER;
 						cins->mSrc[1].mTemp = ains->mDst.mTemp;
-						cins->mOperandSize = vr.mType->mSize;
+						cins->mConst.mOperandSize = vr.mType->mSize;
 						block->Append(cins);
 
-						atotal += cins->mOperandSize;
+						atotal += cins->mConst.mOperandSize;
 					}
 					else
 					{
@@ -1862,7 +1862,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						InterInstruction* wins = new InterInstruction();
 						wins->mCode = IC_STORE;
-						wins->mMemory = IM_INDIRECT;
+						wins->mSrc[1].mMemory = IM_INDIRECT;
 						wins->mSrc[0].mType = InterTypeOf(vr.mType);;
 						wins->mSrc[0].mTemp = vr.mTemp;
 						wins->mSrc[1].mType = IT_POINTER;
@@ -1870,18 +1870,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						if (pdec)
 						{
 							if (pdec->mBase->mType == DT_TYPE_ARRAY)
-								wins->mOperandSize = 2;
+								wins->mSrc[1].mOperandSize = 2;
 							else
-								wins->mOperandSize = pdec->mSize;
+								wins->mSrc[1].mOperandSize = pdec->mSize;
 						}
 						else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
-							wins->mOperandSize = vr.mType->mSize;
+							wins->mSrc[1].mOperandSize = vr.mType->mSize;
 						else
-							wins->mOperandSize = 2;
+							wins->mSrc[1].mOperandSize = 2;
 
 						block->Append(wins);
 
-						atotal += wins->mOperandSize;
+						atotal += wins->mSrc[1].mOperandSize;
 					}
 
 					if (pdec)
@@ -1913,11 +1913,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else
 				{
-					fins->mIntValue = atotal;
+					fins->mConst.mIntConst = atotal;
 
 					InterInstruction* xins = new InterInstruction();
 					xins->mCode = IC_POP_FRAME;
-					xins->mIntValue = atotal;
+					xins->mConst.mIntConst = atotal;
 					block->Append(xins);
 				}
 
@@ -1942,11 +1942,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mCode = IC_CONSTANT;
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-				ins->mOperandSize = dec->mSize;
-				ins->mIntValue = 0;
-				ins->mMemory = IM_GLOBAL;
-				ins->mLinkerObject = dec->mLinkerObject;
-				ins->mVarIndex = dec->mVarIndex;
+				ins->mConst.mOperandSize = dec->mSize;
+				ins->mConst.mIntConst = 0;
+				ins->mConst.mMemory = IM_GLOBAL;
+				ins->mConst.mLinkerObject = dec->mLinkerObject;
+				ins->mConst.mVarIndex = dec->mVarIndex;
 				block->Append(ins);
 
 				InterInstruction	*	jins = new InterInstruction();
@@ -1966,24 +1966,24 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (vdec->mType == DT_ARGUMENT)
 					{
 						if (procType->mFlags & DTF_FASTCALL)
-							vins->mMemory = IM_FPARAM;
+							vins->mConst.mMemory = IM_FPARAM;
 						else
-							vins->mMemory = IM_PARAM;
-						vins->mOperandSize = vdec->mSize;
-						vins->mIntValue = vdec->mOffset;
-						vins->mVarIndex = vdec->mVarIndex;
+							vins->mConst.mMemory = IM_PARAM;
+						vins->mConst.mOperandSize = vdec->mSize;
+						vins->mConst.mIntConst = vdec->mOffset;
+						vins->mConst.mVarIndex = vdec->mVarIndex;
 					}
 
 					block->Append(vins);
 
 					InterInstruction* lins = new InterInstruction();
 					lins->mCode = IC_LOAD;
-					lins->mMemory = IM_INDIRECT;
+					lins->mSrc[0].mMemory = IM_INDIRECT;
 					lins->mSrc[0].mType = IT_POINTER;
 					lins->mSrc[0].mTemp = vins->mDst.mTemp;
 					lins->mDst.mType = InterTypeOf(vdec->mBase);
 					lins->mDst.mTemp = proc->AddTemporary(lins->mDst.mType);
-					lins->mOperandSize = vdec->mSize;
+					lins->mSrc[0].mOperandSize = vdec->mSize;
 					block->Append(lins);
 
 					jins->mSrc[jins->mNumOperands].mType = InterTypeOf(vdec->mBase);
@@ -2021,17 +2021,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ains->mCode = IC_CONSTANT;
 					ains->mDst.mType = IT_POINTER;
 					ains->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-					ains->mOperandSize = procType->mBase->mSize;
-					ains->mIntValue = 0;
-					ains->mVarIndex = inlineMapper->mResult;;
-					ains->mMemory = IM_LOCAL;
+					ains->mConst.mOperandSize = procType->mBase->mSize;
+					ains->mConst.mIntConst = 0;
+					ains->mConst.mVarIndex = inlineMapper->mResult;;
+					ains->mConst.mMemory = IM_LOCAL;
 					block->Append(ains);
 
 					ins->mSrc[1].mType = ains->mDst.mType;
 					ins->mSrc[1].mTemp = ains->mDst.mTemp;
-					ins->mMemory = IM_INDIRECT;
+					ins->mSrc[1].mMemory = IM_INDIRECT;
 					ins->mCode = IC_STORE;
-					ins->mOperandSize = ains->mOperandSize;
+					ins->mSrc[1].mOperandSize = ains->mConst.mOperandSize;
 				}
 				else
 					ins->mCode = IC_RETURN_VALUE;
@@ -2110,7 +2110,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			zins->mCode = IC_CONSTANT;
 			zins->mDst.mType = InterTypeOf(vl.mType);
 			zins->mDst.mTemp = proc->AddTemporary(zins->mDst.mType);
-			zins->mIntValue = 0;
+			zins->mConst.mIntConst = 0;
 			block->Append(zins);
 
 			InterInstruction	*	ins = new InterInstruction();
@@ -2289,14 +2289,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			InterInstruction* tins = new InterInstruction();
 			tins->mCode = IC_CONSTANT;
-			tins->mIntValue = 1;
+			tins->mConst.mIntConst = 1;
 			tins->mDst.mType = IT_BOOL;
 			tins->mDst.mTemp = ttemp;
 			tblock->Append(tins);
 
 			InterInstruction* fins = new InterInstruction();
 			fins->mCode = IC_CONSTANT;
-			fins->mIntValue = 0;
+			fins->mConst.mIntConst = 0;
 			fins->mDst.mType = IT_BOOL;
 			fins->mDst.mTemp = ttemp;
 			fblock->Append(fins);

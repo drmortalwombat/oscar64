@@ -306,12 +306,11 @@ float atof(const char * s)
 
 void exit(int status)
 {
-	__asm {
-		ldy	#status
-		lda	(fp), y
+	__asm
+	{
+		lda	status
 		sta	accu + 0
-		iny
-		lda	(fp), y
+		lda	status + 1
 		sta	accu + 1
 		pla
 		pla
