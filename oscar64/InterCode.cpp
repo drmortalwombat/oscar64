@@ -1872,6 +1872,17 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 	{
 	case IC_CALL:
 	case IC_CALL_NATIVE:
+		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
+		{
+			ins->mSrc[0].mMemory = tvalue[ins->mSrc[0].mTemp]->mConst.mMemory;
+			ins->mSrc[0].mLinkerObject = tvalue[ins->mSrc[0].mTemp]->mConst.mLinkerObject;
+			ins->mSrc[0].mVarIndex = tvalue[ins->mSrc[0].mTemp]->mConst.mVarIndex;
+			ins->mSrc[0].mOperandSize = tvalue[ins->mSrc[0].mTemp]->mConst.mOperandSize;
+			ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+			ins->mSrc[0].mTemp = -1;
+		}
+
+		break;
 	case IC_ASSEMBLER:
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 		{
@@ -1881,6 +1892,21 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			ins->mSrc[0].mOperandSize = tvalue[ins->mSrc[0].mTemp]->mConst.mOperandSize;
 			ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 			ins->mSrc[0].mTemp = -1;
+		}
+		for (int i = 1; i < ins->mNumOperands; i++)
+		{
+			if (ins->mSrc[i].mTemp >= 0 && tvalue[ins->mSrc[i].mTemp])
+			{
+				InterInstruction* lins = tvalue[ins->mSrc[i].mTemp];
+				if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0 && lins->mSrc[0].mMemory == IM_FPARAM)
+				{
+					ins->mSrc[i].mMemory = IM_FPARAM;
+					ins->mSrc[i].mVarIndex = lins->mSrc[0].mVarIndex;
+					ins->mSrc[i].mIntConst = lins->mSrc[0].mIntConst;
+					ins->mSrc[i].mOperandSize = lins->mSrc[0].mOperandSize;
+					ins->mSrc[i].mTemp = -1;
+				}
+			}
 		}
 
 		break;

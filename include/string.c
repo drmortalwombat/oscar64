@@ -1,40 +1,31 @@
 #include "string.h"
 
-#if 0
-/*
+#if 1
+
 char * strcpy(char * dst, const char * src)
 {
 	__asm 
 	{
-		ldy	#dst
-		lda	(fp), y
-		sta $1f
-		iny
-		lda	(fp), y
-		sta $20
-
-		ldy #src
-		lda	(fp), y
-		sta $1b
-		iny
-		lda	(fp), y
-		sta $1c
+		lda dst
+		sta accu
+		lda dst + 1
+		sta accu + 1
 
 		ldy #0
-	L1:	lda ($1b), y
-		sta ($1f), y
+	L1:	lda (src), y
+		sta (dst), y
 		beq W1
 		iny
 		bne L1
-		inc $1c
-		inc $20
+		inc src + 1
+		inc dst + 1
 		bne L1
 	W1:
 		rts
 
 	}
 }
-*/
+
 #else
 char * strcpy(char * dst, const char * src)
 {
@@ -47,35 +38,21 @@ char * strcpy(char * dst, const char * src)
 }
 #endif
 
-#if 0
-/*
+#if 1
+
 int strcmp(const char * ptr1, const char * ptr2)
 {
-		__asm 
+	__asm 
 	{
-		ldy	#ptr1
-		lda	(fp), y
-		sta $1f
-		iny
-		lda	(fp), y
-		sta $20
-
-		ldy #ptr2
-		lda	(fp), y
-		sta $1b
-		iny
-		lda	(fp), y
-		sta $1c
-
 		ldy #0
-	L1: lda ($1f), y
+	L1: lda (ptr1), y
 		beq W1
-		cmp ($1b), y
+		cmp (ptr2), y
 		bne W2
 		iny
 		bne L1
-		inc $1c
-		inc $20
+		inc ptr1 + 1
+		inc ptr2 + 1
 		bne L1
 	W2:	bcs gt
 		lda #$ff
@@ -87,14 +64,14 @@ int strcmp(const char * ptr1, const char * ptr2)
 		lda #$00
 		sta accu + 1
 		rts
-	W1:	cmp ($1b), y
+	W1:	cmp (ptr2), y
 		bne W2
 		lda #$00
 		sta accu
 		sta accu + 1
 	}
 }
-*/
+
 #else
 int strcmp(const char * ptr1, const char * ptr2)
 {

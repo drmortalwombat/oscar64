@@ -6123,7 +6123,13 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterIn
 	{
 		for (int i = 1; i < ins->mNumOperands; i++)
 		{
-			ins->mSrc[0].mLinkerObject->mTemporaries[i - 1] = BC_REG_TMP + proc->mTempOffset[ins->mSrc[i].mTemp];
+			if (ins->mSrc[i].mTemp < 0)
+			{
+				if (ins->mSrc[i].mMemory == IM_FPARAM)
+					ins->mSrc[0].mLinkerObject->mTemporaries[i - 1] = BC_REG_FPARAMS + ins->mSrc[i].mVarIndex + ins->mSrc[i].mIntConst;
+			}
+			else
+				ins->mSrc[0].mLinkerObject->mTemporaries[i - 1] = BC_REG_TMP + proc->mTempOffset[ins->mSrc[i].mTemp];
 			ins->mSrc[0].mLinkerObject->mTempSizes[i - 1] = InterTypeSize[ins->mSrc[i].mType];
 		}
 		ins->mSrc[0].mLinkerObject->mNumTemporaries = ins->mNumOperands - 1;

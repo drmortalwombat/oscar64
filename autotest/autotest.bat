@@ -174,6 +174,12 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -e -n structoffsettest2.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e funcvartest.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n funcvartest.c
+if %errorlevel% neq 0 goto :error
+
 
 
 exit /b 0
