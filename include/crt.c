@@ -1724,20 +1724,19 @@ W1:		jmp	startup.exec
 __asm cmp
 {
 inp_binop_cmpr_s16:
-		lda	accu + 1
-		eor	#$80
-		sta	accu + 1
 		lda	(ip), y
 		tax
 		iny		
+
+		sec
 		lda	$01, x
-		eor	#$80
-		cmp	accu + 1
-		bne	cmpne
-		lda	$00 , x
-		cmp	accu
-		bne	cmpne
-		beq	cmp_eq
+		sbc accu + 1
+		beq cmpeq
+cmpnes:		
+		bvc cmpsv
+		eor #$80
+cmpsv:	bmi cmp_lt
+		bpl cmp_gt
 
 inp_binop_cmpr_u16:
 		lda	(ip), y
@@ -1746,6 +1745,7 @@ inp_binop_cmpr_u16:
 		lda	$01, x
 		cmp	accu + 1
 		bne	cmpne
+cmpeq:
 		lda	$00 , x
 		cmp	accu
 		bne	cmpne
@@ -1773,6 +1773,7 @@ cmp_lt:
 		jmp	startup.exec
 cmpne:
 		bcc	cmp_lt
+cmp_gt:
 		lda	#1
 		sta	accu
 		lda	#0
@@ -1780,17 +1781,14 @@ cmpne:
 		jmp	startup.exec
 
 inp_binop_cmpi_s16:
-		lda	accu + 1
-		eor	#$80
-		sta	accu + 1
 		lda	(ip), y
 		iny
 		tax
 		lda	(ip), y
 		iny
-		eor	#$80
-		cmp	accu + 1
-		bne	cmpne
+		sec
+		sbc	accu + 1
+		bne	cmpnes
 		cpx	accu
 		bne	cmpne		
 		beq	cmp_eq
@@ -2059,16 +2057,12 @@ __asm inp_return
 		
 		dey
 		beq	W1
-		
 		dey
-		beq	W2
-		
+			
 L1:		lda	(sp), y
 		sta	regs, y
 		dey
-		bne	L1
-W2:		lda	(sp), y
-		sta	regs, y
+		bpl	L1
 W1:
 		
 		// adjust stack space
@@ -2086,13 +2080,12 @@ W1:
 
 		// reload ip from stack
 		
-		ldy	#0
-		lda	(sp), y
-		sta	ip
-		iny
+		ldy	#1
 		lda	(sp), y
 		sta	ip + 1
 		dey
+		lda	(sp), y
+		sta	ip
 		jmp	startup.exec
 }
 
@@ -2137,7 +2130,7 @@ __asm inp_call
 		tya
 		ldy	#0
 		clc
-		adc 	ip
+		adc ip
 		sta	(sp), y
 		iny
 		lda	ip + 1
