@@ -668,6 +668,23 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			} break;
 
+			case DT_CONST_ASSEMBLER:
+			{
+				if (!dec->mLinkerObject)
+					TranslateAssembler(proc->mModule, dec->mValue, nullptr);
+
+				InterInstruction* ins = new InterInstruction();
+				ins->mCode = IC_CONSTANT;
+				ins->mDst.mType = IT_POINTER;
+				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mConst.mVarIndex = dec->mVarIndex;
+				ins->mConst.mLinkerObject = dec->mLinkerObject;
+				ins->mConst.mMemory = IM_PROCEDURE;
+				ins->mConst.mIntConst = 0;
+				block->Append(ins);
+				return ExValue(TheVoidPointerTypeDeclaration, ins->mDst.mTemp);
+			}
+
 			case DT_CONST_POINTER:
 			{
 				vl = TranslateExpression(procType, proc, block, dec->mValue, breakBlock, continueBlock, inlineMapper);

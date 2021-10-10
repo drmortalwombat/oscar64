@@ -1991,6 +1991,17 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 			else
 				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Identifier for qualification expected");
 		}
+
+		if (exp->mDecValue->mType == DT_CONST_ASSEMBLER)
+		{
+			Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL);
+			ndec->mIdent = exp->mDecValue->mIdent;
+			ndec->mBase = exp->mDecValue;
+			ndec->mInteger = 0;
+			exp->mDecValue = ndec;
+			exp->mDecType = TheUnsignedIntTypeDeclaration;
+		}
+
 		break;
 	default:
 		mErrors->Error(mScanner->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid assembler operand");
@@ -2286,7 +2297,7 @@ Expression* Parser::ParseAssembler(void)
 			{
 				ilast->mAsmInsType = ins;
 				mScanner->NextToken();
-				if (mScanner->mToken == TK_EOL)
+				if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_CLOSE_BRACE)
 					ilast->mAsmInsMode = ASMIM_IMPLIED;
 				else if (mScanner->mToken == TK_HASH)
 				{
@@ -2382,12 +2393,12 @@ Expression* Parser::ParseAssembler(void)
 				if (ilast->mAsmInsType == ASMIT_BYTE)
 					ilast->mAsmInsMode = ASMIM_IMMEDIATE;
 
-				if (mScanner->mToken != TK_EOL)
+				if (mScanner->mToken != TK_EOL && mScanner->mToken != TK_CLOSE_BRACE)
 				{
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "End of line expected");
 				}
 
-				while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_EOF)
+				while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_EOF && mScanner->mToken != TK_CLOSE_BRACE)
 					mScanner->NextToken();
 
 				offset += AsmInsSize(ilast->mAsmInsType, ilast->mAsmInsMode);

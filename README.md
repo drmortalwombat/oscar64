@@ -49,7 +49,6 @@ After four weeks, the compiler has now matured significantly.  There are still s
 
 * Simple loop opmtimization
 * Partial block domination analysis
-* No register use for arguments
 * Auto variables placed on fixed stack for known call sequence
 
 ### Intermediate code generation
@@ -67,7 +66,7 @@ After four weeks, the compiler has now matured significantly.  There are still s
 The compiler is command line driven, and creates an executable .prg file.
 
     oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}
-	
+    
 * -i : additional include paths
 * -o : optional output file name
 * -rt : alternative runtime library, replaces the crt.c
@@ -77,12 +76,103 @@ The compiler is command line driven, and creates an executable .prg file.
 
 A list of source files can be provided.
 
+## Inline Assembler
 
+Inline assembler can be embedded inside of any functions, regardles of their compilation target of byte code or native.  
+
+### Accessing variables in assembler
+
+Access to local variables and parameters is done with zero page registers, global variables are accessed using absolute addressing.
+
+    void putchar(char c)
+    {
+        __asm {
+            lda c
+            bne w1
+            lda #13
+        w1:
+            jsr 0xffd2
+        }
+    }
+
+A function return value can be provided in the zero page addresses ACCU (+0..+3).
+
+    char getchar(void)
+    {
+        __asm {
+            jsr 0xffcf
+            sta accu
+            lda #0
+            sta accu + 1
+            }
+    }
+
+Labels are defined with a colon after the name.  Pure assembler functions can be defined outside of the scope of a function and accessed using their name inside of other assembler function.  One can e.g. set up an interrupt
+
+### Interrupt routines
+
+The C compiler will not generate good interrupt code, it is simply too greedy with the zero page registers.  Interrupt code should therefore be written in assembler.
+
+
+	#include <math.h>
+
+    // Next line for interrupt
+    char npos;
+
+    // Interrupt routine
+    __asm irq
+    {   
+        lda $d019   // Check if it is raster IRQ
+        and #$01
+        beq w1
+        
+        inc $d020   // Start colored section
+        inc $d021
+        
+        ldx #20     // Wait for 2/3 lines
+    l1: dex
+        bne l1
+        
+        dec $d020   // End colored section
+        dec $d021
+        
+        lda npos    // Setup next interrupt
+        sta $d012
+    w1:
+        asl $d019   // Ack interrupt
+        
+        jmp $ea31   // System IRQ routine
+    }
+
+    int main(void)
+    {
+        __asm { sei }   // Disable interrupt
+        
+        
+        *(void **)0x0314 = irq;     // Install interrupt routine
+        *(char *)0xd01a = 1;        // Enable raster interrupt
+        *(char *)0xd011 &= 0x7f;    // Set raster line for IRQ
+        *(char *)0xd012 = 100;
+
+        npos = 100;
+        
+        __asm { cli }   // Re-enable interrupt
+        
+        // Move the interrupt raster line up/down
+        float f = 0;
+        while (true)
+        {
+            npos = 130 + (int)(100 * sin(f));
+            f += 0.1;
+        }
+        
+        return 0;
+    }
 
 ## Implementation Details
 
 The compiler does a full program compile, the linker step is part of the compilation.  It knows all functions during the compilation run and includes only reachable code in the output.  Source files are added to the build with the help of a pragma:
-		
+        
     #pragma compile("stdio.c")
 
 The character map for string and char constants can be changed with a pragma to match a custon character set or PETSCII.
@@ -91,32 +181,32 @@ The character map for string and char constants can be changed with a pragma to 
 
 The byte code interpreter is compiled by the compiler itself and placed in the source file "crt.c".  Functions implementing byte codes are marked with a pragma:
 
-    #pragma	bytecode(BC_CONST_P8, inp_const_p8)
+    #pragma bytecode(BC_CONST_P8, inp_const_p8)
 
 The functions are written in 6502 assembly with the __asm keyword
 
     __asm inp_const_p8
     {
-    lda	(ip), y
-    tax
-    iny
-    lda	(ip), y
-    sta	$00, x
-    lda	#0
-    sta	$01, x
-    iny
-    jmp	startup.exec
+		lda (ip), y
+		tax
+		iny
+		lda (ip), y
+		sta $00, x
+		lda #0
+		sta $01, x
+		iny
+		jmp startup.exec
     }
 
 The current byte code program counter is (ip),y. The interpreter loop guarantees that y is always <= 128 and can thus be used to index the additional byte code arguments without the need to check the 16 bit pointer.  The interpreter loop itself is quite compact and takes 21 cycles (including the final jump of the byte code function itself).  Moving it to zero page would reduce this by another two cycles but is most likely not worth the waste of temporary space.
 
     exec:
-        lda	(ip), y
-        sta	execjmp + 1
-        iny		
-        bmi	incip	
+        lda (ip), y
+        sta execjmp + 1
+        iny     
+        bmi incip   
     execjmp:
-        jmp 	(0x0900)
+        jmp     (0x0900)
 
 The intermediate code generator assumes a large number of registers so the zero page is used for this purpose.  The allocation is not yet final:
 
@@ -134,7 +224,7 @@ Routines can be marked to be compiled to 6502 machine code with the native pragm
 
     void Plot(int x, int y)
     {
-    	(*Bitmap)[y >> 3][x >> 3][y & 7] |= 0x80 >> (x & 7);
+        (*Bitmap)[y >> 3][x >> 3][y & 7] |= 0x80 >> (x & 7);
     }
 
     #pragma native(Plot)
