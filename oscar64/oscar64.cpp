@@ -75,7 +75,7 @@ int main(int argc, const char** argv)
 		DWORD length = ::GetModuleFileNameA(NULL, basePath, sizeof(basePath));
 
 #else
-		printf("Starting oscar64 1.0.38\n");
+		printf("Starting oscar64 1.1.40\n");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);

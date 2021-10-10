@@ -4484,20 +4484,6 @@ bool InterCodeProcedure::GlobalConstantPropagation(void)
 	ResetVisited();
 	mEntryBlock->CollectConstTemps(ctemps, assignedTemps);
 
-	FILE* file;
-	fopen_s(&file, "r:\\cldiss.txt", "a");
-
-	for (int i = 0; i < assignedTemps.Size(); i++)
-	{
-		if (assignedTemps[i])
-		{
-			if (ctemps[i])
-				fprintf(file, "%d, ", i);
-		}
-	}
-	fprintf(file, "\n");
-	fclose(file);
-
 	ResetVisited();
 	return mEntryBlock->PropagateConstTemps(ctemps);
 }
