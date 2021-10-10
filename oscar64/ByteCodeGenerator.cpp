@@ -206,6 +206,8 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 			return true;
 		if (mCode == BC_JSR || mCode == BC_CALL)
 			return true;
+		if (mCode == BC_LEA_ABS_INDEX)
+			return true;
 	}
 
 	return false;
@@ -293,6 +295,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		break;
 
 	case BC_LEA_ABS:
+	case BC_LEA_ABS_INDEX:
 		block->PutCode(generator, mCode); block->PutByte(mRegister);
 		if (mRelocate)
 		{
@@ -3261,6 +3264,23 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 
 			for (int i = 0; i < mIns.Size(); i++)
 			{
+				if (i + 3 < mIns.Size())
+				{
+					if (
+						mIns[i + 0].mCode == BC_LEA_ABS && mIns[i + 0].mRegister == BC_REG_ACCU &&
+						mIns[i + 1].mCode == BC_BINOP_ADDR_16 &&
+						mIns[i + 2].mCode == BC_ADDR_REG && mIns[i + 2].mRegister == BC_REG_ACCU &&
+						mIns[i + 3].ChangesAccu())
+					{
+						mIns[i + 0].mCode = BC_LEA_ABS_INDEX;
+						mIns[i + 0].mRegister = mIns[i + 1].mRegister;
+						mIns[i + 0].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
+					}
+				}
+
 				if (i + 2 < mIns.Size())
 				{
 					if (mIns[i].mCode == BC_LOAD_LOCAL_16 &&
@@ -3401,6 +3421,15 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 					{
 						mIns[i + 0].mCode = BC_NOP;
 						mIns[i + 1].mRegister = mIns[i + 0].mRegister;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mCode == BC_LOAD_REG_8 &&
+						mIns[i + 1].mCode == BC_STORE_REG_8 &&
+						mIns[i + 2].mCode == BC_LOAD_REG_8 && mIns[i + 1].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
+					{
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 2].mCode = BC_NOP;
 						progress = true;
 					}
 				}

@@ -704,13 +704,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 
 		if (mScanner->mToken == TK_INLINE)
 		{
-			storageFlags |= DTF_INLINE;
-			mScanner->NextToken();
-		}
-
-		if (mScanner->mToken == TK_FASTCALL)
-		{
-			typeFlags |= DTF_FASTCALL;
+			storageFlags |= DTF_REQUEST_INLINE;
 			mScanner->NextToken();
 		}
 	}
@@ -782,6 +776,18 @@ Declaration* Parser::ParseDeclaration(bool variable)
 									ppdec = ppdec->mNext;
 								}
 							}
+
+							ndec = pdec;
+						}
+						else if ((ndec->mFlags & DTF_EXTERN) || (pdec->mFlags & DTF_EXTERN))
+						{
+							if (!ndec->mBase->IsSame(pdec->mBase))
+							{
+								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs");
+							}
+
+							if (!(ndec->mFlags & DTF_EXTERN))
+								pdec->mFlags &= ~DTF_EXTERN;
 
 							ndec = pdec;
 						}

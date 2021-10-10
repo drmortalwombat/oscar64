@@ -6,6 +6,8 @@ void StackStart, StackEnd, BSSStart, BSSEnd;
 #pragma section(stack, 0x0000, StackStart, StackEnd)
 #pragma section(bss, 0x0000, BSSStart, BSSEnd)
 
+char spentry;
+
 int main(void);
 
 __asm startup
@@ -24,6 +26,9 @@ __asm startup
 		byt	0x00
 
 // Clear BSS Segment
+
+		tsx
+		stx spentry
 
 		lda #<BSSStart
 		sta ip
@@ -202,13 +207,18 @@ __asm divmod
 // byte / byte
 BB:
 		lda #0
-		ldx	#8
+		ldx	#4
 		asl	accu
 LBB1:	rol
 		cmp	tmp
 		bcc	WBB1
 		sbc	tmp
 WBB1:	rol	accu
+		rol
+		cmp	tmp
+		bcc	WBB2
+		sbc	tmp
+WBB2:	rol	accu
 		dex
 		bne	LBB1
 		sta	tmp + 2
@@ -330,26 +340,55 @@ W1:		dey
 
 __asm mul16
 {
-		lda	#0
-		sta	tmp + 2
-		sta	tmp + 3
+		ldy	#0
+		sty	tmp + 3
 
-		ldx	#16
-L1:		lsr	tmp + 1
-		ror	tmp
-		bcc	W1
+		lda	tmp
+		ldx	tmp + 1
+		beq W1
+
+		sec
+		ror
+		bcc	L2
+L1:
+		tax
 		clc
-		lda	tmp + 2
+		tya
 		adc	accu
-		sta	tmp + 2
+		tay
 		lda	tmp + 3
 		adc	accu + 1
 		sta	tmp + 3
-W1:		asl	accu
+		txa
+L2:	
+		asl	accu + 0
 		rol	accu + 1
-		dex
+		lsr
+		bcc	L2
 		bne	L1
-		rts
+
+		lda tmp + 1
+W1:		
+		lsr
+		bcc	L4
+L3:
+		tax
+		clc
+		tya
+		adc	accu
+		tay
+		lda	tmp + 3
+		adc	accu + 1
+		sta	tmp + 3
+		txa
+L4:	
+		asl	accu + 0
+		rol	accu + 1
+		lsr
+		bcs	L3
+		bne	L4
+
+		sty tmp + 2
 }
 
 __asm mul32
@@ -1009,6 +1048,25 @@ __asm inp_lea_abs
 }
 
 #pragma	bytecode(BC_LEA_ABS, inp_lea_abs)
+				
+__asm inp_lea_abs_index
+{
+		lda	(ip), y
+		tax
+		iny
+		clc
+		lda $00, x
+		adc	(ip), y
+		sta	addr
+		iny
+		lda $01, x
+		adc	(ip), y
+		sta	addr + 1
+		iny
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_LEA_ABS_INDEX, inp_lea_abs_index)
 				
 __asm inp_load_local_16
 {

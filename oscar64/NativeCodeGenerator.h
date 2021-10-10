@@ -34,6 +34,7 @@ struct NativeRegisterDataSet
 
 	void Reset(void);
 	void ResetZeroPage(int addr);
+	void Intersect(const NativeRegisterDataSet& set);
 };
 
 
@@ -70,6 +71,8 @@ public:
 	bool RequiresAccu(void) const;
 	bool RequiresYReg(void) const;
 	bool ChangesYReg(void) const;
+	bool ChangesZeroPage(int address) const;
+	bool ChangesGlobalMemory(void) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
@@ -92,8 +95,10 @@ public:
 
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
-	int						mOffset, mSize, mNumEntries, mFrameOffset;
-	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited;
+	int						mOffset, mSize, mNumEntries, mNumEntered, mFrameOffset;
+	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting;
+
+	NativeRegisterDataSet	mDataSet, mNDataSet;
 
 	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
 	int PutJump(NativeCodeProcedure* proc, int offset);
@@ -147,8 +152,10 @@ public:
 
 	void CountEntries(NativeCodeBasicBlock* fromJump);
 	bool MergeBasicBlocks(void);
+	void MarkLoopHead(void);
 
 	bool MoveLoadStoreUp(int at);
+	bool MoveIndirectLoadStoreUp(int at);
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, const NativeCodeInstruction * & ains, int& ireg);

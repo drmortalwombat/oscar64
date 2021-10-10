@@ -267,4 +267,12 @@ public:
 	{
 		Grow(size, true);
 	}
+
+	int IndexOf(const T& t)
+	{
+		for (int i = 0; i < size; i++)
+			if (array[i] == t)
+				return i;
+		return -1;
+	}
 };

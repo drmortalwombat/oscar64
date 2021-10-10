@@ -19,6 +19,7 @@ Compiler::Compiler(void)
 	mInterCodeGenerator = new InterCodeGenerator(mErrors, mLinker);
 	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker);
 	mInterCodeModule = new InterCodeModule();
+	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
 
 	mCompilationUnits->mLinker = mLinker;
 
@@ -155,6 +156,11 @@ bool Compiler::GenerateCode(void)
 	}
 
 	dcrtstart->mSection = sectionStartup;
+
+	mGlobalAnalyzer->AnalyzeAssembler(dcrtstart->mValue, nullptr);
+	mGlobalAnalyzer->DumpCallGraph();
+	mGlobalAnalyzer->AutoInline();
+	mGlobalAnalyzer->DumpCallGraph();
 
 	mInterCodeGenerator->mForceNativeCode = mNativeCode;
 	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue, nullptr);

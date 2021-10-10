@@ -4,6 +4,7 @@
 #include "Scanner.h"
 #include "MachineTypes.h"
 #include "Assembler.h"
+#include "Array.h"
 
 class LinkerObject;
 class LinkerSection;
@@ -63,6 +64,14 @@ static const uint32 DTF_SECTION_START	= 0x00001000;
 static const uint32 DTF_SECTION_END		= 0x00002000;
 static const uint32 DTF_FASTCALL		= 0x00004000;
 static const uint32 DTF_INLINE			= 0x00008000;
+static const uint32	DTF_ANALYZED	    = 0x00010000;
+static const uint32 DTF_REQUEST_INLINE  = 0x00020000;
+
+static const uint32 DTF_FUNC_VARIABLE	= 0x00040000;
+static const uint32 DTF_FUNC_ASSEMBLER	= 0x00080000;
+static const uint32 DTF_FUNC_RECURSIVE  = 0x00100000;
+static const uint32 DTF_FUNC_ANALYZING  = 0x00200000;
+
 
 class Declaration;
 
@@ -156,7 +165,7 @@ public:
 	Declaration*		mBase, *mParams, * mNext;
 	Expression*			mValue;
 	DeclarationScope*	mScope;
-	int					mOffset, mSize, mVarIndex, mNumVars;
+	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity;
 	int64				mInteger;
 	double				mNumber;
 	uint32				mFlags;
@@ -164,6 +173,8 @@ public:
 	LinkerSection	*	mSection;
 	const uint8		*	mData;
 	LinkerObject	*	mLinkerObject;
+
+	GrowingArray<Declaration*>	mCallers, mCalled;
 
 	bool CanAssign(const Declaration* fromType) const;
 	bool IsSame(const Declaration* dec) const;

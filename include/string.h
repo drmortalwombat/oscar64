@@ -1,9 +1,9 @@
 #ifndef STRING_H
 #define STRING_H
 
-__fastcall char * strcpy(char * dst, const char * src);
+char * strcpy(char * dst, const char * src);
 
-__fastcall int strcmp(const char * ptr1, const char * ptr2);
+int strcmp(const char * ptr1, const char * ptr2);
 
 int strlen(const char * str);
 

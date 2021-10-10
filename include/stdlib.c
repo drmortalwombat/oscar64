@@ -2,6 +2,7 @@
 #include "string.h"
 #include "stdio.h"
 #include "math.h"
+#include "crt.h"
 
 void itoa(int n, char * s, unsigned radix)
 {
@@ -312,8 +313,12 @@ void exit(int status)
 		sta	accu + 0
 		lda	status + 1
 		sta	accu + 1
-		pla
-		pla
+		ldx	spentry
+		txs
+		lda	#$4c
+		sta	$54
+		lda #0
+		sta $13
 	}
 }
 

@@ -18,6 +18,13 @@ if %errorlevel% neq 0 goto :error
 ..\release\oscar64 -e -n testint32.c
 if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e testint16mul.c
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n testint16mul.c
+if %errorlevel% neq 0 goto :error
+
+
 ..\release\oscar64 -e recursiontest.c
 if %errorlevel% neq 0 goto :error
 

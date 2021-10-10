@@ -16,12 +16,15 @@ char * strcpy(char * dst, const char * src)
 		sta (dst), y
 		beq W1
 		iny
+		lda (src), y
+		sta (dst), y
+		beq W1
+		iny
 		bne L1
 		inc src + 1
 		inc dst + 1
 		bne L1
 	W1:
-		rts
 
 	}
 }
@@ -57,17 +60,18 @@ int strcmp(const char * ptr1, const char * ptr2)
 	W2:	bcs gt
 		lda #$ff
 		sta accu
-		sta accu + 1
-		rts
+		bmi E
+
 	gt: lda #$01
 		sta accu
 		lda #$00
-		sta accu + 1
-		rts
+		beq	E
+
 	W1:	cmp (ptr2), y
 		bne W2
 		lda #$00
 		sta accu
+	E:
 		sta accu + 1
 	}
 }

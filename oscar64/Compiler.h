@@ -6,6 +6,7 @@
 #include "ByteCodeGenerator.h"
 #include "NativeCodeGenerator.h"
 #include "InterCodeGenerator.h"
+#include "GlobalAnalyzer.h"
 #include "Linker.h"
 
 class Compiler
@@ -22,6 +23,7 @@ public:
 	NativeCodeGenerator* mNativeCodeGenerator;
 	InterCodeGenerator* mInterCodeGenerator;
 	InterCodeModule* mInterCodeModule;
+	GlobalAnalyzer* mGlobalAnalyzer;
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
 

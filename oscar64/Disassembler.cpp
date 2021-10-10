@@ -20,6 +20,11 @@ const char* ByteCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodePro
 		return "ADDR";
 	else if (tmp == BC_REG_ACCU)
 		return "ACCU";
+	else if (tmp >= BC_REG_FPARAMS && tmp <= BC_REG_FPARAMS + 7)
+	{
+		sprintf_s(buffer, 10, "P%d", tmp - BC_REG_FPARAMS);
+		return buffer;
+	}
 	else if (proc && tmp >= BC_REG_TMP && tmp < BC_REG_TMP + proc->mTempSize)
 	{
 		int	i = 0;
@@ -149,6 +154,11 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 
 		case BC_LEA_ABS:
 			fprintf(file, "LEA\t%s, %s", TempName(memory[start + i + 0], tbuffer, proc), AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker));
+			i += 3;
+			break;
+
+		case BC_LEA_ABS_INDEX:
+			fprintf(file, "LEAX\tADDR, %s + %s", AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker), TempName(memory[start + i + 0], tbuffer, proc));
 			i += 3;
 			break;
 
@@ -639,7 +649,7 @@ const char* NativeCodeDisassembler::AddrName(int addr, char* buffer, Linker* lin
 		LinkerObject* obj = linker->FindObjectByAddr(addr);
 		if (obj && obj->mIdent)
 		{
-			sprintf_s(buffer, 40, "%s + %d", obj->mIdent->mString, addr - obj->mAddress);
+			sprintf_s(buffer, 40, "$%04x  ; (%s + %d)", addr, obj->mIdent->mString, addr - obj->mAddress);
 			return buffer;
 		}
 	}
@@ -669,6 +679,11 @@ const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeP
 	else if (tmp >= BC_REG_IP && tmp <= BC_REG_IP + 1)
 	{
 		sprintf_s(buffer, 10, "IP + %d", tmp - BC_REG_IP);
+		return buffer;
+	}
+	else if (tmp >= BC_REG_FPARAMS && tmp <= BC_REG_FPARAMS + 7)
+	{
+		sprintf_s(buffer, 10, "P%d", tmp - BC_REG_FPARAMS);
 		return buffer;
 	}
 	else if (tmp >= BC_REG_LOCALS && tmp <= BC_REG_LOCALS + 3)

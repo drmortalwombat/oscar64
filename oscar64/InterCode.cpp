@@ -673,6 +673,8 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 		case IT_POINTER:
 			break;
 		default:
+			assert(ins->mSrc[1].mType == IT_INT8 || ins->mSrc[1].mType == IT_INT16 || ins->mSrc[1].mType == IT_INT32);
+
 			if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT &&
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
@@ -1199,10 +1201,12 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 	switch (mCode)
 	{
 	case IC_LOAD:
+	case IC_CALL:
+	case IC_CALL_NATIVE:
 		if (mSrc[0].mTemp >= 0 && ctemps[mSrc[0].mTemp])
 		{
 			InterInstruction* ains = ctemps[mSrc[0].mTemp];
-			mSrc[0].mIntConst = ains->mConst.mIntConst;
+			mSrc[0].mIntConst += ains->mConst.mIntConst;
 			mSrc[0].mLinkerObject = ains->mConst.mLinkerObject;
 			mSrc[0].mVarIndex = ains->mConst.mVarIndex;
 			mSrc[0].mMemory = ains->mConst.mMemory;
@@ -1214,7 +1218,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 		if (mSrc[1].mTemp >= 0 && ctemps[mSrc[1].mTemp])
 		{
 			InterInstruction* ains = ctemps[mSrc[1].mTemp];
-			mSrc[1].mIntConst = ains->mConst.mIntConst;
+			mSrc[1].mIntConst += ains->mConst.mIntConst;
 			mSrc[1].mLinkerObject = ains->mConst.mLinkerObject;
 			mSrc[1].mVarIndex = ains->mConst.mVarIndex;
 			mSrc[1].mMemory = ains->mConst.mMemory;
@@ -1732,6 +1736,11 @@ InterCodeBasicBlock::~InterCodeBasicBlock(void)
 
 void InterCodeBasicBlock::Append(InterInstruction * code)
 {
+	if (code->mCode == IC_BINARY_OPERATOR)
+	{
+		assert(code->mSrc[1].mType != IT_POINTER);
+	}
+
 	assert(!(code->mInUse));
 	code->mInUse = true;
 	this->mInstructions.Push(code);
@@ -1843,7 +1852,7 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 
 		if (ains->mCode == IC_CONSTANT)
 		{
-			ins->mSrc[offset].mIntConst = ains->mConst.mIntConst;
+			ins->mSrc[offset].mIntConst += ains->mConst.mIntConst;
 			ins->mSrc[offset].mLinkerObject = ains->mConst.mLinkerObject;
 			ins->mSrc[offset].mVarIndex = ains->mConst.mVarIndex;
 			ins->mSrc[offset].mMemory = ains->mConst.mMemory;
@@ -1851,16 +1860,18 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 		}
 		else if (ains->mCode == IC_LEA && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].mTemp >= 0 && tvalue[ains->mSrc[1].mTemp])
 		{
-			ins->mSrc[offset].mIntConst = ains->mSrc[0].mIntConst;
+			ins->mSrc[offset].mIntConst += ains->mSrc[0].mIntConst;
 			ins->mSrc[offset].mTemp = ains->mSrc[1].mTemp;
 		}
 		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].mTemp >= 0 && tvalue[ains->mSrc[1].mTemp] && ains->mSrc[0].mIntConst >= 0)
 		{
+			assert(false);
 			ins->mSrc[offset].mIntConst = ains->mSrc[0].mIntConst;
 			ins->mSrc[offset].mTemp = ains->mSrc[1].mTemp;
 		}
 		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[1].mTemp < 0 && ains->mSrc[0].mTemp >= 0 && tvalue[ains->mSrc[0].mTemp] && ains->mSrc[1].mIntConst >= 0)
 		{
+			assert(false);
 			ins->mSrc[offset].mIntConst = ains->mSrc[1].mIntConst;
 			ins->mSrc[offset].mTemp = ains->mSrc[0].mTemp;
 		}
@@ -3263,7 +3274,7 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 	}
 }
 
-void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, bool &inlineAssembler)
+void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, bool &inlineAssembler, bool &byteCodeCall)
 {
 	int i;
 
@@ -3295,10 +3306,12 @@ void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, b
 			}
 			else if (mInstructions[i]->mCode == IC_ASSEMBLER)
 				inlineAssembler = true;
+			else if (mInstructions[i]->mCode == IC_CALL)
+				byteCodeCall = true;
 		}
 
-		if (mTrueJump) mTrueJump->CollectOuterFrame(level, size, inner, inlineAssembler);
-		if (mFalseJump) mFalseJump->CollectOuterFrame(level, size, inner, inlineAssembler);
+		if (mTrueJump) mTrueJump->CollectOuterFrame(level, size, inner, inlineAssembler, byteCodeCall);
+		if (mFalseJump) mFalseJump->CollectOuterFrame(level, size, inner, inlineAssembler, byteCodeCall);
 	}
 }
 
@@ -3450,6 +3463,14 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 		if (mLoopHead && mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
 		{
+			bool	hasCall = false;
+			for (int i = 0; i < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+				if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+					hasCall = true;
+			}
+
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{
 				InterInstruction* ins = mInstructions[i];
@@ -3460,6 +3481,10 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 				else if (ins->mCode == IC_LOAD)
 				{
 					if (ins->mSrc[0].mTemp >= 0 || ins->mVolatile)
+					{
+						ins->mInvariant = false;
+					}
+					else if (ins->mSrc[0].mMemory == IM_GLOBAL && hasCall)
 					{
 						ins->mInvariant = false;
 					}
@@ -4159,12 +4184,13 @@ void InterCodeProcedure::Close(void)
 
 	mHasDynamicStack = false;
 	mHasInlineAssembler = false;
+	mCallsByteCode = false;
 	if (!mLeafProcedure)
 	{
 		int		size = 0;
 
 		ResetVisited();
-		mEntryBlock->CollectOuterFrame(0, size, mHasDynamicStack, mHasInlineAssembler);
+		mEntryBlock->CollectOuterFrame(0, size, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode);
 		mCommonFrameSize = size;
 	}
 	else
@@ -4457,6 +4483,20 @@ bool InterCodeProcedure::GlobalConstantPropagation(void)
 
 	ResetVisited();
 	mEntryBlock->CollectConstTemps(ctemps, assignedTemps);
+
+	FILE* file;
+	fopen_s(&file, "r:\\cldiss.txt", "a");
+
+	for (int i = 0; i < assignedTemps.Size(); i++)
+	{
+		if (assignedTemps[i])
+		{
+			if (ctemps[i])
+				fprintf(file, "%d, ", i);
+		}
+	}
+	fprintf(file, "\n");
+	fclose(file);
 
 	ResetVisited();
 	return mEntryBlock->PropagateConstTemps(ctemps);

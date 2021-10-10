@@ -756,7 +756,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (inlineMapper)
 				{
 					ins->mConst.mMemory = IM_LOCAL;
-					ins->mConst.mVarIndex = inlineMapper->mParams[dec->mOffset];
+					ins->mConst.mVarIndex = inlineMapper->mParams[dec->mVarIndex];
 				}
 				else if (procType->mFlags & DTF_FASTCALL)
 					ins->mConst.mMemory = IM_FPARAM;
@@ -1298,13 +1298,21 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			block->Append(cins);
 
-			ains->mCode = IC_BINARY_OPERATOR;
-			ains->mOperator = IA_ADD;
+			InterType	ttype = InterTypeOf(vdl.mType);
+			if (ttype == IT_POINTER)
+			{
+				ains->mCode = IC_LEA;
+			}
+			else
+			{
+				ains->mCode = IC_BINARY_OPERATOR;
+				ains->mOperator = IA_ADD;
+			}
 			ains->mSrc[0].mType = cins->mDst.mType;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;
-			ains->mSrc[1].mType = InterTypeOf(vdl.mType);
+			ains->mSrc[1].mType = ttype;
 			ains->mSrc[1].mTemp = vdl.mTemp;
-			ains->mDst.mType = ains->mSrc[1].mType;
+			ains->mDst.mType = ttype;
 			ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 			block->Append(ains);
 
@@ -1349,14 +1357,22 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric value or pointer");
 			block->Append(cins);
 
-			ains->mCode = IC_BINARY_OPERATOR;
-			ains->mOperator = IA_ADD;
+			InterType	ttype = InterTypeOf(vdl.mType);
+			if (ttype == IT_POINTER)
+			{
+				ains->mCode = IC_LEA;
+			}
+			else
+			{
+				ains->mCode = IC_BINARY_OPERATOR;
+				ains->mOperator = IA_ADD;
+			}
 			ains->mSrc[0].mType = cins->mDst.mType;
 			ains->mSrc[0].mTemp = cins->mDst.mTemp;
-			ains->mSrc[1].mType = InterTypeOf(vdl.mType);
+			ains->mSrc[1].mType = ttype;
 			ains->mSrc[1].mTemp = vdl.mTemp;
-			ains->mDst.mType = ains->mSrc[1].mType;
-			ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
+			ains->mDst.mType = ttype;
+			ains->mDst.mTemp = proc->AddTemporary(ttype);
 			block->Append(ains);
 
 			sins->mCode = IC_STORE;
@@ -1588,7 +1604,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				return ExValue(TheVoidTypeDeclaration);
 			}
-			else if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && (exp->mLeft->mDecValue->mFlags & DTF_INLINE) && !(inlineMapper && inlineMapper->mDepth > 3))
+			else if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && (exp->mLeft->mDecValue->mFlags & DTF_INLINE) && !(inlineMapper && inlineMapper->mDepth > 10))
 			{
 				Declaration* fdec = exp->mLeft->mDecValue;
 				Expression* fexp = fdec->mValue;
@@ -1965,13 +1981,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					Declaration* vdec = refvars[i];
 					if (vdec->mType == DT_ARGUMENT)
 					{
-						if (procType->mFlags & DTF_FASTCALL)
+						vins->mConst.mVarIndex = vdec->mVarIndex;
+						if (inlineMapper)
+						{
+							vins->mConst.mMemory = IM_LOCAL;
+							vins->mConst.mVarIndex = inlineMapper->mParams[vdec->mVarIndex];
+						}
+						else if (procType->mFlags & DTF_FASTCALL)
 							vins->mConst.mMemory = IM_FPARAM;
 						else
 							vins->mConst.mMemory = IM_PARAM;
 						vins->mConst.mOperandSize = vdec->mSize;
 						vins->mConst.mIntConst = vdec->mOffset;
-						vins->mConst.mVarIndex = vdec->mVarIndex;
 					}
 
 					block->Append(vins);

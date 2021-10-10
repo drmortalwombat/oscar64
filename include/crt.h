@@ -13,6 +13,7 @@
 #define	sregs		0x43
 #define	regs		0x53
 
+extern char spentry;
 
 enum ByteCode
 {
@@ -42,6 +43,7 @@ enum ByteCode
 	BC_STORE_ABS_32,
 
 	BC_LEA_ABS,
+	BC_LEA_ABS_INDEX,
 
 	BC_LOAD_LOCAL_8,
 	BC_LOAD_LOCAL_16,
