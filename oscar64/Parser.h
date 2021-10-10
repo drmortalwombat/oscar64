@@ -21,6 +21,9 @@ protected:
 	bool ConsumeToken(Token token);
 	bool ConsumeTokenIf(Token token);
 
+	char			mCharMap[256];
+
+
 	void ParsePragma(void);
 
 	Declaration* ParseBaseTypeDeclaration(uint32 flags);

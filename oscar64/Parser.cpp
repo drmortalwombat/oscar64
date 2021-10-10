@@ -12,6 +12,9 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 	mCodeSection = compilationUnits->mSectionCode;
 	mDataSection = compilationUnits->mSectionData;
 	mBSSection = compilationUnits->mSectionBSS;
+
+	for (int i = 0; i < 256; i++)
+		mCharMap[i] = i;
 }
 
 Parser::~Parser(void)
@@ -638,7 +641,14 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 
 			if (strlen(mScanner->mTokenString) < dtype->mSize)
 			{
-				strcpy_s((char *)d, dec->mSize, mScanner->mTokenString);
+				int i = 0;
+				while (i < dec->mSize && mScanner->mTokenString[i])
+				{
+					d[i] = mCharMap[mScanner->mTokenString[i]];
+					i++;
+				}
+				if (i < dec->mSize)
+					d[i] = 0;
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "String constant is too large for char array");
@@ -920,6 +930,16 @@ Expression* Parser::ParseSimpleExpression(void)
 	case TK_STATIC:
 		exp = ParseDeclarationExpression();
 		break;
+	case TK_CHARACTER:
+		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+		dec->mInteger = mCharMap[mScanner->mTokenInteger];
+		dec->mBase = TheUnsignedIntTypeDeclaration;
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+
+		mScanner->NextToken();
+		break;
 	case TK_INTEGER:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 		dec->mInteger = mScanner->mTokenInteger;
@@ -988,7 +1008,14 @@ Expression* Parser::ParseSimpleExpression(void)
 		dec->mBase->mFlags |= DTF_DEFINED;
 		uint8* d = new uint8[dec->mSize];
 		dec->mData = d;
-		memcpy(d, mScanner->mTokenString, dec->mSize);
+
+		int i = 0;
+		while (mScanner->mTokenString[i])
+		{
+			d[i] = mCharMap[mScanner->mTokenString[i]];
+			i++;
+		}
+		d[i] = 0;
 
 		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		exp->mDecValue = dec;
@@ -1002,7 +1029,13 @@ Expression* Parser::ParseSimpleExpression(void)
 			int	s = strlen(mScanner->mTokenString);
 			uint8* d = new uint8[dec->mSize + s];
 			memcpy(d, dec->mData, dec->mSize - 1);
-			memcpy(d + dec->mSize - 1, mScanner->mTokenString, s + 1);
+			int i = 0;
+			while (mScanner->mTokenString[i])
+			{
+				d[i + dec->mSize] = mCharMap[mScanner->mTokenString[i]];
+				i++;
+			}
+			d[i + dec->mSize] = 0;
 			dec->mSize += s;
 			delete[] dec->mData;
 			dec->mData = d;
@@ -1898,6 +1931,16 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 
 		mScanner->NextToken();
 		break;
+	case TK_CHARACTER:
+		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+		dec->mInteger = mCharMap[mScanner->mTokenInteger];
+		dec->mBase = TheUnsignedIntTypeDeclaration;
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+
+		mScanner->NextToken();
+		break;
 
 	case TK_IDENT:
 		dec = mScope->Lookup(mScanner->mTokenIdent);
@@ -2631,7 +2674,7 @@ void Parser::ParsePragma(void)
 
 					for (int i = 0; i < ccount; i++)
 					{
-						mScanner->mCharMap[cindex] = ccode;
+						mCharMap[cindex] = ccode;
 						cindex = (cindex + 1) & 255;
 						ccode = (ccode + 1) & 255;
 					}

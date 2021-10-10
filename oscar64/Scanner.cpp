@@ -50,6 +50,7 @@ const char* TokenNames[] = {
 		"__asm",
 
 		"number",
+		"char",
 		"string literal",
 		"identifier",
 		"'true'",
@@ -269,9 +270,6 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 
 	mDefines = new MacroDict();
 	mDefineArguments = nullptr;
-
-	for (int i = 0; i < 256; i++)
-		mCharMap[i] = i;
 
 	NextChar();
 	NextToken();
@@ -1233,7 +1231,7 @@ void Scanner::StringToken(char terminator)
 			}
 		}
 
-		mTokenString[n++] = mCharMap[mTokenChar];
+		mTokenString[n++] = mTokenChar;
 	}
 
 	mTokenString[n] = 0;
@@ -1301,13 +1299,13 @@ void Scanner::CharToken(void)
 		}
 	}
 
-	mTokenChar = mCharMap[mTokenChar];
+	mTokenChar = mTokenChar;
 
 	mTokenInteger = mTokenChar;
 
 	if (mLine[mOffset] && mLine[mOffset] == '\'')
 	{
-		mToken = TK_INTEGERU;
+		mToken = TK_CHARACTER;
 		mOffset++;
 		NextChar();
 	}
@@ -1540,6 +1538,7 @@ int64 Scanner::PrepParseSimple(void)
 	
 	switch (mToken)
 	{
+	case TK_CHARACTER:
 	case TK_INTEGER:
 	case TK_INTEGERU:
 	case TK_INTEGERL:
