@@ -1318,7 +1318,7 @@ Expression* Parser::ParsePrefixExpression(void)
 					// no pointer to function dereferencing
 					if (nexp->mLeft->mDecType->mBase->mType == DT_TYPE_FUNCTION)
 						return nexp->mLeft;
-					nexp->mDecType = nexp->mLeft->mDecType;
+					nexp->mDecType = nexp->mLeft->mDecType->mBase;
 				}
 				else
 					mErrors->Error(nexp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Pointer or array type expected");
