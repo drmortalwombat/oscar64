@@ -432,16 +432,21 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 			}
 			else if (aexp->mType == DT_LABEL_REF)
 			{
-				if (!aexp->mBase->mBase->mLinkerObject)
-					TranslateAssembler(mod, aexp->mBase->mBase->mValue, nullptr);
+				if (aexp->mBase->mBase)
+				{
+					if (!aexp->mBase->mBase->mLinkerObject)
+						TranslateAssembler(mod, aexp->mBase->mBase->mValue, nullptr);
 
-				LinkerReference	ref;
-				ref.mObject = dec->mLinkerObject;
-				ref.mOffset = offset;
-				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
-				ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
-				ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
-				dec->mLinkerObject->AddReference(ref);
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
+					ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
+					dec->mLinkerObject->AddReference(ref);
+				}
+				else
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label");
 
 				offset += 2;
 			}

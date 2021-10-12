@@ -23,7 +23,7 @@ The goal is to implement the actual C standard and not some subset for performan
 
 ## Limits and Errors
 
-After four weeks, the compiler has now matured significantly.  There are still several open areas.
+There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 35 iterations per second with byte code (12259) and 203 iterations with native code (13572 Bytes).
 
 ### Language
 
@@ -75,6 +75,19 @@ The compiler is command line driven, and creates an executable .prg file.
 * -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)
 
 A list of source files can be provided.
+
+## Console input and output
+
+The C64 does not use ASCII it uses a derivative called PETSCII.  There are two fonts, one with uppercase and one with uppercase and lowercase characters.  It also used CR (13) as line terminator instead of LF (10).  The stdio and conio libaries can perform translations.
+
+The translation mode is selected in conio with the variable "giocharmap" and the function "iocharmap" which will also switch the font.
+
+	iocharmap(IOCHM_PETSCII_2);
+	printf("Hello World\");
+	
+Will switch to the lowercase PETSCII font and translate the strings while printing.
+
+Input from the console will also be translated accordingly.
 
 ## Inline Assembler
 

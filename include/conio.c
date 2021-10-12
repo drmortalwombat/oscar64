@@ -1,5 +1,75 @@
 #include "conio.h"
 
+static IOCharMap		giocharmap = IOCHM_ASCII;
+
+void iocharmap(IOCharMap chmap)
+{
+	giocharmap = chmap;
+	if (chmap == IOCHM_PETSCII_1)
+		putchar(128 + 14);
+	else if (chmap == IOCHM_PETSCII_2)
+		putchar(14);
+}
+
+__asm putpch
+{
+		ldx	giocharmap
+		cpx	#IOCHM_ASCII
+		bcc	w3
+
+		cmp #10
+		bne	w1
+		lda #13
+	w1:
+		cpx	#IOCHM_PETSCII_1
+		bcc	w3
+
+		cmp #65
+		bcc w3
+		cmp	#123
+		bcs	w3
+		cmp	#97
+		bcs	w2
+		cmp #91
+		bcs	w3
+	w2:
+		eor	#$20
+		cpx #IOCHM_PETSCII_2
+		beq	w3
+		and #$df
+	w3:
+		jmp	0xffd2	
+}
+
+__asm getpch
+{
+		jsr	0xffe4
+
+		ldx	giocharmap
+		cpx	#IOCHM_ASCII
+		bcc	w3
+
+		cmp	#13
+		bne	w1
+		lda #10
+	w1:
+		cpx	#IOCHM_PETSCII_1
+		bcc	w3
+
+		cmp #65
+		bcc w3
+		cmp	#123
+		bcs	w3
+		cmp	#97
+		bcs	w2
+		cmp #91
+		bcs	w3
+	w2:
+		eor	#$20
+	w3:
+}
+
+
 int kbhit(void)
 {
 	__asm
@@ -16,12 +86,12 @@ int getche(void)
 	__asm
 	{
 	L1:
-		jsr	$ffe4
+		jsr	getpch
 		cmp	#0
 		beq	L1
 
 		sta	accu
-		jsr $ffd2
+		jsr putpch
 		lda	#0
 		sta	accu + 1		
 	}
@@ -33,7 +103,7 @@ int getch(void)
 	__asm
 	{
 	L1:
-		jsr	$ffe4
+		jsr	getpch
 		cmp	#0
 		beq	L1
 
@@ -60,16 +130,17 @@ void clrscr(void)
 	}
 }
 
-void gotoxy(int x, int y)
+void textcursor(bool show)
+{
+	*(char *)0xcc = show ? 0 : 1;
+}
+
+void gotoxy(int cx, int cy)
 {
 	__asm
 	{
-		ldy	#y
-		lda	(fp), y
-		tax
-		ldy	#x
-		lda	(fp), y
-		tay
+		ldy	cy
+		ldx	cx
 		clc
 		jsr $fff0
 	}	
@@ -79,8 +150,7 @@ void textcolor(int c)
 {
 	__asm
 	{
-		ldy	#c
-		lda	(fp), y
+		lda	c
 		sta $0286
 	}
 }

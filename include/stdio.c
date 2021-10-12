@@ -1,21 +1,77 @@
 #include "stdio.h"
-#include <stdlib.h>
+#include "conio.h"
+#include "stdlib.h"
+
+__asm putpch
+{
+		ldx	giocharmap
+		cpx	#IOCHM_ASCII
+		bcc	w3
+
+		cmp #10
+		bne	w1
+		lda #13
+	w1:
+		cpx	#IOCHM_PETSCII_1
+		bcc	w3
+
+		cmp #65
+		bcc w3
+		cmp	#123
+		bcs	w3
+		cmp	#97
+		bcs	w2
+		cmp #91
+		bcs	w3
+	w2:
+		eor	#$20
+		cpx #IOCHM_PETSCII_2
+		beq	w3
+		and #$df
+	w3:
+		jmp	0xffd2	
+}
+
+__asm getpch
+{
+		jsr	0xffcf
+
+		ldx	giocharmap
+		cpx	#IOCHM_ASCII
+		bcc	w3
+
+		cmp	#13
+		bne	w1
+		lda #10
+	w1:
+		cpx	#IOCHM_PETSCII_1
+		bcc	w3
+
+		cmp #65
+		bcc w3
+		cmp	#123
+		bcs	w3
+		cmp	#97
+		bcs	w2
+		cmp #91
+		bcs	w3
+	w2:
+		eor	#$20
+	w3:
+}
 
 void putchar(char c)
 {
 	__asm {
 		lda c
-		bne	w1
-		lda #13
-	w1:
-		jsr	0xffd2
+		jmp	putpch
 	}
 }
 
 char getchar(void)
 {
 	__asm {
-		jsr	0xffcf
+		jsr	getpch
 		sta	accu
 		lda	#0
 		sta	accu + 1
@@ -25,21 +81,16 @@ char getchar(void)
 void puts(const char * str)
 {
 	__asm {
+	loop:
 		ldy	#0
 		lda	(str), y
 		beq	done
-	loop:
-		cmp #10
-		bne	w1
-		lda #13
-	w1:
-		jsr	0xffd2		
+	
+		jsr	putpch
+
 		inc	str
-		bne	next
+		bne	loop
 		inc	str + 1
-	next:
-		ldy	#0
-		lda	(str), y
 		bne	loop
 	done:
 	}
@@ -49,14 +100,14 @@ char * gets(char * str)
 {
 	__asm {
 	loop:
-		jsr	0xffcf
+		jsr	getpch
 		ldy	#0
-		cmp	#13
+		cmp	#10
 		beq	done
 		sta	(str), y
 		inc	str
 		bne	loop
-		inc	srt + 1
+		inc	str + 1
 		bne	loop
 	done:		
 		lda	#0
