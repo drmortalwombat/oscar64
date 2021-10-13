@@ -83,7 +83,7 @@ The C64 does not use ASCII it uses a derivative called PETSCII.  There are two f
 The translation mode is selected in conio with the variable "giocharmap" and the function "iocharmap" which will also switch the font.
 
 	iocharmap(IOCHM_PETSCII_2);
-	printf("Hello World\");
+	printf("Hello World\n");
 	
 Will switch to the lowercase PETSCII font and translate the strings while printing.
 

@@ -86,7 +86,7 @@ void ValueSet::FlushCallAliases(void)
 	}
 }
 
-static int64 ConstantFolding(InterOperator oper, int64 val1, int64 val2)
+static int64 ConstantFolding(InterOperator oper, int64 val1, int64 val2 = 0)
 {
 	switch (oper)
 	{
@@ -3357,6 +3357,27 @@ static bool CanBypassLoad(const InterInstruction * lins, const InterInstruction 
 	return true;
 }
 
+static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins)
+{
+	if (lins->mDst.mTemp >= 0)
+	{
+		if (lins->mDst.mTemp == bins->mDst.mTemp)
+			return false;
+
+		for (int i = 0; i < bins->mNumOperands; i++)
+			if (lins->mDst.mTemp == bins->mSrc[i].mTemp)
+				return false;
+	}
+	if (bins->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < lins->mNumOperands; i++)
+			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
+				return false;
+	}
+
+	return true;
+}
+
 static bool CanBypassStore(const InterInstruction * sins, const InterInstruction * bins)
 {
 	if (bins->mCode == IC_COPY || bins->mCode == IC_PUSH_FRAME)
@@ -3606,6 +3627,10 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 	}
 }
 
+static bool IsCommutative(InterOperator op)
+{
+	return op == IA_ADD || op == IA_MUL || op == IA_AND || op == IA_OR || op == IA_XOR;
+}
 void InterCodeBasicBlock::PeepholeOptimization(void)
 {
 	int		i;
@@ -3629,7 +3654,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 		// shorten lifespan
 
 		int	limit = mInstructions.Size() - 1;
-		if (limit >= 2 && mInstructions[limit]->mCode == IC_BRANCH)
+		if (limit >= 0 && mInstructions[limit]->mCode == IC_BRANCH)
 			limit -= 2;
 
 		int i = limit;
@@ -3642,6 +3667,18 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 				InterInstruction	*	ins(mInstructions[i]);
 				int j = i;
 				while (j < limit && CanBypassLoad(ins, mInstructions[j + 1]))
+				{
+					mInstructions[j] = mInstructions[j + 1];
+					j++;
+				}
+				if (i != j)
+					mInstructions[j] = ins;
+			}
+			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR || mInstructions[i]->mCode == IC_UNARY_OPERATOR || mInstructions[i]->mCode == IC_CONVERSION_OPERATOR || mInstructions[i]->mCode == IC_CONSTANT)
+			{
+				InterInstruction* ins(mInstructions[i]);
+				int j = i;
+				while (j < limit && CanBypass(ins, mInstructions[j + 1]))
 				{
 					mInstructions[j] = mInstructions[j + 1];
 					j++;
@@ -3696,10 +3733,16 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp &&
 						(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal)
 					{
+						int	t = mInstructions[i + 0]->mDst.mTemp;
 						mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
 						mInstructions[i + 1]->mCode = IC_NONE;
 						mInstructions[i + 2]->mSrc[0].mTemp = mInstructions[i + 1]->mDst.mTemp;
 						mInstructions[i + 2]->mSrc[0].mFinal = false;
+						if (mInstructions[i + 2]->mSrc[1].mTemp == t)
+						{
+							mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
+							mInstructions[i + 2]->mSrc[1].mFinal = false;
+						}
 						changed = true;
 					}
 					else if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
@@ -3745,6 +3788,16 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mDst.mTemp;
 						changed = true;
 					}
+					else if (
+						mInstructions[i + 0]->mDst.mTemp >= 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && IsCommutative(mInstructions[i + 1]->mOperator) && mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp)
+					{
+						InterOperand	io = mInstructions[i + 1]->mSrc[1];
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+						mInstructions[i + 1]->mSrc[0] = io;
+						changed = true;
+					}
+
 
 					// Postincrement artifact
 					if (mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
@@ -4390,10 +4443,10 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->PeepholeOptimization();
 
+	DisassembleDebug("Peephole optimized");
+
 	TempForwarding();
 	RemoveUnusedInstructions();
-
-	DisassembleDebug("Peephole optimized");
 
 	ResetVisited();
 	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet);

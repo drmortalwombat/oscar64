@@ -9,9 +9,9 @@
 #define VIC_CTRL1_ECM	0x40
 #define VIC_CTRL1_RST8	0x80
 
-#define VIC_CTRL2_CSEL	0x10
-#define VIC_CTRL2_MCM	0x20
-#define VIC_CTRL2_RES	0x40
+#define VIC_CTRL2_CSEL	0x08
+#define VIC_CTRL2_MCM	0x10
+#define VIC_CTRL2_RES	0x20
 
 #define VIC_INTR_RST	0x01
 #define VIC_INTR_MBC	0x02
@@ -45,7 +45,7 @@ struct VIC
 	struct XY
 	{
 		byte	x, y;
-	}	spritexy[8];
+	}	spr_pos[8];
 	byte	spr_msbx;
 
 	byte	ctrl1;
@@ -73,6 +73,10 @@ struct VIC
 
 };
 
+void vic_setbank(char bank);
+
 #define vic	(*((VIC *)0xd000))
+
+#pragma compile("vic.c")
 
 #endif

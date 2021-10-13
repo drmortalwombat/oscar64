@@ -72,6 +72,7 @@ public:
 	bool RequiresYReg(void) const;
 	bool ChangesYReg(void) const;
 	bool ChangesZeroPage(int address) const;
+	bool UsesZeroPage(int address) const;
 	bool ChangesGlobalMemory(void) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool IsSame(const NativeCodeInstruction& ins) const;
@@ -156,6 +157,7 @@ public:
 
 	bool MoveLoadStoreUp(int at);
 	bool MoveIndirectLoadStoreUp(int at);
+	bool MoveAbsoluteLoadStoreUp(int at);
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, const NativeCodeInstruction * & ains, int& ireg);
