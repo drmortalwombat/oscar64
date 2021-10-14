@@ -140,7 +140,7 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			break;
 
 		case BC_LOAD_ABS_8:
-			fprintf(file, "MOVUB\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
+			fprintf(file, "MOVB\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
 			i += 3;
 			break;
 		case BC_LOAD_ABS_16:

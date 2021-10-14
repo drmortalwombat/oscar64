@@ -188,7 +188,7 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 			return true;
 		if (mCode >= BC_CONV_U16_F32 && mCode <= BC_CONV_F32_I16)
 			return true;
-		if (mCode >= BC_BINOP_SHLI_16 && mCode <= BC_BINOP_SHRI_U16)
+		if (mCode >= BC_BINOP_SHLI_16 && mCode <= BC_BINOP_SHRI_I16)
 			return true;
 		if (mCode >= BC_SET_EQ && mCode <= BC_SET_LE)
 			return true;
@@ -901,10 +901,24 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
-					ByteCodeInstruction	lins(BC_ADDR_REG);
-					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					lins.mRegisterFinal = ins->mSrc[1].mFinal;
-					mIns.Push(lins);
+					int	index = ins->mSrc[1].mIntConst;
+					if (index + 4 <= 256)
+					{
+						ByteCodeInstruction	lins(BC_ADDR_REG);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						mIns.Push(lins);
+					}
+					else
+					{
+						ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						lins.mValue = index;
+						index = 0;
+						mIns.Push(lins);
+					}
+
 					ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 					bins.mRegister = BC_REG_ACCU;
 					bins.mValue = ins->mSrc[1].mIntConst;
@@ -915,14 +929,28 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 			{
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
-					ByteCodeInstruction	lins(BC_ADDR_REG);
-					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					lins.mRegisterFinal = ins->mSrc[1].mFinal;
-					mIns.Push(lins);
+					int	index = ins->mSrc[1].mIntConst;
+					if (index + 4 <= 256)
+					{
+						ByteCodeInstruction	lins(BC_ADDR_REG);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						mIns.Push(lins);
+					}
+					else
+					{
+						ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						lins.mValue = index;
+						index = 0;
+						mIns.Push(lins);
+					}
+
 					ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
 					bins.mRegisterFinal = ins->mSrc[0].mFinal;
-					bins.mValue = ins->mSrc[1].mIntConst;
+					bins.mValue = index;
 					mIns.Push(bins);
 				}
 			}
@@ -1070,13 +1098,27 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
-					ByteCodeInstruction	lins(BC_ADDR_REG);
-					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					lins.mRegisterFinal = ins->mSrc[1].mFinal;
-					mIns.Push(lins);
+					int	index = ins->mSrc[1].mIntConst;
+					if (index + 2 <= 256)
+					{
+						ByteCodeInstruction	lins(BC_ADDR_REG);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						mIns.Push(lins);
+					}
+					else
+					{
+						ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						lins.mValue = index;
+						index = 0;
+						mIns.Push(lins);
+					}
+
 					ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 					bins.mRegister = BC_REG_ACCU;
-					bins.mValue = ins->mSrc[1].mIntConst;
+					bins.mValue = index;
 					mIns.Push(bins);
 				}
 			}
@@ -1084,14 +1126,28 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 			{
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
-					ByteCodeInstruction	lins(BC_ADDR_REG);
-					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					lins.mRegisterFinal = ins->mSrc[1].mFinal;
-					mIns.Push(lins);
+					int	index = ins->mSrc[1].mIntConst;
+					if (index + 2 <= 256)
+					{
+						ByteCodeInstruction	lins(BC_ADDR_REG);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						mIns.Push(lins);
+					}
+					else
+					{
+						ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						lins.mValue = index;
+						index = 0;
+						mIns.Push(lins);
+					}
+
 					ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
 					bins.mRegisterFinal = ins->mSrc[0].mFinal;
-					bins.mValue = ins->mSrc[1].mIntConst;
+					bins.mValue = index;
 					mIns.Push(bins);
 				}
 			}
@@ -1508,29 +1564,43 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
-					ByteCodeInstruction	lins(BC_ADDR_REG);
-					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					lins.mRegisterFinal = ins->mSrc[1].mFinal;
-					mIns.Push(lins);
+					int	index = ins->mSrc[1].mIntConst;
+					if (index + InterTypeSize[ins->mSrc[0].mType] <= 256)
+					{
+						ByteCodeInstruction	lins(BC_ADDR_REG);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						mIns.Push(lins);
+					}
+					else
+					{
+						ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						lins.mValue = index;
+						index = 0;
+						mIns.Push(lins);
+					}
+
 					if (InterTypeSize[ins->mSrc[0].mType] == 1)
 					{
 						ByteCodeInstruction	bins(BC_STORE_ADDR_8);
 						bins.mRegister = BC_REG_ACCU;
-						bins.mValue = ins->mSrc[1].mIntConst;
+						bins.mValue = index;
 						mIns.Push(bins);
 					}
 					else if (InterTypeSize[ins->mSrc[0].mType] == 2)
 					{
 						ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 						bins.mRegister = BC_REG_ACCU;
-						bins.mValue = ins->mSrc[1].mIntConst;
+						bins.mValue = index;
 						mIns.Push(bins);
 					}
 					else if (InterTypeSize[ins->mSrc[0].mType] == 4)
 					{
 						ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 						bins.mRegister = BC_REG_ACCU;
-						bins.mValue = ins->mSrc[1].mIntConst;
+						bins.mValue = index;
 						mIns.Push(bins);
 					}
 				}
@@ -1539,16 +1609,30 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 			{
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
-					ByteCodeInstruction	lins(BC_ADDR_REG);
-					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					lins.mRegisterFinal = ins->mSrc[1].mFinal;
-					mIns.Push(lins);
+					int	index = ins->mSrc[1].mIntConst;
+					if (index + InterTypeSize[ins->mSrc[0].mType] <= 256)
+					{
+						ByteCodeInstruction	lins(BC_ADDR_REG);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						mIns.Push(lins);
+					}
+					else
+					{
+						ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+						lins.mRegisterFinal = ins->mSrc[1].mFinal;
+						lins.mValue = index;
+						index = 0;
+						mIns.Push(lins);
+					}
+
 					if (InterTypeSize[ins->mSrc[0].mType] == 1)
 					{
 						ByteCodeInstruction	bins(BC_STORE_ADDR_8);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
 						bins.mRegisterFinal = ins->mSrc[0].mFinal;
-						bins.mValue = ins->mSrc[1].mIntConst;
+						bins.mValue = index;
 						mIns.Push(bins);
 					}
 					else if (InterTypeSize[ins->mSrc[0].mType] == 2)
@@ -1556,7 +1640,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						ByteCodeInstruction	bins(BC_STORE_ADDR_16);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
 						bins.mRegisterFinal = ins->mSrc[0].mFinal;
-						bins.mValue = ins->mSrc[1].mIntConst;
+						bins.mValue = index;
 						mIns.Push(bins);
 					}
 					else if (InterTypeSize[ins->mSrc[0].mType] == 4)
@@ -1564,7 +1648,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 						bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
 						bins.mRegisterFinal = ins->mSrc[0].mFinal;
-						bins.mValue = ins->mSrc[1].mIntConst;
+						bins.mValue = index;
 						mIns.Push(bins);
 					}
 				}
@@ -1637,13 +1721,27 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 		{
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
-				ByteCodeInstruction	lins(BC_ADDR_REG);
-				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
-				lins.mRegisterFinal = ins->mSrc[0].mFinal;
-				mIns.Push(lins);
+				int	index = ins->mSrc[0].mIntConst;
+				if (index + 4 <= 256)
+				{
+					ByteCodeInstruction	lins(BC_ADDR_REG);
+					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+					lins.mRegisterFinal = ins->mSrc[0].mFinal;
+					mIns.Push(lins);
+				}
+				else
+				{
+					ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+					lins.mRegisterFinal = ins->mSrc[0].mFinal;
+					lins.mValue = index;
+					index = 0;
+					mIns.Push(lins);
+				}
+
 				ByteCodeInstruction	bins(BC_LOAD_ADDR_32);
 				bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
-				bins.mValue = ins->mSrc[0].mIntConst;
+				bins.mValue = index;
 				mIns.Push(bins);
 			}
 		}
@@ -1710,13 +1808,27 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 		{
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
-				ByteCodeInstruction	lins(BC_ADDR_REG);
-				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
-				lins.mRegisterFinal = ins->mSrc[0].mFinal;
-				mIns.Push(lins);
+				int	index = ins->mSrc[0].mIntConst;
+				if (index + 2 <= 256)
+				{
+					ByteCodeInstruction	lins(BC_ADDR_REG);
+					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+					lins.mRegisterFinal = ins->mSrc[0].mFinal;
+					mIns.Push(lins);
+				}
+				else
+				{
+					ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+					lins.mRegisterFinal = ins->mSrc[0].mFinal;
+					lins.mValue = index;
+					index = 0;
+					mIns.Push(lins);
+				}
+
 				ByteCodeInstruction	bins(BC_LOAD_ADDR_16);
 				bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
-				bins.mValue = ins->mSrc[0].mIntConst;
+				bins.mValue = index;
 				mIns.Push(bins);
 			}
 		}
@@ -1898,30 +2010,43 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 		{
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
-				ByteCodeInstruction	lins(BC_ADDR_REG);
-				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
-				lins.mRegisterFinal = ins->mSrc[0].mFinal;
-				mIns.Push(lins);
+				int	index = ins->mSrc[0].mIntConst;
+				if (index + InterTypeSize[ins->mDst.mType] <= 256)
+				{
+					ByteCodeInstruction	lins(BC_ADDR_REG);
+					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+					lins.mRegisterFinal = ins->mSrc[0].mFinal;
+					mIns.Push(lins);
+				}
+				else
+				{
+					ByteCodeInstruction	lins(BC_LEA_ABS_INDEX);
+					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+					lins.mRegisterFinal = ins->mSrc[0].mFinal;
+					lins.mValue = index;
+					index = 0;
+					mIns.Push(lins);
+				}
 
 				if (InterTypeSize[ins->mDst.mType] == 1)
 				{
 					ByteCodeInstruction	bins(BC_LOAD_ADDR_8);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
-					bins.mValue = ins->mSrc[0].mIntConst;
+					bins.mValue = index;
 					mIns.Push(bins);
 				}
 				else if (InterTypeSize[ins->mDst.mType] == 2)
 				{
 					ByteCodeInstruction	bins(BC_LOAD_ADDR_16);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
-					bins.mValue = ins->mSrc[0].mIntConst;
+					bins.mValue = index;
 					mIns.Push(bins);
 				}
 				else if (InterTypeSize[ins->mDst.mType] == 4)
 				{
 					ByteCodeInstruction	bins(BC_LOAD_ADDR_32);
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
-					bins.mValue = ins->mSrc[0].mIntConst;
+					bins.mValue = index;
 					mIns.Push(bins);
 				}
 			}
@@ -2700,7 +2825,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 			else
 			{
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
 				lins.mRegisterFinal = ins->mSrc[1].mFinal;
 				mIns.Push(lins);
@@ -2723,7 +2848,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 					mIns.Push(bins);
 					return;
 				}
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
 				lins.mRegisterFinal = ins->mSrc[0].mFinal;
 				mIns.Push(lins);
@@ -2743,7 +2868,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 					mIns.Push(bins);
 					return;
 				}
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[0].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
 				lins.mRegisterFinal = ins->mSrc[1].mFinal;
 				mIns.Push(lins);
@@ -2755,7 +2880,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 			else
 			{
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
 				lins.mRegisterFinal = ins->mSrc[1].mFinal;
 				mIns.Push(lins);
@@ -3264,6 +3389,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 
 			for (int i = 0; i < mIns.Size(); i++)
 			{
+#if 1
 				if (i + 3 < mIns.Size())
 				{
 					if (
@@ -3280,7 +3406,8 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						progress = true;
 					}
 				}
-
+#endif
+#if 1
 				if (i + 2 < mIns.Size())
 				{
 					if (mIns[i].mCode == BC_LOAD_LOCAL_16 &&
@@ -3432,8 +3559,19 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2].mCode = BC_NOP;
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mCode == BC_STORE_REG_8 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_8 && mIns[i + 0].mRegister == mIns[i + 1].mRegister &&
+						mIns[i + 2].mCode == BC_STORE_REG_8)
+					{
+						if (mIns[i + 1].mRegisterFinal)
+							mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
 				}
-
+#endif
+#if 1
 				if (i + 1 < mIns.Size())
 				{
 					if (mIns[i].mCode == BC_STORE_REG_16 && mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i].mRegister == mIns[i + 1].mRegister)
@@ -3514,6 +3652,12 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i].mCode = BC_NOP;
 						progress = true;
 					}
+					else if (mIns[i].mCode == BC_STORE_REG_8 && mIns[i + 1].StoresRegister(mIns[i].mRegister) && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i + 1].mRegister = BC_REG_ACCU;
+						mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
 #if 0
 					else if ((mIns[i].mCode == BC_LOAD_LOCAL_16 || mIns[i].mCode == BC_LOAD_ABS_16) && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
 					{
@@ -3523,13 +3667,14 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 					}
 #endif
 				}
-
+#endif
+#if 1
 				if ((mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32) && accuTemp == mIns[i].mRegister)
 				{
 					mIns[i].mCode = BC_NOP;
 					progress = true;
 				}
-
+#endif
 				if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister == addrTemp)
 				{
 					mIns[i].mCode = BC_NOP;
