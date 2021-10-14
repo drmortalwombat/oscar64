@@ -350,6 +350,13 @@ bool Declaration::IsSubType(const Declaration* dec) const
 {
 	if (this == dec)
 		return true;
+
+	if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
+	{
+		if (dec->mType == DT_TYPE_POINTER)
+			return mBase->IsSubType(dec->mBase);
+	}
+
 	if (mType != dec->mType)
 		return false;
 	if (mSize != dec->mSize)
@@ -367,8 +374,8 @@ bool Declaration::IsSubType(const Declaration* dec) const
 		return true;
 	else if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_ENUM || DT_TYPE_UNION)
 		return false;
-	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
-		return mBase->IsSubType(dec->mBase);
+	else if (mType == DT_TYPE_ARRAY)
+		return mSize <= dec->mSize && mBase->IsSubType(dec->mBase);
 	else if (mType == DT_TYPE_FUNCTION)
 	{
 		if (!dec->mBase->IsSubType(mBase))

@@ -1519,7 +1519,7 @@ Expression* Parser::ParseLogicOrExpression(void)
 
 Expression* Parser::ParseConditionalExpression(void)
 {
-	Expression* exp = ParseLogicAndExpression();
+	Expression* exp = ParseLogicOrExpression();
 	
 	if (mScanner->mToken == TK_QUESTIONMARK)
 	{
@@ -1563,7 +1563,7 @@ Expression* Parser::ParseParenthesisExpression(void)
 
 Expression* Parser::ParseAssignmentExpression(void)
 {
-	Expression* exp = ParseLogicOrExpression();
+	Expression* exp = ParseConditionalExpression();
 
 	while (mScanner->mToken >= TK_ASSIGN && mScanner->mToken <= TK_ASSIGN_OR)
 	{

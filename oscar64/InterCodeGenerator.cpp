@@ -2187,10 +2187,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			TranslateLogic(procType, proc, block, tblock, fblock, exp->mLeft, inlineMapper);
 
 			vl = TranslateExpression(procType, proc, tblock, exp->mRight->mLeft, breakBlock, continueBlock, inlineMapper);
-			vl = Dereference(proc, tblock, vl);
-
 			vr = TranslateExpression(procType, proc, fblock, exp->mRight->mRight, breakBlock, continueBlock, inlineMapper);
-			vr = Dereference(proc, fblock, vr);
 
 			int			ttemp;
 			InterType	ttype, stypel, styper;
@@ -2201,37 +2198,63 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			Declaration* dtype;
 			if (stypel == IT_POINTER || styper == IT_POINTER)
 			{
-				if (!vl.mType->IsSame(vr.mType))
+				if (vl.mType->mType == DT_TYPE_ARRAY)
+					vl = Dereference(proc, tblock, vl, 1);
+				else
+					vl = Dereference(proc, tblock, vl);
+
+				if (vr.mType->mType == DT_TYPE_ARRAY)
+					vr = Dereference(proc, fblock, vr, 1);
+				else
+					vr = Dereference(proc, fblock, vr);
+
+				if (vl.mType->mBase->IsSubType(vr.mType->mBase))
+					dtype = vr.mType;
+				else if (vr.mType->mBase->IsSubType(vl.mType->mBase))
+					dtype = vl.mType;
+				else
+				{
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible conditional types");
+					dtype = vl.mType;
+				}
+
+				Declaration* ntype = new Declaration(dtype->mLocation, DT_TYPE_POINTER);
+				ntype->mBase = dtype->mBase;
+				dtype = ntype;
 				
 				ttype = IT_POINTER;
-				dtype = vl.mType;
-			}
-			else if (stypel == styper)
-			{
-				ttype = stypel;
-				dtype = vl.mType;
-			}
-			else if (stypel > styper)
-			{
-				ttype = stypel;
-				dtype = vl.mType;
-
-				vr = CoerceType(proc, fblock, vr, dtype);
 			}
 			else
 			{
-				ttype = styper;
-				dtype = vr.mType;
+				vl = Dereference(proc, tblock, vl);
+				vr = Dereference(proc, fblock, vr);
 
-				vl = CoerceType(proc, tblock, vl, dtype);
+				if (stypel == styper)
+				{
+					ttype = stypel;
+					dtype = vl.mType;
+				}
+				else if (stypel > styper)
+				{
+					ttype = stypel;
+					dtype = vl.mType;
+
+					vr = CoerceType(proc, fblock, vr, dtype);
+				}
+				else
+				{
+					ttype = styper;
+					dtype = vr.mType;
+
+					vl = CoerceType(proc, tblock, vl, dtype);
+				}
 			}
 
 			ttemp = proc->AddTemporary(ttype);
 
 			InterInstruction	*	rins = new InterInstruction();
 			rins->mCode = IC_LOAD_TEMPORARY;
-			rins->mSrc[0].mType = InterTypeOf(vr.mType);
+			rins->mSrc[0].mType = ttype;
 			rins->mSrc[0].mTemp = vr.mTemp;
 			rins->mDst.mType = ttype;
 			rins->mDst.mTemp = ttemp;
@@ -2239,7 +2262,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			InterInstruction	*	lins = new InterInstruction();
 			lins->mCode = IC_LOAD_TEMPORARY;
-			lins->mSrc[0].mType = InterTypeOf(vl.mType);
+			lins->mSrc[0].mType = ttype;
 			lins->mSrc[0].mTemp = vl.mTemp;
 			lins->mDst.mType = ttype;
 			lins->mDst.mTemp = ttemp;
