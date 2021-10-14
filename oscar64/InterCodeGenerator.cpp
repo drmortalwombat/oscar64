@@ -546,6 +546,118 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 	assert(offset == osize);
 }
 
+void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, InterCodeBasicBlock* block, ExValue v, const SwitchNodeArray& nodes, int left, int right, InterCodeBasicBlock* dblock)
+{
+	if (right - left < 5)
+	{
+		for (int i = left; i < right; i++)
+		{
+			InterCodeBasicBlock* cblock = new InterCodeBasicBlock();
+			proc->Append(cblock);
+
+			InterInstruction* vins = new InterInstruction();
+			vins->mCode = IC_CONSTANT;
+			vins->mConst.mType = IT_INT16;
+			vins->mConst.mIntConst = nodes[i].mValue;
+			vins->mDst.mType = IT_INT16;
+			vins->mDst.mTemp = proc->AddTemporary(vins->mDst.mType);
+			block->Append(vins);
+
+			InterInstruction* cins = new InterInstruction();
+			cins->mCode = IC_RELATIONAL_OPERATOR;
+			cins->mOperator = IA_CMPEQ;
+			cins->mSrc[0].mType = vins->mDst.mType;
+			cins->mSrc[0].mTemp = vins->mDst.mTemp;
+			cins->mSrc[1].mType = vins->mDst.mType;
+			cins->mSrc[1].mTemp = v.mTemp;
+			cins->mDst.mType = IT_BOOL;
+			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
+
+			block->Append(cins);
+
+			InterInstruction* bins = new InterInstruction();
+			bins->mCode = IC_BRANCH;
+			bins->mSrc[0].mType = IT_BOOL;
+			bins->mSrc[0].mTemp = cins->mDst.mTemp;
+			block->Append(bins);
+
+			block->Close(nodes[i].mBlock, cblock);
+
+			block = cblock;
+		}
+
+		InterInstruction* jins = new InterInstruction();
+		jins->mCode = IC_JUMP;
+
+		block->Append(jins);
+		block->Close(dblock, nullptr);
+	}
+	else
+	{
+		int	center = (left + right + 1) >> 1;
+
+		InterCodeBasicBlock* cblock = new InterCodeBasicBlock();
+		proc->Append(cblock);
+
+		InterCodeBasicBlock* rblock = new InterCodeBasicBlock();
+		proc->Append(rblock);
+
+		InterCodeBasicBlock* lblock = new InterCodeBasicBlock();
+		proc->Append(lblock);
+
+		InterInstruction* vins = new InterInstruction();
+		vins->mCode = IC_CONSTANT;
+		vins->mConst.mType = IT_INT16;
+		vins->mConst.mIntConst = nodes[center].mValue;
+		vins->mDst.mType = IT_INT16;
+		vins->mDst.mTemp = proc->AddTemporary(vins->mDst.mType);
+		block->Append(vins);
+
+		InterInstruction* cins = new InterInstruction();
+		cins->mCode = IC_RELATIONAL_OPERATOR;
+		cins->mOperator = IA_CMPEQ;
+		cins->mSrc[0].mType = vins->mDst.mType;
+		cins->mSrc[0].mTemp = vins->mDst.mTemp;
+		cins->mSrc[1].mType = vins->mDst.mType;
+		cins->mSrc[1].mTemp = v.mTemp;
+		cins->mDst.mType = IT_BOOL;
+		cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
+
+		block->Append(cins);
+
+		InterInstruction* bins = new InterInstruction();
+		bins->mCode = IC_BRANCH;
+		bins->mSrc[0].mType = IT_BOOL;
+		bins->mSrc[0].mTemp = cins->mDst.mTemp;
+		block->Append(bins);
+
+		block->Close(nodes[center].mBlock, cblock);
+
+		InterInstruction* rins = new InterInstruction();
+		rins->mCode = IC_RELATIONAL_OPERATOR;
+		rins->mOperator = IA_CMPLS;
+		rins->mSrc[0].mType = vins->mDst.mType;
+		rins->mSrc[0].mTemp = vins->mDst.mTemp;
+		rins->mSrc[1].mType = vins->mDst.mType;
+		rins->mSrc[1].mTemp = v.mTemp;
+		rins->mDst.mType = IT_BOOL;
+		rins->mDst.mTemp = proc->AddTemporary(rins->mDst.mType);
+
+		cblock->Append(rins);
+
+		InterInstruction* rbins = new InterInstruction();
+		rbins->mCode = IC_BRANCH;
+		rbins->mSrc[0].mType = IT_BOOL;
+		rbins->mSrc[0].mTemp = rins->mDst.mTemp;
+		cblock->Append(rbins);
+
+		cblock->Close(lblock, rblock);
+
+		BuildSwitchTree(proc, lblock, v, nodes, left, center, dblock);
+		BuildSwitchTree(proc, rblock, v, nodes, center + 1, right, dblock);
+	}
+}
+
 InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper* inlineMapper)
 {
 	Declaration* dec;
@@ -2529,41 +2641,33 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
 			proc->Append(eblock);
 
+			SwitchNodeArray		switchNodes({ 0 });
+
 			Expression* sexp = exp->mRight;
 			while (sexp)
 			{
 				Expression* cexp = sexp->mLeft;
 				if (cexp->mType == EX_CASE)
 				{
-					InterCodeBasicBlock* cblock = new InterCodeBasicBlock();
-					proc->Append(cblock);
-
 					InterCodeBasicBlock* nblock = new InterCodeBasicBlock();
 					proc->Append(nblock);
 
-					vr = TranslateExpression(procType, proc, sblock, cexp->mLeft, breakBlock, continueBlock, inlineMapper);
-					vr = Dereference(proc, sblock, vr);
-					vr = CoerceType(proc, sblock, vr, TheSignedIntTypeDeclaration);
+					SwitchNode	snode;
+					snode.mBlock = nblock;
+					snode.mValue = 0;
 
-					InterInstruction	*	cins = new InterInstruction();
-					cins->mCode = IC_RELATIONAL_OPERATOR;
-					cins->mOperator = IA_CMPEQ;
-					cins->mSrc[0].mType = InterTypeOf(vr.mType);;
-					cins->mSrc[0].mTemp = vr.mTemp;
-					cins->mSrc[1].mType = InterTypeOf(vl.mType);;
-					cins->mSrc[1].mTemp = vl.mTemp;
-					cins->mDst.mType = IT_BOOL;
-					cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
+					if (cexp->mLeft->mType == EX_CONSTANT && cexp->mLeft->mDecValue->mType == DT_CONST_INTEGER)
+						snode.mValue = cexp->mLeft->mDecValue->mInteger;
+					else
+						mErrors->Error(cexp->mLeft->mLocation, ERRR_INVALID_CASE, "Integral constant expected");
 
-					sblock->Append(cins);
-
-					InterInstruction	*	bins = new InterInstruction();
-					bins->mCode = IC_BRANCH;
-					bins->mSrc[0].mType = IT_BOOL;
-					bins->mSrc[0].mTemp = cins->mDst.mTemp;
-					sblock->Append(bins);
-
-					sblock->Close(nblock, cblock);
+					int i = 0;
+					while (i < switchNodes.Size() && switchNodes[i].mValue < snode.mValue)
+						i++;
+					if (i < switchNodes.Size() && switchNodes[i].mValue == snode.mValue)
+						mErrors->Error(exp->mLeft->mLocation, ERRR_INVALID_CASE, "Duplicate case constant");
+					else
+						switchNodes.Insert(i, snode);
 
 					if (block)
 					{
@@ -2574,7 +2678,6 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						block->Close(nblock, nullptr);
 					}
 
-					sblock = cblock;
 					block = nblock;
 				}
 				else if (cexp->mType == EX_DEFAULT)
@@ -2605,14 +2708,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				sexp = sexp->mRight;
 			}
 
-			InterInstruction* jins = new InterInstruction();
-			jins->mCode = IC_JUMP;
-
-			sblock->Append(jins);
-			if (dblock)
-				sblock->Close(dblock, nullptr);
-			else
-				sblock->Close(eblock, nullptr);
+			BuildSwitchTree(proc, sblock, vl, switchNodes, 0, switchNodes.Size(), dblock ? dblock : eblock);
 
 			if (block)
 			{

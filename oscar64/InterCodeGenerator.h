@@ -42,6 +42,16 @@ protected:
 		{}
 	};
 
+	struct SwitchNode
+	{
+		int						mValue;
+		InterCodeBasicBlock* mBlock;
+	};
+
+	typedef GrowingArray<SwitchNode>	SwitchNodeArray;
+
+	void BuildSwitchTree(InterCodeProcedure* proc, InterCodeBasicBlock* block, ExValue v, const SwitchNodeArray& nodes, int left, int right, InterCodeBasicBlock* dblock);
+
 	ExValue Dereference(InterCodeProcedure* proc, InterCodeBasicBlock*& block, ExValue v, int level = 0);
 	ExValue CoerceType(InterCodeProcedure* proc, InterCodeBasicBlock*& block, ExValue v, Declaration * type);
 	ExValue TranslateExpression(Declaration * procType, InterCodeProcedure * proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper * inlineMapper);
