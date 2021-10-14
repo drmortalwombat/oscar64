@@ -68,6 +68,7 @@ public:
 	bool ChangesAccuAndFlag(void) const;
 	bool ChangesAddress(void) const;
 	bool ChangesAccu(void) const;
+	bool ChangesCarry(void) const;
 	bool RequiresAccu(void) const;
 	bool RequiresYReg(void) const;
 	bool ChangesYReg(void) const;
@@ -158,6 +159,7 @@ public:
 	bool MoveLoadStoreUp(int at);
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
+	bool MoveLoadAddImmStoreUp(int at);
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, const NativeCodeInstruction * & ains, int& ireg);

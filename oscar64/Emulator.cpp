@@ -671,9 +671,11 @@ int Emulator::Emulate(int startIP)
 
 	if (mRegS == 0)
 	{
+#if 0
 		for (int i = 0; i < 256; i++)
 			if (mMemory[i] != 0)
 				printf("ZP %02x : %02x\n", i, mMemory[i]);
+#endif
 		DumpCycles();
 		return int16(mMemory[BC_REG_ACCU] + 256 * mMemory[BC_REG_ACCU + 1]);
 	}
