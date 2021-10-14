@@ -1119,6 +1119,16 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);
 			vr = TranslateExpression(procType, proc, block, exp->mRight, breakBlock, continueBlock, inlineMapper);
 
+			if (vl.mType->mType == DT_TYPE_ARRAY && exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecValue->mType == DT_CONST_INTEGER)
+			{
+				if (vl.mType->mFlags & DTF_DEFINED)
+				{
+					int64	index = exp->mRight->mDecValue->mInteger;
+					if (index < 0 || index * vl.mType->mBase->mSize >= vl.mType->mSize)
+						mErrors->Error(exp->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant array index out of bounds");
+				}
+			}
+
 			vl = Dereference(proc, block, vl, vl.mType->mType == DT_TYPE_POINTER ? 0 : 1);
 			vr = Dereference(proc, block, vr);
 
