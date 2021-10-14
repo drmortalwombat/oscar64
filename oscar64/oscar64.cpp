@@ -135,7 +135,20 @@ int main(int argc, const char** argv)
 				}
 				else if (arg[1] == 'n')
 				{
-					compiler->ForceNativeCode(true);
+					compiler->mCompilerOptions |= COPT_NATIVE;
+				}
+				else if (arg[1] == 'O')
+				{
+					if (arg[2] == '0')
+						compiler->mCompilerOptions &= ~(COPT_OPTIMIZE_ALL);
+					else if (arg[1] == '1' || arg[1] == 0)
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_DEFAULT;
+					else if (arg[2] == '2')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_SPEED;
+					else if (arg[2] == '3')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_ALL;
+					else if (arg[2] == 's')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_SIZE;
 				}
 				else if (arg[1] == 'e')
 				{

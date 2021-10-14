@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 Compiler::Compiler(void)
-	: mByteCodeFunctions(nullptr), mNativeCode(false), mDefines({nullptr, nullptr})
+	: mByteCodeFunctions(nullptr), mCompilerOptions(COPT_DEFAULT), mDefines({nullptr, nullptr})
 {
 	mErrors = new Errors();
 	mLinker = new Linker(mErrors);
@@ -34,11 +34,6 @@ Compiler::Compiler(void)
 Compiler::~Compiler(void)
 {
 
-}
-
-void Compiler::ForceNativeCode(bool native)
-{
-	mNativeCode = native;
 }
 
 void Compiler::AddDefine(const Ident* ident, const char* value)
@@ -157,12 +152,15 @@ bool Compiler::GenerateCode(void)
 
 	dcrtstart->mSection = sectionStartup;
 
+	mGlobalAnalyzer->mCompilerOptions = mCompilerOptions;
+
 	mGlobalAnalyzer->AnalyzeAssembler(dcrtstart->mValue, nullptr);
 	mGlobalAnalyzer->DumpCallGraph();
 	mGlobalAnalyzer->AutoInline();
 	mGlobalAnalyzer->DumpCallGraph();
 
-	mInterCodeGenerator->mForceNativeCode = mNativeCode;
+	mInterCodeGenerator->mCompilerOptions = mCompilerOptions;
+
 	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue, nullptr);
 
 	if (mErrors->mErrorCount != 0)

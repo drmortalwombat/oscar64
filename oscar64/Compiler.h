@@ -8,6 +8,7 @@
 #include "InterCodeGenerator.h"
 #include "GlobalAnalyzer.h"
 #include "Linker.h"
+#include "CompilerTypes.h"
 
 class Compiler
 {
@@ -27,7 +28,7 @@ public:
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
 
-	bool mNativeCode;
+	uint64	mCompilerOptions;
 
 	struct Define
 	{
@@ -42,7 +43,6 @@ public:
 	bool WriteOutputFile(const char* targetPath);
 	int ExecuteCode(void);
 
-	void ForceNativeCode(bool native);
 	void AddDefine(const Ident* ident, const char* value);
 
 	void RegisterRuntime(const Location& loc, const Ident* ident);

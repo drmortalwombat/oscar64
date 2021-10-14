@@ -1,7 +1,7 @@
 #include "GlobalAnalyzer.h"
 
 GlobalAnalyzer::GlobalAnalyzer(Errors* errors, Linker* linker)
-	: mErrors(errors), mLinker(linker), mCalledFunctions(nullptr), mCallingFunctions(nullptr), mVariableFunctions(nullptr), mFunctions(nullptr)
+	: mErrors(errors), mLinker(linker), mCalledFunctions(nullptr), mCallingFunctions(nullptr), mVariableFunctions(nullptr), mFunctions(nullptr), mCompilerOptions(COPT_DEFAULT)
 {
 
 }
@@ -59,7 +59,7 @@ void GlobalAnalyzer::AutoInline(void)
 		for (int i = 0; i < mFunctions.Size(); i++)
 		{
 			Declaration* f = mFunctions[i];
-			if (!(f->mFlags & DTF_INLINE) && !(f->mBase->mFlags & DTF_VARIADIC) && !(f->mFlags & DTF_FUNC_VARIABLE) && !(f->mFlags & DTF_FUNC_ASSEMBLER) && !(f->mFlags & DTF_INTRINSIC) && !(f->mFlags & DTF_FUNC_RECURSIVE))
+			if (!(f->mFlags & DTF_INLINE) && !(f->mBase->mFlags & DTF_VARIADIC) && !(f->mFlags & DTF_FUNC_VARIABLE) && !(f->mFlags & DTF_FUNC_ASSEMBLER) && !(f->mFlags & DTF_INTRINSIC) && !(f->mFlags & DTF_FUNC_RECURSIVE) && f->mLocalSize < 100)
 			{
 				int		nparams = 0;
 				Declaration* dec = f->mParams;
@@ -70,8 +70,16 @@ void GlobalAnalyzer::AutoInline(void)
 				}
 
 				int	cost = (f->mComplexity - 20 * nparams);
-				if (cost * (f->mCallers.Size() - 1) <= 0 || (f->mFlags & DTF_REQUEST_INLINE))
-				//if (cost * (f->mCallers.Size() - 1) <= 1000 || (f->mFlags & DTF_REQUEST_INLINE))
+
+				bool	doinline = false;
+				if ((mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_INLINE))
+					doinline = true;
+				if ((mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE) && (cost * (f->mCallers.Size() - 1) <= 0))
+					doinline = true;
+				if ((mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE_ALL) && (cost * (f->mCallers.Size() - 1) <= 10000))
+					doinline = true;
+
+				if (doinline)
 					{
 					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
 					f->mFlags |= DTF_INLINE;
@@ -245,6 +253,14 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 
 		return exp->mDecValue;
 	case EX_VARIABLE:
+		if (!(exp->mDecValue->mFlags & DTF_STATIC) && !(exp->mDecValue->mFlags & DTF_GLOBAL))
+		{
+			if (!(exp->mDecValue->mFlags & DTF_ANALYZED))
+			{
+				procDec->mLocalSize += exp->mDecValue->mSize;
+				exp->mDecValue->mFlags |= DTF_ANALYZED;
+			}
+		}
 		return exp->mDecValue;
 	case EX_ASSIGNMENT:
 		ldec = Analyze(exp->mLeft, procDec);

@@ -6913,6 +6913,8 @@ bool NativeCodeBasicBlock::MoveLoadStoreUp(int at)
 		j--;
 		if ((mIns[j].mMode == ASMIM_ZERO_PAGE || mIns[j].mMode == ASMIM_INDIRECT_Y) && mIns[j].mAddress == mIns[at + 1].mAddress)
 			return false;
+		if (mIns[j].mMode == ASMIM_INDIRECT_Y && mIns[j].mAddress + 1 == mIns[at + 1].mAddress)
+			return false;
 		if (mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at].mAddress && mIns[j].ChangesAddress())
 			return false;
 		if (mIns[j].mMode == ASMIM_ABSOLUTE_Y && mIns[j].mAddress <= mIns[at + 1].mAddress && mIns[j].mType == ASMIT_LDA && !mIns[j].mLinkerObject)

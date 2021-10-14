@@ -73,6 +73,11 @@ The compiler is command line driven, and creates an executable .prg file.
 * -e : execute the result in the integrated emulator
 * -n : create pure native code for all functions
 * -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)
+* -O1 or -O : default optimizations
+* -O0: disable optimizations
+* -O2: more aggressive speed optimizations including auto inline of small functions
+* -O3: aggressive optimization for speed
+* -Os: optimize for size
 
 A list of source files can be provided.
 

@@ -1299,8 +1299,6 @@ void Scanner::CharToken(void)
 		}
 	}
 
-	mTokenChar = mTokenChar;
-
 	mTokenInteger = mTokenChar;
 
 	if (mLine[mOffset] && mLine[mOffset] == '\'')

@@ -2,6 +2,7 @@
 
 #include "Declaration.h"
 #include "Linker.h"
+#include "CompilerTypes.h"
 
 class GlobalAnalyzer
 {
@@ -15,6 +16,8 @@ public:
 	void AnalyzeProcedure(Expression* exp, Declaration* procDec);
 	void AnalyzeAssembler(Expression* exp, Declaration* procDec);
 	void AnalyzeGlobalVariable(Declaration* dec);
+
+	uint64		mCompilerOptions;
 
 protected:
 	Errors* mErrors;

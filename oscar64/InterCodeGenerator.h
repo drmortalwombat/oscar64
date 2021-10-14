@@ -3,6 +3,7 @@
 #include "Parser.h"
 #include "InterCode.h"
 #include "Linker.h"
+#include "CompilerTypes.h"
 
 class InterCodeGenerator
 {
@@ -20,7 +21,7 @@ public:
 		{}
 	};
 
-	bool		mForceNativeCode;
+	uint64		mCompilerOptions;
 
 	InterCodeProcedure* TranslateProcedure(InterCodeModule* mod, Expression* exp, Declaration * dec);
 	void TranslateAssembler(InterCodeModule* mod, Expression * exp, GrowingArray<Declaration *>	* refvars);

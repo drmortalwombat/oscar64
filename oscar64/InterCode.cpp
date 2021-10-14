@@ -86,7 +86,7 @@ void ValueSet::FlushCallAliases(void)
 	}
 }
 
-static int64 ConstantFolding(InterOperator oper, int64 val1, int64 val2 = 0)
+static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int64 val2 = 0)
 {
 	switch (oper)
 	{
@@ -133,7 +133,18 @@ static int64 ConstantFolding(InterOperator oper, int64 val1, int64 val2 = 0)
 		return (uint64)val1 >> (uint64)val2;
 		break;
 	case IA_SAR:
-		return val1 >> val2;
+
+		switch (type)
+		{
+		case IT_INT8:
+			return int8(val1) >> val2;
+		case IT_INT16:
+			return int16(val1) >> val2;
+		case IT_INT32:
+			return int32(val1) >> val2;
+		default:
+			return val1 >> val2;
+		}
 		break;
 	case IA_CMPEQ:
 		return val1 == val2 ? 1 : 0;
@@ -679,7 +690,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 
@@ -926,7 +937,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 
 				i = 0;
@@ -999,7 +1010,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 
@@ -2138,7 +2149,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 				{
 					ins->mCode = IC_CONSTANT;
-					ins->mConst.mIntConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+					ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 				}
@@ -2234,12 +2245,12 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				{
 					if (pins->mSrc[1].mTemp < 0)
 					{
-						ins->mSrc[1].mIntConst = ConstantFolding(ins->mOperator, ins->mSrc[1].mIntConst, pins->mSrc[1].mIntConst);
+						ins->mSrc[1].mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, ins->mSrc[1].mIntConst, pins->mSrc[1].mIntConst);
 						ins->mSrc[0].mTemp = pins->mSrc[0].mTemp;
 					}
 					else if (pins->mSrc[0].mTemp < 0)
 					{
-						ins->mSrc[1].mIntConst = ConstantFolding(ins->mOperator, ins->mSrc[1].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[1].mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, ins->mSrc[1].mIntConst, pins->mSrc[0].mIntConst);
 						ins->mSrc[0].mTemp = pins->mSrc[1].mTemp;
 					}
 				}
@@ -2251,12 +2262,12 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				{
 					if (pins->mSrc[1].mTemp < 0)
 					{
-						ins->mSrc[0].mIntConst = ConstantFolding(ins->mOperator, ins->mSrc[0].mIntConst, pins->mSrc[1].mIntConst);
+						ins->mSrc[0].mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[1].mIntConst);
 						ins->mSrc[1].mTemp = pins->mSrc[0].mTemp;
 					}
 					else if (pins->mSrc[0].mTemp < 0)
 					{
-						ins->mSrc[0].mIntConst = ConstantFolding(ins->mOperator, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[0].mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
 						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
 					}
 				}
@@ -2337,7 +2348,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 			}

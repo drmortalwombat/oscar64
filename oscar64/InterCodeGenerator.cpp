@@ -1,7 +1,7 @@
 #include "InterCodeGenerator.h"
 
 InterCodeGenerator::InterCodeGenerator(Errors* errors, Linker* linker)
-	: mErrors(errors), mLinker(linker), mForceNativeCode(false)
+	: mErrors(errors), mLinker(linker), mCompilerOptions(COPT_DEFAULT)
 {
 
 }
@@ -2787,7 +2787,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	dec->mLinkerObject = proc->mLinkerObject;
 	proc->mNumLocals = dec->mNumVars;
 
-	if (mForceNativeCode)
+	if (mCompilerOptions & COPT_NATIVE)
 		dec->mFlags |= DTF_NATIVE;
 
 	if (dec->mFlags & DTF_NATIVE)

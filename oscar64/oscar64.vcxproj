@@ -168,6 +168,7 @@
     <ClInclude Include="ByteCodeGenerator.h" />
     <ClInclude Include="CompilationUnits.h" />
     <ClInclude Include="Compiler.h" />
+    <ClInclude Include="CompilerTypes.h" />
     <ClInclude Include="Declaration.h" />
     <ClInclude Include="Disassembler.h" />
     <ClInclude Include="Emulator.h" />

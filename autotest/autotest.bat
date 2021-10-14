@@ -1,195 +1,142 @@
 @echo off
 
-..\release\oscar64 -e stdlibtest.c
+call :test stdlibtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n stdlibtest.c
+call :test testint16.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e testint16.c
+call :test testint32.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n testint16.c
+call :test testint16mul.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e testint32.c
+call :test recursiontest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n testint32.c
+call :test strcmptest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e testint16mul.c
+call :test strcmptest2.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n testint16mul.c
+call :test arraytest.c
 if %errorlevel% neq 0 goto :error
 
-
-..\release\oscar64 -e recursiontest.c
+call :test arraytestfloat.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n recursiontest.c
+call :test optiontest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e strcmptest.c
+call :test floatcmptest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n strcmptest.c
+call :test floatmultest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e strcmptest2.c
+call :test staticconsttest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n strcmptest2.c
+call :test arrayinittest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e arraytest.c
+call :test array2stringinittest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n arraytest.c
+call :test testint16cmp.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e arraytestfloat.c
+call :test testint32cmp.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n arraytestfloat.c
+call :test floatstringtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e optiontest.c
+call :test qsorttest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n optiontest.c
+call :test loopdomtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e floatcmptest.c
+call :test byteindextest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n floatcmptest.c
+call :test asmtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e floatmultest.c
+call :testb bitshifttest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n floatmultest.c
+call :test arrparam.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e staticconsttest.c
+call :test bsstest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n staticconsttest.c
+call :test copyintvec.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e arrayinittest.c
+call :test divmodtest.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n arrayinittest.c
+call :test enumswitch.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e array2stringinittest.c
+call :test incvector.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -n array2stringinittest.c
+call :test structoffsettest2.c
 if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e testint16cmp.c
+call :test funcvartest.c
 if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n testint16cmp.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e testint32cmp.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n testint32cmp.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e floatstringtest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n floatstringtest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e qsorttest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n qsorttest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e loopdomtest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n loopdomtest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e byteindextest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n byteindextest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e asmtest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n asmtest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e bitshifttest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n bitshifttest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e arrparam.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n arrparam.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e bsstest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n bsstest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e copyintvec.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n copyintvec.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e divmodtest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n divmodtest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e enumswitch.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n enumswitch.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e incvector.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n incvector.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e structoffsettest2.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n structoffsettest2.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e funcvartest.c
-if %errorlevel% neq 0 goto :error
-
-..\release\oscar64 -e -n funcvartest.c
-if %errorlevel% neq 0 goto :error
-
-
 
 exit /b 0
+
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:test
+..\release\oscar64 -e %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O2 %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O2 -n %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O0 %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O0 -n %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O3 %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O3 -n %~1
+if %errorlevel% neq 0 goto :error
+
+exit /b 0
+
+:testb
+..\release\oscar64 -e %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O2 %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O0 %~1
+if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O3 %~1
+if %errorlevel% neq 0 goto :error
+
+exit /b 0

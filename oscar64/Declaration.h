@@ -165,7 +165,7 @@ public:
 	Declaration*		mBase, *mParams, * mNext;
 	Expression*			mValue;
 	DeclarationScope*	mScope;
-	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity;
+	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize;
 	int64				mInteger;
 	double				mNumber;
 	uint32				mFlags;

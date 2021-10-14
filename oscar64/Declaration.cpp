@@ -337,7 +337,7 @@ Expression* Expression::ConstantFold(void)
 }
 
 Declaration::Declaration(const Location& loc, DecType type)
-	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr)
+	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr)
 {}
 
 Declaration::~Declaration(void)
