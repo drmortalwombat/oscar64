@@ -123,6 +123,20 @@ bool ByteCodeInstruction::IsLocalAccess(void) const
 	return IsLocalStore() || IsLocalLoad();
 }
 
+bool ByteCodeInstruction::IsShiftByRegister(void) const
+{
+	return
+		mCode == BC_BINOP_SHLR_16 || mCode == BC_BINOP_SHRR_I16 || mCode == BC_BINOP_SHRR_U16 ||
+		mCode == BC_BINOP_SHL_L32 || mCode == BC_BINOP_SHR_U32 || mCode == BC_BINOP_SHR_I32;
+}
+
+
+bool ByteCodeInstruction::IsIntegerConst(void) const
+{
+	return mCode >= BC_CONST_8 && mCode <= BC_CONST_32;
+}
+
+
 
 bool ByteCodeInstruction::IsSame(const ByteCodeInstruction& ins) const
 {
@@ -3405,6 +3419,17 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2].mCode = BC_NOP;
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mCode == BC_LOAD_REG_8 &&
+						mIns[i + 1].mCode == BC_STORE_REG_16 &&
+						mIns[i + 2].IsIntegerConst() && mIns[i + 2].mRegister == BC_REG_ACCU &&
+						mIns[i + 3].IsShiftByRegister() && mIns[i + 3].mRegister == mIns[i + 1].mRegister && mIns[i + 3].mRegisterFinal)
+					{
+						mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 3].mRegister = mIns[i + 0].mRegister;
+						progress = true;
+					}
 				}
 #endif
 #if 1
@@ -3653,6 +3678,12 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						progress = true;
 					}
 					else if (mIns[i].mCode == BC_STORE_REG_8 && mIns[i + 1].StoresRegister(mIns[i].mRegister) && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i + 1].mRegister = BC_REG_ACCU;
+						mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_STORE_REG_8 && mIns[i + 1].mCode == BC_LOAD_REG_8 && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
 					{
 						mIns[i + 1].mRegister = BC_REG_ACCU;
 						mIns[i].mCode = BC_NOP;

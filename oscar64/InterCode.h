@@ -298,18 +298,9 @@ public:
 	LinkerObject	*	mLinkerObject;
 	InterMemory			mMemory;
 
-	InterOperand(void)
-		: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0), mVarIndex(-1), mOperandSize(0), mLinkerObject(nullptr), mMemory(IM_NONE)
-	{}
-#if 0
-	bool Same(const InterOperand& op) const
-	{
-		if (mType != op.mType || mTemp != op.mTemp)
-			return false;
-		
-		return true;
-	}
-#endif
+	InterOperand(void);
+
+	bool IsEqual(const InterOperand & op) const;
 };
 
 class InterInstruction
@@ -327,6 +318,8 @@ public:
 
 	InterInstruction(void);
 
+	bool IsEqual(const InterInstruction* ins) const;
+
 	bool ReferencesTemp(int temp) const;
 	bool UsesTemp(int temp) const;
 
@@ -335,14 +328,15 @@ public:
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 
-	void FilterTempUsage(NumberSet& requiredVars, NumberSet& providedVars);
-	void FilterVarsUsage(const GrowingVariableArray& localVars, NumberSet& requiredTemps, NumberSet& providedTemps);
-	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps, int numStaticTemps);
-	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredTemps);
+	void FilterTempUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
+	void FilterVarsUsage(const GrowingVariableArray& localVars, NumberSet& requiredVars, NumberSet& providedVars, const GrowingVariableArray& params, NumberSet& requiredParams, NumberSet& providedParams, InterMemory paramMemory);
+
+	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps);
+	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredVars, const GrowingVariableArray& params, NumberSet& requiredParams, InterMemory paramMemory);
 	void PerformValueForwarding(GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	void BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps);
 
-	void LocalRenameRegister(GrowingIntArray& renameTable, int& num, int fixed);
+	void LocalRenameRegister(GrowingIntArray& renameTable, int& num);
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
 	void PerformTempForwarding(TempForwardingTable& forwardingTable);
@@ -422,6 +416,10 @@ public:
 	NumberSet						mEntryRequiredVars, mEntryProvidedVars;
 	NumberSet						mExitRequiredVars, mExitProvidedVars;
 
+	NumberSet						mLocalRequiredParams, mLocalProvidedParams;
+	NumberSet						mEntryRequiredParams, mEntryProvidedParams;
+	NumberSet						mExitRequiredParams, mExitProvidedParams;
+
 	GrowingInstructionPtrArray		mMergeTValues;
 	ValueSet						mMergeValues;
 	TempForwardingTable				mMergeForwardingTable;
@@ -443,21 +441,21 @@ public:
 	void CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps);
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 
-	void BuildLocalTempSets(int num, int numFixed);
+	void BuildLocalTempSets(int num);
 	void BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps);
 	bool BuildGlobalRequiredTempSet(NumberSet& fromRequiredTemps);
-	bool RemoveUnusedResultInstructions(int numStaticTemps);
+	bool RemoveUnusedResultInstructions(void);
 	void BuildCallerSaveTempSet(NumberSet& callerSaveTemps);
 
-	void BuildLocalVariableSets(const GrowingVariableArray& localVars);
-	void BuildGlobalProvidedVariableSet(const GrowingVariableArray& localVars, NumberSet fromProvidedVars);
-	bool BuildGlobalRequiredVariableSet(const GrowingVariableArray& localVars, NumberSet& fromRequiredVars);
-	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars);
+	void BuildLocalVariableSets(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory);
+	void BuildGlobalProvidedVariableSet(const GrowingVariableArray& localVars, NumberSet fromProvidedVars, const GrowingVariableArray& params, NumberSet fromProvidedParams, InterMemory paramMemory);
+	bool BuildGlobalRequiredVariableSet(const GrowingVariableArray& localVars, NumberSet& fromRequiredVars, const GrowingVariableArray& params, NumberSet& fromRequiredParams, InterMemory paramMemory);
+	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory);
 
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
 
-	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num, int fixed);
+	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num);
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
@@ -480,7 +478,7 @@ public:
 
 	void Disassemble(FILE* file, bool dumpSets);
 
-	void CollectVariables(GrowingVariableArray & globalVars, GrowingVariableArray & localVars);
+	void CollectVariables(GrowingVariableArray & globalVars, GrowingVariableArray & localVars, GrowingVariableArray& paramVars, InterMemory	paramMemory);
 	void MapVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars);
 	
 	void CollectOuterFrame(int level, int& size, bool& inner, bool& inlineAssembler, bool& byteCodeCall);
@@ -491,6 +489,12 @@ public:
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);
 
 	InterCodeBasicBlock* PropagateDominator(InterCodeProcedure * proc);
+
+	void SplitBranches(InterCodeProcedure* proc);
+	void FollowJumps(void);
+
+	bool IsEqual(const InterCodeBasicBlock* block) const;
+
 };
 
 class InterCodeModule;
@@ -501,7 +505,6 @@ protected:
 	GrowingIntArray						mRenameTable, mRenameUnionTable, mGlobalRenameTable;
 	TempForwardingTable					mTempForwardingTable;
 	GrowingInstructionPtrArray			mValueForwardingTable;
-	int									numFixedTemporaries;
 	NumberSet							mLocalAliasedSet, mParamAliasedSet;
 
 	void ResetVisited(void);
@@ -511,14 +514,14 @@ public:
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps;
-	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode;
+	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 
 	InterCodeModule					*	mModule;
 	int									mID;
 
 	int									mLocalSize, mNumLocals;
-	GrowingVariableArray				mLocalVars;
+	GrowingVariableArray				mLocalVars, mParamVars;
 
 	Location							mLocation;
 	const Ident						*	mIdent, * mSection;
@@ -549,6 +552,8 @@ protected:
 	void RemoveUnusedInstructions(void);
 	bool GlobalConstantPropagation(void);
 	void BuildDominators(void);
+
+	void MergeBasicBlocks(void);
 
 	void DisassembleDebug(const char* name);
 };

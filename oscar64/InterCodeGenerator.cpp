@@ -2901,6 +2901,8 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 	if (dec->mBase->mFlags & DTF_FASTCALL)
 	{
+		proc->mFastCallProcedure = true;
+
 		dec->mLinkerObject->mNumTemporaries = 1;
 		dec->mLinkerObject->mTemporaries[0] = BC_REG_FPARAMS;
 		dec->mLinkerObject->mTempSizes[0] = 8;
