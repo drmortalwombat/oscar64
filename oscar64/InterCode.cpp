@@ -61,6 +61,30 @@ void ValueSet::FlushAll(void)
 	mNum = 0;
 }
 
+void ValueSet::FlushFrameAliases(void)
+{
+	int	i;
+
+	i = 0;
+
+	while (i < mNum)
+	{
+		if (mInstructions[i]->mCode == IC_CONSTANT && mInstructions[i]->mDst.mType == IT_POINTER && mInstructions[i]->mConst.mMemory == IM_FRAME)
+		{
+			//
+			// Address in frame space
+			//
+			mNum--;
+			if (i < mNum)
+			{
+				mInstructions[i] = mInstructions[mNum];
+			}
+		}
+		else
+			i++;
+	}
+}
+
 void ValueSet::FlushCallAliases(void)
 {
 	int	i;
@@ -1076,6 +1100,10 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mCode = IC_JUMPF;
 			ins->mSrc[0].mTemp = -1;
 		}
+		break;
+	case IC_PUSH_FRAME:
+	case IC_POP_FRAME:
+		FlushFrameAliases();
 		break;
 	case IC_CALL:
 	case IC_CALL_NATIVE:
@@ -3483,6 +3511,11 @@ static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins
 		for (int i = 0; i < lins->mNumOperands; i++)
 			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
 				return false;
+	}
+	if (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
+	{
+		if (lins->mCode == IC_CONSTANT && lins->mDst.mType == IT_POINTER && lins->mConst.mMemory == IM_FRAME)
+			return false;
 	}
 
 	return true;

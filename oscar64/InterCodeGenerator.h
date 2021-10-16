@@ -54,7 +54,7 @@ protected:
 
 	ExValue Dereference(InterCodeProcedure* proc, InterCodeBasicBlock*& block, ExValue v, int level = 0);
 	ExValue CoerceType(InterCodeProcedure* proc, InterCodeBasicBlock*& block, ExValue v, Declaration * type);
-	ExValue TranslateExpression(Declaration * procType, InterCodeProcedure * proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper * inlineMapper);
+	ExValue TranslateExpression(Declaration * procType, InterCodeProcedure * proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper * inlineMapper, ExValue * lrexp = nullptr);
 	void TranslateLogic(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock* block, InterCodeBasicBlock* tblock, InterCodeBasicBlock* fblock, Expression* exp, InlineMapper* inlineMapper);
 
 	void BuildInitializer(InterCodeModule* mod, uint8 * dp, int offset, Declaration* data, InterVariable * variable);

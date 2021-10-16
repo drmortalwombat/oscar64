@@ -141,6 +141,8 @@ public:
 
 	void FlushAll(void);
 	void FlushCallAliases(void);
+	void FlushFrameAliases(void);
+
 
 	void RemoveValue(int index);
 	void InsertValue(InterInstruction * ins);
