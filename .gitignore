@@ -338,4 +338,5 @@ ASALocalRun/
 *.d
 *.d.*
 *.o
+*.lbl
 make/oscar64

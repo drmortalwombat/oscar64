@@ -1329,6 +1329,66 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
 				}
+				else
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
+			}
+			else if (vr.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_ARRAY)
+			{
+				if (vr.mType->mType == DT_TYPE_POINTER)
+					vr = Dereference(proc, block, vr);
+				else
+				{
+					vr = Dereference(proc, block, vr, 1);
+
+					Declaration* ptype = new Declaration(exp->mLocation, DT_TYPE_POINTER);
+					ptype->mBase = vr.mType->mBase;
+					ptype->mSize = 2;
+					vr.mType = ptype;
+				}
+
+				if (vl.mType->IsIntegerType())
+				{
+					InterInstruction* cins = new InterInstruction();
+					cins->mCode = IC_CONSTANT;
+
+					if (exp->mToken == TK_ADD)
+					{
+						cins->mConst.mIntConst = vr.mType->mBase->mSize;
+					}
+					else
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
+
+					cins->mDst.mType = IT_INT16;
+					cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
+					block->Append(cins);
+
+					vl = CoerceType(proc, block, vl, TheSignedIntTypeDeclaration);
+
+					InterInstruction* mins = new InterInstruction();
+					mins->mCode = IC_BINARY_OPERATOR;
+					mins->mOperator = IA_MUL;
+					mins->mSrc[0].mType = IT_INT16;
+					mins->mSrc[0].mTemp = vl.mTemp;
+					mins->mSrc[1].mType = IT_INT16;
+					mins->mSrc[1].mTemp = cins->mDst.mTemp;
+					mins->mDst.mType = IT_INT16;
+					mins->mDst.mTemp = proc->AddTemporary(mins->mDst.mType);
+					block->Append(mins);
+
+					ins->mCode = IC_LEA;
+					ins->mSrc[1].mMemory = IM_INDIRECT;
+					ins->mSrc[0].mType = IT_INT16;
+					ins->mSrc[0].mTemp = mins->mDst.mTemp;
+					ins->mSrc[1].mType = IT_POINTER;
+					ins->mSrc[1].mTemp = vr.mTemp;
+					ins->mDst.mType = IT_POINTER;
+					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+					block->Append(ins);
+
+					vl = vr;
+				}
+				else
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
 			}
 			else
 			{

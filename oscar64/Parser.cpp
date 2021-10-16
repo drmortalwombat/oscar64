@@ -1388,6 +1388,20 @@ Expression* Parser::ParseAddExpression(void)
 			nexp->mDecType = nexp->mLeft->mDecType;
 		else if (nexp->mRight->mDecType->mType == DT_TYPE_POINTER && nexp->mLeft->mDecType->IsIntegerType())
 			nexp->mDecType = nexp->mRight->mDecType;
+		else if (nexp->mLeft->mDecType->mType == DT_TYPE_ARRAY && nexp->mRight->mDecType->IsIntegerType())
+		{
+			Declaration* dec = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
+			dec->mSize = 2;
+			dec->mBase = nexp->mLeft->mDecType->mBase;
+			nexp->mDecType = dec;
+		}
+		else if (nexp->mRight->mDecType->mType == DT_TYPE_ARRAY && nexp->mLeft->mDecType->IsIntegerType())
+		{
+			Declaration* dec = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
+			dec->mSize = 2;
+			dec->mBase = nexp->mRight->mDecType->mBase;
+			nexp->mDecType = dec;
+		}
 		else if (nexp->mLeft->mDecType->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->mType == DT_TYPE_FLOAT)
 			nexp->mDecType = TheFloatTypeDeclaration;
 		else

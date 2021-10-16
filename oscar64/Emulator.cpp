@@ -612,14 +612,14 @@ int Emulator::Emulate(int startIP)
 				addr = mMemory[taddr] + 256 * mMemory[taddr + 1];
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s ($%02x,x) (A:%02x X:%02x Y:%02x P:%02x S:%02x %02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], mMemory[ip + 1], mRegA, mRegX, mRegY, mRegP, mRegS, taddr, addr);
-				mCycles[ip] += 5;
+				mCycles[ip] += 6;
 				break;
 			case ASMIM_INDIRECT_Y:
 				taddr = mMemory[mIP++];
 				addr = (mMemory[taddr] + 256 * mMemory[taddr + 1] + mRegY) & 0xffff;
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s ($%02x),y (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr);
-				mCycles[ip] += 4;
+				mCycles[ip] += 6;
 				break;
 			case ASMIM_RELATIVE:
 				taddr = mMemory[mIP++];

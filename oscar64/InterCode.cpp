@@ -2980,12 +2980,34 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						ins->mOperator = IA_ADD;
 						ins->mSrc[1].mTemp = nai->mDst.mTemp;
 						ins->mSrc[0].mTemp = cai->mDst.mTemp;
-
-						printf("MADD0\n");
 					}
 					else if (ai1 && ai1->mCode == IC_CONSTANT)
 					{
-						printf("MADD1\n");
+						InterInstruction* nai = new InterInstruction();
+						nai->mCode = IC_BINARY_OPERATOR;
+						nai->mOperator = IA_MUL;
+						nai->mSrc[0].mTemp = mi0->mSrc[0].mTemp;
+						nai->mSrc[0].mType = IT_INT16;
+						nai->mSrc[1].mTemp = ins->mSrc[1].mTemp;
+						nai->mSrc[1].mType = IT_INT16;
+						nai->mDst.mTemp = spareTemps++;
+						nai->mDst.mType = IT_INT16;
+						mInstructions.Insert(i, nai);
+
+						ltvalue[nai->mDst.mTemp] = nullptr;
+
+						InterInstruction* cai = new InterInstruction();
+						cai->mCode = IC_CONSTANT;
+						cai->mDst.mTemp = spareTemps++;
+						cai->mDst.mType = IT_INT16;
+						cai->mConst.mIntConst = ai1->mConst.mIntConst * mi1->mConst.mIntConst;
+						mInstructions.Insert(i, cai);
+
+						ltvalue[cai->mDst.mTemp] = nullptr;
+
+						ins->mOperator = IA_ADD;
+						ins->mSrc[1].mTemp = nai->mDst.mTemp;
+						ins->mSrc[0].mTemp = cai->mDst.mTemp;
 					}
 				}
 			}
@@ -3004,11 +3026,31 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						{
 							if (ai0 && ai0->mCode == IC_CONSTANT)
 							{
-								printf("ADDADD00\n");
+								InterInstruction* cai = new InterInstruction();
+								cai->mCode = IC_CONSTANT;
+								cai->mDst.mTemp = spareTemps++;
+								cai->mDst.mType = IT_INT16;
+								cai->mConst.mIntConst = ai0->mConst.mIntConst + mi1->mConst.mIntConst;
+								mInstructions.Insert(i, cai);
+
+								ltvalue[cai->mDst.mTemp] = nullptr;
+
+								ins->mSrc[1].mTemp = mi0->mSrc[1].mTemp;
+								ins->mSrc[0].mTemp = cai->mDst.mTemp;
 							}
 							else if (ai1 && ai1->mCode == IC_CONSTANT)
 							{
-								printf("ADDADD01\n");
+								InterInstruction* cai = new InterInstruction();
+								cai->mCode = IC_CONSTANT;
+								cai->mDst.mTemp = spareTemps++;
+								cai->mDst.mType = IT_INT16;
+								cai->mConst.mIntConst = ai1->mConst.mIntConst + mi1->mConst.mIntConst;
+								mInstructions.Insert(i, cai);
+
+								ltvalue[cai->mDst.mTemp] = nullptr;
+
+								ins->mSrc[1].mTemp = mi0->mSrc[0].mTemp;
+								ins->mSrc[0].mTemp = cai->mDst.mTemp;
 							}
 						}
 					}
@@ -3030,12 +3072,20 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 								ins->mSrc[1].mTemp = mi1->mSrc[1].mTemp;
 								ins->mSrc[0].mTemp = cai->mDst.mTemp;
-
-								printf("ADDADD10\n");
 							}
 							else if (ai1 && ai1->mCode == IC_CONSTANT)
 							{
-								printf("ADDADD11\n");
+								InterInstruction* cai = new InterInstruction();
+								cai->mCode = IC_CONSTANT;
+								cai->mDst.mTemp = spareTemps++;
+								cai->mDst.mType = IT_INT16;
+								cai->mConst.mIntConst = ai1->mConst.mIntConst + mi0->mConst.mIntConst;
+								mInstructions.Insert(i, cai);
+
+								ltvalue[cai->mDst.mTemp] = nullptr;
+
+								ins->mSrc[1].mTemp = mi1->mSrc[0].mTemp;
+								ins->mSrc[0].mTemp = cai->mDst.mTemp;
 							}
 						}
 					}
@@ -3068,12 +3118,9 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 							ins->mSrc[1].mTemp = nai->mDst.mTemp;
 							ins->mSrc[0].mTemp = li0->mSrc[0].mTemp;
-
-							printf("LADD0 %d %x\n", mIndex, i);
 						}
 						else if (ai1 && ai1->mCode == IC_CONSTANT)
 						{
-							printf("LADD1\n");
 						}
 					}
 					else if (li0->mCode == IC_CONSTANT && li1->mCode == IC_LEA)
@@ -3092,8 +3139,6 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 							ins->mSrc[1].mTemp = li1->mSrc[1].mTemp;
 
 							ltvalue[cai->mDst.mTemp] = nullptr;
-
-							printf("LEAEA %d %x\n", mIndex, i);
 						}
 					}
 				}
