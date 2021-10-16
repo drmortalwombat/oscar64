@@ -379,6 +379,31 @@ bool Linker::WriteMapFile(const char* filename)
 		return false;
 }
 
+bool Linker::WriteLblFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* obj = mObjects[i];
+
+			if (obj->mFlags & LOBJF_REFERENCED)
+			{
+				if (obj->mIdent)
+					fprintf(file, "al %04x .%s\n", obj->mAddress, obj->mIdent->mString);
+			}
+		}
+
+		fclose(file);
+
+		return true;
+	}
+	else
+		return false;
+}
+
 bool Linker::WriteAsmFile(const char* filename)
 {
 	FILE* file;

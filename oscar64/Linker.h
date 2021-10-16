@@ -129,6 +129,7 @@ public:
 	bool WritePrgFile(const char* filename);
 	bool WriteMapFile(const char* filename);
 	bool WriteAsmFile(const char* filename);
+	bool WriteLblFile(const char* filename);
 
 	GrowingArray<LinkerReference*>	mReferences;
 	GrowingArray<LinkerRegion*>		mRegions;
