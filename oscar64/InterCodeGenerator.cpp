@@ -1921,6 +1921,57 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					block->Append(fins);
 				}
 
+				Declaration	* decResult = nullptr;
+
+				if (ftype->mBase->mType == DT_TYPE_STRUCT)
+				{
+					int	nindex = proc->mNumLocals++;
+
+					Declaration* vdec = new Declaration(exp->mLocation, DT_VARIABLE);
+
+					vdec->mVarIndex = nindex;
+					vdec->mBase = ftype->mBase;
+					vdec->mSize = ftype->mBase->mSize;
+
+					decResult = vdec;
+
+					InterInstruction* vins = new InterInstruction();
+					vins->mCode = IC_CONSTANT;
+					vins->mDst.mType = IT_POINTER;
+					vins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					vins->mConst.mMemory = IM_LOCAL;
+					vins->mConst.mVarIndex = nindex;
+					vins->mConst.mOperandSize = ftype->mBase->mSize;
+					block->Append(vins);
+
+					InterInstruction* ains = new InterInstruction();
+					ains->mCode = IC_CONSTANT;
+					ains->mDst.mType = IT_POINTER;
+					ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					ains->mConst.mVarIndex = 0;
+					ains->mConst.mIntConst = 0;
+					ains->mConst.mOperandSize = 2;
+					if (ftype->mFlags & DTF_FASTCALL)
+						ains->mConst.mMemory = IM_FPARAM;
+					else
+						ains->mConst.mMemory = IM_FRAME;
+					block->Append(ains);
+
+					InterInstruction* wins = new InterInstruction();
+					wins->mCode = IC_STORE;
+					wins->mSrc[1].mMemory = IM_INDIRECT;
+					wins->mSrc[0].mType = IT_POINTER;
+					wins->mSrc[0].mTemp = vins->mDst.mTemp;
+					wins->mSrc[1].mType = IT_POINTER;
+					wins->mSrc[1].mTemp = ains->mDst.mTemp;
+					wins->mSrc[1].mOperandSize = 2;
+					block->Append(wins);
+
+					atotal = 2;
+
+					decResult = vdec;
+				}
+
 				if (exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION)
 					proc->AddCalledFunction(proc->mModule->mProcedures[exp->mLeft->mDecValue->mVarIndex]);
 				else
@@ -2058,7 +2109,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					cins->mCode = IC_CALL;
 				cins->mSrc[0].mType = IT_POINTER;
 				cins->mSrc[0].mTemp = vl.mTemp;
-				if (ftype->mBase->mType != DT_TYPE_VOID)
+				if (ftype->mBase->mType != DT_TYPE_VOID && ftype->mBase->mType != DT_TYPE_STRUCT)
 				{
 					cins->mDst.mType = InterTypeOf(ftype->mBase);
 					cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
@@ -2081,7 +2132,20 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					block->Append(xins);
 				}
 
-				return ExValue(ftype->mBase, cins->mDst.mTemp);
+				if (decResult)
+				{
+					InterInstruction* vins = new InterInstruction();
+					vins->mCode = IC_CONSTANT;
+					vins->mDst.mType = IT_POINTER;
+					vins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					vins->mConst.mMemory = IM_LOCAL;
+					vins->mConst.mVarIndex = decResult->mVarIndex;
+					block->Append(vins);
+
+					return ExValue(ftype->mBase, vins->mDst.mTemp, 1);
+				}
+				else
+					return ExValue(ftype->mBase, cins->mDst.mTemp);
 			}
 
 		}
@@ -2168,38 +2232,87 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (exp->mLeft)
 			{
 				vr = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);
-				vr = Dereference(proc, block, vr);
 
-				if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
-					mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
-				else if (!procType->mBase->CanAssign(vr.mType))
-					mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
-
-				vr = CoerceType(proc, block, vr, procType->mBase);
-
-				ins->mSrc[0].mType = InterTypeOf(vr.mType);
-				ins->mSrc[0].mTemp = vr.mTemp;
-
-				if (inlineMapper)
+				if (procType->mBase->mType == DT_TYPE_STRUCT)
 				{
+					vr = Dereference(proc, block, vr, 1);
+
+					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
+						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
+					else if (!procType->mBase->CanAssign(vr.mType))
+						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
+					else if (vr.mReference != 1)
+						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Non addressable object");
+
 					InterInstruction* ains = new InterInstruction();
 					ains->mCode = IC_CONSTANT;
 					ains->mDst.mType = IT_POINTER;
-					ains->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-					ains->mConst.mOperandSize = procType->mBase->mSize;
+					ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					ains->mConst.mVarIndex = 0;
 					ains->mConst.mIntConst = 0;
-					ains->mConst.mVarIndex = inlineMapper->mResult;;
-					ains->mConst.mMemory = IM_LOCAL;
+					ains->mConst.mOperandSize = 2;
+					if (procType->mFlags & DTF_FASTCALL)
+						ains->mConst.mMemory = IM_FPARAM;
+					else
+						ains->mConst.mMemory = IM_PARAM;
 					block->Append(ains);
 
-					ins->mSrc[1].mType = ains->mDst.mType;
-					ins->mSrc[1].mTemp = ains->mDst.mTemp;
-					ins->mSrc[1].mMemory = IM_INDIRECT;
-					ins->mCode = IC_STORE;
-					ins->mSrc[1].mOperandSize = ains->mConst.mOperandSize;
+					InterInstruction* rins = new InterInstruction();
+					rins->mCode = IC_LOAD;
+					rins->mSrc[0].mMemory = IM_INDIRECT;
+					rins->mSrc[0].mType = IT_POINTER;
+					rins->mSrc[0].mTemp = ains->mDst.mTemp;
+					rins->mDst.mType = IT_POINTER;
+					rins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					block->Append(rins);
+
+					InterInstruction* cins = new InterInstruction();
+					cins->mCode = IC_COPY;
+					cins->mConst.mMemory = IM_INDIRECT;
+					cins->mSrc[0].mType = IT_POINTER;
+					cins->mSrc[0].mTemp = vr.mTemp;
+					cins->mSrc[1].mType = IT_POINTER;
+					cins->mSrc[1].mTemp = rins->mDst.mTemp;
+					cins->mConst.mOperandSize = vr.mType->mSize;
+					block->Append(cins);
+
+					ins->mCode = IC_RETURN;
 				}
 				else
-					ins->mCode = IC_RETURN_VALUE;
+				{
+					vr = Dereference(proc, block, vr);
+
+					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
+						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
+					else if (!procType->mBase->CanAssign(vr.mType))
+						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
+
+					vr = CoerceType(proc, block, vr, procType->mBase);
+
+					ins->mSrc[0].mType = InterTypeOf(vr.mType);
+					ins->mSrc[0].mTemp = vr.mTemp;
+
+					if (inlineMapper)
+					{
+						InterInstruction* ains = new InterInstruction();
+						ains->mCode = IC_CONSTANT;
+						ains->mDst.mType = IT_POINTER;
+						ains->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+						ains->mConst.mOperandSize = procType->mBase->mSize;
+						ains->mConst.mIntConst = 0;
+						ains->mConst.mVarIndex = inlineMapper->mResult;;
+						ains->mConst.mMemory = IM_LOCAL;
+						block->Append(ains);
+
+						ins->mSrc[1].mType = ains->mDst.mType;
+						ins->mSrc[1].mTemp = ains->mDst.mTemp;
+						ins->mSrc[1].mMemory = IM_INDIRECT;
+						ins->mCode = IC_STORE;
+						ins->mSrc[1].mOperandSize = ains->mConst.mOperandSize;
+					}
+					else
+						ins->mCode = IC_RETURN_VALUE;
+				}
 			}
 			else
 			{
