@@ -64,6 +64,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_7127D91089DA4162BB8DC8EAB0C107F0"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_7EA67552E0B34B9BA70152AD9E369EA6"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -77,6 +83,12 @@
         "Entry"
         {
         "MsmKey" = "8:_9D0D7A63D6C848CD85489D6E7C43AFAD"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_9EF4DA2EABDB4E3B864CCDEC851B7037"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -411,6 +423,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_7127D91089DA4162BB8DC8EAB0C107F0"
+            {
+            "SourcePath" = "8:..\\include\\c64\\vic.c"
+            "TargetName" = "8:vic.c"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_7EA67552E0B34B9BA70152AD9E369EA6"
             {
             "SourcePath" = "8:..\\include\\c64\\joystick.h"
@@ -457,6 +489,26 @@
             "TargetName" = "8:stdio.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_9EF4DA2EABDB4E3B864CCDEC851B7037"
+            {
+            "SourcePath" = "8:..\\include\\c64\\cia.h"
+            "TargetName" = "8:cia.h"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -820,15 +872,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{40AF707C-0E9B-4786-A353-C49A7288B8E5}"
-        "PackageCode" = "8:{7C6E8F8C-262F-4230-92A2-4E3E95F7B70E}"
+        "ProductCode" = "8:{BE34D2A8-161C-4DA2-972D-BBF520134E2C}"
+        "PackageCode" = "8:{B497440C-3E40-4996-868C-98739B7F7C7B}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.1.41"
+        "ProductVersion" = "8:1.1.42"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
