@@ -1721,16 +1721,24 @@ Expression* Parser::ParseStatement(void)
 				exp = new Expression(mScanner->mLocation, EX_FOR);
 				exp->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);
 				exp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);
-				exp->mLeft->mRight = ParseExpression();
+
+				// Assignment
+				if (mScanner->mToken != TK_SEMICOLON)
+					exp->mLeft->mRight = ParseExpression();
 				if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
 				else
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
-				exp->mLeft->mLeft->mLeft = ParseExpression();
+
+				// Condition
+				if (mScanner->mToken != TK_SEMICOLON)
+					exp->mLeft->mLeft->mLeft = ParseExpression();
 				if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
 				else
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+
+				// Iteration
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 					exp->mLeft->mLeft->mRight = ParseExpression();
 				if (mScanner->mToken == TK_CLOSE_PARENTHESIS)

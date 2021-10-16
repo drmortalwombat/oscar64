@@ -1856,6 +1856,18 @@ void InterCodeBasicBlock::CollectEntries(void)
 	}
 }
 
+static bool IsInfiniteLoop(const InterCodeBasicBlock* block)
+{
+	const InterCodeBasicBlock* nblock = block;
+	while (nblock->mTrueJump && !nblock->mFalseJump)
+	{
+		nblock = nblock->mTrueJump;
+		if (nblock == block)
+			return true;
+	}
+	return false;
+}
+
 void InterCodeBasicBlock::GenerateTraces(void)
 {
 	int i;
@@ -1884,7 +1896,7 @@ void InterCodeBasicBlock::GenerateTraces(void)
 				if (mFalseJump)
 					mFalseJump->mNumEntries++;
 			}
-			else if (mTrueJump && !mFalseJump && ((mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead)
+			else if (mTrueJump && !mFalseJump && ((mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump))
 			{
 				mTrueJump->mNumEntries--;
 
