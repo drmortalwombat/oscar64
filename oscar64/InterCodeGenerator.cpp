@@ -962,11 +962,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					InterInstruction* ins = new InterInstruction();
 					ins->mCode = IC_COPY;
-					ins->mConst.mMemory = IM_INDIRECT;
 					ins->mSrc[0].mType = IT_POINTER;
 					ins->mSrc[0].mTemp = vr.mTemp;
+					ins->mSrc[0].mMemory = IM_INDIRECT;
 					ins->mSrc[1].mType = IT_POINTER;
 					ins->mSrc[1].mTemp = vl.mTemp;
+					ins->mSrc[1].mMemory = IM_INDIRECT;
 					ins->mConst.mOperandSize = vl.mType->mSize;
 					block->Append(ins);
 				}
@@ -1819,45 +1820,73 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						pex = nullptr;
 					}
 
-					vr = TranslateExpression(procType, proc, block, texp, breakBlock, continueBlock, inlineMapper);
+					ExValue	vp(pdec ? pdec->mBase : TheSignedIntTypeDeclaration, ains->mDst.mTemp, 1);
 
-					if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
-						vr = Dereference(proc, block, vr, 1);
-					else
-						vr = Dereference(proc, block, vr);
+					vr = TranslateExpression(procType, proc, block, texp, breakBlock, continueBlock, inlineMapper, &vp);
 
-					if (pdec)
+					if (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION)
 					{
-						if (!pdec->mBase->CanAssign(vr.mType))
+						if (pdec && !pdec->mBase->CanAssign(vr.mType))
 							mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
-						vr = CoerceType(proc, block, vr, pdec->mBase);
-					}
-					else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
-					{
-						vr = CoerceType(proc, block, vr, TheSignedIntTypeDeclaration);
-					}
 
+						vr = Dereference(proc, block, vr, 1);
 
-					InterInstruction* wins = new InterInstruction();
-					wins->mCode = IC_STORE;
-					wins->mSrc[1].mMemory = IM_INDIRECT;
-					wins->mSrc[0].mType = InterTypeOf(vr.mType);;
-					wins->mSrc[0].mTemp = vr.mTemp;
-					wins->mSrc[1].mType = IT_POINTER;
-					wins->mSrc[1].mTemp = ains->mDst.mTemp;
-					if (pdec)
-					{
-						if (pdec->mBase->mType == DT_TYPE_ARRAY)
-							wins->mSrc[1].mOperandSize = 2;
-						else
-							wins->mSrc[1].mOperandSize = pdec->mSize;
+						if (vr.mReference != 1)
+							mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an adressable expression");
+
+						if (vp.mTemp != vr.mTemp)
+						{
+							InterInstruction* cins = new InterInstruction();
+							cins->mCode = IC_COPY;
+							cins->mSrc[0].mType = IT_POINTER;
+							cins->mSrc[0].mTemp = vr.mTemp;
+							cins->mSrc[0].mMemory = IM_INDIRECT;
+							cins->mSrc[1].mType = IT_POINTER;
+							cins->mSrc[1].mTemp = ains->mDst.mTemp;
+							cins->mSrc[1].mMemory = IM_INDIRECT;
+							cins->mConst.mOperandSize = vr.mType->mSize;
+							block->Append(cins);
+						}
 					}
-					else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
-						wins->mSrc[1].mOperandSize = vr.mType->mSize;
 					else
-						wins->mSrc[1].mOperandSize = 2;
+					{
+						if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
+							vr = Dereference(proc, block, vr, 1);
+						else
+							vr = Dereference(proc, block, vr);
 
-					block->Append(wins);
+						if (pdec)
+						{
+							if (!pdec->mBase->CanAssign(vr.mType))
+								mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+							vr = CoerceType(proc, block, vr, pdec->mBase);
+						}
+						else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
+						{
+							vr = CoerceType(proc, block, vr, TheSignedIntTypeDeclaration);
+						}
+
+						InterInstruction* wins = new InterInstruction();
+						wins->mCode = IC_STORE;
+						wins->mSrc[1].mMemory = IM_INDIRECT;
+						wins->mSrc[0].mType = InterTypeOf(vr.mType);;
+						wins->mSrc[0].mTemp = vr.mTemp;
+						wins->mSrc[1].mType = IT_POINTER;
+						wins->mSrc[1].mTemp = ains->mDst.mTemp;
+						if (pdec)
+						{
+							if (pdec->mBase->mType == DT_TYPE_ARRAY)
+								wins->mSrc[1].mOperandSize = 2;
+							else
+								wins->mSrc[1].mOperandSize = pdec->mSize;
+						}
+						else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
+							wins->mSrc[1].mOperandSize = vr.mType->mSize;
+						else
+							wins->mSrc[1].mOperandSize = 2;
+						block->Append(wins);
+					}
+
 					if (pdec)
 						pdec = pdec->mNext;
 				}
@@ -2066,11 +2095,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						{
 							InterInstruction* cins = new InterInstruction();
 							cins->mCode = IC_COPY;
-							cins->mConst.mMemory = IM_INDIRECT;
 							cins->mSrc[0].mType = IT_POINTER;
 							cins->mSrc[0].mTemp = vr.mTemp;
+							cins->mSrc[0].mMemory = IM_INDIRECT;
 							cins->mSrc[1].mType = IT_POINTER;
 							cins->mSrc[1].mTemp = ains->mDst.mTemp;
+							cins->mSrc[1].mMemory = IM_INDIRECT;
 							cins->mConst.mOperandSize = vr.mType->mSize;
 							block->Append(cins);
 						}
@@ -2273,38 +2303,56 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Non addressable object");
 
 					InterInstruction* ains = new InterInstruction();
-					ains->mCode = IC_CONSTANT;
-					ains->mDst.mType = IT_POINTER;
-					ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
-					ains->mConst.mVarIndex = 0;
-					ains->mConst.mIntConst = 0;
-					ains->mConst.mOperandSize = 2;
-					if (procType->mFlags & DTF_FASTCALL)
-						ains->mConst.mMemory = IM_FPARAM;
-					else
-						ains->mConst.mMemory = IM_PARAM;
-					block->Append(ains);
 
-					InterInstruction* rins = new InterInstruction();
-					rins->mCode = IC_LOAD;
-					rins->mSrc[0].mMemory = IM_INDIRECT;
-					rins->mSrc[0].mType = IT_POINTER;
-					rins->mSrc[0].mTemp = ains->mDst.mTemp;
-					rins->mDst.mType = IT_POINTER;
-					rins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
-					block->Append(rins);
+					if (inlineMapper)
+					{
+						ains->mCode = IC_CONSTANT;
+						ains->mDst.mType = IT_POINTER;
+						ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+						ains->mConst.mOperandSize = procType->mBase->mSize;
+						ains->mConst.mIntConst = 0;
+						ains->mConst.mVarIndex = inlineMapper->mResult;
+						ains->mConst.mMemory = IM_LOCAL;
+						block->Append(ains);
+
+						ins->mCode = IC_NONE;
+					}
+					else
+					{
+						InterInstruction* pins = new InterInstruction();
+						pins->mCode = IC_CONSTANT;
+						pins->mDst.mType = IT_POINTER;
+						pins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+						pins->mConst.mVarIndex = 0;
+						pins->mConst.mIntConst = 0;
+						pins->mConst.mOperandSize = 2;
+						if (procType->mFlags & DTF_FASTCALL)
+							pins->mConst.mMemory = IM_FPARAM;
+						else
+							pins->mConst.mMemory = IM_PARAM;
+						block->Append(pins);
+
+						ains->mCode = IC_LOAD;
+						ains->mSrc[0].mMemory = IM_INDIRECT;
+						ains->mSrc[0].mType = IT_POINTER;
+						ains->mSrc[0].mTemp = pins->mDst.mTemp;
+						ains->mDst.mType = IT_POINTER;
+						ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+						block->Append(ains);
+
+						ins->mCode = IC_RETURN;
+					}
 
 					InterInstruction* cins = new InterInstruction();
 					cins->mCode = IC_COPY;
-					cins->mConst.mMemory = IM_INDIRECT;
 					cins->mSrc[0].mType = IT_POINTER;
 					cins->mSrc[0].mTemp = vr.mTemp;
+					cins->mSrc[0].mMemory = IM_INDIRECT;
 					cins->mSrc[1].mType = IT_POINTER;
-					cins->mSrc[1].mTemp = rins->mDst.mTemp;
+					cins->mSrc[1].mTemp = ains->mDst.mTemp;
+					cins->mSrc[1].mMemory = IM_INDIRECT;
 					cins->mConst.mOperandSize = vr.mType->mSize;
 					block->Append(cins);
-
-					ins->mCode = IC_RETURN;
 				}
 				else
 				{

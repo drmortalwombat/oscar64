@@ -72,7 +72,7 @@ void GlobalAnalyzer::AutoInline(void)
 				int	cost = (f->mComplexity - 20 * nparams);
 
 				bool	doinline = false;
-				if ((mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_INLINE))
+				if ((mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_REQUEST_INLINE))
 					doinline = true;
 				if ((mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE) && (cost * (f->mCallers.Size() - 1) <= 0))
 					doinline = true;
