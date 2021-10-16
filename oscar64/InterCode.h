@@ -431,7 +431,7 @@ public:
 	void Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump);
 
 	void CollectEntries(void);
-	void GenerateTraces(void);
+	void GenerateTraces(bool expand);
 
 	void LocalToTemp(int vindex, int temp);
 
@@ -545,7 +545,7 @@ public:
 	void ReduceTemporaries(void);
 	void Disassemble(const char* name, bool dumpSets = false);
 protected:
-	void BuildTraces(void);
+	void BuildTraces(bool expand);
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);
 	void TempForwarding(void);

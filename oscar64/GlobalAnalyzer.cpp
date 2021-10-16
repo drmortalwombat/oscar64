@@ -62,7 +62,7 @@ void GlobalAnalyzer::AutoInline(void)
 			if (!(f->mFlags & DTF_INLINE) && !(f->mBase->mFlags & DTF_VARIADIC) && !(f->mFlags & DTF_FUNC_VARIABLE) && !(f->mFlags & DTF_FUNC_ASSEMBLER) && !(f->mFlags & DTF_INTRINSIC) && !(f->mFlags & DTF_FUNC_RECURSIVE) && f->mLocalSize < 100)
 			{
 				int		nparams = 0;
-				Declaration* dec = f->mParams;
+				Declaration* dec = f->mBase->mParams;
 				while (dec)
 				{
 					nparams++;
@@ -120,10 +120,10 @@ void GlobalAnalyzer::AutoInline(void)
 		if (!(f->mFlags & DTF_INLINE) && !(f->mBase->mFlags & DTF_VARIADIC) && !(f->mFlags & DTF_FUNC_VARIABLE) && !(f->mFlags & DTF_INTRINSIC) && f->mCalled.Size() == 0)
 		{
 			int		nparams = 0;
-			Declaration* dec = f->mParams;
+			Declaration* dec = f->mBase->mParams;
 			while (dec)
 			{				
-				nparams += dec->mSize;
+				nparams += dec->mBase->mSize;
 				dec = dec->mNext;
 			}
 

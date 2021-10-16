@@ -1868,7 +1868,7 @@ static bool IsInfiniteLoop(const InterCodeBasicBlock* block)
 	return false;
 }
 
-void InterCodeBasicBlock::GenerateTraces(void)
+void InterCodeBasicBlock::GenerateTraces(bool expand)
 {
 	int i;
 
@@ -1896,7 +1896,7 @@ void InterCodeBasicBlock::GenerateTraces(void)
 				if (mFalseJump)
 					mFalseJump->mNumEntries++;
 			}
-			else if (mTrueJump && !mFalseJump && ((mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump))
+			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump))
 			{
 				mTrueJump->mNumEntries--;
 
@@ -1916,8 +1916,8 @@ void InterCodeBasicBlock::GenerateTraces(void)
 				break;
 		}
 
-		if (mTrueJump) mTrueJump->GenerateTraces();
-		if (mFalseJump) mFalseJump->GenerateTraces();
+		if (mTrueJump) mTrueJump->GenerateTraces(expand);
+		if (mFalseJump) mFalseJump->GenerateTraces(expand);
 
 		mInPath = false;
 	}
@@ -4265,7 +4265,7 @@ void InterCodeProcedure::DisassembleDebug(const char* name)
 	Disassemble(name);
 }
 
-void InterCodeProcedure::BuildTraces(void)
+void InterCodeProcedure::BuildTraces(bool expand)
 {
 	// Count number of entries
 //
@@ -4281,7 +4281,7 @@ void InterCodeProcedure::BuildTraces(void)
 	// Build traces
 	//
 	ResetVisited();
-	mEntryBlock->GenerateTraces();
+	mEntryBlock->GenerateTraces(expand);
 
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
@@ -4438,7 +4438,7 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("start");
 
-	BuildTraces();
+	BuildTraces(true);
 
 	ResetVisited();
 	mLeafProcedure = mEntryBlock->IsLeafProcedure();
@@ -4505,7 +4505,7 @@ void InterCodeProcedure::Close(void)
 		eliminated = mEntryBlock->EliminateDeadBranches();
 		if (eliminated)
 		{
-			BuildTraces();
+			BuildTraces(false);
 			/*
 			ResetVisited();
 			for (int i = 0; i < mBlocks.Size(); i++)
@@ -4631,7 +4631,7 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("local variables to temps");
 
-	BuildTraces();
+	BuildTraces(false);
 
 	BuildDataFlowSets();
 
