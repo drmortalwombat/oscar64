@@ -1565,13 +1565,14 @@ Expression* Parser::ParseAssignmentExpression(void)
 {
 	Expression* exp = ParseConditionalExpression();
 
-	while (mScanner->mToken >= TK_ASSIGN && mScanner->mToken <= TK_ASSIGN_OR)
+	if (mScanner->mToken >= TK_ASSIGN && mScanner->mToken <= TK_ASSIGN_OR)
 	{
 		Expression* nexp = new Expression(mScanner->mLocation, EX_ASSIGNMENT);
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseConditionalExpression();
+		nexp->mRight = ParseAssignmentExpression();
+		nexp->mDecType = exp->mDecType;
 		exp = nexp;
 	}
 
