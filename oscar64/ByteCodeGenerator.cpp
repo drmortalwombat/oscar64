@@ -935,7 +935,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 
 					ByteCodeInstruction	bins(BC_STORE_ADDR_32);
 					bins.mRegister = BC_REG_ACCU;
-					bins.mValue = ins->mSrc[1].mIntConst;
+					bins.mValue = index;
 					mIns.Push(bins);
 				}
 			}

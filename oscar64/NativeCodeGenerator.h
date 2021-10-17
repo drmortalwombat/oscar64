@@ -68,6 +68,7 @@ public:
 	bool ChangesAccuAndFlag(void) const;
 	bool ChangesAddress(void) const;
 	bool ChangesAccu(void) const;
+	bool UsesAccu(void) const;
 	bool ChangesCarry(void) const;
 	bool RequiresAccu(void) const;
 	bool RequiresYReg(void) const;
@@ -78,6 +79,7 @@ public:
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
+	bool IsShift(void) const;
 };
 
 class NativeCodeBasicBlock

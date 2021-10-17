@@ -170,7 +170,11 @@ protected:
 				range = range * 2;
 
 			a2 = new T[range];
-			for (i = 0; i < size; i++) a2[i] = array[i];
+			if (to > size)
+				for (i = 0; i < size; i++) a2[i] = array[i];
+			else
+				for (i = 0; i < to; i++) a2[i] = array[i];
+
 			delete[] array;
 			array = a2;
 		}

@@ -1495,7 +1495,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (vl.mType->mFlags & DTF_CONST)
 				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot change const value");
 
-			InterInstruction	*	cins = new InterInstruction(), *	ains = new InterInstruction(), *	rins = new InterInstruction(), *	sins = new InterInstruction();
+			InterInstruction	*	cins = new InterInstruction(), *	ains = new InterInstruction(), *	sins = new InterInstruction();
 
 			ExValue	vdl = Dereference(proc, block, vl);
 
@@ -1555,7 +1555,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (vl.mType->mFlags & DTF_CONST)
 				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot change const value");
 
-			InterInstruction	*	cins = new InterInstruction(), *	ains = new InterInstruction(), *	rins = new InterInstruction(), *	sins = new InterInstruction();
+			InterInstruction	*	cins = new InterInstruction(), *	ains = new InterInstruction(), *	sins = new InterInstruction();
 
 			ExValue	vdl = Dereference(proc, block, vl);
 

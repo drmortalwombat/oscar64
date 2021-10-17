@@ -567,6 +567,14 @@ bool NativeCodeInstruction::RequiresAccu(void) const
 	}
 }
 
+bool NativeCodeInstruction::UsesAccu(void) const
+{
+	if (ChangesAccu())
+		return true;
+
+	return mType == ASMIT_STA || mType == ASMIT_CMP || mType == ASMIT_TAX || mType == ASMIT_TAY;
+}
+
 bool NativeCodeInstruction::ChangesAccu(void) const
 {
 	if (mMode == ASMIM_IMPLIED)
@@ -593,6 +601,11 @@ bool NativeCodeInstruction::ChangesAddress(void) const
 		return mType == ASMIT_INC || mType == ASMIT_DEC || mType == ASMIT_ASL || mType == ASMIT_LSR || mType == ASMIT_ROL || mType == ASMIT_ROR || mType == ASMIT_STA || mType == ASMIT_STX || mType == ASMIT_STY;
 	else
 		return false;
+}
+
+bool NativeCodeInstruction::IsShift(void) const
+{
+	return mType == ASMIT_ASL || mType == ASMIT_LSR || mType == ASMIT_ROL || mType == ASMIT_ROR;
 }
 
 bool NativeCodeInstruction::IsCommutative(void) const
@@ -670,6 +683,14 @@ bool NativeCodeInstruction::ApplySimulation(const NativeRegisterDataSet& data)
 		if (mMode == ASMIM_ZERO_PAGE && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
 		{
 			mMode = ASMIM_IMMEDIATE;
+			mAddress = data.mRegs[mAddress].mValue;
+			return true;
+		}
+		else if (mMode == ASMIM_ZERO_PAGE && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS)
+		{
+			mMode = ASMIM_IMMEDIATE_ADDRESS;
+			mLinkerObject = data.mRegs[mAddress].mLinkerObject;
+			mFlags = data.mRegs[mAddress].mFlags;
 			mAddress = data.mRegs[mAddress].mValue;
 			return true;
 		}
@@ -1185,6 +1206,14 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 			data.mRegs[CPU_REG_Z].mValue = mAddress;
 			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
 		}
+		else if (mMode == ASMIM_IMMEDIATE_ADDRESS)
+		{
+			data.mRegs[CPU_REG_A].mValue = mAddress;
+			data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
+			data.mRegs[CPU_REG_A].mFlags = mFlags;
+			data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE_ADDRESS;
+			data.mRegs[CPU_REG_Z].Reset();
+		}
 		else
 		{
 			data.mRegs[CPU_REG_A].Reset();
@@ -1257,10 +1286,9 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 	case ASMIT_STA:
 		if (reg >= 0)
 		{
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE || data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS)
 			{
-				data.mRegs[reg].mValue = data.mRegs[CPU_REG_A].mValue;
-				data.mRegs[reg].mMode = NRDM_IMMEDIATE;
+				data.mRegs[reg] = data.mRegs[CPU_REG_A];
 			}
 			else
 			{
@@ -1393,6 +1421,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data)
 			data.mRegs[CPU_REG_A].mValue = mAddress;
 			data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
 			data.mRegs[CPU_REG_A].mFlags = mFlags;
+			data.mRegs[CPU_REG_Z].Reset();
 		}
 		else
 		{
@@ -6625,13 +6654,30 @@ void NativeCodeBasicBlock::BuildEntryDataSet(const NativeRegisterDataSet& set)
 		{
 			if (set.mRegs[i].mMode == NRDM_IMMEDIATE)
 			{
-				if (mEntryRegisterDataSet.mRegs[i].mMode == NRDM_IMMEDIATE && set.mRegs[i].mValue != mEntryRegisterDataSet.mRegs[i].mValue)
+				if (mEntryRegisterDataSet.mRegs[i].mMode == NRDM_IMMEDIATE && set.mRegs[i].mValue == mEntryRegisterDataSet.mRegs[i].mValue)
+				{
+				}
+				else if (mEntryRegisterDataSet.mRegs[i].mMode != NRDM_UNKNOWN)
 				{
 					mEntryRegisterDataSet.mRegs[i].Reset();
 					mVisited = false;
 				}
 			}
-			else if (mEntryRegisterDataSet.mRegs[i].mMode == NRDM_IMMEDIATE)
+			else if (set.mRegs[i].mMode == NRDM_IMMEDIATE_ADDRESS)
+			{
+				if (mEntryRegisterDataSet.mRegs[i].mMode == NRDM_IMMEDIATE_ADDRESS &&
+					set.mRegs[i].mValue == mEntryRegisterDataSet.mRegs[i].mValue &&
+					set.mRegs[i].mLinkerObject == mEntryRegisterDataSet.mRegs[i].mLinkerObject &&
+					set.mRegs[i].mFlags == mEntryRegisterDataSet.mRegs[i].mFlags)
+				{
+				}
+				else if (mEntryRegisterDataSet.mRegs[i].mMode != NRDM_UNKNOWN)
+				{
+					mEntryRegisterDataSet.mRegs[i].Reset();
+					mVisited = false;
+				}
+			}
+			else if (mEntryRegisterDataSet.mRegs[i].mMode != NRDM_UNKNOWN)
 			{
 				mEntryRegisterDataSet.mRegs[i].Reset();
 				mVisited = false;
@@ -7810,6 +7856,31 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2].mType = mIns[i + 1].mType;
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].UsesAccu() &&
+						mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[i + 0] = mIns[i + 1];
+						mIns[i + 1] = mIns[i + 2];
+						mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mType = ASMIT_STA;
+						mIns[i + 2].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+						mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress)
+					{
+						mIns[i + 0] = mIns[i + 2];
+						mIns[i + 2] = mIns[i + 1];
+						mIns[i + 1] = mIns[i + 0];
+						mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_STA;
+						mIns[i + 2].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
 						progress = true;
 					}
 #if 1

@@ -81,35 +81,35 @@ char getchar(void)
 void puts(const char * str)
 {
 	__asm {
-	loop:
+	ploop:
 		ldy	#0
 		lda	(str), y
-		beq	done
+		beq	pdone
 	
 		jsr	putpch
 
 		inc	str
-		bne	loop
+		bne	ploop
 		inc	str + 1
-		bne	loop
-	done:
+		bne	ploop
+	pdone:
 	}
 }
 
 char * gets(char * str)
 {
 	__asm {
-	loop:
+	gloop:
 		jsr	getpch
 		ldy	#0
 		cmp	#10
-		beq	done
+		beq	gdone
 		sta	(str), y
 		inc	str
-		bne	loop
+		bne	gloop
 		inc	str + 1
-		bne	loop
-	done:		
+		bne	gloop
+	gdone:		
 		lda	#0
 		sta	(str), y
 	}

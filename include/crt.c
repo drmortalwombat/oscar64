@@ -112,13 +112,13 @@ __asm bcexec
 		sta ip + 1
 
 		ldy	#0
-		lda	#<done
+		lda	#<bdone
 		sta	(sp), y
 		iny
-		lda	#>done
+		lda	#>bdone
 		sta	(sp), y
 		jmp	startup.pexec
-done:	nop
+bdone:	nop
 		pla
 		pla
 		pla
