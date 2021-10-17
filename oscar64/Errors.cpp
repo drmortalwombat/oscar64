@@ -27,7 +27,7 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char
 		printf("%s(%d, %d) : %s %d: %s\n", loc.mFileName, loc.mLine, loc.mColumn, level, eid, msg);
 
 	if (mErrorCount > 10)
-		exit(10);
+		exit(20);
 }
 
 

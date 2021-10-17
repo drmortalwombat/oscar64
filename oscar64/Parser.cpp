@@ -891,6 +891,7 @@ Expression* Parser::ParseDeclarationExpression(void)
 				nexp->mLeft = new Expression(dec->mLocation, EX_VARIABLE);
 				nexp->mLeft->mDecValue = dec;
 				nexp->mLeft->mDecType = dec->mBase;
+				nexp->mDecType = nexp->mLeft->mDecType;
 
 				nexp->mRight = dec->mValue;
 
@@ -1152,7 +1153,7 @@ Expression* Parser::ParseSimpleExpression(void)
 			nexp->mDecType = exp->mDecType;
 			nexp->mLeft = exp;
 			nexp->mRight = ParsePrefixExpression();
-			exp = nexp->ConstantFold();
+			exp = nexp->ConstantFold(mErrors);
 		}
 		break;
 	default:
@@ -1202,7 +1203,10 @@ Expression* Parser::ParsePostfixExpression(void)
 			{
 			}
 			else
+			{
 				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
+				exp->mDecType = TheVoidFunctionTypeDeclaration;
+			}
 
 			mScanner->NextToken();
 			Expression* nexp = new Expression(mScanner->mLocation, EX_CALL);
@@ -1332,7 +1336,10 @@ Expression* Parser::ParsePrefixExpression(void)
 					nexp->mDecType = nexp->mLeft->mDecType->mBase;
 				}
 				else
+				{
 					mErrors->Error(nexp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Pointer or array type expected");
+					nexp->mDecType = TheVoidTypeDeclaration;
+				}
 			}
 			else if (nexp->mToken == TK_BINARY_AND)
 			{
@@ -1344,7 +1351,7 @@ Expression* Parser::ParsePrefixExpression(void)
 			else
 				nexp->mDecType = nexp->mLeft->mDecType;
 		}
-		return nexp->ConstantFold();
+		return nexp->ConstantFold(mErrors);
 	}
 	else
 		return ParsePostfixExpression();
@@ -1367,7 +1374,7 @@ Expression* Parser::ParseMulExpression(void)
 		else
 			nexp->mDecType = exp->mDecType;
 
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1407,7 +1414,7 @@ Expression* Parser::ParseAddExpression(void)
 		else
 			nexp->mDecType = exp->mDecType;
 
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1426,7 +1433,7 @@ Expression* Parser::ParseShiftExpression(void)
 		nexp->mRight = ParseAddExpression();
 		nexp->mDecType = exp->mDecType;
 
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1445,7 +1452,7 @@ Expression* Parser::ParseRelationalExpression(void)
 		nexp->mRight = ParseShiftExpression();
 		nexp->mDecType = TheBoolTypeDeclaration;
 
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1464,7 +1471,7 @@ Expression* Parser::ParseBinaryAndExpression(void)
 		nexp->mRight = ParseRelationalExpression();
 		nexp->mDecType = exp->mDecType;
 
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1482,7 +1489,7 @@ Expression* Parser::ParseBinaryXorExpression(void)
 		mScanner->NextToken();
 		nexp->mRight = ParseBinaryAndExpression();
 		nexp->mDecType = exp->mDecType;
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1500,7 +1507,7 @@ Expression* Parser::ParseBinaryOrExpression(void)
 		mScanner->NextToken();
 		nexp->mRight = ParseBinaryXorExpression();
 		nexp->mDecType = exp->mDecType;
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1518,7 +1525,7 @@ Expression* Parser::ParseLogicAndExpression(void)
 		mScanner->NextToken();
 		nexp->mRight = ParseBinaryOrExpression();
 		nexp->mDecType = TheBoolTypeDeclaration;
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1536,7 +1543,7 @@ Expression* Parser::ParseLogicOrExpression(void)
 		mScanner->NextToken();
 		nexp->mRight = ParseLogicAndExpression();
 		nexp->mDecType = TheBoolTypeDeclaration;
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -1558,6 +1565,7 @@ Expression* Parser::ParseConditionalExpression(void)
 		ConsumeToken(TK_COLON);
 		texp->mRight = ParseConditionalExpression();
 		
+		nexp->mDecType = texp->mLeft->mDecType;
 		exp = nexp;
 	}
 
@@ -1599,6 +1607,7 @@ Expression* Parser::ParseAssignmentExpression(void)
 		nexp->mRight = ParseAssignmentExpression();
 		nexp->mDecType = exp->mDecType;
 		exp = nexp;
+		assert(exp->mDecType);
 	}
 
 	return exp;
@@ -1796,6 +1805,7 @@ Expression* Parser::ParseStatement(void)
 			exp = new Expression(mScanner->mLocation, EX_CONTINUE);
 			break;
 		case TK_SEMICOLON:
+			exp = new Expression(mScanner->mLocation, EX_VOID);
 			break;
 		case TK_ASM:
 			mScanner->NextToken();
@@ -1808,6 +1818,11 @@ Expression* Parser::ParseStatement(void)
 				else
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 			}
+			else
+			{
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
+				exp = new Expression(mScanner->mLocation, EX_VOID);
+			}
 			break;
 		default:
 			exp = ParseExpression();
@@ -1815,6 +1830,8 @@ Expression* Parser::ParseStatement(void)
 		if (mScanner->mToken == TK_SEMICOLON)
 			mScanner->NextToken();
 	}
+
+	assert(exp);
 
 	return exp;
 }
@@ -2045,6 +2062,7 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 	{
 		exp = new Expression(mScanner->mLocation, EX_VOID);
 		exp->mDecType = TheVoidTypeDeclaration;
+		exp->mDecValue = TheConstVoidValueDeclaration;
 	}
 
 	return exp;
@@ -2060,7 +2078,7 @@ Expression* Parser::ParseAssemblerMulOperand(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseAssemblerBaseOperand();
-		exp = nexp->ConstantFold();
+		exp = nexp->ConstantFold(mErrors);
 	}
 	return exp;
 }
@@ -2075,7 +2093,11 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseAssemblerMulOperand();
-		if (nexp->mLeft->mDecValue->mType == DT_VARIABLE || nexp->mLeft->mDecValue->mType == DT_ARGUMENT)
+		if (!nexp->mLeft->mDecValue || !nexp->mRight->mDecValue)
+		{
+			mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid assembler operand");
+		}
+		else if (nexp->mLeft->mDecValue->mType == DT_VARIABLE || nexp->mLeft->mDecValue->mType == DT_ARGUMENT)
 		{
 			if (nexp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{
@@ -2115,7 +2137,7 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Integer offset expected");
 		}
 		else
-			exp = nexp->ConstantFold();
+			exp = nexp->ConstantFold(mErrors);
 	}
 	return exp;
 }

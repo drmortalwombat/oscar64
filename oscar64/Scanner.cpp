@@ -985,7 +985,8 @@ void Scanner::NextRawToken(void)
 
 				while (NextChar() && IsAlpha(mTokenChar))
 				{
-					tkprep[n++] = mTokenChar;
+					if (n < 127)
+						tkprep[n++] = mTokenChar;
 				}
 				tkprep[n] = 0;
 
@@ -1070,18 +1071,21 @@ void Scanner::NextRawToken(void)
 			else if (mTokenChar >= 'A' && mTokenChar <= 'Z' || mTokenChar >= 'a' && mTokenChar <= 'z' || mTokenChar == '_')
 			{
 				int		n = 0;
-				char	tkident[128];
+				char	tkident[256];
 				for (;;)
 				{
 					if (IsIdentChar(mTokenChar))
 					{
-						tkident[n++] = mTokenChar;
+						if (n < 255)
+							tkident[n++] = mTokenChar;
 						NextChar();
 					}
 					else
 						break;
 				}
 				tkident[n] = 0;
+				if (n == 256)
+					Error("Identifier exceeds max character limit");
 
 				if (!strcmp(tkident, "true"))
 					mToken = TK_TRUE;

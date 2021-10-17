@@ -50,7 +50,10 @@ SourceFile::~SourceFile(void)
 
 bool SourceFile::Open(const char* name, const char* path)
 {
-	char	fname[200];
+	char	fname[220];
+
+	if (strlen(name) + strlen(path) > 200)
+		return false;
 
 	strcpy_s(fname, path);
 	int	n = strlen(fname);
@@ -142,6 +145,12 @@ bool Preprocessor::NextLine(void)
 
 bool Preprocessor::OpenSource(const char * reason, const char* name, bool local)
 {
+	if (strlen(name) > 200) 
+	{
+		mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Source file path exceeds max path length");
+		return false;
+	}
+
 	if (mSource)
 		mSource->mLocation = mLocation;
 
@@ -154,7 +163,7 @@ bool Preprocessor::OpenSource(const char * reason, const char* name, bool local)
 
 	if (!ok && local && mSource)
 	{
-		char	lpath[200];
+		char	lpath[220];
 		strcpy_s(lpath, mSource->mFileName);
 		int	i = strlen(lpath);
 		while (i > 0 && lpath[i - 1] != '/')

@@ -168,7 +168,7 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 		if (procDec)
 			procDec->mComplexity += 2;
 
-		if (exp->mLeft)
+		if (exp->mLeft && exp->mLeft->mDecValue)
 		{
 			Declaration* adec = exp->mLeft->mDecValue;
 			if (adec->mType == DT_LABEL_REF)
@@ -306,7 +306,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_SEQUENCE:
 		do
 		{
-			ldec = Analyze(exp->mLeft, procDec);
+			if (exp->mLeft)
+				ldec = Analyze(exp->mLeft, procDec);
 			exp = exp->mRight;
 		} while (exp);
 		break;

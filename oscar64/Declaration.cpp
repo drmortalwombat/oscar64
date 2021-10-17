@@ -142,11 +142,12 @@ Expression* Expression::LogicInvertExpression(void)
 	{
 		Expression* ex = new Expression(mLocation, EX_LOGICAL_NOT);
 		ex->mLeft = this;
+		ex->mDecType = TheBoolTypeDeclaration;
 		return ex;
 	}
 }
 
-Expression* Expression::ConstantFold(void)
+Expression* Expression::ConstantFold(Errors * errors)
 {
 	if (mType == EX_PREFIX && mLeft->mType == EX_CONSTANT)
 	{
@@ -249,7 +250,7 @@ Expression* Expression::ConstantFold(void)
 	{
 		if (mLeft->mDecValue->mType == DT_CONST_INTEGER && mRight->mDecValue->mType == DT_CONST_INTEGER)
 		{
-			int64	ival, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
+			int64	ival = 0, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
 
 			switch (mToken)
 			{
@@ -263,10 +264,16 @@ Expression* Expression::ConstantFold(void)
 				ival = ileft * iright;
 				break;
 			case TK_DIV:
-				ival = ileft / iright;
+				if (iright == 0)
+					errors->Error(mLocation, EERR_INVALID_VALUE, "Constant division by zero");
+				else
+					ival = ileft / iright;
 				break;
 			case TK_MOD:
-				ival = ileft % iright;
+				if (iright == 0)
+					errors->Error(mLocation, EERR_INVALID_VALUE, "Constant division by zero");
+				else
+					ival = ileft % iright;
 				break;
 			case TK_LEFT_SHIFT:
 				ival = ileft << iright;
@@ -498,6 +505,7 @@ bool Declaration::IsNumericType(void) const
 
 Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
 Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
+Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 
 void InitDeclarations(void)
 {
@@ -509,6 +517,17 @@ void InitDeclarations(void)
 	TheVoidPointerTypeDeclaration->mBase = TheVoidTypeDeclaration;
 	TheVoidPointerTypeDeclaration->mSize = 2;
 	TheVoidPointerTypeDeclaration->mFlags = DTF_DEFINED;
+
+	TheVoidFunctionTypeDeclaration = new Declaration(noloc, DT_TYPE_FUNCTION);
+	TheVoidFunctionTypeDeclaration->mBase = TheVoidTypeDeclaration;
+	TheVoidFunctionTypeDeclaration->mSize = 2;
+	TheVoidFunctionTypeDeclaration->mFlags = DTF_DEFINED;
+
+	TheConstVoidValueDeclaration = new Declaration(noloc, DT_CONST_INTEGER);
+	TheVoidFunctionTypeDeclaration->mBase = TheVoidTypeDeclaration;
+	TheVoidFunctionTypeDeclaration->mSize = 2;
+	TheVoidFunctionTypeDeclaration->mInteger = 0;
+	TheVoidFunctionTypeDeclaration->mFlags = DTF_DEFINED;
 
 	TheSignedIntTypeDeclaration = new Declaration(noloc, DT_TYPE_INTEGER);
 	TheSignedIntTypeDeclaration->mSize = 2;

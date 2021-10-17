@@ -277,7 +277,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 		case ASMIM_IMPLIED:
 			break;
 		case ASMIM_IMMEDIATE:
-			if (aexp->mType == DT_CONST_INTEGER)
+			if (!aexp)
+				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
+			else if (aexp->mType == DT_CONST_INTEGER)
 				d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
 			else if (aexp->mType == DT_LABEL_REF)
 			{
@@ -346,7 +348,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 		case ASMIM_ZERO_PAGE_X:
 		case ASMIM_INDIRECT_X:
 		case ASMIM_INDIRECT_Y:
-			if (aexp->mType == DT_VARIABLE_REF)
+			if (!aexp)
+				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
+			else if (aexp->mType == DT_VARIABLE_REF)
 			{
 				if (refvars)
 				{
@@ -405,7 +409,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 		case ASMIM_INDIRECT:
 		case ASMIM_ABSOLUTE_X:
 		case ASMIM_ABSOLUTE_Y:
-			if (aexp->mType == DT_CONST_INTEGER)
+			if (!aexp)
+				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
+			else if (aexp->mType == DT_CONST_INTEGER)
 			{
 				d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
 				d[offset++] = cexp->mLeft->mDecValue->mInteger >> 8;
@@ -535,7 +541,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 			}
 			break;
 		case ASMIM_RELATIVE:
-			d[offset] = aexp->mInteger - offset - 1;
+			if (!aexp)
+				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
+			else 
+				d[offset] = aexp->mInteger - offset - 1;
 			offset++;
 			break;
 		}
@@ -928,7 +937,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 		case EX_ASSIGNMENT:
 			{
-			if (exp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
+			if (exp->mLeft->mDecType && exp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
 			{
 				vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);
 				vr = TranslateExpression(procType, proc, block, exp->mRight, breakBlock, continueBlock, inlineMapper, &vl);
@@ -3173,7 +3182,8 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	exitBlock->Append(ins);
 	exitBlock->Close(nullptr, nullptr);
 
-	proc->Close();
+	if (mErrors->mErrorCount == 0)
+		proc->Close();
 
 	return proc;
 }
