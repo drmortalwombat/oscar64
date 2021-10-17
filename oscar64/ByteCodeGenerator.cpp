@@ -2068,6 +2068,68 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 	}
 }
 
+void ByteCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* wins)
+{
+	int	ri = rins->mSrc[0].mIntConst, wi = wins->mSrc[1].mIntConst;
+
+	if (ri < 252 && wi < 252 && rins->mSrc[0].mTemp == wins->mSrc[1].mTemp && rins->mSrc[0].mMemory == IM_INDIRECT && wins->mSrc[1].mMemory == IM_INDIRECT)
+	{
+		ByteCodeInstruction	lins(BC_ADDR_REG);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[wins->mSrc[1].mTemp];
+		lins.mRegisterFinal = wins->mSrc[1].mFinal;
+		mIns.Push(lins);
+
+		if (InterTypeSize[rins->mDst.mType] == 1)
+		{
+			ByteCodeInstruction	bins(BC_LOAD_ADDR_8);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[rins->mDst.mTemp];
+			bins.mValue = ri;
+			mIns.Push(bins);
+		}
+		else if (InterTypeSize[rins->mDst.mType] == 2)
+		{
+			ByteCodeInstruction	bins(BC_LOAD_ADDR_16);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[rins->mDst.mTemp];
+			bins.mValue = ri;
+			mIns.Push(bins);
+		}
+		else if (InterTypeSize[rins->mDst.mType] == 4)
+		{
+			ByteCodeInstruction	bins(BC_LOAD_ADDR_32);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[rins->mDst.mTemp];
+			bins.mValue = ri;
+			mIns.Push(bins);
+		}
+
+		if (InterTypeSize[wins->mSrc[0].mType] == 1)
+		{
+			ByteCodeInstruction	bins(BC_STORE_ADDR_8);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[wins->mSrc[0].mTemp];
+			bins.mValue = wi;
+			mIns.Push(bins);
+		}
+		else if (InterTypeSize[wins->mSrc[0].mType] == 2)
+		{
+			ByteCodeInstruction	bins(BC_STORE_ADDR_16);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[wins->mSrc[0].mTemp];
+			bins.mValue = wi;
+			mIns.Push(bins);
+		}
+		else if (InterTypeSize[wins->mSrc[0].mType] == 4)
+		{
+			ByteCodeInstruction	bins(BC_STORE_ADDR_32);
+			bins.mRegister = BC_REG_TMP + proc->mTempOffset[wins->mSrc[0].mTemp];
+			bins.mValue = wi;
+			mIns.Push(bins);
+		}
+	}
+	else
+	{
+		LoadDirectValue(proc, rins);
+		StoreDirectValue(proc, wins);
+	}
+}
+
 void ByteCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins)
 {
 	if (ins->mSrc[0].mTemp < 0)
@@ -3125,7 +3187,13 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			StoreDirectValue(iproc, ins);
 			break;
 		case IC_LOAD:
-			LoadDirectValue(iproc, ins);
+			if (i + 1 < sblock->mInstructions.Size() && sblock->mInstructions[i + 1]->mCode == IC_STORE && ins->mDst.mTemp == sblock->mInstructions[i + 1]->mSrc[0].mTemp)
+			{
+				LoadStoreIndirectValue(iproc, ins, sblock->mInstructions[i + 1]);
+				i++;
+			}
+			else
+				LoadDirectValue(iproc, ins);
 			break;
 		case IC_COPY:
 			CopyValue(iproc, ins);

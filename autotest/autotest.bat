@@ -96,6 +96,9 @@ if %errorlevel% neq 0 goto :error
 call :test structassigntest.c
 if %errorlevel% neq 0 goto :error
 
+call :test structmembertest.c
+if %errorlevel% neq 0 goto :error
+
 exit /b 0
 
 :error

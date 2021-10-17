@@ -3787,7 +3787,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							{
 								if (sins->mSrc[1].mTemp >= 0)
 								{
-									if (ins->mSrc[0].mMemory != IM_PARAM || aliasedParams[ins->mSrc[0].mVarIndex])
+									if ((ins->mSrc[0].mMemory != IM_PARAM && ins->mSrc[0].mMemory != IM_FPARAM) || aliasedParams[ins->mSrc[0].mVarIndex])
 										ins->mInvariant = false;
 								}
 								else if (ins->mSrc[0].mMemory == sins->mSrc[1].mMemory && ins->mSrc[0].mVarIndex == sins->mSrc[1].mVarIndex && ins->mSrc[0].mLinkerObject == sins->mSrc[1].mLinkerObject)

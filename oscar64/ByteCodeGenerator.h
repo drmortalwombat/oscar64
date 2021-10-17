@@ -255,6 +255,8 @@ public:
 	void LoadConstant(InterCodeProcedure* proc, const InterInstruction * ins);
 	void StoreDirectValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void LoadDirectValue(InterCodeProcedure* proc, const InterInstruction * ins);
+	void LoadStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* wins);
+
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, const InterInstruction * ins);
 	void CallAssembler(InterCodeProcedure* proc, const InterInstruction * ins);
