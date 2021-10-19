@@ -123,25 +123,45 @@ bool Compiler::GenerateCode(void)
 	const Ident* identCode = Ident::Unique("code");
 
 	LinkerRegion* regionStartup = mLinker->FindRegion(identStartup);
-	if (!regionStartup)		
-		regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0900);
-	
-	LinkerRegion* regionBytecode = mLinker->FindRegion(identBytecode);
-	if (!regionBytecode)		
-		regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
+	if (!regionStartup)
+	{
+		if (mCompilerOptions & COPT_TARGET_PRG)
+			regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0900);
+		else
+			regionStartup = mLinker->AddRegion(identStartup, 0x0800, 0x0900);
+	}
+
+	LinkerRegion* regionBytecode = nullptr;
+	if (!(mCompilerOptions & COPT_NATIVE))
+	{
+		regionBytecode = mLinker->FindRegion(identBytecode);
+		if (!regionBytecode)
+			regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
+	}
 
 	LinkerRegion* regionMain = mLinker->FindRegion(identMain);
 
 	LinkerSection * sectionStartup = mLinker->AddSection(identStartup, LST_DATA);
-	LinkerSection * sectionBytecode = mLinker->AddSection(identBytecode, LST_DATA);
+	LinkerSection* sectionBytecode = nullptr;
+	if (regionBytecode)
+	{
+		sectionBytecode = mLinker->AddSection(identBytecode, LST_DATA);
+	}
 
 	regionStartup->mSections.Push(sectionStartup);
-	regionBytecode->mSections.Push(sectionBytecode);
+
+	if (regionBytecode)
+		regionBytecode->mSections.Push(sectionBytecode);
 
 	if (!mLinker->IsSectionPlaced(mCompilationUnits->mSectionCode))
 	{
 		if (!regionMain)
-			regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
+		{
+			if (regionBytecode)
+				regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
+			else
+				regionMain = mLinker->AddRegion(identMain, 0x0900, 0xa000);
+		}
 
 		regionMain->mSections.Push(mCompilationUnits->mSectionCode);
 		regionMain->mSections.Push(mCompilationUnits->mSectionData);
@@ -239,49 +259,53 @@ bool Compiler::GenerateCode(void)
 		}
 	}
 
-	// Compile used byte code functions
-
-	LinkerObject* byteCodeObject = mLinker->AddObject(loc, Ident::Unique("bytecode"), sectionBytecode, LOT_RUNTIME);
-
-	for (int i = 0; i < 128; i++)
+	LinkerObject* byteCodeObject = nullptr;
+	if (!(mCompilerOptions & COPT_NATIVE))
 	{
-		if (mByteCodeGenerator->mByteCodeUsed[i])
+		// Compile used byte code functions
+
+		byteCodeObject = mLinker->AddObject(loc, Ident::Unique("bytecode"), sectionBytecode, LOT_RUNTIME);
+
+		for (int i = 0; i < 128; i++)
 		{
-			Declaration* bcdec = mCompilationUnits->mByteCodes[i];
-			if (bcdec)
+			if (mByteCodeGenerator->mByteCodeUsed[i])
 			{
-				LinkerObject* linkerObject = nullptr;
-
-				int	offset = 0;
-				if (bcdec->mType == DT_CONST_ASSEMBLER)
+				Declaration* bcdec = mCompilationUnits->mByteCodes[i];
+				if (bcdec)
 				{
-					if (!bcdec->mLinkerObject)
-						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue, nullptr);
-					linkerObject = bcdec->mLinkerObject;
+					LinkerObject* linkerObject = nullptr;
+
+					int	offset = 0;
+					if (bcdec->mType == DT_CONST_ASSEMBLER)
+					{
+						if (!bcdec->mLinkerObject)
+							mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mValue, nullptr);
+						linkerObject = bcdec->mLinkerObject;
+					}
+					else if (bcdec->mType == DT_LABEL)
+					{
+						if (!bcdec->mBase->mLinkerObject)
+							mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue, nullptr);
+						linkerObject = bcdec->mBase->mLinkerObject;
+						offset = bcdec->mInteger;
+					}
+
+					assert(linkerObject);
+
+					LinkerReference	lref;
+					lref.mObject = byteCodeObject;
+					lref.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
+					lref.mOffset = 2 * i;
+					lref.mRefObject = linkerObject;
+					lref.mRefOffset = offset;
+					byteCodeObject->AddReference(lref);
 				}
-				else if (bcdec->mType == DT_LABEL)
+				else
 				{
-					if (!bcdec->mBase->mLinkerObject)
-						mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue, nullptr);
-					linkerObject = bcdec->mBase->mLinkerObject;
-					offset = bcdec->mInteger;
+					char	n[10];
+					sprintf_s(n, "%d", i);
+					mErrors->Error(loc, EERR_RUNTIME_CODE, "Missing byte code implementation", n);
 				}
-
-				assert(linkerObject);
-
-				LinkerReference	lref;
-				lref.mObject = byteCodeObject;
-				lref.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
-				lref.mOffset = 2 * i;
-				lref.mRefObject = linkerObject;
-				lref.mRefOffset = offset;
-				byteCodeObject->AddReference(lref);
-			}
-			else
-			{
-				char	n[10];
-				sprintf_s(n, "%d", i);
-				mErrors->Error(loc, EERR_RUNTIME_CODE, "Missing byte code implementation", n);
 			}
 		}
 	}
@@ -289,7 +313,9 @@ bool Compiler::GenerateCode(void)
 	mLinker->CollectReferences();
 
 	mLinker->ReferenceObject(dcrtstart->mLinkerObject);
-	mLinker->ReferenceObject(byteCodeObject);
+
+	if (!(mCompilerOptions & COPT_NATIVE))
+		mLinker->ReferenceObject(byteCodeObject);
 
 	mLinker->Link();
 
@@ -298,7 +324,7 @@ bool Compiler::GenerateCode(void)
 
 bool Compiler::WriteOutputFile(const char* targetPath)
 {
-	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200];
+	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], crtPath[200];
 
 	strcpy_s(prgPath, targetPath);
 	int		i = strlen(prgPath);
@@ -309,14 +335,25 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 	strcpy_s(mapPath, prgPath);
 	strcpy_s(asmPath, prgPath);
 	strcpy_s(lblPath, prgPath);
+	strcpy_s(crtPath, prgPath);
 
 	strcat_s(prgPath, "prg");
 	strcat_s(mapPath, "map");
 	strcat_s(asmPath, "asm");
 	strcat_s(lblPath, "lbl");
+	strcat_s(crtPath, "crt");
 
-	printf("Writing <%s>\n", prgPath);
-	mLinker->WritePrgFile(prgPath);
+	if (mCompilerOptions & COPT_TARGET_PRG)
+	{
+		printf("Writing <%s>\n", prgPath);
+		mLinker->WritePrgFile(prgPath);
+	}
+	else if (mCompilerOptions & COPT_TARGET_CRT16)
+	{
+		printf("Writing <%s>\n", crtPath);
+		mLinker->WriteCrtFile(crtPath);
+	}
+
 
 	printf("Writing <%s>\n", mapPath);
 	mLinker->WriteMapFile(mapPath);
@@ -336,10 +373,21 @@ int Compiler::ExecuteCode(void)
 
 	printf("Running emulation...\n");
 	Emulator* emu = new Emulator(mLinker);
-	memcpy(emu->mMemory + mLinker->mProgramStart, mLinker->mMemory + mLinker->mProgramStart, mLinker->mProgramEnd - mLinker->mProgramStart);
-	emu->mMemory[0x2d] = mLinker->mProgramEnd & 0xff;
-	emu->mMemory[0x2e] = mLinker->mProgramEnd >> 8;
-	int ecode = emu->Emulate(2061);
+
+	int ecode = 20;
+	if (mCompilerOptions & COPT_TARGET_PRG)
+	{
+		memcpy(emu->mMemory + mLinker->mProgramStart, mLinker->mMemory + mLinker->mProgramStart, mLinker->mProgramEnd - mLinker->mProgramStart);
+		emu->mMemory[0x2d] = mLinker->mProgramEnd & 0xff;
+		emu->mMemory[0x2e] = mLinker->mProgramEnd >> 8;
+		ecode = emu->Emulate(2061);
+	}
+	else if (mCompilerOptions & COPT_TARGET_CRT16)
+	{
+		memcpy(emu->mMemory + 0x8000, mLinker->mMemory + 0x0800, 0x4000);
+		ecode = emu->Emulate(0x8009);
+	}
+
 	printf("Emulation result %d\n", ecode);
 
 	if (ecode != 0)

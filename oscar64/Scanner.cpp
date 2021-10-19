@@ -978,7 +978,7 @@ void Scanner::NextRawToken(void)
 
 		case '#':
 		{
-			if (!mAssemblerMode || mOffset == 1)
+			if (!(mAssemblerMode || mPrepCondFalse) || mOffset == 1)
 			{
 				int		n = 0;
 				char	tkprep[128];

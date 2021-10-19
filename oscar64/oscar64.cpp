@@ -116,6 +116,9 @@ int main(int argc, const char** argv)
 
 		targetPath[0] = 0;
 
+		char	targetFormat[20];
+		strcpy_s(targetFormat, "prg");
+
 		for (int i = 1; i < argc; i++)
 		{
 			const char* arg = argv[i];
@@ -133,9 +136,14 @@ int main(int argc, const char** argv)
 				{
 					strcpy_s(crtPath, arg + 4);
 				}
+				else if (arg[1] == 't' && arg[2] == 'f' && arg[3] == '=')
+				{
+					strcpy_s(targetFormat, arg + 4);
+				}
 				else if (arg[1] == 'n')
 				{
 					compiler->mCompilerOptions |= COPT_NATIVE;
+					compiler->AddDefine(Ident::Unique("OSCAR_NATIVE_ALL"), "1");
 				}
 				else if (arg[1] == 'O')
 				{
@@ -180,16 +188,32 @@ int main(int argc, const char** argv)
 			}
 		}
 
-		// Add runtime module
-
-		compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
-
-		if (compiler->ParseSource() && compiler->GenerateCode())
+		if (!strcmp(targetFormat, "prg"))
 		{
-			compiler->WriteOutputFile(targetPath);
+			compiler->mCompilerOptions |= COPT_TARGET_PRG;
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_PRG"), "1");
+		}
+		else if (!strcmp(targetFormat, "crt"))
+		{
+			compiler->mCompilerOptions |= COPT_TARGET_CRT16;
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_CRT16"), "1");
+		}
+		else
+			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target format option", targetFormat);
 
-			if (emulate)
-				compiler->ExecuteCode();
+		if (compiler->mErrors->mErrorCount == 0)
+		{
+			// Add runtime module
+
+			compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
+
+			if (compiler->ParseSource() && compiler->GenerateCode())
+			{
+				compiler->WriteOutputFile(targetPath);
+
+				if (emulate)
+					compiler->ExecuteCode();
+			}
 		}
 
 		if (compiler->mErrors->mErrorCount != 0)

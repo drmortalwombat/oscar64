@@ -3670,6 +3670,15 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mCode = BC_NOP;
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mCode == BC_STORE_REG_16 &&
+						mIns[i + 1].LoadsRegister(BC_REG_ACCU) &&
+						mIns[i + 2].IsCommutative() && mIns[i].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
+					{
+						mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mRegister = mIns[i + 0].mRegister;
+						progress = true;
+					}
 				}
 #endif
 #if 1
@@ -3765,6 +3774,23 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i].mCode = BC_NOP;
 						progress = true;
 					}
+					else if ((mIns[i].mCode == BC_CONST_16 || mIns[i].mCode == BC_CONST_P8 || mIns[i].mCode == BC_CONST_N8) && 
+							(mIns[i + 1].mCode == BC_CONST_16 || mIns[i + 1].mCode == BC_CONST_P8 || mIns[i + 1].mCode == BC_CONST_N8 || mIns[i + 1].mCode == BC_CONST_32) && mIns[i].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_CONST_32 && mIns[i + 1].mCode == BC_CONST_32 && mIns[i].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i].mCode == BC_CONST_8 && mIns[i + 1].mCode == BC_CONST_8 && mIns[i].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i].mCode = BC_NOP;
+						progress = true;
+					}
+
 #if 0
 					else if ((mIns[i].mCode == BC_LOAD_LOCAL_16 || mIns[i].mCode == BC_LOAD_ABS_16) && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
 					{

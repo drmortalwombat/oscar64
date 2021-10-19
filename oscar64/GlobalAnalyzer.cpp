@@ -197,7 +197,7 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			else if (adec->mType == DT_CONST_FUNCTION)
 			{
 				AnalyzeProcedure(adec->mValue, adec);
-				RegisterCall(adec, procDec);
+				RegisterCall(procDec, adec);
 			}
 		}
 

@@ -130,6 +130,7 @@ public:
 	bool WriteMapFile(const char* filename);
 	bool WriteAsmFile(const char* filename);
 	bool WriteLblFile(const char* filename);
+	bool WriteCrtFile(const char* filename);
 
 	GrowingArray<LinkerReference*>	mReferences;
 	GrowingArray<LinkerRegion*>		mRegions;

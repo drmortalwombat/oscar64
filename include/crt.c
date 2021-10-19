@@ -6,12 +6,58 @@ void StackStart, StackEnd, BSSStart, BSSEnd;
 #pragma section(stack, 0x0000, StackStart, StackEnd)
 #pragma section(bss, 0x0000, BSSStart, BSSEnd)
 
-char spentry;
+char spentry = 0;
 
 int main(void);
 
+__asm inp_exit
+{
+		lda	#$4c
+		sta	$54
+		lda #0
+		sta $13
+		rts
+}
+
+
 __asm startup
 {
+#ifdef OSCAR_TARGET_CRT16
+		byt 0x09
+		byt 0x80
+		byt 0xbc
+		byt 0xfe		
+		byt 0xc3
+		byt 0xc2
+		byt 0xcd
+		byt 0x38
+		byt 0x30
+
+// Copy cartridge rom to ram
+
+		ldx	#$40
+		ldy	#$00
+		lda #$80
+		sta ip + 1
+		lda #$08
+		sta sp + 1
+		sty ip
+		sty sp
+l0:		lda (ip), y
+		sta (sp), y
+		iny
+		bne l0
+		inc ip + 1
+		inc sp + 1
+		dex
+		bne l0
+		lda $01
+		and #$fc
+		ora #$02
+		sta $01
+		jmp w0
+w0:
+#else
 		byt	0x0b
 		byt 0x08
 		byt	0x0a
@@ -24,7 +70,7 @@ __asm startup
 		byt	0x00
 		byt	0x00
 		byt	0x00
-
+#endif
 // Clear BSS Segment
 
 		tsx
@@ -60,6 +106,21 @@ l2:		dey
 		bne l2
 w2:
 
+		lda	#<StackEnd - 2
+		sta	sp
+		lda	#>StackEnd - 2
+		sta	sp + 1
+
+#ifdef OSCAR_NATIVE_ALL
+
+// All native code
+		jsr	main
+pexec:
+exec:
+		jmp	inp_exit
+
+#else
+
 // Init byte code
 
 		lda	#<bcode
@@ -67,10 +128,6 @@ w2:
 		lda	#>bcode
 		sta	ip + 1
 		
-		lda	#<StackEnd - 2
-		sta	sp
-		lda	#>StackEnd - 2
-		sta	sp + 1
 pexec:
 		ldy	#0
 exec:
@@ -96,6 +153,7 @@ bcode:
 		byt	>main
 		byt	BC_CALL * 2
 		byt	BC_EXIT * 2
+#endif
 }
 
 #pragma startup(startup)
@@ -560,15 +618,6 @@ __asm inp_nop
 }
 
 #pragma	bytecode(BC_NOP, inp_nop)
-
-__asm inp_exit
-{
-		lda	#$4c
-		sta	$54
-		lda #0
-		sta $13
-		rts
-}
 
 #pragma	bytecode(BC_EXIT, inp_exit)
 

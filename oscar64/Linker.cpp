@@ -333,6 +333,98 @@ bool Linker::WritePrgFile(const char* filename)
 		return false;
 }
 
+bool Linker::WriteCrtFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		struct CRIHeader
+		{
+			char	mSignature[16];
+			uint32	mHeaderLength;
+			uint16	mVersion, mHardware;
+			uint8	mExrom, mGameLine;
+			uint8	mPad[6];
+			char	mName[32];
+		}	criHeader = { 0 };
+
+		memcpy(criHeader.mSignature, "C64 CARTRIDGE   ", 16);
+		criHeader.mHeaderLength = 0x40000000;
+		criHeader.mVersion = 0x0001;
+		criHeader.mHardware = 0x2000;
+		criHeader.mExrom = 1;
+		criHeader.mGameLine = 1;
+		memset(criHeader.mName, 0, 32);
+		strcpy_s(criHeader.mName, "OSCAR");
+
+		fwrite(&criHeader, sizeof(CRIHeader), 1, file);
+
+		struct CHIPHeader
+		{
+			char	mSignature[4];
+			uint32	mPacketLength;
+			uint16	mChipType, mBankNumber, mLoadAddress, mImageSize;
+		}	chipHeader = { 0 };
+
+		memcpy(chipHeader.mSignature, "CHIP", 4);
+		chipHeader.mPacketLength = 0x10200000;
+		chipHeader.mChipType = 0;
+		chipHeader.mBankNumber = 0;
+		chipHeader.mImageSize = 0x0020;
+
+		char * bootmem = new char[8192];
+
+		chipHeader.mLoadAddress = 0x0080;
+		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+		fwrite(bootmem, 1, 0x2000, file);
+
+		bootmem[0x1ffc] = 0x00;
+		bootmem[0x1ffd] = 0xe0;
+
+		char	bootcode[] = {
+			0xa9, 0x87,
+			0x8d, 0x02, 0xde,
+			0xa9, 0x01,
+			0x8d, 0x00, 0xde,
+			0x6c, 0xfc, 0xff
+		};
+
+		int j = 0;
+		for (int i = 0; i < sizeof(bootcode); i++)
+		{
+			bootmem[j++] = 0xa9;
+			bootmem[j++] = bootcode[i];
+			bootmem[j++] = 0x8d;
+			bootmem[j++] = i;
+			bootmem[j++] = 0x04;
+		}
+		bootmem[j++] = 0x4c;
+		bootmem[j++] = 0x00;
+		bootmem[j++] = 0x04;
+
+		chipHeader.mLoadAddress = 0x00e0;
+		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+		fwrite(bootmem, 1, 0x2000, file);
+
+		chipHeader.mBankNumber = 0x100;
+
+		chipHeader.mLoadAddress = 0x0080;
+		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+		fwrite(mMemory + 0x0800, 1, 0x2000, file);
+
+		chipHeader.mLoadAddress = 0x00a0;
+		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+		fwrite(mMemory + 0x2800, 1, 0x2000, file);
+
+		fclose(file);
+		return true;
+	}
+	else
+		return false;
+}
+
+
 bool Linker::WriteMapFile(const char* filename)
 {
 	FILE* file;
