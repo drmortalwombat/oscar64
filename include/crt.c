@@ -1,6 +1,19 @@
 // crt.c
 #include <crt.h>
 
+#define	tmpy		__tmpy
+#define	tmp			__tmp
+	
+#define	ip			__ip
+#define	accu		__accu
+#define	addr		__addr
+#define	sp			__sp
+#define	fp			__fp
+	
+#define	sregs		__sregs
+#define	regs		__regs
+
+
 void StackStart, StackEnd, BSSStart, BSSEnd;
 
 #pragma section(stack, 0x0000, StackStart, StackEnd)
@@ -51,12 +64,12 @@ l0:		lda (ip), y
 		inc sp + 1
 		dex
 		bne l0
-		lda $01
-		and #$fc
-		ora #$02
-		sta $01
 		jmp w0
 w0:
+		lda #$3f
+		sta $00
+		lda #$36
+		sta $01
 #else
 		byt	0x0b
 		byt 0x08

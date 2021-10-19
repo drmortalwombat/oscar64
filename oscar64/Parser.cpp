@@ -2288,12 +2288,34 @@ Expression* Parser::ParseAssemblerOperand(void)
 		return ParseAssemblerAddOperand();
 }
 
+void Parser::AddAssemblerRegister(const Ident* ident, int value)
+{
+	Declaration* decaccu = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+	decaccu->mIdent = ident;
+	decaccu->mBase = TheUnsignedIntTypeDeclaration;
+	decaccu->mSize = 2;
+	decaccu->mInteger = value;
+	mScope->Insert(decaccu->mIdent, decaccu);
+}
+
 Expression* Parser::ParseAssembler(void)
 {
 	DeclarationScope* scope = new DeclarationScope(mScope);
 	mScope = scope;
 
 	mScanner->SetAssemblerMode(true);
+
+	AddAssemblerRegister(Ident::Unique("__tmpy"), BC_REG_WORK_Y);
+	AddAssemblerRegister(Ident::Unique("__tmp"), BC_REG_WORK);
+	AddAssemblerRegister(Ident::Unique("__ip"), BC_REG_IP);
+	AddAssemblerRegister(Ident::Unique("__accu"), BC_REG_ACCU);
+	AddAssemblerRegister(Ident::Unique("__addr"), BC_REG_ADDR);
+	AddAssemblerRegister(Ident::Unique("__fp"), BC_REG_LOCALS);
+	AddAssemblerRegister(Ident::Unique("__sp"), BC_REG_STACK);
+	AddAssemblerRegister(Ident::Unique("__sregs"), BC_REG_TMP_SAVED);
+	AddAssemblerRegister(Ident::Unique("__regs"), BC_REG_TMP);
+
+	AddAssemblerRegister(Ident::Unique("accu"), BC_REG_ACCU);
 
 	Declaration* decaccu = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 	decaccu->mIdent = Ident::Unique("accu");
@@ -2612,6 +2634,48 @@ void Parser::ParsePragma(void)
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "register"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+			if (mScanner->mToken == TK_IDENT)
+			{
+				const Ident* reg = mScanner->mTokenIdent;
+				int	index = 0;
+				mScanner->NextToken();
+
+				ConsumeToken(TK_COMMA);
+				Expression* exp = ParseRExpression();
+				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER && exp->mDecValue->mInteger >= 2 && exp->mDecValue->mInteger < 0x100)
+					index = exp->mDecValue->mInteger;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for start expected");
+
+				if (!strcmp(reg->mString, "__tmpy"))
+					BC_REG_WORK_Y = index;
+				else if (!strcmp(reg->mString, "__tmp"))
+					BC_REG_WORK = index;
+				else if (!strcmp(reg->mString, "__ip"))
+					BC_REG_IP = index;
+				else if (!strcmp(reg->mString, "__accu"))
+					BC_REG_ACCU = index;
+				else if (!strcmp(reg->mString, "__addr"))
+					BC_REG_ADDR = index;
+				else if (!strcmp(reg->mString, "__sp"))
+					BC_REG_STACK = index;
+				else if (!strcmp(reg->mString, "__fp"))
+					BC_REG_LOCALS = index;
+				else if (!strcmp(reg->mString, "__sregs"))
+					BC_REG_TMP_SAVED = index;
+				else if (!strcmp(reg->mString, "__regs"))
+					BC_REG_TMP = index;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Unknown register name");
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Register name expected");
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else if (!strcmp(mScanner->mTokenIdent->mString, "bytecode"))
 		{
 			mScanner->NextToken();
@@ -2765,7 +2829,7 @@ void Parser::ParsePragma(void)
 				mScanner->NextToken();
 
 				Expression* exp;
-				int	start = 0, end = 0, flags = 0;
+				int	start = 0, end = 0, flags = 0, bank = -1;
 
 				ConsumeToken(TK_COMMA);
 				
@@ -2785,17 +2849,34 @@ void Parser::ParsePragma(void)
 				
 				ConsumeToken(TK_COMMA);
 
-				exp = ParseRExpression();
-				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-					flags = exp->mDecValue->mInteger;
-				else
-					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for flags expected");
+				if (mScanner->mToken != TK_COMMA)
+				{
+					exp = ParseRExpression();
+					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+						flags = exp->mDecValue->mInteger;
+					else
+						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for flags expected");
+				}
+
+				ConsumeToken(TK_COMMA);
+
+				if (mScanner->mToken != TK_COMMA)
+				{
+					exp = ParseRExpression();
+					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+						bank = exp->mDecValue->mInteger;
+					else
+						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
+				}
 
 				LinkerRegion* rgn = mCompilationUnits->mLinker->FindRegion(regionIdent);
 				if (!rgn)
 					rgn = mCompilationUnits->mLinker->AddRegion(regionIdent, start, end);
 				else if (rgn->mStart != start || rgn->mEnd != end)
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Conflicting linker region definition");
+
+				rgn->mFlags = flags;
+				rgn->mCartridge = bank;
 
 				ConsumeToken(TK_COMMA);
 				ConsumeToken(TK_OPEN_BRACE);
@@ -2861,6 +2942,9 @@ void Parser::ParsePragma(void)
 				}
 
 				LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(sectionIdent);
+				if (!lsec)
+					lsec = mCompilationUnits->mLinker->AddSection(sectionIdent, LST_DATA);
+
 				if (dstart)
 				{
 					dstart->mSection = lsec;
@@ -2871,6 +2955,50 @@ void Parser::ParsePragma(void)
 					dend->mSection = lsec;
 					dend->mFlags |= DTF_SECTION_END;
 				}
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "code"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				const Ident* sectionIdent = mScanner->mTokenIdent;
+				mScanner->NextToken();
+				LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(sectionIdent);
+				if (lsec)
+				{
+					mCodeSection = lsec;
+				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section not defined");
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "data"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				const Ident* sectionIdent = mScanner->mTokenIdent;
+				mScanner->NextToken();
+				LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(sectionIdent);
+				if (lsec)
+				{
+					mDataSection = lsec;
+				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section not defined");
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");

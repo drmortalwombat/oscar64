@@ -156,10 +156,43 @@ void * memclr(void * dst, int size)
 
 void * memcpy(void * dst, const void * src, int size)
 {
+	__asm
+	{
+			ldx	size + 1
+			beq	_w1
+			ldy	#0
+	_loop1:
+			lda (src), y
+			sta (dst), y
+			iny
+			bne	_loop1
+			inc src + 1
+			inc dst + 1
+			dex
+			bne	_loop1
+	_w1:
+			ldy	size
+			beq	_w2
+			dey
+			beq	_w3
+	_loop2:
+			lda (src), y
+			sta (dst), y
+			dey
+			bne _loop2
+	_w3:
+			lda (src), y
+			sta (dst), y
+	_w2:
+	}
+	return dst;
+#if 0
+
 	char	*	d = dst, * s = src;
 	while (size--)
 		*d++ = *s++;
 	return dst;
+#endif
 }
 
 void * memmove(void * dst, const void * src, int size)

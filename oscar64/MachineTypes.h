@@ -81,15 +81,16 @@ inline int sprintf_s(char* buffer, int size, const char* format, ...)
 
 #endif
 
-static const uint8 BC_REG_WORK = 0x03;
-static const uint8 BC_REG_FPARAMS = 0x0d;
+extern uint8 BC_REG_WORK;
+extern uint8 BC_REG_WORK_Y;
+extern uint8 BC_REG_FPARAMS;
 
-static const uint8 BC_REG_IP = 0x19;
-static const uint8 BC_REG_ACCU = 0x1b;
-static const uint8 BC_REG_ADDR = 0x1f;
-static const uint8 BC_REG_STACK = 0x23;
-static const uint8 BC_REG_LOCALS = 0x25;
+extern uint8 BC_REG_IP;
+extern uint8 BC_REG_ACCU;
+extern uint8 BC_REG_ADDR;
+extern uint8 BC_REG_STACK;
+extern uint8 BC_REG_LOCALS;
 
-static const uint8 BC_REG_TMP = 0x43;
-static const uint8 BC_REG_TMP_SAVED = 0x53;
+extern uint8 BC_REG_TMP;
+extern uint8 BC_REG_TMP_SAVED;
 

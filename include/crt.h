@@ -1,18 +1,6 @@
 #ifndef CRT_H
 #define CRT_H
 
-#define	tmpy		0x02
-#define	tmp			0x03
-	
-#define	ip			0x19
-#define	accu		0x1b
-#define	addr		0x1f
-#define	sp			0x23
-#define	fp			0x25
-	
-#define	sregs		0x43
-#define	regs		0x53
-
 extern char spentry;
 
 enum ByteCode

@@ -25,4 +25,16 @@ static const uint64 COPT_OPTIMIZE_SPEED = COPT_OPTIMIZE_BASIC | COPT_OPTIMIZE_IN
 
 static const uint64 COPT_OPTIMIZE_ALL = COPT_OPTIMIZE_BASIC | COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE_ALL;
 
-
+struct CompilerSettings
+{
+	uint64		mCompilerFlags;
+	uint8		mRegWork;
+	uint8		mRegFParam;
+	uint8		mRegIP;
+	uint8		mRegAccu;
+	uint8		mRegAddr;
+	uint8		mRegStack;
+	uint8		mRegLocals;
+	uint8		mRegTmp;
+	uint8		mRegTmpSaved;
+};

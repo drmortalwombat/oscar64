@@ -45,6 +45,8 @@ protected:
 	Expression* ParseAssemblerAddOperand(void);
 	Expression* ParseAssemblerOperand(void);
 
+	void AddAssemblerRegister(const Ident* ident, int value);
+
 	Expression* ParseStatement(void);
 	Expression* ParseSwitchStatement(void);
 

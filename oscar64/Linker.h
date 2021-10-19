@@ -41,7 +41,9 @@ class LinkerRegion
 public:
 	const Ident* mIdent;
 
+	uint32	mFlags;
 	int		mStart, mEnd, mUsed, mNonzero;
+	int		mCartridge;
 
 	GrowingArray<LinkerSection*>	mSections;
 
@@ -89,6 +91,7 @@ public:
 	int					mAddress;
 	int					mSize;
 	LinkerSection	*	mSection;
+	LinkerRegion	*	mRegion;
 	uint8			*	mData;
 	InterCodeProcedure* mProc;
 	uint32				mFlags;
@@ -138,6 +141,10 @@ public:
 	GrowingArray<LinkerObject*>		mObjects;
 
 	uint8	mMemory[0x10000];
+	uint8	mCartridge[64][0x4000];
+
+	bool	mCartridgeBankUsed[64];
+
 	int	mProgramStart, mProgramEnd;
 
 	void ReferenceObject(LinkerObject* obj);

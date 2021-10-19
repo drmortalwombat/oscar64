@@ -154,6 +154,7 @@
     <ClCompile Include="InterCode.cpp" />
     <ClCompile Include="InterCodeGenerator.cpp" />
     <ClCompile Include="Linker.cpp" />
+    <ClCompile Include="MachineTypes.cpp" />
     <ClCompile Include="NativeCodeGenerator.cpp" />
     <ClCompile Include="NumberSet.cpp" />
     <ClCompile Include="oscar64.cpp" />

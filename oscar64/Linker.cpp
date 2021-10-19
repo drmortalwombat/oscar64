@@ -45,7 +45,12 @@ uint8* LinkerObject::AddSpace(int size)
 Linker::Linker(Errors* errors)
 	: mErrors(errors), mSections(nullptr), mReferences(nullptr), mObjects(nullptr), mRegions(nullptr)
 {
-
+	for (int i = 0; i < 64; i++)
+	{
+		mCartridgeBankUsed[i] = 0;
+		memset(mCartridge[i], 0, 0x4000);
+	}
+	memset(mMemory, 0, 0x10000);
 }
 
 Linker::~Linker(void)
@@ -62,6 +67,8 @@ LinkerRegion* Linker::AddRegion(const Ident* region, int start, int end)
 	lrgn->mEnd = end;
 	lrgn->mUsed = 0;
 	lrgn->mNonzero = 0;
+	lrgn->mCartridge = -1;
+	lrgn->mFlags = 0;
 	mRegions.Push(lrgn);
 	return lrgn;
 }
@@ -136,6 +143,7 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 	obj->mSize = 0;
 	obj->mIdent = ident;
 	obj->mSection = section;
+	obj->mRegion = nullptr;
 	obj->mProc = nullptr;
 	obj->mFlags = 0;
 	section->mObjects.Push(obj);
@@ -195,6 +203,7 @@ void Linker::Link(void)
 						lobj->mFlags |= LOBJF_PLACED;
 						lobj->mAddress = lrgn->mStart + lrgn->mUsed;
 						lrgn->mUsed += lobj->mSize;
+						lobj->mRegion = lrgn;
 
 						if (lsec->mType == LST_DATA)
 							lrgn->mNonzero = lrgn->mUsed;
@@ -266,7 +275,15 @@ void Linker::Link(void)
 				obj->mAddress = obj->mSection->mEnd;
 			else if (obj->mFlags & LOBJF_REFERENCED)
 			{
-				memcpy(mMemory + obj->mAddress, obj->mData, obj->mSize);
+				if (obj->mRegion->mCartridge >= 0)
+				{
+					mCartridgeBankUsed[obj->mRegion->mCartridge] = true;
+					memcpy(mCartridge[obj->mRegion->mCartridge] + obj->mAddress - obj->mRegion->mStart, obj->mData, obj->mSize);
+				}
+				else
+				{
+					memcpy(mMemory + obj->mAddress, obj->mData, obj->mSize);
+				}
 			}
 		}
 
@@ -279,7 +296,12 @@ void Linker::Link(void)
 				LinkerObject* robj = ref->mRefObject;
 
 				int			raddr = robj->mAddress + ref->mRefOffset;
-				uint8* dp = mMemory + obj->mAddress + ref->mOffset;
+				uint8* dp;
+				
+				if (obj->mRegion->mCartridge < 0)
+					dp = mMemory + obj->mAddress + ref->mOffset;
+				else
+					dp = mCartridge[obj->mRegion->mCartridge] + obj->mAddress - obj->mRegion->mStart + ref->mOffset;
 
 				if (ref->mFlags & LREF_LOWBYTE)
 					*dp++ = raddr & 0xff;
@@ -353,8 +375,8 @@ bool Linker::WriteCrtFile(const char* filename)
 		criHeader.mHeaderLength = 0x40000000;
 		criHeader.mVersion = 0x0001;
 		criHeader.mHardware = 0x2000;
-		criHeader.mExrom = 1;
-		criHeader.mGameLine = 1;
+		criHeader.mExrom = 0;
+		criHeader.mGameLine = 0;
 		memset(criHeader.mName, 0, 32);
 		strcpy_s(criHeader.mName, "OSCAR");
 
@@ -375,22 +397,26 @@ bool Linker::WriteCrtFile(const char* filename)
 
 		char * bootmem = new char[8192];
 
+		memset(bootmem, 0, 0x2000);
+
 		chipHeader.mLoadAddress = 0x0080;
 		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-		fwrite(bootmem, 1, 0x2000, file);
+		fwrite(mMemory + 0x0800, 1, 0x2000, file);
+
+		memcpy(bootmem, mMemory + 0x2800, 0x1800);
 
 		bootmem[0x1ffc] = 0x00;
-		bootmem[0x1ffd] = 0xe0;
+		bootmem[0x1ffd] = 0xff;
 
 		char	bootcode[] = {
 			0xa9, 0x87,
 			0x8d, 0x02, 0xde,
-			0xa9, 0x01,
+			0xa9, 0x00,
 			0x8d, 0x00, 0xde,
 			0x6c, 0xfc, 0xff
 		};
 
-		int j = 0;
+		int j = 0x1f00;
 		for (int i = 0; i < sizeof(bootcode); i++)
 		{
 			bootmem[j++] = 0xa9;
@@ -407,15 +433,21 @@ bool Linker::WriteCrtFile(const char* filename)
 		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
 		fwrite(bootmem, 1, 0x2000, file);
 
-		chipHeader.mBankNumber = 0x100;
+		for (int i = 1; i < 64; i++)
+		{
+			if (mCartridgeBankUsed[i])
+			{
+				chipHeader.mBankNumber = i << 8;
 
-		chipHeader.mLoadAddress = 0x0080;
-		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-		fwrite(mMemory + 0x0800, 1, 0x2000, file);
+				chipHeader.mLoadAddress = 0x0080;
+				fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+				fwrite(mCartridge[i] + 0x0000, 1, 0x2000, file);
 
-		chipHeader.mLoadAddress = 0x00a0;
-		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-		fwrite(mMemory + 0x2800, 1, 0x2000, file);
+				chipHeader.mLoadAddress = 0x00a0;
+				fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+				fwrite(mCartridge[i] + 0x2000, 1, 0x2000, file);
+			}
+		}
 
 		fclose(file);
 		return true;
@@ -514,7 +546,10 @@ bool Linker::WriteAsmFile(const char* filename)
 					mByteCodeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				case LOT_NATIVE_CODE:
-					mNativeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+					if (obj->mRegion->mCartridge < 0)
+						mNativeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+					else
+						mNativeDisassembler.Disassemble(file, mCartridge[obj->mRegion->mCartridge] - obj->mRegion->mStart, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				}
 			}
