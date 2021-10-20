@@ -3670,6 +3670,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mCode = BC_NOP;
 						progress = true;
 					}
+#if 1
 					else if (
 						mIns[i + 0].mCode == BC_STORE_REG_16 &&
 						mIns[i + 1].LoadsRegister(BC_REG_ACCU) &&
@@ -3679,6 +3680,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mRegister = mIns[i + 0].mRegister;
 						progress = true;
 					}
+#endif
 				}
 #endif
 #if 1
@@ -3762,6 +3764,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i].mCode = BC_NOP;
 						progress = true;
 					}
+#if 1
 					else if (mIns[i].mCode == BC_STORE_REG_8 && mIns[i + 1].StoresRegister(mIns[i].mRegister) && mIns[i + 1].mRegisterFinal)
 					{
 						mIns[i + 1].mRegister = BC_REG_ACCU;
@@ -3790,7 +3793,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i].mCode = BC_NOP;
 						progress = true;
 					}
-
+#endif
 #if 0
 					else if ((mIns[i].mCode == BC_LOAD_LOCAL_16 || mIns[i].mCode == BC_LOAD_ABS_16) && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
 					{

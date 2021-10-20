@@ -283,19 +283,24 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
 			else if (aexp->mType == DT_LABEL_REF)
 			{
-				if (!aexp->mBase->mBase->mLinkerObject)
-					TranslateAssembler(mod, aexp->mBase->mBase->mValue, nullptr);
+				if (aexp->mBase->mBase)
+				{
+					if (!aexp->mBase->mBase->mLinkerObject)
+						TranslateAssembler(mod, aexp->mBase->mBase->mValue, nullptr);
 
-				LinkerReference	ref;
-				ref.mObject = dec->mLinkerObject;
-				ref.mOffset = offset;
-				if (aexp->mFlags & DTF_UPPER_BYTE)
-					ref.mFlags = LREF_HIGHBYTE;
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					if (aexp->mFlags & DTF_UPPER_BYTE)
+						ref.mFlags = LREF_HIGHBYTE;
+					else
+						ref.mFlags = LREF_LOWBYTE;
+					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
+					ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
+					dec->mLinkerObject->AddReference(ref);
+				}
 				else
-					ref.mFlags = LREF_LOWBYTE;
-				ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
-				ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
-				dec->mLinkerObject->AddReference(ref);
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent->mString);
 
 				offset += 1;
 			}

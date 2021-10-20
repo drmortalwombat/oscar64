@@ -2142,7 +2142,7 @@ __asm inp_enter
 		dey
 		beq	W1
 		
-L1:		lda	regs - 1, y
+L1:		lda	sregs - 1, y
 		dey
 		sta	(sp), y
 		bne	L1
@@ -2180,7 +2180,7 @@ __asm inp_return
 		dey
 			
 L1:		lda	(sp), y
-		sta	regs, y
+		sta	sregs, y
 		dey
 		bpl	L1
 W1:
