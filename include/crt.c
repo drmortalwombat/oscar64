@@ -173,6 +173,9 @@ bcode:
 
 __asm bcexec
 {
+#ifdef OSCAR_NATIVE_ALL
+		jmp (accu)
+#else	
 		lda ip
 		pha
 		lda ip + 1	
@@ -197,9 +200,16 @@ bdone:	nop
 		pla
 		sta ip
 		rts		
+#endif
+}
+
+__asm jmpaddr
+{
+		jmp	(addr)
 }
 
 #pragma runtime(bcexec, bcexec)
+#pragma runtime(jmpaddr, jmpaddr)
 
 __asm negaccu
 {

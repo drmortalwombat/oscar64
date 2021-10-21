@@ -206,6 +206,7 @@ bool Compiler::GenerateCode(void)
 	RegisterRuntime(loc, Ident::Unique("ffromi"));
 	RegisterRuntime(loc, Ident::Unique("fcmp"));
 	RegisterRuntime(loc, Ident::Unique("bcexec"));
+	RegisterRuntime(loc, Ident::Unique("jmpaddr"));
 	RegisterRuntime(loc, Ident::Unique("mul32"));
 	RegisterRuntime(loc, Ident::Unique("divs32"));
 	RegisterRuntime(loc, Ident::Unique("mods32"));
