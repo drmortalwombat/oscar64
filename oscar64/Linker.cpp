@@ -395,7 +395,7 @@ bool Linker::WriteCrtFile(const char* filename)
 		chipHeader.mBankNumber = 0;
 		chipHeader.mImageSize = 0x0020;
 
-		char * bootmem = new char[8192];
+		uint8 bootmem[8192];
 
 		memset(bootmem, 0, 0x2000);
 
@@ -408,7 +408,7 @@ bool Linker::WriteCrtFile(const char* filename)
 		bootmem[0x1ffc] = 0x00;
 		bootmem[0x1ffd] = 0xff;
 
-		char	bootcode[] = {
+		uint8	bootcode[] = {
 			0xa9, 0x87,
 			0x8d, 0x02, 0xde,
 			0xa9, 0x00,
