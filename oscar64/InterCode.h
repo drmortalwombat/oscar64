@@ -408,7 +408,7 @@ public:
 	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mDominator;
 	GrowingInstructionArray			mInstructions;
 
-	bool							mVisited, mInPath, mLoopHead;
+	bool							mVisited, mInPath, mLoopHead, mChecked;
 
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;

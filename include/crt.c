@@ -3260,14 +3260,14 @@ __asm inp_op_extrt
 {
 		lda	(ip), y
 		iny
-		sta	c1 + 1
+		sta	_c1 + 1
 		lda	(ip), y
 		iny
-		sta	c1 + 2
+		sta	_c1 + 2
 		lda	(ip), y
 		iny
 		tax
-c1:		jsr $0000
+_c1:	jsr $0000
 		jmp	startup.exec		
 }
 

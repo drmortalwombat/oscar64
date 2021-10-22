@@ -471,6 +471,9 @@ bool InterInstruction::IsEqual(const InterInstruction* ins) const
 		if (!mSrc[i].IsEqual(ins->mSrc[i]))
 			return false;
 
+	if (mCode == IC_CONSTANT && !mConst.IsEqual(ins->mConst))
+		return false;
+
 	return true;
 }
 
@@ -1845,6 +1848,7 @@ InterCodeBasicBlock::InterCodeBasicBlock(void)
 {
 	mInPath = false;
 	mLoopHead = false;
+	mChecked = false;
 }
 
 InterCodeBasicBlock::~InterCodeBasicBlock(void)
@@ -1884,15 +1888,23 @@ void InterCodeBasicBlock::CollectEntries(void)
 	}
 }
 
-static bool IsInfiniteLoop(const InterCodeBasicBlock* block)
+static bool IsInfiniteLoop(InterCodeBasicBlock* head, InterCodeBasicBlock* block)
 {
-	const InterCodeBasicBlock* nblock = block;
-	while (nblock->mTrueJump && !nblock->mFalseJump)
+	if (!block->mChecked)
 	{
-		nblock = nblock->mTrueJump;
-		if (nblock == block)
-			return true;
+		if (block->mTrueJump && !block->mFalseJump)
+		{
+			if (block->mTrueJump == head)
+				return true;
+
+			block->mChecked = true;
+			bool loop = IsInfiniteLoop(head, block->mTrueJump);
+			block->mChecked = false;
+
+			return loop;
+		}
 	}
+	
 	return false;
 }
 
@@ -1924,7 +1936,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand)
 				if (mFalseJump)
 					mFalseJump->mNumEntries++;
 			}
-			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump))
+			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
 			{
 				mTrueJump->mNumEntries--;
 
@@ -2140,6 +2152,33 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			ins->mSrc[1].mIntConst = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
 			ins->mSrc[1].mOperandSize = tvalue[ins->mSrc[1].mTemp]->mConst.mOperandSize;
 			ins->mSrc[1].mTemp = -1;
+
+			if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_BINARY_OPERATOR)
+			{
+				InterInstruction* iins = tvalue[ins->mSrc[0].mTemp];
+				if (iins->mOperator == IA_ADD)
+				{
+					if (iins->mSrc[0].mTemp >= 0 && iins->mSrc[1].mTemp < 0)
+					{
+						ins->mSrc[0].mTemp = iins->mSrc[0].mTemp;
+						ins->mSrc[1].mIntConst += iins->mSrc[1].mIntConst;
+					}
+					else if (iins->mSrc[0].mTemp < 0 && iins->mSrc[1].mTemp >= 0)
+					{
+						ins->mSrc[0].mTemp = iins->mSrc[1].mTemp;
+						ins->mSrc[1].mIntConst += iins->mSrc[0].mIntConst;
+					}
+				}
+				else if (iins->mOperator == IA_SUB)
+				{
+					if (iins->mSrc[0].mTemp < 0 && iins->mSrc[1].mTemp >= 0)
+					{
+						ins->mSrc[0].mTemp = iins->mSrc[1].mTemp;
+						ins->mSrc[1].mIntConst -= iins->mSrc[0].mIntConst;
+					}
+				}
+
+			}
 		}
 		break;
 	case IC_TYPECAST:
