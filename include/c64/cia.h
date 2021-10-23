@@ -14,8 +14,8 @@ struct CIA
 	byte	cra, crb;
 };
 
-#define cia1	(*((CIA *)0xdc00))
-#define cia2	(*((CIA *)0xdd00))
+#define cia1	(*((struct CIA *)0xdc00))
+#define cia2	(*((struct CIA *)0xdd00))
 
 #endif
 

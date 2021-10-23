@@ -75,7 +75,7 @@ struct VIC
 
 void vic_setbank(char bank);
 
-#define vic	(*((VIC *)0xd000))
+#define vic	(*((struct VIC *)0xd000))
 
 #pragma compile("vic.c")
 

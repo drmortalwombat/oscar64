@@ -26,11 +26,11 @@ enum RIRQCodeIndex
 	RIRQ_SIZE   = 31
 };
 
-struct RIRQCode
+typedef struct RIRQCode
 {	
 	byte		size;
 	byte		code[RIRQ_SIZE];
-};
+} RIRQCode;
 
 void rirq_build(RIRQCode * ic, byte size);
 

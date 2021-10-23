@@ -33,16 +33,24 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 	{
 		structName = mScanner->mTokenIdent;
 		mScanner->NextToken();
-		Declaration* pdec = mScope->Insert(structName, dec);
-		if (pdec)
+		Declaration* edec = mScope->Lookup(structName);
+		if (edec && mScanner->mToken != TK_OPEN_BRACE)
 		{
-			if (pdec->mType == dt && (pdec->mFlags & DTF_DEFINED))
+			dec = edec;
+		}
+		else
+		{
+			Declaration* pdec = mScope->Insert(structName, dec);
+			if (pdec)
 			{
-				dec = pdec;
-			}
-			else
-			{
-				mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Error duplicate struct declaration", structName->mString);
+				if (pdec->mType == dt && (pdec->mFlags & DTF_DEFINED))
+				{
+					dec = pdec;
+				}
+				else
+				{
+					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Error duplicate struct declaration", structName->mString);
+				}
 			}
 		}
 	}
@@ -745,7 +753,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			if (ndec->mIdent)
 			{
 				Declaration* pdec = mScope->Insert(ndec->mIdent, ndec->mBase);
-				if (pdec)
+				if (pdec && pdec != ndec->mBase)
 					mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate type declaration", ndec->mIdent->mString);
 			}
 		}

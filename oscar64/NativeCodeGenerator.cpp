@@ -7068,6 +7068,29 @@ bool NativeCodeBasicBlock::MoveAbsoluteLoadStoreUp(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::MoveStoreXUp(int at)
+{
+	bool	done = false;
+
+	while (at > 0)
+	{
+		if (mIns[at - 1].ChangesXReg())
+			return done;
+		if ((mIns[at - 1].mMode == ASMIM_ZERO_PAGE || mIns[at - 1].mMode == ASMIM_INDIRECT_Y) && mIns[at - 1].mAddress == mIns[at].mAddress)
+			return done;
+		if (mIns[at - 1].mMode == ASMIM_INDIRECT_Y && mIns[at - 1].mAddress == mIns[at].mAddress + 1)
+			return done;
+
+		NativeCodeInstruction	ins = mIns[at - 1];
+		mIns[at - 1] = mIns[at];
+		mIns[at] = ins; 
+		at--;
+		done = true;
+	}
+
+	return done;
+}
+
 bool NativeCodeBasicBlock::MoveLoadStoreUp(int at)
 {
 	int	j = at;
@@ -7621,6 +7644,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 		// shorten x/y register livetime
 
 #if 1
+		//
+		// move ldy down
+
 		for (int i = 0; i + 1 < mIns.Size(); i++)
 		{
 			if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE)
@@ -7631,6 +7657,19 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					mIns[i] = mIns[i + 1];
 					mIns[i + 1] = ins;
 				}
+			}
+		}
+#endif
+
+#if 1
+		// move stx up
+
+		for (int i = 1; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_STX && mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				if (MoveStoreXUp(i))
+					changed = true;
 			}
 		}
 #endif
@@ -7851,6 +7890,34 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 0].mType = ASMIT_ASL;
 						mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TXA &&
+						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+					{
+						mIns[i + 1].mType = ASMIT_STX;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TYA &&
+						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+					{
+						mIns[i + 1].mType = ASMIT_STY;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TAX &&
+						mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+					{
+						mIns[i + 1].mType = ASMIT_STA;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TAY &&
+						mIns[i + 1].mType == ASMIT_STY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+					{
+						mIns[i + 1].mType = ASMIT_STA;
 						progress = true;
 					}
 					else if (

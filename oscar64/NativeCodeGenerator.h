@@ -166,6 +166,7 @@ public:
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, int& ireg);
+	bool MoveStoreXUp(int at);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
 
