@@ -180,6 +180,7 @@ bool Compiler::GenerateCode(void)
 	mGlobalAnalyzer->DumpCallGraph();
 
 	mInterCodeGenerator->mCompilerOptions = mCompilerOptions;
+	mNativeCodeGenerator->mCompilerOptions = mCompilerOptions;
 
 	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue, nullptr);
 

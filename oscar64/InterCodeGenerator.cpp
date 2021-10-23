@@ -2334,6 +2334,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vins->mConst.mOperandSize = vdec->mSize;
 						vins->mConst.mIntConst = vdec->mOffset;
 					}
+					else if (vdec->mType == DT_VARIABLE)
+					{
+						vins->mConst.mMemory = IM_LOCAL;
+						vins->mConst.mVarIndex = vdec->mVarIndex;
+						vins->mConst.mOperandSize = vdec->mSize;
+						vins->mConst.mIntConst = vdec->mOffset;
+					}
 
 					block->Append(vins);
 

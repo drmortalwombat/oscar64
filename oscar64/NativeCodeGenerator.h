@@ -105,7 +105,7 @@ public:
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int						mOffset, mSize, mNumEntries, mNumEntered, mFrameOffset;
-	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting;
+	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet;
 
@@ -183,6 +183,9 @@ public:
 
 	void BuildEntryDataSet(const NativeRegisterDataSet& set);
 	bool ApplyEntryDataSet(void);
+
+	void CollectZeroPageUsage(NumberSet& used);
+	void RemapZeroPage(const uint8* remap);
 };
 
 class NativeCodeProcedure
@@ -191,10 +194,12 @@ class NativeCodeProcedure
 		NativeCodeProcedure(NativeCodeGenerator* generator);
 		~NativeCodeProcedure(void);
 
-		NativeCodeBasicBlock* entryBlock, * exitBlock;
+		NativeCodeBasicBlock* mEntryBlock, * mExitBlock;
 		NativeCodeBasicBlock** tblocks;
 
 		NativeCodeGenerator* mGenerator;
+
+		InterCodeProcedure* mInterProc;
 
 		int		mProgStart, mProgSize, mIndex, mFrameOffset;
 		bool	mNoFrame;
@@ -204,11 +209,14 @@ class NativeCodeProcedure
 		GrowingArray < NativeCodeBasicBlock*>	 mBlocks;
 
 		void Compile(InterCodeProcedure* proc);
+		void Optimize(void);
+
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
 		NativeCodeBasicBlock* AllocateBlock(void);
-		NativeCodeBasicBlock* TransientBlock(void);
 
 		void CompileInterBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* iblock, NativeCodeBasicBlock*block);
+
+		void CompressTemporaries(void);
 
 		void BuildDataFlowSets(void);
 		void ResetVisited(void);
@@ -222,6 +230,8 @@ public:
 	~NativeCodeGenerator(void);
 
 	void RegisterRuntime(const Ident * ident, LinkerObject * object, int offset);
+
+	uint64		mCompilerOptions;
 
 	struct Runtime
 	{
