@@ -182,6 +182,7 @@ public:
 
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;
+	bool IsSimpleType(void) const;
 };
 
 void InitDeclarations(void);

@@ -13,7 +13,8 @@ enum NativeRegisterDataMode
 	NRDM_UNKNOWN,
 	NRDM_IMMEDIATE,
 	NRDM_IMMEDIATE_ADDRESS,
-	NRDM_ZERO_PAGE
+	NRDM_ZERO_PAGE,
+	NRDM_ABSOLUTE
 };
 
 struct NativeRegisterData
@@ -34,6 +35,8 @@ struct NativeRegisterDataSet
 
 	void Reset(void);
 	void ResetZeroPage(int addr);
+	void ResetAbsolute(LinkerObject * linkerObject, int addr);
+	void ResetIndirect(void);
 	void Intersect(const NativeRegisterDataSet& set);
 };
 
@@ -42,6 +45,7 @@ static const uint32 NCIF_LOWER = 0x00000001;
 static const uint32 NCIF_UPPER = 0x00000002;
 static const uint32 NCIF_RUNTIME = 0x00000004;
 static const uint32 NCIF_YZERO = 0x00000008;
+static const uint32 NCIF_VOLATILE = 0x00000010;
 
 class NativeCodeInstruction
 {

@@ -503,6 +503,12 @@ bool Declaration::IsNumericType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM;
 }
 
+bool Declaration::IsSimpleType(void) const
+{
+	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM || mType == DT_TYPE_POINTER;
+}
+
+
 Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
 Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;

@@ -270,11 +270,13 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_BINARY:
 		ldec = Analyze(exp->mLeft, procDec);
 		rdec = Analyze(exp->mRight, procDec);
-		break;
+		return ldec;
+
 	case EX_RELATIONAL:
 		ldec = Analyze(exp->mLeft, procDec);
 		rdec = Analyze(exp->mRight, procDec);
 		return TheBoolTypeDeclaration;
+
 	case EX_PREINCDEC:
 		return Analyze(exp->mLeft, procDec);
 	case EX_PREFIX:

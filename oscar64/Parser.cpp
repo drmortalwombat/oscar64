@@ -226,7 +226,17 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 	case TK_IDENT:
 		dec = mScope->Lookup(mScanner->mTokenIdent);
 		if (dec && dec->mType <= DT_TYPE_FUNCTION)
+		{
+			if (dec->IsSimpleType() && (flags & ~dec->mFlags))
+			{
+				Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
+				ndec->mFlags = dec->mFlags | flags;
+				ndec->mSize = dec->mSize;
+				ndec->mBase = dec->mBase;
+				dec = ndec;
+			}
 			mScanner->NextToken();
+		}
 		else if (!dec)
 		{
 			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", mScanner->mTokenIdent->mString);
