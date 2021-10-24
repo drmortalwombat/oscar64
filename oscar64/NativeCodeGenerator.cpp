@@ -7936,6 +7936,16 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					mIns[i].mType = ASMIT_NOP;
 					progress = true;
 				}
+				else if (mIns[i].mType == ASMIT_ROR && mIns[i].mMode == ASMIM_IMPLIED && (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+				{
+					mIns[i].mType = ASMIT_LSR;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_ROL && mIns[i].mMode == ASMIM_IMPLIED && (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+				{
+					mIns[i].mType = ASMIT_ASL;
+					progress = true;
+				}
 
 				int	apos;
 				if (mIns[i].mMode == ASMIM_INDIRECT_Y && FindGlobalAddress(i, mIns[i].mAddress, apos))
@@ -8910,6 +8920,7 @@ void NativeCodeProcedure::CompressTemporaries(void)
 		ResetVisited();
 		mEntryBlock->RemapZeroPage(remap);
 
+		printf("Resize temps %s : %d -> %d\n", mInterProc->mIdent->mString,  mInterProc->mTempSize, tpos - BC_REG_TMP);
 		mInterProc->mTempSize = tpos - BC_REG_TMP;
 	}
 }
@@ -8979,6 +8990,8 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	CompressTemporaries();
 
+	int frameSpace = tempSave;
+
 	tempSave = proc->mTempSize > 16 ? proc->mTempSize - 16 : 0;
 
 	if (!(mGenerator->mCompilerOptions & COPT_NATIVE))
@@ -9042,7 +9055,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
-		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, tempSave + 2));
+		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, frameSpace + 2));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_LOCALS));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0));
