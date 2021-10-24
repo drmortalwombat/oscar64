@@ -404,7 +404,7 @@ public:
 class InterCodeBasicBlock
 {
 public:
-	int								mIndex, mNumEntries, mNumEntered;
+	int								mIndex, mNumEntries, mNumEntered, mTraceIndex;
 	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mDominator;
 	GrowingInstructionArray			mInstructions;
 

@@ -7956,9 +7956,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					int	apos, breg, ireg;
 					if (FindAddressSumY(i, sreg, apos, breg, ireg))
 					{
-						if (breg != mIns[i + 0].mAddress || !(mIns[i + 0].mLive & LIVE_MEM))
+						if (!(breg == sreg || ireg == sreg)|| !(mIns[i + 0].mLive & LIVE_MEM))
 						{
-							if (breg == mIns[i + 0].mAddress)
+							if (breg == sreg || ireg == sreg)
 							{
 								mIns[apos + 3].mType = ASMIT_NOP;
 								mIns[apos + 3].mMode = ASMIM_IMPLIED;

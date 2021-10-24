@@ -1851,6 +1851,7 @@ InterCodeBasicBlock::InterCodeBasicBlock(void)
 	mInPath = false;
 	mLoopHead = false;
 	mChecked = false;
+	mTraceIndex = -1;
 }
 
 InterCodeBasicBlock::~InterCodeBasicBlock(void)
@@ -1924,15 +1925,17 @@ void InterCodeBasicBlock::GenerateTraces(bool expand)
 
 		for (;;)
 		{
-			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP && !mTrueJump->mLoopHead)
+			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP && !mTrueJump->mLoopHead && mTrueJump->mTraceIndex != mIndex)
 			{
+				mTrueJump->mTraceIndex = mIndex;
 				mTrueJump->mNumEntries--;
 				mTrueJump = mTrueJump->mTrueJump;
 				if (mTrueJump)
 					mTrueJump->mNumEntries++;
 			}
-			else if (mFalseJump && mFalseJump->mInstructions.Size() == 1 && mFalseJump->mInstructions[0]->mCode == IC_JUMP && !mFalseJump->mLoopHead)
+			else if (mFalseJump && mFalseJump->mInstructions.Size() == 1 && mFalseJump->mInstructions[0]->mCode == IC_JUMP && !mFalseJump->mLoopHead && mFalseJump->mTraceIndex != mIndex)
 			{
+				mFalseJump->mTraceIndex = mIndex;
 				mFalseJump->mNumEntries--;
 				mFalseJump = mFalseJump->mTrueJump;
 				if (mFalseJump)

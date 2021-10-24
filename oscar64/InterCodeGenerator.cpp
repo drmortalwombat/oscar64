@@ -2706,6 +2706,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				// no need for actual operation when casting pointer to pointer
 				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference);
 			}
+			else if (exp->mLeft->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_ARRAY)
+			{
+				// no need for actual operation when casting pointer to pointer
+				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference - 1);
+			}
 			else if (exp->mLeft->mDecType->mType != DT_TYPE_VOID && vr.mType->mType == DT_TYPE_VOID)
 			{
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Cannot cast void object to non void object");
