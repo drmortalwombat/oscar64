@@ -23,14 +23,36 @@ bool SourceFile::ReadLine(char* line)
 {
 	if (mFile)
 	{
-		if (fgets(line, 1024, mFile))
-			return true;
+		if (mBinary)
+		{
+			if (mLimit)
+				mLimit--;
+
+			int c = fgetc(mFile);
+			if (c >= 0)
+			{
+				sprintf_s(line, 1024, "0x%02x, ", c);
+				return true;
+			}
+		}
+		else
+		{
+			if (fgets(line, 1024, mFile))
+				return true;
+		}
 
 		fclose(mFile);
 		mFile = nullptr;
 	}
 
 	return false;
+}
+
+void SourceFile::Limit(int skip, int limit)
+{
+	mLimit = limit;
+	if (mFile)
+		fseek(mFile, skip, SEEK_SET);
 }
 
 SourceFile::SourceFile(void) 
@@ -48,7 +70,7 @@ SourceFile::~SourceFile(void)
 	}
 }
 
-bool SourceFile::Open(const char* name, const char* path)
+bool SourceFile::Open(const char* name, const char* path, bool binary)
 {
 	char	fname[220];
 
@@ -66,7 +88,7 @@ bool SourceFile::Open(const char* name, const char* path)
 
 	strcat_s(fname + n, sizeof(fname) - n, name);
 
-	if (!fopen_s(&mFile, fname, "r"))
+	if (!fopen_s(&mFile, fname, binary ? "rb" : "r"))
 	{
 		_fullpath(mFileName, fname, sizeof(mFileName));
 		char* p = mFileName;
@@ -76,6 +98,9 @@ bool SourceFile::Open(const char* name, const char* path)
 				*p = '/';
 			p++;
 		}
+		mBinary = binary;
+		mLimit = 0x10000;
+
 		return true;
 	}
 
@@ -141,6 +166,67 @@ bool Preprocessor::NextLine(void)
 	}
 
 	return false;
+}
+
+bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, int skip, int limit)
+{
+	if (strlen(name) > 200)
+	{
+		mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Binary file path exceeds max path length");
+		return false;
+	}
+
+	if (mSource)
+		mSource->mLocation = mLocation;
+
+	SourceFile* source = new SourceFile();
+
+	bool	ok = false;
+
+	if (source->Open(name, "", true))
+		ok = true;
+
+	if (!ok && local && mSource)
+	{
+		char	lpath[220];
+		strcpy_s(lpath, mSource->mFileName);
+		int	i = strlen(lpath);
+		while (i > 0 && lpath[i - 1] != '/')
+			i--;
+		lpath[i] = 0;
+
+		if (source->Open(name, lpath, true))
+			ok = true;
+	}
+
+	SourcePath* p = mPaths;
+	while (!ok && p)
+	{
+		if (source->Open(name, p->mPathName, true))
+			ok = true;
+		else
+			p = p->mNext;
+	}
+
+	if (ok)
+	{
+		printf("%s \"%s\"\n", reason, source->mFileName);
+
+		source->Limit(skip, limit);
+
+		source->mUp = mSource;
+		mSource = source;
+		mLocation.mFileName = mSource->mFileName;
+		mLocation.mLine = 0;
+		mLine[0] = 0;
+
+		return true;
+	}
+	else
+	{
+		delete source;
+		return false;
+	}
 }
 
 bool Preprocessor::OpenSource(const char * reason, const char* name, bool local)

@@ -558,7 +558,8 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			}
 			else
 			{
-				InsertValue(ins);
+				if (!ins->mVolatile)
+					InsertValue(ins);
 			}
 		}
 
@@ -577,7 +578,8 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				i++;
 		}
 
-		InsertValue(ins);
+		if (!ins->mVolatile)
+			InsertValue(ins);
 		break;
 	case IC_COPY:
 		i = 0;

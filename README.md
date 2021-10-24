@@ -32,8 +32,6 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Linker
 
-* No media file import
-
 ### Standard Libraries
 
 * No file functions
@@ -92,6 +90,26 @@ The translation mode is selected in conio with the variable "giocharmap" and the
 Will switch to the lowercase PETSCII font and translate the strings while printing.
 
 Input from the console will also be translated accordingly.
+
+## Embedding binary data
+
+The compiler supports the #embed preprocessor directive to import binary data.  It converts a section of an external binary file into a sequence of numbers that can be placed into an initializer of an array.
+
+	byte data[] = {
+	
+		#embed "data.bin"
+		
+	};
+
+A section of the file can be selected by providing a limit and or an offset into the file before the file name.
+
+	byte data[] = {
+	
+		#embed 4096 126 "data.bin"
+		
+	};
+
+
 
 ## Inline Assembler
 

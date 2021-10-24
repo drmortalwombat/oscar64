@@ -21,14 +21,18 @@ public:
 	SourceFile	*	mUp, * mNext;
 	Location		mLocation;
 	SourceStack	*	mStack;
+	bool			mBinary;
+	int				mLimit;
 
 	bool ReadLine(char* line);
 
 	SourceFile(void);
 	~SourceFile(void);
 
-	bool Open(const char* name, const char * path);
+	bool Open(const char* name, const char * path, bool binary = false);
 	void Close(void);
+
+	void Limit(int skip, int limit);
 
 	bool PushSource(void);
 	bool PopSource(void);
@@ -69,6 +73,8 @@ public:
 	bool PushSource(void);
 	bool PopSource(void);
 	bool DropSource(void);
+
+	bool EmbedData(const char* reason, const char* name, bool local, int skip, int limit);
 
 	Preprocessor(Errors * errors);
 	~Preprocessor(void);

@@ -117,6 +117,8 @@ enum Token
 	TK_COLON,
 	TK_QUESTIONMARK,
 
+	TK_EMBEDDED,
+
 	TK_PREP_DEFINE,
 	TK_PREP_INCLUDE,
 	TK_PREP_IF,
@@ -130,6 +132,7 @@ enum Token
 	TK_PREP_ASSIGN,
 	TK_PREP_REPEAT,
 	TK_PREP_UNTIL,
+	TK_PREP_EMBED,
 
 	NUM_TOKENS
 };
@@ -192,6 +195,9 @@ public:
 
 	const Ident	*	mTokenIdent;
 	char			mTokenString[1024], mTokenChar;
+
+	uint8		*	mTokenEmbed;
+	int				mTokenEmbedSize;
 
 	Token			mToken;
 	double			mTokenNumber;

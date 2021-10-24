@@ -118,6 +118,8 @@ const char* TokenNames[] = {
 		"':'",
 		"'?'",
 
+		"embedded",
+
 		"'#define'",
 		"'#include'",
 		"'#if'",
@@ -130,7 +132,8 @@ const char* TokenNames[] = {
 
 		"'#assign'",
 		"'#repeat'",
-		"'#until'"
+		"'#until'",
+		"'#embed'"
 };
 
 
@@ -590,6 +593,36 @@ void Scanner::NextToken(void)
 			}
 			mPreprocessorMode = false;
 		}
+		else if (mToken == TK_PREP_EMBED)
+		{
+			int	limit = 65536, skip = 0;
+
+			NextRawToken();
+			if (mToken == TK_INTEGER)
+			{
+				limit = mTokenInteger;
+				NextRawToken();
+
+				if (mToken == TK_INTEGER)
+				{
+					skip = mTokenInteger;
+					NextRawToken();
+				}
+			}
+
+			if (mToken == TK_STRING)
+			{
+				if (!mPreprocessor->EmbedData("Embedding", mTokenString, true, skip, limit))
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+			}
+			else if (mToken == TK_LESS_THAN)
+			{
+				mOffset--;
+				StringToken('>');
+				if (!mPreprocessor->EmbedData("Embedding", mTokenString, false, skip, limit))
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+			}
+		}
 		else if (mToken == TK_IDENT)
 		{
 			Macro* def = nullptr;
@@ -1014,6 +1047,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_PREP_REPEAT;
 				else if (!strcmp(tkprep, "until"))
 					mToken = TK_PREP_UNTIL;
+				else if (!strcmp(tkprep, "embed"))
+					mToken = TK_PREP_EMBED;
 				else
 					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", tkprep);
 			}
