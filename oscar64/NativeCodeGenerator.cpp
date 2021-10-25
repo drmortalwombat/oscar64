@@ -7936,17 +7936,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					mIns[i].mType = ASMIT_NOP;
 					progress = true;
 				}
+#endif
+#if 1
 				else if (mIns[i].mType == ASMIT_ROR && mIns[i].mMode == ASMIM_IMPLIED && (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
 				{
 					mIns[i].mType = ASMIT_LSR;
 					progress = true;
 				}
+#endif
+#if 1
 				else if (mIns[i].mType == ASMIT_ROL && mIns[i].mMode == ASMIM_IMPLIED && (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
 				{
 					mIns[i].mType = ASMIT_ASL;
 					progress = true;
 				}
-
+#endif
+#if 1
 				int	apos;
 				if (mIns[i].mMode == ASMIM_INDIRECT_Y && FindGlobalAddress(i, mIns[i].mAddress, apos))
 				{
@@ -8107,6 +8112,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					{
 						mIns[i + 0].mType = mIns[i + 1].mType;
 						mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 1].mType = ASMIT_STA;
 						progress = true;
 					}
@@ -8154,6 +8160,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					{
 						mIns[i + 1].mType = mIns[i + 0].mType;
 						mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 0].mType = ASMIT_LDA;
 						progress = true;
 					}
@@ -8312,6 +8320,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 0] = mIns[i + 1];
 						mIns[i + 1] = mIns[i + 2];
 						mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 2].mType = ASMIT_STA;
 						mIns[i + 2].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
 						progress = true;
@@ -8325,6 +8334,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 2] = mIns[i + 1];
 						mIns[i + 1] = mIns[i + 0];
 						mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 1].mType = ASMIT_STA;
 						mIns[i + 2].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
 						progress = true;
@@ -8348,6 +8358,30 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 					{
 						mIns[i + 2].mType = ASMIT_NOP;
 					}
+#if 1
+					else if (
+						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
+						mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
+						!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+					{
+						int addr = mIns[i + 0].mAddress;
+
+						mIns.Insert(i, NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, addr));
+						mIns.Insert(i + 4, NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, addr));
+
+						mIns[i + 0].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_A;
+						mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 2].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 3].mMode = ASMIM_IMPLIED;
+						mIns[i + 3].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 4].mLive = mIns[i + 3].mLive;
+
+						progress = true;
+					}
+#endif
 #if 1
 					if (
 						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
@@ -8447,6 +8481,20 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 
 						progress = true;
 					}
+#if 1
+					else if (
+						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y &&
+						mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress)
+					{
+						mIns[i + 2].mType = mIns[i + 3].mType;
+						mIns[i + 3].mType = ASMIT_NOP;
+						mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+						progress = true;
+					}
+#endif
 #if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
