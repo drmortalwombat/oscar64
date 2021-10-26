@@ -2513,7 +2513,7 @@ void NativeCodeBasicBlock::LoadConstant(InterCodeProcedure* proc, const InterIns
 
 void NativeCodeBasicBlock::CheckFrameIndex(int& reg, int& index, int size)
 {
-	if (index + size > 256)
+	if (index < 0 || index + size > 256)
 	{
 		mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
 		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, reg));

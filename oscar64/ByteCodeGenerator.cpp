@@ -916,7 +916,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	index = ins->mSrc[1].mIntConst;
-					if (index + 4 <= 256)
+					if (index >= 0 && index + 4 <= 256)
 					{
 						ByteCodeInstruction	lins(BC_ADDR_REG);
 						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
@@ -944,7 +944,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	index = ins->mSrc[1].mIntConst;
-					if (index + 4 <= 256)
+					if (index >= 0 && index + 4 <= 256)
 					{
 						ByteCodeInstruction	lins(BC_ADDR_REG);
 						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
@@ -1113,7 +1113,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	index = ins->mSrc[1].mIntConst;
-					if (index + 2 <= 256)
+					if (index >= 0 && index + 2 <= 256)
 					{
 						ByteCodeInstruction	lins(BC_ADDR_REG);
 						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
@@ -1141,7 +1141,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	index = ins->mSrc[1].mIntConst;
-					if (index + 2 <= 256)
+					if (index >= 0 && index + 2 <= 256)
 					{
 						ByteCodeInstruction	lins(BC_ADDR_REG);
 						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
@@ -1579,7 +1579,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	index = ins->mSrc[1].mIntConst;
-					if (index + InterTypeSize[ins->mSrc[0].mType] <= 256)
+					if (index >= 0 && index + InterTypeSize[ins->mSrc[0].mType] <= 256)
 					{
 						ByteCodeInstruction	lins(BC_ADDR_REG);
 						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
@@ -1624,7 +1624,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	index = ins->mSrc[1].mIntConst;
-					if (index + InterTypeSize[ins->mSrc[0].mType] <= 256)
+					if (index >= 0 && index + InterTypeSize[ins->mSrc[0].mType] <= 256)
 					{
 						ByteCodeInstruction	lins(BC_ADDR_REG);
 						lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
@@ -1736,7 +1736,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
 				int	index = ins->mSrc[0].mIntConst;
-				if (index + 4 <= 256)
+				if (index >= 0 && index + 4 <= 256)
 				{
 					ByteCodeInstruction	lins(BC_ADDR_REG);
 					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
@@ -1823,7 +1823,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
 				int	index = ins->mSrc[0].mIntConst;
-				if (index + 2 <= 256)
+				if (index >= 0 && index + 2 <= 256)
 				{
 					ByteCodeInstruction	lins(BC_ADDR_REG);
 					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
@@ -2025,7 +2025,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
 				int	index = ins->mSrc[0].mIntConst;
-				if (index + InterTypeSize[ins->mDst.mType] <= 256)
+				if (index >= 0 && index + InterTypeSize[ins->mDst.mType] <= 256)
 				{
 					ByteCodeInstruction	lins(BC_ADDR_REG);
 					lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
