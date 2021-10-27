@@ -2903,7 +2903,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			{
 				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-				lins.mRegisterFinal = ins->mSrc[1].mFinal;
+				lins.mRegisterFinal = ins->mSrc[1].mFinal && (ins->mSrc[1].mTemp != ins->mSrc[0].mTemp);
 				mIns.Push(lins);
 
 				ByteCodeInstruction	bins(bc);
@@ -2958,7 +2958,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			{
 				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-				lins.mRegisterFinal = ins->mSrc[1].mFinal;
+				lins.mRegisterFinal = ins->mSrc[1].mFinal && (ins->mSrc[1].mTemp != ins->mSrc[0].mTemp);;
 				mIns.Push(lins);
 
 				ByteCodeInstruction	bins(BC_BINOP_SUBR_16);
@@ -3041,7 +3041,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			{
 				ByteCodeInstruction	lins(BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-				lins.mRegisterFinal = ins->mSrc[1].mFinal;
+				lins.mRegisterFinal = ins->mSrc[1].mFinal && (ins->mSrc[1].mTemp != ins->mSrc[0].mTemp);;
 				mIns.Push(lins);
 
 				ByteCodeInstruction	bins(bc);
@@ -3073,7 +3073,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			{
 				ByteCodeInstruction	lins(BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-				lins.mRegisterFinal = ins->mSrc[1].mFinal;
+				lins.mRegisterFinal = ins->mSrc[1].mFinal && (ins->mSrc[1].mTemp != ins->mSrc[0].mTemp);;
 				mIns.Push(lins);
 
 				ByteCodeInstruction	bins(bc);
@@ -3113,7 +3113,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			{
 				ByteCodeInstruction	lins(BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-				lins.mRegisterFinal = ins->mSrc[1].mFinal;
+				lins.mRegisterFinal = ins->mSrc[1].mFinal && (ins->mSrc[1].mTemp != ins->mSrc[0].mTemp);;
 				mIns.Push(lins);
 
 				ByteCodeInstruction	bins(bc);
@@ -3154,7 +3154,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			{
 				ByteCodeInstruction	lins(BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-				lins.mRegisterFinal = ins->mSrc[1].mFinal;
+				lins.mRegisterFinal = ins->mSrc[1].mFinal && (ins->mSrc[1].mTemp != ins->mSrc[0].mTemp);;
 				mIns.Push(lins);
 
 				ByteCodeInstruction	bins(rbc);

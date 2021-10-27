@@ -2682,10 +2682,41 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (exp->mLeft->mDecType->mType == DT_TYPE_FLOAT && vr.mType->IsIntegerType())
 			{
 				vr = Dereference(proc, block, vr);
+
+				int stemp = vr.mTemp;
+
+				if (vr.mType->mSize == 1)
+				{
+					if (vr.mType->mFlags & DTF_SIGNED)
+					{
+						InterInstruction* xins = new InterInstruction();
+						xins->mCode = IC_CONVERSION_OPERATOR;
+						xins->mOperator = IA_EXT8TO16S;
+						xins->mSrc[0].mType = IT_INT8;
+						xins->mSrc[0].mTemp = stemp;
+						xins->mDst.mType = IT_INT16;
+						xins->mDst.mTemp = proc->AddTemporary(IT_INT16);
+						block->Append(xins);
+						stemp = xins->mDst.mTemp;
+					}
+					else
+					{
+						InterInstruction* xins = new InterInstruction();
+						xins->mCode = IC_CONVERSION_OPERATOR;
+						xins->mOperator = IA_EXT8TO16U;
+						xins->mSrc[0].mType = IT_INT8;
+						xins->mSrc[0].mTemp = stemp;
+						xins->mDst.mType = IT_INT16;
+						xins->mDst.mTemp = proc->AddTemporary(IT_INT16);
+						block->Append(xins);
+						stemp = xins->mDst.mTemp;
+					}
+				}
+
 				ins->mCode = IC_CONVERSION_OPERATOR;
 				ins->mOperator = IA_INT2FLOAT;
-				ins->mSrc[0].mType = InterTypeOf(vr.mType);
-				ins->mSrc[0].mTemp = vr.mTemp;
+				ins->mSrc[0].mType = IT_INT16;
+				ins->mSrc[0].mTemp = stemp;
 				ins->mDst.mType = InterTypeOf(exp->mLeft->mDecType);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 				block->Append(ins);
@@ -2697,9 +2728,21 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mOperator = IA_FLOAT2INT;
 				ins->mSrc[0].mType = InterTypeOf(vr.mType);
 				ins->mSrc[0].mTemp = vr.mTemp;
-				ins->mDst.mType = InterTypeOf(exp->mLeft->mDecType);
-				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mDst.mType = IT_INT16;
+				ins->mDst.mTemp = proc->AddTemporary(IT_INT16);
 				block->Append(ins);
+
+				if (exp->mLeft->mDecType->mSize == 1)
+				{
+					InterInstruction* xins = new InterInstruction();
+					xins->mCode = IC_TYPECAST;
+					xins->mSrc[0].mType = IT_INT16;
+					xins->mSrc[0].mTemp = ins->mDst.mTemp;
+					xins->mDst.mType = InterTypeOf(exp->mLeft->mDecType);
+					xins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+					block->Append(xins);
+					ins = xins;
+				}
 			}
 			else if (exp->mLeft->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_POINTER)
 			{

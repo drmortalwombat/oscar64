@@ -4001,6 +4001,18 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 				if (i != j)
 					mInstructions[j] = ins;
 			}
+			else if (mInstructions[i]->mCode == IC_LEA && mInstructions[i]->mSrc[0].mTemp == -1)
+			{
+				InterInstruction* ins(mInstructions[i]);
+				int j = i;
+				while (j < limit && CanBypass(ins, mInstructions[j + 1]))
+				{
+					mInstructions[j] = mInstructions[j + 1];
+					j++;
+				}
+				if (i != j)
+					mInstructions[j] = ins;
+			}
 
 			i--;
 		}
