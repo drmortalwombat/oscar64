@@ -2401,6 +2401,22 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				}
 			}
 
+			if (ins->mSrc[0].mTemp > 0 && ins->mSrc[1].mTemp > 0 && ins->mSrc[0].mTemp == ins->mSrc[1].mTemp)
+			{
+				if (ins->mOperator == IA_ADD)
+				{
+					ins->mOperator = IA_SHL;
+					ins->mSrc[0].mTemp = -1;
+					ins->mSrc[0].mIntConst = 1;
+				}
+				else if (ins->mOperator == IA_SUB)
+				{
+					ins->mCode = IC_CONSTANT;
+					ins->mConst.mType = ins->mDst.mType;
+					ins->mConst.mIntConst = 0;
+				}
+			}
+
 			if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_BINARY_OPERATOR)
 			{
 				InterInstruction* pins = tvalue[ins->mSrc[0].mTemp];
@@ -5123,6 +5139,23 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	mCallerSavedTemps = callerSavedTemps;
 }
 
+void InterCodeProcedure::Disassemble(FILE* file)
+{
+	fprintf(file, "--------------------------------------------------------------------\n");
+	fprintf(file, "%s: %s:%d\n", mIdent->mString, mLocation.mFileName, mLocation.mLine);
+
+	static char typechars[] = "NBCILFP";
+	for (int i = 0; i < mTemporaries.Size(); i++)
+	{
+		fprintf(file, "$%02x T%d(%c), ", mTempOffset[i], i, typechars[mTemporaries[i]]);
+	}
+
+	fprintf(file, "\n");
+
+	ResetVisited();
+	mEntryBlock->Disassemble(file, false);
+}
+
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
 	FILE* file;
@@ -5168,4 +5201,25 @@ InterCodeModule::InterCodeModule(void)
 InterCodeModule::~InterCodeModule(void)
 {
 
+}
+
+bool InterCodeModule::Disassemble(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		for (int i = 0; i < mProcedures.Size(); i++)
+		{
+			InterCodeProcedure* proc = mProcedures[i];
+
+			proc->Disassemble(file);
+		}
+
+		fclose(file);
+
+		return true;
+	}
+	else
+		return false;
 }

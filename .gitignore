@@ -340,3 +340,4 @@ ASALocalRun/
 *.o
 *.lbl
 make/oscar64
+*.int

@@ -63,7 +63,7 @@ public:
 	void Assemble(NativeCodeBasicBlock* block);
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
-	bool ValueForwarding(NativeRegisterDataSet& data);
+	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop);
 
 	void Simulate(NativeRegisterDataSet& data);
 	bool ApplySimulation(const NativeRegisterDataSet& data);
@@ -106,6 +106,7 @@ public:
 
 	int						mOffset, mSize, mNumEntries, mNumEntered, mFrameOffset;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked;
+	NativeCodeBasicBlock* mLoopHeadBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet;
 
@@ -120,12 +121,17 @@ public:
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
 	bool PeepHoleOptimizer(void);
+	void BlockSizeReduction(void);
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
+	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
+
+	bool OptimizeInnerLoops(NativeCodeProcedure* proc);
+	bool CheckInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& blocks);
 
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
 
-	void CheckFrameIndex(int & reg, int & index, int size);
+	void CheckFrameIndex(int & reg, int & index, int size, int treg = 0);
 	void LoadValueToReg(InterCodeProcedure* proc, const InterInstruction * ins, int reg, const NativeCodeInstruction * ainsl, const NativeCodeInstruction* ainsh);
 	void LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction * ins, InterType type, int reg);
 
@@ -133,7 +139,7 @@ public:
 	void StoreValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void LoadValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void LoadStoreValue(InterCodeProcedure* proc, const InterInstruction * rins, const InterInstruction * wins);
-	void LoadOpStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, int oindex, const InterInstruction* wins);
+	bool LoadOpStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, int oindex, const InterInstruction* wins);
 	void LoadStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* wins);
 	NativeCodeBasicBlock* BinaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void UnaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);

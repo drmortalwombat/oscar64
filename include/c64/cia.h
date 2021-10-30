@@ -5,7 +5,7 @@
 
 struct CIA
 {
-	byte	pra, prb;
+	volatile byte	pra, prb;
 	byte	ddra, ddrb;
 	word	ta, tb;
 	byte	todt, tods, todm, todh;

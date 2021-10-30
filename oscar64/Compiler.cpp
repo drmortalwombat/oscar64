@@ -326,7 +326,7 @@ bool Compiler::GenerateCode(void)
 
 bool Compiler::WriteOutputFile(const char* targetPath)
 {
-	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], crtPath[200];
+	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], crtPath[200], intPath[200];
 
 	strcpy_s(prgPath, targetPath);
 	int		i = strlen(prgPath);
@@ -338,12 +338,14 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 	strcpy_s(asmPath, prgPath);
 	strcpy_s(lblPath, prgPath);
 	strcpy_s(crtPath, prgPath);
+	strcpy_s(intPath, prgPath);
 
 	strcat_s(prgPath, "prg");
 	strcat_s(mapPath, "map");
 	strcat_s(asmPath, "asm");
 	strcat_s(lblPath, "lbl");
 	strcat_s(crtPath, "crt");
+	strcat_s(intPath, "int");
 
 	if (mCompilerOptions & COPT_TARGET_PRG)
 	{
@@ -365,6 +367,9 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 
 	printf("Writing <%s>\n", lblPath);
 	mLinker->WriteLblFile(lblPath);
+
+	printf("Writing <%s>\n", intPath);	
+	mInterCodeModule->Disassemble(intPath);
 
 	return true;
 }

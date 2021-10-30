@@ -545,6 +545,7 @@ public:
 
 	void MapVariables(void);
 	void ReduceTemporaries(void);
+	void Disassemble(FILE* file);
 	void Disassemble(const char* name, bool dumpSets = false);
 protected:
 	void BuildTraces(bool expand);
@@ -565,6 +566,8 @@ class InterCodeModule
 public:
 	InterCodeModule(void);
 	~InterCodeModule(void);
+
+	bool Disassemble(const char* name);
 
 	GrowingInterCodeProcedurePtrArray	mProcedures;
 

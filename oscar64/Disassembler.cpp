@@ -603,17 +603,17 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 			break;
 		case ASMIM_ABSOLUTE:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], AddrName(addr, abuffer, linker));
+			fprintf(file, "%04x : %02x %02x %02x %s $%04x %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(addr, abuffer, linker));
 			ip += 2;
 			break;
 		case ASMIM_ABSOLUTE_X:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s %s,x\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], AddrName(addr, abuffer, linker));
+			fprintf(file, "%04x : %02x %02x %02x %s $%04x,x %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(addr, abuffer, linker));
 			ip += 2;
 			break;
 		case ASMIM_ABSOLUTE_Y:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s %s,y\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], AddrName(addr, abuffer, linker));
+			fprintf(file, "%04x : %02x %02x %02x %s $%04x,y %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(addr, abuffer, linker));
 			ip += 2;
 			break;
 		case ASMIM_INDIRECT:
@@ -649,13 +649,12 @@ const char* NativeCodeDisassembler::AddrName(int addr, char* buffer, Linker* lin
 		LinkerObject* obj = linker->FindObjectByAddr(addr);
 		if (obj && obj->mIdent)
 		{
-			sprintf_s(buffer, 40, "$%04x  ; (%s + %d)", addr, obj->mIdent->mString, addr - obj->mAddress);
+			sprintf_s(buffer, 40, "; (%s + %d)", obj->mIdent->mString, addr - obj->mAddress);
 			return buffer;
 		}
 	}
 
-	sprintf_s(buffer, 10, "$%04x", addr);
-	return buffer;
+	return "";
 }
 
 
