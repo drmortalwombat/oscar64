@@ -175,7 +175,7 @@ public:
 	bool MoveLoadAddImmStoreUp(int at);
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
-	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, int& ireg);
+	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags);
 	bool MoveStoreXUp(int at);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
@@ -192,6 +192,10 @@ public:
 
 	void CollectZeroPageUsage(NumberSet& used);
 	void RemapZeroPage(const uint8* remap);
+
+	void GlobalRegisterXYCheck(int* xregs, int * yregs);
+	void GlobalRegisterXMap(int reg);
+	bool LocalRegisterXYMap(void);
 };
 
 class NativeCodeProcedure

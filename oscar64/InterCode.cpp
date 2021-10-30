@@ -314,6 +314,42 @@ static void ConversionConstantFold(InterInstruction * ins, InterInstruction * ci
 	}
 }
 
+static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains)
+{
+	const uint8* data;
+
+	if (ains)		
+		data = ains->mConst.mLinkerObject->mData + ains->mConst.mIntConst;
+	else
+		data = ins->mSrc[0].mLinkerObject->mData + ins->mSrc[0].mIntConst;
+
+	switch (ins->mDst.mType)
+	{
+	case IT_BOOL:
+		ins->mConst.mIntConst = data[0] ? 1 : 0;
+	case IT_INT8:
+		ins->mConst.mIntConst = data[0];
+		break;
+	case IT_INT16:
+	case IT_POINTER:
+		ins->mConst.mIntConst = data[0] | (data[1] << 8);
+		break;
+	case IT_INT32:
+		ins->mConst.mIntConst = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+		break;
+	case IT_FLOAT:
+	{
+		union { float f; unsigned int v; } cc;
+		cc.v = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+		ins->mConst.mFloatConst = cc.v;
+	} break;
+	}
+
+	ins->mCode = IC_CONSTANT;
+	ins->mConst.mType = ins->mDst.mType;
+	ins->mSrc[0].mTemp = -1;
+}
+
 void ValueSet::InsertValue(InterInstruction * ins)
 {
 	InterInstructionPtr* nins;
@@ -555,6 +591,11 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mType = mInstructions[i]->mSrc[0].mType;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
+			}
+			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT && tvalue[ins->mSrc[0].mTemp]->mConst.mMemory == IM_GLOBAL && (tvalue[ins->mSrc[0].mTemp]->mConst.mLinkerObject->mFlags & LOBJF_CONST))
+			{
+				LoadConstantFold(ins, tvalue[ins->mSrc[0].mTemp]);
+				InsertValue(ins);
 			}
 			else
 			{
@@ -2100,6 +2141,10 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 
 	case IC_LOAD:
 		OptimizeAddress(ins, tvalue, 0);
+
+		if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
+			LoadConstantFold(ins, nullptr);
+
 		break;
 	case IC_STORE:
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
@@ -2205,6 +2250,14 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			}
 		}
 		break;
+
+	case IC_CONVERSION_OPERATOR:
+		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
+		{
+			ConversionConstantFold(ins, tvalue[ins->mSrc[0].mTemp]);
+		}
+		break;
+
 	case IC_RETURN_VALUE:
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 		{

@@ -217,6 +217,12 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
 		var->mIdent = dec->mIdent;
 
+		Declaration* type = dec->mBase;
+		while (type->mType == DT_TYPE_ARRAY)
+			type = type->mBase;
+		if (type->mFlags & DTF_CONST)
+			var->mLinkerObject->mFlags |= LOBJF_CONST;
+
 		var->mIndex = mod->mGlobalVars.Size();
 		mod->mGlobalVars.Push(var);
 
