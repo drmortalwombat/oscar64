@@ -1834,12 +1834,51 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					return ExValue(TheFloatTypeDeclaration, ins->mDst.mTemp);
 				}
-				else
-					mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname->mString);
+				else if (!strcmp(iname->mString, "strcpy"))
+				{
+					if (exp->mRight->mType == EX_LIST)
+					{
+						Expression* tex = exp->mRight->mLeft, * sex = exp->mRight->mRight;
+						if ((tex->mDecType->mType == DT_TYPE_ARRAY && tex->mDecType->mSize <= 256) ||
+							(sex->mDecType->mType == DT_TYPE_ARRAY && sex->mDecType->mSize <= 256))
+						{
+							vl = TranslateExpression(procType, proc, block, tex, breakBlock, continueBlock, inlineMapper);
+							if (vl.mType->mType == DT_TYPE_ARRAY)
+								vl = Dereference(proc, block, vl, 1);
+							else
+								vl = Dereference(proc, block, vl);
 
-				return ExValue(TheVoidTypeDeclaration);
+							vr = TranslateExpression(procType, proc, block, sex, breakBlock, continueBlock, inlineMapper);
+							if (vr.mType->mType == DT_TYPE_ARRAY)
+								vr = Dereference(proc, block, vr, 1);
+							else
+								vr = Dereference(proc, block, vr);
+
+							if (!TheCharPointerTypeDeclaration->CanAssign(vl.mType))
+								mErrors->Error(tex->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+							if (!TheConstCharPointerTypeDeclaration->CanAssign(vr.mType))
+								mErrors->Error(sex->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+
+							InterInstruction* ins = new InterInstruction();
+							ins->mCode = IC_STRCPY;
+							ins->mSrc[0].mType = IT_POINTER;
+							ins->mSrc[0].mTemp = vr.mTemp;
+							ins->mSrc[1].mType = IT_POINTER;
+							ins->mSrc[1].mTemp = vl.mTemp;
+							block->Append(ins);
+
+							return vl;
+						}
+					}
+				}
+				else
+				{
+					mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname->mString);
+					return ExValue(TheVoidTypeDeclaration);
+				}
 			}
-			else if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && (exp->mLeft->mDecValue->mFlags & DTF_INLINE) && !(inlineMapper && inlineMapper->mDepth > 10))
+			
+			if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && (exp->mLeft->mDecValue->mFlags & DTF_INLINE) && !(inlineMapper && inlineMapper->mDepth > 10))
 			{
 				Declaration* fdec = exp->mLeft->mDecValue;
 				Expression* fexp = fdec->mValue;

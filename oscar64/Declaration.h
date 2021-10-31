@@ -190,4 +190,5 @@ void InitDeclarations(void);
 extern Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
 extern Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 extern Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
+extern Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
 

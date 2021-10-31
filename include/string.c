@@ -48,7 +48,13 @@ int strcmp(const char * ptr1, const char * ptr2)
 	__asm 
 	{
 		ldy #0
+		sty accu + 1
 	L1: lda (ptr1), y
+		beq W1
+		cmp (ptr2), y
+		bne W2
+		iny
+		lda (ptr1), y
 		beq W1
 		cmp (ptr2), y
 		bne W2
@@ -57,22 +63,20 @@ int strcmp(const char * ptr1, const char * ptr2)
 		inc ptr1 + 1
 		inc ptr2 + 1
 		bne L1
-	W2:	bcs gt
-		lda #$ff
-		sta accu
-		bmi E
-
-	gt: lda #$01
-		sta accu
-		lda #$00
-		beq	E
 
 	W1:	cmp (ptr2), y
-		bne W2
-		lda #$00
-		sta accu
-	E:
+		beq E
+
+	W2:	bcs W3
+
+		lda #$ff
 		sta accu + 1
+		bmi E
+
+	W3: lda #$01
+
+	E:
+		sta accu
 	}
 }
 

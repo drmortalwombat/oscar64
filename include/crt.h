@@ -144,6 +144,7 @@ enum ByteCode
 
 	BC_COPY,
 	BC_COPY_LONG,
+	BC_STRCPY,
 
 	BC_EXTRT,
 

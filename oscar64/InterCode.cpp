@@ -623,6 +623,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			InsertValue(ins);
 		break;
 	case IC_COPY:
+	case IC_STRCPY:
 		i = 0;
 		while (i < mNum)
 		{
@@ -1319,7 +1320,7 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 				requiredVars += mSrc[1].mVarIndex;
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE)
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY)
 	{
 		requiredVars.OrNot(providedVars);
 	}
@@ -1587,7 +1588,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariable
 			}
 		}
 	}
-	else if (mCode == IC_COPY)
+	else if (mCode == IC_COPY || mCode == IC_STRCPY)
 	{
 		requiredVars.Fill();
 	}
@@ -1882,6 +1883,9 @@ void InterInstruction::Disassemble(FILE* file)
 			break;
 		case IC_COPY:
 			fprintf(file, "COPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
+			break;
+		case IC_STRCPY:
+			fprintf(file, "STRCPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
 		case IC_LEA:
 			fprintf(file, "LEA%c", memchars[mSrc[1].mMemory]);
@@ -3814,7 +3818,7 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 static bool CanBypassLoad(const InterInstruction * lins, const InterInstruction * bins)
 {
 	// Check ambiguity
-	if (bins->mCode == IC_STORE || bins->mCode == IC_COPY)
+	if (bins->mCode == IC_STORE || bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
 		return false;
 
 	// Side effects
@@ -3860,7 +3864,7 @@ static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins
 
 static bool CanBypassStore(const InterInstruction * sins, const InterInstruction * bins)
 {
-	if (bins->mCode == IC_COPY || bins->mCode == IC_PUSH_FRAME)
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_PUSH_FRAME)
 		return false;
 
 	InterMemory	sm = IM_NONE, bm = IM_NONE;
@@ -4029,7 +4033,7 @@ InterCodeBasicBlock* InterCodeBasicBlock::PropagateDominator(InterCodeProcedure*
 
 bool IsMoveable(InterCode code)
 {
-	if (HasSideEffect(code) || code == IC_COPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
+	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
 		return false;
 	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
 		return false;

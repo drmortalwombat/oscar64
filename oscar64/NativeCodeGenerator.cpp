@@ -742,6 +742,12 @@ bool NativeCodeInstruction::ApplySimulation(const NativeRegisterDataSet& data)
 		mAddress = data.mRegs[mAddress].mValue + 256 * data.mRegs[mAddress + 1].mValue;
 		mLinkerObject = nullptr;
 	}
+	else if (mMode == ASMIM_INDIRECT_Y && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS && data.mRegs[mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && data.mRegs[mAddress].mLinkerObject == data.mRegs[mAddress + 1].mLinkerObject)
+	{
+		mMode = ASMIM_ABSOLUTE_Y;
+		mLinkerObject = data.mRegs[mAddress].mLinkerObject;
+		mAddress = data.mRegs[mAddress].mValue;
+	}
 
 	return false;
 }
@@ -1955,6 +1961,12 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE && data.mRegs[mAddress + 1].mMode == NRDM_ZERO_PAGE && data.mRegs[mAddress].mValue + 1 == data.mRegs[mAddress + 1].mValue)
 		{
 			mAddress = data.mRegs[mAddress].mValue;
+		}
+		else if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS && data.mRegs[mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && data.mRegs[mAddress].mLinkerObject == data.mRegs[mAddress + 1].mLinkerObject)
+		{
+			mMode = ASMIM_ABSOLUTE_Y;
+			mLinkerObject = data.mRegs[mAddress].mLinkerObject;
+			mAddress = data.mRegs[mAddress + 1].mValue;
 		}
 
 		if (ChangesAddress())
@@ -4232,6 +4244,23 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 
 		return eblock;
 	}
+}
+
+NativeCodeBasicBlock* NativeCodeBasicBlock::StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc)
+{
+	int	sreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp], dreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+
+	NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
+	NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+
+	mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0xff));
+	this->Close(lblock, nullptr, ASMIT_JMP);
+	lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+	lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, sreg));
+	lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, dreg));
+	lblock->Close(lblock, eblock, ASMIT_BNE);
+
+	return eblock;
 }
 
 bool NativeCodeBasicBlock::CheckPredAccuStore(int reg)
@@ -10679,6 +10708,9 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			break;
 		case IC_COPY:
 			block = block->CopyValue(iproc, ins, this);
+			break;
+		case IC_STRCPY:
+			block = block->StrcpyValue(iproc, ins, this);
 			break;
 		case IC_LOAD_TEMPORARY:
 		{

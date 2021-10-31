@@ -145,6 +145,7 @@ enum ByteCode
 
 	BC_COPY,
 	BC_COPY_LONG,
+	BC_STRCPY,
 
 	BC_EXTRT,
 
@@ -252,6 +253,7 @@ public:
 	void FloatConstToAccu(double val);
 	void FloatConstToWork(double val);
 	void CopyValue(InterCodeProcedure* proc, const InterInstruction * ins);
+	void StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins);
 	void LoadConstant(InterCodeProcedure* proc, const InterInstruction * ins);
 	void StoreDirectValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void LoadDirectValue(InterCodeProcedure* proc, const InterInstruction * ins);

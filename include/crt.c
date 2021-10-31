@@ -276,10 +276,6 @@ __asm negtmp32
 
 __asm divmod
 {
-		lda	#0
-		sta	tmp + 2
-		sta	tmp + 3
-
 		lda accu + 1
 		bne WB
 		lda	tmp + 1
@@ -287,7 +283,8 @@ __asm divmod
 
 // byte / byte
 BB:
-		lda #0
+		// accu is zero at this point
+		sta	tmp + 3
 		ldx	#4
 		asl	accu
 LBB1:	rol
@@ -325,6 +322,7 @@ WB:
 // word / byte
 
 		lda #0
+		sta	tmp + 3
 		ldx	#16
 		asl	accu
 		rol	accu + 1		
@@ -341,6 +339,10 @@ WWB1:	rol	accu
 
 // word / word
 WW:
+		lda	#0
+		sta	tmp + 2
+		sta	tmp + 3
+
 		sty	tmpy
 		ldy	#16
 		clc
@@ -2295,6 +2297,20 @@ W1:
 }
 
 #pragma	bytecode(BC_COPY, inp_copy)
+
+__asm inp_strcpy
+{
+		sty tmpy
+		ldy #$ff
+L1:		iny
+		lda	(accu), y
+		sta	(addr), y
+		bne	L1
+		ldy	tmpy
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_STRCPY, inp_strcpy)
 
 __asm inp_copyl
 {

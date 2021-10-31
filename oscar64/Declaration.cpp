@@ -512,6 +512,7 @@ bool Declaration::IsSimpleType(void) const
 Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
 Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
+Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
 
 void InitDeclarations(void)
 {
@@ -571,4 +572,15 @@ void InitDeclarations(void)
 	TheFloatTypeDeclaration = new Declaration(noloc, DT_TYPE_FLOAT);
 	TheFloatTypeDeclaration->mSize = 4;
 	TheFloatTypeDeclaration->mFlags = DTF_DEFINED | DTF_SIGNED;
+
+
+	TheCharPointerTypeDeclaration = new Declaration(noloc, DT_TYPE_POINTER);
+	TheCharPointerTypeDeclaration->mBase = TheCharTypeDeclaration;
+	TheCharPointerTypeDeclaration->mSize = 2;
+	TheCharPointerTypeDeclaration->mFlags = DTF_DEFINED;
+
+	TheConstCharPointerTypeDeclaration = new Declaration(noloc, DT_TYPE_POINTER);
+	TheConstCharPointerTypeDeclaration->mBase = TheConstCharTypeDeclaration;
+	TheConstCharPointerTypeDeclaration->mSize = 2;
+	TheConstCharPointerTypeDeclaration->mFlags = DTF_DEFINED;
 }

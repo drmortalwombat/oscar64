@@ -115,7 +115,7 @@ bool ByteCodeInstruction::IsLocalStore(void) const
 
 bool ByteCodeInstruction::IsLocalLoad(void) const
 {
-	return mCode >= BC_LOAD_LOCAL_8 && mCode <= BC_LOAD_LOCAL_32 || mCode == BC_COPY;
+	return mCode >= BC_LOAD_LOCAL_8 && mCode <= BC_LOAD_LOCAL_32 || mCode == BC_COPY || mCode == BC_STRCPY;
 }
 
 bool ByteCodeInstruction::IsLocalAccess(void) const
@@ -511,6 +511,10 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		}
 		break;
 
+	case BC_STRCPY:
+		block->PutCode(generator, BC_STRCPY);
+		break;
+
 	case BC_CONV_I16_I32:
 	case BC_CONV_U16_U32:
 	case BC_OP_NEGATE_32:
@@ -767,6 +771,20 @@ void ByteCodeBasicBlock::CopyValue(InterCodeProcedure* proc, const InterInstruct
 	mIns.Push(dins);
 	ByteCodeInstruction	cins(BC_COPY);
 	cins.mValue = ins->mConst.mOperandSize;
+	mIns.Push(cins);
+}
+
+void ByteCodeBasicBlock::StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins)
+{
+	ByteCodeInstruction	sins(BC_ADDR_REG);
+	sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+	sins.mRegisterFinal = ins->mSrc[1].mFinal;
+	mIns.Push(sins);
+	ByteCodeInstruction	dins(BC_LOAD_REG_16);
+	dins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+	dins.mRegisterFinal = ins->mSrc[0].mFinal;
+	mIns.Push(dins);
+	ByteCodeInstruction	cins(BC_STRCPY);
 	mIns.Push(cins);
 }
 
@@ -3197,6 +3215,9 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			break;
 		case IC_COPY:
 			CopyValue(iproc, ins);
+			break;
+		case IC_STRCPY:
+			StrcpyValue(iproc, ins);
 			break;
 		case IC_LOAD_TEMPORARY:
 		{

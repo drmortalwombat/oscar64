@@ -372,6 +372,9 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			fprintf(file, "COPY\t#%d", memory[start + i + 0]);
 			i++;
 			break;
+		case BC_STRCPY:
+			fprintf(file, "STRCPY");
+			break;
 
 		case BC_COPY_LONG:
 			fprintf(file, "COPYL\t#%d", uint16(memory[start + i + 0] + 256 * memory[start + i + 1]));

@@ -19,6 +19,8 @@ int memcmp(const void * ptr1, const void * ptr2, int size);
 
 void * memmove(void * dst, const void * src, int size);
 
+#pragma intrinsic(strcpy)
+
 #pragma compile("string.c")
 
 #endif
