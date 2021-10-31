@@ -1291,6 +1291,40 @@ void InterInstruction::FilterTempUsage(NumberSet& requiredTemps, NumberSet& prov
 	FilterTempDefineUsage(requiredTemps, providedTemps, mDst.mTemp);
 }
 
+void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars)
+{
+	if (mCode == IC_LOAD)
+	{
+		if (mSrc[0].mMemory == IM_INDIRECT)
+		{
+			requiredVars.OrNot(providedVars);
+		}
+		else if (mSrc[0].mMemory == IM_GLOBAL)
+		{
+			if (!providedVars[mSrc[0].mVarIndex])
+				requiredVars += mSrc[0].mVarIndex;
+		}
+	}
+	else if (mCode == IC_STORE)
+	{
+		if (mSrc[1].mMemory == IM_INDIRECT)
+		{
+			requiredVars.OrNot(providedVars);
+		}
+		else if (mSrc[1].mMemory == IM_GLOBAL)
+		{
+			if (mSrc[1].mIntConst == 0 && mSrc[1].mOperandSize == staticVars[mSrc[1].mVarIndex]->mSize)
+				providedVars += mSrc[1].mVarIndex;
+			else if (!providedVars[mSrc[1].mVarIndex])
+				requiredVars += mSrc[1].mVarIndex;
+		}
+	}
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE)
+	{
+		requiredVars.OrNot(providedVars);
+	}
+}
+
 void InterInstruction::FilterVarsUsage(const GrowingVariableArray& localVars, NumberSet& requiredVars, NumberSet& providedVars, const GrowingVariableArray& params, NumberSet& requiredParams, NumberSet& providedParams, InterMemory paramMemory)
 {
 	if (mCode == IC_LOAD)
@@ -1517,6 +1551,49 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 				changed = true;
 			}
 		}
+	}
+
+	return changed;
+}
+
+bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars, NumberSet& requiredVars)
+{
+	bool	changed = false;
+
+	if (mCode == IC_LOAD)
+	{
+		if (mSrc[0].mMemory == IM_INDIRECT)
+		{
+			requiredVars.Fill();
+		}
+		else if (mSrc[0].mMemory == IM_GLOBAL)
+		{
+			requiredVars += mSrc[0].mVarIndex;
+		}
+	}
+	else if (mCode == IC_STORE)
+	{
+		if (mSrc[1].mMemory == IM_GLOBAL)
+		{
+			if (requiredVars[mSrc[1].mVarIndex])
+			{
+				if (mSrc[1].mIntConst == 0 && mSrc[1].mOperandSize == staticVars[mSrc[1].mVarIndex]->mSize)
+					requiredVars -= mSrc[1].mVarIndex;
+			}
+			else if (!mVolatile)
+			{
+				mCode = IC_NONE;
+				changed = true;
+			}
+		}
+	}
+	else if (mCode == IC_COPY)
+	{
+		requiredVars.Fill();
+	}
+	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE)
+	{
+		requiredVars.Fill();
 	}
 
 	return changed;
@@ -1789,13 +1866,13 @@ void InterInstruction::Disassemble(FILE* file)
 			fprintf(file, "BINOP%d", mOperator);
 			break;
 		case IC_UNARY_OPERATOR:
-			fprintf(file, "UNOP");
+			fprintf(file, "UNOP%d", mOperator);
 			break;
 		case IC_RELATIONAL_OPERATOR:
-			fprintf(file, "RELOP");
+			fprintf(file, "RELOP%d", mOperator);
 			break;
 		case IC_CONVERSION_OPERATOR:
-			fprintf(file, "CONV");
+			fprintf(file, "CONV%d", mOperator);
 			break;
 		case IC_STORE:
 			fprintf(file, "STORE%c%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize);
@@ -2873,6 +2950,108 @@ void InterCodeBasicBlock::BuildCallerSaveTempSet(NumberSet& callerSaveTemps)
 	}
 }
 
+
+void InterCodeBasicBlock::BuildStaticVariableSet(const GrowingVariableArray& staticVars)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		mLocalRequiredStatics = NumberSet(staticVars.Size());
+		mLocalProvidedStatics = NumberSet(staticVars.Size());
+
+		mEntryRequiredStatics = NumberSet(staticVars.Size());
+		mEntryProvidedStatics = NumberSet(staticVars.Size());
+		mExitRequiredStatics = NumberSet(staticVars.Size());
+		mExitProvidedStatics = NumberSet(staticVars.Size());
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+			mInstructions[i]->FilterStaticVarsUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics);
+
+		mEntryRequiredStatics = mLocalRequiredStatics;
+		mExitProvidedStatics = mLocalProvidedStatics;
+
+		if (mTrueJump) mTrueJump->BuildStaticVariableSet(staticVars);
+		if (mFalseJump) mFalseJump->BuildStaticVariableSet(staticVars);
+	}
+}
+
+void InterCodeBasicBlock::BuildGlobalProvidedStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet fromProvidedVars)
+{
+	if (!mVisited || !(fromProvidedVars <= mEntryProvidedStatics))
+	{
+		mEntryProvidedStatics |= fromProvidedVars;
+		fromProvidedVars |= mExitProvidedStatics;
+
+		mVisited = true;
+
+		if (mTrueJump) mTrueJump->BuildGlobalProvidedStaticVariableSet(staticVars, fromProvidedVars);
+		if (mFalseJump) mFalseJump->BuildGlobalProvidedStaticVariableSet(staticVars, fromProvidedVars);
+	}
+}
+
+bool InterCodeBasicBlock::BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars)
+{
+	bool revisit = false;
+	int	i;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		NumberSet	newRequiredVars(mExitRequiredStatics);
+
+		if (mTrueJump && mTrueJump->BuildGlobalRequiredStaticVariableSet(staticVars, newRequiredVars)) revisit = true;
+		if (mFalseJump && mFalseJump->BuildGlobalRequiredStaticVariableSet(staticVars, newRequiredVars)) revisit = true;
+
+		if (!(newRequiredVars <= mExitRequiredStatics))
+		{
+			revisit = true;
+
+			mExitRequiredStatics = newRequiredVars;
+			newRequiredVars -= mLocalProvidedStatics;
+			mEntryRequiredStatics |= newRequiredVars;
+		}
+
+	}
+
+	fromRequiredVars |= mEntryRequiredStatics;
+
+	return revisit;
+}
+
+bool InterCodeBasicBlock::RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		NumberSet		requiredVars(mExitRequiredStatics);
+
+		int i;
+
+		for (i = mInstructions.Size() - 1; i >= 0; i--)
+		{
+			if (mInstructions[i]->RemoveUnusedStaticStoreInstructions(staticVars, requiredVars))
+				changed = true;
+		}
+
+		if (mTrueJump)
+		{
+			if (mTrueJump->RemoveUnusedStaticStoreInstructions(staticVars))
+				changed = true;
+		}
+		if (mFalseJump)
+		{
+			if (mFalseJump->RemoveUnusedStaticStoreInstructions(staticVars))
+				changed = true;
+		}
+	}
+
+	return changed;
+}
 
 void InterCodeBasicBlock::BuildLocalVariableSets(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory)
 {
@@ -4808,6 +4987,30 @@ void InterCodeProcedure::Close(void)
 
 		DisassembleDebug("removed unused local stores");
 	}
+
+	// Remove unused global stores
+
+	if (mModule->mGlobalVars.Size())
+	{
+		do {
+			ResetVisited();
+			mEntryBlock->BuildStaticVariableSet(mModule->mGlobalVars);
+
+			ResetVisited();
+			mEntryBlock->BuildGlobalProvidedStaticVariableSet(mModule->mGlobalVars, NumberSet(mModule->mGlobalVars.Size()));
+
+			NumberSet	totalRequired2(mModule->mGlobalVars.Size());
+
+			do {
+				ResetVisited();
+			} while (mEntryBlock->BuildGlobalRequiredStaticVariableSet(mModule->mGlobalVars, totalRequired2));
+
+			ResetVisited();
+		} while (mEntryBlock->RemoveUnusedStaticStoreInstructions(mModule->mGlobalVars));
+
+		DisassembleDebug("removed unused static stores");
+	}
+
 
 	//
 	// Promote local variables to temporaries

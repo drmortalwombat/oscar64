@@ -332,9 +332,11 @@ public:
 
 	void FilterTempUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	void FilterVarsUsage(const GrowingVariableArray& localVars, NumberSet& requiredVars, NumberSet& providedVars, const GrowingVariableArray& params, NumberSet& requiredParams, NumberSet& providedParams, InterMemory paramMemory);
-
+	void FilterStaticVarsUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars);
+	
 	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredVars, const GrowingVariableArray& params, NumberSet& requiredParams, InterMemory paramMemory);
+	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars, NumberSet& requiredVars);
 	void PerformValueForwarding(GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	void BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps);
 
@@ -418,6 +420,10 @@ public:
 	NumberSet						mEntryRequiredVars, mEntryProvidedVars;
 	NumberSet						mExitRequiredVars, mExitProvidedVars;
 
+	NumberSet						mLocalRequiredStatics, mLocalProvidedStatics;
+	NumberSet						mEntryRequiredStatics, mEntryProvidedStatics;
+	NumberSet						mExitRequiredStatics, mExitProvidedStatics;
+
 	NumberSet						mLocalRequiredParams, mLocalProvidedParams;
 	NumberSet						mEntryRequiredParams, mEntryProvidedParams;
 	NumberSet						mExitRequiredParams, mExitProvidedParams;
@@ -453,6 +459,11 @@ public:
 	void BuildGlobalProvidedVariableSet(const GrowingVariableArray& localVars, NumberSet fromProvidedVars, const GrowingVariableArray& params, NumberSet fromProvidedParams, InterMemory paramMemory);
 	bool BuildGlobalRequiredVariableSet(const GrowingVariableArray& localVars, NumberSet& fromRequiredVars, const GrowingVariableArray& params, NumberSet& fromRequiredParams, InterMemory paramMemory);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory);
+
+	void BuildStaticVariableSet(const GrowingVariableArray& staticVars);
+	void BuildGlobalProvidedStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet fromProvidedVars);
+	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
+	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
 
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;

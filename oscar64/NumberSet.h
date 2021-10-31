@@ -30,7 +30,10 @@ public:
 
 	bool operator<=(const NumberSet& set);
 
+	void OrNot(const NumberSet& set);
+
 	void Clear(void);
+	void Fill(void);
 
 	int Size(void) { return size; }
 };

@@ -68,6 +68,22 @@ void NumberSet::Reset(int size, bool set)
 	}
 }
 
+void NumberSet::Fill(void)
+{
+	int i;
+
+	for (i = 0; i < dwsize; i++)
+		bits[i] = 0xffffffff;
+}
+
+void NumberSet::OrNot(const NumberSet& set)
+{
+	int i;
+
+	for (i = 0; i < dwsize; i++)
+		bits[i] |= ~set.bits[i];
+}
+
 void NumberSet::Clear(void)
 {
 	int i;

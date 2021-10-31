@@ -99,6 +99,9 @@ if %errorlevel% neq 0 goto :error
 call :test structmembertest.c
 if %errorlevel% neq 0 goto :error
 
+call :test randsumtest.c
+if %errorlevel% neq 0 goto :error
+
 exit /b 0
 
 :error
