@@ -46,6 +46,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_343F58F80DF84D40AE23457288C5D7D5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_3AFDC86156F04AABB8D82218C17005F2"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -107,6 +113,12 @@
         "Entry"
         {
         "MsmKey" = "8:_A32310DEFD4E41118CD7D36A8614C0D4"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_A32AAE4931564357A3222F04C8D99C2F"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -381,6 +393,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_343F58F80DF84D40AE23457288C5D7D5"
+            {
+            "SourcePath" = "8:..\\include\\c64\\keyboard.c"
+            "TargetName" = "8:keyboard.c"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_3AFDC86156F04AABB8D82218C17005F2"
             {
             "SourcePath" = "8:..\\include\\c64\\vic.h"
@@ -587,6 +619,26 @@
             "TargetName" = "8:limits.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A32AAE4931564357A3222F04C8D99C2F"
+            {
+            "SourcePath" = "8:..\\include\\c64\\keyboard.h"
+            "TargetName" = "8:keyboard.h"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -950,15 +1002,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{9CDBFF70-1B69-46D4-AF9A-421A9A0A39A3}"
-        "PackageCode" = "8:{5E5D8444-E4D7-49D3-B597-D5F498EC44BE}"
+        "ProductCode" = "8:{25890560-0659-4815-9695-967059797606}"
+        "PackageCode" = "8:{277046A3-B4FB-4443-B541-4CA3F0FC51B8}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.1.43"
+        "ProductVersion" = "8:1.1.44"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

@@ -7923,6 +7923,39 @@ bool NativeCodeBasicBlock::MoveStoreXUp(int at)
 	return done;
 }
 
+bool NativeCodeBasicBlock::MoveStoreHighByteDown(int at)
+{
+	int	i = at + 4;
+	while (i + 1 < mIns.Size())
+	{
+		if (mIns[i].mLive & LIVE_CPU_REG_Y)
+			return false;
+		if (mIns[i].ChangesZeroPage(mIns[at + 2].mAddress) || mIns[i].ChangesZeroPage(mIns[at + 2].mAddress + 1) || mIns[i].ChangesZeroPage(mIns[at + 3].mAddress))
+			return false;
+		if (mIns[i].UsesZeroPage(mIns[at + 3].mAddress))
+			return false;
+		if (mIns[i].ChangesGlobalMemory())
+			return false;
+
+		if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			mIns.Insert(i + 1, mIns[at + 3]);	
+			mIns.Insert(i + 1, mIns[at + 2]);
+			mIns.Insert(i + 1, mIns[at + 1]);
+
+			mIns[at + 1].mType = ASMIT_NOP; mIns[at + 1].mMode = ASMIM_IMPLIED; // LDY
+			mIns[at + 2].mType = ASMIT_NOP; mIns[at + 2].mMode = ASMIM_IMPLIED; // LDA (x), y
+			mIns[at + 3].mType = ASMIT_NOP; mIns[at + 3].mMode = ASMIM_IMPLIED; // STA T
+
+			return true;
+		}
+
+		i++;
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::MoveLoadStoreUp(int at)
 {
 	int	j = at;
@@ -8943,6 +8976,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(void)
 			}
 		}
 #endif
+		// move high byte load down, if low byte is immediatedly needed afterwards
+
+		for (int i = 0; i + 4 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && mIns[i + 2].mAddress != mIns[i + 3].mAddress && mIns[i + 2].mAddress + 1 != mIns[i + 3].mAddress &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 4].mLive & LIVE_CPU_REG_Z))
+			{
+				if (MoveStoreHighByteDown(i))
+					changed = true;
+			}
+
+		}
 
 		bool	progress = false;
 		do {

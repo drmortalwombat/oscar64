@@ -178,6 +178,7 @@ public:
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags);
 	bool MoveStoreXUp(int at);
+	bool MoveStoreHighByteDown(int at);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
 
