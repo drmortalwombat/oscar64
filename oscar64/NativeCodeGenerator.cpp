@@ -2024,20 +2024,20 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 
 	if (mType == ASMIT_JSR)
 	{
-		for (int i = 0; i < 4; i++)
-		{
-			if (!providedTemps[BC_REG_ACCU + i])
-				requiredTemps += BC_REG_ACCU + i;
-			providedTemps += BC_REG_ACCU + i;
-			if (!providedTemps[BC_REG_WORK + i])
-				requiredTemps += BC_REG_WORK + i;
-			providedTemps += BC_REG_WORK + i;
-			if (!providedTemps[BC_REG_ADDR + i])
-				requiredTemps += BC_REG_ADDR + i;
-			providedTemps += BC_REG_ADDR + i;
-		}
 
-		if (!(mFlags & NCIF_RUNTIME))
+		if (mFlags & NCIF_RUNTIME)
+		{
+			for (int i = 0; i < 4; i++)
+			{
+				if (!providedTemps[BC_REG_ACCU + i])
+					requiredTemps += BC_REG_ACCU + i;
+				if (!providedTemps[BC_REG_WORK + i])
+					requiredTemps += BC_REG_WORK + i;
+				if (!providedTemps[BC_REG_ADDR + i])
+					requiredTemps += BC_REG_ADDR + i;
+			}
+		}
+		else
 		{
 			if (mLinkerObject)
 			{
@@ -2050,6 +2050,13 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 					}
 				}
 			}
+		}
+
+		for (int i = 0; i < 4; i++)
+		{
+			providedTemps += BC_REG_ACCU + i;
+			providedTemps += BC_REG_WORK + i;
+			providedTemps += BC_REG_ADDR + i;
 		}
 
 		providedTemps += CPU_REG_A;
