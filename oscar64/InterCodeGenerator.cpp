@@ -837,6 +837,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					var->mIdent = dec->mIdent;
 					var->mOffset = 0;
 					var->mSize = dec->mSize;
+					if ((dec->mFlags & DTF_VAR_ALIASING) || dec->mBase->mType == DT_TYPE_ARRAY)
+						var->mAliased = true;
 					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
 					dec->mLinkerObject = var->mLinkerObject;
 					var->mLinkerObject->AddData(dec->mData, dec->mSize);

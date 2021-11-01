@@ -280,6 +280,12 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_PREINCDEC:
 		return Analyze(exp->mLeft, procDec);
 	case EX_PREFIX:
+		ldec = Analyze(exp->mLeft, procDec);
+		if (exp->mToken == TK_BINARY_AND)
+		{
+			if (ldec->mType == DT_VARIABLE)
+				ldec->mFlags |= DTF_VAR_ALIASING;
+		}
 		break;
 	case EX_POSTFIX:
 		break;

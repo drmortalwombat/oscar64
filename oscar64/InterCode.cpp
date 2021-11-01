@@ -433,7 +433,7 @@ static bool MemRange(const InterInstruction * ins, const GrowingInstructionPtrAr
 	return false;
 }
 
-static bool StoreAliasing(const InterInstruction * lins, const InterInstruction* sins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams)
+static bool StoreAliasing(const InterInstruction * lins, const InterInstruction* sins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	InterMemory	lmem, smem;
 	int			lvindex, svindex;
@@ -457,6 +457,8 @@ static bool StoreAliasing(const InterInstruction * lins, const InterInstruction*
 			return aliasedLocals[lvindex];
 		else if (lmem == IM_PARAM || lmem == IM_FPARAM)
 			return aliasedParams[lvindex];
+		else if (lmem == IM_GLOBAL)
+			return staticVars[lvindex]->mAliased;
 	}
 
 	return true;
@@ -514,7 +516,7 @@ bool InterInstruction::IsEqual(const InterInstruction* ins) const
 }
 
 
-void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams)
+void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	int	i, value, temp;
 
@@ -609,7 +611,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 		i = 0;
 		while (i < mNum)
 		{
-			if ((mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE) && StoreAliasing(mInstructions[i], ins, tvalue, aliasedLocals, aliasedParams))
+			if ((mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE) && StoreAliasing(mInstructions[i], ins, tvalue, aliasedLocals, aliasedParams, staticVars))
 			{
 				mNum--;
 				if (mNum > 0)
@@ -627,7 +629,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 		i = 0;
 		while (i < mNum)
 		{
-			if ((mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE) && StoreAliasing(mInstructions[i], ins, tvalue, aliasedLocals, aliasedParams))
+			if ((mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE) && StoreAliasing(mInstructions[i], ins, tvalue, aliasedLocals, aliasedParams, staticVars))
 			{
 				mNum--;
 				if (mNum > 0)
@@ -787,7 +789,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
 				return;
 			}
@@ -806,7 +808,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mTemp = -1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
 					return;
 				}
@@ -817,7 +819,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
 					return;
 				}
@@ -832,7 +834,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mTemp = -1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
 					return;
 				}
@@ -844,7 +846,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
 					return;
 				}
@@ -854,7 +856,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mOperator = IA_NEG;
 					ins->mSrc[1].mTemp = -1;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
 					return;
 				}
@@ -868,7 +870,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
 					return;
 				}
@@ -878,7 +880,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mTemp = -1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
 					return;
 				}
@@ -1093,7 +1095,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}
 			break;
 		case IT_POINTER:
@@ -1107,7 +1109,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}
 			else if (ins->mSrc[1].mTemp == ins->mSrc[0].mTemp)
 			{
@@ -1133,7 +1135,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}
 			break;
 		}
@@ -1298,7 +1300,11 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 	{
 		if (mSrc[0].mMemory == IM_INDIRECT)
 		{
-			requiredVars.OrNot(providedVars);
+			for (int i = 0; i < staticVars.Size(); i++)
+			{
+				if (staticVars[i]->mAliased && !providedVars[i])
+					requiredVars += i;
+			}
 		}
 		else if (mSrc[0].mMemory == IM_GLOBAL)
 		{
@@ -1310,7 +1316,11 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 	{
 		if (mSrc[1].mMemory == IM_INDIRECT)
 		{
-			requiredVars.OrNot(providedVars);
+			for (int i = 0; i < staticVars.Size(); i++)
+			{
+				if (staticVars[i]->mAliased && !providedVars[i])
+					requiredVars += i;
+			}
 		}
 		else if (mSrc[1].mMemory == IM_GLOBAL)
 		{
@@ -1565,7 +1575,11 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariable
 	{
 		if (mSrc[0].mMemory == IM_INDIRECT)
 		{
-			requiredVars.Fill();
+			for (int i = 0; i < staticVars.Size(); i++)
+			{
+				if (staticVars[i]->mAliased)
+					requiredVars += i;
+			}
 		}
 		else if (mSrc[0].mMemory == IM_GLOBAL)
 		{
@@ -3185,7 +3199,7 @@ bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArr
 
 }
 
-void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int& spareTemps)
+void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int& spareTemps, const GrowingVariableArray& staticVars)
 {
 	int i;
 
@@ -3441,12 +3455,12 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 			}
 
 #endif
-			lvalues.UpdateValue(mInstructions[i], ltvalue, aliasedLocals, aliasedParams);
+			lvalues.UpdateValue(mInstructions[i], ltvalue, aliasedLocals, aliasedParams, staticVars);
 			mInstructions[i]->PerformValueForwarding(ltvalue, tvalid);
 		}
 
-		if (mTrueJump) mTrueJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps);
-		if (mFalseJump) mFalseJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps);
+		if (mTrueJump) mTrueJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps, staticVars);
+		if (mFalseJump) mFalseJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps, staticVars);
 	}
 }
 
@@ -4885,7 +4899,7 @@ void InterCodeProcedure::Close(void)
 		tvalidSet.Reset(numTemps + 32);
 
 		ResetVisited();
-		mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet, numTemps);
+		mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet, numTemps, mModule->mGlobalVars);
 
 		ResetVisited();
 		eliminated = mEntryBlock->EliminateDeadBranches();

@@ -148,7 +148,7 @@ public:
 	void RemoveValue(int index);
 	void InsertValue(InterInstruction * ins);
 
-	void UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
+	void UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	void Intersect(ValueSet& set);
 };
 
@@ -475,7 +475,7 @@ public:
 
 	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue);
 	void PerformTempForwarding(TempForwardingTable& forwardingTable);
-	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps);
+	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	bool EliminateDeadBranches(void);
 

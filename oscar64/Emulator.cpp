@@ -535,6 +535,13 @@ int Emulator::Emulate(int startIP)
 			mIP = mMemory[0x100 + mRegS] + 256 * mMemory[0x101 + mRegS] + 1;
 			mRegS += 2;
 		}
+		else if (mIP == 0xffcf)
+		{
+			int ch = getchar();
+			mRegA = ch;
+			mIP = mMemory[0x100 + mRegS] + 256 * mMemory[0x101 + mRegS] + 1;
+			mRegS += 2;
+		}
 
 		uint8	opcode = mMemory[mIP];
 		AsmInsData	d = DecInsData[opcode];

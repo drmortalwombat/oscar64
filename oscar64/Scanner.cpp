@@ -6,7 +6,8 @@
 #include "MachineTypes.h"
 
 
-const char* TokenNames[] = {
+const char* TokenNames[] = 
+{
 	"tk_none",
 	"tk_eof",
 	"tk_error",
@@ -16,129 +17,129 @@ const char* TokenNames[] = {
 	"'else'",
 	"'while'",
 	"'do'",
-		"'for'",
-		"'void'",
-		"'int'",
-		"'char'",
-		"'float'",
-		"'unsigned'",
-		"'signed'",
-		"'switch'",
-		"'case'",
-		"'default'",
-		"'break'",
-		"'return'",
-		"'short'",
-		"'long'",
-		"'continue'",
-		"'integer'",
-		"'integeru'",
-		"'integerl'",
-		"'integerul'",
-		"'bool'",
-		"'const'",
-		"'volatile'",
-		"'typedef'",
-		"'struct'",
-		"'union'",
-		"'enum'",
-		"'sizeof'",
-		"'static'",
-		"'extern'",
-		"'inline'",
+	"'for'",
+	"'void'",
+	"'int'",
+	"'char'",
+	"'float'",
+	"'unsigned'",
+	"'signed'",
+	"'switch'",
+	"'case'",
+	"'default'",
+	"'break'",
+	"'return'",
+	"'short'",
+	"'long'",
+	"'continue'",
+	"'integer'",
+	"'integeru'",
+	"'integerl'",
+	"'integerul'",
+	"'bool'",
+	"'const'",
+	"'volatile'",
+	"'typedef'",
+	"'struct'",
+	"'union'",
+	"'enum'",
+	"'sizeof'",
+	"'static'",
+	"'extern'",
+	"'inline'",
 
-		"__asm",
+	"__asm",
 
-		"number",
-		"char",
-		"string literal",
-		"identifier",
-		"'true'",
-		"'false'",
-		"'nullptr'",
+	"number",
+	"char",
+	"string literal",
+	"identifier",
+	"'true'",
+	"'false'",
+	"'nullptr'",
 
-		"'+'",
-		"'-'",
-		"'*'",
-		"'/'",
-		"'%'",
+	"'+'",
+	"'-'",
+	"'*'",
+	"'/'",
+	"'%'",
 
-		"'<<'",
-		"'>>'",
+	"'<<'",
+	"'>>'",
 
-		"'++'",
-		"'--'",
+	"'++'",
+	"'--'",
 
-		"'!'",
-		"'&&'",
-		"'||'",
+	"'!'",
+	"'&&'",
+	"'||'",
 
-		"'~'",
-		"'&'",
-		"'|'",
-		"'^'",
+	"'~'",
+	"'&'",
+	"'|'",
+	"'^'",
 
-		"'=='",
-		"'!='",
-		"'>'",
-		"'>='",
-		"'<'",
-		"'<='",
+	"'=='",
+	"'!='",
+	"'>'",
+	"'>='",
+	"'<'",
+	"'<='",
 
-		"'='",
-		"'+='",
-		"'-='",
-		"'*='",
-		"'/='",
-		"'%='",
-		"'<<='",
-		"'>>='",
-		"'&='",
-		"'^='",
-		"'|='",
+	"'='",
+	"'+='",
+	"'-='",
+	"'*='",
+	"'/='",
+	"'%='",
+	"'<<='",
+	"'>>='",
+	"'&='",
+	"'^='",
+	"'|='",
 
-		"'->'",
-		"'#'",
-		"'$'",
+	"'->'",
+	"'#'",
+	"'$'",
 
-		"'('",
-		"')'",
+	"'('",
+	"')'",
 
-		"'{'",
-		"'}'",
+	"'{'",
+	"'}'",
 
-		"'['",
-		"']'",
+	"'['",
+	"']'",
 
-		"'.'",
-		"'..'",
-		"'...'",
-		"','",
-		"';'",
-		"':'",
-		"'?'",
+	"'.'",
+	"'..'",
+	"'...'",
+	"','",
+	"';'",
+	"':'",
+	"'?'",
 
-		"embedded",
+	"embedded",
 
-		"'#define'",
-		"'#include'",
-		"'#if'",
-		"'#elif'",
-		"'#else'",
-		"'#endif'",
-		"'#ifdef'",
-		"'#ifndef'",
-		"'#pragma'",
+	"'#define'",
+	"'#include'",
+	"'#if'",
+	"'#elif'",
+	"'#else'",
+	"'#endif'",
+	"'#ifdef'",
+	"'#ifndef'",
+	"'#pragma'",
 
-		"'#assign'",
-		"'#repeat'",
-		"'#until'",
-		"'#embed'"
+	"'#assign'",
+	"'#repeat'",
+	"'#until'",
+	"'#embed'"
 };
 
 
 Macro::Macro(const Ident* ident)
-	: mIdent(ident), mString(nullptr), mNumArguments(0)
+	: mIdent(ident), mString(nullptr), mNumArguments(-1)
 {
 
 }
@@ -471,6 +472,8 @@ void Scanner::NextToken(void)
 
 				if (mTokenChar == '(')
 				{
+					macro->mNumArguments = 0;
+
 					NextRawToken();
 
 					if (mTokenChar == ')')
@@ -635,7 +638,21 @@ void Scanner::NextToken(void)
 			{
 				MacroExpansion* ex = new MacroExpansion();
 				ex->mDefinedArguments = mDefineArguments;
-				if (def->mNumArguments)
+
+				if (def->mNumArguments == 0)
+				{
+					NextRawToken();
+					if (mToken != TK_OPEN_PARENTHESIS)
+						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Missing '(' for macro expansion");
+					else
+						NextRawToken();
+					if (mToken != TK_CLOSE_PARENTHESIS)
+						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Missing ')' for macro expansion");
+					else
+						NextRawToken();
+
+				}
+				else if (def->mNumArguments > 0)
 				{
 					mDefineArguments = new MacroDict();
 					NextRawToken();
@@ -712,9 +729,8 @@ void Scanner::NextRawToken(void)
 {
 	if (mToken != TK_EOF)
 	{
-		Token	pt = mToken;
-
 		mToken = TK_ERROR;
+		mStartOfLine = false;
 
 		while (IsWhitespace(mTokenChar))
 		{
@@ -1011,7 +1027,7 @@ void Scanner::NextRawToken(void)
 
 		case '#':
 		{
-			if (!(mAssemblerMode || mPrepCondFalse) || mOffset == 1)
+			if (!(mAssemblerMode || mPrepCondFalse) || mOffset == 1 || mStartOfLine)
 			{
 				int		n = 0;
 				char	tkprep[128];
@@ -1375,6 +1391,7 @@ bool Scanner::NextChar(void)
 		else if (mPreprocessor->NextLine())
 		{
 			mOffset = 0;
+			mStartOfLine = true;
 		}
 		else
 		{
@@ -1602,6 +1619,40 @@ int64 Scanner::PrepParseSimple(void)
 			NextToken();
 		else
 			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "')' expected");
+		break;
+	case TK_IDENT:
+		if (strcmp(mTokenIdent->mString, "defined") == 0)
+		{
+			NextToken();
+			if (mToken == TK_OPEN_PARENTHESIS)
+			{
+				NextRawToken();
+				if (mToken == TK_IDENT)
+				{
+					Macro* def = nullptr;
+					if (mDefineArguments)
+						def = mDefineArguments->Lookup(mTokenIdent);
+					if (!def)
+						def = mDefines->Lookup(mTokenIdent);
+					if (def)
+						v = 1;
+					else
+						v = 0;
+					NextToken();
+				}
+				else
+					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Identifier expected");
+
+				if (mToken == TK_CLOSE_PARENTHESIS)
+					NextToken();
+				else
+					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "')' expected");
+			}
+			else
+				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "'(' expected");
+		}
+		else
+			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor symbol", mTokenIdent->mString);
 		break;
 	default:
 		mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor token", TokenName(mToken));

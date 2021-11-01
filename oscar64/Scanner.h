@@ -192,6 +192,7 @@ public:
 
 	int				mOffset;
 	const char	*	mLine;
+	bool			mStartOfLine;
 
 	const Ident	*	mTokenIdent;
 	char			mTokenString[1024], mTokenChar;
