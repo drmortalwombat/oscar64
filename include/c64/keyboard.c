@@ -38,6 +38,9 @@ void keyb_poll(void)
 
 		if (cia1.prb != 0xff)
 		{
+			keyb_matrix[6] &= 0xef;
+			keyb_matrix[1] &= 0x7f;
+
 			byte a = 0xfe;
 			for(byte i=0; i<8; i++)
 			{

@@ -2571,18 +2571,17 @@ void NativeCodeBasicBlock::CheckFrameIndex(int& reg, int& index, int size, int t
 {
 	if (index < 0 || index + size > 256)
 	{
+		if (treg == 0)
+			treg = BC_REG_ADDR;
 		mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
 		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, reg));
 		mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, index & 0xff));
-		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg));
 		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, reg + 1));
 		mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (index >> 8) & 0xff));
-		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
 		index = 0;
-		if (treg == 0)
-			reg = BC_REG_ADDR;
-		else
-			reg = treg;
+		reg = treg;
 	}
 }
 
@@ -10667,15 +10666,6 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			break;
 		case IC_LOAD:
 			if (i + 1 < iblock->mInstructions.Size() &&
-				iblock->mInstructions[i + 1]->mCode == IC_STORE &&
-				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp &&
-				iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
-				InterTypeSize[ins->mDst.mType] == 1)
-			{
-				block->LoadStoreValue(iproc, ins, iblock->mInstructions[i + 1]);
-				i++;
-			}
-			else if (i + 1 < iblock->mInstructions.Size() &&
 				iblock->mInstructions[i + 1]->mCode == IC_STORE &&
 				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp &&
 				iblock->mInstructions[i + 1]->mSrc[0].mFinal)

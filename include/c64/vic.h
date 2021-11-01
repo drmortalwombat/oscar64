@@ -75,6 +75,9 @@ struct VIC
 
 void vic_setbank(char bank);
 
+inline void vic_sprxy(byte s, int x, int y);
+
+
 #define vic	(*((struct VIC *)0xd000))
 
 #pragma compile("vic.c")
