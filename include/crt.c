@@ -1853,7 +1853,7 @@ W1:		jmp	startup.exec
 #pragma	bytecode(BC_BINOP_SHRI_I16, inp_binop_shri_s16)
 #pragma	bytecode(BC_BINOP_SHRR_I16, inp_binop_shri_s16.inp_binop_shrr_s16)
 
-__asm cmp
+__asm cmp16
 {
 inp_binop_cmpr_s16:
 		lda	(ip), y
@@ -1926,10 +1926,76 @@ inp_binop_cmpi_s16:
 		beq	cmp_eq
 }
 
-#pragma	bytecode(BC_BINOP_CMPSR_16, cmp.inp_binop_cmpr_s16)
-#pragma	bytecode(BC_BINOP_CMPSI_16, cmp.inp_binop_cmpi_s16)
-#pragma	bytecode(BC_BINOP_CMPUR_16, cmp.inp_binop_cmpr_u16)
-#pragma	bytecode(BC_BINOP_CMPUI_16, cmp.inp_binop_cmpi_u16)
+#pragma	bytecode(BC_BINOP_CMPSR_16, cmp16.inp_binop_cmpr_s16)
+#pragma	bytecode(BC_BINOP_CMPSI_16, cmp16.inp_binop_cmpi_s16)
+#pragma	bytecode(BC_BINOP_CMPUR_16, cmp16.inp_binop_cmpr_u16)
+#pragma	bytecode(BC_BINOP_CMPUI_16, cmp16.inp_binop_cmpi_u16)
+
+
+__asm cmp8
+{
+inp_binop_cmpr_s8:
+		lda	(ip), y
+		tax
+		iny		
+
+		sec
+		lda	$00, x
+		sbc accu
+		beq cmp_eq
+cmpnes:		
+		bvc cmpsv
+		eor #$80
+cmpsv:	bmi cmp_lt
+		bpl cmp_gt
+
+inp_binop_cmpr_u8:
+		lda	(ip), y
+		tax
+		iny				
+		lda	$00, x
+		cmp	accu 
+		bne	cmpne
+		beq	cmp_eq
+
+inp_binop_cmpi_u8:
+		lda	(ip), y
+		iny		
+		cmp	accu
+		bne	cmpne
+cmp_eq:
+		lda	#0
+		sta	accu
+		sta	accu + 1
+		jmp	startup.exec
+cmp_lt:		
+		lda	#$ff
+		sta	accu
+		sta	accu +1 
+		jmp	startup.exec
+cmpne:
+		bcc	cmp_lt
+cmp_gt:
+		lda	#1
+		sta	accu
+		lda	#0
+		sta	accu + 1
+		jmp	startup.exec
+
+inp_binop_cmpi_s8:
+		lda	(ip), y
+		iny
+		sec
+		sbc	accu
+		bne	cmpnes
+		beq	cmp_eq
+}
+
+
+#pragma	bytecode(BC_BINOP_CMPSR_8, cmp8.inp_binop_cmpr_s8)
+#pragma	bytecode(BC_BINOP_CMPSI_8, cmp8.inp_binop_cmpi_s8)
+#pragma	bytecode(BC_BINOP_CMPUR_8, cmp8.inp_binop_cmpr_u8)
+#pragma	bytecode(BC_BINOP_CMPUI_8, cmp8.inp_binop_cmpi_u8)
 
 __asm bra
 {

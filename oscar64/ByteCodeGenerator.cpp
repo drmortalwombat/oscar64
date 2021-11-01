@@ -196,6 +196,8 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 			return true;
 		if (mCode >= BC_BINOP_CMPUR_16 && mCode <= BC_BINOP_CMPSI_16)
 			return true;
+		if (mCode >= BC_BINOP_CMPUR_8 && mCode <= BC_BINOP_CMPSI_8)
+			return true;
 		if (mCode >= BC_OP_NEGATE_16 && mCode <= BC_OP_INVERT_16)
 			return true;
 		if (mCode >= BC_BINOP_ADD_F32 && mCode <= BC_OP_CEIL_F32)
@@ -388,6 +390,8 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 
 	case BC_BINOP_CMPUR_16:
 	case BC_BINOP_CMPSR_16:
+	case BC_BINOP_CMPUR_8:
+	case BC_BINOP_CMPSR_8:
 		block->PutCode(generator, mCode);
 		block->PutByte(mRegister);
 		break;
@@ -396,6 +400,12 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 	case BC_BINOP_CMPSI_16:
 		block->PutCode(generator, mCode);
 		block->PutWord(uint16(mValue));
+		break;
+
+	case BC_BINOP_CMPUI_8:
+	case BC_BINOP_CMPSI_8:
+		block->PutCode(generator, mCode);
+		block->PutByte(uint8(mValue));
 		break;
 
 	case BC_OP_NEGATE_16:
@@ -2415,6 +2425,69 @@ ByteCode ByteCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const 
 
 		cins.mRegisterFinal = ins->mSrc[1].mFinal;
 		mIns.Push(cins);
+	}
+	else if (ins->mSrc[0].mType == IT_INT8)
+	{
+		if (ins->mSrc[1].mTemp < 0)
+		{
+			ByteCodeInstruction	lins(BC_LOAD_REG_8);
+			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+			lins.mRegisterFinal = ins->mSrc[0].mFinal;
+			mIns.Push(lins);
+			if (csigned)
+			{
+				ByteCodeInstruction	cins(BC_BINOP_CMPSI_8);
+				cins.mValue = ins->mSrc[1].mIntConst;
+				mIns.Push(cins);
+			}
+			else
+			{
+				ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
+				cins.mValue = ins->mSrc[1].mIntConst;
+				mIns.Push(cins);
+			}
+		}
+		else if (ins->mSrc[0].mTemp < 0)
+		{
+			ByteCodeInstruction	lins(BC_LOAD_REG_8);
+			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+			lins.mRegisterFinal = ins->mSrc[1].mFinal;
+			mIns.Push(lins);
+			if (csigned)
+			{
+				ByteCodeInstruction	cins(BC_BINOP_CMPSI_8);
+				cins.mValue = ins->mSrc[0].mIntConst;
+				mIns.Push(cins);
+			}
+			else
+			{
+				ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
+				cins.mValue = ins->mSrc[0].mIntConst;
+				mIns.Push(cins);
+			}
+			code = TransposeBranchCondition(code);
+		}
+		else
+		{
+			ByteCodeInstruction	lins(BC_LOAD_REG_8);
+			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+			lins.mRegisterFinal = ins->mSrc[0].mFinal;
+			mIns.Push(lins);
+			if (csigned)
+			{
+				ByteCodeInstruction	cins(BC_BINOP_CMPSR_8);
+				cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+				cins.mRegisterFinal = ins->mSrc[1].mFinal;
+				mIns.Push(cins);
+			}
+			else
+			{
+				ByteCodeInstruction	cins(BC_BINOP_CMPUR_8);
+				cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+				cins.mRegisterFinal = ins->mSrc[1].mFinal;
+				mIns.Push(cins);
+			}
+		}
 	}
 	else
 	{

@@ -6370,13 +6370,15 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		case IA_CMPEQ:
 		case IA_CMPLEU:
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
-			mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			if (ins->mSrc[0].mType != IT_INT8)
+				mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(trueJump, falseJump, ASMIT_BEQ);
 			break;
 		case IA_CMPNE:
 		case IA_CMPGU:
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
-			mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			if (ins->mSrc[0].mType != IT_INT8)
+				mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(trueJump, falseJump, ASMIT_BNE);
 			break;
 		case IA_CMPGEU:
@@ -6386,33 +6388,141 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 			this->Close(falseJump, nullptr, ASMIT_JMP);
 			break;
 		case IA_CMPGES:
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			if (ins->mSrc[0].mType == IT_INT8)
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt]));
+			else
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(trueJump, falseJump, ASMIT_BPL);
 			break;
 		case IA_CMPLS:
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			if (ins->mSrc[0].mType == IT_INT8)
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt]));
+			else
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(trueJump, falseJump, ASMIT_BMI);
 			break;
 		case IA_CMPGS:
 		{
 			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			if (ins->mSrc[0].mType == IT_INT8)
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt]));
+			else
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(eblock, falseJump, ASMIT_BPL);
-			eblock->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
+			if (ins->mSrc[0].mType != IT_INT8)
+				eblock->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
 			eblock->Close(trueJump, falseJump, ASMIT_BNE);
 			break;
 		}
 		case IA_CMPLES:
 		{
 			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+			if (ins->mSrc[0].mType == IT_INT8)
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt]));
+			else
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(eblock, trueJump, ASMIT_BPL);
-			eblock->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
+			if (ins->mSrc[0].mType != IT_INT8)
+				eblock->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
 			eblock->Close(trueJump, falseJump, ASMIT_BEQ);
 			break;
 		}
 
 		}
+	}
+	else if (ins->mSrc[0].mType == IT_INT8)
+	{
+		NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+		NativeCodeBasicBlock* nblock = nproc->AllocateBlock();
+
+		int	li = 1, ri = 0;
+		if (op == IA_CMPLEU || op == IA_CMPGU || op == IA_CMPLES || op == IA_CMPGS)
+		{
+			li = 0; ri = 1;
+		}
+
+		int		iconst = 0;
+		bool	rconst = false;
+
+		if (ins->mSrc[li].mTemp < 0 && (op == IA_CMPGES || op == IA_CMPLS) && int16(ins->mSrc[li].mIntConst) > - 128)
+		{
+			iconst = ins->mSrc[li].mIntConst - 1;
+			rconst = true;
+			li = ri; ri = 1 - li;
+
+			NativeCodeBasicBlock* t = trueJump; trueJump = falseJump; falseJump = t;
+		}
+		else if (ins->mSrc[li].mTemp < 0 && (op == IA_CMPLES || op == IA_CMPGS) && int16(ins->mSrc[li].mIntConst) < 127)
+		{
+			iconst = ins->mSrc[li].mIntConst + 1;
+			rconst = true;
+			li = ri; ri = 1 - li;
+
+			NativeCodeBasicBlock* t = trueJump; trueJump = falseJump; falseJump = t;
+		}
+		else if (ins->mSrc[ri].mTemp < 0)
+		{
+			iconst = ins->mSrc[ri].mIntConst;
+			rconst = true;
+		}
+
+		if (op >= IA_CMPGES && ins->mOperator <= IA_CMPLS)
+		{
+			if (!rconst)
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[ri].mTemp]));
+				mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK));
+			}
+
+			if (ins->mSrc[li].mTemp < 0)
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[li].mIntConst & 0xff) ^ 0x80));
+			else
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[li].mTemp]));
+				mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
+			}
+
+			if (rconst)
+				mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, (iconst & 0xff) ^ 0x80));
+			else
+				mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_ZERO_PAGE, BC_REG_WORK));
+		}
+		else
+		{
+			if (ins->mSrc[li].mTemp < 0)
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[li].mIntConst & 0xff));
+			else
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[li].mTemp]));
+			if (rconst)
+				mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, iconst & 0xff));
+			else
+				mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[ri].mTemp]));
+		}
+
+		switch (op)
+		{
+		case IA_CMPEQ:
+			this->Close(trueJump, falseJump, ASMIT_BEQ);
+			break;
+		case IA_CMPNE:
+			this->Close(falseJump, trueJump, ASMIT_BEQ);
+			break;
+		case IA_CMPLU:
+		case IA_CMPLS:
+		case IA_CMPGU:
+		case IA_CMPGS:
+			this->Close(trueJump, falseJump, ASMIT_BCC);
+			break;
+		case IA_CMPLEU:
+		case IA_CMPLES:
+		case IA_CMPGEU:
+		case IA_CMPGES:
+			this->Close(falseJump, trueJump, ASMIT_BCC);
+			break;
+
+		}
+
 	}
 #if 1
 	else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst < 256 && ins->mSrc[1].mIntConst > 0 || ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst < 256 && ins->mSrc[0].mIntConst > 0)

@@ -1111,6 +1111,38 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}
+			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
+			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONVERSION_OPERATOR && 
+					 tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_INT2FLOAT &&
+					 tvalue[ins->mSrc[0].mTemp]->mOperator == tvalue[ins->mSrc[1].mTemp]->mOperator)
+			{
+				ins->mSrc[0].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
+				ins->mSrc[0].mTemp = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mTemp;
+				ins->mSrc[1].mType = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mType;
+				ins->mSrc[1].mTemp = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mTemp;
+
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+			}
+			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
+			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT &&
+					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_INT2FLOAT)
+			{
+				ins->mSrc[0].mType = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mType;
+				ins->mSrc[1].mType = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mType;
+				ins->mSrc[1].mTemp = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mTemp;
+
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+			}
+			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
+			 	     ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT &&
+					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_INT2FLOAT)
+			{
+				ins->mSrc[1].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
+				ins->mSrc[0].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
+				ins->mSrc[0].mTemp = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mTemp;
+
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+			}
 			else if (ins->mSrc[1].mTemp == ins->mSrc[0].mTemp)
 			{
 				ins->mCode = IC_CONSTANT;

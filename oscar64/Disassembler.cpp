@@ -343,8 +343,26 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			i += 2;
 			break;
 		case BC_BINOP_CMPSI_16:
-			fprintf(file, "CMPS\tACCU, #$%04X", uint16(memory[start + i + 0] + 256 * memory[start + i + 1]));
+			fprintf(file, "CMPS\tACCU, #$%04X", int16(memory[start + i + 0] + 256 * memory[start + i + 1]));
 			i += 2;
+			break;
+
+		case BC_BINOP_CMPUR_8:
+			fprintf(file, "CMPUB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			i += 1;
+			break;
+		case BC_BINOP_CMPSR_8:
+			fprintf(file, "CMPSB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			i += 1;
+			break;
+
+		case BC_BINOP_CMPUI_8:
+			fprintf(file, "CMPUB\tACCU, #$%04X", uint8(memory[start + i + 0] + 256 * memory[start + i + 1]));
+			i += 1;
+			break;
+		case BC_BINOP_CMPSI_8:
+			fprintf(file, "CMPSB\tACCU, #$%04X", int8(memory[start + i + 0]));
+			i += 1;
 			break;
 
 		case BC_BINOP_ADD_F32:
