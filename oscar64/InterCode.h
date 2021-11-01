@@ -499,6 +499,9 @@ public:
 
 	bool IsLeafProcedure(void);
 
+	void MarkRelevantStatics(void);
+	void RemoveNonRelevantStatics(void);
+
 	void PeepholeOptimization(void);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);
 
@@ -554,6 +557,9 @@ public:
 
 	void AddCalledFunction(InterCodeProcedure* proc);
 	void CallsFunctionPointer(void);
+
+	void MarkRelevantStatics(void);
+	void RemoveNonRelevantStatics(void);
 
 	void MapVariables(void);
 	void ReduceTemporaries(void);

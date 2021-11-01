@@ -3767,6 +3767,74 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 	}
 }
 
+void InterCodeBasicBlock::MarkRelevantStatics(void)
+{
+	int i;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (i = 0; i < mInstructions.Size(); i++)
+		{
+			const InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_LOAD)
+			{
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL)
+					ins->mSrc[0].mLinkerObject->mFlags |= LOBJF_RELEVANT;
+			}
+			else if (ins->mCode == IC_LEA)
+			{
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL)
+					ins->mSrc[1].mLinkerObject->mFlags |= LOBJF_RELEVANT;
+			}
+			else if (ins->mCode == IC_CONSTANT && ins->mDst.mType == IT_POINTER)
+			{
+				if (ins->mConst.mMemory == IM_GLOBAL)
+					ins->mConst.mLinkerObject->mFlags |= LOBJF_RELEVANT;
+			}
+			else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+			{
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL)
+					ins->mSrc[0].mLinkerObject->mFlags |= LOBJF_RELEVANT;
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL)
+					ins->mSrc[1].mLinkerObject->mFlags |= LOBJF_RELEVANT;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->MarkRelevantStatics();
+		if (mFalseJump) mFalseJump->MarkRelevantStatics();
+	}
+}
+
+void InterCodeBasicBlock::RemoveNonRelevantStatics(void)
+{
+	int i;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_STORE)
+			{
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && !ins->mVolatile)
+				{
+					if (!(ins->mSrc[1].mLinkerObject->mFlags & LOBJF_RELEVANT) && (ins->mSrc[1].mLinkerObject->mType == LOT_BSS || ins->mSrc[1].mLinkerObject->mType == LOT_DATA))
+					{
+						ins->mCode = IC_NONE;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->RemoveNonRelevantStatics();
+		if (mFalseJump) mFalseJump->RemoveNonRelevantStatics();
+	}
+}
+
 void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, bool &inlineAssembler, bool &byteCodeCall)
 {
 	int i;
@@ -5141,6 +5209,19 @@ void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)
 void InterCodeProcedure::CallsFunctionPointer(void)
 {
 	mCallsFunctionPointer = true;
+}
+
+void InterCodeProcedure::MarkRelevantStatics(void)
+{
+	ResetVisited();
+	mEntryBlock->MarkRelevantStatics();
+
+}
+
+void InterCodeProcedure::RemoveNonRelevantStatics(void)
+{
+	ResetVisited();
+	mEntryBlock->RemoveNonRelevantStatics();
 }
 
 void InterCodeProcedure::MapVariables(void)

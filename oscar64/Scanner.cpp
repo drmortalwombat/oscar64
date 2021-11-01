@@ -730,7 +730,9 @@ void Scanner::NextRawToken(void)
 	if (mToken != TK_EOF)
 	{
 		mToken = TK_ERROR;
-		mStartOfLine = false;
+
+		if (mOffset > 1 || !IsWhitespace(mTokenChar))
+			mStartOfLine = false;
 
 		while (IsWhitespace(mTokenChar))
 		{

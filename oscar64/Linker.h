@@ -81,6 +81,8 @@ static const uint32 LOBJF_PLACED	 = 0x00000002;
 static const uint32 LOBJF_NO_FRAME	 = 0x00000004;
 static const uint32 LOBJF_INLINE	 = 0x00000008;
 static const uint32 LOBJF_CONST		 = 0x00000010;
+static const uint32 LOBJF_RELEVANT   = 0x00000020;
+
 
 class LinkerObject
 {

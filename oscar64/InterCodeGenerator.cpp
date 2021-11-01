@@ -303,6 +303,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 						ref.mFlags = LREF_LOWBYTE;
 					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else
@@ -325,6 +326,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 						ref.mFlags = LREF_LOWBYTE;
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 
 					offset += 1;
@@ -348,6 +350,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mFlags = LREF_LOWBYTE;
 				ref.mRefObject = aexp->mBase->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset;
+				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
 
 				offset += 1;
@@ -377,6 +380,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mFlags = LREF_TEMPORARY;
 					ref.mRefObject = dec->mLinkerObject;
 					ref.mRefOffset = j;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 
 					d[offset++] = aexp->mOffset;
@@ -403,6 +407,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mFlags = LREF_TEMPORARY;
 					ref.mRefObject = dec->mLinkerObject;
 					ref.mRefOffset = j;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 
 					d[offset++] = 0;
@@ -440,6 +445,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mInteger;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else
@@ -460,6 +466,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else
@@ -478,6 +485,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ref.mRefObject = aexp->mLinkerObject;
 				ref.mRefOffset = 0;
+				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
 
 				offset += 2;
@@ -494,6 +502,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mLinkerObject;
 					ref.mRefOffset = 0;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 
 					offset += 2;
@@ -511,6 +520,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mBase->mLinkerObject;
 					ref.mRefOffset = aexp->mOffset;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 
 					offset += 2;
@@ -529,6 +539,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ref.mRefObject = aexp->mLinkerObject;
 				ref.mRefOffset = 0;
+				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
 
 				offset += 2;
@@ -546,6 +557,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ref.mRefObject = aexp->mBase->mLinkerObject;
 				ref.mRefOffset = aexp->mOffset;
+				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
 
 				offset += 2;

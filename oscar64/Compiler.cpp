@@ -236,6 +236,18 @@ bool Compiler::GenerateCode(void)
 	if (mErrors->mErrorCount != 0)
 		return false;
 
+#if 1
+	for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
+	{
+		mInterCodeModule->mProcedures[i]->MarkRelevantStatics();
+	}
+
+	for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
+	{
+		mInterCodeModule->mProcedures[i]->RemoveNonRelevantStatics();
+	}
+#endif
+
 	for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
 	{
 		InterCodeProcedure* proc = mInterCodeModule->mProcedures[i];
