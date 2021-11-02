@@ -116,8 +116,7 @@ int getch(void)
 void putch(int c)
 {
 	__asm {
-		ldy	#c
-		lda	(fp), y
+		lda	c
 		jsr	0xffd2
 	}
 }
