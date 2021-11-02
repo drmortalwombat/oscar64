@@ -1127,9 +1127,133 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT &&
 					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_INT2FLOAT)
 			{
-				ins->mSrc[0].mType = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mType;
-				ins->mSrc[1].mType = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mType;
-				ins->mSrc[1].mTemp = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mTemp;
+				bool	toconst = false;
+				int		cvalue = 0;
+
+				if (tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO16S || tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO32S)
+				{
+					int	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					if (ivalue < -128)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else if (ivalue > 127)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 1;
+							break;
+						}
+					}					
+				}
+				else if (tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO16U || tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO32U)
+				{
+					int	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					if (ivalue < 0)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else if (ivalue > 255)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else
+					{
+						switch (ins->mOperator)
+						{
+						case IA_CMPGES:
+							ins->mOperator = IA_CMPGEU;
+							break;
+						case IA_CMPLES:
+							ins->mOperator = IA_CMPLEU;
+							break;
+						case IA_CMPGS:
+							ins->mOperator = IA_CMPGU;
+							break;
+						case IA_CMPLS:
+							ins->mOperator = IA_CMPLU;
+							break;
+						}
+					}
+				}
+
+				if (toconst)
+				{
+					ins->mCode = IC_CONSTANT;
+					ins->mConst.mIntConst = cvalue;
+					ins->mSrc[0].mTemp = -1;
+					ins->mSrc[1].mTemp = -1;
+				}
+				else
+				{
+					ins->mSrc[0].mType = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mType;
+					ins->mSrc[1].mType = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mType;
+					ins->mSrc[1].mTemp = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mTemp;
+				}
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}
@@ -1137,9 +1261,133 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			 	     ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT &&
 					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_INT2FLOAT)
 			{
-				ins->mSrc[1].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
-				ins->mSrc[0].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
-				ins->mSrc[0].mTemp = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mTemp;
+				bool	toconst = false;
+				int		cvalue = 0;
+
+				if (tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT8TO16S || tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT8TO32S)
+				{
+					int	ivalue = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
+					if (ivalue > 127)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else if (ivalue < -128)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 1;
+							break;
+						}
+					}					
+				}
+				else if (tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT8TO16U || tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT8TO32U)
+				{
+					int	ivalue = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
+					if (ivalue > 255)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else if (ivalue < 0)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else
+					{
+						switch (ins->mOperator)
+						{
+						case IA_CMPGES:
+							ins->mOperator = IA_CMPGEU;
+							break;
+						case IA_CMPLES:
+							ins->mOperator = IA_CMPLEU;
+							break;
+						case IA_CMPGS:
+							ins->mOperator = IA_CMPGU;
+							break;
+						case IA_CMPLS:
+							ins->mOperator = IA_CMPLU;
+							break;
+						}
+					}
+				}
+
+				if (toconst)
+				{
+					ins->mCode = IC_CONSTANT;
+					ins->mConst.mIntConst = cvalue;
+					ins->mSrc[0].mTemp = -1;
+					ins->mSrc[1].mTemp = -1;
+				}
+				else
+				{
+					ins->mSrc[1].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
+					ins->mSrc[0].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
+					ins->mSrc[0].mTemp = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mTemp;
+				}
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}

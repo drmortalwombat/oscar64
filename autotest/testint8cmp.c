@@ -235,6 +235,118 @@ void cmp1(int8 a)
 	assert(bgef == ngef);	
 }
 
+void cmpu(char a, char b, bool lt, bool gt, bool eq)
+{
+	bool clt = a < b, cgt = a > b, ceq = a == b;
+	bool nlt = a >= b, ngt = a <= b, neq = a != b;
+
+	printf("CPMPU %d, %d LT %d%d%d GT %d%d%d EQ %d%d%d\n", a, b, lt, clt, nlt, gt, cgt, ngt, eq, ceq, neq);
+
+	assert(clt == lt);
+	assert(cgt == gt);
+	assert(ceq == eq);
+
+	assert(nlt != lt);
+	assert(ngt != gt);
+	assert(neq != eq);
+}
+
+void cmpu100(char a, bool lt, bool gt, bool eq)
+{
+	bool clt = a < 100, cgt = a > 100, ceq = a == 100;
+	bool nlt = a >= 100, ngt = a <= 100, neq = a != 100;
+
+	printf("CPMPU %d, %d LT %d%d%d GT %d%d%d EQ %d%d%d\n", a, 100, lt, clt, nlt, gt, cgt, ngt, eq, ceq, neq);
+
+	assert(clt == lt);
+	assert(cgt == gt);
+	assert(ceq == eq);
+
+	assert(nlt != lt);
+	assert(ngt != gt);
+	assert(neq != eq);
+}
+
+void cmpu100r(char b, bool lt, bool gt, bool eq)
+{
+	bool clt = 100 < b, cgt = 100 > b, ceq = 100 == b;
+	bool nlt = 100 >= b, ngt = 100 <= b, neq = 100 != b;
+
+	printf("CPMPU %d, %d LT %d%d%d GT %d%d%d EQ %d%d%d\n", 100, b, lt, clt, nlt, gt, cgt, ngt, eq, ceq, neq);
+
+	assert(clt == lt);
+	assert(cgt == gt);
+	assert(ceq == eq);
+
+	assert(nlt != lt);
+	assert(ngt != gt);
+	assert(neq != eq);
+}
+
+void cmpu1000(char a, bool lt, bool gt, bool eq)
+{
+	bool clt = a < 1000, cgt = a > 1000, ceq = a == 1000;
+	bool nlt = a >= 1000, ngt = a <= 1000, neq = a != 1000;
+
+	printf("CPMPU %d, %d LT %d%d%d GT %d%d%d EQ %d%d%d\n", a, 1000, lt, clt, nlt, gt, cgt, ngt, eq, ceq, neq);
+
+	assert(clt == lt);
+	assert(cgt == gt);
+	assert(ceq == eq);
+
+	assert(nlt != lt);
+	assert(ngt != gt);
+	assert(neq != eq);
+}
+
+void cmpu1000r(char b, bool lt, bool gt, bool eq)
+{
+	bool clt = 1000< b, cgt = 1000 > b, ceq = 1000 == b;
+	bool nlt = 1000 >= b, ngt = 1000 <= b, neq = 1000 != b;
+
+	printf("CPMPU %d, %d LT %d%d%d GT %d%d%d EQ %d%d%d\n", 1000, b, lt, clt, nlt, gt, cgt, ngt, eq, ceq, neq);
+
+	assert(clt == lt);
+	assert(cgt == gt);
+	assert(ceq == eq);
+
+	assert(nlt != lt);
+	assert(ngt != gt);
+	assert(neq != eq);
+}
+
+void cmpum100(char a, bool lt, bool gt, bool eq)
+{
+	bool clt = a < -100, cgt = a > -100, ceq = a == -100;
+	bool nlt = a >= -100, ngt = a <= -100, neq = a != -100;
+
+	printf("CPMPU %d, %d LT %d%d%d GT %d%d%d EQ %d%d%d\n", a, -100, lt, clt, nlt, gt, cgt, ngt, eq, ceq, neq);
+
+	assert(clt == lt);
+	assert(cgt == gt);
+	assert(ceq == eq);
+
+	assert(nlt != lt);
+	assert(ngt != gt);
+	assert(neq != eq);
+}
+
+void cmpum100r(char b, bool lt, bool gt, bool eq)
+{
+	bool clt = -100 < b, cgt = -100 > b, ceq = -100 == b;
+	bool nlt = -100 >= b, ngt = -100 <= b, neq = -100 != b;
+
+	printf("CPMPU %d, %d LT %d%d%d GT %d%d%d EQ %d%d%d\n", -100, b, lt, clt, nlt, gt, cgt, ngt, eq, ceq, neq);
+
+	assert(clt == lt);
+	assert(cgt == gt);
+	assert(ceq == eq);
+
+	assert(nlt != lt);
+	assert(ngt != gt);
+	assert(neq != eq);
+}
+
 int main(void)
 {
 	cmp( 0,  1);
@@ -311,6 +423,44 @@ int main(void)
 	cmp1(-3);
 	cmp1(-128);
 
-	return 0;
-	
+	cmpu(0, 0, false, false, true);
+	cmpu(0, 1, true,  false, false);
+	cmpu(1, 0, false ,true,  false);
+
+	cmpu(128, 128, false, false, true);
+	cmpu(  0, 128, true,  false, false);
+	cmpu(128,   0, false ,true,  false);
+
+	cmpu(255, 255, false, false, true);
+	cmpu(  0, 255, true,  false, false);
+	cmpu(255,   0, false ,true,  false);
+
+	cmpu(127, 127, false, false, true);
+	cmpu(128, 255, true,  false, false);
+	cmpu(255, 128, false ,true,  false);
+
+	cmpu100(100, false, false, true);
+	cmpu100(  0, true,  false, false);
+	cmpu100(130, false, true, false);
+
+	cmpu100r(100, false, false, true);
+	cmpu100r(130, true,  false, false);
+	cmpu100r(  0, false, true, false);
+
+	cmpum100(  0, false, true, false);
+	cmpum100(130, false, true, false);
+
+	cmpum100r(130, true,  false, false);
+	cmpum100r(  0, true,  false, false);
+
+	cmpu1000(100, true,  false, false);
+	cmpu1000(  0, true,  false, false);
+	cmpu1000(130, true,  false, false);
+
+	cmpu1000r(100, false, true, false);
+	cmpu1000r(130, false, true, false);
+	cmpu1000r(  0, false, true, false);
+
+
+	return 0;	
 }

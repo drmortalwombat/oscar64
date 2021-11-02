@@ -286,7 +286,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 			if (!aexp)
 				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
 			else if (aexp->mType == DT_CONST_INTEGER)
-				d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
+				d[offset] = cexp->mLeft->mDecValue->mInteger & 255;
 			else if (aexp->mType == DT_LABEL_REF)
 			{
 				if (aexp->mBase->mBase)
@@ -308,8 +308,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				}
 				else
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent->mString);
-
-				offset += 1;
 			}
 			else if (aexp->mType == DT_VARIABLE_REF)
 			{
@@ -328,8 +326,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
-
-					offset += 1;
 				}
 				else
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid immediate operand");
@@ -352,11 +348,11 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				ref.mRefOffset = aexp->mOffset;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
-
-				offset += 1;
 			}
 			else
 				mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid immediate operand");
+
+			offset += 1;
 			break;
 		case ASMIM_ZERO_PAGE:
 		case ASMIM_ZERO_PAGE_X:
@@ -383,13 +379,10 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 
-					d[offset++] = aexp->mOffset;
+					d[offset] = aexp->mOffset;
 				}
 				else
-				{
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Local variable outside scope");
-					offset += 1;
-				}
 			}
 			else if (aexp->mType == DT_ARGUMENT || aexp->mType == DT_VARIABLE)
 			{
@@ -410,16 +403,14 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 
-					d[offset++] = 0;
+					d[offset] = 0;
 				}
 				else
-				{
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Local variable outside scope");
-					offset += 1;
-				}
 			}
 			else
-				d[offset++] = aexp->mInteger;
+				d[offset] = aexp->mInteger;
+			offset += 1;
 			break;
 		case ASMIM_ABSOLUTE:
 		case ASMIM_INDIRECT:
@@ -429,8 +420,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
 			else if (aexp->mType == DT_CONST_INTEGER)
 			{
-				d[offset++] = cexp->mLeft->mDecValue->mInteger & 255;
-				d[offset++] = cexp->mLeft->mDecValue->mInteger >> 8;
+				d[offset + 0] = cexp->mLeft->mDecValue->mInteger & 255;
+				d[offset + 1] = cexp->mLeft->mDecValue->mInteger >> 8;
 			}
 			else if (aexp->mType == DT_LABEL)
 			{
@@ -450,8 +441,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				}
 				else
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label");
-
-				offset += 2;
 			}
 			else if (aexp->mType == DT_LABEL_REF)
 			{
@@ -471,8 +460,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				}
 				else
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label");
-
-				offset += 2;
 			}
 			else if (aexp->mType == DT_CONST_ASSEMBLER)
 			{
@@ -487,8 +474,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				ref.mRefOffset = 0;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
-
-				offset += 2;
 			}
 			else if (aexp->mType == DT_VARIABLE)
 			{
@@ -504,8 +489,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mRefOffset = 0;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
-
-					offset += 2;
 				}
 			}
 			else if (aexp->mType == DT_VARIABLE_REF)
@@ -522,8 +505,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mRefOffset = aexp->mOffset;
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
-
-					offset += 2;
 				}
 			}
 			else if (aexp->mType == DT_CONST_FUNCTION)
@@ -541,8 +522,6 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				ref.mRefOffset = 0;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
-
-				offset += 2;
 			}
 			else if (aexp->mType == DT_FUNCTION_REF)
 			{
@@ -559,9 +538,9 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				ref.mRefOffset = aexp->mOffset;
 				ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 				dec->mLinkerObject->AddReference(ref);
-
-				offset += 2;
 			}
+
+			offset += 2;
 			break;
 		case ASMIM_RELATIVE:
 			if (!aexp)
