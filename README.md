@@ -44,7 +44,7 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Optimizing
 
-* Simple loop opmtimization
+* Complex loop optimization
 * Partial block domination analysis
 * Auto variables placed on fixed stack for known call sequence
 
@@ -152,7 +152,7 @@ The C compiler will not generate good interrupt code, it is simply too greedy wi
 	#include <math.h>
 
     // Next line for interrupt
-    char npos;
+    volatile char npos;
 
     // Interrupt routine
     __asm irq
