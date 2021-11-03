@@ -6,9 +6,9 @@ void iocharmap(IOCharMap chmap)
 {
 	giocharmap = chmap;
 	if (chmap == IOCHM_PETSCII_1)
-		putchar(128 + 14);
+		putch(128 + 14);
 	else if (chmap == IOCHM_PETSCII_2)
-		putchar(14);
+		putch(14);
 }
 
 __asm putpch
@@ -138,8 +138,8 @@ void gotoxy(int cx, int cy)
 {
 	__asm
 	{
-		ldy	cy
-		ldx	cx
+		ldx	cy
+		ldy	cx
 		clc
 		jsr $fff0
 	}	
