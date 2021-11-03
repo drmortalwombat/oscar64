@@ -8881,7 +8881,23 @@ void NativeCodeBasicBlock::BlockSizeReduction(void)
 		int j = 0;
 		while (i < mIns.Size())
 		{
-			if (i + 2 < mIns.Size() &&
+			if (i + 6 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 4].mAddress &&
+				!(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress;
+				mIns[j + 1].mType = ASMIT_BNE; mIns[j + 1].mMode = ASMIM_RELATIVE;  mIns[j + 1].mAddress = 2;
+				mIns[j + 2].mType = ASMIT_INC; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 4].mAddress;
+				j += 3;
+				i += 7;
+			}
+			else if (i + 2 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
 				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
@@ -10320,6 +10336,9 @@ void NativeCodeProcedure::CompressTemporaries(void)
 		mEntryBlock->RemapZeroPage(remap);
 
 		mInterProc->mTempSize = tpos - BC_REG_TMP;
+
+		if (mNoFrame && !used[BC_REG_STACK] && mInterProc->mTempSize <= 16)
+			mStackExpand = 0;
 	}
 }
 
@@ -10335,26 +10354,27 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mIndex = proc->mID;
 
 	int		tempSave = proc->mTempSize > 16 ? proc->mTempSize - 16 : 0;
-	int		stackExpand = tempSave + proc->mLocalSize;
 	int		commonFrameSize = proc->mCommonFrameSize;
-	
+
+	mStackExpand = tempSave + proc->mLocalSize;
+
 	if (proc->mCallsByteCode || commonFrameSize > 0)
 		commonFrameSize += 2;
 
 	mFrameOffset = 0;
-	mNoFrame = (stackExpand + proc->mCommonFrameSize) < 64 && !proc->mHasDynamicStack;// && !(proc->mHasInlineAssembler && !proc->mLeafProcedure);
+	mNoFrame = (mStackExpand + proc->mCommonFrameSize) < 64 && !proc->mHasDynamicStack;// && !(proc->mHasInlineAssembler && !proc->mLeafProcedure);
 
 	if (mNoFrame)
 		proc->mLinkerObject->mFlags |= LOBJF_NO_FRAME;
 
 	if (mNoFrame)
 	{
-		if (stackExpand > 0)
+		if (mStackExpand > 0)
 			mFrameOffset = tempSave;
 	}
 	else
 	{
-		stackExpand += 2;
+		mStackExpand += 2;
 	}
 
 	if (!proc->mLeafProcedure)
@@ -10397,14 +10417,14 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	if (mNoFrame)
 	{
-		if (stackExpand > 0)
+		if (mStackExpand > 0)
 		{
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SEC, ASMIM_IMPLIED));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
-			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, stackExpand & 0xff));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, mStackExpand & 0xff));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
-			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (stackExpand >> 8) & 0xff));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (mStackExpand >> 8) & 0xff));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 
 			if (tempSave)
@@ -10424,10 +10444,10 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	{
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SEC, ASMIM_IMPLIED));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
-		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, stackExpand & 0xff));
+		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, mStackExpand & 0xff));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
-		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (stackExpand >> 8) & 0xff));
+		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (mStackExpand >> 8) & 0xff));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, tempSave));
@@ -10487,7 +10507,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	if (mNoFrame)
 	{
-		if (stackExpand > 0)
+		if (mStackExpand > 0)
 		{
 			if (tempSave)
 			{
@@ -10504,10 +10524,10 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
-			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, stackExpand & 0xff));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, mStackExpand & 0xff));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
-			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (stackExpand >> 8) & 0xff));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (mStackExpand >> 8) & 0xff));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 		}
 	}
@@ -10536,10 +10556,10 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
-		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, stackExpand & 0xff));
+		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, mStackExpand & 0xff));
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK));
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
-		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (stackExpand >> 8) & 0xff));
+		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (mStackExpand >> 8) & 0xff));
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 
 	}

@@ -213,7 +213,7 @@ class NativeCodeProcedure
 
 		InterCodeProcedure* mInterProc;
 
-		int		mProgStart, mProgSize, mIndex, mFrameOffset;
+		int		mProgStart, mProgSize, mIndex, mFrameOffset, mStackExpand;
 		bool	mNoFrame;
 		int		mTempBlocks;
 

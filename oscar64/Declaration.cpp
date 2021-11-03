@@ -338,7 +338,31 @@ Expression* Expression::ConstantFold(Errors * errors)
 			ex->mDecType = dec->mBase;
 			return ex;
 		}
-	}
+		else if (mLeft->mDecValue->mType == DT_CONST_ADDRESS && mRight->mDecValue->mType == DT_CONST_INTEGER)
+		{
+			int64	ival = 0, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
+
+			switch (mToken)
+			{
+			case TK_ADD:
+				ival = ileft + iright;
+				break;
+			case TK_SUB:
+				ival = ileft - iright;
+				break;
+			default:
+				return this;
+			}
+
+			Expression* ex = new Expression(mLocation, EX_CONSTANT);
+			Declaration* dec = new Declaration(mLocation, DT_CONST_ADDRESS);
+			dec->mBase = mLeft->mDecType;
+			dec->mInteger = ival;
+			ex->mDecValue = dec;
+			ex->mDecType = dec->mBase;
+			return ex;
+		}
+}
 
 	return this;
 }
