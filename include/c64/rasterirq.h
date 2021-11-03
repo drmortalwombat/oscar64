@@ -37,6 +37,7 @@ void rirq_build(RIRQCode * ic, byte size);
 inline void rirq_write(RIRQCode * ic, byte n, void * addr, byte data);
 inline void rirq_addr(RIRQCode * ic, byte n, void * addr);
 inline void rirq_data(RIRQCode * ic, byte n, byte data);
+inline void rirq_delay(RIRQCode * ic, byte cycles);
 
 inline void rirq_set(byte n, byte row, RIRQCode * write);
 inline void rirq_clear(byte n)

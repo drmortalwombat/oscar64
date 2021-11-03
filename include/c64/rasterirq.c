@@ -164,14 +164,14 @@ void rirq_build(RIRQCode * ic, byte size)
 {
 	ic->size = size;
 
-	ic->code[0] = 0xa9;	// lda #
-	ic->code[2] = 0xa0; // ldy #
+	ic->code[0] = 0xa0;	// ldy #
+	ic->code[2] = 0xa9; // lda #
 	ic->code[4] = 0xec; // cpx
 	ic->code[5] = 0x12;
 	ic->code[6] = 0xd0; 
 	ic->code[7] = 0xb0; // bcs
 	ic->code[8] = -5;
-	ic->code[9] = 0x8d; // sta
+	ic->code[9] = 0x8c; // sty
 
 	if (size == 1)
 	{
@@ -179,7 +179,7 @@ void rirq_build(RIRQCode * ic, byte size)
 	}
 	else
 	{
-		ic->code[12] = 0x8c; // sty
+		ic->code[12] = 0x8d; // sty
 
 		byte p = 15;
 		for(byte i=2; i<size; i++)
@@ -224,6 +224,15 @@ void rirq_write(RIRQCode * ic, byte n, void * addr, byte data)
 	p = irqdi[n];
 	ic->code[p] = data;
 }
+
+void rirq_delay(RIRQCode * ic, byte cycles)
+{
+	ic->code[ 1]  = cycles;
+	ic->code[ 9] = 0x88; // dey
+	ic->code[10] = 0xd0; // bne
+	ic->code[11] = 0xfd; // -3
+}
+
 
 void rirq_move(byte n, byte row)
 {
