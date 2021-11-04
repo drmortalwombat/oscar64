@@ -403,7 +403,7 @@ bool Declaration::IsSubType(const Declaration* dec) const
 		return true;
 	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
 		return true;
-	else if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_ENUM || DT_TYPE_UNION)
+	else if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_ENUM || mType == DT_TYPE_UNION)
 		return false;
 	else if (mType == DT_TYPE_ARRAY)
 		return mSize <= dec->mSize && mBase->IsSubType(dec->mBase);
