@@ -1634,12 +1634,16 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = Dereference(proc, block, vl);
 				if (!vl.mType->IsNumericType())
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric type");
+				else if (vl.mType->mType == DT_TYPE_INTEGER && vl.mType->mSize < 2)
+					vl = CoerceType(proc, block, vl, TheSignedIntTypeDeclaration);
 				ins->mOperator = IA_NEG;
 				break;
 			case TK_BINARY_NOT:
 				vl = Dereference(proc, block, vl);
 				if (!(vl.mType->mType == DT_TYPE_POINTER || vl.mType->IsNumericType()))
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric or pointer type");
+				else if (vl.mType->mType == DT_TYPE_INTEGER && vl.mType->mSize < 2)
+					vl = CoerceType(proc, block, vl, TheUnsignedIntTypeDeclaration);
 				ins->mOperator = IA_NOT;
 				break;
 			case TK_MUL:

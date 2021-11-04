@@ -431,16 +431,23 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 					}
 					else
 					{
-						if (!(adec->mBase->mFlags & DTF_DEFINED))
+						if (!(adec->mBase->mFlags & DTF_DEFINED) && adec->mBase->mType != DT_TYPE_ARRAY)
 							mErrors->Error(adec->mLocation, EERR_UNDEFINED_OBJECT, "Type of argument not defined");
 
 						adec->mType = DT_ARGUMENT;
 						adec->mVarIndex = vi;
 						adec->mOffset = 0;
 						if (adec->mBase->mType == DT_TYPE_ARRAY)
-							adec->mSize = 2;
-						else
-							adec->mSize = adec->mBase->mSize;
+						{
+							Declaration		*	ndec = new Declaration(adec->mBase->mLocation, DT_TYPE_POINTER);
+							ndec->mBase = adec->mBase->mBase;
+							ndec->mSize = 2;
+							ndec->mFlags |= DTF_DEFINED;
+							adec->mBase = ndec;
+						}
+
+						adec->mSize = adec->mBase->mSize;
+
 						vi += adec->mSize;
 						if (pdec)
 							pdec->mNext = adec;
