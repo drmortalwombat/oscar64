@@ -24,6 +24,7 @@ enum ByteCode
 	BC_STORE_REG_32,
 
 	BC_LOAD_ABS_8,
+	BC_LOAD_ABS_U8,
 	BC_LOAD_ABS_16,
 	BC_LOAD_ABS_32,
 
@@ -33,6 +34,7 @@ enum ByteCode
 
 	BC_LEA_ABS,
 	BC_LEA_ABS_INDEX,
+	BC_LEA_ABS_INDEX_U8,
 
 	BC_LOAD_LOCAL_8,
 	BC_LOAD_LOCAL_16,
@@ -51,6 +53,7 @@ enum ByteCode
 	BC_LEA_FRAME,
 
 	BC_LOAD_ADDR_8,
+	BC_LOAD_ADDR_U8,
 	BC_LOAD_ADDR_16,
 	BC_LOAD_ADDR_32,
 
@@ -198,11 +201,16 @@ public:
 	bool		mRelocate, mRegisterFinal;
 	LinkerObject* mLinkerObject;
 	const char* mRuntime;
+	uint32		mLive;
 
 	bool IsStore(void) const;
 	bool ChangesAccu(void) const;
 	bool ChangesAddr(void) const;
 	bool ChangesRegister(uint32 reg) const;
+
+	bool UsesAccu(void) const;
+	bool UsesRegister(uint32 reg) const;
+
 	bool LoadsRegister(uint32 reg) const;
 	bool StoresRegister(uint32 reg) const;
 	bool IsLocalStore(void) const;
@@ -233,6 +241,7 @@ public:
 
 	int						mOffset, mSize;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mVisited;
+	uint32					mExitLive;
 
 	ByteCodeBasicBlock(void);
 
@@ -316,10 +325,8 @@ public:
 	Errors* mErrors;
 	Linker* mLinker;
 
-	bool	mByteCodeUsed[128];
+	uint32	mByteCodeUsed[128];
 	LinkerObject* mExtByteCodes[128];
 
-	void WriteBasicHeader(void);
-	void WriteByteCodeHeader(void);
-	void SetBasicEntry(int index);
+	bool WriteByteCodeStats(const char* filename);
 };

@@ -920,6 +920,39 @@ inp_load_addr_8:
 		
 #pragma	bytecode(BC_LOAD_ABS_8, inp_load_abs_8)
 #pragma	bytecode(BC_LOAD_ADDR_8, inp_load_abs_8.inp_load_addr_8)
+
+__asm inp_load_abs_u8
+{
+		lda	(ip), y
+		sta	addr
+		iny
+		lda	(ip), y
+		sta	addr + 1
+		iny
+		lda	(ip), y
+		tax
+		sty	tmpy
+		ldy	#0
+L0:
+		lda	(addr), y
+		sta	$00, x
+		lda #0
+		sta $01, x
+		ldy	tmpy
+		iny	
+		jmp	startup.exec
+inp_load_addr_u8:
+		lda	(ip), y
+		tax
+		iny		
+		lda	(ip), y
+		sty	tmpy
+		tay
+		jmp	L0
+}
+		
+#pragma	bytecode(BC_LOAD_ABS_U8, inp_load_abs_u8)
+#pragma	bytecode(BC_LOAD_ADDR_U8, inp_load_abs_u8.inp_load_addr_u8)
 	
 __asm inp_load_abs_16
 {
@@ -1141,6 +1174,25 @@ __asm inp_lea_abs_index
 }
 
 #pragma	bytecode(BC_LEA_ABS_INDEX, inp_lea_abs_index)
+				
+__asm inp_lea_abs_index_u8
+{
+		lda	(ip), y
+		tax
+		iny
+		clc
+		lda $00, x
+		adc	(ip), y
+		sta	addr
+		iny
+		lda #$00
+		adc	(ip), y
+		sta	addr + 1
+		iny
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_LEA_ABS_INDEX_U8, inp_lea_abs_index_u8)
 				
 __asm inp_load_local_16
 {

@@ -341,3 +341,4 @@ ASALocalRun/
 *.lbl
 make/oscar64
 *.int
+*.bcs

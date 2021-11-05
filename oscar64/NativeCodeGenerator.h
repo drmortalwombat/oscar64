@@ -120,7 +120,8 @@ public:
 	void Assemble(void);
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
-	bool PeepHoleOptimizer(void);
+	bool RemoveNops(void);
+	bool PeepHoleOptimizer(int pass);
 	void BlockSizeReduction(void);
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
@@ -179,6 +180,7 @@ public:
 	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags);
 	bool MoveStoreXUp(int at);
 	bool MoveStoreHighByteDown(int at);
+	bool MoveAddHighByteDown(int at);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data);
 

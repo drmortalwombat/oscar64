@@ -1569,9 +1569,12 @@ void InterInstruction::MarkAliasedLocalTemps(const GrowingIntArray& localTable, 
 
 void InterInstruction::FilterTempUsage(NumberSet& requiredTemps, NumberSet& providedTemps)
 {
-	for(int i=0; i<mNumOperands; i++)
-		FilterTempUseUsage(requiredTemps, providedTemps, mSrc[i].mTemp);
-	FilterTempDefineUsage(requiredTemps, providedTemps, mDst.mTemp);
+	if (mCode != IC_NONE)
+	{
+		for (int i = 0; i < mNumOperands; i++)
+			FilterTempUseUsage(requiredTemps, providedTemps, mSrc[i].mTemp);
+		FilterTempDefineUsage(requiredTemps, providedTemps, mDst.mTemp);
+	}
 }
 
 void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars)
@@ -1716,9 +1719,12 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 
 void InterInstruction::PerformTempForwarding(TempForwardingTable& forwardingTable)
 {
-	for(int i=0; i<mNumOperands; i++)
-		PerformTempUseForwarding(mSrc[i].mTemp, forwardingTable);
-	PerformTempDefineForwarding(mDst.mTemp, forwardingTable);
+	if (mCode != IC_NONE)
+	{
+		for (int i = 0; i < mNumOperands; i++)
+			PerformTempUseForwarding(mSrc[i].mTemp, forwardingTable);
+		PerformTempDefineForwarding(mDst.mTemp, forwardingTable);
+	}
 	if (mCode == IC_LOAD_TEMPORARY && mDst.mTemp != mSrc[0].mTemp)
 	{
 		forwardingTable.Build(mDst.mTemp, mSrc[0].mTemp);
@@ -1823,6 +1829,7 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 			}
 			else
 			{
+				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
 			}
@@ -1838,6 +1845,7 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 			}
 			else
 			{
+				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
 			}
@@ -1877,6 +1885,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariable
 			}
 			else if (!mVolatile)
 			{
+				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
 			}
@@ -4104,6 +4113,7 @@ void InterCodeBasicBlock::RemoveNonRelevantStatics(void)
 				{
 					if (!(ins->mSrc[1].mLinkerObject->mFlags & LOBJF_RELEVANT) && (ins->mSrc[1].mLinkerObject->mType == LOT_BSS || ins->mSrc[1].mLinkerObject->mType == LOT_DATA))
 					{
+						ins->mSrc[0].mTemp = -1;
 						ins->mCode = IC_NONE;
 					}
 				}
@@ -5378,50 +5388,53 @@ void InterCodeProcedure::Close(void)
 	}
 
 
-	//
-	// Promote local variables to temporaries
-	//
-
-	FastNumberSet	simpleLocals(nlocals), complexLocals(nlocals);	
-	GrowingTypeArray	localTypes(IT_NONE);
-
-	FastNumberSet	simpleParams(nparams), complexParams(nparams);
-	GrowingTypeArray	paramTypes(IT_NONE);
-
-	ResetVisited();
-	mEntryBlock->CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
-
-	for (int i = 0; i < simpleLocals.Num(); i++)
+	for (int j = 0; j < 2; j++)
 	{
-		int vi = simpleLocals.Element(i);
-		if (!complexLocals[vi])
+		//
+		// Promote local variables to temporaries
+		//
+
+		FastNumberSet	simpleLocals(nlocals), complexLocals(nlocals);
+		GrowingTypeArray	localTypes(IT_NONE);
+
+		FastNumberSet	simpleParams(nparams), complexParams(nparams);
+		GrowingTypeArray	paramTypes(IT_NONE);
+
+		ResetVisited();
+		mEntryBlock->CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
+
+		for (int i = 0; i < simpleLocals.Num(); i++)
 		{
-			ResetVisited();
-			mEntryBlock->SimpleLocalToTemp(vi, AddTemporary(localTypes[vi]));
+			int vi = simpleLocals.Element(i);
+			if (!complexLocals[vi])
+			{
+				ResetVisited();
+				mEntryBlock->SimpleLocalToTemp(vi, AddTemporary(localTypes[vi]));
+			}
 		}
-	}
 
-	DisassembleDebug("local variables to temps");
+		DisassembleDebug("local variables to temps");
 
-	BuildTraces(false);
+		BuildTraces(false);
 
-	BuildDataFlowSets();
+		BuildDataFlowSets();
 
-	RenameTemporaries();
+		RenameTemporaries();
 
-	do {
+		do {
+			TempForwarding();
+		} while (GlobalConstantPropagation());
+
+		//
+		// Now remove unused instructions
+		//
+
+		RemoveUnusedInstructions();
+
+		DisassembleDebug("removed unused instructions 2");
+
 		TempForwarding();
-	} while (GlobalConstantPropagation());
-
-	//
-	// Now remove unused instructions
-	//
-
-	RemoveUnusedInstructions();
-
-	DisassembleDebug("removed unused instructions 2");
-
-	TempForwarding();
+	}
 
 	BuildDominators();
 	DisassembleDebug("added dominators");

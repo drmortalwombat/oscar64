@@ -1,6 +1,171 @@
 #include "ByteCodeGenerator.h"
 #include "Assembler.h"
 
+static const char* ByteCodeNames[] = {
+	"NOP",
+	"EXIT",
+
+	"CONST_8",
+	"CONST_P8",
+	"CONST_N8",
+	"CONST_16",
+	"CONST_32",
+
+	"LOAD_REG_8",
+	"STORE_REG_8",
+	"LOAD_REG_16",
+	"STORE_REG_16",
+	"ADDR_REG",
+	"LOAD_REG_32",
+	"STORE_REG_32",
+
+	"LOAD_ABS_8",
+	"LOAD_ABS_U8",
+	"LOAD_ABS_16",
+	"LOAD_ABS_32",
+
+	"STORE_ABS_8",
+	"STORE_ABS_16",
+	"STORE_ABS_32",
+
+	"LEA_ABS",
+	"LEA_ABS_INDEX",
+	"LEA_ABS_INDEX_U8",
+
+	"LOAD_LOCAL_8",
+	"LOAD_LOCAL_16",
+	"LOAD_LOCAL_32",
+
+	"STORE_LOCAL_8",
+	"STORE_LOCAL_16",
+	"STORE_LOCAL_32",
+
+	"LEA_LOCAL",
+
+	"STORE_FRAME_8",
+	"STORE_FRAME_16",
+	"STORE_FRAME_32",
+
+	"LEA_FRAME",
+
+	"LOAD_ADDR_8",
+	"LOAD_ADDR_U8",
+	"LOAD_ADDR_16",
+	"LOAD_ADDR_32",
+
+	"STORE_ADDR_8",
+	"STORE_ADDR_16",
+	"STORE_ADDR_32",
+
+	"BINOP_ADDR_16",
+	"BINOP_SUBR_16",
+	"BINOP_ANDR_16",
+	"BINOP_ORR_16",
+	"BINOP_XORR_16",
+	"BINOP_MULR_16",
+	"BINOP_DIVR_U16",
+	"BINOP_MODR_U16",
+	"BINOP_DIVR_I16",
+	"BINOP_MODR_I16",
+	"BINOP_SHLR_16",
+	"BINOP_SHRR_U16",
+	"BINOP_SHRR_I16",
+
+	"BINOP_ADDI_16",
+	"BINOP_SUBI_16",
+	"BINOP_ANDI_16",
+	"BINOP_ORI_16",
+	"BINOP_MULI8_16",
+
+	"BINOP_ADDI_8",
+	"BINOP_ANDI_8",
+	"BINOP_ORI_8",
+
+	"BINOP_SHLI_16",
+	"BINOP_SHRI_U16",
+	"BINOP_SHRI_I16",
+
+	"BINOP_CMPUR_16",
+	"BINOP_CMPSR_16",
+
+	"BINOP_CMPUI_16",
+	"BINOP_CMPSI_16",
+
+	"BINOP_CMPUR_8",
+	"BINOP_CMPSR_8",
+
+	"BINOP_CMPUI_8",
+	"BINOP_CMPSI_8",
+
+	"OP_NEGATE_16",
+	"OP_INVERT_16",
+
+	"BINOP_ADD_F32",
+	"BINOP_SUB_F32",
+	"BINOP_MUL_F32",
+	"BINOP_DIV_F32",
+	"BINOP_CMP_F32",
+	"OP_NEGATE_F32",
+	"OP_ABS_F32",
+	"OP_FLOOR_F32",
+	"OP_CEIL_F32",
+
+	"CONV_U16_F32",
+	"CONV_I16_F32",
+	"CONV_F32_U16",
+	"CONV_F32_I16",
+
+	"CONV_I8_I16",
+
+	"JUMPS",
+	"BRANCHS_EQ",
+	"BRANCHS_NE",
+	"BRANCHS_GT",
+	"BRANCHS_GE",
+	"BRANCHS_LT",
+	"BRANCHS_LE",
+
+	"JUMPF",
+	"BRANCHF_EQ",
+	"BRANCHF_NE",
+	"BRANCHF_GT",
+	"BRANCHF_GE",
+	"BRANCHF_LT",
+	"BRANCHF_LE",
+
+	"SET_EQ",
+	"SET_NE",
+	"SET_GT",
+	"SET_GE",
+	"SET_LT",
+	"SET_LE",
+
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+
+	"NATIVE",
+
+	"ENTER",
+	"RETURN",
+	"CALL",
+	"PUSH_FRAME",
+	"POP_FRAME",
+
+	"JSR",
+
+	"COPY",
+	"COPY_LONG",
+	"STRCPY",
+
+	"EXTRT"
+};
+
+
 static ByteCode		StoreTypedTmpCodes[] = {
 	BC_NOP,
 	BC_STORE_REG_8,
@@ -68,6 +233,11 @@ bool ByteCodeInstruction::IsStore(void) const
 bool ByteCodeInstruction::ChangesAccu(void) const
 {
 	return ChangesRegister(BC_REG_ACCU);
+}
+
+bool ByteCodeInstruction::UsesAccu(void) const
+{
+	return UsesRegister(BC_REG_ACCU);
 }
 
 bool ByteCodeInstruction::ChangesAddr(void) const
@@ -166,6 +336,76 @@ bool ByteCodeInstruction::StoresRegister(uint32 reg) const
 
 }
 
+bool ByteCodeInstruction::UsesRegister(uint32 reg) const
+{
+	if (StoresRegister(reg))
+		return true;
+
+	if (mRegister == reg)
+	{
+		if (mCode == BC_LOAD_REG_8 || mCode == BC_LOAD_REG_16 || mCode == BC_LOAD_REG_32 || mCode == BC_ADDR_REG || mCode == BC_LEA_ABS_INDEX || mCode == BC_LEA_ABS_INDEX_U8)
+			return true;
+
+		if (mCode >= BC_BINOP_ADDI_16 && mCode <= BC_BINOP_ORI_8)
+			return true;
+
+		if (mCode >= BC_BINOP_ADDR_16 && mCode <= BC_BINOP_SHRR_I16)
+			return true;
+
+		if (mCode == BC_BINOP_CMPUR_16 || mCode == BC_BINOP_CMPSR_16)
+			return true;
+
+		if (mCode == BC_BINOP_CMPUR_8 || mCode == BC_BINOP_CMPSR_8)
+			return true;
+
+		if (mCode >= BC_BINOP_ADD_F32 && mCode <= BC_BINOP_CMP_F32)
+			return true;
+
+		if (mCode >= BC_BINOP_ADD_L32 && mCode <= BC_BINOP_CMP_S32)
+			return true;
+	}
+
+	if (reg == BC_REG_ACCU)
+	{
+		if (mCode == BC_STORE_REG_8 || mCode == BC_STORE_REG_16 || mCode == BC_STORE_REG_32)
+			return true;
+
+		if (mCode >= BC_BINOP_ADDR_16 && mCode <= BC_BINOP_SHRR_I16)
+			return true;
+		if (mCode >= BC_BINOP_CMPUR_16 && mCode <= BC_BINOP_CMPSI_16)
+			return true;
+		if (mCode >= BC_BINOP_CMPUR_8 && mCode <= BC_BINOP_CMPSI_8)
+			return true;
+		if (mCode >= BC_OP_NEGATE_16 && mCode <= BC_OP_INVERT_16)
+			return true;
+		if (mCode >= BC_BINOP_ADD_F32 && mCode <= BC_OP_CEIL_F32)
+			return true;
+		if (mCode >= BC_CONV_U16_F32 && mCode <= BC_CONV_F32_I16)
+			return true;
+		if (mCode >= BC_BINOP_SHLI_16 && mCode <= BC_BINOP_SHRI_I16)
+			return true;
+		if (mCode >= BC_SET_EQ && mCode <= BC_SET_LE)
+			return true;
+		if (mCode >= BC_CONV_I16_I32 && mCode <= BC_BINOP_CMP_S32)
+			return true;
+	}
+
+	if (reg == BC_REG_ADDR)
+	{
+		if (mCode >= BC_LOAD_ADDR_8 && mCode <= BC_LOAD_ADDR_32)
+			return true;
+
+		if (mCode >= BC_LOAD_ADDR_8 && mCode <= BC_STORE_ADDR_32)
+			return true;
+
+		if (mCode == BC_JSR || mCode == BC_CALL)
+			return true;
+	}
+
+	return false;
+}
+
+
 bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 {
 	if (mRegister == reg)
@@ -222,7 +462,7 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 			return true;
 		if (mCode == BC_JSR || mCode == BC_CALL)
 			return true;
-		if (mCode == BC_LEA_ABS_INDEX)
+		if (mCode == BC_LEA_ABS_INDEX || mCode == BC_LEA_ABS_INDEX_U8)
 			return true;
 	}
 
@@ -288,6 +528,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		break;
 
 	case BC_LOAD_ABS_8:
+	case BC_LOAD_ABS_U8:
 	case BC_LOAD_ABS_16:
 	case BC_LOAD_ABS_32:
 	case BC_STORE_ABS_8:
@@ -312,6 +553,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 
 	case BC_LEA_ABS:
 	case BC_LEA_ABS_INDEX:
+	case BC_LEA_ABS_INDEX_U8:
 		block->PutCode(generator, mCode); block->PutByte(mRegister);
 		if (mRelocate)
 		{
@@ -497,6 +739,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 	}	break;
 
 	case BC_LOAD_ADDR_8:
+	case BC_LOAD_ADDR_U8:
 	case BC_LOAD_ADDR_16:
 	case BC_LOAD_ADDR_32:
 	case BC_STORE_ADDR_8:
@@ -594,7 +837,7 @@ void ByteCodeBasicBlock::PutBytes(const uint8* code, int num)
 void ByteCodeBasicBlock::PutCode(ByteCodeGenerator* generator, ByteCode code)
 {
 	PutByte(uint8(code) * 2);
-	generator->mByteCodeUsed[code] = true;
+	generator->mByteCodeUsed[code]++;
 }
 
 int ByteCodeBasicBlock::PutBranch(ByteCodeGenerator* generator, ByteCode code, int offset)
@@ -623,6 +866,7 @@ ByteCodeBasicBlock::ByteCodeBasicBlock(void)
 	mAssembled = false;
 	mKnownShortBranch = false;
 	mBypassed = false;
+	mExitLive = 0;
 }
 
 void ByteCodeBasicBlock::IntConstToAccu(int64 val)
@@ -3482,6 +3726,8 @@ bool ByteCodeBasicBlock::SameTail(ByteCodeInstruction& ins)
 		return false;
 }
 
+static const uint32 LIVE_ACCU = 0x00000001;
+
 bool ByteCodeBasicBlock::JoinTailCodeSequences(void)
 {
 	bool	changed = false;
@@ -3512,6 +3758,7 @@ bool ByteCodeBasicBlock::JoinTailCodeSequences(void)
 						{
 							ByteCodeBasicBlock* b = mEntryBlocks[i];
 							b->mIns.SetSize(b->mIns.Size() - 1);
+							b->mExitLive = LIVE_ACCU;
 						}
 						changed = true;
 					}
@@ -3529,7 +3776,6 @@ bool ByteCodeBasicBlock::JoinTailCodeSequences(void)
 
 	return changed;
 }
-
 
 bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 {
@@ -3561,7 +3807,26 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 			}
 			mIns.SetSize(j);
 
-			int	accuTemp = -1, addrTemp = -1;
+			// mark accu live
+
+			uint32	live = mExitLive;
+			if (mBranch != BC_JUMPS && mBranch != BC_NOP)
+				live |= LIVE_ACCU;
+
+			for (int i = mIns.Size() - 1; i >= 0; i--)
+			{
+				mIns[i].mLive = live;
+
+				if (mIns[i].ChangesAccu())
+					live &= ~LIVE_ACCU;
+				if (mIns[i].UsesAccu())
+					live |= LIVE_ACCU;
+			}
+
+//			assert(!(live & LIVE_ACCU));
+
+			int	accuTemp = -1, addrTemp = -1, accuVal = 0;
+			bool	accuConst = false;
 
 			for (int i = 0; i < mIns.Size(); i++)
 			{
@@ -3569,19 +3834,6 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 				if (i + 3 < mIns.Size())
 				{
 					if (
-						mIns[i + 0].mCode == BC_LEA_ABS && mIns[i + 0].mRegister == BC_REG_ACCU &&
-						mIns[i + 1].mCode == BC_BINOP_ADDR_16 &&
-						mIns[i + 2].mCode == BC_ADDR_REG && mIns[i + 2].mRegister == BC_REG_ACCU &&
-						mIns[i + 3].ChangesAccu())
-					{
-						mIns[i + 0].mCode = BC_LEA_ABS_INDEX;
-						mIns[i + 0].mRegister = mIns[i + 1].mRegister;
-						mIns[i + 0].mRegisterFinal = mIns[i + 1].mRegisterFinal;
-						mIns[i + 1].mCode = BC_NOP;
-						mIns[i + 2].mCode = BC_NOP;
-						progress = true;
-					}
-					else if (
 						mIns[i + 0].mCode == BC_LOAD_REG_8 &&
 						mIns[i + 1].mCode == BC_STORE_REG_16 &&
 						mIns[i + 2].IsIntegerConst() && mIns[i + 2].mRegister == BC_REG_ACCU &&
@@ -3590,6 +3842,22 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 0].mCode = BC_NOP;
 						mIns[i + 1].mCode = BC_NOP;
 						mIns[i + 3].mRegister = mIns[i + 0].mRegister;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mCode == BC_LOAD_REG_8 &&
+						mIns[i + 1].mCode == BC_LEA_ABS && mIns[i + 1].mRegister != BC_REG_ACCU &&
+						mIns[i + 2].mCode == BC_BINOP_ADDR_16 && mIns[i + 2].mRegister == mIns[i + 1].mRegister && mIns[i + 2].mRegisterFinal &&
+						mIns[i + 3].mCode == BC_ADDR_REG && mIns[i + 3].mRegister == BC_REG_ACCU && !(mIns[i + 3].mLive & LIVE_ACCU))
+					{
+						mIns[i + 1].mCode = BC_LEA_ABS_INDEX_U8;
+						mIns[i + 1].mRegister = mIns[i + 0].mRegister;
+						mIns[i + 1].mRegisterFinal = mIns[i + 0].mRegisterFinal;
+						mIns[i + 1].mLive &= ~LIVE_ACCU;
+
+						mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 2].mCode = BC_NOP;
+						mIns[i + 3].mCode = BC_NOP;
 						progress = true;
 					}
 				}
@@ -3764,6 +4032,16 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mCode = BC_NOP;
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mCode == BC_STORE_REG_16 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_8 && mIns[i + 0].mRegister == mIns[i + 1].mRegister &&
+						mIns[i + 2].mCode == BC_STORE_REG_8)
+					{
+						if (mIns[i + 1].mRegisterFinal)
+							mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
 #if 1
 					else if (
 						mIns[i + 0].mCode == BC_STORE_REG_16 &&
@@ -3775,6 +4053,32 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						progress = true;
 					}
 #endif
+					else if (
+						mIns[i + 0].mCode == BC_LEA_ABS && mIns[i + 0].mRegister == BC_REG_ACCU &&
+						mIns[i + 1].mCode == BC_BINOP_ADDR_16 &&
+						mIns[i + 2].mCode == BC_ADDR_REG && mIns[i + 2].mRegister == BC_REG_ACCU && !(mIns[i + 2].mLive & LIVE_ACCU))
+					{
+						mIns[i + 0].mCode = BC_LEA_ABS_INDEX;
+						mIns[i + 0].mRegister = mIns[i + 1].mRegister;
+						mIns[i + 0].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+						mIns[i + 0].mLive &= ~LIVE_ACCU;
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
+					}
+					
+					else if (
+						mIns[i + 0].mCode == BC_LOAD_REG_8 &&
+						mIns[i + 1].mCode == BC_STORE_REG_16 &&
+						mIns[i + 2].mCode == BC_LEA_ABS_INDEX && mIns[i + 2].mRegister == mIns[i + 1].mRegister && !(mIns[i + 2].mLive & LIVE_ACCU) && mIns[i + 2].mRegisterFinal)
+					 {
+						 mIns[i + 2].mCode = BC_LEA_ABS_INDEX_U8;
+						 mIns[i + 2].mRegister = mIns[i + 0].mRegister;
+						 mIns[i + 2].mRegisterFinal = mIns[i + 0].mRegisterFinal;
+						 mIns[i + 0].mCode = BC_NOP;
+						 mIns[i + 1].mCode = BC_NOP;
+						 progress = true;
+					 }
 				}
 #endif
 #if 1
@@ -3888,6 +4192,22 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						progress = true;
 					}
 #endif
+#if 1
+					else if (mIns[i + 1].mCode == BC_LOAD_REG_8 && mIns[i + 0].mCode == BC_LOAD_ADDR_8 && mIns[i + 1].mRegisterFinal && mIns[i + 0].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i + 0].mCode = BC_LOAD_ADDR_U8;
+						mIns[i + 0].mRegister = BC_REG_ACCU;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (mIns[i + 1].mCode == BC_LOAD_REG_8 && mIns[i + 0].mCode == BC_LOAD_ABS_8 && mIns[i + 1].mRegisterFinal && mIns[i + 0].mRegister == mIns[i + 1].mRegister)
+					{
+						mIns[i + 0].mCode = BC_LOAD_ABS_U8;
+						mIns[i + 0].mRegister = BC_REG_ACCU;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+#endif
 #if 0
 					else if ((mIns[i].mCode == BC_LOAD_LOCAL_16 || mIns[i].mCode == BC_LOAD_ABS_16) && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
 					{
@@ -3911,8 +4231,39 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 					progress = true;
 				}
 
+				if (accuConst && !mIns[i].mRelocate && mIns[i].mRegister == BC_REG_ACCU)
+				{
+					switch (mIns[i].mCode)
+					{
+					case BC_CONST_16:
+						if ((mIns[i].mValue & 0xffff) == (accuVal & 0xffff))
+						{
+							mIns[i].mCode = BC_NOP;
+							progress = true;
+						}
+						break;
+					case BC_CONST_32:
+						if (mIns[i].mValue == accuVal)
+						{
+							mIns[i].mCode = BC_NOP;
+							progress = true;
+						}
+						break;
+					case BC_CONST_8:
+						if ((mIns[i].mValue & 0xff) == (accuVal & 0xffff))
+						{
+							mIns[i].mCode = BC_NOP;
+							progress = true;
+						}
+						break;
+					}
+				}
+
 				if (mIns[i].ChangesAccu())
+				{
 					accuTemp = -1;
+					accuConst = false;
+				}
 				if (mIns[i].ChangesAddr())
 					addrTemp = -1;
 				if (accuTemp != -1 && mIns[i].ChangesRegister(accuTemp))
@@ -3924,6 +4275,25 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 					accuTemp = mIns[i].mRegister;
 				if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister != BC_REG_ACCU)
 					addrTemp = mIns[i].mRegister;
+
+				if (mIns[i].mRegister == BC_REG_ACCU && !mIns[i].mRelocate)
+				{
+					switch (mIns[i].mCode)
+					{
+					case BC_CONST_16:
+						accuVal = mIns[i].mValue & 0xffff;
+						accuConst = true;
+						break;
+					case BC_CONST_32:
+						accuVal = mIns[i].mValue;
+						accuConst = true;
+						break;
+					case BC_CONST_8:
+						accuVal = mIns[i].mValue & 0xff;
+						accuConst = true;
+						break;
+					}
+				}
 			}
 
 			if (progress)
@@ -4294,16 +4664,37 @@ ByteCodeGenerator::ByteCodeGenerator(Errors* errors, Linker* linker)
 {
 	for (int i = 0; i < 128; i++)
 	{
-		mByteCodeUsed[i] = false;
+		mByteCodeUsed[i] = 0;
 		mExtByteCodes[i] = nullptr;
 	}
 
-	mByteCodeUsed[BC_LEA_ABS] = true;
-	mByteCodeUsed[BC_CALL] = true;
-	mByteCodeUsed[BC_EXIT] = true;
-	mByteCodeUsed[BC_NATIVE] = true;
+	mByteCodeUsed[BC_LEA_ABS] = 1;
+	mByteCodeUsed[BC_CALL] = 1;
+	mByteCodeUsed[BC_EXIT] = 1;
+	mByteCodeUsed[BC_NATIVE] = 1;
+
+	assert(sizeof(ByteCodeNames) == 128 * sizeof(char*));
 }
 
 ByteCodeGenerator::~ByteCodeGenerator(void)
 {
+}
+
+bool ByteCodeGenerator::WriteByteCodeStats(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "w");
+	if (file)
+	{
+		for (int i = 0; i < 128; i++)
+		{
+			if (mByteCodeUsed[i] > 0)
+				fprintf(file, "BC %s : %d\n", ByteCodeNames[i], mByteCodeUsed[i]);
+		}
+		fclose(file);
+
+		return true;
+	}
+
+	return false;
 }

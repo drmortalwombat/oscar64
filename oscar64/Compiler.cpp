@@ -282,7 +282,7 @@ bool Compiler::GenerateCode(void)
 
 		for (int i = 0; i < 128; i++)
 		{
-			if (mByteCodeGenerator->mByteCodeUsed[i])
+			if (mByteCodeGenerator->mByteCodeUsed[i] > 0)
 			{
 				Declaration* bcdec = mCompilationUnits->mByteCodes[i];
 				if (bcdec)
@@ -338,7 +338,7 @@ bool Compiler::GenerateCode(void)
 
 bool Compiler::WriteOutputFile(const char* targetPath)
 {
-	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], crtPath[200], intPath[200];
+	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], crtPath[200], intPath[200], bcsPath[200];
 
 	strcpy_s(prgPath, targetPath);
 	int		i = strlen(prgPath);
@@ -351,6 +351,7 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 	strcpy_s(lblPath, prgPath);
 	strcpy_s(crtPath, prgPath);
 	strcpy_s(intPath, prgPath);
+	strcpy_s(bcsPath, prgPath);
 
 	strcat_s(prgPath, "prg");
 	strcat_s(mapPath, "map");
@@ -358,6 +359,7 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 	strcat_s(lblPath, "lbl");
 	strcat_s(crtPath, "crt");
 	strcat_s(intPath, "int");
+	strcat_s(bcsPath, "bcs");
 
 	if (mCompilerOptions & COPT_TARGET_PRG)
 	{
@@ -382,6 +384,12 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 
 	printf("Writing <%s>\n", intPath);	
 	mInterCodeModule->Disassemble(intPath);
+
+	if (!(mCompilerOptions & COPT_NATIVE))
+	{
+		printf("Writing <%s>\n", bcsPath);
+		mByteCodeGenerator->WriteByteCodeStats(bcsPath);
+	}
 
 	return true;
 }

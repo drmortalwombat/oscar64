@@ -277,6 +277,25 @@ public:
 		Grow(size, clear);
 	}
 
+	void Reserve(int to)
+	{
+		if (to > range)
+		{
+			range = to;
+
+			T* a2 = new T[range];
+			if (to > size)
+				for (int i = 0; i < size; i++) a2[i] = array[i];
+			else
+				for (int i = 0; i < to; i++) a2[i] = array[i];
+
+			delete[] array;
+			array = a2;
+
+			for (int i = size; i < range; i++) array[i] = empty;
+		}
+	}
+
 	void Clear(void)
 	{
 		Grow(size, true);
