@@ -245,6 +245,11 @@ bool ByteCodeInstruction::ChangesAddr(void) const
 	return ChangesRegister(BC_REG_ADDR);
 }
 
+bool ByteCodeInstruction::UsesAddr(void) const
+{
+	return UsesRegister(BC_REG_ADDR);
+}
+
 bool ByteCodeInstruction::LoadsRegister(uint32 reg) const
 {
 	if (mRegister == reg)
@@ -392,10 +397,10 @@ bool ByteCodeInstruction::UsesRegister(uint32 reg) const
 
 	if (reg == BC_REG_ADDR)
 	{
-		if (mCode >= BC_LOAD_ADDR_8 && mCode <= BC_LOAD_ADDR_32)
+		if (mCode >= BC_LOAD_ADDR_8 && mCode <= BC_STORE_ADDR_32)
 			return true;
 
-		if (mCode >= BC_LOAD_ADDR_8 && mCode <= BC_STORE_ADDR_32)
+		if (mCode == BC_COPY || mCode == BC_STRCPY)
 			return true;
 
 		if (mCode == BC_JSR || mCode == BC_CALL)
@@ -2686,9 +2691,28 @@ ByteCode ByteCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const 
 			}
 			else
 			{
-				ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
-				cins.mValue = ins->mSrc[1].mIntConst;
-				mIns.Push(cins);
+				if (ins->mSrc[1].mIntConst == 0)
+				{
+					switch (ins->mOperator)
+					{
+					case IA_CMPEQ:
+					case IA_CMPGEU:
+						return BC_BRANCHS_EQ;
+					case IA_CMPNE:
+					case IA_CMPLU:
+						return BC_BRANCHS_NE;
+					case IA_CMPLEU:
+						return BC_JUMPS;
+					case IA_CMPGU:
+						return BC_NOP;
+					}
+				}
+				else
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
+					cins.mValue = ins->mSrc[1].mIntConst;
+					mIns.Push(cins);
+				}
 			}
 		}
 		else if (ins->mSrc[0].mTemp < 0)
@@ -2699,15 +2723,59 @@ ByteCode ByteCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const 
 			mIns.Push(lins);
 			if (csigned)
 			{
-				ByteCodeInstruction	cins(BC_BINOP_CMPSI_8);
-				cins.mValue = ins->mSrc[0].mIntConst;
-				mIns.Push(cins);
+				if (ins->mSrc[0].mIntConst == 0)
+				{
+					ByteCodeInstruction	cins(BC_CONV_I8_I16);
+					cins.mRegister = BC_REG_ACCU;
+					mIns.Push(cins);
+
+					switch (ins->mOperator)
+					{
+					case IA_CMPEQ:
+						return BC_BRANCHS_EQ;
+					case IA_CMPNE:
+						return BC_BRANCHS_NE;
+					case IA_CMPLES:
+						return BC_BRANCHS_LE;
+					case IA_CMPGS:
+						return BC_BRANCHS_GT;
+					case IA_CMPGES:
+						return BC_BRANCHS_GE;
+					case IA_CMPLS:
+						return BC_BRANCHS_LT;
+					}
+				}
+				else
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPSI_8);
+					cins.mValue = ins->mSrc[0].mIntConst;
+					mIns.Push(cins);
+				}
 			}
 			else
 			{
-				ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
-				cins.mValue = ins->mSrc[0].mIntConst;
-				mIns.Push(cins);
+				if (ins->mSrc[0].mIntConst == 0)
+				{
+					switch (ins->mOperator)
+					{
+					case IA_CMPEQ:
+					case IA_CMPLEU:
+						return BC_BRANCHS_EQ;
+					case IA_CMPNE:
+					case IA_CMPGU:
+						return BC_BRANCHS_NE;
+					case IA_CMPGEU:
+						return BC_JUMPS;
+					case IA_CMPLU:
+						return BC_NOP;
+					}
+				}
+				else
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
+					cins.mValue = ins->mSrc[0].mIntConst;
+					mIns.Push(cins);
+				}
 			}
 			code = TransposeBranchCondition(code);
 		}
@@ -2762,15 +2830,55 @@ ByteCode ByteCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const 
 			mIns.Push(lins);
 			if (csigned)
 			{
-				ByteCodeInstruction	cins(BC_BINOP_CMPSI_16);
-				cins.mValue = ins->mSrc[0].mIntConst;
-				mIns.Push(cins);
+				if (ins->mSrc[0].mIntConst == 0)
+				{
+					switch (ins->mOperator)
+					{
+					case IA_CMPEQ:
+						return BC_BRANCHS_EQ;
+					case IA_CMPNE:
+						return BC_BRANCHS_NE;
+					case IA_CMPLES:
+						return BC_BRANCHS_LE;
+					case IA_CMPGS:
+						return BC_BRANCHS_GT;
+					case IA_CMPGES:
+						return BC_BRANCHS_GE;
+					case IA_CMPLS:
+						return BC_BRANCHS_LT;
+					}
+				}
+				else
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPSI_16);
+					cins.mValue = ins->mSrc[0].mIntConst;
+					mIns.Push(cins);
+				}
 			}
 			else
 			{
-				ByteCodeInstruction	cins(BC_BINOP_CMPUI_16);
-				cins.mValue = ins->mSrc[0].mIntConst;
-				mIns.Push(cins);
+				if (ins->mSrc[0].mIntConst == 0)
+				{
+					switch (ins->mOperator)
+					{
+					case IA_CMPEQ:
+					case IA_CMPLEU:
+						return BC_BRANCHS_EQ;
+					case IA_CMPNE:
+					case IA_CMPGU:
+						return BC_BRANCHS_NE;
+					case IA_CMPGEU:
+						return BC_JUMPS;
+					case IA_CMPLU:
+						return BC_NOP;
+					}
+				}
+				else
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPUI_16);
+					cins.mValue = ins->mSrc[0].mIntConst;
+					mIns.Push(cins);
+				}
 			}
 			code = TransposeBranchCondition(code);
 		}
@@ -3629,8 +3737,19 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			else
 			{
 				ByteCode code = RelationalOperator(iproc, ins);
-				ByteCodeInstruction	bins(ByteCode(code - BC_BRANCHS_EQ + BC_SET_EQ));
-				mIns.Push(bins);
+				if (code == BC_JUMPS)
+				{
+					IntConstToAccu(1);
+				}
+				else if (code == BC_NOP)
+				{
+					IntConstToAccu(0);
+				}
+				else
+				{
+					ByteCodeInstruction	bins(ByteCode(code - BC_BRANCHS_EQ + BC_SET_EQ));
+					mIns.Push(bins);
+				}
 				ByteCodeInstruction	sins(StoreTypedTmpCodes[ins->mDst.mType]);
 				sins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp];
 				mIns.Push(sins);
@@ -3669,7 +3788,7 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 				lins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp];
 				lins.mRegisterFinal = ins->mSrc[0].mFinal;
 				mIns.Push(lins);
-				ByteCodeInstruction	sins(BC_STORE_REG_16);
+				ByteCodeInstruction	sins(InterTypeSize[ins->mDst.mType] == 1 ? BC_STORE_REG_8 : BC_STORE_REG_16);
 				sins.mRegister = BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp];
 				mIns.Push(sins);
 			}
@@ -3777,7 +3896,7 @@ bool ByteCodeBasicBlock::JoinTailCodeSequences(void)
 	return changed;
 }
 
-bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
+bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 {
 	bool	changed = false;
 
@@ -3806,6 +3925,44 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 				i++;
 			}
 			mIns.SetSize(j);
+
+			// check reg addr up
+			// 
+#if 1
+			for (int i = 2; i < mIns.Size(); i++)
+			{
+				if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister != BC_REG_ACCU && mIns[i].mRegisterFinal)
+				{
+					int j = i;
+					while (j > 0 && !mIns[j - 1].ChangesAddr() && !mIns[j - 1].UsesAddr() && !mIns[j - 1].ChangesRegister(mIns[j].mRegister) && !mIns[j - 1].UsesRegister(mIns[j].mRegister))
+					{
+						ByteCodeInstruction	bins = mIns[j - 1];
+						mIns[j - 1] = mIns[j];
+						mIns[j] = bins;
+						j--;
+					}
+				}
+			}
+#endif
+#if 1
+			if (phase == 2)
+			{
+				for (int i = 2; i < mIns.Size(); i++)
+				{
+					if (mIns[i].mCode >= BC_LOAD_ADDR_8 && mIns[i].mCode <= BC_STORE_ADDR_32)
+					{
+						int j = i;
+						while (j > 0 && !mIns[j - 1].ChangesAddr() && !mIns[j - 1].ChangesRegister(mIns[j].mRegister) && !mIns[j - 1].UsesRegister(mIns[j].mRegister))
+						{
+							ByteCodeInstruction	bins = mIns[j - 1];
+							mIns[j - 1] = mIns[j];
+							mIns[j] = bins;
+							j--;
+						}
+					}
+				}
+			}
+#endif
 
 			// mark accu live
 
@@ -3913,7 +4070,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						progress = true;
 					}
 					else if (mIns[i].mCode == BC_STORE_REG_16 &&
-						!mIns[i + 1].ChangesAddr() && mIns[i + 1].mRegister != mIns[i].mRegister &&
+						!mIns[i + 1].ChangesAddr() && !mIns[i + 1].UsesAddr() && mIns[i + 1].mRegister != mIns[i].mRegister &&
 						mIns[i + 2].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
 					{
 						mIns[i].mCode = BC_ADDR_REG;
@@ -4053,6 +4210,18 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						progress = true;
 					}
 #endif
+#if 1
+					else if (
+						mIns[i + 0].mCode == BC_STORE_REG_16 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_16 &&
+						mIns[i + 2].mCode == BC_BINOP_SUBR_16 && mIns[i].mRegister == mIns[i + 2].mRegister && mIns[i + 2].mRegisterFinal)
+					{
+						mIns[i + 0].mCode = BC_OP_NEGATE_16;
+						mIns[i + 1].mCode = BC_BINOP_ADDR_16;
+						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
+					}
+#endif
 					else if (
 						mIns[i + 0].mCode == BC_LEA_ABS && mIns[i + 0].mRegister == BC_REG_ACCU &&
 						mIns[i + 1].mCode == BC_BINOP_ADDR_16 &&
@@ -4175,7 +4344,13 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i].mCode = BC_NOP;
 						progress = true;
 					}
-					else if ((mIns[i].mCode == BC_CONST_16 || mIns[i].mCode == BC_CONST_P8 || mIns[i].mCode == BC_CONST_N8) && 
+					else if (mIns[i].mCode == BC_LOAD_REG_16 && mIns[i + 1].mCode == BC_LOAD_REG_8 && mIns[i + 1].mRegister == BC_REG_ACCU)
+					{
+						mIns[i].mCode = BC_LOAD_REG_8;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if ((mIns[i].mCode == BC_CONST_16 || mIns[i].mCode == BC_CONST_P8 || mIns[i].mCode == BC_CONST_N8) &&
 							(mIns[i + 1].mCode == BC_CONST_16 || mIns[i + 1].mCode == BC_CONST_P8 || mIns[i + 1].mCode == BC_CONST_N8 || mIns[i + 1].mCode == BC_CONST_32) && mIns[i].mRegister == mIns[i + 1].mRegister)
 					{
 						mIns[i].mCode = BC_NOP;
@@ -4207,6 +4382,14 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 						mIns[i + 1].mCode = BC_NOP;
 						progress = true;
 					}
+
+					if ((mIns[i].mCode == BC_LOAD_ABS_U8 || mIns[i].mCode == BC_LOAD_ADDR_U8 || mIns[i].mCode == BC_LOAD_ABS_16 || mIns[i].mCode == BC_LOAD_ADDR_16) && mIns[i].mRegister == BC_REG_ACCU &&
+						mIns[i + 1].mCode == BC_STORE_REG_16 && !(mIns[i + 1].mLive & LIVE_ACCU))
+					{
+						mIns[i].mRegister = mIns[i + 1].mRegister;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
 #endif
 #if 0
 					else if ((mIns[i].mCode == BC_LOAD_LOCAL_16 || mIns[i].mCode == BC_LOAD_ABS_16) && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
@@ -4227,6 +4410,14 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 #endif
 				if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister == addrTemp)
 				{
+					if (mIns[i].mRegisterFinal)
+					{
+						int	j = i;
+						while (j > 0 && !mIns[j - 1].UsesRegister(mIns[i].mRegister) && !mIns[j - 1].ChangesRegister(mIns[i].mRegister))
+							j--;
+						if (j > 0 && mIns[j - 1].UsesRegister(mIns[i].mRegister))
+							mIns[j - 1].mRegisterFinal = true;
+					}
 					mIns[i].mCode = BC_NOP;
 					progress = true;
 				}
@@ -4300,9 +4491,9 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(void)
 				changed = true;
 		} while (progress);
 
-		if (mTrueJump && mTrueJump->PeepHoleOptimizer())
+		if (mTrueJump && mTrueJump->PeepHoleOptimizer(phase))
 			changed = true;
-		if (mFalseJump && mFalseJump->PeepHoleOptimizer())
+		if (mFalseJump && mFalseJump->PeepHoleOptimizer(phase))
 			changed = true;
 	}
 
@@ -4329,9 +4520,24 @@ void ByteCodeBasicBlock::Assemble(ByteCodeGenerator* generator)
 
 void ByteCodeBasicBlock::Close(ByteCodeBasicBlock* trueJump, ByteCodeBasicBlock* falseJump, ByteCode branch)
 {
-	this->mTrueJump = this->mTrueLink = trueJump;
-	this->mFalseJump = this->mFalseLink = falseJump;
-	this->mBranch = branch;
+	if (branch == BC_NOP)
+	{
+		this->mTrueJump = this->mTrueLink = falseJump;
+		this->mFalseJump = this->mFalseLink = nullptr;
+		this->mBranch = BC_JUMPS;
+	}
+	else if (branch == BC_JUMPS)
+	{
+		this->mTrueJump = this->mTrueLink = trueJump;
+		this->mFalseJump = this->mFalseLink = nullptr;
+		this->mBranch = BC_JUMPS;
+	}
+	else
+	{
+		this->mTrueJump = this->mTrueLink = trueJump;
+		this->mFalseJump = this->mFalseLink = falseJump;
+		this->mBranch = branch;
+	}
 }
 
 static int BranchByteSize(int from, int to)
@@ -4595,12 +4801,14 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 #if 1
 	bool	progress = false;
 
+	int	phase = 0;
+
 	do {
 
 		progress = false;
 
 		ResetVisited();
-		progress = entryBlock->PeepHoleOptimizer();
+		progress = entryBlock->PeepHoleOptimizer(phase);
 
 		ResetVisited();
 		for (int i = 0; i < mBlocks.Size(); i++)
@@ -4610,6 +4818,12 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 		ResetVisited();
 		if (entryBlock->JoinTailCodeSequences())
 			progress = true;
+
+		if (!progress && phase < 4)
+		{
+			phase++;
+			progress = true;
+		}
 
 	} while (progress);
 #endif

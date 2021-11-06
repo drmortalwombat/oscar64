@@ -175,9 +175,9 @@ bool Compiler::GenerateCode(void)
 	mGlobalAnalyzer->mCompilerOptions = mCompilerOptions;
 
 	mGlobalAnalyzer->AnalyzeAssembler(dcrtstart->mValue, nullptr);
-	mGlobalAnalyzer->DumpCallGraph();
+//	mGlobalAnalyzer->DumpCallGraph();
 	mGlobalAnalyzer->AutoInline();
-	mGlobalAnalyzer->DumpCallGraph();
+//	mGlobalAnalyzer->DumpCallGraph();
 
 	mInterCodeGenerator->mCompilerOptions = mCompilerOptions;
 	mNativeCodeGenerator->mCompilerOptions = mCompilerOptions;

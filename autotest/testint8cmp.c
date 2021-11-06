@@ -2,6 +2,7 @@
 #include <assert.h>
 
 typedef signed char int8;
+typedef unsigned char uint8;
 
 bool beq(int8 a, int8 b)
 {
@@ -128,6 +129,73 @@ bool ngez(int8 a)
 
 
 
+
+
+
+bool bequz(uint8 a)
+{
+	return a == 0;
+}
+
+bool bltuz(uint8 a)
+{
+	return a < 0;
+}
+
+bool bgtuz(uint8 a)
+{
+	return a > 0;
+}
+
+bool bleuz(uint8 a)
+{
+	return a <= 0;
+}
+
+bool bgeuz(uint8 a)
+{
+	return a >= 0;
+}
+
+bool nequz(uint8 a)
+{
+	return a == 0;
+}
+
+#pragma native(nequz)
+
+bool nltuz(uint8 a)
+{
+	return a < 0;
+}
+
+#pragma native(nltuz)
+
+bool ngtuz(uint8 a)
+{
+	return a > 0;
+}
+
+#pragma native(ngtuz)
+
+bool nleuz(uint8 a)
+{
+	return a <= 0;
+}
+
+#pragma native(nleuz)
+
+bool ngeuz(uint8 a)
+{
+	return a >= 0;
+}
+
+#pragma native(ngeuz)
+
+
+
+
+
 bool beq1(int8 a)
 {
 	return a == 1;
@@ -209,6 +277,21 @@ void cmpz(int8 a)
 {
 	bool	beqf = beqz(a), bltf = bltz(a), bgtf = bgtz(a), blef = blez(a), bgef = bgez(a);
 	bool	neqf = neqz(a), nltf = nltz(a), ngtf = ngtz(a), nlef = nlez(a), ngef = ngez(a);
+	
+	printf("BYTE   %d, 0 : EQ %d LT %d GT %d\r", a, beqf, bltf, bgtf);
+	printf("NATIVE %d, 0 : EQ %d LT %d GT %d\r", a, neqf, nltf, ngtf);
+	
+	assert(beqf == neqf);
+	assert(bltf == nltf);
+	assert(bgtf == ngtf);	
+	assert(blef == nlef);
+	assert(bgef == ngef);	
+}
+
+void cmpuz(uint8 a)
+{
+	bool	beqf = bequz(a), bltf = bltuz(a), bgtf = bgtuz(a), blef = bleuz(a), bgef = bgeuz(a);
+	bool	neqf = nequz(a), nltf = nltuz(a), ngtf = ngtuz(a), nlef = nleuz(a), ngef = ngeuz(a);
 	
 	printf("BYTE   %d, 0 : EQ %d LT %d GT %d\r", a, beqf, bltf, bgtf);
 	printf("NATIVE %d, 0 : EQ %d LT %d GT %d\r", a, neqf, nltf, ngtf);
@@ -412,6 +495,12 @@ int main(void)
 	cmpz(127);
 	cmpz(-1);
 	cmpz(-128);
+
+	cmpuz(0);
+	cmpuz(1);
+	cmpuz(127);
+	cmpuz(128);
+	cmpuz(255);
 
 	cmp1(0);
 	cmp1(1);

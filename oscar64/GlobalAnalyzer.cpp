@@ -81,7 +81,9 @@ void GlobalAnalyzer::AutoInline(void)
 
 				if (doinline)
 					{
+#if 0
 					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
+#endif
 					f->mFlags |= DTF_INLINE;
 					for (int j = 0; j < f->mCallers.Size(); j++)
 					{
@@ -130,7 +132,9 @@ void GlobalAnalyzer::AutoInline(void)
 			if (nparams <= 8)
 			{
 				f->mBase->mFlags |= DTF_FASTCALL;
+#if 0
 				printf("FASTCALL %s\n", f->mIdent->mString);
+#endif
 			}
 
 		}

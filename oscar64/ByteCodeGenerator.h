@@ -209,6 +209,7 @@ public:
 	bool ChangesRegister(uint32 reg) const;
 
 	bool UsesAccu(void) const;
+	bool UsesAddr(void) const;
 	bool UsesRegister(uint32 reg) const;
 
 	bool LoadsRegister(uint32 reg) const;
@@ -290,7 +291,7 @@ public:
 	bool JoinTailCodeSequences(void);
 	bool SameTail(ByteCodeInstruction& ins);
 
-	bool PeepHoleOptimizer(void);
+	bool PeepHoleOptimizer(int phase);
 };
 
 class ByteCodeGenerator;

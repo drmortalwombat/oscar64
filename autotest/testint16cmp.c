@@ -126,6 +126,69 @@ bool ngez(int a)
 
 
 
+bool bequz(unsigned a)
+{
+	return a == 0;
+}
+
+bool bltuz(unsigned a)
+{
+	return a < 0;
+}
+
+bool bgtuz(unsigned a)
+{
+	return a > 0;
+}
+
+bool bleuz(unsigned a)
+{
+	return a <= 0;
+}
+
+bool bgeuz(unsigned a)
+{
+	return a >= 0;
+}
+
+bool nequz(unsigned a)
+{
+	return a == 0;
+}
+
+#pragma native(nequz)
+
+bool nltuz(unsigned a)
+{
+	return a < 0;
+}
+
+#pragma native(nltuz)
+
+bool ngtuz(unsigned a)
+{
+	return a > 0;
+}
+
+#pragma native(ngtuz)
+
+bool nleuz(unsigned a)
+{
+	return a <= 0;
+}
+
+#pragma native(nleuz)
+
+bool ngeuz(unsigned a)
+{
+	return a >= 0;
+}
+
+#pragma native(ngeuz)
+
+
+
+
 bool beq1(int a)
 {
 	return a == 1;
@@ -210,6 +273,21 @@ void cmpz(int a)
 	
 	printf("BYTE   %d, 0 : EQ %d LT %d GT %d\r", a, beqf, bltf, bgtf);
 	printf("NATIVE %d, 0 : EQ %d LT %d GT %d\r", a, neqf, nltf, ngtf);
+	
+	assert(beqf == neqf);
+	assert(bltf == nltf);
+	assert(bgtf == ngtf);	
+	assert(blef == nlef);
+	assert(bgef == ngef);	
+}
+
+void cmpuz(unsigned a)
+{
+	bool	beqf = bequz(a), bltf = bltuz(a), bgtf = bgtuz(a), blef = bleuz(a), bgef = bgeuz(a);
+	bool	neqf = nequz(a), nltf = nltuz(a), ngtf = ngtuz(a), nlef = nleuz(a), ngef = ngeuz(a);
+	
+	printf("BYTE   %u, 0 : EQ %u LT %d GT %u\r", a, beqf, bltf, bgtf);
+	printf("NATIVE %u, 0 : EQ %u LT %d GT %u\r", a, neqf, nltf, ngtf);
 	
 	assert(beqf == neqf);
 	assert(bltf == nltf);
@@ -315,6 +393,17 @@ int main(void)
 	cmpz(-256);
 	cmpz(-10000);
 	cmpz(-20000);
+
+	cmpuz(0);
+	cmpuz(1);
+	cmpuz(255);
+	cmpuz(256);
+	cmpuz(10000);
+	cmpuz(20000);
+	cmpuz(40000);
+	cmpuz(32767);
+	cmpuz(32768);
+	cmpuz(65535);
 
 	cmp1(0);
 	cmp1(1);
