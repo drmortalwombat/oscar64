@@ -76,6 +76,7 @@ public:
 	bool ChangesCarry(void) const;
 	bool RequiresAccu(void) const;
 	bool RequiresYReg(void) const;
+	bool RequiresXReg(void) const;
 	bool ChangesYReg(void) const;
 	bool ChangesXReg(void) const;
 	bool ChangesZeroPage(int address) const;

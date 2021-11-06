@@ -542,6 +542,17 @@ bool NativeCodeInstruction::RequiresYReg(void) const
 	return false;
 }
 
+bool NativeCodeInstruction::RequiresXReg(void) const
+{
+	if (mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_INDIRECT_X || mMode == ASMIM_ZERO_PAGE_X)
+		return true;
+	if (mType == ASMIT_TXA || mType == ASMIT_STX || mType == ASMIT_CPX || mType == ASMIT_INX || mType == ASMIT_DEX)
+		return true;
+
+	return false;
+}
+
+
 bool NativeCodeInstruction::ChangesYReg(void) const
 {
 	return mType == ASMIT_TAY || mType == ASMIT_LDY || mType == ASMIT_INY || mType == ASMIT_DEY || mType == ASMIT_JSR;
@@ -9133,18 +9144,34 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 #if 1
 		//
-		// move ldy down
+		// move ldx/y down
 
 		for (int i = 0; i + 1 < mIns.Size(); i++)
 		{
-			if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE)
+			if (mIns[i].mType == ASMIT_LDY)
 			{
 				if (!mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
 				{
-					NativeCodeInstruction	ins = mIns[i];
-					mIns[i] = mIns[i + 1];
-					mIns[i + 1] = ins;
-					mIns[i + 1].mLive |= mIns[i].mLive;
+					if (mIns[i].mMode == ASMIM_IMMEDIATE || !mIns[i + 1].ChangesAddress())
+					{
+						NativeCodeInstruction	ins = mIns[i];
+						mIns[i] = mIns[i + 1];
+						mIns[i + 1] = ins;
+						mIns[i + 1].mLive |= mIns[i].mLive;
+					}
+				}
+			}
+			else if (mIns[i].mType == ASMIT_LDX)
+			{
+				if (!mIns[i + 1].RequiresXReg() && !mIns[i + 1].ChangesXReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				{
+					if (mIns[i].mMode == ASMIM_IMMEDIATE || !mIns[i + 1].ChangesAddress())
+					{
+						NativeCodeInstruction	ins = mIns[i];
+						mIns[i] = mIns[i + 1];
+						mIns[i + 1] = ins;
+						mIns[i + 1].mLive |= mIns[i].mLive;
+					}
 				}
 			}
 		}
@@ -9440,6 +9467,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						progress = true;
 					}
+#if 1
+					else if (
+						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_A)))
+					{
+						mIns[i + 0].mType = ASMIT_LDA;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 1].mType = ASMIT_ASL;
+						mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns.Insert(i + 2, NativeCodeInstruction(ASMIT_TAY, ASMIM_IMPLIED));
+						mIns[i + 2].mLive = mIns[i + 1].mLive;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+						progress = true;
+					}
+#endif
 					else if (
 						mIns[i + 0].mType == ASMIT_TXA &&
 						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
@@ -9512,7 +9554,24 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 1].mType = ASMIT_NOP;
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+						mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+					{
+						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= mIns[i + 1].mLive;
+						mIns[i + 1].mType = ASMIT_NOP;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+						mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+					{
+						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= mIns[i + 1].mLive;
+						mIns[i + 1].mType = ASMIT_NOP;
+						progress = true;
+					}
 
+#if 1
 					else if (
 						(mIns[i + 0].mType == ASMIT_ASL || mIns[i + 0].mType == ASMIT_LSR || mIns[i + 0].mType == ASMIT_ROL || mIns[i + 0].mType == ASMIT_ROR) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress && !(mIns[i + 1].mLive & LIVE_MEM))
@@ -9524,6 +9583,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 0].mType = ASMIT_LDA;
 						progress = true;
 					}
+#endif
+
 #if 1
 					else if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
 					{
@@ -9575,7 +9636,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 								{
 									mIns[i + 0].mType = ASMIT_NOP;
 									mIns.Insert(apos, NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, iins->mAddress));
-									mIns[apos].mLive = LIVE_CPU_REG_Y;
+									mIns[apos].mLive = LIVE_CPU_REG_Y | LIVE_MEM;
 								}
 								else
 								{
@@ -9825,6 +9886,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 							else
 							{
 								mIns.Insert(i + 2, NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
+								mIns[i + 2].mLive = mIns[i + 3].mLive | LIVE_CPU_REG_Y | LIVE_MEM;
 								mIns[i + 3].mAddress = breg;
 							}
 							progress = true;

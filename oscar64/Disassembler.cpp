@@ -571,7 +571,7 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			i += 2;
 			break;
 		case BC_STORE_ADDR_32:
-			fprintf(file, "MOV\t%d(ADDR), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOVD\t%d(ADDR), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
 			i += 2;
 			break;
 
