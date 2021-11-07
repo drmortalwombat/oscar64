@@ -4731,7 +4731,9 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						changed = true;
 					}
 					else if (
-						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1]->mDst.mTemp] && !mExitRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp] &&
+						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1]->mDst.mTemp] &&
+						(!mExitRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp] ||
+						 (mEntryRequiredTemps[mInstructions[i + 1]->mDst.mTemp] && !mEntryRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp])) &&
 						mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp)
 					{
 						mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;

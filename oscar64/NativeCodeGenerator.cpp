@@ -7343,7 +7343,51 @@ bool NativeCodeBasicBlock::ApplyEntryDataSet(void)
 	return changed;
 }
 
-void NativeCodeBasicBlock::CollectZeroPageUsage(NumberSet& used)
+void NativeCodeBasicBlock::FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int	accu = -1;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				if (mIns[i].mType == ASMIT_LDA)
+					accu = mIns[i].mAddress;
+				else if (mIns[i].mType == ASMIT_STA)
+				{
+					if (accu < 0 || !statics[accu])
+						invalid += mIns[i].mAddress;
+					else if (alias[mIns[i].mAddress])
+					{
+						if (alias[mIns[i].mAddress] != accu)
+							invalid += mIns[i].mAddress;
+					}
+					else
+					{
+						alias[mIns[i].mAddress] = accu;
+					}
+				}
+				else if (mIns[i].ChangesAccu())
+					accu = -1;
+				else if (mIns[i].ChangesAddress())
+					invalid += mIns[i].mAddress;
+			}
+			else if (mIns[i].ChangesAccu())
+				accu = -1;
+		}
+
+		if (mTrueJump)
+			mTrueJump->FindZeroPageAlias(statics, invalid, alias);
+		if (mFalseJump)
+			mFalseJump->FindZeroPageAlias(statics, invalid, alias);
+	}
+}
+
+void NativeCodeBasicBlock::CollectZeroPageUsage(NumberSet& used, NumberSet &modified, NumberSet& pairs)
 {
 	if (!mVisited)
 	{
@@ -7355,10 +7399,13 @@ void NativeCodeBasicBlock::CollectZeroPageUsage(NumberSet& used)
 			{
 			case ASMIM_ZERO_PAGE:
 				used += mIns[i].mAddress;
+				if (mIns[i].ChangesAddress())
+					modified += mIns[i].mAddress;
 				break;
 			case ASMIM_INDIRECT_Y:
 				used += mIns[i].mAddress + 0;
 				used += mIns[i].mAddress + 1;
+				pairs += mIns[i].mAddress;
 				break;
 			case ASMIM_ABSOLUTE:
 				if (mIns[i].mType == ASMIT_JSR && mIns[i].mLinkerObject)
@@ -7376,9 +7423,9 @@ void NativeCodeBasicBlock::CollectZeroPageUsage(NumberSet& used)
 		}
 
 		if (mTrueJump)
-			mTrueJump->CollectZeroPageUsage(used);
+			mTrueJump->CollectZeroPageUsage(used, modified, pairs);
 		if (mFalseJump)
-			mFalseJump->CollectZeroPageUsage(used);
+			mFalseJump->CollectZeroPageUsage(used, modified, pairs);
 	}
 }
 
@@ -7419,6 +7466,46 @@ void NativeCodeBasicBlock::GlobalRegisterXMap(int reg)
 			mTrueJump->GlobalRegisterXMap(reg);
 		if (mFalseJump)
 			mFalseJump->GlobalRegisterXMap(reg);
+	}
+}
+
+void NativeCodeBasicBlock::GlobalRegisterYMap(int reg)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+			if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == reg)
+			{
+				switch (ins.mType)
+				{
+				case ASMIT_STA:
+					ins.mType = ASMIT_TAY;
+					ins.mMode = ASMIM_IMPLIED;
+					break;
+				case ASMIT_LDA:
+					ins.mType = ASMIT_TYA;
+					ins.mMode = ASMIM_IMPLIED;
+					break;
+				case ASMIT_INC:
+					ins.mType = ASMIT_INY;
+					ins.mMode = ASMIM_IMPLIED;
+					break;
+				case ASMIT_DEC:
+					ins.mType = ASMIT_DEY;
+					ins.mMode = ASMIM_IMPLIED;
+					break;
+				}
+			}
+		}
+
+		if (mTrueJump)
+			mTrueJump->GlobalRegisterYMap(reg);
+		if (mFalseJump)
+			mFalseJump->GlobalRegisterYMap(reg);
 	}
 }
 
@@ -9281,6 +9368,36 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 #endif
 
 #if 1
+
+		// shortcut index
+
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_TAY)
+			{
+				int j = i + 2;
+				while (j < mIns.Size() && !mIns[j].ChangesXReg() && !mIns[j].ChangesYReg())
+				{
+					if (mIns[j].mMode == ASMIM_ABSOLUTE_Y)
+						mIns[j].mMode = ASMIM_ABSOLUTE_X;
+					j++;
+				}
+			}
+			else if (mIns[i].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_TAX)
+			{
+				int j = i + 2;
+				while (j < mIns.Size() && !mIns[j].ChangesXReg() && !mIns[j].ChangesYReg())
+				{
+					if (mIns[j].mMode == ASMIM_ABSOLUTE_X)
+						mIns[j].mMode = ASMIM_ABSOLUTE_Y;
+					j++;
+				}
+			}
+		}
+
+#endif
+
+#if 1
 		if (pass > 1)
 		{
 			// move high byte load down, if low byte is immediatedly needed afterwards
@@ -10508,9 +10625,9 @@ void NativeCodeProcedure::CompressTemporaries(void)
 	{
 		ResetVisited();
 
-		NumberSet	used(256);
+		NumberSet	used(256), modified(256), pairs(256);
 
-		mEntryBlock->CollectZeroPageUsage(used);
+		mEntryBlock->CollectZeroPageUsage(used, modified, pairs);
 
 		uint8	remap[256];
 		for (int i = 0; i < 256; i++)
@@ -10803,6 +10920,44 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	}
 }
 
+
+void NativeCodeProcedure::MapFastParamsToTemps(void)
+{
+	NumberSet	used(256), modified(256), statics(256), pairs(256);
+
+	ResetVisited();
+	mEntryBlock->CollectZeroPageUsage(used, modified, pairs);
+
+	used.Fill();
+
+	for (int i = BC_REG_TMP; i < 256; i++)
+		used -= i;
+	
+	for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS + 8; i++)
+		if (!modified[i])
+			statics += i;
+
+	uint8	alias[256];
+	for (int i = 0; i < 256; i++)
+		alias[i] = 0;
+
+	ResetVisited();
+	mEntryBlock->FindZeroPageAlias(statics, used, alias);
+
+	for (int i = 1; i < 256; i++)
+	{
+		if (used[i] || !alias[i] ||
+			(pairs[i] && (used[i + 1] || alias[i + 1] != alias[i] + 1)) ||
+			(pairs[i - 1] && (used[i - 1] || alias[i - 1] + 1 != alias[i])))
+		{
+			alias[i] = i;
+		}
+	}
+
+	ResetVisited();
+	mEntryBlock->RemapZeroPage(alias);
+}
+
 void NativeCodeProcedure::Optimize(void)
 {
 #if 1
@@ -10854,12 +11009,18 @@ void NativeCodeProcedure::Optimize(void)
 			mBlocks[i]->mEntryBlocks.SetSize(0);
 		mEntryBlock->CollectEntryBlocks(nullptr);
 
+		if (step == 2)
+		{
+			MapFastParamsToTemps();
+		}
+
 		if (step > 2)
 		{
 			ResetVisited();
 			if (mEntryBlock->JoinTailCodeSequences())
 				changed = true;
 		}
+
 		if (step == 3)
 		{
 			ResetVisited();
@@ -10901,7 +11062,20 @@ void NativeCodeProcedure::Optimize(void)
 					changed = true;
 				}
 			}
-#endif
+			
+			if (!changed && yregs[0] >= 0)
+			{
+				int j = 1;
+				for (int i = 0; i < 256; i++)
+					if (yregs[i] > yregs[j])
+						j = i;
+				if (yregs[j] > 0)
+				{
+					ResetVisited();
+					mEntryBlock->GlobalRegisterYMap(j);
+					changed = true;
+				}
+			}
 
 			if (!changed)
 			{
@@ -10909,6 +11083,7 @@ void NativeCodeProcedure::Optimize(void)
 				if (mEntryBlock->LocalRegisterXYMap())
 					changed = true;
 			}
+#endif
 		}
 #if 1
 		ResetVisited();
