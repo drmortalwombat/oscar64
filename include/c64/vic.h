@@ -49,7 +49,7 @@ struct VIC
 	byte	spr_msbx;
 
 	volatile byte	ctrl1;
-	byte	raster;
+	volatile byte	raster;
 	byte	lpx, lpy;
 	byte	spr_enable;
 	byte	ctrl2;
