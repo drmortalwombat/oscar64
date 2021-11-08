@@ -127,8 +127,9 @@ public:
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
 
+	NativeCodeBasicBlock* FindTailBlock(NativeCodeBasicBlock* head);
 	bool OptimizeInnerLoops(NativeCodeProcedure* proc);
-	bool CheckInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& blocks);
+	void CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks);
 
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);

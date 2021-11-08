@@ -8979,33 +8979,47 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 	return false;
 }
 
-bool NativeCodeBasicBlock::CheckInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& blocks)
+void NativeCodeBasicBlock::CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks)
 {
-	if (mVisited)
-		return this == head;
-	else if (mLoopHead)
-		return false;
-	else if (mLoopHeadBlock != head)
+	if (mLoopHeadBlock != head)
+	{
+		mLoopHeadBlock = head;
+		lblocks.Push(this);
+
+		if (mTrueJump != head && mFalseJump != head)
+		{
+			if (mTrueJump)
+				mTrueJump->CollectInnerLoop(head, lblocks);
+			if (mFalseJump)
+				mFalseJump->CollectInnerLoop(head, lblocks);
+		}
+	}
+}
+
+NativeCodeBasicBlock* NativeCodeBasicBlock::FindTailBlock(NativeCodeBasicBlock* head)
+{
+	if (mVisiting || mVisited)
+		return nullptr;
+	else if (mTrueJump == head || mFalseJump == head)
+		return this;
+	else
 	{
 		mVisiting = true;
 
-		if (mTrueJump && mTrueJump->CheckInnerLoop(head, blocks))
-			mLoopHeadBlock = head;
-		if (mFalseJump && mFalseJump->CheckInnerLoop(head, blocks))
-			mLoopHeadBlock = head;
+		NativeCodeBasicBlock* tail = nullptr;
+		if (mTrueJump)
+		{
+			tail = mTrueJump->FindTailBlock(head);
+			if (tail && mFalseJump && mFalseJump->FindTailBlock(head) != tail)
+				tail = nullptr;
+		}
+		else if (mFalseJump)
+			tail = mFalseJump->FindTailBlock(head);
 
 		mVisiting = false;
 
-		if (head == mLoopHeadBlock)
-		{
-			blocks.Push(this);
-			return true;
-		}
-
-		return false;
-	}
-	else
-		return true;
+		return tail;
+	}	
 }
 
 bool NativeCodeBasicBlock::OptimizeInnerLoops(NativeCodeProcedure* proc)
@@ -9014,46 +9028,20 @@ bool NativeCodeBasicBlock::OptimizeInnerLoops(NativeCodeProcedure* proc)
 
 	if (!mVisited)
 	{
-		mVisited = true;
-
-		GrowingArray<NativeCodeBasicBlock*>	 lblocks(nullptr);
-
 		if (mLoopHead)
 		{
-			lblocks.Push(this);
+			NativeCodeBasicBlock* tail = FindTailBlock(this);
 
-			bool	check = false;
-
-			if (mTrueJump && mTrueJump->CheckInnerLoop(this, lblocks))
-				check = true;
-			if (mFalseJump && mFalseJump->CheckInnerLoop(this, lblocks))
-				check = true;
-
-			if (check)
+			if (tail)
 			{
-				// Find tail block
+				GrowingArray<NativeCodeBasicBlock*>	 lblocks(nullptr);
+				CollectInnerLoop(this, lblocks);
 
-				int i = 0;
-				while (i < lblocks.Size() && !(lblocks[i]->mTrueJump == this || lblocks[i]->mFalseJump == this))
-					i++;
-
-				NativeCodeBasicBlock* tail = lblocks[i];
-
-				i++;
-				while (i < lblocks.Size() && !(lblocks[i]->mTrueJump == this || lblocks[i]->mFalseJump == this))
-					i++;
-
-				if (i < lblocks.Size())
-				{
-					// Multi tail block
-
-				}
-				else
-				{
-					changed = OptimizeInnerLoop(proc, this, tail, lblocks);
-				}
+				changed = OptimizeInnerLoop(proc, this, tail, lblocks);
 			}
 		}
+
+		mVisited = true;
 
 		if (mTrueJump && mTrueJump->OptimizeInnerLoops(proc))
 			changed = true;
@@ -9656,22 +9644,12 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 					}
 					else if (
 						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[i + 1].mAddress &&
-						(mIns[i + 1].mType == ASMIT_LSR || mIns[i + 1].mType == ASMIT_ASL || mIns[i + 1].mType == ASMIT_ROL || mIns[i + 1].mType == ASMIT_ROR))
+						(mIns[i + 1].mType == ASMIT_LSR || mIns[i + 1].mType == ASMIT_ASL || mIns[i + 1].mType == ASMIT_ROL || mIns[i + 1].mType == ASMIT_ROR) && !(mIns[i + 0].mLive & LIVE_CPU_REG_A))
 					{
 						mIns[i + 0].mType = mIns[i + 1].mType;
 						mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 1].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 0].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 1].mType = ASMIT_STA;
-						mIns[i + 0].mType = ASMIT_ASL;
-						mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						progress = true;
 					}
 #if 1

@@ -1055,15 +1055,25 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 					else
 					{
-						vr = CoerceType(proc, block, vr, vll.mType);
+						Declaration	*	otype = vll.mType;
+						if (exp->mToken != IA_ADD && exp->mToken != IA_SUB && otype->mSize < 2)
+						{
+							if ((vll.mType->mFlags | vr.mType->mFlags) & DTF_SIGNED)
+								otype = TheSignedIntTypeDeclaration;
+							else
+								otype = TheUnsignedIntTypeDeclaration;
+							vll = CoerceType(proc, block, vll, otype);
+						}
+
+						vr = CoerceType(proc, block, vr, otype);
 
 						InterInstruction	*	oins = new InterInstruction();
 						oins->mCode = IC_BINARY_OPERATOR;
-						oins->mSrc[0].mType = InterTypeOf(vr.mType);
+						oins->mSrc[0].mType = InterTypeOf(otype);
 						oins->mSrc[0].mTemp = vr.mTemp;
-						oins->mSrc[1].mType = InterTypeOf(vll.mType);
+						oins->mSrc[1].mType = InterTypeOf(otype);
 						oins->mSrc[1].mTemp = vll.mTemp;
-						oins->mDst.mType = InterTypeOf(vll.mType);
+						oins->mDst.mType = InterTypeOf(otype);
 						oins->mDst.mTemp = proc->AddTemporary(oins->mDst.mType);
 
 						if (!vll.mType->IsNumericType())
@@ -1115,9 +1125,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						}
 
 						vr.mTemp = oins->mDst.mTemp;
-						vr.mType = vll.mType;
+						vr.mType = otype;
 
 						block->Append(oins);
+
+						vr = CoerceType(proc, block, vr, vl.mType);
 					}
 				}
 				else
