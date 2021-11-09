@@ -1736,6 +1736,17 @@ bool HasSideEffect(InterCode code)
 	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER;
 }
 
+bool IsMoveable(InterCode code)
+{
+	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
+		return false;
+	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
+		return false;
+
+	return true;
+}
+
+
 bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps)
 {
 	bool	changed = false;
@@ -4096,6 +4107,92 @@ void InterCodeBasicBlock::MarkRelevantStatics(void)
 	}
 }
 
+bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
+{
+	int i;
+
+	bool changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump && mFalseJump)
+		{
+			NumberSet	trueExitRequiredTemps(mTrueJump->mEntryRequiredTemps), falseExitRequiredTems(mFalseJump->mEntryRequiredTemps);
+			NumberSet	providedTemps(mExitRequiredTemps.Size()), requiredTemps(mExitRequiredTemps.Size());
+
+			bool	hadStore = false;
+
+			int i = mInstructions.Size();
+			while (i > 0)
+			{
+				i--;
+				InterInstruction* ins(mInstructions[i]);
+
+				bool	moved = false;
+
+				if (ins->mDst.mTemp >= 0 && !providedTemps[ins->mDst.mTemp] && !requiredTemps[ins->mDst.mTemp])
+				{
+					int j = 0;
+					while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && providedTemps[ins->mSrc[j].mTemp]))
+						j++;
+
+					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && (ins->mCode != IC_LOAD || !hadStore))
+					{
+						if (mTrueJump->mNumEntries == 1 && trueExitRequiredTemps[ins->mDst.mTemp] && !falseExitRequiredTems[ins->mDst.mTemp])
+						{
+							for (int j = 0; j < ins->mNumOperands; j++)
+							{
+								if (ins->mSrc[j].mTemp >= 0)
+									trueExitRequiredTemps += ins->mSrc[j].mTemp;
+							}
+							mTrueJump->mInstructions.Insert(0, ins);
+							mInstructions.Remove(i);
+							moved = true;
+							changed = true;
+						}
+						else if (mFalseJump->mNumEntries == 1 && !trueExitRequiredTemps[ins->mDst.mTemp] && falseExitRequiredTems[ins->mDst.mTemp])
+						{
+							for (int j = 0; j < ins->mNumOperands; j++)
+							{
+								if (ins->mSrc[j].mTemp >= 0)
+									falseExitRequiredTems += ins->mSrc[j].mTemp;
+							}
+							mFalseJump->mInstructions.Insert(0, ins);
+							mInstructions.Remove(i);
+							moved = true;
+							changed = true;
+						}
+					}
+
+					providedTemps += ins->mDst.mTemp;
+				}
+
+				if (!moved)
+				{
+					for (int j = 0; j < ins->mNumOperands; j++)
+					{
+						if (ins->mSrc[j].mTemp >= 0)
+							requiredTemps += ins->mSrc[j].mTemp;
+					}
+				}
+
+				if (HasSideEffect(ins->mCode))
+					hadStore = true;
+
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PushSinglePathResultInstructions())
+			changed = true;
+		if (mFalseJump && mFalseJump->PushSinglePathResultInstructions())
+			changed = true;
+	}
+
+	return changed;
+}
+
 void InterCodeBasicBlock::RemoveNonRelevantStatics(void)
 {
 	int i;
@@ -4401,16 +4498,6 @@ InterCodeBasicBlock* InterCodeBasicBlock::PropagateDominator(InterCodeProcedure*
 	}
 
 	return mDominator ? mDominator : this;
-}
-
-bool IsMoveable(InterCode code)
-{
-	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
-		return false;
-	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
-		return false;
-
-	return true;
 }
 
 void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedParams)
@@ -5465,6 +5552,23 @@ void InterCodeProcedure::Close(void)
 	RemoveUnusedInstructions();
 
 	DisassembleDebug("Peephole optimized");
+
+	bool	changed = false;
+	do
+	{
+		BuildDataFlowSets();
+
+		ResetVisited();
+		changed = mEntryBlock->PushSinglePathResultInstructions();
+
+	} while (changed);
+
+	BuildDataFlowSets();
+
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	DisassembleDebug("Moved single path instructions");
 
 	FastNumberSet	activeSet(numTemps);
 

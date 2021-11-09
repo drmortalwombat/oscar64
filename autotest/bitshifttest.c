@@ -74,6 +74,85 @@ unsigned shr8n(int n)
 
 #pragma native(shr8n)
 
+
+void shl8xb(unsigned char xu, signed char xi)
+{
+	unsigned char 	ua[16];
+	signed char 	ia[16];
+#assign s 0
+#repeat
+	ua[s] = xu << s;
+	ia[s] = xi << s;
+#assign s s + 1
+#until s == 16	
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ua[i] == (unsigned char)(xu << i));
+		assert(ia[i] == (signed char)(xi << i));
+	}
+}
+
+void shr8xb(unsigned char xu, signed char xi)
+{
+	unsigned char	ua[16];
+	signed char		ia[16];
+#assign s 0
+#repeat
+	ua[s] = xu >> s;
+	ia[s] = xi >> s;
+#assign s s + 1
+#until s == 16	
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ua[i] == (unsigned char)(xu >> i));
+		assert(ia[i] == (signed char)(xi >> i));
+	}
+}
+
+void shl8xn(unsigned char xu, signed char xi)
+{
+	unsigned char	ua[16];
+	signed char	    ia[16];
+#assign s 0
+#repeat
+	ua[s] = xu << s;
+	ia[s] = xi << s;
+#assign s s + 1
+#until s == 16	
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ua[i] == (unsigned char)(xu << i));
+		assert(ia[i] == (signed char)(xi << i));
+	}
+}
+
+void shr8xn(unsigned char xu, signed char xi)
+{
+	unsigned char	ua[16];
+	signed char		ia[16];
+#assign s 0
+#repeat
+	ua[s] = xu >> s;
+	ia[s] = xi >> s;
+#assign s s + 1
+#until s == 16	
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ua[i] == (unsigned char)(xu >> i));
+		assert(ia[i] == (signed char)(xi >> i));
+	}
+}
+
+#pragma native(shl8xn)
+#pragma native(shr8xn)
+
+
+
+
 void shl16b(unsigned xu, int xi)
 {
 	unsigned	ua[16];
@@ -247,6 +326,27 @@ int main(void)
 		assert(shl8b(i) == shl8n(i));
 		assert(shr8b(i) == shr8n(i));
 	}
+
+
+	shl8xb(0x00, 0x00);
+	shl8xb(0xff, 0xff);
+	shl8xb(0x34, 0x34);
+	shl8xb(0xdc, 0xdc);
+
+	shr8xb(0x00, 0x00);
+	shr8xb(0xff, 0xff);
+	shr8xb(0x34, 0x34);
+	shr8xb(0xdc, 0xdc);
+
+	shl8xn(0x00, 0x00);
+	shl8xn(0xff, 0xff);
+	shl8xn(0x34, 0x34);
+	shl8xn(0xdc, 0xdc);
+
+	shr8xn(0x00, 0x00);
+	shr8xn(0xff, 0xff);
+	shr8xn(0x34, 0x34);
+	shr8xn(0xdc, 0xdc);
 
 	shl16b(0x0000, 0x0000);
 	shl16b(0xffff, 0xffff);

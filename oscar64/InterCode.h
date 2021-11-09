@@ -502,6 +502,8 @@ public:
 	void MarkRelevantStatics(void);
 	void RemoveNonRelevantStatics(void);
 
+	bool PushSinglePathResultInstructions(void);
+
 	void PeepholeOptimization(void);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);
 
