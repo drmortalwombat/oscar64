@@ -54,6 +54,9 @@ if %errorlevel% neq 0 goto :error
 call :test testint32cmp.c
 if %errorlevel% neq 0 goto :error
 
+call :test testinterval.c
+if %errorlevel% neq 0 goto :error
+
 call :test floatstringtest.c
 if %errorlevel% neq 0 goto :error
 

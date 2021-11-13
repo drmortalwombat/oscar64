@@ -514,6 +514,8 @@ public:
 
 	bool IsEqual(const InterCodeBasicBlock* block) const;
 
+	void CompactInstructions(void);
+	bool OptimizeIntervalCompare(void);
 };
 
 class InterCodeModule;

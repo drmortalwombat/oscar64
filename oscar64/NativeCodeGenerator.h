@@ -174,6 +174,8 @@ public:
 	void MarkLoopHead(void);
 
 	bool MoveLoadStoreUp(int at);
+	bool MoveLoadStoreXUp(int at);
+
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
 	bool MoveLoadAddImmStoreUp(int at);

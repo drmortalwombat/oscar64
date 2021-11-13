@@ -14,6 +14,11 @@ int InterTypeSize[] = {
 	2
 };
 
+static bool IsIntegerType(InterType type)
+{
+	return type >= IT_INT8 && type <= IT_INT32;
+}
+
 ValueSet::ValueSet(void)
 {
 	mSize = 32;
@@ -4451,6 +4456,94 @@ bool InterCodeBasicBlock::IsEqual(const InterCodeBasicBlock* block) const
 	return false;
 }
 
+bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int	sz = mInstructions.Size();
+		if (sz >= 2 && mTrueJump && mFalseJump && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+			mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp && !mExitRequiredTemps[mInstructions[sz - 1]->mSrc[0].mTemp] && 
+			IsIntegerType(mInstructions[sz - 2]->mSrc[0].mType))
+		{
+			if (mInstructions[sz - 2]->mOperator == IA_CMPGES && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
+			{
+				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc->mTemp)
+				{
+					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
+					{
+						if (mTrueJump->mInstructions[0]->mOperator == IA_CMPLS && mInstructions[sz - 2]->mSrc[0].mIntConst == 0 && mTrueJump->mInstructions[0]->mSrc[0].mIntConst > 0)
+						{
+							mInstructions[sz - 2]->mOperator = IA_CMPLU;
+							mInstructions[sz - 2]->mSrc[0].mIntConst = mTrueJump->mInstructions[0]->mSrc[0].mIntConst;
+							mTrueJump->mNumEntries--;
+							mTrueJump = mTrueJump->mTrueJump;
+							mTrueJump->mNumEntries++;
+							changed = true;
+						}
+						else if (mTrueJump->mInstructions[0]->mOperator == IA_CMPLES && mInstructions[sz - 2]->mSrc[0].mIntConst == 0 && mTrueJump->mInstructions[0]->mSrc[0].mIntConst > 0)
+						{
+							mInstructions[sz - 2]->mOperator = IA_CMPLEU;
+							mInstructions[sz - 2]->mSrc[0].mIntConst = mTrueJump->mInstructions[0]->mSrc[0].mIntConst;
+							mTrueJump->mNumEntries--;
+							mTrueJump = mTrueJump->mTrueJump;
+							mTrueJump->mNumEntries++;
+							changed = true;
+						}
+					}
+				}				
+			}
+			else if (mInstructions[sz - 2]->mOperator == IA_CMPLS && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
+			{
+				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc->mTemp)
+				{
+					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
+					{
+						if (mTrueJump->mInstructions[0]->mOperator == IA_CMPGES && mInstructions[sz - 2]->mSrc[0].mIntConst > 0 && mTrueJump->mInstructions[0]->mSrc[0].mIntConst == 0)
+						{
+							mInstructions[sz - 2]->mOperator = IA_CMPLU;
+							mTrueJump->mNumEntries--;
+							mTrueJump = mTrueJump->mTrueJump;
+							mTrueJump->mNumEntries++;
+							changed = true;
+						}
+					}
+				}
+			}
+			else if (mInstructions[sz - 2]->mOperator == IA_CMPLES && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
+			{
+				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc->mTemp)
+				{
+					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
+					{
+						if (mTrueJump->mInstructions[0]->mOperator == IA_CMPGES && mInstructions[sz - 2]->mSrc[0].mIntConst > 0 && mTrueJump->mInstructions[0]->mSrc[0].mIntConst == 0)
+						{
+							mInstructions[sz - 2]->mOperator = IA_CMPLEU;
+							mTrueJump->mNumEntries--;
+							mTrueJump = mTrueJump->mTrueJump;
+							mTrueJump->mNumEntries++;
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->OptimizeIntervalCompare())
+			changed = true;
+		if (mFalseJump && mFalseJump->OptimizeIntervalCompare())
+			changed = true;
+	}
+
+	return changed;
+}
+
 void InterCodeBasicBlock::FollowJumps(void)
 {
 	if (!mVisited)
@@ -4655,6 +4748,29 @@ static bool IsCommutative(InterOperator op)
 {
 	return op == IA_ADD || op == IA_MUL || op == IA_AND || op == IA_OR || op == IA_XOR;
 }
+void InterCodeBasicBlock::CompactInstructions(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int	j = 0;
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i]->mCode != IC_NONE)
+			{
+				mInstructions[j++] = mInstructions[i];
+			}
+		}
+		mInstructions.SetSize(j);
+
+		if (mTrueJump)
+			mTrueJump->CompactInstructions();
+		if (mFalseJump)
+			mFalseJump->CompactInstructions();
+	}
+}
+
 void InterCodeBasicBlock::PeepholeOptimization(void)
 {
 	int		i;
@@ -5527,6 +5643,16 @@ void InterCodeProcedure::Close(void)
 
 	BuildDominators();
 	DisassembleDebug("added dominators");
+
+	ResetVisited();
+	mEntryBlock->CompactInstructions();
+
+	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->OptimizeIntervalCompare();
+
+	DisassembleDebug("interval compare");
 
 	BuildDataFlowSets();
 

@@ -272,6 +272,12 @@ public:
 
 	int Size(void) const { return size; }
 
+	T Last() const
+	{
+		assert(size > 0);
+		return array[size - 1];
+	}
+
 	void SetSize(int size, bool clear = false)
 	{
 		Grow(size, clear);
