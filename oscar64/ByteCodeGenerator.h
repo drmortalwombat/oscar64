@@ -226,6 +226,8 @@ public:
 	bool IsSame(const ByteCodeInstruction& ins) const;
 
 	bool ValueForwarding(ByteCodeInstruction*& accuIns, ByteCodeInstruction*& addrIns);
+
+	bool CheckAccuSize(uint32 & used);
 };
 
 class ByteCodeBasicBlock
