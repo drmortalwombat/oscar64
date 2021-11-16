@@ -1273,6 +1273,25 @@ __asm inp_load_local_8
 }
 		
 #pragma	bytecode(BC_LOAD_LOCAL_8, inp_load_local_8)
+
+__asm inp_load_local_u8
+{
+		lda	(ip), y
+		tax
+		iny
+		lda	(ip), y
+		iny
+		sty	tmpy
+		tay
+		lda	(fp), y
+		sta	$00, x
+		lda #0
+		sta $01, x
+		ldy	tmpy
+		jmp	startup.exec
+}
+		
+#pragma	bytecode(BC_LOAD_LOCAL_U8, inp_load_local_u8)
 		
 __asm inp_store_local_8
 {

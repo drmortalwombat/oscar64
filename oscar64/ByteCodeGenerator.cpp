@@ -577,6 +577,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		break;
 
 	case BC_LOAD_LOCAL_8:
+	case BC_LOAD_LOCAL_U8:
 	case BC_LOAD_LOCAL_16:
 	case BC_LOAD_LOCAL_32:
 	case BC_STORE_LOCAL_8:
@@ -4539,6 +4540,24 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						progress = true;
 					}
 #endif
+					else if (
+						mIns[i + 0].mCode == BC_LOAD_LOCAL_8 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_8 && mIns[i + 1].mRegister == mIns[i + 0].mRegister && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i + 0].mCode = BC_LOAD_LOCAL_U8;
+						mIns[i + 0].mRegister = BC_REG_ACCU;
+						mIns[i + 0].mLive |= LIVE_ACCU;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mCode == BC_LOAD_LOCAL_U8 && mIns[i + 0].mRegister == BC_REG_ACCU &&
+						mIns[i + 1].mCode == BC_STORE_REG_16 && !(mIns[i + 1].mLive & LIVE_ACCU))
+					{
+						mIns[i + 0].mRegister = mIns[i + 1].mRegister;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
 
 #if 0
 					else if ((mIns[i].mCode == BC_LOAD_LOCAL_16 || mIns[i].mCode == BC_LOAD_ABS_16) && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)

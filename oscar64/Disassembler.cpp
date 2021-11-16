@@ -193,6 +193,10 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			fprintf(file, "MOVB\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
 			i += 2;
 			break;
+		case BC_LOAD_LOCAL_U8:
+			fprintf(file, "MOVUB\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			i += 2;
+			break;
 		case BC_LOAD_LOCAL_16:
 			fprintf(file, "MOV\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
 			i += 2;
