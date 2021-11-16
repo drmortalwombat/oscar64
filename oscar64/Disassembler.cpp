@@ -166,6 +166,11 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			i += 3;
 			break;
 
+		case BC_LEA_ACCU_INDEX:
+			fprintf(file, "LEAX\tADDR, %s + ACCU", TempName(memory[start + i + 0], tbuffer, proc));
+			i += 1;
+			break;
+
 		case BC_LEA_ABS_INDEX_U8:
 			fprintf(file, "LEAXB\tADDR, %s + %s", AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker), TempName(memory[start + i + 0], tbuffer, proc));
 			i += 3;

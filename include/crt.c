@@ -1193,6 +1193,23 @@ __asm inp_lea_abs_index_u8
 }
 
 #pragma	bytecode(BC_LEA_ABS_INDEX_U8, inp_lea_abs_index_u8)
+
+__asm inp_lea_accu_index
+{
+		lda	(ip), y
+		tax
+		iny
+		clc
+		lda $00, x
+		adc	accu
+		sta	addr
+		lda $01, x
+		adc accu + 1
+		sta	addr + 1
+		jmp	startup.exec
+}
+
+#pragma	bytecode(BC_LEA_ACCU_INDEX, inp_lea_accu_index)
 				
 __asm inp_load_local_16
 {
