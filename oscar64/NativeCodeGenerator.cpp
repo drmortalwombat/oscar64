@@ -2303,7 +2303,13 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 	else if (mType == ASMIT_JSR && mLinkerObject && (mLinkerObject->mFlags & LOBJF_INLINE))
 	{
 		int	pos = block->mCode.Size();
-		for (int i = 0; i < mLinkerObject->mSize - 1; i++)
+		int size = mLinkerObject->mSize;
+
+		// skip RTS on embedding
+		if (mLinkerObject->mData[size - 1] == 0x60)
+			size--;
+
+		for (int i = 0; i < size; i++)
 			block->PutByte(mLinkerObject->mData[i]);
 		for (int i = 0; i < mLinkerObject->mReferences.Size(); i++)
 		{

@@ -2359,7 +2359,9 @@ Expression* Parser::ParseAssembler(void)
 	vdasm->mBase = dassm;
 
 	Expression* ifirst = new Expression(mScanner->mLocation, EX_ASSEMBLER);
-	Expression* ilast = ifirst;
+	Expression* ilast = ifirst, * ifinal = ifirst;
+
+	bool		exitLabel = false;
 
 	ifirst->mDecType = dassm;
 	ifirst->mDecValue = vdasm;
@@ -2381,6 +2383,8 @@ Expression* Parser::ParseAssembler(void)
 				else
 					mScanner->NextToken();
 
+				exitLabel = true;
+
 				Declaration* dec = mScope->Lookup(label);
 				if (dec)
 				{
@@ -2398,6 +2402,8 @@ Expression* Parser::ParseAssembler(void)
 			}
 			else
 			{
+				exitLabel = false;
+
 				ilast->mAsmInsType = ins;
 				mScanner->NextToken();
 				if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_CLOSE_BRACE)
@@ -2506,6 +2512,8 @@ Expression* Parser::ParseAssembler(void)
 
 				offset += AsmInsSize(ilast->mAsmInsType, ilast->mAsmInsMode);
 
+				ifinal = ilast;
+
 				ilast->mRight = new Expression(mScanner->mLocation, EX_ASSEMBLER);
 				ilast = ilast->mRight;
 			}
@@ -2523,8 +2531,17 @@ Expression* Parser::ParseAssembler(void)
 		 }
 	}
 
-	ilast->mAsmInsType = ASMIT_RTS;
-	ilast->mAsmInsMode = ASMIM_IMPLIED;
+	if ((ifinal->mAsmInsType == ASMIT_RTS || ifinal->mAsmInsType == ASMIT_JMP) && !exitLabel)
+	{
+		delete ilast;
+		ilast = ifinal;
+		ifinal->mRight = nullptr;
+	}
+	else
+	{
+		ilast->mAsmInsType = ASMIT_RTS;
+		ilast->mAsmInsMode = ASMIM_IMPLIED;
+	}
 
 #if 0
 	offset = 0;
