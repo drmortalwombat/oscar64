@@ -84,6 +84,7 @@ inline int sprintf_s(char* buffer, int size, const char* format, ...)
 extern uint8 BC_REG_WORK;
 extern uint8 BC_REG_WORK_Y;
 extern uint8 BC_REG_FPARAMS;
+extern uint8 BC_REG_FPARAMS_END;
 
 extern uint8 BC_REG_IP;
 extern uint8 BC_REG_ACCU;

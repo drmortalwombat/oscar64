@@ -20,7 +20,7 @@ const char* ByteCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodePro
 		return "ADDR";
 	else if (tmp == BC_REG_ACCU)
 		return "ACCU";
-	else if (tmp >= BC_REG_FPARAMS && tmp <= BC_REG_FPARAMS + 7)
+	else if (tmp >= BC_REG_FPARAMS && tmp < BC_REG_FPARAMS_END)
 	{
 		sprintf_s(buffer, 10, "P%d", tmp - BC_REG_FPARAMS);
 		return buffer;
@@ -723,7 +723,7 @@ const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeP
 		sprintf_s(buffer, 10, "IP + %d", tmp - BC_REG_IP);
 		return buffer;
 	}
-	else if (tmp >= BC_REG_FPARAMS && tmp <= BC_REG_FPARAMS + 7)
+	else if (tmp >= BC_REG_FPARAMS && tmp < BC_REG_FPARAMS_END)
 	{
 		sprintf_s(buffer, 10, "P%d", tmp - BC_REG_FPARAMS);
 		return buffer;

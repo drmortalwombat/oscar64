@@ -29,6 +29,8 @@ __asm inp_exit
 		sta	$54
 		lda #0
 		sta $13
+		lda #$19
+		sta $16
 		rts
 }
 

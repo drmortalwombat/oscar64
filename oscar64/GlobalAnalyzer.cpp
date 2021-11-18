@@ -129,7 +129,7 @@ void GlobalAnalyzer::AutoInline(void)
 				dec = dec->mNext;
 			}
 
-			if (nparams <= 8)
+			if (nparams <= BC_REG_FPARAMS_END - BC_REG_FPARAMS)
 			{
 				f->mBase->mFlags |= DTF_FASTCALL;
 #if 0
@@ -289,7 +289,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		{
 			if (ldec->mType == DT_VARIABLE)
 				ldec->mFlags |= DTF_VAR_ALIASING;
-		}
+		} 
+		else if (exp->mToken == TK_MUL)
+			return exp->mDecType;
 		break;
 	case EX_POSTFIX:
 		break;

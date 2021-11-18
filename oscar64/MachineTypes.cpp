@@ -3,6 +3,7 @@
 uint8 BC_REG_WORK = 0x03;
 uint8 BC_REG_WORK_Y = 0x02;
 uint8 BC_REG_FPARAMS = 0x0d;
+uint8 BC_REG_FPARAMS_END = 0x19;
 
 uint8 BC_REG_IP = 0x19;
 uint8 BC_REG_ACCU = 0x1b;

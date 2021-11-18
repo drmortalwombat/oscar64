@@ -201,8 +201,8 @@ public:
 	bool ApplyEntryDataSet(void);
 
 	void CollectZeroPageUsage(NumberSet& used, NumberSet& modified, NumberSet& pairs);
-	void FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias);
-	void RemapZeroPage(const uint8* remap);
+	void FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias, int accu);
+	bool RemapZeroPage(const uint8* remap);
 
 	void GlobalRegisterXYCheck(int* xregs, int * yregs);
 	void GlobalRegisterXMap(int reg);
@@ -238,7 +238,7 @@ class NativeCodeProcedure
 
 		void CompileInterBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* iblock, NativeCodeBasicBlock*block);
 
-		void MapFastParamsToTemps(void);
+		bool MapFastParamsToTemps(void);
 		void CompressTemporaries(void);
 
 		void BuildDataFlowSets(void);

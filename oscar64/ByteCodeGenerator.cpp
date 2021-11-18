@@ -4259,6 +4259,16 @@ bool ByteCodeBasicBlock::JoinTailCodeSequences(void)
 			}
 		}
 
+		if (mTrueJump && mFalseJump && mTrueJump->mEntryBlocks.Size() == 1 && mFalseJump->mEntryBlocks.Size() == 1)
+		{
+			while (mTrueJump->mIns.Size() > 0 && mFalseJump->mIns.Size() > 0 && !mTrueJump->mIns[0].ChangesAccu() && mTrueJump->mIns[0].IsSame(mFalseJump->mIns[0]))
+			{
+				mIns.Push(mTrueJump->mIns[0]);
+				mTrueJump->mIns.Remove(0);
+				mFalseJump->mIns.Remove(0);
+			}
+		}
+
 		if (mTrueJump && mTrueJump->JoinTailCodeSequences())
 			changed = true;
 		if (mFalseJump && mFalseJump->JoinTailCodeSequences())
@@ -4359,7 +4369,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 
 //			assert(!(live & LIVE_ACCU));
 
-			int	accuTemp = -1, addrTemp = -1, accuVal = 0;
+			int	accuTemp = -1, addrTemp = -1, accuVal = 0, accuTempByte = -1;
 			bool	accuConst = false;
 
 			for (int i = 0; i < mIns.Size(); i++)
@@ -4442,6 +4452,22 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						mIns[i + 3].mCode = BC_NOP;
 						if (mIns[i + 3].mRegisterFinal && !mIns[i + 1].UsesRegister(mIns[i + 0].mRegister))
 							mIns[i + 0].mCode = BC_NOP;
+						progress = true;
+					}
+#endif
+#if 1
+					else if (
+						mIns[i + 0].mCode == BC_STORE_REG_16 &&
+						mIns[i + 1].mCode == BC_BINOP_MULI8_16 && mIns[i + 1].mRegister == mIns[i + 0].mRegister &&
+						mIns[i + 2].mCode == BC_LOAD_REG_16 && mIns[i + 2].mRegister != mIns[i + 0].mRegister &&
+						mIns[i + 3].IsCommutative() && mIns[i + 3].mRegister == mIns[i + 0].mRegister && mIns[i + 3].mRegisterFinal)
+					{
+						mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mRegister = BC_REG_ACCU;
+						mIns[i + 1].mLive |= LIVE_ACCU;
+						mIns[i + 2].mCode = BC_NOP;
+						mIns[i + 3].mRegister = mIns[i + 2].mRegister;
+						mIns[i + 3].mRegisterFinal = mIns[i + 2].mRegisterFinal;
 						progress = true;
 					}
 #endif
@@ -4790,6 +4816,12 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						mIns[i + 1].mCode = BC_NOP;
 						progress = true;
 					}
+					else if (mIns[i + 0].mCode == BC_LOAD_REG_16 && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i + 1].mRegister == BC_REG_ACCU && !(mIns[i + 1].mLive & LIVE_ACCU))
+					{
+						mIns[i + 0].mCode = BC_ADDR_REG;
+						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
 					else if (mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i].LoadsRegister(mIns[i + 1].mRegister) && mIns[i + 1].mRegisterFinal)
 					{
 						mIns[i].mRegister = BC_REG_ACCU;
@@ -5005,6 +5037,19 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						mIns[i + 1].mCode = BC_NOP;
 						progress = true;
 					}
+#if 1
+					else if (
+						i + 2 == mIns.Size() && mFalseJump &&
+						mIns[i + 0].mCode == BC_LOAD_REG_8 &&
+						mIns[i + 1].mCode == BC_BINOP_CMPUR_8 && accuTempByte == mIns[i + 1].mRegister && !(mExitLive & LIVE_ACCU)
+						)
+					{
+						mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mRegister = mIns[i + 0].mRegister;
+						mBranch = TransposeBranchCondition(mBranch);
+						progress = true;
+					}
+#endif
 
 #if 0
 					else if ((mIns[i].mCode == BC_LOAD_LOCAL_16 || mIns[i].mCode == BC_LOAD_ABS_16) && mIns[i + 1].mCode == BC_ADDR_REG && mIns[i].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
@@ -5024,6 +5069,11 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 #endif
 #if 1
 				if ((mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32) && accuTemp == mIns[i].mRegister)
+				{
+					mIns[i].mCode = BC_NOP;
+					progress = true;
+				}
+				else if ((mIns[i].mCode == BC_LOAD_REG_8 || mIns[i].mCode == BC_STORE_REG_8) && accuTempByte == mIns[i].mRegister)
 				{
 					mIns[i].mCode = BC_NOP;
 					progress = true;
@@ -5074,18 +5124,23 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 				if (mIns[i].ChangesAccu())
 				{
 					accuTemp = -1;
+					accuTempByte = -1;
 					accuConst = false;
 				}
 				if (mIns[i].ChangesAddr())
 					addrTemp = -1;
 				if (accuTemp != -1 && mIns[i].ChangesRegister(accuTemp))
 					accuTemp = -1;
+				if (accuTempByte != -1 && mIns[i].ChangesRegister(accuTempByte))
+					accuTempByte = -1;
 				if (addrTemp != -1 && mIns[i].ChangesRegister(addrTemp))
 					addrTemp = -1;
 
 				if (mIns[i].mCode == BC_LOAD_REG_16 || mIns[i].mCode == BC_STORE_REG_16 || mIns[i].mCode == BC_LOAD_REG_32 || mIns[i].mCode == BC_STORE_REG_32)
 					accuTemp = mIns[i].mRegister;
-				if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister != BC_REG_ACCU)
+				else if (mIns[i].mCode == BC_LOAD_REG_8)
+					accuTempByte = mIns[i].mRegister;
+				else if (mIns[i].mCode == BC_ADDR_REG && mIns[i].mRegister != BC_REG_ACCU)
 					addrTemp = mIns[i].mRegister;
 
 				if (mIns[i].mRegister == BC_REG_ACCU && !mIns[i].mRelocate)
