@@ -82,6 +82,8 @@ void cwin_insert_char(CharWin * win);
 //
 void cwin_delete_char(CharWin * win);
 
+int cwin_getch(void);
+
 // Edit the window position using the char as the input
 //
 bool cwin_edit_char(CharWin * win, char ch);

@@ -255,6 +255,8 @@ void cwin_putat_char(CharWin * win, char x, char y, char ch, char color)
 	win->cp[offset] = color;
 }
 
+#pragma native(cwin_putat_char)
+
 void cwin_putat_chars(CharWin * win, char x, char y, const char * chars, char num, char color)
 {
 	int	offset = 40 * y + x;
@@ -274,6 +276,8 @@ void cwin_putat_chars(CharWin * win, char x, char y, const char * chars, char nu
 		cp[i] = color;
 	}
 }
+
+#pragma native(cwin_putat_chars)
 
 char cwin_putat_string(CharWin * win, char x, char y, const char * str, char color)
 {
@@ -297,6 +301,7 @@ char cwin_putat_string(CharWin * win, char x, char y, const char * str, char col
 	return i;
 }
 
+#pragma native(cwin_putat_string)
 
 void cwin_insert_char(CharWin * win)
 {
@@ -493,13 +498,16 @@ void cwin_scroll_down(CharWin * win, char by)
 
 void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char ch, char color)
 {
-	char * sp = win->sp + 40 * y + x;
-	char * cp = win->cp + 40 * y + x;
-
-	for(char y=0; y<h; y++)
+	if (w > 0)
 	{
-		fill_fwd(sp, cp, ch, color, w);
-		sp += 40;
-		cp += 40;		
+		char * sp = win->sp + 40 * y + x;
+		char * cp = win->cp + 40 * y + x;
+
+		for(char y=0; y<h; y++)
+		{
+			fill_fwd(sp, cp, ch, color, w);
+			sp += 40;
+			cp += 40;		
+		}
 	}
 }
