@@ -303,6 +303,39 @@ char cwin_putat_string(CharWin * win, char x, char y, const char * str, char col
 
 #pragma native(cwin_putat_string)
 
+
+char cwin_getat_char(CharWin * win, char x, char y)
+{
+	char * sp = win->sp + 40 * y + x;
+
+	char c = *sp;
+
+	if (c & 0x40)
+		c ^= 0xc0;
+	if (!(c & 0x20))
+		c |= 0x40;
+	
+	return c;
+}
+
+void cwin_getat_chars(CharWin * win, char x, char y, char * chars, char num)
+{
+	char * sp = win->sp + 40 * y + x;
+
+	for(char i=0; i<num; i++)
+	{
+		char c = sp[i];
+
+		if (c & 0x40)
+			c ^= 0xc0;
+		if (!(c & 0x20))
+			c |= 0x40;
+		
+		chars[i] = c;
+	}
+}
+
+
 void cwin_insert_char(CharWin * win)
 {
 	char y = win->wy - 1, rx = win->wx - 1;

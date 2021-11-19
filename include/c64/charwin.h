@@ -74,6 +74,17 @@ void cwin_putat_chars(CharWin * win, char x, char y, const char * chars, char nu
 //
 char cwin_putat_string(CharWin * win, char x, char y, const char * str, char color);
 
+
+// Get a single char at the given window location
+//
+char cwin_getat_char(CharWin * win, char x, char y);
+
+// Get an array of chars at the given window location
+//
+void cwin_getat_chars(CharWin * win, char x, char y, char * chars, char num);
+
+
+
 // Insert one space character at the cursor position
 //
 void cwin_insert_char(CharWin * win);
