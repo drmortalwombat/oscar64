@@ -43,7 +43,7 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 			Declaration* pdec = mScope->Insert(structName, dec);
 			if (pdec)
 			{
-				if (pdec->mType == dt && (pdec->mFlags & DTF_DEFINED))
+				if (pdec->mType == dt && !(pdec->mFlags & DTF_DEFINED))
 				{
 					dec = pdec;
 				}
@@ -68,22 +68,22 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 		for (;;)
 		{
 			Declaration* mdec = ParseDeclaration(false);
+
+			int	offset = dec->mSize;
+			if (dt == DT_TYPE_UNION)
+				offset = 0;
+
 			while (mdec)
 			{
 				if (!(mdec->mBase->mFlags & DTF_DEFINED))
 					mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
 				mdec->mType = DT_ELEMENT;
-				if (dt == DT_TYPE_UNION)
-				{
-					mdec->mOffset = 0;
-					if (mdec->mBase->mSize > dec->mSize)
-						dec->mSize = mdec->mBase->mSize;
-				}
-				else
-				{
-					mdec->mOffset = dec->mSize;
-					dec->mSize += mdec->mBase->mSize;
-				}
+				mdec->mOffset = offset;
+
+				offset += mdec->mBase->mSize;
+				if (offset > dec->mSize)
+					dec->mSize = offset;
+
 				dec->mScope->Insert(mdec->mIdent, mdec);
 				if (mlast)
 					mlast->mNext = mdec;

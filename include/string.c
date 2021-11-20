@@ -108,6 +108,8 @@ int strlen(const char * str)
 	return i;
 }
 
+#pragma native(strlen)
+
 char * strcat(char * dst, const char * src)
 {
 	char * d = dst;
@@ -120,6 +122,17 @@ char * strcat(char * dst, const char * src)
 	
 	return dst;
 }	
+
+#pragma native(strcat)
+
+char * cpycat(char * dst, const char * src)
+{
+	do {} while (*dst++ = *src++);
+	
+	return dst;	
+}
+
+#pragma native(cpycat)
 
 void * memset(void * dst, int value, int size)
 {

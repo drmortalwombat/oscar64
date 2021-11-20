@@ -9,6 +9,8 @@ int strlen(const char * str);
 
 char * strcat(char * dst, const char * src);
 
+char * cpycat(char * dst, const char * src);
+
 void * memclr(void * dst, int size);
 
 void * memset(void * dst, int value, int size);

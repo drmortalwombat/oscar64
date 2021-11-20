@@ -246,6 +246,10 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			fprintf(file, "ADD\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
 			i += 1;
 			break;
+		case BC_BINOP_ADDA_16:
+			fprintf(file, "ADD\t%s, ACCU", TempName(memory[start + i + 0], tbuffer, proc));
+			i += 1;
+			break;
 		case BC_BINOP_SUBR_16:
 			fprintf(file, "SUB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
 			i += 1;

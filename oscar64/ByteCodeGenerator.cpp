@@ -549,6 +549,10 @@ bool ByteCodeInstruction::CheckAccuSize(uint32 & used)
 		used |= 0x0000ffff;
 		break;
 
+	case BC_BINOP_ADDA_16:
+		used |= 0x0000ffff;
+		break;
+
 	case BC_BINOP_ADDI_16:
 		if (mRegister == BC_REG_ACCU)
 		{
@@ -730,6 +734,9 @@ bool ByteCodeInstruction::UsesRegister(uint32 reg) const
 
 		if (mCode >= BC_BINOP_ADD_L32 && mCode <= BC_BINOP_CMP_S32)
 			return true;
+
+		if (mCode == BC_BINOP_ADDA_16)
+			return true;
 	}
 
 	if (reg == BC_REG_ACCU)
@@ -758,6 +765,8 @@ bool ByteCodeInstruction::UsesRegister(uint32 reg) const
 		if (mCode == BC_LEA_ACCU_INDEX)
 			return true;
 		if (mCode == BC_COPY || mCode == BC_STRCPY)
+			return true;
+		if (mCode == BC_BINOP_ADDA_16)
 			return true;
 	}
 
@@ -796,6 +805,8 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 		if (mCode >= BC_BINOP_ADDI_16 && mCode <= BC_BINOP_ORI_8)
 			return true;
 		if (mCode == BC_CALL)
+			return true;
+		if (mCode == BC_BINOP_ADDA_16)
 			return true;
 	}
 
@@ -980,6 +991,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 	case BC_BINOP_SHLR_16:
 	case BC_BINOP_SHRR_U16:
 	case BC_BINOP_SHRR_I16:
+	case BC_BINOP_ADDA_16:
 		block->PutCode(generator, mCode);
 		block->PutByte(mRegister);
 		break;
@@ -4249,6 +4261,8 @@ bool ByteCodeBasicBlock::JoinTailCodeSequences(void)
 						{
 							ByteCodeBasicBlock* b = mEntryBlocks[i];
 							b->mIns.SetSize(b->mIns.Size() - 1);
+							if (mIns.Size() == 1)
+								mExitLive |= b->mExitLive;
 							b->mExitLive = LIVE_ACCU;
 						}
 						changed = true;
@@ -4779,6 +4793,29 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						mIns[i + 0].mRegister = BC_REG_ACCU;
 						mIns[i + 1].mCode = BC_NOP;
 						mIns[i + 2].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mCode == BC_LOAD_REG_16 &&
+						mIns[i + 1].mCode == BC_BINOP_ADDR_16 &&
+						mIns[i + 2].mCode == BC_STORE_REG_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && !(mIns[i + 2].mLive & LIVE_ACCU))
+					{
+						mIns[i + 0].mRegister = mIns[i + 1].mRegister;
+						mIns[i + 0].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 2].mCode = BC_BINOP_ADDA_16;
+						progress = true;
+					}
+					else if (
+						(mIns[i + 0].mCode == BC_LOAD_LOCAL_16 || mIns[i + 0].mCode == BC_LOAD_ABS_16 || mIns[i + 0].mCode == BC_LOAD_ADDR_16 ||
+						 mIns[i + 0].mCode == BC_LOAD_LOCAL_U8 || mIns[i + 0].mCode == BC_LOAD_ABS_U8 || mIns[i + 0].mCode == BC_LOAD_ADDR_U8) && 
+						mIns[i + 1].mCode == BC_BINOP_ADDR_16 && mIns[i + 0].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal &&
+						mIns[i + 2].mCode == BC_STORE_REG_16 && !(mIns[i + 2].mLive & LIVE_ACCU))
+					{
+						mIns[i + 0].mRegister = mIns[i + 2].mRegister;
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 2].mCode = BC_BINOP_ADDA_16;
+						progress = true;
 					}
 				}
 #endif
@@ -5039,6 +5076,24 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 					}
 #if 1
 					else if (
+						mIns[i + 0].mCode == BC_BINOP_ADDR_16 &&
+						mIns[i + 1].mCode == BC_STORE_REG_16 && mIns[i + 0].mRegister == mIns[i + 1].mRegister && !(mIns[i + 1].mLive & LIVE_ACCU))
+					{
+						mIns[i + 1].mCode = BC_BINOP_ADDA_16;
+						mIns[i + 0].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mCode == BC_BINOP_ADDA_16 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_16 && mIns[i + 0].mRegister == mIns[i + 1].mRegister && mIns[i + 1].mRegisterFinal)
+					{
+						mIns[i + 1].mCode = BC_BINOP_ADDR_16;
+						mIns[i + 0].mCode = BC_NOP;
+						progress = true;
+					}
+#endif
+#if 1
+					else if (
 						i + 2 == mIns.Size() && mFalseJump &&
 						mIns[i + 0].mCode == BC_LOAD_REG_8 &&
 						mIns[i + 1].mCode == BC_BINOP_CMPUR_8 && accuTempByte == mIns[i + 1].mRegister && !(mExitLive & LIVE_ACCU)
@@ -5049,6 +5104,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						mBranch = TransposeBranchCondition(mBranch);
 						progress = true;
 					}
+
 #endif
 
 #if 0

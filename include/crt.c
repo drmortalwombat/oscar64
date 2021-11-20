@@ -1885,6 +1885,22 @@ W1:		jmp	startup.yexec
 #pragma	bytecode(BC_BINOP_SHRI_I16, inp_binop_shr_s16.inp_binop_shri_s16)
 #pragma	bytecode(BC_BINOP_SHRR_I16, inp_binop_shr_s16.inp_binop_shrr_s16)
 
+__asm inp_binop_adda_16
+{
+		lda	(ip), y
+		tax
+		clc
+		lda	$00, x
+		adc	accu
+		sta $00, x
+		lda $01, x
+		adc accu + 1
+		sta $01, x
+		jmp	startup.yexec
+}
+
+#pragma	bytecode(BC_BINOP_ADDA_16, inp_binop_adda_16)
+
 __asm cmp16
 {
 inp_binop_cmpr_s16:

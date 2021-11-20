@@ -119,7 +119,7 @@ bool cwin_cursor_up(CharWin * win)
 
 bool cwin_cursor_down(CharWin * win)
 {
-	if (win->cy + 1 < win->cy)
+	if (win->cy + 1 < win->wy)
 	{		
 		win->cy++;
 		return true;
@@ -418,6 +418,8 @@ bool cwin_edit_char(CharWin * win, char ch)
 		
 	case 147:
 		cwin_clear(win);
+		win->cx = 0;
+		win->cy = 0;
 		return false;
 	
 	case 17:
