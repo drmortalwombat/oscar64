@@ -1,6 +1,13 @@
 #include "charwin.h"
 
 
+static const unsigned mul40[25] = {
+	  0,  40,  80, 120, 160,
+	200, 240, 280, 320, 360,
+	400, 440, 480, 520, 560,
+	600, 640, 680, 720, 760,
+	800, 840, 880, 920, 960
+};
 
 static void copy_fwd(char * sdp, const char * ssp, char * cdp, const char * csp, char n)
 {
@@ -46,8 +53,8 @@ void cwin_init(CharWin * win, char * screen, char sx, char sy, char wx, char wy)
 	win->wy = wy;
 	win->cx = 0;
 	win->cy = 0;
-	win->sp = screen + 40 * sy + sx;
-	win->cp = (char *)0xd800 + 40 * sy + sx;
+	win->sp = screen + mul40[sy] + sx;
+	win->cp = (char *)0xd800 + mul40[sy] + sx;
 }
 
 
@@ -70,7 +77,7 @@ void cwin_fill(CharWin * win, char ch, char color)
 
 void cwin_cursor_show(CharWin * win, bool show)
 {
-	char * cp = win->sp + 40 * win->cy + win->cx;
+	char * cp = win->sp + mul40[win->cy] + win->cx;
 	if (show)
 		*cp |= 0x80;
 	else
@@ -245,7 +252,7 @@ char cwin_put_string(CharWin * win, const char * str, char color)
 
 void cwin_putat_char(CharWin * win, char x, char y, char ch, char color)
 {
-	int	offset = 40 * y + x;
+	int	offset = mul40[y] + x;
 
 	ch &= 0xbf;
 	if (ch & 0x80)
@@ -259,7 +266,7 @@ void cwin_putat_char(CharWin * win, char x, char y, char ch, char color)
 
 void cwin_putat_chars(CharWin * win, char x, char y, const char * chars, char num, char color)
 {
-	int	offset = 40 * y + x;
+	int	offset = mul40[y] + x;
 
 	char	*	sp = win->sp + offset;
 	char	*	cp = win->cp + offset;
@@ -281,7 +288,7 @@ void cwin_putat_chars(CharWin * win, char x, char y, const char * chars, char nu
 
 char cwin_putat_string(CharWin * win, char x, char y, const char * str, char color)
 {
-	int	offset = 40 * y + x;
+	int	offset = mul40[y] + x;
 
 	char	*	sp = win->sp + offset;
 	char	*	cp = win->cp + offset;
@@ -306,7 +313,7 @@ char cwin_putat_string(CharWin * win, char x, char y, const char * str, char col
 
 char cwin_getat_char(CharWin * win, char x, char y)
 {
-	char * sp = win->sp + 40 * y + x;
+	char * sp = win->sp + mul40[y] + x;
 
 	char c = *sp;
 
@@ -320,7 +327,7 @@ char cwin_getat_char(CharWin * win, char x, char y)
 
 void cwin_getat_chars(CharWin * win, char x, char y, char * chars, char num)
 {
-	char * sp = win->sp + 40 * y + x;
+	char * sp = win->sp + mul40[y] + x;
 
 	for(char i=0; i<num; i++)
 	{
@@ -340,8 +347,8 @@ void cwin_insert_char(CharWin * win)
 {
 	char y = win->wy - 1, rx = win->wx - 1;
 
-	char * sp = win->sp + 40 * y;
-	char * cp = win->cp + 40 * y;
+	char * sp = win->sp + mul40[y];
+	char * cp = win->cp + mul40[y];
 	
 	while (y > win->cy)
 	{		
@@ -365,8 +372,8 @@ void cwin_insert_char(CharWin * win)
 
 void cwin_delete_char(CharWin * win)
 {
-	char * sp = win->sp + 40 * win->cy;
-	char * cp = win->cp + 40 * win->cy;
+	char * sp = win->sp + mul40[win->cy];
+	char * cp = win->cp + mul40[win->cy];
 	
 	char x = win->cx, rx = win->wx - 1;
 
@@ -503,7 +510,7 @@ void cwin_scroll_up(CharWin * win, char by)
 	char * cp = win->cp;
 	
 	char rx = win->wx;
-	int	dst = 40 * by;
+	int	dst = mul40[by];
 
 	for(char y=0; y<win->wy - by; y++)
 	{
@@ -515,12 +522,12 @@ void cwin_scroll_up(CharWin * win, char by)
 
 void cwin_scroll_down(CharWin * win, char by)
 {
-	char * sp = win->sp + 40 * win->wy;
-	char * cp = win->cp + 40 * win->wy;
+	char * sp = win->sp + mul40[win->wy];
+	char * cp = win->cp + mul40[win->wy];
 	
 	char rx = win->wx;
 
-	int	dst = 40 * by;
+	int	dst = mul40[by];
 
 	for(char y=0; y<win->wy - by; y++)
 	{
@@ -535,8 +542,8 @@ void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char ch, char
 {
 	if (w > 0)
 	{
-		char * sp = win->sp + 40 * y + x;
-		char * cp = win->cp + 40 * y + x;
+		char * sp = win->sp + mul40[y] + x;
+		char * cp = win->cp + mul40[y] + x;
 
 		for(char y=0; y<h; y++)
 		{

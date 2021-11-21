@@ -148,15 +148,16 @@ enum ByteCode
 	BC_SET_LT,
 	BC_SET_LE,
 
+	BC_JSR,
+
 	BC_NATIVE = 0x75,
 
 	BC_ENTER,
 	BC_RETURN,
-	BC_CALL,
+	BC_CALL_ADDR,
+	BC_CALL_ABS,
 	BC_PUSH_FRAME,
 	BC_POP_FRAME,
-
-	BC_JSR,
 
 	BC_COPY,
 	BC_COPY_LONG,
@@ -292,10 +293,13 @@ public:
 	void BinaryIntOperator(InterCodeProcedure* proc, const InterInstruction * ins, ByteCode code);
 	void NumericConversion(InterCodeProcedure* proc, const InterInstruction * ins);
 
+
+
 	void CollectEntryBlocks(ByteCodeBasicBlock * block);
 
 	bool JoinTailCodeSequences(void);
 	bool SameTail(ByteCodeInstruction& ins);
+	bool PropagateAccuCrossBorder(int accu, int addr);
 
 	bool PeepHoleOptimizer(int phase);
 };

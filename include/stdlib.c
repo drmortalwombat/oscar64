@@ -12,7 +12,7 @@ void itoa(int n, char * s, unsigned radix)
 		n = - n;
 	}
 	
-	int	i = 0;
+	char	i = 0;
     do {
 		int	d = n % radix;
 		if (d < 10)
@@ -27,7 +27,7 @@ void itoa(int n, char * s, unsigned radix)
 		s[i++] = '-';
 	}
 	s[i] = 0;
-	int	j = 0;
+	char	j = 0;
 	while (j + 1 < i)
 	{
 		char c = s[j];
@@ -38,7 +38,7 @@ void itoa(int n, char * s, unsigned radix)
 
 void utoa(unsigned int n, char * s, unsigned radix)
 {	
-	int	i = 0;
+	char	i = 0;
     do {
 		unsigned int	d = n % radix;
 		if (d < 10)
@@ -49,8 +49,8 @@ void utoa(unsigned int n, char * s, unsigned radix)
     } while ((n /= radix) > 0);
 
 	s[i] = 0;
-	int	j = 0;
-	while (j + 1 < i)
+	char	j = 0;
+	while ((char)(j + 1) < i)
 	{
 		char c = s[j];
 		s[j++] = s[--i];
@@ -66,7 +66,7 @@ void ltoa(long n, char * s, unsigned radix)
 		n = - n;
 	}
 	
-	int	i = 0;
+	char	i = 0;
     do {
 		int	d = n % radix;
 		if (d < 10)
@@ -81,7 +81,7 @@ void ltoa(long n, char * s, unsigned radix)
 		s[i++] = '-';
 	}
 	s[i] = 0;
-	int	j = 0;
+	char	j = 0;
 	while (j + 1 < i)
 	{
 		char c = s[j];
@@ -92,7 +92,7 @@ void ltoa(long n, char * s, unsigned radix)
 
 void ultoa(unsigned long n, char * s, unsigned radix)
 {	
-	int	i = 0;
+	char	i = 0;
     do {
 		unsigned int	d = n % radix;
 		if (d < 10)
@@ -103,7 +103,7 @@ void ultoa(unsigned long n, char * s, unsigned radix)
     } while ((n /= radix) > 0);
 
 	s[i] = 0;
-	int	j = 0;
+	char	j = 0;
 	while (j + 1 < i)
 	{
 		char c = s[j];

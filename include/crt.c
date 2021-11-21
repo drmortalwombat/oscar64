@@ -165,11 +165,9 @@ incip:
 		inc	ip + 1		
 		bne	execjmp
 bcode:		
-		byt	BC_LEA_ABS * 2
-		byt	addr
+		byt	BC_CALL_ABS * 2
 		byt	<main
 		byt	>main
-		byt	BC_CALL * 2
 		byt	BC_EXIT * 2
 #endif
 }
@@ -2355,7 +2353,13 @@ __asm inp_pop_frame
 #pragma	bytecode(BC_POP_FRAME, inp_pop_frame)
 
 __asm inp_call
-{
+{		lda (ip), y
+		sta addr
+		iny
+		lda (ip), y
+		sta addr + 1
+		iny
+inp_call_addr:
 		tya
 		ldy	#0
 		clc
@@ -2372,7 +2376,8 @@ __asm inp_call
 		jmp	startup.pexec
 }
 
-#pragma	bytecode(BC_CALL, inp_call)
+#pragma	bytecode(BC_CALL_ADDR, inp_call.inp_call_addr)
+#pragma	bytecode(BC_CALL_ABS, inp_call)
 
 __asm inp_copy
 {

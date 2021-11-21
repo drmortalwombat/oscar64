@@ -540,8 +540,12 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			fprintf(file, "RETURN\t%d, %d", memory[start + i], uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
 			i += 3;
 			break;
-		case BC_CALL:
-			fprintf(file, "CALL");
+		case BC_CALL_ADDR:
+			fprintf(file, "CALL\tADDR");
+			break;
+		case BC_CALL_ABS:
+			fprintf(file, "CALL\t%s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
+			i += 2;
 			break;
 		case BC_JSR:
 			fprintf(file, "JSR\t%s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
