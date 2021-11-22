@@ -4952,6 +4952,20 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						mBranch = TransposeBranchCondition(mBranch);
 						progress = true;
 					}
+					else if (
+						i + 3 == mIns.Size() && mFalseJump &&
+						mIns[i + 0].mCode == BC_STORE_REG_16 &&
+						mIns[i + 1].mCode == BC_LOAD_REG_16 &&
+						mIns[i + 2].mCode == BC_BINOP_CMPUR_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && !(mExitLive & LIVE_ACCU) && mIns[i + 2].mRegisterFinal
+						)
+					{
+						mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mCode = BC_NOP;
+						mIns[i + 2].mRegister = mIns[i + 1].mRegister;
+						mIns[i + 2].mRegisterFinal = mIns[i + 1].mRegisterFinal;
+						mBranch = TransposeBranchCondition(mBranch);
+						progress = true;
+					}
 
 #endif
 					
@@ -5185,6 +5199,16 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						mIns[i + 0].mCode = BC_LOAD_LOCAL_8;
 						mIns[i + 0].mRegister = mIns[i + 1].mRegister;
 						mIns[i + 1].mCode = BC_NOP;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mCode == BC_LOAD_REG_8 && !(mIns[i + 1].mLive & LIVE_ACCU) && 
+						(mIns[i + 1].mCode == BC_STORE_ABS_8 || mIns[i + 1].mCode == BC_STORE_LOCAL_8 || mIns[i + 1].mCode == BC_STORE_ADDR_8 || mIns[i + 1].mCode == BC_STORE_FRAME_8) &&
+						mIns[i + 1].mRegister == BC_REG_ACCU)
+					{
+						mIns[i + 0].mCode = BC_NOP;
+						mIns[i + 1].mRegister = mIns[i + 0].mRegister;
+						mIns[i + 1].mRegisterFinal = mIns[i + 0].mRegisterFinal;
 						progress = true;
 					}
 
@@ -5603,6 +5627,22 @@ void ByteCodeBasicBlock::CalculateOffset(int& total)
 					mTrueJump->CalculateOffset(total);
 				}
 			}
+#if 1
+			else if (!mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump && 
+				mTrueJump->mCode.Size() < 120 && mFalseJump->mCode.Size() < 120 && mTrueJump->mTrueJump->mOffset > mOffset)
+			{
+				// Small diamond so place true then false directly behind each other
+				// with short branches
+
+				mSize = mCode.Size() + 2;
+
+				mFalseJump->mOffset = next + 2;
+				mFalseJump->mSize = mFalseJump->mCode.Size() + 2;
+
+				total = mFalseJump->mOffset + mFalseJump->mSize;
+				mTrueJump->CalculateOffset(total);
+			}
+#endif
 			else
 			{
 				// neither falseJump nor trueJump have been placed

@@ -41,6 +41,8 @@ char * strcpy(char * dst, const char * src)
 }
 #endif
 
+#pragma native(strcpy)
+
 #if 1
 
 int strcmp(const char * ptr1, const char * ptr2)
@@ -97,6 +99,7 @@ int strcmp(const char * ptr1, const char * ptr2)
 }
 #endif
 
+#pragma native(strcmp)
 
 int strlen(const char * str)
 {
@@ -211,6 +214,8 @@ void * memcpy(void * dst, const void * src, int size)
 	return dst;
 #endif
 }
+
+#pragma native(memcpy)
 
 void * memmove(void * dst, const void * src, int size)
 {

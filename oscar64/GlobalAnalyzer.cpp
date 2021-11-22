@@ -119,7 +119,7 @@ void GlobalAnalyzer::AutoInline(void)
 	for (int i = 0; i < mFunctions.Size(); i++)
 	{
 		Declaration* f = mFunctions[i];
-		if (!(f->mFlags & DTF_INLINE) && !(f->mBase->mFlags & DTF_VARIADIC) && !(f->mFlags & DTF_FUNC_VARIABLE) && !(f->mFlags & DTF_INTRINSIC) && f->mCalled.Size() == 0)
+		if (!(f->mFlags & DTF_INLINE) && !(f->mBase->mFlags & DTF_VARIADIC) && !(f->mFlags & DTF_FUNC_VARIABLE) && f->mCalled.Size() == 0)
 		{
 			int		nparams = 0;
 			Declaration* dec = f->mBase->mParams;
