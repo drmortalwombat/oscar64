@@ -4444,7 +4444,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 					if (mIns[i].mCode >= BC_LOAD_ADDR_8 && mIns[i].mCode <= BC_STORE_ADDR_32)
 					{
 						int j = i;
-						while (j > 0 && !mIns[j - 1].ChangesAddr() && !mIns[j - 1].ChangesRegister(mIns[j].mRegister) && !mIns[j - 1].UsesRegister(mIns[j].mRegister))
+						while (j > 0 && !mIns[j - 1].ChangesAddr() && !mIns[j - 1].UsesAddr() && !mIns[j - 1].ChangesRegister(mIns[j].mRegister) && !mIns[j - 1].UsesRegister(mIns[j].mRegister))
 						{
 							ByteCodeInstruction	bins = mIns[j - 1];
 							mIns[j - 1] = mIns[j];
