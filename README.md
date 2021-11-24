@@ -38,8 +38,7 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Runtime
 
-* No INF and NaN support for floats
-* Underflow in float multiply and divide not checked
+* No NaN support for floats
 * Basic zero page variables not restored on stop/restore
 
 ### Optimizing

@@ -707,6 +707,59 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			nexp->mDecValue = ndec;
 			exp = nexp;
 		}
+		else if (exp->mType == EX_CONSTANT && exp->mDecType != dtype)
+		{
+			Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+			nexp->mDecType = dtype;
+
+			if (dtype->mType == DT_TYPE_INTEGER || dtype->mType == DT_TYPE_ENUM || dtype->mType == DT_TYPE_BOOL)
+			{
+				Declaration* ndec = new Declaration(exp->mDecValue->mLocation, DT_CONST_INTEGER);
+				ndec->mBase = dtype;
+				ndec->mSize = dtype->mSize;					
+
+				if (exp->mDecValue->mType == DT_CONST_INTEGER)
+					ndec->mInteger = exp->mDecValue->mInteger;
+				else if (exp->mDecValue->mType == DT_CONST_FLOAT)
+					ndec->mInteger = int64(exp->mDecValue->mNumber);
+				else
+					mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Illegal integer constant initializer");
+
+				nexp->mDecValue = ndec;
+			}
+			else if (dtype->mType == DT_TYPE_FLOAT)
+			{
+				Declaration* ndec = new Declaration(exp->mDecValue->mLocation, DT_CONST_FLOAT);
+				ndec->mBase = dtype;
+				ndec->mSize = dtype->mSize;
+
+				if (exp->mDecValue->mType == DT_CONST_INTEGER)
+					ndec->mNumber = double(exp->mDecValue->mInteger);
+				else if (exp->mDecValue->mType == DT_CONST_FLOAT)
+					ndec->mNumber = exp->mDecValue->mNumber;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Illegal float constant initializer");
+
+				nexp->mDecValue = ndec;
+			}
+			else if (dtype->mType == DT_TYPE_POINTER)
+			{
+				if (exp->mDecValue->mType == DT_CONST_ADDRESS)
+					;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Illegal pointer constant initializer");
+
+				nexp = exp;
+			}
+			else
+			{
+				mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Illegal constant initializer");
+				nexp = exp;
+			}
+
+			exp = nexp;
+		}
+
 	}
 
 	return exp;

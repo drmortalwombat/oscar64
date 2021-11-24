@@ -259,105 +259,114 @@ int nformf(const sinfo * si, char * str, float f, char type)
 	else if (si->sign)
 		sp[d++] = '+';		
 		
-	int	exp = 0;
-
-	char	fdigits = si->precision != 255 ? si->precision : 6;
-
-	if (f != 0.0)
+	if (isinf(f))
 	{
-		while (f >= 1000.0)
-		{
-			f /= 1000;
-			exp += 3;
-		}
-
-		while (f < 1.0)
-		{
-			f *= 1000;
-			exp -= 3;
-		}
-
-		while (f >= 10.0)
-		{
-			f /= 10;
-			exp ++;
-		}
-		
-	}
-	
-	char digits = fdigits + 1;
-	bool	fexp = type == 'e';
-
-	if (type == 'g')
-	{
-		if (exp > 3 || exp < 0)
-			fexp = true;
-	}
-
-	if (!fexp)
-	{
-		while (exp < 0)
-		{
-			f /= 10.0;
-			exp++;
-		}
-		digits = fdigits + exp + 1;
-
-		float	r = 0.5;
-		for(char i=1; i<digits; i++)
-			r /= 10.0;
-		f += r;
-		if (f >= 10.0)
-		{
-			f /= 10.0;
-			fdigits--;
-		}		
+		sp[d++] = 'I';
+		sp[d++] = 'N';
+		sp[d++] = 'F';
 	}
 	else
 	{
-		float	r = 0.5;
-		for(char i=0; i<fdigits; i++)
-			r /= 10.0;
-		f += r;
-		if (f >= 10.0)
+		int	exp = 0;
+
+		char	fdigits = si->precision != 255 ? si->precision : 6;
+
+		if (f != 0.0)
 		{
-			f /= 10.0;
-			exp ++;
+			while (f >= 1000.0)
+			{
+				f /= 1000;
+				exp += 3;
+			}
+
+			while (f < 1.0)
+			{
+				f *= 1000;
+				exp -= 3;
+			}
+
+			while (f >= 10.0)
+			{
+				f /= 10;
+				exp ++;
+			}
+			
 		}
-	}
-	
+		
+		char digits = fdigits + 1;
+		bool	fexp = type == 'e';
 
-	char	pdigits = digits - fdigits;
-
-	if (digits > 20)
-		digits = 20;
-
-	if (pdigits == 0)
-		sp[d++] = '0';
-
-	for(char i=0; i<digits; i++)
-	{
-		if (i == pdigits)
-			sp[d++] = '.';
-		int c = (int)f;
-		f -= (float)c;
-		f *= 10.0;
-		sp[d++] = c + '0';
-	}
-
-	if (fexp)
-	{
-		sp[d++] = 'E';
-		if (exp < 0)
+		if (type == 'g')
 		{
-			sp[d++] = '-';
-			exp = -exp;
+			if (exp > 3 || exp < 0)
+				fexp = true;
+		}
+
+		if (!fexp)
+		{
+			while (exp < 0)
+			{
+				f /= 10.0;
+				exp++;
+			}
+			digits = fdigits + exp + 1;
+
+			float	r = 0.5;
+			for(char i=1; i<digits; i++)
+				r /= 10.0;
+			f += r;
+			if (f >= 10.0)
+			{
+				f /= 10.0;
+				fdigits--;
+			}		
 		}
 		else
-			sp[d++] = '+';
+		{
+			float	r = 0.5;
+			for(char i=0; i<fdigits; i++)
+				r /= 10.0;
+			f += r;
+			if (f >= 10.0)
+			{
+				f /= 10.0;
+				exp ++;
+			}
+		}
 		
-		sp[d++] = exp / 10 + '0'; 
-		sp[d++] = exp % 10 + '0';		
+
+		char	pdigits = digits - fdigits;
+
+		if (digits > 20)
+			digits = 20;
+
+		if (pdigits == 0)
+			sp[d++] = '0';
+
+		for(char i=0; i<digits; i++)
+		{
+			if (i == pdigits)
+				sp[d++] = '.';
+			int c = (int)f;
+			f -= (float)c;
+			f *= 10.0;
+			sp[d++] = c + '0';
+		}
+
+		if (fexp)
+		{
+			sp[d++] = 'E';
+			if (exp < 0)
+			{
+				sp[d++] = '-';
+				exp = -exp;
+			}
+			else
+				sp[d++] = '+';
+			
+			sp[d++] = exp / 10 + '0'; 
+			sp[d++] = exp % 10 + '0';		
+		}
 	}
 
 	if (d < si->width)

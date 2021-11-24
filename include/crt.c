@@ -2474,6 +2474,22 @@ W1:
 		
 __asm faddsub
 {
+		lda #$ff
+		cmp tmp + 4
+		beq INF
+		cmp tmp + 5
+		bne nINF
+INF:
+		lda	accu + 3
+		ora #$7f
+		sta	accu + 3
+		lda #$80
+		sta accu + 2
+		lda #$00
+		sta accu + 0
+		sta accu + 1
+		rts		
+nINF:
 		sec
 		lda	tmp + 4
 		sbc	tmp + 5
@@ -2542,6 +2558,8 @@ fas_aligned:
 		inc	tmp + 4
 fas_done:
 		lda	tmp + 4
+		cmp	#$ff
+		beq	INF
 		lsr
 		ora	accu + 3
 		sta	accu + 3
@@ -2677,6 +2695,17 @@ W1:
 		sta	accu + 3
 		rts
 W2:	
+		lda	accu + 3
+		eor	tmp + 3
+		and	#$80
+		sta	accu + 3
+
+		lda #$ff
+		cmp tmp + 4
+		beq INF
+		cmp tmp + 5
+		beq INF
+
 		lda	#0
 		sta	tmp + 6
 		sta	tmp + 7
@@ -2706,17 +2735,29 @@ W5:
 		clc
 W3:		and	#$7f
 		sta	tmp + 8
-
-		lda	accu + 3
-		eor	tmp + 3
-		and	#$80
-		sta	accu + 3
 		
 		lda	tmp + 4
+		adc	tmp + 5
+		bcc W7
+
+		sbc	#$7f
+		bcs INF
+		cmp #$ff
+		bne W8
+INF:
+		lda	accu + 3
+		ora #$7f
+		sta	accu + 3
+		lda #$80
+		sta accu + 2
+		lda #$00
+		sta accu + 0
+		sta accu + 1
+		rts
+W7:
 		sbc	#$7e
-		
-		clc
-		adc	tmp + 5		
+		bcc ZERO
+W8:
 		lsr
 		ora	accu + 3
 		sta	accu + 3
@@ -2728,6 +2769,13 @@ W3:		and	#$7f
 		sta	accu + 1
 		lda	tmp + 6
 		sta	accu
+		rts
+ZERO:
+		lda #0
+		sta accu
+		sta accu + 1
+		sta accu + 2
+		sta accu + 3
 		rts
 }
 
@@ -2753,6 +2801,12 @@ W1:
 		eor	tmp + 3
 		and	#$80
 		sta	accu + 3
+
+		lda tmp + 5
+		beq INF
+		lda tmp + 4
+		cmp #$ff
+		beq INF
 
 		lda	#0
 		sta	tmp + 6
@@ -2804,12 +2858,29 @@ W4:
 		and	#$7f
 		sta	tmp + 8
 
-		lda	tmp + 5
-		eor	#$7f
-		adc	tmp + 4
-		sec
-		sbc	#1
-		
+		lda	tmp + 4
+		sbc	tmp + 5
+		bcc W5		
+
+		clc
+		adc	#$7f
+		bcs INF
+		cmp #$ff
+		bne W6
+INF:
+		lda	accu + 3
+		ora #$7f
+		sta	accu + 3
+		lda #$80
+		sta accu + 2
+		lda #$00
+		sta accu + 1
+		sta accu + 0
+		rts
+W5:
+		adc	#$7f
+		bcc ZERO
+W6:
 		lsr
 		ora	accu + 3
 		sta	accu + 3
@@ -2822,6 +2893,16 @@ W4:
 		lda	tmp + 6
 		sta	accu
 		rts
+
+ZERO:
+		lda #$00
+		sta	accu + 3
+		sta accu + 2
+		sta accu + 1
+		sta accu + 0
+		rts
+
+
 }
 
 #pragma	bytecode(BC_BINOP_MUL_F32, inp_binop_mul_f32)

@@ -199,3 +199,37 @@ float sqrt(float f)
 }
 
 
+bool isinf(float f)
+{
+	__asm
+	{
+		lda #$00
+		sta accu + 1
+		asl f + 2
+		lda f + 3
+		rol
+		eor #$ff
+		beq W1
+		lda #$01
+	W1:
+	    eor #$01
+		sta accu
+	}
+}
+
+bool isfinite(float f)
+{
+	__asm
+	{
+		lda #$00
+		sta accu + 1
+		asl f + 2
+		lda f + 3
+		rol
+		eor #$ff
+		beq W1
+		lda #$01
+	W1:
+		sta accu
+	}
+}

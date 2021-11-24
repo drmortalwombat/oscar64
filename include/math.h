@@ -23,6 +23,9 @@ float log10(float f);
 float pow(float p, float q);
 float sqrt(float f);
 
+bool isinf(float f);
+bool isfinite(float f);
+
 #pragma intrinsic(fabs)
 #pragma intrinsic(floor)
 #pragma intrinsic(ceil)
