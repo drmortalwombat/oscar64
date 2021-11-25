@@ -4408,7 +4408,7 @@ void InterCodeBasicBlock::SplitBranches(InterCodeProcedure* proc)
 	{
 		mVisited = true;
 
-		if (mTrueJump && mFalseJump && mInstructions.Size() > 2)
+		if (mTrueJump && mFalseJump && (mInstructions.Size() > 2 || mInstructions.Size() == 2 && mInstructions[0]->mCode != IC_RELATIONAL_OPERATOR))
 		{
 			InterCodeBasicBlock* block = new InterCodeBasicBlock();
 			proc->Append(block);

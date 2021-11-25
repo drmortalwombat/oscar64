@@ -247,8 +247,8 @@ public:
 	GrowingArray<LinkerReference>	mRelocations;
 	GrowingArray<ByteCodeBasicBlock*>	mEntryBlocks;
 
-	int						mOffset, mSize;
-	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mVisited;
+	int						mOffset, mSize, mPlace, mLinear;
+	bool					mPlaced, mNeedsNop, mBypassed, mAssembled, mVisited;
 	uint32					mExitLive;
 
 	ByteCodeBasicBlock(void);
@@ -266,7 +266,10 @@ public:
 	int PutBranch(ByteCodeGenerator* generator, ByteCode code, int offset);
 
 	ByteCodeBasicBlock* BypassEmptyBlocks(void);
-	void CalculateOffset(int& total);
+	void BuildPlacement(GrowingArray<ByteCodeBasicBlock*> & placement);
+	void InitialOffset(int& total, int& linear);
+	bool CalculateOffset(int & total);
+
 	void CopyCode(ByteCodeGenerator* generator, LinkerObject * linkerObject, uint8* target);
 
 	void LongConstToAccu(int64 val);

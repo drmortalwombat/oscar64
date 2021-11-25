@@ -132,6 +132,7 @@ w2:
 		jsr	main
 pexec:
 yexec:
+zexec:
 exec:
 		jmp	inp_exit
 
@@ -149,21 +150,28 @@ pexec:
 yexec:
 		iny
 exec:
-		lda	(ip), y
-		sta	execjmp + 1
-		iny		
-		bmi	incip	
-execjmp:
-		jmp 	(0x0900)
-incip:
+#if 0
 		tya		
-		ldy	#0	
 		clc		
 		adc	ip	
 		sta	ip	
-		bcc	execjmp	
+		bcc	W1
 		inc	ip + 1		
-		bne	execjmp
+W1:		ldy #0
+#endif
+		lda	(ip), y
+		sta	execjmp + 1
+		iny		
+execjmp:
+		jmp 	(0x0900)
+zexec:
+		tya		
+		clc		
+		adc	ip	
+		sta	ip	
+		bcc	pexec	
+		inc	ip + 1		
+		bne	pexec
 bcode:		
 		byt	BC_CALL_ABS * 2
 		byt	<main
@@ -642,7 +650,7 @@ L2:		jsr	divmod32
 
 __asm inp_nop
 {
-		jmp	startup.exec
+		jmp	startup.zexec
 }
 
 #pragma	bytecode(BC_NOP, inp_nop)
@@ -2051,13 +2059,13 @@ inp_jumps:
 		sta	ip
 		bcc	W2
 		inc	ip + 1
-W2:		jmp	startup.exec		
+W2:		jmp	startup.zexec		
 W1:		sec
 		adc	ip
 		sta	ip
 		bcs	W3
 		dec	ip + 1
-W3:		jmp	startup.exec		
+W3:		jmp	startup.zexec		
 	
 inp_branchs_eq:
 		lda	accu
@@ -2163,7 +2171,7 @@ inp_jumpf:
 		adc	ip + 1
 		sta	ip + 1
 		stx	ip
-		jmp	startup.exec
+		jmp	startup.zexec
 	
 inp_branchf_eq:
 		lda	accu

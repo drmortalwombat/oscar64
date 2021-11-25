@@ -1285,10 +1285,9 @@ ByteCodeBasicBlock::ByteCodeBasicBlock(void)
 {
 	mTrueJump = mFalseJump = NULL;
 	mTrueLink = mFalseLink = NULL;
-	mOffset = 0x7fffffff;
-	mCopied = false;
+	mOffset = -1;
+	mPlaced = false;
 	mAssembled = false;
-	mKnownShortBranch = false;
 	mBypassed = false;
 	mExitLive = 0;
 }
@@ -5440,10 +5439,18 @@ void ByteCodeBasicBlock::Assemble(ByteCodeGenerator* generator)
 	{
 		mAssembled = true;
 
+		int	nins = 0;
 		for (int i = 0; i < mIns.Size(); i++)
 		{
 			mIns[i].Assemble(generator, this);
+			if (mCode.Size() > nins + 240)
+			{
+				PutCode(generator, BC_NOP);
+				nins = mCode.Size();
+			}
 		}
+
+		mLinear = mCode.Size() - nins + 3;
 
 		if (this->mTrueJump)
 			this->mTrueJump->Assemble(generator);
@@ -5513,70 +5520,164 @@ void ByteCodeBasicBlock::CopyCode(ByteCodeGenerator* generator, LinkerObject* li
 {
 	int i;
 	int next, end;
-	int pos, at;
-	uint8 b;
 
-	if (!mCopied)
+	for (int i = 0; i < mRelocations.Size(); i++)
 	{
-		mCopied = true;
+		LinkerReference	rl = mRelocations[i];
+		rl.mObject = linkerObject;
+		rl.mOffset += mOffset;
+		linkerObject->AddReference(rl);
+	}
 
-		for (int i = 0; i < mRelocations.Size(); i++)
+	end = mOffset + mCode.Size();
+	next = mOffset + mSize;
+
+	if (mFalseJump)
+	{
+		if (mFalseJump->mPlace == mPlace + 1)
+			end += PutBranch(generator, mBranch, mTrueJump->mOffset - end);
+		else if (mTrueJump->mPlace == mPlace + 1)
+			end += PutBranch(generator, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
+		else
 		{
-			LinkerReference	rl = mRelocations[i];
-			rl.mObject = linkerObject;
-			rl.mOffset += mOffset;
-			linkerObject->AddReference(rl);
+			end += PutBranch(generator, mBranch, mTrueJump->mOffset - end);
+			end += PutBranch(generator, BC_JUMPS, mFalseJump->mOffset - end);
 		}
+	}
+	else if (mTrueJump)
+	{
+		if (mTrueJump->mPlace != mPlace + 1)
+			end += PutBranch(generator, mBranch, mTrueJump->mOffset - end);
+	}
 
-		end = mOffset + mCode.Size();
-		next = mOffset + mSize;
+	assert(end == next);
+
+	for (i = 0; i < mCode.Size(); i++)
+		mCode.Lookup(i, target[i + mOffset]);
+}
+
+void ByteCodeBasicBlock::BuildPlacement(GrowingArray<ByteCodeBasicBlock*>& placement)
+{
+	if (!mPlaced)
+	{
+		mPlaced = true;
+		mPlace = placement.Size();
+		placement.Push(this);
 
 		if (mFalseJump)
 		{
-			if (mFalseJump->mOffset <= mOffset)
+			if (mFalseJump->mPlaced)
+				mTrueJump->BuildPlacement(placement);
+			else if (mTrueJump->mPlaced)
+				mFalseJump->BuildPlacement(placement);
+			else if (!mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump)
 			{
-				if (mTrueJump->mOffset <= mOffset)
-				{
-					end += PutBranch(generator, mBranch, mTrueJump->mOffset - end);
-					end += PutBranch(generator, BC_JUMPS, mFalseJump->mOffset - end);
-					
-				}
-				else
-				{
-					end += PutBranch(generator, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
-				}
+				mFalseJump->mPlaced = true;
+				mFalseJump->mPlace = placement.Size();
+				placement.Push(mFalseJump);
+
+				mTrueJump->BuildPlacement(placement);
+			}
+			else if (mTrueJump->mFalseJump == mFalseJump || mTrueJump->mTrueJump == mFalseJump)
+			{
+				mTrueJump->BuildPlacement(placement);
+				mFalseJump->BuildPlacement(placement);
 			}
 			else
 			{
-				end += PutBranch(generator, mBranch, mTrueJump->mOffset - end);
+				mFalseJump->BuildPlacement(placement);
+				mTrueJump->BuildPlacement(placement);
 			}
 		}
 		else if (mTrueJump)
 		{
-			if (mTrueJump->mOffset != next)
-			{
-				end += PutBranch(generator, BC_JUMPS, mTrueJump->mOffset - end);
-			}
+			mTrueJump->BuildPlacement(placement);
 		}
-
-		assert(end == next);
-
-		for (i = 0; i < mCode.Size(); i++)
-		{
-			mCode.Lookup(i, target[i + mOffset]);
-		}
-
-		if (mTrueJump) mTrueJump->CopyCode(generator, linkerObject, target);
-		if (mFalseJump) mFalseJump->CopyCode(generator, linkerObject, target);
 	}
 }
 
-void ByteCodeBasicBlock::CalculateOffset(int& total)
+void ByteCodeBasicBlock::InitialOffset(int& total, int& linear)
 {
+	int	size = mCode.Size();
+	if (size > 240)
+		size = 240;
+
+	mNeedsNop = linear + size > 240;
+	if (mNeedsNop)
+	{
+		total++;
+		linear = 0;
+	}
+	else
+		linear += mLinear;
+
+	mOffset = total;
+	total += mCode.Size();
+	if (mFalseJump)
+	{
+		total += 3;
+		if (mFalseJump->mPlace != mPlace + 1 && mTrueJump->mPlace != mPlace + 1)
+		{
+			total += 3;
+			linear = 0;
+		}
+	}
+	else if (mTrueJump)
+	{
+		if (mTrueJump->mPlace != mPlace + 1)
+		{
+			total += 3;
+			linear = 0;
+		}
+	}
+
+	mSize = total - mOffset;
+}
+
+bool ByteCodeBasicBlock::CalculateOffset(int& total)
+{
+	if (mNeedsNop)
+		total++;
+
+	bool	changed = total != mOffset;
+	mOffset = total;
+
+	total += mCode.Size();
+
+	if (mFalseJump)
+	{
+		if (mFalseJump->mPlace == mPlace + 1)
+			total += BranchByteSize(total, mTrueJump->mOffset);
+		else if (mTrueJump->mPlace == mPlace + 1)
+			total += BranchByteSize(total, mFalseJump->mOffset);
+		else
+		{
+			total += BranchByteSize(total, mTrueJump->mOffset);
+			total += JumpByteSize(total, mFalseJump->mOffset);
+		}
+	}
+	else if (mTrueJump)
+	{
+		if (mTrueJump->mPlace != mPlace + 1)
+			total += BranchByteSize(total, mTrueJump->mOffset);
+	}
+
+	if (mOffset + mSize != total)
+		changed = true;
+
+	mSize = total - mOffset;
+
+	return changed;
+}
+
+#if 0
 	int next;
 
 	if (mOffset > total)
 	{
+		mNeedsNop = false;
+		linear += mSize + 3;
+
 		mOffset = total;
 		next = total + mCode.Size();
 
@@ -5599,6 +5700,13 @@ void ByteCodeBasicBlock::CalculateOffset(int& total)
 					// trueJump has not been placed, but falseJump has
 
 					total = next + BranchByteSize(next, mFalseJump->mOffset);
+
+					if (linear + mTrueJump->mCode.Size() > 240)
+					{
+						mNeedsNop = true;
+						total++;
+					}
+					
 					mSize = total - mOffset;
 					mTrueJump->CalculateOffset(total);
 				}
@@ -5608,6 +5716,13 @@ void ByteCodeBasicBlock::CalculateOffset(int& total)
 				// falseJump has not been placed, but trueJump has
 
 				total = next + BranchByteSize(next, mTrueJump->mOffset);
+
+				if (linear + mFalseJump->mCode.Size() > 240)
+				{
+					mNeedsNop = true;
+					total++;
+				}
+
 				mSize = total - mOffset;
 				mFalseJump->CalculateOffset(total);
 			}
@@ -5618,6 +5733,13 @@ void ByteCodeBasicBlock::CalculateOffset(int& total)
 				// a short branch
 
 				total = next + 2;
+
+				if (linear + mFalseJump->mCode.Size() > 240)
+				{
+					mNeedsNop = true;
+					total++;
+				}
+
 				mSize = total - mOffset;
 
 				mFalseJump->CalculateOffset(total);
@@ -5634,7 +5756,15 @@ void ByteCodeBasicBlock::CalculateOffset(int& total)
 				// Small diamond so place true then false directly behind each other
 				// with short branches
 
-				mSize = mCode.Size() + 2;
+				total = next + 2;
+
+				if (linear + mFalseJump->mCode.Size() > 240)
+				{
+					mNeedsNop = true;
+					total++;
+				}
+
+				mSize = total - mOffset;
 
 				mFalseJump->mOffset = next + 2;
 				mFalseJump->mSize = mFalseJump->mCode.Size() + 2;
@@ -5717,6 +5847,8 @@ void ByteCodeBasicBlock::CalculateOffset(int& total)
 		}
 	}
 }
+#endif
+
 
 ByteCodeProcedure::ByteCodeProcedure(void)
 	: mBlocks(nullptr)
@@ -5802,17 +5934,32 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 	exitBlock->PutCode(generator, BC_RETURN); exitBlock->PutByte(tempSave); exitBlock->PutWord(proc->mLocalSize + 2 + tempSave);
 
 
-	int	total;
-
 	ByteCodeBasicBlock* lentryBlock = entryBlock->BypassEmptyBlocks();
 
+	GrowingArray<ByteCodeBasicBlock*>	placement(nullptr);
+
+	int	total, linear;
 	total = 0;
+	linear = 0;
 
-	lentryBlock->CalculateOffset(total);
+	lentryBlock->BuildPlacement(placement);
 
-	uint8	*	data = proc->mLinkerObject->AddSpace(total);
+	for (int i = 0; i < placement.Size(); i++)
+		placement[i]->InitialOffset(total, linear);
 
-	lentryBlock->CopyCode(generator, proc->mLinkerObject, data);
+	do {
+		progress = false;
+		total = 0;
+		for (int i = 0; i < placement.Size(); i++)
+			if (placement[i]->CalculateOffset(total))
+				progress = true;
+	} while (progress);
+
+	uint8* data = proc->mLinkerObject->AddSpace(total);
+
+	for (int i = 0; i < placement.Size(); i++)
+		placement[i]->CopyCode(generator, proc->mLinkerObject, data);
+
 	mProgSize = total; 
 }
 
@@ -5849,6 +5996,7 @@ ByteCodeGenerator::ByteCodeGenerator(Errors* errors, Linker* linker)
 	mByteCodeUsed[BC_CALL_ABS] = 1;
 	mByteCodeUsed[BC_EXIT] = 1;
 	mByteCodeUsed[BC_NATIVE] = 1;
+	mByteCodeUsed[BC_NOP] = 1;
 
 	assert(sizeof(ByteCodeNames) == 128 * sizeof(char*));
 }
