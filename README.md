@@ -11,7 +11,7 @@ A C compiler for the 6502 thus generates large binaries if it translates to nati
 
 The resulting compiler is a frankenstein constructed from a converted javascript parser a intermediate code optimizer based on a 15 year old compiler for 64bit x86 code and some new components for the backend.
 
-The performance of interpreted code is clearly not as good as native machine code but the penalty for 16bit code is around 40-50% and less than 10% for floating point.  Code that can use 8bit my suffer up to a factor of 10 to 20.
+The performance of interpreted code is clearly not as good as native machine code but the penalty for 16bit code is around 40-50% and less than 10% for floating point.  Code that can use 8bit may suffer up to a factor of 10 to 20.
 
 The goal is to implement the actual C standard and not some subset for performance reasons.  So the compiler must support:
 
