@@ -155,6 +155,10 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			fprintf(file, "MOVD\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
 			i += 3;
 			break;
+		case BC_LOAD_ABS_ADDR:
+			fprintf(file, "MOV\tADDR, %s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
+			i += 2;
+			break;
 
 		case BC_LEA_ABS:
 			fprintf(file, "LEA\t%s, %s", TempName(memory[start + i + 0], tbuffer, proc), AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker));

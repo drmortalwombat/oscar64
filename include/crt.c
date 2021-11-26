@@ -131,6 +131,7 @@ w2:
 // All native code
 		jsr	main
 pexec:
+tyexec:
 yexec:
 zexec:
 exec:
@@ -146,32 +147,27 @@ exec:
 		sta	ip + 1
 		
 pexec:
-		ldy	#$ff
+		ldy	#0
+		beq exec
+tyexec:
+		ldy	tmpy
 yexec:
 		iny
 exec:
-#if 0
-		tya		
-		clc		
-		adc	ip	
-		sta	ip	
-		bcc	W1
-		inc	ip + 1		
-W1:		ldy #0
-#endif
 		lda	(ip), y
 		sta	execjmp + 1
 		iny		
 execjmp:
 		jmp 	(0x0900)
 zexec:
-		tya		
+		tya	
+		ldy #0
 		clc		
 		adc	ip	
 		sta	ip	
-		bcc	pexec	
+		bcc	exec	
 		inc	ip + 1		
-		bne	pexec
+		bne	exec
 bcode:		
 		byt	BC_CALL_ABS * 2
 		byt	<main
@@ -902,8 +898,7 @@ __asm inp_load_abs_8
 L0:
 		lda	(addr), y
 		sta	$00, x
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 inp_load_addr_8:
 		lda	(ip), y
 		tax
@@ -934,8 +929,7 @@ L0:
 		sta	$00, x
 		lda #0
 		sta $01, x
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 inp_load_addr_u8:
 		lda	(ip), y
 		tax
@@ -967,8 +961,7 @@ L0:
 		iny
 		lda	(addr), y
 		sta	$01, x
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 
 inp_load_addr_16:
 		lda	(ip), y
@@ -982,6 +975,28 @@ inp_load_addr_16:
 
 #pragma	bytecode(BC_LOAD_ABS_16, inp_load_abs_16)
 #pragma	bytecode(BC_LOAD_ADDR_16, inp_load_abs_16.inp_load_addr_16)
+
+__asm inp_load_abs_addr
+{
+		lda	(ip), y
+		sta	addr
+		iny
+		lda	(ip), y
+		sta	addr + 1
+		sty	tmpy
+
+		ldy #0
+		lda	(addr), y
+		tax
+		iny
+		lda	(addr), y
+		sta addr + 1
+		stx addr
+		jmp	startup.tyexec
+}
+
+#pragma	bytecode(BC_LOAD_ABS_ADDR, inp_load_abs_addr)
+
 
 __asm inp_load_abs_32
 {
@@ -1008,8 +1023,7 @@ L0:
 		iny
 		lda	(addr), y
 		sta	$03, x
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 
 inp_load_addr_32:
 		lda	(ip), y
@@ -1040,8 +1054,7 @@ L0:
 
 		lda	$00, x
 		sta	(addr), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 
 inp_store_addr_8:
 		lda	(ip), y
@@ -1074,8 +1087,7 @@ L0:
 		iny
 		lda	$01, x
 		sta	(addr), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 
 inp_store_addr_16:
 		lda	(ip), y
@@ -1114,8 +1126,7 @@ L0:
 		iny
 		lda	$03, x
 		sta	(addr), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 
 inp_store_addr_32:
 		lda	(ip), y
@@ -1210,8 +1221,7 @@ __asm inp_load_local_16
 		iny
 		lda	(fp), y
 		sta	$01, x
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_LOAD_LOCAL_16, inp_load_local_16)
@@ -1235,8 +1245,7 @@ __asm inp_load_local_32
 		iny
 		lda	(fp), y
 		sta	$03, x
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_LOAD_LOCAL_32, inp_load_local_32)
@@ -1251,8 +1260,7 @@ __asm inp_load_local_8
 		tay
 		lda	(fp), y
 		sta	$00, x
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 		
 #pragma	bytecode(BC_LOAD_LOCAL_8, inp_load_local_8)
@@ -1269,8 +1277,7 @@ __asm inp_load_local_u8
 		sta	$00, x
 		lda #0
 		sta $01, x
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 		
 #pragma	bytecode(BC_LOAD_LOCAL_U8, inp_load_local_u8)
@@ -1285,8 +1292,7 @@ __asm inp_store_local_8
 		tay
 		lda	$00, x
 		sta	(fp), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_STORE_LOCAL_8, inp_store_local_8)
@@ -1304,8 +1310,7 @@ __asm inp_store_local_16
 		iny
 		lda	$01, x
 		sta	(fp), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_STORE_LOCAL_16, inp_store_local_16)
@@ -1329,8 +1334,7 @@ __asm inp_store_local_32
 		iny
 		lda	$03, x
 		sta	(fp), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_STORE_LOCAL_32, inp_store_local_32)
@@ -1363,8 +1367,7 @@ __asm inp_store_frame_8
 		tay
 		lda	$00, x
 		sta	(sp), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_STORE_FRAME_8, inp_store_frame_8)
@@ -1382,8 +1385,7 @@ __asm inp_store_frame_16
 		iny
 		lda	$01, x
 		sta	(sp), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_STORE_FRAME_16, inp_store_frame_16)
@@ -1407,8 +1409,7 @@ __asm inp_store_frame_32
 		iny
 		lda	$03, x
 		sta	(sp), y
-		ldy	tmpy
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_STORE_FRAME_32, inp_store_frame_32)

@@ -199,14 +199,12 @@ void cwin_write_string(CharWin * win, const char * buffer)
 	{
 		for(char x=0; x<win->wx; x++)
 		{
-			char c = *buffer;
-			if (c)
+			char ch = *buffer;
+			if (ch)
 			{
-				c &= 0xbf;
-				if (c & 0x80)
-					c ^= 0xc0;
+				ch = (ch & 0x3f) | ((ch & 0x80) >> 1);
 				
-				dp[x] = c;
+				dp[x] = ch;
 				buffer++;
 			}
 			else
@@ -254,9 +252,7 @@ void cwin_putat_char(CharWin * win, char x, char y, char ch, char color)
 {
 	int	offset = mul40[y] + x;
 
-	ch &= 0xbf;
-	if (ch & 0x80)
-		ch ^= 0xc0;
+	ch = (ch & 0x3f) | ((ch & 0x80) >> 1);
 
 	win->sp[offset] = ch;
 	win->cp[offset] = color;
@@ -275,9 +271,7 @@ void cwin_putat_chars(CharWin * win, char x, char y, const char * chars, char nu
 	{
 		char	ch = chars[i];
 
-		ch &= 0xbf;
-		if (ch & 0x80)
-			ch ^= 0xc0;
+		ch = (ch & 0x3f) | ((ch & 0x80) >> 1);
 
 		sp[i] = ch;
 		cp[i] = color;
@@ -296,9 +290,7 @@ char cwin_putat_string(CharWin * win, char x, char y, const char * str, char col
 	char	i = 0;
 	while (char	ch = str[i])
 	{
-		ch &= 0xbf;
-		if (ch & 0x80)
-			ch ^= 0xc0;
+		ch = (ch & 0x3f) | ((ch & 0x80) >> 1);
 
 		sp[i] = ch;
 		cp[i] = color;
