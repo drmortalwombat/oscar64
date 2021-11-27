@@ -1812,13 +1812,17 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				mType = ASMIT_TXA;
 				mMode = ASMIM_IMPLIED;
 				data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_X];
+				changed = true;
 			}
+#if 1
 			else if (data.mRegs[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_Y].mValue == mAddress)
 			{	
 				mType = ASMIT_TYA;
 				mMode = ASMIM_IMPLIED;
 				data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_Y];
+				changed = true;
 			}
+#endif
 			else
 			{
 				data.mRegs[CPU_REG_A].Reset();
@@ -8041,9 +8045,15 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, bool direct, i
 
 			flags = (LIVE_CPU_REG_X | LIVE_CPU_REG_Y) & ~mIns[j + 1].mLive;
 
+			if (mIns[j + 0].mType == ASMIT_TAX)
+				flags |= LIVE_CPU_REG_X;
+			if (mIns[j + 0].mType == ASMIT_TAY)
+				flags |= LIVE_CPU_REG_Y;
+
 			int	k = j + 7;
 			while (k < at)
 			{
+				assert(!(flags & LIVE_CPU_REG_Y) || mIns[k].mType != ASMIT_TYA);
 				if (mIns[k].ChangesYReg())
 					flags &= ~LIVE_CPU_REG_Y;
 				if (mIns[k].ChangesXReg())
@@ -9985,6 +9995,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						progress = true;
 					}
 #endif
+#if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_STA &&
 						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]))
@@ -10004,6 +10015,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						progress = true;
 					}
 
+#endif
 					else if (
 						mIns[i + 0].mType == ASMIT_TXA &&
 						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
@@ -10136,7 +10148,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 						if (FindGlobalAddressSumY(i, sreg, true, apos, ains, iins, flags))
 						{
-							if (iins || (flags & LIVE_CPU_REG_Y) || !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+							if (iins || (flags & LIVE_CPU_REG_Y) || (flags & LIVE_CPU_REG_X)) //!(mIns[i + 1].mLive & LIVE_CPU_REG_X))
 							{
 								if (mIns[i + 1].mLive & LIVE_CPU_REG_Y)
 								{
