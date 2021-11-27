@@ -188,7 +188,7 @@ public:
 	bool MoveStoreHighByteDown(int at);
 	bool MoveAddHighByteDown(int at);
 
-	bool ValueForwarding(const NativeRegisterDataSet& data);
+	bool ValueForwarding(const NativeRegisterDataSet& data, bool global);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);
 
