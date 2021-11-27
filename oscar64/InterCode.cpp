@@ -2446,7 +2446,7 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 			ins->mSrc[offset].mMemory = ains->mConst.mMemory;
 			ins->mSrc[offset].mTemp = -1;
 		}
-		else if (ains->mCode == IC_LEA && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].mTemp >= 0 && tvalue[ains->mSrc[1].mTemp])
+		else if (ains->mCode == IC_LEA && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].mTemp >= 0 && tvalue[ains->mSrc[1].mTemp] && ains->mSrc[0].mIntConst >= 0)
 		{
 			ins->mSrc[offset].mIntConst += ains->mSrc[0].mIntConst;
 			ins->mSrc[offset].mTemp = ains->mSrc[1].mTemp;
