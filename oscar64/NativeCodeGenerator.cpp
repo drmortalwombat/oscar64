@@ -1567,6 +1567,27 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 
 				changed = true;
 			}
+			else if (mMode == ASMIM_IMMEDIATE_ADDRESS && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS && mLinkerObject == data.mRegs[CPU_REG_A].mLinkerObject)
+			{
+				int	t;
+				if (mFlags & NCIF_LOWER)
+					t = (mAddress ^ 0xffff) + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
+				else
+					t = ((mAddress ^ 0xffff) >> 8) + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
+
+				mType = ASMIT_LDA;
+				mMode = ASMIM_IMMEDIATE;
+				mAddress = t & 0xff;
+
+				int c = t >= 256;
+
+				if (t && !data.mRegs[CPU_REG_C].mValue)
+					carryop = ASMIT_SEC;
+				else if (!t && data.mRegs[CPU_REG_C].mValue)
+					carryop = ASMIT_CLC;
+
+				changed = true;
+			}
 		}
 
 		data.mRegs[CPU_REG_A].Reset();
