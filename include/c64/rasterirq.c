@@ -2,6 +2,7 @@
 
 #include <c64/vic.h>
 #include <c64/cia.h>
+#include <c64/asm6502.h>
 
 volatile char npos = 1, tpos = 0;
 
@@ -164,6 +165,12 @@ void rirq_build(RIRQCode * ic, byte size)
 {
 	ic->size = size;
 
+	asm_im(ic->code + 0, ASM_LDY, 0);
+	asm_im(ic->code + 2, ASM_LDA, 0);
+	asm_ab(ic->code + 4, ASM_CPX, 0xd012);
+	asm_rl(ic->code + 7, ASM_BCS, -5);
+	asm_ab(ic->code + 9, ASM_STY, 0x0000);
+	/*
 	ic->code[0] = 0xa0;	// ldy #
 	ic->code[2] = 0xa9; // lda #
 	ic->code[4] = 0xec; // cpx
@@ -172,23 +179,28 @@ void rirq_build(RIRQCode * ic, byte size)
 	ic->code[7] = 0xb0; // bcs
 	ic->code[8] = -5;
 	ic->code[9] = 0x8c; // sty
-
+	*/
 	if (size == 1)
 	{
-		ic->code[12] = 0x60; // rts
+		asm_np(ic->code + 12, ASM_RTS);
+		//ic->code[12] = 0x60; // rts
 	}
 	else
 	{
-		ic->code[12] = 0x8d; // sty
+		asm_ab(ic->code + 12, ASM_STA, 0x0000);
+	//	ic->code[12] = 0x8d; // sty
 
 		byte p = 15;
 		for(byte i=2; i<size; i++)
 		{
-			ic->code[p] = 0xa9; // lda #
-			ic->code[p + 2] = 0x8d; // sta
-			p += 5;
+			p += asm_im(ic->code + p, ASM_LDA, 0x00);
+			p += asm_ab(ic->code + p, ASM_STA, 0x0000);
+			//ic->code[p] = 0xa9; // lda #
+			//ic->code[p + 2] = 0x8d; // sta
+			//p += 5;
 		}
-		ic->code[p] = 0x60;
+		asm_np(ic->code + p, ASM_RTS);
+		//ic->code[p] = 0x60;
 	}
 }
 
