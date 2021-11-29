@@ -1427,6 +1427,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				Declaration* dtype;
 				if (vr.mType->mType == DT_TYPE_FLOAT || vl.mType->mType == DT_TYPE_FLOAT)
 					dtype = TheFloatTypeDeclaration;
+				else if ((exp->mToken == TK_BINARY_AND || exp->mToken == TK_BINARY_OR || exp->mToken == TK_BINARY_XOR) && vl.mType->mSize == 1 && vr.mType->mSize == 1)
+				{
+					if (vl.mType->mFlags & DTF_SIGNED)
+						dtype = vl.mType;
+					else
+						dtype = vr.mType;
+				}
 				else if (vr.mType->mSize < vl.mType->mSize && (vl.mType->mFlags & DTF_SIGNED))
 				{
 					if (vl.mType->mSize == 4)
