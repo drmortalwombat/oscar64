@@ -322,6 +322,7 @@ public:
 	InterInstruction(void);
 
 	bool IsEqual(const InterInstruction* ins) const;
+	bool IsEqualSource(const InterInstruction* ins) const;
 
 	bool ReferencesTemp(int temp) const;
 	bool UsesTemp(int temp) const;
@@ -503,6 +504,7 @@ public:
 	void RemoveNonRelevantStatics(void);
 
 	bool PushSinglePathResultInstructions(void);
+	bool MergeCommonPathInstructions(void);
 
 	void PeepholeOptimization(void);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);

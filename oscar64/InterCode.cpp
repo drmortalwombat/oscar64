@@ -520,6 +520,28 @@ bool InterInstruction::IsEqual(const InterInstruction* ins) const
 	return true;
 }
 
+bool InterInstruction::IsEqualSource(const InterInstruction* ins) const
+{
+	if (mCode != ins->mCode)
+		return false;
+
+	if (mCode == IC_BINARY_OPERATOR || mCode == IC_UNARY_OPERATOR || mCode == IC_RELATIONAL_OPERATOR || mCode == IC_CONVERSION_OPERATOR)
+	{
+		if (mOperator != ins->mOperator)
+			return false;
+	}
+
+	for (int i = 0; i < mNumOperands; i++)
+		if (!mSrc[i].IsEqual(ins->mSrc[i]))
+			return false;
+
+	if (mCode == IC_CONSTANT && !mConst.IsEqual(ins->mConst))
+		return false;
+
+	return true;
+}
+
+
 
 void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
@@ -4112,6 +4134,62 @@ void InterCodeBasicBlock::MarkRelevantStatics(void)
 	}
 }
 
+bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
+{
+	bool changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump && mFalseJump && mTrueJump->mNumEntries == 1 && mFalseJump->mNumEntries == 1 && mTrueJump->mInstructions.Size() && mFalseJump->mInstructions.Size())
+		{
+			InterInstruction* tins = mTrueJump->mInstructions[0];
+			InterInstruction* fins = mFalseJump->mInstructions[0];
+
+			if (tins->IsEqualSource(fins) &&
+				tins->mCode != IC_BRANCH &&
+				tins->mCode != IC_JUMP &&
+				tins->mCode != IC_RELATIONAL_OPERATOR)
+			{
+				if ((tins->mDst.mTemp == -1 || !mFalseJump->mEntryRequiredTemps[tins->mDst.mTemp]) &&
+					(fins->mDst.mTemp == -1 || !mTrueJump->mEntryRequiredTemps[fins->mDst.mTemp]))
+				{
+					int	tindex = mInstructions.Size() - 1;
+					if (mInstructions.Size() >= 2 && mInstructions[tindex - 1]->mDst.mTemp == mInstructions[tindex]->mSrc->mTemp)
+						tindex--;
+
+					mInstructions.Insert(tindex, tins);
+					tindex++;
+					if (tins->mDst.mTemp != -1)
+					{
+						if (fins->mDst.mTemp != tins->mDst.mTemp)
+						{
+							InterInstruction* nins = new InterInstruction();
+							nins->mCode = IC_LOAD_TEMPORARY;
+							nins->mDst.mTemp = fins->mDst.mTemp;
+							nins->mDst.mType = fins->mDst.mType;
+							nins->mSrc[0].mTemp = tins->mDst.mTemp;
+							nins->mSrc[0].mType = tins->mDst.mType;
+							mInstructions.Insert(tindex, nins);
+						}
+					}
+					mTrueJump->mInstructions.Remove(0);
+					mFalseJump->mInstructions.Remove(0);
+					changed = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MergeCommonPathInstructions())
+			changed = true;
+		if (mFalseJump && mFalseJump->MergeCommonPathInstructions())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 {
 	int i;
@@ -5692,12 +5770,39 @@ void InterCodeProcedure::Close(void)
 
 	} while (changed);
 
+
 	BuildDataFlowSets();
 
 	TempForwarding();
 	RemoveUnusedInstructions();
 
 	DisassembleDebug("Moved single path instructions");
+
+#if 1
+	do
+	{
+		ResetVisited();
+		mEntryBlock->CompactInstructions();
+
+		BuildDataFlowSets();
+
+		ResetVisited();
+		changed = mEntryBlock->MergeCommonPathInstructions();
+
+		if (changed)
+		{
+			TempForwarding();
+			RemoveUnusedInstructions();
+
+		}
+
+	} while (changed);
+
+	DisassembleDebug("Merged common path instructions");
+#else
+	ResetVisited();
+	mEntryBlock->CompactInstructions();
+#endif
 
 	FastNumberSet	activeSet(numTemps);
 
@@ -5830,6 +5935,26 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 		for (int i = 0; i < mBlocks.Size(); i++)
 		{
 			InterCodeBasicBlock* block = mBlocks[i];
+#if 1
+			if (block->mTrueJump && block->mFalseJump && block->mTrueJump->mNumEntries == 1 && block->mFalseJump->mNumEntries == 1)
+			{
+				while (block->mTrueJump->mInstructions.Size() && block->mFalseJump->mInstructions.Size() &&
+					block->mTrueJump->mInstructions[0]->IsEqual(block->mFalseJump->mInstructions[0]) &&
+					block->mTrueJump->mInstructions[0]->mCode != IC_BRANCH && 
+					block->mTrueJump->mInstructions[0]->mCode != IC_JUMP &&
+					block->mTrueJump->mInstructions[0]->mCode != IC_RELATIONAL_OPERATOR &&
+					block->mTrueJump->mInstructions[0]->mDst.mTemp != block->mInstructions.Last()->mSrc[0].mTemp)
+				{
+					if (block->mInstructions.Size() >= 2 && CanBypass(block->mTrueJump->mInstructions[0], block->mInstructions[block->mInstructions.Size() - 2]))
+						block->mInstructions.Insert(block->mInstructions.Size() - 2, block->mTrueJump->mInstructions[0]);
+					else
+						block->mInstructions.Insert(block->mInstructions.Size() - 1, block->mTrueJump->mInstructions[0]);
+					block->mTrueJump->mInstructions.Remove(0);
+					block->mFalseJump->mInstructions.Remove(0);
+					changed = true;
+				}
+			}
+#endif
 			if (block->mNumEntries >= 2)
 			{
 				GrowingArray<InterCodeBasicBlock* >	eblocks(nullptr);
