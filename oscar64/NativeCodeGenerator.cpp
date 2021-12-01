@@ -2375,6 +2375,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 				{
 					rl.mRefObject = nullptr;
 					rl.mRefOffset += pos;
+					rl.mFlags |= LREF_INBLOCK;
 				}
 				block->mRelocations.Push(rl);
 			}
@@ -11101,6 +11102,11 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 		{
 			LinkerReference& rl(mRelocations[i]);
 			rl.mOffset += mOffset;
+			if (rl.mFlags & LREF_INBLOCK)
+			{
+				rl.mRefOffset += mOffset;
+				rl.mFlags &= ~LREF_INBLOCK;
+			}
 			proc->mRelocations.Push(rl);
 		}
 

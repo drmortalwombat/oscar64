@@ -53,6 +53,7 @@ public:
 static const uint32	LREF_LOWBYTE	=	0x00000001;
 static const uint32	LREF_HIGHBYTE	=	0x00000002;
 static const uint32 LREF_TEMPORARY  =	0x00000004;
+static const uint32 LREF_INBLOCK	=	0x00000008;
 
 class LinkerReference
 {
