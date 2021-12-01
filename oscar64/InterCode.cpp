@@ -5935,7 +5935,7 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 		for (int i = 0; i < mBlocks.Size(); i++)
 		{
 			InterCodeBasicBlock* block = mBlocks[i];
-#if 1
+#if 0
 			if (block->mTrueJump && block->mFalseJump && block->mTrueJump->mNumEntries == 1 && block->mFalseJump->mNumEntries == 1)
 			{
 				while (block->mTrueJump->mInstructions.Size() && block->mFalseJump->mInstructions.Size() &&
