@@ -74,6 +74,7 @@ public:
 	bool ChangesAccu(void) const;
 	bool UsesAccu(void) const;
 	bool ChangesCarry(void) const;
+	bool RequiresCarry(void) const;
 	bool RequiresAccu(void) const;
 	bool RequiresYReg(void) const;
 	bool RequiresXReg(void) const;
@@ -105,7 +106,7 @@ public:
 
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
-	int						mOffset, mSize, mNumEntries, mNumEntered, mFrameOffset;
+	int						mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset;
 	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked;
 	NativeCodeBasicBlock* mLoopHeadBlock;
 
@@ -115,7 +116,10 @@ public:
 	int PutJump(NativeCodeProcedure* proc, int offset);
 
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
-	void CalculateOffset(int& total);
+
+	void BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& placement);
+	void InitialOffset(int& total);
+	bool CalculateOffset(int& total);
 
 	void CopyCode(NativeCodeProcedure* proc, uint8* target);
 	void Assemble(void);

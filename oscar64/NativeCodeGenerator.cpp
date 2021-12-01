@@ -590,6 +590,13 @@ bool NativeCodeInstruction::ChangesGlobalMemory(void) const
 		return false;
 }
 
+bool NativeCodeInstruction::RequiresCarry(void) const
+{
+	return
+		mType == ASMIT_ADC || mType == ASMIT_SBC ||
+		mType == ASMIT_ROL || mType == ASMIT_ROR;
+}
+
 bool NativeCodeInstruction::ChangesCarry(void) const
 {
 	return
@@ -8093,6 +8100,37 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, bool direct, i
 		j--;
 	}
 
+	if (at >= 6 &&
+		mIns[0].mType == ASMIT_CLC &&
+		mIns[1].mType == ASMIT_ADC && mIns[1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[1].mFlags & NCIF_LOWER) && mIns[1].mLinkerObject &&
+		mIns[2].mType == ASMIT_STA && mIns[2].mMode == ASMIM_ZERO_PAGE && mIns[2].mAddress == reg &&
+		mIns[3].mType == ASMIT_LDA && mIns[3].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[3].mFlags & NCIF_UPPER) && mIns[3].mLinkerObject == mIns[1].mLinkerObject &&
+		mIns[4].mType == ASMIT_ADC && mIns[4].mMode == ASMIM_IMMEDIATE && mIns[4].mAddress == 0 &&
+		mIns[5].mType == ASMIT_STA && mIns[5].mMode == ASMIM_ZERO_PAGE && mIns[5].mAddress == reg + 1)
+	{
+		ains = &(mIns[1]);
+		iins = nullptr;
+		apos = 0;
+
+		if (!direct)
+			return false;
+
+		flags = (LIVE_CPU_REG_X | LIVE_CPU_REG_Y) & ~mIns[0].mLive;
+
+		int	k = 6;
+		while (k < at)
+		{
+			assert(!(flags & LIVE_CPU_REG_Y) || mIns[k].mType != ASMIT_TYA);
+			if (mIns[k].ChangesYReg())
+				flags &= ~LIVE_CPU_REG_Y;
+			if (mIns[k].ChangesXReg())
+				flags &= ~LIVE_CPU_REG_X;
+			k++;
+		}
+
+		return flags != 0;
+	}
+
 	if (mFromJump)
 	{
 		while (j >= -6)
@@ -9680,6 +9718,25 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 #endif
 
 #if 1
+		// move clc and sec down
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if ((mIns[i].mType == ASMIT_CLC || mIns[i].mType == ASMIT_SEC) && !mIns[i + 1].RequiresCarry() && !mIns[i + 1].ChangesCarry())
+			{
+				if (i + 2 < mIns.Size() && mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) && mIns[i + 2].RequiresCarry())
+					;
+				else
+				{
+					NativeCodeInstruction	pins = mIns[i];
+					mIns[i] = mIns[i + 1];
+					mIns[i + 1] = pins;
+				}
+			}
+		}
+
+#endif
+
+#if 1
 
 		// shortcut index
 
@@ -10397,7 +10454,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 					}
 					else if (
 						mIns[i + 0].ChangesAccuAndFlag() &&
-						mIns[i + 1].mType == ASMIT_STA && 
+						mIns[i + 1].mType == ASMIT_STA &&
 						mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
 					{
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
@@ -10490,7 +10547,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						progress = true;
 					}
 					else if (
-						mIns[i + 0].mType == ASMIT_SEC && 
+						mIns[i + 0].mType == ASMIT_SEC &&
 						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
 						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
 					{
@@ -10503,7 +10560,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						progress = true;
 					}
 					else if (
-						mIns[i + 0].mType == ASMIT_CLC && 
+						mIns[i + 0].mType == ASMIT_CLC &&
 						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
 						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
 					{
@@ -10516,7 +10573,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						progress = true;
 					}
 					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
+						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
 						mIns[i + 1].mType == ASMIT_CLC &&
 						mIns[i + 2].mType == ASMIT_ADC)
 					{
@@ -11049,8 +11106,158 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BypassEmptyBlocks(void)
 	}
 }
 
+void NativeCodeBasicBlock::BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& placement)
+{
+	if (!mPlaced)
+	{
+		mPlaced = true;
+		mPlace = placement.Size();
+		placement.Push(this);
+
+		if (mFalseJump)
+		{
+			if (mFalseJump->mPlaced)
+				mTrueJump->BuildPlacement(placement);
+			else if (mTrueJump->mPlaced)
+				mFalseJump->BuildPlacement(placement);
+			else if (!mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump)
+			{
+				mFalseJump->mPlaced = true;
+				mFalseJump->mPlace = placement.Size();
+				placement.Push(mFalseJump);
+
+				mTrueJump->BuildPlacement(placement);
+			}
+			else if (mTrueJump->mFalseJump == mFalseJump || mTrueJump->mTrueJump == mFalseJump)
+			{
+				mTrueJump->BuildPlacement(placement);
+				mFalseJump->BuildPlacement(placement);
+			}
+			else if (mFalseJump->mFalseJump == mTrueJump || mFalseJump->mTrueJump == mTrueJump)
+			{
+				mFalseJump->BuildPlacement(placement);
+				mTrueJump->BuildPlacement(placement);
+			}
+			else if (
+				!mTrueJump->mFalseJump && mTrueJump->mTrueJump && mTrueJump->mTrueJump->mPlaced && mTrueJump->mCode.Size() < 120 ||
+				mTrueJump->mFalseJump && mTrueJump->mTrueJump && mTrueJump->mFalseJump->mPlaced && mTrueJump->mTrueJump->mPlaced && mTrueJump->mCode.Size() < 120)
+			{
+				mTrueJump->BuildPlacement(placement);
+				mFalseJump->BuildPlacement(placement);
+			}
+			else
+			{
+				mFalseJump->BuildPlacement(placement);
+				mTrueJump->BuildPlacement(placement);
+			}
+		}
+		else if (mTrueJump)
+		{
+			mTrueJump->BuildPlacement(placement);
+		}
+	}
+}
+
+void NativeCodeBasicBlock::InitialOffset(int& total)
+{
+	mOffset = total;
+	total += mCode.Size();
+	if (mFalseJump)
+	{
+		total += 5;
+		if (mFalseJump->mPlace != mPlace + 1 && mTrueJump->mPlace != mPlace + 1)
+			total += 3;
+	}
+	else if (mTrueJump)
+	{
+		if (mTrueJump->mPlace != mPlace + 1)
+			total += 3;
+	}
+
+	mSize = total - mOffset;
+}
+
+bool NativeCodeBasicBlock::CalculateOffset(int& total)
+{
+	bool	changed = total != mOffset;
+	mOffset = total;
+
+	total += mCode.Size();
+
+	if (mFalseJump)
+	{
+		if (mFalseJump->mPlace == mPlace + 1)
+			total += BranchByteSize(total, mTrueJump->mOffset);
+		else if (mTrueJump->mPlace == mPlace + 1)
+			total += BranchByteSize(total, mFalseJump->mOffset);
+		else
+		{
+			total += BranchByteSize(total, mTrueJump->mOffset);
+			total += JumpByteSize(total, mFalseJump->mOffset);
+		}
+	}
+	else if (mTrueJump)
+	{
+		if (mTrueJump->mPlace != mPlace + 1)
+			total += JumpByteSize(total, mTrueJump->mOffset);
+	}
+
+	if (mOffset + mSize != total)
+		changed = true;
+
+	mSize = total - mOffset;
+
+	return changed;
+}
+
 void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 {
+	int i;
+	int next, end;
+
+#if 1
+	end = mOffset + mCode.Size();
+	next = mOffset + mSize;
+
+	if (mFalseJump)
+	{
+		if (mFalseJump->mPlace == mPlace + 1)
+			end += PutBranch(proc, mBranch, mTrueJump->mOffset - end);
+		else if (mTrueJump->mPlace == mPlace + 1)
+			end += PutBranch(proc, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
+		else
+		{
+			end += PutBranch(proc, mBranch, mTrueJump->mOffset - end);
+			end += PutJump(proc, mFalseJump->mOffset - end);
+		}
+	}
+	else if (mTrueJump)
+	{
+		if (mTrueJump->mPlace != mPlace + 1)
+			end += PutJump(proc, mTrueJump->mOffset - end);
+	}
+
+	assert(end == next);
+
+	for (int i = 0; i < mRelocations.Size(); i++)
+	{
+		LinkerReference& rl(mRelocations[i]);
+		rl.mOffset += mOffset;
+		if (rl.mFlags & LREF_INBLOCK)
+		{
+			rl.mRefOffset += mOffset;
+			rl.mFlags &= ~LREF_INBLOCK;
+		}
+		proc->mRelocations.Push(rl);
+	}
+
+	for (i = 0; i < mCode.Size(); i++)
+	{
+		target[i + mOffset] = mCode[i];
+	}
+
+
+#else
 	int i;
 	int next;
 	int pos, at;
@@ -11113,8 +11320,9 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 		if (mTrueJump) mTrueJump->CopyCode(proc, target);
 		if (mFalseJump) mFalseJump->CopyCode(proc, target);
 	}
+#endif
 }
-
+#if 0
 void NativeCodeBasicBlock::CalculateOffset(int& total)
 {
 	int next;
@@ -11245,12 +11453,14 @@ void NativeCodeBasicBlock::CalculateOffset(int& total)
 		}
 	}
 }
+#endif
 
 NativeCodeBasicBlock::NativeCodeBasicBlock(void)
 	: mIns(NativeCodeInstruction(ASMIT_INV, ASMIM_IMPLIED)), mRelocations({ 0 }), mEntryBlocks(nullptr), mCode(0)
 {
 	mTrueJump = mFalseJump = NULL;
-	mOffset = 0x7fffffff;
+	mOffset = -1;
+	mPlaced = false;
 	mCopied = false;
 	mKnownShortBranch = false;
 	mBypassed = false;
@@ -11564,16 +11774,35 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mEntryBlock->Assemble();
 
-	int	total, base;
-
 	NativeCodeBasicBlock* lentryBlock = mEntryBlock->BypassEmptyBlocks();
 
-	total = 0;
-	lentryBlock->CalculateOffset(total);
-
 	proc->mLinkerObject->mType = LOT_NATIVE_CODE;
-	lentryBlock->CopyCode(this, proc->mLinkerObject->AddSpace(total));
-	
+
+	GrowingArray<NativeCodeBasicBlock*>	placement(nullptr);
+
+	int	total;
+	total = 0;
+
+	lentryBlock->BuildPlacement(placement);
+
+	for (int i = 0; i < placement.Size(); i++)
+		placement[i]->InitialOffset(total);
+
+	bool	progress;
+	do {
+		progress = false;
+		total = 0;
+		for (int i = 0; i < placement.Size(); i++)
+			if (placement[i]->CalculateOffset(total))
+				progress = true;
+	} while (progress);
+
+	uint8* data = proc->mLinkerObject->AddSpace(total);
+
+	for (int i = 0; i < placement.Size(); i++)
+		placement[i]->CopyCode(this, data);
+
+
 	for (int i = 0; i < mRelocations.Size(); i++)
 	{
 		LinkerReference& rl(mRelocations[i]);

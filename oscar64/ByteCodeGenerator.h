@@ -267,6 +267,7 @@ public:
 	int PutBranch(ByteCodeGenerator* generator, ByteCode code, int offset);
 
 	ByteCodeBasicBlock* BypassEmptyBlocks(void);
+
 	void BuildPlacement(GrowingArray<ByteCodeBasicBlock*> & placement);
 	void InitialOffset(int& total, int& linear);
 	bool CalculateOffset(int & total);
