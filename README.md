@@ -88,6 +88,10 @@ The translation mode is selected in conio with the variable "giocharmap" and the
 	
 Will switch to the lowercase PETSCII font and translate the strings while printing.
 
+PETSCII string literals can also be generated using a "p" or "P" prefix such as:
+
+	printf(p"Hello World\n");
+
 Input from the console will also be translated accordingly.
 
 ## Embedding binary data

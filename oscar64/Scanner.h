@@ -226,8 +226,8 @@ protected:
 
 	MacroDict* mDefines, * mDefineArguments;
 
-	void StringToken(char terminator);
-	void CharToken(void);
+	void StringToken(char terminator, char mode);
+	void CharToken(char mode);
 	bool NextChar(void);
 	void ParseNumberToken(void);
 

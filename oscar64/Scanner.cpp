@@ -458,7 +458,7 @@ void Scanner::NextToken(void)
 			else if (mToken == TK_LESS_THAN)
 			{
 				mOffset--;
-				StringToken('>');
+				StringToken('>', 'a');
 				if (!mPreprocessor->OpenSource("Including", mTokenString, false))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
@@ -621,7 +621,7 @@ void Scanner::NextToken(void)
 			else if (mToken == TK_LESS_THAN)
 			{
 				mOffset--;
-				StringToken('>');
+				StringToken('>', 'a');
 				if (!mPreprocessor->EmbedData("Embedding", mTokenString, false, skip, limit))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
@@ -1021,10 +1021,10 @@ void Scanner::NextRawToken(void)
 			break;
 
 		case '\'':
-			CharToken();
+			CharToken('a');
 			break;
 		case '"':
-			StringToken(mTokenChar);
+			StringToken(mTokenChar, 'a');
 			break;
 
 		case '#':
@@ -1136,6 +1136,19 @@ void Scanner::NextRawToken(void)
 					else
 						break;
 				}
+				if (n == 1)
+				{
+					if (mTokenChar == '"')
+					{
+						StringToken(mTokenChar, tkident[0]);
+						break;
+					}
+					else if (mTokenChar == '\'')
+					{
+						CharToken(tkident[0]);
+						break;
+					}
+				}
 				tkident[n] = 0;
 				if (n == 256)
 					Error("Identifier exceeds max character limit");
@@ -1238,7 +1251,7 @@ void Scanner::Error(const char* error)
 	mErrors->Error(mLocation, EERR_SYNTAX, error);
 }
 
-void Scanner::StringToken(char terminator)
+void Scanner::StringToken(char terminator, char mode)
 {
 	int	n = 0;
 
@@ -1295,6 +1308,28 @@ void Scanner::StringToken(char terminator)
 
 	if (mLine[mOffset] && mLine[mOffset] == terminator)
 	{
+		switch (mode)
+		{
+		case 'a':
+			break;
+		case 'p':
+			for (int i = 0; i < n; i++)
+			{
+				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
+					mTokenString[i] = mTokenString[i] ^ 0x20;
+			}
+			break;
+		case 'P':
+			for (int i = 0; i < n; i++)
+			{
+				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
+					mTokenString[i] = (mTokenString[i] ^ 0x20) & 0xdf;
+			}
+			break;
+		default:
+			Error("Invalid string literal mode");
+		}
+
 		mToken = TK_STRING;
 		mOffset++;
 		NextChar();
@@ -1308,7 +1343,7 @@ void Scanner::StringToken(char terminator)
 
 }
 
-void Scanner::CharToken(void)
+void Scanner::CharToken(char mode)
 {
 	int	n = 0;
 
@@ -1354,6 +1389,22 @@ void Scanner::CharToken(void)
 		default:
 			;
 		}
+	}
+
+	switch (mode)
+	{
+	case 'a':
+		break;
+	case 'p':
+		if (mTokenChar >= 'A' && mTokenChar <= 'Z' || mTokenChar >= 'a' && mTokenChar <= 'z')
+			mTokenChar = mTokenChar ^ 0x20;
+		break;
+	case 'P':
+		if (mTokenChar >= 'A' && mTokenChar <= 'Z' || mTokenChar >= 'a' && mTokenChar <= 'z')
+			mTokenChar = (mTokenChar ^ 0x20) & 0xdf;
+		break;
+	default:
+		Error("Invalid string literal mode");
 	}
 
 	mTokenInteger = mTokenChar;

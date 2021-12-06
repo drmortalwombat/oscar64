@@ -2820,6 +2820,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Cannot cast void object to non void object");
 				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference);
 			}
+			else if (exp->mLeft->mDecType->IsIntegerType() && vr.mType->IsIntegerType())
+			{
+				vr = Dereference(proc, block, vr);
+				return CoerceType(proc, block, vr, exp->mLeft->mDecType);
+			}
 			else
 			{
 				vr = Dereference(proc, block, vr);
