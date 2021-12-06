@@ -114,7 +114,11 @@ void cwin_scroll_down(CharWin * win, char by);
 
 // Fill the given rectangle with the character and color
 //
-void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char ch, char color);
+inline void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char ch, char color);
+
+// Fill the given rectangle with the screen code and color
+//
+void cwin_fill_rect_raw(CharWin * win, char x, char y, char w, char h, char ch, char color);
 
 #pragma compile("charwin.c")
 

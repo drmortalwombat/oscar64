@@ -169,6 +169,19 @@ bool cwin_cursor_backward(CharWin * win)
 	return false;
 }
 
+static char p2smap[] = {0x00, 0x20, 0x00, 0x40, 0x00, 0x60, 0x40, 0x60};
+static char s2pmap[] = {0x40, 0x20, 0x60, 0xb0, 0x40, 0x20, 0x60, 0xb0};
+
+static inline char p2s(char ch)
+{
+	return (ch & 0x1f) | p2smap[ch >> 5];
+}
+
+static inline char s2p(char ch)
+{
+	return (ch & 0x1f) | s2pmap[ch >> 5];
+}
+
 void cwin_read_string(CharWin * win, char * buffer)
 {
 	char * sp = win->sp;
@@ -178,12 +191,7 @@ void cwin_read_string(CharWin * win, char * buffer)
 	{
 		for(char x=0; x<win->wx; x++)
 		{
-			char c = sp[x];
-			if (c & 0x40)
-				c ^= 0xc0;
-			if (!(c & 0x20))
-				c |= 0x40;
-			buffer[i++] = c;
+			buffer[i++] = s2p(sp[x]);
 		}
 		sp += 40;
 	}	
@@ -202,9 +210,7 @@ void cwin_write_string(CharWin * win, const char * buffer)
 			char ch = *buffer;
 			if (ch)
 			{
-				ch = (ch & 0x3f) | ((ch & 0x80) >> 1);
-				
-				dp[x] = ch;
+				dp[x] = p2s(ch);
 				buffer++;
 			}
 			else
@@ -252,9 +258,7 @@ void cwin_putat_char(CharWin * win, char x, char y, char ch, char color)
 {
 	int	offset = mul40[y] + x;
 
-	ch = (ch & 0x3f) | ((ch & 0x80) >> 1);
-
-	win->sp[offset] = ch;
+	win->sp[offset] = p2s(ch);
 	win->cp[offset] = color;
 }
 
@@ -271,9 +275,7 @@ void cwin_putat_chars(CharWin * win, char x, char y, const char * chars, char nu
 	{
 		char	ch = chars[i];
 
-		ch = (ch & 0x3f) | ((ch & 0x80) >> 1);
-
-		sp[i] = ch;
+		sp[i] = p2s(ch);
 		cp[i] = color;
 	}
 }
@@ -290,9 +292,7 @@ char cwin_putat_string(CharWin * win, char x, char y, const char * str, char col
 	char	i = 0;
 	while (char	ch = str[i])
 	{
-		ch = (ch & 0x3f) | ((ch & 0x80) >> 1);
-
-		sp[i] = ch;
+		sp[i] = p2s(ch);
 		cp[i] = color;
 		i++;
 	}
@@ -307,14 +307,7 @@ char cwin_getat_char(CharWin * win, char x, char y)
 {
 	char * sp = win->sp + mul40[y] + x;
 
-	char c = *sp;
-
-	if (c & 0x40)
-		c ^= 0xc0;
-	if (!(c & 0x20))
-		c |= 0x40;
-	
-	return c;
+	return s2p(*sp);
 }
 
 void cwin_getat_chars(CharWin * win, char x, char y, char * chars, char num)
@@ -323,14 +316,7 @@ void cwin_getat_chars(CharWin * win, char x, char y, char * chars, char num)
 
 	for(char i=0; i<num; i++)
 	{
-		char c = sp[i];
-
-		if (c & 0x40)
-			c ^= 0xc0;
-		if (!(c & 0x20))
-			c |= 0x40;
-		
-		chars[i] = c;
+		chars[i] = s2p(sp[i]);
 	}
 }
 
@@ -529,8 +515,7 @@ void cwin_scroll_down(CharWin * win, char by)
 	}	
 }
 
-
-void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char ch, char color)
+void cwin_fill_rect_raw(CharWin * win, char x, char y, char w, char h, char ch, char color)
 {
 	if (w > 0)
 	{
@@ -544,4 +529,9 @@ void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char ch, char
 			cp += 40;		
 		}
 	}
+}
+
+void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char ch, char color)
+{
+	cwin_fill_rect_raw(win, x, y, w, h, p2s(ch), color);
 }
