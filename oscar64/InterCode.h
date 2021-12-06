@@ -141,7 +141,7 @@ public:
 	ValueSet& operator=(const ValueSet& values);
 
 	void FlushAll(void);
-	void FlushCallAliases(void);
+	void FlushCallAliases(const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams);
 	void FlushFrameAliases(void);
 
 

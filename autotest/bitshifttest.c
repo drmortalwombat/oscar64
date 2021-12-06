@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#pragma region( main, 0x0a00, 0xd000, , , {code, data, bss, heap, stack} )
+
 unsigned shl1b(int n)
 {
 	return 1 << n;
@@ -306,6 +308,8 @@ void shr32n(unsigned long xu, long xi)
 
 int main(void)
 {
+	*(volatile char *)0x01 = 0x36;
+
 	for(int i=0; i<32; i++)
 	{
 		printf("1: %.4x : %.4x | %.4x : %.4x\n", shl1b(i), shl1n(i), shr1b(i), shr1n(i));
@@ -326,7 +330,6 @@ int main(void)
 		assert(shl8b(i) == shl8n(i));
 		assert(shr8b(i) == shr8n(i));
 	}
-
 
 	shl8xb(0x00, 0x00);
 	shl8xb(0xff, 0xff);

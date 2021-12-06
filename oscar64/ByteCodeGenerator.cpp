@@ -5680,8 +5680,8 @@ void ByteCodeBasicBlock::InitialOffset(int& total, int& linear)
 		total++;
 		linear = 0;
 	}
-	else
-		linear += mLinear;
+
+	linear += mLinear;
 
 	mOffset = total;
 	total += mCode.Size();

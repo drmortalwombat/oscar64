@@ -183,11 +183,16 @@ float sqrt(float f)
 {
 	if (f >= 0)
 	{
-		float	fx = f;
-		int ex = (((int*)&fx)[1] >> 7) - 0x7f;
+		union {
+			float	f;
+			int		i[2];
+		}	x;
+
+		x.f = f;
+		int ex = (x.i[1] >> 7) - 0x7f;
 		ex /= 2;
-		((int*)&fx)[1] = (ex + 0x7f) << 7;
-		float	fq = fx;
+		x.i[1] = (ex + 0x7f) << 7;
+		float	fq = x.f;
 		fq = 0.5 * (fq + f / fq);
 		fq = 0.5 * (fq + f / fq);
 		fq = 0.5 * (fq + f / fq);

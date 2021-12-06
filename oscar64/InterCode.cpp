@@ -90,24 +90,100 @@ void ValueSet::FlushFrameAliases(void)
 	}
 }
 
-void ValueSet::FlushCallAliases(void)
+
+static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtrArray& tvalue, InterMemory& mem, int& vindex, int& offset)
+{
+	while (ins && ins->mCode == IC_LEA && ins->mSrc[1].mMemory == IM_INDIRECT)
+		ins = tvalue[ins->mSrc[1].mTemp];
+
+	if (ins)
+	{
+		if (ins->mCode == IC_CONSTANT)
+		{
+			mem = ins->mConst.mMemory;
+			vindex = ins->mConst.mVarIndex;
+			offset = ins->mConst.mIntConst;
+
+			return true;
+		}
+		else if (ins->mCode == IC_LEA)
+		{
+			mem = ins->mSrc[1].mMemory;
+			vindex = ins->mSrc[1].mVarIndex;
+			offset = ins->mSrc[1].mIntConst;
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+static bool MemRange(const InterInstruction* ins, const GrowingInstructionPtrArray& tvalue, InterMemory& mem, int& vindex, int& offset, int& size)
+{
+	if (ins->mCode == IC_LOAD && ins->mSrc[0].mMemory == IM_INDIRECT)
+	{
+		size = ins->mSrc[0].mOperandSize;
+		return MemPtrRange(tvalue[ins->mSrc[0].mTemp], tvalue, mem, vindex, offset);
+	}
+	else if (ins->mSrc[1].mMemory == IM_INDIRECT)
+	{
+		size = ins->mSrc[1].mOperandSize;
+		return MemPtrRange(tvalue[ins->mSrc[1].mTemp], tvalue, mem, vindex, offset);
+	}
+
+	if (ins)
+	{
+		if (ins->mCode == IC_LOAD)
+		{
+			mem = ins->mSrc[0].mMemory;
+			vindex = ins->mSrc[0].mVarIndex;
+			offset = ins->mSrc[0].mIntConst;
+			size = ins->mSrc[0].mOperandSize;
+		}
+		else
+		{
+			mem = ins->mSrc[1].mMemory;
+			vindex = ins->mSrc[1].mVarIndex;
+			offset = ins->mSrc[1].mIntConst;
+			size = ins->mSrc[1].mOperandSize;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+void ValueSet::FlushCallAliases(const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams)
 {
 	int	i;
 
-	i = 0;
+	InterMemory	mem;
+	int			vindex;
+	int			offset;
+	int			size;
 
+	i = 0;
 	while (i < mNum)
 	{
-		if ((mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory != IM_PARAM && mInstructions[i]->mSrc[0].mMemory != IM_LOCAL) ||
-			(mInstructions[i]->mCode == IC_STORE && mInstructions[i]->mSrc[1].mMemory != IM_PARAM && mInstructions[i]->mSrc[1].mMemory != IM_LOCAL))
+		if (mInstructions[i]->mCode == IC_LOAD || mInstructions[i]->mCode == IC_STORE)
 		{
-			//
-			// potential alias load
-			//
-			mNum--;
-			if (i < mNum)
+			if (MemRange(mInstructions[i], tvalue, mem, vindex, offset, size) && 
+				((mem == IM_PARAM && !aliasedParams[vindex]) ||
+				 (mem == IM_LOCAL && !aliasedLocals[vindex])))
+				i++;
+			else
 			{
-				mInstructions[i] = mInstructions[mNum];
+				//
+				// potential alias load
+				//
+				mNum--;
+				if (i < mNum)
+				{
+					mInstructions[i] = mInstructions[mNum];
+				}
 			}
 		}
 		else
@@ -371,71 +447,6 @@ void ValueSet::InsertValue(InterInstruction * ins)
 	}
 
 	mInstructions[mNum++] = ins;
-}
-
-static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtrArray& tvalue, InterMemory& mem, int& vindex, int& offset)
-{
-	while (ins && ins->mCode == IC_LEA && ins->mSrc[1].mMemory == IM_INDIRECT)
-		ins = tvalue[ins->mSrc[1].mTemp];
-
-	if (ins)
-	{
-		if (ins->mCode == IC_CONSTANT)
-		{
-			mem = ins->mConst.mMemory;
-			vindex = ins->mConst.mVarIndex;
-			offset = ins->mConst.mIntConst;
-
-			return true;
-		}
-		else if (ins->mCode == IC_LEA)
-		{
-			mem = ins->mSrc[1].mMemory;
-			vindex = ins->mSrc[1].mVarIndex;
-			offset = ins->mSrc[1].mIntConst;
-
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
-static bool MemRange(const InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, InterMemory& mem, int& vindex, int& offset, int& size)
-{
-	if (ins->mCode == IC_LOAD && ins->mSrc[0].mMemory == IM_INDIRECT)
-	{
-		size = ins->mSrc[0].mOperandSize;
-		return MemPtrRange(tvalue[ins->mSrc[0].mTemp], tvalue, mem, vindex, offset);
-	}
-	else if (ins->mSrc[1].mMemory == IM_INDIRECT)
-	{
-		size = ins->mSrc[1].mOperandSize;
-		return MemPtrRange(tvalue[ins->mSrc[1].mTemp], tvalue, mem, vindex, offset);
-	}
-
-	if (ins)
-	{
-		if (ins->mCode == IC_LOAD)
-		{
-			mem = ins->mSrc[0].mMemory;
-			vindex = ins->mSrc[0].mVarIndex;
-			offset = ins->mSrc[0].mIntConst;
-			size = ins->mSrc[0].mOperandSize;
-		}
-		else
-		{
-			mem = ins->mSrc[1].mMemory;
-			vindex = ins->mSrc[1].mVarIndex;
-			offset = ins->mSrc[1].mIntConst;
-			size = ins->mSrc[1].mOperandSize;
-		}
-
-		return true;
-	}
-
-	return false;
 }
 
 static bool StoreAliasing(const InterInstruction * lins, const InterInstruction* sins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
@@ -1463,7 +1474,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 		break;
 	case IC_CALL:
 	case IC_CALL_NATIVE:
-		FlushCallAliases();
+		FlushCallAliases(tvalue, aliasedLocals, aliasedParams);
 		break;
 
 	}

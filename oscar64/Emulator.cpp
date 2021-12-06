@@ -640,7 +640,7 @@ int Emulator::Emulate(int startIP)
 				break;
 		}
 
-		if ((trace & 1) && ip == 0x0851)
+		if ((trace & 1) && ip == 0x0855)
 		{
 			int	accu = mMemory[BC_REG_ACCU] + 256 * mMemory[BC_REG_ACCU + 1];
 			int	ptr = mMemory[BC_REG_ADDR] + 256 * mMemory[BC_REG_ADDR + 1];
