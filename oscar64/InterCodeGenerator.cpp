@@ -2161,6 +2161,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				else
 					proc->CallsFunctionPointer();
 
+				GrowingArray<InterInstruction*>	defins(nullptr);
+
 				Declaration* pdec = ftype->mParams;
 				Expression* pex = exp->mRight;
 				while (pex)
@@ -2280,7 +2282,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						else
 							wins->mSrc[1].mOperandSize = 2;
 
-						block->Append(wins);
+						if (ftype->mFlags & DTF_FASTCALL)
+							defins.Push(wins);
+						else
+							block->Append(wins);
 
 						atotal += wins->mSrc[1].mOperandSize;
 					}
@@ -2291,6 +2296,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				if (pdec)
 					mErrors->Error(exp->mLocation, EERR_WRONG_PARAMETER, "Not enough arguments for function call");
+
+				for (int i = 0; i < defins.Size(); i++)
+					block->Append(defins[i]);
 
 				InterInstruction	*	cins = new InterInstruction();
 				if (exp->mLeft->mDecValue && exp->mLeft->mDecValue->mFlags & DTF_NATIVE)

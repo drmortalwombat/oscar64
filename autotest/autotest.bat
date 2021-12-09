@@ -15,6 +15,9 @@ if %errorlevel% neq 0 goto :error
 call :test recursiontest.c
 if %errorlevel% neq 0 goto :error
 
+call :test fastcalltest.c
+if %errorlevel% neq 0 goto :error
+
 call :test strcmptest.c
 if %errorlevel% neq 0 goto :error
 
