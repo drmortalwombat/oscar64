@@ -3297,7 +3297,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 		dec->mLinkerObject->mNumTemporaries = 1;
 		dec->mLinkerObject->mTemporaries[0] = BC_REG_FPARAMS;
-		dec->mLinkerObject->mTempSizes[0] = 8;
+		dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 	}
 
 	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock();

@@ -807,16 +807,22 @@ Declaration* Parser::ParseDeclaration(bool variable)
 
 		ndec = ReverseDeclaration(ndec, bdec);
 
+		Declaration* npdec = ndec;
+
+		if (npdec->mBase->mType == DT_TYPE_POINTER)
+			npdec = npdec->mBase;
+
 		// Make room for return value pointer on struct return
-		if (ndec->mBase->mType == DT_TYPE_FUNCTION && ndec->mBase->mBase->mType == DT_TYPE_STRUCT)
+		if (npdec->mBase->mType == DT_TYPE_FUNCTION && npdec->mBase->mBase->mType == DT_TYPE_STRUCT)
 		{
-			Declaration* pdec = ndec->mBase->mParams;
+			Declaration* pdec = npdec->mBase->mParams;
 			while (pdec)
 			{
 				pdec->mVarIndex += 2;
 				pdec = pdec->mNext;
 			}
 		}
+		
 
 		if (definingType)
 		{
