@@ -418,6 +418,12 @@ void GlobalAnalyzer::RegisterCall(Declaration* from, Declaration* to)
 				mCallingFunctions.Push(from);
 			from->mCalled.Push(to);
 		}
+		else if (to->mType == DT_TYPE_POINTER && to->mBase->mType == DT_TYPE_FUNCTION)
+		{
+			if (from->mCalled.Size() == 0)
+				mCallingFunctions.Push(from);
+			from->mCalled.Push(to->mBase);
+		}
 	}
 }
 
