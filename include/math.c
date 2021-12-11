@@ -125,8 +125,13 @@ float exp(float f)
 	
 	int	fi = (int)ff;
 	
-	float	fx = 0;
-	((int*)&fx)[1] = (fi + 0x7f) << 7;
+	union {
+		float	f;
+		int		i[2];
+	}	x;
+	x.f = 0;
+
+	x.i[1] = (fi + 0x7f) << 7;
 	
 	float	s = F_EXP_5;
 	s *= g; s += F_EXP_4;
@@ -135,7 +140,7 @@ float exp(float f)
 	s *= g; s += F_EXP_1;
 	s *= g; s += F_EXP_0
 
-	return s * fx;
+	return s * x.f;
 }
 
 #define F_LOG_0 	-2.79423993
@@ -149,13 +154,18 @@ float log(float f)
 {
 	if (f == 0.0)
 		return 1.0;
+
+	union {
+		float	f;
+		int		i[2];
+	}	x;
 	
-	float	fx = f;
-	int	ei = ((int*)&fx)[1];
+	x.f = f;
+	int	ei = x.i[1];
 	int ex = (ei >> 7) - 0x7f;	
-	((int*)&fx)[1] = (ei & 0x007f) | 0x3f80;
+	x.i[1] = (ei & 0x007f) | 0x3f80;
 	
-	float	g = fx;
+	float	g = x.f;
 
 	float	fex = ex;
 
