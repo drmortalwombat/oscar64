@@ -113,7 +113,8 @@ public:
 	NativeRegisterDataSet	mDataSet, mNDataSet;
 
 	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
-	int PutJump(NativeCodeProcedure* proc, int offset);
+	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target);
+	int JumpByteSize(NativeCodeBasicBlock * target);
 
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
 
@@ -128,6 +129,8 @@ public:
 	bool RemoveNops(void);
 	bool PeepHoleOptimizer(int pass);
 	void BlockSizeReduction(void);
+
+	void OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * lblock);
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
 
