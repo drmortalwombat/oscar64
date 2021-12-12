@@ -46,6 +46,7 @@ static const uint32 NCIF_UPPER = 0x00000002;
 static const uint32 NCIF_RUNTIME = 0x00000004;
 static const uint32 NCIF_YZERO = 0x00000008;
 static const uint32 NCIF_VOLATILE = 0x00000010;
+static const uint32 NCIF_LONG = 0x00000020;
 
 class NativeCodeInstruction
 {
@@ -132,6 +133,7 @@ public:
 
 	void OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * lblock);
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
+	bool SimpleLoopReversal(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
 
 	NativeCodeBasicBlock* FindTailBlock(NativeCodeBasicBlock* head);
