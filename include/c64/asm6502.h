@@ -88,6 +88,12 @@ inline byte asm_np(byte * ip, AsmIns ins)
 	return 1;
 }
 
+inline byte asm_ac(byte * ip, AsmIns ins)
+{
+	ip[0] = (ins & 0xff) | 0x08;
+	return 1;
+}
+
 inline byte asm_zp(byte * ip, AsmIns ins, byte addr)
 {
 	ip[0] = (ins & 0xff) | 0x04;
@@ -162,9 +168,9 @@ inline byte asm_ix(byte * ip, AsmIns ins, byte addr)
 	return 2;
 }
 
-inline byte * asm_iy(byte * ip, AsmIns ins, byte addr)
+inline byte asm_iy(byte * ip, AsmIns ins, byte addr)
 {
-	ip[0] = (ins & 0xff) | 0x01;
+	ip[0] = (ins & 0xff) | 0x10;
 	ip[1] = addr;
 	return 2;
 }
