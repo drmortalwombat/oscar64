@@ -214,7 +214,7 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		InterVariable	*	var = new InterVariable();
 		var->mOffset = 0;
 		var->mSize = dec->mSize;
-		var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
+		var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 		var->mIdent = dec->mIdent;
 
 		Declaration* type = dec->mBase;
@@ -830,7 +830,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					var->mSize = dec->mSize;
 					if ((dec->mFlags & DTF_VAR_ALIASING) || dec->mBase->mType == DT_TYPE_ARRAY)
 						var->mAliased = true;
-					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
+					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 					dec->mLinkerObject = var->mLinkerObject;
 					var->mLinkerObject->AddData(dec->mData, dec->mSize);
 					proc->mModule->mGlobalVars.Push(var);
@@ -855,7 +855,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					InterVariable	* var = new InterVariable();
 					var->mOffset = 0;
 					var->mSize = dec->mSize;
-					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
+					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 					dec->mLinkerObject = var->mLinkerObject;
 					var->mIdent = dec->mIdent;
 					dec->mVarIndex = proc->mModule->mGlobalVars.Size();
@@ -3222,7 +3222,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 				var->mIndex = dec->mVarIndex;
 				var->mOffset = 0;
 				var->mSize = dec->mSize;
-				var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA);
+				var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 				dec->mLinkerObject = var->mLinkerObject;
 				var->mLinkerObject->AddData(dec->mData, dec->mSize);
 				mod->mGlobalVars.Push(var);
@@ -3233,6 +3233,21 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 			variable->mLinkerObject->AddReference(ref);
 			break;
 		}
+		case DT_VARIABLE:
+		{
+			if (!dec->mLinkerObject)
+			{
+				InitGlobalVariable(mod, dec);
+			}
+
+			LinkerReference	ref;
+			ref.mObject = variable->mLinkerObject;
+			ref.mOffset = offset;
+			ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+			ref.mRefObject = dec->mLinkerObject;
+			ref.mRefOffset = 0;
+			variable->mLinkerObject->AddReference(ref);
+		}	break;
 		}
 	}
 }

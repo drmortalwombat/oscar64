@@ -563,6 +563,18 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 			dec->mOffset = offset;
 		}
 	}
+	else if (dtype->mType == DT_TYPE_POINTER && dec->mType == DT_VARIABLE && dec->mBase->mType == DT_TYPE_ARRAY && (dec->mFlags & DTF_STATIC))
+	{
+		if (dtype->CanAssign(exp->mDecType))
+		{
+			Declaration	*	ndec = new Declaration(dec->mLocation, DT_CONST_POINTER);
+			ndec->mValue = exp;
+			ndec->mBase = dtype;
+			dec = ndec;
+		}
+		else
+			mErrors->Error(exp->mLocation, EERR_CONSTANT_INITIALIZER, "Incompatible constant initializer");
+	}
 	else
 		mErrors->Error(exp->mLocation, EERR_CONSTANT_INITIALIZER, "Constant initializer expected");
 
@@ -3103,6 +3115,36 @@ void Parser::ParsePragma(void)
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "align"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
+				if (dec && dec->mType == DT_VARIABLE && (dec->mFlags & DTF_STATIC))
+				{
+					mScanner->NextToken();
+					ConsumeToken(TK_COMMA);
+
+					Expression * exp = ParseRExpression();
+					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+						dec->mAlignment = exp->mDecValue->mInteger;
+					else
+						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for alignment expected");
+				}
+				else
+				{
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Variable not found");
+					mScanner->NextToken();
+				}
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Variable name expected");
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}

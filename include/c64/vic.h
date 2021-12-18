@@ -75,6 +75,17 @@ struct VIC
 
 void vic_setbank(char bank);
 
+enum VicMode
+{
+	VICM_TEXT,
+	VICM_TEXT_MC,
+	VICM_TEXT_ECM,
+	VICM_HIRES,
+	VICM_HIRES_MC
+};
+
+void vic_setmode(VicMode mode, char * text, char * font);
+
 inline void vic_sprxy(byte s, int x, int y);
 
 

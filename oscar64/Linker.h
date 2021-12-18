@@ -93,7 +93,7 @@ public:
 	LinkerObjectType	mType;
 	int					mID;
 	int					mAddress;
-	int					mSize;
+	int					mSize, mAlignment;
 	LinkerSection	*	mSection;
 	LinkerRegion	*	mRegion;
 	uint8			*	mData;
@@ -129,7 +129,7 @@ public:
 
 	bool IsSectionPlaced(LinkerSection* section);
 
-	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type);
+	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment = 1);
 
 //	void AddReference(const LinkerReference& ref);
 

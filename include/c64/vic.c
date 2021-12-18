@@ -15,3 +15,33 @@ void vic_sprxy(byte s, int x, int y)
 	else
 		vic.spr_msbx &= ~(1 << s);
 }
+
+void vic_setmode(VicMode mode, char * text, char * font)
+{
+	switch (mode)
+	{
+		case VICM_TEXT:
+			vic.ctrl1 = VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3;
+			vic.ctrl2 = VIC_CTRL2_CSEL;
+			break;
+		case VICM_TEXT_MC:
+			vic.ctrl1 = VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3;
+			vic.ctrl2 = VIC_CTRL2_CSEL | VIC_CTRL2_MCM;
+			break;
+		case VICM_TEXT_ECM:
+			vic.ctrl1 = VIC_CTRL1_DEN | VIC_CTRL1_ECM | VIC_CTRL1_RSEL | 3;
+			vic.ctrl2 = VIC_CTRL2_CSEL;
+			break;
+		case VICM_HIRES:
+			vic.ctrl1 = VIC_CTRL1_BMM | VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3;
+			vic.ctrl2 = VIC_CTRL2_CSEL;
+			break;
+		case VICM_HIRES_MC:
+			vic.ctrl1 = VIC_CTRL1_BMM | VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3;
+			vic.ctrl2 = VIC_CTRL2_CSEL | VIC_CTRL2_MCM;
+			break;
+	}
+
+	cia2.pra = (cia2.pra & 0xfc) | (((unsigned)text >> 14) ^ 0x03);	
+	vic.memptr = (((unsigned)text >> 6) & 0xf0) | (((unsigned)font >> 10) & 0x0e);
+}

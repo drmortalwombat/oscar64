@@ -12,7 +12,7 @@ LinkerSection::LinkerSection(void)
 {}
 
 LinkerObject::LinkerObject(void)
-	: mReferences(nullptr), mNumTemporaries(0)
+	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1)
 {}
 
 LinkerObject::~LinkerObject(void)
@@ -133,7 +133,7 @@ LinkerObject* Linker::FindObjectByAddr(int addr)
 	return nullptr;
 }
 
-LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, LinkerSection * section, LinkerObjectType type)
+LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment)
 {
 	LinkerObject* obj = new LinkerObject;
 	obj->mLocation = location;
@@ -146,6 +146,7 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 	obj->mRegion = nullptr;
 	obj->mProc = nullptr;
 	obj->mFlags = 0;
+	obj->mAlignment = alignment;
 	section->mObjects.Push(obj);
 	mObjects.Push(obj);
 	return obj;
@@ -201,8 +202,9 @@ void Linker::Link(void)
 					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->mStart + lrgn->mUsed + lobj->mSize <= lrgn->mEnd)
 					{
 						lobj->mFlags |= LOBJF_PLACED;
-						lobj->mAddress = lrgn->mStart + lrgn->mUsed;
-						lrgn->mUsed += lobj->mSize;
+						lobj->mAddress = (lrgn->mStart + lrgn->mUsed + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
+						lrgn->mUsed = lobj->mAddress + lobj->mSize - lrgn->mStart;
+
 						lobj->mRegion = lrgn;
 
 						if (lsec->mType == LST_DATA)
