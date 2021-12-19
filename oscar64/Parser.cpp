@@ -563,7 +563,7 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 			dec->mOffset = offset;
 		}
 	}
-	else if (dtype->mType == DT_TYPE_POINTER && dec->mType == DT_VARIABLE && dec->mBase->mType == DT_TYPE_ARRAY && (dec->mFlags & DTF_STATIC))
+	else if (dtype->mType == DT_TYPE_POINTER && dec->mType == DT_VARIABLE && dec->mBase->mType == DT_TYPE_ARRAY && (dec->mFlags & DTF_GLOBAL))
 	{
 		if (dtype->CanAssign(exp->mDecType))
 		{
@@ -3126,7 +3126,7 @@ void Parser::ParsePragma(void)
 			if (mScanner->mToken == TK_IDENT)
 			{
 				Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
-				if (dec && dec->mType == DT_VARIABLE && (dec->mFlags & DTF_STATIC))
+				if (dec && dec->mType == DT_VARIABLE && (dec->mFlags & DTF_GLOBAL))
 				{
 					mScanner->NextToken();
 					ConsumeToken(TK_COMMA);

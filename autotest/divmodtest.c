@@ -23,6 +23,17 @@ int main(void)
 			assert(r >= 0 && r < j);
 		}
 	}
+
+	for(unsigned i=0; i<64000; i+=121)
+	{
+		for(unsigned j=1; j<i; j*=3)
+		{
+			unsigned q = i / j, r = i % j;
+			
+			assert(q * j + r == i);
+			assert(r >= 0 && r < j);
+		}
+	}
 	
 	return 0;
 }

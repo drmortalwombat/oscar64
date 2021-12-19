@@ -9286,26 +9286,57 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 
 void NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* lblock)
 {
-	if (lblock->mIns[0].mType == ASMIT_LDA && lblock->mIns[0].mMode == ASMIM_IMMEDIATE)
+	int	ai = 0;
+	while (ai < lblock->mIns.Size() && !lblock->mIns[ai].ChangesAccu())
+		ai++;
+
+	if (lblock->mIns[ai].mType == ASMIT_LDA && lblock->mIns[ai].mMode == ASMIM_IMMEDIATE)
 	{
-		int i = 1;
+		int i = ai + 1;
 		while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesAccu())
 			i++;
 		if (i == lblock->mIns.Size())
 		{
-			mIns.Push(lblock->mIns[0]);
-			lblock->mIns.Remove(0);
+			mIns.Push(lblock->mIns[ai]);
+			lblock->mIns.Remove(ai);
 		}
 	}
-	else if (lblock->mIns[0].mType == ASMIT_LDA && lblock->mIns[0].mMode == ASMIM_ZERO_PAGE)
+	else if (lblock->mIns[ai].mType == ASMIT_LDA && lblock->mIns[ai].mMode == ASMIM_ZERO_PAGE)
 	{
-		int i = 1;
+		int i = ai + 1;
 		while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesAccu() && !lblock->mIns[i].ChangesZeroPage(lblock->mIns[0].mAddress))
 			i++;
 		if (i == lblock->mIns.Size())
 		{
-			mIns.Push(lblock->mIns[0]);
-			lblock->mIns.Remove(0);
+			mIns.Push(lblock->mIns[ai]);
+			lblock->mIns.Remove(ai);
+		}
+	}
+
+	ai = 0;
+	while (ai < lblock->mIns.Size() && !lblock->mIns[ai].ChangesYReg())
+		ai++;
+
+	if (lblock->mIns[ai].mType == ASMIT_LDY && lblock->mIns[ai].mMode == ASMIM_IMMEDIATE)
+	{
+		int i = ai + 1;
+		while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesYReg())
+			i++;
+		if (i == lblock->mIns.Size())
+		{
+			mIns.Push(lblock->mIns[ai]);
+			lblock->mIns.Remove(ai);
+		}
+	}
+	else if (lblock->mIns[ai].mType == ASMIT_LDY && lblock->mIns[ai].mMode == ASMIM_ZERO_PAGE)
+	{
+		int i = ai + 1;
+		while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesYReg() && !lblock->mIns[i].ChangesZeroPage(lblock->mIns[0].mAddress))
+			i++;
+		if (i == lblock->mIns.Size())
+		{
+			mIns.Push(lblock->mIns[ai]);
+			lblock->mIns.Remove(ai);
 		}
 	}
 }
@@ -10426,6 +10457,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 					NativeCodeInstruction	pins = mIns[i];
 					mIns[i] = mIns[i + 1];
 					mIns[i + 1] = pins;
+					changed = true;
 				}
 			}
 		}
@@ -10444,7 +10476,10 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 				while (j < mIns.Size() && !mIns[j].ChangesXReg() && !mIns[j].ChangesYReg())
 				{
 					if (mIns[j].mMode == ASMIM_ABSOLUTE_Y)
+					{
 						mIns[j].mMode = ASMIM_ABSOLUTE_X;
+						changed = true;
+					}
 					j++;
 				}
 			}
@@ -10454,7 +10489,10 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 				while (j < mIns.Size() && !mIns[j].ChangesXReg() && !mIns[j].ChangesYReg())
 				{
 					if (mIns[j].mMode == ASMIM_ABSOLUTE_X)
+					{
 						mIns[j].mMode = ASMIM_ABSOLUTE_Y;
+						changed = true;
+					}
 					j++;
 				}
 			}
@@ -10501,7 +10539,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 			mIns.Reserve(mIns.Size() * 2 + 32);
 
-			changed = RemoveNops();
+			if (RemoveNops())
+				changed = true;
 
 			// Replace (a & 0x80) != 0 with bpl/bmi
 			int	sz = mIns.Size();
@@ -10833,6 +10872,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						progress = true;
 					}
+#if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_TXA &&
 						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
@@ -10840,6 +10880,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 1].mType = ASMIT_STX;
 						progress = true;
 					}
+#endif
 					else if (
 						mIns[i + 0].mType == ASMIT_TYA &&
 						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))

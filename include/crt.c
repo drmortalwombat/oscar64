@@ -379,12 +379,46 @@ W1:		dey
 __asm divmod32
 {
 		sty	tmpy
+		ldy	#32
+
 		lda	#0
 		sta	tmp + 4
 		sta	tmp + 5
 		sta	tmp + 6
 		sta	tmp + 7
-		ldy	#32
+
+		lda tmp + 2
+		ora tmp + 3
+		bne W32
+
+// divide 32 by 16 bit
+
+		clc
+LS1:	rol	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+		rol	tmp + 4
+		rol	tmp + 5
+		sec
+		lda	tmp + 4
+		sbc	tmp
+		tax
+		lda	tmp + 5
+		sbc	tmp + 1
+		bcc	WS1
+		stx	tmp + 4
+		sta	tmp + 5
+WS1:	dey
+		bne	LS1
+		rol	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+		ldy	tmpy
+		rts	
+
+W32:
 		clc
 L1:		rol	accu
 		rol	accu + 1
