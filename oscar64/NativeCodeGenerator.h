@@ -48,15 +48,22 @@ static const uint32 NCIF_YZERO = 0x00000008;
 static const uint32 NCIF_VOLATILE = 0x00000010;
 static const uint32 NCIF_LONG = 0x00000020;
 
+static const uint32 NCIF_USE_CPU_REG_A = 0x00000040;
+static const uint32 NCIF_USE_CPU_REG_X = 0x00000080;
+static const uint32 NCIF_USE_CPU_REG_Y = 0x00000100;
+
+// use a 32bit zero page register indexed by X for JSR
+static const uint32 NCIF_USE_ZP_32_X = 0x00000200;
+
 class NativeCodeInstruction
 {
 public:
-	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER);
+	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER, int param = 0);
 
 	AsmInsType		mType;
 	AsmInsMode		mMode;
 
-	int				mAddress;
+	int				mAddress, mParam;
 	uint32			mFlags;
 	uint32			mLive;
 	LinkerObject*	mLinkerObject;
@@ -201,6 +208,9 @@ public:
 	bool ValueForwarding(const NativeRegisterDataSet& data, bool global);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);
+
+	void AddEntryBlock(NativeCodeBasicBlock* block);
+	void RemEntryBlock(NativeCodeBasicBlock* block);
 
 	bool JoinTailCodeSequences(void);
 	bool SameTail(const NativeCodeInstruction& ins) const;

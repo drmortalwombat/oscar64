@@ -120,8 +120,8 @@ void NativeRegisterDataSet::Intersect(const NativeRegisterDataSet& set)
 	} while (changed);
 }
 
-NativeCodeInstruction::NativeCodeInstruction(AsmInsType type, AsmInsMode mode, int address, LinkerObject* linkerObject, uint32 flags)
-	: mType(type), mMode(mode), mAddress(address), mLinkerObject(linkerObject), mFlags(flags)
+NativeCodeInstruction::NativeCodeInstruction(AsmInsType type, AsmInsMode mode, int address, LinkerObject* linkerObject, uint32 flags, int param)
+	: mType(type), mMode(mode), mAddress(address), mLinkerObject(linkerObject), mFlags(flags), mParam(param)
 {}
 
 bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
@@ -158,6 +158,12 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 			{
 				requiredTemps += BC_REG_ACCU + i;
 				requiredTemps += BC_REG_WORK + i;
+			}
+
+			if (mFlags & NCIF_USE_ZP_32_X)
+			{
+				for (int i = 0; i < 4; i++)
+					requiredTemps += mParam + i;
 			}
 		}
 		else
@@ -701,7 +707,7 @@ bool NativeCodeInstruction::IsCommutative(void) const
 
 bool NativeCodeInstruction::IsSame(const NativeCodeInstruction& ins) const
 {
-	if (mType == ins.mType && mMode == ins.mMode)
+	if (mType == ins.mType && mMode == ins.mMode && mParam == ins.mParam)
 	{
 		switch (mMode)
 		{
@@ -2185,6 +2191,14 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 				if (!providedTemps[BC_REG_ADDR + i])
 					requiredTemps += BC_REG_ADDR + i;
 			}
+			if (mFlags & NCIF_USE_ZP_32_X)
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					if (!providedTemps[mParam + i])
+						requiredTemps += mParam + i;
+				}
+			}
 		}
 		else
 		{
@@ -2489,6 +2503,11 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 	}
 	else
 	{
+		if (mType == ASMIT_JSR && (mFlags & NCIF_USE_ZP_32_X))
+		{
+			block->PutByte(AsmInsOpcodes[ASMIT_LDX][ASMIM_IMMEDIATE]);
+			block->PutByte(mParam);
+		}
 
 		if (mMode == ASMIM_IMMEDIATE_ADDRESS)
 		{
@@ -4719,12 +4738,31 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 	if (ins->mDst.mType == IT_FLOAT)
 	{
-		int	sreg0 = ins->mSrc[0].mTemp < 0 ? -1 : BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		int		sop0 = 0, sop1 = 1;
+		bool	flipop = false;
 
-		if (ins->mSrc[1].mTemp < 0)
+		if (ins->mOperator == IA_ADD || ins->mOperator == IA_MUL || ins->mOperator == IA_SUB)
+		{
+			if (!sins0 && ins->mSrc[sop0].mTemp >= 0 && CheckPredAccuStore(BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop0].mTemp]))
+			{
+				flipop = true;
+				sop0 = 1; sop1 = 0;
+				const InterInstruction* sins = sins0; sins0 = sins1; sins1 = sins;
+			}
+			else if (!sins1 && !sins0 && ins->mSrc[sop0].mTemp < 0 && ins->mSrc[sop1].mTemp >= 0 && !CheckPredAccuStore(BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp]))
+			{
+				flipop = true;
+				sop0 = 1; sop1 = 0;
+				const InterInstruction* sins = sins0; sins0 = sins1; sins1 = sins;
+			}
+		}
+
+		int	sreg0 = ins->mSrc[sop0].mTemp < 0 ? -1 : BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop0].mTemp];
+
+		if (ins->mSrc[sop1].mTemp < 0)
 		{
 			union { float f; unsigned int v; } cc;
-			cc.f = ins->mSrc[1].mFloatConst;
+			cc.f = ins->mSrc[sop1].mFloatConst;
 
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
@@ -4739,29 +4777,32 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		{
 			LoadValueToReg(proc, sins1, BC_REG_ACCU, nullptr, nullptr);
 		}
-		else if (ins->mSrc[1].mFinal && CheckPredAccuStore(BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]))
+		else if (CheckPredAccuStore(BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp]))
 		{
-			// cull previous store from accu to temp using direcrt forwarding
-			mIns.SetSize(mIns.Size() - 8);
-			if (sreg0 == BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp])
+			if (ins->mSrc[sop1].mFinal)
+			{
+				// cull previous store from accu to temp using direcrt forwarding
+				mIns.SetSize(mIns.Size() - 8);
+			}
+			if (sreg0 == BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp])
 				sreg0 = BC_REG_ACCU;
 		}
 		else
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 0));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 1));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 2));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 2));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 2));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 3));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 3));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
 		}
 
-		if (ins->mSrc[0].mTemp < 0)
+		if (ins->mSrc[sop0].mTemp < 0)
 		{
 			union { float f; unsigned int v; } cc;
-			cc.f = ins->mSrc[0].mFloatConst;
+			cc.f = ins->mSrc[sop0].mFloatConst;
 
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
@@ -4771,13 +4812,21 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 2));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 24) & 0xff));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+
+			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitt")));
+			mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME));
 		}
 		else if (sins0)
 		{
 			LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
+			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitt")));
+			mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME));
 		}
 		else
 		{
+			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitx")));
+			mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_USE_ZP_32_X, sreg0));
+#if 0
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 0));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 1));
@@ -4786,10 +4835,9 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 2));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 3));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+#endif
 		}
 
-		NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitt")));
-		mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME));
 
 		switch (ins->mOperator)
 		{
@@ -4800,9 +4848,19 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		}	break;
 		case IA_SUB:
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
-			mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+			if (flipop)
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+				mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+			}
+			else
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+				mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+			}
+
 			NativeCodeGenerator::Runtime& art(nproc->mGenerator->ResolveRuntime(Ident::Unique("faddsub")));
 			mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, art.mOffset, art.mLinkerObject, NCIF_RUNTIME));
 		}	break;
@@ -8043,6 +8101,9 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 	{
 		mVisited = true;
 
+		int	yreg = -1;
+		int xreg = -1;
+
 		for (int i = 0; i < mIns.Size(); i++)
 		{
 			const NativeCodeInstruction& ins(mIns[i]);
@@ -8058,7 +8119,10 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 					break;
 				case ASMIT_LDY:
 					if (yregs[ins.mAddress] >= 0)
+					{
 						yregs[ins.mAddress] += 2;
+						yreg = ins.mAddress;
+					}
 					for (int i = 1; i < 256; i++)
 						if (i != ins.mAddress)
 							yregs[i] = -1;
@@ -8067,7 +8131,10 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 					break;
 				case ASMIT_LDX:
 					if (xregs[ins.mAddress] >= 0)
+					{
 						xregs[ins.mAddress] += 2;
+						xreg = ins.mAddress;
+					}
 					for (int i = 1; i < 256; i++)
 						if (i != ins.mAddress)
 							xregs[i] = -1;
@@ -8075,6 +8142,11 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 					yregs[ins.mAddress] = -1;
 					break;
 				case ASMIT_STA:
+					if (yreg == ins.mAddress)
+						yreg = -1;
+					if (xreg == ins.mAddress)
+						xreg = -1;
+
 					if (ins.mLive & LIVE_CPU_REG_Z)
 					{
 						xregs[ins.mAddress + 0] = -1;
@@ -8090,6 +8162,11 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 					break;
 				case ASMIT_INC:
 				case ASMIT_DEC:
+					if (yreg == ins.mAddress)
+						yreg = -1;
+					if (xreg == ins.mAddress)
+						xreg = -1;
+
 					if (yregs[ins.mAddress] >= 0)
 						yregs[ins.mAddress] += 3;
 					if (xregs[ins.mAddress] >= 0)
@@ -8103,6 +8180,10 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 			}
 			else if (ins.mMode == ASMIM_INDIRECT_Y)
 			{
+				for (int i = 1; i < 256; i++)
+					if (i != yreg)
+						yregs[i] = -1;
+
 				xregs[ins.mAddress + 0] = -1;
 				xregs[ins.mAddress + 1] = -1;
 				yregs[ins.mAddress + 0] = -1;
@@ -8114,6 +8195,18 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 			}
 			else
 			{
+				if (ins.RequiresXReg())
+				{
+					for (int i = 1; i < 256; i++)
+						if (i != xreg)
+							xregs[i] = -1;
+				}
+				if (ins.RequiresYReg())
+				{
+					for (int i = 1; i < 256; i++)
+						if (i != yreg)
+							yregs[i] = -1;
+				}
 				if (ins.ChangesXReg())
 					xregs[0] = -1;
 				if (ins.ChangesYReg())
@@ -8168,6 +8261,9 @@ bool NativeCodeBasicBlock::RemapZeroPage(const uint8* remap)
 							modified = true;
 						}
 					}
+
+					if (mIns[i].mFlags & NCIF_USE_ZP_32_X)
+						mIns[i].mParam = remap[mIns[i].mParam];
 				}
 				break;
 			}
@@ -8191,6 +8287,24 @@ bool NativeCodeBasicBlock::SameTail(const NativeCodeInstruction& ins) const
 		return false;
 }
 
+void NativeCodeBasicBlock::AddEntryBlock(NativeCodeBasicBlock* block)
+{
+	int i = 0;
+	while (i < mEntryBlocks.Size() && mEntryBlocks[i] != block)
+		i++;
+	if (i == mEntryBlocks.Size())
+		mEntryBlocks.Push(block);
+}
+
+void NativeCodeBasicBlock::RemEntryBlock(NativeCodeBasicBlock* block)
+{
+	int i = 0;
+	while (i < mEntryBlocks.Size() && mEntryBlocks[i] != block)
+		i++;
+	if (i < mEntryBlocks.Size())
+		mEntryBlocks.Remove(i);
+}
+
 bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
 {
 	bool	changed = false;
@@ -8198,7 +8312,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
 	if (!mVisited)
 	{
 		mVisited = true;
-
+#if 1
 		if (mEntryBlocks.Size() > 1)
 		{
 			int i = 0;
@@ -8229,8 +8343,9 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
 				}
 			}
 		}
-
-		if (mTrueJump && mFalseJump && !mTrueJump->mFalseJump && !mFalseJump->mFalseJump)
+#endif
+#if 1
+		if (mTrueJump && mFalseJump && !mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump)
 		{
 			if (mTrueJump->mIns.Size() > mFalseJump->mIns.Size())
 			{
@@ -8239,8 +8354,13 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
 					i++;
 				if (i == mFalseJump->mIns.Size())
 				{
+					if (mTrueJump->mTrueJump)
+						mTrueJump->mTrueJump->RemEntryBlock(mTrueJump);
 					mTrueJump->mTrueJump = mFalseJump;
+					if (mTrueJump->mTrueJump)
+						mTrueJump->mTrueJump->AddEntryBlock(mTrueJump);
 					mTrueJump->mIns.SetSize(offset);
+
 					changed = true;
 				}
 			}
@@ -8251,13 +8371,17 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
 					i++;
 				if (i == mTrueJump->mIns.Size())
 				{
+					if (mFalseJump->mTrueJump)
+						mFalseJump->mTrueJump->RemEntryBlock(mFalseJump);
 					mFalseJump->mTrueJump = mTrueJump;
+					if (mFalseJump->mTrueJump)
+						mFalseJump->mTrueJump->AddEntryBlock(mFalseJump);
 					mFalseJump->mIns.SetSize(offset);
 					changed = true;
 				}
 			}
 		}
-
+#endif
 		if (mTrueJump && mTrueJump->JoinTailCodeSequences())
 			changed = true;
 		if (mFalseJump && mFalseJump->JoinTailCodeSequences())
@@ -8954,6 +9078,9 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreUp(int at)
 	{
 		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at + 1].mAddress)
 		{
+			if (mIns[j].mLive & LIVE_CPU_REG_A)
+				return false;
+
 			mIns.Insert(j + 1, mIns[at + 3]);	// STA
 			mIns.Insert(j + 1, mIns[at + 3]);	// ADC
 			mIns.Insert(j + 1, mIns[at + 2]);	// CLC
@@ -11421,6 +11548,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TYA &&
+						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
+						mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+					{
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
 #endif
 #if 1
 					if (
@@ -11704,7 +11839,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						int	apos, breg, ireg;
 						if (FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
 						{
-							if (breg == mIns[i + 1].mAddress)
+							if (breg == mIns[i + 1].mAddress || ireg == mIns[i + 1].mAddress)
 							{
 								mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
 								mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
@@ -11772,34 +11907,6 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 #endif
 				}
-
-#if 0
-				if (i + 8 < mIns.Size())
-				{
-					if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 2].mAddress + 1 &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-
-						mIns[i + 7].mType == ASMIT_LDY && mIns[i + 7].mMode == ASMIM_IMMEDIATE && mIns[i + 7].mAddress == 0 &&
-						mIns[i + 8].mMode == ASMIM_INDIRECT_Y && mIns[i + 8].mAddress == mIns[i + 3].mAddress)
-					{
-						mIns[i + 7].mType = ASMIT_NOP;
-						mIns[i + 7].mMode = ASMIM_IMPLIED;
-						mIns[i + 8].mAddress = mIns[i + 2].mAddress;
-
-						if (mIns[i + 8].mLive & LIVE_CPU_REG_Y)
-						{
-							mIns.Insert(i + 9, NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0));
-							mIns[i + 9].mLive |= LIVE_CPU_REG_Y;
-						}
-					}
-				}
-#endif
 
 #if 1
 				if (i + 7 < mIns.Size())
@@ -12777,7 +12884,7 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		if (mEntryBlock->SimpleLoopReversal(this))
 			changed = true;
-			
+
 		ResetVisited();
 		if (mEntryBlock->MergeBasicBlocks())
 			changed = true;
@@ -12794,12 +12901,14 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+#if 1
 		if (step > 2)
 		{
 			ResetVisited();
 			if (mEntryBlock->JoinTailCodeSequences())
 				changed = true;
 		}
+#endif
 		if (step == 3)
 		{
 			ResetVisited();

@@ -18,7 +18,7 @@ int main(void)
 #assign ni ni + 1
 #until ni == 200
 
-	int asum = 0, bsum = 0, csum;
+	int asum = 0, bsum = 0, csum = 0;
 	for(int i=0; i<200; i++)
 	{
 		asum += a[i];

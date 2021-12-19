@@ -191,6 +191,7 @@ bool Compiler::GenerateCode(void)
 
 	RegisterRuntime(loc, Ident::Unique("mul16by8"));
 	RegisterRuntime(loc, Ident::Unique("fsplitt"));
+	RegisterRuntime(loc, Ident::Unique("fsplitx"));
 	RegisterRuntime(loc, Ident::Unique("fsplita"));
 	RegisterRuntime(loc, Ident::Unique("faddsub"));
 	RegisterRuntime(loc, Ident::Unique("fmul"));

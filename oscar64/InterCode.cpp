@@ -4425,6 +4425,18 @@ static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins
 	return true;
 }
 
+static bool IsChained(const InterInstruction* ins, const InterInstruction* nins)
+{
+	if (ins->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < nins->mNumOperands; i++)
+			if (ins->mDst.mTemp == nins->mSrc[i].mTemp)
+				return true;
+	}
+
+	return false;
+}
+
 static bool CanBypassStore(const InterInstruction * sins, const InterInstruction * bins)
 {
 	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_PUSH_FRAME)
@@ -4892,8 +4904,8 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 #if 1
 		while (i >= 0)
 		{
-			// move loads down
-			if (mInstructions[i]->mCode == IC_LOAD)
+			// move non indirect loads down
+			if (mInstructions[i]->mCode == IC_LOAD && (mInstructions[i]->mSrc[0].mMemory != IM_INDIRECT || mInstructions[i]->mDst.mType != IT_INT8))
 			{
 				InterInstruction	*	ins(mInstructions[i]);
 				int j = i;
@@ -4909,7 +4921,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
-				while (j < limit && CanBypass(ins, mInstructions[j + 1]))
+				while (j < limit && CanBypass(ins, mInstructions[j + 1]) && !(j + 2 < mInstructions.Size() && IsChained(mInstructions[j + 1], mInstructions[j + 2])))
 				{
 					mInstructions[j] = mInstructions[j + 1];
 					j++;

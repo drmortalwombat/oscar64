@@ -2435,6 +2435,7 @@ split_exp:
 		lda	(ip), y
 		iny
 		tax
+split_xexp:
 		lda	$00, x
 		sta	tmp + 0
 		lda	$01, x
@@ -3424,6 +3425,7 @@ fru3:
 
 #pragma runtime(fsplita, freg.split_aexp)
 #pragma runtime(fsplitt, freg.split_texp)
+#pragma runtime(fsplitx, freg.split_xexp)
 #pragma runtime(fmergea, freg.merge_aexp)
 #pragma runtime(faddsub, faddsub)
 #pragma runtime(fmul, fmul)
