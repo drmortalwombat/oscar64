@@ -4425,6 +4425,32 @@ static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins
 	return true;
 }
 
+static bool CanBypassUp(const InterInstruction* lins, const InterInstruction* bins)
+{
+	if (lins->mDst.mTemp >= 0)
+	{
+		if (lins->mDst.mTemp == bins->mDst.mTemp)
+			return false;
+
+		for (int i = 0; i < bins->mNumOperands; i++)
+			if (lins->mDst.mTemp == bins->mSrc[i].mTemp)
+				return false;
+	}
+	if (bins->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < lins->mNumOperands; i++)
+			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
+				return false;
+	}
+	if (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
+	{
+		if (lins->mCode == IC_CONSTANT && lins->mDst.mType == IT_POINTER && lins->mConst.mMemory == IM_FRAME)
+			return false;
+	}
+
+	return true;
+}
+
 static bool IsChained(const InterInstruction* ins, const InterInstruction* nins)
 {
 	if (ins->mDst.mTemp >= 0)
@@ -4443,27 +4469,39 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 		return false;
 
 	InterMemory	sm = IM_NONE, bm = IM_NONE;
-	int			bi = -1, si = -1;
+	int			bi = -1, si = -1, bt = -1, st = -1, bo = 0, so = 0, bz = 1, sz = 1;
 	if (sins->mCode == IC_LOAD)
 	{
 		sm = sins->mSrc[0].mMemory;
 		si = sins->mSrc[0].mVarIndex;
+		st = sins->mSrc[0].mTemp;
+		so = sins->mSrc[0].mIntConst;
+		sz = InterTypeSize[sins->mDst.mType];
 	}
 	else if (sins->mCode == IC_LEA || sins->mCode == IC_STORE)
 	{
 		sm = sins->mSrc[1].mMemory;
 		si = sins->mSrc[1].mVarIndex;
+		st = sins->mSrc[1].mTemp;
+		so = sins->mSrc[1].mIntConst;
+		sz = InterTypeSize[sins->mSrc[0].mType];
 	}
 
 	if (bins->mCode == IC_LOAD)
 	{
 		bm = bins->mSrc[0].mMemory;
 		bi = bins->mSrc[0].mVarIndex;
+		st = sins->mSrc[0].mTemp;
+		bo = sins->mSrc[0].mIntConst;
+		bz = InterTypeSize[sins->mDst.mType];
 	}
 	else if (bins->mCode == IC_LEA || bins->mCode == IC_STORE)
 	{
 		bm = bins->mSrc[1].mMemory;
 		bi = bins->mSrc[1].mVarIndex;
+		bt = sins->mSrc[1].mTemp;
+		bo = sins->mSrc[1].mIntConst;
+		bz = InterTypeSize[sins->mSrc[1].mType];
 	}
 
 	// Check ambiguity
@@ -4480,6 +4518,10 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 			}
 			else
 				return false;
+		}
+		else if (sm == IM_INDIRECT && bm == IM_INDIRECT && st == bt)
+		{
+			return so + sz <= bz || bo + bz <= so;
 		}
 		else
 			return false;
@@ -4727,6 +4769,10 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					{
 						ins->mInvariant = false;
 					}
+					else if (ins->mSrc[0].mMemory == IM_LOCAL && hasCall)
+					{
+						ins->mInvariant = false;
+					}
 					else
 					{
 						for (int j = 0; j < mInstructions.Size(); j++)
@@ -4961,8 +5007,52 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 				if (i != j)
 					mInstructions[j] = ins;
 			}
+			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mSrc[0].mTemp >= 0 && mInstructions[i]->mSrc[0].mFinal && mInstructions[i]->mSrc[1].mTemp >= 0 && mInstructions[i]->mSrc[1].mFinal)
+			{
+				InterInstruction* ins(mInstructions[i]);
+				int j = i;
+				while (j > 0 && CanBypassUp(ins, mInstructions[j - 1]))
+				{
+					mInstructions[j] = mInstructions[j - 1];
+					j--;
+				}
+				if (i != j)
+					mInstructions[j] = ins;
+			}
 
 			i++;
+		}
+
+		i = limit;
+		while (i >= 0)
+		{
+			// move non indirect loads down
+			if (mInstructions[i]->mCode == IC_LOAD && (mInstructions[i]->mSrc[0].mMemory != IM_INDIRECT || mInstructions[i]->mDst.mType != IT_INT8))
+			{
+				InterInstruction* ins(mInstructions[i]);
+				int j = i;
+				while (j < limit && CanBypassLoad(ins, mInstructions[j + 1]))
+				{
+					mInstructions[j] = mInstructions[j + 1];
+					j++;
+				}
+				if (i != j)
+					mInstructions[j] = ins;
+			}
+			else if (mInstructions[i]->mCode == IC_LEA && mInstructions[i]->mSrc[0].mTemp == -1)
+			{
+				InterInstruction* ins(mInstructions[i]);
+				int j = i;
+				while (j < limit && CanBypass(ins, mInstructions[j + 1]))
+				{
+					mInstructions[j] = mInstructions[j + 1];
+					j++;
+				}
+				if (i != j)
+					mInstructions[j] = ins;
+			}
+
+			i--;
 		}
 
 		bool	changed;

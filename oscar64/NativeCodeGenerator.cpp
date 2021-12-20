@@ -9290,26 +9290,29 @@ void NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	while (ai < lblock->mIns.Size() && !lblock->mIns[ai].ChangesAccu())
 		ai++;
 
-	if (lblock->mIns[ai].mType == ASMIT_LDA && lblock->mIns[ai].mMode == ASMIM_IMMEDIATE)
+	if (ai < lblock->mIns.Size())
 	{
-		int i = ai + 1;
-		while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesAccu())
-			i++;
-		if (i == lblock->mIns.Size())
+		if (lblock->mIns[ai].mType == ASMIT_LDA && lblock->mIns[ai].mMode == ASMIM_IMMEDIATE)
 		{
-			mIns.Push(lblock->mIns[ai]);
-			lblock->mIns.Remove(ai);
+			int i = ai + 1;
+			while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesAccu())
+				i++;
+			if (i == lblock->mIns.Size())
+			{
+				mIns.Push(lblock->mIns[ai]);
+				lblock->mIns.Remove(ai);
+			}
 		}
-	}
-	else if (lblock->mIns[ai].mType == ASMIT_LDA && lblock->mIns[ai].mMode == ASMIM_ZERO_PAGE)
-	{
-		int i = ai + 1;
-		while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesAccu() && !lblock->mIns[i].ChangesZeroPage(lblock->mIns[0].mAddress))
-			i++;
-		if (i == lblock->mIns.Size())
+		else if (lblock->mIns[ai].mType == ASMIT_LDA && lblock->mIns[ai].mMode == ASMIM_ZERO_PAGE)
 		{
-			mIns.Push(lblock->mIns[ai]);
-			lblock->mIns.Remove(ai);
+			int i = ai + 1;
+			while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesAccu() && !lblock->mIns[i].ChangesZeroPage(lblock->mIns[ai].mAddress))
+				i++;
+			if (i == lblock->mIns.Size())
+			{
+				mIns.Push(lblock->mIns[ai]);
+				lblock->mIns.Remove(ai);
+			}
 		}
 	}
 
@@ -9317,26 +9320,64 @@ void NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	while (ai < lblock->mIns.Size() && !lblock->mIns[ai].ChangesYReg())
 		ai++;
 
-	if (lblock->mIns[ai].mType == ASMIT_LDY && lblock->mIns[ai].mMode == ASMIM_IMMEDIATE)
+	if (ai < lblock->mIns.Size())
 	{
-		int i = ai + 1;
-		while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesYReg())
-			i++;
-		if (i == lblock->mIns.Size())
+		if (lblock->mIns[ai].mType == ASMIT_LDY && lblock->mIns[ai].mMode == ASMIM_IMMEDIATE)
 		{
-			mIns.Push(lblock->mIns[ai]);
-			lblock->mIns.Remove(ai);
+			int i = ai + 1;
+			while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesYReg())
+				i++;
+			if (i == lblock->mIns.Size())
+			{
+				mIns.Push(lblock->mIns[ai]);
+				lblock->mIns.Remove(ai);
+			}
 		}
-	}
-	else if (lblock->mIns[ai].mType == ASMIT_LDY && lblock->mIns[ai].mMode == ASMIM_ZERO_PAGE)
-	{
-		int i = ai + 1;
-		while (i < lblock->mIns.Size() && !lblock->mIns[i].ChangesYReg() && !lblock->mIns[i].ChangesZeroPage(lblock->mIns[0].mAddress))
-			i++;
-		if (i == lblock->mIns.Size())
+		else if (lblock->mIns[ai].mType == ASMIT_LDY && lblock->mIns[ai].mMode == ASMIM_ZERO_PAGE)
 		{
-			mIns.Push(lblock->mIns[ai]);
-			lblock->mIns.Remove(ai);
+			int i = 0;
+			while (i < lblock->mIns.Size() && (i == ai || !lblock->mIns[i].ChangesYReg()))
+				i++;
+			if (i == lblock->mIns.Size())
+			{
+				int addr = lblock->mIns[ai].mAddress;
+				i = 0;
+				while (i < lblock->mIns.Size() &&
+					(lblock->mIns[i].mMode != ASMIM_ZERO_PAGE || lblock->mIns[i].mAddress != addr ||
+						lblock->mIns[i].mType == ASMIT_LDA || lblock->mIns[i].mType == ASMIT_STA || lblock->mIns[i].mType == ASMIT_INC || lblock->mIns[i].mType == ASMIT_DEC || lblock->mIns[i].mType == ASMIT_LDY))
+					i++;
+				if (i == lblock->mIns.Size())
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, addr));
+					lblock->mFalseJump->mIns.Push(NativeCodeInstruction(ASMIT_STY, ASMIM_ZERO_PAGE, addr));
+					for (int i = 0; i < lblock->mIns.Size(); i++)
+					{
+						if (lblock->mIns[i].mMode == ASMIM_ZERO_PAGE && lblock->mIns[i].mAddress == addr)
+						{
+							if (lblock->mIns[i].mType == ASMIT_LDA)
+							{
+								lblock->mIns[i].mType = ASMIT_TYA; lblock->mIns[i].mMode = ASMIM_IMPLIED;
+							}
+							else if (lblock->mIns[i].mType == ASMIT_STA)
+							{
+								lblock->mIns[i].mType = ASMIT_TAY; lblock->mIns[i].mMode = ASMIM_IMPLIED;
+							}
+							else if (lblock->mIns[i].mType == ASMIT_LDY)
+							{
+								lblock->mIns[i].mType = ASMIT_NOP; lblock->mIns[i].mMode = ASMIM_IMPLIED;
+							}
+							else if (lblock->mIns[i].mType == ASMIT_INC)
+							{
+								lblock->mIns[i].mType = ASMIT_INY; lblock->mIns[i].mMode = ASMIM_IMPLIED;
+							}
+							else if (lblock->mIns[i].mType == ASMIT_DEC)
+							{
+								lblock->mIns[i].mType = ASMIT_DEY; lblock->mIns[i].mMode = ASMIM_IMPLIED;
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -9356,9 +9397,13 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 
 			if (lb->mIns[lbs-1].mType == ASMIT_CPX)
 			{
-				if (lb->mIns[lbs-2].mType == ASMIT_INX && mIns.Last().mType == ASMIT_LDX && mIns.Last().mMode == ASMIM_IMMEDIATE && mIns.Last().mAddress == 0)
+				int li = mIns.Size() - 1;
+				while (li >= 0 && !mIns[li].ChangesXReg())
+					li--;
+
+				if (li >= 0 && lb->mIns[lbs-2].mType == ASMIT_INX && mIns[li].mType == ASMIT_LDX && mIns[li].mMode == ASMIM_IMMEDIATE)
 				{
-					if (lb->mIns[lbs - 1].mMode == ASMIM_ZERO_PAGE)
+					if (lb->mIns[lbs - 1].mMode == ASMIM_ZERO_PAGE && mIns[li].mAddress == 0)
 					{
 						int	a = lb->mIns[lbs - 1].mAddress;
 
@@ -9367,14 +9412,30 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 							i++;
 						if (i + 2 == lbs)
 						{
-							mIns[mIns.Size() - 1].mMode = ASMIM_ZERO_PAGE;
-							mIns[mIns.Size() - 1].mAddress = a;
+							mIns[li].mMode = ASMIM_ZERO_PAGE;
+							mIns[li].mAddress = a;
+							lb->mIns[lbs - 2].mType = ASMIT_DEX;
+							lb->mIns[lbs - 1].mType = ASMIT_NOP; lb->mIns[lbs - 1].mMode = ASMIM_IMPLIED;
+							lb->mBranch = ASMIT_BNE;
+						}
+					}
+					else if (lb->mIns[lbs - 1].mMode == ASMIM_IMMEDIATE)
+					{
+						int	a = lb->mIns[lbs - 1].mAddress - mIns[li].mAddress;
+
+						int	i = 0;
+						while (i + 2 < lbs && !lb->mIns[i].RequiresXReg())
+							i++;
+						if (i + 2 == lbs)
+						{
+							mIns[li].mAddress = a;
 							lb->mIns[lbs - 2].mType = ASMIT_DEX;
 							lb->mIns[lbs - 1].mType = ASMIT_NOP; lb->mIns[lbs - 1].mMode = ASMIM_IMPLIED;
 							lb->mBranch = ASMIT_BNE;
 						}
 					}
 				}
+
 			}
 			else if (lb->mIns[lbs - 1].mType == ASMIT_CPY)
 			{
@@ -12917,14 +12978,18 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 #endif
 #if 1
-		ResetVisited();
-		if (mEntryBlock->OptimizeSimpleLoop(this))
-			changed = true;
+	
+		if (step > 0)
+		{
+			ResetVisited();
+			if (mEntryBlock->OptimizeSimpleLoop(this))
+				changed = true;
 
 
-		ResetVisited();
-		if (mEntryBlock->SimpleLoopReversal(this))
-			changed = true;
+			ResetVisited();
+			if (mEntryBlock->SimpleLoopReversal(this))
+				changed = true;
+		}
 
 		ResetVisited();
 		if (mEntryBlock->MergeBasicBlocks())
@@ -13194,7 +13259,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			}
 			else if (i + 2 < iblock->mInstructions.Size() &&
 				InterTypeSize[ins->mDst.mType] >= 2 &&
-				iblock->mInstructions[i + 1]->mCode == IC_LOAD && InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] == 2 &&
+				iblock->mInstructions[i + 1]->mCode == IC_LOAD && InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] >= 2 &&
 				iblock->mInstructions[i + 1]->mDst.mTemp != ins->mDst.mTemp &&
 				iblock->mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR &&
 				iblock->mInstructions[i + 2]->mSrc[0].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[0].mFinal &&
@@ -13205,7 +13270,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			}
 			else if (i + 2 < iblock->mInstructions.Size() &&
 				InterTypeSize[ins->mDst.mType] >= 2 &&
-				iblock->mInstructions[i + 1]->mCode == IC_LOAD && InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] == 2 &&
+				iblock->mInstructions[i + 1]->mCode == IC_LOAD && InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] >= 2 &&
 				iblock->mInstructions[i + 1]->mDst.mTemp != ins->mDst.mTemp &&
 				iblock->mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR &&
 				iblock->mInstructions[i + 2]->mSrc[1].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[1].mFinal &&
