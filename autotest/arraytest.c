@@ -77,16 +77,17 @@ int main(void)
 		a[i] = i % 10;
 		al[i] = i % 10;
 	}
-
+#if 0
 	assert(sum(a, 100) == 450);
 	copy(b, a, 100);
 	assert(sum(b, 100) == 450);
 	reverse(c, a, 100);
 	assert(sum(c, 100) == 450);
-
 	assert(sumb(a, 100) == 450);
+#endif
 	copyb(b, a, 100);
 	assert(sumb(b, 100) == 450);
+#if 0
 	reverseb(c, a, 100);
 	assert(sumb(c, 100) == 450);
 
@@ -97,6 +98,6 @@ int main(void)
 
 	reversel(cl, al, 100);
 	assert(suml(cl, 100) == 450);
-
+#endif
 	return 0;
 }

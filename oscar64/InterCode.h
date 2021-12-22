@@ -128,6 +128,30 @@ typedef GrowingArray<InterVariable * >			GrowingVariableArray;
 
 #define INVALID_TEMPORARY	(-1)
 
+class IntegerValueRange
+{
+public:
+	IntegerValueRange(void);
+	~IntegerValueRange(void);
+
+	int64		mMinValue, mMaxValue;
+	
+	enum State
+	{
+		S_UNKNOWN,
+		S_UNBOUND,
+		S_WEAK,
+		S_BOUND
+	}			mMinState, mMaxState;
+
+	bool Same(const IntegerValueRange& range) const;
+	bool Merge(const IntegerValueRange& range);
+};
+
+
+
+typedef GrowingArray<IntegerValueRange>		GrowingIntegerValueRangeArray;
+
 class ValueSet
 {
 protected:
@@ -300,10 +324,15 @@ public:
 	int					mVarIndex, mOperandSize;
 	LinkerObject	*	mLinkerObject;
 	InterMemory			mMemory;
+	IntegerValueRange	mRange;
 
 	InterOperand(void);
 
 	bool IsEqual(const InterOperand & op) const;
+
+	bool IsUByte(void) const;
+
+	void Disassemble(FILE* file);
 };
 
 class InterInstruction
@@ -430,6 +459,10 @@ public:
 	NumberSet						mEntryRequiredParams, mEntryProvidedParams;
 	NumberSet						mExitRequiredParams, mExitProvidedParams;
 
+	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange, mLocalValueRange;
+
+	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks;
+
 	GrowingInstructionPtrArray		mMergeTValues;
 	ValueSet						mMergeValues;
 	TempForwardingTable				mMergeForwardingTable;
@@ -441,6 +474,7 @@ public:
 	void Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump);
 
 	void CollectEntries(void);
+	void CollectEntryBlocks(InterCodeBasicBlock* from);
 	void GenerateTraces(bool expand);
 
 	void LocalToTemp(int vindex, int temp);
@@ -466,6 +500,10 @@ public:
 	void BuildGlobalProvidedStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet fromProvidedVars);
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
+
+	void BuildLocalIntegerRangeSets(int num);
+	void UpdateLocalIntegerRangeSets(void);
+	bool BuildGlobalIntegerRangeSets(void);
 
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
