@@ -200,6 +200,7 @@ public:
 	bool FindDirectAddressSumY(int at, int reg, int& apos, int& breg);
 	bool PatchDirectAddressSumY(int at, int reg, int apos, int breg);
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
+	bool PatchAddressSumY(int at, int reg, int apos, int breg, int ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags);
 	bool FindPageStartAddress(int at, int reg, int& addr);
