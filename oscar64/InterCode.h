@@ -331,6 +331,7 @@ public:
 	bool IsEqual(const InterOperand & op) const;
 
 	bool IsUByte(void) const;
+	bool IsUnsigned(void) const;
 
 	void Disassemble(FILE* file);
 };
@@ -504,6 +505,7 @@ public:
 	void BuildLocalIntegerRangeSets(int num);
 	void UpdateLocalIntegerRangeSets(void);
 	bool BuildGlobalIntegerRangeSets(void);
+	void SimplifyIntegerRangeRelops(void);
 
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;

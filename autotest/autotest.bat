@@ -69,6 +69,9 @@ if %errorlevel% neq 0 goto :error
 call :test loopdomtest.c
 if %errorlevel% neq 0 goto :error
 
+call :test loopboundtest.c
+if %errorlevel% neq 0 goto :error
+
 call :test byteindextest.c
 if %errorlevel% neq 0 goto :error
 
