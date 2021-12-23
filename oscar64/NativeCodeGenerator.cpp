@@ -165,6 +165,9 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 				for (int i = 0; i < 4; i++)
 					requiredTemps += mParam + i;
 			}
+
+			if (mFlags & NCIF_USE_CPU_REG_A)
+				requiredTemps += CPU_REG_A;
 		}
 		else
 		{
@@ -2198,6 +2201,11 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 					if (!providedTemps[mParam + i])
 						requiredTemps += mParam + i;
 				}
+			}
+			if (mFlags & NCIF_USE_CPU_REG_A)
+			{
+				if (!providedTemps[CPU_REG_A])
+					requiredTemps += CPU_REG_A;
 			}
 		}
 		else
@@ -4794,10 +4802,10 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 		else
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, mul));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
+//			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
 
 			NativeCodeGenerator::Runtime& rt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul16by8")));
-			mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, rt.mOffset, rt.mLinkerObject, NCIF_RUNTIME));
+			mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, rt.mOffset, rt.mLinkerObject, NCIF_RUNTIME | NCIF_USE_CPU_REG_A));
 		}
 
 		return BC_REG_WORK + 2;
@@ -5980,15 +5988,15 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 
 				if (sins0)
-					LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
-				else
 				{
-					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
-					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
+					LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
 				}
+				else
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 
 				NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul16by8")));
-				mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME));
+				mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_USE_CPU_REG_A));
 				reg = BC_REG_WORK + 2;
 			}
 			else if (ins->mOperator == IA_MUL && ins->mSrc[1].IsUByte())
@@ -6004,15 +6012,15 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 
 				if (sins1)
-					LoadValueToReg(proc, sins1, BC_REG_WORK, nullptr, nullptr);
-				else
 				{
-					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
-					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
+					LoadValueToReg(proc, sins1, BC_REG_WORK, nullptr, nullptr);
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
 				}
+				else
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
 
 				NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul16by8")));
-				mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME));
+				mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_USE_CPU_REG_A));
 				reg = BC_REG_WORK + 2;
 			}
 			else

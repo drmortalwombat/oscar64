@@ -76,6 +76,8 @@ void bm_polygon_nc_fill(Bitmap * bm, ClipRect * clip, int * x, int * y, char num
 
 inline void bm_set(Bitmap * bm, int x, int y);
 inline void bm_clr(Bitmap * bm, int x, int y);
+inline bool bm_get(Bitmap * bm, int x, int y);
+inline void bm_put(Bitmap * bm, int x, int y, bool c);
 
 
 void bm_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern);
@@ -111,6 +113,9 @@ int bm_text_size(const char * str, char len);
 int bm_put_chars(Bitmap * bm, int x, int y, const char * str, char len, BlitOp op);
 
 int bm_put_chars_clipped(Bitmap * bm, ClipRect * clip, int x, int y, const char * str, char len, BlitOp op);
+
+
+int bm_transform(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, Bitmap * sbm, int sx, int sy, int dxx, int dxy, int dyx, int dyy);
 
 #pragma compile("bitmap.c")
 

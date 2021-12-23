@@ -42,6 +42,21 @@ void bm_clr(Bitmap * bm, int x, int y)
 	bm->data[bm->cwidth * (y & ~7) + (x & ~7) + (y & 7)] &= ~(0x80 >> (x & 7));
 }
 
+bool bm_get(Bitmap * bm, int x, int y)
+{
+	return (bm->data[bm->cwidth * (y & ~7) + (x & ~7) + (y & 7)] & (0x80 >> (x & 7))) != 0;
+}
+
+void bm_put(Bitmap * bm, int x, int y, bool c)
+{
+	char	*	dp = bm->data + bm->cwidth * (y & ~7) + (x & ~7) + (y & 7);
+	char		m = 0x80 >> (x & 7);
+	if (c)
+		*dp |= m;
+	else
+		*dp &= ~m;
+}
+
 char NineShadesOfGrey[9][8] = {
 	{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, // 0
 	{0x22, 0x00, 0x88, 0x00, 0x22, 0x00, 0x88, 0x00}, // 8
@@ -1272,4 +1287,31 @@ int bm_put_chars_clipped(Bitmap * bm, ClipRect * clip, int x, int y, const char 
 	}
 
 	return tw;
+}
+
+int bm_transform(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, Bitmap * sbm, int sx, int sy, int dxx, int dxy, int dyx, int dyy)
+{
+	long	lsx = (long)sx << 16, lsy = (long)sy << 16;
+
+	for(int y=0; y<h; y++)
+	{
+		long	rsx = lsx, rsy = lsy;
+
+		for(int x=0; x<w; x++)
+		{
+			int	ix = (int)(rsx >> 16);
+			int	iy = (int)(rsy >> 16);
+
+			if (ix >= 0 && iy >= 0 && ix < sbm->width && iy < 8 * sbm->cheight)
+			{
+				bm_put(dbm, dx + x, dy + y, bm_get(sbm, ix, iy));
+			}
+
+			rsx += (long)dxx << 8;
+			rsy += (long)dyx << 8;
+		}
+
+		lsx += (long)dxy << 8;
+		lsy += (long)dyy << 8;
+	}
 }

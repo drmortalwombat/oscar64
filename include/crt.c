@@ -553,19 +553,17 @@ W1:		asl	accu
 
 __asm mul16by8
 {
-		lda	#0
-		sta	tmp + 2
-		sta	tmp + 3
+		ldy	#0
+		sty	tmp + 3
 
-		lda	tmp
 		lsr
 		bcc	L2
 L1:
 		tax
 		clc
-		lda	tmp + 2
+		tya
 		adc	accu
-		sta	tmp + 2
+		tay
 		lda	tmp + 3
 		adc	accu + 1
 		sta	tmp + 3
@@ -576,6 +574,8 @@ L2:
 		lsr
 		bcs	L1
 		bne	L2
+
+		sty tmp + 2
 		rts
 }
 

@@ -945,6 +945,18 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 
 					return;
 				}
+				else if (ins->mOperator == IA_MUL && tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == -1)
+				{
+					ins->mCode = IC_UNARY_OPERATOR;
+					ins->mOperator = IA_NEG;
+					ins->mSrc[0] = ins->mSrc[1];
+					ins->mSrc[1].mTemp = -1;
+					ins->mSrc[1].mType = IT_NONE;
+
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+
+					return;
+				}
 			}
 			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT)
 			{
@@ -967,6 +979,17 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mConst.mIntConst = 0;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
+
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+
+					return;
+				}
+				else if (ins->mOperator == IA_MUL && tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst == -1)
+				{
+					ins->mCode = IC_UNARY_OPERATOR;
+					ins->mOperator = IA_NEG;
+					ins->mSrc[1].mTemp = -1;
+					ins->mSrc[1].mType = IT_NONE;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
