@@ -2318,7 +2318,14 @@ void InterOperand::Disassemble(FILE* file)
 
 	if (mTemp >= 0) 
 	{
-		fprintf(file, "R%d(%c)", mTemp, typechars[mType]);
+		if (mFinal)
+			fprintf(file, "R%d(%cF)", mTemp, typechars[mType]);
+		else
+			fprintf(file, "R%d(%c)", mTemp, typechars[mType]);
+
+		if (mType == IT_POINTER && mMemory == IM_INDIRECT)
+			fprintf(file, "+%d", int(mIntConst));
+
 		if (mRange.mMinState >= IntegerValueRange::S_WEAK || mRange.mMaxState >= IntegerValueRange::S_WEAK)
 		{
 			fprintf(file, "[");
@@ -3412,6 +3419,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
 				vr.mMinValue = vr.mMaxValue = ins->mConst.mIntConst;
 				break;
+			case IC_LOAD_TEMPORARY:
+				vr = ins->mSrc[0].mRange;
+				break;
 			case IC_UNARY_OPERATOR:
 			{
 				switch (ins->mOperator)
@@ -3722,18 +3732,34 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 			}
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPLU)
 			{
-				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
+				if (mInstructions[sz - 2]->mSrc[1].mTemp >= 0)
 				{
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
-					mTrueValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-					mTrueValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst - 1;
-					mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-					mTrueValueRange[t].mMinValue = 0;
-
-					if (mFalseValueRange[t].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[t].mMinValue >= 0)
+					if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
 					{
-						mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-						mFalseValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+						mTrueValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
+						mTrueValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst - 1;
+						mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
+						mTrueValueRange[t].mMinValue = 0;
+
+						if (mFalseValueRange[t].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[t].mMinValue >= 0)
+						{
+							mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
+							mFalseValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+						}
+					}
+					else if (mInstructions[sz - 2]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
+					{
+						mTrueValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
+						mTrueValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue - 1;
+						mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
+						mTrueValueRange[t].mMinValue = 0;
+
+						if (mFalseValueRange[t].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[t].mMinValue >= 0)
+						{
+							mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
+							mFalseValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue;
+						}
 					}
 				}
 			}
