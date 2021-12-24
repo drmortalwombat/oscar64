@@ -555,3 +555,424 @@ int sprintf(char * str, const char * fmt, ...)
 }
 
 
+static inline bool isspace(char c)
+{
+	return (c == ' ' || c == '\t' || c == '\n' || c == '\r');
+}
+
+static int hexch(char cs)
+{
+	if (cs >= '0' && cs <= '9')
+		return cs - '0';
+	else if (cs >= 'a' && cs <= 'f')
+		return cs - 'a' + 10;
+	else if (cs >= 'A' && cs <= 'F')
+		return cs - 'A' + 10;
+	else
+		return -1;
+}
+
+static const char * scanpat(const char * fmt, char * mask)
+{
+	for(char i=0; i<32; i++)
+		mask[i] = 0;
+	
+	bool	negated = false;
+	char fc = *fmt++;
+	
+	if (fc == '^')
+	{
+		negated = true;
+		fc = *fmt++;
+	}
+	
+	do
+	{
+		char fd = fc;		
+		char nc = *fmt++;
+		
+		if (nc == '-')
+		{
+			nc = *fmt;
+			if (nc != ']')
+			{	
+				fmt++;
+				fd = nc;
+				nc = *fmt++;
+			}
+		}
+		
+		while (fc <= fd)
+		{
+			mask[fc >> 3] |= 0x01 << (fc & 7);
+			fc++;
+		}
+		
+		fc = nc;
+				
+	} while (fc && fc != ']');
+
+	if (fc == ']')
+		fmt++;
+
+	if (negated)
+	{
+		for(char i=4; i<32; i++)
+			mask[i] = ~mask[i];
+	}
+	
+	return fmt;
+}
+
+int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** params)
+{
+	char		fc, cs;
+	int			nv = 0;
+	unsigned	nch = 0
+	
+	cs = ffunc(fparam);
+	nch++;
+
+	while (cs > 0 && (fc = *fmt++))
+	{
+		switch (fc)
+		{
+			case ' ':
+				while (cs > 0 && isspace(cs))
+				{
+					cs = ffunc(fparam);
+					nch++;
+				}
+				break;
+			case '%':		
+			{
+				int			width = 0x7fff;
+				bool		issigned = true;
+				bool		ignore = false;
+				bool		islong = false;
+				unsigned 	base = 10;
+				
+				fc = *fmt++;
+				if (fc == '*')
+				{
+					ignore = true;
+					fc = *fmt++;
+				}				
+				
+				if (fc >= '0' && fc <= '9')
+				{
+					width = (int)(fc - '0');
+					fc = *fmt++;
+					while (fc >= '0' && fc <= '9')
+					{
+						width = width * 10 + (int)(fc - '0');
+						fc = *fmt++;
+					}
+				}
+				
+				if (fc == 'l')
+				{
+					islong = true;
+					fc = *fmt++;
+				}				
+				
+				switch (fc)
+				{
+					case 'n':
+						*(unsigned *)*params = nch;
+						params++;					
+						nv++;
+						break;
+
+					case 'x':
+						base = 16;
+					case 'u':
+						issigned = false;
+					case 'i':
+					case 'd':
+					{
+						bool	sign = false;
+						if (cs == '-')
+						{
+							sign = true;
+							cs = ffunc(fparam);
+							nch++;
+						}
+						else if (cs == '+')
+						{
+							cs = ffunc(fparam);
+							nch++;
+						}
+						
+						int cv;
+						if ((cv = hexch(cs)) >= 0)
+						{	
+							cs = ffunc(fparam);
+							nch++;
+
+							if (cv == 0 && cs == 'x')
+							{
+								base = 16;
+								cs = ffunc(fparam);
+								nch++;
+							}
+#ifndef NOLONG
+							if (islong)
+							{
+								unsigned long vi = (unsigned long)cv;
+								while ((cv = hexch(cs)) >= 0)
+								{
+									vi = vi * base + (unsigned long)cv;
+									cs = ffunc(fparam);
+									nch++;
+								}
+							
+								if (!ignore)
+								{
+									if (sign && issigned)
+										*(long *)*params = -(long)vi;
+									else
+										*(unsigned long *)*params = vi;
+										
+									params++;					
+									nv++;
+								}
+							}
+							else
+#endif							
+							{
+								unsigned	vi = (unsigned)cv;
+								while ((cv = hexch(cs)) >= 0)
+								{
+									vi = vi * base + (unsigned)cv;
+									cs = ffunc(fparam);
+									nch++;
+								}
+							
+								if (!ignore)
+								{
+									if (sign && issigned)
+										*(int *)*params = -(int)vi;
+									else
+										*(unsigned *)*params = vi;
+										
+									params++;					
+									nv++;
+								}
+							}
+						}
+						else
+							return nv;
+						
+					} break;
+#ifndef NOFLOAT
+					
+					case 'f':
+					case 'e':
+					case 'g':
+					{
+						bool	sign = false;
+						if (cs == '-')
+						{
+							sign = true;
+							cs = ffunc(fparam);
+							nch++;
+						}
+						else if (cs == '+')
+						{
+							cs = ffunc(fparam);
+							nch++;
+						}
+							
+						if (cs >= '0' && cs <= '9' || cs == '.')
+						{	
+							float	vf = 0;
+							while (cs >= '0' && cs <= '9')
+							{
+								vf = vf * 10 + (int)(cs - '0');
+								cs = ffunc(fparam);
+								nch++;
+							}
+
+							if (cs == '.')
+							{
+								float	digits = 1.0;
+								cs = ffunc(fparam);
+								while (cs >= '0' && cs <= '9')
+								{
+									vf = vf * 10 + (int)(cs - '0');
+									digits *= 10;
+									cs = ffunc(fparam);
+									nch++;
+								}
+								vf /= digits;
+							}
+
+							char	e = 0;
+							bool	eneg = false;								
+							
+							if (cs == 'e' || cs == 'E')
+							{
+								cs = ffunc(fparam);
+								nch++;
+								if (cs == '-')
+								{
+									eneg = true;
+									cs = ffunc(fparam);
+									nch++;									
+								}
+								else if (cs == '+')
+								{
+									cs = ffunc(fparam);
+									nch++;
+								}
+									
+								while (cs >= '0' && cs <= '9')
+								{
+									e = e * 10 + cs - '0';
+									cs = ffunc(fparam);
+									nch++;
+								}
+								
+							}
+							
+							if (!ignore)
+							{
+								if (e)
+								{
+									if (eneg)
+									{
+										while (e > 6)
+										{
+											vf /= 1000000.0;
+											e -= 6;
+										}
+										vf /= tpow10[e];
+									}
+									else
+									{
+										while (e > 6)
+										{
+											vf *= 1000000.0;
+											e -= 6;
+										}
+										vf *= tpow10[e];
+									}
+								}
+
+								if (sign)
+									*(float *)*params = -vf;
+								else
+									*(float *)*params = vf;
+									
+								params++;					
+								nv++;
+							}
+							
+						}
+						else
+							return nv;
+						
+					} break;
+#endif
+					case 's':
+					{
+						char	*	pch = (char *)*params;
+						while (width > 0 && cs > 0 && !isspace(cs))
+						{
+							if (!ignore)
+								*pch++ = cs;
+							cs = ffunc(fparam);
+							nch++;
+							width--;
+						}
+						if (!ignore)
+						{
+							*pch = 0;
+							params++;					
+							nv++;
+						}
+					} break;
+
+					case '[':
+					{
+						char	pat[32];
+						fmt = scanpat(fmt, pat);
+						
+						char	*	pch = (char *)*params;
+						while (width > 0 && (pat[cs >> 3] & (1 << (cs & 7))))
+						{
+							if (!ignore)
+								*pch++ = cs;
+							cs = ffunc(fparam);
+							nch++;
+							width--;
+						}
+						if (!ignore)
+						{
+							*pch = 0;
+							params++;					
+							nv++;
+						}
+						
+					}	break;
+
+					case 'c':
+					{
+						char	*	pch = (char *)*params;
+						if (!ignore)
+						{
+							*pch = cs;
+							params++;					
+							nv++;
+						}
+						cs = ffunc(fparam);
+						nch++;
+					} break;
+				}
+				
+			} break;
+			
+				
+			default:
+				if (cs == fc)
+				{
+					cs = ffunc(fparam);
+					nch++;
+				}
+				else
+					return nv;					
+				break;
+		}		
+	}
+	
+	return nv;
+}
+
+
+int sscanf_func(void * fparam)
+{
+	char ** cp = (char **)fparam;
+	char c = **cp;
+	if (c)
+		(*cp)++;
+	return c;
+}
+
+int scanf_func(void * fparam)
+{
+	return getchar();
+}
+
+int sscanf(const char * fmt, const char * str, ...)
+{
+	return fpscanf(fmt, sscanf_func, &str, (void **)((&str) + 1));
+}
+
+int scanf(const char * fmt, ...)
+{
+	return fpscanf(fmt, scanf_func, nullptr, (void **)((&fmt) + 1));
+}
+
+
+

@@ -1,6 +1,9 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
+
+extern const float tpow10[7];
+
 void itoa(int n, char * s, unsigned radix);
 
 void utoa(unsigned int n, char * s, unsigned radix);

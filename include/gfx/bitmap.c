@@ -1293,9 +1293,15 @@ int bm_transform(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, Bi
 {
 	long	lsx = (long)sx << 16, lsy = (long)sy << 16;
 
+	char 	*	ldp = dbm->data + dbm->cwidth * (dy & ~7) + (dx & ~7) + (dy & 7);
+	int			dstride = dbm->cwidth * 8 - 8;
+
 	for(int y=0; y<h; y++)
 	{
 		long	rsx = lsx, rsy = lsy;
+
+		char	*	dp = ldp;
+		char		m = 0x80 >> (dx & 7);
 
 		for(int x=0; x<w; x++)
 		{
@@ -1304,12 +1310,25 @@ int bm_transform(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, Bi
 
 			if (ix >= 0 && iy >= 0 && ix < sbm->width && iy < 8 * sbm->cheight)
 			{
-				bm_put(dbm, dx + x, dy + y, bm_get(sbm, ix, iy));
+				if (bm_get(sbm, ix, iy))
+					*dp |= m;
+				else
+					*dp &= ~m;
+			}
+			m >>= 1;
+			if (!m)
+			{
+				m = 0x80;
+				dp += 8;
 			}
 
 			rsx += (long)dxx << 8;
 			rsy += (long)dyx << 8;
 		}
+
+		ldp++;
+		if (((int)ldp & 7) == 0)
+			ldp += dstride;
 
 		lsx += (long)dxy << 8;
 		lsy += (long)dyy << 8;

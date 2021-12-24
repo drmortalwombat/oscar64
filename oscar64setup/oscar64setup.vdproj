@@ -22,6 +22,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_0819C3D33D0942EF9E319C754E6C43D8"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_0D8B657E4A954DBFAF14055CDFFB384C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -88,6 +94,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_5ACC41BF427E47EBB9A4A66BD117FF80"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_636E67C8267143AA9FC128EB0AF85FC9"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -119,6 +131,12 @@
         "Entry"
         {
         "MsmKey" = "8:_8B258D238AC44D43A7DC654AFE0B9D8B"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_97FBAA1E30F140628447208D520BC191"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -202,6 +220,18 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_D16004065A954CC7A91F72185792B436"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_D1EF53E7B029443F8EE2E8174F8201ED"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_DA28A07E7836459C99161100D7C102B8"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -263,6 +293,12 @@
         "Entry"
         {
         "MsmKey" = "8:_FB2E467BC172457785F4279BB0BFE8B6"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_FDDF38BFE6BA48C88ED8CB7EADD94159"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -359,6 +395,26 @@
             "TargetName" = "8:kernalio.c"
             "Tag" = "8:"
             "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_0819C3D33D0942EF9E319C754E6C43D8"
+            {
+            "SourcePath" = "8:..\\include\\gfx\\bitmap.h"
+            "TargetName" = "8:bitmap.h"
+            "Tag" = "8:"
+            "Folder" = "8:_E0C7A8689A4144D0842BCEDA85A07B5D"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -593,6 +649,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_5ACC41BF427E47EBB9A4A66BD117FF80"
+            {
+            "SourcePath" = "8:..\\include\\gfx\\vector3d.h"
+            "TargetName" = "8:vector3d.h"
+            "Tag" = "8:"
+            "Folder" = "8:_E0C7A8689A4144D0842BCEDA85A07B5D"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_636E67C8267143AA9FC128EB0AF85FC9"
             {
             "SourcePath" = "8:..\\include\\c64\\kernalio.h"
@@ -699,6 +775,26 @@
             "TargetName" = "8:time.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_97FBAA1E30F140628447208D520BC191"
+            {
+            "SourcePath" = "8:..\\include\\gfx\\tinyfont.h"
+            "TargetName" = "8:tinyfont.h"
+            "Tag" = "8:"
+            "Folder" = "8:_E0C7A8689A4144D0842BCEDA85A07B5D"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -973,6 +1069,46 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D16004065A954CC7A91F72185792B436"
+            {
+            "SourcePath" = "8:..\\include\\gfx\\vector3d.c"
+            "TargetName" = "8:vector3d.c"
+            "Tag" = "8:"
+            "Folder" = "8:_E0C7A8689A4144D0842BCEDA85A07B5D"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D1EF53E7B029443F8EE2E8174F8201ED"
+            {
+            "SourcePath" = "8:..\\include\\gfx\\tinyfont.c"
+            "TargetName" = "8:tinyfont.c"
+            "Tag" = "8:"
+            "Folder" = "8:_E0C7A8689A4144D0842BCEDA85A07B5D"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_DA28A07E7836459C99161100D7C102B8"
             {
             "SourcePath" = "8:..\\include\\c64\\memmap.h"
@@ -1173,6 +1309,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_FDDF38BFE6BA48C88ED8CB7EADD94159"
+            {
+            "SourcePath" = "8:..\\include\\gfx\\bitmap.c"
+            "TargetName" = "8:bitmap.c"
+            "Tag" = "8:"
+            "Folder" = "8:_E0C7A8689A4144D0842BCEDA85A07B5D"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
         }
         "FileType"
         {
@@ -1242,6 +1398,17 @@
                                 {
                                 }
                             }
+                            "{9EF0B969-E518-4E46-987F-47570745A589}:_E0C7A8689A4144D0842BCEDA85A07B5D"
+                            {
+                            "Name" = "8:gfx"
+                            "AlwaysCreate" = "11:FALSE"
+                            "Condition" = "8:"
+                            "Transitive" = "11:FALSE"
+                            "Property" = "8:_1113C161CA574BEF91886C572F021DFA"
+                                "Folders"
+                                {
+                                }
+                            }
                         }
                     }
                 }
@@ -1262,15 +1429,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{DB2F9B75-4B42-43FE-8332-FBA90B563EED}"
-        "PackageCode" = "8:{BEE247BE-4092-4F85-8315-85AB43FA7450}"
+        "ProductCode" = "8:{05496EAE-CB95-43D8-B470-9BAFABAEFDC8}"
+        "PackageCode" = "8:{E0B052C3-44C4-4A66-8BC9-4120C4A81063}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.1.49"
+        "ProductVersion" = "8:1.1.50"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
