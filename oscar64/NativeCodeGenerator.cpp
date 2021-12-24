@@ -9029,6 +9029,7 @@ bool NativeCodeBasicBlock::PatchAddressSumY(int at, int reg, int apos, int breg,
 	}
 	mIns[at].mMode = ASMIM_ZERO_PAGE;
 	mIns[at].mAddress = ireg;
+	mIns[at].mLive |= LIVE_MEM;
 
 	yindex = 0;
 
@@ -11166,6 +11167,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 					if (FindAddressSumY(i, sreg, apos, breg, ireg))
 					{
+#if 1
 						if (!(breg == sreg || ireg == sreg)|| !(mIns[i + 0].mLive & LIVE_MEM))
 						{
 							if (breg == sreg || ireg == sreg)
@@ -11179,12 +11181,13 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 								mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
 							}
 							mIns.Insert(i + 0, NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
-							mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+							mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
 
 							mIns[i + 1].mAddress = breg;
 							mIns[i + 1].mFlags &= ~NCIF_YZERO;
 							progress = true;
 						}
+#endif
 
 					}
 					else if (FindGlobalAddressSumY(i, sreg, true, apos, ains, iins, flags))
@@ -11242,7 +11245,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 								}
 								else
 									mIns.Insert(i + 0, NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, iins->mAddress));
-								mIns[i + 0].mLive = mIns[i - 1].mLive | LIVE_CPU_REG_Y;
+								mIns[i + 0].mLive = mIns[i - 1].mLive | LIVE_CPU_REG_Y | LIVE_MEM;
 							}
 
 							progress = true;
@@ -11353,6 +11356,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 1].mType = ASMIT_STA;
 						progress = true;
 					}
+#if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_A)))
@@ -11375,6 +11379,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						progress = true;
 					}
+#endif
 					else if (
 						mIns[i + 0].mType == ASMIT_STA &&
 						mIns[i + 1].mType == ASMIT_LDX && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]))
@@ -11646,6 +11651,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 							int	absaddr = addr + mIns[i + 0].mAddress;
 
 							mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
+							mIns[i + 0].mLive |= LIVE_MEM;
 							mIns[i + 0].mAddress = mIns[i + 1].mAddress;
 
 							mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
@@ -11701,6 +11707,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 									mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
 								}
 								mIns.Insert(i + 0, NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
+								mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
 								mIns[i + 1].mAddress = breg; mIns[i + 1].mFlags &= ~NCIF_YZERO;
 								mIns[i + 2].mAddress = breg; mIns[i + 2].mFlags &= ~NCIF_YZERO;
 								progress = true;
@@ -11733,6 +11740,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 								mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
 								mIns[i + 0].mAddress = ireg;
+								mIns[i + 0].mLive |= LIVE_MEM;
 								mIns[i + 1].mAddress = breg;
 
 								for(int j=0; j<yoffset; j++)
@@ -12095,6 +12103,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
+#if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 						!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].RequiresYReg() &&
@@ -12104,6 +12113,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
+#endif
+
 #endif
 #if 1
 					else if (
@@ -12164,6 +12175,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 							{
 								mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
 								mIns[i + 0].mAddress = ireg;
+								mIns[i + 0].mLive |= LIVE_MEM;
 								mIns[i + 2].mAddress = breg;
 							}
 							else
@@ -12431,6 +12443,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 							}
 							mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
 							mIns[i + 0].mAddress = ireg;
+							mIns[i + 0].mLive |= LIVE_MEM;
 							mIns[i + 1].mAddress = breg;
 							mIns[i + 3].mAddress = breg;
 							progress = true;
@@ -12479,6 +12492,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 							}
 							mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
 							mIns[i + 0].mAddress = ireg;
+							mIns[i + 0].mLive |= LIVE_MEM;
 							mIns[i + 1].mAddress = breg;
 							mIns[i + 4].mAddress = breg;
 							progress = true;
