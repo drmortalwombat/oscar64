@@ -296,6 +296,7 @@ void rirq_init(bool kernalIRQ)
 void rirq_wait(void)
 {
 	while (tpos != npos) ;
+	npos++;
 }
 
 void rirq_sort(void)
@@ -342,3 +343,9 @@ void rirq_stop(void)
         sei
     }
 }
+
+#pragma native(rirq_sort)
+#pragma native(rirq_wait)
+#pragma native(rirq_start)
+#pragma native(rirq_stop)
+
