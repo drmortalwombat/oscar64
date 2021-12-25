@@ -1250,6 +1250,14 @@ void Scanner::Error(const char* error)
 {
 	mErrors->Error(mLocation, EERR_SYNTAX, error);
 }
+static char p2smap[] = { 0x00, 0x20, 0x00, 0x40, 0x00, 0x60, 0x40, 0x60 };
+
+static inline char p2s(char ch)
+{
+	return (ch & 0x1f) | p2smap[ch >> 5];
+}
+
+
 
 void Scanner::StringToken(char terminator, char mode)
 {
@@ -1324,6 +1332,20 @@ void Scanner::StringToken(char terminator, char mode)
 			{
 				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
 					mTokenString[i] = (mTokenString[i] ^ 0x20) & 0xdf;
+			}
+			break;
+		case 's':
+			for (int i = 0; i < n; i++)
+			{
+				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
+					mTokenString[i] = p2s(mTokenString[i] ^ 0x20);
+			}
+			break;
+		case 'S':
+			for (int i = 0; i < n; i++)
+			{
+				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
+					mTokenString[i] = p2s((mTokenString[i] ^ 0x20) & 0xdf);
 			}
 			break;
 		default:
