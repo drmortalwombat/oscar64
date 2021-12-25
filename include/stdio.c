@@ -964,9 +964,9 @@ int scanf_func(void * fparam)
 	return getchar();
 }
 
-int sscanf(const char * fmt, const char * str, ...)
+int sscanf(const char * str, const char * fmt, ...)
 {
-	return fpscanf(fmt, sscanf_func, &str, (void **)((&str) + 1));
+	return fpscanf(fmt, sscanf_func, &str, (void **)((&fmt) + 1));
 }
 
 int scanf(const char * fmt, ...)

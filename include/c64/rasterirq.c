@@ -89,6 +89,9 @@ ex:
 
 __asm irq1
 {	
+	lda $d019
+	bpl ex2
+
 	ldx	nextIRQ
 l1:
 	lda	rasterIRQNext, x
@@ -131,7 +134,6 @@ e2:
 	lda npos
 	sta tpos
 
-	asl $d019
 	jmp ex
 
 e1:
@@ -144,7 +146,11 @@ e1:
 	
 ex:
 	asl $d019
+	jmp $ea81
 
+ex2:
+	LDA $DC0D
+	cli
 	jmp $ea31
 }
 
@@ -268,12 +274,13 @@ void rirq_init(bool kernalIRQ)
     {
         sei
 
+#if 0 
         // disable CIA interrupts
 
         lda #$7f
         sta $dc0d
         sta $dd0d
-
+#endif
     }
 
     if (kernalIRQ)

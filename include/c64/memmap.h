@@ -7,6 +7,7 @@
 #define MMAP_NO_BASIC	0x36
 #define MMAP_NO_ROM		0x35
 #define MMAP_RAM		0x30
+#define MMAP_CHAR_ROM	0x31
 
 // Install an IRQ an NMI trampoline, that routes the kernal interrupts
 // through an intermediate trampoline when the kernal ROM is not paged

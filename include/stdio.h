@@ -18,7 +18,7 @@ int sprintf(char * str, const char * fmt, ...);
 
 int scanf(const char * fmt, ...);
 
-int sscanf(const char * fmt, const char * str, ...);
+int sscanf(const char * str, const char * fmt, ...);
 
 #pragma compile("stdio.c")
 

@@ -2,6 +2,7 @@
 #include "tinyfont.h"
 #include <stdlib.h>
 #include <c64/asm6502.h>
+#include <string.h>
 
 void bm_init(Bitmap * bm, char * data, char cw, char ch)
 {

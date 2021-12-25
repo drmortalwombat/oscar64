@@ -7872,7 +7872,7 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 				changed = true;
 			}
 
-			while (mTrueJump && mTrueJump->mIns.Size() == 0 && !mTrueJump->mFalseJump && !mTrueJump->mLocked && mTrueJump != this)
+			while (mTrueJump && mTrueJump->mIns.Size() == 0 && !mTrueJump->mFalseJump && !mTrueJump->mLocked && mTrueJump != this && mTrueJump->mTrueJump != mTrueJump)
 			{
 				mTrueJump->mNumEntries--;
 				mTrueJump = mTrueJump->mTrueJump;
@@ -7880,7 +7880,7 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 				changed = true;
 			}
 
-			while (mFalseJump && mFalseJump->mIns.Size() == 0 && !mFalseJump->mFalseJump && !mFalseJump->mLocked && mFalseJump != this)
+			while (mFalseJump && mFalseJump->mIns.Size() == 0 && !mFalseJump->mFalseJump && !mFalseJump->mLocked && mFalseJump != this && mFalseJump->mTrueJump != mFalseJump)
 			{
 				mFalseJump->mNumEntries--;
 				mFalseJump = mFalseJump->mTrueJump;
@@ -8585,35 +8585,41 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
 		{
 			if (mTrueJump->mIns.Size() > mFalseJump->mIns.Size())
 			{
-				int	i = 0, offset = mTrueJump->mIns.Size() - mFalseJump->mIns.Size();
-				while (i < mFalseJump->mIns.Size() && mFalseJump->mIns[i].IsSame(mTrueJump->mIns[i + offset]))
-					i++;
-				if (i == mFalseJump->mIns.Size())
+				if (mTrueJump->mTrueJump != mFalseJump)
 				{
-					if (mTrueJump->mTrueJump)
-						mTrueJump->mTrueJump->RemEntryBlock(mTrueJump);
-					mTrueJump->mTrueJump = mFalseJump;
-					if (mTrueJump->mTrueJump)
-						mTrueJump->mTrueJump->AddEntryBlock(mTrueJump);
-					mTrueJump->mIns.SetSize(offset);
+					int	i = 0, offset = mTrueJump->mIns.Size() - mFalseJump->mIns.Size();
+					while (i < mFalseJump->mIns.Size() && mFalseJump->mIns[i].IsSame(mTrueJump->mIns[i + offset]))
+						i++;
+					if (i == mFalseJump->mIns.Size())
+					{
+						if (mTrueJump->mTrueJump)
+							mTrueJump->mTrueJump->RemEntryBlock(mTrueJump);
+						mTrueJump->mTrueJump = mFalseJump;
+						if (mTrueJump->mTrueJump)
+							mTrueJump->mTrueJump->AddEntryBlock(mTrueJump);
+						mTrueJump->mIns.SetSize(offset);
 
-					changed = true;
+						changed = true;
+					}
 				}
 			}
 			else
 			{
-				int	i = 0, offset = mFalseJump->mIns.Size() - mTrueJump->mIns.Size();
-				while (i < mTrueJump->mIns.Size() && mTrueJump->mIns[i].IsSame(mFalseJump->mIns[i + offset]))
-					i++;
-				if (i == mTrueJump->mIns.Size())
+				if (mFalseJump->mTrueJump != mTrueJump)
 				{
-					if (mFalseJump->mTrueJump)
-						mFalseJump->mTrueJump->RemEntryBlock(mFalseJump);
-					mFalseJump->mTrueJump = mTrueJump;
-					if (mFalseJump->mTrueJump)
-						mFalseJump->mTrueJump->AddEntryBlock(mFalseJump);
-					mFalseJump->mIns.SetSize(offset);
-					changed = true;
+					int	i = 0, offset = mFalseJump->mIns.Size() - mTrueJump->mIns.Size();
+					while (i < mTrueJump->mIns.Size() && mTrueJump->mIns[i].IsSame(mFalseJump->mIns[i + offset]))
+						i++;
+					if (i == mTrueJump->mIns.Size())
+					{
+						if (mFalseJump->mTrueJump)
+							mFalseJump->mTrueJump->RemEntryBlock(mFalseJump);
+						mFalseJump->mTrueJump = mTrueJump;
+						if (mFalseJump->mTrueJump)
+							mFalseJump->mTrueJump->AddEntryBlock(mFalseJump);
+						mFalseJump->mIns.SetSize(offset);
+						changed = true;
+					}
 				}
 			}
 		}
