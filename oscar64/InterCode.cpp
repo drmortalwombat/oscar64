@@ -4932,6 +4932,18 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 	return changed;
 }
 
+bool InterCodeBasicBlock::IsTempModifiedOnPath(int temp, int at) const
+{
+	while (at < mInstructions.Size())
+	{
+		if (mInstructions[at]->mDst.mTemp == temp)
+			return true;
+		at++;
+	}
+
+	return false;
+}
+
 bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 {
 	int i;
@@ -4960,7 +4972,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 				if (ins->mDst.mTemp >= 0 && !providedTemps[ins->mDst.mTemp] && !requiredTemps[ins->mDst.mTemp])
 				{
 					int j = 0;
-					while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && providedTemps[ins->mSrc[j].mTemp]))
+					while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && providedTemps[ins->mSrc[j].mTemp]) && !IsTempModifiedOnPath(ins->mSrc[j].mTemp, i + 1))
 						j++;
 
 					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && (ins->mCode != IC_LOAD || !hadStore))
@@ -6586,6 +6598,8 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Peephole optimized");
 
+	BuildDataFlowSets();
+
 	TempForwarding();
 	RemoveUnusedInstructions();
 
@@ -6611,6 +6625,8 @@ void InterCodeProcedure::Close(void)
 
 		ResetVisited();
 		changed = mEntryBlock->PushSinglePathResultInstructions();
+
+		DisassembleDebug("Pushed single path result");
 
 	} while (changed);
 
@@ -7030,6 +7046,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
+#ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
 
@@ -7063,6 +7080,7 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 
 		fclose(file);
 	}
+#endif
 }
 
 InterCodeModule::InterCodeModule(void)

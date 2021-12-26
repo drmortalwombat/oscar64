@@ -543,6 +543,8 @@ public:
 	void MarkRelevantStatics(void);
 	void RemoveNonRelevantStatics(void);
 
+	bool IsTempModifiedOnPath(int temp, int at) const;
+
 	bool PushSinglePathResultInstructions(void);
 	bool MergeCommonPathInstructions(void);
 

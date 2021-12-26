@@ -47,6 +47,8 @@ void Compiler::AddDefine(const Ident* ident, const char* value)
 
 bool Compiler::ParseSource(void)
 {
+	mPreprocessor->mCompilerOptions = mCompilerOptions;
+
 	CompilationUnit* cunit;
 	while (mErrors->mErrorCount == 0 && (cunit = mCompilationUnits->PendingUnit()))
 	{
@@ -364,31 +366,38 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 
 	if (mCompilerOptions & COPT_TARGET_PRG)
 	{
-		printf("Writing <%s>\n", prgPath);
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Writing <%s>\n", prgPath);
 		mLinker->WritePrgFile(prgPath);
 	}
 	else if (mCompilerOptions & COPT_TARGET_CRT16)
 	{
-		printf("Writing <%s>\n", crtPath);
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Writing <%s>\n", crtPath);
 		mLinker->WriteCrtFile(crtPath);
 	}
 
 
-	printf("Writing <%s>\n", mapPath);
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Writing <%s>\n", mapPath);
 	mLinker->WriteMapFile(mapPath);
 
-	printf("Writing <%s>\n", asmPath);
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Writing <%s>\n", asmPath);
 	mLinker->WriteAsmFile(asmPath);
 
-	printf("Writing <%s>\n", lblPath);
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Writing <%s>\n", lblPath);
 	mLinker->WriteLblFile(lblPath);
 
-	printf("Writing <%s>\n", intPath);	
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Writing <%s>\n", intPath);
 	mInterCodeModule->Disassemble(intPath);
 
 	if (!(mCompilerOptions & COPT_NATIVE))
 	{
-		printf("Writing <%s>\n", bcsPath);
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Writing <%s>\n", bcsPath);
 		mByteCodeGenerator->WriteByteCodeStats(bcsPath);
 	}
 

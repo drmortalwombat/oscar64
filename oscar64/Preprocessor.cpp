@@ -210,7 +210,8 @@ bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, i
 
 	if (ok)
 	{
-		printf("%s \"%s\"\n", reason, source->mFileName);
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("%s \"%s\"\n", reason, source->mFileName);
 
 		source->Limit(skip, limit);
 
@@ -271,7 +272,9 @@ bool Preprocessor::OpenSource(const char * reason, const char* name, bool local)
 	
 	if (ok)
 	{
-		printf("%s \"%s\"\n", reason, source->mFileName);
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("%s \"%s\"\n", reason, source->mFileName);
+
 		source->mUp = mSource;
 		mSource = source;
 		mLocation.mFileName = mSource->mFileName;
@@ -318,7 +321,7 @@ bool Preprocessor::DropSource(void)
 }
 
 Preprocessor::Preprocessor(Errors* errors)
-	: mSource(nullptr), mSourceList(nullptr), mPaths(nullptr), mErrors(errors)
+	: mSource(nullptr), mSourceList(nullptr), mPaths(nullptr), mErrors(errors), mCompilerOptions(COPT_DEFAULT)
 {
 
 }

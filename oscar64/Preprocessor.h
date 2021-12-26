@@ -3,6 +3,7 @@
 #include "Errors.h"
 #include <stdio.h>
 #include "MachineTypes.h"
+#include "CompilerTypes.h"
 
 class SourceStack
 {
@@ -63,6 +64,8 @@ public:
 
 	SourceFile* mSource, * mSourceList;
 	SourcePath* mPaths;
+
+	uint64		mCompilerOptions;
 
 	void AddPath(const char* path);
 	bool NextLine(void);

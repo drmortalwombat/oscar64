@@ -67,15 +67,13 @@ int main(int argc, const char** argv)
 		char	strProductName[100], strProductVersion[200];
 
 #ifdef _WIN32
-		if (GetProductAndVersion(strProductName, strProductVersion))
-		{
-			printf("Starting %s %s\n", strProductName, strProductVersion);
-		}
+		GetProductAndVersion(strProductName, strProductVersion);
 
 		DWORD length = ::GetModuleFileNameA(NULL, basePath, sizeof(basePath));
 
 #else
-		printf("Starting oscar64 1.1.50\n");
+		strcpy(strProductName, "oscar64");
+		strcpy(strProductVersion, "1.1.50");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -177,6 +175,8 @@ int main(int argc, const char** argv)
 					else
 						compiler->AddDefine(Ident::Unique(def), "");
 				}
+				else if (arg[1] == 'v')
+					compiler->mCompilerOptions |= COPT_VERBOSE;
 				else
 					compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
 			}
@@ -203,6 +203,11 @@ int main(int argc, const char** argv)
 
 		if (compiler->mErrors->mErrorCount == 0)
 		{
+			if (compiler->mCompilerOptions & COPT_VERBOSE)
+			{
+				printf("Starting %s %s\n", strProductName, strProductVersion);
+			}
+
 			// Add runtime module
 
 			compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
@@ -221,7 +226,7 @@ int main(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}\n");
+		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-e] [-n] [-dSYMBOL[=value]] [-v] {source.c}\n");
 
 		return 0;
 	}

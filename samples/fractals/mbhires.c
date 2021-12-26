@@ -1,6 +1,7 @@
 #include <string.h>
 #include <c64/vic.h>
 #include <c64/memmap.h>
+#include <conio.h>
 
 #define Screen	((char *)0xe000)
 #define Color	((char *)0xc800)
@@ -41,5 +42,11 @@ int main(void)
 		}
 	}
 	
+	mmap_set(MMAP_NO_BASIC);
+
+	getch();	
+
+	vic_setmode(VICM_TEXT, (char *)0x0400, (char *)0x1000);
+
 	return 0;
 }
