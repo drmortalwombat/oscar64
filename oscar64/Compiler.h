@@ -41,7 +41,7 @@ public:
 	bool ParseSource(void);
 	bool GenerateCode(void);
 	bool WriteOutputFile(const char* targetPath);
-	int ExecuteCode(void);
+	int ExecuteCode(bool profile);
 
 	void AddDefine(const Ident* ident, const char* value);
 

@@ -1135,7 +1135,7 @@ Expression* Parser::ParseSimpleExpression(void)
 		while (mScanner->mToken == TK_STRING)
 		{
 			int	s = strlen(mScanner->mTokenString);
-			uint8* d = new uint8[dec->mSize + s];
+			uint8* d = new uint8[dec->mSize + s + 1];
 			memcpy(d, dec->mData, dec->mSize - 1);
 			int i = 0;
 			while (mScanner->mTokenString[i])

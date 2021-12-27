@@ -491,6 +491,11 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 	return true;
 }
 
+void Emulator::DumpProfile(void)
+{
+	DumpCycles();
+}
+
 int Emulator::Emulate(int startIP)
 {
 	int	trace = 0;
@@ -683,7 +688,6 @@ int Emulator::Emulate(int startIP)
 			if (mMemory[i] != 0)
 				printf("ZP %02x : %02x\n", i, mMemory[i]);
 #endif
-		DumpCycles();
 		return int16(mMemory[BC_REG_ACCU] + 256 * mMemory[BC_REG_ACCU + 1]);
 	}
 

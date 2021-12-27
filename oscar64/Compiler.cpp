@@ -404,7 +404,7 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 	return true;
 }
 
-int Compiler::ExecuteCode(void)
+int Compiler::ExecuteCode(bool profile)
 {
 	Location	loc;
 
@@ -426,6 +426,9 @@ int Compiler::ExecuteCode(void)
 	}
 
 	printf("Emulation result %d\n", ecode);
+
+	if (profile)
+		emu->DumpProfile();
 
 	if (ecode != 0)
 	{

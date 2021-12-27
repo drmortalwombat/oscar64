@@ -20,6 +20,7 @@ public:
 	Linker* mLinker;
 
 	int Emulate(int startIP);
+	void DumpProfile(void);
 	bool EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, int & cycles);
 protected:
 	void UpdateStatus(uint8 result);

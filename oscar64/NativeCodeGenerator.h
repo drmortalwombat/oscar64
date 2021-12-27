@@ -204,7 +204,7 @@ public:
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool PatchAddressSumY(int at, int reg, int apos, int breg, int ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
-	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags);
+	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags, int & addr);
 	bool FindPageStartAddress(int at, int reg, int& addr);
 	bool MoveStoreXUp(int at);
 	bool MoveStoreHighByteDown(int at);
@@ -233,6 +233,7 @@ public:
 	void GlobalRegisterXMap(int reg);
 	void GlobalRegisterYMap(int reg);
 	bool LocalRegisterXYMap(void);
+	bool ReduceLocalYPressure(void);
 };
 
 class NativeCodeProcedure

@@ -110,7 +110,7 @@ int main(int argc, const char** argv)
 		strcpy_s(crtPath, includePath);
 		strcat_s(crtPath, "crt.c");
 
-		bool		emulate = false;
+		bool		emulate = false, profile = false;
 
 		targetPath[0] = 0;
 
@@ -159,6 +159,8 @@ int main(int argc, const char** argv)
 				else if (arg[1] == 'e')
 				{
 					emulate = true;
+					if (arg[2] == 'p')
+						profile = true;
 				}
 				else if (arg[1] == 'd')
 				{
@@ -217,7 +219,7 @@ int main(int argc, const char** argv)
 				compiler->WriteOutputFile(targetPath);
 
 				if (emulate)
-					compiler->ExecuteCode();
+					compiler->ExecuteCode(profile);
 			}
 		}
 

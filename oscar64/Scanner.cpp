@@ -593,6 +593,7 @@ void Scanner::NextToken(void)
 				mPreprocessor->PushSource();
 				mPreprocessor->NextLine();
 				mOffset = 0;
+				NextChar();
 			}
 			mPreprocessorMode = false;
 		}
