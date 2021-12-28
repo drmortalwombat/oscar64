@@ -47,13 +47,14 @@ static const uint32 NCIF_RUNTIME = 0x00000004;
 static const uint32 NCIF_YZERO = 0x00000008;
 static const uint32 NCIF_VOLATILE = 0x00000010;
 static const uint32 NCIF_LONG = 0x00000020;
+static const uint32 NCIF_FEXEC = 0x00000040;
 
-static const uint32 NCIF_USE_CPU_REG_A = 0x00000040;
-static const uint32 NCIF_USE_CPU_REG_X = 0x00000080;
-static const uint32 NCIF_USE_CPU_REG_Y = 0x00000100;
+static const uint32 NCIF_USE_CPU_REG_A = 0x00001000;
+static const uint32 NCIF_USE_CPU_REG_X = 0x00002000;
+static const uint32 NCIF_USE_CPU_REG_Y = 0x00004000;
 
 // use a 32bit zero page register indexed by X for JSR
-static const uint32 NCIF_USE_ZP_32_X = 0x00000200;
+static const uint32 NCIF_USE_ZP_32_X = 0x00008000;
 
 class NativeCodeInstruction
 {

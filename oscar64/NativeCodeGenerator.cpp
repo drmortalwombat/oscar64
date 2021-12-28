@@ -168,6 +168,14 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 
 			if (mFlags & NCIF_USE_CPU_REG_A)
 				requiredTemps += CPU_REG_A;
+
+			if (mFlags & NCIF_FEXEC)
+			{
+				requiredTemps += BC_REG_LOCALS;
+				requiredTemps += BC_REG_LOCALS + 1;
+				for(int i= BC_REG_FPARAMS; i< BC_REG_FPARAMS_END; i++)
+					requiredTemps += i;
+			}
 		}
 		else
 		{
@@ -832,7 +840,7 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 		}
 		data.mRegs[BC_REG_WORK_Y].Reset();
 
-		if (!(mFlags & NCIF_RUNTIME))
+		if (!(mFlags & NCIF_RUNTIME) || (mFlags & NCIF_FEXEC))
 		{
 			for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
 				data.mRegs[i].Reset();
@@ -1470,7 +1478,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		}
 		data.ResetZeroPage(BC_REG_WORK_Y);
 
-		if (!(mFlags & NCIF_RUNTIME))
+		if (!(mFlags & NCIF_RUNTIME) || (mFlags & NCIF_FEXEC))
 		{
 			for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
 				data.ResetZeroPage(i);
@@ -2206,6 +2214,13 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 			{
 				if (!providedTemps[CPU_REG_A])
 					requiredTemps += CPU_REG_A;
+			}
+
+			if (mFlags & NCIF_FEXEC)
+			{
+				for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
+					if (!providedTemps[i])
+						requiredTemps += i;
 			}
 		}
 		else
@@ -7588,7 +7603,7 @@ void NativeCodeBasicBlock::CallFunction(InterCodeProcedure* proc, NativeCodeProc
 	}
 
 	NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("bcexec")));
-	mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME));
+	mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_FEXEC));
 
 	if (ins->mDst.mTemp >= 0)
 	{

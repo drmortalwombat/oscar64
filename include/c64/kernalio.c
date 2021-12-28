@@ -20,6 +20,8 @@ void krnio_setnam(const char * name)
 	}
 }
 
+#pragma native(krnio_setnam)
+
 bool krnio_open(char fnum, char device, char channel)
 {
 	__asm
@@ -47,6 +49,8 @@ bool krnio_open(char fnum, char device, char channel)
 
 }
 
+#pragma native(krnio_open)
+
 void krnio_close(char fnum)
 {
 	__asm
@@ -55,6 +59,8 @@ void krnio_close(char fnum)
 		jsr	$ffc3			// close
 	}	
 }
+
+#pragma native(krnio_close)
 
 krnioerr krnio_status(void)
 {
@@ -66,6 +72,8 @@ krnioerr krnio_status(void)
 		sta accu + 1
 	}
 }
+
+#pragma native(krnio_status)
 
 bool krnio_chkout(char fnum)
 {
@@ -81,6 +89,8 @@ bool krnio_chkout(char fnum)
 	}
 }
 
+#pragma native(krnio_chkout)
+
 bool krnio_chkin(char fnum)
 {
 	__asm
@@ -95,6 +105,8 @@ bool krnio_chkin(char fnum)
 	}
 }
 
+#pragma native(krnio_chkin)
+
 void krnio_clrchn(void)
 {
 	__asm
@@ -102,6 +114,8 @@ void krnio_clrchn(void)
 		jsr $ffcc		// clrchn
 	}
 }
+
+#pragma native(krnio_clrchn)
 
 bool krnio_chrout(char ch)
 {
@@ -115,29 +129,52 @@ bool krnio_chrout(char ch)
 	}
 }
 
+#pragma native(krnio_chrout)
+
 int krnio_chrin(void)
 {
 	__asm
 	{
 		jsr $ffcf		// chrin
 		sta accu
-		jsr $ffb7
-		beq W1
-		lda #$ff
-		sta accu
-	W1: 
+		lda #0
 		sta accu + 1
 	}
 }
+
+#pragma native(krnio_chrin)
 
 int krnio_getch(char fnum)
 {
 	int	ch = -1;
 	if (krnio_chkin(fnum))
+	{
 		ch = krnio_chrin();
+		krnioerr err = krnio_status();
+		if (err)
+		{	
+			if (err == KRNIO_EOF)
+				ch |= 0x100;
+			else
+				ch = -1;
+		}
+	}
 	krnio_clrchn();
 	return ch;
 }
+
+int krnio_putch(char fnum, char ch)
+{
+	if (krnio_chkout(fnum))
+	{
+		krnio_chrout(ch);
+		krnio_clrchn();
+		return 0;
+	}
+	else
+		return -1;	
+}
+
 
 int krnio_puts(char fnum, const char * data)
 {
@@ -153,6 +190,8 @@ int krnio_puts(char fnum, const char * data)
 		return -1;
 }
 
+#pragma native(krnio_puts)
+
 int krnio_write(char fnum, const char * data, int num)
 {
 	if (krnio_chkout(fnum))
@@ -166,14 +205,24 @@ int krnio_write(char fnum, const char * data, int num)
 		return -1;
 }
 
+#pragma native(krnio_write)
+
 int krnio_read(char fnum, char * data, int num)
 {
 	if (krnio_chkin(fnum))
 	{
 		int i = 0;
 		int ch;
-		while (i < num && (ch = krnio_chrin()) >= 0)
+		while (i < num)
+		{
+			ch = krnio_chrin();
+			krnioerr err = krnio_status();
+			if (err && err != KRNIO_EOF)
+				break;
 			data[i++] = (char)ch;
+			if (err)
+				break;
+		}
 		krnio_clrchn();
 		return i;
 	}
@@ -181,16 +230,22 @@ int krnio_read(char fnum, char * data, int num)
 		return -1;	
 }
 
+#pragma native(krnio_read)
+
 int krnio_gets(char fnum, char * data, int num)
 {
 	if (krnio_chkin(fnum))
 	{
 		int i = 0;
 		int ch;
-		while (i + 1 < num && (ch = krnio_chrin()) >= 0)
+		while (i + 1 < num)
 		{
+			ch = krnio_chrin();
+			krnioerr err = krnio_status();
+			if (err && err != KRNIO_EOF)
+				break;
 			data[i++] = (char)ch;
-			if (ch == 13 || ch == 10)
+			if (ch == 13 || ch == 10 || err)
 				break;
 		}
 		data[i] = 0;
@@ -201,3 +256,5 @@ int krnio_gets(char fnum, char * data, int num)
 		return -1;	
 
 }
+
+#pragma native(krnio_gets)

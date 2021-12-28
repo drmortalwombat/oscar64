@@ -36,6 +36,7 @@ int krnio_chrin(void);
 
 int krnio_getch(char fnum);
 
+int krnio_putch(char fnum, char ch);
 
 
 int krnio_write(char fnum, const char * data, int num);

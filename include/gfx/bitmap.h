@@ -51,6 +51,9 @@ enum BlitOp
 extern char NineShadesOfGrey[9][8];
 
 
+unsigned bm_usqrt(unsigned n);
+
+
 void bm_init(Bitmap * bm, char * data, char cw, char ch);
 
 void bm_alloc(Bitmap * bm, char cw, char ch);
@@ -80,40 +83,41 @@ inline bool bm_get(Bitmap * bm, int x, int y);
 inline void bm_put(Bitmap * bm, int x, int y, bool c);
 
 
-void bm_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern);
+void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern);
 
-void bm_line_clipped(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char pattern);
-
-
-void bm_bitblit(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op);
-
-inline void bm_rect_fill(Bitmap * dbm, int dx, int dy, int w, int h);
-
-inline void bm_rect_clear(Bitmap * dbm, int dx, int dy, int w, int h);
-
-inline void bm_rect_pattern(Bitmap * dbm, int dx, int dy, int w, int h, const char * pattern);
-
-inline void bm_rect_copy(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h);
+void bm_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char pattern);
 
 
-void bm_bitblit_clipped(Bitmap * dbm, ClipRect * clip, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op);
+void bmu_bitblit(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op);
 
-inline void bm_rect_fill_clipped(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h);
+inline void bmu_rect_fill(Bitmap * dbm, int dx, int dy, int w, int h);
 
-inline void bm_rect_clear_clipped(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h);
+inline void bmu_rect_clear(Bitmap * dbm, int dx, int dy, int w, int h);
 
-inline void bm_rect_pattern_clipped(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, const char * pattern);
+inline void bmu_rect_pattern(Bitmap * dbm, int dx, int dy, int w, int h, const char * pattern);
 
-inline void bm_rect_copy_clipped(Bitmap * dbm, ClipRect * clip, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h);
+inline void bmu_rect_copy(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h);
 
-int bm_text(Bitmap * bm, const char * str, char len);
 
-int bm_text_size(const char * str, char len);
+void bm_bitblit(Bitmap * dbm, ClipRect * clip, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op);
 
-int bm_put_chars(Bitmap * bm, int x, int y, const char * str, char len, BlitOp op);
+inline void bm_rect_fill(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h);
 
-int bm_put_chars_clipped(Bitmap * bm, ClipRect * clip, int x, int y, const char * str, char len, BlitOp op);
+inline void bm_rect_clear(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h);
 
+inline void bm_rect_pattern(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, const char * pattern);
+
+inline void bm_rect_copy(Bitmap * dbm, ClipRect * clip, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h);
+
+int bmu_text(Bitmap * bm, const char * str, char len);
+
+int bmu_text_size(const char * str, char len);
+
+int bmu_put_chars(Bitmap * bm, int x, int y, const char * str, char len, BlitOp op);
+
+int bm_put_chars(Bitmap * bm, ClipRect * clip, int x, int y, const char * str, char len, BlitOp op);
+
+int bm_put_string(Bitmap * bm, ClipRect * clip, int x, int y, const char * str, BlitOp op);
 
 int bm_transform(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, Bitmap * sbm, int sx, int sy, int dxx, int dxy, int dyx, int dyy);
 

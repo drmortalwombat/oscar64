@@ -210,6 +210,8 @@ void rirq_build(RIRQCode * ic, byte size)
 	}
 }
 
+#pragma native(rirq_build)
+
 void rirq_set(byte n, byte row, RIRQCode * write)
 {
 	rasterIRQLow[n] = (unsigned)&write->code & 0xff;

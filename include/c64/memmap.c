@@ -54,6 +54,8 @@ void mmap_trampoline(void)
 	*((void **)0xfffe) = NMITrampoline;	
 }
 
+#pragma native(mmap_trampoline)
+
 void mmap_set(char pla)
 {
 	PLAShadow = pla;

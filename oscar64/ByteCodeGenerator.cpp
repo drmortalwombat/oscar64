@@ -4742,7 +4742,10 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						mIns[i + 2].mCode = BC_NOP;
 						progress = true;
 					}
-					else if (mIns[i + 0].mCode == BC_CONST_16 && mIns[i + 2].mCode == BC_CONST_16 && mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 0].mValue == mIns[i + 2].mValue && !mIns[i + 1].ChangesRegister(mIns[i + 0].mRegister))
+					else if (mIns[i + 0].mCode == BC_CONST_16 && mIns[i + 2].mCode == BC_CONST_16 && 
+							!mIns[i + 0].mRelocate && !mIns[i + 2].mRelocate &&
+							mIns[i + 0].mRegister == mIns[i + 2].mRegister && mIns[i + 0].mValue == mIns[i + 2].mValue && 
+							!mIns[i + 1].ChangesRegister(mIns[i + 0].mRegister))
 					{
 						if (mIns[i + 0].mRegister == BC_REG_ACCU)
 							mIns[i + 1].mLive |= LIVE_ACCU;
