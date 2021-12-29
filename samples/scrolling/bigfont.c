@@ -51,17 +51,6 @@ const char * text =
 	s"invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam "
 	s"et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet."
 
-inline void waitBottom(void)
-{
-	while (!(vic.ctrl1 & VIC_CTRL1_RST8))
-		;
-}
-
-inline void waitTop(void)
-{
-	while ((vic.ctrl1 & VIC_CTRL1_RST8))
-		;
-}
 
 int main(void)
 {
@@ -87,19 +76,19 @@ int main(void)
 		{
 			for(char i=0; i<2; i++)
 			{
-				waitBottom();
+				vic_waitBottom();
 				vic.ctrl2 = 4;
-				waitTop();
+				vic_waitTop();
 
-				waitBottom();
+				vic_waitBottom();
 				vic.ctrl2 = 2;
-				waitTop();
+				vic_waitTop();
 
-				waitBottom();
+				vic_waitBottom();
 				vic.ctrl2 = 0;
-				waitTop();
+				vic_waitTop();
 
-				waitBottom();
+				vic_waitBottom();
 				vic.ctrl2 = 6;
 
 				scrollLeft();

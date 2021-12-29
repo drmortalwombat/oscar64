@@ -88,6 +88,13 @@ void vic_setmode(VicMode mode, char * text, char * font);
 
 inline void vic_sprxy(byte s, int x, int y);
 
+inline void vic_waitBottom(void);
+
+inline void vic_waitTop(void);
+
+inline void vic_waitFrame(void);
+
+inline void vic_waitLine(int line);
 
 #define vic	(*((struct VIC *)0xd000))
 

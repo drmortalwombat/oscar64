@@ -2676,7 +2676,7 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 {
 	ins->mSrc[offset].mIntConst = 0;
 
-	if (ins->mSrc[offset].mTemp >= 0 && tvalue[ins->mSrc[offset].mTemp])
+	while (ins->mSrc[offset].mTemp >= 0 && tvalue[ins->mSrc[offset].mTemp])
 	{
 		InterInstruction* ains = tvalue[ins->mSrc[offset].mTemp];
 
@@ -2705,6 +2705,8 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 			ins->mSrc[offset].mIntConst = ains->mSrc[1].mIntConst;
 			ins->mSrc[offset].mTemp = ains->mSrc[0].mTemp;
 		}
+		else
+			break;
 	}
 }
 

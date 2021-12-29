@@ -34,15 +34,12 @@ int main(void)
 
 	rirq_init(true);
 
-	vic.ctrl1 = VIC_CTRL1_BMM | VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3;
-	vic.ctrl2 = VIC_CTRL2_CSEL;
-	
 	vic.color_back = VCOL_BLACK;
 
 	memset(Color, 0x10, 1000);
+	memset(Hires, 0, 8000);
 
-	vic_setbank(3);
-	vic.memptr = 0x28;
+	vic_setmode(VICM_HIRES, Color, Hires);
 
 	rirq_build(&rirqtop, 2);    
 	rirq_write(&rirqtop, 0, &vic.memptr, 0x28);

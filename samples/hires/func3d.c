@@ -1,7 +1,5 @@
-// func3d
 #include <c64/memmap.h>
 #include <c64/vic.h>
-#include <c64/cia.h>
 #include <stdlib.h>
 #include <string.h>
 #include <conio.h>

@@ -307,12 +307,11 @@ void rirq_sort(void)
 	{
 		byte ri = rasterIRQIndex[i];
 		byte rr = rasterIRQRows[ri];
-		byte j = i, rj = rasterIRQIndex[j - 1];
-		while (j > 0 && rr < rasterIRQRows[rj])
+		byte j = i, rj;
+		while (j > 0 && rr < rasterIRQRows[(rj = rasterIRQIndex[j - 1])])
 		{
 			rasterIRQIndex[j] = rj;
 			j--;
-			rj = rasterIRQIndex[j - 1] 
 		}
 		rasterIRQIndex[j] = ri;
 	}

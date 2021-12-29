@@ -45,3 +45,37 @@ void vic_setmode(VicMode mode, char * text, char * font)
 	cia2.pra = (cia2.pra & 0xfc) | (((unsigned)text >> 14) ^ 0x03);	
 	vic.memptr = (((unsigned)text >> 6) & 0xf0) | (((unsigned)font >> 10) & 0x0e);
 }
+
+void waitBottom(void)
+{
+	while (!(vic.ctrl1 & VIC_CTRL1_RST8))
+		;
+}
+
+void waitTop(void)
+{
+	while ((vic.ctrl1 & VIC_CTRL1_RST8))
+		;
+}
+
+void vic_waitFrame(void)
+{
+	while ((vic.ctrl1 & VIC_CTRL1_RST8))
+		;
+	while (!(vic.ctrl1 & VIC_CTRL1_RST8))
+		;	
+}
+
+void vic_waitLine(int line)
+{
+	char	upper = (char)(line >> 1) & VIC_CTRL1_RST8;
+	char	lower = (char)line;
+
+	do
+	{
+		while (vic.raster != lower)
+			;
+	} while ((vic.ctrl1 & VIC_CTRL1_RST8) != upper);
+}
+
+#pragma native(vic_waitLine)

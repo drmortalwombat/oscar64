@@ -96,6 +96,8 @@ public:
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
 	bool IsShift(void) const;
+
+	void ReplaceYRegWithXReg(void);
 };
 
 class NativeCodeBasicBlock
@@ -174,6 +176,7 @@ public:
 	void CallFunction(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 
 	void ShiftRegisterLeft(InterCodeProcedure* proc, int reg, int shift);
+	void ShiftRegisterLeftByte(InterCodeProcedure* proc, int reg, int shift);
 	int ShortMultiply(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins, int index, int mul);
 
 	bool CheckPredAccuStore(int reg);

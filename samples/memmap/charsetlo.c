@@ -25,7 +25,6 @@ char charset[2048] = {
 
 #pragma data(data)
 
-char x;
 int main(void)
 {
 	// map the vic to the new charset
