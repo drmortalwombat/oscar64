@@ -1,1 +1,1 @@
-..\..\bin\oscar64 helloworld.c
+call ..\..\bin\oscar64 helloworld.c

@@ -25,7 +25,7 @@
 #pragma data(spriteset)
 
 char spriteset[2048] = {
-	#embed "../samples/resources/digitsprites.bin"
+	#embed "../resources/digitsprites.bin"
 };
 
 #pragma data(data)
