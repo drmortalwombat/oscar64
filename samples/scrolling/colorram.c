@@ -67,23 +67,6 @@ void scrollLeft1(void)
 }
 
 
-inline void waitTop(void)
-{
-	while ((vic.ctrl1 & VIC_CTRL1_RST8))
-		;
-}
-
-inline void waitBottom(void)
-{
-	while (!(vic.ctrl1 & VIC_CTRL1_RST8))
-		;
-}
-
-inline void waitSync(void)
-{
-	while (vic.raster != 50 + 8 * SPLIT1)
-		;
-}
 
 void prepcol(void)
 {
@@ -111,11 +94,11 @@ int main(void)
 
 		if (x == 0)
 		{
-			waitSync();
+			vic_waitLine(50 + 8 * SPLIT1);
 			scrollLeft0();
 		}
 
-		waitBottom();
+		vic_waitBottom();
 
 		vic.ctrl2 = (7 - x) & 7;
 
@@ -127,7 +110,7 @@ int main(void)
 		{
 			if (x == 4)
 				prepcol();
-			waitTop();
+			vic_waitTop();
 		}
 	}
 

@@ -2838,7 +2838,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mSrc[0].mTemp = -1;
 			}
 		}
-		else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT && tvalue[ins->mSrc[1].mTemp]->mConst.mMemory == IM_GLOBAL)
+		else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT && (tvalue[ins->mSrc[1].mTemp]->mConst.mMemory == IM_GLOBAL || tvalue[ins->mSrc[1].mTemp]->mConst.mMemory == IM_ABSOLUTE))
 		{
 			ins->mSrc[1].mMemory = tvalue[ins->mSrc[1].mTemp]->mConst.mMemory;
 			ins->mSrc[1].mLinkerObject = tvalue[ins->mSrc[1].mTemp]->mConst.mLinkerObject;
@@ -3810,7 +3810,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
 				{
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
-					if (mTrueValueRange[t].mMinState == IntegerValueRange::S_BOUND && mTrueValueRange[t].mMinValue >= 0)
+//					if (mTrueValueRange[t].mMinState == IntegerValueRange::S_BOUND && mTrueValueRange[t].mMinValue >= 0)
 					{
 						mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
 						mTrueValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst + 1;

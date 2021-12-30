@@ -80,18 +80,6 @@ void scrollRight(void)
 #until y == 25
 }
 
-inline void waitBottom(void)
-{
-	while (!(vic.ctrl1 & VIC_CTRL1_RST8))
-		;
-}
-
-inline void waitTop(void)
-{
-	while ((vic.ctrl1 & VIC_CTRL1_RST8))
-		;
-}
-
 char ytop[256], ybottom[256];
 
 void prepcol(char xi)
@@ -202,8 +190,8 @@ int main(void)
 		else if (pxi > xi)
 			prepcol(xi + 0);
 
-		waitTop();
-		waitBottom();
+		vic_waitTop();
+		vic_waitBottom();
 
 		vic.ctrl2 = (7 - (xpos >> 2)) & 7;
 

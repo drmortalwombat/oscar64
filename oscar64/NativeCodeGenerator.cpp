@@ -5954,7 +5954,11 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			else if (ins->mSrc[0].mTemp < 0)
 			{
 				insl = NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff);
-				insh = NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff);
+				if (ins->mDst.IsUByte())
+					insh = NativeCodeInstruction(ASMIT_AND, ASMIM_IMMEDIATE, 0);
+				else
+					insh = NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff);
+
 				if (sins1)
 					LoadValueToReg(proc, sins1, treg, &insl, &insh);
 				else
@@ -9251,11 +9255,11 @@ bool NativeCodeBasicBlock::PatchDirectAddressSumY(int at, int reg, int apos, int
 bool NativeCodeBasicBlock::PatchAddressSumY(int at, int reg, int apos, int breg, int ireg)
 {
 	int	yindex = 0;
-	int last = at;
+	int last = apos + 7;
 
 	while (last < mIns.Size())
 	{
-		if (mIns[last].mType == ASMIT_LDY && mIns[last].mMode == ASMIM_IMMEDIATE && (mIns[last].mAddress == yindex || mIns[last].mAddress == yindex + 1))
+		if (mIns[last].mType == ASMIT_LDY && mIns[last].mMode == ASMIM_IMMEDIATE && (mIns[last].mAddress == yindex || mIns[last].mAddress == yindex + 1 || mIns[last].mAddress + 1 == yindex))
 			yindex = mIns[last].mAddress;
 		else if (mIns[last].ChangesYReg())
 			return false;
@@ -9280,20 +9284,21 @@ bool NativeCodeBasicBlock::PatchAddressSumY(int at, int reg, int apos, int breg,
 		mIns[last + 1].mLive |= CPU_REG_Y;
 	}
 
-	for (int i = 0; i < 6; i++)
+	for (int i = 0; i < 5; i++)
 	{
-		mIns[apos + i + 1].mType = ASMIT_NOP;
-		mIns[apos + i + 1].mMode = ASMIM_IMPLIED;
+		mIns[apos + i + 2].mType = ASMIT_NOP;
+		mIns[apos + i + 2].mMode = ASMIM_IMPLIED;
 	}
-	mIns[at].mMode = ASMIM_ZERO_PAGE;
-	mIns[at].mAddress = ireg;
-	mIns[at].mLive |= LIVE_MEM;
+	mIns[apos + 1].mType = ASMIT_LDY;
+	mIns[apos + 1].mMode = ASMIM_ZERO_PAGE;
+	mIns[apos + 1].mAddress = ireg;
+	mIns[apos + 1].mLive |= LIVE_MEM | LIVE_CPU_REG_Y;
 
 	yindex = 0;
 
-	for (int i = at + 1; i <= last; i++)
+	for (int i = apos + 7; i <= last; i++)
 	{
-		mIns[i].mLive | LIVE_CPU_REG_Y;
+		mIns[i].mLive |= LIVE_CPU_REG_Y;
 
 		if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE)
 		{
@@ -9302,11 +9307,17 @@ bool NativeCodeBasicBlock::PatchAddressSumY(int at, int reg, int apos, int breg,
 				mIns[i].mType = ASMIT_NOP;
 				mIns[i].mMode = ASMIM_IMPLIED;
 			}
-			else
+			else if (mIns[i].mAddress == yindex + 1)
 			{
 				mIns[i].mType = ASMIT_INY;
 				mIns[i].mMode = ASMIM_IMPLIED;
 				yindex++;
+			}
+			else
+			{
+				mIns[i].mType = ASMIT_DEY;
+				mIns[i].mMode = ASMIM_IMPLIED;
+				yindex--;
 			}
 		}
 		else if (mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i].mAddress == reg)
@@ -10210,15 +10221,23 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 					bool	yother = false, yindex = false, xother = false, xindex = false;
 					int		zreg = mIns[sz - 3].mAddress;
 					int		limit = mIns[sz - 1].mAddress;
+					int		yinc = 0, xinc = 0;
 
 					for (int i = 0; i < sz - 3; i++)
 					{
-						if (mIns[i].mType == ASMIT_INY || mIns[i].mType == ASMIT_DEY || mIns[i].mType == ASMIT_TAY)
+						if (mIns[i].mType == ASMIT_TAY)
 							yother = true;
+						else if (mIns[i].mType == ASMIT_INY)
+							yinc++;
+						else if (mIns[i].mType == ASMIT_DEY)
+							yinc--;
 						else if (mIns[i].mType == ASMIT_LDY)
 						{
-							if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+							if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg && yinc >= -1 && yinc <= 1)
+							{
+								yinc = 0;
 								yindex = true;
+							}
 							else
 								yother = true;
 						}
@@ -10244,16 +10263,45 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 
 					if (!yother)
 					{
+						int	linc = yinc - 1;
+
 						NativeCodeBasicBlock* lblock = proc->AllocateBlock();
 						NativeCodeBasicBlock* eblock = proc->AllocateBlock();
+
+						yinc = 0;
 						for (int i = 0; i + 3 < sz; i++)
 						{
 							if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
 								lblock->mIns.Push(NativeCodeInstruction(ASMIT_TYA, ASMIM_IMPLIED));
-							else if (mIns[i].mType != ASMIT_LDY)
+							else if (mIns[i].mType == ASMIT_LDY)
+							{
+								if (yinc > 0)
+									lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY));
+								else if (yinc < 0)
+									lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY));
+								yinc = 0;
+							}
+							else
+							{
 								lblock->mIns.Push(mIns[i]);
+								if (mIns[i].mType == ASMIT_INY)
+									yinc++;
+								else if (mIns[i].mType == ASMIT_DEY)
+									yinc--;
+							}
 						}
-						lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+
+						while (linc < 0)
+						{
+							lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+							linc++;
+						}
+						while (linc > 0)
+						{
+							lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
+							linc--;
+						}
+
 						lblock->mIns.Push(NativeCodeInstruction(ASMIT_CPY, ASMIM_IMMEDIATE, limit));
 						lblock->mBranch = mBranch;
 						lblock->mTrueJump = lblock;
@@ -10318,15 +10366,23 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 
 					bool	yother = false, yindex = false;
 					int		zreg = mIns[sz - 1].mAddress;
+					int		yinc = 0, xinc = 0;
 
 					for (int i = 0; i < sz - 1; i++)
 					{
-						if (mIns[i].mType == ASMIT_INY || mIns[i].mType == ASMIT_DEY || mIns[i].mType == ASMIT_TAY)
+						if (mIns[i].mType == ASMIT_TAY)
 							yother = true;
+						else if (mIns[i].mType == ASMIT_INY)
+							yinc++;
+						else if (mIns[i].mType == ASMIT_DEY)
+							yinc--;
 						else if (mIns[i].mType == ASMIT_LDY)
 						{
-							if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+							if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg && yinc >= -1 && yinc <= 1)
+							{
+								yinc = 0;
 								yindex = true;
+							}
 							else
 								yother = true;
 						}
@@ -10338,16 +10394,52 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 
 					if (!yother)
 					{
+						int	linc = yinc + 1;
+
 						NativeCodeBasicBlock* lblock = proc->AllocateBlock();
 						NativeCodeBasicBlock* eblock = proc->AllocateBlock();
+
+						yinc = 0;
 						for (int i = 0; i + 1 < sz; i++)
 						{
 							if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
 								lblock->mIns.Push(NativeCodeInstruction(ASMIT_TYA, ASMIM_IMPLIED));
-							else if (mIns[i].mType != ASMIT_LDY)
+							else if (mIns[i].mType == ASMIT_LDY)
+							{
+								if (yinc > 0)
+									lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY));
+								else if (yinc < 0)
+									lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY));
+								yinc = 0;
+							}
+							else
+							{
 								lblock->mIns.Push(mIns[i]);
+								if (mIns[i].mType == ASMIT_INY)
+									yinc++;
+								else if (mIns[i].mType == ASMIT_DEY)
+									yinc--;
+							}
 						}
-						lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
+
+						if (linc == 0)
+						{
+							lblock->mIns.Push(NativeCodeInstruction(ASMIT_CPY, ASMIM_IMMEDIATE, 0));
+						}
+						else						
+						{
+							while (linc < 0)
+							{
+								lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+								linc++;
+							}
+							while (linc > 0)
+							{
+								lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
+								linc--;
+							}
+						}
+
 						lblock->mBranch = mBranch;
 						lblock->mTrueJump = lblock;
 						lblock->mFalseJump = eblock;
@@ -12728,6 +12820,24 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED;
 						if (mIns[i + 2].mAddress == 2)
 							mIns[i + 3].mType = ASMIT_INY;
+						else
+							mIns[i + 3].mType = ASMIT_NOP;
+						mIns[i + 3].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+#endif
+#if 1
+					else if (
+						mIns[i + 0].mType == ASMIT_SEC &&
+						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+						mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_LDY;
+						mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						if (mIns[i + 2].mAddress == 2)
+							mIns[i + 3].mType = ASMIT_DEY;
 						else
 							mIns[i + 3].mType = ASMIT_NOP;
 						mIns[i + 3].mMode = ASMIM_IMPLIED;

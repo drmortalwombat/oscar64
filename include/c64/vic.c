@@ -46,13 +46,13 @@ void vic_setmode(VicMode mode, char * text, char * font)
 	vic.memptr = (((unsigned)text >> 6) & 0xf0) | (((unsigned)font >> 10) & 0x0e);
 }
 
-void waitBottom(void)
+void vic_waitBottom(void)
 {
 	while (!(vic.ctrl1 & VIC_CTRL1_RST8))
 		;
 }
 
-void waitTop(void)
+void vic_waitTop(void)
 {
 	while ((vic.ctrl1 & VIC_CTRL1_RST8))
 		;
