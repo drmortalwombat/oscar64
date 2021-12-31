@@ -73,6 +73,11 @@ struct VIC
 
 };
 
+// set the 16k Bank for the vic
+// 0 : 0x0000..0x3fff
+// 1 : 0x4000..0x7fff
+// 2 : 0x8000..0xbfff
+// 3 : 0xc000..0xffff
 void vic_setbank(char bank);
 
 enum VicMode
@@ -84,18 +89,27 @@ enum VicMode
 	VICM_HIRES_MC
 };
 
+// set the display mode and base address. This will also
+// adapt the bank.
 void vic_setmode(VicMode mode, char * text, char * font);
 
+// put a sprite at the given x/y location, taking care of the
+// x MSB
 inline void vic_sprxy(byte s, int x, int y);
 
+// wait for the beam to reach the bottom of the visual area
 inline void vic_waitBottom(void);
 
+// wait for the beam to reach the top of the frame
 inline void vic_waitTop(void);
 
+// wait for the top of the frame and then for the bottom of the visual area
 inline void vic_waitFrame(void);
 
-inline void vic_waitLine(int line);
+// wait for a specific raster line
+void vic_waitLine(int line);
 
+// reference to the VIC chip
 #define vic	(*((struct VIC *)0xd000))
 
 #pragma compile("vic.c")

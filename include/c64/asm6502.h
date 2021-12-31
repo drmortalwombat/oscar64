@@ -3,6 +3,8 @@
 
 #include "types.h"
 
+// Base form for the 6502 instructions
+
 enum AsmIns
 {
 	// Implied
@@ -82,30 +84,46 @@ enum AsmIns
 	ASM_JSR = 0x2c
 };
 
+// the asm_ instructions emit a machine instruction at the given
+// location and return the size.
+
+// implied
 inline byte asm_np(byte * ip, AsmIns ins);
 
+// accu (e.g. rol/ror)
 inline byte asm_ac(byte * ip, AsmIns ins);
 
+// zero page
 inline byte asm_zp(byte * ip, AsmIns ins, byte addr);
 
+// relative branch
 inline byte asm_rl(byte * ip, AsmIns ins, byte addr);
 
+// immediate
 inline byte asm_im(byte * ip, AsmIns ins, byte value);
 
+// zero page indexed by x
 inline byte asm_zx(byte * ip, AsmIns ins, byte addr);
 
+// zero page indexed by y
 inline byte asm_zy(byte * ip, AsmIns ins, byte addr);
 
+// absolute
 inline byte asm_ab(byte * ip, AsmIns ins, unsigned addr);
 
+// indirect (jmp)
 inline byte asm_in(byte * ip, AsmIns ins, unsigned addr);
 
+// absolute indexed by x
 inline byte asm_ax(byte * ip, AsmIns ins, unsigned addr);
 
+// absolute indexed by y
 inline byte asm_ay(byte * ip, AsmIns ins, unsigned addr);
 
+// zero page indirect indexed by x
 inline byte asm_ix(byte * ip, AsmIns ins, byte addr);
 
+// zero page indirect indexed by y
 inline byte asm_iy(byte * ip, AsmIns ins, byte addr);
 
 #pragma compile("asm6502.c")

@@ -23,9 +23,18 @@
 #define KEY_F6			(139)
 #define KEY_F8			(140)
 
+// map of keyboard codes to PETSCII, first 64 without shift
+// second 64 with shift
+
 extern const char keyb_codes[128];
 
-extern byte keyb_matrix[8], keyb_key;
+// current status of key matrix 
+extern byte keyb_matrix[8];
+
+// current key
+extern byte keyb_key;
+
+// poll keyboard matrix
 
 void keyb_poll(void);
 
