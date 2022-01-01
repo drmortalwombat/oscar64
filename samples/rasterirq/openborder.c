@@ -8,26 +8,36 @@ char spdata[] = {
 #embed "../resources/friendlybear.bin"	
 };
 
+// Raster IRQs for last line of screen and below
 RIRQCode	open, bottom;
 
 int main(void)
 {
+	// initialize raster IRQ
 	rirq_init(true);
 
+	// Build open border raster IRQ
 	rirq_build(&open, 1);
+	// Reduce vertical screen size to fool VIC counter
 	rirq_write(&open, 0, &vic.ctrl1, VIC_CTRL1_DEN | 3);
+	// Place it into the last line of the screen
 	rirq_set(0, 50 + 200 - 3, &open);
 
+	// Build switch to normal raster IRQ
 	rirq_build(&bottom, 1);
 	rirq_write(&bottom, 0, &vic.ctrl1, VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3 );
 	rirq_set(1, 50, &bottom);
 
+	// sort the raster IRQs
 	rirq_sort();
 
+	// start raster IRQ processing
 	rirq_start();
 
+	// Copy the sprite data
 	memcpy((char *)0x0380, spdata, 128);
 
+	// Initialize sprites
 	*(char *)(0x7f8) = 0x03c0 / 64;
 	*(char *)(0x7f9) = 0x0380 / 64;
 	*(char *)(0x7fa) = 0x03c0 / 64;
@@ -52,6 +62,7 @@ int main(void)
 
     for(;;)
     {
+    	// Move sprites through all vertical positions
     	for(int i=0; i<255; i++)
     	{
 			vic_sprxy(0, 100, 1 * i); vic_sprxy(1, 100, 1 * i);

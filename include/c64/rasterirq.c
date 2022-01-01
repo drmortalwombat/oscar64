@@ -320,6 +320,7 @@ void rirq_sort(void)
 		rasterIRQNext[i] = rasterIRQRows[rasterIRQIndex[i]];
 
 	npos++;
+	vic.raster = rasterIRQNext[nextIRQ] - 1;
 }
 
 void rirq_start(void)

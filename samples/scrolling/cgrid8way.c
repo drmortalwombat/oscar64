@@ -4,11 +4,15 @@
 #include <c64/joystick.h>
 #include <stdlib.h>
 
+// Screen and color space
 #define Screen ((byte *)0x0400)
 #define Color ((byte *)0xd800)
+
+// Macro for easy access to screen and color space
 #define sline(x, y) (Screen + 40 * (y) + (x))
 #define cline(x, y) (Color + 40 * (y) + (x))
 
+// Tile data, each column has four rows of four tiles
 static const char quad[4][4 * 4] =
 {
 	{
@@ -40,6 +44,7 @@ static const char quad[4][4 * 4] =
 
 #pragma align(quad, 256)
 
+// Expand a single row into an offscreen buffer
 void expandrow(char * dp, char * cp, const char * grid, char ly, char lx)
 {
 	char	hx = 0;
@@ -56,6 +61,7 @@ void expandrow(char * dp, char * cp, const char * grid, char ly, char lx)
 	}
 }
 
+// Expand a single column into an offscreen buffer
 void expandcol(char * dp, char * cp, const char * grid, char ly, char lx)
 {
 	for(char y=0; y<25; y++)
@@ -71,25 +77,39 @@ void expandcol(char * dp, char * cp, const char * grid, char ly, char lx)
 	}
 }
 
+// Two split scroll for left, right and up
 #define VSPLIT	12
 
+// Three split scroll for down.  Downscrolling is more tricky because
+// we have to copy towards the raster
 #define VSPLIT	12
 #define VSPLIT2	20
 
+// New line/column of screen and color data
 char	news[40], newc[40];
 
+// All scroll routines start with a pixel offset of 4, 4
+
+// Scroll one character left in two pixel increments
 void scroll_left(void)
 {
+	// Wait for one frame
 	vic_waitTop();
 	vic_waitBottom();
 
+	// Switch to offset 2, 4
 	vic.ctrl2 = 0x02;
 	vic_waitTop();
 	vic_waitBottom();
 
+	// Switch to offset 0, 4
 	vic.ctrl2 = 0x00;
+
+	// Wait until bottom of section
 	vic_waitLine(50 + 8 * VSPLIT);
 
+	// Scroll upper section
+
 	for(char x=0; x<39; x++)
 	{
 #assign ty 0
@@ -100,6 +120,7 @@ void scroll_left(void)
 #until ty == VSPLIT
 	}
 
+	// Update column
 #assign ty 0
 #repeat
 	sline(0, ty)[39] = news[ty];
@@ -107,9 +128,13 @@ void scroll_left(void)
 #assign ty ty + 1
 #until ty == VSPLIT
 
+	// Wait for bottom of visible screen
 	vic_waitBottom();
+
+	// Switch to offset 6, 4
 	vic.ctrl2 = 0x06;
 
+	// Scroll lower part of the screen, while top is redrawn
 	for(char x=0; x<39; x++)
 	{
 #assign ty VSPLIT
@@ -120,6 +145,7 @@ void scroll_left(void)
 #until ty == 25
 	}
 
+	// Update new column
 #assign ty VSPLIT
 #repeat
 	sline(0, ty)[39] = news[ty];
@@ -127,10 +153,15 @@ void scroll_left(void)
 #assign ty ty + 1
 #until ty == 25
 
+	// Wait for bottom
 	vic_waitBottom();
+
+	// Now back to 4, 4
 	vic.ctrl2 = 0x04
 
 }
+
+// Scroll one character right in two pixel increments
 
 void scroll_right(void)
 {
@@ -185,6 +216,8 @@ void scroll_right(void)
 	vic.ctrl2 = 0x04;
 }
 
+// Scroll one character up in two pixel increments
+
 void scroll_up(void)
 {
 	vic_waitTop();
@@ -229,20 +262,36 @@ void scroll_up(void)
 
 char	tmp0[40], tmp1[40], tmp2[40], tmp3[40];
 
+// Scroll one character down in two pixel increments.  This is more tricky than
+// the other three cases, because we have to work towards the beam because
+// we have to copy backwards in memory.
+// 
+// The scroll is split into three sections, the seam rows are saved into
+// intermediate arrays, so we can copy the top section first and the bottom
+// section last, and stay ahead of the beam.
+
 void scroll_down(void)
 {
+	// Wait one frame
 	vic_waitTop();
 	vic_waitBottom();
 
+	// Save seam lines
 	for(char x=0; x<40; x++)
 	{
 		tmp0[x] = sline(0, VSPLIT)[x];
 		tmp1[x] = cline(0, VSPLIT)[x];
+		tmp2[x] = sline(0, VSPLIT2)[x];
+		tmp3[x] = cline(0, VSPLIT2)[x];
 	}
 
+	// Now switch to 4, 6
 	vic.ctrl1 = 0x06 | VIC_CTRL1_DEN;
+
+	// Wait for bottom of top section
 	vic_waitLine(58 + 8 * VSPLIT);
 
+	// Scroll top section down and copy new column
 	for(char x=0; x<40; x++)
 	{
 #assign ty VSPLIT
@@ -257,12 +306,12 @@ void scroll_down(void)
 	}
 
 //	vic_waitBottom();
+	// We have already reached the bottom, switch to 4, 0
 	vic.ctrl1 = 0x00 | VIC_CTRL1_DEN;
 
+	// Copy the second section, update the seam line from the buffer
 	for(char x=0; x<40; x++)
 	{
-		tmp2[x] = sline(0, VSPLIT2)[x];
-		tmp3[x] = cline(0, VSPLIT2)[x];
 
 #assign ty VSPLIT2
 #repeat
@@ -275,6 +324,7 @@ void scroll_down(void)
 		cline(0, ty)[x] = tmp1[x];
 	}
 
+	// Copy the third section, update the seam line from the buffer
 	for(char x=0; x<40; x++)
 	{
 #assign ty 24
@@ -288,9 +338,11 @@ void scroll_down(void)
 		cline(0, ty)[x] = tmp3[x];
 	}
 
+	// Switch to 4, 2
 	vic_waitBottom();
 	vic.ctrl1 = 0x02 | VIC_CTRL1_DEN;
 
+	// Switch to 4, 4
 	vic_waitTop();
 	vic_waitBottom();
 	vic.ctrl1 = 0x04 | VIC_CTRL1_DEN;
@@ -302,11 +354,13 @@ char grid[16][16];
 
 int main(void)
 {
+	// We need some more accurate timing for this, so kill the kernal IRQ
 	__asm
 	{
 		sei
 	}
 
+	// Init the grid
 	for(char y=0; y<16; y++)
 	{
 		for(char x=0; x<16; x++)
@@ -317,6 +371,7 @@ int main(void)
 
 	char	gridX = 0, gridY = 0;
 
+	// Inital drwaing of the screen
 	char	*	dp = Screen, * cp = Color;
 	for(char y=0; y<25; y++)
 	{
@@ -325,11 +380,18 @@ int main(void)
 		cp += 40;
 	}
 
+	// setup initial scroll offset
+	
+	vic.ctrl1 = 0x04 | VIC_CTRL1_DEN;
+	vic.ctrl2 = 0x04
+
 	for(;;)
 	{
+		// Check the joystick
 		joy_poll(1);
 		if (joyx[1] == 1)
 		{
+			// Move to the right
 			if (gridX < 24)
 			{
 				gridX++;
@@ -339,6 +401,7 @@ int main(void)
 		}
 		else if (joyx[1] == -1)
 		{
+			// Move to the left
 			if (gridX > 0)
 			{
 				gridX--;
@@ -348,6 +411,7 @@ int main(void)
 		}
 		else if (joyy[1] == 1)
 		{
+			// Move down
 			if (gridY < 39)
 			{
 				gridY++;
@@ -357,6 +421,7 @@ int main(void)
 		}
 		else if (joyy[1] == -1)
 		{
+			// Move up
 			if (gridY > 0)
 			{
 				gridY--;

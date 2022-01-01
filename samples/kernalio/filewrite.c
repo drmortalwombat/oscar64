@@ -16,11 +16,14 @@ Score	score[] = {
 
 int main(void)
 {
-	krnio_setnam("@0:HIGHSCORE,P,W");	
+	// Set name for file and open it with replace on drive 9
+	krnio_setnam("@0:HIGHSCORE,P,W");
 	if (krnio_open(2, 9, 2))
 	{
+		// Fill the file with the score array
 		krnio_write(2, (char*)score, sizeof(score));
 
+		// Close the file
 		krnio_close(2);
 	}
 

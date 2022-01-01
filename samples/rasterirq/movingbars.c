@@ -4,6 +4,8 @@
 #include <math.h>
 #include <conio.h>
 
+// Five raster IRQs for top and bottom of the two chasing bars, and the bottom
+// of the screen
 RIRQCode	ftop, fbottom, btop, bbottom, final ;
 
 char sintab[256];
