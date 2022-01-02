@@ -3658,6 +3658,81 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					break;
+				case IA_SHR:
+					if (ins->mSrc[0].mTemp < 0)
+					{
+						vr = mLocalValueRange[ins->mSrc[1].mTemp];
+
+						if (ins->mSrc[0].mIntConst > 0)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinState >= 0)
+							{
+								switch (ins->mSrc[1].mType)
+								{
+								case IT_INT16:
+									vr.mMaxValue = (unsigned short)(vr.mMaxValue) >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (unsigned short)(vr.mMinValue) >> ins->mSrc[0].mIntConst;
+									break;
+								case IT_INT8:
+									vr.mMaxValue = (unsigned char)(vr.mMaxValue) >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (unsigned char)(vr.mMinValue) >> ins->mSrc[0].mIntConst;
+									break;
+								case IT_INT32:
+									vr.mMaxValue = (unsigned)(vr.mMaxValue) >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (unsigned)(vr.mMinValue) >> ins->mSrc[0].mIntConst;
+									break;
+								}
+							}
+							else
+							{
+								switch (ins->mSrc[1].mType)
+								{
+								case IT_INT16:
+									vr.mMaxValue = 65535 >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = 0;
+									break;
+								case IT_INT8:
+									vr.mMaxValue = 255 >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = 0;
+									break;
+								case IT_INT32:
+									vr.mMaxValue = 0x100000000ULL >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = 0;
+									break;
+								}
+							}
+						}
+					}
+					else
+						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
+					break;
+				case IA_SAR:
+					if (ins->mSrc[0].mTemp < 0)
+					{
+						vr = mLocalValueRange[ins->mSrc[1].mTemp];
+
+						if (ins->mSrc[0].mIntConst > 0)
+						{
+							switch (ins->mSrc[1].mType)
+							{
+							case IT_INT16:
+								vr.mMaxValue = (short)(vr.mMaxValue) >> ins->mSrc[0].mIntConst;
+								vr.mMinValue = (short)(vr.mMinValue) >> ins->mSrc[0].mIntConst;
+								break;
+							case IT_INT8:
+								vr.mMaxValue = (char)(vr.mMaxValue) >> ins->mSrc[0].mIntConst;
+								vr.mMinValue = (char)(vr.mMinValue) >> ins->mSrc[0].mIntConst;
+								break;
+							case IT_INT32:
+								vr.mMaxValue = (int)(vr.mMaxValue) >> ins->mSrc[0].mIntConst;
+								vr.mMinValue = (int)(vr.mMinValue) >> ins->mSrc[0].mIntConst;
+								break;
+							}
+						}
+					}
+					else
+						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
+					break;
 				case IA_AND:
 					if (ins->mSrc[0].mTemp < 0)
 					{
