@@ -4,7 +4,7 @@
 
 
 LinkerRegion::LinkerRegion(void)
-	: mSections(nullptr)
+	: mSections(nullptr), mFreeChunks(FreeChunk{ 0, 0 } )
 {}
 
 LinkerSection::LinkerSection(void)
@@ -176,6 +176,62 @@ void Linker::ReferenceObject(LinkerObject* obj)
 	}
 }
 
+bool LinkerRegion::Allocate(LinkerObject* lobj)
+{
+	int i = 0;
+	while (i < mFreeChunks.Size())
+	{
+		int start = (mFreeChunks[i].mStart + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
+		int end = start + lobj->mSize;
+
+		if (end <= mFreeChunks[i].mEnd)
+		{
+			lobj->mFlags |= LOBJF_PLACED;
+			lobj->mAddress = start;
+			lobj->mRegion = this;
+
+			if (start == mFreeChunks[i].mStart)
+			{
+				if (end == mFreeChunks[i].mEnd)
+					mFreeChunks.Remove(i);
+				else
+					mFreeChunks[i].mStart = end;
+			}
+			else if (end == mFreeChunks[i].mEnd)
+			{
+				mFreeChunks[i].mEnd = start;
+			}
+			else
+			{
+				mFreeChunks.Insert(i + 1, FreeChunk{ end, mFreeChunks[i].mEnd } );
+				mFreeChunks[i].mEnd = start;
+			}
+
+			return true;
+		}
+		i++;
+	}
+
+	int start = (mStart + mUsed + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
+	int end = start + lobj->mSize;
+
+	if (end <= mEnd)
+	{
+		lobj->mFlags |= LOBJF_PLACED;
+		lobj->mAddress = start;
+		lobj->mRegion = this;
+#if 1
+		if (start != mStart + mUsed)
+			mFreeChunks.Push( FreeChunk{ mStart + mUsed, start } );
+#endif
+		mUsed = end - mStart;
+
+		return true;
+	}
+
+	return false;
+}
+
 void Linker::Link(void)
 {
 	if (mErrors->mErrorCount == 0)
@@ -199,21 +255,18 @@ void Linker::Link(void)
 				for (int k = 0; k < lsec->mObjects.Size(); k++)
 				{
 					LinkerObject* lobj = lsec->mObjects[k];
-					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->mStart + lrgn->mUsed + lobj->mSize <= lrgn->mEnd)
+					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(lobj) )
 					{
-						lobj->mFlags |= LOBJF_PLACED;
-						lobj->mAddress = (lrgn->mStart + lrgn->mUsed + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
-						lrgn->mUsed = lobj->mAddress + lobj->mSize - lrgn->mStart;
-
-						lobj->mRegion = lrgn;
-
 						if (lsec->mType == LST_DATA)
 							lrgn->mNonzero = lrgn->mUsed;
 
-						if (lobj->mAddress < lsec->mStart)
-							lsec->mStart = lobj->mAddress;
-						if (lobj->mAddress + lobj->mSize > lsec->mEnd)
-							lsec->mEnd = lobj->mAddress + lobj->mSize;
+						if (lobj->mAddress + lobj->mSize == lrgn->mStart + lrgn->mUsed)
+						{
+							if (lobj->mAddress < lsec->mStart)
+								lsec->mStart = lobj->mAddress;
+							if (lobj->mAddress + lobj->mSize > lsec->mEnd)
+								lsec->mEnd = lobj->mAddress + lobj->mSize;
+						}
 					}
 				}
 			}

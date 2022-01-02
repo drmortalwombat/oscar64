@@ -9353,6 +9353,7 @@ bool NativeCodeBasicBlock::PatchAddressSumY(int at, int reg, int apos, int breg,
 		}
 		else if (mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i].mAddress == reg)
 		{
+			mIns[i].mFlags &= ~NCIF_YZERO;
 			mIns[i].mAddress = breg;
 		}
 	}
@@ -13026,17 +13027,18 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 2].mAddress = mIns[i + 0].mAddress;
 						progress = true;
 					}
+#if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_CLC &&
 						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
+						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && 
 						mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
 					{
 						mIns[i + 0].mType = ASMIT_NOP;
 						mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mFlags |= LIVE_CPU_REG_Y;
 						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mFlags |= LIVE_CPU_REG_Y;
-						mIns[i + 3].mType == ASMIT_STY; mIns[i + 3].mFlags |= LIVE_CPU_REG_Y;
+						mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mFlags |= LIVE_CPU_REG_Y;
 						mIns[i + 4].mType = ASMIT_NOP;
 						if (mIns[i + 2].mAddress == 2)
 						{
@@ -13045,6 +13047,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 						progress = true;
 					}
+#endif
 #if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
@@ -14167,6 +14170,7 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+#if 1
 		if (step == 3)
 		{
 			ResetVisited();
@@ -14176,6 +14180,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->ReduceLocalYPressure())
 				changed = true;
 		}
+#endif
 #if 1
 		else if (step == 4)
 		{

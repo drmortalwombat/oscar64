@@ -48,6 +48,15 @@ public:
 	GrowingArray<LinkerSection*>	mSections;
 
 	LinkerRegion(void);
+
+	struct FreeChunk
+	{
+		int	mStart, mEnd;
+	};
+
+	GrowingArray<FreeChunk>		mFreeChunks;
+	
+	bool Allocate(LinkerObject* obj);
 };
 
 static const uint32	LREF_LOWBYTE	=	0x00000001;
