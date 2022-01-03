@@ -347,7 +347,7 @@ public:
 	int									mNumOperands;
 	Location							mLocation;
 
-	bool								mInUse, mInvariant, mVolatile;
+	bool								mInUse, mInvariant, mVolatile, mExpensive;
 
 	InterInstruction(void);
 
@@ -442,7 +442,7 @@ public:
 	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mDominator;
 	GrowingInstructionArray			mInstructions;
 
-	bool							mVisited, mInPath, mLoopHead, mChecked;
+	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue;
 
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
@@ -550,6 +550,9 @@ public:
 
 	void PeepholeOptimization(void);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);
+	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
+	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
+	void InnerLoopOptimization(const NumberSet& aliasedParams);
 
 	InterCodeBasicBlock* PropagateDominator(InterCodeProcedure * proc);
 
@@ -573,6 +576,7 @@ protected:
 	NumberSet							mLocalAliasedSet, mParamAliasedSet;
 
 	void ResetVisited(void);
+	void ResetEntryBlocks(void);
 public:
 	InterCodeBasicBlock				*	mEntryBlock;
 	GrowingInterCodeBasicBlockPtrArray	mBlocks;

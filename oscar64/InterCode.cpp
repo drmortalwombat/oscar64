@@ -1641,6 +1641,7 @@ InterInstruction::InterInstruction(void)
 
 	mInUse = false;
 	mVolatile = false;
+	mInvariant = false;
 }
 
 void InterInstruction::SetCode(const Location& loc, InterCode code)
@@ -2503,7 +2504,12 @@ void InterInstruction::Disassemble(FILE* file)
 			}
 		}
 
-		fprintf(file, "\n");
+		fprintf(file, "\t{");
+		if (mInvariant)
+			fprintf(file, "I");
+		if (mVolatile)
+			fprintf(file, "V");
+		fprintf(file, "}\n");
 	}
 }
 
@@ -5556,6 +5562,322 @@ InterCodeBasicBlock* InterCodeBasicBlock::PropagateDominator(InterCodeProcedure*
 	return mDominator ? mDominator : this;
 }
 
+bool InterCodeBasicBlock::CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body)
+{
+	if (mLoopHead)
+		return this == head;
+
+	if (body.IndexOf(this) != -1)
+			return true;
+	body.Push(this);
+
+	for (int i = 0; i < mEntryBlocks.Size(); i++)
+		if (!mEntryBlocks[i]->CollectLoopBody(head, body))
+			return false;
+
+	return true;
+}
+
+void InterCodeBasicBlock::CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path)
+{
+	if (body.IndexOf(this) >= 0)
+	{
+		if (mTrueJump && !mTrueJump->mLoopHead)
+		{
+			mTrueJump->CollectLoopPath(body, path);
+			if (mFalseJump)
+			{
+				GrowingArray<InterCodeBasicBlock*>	fpath(nullptr);
+
+				if (!mFalseJump->mLoopHead)
+					mFalseJump->CollectLoopPath(body, fpath);
+
+				int i = 0;
+				while (i < path.Size())
+				{
+					if (fpath.IndexOf(path[i]) >= 0)
+						i++;
+					else
+						path.Remove(i);
+				}
+			}
+		}
+
+		path.Insert(0, this);
+	}
+}
+
+void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead)
+		{
+			GrowingArray<InterCodeBasicBlock*> body(nullptr), path(nullptr);
+			body.Push(this);
+			bool	innerLoop = true;
+			
+			for (int i = 0; i < mEntryBlocks.Size(); i++)
+			{
+				if (mEntryBlocks[i] != mDominator)
+				{
+					if (!mEntryBlocks[i]->CollectLoopBody(this, body))
+						innerLoop = false;
+				}
+			}
+
+			if (innerLoop)
+			{
+				this->CollectLoopPath(body, path);
+
+#if 0
+				printf("InnerLoop %d\n", mIndex);
+				for (int i = 0; i < body.Size(); i++)
+					printf("body %d\n", body[i]->mIndex);
+				for (int i = 0; i < path.Size(); i++)
+					printf("path %d\n", path[i]->mIndex);
+#endif
+				bool	hasCall = false;
+				for (int bi = 0; bi < body.Size(); bi++)
+				{
+					InterCodeBasicBlock* block = body[bi];
+
+					for (int i = 0; i < block->mInstructions.Size(); i++)
+					{
+						InterInstruction* ins = block->mInstructions[i];
+						ins->mInvariant = false;
+						ins->mExpensive = false;
+						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+							hasCall = true;
+					}
+				}
+
+
+				for (int bi = 0; bi < path.Size(); bi++)
+				{
+					InterCodeBasicBlock* block = path[bi];
+
+					for (int i = 0; i < block->mInstructions.Size(); i++)
+					{
+						InterInstruction* ins = block->mInstructions[i];
+						ins->mInvariant = true;
+
+						if (!IsMoveable(ins->mCode))
+							ins->mInvariant = false;
+						else if (ins->mCode == IC_LOAD)
+						{
+							if (ins->mSrc[0].mTemp >= 0 || ins->mVolatile)
+							{
+								ins->mInvariant = false;
+							}
+							else if (ins->mSrc[0].mMemory == IM_GLOBAL && hasCall)
+							{
+								ins->mInvariant = false;
+							}
+							else if (ins->mSrc[0].mMemory == IM_LOCAL && hasCall)
+							{
+								ins->mInvariant = false;
+							}
+							else
+							{
+								for (int bj = 0; bj < body.Size(); bj++)
+								{
+									InterCodeBasicBlock* blockj = body[bj];
+
+									for (int j = 0; j < blockj->mInstructions.Size(); j++)
+									{
+										InterInstruction* sins = blockj->mInstructions[j];
+										if (sins->mCode == IC_STORE)
+										{
+											if (sins->mSrc[1].mTemp >= 0)
+											{
+												if ((ins->mSrc[0].mMemory != IM_PARAM && ins->mSrc[0].mMemory != IM_FPARAM) || aliasedParams[ins->mSrc[0].mVarIndex])
+													ins->mInvariant = false;
+											}
+											else if (ins->mSrc[0].mMemory == sins->mSrc[1].mMemory && ins->mSrc[0].mVarIndex == sins->mSrc[1].mVarIndex && ins->mSrc[0].mLinkerObject == sins->mSrc[1].mLinkerObject)
+											{
+												ins->mInvariant = false;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				enum Dependency
+				{
+					DEP_UNKNOWN,
+					DEP_DEFINED,
+					DEP_ITERATED,
+					DEP_VARIABLE
+				};
+
+				GrowingArray<Dependency>			dep(DEP_UNKNOWN);
+				GrowingArray<InterInstructionPtr>	tvalues(nullptr);
+
+				for (int bi = 0; bi < body.Size(); bi++)
+				{
+					InterCodeBasicBlock* block = body[bi];
+
+					for (int i = 0; i < block->mInstructions.Size(); i++)
+					{
+						InterInstruction* ins = block->mInstructions[i];
+						int t = ins->mDst.mTemp;
+						if (t >= 0)
+						{
+							if (HasSideEffect(ins->mCode) || !ins->mInvariant)
+								dep[t] = DEP_VARIABLE;
+							else if (dep[t] == DEP_UNKNOWN)
+								dep[t] = DEP_DEFINED;
+							else if (dep[t] == DEP_DEFINED)
+							{
+								dep[t] = DEP_VARIABLE;
+								ins->mInvariant = false;
+							}
+						}
+
+						if (ins->mInvariant)
+						{
+							switch (ins->mCode)
+							{
+							case IC_BINARY_OPERATOR:
+								ins->mExpensive = true;
+								break;
+							case IC_UNARY_OPERATOR:
+								ins->mExpensive = true;
+								break;
+							case IC_LEA:
+								if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0)
+									ins->mExpensive = true;
+								break;
+							case IC_LOAD:
+							case IC_STORE:
+								ins->mExpensive = true;
+								break;
+							}
+						}
+					}
+				}
+
+				for (int i = 0; i < dep.Size(); i++)
+				{
+					if (dep[i] == DEP_DEFINED)
+						dep[i] = DEP_ITERATED;
+				}
+
+				bool	changed;
+				do
+				{
+					changed = false;
+
+					for (int bi = 0; bi < path.Size(); bi++)
+					{
+						InterCodeBasicBlock* block = path[bi];
+
+						for (int i = 0; i < block->mInstructions.Size(); i++)
+						{
+							InterInstruction* ins = block->mInstructions[i];
+							int t = ins->mDst.mTemp;
+							if (t >= 0)
+							{
+								if (dep[t] < DEP_VARIABLE)
+								{
+									int j = 0;
+									while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && dep[ins->mSrc[j].mTemp] >= DEP_ITERATED))
+										j++;
+									if (j < ins->mNumOperands)
+									{
+										dep[t] = DEP_VARIABLE;
+										ins->mInvariant = false;
+										changed = true;
+									}
+									else
+									{
+										dep[t] = DEP_DEFINED;
+									}
+								}
+								else
+									ins->mInvariant = false;
+							}
+						}
+					}
+
+				} while (changed);
+
+#if 1
+				NumberSet		required(dep.Size());
+
+				do
+				{
+					changed = false;
+
+					for (int bi = 0; bi < path.Size(); bi++)
+					{
+						InterCodeBasicBlock* block = path[bi];
+
+						for (int i = 0; i < block->mInstructions.Size(); i++)
+						{
+							InterInstruction* ins = block->mInstructions[i];
+
+							if (ins->mInvariant && !ins->mExpensive && ins->mDst.mTemp >= 0 && required[ins->mDst.mTemp])
+								ins->mExpensive = true;
+
+							if (ins->mInvariant && ins->mExpensive)
+							{
+								for (int i = 0; i < ins->mNumOperands; i++)
+								{
+									if (ins->mSrc[i].mTemp >= 0 && !required[ins->mSrc[i].mTemp])
+									{
+										required += ins->mSrc[i].mTemp;
+										changed = true;
+									}
+								}
+							}
+						}
+					}
+
+				} while(changed);
+
+
+				for (int bi = 0; bi < path.Size(); bi++)
+				{
+					InterCodeBasicBlock* block = path[bi];
+
+					int	j = 0;
+					for (int i = 0; i < block->mInstructions.Size(); i++)
+					{
+						InterInstruction* ins = block->mInstructions[i];
+						if (ins->mInvariant && ins->mExpensive)
+						{
+							mDominator->mInstructions.Push(ins);
+						}
+						else
+						{
+							block->mInstructions[j++] = ins;
+						}
+					}
+#ifdef _DEBUG
+					if (j != block->mInstructions.Size())
+						printf("Moved %d %d\n", mIndex, block->mInstructions.Size() - j);
+#endif
+					block->mInstructions.SetSize(j);
+				}
+#endif
+			}
+		}
+
+
+		if (mTrueJump)
+			mTrueJump->InnerLoopOptimization(aliasedParams);
+		if (mFalseJump)
+			mFalseJump->InnerLoopOptimization(aliasedParams);
+	}
+}
+
 void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedParams)
 {
 	if (!mVisited)
@@ -6213,6 +6535,12 @@ InterCodeProcedure::~InterCodeProcedure(void)
 {
 }
 
+void InterCodeProcedure::ResetEntryBlocks(void)
+{
+	for (int i = 0; i < mBlocks.Size(); i++)
+		mBlocks[i]->mEntryBlocks.SetSize(0);
+}
+
 void InterCodeProcedure::ResetVisited(void)
 {
 	int i;
@@ -6687,6 +7015,19 @@ void InterCodeProcedure::Close(void)
 
 	BuildDataFlowSets();
 
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+#if 1
+	ResetVisited();
+	mEntryBlock->InnerLoopOptimization(mParamAliasedSet);
+
+	DisassembleDebug("inner loop opt");
+
+	BuildDataFlowSets();
+#endif
+
 	ResetVisited();
 	mEntryBlock->PeepholeOptimization();
 
@@ -6755,6 +7096,7 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
 
+	ResetEntryBlocks();
 	ResetVisited();
 	mEntryBlock->CollectEntryBlocks(nullptr);
 

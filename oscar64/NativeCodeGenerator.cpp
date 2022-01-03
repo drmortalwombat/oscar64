@@ -865,10 +865,23 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 		}
 		data.mRegs[BC_REG_WORK_Y].Reset();
 
-		if (!(mFlags & NCIF_RUNTIME) || (mFlags & NCIF_FEXEC))
+		if (mFlags & NCIF_FEXEC)
 		{
 			for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
 				data.mRegs[i].Reset();
+		}
+		else if (!(mFlags & NCIF_RUNTIME))
+		{
+			if (mLinkerObject && mLinkerObject->mProc)
+			{
+				for (int i = BC_REG_TMP; i < BC_REG_TMP + mLinkerObject->mProc->mCallerSavedTemps; i++)
+					data.mRegs[i].Reset();
+			}
+			else
+			{
+				for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
+					data.mRegs[i].Reset();
+			}
 		}
 		break;
 
@@ -14150,9 +14163,8 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->MergeBasicBlocks())
 			changed = true;
 
+		ResetEntryBlocks();
 		ResetVisited();
-		for (int i = 0; i < mBlocks.Size(); i++)
-			mBlocks[i]->mEntryBlocks.SetSize(0);
 		mEntryBlock->CollectEntryBlocks(nullptr);
 
 #if 1
@@ -14334,6 +14346,12 @@ NativeCodeBasicBlock* NativeCodeProcedure::CompileBlock(InterCodeProcedure* ipro
 	CompileInterBlock(iproc, sblock, block);
 
 	return block;
+}
+
+void NativeCodeProcedure::ResetEntryBlocks(void)
+{
+	for (int i = 0; i < mBlocks.Size(); i++)
+		mBlocks[i]->mEntryBlocks.SetSize(0);
 }
 
 void NativeCodeProcedure::ResetVisited(void)

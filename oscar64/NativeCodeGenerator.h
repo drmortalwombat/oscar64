@@ -272,6 +272,7 @@ class NativeCodeProcedure
 		void CompressTemporaries(void);
 
 		void BuildDataFlowSets(void);
+		void ResetEntryBlocks(void);
 		void ResetVisited(void);
 
 };

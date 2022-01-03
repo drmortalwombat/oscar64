@@ -307,7 +307,7 @@ public:
 		Grow(size, true);
 	}
 
-	int IndexOf(const T& t)
+	int IndexOf(const T& t) const
 	{
 		for (int i = 0; i < size; i++)
 			if (array[i] == t)
