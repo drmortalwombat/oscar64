@@ -347,7 +347,7 @@ public:
 	int									mNumOperands;
 	Location							mLocation;
 
-	bool								mInUse, mInvariant, mVolatile, mExpensive;
+	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment;
 
 	InterInstruction(void);
 
@@ -446,7 +446,7 @@ public:
 
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
-	NumberSet						mExitRequiredTemps, exitProvidedTemps;
+	NumberSet						mExitRequiredTemps, mExitProvidedTemps;
 
 	NumberSet						mLocalRequiredVars, mLocalProvidedVars;
 	NumberSet						mEntryRequiredVars, mEntryProvidedVars;
@@ -519,6 +519,9 @@ public:
 	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	bool EliminateDeadBranches(void);
+
+	bool CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory);
+	bool SingleAssignmentTempForwarding(const GrowingInstructionPtrArray& tunified, const GrowingInstructionPtrArray& tvalues);
 
 	void BuildCollisionTable(NumberSet* collisionSets);
 	void ReduceTemporaries(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
@@ -625,6 +628,7 @@ protected:
 	void RemoveUnusedInstructions(void);
 	bool GlobalConstantPropagation(void);
 	void BuildDominators(void);
+	void SingleAssignmentForwarding(void);
 
 	void MergeBasicBlocks(void);
 

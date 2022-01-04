@@ -1642,6 +1642,7 @@ InterInstruction::InterInstruction(void)
 	mInUse = false;
 	mVolatile = false;
 	mInvariant = false;
+	mSingleAssignment = false;
 }
 
 void InterInstruction::SetCode(const Location& loc, InterCode code)
@@ -2509,6 +2510,8 @@ void InterInstruction::Disassemble(FILE* file)
 			fprintf(file, "I");
 		if (mVolatile)
 			fprintf(file, "V");
+		if (mSingleAssignment)
+			fprintf(file, "S");
 		fprintf(file, "}\n");
 	}
 }
@@ -3958,7 +3961,7 @@ void InterCodeBasicBlock::BuildLocalTempSets(int num)
 		mEntryRequiredTemps = NumberSet(num);
 		mEntryProvidedTemps = NumberSet(num);
 		mExitRequiredTemps = NumberSet(num);
-		exitProvidedTemps = NumberSet(num);
+		mExitProvidedTemps = NumberSet(num);
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
@@ -3966,7 +3969,7 @@ void InterCodeBasicBlock::BuildLocalTempSets(int num)
 		}
 
 		mEntryRequiredTemps = mLocalRequiredTemps;
-		exitProvidedTemps = mLocalProvidedTemps;
+		mExitProvidedTemps = mLocalProvidedTemps;
 
 		if (mTrueJump) mTrueJump->BuildLocalTempSets(num);
 		if (mFalseJump) mFalseJump->BuildLocalTempSets(num);
@@ -3975,16 +3978,219 @@ void InterCodeBasicBlock::BuildLocalTempSets(int num)
 
 void InterCodeBasicBlock::BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps)
 {
-	if (!mVisited || !(fromProvidedTemps <= mEntryProvidedTemps))
+	bool	changed = false;
+
+	if (!mVisited)
 	{
-		mEntryProvidedTemps |= fromProvidedTemps;
-		fromProvidedTemps |= exitProvidedTemps;
+		mEntryProvidedTemps = fromProvidedTemps;
+		changed = true;
+	}
+	else if (!(mEntryProvidedTemps <= fromProvidedTemps))
+	{
+		mEntryProvidedTemps &= fromProvidedTemps;
+		changed = true;
+	}
+
+	if (changed)
+	{
+		mExitProvidedTemps = mLocalProvidedTemps;
+		mExitProvidedTemps |= mEntryProvidedTemps;
 
 		mVisited = true;
 
-		if (mTrueJump) mTrueJump->BuildGlobalProvidedTempSet(fromProvidedTemps);
-		if (mFalseJump) mFalseJump->BuildGlobalProvidedTempSet(fromProvidedTemps);
+		if (mTrueJump) mTrueJump->BuildGlobalProvidedTempSet(mExitProvidedTemps);
+		if (mFalseJump) mFalseJump->BuildGlobalProvidedTempSet(mExitProvidedTemps);
 	}
+}
+
+static bool SameSingleAssignment(const GrowingInstructionPtrArray& tunified, const InterInstruction* ins, const InterInstruction* cins)
+{
+	if (ins->mCode == cins->mCode && ins->mOperator == cins->mOperator && ins->mNumOperands == cins->mNumOperands)
+	{
+		if (ins->mCode == IC_CONSTANT)
+			return ins->mConst.IsEqual(cins->mConst);
+
+		for (int i = 0; i < ins->mNumOperands; i++)
+		{
+			if (ins->mSrc[i].mTemp < 0)
+			{
+				if (cins->mSrc[i].mTemp < 0)
+				{
+					if (!ins->mSrc[i].IsEqual(cins->mSrc[i]))
+						return false;
+				}
+				else
+					return false;
+			}
+			else if (cins->mSrc[i].mTemp < 0)
+			{
+				return false;
+			}
+			else if (tunified[ins->mSrc[i].mTemp] != tunified[cins->mSrc[i].mTemp])
+				return false;
+		}
+
+		return true;
+	}
+	else
+		return false;
+}
+
+bool InterCodeBasicBlock::SingleAssignmentTempForwarding(const GrowingInstructionPtrArray& tunified,  const GrowingInstructionPtrArray& tvalues)
+{
+#if 0
+	return false;
+#else
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		GrowingInstructionPtrArray	ntunified(tunified), ntvalues(tvalues);
+
+		NumberSet providedTemps(mEntryProvidedTemps);
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mSingleAssignment)
+			{
+				int	j = 0;
+				while (j < ntvalues.Size() && !(providedTemps[ntvalues[j]->mDst.mTemp] && SameSingleAssignment(ntunified, ins, ntvalues[j])))
+					j++;
+				if (j < ntvalues.Size())
+				{
+					if (ins->mCode != IC_CONSTANT && !(ins->mCode == IC_LOAD && ins->mSrc[0].mMemory == IM_FPARAM))
+					{
+						ins->mCode = IC_LOAD_TEMPORARY;
+						ins->mSrc[0].mTemp = ntvalues[j]->mDst.mTemp;
+						ins->mSrc[0].mType = ntvalues[j]->mDst.mType;
+						ins->mNumOperands = 1;
+					}
+					changed = true;
+					ntunified[ins->mDst.mTemp] = ntvalues[j];
+				}
+				else
+				{
+					ntvalues.Push(ins);
+					ntunified[ins->mDst.mTemp] = ins;
+				}
+			}
+			if (ins->mDst.mTemp >= 0)
+				providedTemps += ins->mDst.mTemp;
+		}
+
+		if (mTrueJump && mTrueJump->SingleAssignmentTempForwarding(ntunified, ntvalues))
+			changed = true;
+		if (mFalseJump && mFalseJump->SingleAssignmentTempForwarding(ntunified, ntvalues))
+			changed = true;
+	}
+
+	return changed;
+#endif
+}
+
+bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			int	t = ins->mDst.mTemp;
+			if (t >= 0)
+			{
+				if (!tassigned[t] || tvalue[t] == ins)
+				{
+					if (!tassigned[t])
+					{
+						changed = true;
+						tassigned += t;
+					}
+
+					int j = 0;
+					while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || tvalue[ins->mSrc[j].mTemp] != nullptr))
+						j++;
+
+					bool	valid = j == ins->mNumOperands;
+					if (valid)
+					{
+						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_ASSEMBLER)
+							valid = false;
+						else if (ins->mCode == IC_LOAD)
+						{
+							if (ins->mSrc[0].mMemory == paramMemory)
+							{
+								if (modifiedParams[ins->mSrc[0].mVarIndex])
+									valid = false;
+							}
+							else if (ins->mSrc[0].mMemory == IM_GLOBAL)
+							{
+								if (!(ins->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
+									valid = false;
+							}
+							else
+								valid = false;
+						}
+						else if (ins->mCode == IC_LEA)
+						{
+							if (ins->mSrc[1].mMemory == paramMemory)
+							{
+								if (!modifiedParams[ins->mSrc[1].mVarIndex])
+								{
+									modifiedParams += ins->mSrc[1].mVarIndex;
+									changed = true;
+								}
+							}
+						}
+					}
+
+					if (valid)
+					{
+						if (!tvalue[t])
+						{
+							tvalue[t] = ins;
+							changed = true;
+						}
+					}
+					else if (tvalue[t])
+					{
+						tvalue[t] = nullptr;
+						changed = true;
+					}
+				}
+				else if (tvalue[t])
+				{
+					tvalue[t] = nullptr;
+					changed = true;
+				}
+			}
+			else if (ins->mCode == IC_STORE)
+			{
+				if (ins->mSrc[1].mMemory == paramMemory)
+				{
+					if (!modifiedParams[ins->mSrc[1].mVarIndex])
+					{
+						modifiedParams += ins->mSrc[1].mVarIndex;
+						changed = true;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->CalculateSingleAssignmentTemps(tassigned, tvalue, modifiedParams, paramMemory))
+			changed = true;
+		if (mFalseJump && mFalseJump->CalculateSingleAssignmentTemps(tassigned, tvalue, modifiedParams, paramMemory))
+			changed = true;
+	}
+
+	return changed;
 }
 
 void InterCodeBasicBlock::PerformTempForwarding(TempForwardingTable& forwardingTable)
@@ -6693,6 +6899,38 @@ void InterCodeProcedure::RenameTemporaries(void)
 	DisassembleDebug("global renamed temps");
 }
 
+void InterCodeProcedure::SingleAssignmentForwarding(void)
+{
+	int	numTemps = mTemporaries.Size();
+
+	InterMemory	paramMemory = mFastCallProcedure ? IM_FPARAM : IM_PARAM;
+
+	FastNumberSet					tassigned(numTemps);
+	GrowingInstructionPtrArray		tunified(nullptr), tvalues(nullptr);
+	NumberSet						modifiedParams(mParamAliasedSet.Size());
+
+	tunified.SetSize(numTemps);
+
+	bool	changed;
+	do
+	{
+		ResetVisited();
+		changed = mEntryBlock->CalculateSingleAssignmentTemps(tassigned, tunified, modifiedParams, paramMemory);
+	} while (changed);
+
+	for (int i = 0; i < numTemps; i++)
+	{
+		if (tunified[i])
+			tunified[i]->mSingleAssignment = true;
+	}
+
+	tunified.Clear();
+	ResetVisited();
+	mEntryBlock->SingleAssignmentTempForwarding(tunified, tvalues);
+
+	DisassembleDebug("single assignment forwarding");
+}
+
 void InterCodeProcedure::TempForwarding(void)
 {
 	int	numTemps = mTemporaries.Size();
@@ -7028,6 +7266,8 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 #endif
 
+	SingleAssignmentForwarding();
+
 	ResetVisited();
 	mEntryBlock->PeepholeOptimization();
 
@@ -7036,7 +7276,7 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Peephole optimized");
 
-	bool	changed = false;
+	bool changed = false;
 	do
 	{
 		BuildDataFlowSets();
