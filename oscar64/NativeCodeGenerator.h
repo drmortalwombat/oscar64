@@ -142,7 +142,9 @@ public:
 	bool PeepHoleOptimizer(int pass);
 	void BlockSizeReduction(void);
 
-	void OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * lblock);
+	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc);
+	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock);
+
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);

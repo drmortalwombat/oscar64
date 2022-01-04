@@ -117,13 +117,15 @@ void vspr_init(char * screen)
 
 void vspr_set(char sp, int xpos, int ypos, char image, char color)
 {
-	vspriteYLow[sp] = (char)ypos;
+	char	yp = (char)ypos;
+	if ((ypos & 0xff00 ) || (xpos & 0xfe00))
+		yp = 0xff;
+
+	vspriteYLow[sp] = yp;
 	vspriteXLow[sp] = (char)xpos;
 	vspriteXHigh[sp] = (char)(xpos >> 8);
 	vspriteImage[sp] = image;
 	vspriteColor[sp] = color;
-	if ((ypos & 0xff00 ) || (xpos & 0xfe00))
-		vspriteYLow[sp] = 0xff;
 }
 
 #pragma native(vspr_set)
