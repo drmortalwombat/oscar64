@@ -254,6 +254,32 @@ char cwin_put_string(CharWin * win, const char * str, char color)
 	return n;
 }
 
+
+void cwin_put_char_raw(CharWin * win, char ch, char color)
+{
+	cwin_putat_char_raw(win, win->cx, win->cy, ch, color);
+	win->cx++;
+	if (win->cx == win->wx)
+	{
+		win->cx = 0;
+		win->cy++;
+	}
+}
+
+void cwin_put_chars_raw(CharWin * win, const char * chars, char num, char color)
+{
+	cwin_putat_chars_raw(win, win->cx, win->cy, chars, color);
+	win->cx += num;
+	if (win->cx >= win->wx)
+	{
+		win->cx = 0;
+		win->cy++;
+	}
+}
+
+
+
+
 void cwin_putat_char(CharWin * win, char x, char y, char ch, char color)
 {
 	int	offset = mul40[y] + x;
@@ -303,12 +329,43 @@ char cwin_putat_string(CharWin * win, char x, char y, const char * str, char col
 #pragma native(cwin_putat_string)
 
 
+void cwin_putat_char_raw(CharWin * win, char x, char y, char ch, char color)
+{
+	int	offset = mul40[y] + x;
+
+	win->sp[offset] = ch;
+	win->cp[offset] = color;
+}
+
+#pragma native(cwin_putat_char_raw)
+
+void cwin_putat_chars_raw(CharWin * win, char x, char y, const char * chars, char num, char color)
+{
+	int	offset = mul40[y] + x;
+
+	char	*	sp = win->sp + offset;
+	char	*	cp = win->cp + offset;
+
+	for(char i=0; i<num; i++)
+	{
+		char	ch = chars[i];
+
+		sp[i] = ch;
+		cp[i] = color;
+	}
+}
+
+#pragma native(cwin_putat_chars_raw)
+
+
 char cwin_getat_char(CharWin * win, char x, char y)
 {
 	char * sp = win->sp + mul40[y] + x;
 
 	return s2p(*sp);
 }
+
+#pragma native(cwin_getat_char)
 
 void cwin_getat_chars(CharWin * win, char x, char y, char * chars, char num)
 {
@@ -320,6 +377,28 @@ void cwin_getat_chars(CharWin * win, char x, char y, char * chars, char num)
 	}
 }
 
+#pragma native(cwin_getat_chars)
+
+char cwin_getat_char_raw(CharWin * win, char x, char y)
+{
+	char * sp = win->sp + mul40[y] + x;
+
+	return *sp;
+}
+
+#pragma native(cwin_getat_char_raw)
+
+void cwin_getat_chars_raw(CharWin * win, char x, char y, char * chars, char num)
+{
+	char * sp = win->sp + mul40[y] + x;
+
+	for(char i=0; i<num; i++)
+	{
+		chars[i] = sp[i];
+	}
+}
+
+#pragma native(cwin_getat_chars_raw)
 
 void cwin_insert_char(CharWin * win)
 {

@@ -62,6 +62,17 @@ void cwin_put_chars(CharWin * win, const char * chars, char num, char color);
 //
 char cwin_put_string(CharWin * win, const char * str, char color);
 
+
+// Put a single raw char at the cursor location and advance the cursor
+//
+void cwin_put_char_raw(CharWin * win, char ch, char color);
+
+// Put an array of raw chars at the cursor location and advance the cursor
+//
+void cwin_put_chars_raw(CharWin * win, const char * chars, char num, char color);
+
+
+
 // Put a single char at the given window location
 //
 void cwin_putat_char(CharWin * win, char x, char y, char ch, char color);
@@ -75,6 +86,15 @@ void cwin_putat_chars(CharWin * win, char x, char y, const char * chars, char nu
 char cwin_putat_string(CharWin * win, char x, char y, const char * str, char color);
 
 
+// Put a single raw char at the given window location
+//
+void cwin_putat_char_raw(CharWin * win, char x, char y, char ch, char color);
+
+// Put an array of raw chars at the given window location
+//
+void cwin_putat_chars_raw(CharWin * win, char x, char y, const char * chars, char num, char color);
+
+
 // Get a single char at the given window location
 //
 char cwin_getat_char(CharWin * win, char x, char y);
@@ -82,6 +102,16 @@ char cwin_getat_char(CharWin * win, char x, char y);
 // Get an array of chars at the given window location
 //
 void cwin_getat_chars(CharWin * win, char x, char y, char * chars, char num);
+
+
+
+// Get a single char at the given window location
+//
+char cwin_getat_char_raw(CharWin * win, char x, char y);
+
+// Get an array of chars at the given window location
+//
+void cwin_getat_chars_raw(CharWin * win, char x, char y, char * chars, char num);
 
 
 
