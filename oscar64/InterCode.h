@@ -146,6 +146,12 @@ public:
 
 	bool Same(const IntegerValueRange& range) const;
 	bool Merge(const IntegerValueRange& range);
+
+	void LimitMin(int64 value);
+	void LimitMax(int64 value);
+
+	void LimitMinWeak(int64 value);
+	void LimitMaxWeak(int64 value);
 };
 
 

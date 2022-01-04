@@ -41,6 +41,44 @@ bool IntegerValueRange::Same(const IntegerValueRange& range) const
 	return false;
 }
 
+void IntegerValueRange::LimitMin(int64 value)
+{
+	if (mMinState != S_BOUND || mMinValue < value)
+	{
+		mMinState = S_BOUND;
+		mMinValue = value;
+	}
+}
+
+void IntegerValueRange::LimitMax(int64 value)
+{
+	if (mMaxState != S_BOUND || mMaxValue > value)
+	{
+		mMaxState = S_BOUND;
+		mMaxValue = value;
+	}
+}
+
+void IntegerValueRange::LimitMinWeak(int64 value)
+{
+	if (mMinState == S_UNBOUND || mMinValue < value)
+	{
+		mMinState = S_BOUND;
+		mMinValue = value;
+	}
+
+}
+
+void IntegerValueRange::LimitMaxWeak(int64 value)
+{
+	if (mMaxState == S_UNBOUND || mMaxValue > value)
+	{
+		mMaxState = S_BOUND;
+		mMaxValue = value;
+	}
+}
+
+
 bool IntegerValueRange::Merge(const IntegerValueRange& range)
 {
 	bool	changed = false;
@@ -3367,6 +3405,10 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					if (mInstructions[sz - 2]->mSrc[1].IsUnsigned())
 						mInstructions[sz - 2]->mOperator = IA_CMPLU;
 				}
+				else if (mInstructions[sz - 2]->mSrc[0].IsUnsigned() && mInstructions[sz - 2]->mSrc[1].IsUnsigned())
+				{
+					mInstructions[sz - 2]->mOperator = IA_CMPLU;
+				}
 			}
 		}
 #endif
@@ -3425,6 +3467,32 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(void)
 	}
 
 	return changed;
+}
+
+static int64 SignedTypeMin(InterType type)
+{
+	switch (type)
+	{
+	case IT_INT8:
+		return -128;
+	case IT_INT16:
+		return -32768;
+	default:
+		return -0x80000000LL;
+	}
+}
+
+static int64 SignedTypeMax(InterType type)
+{
+	switch (type)
+	{
+	case IT_INT8:
+		return 127;
+	case IT_INT16:
+		return 32767;
+	default:
+		return 0x7fffffff;
+	}
 }
 
 void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
@@ -3793,14 +3861,28 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 		{
 			if (mInstructions[sz - 2]->mOperator == IA_CMPLS)
 			{
-				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
-				{
-					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
-					mTrueValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-					mTrueValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst - 1;
+				int	s1 = mInstructions[sz - 2]->mSrc[1].mTemp, s0 = mInstructions[sz - 2]->mSrc[0].mTemp;
 
-					mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-					mFalseValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+				if (s0 < 0)
+				{
+					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
+					mTrueValueRange[s1].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
+
+					mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
+				}
+				else if (s1 < 0)
+				{
+					mTrueValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst + 1);
+					mTrueValueRange[s0].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
+
+					mFalseValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst);
+				}
+				else
+				{
+					if (mLocalValueRange[s0].mMaxState == IntegerValueRange::S_BOUND)
+						mTrueValueRange[s1].LimitMax(mLocalValueRange[s0].mMaxValue - 1);
+					if (mLocalValueRange[s0].mMinState == IntegerValueRange::S_BOUND)
+						mFalseValueRange[s1].LimitMin(mLocalValueRange[s0].mMinValue);
 				}
 			}
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPLES)
@@ -3808,11 +3890,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
 				{
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
-					mTrueValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-					mTrueValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
-
-					mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-					mFalseValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst + 1;
+					mTrueValueRange[t].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+					mFalseValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
 				}
 			}
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPGS)
@@ -3820,11 +3899,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
 				{
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
-					mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-					mTrueValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst + 1;
-
-					mFalseValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-					mFalseValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+					mTrueValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
+					mFalseValueRange[t].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
 				}
 			}
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPGES)
@@ -3832,11 +3908,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
 				{
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
-					mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-					mTrueValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
-
-					mFalseValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-					mFalseValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst - 1;
+					mTrueValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
+					mFalseValueRange[t].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
 				}
 			}
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPLU)
@@ -3846,28 +3919,22 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
 					if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
 					{
-						mTrueValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-						mTrueValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst - 1;
-						mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-						mTrueValueRange[t].mMinValue = 0;
+						mTrueValueRange[t].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
+						mTrueValueRange[t].LimitMin(0);
 
 						if (mFalseValueRange[t].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[t].mMinValue >= 0)
 						{
-							mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-							mFalseValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+							mFalseValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
 						}
 					}
 					else if (mInstructions[sz - 2]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
 					{
-						mTrueValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-						mTrueValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue - 1;
-						mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-						mTrueValueRange[t].mMinValue = 0;
+						mTrueValueRange[t].LimitMax(mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue - 1);
+						mTrueValueRange[t].LimitMin(0);
 
 						if (mFalseValueRange[t].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[t].mMinValue >= 0)
 						{
-							mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-							mFalseValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue;
+							mFalseValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue);
 						}
 					}
 				}
@@ -3877,15 +3944,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
 				{
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
-					mTrueValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-					mTrueValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
-					mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-					mTrueValueRange[t].mMinValue = 0;
+					mTrueValueRange[t].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+					mTrueValueRange[t].LimitMin(0);
 
 					if (mFalseValueRange[t].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[t].mMinValue >= 0)
 					{
-						mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-						mFalseValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst + 1;
+						mFalseValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
 					}
 				}
 			}
@@ -3896,14 +3960,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
 //					if (mTrueValueRange[t].mMinState == IntegerValueRange::S_BOUND && mTrueValueRange[t].mMinValue >= 0)
 					{
-						mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-						mTrueValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst + 1;
+						mTrueValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
 					}
 
-					mFalseValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-					mFalseValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
-					mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-					mFalseValueRange[t].mMinValue = 0;
+					mFalseValueRange[t].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+					mFalseValueRange[t].LimitMin(0);
 				}
 			}
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPGEU)
@@ -3913,14 +3974,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
 					if (mTrueValueRange[t].mMinState == IntegerValueRange::S_BOUND && mTrueValueRange[t].mMinValue >= 0)
 					{
-						mTrueValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-						mTrueValueRange[t].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+						mTrueValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
 					}
 
-					mFalseValueRange[t].mMaxState = IntegerValueRange::S_BOUND;
-					mFalseValueRange[t].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst - 1;
-					mFalseValueRange[t].mMinState = IntegerValueRange::S_BOUND;
-					mFalseValueRange[t].mMinValue = 0;
+					mFalseValueRange[t].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
+					mFalseValueRange[t].LimitMin(0);
 				}
 			}
 		}
@@ -6928,7 +6986,12 @@ void InterCodeProcedure::SingleAssignmentForwarding(void)
 	ResetVisited();
 	mEntryBlock->SingleAssignmentTempForwarding(tunified, tvalues);
 
+	BuildDataFlowSets();
+	TempForwarding();
+	RemoveUnusedInstructions();
+
 	DisassembleDebug("single assignment forwarding");
+
 }
 
 void InterCodeProcedure::TempForwarding(void)
@@ -7277,6 +7340,7 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Peephole optimized");
 
 	bool changed = false;
+#if 1
 	do
 	{
 		BuildDataFlowSets();
@@ -7287,7 +7351,7 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("Pushed single path result");
 
 	} while (changed);
-
+#endif
 
 	BuildDataFlowSets();
 
@@ -7341,7 +7405,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	BuildDataFlowSets();
-
+#if 1
 	ResetVisited();
 	mEntryBlock->BuildLocalIntegerRangeSets(mTemporaries.Size());
 
@@ -7357,7 +7421,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->SimplifyIntegerRangeRelops();
 
 	DisassembleDebug("Simplified range limited relational ops");
-
+#endif
 	MapVariables();
 
 	DisassembleDebug("mapped variabled");
