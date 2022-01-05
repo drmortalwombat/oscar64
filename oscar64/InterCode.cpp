@@ -7096,6 +7096,7 @@ void InterCodeProcedure::Close(void)
 
 
 	bool	eliminated;
+	int		retries = 2;
 	//
 	//	Now forward constant values
 	//
@@ -7119,7 +7120,12 @@ void InterCodeProcedure::Close(void)
 			mEntryBlock->CollectEntries();
 			*/
 		}
-	} while (eliminated);
+
+		mTemporaries.SetSize(numTemps, true);
+		TempForwarding();
+		retries--;
+
+	} while (eliminated || retries > 0);
 
 
 	DisassembleDebug("value forwarding");

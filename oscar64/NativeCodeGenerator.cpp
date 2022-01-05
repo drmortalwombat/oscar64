@@ -9355,6 +9355,12 @@ bool NativeCodeBasicBlock::PatchDirectAddressSumY(int at, int reg, int apos, int
 	if (last == mIns.Size())
 		return false;
 
+	if (mIns[last].mLive & LIVE_CPU_REG_Y)
+	{
+		mIns.Insert(last + 1, NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, yindex));
+		mIns[last + 1].mLive |= CPU_REG_Y;
+	}
+
 	mIns[apos].mType = ASMIT_TAY;
 	for (int i = 0; i < 5; i++)
 	{
