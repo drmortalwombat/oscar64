@@ -3412,6 +3412,53 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			}
 		}
 #endif
+#if 1
+		for (int i = 0; i < sz; i++)
+		{
+			if (i + 1 < sz)
+			{
+				if (
+					mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
+					mInstructions[i + 1]->mCode == IC_LEA &&
+					mInstructions[i + 0]->mSrc[1].mTemp != mInstructions[i + 0]->mDst.mTemp &&
+					mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+					mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 1]->mSrc[0].IsUByte() &&
+					mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 256)
+				{
+					mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
+					mInstructions[i + 0]->mOperator = IA_ADD;
+
+					mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+					mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+					mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mDst.mTemp;
+					mInstructions[i + 0]->mDst.mType = IT_INT16;
+					mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
+					mInstructions[i + 1]->mSrc[0].mRange.mMaxValue += mInstructions[i + 0]->mSrc[0].mRange.mMaxValue;
+					mInstructions[i + 0]->mDst.mRange = mInstructions[i + 1]->mSrc[0].mRange;
+				}
+			}
+			if (i + 2 < sz)
+			{
+				if (
+					mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
+					mInstructions[i + 2]->mCode == IC_LEA &&
+					mInstructions[i + 0]->mSrc[1].mTemp != mInstructions[i + 0]->mDst.mTemp &&
+					mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+					mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 2]->mSrc[0].IsUByte() &&
+					mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 2]->mSrc[0].mRange.mMaxValue < 256 &&
+
+					mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+					mInstructions[i + 1]->mDst.mTemp != mInstructions[0]->mSrc[0].mTemp &&
+					mInstructions[i + 1]->mDst.mTemp != mInstructions[0]->mSrc[1].mTemp&&
+					mInstructions[i + 1]->mDst.mTemp != mInstructions[0]->mDst.mTemp)
+				{
+					InterInstruction* ins = mInstructions[i + 1];
+					mInstructions[i + 1] = mInstructions[i + 0];
+					mInstructions[i + 0] = ins;
+				}
+			}
+		}
+#endif
 		if (mTrueJump)
 			mTrueJump->SimplifyIntegerRangeRelops();
 		if (mFalseJump)
@@ -3509,6 +3556,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 		{
 			if (ins->mSrc[i].mTemp >= 0)
 				ins->mSrc[i].mRange = mLocalValueRange[ins->mSrc[i].mTemp];
+			else if (IsIntegerType(ins->mSrc[i].mType))
+			{
+				ins->mSrc[i].mRange.mMaxState = ins->mSrc[i].mRange.mMinState = IntegerValueRange::S_BOUND;
+				ins->mSrc[i].mRange.mMinValue = ins->mSrc[i].mRange.mMaxValue = ins->mSrc[i].mIntConst;
+			}
 		}
 
 		if (ins->mDst.mTemp >= 0 && IsIntegerType(ins->mDst.mType))

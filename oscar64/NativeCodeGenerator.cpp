@@ -13331,6 +13331,16 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 							progress = true;
 					}
 				}
+				
+				if (mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO))
+				{
+					int	apos, breg;
+					if (FindDirectAddressSumY(i, mIns[i].mAddress, apos, breg))
+					{
+						if (PatchDirectAddressSumY(i, mIns[i].mAddress, apos, breg))
+							progress = true;
+					}
+				}
 
 #endif
 #if 0
