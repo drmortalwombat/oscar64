@@ -23,6 +23,11 @@
 #define KEY_F6			(139)
 #define KEY_F8			(140)
 
+#define KEY_CODE_CSR_RIGHT	(2)
+#define KEY_CODE_CSR_DOWN	(7)
+#define KEY_CODE_LSHIFT		(15)
+#define KEY_CODE_RSHIFT		(48)
+
 // map of keyboard codes to PETSCII, first 64 without shift
 // second 64 with shift
 
@@ -37,6 +42,10 @@ extern byte keyb_key;
 // poll keyboard matrix
 
 void keyb_poll(void);
+
+inline bool key_pressed(char code);
+
+inline bool key_shift(void);
 
 #pragma compile("keyboard.c")
 

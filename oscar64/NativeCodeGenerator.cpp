@@ -10205,8 +10205,6 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prevBlock, NativeCodeBasicBlock* exitBlock)
 {
-	return false;
-
 	bool changed = false;
 
 	int	ai = 0;
@@ -13485,7 +13483,18 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 #endif
 
 #endif
+#if 1
+				if (pass > 1 && mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS && mIns[i].mLinkerObject && (mIns[i].mFlags & NCIF_LOWER) && !(mIns[i].mAddress & 0xff) && !(mIns[i].mLinkerObject->mAlignment & 0xff))
+				{
+					mIns[i].mMode = ASMIM_IMMEDIATE;
+					mIns[i].mAddress = 0;
+					mIns[i].mLinkerObject = nullptr;
+					mIns[i].mFlags &= ~NCIF_LOWER;
+					progress = true;
+				}
 #endif
+#endif
+
 			}
 
 			if (progress)

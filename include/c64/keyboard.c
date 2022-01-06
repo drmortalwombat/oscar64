@@ -26,6 +26,18 @@ const char keyb_codes[128] = {
 byte keyb_matrix[8], keyb_key;
 static byte keyb_pmatrix[8];
 
+bool key_pressed(char code)
+{
+	return !(keyb_matrix[code >> 3] & (1 << (code & 7)));
+}
+
+bool key_shift(void)
+{
+	return 
+		!(keyb_matrix[6] & 0x10) ||
+		!(keyb_matrix[1] & 0x80);
+}
+
 void keyb_poll(void)
 {
 	cia1.ddra = 0xff;
@@ -65,9 +77,8 @@ void keyb_poll(void)
 				}
 			}
 
-			keyb_key |= ~(((keyb_matrix[6] << 3) & keyb_matrix[1]) >> 1) & 0x40;
-//			if (keyb_key && (!(keyb_matrix[1] & 0x80) || (!(keyb_matrix[6] & 0x10))))
-//				keyb_key |= 0x40;
+			if (keyb_key && (!(keyb_matrix[1] & 0x80) || (!(keyb_matrix[6] & 0x10))))
+				keyb_key |= 0x40;
 		}
 		else
 		{
