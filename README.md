@@ -23,7 +23,7 @@ The goal is to implement the actual C standard and not some subset for performan
 
 ## Limits and Errors
 
-There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 61 iterations per second with byte code (11434) and 270 iterations with native code (12145 Bytes).
+There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 61 iterations per second with byte code (11504) and 278 iterations with native code (12184 Bytes).
 
 ### Language
 
@@ -34,7 +34,7 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Standard Libraries
 
-* No file functions
+* No standard file functions, but CBM based file ops
 
 ### Runtime
 
@@ -44,7 +44,6 @@ There are still several open areas, but most targets have been reached.  The cur
 ### Optimizing
 
 * Complex loop optimization
-* Partial block domination analysis
 * Auto variables placed on fixed stack for known call sequence
 
 ### Intermediate code generation
@@ -54,15 +53,13 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Native code generation
 
-* More byte operation optimisation required
-* Simple loop detection and optimisation not complete
-
 ## Compiler arguments
 
 The compiler is command line driven, and creates an executable .prg file.
 
     oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-e] [-n] [-dSYMBOL[=value]] {source.c}
     
+* -v : verbose output for diagnostics
 * -i : additional include paths
 * -o : optional output file name
 * -rt : alternative runtime library, replaces the crt.c
@@ -91,6 +88,8 @@ Will switch to the lowercase PETSCII font and translate the strings while printi
 PETSCII string literals can also be generated using a "p" or "P" prefix such as:
 
 	printf(p"Hello World\n");
+	
+Screen codes can be generated similar using "s" or "S" prefix.
 
 Input from the console will also be translated accordingly.
 
@@ -111,6 +110,13 @@ A section of the file can be selected by providing a limit and or an offset into
 		#embed 4096 126 "data.bin"
 		
 	};
+
+
+## Language extensions for optimization
+
+### Additional Optimizer information using __assume()
+
+The compiler can be provided with additional information using the built in function __assume(cond).  This can be useful to mark unreachable code using __assume(false) for e.g. the default of a switch statement.  Another good option is to limit the value range of arguments to allow the compiler using byte operations without the need for integer promotion.
 
 
 

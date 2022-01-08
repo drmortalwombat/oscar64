@@ -352,6 +352,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		break;
 	case EX_BREAK:
 	case EX_CONTINUE:
+	case EX_ASSUME:
 		break;
 	case EX_TYPE:
 		break;

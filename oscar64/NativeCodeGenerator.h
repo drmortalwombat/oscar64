@@ -203,6 +203,7 @@ public:
 
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
+	bool MoveLoadStoreOutOfXYRangeUp(int at);
 	bool MoveLoadAddImmStoreUp(int at);
 	bool MoveCLCLoadAddZPStoreUp(int at);
 	bool MoveLoadAddZPStoreUp(int at);

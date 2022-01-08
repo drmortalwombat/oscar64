@@ -35,7 +35,8 @@ enum InterCode
 	IC_RETURN_STRUCT,
 	IC_RETURN,
 	IC_ASSEMBLER,
-	IC_JUMPF
+	IC_JUMPF,
+	IC_UNREACHABLE
 };
 
 enum InterType
@@ -448,7 +449,7 @@ public:
 	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mDominator;
 	GrowingInstructionArray			mInstructions;
 
-	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue;
+	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable;
 
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
@@ -572,6 +573,8 @@ public:
 
 	void CompactInstructions(void);
 	bool OptimizeIntervalCompare(void);
+
+	bool DropUnreachable(void);
 };
 
 class InterCodeModule;

@@ -4250,6 +4250,9 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			}
 			return;
 
+		case IC_UNREACHABLE:
+			this->Close(proc->exitBlock, nullptr, BC_JUMPS);
+			return;
 		}
 
 		i++;

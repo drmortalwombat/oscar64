@@ -12,6 +12,8 @@ void spr_init(char * screen)
 
 void spr_set(char sp, bool show, int xpos, int ypos, char image, char color, bool multi, bool xexpand, bool yexpand)
 {
+	__assume (sp < 8);
+
 	char	m = 1 << sp;
 
 	if (show)
@@ -47,6 +49,8 @@ void spr_set(char sp, bool show, int xpos, int ypos, char image, char color, boo
 
 void spr_show(char sp, bool show)
 {
+	__assume (sp < 8);
+
 	if (show)
 		vic.spr_enable |= 1 << sp;
 	else
@@ -55,6 +59,8 @@ void spr_show(char sp, bool show)
 
 void spr_move(char sp, int xpos, int ypos)
 {
+	__assume (sp < 8);
+
 	vic.spr_pos[sp].y = ypos;
 	vic.spr_pos[sp].x = xpos & 0xff;
 	if (xpos & 0x100)
@@ -65,11 +71,15 @@ void spr_move(char sp, int xpos, int ypos)
 
 void spr_image(char sp, char image)
 {
+	__assume (sp < 8);
+
 	vspriteScreen[sp] = image;
 }
 
 void spr_color(char sp, char color)
 {
+	__assume (sp < 8);
+
 	vic.spr_color[sp] = color;
 }
 

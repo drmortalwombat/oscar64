@@ -133,7 +133,8 @@ enum ExpressionType
 	EX_SWITCH,
 	EX_CASE,
 	EX_DEFAULT,
-	EX_CONDITIONAL
+	EX_CONDITIONAL,
+	EX_ASSUME
 };
 
 class Expression

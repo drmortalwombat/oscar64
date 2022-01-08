@@ -2605,6 +2605,25 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			return ExValue(TheVoidTypeDeclaration);
 		}
 
+		case EX_ASSUME:
+		{
+#if 1
+			InterCodeBasicBlock* tblock = new InterCodeBasicBlock();
+			proc->Append(tblock);
+			InterCodeBasicBlock* fblock = new InterCodeBasicBlock();
+			proc->Append(fblock);
+
+			TranslateLogic(procType, proc, block, tblock, fblock, exp->mLeft, inlineMapper);
+
+			InterInstruction* ins = new InterInstruction();
+			ins->mCode = IC_UNREACHABLE;
+			fblock->Append(ins);
+			fblock->Close(nullptr, nullptr);
+
+			block = tblock;
+#endif
+			return ExValue(TheVoidTypeDeclaration);
+		}
 		case EX_LOGICAL_NOT:
 		{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);

@@ -2501,6 +2501,9 @@ void InterInstruction::Disassemble(FILE* file)
 		case IC_RETURN:
 			fprintf(file, "RET");
 			break;
+		case IC_UNREACHABLE:
+			fprintf(file, "UNREACHABLE");
+			break;
 		}
 		static char typechars[] = "NBCILFP";
 
@@ -2562,6 +2565,7 @@ InterCodeBasicBlock::InterCodeBasicBlock(void)
 	mLoopHead = false;
 	mChecked = false;
 	mTraceIndex = -1;
+	mUnreachable = false;
 }
 
 InterCodeBasicBlock::~InterCodeBasicBlock(void)
@@ -5371,7 +5375,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 				if (ins->mDst.mTemp >= 0 && !providedTemps[ins->mDst.mTemp] && !requiredTemps[ins->mDst.mTemp])
 				{
 					int j = 0;
-					while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && providedTemps[ins->mSrc[j].mTemp]) && !IsTempModifiedOnPath(ins->mSrc[j].mTemp, i + 1))
+					while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || !(providedTemps[ins->mSrc[j].mTemp] || IsTempModifiedOnPath(ins->mSrc[j].mTemp, i + 1))))
 						j++;
 
 					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && (ins->mCode != IC_LOAD || !hadStore))
@@ -5740,6 +5744,66 @@ bool InterCodeBasicBlock::IsEqual(const InterCodeBasicBlock* block) const
 
 	return false;
 }
+
+bool InterCodeBasicBlock::DropUnreachable(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int i = 0;
+		while (i < mInstructions.Size() && mInstructions[i]->mCode != IC_UNREACHABLE)
+			i++;
+
+		if (i < mInstructions.Size())
+		{
+			// kill all instructions after this
+			mInstructions.SetSize(i + 1);
+			mFalseJump = nullptr;
+			mTrueJump = nullptr;
+
+			if (mInstructions.Size() == 1)
+				mUnreachable = true;
+		}
+		else
+		{
+			if (mFalseJump)
+			{
+				if (mFalseJump->DropUnreachable())
+				{
+					mInstructions.Last()->mCode = IC_JUMP;
+					mInstructions.Last()->mNumOperands = 0;
+					mFalseJump = nullptr;
+
+					if (mTrueJump->DropUnreachable())
+					{
+						mTrueJump = nullptr;
+						mInstructions.SetSize(mInstructions.Size() - 1);
+						if (mInstructions.Size() == 0)
+							mUnreachable = true;
+					}
+				}
+				else if (mTrueJump->DropUnreachable())
+				{
+					mInstructions.Last()->mCode = IC_JUMP;
+					mInstructions.Last()->mNumOperands = 0;
+					mTrueJump = mFalseJump;
+					mFalseJump = nullptr;
+				}
+			}
+			else if (mTrueJump && mTrueJump->DropUnreachable())
+			{
+				mTrueJump = nullptr;
+				mInstructions.SetSize(mInstructions.Size() - 1);
+				if (mInstructions.Size() == 0)
+					mUnreachable = true;
+			}
+		}
+	}
+
+	return mUnreachable;
+}
+
 
 bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
 {
@@ -7480,6 +7544,21 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Simplified range limited relational ops");
 #endif
+#if 1
+	ResetVisited();
+	mEntryBlock->DropUnreachable();
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	BuildDataFlowSets();
+	TempForwarding();
+	RemoveUnusedInstructions();
+	
+	DisassembleDebug("Removed unreachable branches");
+#endif
+
 	MapVariables();
 
 	DisassembleDebug("mapped variabled");

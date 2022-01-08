@@ -1920,6 +1920,13 @@ Expression* Parser::ParseStatement(void)
 				exp = new Expression(mScanner->mLocation, EX_VOID);
 			}
 			break;
+		case TK_ASSUME:
+			mScanner->NextToken();
+			exp = new Expression(mScanner->mLocation, EX_ASSUME);
+			exp->mLeft = ParseParenthesisExpression();
+			break;
+
+
 		default:
 			exp = ParseExpression();
 		}
