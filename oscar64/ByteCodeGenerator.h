@@ -142,12 +142,12 @@ enum ByteCode
 	BC_BRANCHF_LT,
 	BC_BRANCHF_LE,
 
-	BC_SET_EQ,
-	BC_SET_NE,
-	BC_SET_GT,
-	BC_SET_GE,
-	BC_SET_LT,
-	BC_SET_LE,
+	BC_LOOP_U8,
+	BC_UNUSED_2,
+	BC_UNUSED_3,
+	BC_UNUSED_4,
+	BC_UNUSED_5,
+	BC_UNUSED_6,
 
 	BC_JSR,
 
@@ -294,7 +294,7 @@ public:
 	void BinaryOperator(InterCodeProcedure* proc, const InterInstruction * ins);
 	void UnaryOperator(InterCodeProcedure* proc, const InterInstruction * ins);
 	void BinaryRROperator(InterCodeProcedure* proc, const InterInstruction * ins);
-	ByteCode RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins);
+	ByteCode RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins, bool optzero);
 	void BinaryIntOperator(InterCodeProcedure* proc, const InterInstruction * ins, ByteCode code);
 	void NumericConversion(InterCodeProcedure* proc, const InterInstruction * ins);
 

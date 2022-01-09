@@ -1056,7 +1056,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else
 					{
 						Declaration	*	otype = vll.mType;
-						if (exp->mToken != TK_ADD && exp->mToken != TK_SUB && otype->mSize < 2)
+#if 1
+						if ((exp->mRight->mType != EX_CONSTANT || (exp->mToken != TK_ASSIGN_ADD && exp->mToken != TK_ASSIGN_SUB && exp->mToken != TK_ASSIGN_AND && exp->mToken != TK_ASSIGN_OR)) && otype->mSize < 2)
+#else
+						if (otype->mSize < 2)
+#endif
 						{
 							if ((vll.mType->mFlags | vr.mType->mFlags) & DTF_SIGNED)
 								otype = TheSignedIntTypeDeclaration;

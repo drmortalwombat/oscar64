@@ -2049,6 +2049,7 @@ inp_binop_cmpi_u8:
 		lda	(ip), y
 
 		cmp	accu
+cmp_check:		
 		bne	cmpne
 cmp_eq:
 		lda	#0
@@ -2083,6 +2084,19 @@ inp_binop_cmpi_s8:
 #pragma	bytecode(BC_BINOP_CMPSI_8, cmp8.inp_binop_cmpi_s8)
 #pragma	bytecode(BC_BINOP_CMPUR_8, cmp8.inp_binop_cmpr_u8)
 #pragma	bytecode(BC_BINOP_CMPUI_8, cmp8.inp_binop_cmpi_u8)
+
+__asm loopu8
+{
+		lda	(ip),y
+		tax
+		inc $00, x
+		iny
+		lda (ip), y
+		cmp $00, x
+		jmp cmp8.cmp_check
+}
+
+#pragma	bytecode(BC_LOOP_U8, loopu8)
 
 __asm bra
 {
@@ -2141,58 +2155,6 @@ inp_branchs_le:
 #pragma	bytecode(BC_BRANCHS_GE, bra.inp_branchs_ge)
 #pragma	bytecode(BC_BRANCHS_LT, bra.inp_branchs_lt)
 #pragma	bytecode(BC_BRANCHS_LE, bra.inp_branchs_le)
-
-__asm set
-{
-set_false:
-		lda	#0
-		byt	$2c
-set_true:
-		lda	#1
-		sta	accu
-		lda	#0
-		sta	accu + 1
-		jmp	startup.exec
-
-inp_set_eq:
-		lda	accu
-		ora	accu + 1
-		beq	set_true
-		bne	set_false
-inp_set_ne:
-		lda	accu
-		ora	accu + 1
-		bne	set_true
-		beq	set_false
-inp_set_gt:
-		lda	accu + 1
-		bmi	set_false
-		ora	accu
-		bne	set_true
-		beq	set_false
-
-inp_set_ge:
-		lda	accu + 1
-		bpl	set_true
-		bmi	set_false
-inp_set_lt:
-		lda	accu + 1
-		bmi	set_true
-		bpl	set_false
-inp_set_le:
-		lda	accu + 1
-		bmi	set_true
-		ora	accu
-		beq	set_true
-		bne	set_false
-}
-
-#pragma	bytecode(BC_SET_EQ, set.inp_set_eq)
-#pragma	bytecode(BC_SET_NE, set.inp_set_ne)
-#pragma	bytecode(BC_SET_GT, set.inp_set_gt)
-#pragma	bytecode(BC_SET_GE, set.inp_set_ge)
-#pragma	bytecode(BC_SET_LT, set.inp_set_lt)
-#pragma	bytecode(BC_SET_LE, set.inp_set_le)
 
 __asm braf
 {

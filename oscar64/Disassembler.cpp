@@ -337,6 +337,11 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 			i += 2;
 			break;
 
+		case BC_LOOP_U8:
+			fprintf(file, "LOOPB\t%s, #$%02X", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			i += 2;
+			break;
+
 		case BC_CONV_I8_I16:
 			fprintf(file, "SEXT8\t%s", TempName(memory[start + i + 0], tbuffer, proc));
 			i++;
@@ -515,25 +520,6 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 		case BC_BRANCHF_LE:
 			fprintf(file, "BLEF\t$%04X", start + i + 2 + int16(memory[start + i + 0] + 256 * memory[start + i + 1]));
 			i += 2;
-			break;
-
-		case BC_SET_EQ:
-			fprintf(file, "SEQ");
-			break;
-		case BC_SET_NE:
-			fprintf(file, "SNE");
-			break;
-		case BC_SET_GT:
-			fprintf(file, "SGT");
-			break;
-		case BC_SET_GE:
-			fprintf(file, "SGE");
-			break;
-		case BC_SET_LT:
-			fprintf(file, "SLT");
-			break;
-		case BC_SET_LE:
-			fprintf(file, "SLE");
 			break;
 
 		case BC_ENTER:

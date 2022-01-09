@@ -3461,6 +3461,13 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					mInstructions[i + 0] = ins;
 				}
 			}
+#if 1
+			if (mInstructions[i]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i]->mOperator == IA_EXT8TO16S &&
+				mInstructions[i]->mSrc[0].IsUByte() && mInstructions[i]->mSrc[0].mRange.mMaxValue < 128)
+			{
+				mInstructions[i]->mOperator = IA_EXT8TO16U;
+			}
+#endif
 		}
 #endif
 		if (mTrueJump)
@@ -3544,6 +3551,17 @@ static int64 SignedTypeMax(InterType type)
 	default:
 		return 0x7fffffff;
 	}
+}
+
+static int64 BuildLowerBitsMask(int64 v)
+{
+	v |= v >> 32;
+	v |= v >> 16;
+	v |= v >> 8;
+	v |= v >> 4;
+	v |= v >> 2;
+	v |= v >> 1;
+	return v;
 }
 
 void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
@@ -3710,7 +3728,23 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 						vr.mMinValue = ins->mSrc[1].mIntConst - maxv;
 					}
 					else
-						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
+					{
+						if (ins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND)
+						{
+							vr.mMaxState = IntegerValueRange::S_BOUND;
+							vr.mMaxValue = ins->mSrc[1].mRange.mMaxValue - ins->mSrc[0].mRange.mMinValue;
+						}
+						else
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+
+						if (ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND)
+						{
+							vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMinValue = ins->mSrc[1].mRange.mMinValue - ins->mSrc[0].mRange.mMaxValue;
+						}
+						else
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
+					}
 
 					break;
 				case IA_MUL:
@@ -3886,6 +3920,40 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 							vr.mMaxValue = ins->mSrc[1].mIntConst;
 							vr.mMinValue = 0;
 						}
+					}
+					else if (ins->mSrc[0].IsUnsigned() && ins->mSrc[1].IsUnsigned())
+					{
+						vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
+						int64 v0 = (ins->mSrc[0].mRange.mMaxValue & BuildLowerBitsMask(ins->mSrc[1].mRange.mMaxValue));
+						int64 v1 = (ins->mSrc[1].mRange.mMaxValue & BuildLowerBitsMask(ins->mSrc[0].mRange.mMaxValue));
+						vr.mMaxValue = (v0 > v1) ? v0 : v1;
+						vr.mMinValue = 0;
+					}
+					else
+						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
+					break;
+
+				case IA_OR:
+				case IA_XOR:
+					if (ins->mSrc[0].mTemp < 0)
+					{
+						vr = mLocalValueRange[ins->mSrc[1].mTemp];
+						int64	v = vr.mMaxValue;
+						v |= v >> 16;
+						v |= v >> 8;
+						v |= v >> 4;
+						v |= v >> 2;
+						v |= v >> 1;
+
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mIntConst >= 0)
+							vr.mMaxValue = BuildLowerBitsMask(vr.mMaxValue) | ins->mSrc[0].mIntConst;
+					}
+					else if (ins->mSrc[1].mTemp < 0)
+					{
+						vr = mLocalValueRange[ins->mSrc[0].mTemp];
+
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mIntConst >= 0)
+							vr.mMaxValue = BuildLowerBitsMask(vr.mMaxValue) | ins->mSrc[0].mIntConst;
 					}
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
@@ -6972,8 +7040,6 @@ void InterCodeProcedure::BuildTraces(bool expand)
 	for (int i = 0; i < mBlocks.Size(); i++)
 		mBlocks[i]->mNumEntries = 0;
 	mEntryBlock->CollectEntries();
-
-	DisassembleDebug("BuildTraces");
 }
 
 void InterCodeProcedure::BuildDataFlowSets(void)
@@ -7416,6 +7482,11 @@ void InterCodeProcedure::Close(void)
 
 	ResetVisited();
 	mEntryBlock->OptimizeIntervalCompare();
+
+	ResetVisited();
+	for (int i = 0; i < mBlocks.Size(); i++)
+		mBlocks[i]->mNumEntries = 0;
+	mEntryBlock->CollectEntries();
 
 	DisassembleDebug("interval compare");
 
