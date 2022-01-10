@@ -71,8 +71,9 @@ static const uint32 DTF_FUNC_VARIABLE	= 0x00040000;
 static const uint32 DTF_FUNC_ASSEMBLER	= 0x00080000;
 static const uint32 DTF_FUNC_RECURSIVE  = 0x00100000;
 static const uint32 DTF_FUNC_ANALYZING  = 0x00200000;
+static const uint32 DTF_FUNC_CONSTEXPR	= 0x00400000;
 
-static const uint32 DTF_VAR_ALIASING	= 0x00400000;
+static const uint32 DTF_VAR_ALIASING	= 0x00800000;
 
 
 class Declaration;

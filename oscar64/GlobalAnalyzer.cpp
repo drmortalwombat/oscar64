@@ -39,12 +39,15 @@ void GlobalAnalyzer::DumpCallGraph(void)
 		{
 			for (int j = 0; j < decs.Size(); j++)
 			{
-				printf("CALL %s[%d] -> %d -> %s[%d]\n", from->mIdent->mString, from->mComplexity, calls[j], decs[j]->mIdent->mString, decs[j]->mComplexity);
+				if (decs[j]->mType == DT_CONST_FUNCTION)
+					printf("CALL %s[%d, %08x] -> %d -> %s[%d, %08x]\n", from->mIdent->mString, from->mComplexity, from->mFlags, calls[j], decs[j]->mIdent->mString, decs[j]->mComplexity, decs[j]->mFlags);
+				else
+					printf("CALL %s[%d, %08x] -> %d\n", from->mIdent->mString, from->mComplexity, from->mFlags, calls[j]);
 			}
 		}
 		else
 		{
-			printf("LEAF %d -> %s[%d]\n", from->mCallers.Size(), from->mIdent->mString, from->mComplexity );
+			printf("LEAF %d -> %s[%d, %08x]\n", from->mCallers.Size(), from->mIdent->mString, from->mComplexity, from->mFlags );
 		}
 	}
 }
@@ -144,7 +147,10 @@ void GlobalAnalyzer::AutoInline(void)
 void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 {
 	if (dec->mFlags & DTF_FUNC_ANALYZING)
+	{
 		dec->mFlags |= DTF_FUNC_RECURSIVE;
+		dec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+	}
 
 	if (!(dec->mFlags & DTF_ANALYZED))
 	{
@@ -154,9 +160,12 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 
 		dec->mFlags |= DTF_ANALYZED;
 		if (dec->mFlags & DTF_INTRINSIC)
-			;
+			dec->mFlags |= DTF_FUNC_CONSTEXPR;
 		else if (dec->mFlags & DTF_DEFINED)
+		{
+			dec->mFlags |= DTF_FUNC_CONSTEXPR;
 			Analyze(exp, dec);
+		}
 		else
 			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent->mString);
 
@@ -257,7 +266,11 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 
 		return exp->mDecValue;
 	case EX_VARIABLE:
-		if (!(exp->mDecValue->mFlags & DTF_STATIC) && !(exp->mDecValue->mFlags & DTF_GLOBAL))
+		if ((exp->mDecValue->mFlags & DTF_STATIC) || (exp->mDecValue->mFlags & DTF_GLOBAL))
+		{
+			procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+		}
+		else
 		{
 			if (!(exp->mDecValue->mFlags & DTF_ANALYZED))
 			{
@@ -326,6 +339,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		} while (exp);
 		break;
 	case EX_WHILE:
+		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+
 		ldec = Analyze(exp->mLeft, procDec);
 		rdec = Analyze(exp->mRight, procDec);
 		break;
@@ -338,6 +353,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_ELSE:
 		break;
 	case EX_FOR:
+		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+
 		if (exp->mLeft->mRight)
 			ldec = Analyze(exp->mLeft->mRight, procDec);
 		if (exp->mLeft->mLeft->mLeft)
@@ -372,6 +389,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		break;
 	case EX_ASSEMBLER:
 		procDec->mFlags |= DTF_FUNC_ASSEMBLER;
+		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 		AnalyzeAssembler(exp, procDec);
 		break;
 	case EX_UNDEFINED:
@@ -406,6 +424,9 @@ void GlobalAnalyzer::RegisterCall(Declaration* from, Declaration* to)
 	{
 		if (to->mType == DT_CONST_FUNCTION)
 		{
+			if (!(to->mFlags & DTF_FUNC_CONSTEXPR))
+				from->mFlags &= ~DTF_FUNC_CONSTEXPR;
+
 			if (to->mCallers.Size() == 0)
 				mCalledFunctions.Push(to);
 			to->mCallers.Push(from);
@@ -415,12 +436,14 @@ void GlobalAnalyzer::RegisterCall(Declaration* from, Declaration* to)
 		}
 		else if (to->mType == DT_TYPE_FUNCTION)
 		{
+			from->mFlags &= ~DTF_FUNC_CONSTEXPR;
 			if (from->mCalled.Size() == 0)
 				mCallingFunctions.Push(from);
 			from->mCalled.Push(to);
 		}
 		else if (to->mType == DT_TYPE_POINTER && to->mBase->mType == DT_TYPE_FUNCTION)
 		{
+			from->mFlags &= ~DTF_FUNC_CONSTEXPR;
 			if (from->mCalled.Size() == 0)
 				mCallingFunctions.Push(from);
 			from->mCalled.Push(to->mBase);

@@ -216,35 +216,24 @@ float sqrt(float f)
 
 bool isinf(float f)
 {
-	__asm
-	{
-		lda #$00
-		sta accu + 1
-		asl f + 2
-		lda f + 3
-		rol
-		eor #$ff
-		beq W1
-		lda #$01
-	W1:
-	    eor #$01
-		sta accu
-	}
+	union {
+		float	f;
+		int		i[2];
+	}	x;
+
+	x.f = f;
+
+	return ((x.i[0] >> 7) & 0xff) == 0xff;
 }
 
 bool isfinite(float f)
 {
-	__asm
-	{
-		lda #$00
-		sta accu + 1
-		asl f + 2
-		lda f + 3
-		rol
-		eor #$ff
-		beq W1
-		lda #$01
-	W1:
-		sta accu
-	}
+	union {
+		float	f;
+		int		i[2];
+	}	x;
+
+	x.f = f;
+
+	return ((x.i[0] >> 7) & 0xff) != 0xff;
 }

@@ -36,6 +36,7 @@ protected:
 		GrowingArray<int>		mParams;
 		InterCodeBasicBlock	*	mReturn;
 		int						mResult, mDepth, mVarIndex;
+		bool					mConstExpr;
 
 		InlineMapper(void)
 			: mParams(-1), mResult(-1), mDepth(0)

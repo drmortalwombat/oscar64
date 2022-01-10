@@ -201,6 +201,8 @@ public:
 	bool MoveLoadStoreXUp(int at);
 	bool MoveLoadImmStoreAbsoluteUp(int at);
 
+	bool MoveIndirectLoadStoreDown(int at);
+
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
 	bool MoveLoadStoreOutOfXYRangeUp(int at);

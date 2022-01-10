@@ -9646,6 +9646,43 @@ bool NativeCodeBasicBlock::FindAddressSumY(int at, int reg, int & apos, int& bre
 	return false;
 }
 
+bool NativeCodeBasicBlock::MoveIndirectLoadStoreDown(int at)
+{
+	int j = at + 2;
+
+	while (j < mIns.Size())
+	{
+		if (mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at + 1].mAddress)
+		{
+			if (!(mIns[j].mLive & LIVE_MEM) && HasAsmInstructionMode(mIns[j].mType, ASMIM_INDIRECT_Y))
+			{
+				mIns[j].mMode = ASMIM_INDIRECT_Y;
+				mIns[j].mAddress = mIns[at].mAddress;
+				mIns[at + 0].mType = ASMIT_NOP; mIns[at + 0].mMode = ASMIM_IMPLIED;
+				mIns[at + 1].mType = ASMIT_NOP; mIns[at + 1].mMode = ASMIM_IMPLIED;
+
+				for (int k = at; k < j; k++)
+					mIns[k].mLive |= LIVE_CPU_REG_Y;
+
+				return true;
+			}
+
+			return false;
+		}
+
+		if (mIns[j].ChangesYReg())
+			return false;
+		if (mIns[j].ChangesZeroPage(mIns[at].mAddress) || mIns[j].ChangesZeroPage(mIns[at].mAddress + 1))
+			return false;
+		if (mIns[j].ChangesGlobalMemory())
+			return false;
+
+		j++;
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::MoveIndirectLoadStoreUp(int at)
 {
 	int	j = at - 1;
@@ -11550,6 +11587,19 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 					changed = true;
 			}
 		}
+#endif
+
+#if 1
+		// move load (),y store zp down to potential user
+		for (int i = 2; i + 2 < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				if (MoveIndirectLoadStoreDown(i))
+					changed = true;
+			}
+		}
+
 #endif
 
 #if 1
