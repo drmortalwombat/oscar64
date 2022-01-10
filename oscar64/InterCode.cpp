@@ -5733,6 +5733,13 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 			else
 				return false;
 		}
+		else if (sm == IM_FRAME)
+			;
+		else if (sm == IM_FPARAM)
+		{
+			if (bi == si)
+				return false;
+		}
 		else if (sm == IM_INDIRECT && bm == IM_INDIRECT && st == bt)
 		{
 			return so + sz <= bz || bo + bz <= so;

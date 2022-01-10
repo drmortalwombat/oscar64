@@ -5806,10 +5806,15 @@ void ByteCodeBasicBlock::BuildPlacement(GrowingArray<ByteCodeBasicBlock*>& place
 				mTrueJump->BuildPlacement(placement);
 				mFalseJump->BuildPlacement(placement);
 			}
-			else
+			else if (mFalseJump->mCode.Size() < mTrueJump->mCode.Size())
 			{
 				mFalseJump->BuildPlacement(placement);
 				mTrueJump->BuildPlacement(placement);
+			}
+			else
+			{
+				mTrueJump->BuildPlacement(placement);
+				mFalseJump->BuildPlacement(placement);
 			}
 		}
 		else if (mTrueJump)
