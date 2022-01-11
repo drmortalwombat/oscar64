@@ -220,6 +220,7 @@ public:
 	bool MoveStoreXUp(int at);
 	bool MoveStoreHighByteDown(int at);
 	bool MoveAddHighByteDown(int at);
+	bool ReverseLoadCommutativeOpUp(int aload, int aop);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data, bool global);
 

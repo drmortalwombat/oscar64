@@ -6,6 +6,10 @@ cd hires
 call make.bat
 cd ..
 
+cd hiresmc
+call make.bat
+cd ..
+
 cd kernalio
 call make.bat
 cd ..

@@ -22,6 +22,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_007FA3120B09491581F435FEE187EC9F"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_035D8376B0CC41EA90DBB294D667A617"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -100,6 +106,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_2C39AA436BFE4300AB4738C879E6E4F4"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_2D828D0247F144CDB0112B2AD4004C2C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -113,6 +125,12 @@
         "Entry"
         {
         "MsmKey" = "8:_343F58F80DF84D40AE23457288C5D7D5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_37F135A207264D5984B4B81EC44A4337"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -233,6 +251,12 @@
         "Entry"
         {
         "MsmKey" = "8:_72FE541170AB418781C6087271FD3D74"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_79985361F09A43299E258E1A8E5ED934"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -406,6 +430,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_BC5DE43AE7DE49AAA858A5CD2B985416"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_BC6636B5CB534552BC23A19BCF4DD252"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -556,6 +586,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_EF27132EAC3147A492E72EC29DD9A16D"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_F06F7114D6184A03962BE1C8AA697FEF"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -683,6 +719,26 @@
             "TargetName" = "8:kernalio.c"
             "Tag" = "8:"
             "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_007FA3120B09491581F435FEE187EC9F"
+            {
+            "SourcePath" = "8:..\\samples\\hiresmc\\func3d.c"
+            "TargetName" = "8:func3d.c"
+            "Tag" = "8:"
+            "Folder" = "8:_3E74C69B2EF64E938EA60950128C5A74"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -957,6 +1013,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_2C39AA436BFE4300AB4738C879E6E4F4"
+            {
+            "SourcePath" = "8:..\\samples\\hiresmc\\polygon.c"
+            "TargetName" = "8:polygon.c"
+            "Tag" = "8:"
+            "Folder" = "8:_3E74C69B2EF64E938EA60950128C5A74"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_2D828D0247F144CDB0112B2AD4004C2C"
             {
             "SourcePath" = "8:..\\samples\\scrolling\\tunnel.c"
@@ -1003,6 +1079,26 @@
             "TargetName" = "8:keyboard.c"
             "Tag" = "8:"
             "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_37F135A207264D5984B4B81EC44A4337"
+            {
+            "SourcePath" = "8:..\\samples\\hiresmc\\make.bat"
+            "TargetName" = "8:make.bat"
+            "Tag" = "8:"
+            "Folder" = "8:_3E74C69B2EF64E938EA60950128C5A74"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -1403,6 +1499,26 @@
             "TargetName" = "8:asm6502.c"
             "Tag" = "8:"
             "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_79985361F09A43299E258E1A8E5ED934"
+            {
+            "SourcePath" = "8:..\\include\\gfx\\mcbitmap.c"
+            "TargetName" = "8:mcbitmap.c"
+            "Tag" = "8:"
+            "Folder" = "8:_E0C7A8689A4144D0842BCEDA85A07B5D"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -1977,6 +2093,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_BC5DE43AE7DE49AAA858A5CD2B985416"
+            {
+            "SourcePath" = "8:..\\samples\\hiresmc\\floodfill.c"
+            "TargetName" = "8:floodfill.c"
+            "Tag" = "8:"
+            "Folder" = "8:_3E74C69B2EF64E938EA60950128C5A74"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_BC6636B5CB534552BC23A19BCF4DD252"
             {
             "SourcePath" = "8:..\\include\\c64\\sprites.c"
@@ -2477,6 +2613,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_EF27132EAC3147A492E72EC29DD9A16D"
+            {
+            "SourcePath" = "8:..\\include\\gfx\\mcbitmap.h"
+            "TargetName" = "8:mcbitmap.h"
+            "Tag" = "8:"
+            "Folder" = "8:_E0C7A8689A4144D0842BCEDA85A07B5D"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_F06F7114D6184A03962BE1C8AA697FEF"
             {
             "SourcePath" = "8:..\\samples\\scrolling\\colorram.c"
@@ -2639,6 +2795,17 @@
                                     "Condition" = "8:"
                                     "Transitive" = "11:FALSE"
                                     "Property" = "8:_7A2674E58ECB4124873F9D52AF821715"
+                                        "Folders"
+                                        {
+                                        }
+                                    }
+                                    "{9EF0B969-E518-4E46-987F-47570745A589}:_3E74C69B2EF64E938EA60950128C5A74"
+                                    {
+                                    "Name" = "8:hiresmc"
+                                    "AlwaysCreate" = "11:FALSE"
+                                    "Condition" = "8:"
+                                    "Transitive" = "11:FALSE"
+                                    "Property" = "8:_2C07A88E15EF43EE9F73E4D4B611EA5A"
                                         "Folders"
                                         {
                                         }
@@ -2820,15 +2987,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{0FD18B45-6278-4295-B7DA-CBFDA7D59683}"
-        "PackageCode" = "8:{B3D48267-25AC-4439-A2FC-D86188FA21CF}"
+        "ProductCode" = "8:{FDB14C01-E512-47D7-AB10-6431DB1DC40B}"
+        "PackageCode" = "8:{8C16AAEE-9A02-4BA9-9DD9-BD5606D870F6}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.2.59"
+        "ProductVersion" = "8:1.2.61"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

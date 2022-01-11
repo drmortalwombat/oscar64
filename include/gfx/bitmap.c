@@ -1074,7 +1074,7 @@ inline void bmu_rect_pattern(Bitmap * dbm, int dx, int dy, int w, int h, const c
 
 inline void bmu_rect_copy(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h)
 {
-	bm_bitblit(dbm, dx, dy, sbm, sx, sy, w, h, nullptr, BLTOP_COPY);	
+	bmu_bitblit(dbm, dx, dy, sbm, sx, sy, w, h, nullptr, BLTOP_COPY);	
 }
 
 

@@ -10040,6 +10040,46 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreUp(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::ReverseLoadCommutativeOpUp(int aload, int aop)
+{
+	int	j = aload - 1;
+	while (j > 0)
+	{
+		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[aop].mAddress)
+		{
+			AsmInsType	type = mIns[aop].mType;
+			mIns[aop] = mIns[aload];
+			mIns[aop].mType = type;
+			mIns[aload].mType = ASMIT_NOP;
+			mIns[aload].mMode = ASMIM_IMPLIED;
+
+			while (j < aop)
+			{
+				mIns[j].mLive |= LIVE_CPU_REG_A;
+				j++;
+			}
+
+			j = aload;
+			while (j < aop)
+			{
+				mIns[j].mLive |= mIns[aload - 1].mLive;
+				j++;
+			}
+
+			return true;
+		}
+
+		if (mIns[j].ChangesAccu())
+			return false;
+		if (mIns[j].ChangesZeroPage(mIns[aop].mAddress))
+			return false;
+
+		j--;
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::MoveLoadAddZPStoreUp(int at)
 {
 	int	j = at - 1;
@@ -11748,7 +11788,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 					NativeCodeInstruction	pins = mIns[i];
 					mIns[i] = mIns[i + 1];
 					mIns[i + 1] = pins;
-					changed = true;
+//					changed = true;
 				}
 			}
 		}
@@ -11756,6 +11796,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 #endif
 
 #if 1
+
+		// reverse "sta t,lda abs,clc,adc t" to "sta t,clc,adc abs,nop"
+
+		for (int i = 1; i + 2 < mIns.Size(); i++)
+		{
+			if (mIns[i + 2].IsCommutative() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && (mIns[i + 1].mType == ASMIT_CLC || mIns[i + 1].mType == ASMIT_SEC) && mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE)
+			{
+				if (ReverseLoadCommutativeOpUp(i, i + 2))
+					changed = true;
+			}
+			else if (mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE)
+			{
+				if (ReverseLoadCommutativeOpUp(i, i + 1))
+					changed = true;
+			}
+		}
 
 		// shortcut index
 
