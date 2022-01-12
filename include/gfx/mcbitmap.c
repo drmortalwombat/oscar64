@@ -697,9 +697,12 @@ void bmmc_flood_fill(Bitmap * bm, ClipRect * clip, int x, int y, char color)
 
 	char	*	dp = bm->data + bm->cwidth * (by & ~7) + (by & 7);
 
-	char		back = cbytes[bmmc_getdp(dp, bx)];
+	char		back = cbytes[bmmc_getdp(dp, bx)];	
 
 	color = cbytes[color];
+
+	if (back == color)
+		return;
 
 	BLIT_CODE[sp++] = bx;
 	BLIT_CODE[sp++] = by;
