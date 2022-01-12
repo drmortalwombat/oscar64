@@ -222,6 +222,8 @@ public:
 	bool MoveAddHighByteDown(int at);
 	bool ReverseLoadCommutativeOpUp(int aload, int aop);
 
+	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
+
 	bool ValueForwarding(const NativeRegisterDataSet& data, bool global);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);

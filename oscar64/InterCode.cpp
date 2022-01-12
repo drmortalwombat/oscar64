@@ -3897,6 +3897,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 							}
 						}
 					}
+					else if (ins->mSrc[1].mTemp >= 0)
+						vr = mLocalValueRange[ins->mSrc[1].mTemp];
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					break;
