@@ -40,11 +40,11 @@ int setjmp(jmp_buf env)
 		sta (env), y
 		iny 
 
-		lda $0100, x
+		lda $0101, x
 		sta (env), y
 		iny
 
-		lda $0101, x
+		lda $0102, x
 		sta (env), y
 		iny
 	}
@@ -95,11 +95,11 @@ void longjmp(jmp_buf env, int value)
 		iny 
 
 		lda (env), y
-		sta $0100, x
+		sta $0101, x
 		iny
 
 		lda (env), y
-		sta $0101, x
+		sta $0102, x
 		iny
 
 		lda value

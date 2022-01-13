@@ -1,5 +1,6 @@
 #include "kernalio.h"
 
+krnioerr krnio_pstatus[16];
 
 void krnio_setnam(const char * name)
 {
@@ -24,6 +25,8 @@ void krnio_setnam(const char * name)
 
 bool krnio_open(char fnum, char device, char channel)
 {
+	krnio_pstatus[fnum] = KRNIO_OK;
+
 	__asm
 	{
 		lda	#0
@@ -74,6 +77,37 @@ krnioerr krnio_status(void)
 }
 
 #pragma native(krnio_status)
+
+
+bool krnio_load(char fnum, char device, char channel)
+{
+	__asm
+	{
+		lda	#0
+		sta accu
+		sta	accu + 1
+
+		lda	fnum
+		ldx	device
+		ldy channel		
+		jsr	$ffba			// setlfs
+		
+		lda #0
+		ldx #0
+		ldy #0
+		jsr	$FFD5			// open
+		bcc	W1
+
+		lda #0
+		jmp	E2
+	W1:
+		lda	#1
+		sta	accu
+	E2:
+	}
+}
+
+#pragma native(krnio_load)
 
 bool krnio_chkout(char fnum)
 {
@@ -146,11 +180,15 @@ int krnio_chrin(void)
 
 int krnio_getch(char fnum)
 {
+	if (krnio_pstatus[fnum] == KRNIO_EOF)
+		return -1;
+
 	int	ch = -1;
 	if (krnio_chkin(fnum))
 	{
 		ch = krnio_chrin();
 		krnioerr err = krnio_status();
+		krnio_pstatus[fnum] = err;
 		if (err)
 		{	
 			if (err == KRNIO_EOF)
@@ -209,6 +247,9 @@ int krnio_write(char fnum, const char * data, int num)
 
 int krnio_read(char fnum, char * data, int num)
 {
+	if (krnio_pstatus[fnum] == KRNIO_EOF)
+		return 0;
+
 	if (krnio_chkin(fnum))
 	{
 		int i = 0;
@@ -217,6 +258,7 @@ int krnio_read(char fnum, char * data, int num)
 		{
 			ch = krnio_chrin();
 			krnioerr err = krnio_status();
+			krnio_pstatus[fnum] = err;
 			if (err && err != KRNIO_EOF)
 				break;
 			data[i++] = (char)ch;
@@ -234,6 +276,9 @@ int krnio_read(char fnum, char * data, int num)
 
 int krnio_gets(char fnum, char * data, int num)
 {
+	if (krnio_pstatus[fnum] == KRNIO_EOF)
+		return 0;
+
 	if (krnio_chkin(fnum))
 	{
 		int i = 0;
@@ -242,6 +287,7 @@ int krnio_gets(char fnum, char * data, int num)
 		{
 			ch = krnio_chrin();
 			krnioerr err = krnio_status();
+			krnio_pstatus[fnum] = err;
 			if (err && err != KRNIO_EOF)
 				break;
 			data[i++] = (char)ch;

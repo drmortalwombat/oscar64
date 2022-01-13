@@ -80,7 +80,7 @@ enum AsmIns
 	ASM_BIT = 0x20,
 	
 	// Jump
-	ASM_JMP = 0x4c,
+	ASM_JMP = 0x40,
 	ASM_JSR = 0x2c
 };
 

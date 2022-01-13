@@ -271,6 +271,8 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 			mScanner->NextToken();
 			if (mScanner->mToken == TK_IDENT)
 			{
+				int	minValue = 0, maxValue = 0;
+
 				for (;;)
 				{
 					Declaration* cdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
@@ -293,16 +295,25 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_TYPE, "Integer constant expected");
 					}
 					cdec->mInteger = nitem++;
-					if (dec->mInteger < 0)
-						dec->mFlags |= DTF_SIGNED;
-					if (cdec->mInteger < -128 || cdec->mInteger > 127)
-						dec->mSize = 2;
+					if (dec->mInteger < minValue)
+						minValue = dec->mInteger;
+					else if (dec->mInteger > maxValue)
+						maxValue = dec->mInteger;
 
 					if (mScanner->mToken == TK_COMMA)
 						mScanner->NextToken();
 					else
 						break;
 				}
+
+				if (minValue < 0)
+				{
+					dec->mFlags |= DTF_SIGNED;
+					if (minValue < -128 || maxValue > 127)
+						dec->mSize = 2;
+				}
+				else if (maxValue > 255)
+					dec->mSize = 2;
 			}
 
 			if (mScanner->mToken == TK_CLOSE_BRACE)

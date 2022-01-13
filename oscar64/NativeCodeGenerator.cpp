@@ -7825,13 +7825,26 @@ void NativeCodeBasicBlock::CallFunction(InterCodeProcedure* proc, NativeCodeProc
 {
 	if (ins->mSrc[0].mTemp < 0)
 	{
-		NativeCodeInstruction	lins(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, NCIF_LOWER);
-		NativeCodeInstruction	hins(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, NCIF_UPPER);
+		if (ins->mSrc[0].mLinkerObject)
+		{
+			NativeCodeInstruction	lins(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, NCIF_LOWER);
+			NativeCodeInstruction	hins(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, NCIF_UPPER);
 
-		mIns.Push(lins);
-		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
-		mIns.Push(hins);
-		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+			mIns.Push(lins);
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
+			mIns.Push(hins);
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+		}
+		else
+		{
+			NativeCodeInstruction	lins(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff);
+			NativeCodeInstruction	hins(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff);
+
+			mIns.Push(lins);
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
+			mIns.Push(hins);
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+		}
 	}
 	else
 	{

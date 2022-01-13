@@ -16,6 +16,8 @@ enum krnioerr
 	KRNIO_NODEVICE = 0x80
 };
 
+extern krnioerr krnio_pstatus[16];
+
 // Set filename for next krnio_open operation, make sure
 // that the string is still valid when calling krnio_open
 
@@ -32,6 +34,8 @@ void krnio_close(char fnum);
 // get the error / status of the last io operation
 
 krnioerr krnio_status(void);
+
+bool krnio_load(char fnum, char device, char channel);
 
 // select the given file for stream output
 
