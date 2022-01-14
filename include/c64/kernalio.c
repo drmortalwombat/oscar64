@@ -281,19 +281,20 @@ int krnio_gets(char fnum, char * data, int num)
 
 	if (krnio_chkin(fnum))
 	{
+		krnioerr err;
 		int i = 0;
 		int ch;
 		while (i + 1 < num)
 		{
 			ch = krnio_chrin();
-			krnioerr err = krnio_status();
-			krnio_pstatus[fnum] = err;
+			err = krnio_status();
 			if (err && err != KRNIO_EOF)
 				break;
 			data[i++] = (char)ch;
 			if (ch == 13 || ch == 10 || err)
 				break;
 		}
+		krnio_pstatus[fnum] = err;
 		data[i] = 0;
 		krnio_clrchn();
 		return i;

@@ -4098,7 +4098,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
 				{
 					int	t = mInstructions[sz - 2]->mSrc[1].mTemp;
-					if (mTrueValueRange[t].mMinState == IntegerValueRange::S_BOUND && mTrueValueRange[t].mMinValue >= 0)
+//					if (mTrueValueRange[t].mMinState == IntegerValueRange::S_BOUND && mTrueValueRange[t].mMinValue >= 0)
 					{
 						mTrueValueRange[t].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
 					}
