@@ -571,10 +571,14 @@ bool NativeCodeInstruction::LoadsAccu(void) const
 
 bool NativeCodeInstruction::ChangesAccuAndFlag(void) const
 {
-	return
-		mType == ASMIT_LDA || mType == ASMIT_TXA || mType == ASMIT_TYA ||
+	if (mType == ASMIT_LDA || mType == ASMIT_TXA || mType == ASMIT_TYA ||
 		mType == ASMIT_ORA || mType == ASMIT_AND || mType == ASMIT_EOR ||
-		mType == ASMIT_SBC || mType == ASMIT_ADC || mType == ASMIT_JSR;
+		mType == ASMIT_SBC || mType == ASMIT_ADC || mType == ASMIT_JSR)
+		return true;
+	else if (mType == ASMIT_LSR || mType == ASMIT_ASL || mType == ASMIT_ROR || mType == ASMIT_ROL)
+		return mMode == ASMIM_IMPLIED;
+	else
+		return false;
 }
 
 bool NativeCodeInstruction::RequiresYReg(void) const
@@ -11765,19 +11769,186 @@ void NativeCodeBasicBlock::BlockSizeReduction(void)
 		}
 
 #if 1
-		if (carryClear || carrySet)
+		i = 0;
+		j = 0;
+		int	accuVal = 0, accuMask = 0;
+		while (i < mIns.Size())
 		{
-			int i = 0;
-			while (i < mIns.Size() && !mIns[i].ChangesCarry())
-				i++;
-			if (i < mIns.Size())
+			bool	skip = false;
+			switch (mIns[i].mType)
 			{
-				if (mIns[i].mType == ASMIT_CLC && carryClear)
-					mIns.Remove(i);
-				else if (mIns[i].mType == ASMIT_SEC && carrySet)
-					mIns.Remove(i);
+			case ASMIT_CLC:
+				if (carryClear)
+					skip = true;
+				else
+				{
+					carryClear = true;
+					carrySet = false;
+				}
+				break;
+			case ASMIT_SEC:
+				if (carrySet)
+					skip = true;
+				else
+				{
+					carryClear = false;
+					carrySet = true;
+				}
+				break;
+			case ASMIT_ADC:
+			case ASMIT_SBC:
+				accuMask = 0;
+			case ASMIT_CMP:
+				carryClear = false;
+				carrySet = false;
+				break;
+			case ASMIT_AND:
+				if (mIns[i].mMode == ASMIM_IMMEDIATE)
+				{
+					int	clear = mIns[i].mAddress ^ 0xff;
+					if (!(mIns[i].mLive & CPU_REG_Z) && !(clear & (accuMask ^ 0xff)) && !(accuVal & clear))
+						skip = true;
+					accuVal = 0;
+					accuMask = clear;
+				}
+				else
+					accuMask = 0;
+				break;
+			case ASMIT_ORA:
+				if (mIns[i].mMode == ASMIM_IMMEDIATE)
+				{
+					accuVal = 0xff;
+					accuMask = mIns[i].mAddress;
+				}
+				else
+					accuMask = 0;
+				break;
+			case ASMIT_LDA:
+				if (mIns[i].mMode == ASMIM_IMMEDIATE)
+				{
+					accuVal = mIns[i].mAddress;
+					accuMask = 0xff;
+				}
+				else
+					accuMask = 0x00;
+				break;
+			case ASMIT_ASL:
+				if (mIns[i].mMode == ASMIM_IMPLIED && (accuMask & 0x80))
+				{
+					accuVal <<= 1;
+					accuMask = ((accuMask << 1) | 1) & 0xff;
+
+					if (accuVal & 0x100)
+					{
+						carryClear = false;
+						carrySet = true;
+					}
+					else
+					{
+						carryClear = true;
+						carrySet = false;
+					}
+					accuVal &= 0xff;
+				}
+				else
+				{
+					carryClear = false;
+					carrySet = false;
+				}
+				break;
+			case ASMIT_LSR:
+				if (mIns[i].mMode == ASMIM_IMPLIED && (accuMask & 0x01))
+				{
+					accuMask = (accuMask >> 1) | 0x80;
+
+					if (accuVal & 0x01)
+					{
+						carryClear = false;
+						carrySet = true;
+					}
+					else
+					{
+						carryClear = true;
+						carrySet = false;
+					}
+
+					accuVal >>= 1;
+				}
+				else
+				{
+					carryClear = false;
+					carrySet = false;
+				}
+				break;
+			case ASMIT_ROL:
+				if (mIns[i].mMode == ASMIM_IMPLIED && (accuMask & 0x80))
+				{
+					accuVal <<= 1;
+					accuMask = (accuMask << 1) & 0xff;
+
+					if (accuVal & 0x100)
+					{
+						carryClear = false;
+						carrySet = true;
+					}
+					else
+					{
+						carryClear = true;
+						carrySet = false;
+					}
+					accuVal &= 0xff;
+				}
+				else
+				{
+					carryClear = false;
+					carrySet = false;
+				}
+				break;
+			case ASMIT_ROR:
+				if (mIns[i].mMode == ASMIM_IMPLIED && (accuMask & 0x01))
+				{
+					accuMask = (accuMask >> 1);
+
+					if (accuVal & 0x01)
+					{
+						carryClear = false;
+						carrySet = true;
+					}
+					else
+					{
+						carryClear = true;
+						carrySet = false;
+					}
+
+					accuVal >>= 1;
+				}
+				else
+				{
+					carryClear = false;
+					carrySet = false;
+				}
+				break;
+			default:
+				if (mIns[i].ChangesCarry())
+				{
+					carryClear = false;
+					carrySet = false;
+				}
+
+				if (mIns[i].ChangesAccu())
+					accuMask = 0;
 			}
+
+			if (!skip)
+			{
+				if (i != j)
+					mIns[j] = mIns[i];
+				j++;
+			}
+			i++;
 		}
+		mIns.SetSize(j);
+
 #endif
 		if (mTrueJump)
 			mTrueJump->BlockSizeReduction();
@@ -13804,6 +13975,25 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 
 #endif
 				}
+
+				if (i + 5 < mIns.Size())
+				{
+					if (
+						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+						mIns[i + 3].mType == ASMIT_TXA &&
+						mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_INDIRECT_Y && mIns[i + 2].mAddress == mIns[i + 5].mAddress &&
+						!(mIns[i + 5].mFlags & NCIF_VOLATILE) && !(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+					{
+						mIns[i + 3] = mIns[i + 0];
+						mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						int a = mIns[i + 1].mAddress; mIns[i + 1].mAddress = mIns[i + 4].mAddress; mIns[i + 4].mAddress = a;
+						progress = true;
+					}
+				}
+
 
 #if 1
 				if (i + 1 < mIns.Size() && mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
