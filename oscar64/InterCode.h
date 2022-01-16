@@ -394,6 +394,8 @@ public:
 	void CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray& localTypes, FastNumberSet& complexParams, FastNumberSet& simpleParams, GrowingTypeArray& paramTypes);
 	void SimpleLocalToTemp(int vindex, int temp);
 
+	bool ConstantFolding(void);
+
 	void Disassemble(FILE* file);
 };
 

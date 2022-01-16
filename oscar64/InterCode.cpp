@@ -474,45 +474,51 @@ static double ConstantFolding(InterOperator oper, double val1, double val2 = 0.0
 	}
 }
 
-static void ConversionConstantFold(InterInstruction * ins, InterInstruction * cins)
+static void ConversionConstantFold(InterInstruction * ins, const InterOperand & cop)
 {
 	switch (ins->mOperator)
 	{
 	case IA_INT2FLOAT:
 		ins->mCode = IC_CONSTANT;
-		ins->mConst.mFloatConst = (double)(cins->mConst.mIntConst);
+		ins->mConst.mFloatConst = (double)(cop.mIntConst);
 		ins->mConst.mType = IT_FLOAT;
 		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
 		break;
 	case IA_FLOAT2INT:
 		ins->mCode = IC_CONSTANT;
-		ins->mConst.mIntConst = (int)(cins->mConst.mFloatConst);
+		ins->mConst.mIntConst = (int)(cop.mFloatConst);
 		ins->mConst.mType = IT_INT16;
 		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
 		break;
 	case IA_EXT8TO16S:
 		ins->mCode = IC_CONSTANT;
-		ins->mConst.mIntConst = (int8)(cins->mConst.mIntConst);
+		ins->mConst.mIntConst = (int8)(cop.mIntConst);
 		ins->mConst.mType = IT_INT16;
 		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
 		break;
 	case IA_EXT8TO16U:
 		ins->mCode = IC_CONSTANT;
-		ins->mConst.mIntConst = (uint8)(cins->mConst.mIntConst);
+		ins->mConst.mIntConst = (uint8)(cop.mIntConst);
 		ins->mConst.mType = IT_INT16;
 		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
 		break;
 	case IA_EXT16TO32S:
 		ins->mCode = IC_CONSTANT;
-		ins->mConst.mIntConst = (int16)(cins->mConst.mIntConst);
+		ins->mConst.mIntConst = (int16)(cop.mIntConst);
 		ins->mConst.mType = IT_INT32;
 		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
 		break;
 	case IA_EXT16TO32U:
 		ins->mCode = IC_CONSTANT;
-		ins->mConst.mIntConst = (uint16)(cins->mConst.mIntConst);
+		ins->mConst.mIntConst = (uint16)(cop.mIntConst);
 		ins->mConst.mType = IT_INT32;
 		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
 		break;
 	}
 }
@@ -1098,7 +1104,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 	case IC_CONVERSION_OPERATOR:
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 		{
-			ConversionConstantFold(ins, tvalue[ins->mSrc[0].mTemp]);
+			ConversionConstantFold(ins, tvalue[ins->mSrc[0].mTemp]->mConst);
 			if (ins->mDst.mType == IT_FLOAT)
 			{
 				i = 0;
@@ -2375,6 +2381,70 @@ void InterInstruction::SimpleLocalToTemp(int vindex, int temp)
 	}
 }
 
+bool InterInstruction::ConstantFolding(void)
+{
+	switch (mCode)
+	{
+	case IC_RELATIONAL_OPERATOR:
+		if (mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0)
+		{
+			mCode = IC_CONSTANT;
+			if (IsIntegerType(mSrc[0].mType))
+				mConst.mIntConst = ::ConstantFolding(mOperator, mSrc[0].mType, mSrc[1].mIntConst, mSrc[0].mIntConst);
+			else
+				mConst.mIntConst = ConstantRelationalFolding(mOperator, mSrc[1].mFloatConst, mSrc[0].mFloatConst);
+			mConst.mType = IT_BOOL;
+			mNumOperands = 0;
+			return true;
+		}
+		break;
+	case IC_BINARY_OPERATOR:
+		if (mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0)
+		{
+			mCode = IC_CONSTANT;
+			if (mDst.mType == IT_FLOAT)
+				mConst.mFloatConst = ::ConstantFolding(mOperator, mSrc[1].mFloatConst, mSrc[0].mFloatConst);
+			else
+				mConst.mIntConst = ::ConstantFolding(mOperator, mSrc[1].mIntConst, mSrc[0].mIntConst);
+			mNumOperands = 0;
+			return true;
+		}
+		break;
+	case IC_UNARY_OPERATOR:
+		if (mSrc[0].mTemp < 0)
+		{
+			mCode = IC_CONSTANT;
+			if (mDst.mType == IT_FLOAT)
+				mConst.mFloatConst = ::ConstantFolding(mOperator, mSrc[0].mFloatConst);
+			else
+				mConst.mIntConst = ::ConstantFolding(mOperator, mSrc[0].mIntConst);
+			mNumOperands = 0;
+			return true;
+		}
+		break;
+	case IC_CONVERSION_OPERATOR:
+		if (mSrc[0].mTemp < 0)
+		{
+			ConversionConstantFold(this, mSrc[0]);
+			return true;
+		}
+		break;
+	case IC_LEA:
+		if (mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0)
+		{
+			mCode = IC_CONSTANT;
+			mConst = mSrc[1];
+			mConst.mIntConst += mSrc[0].mIntConst;
+			mNumOperands = 0;
+			return true;
+		}
+		break;
+	}
+
+	return false;
+}
+
+
 void InterOperand::Disassemble(FILE* file)
 {
 	static char typechars[] = "NBCILFP";
@@ -2949,7 +3019,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 	case IC_CONVERSION_OPERATOR:
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 		{
-			ConversionConstantFold(ins, tvalue[ins->mSrc[0].mTemp]);
+			ConversionConstantFold(ins, tvalue[ins->mSrc[0].mTemp]->mConst);
 		}
 		break;
 
@@ -3414,6 +3484,18 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					mInstructions[sz - 2]->mOperator = IA_CMPLU;
 				}
 			}
+			else if (mInstructions[sz - 2]->mOperator == IA_CMPLES)
+			{
+				if (mInstructions[sz - 2]->mSrc[0].mTemp < 0)
+				{
+					if (mInstructions[sz - 2]->mSrc[1].IsUnsigned())
+						mInstructions[sz - 2]->mOperator = IA_CMPLEU;
+				}
+				else if (mInstructions[sz - 2]->mSrc[0].IsUnsigned() && mInstructions[sz - 2]->mSrc[1].IsUnsigned())
+				{
+					mInstructions[sz - 2]->mOperator = IA_CMPLEU;
+				}
+			}
 		}
 #endif
 #if 1
@@ -3577,13 +3659,24 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 		for (int i = 0; i < ins->mNumOperands; i++)
 		{
 			if (ins->mSrc[i].mTemp >= 0)
+			{
 				ins->mSrc[i].mRange = mLocalValueRange[ins->mSrc[i].mTemp];
+#if 1
+				if (ins->mSrc[i].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMinValue == ins->mSrc[i].mRange.mMaxValue)
+				{
+					ins->mSrc[i].mTemp = -1;
+					ins->mSrc[i].mIntConst = ins->mSrc[i].mRange.mMinValue;
+				}
+#endif
+			}
 			else if (IsIntegerType(ins->mSrc[i].mType))
 			{
 				ins->mSrc[i].mRange.mMaxState = ins->mSrc[i].mRange.mMinState = IntegerValueRange::S_BOUND;
 				ins->mSrc[i].mRange.mMinValue = ins->mSrc[i].mRange.mMaxValue = ins->mSrc[i].mIntConst;
 			}
 		}
+
+		ins->ConstantFolding();
 
 		if (ins->mDst.mTemp >= 0 && IsIntegerType(ins->mDst.mType))
 		{
@@ -3623,7 +3716,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				switch (ins->mOperator)
 				{
 				case IA_EXT8TO16S:
-					vr = mLocalValueRange[ins->mSrc[0].mTemp];
+					vr = ins->mSrc[0].mRange;
 					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < -128 || vr.mMaxValue > 127)
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
@@ -3637,7 +3730,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					break;
 
 				case IA_EXT8TO16U:
-					vr = mLocalValueRange[ins->mSrc[0].mTemp];
+					vr = ins->mSrc[0].mRange;
 					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255)
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
@@ -3870,6 +3963,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 							}
 						}
 					}
+					else if (ins->mSrc[1].mTemp >= 0)
+					{
+						vr = mLocalValueRange[ins->mSrc[1].mTemp];
+						if (vr.mMinValue >= 0)
+							vr.mMinValue = 0;
+					}
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					break;
@@ -3898,7 +3997,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 						}
 					}
 					else if (ins->mSrc[1].mTemp >= 0)
+					{
 						vr = mLocalValueRange[ins->mSrc[1].mTemp];
+						if (vr.mMinValue >= 0)
+							vr.mMinValue = 0;
+						else if (vr.mMaxValue < 0)
+							vr.mMaxValue = -1;
+					}
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					break;
@@ -3971,7 +4076,17 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 			}
 
 			ins->mDst.mRange = vr;
+#if 1
+			if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxValue == vr.mMinValue)
+			{
+				ins->mCode = IC_CONSTANT;
+				ins->mConst.mType = ins->mDst.mType;
+				ins->mConst.mIntConst = vr.mMaxValue;
+				ins->mNumOperands = 0;
+			}
+#endif
 		}
+
 	}
 
 	for (int i = 0; i < mLocalValueRange.Size(); i++)
