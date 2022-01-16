@@ -23,7 +23,7 @@ The goal is to implement the actual C standard and not some subset for performan
 
 ## Limits and Errors
 
-There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 61 iterations per second with byte code (11504) and 278 iterations with native code (12184 Bytes).
+There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 68 iterations per second with byte code (11266) and 295 iterations with native code (11784 Bytes).
 
 ### Language
 
@@ -117,7 +117,6 @@ A section of the file can be selected by providing a limit and or an offset into
 ### Additional Optimizer information using __assume()
 
 The compiler can be provided with additional information using the built in function __assume(cond).  This can be useful to mark unreachable code using __assume(false) for e.g. the default of a switch statement.  Another good option is to limit the value range of arguments to allow the compiler using byte operations without the need for integer promotion.
-
 
 
 ## Inline Assembler

@@ -395,6 +395,7 @@ public:
 	void SimpleLocalToTemp(int vindex, int temp);
 
 	bool ConstantFolding(void);
+	bool ConstantFoldingRelationRange(void);
 
 	void Disassemble(FILE* file);
 };
@@ -511,6 +512,7 @@ public:
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
 
+	void RestartLocalIntegerRangeSets(void);
 	void BuildLocalIntegerRangeSets(int num);
 	void UpdateLocalIntegerRangeSets(void);
 	bool BuildGlobalIntegerRangeSets(void);

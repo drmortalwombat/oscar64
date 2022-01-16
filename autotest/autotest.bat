@@ -60,6 +60,9 @@ rem @echo off
 @call :test testinterval.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test cmprangeshortcuttest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test floatstringtest.c
 @if %errorlevel% neq 0 goto :error
 
