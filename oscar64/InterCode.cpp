@@ -2014,6 +2014,41 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			mSrc[0].mTemp = -1;
 			return true;
 		}
+		break;
+	case IC_BINARY_OPERATOR:
+	{
+		bool	changed = false;
+
+		for (int i = 0; i < 2; i++)
+		{
+			if (mSrc[i].mTemp >= 0 && ctemps[mSrc[i].mTemp])
+			{
+				InterInstruction* ains = ctemps[mSrc[i].mTemp];
+				mSrc[i] = ains->mConst;
+				mSrc[i].mType = ains->mDst.mType;
+				changed = true;
+			}
+		}
+
+		if (changed)
+		{
+			this->ConstantFolding();
+			return true;
+		}
+	} break;
+
+	case IC_LEA:
+		if (mSrc[0].mTemp >= 0 && ctemps[mSrc[0].mTemp])
+		{
+			InterInstruction* ains = ctemps[mSrc[0].mTemp];
+			mSrc[0] = ains->mConst;
+			mSrc[0].mType = ains->mDst.mType;
+
+			this->ConstantFolding();
+			return true;
+		}
+		break;
+
 	}
 
 	return false;
@@ -3588,11 +3623,18 @@ void  InterCodeBasicBlock::CollectConstTemps(GrowingInstructionPtrArray& ctemps,
 	{
 		mVisited = true;
 
+		GrowingInstructionPtrArray	ltemps(nullptr);
+
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
+			mInstructions[i]->PropagateConstTemps(ltemps);
+
 			int		ttemp = mInstructions[i]->mDst.mTemp;
 			if (ttemp >= 0)
 			{
+				if (mInstructions[i]->mCode == IC_CONSTANT)
+					ltemps[ttemp] = mInstructions[i];
+
 				if (assignedTemps[ttemp])
 					ctemps[ttemp] = nullptr;
 				else
@@ -8288,12 +8330,14 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	BuildDataFlowSets();
-	TempForwarding();
-	RemoveUnusedInstructions();
-
 	DisassembleDebug("Removed unreachable branches");
 
 	BuildTraces(false);
+	DisassembleDebug("Rebuilt traces");
+
+	do {
+		TempForwarding();
+	} while (GlobalConstantPropagation());
 
 #endif
 
