@@ -625,6 +625,113 @@ void ValueSet::Intersect(ValueSet& set)
 	mNum = k;
 }
 
+TempForwardingTable::TempForwardingTable(void) : mAssoc(Assoc(-1, -1, -1))
+{
+}
+
+TempForwardingTable::TempForwardingTable(const TempForwardingTable& table) : mAssoc(Assoc(-1, -1, -1))
+{
+	for (int i = 0; i < table.mAssoc.Size(); i++)
+	{
+		mAssoc[i].mAssoc = table.mAssoc[i].mAssoc;
+		mAssoc[i].mSucc = table.mAssoc[i].mSucc;
+		mAssoc[i].mPred = table.mAssoc[i].mPred;
+	}
+}
+
+TempForwardingTable& TempForwardingTable::operator=(const TempForwardingTable& table)
+{
+	mAssoc.SetSize(table.mAssoc.Size());
+	for (int i = 0; i < table.mAssoc.Size(); i++)
+	{
+		mAssoc[i].mAssoc = table.mAssoc[i].mAssoc;
+		mAssoc[i].mSucc = table.mAssoc[i].mSucc;
+		mAssoc[i].mPred = table.mAssoc[i].mPred;
+	}
+
+	return *this;
+}
+
+void TempForwardingTable::Intersect(const TempForwardingTable& table)
+{
+	for (int i = 0; i < table.mAssoc.Size(); i++)
+	{
+		if (mAssoc[i].mAssoc != table.mAssoc[i].mAssoc)
+			this->Destroy(i);
+	}
+}
+
+void TempForwardingTable::SetSize(int size)
+{
+	int i;
+	mAssoc.SetSize(size);
+
+	for (i = 0; i < size; i++)
+		mAssoc[i] = Assoc(i, i, i);
+}
+
+void TempForwardingTable::Reset(void)
+{
+	int i;
+
+	for (i = 0; i < mAssoc.Size(); i++)
+		mAssoc[i] = Assoc(i, i, i);
+}
+
+int TempForwardingTable::operator[](int n)
+{
+	return mAssoc[n].mAssoc;
+}
+
+void TempForwardingTable::Destroy(int n)
+{
+	int i, j;
+
+	if (mAssoc[n].mAssoc == n)
+	{
+		i = mAssoc[n].mSucc;
+		while (i != n)
+		{
+			j = mAssoc[i].mSucc;
+			mAssoc[i] = Assoc(i, i, i);
+			i = j;
+		}
+	}
+	else
+	{
+		mAssoc[mAssoc[n].mPred].mSucc = mAssoc[n].mSucc;
+		mAssoc[mAssoc[n].mSucc].mPred = mAssoc[n].mPred;
+	}
+
+	mAssoc[n] = Assoc(n, n, n);
+}
+
+void TempForwardingTable::Build(int from, int to)
+{
+	int i;
+
+	from = mAssoc[from].mAssoc;
+	to = mAssoc[to].mAssoc;
+
+	if (from != to)
+	{
+		i = mAssoc[from].mSucc;
+		while (i != from)
+		{
+			mAssoc[i].mAssoc = to;
+			i = mAssoc[i].mSucc;
+		}
+		mAssoc[from].mAssoc = to;
+
+		mAssoc[mAssoc[to].mSucc].mPred = mAssoc[from].mPred;
+		mAssoc[mAssoc[from].mPred].mSucc = mAssoc[to].mSucc;
+		mAssoc[to].mSucc = from;
+		mAssoc[from].mPred = to;
+	}
+}
+
+
+
 bool InterInstruction::ReferencesTemp(int temp) const
 {
 	if (temp == mDst.mTemp)
@@ -1710,28 +1817,6 @@ static bool TypeArithmetic(InterType t)
 	return t == IT_INT8 || t == IT_INT16 || t == IT_INT32 || t == IT_BOOL || t == IT_FLOAT;
 }
 
-static InterType TypeCheckArithmecitResult(InterType t1, InterType t2)
-{
-	if (t1 == IT_FLOAT && t2 == IT_FLOAT)
-		return IT_FLOAT;
-	else if (TypeInteger(t1) && TypeInteger(t2))
-		return t1 > t2 ? t1 : t2;
-	else
-		throw InterCodeTypeMismatchException();
-}
-
-static void TypeCheckAssign(InterType& t, InterType s)
-{
-	if (s == IT_NONE)
-		throw InterCodeUninitializedException();
-	else if (t == IT_NONE)
-		t = s;
-	else if (!TypeCompatible(t, s))
-		throw InterCodeTypeMismatchException();
-}
-
-
-
 static void FilterTempUseUsage(NumberSet& requiredTemps, NumberSet& providedTemps, int temp)
 {
 	if (temp >= 0)
@@ -2674,7 +2759,7 @@ void InterInstruction::Disassemble(FILE* file)
 }
 
 InterCodeBasicBlock::InterCodeBasicBlock(void)
-	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mDominator(nullptr), 
+	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr),
 	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), mEntryBlocks(nullptr)
 {
 	mInPath = false;
@@ -2727,6 +2812,47 @@ void InterCodeBasicBlock::CollectEntryBlocks(InterCodeBasicBlock* from)
 		if (mTrueJump) mTrueJump->CollectEntryBlocks(this);
 		if (mFalseJump) mFalseJump->CollectEntryBlocks(this);
 	}
+}
+
+void InterCodeBasicBlock::BuildDominatorTree(InterCodeBasicBlock* from)
+{
+	if (!mDominator)
+		mDominator = from;
+	else if (from == mDominator)
+		return; 
+	else
+	{
+		GrowingInterCodeBasicBlockPtrArray	d1(nullptr), d2(nullptr);
+
+		InterCodeBasicBlock* b = mDominator;
+		while (b)
+		{
+			d1.Push(b);
+			b = b->mDominator;
+		}
+		b = from;
+		while (b)
+		{
+			d2.Push(b);
+			b = b->mDominator;
+		}
+
+		b = nullptr;
+		while (d1.Size() > 0 && d2.Size() > 0 && d1.Last() == d2.Last())
+		{
+			b = d1.Pop(); d2.Pop();
+		}
+
+		if (mDominator == b)
+			return;
+
+		mDominator = b;
+	}
+
+	if (mTrueJump)
+		mTrueJump->BuildDominatorTree(this);
+	if (mFalseJump)
+		mFalseJump->BuildDominatorTree(this);
 }
 
 void InterCodeBasicBlock::CollectEntries(void)
@@ -6278,16 +6404,16 @@ InterCodeBasicBlock* InterCodeBasicBlock::PropagateDominator(InterCodeProcedure*
 
 		if (mLoopHead)
 		{
-			mDominator = new InterCodeBasicBlock();
-			proc->Append(mDominator);
+			mLoopPrefix = new InterCodeBasicBlock();
+			proc->Append(mLoopPrefix);
 			InterInstruction	*	jins = new InterInstruction();
 			jins->mCode = IC_JUMP;
-			mDominator->Append(jins);
-			mDominator->Close(this, nullptr);
+			mLoopPrefix->Append(jins);
+			mLoopPrefix->Close(this, nullptr);
 		}
 	}
 
-	return mDominator ? mDominator : this;
+	return mLoopPrefix ? mLoopPrefix : this;
 }
 
 bool InterCodeBasicBlock::CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body)
@@ -6349,7 +6475,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 			
 			for (int i = 0; i < mEntryBlocks.Size(); i++)
 			{
-				if (mEntryBlocks[i] != mDominator)
+				if (mEntryBlocks[i] != mLoopPrefix)
 				{
 					if (!mEntryBlocks[i]->CollectLoopBody(this, body))
 						innerLoop = false;
@@ -6581,7 +6707,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 						InterInstruction* ins = block->mInstructions[i];
 						if (ins->mInvariant && ins->mExpensive)
 						{
-							mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ins);
+							mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 						}
 						else
 						{
@@ -6679,7 +6805,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			};
 
 			GrowingArray<Dependency>			dep(DEP_UNKNOWN);
-			GrowingArray<int>					indexStep(0), indexBase(0);
+			GrowingArray<int64>					indexStep(0), indexBase(0);
 			GrowingArray<InterInstructionPtr>	tvalues(nullptr);
 
 			for (int i = 0; i < mInstructions.Size(); i++)
@@ -6787,7 +6913,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 				InterInstruction* ins = mInstructions[i];
 				if (ins->mInvariant)
 				{
-					mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ins);
+					mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 				}
 				else if (ins->mDst.mTemp >= 0 && dep[ins->mDst.mTemp] == DEP_INDEX)
 				{
@@ -6807,7 +6933,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						bins->mDst = ins->mDst;
 						bins->mSrc[0] = ins->mSrc[0];
 						bins->mSrc[1] = ins->mSrc[1];
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, bins);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
 						InterInstruction* ains = new InterInstruction();
 						ains->mCode = IC_BINARY_OPERATOR;
@@ -6815,7 +6941,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ains->mDst = ins->mDst;
 						ains->mSrc[0] = ins->mDst;
 						ains->mSrc[1] = ins->mSrc[1]; ains->mSrc[1].mIntConst = ins->mSrc[1].mIntConst * indexBase[ins->mSrc[0].mTemp];
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ains);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ains);
 
 						ins->mOperator = IA_ADD;
 						ins->mSrc[1].mIntConst = ins->mSrc[1].mIntConst * indexStep[ins->mSrc[0].mTemp];
@@ -6834,7 +6960,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						bins->mDst = ins->mDst;
 						bins->mSrc[0] = ins->mSrc[0];
 						bins->mSrc[1] = ins->mSrc[1];
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, bins);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
 						InterInstruction* ains = new InterInstruction();
 						ains->mCode = IC_BINARY_OPERATOR;
@@ -6842,7 +6968,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
 						ains->mSrc[0] = ins->mSrc[0]; ains->mSrc[0].mIntConst = ins->mSrc[0].mIntConst * indexBase[ins->mSrc[1].mTemp];
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ains);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ains);
 
 						ins->mOperator = IA_ADD;
 						ins->mSrc[0].mIntConst = ins->mSrc[0].mIntConst * indexStep[ins->mSrc[1].mTemp];
@@ -6861,7 +6987,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						bins->mDst = ins->mDst;
 						bins->mSrc[0] = ins->mSrc[0];
 						bins->mSrc[1] = ins->mSrc[1];
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, bins);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
 						InterInstruction* ains = new InterInstruction();
 						ains->mCode = IC_BINARY_OPERATOR;
@@ -6869,7 +6995,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
 						ains->mSrc[0] = ins->mSrc[0]; ains->mSrc[0].mIntConst = indexBase[ins->mSrc[1].mTemp] << ins->mSrc[0].mIntConst;
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ains);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ains);
 
 						ins->mOperator = IA_ADD;
 						ins->mSrc[0].mIntConst = indexStep[ins->mSrc[1].mTemp] << ins->mSrc[0].mIntConst;
@@ -6882,7 +7008,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						indexStep[ins->mDst.mTemp] = indexStep[ins->mSrc[1].mTemp];
 						indexBase[ins->mDst.mTemp] = 0;
 
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ins);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 
 						InterInstruction* ains = new InterInstruction();
 						ains->mCode = IC_BINARY_OPERATOR;
@@ -6900,7 +7026,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						indexStep[ins->mDst.mTemp] = indexStep[ins->mSrc[0].mTemp];
 						indexBase[ins->mDst.mTemp] = 0;
 
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ins);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 
 						InterInstruction* ains = new InterInstruction();
 						ains->mCode = IC_BINARY_OPERATOR;
@@ -6918,7 +7044,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						indexStep[ins->mDst.mTemp] = indexStep[ins->mSrc[0].mTemp];
 						indexBase[ins->mDst.mTemp] = 0;
 
-						mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ins);
+						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 
 						InterInstruction* ains = new InterInstruction();
 						ains->mCode = IC_LEA;
@@ -6938,7 +7064,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					indexStep[ins->mDst.mTemp] = indexStep[ins->mSrc[0].mTemp];
 					indexBase[ins->mDst.mTemp] = indexBase[ins->mSrc[0].mTemp];
 
-					mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, ins);
+					mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 
 					InterInstruction* ains = new InterInstruction();
 					ains->mCode = ins->mCode;
@@ -7454,7 +7580,7 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 		mVisited = true;
 
 		const char* s = mLoopHead ? "Head" : "";
-		fprintf(file, "L%d: (%d) %s\n", mIndex, mNumEntries, s);
+		fprintf(file, "L%d: <= D%d: (%d) %s \n", mIndex, (mDominator ? mDominator->mIndex : -1), mNumEntries, s);
 
 		if (dumpSets)
 		{
@@ -7560,6 +7686,11 @@ void InterCodeProcedure::BuildTraces(bool expand)
 	for (int i = 0; i < mBlocks.Size(); i++)
 		mBlocks[i]->mNumEntries = 0;
 	mEntryBlock->CollectEntries();
+
+	ResetVisited();
+	for (int i = 0; i < mBlocks.Size(); i++)
+		mBlocks[i]->mDominator = nullptr;
+	mEntryBlock->BuildDominatorTree(nullptr);
 }
 
 void InterCodeProcedure::BuildDataFlowSets(void)
@@ -8163,6 +8294,17 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Removed unreachable branches");
 
 	BuildTraces(false);
+
+#endif
+
+#if 1
+	ResetVisited();
+	mEntryBlock->PeepholeOptimization();
+
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	DisassembleDebug("Peephole optimized");
 
 #endif
 

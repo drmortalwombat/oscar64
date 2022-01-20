@@ -9495,7 +9495,7 @@ bool NativeCodeBasicBlock::PatchGlobalAdressSumYByX(int at, int reg, const Nativ
 	yindex = 0;
 	for (int i = at; i <= last; i++)
 	{
-		mIns[i].mLive | LIVE_CPU_REG_X;
+		mIns[i].mLive |= LIVE_CPU_REG_X;
 
 		if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE)
 			yindex = mIns[i].mAddress;
@@ -9561,7 +9561,7 @@ bool NativeCodeBasicBlock::PatchDirectAddressSumY(int at, int reg, int apos, int
 
 	for (int i = apos; i <= last; i++)
 	{
-		mIns[i].mLive | LIVE_CPU_REG_Y;
+		mIns[i].mLive |= LIVE_CPU_REG_Y;
 
 		if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE)
 		{
@@ -9842,6 +9842,7 @@ bool NativeCodeBasicBlock::MoveIndirectLoadStoreDown(int at)
 			{
 				mIns[j].mMode = ASMIM_INDIRECT_Y;
 				mIns[j].mAddress = mIns[at].mAddress;
+				mIns[j].mLive |= LIVE_MEM;
 				mIns[at + 0].mType = ASMIT_NOP; mIns[at + 0].mMode = ASMIM_IMPLIED;
 				mIns[at + 1].mType = ASMIT_NOP; mIns[at + 1].mMode = ASMIM_IMPLIED;
 
@@ -12430,7 +12431,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 					if (FindAddressSumY(i, sreg, apos, breg, ireg))
 					{
 #if 1
-						if (!(breg == sreg || ireg == sreg)|| !(mIns[i + 0].mLive & LIVE_MEM))
+						if (!(breg == sreg || ireg == sreg) || !(mIns[i + 0].mLive & LIVE_MEM))
 						{
 							if (breg == sreg || ireg == sreg)
 							{

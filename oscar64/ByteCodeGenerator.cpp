@@ -4561,7 +4561,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 //			assert(!(live & LIVE_ACCU));
 
 			int	accuTemp = -1, addrTemp = -1, accuVal = 0, accuTempByte = -1;
-			bool	accuConst = false;
+			bool	accuConst = false, accuLong = false;
 
 			for (int i = 0; i < mIns.Size(); i++)
 			{
@@ -5564,7 +5564,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 						}
 						break;
 					case BC_CONST_32:
-						if (mIns[i].mValue == accuVal)
+						if (mIns[i].mValue == accuVal && accuLong)
 						{
 							mIns[i].mCode = BC_NOP;
 							progress = true;
@@ -5585,6 +5585,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 					accuTemp = -1;
 					accuTempByte = -1;
 					accuConst = false;
+					accuLong = false;
 				}
 				if (mIns[i].ChangesAddr())
 					addrTemp = -1;
@@ -5613,6 +5614,7 @@ bool ByteCodeBasicBlock::PeepHoleOptimizer(int phase)
 					case BC_CONST_32:
 						accuVal = mIns[i].mValue;
 						accuConst = true;
+						accuLong = true;
 						break;
 					case BC_CONST_8:
 						accuVal = mIns[i].mValue & 0xff;

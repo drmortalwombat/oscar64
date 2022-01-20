@@ -198,110 +198,22 @@ protected:
 	GrowingArray<Assoc>		mAssoc;
 
 public:
-	TempForwardingTable(void) : mAssoc(Assoc(-1, -1, -1))
-	{
-	}
+	TempForwardingTable(void);
+	TempForwardingTable(const TempForwardingTable& table);
 
-	TempForwardingTable(const TempForwardingTable & table) : mAssoc(Assoc(-1, -1, -1))
-	{
-		for (int i = 0; i < table.mAssoc.Size(); i++)
-		{
-			mAssoc[i].mAssoc = table.mAssoc[i].mAssoc;
-			mAssoc[i].mSucc = table.mAssoc[i].mSucc;
-			mAssoc[i].mPred = table.mAssoc[i].mPred;
-		}
-	}
+	TempForwardingTable& operator=(const TempForwardingTable& table);
 
-	TempForwardingTable& operator=(const TempForwardingTable& table)
-	{
-		mAssoc.SetSize(table.mAssoc.Size());
-		for (int i = 0; i < table.mAssoc.Size(); i++)
-		{
-			mAssoc[i].mAssoc = table.mAssoc[i].mAssoc;
-			mAssoc[i].mSucc = table.mAssoc[i].mSucc;
-			mAssoc[i].mPred = table.mAssoc[i].mPred;
-		}
+	void Intersect(const TempForwardingTable& table);
 
-		return *this;
-	}
+	void SetSize(int size);
 
-	void Intersect(const TempForwardingTable& table)
-	{
-		for (int i = 0; i < table.mAssoc.Size(); i++)
-		{
-			if (mAssoc[i].mAssoc != table.mAssoc[i].mAssoc)
-				this->Destroy(i);
-		}
-	}
+	void Reset(void);
 
-	void SetSize(int size)
-	{
-		int i;
-		mAssoc.SetSize(size);
+	int operator[](int n);
 
-		for (i = 0; i < size; i++)
-			mAssoc[i] = Assoc(i, i, i);
-	}
+	void Destroy(int n);
 
-	void Reset(void)
-	{
-		int i;
-
-		for (i = 0; i < mAssoc.Size(); i++)
-			mAssoc[i] = Assoc(i, i, i);
-	}
-
-	int operator[](int n)
-	{
-		return mAssoc[n].mAssoc;
-	}
-
-	void Destroy(int n)
-	{
-		int i, j;
-
-		if (mAssoc[n].mAssoc == n)
-		{
-			i = mAssoc[n].mSucc;
-			while (i != n)
-			{
-				j = mAssoc[i].mSucc;
-				mAssoc[i] = Assoc(i, i, i);
-				i = j;
-			}
-		}
-		else
-		{
-			mAssoc[mAssoc[n].mPred].mSucc = mAssoc[n].mSucc;
-			mAssoc[mAssoc[n].mSucc].mPred = mAssoc[n].mPred;
-		}
-
-		mAssoc[n] = Assoc(n, n, n);
-	}
-
-	void Build(int from, int to)
-	{
-		int i;
-
-		from = mAssoc[from].mAssoc;
-		to = mAssoc[to].mAssoc;
-
-		if (from != to)
-		{
-			i = mAssoc[from].mSucc;
-			while (i != from)
-			{
-				mAssoc[i].mAssoc = to;
-				i = mAssoc[i].mSucc;
-			}
-			mAssoc[from].mAssoc = to;
-
-			mAssoc[mAssoc[to].mSucc].mPred = mAssoc[from].mPred;
-			mAssoc[mAssoc[from].mPred].mSucc = mAssoc[to].mSucc;
-			mAssoc[to].mSucc = from;
-			mAssoc[from].mPred = to;
-		}
-	}
+	void Build(int from, int to);
 };
 
 class InterVariable
@@ -400,56 +312,11 @@ public:
 	void Disassemble(FILE* file);
 };
 
-
-class InterCodeException
-{
-public:
-	InterCodeException()
-	{
-	}
-};
-
-class InterCodeStackException : public InterCodeException
-{
-public:
-	InterCodeStackException()
-		: InterCodeException()
-	{
-	}
-};
-
-class InterCodeUndefinedException : public InterCodeException
-{
-public:
-	InterCodeUndefinedException()
-		: InterCodeException()
-	{
-	}
-};
-
-class InterCodeTypeMismatchException : public InterCodeException
-{
-public:
-	InterCodeTypeMismatchException()
-		: InterCodeException()
-	{
-	}
-};
-
-class InterCodeUninitializedException : public InterCodeException
-{
-public:
-	InterCodeUninitializedException()
-		: InterCodeException()
-	{
-	}
-};
-
 class InterCodeBasicBlock
 {
 public:
 	int								mIndex, mNumEntries, mNumEntered, mTraceIndex;
-	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mDominator;
+	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mLoopPrefix, * mDominator;
 	GrowingInstructionArray			mInstructions;
 
 	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable;
@@ -487,6 +354,7 @@ public:
 	void CollectEntries(void);
 	void CollectEntryBlocks(InterCodeBasicBlock* from);
 	void GenerateTraces(bool expand);
+	void BuildDominatorTree(InterCodeBasicBlock * from);
 
 	void LocalToTemp(int vindex, int temp);
 
