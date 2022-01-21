@@ -148,6 +148,8 @@ public:
 	bool Same(const IntegerValueRange& range) const;
 	bool Merge(const IntegerValueRange& range);
 
+	bool IsConstant(void) const;
+
 	void LimitMin(int64 value);
 	void LimitMax(int64 value);
 
@@ -272,6 +274,8 @@ public:
 
 	bool IsEqual(const InterInstruction* ins) const;
 	bool IsEqualSource(const InterInstruction* ins) const;
+
+	InterInstruction* Clone(void) const;
 
 	bool ReferencesTemp(int temp) const;
 	bool UsesTemp(int temp) const;
@@ -432,6 +436,7 @@ public:
 
 	void PeepholeOptimization(void);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);
+	void SingleBlockLoopUnrolling(void);
 	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
@@ -527,4 +532,7 @@ public:
 	GrowingInterCodeProcedurePtrArray	mProcedures;
 
 	GrowingVariableArray				mGlobalVars;
+
+	uint64				mCompilerOptions;
+
 };

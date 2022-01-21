@@ -72,7 +72,10 @@ w0:
 		sta $00
 		lda #$36
 		sta $01
-#else
+
+#elif defined(OSCAR_TARGET_BIN)
+
+#else		
 		byt	0x0b
 		byt 0x08
 		byt	0x0a
@@ -85,11 +88,12 @@ w0:
 		byt	0x00
 		byt	0x00
 		byt	0x00
-#endif
-// Clear BSS Segment
 
 		tsx
 		stx spentry
+
+#endif
+// Clear BSS Segment
 
 		lda #<BSSStart
 		sta ip

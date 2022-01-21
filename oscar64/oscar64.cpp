@@ -200,6 +200,11 @@ int main(int argc, const char** argv)
 			compiler->mCompilerOptions |= COPT_TARGET_CRT16;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_CRT16"), "1");
 		}
+		else if (!strcmp(targetFormat, "bin"))
+		{
+			compiler->mCompilerOptions |= COPT_TARGET_BIN;
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_BIN"), "1");
+		}
 		else
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target format option", targetFormat);
 

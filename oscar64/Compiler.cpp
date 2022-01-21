@@ -183,6 +183,7 @@ bool Compiler::GenerateCode(void)
 
 	mInterCodeGenerator->mCompilerOptions = mCompilerOptions;
 	mNativeCodeGenerator->mCompilerOptions = mCompilerOptions;
+	mInterCodeModule->mCompilerOptions = mCompilerOptions;
 
 	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue, nullptr);
 
@@ -341,7 +342,7 @@ bool Compiler::GenerateCode(void)
 
 bool Compiler::WriteOutputFile(const char* targetPath)
 {
-	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], crtPath[200], intPath[200], bcsPath[200];
+	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200];
 
 	strcpy_s(prgPath, targetPath);
 	int		i = strlen(prgPath);
@@ -352,29 +353,35 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 	strcpy_s(mapPath, prgPath);
 	strcpy_s(asmPath, prgPath);
 	strcpy_s(lblPath, prgPath);
-	strcpy_s(crtPath, prgPath);
 	strcpy_s(intPath, prgPath);
 	strcpy_s(bcsPath, prgPath);
 
-	strcat_s(prgPath, "prg");
 	strcat_s(mapPath, "map");
 	strcat_s(asmPath, "asm");
 	strcat_s(lblPath, "lbl");
-	strcat_s(crtPath, "crt");
 	strcat_s(intPath, "int");
 	strcat_s(bcsPath, "bcs");
 
 	if (mCompilerOptions & COPT_TARGET_PRG)
 	{
+		strcat_s(prgPath, "prg");
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("Writing <%s>\n", prgPath);
 		mLinker->WritePrgFile(prgPath);
 	}
 	else if (mCompilerOptions & COPT_TARGET_CRT16)
 	{
+		strcat_s(prgPath, "crt");
 		if (mCompilerOptions & COPT_VERBOSE)
-			printf("Writing <%s>\n", crtPath);
-		mLinker->WriteCrtFile(crtPath);
+			printf("Writing <%s>\n", prgPath);
+		mLinker->WriteCrtFile(prgPath);
+	}
+	else if (mCompilerOptions & COPT_TARGET_BIN)
+	{
+		strcat_s(prgPath, "bin");
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Writing <%s>\n", prgPath);
+		mLinker->WriteBinFile(prgPath);
 	}
 
 

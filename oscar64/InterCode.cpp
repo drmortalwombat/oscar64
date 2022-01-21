@@ -1,6 +1,6 @@
 #include "InterCode.h"
+#include "CompilerTypes.h"
 
-#include "InterCode.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -78,6 +78,10 @@ void IntegerValueRange::LimitMaxWeak(int64 value)
 	}
 }
 
+bool IntegerValueRange::IsConstant(void) const
+{
+	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue == mMaxValue;
+}
 
 bool IntegerValueRange::Merge(const IntegerValueRange& range)
 {
@@ -527,10 +531,21 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains)
 {
 	const uint8* data;
 
-	if (ains)		
-		data = ains->mConst.mLinkerObject->mData + ains->mConst.mIntConst;
+	LinkerObject	*	lobj;
+	int					offset;
+
+	if (ains)
+	{
+		lobj = ains->mConst.mLinkerObject;
+		offset = ains->mConst.mIntConst;
+	}
 	else
-		data = ins->mSrc[0].mLinkerObject->mData + ins->mSrc[0].mIntConst;
+	{
+		lobj = ins->mSrc[0].mLinkerObject;
+		offset = ins->mSrc[0].mIntConst;
+	}
+	
+	data = lobj->mData + offset;
 
 	switch (ins->mDst.mType)
 	{
@@ -540,16 +555,35 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains)
 		ins->mConst.mIntConst = data[0];
 		break;
 	case IT_INT16:
-	case IT_POINTER:
-		ins->mConst.mIntConst = data[0] | (data[1] << 8);
+		ins->mConst.mIntConst = (int)data[0] | ((int)data[1] << 8);
 		break;
+	case IT_POINTER:
+	{
+		int i = 0;
+		while (i < lobj->mReferences.Size() && lobj->mReferences[i]->mOffset != offset)
+			i++;
+		if (i < lobj->mReferences.Size())
+		{
+			ins->mConst.mLinkerObject = lobj->mReferences[i]->mRefObject;
+			ins->mConst.mIntConst = lobj->mReferences[i]->mRefOffset;
+			ins->mConst.mMemory = IM_GLOBAL;
+			ins->mConst.mOperandSize = ins->mConst.mLinkerObject->mSize;
+			ins->mConst.mVarIndex = -1;
+		}
+		else
+		{
+			ins->mConst.mIntConst = (int)data[0] | ((int)data[1] << 8);
+			ins->mConst.mMemory = IM_ABSOLUTE;
+		}
+
+	} break;
 	case IT_INT32:
-		ins->mConst.mIntConst = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+		ins->mConst.mIntConst = (int)data[0] | ((int)data[1] << 8) | ((int)data[2] << 16) | ((int)data[3] << 24);
 		break;
 	case IT_FLOAT:
 	{
 		union { float f; unsigned int v; } cc;
-		cc.v = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+		cc.v = (int)data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
 		ins->mConst.mFloatConst = cc.v;
 	} break;
 	}
@@ -740,6 +774,13 @@ bool InterInstruction::ReferencesTemp(int temp) const
 		if (mSrc[i].mTemp == temp)
 			return true;
 	return false;
+}
+
+InterInstruction* InterInstruction::Clone(void) const
+{
+	InterInstruction* ins = new InterInstruction();
+	*ins = *this;
+	return ins;
 }
 
 bool InterInstruction::IsEqual(const InterInstruction* ins) const
@@ -2043,6 +2084,15 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			InterInstruction* ains = ctemps[mSrc[0].mTemp];
 			mSrc[0] = ains->mConst;
 			mSrc[0].mType = ains->mDst.mType;
+
+			this->ConstantFolding();
+			return true;
+		}
+		else if (mSrc[0].mTemp < 0 && mSrc[1].mTemp >= 0 && ctemps[mSrc[1].mTemp])
+		{
+			InterInstruction* ains = ctemps[mSrc[1].mTemp];
+			mSrc[1] = ains->mConst;
+			mSrc[1].mType = IT_POINTER;
 
 			this->ConstantFolding();
 			return true;
@@ -6774,6 +6824,77 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 	}
 }
 
+void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mNumEntries == 2 && mTrueJump == this)
+		{
+			int	nins = mInstructions.Size();
+
+			if (nins > 3 && nins < 20)
+			{
+				if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
+					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[nins - 2]->mOperator == IA_CMPLU && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+					mInstructions[nins - 2]->mSrc[0].mTemp < 0 &&
+					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
+				{
+					int	ireg = mInstructions[nins - 3]->mDst.mTemp;
+
+					if (ireg == mInstructions[nins - 3]->mSrc[0].mTemp && mInstructions[nins - 3]->mSrc[1].mTemp < 0 ||
+						ireg == mInstructions[nins - 3]->mSrc[1].mTemp && mInstructions[nins - 3]->mSrc[0].mTemp < 0)
+					{
+
+						int	i = 0;
+						while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ireg)
+							i++;
+						if (i == nins - 3)
+						{
+							if (mDominator->mTrueValueRange[ireg].IsConstant())
+							{
+								int	start = mDominator->mTrueValueRange[ireg].mMinValue;
+								int	end = mInstructions[nins - 2]->mSrc[0].mIntConst;
+								int	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
+								int	count = (end - start) / step;
+
+								if (count < 5 && (nins - 3) * count < 20)
+								{
+									mInstructions.SetSize(nins - 2);
+									nins -= 2;
+									for (int i = 1; i < count; i++)
+									{
+										for (int j = 0; j < nins; j++)
+										{
+											mInstructions.Push(mInstructions[j]->Clone());
+										}
+									}
+
+									mNumEntries--;
+									mLoopHead = false;
+									mTrueJump = mFalseJump;
+									mFalseJump = nullptr;
+
+									InterInstruction* jins = new InterInstruction();
+									jins->mCode = IC_JUMP;
+									mInstructions.Push(jins);
+								}
+							}
+						}
+					}
+				}					
+			}
+		}
+
+		if (mTrueJump)
+			mTrueJump->SingleBlockLoopUnrolling();
+		if (mFalseJump)
+			mFalseJump->SingleBlockLoopUnrolling();
+	}
+}
+
+
 void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedParams)
 {
 	if (!mVisited)
@@ -8320,6 +8441,15 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Simplified range limited relational ops");
 #endif
 
+#if 1
+	if (mModule->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
+	{
+		ResetVisited();
+		mEntryBlock->SingleBlockLoopUnrolling();
+
+		DisassembleDebug("Single Block loop unrolling");
+	}
+#endif
 
 #if 1
 	ResetVisited();
@@ -8737,7 +8867,7 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 }
 
 InterCodeModule::InterCodeModule(void)
-	: mGlobalVars(nullptr), mProcedures(nullptr)
+	: mGlobalVars(nullptr), mProcedures(nullptr), mCompilerOptions(0)
 {
 }
 

@@ -272,8 +272,8 @@ void Linker::Link(void)
 			}
 		}
 
-		mProgramStart = 0x0801;
-		mProgramEnd = 0x0801;
+		mProgramStart = 0xffff;
+		mProgramEnd = 0x0000;
 
 		int	address = 0;
 
@@ -282,8 +282,13 @@ void Linker::Link(void)
 			LinkerRegion* lrgn = mRegions[i];
 			address = lrgn->mStart + lrgn->mNonzero;
 
-			if (lrgn->mNonzero && address > mProgramEnd)
-				mProgramEnd = address;
+			if (lrgn->mNonzero)
+			{
+				if (lrgn->mStart < mProgramStart)
+					mProgramStart = lrgn->mStart;
+				if (address > mProgramEnd)
+					mProgramEnd = address;
+			}
 		}
 
 		// Place stack segment
@@ -392,6 +397,20 @@ static const char* LinkerSectionTypeNames[] = {
 	"HEAP",
 	"STACK"
 };
+
+bool Linker::WriteBinFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		int	done = fwrite(mMemory + mProgramStart, 1, mProgramEnd - mProgramStart, file);
+		fclose(file);
+		return done == mProgramEnd - mProgramStart;
+	}
+	else
+		return false;
+}
 
 bool Linker::WritePrgFile(const char* filename)
 {
