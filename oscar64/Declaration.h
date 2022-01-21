@@ -105,6 +105,7 @@ enum ExpressionType
 	EX_CONSTANT,
 	EX_VARIABLE,
 	EX_ASSIGNMENT,
+	EX_INITIALIZATION,
 	EX_BINARY,
 	EX_RELATIONAL,
 	EX_PREINCDEC,
@@ -187,6 +188,8 @@ public:
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;
 	bool IsSimpleType(void) const;
+
+	Declaration* ToConstType(void);
 };
 
 void InitDeclarations(void);

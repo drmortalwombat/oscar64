@@ -279,6 +279,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 			}
 		}
 		return exp->mDecValue;
+	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
 		ldec = Analyze(exp->mLeft, procDec);
 		rdec = Analyze(exp->mRight, procDec);

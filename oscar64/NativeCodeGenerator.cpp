@@ -2628,18 +2628,25 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			block->PutByte(mParam);
 		}
 
-		if (mMode == ASMIM_IMMEDIATE_ADDRESS)
+		AsmInsMode	mode = mMode;
+
+		if (mode == ASMIM_ABSOLUTE && !mLinkerObject && mAddress < 256 && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE))
+			mode = ASMIM_ZERO_PAGE;
+		else if (mode == ASMIM_ABSOLUTE_X && !mLinkerObject && mAddress < 256 && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_X))
+			mode = ASMIM_ZERO_PAGE_X;
+
+		if (mode == ASMIM_IMMEDIATE_ADDRESS)
 		{
 			assert(HasAsmInstructionMode(mType, ASMIM_IMMEDIATE));
 			block->PutByte(AsmInsOpcodes[mType][ASMIM_IMMEDIATE]);
 		}
 		else
 		{
-			assert(HasAsmInstructionMode(mType, mMode));
-			block->PutByte(AsmInsOpcodes[mType][mMode]);
+			assert(HasAsmInstructionMode(mType, mode));
+			block->PutByte(AsmInsOpcodes[mType][mode]);
 		}
 
-		switch (mMode)
+		switch (mode)
 		{
 		case ASMIM_IMPLIED:
 			break;
@@ -12802,20 +12809,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
+#if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_TXA &&
 						mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
 					{
 						mIns[i + 1].mType = ASMIT_CPX;
-						mIns[i + 0].mLive |= CPU_REG_X;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
 						progress = true;
 					}
+#endif
 					else if (
 						mIns[i + 0].mType == ASMIT_TYA &&
 						mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
 					{
 						mIns[i + 1].mType = ASMIT_CPY;
-						mIns[i + 0].mLive |= CPU_REG_Y;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
 						progress = true;
 					}
 					else if (

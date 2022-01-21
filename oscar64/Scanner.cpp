@@ -123,6 +123,7 @@ const char* TokenNames[] =
 	"embedded",
 
 	"'#define'",
+	"'#undef'",
 	"'#include'",
 	"'#if'",
 	"'#elif'",
@@ -238,6 +239,26 @@ void MacroDict::Insert(Macro * macro)
 				Insert(entries[i]);
 		}
 		delete[] entries;
+	}
+}
+
+void MacroDict::Remove(const Ident* ident)
+{
+	if (mHashSize > 0)
+	{
+		int		hm = mHashSize - 1;
+		int		hi = ident->mHash & hm;
+
+		while (mHash[hi])
+		{
+			if (ident == mHash[hi]->mIdent)
+			{
+				mHash[hi]->mIdent = nullptr;
+				return;
+			}
+
+			hi = (hi + 1) & hm;
+		}
 	}
 }
 
@@ -511,6 +532,15 @@ void Scanner::NextToken(void)
 				mDefines->Insert(macro);
 				mOffset += slen;
 			}
+		}
+		else if (mToken == TK_PREP_UNDEF)
+		{
+			NextRawToken();
+			if (mToken == TK_IDENT)
+			{
+				mDefines->Remove(mTokenIdent);
+			}
+
 		}
 		else if (mToken == TK_PREP_IFDEF)
 		{
@@ -1045,6 +1075,8 @@ void Scanner::NextRawToken(void)
 
 				if (!strcmp(tkprep, "define"))
 					mToken = TK_PREP_DEFINE;
+				else if (!strcmp(tkprep, "undef"))
+					mToken = TK_PREP_UNDEF;
 				else if (!strcmp(tkprep, "include"))
 					mToken = TK_PREP_INCLUDE;
 				else if (!strcmp(tkprep, "if"))

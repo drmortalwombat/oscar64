@@ -235,6 +235,16 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 				ndec->mBase = dec->mBase;
 				dec = ndec;
 			}
+			else if (dec->mType == DT_TYPE_STRUCT && (flags & ~dec->mFlags))
+			{
+				Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
+				ndec->mFlags = dec->mFlags | flags;
+				ndec->mSize = dec->mSize;
+				ndec->mBase = dec->mBase;
+				ndec->mScope = dec->mScope;
+				ndec->mParams = dec->mParams;
+				dec = ndec;
+			}
 			mScanner->NextToken();
 		}
 		else if (!dec)
@@ -345,6 +355,12 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 		dec->mFlags |= DTF_DEFINED;
 	}
 
+	if (mScanner->mToken == TK_CONST)
+	{
+		dec = dec->ToConstType();
+		mScanner->NextToken();
+	}
+
 	return dec;
 
 }
@@ -356,11 +372,18 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 	if (mScanner->mToken == TK_MUL)
 	{
 		mScanner->NextToken();
-		Declaration* dec = ParsePostfixDeclaration();
+
 		Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
-		ndec->mBase = dec;
 		ndec->mSize = 2;
 		ndec->mFlags |= DTF_DEFINED;
+		if (mScanner->mToken == TK_CONST)
+		{
+			ndec->mFlags |= DTF_CONST;
+			mScanner->NextToken();
+		}
+
+		Declaration* dec = ParsePostfixDeclaration();
+		ndec->mBase = dec;
 		return ndec;
 	}
 	else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
@@ -648,6 +671,23 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 				Declaration* mdec = dtype->mParams;
 				while (mdec)
 				{
+					if (ConsumeTokenIf(TK_DOT))
+					{
+						if (mScanner->mToken == TK_IDENT)
+						{
+							Declaration* ndec = dtype->mScope->Lookup(mScanner->mTokenIdent);
+							if (ndec)
+								mdec = ndec;
+							else
+								mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Struct member not found");
+
+							mScanner->NextToken();
+							ConsumeToken(TK_ASSIGN);
+						}
+						else
+							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Identifier expected");
+					}
+
 					Expression* texp = ParseInitExpression(mdec->mBase);
 
 					Declaration* cdec = CopyConstantInitializer(mdec->mOffset, mdec->mBase, texp);
@@ -907,11 +947,32 @@ Declaration* Parser::ParseDeclaration(bool variable)
 
 							ndec = pdec;
 						}
-						else if ((ndec->mFlags & DTF_EXTERN) || (pdec->mFlags & DTF_EXTERN))
+						else if (ndec->mFlags & DTF_EXTERN)
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
 							{
-								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs");
+								if (ndec->mBase->mType == DT_TYPE_ARRAY && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase) && ndec->mBase->mSize == 0)
+									;
+								else if (ndec->mBase->mType == DT_TYPE_POINTER && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase))
+									;
+								else
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs");
+							}
+
+							ndec = pdec;
+						}
+						else if (pdec->mFlags & DTF_EXTERN)
+						{
+							if (!ndec->mBase->IsSame(pdec->mBase))
+							{
+								if (ndec->mBase->mType == DT_TYPE_ARRAY && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase) && pdec->mBase->mSize == 0)
+									pdec->mBase->mSize = ndec->mBase->mSize;
+								else if (pdec->mBase->mType == DT_TYPE_POINTER && ndec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase))
+								{
+									pdec->mBase = ndec->mBase;
+								}
+								else
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs");
 							}
 
 							if (!(ndec->mFlags & DTF_EXTERN))
@@ -991,9 +1052,9 @@ Expression* Parser::ParseDeclarationExpression(void)
 	{
 		while (dec)
 		{
-			if (dec->mValue)
+			if (dec->mValue && !(dec->mFlags & DTF_GLOBAL))
 			{
-				Expression* nexp = new Expression(dec->mValue->mLocation, EX_ASSIGNMENT);
+				Expression* nexp = new Expression(dec->mValue->mLocation, EX_INITIALIZATION);
 				nexp->mToken = TK_ASSIGN;
 				nexp->mLeft = new Expression(dec->mLocation, EX_VARIABLE);
 				nexp->mLeft->mDecValue = dec;
@@ -1125,7 +1186,7 @@ Expression* Parser::ParseSimpleExpression(void)
 		dec->mBase->mSize = dec->mSize;
 		dec->mBase->mBase = TheConstCharTypeDeclaration;
 		dec->mBase->mFlags |= DTF_DEFINED;
-		uint8* d = new uint8[dec->mSize];
+		uint8* d = new uint8[dec->mSize + 1];
 		dec->mData = d;
 
 		int i = 0;

@@ -121,6 +121,7 @@ enum Token
 	TK_EMBEDDED,
 
 	TK_PREP_DEFINE,
+	TK_PREP_UNDEF,
 	TK_PREP_INCLUDE,
 	TK_PREP_IF,
 	TK_PREP_ELIF,
@@ -165,6 +166,7 @@ public:
 	~MacroDict(void);
 
 	void Insert(Macro * macro);
+	void Remove(const Ident* ident);
 	Macro* Lookup(const Ident* ident);
 
 protected:

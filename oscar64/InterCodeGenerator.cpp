@@ -940,6 +940,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 
 		case EX_ASSIGNMENT:
+		case EX_INITIALIZATION:
 			{
 			if (exp->mLeft->mDecType && exp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
 			{
@@ -958,7 +959,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 			} 
 
-			if (vl.mType->mFlags & DTF_CONST)
+			if (exp->mType != EX_INITIALIZATION && (vl.mType->mFlags & DTF_CONST))
 				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot assign to const type");
 
 			if (vl.mType->mType == DT_TYPE_STRUCT || vl.mType->mType == DT_TYPE_ARRAY || vl.mType->mType == DT_TYPE_UNION)

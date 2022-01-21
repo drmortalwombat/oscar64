@@ -776,7 +776,7 @@ void mat4_mmul(Matrix4 * md, const Matrix4 * ms)
 		for(char j=0; j<4; j++)
 			ma[j] = md->m[i + 0] * ms->m[4 * j] + md->m[i + 4] * ms->m[4 * j + 1] + md->m[i + 8] * ms->m[4 * j + 2] + md->m[i + 12] * ms->m[4 * j + 3];
 		for(char j=0; j<4; j++)
-			md->m[(char)(i + 4 * j)] = ma[j]; 
+			md->m[i + 4 * j] = ma[j]; 
 	}
 }
 
