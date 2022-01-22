@@ -8829,6 +8829,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
+#if 0
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
@@ -8863,6 +8864,7 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 
 		fclose(file);
 	}
+#endif
 #endif
 }
 

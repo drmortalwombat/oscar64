@@ -23,6 +23,7 @@ protected:
 
 	char			mCharMap[256];
 
+	uint8* ParseStringLiteral(int msize);
 
 	void ParsePragma(void);
 

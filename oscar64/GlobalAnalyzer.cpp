@@ -163,7 +163,8 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 			dec->mFlags |= DTF_FUNC_CONSTEXPR;
 		else if (dec->mFlags & DTF_DEFINED)
 		{
-			dec->mFlags |= DTF_FUNC_CONSTEXPR;
+			if (mCompilerOptions & COPT_OPTIMIZE_CONST_EXPRESSIONS)
+				dec->mFlags |= DTF_FUNC_CONSTEXPR;
 			Analyze(exp, dec);
 		}
 		else
@@ -305,7 +306,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 				ldec->mFlags |= DTF_VAR_ALIASING;
 		} 
 		else if (exp->mToken == TK_MUL)
+		{
+			procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 			return exp->mDecType;
+		}
 		break;
 	case EX_POSTFIX:
 		break;

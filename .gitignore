@@ -342,3 +342,4 @@ ASALocalRun/
 make/oscar64
 *.int
 *.bcs
+*.crt

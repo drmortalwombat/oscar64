@@ -615,6 +615,62 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 	return dec;
 }
 
+uint8* Parser::ParseStringLiteral(int msize)
+{
+	int	size = strlen(mScanner->mTokenString);
+	if (size + 1 > msize)
+		msize = size + 1;
+	uint8* d = new uint8[msize];
+
+	int i = 0;
+	while (mScanner->mTokenString[i])
+	{
+		d[i] = mCharMap[mScanner->mTokenString[i]];
+		i++;
+	}
+
+	mScanner->NextToken();
+
+	while (mScanner->mToken == TK_PREP_PRAGMA)
+	{
+		mScanner->NextToken();
+		ParsePragma();
+	}
+
+	// automatic string concatenation
+	while (mScanner->mToken == TK_STRING)
+	{
+		int	s = strlen(mScanner->mTokenString);
+
+		if (size + s + 1 > msize)
+			msize = size + s + 1;
+
+		uint8* nd = new uint8[msize];
+		memcpy(nd, d, size);
+		int i = 0;
+		while (mScanner->mTokenString[i])
+		{
+			nd[i + size] = mCharMap[mScanner->mTokenString[i]];
+			i++;
+		}
+		size += s;
+		delete[] d;
+		d = nd;
+		mScanner->NextToken();
+
+		while (mScanner->mToken == TK_PREP_PRAGMA)
+		{
+			mScanner->NextToken();
+			ParsePragma();
+		}
+	}
+
+	while (size < msize)
+		d[size++] = 0;
+
+	return d;
+}
+
 Expression* Parser::ParseInitExpression(Declaration* dtype)
 {
 	Expression* exp = nullptr;
@@ -713,10 +769,13 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 		}
 		else if (mScanner->mToken == TK_STRING && dtype->mType == DT_TYPE_ARRAY && dtype->mBase->mType == DT_TYPE_INTEGER && dtype->mBase->mSize == 1)
 		{
+			uint8* d = ParseStringLiteral(dtype->mSize);
+			int		ds = strlen((char *)d);
+
 			if (!(dtype->mFlags & DTF_DEFINED))
 			{
 				dtype->mFlags |= DTF_DEFINED;
-				dtype->mSize = strlen(mScanner->mTokenString) + 1;
+				dtype->mSize = ds + 1;
 			}
 
 			dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);
@@ -724,24 +783,10 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			dec->mSize = dtype->mSize;
 			dec->mSection = mDataSection;
 
-			uint8* d = new uint8[dtype->mSize];
 			dec->mData = d;
 
-			if (strlen(mScanner->mTokenString) < dtype->mSize)
-			{
-				int i = 0;
-				while (i < dec->mSize && mScanner->mTokenString[i])
-				{
-					d[i] = mCharMap[mScanner->mTokenString[i]];
-					i++;
-				}
-				if (i < dec->mSize)
-					d[i] = 0;
-			}
-			else
+			if (ds > dtype->mSize)
 				mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "String constant is too large for char array");
-
-			mScanner->NextToken();
 		}
 		else
 		{
