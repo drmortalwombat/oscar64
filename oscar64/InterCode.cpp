@@ -6901,7 +6901,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 	{
 		mVisited = true;
 
-		if (mLoopHead && mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
+		if (mLoopHead && mNumEntries == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this))
 		{
 			bool	hasCall = false;
 			for (int i = 0; i < mInstructions.Size(); i++)

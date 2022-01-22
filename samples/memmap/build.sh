@@ -4,3 +4,4 @@
 ../../bin/oscar64 charsetlo.c
 ../../bin/oscar64 charsethi.c
 ../../bin/oscar64 charsetcopy.c
+../../bin/oscar64 easyflash.c -n -tf=crt

@@ -41,6 +41,7 @@ bool cwin_cursor_up(CharWin * win);
 bool cwin_cursor_down(CharWin * win);
 bool cwin_cursor_forward(CharWin * win);
 bool cwin_cursor_backward(CharWin * win);
+bool cwin_cursor_newline(CharWin * win);
 
 // Read the full window into a string
 //
@@ -61,7 +62,6 @@ void cwin_put_chars(CharWin * win, const char * chars, char num, char color);
 // Put a zero terminated string at the cursor location and advance the cursor
 //
 char cwin_put_string(CharWin * win, const char * str, char color);
-
 
 // Put a single raw char at the cursor location and advance the cursor
 //

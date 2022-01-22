@@ -3,3 +3,4 @@ call ..\..\bin\oscar64 allmem.c
 call ..\..\bin\oscar64 charsetlo.c
 call ..\..\bin\oscar64 charsethi.c
 call ..\..\bin\oscar64 charsetcopy.c
+call ..\..\bin\oscar64 easyflash.c -n -tf=crt

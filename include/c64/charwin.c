@@ -135,6 +135,18 @@ bool cwin_cursor_down(CharWin * win)
 	return false;
 }
 
+bool cwin_cursor_newline(CharWin * win)
+{
+	win->cx = 0;
+	if (win->cy + 1 < win->wy)
+	{		
+		win->cy++;
+		return true;
+	}
+
+	return false;	
+}
+
 bool cwin_cursor_forward(CharWin * win)
 {
 	if (win->cx + 1 < win->wx)
