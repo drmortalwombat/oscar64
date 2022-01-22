@@ -90,7 +90,7 @@ struct SID
 #define NOTE_CS(o)		(17740U >> (10 - (o)))
 #define NOTE_D(o)		(18794U >> (10 - (o)))
 #define NOTE_DS(o)		(19912U >> (10 - (o)))
-#define NOTE_E(o)		(21906U >> (10 - (o)))
+#define NOTE_E(o)		(21096U >> (10 - (o)))
 #define NOTE_F(o)		(22351U >> (10 - (o)))
 #define NOTE_FS(o)		(23680U >> (10 - (o)))
 #define NOTE_G(o)		(25087U >> (10 - (o)))
