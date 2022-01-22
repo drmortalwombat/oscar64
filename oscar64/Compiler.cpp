@@ -177,15 +177,30 @@ bool Compiler::GenerateCode(void)
 	mGlobalAnalyzer->mCompilerOptions = mCompilerOptions;
 
 	mGlobalAnalyzer->AnalyzeAssembler(dcrtstart->mValue, nullptr);
-//	mGlobalAnalyzer->DumpCallGraph();
+
+	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
+	{
+		Declaration* dec = mCompilationUnits->mReferenced[i];
+		if (dec->mType == DT_CONST_FUNCTION)
+			mGlobalAnalyzer->AnalyzeProcedure(dec->mValue, dec);
+		else
+			mGlobalAnalyzer->AnalyzeGlobalVariable(dec);
+	}
 	mGlobalAnalyzer->AutoInline();
-//	mGlobalAnalyzer->DumpCallGraph();
 
 	mInterCodeGenerator->mCompilerOptions = mCompilerOptions;
 	mNativeCodeGenerator->mCompilerOptions = mCompilerOptions;
 	mInterCodeModule->mCompilerOptions = mCompilerOptions;
 
 	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue, nullptr);
+	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
+	{
+		Declaration* dec = mCompilationUnits->mReferenced[i];
+		if (dec->mType == DT_CONST_FUNCTION)
+			mInterCodeGenerator->TranslateProcedure(mInterCodeModule, dec->mValue, dec);
+		else
+			mInterCodeGenerator->InitGlobalVariable(mInterCodeModule, dec);
+	}
 
 	if (mErrors->mErrorCount != 0)
 		return false;
@@ -334,6 +349,9 @@ bool Compiler::GenerateCode(void)
 
 	if (!(mCompilerOptions & COPT_NATIVE))
 		mLinker->ReferenceObject(byteCodeObject);
+
+	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
+		mLinker->ReferenceObject(mCompilationUnits->mReferenced[i]->mLinkerObject);
 
 	mLinker->Link();
 

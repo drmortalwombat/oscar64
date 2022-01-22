@@ -24,6 +24,7 @@ public:
 
 	Declaration* mStartup;
 	Declaration* mByteCodes[256];
+	GrowingArray<Declaration*>	mReferenced;
 
 	DeclarationScope* mRuntimeScope;
 
@@ -32,6 +33,9 @@ public:
 
 	bool AddUnit(Location & location, const char* name, const char * from);
 	CompilationUnit* PendingUnit(void);
+
+	void AddReferenced(Declaration* ref);
+
 protected:
 	Errors* mErrors;
 };

@@ -64,6 +64,7 @@ LinkerRegion* Linker::AddRegion(const Ident* region, int start, int end)
 	LinkerRegion* lrgn = new LinkerRegion();
 	lrgn->mIdent = region;
 	lrgn->mStart = start;
+	lrgn->mReloc = 0;
 	lrgn->mEnd = end;
 	lrgn->mUsed = 0;
 	lrgn->mNonzero = 0;
@@ -188,6 +189,7 @@ bool LinkerRegion::Allocate(LinkerObject* lobj)
 		{
 			lobj->mFlags |= LOBJF_PLACED;
 			lobj->mAddress = start;
+			lobj->mRefAddress = start + mReloc;
 			lobj->mRegion = this;
 
 			if (start == mFreeChunks[i].mStart)
@@ -219,6 +221,7 @@ bool LinkerRegion::Allocate(LinkerObject* lobj)
 	{
 		lobj->mFlags |= LOBJF_PLACED;
 		lobj->mAddress = start;
+		lobj->mRefAddress = start + mReloc;
 		lobj->mRegion = this;
 #if 1
 		if (start != mStart + mUsed)
@@ -330,12 +333,20 @@ void Linker::Link(void)
 		{
 			LinkerObject* obj = mObjects[i];
 			if (obj->mType == LOT_SECTION_START)
+			{
 				obj->mAddress = obj->mSection->mStart;
+				obj->mRefAddress = obj->mAddress + obj->mRegion->mReloc;
+			}
 			else if (obj->mType == LOT_SECTION_END)
+			{
 				obj->mAddress = obj->mSection->mEnd;
+				obj->mRefAddress = obj->mAddress + obj->mRegion->mReloc;
+			}
 			else if (obj->mFlags & LOBJF_REFERENCED)
 			{
-				if (obj->mRegion->mCartridge >= 0)
+				if (!obj->mRegion)
+					mErrors->Error(obj->mLocation, ERRR_INSUFFICIENT_MEMORY, "Could not place object", obj->mIdent->mString);
+				else if (obj->mRegion->mCartridge >= 0)
 				{
 					mCartridgeBankUsed[obj->mRegion->mCartridge] = true;
 					memcpy(mCartridge[obj->mRegion->mCartridge] + obj->mAddress - obj->mRegion->mStart, obj->mData, obj->mSize);
@@ -353,22 +364,25 @@ void Linker::Link(void)
 			LinkerObject* obj = ref->mObject;
 			if (obj->mFlags & LOBJF_REFERENCED)
 			{
-				LinkerObject* robj = ref->mRefObject;
+				if (obj->mRegion)
+				{
+					LinkerObject* robj = ref->mRefObject;
 
-				int			raddr = robj->mAddress + ref->mRefOffset;
-				uint8* dp;
-				
-				if (obj->mRegion->mCartridge < 0)
-					dp = mMemory + obj->mAddress + ref->mOffset;
-				else
-					dp = mCartridge[obj->mRegion->mCartridge] + obj->mAddress - obj->mRegion->mStart + ref->mOffset;
+					int			raddr = robj->mRefAddress + ref->mRefOffset;
+					uint8* dp;
 
-				if (ref->mFlags & LREF_LOWBYTE)
-					*dp++ = raddr & 0xff;
-				if (ref->mFlags & LREF_HIGHBYTE)
-					*dp++ = (raddr >> 8) & 0xff;
-				if (ref->mFlags & LREF_TEMPORARY)
-					*dp += obj->mTemporaries[ref->mRefOffset];
+					if (obj->mRegion->mCartridge < 0)
+						dp = mMemory + obj->mAddress + ref->mOffset;
+					else
+						dp = mCartridge[obj->mRegion->mCartridge] + obj->mAddress - obj->mRegion->mStart + ref->mOffset;
+
+					if (ref->mFlags & LREF_LOWBYTE)
+						*dp++ = raddr & 0xff;
+					if (ref->mFlags & LREF_HIGHBYTE)
+						*dp++ = (raddr >> 8) & 0xff;
+					if (ref->mFlags & LREF_TEMPORARY)
+						*dp += obj->mTemporaries[ref->mRefOffset];
+				}
 			}
 		}
 	}

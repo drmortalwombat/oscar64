@@ -201,7 +201,14 @@ Expression* Expression::ConstantFold(Errors * errors)
 			}
 
 			}
-
+		}
+		else if (mLeft->mDecValue->mType == DT_CONST_FUNCTION)
+		{
+			switch (mToken)
+			{
+			case TK_BINARY_AND:
+				return mLeft;
+			}
 		}
 	}
 	else if (mType == EX_TYPECAST && mRight->mType == EX_CONSTANT)

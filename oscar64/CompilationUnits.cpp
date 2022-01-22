@@ -8,7 +8,7 @@
 #include <string.h>
 
 CompilationUnits::CompilationUnits(Errors * errors)
-	: mErrors(errors)
+	: mErrors(errors), mReferenced(nullptr)
 {
 	mCompilationUnits = nullptr; 
 	mPendingUnits = nullptr;
@@ -23,6 +23,11 @@ CompilationUnits::CompilationUnits(Errors * errors)
 CompilationUnits::~CompilationUnits(void)
 {
 
+}
+
+void CompilationUnits::AddReferenced(Declaration* ref)
+{
+	mReferenced.Push(ref);
 }
 
 bool CompilationUnits::AddUnit(Location& location, const char* name, const char* from)

@@ -42,7 +42,7 @@ public:
 	const Ident* mIdent;
 
 	uint32	mFlags;
-	int		mStart, mEnd, mUsed, mNonzero;
+	int		mStart, mEnd, mUsed, mNonzero, mReloc;
 	int		mCartridge;
 
 	GrowingArray<LinkerSection*>	mSections;
@@ -101,7 +101,7 @@ public:
 	const Ident		*	mIdent;
 	LinkerObjectType	mType;
 	int					mID;
-	int					mAddress;
+	int					mAddress, mRefAddress;
 	int					mSize, mAlignment;
 	LinkerSection	*	mSection;
 	LinkerRegion	*	mRegion;

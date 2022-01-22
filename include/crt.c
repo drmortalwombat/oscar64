@@ -23,17 +23,6 @@ char spentry = 0;
 
 int main(void);
 
-__asm inp_exit
-{
-		lda	#$4c
-		sta	$54
-		lda #0
-		sta $13
-		lda #$19
-		sta $16
-		rts
-}
-
 
 __asm startup
 {
@@ -139,7 +128,6 @@ tyexec:
 yexec:
 zexec:
 exec:
-		jmp	inp_exit
 
 #else
 
@@ -178,6 +166,15 @@ bcode:
 		byt	>main
 		byt	BC_EXIT * 2
 #endif
+
+spexit:
+		lda	#$4c
+		sta	$54
+		lda #0
+		sta $13
+		lda #$19
+		sta $16
+		rts
 }
 
 #pragma startup(startup)
@@ -689,7 +686,7 @@ __asm inp_nop
 
 #pragma	bytecode(BC_NOP, inp_nop)
 
-#pragma	bytecode(BC_EXIT, inp_exit)
+#pragma	bytecode(BC_EXIT, startup.spexit)
 
 __asm inp_jsr
 {
