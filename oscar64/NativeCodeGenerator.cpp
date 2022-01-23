@@ -2025,8 +2025,17 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			else if (data.mRegs[mAddress].SameData(data.mRegs[CPU_REG_A]))
 			{
-				mType = ASMIT_NOP;
-				mMode = ASMIM_IMPLIED;
+				if (mLive & LIVE_CPU_REG_Z)
+				{
+					mType = ASMIT_ORA;
+					mMode = ASMIM_IMMEDIATE;
+					mAddress = 0;
+				}
+				else
+				{
+					mType = ASMIT_NOP;
+					mMode = ASMIM_IMPLIED;
+				}
 				changed = true;
 			}
 			else if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE)

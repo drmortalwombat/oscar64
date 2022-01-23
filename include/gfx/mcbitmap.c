@@ -456,7 +456,7 @@ static void mbuildline(char ly, char lx, int dx, int dy, int stride, bool left, 
 	ip += asm_np(BLIT_CODE + ip, ASM_RTS);
 }
 
-#pragma native(buildline)
+#pragma native(mbuildline)
 
 static inline void mcallline(byte * dst, byte bit, int m, char lh)
 {

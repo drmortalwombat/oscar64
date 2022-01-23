@@ -341,6 +341,8 @@ public:
 	NumberSet						mEntryRequiredParams, mEntryProvidedParams;
 	NumberSet						mExitRequiredParams, mExitProvidedParams;
 
+	GrowingInstructionArray			mLoadStoreInstructions;
+
 	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange, mLocalValueRange;
 
 	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks;
@@ -392,6 +394,8 @@ public:
 
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
+
+	void LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue);
 
 	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num);
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);

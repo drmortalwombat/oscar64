@@ -959,9 +959,10 @@ Declaration* Parser::ParseDeclaration(bool variable)
 				{
 					Declaration* pdec;
 					
-					if (mGlobals == mScope)
+					if (mGlobals == mScope && !(storageFlags & DTF_STATIC))
 					{
 						pdec = mCompilationUnits->mScope->Insert(ndec->mIdent, ndec);
+
 						Declaration	*	ldec = mScope->Insert(ndec->mIdent, pdec ? pdec : ndec);
 						if (ldec && ldec != pdec)
 							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition");
@@ -2845,6 +2846,8 @@ void Parser::ParsePragma(void)
 			if (mScanner->mToken == TK_IDENT)
 			{
 				Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
+				if (!dec)
+					dec = mScope->Lookup(mScanner->mTokenIdent);
 				if (dec && dec->mType == DT_CONST_FUNCTION)
 					dec->mFlags |= DTF_NATIVE;
 				else
