@@ -349,7 +349,7 @@ void Linker::Link(void)
 				else if (obj->mRegion->mCartridge >= 0)
 				{
 					mCartridgeBankUsed[obj->mRegion->mCartridge] = true;
-					memcpy(mCartridge[obj->mRegion->mCartridge] + obj->mAddress - obj->mRegion->mStart, obj->mData, obj->mSize);
+					memcpy(mCartridge[obj->mRegion->mCartridge] + obj->mAddress - 0x8000, obj->mData, obj->mSize);
 				}
 				else
 				{
@@ -374,7 +374,7 @@ void Linker::Link(void)
 					if (obj->mRegion->mCartridge < 0)
 						dp = mMemory + obj->mAddress + ref->mOffset;
 					else
-						dp = mCartridge[obj->mRegion->mCartridge] + obj->mAddress - obj->mRegion->mStart + ref->mOffset;
+						dp = mCartridge[obj->mRegion->mCartridge] + obj->mAddress - 0x8000 + ref->mOffset;
 
 					if (ref->mFlags & LREF_LOWBYTE)
 						*dp++ = raddr & 0xff;
@@ -637,7 +637,7 @@ bool Linker::WriteAsmFile(const char* filename)
 					if (obj->mRegion->mCartridge < 0)
 						mNativeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					else
-						mNativeDisassembler.Disassemble(file, mCartridge[obj->mRegion->mCartridge] - obj->mRegion->mStart, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+						mNativeDisassembler.Disassemble(file, mCartridge[obj->mRegion->mCartridge] - 0x8000, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				}
 			}
