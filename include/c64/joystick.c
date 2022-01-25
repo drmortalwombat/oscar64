@@ -1,7 +1,7 @@
 #include "joystick.h"
 
-signed char	joyx[2], joyy[2];
-bool		joyb[2];
+sbyte	joyx[2], joyy[2];
+bool	joyb[2];
 
 void joy_poll(char n)
 {

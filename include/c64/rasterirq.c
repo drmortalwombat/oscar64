@@ -245,6 +245,14 @@ void rirq_write(RIRQCode * ic, byte n, void * addr, byte data)
 	ic->code[p] = data;
 }
 
+void rirq_call(RIRQCode * ic, byte n, void * addr)
+{
+	byte p = irqai[n];
+	ic->code[p - 1] = 0x20;
+	ic->code[p + 0] = (unsigned)addr & 0xff;
+	ic->code[p + 1] = (unsigned)addr >> 8;
+}
+
 void rirq_delay(RIRQCode * ic, byte cycles)
 {
 	ic->code[ 1]  = cycles;

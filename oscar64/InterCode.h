@@ -445,7 +445,7 @@ public:
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 
-	InterCodeBasicBlock* PropagateDominator(InterCodeProcedure * proc);
+	InterCodeBasicBlock* BuildLoopPrefix(InterCodeProcedure * proc);
 
 	void SplitBranches(InterCodeProcedure* proc);
 	void FollowJumps(void);
@@ -517,7 +517,7 @@ protected:
 	void TempForwarding(void);
 	void RemoveUnusedInstructions(void);
 	bool GlobalConstantPropagation(void);
-	void BuildDominators(void);
+	void BuildLoopPrefix(void);
 	void SingleAssignmentForwarding(void);
 
 	void MergeBasicBlocks(void);

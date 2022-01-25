@@ -5106,6 +5106,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 	{
 		int		sop0 = 0, sop1 = 1;
 		bool	flipop = false;
+		bool	changedSign = false;
 
 		if (ins->mOperator == IA_ADD || ins->mOperator == IA_MUL || ins->mOperator == IA_SUB)
 		{
@@ -5128,7 +5129,14 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		if (ins->mSrc[sop1].mTemp < 0)
 		{
 			union { float f; unsigned int v; } cc;
-			cc.f = ins->mSrc[sop1].mFloatConst;
+
+			if (ins->mOperator == IA_SUB && flipop)
+			{
+				changedSign = true;
+				cc.f = -ins->mSrc[sop1].mFloatConst;
+			}
+			else
+				cc.f = ins->mSrc[sop1].mFloatConst;
 
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
@@ -5168,7 +5176,14 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		if (ins->mSrc[sop0].mTemp < 0)
 		{
 			union { float f; unsigned int v; } cc;
-			cc.f = ins->mSrc[sop0].mFloatConst;
+
+			if (ins->mOperator == IA_SUB && !flipop)
+			{
+				changedSign = true;
+				cc.f = -ins->mSrc[sop0].mFloatConst;
+			}
+			else
+				cc.f = ins->mSrc[sop0].mFloatConst;
 
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
@@ -5214,17 +5229,20 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 		}	break;
 		case IA_SUB:
 		{
-			if (flipop)
+			if (!changedSign)
 			{
-				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
-				mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
-				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
-			}
-			else
-			{
-				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
-				mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
-				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+				if (flipop)
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+					mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+				}
+				else
+				{
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+					mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, 0x80));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+				}
 			}
 
 			NativeCodeGenerator::Runtime& art(nproc->mGenerator->ResolveRuntime(Ident::Unique("faddsub")));
@@ -15103,17 +15121,33 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, commonFrameSize & 0xff));
 		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK));
-		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
-		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (commonFrameSize >> 8) & 0xff));
-		mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+		if (commonFrameSize >= 256)
+		{
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (commonFrameSize >> 8) & 0xff));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+		}
+		else
+		{
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_BCS, ASMIM_RELATIVE, 2));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEC, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+		}
 
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, commonFrameSize & 0xff));
 		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK));
-		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
-		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (commonFrameSize >> 8) & 0xff));
-		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+		if (commonFrameSize >= 256)
+		{
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (commonFrameSize >> 8) & 0xff));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+		}
+		else
+		{
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_BCC, ASMIM_RELATIVE, 2));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_INC, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+		}
 	}
 
 	if (mNoFrame)

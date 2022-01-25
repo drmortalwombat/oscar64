@@ -2597,6 +2597,24 @@ bool InterInstruction::ConstantFolding(void)
 					mNumOperands = 1;
 					return true;
 				}
+				else if (mOperator == IA_MODU && (mSrc[0].mIntConst & (mSrc[0].mIntConst - 1)) == 0)
+				{
+					mOperator = IA_AND;
+					mSrc[0].mIntConst--;
+					return true;
+				}
+				else if (mOperator == IA_DIVU && (mSrc[0].mIntConst & (mSrc[0].mIntConst - 1)) == 0)
+				{
+					int	n = 0;
+					while (mSrc[0].mIntConst > 1)
+					{
+						n++;
+						mSrc[0].mIntConst >>= 1;
+					}
+					mOperator = IA_SHR;
+					mSrc[0].mIntConst = n;
+					return true;
+				}
 			}
 		}
 		else if (mSrc[1].mTemp < 0)
@@ -3005,6 +3023,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand)
 			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
 			{
 				mTrueJump->mNumEntries--;
+				int	n = mTrueJump->mNumEntries;
 
 				mInstructions.Pop();
 				for (i = 0; i < mTrueJump->mInstructions.Size(); i++)
@@ -3013,10 +3032,13 @@ void InterCodeBasicBlock::GenerateTraces(bool expand)
 				mFalseJump = mTrueJump->mFalseJump;
 				mTrueJump = mTrueJump->mTrueJump;
 
-				if (mTrueJump)
-					mTrueJump->mNumEntries++;
-				if (mFalseJump)
-					mFalseJump->mNumEntries++;
+				if (n > 0)
+				{
+					if (mTrueJump)
+						mTrueJump->mNumEntries++;
+					if (mFalseJump)
+						mFalseJump->mNumEntries++;
+				}
 			}
 			else
 				break;
@@ -3474,6 +3496,11 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						ins->mSrc[0].mIntConst = 3;
 					}
 				}
+				else if (ins->mOperator == IA_MODU && (ins->mSrc[0].mIntConst & (ins->mSrc[0].mIntConst - 1)) == 0)
+				{
+					ins->mOperator = IA_AND;
+					ins->mSrc[0].mIntConst--;
+				}
 			}
 
 			if (ins->mSrc[0].mTemp > 0 && ins->mSrc[1].mTemp > 0 && ins->mSrc[0].mTemp == ins->mSrc[1].mTemp)
@@ -3915,6 +3942,17 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			{
 				mInstructions[i]->mOperator = IA_EXT8TO16U;
 			}
+			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_DIVS && mInstructions[i]->mSrc[0].IsUnsigned() && mInstructions[i]->mSrc[1].IsUnsigned())
+			{
+				mInstructions[i]->mOperator = IA_DIVU;
+				mInstructions[i]->ConstantFolding();
+			}
+			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_MODS && mInstructions[i]->mSrc[0].IsUnsigned() && mInstructions[i]->mSrc[1].IsUnsigned())
+			{
+				mInstructions[i]->mOperator = IA_MODU;
+				mInstructions[i]->ConstantFolding();
+			}
+
 #endif
 		}
 #endif
@@ -6655,16 +6693,16 @@ void InterCodeBasicBlock::FollowJumps(void)
 }
 
 
-InterCodeBasicBlock* InterCodeBasicBlock::PropagateDominator(InterCodeProcedure* proc)
+InterCodeBasicBlock* InterCodeBasicBlock::BuildLoopPrefix(InterCodeProcedure* proc)
 {
 	if (!mVisited)
 	{
 		mVisited = true;
 
 		if (mTrueJump)
-			mTrueJump = mTrueJump->PropagateDominator(proc);
+			mTrueJump = mTrueJump->BuildLoopPrefix(proc);
 		if (mFalseJump)
-			mFalseJump = mFalseJump->PropagateDominator(proc);
+			mFalseJump = mFalseJump->BuildLoopPrefix(proc);
 
 		if (mLoopHead)
 		{
@@ -8458,7 +8496,7 @@ void InterCodeProcedure::Close(void)
 		TempForwarding();
 	}
 
-	BuildDominators();
+	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
 
 	ResetVisited();
@@ -8656,6 +8694,21 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
+	BuildLoopPrefix();
+	DisassembleDebug("added dominators");
+
+	ResetVisited();
+	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet);
+
+	DisassembleDebug("single block loop opt 2");
+
+	BuildDataFlowSets();
+
+	BuildTraces(false);
+	DisassembleDebug("Rebuilt traces");
+#endif
+
+#if 1
 	ResetVisited();
 	mEntryBlock->PeepholeOptimization();
 
@@ -8848,10 +8901,14 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 
 }
 
-void InterCodeProcedure::BuildDominators(void)
+void InterCodeProcedure::BuildLoopPrefix(void)
 {
 	ResetVisited();
-	mEntryBlock = mEntryBlock->PropagateDominator(this);
+
+	for (int i = 0; i < mBlocks.Size(); i++)
+		mBlocks[i]->mLoopPrefix = nullptr;
+
+	mEntryBlock = mEntryBlock->BuildLoopPrefix(this);
 
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
@@ -9002,7 +9059,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 	static char typechars[] = "NBCILFP";
 	for (int i = 0; i < mTemporaries.Size(); i++)
 	{
-		fprintf(file, "$%02x T%d(%c), ", mTempOffset[i], i, typechars[mTemporaries[i]]);
+		fprintf(file, "$%02x R%d(%c), ", mTempOffset[i], i, typechars[mTemporaries[i]]);
 	}
 
 	fprintf(file, "\n");

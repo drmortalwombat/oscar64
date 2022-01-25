@@ -88,7 +88,7 @@ bool SourceFile::Open(const char* name, const char* path, bool binary)
 
 	strcat_s(fname + n, sizeof(fname) - n, name);
 
-	if (!fopen_s(&mFile, fname, binary ? "rb" : "r"))
+	if (!fopen_s(&mFile, fname, "rb"))
 	{
 		_fullpath(mFileName, fname, sizeof(mFileName));
 		char* p = mFileName;
@@ -158,7 +158,7 @@ bool Preprocessor::NextLine(void)
 		mLocation.mLine++;
 
 		s = strlen(mLine);
-		while (s > 0 && mLine[s - 1] == '\n')
+		while (s > 0 && (mLine[s - 1] == '\n' || mLine[s - 1] == '\r'))
 			s--;
 		if (s == 0 || mLine[s - 1] != '\\')
 			return true;

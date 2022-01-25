@@ -40,6 +40,9 @@ void rirq_build(RIRQCode * ic, byte size);
 // Add a write command to a raster IRQ
 inline void rirq_write(RIRQCode * ic, byte n, void * addr, byte data);
 
+// Add a call command to a raster IRQ
+inline void rirq_call(RIRQCode * ic, byte n, void * addr);
+
 // Change the address of a raster IRQ write command
 inline void rirq_addr(RIRQCode * ic, byte n, void * addr);
 
