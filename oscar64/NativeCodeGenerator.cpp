@@ -2664,6 +2664,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 					rl.mRefOffset += pos;
 					rl.mFlags |= LREF_INBLOCK;
 				}
+
 				block->mRelocations.Push(rl);
 			}
 		}
@@ -2706,6 +2707,8 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			block->PutByte(uint8(mAddress));
 			break;
 		case ASMIM_IMMEDIATE:
+			block->PutByte(uint16(mAddress));
+			break;
 		case ASMIM_IMMEDIATE_ADDRESS:
 			if (mLinkerObject)
 			{
@@ -2720,6 +2723,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 
 				rl.mRefObject = mLinkerObject;
 				rl.mRefOffset = mAddress;
+
 				block->mRelocations.Push(rl);
 				block->PutByte(0);
 			}
@@ -2739,6 +2743,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 				rl.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				rl.mRefObject = mLinkerObject;
 				rl.mRefOffset = mAddress;
+
 				block->mRelocations.Push(rl);
 				block->PutWord(0);
 			}
@@ -11676,7 +11681,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(void)
 				!(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
 			{
 				mIns[j + 0].mType = ASMIT_AND; mIns[j + 0].mMode = ASMIM_IMMEDIATE; mIns[j + 0].mAddress = 0x80;
-				mIns[j + 1].mType = ASMIT_BPL; mIns[j + 1].mMode = ASMIM_RELATIVE;  mIns[j + 1].mAddress = 2;
+				mIns[j + 1].mType = ASMIT_BPL; mIns[j + 1].mMode = ASMIM_RELATIVE;  mIns[j + 1].mAddress = 2;   
 				mIns[j + 2].mType = ASMIT_LDA; mIns[j + 2].mMode = ASMIM_IMMEDIATE; mIns[j + 2].mAddress = 0xff;
 				j += 3;
 				i += 4;
@@ -14438,7 +14443,6 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 				}
 #endif
 #endif
-
 			}
 
 			if (progress)

@@ -146,7 +146,7 @@ public:
 	}			mMinState, mMaxState;
 
 	bool Same(const IntegerValueRange& range) const;
-	bool Merge(const IntegerValueRange& range);
+	bool Merge(const IntegerValueRange& range, bool head);
 
 	bool IsConstant(void) const;
 

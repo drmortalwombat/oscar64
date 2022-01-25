@@ -376,10 +376,15 @@ void Linker::Link(void)
 					else
 						dp = mCartridge[obj->mRegion->mCartridge] + obj->mAddress - 0x8000 + ref->mOffset;
 
+
 					if (ref->mFlags & LREF_LOWBYTE)
+					{
 						*dp++ = raddr & 0xff;
+					}
 					if (ref->mFlags & LREF_HIGHBYTE)
+					{
 						*dp++ = (raddr >> 8) & 0xff;
+					}
 					if (ref->mFlags & LREF_TEMPORARY)
 						*dp += obj->mTemporaries[ref->mRefOffset];
 				}

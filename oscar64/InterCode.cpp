@@ -83,7 +83,7 @@ bool IntegerValueRange::IsConstant(void) const
 	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue == mMaxValue;
 }
 
-bool IntegerValueRange::Merge(const IntegerValueRange& range)
+bool IntegerValueRange::Merge(const IntegerValueRange& range, bool head)
 {
 	bool	changed = false;
 
@@ -91,8 +91,16 @@ bool IntegerValueRange::Merge(const IntegerValueRange& range)
 	{
 		if (range.mMinState == S_UNKNOWN)
 		{
-			if (mMinState == S_BOUND)
-				mMinState = S_WEAK;
+			if (head)
+			{
+				if (mMinState == S_BOUND)
+					mMinState = S_WEAK;
+			}
+			else if (mMinState != S_UNKNOWN)
+			{
+				mMinState = S_UNKNOWN;
+				changed = true;
+			}
 		}
 		else if (range.mMinState == S_UNBOUND)
 		{
@@ -101,9 +109,12 @@ bool IntegerValueRange::Merge(const IntegerValueRange& range)
 		}
 		else if (mMinState == S_UNKNOWN)
 		{
-			mMinState = S_WEAK;
-			mMinValue = range.mMinValue;
-			changed = true;
+			if (head)
+			{
+				mMinState = S_WEAK;
+				mMinValue = range.mMinValue;
+				changed = true;
+			}
 		}
 		else if (range.mMinValue < mMinValue)
 		{
@@ -112,14 +123,27 @@ bool IntegerValueRange::Merge(const IntegerValueRange& range)
 			mMinValue = range.mMinValue;
 			changed = true;
 		}
+		else if (mMinState == S_BOUND && range.mMinState == S_WEAK && !head)
+		{
+			mMinState = S_WEAK;
+			changed = true;
+		}
 	}
 
 	if (mMaxState != S_UNBOUND)
 	{
 		if (range.mMaxState == S_UNKNOWN)
 		{
-			if (mMaxState == S_BOUND)
-				mMaxState = S_WEAK;
+			if (head)
+			{
+				if (mMaxState == S_BOUND)
+					mMaxState = S_WEAK;
+			}
+			else if (mMaxState != S_UNKNOWN)
+			{
+				mMaxState = S_UNKNOWN;
+				changed = true;
+			}
 		}
 		else if (range.mMaxState == S_UNBOUND)
 		{
@@ -128,15 +152,23 @@ bool IntegerValueRange::Merge(const IntegerValueRange& range)
 		}
 		else if (mMaxState == S_UNKNOWN)
 		{
-			mMaxState = S_WEAK;
-			mMaxValue = range.mMaxValue;
-			changed = true;
+			if (head)
+			{
+				mMaxState = S_WEAK;
+				mMaxValue = range.mMaxValue;
+				changed = true;
+			}
 		}
 		else if (range.mMaxValue > mMaxValue)
 		{
 			if (range.mMaxState == S_WEAK)
 				mMaxState = S_WEAK;
 			mMaxValue = range.mMaxValue;
+			changed = true;
+		}
+		else if (mMaxState == S_BOUND && range.mMaxState == S_WEAK && !head)
+		{
+			mMaxState = S_WEAK;
 			changed = true;
 		}
 	}
@@ -3982,7 +4014,7 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(void)
 		else
 		{
 			for (int i = 0; i < mLocalValueRange.Size(); i++)
-				mLocalValueRange[i].Merge(range[i]);
+				mLocalValueRange[i].Merge(range[i], mLoopHead);
 		}
 	}
 
@@ -9070,7 +9102,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 0
+#if 1
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
