@@ -35,7 +35,8 @@ void maze_init(void)
 }
 
 
-static char zxdist[] = {18, 6, 3, 2, 1, 0};
+static char zxdist0[] = {18, 6, 4, 3, 2, 1, 0};
+static char zxdist1[] = { 9, 5, 3, 2, 1, 0, 0};
 
 // Put one  char on screen
 inline void screen_put(byte x, byte y, char ch, char color)
@@ -56,11 +57,11 @@ inline char screen_get(byte x, byte y)
 
 sbyte	px = 1, py = 3, dx = 1, dy = 0;
 
-void maze_draw(void)
+void maze_draw(const char * zxdist)
 {
 	sbyte	ix = px, iy = py;
 	sbyte	sx = 0;
-	for(char i=0; i<6; i++)
+	for(char i=0; i<7; i++)
 	{
 		sbyte	tx = 20 - zxdist[i];
 
@@ -167,31 +168,35 @@ int main(void)
 	{
 		float	z = 0.5 + i;
 		float	x = 9.0 / z;
-		printf("%d : %f / %f : %d\n", i, z, x, (int)x);
+		printf("%d : %f / %f : %d\n", i, z, x, (int)(x + 0.5));
 	}
 	return 0;
-#endif
+#else
 	bool	rotate = false;
 
 	for(;;)
 	{
-		maze_draw();
+		maze_draw(zxdist0);
 		joy_poll(1);
 
-		sbyte tx = px - dx * joyy[1];
-		sbyte ty = py - dy * joyy[1];
-
-		if (maze[ty][tx] != '#')
+		if (joyy[1])
 		{
-			px = tx;
-			py = ty;
+			sbyte tx = px - dx * joyy[1];
+			sbyte ty = py - dy * joyy[1];
+
+			if (maze[ty][tx] != '#')
+			{
+				px = tx;
+				py = ty;
+				maze_draw(zxdist1);
+			}
 		}
 
 		if (!rotate)
 		{
 			if (joyx[1] == 1)
 			{
-				sbyte	t = dx; dx = - dy; dy = t;
+				sbyte	t = dx; dx = -dy; dy = t;
 				rotate = true;
 			}
 			else if (joyx[1] == -1)
@@ -205,6 +210,7 @@ int main(void)
 			rotate = false;
 		}
 	}
+#endif
 
 	return 0;
 }
