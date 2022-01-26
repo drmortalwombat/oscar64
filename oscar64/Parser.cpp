@@ -305,10 +305,10 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_TYPE, "Integer constant expected");
 					}
 					cdec->mInteger = nitem++;
-					if (dec->mInteger < minValue)
-						minValue = dec->mInteger;
-					else if (dec->mInteger > maxValue)
-						maxValue = dec->mInteger;
+					if (cdec->mInteger < minValue)
+						minValue = cdec->mInteger;
+					else if (cdec->mInteger > maxValue)
+						maxValue = cdec->mInteger;
 
 					if (mScanner->mToken == TK_COMMA)
 						mScanner->NextToken();
