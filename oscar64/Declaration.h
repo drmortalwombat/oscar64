@@ -66,14 +66,16 @@ static const uint32 DTF_FASTCALL		= 0x00004000;
 static const uint32 DTF_INLINE			= 0x00008000;
 static const uint32	DTF_ANALYZED	    = 0x00010000;
 static const uint32 DTF_REQUEST_INLINE  = 0x00020000;
+static const uint32 DTF_INTERRUPT		= 0x00040000;
+static const uint32 DTF_EXPORT			= 0x00080000;
 
-static const uint32 DTF_FUNC_VARIABLE	= 0x00040000;
-static const uint32 DTF_FUNC_ASSEMBLER	= 0x00080000;
-static const uint32 DTF_FUNC_RECURSIVE  = 0x00100000;
-static const uint32 DTF_FUNC_ANALYZING  = 0x00200000;
-static const uint32 DTF_FUNC_CONSTEXPR	= 0x00400000;
+static const uint32 DTF_FUNC_VARIABLE	= 0x00100000;
+static const uint32 DTF_FUNC_ASSEMBLER	= 0x00200000;
+static const uint32 DTF_FUNC_RECURSIVE  = 0x00400000;
+static const uint32 DTF_FUNC_ANALYZING  = 0x00800000;
+static const uint32 DTF_FUNC_CONSTEXPR	= 0x01000000;
 
-static const uint32 DTF_VAR_ALIASING	= 0x00800000;
+static const uint32 DTF_VAR_ALIASING	= 0x02000000;
 
 
 class Declaration;

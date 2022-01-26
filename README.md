@@ -43,7 +43,6 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Optimizing
 
-* Complex loop optimization
 * Auto variables placed on fixed stack for known call sequence
 
 ### Intermediate code generation
@@ -117,6 +116,30 @@ A section of the file can be selected by providing a limit and or an offset into
 ### Additional Optimizer information using __assume()
 
 The compiler can be provided with additional information using the built in function __assume(cond).  This can be useful to mark unreachable code using __assume(false) for e.g. the default of a switch statement.  Another good option is to limit the value range of arguments to allow the compiler using byte operations without the need for integer promotion.
+
+### Marking functions as native
+
+Routines can be marked to be compiled to 6502 machine code with the native pragma:
+
+    void Plot(int x, int y)
+    {
+        (*Bitmap)[y >> 3][x >> 3][y & 7] |= 0x80 >> (x & 7);
+    }
+
+    #pragma native(Plot)
+
+Or alternatively with a __native storage class specifier
+
+    __native void Plot(int x, int y)
+    {
+        (*Bitmap)[y >> 3][x >> 3][y & 7] |= 0x80 >> (x & 7);
+    }
+
+### Linker control
+
+The linker includes only objects that are referenced, starting by the startup code into main() and so on.
+
+If you need to have a function or variable present regardless, you can specify it with the __export storage class specifier or use the #pragma reference(name) pragma.
 
 
 ## Inline Assembler
@@ -262,15 +285,6 @@ The intermediate code generator assumes a large number of registers so the zero 
 * **0x25-0x26** frame pointer
 * **0x43-0x52** caller saved registers
 * **0x53-0x8f** callee saved registers
-
-Routines can be marked to be compiled to 6502 machine code with the native pragma:
-
-    void Plot(int x, int y)
-    {
-        (*Bitmap)[y >> 3][x >> 3][y & 7] |= 0x80 >> (x & 7);
-    }
-
-    #pragma native(Plot)
 
 
 

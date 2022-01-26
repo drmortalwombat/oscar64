@@ -23,7 +23,40 @@ enum RIRQCodeIndex
 	RIRQ_DATA_4 = 26,
 	RIRQ_ADDR_4 = 28,
 
-	RIRQ_SIZE   = 31
+	RIRQ_SIZE   = 31,
+
+	RIRQ_DATA_5 = 31,
+	RIRQ_ADDR_5 = 33,
+
+	RIRQ_DATA_6 = 36,
+	RIRQ_ADDR_6 = 38,
+
+	RIRQ_DATA_7 = 41,
+	RIRQ_ADDR_7 = 43,
+
+	RIRQ_DATA_8 = 46,
+	RIRQ_ADDR_8 = 48,
+
+	RIRQ_DATA_9 = 51,
+	RIRQ_ADDR_9 = 53,
+
+	RIRQ_DATA_10 = 56,
+	RIRQ_ADDR_10 = 58,
+
+	RIRQ_DATA_11 = 61,
+	RIRQ_ADDR_11 = 63,
+
+	RIRQ_DATA_12 = 66,
+	RIRQ_ADDR_12 = 68,
+
+	RIRQ_DATA_13 = 71,
+	RIRQ_ADDR_13 = 73,
+
+	RIRQ_DATA_14 = 76,
+	RIRQ_ADDR_14 = 78,
+
+	RIRQ_DATA_15 = 81,
+	RIRQ_ADDR_15 = 88,
 };
 
 // One raster interrupt operation, handles up to five writes
@@ -34,8 +67,11 @@ typedef struct RIRQCode
 	byte		code[RIRQ_SIZE];
 } RIRQCode;
 
-// Build one raster IRQ operation of the given size (wait + #ops)
+// Build one raster IRQ operation of the given size (wait + #ops) for up to 5 instructions
 void rirq_build(RIRQCode * ic, byte size);
+
+// Allocate one raster IRQ operation of the given size (wait + #ops) 
+RIRQCode * rirq_alloc(byte size);
 
 // Add a write command to a raster IRQ
 inline void rirq_write(RIRQCode * ic, byte n, void * addr, byte data);

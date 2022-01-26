@@ -8022,7 +8022,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mRenameTable(-1), mRenameUnionTable(-1), mGlobalRenameTable(-1),
 	mValueForwardingTable(nullptr), mLocalVars(nullptr), mParamVars(nullptr), mModule(mod),
 	mIdent(ident), mLinkerObject(linkerObject),
-	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false)
+	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), mInterrupt(false)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
@@ -8728,6 +8728,8 @@ void InterCodeProcedure::Close(void)
 #if 1
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
+
+	BuildDataFlowSets();
 
 	ResetVisited();
 	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet);

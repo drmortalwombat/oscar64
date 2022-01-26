@@ -50,6 +50,10 @@ const char* TokenNames[] =
 	"'__assume'",
 
 	"__asm",
+	"__interrupt",
+	"__native",
+	"__fastcall",
+	"__export",
 
 	"number",
 	"char",
@@ -1257,6 +1261,14 @@ void Scanner::NextRawToken(void)
 					mToken = TK_ASM;
 				else if (!strcmp(tkident, "__assume"))
 					mToken = TK_ASSUME;
+				else if (!strcmp(tkident, "__interrupt"))
+					mToken = TK_INTERRUPT;
+				else if (!strcmp(tkident, "__native"))
+					mToken = TK_NATIVE;
+				else if (!strcmp(tkident, "__fastcall"))
+					mToken = TK_FASTCALL;
+				else if (!strcmp(tkident, "__export"))
+					mToken = TK_EXPORT;
 				else
 				{
 					mToken = TK_IDENT;

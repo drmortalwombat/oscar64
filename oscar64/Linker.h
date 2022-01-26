@@ -33,6 +33,34 @@ enum LinkerSectionType
 	LST_STACK	
 };
 
+struct ZeroPageSet
+{
+	ZeroPageSet(void)
+	{
+		for (int i = 0; i < 8; i++)
+			mBits[i] = 0;
+	}
+
+	uint32		mBits[8];
+
+	void operator += (int n)
+	{
+		mBits[n >> 5] |= 1 << (n & 31);
+	}
+
+	bool operator[] (int n) const
+	{
+		return (mBits[n >> 5] & (1 << (n & 31))) != 0;
+	}
+
+	ZeroPageSet& operator |= (const ZeroPageSet& set)
+	{
+		for (int i = 0; i < 8; i++)
+			mBits[i] |= set.mBits[i];
+		return *this;
+	}
+};
+
 class LinkerObject;
 class LinkerSection;
 
@@ -110,6 +138,7 @@ public:
 	uint32				mFlags;
 	uint8				mTemporaries[16], mTempSizes[16];
 	int					mNumTemporaries;
+	ZeroPageSet			mZeroPageSet;
 
 	LinkerObject(void);
 	~LinkerObject(void);

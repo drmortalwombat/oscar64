@@ -376,10 +376,21 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
 		ndec->mSize = 2;
 		ndec->mFlags |= DTF_DEFINED;
-		if (mScanner->mToken == TK_CONST)
+
+		for (;;)
 		{
-			ndec->mFlags |= DTF_CONST;
-			mScanner->NextToken();
+			if (mScanner->mToken == TK_CONST)
+			{
+				ndec->mFlags |= DTF_CONST;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_VOLATILE)
+			{
+				ndec->mFlags |= DTF_VOLATILE;
+				mScanner->NextToken();
+			}
+			else
+				break;
 		}
 
 		Declaration* dec = ParsePostfixDeclaration();
@@ -605,6 +616,7 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 			ndec->mValue = exp;
 			ndec->mBase = dtype;
 			dec = ndec;
+			dec->mOffset = offset;
 		}
 		else
 			mErrors->Error(exp->mLocation, EERR_CONSTANT_INITIALIZER, "Incompatible constant initializer");
@@ -886,22 +898,45 @@ Declaration* Parser::ParseDeclaration(bool variable)
 	}
 	else
 	{
-		if (mScanner->mToken == TK_STATIC)
+		for (;;)
 		{
-			storageFlags |= DTF_STATIC;
-			mScanner->NextToken();
-		}
-
-		if (mScanner->mToken == TK_EXTERN)
-		{
-			storageFlags |= DTF_EXTERN;
-			mScanner->NextToken();
-		}
-
-		if (mScanner->mToken == TK_INLINE)
-		{
-			storageFlags |= DTF_REQUEST_INLINE;
-			mScanner->NextToken();
+			if (mScanner->mToken == TK_STATIC)
+			{
+				storageFlags |= DTF_STATIC;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_EXTERN)
+			{
+				storageFlags |= DTF_EXTERN;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_INLINE)
+			{
+				storageFlags |= DTF_REQUEST_INLINE;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_EXPORT)
+			{
+				storageFlags |= DTF_EXPORT;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_FASTCALL)
+			{
+				storageFlags |= DTF_FASTCALL;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_NATIVE)
+			{
+				storageFlags |= DTF_NATIVE;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_INTERRUPT)
+			{
+				storageFlags |= DTF_INTERRUPT | DTF_NATIVE;
+				mScanner->NextToken();
+			}
+			else
+				break;
 		}
 	}
 
@@ -1056,6 +1091,11 @@ Declaration* Parser::ParseDeclaration(bool variable)
 				if (ndec->mFlags & DTF_GLOBAL)
 					ndec->mSection = mDataSection;
 				ndec->mSize = ndec->mBase->mSize;
+			}
+
+			if (storageFlags & DTF_EXPORT)
+			{
+				mCompilationUnits->AddReferenced(ndec);
 			}
 		}
 

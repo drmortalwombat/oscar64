@@ -3363,6 +3363,9 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	if (dec->mFlags & DTF_NATIVE)
 		proc->mNativeProcedure = true;
 
+	if (dec->mFlags & DTF_INTERRUPT)
+		proc->mInterrupt = true;
+
 	if (dec->mBase->mFlags & DTF_FASTCALL)
 	{
 		proc->mFastCallProcedure = true;

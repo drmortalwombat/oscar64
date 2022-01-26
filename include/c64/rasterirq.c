@@ -3,6 +3,7 @@
 #include <c64/vic.h>
 #include <c64/cia.h>
 #include <c64/asm6502.h>
+#include <stdlib.h>
 
 volatile char npos = 1, tpos = 0;
 
@@ -176,38 +177,30 @@ void rirq_build(RIRQCode * ic, byte size)
 	asm_ab(ic->code + 4, ASM_CPX, 0xd012);
 	asm_rl(ic->code + 7, ASM_BCS, -5);
 	asm_ab(ic->code + 9, ASM_STY, 0x0000);
-	/*
-	ic->code[0] = 0xa0;	// ldy #
-	ic->code[2] = 0xa9; // lda #
-	ic->code[4] = 0xec; // cpx
-	ic->code[5] = 0x12;
-	ic->code[6] = 0xd0; 
-	ic->code[7] = 0xb0; // bcs
-	ic->code[8] = -5;
-	ic->code[9] = 0x8c; // sty
-	*/
+
 	if (size == 1)
 	{
 		asm_np(ic->code + 12, ASM_RTS);
-		//ic->code[12] = 0x60; // rts
 	}
 	else
 	{
 		asm_ab(ic->code + 12, ASM_STA, 0x0000);
-	//	ic->code[12] = 0x8d; // sty
 
 		byte p = 15;
 		for(byte i=2; i<size; i++)
 		{
 			p += asm_im(ic->code + p, ASM_LDA, 0x00);
 			p += asm_ab(ic->code + p, ASM_STA, 0x0000);
-			//ic->code[p] = 0xa9; // lda #
-			//ic->code[p + 2] = 0x8d; // sta
-			//p += 5;
 		}
 		asm_np(ic->code + p, ASM_RTS);
-		//ic->code[p] = 0x60;
 	}
+}
+
+RIRQCode * rirq_alloc(byte size)
+{
+	RIRQCode	* ic = (RIRQCode *)malloc(1 + RIRQ_SIZE + 5 * size);
+	rirq_build(ic, size);
+	return ic;
 }
 
 #pragma native(rirq_build)
@@ -220,8 +213,15 @@ void rirq_set(byte n, byte row, RIRQCode * write)
 	rasterIRQRows[n] = row;
 }
 
-static const byte irqai[6] = {RIRQ_ADDR_0, RIRQ_ADDR_1, RIRQ_ADDR_2, RIRQ_ADDR_3, RIRQ_ADDR_4};
-static const byte irqdi[6] = {RIRQ_DATA_0, RIRQ_DATA_1, RIRQ_DATA_2, RIRQ_DATA_3, RIRQ_DATA_4};
+static const byte irqai[16] = {
+	RIRQ_ADDR_0, RIRQ_ADDR_1, RIRQ_ADDR_2, RIRQ_ADDR_3, RIRQ_ADDR_4, RIRQ_ADDR_5, RIRQ_ADDR_6, RIRQ_ADDR_7,
+	RIRQ_ADDR_8, RIRQ_ADDR_9, RIRQ_ADDR_10, RIRQ_ADDR_11, RIRQ_ADDR_12, RIRQ_ADDR_13, RIRQ_ADDR_14, RIRQ_ADDR_15
+};
+
+static const byte irqdi[16] = {
+	RIRQ_DATA_0, RIRQ_DATA_1, RIRQ_DATA_2, RIRQ_DATA_3, RIRQ_DATA_4, RIRQ_DATA_5, RIRQ_DATA_6, RIRQ_DATA_7,
+	RIRQ_DATA_8, RIRQ_DATA_9, RIRQ_DATA_10, RIRQ_DATA_11, RIRQ_DATA_12, RIRQ_DATA_13, RIRQ_DATA_14, RIRQ_DATA_15
+};
 
 void rirq_addr(RIRQCode * ic, byte n, void * addr)
 {
