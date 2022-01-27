@@ -1149,6 +1149,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mSrc[1].mType = IT_POINTER;
 				ins->mSrc[1].mTemp = vl.mTemp;
 				ins->mSrc[1].mOperandSize = vl.mType->mSize;
+				ins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
 				block->Append(ins);
 			}
 			}
@@ -1575,6 +1576,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			sins->mSrc[1].mType = IT_POINTER;
 			sins->mSrc[1].mTemp = vl.mTemp;
 			sins->mSrc[1].mOperandSize = vl.mType->mSize;
+			sins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
 			block->Append(sins);
 
 			return ExValue(vdl.mType, ains->mDst.mTemp);
@@ -1634,6 +1636,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			sins->mSrc[1].mType = IT_POINTER;
 			sins->mSrc[1].mTemp = vl.mTemp;
 			sins->mSrc[1].mOperandSize = vl.mType->mSize;
+			sins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
 			block->Append(sins);
 
 			return ExValue(vdl.mType, vdl.mTemp);

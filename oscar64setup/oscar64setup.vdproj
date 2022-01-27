@@ -496,6 +496,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_C4B1FC7B672E4E538E92FD06D90AE808"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_C6B8A6C354494A50BBFD7EE6B2FB39B6"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -2355,6 +2361,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_C4B1FC7B672E4E538E92FD06D90AE808"
+            {
+            "SourcePath" = "8:..\\samples\\sprites\\creditroll.c"
+            "TargetName" = "8:creditroll.c"
+            "Tag" = "8:"
+            "Folder" = "8:_A891BBCA276B4516852A6BFD884353E3"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_C6B8A6C354494A50BBFD7EE6B2FB39B6"
             {
             "SourcePath" = "8:..\\samples\\scrolling\\bigfont.c"
@@ -3169,15 +3195,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{118A6EF7-D160-4A3E-AECC-5B0D9AA16099}"
-        "PackageCode" = "8:{8B7C9187-A38D-43DB-B458-3E80FDB17616}"
+        "ProductCode" = "8:{57F0583C-4EF1-449B-8D24-9A0A3FBCE308}"
+        "PackageCode" = "8:{A44F1E87-7AF4-42BD-989E-8DD388A05570}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.2.67"
+        "ProductVersion" = "8:1.2.68"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

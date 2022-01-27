@@ -670,6 +670,15 @@ static bool StoreAliasing(const InterInstruction * lins, const InterInstruction*
 		else if (lmem == IM_GLOBAL)
 			return staticVars[lvindex]->mAliased;
 	}
+	else if (MemRange(sins, tvalue, smem, svindex, soffset, ssize))
+	{
+		if (smem == IM_LOCAL)
+			return aliasedLocals[svindex];
+		else if (smem == IM_PARAM || smem == IM_FPARAM)
+			return aliasedParams[svindex];
+		else if (smem == IM_GLOBAL)
+			return staticVars[svindex]->mAliased;
+	}
 
 	return true;
 }
@@ -5695,6 +5704,8 @@ static bool MatchingMem(const InterOperand& op1, const InterOperand& op2)
 			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
 		else
 			return false;
+	case IM_INDIRECT:
+		return true;
 	default:
 		return false;
 	}
@@ -5725,6 +5736,8 @@ static bool SameMem(const InterOperand& op1, const InterOperand& op2)
 		return true;
 	case IM_GLOBAL:
 		return op1.mLinkerObject == op2.mLinkerObject;
+	case IM_INDIRECT:
+
 	default:
 		return false;
 	}
@@ -9104,7 +9117,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 0
+#if 1
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;

@@ -44,32 +44,32 @@ struct VIC
 {
 	struct XY
 	{
-		byte	x, y;
+		volatile byte	x, y;
 	}	spr_pos[8];
 	byte	spr_msbx;
 
 	volatile byte	ctrl1;
 	volatile byte	raster;
-	byte	lpx, lpy;
-	byte	spr_enable;
-	byte	ctrl2;
-	byte	spr_expand_y;
-	byte	memptr;
-	byte	intr_ctrl;
-	byte	intr_enable;
-	byte	spr_priority;
-	byte	spr_multi;
-	byte	spr_expand_x;
-	byte	spr_sprcol;
-	byte	spr_backcol;
-	byte	color_border;
-	byte	color_back;
-	byte	color_back1;
-	byte	color_back2;
-	byte	color_back3;
-	byte	spr_mcolor0;
-	byte	spr_mcolor1;
-	byte	spr_color[8];
+	volatile byte	lpx, lpy;
+	volatile byte	spr_enable;
+	volatile byte	ctrl2;
+	volatile byte	spr_expand_y;
+	volatile byte	memptr;
+	volatile byte	intr_ctrl;
+	volatile byte	intr_enable;
+	volatile byte	spr_priority;
+	volatile byte	spr_multi;
+	volatile byte	spr_expand_x;
+	volatile byte	spr_sprcol;
+	volatile byte	spr_backcol;
+	volatile byte	color_border;
+	volatile byte	color_back;
+	volatile byte	color_back1;
+	volatile byte	color_back2;
+	volatile byte	color_back3;
+	volatile byte	spr_mcolor0;
+	volatile byte	spr_mcolor1;
+	volatile byte	spr_color[8];
 
 };
 
