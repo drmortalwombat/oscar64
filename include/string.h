@@ -23,6 +23,8 @@ void * memmove(void * dst, const void * src, int size);
 
 #pragma intrinsic(strcpy)
 
+#pragma intrinsic(memcpy)
+
 #pragma compile("string.c")
 
 #endif

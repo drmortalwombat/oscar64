@@ -1895,6 +1895,43 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						}
 					}
 				}
+				else if (!strcmp(iname->mString, "memcpy"))
+				{
+					if (exp->mRight->mType == EX_LIST)
+					{
+						Expression* tex = exp->mRight->mLeft, * sex = exp->mRight->mRight->mLeft, * nex = exp->mRight->mRight->mRight;
+						if (nex->mDecValue->mType == DT_CONST_INTEGER && nex->mDecValue->mInteger < 128)
+						{
+							vl = TranslateExpression(procType, proc, block, tex, breakBlock, continueBlock, inlineMapper);
+							if (vl.mType->mType == DT_TYPE_ARRAY)
+								vl = Dereference(proc, block, vl, 1);
+							else
+								vl = Dereference(proc, block, vl);
+
+							vr = TranslateExpression(procType, proc, block, sex, breakBlock, continueBlock, inlineMapper);
+							if (vr.mType->mType == DT_TYPE_ARRAY)
+								vr = Dereference(proc, block, vr, 1);
+							else
+								vr = Dereference(proc, block, vr);
+
+							if (!TheCharPointerTypeDeclaration->CanAssign(vl.mType))
+								mErrors->Error(tex->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+							if (!TheConstCharPointerTypeDeclaration->CanAssign(vr.mType))
+								mErrors->Error(sex->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+
+							InterInstruction* ins = new InterInstruction();
+							ins->mCode = IC_COPY;
+							ins->mSrc[0].mType = IT_POINTER;
+							ins->mSrc[0].mTemp = vr.mTemp;
+							ins->mSrc[1].mType = IT_POINTER;
+							ins->mSrc[1].mTemp = vl.mTemp;
+							ins->mConst.mOperandSize = nex->mDecValue->mInteger;
+							block->Append(ins);
+
+							return vl;
+						}
+					}
+				}
 				else
 				{
 					mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname->mString);
