@@ -60,10 +60,13 @@ w1:
 	jmp ex
 
 e2:
-	sta $d012
+	ldx npos
+	stx tpos
 
-	lda npos
-	sta tpos
+	bit	$d011
+	bmi e1
+
+	sta $d012
 
 	asl $d019
 	jmp ex
@@ -130,10 +133,13 @@ w1:
 	jmp ex
 
 e2:
-	sta $d012
+	ldx npos
+	stx tpos
 
-	lda npos
-	sta tpos
+	bit	$d011
+	bmi e1
+
+	sta $d012
 
 	jmp ex
 

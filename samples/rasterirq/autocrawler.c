@@ -14,17 +14,21 @@ const char  Text[] =
 
 RIRQCode	scroll, restore;
 
-static int x;
+int x;
 
 // Loop through text
 __interrupt void doscroll(void)
 {
+	vic.color_border++;
+
 	// Update raster IRQ for scroll line with new horizontal scroll offset		
 	rirq_data(&scroll, 0, 7 - (x & 7));
 	// Copy scrolled version of text when switching over char border
 	if ((x & 7) == 0)
 		memcpy((char *)0x0400 + 40 * 24, Text + ((x >> 3) & 255), 40);
 	x++;
+
+	vic.color_border--;
 }
 
 int main(void)
@@ -46,7 +50,7 @@ int main(void)
 	// call scroll copy code
 	rirq_call(&restore, 1, doscroll);
 	// place this at the top of the screen before the display starts
-	rirq_set(1, 4, &restore);
+	rirq_set(1, 250, &restore);
 
 	// sort the raster IRQs
 	rirq_sort();

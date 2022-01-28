@@ -9117,7 +9117,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 1
+#if 0
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
