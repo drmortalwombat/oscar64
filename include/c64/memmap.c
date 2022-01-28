@@ -1,6 +1,6 @@
 #include "memmap.h"
 
-char PLAShadow;
+volatile char PLAShadow;
 
 __asm DoneTrampoline
 {

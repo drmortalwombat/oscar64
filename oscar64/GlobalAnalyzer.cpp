@@ -159,7 +159,7 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 		mFunctions.Push(dec);
 
 		dec->mFlags |= DTF_ANALYZED;
-		if (dec->mFlags & DTF_INTRINSIC)
+		if ((dec->mFlags & DTF_INTRINSIC) && !dec->mValue)
 			dec->mFlags |= DTF_FUNC_CONSTEXPR;
 		else if (dec->mFlags & DTF_DEFINED)
 		{

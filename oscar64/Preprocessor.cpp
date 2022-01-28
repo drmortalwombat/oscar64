@@ -26,14 +26,18 @@ bool SourceFile::ReadLine(char* line)
 		if (mBinary)
 		{
 			if (mLimit)
+			{
 				mLimit--;
 
-			int c = fgetc(mFile);
-			if (c >= 0)
-			{
-				sprintf_s(line, 1024, "0x%02x, ", c);
-				return true;
+				int c = fgetc(mFile);
+				if (c >= 0)
+				{
+					sprintf_s(line, 1024, "0x%02x, ", c);
+					return true;
+				}
 			}
+			else
+				return false;
 		}
 		else
 		{
