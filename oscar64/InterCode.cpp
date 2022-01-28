@@ -2903,7 +2903,7 @@ void InterInstruction::Disassemble(FILE* file)
 }
 
 InterCodeBasicBlock::InterCodeBasicBlock(void)
-	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr),
+	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
 	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr)
 {
 	mInPath = false;
@@ -3288,7 +3288,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			ins->mSrc[1].mOperandSize = tvalue[ins->mSrc[1].mTemp]->mConst.mOperandSize;
 			ins->mSrc[1].mTemp = -1;
 
-			if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_BINARY_OPERATOR)
+			while (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_BINARY_OPERATOR)
 			{
 				InterInstruction* iins = tvalue[ins->mSrc[0].mTemp];
 				if (iins->mOperator == IA_ADD)
@@ -3303,6 +3303,8 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						ins->mSrc[0].mTemp = iins->mSrc[1].mTemp;
 						ins->mSrc[1].mIntConst += iins->mSrc[0].mIntConst;
 					}
+					else
+						break;
 				}
 				else if (iins->mOperator == IA_SUB)
 				{
@@ -3311,8 +3313,11 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						ins->mSrc[0].mTemp = iins->mSrc[1].mTemp;
 						ins->mSrc[1].mIntConst -= iins->mSrc[0].mIntConst;
 					}
+					else
+						break;
 				}
-
+				else
+					break;
 			}
 		}
 		break;
@@ -7585,16 +7590,41 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 
 		// shorten lifespan
 
+		int	loopTmp = -1;
+
 		int	limit = mInstructions.Size() - 1;
 		if (limit >= 0 && mInstructions[limit]->mCode == IC_BRANCH)
 		{
 			limit--;
 			if (limit > 0 && mInstructions[limit]->mCode == IC_RELATIONAL_OPERATOR)
 			{
+				if (mInstructions[limit]->mSrc[1].mTemp)
+					loopTmp = mInstructions[limit]->mSrc[1].mTemp;
+				else if (mInstructions[limit]->mSrc[0].mTemp)
+					loopTmp = mInstructions[limit]->mSrc[0].mTemp;
 				limit--;
-				if (limit > 0 && mInstructions[limit]->mCode == IC_BINARY_OPERATOR &&
-					(mInstructions[limit]->mDst.mTemp == mInstructions[limit + 1]->mSrc[0].mTemp || mInstructions[limit]->mDst.mTemp == mInstructions[limit + 1]->mSrc[1].mTemp))
-					limit--;
+
+				if (loopTmp >= 0)
+				{
+					int i = limit;
+					while (i >= 0 && !(mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mDst.mTemp == loopTmp))
+						i--;
+					if (i >= 0 && i < limit)
+					{
+						InterInstruction* ins(mInstructions[i]);
+						int j = i;
+						while (j < limit && CanBypass(ins, mInstructions[j + 1]))
+						{
+							mInstructions[j] = mInstructions[j + 1];
+							j++;
+						}
+						if (i != j)
+							mInstructions[j] = ins;
+					}
+
+					if (limit > 0 && mInstructions[limit]->mCode == IC_BINARY_OPERATOR && (mInstructions[limit]->mDst.mTemp == loopTmp))
+						limit--;
+				}
 			}
 		}
 		else if (limit >= 0 && mInstructions[limit]->mCode == IC_JUMP)

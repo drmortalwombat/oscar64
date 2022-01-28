@@ -126,6 +126,7 @@ bool SourceFile::PushSource(void)
 	stack->mUp = mStack;
 	mStack = stack;
 	stack->mFilePos = ftell(mFile);
+	stack->mLocation = mLocation;
 	return true;
 }
 
@@ -134,6 +135,7 @@ bool SourceFile::PopSource(void)
 	SourceStack* stack = mStack;
 	if (stack)
 	{
+		mLocation = stack->mLocation;
 		fseek(mFile, stack->mFilePos, SEEK_SET);
 		mStack = mStack->mUp;
 		return true;
@@ -315,8 +317,14 @@ bool Preprocessor::PushSource(void)
 
 bool Preprocessor::PopSource(void)
 {
-	mLocation = mSource->mLocation;
-	return mSource->PopSource();
+	if (mSource->PopSource())
+	{
+		mLocation = mSource->mLocation;
+		return true;
+	}
+	else
+		return false;
+
 }
 
 bool Preprocessor::DropSource(void)

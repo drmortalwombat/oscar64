@@ -3,6 +3,10 @@ cd fractals
 ./build.sh
 cd ..
 
+cd games
+./build.sh
+cd ..
+
 cd hires
 ./build.sh
 cd ..

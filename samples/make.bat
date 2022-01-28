@@ -2,6 +2,10 @@ cd fractals
 call make.bat
 cd ..
 
+cd games
+call make.bat
+cd ..
+
 cd hires
 call make.bat
 cd ..

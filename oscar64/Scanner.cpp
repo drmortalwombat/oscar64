@@ -754,7 +754,48 @@ void Scanner::NextToken(void)
 				NextChar();
 			}
 			else
+			{
+				while (mTokenChar == '#' && mLine[mOffset] == '#')
+				{
+					mOffset++;
+					NextChar();
+
+					char	tkbase[256];
+					strcpy_s(tkbase, mTokenIdent->mString);
+
+					int		n = 0;
+					char	tkident[256];
+					while (IsIdentChar(mTokenChar))
+					{
+						if (n < 255)
+							tkident[n++] = mTokenChar;
+						NextChar();
+					}
+					tkident[n] = 0;
+
+					const Ident* ntkident = Ident::Unique(tkident);
+
+					Macro* def = nullptr;
+					if (mDefineArguments)
+						def = mDefineArguments->Lookup(ntkident);
+					if (!def)
+						def = mDefines->Lookup(ntkident);
+
+					if (def)
+						strcat_s(tkbase, def->mString);
+					else
+						strcat_s(tkbase, tkident);
+
+					n = strlen(tkbase);
+					while (n > 0 && tkbase[n - 1] == ' ')
+						n--;
+					tkbase[n] = 0;
+
+					mTokenIdent = Ident::Unique(tkbase);
+				}
+
 				return;
+			}
 		}
 		else
 			return;		
