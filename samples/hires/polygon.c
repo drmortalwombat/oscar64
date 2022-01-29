@@ -74,7 +74,7 @@ int main(void)
 		for(int j=0; j<10; j++)
 		{
 			int k = (j + 1) % 10;
-			bm_line(&Screen, &cr, rpx[j], rpy[j], rpx[k], rpy[k], 0xff);
+			bm_line(&Screen, &cr, rpx[j], rpy[j], rpx[k], rpy[k], 0xff, LINOP_SET);
 		}
 	}
 

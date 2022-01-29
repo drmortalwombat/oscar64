@@ -480,7 +480,7 @@ void bm_polygon_nc_fill(Bitmap * bm, ClipRect * clip, int * px, int * py, char n
 #define REG_D0	0x0a
 #define REG_D1	0x0b
 
-static void buildline(char ly, char lx, int dx, int dy, int stride, bool left, bool up)
+static void buildline(char ly, char lx, int dx, int dy, int stride, bool left, bool up, char pattern, LineOp op)
 {
 	char	ip = 0;
 
@@ -491,14 +491,50 @@ static void buildline(char ly, char lx, int dx, int dy, int stride, bool left, b
 	// set pixel
 	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_D0);
 
-	ip += asm_zp(BLIT_CODE + ip, ASM_ASL, REG_PAT);
-	ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 6);
-	ip += asm_zp(BLIT_CODE + ip, ASM_INC, REG_PAT);
-	ip += asm_iy(BLIT_CODE + ip, ASM_ORA, REG_SP);
-	ip += asm_rl(BLIT_CODE + ip, ASM_BNE, 4);
-	ip += asm_im(BLIT_CODE + ip, ASM_EOR, 0xff);	
-	ip += asm_iy(BLIT_CODE + ip, ASM_AND, REG_SP);
-	ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_SP);
+	switch (op)
+	{
+	case LINOP_SET:
+		ip += asm_zp(BLIT_CODE + ip, ASM_ASL, REG_PAT);
+		ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 6);
+		ip += asm_zp(BLIT_CODE + ip, ASM_INC, REG_PAT);
+		ip += asm_iy(BLIT_CODE + ip, ASM_ORA, REG_SP);
+		ip += asm_rl(BLIT_CODE + ip, ASM_BNE, 4);
+		ip += asm_im(BLIT_CODE + ip, ASM_EOR, 0xff);	
+		ip += asm_iy(BLIT_CODE + ip, ASM_AND, REG_SP);
+		ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_SP);
+		break;
+	case LINOP_OR:
+		if (pattern != 0xff)
+		{
+			ip += asm_zp(BLIT_CODE + ip, ASM_ASL, REG_PAT);
+			ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 6);
+			ip += asm_zp(BLIT_CODE + ip, ASM_INC, REG_PAT);
+		}
+		ip += asm_iy(BLIT_CODE + ip, ASM_ORA, REG_SP);
+		ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_SP);
+		break;
+	case LINOP_XOR:
+		if (pattern != 0xff)
+		{
+			ip += asm_zp(BLIT_CODE + ip, ASM_ASL, REG_PAT);
+			ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 6);
+			ip += asm_zp(BLIT_CODE + ip, ASM_INC, REG_PAT);
+		}
+		ip += asm_iy(BLIT_CODE + ip, ASM_EOR, REG_SP);
+		ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_SP);
+		break;
+	case LINOP_AND:
+		if (pattern != 0xff)
+		{
+			ip += asm_zp(BLIT_CODE + ip, ASM_ASL, REG_PAT);
+			ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 8);
+			ip += asm_zp(BLIT_CODE + ip, ASM_INC, REG_PAT);
+		}
+		ip += asm_im(BLIT_CODE + ip, ASM_EOR, 0xff);	
+		ip += asm_iy(BLIT_CODE + ip, ASM_AND, REG_SP);
+		ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_SP);
+		break;
+	}
 
 	// m >= 0
 	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
@@ -587,8 +623,21 @@ static inline void callline(byte * dst, byte bit, int m, char lh, char pattern)
 	}
 }
 
-void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern)
+void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern, LineOp op)
 {
+	if (pattern == 0x00)
+	{
+		if (op == LINOP_SET)
+		{
+			pattern = 0xff;
+			op = LINOP_AND;
+		}
+		else
+			return;
+	}
+	else if (pattern == 0xff && op == LINOP_SET)
+		op = LINOP_OR;
+
 	int dx = x1 - x0, dy = y1 - y0;
 	byte	quad = 0;
 	if (dx < 0)
@@ -617,7 +666,7 @@ void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern)
 	char		ry = y0 & 7;
 	int			stride = 8 * bm->cwidth;
 
-	buildline(ry, (l + 1) & 0xff, dx, dy, (quad & 2) ? -stride : stride, quad & 1, quad & 2);
+	buildline(ry, (l + 1) & 0xff, dx, dy, (quad & 2) ? -stride : stride, quad & 1, quad & 2, pattern, op);
 
 	callline(dp, bit, m, l >> 8, pattern);
 }
@@ -627,7 +676,7 @@ static int muldiv(int x, int mul, int div)
 	return (int)((long)x * mul / div);
 }
 
-void bm_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char pattern)
+void bm_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char pattern, LineOp op)
 {
 	int dx = x1 - x0, dy = y1 - y0;
 
@@ -711,7 +760,7 @@ void bm_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char 
 			return;
 	}
 
-	bmu_line(bm, x0, y0, x1, y1, pattern);
+	bmu_line(bm, x0, y0, x1, y1, pattern, op);
 }
 
 static inline void callddop(byte * src, byte * dst, byte pat)

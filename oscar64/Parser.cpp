@@ -2194,7 +2194,7 @@ Expression* Parser::ParseSwitchStatement(void)
 
 
 
-Expression* Parser::ParseAssemblerBaseOperand(void)
+Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 {
 	Expression* exp = nullptr;
 	Declaration* dec;
@@ -2203,7 +2203,7 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 	{
 	case TK_SUB:
 		mScanner->NextToken();
-		exp = ParseAssemblerBaseOperand();
+		exp = ParseAssemblerBaseOperand(pcasm, pcoffset);
 		if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
 		{
 			dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
@@ -2218,6 +2218,16 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 		}
 		else
 			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Cannot negate expression");
+		break;
+
+	case TK_MUL:
+		mScanner->NextToken();
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		dec = new Declaration(mScanner->mLocation, DT_LABEL);
+		exp->mDecType = TheUnsignedIntTypeDeclaration;
+		exp->mDecValue = dec;
+		dec->mInteger = pcoffset;
+		dec->mBase = pcasm;
 		break;
 
 	case TK_INTEGER:
@@ -2329,31 +2339,31 @@ Expression* Parser::ParseAssemblerBaseOperand(void)
 	return exp;
 }
 
-Expression* Parser::ParseAssemblerMulOperand(void)
+Expression* Parser::ParseAssemblerMulOperand(Declaration* pcasm, int pcoffset)
 {
-	Expression* exp = ParseAssemblerBaseOperand();
+	Expression* exp = ParseAssemblerBaseOperand(pcasm, pcoffset);
 	while (mScanner->mToken == TK_MUL || mScanner->mToken == TK_DIV || mScanner->mToken == TK_MOD)
 	{
 		Expression* nexp = new Expression(mScanner->mLocation, EX_BINARY);
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseAssemblerBaseOperand();
+		nexp->mRight = ParseAssemblerBaseOperand(pcasm, pcoffset);
 		exp = nexp->ConstantFold(mErrors);
 	}
 	return exp;
 }
 
-Expression* Parser::ParseAssemblerAddOperand(void)
+Expression* Parser::ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset)
 {
-	Expression* exp = ParseAssemblerMulOperand();
+	Expression* exp = ParseAssemblerMulOperand(pcasm, pcoffset);
 	while (mScanner->mToken == TK_ADD || mScanner->mToken == TK_SUB)
 	{
 		Expression* nexp = new Expression(mScanner->mLocation, EX_BINARY);
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseAssemblerMulOperand();
+		nexp->mRight = ParseAssemblerMulOperand(pcasm, pcoffset);
 		if (!nexp->mLeft->mDecValue || !nexp->mRight->mDecValue)
 		{
 			mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid assembler operand");
@@ -2403,12 +2413,12 @@ Expression* Parser::ParseAssemblerAddOperand(void)
 	return exp;
 }
 
-Expression* Parser::ParseAssemblerOperand(void)
+Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 {
 	if (mScanner->mToken == TK_LESS_THAN)
 	{
 		mScanner->NextToken();
-		Expression* exp = ParseAssemblerOperand();
+		Expression* exp = ParseAssemblerOperand(pcasm, pcoffset);
 
 		if (exp->mType == EX_CONSTANT)
 		{
@@ -2478,7 +2488,7 @@ Expression* Parser::ParseAssemblerOperand(void)
 	else if (mScanner->mToken == TK_GREATER_THAN)
 	{
 		mScanner->NextToken();
-		Expression* exp = ParseAssemblerOperand();
+		Expression* exp = ParseAssemblerOperand(pcasm, pcoffset);
 
 		if (exp->mType == EX_CONSTANT)
 		{
@@ -2546,7 +2556,7 @@ Expression* Parser::ParseAssemblerOperand(void)
 		return exp;
 	}
 	else
-		return ParseAssemblerAddOperand();
+		return ParseAssemblerAddOperand(pcasm, pcoffset);
 }
 
 void Parser::AddAssemblerRegister(const Ident* ident, int value)
@@ -2648,12 +2658,12 @@ Expression* Parser::ParseAssembler(void)
 				{
 					ilast->mAsmInsMode = ASMIM_IMMEDIATE;
 					mScanner->NextToken();
-					ilast->mLeft = ParseAssemblerOperand();
+					ilast->mLeft = ParseAssemblerOperand(vdasm, offset);
 				}
 				else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 				{
 					mScanner->NextToken();
-					ilast->mLeft = ParseAssemblerOperand();
+					ilast->mLeft = ParseAssemblerOperand(vdasm, offset);
 					if (mScanner->mToken == TK_COMMA)
 					{
 						mScanner->NextToken();
@@ -2693,7 +2703,7 @@ Expression* Parser::ParseAssembler(void)
 				}
 				else
 				{
-					ilast->mLeft = ParseAssemblerOperand();
+					ilast->mLeft = ParseAssemblerOperand(vdasm, offset);
 					if (mScanner->mToken == TK_COMMA)
 					{
 						mScanner->NextToken();
@@ -2960,7 +2970,7 @@ void Parser::ParsePragma(void)
 		{
 			mScanner->NextToken();
 			ConsumeToken(TK_OPEN_PARENTHESIS);
-			Expression* exp = ParseAssemblerOperand();
+			Expression* exp = ParseAssemblerOperand(nullptr, 0);
 
 			ConsumeToken(TK_COMMA);
 			if (mScanner->mToken == TK_IDENT)

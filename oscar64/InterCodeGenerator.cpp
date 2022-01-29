@@ -545,8 +545,18 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 		case ASMIM_RELATIVE:
 			if (!aexp)
 				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
-			else 
-				d[offset] = aexp->mInteger - offset - 1;
+			else
+			{
+				if (aexp->mType == DT_LABEL_REF)
+				{
+					if (aexp->mBase->mBase)
+						d[offset] = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
+					else
+						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent->mString);
+				}
+				else
+					d[offset] = aexp->mInteger - offset - 1;
+			}
 			offset++;
 			break;
 		}

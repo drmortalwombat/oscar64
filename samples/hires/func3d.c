@@ -207,23 +207,23 @@ int main(void)
 
 		bm_line(&Screen, &SRect, 
 			p[iy + 0][ix + 0].x, p[iy + 0][ix + 0].y, 
-			p[iy + 0][ix + 1].x, p[iy + 0][ix + 1].y, patt);
+			p[iy + 0][ix + 1].x, p[iy + 0][ix + 1].y, patt, LINOP_SET);
 
 		bm_line(&Screen, &SRect, 
 			p[iy + 1][ix + 0].x, p[iy + 1][ix + 0].y, 
-			p[iy + 1][ix + 1].x, p[iy + 1][ix + 1].y, patt);
+			p[iy + 1][ix + 1].x, p[iy + 1][ix + 1].y, patt, LINOP_SET);
 
 		bm_line(&Screen, &SRect, 
 			p[iy + 0][ix + 0].x, p[iy + 0][ix + 0].y, 
-			p[iy + 1][ix + 0].x, p[iy + 1][ix + 0].y, patt);
+			p[iy + 1][ix + 0].x, p[iy + 1][ix + 0].y, patt, LINOP_SET);
 
 		bm_line(&Screen, &SRect, 
 			p[iy + 0][ix + 1].x, p[iy + 0][ix + 1].y, 
-			p[iy + 1][ix + 1].x, p[iy + 1][ix + 1].y, patt);
+			p[iy + 1][ix + 1].x, p[iy + 1][ix + 1].y, patt, LINOP_SET);
 	}
 
 	mmap_set(MMAP_NO_BASIC);
-//	getch();
+	getch();
 
 	restore();
 

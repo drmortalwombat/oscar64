@@ -151,6 +151,8 @@ public:
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
 
+	bool OptimizeSelect(NativeCodeProcedure* proc);
+
 	NativeCodeBasicBlock* FindTailBlock(NativeCodeBasicBlock* head);
 	bool OptimizeInnerLoops(NativeCodeProcedure* proc);
 	void CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks);

@@ -41,10 +41,10 @@ protected:
 	Expression* ParseFunction(Declaration* dec);
 	Expression* ParseAssembler(void);
 
-	Expression* ParseAssemblerBaseOperand(void);
-	Expression* ParseAssemblerMulOperand(void);
-	Expression* ParseAssemblerAddOperand(void);
-	Expression* ParseAssemblerOperand(void);
+	Expression* ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerMulOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerOperand(Declaration * pcasm, int pcoffset);
 
 	void AddAssemblerRegister(const Ident* ident, int value);
 

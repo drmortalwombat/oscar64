@@ -48,6 +48,14 @@ enum BlitOp
 	BLTOP_PATTERN_AND_SRC = BLIT_SRC | BLIT_PATTERN | BLIT_AND
 };
 
+enum LineOp
+{
+	LINOP_SET,
+	LINOP_OR,
+	LINOP_AND,
+	LINOP_XOR
+};
+
 extern char NineShadesOfGrey[9][8];
 
 // Fast unsigned integer square root
@@ -102,10 +110,10 @@ inline bool bm_get(Bitmap * bm, int x, int y);
 inline void bm_put(Bitmap * bm, int x, int y, bool c);
 
 // Draw an unclipped line using an eight bit pattern
-void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern);
+void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern, LineOp op);
 
 // Draw a clipped line using an eight bit pattern
-void bm_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char pattern);
+void bm_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char pattern, LineOp op);
 
 // Unclipped bit blit
 void bmu_bitblit(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op);

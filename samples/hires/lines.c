@@ -40,10 +40,10 @@ void draw(ClipRect * cr, byte pattern)
 {
 	for(int i=0; i<40; i ++)
 	{
-		bm_line(&Screen, cr, 8 * i, 0, 319, 5 * i, pattern);
-		bm_line(&Screen, cr, 319, 5 * i, 319 - 8 * i, 199, pattern);
-		bm_line(&Screen, cr, 319 - 8 * i, 199, 0, 199 - 5 * i, pattern);
-		bm_line(&Screen, cr, 0, 199 - 5 * i, 8 * i, 0, pattern);
+		bm_line(&Screen, cr, 8 * i, 0, 319, 5 * i, pattern, LINOP_SET);
+		bm_line(&Screen, cr, 319, 5 * i, 319 - 8 * i, 199, pattern, LINOP_SET);
+		bm_line(&Screen, cr, 319 - 8 * i, 199, 0, 199 - 5 * i, pattern, LINOP_SET);
+		bm_line(&Screen, cr, 0, 199 - 5 * i, 8 * i, 0, pattern, LINOP_SET);
 	}
 }
 
