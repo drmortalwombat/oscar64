@@ -217,23 +217,23 @@ float sqrt(float f)
 bool isinf(float f)
 {
 	union {
-		float	f;
-		int		i[2];
+		float		f;
+		unsigned	i[2];
 	}	x;
 
 	x.f = f;
 
-	return ((x.i[0] >> 7) & 0xff) == 0xff;
+	return ((x.i[1] >> 7) & 0xff) == 0xff;
 }
 
 bool isfinite(float f)
 {
 	union {
-		float	f;
-		int		i[2];
+		float		f;
+		unsigned	i[2];
 	}	x;
 
 	x.f = f;
 
-	return ((x.i[0] >> 7) & 0xff) != 0xff;
+	return ((x.i[1] >> 7) & 0xff) != 0xff;
 }

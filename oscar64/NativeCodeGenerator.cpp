@@ -14024,6 +14024,15 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						progress = true;
 					}
 					else if (
+						mIns[i + 0].mType == ASMIT_TAY &&
+						mIns[i + 1].mType == ASMIT_TAX &&
+						mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && (mIns[i + 2].mLive & LIVE_CPU_REG_X) && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mMode = ASMIM_ABSOLUTE_X;
+						progress = true;
+					}
+					else if (
 						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
 						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
 						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))

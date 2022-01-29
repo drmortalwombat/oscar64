@@ -647,10 +647,10 @@ int Emulator::Emulate(int startIP)
 
 		if ((trace & 1) && ip == 0x0855)
 		{
-			int	accu = mMemory[BC_REG_ACCU] + 256 * mMemory[BC_REG_ACCU + 1];
+			unsigned	accu = mMemory[BC_REG_ACCU] + (mMemory[BC_REG_ACCU + 1] << 8) + (mMemory[BC_REG_ACCU + 2] << 16) + (mMemory[BC_REG_ACCU + 3] << 24);
 			int	ptr = mMemory[BC_REG_ADDR] + 256 * mMemory[BC_REG_ADDR + 1];
 			int	sp = mMemory[BC_REG_STACK] + 256 * mMemory[BC_REG_STACK + 1];
-			printf("%04x  (A:%04x P:%04x S:%04x) %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x : %04x\n", addr, accu, ptr, sp,
+			printf("%04x  (A:%08x P:%04x S:%04x) %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x  %04x %04x %04x %04x : %04x\n", addr, accu, ptr, sp,
 				mMemory[BC_REG_TMP +  0] + 256 * mMemory[BC_REG_TMP +  1],
 				mMemory[BC_REG_TMP +  2] + 256 * mMemory[BC_REG_TMP +  3],
 				mMemory[BC_REG_TMP +  4] + 256 * mMemory[BC_REG_TMP +  5],

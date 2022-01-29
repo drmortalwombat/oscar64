@@ -5701,7 +5701,7 @@ static bool MatchingMem(const InterOperand& op1, const InterOperand& op2)
 	case IM_LOCAL:
 	case IM_FPARAM:
 	case IM_PARAM:
-		return op1.mVarIndex == op2.mVarIndex;
+		return op1.mVarIndex == op2.mVarIndex && op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
 	case IM_ABSOLUTE:
 		return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
 	case IM_GLOBAL:
