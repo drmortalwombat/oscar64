@@ -401,6 +401,16 @@ LS1:	rol	accu
 		rol	accu + 3
 		rol	tmp + 4
 		rol	tmp + 5
+		bcc LS1a
+		
+		lda	tmp + 4
+		sbc	tmp
+		tax
+		lda	tmp + 5
+		sbc	tmp + 1
+		sec
+		bcs LS1b
+LS1a:
 		sec
 		lda	tmp + 4
 		sbc	tmp
@@ -408,6 +418,7 @@ LS1:	rol	accu
 		lda	tmp + 5
 		sbc	tmp + 1
 		bcc	WS1
+LS1b:
 		stx	tmp + 4
 		sta	tmp + 5
 WS1:	dey

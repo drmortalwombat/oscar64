@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <c64/asm6502.h>
 #include <string.h>
+#include <fixmath.h>
 
 void bm_init(Bitmap * bm, char * data, char cw, char ch)
 {
@@ -480,9 +481,10 @@ void bm_polygon_nc_fill(Bitmap * bm, ClipRect * clip, int * px, int * py, char n
 #define REG_D0	0x0a
 #define REG_D1	0x0b
 
-static void buildline(char ly, char lx, int dx, int dy, int stride, bool left, bool up, char pattern, LineOp op)
+static inline void buildline(char ly, char lx, int dx, int dy, int stride, bool left, bool up, char pattern, LineOp op)
 {
 	char	ip = 0;
+	bool	delta16 = ((dx | dy) & 0xff80) != 0;
 
 	// ylow
 	ip += asm_im(BLIT_CODE + ip, ASM_LDY, ly);
@@ -537,8 +539,8 @@ static void buildline(char ly, char lx, int dx, int dy, int stride, bool left, b
 	}
 
 	// m >= 0
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
-	ip += asm_rl(BLIT_CODE + ip, ASM_BMI, 5 + 15 + 13);
+	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + delta16);
+	ip += asm_rl(BLIT_CODE + ip, ASM_BMI, delta16 ? 5 + 15 + 13 + 2 : 5 + 15 + 7 + 2);
 
 	ip += asm_np(BLIT_CODE + ip, up ? ASM_DEY : ASM_INY);
 	ip += asm_im(BLIT_CODE + ip, ASM_CPY, up ? 0xff : 0x08);
@@ -557,13 +559,16 @@ static void buildline(char ly, char lx, int dx, int dy, int stride, bool left, b
 	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
 	ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx & 0xff);
 	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
-	ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx >> 8);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+
+	if (delta16)
+	{
+		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
+		ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx >> 8);
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+	}
 
 	// m < 0
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
-	ip += asm_rl(BLIT_CODE + ip, ASM_BPL, 4 + 15 + 13);
+	ip += asm_rl(BLIT_CODE + ip, ASM_BPL, delta16 ? 4 + 15 + 13 : 4 + 15 + 7);
 
 	ip += asm_zp(BLIT_CODE + ip, left ? ASM_ASL : ASM_LSR, REG_D0);
 	ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 15);
@@ -581,9 +586,12 @@ static void buildline(char ly, char lx, int dx, int dy, int stride, bool left, b
 	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
 	ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy & 0xff);
 	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
-	ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy >> 8);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+	if (delta16)
+	{
+		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
+		ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy >> 8);
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+	}
 
 	// l --
 	ip += asm_np(BLIT_CODE + ip, ASM_DEX);
@@ -639,125 +647,119 @@ void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern, LineOp 
 		op = LINOP_OR;
 
 	int dx = x1 - x0, dy = y1 - y0;
-	byte	quad = 0;
+	bool	left = false;
+	bool	up = false;
+
 	if (dx < 0)
 	{
-		quad = 1;
+		left = true;
 		dx = -dx;
 	}
 	if (dy < 0)
 	{
-		quad |= 2;
+		up = true;
 		dy = -dy;
 	}
 	
 	int	l;
-	if (dx > dy)
+	if ((unsigned)dx > (unsigned)dy)
 		l = dx;
 	else
 		l = dy;
 	
 	int	m = dy - dx;
-	dx *= 2;
-	dy *= 2;
+	if (m & 1)
+	{
+		dx *= 2;
+		dy *= 2;	
+	}
+	else
+	{
+		m >>= 1;
+	}
 
 	char	*	dp = bm->data + bm->cwidth * (y0 & ~7) + (x0 & ~7);
 	char		bit = 0x80 >> (x0 & 7);
 	char		ry = y0 & 7;
 	int			stride = 8 * bm->cwidth;
 
-	buildline(ry, (l + 1) & 0xff, dx, dy, (quad & 2) ? -stride : stride, quad & 1, quad & 2, pattern, op);
+	buildline(ry, (l + 1) & 0xff, dx, dy, up ? -stride : stride, left, up, pattern, op);
 
 	callline(dp, bit, m, l >> 8, pattern);
-}
-
-static int muldiv(int x, int mul, int div)
-{
-	return (int)((long)x * mul / div);
 }
 
 void bm_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char pattern, LineOp op)
 {
 	int dx = x1 - x0, dy = y1 - y0;
 
-	if (x0 < x1)
+	if (dx > 0)
 	{
 		if (x1 < clip->left || x0 >= clip->right)
 			return;
 
 		if (x0 < clip->left)
 		{
-			y0 += muldiv(clip->left - x0, dy, dx);
+			y0 += lmuldiv16s(clip->left - x0, dy, dx);
 			x0 = clip->left;
 		}
 
 		if (x1 >= clip->right)
 		{
-			y1 -= muldiv(x1 + 1 - clip->right, dy, dx);
+			y1 -= lmuldiv16s(x1 + 1 - clip->right, dy, dx);
 			x1 = clip->right - 1;
 		}
 	}
-	else if (x1 < x0)
+	else
 	{
 		if (x0 < clip->left || x1 >= clip->right)
 			return;
 
 		if (x1 < clip->left)
 		{
-			y1 += muldiv(clip->left - x1, dy, dx);
+			y1 += lmuldiv16s(clip->left - x1, dy, dx);
 			x1 = clip->left;
 		}
 
 		if (x0 >= clip->right)
 		{
-			y0 -= muldiv(x0 + 1- clip->right, dy, dx);
+			y0 -= lmuldiv16s(x0 + 1- clip->right, dy, dx);
 			x0 = clip->right - 1;
 		}		
 	}
-	else
-	{
-		if (x0 < clip->left || x0 >= clip->right)
-			return;
-	}
 
-	if (y0 < y1)
+	if (dy > 0)
 	{
 		if (y1 < clip->top || y0 >= clip->bottom)
 			return;
 
 		if (y0 < clip->top)
 		{
-			x0 += muldiv(clip->top - y0, dx, dy);
+			x0 += lmuldiv16s(clip->top - y0, dx, dy);
 			y0 = clip->top;
 		}
 
 		if (y1 >= clip->bottom)
 		{
-			x1 -= muldiv(y1 + 1 - clip->bottom, dx, dy);
+			x1 -= lmuldiv16s(y1 + 1 - clip->bottom, dx, dy);
 			y1 = clip->bottom - 1;
 		}
 	}
-	else if (y1 < y0)
+	else
 	{
 		if (y0 < clip->top || y1 >= clip->bottom)
 			return;
 
 		if (y1 < clip->top)
 		{
-			x1 += muldiv(clip->top - y1, dx, dy);
+			x1 += lmuldiv16s(clip->top - y1, dx, dy);
 			y1 = clip->top;
 		}
 
 		if (y0 >= clip->bottom)
 		{
-			x0 -= muldiv(y0 + 1 - clip->bottom, dx, dy);
+			x0 -= lmuldiv16s(y0 + 1 - clip->bottom, dx, dy);
 			y0 = clip->bottom - 1;
 		}		
-	}
-	else
-	{
-		if (y0 < clip->top || y0 >= clip->bottom)
-			return;
 	}
 
 	bmu_line(bm, x0, y0, x1, y1, pattern, op);

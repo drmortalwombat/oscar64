@@ -70,6 +70,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_12C998C755E643038CDF5D9F56983ECA"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_1393003825B9451084DB314DD4267AD5"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -269,6 +275,12 @@
         "Entry"
         {
         "MsmKey" = "8:_65286F9E8B2F496B95A50DA63A1F0D5B"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_67F949223D154D92A9EC79A2A9CD1C97"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -491,6 +503,12 @@
         "Entry"
         {
         "MsmKey" = "8:_B85448D515F0487FB6845119AE346F1D"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_BA92710604A2499F8577F52758F3F529"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -973,6 +991,26 @@
             {
             "SourcePath" = "8:..\\include\\conio.h"
             "TargetName" = "8:conio.h"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_12C998C755E643038CDF5D9F56983ECA"
+            {
+            "SourcePath" = "8:..\\include\\fixmath.h"
+            "TargetName" = "8:fixmath.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
             "Condition" = "8:"
@@ -1655,6 +1693,26 @@
             "TargetName" = "8:maze3dchars.bin"
             "Tag" = "8:"
             "Folder" = "8:_758C6547998745659548D0656D380FEA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_67F949223D154D92A9EC79A2A9CD1C97"
+            {
+            "SourcePath" = "8:..\\samples\\hires\\cube3d.c"
+            "TargetName" = "8:cube3d.c"
+            "Tag" = "8:"
+            "Folder" = "8:_82FDD682B0334DE1B89A843D32862B85"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2395,6 +2453,26 @@
             "TargetName" = "8:landersprites.bin"
             "Tag" = "8:"
             "Folder" = "8:_758C6547998745659548D0656D380FEA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_BA92710604A2499F8577F52758F3F529"
+            {
+            "SourcePath" = "8:..\\include\\fixmath.c"
+            "TargetName" = "8:fixmath.c"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3414,15 +3492,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{A53359B5-4B83-418F-BE3F-60133D152224}"
-        "PackageCode" = "8:{5B0C1429-92B6-4506-ABF5-36A623D4C056}"
+        "ProductCode" = "8:{109FC925-4A6D-4868-A60D-42BF3DFE541B}"
+        "PackageCode" = "8:{C6215A39-7DD0-4667-93FB-46373135B9C8}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.3.73"
+        "ProductVersion" = "8:1.3.74"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

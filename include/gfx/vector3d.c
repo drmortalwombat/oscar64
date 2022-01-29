@@ -416,7 +416,7 @@ void mat3_mmul(Matrix3 * md, const Matrix3 * ms)
 {
 	for(char i=0; i<3; i++)
 	{
-		float	j = 3 * i;
+		char	j = 3 * i;
 
 		float	m0 = md->m[i + 0] * ms->m[0] + md->m[i + 3] * ms->m[1] + md->m[i + 6] * ms->m[2];
 		float	m3 = md->m[i + 0] * ms->m[3] + md->m[i + 3] * ms->m[4] + md->m[i + 6] * ms->m[5];
