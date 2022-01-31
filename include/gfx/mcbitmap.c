@@ -34,9 +34,10 @@ char MixedColors[4][4][8] = {
 
 void bmmc_put(const Bitmap * bm, int x, int y, char c)
 {
-	char * dp = bm->data + bm->cwidth * (y & ~7) + ((x & ~7) | (y & 7));
+	char	*	dp = bm->data + bm->cwidth * (y & ~7) + ((x & ~7) | (y & 7));
+	char		pat = cbytes[c & 3];
 
-	*dp = (*dp & andmask[x & 7]) | (cbytes[c & 3] & ormask[x & 7]);
+	*dp = ((*dp ^ pat) & andmask[x & 7]) ^ pat;
 }
 
 char bmmc_get(const Bitmap * bm, int x, int y)

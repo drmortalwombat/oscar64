@@ -233,8 +233,8 @@ void game_loop(void)
 		break;
 	case GS_PLAYING:
 		// Check player input on every frame
-		joy_poll(1);
-		snake_control(&TheGame.snake, joyx[1], joyy[1]);
+		joy_poll(0);
+		snake_control(&TheGame.snake, joyx[0], joyy[0]);
 
 		if (!--TheGame.count)
 		{

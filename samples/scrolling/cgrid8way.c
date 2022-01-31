@@ -388,8 +388,8 @@ int main(void)
 	for(;;)
 	{
 		// Check the joystick
-		joy_poll(1);
-		if (joyx[1] == 1)
+		joy_poll(0);
+		if (joyx[0] == 1)
 		{
 			// Move to the right
 			if (gridX < 24)
@@ -399,7 +399,7 @@ int main(void)
 				scroll_left();
 			}
 		}
-		else if (joyx[1] == -1)
+		else if (joyx[0] == -1)
 		{
 			// Move to the left
 			if (gridX > 0)
@@ -409,7 +409,7 @@ int main(void)
 				scroll_right();
 			}
 		}
-		else if (joyy[1] == 1)
+		else if (joyy[0] == 1)
 		{
 			// Move down
 			if (gridY < 39)
@@ -419,7 +419,7 @@ int main(void)
 				scroll_up();
 			}
 		}
-		else if (joyy[1] == -1)
+		else if (joyy[0] == -1)
 		{
 			// Move up
 			if (gridY > 0)

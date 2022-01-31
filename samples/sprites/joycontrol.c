@@ -33,11 +33,11 @@ int main(void)
 	for(;;)
 	{
 		// Poll joytick
-		joy_poll(1);
+		joy_poll(0);
 
 		// Change position according to joystick
-		spx += joyx[1];
-		spy += joyy[1];
+		spx += joyx[0];
+		spy += joyy[0];
 
 		// Move sprites on screen
 		spr_move(0, spx, spy);

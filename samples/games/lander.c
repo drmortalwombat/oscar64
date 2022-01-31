@@ -223,15 +223,15 @@ void game_loop(void)
 	case GS_PLAYING:
 	{
 		// Check player input on every frame
-		joy_poll(1);
-		lander_move(&TheGame.lander, joyx[1], joyy[1]);
+		joy_poll(0);
+		lander_move(&TheGame.lander, joyx[0], joyy[0]);
 		LanderCollision col = lander_check(&TheGame.lander);
 		if (col == LCOL_GROUND)
 			game_state(GS_COLLIDE);
 		else if (col == LCOL_PAD)
 			game_state(GS_LANDED);
 		else
-			lander_show(&TheGame.lander, joyx[1], joyy[1]);
+			lander_show(&TheGame.lander, joyx[0], joyy[0]);
 	}	break;
 	case GS_LANDED:
 		if (!--TheGame.count)

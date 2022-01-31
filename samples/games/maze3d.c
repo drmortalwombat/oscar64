@@ -419,19 +419,19 @@ int main(void)
 	for(;;)
 	{
 		// Read joystick input
-		joy_poll(1);
+		joy_poll(0);
 
 		// Forward or backward motion
-		if (joyy[1])
+		if (joyy[0])
 		{
 			// Target square
-			sbyte tx = px - dx * joyy[1];
-			sbyte ty = py - dy * joyy[1];
+			sbyte tx = px - dx * joyy[0];
+			sbyte ty = py - dy * joyy[0];
 
 			// Check i empty
 			if (maze[ty][tx] != '#')
 			{
-				if (joyy[1] < 0)
+				if (joyy[0] < 0)
 				{
 					// Forward animation
 					px = tx;
@@ -457,7 +457,7 @@ int main(void)
 		// Check if new rotation
 		if (!rotate)
 		{
-			if (joyx[1] == 1)
+			if (joyx[0] == 1)
 			{
 				// Rotate right
 				sbyte	t = dx; dx = -dy; dy = t;
@@ -465,7 +465,7 @@ int main(void)
 				maze_draw(zxdist0);
 				screen_left();
 			}
-			else if (joyx[1] == -1)
+			else if (joyx[0] == -1)
 			{
 				// Rotate left
 				sbyte	t = dx; dx = dy; dy = -t;
@@ -474,7 +474,7 @@ int main(void)
 				screen_right();
 			}
 		}
-		else if (!joyx[1])
+		else if (!joyx[0])
 		{
 			// No rotation, may rotate again in next frame
 			rotate = false;
