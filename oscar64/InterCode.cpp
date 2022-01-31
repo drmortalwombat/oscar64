@@ -3356,6 +3356,20 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mSrc[0].mTemp = -1;
 			}
 		}
+		else if (ins->mDst.mType == IT_INT16 && ins->mSrc[0].mType == IT_POINTER)
+		{
+			if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp])
+			{
+				InterInstruction* cins = tvalue[ins->mSrc[0].mTemp];
+				if (cins->mCode == IC_CONSTANT && cins->mConst.mMemory == IM_ABSOLUTE)
+				{
+					ins->mCode = IC_CONSTANT;
+					ins->mDst.mType = IT_INT16;
+					ins->mConst.mIntConst = cins->mConst.mIntConst;
+					ins->mSrc[0].mTemp = -1;
+				}
+			}
+		}
 		break;
 
 	case IC_CONVERSION_OPERATOR:
