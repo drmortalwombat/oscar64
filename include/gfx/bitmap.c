@@ -28,34 +28,34 @@ void bm_free(Bitmap * bm)
 	free(bm->rdata);
 }
 
-void bm_fill(Bitmap * bm, char data)
+void bm_fill(const Bitmap * bm, char data)
 {
 	memset(bm->data, data, bm->cwidth * bm->cheight * 8);
 }
 
 
-void bm_set(Bitmap * bm, int x, int y)
+void bm_set(const Bitmap * bm, int x, int y)
 {
 	bm->data[bm->cwidth * (y & ~7) + (x & ~7) + (y & 7)] |= 0x80 >> (x & 7);
 }
 
 #pragma native(bm_set)
 
-void bm_clr(Bitmap * bm, int x, int y)
+void bm_clr(const Bitmap * bm, int x, int y)
 {
 	bm->data[bm->cwidth * (y & ~7) + (x & ~7) + (y & 7)] &= ~(0x80 >> (x & 7));
 }
 
 #pragma native(bm_clr)
 
-bool bm_get(Bitmap * bm, int x, int y)
+bool bm_get(const Bitmap * bm, int x, int y)
 {
 	return (bm->data[bm->cwidth * (y & ~7) + (x & ~7) + (y & 7)] & (0x80 >> (x & 7))) != 0;
 }
 
 #pragma native(bm_get)
 
-void bm_put(Bitmap * bm, int x, int y, bool c)
+void bm_put(const Bitmap * bm, int x, int y, bool c)
 {
 	char	*	dp = bm->data + bm->cwidth * (y & ~7) + (x & ~7) + (y & 7);
 	char		m = 0x80 >> (x & 7);
@@ -155,7 +155,7 @@ unsigned bm_usqrt(unsigned n)
 
 #pragma native(bm_usqrt)
 
-void bm_circle_fill(Bitmap * bm, ClipRect * clip, int x, int y, char r, const char * pattern)
+void bm_circle_fill(const Bitmap * bm, const ClipRect * clip, int x, int y, char r, const char * pattern)
 {
 	int y0 = y - r, y1 = y + r + 1;
 	if (y0 < clip->top)
@@ -181,7 +181,7 @@ void bm_circle_fill(Bitmap * bm, ClipRect * clip, int x, int y, char r, const ch
 	}
 }
 
-void bm_trapezoid_fill(Bitmap * bm, ClipRect * clip, long x0, long x1, long dx0, long dx1, int y0, int y1, const char * pattern)
+void bm_trapezoid_fill(const Bitmap * bm, const ClipRect * clip, long x0, long x1, long dx0, long dx1, int y0, int y1, const char * pattern)
 {
 	if (y1 <= clip->top || y0 >= clip->bottom)
 		return;
@@ -213,7 +213,7 @@ void bm_trapezoid_fill(Bitmap * bm, ClipRect * clip, long x0, long x1, long dx0,
 }
 
 
-void bm_triangle_fill(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, const char * pat)
+void bm_triangle_fill(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, const char * pat)
 {
 	int	t;
 	if (y1 < y0 && y1 < y2)
@@ -264,13 +264,13 @@ void bm_triangle_fill(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int 
 }
 
 
-void bm_quad_fill(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3, const char * pat)
+void bm_quad_fill(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3, const char * pat)
 {
 	bm_triangle_fill(bm, clip, x0, y0, x1, y1, x2, y2, pat);
 	bm_triangle_fill(bm, clip, x0, y0, x2, y2, x3, y3, pat);
 }
 
-void bm_polygon_fill(Bitmap * bm, ClipRect * clip, int * px, int * py, char num, const char * pat)
+void bm_polygon_fill(const Bitmap * bm, const ClipRect * clip, int * px, int * py, char num, const char * pat)
 {
 	char 	mi = 0;
 	int		my = py[0];
@@ -348,7 +348,7 @@ struct Edge
 	Edge	*	next;
 };
 
-void bm_polygon_nc_fill(Bitmap * bm, ClipRect * clip, int * px, int * py, char num, const char * pattern)
+void bm_polygon_nc_fill(const Bitmap * bm, const ClipRect * clip, int * px, int * py, char num, const char * pattern)
 {
 	Edge	*	first = nullptr, * active = nullptr;
 	Edge	*	e = (Edge *)BLIT_CODE;
@@ -631,7 +631,7 @@ static inline void callline(byte * dst, byte bit, int m, char lh, char pattern)
 	}
 }
 
-void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern, LineOp op)
+void bmu_line(const Bitmap * bm, int x0, int y0, int x1, int y1, char pattern, LineOp op)
 {
 	if (pattern == 0x00)
 	{
@@ -688,7 +688,7 @@ void bmu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char pattern, LineOp 
 	callline(dp, bit, m, l >> 8, pattern);
 }
 
-void bm_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char pattern, LineOp op)
+void bm_line(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, int y1, char pattern, LineOp op)
 {
 	int dx = x1 - x0, dy = y1 - y0;
 
@@ -991,7 +991,7 @@ static void builddop(char shift, char w, char lmask, char rmask, BlitOp op, bool
 
 #pragma native(builddop)
 
-void bmu_bitblit(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op)
+void bmu_bitblit(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op)
 {
 	int			rx = dx + w;
 	char		dxh0 = dx >> 3, dxh1 = rx >> 3;
@@ -1077,7 +1077,7 @@ void bmu_bitblit(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int
 
 #pragma native(bmu_bitblit)
 
-void bm_bitblit(Bitmap * dbm, ClipRect * clip, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op)
+void bm_bitblit(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, const Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op)
 {
 	if (dx >= clip->right || dy >= clip->bottom)
 		return;
@@ -1108,50 +1108,50 @@ void bm_bitblit(Bitmap * dbm, ClipRect * clip, int dx, int dy, Bitmap * sbm, int
 		bmu_bitblit(dbm, dx, dy, sbm, sx, sy, w, h, pattern, op);
 }
 
-inline void bmu_rect_fill(Bitmap * dbm, int dx, int dy, int w, int h)
+inline void bmu_rect_fill(const Bitmap * dbm, int dx, int dy, int w, int h)
 {
 	bmu_bitblit(dbm, dx, dy, dbm, dx, dy, w, h, nullptr, BLTOP_SET);	
 }
 
-inline void bmu_rect_clear(Bitmap * dbm, int dx, int dy, int w, int h)
+inline void bmu_rect_clear(const Bitmap * dbm, int dx, int dy, int w, int h)
 {
 	bmu_bitblit(dbm, dx, dy, dbm, dx, dy, w, h, nullptr, BLTOP_RESET);	
 }
 
-inline void bmu_rect_pattern(Bitmap * dbm, int dx, int dy, int w, int h, const char * pattern)
+inline void bmu_rect_pattern(const Bitmap * dbm, int dx, int dy, int w, int h, const char * pattern)
 {
 	bmu_bitblit(dbm, dx, dy, dbm, dx, dy, w, h, pattern, BLTOP_PATTERN);	
 }
 
-inline void bmu_rect_copy(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h)
+inline void bmu_rect_copy(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx, int sy, int w, int h)
 {
 	bmu_bitblit(dbm, dx, dy, sbm, sx, sy, w, h, nullptr, BLTOP_COPY);	
 }
 
 
-inline void bm_rect_fill(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h)
+inline void bm_rect_fill(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, int w, int h)
 {
 	bm_bitblit(dbm, clip, dx, dy, dbm, dx, dy, w, h, nullptr, BLTOP_SET);	
 }
 
-inline void bm_rect_clear(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h)
+inline void bm_rect_clear(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, int w, int h)
 {
 	bm_bitblit(dbm, clip, dx, dy, dbm, dx, dy, w, h, nullptr, BLTOP_RESET);	
 }
 
-inline void bm_rect_pattern(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, const char * pattern)
+inline void bm_rect_pattern(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, int w, int h, const char * pattern)
 {
 	bm_bitblit(dbm, clip, dx, dy, dbm, dx, dy, w, h, pattern, BLTOP_PATTERN);	
 }
 
-inline void bm_rect_copy(Bitmap * dbm, ClipRect * clip, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h)
+inline void bm_rect_copy(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, const Bitmap * sbm, int sx, int sy, int w, int h)
 {
 	bm_bitblit(dbm, clip, dx, dy, sbm, sx, sy, w, h, nullptr, BLTOP_COPY);	
 }
 
 static char	tworks[8];
 
-int bmu_text(Bitmap * bm, const char * str, char len)
+int bmu_text(const Bitmap * bm, const char * str, char len)
 {
 	char lx = 0;
 	int  tw = 0;
@@ -1292,7 +1292,7 @@ static Bitmap tbitmap = {
 	tbuffer, nullptr, 40, 1, 320
 };
 
-int bmu_put_chars(Bitmap * bm, int x, int y, const char * str, char len, BlitOp op)
+int bmu_put_chars(const Bitmap * bm, int x, int y, const char * str, char len, BlitOp op)
 {
 	int	tw = bmu_text(&tbitmap, str, len);
 
@@ -1301,7 +1301,7 @@ int bmu_put_chars(Bitmap * bm, int x, int y, const char * str, char len, BlitOp 
 	return tw;
 }
 
-int bm_put_chars(Bitmap * bm, ClipRect * clip, int x, int y, const char * str, char len, BlitOp op)
+int bm_put_chars(const Bitmap * bm, const ClipRect * clip, int x, int y, const char * str, char len, BlitOp op)
 {
 	int tw = 0;
 
@@ -1364,12 +1364,12 @@ int bm_put_chars(Bitmap * bm, ClipRect * clip, int x, int y, const char * str, c
 	return tw;
 }
 
-int bm_put_string(Bitmap * bm, ClipRect * clip, int x, int y, const char * str, BlitOp op)
+int bm_put_string(const Bitmap * bm, const ClipRect * clip, int x, int y, const char * str, BlitOp op)
 {
 	return bm_put_chars(bm, clip, x, y, str, strlen(str), op);
 }
 
-int bm_transform(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, Bitmap * sbm, int sx, int sy, int dxx, int dxy, int dyx, int dyy)
+int bm_transform(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, int w, int h, const Bitmap * sbm, int sx, int sy, int dxx, int dxy, int dyx, int dyy)
 {
 	long	lsx = (long)sx << 16, lsy = (long)sy << 16;
 

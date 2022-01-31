@@ -7825,6 +7825,17 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0)
 {
+	bool		isub = false;
+	int			ireg = ins->mSrc[0].mTemp;
+	AsmInsType	iop = ASMIT_ADC;
+
+	if (sins0)
+	{
+		isub = true;
+		ireg = sins0->mSrc[0].mTemp;
+		iop = ASMIT_SBC;
+	}
+
 	if (sins1)
 	{
 		if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 0)
@@ -7840,8 +7851,8 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 			}
 			else
 			{
-				NativeCodeInstruction	ainsl(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]);
-				NativeCodeInstruction	ainsh(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1);
+				NativeCodeInstruction	ainsl(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]);
+				NativeCodeInstruction	ainsh(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1);
 
 				LoadValueToReg(proc, sins1, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp], &ainsl, &ainsh);
 			}
@@ -7849,77 +7860,78 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 	}
 	else if (ins->mSrc[1].mTemp < 0)
 	{
-		mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
+
+		mIns.Push(NativeCodeInstruction(isub ? ASMIT_SEC : ASMIT_CLC, ASMIM_IMPLIED));
 		if (ins->mSrc[1].mMemory == IM_GLOBAL)
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
-			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+			mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
 			// if the global variable is smaller than 256 bytes, we can safely ignore the upper byte?
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
 #if 1
 			if (ins->mSrc[1].mLinkerObject->mSize < 256 || ins->mSrc[0].IsUByte())
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
 			else
 #endif
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
 		}
 		else if (ins->mSrc[1].mMemory == IM_ABSOLUTE)
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst & 0xff));
-			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+			mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[1].mIntConst >> 8) & 0xff));
 #if 1
 			if (ins->mSrc[0].IsUByte())
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
 			else
 #endif
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
 		}
 		else if (ins->mSrc[1].mMemory == IM_PROCEDURE)
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
-			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+			mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
 #if 1
 			if (ins->mSrc[0].IsUByte())
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
 			else
 #endif
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
 		}
 		else if (ins->mSrc[1].mMemory == IM_FPARAM)
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst));
-			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+			mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
 			if (ins->mSrc[0].IsUByte())
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
 			else
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
 		}
 	}
 	else
 	{
 		if (ins->mSrc[0].mTemp >= 0 || ins->mSrc[0].mIntConst != 0)
-			mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(isub ? ASMIT_SEC : ASMIT_CLC, ASMIM_IMPLIED));
 
 		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
 
 		if (ins->mSrc[0].mTemp < 0)
 		{
 			if (ins->mSrc[0].mIntConst)
-				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
 		}
 		else
-			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+			mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
 
 		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
 
@@ -7931,9 +7943,9 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
 		}
 		else if (ins->mSrc[0].IsUByte())
-			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
 		else
-			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+			mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
 
 		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
 	}
@@ -16231,7 +16243,13 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			block = block->BinaryOperator(iproc, this, ins, nullptr, nullptr);
 			break;
 		case IC_UNARY_OPERATOR:
-			block->UnaryOperator(iproc, this, ins);
+			if (i + 1 < iblock->mInstructions.Size() && ins->mOperator == IA_NEG && iblock->mInstructions[i + 1]->mCode == IC_LEA && iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal)
+			{
+				block->LoadEffectiveAddress(iproc, iblock->mInstructions[i + 1], nullptr, ins);
+				i++;
+			}
+			else
+				block->UnaryOperator(iproc, this, ins);
 			break;
 		case IC_CONVERSION_OPERATOR:
 			block->NumericConversion(iproc, this, ins);

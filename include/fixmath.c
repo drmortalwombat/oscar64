@@ -349,10 +349,80 @@ int lmuldiv16s(int a, int b, int c)
 		sign = !sign;
 	}
 
-	long	v = lmuldiv16u(a, b, c);
+	__asm
+	{
+			lda	#0
+			sta	__tmp + 0
+			sta	__tmp + 1
+			sta	__tmp + 2
+			sta	__tmp + 3
 
-	if (sign)
-		return -v;
-	else
-		return v;
+			ldx	#16
+	L1:		lsr	a + 1
+			ror	a
+			bcc	W1
+			clc
+			lda	__tmp + 2
+			adc	b
+			sta	__tmp + 2
+			lda	__tmp + 3
+			adc b + 1
+			sta	__tmp + 3
+	W1:
+			ror __tmp + 3
+			ror __tmp + 2
+			ror __tmp + 1
+			ror __tmp
+			dex
+			bne	L1
+
+			lda	#0
+			sta accu
+			sta accu + 1
+
+			ldx #17
+	L2:
+			sec
+			lda __tmp + 2
+			sbc c
+			tay
+			lda __tmp + 3
+			sbc c + 1
+			bcc	W2
+			sta __tmp + 3
+			sty __tmp + 2
+	W2:
+			rol accu
+			rol accu + 1
+
+			asl __tmp
+			rol __tmp + 1
+			rol __tmp + 2
+			rol __tmp + 3
+
+			dex
+			beq E2
+			bcc L2
+
+			lda __tmp + 2
+			sbc c
+			sta __tmp + 2
+			lda __tmp + 3
+			sbc c + 1
+			sta __tmp + 3
+			sec
+			bcs W2
+	E2:
+			lda	sign
+			beq	E1
+
+			sec
+			lda	#0
+			sbc accu
+			sta accu
+			lda #0
+			sbc accu + 1
+			sta accu + 1
+	E1:	
+	}
 }

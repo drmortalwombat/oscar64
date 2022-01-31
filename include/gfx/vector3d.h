@@ -256,6 +256,36 @@ void mat4_set_scale(Matrix4 * m, float s);
 
 void vec3_project(Vector3 * vd, const Matrix4 * m, const Vector3 * vs);
 
+// And now for some fixpoint math in 4.12
+
+struct F12Vector3
+{
+	int v[3];
+};
+
+struct F12Matrix3
+{
+	int	m[9];
+};
+
+static const int FIX12_ONE = 1 << 12;
+
+void f12mat3_ident(F12Matrix3 * m);
+
+void f12mat3_mmul(F12Matrix3 * md, const F12Matrix3 * ms);
+
+void f12mat3_rmmul(F12Matrix3 * md, const F12Matrix3 * ms);
+
+void f12mat3_set_rotate_x(F12Matrix3 * m, float a);
+
+void f12mat3_set_rotate_y(F12Matrix3 * m, float a);
+
+
+void f12mat3_set_rotate_z(F12Matrix3 * m, float a);
+
+void f12vec3_mmul(F12Vector3 * vd, const F12Matrix3 * m, const F12Vector3 * vs);
+
+
 #pragma compile("vector3d.c")
 
 #endif

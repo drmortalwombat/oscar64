@@ -2037,6 +2037,22 @@ void InterInstruction::FilterVarsUsage(const GrowingVariableArray& localVars, Nu
 			providedParams += mSrc[1].mVarIndex;
 		}
 	}
+	else if (mCode == IC_ASSEMBLER)
+	{
+		for (int i = 1; i < mNumOperands; i++)
+		{
+			if (mSrc[i].mMemory == IM_LOCAL)
+			{
+				if (!providedVars[mSrc[i].mVarIndex])
+					requiredVars += mSrc[i].mVarIndex;
+			}
+			else if (mSrc[i].mMemory == paramMemory)
+			{
+				if (!providedParams[mSrc[i].mVarIndex])
+					requiredParams += mSrc[i].mVarIndex;
+			}
+		}
+	}
 }
 
 static void PerformTempUseForwarding(int& temp, TempForwardingTable& forwardingTable)
@@ -3186,6 +3202,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				InterInstruction* lins = tvalue[ins->mSrc[i].mTemp];
 				if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0 && lins->mSrc[0].mMemory == IM_FPARAM)
 				{
+					ins->mSrc[i].mType = IT_POINTER;
 					ins->mSrc[i].mMemory = IM_FPARAM;
 					ins->mSrc[i].mVarIndex = lins->mSrc[0].mVarIndex;
 					ins->mSrc[i].mIntConst = lins->mSrc[0].mIntConst;
@@ -9147,7 +9164,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 0
+#if 1
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;

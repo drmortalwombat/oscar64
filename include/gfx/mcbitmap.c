@@ -32,14 +32,14 @@ char MixedColors[4][4][8] = {
 	},
 };
 
-void bmmc_put(Bitmap * bm, int x, int y, char c)
+void bmmc_put(const Bitmap * bm, int x, int y, char c)
 {
 	char * dp = bm->data + bm->cwidth * (y & ~7) + ((x & ~7) | (y & 7));
 
 	*dp = (*dp & andmask[x & 7]) | (cbytes[c & 3] & ormask[x & 7]);
 }
 
-char bmmc_get(Bitmap * bm, int x, int y)
+char bmmc_get(const Bitmap * bm, int x, int y)
 {
 	char * dp = bm->data + bm->cwidth * (y & ~7) + (x & ~7) + (y & 7);
 
@@ -47,13 +47,150 @@ char bmmc_get(Bitmap * bm, int x, int y)
 }
 
 
+void bmmcu_circle(const Bitmap * bm, int x, int y, char r, char color)
+{
+	char	*	lpt = bm->data + bm->cwidth * (y & ~7) + (y & 7);
+	char	*	lpb = lpt;
+	int			stride = 8 * bm->cwidth - 8;
+	char		pat = ~cbytes[color & 3];
+
+	char rx = r, ry = 0;
+	int	d = r / 2;
+	char * dp;
+
+	while (rx > 0)
+	{
+		dp = lpt + ((x + rx) & ~7);
+		*dp = ((*dp ^ pat) | ormask[(x + rx) & 7]) ^ pat;
+		dp = lpt + ((x - rx) & ~7);
+		*dp = ((*dp ^ pat) | ormask[(x - rx) & 7]) ^ pat;
+
+		dp = lpb + ((x + rx) & ~7);
+		*dp = ((*dp ^ pat) | ormask[(x + rx) & 7]) ^ pat;
+		dp = lpb + ((x - rx) & ~7);
+		*dp = ((*dp ^ pat) | ormask[(x - rx) & 7]) ^ pat;
+
+		if (d >= 0)
+		{
+			ry++;
+			d -= ry;
+			lpb ++;
+			if (!((int)lpb & 7))
+				lpb += stride;
+			if (!((int)lpt & 7))
+				lpt -= stride;
+			lpt--;
+		}
+		if (d < 0)
+		{
+			rx--;
+			d += rx;
+		}
+	}
+
+	dp = lpt + (x & ~7);
+	*dp = ((*dp ^ pat) | ormask[x & 7]) ^ pat;
+	dp = lpb + (x & ~7);
+	*dp = ((*dp ^ pat) | ormask[x & 7]) ^ pat;
+}
+
+void bmmc_circle2(const Bitmap * bm, const ClipRect * clip, int x, int y, char r, char color)
+{
+	char	*	lpt = bm->data + bm->cwidth * (y & ~7) + (y & 7);
+	char	*	lpb = lpt;
+	int			stride = 8 * bm->cwidth - 8;
+	char		pat = ~cbytes[color & 3];
+
+	char rx = r, ry = 0;
+	int	d = r / 2;
+	char * dp;
+
+	y -= clip->top;
+	unsigned	h = clip->bottom - clip->top;
+	unsigned	y0 = y, y1 = y;
+
+	while (rx > 0)
+	{
+		int	x0 = x - rx, x1 = x + rx;
+
+		bool	c0 = x0 >= clip->left && x0 < clip->right;
+		bool	c1 = x1 >= clip->left && x1 < clip->right;
+
+		if ((unsigned)y0 < h)
+		{
+			if (c0)
+			{
+				dp = lpt + (x0 & ~7);
+				*dp = ((*dp ^ pat) | ormask[x0 & 7]) ^ pat;
+			}
+			if (c1)
+			{
+				dp = lpt + (x1 & ~7);
+				*dp = ((*dp ^ pat) | ormask[x1 & 7]) ^ pat;
+			}
+		}
+
+		if ((unsigned)y1 < h)
+		{
+			if (c0)
+			{
+				dp = lpb + (x0 & ~7);
+				*dp = ((*dp ^ pat) | ormask[x0 & 7]) ^ pat;
+			}
+			if (c1)
+			{
+				dp = lpb + (x1 & ~7);
+				*dp = ((*dp ^ pat) | ormask[x1 & 7]) ^ pat;
+			}
+		}
+
+		if (d >= 0)
+		{
+			ry++; y0--; y1++;
+			d -= ry;
+			lpb ++;
+			if (!((int)lpb & 7))
+				lpb += stride;
+			if (!((int)lpt & 7))
+				lpt -= stride;
+			lpt--;
+		}
+		if (d < 0)
+		{
+			rx--;
+			d += rx;
+		}
+	}
+
+	if (x >= clip->left && x < clip->right)
+	{
+		if ((unsigned)y0 < h)
+		{
+			dp = lpt + (x & ~7);
+			*dp = ((*dp ^ pat) | ormask[x & 7]) ^ pat;
+		}
+		if ((unsigned)y1 < h)
+		{
+			dp = lpb + (x & ~7);
+			*dp = ((*dp ^ pat) | ormask[x & 7]) ^ pat;
+		}
+	}
+}
+
+void bmmc_circle(const Bitmap * bm, const ClipRect * clip, int x, int y, char r, char color)
+{
+	if (x - r >= clip->left && x + r < clip->right && y - r >= clip->top && y + r < clip->bottom)
+		bmmcu_circle(bm, x, y, r, color);
+	else if (x - r < clip->right && x + r >= clip->left && y - r < clip->bottom && y + r >= clip->top)
+		bmmc_circle2(bm, clip, x, y, r, color);
+}
 
 void bmmc_scan_fill(int left, int right, char * lp, int x0, int x1, char pat)
 {
 	bm_scan_fill(left, right, lp, x0 & ~1, (x1 + 1) & ~1, pat);
 }
 
-void bmmc_circle_fill(Bitmap * bm, ClipRect * clip, int x, int y, char r, const char * pattern)
+void bmmc_circle_fill(const Bitmap * bm, const ClipRect * clip, int x, int y, char r, const char * pattern)
 {
 	int y0 = y - r, y1 = y + r + 1;
 	if (y0 < clip->top)
@@ -79,7 +216,7 @@ void bmmc_circle_fill(Bitmap * bm, ClipRect * clip, int x, int y, char r, const 
 	}
 }
 
-void bmmc_trapezoid_fill(Bitmap * bm, ClipRect * clip, long x0, long x1, long dx0, long dx1, int y0, int y1, const char * pattern)
+void bmmc_trapezoid_fill(const Bitmap * bm, const ClipRect * clip, long x0, long x1, long dx0, long dx1, int y0, int y1, const char * pattern)
 {
 	if (y1 <= clip->top || y0 >= clip->bottom)
 		return;
@@ -111,7 +248,7 @@ void bmmc_trapezoid_fill(Bitmap * bm, ClipRect * clip, long x0, long x1, long dx
 }
 
 
-void bmmc_triangle_fill(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, const char * pat)
+void bmmc_triangle_fill(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, const char * pat)
 {
 	int	t;
 	if (y1 < y0 && y1 < y2)
@@ -162,14 +299,14 @@ void bmmc_triangle_fill(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, in
 }
 
 
-void bmmc_quad_fill(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3, const char * pat)
+void bmmc_quad_fill(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3, const char * pat)
 {
 	bmmc_triangle_fill(bm, clip, x0, y0, x1, y1, x2, y2, pat);
 	bmmc_triangle_fill(bm, clip, x0, y0, x2, y2, x3, y3, pat);
 }
 
 
-void bmmc_polygon_fill(Bitmap * bm, ClipRect * clip, int * px, int * py, char num, const char * pat)
+void bmmc_polygon_fill(const Bitmap * bm, const ClipRect * clip, int * px, int * py, char num, const char * pat)
 {
 	char 	mi = 0;
 	int		my = py[0];
@@ -247,7 +384,7 @@ struct Edge
 	Edge	*	next;
 };
 
-void bmmc_polygon_nc_fill(Bitmap * bm, ClipRect * clip, int * px, int * py, char num, const char * pattern)
+void bmmc_polygon_nc_fill(const Bitmap * bm, const ClipRect * clip, int * px, int * py, char num, const char * pattern)
 {
 	Edge	*	first = nullptr, * active = nullptr;
 	Edge	*	e = (Edge *)BLIT_CODE;
@@ -482,7 +619,7 @@ static inline void mcallline(byte * dst, byte bit, int m, char lh)
 	}
 }
 
-void bmmcu_line(Bitmap * bm, int x0, int y0, int x1, int y1, char color)
+void bmmcu_line(const Bitmap * bm, int x0, int y0, int x1, int y1, char color)
 {
 	x0 >>= 1;
 	x1 >>= 1;
@@ -526,7 +663,7 @@ static int mmuldiv(int x, int mul, int div)
 	return (int)((long)x * mul / div);
 }
 
-void bmmc_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, char color)
+void bmmc_line(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, int y1, char color)
 {
 	int dx = x1 - x0, dy = y1 - y0;
 
@@ -614,7 +751,7 @@ void bmmc_line(Bitmap * bm, ClipRect * clip, int x0, int y0, int x1, int y1, cha
 }
 
 
-void bmmcu_rect_fill(Bitmap * dbm, int dx, int dy, int w, int h, char color)
+void bmmcu_rect_fill(const Bitmap * dbm, int dx, int dy, int w, int h, char color)
 {
 	int	rx = (dx + w + 1) & ~1;
 	dx &= ~1;
@@ -622,7 +759,7 @@ void bmmcu_rect_fill(Bitmap * dbm, int dx, int dy, int w, int h, char color)
 	bmu_bitblit(dbm, dx, dy, dbm, dx, dy, rx - dx, h, MixedColors[color][color], BLTOP_PATTERN);	
 }
 
-void bmmcu_rect_pattern(Bitmap * dbm, int dx, int dy, int w, int h, const char * pattern)
+void bmmcu_rect_pattern(const Bitmap * dbm, int dx, int dy, int w, int h, const char * pattern)
 {
 	int	rx = (dx + w + 1) & ~1;
 	dx &= ~1;
@@ -630,7 +767,7 @@ void bmmcu_rect_pattern(Bitmap * dbm, int dx, int dy, int w, int h, const char *
 	bmu_bitblit(dbm, dx, dy, dbm, dx, dy, rx - dx, h, pattern, BLTOP_PATTERN);	
 }
 
-void bmmcu_rect_copy(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h)
+void bmmcu_rect_copy(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx, int sy, int w, int h)
 {
 	int	rx = (dx + w + 1) & ~1;
 	dx &= ~1;
@@ -640,7 +777,7 @@ void bmmcu_rect_copy(Bitmap * dbm, int dx, int dy, Bitmap * sbm, int sx, int sy,
 }
 
 
-void bmmc_rect_fill(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, char color)
+void bmmc_rect_fill(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, int w, int h, char color)
 {
 	int	rx = (dx + w + 1) & ~1;
 	dx &= ~1;
@@ -648,7 +785,7 @@ void bmmc_rect_fill(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h,
 	bm_bitblit(dbm, clip, dx, dy, dbm, dx, dy, rx - dx, h, MixedColors[color][color], BLTOP_PATTERN);	
 }
 
-void bmmc_rect_pattern(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int h, const char * pattern)
+void bmmc_rect_pattern(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, int w, int h, const char * pattern)
 {
 	int	rx = (dx + w + 1) & ~1;
 	dx &= ~1;
@@ -656,7 +793,7 @@ void bmmc_rect_pattern(Bitmap * dbm, ClipRect * clip, int dx, int dy, int w, int
 	bm_bitblit(dbm, clip, dx, dy, dbm, dx, dy, rx - dx, h, pattern, BLTOP_PATTERN);	
 }
 
-void bmmc_rect_copy(Bitmap * dbm, ClipRect * clip, int dx, int dy, Bitmap * sbm, int sx, int sy, int w, int h)
+void bmmc_rect_copy(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, const Bitmap * sbm, int sx, int sy, int w, int h)
 {
 	int	rx = (dx + w + 1) & ~1;
 	dx &= ~1;
@@ -689,7 +826,7 @@ inline char bmmc_checkdp(char * dp, char x, char c)
 }
 
 
-void bmmc_flood_fill(Bitmap * bm, ClipRect * clip, int x, int y, char color)
+void bmmc_flood_fill(const Bitmap * bm, const ClipRect * clip, int x, int y, char color)
 {
 	char		bx = (char)(x >> 1), by = (char)y;
 	char		sp = 0;

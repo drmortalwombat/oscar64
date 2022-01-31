@@ -1,5 +1,6 @@
 #include "vector3d.h"
 #include <math.h>
+#include <fixmath.h>
 
 void vec2_sum(Vector2 * vd, const Vector2 * v1, const Vector2 * v2)
 {
@@ -942,3 +943,84 @@ void vec3_project(Vector3 * vd, const Matrix4 * m, const Vector3 * vs)
 	vd->v[0] /= vd->v[2];
 	vd->v[1] /= vd->v[2];
 }
+
+
+
+void f12mat3_ident(F12Matrix3 * m)
+{
+	m->m[0] = FIX12_ONE;
+	m->m[1] = 0;
+	m->m[2] = 0;
+
+	m->m[3] = 0;
+	m->m[4] = FIX12_ONE;
+	m->m[5] = 0;
+
+	m->m[6] = 0;
+	m->m[7] = 0;
+	m->m[8] = FIX12_ONE;
+}
+
+void f12mat3_mmul(F12Matrix3 * md, const F12Matrix3 * ms)
+{
+	for(char i=0; i<3; i++)
+	{
+		char	j = 3 * i;
+
+		int	m0 = lmul4f12s(md->m[i + 0], ms->m[0]) + lmul4f12s(md->m[i + 3], ms->m[1]) + lmul4f12s(md->m[i + 6], ms->m[2]);
+		int	m3 = lmul4f12s(md->m[i + 0], ms->m[3]) + lmul4f12s(md->m[i + 3], ms->m[4]) + lmul4f12s(md->m[i + 6], ms->m[5]);
+		int	m6 = lmul4f12s(md->m[i + 0], ms->m[6]) + lmul4f12s(md->m[i + 3], ms->m[7]) + lmul4f12s(md->m[i + 6], ms->m[8]);
+
+		md->m[i + 0] = m0; md->m[i + 3] = m3; md->m[i + 6] = m6;
+	}
+}
+
+void f12mat3_rmmul(F12Matrix3 * md, const F12Matrix3 * ms)
+{
+	for(char i=0; i<9; i+=3)
+	{
+		int	m0 = lmul4f12s(md->m[i + 0], ms->m[0]) + lmul4f12s(md->m[i + 1], ms->m[3]) + lmul4f12s(md->m[i + 2], ms->m[6]);
+		int	m1 = lmul4f12s(md->m[i + 0], ms->m[1]) + lmul4f12s(md->m[i + 1], ms->m[4]) + lmul4f12s(md->m[i + 2], ms->m[7]);
+		int	m2 = lmul4f12s(md->m[i + 0], ms->m[2]) + lmul4f12s(md->m[i + 1], ms->m[5]) + lmul4f12s(md->m[i + 2], ms->m[8]);
+
+		md->m[i + 0] = m0; md->m[i + 1] = m1; md->m[i + 2] = m2;
+	}
+}
+
+void f12mat3_set_rotate_x(F12Matrix3 * m, float a)
+{
+	int	c = (int)(FIX12_ONE * cos(a) + 0.5);
+	int	s = (int)(FIX12_ONE * sin(a) + 0.5);
+	m->m[0] = FIX12_ONE; m->m[3] = 0; m->m[6] = 0;
+	m->m[1] = 0; m->m[4] = c; m->m[7] = s;
+	m->m[2] = 0; m->m[5] =-s; m->m[8] = c;
+}
+
+void f12mat3_set_rotate_y(F12Matrix3 * m, float a)
+{
+	int	c = (int)(FIX12_ONE * cos(a) + 0.5);
+	int	s = (int)(FIX12_ONE * sin(a) + 0.5);
+	m->m[0] = c; m->m[3] = 0; m->m[6] = s;
+	m->m[1] = 0; m->m[4] = FIX12_ONE; m->m[7] = 0;
+	m->m[2] =-s; m->m[5] = 0; m->m[8] = c;
+}
+
+
+void f12mat3_set_rotate_z(F12Matrix3 * m, float a)
+{
+	int	c = (int)(FIX12_ONE * cos(a) + 0.5);
+	int	s = (int)(FIX12_ONE * sin(a) + 0.5);
+	m->m[0] = c; m->m[3] =-s; m->m[6] = 0;
+	m->m[1] = s; m->m[4] = c; m->m[7] = 0;
+	m->m[2] = 0; m->m[5] = 0; m->m[8] = FIX12_ONE;
+}
+
+void f12vec3_mmul(F12Vector3 * vd, const F12Matrix3 * m, const F12Vector3 * vs)
+{
+	F12Vector3	vt;
+	for(char i=0; i<3; i++)
+		vt.v[i] = lmul4f12s(m->m[i], vs->v[0]) + lmul4f12s(m->m[3 + i], vs->v[1]) + lmul4f12s(m->m[6 + i], vs->v[2]);
+	*vd = vt;
+}
+
+
