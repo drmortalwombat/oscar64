@@ -394,6 +394,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_95B2F42C70F1469C851D5751CC82319C"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_963E94CDB4DF4300B48C537010EDF36F"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -713,6 +719,12 @@
         "Entry"
         {
         "MsmKey" = "8:_F06F7114D6184A03962BE1C8AA697FEF"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_F1B639D383C846C2A7CCF8031E524A76"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -2093,6 +2105,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_95B2F42C70F1469C851D5751CC82319C"
+            {
+            "SourcePath" = "8:..\\samples\\resources\\missilechars.bin"
+            "TargetName" = "8:missilechars.bin"
+            "Tag" = "8:"
+            "Folder" = "8:_758C6547998745659548D0656D380FEA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_963E94CDB4DF4300B48C537010EDF36F"
             {
             "SourcePath" = "8:..\\samples\\hires\\bitblit.c"
@@ -3173,6 +3205,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_F1B639D383C846C2A7CCF8031E524A76"
+            {
+            "SourcePath" = "8:..\\samples\\resources\\missilesprites.bin"
+            "TargetName" = "8:missilesprites.bin"
+            "Tag" = "8:"
+            "Folder" = "8:_758C6547998745659548D0656D380FEA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_F35970F9D8FA46B09F36D7E9DE5532CA"
             {
             "SourcePath" = "8:..\\include\\c64\\charwin.h"
@@ -3518,15 +3570,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{1FF1624F-A9FD-402D-806B-6CE9925FB690}"
-        "PackageCode" = "8:{47F7AA54-A5D7-4A82-8276-0DCD0FE332D4}"
+        "ProductCode" = "8:{E4C76B27-778B-47A0-BF67-EFE48A6D29EE}"
+        "PackageCode" = "8:{FA332293-3508-4C94-9F33-44CD3E597DE3}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.4.75"
+        "ProductVersion" = "8:1.4.76"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
