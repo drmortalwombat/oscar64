@@ -243,6 +243,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
 				ndec->mBase = dec->mBase;
 				ndec->mScope = dec->mScope;
 				ndec->mParams = dec->mParams;
+				ndec->mIdent = dec->mIdent;
 				dec = ndec;
 			}
 			mScanner->NextToken();

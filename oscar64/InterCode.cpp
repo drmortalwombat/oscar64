@@ -5708,10 +5708,10 @@ static int Find(GrowingIntArray& table, int i)
 	return j;
 }
 
-static bool MatchingMem(const InterOperand& op1, const InterOperand& op2)
+static bool CollidingMem(const InterOperand& op1, const InterOperand& op2)
 {
 	if (op1.mMemory != op2.mMemory)
-		return false;
+		return op1.mMemory == IM_INDIRECT || op2.mMemory == IM_INDIRECT;
 
 	switch (op1.mMemory)
 	{
@@ -5727,18 +5727,21 @@ static bool MatchingMem(const InterOperand& op1, const InterOperand& op2)
 		else
 			return false;
 	case IM_INDIRECT:
-		return true;
+		if (op1.mTemp == op2.mTemp)
+			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+		else
+			return true;
 	default:
 		return false;
 	}
 }
 
-static bool MatchingMem(const InterOperand& op, const InterInstruction * ins)
+static bool CollidingMem(const InterOperand& op, const InterInstruction * ins)
 {
 	if (ins->mCode == IC_LOAD)
-		return MatchingMem(op, ins->mSrc[0]);
+		return CollidingMem(op, ins->mSrc[0]);
 	else if (ins->mCode == IC_STORE)
-		return MatchingMem(op, ins->mSrc[1]);
+		return CollidingMem(op, ins->mSrc[1]);
 	else
 		return false;
 }
@@ -5759,7 +5762,7 @@ static bool SameMem(const InterOperand& op1, const InterOperand& op2)
 	case IM_GLOBAL:
 		return op1.mLinkerObject == op2.mLinkerObject;
 	case IM_INDIRECT:
-
+		return op1.mTemp == op2.mTemp;
 	default:
 		return false;
 	}
@@ -5773,6 +5776,19 @@ static bool SameMem(const InterOperand& op, const InterInstruction* ins)
 		return SameMem(op, ins->mSrc[1]);
 	else
 		return false;
+}
+
+static bool SameInstruction(const InterInstruction* ins1, const InterInstruction* ins2)
+{
+	if (ins1->mCode == ins2->mCode && ins1->mNumOperands == ins2->mNumOperands && ins1->mOperator == ins2->mOperator)
+	{
+		for(int i=0; i<ins1->mNumOperands; i++)
+			if (!ins1->mSrc[i].IsEqual(ins2->mSrc[i]))
+				return false;
+		return true;
+	}
+
+	return false;
 }
 
 void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue)
@@ -5812,80 +5828,103 @@ void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 		{
 			InterInstruction* ins(mInstructions[i]);
 
-			if (ins->mDst.mTemp >= 0)
+			InterInstruction	*	nins = nullptr;
+			bool					flushMem = false;
+
+			if (ins->mCode == IC_LOAD)
+			{
+				if (!ins->mVolatile)
+				{
+					int	j = 0;
+					while (j < mLoadStoreInstructions.Size() && !SameMem(ins->mSrc[0], mLoadStoreInstructions[j]))
+						j++;
+					if (j < mLoadStoreInstructions.Size())
+					{
+						InterInstruction* lins = mLoadStoreInstructions[j];
+						if (lins->mCode == IC_LOAD)
+						{
+							ins->mCode = IC_LOAD_TEMPORARY;
+							ins->mSrc[0] = lins->mDst;
+							ins->mNumOperands = 1;
+						}
+						else if (lins->mCode == IC_STORE)
+						{
+							if (lins->mSrc[0].mTemp < 0)
+							{
+								ins->mCode = IC_CONSTANT;
+								ins->mConst = lins->mSrc[0];
+							}
+							else
+							{
+								ins->mCode = IC_LOAD_TEMPORARY;
+								ins->mSrc[0] = lins->mSrc[0];
+								ins->mNumOperands = 1;
+							}
+						}
+					}
+					else
+						nins = ins;
+				}
+			}
+			else if (ins->mCode == IC_STORE)
+			{
+				int	j = 0, k = 0;
+
+				while (j < mLoadStoreInstructions.Size())
+				{
+					if (!CollidingMem(ins->mSrc[1], mLoadStoreInstructions[j]))
+						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+					j++;
+				}
+				mLoadStoreInstructions.SetSize(k);
+
+				if (!ins->mVolatile)
+					nins = ins;
+			}
+			else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+				flushMem = true;
+			else if (ins->mCode == IC_LEA || ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR)
+			{
+				int	j = 0;
+				while (j < mLoadStoreInstructions.Size() && !SameInstruction(ins, mLoadStoreInstructions[j]))
+					j++;
+				if (j < mLoadStoreInstructions.Size())
+				{
+					InterInstruction* lins = mLoadStoreInstructions[j];
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSrc[0] = lins->mDst;
+					ins->mNumOperands = 1;
+				}
+				else
+					nins = ins;
+			}
+			else if (HasSideEffect(ins->mCode))
+				flushMem = true;			
+
 			{
 				int	j = 0, k = 0, t = ins->mDst.mTemp;
 
 				while (j < mLoadStoreInstructions.Size())
 				{
-					if (t != mLoadStoreInstructions[j]->mDst.mTemp && t != mLoadStoreInstructions[j]->mSrc[0].mTemp)
+					if (flushMem && (mLoadStoreInstructions[j]->mCode == IC_LOAD || mLoadStoreInstructions[j]->mCode == IC_STORE))
+						;
+					else if (t < 0)
 						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+					else if (t != mLoadStoreInstructions[j]->mDst.mTemp)
+					{
+						int l = 0;
+						while (l < mLoadStoreInstructions[j]->mNumOperands && t != mLoadStoreInstructions[j]->mSrc[l].mTemp)
+							l++;
+						if (l == mLoadStoreInstructions[j]->mNumOperands)
+							mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+					}
 					j++;
 				}
 				mLoadStoreInstructions.SetSize(k);
 			}
 
-			if (ins->mCode == IC_LOAD)
-			{
-				if (ins->mSrc[0].mTemp < 0)
-				{
-					if (!ins->mVolatile)
-					{
-						int	j = 0;
-						while (j < mLoadStoreInstructions.Size() && !SameMem(ins->mSrc[0], mLoadStoreInstructions[j]))
-							j++;
-						if (j < mLoadStoreInstructions.Size())
-						{
-							InterInstruction* lins = mLoadStoreInstructions[j];
-							if (lins->mCode == IC_LOAD)
-							{
-								ins->mCode = IC_LOAD_TEMPORARY;
-								ins->mSrc[0] = lins->mDst;
-								ins->mNumOperands = 1;
-							}
-							else if (lins->mCode == IC_STORE)
-							{
-								if (lins->mSrc[0].mTemp < 0)
-								{
-									ins->mCode = IC_CONSTANT;
-									ins->mConst = lins->mSrc[0];
-								}
-								else
-								{
-									ins->mCode = IC_LOAD_TEMPORARY;
-									ins->mSrc[0] = lins->mSrc[0];
-									ins->mNumOperands = 1;
-								}
-							}
-						}
-						else
-							mLoadStoreInstructions.Push(ins);
-					}
-				}
-			}
-			else if (ins->mCode == IC_STORE)
-			{
-				if (ins->mSrc[1].mTemp < 0)
-				{
-					if (!ins->mVolatile)
-					{
-						int	j = 0;
-						while (j < mLoadStoreInstructions.Size() && !MatchingMem(ins->mSrc[1], mLoadStoreInstructions[j]))
-							j++;
-						if (j < mLoadStoreInstructions.Size())
-							mLoadStoreInstructions[j] = ins;
-						else
-							mLoadStoreInstructions.Push(ins);
-					}
-				}
-				else
-					mLoadStoreInstructions.SetSize(0);
-			}
-			else if (ins->mCode == IC_COPY)
-				mLoadStoreInstructions.SetSize(0);
-			else if (HasSideEffect(ins->mCode))
-				mLoadStoreInstructions.SetSize(0);
-
+			if (nins)
+				mLoadStoreInstructions.Push(nins);
 		}
 
 		if (mTrueJump) mTrueJump->LoadStoreForwarding(mLoadStoreInstructions);
@@ -9164,7 +9203,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 1
+#if 0
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;

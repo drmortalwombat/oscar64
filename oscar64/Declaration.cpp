@@ -395,6 +395,7 @@ Declaration* Declaration::ToConstType(void)
 	ndec->mFlags = mFlags | DTF_CONST;
 	ndec->mScope = mScope;
 	ndec->mParams = mParams;
+	ndec->mIdent = mIdent;
 	
 	return ndec;
 }
@@ -425,8 +426,8 @@ bool Declaration::IsSubType(const Declaration* dec) const
 		return true;
 	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
 		return true;
-	else if (mType == DT_TYPE_STRUCT && dec->mType == DT_TYPE_STRUCT)
-		return mScope == dec->mScope;
+	else if (mType == DT_TYPE_STRUCT)
+		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_ENUM || mType == DT_TYPE_UNION)
 		return false;
 	else if (mType == DT_TYPE_ARRAY)
@@ -472,17 +473,12 @@ bool Declaration::IsSame(const Declaration* dec) const
 		return true;
 	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
 		return true;
-	else if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_ENUM)
-	{
-		if (mIdent == dec->mIdent)
-			return true;
-		else
-			return false;
-	}
+	else if (mType == DT_TYPE_ENUM)
+		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 		return mBase->IsSame(dec->mBase);
-	else if (mType == DT_TYPE_STRUCT && dec->mType == DT_TYPE_STRUCT)
-		return mScope == dec->mScope;
+	else if (mType == DT_TYPE_STRUCT)
+		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_FUNCTION)
 	{
 		if (!mBase->IsSame(dec->mBase))
@@ -518,7 +514,7 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 			return true;
 	}
 	else if (mType == DT_TYPE_STRUCT && fromType->mType == DT_TYPE_STRUCT)
-		return mScope == fromType->mScope;
+		return mScope == fromType->mScope || (mIdent == fromType->mIdent && mSize == fromType->mSize);
 	else if (mType == DT_TYPE_POINTER)
 	{
 		if (fromType->mType == DT_TYPE_POINTER || fromType->mType == DT_TYPE_ARRAY)
