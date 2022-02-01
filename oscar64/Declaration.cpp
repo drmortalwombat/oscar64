@@ -226,7 +226,7 @@ Expression* Expression::ConstantFold(Errors * errors)
 				return ex;
 			}
 		}
-		else if (mLeft->mDecType->mType == DT_CONST_INTEGER)
+		else if (mLeft->mDecType->mType == DT_TYPE_INTEGER)
 		{
 			if (mRight->mDecValue->mType == DT_CONST_FLOAT)
 			{
@@ -238,8 +238,27 @@ Expression* Expression::ConstantFold(Errors * errors)
 				ex->mDecType = mLeft->mDecType;
 				return ex;
 			}
+			else if (mRight->mDecValue->mType == DT_CONST_INTEGER)
+			{
+				int64	sval = 1ULL << (8 * mLeft->mDecType->mSize);
+				int64	v = mRight->mDecValue->mInteger & (sval - 1);
+
+				if (mLeft->mDecType->mFlags & DTF_SIGNED)
+				{
+					if (v & (sval >> 1))
+						v -= sval;
+				}
+
+				Expression* ex = new Expression(mLocation, EX_CONSTANT);
+				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
+				dec->mBase = mLeft->mDecType;
+				dec->mInteger = v;
+				ex->mDecValue = dec;
+				ex->mDecType = mLeft->mDecType;
+				return ex;
+			}
 		}
-		else if (mLeft->mDecType->mType == DT_CONST_FLOAT)
+		else if (mLeft->mDecType->mType == DT_TYPE_FLOAT)
 		{
 			if (mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{
