@@ -291,6 +291,17 @@ void cwin_put_chars_raw(CharWin * win, const char * chars, char num, char color)
 	}
 }
 
+char cwin_put_string_raw(CharWin * win, const char * str, char color)
+{
+	char n = cwin_putat_string_raw(win, win->cx, win->cy, str, color);
+	win->cx += n;
+	if (win->cx >= win->wx)
+	{
+		win->cx = 0;
+		win->cy++;
+	}
+	return n;	
+}
 
 
 
@@ -342,7 +353,6 @@ char cwin_putat_string(CharWin * win, char x, char y, const char * str, char col
 
 #pragma native(cwin_putat_string)
 
-
 void cwin_putat_char_raw(CharWin * win, char x, char y, char ch, char color)
 {
 	int	offset = mul40[y] + x;
@@ -371,6 +381,25 @@ void cwin_putat_chars_raw(CharWin * win, char x, char y, const char * chars, cha
 
 #pragma native(cwin_putat_chars_raw)
 
+char cwin_putat_string_raw(CharWin * win, char x, char y, const char * str, char color)
+{
+	int	offset = mul40[y] + x;
+
+	char	*	sp = win->sp + offset;
+	char	*	cp = win->cp + offset;
+	
+	char	i = 0;
+	while (char	ch = str[i])
+	{
+		sp[i] = ch;
+		cp[i] = color;
+		i++;
+	}
+
+	return i;
+}
+
+#pragma native(cwin_putat_string_raw)
 
 char cwin_getat_char(CharWin * win, char x, char y)
 {

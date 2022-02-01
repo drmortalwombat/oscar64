@@ -71,6 +71,10 @@ void cwin_put_char_raw(CharWin * win, char ch, char color);
 //
 void cwin_put_chars_raw(CharWin * win, const char * chars, char num, char color);
 
+// Put a zero terminated raw string at the cursor location and advance the cursor
+//
+char cwin_put_string_raw(CharWin * win, const char * str, char color);
+
 
 
 // Put a single char at the given window location
@@ -93,6 +97,10 @@ void cwin_putat_char_raw(CharWin * win, char x, char y, char ch, char color);
 // Put an array of raw chars at the given window location
 //
 void cwin_putat_chars_raw(CharWin * win, char x, char y, const char * chars, char num, char color);
+
+// Put a zero terminated string at the given window location
+//
+char cwin_putat_string_raw(CharWin * win, char x, char y, const char * str, char color);
 
 
 // Get a single char at the given window location
