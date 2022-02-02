@@ -84,7 +84,9 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 				if (offset > dec->mSize)
 					dec->mSize = offset;
 
-				dec->mScope->Insert(mdec->mIdent, mdec);
+				if (dec->mScope->Insert(mdec->mIdent, mdec))
+					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent->mString);
+
 				if (mlast)
 					mlast->mNext = mdec;
 				else

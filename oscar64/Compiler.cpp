@@ -14,21 +14,21 @@ Compiler::Compiler(void)
 	mErrors = new Errors();
 	mLinker = new Linker(mErrors);
 	mCompilationUnits = new CompilationUnits(mErrors);
-	mPreprocessor = new Preprocessor(mErrors);
-	mByteCodeGenerator = new ByteCodeGenerator(mErrors, mLinker);
-	mInterCodeGenerator = new InterCodeGenerator(mErrors, mLinker);
-	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker);
-	mInterCodeModule = new InterCodeModule();
-	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
 
 	mCompilationUnits->mLinker = mLinker;
-
 	mCompilationUnits->mSectionCode = mLinker->AddSection(Ident::Unique("code"), LST_DATA);
 	mCompilationUnits->mSectionData = mLinker->AddSection(Ident::Unique("data"), LST_DATA);
 	mCompilationUnits->mSectionBSS = mLinker->AddSection(Ident::Unique("bss"), LST_BSS);
 	mCompilationUnits->mSectionHeap = mLinker->AddSection(Ident::Unique("heap"), LST_HEAP);
 	mCompilationUnits->mSectionStack = mLinker->AddSection(Ident::Unique("stack"), LST_STACK);
 	mCompilationUnits->mSectionStack->mSize = 4096;
+
+	mPreprocessor = new Preprocessor(mErrors);
+	mByteCodeGenerator = new ByteCodeGenerator(mErrors, mLinker);
+	mInterCodeGenerator = new InterCodeGenerator(mErrors, mLinker);
+	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker, mCompilationUnits->mSectionCode);
+	mInterCodeModule = new InterCodeModule();
+	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
 }
 
 Compiler::~Compiler(void)
@@ -342,6 +342,8 @@ bool Compiler::GenerateCode(void)
 			}
 		}
 	}
+
+	mNativeCodeGenerator->CompleteRuntime();
 
 	mLinker->CollectReferences();
 

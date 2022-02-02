@@ -603,7 +603,7 @@ NativeCodeDisassembler::~NativeCodeDisassembler(void)
 
 }
 
-void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker)
+void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker, LinkerObject * lobj)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");
 	if (proc && proc->mIdent)
@@ -613,31 +613,38 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int sta
 
 	char	tbuffer[10], abuffer[100];
 
-	int		ip = start;
-	while (ip < start + size)
+	if (lobj->mSection->mType == LST_BSS)
 	{
-		int	n = 16;
-		if (ip + n > start + size)
-			n = start + size - ip;
-
-		fprintf(file, "%04x : __ __ __ BYT", ip);
-
-		for (int i = 0; i < n; i++)
-			fprintf(file, " %02x", memory[ip + i]);
-		for(int i=n; i<16; i++)
-			fprintf(file, "   ");
-		fprintf(file, " : ");
-		for (int i = 0; i < n; i++)
+		fprintf(file, "%04x : __ __ __ BSS\t%d\n", start, size);
+	}
+	else
+	{
+		int		ip = start;
+		while (ip < start + size)
 		{
-			int k = memory[ip + i];
-			if (k >= 32 && k < 128)
-				fprintf(file, "%c", k);
-			else
-				fprintf(file, ".");
-		}
-		fprintf(file, "\n");
+			int	n = 16;
+			if (ip + n > start + size)
+				n = start + size - ip;
 
-		ip += n;
+			fprintf(file, "%04x : __ __ __ BYT", ip);
+
+			for (int i = 0; i < n; i++)
+				fprintf(file, " %02x", memory[ip + i]);
+			for (int i = n; i < 16; i++)
+				fprintf(file, "   ");
+			fprintf(file, " : ");
+			for (int i = 0; i < n; i++)
+			{
+				int k = memory[ip + i];
+				if (k >= 32 && k < 128)
+					fprintf(file, "%c", k);
+				else
+					fprintf(file, ".");
+			}
+			fprintf(file, "\n");
+
+			ip += n;
+		}
 	}
 }
 

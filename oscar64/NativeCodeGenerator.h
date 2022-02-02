@@ -297,10 +297,11 @@ class NativeCodeProcedure
 class NativeCodeGenerator
 {
 public:
-	NativeCodeGenerator(Errors * errors, Linker* linker);
+	NativeCodeGenerator(Errors * errors, Linker* linker, LinkerSection * runtimeSection);
 	~NativeCodeGenerator(void);
 
 	void RegisterRuntime(const Ident * ident, LinkerObject * object, int offset);
+	void CompleteRuntime(void);
 
 	uint64		mCompilerOptions;
 
@@ -311,9 +312,20 @@ public:
 		int					mOffset;
 	};
 
+	struct MulTable
+	{
+		LinkerObject* mLinkerLSB, * mLinkerMSB;
+		int	mFactor, mSize;
+	};
+
+	LinkerObject* AllocateShortMulTable(int factor, int size, bool msb);
+
 	Runtime& ResolveRuntime(const Ident* ident);
 
 	Errors* mErrors;
 	Linker* mLinker;
+	LinkerSection* mRuntimeSection;
+
 	GrowingArray<Runtime>	mRuntime;
+	GrowingArray<MulTable>	mMulTables;
 };

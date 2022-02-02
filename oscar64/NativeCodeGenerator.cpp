@@ -4873,6 +4873,36 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 		lshift++;
 	}
 
+	if (mul > 1 && (lshift > 3 || lmul != 1) && ins->mSrc[index].IsUByte() && ins->mSrc[index].mRange.mMaxValue < 16)
+	{
+		int	dreg = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+
+		if (sins)
+		{
+			LoadValueToReg(proc, sins, dreg, nullptr, nullptr);
+			mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_ZERO_PAGE, dreg));
+		}
+		else
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[index].mTemp]));
+		}
+
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(mul, ins->mSrc[index].mRange.mMaxValue + 1, false)));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg));
+		if (ins->mDst.IsUByte())
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
+		}
+		else
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(mul, ins->mSrc[index].mRange.mMaxValue + 1, true)));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg));
+		}
+
+		return dreg;
+	}
+	
 	if (lmul == 1 && !sins && ins->mSrc[index].mTemp == ins->mDst.mTemp)
 	{
 		// shift in place
@@ -14076,6 +14106,26 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						progress = true;
 					}
 					else if (
+						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y) &&
+						!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) &&
+						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
+					{
+						mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & LIVE_CPU_REG_X) &&
+						!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) &&
+						mIns[i + 2].mType == ASMIT_LDX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
+					{
+						mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
 						mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_MEM) &&
 						mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
@@ -16484,14 +16534,64 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 }
 
 
-NativeCodeGenerator::NativeCodeGenerator(Errors* errors, Linker* linker)
-	: mErrors(errors), mLinker(linker), mCompilerOptions(COPT_DEFAULT), mRuntime({ 0 })
+NativeCodeGenerator::NativeCodeGenerator(Errors* errors, Linker* linker, LinkerSection* runtimeSection)
+	: mErrors(errors), mLinker(linker), mRuntimeSection(runtimeSection), mCompilerOptions(COPT_DEFAULT), mRuntime({ 0 }), mMulTables({nullptr})
 {
 }
 
 NativeCodeGenerator::~NativeCodeGenerator(void)
 {
 
+}
+
+void NativeCodeGenerator::CompleteRuntime(void)
+{
+	for (int i = 0; i < mMulTables.Size(); i++)
+	{
+		const MulTable& m(mMulTables[i]);
+		m.mLinkerLSB->AddSpace(m.mSize);
+		m.mLinkerMSB->AddSpace(m.mSize);
+
+		for (int j = 0; j < m.mSize; j++)
+		{
+			m.mLinkerLSB->mData[j] = (uint8)(m.mFactor * j);
+			m.mLinkerMSB->mData[j] = (uint8)(m.mFactor * j >> 8);
+		}
+	}
+}
+
+
+LinkerObject* NativeCodeGenerator::AllocateShortMulTable(int factor, int size, bool msb)
+{
+	int	i = 0;
+	while (i < mMulTables.Size() && mMulTables[i].mFactor != factor)
+		i++;
+
+	if (i == mMulTables.Size())
+	{
+		Location	loc;
+		MulTable	mt;
+		
+		char	name[20];
+		sprintf_s(name, "__multab%dL", factor);
+		mt.mLinkerLSB = mLinker->AddObject(loc, Ident::Unique(name), mRuntimeSection, LOT_DATA);
+		sprintf_s(name, "__multab%dH", factor);
+		mt.mLinkerMSB = mLinker->AddObject(loc, Ident::Unique(name), mRuntimeSection, LOT_DATA);
+
+		mt.mFactor = factor;
+		mt.mSize = size;
+
+		mMulTables.Push(mt);
+
+		return msb ? mt.mLinkerMSB : mt.mLinkerLSB;
+	}
+	else
+	{
+		if (size > mMulTables[i].mSize)
+			mMulTables[i].mSize = size;
+
+		return msb ? mMulTables[i].mLinkerMSB : mMulTables[i].mLinkerLSB;
+	}
 }
 
 NativeCodeGenerator::Runtime& NativeCodeGenerator::ResolveRuntime(const Ident* ident)

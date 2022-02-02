@@ -646,9 +646,9 @@ bool Linker::WriteAsmFile(const char* filename)
 					break;
 				case LOT_DATA:
 					if (obj->mRegion->mCartridge < 0)
-						mNativeDisassembler.DumpMemory(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+						mNativeDisassembler.DumpMemory(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
 					else
-						mNativeDisassembler.DumpMemory(file, mCartridge[obj->mRegion->mCartridge] - 0x8000, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+						mNativeDisassembler.DumpMemory(file, mCartridge[obj->mRegion->mCartridge] - 0x8000, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
 				}
 			}
 		}
