@@ -603,6 +603,44 @@ NativeCodeDisassembler::~NativeCodeDisassembler(void)
 
 }
 
+void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker)
+{
+	fprintf(file, "--------------------------------------------------------------------\n");
+	if (proc && proc->mIdent)
+		fprintf(file, "%s:\n", proc->mIdent->mString);
+	else if (ident)
+		fprintf(file, "%s:\n", ident->mString);
+
+	char	tbuffer[10], abuffer[100];
+
+	int		ip = start;
+	while (ip < start + size)
+	{
+		int	n = 16;
+		if (ip + n > start + size)
+			n = start + size - ip;
+
+		fprintf(file, "%04x : __ __ __ BYT", ip);
+
+		for (int i = 0; i < n; i++)
+			fprintf(file, " %02x", memory[ip + i]);
+		for(int i=n; i<16; i++)
+			fprintf(file, "   ");
+		fprintf(file, " : ");
+		for (int i = 0; i < n; i++)
+		{
+			int k = memory[ip + i];
+			if (k >= 32 && k < 128)
+				fprintf(file, "%c", k);
+			else
+				fprintf(file, ".");
+		}
+		fprintf(file, "\n");
+
+		ip += n;
+	}
+}
+
 void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident * ident, Linker* linker)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");

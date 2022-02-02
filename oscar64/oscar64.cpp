@@ -56,7 +56,7 @@ bool GetProductAndVersion(char* strProductName, char* strProductVersion)
 }
 #endif
 
-int main(int argc, const char** argv)
+int main2(int argc, const char** argv)
 {
 	InitDeclarations();
 	InitAssembler();
@@ -67,13 +67,13 @@ int main(int argc, const char** argv)
 		char	strProductName[100], strProductVersion[200];
 
 #ifdef _WIN32
-		GetProductAndVersion(strProductName, strProductVersion);
+			GetProductAndVersion(strProductName, strProductVersion);
 
-		DWORD length = ::GetModuleFileNameA(NULL, basePath, sizeof(basePath));
+			DWORD length = ::GetModuleFileNameA(NULL, basePath, sizeof(basePath));
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.4.77");
+		strcpy(strProductVersion, "1.4.78");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -83,8 +83,8 @@ int main(int argc, const char** argv)
 #else
 		int length = readlink("/proc/self/exe", basePath, sizeof(basePath));
 
-//		strcpy(basePath, argv[0]);
-//		int length = strlen(basePath);
+		//		strcpy(basePath, argv[0]);
+		//		int length = strlen(basePath);
 #endif
 #endif
 		while (length > 0 && basePath[length - 1] != '/' && basePath[length - 1] != '\\')
@@ -241,3 +241,22 @@ int main(int argc, const char** argv)
 	return 0;
 }
 
+
+int main(int argc, const char** argv)
+{
+#ifdef _WIN32
+	__try 
+	{
+#endif
+
+		return main2(argc, argv);
+
+#ifdef _WIN32
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+		printf("oscar64 crashed.");
+		return 30;
+	}
+#endif
+}

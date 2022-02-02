@@ -4579,12 +4579,48 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 
 	if (sz >= 2)
 	{
-		if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp)
+		if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+			mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp && IsIntegerType(mInstructions[sz - 2]->mSrc[0].mType))
 		{
 			int	s1 = mInstructions[sz - 2]->mSrc[1].mTemp, s0 = mInstructions[sz - 2]->mSrc[0].mTemp;
 
 			switch (mInstructions[sz - 2]->mOperator)
 			{
+#if 1
+			case IA_CMPEQ:
+				if (s0 < 0)
+				{
+					mTrueValueRange[s1].mMinState = IntegerValueRange::S_BOUND;
+					mTrueValueRange[s1].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+					mTrueValueRange[s1].mMaxState = IntegerValueRange::S_BOUND;
+					mTrueValueRange[s1].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+				}
+				else if (s1 < 0)
+				{
+					mTrueValueRange[s0].mMinState = IntegerValueRange::S_BOUND;
+					mTrueValueRange[s0].mMinValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
+					mTrueValueRange[s0].mMaxState = IntegerValueRange::S_BOUND;
+					mTrueValueRange[s0].mMaxValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
+				}
+				break;
+
+			case IA_CMPNE:
+				if (s0 < 0)
+				{
+					mFalseValueRange[s1].mMinState = IntegerValueRange::S_BOUND;
+					mFalseValueRange[s1].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+					mFalseValueRange[s1].mMaxState = IntegerValueRange::S_BOUND;
+					mFalseValueRange[s1].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+				}
+				else if (s1 < 0)
+				{
+					mFalseValueRange[s0].mMinState = IntegerValueRange::S_BOUND;
+					mFalseValueRange[s0].mMinValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
+					mFalseValueRange[s0].mMaxState = IntegerValueRange::S_BOUND;
+					mFalseValueRange[s0].mMaxValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
+				}
+				break;
+#endif
 			case IA_CMPLS:
 				if (s0 < 0)
 				{
@@ -7586,10 +7622,10 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			}
 
 			int	di = mInstructions.Size() - 1;
-			if (mInstructions[di - 1]->mCode == IC_RELATIONAL_OPERATOR)
+			if (di > 0 && mInstructions[di - 1]->mCode == IC_RELATIONAL_OPERATOR)
 			{
 				di--;
-				if (mInstructions[di - 1]->mDst.mTemp == mInstructions[di]->mSrc[0].mTemp || mInstructions[di - 1]->mDst.mTemp == mInstructions[di]->mSrc[1].mTemp)
+				if (di > 0 && mInstructions[di - 1]->mDst.mTemp == mInstructions[di]->mSrc[0].mTemp || mInstructions[di - 1]->mDst.mTemp == mInstructions[di]->mSrc[1].mTemp)
 					di--;
 			}
 
