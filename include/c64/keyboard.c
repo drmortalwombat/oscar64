@@ -23,10 +23,12 @@ const char keyb_codes[128] = {
 };
 
 
-byte keyb_matrix[8], keyb_key;
+byte keyb_matrix[8];
+
+KeyScanCode		keyb_key;
 static byte keyb_pmatrix[8];
 
-bool key_pressed(char code)
+bool key_pressed(KeyScanCode code)
 {
 	return !(keyb_matrix[code >> 3] & (1 << (code & 7)));
 }
