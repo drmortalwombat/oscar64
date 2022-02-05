@@ -2920,7 +2920,7 @@ void InterInstruction::Disassemble(FILE* file)
 
 InterCodeBasicBlock::InterCodeBasicBlock(void)
 	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
-	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr)
+	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr), mLoopPathBlocks(nullptr)
 {
 	mInPath = false;
 	mLoopHead = false;
@@ -6894,28 +6894,34 @@ void InterCodeBasicBlock::CollectLoopPath(const GrowingArray<InterCodeBasicBlock
 {
 	if (body.IndexOf(this) >= 0)
 	{
-		if (mTrueJump && !mTrueJump->mLoopHead)
+		if (!mLoopPath)
 		{
-			mTrueJump->CollectLoopPath(body, path);
-			if (mFalseJump)
+			if (mTrueJump && !mTrueJump->mLoopHead)
 			{
-				GrowingArray<InterCodeBasicBlock*>	fpath(nullptr);
-
-				if (!mFalseJump->mLoopHead)
-					mFalseJump->CollectLoopPath(body, fpath);
-
-				int i = 0;
-				while (i < path.Size())
+				mTrueJump->CollectLoopPath(body, mLoopPathBlocks);
+				if (mFalseJump)
 				{
-					if (fpath.IndexOf(path[i]) >= 0)
-						i++;
-					else
-						path.Remove(i);
+					GrowingArray<InterCodeBasicBlock*>	fpath(nullptr);
+
+					if (!mFalseJump->mLoopHead)
+						mFalseJump->CollectLoopPath(body, fpath);
+
+					int i = 0;
+					while (i < mLoopPathBlocks.Size())
+					{
+						if (fpath.IndexOf(mLoopPathBlocks[i]) >= 0)
+							i++;
+						else
+							mLoopPathBlocks.Remove(i);
+					}
 				}
 			}
+
+			mLoopPathBlocks.Insert(0, this);
+			mLoopPath = true;
 		}
 
-		path.Insert(0, this);
+		path = mLoopPathBlocks;
 	}
 }
 
@@ -6942,6 +6948,12 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 
 			if (innerLoop)
 			{
+				for (int i = 0; i < body.Size(); i++)
+				{
+					body[i]->mLoopPath = false;
+					body[i]->mLoopPathBlocks.SetSize(0);
+				}
+
 				this->CollectLoopPath(body, path);
 
 #if 0
@@ -8913,6 +8925,7 @@ void InterCodeProcedure::Close(void)
 	// Optimize for size
 
 	MergeBasicBlocks();
+	BuildTraces(false);
 	DisassembleDebug("Merged basic blocks");
 }
 

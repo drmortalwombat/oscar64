@@ -11857,6 +11857,72 @@ void NativeCodeBasicBlock::BlockSizeReduction(void)
 				j += 4;
 				i += 7;
 			}
+			else if (i + 6 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 3].mAddress == mIns[i + 1].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ABSOLUTE && mIns[i + 6].mAddress == mIns[i + 4].mAddress &&
+				!(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].mMode = ASMIM_ABSOLUTE; mIns[j + 0].mAddress = mIns[i + 1].mAddress; mIns[j + 0].mLinkerObject = mIns[i + 1].mLinkerObject;
+				mIns[j + 1].mType = ASMIT_BNE; mIns[j + 1].mMode = ASMIM_RELATIVE;  mIns[j + 1].mAddress = 3;
+				mIns[j + 2].mType = ASMIT_INC; mIns[j + 2].mMode = ASMIM_ABSOLUTE; mIns[j + 2].mAddress = mIns[i + 4].mAddress; mIns[j + 2].mLinkerObject = mIns[i + 4].mLinkerObject;
+				j += 3;
+				i += 7;
+			}
+			else if (i + 6 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 3].mAddress == mIns[i + 1].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0xff &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ABSOLUTE && mIns[i + 6].mAddress == mIns[i + 4].mAddress &&
+				!(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				mIns[j + 0].mType = ASMIT_LDA; mIns[j + 0].mMode = ASMIM_ABSOLUTE; mIns[j + 0].mAddress = mIns[i + 1].mAddress; mIns[j + 0].mLinkerObject = mIns[i + 1].mLinkerObject;
+				mIns[j + 1].mType = ASMIT_BNE; mIns[j + 1].mMode = ASMIM_RELATIVE; mIns[j + 1].mAddress = 3;
+				mIns[j + 2].mType = ASMIT_DEC; mIns[j + 2].mMode = ASMIM_ABSOLUTE; mIns[j + 2].mAddress = mIns[i + 4].mAddress; mIns[j + 2].mLinkerObject = mIns[i + 4].mLinkerObject;
+				mIns[j + 3].mType = ASMIT_DEC; mIns[j + 3].mMode = ASMIM_ABSOLUTE; mIns[j + 3].mAddress = mIns[j + 0].mAddress; mIns[j + 3].mLinkerObject = mIns[j + 0].mLinkerObject;
+				j += 4;
+				i += 7;
+			}
+			else if (i + 6 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 1].mType == ASMIT_CLC &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 3].mAddress == mIns[i + 0].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ABSOLUTE && mIns[i + 6].mAddress == mIns[i + 4].mAddress &&
+				!(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].mMode = ASMIM_ABSOLUTE; mIns[j + 0].mAddress = mIns[i + 0].mAddress; mIns[j + 0].mLinkerObject = mIns[i + 0].mLinkerObject;
+				mIns[j + 1].mType = ASMIT_BNE; mIns[j + 1].mMode = ASMIM_RELATIVE; mIns[j + 1].mAddress = 3;
+				mIns[j + 2].mType = ASMIT_INC; mIns[j + 2].mMode = ASMIM_ABSOLUTE; mIns[j + 2].mAddress = mIns[i + 4].mAddress; mIns[j + 2].mLinkerObject = mIns[i + 4].mLinkerObject;
+				j += 3;
+				i += 7;
+			}
+			else if (i + 6 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 1].mType == ASMIT_CLC &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 3].mAddress == mIns[i + 0].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0xff &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ABSOLUTE && mIns[i + 6].mAddress == mIns[i + 4].mAddress &&
+				!(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				mIns[j + 0].mType = ASMIT_LDA; mIns[j + 0].mMode = ASMIM_ABSOLUTE; mIns[j + 0].mAddress = mIns[i + 0].mAddress; mIns[j + 0].mLinkerObject = mIns[i + 0].mLinkerObject;
+				mIns[j + 1].mType = ASMIT_BNE; mIns[j + 1].mMode = ASMIM_RELATIVE;  mIns[j + 1].mAddress = 3;
+				mIns[j + 2].mType = ASMIT_DEC; mIns[j + 2].mMode = ASMIM_ABSOLUTE; mIns[j + 2].mAddress = mIns[i + 4].mAddress; mIns[j + 2].mLinkerObject = mIns[i + 4].mLinkerObject;
+				mIns[j + 3].mType = ASMIT_DEC; mIns[j + 3].mMode = ASMIM_ABSOLUTE; mIns[j + 3].mAddress = mIns[j + 0].mAddress; mIns[j + 2].mLinkerObject = mIns[j + 0].mLinkerObject;
+				j += 4;
+				i += 7;
+			}
 			else if (i + 2 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
@@ -16574,7 +16640,11 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				block->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp]));
 				if (InterTypeSize[ins->mSrc[0].mType] > 1)
 					block->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp] + 1));
-
+				if (InterTypeSize[ins->mSrc[0].mType] > 2)
+				{
+					block->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp] + 2));
+					block->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp] + 3));
+				}
 				block->Close(CompileBlock(iproc, iblock->mTrueJump), CompileBlock(iproc, iblock->mFalseJump), ASMIT_BNE);
 			}
 			return;

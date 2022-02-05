@@ -5783,6 +5783,8 @@ void ByteCodeBasicBlock::BuildPlacement(GrowingArray<ByteCodeBasicBlock*>& place
 				mTrueJump->BuildPlacement(placement);
 			else if (mTrueJump->mPlaced)
 				mFalseJump->BuildPlacement(placement);
+			else if (mTrueJump == mFalseJump)
+				mTrueJump->BuildPlacement(placement);
 			else if (!mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump)
 			{
 				mFalseJump->mPlaced = true;

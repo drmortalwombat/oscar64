@@ -476,6 +476,53 @@ bool Declaration::IsSubType(const Declaration* dec) const
 	return false;
 }
 
+bool Declaration::IsConstSame(const Declaration* dec) const
+{
+	if (this == dec)
+		return true;
+	if (mType != dec->mType)
+		return false;
+	if (mSize != dec->mSize)
+		return false;
+
+	if ((mFlags & DTF_SIGNED) != (dec->mFlags & DTF_SIGNED))
+		return false;
+
+	if (mType == DT_TYPE_INTEGER)
+		return true;
+	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
+		return true;
+	else if (mType == DT_TYPE_ENUM)
+		return mIdent == dec->mIdent;
+	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
+		return mBase->IsSame(dec->mBase);
+	else if (mType == DT_TYPE_STRUCT)
+		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		if (!mBase->IsSame(dec->mBase))
+			return false;
+		Declaration* dl = mParams, * dr = dec->mParams;
+		while (dl && dr)
+		{
+			if (!dl->mBase->IsSame(dr->mBase))
+				return false;
+			dl = dl->mNext;
+			dr = dr->mNext;
+		}
+
+		if (dl || dr)
+			return false;
+
+		if ((mFlags & DTF_VARIADIC) != (dec->mFlags & DTF_VARIADIC))
+			return false;
+
+		return true;
+	}
+
+	return false;
+}
+
 bool Declaration::IsSame(const Declaration* dec) const
 {
 	if (this == dec)

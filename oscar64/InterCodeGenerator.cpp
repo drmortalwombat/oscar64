@@ -1726,7 +1726,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				dtype = vl.mType;
 				if (vl.mType->IsIntegerType() || vr.mType->IsIntegerType())
 					;
-				else if (!vl.mType->IsSame(vr.mType))
+				else if ((vl.mType->mType == DT_TYPE_POINTER || vl.mType->mType == DT_TYPE_ARRAY) && (vr.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_ARRAY))
+				{
+					if (!vl.mType->mBase->IsConstSame(vr.mType->mBase))
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types");
+				}
+				else
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types");
 			}
 			else if (!vl.mType->IsNumericType() || !vr.mType->IsNumericType())
@@ -3295,18 +3300,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	}
 	else if (data->mType == DT_CONST_FUNCTION)
 	{
-		if (!data->mLinkerObject)
-		{
-			InterCodeProcedure* cproc = this->TranslateProcedure(mod, data->mValue, data);
-		}
-
-		LinkerReference	ref;
-		ref.mObject = variable->mLinkerObject;
-		ref.mOffset = offset;
-		ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
-		ref.mRefObject = data->mLinkerObject;
-		ref.mRefOffset = 0;
-		variable->mLinkerObject->AddReference(ref);
+		assert(false);
 	}
 	else if (data->mType == DT_CONST_POINTER)
 	{
@@ -3340,6 +3334,21 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 			variable->mLinkerObject->AddReference(ref);
 			break;
 		}
+		case DT_CONST_FUNCTION:
+			if (!dec->mLinkerObject)
+			{
+				InterCodeProcedure* cproc = this->TranslateProcedure(mod, dec->mValue, dec);
+			}
+
+			LinkerReference	ref;
+			ref.mObject = variable->mLinkerObject;
+			ref.mOffset = offset;
+			ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+			ref.mRefObject = dec->mLinkerObject;
+			ref.mRefOffset = 0;
+			variable->mLinkerObject->AddReference(ref);
+			break;
+
 		case DT_VARIABLE:
 		{
 			if (!dec->mLinkerObject)

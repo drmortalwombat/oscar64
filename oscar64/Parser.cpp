@@ -867,8 +867,22 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			}
 			else if (dtype->mType == DT_TYPE_POINTER)
 			{
-				if (exp->mDecValue->mType == DT_CONST_ADDRESS || exp->mDecValue->mType == DT_CONST_FUNCTION)
+				if (exp->mDecValue->mType == DT_CONST_ADDRESS)
 					;
+				else if (exp->mDecValue->mType == DT_CONST_FUNCTION)
+				{
+					Declaration* ndec = new Declaration(exp->mDecValue->mLocation, DT_CONST_POINTER);
+					ndec->mValue = exp;
+					dec = ndec;
+
+					Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					nexp->mDecType = new Declaration(dec->mLocation, DT_TYPE_POINTER);
+					nexp->mDecType->mBase = exp->mDecType;
+					nexp->mDecType->mSize = 2;
+					nexp->mDecType->mFlags |= DTF_DEFINED;
+					nexp->mDecValue = ndec;
+					exp = nexp;
+				}
 				else
 					mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Illegal pointer constant initializer");
 
@@ -1013,7 +1027,9 @@ Declaration* Parser::ParseDeclaration(bool variable)
 						if (pdec->mType == DT_CONST_FUNCTION && ndec->mBase->mType == DT_TYPE_FUNCTION)
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
-								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs");
+								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent->mString);
+							else if (ndec->mFlags & ~pdec->mFlags & (DTF_FASTCALL | DTF_NATIVE))
+								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function call type declaration differs", ndec->mIdent->mString);
 							else
 							{
 								// 
@@ -1040,7 +1056,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 								else if (ndec->mBase->mType == DT_TYPE_POINTER && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase))
 									;
 								else
-									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs");
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent->mString);
 							}
 
 							ndec = pdec;
@@ -1056,7 +1072,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 									pdec->mBase = ndec->mBase;
 								}
 								else
-									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs");
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent->mString);
 							}
 
 							if (!(ndec->mFlags & DTF_EXTERN))

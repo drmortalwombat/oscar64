@@ -323,7 +323,7 @@ public:
 	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mLoopPrefix, * mDominator;
 	GrowingInstructionArray			mInstructions;
 
-	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable;
+	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable, mLoopPath;
 
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
@@ -345,7 +345,7 @@ public:
 
 	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange, mLocalValueRange;
 
-	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks;
+	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
 
 	GrowingInstructionPtrArray		mMergeTValues;
 	ValueSet						mMergeValues;
