@@ -286,6 +286,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_67C8F824E02B4211B315AB32AB7ABBB1"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_67F949223D154D92A9EC79A2A9CD1C97"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -311,6 +317,12 @@
         "Entry"
         {
         "MsmKey" = "8:_72FE541170AB418781C6087271FD3D74"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_749F54DFBD4D404DA9C2E2D5BA7CDDBF"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -425,6 +437,12 @@
         "Entry"
         {
         "MsmKey" = "8:_9D0D7A63D6C848CD85489D6E7C43AFAD"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_9D4472D86BDF48E387059DCB67990AA9"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1745,6 +1763,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_67C8F824E02B4211B315AB32AB7ABBB1"
+            {
+            "SourcePath" = "8:..\\samples\\games\\breakout.c"
+            "TargetName" = "8:breakout.c"
+            "Tag" = "8:"
+            "Folder" = "8:_BC04C0DDE264410096618981E4E890DA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_67F949223D154D92A9EC79A2A9CD1C97"
             {
             "SourcePath" = "8:..\\samples\\hires\\cube3d.c"
@@ -1831,6 +1869,26 @@
             "TargetName" = "8:asm6502.c"
             "Tag" = "8:"
             "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_749F54DFBD4D404DA9C2E2D5BA7CDDBF"
+            {
+            "SourcePath" = "8:..\\samples\\resources\\breakoutchars.bin"
+            "TargetName" = "8:breakoutchars.bin"
+            "Tag" = "8:"
+            "Folder" = "8:_758C6547998745659548D0656D380FEA"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2211,6 +2269,26 @@
             "TargetName" = "8:stdio.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_9D4472D86BDF48E387059DCB67990AA9"
+            {
+            "SourcePath" = "8:..\\samples\\resources\\breakoutsprites.bin"
+            "TargetName" = "8:breakoutsprites.bin"
+            "Tag" = "8:"
+            "Folder" = "8:_758C6547998745659548D0656D380FEA"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3570,15 +3648,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{71389DF5-8242-4F93-B029-00DDD7917F3C}"
-        "PackageCode" = "8:{62C0C282-BD8F-4744-A840-97FC2BF956FF}"
+        "ProductCode" = "8:{CDF4A752-EE1A-4826-A688-9C777C33634F}"
+        "PackageCode" = "8:{8E54BEFF-6BDB-4136-AF7F-5CFFC7A1E100}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.4.79"
+        "ProductVersion" = "8:1.4.80"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
