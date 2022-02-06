@@ -22,7 +22,7 @@ Parser::~Parser(void)
 
 }
 
-Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
+Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 {
 	const Ident* structName = nullptr;
 
@@ -121,7 +121,7 @@ Declaration* Parser::ParseStructDeclaration(uint32 flags, DecType dt)
 	return dec;
 }
 
-Declaration* Parser::ParseBaseTypeDeclaration(uint32 flags)
+Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 {
 	Declaration* dec = nullptr;
 
@@ -905,7 +905,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 Declaration* Parser::ParseDeclaration(bool variable)
 {
 	bool	definingType = false;
-	uint32	storageFlags = 0, typeFlags = 0;
+	uint64	storageFlags = 0, typeFlags = 0;
 
 	if (mScanner->mToken == TK_TYPEDEF)
 	{
@@ -950,6 +950,11 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			else if (mScanner->mToken == TK_INTERRUPT)
 			{
 				storageFlags |= DTF_INTERRUPT | DTF_NATIVE;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_HWINTERRUPT)
+			{
+				storageFlags |= DTF_INTERRUPT | DTF_HWINTERRUPT | DTF_NATIVE;
 				mScanner->NextToken();
 			}
 			else
@@ -1028,7 +1033,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
 								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent->mString);
-							else if (ndec->mFlags & ~pdec->mFlags & (DTF_FASTCALL | DTF_NATIVE))
+							else if (ndec->mFlags & ~pdec->mFlags & (DTF_HWINTERRUPT | DTF_INTERRUPT | DTF_FASTCALL | DTF_NATIVE))
 								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function call type declaration differs", ndec->mIdent->mString);
 							else
 							{

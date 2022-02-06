@@ -13810,9 +13810,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						progress = true;
 					}
 					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						(mIns[i + 1].mType == ASMIT_ASL || mIns[i + 1].mType == ASMIT_LSR || mIns[i + 1].mType == ASMIT_ROL || mIns[i + 1].mType == ASMIT_ROR) &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+						mIns[i + 1].IsShift() &&
+						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
 					{
 						mIns[i + 2].mType = mIns[i + 1].mType;
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
@@ -15728,6 +15728,15 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal);
 		zpLocal |= zpGlobal;
 
+		if (proc->mHardwareInterrupt)
+		{
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_PHA));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_TXA));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_PHA));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_TYA));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_PHA));
+		}
+
 		for (int i = 2; i < 256; i++)
 		{
 			if (zpLocal[i])
@@ -15744,6 +15753,15 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_PLA));
 				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, i));
 			}
+		}
+
+		if (proc->mHardwareInterrupt)
+		{
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_PLA));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_TAY));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_PLA));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_TAX));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_PLA));
 		}
 	}
 	else
@@ -15959,7 +15977,10 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		proc->mLinkerObject->mZeroPageSet = zpLocal;
 	}
 
-	mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_RTS, ASMIM_IMPLIED));
+	if (proc->mHardwareInterrupt)
+		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_RTI, ASMIM_IMPLIED));
+	else
+		mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_RTS, ASMIM_IMPLIED));
 
 	mEntryBlock->Assemble();
 

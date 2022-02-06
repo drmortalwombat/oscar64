@@ -2976,7 +2976,9 @@ void InterCodeBasicBlock::CollectEntryBlocks(InterCodeBasicBlock* from)
 
 void InterCodeBasicBlock::BuildDominatorTree(InterCodeBasicBlock* from)
 {
-	if (!mDominator)
+	if (from == this)
+		return;
+	else if (!mDominator)
 		mDominator = from;
 	else if (from == mDominator)
 		return; 
@@ -7289,6 +7291,9 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					hasCall = true;
 			}
 
+			GrowingArray<InterInstructionPtr>	tvalues(nullptr);
+			GrowingArray<int>					nassigns(0);
+
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{
 				InterInstruction* ins = mInstructions[i];
@@ -7320,7 +7325,24 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 								if (sins->mSrc[1].mTemp >= 0)
 								{
 									if ((ins->mSrc[0].mMemory != IM_PARAM && ins->mSrc[0].mMemory != IM_FPARAM) || aliasedParams[ins->mSrc[0].mVarIndex])
-										ins->mInvariant = false;
+									{
+										int k = j - 1;
+										while (k >= 0 && mInstructions[k]->mDst.mTemp != sins->mSrc[1].mTemp)
+											k--;
+										if (k >= 0)
+										{
+											InterInstruction* lins = mInstructions[k];
+											if (lins->mCode == IC_LEA && lins->mSrc[1].mTemp < 0)
+											{
+												if (ins->mSrc[0].mMemory == lins->mSrc[1].mMemory && ins->mSrc[0].mVarIndex == lins->mSrc[1].mVarIndex && ins->mSrc[0].mLinkerObject == lins->mSrc[1].mLinkerObject)
+													ins->mInvariant = false;
+											}
+											else
+												ins->mInvariant = false;
+										}
+										else
+											ins->mInvariant = false;
+									}
 								}
 								else if (ins->mSrc[0].mMemory == sins->mSrc[1].mMemory && ins->mSrc[0].mVarIndex == sins->mSrc[1].mVarIndex && ins->mSrc[0].mLinkerObject == sins->mSrc[1].mLinkerObject)
 								{
@@ -7347,7 +7369,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 			GrowingArray<Dependency>			dep(DEP_UNKNOWN);
 			GrowingArray<int64>					indexStep(0), indexBase(0);
-			GrowingArray<InterInstructionPtr>	tvalues(nullptr);
+			tvalues.SetSize(0);
 
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{

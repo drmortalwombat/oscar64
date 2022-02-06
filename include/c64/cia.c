@@ -16,4 +16,7 @@ void cia_init(void)
 	
 	cia2.prb = 0x07;
 	cia2.ddra = 0x3f;
+
+	char i0 = cia1.icr;
+	char i1 = cia2.icr;
 }

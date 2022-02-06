@@ -177,63 +177,44 @@ Labels are defined with a colon after the name.  Pure assembler functions can be
 
 ### Interrupt routines
 
-The C compiler will not generate good interrupt code, it is simply too greedy with the zero page registers.  Interrupt code should therefore be written in assembler.
+The compiler provides two levels of interrupt safe functions.  The specifier __interrupt caues all zero page registers used by the function to be saved, the __hwinterrupt also saves the CPU registers and exits the function with rti
 
 
-	#include <math.h>
+	#include <c64/memmap.h>
+	#include <c64/cia.h>
+	#include <c64/vic.h>
 
-    // Next line for interrupt
-    volatile char npos;
+	__hwinterrupt void irq(void)
+	{
+		vic.color_border++;
 
-    // Interrupt routine
-    __asm irq
-    {   
-        lda $d019   // Check if it is raster IRQ
-        and #$01
-        beq w1
-        
-        inc $d020   // Start colored section
-        inc $d021
-        
-        ldx #20     // Wait for 2/3 lines
-    l1: dex
-        bne l1
-        
-        dec $d020   // End colored section
-        dec $d021
-        
-        lda npos    // Setup next interrupt
-        sta $d012
-    w1:
-        asl $d019   // Ack interrupt
-        
-        jmp $ea31   // System IRQ routine
-    }
+		// some interrupt code
 
-    int main(void)
-    {
-        __asm { sei }   // Disable interrupt
-        
-        
-        *(void **)0x0314 = irq;     // Install interrupt routine
-        *(char *)0xd01a = 1;        // Enable raster interrupt
-        *(char *)0xd011 &= 0x7f;    // Set raster line for IRQ
-        *(char *)0xd012 = 100;
+		vic.color_border--;
+		vic.intr_ctrl <<= 1;	
+	}
 
-        npos = 100;
-        
-        __asm { cli }   // Re-enable interrupt
-        
-        // Move the interrupt raster line up/down
-        float f = 0;
-        while (true)
-        {
-            npos = 130 + (int)(100 * sin(f));
-            f += 0.1;
-        }
-        
-        return 0;
-    }
+	int main(void)
+	{
+		__asm { sei }   // Disable interrupt
+		mmap_set(MMAP_NO_ROM);	// Disable kernal rom
+		cia_init();		// No more CIA interrupts
+		
+		*(void **)0xfffe = irq;     // Install interrupt routine
+		vic.intr_enable = VIC_INTR_RST;	// Init raster interrupt
+		vic.ctrl1 &= ~VIC_CTRL1_RST8;
+		vic.raster = 100;
+		
+		__asm { cli }   // Re-enable interrupt
+		
+		for(;;)
+		{
+			// Non interrupt code
+		}
+
+		return 0
+	}
+
 
 ## Implementation Details
 

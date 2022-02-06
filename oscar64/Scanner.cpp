@@ -51,6 +51,7 @@ const char* TokenNames[] =
 
 	"__asm",
 	"__interrupt",
+	"__hwinterrupt",
 	"__native",
 	"__fastcall",
 	"__export",
@@ -1304,6 +1305,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_ASSUME;
 				else if (!strcmp(tkident, "__interrupt"))
 					mToken = TK_INTERRUPT;
+				else if (!strcmp(tkident, "__hwinterrupt"))
+					mToken = TK_HWINTERRUPT;
 				else if (!strcmp(tkident, "__native"))
 					mToken = TK_NATIVE;
 				else if (!strcmp(tkident, "__fastcall"))

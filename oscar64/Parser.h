@@ -27,9 +27,9 @@ protected:
 
 	void ParsePragma(void);
 
-	Declaration* ParseBaseTypeDeclaration(uint32 flags);
+	Declaration* ParseBaseTypeDeclaration(uint64 flags);
 	Declaration* ParseDeclaration(bool variable);
-	Declaration* ParseStructDeclaration(uint32 flags, DecType dt);
+	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
 	Expression* ParseInitExpression(Declaration* dtype);

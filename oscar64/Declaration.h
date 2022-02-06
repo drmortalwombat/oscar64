@@ -48,34 +48,35 @@ enum DecType
 
 // TypeFlags
 
-static const uint32	DTF_SIGNED			= 0x00000001;
-static const uint32	DTF_DEFINED			= 0x00000002;
-static const uint32	DTF_GLOBAL			= 0x00000004;
-static const uint32	DTF_VARIADIC		= 0x00000008;
-static const uint32	DTF_INTRINSIC		= 0x00000010;
-static const uint32	DTF_STATIC			= 0x00000020;
-static const uint32	DTF_CONST			= 0x00000040;
-static const uint32	DTF_VOLATILE		= 0x00000080;
-static const uint32	DTF_EXTERN			= 0x00000100;
-static const uint32 DTF_NATIVE			= 0x00000200;
-static const uint32 DTF_UPPER_BYTE		= 0x00000400;
-static const uint32 DTF_LOWER_BYTE		= 0x00000800;
-static const uint32 DTF_SECTION_START	= 0x00001000;
-static const uint32 DTF_SECTION_END		= 0x00002000;
-static const uint32 DTF_FASTCALL		= 0x00004000;
-static const uint32 DTF_INLINE			= 0x00008000;
-static const uint32	DTF_ANALYZED	    = 0x00010000;
-static const uint32 DTF_REQUEST_INLINE  = 0x00020000;
-static const uint32 DTF_INTERRUPT		= 0x00040000;
-static const uint32 DTF_EXPORT			= 0x00080000;
+static const uint64	DTF_SIGNED			= (1ULL << 0);
+static const uint64	DTF_DEFINED			= (1ULL << 1);
+static const uint64	DTF_GLOBAL			= (1ULL << 2);
+static const uint64	DTF_VARIADIC		= (1ULL << 3);
+static const uint64	DTF_INTRINSIC		= (1ULL << 4);
+static const uint64	DTF_STATIC			= (1ULL << 5);
+static const uint64	DTF_CONST			= (1ULL << 6);
+static const uint64	DTF_VOLATILE		= (1ULL << 7);
+static const uint64	DTF_EXTERN			= (1ULL << 8);
+static const uint64 DTF_NATIVE			= (1ULL << 9);
+static const uint64 DTF_UPPER_BYTE		= (1ULL << 10);
+static const uint64 DTF_LOWER_BYTE		= (1ULL << 11);
+static const uint64 DTF_SECTION_START	= (1ULL << 12);
+static const uint64 DTF_SECTION_END		= (1ULL << 13);
+static const uint64 DTF_FASTCALL		= (1ULL << 14);
+static const uint64 DTF_INLINE			= (1ULL << 15);
+static const uint64	DTF_ANALYZED	    = (1ULL << 16);
+static const uint64 DTF_REQUEST_INLINE  = (1ULL << 17);
+static const uint64 DTF_INTERRUPT		= (1ULL << 18);
+static const uint64 DTF_EXPORT			= (1ULL << 19);
+static const uint64 DTF_HWINTERRUPT		= (1ULL << 20);
 
-static const uint32 DTF_FUNC_VARIABLE	= 0x00100000;
-static const uint32 DTF_FUNC_ASSEMBLER	= 0x00200000;
-static const uint32 DTF_FUNC_RECURSIVE  = 0x00400000;
-static const uint32 DTF_FUNC_ANALYZING  = 0x00800000;
-static const uint32 DTF_FUNC_CONSTEXPR	= 0x01000000;
+static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
+static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
+static const uint64 DTF_FUNC_RECURSIVE  = (1ULL << 34);
+static const uint64 DTF_FUNC_ANALYZING  = (1ULL << 35);
+static const uint64 DTF_FUNC_CONSTEXPR	= (1ULL << 36);
 
-static const uint32 DTF_VAR_ALIASING	= 0x02000000;
+static const uint64 DTF_VAR_ALIASING	= (1ULL << 37);
 
 
 class Declaration;
@@ -175,7 +176,7 @@ public:
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment;
 	int64				mInteger;
 	double				mNumber;
-	uint32				mFlags;
+	uint64				mFlags;
 	const Ident		*	mIdent;
 	LinkerSection	*	mSection;
 	const uint8		*	mData;

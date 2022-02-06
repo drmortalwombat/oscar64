@@ -6,12 +6,12 @@
 struct CIA
 {
 	volatile byte	pra, prb;
-	byte	ddra, ddrb;
-	word	ta, tb;
-	byte	todt, tods, todm, todh;
-	byte	sdr;
-	byte	icr;
-	byte	cra, crb;
+	volatile byte	ddra, ddrb;
+	volatile word	ta, tb;
+	volatile byte	todt, tods, todm, todh;
+	volatile byte	sdr;
+	volatile byte	icr;
+	volatile byte	cra, crb;
 };
 
 #define cia1	(*((struct CIA *)0xdc00))
