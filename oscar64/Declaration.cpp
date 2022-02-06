@@ -107,7 +107,7 @@ Expression* Expression::LogicInvertExpression(void)
 	}
 	else if (mType == EX_LOGICAL_OR)
 	{
-		mType = EX_LOGICAL_OR;
+		mType = EX_LOGICAL_AND;
 		mLeft = mLeft->LogicInvertExpression();
 		mRight = mRight->LogicInvertExpression();
 		return this;

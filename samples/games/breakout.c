@@ -25,18 +25,32 @@ byte * const Sprites = (byte *)0xd800;
 
 inline void brick_put(char x, char y, char c)
 {
-	Screen[40 * y + x +  0] = 128; Color[40 * y + x +  0] = c;
-	Screen[40 * y + x +  1] = 129; Color[40 * y + x +  1] = c;
-	Screen[40 * y + x +  2] = 130; Color[40 * y + x +  2] = c;
+	char * cp = Color + 40 * y + x;
 
-	Screen[40 * y + x + 40] = 131; Color[40 * y + x + 40] = c;
-	Screen[40 * y + x + 41] = 132; Color[40 * y + x + 41] = c;
-	Screen[40 * y + x + 42] = 133; Color[40 * y + x + 42] = c;
-	Screen[40 * y + x + 43] =  97; Color[40 * y + x + 43] = 15;
+	cp[ 0] = c;
+	cp[ 1] = c;
+	cp[ 2] = c;
+	cp[40] = c;
+	cp[41] = c;
+	cp[42] = c;
+	cp[81] = 15;
+	cp[82] = 15;
+	cp[83] = 15;
 
-	Screen[40 * y + x + 81] =  97; Color[40 * y + x + 81] = 15;
-	Screen[40 * y + x + 82] =  97; Color[40 * y + x + 82] = 15;
-	Screen[40 * y + x + 83] =  97; Color[40 * y + x + 83] = 15;
+	char * sp = Screen + 40 * y + x;
+
+	sp[ 0] = 128; 
+	sp[ 1] = 129; 
+	sp[ 2] = 130; 
+
+	sp[40] = 131; 
+	sp[41] = 132; 
+	sp[42] = 133; 
+	sp[43] =  97; 
+
+	sp[81] =  97; 
+	sp[82] =  97; 
+	sp[83] =  97; 
 }
 
 void brick_init(void)
@@ -52,6 +66,8 @@ void brick_init(void)
 
 void brick_clr(char x, char y)
 {
+	__assume(x < 40 && y < 25);
+
 	char c = Screen[40 * y + x + 0];
 
 	if (c >= 128)
@@ -114,6 +130,7 @@ void brick_clr(char x, char y)
 struct Ball
 {
 	char	index;
+	bool	active;
 	int		sx, sy, vx, vy;	
 }
 
@@ -125,10 +142,24 @@ struct Ball
 void ball_init(Ball * ball, char index, int sx, int sy, int vx, int vy)
 {
 	ball->index = index;
+	ball->active = true;
 	ball->sx = sx;
 	ball->sy = sy;
 	ball->vx = vx;
 	ball->vy = vy;
+
+	spr_set(2 * index + 2, true, 200, 200, 97,  0, false, false, false);
+	spr_set(2 * index + 3, true, 200, 200, 96, 15, true,  false, false);
+}
+
+void ball_lost(Ball * ball)
+{
+	ball->active = false;
+
+	spr_show(2 * ball->index + 2, false);
+	spr_show(2 * ball->index + 3, false);
+
+	return;
 }
 
 #define	COL_00	1
@@ -140,6 +171,9 @@ int paddlex, paddlevx;
 
 void ball_loop(Ball * ball)
 {
+	if (!ball->active)
+		return;
+
 	ball->sx += ball->vx;
 	ball->sy += ball->vy;
 
@@ -150,8 +184,14 @@ void ball_loop(Ball * ball)
 
 	if (ix + 6 > 320 || ix < 0)
 		mirrorX = true;
+
 	if (iy < 0)
 		mirrorY = true;
+	else if (iy >= 200)
+	{
+		ball_lost(ball);
+		return;
+	}
 
 	if (iy + 6 > 190 && iy < 190)
 	{
@@ -162,8 +202,8 @@ void ball_loop(Ball * ball)
 				mirrorX = true;
 			else if (ix + 6 >= px + 48 && ball->vx < 0)
 				mirrorX = true;
-
-			ball->vx = (ball->vx * 3 + paddlevx) >> 2;
+			else
+				ball->vx = (ball->vx * 12 + paddlevx + 8) >> 4;
 		}
 	}
 
@@ -201,12 +241,12 @@ void ball_loop(Ball * ball)
 	if (mirrorY)
 	{
 		ball->vy = - ball->vy;
-		ball->sy += 2 * ball->vy;
+		ball->sy += ball->vy;
 	}
 	if (mirrorX)
 	{
 		ball->vx = - ball->vx;
-		ball->sx += 2 * ball->vx;
+		ball->sx += ball->vx;
 	}
 }
 
@@ -216,6 +256,138 @@ void ball_move(Ball * ball)
 
 	spr_move(2 * ball->index + 2, ix, iy);
 	spr_move(2 * ball->index + 3, ix, iy);
+}
+
+enum GameState
+{
+	GS_READY,			// Getting ready
+
+	GS_BALL_LOCKED,		// The ball is locked on the paddle
+	GS_PLAYING,			// Playing the game
+	GS_BALL_DROPPED,	// The last ball has been dropped
+
+	GS_GAME_OVER
+};
+
+struct Game
+{
+	GameState		state;
+	Ball			balls[3];
+	char			count;
+
+}	TheGame;
+
+void paddle_init(void)
+{
+	paddlevx = 0;
+	paddlex = BALL_COORD(160, 0);
+
+	spr_set(0, true, 24 + BALL_INT(paddlex), 240, 99,  0, false, true, false);
+	spr_set(1, true, 24 + BALL_INT(paddlex), 240, 98, 15, true,  true, false);	
+}
+
+void paddle_control(void)
+{
+	joy_poll(0);
+
+	if (joyx[0] == 0)
+	{
+		if (paddlevx < 0)
+			paddlevx = (paddlevx + 1) >> 1;
+		else
+			paddlevx >>= 1;
+	}
+	else
+	{
+		paddlevx += joyx[0] * 8;
+
+		if (paddlevx >= 256)
+			paddlevx = 256;
+		else if (paddlevx < -256)
+			paddlevx = -256;
+	}
+
+	paddlex += paddlevx;
+	if (paddlex < BALL_COORD(-4, 0) || paddlex > BALL_COORD(320 - 48 + 4, 0))
+	{
+		paddlevx = -paddlevx;
+		paddlex += paddlevx
+	}
+}
+
+void paddle_move(void)
+{
+	spr_move(0, 24 + BALL_INT(paddlex), 240);
+	spr_move(1, 24 + BALL_INT(paddlex), 240);
+}
+
+void game_state(GameState state)
+{
+	// Set new state
+	TheGame.state = state;
+
+	switch (state)
+	{
+	case GS_READY:
+		brick_init();
+		paddle_init();
+		TheGame.count = 120;
+		break;
+
+	case GS_BALL_LOCKED:
+		ball_init(TheGame.balls + 0, 0, paddlex + BALL_COORD(12, 0), BALL_COORD(180, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
+		break;		
+
+	case GS_PLAYING:
+		TheGame.balls[0].vy = BALL_COORD(-1, 0);
+		TheGame.balls[0].vx = paddlevx >> 2;
+		break;
+
+	case GS_BALL_DROPPED:
+		TheGame.count = 60;
+		break;
+
+	case GS_GAME_OVER:
+		TheGame.count = 120;
+		break;
+	}
+}
+
+void game_loop()
+{
+	switch (TheGame.state)
+	{
+	case GS_READY:
+		if (!--TheGame.count)
+			game_state(GS_BALL_LOCKED);	
+		break;
+	case GS_BALL_LOCKED:
+		paddle_control();
+		TheGame.balls[0].sx = paddlex + BALL_COORD(22, 0);
+		if (joyb[0])
+			game_state(GS_PLAYING);	
+		break;
+	case GS_PLAYING:
+		paddle_control();
+		vic.color_border++;
+		for(char i=0; i<4; i++)
+		{
+			for(char j=0; j<3; j++)
+				ball_loop(TheGame.balls + j)
+		}
+		vic.color_border--;
+		if (!(TheGame.balls[0].active || TheGame.balls[1].active || TheGame.balls[2].active))
+			game_state(GS_BALL_DROPPED);
+		break;
+	case GS_BALL_DROPPED:
+		if (!--TheGame.count)
+			game_state(GS_BALL_LOCKED);	
+		break;
+	case GS_GAME_OVER:
+		if (!--TheGame.count)
+			game_state(GS_READY);	
+		break;
+	}
 }
 
 int main(void)
@@ -245,64 +417,17 @@ int main(void)
 	memset(Screen, 96, 1000);
 	memset(Color, 15, 1000);
 
-	brick_init();
-
-	spr_set(0, true, 200, 240, 99,  0, false, true, false);
-	spr_set(1, true, 200, 240, 98, 15, true,  true, false);
-
-	spr_set(2, true, 200, 200, 97,  0, false, false, false);
-	spr_set(3, true, 200, 200, 96, 15, true,  false, false);
-#if 0
-	spr_set(4, true, 200, 200, 97,  0, false, false, false);
-	spr_set(5, true, 200, 200, 96, 15, true,  false, false);
-
-	spr_set(6, true, 200, 200, 97,  0, false, false, false);
-	spr_set(7, true, 200, 200, 96, 15, true,  false, false);
-#endif
-
-	Ball	balls[3];
-
-	ball_init(balls + 0, 0, BALL_COORD(100, 0), BALL_COORD(180, 0), BALL_COORD(0,  8), BALL_COORD(-1, 48))
-//	ball_init(balls + 1, 1, BALL_COORD(100, 0), BALL_COORD(180, 0), BALL_COORD(2, 11), BALL_COORD(-3, 10))
-//	ball_init(balls + 2, 2, BALL_COORD(100, 0), BALL_COORD(180, 0), BALL_COORD(1, 37), BALL_COORD( 4, 11))
+	game_state(GS_READY);
 
 	for(;;)		
 	{
-		joy_poll(0);
-
-		if (joyx[0] == 0)
-		{
-			if (paddlevx < 0)
-				paddlevx = (paddlevx + 1) >> 1;
-			else
-				paddlevx >>= 1;
-		}
-		else
-		{
-			paddlevx += joyx[0] * 16;
-
-			if (paddlevx >= 128)
-				paddlevx = 128;
-			else if (paddlevx < -128)
-				paddlevx = -128;
-		}
-
-		paddlex += paddlevx;
-
-		spr_set(0, true, 24 + BALL_INT(paddlex), 240, 99,  0, false, true, false);
-		spr_set(1, true, 24 + BALL_INT(paddlex), 240, 98, 15, true,  true, false);
-
-		vic.color_border++;
-		for(char i=0; i<4; i++)
-		{
-			for(char j=0; j<1; j++)
-				ball_loop(balls + j)
-		}
-		for(char j=0; j<1; j++)
-			ball_move(balls + j);
-		vic.color_border--;
-
+		game_loop();
 		vic_waitFrame();
+
+		for(char j=0; j<1; j++)
+			ball_move(TheGame.balls + j);
+		paddle_move();
+
 	}	
 
 	return 0;

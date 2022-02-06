@@ -4075,6 +4075,117 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 		return false;
 }
 
+bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, const InterInstruction* wins)
+{
+	int size = InterTypeSize[wins->mSrc[0].mType];
+
+	AsmInsMode  ram = ASMIM_INDIRECT_Y, wam = ASMIM_INDIRECT_Y;
+	bool		sfinal = wins->mSrc[0].mFinal;
+	int			imm;
+	AsmInsType	at;
+
+	switch (oins->mOperator)
+	{
+	case IA_NEG:
+		mIns.Push(NativeCodeInstruction(ASMIT_SEC));
+		imm = 0x00;
+		at = ASMIT_SBC;
+		break;
+	case IA_NOT:
+		imm = 0xff;
+		at = ASMIT_EOR;
+		break;
+	default:
+		return false;
+	}
+
+	int	rindex = rins->mSrc[0].mIntConst;
+	int rareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
+
+	switch (rins->mSrc[0].mMemory)
+	{
+	case IM_INDIRECT:
+		rareg = BC_REG_TMP + proc->mTempOffset[rins->mSrc[0].mTemp];
+		break;
+	case IM_LOCAL:
+		rindex += proc->mLocalVars[rins->mSrc[0].mVarIndex]->mOffset + mFrameOffset;
+		break;
+	case IM_PARAM:
+		rindex += rins->mSrc[0].mVarIndex + proc->mLocalSize + 2 + mFrameOffset;
+		break;
+	case IM_FPARAM:
+		ram = ASMIM_ZERO_PAGE;
+		rareg = BC_REG_FPARAMS + rins->mSrc[0].mVarIndex + rins->mSrc[0].mIntConst;
+		break;
+	default:
+		return false;
+	}
+
+	int	windex = wins->mSrc[1].mIntConst;
+	int wareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
+
+	switch (wins->mSrc[1].mMemory)
+	{
+	case IM_INDIRECT:
+		wareg = BC_REG_TMP + proc->mTempOffset[wins->mSrc[1].mTemp];
+		break;
+	case IM_LOCAL:
+		windex += proc->mLocalVars[wins->mSrc[1].mVarIndex]->mOffset + mFrameOffset;
+		break;
+	case IM_PARAM:
+		windex += wins->mSrc[1].mVarIndex + proc->mLocalSize + 2 + mFrameOffset;
+		break;
+	case IM_FPARAM:
+		wam = ASMIM_ZERO_PAGE;
+		wareg = BC_REG_FPARAMS + +wins->mSrc[1].mVarIndex + wins->mSrc[1].mIntConst;
+		break;
+	default:
+		return false;
+	}
+
+	uint32	rflags = NCIF_LOWER | NCIF_UPPER;
+	if (rins->mVolatile)
+		rflags |= NCIF_VOLATILE;
+
+	uint32	wflags = NCIF_LOWER | NCIF_UPPER;
+	if (wins->mVolatile)
+		wflags |= NCIF_VOLATILE;
+
+	if (ram == ASMIM_INDIRECT_Y)
+		CheckFrameIndex(rareg, rindex, size, BC_REG_ADDR);
+	if (wam == ASMIM_INDIRECT_Y)
+		CheckFrameIndex(wareg, windex, size, BC_REG_ACCU);
+
+
+	for (int i = 0; i < size; i++)
+	{
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, imm));
+
+		if (ram == ASMIM_INDIRECT_Y)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, rindex + i));
+			mIns.Push(NativeCodeInstruction(at, ram, rareg));
+		}
+		else
+			mIns.Push(NativeCodeInstruction(at, ram, rareg + i));
+
+		if (!sfinal)
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[wins->mSrc[0].mTemp] + i));
+
+		if (wam == ASMIM_INDIRECT_Y)
+		{
+			if (ram != ASMIM_INDIRECT_Y || rindex != windex)
+				mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, windex + i));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, wam, wareg));
+		}
+		else
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, wam, wareg + i));
+	}
+
+	return true;
+
+}
+
 bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, int oindex, const InterInstruction* wins)
 {
 	int size = InterTypeSize[wins->mSrc[0].mType];
@@ -16373,6 +16484,17 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				(iblock->mInstructions[i + 2]->mSrc[0].mFinal || iblock->mInstructions[i + 2]->mSrc[0].mTemp != ins->mSrc[0].mTemp) &&
 				block->LoadOpStoreIndirectValue(iproc, ins, iblock->mInstructions[i + 1], 0, iblock->mInstructions[i + 2]))
 			{				
+				i += 2;
+			}
+			else if (i + 2 < iblock->mInstructions.Size() &&
+				(ins->mDst.mType == IT_INT8 || ins->mDst.mType == IT_INT16 || ins->mDst.mType == IT_INT32) &&
+				iblock->mInstructions[i + 1]->mCode == IC_UNARY_OPERATOR &&
+				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
+				iblock->mInstructions[i + 2]->mCode == IC_STORE &&
+				iblock->mInstructions[i + 2]->mSrc[0].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp &&
+				(iblock->mInstructions[i + 2]->mSrc[0].mFinal || iblock->mInstructions[i + 2]->mSrc[0].mTemp != ins->mSrc[0].mTemp) &&
+				block->LoadUnopStoreIndirectValue(iproc, ins, iblock->mInstructions[i + 1], iblock->mInstructions[i + 2]))
+			{
 				i += 2;
 			}
 			else if (i + 3 < iblock->mInstructions.Size() &&
