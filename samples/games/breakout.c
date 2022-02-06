@@ -22,8 +22,10 @@ byte * const Font = (byte *)0xd000;
 byte * const Color = (byte *)0xd800;
 byte * const Sprites = (byte *)0xd800;
 
+unsigned 	flashingBricks[32];
+char		numFlashingBricks[4];
 
-inline void brick_put(char x, char y, char c)
+void brick_put(char x, char y, char c)
 {
 	char * cp = Color + 40 * y + x;
 
@@ -46,25 +48,33 @@ inline void brick_put(char x, char y, char c)
 	sp[40] = 131; 
 	sp[41] = 132; 
 	sp[42] = 133; 
-	sp[43] =  97; 
+	sp[43] = 103 - (x & 1) - 2 * (y & 1); 
 
-	sp[81] =  97; 
-	sp[82] =  97; 
-	sp[83] =  97; 
+	sp[81] =  101 - (x & 1) + 2 * (y & 1); 
+	sp[82] =  100 + (x & 1) + 2 * (y & 1); 
+	sp[83] =  101 - (x & 1) + 2 * (y & 1); 
 }
 
 void brick_init(void)
 {
-	for(char y=0; y<6; y++)
+	for(char y=0; y<25; y++)
+	{
+		for(char x=0; x<40; x++)
+		{
+			Screen[40 * y + x] = 96 + (x & 1) + 2 * (y & 1) + 4 * (x == 0 || y == 0);
+		}
+	}
+
+	for(char y=0; y<8; y++)
 	{
 		for(char x=0; x<12; x++)
 		{
-			brick_put(3 * x + 2, 2 * y + 2, 8 + y);
+			brick_put(3 * x + 2, 2 * y + 1, 8 + y);
 		}
 	}
 }
 
-void brick_clr(char x, char y)
+void brick_hit(char x, char y)
 {
 	__assume(x < 40 && y < 25);
 
@@ -82,6 +92,36 @@ void brick_clr(char x, char y)
 
 		x -= c;
 
+		unsigned	bi = 256 * y + x;
+		char i = 0, n = numFlashingBricks[3];
+		while (i < n && flashingBricks[i] != bi)
+			i++;
+		if (i == n)
+		{
+			flashingBricks[i] = bi;
+			numFlashingBricks[3]++;
+
+			char * cp = Color + 40 * y + x;
+
+			cp[ 0] = 9; 
+			cp[ 1] = 9; 
+			cp[ 2] = 9; 
+			cp[40] = 9; 
+			cp[41] = 9; 
+			cp[42] = 9; 
+		}
+	}
+}
+
+void brick_animate(void)
+{
+	char	n = numFlashingBricks[0];
+
+	for(char i=0; i<n; i++)
+	{
+		char x = flashingBricks[i] & 0xff;
+		char y = flashingBricks[i] >> 8;
+
 		char * cp = Color + 40 * y + x;
 
 		cp[ 0] = 15; 
@@ -92,39 +132,48 @@ void brick_clr(char x, char y)
 		cp[42] = 15; 
 
 		char * sp = Screen + 40 * (y - 1) + (x - 1);
-
+	
+		char ch = 96 + (x & 1) + 2 * (y & 1)
 		if (sp[ 0] >= 128)
-			sp[41] = 97;
+			sp[41] = ch | 4;
 		else
-			sp[41] = 96;
+			sp[41] = ch;
 
 		if (sp[ 1] >= 128)
-			sp[42] = 97;
+			sp[42] = (ch ^ 1) | 4;
 		else
-			sp[42] = 96;
+			sp[42] = (ch ^ 1);
 
 		if (sp[ 2] >= 128)
-			sp[43] = 97;
+			sp[43] = ch | 4;
 		else
-			sp[43] = 96;
+			sp[43] = ch;
 
 		if (sp[40] >= 128)
-			sp[81] = 97;
+			sp[81] = (ch ^ 2) | 4;
 		else
-			sp[81] = 96;
+			sp[81] = (ch ^ 2);
 
-		sp[82] = 96;
-		sp[83] = 96;
-		if (sp[84] == 97)
-			sp[84] = 96;
+		sp[82] = (ch ^ 3);
+		sp[83] = (ch ^ 2);
 
-		if (sp[122] == 97)
-			sp[122] = 96;
-		if (sp[123] == 97)
-			sp[123] = 96;
-		if (sp[124] == 97)
-			sp[124] = 96;
+		if (sp[84] < 128)
+			sp[84] = (ch ^ 3);
+
+		if (sp[122] < 128)
+			sp[122] = (ch ^ 1);
+		if (sp[123] < 128)
+			sp[123] = ch;
+		if (sp[124] < 128)
+			sp[124] = (ch ^ 1);
 	}
+
+	for(char i=0; i<3; i++)		
+		numFlashingBricks[i] = numFlashingBricks[i + 1] - n;
+	numFlashingBricks[3] = numFlashingBricks[2];
+
+	for(char i=0; i<numFlashingBricks[3]; i++)
+		flashingBricks[i] = flashingBricks[i + n];
 }
 
 struct Ball
@@ -148,8 +197,10 @@ void ball_init(Ball * ball, char index, int sx, int sy, int vx, int vy)
 	ball->vx = vx;
 	ball->vy = vy;
 
-	spr_set(2 * index + 2, true, 200, 200, 97,  0, false, false, false);
-	spr_set(2 * index + 3, true, 200, 200, 96, 15, true,  false, false);
+	int	ix = BALL_INT(ball->sx) + 24, iy = BALL_INT(ball->sy) + 50;
+
+	spr_set(2 * index + 2, true, ix, iy, 97,  0, false, false, false);
+	spr_set(2 * index + 3, true, ix, iy, 96, 15, true,  false, false);
 }
 
 void ball_lost(Ball * ball)
@@ -203,39 +254,43 @@ void ball_loop(Ball * ball)
 			else if (ix + 6 >= px + 48 && ball->vx < 0)
 				mirrorX = true;
 			else
-				ball->vx = (ball->vx * 12 + paddlevx + 8) >> 4;
+				ball->vx = (ball->vx * 6 + paddlevx + 4) >> 3;
 		}
 	}
 
 
 	int	x0 = ix >> 3;
 	int y0 = iy >> 3;
-	int	x1 = (ix + 6) >> 3;
-	int y1 = (iy + 6) >> 3;
+	int	x1 = (ix + 5) >> 3;
+	int y1 = (iy + 5) >> 3;
 
-	char	col = 0;
 
-	if (y0 >= 0 && Screen[40 * y0 + x0] >= 128) col |= COL_00;
-	if (y0 >= 0 && Screen[40 * y0 + x1] >= 128) col |= COL_01;
-	if (y1 < 24 && Screen[40 * y1 + x0] >= 128) col |= COL_10;
-	if (y1 < 24 && Screen[40 * y1 + x1] >= 128) col |= COL_11;
-
-	if (ball->vx < 0 && ((col & (COL_00 | COL_01)) == COL_00) || ((col & (COL_10 | COL_11)) == COL_10))
-		mirrorX = true;
-	else if (ball->vx > 0 && ((col & (COL_00 | COL_01)) == COL_01) || ((col & (COL_10 | COL_11)) == COL_11))
-		mirrorX = true;
-
-	if (ball->vy < 0 && ((col & (COL_00 | COL_10)) == COL_00) || ((col & (COL_01 | COL_11)) == COL_01))
-		mirrorY = true;
-	else if (ball->vy > 0 && ((col & (COL_00 | COL_10)) == COL_10) || ((col & (COL_01 | COL_11)) == COL_11))
-		mirrorY = true;
-
-	if (col)
+	if (x0 >= 0 && x1 < 40 && y0 >= 0 && y1 < 24)
 	{
-		brick_clr(x0, y0);
-		brick_clr(x1, y0);
-		brick_clr(x0, y1);
-		brick_clr(x1, y1);
+		char	col = 0;
+
+		if (Screen[40 * y0 + x0] >= 128) col |= COL_00;
+		if (Screen[40 * y0 + x1] >= 128) col |= COL_01;
+		if (Screen[40 * y1 + x0] >= 128) col |= COL_10;
+		if (Screen[40 * y1 + x1] >= 128) col |= COL_11;
+
+		if (ball->vx < 0 && ((col & (COL_00 | COL_01)) == COL_00) || ((col & (COL_10 | COL_11)) == COL_10))
+			mirrorX = true;
+		else if (ball->vx > 0 && ((col & (COL_00 | COL_01)) == COL_01) || ((col & (COL_10 | COL_11)) == COL_11))
+			mirrorX = true;
+
+		if (ball->vy < 0 && ((col & (COL_00 | COL_10)) == COL_00) || ((col & (COL_01 | COL_11)) == COL_01))
+			mirrorY = true;
+		else if (ball->vy > 0 && ((col & (COL_00 | COL_10)) == COL_10) || ((col & (COL_01 | COL_11)) == COL_11))
+			mirrorY = true;
+
+		if (col)
+		{
+			brick_hit(x0, y0);
+			brick_hit(x1, y0);
+			brick_hit(x0, y1);
+			brick_hit(x1, y1);
+		}
 	}
 
 	if (mirrorY)
@@ -335,7 +390,7 @@ void game_state(GameState state)
 		break;
 
 	case GS_BALL_LOCKED:
-		ball_init(TheGame.balls + 0, 0, paddlex + BALL_COORD(12, 0), BALL_COORD(180, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
+		ball_init(TheGame.balls + 0, 0, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
 		break;		
 
 	case GS_PLAYING:
@@ -370,11 +425,10 @@ void game_loop()
 	case GS_PLAYING:
 		paddle_control();
 		vic.color_border++;
-		for(char i=0; i<4; i++)
-		{
-			for(char j=0; j<3; j++)
-				ball_loop(TheGame.balls + j)
-		}
+		for(char i=0; i<3; i++)
+			ball_loop(TheGame.balls + i);
+		for(char i=0; i<3; i++)
+			ball_loop(TheGame.balls + i);
 		vic.color_border--;
 		if (!(TheGame.balls[0].active || TheGame.balls[1].active || TheGame.balls[2].active))
 			game_state(GS_BALL_DROPPED);
@@ -421,6 +475,7 @@ int main(void)
 
 	for(;;)		
 	{
+		brick_animate();
 		game_loop();
 		vic_waitFrame();
 
