@@ -246,7 +246,7 @@ void ball_loop(Ball * ball)
 
 	if (iy + 6 > 190 && iy < 190)
 	{
-		if (ix + 3 >= px && ix + 3 < px + 48)			
+		if (ix + 5 >= px && ix < px + 48)			
 		{
 			mirrorY = true;
 			if (ix < px && ball->vx > 0)

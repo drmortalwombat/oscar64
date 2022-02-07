@@ -68,7 +68,7 @@ LinkerRegion* Linker::AddRegion(const Ident* region, int start, int end)
 	lrgn->mEnd = end;
 	lrgn->mUsed = 0;
 	lrgn->mNonzero = 0;
-	lrgn->mCartridge = -1;
+	lrgn->mCartridgeBanks = 0;
 	lrgn->mFlags = 0;
 	mRegions.Push(lrgn);
 	return lrgn;
@@ -346,10 +346,16 @@ void Linker::Link(void)
 			{
 				if (!obj->mRegion)
 					mErrors->Error(obj->mLocation, ERRR_INSUFFICIENT_MEMORY, "Could not place object", obj->mIdent->mString);
-				else if (obj->mRegion->mCartridge >= 0)
+				else if (obj->mRegion->mCartridgeBanks != 0)
 				{
-					mCartridgeBankUsed[obj->mRegion->mCartridge] = true;
-					memcpy(mCartridge[obj->mRegion->mCartridge] + obj->mAddress - 0x8000, obj->mData, obj->mSize);
+					for (int i = 0; i < 64; i++)
+					{
+						if (obj->mRegion->mCartridgeBanks & (1ULL << i))
+						{
+							mCartridgeBankUsed[i] = true;
+							memcpy(mCartridge[i] + obj->mAddress - 0x8000, obj->mData, obj->mSize);
+						}
+					}
 				}
 				else
 				{
@@ -371,22 +377,42 @@ void Linker::Link(void)
 					int			raddr = robj->mRefAddress + ref->mRefOffset;
 					uint8* dp;
 
-					if (obj->mRegion->mCartridge < 0)
-						dp = mMemory + obj->mAddress + ref->mOffset;
+					if (obj->mRegion->mCartridgeBanks)
+					{
+						for (int i = 0; i < 64; i++)
+						{
+							if (obj->mRegion->mCartridgeBanks & (1ULL << i))
+							{
+								dp = mCartridge[i] + obj->mAddress - 0x8000 + ref->mOffset;
+
+								if (ref->mFlags & LREF_LOWBYTE)
+								{
+									*dp++ = raddr & 0xff;
+								}
+								if (ref->mFlags & LREF_HIGHBYTE)
+								{
+									*dp++ = (raddr >> 8) & 0xff;
+								}
+								if (ref->mFlags & LREF_TEMPORARY)
+									*dp += obj->mTemporaries[ref->mRefOffset];
+							}
+						}
+					}
 					else
-						dp = mCartridge[obj->mRegion->mCartridge] + obj->mAddress - 0x8000 + ref->mOffset;
-
-
-					if (ref->mFlags & LREF_LOWBYTE)
 					{
-						*dp++ = raddr & 0xff;
+						dp = mMemory + obj->mAddress + ref->mOffset;
+
+						if (ref->mFlags & LREF_LOWBYTE)
+						{
+							*dp++ = raddr & 0xff;
+						}
+						if (ref->mFlags & LREF_HIGHBYTE)
+						{
+							*dp++ = (raddr >> 8) & 0xff;
+						}
+						if (ref->mFlags & LREF_TEMPORARY)
+							*dp += obj->mTemporaries[ref->mRefOffset];
 					}
-					if (ref->mFlags & LREF_HIGHBYTE)
-					{
-						*dp++ = (raddr >> 8) & 0xff;
-					}
-					if (ref->mFlags & LREF_TEMPORARY)
-						*dp += obj->mTemporaries[ref->mRefOffset];
 				}
 			}
 		}
@@ -636,19 +662,30 @@ bool Linker::WriteAsmFile(const char* filename)
 				switch (obj->mType)
 				{
 				case LOT_BYTE_CODE:
-					mByteCodeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+					mByteCodeDisassembler.Disassemble(file, mMemory, 0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				case LOT_NATIVE_CODE:
-					if (obj->mRegion->mCartridge < 0)
-						mNativeDisassembler.Disassemble(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+					if (obj->mRegion->mCartridgeBanks)
+					{
+						int i = 0;
+						while (!(obj->mRegion->mCartridgeBanks & (1ULL << i)))
+							i++;
+						mNativeDisassembler.Disassemble(file, mCartridge[i] - 0x8000, i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+					}
 					else
-						mNativeDisassembler.Disassemble(file, mCartridge[obj->mRegion->mCartridge] - 0x8000, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+						mNativeDisassembler.Disassemble(file, mMemory, 0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				case LOT_DATA:
-					if (obj->mRegion->mCartridge < 0)
-						mNativeDisassembler.DumpMemory(file, mMemory, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
+					if (obj->mRegion->mCartridgeBanks)
+					{
+						int i = 0;
+						while (!(obj->mRegion->mCartridgeBanks & (1ULL << i)))
+							i++;
+						mNativeDisassembler.DumpMemory(file, mCartridge[i] - 0x8000, i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
+					}
 					else
-						mNativeDisassembler.DumpMemory(file, mCartridge[obj->mRegion->mCartridge] - 0x8000, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
+						mNativeDisassembler.DumpMemory(file, mMemory, 0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
+					break;
 				}
 			}
 		}

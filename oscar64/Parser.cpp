@@ -3159,7 +3159,8 @@ void Parser::ParsePragma(void)
 				mScanner->NextToken();
 
 				Expression* exp;
-				int	start = 0, end = 0, flags = 0, bank = -1;
+				int	start = 0, end = 0, flags = 0;
+				uint64	bank = 0;
 
 				ConsumeToken(TK_COMMA);
 				
@@ -3192,11 +3193,30 @@ void Parser::ParsePragma(void)
 
 				if (mScanner->mToken != TK_COMMA)
 				{
-					exp = ParseRExpression();
-					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-						bank = exp->mDecValue->mInteger;
+					if (mScanner->mToken == TK_OPEN_BRACE)
+					{
+						do
+						{
+							mScanner->NextToken();
+
+							exp = ParseRExpression();
+							if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+								bank |= 1ULL << exp->mDecValue->mInteger;
+							else
+								mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
+
+						} while (mScanner->mToken == TK_COMMA);
+
+						ConsumeToken(TK_CLOSE_BRACE);
+					}
 					else
-						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
+					{
+						exp = ParseRExpression();
+						if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+							bank = 1ULL << exp->mDecValue->mInteger;
+						else
+							mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
+					}
 				}
 
 				LinkerRegion* rgn = mCompilationUnits->mLinker->FindRegion(regionIdent);
@@ -3206,7 +3226,7 @@ void Parser::ParsePragma(void)
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Conflicting linker region definition");
 
 				rgn->mFlags = flags;
-				rgn->mCartridge = bank;
+				rgn->mCartridgeBanks = bank;
 
 				ConsumeToken(TK_COMMA);
 				ConsumeToken(TK_OPEN_BRACE);

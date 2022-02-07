@@ -59,7 +59,7 @@ const char* ByteCodeDisassembler::AddrName(int addr, char* buffer, Linker* linke
 	return buffer;
 }
 
-void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker)
+void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");
 	if (proc && proc->mIdent)
@@ -76,6 +76,9 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int star
 	while (i < size)
 	{
 		ByteCode	bc = ByteCode(memory[start + i] / 2);
+
+		if (bank)
+			fprintf(file, "%02x:", bank);
 
 		fprintf(file, "%04x:\t", start + i);
 		i++;
@@ -603,7 +606,7 @@ NativeCodeDisassembler::~NativeCodeDisassembler(void)
 
 }
 
-void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker, LinkerObject * lobj)
+void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker, LinkerObject * lobj)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");
 	if (proc && proc->mIdent)
@@ -615,6 +618,9 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int sta
 
 	if (lobj->mSection->mType == LST_BSS)
 	{
+		if (bank)
+			fprintf(file, "%02x:", bank);
+
 		fprintf(file, "%04x : __ __ __ BSS\t%d\n", start, size);
 	}
 	else
@@ -625,6 +631,9 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int sta
 			int	n = 16;
 			if (ip + n > start + size)
 				n = start + size - ip;
+
+			if (bank)
+				fprintf(file, "%02x:", bank);
 
 			fprintf(file, "%04x : __ __ __ BYT", ip);
 
@@ -648,7 +657,7 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int sta
 	}
 }
 
-void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int start, int size, InterCodeProcedure* proc, const Ident * ident, Linker* linker)
+void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident * ident, Linker* linker)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");
 	if (proc && proc->mIdent)
@@ -665,6 +674,9 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int st
 		uint8	opcode = memory[ip++];
 		AsmInsData	d = DecInsData[opcode];
 		int	addr = 0;
+
+		if (bank)
+			fprintf(file, "%02x:", bank);
 
 		switch (d.mMode)
 		{

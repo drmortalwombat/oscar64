@@ -71,7 +71,7 @@ public:
 
 	uint32	mFlags;
 	int		mStart, mEnd, mUsed, mNonzero, mReloc;
-	int		mCartridge;
+	uint64	mCartridgeBanks;
 
 	GrowingArray<LinkerSection*>	mSections;
 

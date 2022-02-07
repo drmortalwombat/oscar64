@@ -538,6 +538,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_AB5120799C684496B5E81A4212BD54D4"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_AB90D0DCB4E044348BCCD9054215278F"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -2657,6 +2663,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_AB5120799C684496B5E81A4212BD54D4"
+            {
+            "SourcePath" = "8:..\\samples\\memmap\\easyflashshared.c"
+            "TargetName" = "8:easyflashshared.c"
+            "Tag" = "8:"
+            "Folder" = "8:_A62A71A6A08941C5964B90112D87731F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_AB90D0DCB4E044348BCCD9054215278F"
             {
             "SourcePath" = "8:..\\samples\\memmap\\charsetcopy.c"
@@ -3882,15 +3908,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{A0C4446A-49BE-4F87-9DD2-AE08FDB6A4AF}"
-        "PackageCode" = "8:{F280BCCE-9142-4B81-93B8-454DCA640E4E}"
+        "ProductCode" = "8:{FDFDB1FC-D1CF-4D8C-BED7-6E0B594D9039}"
+        "PackageCode" = "8:{9620B37A-E865-4915-8CA3-99394FD90E25}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.4.84"
+        "ProductVersion" = "8:1.4.87"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

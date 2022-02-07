@@ -197,9 +197,15 @@ bool Compiler::GenerateCode(void)
 	{
 		Declaration* dec = mCompilationUnits->mReferenced[i];
 		if (dec->mType == DT_CONST_FUNCTION)
-			mInterCodeGenerator->TranslateProcedure(mInterCodeModule, dec->mValue, dec);
+		{
+			if (!dec->mLinkerObject)
+				mInterCodeGenerator->TranslateProcedure(mInterCodeModule, dec->mValue, dec);
+		}
 		else
-			mInterCodeGenerator->InitGlobalVariable(mInterCodeModule, dec);
+		{
+			if (!dec->mLinkerObject)
+				mInterCodeGenerator->InitGlobalVariable(mInterCodeModule, dec);
+		}
 	}
 
 	if (mErrors->mErrorCount != 0)

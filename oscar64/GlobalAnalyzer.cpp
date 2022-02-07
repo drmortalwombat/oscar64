@@ -40,14 +40,14 @@ void GlobalAnalyzer::DumpCallGraph(void)
 			for (int j = 0; j < decs.Size(); j++)
 			{
 				if (decs[j]->mType == DT_CONST_FUNCTION)
-					printf("CALL %s[%d, %08x] -> %d -> %s[%d, %08x]\n", from->mIdent->mString, from->mComplexity, from->mFlags, calls[j], decs[j]->mIdent->mString, decs[j]->mComplexity, decs[j]->mFlags);
+					printf("CALL %s[%d, %08llx] -> %d -> %s[%d, %08llx]\n", from->mIdent->mString, from->mComplexity, from->mFlags, calls[j], decs[j]->mIdent->mString, decs[j]->mComplexity, decs[j]->mFlags);
 				else
-					printf("CALL %s[%d, %08x] -> %d\n", from->mIdent->mString, from->mComplexity, from->mFlags, calls[j]);
+					printf("CALL %s[%d, %08llx] -> %d\n", from->mIdent->mString, from->mComplexity, from->mFlags, calls[j]);
 			}
 		}
 		else
 		{
-			printf("LEAF %d -> %s[%d, %08x]\n", from->mCallers.Size(), from->mIdent->mString, from->mComplexity, from->mFlags );
+			printf("LEAF %d -> %s[%d, %08llx]\n", from->mCallers.Size(), from->mIdent->mString, from->mComplexity, from->mFlags );
 		}
 	}
 }
