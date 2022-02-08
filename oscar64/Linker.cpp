@@ -335,12 +335,12 @@ void Linker::Link(void)
 			if (obj->mType == LOT_SECTION_START)
 			{
 				obj->mAddress = obj->mSection->mStart;
-				obj->mRefAddress = obj->mAddress + obj->mRegion->mReloc;
+				obj->mRefAddress = obj->mAddress + (obj->mRegion ? obj->mRegion->mReloc : 0);
 			}
 			else if (obj->mType == LOT_SECTION_END)
 			{
 				obj->mAddress = obj->mSection->mEnd;
-				obj->mRefAddress = obj->mAddress + obj->mRegion->mReloc;
+				obj->mRefAddress = obj->mAddress + (obj->mRegion ? obj->mRegion->mReloc : 0);
 			}
 			else if (obj->mFlags & LOBJF_REFERENCED)
 			{

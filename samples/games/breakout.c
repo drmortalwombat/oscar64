@@ -3,6 +3,7 @@
 #include <c64/sprites.h>
 #include <c64/memmap.h>
 #include <c64/rasterirq.h>
+#include <c64/sid.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -25,7 +26,7 @@ byte * const Sprites = (byte *)0xd800;
 unsigned 	flashingBricks[32];
 char		numFlashingBricks[4];
 
-void brick_put(char x, char y, char c)
+void brick_put(char x, char y, char b, char c)
 {
 	char * cp = Color + 40 * y + x;
 
@@ -41,13 +42,13 @@ void brick_put(char x, char y, char c)
 
 	char * sp = Screen + 40 * y + x;
 
-	sp[ 0] = 128; 
-	sp[ 1] = 129; 
-	sp[ 2] = 130; 
+	sp[ 0] = b | 0; 
+	sp[ 1] = b | 1; 
+	sp[ 2] = b | 2; 
 
-	sp[40] = 131; 
-	sp[41] = 132; 
-	sp[42] = 133; 
+	sp[40] = b | 3; 
+	sp[41] = b | 4; 
+	sp[42] = b | 5; 
 	sp[43] = 103 - (x & 1) - 2 * (y & 1); 
 
 	sp[81] =  101 - (x & 1) + 2 * (y & 1); 
@@ -61,7 +62,7 @@ void brick_init(void)
 	{
 		for(char x=0; x<40; x++)
 		{
-			Screen[40 * y + x] = 96 + (x & 1) + 2 * (y & 1) + 4 * (x == 0 || y == 0);
+			Screen[40 * y + x] = 96 + (x & 1) + 2 * (y & 1);// + 4 * (x == 0 || y == 0);
 		}
 	}
 
@@ -69,7 +70,7 @@ void brick_init(void)
 	{
 		for(char x=0; x<12; x++)
 		{
-			brick_put(3 * x + 2, 2 * y + 1, 8 + y);
+			brick_put(3 * x + 2, 2 * y + 1, 128 + (x / 4) * 8, 8 + y);
 		}
 	}
 }
@@ -220,6 +221,44 @@ void ball_lost(Ball * ball)
 
 int paddlex, paddlevx;
 
+char	sound_index;
+
+void sound_trigger(void)
+{
+	if (sound_index == 5 || sound_index == 0)
+		sound_index = 1;
+}
+
+void sound_loop(void)
+{
+	switch (sound_index)
+	{
+	case 1:
+		sid.voices[0].attdec = 0;
+		sid.voices[0].susrel = 0;
+		sid.voices[0].ctrl = 0;
+		sound_index++;
+		break;
+	case 2:
+		sid.voices[0].ctrl = SID_CTRL_TEST;
+		sound_index++;
+		break;
+	case 3:
+		sid.voices[0].freq = NOTE_D(8);
+		sid.voices[0].attdec = SID_ATK_2 | SID_DKY_6;
+		sid.voices[0].susrel = SID_DKY_300 | 0xf0;
+		sid.voices[0].ctrl = SID_CTRL_SAW | SID_CTRL_GATE;
+		sound_index++;
+		break;
+	case 4:
+		sound_index++;
+		sid.voices[0].ctrl = SID_CTRL_SAW;
+
+		default:
+
+	}
+}
+
 void ball_loop(Ball * ball)
 {
 	if (!ball->active)
@@ -268,6 +307,7 @@ void ball_loop(Ball * ball)
 	if (x0 >= 0 && x1 < 40 && y0 >= 0 && y1 < 24)
 	{
 		char	col = 0;
+		bool	hit = false;
 
 		if (Screen[40 * y0 + x0] >= 128) col |= COL_00;
 		if (Screen[40 * y0 + x1] >= 128) col |= COL_01;
@@ -275,14 +315,26 @@ void ball_loop(Ball * ball)
 		if (Screen[40 * y1 + x1] >= 128) col |= COL_11;
 
 		if (ball->vx < 0 && ((col & (COL_00 | COL_01)) == COL_00) || ((col & (COL_10 | COL_11)) == COL_10))
+		{
 			mirrorX = true;
+			hit = true;
+		}
 		else if (ball->vx > 0 && ((col & (COL_00 | COL_01)) == COL_01) || ((col & (COL_10 | COL_11)) == COL_11))
+		{
 			mirrorX = true;
+			hit = true;
+		}
 
 		if (ball->vy < 0 && ((col & (COL_00 | COL_10)) == COL_00) || ((col & (COL_01 | COL_11)) == COL_01))
+		{
 			mirrorY = true;
+			hit = true;
+		}
 		else if (ball->vy > 0 && ((col & (COL_00 | COL_10)) == COL_10) || ((col & (COL_01 | COL_11)) == COL_11))
+		{
 			mirrorY = true;
+			hit = true;
+		}
 
 		if (col)
 		{
@@ -290,6 +342,11 @@ void ball_loop(Ball * ball)
 			brick_hit(x1, y0);
 			brick_hit(x0, y1);
 			brick_hit(x1, y1);
+		}
+
+		if (hit)
+		{
+			sound_trigger();
 		}
 	}
 
@@ -473,15 +530,19 @@ int main(void)
 
 	game_state(GS_READY);
 
+	sid.fmodevol = 15;
+
 	for(;;)		
 	{
 		brick_animate();
 		game_loop();
+		sound_loop();
 		vic_waitFrame();
 
 		for(char j=0; j<1; j++)
 			ball_move(TheGame.balls + j);
 		paddle_move();
+
 
 	}	
 
