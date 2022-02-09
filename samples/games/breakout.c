@@ -26,6 +26,75 @@ byte * const Sprites = (byte *)0xd800;
 unsigned 	flashingBricks[32];
 char		numFlashingBricks[4];
 
+//                          0123456789012345678901234567890123456789
+const char StatusText[] = s" Score: 000000  High: 000000   Lives: 0 ";
+
+void status_init(void)
+{
+	for(char i=0; i<40; i++)
+	{
+		if (StatusText[i] != ' ')
+		{
+			Screen[i] = StatusText[i];
+			Color[i] = 7;
+		}
+	}
+
+}
+
+// Increment the score from a given digit on
+void score_inc(char digit, unsigned val)
+{
+	// Lowest digit to increment
+	char	at = 13 - digit;
+
+	// Loop while there is still score to account for
+	while (val)
+	{
+		// Increment one character
+		char	ch = Screen[at] + val % 10;
+
+		// Remove low digit from number
+		val /= 10;
+
+		// Check overflow
+		if (ch > '9')
+		{
+			ch -= 10;
+			val++;
+		}
+
+		Screen[at] = ch;
+
+		// Next higher character
+		at --;
+	}
+}
+
+// Reset score and update high score
+void score_reset(void)
+{
+	// Find first digit, where score and highscore differ
+	char i = 0;
+	while (i < 6 && Screen[i + 8] == Screen[i + 22])
+		i++;
+
+	// Check if new score is higher
+	if (i < 6 && Screen[i + 8] > Screen[i + 22])
+	{
+		// If so, copy to highscore
+		while (i < 6)
+		{
+			Screen[i + 22] = Screen[i + 8];
+			i++;
+		}
+	}
+
+	// Clear score
+	for(char i=0; i<6; i++)	
+		Screen[i + 8] = '0';	
+}
+
 void brick_put(char x, char y, char b, char c)
 {
 	char * cp = Color + 40 * y + x;
@@ -66,6 +135,8 @@ void brick_init(void)
 		}
 	}
 
+	status_init();
+
 	for(char y=0; y<8; y++)
 	{
 		for(char x=0; x<12; x++)
@@ -97,6 +168,7 @@ void brick_hit(char x, char y)
 		char i = 0, n = numFlashingBricks[3];
 		while (i < n && flashingBricks[i] != bi)
 			i++;
+
 		if (i == n)
 		{
 			flashingBricks[i] = bi;
@@ -110,6 +182,8 @@ void brick_hit(char x, char y)
 			cp[40] = 9; 
 			cp[41] = 9; 
 			cp[42] = 9; 
+
+			score_inc(0, 5);
 		}
 	}
 }
@@ -221,11 +295,15 @@ void ball_lost(Ball * ball)
 
 int paddlex, paddlevx;
 
-char	sound_index;
+char		sound_index;
+unsigned	sound_freq;
 
-void sound_trigger(void)
+void sound_trigger(unsigned freq)
 {
-	if (sound_index == 5 || sound_index == 0)
+	sound_freq = freq;
+	if (sound_index == 0)
+		sound_index = 3;
+	else if (sound_index > 6)
 		sound_index = 1;
 }
 
@@ -233,29 +311,41 @@ void sound_loop(void)
 {
 	switch (sound_index)
 	{
+	case 0:
+		break;
 	case 1:
+	case 18:
+		sid.voices[0].ctrl = 0;
 		sid.voices[0].attdec = 0;
 		sid.voices[0].susrel = 0;
-		sid.voices[0].ctrl = 0;
 		sound_index++;
 		break;
 	case 2:
+	case 19:
 		sid.voices[0].ctrl = SID_CTRL_TEST;
 		sound_index++;
 		break;
 	case 3:
-		sid.voices[0].freq = NOTE_D(8);
+		sid.voices[0].freq = sound_freq;
 		sid.voices[0].attdec = SID_ATK_2 | SID_DKY_6;
 		sid.voices[0].susrel = SID_DKY_300 | 0xf0;
-		sid.voices[0].ctrl = SID_CTRL_SAW | SID_CTRL_GATE;
+		sid.voices[0].pwm = 0x800;
+		sid.voices[0].ctrl = SID_CTRL_RECT | SID_CTRL_GATE | SID_CTRL_NOISE;
 		sound_index++;
 		break;
 	case 4:
+	case 5:
 		sound_index++;
-		sid.voices[0].ctrl = SID_CTRL_SAW;
-
-		default:
-
+		break;
+	case 6:
+		sound_index++;
+		sid.voices[0].ctrl = SID_CTRL_RECT;
+		break;
+	case 20:
+		sound_index = 0;
+		break;
+	default:
+		sound_index++;
 	}
 }
 
@@ -273,10 +363,16 @@ void ball_loop(Ball * ball)
 	int	px = BALL_INT(paddlex);
 
 	if (ix + 6 > 320 || ix < 0)
+	{
 		mirrorX = true;
+		sound_trigger(NOTE_D(6));
+	}
 
 	if (iy < 0)
+	{
 		mirrorY = true;
+		sound_trigger(NOTE_D(6));
+	}
 	else if (iy >= 200)
 	{
 		ball_lost(ball);
@@ -289,11 +385,19 @@ void ball_loop(Ball * ball)
 		{
 			mirrorY = true;
 			if (ix < px && ball->vx > 0)
+			{
 				mirrorX = true;
+			}
 			else if (ix + 6 >= px + 48 && ball->vx < 0)
+			{
 				mirrorX = true;
+			}
 			else
+			{
 				ball->vx = (ball->vx * 6 + paddlevx + 4) >> 3;
+			}
+
+			sound_trigger(NOTE_D(7));
 		}
 	}
 
@@ -346,7 +450,7 @@ void ball_loop(Ball * ball)
 
 		if (hit)
 		{
-			sound_trigger();
+			sound_trigger(NOTE_D(8));
 		}
 	}
 
@@ -448,11 +552,17 @@ void game_state(GameState state)
 
 	case GS_BALL_LOCKED:
 		ball_init(TheGame.balls + 0, 0, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
+		ball_init(TheGame.balls + 1, 1, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
+		ball_init(TheGame.balls + 2, 2, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
 		break;		
 
 	case GS_PLAYING:
-		TheGame.balls[0].vy = BALL_COORD(-1, 0);
+		TheGame.balls[0].vy = BALL_COORD(-2, 32);
 		TheGame.balls[0].vx = paddlevx >> 2;
+		TheGame.balls[1].vy = BALL_COORD(-2, 16);
+		TheGame.balls[1].vx = (paddlevx >> 2) - 16;
+		TheGame.balls[2].vy = BALL_COORD(-2, 16);
+		TheGame.balls[2].vx = (paddlevx >> 2) + 16;
 		break;
 
 	case GS_BALL_DROPPED:
@@ -470,27 +580,31 @@ void game_loop()
 	switch (TheGame.state)
 	{
 	case GS_READY:
+		paddle_control();
 		if (!--TheGame.count)
 			game_state(GS_BALL_LOCKED);	
 		break;
 	case GS_BALL_LOCKED:
 		paddle_control();
 		TheGame.balls[0].sx = paddlex + BALL_COORD(22, 0);
+		TheGame.balls[1].sx = paddlex + BALL_COORD(22, 0);
+		TheGame.balls[2].sx = paddlex + BALL_COORD(22, 0);
 		if (joyb[0])
 			game_state(GS_PLAYING);	
 		break;
 	case GS_PLAYING:
 		paddle_control();
-		vic.color_border++;
+//		vic.color_border++;
 		for(char i=0; i<3; i++)
 			ball_loop(TheGame.balls + i);
 		for(char i=0; i<3; i++)
 			ball_loop(TheGame.balls + i);
-		vic.color_border--;
+//		vic.color_border--;
 		if (!(TheGame.balls[0].active || TheGame.balls[1].active || TheGame.balls[2].active))
 			game_state(GS_BALL_DROPPED);
 		break;
 	case GS_BALL_DROPPED:
+		paddle_control();
 		if (!--TheGame.count)
 			game_state(GS_BALL_LOCKED);	
 		break;
@@ -539,7 +653,7 @@ int main(void)
 		sound_loop();
 		vic_waitFrame();
 
-		for(char j=0; j<1; j++)
+		for(char j=0; j<3; j++)
 			ball_move(TheGame.balls + j);
 		paddle_move();
 
