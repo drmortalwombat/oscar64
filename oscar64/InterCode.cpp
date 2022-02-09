@@ -3783,6 +3783,7 @@ void  InterCodeBasicBlock::CollectConstTemps(GrowingInstructionPtrArray& ctemps,
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
+			mInstructions[i]->ConstantFolding();
 			mInstructions[i]->PropagateConstTemps(ltemps);
 
 			int		ttemp = mInstructions[i]->mDst.mTemp;

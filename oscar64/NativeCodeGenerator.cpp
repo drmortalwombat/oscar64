@@ -689,6 +689,19 @@ bool NativeCodeInstruction::RequiresCarry(void) const
 		mType == ASMIT_ROL || mType == ASMIT_ROR;
 }
 
+bool NativeCodeInstruction::ChangesZFlag(void) const
+{
+	return 
+		mType == ASMIT_ADC || mType == ASMIT_SBC ||
+		mType == ASMIT_LSR || mType == ASMIT_ASL || mType == ASMIT_ROL || mType == ASMIT_ROR ||
+		mType == ASMIT_INC || mType == ASMIT_DEC ||
+		mType == ASMIT_INY || mType == ASMIT_DEY ||
+		mType == ASMIT_INX || mType == ASMIT_DEX ||
+		mType == ASMIT_CMP || mType == ASMIT_CPX || mType == ASMIT_CPY ||
+		mType == ASMIT_LDA || mType == ASMIT_LDX || mType == ASMIT_LDY ||
+		mType == ASMIT_JSR;
+}
+
 bool NativeCodeInstruction::ChangesCarry(void) const
 {
 	return
@@ -4048,6 +4061,12 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 	{
 		int size = InterTypeSize[wins->mSrc[0].mType];
 
+		if (wins->mSrc[0].mFinal) 
+		{
+			if (wins->mSrc[0].mTemp == rins1->mSrc[0].mTemp || wins->mSrc[0].mTemp == rins0->mSrc[0].mTemp)
+				return false;
+		}
+
 		switch (oins->mOperator)
 		{
 		case IA_ADD:
@@ -4056,6 +4075,7 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 		default:
 			return false;
 		}
+
 
 		for (int i = 0; i < size; i++)
 		{
@@ -4067,6 +4087,9 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 
 			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, wins->mSrc[1].mIntConst + i));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[wins->mSrc[1].mTemp]));
+
+			if (!wins->mSrc[0].mFinal)
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[wins->mSrc[0].mTemp] + i));
 		}
 
 		return true;
@@ -11916,6 +11939,17 @@ void NativeCodeBasicBlock::BlockSizeReduction(void)
 
 		int i = 0;
 		int j = 0;
+
+		if (mEntryBlocks.Size() == 1 && 
+			mEntryBlocks[0]->mIns.Size() > 0 && mIns.Size() > 0 && 
+			mIns[0].mType == ASMIT_CMP && mIns[0].mMode == ASMIM_IMMEDIATE &&
+			mEntryBlocks[0]->mIns.Last().mType == ASMIT_CMP && mEntryBlocks[0]->mIns.Last().mMode == ASMIM_IMMEDIATE &&
+			mIns[0].mAddress == mEntryBlocks[0]->mIns.Last().mAddress)
+		{
+			// Skip initial compare if same as last of entry block
+			i++;
+		}
+
 		while (i < mIns.Size())
 		{
 			if (i + 6 < mIns.Size() &&
@@ -12245,6 +12279,12 @@ void NativeCodeBasicBlock::BlockSizeReduction(void)
 					j += 2;
 				}
 				i += 6;
+			}
+			else if (i + 1 < mIns.Size() &&
+				mIns[i + 0].ChangesZFlag() && mIns[i + 1].mType == ASMIT_LDA && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+			{
+				mIns[j++] = mIns[i++];
+				i++;
 			}
 			else
 				mIns[j++] = mIns[i++];
@@ -12763,7 +12803,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 #if 1
 		// move stx up
 
-		for (int i = 1; i + 1 < mIns.Size(); i++)
+		for (int i = 1; i < mIns.Size(); i++)
 		{
 			if (mIns[i].mType == ASMIT_STX && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE))
 			{
@@ -14269,6 +14309,48 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TXA &&
+						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
+						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+					{
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TAY &&
+						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
+						mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+					{
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TAX &&
+						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
+						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+					{
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+
+					else if (
+						mIns[i + 0].mType == ASMIT_TAY &&
+						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
+						mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+					{
+						mIns[i + 2].mType = ASMIT_STA; 
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TAX &&
+						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
+						mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+					{
+						mIns[i + 2].mType = ASMIT_STA; 
+						progress = true;
+					}
+
 #endif
 					else if (
 						mIns[i + 0].mType == ASMIT_TAX &&
@@ -16504,7 +16586,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				iblock->mInstructions[i + 2]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[0].mFinal &&
 				iblock->mInstructions[i + 2]->mSrc[1].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[1].mFinal &&
 				iblock->mInstructions[i + 3]->mCode == IC_STORE &&
-				iblock->mInstructions[i + 3]->mSrc[0].mTemp == iblock->mInstructions[i + 2]->mDst.mTemp && iblock->mInstructions[i + 3]->mSrc[0].mFinal &&
+				iblock->mInstructions[i + 3]->mSrc[0].mTemp == iblock->mInstructions[i + 2]->mDst.mTemp && //iblock->mInstructions[i + 3]->mSrc[0].mFinal &&
 				block->LoadLoadOpStoreIndirectValue(iproc, ins, iblock->mInstructions[i + 1], iblock->mInstructions[i + 2], iblock->mInstructions[i + 3]))
 			{
 				i += 3;
@@ -16516,7 +16598,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				iblock->mInstructions[i + 2]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[1].mFinal &&
 				iblock->mInstructions[i + 2]->mSrc[0].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[0].mFinal &&
 				iblock->mInstructions[i + 3]->mCode == IC_STORE &&
-				iblock->mInstructions[i + 3]->mSrc[0].mTemp == iblock->mInstructions[i + 2]->mDst.mTemp && iblock->mInstructions[i + 3]->mSrc[0].mFinal &&
+				iblock->mInstructions[i + 3]->mSrc[0].mTemp == iblock->mInstructions[i + 2]->mDst.mTemp && //iblock->mInstructions[i + 3]->mSrc[0].mFinal &&
 				block->LoadLoadOpStoreIndirectValue(iproc, iblock->mInstructions[i + 1], ins, iblock->mInstructions[i + 2], iblock->mInstructions[i + 3]))
 			{
 				i += 3;

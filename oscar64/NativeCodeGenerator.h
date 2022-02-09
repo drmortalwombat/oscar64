@@ -85,6 +85,7 @@ public:
 	bool ChangesAccu(void) const;
 	bool UsesAccu(void) const;
 	bool ChangesCarry(void) const;
+	bool ChangesZFlag(void) const;
 	bool RequiresCarry(void) const;
 	bool RequiresAccu(void) const;
 	bool RequiresYReg(void) const;
