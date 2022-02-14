@@ -4,4 +4,5 @@
 ../../bin/oscar64 maze3d.c -n
 ../../bin/oscar64 missile.c -O3 -n
 ../../bin/oscar64 breakout.c -n
+../../bin/oscar64 connectfour.c -n
 

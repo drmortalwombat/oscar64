@@ -611,7 +611,7 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 			dec->mOffset = offset;
 		}
 	}
-	else if (dtype->mType == DT_TYPE_POINTER && dec->mType == DT_VARIABLE && dec->mBase->mType == DT_TYPE_ARRAY && (dec->mFlags & DTF_GLOBAL))
+	else if (dec && dtype->mType == DT_TYPE_POINTER && (dec->mType == DT_VARIABLE || dec->mType == DT_VARIABLE_REF) && exp->mDecType->mType == DT_TYPE_ARRAY && (dec->mFlags & DTF_GLOBAL))
 	{
 		if (dtype->CanAssign(exp->mDecType))
 		{
@@ -867,7 +867,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			}
 			else if (dtype->mType == DT_TYPE_POINTER)
 			{
-				if (exp->mDecValue->mType == DT_CONST_ADDRESS)
+				if (exp->mDecValue->mType == DT_CONST_ADDRESS || exp->mDecValue->mType == DT_CONST_POINTER)
 					;
 				else if (exp->mDecValue->mType == DT_CONST_FUNCTION)
 				{
@@ -1534,7 +1534,7 @@ Expression* Parser::ParsePostfixExpression(void)
 						{
 							nexp->mDecValue = mdec;
 							nexp->mDecType = mdec->mBase;
-							exp = nexp;
+							exp = nexp->ConstantFold(mErrors);
 						}
 						else
 							mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent->mString);
@@ -1563,7 +1563,7 @@ Expression* Parser::ParsePostfixExpression(void)
 					{
 						nexp->mDecValue = mdec;
 						nexp->mDecType = mdec->mBase;
-						exp = nexp;
+						exp = nexp->ConstantFold(mErrors);
 					}
 					else
 						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent->mString);

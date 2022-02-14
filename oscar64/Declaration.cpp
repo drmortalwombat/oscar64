@@ -388,13 +388,103 @@ Expression* Expression::ConstantFold(Errors * errors)
 			ex->mDecType = dec->mBase;
 			return ex;
 		}
-}
+#if 0
+		else if (mLeft->mDecValue->mType == DT_CONST_POINTER && mRight->mDecValue->mType == DT_CONST_INTEGER && (mToken == TK_ADD || mToken == TK_SUB))
+		{
+			int64	ileft = 0;
+
+			Declaration* pdec = mLeft->mDecValue->mValue->mDecValue;
+			if (pdec->mType == DT_VARIABLE_REF)
+			{
+				ileft = pdec->mOffset;
+				pdec = pdec->mBase;
+			}
+
+			switch (mToken)
+			{
+			case TK_ADD:
+				ileft += mRight->mDecValue->mInteger * mLeft->mDecType->mBase->mSize;
+				break;
+			case TK_SUB:
+				ileft -= mRight->mDecValue->mInteger * mLeft->mDecType->mBase->mSize;
+				break;
+			}
+
+			Expression* vex = new Expression(mLocation, EX_VARIABLE);
+			Declaration* vdec = new Declaration(mLocation, DT_VARIABLE_REF);
+			vdec->mFlags = pdec->mFlags;
+			vdec->mBase = pdec;
+			vdec->mSize = pdec->mBase->mSize;			
+			vdec->mOffset = ileft;
+			vex->mDecValue = vdec;
+			vex->mDecType = mLeft->mDecType->mBase;
+
+			Expression* ex = new Expression(mLocation, EX_CONSTANT);
+			Declaration* dec = new Declaration(mLocation, DT_CONST_POINTER);
+			dec->mBase = mLeft->mDecValue->mBase;
+			dec->mValue = vex;
+			ex->mDecValue = dec;
+			ex->mDecType = dec->mBase;
+			return ex;
+		}
+#endif
+	}
+	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_ARRAY && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
+	{
+		Expression* ex = new Expression(mLocation, EX_VARIABLE);
+		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
+		dec->mFlags = mLeft->mDecValue->mFlags;
+		dec->mBase = mLeft->mDecValue;
+		dec->mSize = mLeft->mDecType->mBase->mSize - mRight->mDecValue->mInteger * dec->mSize;
+		dec->mOffset = mRight->mDecValue->mInteger * dec->mSize;
+		ex->mDecValue = dec;
+		ex->mDecType = mLeft->mDecType;
+		return ex;
+	}
+	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE_REF && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_ARRAY && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
+	{
+		Expression* ex = new Expression(mLocation, EX_VARIABLE);
+		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
+		dec->mFlags = mLeft->mDecValue->mFlags;
+		dec->mBase = mLeft->mDecValue->mBase;
+		dec->mSize = mLeft->mDecType->mBase->mSize - mRight->mDecValue->mInteger * dec->mSize;
+		dec->mOffset = mLeft->mDecValue->mOffset + mRight->mDecValue->mInteger * dec->mSize;
+		ex->mDecValue = dec;
+		ex->mDecType = mLeft->mDecType;
+		return ex;
+	}
+	else if (mType == EX_QUALIFY && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
+	{
+		Expression* ex = new Expression(mLocation, EX_VARIABLE);
+		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
+		dec->mFlags = mLeft->mDecValue->mFlags;
+		dec->mBase = mLeft->mDecValue;
+		dec->mOffset = mDecValue->mOffset;
+		dec->mSize = mDecValue->mSize;
+		ex->mDecValue = dec;
+		ex->mDecType = mDecType;
+		return ex;
+	}
+	else if (mType == EX_QUALIFY && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE_REF && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
+	{
+		Expression* ex = new Expression(mLocation, EX_VARIABLE);
+		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
+		dec->mFlags = mLeft->mDecValue->mFlags;
+		dec->mBase = mLeft->mDecValue->mBase;
+		dec->mOffset = mLeft->mDecValue->mOffset + mDecValue->mOffset;
+		dec->mSize = mDecValue->mSize;
+		ex->mDecValue = dec;
+		ex->mDecType = mDecType;
+		return ex;
+	}
 
 	return this;
 }
 
 Declaration::Declaration(const Location& loc, DecType type)
-	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1)
+	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), 
+	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), 
+	mInteger(0), mNumber(0)
 {}
 
 Declaration::~Declaration(void)

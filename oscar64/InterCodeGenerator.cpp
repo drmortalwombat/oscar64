@@ -905,6 +905,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 			ins->mConst.mOperandSize = dec->mSize;
 			ins->mConst.mIntConst = dec->mOffset;
+
+			if (dec->mType == DT_VARIABLE_REF)
+				dec = dec->mBase;
+
 			ins->mConst.mVarIndex = dec->mVarIndex;
 
 			int ref = 1;
@@ -945,7 +949,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (!(dec->mBase->mFlags & DTF_DEFINED))
 				mErrors->Error(dec->mLocation, EERR_VARIABLE_TYPE, "Undefined variable type");
 
-			return ExValue(dec->mBase, ins->mDst.mTemp, ref);
+			return ExValue(exp->mDecType, ins->mDst.mTemp, ref);
 		}
 
 
@@ -3364,6 +3368,23 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 			ref.mRefOffset = 0;
 			variable->mLinkerObject->AddReference(ref);
 		}	break;
+
+		case DT_VARIABLE_REF:
+		{
+			if (!dec->mBase->mLinkerObject)
+			{
+				InitGlobalVariable(mod, dec->mBase);
+			}
+
+			LinkerReference	ref;
+			ref.mObject = variable->mLinkerObject;
+			ref.mOffset = offset;
+			ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+			ref.mRefObject = dec->mBase->mLinkerObject;
+			ref.mRefOffset = dec->mOffset;
+			variable->mLinkerObject->AddReference(ref);
+		}	break;
+
 		}
 	}
 }

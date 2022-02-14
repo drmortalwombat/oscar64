@@ -287,7 +287,10 @@ static bool MemRange(const InterInstruction* ins, const GrowingInstructionPtrArr
 	}
 	else if (ins->mSrc[1].mMemory == IM_INDIRECT)
 	{
-		size = ins->mSrc[1].mOperandSize;
+		if (ins->mCode == IC_COPY)
+			size = ins->mConst.mOperandSize;
+		else
+			size = ins->mSrc[1].mOperandSize;
 		return MemPtrRange(tvalue[ins->mSrc[1].mTemp], tvalue, mem, vindex, offset);
 	}
 
@@ -6452,7 +6455,7 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 static bool CanBypassLoad(const InterInstruction * lins, const InterInstruction * bins)
 {
 	// Check ambiguity
-	if (bins->mCode == IC_STORE || bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
 		return false;
 
 	// Side effects
@@ -6462,6 +6465,36 @@ static bool CanBypassLoad(const InterInstruction * lins, const InterInstruction 
 	// True data dependency
 	if (bins->UsesTemp(lins->mDst.mTemp))
 		return false;
+
+	if (bins->mCode == IC_STORE)
+	{
+		if (lins->mVolatile)
+			return false;
+		else if (lins->mSrc[0].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
+			return false;
+		else if (lins->mSrc[0].mMemory != bins->mSrc[1].mMemory)
+			return true;
+		else if (lins->mSrc[0].mMemory == IM_GLOBAL)
+		{
+			return lins->mSrc[0].mLinkerObject != bins->mSrc[1].mLinkerObject ||
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (lins->mSrc[0].mMemory == IM_ABSOLUTE)
+		{
+			return
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (lins->mSrc[0].mMemory == IM_LOCAL)
+		{
+			return lins->mSrc[0].mVarIndex != bins->mSrc[1].mVarIndex ||
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else
+			return false;
+	}
 
 	// False data dependency
 	if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].mTemp == bins->mDst.mTemp)
@@ -6522,6 +6555,58 @@ static bool CanBypassUp(const InterInstruction* lins, const InterInstruction* bi
 	return true;
 }
 
+static bool CanBypassLoadUp(const InterInstruction* lins, const InterInstruction* bins)
+{
+	// Check ambiguity
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
+		return false;
+
+	// Side effects
+	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
+		return false;
+
+	// False data dependency
+	if (bins->UsesTemp(lins->mDst.mTemp) || bins->mDst.mTemp == lins->mDst.mTemp)
+		return false;
+
+	// True data dependency
+	if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].mTemp == bins->mDst.mTemp)
+		return false;
+
+	if (bins->mCode == IC_STORE)
+	{
+		if (lins->mVolatile)
+			return false;
+		else if (lins->mSrc[0].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
+			return false;
+		else if (lins->mSrc[0].mMemory != bins->mSrc[1].mMemory)
+			return true;
+		else if (lins->mSrc[0].mMemory == IM_GLOBAL)
+		{
+			return lins->mSrc[0].mLinkerObject != bins->mSrc[1].mLinkerObject ||
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (lins->mSrc[0].mMemory == IM_ABSOLUTE)
+		{
+			return
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (lins->mSrc[0].mMemory == IM_LOCAL)
+		{
+			return lins->mSrc[0].mVarIndex != bins->mSrc[1].mVarIndex ||
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else
+			return false;
+	}
+
+	return true;
+}
+
+
 static bool IsChained(const InterInstruction* ins, const InterInstruction* nins)
 {
 	if (ins->mDst.mTemp >= 0)
@@ -6562,7 +6647,7 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 	{
 		bm = bins->mSrc[0].mMemory;
 		bi = bins->mSrc[0].mVarIndex;
-		st = sins->mSrc[0].mTemp;
+		bt = sins->mSrc[0].mTemp;
 		bo = sins->mSrc[0].mIntConst;
 		bz = InterTypeSize[sins->mDst.mType];
 	}
@@ -6572,7 +6657,7 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 		bi = bins->mSrc[1].mVarIndex;
 		bt = sins->mSrc[1].mTemp;
 		bo = sins->mSrc[1].mIntConst;
-		bz = InterTypeSize[sins->mSrc[1].mType];
+		bz = InterTypeSize[sins->mSrc[0].mType];
 	}
 
 	// Check ambiguity
@@ -7816,6 +7901,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 			i--;
 		}
 #endif
+#if 1
 		i = 0;
 		while (i < mInstructions.Size())
 		{
@@ -7844,10 +7930,24 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 				if (i != j)
 					mInstructions[j] = ins;
 			}
+			else if (mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory == IM_INDIRECT && mInstructions[i]->mSrc[0].mFinal && mInstructions[i]->mDst.mType == IT_INT8)
+			{
+				InterInstruction* ins(mInstructions[i]);
+				int j = i;
+				while (j > 0 && CanBypassLoadUp(ins, mInstructions[j - 1]))
+				{
+					mInstructions[j] = mInstructions[j - 1];
+					j--;
+				}
+				if (i != j)
+					mInstructions[j] = ins;
+			}
 
 			i++;
 		}
+#endif
 
+#if 1
 		i = limit;
 		while (i >= 0)
 		{
@@ -7864,7 +7964,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 				if (i != j)
 					mInstructions[j] = ins;
 			}
-			else if (mInstructions[i]->mCode == IC_LEA && mInstructions[i]->mSrc[0].mTemp == -1)
+			else if (mInstructions[i]->mCode == IC_CONSTANT || (mInstructions[i]->mCode == IC_LEA && mInstructions[i]->mSrc[0].mTemp == -1))
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
@@ -7879,6 +7979,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 
 			i--;
 		}
+#endif
 
 		bool	changed;
 		do

@@ -8,10 +8,15 @@
 #define KEY_CSR_UP		(17 + 128)
 #define KEY_CSR_LEFT	(29 + 128)
 
+#define KEY_ARROW_LEFT	(95)
+
 #define KEY_ESC			(27)
 #define KEY_DEL			(20)
 #define KEY_INST		(148)
 #define KEY_RETURN		(13)
+
+#define KEY_HOME		(19)
+#define KEY_CLR			(147)
 
 #define KEY_F1			(133)
 #define KEY_F3			(134)
