@@ -8214,7 +8214,7 @@ void NativeCodeBasicBlock::CallFunction(InterCodeProcedure* proc, NativeCodeProc
 	}
 }
 
-void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterInstruction* ins)
+void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodeProcedure * nproc, const InterInstruction* ins)
 {
 	if (ins->mCode == IC_ASSEMBLER)
 	{
@@ -8232,10 +8232,22 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterIn
 		ins->mSrc[0].mLinkerObject->mNumTemporaries = ins->mNumOperands - 1;
 	}
 
-	assert(ins->mSrc[0].mLinkerObject);
+	if (ins->mSrc[0].mTemp < 0)
+	{
+		assert(ins->mSrc[0].mLinkerObject);
+		mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject));
+	}
+	else
+	{
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 0));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
 
-	mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject));
-	
+		NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("bcexec")));
+		mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_FEXEC));
+	}
+
 	if (ins->mDst.mTemp >= 0)
 	{
 		if (ins->mDst.mType == IT_FLOAT)
@@ -8658,7 +8670,7 @@ void NativeCodeBasicBlock::CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& 
 			case ASMIM_ABSOLUTE:
 				if (mIns[i].mType == ASMIT_JSR)
 				{
-					if (mIns[i].mFlags & NCIF_RUNTIME)
+					if ((mIns[i].mFlags & NCIF_RUNTIME) && !(mIns[i].mFlags & NCIF_FEXEC))
 					{
 						for (int j = 0; j < 4; j++)
 						{
@@ -16028,6 +16040,20 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_PHA));
 		}
 
+		bool	usesStack = false;
+
+		if (zpLocal[BC_REG_STACK])
+		{
+			usesStack = true;
+			zpLocal -= BC_REG_STACK;
+			zpLocal -= BC_REG_STACK + 1;
+		}
+
+		if (usesStack)
+		{
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEC, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+		}
+
 		for (int i = 2; i < 256; i++)
 		{
 			if (zpLocal[i])
@@ -16044,6 +16070,10 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_PLA));
 				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, i));
 			}
+		}
+		if (usesStack)
+		{
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_INC, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 		}
 
 		if (proc->mHardwareInterrupt)
@@ -16803,7 +16833,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			break;
 		case IC_CALL_NATIVE:
 		case IC_ASSEMBLER:
-			block->CallAssembler(iproc, ins);
+			block->CallAssembler(iproc, this, ins);
 			break;
 		case IC_PUSH_FRAME:
 		{

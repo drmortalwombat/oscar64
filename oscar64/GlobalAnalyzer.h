@@ -27,6 +27,7 @@ protected:
 
 	Declaration* Analyze(Expression* exp, Declaration* procDec);
 
+	uint64 GetProcFlags(Declaration* to) const;
 	void RegisterCall(Declaration* from, Declaration* to);
 	void RegisterProc(Declaration* to);
 };

@@ -48,6 +48,11 @@ struct ZeroPageSet
 		mBits[n >> 5] |= 1 << (n & 31);
 	}
 
+	void operator -= (int n)
+	{
+		mBits[n >> 5] &= ~(1 << (n & 31));
+	}
+
 	bool operator[] (int n) const
 	{
 		return (mBits[n >> 5] & (1 << (n & 31))) != 0;

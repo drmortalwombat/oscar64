@@ -557,6 +557,9 @@ bool Declaration::IsSubType(const Declaration* dec) const
 		if (dl || dr)
 			return false;
 
+		if ((mFlags & DTF_INTERRUPT) && !(dec->mFlags & DTF_INTERRUPT))
+			return false;
+
 		if ((mFlags & DTF_VARIADIC) != (dec->mFlags & DTF_VARIADIC))
 			return false;
 
@@ -682,7 +685,7 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 		}
 		else if (mBase->mType == DT_TYPE_FUNCTION && fromType->mType == DT_TYPE_FUNCTION)
 		{
-			return mBase->IsSame(fromType);
+			return mBase->IsSubType(fromType);
 		}
 		else if (mBase->mType == DT_TYPE_VOID && fromType->mType == DT_TYPE_ASSEMBLER)
 		{

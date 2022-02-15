@@ -159,6 +159,8 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 		mFunctions.Push(dec);
 
 		dec->mFlags |= DTF_ANALYZED;
+		dec->mFlags |= DTF_FUNC_INTRSAVE;
+
 		if ((dec->mFlags & DTF_INTRINSIC) && !dec->mValue)
 			dec->mFlags |= DTF_FUNC_CONSTEXPR;
 		else if (dec->mFlags & DTF_DEFINED)
@@ -325,6 +327,13 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_CALL:
 		ldec = Analyze(exp->mLeft, procDec);
 		RegisterCall(procDec, ldec);
+		if (!(GetProcFlags(ldec) & (DTF_FUNC_INTRSAVE | DTF_INTERRUPT)))
+		{
+			procDec->mFlags &= ~DTF_FUNC_INTRSAVE;
+			if (procDec->mFlags & DTF_INTERRUPT)
+				mErrors->Error(exp->mLocation, EWARN_NOT_INTERRUPT_SAFE, "Calling non interrupt safe function", ldec->mIdent->mString);
+		}
+
 		if (exp->mRight)
 			RegisterProc(Analyze(exp->mRight, procDec));
 		break;
@@ -421,6 +430,20 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	}
 
 	return TheVoidTypeDeclaration;
+}
+
+uint64 GlobalAnalyzer::GetProcFlags(Declaration* to) const
+{
+	if (to->mType == DT_CONST_FUNCTION)
+		return to->mFlags;
+	else if (to->mType == DT_TYPE_FUNCTION)
+		return to->mFlags;
+	else if (to->mType == DT_TYPE_POINTER && to->mBase->mType == DT_TYPE_FUNCTION)
+		return GetProcFlags(to->mBase);
+	else if (to->mType == DT_VARIABLE || to->mType == DT_ARGUMENT)
+		return GetProcFlags(to->mBase);
+	else
+		return 0;
 }
 
 void GlobalAnalyzer::RegisterCall(Declaration* from, Declaration* to)

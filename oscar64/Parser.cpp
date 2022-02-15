@@ -962,7 +962,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 		}
 	}
 
-	Declaration* bdec = ParseBaseTypeDeclaration(0);
+	Declaration* bdec = ParseBaseTypeDeclaration(typeFlags);
 
 	Declaration* rdec = nullptr, * ldec = nullptr;
 
@@ -988,6 +988,8 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			}
 		}
 		
+		if (npdec->mBase->mType == DT_TYPE_FUNCTION)
+			npdec->mBase->mFlags |= storageFlags & (DTF_INTERRUPT | DTF_NATIVE | TK_FASTCALL);
 
 		if (definingType)
 		{

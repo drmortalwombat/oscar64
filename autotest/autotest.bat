@@ -129,6 +129,9 @@ rem @echo off
 @call :test ptrinittest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test ptrarraycmptest.c
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error

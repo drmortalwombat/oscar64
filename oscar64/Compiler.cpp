@@ -273,7 +273,7 @@ bool Compiler::GenerateCode(void)
 	}
 #endif
 
-	for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
+	for (int i = mInterCodeModule->mProcedures.Size() - 1; i >=0; i--)
 	{
 		InterCodeProcedure* proc = mInterCodeModule->mProcedures[i];
 

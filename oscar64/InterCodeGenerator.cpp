@@ -1717,9 +1717,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_RELATIONAL:
 		{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);
-			vl = Dereference(proc, block, vl);
+			vl = Dereference(proc, block, vl, vl.mType->mType == DT_TYPE_ARRAY ? 1 : 0);
 			vr = TranslateExpression(procType, proc, block, exp->mRight, breakBlock, continueBlock, inlineMapper);
-			vr = Dereference(proc, block, vr);
+			vr = Dereference(proc, block, vr, vr.mType->mType == DT_TYPE_ARRAY ? 1 : 0);
 
 			InterInstruction	*	ins = new InterInstruction();
 

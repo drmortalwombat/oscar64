@@ -2627,6 +2627,16 @@ bool InterInstruction::ConstantFolding(void)
 			mNumOperands = 0;
 			return true;
 		}
+		else if (mSrc[0].mTemp == mSrc[1].mTemp)
+		{
+			mCode = IC_CONSTANT;
+			mConst.mIntConst = ::ConstantFolding(mOperator, mSrc[0].mType, 0, 0);
+			mConst.mType = IT_BOOL;
+			mSrc[0].mTemp == -1;
+			mSrc[1].mTemp == -1;
+			mNumOperands = 0;
+			return true;
+		}
 		break;
 	case IC_BINARY_OPERATOR:
 		if (mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0)
@@ -8581,6 +8591,9 @@ void InterCodeProcedure::Close(void)
 
 		ResetVisited();
 		mEntryBlock->CollectOuterFrame(0, size, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode);
+
+		if (mModule->mCompilerOptions & COPT_NATIVE)
+			mCallsByteCode = false;
 		mCommonFrameSize = size;
 	}
 	else
@@ -9074,6 +9087,7 @@ void InterCodeProcedure::RemoveNonRelevantStatics(void)
 {
 	ResetVisited();
 	mEntryBlock->RemoveNonRelevantStatics();
+	RemoveUnusedInstructions();
 }
 
 void InterCodeProcedure::MapVariables(void)
@@ -9390,7 +9404,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 0
+#if 1
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
