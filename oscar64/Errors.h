@@ -9,6 +9,8 @@ public:
 	Location() : mFileName(nullptr), mLine(0), mColumn(0) {}
 };
 
+class Ident;
+
 enum ErrorID
 {
 	EINFO_GENERIC = 1000,
@@ -67,5 +69,6 @@ public:
 
 	int		mErrorCount;
 
+	void Error(const Location& loc, ErrorID eid, const char* msg, const Ident * info);
 	void Error(const Location& loc, ErrorID eid, const char* msg, const char* info = nullptr);
 };

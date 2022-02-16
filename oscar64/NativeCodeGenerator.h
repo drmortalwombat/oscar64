@@ -71,6 +71,8 @@ public:
 	uint32			mLive;
 	LinkerObject*	mLinkerObject;
 
+	void CopyMode(const NativeCodeInstruction& ins);
+
 	void Assemble(NativeCodeBasicBlock* block);
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);

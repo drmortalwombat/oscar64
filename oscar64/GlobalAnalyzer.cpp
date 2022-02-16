@@ -331,7 +331,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		{
 			procDec->mFlags &= ~DTF_FUNC_INTRSAVE;
 			if (procDec->mFlags & DTF_INTERRUPT)
-				mErrors->Error(exp->mLocation, EWARN_NOT_INTERRUPT_SAFE, "Calling non interrupt safe function", ldec->mIdent->mString);
+				mErrors->Error(exp->mLocation, EWARN_NOT_INTERRUPT_SAFE, "Calling non interrupt safe function", ldec->mIdent);
 		}
 
 		if (exp->mRight)
