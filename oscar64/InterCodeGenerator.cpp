@@ -49,6 +49,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 		ins->mDst.mType = v.mReference == 1 ? InterTypeOf(v.mType) : IT_POINTER;
 		ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 		ins->mSrc[0].mOperandSize = v.mReference == 1 ? v.mType->mSize : 2;
+		if (v.mReference == 1 && v.mType->mType == DT_TYPE_ENUM)
+		{
+			ins->mDst.mRange.LimitMin(v.mType->mMinValue);
+			ins->mDst.mRange.LimitMax(v.mType->mMaxValue);
+		}
 		if (v.mType->mFlags & DTF_VOLATILE)
 			ins->mVolatile = true;
 		block->Append(ins);

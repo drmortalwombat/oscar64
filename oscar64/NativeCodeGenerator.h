@@ -224,6 +224,7 @@ public:
 	bool PatchAddressSumY(int at, int reg, int apos, int breg, int ireg);
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags, int & addr);
+	bool FindExternAddressSumY(int at, int reg, int& breg, int& ireg);
 	bool FindPageStartAddress(int at, int reg, int& addr);
 	bool MoveStoreXUp(int at);
 	bool MoveStoreHighByteDown(int at);

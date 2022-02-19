@@ -645,7 +645,7 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int ban
 			for (int i = 0; i < n; i++)
 			{
 				int k = memory[ip + i];
-				if (k >= 32 && k < 128)
+				if (k >= 32 && k < 127)
 					fprintf(file, "%c", k);
 				else
 					fprintf(file, ".");

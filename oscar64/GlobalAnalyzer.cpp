@@ -262,6 +262,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		{
 			RegisterProc(Analyze(exp->mDecValue->mValue, procDec));
 		}
+		else if (exp->mDecValue->mType == DT_CONST_ADDRESS)
+		{
+			procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+		}
 		else if (exp->mDecValue->mType == DT_CONST_ASSEMBLER)
 		{
 			AnalyzeAssembler(exp->mDecValue->mValue, procDec);

@@ -187,6 +187,7 @@ bool Compiler::GenerateCode(void)
 			mGlobalAnalyzer->AnalyzeGlobalVariable(dec);
 	}
 	mGlobalAnalyzer->AutoInline();
+	//mGlobalAnalyzer->DumpCallGraph();
 
 	mInterCodeGenerator->mCompilerOptions = mCompilerOptions;
 	mNativeCodeGenerator->mCompilerOptions = mCompilerOptions;

@@ -176,7 +176,7 @@ public:
 	Expression*			mValue;
 	DeclarationScope*	mScope;
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment;
-	int64				mInteger;
+	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
 	uint64				mFlags;
 	const Ident		*	mIdent;

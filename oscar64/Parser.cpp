@@ -77,6 +77,13 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 			{
 				if (!(mdec->mBase->mFlags & DTF_DEFINED))
 					mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+
+				if (mdec->mType != DT_VARIABLE)
+				{
+					mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
+					break;
+				}
+
 				mdec->mType = DT_ELEMENT;
 				mdec->mOffset = offset;
 
@@ -318,6 +325,9 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 					else
 						break;
 				}
+
+				dec->mMinValue = minValue;
+				dec->mMaxValue = maxValue;
 
 				if (minValue < 0)
 				{

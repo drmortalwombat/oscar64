@@ -2,13 +2,14 @@
 #include <c64/memmap.h>
 #include <c64/sprites.h>
 #include <c64/joystick.h>
+#include <c64/cia.h>
 #include <string.h>
 #include <stdlib.h>
 
 byte * const Screen = (byte *)0xc800;
-byte * const Font = (byte *)0xd000;
+byte * const Font = (byte *)0xe000;
 byte * const Color = (byte *)0xd800;
-byte * const Sprites = (byte *)0xd800;
+byte * const Sprites = (byte *)0xd000;
 
 // Character set 
 char charset[2048] = {
@@ -19,23 +20,34 @@ char tileset[] = {
 	#embed "../../../assets/uridium1 - Tiles.bin"	
 };
 
-char tilemap[64 * 5] = {
-	#embed "../../../assets/uridium1 - Map (64x5).bin"		
+char tilemap[128 * 5] = {
+	#embed "../../../assets/uridium1 - Map (128x5).bin"		
 };
 
 char spriteset[2048] = {
 	#embed 2048 0 "../../../assets/uridium1 - Sprites.bin"
 };
 
-char xtileset[16][20];
+char xtileset[16][64];
+char xtilemap[144 * 5];
 char stars[24];
+
+#pragma align(xtileset, 64);
 
 void tiles_unpack(void)
 {
-	for(char t=0; t<20; t++)
+	for(char t=0; t<64; t++)
 	{
 		for(char i=0; i<16; i++)
 			xtileset[i][t] = tileset[16 * t + i];
+	}
+
+	for(char y=0; y<5; y++)
+	{
+		for(char x=0; x<144; x++)
+		{
+			xtilemap[y * 144 + x] = tilemap[y * 128 + (x & 127)];
+		}
 	}
 }
 
@@ -156,22 +168,42 @@ void tiles_draw1(char * dp, char * tm)
 	}
 }
 
+
+struct Shot
+{
+	char	x, y, dx, n;
+}	shots[5][4];
+
+inline void shot_draw(char * dp, char i, char xp, char yp)
+{
+	char		c = dp[xp];
+	char	*	fsp = Font + 8 * c;
+	char	*	fdp = Font + 8 * i;
+
+	fdp[0] = fsp[0]; fdp[1] = fsp[1]; fdp[2] = fsp[2]; fdp[3] = fsp[3];
+	fdp[4] = fsp[4]; fdp[5] = fsp[5]; fdp[6] = fsp[6]; fdp[7] = fsp[7];
+
+	fdp[yp] = 0x00;
+
+	dp[xp] = i;
+}
+
 void tiles_draw(unsigned x)
 {
 	char	xs = 7 - (x & 7);
-
-	vic.ctrl2 = VIC_CTRL2_MCM + xs;
 
 	x >>= 3;
 
 	char	xl = x >> 2, xr = x & 3;
 	char	yl = 0;
+	char	ci = 192;
+	char	cs = xs | 248;
 
 	for(int iy=0; iy<5; iy++)
 	{
 		char	*	dp = Screen + 80 + 160 * iy;
 		char	*	cp = Color + 80 + 160 * iy;
-		char	*	tp = tilemap + xl + 64 * iy;
+		char	*	tp = xtilemap + xl + 144 * iy;
 
 		switch (xr)
 		{
@@ -191,15 +223,13 @@ void tiles_draw(unsigned x)
 			__assume(false);
 		}
 
-		xs |= 248;
-
 		char	k = stars[yl + 0] +   0;
 		if (dp[k])
 			cp[k] = 8;
 		else
 		{
 			cp[k] = 0;
-			dp[k] = xs;			
+			dp[k] = cs;			
 		}
 
 		k = stars[yl + 1];
@@ -208,7 +238,7 @@ void tiles_draw(unsigned x)
 		else
 		{
 			cp[k] = 0;
-			dp[k] = xs;			
+			dp[k] = cs;			
 		}
 
 		k = stars[yl + 2];
@@ -217,7 +247,7 @@ void tiles_draw(unsigned x)
 		else
 		{
 			cp[k] = 0;
-			dp[k] = xs;			
+			dp[k] = cs;			
 		}
 
 		k = stars[yl + 3];
@@ -226,15 +256,32 @@ void tiles_draw(unsigned x)
 		else
 		{
 			cp[k] = 0;
-			dp[k] =  xs;			
+			dp[k] = cs;			
+		}
+
+
+		Shot	*	s = shots[iy];
+		for(char si=0; si<4; si++)
+		{
+			if (s->n)
+			{	
+				s->x += s->dx;
+				s->n--;
+				shot_draw(dp, ci++, s->x, s->y);
+			}
+			s++;
 		}
 
 		yl += 4;
 	}
+
+	vic.ctrl2 = VIC_CTRL2_MCM + xs;	
 }
 
 int main(void)
 {
+	cia_init();
+
 	mmap_trampoline();
 
 	// Install character set
@@ -254,8 +301,8 @@ int main(void)
 		}
 	}
 
-	memcpy(Sprites, spriteset, 2048);
-	mmap_set(MMAP_NO_BASIC);
+	memcpy(Sprites, spriteset, 4096);
+	mmap_set(MMAP_NO_ROM);
 
 	tiles_unpack();
 
@@ -265,10 +312,10 @@ int main(void)
 	spr_init(Screen);
 
 	// Change colors
-	vic.color_border = VCOL_BLUE;
+	vic.color_border = VCOL_BLACK;
 	vic.color_back = VCOL_WHITE;
 	vic.color_back1 = VCOL_LT_GREY;
-	vic.color_back2 = VCOL_DARK_GREY;
+	vic.color_back2 = VCOL_MED_GREY;
 
 	vic.spr_mcolor0 = VCOL_DARK_GREY;
 	vic.spr_mcolor1 = VCOL_WHITE;
@@ -279,12 +326,24 @@ int main(void)
 	for(int i=0; i<24; i++)
 		stars[i] = rand() % 40 + 40 * (i & 3);
 
-	spr_set(0, true, 160, 100, 96, 6, true, false, false);
+	for(int i=0; i<5; i++)
+	{
+		for(int j=0; j<8; j++)
+		{
+			shots[i][j].x = rand() % 160;
+			shots[i][j].y = rand() & 7;
+		}
+	}
+
+	spr_set(0, true, 160, 100, 64,          VCOL_BLUE, true, false, false);
+	spr_set(1, true, 160, 100, 64 + 16, VCOL_MED_GREY, true, false, false);
+	vic.spr_priority = 2;
 
 	int	spx = 40;
 	int	vpx = 16;
 	int	ax = 0;
 	char	spy = 100;
+	char	fdelay = 0;
 
 	for(;;)
 	{
@@ -294,39 +353,96 @@ int main(void)
 			ax = joyx[0];
 
 		spy += 2 * joyy[0];
+		if (spy < 6)
+			spy = 6;
+		else if (spy > 6 + 159)
+			spy = 6 + 159;
 
 		if (ax > 0)
 		{
-			if (vpx < 16)
+			if (vpx < 32)
 				vpx++;
-			if (vpx == 16)
-			{
-				spr_image(0, 96);
+			else
 				ax = 0;
+
+			if (vpx >= 32)
+			{
+				spr_image(0, 64);
+				spr_image(1, 64 + 16);
 			}
 			else
-				spr_image(0, 108 + (vpx >> 2));
+			{
+				spr_image(0, 76 + (vpx >> 3));
+				spr_image(1, 76 + (vpx >> 3) + 16);
+			}
 		}
 		else if (ax < 0)
 		{
-			if (vpx > -15)
+			if (vpx > - 32)
 				vpx--;
-			if (vpx == -15)
-			{
-				spr_image(0, 104);			
+			else
 				ax = 0;
+
+			if (vpx <= -32)
+			{
+				spr_image(0, 72);			
+				spr_image(1, 72 + 16);
 			}
 			else
-				spr_image(0, 100 - (vpx >> 2));
+			{
+				spr_image(0, 68 - (vpx >> 3));
+				spr_image(1, 68 - (vpx >> 3) + 16);
+			}
 		}
 
-		spr_move(0, 160 - 4 * vpx, 50 + spy);
+		if (fdelay)
+			fdelay--;
+		else if (joyb[0] && vpx != 0)
+		{
+			char	py = spy - 6;
+			char	gy = py >> 5;
+			char	ey = (py >> 3) & 3;
+			char	ry = py & 7;
 
-		vic_waitFrame();
+			Shot	*	s = shots[gy];
+
+			char	i = 0;
+			while (i < 4 && s[i].n != 0)
+				i++;
+
+			if (i < 4)
+			{
+				s[i].y = ry;
+				if (vpx < 0)
+				{
+					s[i].dx = -1;
+					char	x = (148 - 4 * vpx) >> 3;
+					s[i].n = x - 1;
+					s[i].x = 40 * ey + x;
+				}
+				else if (vpx > 0)
+				{
+					s[i].dx = 1;
+					char	x = (156 - 4 * vpx) >> 3;
+					s[i].x = 40 * ey + x;
+					s[i].n = 39 - x;
+				}
+				fdelay = 4;
+			}
+		}
+
+		spr_move(0, 172 - 4 * vpx, 50 + spy);
+		spr_move(1, 180 - 4 * vpx, 58 + spy);
+
+		vic.color_border++;
+		vic_waitLine(82);
 		vic.color_border++;
 		tiles_draw(spx);
 		vic.color_border--;
+		vic.color_border--;
 		spx += vpx >> 1;
+
+		spx &= 4095;
 	}
 
 	return 0;

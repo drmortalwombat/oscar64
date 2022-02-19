@@ -4181,6 +4181,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 
 			switch (ins->mCode)
 			{
+			case IC_LOAD:
+				vr = ins->mDst.mRange;
+				break;
 			case IC_CONSTANT:
 				vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
 				vr.mMinValue = vr.mMaxValue = ins->mConst.mIntConst;
@@ -9404,7 +9407,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 1
+#if 0
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
