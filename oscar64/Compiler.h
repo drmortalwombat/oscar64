@@ -46,4 +46,6 @@ public:
 	void AddDefine(const Ident* ident, const char* value);
 
 	void RegisterRuntime(const Location& loc, const Ident* ident);
+
+	void CompileProcedure(InterCodeProcedure* proc);
 };

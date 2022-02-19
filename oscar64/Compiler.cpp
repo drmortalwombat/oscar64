@@ -108,6 +108,30 @@ void Compiler::RegisterRuntime(const Location & loc, const Ident* ident)
 	}
 }
 
+void Compiler::CompileProcedure(InterCodeProcedure* proc)
+{
+	if (!proc->mCompiled)
+	{
+		proc->mCompiled = true;
+
+		for (int i = 0; i < proc->mCalledFunctions.Size(); i++)
+			CompileProcedure(proc->mCalledFunctions[i]);
+
+		if (proc->mNativeProcedure)
+		{
+			NativeCodeProcedure* ncproc = new NativeCodeProcedure(mNativeCodeGenerator);
+			ncproc->Compile(proc);
+		}
+		else
+		{
+			ByteCodeProcedure* bgproc = new ByteCodeProcedure();
+
+			bgproc->Compile(mByteCodeGenerator, proc);
+			mByteCodeFunctions.Push(bgproc);
+		}
+	}
+}
+
 bool Compiler::GenerateCode(void)
 {
 	Location	loc;
@@ -274,7 +298,7 @@ bool Compiler::GenerateCode(void)
 	}
 #endif
 
-	for (int i = mInterCodeModule->mProcedures.Size() - 1; i >=0; i--)
+	for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
 	{
 		InterCodeProcedure* proc = mInterCodeModule->mProcedures[i];
 
@@ -284,19 +308,7 @@ bool Compiler::GenerateCode(void)
 		proc->Disassemble("final");
 #endif
 
-
-		if (proc->mNativeProcedure)
-		{
-			NativeCodeProcedure* ncproc = new NativeCodeProcedure(mNativeCodeGenerator);
-			ncproc->Compile(proc);
-		}
-		else
-		{
-			ByteCodeProcedure* bgproc = new ByteCodeProcedure();
-
-			bgproc->Compile(mByteCodeGenerator, proc);
-			mByteCodeFunctions.Push(bgproc);
-		}
+		CompileProcedure(proc);
 	}
 
 	LinkerObject* byteCodeObject = nullptr;

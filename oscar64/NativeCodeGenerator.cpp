@@ -11227,8 +11227,9 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 {
 	bool changed = false;
 
+	int	sz = mIns.Size();
 
-	if (mIns.Size() == 2 && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && mIns[0].mType == ASMIT_LDA && mIns[1].mType == ASMIT_CMP && !(mIns[1].mFlags & NCIF_VOLATILE) && !(mIns[1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+	if (sz == 2 && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && mIns[0].mType == ASMIT_LDA && mIns[1].mType == ASMIT_CMP && !(mIns[1].mFlags & NCIF_VOLATILE) && !(mIns[1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
 	{
 		if (!prevBlock)
 			return OptimizeSimpleLoopInvariant(proc);
@@ -11238,6 +11239,21 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		mIns.Remove(1);
 		return true;
 	}
+
+	if (sz >= 3 && mIns[0].mType == ASMIT_LDY && mIns[sz - 2].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 2]) &&
+		mIns[sz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[sz - 1].mMode) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
+	{
+		if (!prevBlock)
+			return OptimizeSimpleLoopInvariant(proc);
+
+		mIns[sz - 2].mType = ASMIT_LDY;
+		mIns[sz - 1].mType = ASMIT_CPY;
+
+		prevBlock->mIns.Push(mIns[0]);
+		mIns.Remove(0);
+		return true;
+	}
+
 
 	int	ai = 0;
 	while (ai < mIns.Size() && !mIns[ai].ChangesAccu())
