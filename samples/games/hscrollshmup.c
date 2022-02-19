@@ -176,16 +176,20 @@ struct Shot
 
 inline void shot_draw(char * dp, char i, char xp, char yp)
 {
+	__assume(i < 32);
+	__assume(yp < 8);
+
 	char		c = dp[xp];
+	dp[xp] = i | 0xe0;
+
 	char	*	fsp = Font + 8 * c;
-	char	*	fdp = Font + 8 * i;
+	char	*	fdp = (Font + 0xe0 * 8) + 8 * i;
 
 	fdp[0] = fsp[0]; fdp[1] = fsp[1]; fdp[2] = fsp[2]; fdp[3] = fsp[3];
 	fdp[4] = fsp[4]; fdp[5] = fsp[5]; fdp[6] = fsp[6]; fdp[7] = fsp[7];
 
 	fdp[yp] = 0x00;
 
-	dp[xp] = i;
 }
 
 void tiles_draw(unsigned x)
@@ -196,8 +200,7 @@ void tiles_draw(unsigned x)
 
 	char	xl = x >> 2, xr = x & 3;
 	char	yl = 0;
-	char	ci = 192;
-	char	cs = xs | 248;
+	char	ci = 0;
 
 	for(int iy=0; iy<5; iy++)
 	{
@@ -229,7 +232,7 @@ void tiles_draw(unsigned x)
 		else
 		{
 			cp[k] = 0;
-			dp[k] = cs;			
+			dp[k] = 0xf8;			
 		}
 
 		k = stars[yl + 1];
@@ -238,7 +241,7 @@ void tiles_draw(unsigned x)
 		else
 		{
 			cp[k] = 0;
-			dp[k] = cs;			
+			dp[k] = 0xf8;			
 		}
 
 		k = stars[yl + 2];
@@ -247,7 +250,7 @@ void tiles_draw(unsigned x)
 		else
 		{
 			cp[k] = 0;
-			dp[k] = cs;			
+			dp[k] = 0xf8;			
 		}
 
 		k = stars[yl + 3];
@@ -256,7 +259,7 @@ void tiles_draw(unsigned x)
 		else
 		{
 			cp[k] = 0;
-			dp[k] = cs;			
+			dp[k] = 0xf8;			
 		}
 
 
@@ -275,6 +278,8 @@ void tiles_draw(unsigned x)
 		yl += 4;
 	}
 
+	Font[248 * 8 + 2] = ~(1 << xs);
+
 	vic.ctrl2 = VIC_CTRL2_MCM + xs;	
 }
 
@@ -289,17 +294,7 @@ int main(void)
 	memcpy(Font, charset, 2048);
 
 	char * dp = Font + 248 * 8;
-
-	for(int i=0; i<8; i++)
-	{
-		for(int j=0; j<8; j++)
-		{
-			if (j == 2)
-				dp[8 * i + j] = ~(1 << i);
-			else
-				dp[8 * i + j] = 0xff;
-		}
-	}
+	memset(dp, 0xff, 8);
 
 	memcpy(Sprites, spriteset, 4096);
 	mmap_set(MMAP_NO_ROM);

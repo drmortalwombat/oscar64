@@ -7874,7 +7874,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 		while (i >= 0)
 		{
 			// move non indirect loads down
-			if (mInstructions[i]->mCode == IC_LOAD && (mInstructions[i]->mSrc[0].mMemory != IM_INDIRECT || mInstructions[i]->mDst.mType != IT_INT8))
+			if (mInstructions[i]->mCode == IC_LOAD && (mInstructions[i]->mSrc[0].mMemory != IM_INDIRECT || mInstructions[i]->mDst.mType != IT_INT8 || !mInstructions[i]->mSrc[0].mFinal))
 			{
 				InterInstruction	*	ins(mInstructions[i]);
 				int j = i;
@@ -7889,12 +7889,23 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR || mInstructions[i]->mCode == IC_UNARY_OPERATOR || mInstructions[i]->mCode == IC_CONVERSION_OPERATOR || mInstructions[i]->mCode == IC_CONSTANT)
 			{
 				InterInstruction* ins(mInstructions[i]);
+
+				int k = i;
+				while (k < limit && CanBypass(ins, mInstructions[k + 1]))
+					k++;
+				if (k < limit)
+				{
+					while (k > i && IsChained(mInstructions[k], mInstructions[k + 1]))
+						k--;
+				}
+
 				int j = i;
-				while (j < limit && CanBypass(ins, mInstructions[j + 1]) && !(j + 2 < mInstructions.Size() && IsChained(mInstructions[j + 1], mInstructions[j + 2])))
+				while (j < k)
 				{
 					mInstructions[j] = mInstructions[j + 1];
 					j++;
 				}
+
 				if (i != j)
 					mInstructions[j] = ins;
 			}

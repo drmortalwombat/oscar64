@@ -231,6 +231,8 @@ public:
 	bool MoveAddHighByteDown(int at);
 	bool ReverseLoadCommutativeOpUp(int aload, int aop);
 
+	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
+
 	bool JoinTAXARange(int from, int to);
 	bool JoinTAYARange(int from, int to);
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
