@@ -8096,6 +8096,35 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 1]->mSrc[0] = io;
 						changed = true;
 					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+						mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+						mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 0]->mSrc[0].IsUByte())
+					{
+						mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+
+						mInstructions[i + 0]->mCode = IC_LEA;
+						mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
+						mInstructions[i + 0]->mDst.mType = IT_POINTER;
+
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
+						changed = true;
+					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+						mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+						mInstructions[i + 0]->mSrc[0].IsUByte() && !mInstructions[i + 0]->mSrc[1].IsUByte())
+					{
+						mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+
+						mInstructions[i + 0]->mCode = IC_LEA;
+						mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
+						mInstructions[i + 0]->mDst.mType = IT_POINTER;
+
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
+						changed = true;
+					}
 
 #if 1
 					// Postincrement artifact
@@ -9035,6 +9064,17 @@ void InterCodeProcedure::Close(void)
 	do {
 		TempForwarding();
 	} while (GlobalConstantPropagation());
+
+#endif
+
+#if 1
+	ResetVisited();
+	mEntryBlock->PeepholeOptimization();
+
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	DisassembleDebug("Peephole optimized");
 
 #endif
 

@@ -11336,6 +11336,16 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		return true;
 	}
 
+	if (sz >= 3 && mIns[0].mType == ASMIT_LDA && mIns[sz - 2].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 2]) && mIns[sz - 1].mType == ASMIT_CMP)
+	{
+		if (!prevBlock)
+			return OptimizeSimpleLoopInvariant(proc);
+
+		prevBlock->mIns.Push(mIns[0]);
+		mIns.Remove(0);
+		return true;
+	}
+
 	if (sz >= 3 && mIns[0].mType == ASMIT_LDY && mIns[sz - 2].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 2]) &&
 		mIns[sz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[sz - 1].mMode) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
 	{
