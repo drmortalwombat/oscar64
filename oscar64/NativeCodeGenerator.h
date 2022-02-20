@@ -227,9 +227,11 @@ public:
 	bool FindExternAddressSumY(int at, int reg, int& breg, int& ireg);
 	bool FindPageStartAddress(int at, int reg, int& addr);
 	bool MoveStoreXUp(int at);
+	bool MoveLoadXUp(int at);
 	bool MoveStoreHighByteDown(int at);
 	bool MoveAddHighByteDown(int at);
 	bool ReverseLoadCommutativeOpUp(int aload, int aop);
+	bool ReplaceZeroPageUp(int at);
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
 

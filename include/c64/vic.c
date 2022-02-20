@@ -40,6 +40,8 @@ void vic_setmode(VicMode mode, char * text, char * font)
 			vic.ctrl1 = VIC_CTRL1_BMM | VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3;
 			vic.ctrl2 = VIC_CTRL2_CSEL | VIC_CTRL2_MCM;
 			break;
+		default:
+			__assume(false)
 	}
 
 	cia2.pra = (cia2.pra & 0xfc) | (((unsigned)text >> 14) ^ 0x03);	

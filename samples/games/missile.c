@@ -833,7 +833,7 @@ int main(void)
 
 	// Build to multicolor highres at top of screen
 	rirq_build(&top, 3);
-	rirq_delay(&top, 9);
+	rirq_delay(&top, 10);
 	rirq_write(&top, 1, &vic.ctrl1, VIC_CTRL1_BMM | VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3);
 	rirq_write(&top, 2, &vic.memptr, 0x28);
 	rirq_set(0, 57, &top);
