@@ -9492,7 +9492,64 @@ void NativeCodeBasicBlock::RemEntryBlock(NativeCodeBasicBlock* block)
 		mEntryBlocks.Remove(i);
 }
 
-bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
+NativeCodeBasicBlock * NativeCodeBasicBlock::SplitMatchingTails(NativeCodeProcedure* proc)
+{
+	NativeCodeBasicBlock* nblock = nullptr;
+
+	for (int i = 0; i < mEntryBlocks.Size() - 1; i++)
+	{
+		NativeCodeBasicBlock* bi(mEntryBlocks[i]);
+
+		if (bi->mBranch == ASMIT_JMP && bi->mIns.Size() > 1)
+		{
+			for (int j = i + 1; j < mEntryBlocks.Size(); j++)
+			{
+				NativeCodeBasicBlock* bj(mEntryBlocks[j]);
+
+				if (bj->mBranch == ASMIT_JMP && bj->mIns.Size() > 1)
+				{
+					if (bi->mIns[bi->mIns.Size() - 1].IsSame(bj->mIns[bj->mIns.Size() - 1]) &&
+						bi->mIns[bi->mIns.Size() - 2].IsSame(bj->mIns[bj->mIns.Size() - 2]))
+					{
+						if (!nblock)
+						{
+							nblock = proc->AllocateBlock();
+							nblock->mBranch = ASMIT_JMP;
+							nblock->mVisited = false;
+							nblock->mTrueJump = this;
+
+							nblock->mEntryBlocks.Push(bi);
+							bi->mTrueJump = nblock;
+							mEntryBlocks[i] = nullptr;
+						}
+
+						nblock->mEntryBlocks.Push(bj);
+						bj->mTrueJump = nblock;
+						mEntryBlocks[j] = nullptr;
+					}
+				}
+			}
+
+			if (nblock)
+			{
+				int	i = 0;
+				while (i < mEntryBlocks.Size())
+				{
+					if (mEntryBlocks[i])
+						i++;
+					else
+						mEntryBlocks.Remove(i);
+				}
+
+				return nblock;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc)
 {
 	bool	changed = false;
 
@@ -9527,6 +9584,16 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
 					}
 					else
 						break;
+				}
+			}
+			
+			if (mEntryBlocks.Size() > 2)
+			{
+				NativeCodeBasicBlock* nblock = SplitMatchingTails(proc);
+				if (nblock)
+				{
+					if (nblock->JoinTailCodeSequences(proc))
+						changed = true;
 				}
 			}
 		}
@@ -9630,9 +9697,9 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(void)
 			}
 		}
 #endif
-		if (mTrueJump && mTrueJump->JoinTailCodeSequences())
+		if (mTrueJump && mTrueJump->JoinTailCodeSequences(proc))
 			changed = true;
-		if (mFalseJump && mFalseJump->JoinTailCodeSequences())
+		if (mFalseJump && mFalseJump->JoinTailCodeSequences(proc))
 			changed = true;
 	}
 
@@ -16168,6 +16235,26 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BypassEmptyBlocks(void)
 	}
 }
 
+int NativeCodeBasicBlock::LeadsInto(NativeCodeBasicBlock* block, int dist)
+{
+	if (mPlaced)
+		return 6;
+	else if (mTrueJump == block || mFalseJump == block)
+		return dist;
+	else if (dist < 5)
+	{
+		int d0 = mTrueJump ? mTrueJump->LeadsInto(block, dist + 1) : 6;
+		int d1 = mFalseJump ? mFalseJump->LeadsInto(block, dist + 1) : 6;
+
+		if (d0 < d1)
+			return d0;
+		else
+			return d1;
+	}
+
+	return 6;
+}
+
 void NativeCodeBasicBlock::BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& placement)
 {
 	if (!mPlaced)
@@ -16190,12 +16277,12 @@ void NativeCodeBasicBlock::BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& p
 
 				mTrueJump->BuildPlacement(placement);
 			}
-			else if (mTrueJump->mFalseJump == mFalseJump || mTrueJump->mTrueJump == mFalseJump)
+			else if (mTrueJump->LeadsInto(mFalseJump, 0) < mFalseJump->LeadsInto(mTrueJump, 0))
 			{
 				mTrueJump->BuildPlacement(placement);
 				mFalseJump->BuildPlacement(placement);
 			}
-			else if (mFalseJump->mFalseJump == mTrueJump || mFalseJump->mTrueJump == mTrueJump)
+			else if (mTrueJump->LeadsInto(mFalseJump, 0) > mFalseJump->LeadsInto(mTrueJump, 0))
 			{
 				mFalseJump->BuildPlacement(placement);
 				mTrueJump->BuildPlacement(placement);
@@ -17136,7 +17223,7 @@ void NativeCodeProcedure::Optimize(void)
 		if (step > 2)
 		{
 			ResetVisited();
-			if (mEntryBlock->JoinTailCodeSequences())
+			if (mEntryBlock->JoinTailCodeSequences(this))
 				changed = true;
 		}
 #endif

@@ -135,6 +135,7 @@ public:
 
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
 
+	int LeadsInto(NativeCodeBasicBlock* block, int dist);
 	void BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& placement);
 	void InitialOffset(int& total);
 	bool CalculateOffset(int& total);
@@ -246,7 +247,9 @@ public:
 	void AddEntryBlock(NativeCodeBasicBlock* block);
 	void RemEntryBlock(NativeCodeBasicBlock* block);
 
-	bool JoinTailCodeSequences(void);
+	NativeCodeBasicBlock * SplitMatchingTails(NativeCodeProcedure* proc);
+
+	bool JoinTailCodeSequences(NativeCodeProcedure* proc);
 	bool SameTail(const NativeCodeInstruction& ins) const;
 
 	NativeRegisterDataSet	mEntryRegisterDataSet;

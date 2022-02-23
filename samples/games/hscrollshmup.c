@@ -171,14 +171,15 @@ void tiles_draw1(char * dp, char * tm)
 
 struct Shot
 {
-	char	x, y, dx, n;
-}	shots[5][4];
+	byte	ty, x, ry, n;
+	sbyte	dx;
+}	shots[18];
+
+Shot	*	firstShot;
+Shot	*	lastShot;
 
 inline void shot_draw(char * dp, char i, char xp, char yp)
 {
-	__assume(i < 32);
-	__assume(yp < 8);
-
 	char		c = dp[xp];
 	dp[xp] = i | 0xe0;
 
@@ -189,7 +190,42 @@ inline void shot_draw(char * dp, char i, char xp, char yp)
 	fdp[4] = fsp[4]; fdp[5] = fsp[5]; fdp[6] = fsp[6]; fdp[7] = fsp[7];
 
 	fdp[yp] = 0x00;
+}
 
+void shot_add(int dx, int sy)
+{
+	char	py = sy - 6;
+	char	gy = py >> 5;
+	char	ey = (py >> 3) & 3;
+	char	ry = py & 7;
+
+	Shot	*	s = lastShot - 1;
+	while (s->ty > gy)
+	{		
+		s[1] = s[0];
+		s--;
+	}
+	s++;
+
+	lastShot++;
+	lastShot->ty = 6;
+
+	s->ty = gy;
+	s->ry = ry;
+	if (dx < 0)
+	{
+		s->dx = -1;
+		char	x = (148 - 4 * dx) >> 3;
+		s->n = x - 1;
+		s->x = 40 * ey + x;
+	}
+	else
+	{
+		s->dx = 1;
+		char	x = (156 - 4 * dx) >> 3;
+		s->x = 40 * ey + x;
+		s->n = 39 - x;
+	}
 }
 
 void tiles_draw(unsigned x)
@@ -201,6 +237,8 @@ void tiles_draw(unsigned x)
 	char	xl = x >> 2, xr = x & 3;
 	char	yl = 0;
 	char	ci = 0;
+
+	Shot	*	ss = firstShot, * ts = firstShot;
 
 	for(int iy=0; iy<5; iy++)
 	{
@@ -262,21 +300,25 @@ void tiles_draw(unsigned x)
 			dp[k] = 0xf8;			
 		}
 
-
-		Shot	*	s = shots[iy];
-		for(char si=0; si<4; si++)
+		while (ss->ty == iy)
 		{
-			if (s->n)
-			{	
-				s->x += s->dx;
-				s->n--;
-				shot_draw(dp, ci++, s->x, s->y);
+			ss->x += ss->dx;
+			ss->n--;
+			shot_draw(dp, ci++, ss->x, ss->ry);
+			if (ss->n)
+			{
+				if (ss != ts)
+					*ts = *ss;
+				ts++;
 			}
-			s++;
+			ss++;
 		}
 
 		yl += 4;
 	}
+
+	lastShot = ts;
+	lastShot->ty = 6;
 
 	Font[248 * 8 + 2] = ~(1 << xs);
 
@@ -321,14 +363,10 @@ int main(void)
 	for(int i=0; i<24; i++)
 		stars[i] = rand() % 40 + 40 * (i & 3);
 
-	for(int i=0; i<5; i++)
-	{
-		for(int j=0; j<8; j++)
-		{
-			shots[i][j].x = rand() % 160;
-			shots[i][j].y = rand() & 7;
-		}
-	}
+	shots[0].ty = 0;
+	firstShot = shots + 1;
+	lastShot = firstShot;
+	lastShot->ty = 6;
 
 	spr_set(0, true, 160, 100, 64,          VCOL_BLUE, true, false, false);
 	spr_set(1, true, 160, 100, 64 + 16, VCOL_MED_GREY, true, false, false);
@@ -394,36 +432,8 @@ int main(void)
 			fdelay--;
 		else if (joyb[0] && vpx != 0)
 		{
-			char	py = spy - 6;
-			char	gy = py >> 5;
-			char	ey = (py >> 3) & 3;
-			char	ry = py & 7;
-
-			Shot	*	s = shots[gy];
-
-			char	i = 0;
-			while (i < 4 && s[i].n != 0)
-				i++;
-
-			if (i < 4)
-			{
-				s[i].y = ry;
-				if (vpx < 0)
-				{
-					s[i].dx = -1;
-					char	x = (148 - 4 * vpx) >> 3;
-					s[i].n = x - 1;
-					s[i].x = 40 * ey + x;
-				}
-				else if (vpx > 0)
-				{
-					s[i].dx = 1;
-					char	x = (156 - 4 * vpx) >> 3;
-					s[i].x = 40 * ey + x;
-					s[i].n = 39 - x;
-				}
-				fdelay = 4;
-			}
+			shot_add(vpx, spy);
+			fdelay = 5;
 		}
 
 		spr_move(0, 172 - 4 * vpx, 50 + spy);

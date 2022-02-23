@@ -8088,6 +8088,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
 						(mInstructions[i + 2]->mSrc[0].mIntConst & 1) == 0)
 					{
+
 						int	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
 						int	mshift = 1;
 						while (!(mInstructions[i + 2]->mSrc[0].mIntConst & (1ULL << mshift)))
@@ -8110,7 +8111,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						{
 							mInstructions[i + 0]->mCode = IC_LOAD_TEMPORARY;
 							mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
-							mInstructions[i + 0]->mSrc[0].mTemp = -1;
+							mInstructions[i + 0]->mSrc[1].mTemp = -1;
 
 							mInstructions[i + 1]->mSrc[1].mIntConst = 255ULL >> shift << shift;
 							mInstructions[i + 2]->mSrc[0].mIntConst >>= shift;
