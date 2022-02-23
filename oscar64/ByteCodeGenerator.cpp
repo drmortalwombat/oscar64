@@ -4321,6 +4321,21 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 	this->Close(proc->CompileBlock(iproc, sblock->mTrueJump), nullptr, BC_JUMPS);
 }
 
+void ByteCodeBasicBlock::CountEntries(ByteCodeBasicBlock* fromJump)
+{
+	mNumEntries++;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump)
+			mTrueJump->CountEntries(this);
+		if (mFalseJump)
+			mFalseJump->CountEntries(this);
+	}
+}
+
 void ByteCodeBasicBlock::CollectEntryBlocks(ByteCodeBasicBlock* block)
 {
 	if (block)
@@ -4344,6 +4359,59 @@ bool ByteCodeBasicBlock::SameTail(ByteCodeInstruction& ins)
 	else
 		return false;
 }
+
+bool ByteCodeBasicBlock::MergeBasicBlocks(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mLocked)
+		{
+			while (mTrueJump && !mFalseJump && mTrueJump->mNumEntries == 1 && mTrueJump != this && !mTrueJump->mLocked)
+			{
+				for (int i = 0; i < mTrueJump->mIns.Size(); i++)
+					mIns.Push(mTrueJump->mIns[i]);
+				mBranch = mTrueJump->mBranch;
+				mFalseJump = mTrueJump->mFalseJump;
+				mTrueJump = mTrueJump->mTrueJump;
+				changed = true;
+			}
+
+			while (mTrueJump && mTrueJump->mIns.Size() == 0 && !mTrueJump->mFalseJump && !mTrueJump->mLocked && mTrueJump != this && mTrueJump->mTrueJump != mTrueJump)
+			{
+				mTrueJump->mNumEntries--;
+				mTrueJump = mTrueJump->mTrueJump;
+				mTrueJump->mNumEntries++;
+				changed = true;
+			}
+
+			while (mFalseJump && mFalseJump->mIns.Size() == 0 && !mFalseJump->mFalseJump && !mFalseJump->mLocked && mFalseJump != this && mFalseJump->mTrueJump != mFalseJump)
+			{
+				mFalseJump->mNumEntries--;
+				mFalseJump = mFalseJump->mTrueJump;
+				mFalseJump->mNumEntries++;
+				changed = true;
+			}
+
+			if (mTrueJump && mTrueJump == mFalseJump)
+			{
+				mBranch = BC_JUMPS;
+				mFalseJump = nullptr;
+				changed = true;
+			}
+		}
+
+		if (mTrueJump)
+			mTrueJump->MergeBasicBlocks();
+		if (mFalseJump)
+			mFalseJump->MergeBasicBlocks();
+	}
+	return changed;
+}
+
 
 bool ByteCodeBasicBlock::JoinTailCodeSequences(void)
 {
@@ -6125,6 +6193,9 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 #if 1
 	bool	progress = false;
 
+	entryBlock->mLocked = true;
+	exitBlock->mLocked = true;
+
 	int	phase = 0;
 
 	do {
@@ -6135,9 +6206,16 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 		progress = entryBlock->PeepHoleOptimizer(phase);
 
 		ResetVisited();
+		entryBlock->CountEntries(nullptr);
+
+		ResetVisited();
+		entryBlock->MergeBasicBlocks();
+
+		ResetVisited();
 		for (int i = 0; i < mBlocks.Size(); i++)
 			mBlocks[i]->mEntryBlocks.SetSize(0);
 		entryBlock->CollectEntryBlocks(nullptr);
+
 
 		ResetVisited();
 		if (entryBlock->JoinTailCodeSequences())
@@ -6151,8 +6229,10 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 
 	} while (progress);
 
+#if 1
 	ResetVisited();
 	entryBlock->PropagateAccuCrossBorder(-1, -1);
+#endif
 
 #endif
 

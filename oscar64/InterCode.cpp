@@ -4035,6 +4035,11 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			{
 				mInstructions[i]->mOperator = IA_EXT8TO16U;
 			}
+			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_SAR && mInstructions[i]->mSrc[0].IsUnsigned() && mInstructions[i]->mSrc[1].IsUnsigned())
+			{
+				mInstructions[i]->mOperator = IA_SHR;
+				mInstructions[i]->ConstantFolding();
+			}
 			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_DIVS && mInstructions[i]->mSrc[0].IsUnsigned() && mInstructions[i]->mSrc[1].IsUnsigned())
 			{
 				mInstructions[i]->mOperator = IA_DIVU;
@@ -8074,6 +8079,46 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
 						changed = true;
 					}
+#if 1
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U && 
+						mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_MUL && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+						mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+						(mInstructions[i + 2]->mSrc[0].mIntConst & 1) == 0)
+					{
+						int	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+						int	mshift = 1;
+						while (!(mInstructions[i + 2]->mSrc[0].mIntConst & (1ULL << mshift)))
+							mshift++;
+
+						mInstructions[i + 1]->mCode = IC_BINARY_OPERATOR;
+						mInstructions[i + 1]->mOperator = IA_AND;
+						mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
+						mInstructions[i + 1]->mSrc[1].mType = IT_INT16;
+						mInstructions[i + 1]->mSrc[1].mTemp = -1;
+						mInstructions[i + 1]->mSrc[1].mIntConst = 255;
+
+						if (mshift < shift)
+						{
+							mInstructions[i + 0]->mSrc[0].mIntConst = shift - mshift;
+							mInstructions[i + 1]->mSrc[1].mIntConst = 255ULL >> shift << mshift;
+							mInstructions[i + 2]->mSrc[0].mIntConst >>= mshift;
+						}
+						else if (mshift >= shift)
+						{
+							mInstructions[i + 0]->mCode = IC_LOAD_TEMPORARY;
+							mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+							mInstructions[i + 0]->mSrc[0].mTemp = -1;
+
+							mInstructions[i + 1]->mSrc[1].mIntConst = 255ULL >> shift << shift;
+							mInstructions[i + 2]->mSrc[0].mIntConst >>= shift;
+						}
+
+						changed = true;
+					}
+#endif
 #if 1
 					else if (
 						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1]->mDst.mTemp] &&

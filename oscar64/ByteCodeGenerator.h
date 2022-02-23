@@ -248,8 +248,8 @@ public:
 	GrowingArray<LinkerReference>	mRelocations;
 	GrowingArray<ByteCodeBasicBlock*>	mEntryBlocks;
 
-	int						mOffset, mSize, mPlace, mLinear;
-	bool					mPlaced, mNeedsNop, mBypassed, mAssembled, mVisited;
+	int						mOffset, mSize, mPlace, mLinear, mNumEntries;
+	bool					mPlaced, mNeedsNop, mBypassed, mAssembled, mVisited, mLocked;
 	uint32					mExitLive;
 
 	ByteCodeBasicBlock(void);
@@ -301,7 +301,9 @@ public:
 
 
 	void CollectEntryBlocks(ByteCodeBasicBlock * block);
+	void CountEntries(ByteCodeBasicBlock* fromJump);
 
+	bool MergeBasicBlocks(void);
 	bool JoinTailCodeSequences(void);
 	bool SameTail(ByteCodeInstruction& ins);
 	bool PropagateAccuCrossBorder(int accu, int addr);
