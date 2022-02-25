@@ -229,10 +229,13 @@ public:
 	bool FindPageStartAddress(int at, int reg, int& addr);
 	bool MoveStoreXUp(int at);
 	bool MoveLoadXUp(int at);
+	bool MoveStoreYUp(int at);
+	bool MoveLoadYUp(int at);
 	bool MoveStoreHighByteDown(int at);
 	bool MoveAddHighByteDown(int at);
 	bool ReverseLoadCommutativeOpUp(int aload, int aop);
 	bool ReplaceZeroPageUp(int at);
+	bool ReplaceYRegWithXReg(int start, int end);
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
 
