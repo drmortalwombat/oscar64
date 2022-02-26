@@ -4594,16 +4594,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 
 	}
 
-	for (int i = 0; i < mLocalValueRange.Size(); i++)
-		if (!mExitRequiredTemps[i])
-			mLocalValueRange[i].mMinState = mLocalValueRange[i].mMaxState = IntegerValueRange::S_UNKNOWN;
 
 	mTrueValueRange = mLocalValueRange;
 	mFalseValueRange = mLocalValueRange;
 
 	if (sz >= 2)
 	{
-		if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+		if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR &&
 			mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp && IsIntegerType(mInstructions[sz - 2]->mSrc[0].mType))
 		{
 			int	s1 = mInstructions[sz - 2]->mSrc[1].mTemp, s0 = mInstructions[sz - 2]->mSrc[0].mTemp;
@@ -4744,9 +4741,26 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				}
 				break;
 			}
+
+			if (s1 >= 0 && sz > 2 && mInstructions[sz - 3]->mCode == IC_LOAD_TEMPORARY && mInstructions[sz - 3]->mSrc[0].mTemp == s1)
+			{
+				mTrueValueRange[mInstructions[sz - 3]->mDst.mTemp] = mTrueValueRange[s1];
+				mFalseValueRange[mInstructions[sz - 3]->mDst.mTemp] = mFalseValueRange[s1];
+			}
+		}
+	}
+
+	for (int i = 0; i < mLocalValueRange.Size(); i++)
+	{
+		if (!mExitRequiredTemps[i])
+		{
+			mLocalValueRange[i].mMinState = mLocalValueRange[i].mMaxState = IntegerValueRange::S_UNKNOWN;
+			mTrueValueRange[i] = mFalseValueRange[i] = mLocalValueRange[i];
 		}
 	}
 }
+
+
 
 void InterCodeBasicBlock::RestartLocalIntegerRangeSets(void)
 {
@@ -8195,10 +8209,9 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 							changed = true;
 						}
 					}
+
 #endif
 				}
-
-
 			}
 
 		} while (changed);

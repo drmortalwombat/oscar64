@@ -10872,7 +10872,7 @@ bool NativeCodeBasicBlock::MoveStoreXUp(int at)
 		{
 			if ((mIns[at - 1].mMode == ASMIM_ZERO_PAGE || mIns[at - 1].mMode == ASMIM_INDIRECT_Y) && mIns[at - 1].mAddress == mIns[at].mAddress)
 				return done;
-			if (mIns[at - 1].mMode == ASMIM_INDIRECT_Y && mIns[at - 1].mAddress == mIns[at].mAddress + 1)
+			if (mIns[at - 1].mMode == ASMIM_INDIRECT_Y && mIns[at - 1].mAddress + 1 == mIns[at].mAddress)
 				return done;
 		}
 		else
@@ -10937,7 +10937,7 @@ bool NativeCodeBasicBlock::MoveStoreYUp(int at)
 		{
 			if ((mIns[at - 1].mMode == ASMIM_ZERO_PAGE || mIns[at - 1].mMode == ASMIM_INDIRECT_Y) && mIns[at - 1].mAddress == mIns[at].mAddress)
 				return done;
-			if (mIns[at - 1].mMode == ASMIM_INDIRECT_Y && mIns[at - 1].mAddress == mIns[at].mAddress + 1)
+			if (mIns[at - 1].mMode == ASMIM_INDIRECT_Y && mIns[at - 1].mAddress + 1 == mIns[at].mAddress)
 				return done;
 		}
 		else
