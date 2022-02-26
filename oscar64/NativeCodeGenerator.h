@@ -124,7 +124,7 @@ public:
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int						mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset;
-	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked;
+	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched;
 	NativeCodeBasicBlock* mLoopHeadBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet;
@@ -145,7 +145,7 @@ public:
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
 	bool RemoveNops(void);
-	bool PeepHoleOptimizer(int pass);
+	bool PeepHoleOptimizer(NativeCodeProcedure* proc, int pass);
 	void BlockSizeReduction(void);
 
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc);
@@ -270,6 +270,9 @@ public:
 	void GlobalRegisterYMap(int reg);
 	bool LocalRegisterXYMap(void);
 	bool ReduceLocalYPressure(void);
+
+	bool CheckGlobalAddressSumYPointer(int reg, int at, int yval);
+	bool PatchGlobalAddressSumYPointer(int reg, int at, int yval, LinkerObject * lobj, int address);
 };
 
 class NativeCodeProcedure
@@ -306,6 +309,7 @@ class NativeCodeProcedure
 		void BuildDataFlowSets(void);
 		void ResetEntryBlocks(void);
 		void ResetVisited(void);
+		void ResetPatched(void);
 
 };
 

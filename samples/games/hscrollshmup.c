@@ -24,8 +24,8 @@ char tilemap[128 * 5] = {
 	#embed "../../../assets/uridium1 - Map (128x5).bin"		
 };
 
-char spriteset[2048] = {
-	#embed 2048 0 "../../../assets/uridium1 - Sprites.bin"
+char spriteset[4096] = {
+	#embed 4096 0 "../../../assets/uridium1 - Sprites.bin"
 };
 
 char xtileset[16][64];
@@ -325,6 +325,66 @@ void tiles_draw(unsigned x)
 	vic.ctrl2 = VIC_CTRL2_MCM + xs;	
 }
 
+struct Enemy
+{
+	int		px;
+	byte	py;
+	sbyte	dx;
+	byte	n;
+}	enemies[5];
+
+	int	spx = 40;
+	int	vpx = 16;
+	int	ax = 0;
+	char	spy = 100;
+	char	fdelay = 0;
+
+void enemies_move(void)
+{
+	bool	elive = false;
+
+	for(char i=0; i<5; i++)
+	{
+		if (enemies[i].n)
+		{
+			enemies[i].n--;
+			enemies[i].px += enemies[i].dx;
+
+			int	rx = enemies[i].px - spx;
+			if (enemies[i].dx < 0)
+			{
+				if (rx < -24)
+					enemies[i].n = 0;
+			}
+			else
+			{
+				if (rx > 320)
+					enemies[i].n = 0;
+			}
+
+			spr_move(2 + i, rx + 24, enemies[i].py + 50);
+
+			elive = true;
+		}
+	}
+
+	if (!elive)
+	{
+		for(char i=0; i<5; i++)
+		{
+			sbyte	v = 4 + (rand() & 1);
+			enemies[i].py = 20 + 30 * i;
+			enemies[i].dx = vpx < 0 ? v : -v;
+			enemies[i].px = (vpx < 0 ? spx - 56 : spx + 320) + (rand() & 31);
+			enemies[i].n = 100;
+
+			int	rx = enemies[i].px - spx;
+
+			spr_set(2 + i, true, rx + 24, enemies[i].py + 50, 96, VCOL_YELLOW, true, false, false);
+		}
+	}
+}
+
 int main(void)
 {
 	cia_init();
@@ -369,15 +429,10 @@ int main(void)
 	lastShot->ty = 6;
 
 	spr_set(0, true, 160, 100, 64,          VCOL_BLUE, true, false, false);
-	spr_set(1, true, 160, 100, 64 + 16, VCOL_MED_GREY, true, false, false);
+	spr_set(7, true, 160, 100, 64 + 16, VCOL_MED_GREY, true, false, false);
 	vic.spr_priority = 2;
 
-	int	spx = 40;
-	int	vpx = 16;
-	int	ax = 0;
-	char	spy = 100;
-	char	fdelay = 0;
-
+	vpx = 2;
 	for(;;)
 	{
 		joy_poll(0);
@@ -401,12 +456,12 @@ int main(void)
 			if (vpx >= 32)
 			{
 				spr_image(0, 64);
-				spr_image(1, 64 + 16);
+				spr_image(7, 64 + 16);
 			}
 			else
 			{
 				spr_image(0, 76 + (vpx >> 3));
-				spr_image(1, 76 + (vpx >> 3) + 16);
+				spr_image(7, 76 + (vpx >> 3) + 16);
 			}
 		}
 		else if (ax < 0)
@@ -419,12 +474,12 @@ int main(void)
 			if (vpx <= -32)
 			{
 				spr_image(0, 72);			
-				spr_image(1, 72 + 16);
+				spr_image(7, 72 + 16);
 			}
 			else
 			{
 				spr_image(0, 68 - (vpx >> 3));
-				spr_image(1, 68 - (vpx >> 3) + 16);
+				spr_image(7, 68 - (vpx >> 3) + 16);
 			}
 		}
 
@@ -437,15 +492,18 @@ int main(void)
 		}
 
 		spr_move(0, 172 - 4 * vpx, 50 + spy);
-		spr_move(1, 180 - 4 * vpx, 58 + spy);
+		spr_move(7, 180 - 4 * vpx, 58 + spy);
 
 		vic.color_border++;
 		vic_waitLine(82);
 		vic.color_border++;
 		tiles_draw(spx);
 		vic.color_border--;
+		enemies_move();
 		vic.color_border--;
+
 		spx += vpx >> 1;
+
 
 		spx &= 4095;
 	}

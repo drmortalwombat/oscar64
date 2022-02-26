@@ -2938,8 +2938,7 @@ __asm fcmp
 {
 		lda	accu + 3
 		eor	tmp + 3
-		and	#$80
-		beq	W1
+		bpl	W1
 		
 		// different sig, check zero case
 
@@ -3006,8 +3005,7 @@ __asm inp_binop_cmp_f32
 		
 		lda	accu + 3
 		eor	$03, x
-		and	#$80
-		beq	W1
+		bpl	W1
 		
 		// different sig, check zero case
 
