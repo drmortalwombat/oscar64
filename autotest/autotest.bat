@@ -114,6 +114,9 @@ rem @echo off
 @call :test structmembertest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test structarraycopy.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test randsumtest.c
 @if %errorlevel% neq 0 goto :error
 

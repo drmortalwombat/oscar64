@@ -330,59 +330,53 @@ struct Enemy
 	int		px;
 	byte	py;
 	sbyte	dx;
-	byte	n;
 }	enemies[5];
 
-	int	spx = 40;
-	int	vpx = 16;
-	int	ax = 0;
-	char	spy = 100;
-	char	fdelay = 0;
+int	spx = 40;
+int	vpx = 16;
+int	ax = 0;
+char	spy = 100;
+char	fdelay = 0;
+char	edelay = 5;
+char	ecount = 0;
 
 void enemies_move(void)
 {
-	bool	elive = false;
-
 	for(char i=0; i<5; i++)
 	{
-		if (enemies[i].n)
+		if (enemies[i].dx)
 		{
-			enemies[i].n--;
 			enemies[i].px += enemies[i].dx;
 
 			int	rx = enemies[i].px - spx;
-			if (enemies[i].dx < 0)
+			if (rx < -192 || rx >= 480)
 			{
-				if (rx < -24)
-					enemies[i].n = 0;
-			}
-			else
-			{
-				if (rx > 320)
-					enemies[i].n = 0;
+				enemies[i].dx = 0;
+				ecount--;
 			}
 
 			spr_move(2 + i, rx + 24, enemies[i].py + 50);
-
-			elive = true;
 		}
 	}
+}
 
-	if (!elive)
-	{
-		for(char i=0; i<5; i++)
-		{
-			sbyte	v = 4 + (rand() & 1);
-			enemies[i].py = 20 + 30 * i;
-			enemies[i].dx = vpx < 0 ? v : -v;
-			enemies[i].px = (vpx < 0 ? spx - 56 : spx + 320) + (rand() & 31);
-			enemies[i].n = 100;
+void enemies_spwan(void)
+{
+	char	u = rand();
 
-			int	rx = enemies[i].px - spx;
+	char	e = ecount;
 
-			spr_set(2 + i, true, rx + 24, enemies[i].py + 50, 96, VCOL_YELLOW, true, false, false);
-		}
-	}
+	__assume(e < 5);
+
+	sbyte	v = 1 + (u & 3);
+	enemies[ecount].py = 20 + 30 * e;
+	enemies[ecount].dx = vpx < 0 ? v : -v;
+	enemies[ecount].px = (vpx < 0 ? spx - 56 : spx + 320) + ((u >> 1) & 31);
+
+	int	rx = enemies[ecount].px - spx;
+
+	spr_set(2 + ecount, true, rx + 24, enemies[ecount].py + 50, vpx < 0 ? 97 : 96, VCOL_YELLOW, true, false, false);
+	ecount++;
 }
 
 int main(void)
@@ -430,7 +424,7 @@ int main(void)
 
 	spr_set(0, true, 160, 100, 64,          VCOL_BLUE, true, false, false);
 	spr_set(7, true, 160, 100, 64 + 16, VCOL_MED_GREY, true, false, false);
-	vic.spr_priority = 2;
+	vic.spr_priority = 0x80;
 
 	vpx = 2;
 	for(;;)
@@ -497,15 +491,23 @@ int main(void)
 		vic.color_border++;
 		vic_waitLine(82);
 		vic.color_border++;
-		tiles_draw(spx);
+		tiles_draw(spx & 4095);
 		vic.color_border--;
-		enemies_move();
+		if (edelay)
+		{
+			edelay--;
+			if (edelay < 5)
+				enemies_spwan();
+		}
+		else
+		{
+			enemies_move();
+			if (!ecount)
+				edelay = 64 + (rand() & 63);
+		}
 		vic.color_border--;
 
-		spx += vpx >> 1;
-
-
-		spx &= 4095;
+		spx += vpx >> 2;
 	}
 
 	return 0;

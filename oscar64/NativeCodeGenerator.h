@@ -84,6 +84,7 @@ public:
 	bool LoadsAccu(void) const;
 	bool ChangesAccuAndFlag(void) const;
 	bool ChangesAddress(void) const;
+	bool UsesAddress(void) const;
 	bool ChangesAccu(void) const;
 	bool UsesAccu(void) const;
 	bool ChangesCarry(void) const;
@@ -273,6 +274,9 @@ public:
 
 	bool CheckGlobalAddressSumYPointer(int reg, int at, int yval);
 	bool PatchGlobalAddressSumYPointer(int reg, int at, int yval, LinkerObject * lobj, int address);
+
+	bool CheckSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
+	bool PatchSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
 };
 
 class NativeCodeProcedure
