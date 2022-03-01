@@ -277,6 +277,9 @@ public:
 
 	bool CheckSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
 	bool PatchSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
+
+	bool CheckForwardSumYPointer(int reg, int base, int at, int yval);
+	bool PatchForwardSumYPointer(int reg, int base, int at, int yval);
 };
 
 class NativeCodeProcedure

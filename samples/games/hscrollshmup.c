@@ -181,6 +181,9 @@ Shot	*	lastShot;
 inline void shot_draw(char * dp, char i, char xp, char yp)
 {
 	char		c = dp[xp];
+
+	__assume(i < 20);
+	
 	dp[xp] = i | 0xe0;
 
 	char	*	fsp = Font + 8 * c;
