@@ -79,6 +79,7 @@ int main(void)
 	}
 
 	assert(sum(a, 100) == 450);
+
 	copy(b, a, 100);
 	assert(sum(b, 100) == 450);
 	reverse(c, a, 100);

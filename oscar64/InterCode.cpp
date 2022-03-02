@@ -5463,6 +5463,20 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 		{
 			InterInstruction* ins = mInstructions[i];
 
+			// Normalize kommutative operands if one is constant
+
+#if 1
+			if (ins->mCode == IC_BINARY_OPERATOR &&
+				(ins->mOperator == IA_MUL || ins->mOperator == IA_ADD || ins->mOperator == IA_AND || ins->mOperator == IA_OR || ins->mOperator == IA_XOR) &&
+				ltvalue[ins->mSrc[1].mTemp] && ltvalue[ins->mSrc[0].mTemp] &&
+				ltvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT && ltvalue[ins->mSrc[0].mTemp]->mCode != IC_CONSTANT)
+			{
+				InterOperand	op = ins->mSrc[0];
+				ins->mSrc[0] = ins->mSrc[1];
+				ins->mSrc[1] = op;
+			}
+#endif
+
 #if 1
 			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && ins->mDst.mType == IT_INT16 && spareTemps + 1 < tvalid.Size())
 			{
@@ -5526,6 +5540,66 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						ins->mOperator = IA_ADD;
 						ins->mSrc[1].mTemp = nai->mDst.mTemp;
 						ins->mSrc[0].mTemp = cai->mDst.mTemp;
+					}
+				}
+				else if (mi0 && mi1 && mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && mi1->mOperator == IA_ADD)
+				{
+					InterInstruction* ai0 = ltvalue[mi1->mSrc[0].mTemp], * ai1 = ltvalue[mi1->mSrc[1].mTemp];
+					if (ai0 && ai0->mCode == IC_CONSTANT)
+					{
+						InterInstruction* nai = new InterInstruction();
+						nai->mCode = IC_BINARY_OPERATOR;
+						nai->mOperator = IA_MUL;
+						nai->mSrc[0].mTemp = mi1->mSrc[1].mTemp;
+						nai->mSrc[0].mType = IT_INT16;
+						nai->mSrc[1].mTemp = ins->mSrc[0].mTemp;
+						nai->mSrc[1].mType = IT_INT16;
+						nai->mDst.mTemp = spareTemps++;
+						nai->mDst.mType = IT_INT16;
+						mInstructions.Insert(i, nai);
+
+						ltvalue[nai->mDst.mTemp] = nullptr;
+
+						InterInstruction* cai = new InterInstruction();
+						cai->mCode = IC_CONSTANT;
+						cai->mDst.mTemp = spareTemps++;
+						cai->mDst.mType = IT_INT16;
+						cai->mConst.mIntConst = ai0->mConst.mIntConst * mi0->mConst.mIntConst;
+						mInstructions.Insert(i, cai);
+
+						ltvalue[cai->mDst.mTemp] = nullptr;
+
+						ins->mOperator = IA_ADD;
+						ins->mSrc[0].mTemp = nai->mDst.mTemp;
+						ins->mSrc[1].mTemp = cai->mDst.mTemp;
+					}
+					else if (ai1 && ai1->mCode == IC_CONSTANT)
+					{
+						InterInstruction* nai = new InterInstruction();
+						nai->mCode = IC_BINARY_OPERATOR;
+						nai->mOperator = IA_MUL;
+						nai->mSrc[0].mTemp = mi1->mSrc[0].mTemp;
+						nai->mSrc[0].mType = IT_INT16;
+						nai->mSrc[1].mTemp = ins->mSrc[0].mTemp;
+						nai->mSrc[1].mType = IT_INT16;
+						nai->mDst.mTemp = spareTemps++;
+						nai->mDst.mType = IT_INT16;
+						mInstructions.Insert(i, nai);
+
+						ltvalue[nai->mDst.mTemp] = nullptr;
+
+						InterInstruction* cai = new InterInstruction();
+						cai->mCode = IC_CONSTANT;
+						cai->mDst.mTemp = spareTemps++;
+						cai->mDst.mType = IT_INT16;
+						cai->mConst.mIntConst = ai1->mConst.mIntConst * mi0->mConst.mIntConst;
+						mInstructions.Insert(i, cai);
+
+						ltvalue[cai->mDst.mTemp] = nullptr;
+
+						ins->mOperator = IA_ADD;
+						ins->mSrc[0].mTemp = nai->mDst.mTemp;
+						ins->mSrc[1].mTemp = cai->mDst.mTemp;
 					}
 				}
 			}

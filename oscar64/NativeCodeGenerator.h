@@ -105,6 +105,7 @@ public:
 	bool IsShift(void) const;
 
 	void ReplaceYRegWithXReg(void);
+	void ReplaceXRegWithYReg(void);
 };
 
 class NativeCodeBasicBlock
@@ -131,8 +132,9 @@ public:
 	NativeRegisterDataSet	mDataSet, mNDataSet;
 
 	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
-	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target);
-	int JumpByteSize(NativeCodeBasicBlock * target);
+	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset);
+	int JumpByteSize(NativeCodeBasicBlock * target, int offset);
+	int BranchByteSize(int from, int to);
 
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
 
@@ -237,6 +239,7 @@ public:
 	bool ReverseLoadCommutativeOpUp(int aload, int aop);
 	bool ReplaceZeroPageUp(int at);
 	bool ReplaceYRegWithXReg(int start, int end);
+	bool ReplaceXRegWithYReg(int start, int end);
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
 
@@ -271,6 +274,7 @@ public:
 	void GlobalRegisterYMap(int reg);
 	bool LocalRegisterXYMap(void);
 	bool ReduceLocalYPressure(void);
+	bool ReduceLocalXPressure(void);
 
 	bool CheckGlobalAddressSumYPointer(int reg, int at, int yval);
 	bool PatchGlobalAddressSumYPointer(int reg, int at, int yval, LinkerObject * lobj, int address);
@@ -278,8 +282,8 @@ public:
 	bool CheckSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
 	bool PatchSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
 
-	bool CheckForwardSumYPointer(int reg, int base, int at, int yval);
-	bool PatchForwardSumYPointer(int reg, int base, int at, int yval);
+	bool CheckForwardSumYPointer(int reg, int base, int index, int at, int yval);
+	bool PatchForwardSumYPointer(int reg, int base, int index, int at, int yval);
 };
 
 class NativeCodeProcedure

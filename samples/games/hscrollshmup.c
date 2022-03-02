@@ -171,19 +171,30 @@ void tiles_draw1(char * dp, char * tm)
 
 struct Shot
 {
-	byte	ty, x, ry, n;
-	sbyte	dx;
+	byte		ty, x, ry, n;
+	sbyte		dx;
+	Shot	*	next;
 }	shots[18];
 
-Shot	*	firstShot;
-Shot	*	lastShot;
+Shot	*	freeShot;
+
+void shot_init(void)
+{
+	shots[0].next = shots;
+	shots[0].ty = 6;
+
+	freeShot = shots + 1;
+	for(char i=1; i<17; i++)
+		shots[i].next = shots + i + 1;
+	shots[17].next = nullptr;
+}
 
 inline void shot_draw(char * dp, char i, char xp, char yp)
 {
 	char		c = dp[xp];
 
 	__assume(i < 20);
-	
+
 	dp[xp] = i | 0xe0;
 
 	char	*	fsp = Font + 8 * c;
@@ -202,16 +213,14 @@ void shot_add(int dx, int sy)
 	char	ey = (py >> 3) & 3;
 	char	ry = py & 7;
 
-	Shot	*	s = lastShot - 1;
-	while (s->ty > gy)
-	{		
-		s[1] = s[0];
-		s--;
-	}
-	s++;
+	Shot	*	s = freeShot;
+	freeShot = s->next;
 
-	lastShot++;
-	lastShot->ty = 6;
+	Shot	*	p = shots;
+	while (p->next->ty < gy)
+		p = p->next;
+	s->next = p->next;
+	p->next = s;
 
 	s->ty = gy;
 	s->ry = ry;
@@ -241,7 +250,7 @@ void tiles_draw(unsigned x)
 	char	yl = 0;
 	char	ci = 0;
 
-	Shot	*	ss = firstShot, * ts = firstShot;
+	Shot	*	ps = shots;
 
 	for(int iy=0; iy<5; iy++)
 	{
@@ -303,25 +312,26 @@ void tiles_draw(unsigned x)
 			dp[k] = 0xf8;			
 		}
 
+		Shot	*ss = ps->next;
+
 		while (ss->ty == iy)
 		{
 			ss->x += ss->dx;
 			ss->n--;
 			shot_draw(dp, ci++, ss->x, ss->ry);
 			if (ss->n)
+				ps = ss;
+			else
 			{
-				if (ss != ts)
-					*ts = *ss;
-				ts++;
+				ps->next = ss->next;
+				ss->next = freeShot;
+				freeShot = ss;
 			}
-			ss++;
+			ss = ps->next;
 		}
 
 		yl += 4;
 	}
-
-	lastShot = ts;
-	lastShot->ty = 6;
 
 	Font[248 * 8 + 2] = ~(1 << xs);
 
@@ -336,8 +346,8 @@ struct Enemy
 }	enemies[5];
 
 int	spx = 40;
-int	vpx = 16;
-int	ax = 0;
+sbyte	vpx = 16;
+sbyte	ax = 0;
 char	spy = 100;
 char	fdelay = 0;
 char	edelay = 5;
@@ -363,7 +373,7 @@ void enemies_move(void)
 	}
 }
 
-void enemies_spwan(void)
+void enemies_spawn(void)
 {
 	char	u = rand();
 
@@ -420,10 +430,7 @@ int main(void)
 	for(int i=0; i<24; i++)
 		stars[i] = rand() % 40 + 40 * (i & 3);
 
-	shots[0].ty = 0;
-	firstShot = shots + 1;
-	lastShot = firstShot;
-	lastShot->ty = 6;
+	shot_init();
 
 	spr_set(0, true, 160, 100, 64,          VCOL_BLUE, true, false, false);
 	spr_set(7, true, 160, 100, 64 + 16, VCOL_MED_GREY, true, false, false);
@@ -500,7 +507,7 @@ int main(void)
 		{
 			edelay--;
 			if (edelay < 5)
-				enemies_spwan();
+				enemies_spawn();
 		}
 		else
 		{
