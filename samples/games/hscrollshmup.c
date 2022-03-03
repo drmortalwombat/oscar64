@@ -31,8 +31,10 @@ char spriteset[4096] = {
 char xtileset[16][64];
 char xtilemap[144 * 5];
 char stars[24];
+char xcollision[256];
 
 #pragma align(xtileset, 64);
+#pragma align(xcollision, 256)
 
 void tiles_unpack(void)
 {
@@ -48,6 +50,12 @@ void tiles_unpack(void)
 		{
 			xtilemap[y * 144 + x] = tilemap[y * 128 + (x & 127)];
 		}
+	}
+
+	for(char i=0; i<160; i+=40)
+	{
+		for(char j=0; j<3; j++)
+			xcollision[i + j] = 1;
 	}
 }
 
@@ -343,6 +351,7 @@ struct Enemy
 	int		px;
 	byte	py;
 	sbyte	dx;
+	byte	state, pad0, pad1, pad2;
 }	enemies[5];
 
 int	spx = 40;
@@ -357,18 +366,36 @@ void enemies_move(void)
 {
 	for(char i=0; i<5; i++)
 	{
-		if (enemies[i].dx)
+		if (enemies[i].state)
 		{
 			enemies[i].px += enemies[i].dx;
 
 			int	rx = enemies[i].px - spx;
 			if (rx < -192 || rx >= 480)
 			{
-				enemies[i].dx = 0;
+				enemies[i].state = 0;
 				ecount--;
+				spr_show(2 + i, false);
 			}
+			else
+			{
+				spr_move(2 + i, rx + 24, enemies[i].py + 50);
 
-			spr_move(2 + i, rx + 24, enemies[i].py + 50);
+				if (enemies[i].state & 0x80)
+				{
+
+				}
+				else
+				{
+					spr_image(2 + i, 127 - (enemies[i].state >> 2));
+					enemies[i].state--;
+					if (enemies[i].state == 0)
+					{
+						spr_show(2 + i, false);
+						ecount--;
+					}
+				}
+			}
 		}
 	}
 }
@@ -382,14 +409,52 @@ void enemies_spawn(void)
 	__assume(e < 5);
 
 	sbyte	v = 1 + (u & 3);
-	enemies[ecount].py = 20 + 30 * e;
+	enemies[ecount].py = 21 + 32 * e;
 	enemies[ecount].dx = vpx < 0 ? v : -v;
 	enemies[ecount].px = (vpx < 0 ? spx - 56 : spx + 320) + ((u >> 1) & 31);
+	enemies[ecount].state = 0x80;
 
 	int	rx = enemies[ecount].px - spx;
 
 	spr_set(2 + ecount, true, rx + 24, enemies[ecount].py + 50, vpx < 0 ? 97 : 96, VCOL_YELLOW, true, false, false);
 	ecount++;
+}
+
+void shots_check(void)
+{
+	Shot	*	ps = shots;
+
+	for(char i=0; i<5; i++)
+	{
+		if (enemies[i].state & 0x80)
+		{
+			sbyte	rx = (enemies[i].px - spx) >> 3;
+			if (rx >= 0 && rx < 40)
+			{
+				Shot	*	ss = ps->next;
+				while (ss->ty < i)
+				{
+					ps = ss;
+					ss = ps->next;					
+				}
+
+				while (ss->ty == i)
+				{
+					if (xcollision[(char)(ss->x - rx)])
+					{
+						ps->next = ss->next;
+						ss->next = freeShot;
+						freeShot = ss;
+						enemies[i].state = 64;
+						break;
+					}						
+
+					ps = ss;
+					ss = ps->next;
+				}
+			}
+		}
+	}
 }
 
 int main(void)
@@ -498,15 +563,19 @@ int main(void)
 		spr_move(0, 172 - 4 * vpx, 50 + spy);
 		spr_move(7, 180 - 4 * vpx, 58 + spy);
 
-		vic.color_border++;
-		vic_waitLine(82);
-		vic.color_border++;
+		vic.color_border = VCOL_BLACK;
+		vic_waitTop();
+		while (vic.raster < 82)
+			;
+
+		vic.color_border = VCOL_BLUE;
 		tiles_draw(spx & 4095);
-		vic.color_border--;
+		vic.color_border = VCOL_WHITE;
+
 		if (edelay)
 		{
 			edelay--;
-			if (edelay < 5)
+			if (edelay < 10 && !(edelay & 1))
 				enemies_spawn();
 		}
 		else
@@ -515,7 +584,8 @@ int main(void)
 			if (!ecount)
 				edelay = 64 + (rand() & 63);
 		}
-		vic.color_border--;
+
+		shots_check();
 
 		spx += vpx >> 2;
 	}

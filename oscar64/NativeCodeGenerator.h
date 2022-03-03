@@ -279,7 +279,7 @@ public:
 	bool CheckGlobalAddressSumYPointer(int reg, int at, int yval);
 	bool PatchGlobalAddressSumYPointer(int reg, int at, int yval, LinkerObject * lobj, int address);
 
-	bool CheckSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
+	bool CheckSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains, int cycles);
 	bool PatchSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
 
 	bool CheckForwardSumYPointer(int reg, int base, int index, int at, int yval);
