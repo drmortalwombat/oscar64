@@ -3,6 +3,7 @@
 #include <c64/sprites.h>
 #include <c64/joystick.h>
 #include <c64/cia.h>
+#include <c64/rasterirq.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -36,6 +37,9 @@ char xcollision[256];
 #pragma align(xtileset, 64);
 #pragma align(xcollision, 256)
 
+RIRQCode	bottom, top;
+
+
 void tiles_unpack(void)
 {
 	for(char t=0; t<64; t++)
@@ -61,28 +65,38 @@ void tiles_unpack(void)
 
 void tiles_draw0(char * dp, char * tm)
 {
+	char * ap = dp + 40;
+	char * bp = dp + 80;
+	char * cp = dp + 120;
+
+	char	q = 0;
 	for(char x=0; x<10; x++)
 	{
 		char	ti = tm[x];
 
-		dp[  0] = xtileset[ 0][ti];
-		dp[  1] = xtileset[ 1][ti];
-		dp[  2] = xtileset[ 2][ti];
-		dp[  3] = xtileset[ 3][ti];
-		dp[ 40] = xtileset[ 4][ti];
-		dp[ 41] = xtileset[ 5][ti];
-		dp[ 42] = xtileset[ 6][ti];
-		dp[ 43] = xtileset[ 7][ti];
-		dp[ 80] = xtileset[ 8][ti];
-		dp[ 81] = xtileset[ 9][ti];
-		dp[ 82] = xtileset[10][ti];
-		dp[ 83] = xtileset[11][ti];
-		dp[120] = xtileset[12][ti];
-		dp[121] = xtileset[13][ti];
-		dp[122] = xtileset[14][ti];
-		dp[123] = xtileset[15][ti];
+		dp[ q] = xtileset[ 0][ti];
+		ap[ q] = xtileset[ 4][ti];
+		bp[ q] = xtileset[ 8][ti];
+		cp[ q] = xtileset[12][ti];
+		q++;
 
-		dp += 4;
+		dp[ q] = xtileset[ 1][ti];
+		ap[ q] = xtileset[ 5][ti];
+		bp[ q] = xtileset[ 9][ti];
+		cp[ q] = xtileset[13][ti];
+		q++;
+
+		dp[ q] = xtileset[ 2][ti];
+		ap[ q] = xtileset[ 6][ti];
+		bp[ q] = xtileset[10][ti];
+		cp[ q] = xtileset[14][ti];
+		q++;
+
+		dp[ q] = xtileset[ 3][ti];
+		ap[ q] = xtileset[ 7][ti];
+		bp[ q] = xtileset[11][ti];
+		cp[ q] = xtileset[15][ti];
+		q++;
 	}
 }
 
@@ -90,29 +104,38 @@ void tiles_draw3(char * dp, char * tm)
 {
 	char	ti = tm[0];
 
+	char * ap = dp + 40;
+	char * bp = dp + 80;
+	char * cp = dp + 120;
+
+	char	q = 0;
 	for(char x=1; x<11; x++)
 	{
-		dp[  0] = xtileset[ 3][ti];
-		dp[ 40] = xtileset[ 7][ti];
-		dp[ 80] = xtileset[11][ti];
-		dp[120] = xtileset[15][ti];
+		dp[ q] = xtileset[ 3][ti];
+		ap[ q] = xtileset[ 7][ti];
+		bp[ q] = xtileset[11][ti];
+		cp[ q] = xtileset[15][ti];
+		q++;
 
 		ti = tm[x];
 
-		dp[  1] = xtileset[ 0][ti];
-		dp[  2] = xtileset[ 1][ti];
-		dp[  3] = xtileset[ 2][ti];
-		dp[ 41] = xtileset[ 4][ti];
-		dp[ 42] = xtileset[ 5][ti];
-		dp[ 43] = xtileset[ 6][ti];
-		dp[ 81] = xtileset[ 8][ti];
-		dp[ 82] = xtileset[ 9][ti];
-		dp[ 83] = xtileset[10][ti];
-		dp[121] = xtileset[12][ti];
-		dp[122] = xtileset[13][ti];
-		dp[123] = xtileset[14][ti];
-		
-		dp += 4;
+		dp[ q] = xtileset[ 0][ti];
+		ap[ q] = xtileset[ 4][ti];
+		bp[ q] = xtileset[ 8][ti];
+		cp[ q] = xtileset[12][ti];
+		q++;
+
+		dp[ q] = xtileset[ 1][ti];
+		ap[ q] = xtileset[ 5][ti];
+		bp[ q] = xtileset[ 9][ti];
+		cp[ q] = xtileset[13][ti];
+		q++;
+
+		dp[ q] = xtileset[ 2][ti];
+		ap[ q] = xtileset[ 6][ti];
+		bp[ q] = xtileset[10][ti];
+		cp[ q] = xtileset[14][ti];
+		q++;
 	}
 }
 
@@ -120,29 +143,38 @@ void tiles_draw2(char * dp, char * tm)
 {
 	char	ti = tm[0];
 	
+	char * ap = dp + 40;
+	char * bp = dp + 80;
+	char * cp = dp + 120;
+
+	char	q = 0;
 	for(char x=1; x<11; x++)
 	{
-		dp[  0] = xtileset[ 2][ti];
-		dp[  1] = xtileset[ 3][ti];
-		dp[ 40] = xtileset[ 6][ti];
-		dp[ 41] = xtileset[ 7][ti];
-		dp[ 80] = xtileset[10][ti];
-		dp[ 81] = xtileset[11][ti];
-		dp[120] = xtileset[14][ti];
-		dp[121] = xtileset[15][ti];
+		dp[ q] = xtileset[ 2][ti];
+		ap[ q] = xtileset[ 6][ti];
+		bp[ q] = xtileset[10][ti];
+		cp[ q] = xtileset[14][ti];
+		q++;
+
+		dp[ q] = xtileset[ 3][ti];
+		ap[ q] = xtileset[ 7][ti];
+		bp[ q] = xtileset[11][ti];
+		cp[ q] = xtileset[15][ti];
+		q++;
 
 		ti = tm[x];
 
-		dp[  2] = xtileset[ 0][ti];
-		dp[  3] = xtileset[ 1][ti];
-		dp[ 42] = xtileset[ 4][ti];
-		dp[ 43] = xtileset[ 5][ti];
-		dp[ 82] = xtileset[ 8][ti];
-		dp[ 83] = xtileset[ 9][ti];
-		dp[122] = xtileset[12][ti];
-		dp[123] = xtileset[13][ti];
-		
-		dp += 4;
+		dp[ q] = xtileset[ 0][ti];
+		ap[ q] = xtileset[ 4][ti];
+		bp[ q] = xtileset[ 8][ti];
+		cp[ q] = xtileset[12][ti];
+		q++;
+
+		dp[ q] = xtileset[ 1][ti];
+		ap[ q] = xtileset[ 5][ti];
+		bp[ q] = xtileset[ 9][ti];
+		cp[ q] = xtileset[13][ti];
+		q++;
 	}
 }
 
@@ -150,29 +182,38 @@ void tiles_draw1(char * dp, char * tm)
 {
 	char	ti = tm[0];
 
+	char * ap = dp + 40;
+	char * bp = dp + 80;
+	char * cp = dp + 120;
+
+	char	q = 0;
 	for(char x=1; x<11; x++)
 	{
-		dp[  0] = xtileset[ 1][ti];
-		dp[  1] = xtileset[ 2][ti];
-		dp[  2] = xtileset[ 3][ti];
-		dp[ 40] = xtileset[ 5][ti];
-		dp[ 41] = xtileset[ 6][ti];
-		dp[ 42] = xtileset[ 7][ti];
-		dp[ 80] = xtileset[ 9][ti];
-		dp[ 81] = xtileset[10][ti];
-		dp[ 82] = xtileset[11][ti];
-		dp[120] = xtileset[13][ti];
-		dp[121] = xtileset[14][ti];
-		dp[122] = xtileset[15][ti];
+		dp[ q] = xtileset[ 1][ti];
+		ap[ q] = xtileset[ 5][ti];
+		bp[ q] = xtileset[ 9][ti];
+		cp[ q] = xtileset[13][ti];
+		q++;
+
+		dp[ q] = xtileset[ 2][ti];
+		ap[ q] = xtileset[ 6][ti];
+		bp[ q] = xtileset[10][ti];
+		cp[ q] = xtileset[14][ti];
+		q++;
+
+		dp[ q] = xtileset[ 3][ti];
+		ap[ q] = xtileset[ 7][ti];
+		bp[ q] = xtileset[11][ti];
+		cp[ q] = xtileset[15][ti];
+		q++;
 
 		ti = tm[x];
 
-		dp[  3] = xtileset[ 0][ti];
-		dp[ 43] = xtileset[ 4][ti];
-		dp[ 83] = xtileset[ 8][ti];
-		dp[123] = xtileset[12][ti];
-		
-		dp += 4;
+		dp[ q] = xtileset[ 0][ti];
+		ap[ q] = xtileset[ 4][ti];
+		bp[ q] = xtileset[ 8][ti];
+		cp[ q] = xtileset[12][ti];
+		q++;
 	}
 }
 
@@ -251,6 +292,9 @@ void shot_add(int dx, int sy)
 void tiles_draw(unsigned x)
 {
 	char	xs = 7 - (x & 7);
+
+	rirq_data(&top, 0, VIC_CTRL2_MCM | xs);
+	rirq_data(&top, 1, ~(1 << xs));
 
 	x >>= 3;
 
@@ -341,9 +385,6 @@ void tiles_draw(unsigned x)
 		yl += 4;
 	}
 
-	Font[248 * 8 + 2] = ~(1 << xs);
-
-	vic.ctrl2 = VIC_CTRL2_MCM + xs;	
 }
 
 struct Enemy
@@ -480,6 +521,26 @@ int main(void)
 
 	spr_init(Screen);
 
+	// initialize raster IRQ
+	rirq_init(true);
+
+	// Set scroll offset and star at top of screen
+	rirq_build(&top, 2);
+	rirq_write(&top, 0, &vic.ctrl2, VIC_CTRL2_MCM);
+	rirq_write(&top, 1, Font + 248 * 8 + 2, 0xff);
+	rirq_set(0, 58, &top);
+
+	// Switch to text mode for status line and poll joystick at bottom
+	rirq_build(&bottom, 1);
+	rirq_write(&bottom, 0, &vic.ctrl2, VIC_CTRL2_MCM | VIC_CTRL2_CSEL);
+	rirq_set(1, 250, &bottom);
+
+	// sort the raster IRQs
+	rirq_sort();
+
+	// start raster IRQ processing
+	rirq_start();
+
 	// Change colors
 	vic.color_border = VCOL_BLACK;
 	vic.color_back = VCOL_WHITE;
@@ -557,7 +618,7 @@ int main(void)
 		else if (joyb[0] && vpx != 0)
 		{
 			shot_add(vpx, spy);
-			fdelay = 5;
+			fdelay = 6;
 		}
 
 		spr_move(0, 172 - 4 * vpx, 50 + spy);

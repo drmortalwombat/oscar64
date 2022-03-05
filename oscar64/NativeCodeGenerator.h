@@ -91,10 +91,16 @@ public:
 	bool ChangesZFlag(void) const;
 	bool RequiresCarry(void) const;
 	bool RequiresAccu(void) const;
+	
 	bool RequiresYReg(void) const;
 	bool RequiresXReg(void) const;
+
 	bool ChangesYReg(void) const;
 	bool ChangesXReg(void) const;
+
+	bool ReferencesYReg(void) const;
+	bool ReferencesXReg(void) const;
+
 	bool ChangesZeroPage(int address) const;
 	bool UsesZeroPage(int address) const;
 	bool ChangesGlobalMemory(void) const;
@@ -240,6 +246,8 @@ public:
 	bool ReplaceZeroPageUp(int at);
 	bool ReplaceYRegWithXReg(int start, int end);
 	bool ReplaceXRegWithYReg(int start, int end);
+
+	bool ForwardZpYIndex(void);
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
 
