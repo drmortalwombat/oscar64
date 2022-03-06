@@ -38,7 +38,7 @@ int main(void)
 {
 	// calculate sine table
 	for(int i=0; i<128; i++)
-		sintab[i] = (int)(80 * sin(i * PI / 64));
+		sintab[i] = (int)(70 * sin(i * PI / 64));
 
 	// enable raster interrupt via kernal path
 	rirq_init(true);
@@ -68,7 +68,7 @@ int main(void)
 		char	k = j >> 4;
 		for(char i=0; i<16; i++)
 		{
-			vspr_move(i, 200 + sintab[(j + 8 * i) & 127] + sintab[k & 127], 140 + sintab[(j + 8 * i + 32) & 127] + sintab[(k + 32) & 127]);
+			vspr_move(i, 200 + sintab[(j + 8 * i) & 127] + sintab[k & 127], 150 + sintab[(j + 8 * i + 32) & 127] + sintab[(k + 32) & 127]);
 		}
 		j++;
 
