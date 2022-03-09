@@ -228,6 +228,7 @@ public:
 	bool MoveLoadAddImmStoreUp(int at);
 	bool MoveCLCLoadAddZPStoreUp(int at);
 	bool MoveLoadAddZPStoreUp(int at);
+	bool MoveLoadShiftRotateUp(int at);
 	bool MoveCLCLoadAddZPStoreDown(int at);
 	bool FindDirectAddressSumY(int at, int reg, int& apos, int& breg);
 	bool PatchDirectAddressSumY(int at, int reg, int apos, int breg);
@@ -249,6 +250,7 @@ public:
 	bool ReplaceXRegWithYReg(int start, int end);
 
 	bool ForwardZpYIndex(void);
+	bool ForwardZpXIndex(void);
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
 

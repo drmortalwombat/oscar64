@@ -1991,8 +1991,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 				}
 
-				if (inlineConstexpr  || (exp->mLeft->mDecValue->mFlags & DTF_INLINE))
+				if (inlineConstexpr)
 					doInline = true;
+				else if (exp->mLeft->mDecValue->mFlags & DTF_INLINE)
+				{
+					if (proc->mNativeProcedure || !(exp->mLeft->mDecValue->mFlags & DTF_NATIVE))
+						doInline = true;
+				}
 			}
 
 			if (doInline)

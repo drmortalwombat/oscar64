@@ -9,7 +9,7 @@ static const unsigned mul40[25] = {
 	800, 840, 880, 920, 960
 };
 
-static void copy_fwd(char * sdp, const char * ssp, char * cdp, const char * csp, char n)
+static __native inline void copy_fwd(char * sdp, const char * ssp, char * cdp, const char * csp, char n)
 {
 	for(char i=0; i<n; i++)
 	{
@@ -18,9 +18,7 @@ static void copy_fwd(char * sdp, const char * ssp, char * cdp, const char * csp,
 	}
 }
 
-#pragma native(copy_fwd)
-
-static void fill_fwd(char * sdp, char * cdp, char ch, char color, char n)
+static __native inline void fill_fwd(char * sdp, char * cdp, char ch, char color, char n)
 {
 	for(char i=0; i<n; i++)
 	{
@@ -29,9 +27,7 @@ static void fill_fwd(char * sdp, char * cdp, char ch, char color, char n)
 	}
 }
 
-#pragma native(fill_fwd)
-
-static void copy_bwd(char * sdp, const char * ssp, char * cdp, const char * csp, char n)
+static __native inline void copy_bwd(char * sdp, const char * ssp, char * cdp, const char * csp, char n)
 {
 	while (n)
 	{
@@ -40,9 +36,6 @@ static void copy_bwd(char * sdp, const char * ssp, char * cdp, const char * csp,
 		cdp[n] = csp[n];
 	}
 }
-
-#pragma native(copy_bwd)
-
 
 
 void cwin_init(CharWin * win, char * screen, char sx, char sy, char wx, char wy)
