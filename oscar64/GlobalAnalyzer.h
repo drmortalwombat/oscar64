@@ -12,6 +12,7 @@ public:
 
 	void DumpCallGraph(void);
 	void AutoInline(void);
+	void CheckFastcall(Declaration* procDec);
 
 	void AnalyzeProcedure(Expression* exp, Declaration* procDec);
 	void AnalyzeAssembler(Expression* exp, Declaration* procDec);

@@ -70,6 +70,7 @@ static const uint64 DTF_REQUEST_INLINE  = (1ULL << 17);
 static const uint64 DTF_INTERRUPT		= (1ULL << 18);
 static const uint64 DTF_EXPORT			= (1ULL << 19);
 static const uint64 DTF_HWINTERRUPT		= (1ULL << 20);
+static const uint64 DTF_STACKCALL		= (1ULL << 21);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
@@ -175,7 +176,7 @@ public:
 	Declaration*		mBase, *mParams, * mNext;
 	Expression*			mValue;
 	DeclarationScope*	mScope;
-	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment;
+	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize;
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
 	uint64				mFlags;

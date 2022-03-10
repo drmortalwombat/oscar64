@@ -16,6 +16,8 @@ public:
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 
+	uint64		mCompilerOptions;
+
 	void Parse(void);
 protected:
 	bool ConsumeToken(Token token);

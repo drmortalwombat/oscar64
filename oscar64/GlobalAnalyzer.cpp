@@ -95,7 +95,7 @@ void GlobalAnalyzer::AutoInline(void)
 						int sk = 0, dk = 0;
 						while (sk < cf->mCalled.Size())
 						{
-							if (cf->mCalled[sk] == f)
+							if (cf->mCalled[sk] == f && ((cf->mFlags & DTF_NATIVE) || !(f->mFlags & DTF_NATIVE)))
 							{
 								cf->mComplexity += cost;
 								for (int m = 0; m < f->mCalled.Size(); m++)
@@ -121,26 +121,59 @@ void GlobalAnalyzer::AutoInline(void)
 
 	for (int i = 0; i < mFunctions.Size(); i++)
 	{
-		Declaration* f = mFunctions[i];
-		if (!(f->mFlags & DTF_INLINE) && !(f->mBase->mFlags & DTF_VARIADIC) && !(f->mFlags & DTF_FUNC_VARIABLE) && f->mCalled.Size() == 0)
+		CheckFastcall(mFunctions[i]);
+	}
+}
+
+void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
+{
+	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && !(procDec->mBase->mFlags & DTF_STACKCALL))
+	{
+		if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_FUNC_RECURSIVE))
 		{
+			int	nbase = 0;
+			for (int i = 0; i < procDec->mCalled.Size(); i++)
+			{
+				Declaration* cf = procDec->mCalled[i];
+
+				CheckFastcall(cf);
+
+				cf = cf->mBase;
+				if (cf->mFlags & DTF_FASTCALL)
+				{
+					int n = cf->mFastCallBase + cf->mFastCallSize;
+					if (n > nbase)
+						nbase = n;
+				}
+				else
+					nbase = 1000;
+			}
+
 			int		nparams = 0;
-			Declaration* dec = f->mBase->mParams;
+			Declaration* dec = procDec->mBase->mParams;
 			while (dec)
-			{				
+			{
 				nparams += dec->mBase->mSize;
 				dec = dec->mNext;
 			}
 
-			if (nparams <= BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+			if (nbase + nparams <= BC_REG_FPARAMS_END - BC_REG_FPARAMS)
 			{
-				f->mBase->mFlags |= DTF_FASTCALL;
+				procDec->mFastCallBase = nbase;
+				procDec->mFastCallSize = nparams;
+				procDec->mBase->mFastCallBase = nbase;
+				procDec->mBase->mFastCallSize = nparams;
+
+				procDec->mBase->mFlags |= DTF_FASTCALL;
 #if 0
 				printf("FASTCALL %s\n", f->mIdent->mString);
 #endif
 			}
-
+			else
+				procDec->mBase->mFlags |= DTF_STACKCALL;
 		}
+		else
+			procDec->mBase->mFlags |= DTF_STACKCALL;
 	}
 }
 

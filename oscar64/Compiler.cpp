@@ -61,6 +61,8 @@ bool Compiler::ParseSource(void)
 
 			Parser* parser = new Parser(mErrors, scanner, mCompilationUnits);
 
+			parser->mCompilerOptions = mCompilerOptions;
+
 			parser->Parse();
 		}
 		else

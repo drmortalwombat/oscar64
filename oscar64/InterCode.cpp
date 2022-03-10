@@ -6781,7 +6781,7 @@ static bool CanBypassStore(const InterInstruction * sins, const InterInstruction
 			else
 				return false;
 		}
-		else if (sm == IM_FRAME)
+		else if (sm == IM_FRAME || sm == IM_FFRAME)
 			;
 		else if (sm == IM_FPARAM)
 		{

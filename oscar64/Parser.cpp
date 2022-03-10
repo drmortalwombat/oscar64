@@ -1022,6 +1022,9 @@ Declaration* Parser::ParseDeclaration(bool variable)
 					ndec->mType = DT_CONST_FUNCTION;
 					ndec->mSection = mCodeSection;
 					ndec->mBase->mFlags |= typeFlags;
+
+					if (mCompilerOptions & COPT_NATIVE)
+						ndec->mFlags |= DTF_NATIVE;
 				}
 
 				if (ndec->mIdent)

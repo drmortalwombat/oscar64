@@ -64,6 +64,7 @@ enum InterMemory
 	IM_TEMPORARY,
 	IM_ABSOLUTE,
 	IM_FPARAM,
+	IM_FFRAME,
 };
 
 enum InterOperator

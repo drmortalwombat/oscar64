@@ -925,7 +925,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mConst.mVarIndex = inlineMapper->mParams[dec->mVarIndex];
 				}
 				else if (procType->mFlags & DTF_FASTCALL)
+				{
 					ins->mConst.mMemory = IM_FPARAM;
+					ins->mConst.mVarIndex += procType->mFastCallBase;
+				}
 				else
 					ins->mConst.mMemory = IM_PARAM;
 				if (dec->mBase->mType == DT_TYPE_ARRAY)
@@ -2244,8 +2247,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ains->mConst.mVarIndex = 0;
 					ains->mConst.mIntConst = 0;
 					ains->mConst.mOperandSize = 2;
-					if (ftype->mFlags & DTF_FASTCALL)
-						ains->mConst.mMemory = IM_FPARAM;
+					if (ftype->mFlags & DTF_FASTCALL) 
+					{
+						ains->mConst.mMemory = IM_FFRAME;
+						ains->mConst.mVarIndex += ftype->mFastCallBase;
+					}
 					else
 						ains->mConst.mMemory = IM_FRAME;
 					block->Append(ains);
@@ -2300,8 +2306,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					if (ftype->mFlags & DTF_FASTCALL)
 					{
-						ains->mConst.mMemory = IM_FPARAM;
+						ains->mConst.mMemory = IM_FFRAME;
 						ains->mConst.mIntConst = 0;
+						ains->mConst.mVarIndex += ftype->mFastCallBase;
 					}
 					else
 						ains->mConst.mMemory = IM_FRAME;
@@ -2504,7 +2511,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							vins->mConst.mVarIndex = inlineMapper->mParams[vdec->mVarIndex];
 						}
 						else if (procType->mFlags & DTF_FASTCALL)
+						{
 							vins->mConst.mMemory = IM_FPARAM;
+							vins->mConst.mVarIndex += procType->mFastCallBase;
+						}
 						else
 							vins->mConst.mMemory = IM_PARAM;
 						vins->mConst.mOperandSize = vdec->mSize;
@@ -2584,7 +2594,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						pins->mConst.mIntConst = 0;
 						pins->mConst.mOperandSize = 2;
 						if (procType->mFlags & DTF_FASTCALL)
+						{
 							pins->mConst.mMemory = IM_FPARAM;
+							pins->mConst.mVarIndex += procType->mFastCallBase;
+						}
 						else
 							pins->mConst.mMemory = IM_PARAM;
 						block->Append(pins);
@@ -3446,9 +3459,6 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	dec->mVarIndex = proc->mID;
 	dec->mLinkerObject = proc->mLinkerObject;
 	proc->mNumLocals = dec->mNumVars;
-
-	if (mCompilerOptions & COPT_NATIVE)
-		dec->mFlags |= DTF_NATIVE;
 
 	if (dec->mFlags & DTF_NATIVE)
 		proc->mNativeProcedure = true;

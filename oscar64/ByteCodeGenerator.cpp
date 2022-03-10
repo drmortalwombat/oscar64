@@ -1406,7 +1406,7 @@ void ByteCodeBasicBlock::LoadConstant(InterCodeProcedure* proc, const InterInstr
 			bins.mValue = ins->mConst.mIntConst + ins->mConst.mVarIndex + proc->mLocalSize + 2;
 			mIns.Push(bins);
 		}
-		else if (ins->mConst.mMemory == IM_FPARAM)
+		else if (ins->mConst.mMemory == IM_FPARAM || ins->mConst.mMemory == IM_FFRAME)
 		{
 			ByteCodeInstruction	bins(BC_LEA_ABS);
 			bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
@@ -1509,7 +1509,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					bins.mRegister = BC_REG_ACCU;
 					mIns.Push(bins);
 				}
-				else if (ins->mSrc[1].mMemory == IM_FPARAM)
+				else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 				{
 					ByteCodeInstruction	bins(BC_STORE_REG_32);
 					bins.mRegister = BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst;
@@ -1571,7 +1571,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
 					mIns.Push(bins);
 				}
-				else if (ins->mSrc[1].mMemory == IM_FPARAM)
+				else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 				{
 					ByteCodeInstruction	ains(BC_LOAD_REG_32);
 					ains.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
@@ -1707,7 +1707,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					bins.mRegister = BC_REG_ACCU;
 					mIns.Push(bins);
 				}
-				else if (ins->mSrc[1].mMemory == IM_FPARAM)
+				else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 				{
 					ByteCodeInstruction	bins(BC_STORE_REG_16);
 					bins.mRegister = BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst;
@@ -1767,7 +1767,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 					bins.mRegisterFinal = ins->mSrc[0].mFinal;
 					mIns.Push(bins);
 				}
-				else if (ins->mSrc[1].mMemory == IM_FPARAM)
+				else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 				{
 					ByteCodeInstruction	ains(BC_LOAD_REG_16);
 					ains.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
@@ -1909,7 +1909,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						bins.mRegister = BC_REG_ACCU;
 						mIns.Push(bins);
 					}
-					else if (ins->mSrc[1].mMemory == IM_FPARAM)
+					else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 					{
 						ByteCodeInstruction	bins(BC_STORE_REG_8);
 						bins.mRegister = BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst;
@@ -1968,7 +1968,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						bins.mRegister = BC_REG_ACCU;
 						mIns.Push(bins);
 					}
-					else if (ins->mSrc[1].mMemory == IM_FPARAM)
+					else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 					{
 						ByteCodeInstruction	bins(BC_STORE_REG_16);
 						bins.mRegister = BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst;
@@ -2027,7 +2027,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						bins.mRegister = BC_REG_ACCU;
 						mIns.Push(bins);
 					}
-					else if (ins->mSrc[1].mMemory == IM_FPARAM)
+					else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 					{
 						ByteCodeInstruction	bins(BC_STORE_REG_32);
 						bins.mRegister = BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst;
@@ -2091,7 +2091,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						bins.mRegisterFinal = ins->mSrc[0].mFinal;
 						mIns.Push(bins);
 					}
-					else if (ins->mSrc[1].mMemory == IM_FPARAM)
+					else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 					{
 						ByteCodeInstruction	ains(BC_LOAD_REG_8);
 						ains.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
@@ -2160,7 +2160,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						bins.mRegisterFinal = ins->mSrc[0].mFinal;
 						mIns.Push(bins);
 					}
-					else if (ins->mSrc[1].mMemory == IM_FPARAM)
+					else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 					{
 						ByteCodeInstruction	ains(BC_LOAD_REG_16);
 						ains.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
@@ -2229,7 +2229,7 @@ void ByteCodeBasicBlock::StoreDirectValue(InterCodeProcedure* proc, const InterI
 						bins.mRegisterFinal = ins->mSrc[0].mFinal;
 						mIns.Push(bins);
 					}
-					else if (ins->mSrc[1].mMemory == IM_FPARAM)
+					else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 					{
 						ByteCodeInstruction	ains(BC_LOAD_REG_32);
 						ains.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
@@ -2406,7 +2406,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
 				mIns.Push(bins);
 			}
-			else if (ins->mSrc[0].mMemory == IM_FPARAM)
+			else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 			{
 				ByteCodeInstruction	ains(BC_LOAD_REG_32);
 				ains.mRegister = BC_REG_FPARAMS + ins->mSrc[0].mIntConst + ins->mSrc[0].mVarIndex;
@@ -2493,7 +2493,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 				bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
 				mIns.Push(bins);
 			}
-			else if (ins->mSrc[0].mMemory == IM_FPARAM)
+			else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 			{
 				ByteCodeInstruction	ains(BC_LOAD_REG_16);
 				ains.mRegister = BC_REG_FPARAMS + ins->mSrc[0].mIntConst + ins->mSrc[0].mVarIndex;
@@ -2582,7 +2582,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
 					mIns.Push(bins);
 				}
-				else if (ins->mSrc[0].mMemory == IM_FPARAM)
+				else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 				{
 					ByteCodeInstruction	ains(BC_LOAD_REG_8);
 					ains.mRegister = BC_REG_FPARAMS + ins->mSrc[0].mIntConst + ins->mSrc[0].mVarIndex;
@@ -2638,7 +2638,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
 					mIns.Push(bins);
 				}
-				else if (ins->mSrc[0].mMemory == IM_FPARAM)
+				else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 				{
 					ByteCodeInstruction	ains(BC_LOAD_REG_16);
 					ains.mRegister = BC_REG_FPARAMS + ins->mSrc[0].mIntConst + ins->mSrc[0].mVarIndex;
@@ -2694,7 +2694,7 @@ void ByteCodeBasicBlock::LoadDirectValue(InterCodeProcedure* proc, const InterIn
 					bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
 					mIns.Push(bins);
 				}
-				else if (ins->mSrc[0].mMemory == IM_FPARAM)
+				else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 				{
 					ByteCodeInstruction	ains(BC_LOAD_REG_32);
 					ains.mRegister = BC_REG_FPARAMS + ins->mSrc[0].mIntConst + ins->mSrc[0].mVarIndex;
@@ -2887,7 +2887,7 @@ void ByteCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const In
 			bins.mValue = ins->mSrc[1].mIntConst;
 			mIns.Push(bins);
 		}
-		else if (ins->mSrc[1].mMemory == IM_FPARAM)
+		else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 		{
 			ByteCodeInstruction	bins(BC_CONST_16);
 			bins.mRegister = BC_REG_ACCU;
@@ -2967,7 +2967,7 @@ void ByteCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, const InterInst
 		{
 			if (ins->mSrc[i].mTemp < 0)
 			{
-				if (ins->mSrc[i].mMemory == IM_FPARAM)
+				if (ins->mSrc[i].mMemory == IM_FPARAM || ins->mSrc[i].mMemory == IM_FFRAME)
 					ins->mSrc[0].mLinkerObject->mTemporaries[i - 1] = BC_REG_FPARAMS + ins->mSrc[i].mVarIndex + ins->mSrc[i].mIntConst;
 			}
 			else
