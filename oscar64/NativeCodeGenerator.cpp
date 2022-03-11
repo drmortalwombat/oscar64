@@ -17373,8 +17373,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 4].mType == ASMIT_STA && !mIns[i + 2].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
 					{
 						mIns[i + 0] = mIns[i + 4];
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode == ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode == ASMIM_IMPLIED;
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
 				}

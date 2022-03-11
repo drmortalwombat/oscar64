@@ -2632,8 +2632,8 @@ bool InterInstruction::ConstantFolding(void)
 			mCode = IC_CONSTANT;
 			mConst.mIntConst = ::ConstantFolding(mOperator, mSrc[0].mType, 0, 0);
 			mConst.mType = IT_BOOL;
-			mSrc[0].mTemp == -1;
-			mSrc[1].mTemp == -1;
+			mSrc[0].mTemp = -1;
+			mSrc[1].mTemp = -1;
 			mNumOperands = 0;
 			return true;
 		}
