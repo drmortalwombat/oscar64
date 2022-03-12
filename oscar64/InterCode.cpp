@@ -2800,7 +2800,7 @@ void InterInstruction::Disassemble(FILE* file)
 {
 	if (this->mCode != IC_NONE)
 	{
-		static char memchars[] = "NPLGFPITAZ";
+		static char memchars[] = "NPLGFPITAZZ";
 
 		fprintf(file, "\t");
 		switch (this->mCode)
@@ -3781,6 +3781,92 @@ void InterCodeBasicBlock::MarkAliasedLocalTemps(const GrowingIntArray& localTabl
 
 		if (mTrueJump) mTrueJump->MarkAliasedLocalTemps(localTable, aliasedLocals, paramTable, aliasedParams);
 		if (mFalseJump) mFalseJump->MarkAliasedLocalTemps(localTable, aliasedLocals, paramTable, aliasedParams);
+	}
+}
+
+bool InterCodeBasicBlock::PropagateNonLocalUsedConstTemps(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int i = 0;
+		while (i < mInstructions.Size())
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_CONSTANT && ins->mSingleAssignment)
+			{
+				int	ttemp = ins->mDst.mTemp;
+				InterCodeBasicBlock* target = this;
+				while (target && !target->mLocalUsedTemps[ttemp])
+				{
+					InterCodeBasicBlock* ttarget = nullptr;
+
+					if (!target->mFalseJump)
+						ttarget = target->mTrueJump;
+					else if (!target->mFalseJump->mFalseJump && target->mFalseJump->mTrueJump == target->mTrueJump && !target->mFalseJump->mLocalUsedTemps[ttemp])
+						ttarget = target->mTrueJump;
+					else if (!target->mTrueJump->mFalseJump && target->mTrueJump->mTrueJump == target->mFalseJump && !target->mTrueJump->mLocalUsedTemps[ttemp])
+						ttarget = target->mFalseJump;
+
+					while (ttarget && ttarget->mLoopHead)
+					{
+						if (ttarget->mFalseJump == ttarget && !ttarget->mLocalUsedTemps[ttemp])
+							ttarget = ttarget->mTrueJump;
+						else if (ttarget->mTrueJump == ttarget && !ttarget->mLocalUsedTemps[ttemp])
+							ttarget = ttarget->mFalseJump;
+						else
+							ttarget = nullptr;
+					}
+
+					target = ttarget;
+				}
+
+				if (target && this != target)
+				{
+					target->mInstructions.Insert(0, ins);
+					mInstructions.Remove(i);
+					changed = true;
+				}
+				else
+					i++;
+			}
+			else
+				i++;
+		}
+
+		if (mTrueJump && mTrueJump->PropagateNonLocalUsedConstTemps())
+			changed = true;
+		if (mFalseJump && mFalseJump->PropagateNonLocalUsedConstTemps())
+			changed = true;
+	}
+
+	return changed;
+}
+
+void InterCodeBasicBlock::CollectLocalUsedTemps(int numTemps)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		mLocalUsedTemps.Reset(numTemps);
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+
+			for (int j = 0; j < ins->mNumOperands; j++)
+			{
+				if (ins->mSrc[j].mTemp >= 0)
+					mLocalUsedTemps += ins->mSrc[j].mTemp;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CollectLocalUsedTemps(numTemps);
+		if (mFalseJump) mFalseJump->CollectLocalUsedTemps(numTemps);
 	}
 }
 
@@ -8019,6 +8105,39 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 		}
 #endif
 #if 1
+		// move indirect load/store pairs up
+		i = 0;
+		while (i + 1 < mInstructions.Size())
+		{
+			if (mInstructions[i + 0]->mCode == IC_LOAD && mInstructions[i + 1]->mCode == IC_STORE && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
+			{
+				if (mInstructions[i + 0]->mSrc[0].mMemory == IM_INDIRECT)
+				{
+					InterInstruction* lins(mInstructions[i + 0]);
+					InterInstruction* sins(mInstructions[i + 1]);
+
+					int j = i;
+					while (j > 0 && 
+						CanBypassLoadUp(lins, mInstructions[j - 1]) &&
+						CanBypassStore(sins, mInstructions[j - 1]))
+					{
+						mInstructions[j + 1] = mInstructions[j - 1];
+						j--;
+					}
+
+					if (i != j)
+					{
+						mInstructions[j + 0] = lins;
+						mInstructions[j + 1] = sins;
+					}
+				}
+			}
+
+			i++;
+		}
+
+#endif
+#if 1
 		i = 0;
 		while (i < mInstructions.Size())
 		{
@@ -9009,6 +9128,7 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->CompactInstructions();
 
+
 	BuildDataFlowSets();
 
 	ResetVisited();
@@ -9078,11 +9198,18 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	BuildDataFlowSets();
-
 	TempForwarding();
 	RemoveUnusedInstructions();
 
 	DisassembleDebug("Moved single path instructions");
+
+	PropagateNonLocalUsedTemps();
+
+	BuildDataFlowSets();
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	DisassembleDebug("propagate non local used temps");
 
 #if 1
 	do
@@ -9438,12 +9565,19 @@ void InterCodeProcedure::BuildLoopPrefix(void)
 	mEntryBlock->CollectEntries();
 }
 
+bool InterCodeProcedure::PropagateNonLocalUsedTemps(void)
+{
+	ResetVisited();
+	mEntryBlock->CollectLocalUsedTemps(mTemporaries.Size());
+
+	ResetVisited();
+	return mEntryBlock->PropagateNonLocalUsedConstTemps();
+}
+
 bool InterCodeProcedure::GlobalConstantPropagation(void)
 {
-
 	NumberSet					assignedTemps(mTemporaries.Size());
 	GrowingInstructionPtrArray	ctemps(nullptr);
-
 
 	ResetVisited();
 	mEntryBlock->CollectConstTemps(ctemps, assignedTemps);

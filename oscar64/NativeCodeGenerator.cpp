@@ -724,6 +724,11 @@ bool NativeCodeInstruction::ReferencesXReg(void) const
 	return ChangesXReg() || RequiresXReg();
 }
 
+bool NativeCodeInstruction::ReferencesZeroPage(int address) const
+{
+	return UsesZeroPage(address);
+}
+
 bool NativeCodeInstruction::ChangesZeroPage(int address) const
 {
 	if (mMode == ASMIM_ZERO_PAGE && mAddress == address)
@@ -8393,7 +8398,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 	}
 }
 
-void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0)
+void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0, bool addrvalid)
 {
 	bool		isub = false;
 	int			ireg = ins->mSrc[0].mTemp;
@@ -8440,7 +8445,7 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 			// if the global variable is smaller than 256 bytes, we can safely ignore the upper byte?
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
 #if 1
-			if (ins->mSrc[1].mLinkerObject->mSize < 256 || ins->mSrc[0].IsUByte())
+			if (ins->mSrc[1].mLinkerObject->mSize < 256 || ins->mSrc[0].IsUByte() || (addrvalid && ins->mSrc[1].mLinkerObject->mSize <= 256))
 				mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
 			else
 #endif
@@ -12173,6 +12178,37 @@ bool NativeCodeBasicBlock::MoveLoadStoreXUp(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::MoveLoadAddImmStoreAbsXUp(int at)
+{
+	int	j = at - 1, top = at;
+	while (j > 0)
+	{
+		if (mIns[j].ChangesXReg())
+			break;
+		if (mIns[j].MayBeSameAddress(mIns[at + 3]))
+			break;
+		if (mIns[j].MayBeSameAddress(mIns[at + 0]) && mIns[j].ChangesAddress())
+			break;
+
+		if (!(mIns[j - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			top = j;
+		j--;
+	}
+
+	if (top < at)
+	{
+		mIns.Insert(top, mIns[at + 3]); mIns.Remove(at + 4);
+		mIns.Insert(top, mIns[at + 3]); mIns.Remove(at + 4);
+		mIns.Insert(top, mIns[at + 3]); mIns.Remove(at + 4);
+		mIns.Insert(top, mIns[at + 3]); mIns.Remove(at + 4);
+
+		return true;
+	}
+	else
+		return false;
+}
+
+
 bool NativeCodeBasicBlock::MoveLoadAddImmStoreUp(int at)
 {
 	int	j = at - 1;
@@ -12805,6 +12841,38 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			mIns.Remove(0);
 			return true;
 		}
+	}
+
+	if (sz >= 2 && 
+		mIns[0].mType == ASMIT_LDA && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_MEM) &&
+		mIns[1].mType == ASMIT_STA && mIns[1].mMode == ASMIM_ZERO_PAGE && !(mIns[1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+	{
+		int	i = mIns.Size() - 1;
+		while (i > 1 && !mIns[i].ReferencesZeroPage(mIns[1].mAddress) && !mIns[i].ReferencesZeroPage(mIns[0].mAddress))
+			i--;
+
+		if (i > 1)
+		{
+			i--;
+
+			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[1].mAddress &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[0].mAddress && !(mIns[1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc);
+
+				prevBlock->mIns.Push(mIns[0]);
+				prevBlock->mIns.Push(mIns[1]);
+
+				exitBlock->mIns.Insert(0, mIns[i + 0]);
+				exitBlock->mIns.Insert(1, mIns[i + 1]);
+
+				mIns.Remove(i); mIns.Remove(i);
+				mIns.Remove(0); mIns.Remove(0);
+				return true;
+			}
+		}
+
 	}
 
 
@@ -13513,11 +13581,12 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 						assert(mIns.Size() == 0 || mIns[0].mType != ASMIT_INV);
 					}
 				}
-#if 1
-				if (!changed)
-					changed = OptimizeSimpleLoopInvariant(proc, nullptr, nullptr);
-#endif
 			}
+
+#if 1
+			if (!changed)
+				changed = OptimizeSimpleLoopInvariant(proc, nullptr, nullptr);
+#endif
 		}
 
 		if (mTrueJump && mTrueJump->OptimizeSimpleLoop(proc))
@@ -14657,6 +14726,24 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		}
 #endif
 
+
+#if 1
+		// move load - add # - store with absolute,x up as far possible
+		// 
+
+		for (int i = 2; i + 3 < mIns.Size(); i++)
+		{
+			if (
+				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ABSOLUTE_X &&
+				mIns[i + 1].mType == ASMIT_CLC &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+			{
+				if (MoveLoadAddImmStoreAbsXUp(i))
+					changed = true;
+			}
+		}
+#endif
 
 #if 1
 		// move load - add ZP - store up to initial store
@@ -17377,7 +17464,23 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
+#if 0
+					else if (
+						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y &&
+						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 0].mAddress &&
+						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE_Y &&
+						mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+					{
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 2].mType = ASMIT_LDX; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 3].mMode = ASMIM_ABSOLUTE_X; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+#endif
 				}
+
 #if 1
 				if (pass > 2 && i + 4 < mIns.Size())
 				{
@@ -19190,7 +19293,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				iblock->mInstructions[i + 1]->mCode == IC_LEA &&
 				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal)
 			{
-				block->LoadEffectiveAddress(iproc, iblock->mInstructions[i + 1], ins, nullptr);
+				block->LoadEffectiveAddress(iproc, iblock->mInstructions[i + 1], ins, nullptr, false);
 				i++;
 			}
 			else
@@ -19219,7 +19322,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		case IC_UNARY_OPERATOR:
 			if (i + 1 < iblock->mInstructions.Size() && ins->mOperator == IA_NEG && iblock->mInstructions[i + 1]->mCode == IC_LEA && iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal)
 			{
-				block->LoadEffectiveAddress(iproc, iblock->mInstructions[i + 1], nullptr, ins);
+				block->LoadEffectiveAddress(iproc, iblock->mInstructions[i + 1], nullptr, ins, false);
 				i++;
 			}
 			else
@@ -19229,7 +19332,17 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			block->NumericConversion(iproc, this, ins);
 			break;
 		case IC_LEA:
-			block->LoadEffectiveAddress(iproc, ins, nullptr, nullptr);
+		{
+			bool	avalid = false;
+			if (i + 1 < iblock->mInstructions.Size())
+			{
+				if (iblock->mInstructions[i + 1]->mCode == IC_LOAD && iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp)
+					avalid = true;
+				else if (iblock->mInstructions[i + 1]->mCode == IC_STORE && iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp)
+					avalid = true;
+			}
+			block->LoadEffectiveAddress(iproc, ins, nullptr, nullptr, avalid);
+		}
 			break;
 		case IC_CONSTANT:
 			block->LoadConstant(iproc, ins);

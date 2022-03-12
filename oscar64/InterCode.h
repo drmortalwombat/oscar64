@@ -326,6 +326,7 @@ public:
 
 	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable, mLoopPath;
 
+	NumberSet						mLocalUsedTemps;
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
 	NumberSet						mExitRequiredTemps, mExitProvidedTemps;
@@ -368,6 +369,8 @@ public:
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 
+	void CollectLocalUsedTemps(int numTemps);
+	bool PropagateNonLocalUsedConstTemps(void);
 	void CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps);
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 
@@ -518,6 +521,7 @@ protected:
 	void TempForwarding(void);
 	void RemoveUnusedInstructions(void);
 	bool GlobalConstantPropagation(void);
+	bool PropagateNonLocalUsedTemps(void);
 	void BuildLoopPrefix(void);
 	void SingleAssignmentForwarding(void);
 

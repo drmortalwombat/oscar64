@@ -103,6 +103,8 @@ public:
 
 	bool ChangesZeroPage(int address) const;
 	bool UsesZeroPage(int address) const;
+	bool ReferencesZeroPage(int address) const;
+
 	bool ChangesGlobalMemory(void) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool MayBeChangedOnAddress(const NativeCodeInstruction& ins) const;
@@ -189,7 +191,7 @@ public:
 	NativeCodeBasicBlock* BinaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void UnaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
-	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
+	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0, bool addrvalid);
 	void NumericConversion(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	NativeCodeBasicBlock * CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc);
 	NativeCodeBasicBlock * StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
@@ -225,10 +227,14 @@ public:
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
 	bool MoveLoadStoreOutOfXYRangeUp(int at);
+	
+	bool MoveLoadAddImmStoreAbsXUp(int at);
+
 	bool MoveLoadAddImmStoreUp(int at);
 	bool MoveCLCLoadAddZPStoreUp(int at);
 	bool MoveLoadAddZPStoreUp(int at);
 	bool MoveLoadShiftRotateUp(int at);
+
 	bool MoveCLCLoadAddZPStoreDown(int at);
 	bool FindDirectAddressSumY(int at, int reg, int& apos, int& breg);
 	bool PatchDirectAddressSumY(int at, int reg, int apos, int breg);
