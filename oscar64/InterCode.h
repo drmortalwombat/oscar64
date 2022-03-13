@@ -223,14 +223,14 @@ class InterVariable
 {
 public:
 	Location						mLocation;
-	bool							mUsed, mAliased;
+	bool							mUsed, mAliased, mTemp;
 	int								mIndex, mSize, mOffset, mAddr;
 	int								mNumReferences;
 	const Ident					*	mIdent;
 	LinkerObject				*	mLinkerObject;
 
 	InterVariable(void)
-		: mUsed(false), mAliased(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr)
+		: mUsed(false), mAliased(false), mTemp(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr)
 	{
 	}
 };
@@ -460,6 +460,9 @@ public:
 	bool OptimizeIntervalCompare(void);
 
 	bool DropUnreachable(void);
+	
+	bool CheckStaticStack(void);
+	void CollectStaticStack(LinkerObject * lobj, const GrowingVariableArray& localVars);
 };
 
 class InterCodeModule;
@@ -533,7 +536,7 @@ protected:
 class InterCodeModule
 {
 public:
-	InterCodeModule(void);
+	InterCodeModule(Linker * linker);
 	~InterCodeModule(void);
 
 	bool Disassemble(const char* name);
@@ -541,6 +544,8 @@ public:
 	GrowingInterCodeProcedurePtrArray	mProcedures;
 
 	GrowingVariableArray				mGlobalVars;
+
+	Linker							*	mLinker;
 
 	uint64				mCompilerOptions;
 

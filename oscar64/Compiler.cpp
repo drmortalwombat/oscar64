@@ -27,7 +27,7 @@ Compiler::Compiler(void)
 	mByteCodeGenerator = new ByteCodeGenerator(mErrors, mLinker);
 	mInterCodeGenerator = new InterCodeGenerator(mErrors, mLinker);
 	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker, mCompilationUnits->mSectionCode);
-	mInterCodeModule = new InterCodeModule();
+	mInterCodeModule = new InterCodeModule(mLinker);
 	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
 }
 
@@ -311,6 +311,9 @@ bool Compiler::GenerateCode(void)
 #endif
 
 		CompileProcedure(proc);
+
+		if (proc->mLinkerObject->mStackSection)
+			mCompilationUnits->mSectionStack->mSections.Push(proc->mLinkerObject->mStackSection);
 	}
 
 	LinkerObject* byteCodeObject = nullptr;

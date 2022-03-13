@@ -12135,6 +12135,7 @@ bool NativeCodeBasicBlock::MoveLoadStoreUp(int at)
 		}
 		mIns[j - 1].mLive |= LIVE_CPU_REG_A;
 		mIns[j] = mIns[at + 1];
+		mIns[j].mLive |= LIVE_CPU_REG_A;
 		mIns[at + 1].mType = ASMIT_NOP;	mIns[at + 1].mMode = ASMIM_IMPLIED;
 
 		return true;

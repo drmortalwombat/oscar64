@@ -8,11 +8,11 @@ LinkerRegion::LinkerRegion(void)
 {}
 
 LinkerSection::LinkerSection(void)
-	: mObjects(nullptr)
+	: mObjects(nullptr), mSections(nullptr)
 {}
 
 LinkerObject::LinkerObject(void)
-	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1)
+	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr)
 {}
 
 LinkerObject::~LinkerObject(void)
@@ -235,6 +235,42 @@ bool LinkerRegion::Allocate(LinkerObject* lobj)
 	return false;
 }
 
+void LinkerRegion::PlaceStackSection(LinkerSection* stackSection, LinkerSection* section)
+{
+	if (!section->mEnd)
+	{
+		int	start = stackSection->mEnd;
+
+		for(int i=0; i<section->mSections.Size(); i++)
+		{
+			PlaceStackSection(stackSection, section->mSections[i]);
+			if (section->mSections[i]->mStart < start)
+				start = section->mSections[i]->mStart;
+		}
+
+		section->mStart = start;
+		section->mEnd = start;
+		
+		for (int i = 0; i < section->mObjects.Size(); i++)
+		{
+			LinkerObject* lobj = section->mObjects[i];
+			if (lobj->mFlags & LOBJF_REFERENCED)
+			{
+				section->mStart -= lobj->mSize;
+				section->mSize += lobj->mSize;
+
+				lobj->mFlags |= LOBJF_PLACED;
+				lobj->mAddress = section->mStart;
+				lobj->mRefAddress = section->mStart + mReloc;
+				lobj->mRegion = this;
+			}
+		}
+
+		if (stackSection->mStart > section->mStart)
+			stackSection->mStart = section->mStart;
+	}
+}
+
 void Linker::Link(void)
 {
 	if (mErrors->mErrorCount == 0)
@@ -304,10 +340,15 @@ void Linker::Link(void)
 				LinkerSection* lsec = lrgn->mSections[j];
 
 				if (lsec->mType == LST_STACK)
-				{
-					lsec->mStart = lrgn->mEnd - lsec->mSize;
-					lsec->mEnd = lrgn->mEnd;
-					lrgn->mEnd = lsec->mStart;
+				{					
+					lsec->mStart = lsec->mEnd = lrgn->mEnd;
+					lrgn->mEnd = lsec->mStart - lsec->mSize;
+
+					for(int i=0; i<lsec->mSections.Size(); i++)
+						lrgn->PlaceStackSection(lsec, lsec->mSections[i]);
+
+					lsec->mEnd = lsec->mStart;
+					lsec->mStart = lrgn->mEnd;
 				}
 			}
 		}
@@ -440,7 +481,8 @@ static const char* LinkerSectionTypeNames[] = {
 	"DATA",
 	"BSS",
 	"HEAP",
-	"STACK"
+	"STACK",
+	"SSTACK"
 };
 
 bool Linker::WriteBinFile(const char* filename)

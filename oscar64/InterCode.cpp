@@ -2702,6 +2702,13 @@ bool InterInstruction::ConstantFolding(void)
 					mNumOperands = 1;
 					return true;
 				}
+				else if ((mOperator == IA_AND || mOperator == IA_MUL || mOperator == IA_SHL || mOperator == IA_SHR || mOperator == IA_SAR) && mSrc[1].mIntConst == 0)
+				{
+					mCode = IC_CONSTANT;
+					mConst.mIntConst = 0;
+					mNumOperands = 0;
+					return true;
+				}
 			}
 		}
 #endif
@@ -6954,6 +6961,65 @@ bool InterCodeBasicBlock::IsEqual(const InterCodeBasicBlock* block) const
 	return false;
 }
 
+bool InterCodeBasicBlock::CheckStaticStack(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE)
+			{
+				if (mInstructions[i]->mSrc[0].mTemp >= 0 || !mInstructions[i]->mSrc[0].mLinkerObject)
+					return false;
+				else if (!(mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_STATIC_STACK))
+					return false;
+			}
+		}
+
+		if (mTrueJump && !mTrueJump->CheckStaticStack())
+			return false;
+		if (mFalseJump && !mFalseJump->CheckStaticStack())
+			return false;
+	}
+
+	return true;
+}
+
+void ApplyStaticStack(InterOperand & iop, const GrowingVariableArray& localVars)
+{
+	if (iop.mMemory == IM_LOCAL)
+	{
+		iop.mMemory = IM_GLOBAL;
+		iop.mLinkerObject = localVars[iop.mVarIndex]->mLinkerObject;
+	}
+}
+
+void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVariableArray& localVars)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE)
+				lobj->mStackSection->mSections.Push(mInstructions[i]->mSrc[0].mLinkerObject->mStackSection);
+
+			if (mInstructions[i]->mCode == IC_LOAD)
+				ApplyStaticStack(mInstructions[i]->mSrc[0], localVars);
+			else if (mInstructions[i]->mCode == IC_STORE || mInstructions[i]->mCode == IC_LEA)
+				ApplyStaticStack(mInstructions[i]->mSrc[1], localVars);
+			else if (mInstructions[i]->mCode == IC_CONSTANT && mInstructions[i]->mDst.mType == IT_POINTER)
+				ApplyStaticStack(mInstructions[i]->mConst, localVars);
+		}
+
+		if (mTrueJump) mTrueJump->CollectStaticStack(lobj, localVars);
+		if (mFalseJump) mFalseJump->CollectStaticStack(lobj, localVars);
+	}
+}
+
 bool InterCodeBasicBlock::DropUnreachable(void)
 {
 	if (!mVisited)
@@ -7243,7 +7309,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 				for (int i = 0; i < path.Size(); i++)
 					printf("path %d\n", path[i]->mIndex);
 #endif
-				bool	hasCall = false;
+				bool	hasCall = false, hasFrame = false;
 				for (int bi = 0; bi < body.Size(); bi++)
 				{
 					InterCodeBasicBlock* block = body[bi];
@@ -7255,9 +7321,10 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 						ins->mExpensive = false;
 						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
 							hasCall = true;
+						else if (ins->mCode == IC_PUSH_FRAME)
+							hasFrame = true;
 					}
 				}
-
 
 				for (int bi = 0; bi < path.Size(); bi++)
 				{
@@ -7269,6 +7336,10 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 						ins->mInvariant = true;
 
 						if (!IsMoveable(ins->mCode))
+							ins->mInvariant = false;
+						else if (ins->mCode == IC_CONSTANT && ins->mDst.mType == IT_POINTER && ins->mConst.mMemory == IM_FRAME && hasFrame)
+							ins->mInvariant = false;
+						else if (ins->mCode == IC_LEA && ins->mSrc[1].mMemory == IM_FRAME && hasFrame)
 							ins->mInvariant = false;
 						else if (ins->mCode == IC_LOAD)
 						{
@@ -7304,6 +7375,10 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 											{
 												ins->mInvariant = false;
 											}
+										}
+										else if (sins->mCode == IC_COPY)
+										{
+											ins->mInvariant = false;
 										}
 									}
 								}
@@ -7572,12 +7647,22 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			GrowingArray<InterInstructionPtr>	tvalues(nullptr);
 			GrowingArray<int>					nassigns(0);
 
+			int	frameLevel = 0;
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{
 				InterInstruction* ins = mInstructions[i];
 				ins->mInvariant = true;
 
+				if (ins->mCode == IC_PUSH_FRAME)
+					frameLevel++;
+				else if (ins->mCode == IC_POP_FRAME)
+					frameLevel--;
+
 				if (!IsMoveable(ins->mCode))
+					ins->mInvariant = false;
+				else if (ins->mCode == IC_CONSTANT && ins->mDst.mType == IT_POINTER && ins->mConst.mMemory == IM_FRAME && frameLevel != 0)
+					ins->mInvariant = false;
+				else if (ins->mCode == IC_LEA && ins->mSrc[1].mMemory == IM_FRAME && frameLevel != 0)
 					ins->mInvariant = false;
 				else if (ins->mCode == IC_LOAD)
 				{
@@ -7626,6 +7711,10 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 								{
 									ins->mInvariant = false;
 								}
+							}
+							else if (sins->mCode == IC_COPY)
+							{
+								ins->mInvariant = false;
 							}
 						}
 					}
@@ -9094,6 +9183,7 @@ void InterCodeProcedure::Close(void)
 			int vi = simpleLocals.Element(i);
 			if (!complexLocals[vi])
 			{
+				mLocalVars[vi]->mTemp = true;
 				ResetVisited();
 				mEntryBlock->SimpleLocalToTemp(vi, AddTemporary(localTypes[vi]));
 			}
@@ -9121,6 +9211,7 @@ void InterCodeProcedure::Close(void)
 
 		TempForwarding();
 	}
+
 
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
@@ -9366,6 +9457,28 @@ void InterCodeProcedure::Close(void)
 
 #endif
 
+#if 1
+	ResetVisited();
+	if (mEntryBlock->CheckStaticStack())
+	{
+		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
+		mLinkerObject->mStackSection = mModule->mLinker->AddSection(mIdent, LST_STATIC_STACK);
+
+		for (int i = 0; i < mLocalVars.Size(); i++)
+		{
+			InterVariable* var(mLocalVars[i]);
+			if (var && !var->mTemp && !var->mLinkerObject)
+			{
+				var->mLinkerObject = mModule->mLinker->AddObject(mLocation, var->mIdent, mLinkerObject->mStackSection, LOT_BSS);
+				var->mLinkerObject->AddSpace(var->mSize);
+			}
+		}
+
+		ResetVisited();
+		mEntryBlock->CollectStaticStack(mLinkerObject, mLocalVars);
+	}
+#endif
+
 	MapVariables();
 
 	DisassembleDebug("mapped variabled");
@@ -9379,6 +9492,7 @@ void InterCodeProcedure::Close(void)
 	MergeBasicBlocks();
 	BuildTraces(false);
 	DisassembleDebug("Merged basic blocks");
+
 }
 
 void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)
@@ -9412,7 +9526,7 @@ void InterCodeProcedure::MapVariables(void)
 	mLocalSize = 0;
 	for (int i = 0; i < mLocalVars.Size(); i++)
 	{
-		if (mLocalVars[i] && mLocalVars[i]->mUsed)
+		if (mLocalVars[i] && mLocalVars[i]->mUsed && !mLocalVars[i]->mLinkerObject)
 		{
 			mLocalVars[i]->mOffset = mLocalSize;
 			mLocalSize += mLocalVars[i]->mSize;
@@ -9765,8 +9879,8 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 #endif
 }
 
-InterCodeModule::InterCodeModule(void)
-	: mGlobalVars(nullptr), mProcedures(nullptr), mCompilerOptions(0)
+InterCodeModule::InterCodeModule(Linker * linker)
+	: mLinker(linker), mGlobalVars(nullptr), mProcedures(nullptr), mCompilerOptions(0)
 {
 }
 

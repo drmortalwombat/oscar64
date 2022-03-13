@@ -127,7 +127,7 @@ void GlobalAnalyzer::AutoInline(void)
 
 void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
 {
-	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && !(procDec->mBase->mFlags & DTF_STACKCALL))
+	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && !(procDec->mBase->mFlags & DTF_STACKCALL) && (procDec->mType == DT_CONST_FUNCTION))
 	{
 		if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_FUNC_RECURSIVE))
 		{
@@ -150,6 +150,10 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
 			}
 
 			int		nparams = 0;
+
+			if (procDec->mBase->mBase->mType == DT_TYPE_STRUCT)
+				nparams += 2;
+
 			Declaration* dec = procDec->mBase->mParams;
 			while (dec)
 			{

@@ -30,7 +30,9 @@ enum LinkerSectionType
 	LST_DATA,
 	LST_BSS,
 	LST_HEAP,
-	LST_STACK	
+	LST_STACK,
+	LST_STATIC_STACK
+
 };
 
 struct ZeroPageSet
@@ -90,6 +92,7 @@ public:
 	GrowingArray<FreeChunk>		mFreeChunks;
 	
 	bool Allocate(LinkerObject* obj);
+	void PlaceStackSection(LinkerSection* stackSection, LinkerSection* section);
 };
 
 static const uint32	LREF_LOWBYTE	=	0x00000001;
@@ -111,7 +114,7 @@ public:
 	const Ident* mIdent;
 
 	GrowingArray <LinkerObject*>	 mObjects;
-
+	GrowingArray <LinkerSection*>	 mSections;
 
 	int								mStart, mEnd, mSize;
 	LinkerSectionType				mType;
@@ -119,31 +122,32 @@ public:
 	LinkerSection(void);
 };
 
-static const uint32 LOBJF_REFERENCED = 0x00000001;
-static const uint32 LOBJF_PLACED	 = 0x00000002;
-static const uint32 LOBJF_NO_FRAME	 = 0x00000004;
-static const uint32 LOBJF_INLINE	 = 0x00000008;
-static const uint32 LOBJF_CONST		 = 0x00000010;
-static const uint32 LOBJF_RELEVANT   = 0x00000020;
-
+static const uint32 LOBJF_REFERENCED	= 0x00000001;
+static const uint32 LOBJF_PLACED		= 0x00000002;
+static const uint32 LOBJF_NO_FRAME		= 0x00000004;
+static const uint32 LOBJF_INLINE		= 0x00000008;
+static const uint32 LOBJF_CONST			= 0x00000010;
+static const uint32 LOBJF_RELEVANT		= 0x00000020;
+static const uint32 LOBJF_STATIC_STACK	= 0x00000040;
 
 class LinkerObject
 {
 public:
-	Location			mLocation;
-	const Ident		*	mIdent;
-	LinkerObjectType	mType;
-	int					mID;
-	int					mAddress, mRefAddress;
-	int					mSize, mAlignment;
-	LinkerSection	*	mSection;
-	LinkerRegion	*	mRegion;
-	uint8			*	mData;
-	InterCodeProcedure* mProc;
-	uint32				mFlags;
-	uint8				mTemporaries[16], mTempSizes[16];
-	int					mNumTemporaries;
-	ZeroPageSet			mZeroPageSet;
+	Location						mLocation;
+	const Ident					*	mIdent;
+	LinkerObjectType				mType;
+	int								mID;
+	int								mAddress, mRefAddress;
+	int								mSize, mAlignment;
+	LinkerSection				*	mSection;
+	LinkerRegion				*	mRegion;
+	uint8						*	mData;
+	InterCodeProcedure			*	mProc;
+	uint32							mFlags;
+	uint8							mTemporaries[16], mTempSizes[16];
+	int								mNumTemporaries;
+	ZeroPageSet						mZeroPageSet;
+	LinkerSection				*	mStackSection;
 
 	LinkerObject(void);
 	~LinkerObject(void);
