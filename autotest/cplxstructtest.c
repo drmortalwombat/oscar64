@@ -84,7 +84,7 @@ int main(void)
 		}
 		q[i] = sqrt(sumr * sumr + sumi * sumi);
 	}
-#if 0
+#if 1
 	for(int i=0; i<20; i++)
 	{
 		printf("%d, %f - %f\n", i, p[i], q[i]);

@@ -1004,6 +1004,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mSrc[1].mType = IT_POINTER;
 					ins->mSrc[1].mTemp = vl.mTemp;
 					ins->mSrc[1].mMemory = IM_INDIRECT;
+					ins->mSrc[0].mOperandSize = vl.mType->mSize;
+					ins->mSrc[1].mOperandSize = vl.mType->mSize;
 					ins->mConst.mOperandSize = vl.mType->mSize;
 					block->Append(ins);
 				}
@@ -1952,6 +1954,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							ins->mSrc[0].mTemp = vr.mTemp;
 							ins->mSrc[1].mType = IT_POINTER;
 							ins->mSrc[1].mTemp = vl.mTemp;
+							ins->mSrc[0].mOperandSize = nex->mDecValue->mInteger;
+							ins->mSrc[1].mOperandSize = nex->mDecValue->mInteger;
 							ins->mConst.mOperandSize = nex->mDecValue->mInteger;
 							block->Append(ins);
 
@@ -2089,6 +2093,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							cins->mSrc[1].mType = IT_POINTER;
 							cins->mSrc[1].mTemp = ains->mDst.mTemp;
 							cins->mSrc[1].mMemory = IM_INDIRECT;
+							cins->mSrc[0].mOperandSize = vr.mType->mSize;
+							cins->mSrc[1].mOperandSize = vr.mType->mSize;
 							cins->mConst.mOperandSize = vr.mType->mSize;
 							block->Append(cins);
 						}
@@ -2352,6 +2358,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							cins->mSrc[1].mType = IT_POINTER;
 							cins->mSrc[1].mTemp = ains->mDst.mTemp;
 							cins->mSrc[1].mMemory = IM_INDIRECT;
+							cins->mSrc[0].mOperandSize = vr.mType->mSize;
+							cins->mSrc[1].mOperandSize = vr.mType->mSize;
 							cins->mConst.mOperandSize = vr.mType->mSize;
 							block->Append(cins);
 						}
@@ -2621,6 +2629,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					cins->mSrc[1].mType = IT_POINTER;
 					cins->mSrc[1].mTemp = ains->mDst.mTemp;
 					cins->mSrc[1].mMemory = IM_INDIRECT;
+					cins->mSrc[0].mOperandSize = vr.mType->mSize;
+					cins->mSrc[1].mOperandSize = vr.mType->mSize;
 					cins->mConst.mOperandSize = vr.mType->mSize;
 					block->Append(cins);
 				}

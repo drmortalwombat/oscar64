@@ -287,6 +287,8 @@ public:
 	void LoadDirectValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void LoadStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* wins);
 
+	void LoadOperandAddress(InterCodeProcedure* proc, const InterOperand& op, int reg);
+
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, const InterInstruction * ins);
 	void CallAssembler(InterCodeProcedure* proc, const InterInstruction * ins);

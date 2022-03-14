@@ -423,8 +423,6 @@ public:
 	void CollectActiveTemporaries(FastNumberSet& set);
 	void ShrinkActiveTemporaries(FastNumberSet& set, GrowingTypeArray& temporaries);
 
-	void ApplyExceptionStackChanges(GrowingInterCodeBasicBlockPtrArray& exceptionStack);
-
 	void Disassemble(FILE* file, bool dumpSets);
 
 	void CollectVariables(GrowingVariableArray & globalVars, GrowingVariableArray & localVars, GrowingVariableArray& paramVars, InterMemory	paramMemory);

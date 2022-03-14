@@ -5124,7 +5124,132 @@ void NativeCodeBasicBlock::LoadValue(InterCodeProcedure* proc, const InterInstru
 
 NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc)
 {
-	int	sreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp], dreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+	int	sreg, dreg;
+
+	if (ins->mSrc[0].mTemp < 0)
+	{
+		if (ins->mSrc[0].mMemory == IM_GLOBAL)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, NCIF_LOWER));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, NCIF_UPPER));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+			sreg = BC_REG_ACCU;
+		}
+		else if (ins->mSrc[0].mMemory == IM_ABSOLUTE)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+			sreg = BC_REG_ACCU;
+		}
+		else if (ins->mSrc[0].mMemory == IM_FPARAM)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, BC_REG_FPARAMS + ins->mSrc[0].mVarIndex + ins->mSrc[0].mIntConst));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+			sreg = BC_REG_ACCU;
+		}
+		else if (ins->mSrc[0].mMemory == IM_LOCAL || ins->mSrc[0].mMemory == IM_PARAM)
+		{
+			int	index = ins->mSrc[0].mIntConst;
+			int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
+			if (ins->mSrc[0].mMemory == IM_LOCAL)
+				index += proc->mLocalVars[ins->mSrc[0].mVarIndex]->mOffset;
+			else
+				index += ins->mSrc[0].mVarIndex + proc->mLocalSize + 2;
+			index += mFrameOffset;
+			CheckFrameIndex(areg, index, 256, BC_REG_ACCU);
+			sreg = BC_REG_ACCU;
+		}
+	}
+	else if (ins->mSrc[0].mIntConst != 0)
+	{
+		int	index = ins->mSrc[0].mIntConst;
+		mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+		mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, index & 0xff));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+		mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (index >> 8) & 0xff));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+		sreg = BC_REG_ACCU;
+	}
+	else
+	{
+		sreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+	}
+	
+	if (ins->mSrc[1].mTemp < 0)
+	{
+		if (ins->mSrc[1].mMemory == IM_GLOBAL)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
+			dreg = BC_REG_ADDR;
+		}
+		else if (ins->mSrc[1].mMemory == IM_ABSOLUTE)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst & 0xff));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[1].mIntConst >> 8) & 0xff));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
+			dreg = BC_REG_ADDR;
+		}
+		else if (ins->mSrc[1].mMemory == IM_FPARAM)
+		{
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
+			dreg = BC_REG_ADDR;
+		}
+		else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
+		{
+			int	index = ins->mSrc[0].mIntConst;
+			int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
+			if (ins->mSrc[1].mMemory == IM_LOCAL)
+				index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
+			else
+				index += ins->mSrc[1].mVarIndex + proc->mLocalSize + 2;
+			index += mFrameOffset;
+			CheckFrameIndex(areg, index, 256, BC_REG_ADDR);
+			dreg = BC_REG_ADDR;
+		}
+		else if (ins->mSrc[1].mMemory == IM_FRAME)
+		{
+			int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+
+			mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
+			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, index & 0xff));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (index >> 8) & 0xff));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
+			dreg = BC_REG_ADDR;
+		}
+	}
+	else if (ins->mSrc[1].mIntConst != 0)
+	{
+		int	index = ins->mSrc[0].mIntConst;
+		mIns.Push(NativeCodeInstruction(ASMIT_CLC, ASMIM_IMPLIED));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
+		mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, index & 0xff));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR));
+		mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
+		mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, (index >> 8) & 0xff));
+		mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
+		sreg = BC_REG_ADDR;
+	}
+	else
+	{
+		dreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+	}
 
 	int	size = ins->mConst.mOperandSize;
 	int	msize = 4;

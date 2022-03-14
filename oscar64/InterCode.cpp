@@ -2040,6 +2040,36 @@ void InterInstruction::FilterVarsUsage(const GrowingVariableArray& localVars, Nu
 			providedParams += mSrc[1].mVarIndex;
 		}
 	}
+	else if (mCode == IC_COPY || mCode == IC_STRCPY)
+	{
+		if (mSrc[0].mMemory == IM_LOCAL)
+		{
+			assert(mSrc[0].mTemp < 0);
+			if (!providedVars[mSrc[0].mVarIndex])
+				requiredVars += mSrc[0].mVarIndex;
+		}
+		else if (mSrc[0].mMemory == paramMemory)
+		{
+			assert(mSrc[0].mTemp < 0);
+			if (!providedParams[mSrc[0].mVarIndex])
+				requiredParams += mSrc[0].mVarIndex;
+		}
+
+		if (mSrc[1].mMemory == IM_LOCAL)
+		{
+			assert(mSrc[1].mTemp < 0);
+			if (!providedVars[mSrc[1].mVarIndex] && (mSrc[1].mIntConst != 0 || mSrc[1].mOperandSize != localVars[mSrc[1].mVarIndex]->mSize))
+				requiredVars += mSrc[1].mVarIndex;
+			providedVars += mSrc[1].mVarIndex;
+		}
+		else if (mSrc[1].mMemory == paramMemory)
+		{
+			assert(mSrc[1].mTemp < 0);
+			if (!providedParams[mSrc[1].mVarIndex] && (mSrc[1].mIntConst != 0 || mSrc[1].mOperandSize != params[mSrc[1].mVarIndex]->mSize))
+				requiredParams += mSrc[1].mVarIndex;
+			providedParams += mSrc[1].mVarIndex;
+		}
+	}
 	else if (mCode == IC_ASSEMBLER)
 	{
 		for (int i = 1; i < mNumOperands; i++)
@@ -2309,6 +2339,50 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 			}
 		}
 	}
+	else if (mCode == IC_COPY)
+	{
+		if (mSrc[1].mMemory == IM_LOCAL)
+		{
+			if (localVars[mSrc[1].mVarIndex]->mAliased)
+				;
+			else if (requiredVars[mSrc[1].mVarIndex])
+			{
+				if (mSrc[1].mIntConst == 0 && mSrc[1].mOperandSize == localVars[mSrc[1].mVarIndex]->mSize)
+					requiredVars -= mSrc[1].mVarIndex;
+			}
+			else
+			{
+				mSrc[0].mTemp = -1;
+				mCode = IC_NONE;
+				changed = true;
+			}
+		}
+		else if (mSrc[1].mMemory == paramMemory)
+		{
+			if (params[mSrc[1].mVarIndex]->mAliased)
+				;
+			else if (requiredParams[mSrc[1].mVarIndex])
+			{
+				if (mSrc[1].mIntConst == 0 && mSrc[1].mOperandSize == params[mSrc[1].mVarIndex]->mSize)
+					requiredParams -= mSrc[1].mVarIndex;
+			}
+			else
+			{
+				mSrc[0].mTemp = -1;
+				mCode = IC_NONE;
+				changed = true;
+			}
+		}
+
+		if (mSrc[0].mMemory == IM_LOCAL)
+		{
+			requiredVars += mSrc[0].mVarIndex;
+		}
+		else if (mSrc[0].mMemory == paramMemory)
+		{
+			requiredParams += mSrc[0].mVarIndex;
+		}
+	}
 
 	return changed;
 }
@@ -2564,6 +2638,16 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 			complexLocals += mSrc[1].mVarIndex;
 		else if ((mSrc[1].mMemory == IM_PARAM || mSrc[1].mMemory == IM_FPARAM) && mSrc[1].mTemp < 0)
 			complexParams += mSrc[1].mVarIndex;
+		break;
+	case IC_COPY:
+		if (mSrc[1].mMemory == IM_LOCAL && mSrc[1].mTemp < 0)
+			complexLocals += mSrc[1].mVarIndex;
+		else if ((mSrc[1].mMemory == IM_PARAM || mSrc[1].mMemory == IM_FPARAM) && mSrc[1].mTemp < 0)
+			complexParams += mSrc[1].mVarIndex;
+		if (mSrc[0].mMemory == IM_LOCAL && mSrc[0].mTemp < 0)
+			complexLocals += mSrc[0].mVarIndex;
+		else if ((mSrc[0].mMemory == IM_PARAM || mSrc[0].mMemory == IM_FPARAM) && mSrc[0].mTemp < 0)
+			complexParams += mSrc[0].mVarIndex;
 		break;
 	case IC_CONSTANT:
 		if (mDst.mType == IT_POINTER && mConst.mMemory == IM_LOCAL)
@@ -3287,6 +3371,10 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				break;
 			}
 		}
+		OptimizeAddress(ins, tvalue, 1);
+		break;
+	case IC_COPY:
+		OptimizeAddress(ins, tvalue, 0);
 		OptimizeAddress(ins, tvalue, 1);
 		break;
 	case IC_LEA:
@@ -6358,6 +6446,19 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 					localVars[mInstructions[i]->mSrc[0].mVarIndex]->mUsed = true;
 				}
 				break;
+
+			case IC_COPY:
+			case IC_STRCPY:
+				if (mInstructions[i]->mSrc[0].mMemory == IM_LOCAL)
+				{
+					localVars[mInstructions[i]->mSrc[0].mVarIndex]->mUsed = true;
+				}
+				if (mInstructions[i]->mSrc[1].mMemory == IM_LOCAL)
+				{
+					localVars[mInstructions[i]->mSrc[1].mVarIndex]->mUsed = true;
+				}
+				break;
+
 			}
 		}
 
@@ -6571,7 +6672,7 @@ void InterCodeBasicBlock::RemoveNonRelevantStatics(void)
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
 			InterInstruction* ins(mInstructions[i]);
-			if (ins->mCode == IC_STORE)
+			if (ins->mCode == IC_STORE || ins->mCode == IC_COPY)
 			{
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && !ins->mVolatile)
 				{
@@ -6993,6 +7094,7 @@ void ApplyStaticStack(InterOperand & iop, const GrowingVariableArray& localVars)
 	{
 		iop.mMemory = IM_GLOBAL;
 		iop.mLinkerObject = localVars[iop.mVarIndex]->mLinkerObject;
+		iop.mVarIndex = localVars[iop.mVarIndex]->mIndex;
 	}
 }
 
@@ -7013,6 +7115,11 @@ void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVa
 				ApplyStaticStack(mInstructions[i]->mSrc[1], localVars);
 			else if (mInstructions[i]->mCode == IC_CONSTANT && mInstructions[i]->mDst.mType == IT_POINTER)
 				ApplyStaticStack(mInstructions[i]->mConst, localVars);
+			else if (mInstructions[i]->mCode == IC_COPY)
+			{
+				ApplyStaticStack(mInstructions[i]->mSrc[0], localVars);
+				ApplyStaticStack(mInstructions[i]->mSrc[1], localVars);
+			}
 		}
 
 		if (mTrueJump) mTrueJump->CollectStaticStack(lobj, localVars);
@@ -8546,7 +8653,9 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 				break;
 
 			case IC_STORE:
-			case IC_LOAD:							
+			case IC_LOAD:		
+			case IC_COPY:
+			case IC_STRCPY:
 			case IC_CALL_NATIVE:
 			case IC_ASSEMBLER:
 
@@ -9471,6 +9580,8 @@ void InterCodeProcedure::Close(void)
 			{
 				var->mLinkerObject = mModule->mLinker->AddObject(mLocation, var->mIdent, mLinkerObject->mStackSection, LOT_BSS);
 				var->mLinkerObject->AddSpace(var->mSize);
+				var->mIndex = mModule->mGlobalVars.Size();
+				mModule->mGlobalVars.Push(var);
 			}
 		}
 
@@ -9491,7 +9602,7 @@ void InterCodeProcedure::Close(void)
 
 	MergeBasicBlocks();
 	BuildTraces(false);
-	DisassembleDebug("Merged basic blocks");
+	DisassembleDebug("Final Merged basic blocks");
 
 }
 
