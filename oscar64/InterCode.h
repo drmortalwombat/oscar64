@@ -374,6 +374,8 @@ public:
 	void CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps);
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 
+	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps);
+
 	void BuildLocalTempSets(int num);
 	void BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps);
 	bool BuildGlobalRequiredTempSet(NumberSet& fromRequiredTemps);
@@ -525,6 +527,7 @@ protected:
 	bool PropagateNonLocalUsedTemps(void);
 	void BuildLoopPrefix(void);
 	void SingleAssignmentForwarding(void);
+	void RemoveUnusedStoreInstructions(InterMemory	paramMemory);
 
 	void MergeBasicBlocks(void);
 

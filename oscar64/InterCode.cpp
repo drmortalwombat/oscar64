@@ -352,6 +352,135 @@ void ValueSet::FlushCallAliases(const GrowingInstructionPtrArray& tvalue, const 
 	}
 }
 
+static bool CollidingMem(const InterOperand& op1, const InterOperand& op2)
+{
+	if (op1.mMemory != op2.mMemory)
+		return op1.mMemory == IM_INDIRECT || op2.mMemory == IM_INDIRECT;
+
+	switch (op1.mMemory)
+	{
+	case IM_LOCAL:
+	case IM_FPARAM:
+	case IM_PARAM:
+		return op1.mVarIndex == op2.mVarIndex && op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+	case IM_ABSOLUTE:
+		return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+	case IM_GLOBAL:
+		if (op1.mLinkerObject == op2.mLinkerObject)
+			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+		else
+			return false;
+	case IM_INDIRECT:
+		if (op1.mTemp == op2.mTemp)
+			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+		else
+			return true;
+	default:
+		return false;
+	}
+}
+
+static bool CollidingMem(const InterOperand& op, const InterInstruction* ins)
+{
+	if (ins->mCode == IC_LOAD)
+		return CollidingMem(op, ins->mSrc[0]);
+	else if (ins->mCode == IC_STORE)
+		return CollidingMem(op, ins->mSrc[1]);
+	else
+		return false;
+}
+
+static bool SameMem(const InterOperand& op1, const InterOperand& op2)
+{
+	if (op1.mMemory != op2.mMemory || op1.mType != op2.mType || op1.mIntConst != op2.mIntConst)
+		return false;
+
+	switch (op1.mMemory)
+	{
+	case IM_LOCAL:
+	case IM_FPARAM:
+	case IM_PARAM:
+		return op1.mVarIndex == op2.mVarIndex;
+	case IM_ABSOLUTE:
+		return true;
+	case IM_GLOBAL:
+		return op1.mLinkerObject == op2.mLinkerObject;
+	case IM_INDIRECT:
+		return op1.mTemp == op2.mTemp;
+	default:
+		return false;
+	}
+}
+
+// returns true if op2 is part of op1
+static bool SameMemSegment(const InterOperand& op1, const InterOperand& op2)
+{
+	if (op1.mMemory != op2.mMemory || op1.mIntConst > op2.mIntConst || op1.mIntConst + op1.mOperandSize < op2.mIntConst + op2.mOperandSize)
+		return false;
+
+	switch (op1.mMemory)
+	{
+	case IM_LOCAL:
+	case IM_FPARAM:
+	case IM_PARAM:
+		return op1.mVarIndex == op2.mVarIndex;
+	case IM_ABSOLUTE:
+		return true;
+	case IM_GLOBAL:
+		return op1.mLinkerObject == op2.mLinkerObject;
+	case IM_INDIRECT:
+		return op1.mTemp == op2.mTemp;
+	default:
+		return false;
+	}
+}
+
+static bool SameMemAndSize(const InterOperand& op1, const InterOperand& op2)
+{
+	if (op1.mMemory != op2.mMemory || op1.mType != op2.mType || op1.mIntConst != op2.mIntConst || op1.mOperandSize != op2.mOperandSize)
+		return false;
+
+	switch (op1.mMemory)
+	{
+	case IM_LOCAL:
+	case IM_FPARAM:
+	case IM_PARAM:
+		return op1.mVarIndex == op2.mVarIndex;
+	case IM_ABSOLUTE:
+		return true;
+	case IM_GLOBAL:
+		return op1.mLinkerObject == op2.mLinkerObject;
+	case IM_INDIRECT:
+		return op1.mTemp == op2.mTemp;
+	default:
+		return false;
+	}
+}
+
+static bool SameMem(const InterOperand& op, const InterInstruction* ins)
+{
+	if (ins->mCode == IC_LOAD)
+		return SameMem(op, ins->mSrc[0]);
+	else if (ins->mCode == IC_STORE)
+		return SameMem(op, ins->mSrc[1]);
+	else
+		return false;
+}
+
+static bool SameInstruction(const InterInstruction* ins1, const InterInstruction* ins2)
+{
+	if (ins1->mCode == ins2->mCode && ins1->mNumOperands == ins2->mNumOperands && ins1->mOperator == ins2->mOperator)
+	{
+		for (int i = 0; i < ins1->mNumOperands; i++)
+			if (!ins1->mSrc[i].IsEqual(ins2->mSrc[i]))
+				return false;
+		return true;
+	}
+
+	return false;
+}
+
+
 static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int64 val2 = 0)
 {
 	switch (oper)
@@ -4002,6 +4131,102 @@ void  InterCodeBasicBlock::CollectConstTemps(GrowingInstructionPtrArray& ctemps,
 	}
 }
 
+bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		GrowingInstructionPtrArray	ltemps(nullptr);
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+
+			int	j;
+
+			if (ins->mDst.mTemp >= 0)
+			{
+				j = 0;
+				for (int k = 0; k < ltemps.Size(); k++)
+				{
+					if (ltemps[k]->mSrc[0].mTemp != ins->mDst.mTemp && ltemps[k]->mSrc[1].mTemp != ins->mDst.mTemp)
+					{
+						ltemps[j++] = ltemps[k];
+					}
+				}
+				ltemps.SetSize(j);
+			}
+
+			switch (ins->mCode)
+			{
+			case IC_LOAD:
+				for (int k = 0; k < ltemps.Size(); k++)
+				{
+					if (SameMemSegment(ltemps[k]->mSrc[1], ins->mSrc[0]))
+					{
+						ins->mSrc[0].mMemory = ltemps[k]->mSrc[0].mMemory;
+						ins->mSrc[0].mTemp = ltemps[k]->mSrc[0].mTemp;
+						ins->mSrc[0].mVarIndex = ltemps[k]->mSrc[0].mVarIndex;
+						ins->mSrc[0].mIntConst += ltemps[k]->mSrc[0].mIntConst;
+						ins->mSrc[0].mLinkerObject = ltemps[k]->mSrc[0].mLinkerObject;
+						changed = true;
+					}
+				}
+
+				break;
+
+			case IC_STORE:
+
+				j = 0;
+				for(int k=0; k<ltemps.Size(); k++)
+				{
+					if (!CollidingMem(ltemps[k]->mSrc[0], ins->mSrc[1]) &&
+						!CollidingMem(ltemps[k]->mSrc[1], ins->mSrc[1]))
+					{
+						ltemps[j++] = ltemps[k];
+					}
+				}
+				ltemps.SetSize(j);
+				break;
+
+			case IC_COPY:
+				for (int k = 0; k < ltemps.Size(); k++)
+				{
+					if (SameMemAndSize(ltemps[k]->mSrc[1], ins->mSrc[0]))
+					{
+						ins->mSrc[0] = ltemps[k]->mSrc[0];
+						changed = true;
+					}
+				}
+
+				j = 0;
+				for (int k = 0; k < ltemps.Size(); k++)
+				{
+					if (!CollidingMem(ltemps[k]->mSrc[0], ins->mSrc[1]) &&
+						!CollidingMem(ltemps[k]->mSrc[1], ins->mSrc[1]))
+					{
+						ltemps[j++] = ltemps[k];
+					}
+				}
+				ltemps.SetSize(j);
+				ltemps.Push(ins);
+				break;
+			}
+
+		}
+
+		if (mTrueJump && mTrueJump->PropagateVariableCopy(ltemps))
+			changed = true;
+		if (mFalseJump && mFalseJump->PropagateVariableCopy(ltemps))
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::PropagateConstTemps(const GrowingInstructionPtrArray& ctemps)
 {
 	bool	changed = false;
@@ -6049,89 +6274,6 @@ static int Find(GrowingIntArray& table, int i)
 	}
 
 	return j;
-}
-
-static bool CollidingMem(const InterOperand& op1, const InterOperand& op2)
-{
-	if (op1.mMemory != op2.mMemory)
-		return op1.mMemory == IM_INDIRECT || op2.mMemory == IM_INDIRECT;
-
-	switch (op1.mMemory)
-	{
-	case IM_LOCAL:
-	case IM_FPARAM:
-	case IM_PARAM:
-		return op1.mVarIndex == op2.mVarIndex && op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
-	case IM_ABSOLUTE:
-		return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
-	case IM_GLOBAL:
-		if (op1.mLinkerObject == op2.mLinkerObject)
-			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
-		else
-			return false;
-	case IM_INDIRECT:
-		if (op1.mTemp == op2.mTemp)
-			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
-		else
-			return true;
-	default:
-		return false;
-	}
-}
-
-static bool CollidingMem(const InterOperand& op, const InterInstruction * ins)
-{
-	if (ins->mCode == IC_LOAD)
-		return CollidingMem(op, ins->mSrc[0]);
-	else if (ins->mCode == IC_STORE)
-		return CollidingMem(op, ins->mSrc[1]);
-	else
-		return false;
-}
-
-static bool SameMem(const InterOperand& op1, const InterOperand& op2)
-{
-	if (op1.mMemory != op2.mMemory || op1.mType != op2.mType || op1.mIntConst != op2.mIntConst)
-		return false;
-
-	switch (op1.mMemory)
-	{
-	case IM_LOCAL:
-	case IM_FPARAM:
-	case IM_PARAM:
-		return op1.mVarIndex == op2.mVarIndex;
-	case IM_ABSOLUTE:
-		return true;
-	case IM_GLOBAL:
-		return op1.mLinkerObject == op2.mLinkerObject;
-	case IM_INDIRECT:
-		return op1.mTemp == op2.mTemp;
-	default:
-		return false;
-	}
-}
-
-static bool SameMem(const InterOperand& op, const InterInstruction* ins)
-{
-	if (ins->mCode == IC_LOAD)
-		return SameMem(op, ins->mSrc[0]);
-	else if (ins->mCode == IC_STORE)
-		return SameMem(op, ins->mSrc[1]);
-	else
-		return false;
-}
-
-static bool SameInstruction(const InterInstruction* ins1, const InterInstruction* ins2)
-{
-	if (ins1->mCode == ins2->mCode && ins1->mNumOperands == ins2->mNumOperands && ins1->mOperator == ins2->mOperator)
-	{
-		for(int i=0; i<ins1->mNumOperands; i++)
-			if (!ins1->mSrc[i].IsEqual(ins2->mSrc[i]))
-				return false;
-		return true;
-	}
-
-	return false;
 }
 
 void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue)
@@ -9062,6 +9204,69 @@ void InterCodeProcedure::RemoveUnusedInstructions(void)
 	} while (mEntryBlock->RemoveUnusedResultInstructions());
 }
 
+void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
+{
+	if (mLocalVars.Size() > 0 || mParamVars.Size() > 0)
+	{
+		for (int i = 0; i < mLocalVars.Size(); i++)
+		{
+			if (mLocalAliasedSet[i])
+				mLocalVars[i]->mAliased = true;
+		}
+		for (int i = 0; i < mParamVars.Size(); i++)
+		{
+			if (mParamAliasedSet[i])
+				mParamVars[i]->mAliased = true;
+		}
+
+		//
+		// Now remove unused stores
+		//
+
+		do {
+			ResetVisited();
+			mEntryBlock->BuildLocalVariableSets(mLocalVars, mParamVars, paramMemory);
+
+			ResetVisited();
+			mEntryBlock->BuildGlobalProvidedVariableSet(mLocalVars, NumberSet(mLocalVars.Size()), mParamVars, NumberSet(mParamVars.Size()), paramMemory);
+
+			NumberSet	totalRequired2(mLocalVars.Size());
+			NumberSet	totalRequiredParams(mParamVars.Size());
+
+			do {
+				ResetVisited();
+			} while (mEntryBlock->BuildGlobalRequiredVariableSet(mLocalVars, totalRequired2, mParamVars, totalRequiredParams, paramMemory));
+
+			ResetVisited();
+		} while (mEntryBlock->RemoveUnusedStoreInstructions(mLocalVars, mParamVars, paramMemory));
+
+		DisassembleDebug("removed unused local stores");
+	}
+
+	// Remove unused global stores
+
+	if (mModule->mGlobalVars.Size())
+	{
+		do {
+			ResetVisited();
+			mEntryBlock->BuildStaticVariableSet(mModule->mGlobalVars);
+
+			ResetVisited();
+			mEntryBlock->BuildGlobalProvidedStaticVariableSet(mModule->mGlobalVars, NumberSet(mModule->mGlobalVars.Size()));
+
+			NumberSet	totalRequired2(mModule->mGlobalVars.Size());
+
+			do {
+				ResetVisited();
+			} while (mEntryBlock->BuildGlobalRequiredStaticVariableSet(mModule->mGlobalVars, totalRequired2));
+
+			ResetVisited();
+		} while (mEntryBlock->RemoveUnusedStaticStoreInstructions(mModule->mGlobalVars));
+
+		DisassembleDebug("removed unused static stores");
+	}
+}
+
 void InterCodeProcedure::Close(void)
 {
 	int				i, j, k, start;
@@ -9210,67 +9415,7 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->CollectVariables(mModule->mGlobalVars, mLocalVars, mParamVars, paramMemory);
 
-
-	if (mLocalVars.Size() > 0 || mParamVars.Size() > 0)
-	{
-		for (int i = 0; i < mLocalVars.Size(); i++)
-		{
-			if (mLocalAliasedSet[i])
-				mLocalVars[i]->mAliased = true;
-		}
-		for (int i = 0; i < mParamVars.Size(); i++)
-		{
-			if (mParamAliasedSet[i])
-				mParamVars[i]->mAliased = true;
-		}
-
-		//
-		// Now remove unused stores
-		//
-
-		do {
-			ResetVisited();
-			mEntryBlock->BuildLocalVariableSets(mLocalVars, mParamVars, paramMemory);
-
-			ResetVisited();
-			mEntryBlock->BuildGlobalProvidedVariableSet(mLocalVars, NumberSet(mLocalVars.Size()), mParamVars, NumberSet(mParamVars.Size()), paramMemory);
-
-			NumberSet	totalRequired2(mLocalVars.Size());
-			NumberSet	totalRequiredParams(mParamVars.Size());
-
-			do {
-				ResetVisited();
-			} while (mEntryBlock->BuildGlobalRequiredVariableSet(mLocalVars, totalRequired2, mParamVars, totalRequiredParams, paramMemory));
-
-			ResetVisited();
-		} while (mEntryBlock->RemoveUnusedStoreInstructions(mLocalVars, mParamVars, paramMemory));
-
-		DisassembleDebug("removed unused local stores");
-	}
-
-	// Remove unused global stores
-
-	if (mModule->mGlobalVars.Size())
-	{
-		do {
-			ResetVisited();
-			mEntryBlock->BuildStaticVariableSet(mModule->mGlobalVars);
-
-			ResetVisited();
-			mEntryBlock->BuildGlobalProvidedStaticVariableSet(mModule->mGlobalVars, NumberSet(mModule->mGlobalVars.Size()));
-
-			NumberSet	totalRequired2(mModule->mGlobalVars.Size());
-
-			do {
-				ResetVisited();
-			} while (mEntryBlock->BuildGlobalRequiredStaticVariableSet(mModule->mGlobalVars, totalRequired2));
-
-			ResetVisited();
-		} while (mEntryBlock->RemoveUnusedStaticStoreInstructions(mModule->mGlobalVars));
-
-		DisassembleDebug("removed unused static stores");
-	}
-
+	RemoveUnusedStoreInstructions(paramMemory);
 
 	for (int j = 0; j < 2; j++)
 	{
@@ -9436,6 +9581,17 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->CompactInstructions();
 #endif
+
+	do
+	{
+		GrowingInstructionPtrArray	cipa(nullptr);
+		ResetVisited();
+		changed = mEntryBlock->PropagateVariableCopy(cipa);
+
+		RemoveUnusedStoreInstructions(paramMemory);
+	} while (changed);
+
+	DisassembleDebug("Copy forwarding");
 
 
 	GrowingInstructionPtrArray	gipa(nullptr);
