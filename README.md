@@ -23,7 +23,7 @@ The goal is to implement the actual C standard and not some subset for performan
 
 ## Limits and Errors
 
-There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 68 iterations per second with byte code (11266) and 295 iterations with native code (11784 Bytes).
+There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 81 iterations per second with byte code (11108) and 354 iterations with native code (10965 Bytes).
 
 ### Language
 
@@ -41,14 +41,10 @@ There are still several open areas, but most targets have been reached.  The cur
 * No NaN support for floats
 * Basic zero page variables not restored on stop/restore
 
-### Optimizing
-
-* Auto variables placed on fixed stack for known call sequence
 
 ### Intermediate code generation
 
 * No check for running out of temporary registers
-* Wasted 7 codes for far jumps
 
 ### Native code generation
 
