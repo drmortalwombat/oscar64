@@ -412,6 +412,30 @@ static bool SameMem(const InterOperand& op1, const InterOperand& op2)
 	}
 }
 
+static bool SameMemRegion(const InterOperand& op1, const InterOperand& op2)
+{
+	if (op1.mMemory != op2.mMemory)
+		return false;
+
+	switch (op1.mMemory)
+	{
+	case IM_LOCAL:
+	case IM_FPARAM:
+	case IM_PARAM:
+	case IM_FRAME:
+	case IM_FFRAME:
+		return true;
+	case IM_ABSOLUTE:
+		return true;
+	case IM_GLOBAL:
+		return op1.mLinkerObject == op2.mLinkerObject;
+	case IM_INDIRECT:
+		return op1.mTemp == op2.mTemp;
+	default:
+		return false;
+	}
+}
+
 // returns true if op2 is part of op1
 static bool SameMemSegment(const InterOperand& op1, const InterOperand& op2)
 {
@@ -8426,7 +8450,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 				if (i != j)
 					mInstructions[j] = ins;
 			}
-			else if (mInstructions[i]->mCode == IC_LEA && mInstructions[i]->mSrc[0].mTemp == -1)
+			else if (mInstructions[i]->mCode == IC_LEA && (mInstructions[i]->mSrc[0].mTemp < 0 || mInstructions[i]->mSrc[1].mTemp < 0))
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
@@ -8746,6 +8770,33 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 			}
 
 		} while (changed);
+
+		// sort stores up
+
+		do
+		{
+			changed = false;
+
+			for (int i = 0; i + 1 < mInstructions.Size(); i++)
+			{
+				if (mInstructions[i + 0]->mCode == IC_STORE && mInstructions[i + 1]->mCode == IC_STORE && 
+					!mInstructions[i + 0]->mVolatile && !mInstructions[i + 1]->mVolatile &&
+//					!CollidingMem(mInstructions[i + 0]->mSrc[1], mInstructions[i + 1]->mSrc[1]) &&
+					SameMemRegion(mInstructions[i + 0]->mSrc[1], mInstructions[i + 1]->mSrc[1]) &&
+
+					(mInstructions[i + 0]->mSrc[1].mVarIndex > mInstructions[i + 1]->mSrc[1].mVarIndex ||
+						mInstructions[i + 0]->mSrc[1].mVarIndex == mInstructions[i + 1]->mSrc[1].mVarIndex &&
+						mInstructions[i + 0]->mSrc[1].mIntConst > mInstructions[i + 1]->mSrc[1].mIntConst))
+				{
+					InterInstruction* ins = mInstructions[i + 1];
+					mInstructions[i + 1] = mInstructions[i + 0];
+					mInstructions[i + 0] = ins;
+					changed = true;
+				}
+			}
+
+		} while (changed);
+
 
 		if (mTrueJump) mTrueJump->PeepholeOptimization();
 		if (mFalseJump) mFalseJump->PeepholeOptimization();
@@ -9744,6 +9795,21 @@ void InterCodeProcedure::Close(void)
 		ResetVisited();
 		mEntryBlock->CollectStaticStack(mLinkerObject, mLocalVars);
 	}
+#endif
+
+#if 1
+	do {
+		TempForwarding();
+	} while (GlobalConstantPropagation());
+
+	ResetVisited();
+	mEntryBlock->PeepholeOptimization();
+
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	DisassembleDebug("Peephole optimized");
+
 #endif
 
 	MapVariables();

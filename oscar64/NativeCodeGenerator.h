@@ -158,7 +158,8 @@ public:
 
 	bool RemoveNops(void);
 	bool PeepHoleOptimizer(NativeCodeProcedure* proc, int pass);
-	void BlockSizeReduction(void);
+	void BlockSizeReduction(NativeCodeProcedure* proc);
+	bool BlockSizeCopyReduction(NativeCodeProcedure* proc, int & si, int & di);
 
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc);
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock);
