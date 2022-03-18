@@ -315,6 +315,13 @@ bool ByteCodeInstruction::IsIntegerConst(void) const
 	return mCode >= BC_CONST_8 && mCode <= BC_CONST_32;
 }
 
+bool ByteCodeInstruction::IsCompare(void) const
+{
+	return mCode >= BC_BINOP_CMPUR_16 && mCode <= BC_BINOP_CMPSI_8 ||
+		mCode == BC_BINOP_CMP_F32 || mCode == BC_BINOP_CMP_U32 || mCode == BC_BINOP_CMP_S32;
+}
+
+
 bool ByteCodeInstruction::CheckAccuSize(uint32 & used)
 {
 	bool	changed = false;
@@ -4571,6 +4578,21 @@ bool ByteCodeBasicBlock::PropagateAccuCrossBorder(int accu, int addr)
 		mVisited = true;
 		if (mEntryBlocks.Size() != 1)
 			accu = addr = -1;
+		else
+		{
+			ByteCodeBasicBlock* p = mEntryBlocks[0];
+
+			int	s = p->mIns.Size();
+
+			if (p->mIns.Size() >= 2 && mIns.Size() == 2 && 
+				mIns[1].IsCompare() && p->mIns[s - 1].IsSame(mIns[1]) &&
+				((mIns[0].mCode == BC_LOAD_REG_16 && (p->mIns[s - 2].mCode == BC_LOAD_REG_16 || p->mIns[s - 2].mCode == BC_STORE_REG_16)) ||
+				 (mIns[0].mCode == BC_LOAD_REG_8  && (p->mIns[s - 2].mCode == BC_LOAD_REG_8  || p->mIns[s - 2].mCode == BC_STORE_REG_8))) && 
+				p->mIns[s - 2].mRegister == mIns[0].mRegister)
+			{
+				mIns.SetSize(0);
+			}
+		}
 
 		int j = 0;
 		for (int i = 0; i < mIns.Size(); i++)

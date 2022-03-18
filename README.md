@@ -59,7 +59,6 @@ A windows installer is provided with the release, the compiler is installed into
 
 The compiler can also built using MSVC or GCC.  A visual studio project and a makefile are part of the source repository. The makefile is in the make folder.
 
-
 ### Compiler arguments
 
 The compiler is command line driven, and creates an executable .prg file.
@@ -82,6 +81,12 @@ The compiler is command line driven, and creates an executable .prg file.
 * -tf: target format, may be prg, crt or bin
 
 A list of source files can be provided.
+
+### Building the samples
+
+The windows installer puts the samples into the users documents folder, using the directory "%userprofile%\documents\oscar64\samples".  A batch file *make.bat* is also placed into this directory which invokes the compiler and builds all samples.  It invokes a second batch file in "%userprofile%\documents\oscar64\bin\oscar64.bat" that calls the compiler.
+
+On a linux installation one can build the samples invoking the *build.sh* shell script in the samples directory.
 
 ## Language extensions
 
@@ -294,6 +299,196 @@ The compiler provides two levels of interrupt safe functions.  The specifier __i
 		return 0
 	}
 	
+## Samples
+
+### Character input and output "stdio"
+
+#### helloworld.c
+
+### Disk file access "kernalio"
+
+The C64 uses various kernal routines to read and write files on disk.  These routines are available with a library <c64/kernalio.h>  All samples in this directory use drive 9, but can easily be changed to drive 8.
+
+#### Reading the directory "diskdir.c"
+
+Reads the directory from the current disk in drive 9 and displays it on screen.
+
+
+#### Writing characters "charwrite.c"
+
+Opens a ".prg" file on drive 9 for writing and writes 128 characters into the file.
+
+#### Reading characters "charread.c"
+
+Opens a ".prg" file on drive 9 for reading, reads all characters from the file and prints there character code on screen.
+
+#### Writing binary data "filewrite.c"
+
+Opens a ".prg" file on drive 9 for writing and writes an array of structs as binary data into the file.
+
+#### Reading binary data "fileread.c"
+
+Opens a ".prg" file on drive 9 for reading and reads an array of structs as binary data into the file.
+
+#### Writing image data "hireswrite.c"
+
+Renders a hires image into a buffer at 0xe000..0xff40 and saves it to disk.  The added complexity is, that the kernal itself cannot access the memory in this region because it is covered by the kernal ROM itself.  The operation is therefore implemented using a 200 byte RAM buffer.
+
+#### Reading image data "hiresread.c"
+
+Reads a hires image from disk into a buffer at 0xe000..0xff40 and displays it.  The read can be performed without a secondary buffer, because writes to the ROM end up in the RAM underneath.
+
+### Remapping memory "memmap"
+
+The C64 memory map is very flexible.  These samples show how to manipulate the memory map and use easyflash ROMs to execute larger programs.
+
+#### Using more memory "largemem.c"
+
+Moves the BASIC ROM out of the way and allows the use of memory from 0x0800..0xcfff for the compiled C program.
+
+#### Using all memory "allmem.c"
+
+Moves the BASIC ROM, Kernal ROM and the IO area out of the way and allows the use of memory from 0x0800 to 0xfff0 for the compiled C code.  An interrupt trampoline is installed to keep the kernal going.
+
+#### Custom character set "charsetlo.c"
+
+Embedds a custom character set into the prg file at 0x2000..0x27ff and switches the character set base address in the VIC to this address.  The code and data portion of the compiled program is split into two areas to make room for this fixed location data.
+
+#### Himem character set "charsethi.c"
+
+Embedds a custom character set into the prg file at 0xc800..0xcfff and switches the character set base address in the VIC to this address.
+  
+#### Copy character set "charsetcopy.c"
+
+Embedds a custom character set into the prg file at 0xc000..0xc7ff and copies it to 0xd000 on startup.  This frees this area for stack and heap usage.
+
+#### Easyflash banking "easyflash.c"
+
+When compiling for easyflash, the linker will place the code and data section into bank 0 and copy it to 0x0900..0x7fff at startup.  The remaining banks are free to be used for data or additional codes and can be banked in as needed.  This sample uses banks one to six for additional functions.
+
+#### Easyflash common area "easyflashshared.c"
+
+This sample reserves a fixed area of several banks for a common code segment.  A multiplexer function is placed into this common segment to select a different bank and call a function in that bank.
+
+#### Easyflash relocated area "easyflashreloc.c"
+
+An alternative to calling the function in the cartridge ROM itself is to copy it to a different location in RAM and execute it there.  This sample creates functions in different ROM banks that are linked for a memory area in RAM at 0x7000.  The code is copied from the ROM to RAM and then executed.
+
+#### Terminate stay resident "tsr.c"
+
+A common usage for the RAM area in 0xc000..0xcfff which is visible but not usable from BASIC is to install a terminate stay resident BASIC extension, which can then be called using sys 49152.
+
+It would be a waste of disk space and load time to load this directly into 0xc000 together with a BASIC start code at 0x0800.  This sample uses the linker to link the code for the TSR at 0xc000 but place it into the prg at 0x0900.  The startup then copies this code to 0xc000.
+
+### Hires graphics "hires"
+
+The C64 has a hires graphics mode with 320x200 pixels.  Oscar provides a library <gfx/bitmap.h> for rendering in on screen and off screen bitmaps.
+
+#### Draw lines "lines.c"
+
+Draws and clears lines with various patterns.
+
+#### Draw 3D wireframe "cube3d.c"
+
+Draws a rotating 3D wireframe cube using draw (OR) and clear (AND) operations.  The 3D operations are performed using 12.4 bit fixpoint math.
+
+#### Software bit blit engine "bitblit.c"
+
+![Various bitblit modes](samples/hires/bitblit.png)
+
+Demonstrates the various bit blit modes of the software blit engine, including mask and pattern.
+
+#### Draw polygons "polygon.c"
+
+Draws a series of pattern filled stars with changing orientation and size.
+
+#### Mixed text and hires screen "splitscreen.c"
+
+Uses the <c64/rasterirq.h> library to split the screen into an upper hires and lower text mode screen.  The text area is used to query the user for x, y and radius of circles to draw.
+
+#### 3D Function plotter "func3d.c"
+
+![3D Function plotter](samples/hires/func3d.png)
+
+Draws a 3D function using flat shading and the painters algorithm.  All 3D operations are performed with floating point numbers using the vector library <gfx/vector3d.h>.
+
+### Multicolor bitmaps "hiresmc"
+
+The C64 bitmap graphics mode can also use 2bit per pixel, resulting in an image of 160x200 with four colors.  The oscar library <gfx/bitmapmc.h> implements various drawing operations in this mode.  All x coordinates still range from 0 to 320 to keep a quasi square pixel layout.
+
+#### Draw polygons "polygon.c"
+
+![Colored stars](samples/hiresmc/polygon.png)
+
+Similar to its hires counterpart but using different colors and patterns.
+
+#### Fill similar colored areas "floodfill.c"
+
+Draws filled random circles and fills the space using flood fill.
+
+#### 3D Function plotter "func3d.c"
+
+Similar to its hires counterpart but using four shades of grey.
+
+
+### Mandelbrot renderer "fractals"
+
+Various versions of the mandelbrot set using float arithmetic.
+
+#### Text mode fractal "mbtext.c"
+
+Simple mandelbrot renderer using text cells and colors to generate a 40x25 pixel image.
+
+#### Hires fractal "mbhires.c"
+
+Hires version using black and white to show the mandelbrot set.
+
+#### Multi color fractal "mbmulti.c"
+
+Multi color version using pure and mixed colors.
+
+#### 3D shaded fractal "mbmulti3d.c"
+
+![Mandelbrot fractal in 3D](samples/fractals/mbmulti3d.png)
+
+Mandelbrot rendered in 3D with shading.  The image is drawn in columns from back to front, using two adjacent columns to calculate slope and brightness.
+
+
+### Raster beam interrupts "rasterirq"
+
+Interrupts based on the raster beam are an important part of the C64 programmers toolbox.  Switching VIC registers on specific lines opens up many additional features, such a more sprites using multiplexing, combining modes or changing colors or scroll offsets.  The <c64/rasterirq.h> library provides easy access to this feature using on the fly code generation.
+
+#### Static color changes "colorbars.c"
+
+![Color bars](samples/rasterirq/colorbars.png)
+
+Changes the background and border colors several times per frame, creating horizontal color bars.
+
+#### Crawling text at bottom "textcrawler.c"
+
+Draws a scrolling line of text at the bottom of the screen.
+
+#### Crawling text at bottom in IRQ "autocrawler.c"
+
+Draws a scrolling line of text at the bottom of the screen, using an interrupt to update the text.
+
+#### movingbars.c
+
+Changing the background and border color at varying vertical positions giving the impression of two chasing colored bars.
+
+#### openborders.c
+
+Open the vertical screen borders by switching the vertical size bit at the appropriate raster lines.
+
+
+### scrolling
+
+### sprites
+
+### games
+
+
+
 
 
 ## Implementation Details

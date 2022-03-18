@@ -13317,7 +13317,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 		{
 			changed = OptimizeSimpleLoopInvariant(proc, nullptr, nullptr);
 		}
-		else if (sz > 3 && sz < 200 && mNumEntries == 2 && mTrueJump == this)
+		else if (sz > 3 && sz < 200 && mNumEntries >= 2 && mTrueJump == this)
 		{
 			bool		simple = true;
 
@@ -17868,6 +17868,23 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						int a = mIns[i + 1].mAddress; mIns[i + 1].mAddress = mIns[i + 4].mAddress; mIns[i + 4].mAddress = a;
 						progress = true;
 					}
+					else if (pass > 0 &&
+						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+						mIns[i + 3].IsShift() && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 4].IsShift() && mIns[i + 4].mMode == ASMIM_IMPLIED &&
+						mIns[i + 5].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 5].mAddress == mIns[i + 0].mAddress && !(mIns[i + 5].mLive & LIVE_CPU_REG_A) &&
+						mIns[i + 5].mAddress != mIns[i + 1].mAddress && mIns[i + 5].mAddress != mIns[i + 3].mAddress)
+					{
+						mIns[i + 2].CopyMode(mIns[i + 0]); mIns[i + 2].mLive |= LIVE_MEM;
+						mIns[i + 4].CopyMode(mIns[i + 0]); mIns[i + 4].mLive |= LIVE_MEM;
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+
 #if 1
 					if (pass == 0 &&
 						mIns[i + 0].mType == ASMIT_CLC &&
@@ -18305,6 +18322,8 @@ void NativeCodeBasicBlock::BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& p
 {
 	if (!mPlaced)
 	{
+		assert(mBranch != ASMIT_JMP || mIns.Size() > 0);
+
 		mPlaced = true;
 		mPlace = placement.Size();
 		placement.Push(this);
@@ -18396,6 +18415,13 @@ bool NativeCodeBasicBlock::CalculateOffset(int& total)
 			total += BranchByteSize(total, mTrueJump->mOffset);
 		else if (mTrueJump->mPlace == mPlace + 1)
 			total += BranchByteSize(total, mFalseJump->mOffset);
+		else if (
+			mFalseJump->mPlace > mTrueJump->mPlace && mFalseJump->mPlace < mPlace ||
+			mFalseJump->mPlace < mTrueJump->mPlace && mFalseJump->mPlace > mPlace)
+		{
+			total += BranchByteSize(total, mFalseJump->mOffset);
+			total += JumpByteSize(mTrueJump, mTrueJump->mOffset - total);
+		}
 		else
 		{
 			total += BranchByteSize(total, mTrueJump->mOffset);
@@ -18431,6 +18457,13 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 			end += PutBranch(proc, mBranch, mTrueJump->mOffset - end);
 		else if (mTrueJump->mPlace == mPlace + 1)
 			end += PutBranch(proc, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
+		else if (
+			mFalseJump->mPlace > mTrueJump->mPlace && mFalseJump->mPlace < mPlace ||
+			mFalseJump->mPlace < mTrueJump->mPlace && mFalseJump->mPlace > mPlace)
+		{
+			end += PutBranch(proc, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
+			end += PutJump(proc, mTrueJump, mTrueJump->mOffset - end);
+		}
 		else
 		{
 			end += PutBranch(proc, mBranch, mTrueJump->mOffset - end);

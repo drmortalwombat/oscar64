@@ -225,6 +225,7 @@ public:
 	bool IsLocalAccess(void) const;
 	bool IsShiftByRegister(void) const;
 	bool IsIntegerConst(void) const;
+	bool IsCompare(void) const;
 
 	bool IsCommutative(void) const;
 	bool IsSame(const ByteCodeInstruction& ins) const;
