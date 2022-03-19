@@ -1464,6 +1464,23 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else
 						dtype = vr.mType;
 				}
+				else if (exp->mToken == TK_LEFT_SHIFT || exp->mToken == TK_RIGHT_SHIFT)
+				{
+					if (vl.mType->mFlags & DTF_SIGNED)
+					{
+						if (vl.mType->mSize == 4)
+							dtype = TheSignedLongTypeDeclaration;
+						else
+							dtype = TheSignedIntTypeDeclaration;
+					}
+					else
+					{
+						if (vl.mType->mSize == 4 || vr.mType->mSize == 4)
+							dtype = TheUnsignedLongTypeDeclaration;
+						else
+							dtype = TheUnsignedIntTypeDeclaration;
+					}
+				}
 				else if (vr.mType->mSize < vl.mType->mSize && (vl.mType->mFlags & DTF_SIGNED))
 				{
 					if (vl.mType->mSize == 4)
