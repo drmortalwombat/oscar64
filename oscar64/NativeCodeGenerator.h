@@ -98,6 +98,7 @@ public:
 	bool ChangesYReg(void) const;
 	bool ChangesXReg(void) const;
 
+	bool ReferencesAccu(void) const;
 	bool ReferencesYReg(void) const;
 	bool ReferencesXReg(void) const;
 

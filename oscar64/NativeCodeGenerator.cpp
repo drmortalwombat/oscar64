@@ -714,6 +714,11 @@ bool NativeCodeInstruction::ChangesXReg(void) const
 	return mType == ASMIT_TAX || mType == ASMIT_LDX || mType == ASMIT_INX || mType == ASMIT_DEX || mType == ASMIT_JSR;
 }
 
+bool NativeCodeInstruction::ReferencesAccu(void) const
+{
+	return ChangesAccu() || RequiresAccu();
+}
+
 bool NativeCodeInstruction::ReferencesYReg(void) const
 {
 	return ChangesYReg() || RequiresYReg();
@@ -9539,7 +9544,7 @@ bool NativeCodeBasicBlock::ForwardZpYIndex(void)
 				mIns[i + 0].mType == ASMIT_CLC &&
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == yreg &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == yoffset + 1 &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == yreg && 
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
 				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
 			{
 				for (int j = ypred; j < i; j++)
@@ -12961,6 +12966,113 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		}
 	}
 
+	si = 0;
+	ei = mIns.Size() - 1;
+	while (si < mIns.Size() && !mIns[si].ReferencesAccu())
+		si++;
+	while (ei > si && !mIns[ei].ReferencesAccu())
+		ei--;
+
+	if (si < ei && mIns[si].mType == ASMIT_LDA && mIns[ei].mType == ASMIT_STA && mIns[si].mMode == ASMIM_ZERO_PAGE && mIns[ei].mMode == ASMIM_ZERO_PAGE && mIns[si].mAddress == mIns[ei].mAddress)
+	{
+		int	i = 0;
+		while (i < si && !mIns[i].ChangesZeroPage(mIns[si].mAddress))
+			i++;
+
+		if (i == si)
+		{
+			i = ei + 1;
+			while (i < mIns.Size() && !mIns[i].ChangesZeroPage(mIns[si].mAddress))
+				i++;
+
+			if (i == mIns.Size())
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc);
+
+				i = 0;
+				while (i < si)
+				{
+					mIns[i].mLive |= LIVE_CPU_REG_A;
+					i++;
+				}
+
+				i = ei;
+				while (i < mIns.Size())
+				{
+					mIns[i].mLive |= LIVE_CPU_REG_A;
+					i++;
+				}
+
+				prevBlock->mIns.Push(mIns[si]);
+				mIns.Remove(si);
+				return true;
+			}
+		}
+	}
+
+	if (si + 2 < ei && 
+		mIns[si + 0].mType == ASMIT_LDA && 
+		mIns[si + 1].mType == ASMIT_CLC &&
+		mIns[si + 2].mType == ASMIT_ADC &&
+		mIns[ei].mType == ASMIT_STA && mIns[si + 2].mMode == ASMIM_ZERO_PAGE && mIns[ei].mMode == ASMIM_ZERO_PAGE && mIns[si + 2].mAddress == mIns[ei].mAddress)
+	{
+		int	i = 0;
+		while (i < si && !mIns[i].ChangesZeroPage(mIns[si].mAddress))
+			i++;
+
+		if (i == si)
+		{
+			i = ei + 1;
+			while (i < mIns.Size() && !mIns[i].ChangesZeroPage(mIns[si].mAddress))
+				i++;
+
+			if (i == mIns.Size())
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc);
+
+				i = 0;
+				while (i < si)
+				{
+					mIns[i].mLive |= LIVE_CPU_REG_A;
+					i++;
+				}
+
+				i = ei;
+				while (i < mIns.Size())
+				{
+					mIns[i].mLive |= LIVE_CPU_REG_A;
+					i++;
+				}
+
+				mIns[si + 2].CopyMode(mIns[si + 0]);
+				mIns[si + 0].CopyMode(mIns[ei]);
+				prevBlock->mIns.Push(mIns[si]);
+				mIns.Remove(si);
+				return true;
+			}
+		}
+	}
+
+
+	if (si < ei && mIns[ei].mType == ASMIT_STA && mIns[ei].mMode == ASMIM_ZERO_PAGE)
+	{
+		int	j = 0;
+		while (j < mIns.Size() && (j == ei || !(mIns[j].ChangesZeroPage(mIns[ei].mAddress) || mIns[j].UsesZeroPage(mIns[ei].mAddress))))
+			j++;
+		if (j == mIns.Size())
+		{
+			if (!prevBlock)
+				return OptimizeSimpleLoopInvariant(proc);
+			exitBlock->mIns.Insert(0, mIns[ei]);
+			mIns.Remove(ei);
+			return true;
+		}
+	}
+
+
+
 	if (sz >= 2 && mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE)
 	{
 		int	i = mIns.Size() - 1;
@@ -15275,7 +15387,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			if (mIns[i + 0].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
 			{
 				if (mIns[i + 4].mType == ASMIT_LDA && (mIns[i + 4].mMode == ASMIM_IMMEDIATE || mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 4].mMode == ASMIM_ZERO_PAGE) &&
-					mIns[i + 5].mType == ASMIT_STA && !(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode != ASMIM_INDIRECT_Y && !(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 				{
 					mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
 					mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
@@ -15288,8 +15400,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 #if 1
 				else if (i + 6 < mIns.Size() &&
 					mIns[i + 4].mType == ASMIT_LDA && (mIns[i + 4].mMode == ASMIM_IMMEDIATE || mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 4].mMode == ASMIM_ZERO_PAGE) &&
-					mIns[i + 5].mType == ASMIT_STA && 
-					mIns[i + 6].mType == ASMIT_STA && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode != ASMIM_INDIRECT_Y &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode != ASMIM_INDIRECT_Y && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 				{
 					mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
 					mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
@@ -17048,7 +17160,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 							progress = true;
 						}
 					}
-
+#endif
+#if 1
 					if (
 						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
 						mIns[i + 1].mType == ASMIT_LDA &&
@@ -17073,7 +17186,6 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 							progress = true;
 						}
 					}
-
 #endif
 				}
 
@@ -19412,6 +19524,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 #endif
 
+#if 1
 		ResetVisited();
 		if (mEntryBlock->ForwardZpYIndex())
 			changed = true;
@@ -19419,7 +19532,7 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		if (mEntryBlock->ForwardZpXIndex())
 			changed = true;
-
+#endif
 		if (!changed && step < 6)
 		{
 			step++;
