@@ -472,22 +472,112 @@ Draws a scrolling line of text at the bottom of the screen.
 
 Draws a scrolling line of text at the bottom of the screen, using an interrupt to update the text.
 
-#### movingbars.c
+#### Chasing bars "movingbars.c"
 
 Changing the background and border color at varying vertical positions giving the impression of two chasing colored bars.
 
-#### openborders.c
+#### Freedom for sprites "openborders.c"
 
-Open the vertical screen borders by switching the vertical size bit at the appropriate raster lines.
-
-
-### scrolling
-
-### sprites
-
-### games
+Open the vertical screen borders by switching the vertical size bit at the appropriate raster lines.  The opened area is available for sprites only.
 
 
+
+### Expand the screen "scrolling"
+
+Scrolling is an important component of many games and editors, it extends the limited real estate of the screen to provide a small view to a larger world or document.  Pixel accurate scrolling is an important feature of the C64's VIC chip.
+
+
+#### Large scrolling text "bigfont.c"
+
+![Large text](samples/scrolling/bigfont.png)
+
+Expands a text to gigantic size, each pixel covering 2x2 character cells and scrolling from right to left.
+
+#### Fly through tunnel "tunnel.c"
+
+Scroll a dynamic generated tunnel with variable speed.
+
+#### Scroll text and color "colorram.c"
+
+Scrolls the screen text buffer and color buffer horizontally at the same time with one pixel per frame and no double buffering, relying on exact raster timing.
+
+
+#### X/Y colored tile scrolling "cgrid8way.c"
+
+Expands coloured 4x4 character tiles and scrolls vertically and horizontally at two pixel per frame without double buffering.
+
+#### Free full speed tile expansion "grid2d.c"
+
+Expands a 2D 4x4 tile grid at any scroll speed.  Uses a raster IRQ to limit the scrolled area.
+
+
+### Moving image blocks "sprites"
+
+Sprites are independed image blocks, such as players, missiles or enemies that can be shown on top of the background.
+
+#### Control a sprite with a joy stick "joycontrol.c"
+
+Combines reading the joystick with the <c64/joystick.h> library and sprite movement with the <c64/sprites.h> library.
+
+#### Use raster IRQ to show 16 sprites "multiplexer.c"
+
+![Large text](samples/sprites/multiplexer.png)
+
+Shows 16 virtual sprites multiplexed from the phyiscal eight sprites with raster interrupts, using the oscar sprite multiplexer library.
+
+
+#### Fill the screen with sprites "creditroll.c"
+
+![Many sprites](samples/sprites/creditroll.png)
+
+Uses sprite multiplexing and dynamic character to sprite copying to create a vertical scrolling text on top of any image or potentially moving background.
+
+### What you came for "games"
+
+The C64 games define much of the 8 bit area and oscar64 is intended as a of a proof that one can write great 8 bit games using C.
+
+
+#### Don't bite your end "snake.c"
+
+One of the least complex computer game and more iconic for the smartphone area.  Does not need sprites, scrolling or custom graphics.
+
+#### The eagle has landed "lander.c"
+
+![Landing the eagle](samples/games/lander.png)
+
+Controlling a sprite using floating point physics and checking for collision with the background.
+
+#### No way out "maze3d.c"
+
+![Move through the maze](samples/games/maze3d.png)
+
+A double buffered 3D maze rendering using intermediate positions for forward movement, and simulated rotation using scrolling.
+
+#### This one has balls "breakout.c"
+
+![Breakout](samples/games/breakout.png)
+
+Simplified ball physics using fixed point math. More complex collision checks with the blocks to determine the edge and thus reflection.
+
+#### Too smart for me "connectfour.c"
+
+![Connect Four](samples/games/connectfour.png)
+
+Simple turn based strategy game using tree search with alpha-beta pruning and an opening library to determine the computer moves.
+
+#### Defend your city "missile.c"
+
+![Defend your city](samples/games/missile.png)
+
+Classic computer game using the multicolor hires mode for circles and lines.  The user sprite is controlled in an interrupt routine to cover up the multi frame variable rendering.
+
+#### Fast scroller "hscrollshmup.c"
+
+![Scroll and Shoot](samples/games/hscrollshmup.png)
+
+Fast horizontal scrolling shoot 'em up.  The scroll code expands a 4x4 tile grid of chars in less than a frame time, so the scroll speed is "unlimited".  A parallax level of stars in the background is implemented using an adapted star character.
+
+The shots usd dynamic created characters to overlay on the background.
 
 
 
