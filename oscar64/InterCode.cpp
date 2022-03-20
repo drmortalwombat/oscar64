@@ -6379,13 +6379,24 @@ void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 			{
 				int	j = 0, k = 0;
 
-				while (j < mLoadStoreInstructions.Size())
-				{
-					if (!CollidingMem(ins->mSrc[1], mLoadStoreInstructions[j]))
-						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+				while (j < mLoadStoreInstructions.Size() && !SameMem(ins->mSrc[1], mLoadStoreInstructions[j]))
 					j++;
+
+				if (!ins->mVolatile && j < mLoadStoreInstructions.Size() && mLoadStoreInstructions[j]->mCode == IC_LOAD && ins->mSrc[0].mTemp == mLoadStoreInstructions[j]->mDst.mTemp)
+				{
+					ins->mCode = IC_NONE;
+					ins->mNumOperands = 0;
 				}
-				mLoadStoreInstructions.SetSize(k);
+				else
+				{
+					while (j < mLoadStoreInstructions.Size())
+					{
+						if (!CollidingMem(ins->mSrc[1], mLoadStoreInstructions[j]))
+							mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+						j++;
+					}
+					mLoadStoreInstructions.SetSize(k);
+				}
 
 				if (!ins->mVolatile)
 					nins = ins;

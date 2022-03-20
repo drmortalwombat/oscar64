@@ -3664,6 +3664,44 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
 		mIns.Push(sins);
 	}	break;
+
+
+	case IA_EXT8TO32S:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_8);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+
+		ByteCodeInstruction	cins0(BC_CONV_I8_I16);
+		cins0.mRegister = BC_REG_ACCU;
+		mIns.Push(cins0);
+
+		ByteCodeInstruction	cins1(BC_CONV_I16_I32);
+		cins1.mRegister = 0;
+		mIns.Push(cins1);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(sins);
+	}	break;
+
+	case IA_EXT8TO32U:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_8);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+
+		ByteCodeInstruction	cins(BC_CONV_U16_U32);
+		cins.mRuntime = "lextu16";
+		cins.mRegister = 0;
+		mIns.Push(cins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(sins);
+	}	break;
 	}
 }
 
@@ -6300,11 +6338,11 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 
 	entryBlock->Compile(proc, this, proc->mBlocks[0]);
 
-#if 1
 	bool	progress = false;
 
 	entryBlock->mLocked = true;
 	exitBlock->mLocked = true;
+#if 1
 
 	int	phase = 0;
 

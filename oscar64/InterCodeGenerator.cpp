@@ -179,6 +179,33 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 				stemp = xins->mDst.mTemp;
 			}
 		}
+		else if (v.mType->mSize == 1 && type->mSize == 4)
+		{
+			if (v.mType->mFlags & DTF_SIGNED)
+			{
+				InterInstruction* xins = new InterInstruction();
+				xins->mCode = IC_CONVERSION_OPERATOR;
+				xins->mOperator = IA_EXT8TO32S;
+				xins->mSrc[0].mType = IT_INT8;
+				xins->mSrc[0].mTemp = stemp;
+				xins->mDst.mType = IT_INT32;
+				xins->mDst.mTemp = proc->AddTemporary(IT_INT32);
+				block->Append(xins);
+				stemp = xins->mDst.mTemp;
+			}
+			else
+			{
+				InterInstruction* xins = new InterInstruction();
+				xins->mCode = IC_CONVERSION_OPERATOR;
+				xins->mOperator = IA_EXT8TO32U;
+				xins->mSrc[0].mType = IT_INT8;
+				xins->mSrc[0].mTemp = stemp;
+				xins->mDst.mType = IT_INT32;
+				xins->mDst.mTemp = proc->AddTemporary(IT_INT32);
+				block->Append(xins);
+				stemp = xins->mDst.mTemp;
+			}
+		}
 
 		v.mTemp = stemp;
 		v.mType = type;
