@@ -37,6 +37,11 @@ __native unsigned lmuldiv16u(unsigned a, unsigned b, unsigned c)
 // Multiply two signed 16bit numbers and divide the result by another signed 16bit number a * b / c
 __native int lmuldiv16s(int a, int b, int c)
 
+
+__native unsigned lmuldiv16by8(unsigned a, char b, char c);
+
+inline int lmuldiv16sby8(int a, char b, char c);
+
 #pragma compile("fixmath.c")
 
 #endif

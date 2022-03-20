@@ -426,3 +426,92 @@ int lmuldiv16s(int a, int b, int c)
 	E1:	
 	}
 }
+
+
+unsigned lmuldiv16by8(unsigned a, char b, char c)
+{
+	__asm {
+
+		lda	#0
+		sta	accu + 0
+		sta	accu + 1
+		sta	accu + 2
+		sta	accu + 3
+
+		lda b
+		beq z1
+
+		lda	c
+	l1:
+		asl
+		bcs	e1
+		cmp b
+		bcs e2
+
+		asl	a + 0
+		rol a + 1
+		jmp l1
+	e2:
+		clc
+	e1:
+		ror
+		sta c
+
+		ldx #16
+	l2:
+		lda b
+		sec
+		sbc c
+		bcc	w1
+		sta b
+
+		clc
+		lda accu + 2
+		adc a
+		sta accu + 2
+		lda accu + 3
+		adc a + 1
+		sta accu + 3
+		bcc * + 8
+		inc accu + 0
+		bne * + 4
+		inc accu + 1
+
+	w1:
+		asl	accu + 2
+		rol	accu + 3
+		rol accu + 0
+		rol accu + 1
+
+		asl	b
+		bcc w2
+		lda b
+		sbc c
+		sta b
+
+		clc
+		lda accu + 2
+		adc a
+		sta accu + 2
+		lda accu + 3
+		adc a + 1
+		sta accu + 3
+		bcc * + 8
+		inc accu + 0
+		bne * + 4
+		inc accu + 1
+
+	w2:
+		dex
+		bne l2
+	z1:		
+	}
+}
+
+int lmuldiv16sby8(int a, char b, char c)
+{
+	if (a < 0)
+		return -(int)lmuldiv16by8(-a, b, c);
+	else
+		return lmuldiv16by8(a, b, c);
+}

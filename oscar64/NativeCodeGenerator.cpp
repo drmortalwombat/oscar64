@@ -15325,8 +15325,11 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			}
 			else if (mIns[i].mType == ASMIT_STY && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE))
 			{
-				if (MoveStoreYUp(i))
-					changed = true;
+				if (i > 1 || mIns[0].mType != ASMIT_STX)
+				{
+					if (MoveStoreYUp(i))
+						changed = true;
+				}
 			}
 			else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM))
 			{
