@@ -164,6 +164,7 @@ public:
 
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc);
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock);
+	bool RemoveSimpleLoopUnusedIndex(void);
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
@@ -257,8 +258,8 @@ public:
 	bool ReplaceYRegWithXReg(int start, int end);
 	bool ReplaceXRegWithYReg(int start, int end);
 
-	bool ForwardZpYIndex(void);
-	bool ForwardZpXIndex(void);
+	bool ForwardZpYIndex(bool full);
+	bool ForwardZpXIndex(bool full);
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
 

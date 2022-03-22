@@ -8379,6 +8379,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 		}
 		mInstructions.SetSize(j);
 
+
 		// shorten lifespan
 
 		int	loopTmp = -1;
@@ -8387,6 +8388,33 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 		if (limit >= 0 && mInstructions[limit]->mCode == IC_BRANCH)
 		{
 			limit--;
+#if 1
+			// try to move conditional source down
+			int i = limit;
+			while (i >= 0 && mInstructions[i]->mDst.mTemp != mInstructions[limit + 1]->mSrc[0].mTemp)
+				i--;
+			
+			if (i >= 0 && i != limit)
+			{
+				InterInstruction* ins(mInstructions[i]);
+
+				if (ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR)
+				{
+					if (ins->mSrc[0].mTemp < 0)
+					{
+						int k = i;
+						while (k < limit && CanBypass(ins, mInstructions[k + 1]))
+							k++;
+
+						if (k == limit)
+						{
+							mInstructions.Remove(i);
+							mInstructions.Insert(limit, ins);
+						}
+					}
+				}
+			}
+#endif
 			if (limit > 0 && mInstructions[limit]->mCode == IC_RELATIONAL_OPERATOR)
 			{
 				if (mInstructions[limit]->mSrc[1].mTemp)
@@ -8417,6 +8445,8 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						limit--;
 				}
 			}
+			else if (limit > 0 && mInstructions[limit]->mDst.mTemp == mInstructions[limit + 1]->mSrc[0].mTemp)
+				limit--;
 		}
 		else if (limit >= 0 && mInstructions[limit]->mCode == IC_JUMP)
 			limit --;
