@@ -23,7 +23,7 @@ After extensive optimizations it turns out, that the interpreted code is not sig
 
 ## Limits and Errors
 
-There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 81 iterations per second with byte code (11108) and 354 iterations with native code (10965 Bytes).  This clearly shows that Dhrystone is not a valid benchmark for optimizing compilers, because it puts the 6502 on par with a 4MHz 8088 or 68k, which it clearly is not.
+There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 81 iterations per second with byte code (11108) and 345 iterations with native code (10965 Bytes).  This clearly shows that Dhrystone is not a valid benchmark for optimizing compilers, because it puts the 6502 on par with a 4MHz 8088 or 68k, which it clearly is not.
 
 ### Language
 
@@ -57,7 +57,7 @@ A windows installer is provided with the release, the compiler is installed into
 
 ### Building
 
-The compiler can also built using MSVC or GCC.  A visual studio project and a makefile are part of the source repository. The makefile is in the make folder.
+The compiler can also be built using MSVC or GCC.  A visual studio project and a makefile are part of the source repository. The makefile is in the make folder.
 
 ### Compiler arguments
 

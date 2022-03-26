@@ -14803,6 +14803,18 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc)
 				}
 				i += 6;
 			}
+			else if (i + 3 < mIns.Size() &&
+				mIns[i + 0].ChangesAccuAndFlag() &&
+				mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x01 &&
+				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x00 &&
+				mIns[i + 3].mType == ASMIT_ROL && mIns[i + 3].mMode == ASMIM_IMPLIED)
+			{
+				mIns[j + 0] = mIns[i + 0];
+				mIns[j + 1].mType = ASMIT_BEQ; mIns[j + 1].mMode = ASMIM_RELATIVE; mIns[j + 1].mAddress = 2;
+				mIns[j + 2].mType = ASMIT_LDA; mIns[j + 2].mMode = ASMIM_IMMEDIATE; mIns[j + 2].mAddress = 1;
+				j += 3;
+				i += 4;
+			}
 			else if (i + 1 < mIns.Size() &&
 				mIns[i + 0].ChangesZFlag() && mIns[i + 1].mType == ASMIT_LDA && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
 			{

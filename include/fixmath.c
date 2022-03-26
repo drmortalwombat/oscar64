@@ -508,6 +508,52 @@ unsigned lmuldiv16by8(unsigned a, char b, char c)
 	}
 }
 
+unsigned lmuldiv8by8(char a, char b, char c)
+{
+	__asm {
+
+		ldy	#0
+		sty	accu + 0
+		sty	accu + 1
+		sty	accu + 2
+
+		ldx #16
+	l2:
+		asl accu + 2
+		rol accu + 0
+		rol accu + 1
+
+		tya
+		asl	b
+		rol
+
+		bcc w2
+		sbc c
+		bcc w3
+	w2:
+		tay
+		sec
+		sbc	c
+		bcc	w1
+	w3:		
+		tay
+
+		clc
+		lda accu + 2
+		adc a
+		sta accu + 2
+		bcc w1
+		inc accu + 0
+		bne w1
+		inc accu + 1
+	w1:
+
+		dex
+		bne l2
+	z1:		
+	}
+}
+
 int lmuldiv16sby8(int a, char b, char c)
 {
 	if (a < 0)

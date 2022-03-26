@@ -42,6 +42,8 @@ __native unsigned lmuldiv16by8(unsigned a, char b, char c);
 
 inline int lmuldiv16sby8(int a, char b, char c);
 
+__native unsigned lmuldiv8by8(char a, char b, char c);
+
 #pragma compile("fixmath.c")
 
 #endif

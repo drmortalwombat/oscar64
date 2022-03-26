@@ -724,16 +724,58 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 				int	index = 0;
 				while (!(dtype->mFlags & DTF_DEFINED) || index < dtype->mSize)
 				{
+					int	nrep = 1;
+
+					if (ConsumeTokenIf(TK_OPEN_BRACKET))
+					{
+						Expression* istart = ParseRExpression();
+						if (istart->mType != EX_CONSTANT || istart->mDecValue->mType != DT_CONST_INTEGER)
+							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant index expected");
+						else
+						{
+							index = dtype->mBase->mSize * istart->mDecValue->mInteger;
+							if (index >= dtype->mSize)
+							{
+								mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant initializer out of range");
+								break;
+							}
+
+							if (ConsumeTokenIf(TK_ELLIPSIS))
+							{
+								Expression* iend = ParseRExpression();
+								if (iend->mType != EX_CONSTANT || iend->mDecValue->mType != DT_CONST_INTEGER)
+									mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant index expected");
+								else
+								{
+									nrep = iend->mDecValue->mInteger - istart->mDecValue->mInteger + 1;
+
+									if (index + nrep * dtype->mBase->mSize > dtype->mSize)
+									{
+										mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant initializer out of range");
+										break;
+									}
+								}
+							}
+						}
+
+						ConsumeToken(TK_CLOSE_BRACKET);
+						ConsumeToken(TK_ASSIGN);
+					}
+
 					Expression* texp = ParseInitExpression(dtype->mBase);
-					Declaration* cdec = CopyConstantInitializer(index, dtype->mBase, texp);
+					for (int i = 0; i < nrep; i++)
+					{
+						Declaration* cdec = CopyConstantInitializer(index, dtype->mBase, texp);
 
-					if (last)
-						last->mNext = cdec;
-					else
-						dec->mParams = cdec;
-					last = cdec;
+						if (last)
+							last->mNext = cdec;
+						else
+							dec->mParams = cdec;
+						last = cdec;
 
-					index += dtype->mBase->mSize;
+						index += dtype->mBase->mSize;
+					}
+
 					if (!ConsumeTokenIf(TK_COMMA))
 						break;
 					if (mScanner->mToken == TK_CLOSE_BRACE)

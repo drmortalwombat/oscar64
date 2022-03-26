@@ -328,7 +328,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		ldec = Analyze(exp->mLeft, procDec);
 		rdec = Analyze(exp->mRight, procDec);
 		RegisterProc(rdec);
-		break;
+		return ldec;
+
 	case EX_BINARY:
 		ldec = Analyze(exp->mLeft, procDec);
 		rdec = Analyze(exp->mRight, procDec);
@@ -429,7 +430,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_TYPE:
 		break;
 	case EX_TYPECAST:
-		rdec = Analyze(exp->mRight, procDec);
+		return Analyze(exp->mRight, procDec);
 		break;
 	case EX_LOGICAL_AND:
 		ldec = Analyze(exp->mLeft, procDec);

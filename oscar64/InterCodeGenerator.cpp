@@ -1786,7 +1786,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					;
 				else if ((vl.mType->mType == DT_TYPE_POINTER || vl.mType->mType == DT_TYPE_ARRAY) && (vr.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_ARRAY))
 				{
-					if (!vl.mType->mBase->IsConstSame(vr.mType->mBase))
+					if (vl.mType->mBase->mType == DT_TYPE_VOID || vr.mType->mBase->mType == DT_TYPE_VOID)
+						;
+					else if (!vl.mType->mBase->IsConstSame(vr.mType->mBase))
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types");
 				}
 				else
