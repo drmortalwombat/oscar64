@@ -2397,7 +2397,10 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 	{
 		if (!requiredTemps[mDst.mTemp] && mDst.mTemp >= 0)
 		{
-			if (!HasSideEffect(mCode))
+			if (mCode == IC_LOAD && mVolatile)
+			{
+			}
+			else if (!HasSideEffect(mCode))
 			{
 				mCode = IC_NONE;
 				mDst.mTemp = -1;

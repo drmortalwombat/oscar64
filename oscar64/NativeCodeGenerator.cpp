@@ -11996,6 +11996,9 @@ bool NativeCodeBasicBlock::MoveAbsoluteLoadStoreUp(int at)
 		if (mIns[at + 1].mMode == ASMIM_ABSOLUTE_Y && mIns[j].ChangesYReg())
 			return false;
 
+		if (mIns[j].mType == ASMIT_JSR)
+			return false;
+
 		j--;
 	}
 
