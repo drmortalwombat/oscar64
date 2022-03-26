@@ -56,7 +56,19 @@ enum RIRQCodeIndex
 	RIRQ_ADDR_14 = 78,
 
 	RIRQ_DATA_15 = 81,
-	RIRQ_ADDR_15 = 88,
+	RIRQ_ADDR_15 = 83,
+
+	RIRQ_DATA_16 = 86,
+	RIRQ_ADDR_16 = 88,
+
+	RIRQ_DATA_17 = 91,
+	RIRQ_ADDR_17 = 93,
+
+	RIRQ_DATA_18 = 96,
+	RIRQ_ADDR_18 = 98,
+
+	RIRQ_DATA_19 = 101,
+	RIRQ_ADDR_19 = 103,
 };
 
 // One raster interrupt operation, handles up to five writes

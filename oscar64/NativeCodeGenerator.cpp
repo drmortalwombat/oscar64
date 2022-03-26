@@ -10546,6 +10546,8 @@ bool NativeCodeBasicBlock::FindPageStartAddress(int at, int reg, int& addr)
 		}
 		if (mIns[j + 1].mMode == ASMIM_ZERO_PAGE && (mIns[j + 1].mAddress == reg || mIns[j + 1].mAddress == reg + 1) && mIns[j + 1].ChangesAddress())
 			return false;
+		if (mIns[j + 1].mType == ASMIT_JSR)
+			return false;
 
 		j--;
 	}
@@ -16061,6 +16063,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 
 					}
 
+#if 1
 					if (mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO) && !(mIns[i + 0].mLive & LIVE_CPU_REG_X))
 					{
 						const NativeCodeInstruction* ains;
@@ -16082,7 +16085,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 							progress = true;
 						}
 					}
-
+#endif
 
 				}
 #endif
