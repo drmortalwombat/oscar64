@@ -211,6 +211,17 @@ Expression* Expression::ConstantFold(Errors * errors)
 			}
 		}
 	}
+#if 1
+	else if (mType == EX_PREFIX && mToken == TK_BINARY_AND && mLeft->mType == EX_VARIABLE && (mLeft->mDecValue->mFlags & (DTF_STATIC | DTF_GLOBAL)))
+	{
+		Expression* ex = new Expression(mLocation, EX_CONSTANT);
+		Declaration* dec = new Declaration(mLocation, DT_CONST_POINTER);
+		dec->mValue = mLeft;
+		ex->mDecValue = dec;
+		ex->mDecType = mDecType;
+		return ex;
+	}
+#endif
 	else if (mType == EX_TYPECAST && mRight->mType == EX_CONSTANT)
 	{
 		if (mLeft->mDecType->mType == DT_TYPE_POINTER)

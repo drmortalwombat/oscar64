@@ -715,7 +715,7 @@ static void ConversionConstantFold(InterInstruction * ins, const InterOperand & 
 	}
 }
 
-static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains)
+static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, const GrowingVariableArray& staticVars)
 {
 	const uint8* data;
 
@@ -752,11 +752,18 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains)
 			i++;
 		if (i < lobj->mReferences.Size())
 		{
+			int j = 0;
+			while (j < staticVars.Size() && !(staticVars[j] && staticVars[j]->mLinkerObject == lobj->mReferences[i]->mRefObject))
+				j++;
+
 			ins->mConst.mLinkerObject = lobj->mReferences[i]->mRefObject;
 			ins->mConst.mIntConst = lobj->mReferences[i]->mRefOffset;
 			ins->mConst.mMemory = IM_GLOBAL;
 			ins->mConst.mOperandSize = ins->mConst.mLinkerObject->mSize;
-			ins->mConst.mVarIndex = -1;
+			if (j < staticVars.Size())
+				ins->mConst.mVarIndex = staticVars[j]->mIndex;
+			else
+				ins->mConst.mVarIndex = -1;
 		}
 		else
 		{
@@ -1107,7 +1114,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			}
 			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT && tvalue[ins->mSrc[0].mTemp]->mConst.mMemory == IM_GLOBAL && (tvalue[ins->mSrc[0].mTemp]->mConst.mLinkerObject->mFlags & LOBJF_CONST))
 			{
-				LoadConstantFold(ins, tvalue[ins->mSrc[0].mTemp]);
+				LoadConstantFold(ins, tvalue[ins->mSrc[0].mTemp], staticVars);
 				InsertValue(ins);
 			}
 			else
@@ -3430,7 +3437,7 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 }
 
 
-void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue)
+void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars)
 {
 	switch (ins->mCode)
 	{
@@ -3507,7 +3514,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		OptimizeAddress(ins, tvalue, 0);
 
 		if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
-			LoadConstantFold(ins, nullptr);
+			LoadConstantFold(ins, nullptr, staticVars);
 
 		break;
 	case IC_STORE:
@@ -6179,7 +6186,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 	}
 }
 
-void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid)
+void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars)
 {
 	int i;
 
@@ -6229,12 +6236,12 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			CheckValueUsage(mInstructions[i], ltvalue);
+			CheckValueUsage(mInstructions[i], ltvalue, staticVars);
 			mInstructions[i]->PerformValueForwarding(ltvalue, tvalid);
 		}
 
-		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid);
-		if (mFalseJump) mFalseJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid);
+		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars);
+		if (mFalseJump) mFalseJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars);
 	}
 }
 
@@ -9464,7 +9471,7 @@ void InterCodeProcedure::Close(void)
 	mTemporaries.SetSize(numTemps, true);
 
 	ResetVisited();
-	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet);
+	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet, mModule->mGlobalVars);
 
 	GlobalConstantPropagation();
 
@@ -9911,6 +9918,43 @@ void InterCodeProcedure::MapVariables(void)
 	}
 }
 
+bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
+{
+	if (mInstructions.Size() > 1 && block->mInstructions.Size() > 1)
+	{
+		InterInstruction* ins0 = mInstructions[mInstructions.Size() - 2];
+		InterInstruction* ins1 = block->mInstructions[block->mInstructions.Size() - 2];
+
+		if (ins0->IsEqual(ins1))
+		{
+			if (ins0->mCode == IC_STORE && ins0->mSrc[1].mTemp >= 0)
+			{
+				int	j0 = mInstructions.Size() - 2;
+				while (j0 >= 0 && mInstructions[j0]->mDst.mTemp != ins0->mSrc[1].mTemp)
+					j0--;
+				int	j1 = block->mInstructions.Size() - 2;
+				while (j1 >= 0 && block->mInstructions[j1]->mDst.mTemp != ins0->mSrc[1].mTemp)
+					j1--;
+
+				if (j0 >= 0 && j1 >= 0)
+				{
+					if (!(mInstructions[j0]->IsEqual(block->mInstructions[j1])))
+					{
+						if (mInstructions[j0]->mCode == IC_LEA && mInstructions[j0]->mSrc[1].mTemp < 0)
+							return false;
+						if (block->mInstructions[j1]->mCode == IC_LEA && mInstructions[j1]->mSrc[1].mTemp < 0)
+							return false;
+					}
+				}
+			}
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void InterCodeProcedure::MergeBasicBlocks(void)
 {
 	ResetVisited();
@@ -10017,7 +10061,7 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 							InterInstruction* ins = eblocks[0]->mInstructions[eblocks[0]->mInstructions.Size() - 2];
 
 							int j = 1;
-							while (j < eblocks.Size() && eblocks[j]->mInstructions.Size() > 1 && eblocks[j]->mInstructions[eblocks[j]->mInstructions.Size() - 2]->IsEqual(ins))
+							while (j < eblocks.Size() && eblocks[0]->SameExitCode(eblocks[j]))
 								j++;
 							if (j == eblocks.Size())
 							{

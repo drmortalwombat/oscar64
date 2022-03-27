@@ -858,6 +858,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			case DT_CONST_POINTER:
 			{
 				vl = TranslateExpression(procType, proc, block, dec->mValue, breakBlock, continueBlock, inlineMapper);
+				vl.mReference--;
+				vl.mType = exp->mDecType;
 				return vl;
 			}
 			case DT_CONST_DATA:
@@ -884,6 +886,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
 				ins->mConst.mIntConst = 0;
 				ins->mConst.mVarIndex = dec->mVarIndex;
+				assert(dec->mVarIndex >= 0);
 				ins->mConst.mLinkerObject = dec->mLinkerObject;
 				ins->mConst.mMemory = IM_GLOBAL;
 				block->Append(ins);
@@ -915,6 +918,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
 				ins->mConst.mIntConst = 0;
 				ins->mConst.mVarIndex = dec->mVarIndex;
+				assert(dec->mVarIndex >= 0);
 				ins->mConst.mLinkerObject = dec->mLinkerObject;
 				ins->mConst.mMemory = IM_GLOBAL;
 				block->Append(ins);
@@ -970,6 +974,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mConst.mMemory = IM_GLOBAL;
 				ins->mConst.mLinkerObject = dec->mLinkerObject;
 				ins->mConst.mVarIndex = dec->mVarIndex;
+				assert(dec->mVarIndex >= 0);
 			}
 			else
 			{

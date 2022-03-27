@@ -407,10 +407,10 @@ public:
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
-	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue);
+	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars);
 	void PerformTempForwarding(TempForwardingTable& forwardingTable);
 	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars);
-	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
+	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars);
 	bool EliminateDeadBranches(void);
 
 	bool CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory);
@@ -463,6 +463,8 @@ public:
 	
 	bool CheckStaticStack(void);
 	void CollectStaticStack(LinkerObject * lobj, const GrowingVariableArray& localVars);
+
+	bool SameExitCode(const InterCodeBasicBlock* block) const;
 };
 
 class InterCodeModule;

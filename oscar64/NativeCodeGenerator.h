@@ -114,8 +114,8 @@ public:
 	bool IsCommutative(void) const;
 	bool IsShift(void) const;
 
-	void ReplaceYRegWithXReg(void);
-	void ReplaceXRegWithYReg(void);
+	bool ReplaceYRegWithXReg(void);
+	bool ReplaceXRegWithYReg(void);
 };
 
 class NativeCodeBasicBlock
@@ -135,8 +135,10 @@ public:
 
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
-	int						mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset;
-	bool					mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched;
+	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset;
+	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched;
+	NativeCodeBasicBlock	*	mDominator;
+
 	NativeCodeBasicBlock* mLoopHeadBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet;
@@ -220,6 +222,7 @@ public:
 	void CountEntries(NativeCodeBasicBlock* fromJump);
 	bool MergeBasicBlocks(void);
 	void MarkLoopHead(void);
+	void BuildDominatorTree(NativeCodeBasicBlock * from);
 
 	bool MoveLoadStoreUp(int at);
 	bool MoveLoadStoreXUp(int at);
@@ -257,6 +260,9 @@ public:
 	bool ReplaceZeroPageUp(int at);
 	bool ReplaceYRegWithXReg(int start, int end);
 	bool ReplaceXRegWithYReg(int start, int end);
+
+	bool CanReplaceYRegWithXReg(int start, int end);
+	bool CanReplaceXRegWithYReg(int start, int end);
 
 	bool ForwardZpYIndex(bool full);
 	bool ForwardZpXIndex(bool full);
@@ -296,14 +302,19 @@ public:
 	bool ReduceLocalYPressure(void);
 	bool ReduceLocalXPressure(void);
 
-	bool CheckGlobalAddressSumYPointer(int reg, int at, int yval);
-	bool PatchGlobalAddressSumYPointer(int reg, int at, int yval, LinkerObject * lobj, int address);
+	bool AlternateXYUsage(void);
+	bool ForwardAbsoluteLoadStores(void);
 
-	bool CheckSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains, int cycles);
-	bool PatchSingleUseGlobalLoad(int reg, int at, const NativeCodeInstruction& ains);
+	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int at, int yval);
+	bool PatchGlobalAddressSumYPointer(const NativeCodeBasicBlock* block, int reg, int at, int yval, LinkerObject * lobj, int address);
 
-	bool CheckForwardSumYPointer(int reg, int base, int index, int at, int yval);
-	bool PatchForwardSumYPointer(int reg, int base, int index, int at, int yval);
+	bool CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains, int cycles);
+	bool PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains);
+
+	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, int index, int at, int yval);
+	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, int index, int at, int yval);
+
+	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 };
 
 class NativeCodeProcedure

@@ -69,6 +69,8 @@ enum RIRQCodeIndex
 
 	RIRQ_DATA_19 = 101,
 	RIRQ_ADDR_19 = 103,
+
+	RIRQ_SIZE_20 = 106,
 };
 
 // One raster interrupt operation, handles up to five writes
@@ -78,6 +80,12 @@ typedef struct RIRQCode
 	byte		size;
 	byte		code[RIRQ_SIZE];
 } RIRQCode;
+
+typedef struct RQIRCode20
+{
+	RIRQCode	c;
+	byte		code[RIRQ_SIZE_20 - RIRQ_SIZE];	
+} RIRQCode20;
 
 // Build one raster IRQ operation of the given size (wait + #ops) for up to 5 instructions
 void rirq_build(RIRQCode * ic, byte size);
