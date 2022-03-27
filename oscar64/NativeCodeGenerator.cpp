@@ -9915,6 +9915,9 @@ bool NativeCodeBasicBlock::CanReplaceYRegWithXReg(int start, int end)
 		
 		if (ins.mMode == ASMIM_INDIRECT_Y)
 			return false;
+
+		if (ins.mMode == ASMIM_ABSOLUTE_Y && !HasAsmInstructionMode(ins.mType, ASMIM_ABSOLUTE_X))
+			return false;
 	}
 
 	return true;
@@ -9931,6 +9934,10 @@ bool NativeCodeBasicBlock::CanReplaceXRegWithYReg(int start, int end)
 
 		if (ins.mMode == ASMIM_INDIRECT_X)
 			return false;
+
+		if (ins.mMode == ASMIM_ABSOLUTE_X && !HasAsmInstructionMode(ins.mType, ASMIM_ABSOLUTE_Y))
+			return false;
+
 	}
 
 	return true;

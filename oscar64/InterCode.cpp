@@ -806,6 +806,262 @@ void ValueSet::InsertValue(InterInstruction * ins)
 	mInstructions[mNum++] = ins;
 }
 
+static bool CanBypassLoad(const InterInstruction* lins, const InterInstruction* bins)
+{
+	// Check ambiguity
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
+		return false;
+
+	// Side effects
+	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
+		return false;
+
+	// True data dependency
+	if (bins->UsesTemp(lins->mDst.mTemp))
+		return false;
+
+	if (bins->mCode == IC_STORE)
+	{
+		if (lins->mVolatile)
+			return false;
+		else if (lins->mSrc[0].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
+			return false;
+		else if (lins->mSrc[0].mMemory != bins->mSrc[1].mMemory)
+			return true;
+		else if (lins->mSrc[0].mMemory == IM_GLOBAL)
+		{
+			return lins->mSrc[0].mLinkerObject != bins->mSrc[1].mLinkerObject ||
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (lins->mSrc[0].mMemory == IM_ABSOLUTE)
+		{
+			return
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (lins->mSrc[0].mMemory == IM_LOCAL)
+		{
+			return lins->mSrc[0].mVarIndex != bins->mSrc[1].mVarIndex ||
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else
+			return false;
+	}
+
+	// False data dependency
+	if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].mTemp == bins->mDst.mTemp)
+		return false;
+
+	return true;
+}
+
+static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins)
+{
+	if (lins->mDst.mTemp >= 0)
+	{
+		if (lins->mDst.mTemp == bins->mDst.mTemp)
+			return false;
+
+		for (int i = 0; i < bins->mNumOperands; i++)
+			if (lins->mDst.mTemp == bins->mSrc[i].mTemp)
+				return false;
+	}
+	if (bins->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < lins->mNumOperands; i++)
+			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
+				return false;
+	}
+	if (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
+	{
+		if (lins->mCode == IC_CONSTANT && lins->mDst.mType == IT_POINTER && lins->mConst.mMemory == IM_FRAME)
+			return false;
+	}
+
+	return true;
+}
+
+static bool CanBypassUp(const InterInstruction* lins, const InterInstruction* bins)
+{
+	if (lins->mDst.mTemp >= 0)
+	{
+		if (lins->mDst.mTemp == bins->mDst.mTemp)
+			return false;
+
+		for (int i = 0; i < bins->mNumOperands; i++)
+			if (lins->mDst.mTemp == bins->mSrc[i].mTemp)
+				return false;
+	}
+	if (bins->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < lins->mNumOperands; i++)
+			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
+				return false;
+	}
+	if (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
+	{
+		if (lins->mCode == IC_CONSTANT && lins->mDst.mType == IT_POINTER && lins->mConst.mMemory == IM_FRAME)
+			return false;
+	}
+
+	return true;
+}
+
+static bool CanBypassLoadUp(const InterInstruction* lins, const InterInstruction* bins)
+{
+	// Check ambiguity
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
+		return false;
+
+	// Side effects
+	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
+		return false;
+
+	// False data dependency
+	if (bins->UsesTemp(lins->mDst.mTemp) || bins->mDst.mTemp == lins->mDst.mTemp)
+		return false;
+
+	// True data dependency
+	if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].mTemp == bins->mDst.mTemp)
+		return false;
+
+	if (bins->mCode == IC_STORE)
+	{
+		if (lins->mVolatile)
+			return false;
+		else if (lins->mSrc[0].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
+			return false;
+		else if (lins->mSrc[0].mMemory != bins->mSrc[1].mMemory)
+			return true;
+		else if (lins->mSrc[0].mMemory == IM_GLOBAL)
+		{
+			return lins->mSrc[0].mLinkerObject != bins->mSrc[1].mLinkerObject ||
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (lins->mSrc[0].mMemory == IM_ABSOLUTE)
+		{
+			return
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (lins->mSrc[0].mMemory == IM_LOCAL)
+		{
+			return lins->mSrc[0].mVarIndex != bins->mSrc[1].mVarIndex ||
+				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
+				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else
+			return false;
+	}
+
+	return true;
+}
+
+
+static bool IsChained(const InterInstruction* ins, const InterInstruction* nins)
+{
+	if (ins->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < nins->mNumOperands; i++)
+			if (ins->mDst.mTemp == nins->mSrc[i].mTemp)
+				return true;
+	}
+
+	return false;
+}
+
+static bool CanBypassStore(const InterInstruction* sins, const InterInstruction* bins)
+{
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_PUSH_FRAME)
+		return false;
+
+	InterMemory	sm = IM_NONE, bm = IM_NONE;
+	int			bi = -1, si = -1, bt = -1, st = -1, bo = 0, so = 0, bz = 1, sz = 1;
+	if (sins->mCode == IC_LOAD)
+	{
+		sm = sins->mSrc[0].mMemory;
+		si = sins->mSrc[0].mVarIndex;
+		st = sins->mSrc[0].mTemp;
+		so = sins->mSrc[0].mIntConst;
+		sz = InterTypeSize[sins->mDst.mType];
+	}
+	else if (sins->mCode == IC_LEA || sins->mCode == IC_STORE)
+	{
+		sm = sins->mSrc[1].mMemory;
+		si = sins->mSrc[1].mVarIndex;
+		st = sins->mSrc[1].mTemp;
+		so = sins->mSrc[1].mIntConst;
+		sz = InterTypeSize[sins->mSrc[0].mType];
+	}
+
+	if (bins->mCode == IC_LOAD)
+	{
+		bm = bins->mSrc[0].mMemory;
+		bi = bins->mSrc[0].mVarIndex;
+		bt = sins->mSrc[0].mTemp;
+		bo = sins->mSrc[0].mIntConst;
+		bz = InterTypeSize[sins->mDst.mType];
+	}
+	else if (bins->mCode == IC_LEA || bins->mCode == IC_STORE)
+	{
+		bm = bins->mSrc[1].mMemory;
+		bi = bins->mSrc[1].mVarIndex;
+		bt = sins->mSrc[1].mTemp;
+		bo = sins->mSrc[1].mIntConst;
+		bz = InterTypeSize[sins->mSrc[0].mType];
+	}
+
+	// Check ambiguity
+	if (bins->mCode == IC_STORE || bins->mCode == IC_LOAD)
+	{
+		if (sm == IM_LOCAL)
+		{
+			if (bm == IM_PARAM || bm == IM_GLOBAL || bm == IM_FPARAM)
+				;
+			else if (bm == IM_LOCAL)
+			{
+				if (bi == si)
+					return false;
+			}
+			else
+				return false;
+		}
+		else if (sm == IM_FRAME || sm == IM_FFRAME)
+			;
+		else if (sm == IM_FPARAM)
+		{
+			if (bi == si)
+				return false;
+		}
+		else if (sm == IM_INDIRECT && bm == IM_INDIRECT && st == bt)
+		{
+			return so + sz <= bz || bo + bz <= so;
+		}
+		else
+			return false;
+	}
+
+	if (sm == IM_FRAME && (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME))
+		return false;
+
+	// Side effects
+	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
+		return false;
+
+	// True data dependency
+	if (bins->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < sins->mNumOperands; i++)
+			if (bins->mDst.mTemp == sins->mSrc[i].mTemp)
+				return false;
+	}
+
+	return true;
+}
+
 static bool StoreAliasing(const InterInstruction * lins, const InterInstruction* sins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	InterMemory	lmem, smem;
@@ -3902,6 +4158,35 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
 					}
 				}
+				else if (ins->mOperator == IA_SUB && pins->mOperator == IA_SUB)
+				{
+					if (pins->mSrc[0].mTemp < 0)
+					{
+						ins->mSrc[0].mIntConst = ConstantFolding(IA_ADD, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
+					}
+				}
+				else if (ins->mOperator == IA_ADD && pins->mOperator == IA_SUB)
+				{
+					if (pins->mSrc[0].mTemp < 0)
+					{
+						ins->mSrc[0].mIntConst = ConstantFolding(IA_SUB, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
+					}
+				}
+				else if (ins->mOperator == IA_SUB && pins->mOperator == IA_ADD)
+				{
+					if (pins->mSrc[1].mTemp < 0)
+					{
+						ins->mSrc[0].mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[1].mIntConst);
+						ins->mSrc[1].mTemp = pins->mSrc[0].mTemp;
+					}
+					else if (pins->mSrc[0].mTemp < 0)
+					{
+						ins->mSrc[0].mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, ins->mSrc[0].mIntConst, pins->mSrc[0].mIntConst);
+						ins->mSrc[1].mTemp = pins->mSrc[1].mTemp;
+					}
+				}
 				else if (ins->mOperator == IA_SHL && (pins->mOperator == IA_SHR || pins->mOperator == IA_SAR) && pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == pins->mSrc[0].mIntConst)
 				{
 					ins->mOperator = IA_AND;
@@ -4111,11 +4396,14 @@ void InterCodeBasicBlock::CollectLocalUsedTemps(int numTemps)
 		mVisited = true;
 
 		mLocalUsedTemps.Reset(numTemps);
+		mLocalModifiedTemps.Reset(numTemps);
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
 			InterInstruction* ins(mInstructions[i]);
 
+			if (ins->mDst.mTemp >= 0)
+				mLocalModifiedTemps += ins->mDst.mTemp;
 			for (int j = 0; j < ins->mNumOperands; j++)
 			{
 				if (ins->mSrc[j].mTemp >= 0)
@@ -6774,8 +7062,18 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 
 		if (mTrueJump && mFalseJump)
 		{
+			InterCodeBasicBlock* joinedBlock = nullptr;
+
+
 			NumberSet	trueExitRequiredTemps(mTrueJump->mEntryRequiredTemps), falseExitRequiredTems(mFalseJump->mEntryRequiredTemps);
 			NumberSet	providedTemps(mExitRequiredTemps.Size()), requiredTemps(mExitRequiredTemps.Size());
+
+			if (mTrueJump->mTrueJump && mFalseJump->mTrueJump && !mTrueJump->mFalseJump && !mFalseJump->mFalseJump &&
+				mTrueJump->mNumEntries == 1 && mFalseJump->mNumEntries == 1 &&
+				mTrueJump->mTrueJump == mFalseJump->mTrueJump && mTrueJump->mTrueJump->mNumEntries == 2)
+			{
+				joinedBlock = mTrueJump->mTrueJump;
+			}
 
 			bool	hadStore = false;
 
@@ -6785,9 +7083,10 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 				i--;
 				InterInstruction* ins(mInstructions[i]);
 
+				int		dtemp = ins->mDst.mTemp;
 				bool	moved = false;
 
-				if (ins->mDst.mTemp >= 0 && !providedTemps[ins->mDst.mTemp] && !requiredTemps[ins->mDst.mTemp])
+				if (dtemp >= 0 && !providedTemps[dtemp] && !requiredTemps[dtemp])
 				{
 					int j = 0;
 					while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || !(providedTemps[ins->mSrc[j].mTemp] || IsTempModifiedOnPath(ins->mSrc[j].mTemp, i + 1))))
@@ -6795,7 +7094,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 
 					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && (ins->mCode != IC_LOAD || !hadStore))
 					{
-						if (mTrueJump->mNumEntries == 1 && trueExitRequiredTemps[ins->mDst.mTemp] && !falseExitRequiredTems[ins->mDst.mTemp])
+						if (mTrueJump->mNumEntries == 1 && trueExitRequiredTemps[dtemp] && !falseExitRequiredTems[dtemp])
 						{
 							for (int j = 0; j < ins->mNumOperands; j++)
 							{
@@ -6807,7 +7106,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 							moved = true;
 							changed = true;
 						}
-						else if (mFalseJump->mNumEntries == 1 && !trueExitRequiredTemps[ins->mDst.mTemp] && falseExitRequiredTems[ins->mDst.mTemp])
+						else if (mFalseJump->mNumEntries == 1 && !trueExitRequiredTemps[dtemp] && falseExitRequiredTems[dtemp])
 						{
 							for (int j = 0; j < ins->mNumOperands; j++)
 							{
@@ -6819,6 +7118,53 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 							moved = true;
 							changed = true;
 						}
+#if 1
+						else if (joinedBlock && !HasSideEffect(ins->mCode) &&
+							!mFalseJump->mLocalUsedTemps[dtemp] && !mFalseJump->mLocalModifiedTemps[dtemp] &&
+							!mTrueJump->mLocalUsedTemps[dtemp] && !mTrueJump->mLocalModifiedTemps[dtemp])
+						{
+							int j = 0;
+							while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && (mFalseJump->mLocalModifiedTemps[dtemp] || mTrueJump->mLocalModifiedTemps[dtemp])))
+								j++;
+
+							if (j == ins->mNumOperands)
+							{
+								if (ins->mCode == IC_LOAD)
+								{
+									j = 0;
+									while (j < mTrueJump->mInstructions.Size() && CanBypassLoad(ins, mTrueJump->mInstructions[j]))
+										j++;
+								}
+								if (ins->mCode != IC_LOAD || j == mTrueJump->mInstructions.Size())
+								{
+									if (ins->mCode == IC_LOAD)
+									{
+										j = 0;
+										while (j < mFalseJump->mInstructions.Size() && CanBypassLoad(ins, mFalseJump->mInstructions[j]))
+											j++;
+									}
+
+									if (ins->mCode != IC_LOAD || j == mFalseJump->mInstructions.Size())
+									{
+										for (int j = 0; j < ins->mNumOperands; j++)
+										{
+											if (ins->mSrc[j].mTemp >= 0)
+											{
+												trueExitRequiredTemps += ins->mSrc[j].mTemp;
+												falseExitRequiredTems += ins->mSrc[j].mTemp;
+												joinedBlock->mEntryRequiredTemps += ins->mSrc[j].mTemp;
+											}
+										}
+
+										joinedBlock->mInstructions.Insert(0, ins);
+										mInstructions.Remove(i);
+										moved = true;
+										changed = true;
+									}
+								}
+							}
+						}
+#endif
 					}
 
 					providedTemps += ins->mDst.mTemp;
@@ -6939,261 +7285,6 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 	return true;
 }
 
-static bool CanBypassLoad(const InterInstruction * lins, const InterInstruction * bins)
-{
-	// Check ambiguity
-	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
-		return false;
-
-	// Side effects
-	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
-		return false;
-
-	// True data dependency
-	if (bins->UsesTemp(lins->mDst.mTemp))
-		return false;
-
-	if (bins->mCode == IC_STORE)
-	{
-		if (lins->mVolatile)
-			return false;
-		else if (lins->mSrc[0].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
-			return false;
-		else if (lins->mSrc[0].mMemory != bins->mSrc[1].mMemory)
-			return true;
-		else if (lins->mSrc[0].mMemory == IM_GLOBAL)
-		{
-			return lins->mSrc[0].mLinkerObject != bins->mSrc[1].mLinkerObject ||
-				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
-				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
-		}
-		else if (lins->mSrc[0].mMemory == IM_ABSOLUTE)
-		{
-			return
-				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
-				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
-		}
-		else if (lins->mSrc[0].mMemory == IM_LOCAL)
-		{
-			return lins->mSrc[0].mVarIndex != bins->mSrc[1].mVarIndex ||
-				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
-				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
-		}
-		else
-			return false;
-	}
-
-	// False data dependency
-	if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].mTemp == bins->mDst.mTemp)
-		return false;
-
-	return true;
-}
-
-static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins)
-{
-	if (lins->mDst.mTemp >= 0)
-	{
-		if (lins->mDst.mTemp == bins->mDst.mTemp)
-			return false;
-
-		for (int i = 0; i < bins->mNumOperands; i++)
-			if (lins->mDst.mTemp == bins->mSrc[i].mTemp)
-				return false;
-	}
-	if (bins->mDst.mTemp >= 0)
-	{
-		for (int i = 0; i < lins->mNumOperands; i++)
-			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
-				return false;
-	}
-	if (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
-	{
-		if (lins->mCode == IC_CONSTANT && lins->mDst.mType == IT_POINTER && lins->mConst.mMemory == IM_FRAME)
-			return false;
-	}
-
-	return true;
-}
-
-static bool CanBypassUp(const InterInstruction* lins, const InterInstruction* bins)
-{
-	if (lins->mDst.mTemp >= 0)
-	{
-		if (lins->mDst.mTemp == bins->mDst.mTemp)
-			return false;
-
-		for (int i = 0; i < bins->mNumOperands; i++)
-			if (lins->mDst.mTemp == bins->mSrc[i].mTemp)
-				return false;
-	}
-	if (bins->mDst.mTemp >= 0)
-	{
-		for (int i = 0; i < lins->mNumOperands; i++)
-			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
-				return false;
-	}
-	if (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
-	{
-		if (lins->mCode == IC_CONSTANT && lins->mDst.mType == IT_POINTER && lins->mConst.mMemory == IM_FRAME)
-			return false;
-	}
-
-	return true;
-}
-
-static bool CanBypassLoadUp(const InterInstruction* lins, const InterInstruction* bins)
-{
-	// Check ambiguity
-	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
-		return false;
-
-	// Side effects
-	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
-		return false;
-
-	// False data dependency
-	if (bins->UsesTemp(lins->mDst.mTemp) || bins->mDst.mTemp == lins->mDst.mTemp)
-		return false;
-
-	// True data dependency
-	if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].mTemp == bins->mDst.mTemp)
-		return false;
-
-	if (bins->mCode == IC_STORE)
-	{
-		if (lins->mVolatile)
-			return false;
-		else if (lins->mSrc[0].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
-			return false;
-		else if (lins->mSrc[0].mMemory != bins->mSrc[1].mMemory)
-			return true;
-		else if (lins->mSrc[0].mMemory == IM_GLOBAL)
-		{
-			return lins->mSrc[0].mLinkerObject != bins->mSrc[1].mLinkerObject ||
-				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
-				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
-		}
-		else if (lins->mSrc[0].mMemory == IM_ABSOLUTE)
-		{
-			return
-				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
-				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
-		}
-		else if (lins->mSrc[0].mMemory == IM_LOCAL)
-		{
-			return lins->mSrc[0].mVarIndex != bins->mSrc[1].mVarIndex ||
-				lins->mSrc[0].mIntConst + lins->mSrc[0].mOperandSize <= bins->mSrc[1].mIntConst ||
-				lins->mSrc[0].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
-		}
-		else
-			return false;
-	}
-
-	return true;
-}
-
-
-static bool IsChained(const InterInstruction* ins, const InterInstruction* nins)
-{
-	if (ins->mDst.mTemp >= 0)
-	{
-		for (int i = 0; i < nins->mNumOperands; i++)
-			if (ins->mDst.mTemp == nins->mSrc[i].mTemp)
-				return true;
-	}
-
-	return false;
-}
-
-static bool CanBypassStore(const InterInstruction * sins, const InterInstruction * bins)
-{
-	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_PUSH_FRAME)
-		return false;
-
-	InterMemory	sm = IM_NONE, bm = IM_NONE;
-	int			bi = -1, si = -1, bt = -1, st = -1, bo = 0, so = 0, bz = 1, sz = 1;
-	if (sins->mCode == IC_LOAD)
-	{
-		sm = sins->mSrc[0].mMemory;
-		si = sins->mSrc[0].mVarIndex;
-		st = sins->mSrc[0].mTemp;
-		so = sins->mSrc[0].mIntConst;
-		sz = InterTypeSize[sins->mDst.mType];
-	}
-	else if (sins->mCode == IC_LEA || sins->mCode == IC_STORE)
-	{
-		sm = sins->mSrc[1].mMemory;
-		si = sins->mSrc[1].mVarIndex;
-		st = sins->mSrc[1].mTemp;
-		so = sins->mSrc[1].mIntConst;
-		sz = InterTypeSize[sins->mSrc[0].mType];
-	}
-
-	if (bins->mCode == IC_LOAD)
-	{
-		bm = bins->mSrc[0].mMemory;
-		bi = bins->mSrc[0].mVarIndex;
-		bt = sins->mSrc[0].mTemp;
-		bo = sins->mSrc[0].mIntConst;
-		bz = InterTypeSize[sins->mDst.mType];
-	}
-	else if (bins->mCode == IC_LEA || bins->mCode == IC_STORE)
-	{
-		bm = bins->mSrc[1].mMemory;
-		bi = bins->mSrc[1].mVarIndex;
-		bt = sins->mSrc[1].mTemp;
-		bo = sins->mSrc[1].mIntConst;
-		bz = InterTypeSize[sins->mSrc[0].mType];
-	}
-
-	// Check ambiguity
-	if (bins->mCode == IC_STORE || bins->mCode == IC_LOAD)
-	{
-		if (sm == IM_LOCAL)
-		{
-			if (bm == IM_PARAM || bm == IM_GLOBAL || bm == IM_FPARAM)
-				;
-			else if (bm == IM_LOCAL)
-			{
-				if (bi == si)
-					return false;
-			}
-			else
-				return false;
-		}
-		else if (sm == IM_FRAME || sm == IM_FFRAME)
-			;
-		else if (sm == IM_FPARAM)
-		{
-			if (bi == si)
-				return false;
-		}
-		else if (sm == IM_INDIRECT && bm == IM_INDIRECT && st == bt)
-		{
-			return so + sz <= bz || bo + bz <= so;
-		}
-		else
-			return false;
-	}
-
-	if (sm == IM_FRAME && (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME))
-		return false;
-
-	// Side effects
-	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
-		return false;
-
-	// True data dependency
-	if (bins->mDst.mTemp >= 0)
-	{
-		for (int i = 0; i < sins->mNumOperands; i++)
-			if (bins->mDst.mTemp == sins->mSrc[i].mTemp)
-				return false;
-	}
-
-	return true;
-}
 
 void InterCodeBasicBlock::SplitBranches(InterCodeProcedure* proc)
 {
@@ -8702,7 +8793,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 #if 1
 					else if (
 						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
-						mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U && 
+						mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
 						mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_MUL && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
 						mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 						mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
@@ -8744,7 +8835,7 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 					else if (
 						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1]->mDst.mTemp] &&
 						(!mExitRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp] ||
-						 (mEntryRequiredTemps[mInstructions[i + 1]->mDst.mTemp] && !mEntryRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp])) &&
+							(mEntryRequiredTemps[mInstructions[i + 1]->mDst.mTemp] && !mEntryRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp])) &&
 						mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp)
 					{
 						mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
@@ -8789,6 +8880,51 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 0]->mDst.mType = IT_POINTER;
 
 						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
+						changed = true;
+					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT16 &&
+						mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+						mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+						mInstructions[i + 1]->mSrc[0].IsUByte() &&
+						mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+						mInstructions[i + 2]->mSrc[1].mTemp < 0)
+					{
+						mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+						mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[1].mIntConst;
+
+						mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+						mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+						changed = true;
+					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
+						mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+						mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+						mInstructions[i + 1]->mSrc[0].IsUByte() &&
+						mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+						mInstructions[i + 2]->mSrc[1].mTemp < 0)
+					{
+						mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+
+						mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+						mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+						changed = true;
+					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SUB && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
+						mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+						mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+						mInstructions[i + 1]->mSrc[0].IsUByte() &&
+						mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+						mInstructions[i + 2]->mSrc[1].mTemp < 0)
+					{
+						mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 2]->mSrc[1].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+						mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+						mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
 						changed = true;
 					}
 
@@ -9635,6 +9771,9 @@ void InterCodeProcedure::Close(void)
 	do
 	{
 		BuildDataFlowSets();
+
+		ResetVisited();
+		mEntryBlock->CollectLocalUsedTemps(mTemporaries.Size());
 
 		ResetVisited();
 		changed = mEntryBlock->PushSinglePathResultInstructions();

@@ -326,7 +326,7 @@ public:
 
 	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable, mLoopPath;
 
-	NumberSet						mLocalUsedTemps;
+	NumberSet						mLocalUsedTemps, mLocalModifiedTemps;
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
 	NumberSet						mExitRequiredTemps, mExitProvidedTemps;
