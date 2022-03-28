@@ -11673,26 +11673,106 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 				if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[start].mAddress && mIns[i].ChangesAddress())
 					return false;
 			}
+
+			mIns.Remove(to);
+			for (int i = start; i < from; i++)
+			{
+				mIns.Insert(to, mIns[start]);
+				mIns.Remove(start);
+			}
+			mIns.Remove(start);
+
+			return true;
 		}
-		else
-			return false;
 	}
-	else
-		return false;
-
-	mIns.Remove(to);
-	for (int i = start; i < from; i++)
+	
+	if (to + 1 < mIns.Size() && mIns[to + 1].mType == ASMIT_STA && !(mIns[to + 1].mLive & LIVE_CPU_REG_A))
 	{
-		mIns.Insert(to, mIns[start]);
-		mIns.Remove(start);
-	}
-	mIns.Remove(start);
+		NativeCodeInstruction	ins(mIns[to + 1]);
 
-	return true;
+		if (ins.mMode == ASMIM_ABSOLUTE_Y)
+		{
+			for (int i = from + 1; i < to; i++)
+			{
+				if (mIns[i].ChangesAddress())
+				{
+					if (mIns[i].mMode == ASMIM_INDIRECT_Y || mIns[i].mMode == ASMIM_ABSOLUTE_X)
+						return false;
+					else if (mIns[i].mMode == ASMIM_ABSOLUTE)
+					{
+						if (mIns[i].mLinkerObject == ins.mLinkerObject && mIns[i].mAddress >= ins.mAddress && mIns[i].mAddress < ins.mAddress + 256)
+							return false;
+					}
+					else if (mIns[i].mMode == ASMIM_ABSOLUTE_Y)
+					{
+						if (mIns[i].mLinkerObject == ins.mLinkerObject && mIns[i].mAddress == ins.mAddress)
+							return false;
+					}
+				}
+				else if (mIns[i].ChangesYReg())
+					return false;
+			}
+
+			mIns.Remove(to);
+			mIns.Remove(to);
+			mIns.Remove(from);
+
+			mIns.Insert(from, ins);
+
+			return true;
+		}
+	}
+
+	return false;
 }
 
 bool NativeCodeBasicBlock::JoinTAYARange(int from, int to)
 {
+	return false;
+}
+
+bool NativeCodeBasicBlock::MergeXYSameValue(int from)
+{
+	int	to = from;
+	while (to < mIns.Size())
+	{
+		if (mIns[to].ChangesYReg() || mIns[to].ChangesXReg())
+			return false;
+
+		if (!(mIns[to].mLive & LIVE_CPU_REG_X))
+		{
+			for (int i = from; i <= to; i++)
+			{
+				if (mIns[i].mMode == ASMIM_INDIRECT_X)
+					return false;
+				else if (mIns[i].mMode == ASMIM_ABSOLUTE_X)
+				{
+					if (!HasAsmInstructionMode(mIns[i].mType, ASMIM_ABSOLUTE_Y))
+						return false;
+				}
+			}
+
+			return ReplaceXRegWithYReg(from, to + 1);
+		}
+		else if (!(mIns[to].mLive & LIVE_CPU_REG_Y))
+		{
+			for (int i = from; i <= to; i++)
+			{
+				if (mIns[i].mMode == ASMIM_INDIRECT_Y)
+					return false;
+				else if (mIns[i].mMode == ASMIM_ABSOLUTE_Y)
+				{
+					if (!HasAsmInstructionMode(mIns[i].mType, ASMIM_ABSOLUTE_X))
+						return false;
+				}
+			}
+
+			return ReplaceYRegWithXReg(from, to + 1);
+		}
+
+		to++;
+	}
+
 	return false;
 }
 
@@ -16003,14 +16083,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		{
 			if (mIns[i].mType == ASMIT_TAX)
 			{
-				if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 					taxPos = i;
 				else
 					taxPos = -1;
 			}
 			else if (mIns[i].mType == ASMIT_TAY)
 			{
-				if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 					tayPos = i;
 				else
 					tayPos = -1;
@@ -16021,7 +16101,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				tayPos = -1;
 			else if (mIns[i].mType == ASMIT_TXA)
 			{
-				if (!(mIns[i].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+				if (taxPos >= 0 && !(mIns[i].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
 				{
 					if (JoinTAXARange(taxPos, i))
 						changed = true;
@@ -16032,7 +16112,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			}
 			else if (mIns[i].mType == ASMIT_TYA)
 			{
-				if (!(mIns[i].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				if (tayPos >= 0 && !(mIns[i].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
 				{
 					if (JoinTAYARange(tayPos, i))
 						changed = true;
@@ -16046,6 +16126,19 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			else if (mIns[i].RequiresYReg())
 				tayPos = -1;
 		}
+
+		for (int i = 0; i + 2 < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_TAY ||
+				mIns[i].mType == ASMIT_TAY && mIns[i + 1].mType == ASMIT_TAX)
+			{
+				if (MergeXYSameValue(i + 2))
+					changed = true;
+			}
+		}
+
+#if 1
+#endif
 
 #if 1
 		if (pass > 1)
