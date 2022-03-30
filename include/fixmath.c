@@ -517,14 +517,31 @@ unsigned lmuldiv8by8(char a, char b, char c)
 		sty	accu + 1
 		sty	accu + 2
 
-		ldx #16
+		lda a
+		beq	z1
+		lda c
+		beq	z1
+
+		ldx #8
+		lda	b
+		beq	z1
+
+		cmp c
+		bcc w0
+	l1:
+		lsr
+		ror accu + 1
+		inx
+		cmp c
+		bcs l1
+		bcc	wa
+
 	l2:
 		asl accu + 2
 		rol accu + 0
+	wa:
 		rol accu + 1
-
-		tya
-		asl	b
+	w0:
 		rol
 
 		bcc w2
@@ -547,6 +564,7 @@ unsigned lmuldiv8by8(char a, char b, char c)
 		bne w1
 		inc accu + 1
 	w1:
+		tya
 
 		dex
 		bne l2
