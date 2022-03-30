@@ -1542,6 +1542,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						dtype = TheUnsignedIntTypeDeclaration;
 				}
 
+				// Convert bool to char on binary operation
+				if (dtype->mType == DT_TYPE_BOOL)
+				{
+					if (exp->mToken == TK_BINARY_AND || exp->mToken == TK_BINARY_OR)
+						mErrors->Error(exp->mLocation, EWARN_BOOL_SHORTCUT, "Binary and/or operator used for boolean values, use logical operator ('&&' '||').");
+					dtype = TheUnsignedCharTypeDeclaration;
+				}
+
 				vl = CoerceType(proc, block, vl, dtype);
 				vr = CoerceType(proc, block, vr, dtype);
 

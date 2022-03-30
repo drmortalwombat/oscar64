@@ -19085,7 +19085,7 @@ void NativeCodeBasicBlock::BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& p
 {
 	if (!mPlaced)
 	{
-		assert(mBranch != ASMIT_JMP || mIns.Size() > 0);
+		assert(mBranch != ASMIT_JMP || mIns.Size() > 0 || mTrueJump == this);
 
 		mPlaced = true;
 		mPlace = placement.Size();
