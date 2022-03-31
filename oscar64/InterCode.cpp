@@ -4684,6 +4684,14 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
 						cins->mOperator = IA_CMPLEU;
 					break;
+				case IA_CMPGS:
+					if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
+						cins->mOperator = IA_CMPGU;
+					break;
+				case IA_CMPGES:
+					if (cins->mSrc[0].IsUnsigned() && cins->mSrc[1].IsUnsigned())
+						cins->mOperator = IA_CMPGEU;
+					break;
 				}
 			}
 		}
