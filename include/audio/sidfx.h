@@ -13,11 +13,13 @@ struct SIDFX
 
 void sidfx_init(void);
 
-void sidfx_play(byte chn, SIDFX * fx, byte cnt);
+inline void sidfx_play(byte chn, SIDFX * fx, byte cnt);
 
 void sidfx_stop(byte chn);
 
 void sidfx_loop(void);
+
+void sidfx_loop_2(void);
 
 #pragma compile("sidfx.c")
 
