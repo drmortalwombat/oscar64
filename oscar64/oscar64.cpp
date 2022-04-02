@@ -217,7 +217,8 @@ int main2(int argc, const char** argv)
 
 			// Add runtime module
 
-			compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
+			if (crtPath[0])
+				compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
 
 			if (compiler->ParseSource() && compiler->GenerateCode())
 			{

@@ -8177,6 +8177,34 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 				for (int i = 0; i < mInstructions.Size(); i++)
 				{
+					if (i + 1 < mInstructions.Size())
+					{
+						InterInstruction* ins0 = mInstructions[i + 0];
+						InterInstruction* ins1 = mInstructions[i + 1];
+						if (ins0->mCode == IC_BINARY_OPERATOR && ins0->mOperator == IA_ADD && ins1->mCode == IC_BINARY_OPERATOR && ins1->mOperator == IA_ADD)
+						{
+							if (ins0->mDst.mTemp == ins1->mSrc[1].mTemp && IsIntegerType(ins1->mDst.mType) && ins1->mSrc[1].mFinal)
+							{
+								if (ins0->mSrc[0].mTemp >= 0 && ins0->mSrc[1].mTemp >= 0 && ins1->mSrc[0].mTemp >= 0)
+								{
+									if ((dep[ins0->mSrc[1].mTemp] == DEP_INDEX || dep[ins0->mSrc[1].mTemp] == DEP_INDEX_EXTENDED) &&
+										(dep[ins0->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins0->mSrc[0].mTemp] == DEP_VARIABLE) &&
+										(dep[ins1->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins1->mSrc[0].mTemp] == DEP_VARIABLE))
+									{
+										InterOperand	op = ins0->mSrc[1];
+										ins0->mSrc[1] = ins1->mSrc[0];
+										ins1->mSrc[0] = op;
+										if (dep[ins0->mSrc[0].mTemp] == DEP_UNKNOWN && dep[ins0->mSrc[1].mTemp] == DEP_UNKNOWN)
+											ins0->mInvariant = true;
+										dep[ins0->mDst.mTemp] = DEP_UNKNOWN;
+										dep[ins1->mDst.mTemp] = DEP_UNKNOWN;
+										changed = true;
+									}
+								}
+							}
+						}
+					}
+
 					InterInstruction* ins = mInstructions[i];
 					int t = ins->mDst.mTemp;
 					if (t >= 0)
@@ -9969,6 +9997,23 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Peephole optimized");
 
+#endif
+
+#if 1
+	BuildLoopPrefix();
+	DisassembleDebug("added dominators");
+
+	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet);
+
+	DisassembleDebug("single block loop opt 3");
+
+	BuildDataFlowSets();
+
+	BuildTraces(false);
+	DisassembleDebug("Rebuilt traces");
 #endif
 
 #if 1

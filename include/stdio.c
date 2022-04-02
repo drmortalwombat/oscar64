@@ -156,7 +156,10 @@ inline int nformi(const sinfo * si, char * str, int v, bool s)
 		u = -v;
 	}
 
-	char	i = 10;
+	char	b = si->width;
+	if (b < 10)
+		b = 10;
+	char	i = b;
 	while (u > 0)
 	{
 		int	c = u % si->base;
@@ -168,7 +171,7 @@ inline int nformi(const sinfo * si, char * str, int v, bool s)
 		u /= si->base;
 	}
 
-	char	digits = si->precision != 255 ? 10 - si->precision : 9;
+	char	digits = si->precision != 255 ? b - si->precision : b - 1;
 
 	while (i > digits)
 		sp[--i] = '0';
@@ -184,12 +187,21 @@ inline int nformi(const sinfo * si, char * str, int v, bool s)
 	else if (si->sign)
 		sp[--i] = '+';
 
-	while (i > 10 - si->width)
-		sp[--i] = si->fill;
-
 	char j = 0;
-	while (i < 10)
-		sp[j++] = sp[i++];
+	if (si->left)
+	{
+		while (i < b)
+			sp[j++] = sp[i++];
+		while (j < si->width)
+			sp[j++] = si->fill;
+	}
+	else
+	{
+		while (i + si->width > b)
+			sp[--i] = si->fill;
+		while (i < b)
+			sp[j++] = sp[i++];
+	}
 
 	return j;
 }
@@ -207,7 +219,11 @@ int nforml(const sinfo * si, char * str, long v, bool s)
 		u = -v;
 	}
 
-	char	i = 16;
+	char	b = si->width;
+	if (b < 16)
+		b = 16;
+	char	i = b;
+
 	while (u > 0)
 	{
 		int	c = u % si->base;
@@ -219,7 +235,7 @@ int nforml(const sinfo * si, char * str, long v, bool s)
 		u /= si->base;
 	}
 
-	char	digits = si->precision != 255 ? 16 - si->precision : 15;
+	char	digits = si->precision != 255 ? b - si->precision : b - 1;
 
 	while (i > digits)
 		sp[--i] = '0';
@@ -235,12 +251,21 @@ int nforml(const sinfo * si, char * str, long v, bool s)
 	else if (si->sign)
 		sp[--i] = '+';
 
-	while (i > 16 - si->width)
-		sp[--i] = si->fill;
-
 	char j = 0;
-	while (i < 16)
-		sp[j++] = sp[i++];
+	if (si->left)
+	{
+		while (i < b)
+			sp[j++] = sp[i++];
+		while (j < si->width)
+			sp[j++] = si->fill;
+	}
+	else
+	{
+		while (i + si->width > b)
+			sp[--i] = si->fill;
+		while (i < b)
+			sp[j++] = sp[i++];
+	}
 
 	return j;
 }
@@ -371,10 +396,18 @@ int nformf(const sinfo * si, char * str, float f, char type)
 
 	if (d < si->width)
 	{
-		for(char i=1; i<=d; i++)
-			sp[si->width - i] = sp[d - i];
-		for(char i=0; i<si->width-d; i++)
-			sp[i] = ' ';
+		if (si->left)
+		{
+			for(char i=d; i<si->width; i++)
+				sp[i] = ' ';
+		}
+		else
+		{
+			for(char i=1; i<=d; i++)
+				sp[si->width - i] = sp[d - i];
+			for(char i=0; i<si->width-d; i++)
+				sp[i] = ' ';
+		}
 		d = si->width;
 	}
 
@@ -407,7 +440,7 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 			c = *p++;
 
 			si.base = 10;
-			si.width = 1;
+			si.width = 0;
 			si.precision = 255;
 			si.fill = ' ';
 			si.sign = false;
@@ -422,6 +455,8 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 					si.fill = '0';
 				else if (c == '#')
 					si.prefix = true;
+				else if (c == '-')
+					si.left = true;
 				else					
 					break;
 				c = *p++;
@@ -497,12 +532,47 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 			else if (c == 's')
 			{
 				char * sp = (char *)*fps++;
+
+				char n = 0;
+				if (si.width)
+				{
+					while (sp[n])
+						n++;
+				}
+
+				if (!si.left)
+				{
+					while (n < si.width)
+					{
+						bp[bi++]  = si.fill;
+						n++;
+					}
+				}
+
 				if (print)
+				{
+					if (bi)
+					{
+						bp[bi] = 0;
+						puts(bp);
+						bi = 0;
+					}
 					puts(sp);
+				}
 				else
 				{
 					while (char c = *sp++)
-						*bp++ = c;
+						bp[bi++] = c;
+
+				}
+
+				if (si.left)
+				{
+					while (n < si.width)
+					{
+						bp[bi++] = si.fill;
+						n++;
+					}						
 				}
 			}
 			else if (c == 'c')
