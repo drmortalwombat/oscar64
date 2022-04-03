@@ -7,7 +7,7 @@ struct SIDFX
 {
 	unsigned	freq, pwm;
 	byte		ctrl, attdec, susrel;
-	sbyte		dfreq, dpwm;
+	int			dfreq, dpwm;
 	byte		time1, time0;
 };
 

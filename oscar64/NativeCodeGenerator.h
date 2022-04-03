@@ -235,6 +235,7 @@ public:
 	bool MoveLoadStoreOutOfXYRangeUp(int at);
 	
 	bool MoveLoadAddImmStoreAbsXUp(int at);
+	bool MoveStaTaxLdaStaDown(int at);
 
 	bool MoveLoadAddImmStoreUp(int at);
 	bool MoveCLCLoadAddZPStoreUp(int at);
