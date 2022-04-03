@@ -1,7 +1,7 @@
 #include "Linker.h"
 #include <string.h>
 #include <stdio.h>
-
+#include "CompilerTypes.h"
 
 LinkerRegion::LinkerRegion(void)
 	: mSections(nullptr), mFreeChunks(FreeChunk{ 0, 0 } )
@@ -43,7 +43,7 @@ uint8* LinkerObject::AddSpace(int size)
 }
 
 Linker::Linker(Errors* errors)
-	: mErrors(errors), mSections(nullptr), mReferences(nullptr), mObjects(nullptr), mRegions(nullptr)
+	: mErrors(errors), mSections(nullptr), mReferences(nullptr), mObjects(nullptr), mRegions(nullptr), mCompilerOptions(COPT_DEFAULT)
 {
 	for (int i = 0; i < 64; i++)
 	{
@@ -177,7 +177,7 @@ void Linker::ReferenceObject(LinkerObject* obj)
 	}
 }
 
-bool LinkerRegion::Allocate(LinkerObject* lobj)
+bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 {
 	int i = 0;
 	while (i < mFreeChunks.Size())
@@ -185,7 +185,9 @@ bool LinkerRegion::Allocate(LinkerObject* lobj)
 		int start = (mFreeChunks[i].mStart + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
 		int end = start + lobj->mSize;
 
-		if (end <= mFreeChunks[i].mEnd)
+		if (!(linker->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE) && (lobj->mFlags & LOBJF_NO_CROSS) && lobj->mSize <= 256 && (start & 0xff00) != ((end - 1) & 0xff00))
+			;
+		else if (end <= mFreeChunks[i].mEnd)
 		{
 			lobj->mFlags |= LOBJF_PLACED;
 			lobj->mAddress = start;
@@ -216,6 +218,12 @@ bool LinkerRegion::Allocate(LinkerObject* lobj)
 
 	int start = (mStart + mUsed + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
 	int end = start + lobj->mSize;
+
+	if (!(linker->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE) && (lobj->mFlags & LOBJF_NO_CROSS) && lobj->mSize <= 256 && (start & 0xff00) != ((end - 1) & 0xff00))
+	{
+		start = (start + 0x00ff) & 0xff00;
+		end = start + lobj->mSize;
+	}
 
 	if (end <= mEnd)
 	{
@@ -294,7 +302,7 @@ void Linker::Link(void)
 				for (int k = 0; k < lsec->mObjects.Size(); k++)
 				{
 					LinkerObject* lobj = lsec->mObjects[k];
-					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(lobj) )
+					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj) )
 					{
 						if (lsec->mType == LST_DATA)
 							lrgn->mNonzero = lrgn->mUsed;

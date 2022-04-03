@@ -8712,6 +8712,17 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 				int j = i;
 				while (j > 0 && CanBypassLoadUp(ins, mInstructions[j - 1]))
 				{
+					if (ins->mSrc[0].mFinal)
+					{
+						for (int k = 0; k < mInstructions[j - 1]->mNumOperands; k++)
+						{
+							if (mInstructions[j - 1]->mSrc[k].mTemp == ins->mSrc[0].mTemp)
+							{
+								mInstructions[j - 1]->mSrc[k].mFinal = true;
+								ins->mSrc[0].mFinal = false;
+							}
+						}
+					}
 					mInstructions[j] = mInstructions[j - 1];
 					j--;
 				}
@@ -8728,12 +8739,24 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 		while (i >= 0)
 		{
 			// move non indirect loads down
-			if (mInstructions[i]->mCode == IC_LOAD && (mInstructions[i]->mSrc[0].mMemory != IM_INDIRECT || mInstructions[i]->mDst.mType != IT_INT8))
+			if (mInstructions[i]->mCode == IC_LOAD && (mInstructions[i]->mSrc[0].mMemory != IM_INDIRECT || mInstructions[i]->mDst.mType != IT_INT8 || !mInstructions[i]->mSrc[0].mFinal))
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
 				while (j < limit && CanBypassLoad(ins, mInstructions[j + 1]))
 				{
+					if (!ins->mSrc[0].mFinal)
+					{
+						for (int k = 0; k < mInstructions[j + 1]->mNumOperands; k++)
+						{
+							if (mInstructions[j + 1]->mSrc[k].mTemp == ins->mSrc[0].mTemp && mInstructions[j + 1]->mSrc[k].mFinal)
+							{
+								mInstructions[j + 1]->mSrc[k].mFinal = false;
+								ins->mSrc[0].mFinal = true;
+							}
+						}
+					}
+
 					mInstructions[j] = mInstructions[j + 1];
 					j++;
 				}
@@ -8776,7 +8799,17 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 			{
 				if (i + 2 < mInstructions.Size())
 				{
-					if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
+					if (mInstructions[i + 0]->mCode == IC_LOAD &&
+						mInstructions[i + 1]->mCode == IC_LOAD &&
+						mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
+						mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst)
+					{
+						InterInstruction* ins(mInstructions[i + 0]);
+						mInstructions[i + 0] = mInstructions[i + 1];
+						mInstructions[i + 1] = ins;
+						changed = true;
+					}
+					else if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
 						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp &&
 						(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal)
 					{

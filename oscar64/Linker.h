@@ -91,7 +91,7 @@ public:
 
 	GrowingArray<FreeChunk>		mFreeChunks;
 	
-	bool Allocate(LinkerObject* obj);
+	bool Allocate(Linker * linker, LinkerObject* obj);
 	void PlaceStackSection(LinkerSection* stackSection, LinkerSection* section);
 };
 
@@ -129,6 +129,7 @@ static const uint32 LOBJF_INLINE		= 0x00000008;
 static const uint32 LOBJF_CONST			= 0x00000010;
 static const uint32 LOBJF_RELEVANT		= 0x00000020;
 static const uint32 LOBJF_STATIC_STACK	= 0x00000040;
+static const uint32 LOBJF_NO_CROSS		= 0x00000080;
 
 class LinkerObject
 {
@@ -186,6 +187,8 @@ public:
 	bool WriteLblFile(const char* filename);
 	bool WriteCrtFile(const char* filename);
 	bool WriteBinFile(const char* filename);
+
+	uint64							mCompilerOptions;
 
 	GrowingArray<LinkerReference*>	mReferences;
 	GrowingArray<LinkerRegion*>		mRegions;

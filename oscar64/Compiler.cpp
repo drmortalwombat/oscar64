@@ -48,6 +48,7 @@ void Compiler::AddDefine(const Ident* ident, const char* value)
 bool Compiler::ParseSource(void)
 {
 	mPreprocessor->mCompilerOptions = mCompilerOptions;
+	mLinker->mCompilerOptions = mCompilerOptions;
 
 	CompilationUnit* cunit;
 	while (mErrors->mErrorCount == 0 && (cunit = mCompilationUnits->PendingUnit()))

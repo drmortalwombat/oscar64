@@ -283,7 +283,7 @@ public:
 
 	NativeCodeBasicBlock * SplitMatchingTails(NativeCodeProcedure* proc);
 
-	bool JoinTailCodeSequences(NativeCodeProcedure* proc);
+	bool JoinTailCodeSequences(NativeCodeProcedure* proc, bool loops);
 	bool SameTail(const NativeCodeInstruction& ins) const;
 
 	NativeRegisterDataSet	mEntryRegisterDataSet;
