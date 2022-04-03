@@ -12,6 +12,9 @@ __asm putpch
 		bne	w1
 		lda #13
 	w1:
+		cmp #9
+		beq t1
+
 		cpx	#IOCHM_PETSCII_1
 		bcc	w3
 
@@ -30,6 +33,18 @@ __asm putpch
 		and #$df
 	w3:
 		jmp	0xffd2	
+	t1:
+		sec
+		jsr 0xfff0
+		tya
+		and	#3
+		eor #3
+		tax
+		lda #$20
+	l1:
+		jsr 0xffd2
+		dex
+		bpl l1
 }
 
 __asm getpch
