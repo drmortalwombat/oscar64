@@ -10711,6 +10711,16 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 						changed = true;
 					}
+					else if (lblock->mIns[ls - 1].mType == ASMIT_LDA && lblock->mIns[ls - 1].mMode == ASMIM_ZERO_PAGE && lblock->mIns[ls - 1].mAddress == mIns[0].mAddress &&
+						!(lblock->mIns[ls - 1].mLive & LIVE_CPU_REG_A))
+					{
+						lblock->mIns[ls - 1].mType = ASMIT_LDY; lblock->mIns[ls - 1].mLive |= LIVE_CPU_REG_Y;
+
+						pblock->mIns.Push(mIns[0]);
+						mIns.Remove(0);
+
+						changed = true;
+					}
 				}
 				else if (mIns[0].mType == ASMIT_LDX && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_A))
 				{

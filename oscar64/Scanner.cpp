@@ -1349,20 +1349,63 @@ static inline char p2s(char ch)
 	return (ch & 0x1f) | p2smap[ch >> 5];
 }
 
-
+static inline char transchar(char mode, char ch)
+{
+	switch (mode)
+	{
+	case 'a':
+		return ch;
+	case 'p':
+		if (ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z')
+			return ch ^ 0x20;
+		else
+			return ch;
+		break;
+	case 'P':
+		if (ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z')
+			return (ch ^ 0x20) & 0xdf;
+		else
+			return ch;
+		break;
+	case 's':
+		if (ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z')
+			return p2s(ch ^ 0x20);
+		else
+			return p2s(ch);
+		break;
+	case 'S':
+		if (ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z')
+			return p2s((ch ^ 0x20) & 0xdf);
+		else
+			return p2s(ch);
+		break;
+	}
+}
 
 void Scanner::StringToken(char terminator, char mode)
 {
+	switch (mode)
+	{
+	case 'a':
+	case 'p':
+	case 'P':
+	case 's':
+	case 'S':
+		break;
+	default:
+		Error("Invalid string literal mode");
+	}
+
 	int	n = 0;
 
 	while (mLine[mOffset] && mLine[mOffset] != terminator && mLine[mOffset] != '\n')
 	{
-		mTokenChar = mLine[mOffset++];
+		char ch = mLine[mOffset++];
 
-		if (mTokenChar == '\\' && mLine[mOffset])
+		if (ch == '\\' && mLine[mOffset])
 		{
-			mTokenChar = mLine[mOffset++];
-			switch (mTokenChar)
+			ch = mLine[mOffset++];
+			switch (ch)
 			{
 			case '0':
 				mTokenChar = '\0';
@@ -1391,15 +1434,29 @@ void Scanner::StringToken(char terminator, char mode)
 				char	c1 = mLine[mOffset++];
 
 				if (IsHex(c0) && IsHex(c1))
+					mTokenChar = transchar(mode, 16 * HexValue(c0) + HexValue(c1));
+				else
+					mErrors->Error(mLocation, EERR_SYNTAX, "Invalid hex escape code");
+			}
+				break;
+			case 'y':
+			{
+				char	c0 = mLine[mOffset++];
+				char	c1 = mLine[mOffset++];
+
+				if (IsHex(c0) && IsHex(c1))
 					mTokenChar = 16 * HexValue(c0) + HexValue(c1);
 				else
 					mErrors->Error(mLocation, EERR_SYNTAX, "Invalid hex escape code");
 			}
 				break;
 			default:
-				;
+				mTokenChar = transchar(mode, ch);
+				break;
 			}
 		}
+		else
+			mTokenChar = transchar(mode, ch);
 
 		mTokenString[n++] = mTokenChar;
 	}
@@ -1408,42 +1465,6 @@ void Scanner::StringToken(char terminator, char mode)
 
 	if (mLine[mOffset] && mLine[mOffset] == terminator)
 	{
-		switch (mode)
-		{
-		case 'a':
-			break;
-		case 'p':
-			for (int i = 0; i < n; i++)
-			{
-				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
-					mTokenString[i] = mTokenString[i] ^ 0x20;
-			}
-			break;
-		case 'P':
-			for (int i = 0; i < n; i++)
-			{
-				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
-					mTokenString[i] = (mTokenString[i] ^ 0x20) & 0xdf;
-			}
-			break;
-		case 's':
-			for (int i = 0; i < n; i++)
-			{
-				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
-					mTokenString[i] = p2s(mTokenString[i] ^ 0x20);
-			}
-			break;
-		case 'S':
-			for (int i = 0; i < n; i++)
-			{
-				if (mTokenString[i] >= 'A' && mTokenString[i] <= 'Z' || mTokenString[i] >= 'a' && mTokenString[i] <= 'z')
-					mTokenString[i] = p2s((mTokenString[i] ^ 0x20) & 0xdf);
-			}
-			break;
-		default:
-			Error("Invalid string literal mode");
-		}
-
 		mToken = TK_STRING;
 		mOffset++;
 		NextChar();
@@ -1459,14 +1480,26 @@ void Scanner::StringToken(char terminator, char mode)
 
 void Scanner::CharToken(char mode)
 {
+	switch (mode)
+	{
+	case 'a':
+	case 'p':
+	case 'P':
+	case 's':
+	case 'S':
+		break;
+	default:
+		Error("Invalid string literal mode");
+	}
+
 	int	n = 0;
 
-	mTokenChar = mLine[mOffset++];
+	char ch = mLine[mOffset++];
 
-	if (mTokenChar == '\\' && mLine[mOffset])
+	if (ch == '\\' && mLine[mOffset])
 	{
-		mTokenChar = mLine[mOffset++];
-		switch (mTokenChar)
+		ch = mLine[mOffset++];
+		switch (ch)
 		{
 		case '0':
 			mTokenChar = '\0';
@@ -1495,31 +1528,28 @@ void Scanner::CharToken(char mode)
 			char	c1 = mLine[mOffset++];
 
 			if (IsHex(c0) && IsHex(c1))
+				mTokenChar = transchar(mode, 16 * HexValue(c0) + HexValue(c1));
+			else
+				mErrors->Error(mLocation, EERR_SYNTAX, "Invalid hex escape code");
+		}
+		break;
+		case 'y':
+		{
+			char	c0 = mLine[mOffset++];
+			char	c1 = mLine[mOffset++];
+
+			if (IsHex(c0) && IsHex(c1))
 				mTokenChar = 16 * HexValue(c0) + HexValue(c1);
 			else
 				mErrors->Error(mLocation, EERR_SYNTAX, "Invalid hex escape code");
 		}
 		break;
 		default:
-			;
+			mTokenChar = transchar(mode, ch);
 		}
 	}
-
-	switch (mode)
-	{
-	case 'a':
-		break;
-	case 'p':
-		if (mTokenChar >= 'A' && mTokenChar <= 'Z' || mTokenChar >= 'a' && mTokenChar <= 'z')
-			mTokenChar = mTokenChar ^ 0x20;
-		break;
-	case 'P':
-		if (mTokenChar >= 'A' && mTokenChar <= 'Z' || mTokenChar >= 'a' && mTokenChar <= 'z')
-			mTokenChar = (mTokenChar ^ 0x20) & 0xdf;
-		break;
-	default:
-		Error("Invalid string literal mode");
-	}
+	else
+		mTokenChar = transchar(mode, ch);
 
 	mTokenInteger = mTokenChar;
 
