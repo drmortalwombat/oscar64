@@ -1776,7 +1776,7 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 	}
 }
 
-bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsType& carryop)
+bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsType& carryop, bool final)
 {
 	bool	changed = false;
 
@@ -2510,6 +2510,21 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		case ASMIT_ROL:
 		case ASMIT_ROR:
 			data.ResetZeroPage(mAddress);			
+			break;
+		}
+	}
+	else if (final && mMode == ASMIM_IMMEDIATE)
+	{
+		switch (mType)
+		{
+		case ASMIT_LDA:
+			if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_Y].mValue == mAddress)
+			{
+				data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_Y];
+				mType = ASMIT_TYA;
+				mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
 			break;
 		}
 	}
@@ -10148,6 +10163,59 @@ bool NativeCodeBasicBlock::AlternateXYUsage(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (i + 2 < mIns.Size())
+			{
+				if (mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) && 
+					HasAsmInstructionMode(ASMIT_INC, mIns[i + 2].mMode) &&
+					!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				{
+					changed = true;
+
+					NativeCodeBasicBlock	*	iblock = proc->AllocateBlock();
+					NativeCodeBasicBlock	* fblock = proc->AllocateBlock();
+
+					fblock->mTrueJump = mTrueJump;
+					fblock->mFalseJump = mFalseJump;
+					fblock->mBranch = mBranch;
+
+					for (int j = i + 3; j < mIns.Size(); j++)
+						fblock->mIns.Push(mIns[j]);
+					iblock->mIns.Push(mIns[i + 2]);
+					mIns.SetSize(i);
+					iblock->mIns[0].mType = ASMIT_INC;
+					iblock->mTrueJump = fblock;
+					iblock->mBranch = ASMIT_JMP;
+
+					mTrueJump = fblock;
+					mFalseJump = iblock;
+					mBranch = ASMIT_BCC;
+					break;
+				}
+
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ExpandADCToBranch(proc))
+			changed = true;
+		if (mFalseJump && mFalseJump->ExpandADCToBranch(proc))
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::ReduceLocalXPressure(void)
 {
 	bool	changed = false;
@@ -13192,7 +13260,7 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreDown(int at)
 	return false;
 }
 
-bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bool global)
+bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final)
 {
 	bool	changed = false;
 
@@ -13270,7 +13338,7 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				changed = true;
 			}
 #endif
-			if (mIns[i].ValueForwarding(mNDataSet, carryop))
+			if (mIns[i].ValueForwarding(mNDataSet, carryop, final))
 				changed = true;
 			if (carryop != ASMIT_NOP)
 				mIns.Insert(i + 1, NativeCodeInstruction(carryop));
@@ -13283,6 +13351,8 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 
 		if (fork->mFalseJump)
 		{
+			mFDataSet = mNDataSet;
+
 			switch (fork->mBranch)
 			{
 			case ASMIT_BCS:
@@ -13319,6 +13389,16 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 						mTrueJump = fork->mTrueJump;
 					mFalseJump = nullptr;
 					changed = true;
+				}
+				else if (global && mIns.Size() > 0)
+				{
+					NativeCodeInstruction& lins(mIns[mIns.Size() - 1]);
+
+					if (lins.mType == ASMIT_LDY)
+					{
+						mFDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
+						mFDataSet.mRegs[CPU_REG_Y].mValue = 0;
+					}
 				}
 				break;
 			case ASMIT_BEQ:
@@ -13360,9 +13440,9 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 			}
 		}
 #endif
-		if (this->mTrueJump && this->mTrueJump->ValueForwarding(mNDataSet, global))
+		if (this->mTrueJump && this->mTrueJump->ValueForwarding(mNDataSet, global, final))
 			changed = true;
-		if (this->mFalseJump && this->mFalseJump->ValueForwarding(mNDataSet, global))
+		if (this->mFalseJump && this->mFalseJump->ValueForwarding(mFDataSet, global, final))
 			changed = true;
 	}
 
@@ -13488,6 +13568,18 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 		mIns[sz - 2].mType = ASMIT_LDY;
 		mIns[sz - 1].mType = ASMIT_CPY;
+
+		prevBlock->mIns.Push(mIns[0]);
+		mIns.Remove(0);
+		return true;
+	}
+
+	if (sz >= 2 && mIns[0].mType == ASMIT_LDY && mIns[sz - 1].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 1]) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
+	{
+		if (!prevBlock)
+			return OptimizeSimpleLoopInvariant(proc);
+
+		mIns[sz - 1].mType = ASMIT_LDY;
 
 		prevBlock->mIns.Push(mIns[0]);
 		mIns.Remove(0);
@@ -18185,7 +18277,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mType == ASMIT_LDA && 
 						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1]) &&
 						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+						mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && mIns[i + 3].mMode != ASMIM_IMMEDIATE)
 					{
 						mIns[i + 2].mType = ASMIT_ORA;
 						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
@@ -20293,7 +20385,7 @@ void NativeCodeProcedure::Optimize(void)
 
 			ResetVisited();
 			NativeRegisterDataSet	data;
-			if (mEntryBlock->ValueForwarding(data, step > 0))
+			if (mEntryBlock->ValueForwarding(data, step > 0, step == 6))
 				changed = true;
 
 		} while (changed);
@@ -20481,7 +20573,15 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->ForwardZpXIndex(step >= 4))
 			changed = true;
 #endif
-		if (!changed && step < 6)
+
+		if (step == 6)
+		{
+			ResetVisited();
+			if (mEntryBlock->ExpandADCToBranch(this))
+				changed = true;
+		}
+
+		if (!changed && step < 7)
 		{
 			step++;
 			changed = true;

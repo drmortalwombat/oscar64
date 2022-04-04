@@ -76,7 +76,7 @@ public:
 	void Assemble(NativeCodeBasicBlock* block);
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
-	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop);
+	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool final);
 
 	void Simulate(NativeRegisterDataSet& data);
 	bool ApplySimulation(const NativeRegisterDataSet& data);
@@ -141,7 +141,7 @@ public:
 
 	NativeCodeBasicBlock* mLoopHeadBlock;
 
-	NativeRegisterDataSet	mDataSet, mNDataSet;
+	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
 
 	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
 	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset);
@@ -275,7 +275,7 @@ public:
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
 	bool MergeXYSameValue(int from);
 
-	bool ValueForwarding(const NativeRegisterDataSet& data, bool global);
+	bool ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);
 
@@ -303,6 +303,8 @@ public:
 	bool LocalRegisterXYMap(void);
 	bool ReduceLocalYPressure(void);
 	bool ReduceLocalXPressure(void);
+
+	bool ExpandADCToBranch(NativeCodeProcedure* proc);
 
 	bool AlternateXYUsage(void);
 	bool ForwardAbsoluteLoadStores(void);
