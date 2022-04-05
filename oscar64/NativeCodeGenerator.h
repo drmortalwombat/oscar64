@@ -261,6 +261,7 @@ public:
 	bool ReplaceZeroPageUp(int at);
 	bool ReplaceYRegWithXReg(int start, int end);
 	bool ReplaceXRegWithYReg(int start, int end);
+	bool MoveASLMemUp(int start);
 
 	bool CanReplaceYRegWithXReg(int start, int end);
 	bool CanReplaceXRegWithYReg(int start, int end);

@@ -1353,6 +1353,7 @@ static inline char transchar(char mode, char ch)
 {
 	switch (mode)
 	{
+	default:
 	case 'a':
 		return ch;
 	case 'p':

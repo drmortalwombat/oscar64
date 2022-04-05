@@ -12948,6 +12948,23 @@ bool NativeCodeBasicBlock::MoveLoadStoreUp(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::MoveASLMemUp(int at)
+{
+	int j = at;
+	while (j > 0 && !mIns[j - 1].SameEffectiveAddress(mIns[at]))
+		j--;
+
+	if (j > 0 && mIns[j - 1].mType == ASMIT_STA && !(mIns[j - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+	{
+		mIns.Insert(j - 1, NativeCodeInstruction(mIns[at].mType));
+		mIns.Remove(at + 1);
+		return true;
+	}
+
+	return false;
+}
+
+
 bool NativeCodeBasicBlock::MoveLoadStoreXUp(int at)
 {
 	int	j = at;
@@ -13398,6 +13415,13 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 					{
 						mFDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
 						mFDataSet.mRegs[CPU_REG_Y].mValue = 0;
+
+						if (lins.mMode == ASMIM_ZERO_PAGE)
+						{
+							mFDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
+							mFDataSet.mRegs[lins.mAddress].mValue = 0;
+
+						}
 					}
 				}
 				break;
@@ -13440,6 +13464,29 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 			}
 		}
 #endif
+		if (global && mTrueJump && mTrueJump->mIns.Size() == 1 && mTrueJump->mTrueJump && !mTrueJump->mFalseJump)
+		{
+			if (mTrueJump->mIns[0].mType == ASMIT_LDY && mTrueJump->mIns[0].mMode == ASMIM_ZERO_PAGE)
+			{
+				if (mNDataSet.mRegs[CPU_REG_Y].SameData(mNDataSet.mRegs[mTrueJump->mIns[0].mAddress]))
+				{
+					mTrueJump = mTrueJump->mTrueJump;
+					changed = true;
+				}
+			}
+		}
+		if (global && mFalseJump && mFalseJump->mIns.Size() == 1 && mFalseJump->mTrueJump && !mFalseJump->mFalseJump)
+		{
+			if (mFalseJump->mIns[0].mType == ASMIT_LDY && mFalseJump->mIns[0].mMode == ASMIM_ZERO_PAGE)
+			{
+				if (mFDataSet.mRegs[CPU_REG_Y].SameData(mFDataSet.mRegs[mFalseJump->mIns[0].mAddress]))
+				{
+					mFalseJump = mFalseJump->mTrueJump;
+					changed = true;
+				}
+			}
+		}
+
 		if (this->mTrueJump && this->mTrueJump->ValueForwarding(mNDataSet, global, final))
 			changed = true;
 		if (this->mFalseJump && this->mFalseJump->ValueForwarding(mFDataSet, global, final))
@@ -16473,6 +16520,17 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE))
 			{
 				if (MoveLoadImmStoreAbsoluteUp(i + 0))
+					changed = true;
+			}
+		}
+#endif
+
+#if 1
+		for (int i = 2; i < mIns.Size(); i++)
+		{
+			if ((mIns[i].mType == ASMIT_ASL || mIns[i].mType == ASMIT_LSR) && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				if (MoveASLMemUp(i))
 					changed = true;
 			}
 		}
