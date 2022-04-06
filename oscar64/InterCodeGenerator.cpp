@@ -254,6 +254,8 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 			type = type->mBase;
 		if (type->mFlags & DTF_CONST)
 			var->mLinkerObject->mFlags |= LOBJF_CONST;
+		if (dec->mFlags & DTF_ZEROPAGE)
+			var->mLinkerObject->mFlags |= LOBJF_ZEROPAGE;
 
 		var->mIndex = mod->mGlobalVars.Size();
 		mod->mGlobalVars.Push(var);

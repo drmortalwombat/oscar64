@@ -3002,6 +3002,14 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			mode = ASMIM_ZERO_PAGE;
 		else if (mode == ASMIM_ABSOLUTE_X && !mLinkerObject && mAddress < 256 && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_X))
 			mode = ASMIM_ZERO_PAGE_X;
+		else if (mode == ASMIM_ABSOLUTE_Y && !mLinkerObject && mAddress < 256 && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_Y))
+			mode = ASMIM_ZERO_PAGE_Y;
+		else if (mode == ASMIM_ABSOLUTE && mLinkerObject && (mLinkerObject->mFlags & LOBJF_ZEROPAGE) && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE))
+			mode = ASMIM_ZERO_PAGE;
+		else if (mode == ASMIM_ABSOLUTE_X && mLinkerObject && (mLinkerObject->mFlags & LOBJF_ZEROPAGE) && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_X))
+			mode = ASMIM_ZERO_PAGE_X;
+		else if (mode == ASMIM_ABSOLUTE_Y && mLinkerObject && (mLinkerObject->mFlags & LOBJF_ZEROPAGE) && HasAsmInstructionMode(mType, ASMIM_ZERO_PAGE_Y))
+			mode = ASMIM_ZERO_PAGE_Y;
 
 		if (mode == ASMIM_IMMEDIATE_ADDRESS)
 		{
@@ -3024,7 +3032,22 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 		case ASMIM_ZERO_PAGE_Y:
 		case ASMIM_INDIRECT_X:
 		case ASMIM_INDIRECT_Y:
-			block->PutByte(uint8(mAddress));
+			if (mLinkerObject)
+			{
+				LinkerReference		rl;
+				rl.mOffset = block->mCode.Size();
+
+				rl.mRefObject = mLinkerObject;
+				rl.mRefOffset = mAddress;
+				rl.mFlags = LREF_LOWBYTE;
+
+				block->mRelocations.Push(rl);
+				block->PutByte(0);
+			}
+			else
+			{
+				block->PutByte(uint8(mAddress));
+			}
 			break;
 		case ASMIM_IMMEDIATE:
 			block->PutByte(uint16(mAddress));
@@ -9194,6 +9217,36 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 
 		if (!mLocked)
 		{
+			if (mFalseJump)
+			{
+				if (mTrueJump->mIns.Size() == 0 && mTrueJump->mFalseJump)
+				{
+					if (mTrueJump->mBranch == mBranch)
+					{
+						mTrueJump = mTrueJump->mTrueJump;
+						changed = true;
+					}
+					else if (mTrueJump->mBranch == InvertBranchCondition(mBranch))
+					{
+						mTrueJump = mTrueJump->mFalseJump;
+						changed = true;
+					}
+				}
+				if (mFalseJump->mIns.Size() == 0 && mFalseJump->mFalseJump)
+				{
+					if (mFalseJump->mBranch == mBranch)
+					{
+						mFalseJump = mFalseJump->mFalseJump;
+						changed = true;
+					}
+					else if (mFalseJump->mBranch == InvertBranchCondition(mBranch))
+					{
+						mFalseJump = mFalseJump->mTrueJump;
+						changed = true;
+					}
+				}
+			}
+
 			while (mTrueJump && !mFalseJump && mTrueJump->mNumEntries == 1 && mTrueJump != this && !mTrueJump->mLocked)
 			{
 				for (int i = 0; i < mTrueJump->mIns.Size(); i++)
@@ -10758,6 +10811,19 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 			}
 		}
 #endif
+		if (mEntryBlocks.Size() == 1)
+		{
+			NativeCodeBasicBlock* eblock = mEntryBlocks[0];
+			if (mIns.Size() > 0 && eblock->mIns.Size() > 0)
+			{
+				if (mIns[0].mType == ASMIT_ORA && mIns[0].mMode == ASMIM_IMMEDIATE && mIns[0].mAddress == 0 && eblock->mIns.Last().ChangesAccuAndFlag())
+				{
+					eblock->mExitRequiredRegs += CPU_REG_Z;
+					mIns.Remove(0);
+					changed = true;
+				}
+			}
+		}
 #if 1
 		if (loops && mIns.Size() >= 1 && mEntryBlocks.Size() == 2)
 		{
@@ -19419,6 +19485,29 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				mFalseJump = nullptr;
 				changed = true;
 			}
+			else if (mIns.Size() > 0 && mIns.Last().mType == ASMIT_LDA)
+			{
+				if (mBranch == ASMIT_BEQ && mTrueJump->mIns[0].mAddress == 1 && mFalseJump->mIns[0].mAddress == 0)
+				{
+					mIns.Insert(mIns.Size() - 1, NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+					mIns[mIns.Size() - 1].mType = ASMIT_CMP;
+					mIns.Push(NativeCodeInstruction(ASMIT_ROL, ASMIM_IMPLIED));
+					mBranch = ASMIT_JMP;
+					mTrueJump = mTrueJump->mTrueJump;
+					mFalseJump = nullptr;
+					changed = true;
+				}
+				else if (mBranch == ASMIT_BNE && mTrueJump->mIns[0].mAddress == 0 && mFalseJump->mIns[0].mAddress == 1)
+				{
+					mIns.Insert(mIns.Size() - 1, NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+					mIns[mIns.Size() - 1].mType = ASMIT_CMP;
+					mIns.Push(NativeCodeInstruction(ASMIT_ROL, ASMIM_IMPLIED));
+					mBranch = ASMIT_JMP;
+					mTrueJump = mTrueJump->mTrueJump;
+					mFalseJump = nullptr;
+					changed = true;
+				}
+			}
 		}
 #endif
 
@@ -20646,6 +20735,9 @@ void NativeCodeProcedure::Optimize(void)
 		}
 		cnt++;
 	} while (changed);
+
+	ResetVisited();
+	mEntryBlock->ReduceLocalYPressure();
 
 	CompressTemporaries();
 

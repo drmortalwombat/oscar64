@@ -31,7 +31,8 @@ enum LinkerSectionType
 	LST_BSS,
 	LST_HEAP,
 	LST_STACK,
-	LST_STATIC_STACK
+	LST_STATIC_STACK,
+	LST_ZEROPAGE
 
 };
 
@@ -130,6 +131,7 @@ static const uint32 LOBJF_CONST			= 0x00000010;
 static const uint32 LOBJF_RELEVANT		= 0x00000020;
 static const uint32 LOBJF_STATIC_STACK	= 0x00000040;
 static const uint32 LOBJF_NO_CROSS		= 0x00000080;
+static const uint32 LOBJF_ZEROPAGE		= 0x00000100;
 
 class LinkerObject
 {

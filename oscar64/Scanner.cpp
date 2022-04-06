@@ -55,6 +55,7 @@ const char* TokenNames[] =
 	"__native",
 	"__fastcall",
 	"__export",
+	"__zeropage",
 
 	"number",
 	"char",
@@ -1313,6 +1314,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_FASTCALL;
 				else if (!strcmp(tkident, "__export"))
 					mToken = TK_EXPORT;
+				else if (!strcmp(tkident, "__zeropage"))
+					mToken = TK_ZEROPAGE;
 				else
 				{
 					mToken = TK_IDENT;

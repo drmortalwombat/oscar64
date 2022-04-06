@@ -979,6 +979,11 @@ Declaration* Parser::ParseDeclaration(bool variable)
 				storageFlags |= DTF_EXTERN;
 				mScanner->NextToken();
 			}
+			else if (mScanner->mToken == TK_ZEROPAGE)
+			{
+				storageFlags |= DTF_ZEROPAGE;
+				mScanner->NextToken();
+			}
 			else if (mScanner->mToken == TK_INLINE)
 			{
 				storageFlags |= DTF_REQUEST_INLINE;
@@ -1073,6 +1078,14 @@ Declaration* Parser::ParseDeclaration(bool variable)
 				{
 					Declaration* pdec;
 					
+					if (storageFlags & DTF_ZEROPAGE)
+					{
+						if (ndec->mType == DT_VARIABLE)
+							ndec->mSection = mCompilationUnits->mSectionZeroPage;
+						else
+							mErrors->Error(ndec->mLocation, ERRR_INVALID_STORAGE_TYPE, "Invalid storage type", ndec->mIdent->mString);
+					}
+
 					if (mGlobals == mScope && !(storageFlags & DTF_STATIC))
 					{
 						pdec = mCompilationUnits->mScope->Insert(ndec->mIdent, ndec);

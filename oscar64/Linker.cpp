@@ -490,7 +490,8 @@ static const char* LinkerSectionTypeNames[] = {
 	"BSS",
 	"HEAP",
 	"STACK",
-	"SSTACK"
+	"SSTACK",
+	"ZEROPAGE"
 };
 
 bool Linker::WriteBinFile(const char* filename)

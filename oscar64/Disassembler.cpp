@@ -14,7 +14,7 @@ ByteCodeDisassembler::~ByteCodeDisassembler(void)
 
 }
 
-const char* ByteCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeProcedure* proc)
+const char* ByteCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeProcedure* proc, Linker* linker)
 {
 	if (tmp == BC_REG_ADDR)
 		return "ADDR";
@@ -32,6 +32,15 @@ const char* ByteCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodePro
 			i++;
 		if (i < proc->mTempOffset.Size())
 			sprintf_s(buffer, 10, "T%d", i);
+		else
+			sprintf_s(buffer, 10, "$%02x", tmp);
+		return buffer;
+	}
+	else if (linker)
+	{
+		LinkerObject* obj = linker->FindObjectByAddr(tmp);
+		if (obj && obj->mIdent)
+			sprintf_s(buffer, 40, "$%02x; %s + %d", tmp, obj->mIdent->mString, tmp - obj->mAddress);
 		else
 			sprintf_s(buffer, 10, "$%02x", tmp);
 		return buffer;
@@ -67,7 +76,7 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 	else if (ident)
 		fprintf(file, "%s:\n", ident->mString);
 
-	char	tbuffer[10], abuffer[100];
+	char	tbuffer[100], abuffer[100];
 #if 0
 	for (int i = 0; i < proc->mTemporaries.Size(); i++)
 		printf("T%d = $%.2x\n", i, BC_REG_TMP + proc->mTempOffset[i]);
@@ -93,69 +102,69 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			break;
 
 		case BC_CONST_8:
-			fprintf(file, "MOVB\t%s, #%d", TempName(memory[start + i], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOVB\t%s, #%d", TempName(memory[start + i], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_CONST_P8:
-			fprintf(file, "MOV\t%s, #%d", TempName(memory[start + i], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOV\t%s, #%d", TempName(memory[start + i], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_CONST_N8:
-			fprintf(file, "MOV\t%s, #%d", TempName(memory[start + i], tbuffer, proc), int(memory[start + i + 1]) - 0x100);
+			fprintf(file, "MOV\t%s, #%d", TempName(memory[start + i], tbuffer, proc, linker), int(memory[start + i + 1]) - 0x100);
 			i += 2;
 			break;
 		case BC_CONST_16:
-			fprintf(file, "MOV\t%s, #$%04x", TempName(memory[start + i], tbuffer, proc), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
+			fprintf(file, "MOV\t%s, #$%04x", TempName(memory[start + i], tbuffer, proc, linker), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
 			i += 3;
 			break;
 		case BC_CONST_32:
-			fprintf(file, "MOVD\t%s, #$%08x", TempName(memory[start + i], tbuffer, proc), uint32(memory[start + i + 1] + 256 * memory[start + i + 2] + 0x10000 * memory[start + i + 3] + 0x1000000 * memory[start + i + 4]));
+			fprintf(file, "MOVD\t%s, #$%08x", TempName(memory[start + i], tbuffer, proc, linker), uint32(memory[start + i + 1] + 256 * memory[start + i + 2] + 0x10000 * memory[start + i + 3] + 0x1000000 * memory[start + i + 4]));
 			i += 5;
 			break;
 
 		case BC_LOAD_REG_8:
-			fprintf(file, "MOVB\tACCU, %s", TempName(memory[start + i], tbuffer, proc));
+			fprintf(file, "MOVB\tACCU, %s", TempName(memory[start + i], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_STORE_REG_8:
-			fprintf(file, "MOVB\t%s, ACCU", TempName(memory[start + i], tbuffer, proc));
+			fprintf(file, "MOVB\t%s, ACCU", TempName(memory[start + i], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_LOAD_REG_16:
-			fprintf(file, "MOV\tACCU, %s", TempName(memory[start + i], tbuffer, proc));
+			fprintf(file, "MOV\tACCU, %s", TempName(memory[start + i], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_STORE_REG_16:
-			fprintf(file, "MOV\t%s, ACCU", TempName(memory[start + i], tbuffer, proc));
+			fprintf(file, "MOV\t%s, ACCU", TempName(memory[start + i], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_LOAD_REG_32:
-			fprintf(file, "MOVD\tACCU, %s", TempName(memory[start + i], tbuffer, proc));
+			fprintf(file, "MOVD\tACCU, %s", TempName(memory[start + i], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_STORE_REG_32:
-			fprintf(file, "MOVD\t%s, ACCU", TempName(memory[start + i], tbuffer, proc));
+			fprintf(file, "MOVD\t%s, ACCU", TempName(memory[start + i], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_ADDR_REG:
-			fprintf(file, "MOV\tADDR, %s", TempName(memory[start + i], tbuffer, proc));
+			fprintf(file, "MOV\tADDR, %s", TempName(memory[start + i], tbuffer, proc, linker));
 			i += 1;
 			break;
 
 		case BC_LOAD_ABS_8:
-			fprintf(file, "MOVB\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
+			fprintf(file, "MOVB\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc, linker), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
 			i += 3;
 			break;
 		case BC_LOAD_ABS_U8:
-			fprintf(file, "MOVUB\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
+			fprintf(file, "MOVUB\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc, linker), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
 			i += 3;
 			break;
 		case BC_LOAD_ABS_16:
-			fprintf(file, "MOV\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
+			fprintf(file, "MOV\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc, linker), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
 			i += 3;
 			break;
 		case BC_LOAD_ABS_32:
-			fprintf(file, "MOVD\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
+			fprintf(file, "MOVD\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc, linker), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
 			i += 3;
 			break;
 		case BC_LOAD_ABS_ADDR:
@@ -164,189 +173,189 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			break;
 
 		case BC_LEA_ABS:
-			fprintf(file, "LEA\t%s, %s", TempName(memory[start + i + 0], tbuffer, proc), AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker));
+			fprintf(file, "LEA\t%s, %s", TempName(memory[start + i + 0], tbuffer, proc, linker), AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker));
 			i += 3;
 			break;
 
 		case BC_LEA_ABS_INDEX:
-			fprintf(file, "LEAX\tADDR, %s + %s", AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker), TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "LEAX\tADDR, %s + %s", AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker), TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 3;
 			break;
 
 		case BC_LEA_ACCU_INDEX:
-			fprintf(file, "LEAX\tADDR, %s + ACCU", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "LEAX\tADDR, %s + ACCU", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 
 		case BC_LEA_ABS_INDEX_U8:
-			fprintf(file, "LEAXB\tADDR, %s + %s", AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker), TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "LEAXB\tADDR, %s + %s", AddrName(uint16(memory[start + i + 1] + 256 * memory[start + i + 2]), abuffer, linker), TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 3;
 			break;
 
 		case BC_STORE_ABS_8:
-			fprintf(file, "MOVB\t%s, %s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker), TempName(memory[start + i + 2], tbuffer, proc));
+			fprintf(file, "MOVB\t%s, %s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker), TempName(memory[start + i + 2], tbuffer, proc, linker));
 			i += 3;
 			break;
 		case BC_STORE_ABS_16:
-			fprintf(file, "MOV\t%s, %s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker), TempName(memory[start + i + 2], tbuffer, proc));
+			fprintf(file, "MOV\t%s, %s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker), TempName(memory[start + i + 2], tbuffer, proc, linker));
 			i += 3;
 			break;
 		case BC_STORE_ABS_32:
-			fprintf(file, "MOVD\t%s, %s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker), TempName(memory[start + i + 2], tbuffer, proc));
+			fprintf(file, "MOVD\t%s, %s", AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker), TempName(memory[start + i + 2], tbuffer, proc, linker));
 			i += 3;
 			break;
 
 		case BC_LOAD_LOCAL_8:
-			fprintf(file, "MOVB\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOVB\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_LOAD_LOCAL_U8:
-			fprintf(file, "MOVUB\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOVUB\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_LOAD_LOCAL_16:
-			fprintf(file, "MOV\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOV\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_LOAD_LOCAL_32:
-			fprintf(file, "MOVD\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOVD\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 
 		case BC_STORE_LOCAL_8:
-			fprintf(file, "MOVB\t%d(FP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOVB\t%d(FP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 		case BC_STORE_LOCAL_16:
-			fprintf(file, "MOV\t%d(FP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOV\t%d(FP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 		case BC_STORE_LOCAL_32:
-			fprintf(file, "MOVD\t%d(FP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOVD\t%d(FP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 
 		case BC_LEA_LOCAL:
-			fprintf(file, "LEA\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
+			fprintf(file, "LEA\t%s, %d(FP)", TempName(memory[start + i + 0], tbuffer, proc, linker), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
 			i += 3;
 			break;
 
 		case BC_LEA_FRAME:
-			fprintf(file, "LEA\t%s, %d(SP)", TempName(memory[start + i + 0], tbuffer, proc), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
+			fprintf(file, "LEA\t%s, %d(SP)", TempName(memory[start + i + 0], tbuffer, proc, linker), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
 			i += 3;
 			break;
 
 		case BC_STORE_FRAME_8:
-			fprintf(file, "MOVB\t%d(SP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOVB\t%d(SP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 		case BC_STORE_FRAME_16:
-			fprintf(file, "MOV\t%d(SP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOV\t%d(SP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 		case BC_STORE_FRAME_32:
-			fprintf(file, "MOVD\t%d(SP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOVD\t%d(SP), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 
 		case BC_BINOP_ADDR_16:
-			fprintf(file, "ADD\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "ADD\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_ADDA_16:
-			fprintf(file, "ADD\t%s, ACCU", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "ADD\t%s, ACCU", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_SUBR_16:
-			fprintf(file, "SUB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "SUB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_MULR_16:
-			fprintf(file, "MUL\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MUL\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_DIVR_U16:
-			fprintf(file, "DIVU\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "DIVU\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_MODR_U16:
-			fprintf(file, "MODU\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MODU\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_DIVR_I16:
-			fprintf(file, "DIVS\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "DIVS\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_MODR_I16:
-			fprintf(file, "MODS\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MODS\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_ANDR_16:
-			fprintf(file, "AND\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "AND\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_ORR_16:
-			fprintf(file, "OR\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "OR\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_XORR_16:
-			fprintf(file, "XOR\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "XOR\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_SHLR_16:
-			fprintf(file, "SHL\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "SHL\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_SHRR_I16:
-			fprintf(file, "SHRU\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "SHRU\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_SHRR_U16:
-			fprintf(file, "SHRI\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "SHRI\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 
 		case BC_BINOP_ADDI_16:
-			fprintf(file, "ADD\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
+			fprintf(file, "ADD\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc, linker), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
 			i += 3;
 			break;
 		case BC_BINOP_SUBI_16:
-			fprintf(file, "SUBR\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
+			fprintf(file, "SUBR\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc, linker), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
 			i += 3;
 			break;
 		case BC_BINOP_ANDI_16:
-			fprintf(file, "AND\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
+			fprintf(file, "AND\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc, linker), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
 			i += 3;
 			break;
 		case BC_BINOP_ORI_16:
-			fprintf(file, "OR\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
+			fprintf(file, "OR\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc, linker), uint16(memory[start + i + 1] + 256 * memory[start + i + 2]));
 			i += 3;
 			break;
 		case BC_BINOP_MULI8_16:
-			fprintf(file, "MUL\t%s, #%d", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MUL\t%s, #%d", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 
 		case BC_BINOP_ADDI_8:
-			fprintf(file, "ADDB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "ADDB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_BINOP_ANDI_8:
-			fprintf(file, "ANDB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "ANDB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_BINOP_ORI_8:
-			fprintf(file, "ORB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "ORB\t%s, #$%04X", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 
 		case BC_LOOP_U8:
-			fprintf(file, "LOOPB\t%s, #$%02X", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "LOOPB\t%s, #$%02X", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 
 		case BC_CONV_I8_I16:
-			fprintf(file, "SEXT8\t%s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "SEXT8\t%s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i++;
 			break;
 
@@ -364,11 +373,11 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			break;
 
 		case BC_BINOP_CMPUR_16:
-			fprintf(file, "CMPU\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "CMPU\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_CMPSR_16:
-			fprintf(file, "CMPS\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "CMPS\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 
@@ -382,11 +391,11 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			break;
 
 		case BC_BINOP_CMPUR_8:
-			fprintf(file, "CMPUB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "CMPUB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_CMPSR_8:
-			fprintf(file, "CMPSB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "CMPSB\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 
@@ -400,23 +409,23 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			break;
 
 		case BC_BINOP_ADD_F32:
-			fprintf(file, "ADDF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "ADDF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_SUB_F32:
-			fprintf(file, "SUBF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "SUBF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_MUL_F32:
-			fprintf(file, "MULF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MULF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_DIV_F32:
-			fprintf(file, "DIVF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "DIVF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 		case BC_BINOP_CMP_F32:
-			fprintf(file, "CMPF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "CMPF\tACCU, %s", TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 1;
 			break;
 
@@ -556,37 +565,37 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			break;
 
 		case BC_LOAD_ADDR_8:
-			fprintf(file, "MOVB\t%s, %d(ADDR)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOVB\t%s, %d(ADDR)", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_LOAD_ADDR_U8:
-			fprintf(file, "MOVUB\t%s, %d(ADDR)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOVUB\t%s, %d(ADDR)", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_LOAD_ADDR_16:
-			fprintf(file, "MOV\t%s, %d(ADDR)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOV\t%s, %d(ADDR)", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 		case BC_LOAD_ADDR_32:
-			fprintf(file, "MOVD\t%s, %d(ADDR)", TempName(memory[start + i + 0], tbuffer, proc), memory[start + i + 1]);
+			fprintf(file, "MOVD\t%s, %d(ADDR)", TempName(memory[start + i + 0], tbuffer, proc, linker), memory[start + i + 1]);
 			i += 2;
 			break;
 
 		case BC_STORE_ADDR_8:
-			fprintf(file, "MOVB\t%d(ADDR), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOVB\t%d(ADDR), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 		case BC_STORE_ADDR_16:
-			fprintf(file, "MOV\t%d(ADDR), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOV\t%d(ADDR), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 		case BC_STORE_ADDR_32:
-			fprintf(file, "MOVD\t%d(ADDR), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc));
+			fprintf(file, "MOVD\t%d(ADDR), %s", memory[start + i + 1], TempName(memory[start + i + 0], tbuffer, proc, linker));
 			i += 2;
 			break;
 
 		case BC_EXTRT:
-			fprintf(file, "EXTRT\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
+			fprintf(file, "EXTRT\t%s, %s", TempName(memory[start + i + 2], tbuffer, proc, linker), AddrName(uint16(memory[start + i + 0] + 256 * memory[start + i + 1]), abuffer, linker));
 			i += 3;
 			break;
 		}
@@ -665,7 +674,7 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 	else if (ident)
 		fprintf(file, "%s:\n", ident->mString);
 
-	char	tbuffer[10], abuffer[100];
+	char	tbuffer[100], abuffer[100];
 
 	int		ip = start;
 	while (ip < start + size)
@@ -689,15 +698,15 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 			break;
 		case ASMIM_ZERO_PAGE:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
 			break;
 		case ASMIM_ZERO_PAGE_X:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s,x\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s %s,x\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
 			break;
 		case ASMIM_ZERO_PAGE_Y:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s,y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s %s,y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
 			break;
 		case ASMIM_ABSOLUTE:
 			addr = memory[ip] + 256 * memory[ip + 1];
@@ -721,11 +730,11 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 			break;
 		case ASMIM_INDIRECT_X:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s (%s,x)\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s (%s,x)\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
 			break;
 		case ASMIM_INDIRECT_Y:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s (%s),y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc));
+			fprintf(file, "%04x : %02x %02x __ %s (%s),y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
 			break;
 		case ASMIM_RELATIVE:
 			addr = memory[ip++];
@@ -756,7 +765,7 @@ const char* NativeCodeDisassembler::AddrName(int addr, char* buffer, Linker* lin
 }
 
 
-const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeProcedure* proc)
+const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeProcedure* proc, Linker * linker)
 {
 	if (tmp >= BC_REG_ADDR && tmp <= BC_REG_ADDR + 3)
 	{
@@ -800,6 +809,15 @@ const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeP
 			i++;
 		if (i < proc->mTempOffset.Size())
 			sprintf_s(buffer, 10, "T%d + %d", i, tmp - (proc->mTempOffset[i] + BC_REG_TMP));
+		else
+			sprintf_s(buffer, 10, "$%02x", tmp);
+		return buffer;
+	}
+	else if (linker)
+	{
+		LinkerObject* obj = linker->FindObjectByAddr(tmp);
+		if (obj && obj->mIdent)
+			sprintf_s(buffer, 40, "$%02x; (%s + %d)", tmp, obj->mIdent->mString, tmp - obj->mAddress);
 		else
 			sprintf_s(buffer, 10, "$%02x", tmp);
 		return buffer;

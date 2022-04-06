@@ -21,6 +21,7 @@ Compiler::Compiler(void)
 	mCompilationUnits->mSectionBSS = mLinker->AddSection(Ident::Unique("bss"), LST_BSS);
 	mCompilationUnits->mSectionHeap = mLinker->AddSection(Ident::Unique("heap"), LST_HEAP);
 	mCompilationUnits->mSectionStack = mLinker->AddSection(Ident::Unique("stack"), LST_STACK);
+	mCompilationUnits->mSectionZeroPage = mLinker->AddSection(Ident::Unique("zeropage"), LST_ZEROPAGE);
 	mCompilationUnits->mSectionStack->mSize = 4096;
 
 	mPreprocessor = new Preprocessor(mErrors);
@@ -150,6 +151,13 @@ bool Compiler::GenerateCode(void)
 	const Ident* identBytecode = Ident::Unique("bytecode");
 	const Ident* identMain = Ident::Unique("main");
 	const Ident* identCode = Ident::Unique("code");
+	const Ident* identZeroPage = Ident::Unique("zeropage");
+
+	LinkerRegion* regionZeroPage = mLinker->FindRegion(identZeroPage);
+	if (!regionZeroPage)
+	{
+		regionZeroPage = mLinker->AddRegion(identZeroPage, 0x0080, 0x00ff);
+	}
 
 	LinkerRegion* regionStartup = mLinker->FindRegion(identStartup);
 	if (!regionStartup)
@@ -178,6 +186,8 @@ bool Compiler::GenerateCode(void)
 	}
 
 	regionStartup->mSections.Push(sectionStartup);
+
+	regionZeroPage->mSections.Push(mCompilationUnits->mSectionZeroPage);
 
 	if (regionBytecode)
 		regionBytecode->mSections.Push(sectionBytecode);

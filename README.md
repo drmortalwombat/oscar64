@@ -184,6 +184,12 @@ Or alternatively with a __native storage class specifier
     {
         (*Bitmap)[y >> 3][x >> 3][y & 7] |= 0x80 >> (x & 7);
     }
+	
+### Usage of zero page
+
+The compiler uses basic zero page space for temporaries, local variables and function arguments.  Global and static variables are allocated in the data and bss segment in normal memory.  The __zeropage storage class specifier can be applied to global variables and will be allocated in the zero page segment (usually 0x80 to 0xff).  This is only useful when the kernal is not used.  Zero page allocated global variables are not initialized.
+
+    __zeropage int a;
 
 ### Pre-Processor control
 
