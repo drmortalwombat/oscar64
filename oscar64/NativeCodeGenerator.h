@@ -266,6 +266,7 @@ public:
 	bool CanReplaceYRegWithXReg(int start, int end);
 	bool CanReplaceXRegWithYReg(int start, int end);
 
+	bool ForwardAccuAddSub(void);
 	bool ForwardZpYIndex(bool full);
 	bool ForwardZpXIndex(bool full);
 
