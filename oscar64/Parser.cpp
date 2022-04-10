@@ -3434,6 +3434,28 @@ void Parser::ParsePragma(void)
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "bss"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				const Ident* sectionIdent = mScanner->mTokenIdent;
+				mScanner->NextToken();
+				LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(sectionIdent);
+				if (lsec)
+				{
+					mBSSection = lsec;
+				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section not defined");
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else if (!strcmp(mScanner->mTokenIdent->mString, "align"))
 		{
 			mScanner->NextToken();

@@ -8861,6 +8861,44 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 					}
 #if 1
 					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_OR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_AND && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+					{
+						int64	ior = mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 1]->mSrc[0].mIntConst;
+						int64	iand = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+						mInstructions[i + 0]->mOperator = IA_AND;
+						mInstructions[i + 0]->mSrc[0].mIntConst = iand;
+						mInstructions[i + 1]->mOperator = IA_OR;
+						mInstructions[i + 1]->mSrc[0].mIntConst = ior;
+						changed = true;
+					}
+#endif
+#if 1
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_AND && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+					{
+						mInstructions[i + 0]->mSrc[0].mIntConst &= mInstructions[i + 1]->mSrc[0].mIntConst;
+						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+						mInstructions[i + 1]->mCode = IC_NONE;
+						changed = true;
+					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_OR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_OR && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+					{
+						mInstructions[i + 0]->mSrc[0].mIntConst |= mInstructions[i + 1]->mSrc[0].mIntConst;
+						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+						mInstructions[i + 1]->mCode = IC_NONE;
+						changed = true;
+					}
+#endif
+#if 1
+					else if (
 						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 						mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
 						mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_MUL && mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
