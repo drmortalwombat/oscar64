@@ -434,6 +434,8 @@ public:
 
 	bool IsLeafProcedure(void);
 
+	bool ForwardDiamondMovedTemp(void);
+
 	void MarkRelevantStatics(void);
 	void RemoveNonRelevantStatics(void);
 

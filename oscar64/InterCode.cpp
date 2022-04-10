@@ -7046,6 +7046,86 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 	return changed;
 }
 
+bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
+{
+	bool changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump && mFalseJump)
+		{
+			InterCodeBasicBlock* tblock = nullptr, * fblock = nullptr;
+
+			if (!mTrueJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump)
+			{
+				tblock = mTrueJump;
+				fblock = mFalseJump;
+			}
+			else if (!mFalseJump->mFalseJump && mFalseJump->mTrueJump == mTrueJump)
+			{
+				fblock = mTrueJump;
+				tblock = mFalseJump;
+			}
+
+			if (fblock && tblock)
+			{
+				if (tblock->mNumEntries == 1 && fblock->mNumEntries == 2)
+				{
+					for (int i = mInstructions.Size() - 1; i >= 0; i--)
+					{
+						InterInstruction* mins = mInstructions[i];
+
+						if (mins->mCode == IC_LOAD_TEMPORARY)
+						{
+
+							int	ttemp = mins->mDst.mTemp;
+							int stemp = mins->mSrc[0].mTemp;
+
+							if (!IsTempModifiedOnPath(ttemp, i + 1) && !IsTempModifiedOnPath(stemp, i + 1))
+							{
+								int	j = 0;
+								while (j < tblock->mInstructions.Size() &&
+									tblock->mInstructions[j]->mDst.mTemp != ttemp &&
+									tblock->mInstructions[j]->mDst.mTemp != stemp)
+								{
+									j++;
+								}
+
+								if (j < tblock->mInstructions.Size() && tblock->mInstructions[j]->mDst.mTemp == ttemp)
+								{
+									if (!tblock->IsTempModifiedOnPath(stemp, j + 1))
+									{
+										tblock->mInstructions[j]->mDst.mTemp = stemp;
+
+										InterInstruction* nins = new InterInstruction();
+										nins->mCode = IC_LOAD_TEMPORARY;
+										nins->mDst.mTemp = ttemp;
+										nins->mDst.mType = mins->mDst.mType;
+										nins->mSrc[0].mTemp = stemp;
+										nins->mSrc[0].mType = mins->mDst.mType;
+										fblock->mInstructions.Insert(0, nins);
+
+										changed = true;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ForwardDiamondMovedTemp())
+			changed = true;
+		if (mFalseJump && mFalseJump->ForwardDiamondMovedTemp())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::IsTempModifiedOnPath(int temp, int at) const
 {
 	while (at < mInstructions.Size())
@@ -10014,6 +10094,10 @@ void InterCodeProcedure::Close(void)
 #if 1
 	ResetVisited();
 	mEntryBlock->DropUnreachable();
+
+	ResetVisited();
+	mEntryBlock->ForwardDiamondMovedTemp();
+	DisassembleDebug("Diamond move forwarding");
 
 	ResetEntryBlocks();
 	ResetVisited();

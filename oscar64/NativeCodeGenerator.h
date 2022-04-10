@@ -136,7 +136,7 @@ public:
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset;
-	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched;
+	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail;
 	NativeCodeBasicBlock	*	mDominator;
 
 	NativeCodeBasicBlock* mLoopHeadBlock;
@@ -310,6 +310,8 @@ public:
 
 	bool AlternateXYUsage(void);
 	bool ForwardAbsoluteLoadStores(void);
+
+	bool CheckPatchFail(const NativeCodeBasicBlock* block, int reg);
 
 	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int at, int yval);
 	bool PatchGlobalAddressSumYPointer(const NativeCodeBasicBlock* block, int reg, int at, int yval, LinkerObject * lobj, int address);
