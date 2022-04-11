@@ -241,7 +241,7 @@ void MacroDict::Insert(Macro * macro)
 
 		for (int i = 0; i < size; i++)
 		{
-			if (entries[i])
+			if (entries[i] && entries[i]->mIdent)
 				Insert(entries[i]);
 		}
 		delete[] entries;
