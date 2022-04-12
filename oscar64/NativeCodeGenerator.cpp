@@ -4302,7 +4302,7 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 		if (rmode == ASMIM_INDIRECT_Y)
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, rindex + i));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, rareg));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, rareg, nullptr, rflags));
 		}
 		else if (rmode == ASMIM_ZERO_PAGE)
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, rareg + i));
@@ -4312,7 +4312,7 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 		if (wmode == ASMIM_INDIRECT_Y)
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, windex + i));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, wareg));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, wareg, nullptr, wflags));
 		}
 		else if (wmode == ASMIM_ZERO_PAGE)
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, wareg + i));
@@ -16905,7 +16905,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			}
 #endif
 			for (int i = 0; i < mIns.Size(); i++)
-			{
+		{
 #if 1
 #if 1
 				if (mIns[i].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0)
