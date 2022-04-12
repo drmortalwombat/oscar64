@@ -3347,6 +3347,7 @@ void Parser::ParsePragma(void)
 				int	flags = 0;
 				Expression* exp;
 				Declaration* dstart = nullptr, * dend = nullptr;
+				LinkerSectionType	type = LST_DATA;
 
 				ConsumeToken(TK_COMMA);
 
@@ -3358,21 +3359,45 @@ void Parser::ParsePragma(void)
 
 				if (ConsumeTokenIf(TK_COMMA))
 				{
-					exp = ParseExpression();
-					if (exp->mDecValue && exp->mDecValue->mType == DT_VARIABLE)
-						dstart = exp->mDecValue;
-
-					if (ConsumeTokenIf(TK_COMMA))
+					if (mScanner->mToken != TK_COMMA)
 					{
 						exp = ParseExpression();
 						if (exp->mDecValue && exp->mDecValue->mType == DT_VARIABLE)
-							dend = exp->mDecValue;
+							dstart = exp->mDecValue;
+					}
+
+					if (ConsumeTokenIf(TK_COMMA))
+					{
+						if (mScanner->mToken != TK_COMMA)
+						{
+							exp = ParseExpression();
+							if (exp->mDecValue && exp->mDecValue->mType == DT_VARIABLE)
+								dend = exp->mDecValue;
+						}
+
+						if (ConsumeTokenIf(TK_COMMA))
+						{
+							if (mScanner->mToken == TK_IDENT)
+							{
+								if (!strcmp(mScanner->mTokenIdent->mString, "bss"))
+									type = LST_BSS;
+								else if (!strcmp(mScanner->mTokenIdent->mString, "data"))
+									type = LST_DATA;
+								else
+									mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Unknown section type");
+							}
+							else
+								mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Identifier expected");
+
+							mScanner->NextToken();
+
+						}
 					}
 				}
 
 				LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(sectionIdent);
 				if (!lsec)
-					lsec = mCompilationUnits->mLinker->AddSection(sectionIdent, LST_DATA);
+					lsec = mCompilationUnits->mLinker->AddSection(sectionIdent, type);
 
 				if (dstart)
 				{
