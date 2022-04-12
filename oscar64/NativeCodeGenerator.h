@@ -76,7 +76,7 @@ public:
 	void Assemble(NativeCodeBasicBlock* block);
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
-	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool final);
+	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool initial, bool final);
 
 	void Simulate(NativeRegisterDataSet& data);
 	bool ApplySimulation(const NativeRegisterDataSet& data);

@@ -1776,7 +1776,7 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 	}
 }
 
-bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsType& carryop, bool final)
+bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsType& carryop, bool initial, bool final)
 {
 	bool	changed = false;
 
@@ -2297,6 +2297,10 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				{
 					data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
 					data.mRegs[CPU_REG_A].mValue = data.mRegs[mAddress].mValue;
+				}
+				else if (initial && mAddress == BC_REG_WORK_Y)
+				{
+					data.mRegs[CPU_REG_A].Reset();
 				}
 				else
 				{
@@ -9974,14 +9978,24 @@ bool NativeCodeBasicBlock::ForwardZpYIndex(bool full)
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == yreg &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == yoffset + 1 &&
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
 			{
 				for (int j = ypred; j < i; j++)
 					mIns[j].mLive |= LIVE_CPU_REG_Y;
 				mIns[i + 0].mType = ASMIT_INY;
-				mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+				mIns[i + 1].mType = ASMIT_STY; mIns[i + 1].mAddress = mIns[i + 3].mAddress;
 				mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-				mIns[i + 3].mType = ASMIT_STY;
+
+				if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
+				{
+					mIns[i + 3].mType = ASMIT_TYA;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+				}
+				else
+				{
+					mIns[i + 3].mType = ASMIT_NOP; 
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+				}
 				changed = true;
 			}
 			else if (i + 3 < mIns.Size() &&
@@ -13623,7 +13637,7 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				changed = true;
 			}
 #endif
-			if (mIns[i].ValueForwarding(mNDataSet, carryop, final))
+			if (mIns[i].ValueForwarding(mNDataSet, carryop, !global, final))
 				changed = true;
 			if (carryop != ASMIT_NOP)
 				mIns.Insert(i + 1, NativeCodeInstruction(carryop));
@@ -13918,7 +13932,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	int	si = 0, ei = mIns.Size() - 1;
 	while (si < mIns.Size() && !mIns[si].ReferencesYReg())
 		si++;
-	while (ei > si && !mIns[ei].ReferencesYReg())
+	while (ei > si && !(mIns[ei].ChangesYReg() || mIns[ei].mType == ASMIT_STY))
 		ei--;
 
 	if (si < ei && mIns[si].mType == ASMIT_LDY && mIns[ei].mType == ASMIT_STY && mIns[si].mMode == ASMIM_ZERO_PAGE && mIns[ei].mMode == ASMIM_ZERO_PAGE && mIns[si].mAddress == mIns[ei].mAddress)
@@ -20723,7 +20737,6 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->ApplyEntryDataSet())
 			changed = true;
 #endif
-#endif
 
 #if 1
 		if (step == 5)
@@ -20754,6 +20767,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->ExpandADCToBranch(this))
 				changed = true;
 		}
+#endif
 
 		if (!changed && step < 7)
 		{
