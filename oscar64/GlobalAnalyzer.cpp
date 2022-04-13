@@ -361,6 +361,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		return Analyze(exp->mLeft, procDec);
 	case EX_INDEX:
 		ldec = Analyze(exp->mLeft, procDec);
+		if (ldec->mType == DT_VARIABLE || ldec->mType == DT_ARGUMENT)
+			ldec = ldec->mBase;
 		rdec = Analyze(exp->mRight, procDec);
 		return ldec->mBase;
 	case EX_QUALIFY:

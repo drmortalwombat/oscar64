@@ -2336,7 +2336,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					atotal = 2;
 				}
 
-				if (exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION)
+				if (exp->mLeft->mDecValue && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION)
 					proc->AddCalledFunction(proc->mModule->mProcedures[exp->mLeft->mDecValue->mVarIndex]);
 				else
 					proc->CallsFunctionPointer();
