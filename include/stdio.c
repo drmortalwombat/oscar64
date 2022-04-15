@@ -158,7 +158,7 @@ struct sinfo
 	bool		sign, left, prefix;
 };
 
-inline int nformi(const sinfo * si, char * str, int v, bool s)
+int nformi(const sinfo * si, char * str, int v, bool s)
 {
 	char * sp = str;
 

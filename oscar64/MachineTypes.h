@@ -95,3 +95,7 @@ extern uint8 BC_REG_LOCALS;
 extern uint8 BC_REG_TMP;
 extern uint8 BC_REG_TMP_SAVED;
 
+inline int64 int64max(int64 a, int64 b) 
+{
+	return a > b ? a : b;
+}

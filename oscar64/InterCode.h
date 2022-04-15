@@ -136,6 +136,8 @@ public:
 	IntegerValueRange(void);
 	~IntegerValueRange(void);
 
+	void Reset(void);
+
 	int64		mMinValue, mMaxValue;
 	
 	enum State
@@ -147,7 +149,9 @@ public:
 	}			mMinState, mMaxState;
 
 	bool Same(const IntegerValueRange& range) const;
-	bool Merge(const IntegerValueRange& range, bool head);
+	bool Merge(const IntegerValueRange& range, bool head, bool initial);
+
+	void Limit(const IntegerValueRange& range);
 
 	bool IsConstant(void) const;
 
@@ -345,7 +349,7 @@ public:
 
 	GrowingInstructionArray			mLoadStoreInstructions;
 
-	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange, mLocalValueRange;
+	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange, mLocalValueRange, mReverseValueRange;
 
 	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
 
@@ -395,7 +399,7 @@ public:
 	void RestartLocalIntegerRangeSets(void);
 	void BuildLocalIntegerRangeSets(int num);
 	void UpdateLocalIntegerRangeSets(void);
-	bool BuildGlobalIntegerRangeSets(void);
+	bool BuildGlobalIntegerRangeSets(bool initial);
 	void SimplifyIntegerRangeRelops(void);
 
 	GrowingIntArray			mEntryRenameTable;

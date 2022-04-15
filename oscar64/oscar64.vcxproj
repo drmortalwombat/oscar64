@@ -189,7 +189,6 @@
     <ClInclude Include="Preprocessor.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Scanner.h" />
-    <ClInclude Include="Type.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="oscar64.rc" />

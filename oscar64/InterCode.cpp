@@ -26,6 +26,13 @@ IntegerValueRange::IntegerValueRange(void)
 IntegerValueRange::~IntegerValueRange(void)
 {}
 
+void IntegerValueRange::Reset(void)
+{
+	mMinState = S_UNKNOWN;
+	mMaxState = S_UNKNOWN;
+}
+
+
 bool IntegerValueRange::Same(const IntegerValueRange& range) const
 {
 	if (mMinState == range.mMinState && mMaxState == range.mMaxState)
@@ -83,7 +90,15 @@ bool IntegerValueRange::IsConstant(void) const
 	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue == mMaxValue;
 }
 
-bool IntegerValueRange::Merge(const IntegerValueRange& range, bool head)
+void IntegerValueRange::Limit(const IntegerValueRange& range)
+{
+	if (range.mMinState == S_BOUND)
+		LimitMin(range.mMinValue);
+	if (range.mMaxState == S_BOUND)
+		LimitMax(range.mMaxValue);
+}
+
+bool IntegerValueRange::Merge(const IntegerValueRange& range, bool head, bool initial)
 {
 	bool	changed = false;
 
@@ -118,12 +133,12 @@ bool IntegerValueRange::Merge(const IntegerValueRange& range, bool head)
 		}
 		else if (range.mMinValue < mMinValue)
 		{
-			if (range.mMinState == S_WEAK)
+			if (range.mMinState == S_WEAK && (initial || !head))
 				mMinState = S_WEAK;
 			mMinValue = range.mMinValue;
 			changed = true;
 		}
-		else if (mMinState == S_BOUND && range.mMinState == S_WEAK && !head)
+		else if (mMinState == S_BOUND && range.mMinState == S_WEAK && (initial || !head))
 		{
 			mMinState = S_WEAK;
 			changed = true;
@@ -161,12 +176,12 @@ bool IntegerValueRange::Merge(const IntegerValueRange& range, bool head)
 		}
 		else if (range.mMaxValue > mMaxValue)
 		{
-			if (range.mMaxState == S_WEAK)
+			if (range.mMaxState == S_WEAK && (initial || !head))
 				mMaxState = S_WEAK;
 			mMaxValue = range.mMaxValue;
 			changed = true;
 		}
-		else if (mMaxState == S_BOUND && range.mMaxState == S_WEAK && !head)
+		else if (mMaxState == S_BOUND && range.mMaxState == S_WEAK && (initial || !head))
 		{
 			mMaxState = S_WEAK;
 			changed = true;
@@ -3443,7 +3458,7 @@ void InterInstruction::Disassemble(FILE* file)
 
 InterCodeBasicBlock::InterCodeBasicBlock(void)
 	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
-	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr), mLoopPathBlocks(nullptr)
+	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), mReverseValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr), mLoopPathBlocks(nullptr)
 {
 	mInPath = false;
 	mLoopHead = false;
@@ -3602,7 +3617,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand)
 				if (mFalseJump)
 					mFalseJump->mNumEntries++;
 			}
-			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
+			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1 && !mLoopHead) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
 			{
 				mTrueJump->mNumEntries--;
 				int	n = mTrueJump->mNumEntries;
@@ -4797,7 +4812,8 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 	}
 }
 
-bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(void)
+
+bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial)
 {
 	bool	changed = false;
 
@@ -4816,7 +4832,7 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(void)
 		else
 		{
 			for (int i = 0; i < mLocalValueRange.Size(); i++)
-				mLocalValueRange[i].Merge(range[i], mLoopHead);
+				mLocalValueRange[i].Merge(range[i], mLoopHead, initial);
 		}
 	}
 
@@ -4838,9 +4854,9 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(void)
 			UpdateLocalIntegerRangeSets();
 		}
 
-		if (mTrueJump && mTrueJump->BuildGlobalIntegerRangeSets())
+		if (mTrueJump && mTrueJump->BuildGlobalIntegerRangeSets(initial))
 			changed = true;
-		if (mFalseJump && mFalseJump->BuildGlobalIntegerRangeSets())
+		if (mFalseJump && mFalseJump->BuildGlobalIntegerRangeSets(initial))
 			changed = true;
 	}
 
@@ -5330,6 +5346,131 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 
 	}
 
+#if 1
+	mReverseValueRange.SetSize(mLocalValueRange.Size());
+	GrowingArray<int64>	msize(0);
+	msize.SetSize(mLocalValueRange.Size());
+
+	for (int i = 0; i < mReverseValueRange.Size(); i++)
+		mReverseValueRange[i].Reset();
+
+	for (int i = sz - 1; i >= 0; i--)
+	{
+		InterInstruction* ins(mInstructions[i]);
+		if (ins->mCode == IC_LOAD && ins->mSrc[0].mMemory == IM_INDIRECT && ins->mSrc[0].mTemp >= 0)
+			msize[ins->mSrc[0].mTemp] = int64max(msize[ins->mSrc[0].mTemp], ins->mSrc[0].mIntConst + InterTypeSize[ins->mDst.mType]);
+		else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0)
+			msize[ins->mSrc[1].mTemp] = int64max(msize[ins->mSrc[1].mTemp], ins->mSrc[1].mIntConst + InterTypeSize[ins->mSrc[0].mType]);
+		else if (ins->mCode == IC_LEA && ins->mSrc[1].mMemory != IM_INDIRECT && ins->mSrc[0].mTemp >= 0 && msize[ins->mDst.mTemp] > 0)
+		{
+			int	asize = 0;
+			if (ins->mSrc[1].mMemory == IM_GLOBAL)
+				asize = ins->mSrc[1].mLinkerObject->mSize;
+
+			if (asize > 0)
+			{
+				mReverseValueRange[ins->mSrc[0].mTemp].LimitMin(0);
+				mReverseValueRange[ins->mSrc[0].mTemp].LimitMax(asize - msize[ins->mDst.mTemp]);
+			}
+		}
+
+		if (ins->mDst.mTemp >= 0)
+		{
+			ins->mDst.mRange.Limit(mReverseValueRange[ins->mDst.mTemp]);
+			mReverseValueRange[ins->mDst.mTemp].Reset();
+			IntegerValueRange& vr(ins->mDst.mRange);
+
+			switch (ins->mCode)
+			{
+			case IC_BINARY_OPERATOR:
+				switch (ins->mOperator)
+				{
+				case IA_SHL:
+					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
+						mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+					}
+					break;
+				case IA_SUB:
+					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMin(vr.mMinValue + ins->mSrc[0].mIntConst);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue + ins->mSrc[0].mIntConst);
+						mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+					}
+					break;
+				case IA_ADD:
+					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMin(vr.mMinValue - ins->mSrc[0].mIntConst);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue - ins->mSrc[0].mIntConst);
+						mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+					}
+					else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[0].mRange.LimitMin(vr.mMinValue - ins->mSrc[1].mIntConst);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[0].mRange.LimitMax(vr.mMaxValue - ins->mSrc[1].mIntConst);
+						mReverseValueRange[ins->mSrc[0].mTemp].Limit(ins->mSrc[0].mRange);
+					}
+					break;
+				case IA_MUL:
+					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mIntConst > 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMin(vr.mMinValue / ins->mSrc[0].mIntConst);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue / ins->mSrc[0].mIntConst);
+						mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+					}
+					else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mIntConst > 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[0].mRange.LimitMin(vr.mMinValue / ins->mSrc[1].mIntConst);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[0].mRange.LimitMax(vr.mMaxValue / ins->mSrc[1].mIntConst);
+						mReverseValueRange[ins->mSrc[0].mTemp].Limit(ins->mSrc[0].mRange);
+					}
+					break;
+				}
+				break;
+
+			case IC_LEA:
+				if (ins->mSrc[1].mMemory == IM_INDIRECT && msize[ins->mDst.mTemp] > 0)
+				{
+					if (ins->mSrc[0].mTemp < 0)
+					{
+						msize[ins->mSrc[1].mTemp] = msize[ins->mDst.mTemp] - ins->mSrc[0].mIntConst;
+					}
+					else if (ins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)
+					{
+						msize[ins->mSrc[1].mTemp] = msize[ins->mDst.mTemp] - ins->mSrc[0].mRange.mMinValue;
+					}
+				}
+				break;
+			}
+
+		}
+
+		for (int i = 0; i < ins->mNumOperands; i++)
+		{
+			if (ins->mSrc[i].mTemp >= 0)
+				ins->mSrc[i].mRange.Limit(mReverseValueRange[ins->mSrc[i].mTemp]);
+		}
+
+		if (ins->mDst.mTemp >= 0)
+			msize[ins->mDst.mTemp] = 0;
+	}
+#endif
 
 	mTrueValueRange = mLocalValueRange;
 	mFalseValueRange = mLocalValueRange;
@@ -7079,11 +7220,10 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 
 						if (mins->mCode == IC_LOAD_TEMPORARY)
 						{
-
 							int	ttemp = mins->mDst.mTemp;
 							int stemp = mins->mSrc[0].mTemp;
 
-							if (!IsTempModifiedOnPath(ttemp, i + 1) && !IsTempModifiedOnPath(stemp, i + 1))
+							if (!IsTempModifiedOnPath(ttemp, i + 1) && !IsTempModifiedOnPath(stemp, i + 1) && !tblock->mExitRequiredTemps[stemp])
 							{
 								int	j = 0;
 								while (j < tblock->mInstructions.Size() &&
@@ -7106,6 +7246,8 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 										nins->mSrc[0].mTemp = stemp;
 										nins->mSrc[0].mType = mins->mDst.mType;
 										fblock->mInstructions.Insert(0, nins);
+
+										tblock->mExitRequiredTemps += stemp;
 
 										changed = true;
 									}
@@ -9114,6 +9256,25 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 						mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
 						changed = true;
 					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mMemory == IM_GLOBAL &&
+						mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+						mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 1]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 252)
+					{
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+						mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
+						mInstructions[i + 0]->mOperator = IA_ADD;
+						mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+						mInstructions[i + 0]->mDst.mType = IT_INT16;
+						mInstructions[i + 0]->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
+						mInstructions[i + 0]->mDst.mRange.mMaxValue = mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mRange.mMaxValue;
+						mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+						mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
+
+						mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+						changed = true;
+					}
 
 #if 1
 					// Postincrement artifact
@@ -10060,7 +10221,14 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("tt");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets());
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true));
+
+	do {
+		DisassembleDebug("tq");
+
+		ResetVisited();
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false));
+
 
 	DisassembleDebug("Estimated value range");
 #if 1
@@ -10071,7 +10239,13 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("tr");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets());
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true));
+
+	do {
+		DisassembleDebug("tr");
+
+		ResetVisited();
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false));
 
 	DisassembleDebug("Estimated value range 2");
 #endif

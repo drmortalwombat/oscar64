@@ -11530,6 +11530,7 @@ bool NativeCodeBasicBlock::PatchForwardSumYPointer(const NativeCodeBasicBlock* b
 				bool	done = !(ins.mLive & LIVE_MEM);
 
 				ins.mAddress = base;
+				ins.mFlags &= ~NCIF_YZERO;
 
 				if (ins.mLive & LIVE_CPU_REG_Y)
 					mIns.Insert(at + 1, NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, yval));
@@ -11562,6 +11563,13 @@ bool NativeCodeBasicBlock::PatchForwardSumYPointer(const NativeCodeBasicBlock* b
 			changed = true;
 		if (mFalseJump && mFalseJump->PatchForwardSumYPointer(block, reg, base, index, 0, yval))
 			changed = true;
+
+		if (changed)
+		{
+			mEntryRequiredRegs += base;
+			mEntryRequiredRegs += base + 1;
+			mEntryRequiredRegs += index;
+		}
 	}
 
 	return changed;
@@ -12985,7 +12993,7 @@ bool NativeCodeBasicBlock::MoveStoreXUp(int at)
 		}
 		else
 		{
-			if (mIns[at - 1].mType == ASMIT_LDX || mIns[at - 1].mType == ASMIT_TAX)
+			if (mIns[at - 1].mType == ASMIT_LDX || mIns[at - 1].mType == ASMIT_TAX || mIns[at - 1].mType == ASMIT_TXA)
 				return done;
 			else if (mIns[at - 1].ChangesXReg() || mIns[at - 1].mType == ASMIT_STX)
 				return done;
