@@ -14,6 +14,12 @@ public:
 	Location		mLocation;
 };
 
+enum SourceFileMode
+{
+	SFM_TEXT,
+	SFM_BINARY,
+	SFM_BINARY_RLE
+};
 class SourceFile
 {
 public:
@@ -22,15 +28,20 @@ public:
 	SourceFile	*	mUp, * mNext;
 	Location		mLocation;
 	SourceStack	*	mStack;
-	bool			mBinary;
+	SourceFileMode	mMode;
 	int				mLimit;
 
+	char			mBuffer[256];
+	int				mFill;
+
 	bool ReadLine(char* line);
+
+	bool ReadLineRLE(char* line);
 
 	SourceFile(void);
 	~SourceFile(void);
 
-	bool Open(const char* name, const char * path, bool binary = false);
+	bool Open(const char* name, const char * path, SourceFileMode mode = SFM_TEXT);
 	void Close(void);
 
 	void Limit(int skip, int limit);
@@ -77,7 +88,7 @@ public:
 	bool PopSource(void);
 	bool DropSource(void);
 
-	bool EmbedData(const char* reason, const char* name, bool local, int skip, int limit);
+	bool EmbedData(const char* reason, const char* name, bool local, int skip, int limit, SourceFileMode mode);
 
 	Preprocessor(Errors * errors);
 	~Preprocessor(void);

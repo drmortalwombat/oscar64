@@ -637,6 +637,7 @@ void Scanner::NextToken(void)
 		else if (mToken == TK_PREP_EMBED)
 		{
 			int	limit = 65536, skip = 0;
+			SourceFileMode	mode = SFM_BINARY;
 
 			NextRawToken();
 			if (mToken == TK_INTEGER)
@@ -651,16 +652,26 @@ void Scanner::NextToken(void)
 				}
 			}
 
+			if (mToken == TK_IDENT)
+			{
+				if (!strcmp(mTokenIdent->mString, "rle"))
+					mode = SFM_BINARY_RLE;
+				else
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Invalid embed compression mode", mTokenIdent);
+
+				NextRawToken();
+			}
+
 			if (mToken == TK_STRING)
 			{
-				if (!mPreprocessor->EmbedData("Embedding", mTokenString, true, skip, limit))
+				if (!mPreprocessor->EmbedData("Embedding", mTokenString, true, skip, limit, mode))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
 			else if (mToken == TK_LESS_THAN)
 			{
 				mOffset--;
 				StringToken('>', 'a');
-				if (!mPreprocessor->EmbedData("Embedding", mTokenString, false, skip, limit))
+				if (!mPreprocessor->EmbedData("Embedding", mTokenString, false, skip, limit, mode))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
 		}

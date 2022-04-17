@@ -137,7 +137,7 @@ public:
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset;
 	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail;
-	NativeCodeBasicBlock	*	mDominator;
+	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
 	NativeCodeBasicBlock* mLoopHeadBlock;
 
@@ -201,6 +201,9 @@ public:
 	NativeCodeBasicBlock * CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc);
 	NativeCodeBasicBlock * StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
 
+	void LoadByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* rins);
+	void StoreByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* rins);
+
 	void CallAssembler(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 
@@ -218,6 +221,10 @@ public:
 	void BuildGlobalProvidedRegSet(NumberSet fromProvidedTemps);
 	bool BuildGlobalRequiredRegSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(void);
+
+	bool IsSame(const NativeCodeBasicBlock* block) const;
+	bool FindSameBlocks(NativeCodeProcedure* nproc);
+	bool MergeSameBlocks(NativeCodeProcedure* nproc);
 
 	void CountEntries(NativeCodeBasicBlock* fromJump);
 	bool MergeBasicBlocks(void);

@@ -1,6 +1,7 @@
 #include "Preprocessor.h"
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 SourcePath::SourcePath(const char* path)
 {
@@ -19,12 +20,141 @@ SourcePath::~SourcePath(void)
 
 }
 
+bool SourceFile::ReadLineRLE(char* line)
+{
+	assert(mFill >= 0 && mFill < 256);
+
+	int	c;
+	while (mLimit && mFill < 256 && (c = fgetc(mFile)) >= 0)
+	{
+		mLimit--;
+		mBuffer[mFill++] = c;
+	}
+
+	assert(mFill >= 0 && mFill <= 256);
+
+	if (mFill)
+	{
+		if (mFill >= 3 && mBuffer[0] == mBuffer[1] && mBuffer[1] == mBuffer[2])
+		{
+			int	cnt = 1;
+			while (cnt < 64 && cnt < mFill && mBuffer[cnt] == mBuffer[cnt - 1])
+				cnt++;
+
+			if (cnt <= 8 && cnt < mFill)
+			{
+				int	rcnt = 1;
+				int rep = 1;
+				while (rcnt < 16 && cnt + rcnt < mFill && rep < 3)
+				{
+					if (mBuffer[cnt + rcnt] == mBuffer[cnt + rcnt - 1])
+						rep++;
+					else
+						rep = 1;
+					rcnt++;
+				}
+				if (cnt + rcnt < mFill && rep >= 3)
+					rcnt -= rep;
+
+				if (rcnt > 0)
+				{
+					sprintf_s(line, 1024, "0x%02x, 0x%02x, ", 0x80 + ((cnt - 1) << 4) + (rcnt - 1), (unsigned char)mBuffer[0]);
+
+					assert(mFill >= 0 && mFill <= 256);
+
+					for (int i = 0; i < rcnt; i++)
+					{
+						char	buffer[16];
+						sprintf_s(buffer, 16, "0x%02x, ", (unsigned char)mBuffer[cnt + i]);
+
+						assert(mFill >= 0 && mFill <= 256);
+
+						strcat_s(line, 1024, buffer);
+
+						assert(mFill >= 0 && mFill <= 256);
+					}
+
+					assert(mFill >= cnt + rcnt);
+					assert(mFill >= 0 && mFill <= 256);
+
+					memmove(mBuffer, mBuffer + cnt + rcnt, mFill - cnt - rcnt);
+					mFill -= cnt + rcnt;
+
+					assert(mFill >= 0 && mFill < 256);
+				}
+				else
+				{
+					sprintf_s(line, 1024, "0x%02x, 0x%02x, ", 0x00 + (cnt - 1), (unsigned char)mBuffer[0]);
+					memmove(mBuffer, mBuffer + cnt, mFill - cnt);
+					mFill -= cnt;
+
+					assert(mFill >= 0 && mFill < 256);
+				}
+			}
+			else
+			{
+				sprintf_s(line, 1024, "0x%02x, 0x%02x, ", 0x00 + (cnt - 1), (unsigned char)mBuffer[0]);
+				memmove(mBuffer, mBuffer + cnt, mFill - cnt);
+				mFill -= cnt;
+
+				assert(mFill >= 0 && mFill < 256);
+			}
+
+			if (mFill == 0)
+				strcat_s(line, 1024, "0x00, ");
+
+			return true;
+		}
+		else
+		{
+			int	cnt = 1;
+			int rep = 1;
+			while (cnt < 64 && cnt < mFill && rep < 3)
+			{
+				if (mBuffer[cnt] == mBuffer[cnt - 1])
+					rep++;
+				else
+					rep = 1;
+				cnt++;
+			}
+			if (cnt < mFill && rep >= 3)
+				cnt -= rep;
+
+			sprintf_s(line, 1024, "0x%02x, ", 0x40 + (cnt - 1));
+
+			for (int i = 0; i < cnt; i++)
+			{
+				char	buffer[16];
+				sprintf_s(buffer, 16, "0x%02x, ", (unsigned char)mBuffer[i]);
+				strcat_s(line, 1024, buffer);
+			}
+
+			memmove(mBuffer, mBuffer + cnt, mFill - cnt);
+			mFill -= cnt;
+
+			assert(mFill >= 0 && mFill < 256);
+
+			if (mFill == 0)
+				strcat_s(line, 1024, "0x00, ");
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool SourceFile::ReadLine(char* line)
 {
 	if (mFile)
 	{
-		if (mBinary)
+		switch (mMode)
 		{
+		case SFM_TEXT:
+			if (fgets(line, 1024, mFile))
+				return true;
+			break;
+		case SFM_BINARY:
 			if (mLimit)
 			{
 				mLimit--;
@@ -36,13 +166,11 @@ bool SourceFile::ReadLine(char* line)
 					return true;
 				}
 			}
-			else
-				return false;
-		}
-		else
-		{
-			if (fgets(line, 1024, mFile))
+			break;
+		case SFM_BINARY_RLE:
+			if (ReadLineRLE(line))
 				return true;
+			break;
 		}
 
 		fclose(mFile);
@@ -74,7 +202,7 @@ SourceFile::~SourceFile(void)
 	}
 }
 
-bool SourceFile::Open(const char* name, const char* path, bool binary)
+bool SourceFile::Open(const char* name, const char* path, SourceFileMode mode)
 {
 	char	fname[220];
 
@@ -102,8 +230,9 @@ bool SourceFile::Open(const char* name, const char* path, bool binary)
 				*p = '/';
 			p++;
 		}
-		mBinary = binary;
+		mMode = mode;
 		mLimit = 0x10000;
+		mFill = 0;
 
 		return true;
 	}
@@ -174,7 +303,7 @@ bool Preprocessor::NextLine(void)
 	return false;
 }
 
-bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, int skip, int limit)
+bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, int skip, int limit, SourceFileMode mode)
 {
 	if (strlen(name) > 200)
 	{
@@ -189,7 +318,7 @@ bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, i
 
 	bool	ok = false;
 
-	if (source->Open(name, "", true))
+	if (source->Open(name, "", mode))
 		ok = true;
 
 	if (!ok && local && mSource)
@@ -201,14 +330,14 @@ bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, i
 			i--;
 		lpath[i] = 0;
 
-		if (source->Open(name, lpath, true))
+		if (source->Open(name, lpath, mode))
 			ok = true;
 	}
 
 	SourcePath* p = mPaths;
 	while (!ok && p)
 	{
-		if (source->Open(name, p->mPathName, true))
+		if (source->Open(name, p->mPathName, mode))
 			ok = true;
 		else
 			p = p->mNext;

@@ -1353,6 +1353,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			ins->mCode = IC_LOAD_TEMPORARY;
 			ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 			ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
+			ins->mNumOperands = 1;
 			assert(ins->mSrc[0].mTemp >= 0);
 		}
 		else
@@ -1380,6 +1381,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = mInstructions[i]->mSrc[0].mTemp;
 					ins->mSrc[0].mType = mInstructions[i]->mSrc[0].mType;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 			}
@@ -1473,6 +1475,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			ins->mCode = IC_LOAD_TEMPORARY;
 			ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 			ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
+			ins->mNumOperands = 1;
 			assert(ins->mSrc[0].mTemp >= 0);
 		}
 		else
@@ -1498,6 +1501,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 			ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
 			ins->mSrc[1].mTemp = -1;
+			ins->mNumOperands = 1;
 			assert(ins->mSrc[0].mTemp >= 0);
 		}
 		else
@@ -1532,6 +1536,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 					ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else
@@ -1557,6 +1562,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 					ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else
@@ -1595,6 +1601,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
 					ins->mSrc[0].mType = ins->mSrc[1].mType;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
@@ -1633,6 +1640,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				{
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
@@ -1690,6 +1698,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				{
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
@@ -1714,6 +1723,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 				ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 1;
 				assert(ins->mSrc[0].mTemp >= 0);
 			}
 			else
@@ -1744,6 +1754,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 					ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else
@@ -1773,6 +1784,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 				ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 1;
 				assert(ins->mSrc[0].mTemp >= 0);
 			}
 			else
@@ -1806,6 +1818,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 					ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else
@@ -1830,6 +1843,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 					ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else
@@ -1861,6 +1875,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 					ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else
@@ -1884,6 +1899,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = mInstructions[i]->mDst.mTemp;
 					ins->mSrc[0].mType = mInstructions[i]->mDst.mType;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else
@@ -3102,6 +3118,7 @@ void InterInstruction::SimpleLocalToTemp(int vindex, int temp)
 			mCode = IC_LOAD_TEMPORARY;
 			mSrc[0].mTemp = temp;
 			mSrc[0].mType = mDst.mType;
+			mNumOperands = 1;
 
 			assert(mSrc[0].mTemp >= 0);
 
@@ -3119,6 +3136,7 @@ void InterInstruction::SimpleLocalToTemp(int vindex, int temp)
 			else
 			{
 				mCode = IC_LOAD_TEMPORARY;
+				mNumOperands = 1;
 				assert(mSrc[0].mTemp >= 0);
 			}
 
@@ -3517,11 +3535,16 @@ void InterCodeBasicBlock::BuildDominatorTree(InterCodeBasicBlock* from)
 	if (from == this)
 		return;
 	else if (!mDominator)
+	{
+		assert(!from || mIndex != 0);
 		mDominator = from;
+	}
 	else if (from == mDominator)
 		return; 
 	else
 	{
+		assert(mIndex != 0);
+
 		GrowingInterCodeBasicBlockPtrArray	d1(nullptr), d2(nullptr);
 
 		InterCodeBasicBlock* b = mDominator;
@@ -3832,6 +3855,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mSrc[0].mType = ins->mSrc[1].mType;
 				ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 1;
 				assert(ins->mSrc[0].mTemp >= 0);
 			}
 			else
@@ -3886,6 +3910,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		if (ins->mSrc[0].mType == ins->mDst.mType)
 		{
 			ins->mCode = IC_LOAD_TEMPORARY;
+			ins->mNumOperands = 1;
 			assert(ins->mSrc[0].mTemp >= 0);
 		}
 		else if (TypeInteger(ins->mSrc[0].mType) && ins->mDst.mType == IT_POINTER)
@@ -3960,6 +3985,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					if (ins->mOperator == IA_ADD && ins->mSrc[1].mFloatConst == 0)
 					{
 						ins->mCode = IC_LOAD_TEMPORARY;
+						ins->mNumOperands = 1;
 						assert(ins->mSrc[0].mTemp >= 0);
 					}
 					else if (ins->mOperator == IA_MUL)
@@ -3967,6 +3993,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						if (ins->mSrc[1].mFloatConst == 1.0)
 						{
 							ins->mCode = IC_LOAD_TEMPORARY;
+							ins->mNumOperands = 1;
 							assert(ins->mSrc[0].mTemp >= 0);
 						}
 						else if (ins->mSrc[1].mFloatConst == 0.0)
@@ -3995,6 +4022,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else if (ins->mOperator == IA_MUL)
@@ -4004,6 +4032,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						ins->mCode = IC_LOAD_TEMPORARY;
 						ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
 						ins->mSrc[1].mTemp = -1;
+						ins->mNumOperands = 1;
 						assert(ins->mSrc[0].mTemp >= 0);
 					}
 					else if (ins->mSrc[0].mFloatConst == 0.0)
@@ -4042,6 +4071,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					if (ins->mOperator == IA_ADD && ins->mSrc[1].mIntConst == 0)
 					{
 						ins->mCode = IC_LOAD_TEMPORARY;
+						ins->mNumOperands = 1;
 						assert(ins->mSrc[0].mTemp >= 0);
 					}
 					else if (ins->mOperator == IA_MUL)
@@ -4049,6 +4079,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						if (ins->mSrc[1].mIntConst == 1)
 						{
 							ins->mCode = IC_LOAD_TEMPORARY;
+							ins->mNumOperands = 1;
 							assert(ins->mSrc[0].mTemp >= 0);
 						}
 						else if (ins->mSrc[1].mIntConst == 2)
@@ -4090,6 +4121,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 				}
 				else if (ins->mOperator == IA_MUL)
@@ -4099,6 +4131,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						ins->mCode = IC_LOAD_TEMPORARY;
 						ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
 						ins->mSrc[1].mTemp = -1;
+						ins->mNumOperands = 1;
 						assert(ins->mSrc[0].mTemp >= 0);
 					}
 					else if (ins->mSrc[0].mIntConst == 2)
@@ -9586,7 +9619,7 @@ void InterCodeProcedure::DisassembleDebug(const char* name)
 	Disassemble(name);
 }
 
-void InterCodeProcedure::BuildTraces(bool expand)
+void InterCodeProcedure::BuildTraces(bool expand, bool dominators)
 {
 	// Count number of entries
 //
@@ -9612,7 +9645,8 @@ void InterCodeProcedure::BuildTraces(bool expand)
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
 		mBlocks[i]->mDominator = nullptr;
-	mEntryBlock->BuildDominatorTree(nullptr);
+	if (dominators)
+		mEntryBlock->BuildDominatorTree(nullptr);
 }
 
 void InterCodeProcedure::BuildDataFlowSets(void)
@@ -10395,7 +10429,7 @@ void InterCodeProcedure::Close(void)
 	// Optimize for size
 
 	MergeBasicBlocks();
-	BuildTraces(false);
+	BuildTraces(false, false);
 	DisassembleDebug("Final Merged basic blocks");
 
 }

@@ -526,7 +526,7 @@ public:
 	void Disassemble(FILE* file);
 	void Disassemble(const char* name, bool dumpSets = false);
 protected:
-	void BuildTraces(bool expand);
+	void BuildTraces(bool expand, bool dominators = true);
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);
 	void TempForwarding(void);
