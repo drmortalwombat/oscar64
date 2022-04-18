@@ -464,6 +464,11 @@ Expression* Expression::ConstantFold(Errors * errors)
 		ex->mDecType = mLeft->mDecType;
 		return ex;
 	}
+	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_CONST) && mLeft->mDecType->mType == DT_TYPE_POINTER && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
+	{
+		mLeft = mLeft->mDecValue->mValue;
+		return this->ConstantFold(errors);
+	}
 	else if (mType == EX_QUALIFY && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
 	{
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);

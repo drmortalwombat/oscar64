@@ -5653,7 +5653,7 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 		lshift++;
 	}
 
-	if (mul > 1 && (lshift > 3 || lmul != 1) && ins->mSrc[index].IsUByte() && ins->mSrc[index].mRange.mMaxValue < 16)
+	if (mul > 1 && ((lshift & 7) > 3 || lmul != 1) && ins->mSrc[index].IsUByte() && ins->mSrc[index].mRange.mMaxValue < 16)
 	{
 		int	dreg = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
 
