@@ -257,6 +257,7 @@ public:
 	bool IsEqual(const InterOperand & op) const;
 
 	bool IsUByte(void) const;
+	bool IsSByte(void) const;
 	bool IsUnsigned(void) const;
 
 	void Disassemble(FILE* file);
@@ -417,6 +418,8 @@ public:
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars);
 	bool EliminateDeadBranches(void);
 
+	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps);
+
 	bool CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory);
 	bool SingleAssignmentTempForwarding(const GrowingInstructionPtrArray& tunified, const GrowingInstructionPtrArray& tvalues);
 
@@ -446,6 +449,7 @@ public:
 	bool IsTempModifiedOnPath(int temp, int at) const;
 
 	bool PushSinglePathResultInstructions(void);
+	bool CanMoveInstructionBeforeBlock(int ii) const;
 	bool MergeCommonPathInstructions(void);
 
 	void PeepholeOptimization(void);

@@ -403,7 +403,8 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 	int		i = strlen(prgPath);
 	while (i > 0 && prgPath[i - 1] != '.')
 		i--;
-	prgPath[i] = 0;
+	if (i > 0)
+		prgPath[i] = 0;
 	
 	strcpy_s(mapPath, prgPath);
 	strcpy_s(asmPath, prgPath);

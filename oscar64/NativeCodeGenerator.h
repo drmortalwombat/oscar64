@@ -390,11 +390,12 @@ public:
 
 	struct MulTable
 	{
-		LinkerObject* mLinkerLSB, * mLinkerMSB;
-		int	mFactor, mSize;
+		LinkerObject	*	mLinkerLSB, * mLinkerMSB;
+		int					mFactor, mSize;
+		InterOperator		mOperator;
 	};
 
-	LinkerObject* AllocateShortMulTable(int factor, int size, bool msb);
+	LinkerObject* AllocateShortMulTable(InterOperator op, int factor, int size, bool msb);
 
 	Runtime& ResolveRuntime(const Ident* ident);
 
