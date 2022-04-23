@@ -248,6 +248,7 @@ public:
 	bool MoveCLCLoadAddZPStoreUp(int at);
 	bool MoveLoadAddZPStoreUp(int at);
 	bool MoveLoadShiftRotateUp(int at);
+	bool MoveLoadShiftStoreUp(int at);
 
 	bool MoveCLCLoadAddZPStoreDown(int at);
 	bool FindDirectAddressSumY(int at, int reg, int& apos, int& breg);
@@ -283,6 +284,8 @@ public:
 	bool JoinTAYARange(int from, int to);
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
 	bool MergeXYSameValue(int from);
+
+	bool ReverseReplaceTAX(int at);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final);
 
@@ -330,6 +333,8 @@ public:
 	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, int index, int at, int yval);
 
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
+
+	void CheckLive(void);
 };
 
 class NativeCodeProcedure

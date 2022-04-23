@@ -304,16 +304,16 @@ void Linker::Link(void)
 					LinkerObject* lobj = lsec->mObjects[k];
 					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj) )
 					{
-						if (lsec->mType == LST_DATA)
-							lrgn->mNonzero = lrgn->mUsed;
-
-						if (lobj->mAddress + lobj->mSize == lrgn->mStart + lrgn->mUsed)
+						if (lsec->mType != LST_BSS || lobj->mAddress + lobj->mSize == lrgn->mStart + lrgn->mUsed)
 						{
 							if (lobj->mAddress < lsec->mStart)
 								lsec->mStart = lobj->mAddress;
 							if (lobj->mAddress + lobj->mSize > lsec->mEnd)
 								lsec->mEnd = lobj->mAddress + lobj->mSize;
 						}
+
+						if (lsec->mType == LST_DATA && lsec->mEnd > lrgn->mNonzero)
+							lrgn->mNonzero = lsec->mEnd;
 					}
 				}
 			}
@@ -322,19 +322,16 @@ void Linker::Link(void)
 		mProgramStart = 0xffff;
 		mProgramEnd = 0x0000;
 
-		int	address = 0;
-
 		for (int i = 0; i < mRegions.Size(); i++)
 		{
 			LinkerRegion* lrgn = mRegions[i];
-			address = lrgn->mStart + lrgn->mNonzero;
 
 			if (lrgn->mNonzero)
 			{
 				if (lrgn->mStart < mProgramStart)
 					mProgramStart = lrgn->mStart;
-				if (address > mProgramEnd)
-					mProgramEnd = address;
+				if (lrgn->mNonzero > mProgramEnd)
+					mProgramEnd = lrgn->mNonzero;
 			}
 		}
 

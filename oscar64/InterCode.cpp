@@ -6438,14 +6438,27 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 			case IC_LEA:
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0 && ltvalue[ins->mSrc[0].mTemp])
 				{
-					InterInstruction* ains = ltvalue[ins->mSrc[0].mTemp];
+					InterInstruction* pins = ltvalue[ins->mSrc[0].mTemp];
 
-					if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0)
+					if (pins->mCode == IC_BINARY_OPERATOR && pins->mOperator == IA_ADD && pins->mSrc[0].mTemp < 0 && pins->mDst.mType == IT_INT16)
 					{
-						ins->mSrc[0] = ains->mSrc[1];
-						ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
+						ins->mSrc[0] = pins->mSrc[1];
+						ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst;
 						changed = true;
 					}
+#if 1
+					else if (pins->mCode == IC_CONVERSION_OPERATOR && pins->mOperator == IA_EXT8TO16U && pins->mSrc[0].IsUByte() && pins->mSrc[0].mTemp >= 0 && ltvalue[pins->mSrc[0].mTemp])
+					{
+						InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
+
+						if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0 && ains->mDst.mType == IT_INT16)
+						{
+							ins->mSrc[0] = ains->mSrc[1];
+							ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
+							changed = true;
+						}
+					}
+#endif
 				}
 				break;
 
@@ -10491,6 +10504,9 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Simplified range limited relational ops");
 #endif
+
+	BuildTraces(false);
+	DisassembleDebug("Rebuilt traces");
 
 #if 1
 	GrowingInstructionPtrArray	silvalues(nullptr);

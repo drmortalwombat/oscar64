@@ -132,6 +132,9 @@ rem @echo off
 @call :test charwintest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test linetest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test ptrinittest.c
 @if %errorlevel% neq 0 goto :error
 
