@@ -124,11 +124,17 @@ void Compiler::CompileProcedure(InterCodeProcedure* proc)
 		if (proc->mNativeProcedure)
 		{
 			NativeCodeProcedure* ncproc = new NativeCodeProcedure(mNativeCodeGenerator);
+			if (mCompilerOptions & COPT_VERBOSE2)
+				printf("Generate native code <%s>\n", proc->mIdent->mString);
+
 			ncproc->Compile(proc);
 		}
 		else
 		{
 			ByteCodeProcedure* bgproc = new ByteCodeProcedure();
+
+			if (mCompilerOptions & COPT_VERBOSE2)
+				printf("Generate byte code <%s>\n", proc->mIdent->mString);
 
 			bgproc->Compile(mByteCodeGenerator, proc);
 			mByteCodeFunctions.Push(bgproc);
@@ -213,6 +219,9 @@ bool Compiler::GenerateCode(void)
 
 	mGlobalAnalyzer->mCompilerOptions = mCompilerOptions;
 
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Global analyzer\n");
+
 	mGlobalAnalyzer->AnalyzeAssembler(dcrtstart->mValue, nullptr);
 
 	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
@@ -229,6 +238,9 @@ bool Compiler::GenerateCode(void)
 	mInterCodeGenerator->mCompilerOptions = mCompilerOptions;
 	mNativeCodeGenerator->mCompilerOptions = mCompilerOptions;
 	mInterCodeModule->mCompilerOptions = mCompilerOptions;
+
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Generate intermediate code\n");
 
 	mInterCodeGenerator->TranslateAssembler(mInterCodeModule, dcrtstart->mValue, nullptr);
 	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
@@ -299,6 +311,9 @@ bool Compiler::GenerateCode(void)
 	if (mErrors->mErrorCount != 0)
 		return false;
 
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Optimize static variable usage\n");
+
 #if 1
 	for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
 	{
@@ -310,6 +325,9 @@ bool Compiler::GenerateCode(void)
 		mInterCodeModule->mProcedures[i]->RemoveNonRelevantStatics();
 	}
 #endif
+
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Generate native code\n");
 
 	for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
 	{
@@ -330,6 +348,9 @@ bool Compiler::GenerateCode(void)
 	LinkerObject* byteCodeObject = nullptr;
 	if (!(mCompilerOptions & COPT_NATIVE))
 	{
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Generate byte code runtime\n");
+
 		// Compile used byte code functions
 
 		byteCodeObject = mLinker->AddObject(loc, Ident::Unique("bytecode"), sectionBytecode, LOT_RUNTIME);
@@ -389,6 +410,9 @@ bool Compiler::GenerateCode(void)
 
 	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
 		mLinker->ReferenceObject(mCompilationUnits->mReferenced[i]->mLinkerObject);
+
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Link executable\n");
 
 	mLinker->Link();
 

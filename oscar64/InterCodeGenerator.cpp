@@ -3556,7 +3556,12 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	InterCodeBasicBlock* exitBlock = entryBlock;
 
 	if (dec->mFlags & DTF_DEFINED)
+	{
+		if (mCompilerOptions & COPT_VERBOSE2)
+			printf("Generate intermediate code <%s>\n", proc->mIdent->mString);
+
 		TranslateExpression(dec->mBase, proc, exitBlock, exp, nullptr, nullptr, nullptr);
+	}
 	else
 		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent->mString);
 
@@ -3566,7 +3571,12 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	exitBlock->Close(nullptr, nullptr);
 
 	if (mErrors->mErrorCount == 0)
+	{
+		if (mCompilerOptions & COPT_VERBOSE2)
+			printf("Optimize intermediate code <%s>\n", proc->mIdent->mString);
+
 		proc->Close();
+	}
 
 	return proc;
 }

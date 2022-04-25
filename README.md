@@ -3,7 +3,7 @@
 
 ## History and motivation
 
-It is a sad fact that the 6502 used in the Commodore64 and other home computers of the 80s is widely believet to have a poor code density when it comes to compiled or wider than eight bit code.  The C standard requires computations to be made with ints which work best if they have the same size as a pointer.  
+It is a sad fact that the 6502 used in the Commodore64 and other home computers of the 80s is widely believed to have a poor code density when it comes to compiled or wider than eight bit code.  The C standard requires computations to be made with ints which work best if they have the same size as a pointer.  
 
 The 6502 also has a very small stack of 256 bytes which cannot be easily addressed and thus cannot be used for local variables.  Therefore a second stack for variables has to be maintained, resulting in costly indexing operations.  The 6502 is also pretty poor when it comes to indexed operations, it has no index with constant offset addressing mode, and requires the y register to be used for indexing.
 
@@ -66,9 +66,10 @@ The compiler is command line driven, and creates an executable .prg file.
     oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=format] [-e] [-n] [-dSYMBOL[=value]] {source.c}
     
 * -v : verbose output for diagnostics
+* -v2 : more verbose output
 * -i : additional include paths
 * -o : optional output file name
-* -rt : alternative runtime library, replaces the crt.c
+* -rt : alternative runtime library, replaces the crt.c (or empty for none)
 * -e : execute the result in the integrated emulator
 * -ep : execute and profile the result in the integrated emulator
 * -n : create pure native code for all functions

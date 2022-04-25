@@ -19,6 +19,7 @@ static const uint64 COPT_TARGET_COPY = 0x800000000ULL;
 static const uint64 COPT_TARGET_BIN = 0x1000000000ULL;
 
 static const uint64 COPT_VERBOSE = 0x1000000000ULL;
+static const uint64 COPT_VERBOSE2 = 0x2000000000ULL;
 
 static const uint64 COPT_NATIVE = 0x01000000;
 

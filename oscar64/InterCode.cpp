@@ -2308,6 +2308,14 @@ bool InterOperand::IsUnsigned(void) const
 }
 
 
+void InterOperand::Forward(const InterOperand& op)
+{
+	mTemp = op.mTemp;
+	mType = op.mType;
+	mRange = op.mRange;
+	mFinal = false;
+}
+
 bool InterOperand::IsEqual(const InterOperand& op) const
 {
 	if (mType != op.mType || mTemp != op.mTemp)
@@ -2719,6 +2727,15 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 		}
 		else
 			requiredTemps -= mDst.mTemp;
+	}
+	else if (mCode == IC_LOAD_TEMPORARY && mDst.mTemp == mSrc[0].mTemp)
+	{
+		mCode = IC_NONE;
+		mDst.mTemp = -1;
+		for (int i = 0; i < mNumOperands; i++)
+			mSrc[i].mTemp = -1;
+
+		changed = true;
 	}
 
 	for (int i = 0; i < mNumOperands; i++)
@@ -3275,6 +3292,16 @@ bool InterInstruction::ConstantFolding(void)
 			return true;
 		}
 		break;
+	case IC_LOAD_TEMPORARY:
+		if (mDst.mTemp == mSrc[0].mTemp)
+		{
+			mCode = IC_NONE;
+			mDst.mTemp = -1;
+			for (int i = 0; i < mNumOperands; i++)
+				mSrc[i].mTemp = -1;
+			return true;
+		}
+		break;
 	case IC_LEA:
 		if (mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0)
 		{
@@ -3482,7 +3509,7 @@ void InterInstruction::Disassemble(FILE* file)
 }
 
 InterCodeBasicBlock::InterCodeBasicBlock(void)
-	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
+	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mMergeAValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
 	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), mReverseValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr), mLoopPathBlocks(nullptr)
 {
 	mInPath = false;
@@ -6354,18 +6381,126 @@ bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArr
 
 }
 
+bool InterCodeBasicBlock::EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		GrowingInstructionPtrArray	ltvalue(tvalue);
+		GrowingInstructionPtrArray	lavalue(avalue);
+
+		if (mLoopHead)
+		{
+			ltvalue.Clear();
+			lavalue.Clear();
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (mMergeTValues[i] != ltvalue[i])
+						ltvalue[i] = nullptr;
+					if (mMergeAValues[i] != lavalue[i])
+						lavalue[i] = nullptr;
+				}
+
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (lavalue[i] && !ltvalue[lavalue[i]->mSrc[0].mTemp])
+						lavalue[i] = nullptr;
+				}
+			}
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mMergeTValues = ltvalue;
+				mMergeAValues = lavalue;
+				return false;
+			}
+		}
+
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			for (int j = 0; j < ins->mNumOperands; j++)
+			{
+				if (ins->mSrc[j].mTemp > 0 && lavalue[ins->mSrc[j].mTemp])
+				{
+					InterInstruction* mins = lavalue[ins->mSrc[j].mTemp];
+
+					if (mExitRequiredTemps[mins->mDst.mTemp] && !mExitRequiredTemps[mins->mSrc[0].mTemp])
+					{
+						ins->mSrc[j].Forward(mins->mDst);
+						changed = true;
+					}
+				}
+			}
+
+			if (ins->mDst.mTemp >= 0)
+			{
+				if (ltvalue[ins->mDst.mTemp] && ltvalue[ins->mDst.mTemp]->mCode == IC_LOAD_TEMPORARY)
+					lavalue[ltvalue[ins->mDst.mTemp]->mSrc[0].mTemp] = nullptr;
+
+				ltvalue[ins->mDst.mTemp] = ins;
+				lavalue[ins->mDst.mTemp] = nullptr;
+				if (ins->mCode == IC_LOAD_TEMPORARY)
+					lavalue[ins->mSrc[0].mTemp] = ins;
+			}
+		}
+
+
+		if (mTrueJump && mTrueJump->EliminateAliasValues(ltvalue, lavalue))
+			changed = true;
+
+		if (mFalseJump && mFalseJump->EliminateAliasValues(ltvalue, lavalue))
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps)
 {
 	bool	changed = false;
 
 	if (!mVisited)
 	{
-		mVisited = true;
-
 		GrowingInstructionPtrArray	ltvalue(tvalue);
 
-		if (mNumEntries > 1)
+		if (mLoopHead)
+		{
 			ltvalue.Clear();
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (mMergeTValues[i] != ltvalue[i])
+						ltvalue[i] = nullptr;
+				}
+			}
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mMergeTValues = ltvalue;
+				return false;
+			}
+		}
+
+		mVisited = true;
+
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
@@ -9268,6 +9403,11 @@ void InterCodeBasicBlock::PeepholeOptimization(void)
 
 			for (i = 0; i < mInstructions.Size(); i++)
 			{
+				if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY && mInstructions[i]->mDst.mTemp == mInstructions[i]->mSrc->mTemp)
+				{
+					mInstructions[i]->mCode = IC_NONE;
+					changed = true;
+				}
 				if (i + 2 < mInstructions.Size())
 				{
 					if (mInstructions[i + 0]->mCode == IC_LOAD &&
@@ -10533,6 +10673,17 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("SimplifyIntegerNumeric");
 
 #endif
+
+	GrowingInstructionPtrArray	eivalues(nullptr);
+	do {
+		BuildDataFlowSets();
+
+		eivalues.SetSize(mTemporaries.Size(), true);
+
+		ResetVisited();
+	} while (mEntryBlock->EliminateAliasValues(eivalues, eivalues));
+
+	DisassembleDebug("EliminateAliasValues");
 
 #if 1
 	if (mModule->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)

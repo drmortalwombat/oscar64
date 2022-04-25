@@ -252,6 +252,8 @@ public:
 	InterMemory			mMemory;
 	IntegerValueRange	mRange;
 
+	void Forward(const InterOperand& op);
+
 	InterOperand(void);
 
 	bool IsEqual(const InterOperand & op) const;
@@ -354,7 +356,7 @@ public:
 
 	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
 
-	GrowingInstructionPtrArray		mMergeTValues;
+	GrowingInstructionPtrArray		mMergeTValues, mMergeAValues;
 	ValueSet						mMergeValues;
 	TempForwardingTable				mMergeForwardingTable;
 
@@ -419,6 +421,7 @@ public:
 	bool EliminateDeadBranches(void);
 
 	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps);
+	bool EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue);
 
 	bool CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory);
 	bool SingleAssignmentTempForwarding(const GrowingInstructionPtrArray& tunified, const GrowingInstructionPtrArray& tvalues);

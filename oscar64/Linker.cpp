@@ -302,20 +302,29 @@ void Linker::Link(void)
 				for (int k = 0; k < lsec->mObjects.Size(); k++)
 				{
 					LinkerObject* lobj = lsec->mObjects[k];
-					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj) )
+					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj))
 					{
-						if (lsec->mType != LST_BSS || lobj->mAddress + lobj->mSize == lrgn->mStart + lrgn->mUsed)
-						{
-							if (lobj->mAddress < lsec->mStart)
-								lsec->mStart = lobj->mAddress;
-							if (lobj->mAddress + lobj->mSize > lsec->mEnd)
-								lsec->mEnd = lobj->mAddress + lobj->mSize;
-						}
+						if (lobj->mIdent && lobj->mIdent->mString && (mCompilerOptions & COPT_VERBOSE2))
+							printf("Placed object <%s> $%04x - $%04x\n", lobj->mIdent->mString, lobj->mAddress, lobj->mAddress + lobj->mSize);
+
+						if (lobj->mAddress < lsec->mStart)
+							lsec->mStart = lobj->mAddress;
+						if (lobj->mAddress + lobj->mSize > lsec->mEnd)
+							lsec->mEnd = lobj->mAddress + lobj->mSize;
 
 						if (lsec->mType == LST_DATA && lsec->mEnd > lrgn->mNonzero)
 							lrgn->mNonzero = lsec->mEnd;
 					}
 				}
+			}
+
+			for (int j = 0; j < lrgn->mSections.Size(); j++)
+			{
+				LinkerSection* lsec = lrgn->mSections[j];
+				if (lsec->mType == LST_BSS && lsec->mStart < lrgn->mNonzero)
+					lsec->mStart = lrgn->mNonzero;
+				if (lsec->mEnd < lsec->mStart)
+					lsec->mEnd = lsec->mStart;
 			}
 		}
 
