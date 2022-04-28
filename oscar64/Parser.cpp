@@ -1183,7 +1183,12 @@ Declaration* Parser::ParseDeclaration(bool variable)
 				mScanner->NextToken();
 				ndec->mValue = ParseInitExpression(ndec->mBase);
 				if (ndec->mFlags & DTF_GLOBAL)
-					ndec->mSection = mDataSection;
+				{
+					if (ndec->mFlags & DTF_ZEROPAGE)
+						;
+					else
+						ndec->mSection = mDataSection;
+				}
 				ndec->mSize = ndec->mBase->mSize;
 			}
 
@@ -3499,6 +3504,37 @@ void Parser::ParsePragma(void)
 						dec->mAlignment = exp->mDecValue->mInteger;
 					else
 						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for alignment expected");
+				}
+				else
+				{
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Variable not found");
+					mScanner->NextToken();
+				}
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Variable name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "zeropage"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
+				if (dec && dec->mType == DT_VARIABLE && (dec->mFlags & DTF_GLOBAL))
+				{
+					mScanner->NextToken();
+
+					dec->mFlags |= DTF_ZEROPAGE;
+					dec->mSection = mCompilationUnits->mSectionZeroPage;
+					if (dec->mLinkerObject)
+					{
+						dec->mLinkerObject->MoveToSection(dec->mSection);
+						dec->mLinkerObject->mFlags |= LOBJF_ZEROPAGE;
+					}
 				}
 				else
 				{

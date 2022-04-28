@@ -11,6 +11,23 @@ LinkerSection::LinkerSection(void)
 	: mObjects(nullptr), mSections(nullptr)
 {}
 
+
+void LinkerSection::RemObject(LinkerObject* obj)
+{
+	int i = mObjects.IndexOf(obj);
+	if (i >= 0)
+	{
+		mObjects.Remove(i);
+		obj->mSection = nullptr;
+	}
+}
+
+void LinkerSection::AddObject(LinkerObject* obj)
+{
+	mObjects.Push(obj);
+	obj->mSection = this;
+}
+
 LinkerObject::LinkerObject(void)
 	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr)
 {}
@@ -26,6 +43,15 @@ void LinkerObject::AddReference(const LinkerReference& ref)
 	mReferences.Push(nref);
 }
 
+void LinkerObject::MoveToSection(LinkerSection* section)
+{
+	if (section != mSection)
+	{
+		if (mSection)
+			mSection->RemObject(this);
+		section->AddObject(this);
+	}
+}
 
 void LinkerObject::AddData(const uint8* data, int size)
 {

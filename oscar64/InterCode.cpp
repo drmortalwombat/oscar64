@@ -8809,6 +8809,32 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 								}
 							}
 						}
+
+						if (ins0->mCode == IC_BINARY_OPERATOR && ins0->mOperator == IA_ADD && ins1->mCode == IC_LEA && ins1->mSrc[1].mTemp >= 0)
+						{
+							if (ins1->mSrc[0].mTemp == ins0->mDst.mTemp && ins1->mSrc[0].mFinal && ins0->mSrc[0].mTemp >= 0 && ins0->mSrc[1].mTemp)
+							{
+								if (dep[ins1->mSrc[1].mTemp] == DEP_UNKNOWN && dep[ins0->mSrc[0].mTemp] == DEP_UNKNOWN && dep[ins0->mSrc[1].mTemp] == DEP_INDEX_EXTENDED)
+								{
+									InterOperand	iop = ins0->mSrc[1];
+									InterOperand	pop = ins1->mSrc[1];
+
+									ins0->mCode = IC_LEA;
+									ins0->mDst.mType = IT_POINTER;
+
+									ins0->mSrc[1] = pop;
+
+									ins1->mSrc[1].mTemp = ins0->mDst.mTemp;
+									ins1->mSrc[0] = iop;
+
+									if (dep[ins0->mSrc[0].mTemp] == DEP_UNKNOWN && dep[ins0->mSrc[1].mTemp] == DEP_UNKNOWN)
+										ins0->mInvariant = true;
+									dep[ins0->mDst.mTemp] = DEP_UNKNOWN;
+									dep[ins1->mDst.mTemp] = DEP_UNKNOWN;
+								}
+							}
+						}
+
 					}
 
 					InterInstruction* ins = mInstructions[i];

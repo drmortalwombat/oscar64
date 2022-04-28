@@ -698,15 +698,15 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 			break;
 		case ASMIM_ZERO_PAGE:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s %s %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, linker));
 			break;
 		case ASMIM_ZERO_PAGE_X:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s,x\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s %s,x %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, linker));
 			break;
 		case ASMIM_ZERO_PAGE_Y:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s,y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s %s,y %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, linker));
 			break;
 		case ASMIM_ABSOLUTE:
 			addr = memory[ip] + 256 * memory[ip + 1];
@@ -730,11 +730,11 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 			break;
 		case ASMIM_INDIRECT_X:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s (%s,x)\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s (%s,x) %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, linker));
 			break;
 		case ASMIM_INDIRECT_Y:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s (%s),y\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s (%s),y %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, linker));
 			break;
 		case ASMIM_RELATIVE:
 			addr = memory[ip++];
@@ -809,15 +809,6 @@ const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeP
 			i++;
 		if (i < proc->mTempOffset.Size())
 			sprintf_s(buffer, 10, "T%d + %d", i, tmp - (proc->mTempOffset[i] + BC_REG_TMP));
-		else
-			sprintf_s(buffer, 10, "$%02x", tmp);
-		return buffer;
-	}
-	else if (linker)
-	{
-		LinkerObject* obj = linker->FindObjectByAddr(tmp);
-		if (obj && obj->mIdent)
-			sprintf_s(buffer, 40, "$%02x; (%s + %d)", tmp, obj->mIdent->mString, tmp - obj->mAddress);
 		else
 			sprintf_s(buffer, 10, "$%02x", tmp);
 		return buffer;

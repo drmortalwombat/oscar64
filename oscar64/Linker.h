@@ -121,6 +121,9 @@ public:
 	LinkerSectionType				mType;
 
 	LinkerSection(void);
+
+	void RemObject(LinkerObject* obj);
+	void AddObject(LinkerObject* obj);
 };
 
 static const uint32 LOBJF_REFERENCED	= 0x00000001;
@@ -161,6 +164,8 @@ public:
 	GrowingArray<LinkerReference*>	mReferences;
 
 	void AddReference(const LinkerReference& ref);
+
+	void MoveToSection(LinkerSection* section);
 };
 
 class Linker
