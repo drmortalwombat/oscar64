@@ -20,6 +20,96 @@ SourcePath::~SourcePath(void)
 
 }
 
+bool SourceFile::ReadLineLZO(char* line)
+{
+	if (mPos > 256)
+	{
+		memmove(mBuffer, mBuffer + mPos - 256, mFill + 256 - mPos);
+		mFill -= mPos - 256;
+		mPos = 256;
+	}
+
+	assert(mFill >= 0 && mFill - mPos < 384 && mPos <= mFill);
+
+	int	c;
+	while (mLimit && mFill < 384 && (c = fgetc(mFile)) >= 0)
+	{
+		mLimit--;
+		mBuffer[mFill++] = c;
+	}
+
+	if (mPos < mFill)
+	{
+		int	pi = 0;
+		while (pi < 127 && mPos < mFill)
+		{
+			int	bi = pi, bj = 0;
+			for (int i = 1; i < mPos; i++)
+			{
+				int j = 0;
+				while (j < 127 && mPos + j < mFill && mBuffer[mPos - i + j] == mBuffer[mPos + j])
+					j++;
+
+				if (j > bj)
+				{
+					bi = i;
+					bj = j;
+				}
+			}
+
+			if (bj >= 4)
+			{
+				if (pi > 0)
+				{
+					sprintf_s(line, 1024, "0x%02x, ", pi);
+
+					for (int i = 0; i < pi; i++)
+					{
+						char	buffer[16];
+						sprintf_s(buffer, 16, "0x%02x, ", (unsigned char)mBuffer[mPos - pi + i]);
+
+						strcat_s(line, 1024, buffer);
+					}
+
+					return true;
+				}
+				else
+				{
+					sprintf_s(line, 1024, "0x%02x, 0x%02x, ", 128 + bj, bi);
+					mPos += bj;
+
+					if (mFill == mPos)
+						strcat_s(line, 1024, "0x00, ");
+
+					return true;
+				}
+			}
+			else
+			{
+				mPos++;
+				pi++;
+			}
+		}
+
+		sprintf_s(line, 1024, "0x%02x, ", pi);
+
+		for (int i = 0; i < pi; i++)
+		{
+			char	buffer[16];
+			sprintf_s(buffer, 16, "0x%02x, ", (unsigned char)mBuffer[mPos - pi + i]);
+
+			strcat_s(line, 1024, buffer);
+		}
+
+		if (mFill == mPos)
+			strcat_s(line, 1024, "0x00, ");
+
+		return true;
+	}
+
+	return false;
+}
+
 bool SourceFile::ReadLineRLE(char* line)
 {
 	assert(mFill >= 0 && mFill < 256);
@@ -171,6 +261,10 @@ bool SourceFile::ReadLine(char* line)
 			if (ReadLineRLE(line))
 				return true;
 			break;
+		case SFM_BINARY_LZO:
+			if (ReadLineLZO(line))
+				return true;
+			break;
 		}
 
 		fclose(mFile);
@@ -233,6 +327,7 @@ bool SourceFile::Open(const char* name, const char* path, SourceFileMode mode)
 		mMode = mode;
 		mLimit = 0x10000;
 		mFill = 0;
+		mPos = 0;
 
 		return true;
 	}

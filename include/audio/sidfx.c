@@ -30,13 +30,16 @@ void sidfx_init(void)
 
 void sidfx_play(byte chn, SIDFX * fx, byte cnt)
 {
-	if (channels[chn].state == SIDFX_IDLE)
-		channels[chn].state = SIDFX_READY;
-	else
-		channels[chn].state = SIDFX_RESET_0;
+	if (!channels[chn].com || channels[chn].com->priority <= fx->priority)
+	{
+		if (channels[chn].state == SIDFX_IDLE)
+			channels[chn].state = SIDFX_READY;
+		else
+			channels[chn].state = SIDFX_RESET_0;
 
-	channels[chn].com = fx;
-	channels[chn].cnt = cnt - 1;
+		channels[chn].com = fx;
+		channels[chn].cnt = cnt - 1;
+	}
 }
 
 void sidfx_stop(byte chn)

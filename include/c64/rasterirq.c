@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 volatile char npos = 1, tpos = 0;
+volatile byte rirq_count;
 
 byte		rasterIRQRows[NUM_IRQS];
 byte		rasterIRQIndex[NUM_IRQS];
@@ -62,6 +63,7 @@ w1:
 e2:
 	ldx npos
 	stx tpos
+	inc rirq_count
 
 	bit	$d011
 	bmi e1
@@ -135,6 +137,7 @@ w1:
 e2:
 	ldx npos
 	stx tpos
+	inc rirq_count
 
 	bit	$d011
 	bmi e1

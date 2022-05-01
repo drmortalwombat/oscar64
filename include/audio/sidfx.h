@@ -9,6 +9,7 @@ struct SIDFX
 	byte		ctrl, attdec, susrel;
 	int			dfreq, dpwm;
 	byte		time1, time0;
+	byte		priority;
 };
 
 void sidfx_init(void);

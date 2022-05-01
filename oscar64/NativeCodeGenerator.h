@@ -20,13 +20,14 @@ enum NativeRegisterDataMode
 struct NativeRegisterData
 {
 	NativeRegisterDataMode	mMode;
-	int						mValue;
+	int						mValue, mMask;
 	uint32					mFlags;
 	LinkerObject		*	mLinkerObject;
 
 	NativeRegisterData(void);
 
 	void Reset(void);
+	void ResetMask(void);
 
 	bool SameData(const NativeRegisterData& d) const;
 };
@@ -36,10 +37,13 @@ struct NativeRegisterDataSet
 	NativeRegisterData		mRegs[261];
 
 	void Reset(void);
+	void ResetMask(void);
+
 	void ResetZeroPage(int addr);
 	void ResetAbsolute(LinkerObject * linkerObject, int addr);
 	void ResetIndirect(void);
 	void Intersect(const NativeRegisterDataSet& set);
+	void IntersectMask(const NativeRegisterDataSet& set);
 };
 
 
@@ -76,6 +80,7 @@ public:
 	void Assemble(NativeCodeBasicBlock* block);
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
+	bool BitFieldForwarding(NativeRegisterDataSet& data, AsmInsType& carryop);
 	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool initial, bool final);
 
 	void Simulate(NativeRegisterDataSet& data);
@@ -241,6 +246,7 @@ public:
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
 	bool MoveLoadStoreOutOfXYRangeUp(int at);
+	bool MoveLoadIndirectTempStoreUp(int at);
 	
 	bool MoveLoadAddImmStoreAbsXUp(int at);
 	bool MoveStaTaxLdaStaDown(int at);
@@ -289,6 +295,7 @@ public:
 	bool ReverseReplaceTAX(int at);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final);
+	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);
 

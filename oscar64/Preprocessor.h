@@ -18,7 +18,8 @@ enum SourceFileMode
 {
 	SFM_TEXT,
 	SFM_BINARY,
-	SFM_BINARY_RLE
+	SFM_BINARY_RLE,
+	SFM_BINARY_LZO
 };
 class SourceFile
 {
@@ -31,12 +32,13 @@ public:
 	SourceFileMode	mMode;
 	int				mLimit;
 
-	char			mBuffer[256];
-	int				mFill;
+	char			mBuffer[512];
+	int				mFill, mPos;
 
 	bool ReadLine(char* line);
 
 	bool ReadLineRLE(char* line);
+	bool ReadLineLZO(char* line);
 
 	SourceFile(void);
 	~SourceFile(void);

@@ -130,6 +130,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_24F2466589154E2DAA108C2EDB3BB432"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_29ED5D9B606D45DA80CFF329A7643DC8"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -269,6 +275,12 @@
         "Entry"
         {
         "MsmKey" = "8:_542D20FAC6B34E318FA36AD50BF3EEBE"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_557F7BC3AD794C4A93D5DFDA00024E1B"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -659,6 +671,12 @@
         "Entry"
         {
         "MsmKey" = "8:_C94FC3629B574FD3B4B86DADD8D77812"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_CA8FE59769D748A5BF04ABC3F9154DBA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1327,6 +1345,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_24F2466589154E2DAA108C2EDB3BB432"
+            {
+            "SourcePath" = "8:..\\include\\oscar.c"
+            "TargetName" = "8:oscar.c"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_29ED5D9B606D45DA80CFF329A7643DC8"
             {
             "SourcePath" = "8:..\\samples\\kernalio\\diskdir.c"
@@ -1793,6 +1831,26 @@
             "TargetName" = "8:string.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_557F7BC3AD794C4A93D5DFDA00024E1B"
+            {
+            "SourcePath" = "8:..\\samples\\memmap\\charsetexpand.c"
+            "TargetName" = "8:charsetexpand.c"
+            "Tag" = "8:"
+            "Folder" = "8:_A62A71A6A08941C5964B90112D87731F"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3107,6 +3165,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_CA8FE59769D748A5BF04ABC3F9154DBA"
+            {
+            "SourcePath" = "8:..\\include\\oscar.h"
+            "TargetName" = "8:oscar.h"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_CC473A7B399D4B31A9DC8C94F7771EF7"
             {
             "SourcePath" = "8:..\\samples\\memmap\\charsethi.c"
@@ -4023,15 +4101,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{9712E64F-8FDC-4FD2-BE20-8889E458BC89}"
-        "PackageCode" = "8:{63C93E1F-200E-43F4-8A18-C9A7743F2543}"
+        "ProductCode" = "8:{F66E2274-2B16-49B2-950F-83A3DC2EEA9D}"
+        "PackageCode" = "8:{4F43842C-6F90-403A-8CE1-352F775F975F}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.5.121"
+        "ProductVersion" = "8:1.6.123"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -4545,7 +4623,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_FB2E467BC172457785F4279BB0BFE8B6"
             {
-            "SourcePath" = "8:..\\Debug\\oscar64.exe"
+            "SourcePath" = "8:..\\Release\\oscar64.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_607E75AF0E2A4CB9908C4C39DF8FE6E4"

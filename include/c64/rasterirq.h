@@ -5,6 +5,7 @@
 
 #define NUM_IRQS		16
 
+extern volatile byte rirq_count;
 
 enum RIRQCodeIndex
 {

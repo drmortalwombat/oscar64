@@ -656,6 +656,8 @@ void Scanner::NextToken(void)
 			{
 				if (!strcmp(mTokenIdent->mString, "rle"))
 					mode = SFM_BINARY_RLE;
+				else if (!strcmp(mTokenIdent->mString, "lzo"))
+					mode = SFM_BINARY_LZO;
 				else
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Invalid embed compression mode", mTokenIdent);
 
