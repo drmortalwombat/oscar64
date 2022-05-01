@@ -140,6 +140,19 @@ A section of the file can be selected by providing a limit and or an offset into
 		
 	};
 
+Embedded data can be compressed during compile time and expanded at runtime using one of the expand functions in the oscar.h 
+
+	char charset[] = {
+		#embed 2048 0 lzo "../resources/charset.bin"
+	};
+	
+
+	int main(void) {
+		oscar_expand_lzo(Charset, charset);
+	}
+
+Compression algorithms so far are LZ (lzo) and run lenght (rle).
+
 
 ### Console input and output
 
@@ -423,6 +436,10 @@ Embedds a custom character set into the prg file at 0xc800..0xcfff and switches 
 #### Copy character set "charsetcopy.c"
 
 Embedds a custom character set into the prg file at 0xc000..0xc7ff and copies it to 0xd000 on startup.  This frees this area for stack and heap usage.
+
+#### Copy character set "charsetcopy.c"
+
+Embedds a custom character set into the prg file at 0xc000..0xc7ff using lz comression and expands it to 0xd000 on startup.  This frees this area for stack and heap usage.
 
 #### Easyflash banking "easyflash.c"
 
