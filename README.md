@@ -151,7 +151,7 @@ Embedded data can be compressed during compile time and expanded at runtime usin
 		oscar_expand_lzo(Charset, charset);
 	}
 
-Compression algorithms so far are LZ (lzo) and run lenght (rle).
+Compression algorithms so far are LZ (lzo) and run length (rle).
 
 
 ### Console input and output
