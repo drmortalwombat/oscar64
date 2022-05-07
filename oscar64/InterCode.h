@@ -253,6 +253,7 @@ public:
 	IntegerValueRange	mRange;
 
 	void Forward(const InterOperand& op);
+	void ForwardMem(const InterOperand& op);
 
 	InterOperand(void);
 
@@ -408,7 +409,7 @@ public:
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
 
-	void LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue);
+	bool LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue);
 
 	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num);
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);

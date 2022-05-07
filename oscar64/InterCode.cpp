@@ -2308,6 +2308,20 @@ bool InterOperand::IsUnsigned(void) const
 }
 
 
+void InterOperand::ForwardMem(const InterOperand& op)
+{
+	mIntConst = op.mIntConst;
+	mFloatConst = op.mFloatConst;
+	mVarIndex = op.mVarIndex;
+	mOperandSize = op.mOperandSize;
+	mLinkerObject = op.mLinkerObject;
+	mMemory = op.mMemory;
+	mTemp = op.mTemp;
+	mType = op.mType;
+	mRange = op.mRange;
+	mFinal = false;
+}
+
 void InterOperand::Forward(const InterOperand& op)
 {
 	mTemp = op.mTemp;
@@ -3066,7 +3080,7 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 	case IC_LOAD:
 		if (mSrc[0].mMemory == IM_LOCAL && mSrc[0].mTemp < 0)
 		{
-			if (localTypes[mSrc[0].mVarIndex] == IT_NONE || localTypes[mSrc[0].mVarIndex] == mDst.mType)
+			if ((localTypes[mSrc[0].mVarIndex] == IT_NONE || localTypes[mSrc[0].mVarIndex] == mDst.mType) && mSrc[0].mIntConst == 0)
 			{
 				localTypes[mSrc[0].mVarIndex] = mDst.mType;
 				simpleLocals += mSrc[0].mVarIndex;
@@ -3076,7 +3090,7 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 		}
 		else if ((mSrc[0].mMemory == IM_PARAM || mSrc[0].mMemory == IM_FPARAM) && mSrc[0].mTemp < 0)
 		{
-			if (paramTypes[mSrc[0].mVarIndex] == IT_NONE || paramTypes[mSrc[0].mVarIndex] == mDst.mType)
+			if ((paramTypes[mSrc[0].mVarIndex] == IT_NONE || paramTypes[mSrc[0].mVarIndex] == mDst.mType) && mSrc[0].mIntConst == 0)
 			{
 				paramTypes[mSrc[0].mVarIndex] = mDst.mType;
 				simpleParams += mSrc[0].mVarIndex;
@@ -3088,7 +3102,7 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 	case IC_STORE:
 		if (mSrc[1].mMemory == IM_LOCAL && mSrc[1].mTemp < 0)
 		{
-			if (localTypes[mSrc[1].mVarIndex] == IT_NONE || localTypes[mSrc[1].mVarIndex] == mSrc[0].mType)
+			if ((localTypes[mSrc[1].mVarIndex] == IT_NONE || localTypes[mSrc[1].mVarIndex] == mSrc[0].mType) && mSrc[1].mIntConst == 0)
 			{
 				localTypes[mSrc[1].mVarIndex] = mSrc[0].mType;
 				simpleLocals += mSrc[1].mVarIndex;
@@ -3098,7 +3112,7 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 		}
 		else if ((mSrc[1].mMemory == IM_PARAM || mSrc[1].mMemory == IM_FPARAM) && mSrc[1].mTemp < 0)
 		{
-			if (paramTypes[mSrc[1].mVarIndex] == IT_NONE || paramTypes[mSrc[1].mVarIndex] == mSrc[0].mType)
+			if ((paramTypes[mSrc[1].mVarIndex] == IT_NONE || paramTypes[mSrc[1].mVarIndex] == mSrc[0].mType) && mSrc[1].mIntConst == 0)
 			{
 				paramTypes[mSrc[1].mVarIndex] = mSrc[0].mType;
 				simpleParams += mSrc[1].mVarIndex;
@@ -4779,6 +4793,29 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 		}
 #endif
 
+		if (sz >= 1 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 1]->mSrc[0].mTemp < 0)
+		{
+			InterInstruction* bins = mInstructions[sz - 1];
+
+			if (bins->mSrc[0].mIntConst)
+			{
+				mFalseJump->mNumEntries--;
+				mFalseJump = nullptr;
+				bins->mCode = IC_JUMP;
+				bins->mSrc[0].mTemp = -1;
+				bins->mNumOperands = 0;
+			}
+			else
+			{
+				mTrueJump->mNumEntries--;
+				mTrueJump = mFalseJump;
+				mFalseJump = nullptr;
+				bins->mCode = IC_JUMP;
+				bins->mSrc[0].mTemp = -1;
+				bins->mNumOperands = 0;
+			}
+		}
+
 		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_CONSTANT && mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp)
 		{
 			InterInstruction* bins = mInstructions[sz - 1];
@@ -4801,6 +4838,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 				bins->mNumOperands = 0;
 			}
 		}
+		
 
 #if 1
 		for (int i = 0; i < sz; i++)
@@ -5572,6 +5610,24 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 	mTrueValueRange = mLocalValueRange;
 	mFalseValueRange = mLocalValueRange;
 
+	if (sz >= 1)
+	{
+		if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 1]->mSrc[0].mTemp >= 0 && mInstructions[sz - 1]->mSrc[0].mType == IT_BOOL)
+		{
+			int s = mInstructions[sz - 1]->mSrc[0].mTemp;
+
+			mTrueValueRange[s].mMinState = IntegerValueRange::S_BOUND;
+			mTrueValueRange[s].mMinValue = 1;
+			mTrueValueRange[s].mMaxState = IntegerValueRange::S_BOUND;
+			mTrueValueRange[s].mMaxValue = 1;
+
+			mFalseValueRange[s].mMinState = IntegerValueRange::S_BOUND;
+			mFalseValueRange[s].mMinValue = 0;
+			mFalseValueRange[s].mMaxState = IntegerValueRange::S_BOUND;
+			mFalseValueRange[s].mMaxValue = 0;
+		}
+	}
+
 	if (sz >= 2)
 	{
 		if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR &&
@@ -5699,11 +5755,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				}
 				break;
 			case IA_CMPGU:
-				if (s0 < 0)
+				if (s1 >= 0)
 				{
-					mTrueValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
-					mFalseValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
-					mFalseValueRange[s1].LimitMin(0);
+					mTrueValueRange[s1].LimitMin(1);
+					if (s0 < 0)
+					{
+						mTrueValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
+						mFalseValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+						mFalseValueRange[s1].LimitMin(0);
+					}
 				}
 				break;
 			case IA_CMPGEU:
@@ -6595,6 +6655,18 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					}
 #endif
 				}
+				else if (ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && ltvalue[ins->mSrc[1].mTemp])
+				{
+					InterInstruction* pins = ltvalue[ins->mSrc[1].mTemp];
+
+					if (pins->mCode == IC_LEA && pins->mSrc[1].mTemp < 0)
+					{
+						ins->mSrc[1].ForwardMem(pins->mSrc[1]);
+						ins->mSrc[1].mIntConst += ins->mSrc[0].mIntConst;
+						ins->mSrc[0].Forward(pins->mSrc[0]);
+						changed = true;
+					}
+				}
 				break;
 
 			}
@@ -7089,8 +7161,10 @@ static int Find(GrowingIntArray& table, int i)
 	return j;
 }
 
-void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue)
+bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue)
 {
+	bool	changed = false;
+
 	if (!mVisited)
 	{
 		if (!mLoopHead)
@@ -7108,17 +7182,19 @@ void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							mLoadStoreInstructions.Remove(i);
 						else
 							i++;
-					}					
+					}
 				}
 
 				mNumEntered++;
 
 				if (mNumEntered < mNumEntries)
 				{
-					return;
+					return false;
 				}
 			}
 		}
+		else
+			mLoadStoreInstructions.SetSize(0);
 
 		mVisited = true;
 
@@ -7144,6 +7220,7 @@ void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							ins->mCode = IC_LOAD_TEMPORARY;
 							ins->mSrc[0] = lins->mDst;
 							ins->mNumOperands = 1;
+							changed = true;
 						}
 						else if (lins->mCode == IC_STORE)
 						{
@@ -7151,12 +7228,14 @@ void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							{
 								ins->mCode = IC_CONSTANT;
 								ins->mConst = lins->mSrc[0];
+								changed = true;
 							}
 							else
 							{
 								ins->mCode = IC_LOAD_TEMPORARY;
 								ins->mSrc[0] = lins->mSrc[0];
 								ins->mNumOperands = 1;
+								changed = true;
 							}
 						}
 					}
@@ -7175,9 +7254,11 @@ void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				{
 					ins->mCode = IC_NONE;
 					ins->mNumOperands = 0;
+					changed = true;
 				}
 				else
 				{
+					j = 0;
 					while (j < mLoadStoreInstructions.Size())
 					{
 						if (!CollidingMem(ins->mSrc[1], mLoadStoreInstructions[j]))
@@ -7203,6 +7284,7 @@ void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0] = lins->mDst;
 					ins->mNumOperands = 1;
+					changed = true;
 				}
 				else
 					nins = ins;
@@ -7236,9 +7318,13 @@ void InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				mLoadStoreInstructions.Push(nins);
 		}
 
-		if (mTrueJump) mTrueJump->LoadStoreForwarding(mLoadStoreInstructions);
-		if (mFalseJump) mFalseJump->LoadStoreForwarding(mLoadStoreInstructions);
+		if (mTrueJump && mTrueJump->LoadStoreForwarding(mLoadStoreInstructions))
+			changed = true;
+		if (mFalseJump && mFalseJump->LoadStoreForwarding(mLoadStoreInstructions))
+			changed = true;
 	}
+
+	return changed;
 }
 
 
@@ -10598,17 +10684,20 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Copy forwarding");
 
+	do {
+		GrowingInstructionPtrArray	gipa(nullptr);
+		ResetVisited();
+		changed = mEntryBlock->LoadStoreForwarding(gipa);
 
-	GrowingInstructionPtrArray	gipa(nullptr);
-	ResetVisited();
-	mEntryBlock->LoadStoreForwarding(gipa);
+		DisassembleDebug("Load/Store forwardingX");
 
-	DisassembleDebug("Load/Store forwardingX");
+		RemoveUnusedStoreInstructions(paramMemory);
 
-	TempForwarding();
-	RemoveUnusedInstructions();
+		TempForwarding();
+		RemoveUnusedInstructions();
 
-	DisassembleDebug("Load/Store forwarding");
+		DisassembleDebug("Load/Store forwarding");
+	} while (changed);
 
 	FastNumberSet	activeSet(numTemps);
 

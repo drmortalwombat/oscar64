@@ -218,20 +218,26 @@ void * memcpy(void * dst, const void * src, int size)
 #pragma native(memcpy)
 
 void * memmove(void * dst, const void * src, int size)
-{
-	char	*	d = dst, * s = src;
-	if (d < s)
+{	
+	int	sz = size;
+	if (sz > 0)
 	{
-		while (size--)
-			*d++ = *s++;
+		char	*	d = dst, * s = src;
+		if (d < s)
+		{
+			do {
+				*d++ = *s++;				
+			} while (--sz);
+		}
+		else if (d > s)
+		{
+			d += sz;
+			s += sz;
+			do {
+				*--d = *--s;
+			} while (--sz);
+		}	
 	}
-	else if (d > s)
-	{
-		d += size;
-		s += size;
-		while (size--)
-			*--d = *--s;
-	}	
 	return dst;
 }
 

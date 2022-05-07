@@ -1047,7 +1047,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else
 			{
 				if (vl.mType->mType == DT_TYPE_POINTER && (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION))
+				{
 					vr = Dereference(proc, block, vr, 1);
+					vr.mReference = 0;
+					vr.mType = vl.mType;
+				}
 				else
 					vr = Dereference(proc, block, vr);
 

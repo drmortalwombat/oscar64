@@ -111,13 +111,16 @@ public:
 	bool UsesZeroPage(int address) const;
 	bool ReferencesZeroPage(int address) const;
 
+
 	bool ChangesGlobalMemory(void) const;
+	bool UsesMemoryOf(const NativeCodeInstruction& ins) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool MayBeChangedOnAddress(const NativeCodeInstruction& ins) const;
 	bool MayBeSameAddress(const NativeCodeInstruction& ins, bool sameXY = false) const;
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
 	bool IsShift(void) const;
+	bool IsSimpleJSR(void) const;
 
 	bool ReplaceYRegWithXReg(void);
 	bool ReplaceXRegWithYReg(void);
@@ -304,6 +307,7 @@ public:
 
 	NativeCodeBasicBlock * SplitMatchingTails(NativeCodeProcedure* proc);
 
+	NativeCodeBasicBlock* AddDominatorBlock(NativeCodeProcedure* proc, NativeCodeBasicBlock* pblock);
 	bool JoinTailCodeSequences(NativeCodeProcedure* proc, bool loops);
 	bool SameTail(const NativeCodeInstruction& ins) const;
 
@@ -325,6 +329,7 @@ public:
 	bool ReduceLocalXPressure(void);
 
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);
+	bool Split16BitLoopCount(NativeCodeProcedure* proc);
 
 	bool AlternateXYUsage(void);
 	bool ForwardAbsoluteLoadStores(void);

@@ -24,6 +24,9 @@ rem @echo off
 @call :test strcmptest2.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test memmovetest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test arraytest.c
 @if %errorlevel% neq 0 goto :error
 
