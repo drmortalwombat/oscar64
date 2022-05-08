@@ -9694,6 +9694,8 @@ bool NativeCodeBasicBlock::RemoveUnusedResultInstructions(void)
 	{
 		mVisited = true;
 
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
+
 		NumberSet		requiredRegs(mExitRequiredRegs);
 		int i;
 
@@ -9725,6 +9727,8 @@ bool NativeCodeBasicBlock::RemoveUnusedResultInstructions(void)
 				changed = true;
 			}
 		}
+
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
 
 		if (mTrueJump)
 		{
@@ -13421,7 +13425,7 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 			{
 				for (int i = from + 1; i < to; i++)
 				{
-					if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[start].mAddress && mIns[i].ChangesAddress())
+					if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[start - 1].mAddress && mIns[i].ChangesAddress())
 						return false;
 				}
 
@@ -13453,7 +13457,7 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 			}
 		}
 	}
-	
+
 	if (to + 1 < mIns.Size() && mIns[to + 1].mType == ASMIT_STA && !(mIns[to + 1].mLive & LIVE_CPU_REG_A))
 	{
 		NativeCodeInstruction	ins(mIns[to + 1]);
@@ -15035,6 +15039,8 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 	{
 		mNDataSet = data;
 
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
+
 		if (mLoopHead)
 		{
 			mNDataSet.ResetMask();
@@ -15072,6 +15078,8 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 
 		}
 
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
+
 		if (this->mTrueJump && this->mTrueJump->BitFieldForwarding(mNDataSet))
 			changed = true;
 		if (this->mFalseJump && this->mFalseJump->BitFieldForwarding(mFDataSet))
@@ -15087,6 +15095,8 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 
 	if (!mVisited)
 	{
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
+
 		mNDataSet = data;
 
 		if (mLoopHead)
@@ -15197,13 +15207,18 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				{
 					mBranch = ASMIT_JMP;
 					mTrueJump->mNumEntries--;
+					mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
 					if (!mNDataSet.mRegs[CPU_REG_C].mValue)
 						mTrueJump = fork->mFalseJump;
 					else
 						mTrueJump = fork->mTrueJump;
 					mTrueJump->mNumEntries++;
+					mTrueJump->mEntryBlocks.Push(this);
 					if (mFalseJump)
+					{
 						mFalseJump->mNumEntries--;
+						mFalseJump->mEntryBlocks.Remove(mFalseJump->mEntryBlocks.IndexOf(this));
+					}
 					mFalseJump = nullptr;
 					changed = true;
 				}
@@ -15213,13 +15228,18 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				{
 					mBranch = ASMIT_JMP;
 					mTrueJump->mNumEntries--;
+					mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
 					if (mNDataSet.mRegs[CPU_REG_C].mValue)
 						mTrueJump = fork->mFalseJump;
 					else
 						mTrueJump = fork->mTrueJump;
 					mTrueJump->mNumEntries++;
+					mTrueJump->mEntryBlocks.Push(this);
 					if (mFalseJump)
+					{
 						mFalseJump->mNumEntries--;
+						mFalseJump->mEntryBlocks.Remove(mFalseJump->mEntryBlocks.IndexOf(this));
+					}
 					mFalseJump = nullptr;
 					changed = true;
 				}
@@ -15229,13 +15249,18 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				{
 					mBranch = ASMIT_JMP;
 					mTrueJump->mNumEntries--;
+					mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
 					if (!mNDataSet.mRegs[CPU_REG_Z].mValue)
 						mTrueJump = fork->mFalseJump;
 					else
 						mTrueJump = fork->mTrueJump;
 					mTrueJump->mNumEntries++;
+					mTrueJump->mEntryBlocks.Push(this);
 					if (mFalseJump)
+					{
 						mFalseJump->mNumEntries--;
+						mFalseJump->mEntryBlocks.Remove(mFalseJump->mEntryBlocks.IndexOf(this));
+					}
 					mFalseJump = nullptr;
 					changed = true;
 				}
@@ -15262,13 +15287,18 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				{
 					mBranch = ASMIT_JMP;
 					mTrueJump->mNumEntries--;
+					mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
 					if (mNDataSet.mRegs[CPU_REG_Z].mValue)
 						mTrueJump = fork->mFalseJump;
 					else
 						mTrueJump = fork->mTrueJump;
 					mTrueJump->mNumEntries++;
+					mTrueJump->mEntryBlocks.Push(this);
 					if (mFalseJump)
+					{
 						mFalseJump->mNumEntries--;
+						mFalseJump->mEntryBlocks.Remove(mFalseJump->mEntryBlocks.IndexOf(this));
+					}
 					mFalseJump = nullptr;
 					changed = true;
 				}
@@ -15278,13 +15308,18 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				{
 					mBranch = ASMIT_JMP;
 					mTrueJump->mNumEntries--;
+					mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
 					if ((mNDataSet.mRegs[CPU_REG_Z].mValue & 0x80))
 						mTrueJump = fork->mFalseJump;
 					else
 						mTrueJump = fork->mTrueJump;
 					mTrueJump->mNumEntries++;
+					mTrueJump->mEntryBlocks.Push(this);
 					if (mFalseJump)
+					{
 						mFalseJump->mNumEntries--;
+						mFalseJump->mEntryBlocks.Remove(mFalseJump->mEntryBlocks.IndexOf(this));
+					}
 					mFalseJump = nullptr;
 					changed = true;
 				}
@@ -15293,14 +15328,19 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 				{
 					mBranch = ASMIT_JMP;
+					mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
 					mTrueJump->mNumEntries--;
 					if (!(mNDataSet.mRegs[CPU_REG_Z].mValue & 0x80))
 						mTrueJump = fork->mFalseJump;
 					else
 						mTrueJump = fork->mTrueJump;
 					mTrueJump->mNumEntries++;
+					mTrueJump->mEntryBlocks.Push(this);
 					if (mFalseJump)
+					{
 						mFalseJump->mNumEntries--;
+						mFalseJump->mEntryBlocks.Remove(mFalseJump->mEntryBlocks.IndexOf(this));
+					}
 					mFalseJump = nullptr;
 					changed = true;
 				}
@@ -15330,6 +15370,8 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				}
 			}
 		}
+
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
 
 		if (this->mTrueJump && this->mTrueJump->ValueForwarding(mNDataSet, global, final))
 			changed = true;
@@ -18100,6 +18142,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 	{
 		assert(mBranch != ASMIT_JMP || mFalseJump == nullptr);
 		assert(mIns.Size() == 0 || mIns[0].mType != ASMIT_INV);
+
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
 
 		bool	changed = RemoveNops();
 
@@ -21983,6 +22027,64 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		}
 
 		else if (sz >= 2 &&
+			mIns[sz - 2].mType == ASMIT_EOR && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
+			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
+		{
+			if (mBranch == ASMIT_BNE && mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCC)
+			{
+				NativeCodeBasicBlock* tblock = proc->AllocateBlock();
+
+				tblock->mTrueJump = mTrueJump->mTrueJump;
+				tblock->mFalseJump = mTrueJump->mFalseJump;
+				tblock->mBranch = ASMIT_BMI;
+				tblock->mTrueJump->mNumEntries++;
+				tblock->mTrueJump->mEntryBlocks.Push(tblock);
+				tblock->mFalseJump->mNumEntries++;
+				tblock->mFalseJump->mEntryBlocks.Push(tblock);
+
+				mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
+				mTrueJump->mNumEntries--;
+				mTrueJump = tblock;
+				tblock->mNumEntries++;
+				tblock->mEntryBlocks.Push(this);
+
+				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+				mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0;
+			}
+		}
+
+		else if (sz >= 4 &&
+			mIns[sz - 4].mType == ASMIT_EOR && mIns[sz - 4].mMode == ASMIM_IMMEDIATE && mIns[sz - 4].mAddress == 0x80 &&
+			mIns[sz - 3].mType == ASMIT_STA && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
+			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
+			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && mIns[sz - 1].mAddress == mIns[sz - 3].mAddress && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
+		{
+			if (mBranch == ASMIT_BNE && mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCC)
+			{
+				NativeCodeBasicBlock* tblock = proc->AllocateBlock();
+
+				tblock->mTrueJump = mTrueJump->mFalseJump;
+				tblock->mFalseJump = mTrueJump->mTrueJump;
+				tblock->mBranch = ASMIT_BMI;
+				tblock->mTrueJump->mNumEntries++;
+				tblock->mTrueJump->mEntryBlocks.Push(tblock);
+				tblock->mFalseJump->mNumEntries++;
+				tblock->mFalseJump->mEntryBlocks.Push(tblock);
+
+				mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
+				mTrueJump->mNumEntries--;
+				mTrueJump = tblock;
+				tblock->mNumEntries++;
+				tblock->mEntryBlocks.Push(this);
+
+				mIns[sz - 4].mType = ASMIT_NOP; mIns[sz - 4].mMode = ASMIM_IMPLIED;
+				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+				mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mMode = ASMIM_IMMEDIATE;  mIns[sz - 1].mAddress = 0;
+			}
+		}
+
+		else if (sz >= 2 &&
 			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
 			mIns[sz - 1].mType == ASMIT_SBC && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
 		{
@@ -22098,6 +22200,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 #endif
 
 #endif
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
 
 		if (this->mTrueJump && this->mTrueJump->PeepHoleOptimizer(proc, pass))
 			changed = true;
@@ -22255,6 +22358,22 @@ void NativeCodeBasicBlock::BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& p
 			{
 				mFalseJump->BuildPlacement(placement);
 				mTrueJump->BuildPlacement(placement);
+			}
+			else if (mTrueJump->mIns.Size() == 0 && mTrueJump->mFalseJump == mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump)
+			{
+				mTrueJump->mPlaced = true;
+				mTrueJump->mPlace = placement.Size();
+				placement.Push(mTrueJump);
+
+				mFalseJump->BuildPlacement(placement);
+			}
+			else if (mTrueJump->mIns.Size() == 0 && mTrueJump->mFalseJump == mFalseJump->mTrueJump && mTrueJump->mTrueJump == mFalseJump->mFalseJump)
+			{
+				mTrueJump->mPlaced = true;
+				mTrueJump->mPlace = placement.Size();
+				placement.Push(mTrueJump);
+
+				mFalseJump->BuildPlacement(placement);
 			}
 			else if (
 				!mTrueJump->mFalseJump && mTrueJump->mTrueJump && mTrueJump->mTrueJump->mPlaced && mTrueJump->mCode.Size() < 120 ||

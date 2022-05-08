@@ -60,6 +60,9 @@ rem @echo off
 @call :test testint32cmp.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test mixsigncmptest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test testinterval.c
 @if %errorlevel% neq 0 goto :error
 
