@@ -274,6 +274,66 @@ int krnio_read(char fnum, char * data, int num)
 
 #pragma native(krnio_read)
 
+int krnio_read_lzo(char fnum, char * data)
+{
+	if (krnio_pstatus[fnum] == KRNIO_EOF)
+		return 0;
+
+	if (krnio_chkin(fnum))
+	{
+		int i = 0;
+		char ch;
+		char cmd = 0;
+		krnioerr err;
+
+		for(;;)
+		{
+			ch = krnio_chrin();
+			err = krnio_status();
+			if (err && err != KRNIO_EOF)
+				break;
+
+			if (cmd & 0x80)				
+			{
+
+				char * dp = data + i, * cp = dp - ch;
+
+				cmd &= 0x7f;
+				i += cmd;
+
+				char n = 0x00;
+				do 	{
+					dp[n] = cp[n];
+					n++;
+				} while (n != cmd);
+				cmd = 0;
+			}
+			else if (cmd)
+			{
+				data[i++] = (char)ch;
+				cmd--;
+			}
+			else if (ch)
+				cmd = ch;
+			else
+				break;
+
+			if (err)
+				break;
+
+		} 
+
+		krnio_pstatus[fnum] = err;
+
+		krnio_clrchn();
+		return i;
+	}
+	else
+		return -1;	
+}
+
+#pragma native(krnio_read_lzo)
+
 int krnio_gets(char fnum, char * data, int num)
 {
 	if (krnio_pstatus[fnum] == KRNIO_EOF)

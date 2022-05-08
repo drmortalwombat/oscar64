@@ -38,9 +38,10 @@ public:
 
 	GrowingArray<Define>	mDefines;
 
+	bool BuildLZO(const char* targetPath);
 	bool ParseSource(void);
 	bool GenerateCode(void);
-	bool WriteOutputFile(const char* targetPath);
+	bool WriteOutputFile(const char* targetPath, DiskImage * d64);
 	int ExecuteCode(bool profile);
 
 	void AddDefine(const Ident* ident, const char* value);

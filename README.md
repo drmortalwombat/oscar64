@@ -80,6 +80,10 @@ The compiler is command line driven, and creates an executable .prg file.
 * -O3: aggressive optimization for speed
 * -Os: optimize for size
 * -tf: target format, may be prg, crt or bin
+* -d64 : create a d64 disk image
+* -f : add a binary file to the disk image
+* -fz : add a compressed binary file to the disk image
+
 
 A list of source files can be provided.
 
@@ -111,6 +115,13 @@ Creates vice monitor commands to define all static labels.
 
 One can load the label file in the monitor using the load_labels (ll) command or provide it on the command line for vice with the "-moncommands" command line argument.
 
+### Creating a d64 disk file
+
+The compiler can create a .d64 disk file, that includes the compiled .prg file as the first file in the directory and a series of additional resource files.  The name of the disk file is provided with the -d64 command line options, additional files with the -f or -fz option.
+
+	oscar64 charsetload.c -d64=charsetload.d64 -fz=../resources/charset.bin
+	
+The compressed files can be loaded into memory and decompressed using the oscar_expand_lzo function from oscar.h or on the fly while reading from disk with the krnio_read_lzo function.
 
 ### Building the samples
 
@@ -437,9 +448,13 @@ Embedds a custom character set into the prg file at 0xc800..0xcfff and switches 
 
 Embedds a custom character set into the prg file at 0xc000..0xc7ff and copies it to 0xd000 on startup.  This frees this area for stack and heap usage.
 
-#### Copy character set "charsetcopy.c"
+#### Copy character set "charsetexpand.c"
 
 Embedds a custom character set into the prg file at 0xc000..0xc7ff using lz comression and expands it to 0xd000 on startup.  This frees this area for stack and heap usage.
+
+#### Custom character set "charsetload.c"
+
+Builds a .d64 image containing the compiled .prg and the compressed character set.  The program reads the character set at runtime from disk.
 
 #### Easyflash banking "easyflash.c"
 

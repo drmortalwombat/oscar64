@@ -8,6 +8,7 @@
 #include <mach-o/dyld.h>
 #endif
 #include "Compiler.h"
+#include "DiskImage.h"
 
 #ifdef _WIN32
 bool GetProductAndVersion(char* strProductName, char* strProductVersion)
@@ -63,7 +64,7 @@ int main2(int argc, const char** argv)
 
 	if (argc > 1)
 	{
-		char	basePath[200], crtPath[200], includePath[200], targetPath[200];
+		char	basePath[200], crtPath[200], includePath[200], targetPath[200], diskPath[200];
 		char	strProductName[100], strProductVersion[200];
 
 #ifdef _WIN32
@@ -73,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.6.125");
+		strcpy(strProductVersion, "1.7.126");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -103,6 +104,9 @@ int main2(int argc, const char** argv)
 
 		Location	loc;
 
+		GrowingArray<const char*>	dataFiles(nullptr);
+		GrowingArray<bool>			dataFileCompressed(false);
+
 		compiler->mPreprocessor->AddPath(basePath);
 		strcpy_s(includePath, basePath);
 		strcat_s(includePath, "include/");
@@ -113,6 +117,7 @@ int main2(int argc, const char** argv)
 		bool		emulate = false, profile = false;
 
 		targetPath[0] = 0;
+		diskPath[0] = 0;
 
 		char	targetFormat[20];
 		strcpy_s(targetFormat, "prg");
@@ -126,6 +131,16 @@ int main2(int argc, const char** argv)
 				{
 					compiler->mPreprocessor->AddPath(arg + 3);
 				}
+				else if (arg[1] == 'f' && arg[2] == '=')
+				{
+					dataFiles.Push(arg + 3);
+					dataFileCompressed.Push(false);
+				}
+				else if (arg[1] == 'f' && arg[2] == 'z' && arg[3] == '=')
+				{
+					dataFiles.Push(arg + 4);
+					dataFileCompressed.Push(true);
+				}
 				else if (arg[1] == 'o' && arg[2] == '=')
 				{
 					strcpy_s(targetPath, arg + 3);
@@ -133,6 +148,10 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 'r' && arg[2] == 't' && arg[3] == '=')
 				{
 					strcpy_s(crtPath, arg + 4);
+				}
+				else if (arg[1] == 'd' && arg[2] == '6' && arg[3] == '4' && arg[4] == '=')
+				{
+					strcpy_s(diskPath, arg + 5);
 				}
 				else if (arg[1] == 't' && arg[2] == 'f' && arg[3] == '=')
 				{
@@ -209,6 +228,11 @@ int main2(int argc, const char** argv)
 			compiler->mCompilerOptions |= COPT_TARGET_BIN;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_BIN"), "1");
 		}
+		else if (!strcmp(targetFormat, "lzo"))
+		{
+			compiler->mCompilerOptions |= COPT_TARGET_LZO;
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_LZO"), "1");
+		}
 		else
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target format option", targetFormat);
 
@@ -224,9 +248,35 @@ int main2(int argc, const char** argv)
 			if (crtPath[0])
 				compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
 
-			if (compiler->ParseSource() && compiler->GenerateCode())
+			if (compiler->mCompilerOptions & COPT_TARGET_LZO)
 			{
-				compiler->WriteOutputFile(targetPath);
+				compiler->BuildLZO(targetPath);
+			}
+			else if (compiler->ParseSource() && compiler->GenerateCode())
+			{
+				DiskImage* d64 = nullptr;
+
+				if (diskPath[0])
+					d64 = new DiskImage(diskPath);
+
+				compiler->WriteOutputFile(targetPath, d64);
+
+				if (d64)
+				{
+					for (int i = 0; i < dataFiles.Size(); i++)
+					{
+						if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i]))
+						{
+							printf("Could not embedd disk file %s\n", dataFiles[i]);
+							return 20;
+						}
+					}
+					if (!d64->WriteImage(diskPath))
+					{
+						printf("Could not write disk image %s\n", diskPath);
+						return 20;
+					}
+				}
 
 				if (emulate)
 					compiler->ExecuteCode(profile);
@@ -238,7 +288,7 @@ int main2(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-e] [-n] [-dSYMBOL[=value]] [-v] {source.c}\n");
+		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-e] [-n] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
 
 		return 0;
 	}

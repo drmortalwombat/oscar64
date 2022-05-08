@@ -150,6 +150,7 @@
     <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="Declaration.cpp" />
     <ClCompile Include="Disassembler.cpp" />
+    <ClCompile Include="DiskImage.cpp" />
     <ClCompile Include="Emulator.cpp" />
     <ClCompile Include="Errors.cpp" />
     <ClCompile Include="GlobalAnalyzer.cpp" />
@@ -175,6 +176,7 @@
     <ClInclude Include="CompilerTypes.h" />
     <ClInclude Include="Declaration.h" />
     <ClInclude Include="Disassembler.h" />
+    <ClInclude Include="DiskImage.h" />
     <ClInclude Include="Emulator.h" />
     <ClInclude Include="Errors.h" />
     <ClInclude Include="GlobalAnalyzer.h" />

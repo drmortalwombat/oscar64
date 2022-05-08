@@ -263,31 +263,34 @@ bool Compiler::GenerateCode(void)
 
 	// Register native runtime functions
 
-	RegisterRuntime(loc, Ident::Unique("mul16by8"));
-	RegisterRuntime(loc, Ident::Unique("fsplitt"));
-	RegisterRuntime(loc, Ident::Unique("fsplitx"));
-	RegisterRuntime(loc, Ident::Unique("fsplita"));
-	RegisterRuntime(loc, Ident::Unique("faddsub"));
-	RegisterRuntime(loc, Ident::Unique("fmul"));
-	RegisterRuntime(loc, Ident::Unique("fdiv"));
-	RegisterRuntime(loc, Ident::Unique("mul16"));
-	RegisterRuntime(loc, Ident::Unique("divs16"));
-	RegisterRuntime(loc, Ident::Unique("mods16"));
-	RegisterRuntime(loc, Ident::Unique("divu16"));
-	RegisterRuntime(loc, Ident::Unique("modu16"));
-	RegisterRuntime(loc, Ident::Unique("bitshift"));
-	RegisterRuntime(loc, Ident::Unique("ffloor"));
-	RegisterRuntime(loc, Ident::Unique("fceil"));
-	RegisterRuntime(loc, Ident::Unique("ftoi"));
-	RegisterRuntime(loc, Ident::Unique("ffromi"));
-	RegisterRuntime(loc, Ident::Unique("fcmp"));
-	RegisterRuntime(loc, Ident::Unique("bcexec"));
-	RegisterRuntime(loc, Ident::Unique("jmpaddr"));
-	RegisterRuntime(loc, Ident::Unique("mul32"));
-	RegisterRuntime(loc, Ident::Unique("divs32"));
-	RegisterRuntime(loc, Ident::Unique("mods32"));
-	RegisterRuntime(loc, Ident::Unique("divu32"));
-	RegisterRuntime(loc, Ident::Unique("modu32"));
+	if (mInterCodeModule->mProcedures.Size() > 0)
+	{
+		RegisterRuntime(loc, Ident::Unique("mul16by8"));
+		RegisterRuntime(loc, Ident::Unique("fsplitt"));
+		RegisterRuntime(loc, Ident::Unique("fsplitx"));
+		RegisterRuntime(loc, Ident::Unique("fsplita"));
+		RegisterRuntime(loc, Ident::Unique("faddsub"));
+		RegisterRuntime(loc, Ident::Unique("fmul"));
+		RegisterRuntime(loc, Ident::Unique("fdiv"));
+		RegisterRuntime(loc, Ident::Unique("mul16"));
+		RegisterRuntime(loc, Ident::Unique("divs16"));
+		RegisterRuntime(loc, Ident::Unique("mods16"));
+		RegisterRuntime(loc, Ident::Unique("divu16"));
+		RegisterRuntime(loc, Ident::Unique("modu16"));
+		RegisterRuntime(loc, Ident::Unique("bitshift"));
+		RegisterRuntime(loc, Ident::Unique("ffloor"));
+		RegisterRuntime(loc, Ident::Unique("fceil"));
+		RegisterRuntime(loc, Ident::Unique("ftoi"));
+		RegisterRuntime(loc, Ident::Unique("ffromi"));
+		RegisterRuntime(loc, Ident::Unique("fcmp"));
+		RegisterRuntime(loc, Ident::Unique("bcexec"));
+		RegisterRuntime(loc, Ident::Unique("jmpaddr"));
+		RegisterRuntime(loc, Ident::Unique("mul32"));
+		RegisterRuntime(loc, Ident::Unique("divs32"));
+		RegisterRuntime(loc, Ident::Unique("mods32"));
+		RegisterRuntime(loc, Ident::Unique("divu32"));
+		RegisterRuntime(loc, Ident::Unique("modu32"));
+	}
 
 	// Register extended byte code functions
 
@@ -419,7 +422,65 @@ bool Compiler::GenerateCode(void)
 	return mErrors->mErrorCount == 0;
 }
 
-bool Compiler::WriteOutputFile(const char* targetPath)
+bool Compiler::BuildLZO(const char* targetPath)
+{
+	mPreprocessor->mCompilerOptions = mCompilerOptions;
+	mLinker->mCompilerOptions = mCompilerOptions;
+
+	CompilationUnit* cunit;
+
+	char	data[65536];
+	int		n = 0;
+
+	while (mErrors->mErrorCount == 0 && (cunit = mCompilationUnits->PendingUnit()))
+	{
+		if (mPreprocessor->EmbedData("Compressing", cunit->mFileName, true, 0, 65536, SFM_BINARY_LZO))
+		{
+			Scanner* scanner = new Scanner(mErrors, mPreprocessor);
+			while (scanner->mToken == TK_INTEGER)
+			{
+				data[n++] = scanner->mTokenInteger;
+				do {
+					scanner->NextToken();
+				} while (scanner->mToken == TK_COMMA);				
+			}
+		}
+		else
+			mErrors->Error(cunit->mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", cunit->mFileName);
+	}
+
+	if (mErrors->mErrorCount == 0)
+	{
+		char	prgPath[200];
+
+		strcpy_s(prgPath, targetPath);
+		int		i = strlen(prgPath);
+		while (i > 0 && prgPath[i - 1] != '.')
+			i--;
+		if (i > 0)
+			prgPath[i] = 0;
+
+		strcat_s(prgPath, "lzo");
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Writing <%s>\n", prgPath);
+
+		FILE* file;
+		fopen_s(&file, prgPath, "wb");
+		if (file)
+		{
+			int	done = fwrite(data, 1, n, file);
+			fclose(file);
+			return done == n;
+		}
+		else
+			return false;
+	}
+	else
+		return false;
+
+}
+
+bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 {
 	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200];
 
@@ -464,6 +525,22 @@ bool Compiler::WriteOutputFile(const char* targetPath)
 		mLinker->WriteBinFile(prgPath);
 	}
 
+
+	if (d64)
+	{
+		int		i = strlen(prgPath);
+		while (i > 0 && prgPath[i - 1] != '.')
+			i--;
+		if (i > 0)
+			prgPath[i - 1] = 0;
+
+		while (i > 0 && prgPath[i - 1] != '/' && prgPath[i - 1] != '\\')
+			i--;
+
+		d64->OpenFile(prgPath + i);
+		mLinker->WritePrgFile(d64);
+		d64->CloseFile();
+	}
 
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Writing <%s>\n", mapPath);

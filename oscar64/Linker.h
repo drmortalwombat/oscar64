@@ -5,6 +5,7 @@
 #include "Array.h"
 #include "Errors.h"
 #include "Disassembler.h"
+#include "DiskImage.h"
 
 class InterCodeProcedure;
 
@@ -188,6 +189,7 @@ public:
 
 //	void AddReference(const LinkerReference& ref);
 
+	bool WritePrgFile(DiskImage * image);
 	bool WritePrgFile(const char* filename);
 	bool WriteMapFile(const char* filename);
 	bool WriteAsmFile(const char* filename);

@@ -81,6 +81,8 @@ int krnio_puts(char fnum, const char * data);
 
 int krnio_read(char fnum, char * data, int num);
 
+int krnio_read_lzo(char fnum, char * data);
+
 // read a line from the given file, terminated by a CR or LF character
 // and appends a zero byte.
 

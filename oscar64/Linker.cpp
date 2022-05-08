@@ -540,6 +540,14 @@ bool Linker::WriteBinFile(const char* filename)
 		return false;
 }
 
+bool Linker::WritePrgFile(DiskImage* image)
+{
+	mMemory[mProgramStart - 2] = mProgramStart & 0xff;
+	mMemory[mProgramStart - 1] = mProgramStart >> 8;
+
+	return image->WriteBytes(mMemory + mProgramStart - 2, mProgramEnd - mProgramStart + 2);
+}
+
 bool Linker::WritePrgFile(const char* filename)
 {
 	FILE* file;
