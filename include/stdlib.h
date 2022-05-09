@@ -29,6 +29,8 @@ void * calloc(int num, int size);
 
 unsigned int rand(void);
 
+void srand(unsigned int seed);
+
 #pragma compile("stdlib.c")
 
 #endif

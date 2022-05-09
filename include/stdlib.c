@@ -444,7 +444,7 @@ void * calloc(int num, int size)
 	return p;
 }
 
-unsigned seed = 31232;
+static unsigned seed = 31232;
 
 unsigned int rand(void)
 {
@@ -454,3 +454,7 @@ unsigned int rand(void)
 	return seed;
 }
 
+void srand(unsigned int s)
+{
+	seed = s;
+}
