@@ -533,9 +533,15 @@ void Scanner::NextToken(void)
 						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "')' expected in defined parameter list");
 				}
 
-				int	slen = mOffset;
-				while (mLine[slen] && mLine[slen] != '/' && mLine[slen + 1] != '/')
+				int		slen = mOffset;
+				bool	quote = false;
+				while (mLine[slen] && (quote || mLine[slen] != '/' || mLine[slen + 1] != '/'))
+				{
+					if (mLine[slen] == '"')
+						quote = !quote;
 					slen++;
+				}
+
 				macro->SetString(mLine + mOffset, slen - mOffset);
 				mDefines->Insert(macro);
 				mOffset = slen;
