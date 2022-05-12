@@ -8295,10 +8295,44 @@ InterCodeBasicBlock* InterCodeBasicBlock::BuildLoopPrefix(InterCodeProcedure* pr
 		{
 			mLoopPrefix = new InterCodeBasicBlock();
 			proc->Append(mLoopPrefix);
-			InterInstruction	*	jins = new InterInstruction();
+			InterInstruction* jins = new InterInstruction();
 			jins->mCode = IC_JUMP;
 			mLoopPrefix->Append(jins);
 			mLoopPrefix->Close(this, nullptr);
+
+			if (mNumEntries == 2 && mFalseJump)
+			{
+				if (mTrueJump == this && mFalseJump != this)
+				{
+					if (mFalseJump->mNumEntries > 1)
+					{
+						InterCodeBasicBlock* suffix = new InterCodeBasicBlock();
+						proc->Append(suffix);
+						InterInstruction* jins = new InterInstruction();
+						jins->mCode = IC_JUMP;
+						suffix->Append(jins);
+						suffix->Close(mFalseJump, nullptr);
+						mFalseJump->mNumEntries--;
+						mFalseJump = suffix;
+						suffix->mNumEntries = 1;
+					}
+				}
+				else if (mFalseJump == this && mTrueJump != this)
+				{
+					if (mTrueJump->mNumEntries > 1)
+					{
+						InterCodeBasicBlock* suffix = new InterCodeBasicBlock();
+						proc->Append(suffix);
+						InterInstruction* jins = new InterInstruction();
+						jins->mCode = IC_JUMP;
+						suffix->Append(jins);
+						suffix->Close(mTrueJump, nullptr);
+						mTrueJump->mNumEntries--;
+						mTrueJump = suffix;
+						suffix->mNumEntries = 1;
+					}
+				}
+			}
 		}
 	}
 
@@ -8729,6 +8763,71 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					hasCall = true;
 			}
 
+#if 1
+			if (!hasCall)
+			{
+				// Check forwarding globals
+
+				int i = 0;
+				for (int i = 0; i < mInstructions.Size(); i++)
+				{
+					InterInstruction* ins = mInstructions[i];
+
+					// A global load
+					if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL)
+					{
+						// Find the last store that overlaps the load
+						int	j = mInstructions.Size() - 1;
+						while (j > i && !(mInstructions[j]->mCode == IC_STORE && CollidingMem(ins->mSrc[0], mInstructions[j]->mSrc[1])))
+							j--;
+
+						if (j > i)
+						{
+							InterInstruction* sins = mInstructions[j];
+
+							// Does a full store
+							if (SameMem(ins->mSrc[0], sins->mSrc[1]))
+							{
+								if (sins->mSrc[0].mTemp >= 0)
+								{
+									// Check temp not used before load
+									int k = 0;
+									while (k < i && !mInstructions[k]->UsesTemp(sins->mSrc[0].mTemp))
+										k++;
+									if (k == i)
+									{
+										// Check temp not modified after load
+										k = j + 1;
+										while (k < mInstructions.Size() && mInstructions[k]->mDst.mTemp != sins->mSrc[0].mTemp)
+											k++;
+										if (k == mInstructions.Size())
+										{
+											// Move load before loop
+											mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
+											InterInstruction* nins = new InterInstruction();
+											mInstructions[i] = nins;
+											nins->mCode = IC_LOAD_TEMPORARY;
+											nins->mDst.Forward(ins->mDst);
+											nins->mSrc[0].Forward(sins->mSrc[0]);
+											ins->mDst.Forward(sins->mSrc[0]);
+											sins->mSrc[0].mFinal = false;
+
+											// Move store behind loop
+											if (mTrueJump == this)
+												mFalseJump->mInstructions.Insert(0, sins);
+											else
+												mTrueJump->mInstructions.Insert(0, sins);
+											mInstructions.Remove(j);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+#endif
+
 			GrowingArray<InterInstructionPtr>	tvalues(nullptr);
 			GrowingArray<int>					nassigns(0);
 
@@ -8792,7 +8891,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 											ins->mInvariant = false;
 									}
 								}
-								else if (ins->mSrc[0].mMemory == sins->mSrc[1].mMemory && ins->mSrc[0].mVarIndex == sins->mSrc[1].mVarIndex && ins->mSrc[0].mLinkerObject == sins->mSrc[1].mLinkerObject)
+								else if (CollidingMem(ins->mSrc[0], sins->mSrc[1]))
 								{
 									ins->mInvariant = false;
 								}

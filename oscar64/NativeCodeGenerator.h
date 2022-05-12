@@ -66,6 +66,7 @@ class NativeCodeInstruction
 {
 public:
 	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER, int param = 0);
+	NativeCodeInstruction(AsmInsType type, const NativeCodeInstruction & addr);
 
 	AsmInsType		mType;
 	AsmInsMode		mMode;
@@ -310,6 +311,7 @@ public:
 	NativeCodeBasicBlock* AddDominatorBlock(NativeCodeProcedure* proc, NativeCodeBasicBlock* pblock);
 	bool JoinTailCodeSequences(NativeCodeProcedure* proc, bool loops);
 	bool SameTail(const NativeCodeInstruction& ins) const;
+	bool PropagateSinglePath(void);
 
 	NativeRegisterDataSet	mEntryRegisterDataSet;
 
