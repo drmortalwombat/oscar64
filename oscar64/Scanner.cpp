@@ -496,6 +496,8 @@ void Scanner::NextToken(void)
 			NextRawToken();
 			if (mToken == TK_IDENT || mToken >= TK_IF && mToken <= TK_ASM || mToken == TK_TRUE || mToken == TK_FALSE)
 			{
+				if (mToken != TK_IDENT)
+					mTokenIdent = Ident::Unique(TokenNames[mToken]);
 				Macro* macro = new Macro(mTokenIdent);
 
 				if (mTokenChar == '(')
