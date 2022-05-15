@@ -6280,13 +6280,27 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 	default:
 		if (mul & 0xff00)
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, mul & 0xff));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, mul >> 8));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 1));
+			if (ins->mSrc[index].IsUByte())
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, mul & 0xff));
+				mIns.Push(NativeCodeInstruction(ASMIT_STX, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, mul >> 8));
+				mIns.Push(NativeCodeInstruction(ASMIT_STX, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
 
-			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul16")));
-			mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+				NativeCodeGenerator::Runtime& rt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul16by8")));
+				mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, rt.mOffset, rt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER | NCIF_USE_CPU_REG_A));
+			}
+			else
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, mul & 0xff));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, mul >> 8));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 1));
+
+				NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul16")));
+				mIns.Push(NativeCodeInstruction(ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+			}
 		}
 		else
 		{

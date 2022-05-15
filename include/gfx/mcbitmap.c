@@ -914,3 +914,5 @@ void bmmc_flood_fill(const Bitmap * bm, const ClipRect * clip, int x, int y, cha
 		}
 	}
 }
+
+#pragma native(bmmc_flood_fill)

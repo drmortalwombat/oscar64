@@ -2,6 +2,12 @@
 #include <math.h>
 #include <fixmath.h>
 
+void vec2_set(Vector2 * vd, float x, float y)
+{
+	vd->v[0] = x;
+	vd->v[1] = y;
+}
+
 void vec2_sum(Vector2 * vd, const Vector2 * v1, const Vector2 * v2)
 {
 	vd->v[0] = v1->v[0] + v2->v[0];

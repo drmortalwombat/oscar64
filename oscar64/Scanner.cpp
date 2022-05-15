@@ -1269,7 +1269,7 @@ void Scanner::NextRawToken(void)
 					mToken = TK_INT;
 				else if (!strcmp(tkident, "float"))
 					mToken = TK_FLOAT;
-				else if (!strcmp(tkident, "bool"))
+				else if (!strcmp(tkident, "bool") || !strcmp(tkident, "_Bool"))
 					mToken = TK_BOOL;
 				else if (!strcmp(tkident, "char"))
 					mToken = TK_CHAR;

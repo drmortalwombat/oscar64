@@ -5045,6 +5045,30 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 			{
 			case IC_LOAD:
 				vr = ins->mDst.mRange;
+
+				if (i > 0 &&
+					mInstructions[i - 1]->mCode == IC_LEA && mInstructions[i - 1]->mDst.mTemp == ins->mSrc[0].mTemp &&
+					mInstructions[i - 1]->mSrc[1].mTemp < 0 && mInstructions[i - 1]->mSrc[1].mMemory == IM_GLOBAL && (mInstructions[i - 1]->mSrc[1].mLinkerObject->mFlags & LOBJF_CONST))
+				{
+					if (ins->mDst.mType == IT_INT8)
+					{
+						LinkerObject* lo = mInstructions[i - 1]->mSrc[1].mLinkerObject;
+						int	mi = 0, ma = 0;
+
+						for (int j = 0; j < lo->mSize; j++)
+						{
+							int v = lo->mData[j];
+							if (v & 0x80)
+								mi = -128;
+							if (v > ma)
+								ma = v;
+						}
+
+						vr.LimitMax(ma);
+						vr.LimitMin(mi);
+					}
+				}
+
 				break;
 			case IC_CONSTANT:
 				vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;

@@ -6,6 +6,8 @@ struct Vector2
 	float	v[2];
 };
 
+inline void vec2_set(Vector2 * vd, float x, float y);
+
 void vec2_sum(Vector2 * vd, const Vector2 * v1, const Vector2 * v2);
 
 void vec2_diff(Vector2 * vd, const Vector2 * v1, const Vector2 * v2);
