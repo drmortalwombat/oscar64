@@ -22576,6 +22576,24 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				changed = true;
 			}
 		}
+		else if (sz >= 3 &&
+			mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
+			mIns[sz - 2].mType == ASMIT_ROL && mIns[sz - 2].mMode == ASMIM_IMPLIED && 
+			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x0 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
+		{
+			if (mBranch == ASMIT_BNE)
+			{
+				mBranch = ASMIT_BCS;
+				mIns.SetSize(sz - 3);
+				changed = true;
+			}
+			else if (mBranch == ASMIT_BEQ)
+			{
+				mBranch = ASMIT_BCC;
+				mIns.SetSize(sz - 3);
+				changed = true;
+			}
+		}
 
 		else if (sz >= 2 &&
 			mIns[sz - 2].mType == ASMIT_EOR && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
