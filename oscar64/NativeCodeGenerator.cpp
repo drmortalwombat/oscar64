@@ -13811,7 +13811,7 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 			return true;
 		}
 
-		if (!(mIns[from].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+		if (!(mIns[from].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && !(mIns[to].mLive & LIVE_CPU_REG_C))
 		{
 			start = from;
 			while (start > 0 && mIns[start - 1].mType != ASMIT_LDA && (mIns[start - 1].mMode == ASMIM_IMMEDIATE || mIns[start - 1].mMode == ASMIM_IMPLIED))
@@ -19158,6 +19158,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		}
 		CheckLive();
 
+
 #if 1
 		int		taxPos = -1, tayPos = -1;
 		for (int i = 0; i < mIns.Size(); i++)
@@ -19209,6 +19210,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		}
 		CheckLive();
 
+#endif
+
+#if 1
 		for (int i = 0; i + 2 < mIns.Size(); i++)
 		{
 			if (mIns[i].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_TAY ||
@@ -19221,6 +19225,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		CheckLive();
 
 #endif
+
 
 #if 1
 		if (pass > 1)

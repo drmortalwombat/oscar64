@@ -72,6 +72,9 @@ rem @echo off
 @call :test floatstringtest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test sprintftest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test qsorttest.c
 @if %errorlevel% neq 0 goto :error
 
