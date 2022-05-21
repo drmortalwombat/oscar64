@@ -11986,11 +11986,13 @@ bool NativeCodeBasicBlock::LocalRegisterXYMap(void)
 				switch (ins.mType)
 				{
 				case ASMIT_STA:
+#if 0
 					if (ins.mAddress >= BC_REG_ACCU && ins.mAddress < BC_REG_ACCU + 4 ||
 						ins.mAddress >= BC_REG_WORK && ins.mAddress < BC_REG_WORK + 4)
 					{
 					}
 					else
+#endif
 					{
 						if (!(ins.mLive & LIVE_CPU_REG_X))
 						{
@@ -12095,6 +12097,16 @@ bool NativeCodeBasicBlock::LocalRegisterXYMap(void)
 				xregs[ins.mAddress + 1] = -1;
 				yregs[ins.mAddress + 0] = -1;
 				yregs[ins.mAddress + 1] = -1;
+			}
+			else if (ins.mType == ASMIT_JSR)
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					xregs[BC_REG_ACCU + i] = -1;
+					yregs[BC_REG_ACCU + i] = -1;
+					xregs[BC_REG_WORK + i] = -1;
+					yregs[BC_REG_WORK + i] = -1;
+				}
 			}
 		}
 
@@ -21637,6 +21649,31 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 							mIns[i + 2].mType = ASMIT_NOP;
 						mIns[i + 2].mMode = ASMIM_IMPLIED;
 						mIns[i + 3].mType = ASMIT_STY;
+						progress = true;
+					}
+
+					else if (
+						mIns[i + 0].mType == ASMIT_TAX &&
+						mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
+						mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 2].mMode) &&
+						mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_LDX; 
+						mIns[i + 2].mType = ASMIT_STX; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_TAY &&
+						mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
+						mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 2].mMode) &&
+						mIns[i + 3].mType == ASMIT_TYA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_LDY; 
+						mIns[i + 2].mType = ASMIT_STY; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
 
