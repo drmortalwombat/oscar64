@@ -3245,6 +3245,10 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 	case ASMIT_LDX:
 	case ASMIT_LDY:
 	case ASMIT_BIT:
+	case ASMIT_TAX:
+	case ASMIT_TXA:
+	case ASMIT_TAY:
+	case ASMIT_TYA:
 		providedTemps += CPU_REG_Z;
 		break;
 	}
@@ -17002,13 +17006,14 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 				}
 				else if (mIns[sz - 3].mType == ASMIT_INC && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
 					mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && mIns[sz - 3].mAddress == mIns[sz - 2].mAddress &&
-					mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) &&
+					mIns[sz - 1].mType == ASMIT_CMP && (mIns[sz - 1].mMode == ASMIM_ZERO_PAGE || mIns[sz - 1].mMode == ASMIM_ABSOLUTE) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) &&
 					mBranch == ASMIT_BCC)
 				{
 					// check for usage of Y register
 
 					bool	yother = false, yindex = false, lchanged = false, xother = false, xindex = false;
-					int		lreg = mIns[sz - 1].mAddress;
+					NativeCodeInstruction	lins = mIns[sz - 1];
+					
 					int		zreg = mIns[sz - 3].mAddress;
 
 					if (mIns[sz - 1].mLive & LIVE_CPU_REG_X)
@@ -17018,7 +17023,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 
 					for (int i = 0; i < sz - 3; i++)
 					{
-						if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == lreg && mIns[i].ChangesAddress())
+						if (mIns[i].SameEffectiveAddress(lins) && mIns[i].ChangesAddress())
 							lchanged = true;
 
 						if (mIns[i].mType == ASMIT_INY || mIns[i].mType == ASMIT_DEY || mIns[i].mType == ASMIT_TAY)
@@ -17066,7 +17071,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 								lblock->mIns.Push(mIns[i]);
 						}
 						lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
-						lblock->mIns.Push(NativeCodeInstruction(ASMIT_CPY, ASMIM_ZERO_PAGE, lreg));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_CPY, lins));
 						lblock->mBranch = mBranch;
 						lblock->mTrueJump = lblock;
 						lblock->mFalseJump = eblock;
@@ -17104,7 +17109,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc)
 								lblock->mIns.Push(mIns[i]);
 						}
 						lblock->mIns.Push(NativeCodeInstruction(ASMIT_INX, ASMIM_IMPLIED));
-						lblock->mIns.Push(NativeCodeInstruction(ASMIT_CPX, ASMIM_ZERO_PAGE, lreg));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_CPX, lins));
 						lblock->mBranch = mBranch;
 						lblock->mTrueJump = lblock;
 						lblock->mFalseJump = eblock;
@@ -22314,7 +22319,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					if (mIns[i + 0].mType == ASMIT_CLC &&
 						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 1].mAddress && mIns[i + 3].mAddress != mIns[i + 2].mAddress &&
+						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && /*mIns[i + 3].mAddress != mIns[i + 1].mAddress &&*/ mIns[i + 3].mAddress != mIns[i + 2].mAddress &&
 						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
 						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
 						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
@@ -22323,15 +22328,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						proc->ResetPatched();
 						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2].mAddress, i + 7, -1))
 						{
-#if 0
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 2].mType = ASMIT_LDA; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+							if (mIns[i + 3].mAddress == mIns[i + 1].mAddress)
+							{
+								for (int j = 0; j < 7; j++)
+								{
+									mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
+								}
+							}
 
-							mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-							mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-#endif
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2].mAddress, i + 7, -1))
 								progress = true;
@@ -22352,14 +22356,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						proc->ResetPatched();
 						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0].mAddress, i + 7, -1))
 						{
-#if 0
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-							mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-							mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-							mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-#endif
+							if (mIns[i + 3].mAddress == mIns[i + 2].mAddress)
+							{
+								for (int j = 0; j < 7; j++)
+								{
+									mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
+								}
+							}
+
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0].mAddress, i + 7, -1))
 								progress = true;
@@ -23902,7 +23906,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 #if 1
-		if (step == 6)
+		if (step >= 6)
 		{
 			ResetVisited();
 			if (mEntryBlock->ExpandADCToBranch(this))
@@ -23912,11 +23916,13 @@ void NativeCodeProcedure::Optimize(void)
 
 #endif
 
-		if (!changed && step < 7)
+#if 1
+		if (!changed && step < 8)
 		{
 			step++;
 			changed = true;
 		}
+#endif
 		cnt++;
 	} while (changed);
 

@@ -1016,17 +1016,17 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 	{
 		bm = bins->mSrc[0].mMemory;
 		bi = bins->mSrc[0].mVarIndex;
-		bt = sins->mSrc[0].mTemp;
-		bo = sins->mSrc[0].mIntConst;
-		bz = InterTypeSize[sins->mDst.mType];
+		bt = bins->mSrc[0].mTemp;
+		bo = bins->mSrc[0].mIntConst;
+		bz = InterTypeSize[bins->mDst.mType];
 	}
 	else if (bins->mCode == IC_LEA || bins->mCode == IC_STORE)
 	{
 		bm = bins->mSrc[1].mMemory;
 		bi = bins->mSrc[1].mVarIndex;
-		bt = sins->mSrc[1].mTemp;
-		bo = sins->mSrc[1].mIntConst;
-		bz = InterTypeSize[sins->mSrc[0].mType];
+		bt = bins->mSrc[1].mTemp;
+		bo = bins->mSrc[1].mIntConst;
+		bz = InterTypeSize[bins->mSrc[0].mType];
 	}
 
 	// Check ambiguity
@@ -1053,7 +1053,8 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 		}
 		else if (sm == IM_INDIRECT && bm == IM_INDIRECT && st == bt)
 		{
-			return so + sz <= bz || bo + bz <= so;
+			if (so + sz > bo && bo + bz > so)
+				return false;
 		}
 		else
 			return false;
