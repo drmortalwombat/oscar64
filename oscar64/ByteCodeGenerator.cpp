@@ -1209,7 +1209,7 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		else
 		{
 			block->PutCode(generator, BC_COPY_LONG);
-			block->PutByte(uint8(mValue));
+			block->PutWord(uint16(mValue));
 		}
 		break;
 

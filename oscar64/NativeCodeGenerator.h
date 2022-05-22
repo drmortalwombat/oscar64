@@ -390,6 +390,8 @@ class NativeCodeProcedure
 		void ResetVisited(void);
 		void ResetPatched(void);
 
+		void SaveTempsToStack(int tempSave);
+		void LoadTempsFromStack(int tempSave);
 };
 
 class NativeCodeGenerator

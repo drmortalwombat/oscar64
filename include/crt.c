@@ -2432,7 +2432,40 @@ L1:		iny
 
 __asm inp_copyl
 {
-		jmp	startup.exec
+		lda	(ip), y
+		sta tmp
+		iny
+		lda (ip), y
+		tax
+		sty tmpy
+
+		beq	W1
+		ldy	#0
+Loop1:
+		lda (accu), y
+		sta (addr), y
+		iny
+		bne	Loop1
+		inc accu + 1
+		inc addr + 1
+		dex
+		bne	Loop1
+W1:
+		ldy	tmp
+		beq	W2
+		dey
+		beq	W3
+Loop2:
+		lda (accu), y
+		sta (addr), y
+		dey
+		bne Loop2
+W3:
+		lda (accu), y
+		sta (addr), y
+W2:
+		ldy	tmpy
+		jmp	startup.yexec
 }
 
 #pragma	bytecode(BC_COPY_LONG, inp_copyl)

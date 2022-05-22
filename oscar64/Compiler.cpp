@@ -232,6 +232,8 @@ bool Compiler::GenerateCode(void)
 		else
 			mGlobalAnalyzer->AnalyzeGlobalVariable(dec);
 	}
+
+	mGlobalAnalyzer->CheckInterrupt();
 	mGlobalAnalyzer->AutoInline();
 	//mGlobalAnalyzer->DumpCallGraph();
 

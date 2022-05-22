@@ -181,6 +181,33 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
 	}
 }
 
+void GlobalAnalyzer::CheckInterrupt(void)
+{
+	bool	changed = false;
+	do
+	{
+		changed = false;
+
+		for (int i = 0; i < mFunctions.Size(); i++)
+		{
+			Declaration* f = mFunctions[i];
+			if (f->mFlags & DTF_FUNC_INTRCALLED)
+			{
+				for (int j = 0; j < f->mCalled.Size(); j++)
+				{
+					Declaration* cf = f->mCalled[j];
+					if (!(cf->mFlags & DTF_FUNC_INTRCALLED))
+					{
+						cf->mFlags |= DTF_FUNC_INTRCALLED;
+						changed = true;
+					}
+				}
+			}
+		}
+
+	} while (changed);
+}
+
 void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 {
 	if (dec->mFlags & DTF_FUNC_ANALYZING)
@@ -197,6 +224,9 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 
 		dec->mFlags |= DTF_ANALYZED;
 		dec->mFlags |= DTF_FUNC_INTRSAVE;
+
+		if (dec->mFlags & DTF_INTERRUPT)
+			dec->mFlags |= DTF_FUNC_INTRCALLED;
 
 		if ((dec->mFlags & DTF_INTRINSIC) && !dec->mValue)
 			dec->mFlags |= DTF_FUNC_CONSTEXPR;

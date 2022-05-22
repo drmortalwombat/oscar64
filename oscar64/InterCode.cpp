@@ -10166,7 +10166,8 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mValueForwardingTable(nullptr), mLocalVars(nullptr), mParamVars(nullptr), mModule(mod),
 	mIdent(ident), mLinkerObject(linkerObject),
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
-	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false)
+	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), 
+	mSaveTempsLinkerObject(nullptr)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
@@ -11018,7 +11019,7 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 	ResetVisited();
-	if (mEntryBlock->CheckStaticStack())
+	if (!mInterruptCalled && mEntryBlock->CheckStaticStack())
 	{
 		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
 		mLinkerObject->mStackSection = mModule->mLinker->AddSection(mIdent, LST_STATIC_STACK);
@@ -11034,6 +11035,8 @@ void InterCodeProcedure::Close(void)
 				mModule->mGlobalVars.Push(var);
 			}
 		}
+
+		mSaveTempsLinkerObject = mModule->mLinker->AddObject(mLocation, mIdent, mLinkerObject->mStackSection, LOT_BSS);
 
 		ResetVisited();
 		mEntryBlock->CollectStaticStack(mLinkerObject, mLocalVars);
@@ -11069,6 +11072,8 @@ void InterCodeProcedure::Close(void)
 	BuildTraces(false, false);
 	DisassembleDebug("Final Merged basic blocks");
 
+	if (mSaveTempsLinkerObject && mTempSize > 16)
+		mSaveTempsLinkerObject->AddSpace(mTempSize - 16);
 }
 
 void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)

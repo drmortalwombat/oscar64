@@ -499,7 +499,8 @@ public:
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps;
-	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure, mInterrupt, mHardwareInterrupt, mCompiled;
+	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
+	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 
 	InterCodeModule					*	mModule;
@@ -511,7 +512,7 @@ public:
 	Location							mLocation;
 	const Ident						*	mIdent, * mSection;
 
-	LinkerObject					*	mLinkerObject;
+	LinkerObject					*	mLinkerObject, * mSaveTempsLinkerObject;
 
 	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
 	~InterCodeProcedure(void);

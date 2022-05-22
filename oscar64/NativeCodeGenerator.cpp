@@ -5719,6 +5719,10 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 	int	size = ins->mConst.mOperandSize;
 	int	msize = 4;
 
+	uint32	flags = NCIF_LOWER | NCIF_UPPER;
+	if (ins->mVolatile)
+		flags |= NCIF_VOLATILE;
+
 	if (nproc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
 		msize = 8;
 	else if (nproc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
@@ -5738,8 +5742,8 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 				for (int i = 0; i < size; i++)
 				{
 					mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index + i));
-					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + i, ins->mSrc[0].mLinkerObject));
-					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, areg));
+					mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + i, ins->mSrc[0].mLinkerObject, flags));
+					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, areg, nullptr, flags));
 				}
 
 				return this;
@@ -5751,14 +5755,103 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 
 				mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, index));
 				this->Close(lblock, nullptr, ASMIT_JMP);
-				lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst - index, ins->mSrc[0].mLinkerObject));
-				lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, areg));
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst - index, ins->mSrc[0].mLinkerObject, flags));
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, areg, nullptr, flags));
 				lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
 				lblock->mIns.Push(NativeCodeInstruction(ASMIT_CPY, ASMIM_IMMEDIATE, (index + size) & 255));
 				lblock->Close(lblock, eblock, ASMIT_BNE);
 
 				return eblock;
 			}
+		}
+		else if ((ins->mSrc[0].mMemory == IM_GLOBAL || ins->mSrc[0].mMemory == IM_ABSOLUTE) && (ins->mSrc[1].mMemory == IM_GLOBAL || ins->mSrc[1].mMemory == IM_ABSOLUTE))
+		{	
+			NativeCodeBasicBlock* block = this;
+
+			int	offset = 0;
+			if (size >= 256)
+			{
+				block = nproc->AllocateBlock();
+
+				NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
+
+				
+				if (size > 256)
+				{
+					if (size < 512 && !(size & 1))
+					{
+						int	step = size >> 1;
+
+						mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, step));
+						this->Close(lblock, nullptr, ASMIT_JMP);
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst - 1, ins->mSrc[0].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_Y, ins->mSrc[1].mIntConst - 1, ins->mSrc[1].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst + step - 1, ins->mSrc[0].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_Y, ins->mSrc[1].mIntConst + step - 1, ins->mSrc[1].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
+						lblock->Close(lblock, block, ASMIT_BNE);
+
+						return block;
+					}
+					else if (size < 1024 && !(size & 3))
+					{
+						int	step = size >> 2;
+
+						mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, step));
+						this->Close(lblock, nullptr, ASMIT_JMP);
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst - 1, ins->mSrc[0].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_Y, ins->mSrc[1].mIntConst - 1, ins->mSrc[1].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst + step - 1, ins->mSrc[0].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_Y, ins->mSrc[1].mIntConst + step - 1, ins->mSrc[1].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst + 2 * step - 1, ins->mSrc[0].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_Y, ins->mSrc[1].mIntConst + 2 * step - 1, ins->mSrc[1].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst + 3 * step - 1, ins->mSrc[0].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_Y, ins->mSrc[1].mIntConst + 3 * step - 1, ins->mSrc[1].mLinkerObject, flags));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
+						lblock->Close(lblock, block, ASMIT_BNE);
+
+						return block;
+					}
+				}
+
+				mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+				this->Close(lblock, nullptr, ASMIT_JMP);
+				while (offset + 255 < size)
+				{
+					lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst + offset, ins->mSrc[0].mLinkerObject, flags));
+					lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_Y, ins->mSrc[1].mIntConst + offset, ins->mSrc[1].mLinkerObject, flags));
+					offset += 256;
+				}
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+				lblock->Close(lblock, block, ASMIT_BNE);
+
+				size &= 255;
+			}
+
+			if (size <= msize)
+			{
+				for (int i = 0; i < size; i++)
+				{
+					block->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + offset + i, ins->mSrc[0].mLinkerObject, flags));
+					block->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + offset + i, ins->mSrc[1].mLinkerObject, flags));
+				}
+			}
+			else
+			{
+				NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+
+				block->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, size));
+				block->Close(lblock, nullptr, ASMIT_JMP);
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, ins->mSrc[0].mIntConst + offset - 1, ins->mSrc[0].mLinkerObject, flags));
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_Y, ins->mSrc[1].mIntConst + offset - 1, ins->mSrc[1].mLinkerObject, flags));
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
+				lblock->Close(lblock, eblock, ASMIT_BNE);
+
+				block = eblock;
+			}
+
+			return block;
 		}
 	}
 #endif
@@ -5904,31 +5997,66 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 	}
 	else
 	{
-		NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
-		NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+		NativeCodeBasicBlock* block = this;
 
-		if (size < 128)
+		if (size >= 256)
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, size - 1));
+			block = nproc->AllocateBlock();
+
+			NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
+			NativeCodeBasicBlock* lblock2 = nproc->AllocateBlock();
+
+			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+			if (size >= 512)
+				mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, size >> 8));
 			this->Close(lblock, nullptr, ASMIT_JMP);
-			lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, sreg));
-			lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, dreg));
-			lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
-			lblock->Close(lblock, eblock, ASMIT_BPL);
-		}
-		else if (size <= 256)
-		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, size - 1));
-			this->Close(lblock, nullptr, ASMIT_JMP);
-			lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, sreg));
-			lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, dreg));
-			lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
-			lblock->Close(lblock, eblock, ASMIT_BNE);
-			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, sreg));
-			eblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, dreg));
+			lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, sreg, nullptr, flags));
+			lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, dreg, nullptr, flags));
+			lblock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
+			lblock->Close(lblock, lblock2, ASMIT_BNE);
+			lblock2->mIns.Push(NativeCodeInstruction(ASMIT_INC, ASMIM_ZERO_PAGE, sreg + 1));
+			lblock2->mIns.Push(NativeCodeInstruction(ASMIT_INC, ASMIM_ZERO_PAGE, dreg + 1));
+			if (size >= 512)
+			{
+				lblock2->mIns.Push(NativeCodeInstruction(ASMIT_DEX, ASMIM_IMPLIED));
+				lblock2->Close(lblock, block, ASMIT_BNE);
+			}
+			else
+				lblock2->Close(block, nullptr, ASMIT_JMP);
+
+			size &= 0xff;
 		}
 
-		return eblock;
+		if (size > 0)
+		{
+			NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
+			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+
+			if (size < 128)
+			{
+				block->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, size - 1));
+				block->Close(lblock, nullptr, ASMIT_JMP);
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, sreg, nullptr, flags));
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, dreg, nullptr, flags));
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
+				lblock->Close(lblock, eblock, ASMIT_BPL);
+			}
+			else if (size <= 256)
+			{
+				block->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, size - 1));
+				block->Close(lblock, nullptr, ASMIT_JMP);
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, sreg, nullptr, flags));
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, dreg, nullptr, flags));
+				lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
+				lblock->Close(lblock, eblock, ASMIT_BNE);
+				eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, sreg, nullptr, flags));
+				eblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, dreg, nullptr, flags));
+			}
+
+			block = eblock;
+		}
+
+		return block;
 	}
 }
 
@@ -23227,6 +23355,54 @@ void NativeCodeProcedure::CompressTemporaries(void)
 	}
 }
 
+void NativeCodeProcedure::SaveTempsToStack(int tempSave)
+{
+	if (mInterProc->mSaveTempsLinkerObject)
+	{
+		assert(tempSave <= mInterProc->mSaveTempsLinkerObject->mSize);
+
+		if (tempSave > 3)
+		{
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, tempSave - 1));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE_X, BC_REG_TMP_SAVED));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE_X, 0, mInterProc->mSaveTempsLinkerObject));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEX, ASMIM_IMPLIED));
+			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_BPL, ASMIM_RELATIVE, -8));
+		}
+		else if (tempSave > 0)
+		{
+			for (int i = 0; i < tempSave; i++)
+			{
+				mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP_SAVED + i));
+				mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, i, mInterProc->mSaveTempsLinkerObject));
+			}
+		}
+	}
+}
+
+void NativeCodeProcedure::LoadTempsFromStack(int tempSave)
+{
+	if (mInterProc->mSaveTempsLinkerObject)
+	{
+		if (tempSave > 3)
+		{
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, tempSave - 1));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, mInterProc->mSaveTempsLinkerObject));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE_X, BC_REG_TMP_SAVED));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEX, ASMIM_IMPLIED));
+			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_BPL, ASMIM_RELATIVE, -8));
+		}
+		else if (tempSave > 0)
+		{
+			for (int i = 0; i < tempSave; i++)
+			{
+				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, i, mInterProc->mSaveTempsLinkerObject));
+				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP_SAVED + i));
+			}
+		}
+	}
+}
+
 void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
@@ -23238,7 +23414,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mIndex = proc->mID;
 
-	int		tempSave = proc->mTempSize > 16 ? proc->mTempSize - 16 : 0;
+	int		tempSave = proc->mTempSize > 16 && !proc->mSaveTempsLinkerObject ? proc->mTempSize - 16 : 0;
 	int		commonFrameSize = proc->mCommonFrameSize;
 
 	mStackExpand = tempSave + proc->mLocalSize;
@@ -23378,7 +23554,9 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 				mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEC, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 				ignoreExpandCommonFrame = true;
 
-				if (tempSave)
+				if (proc->mSaveTempsLinkerObject)
+					SaveTempsToStack(tempSave);
+				else if (tempSave)
 				{
 					mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, commonFrameSize + tempSave - 1));
 					if (tempSave == 1)
@@ -23413,6 +23591,8 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 					}
 				}
 			}
+			else if (proc->mSaveTempsLinkerObject)
+				SaveTempsToStack(tempSave);
 		}
 		else
 		{
@@ -23424,14 +23604,19 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_IMMEDIATE, (mStackExpand >> 8) & 0xff));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 
-			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, tempSave));
+			if (proc->mSaveTempsLinkerObject)
+				mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+			else
+				mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, tempSave));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_LOCALS));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_STACK));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_LOCALS + 1));
 			mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_STACK));
 
-			if (tempSave)
+			if (proc->mSaveTempsLinkerObject)
+				SaveTempsToStack(tempSave);
+			else if (tempSave)
 			{
 				mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
 				mEntryBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
@@ -23493,7 +23678,9 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		{
 			if (mStackExpand > 0)
 			{
-				if (tempSave)
+				if (proc->mSaveTempsLinkerObject)
+					LoadTempsFromStack(tempSave);
+				else if (tempSave)
 				{
 					mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, commonFrameSize + tempSave - 1));
 					if (tempSave == 1)
@@ -23535,17 +23722,25 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_BCC, ASMIM_RELATIVE, 2));
 				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_INC, ASMIM_ZERO_PAGE, BC_REG_STACK + 1));
 			}
+			else if (proc->mSaveTempsLinkerObject)
+				LoadTempsFromStack(tempSave);
+
 		}
 		else
 		{
-			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, tempSave));
+			if (proc->mSaveTempsLinkerObject)
+				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+			else
+				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, tempSave));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, BC_REG_STACK));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_LOCALS));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, BC_REG_STACK));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_LOCALS + 1));
 
-			if (tempSave)
+			if (proc->mSaveTempsLinkerObject)
+				LoadTempsFromStack(tempSave);
+			else if (tempSave)
 			{
 				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
 				mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_DEY, ASMIM_IMPLIED));
