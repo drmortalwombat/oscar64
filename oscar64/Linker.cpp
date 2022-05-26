@@ -438,7 +438,7 @@ void Linker::Link(void)
 						}
 					}
 				}
-				else
+				else if (obj->mSection->mType == LST_DATA)
 				{
 					memcpy(mMemory + obj->mAddress, obj->mData, obj->mSize);
 				}

@@ -1151,7 +1151,10 @@ Declaration* Parser::ParseDeclaration(bool variable)
 							}
 
 							if (!(ndec->mFlags & DTF_EXTERN))
+							{
 								pdec->mFlags &= ~DTF_EXTERN;
+								pdec->mSection = ndec->mSection;
+							}
 
 							ndec = pdec;
 						}

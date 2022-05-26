@@ -5521,6 +5521,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 			msize[ins->mSrc[0].mTemp] = int64max(msize[ins->mSrc[0].mTemp], ins->mSrc[0].mIntConst + InterTypeSize[ins->mDst.mType]);
 		else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0)
 			msize[ins->mSrc[1].mTemp] = int64max(msize[ins->mSrc[1].mTemp], ins->mSrc[1].mIntConst + InterTypeSize[ins->mSrc[0].mType]);
+		else if (ins->mCode == IC_COPY)
+		{
+			if (ins->mSrc[0].mMemory == IM_INDIRECT && ins->mSrc[0].mTemp >= 0)
+				msize[ins->mSrc[0].mTemp] = ins->mConst.mOperandSize;
+			if (ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0)
+				msize[ins->mSrc[1].mTemp] = ins->mConst.mOperandSize;
+		}
 		else if (ins->mCode == IC_LEA && ins->mSrc[1].mMemory != IM_INDIRECT && ins->mSrc[0].mTemp >= 0 && msize[ins->mDst.mTemp] > 0)
 		{
 			int	asize = 0;
