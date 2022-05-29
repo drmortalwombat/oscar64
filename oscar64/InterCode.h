@@ -338,6 +338,7 @@ public:
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
 	NumberSet						mExitRequiredTemps, mExitProvidedTemps;
+	NumberSet						mEntryConstTemp, mExitConstTemp;
 
 	NumberSet						mLocalRequiredVars, mLocalProvidedVars;
 	NumberSet						mEntryRequiredVars, mEntryProvidedVars;
@@ -389,6 +390,8 @@ public:
 	bool BuildGlobalRequiredTempSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(void);
 	void BuildCallerSaveTempSet(NumberSet& callerSaveTemps);
+	void BuildConstTempSets(void);
+	bool PropagateConstOperationsUp(void);
 
 	void BuildLocalVariableSets(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory);
 	void BuildGlobalProvidedVariableSet(const GrowingVariableArray& localVars, NumberSet fromProvidedVars, const GrowingVariableArray& params, NumberSet fromProvidedParams, InterMemory paramMemory);
@@ -435,6 +438,7 @@ public:
 
 	void CollectActiveTemporaries(FastNumberSet& set);
 	void ShrinkActiveTemporaries(FastNumberSet& set, GrowingTypeArray& temporaries);
+	void RemapActiveTemporaries(const FastNumberSet& set);
 
 	void Disassemble(FILE* file, bool dumpSets);
 
@@ -456,7 +460,7 @@ public:
 	bool CanMoveInstructionBeforeBlock(int ii) const;
 	bool MergeCommonPathInstructions(void);
 
-	void PeepholeOptimization(void);
+	void PeepholeOptimization(const GrowingVariableArray& staticVars);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);
 	void SingleBlockLoopUnrolling(void);
 	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);

@@ -77,21 +77,21 @@ public:
 	FastNumberSet& operator+=(int elem);
 	FastNumberSet& operator-=(int elem);
 
-	bool operator[](int elem);
+	bool operator[](int elem) const;
 
 	FastNumberSet& operator=(const FastNumberSet& set);
 
-	bool Empty(void) { return !num; }
+	bool Empty(void) const { return !num; }
 	void Clear(void);
 
-	int Num(void) { return num; }
-	int Element(int i);
+	int Num(void) const { return num; }
+	int Element(int i) const;
 
-	int Size(void) { return size; }
-	int Index(int elem);
+	int Size(void) const { return size; }
+	int Index(int elem) const;
 };
 
-inline bool FastNumberSet::operator[](int elem)
+inline bool FastNumberSet::operator[](int elem) const
 {
 	uint32 dw = buffer[size + elem];
 
@@ -130,7 +130,7 @@ inline FastNumberSet& FastNumberSet::operator-=(int elem)
 	return *this;
 }
 
-inline int FastNumberSet::Element(int i)
+inline int FastNumberSet::Element(int i) const
 {
 	if (i < num)
 		return buffer[i];

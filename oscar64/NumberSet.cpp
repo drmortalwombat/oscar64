@@ -247,7 +247,7 @@ void FastNumberSet::Clear(void)
 	num = 0;
 }
 
-int FastNumberSet::Index(int elem)
+int FastNumberSet::Index(int elem) const
 {
 	uint32 dw = buffer[size + elem];
 

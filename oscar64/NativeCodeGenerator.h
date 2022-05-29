@@ -54,6 +54,7 @@ static const uint32 NCIF_YZERO = 0x00000008;
 static const uint32 NCIF_VOLATILE = 0x00000010;
 static const uint32 NCIF_LONG = 0x00000020;
 static const uint32 NCIF_FEXEC = 0x00000040;
+static const uint32 NCIF_JSRFLAGS = 0x00000080;
 
 static const uint32 NCIF_USE_CPU_REG_A = 0x00001000;
 static const uint32 NCIF_USE_CPU_REG_X = 0x00002000;
@@ -352,6 +353,7 @@ public:
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 
 	void CheckLive(void);
+	void CheckBlocks(void);
 };
 
 class NativeCodeProcedure

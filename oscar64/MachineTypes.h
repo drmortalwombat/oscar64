@@ -99,3 +99,8 @@ inline int64 int64max(int64 a, int64 b)
 {
 	return a > b ? a : b;
 }
+
+inline int64 int64min(int64 a, int64 b)
+{
+	return a < b ? a : b;
+}
