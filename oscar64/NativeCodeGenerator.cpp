@@ -1640,6 +1640,12 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 				data.mRegs[CPU_REG_Z].Reset();
 			}
 		}
+		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
+		{
+			data.mRegs[CPU_REG_C].mValue = 1;
+			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
+			data.mRegs[CPU_REG_Z].Reset();
+		}
 		else
 		{
 			data.mRegs[CPU_REG_C].Reset();
@@ -1664,6 +1670,12 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 				data.mRegs[CPU_REG_Z].Reset();
 			}
 		}
+		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
+		{
+			data.mRegs[CPU_REG_C].mValue = 1;
+			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
+			data.mRegs[CPU_REG_Z].Reset();
+		}
 		else
 		{
 			data.mRegs[CPU_REG_C].Reset();
@@ -1687,6 +1699,12 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 				data.mRegs[CPU_REG_C].Reset();
 				data.mRegs[CPU_REG_Z].Reset();
 			}
+		}
+		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
+		{
+			data.mRegs[CPU_REG_C].mValue = 1;
+			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
+			data.mRegs[CPU_REG_Z].Reset();
 		}
 		else
 		{
@@ -11967,6 +11985,36 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				if (mBranch == ASMIT_BEQ)
 				{
+					if (mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0)
+					{
+						if (mFalseJump->mIns.Size() == 0)
+						{
+							if (mFalseJump->mBranch == ASMIT_BCC)
+							{
+								mFalseJump = mFalseJump->mFalseJump;
+								changed = true;
+							}
+							else if (mFalseJump->mBranch == ASMIT_BCS)
+							{
+								mFalseJump = mFalseJump->mTrueJump;
+								changed = true;
+							}
+						}
+						if (mTrueJump->mIns.Size() == 0)
+						{
+							if (mTrueJump->mBranch == ASMIT_BCC)
+							{
+								mTrueJump = mTrueJump->mFalseJump;
+								changed = true;
+							}
+							else if (mTrueJump->mBranch == ASMIT_BCS)
+							{
+								mTrueJump = mTrueJump->mTrueJump;
+								changed = true;
+							}
+						}
+					}
+
 					if (mFalseJump->mNumEntries == 1 && mTrueJump->mNumEntries == 2 && mFalseJump->mIns.Size() == 0)
 					{
 						if (mFalseJump->mBranch == ASMIT_BCC)
@@ -11991,6 +12039,36 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				}
 				else if (mBranch == ASMIT_BNE)
 				{
+					if (mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0)
+					{
+						if (mFalseJump->mIns.Size() == 0)
+						{
+							if (mFalseJump->mBranch == ASMIT_BCC)
+							{
+								mFalseJump = mFalseJump->mFalseJump;
+								changed = true;
+							}
+							else if (mFalseJump->mBranch == ASMIT_BCS)
+							{
+								mFalseJump = mFalseJump->mTrueJump;
+								changed = true;
+							}
+						}
+						if (mTrueJump->mIns.Size() == 0)
+						{
+							if (mTrueJump->mBranch == ASMIT_BCC)
+							{
+								mTrueJump = mTrueJump->mFalseJump;
+								changed = true;
+							}
+							else if (mTrueJump->mBranch == ASMIT_BCS)
+							{
+								mTrueJump = mTrueJump->mTrueJump;
+								changed = true;
+							}
+						}
+					}
+
 					if (mTrueJump->mNumEntries == 1 && mFalseJump->mNumEntries == 2 && mTrueJump->mIns.Size() == 0)
 					{
 						if (mTrueJump->mBranch == ASMIT_BCC)
