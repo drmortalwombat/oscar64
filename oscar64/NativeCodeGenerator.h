@@ -222,6 +222,7 @@ public:
 
 	void ShiftRegisterLeft(InterCodeProcedure* proc, int reg, int shift);
 	void ShiftRegisterLeftByte(InterCodeProcedure* proc, int reg, int shift);
+	void ShiftRegisterLeftFromByte(InterCodeProcedure* proc, int reg, int shift, int max);
 	int ShortMultiply(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins, int index, int mul);
 
 	bool CheckPredAccuStore(int reg);
@@ -314,6 +315,7 @@ public:
 	NativeCodeBasicBlock* AddDominatorBlock(NativeCodeProcedure* proc, NativeCodeBasicBlock* pblock);
 	bool JoinTailCodeSequences(NativeCodeProcedure* proc, bool loops);
 	bool SameTail(const NativeCodeInstruction& ins) const;
+	bool HasTailSTA(int& addr, int& index) const;
 	bool PropagateSinglePath(void);
 
 	NativeRegisterDataSet	mEntryRegisterDataSet;
