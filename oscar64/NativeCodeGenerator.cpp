@@ -706,6 +706,107 @@ bool NativeCodeInstruction::ReplaceYRegWithXReg(void)
 	return changed;
 }
 
+bool NativeCodeInstruction::CanSwapXYReg(void)
+{
+	if (mMode == ASMIM_INDIRECT_X || mMode == ASMIM_INDIRECT_Y || mMode == ASMIM_ZERO_PAGE_X || mMode == ASMIM_ZERO_PAGE_Y)
+		return false;
+	else if (mMode == ASMIM_ABSOLUTE_X)
+		return HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y);
+	else if (mMode == ASMIM_ABSOLUTE_Y)
+		return HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X);
+	else
+		return true;
+}
+
+bool NativeCodeInstruction::SwapXYReg(void)
+{
+	bool	changed = false;
+
+	switch (mType)
+	{
+	case ASMIT_LDX:
+		mType = ASMIT_LDY;
+		changed = true;
+		break;
+	case ASMIT_STX:
+		mType = ASMIT_STY;
+		changed = true;
+		break;
+	case ASMIT_CPX:
+		mType = ASMIT_CPY;
+		changed = true;
+		break;
+	case ASMIT_TXA:
+		mType = ASMIT_TYA;
+		changed = true;
+		break;
+	case ASMIT_TAX:
+		mType = ASMIT_TAY;
+		changed = true;
+		break;
+	case ASMIT_INX:
+		mType = ASMIT_INY;
+		changed = true;
+		break;
+	case ASMIT_DEX:
+		mType = ASMIT_DEY;
+		changed = true;
+		break;
+	case ASMIT_LDY:
+		mType = ASMIT_LDX;
+		changed = true;
+		break;
+	case ASMIT_STY:
+		mType = ASMIT_STX;
+		changed = true;
+		break;
+	case ASMIT_CPY:
+		mType = ASMIT_CPX;
+		changed = true;
+		break;
+	case ASMIT_TYA:
+		mType = ASMIT_TXA;
+		changed = true;
+		break;
+	case ASMIT_TAY:
+		mType = ASMIT_TAX;
+		changed = true;
+		break;
+	case ASMIT_INY:
+		mType = ASMIT_INX;
+		changed = true;
+		break;
+	case ASMIT_DEY:
+		mType = ASMIT_DEX;
+		changed = true;
+		break;
+	}
+
+	if (mMode == ASMIM_ABSOLUTE_X)
+	{
+		assert(HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y));
+		mMode = ASMIM_ABSOLUTE_Y;
+		changed = true;
+	}
+	else if (mMode == ASMIM_ABSOLUTE_Y)
+	{
+		assert(HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X));
+		mMode = ASMIM_ABSOLUTE_X;
+		changed = true;
+	}
+	
+	uint32	live = mLive;
+	mLive &= ~(LIVE_CPU_REG_X | LIVE_CPU_REG_Y);
+	if (live & LIVE_CPU_REG_X)
+		mLive |= LIVE_CPU_REG_Y;
+	if (live & LIVE_CPU_REG_Y)
+		mLive |= LIVE_CPU_REG_X;
+
+	return changed;
+
+}
+
+
 bool NativeCodeInstruction::ReplaceXRegWithYReg(void)
 {
 	bool	changed = false;
@@ -11314,6 +11415,94 @@ bool NativeCodeBasicBlock::CanReplaceXRegWithYReg(int start, int end)
 	}
 
 	return true;
+}
+
+bool NativeCodeBasicBlock::OptimizeXYPairUsage(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		CheckLive();
+
+		if (!mExitRequiredRegs[CPU_REG_X] && !mExitRequiredRegs[CPU_REG_Y])
+		{
+			int	yreg = -1, xreg = -1, areg = -1;
+			for (int i = 0; i < mIns.Size(); i++)
+			{
+				NativeCodeInstruction	& ins(mIns[i]);
+
+				if (ins.mType == ASMIT_LDY && ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == xreg ||
+					ins.mType == ASMIT_LDX && ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == yreg)
+				{
+					int	j = i;
+					while (j + 1 < mIns.Size() && (mIns[j].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)) && mIns[j + 1].CanSwapXYReg())
+						j++;
+					if (j + 1 == mIns.Size() || !(mIns[j].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)))
+					{
+						for (int k = i; k <= j; k++)
+							mIns[k].SwapXYReg();
+						changed = true;
+					}
+				}
+
+				if (ins.mType == ASMIT_LDY)
+				{
+					if (ins.mMode == ASMIM_ZERO_PAGE)
+						yreg = ins.mAddress;
+					else
+						yreg = -1;
+				}
+				else if (ins.mType == ASMIT_LDX)
+				{
+					if (ins.mMode == ASMIM_ZERO_PAGE)
+						xreg = ins.mAddress;
+					else
+						xreg = -1;
+				}
+				else if (ins.mMode == ASMIT_LDA)
+				{
+					if (ins.mMode == ASMIM_ZERO_PAGE)
+						areg = ins.mAddress;
+					else
+						areg = -1;
+				}
+				else if (ins.mType == ASMIT_TAX)
+					xreg = areg;
+				else if (ins.mType == ASMIT_TAY)
+					yreg = areg;
+				else if (ins.mType == ASMIT_JSR)
+					xreg = yreg = areg = false;
+				else if (ins.ChangesAccu())
+					areg = -1;
+				else if (ins.ChangesXReg())
+					xreg = -1;
+				else if (ins.ChangesYReg())
+					yreg = -1;
+				else if (ins.mMode == ASMIM_ZERO_PAGE && ins.ChangesAddress())
+				{
+					if (ins.mAddress == areg)
+						areg = -1;
+					if (ins.mAddress == xreg)
+						xreg = -1;
+					if (ins.mAddress == yreg)
+						yreg = -1;
+				}
+			}
+		}
+
+		CheckLive();
+
+		if (mTrueJump && mTrueJump->OptimizeXYPairUsage())
+			changed = true;
+
+		if (mFalseJump && mFalseJump->OptimizeXYPairUsage())
+			changed = true;
+	}
+
+	return changed;
 }
 
 bool NativeCodeBasicBlock::AlternateXYUsage(void)
@@ -24572,6 +24761,9 @@ void NativeCodeProcedure::Optimize(void)
 		{
 			ResetVisited();
 			if (mEntryBlock->AlternateXYUsage())
+				changed = true;
+			ResetVisited();
+			if (mEntryBlock->OptimizeXYPairUsage())
 				changed = true;
 		}
 #endif

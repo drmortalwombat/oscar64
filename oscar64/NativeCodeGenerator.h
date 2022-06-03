@@ -126,6 +126,9 @@ public:
 
 	bool ReplaceYRegWithXReg(void);
 	bool ReplaceXRegWithYReg(void);
+
+	bool CanSwapXYReg(void);
+	bool SwapXYReg(void);
 };
 
 class NativeCodeBasicBlock
@@ -339,6 +342,7 @@ public:
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);
 
 	bool AlternateXYUsage(void);
+	bool OptimizeXYPairUsage(void);
 	bool ForwardAbsoluteLoadStores(void);
 
 	bool CheckPatchFail(const NativeCodeBasicBlock* block, int reg);
