@@ -455,9 +455,11 @@ public:
 	void RemoveNonRelevantStatics(void);
 
 	bool IsTempModifiedOnPath(int temp, int at) const;
+	bool IsTempReferencedOnPath(int temp, int at) const;
 
 	bool PushSinglePathResultInstructions(void);
 	bool CanMoveInstructionBeforeBlock(int ii) const;
+	bool CanMoveInstructionBehindBlock(int ii) const;
 	bool MergeCommonPathInstructions(void);
 
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);

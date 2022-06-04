@@ -7817,6 +7817,34 @@ void InterCodeBasicBlock::MarkRelevantStatics(void)
 	}
 }
 
+bool InterCodeBasicBlock::CanMoveInstructionBehindBlock(int ii) const
+{
+	InterInstruction* ins = mInstructions[ii];
+
+	if (ins->mCode == IC_LOAD)
+	{
+		for (int i = ii + 1; i < mInstructions.Size(); i++)
+			if (!CanBypassLoad(ins, mInstructions[i]))
+				return false;
+	}
+	else if (ins->mCode == IC_STORE)
+	{
+		return false;
+	}
+	else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
+		return false;
+	else
+	{
+		for (int i = ii + 1; i < mInstructions.Size(); i++)
+			if (!CanBypass(ins, mInstructions[i]))
+				return false;
+	}
+
+	return true;
+}
+
+
 bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii) const
 {
 	InterInstruction* ins = mInstructions[ii];
@@ -7923,9 +7951,50 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 	{
 		mVisited = true;
 
+		if (mTrueJump && mTrueJump == mFalseJump)
+		{
+			mFalseJump = nullptr;
+			mInstructions[mInstructions.Size() - 1]->mCode = IC_JUMP;
+			mInstructions[mInstructions.Size() - 1]->mNumOperands = 0;
+			mTrueJump->mNumEntries--;
+			changed = true;
+		}
+
 		if (mTrueJump && mFalseJump)
 		{
 			InterCodeBasicBlock* tblock = nullptr, * fblock = nullptr;
+
+			if (mTrueJump != mFalseJump && mTrueJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump && mTrueJump->mFalseJump == mFalseJump->mFalseJump)
+			{
+				if (mTrueJump->mInstructions.Size() == 1)
+				{
+					tblock = mTrueJump;
+					fblock = mFalseJump;
+				}
+				else if (mFalseJump->mInstructions.Size() == 1)
+				{
+					fblock = mTrueJump;
+					tblock = mFalseJump;
+				}
+
+				if (fblock && tblock)
+				{
+					if (tblock->mInstructions[0]->IsEqual(fblock->mInstructions.Last()) && !fblock->mLocalModifiedTemps[tblock->mInstructions[0]->mSrc[0].mTemp])
+					{
+						fblock->mTrueJump = tblock;
+						fblock->mFalseJump = nullptr;
+						fblock->mInstructions[fblock->mInstructions.Size() - 1]->mCode = IC_JUMP;
+						fblock->mInstructions[fblock->mInstructions.Size() - 1]->mNumOperands = 0;
+						tblock->mNumEntries++;
+						tblock->mFalseJump->mNumEntries--;
+						tblock->mTrueJump->mNumEntries--;
+						changed = true;
+					}
+				}
+
+				fblock = nullptr;
+				tblock = nullptr;
+			}
 
 			if (!mTrueJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump)
 			{
@@ -7982,6 +8051,51 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 								}
 							}
 						}
+#if 1
+						else if ((mins->mCode == IC_BINARY_OPERATOR || mins->mCode == IC_LEA) && (mins->mSrc[1].mTemp < 0 || mins->mSrc[0].mTemp < 0) || mins->mCode == IC_UNARY_OPERATOR || mins->mCode == IC_CONVERSION_OPERATOR)
+						{
+							int	ttemp = mins->mDst.mTemp;
+							int stemp = ((mins->mCode == IC_BINARY_OPERATOR || mins->mCode == IC_LEA) && mins->mSrc[0].mTemp < 0) ? mins->mSrc[1].mTemp : mins->mSrc[0].mTemp;
+
+							if (!tblock->mLocalRequiredTemps[ttemp] && !tblock->mLocalModifiedTemps[stemp] && !tblock->mLocalModifiedTemps[ttemp] && !IsTempReferencedOnPath(ttemp, i + 1) && !IsTempModifiedOnPath(stemp, i + 1))
+							{
+								tblock->mEntryRequiredTemps += stemp;
+								tblock->mExitRequiredTemps += stemp;
+
+								fblock->mEntryRequiredTemps += stemp;
+								mExitRequiredTemps += stemp;
+
+								fblock->mInstructions.Insert(0, mins);
+								mInstructions.Remove(i);
+
+								changed = true;
+							}
+						}
+#endif
+						else if (mins->mCode == IC_LOAD)
+						{
+							int	ttemp = mins->mDst.mTemp;
+							int stemp = mins->mSrc[0].mTemp;
+
+							if (!tblock->mLocalRequiredTemps[ttemp] && (stemp < 0 || !tblock->mLocalModifiedTemps[stemp]) && 
+								!tblock->mLocalModifiedTemps[ttemp] && !IsTempReferencedOnPath(ttemp, i + 1) && (stemp < 0 || !IsTempModifiedOnPath(stemp, i + 1)) &&
+								CanMoveInstructionBehindBlock(i))
+							{
+								if (stemp >= 0)
+								{
+									tblock->mEntryRequiredTemps += stemp;
+									tblock->mExitRequiredTemps += stemp;
+
+									fblock->mEntryRequiredTemps += stemp;
+									mExitRequiredTemps += stemp;
+								}
+
+								fblock->mInstructions.Insert(0, mins);
+								mInstructions.Remove(i);
+
+								changed = true;
+							}
+						}
 					}
 				}
 			}
@@ -8002,6 +8116,24 @@ bool InterCodeBasicBlock::IsTempModifiedOnPath(int temp, int at) const
 	{
 		if (mInstructions[at]->mDst.mTemp == temp)
 			return true;
+		at++;
+	}
+
+	return false;
+}
+
+bool InterCodeBasicBlock::IsTempReferencedOnPath(int temp, int at) const
+{
+	while (at < mInstructions.Size())
+	{
+		const InterInstruction	* ins = mInstructions[at];
+
+		if (ins->mDst.mTemp == temp)
+			return true;
+		for (int i = 0; i < ins->mNumOperands; i++)
+			if (ins->mSrc[i].mTemp == temp)
+				return true;
+
 		at++;
 	}
 
@@ -11246,6 +11378,11 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->DropUnreachable();
 
+	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->CollectLocalUsedTemps(mTemporaries.Size());
+
 	ResetVisited();
 	mEntryBlock->ForwardDiamondMovedTemp();
 	DisassembleDebug("Diamond move forwarding");
@@ -11351,6 +11488,20 @@ void InterCodeProcedure::Close(void)
 	} while (changed);
 #endif
 
+#if 1
+	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->CollectLocalUsedTemps(mTemporaries.Size());
+
+	ResetVisited();
+	mEntryBlock->ForwardDiamondMovedTemp();
+	DisassembleDebug("Diamond move forwarding 2");
+
+	TempForwarding();
+
+	RemoveUnusedInstructions();
+#endif
 
 #if 1
 	ResetVisited();

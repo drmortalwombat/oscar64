@@ -12,10 +12,10 @@ enum SIDFXState
 
 static struct SIDFXChannel
 {
-	SIDFX	*	com;
-	byte		delay, cnt, priority;
+	const SIDFX	*		com;
+	byte				delay, cnt, priority;
 	volatile SIDFXState	state;
-	unsigned	freq, pwm;
+	unsigned			freq, pwm;
 
 }	channels[3];
 
@@ -29,7 +29,7 @@ void sidfx_init(void)
 	}
 }
 
-void sidfx_play(byte chn, SIDFX * fx, byte cnt)
+void sidfx_play(byte chn, const SIDFX * fx, byte cnt)
 {
 	SIDFXState		ns = channels[chn].state;
 
