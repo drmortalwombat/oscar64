@@ -8182,7 +8182,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 					while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || !(providedTemps[ins->mSrc[j].mTemp] || IsTempModifiedOnPath(ins->mSrc[j].mTemp, i + 1))))
 						j++;
 
-					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && (ins->mCode != IC_LOAD || !hadStore))
+					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && CanMoveInstructionBehindBlock(i))
 					{
 						if (mTrueJump->mNumEntries == 1 && trueExitRequiredTemps[dtemp] && !falseExitRequiredTems[dtemp])
 						{
