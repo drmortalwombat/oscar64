@@ -11427,7 +11427,7 @@ bool NativeCodeBasicBlock::OptimizeXYPairUsage(void)
 
 		CheckLive();
 
-		if (!mExitRequiredRegs[CPU_REG_X] && !mExitRequiredRegs[CPU_REG_Y])
+		if (mExitRequiredRegs.Size() && !mExitRequiredRegs[CPU_REG_X] && !mExitRequiredRegs[CPU_REG_Y])
 		{
 			int	yreg = -1, xreg = -1, areg = -1;
 			for (int i = 0; i < mIns.Size(); i++)
@@ -11462,7 +11462,7 @@ bool NativeCodeBasicBlock::OptimizeXYPairUsage(void)
 					else
 						xreg = -1;
 				}
-				else if (ins.mMode == ASMIT_LDA)
+				else if (ins.mType == ASMIT_LDA)
 				{
 					if (ins.mMode == ASMIM_ZERO_PAGE)
 						areg = ins.mAddress;
@@ -12987,11 +12987,20 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 					if (!ReferencedOnPath(this, i + 2, mIns.Size(), mIns[i + 1].mAddress) &&
 						!ChangedOnPath(this, i + 2, mIns.Size(), mIns[i + 0].mAddress))
 					{
+						uint32	live = 0;
+						if (mExitRequiredRegs[CPU_REG_X])
+							live |= LIVE_CPU_REG_X;
+						if (mExitRequiredRegs[CPU_REG_Y])
+							live |= LIVE_CPU_REG_Y;
+
 						if (mTrueJump->mEntryRequiredRegs[mIns[i + 1].mAddress] &&
 							!mFalseJump->mEntryRequiredRegs[mIns[i + 1].mAddress])
 						{
 							for (int j = 0; j < 2; j++)
+							{
+								mIns[i + j].mLive |= live;
 								mTrueJump->mIns.Insert(j, mIns[i + j]);
+							}
 							mIns.Remove(i + 1);
 							changed = true;
 						}
@@ -12999,7 +13008,10 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 							!mTrueJump->mEntryRequiredRegs[mIns[i + 1].mAddress])
 						{
 							for (int j = 0; j < 2; j++)
+							{
+								mIns[i + j].mLive |= live;
 								mFalseJump->mIns.Insert(j, mIns[i + j]);
+							}
 							mIns.Remove(i + 1);
 							changed = true;
 						}
