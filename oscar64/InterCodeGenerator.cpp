@@ -341,7 +341,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else
-					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent->mString);
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent);
 			}
 			else if (aexp->mType == DT_VARIABLE_REF)
 			{
@@ -586,7 +586,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					if (aexp->mBase->mBase)
 						d[offset] = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
 					else
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent->mString);
+						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent);
 				}
 				else
 					d[offset] = aexp->mInteger - offset - 1;
@@ -2030,7 +2030,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else
 				{
-					mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname->mString);
+					mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname);
 					return ExValue(TheVoidTypeDeclaration);
 				}
 			}

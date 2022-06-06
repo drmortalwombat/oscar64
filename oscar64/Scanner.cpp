@@ -1878,7 +1878,7 @@ int64 Scanner::PrepParseSimple(void)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "'(' expected");
 		}
 		else
-			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor symbol", mTokenIdent->mString);
+			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor symbol", mTokenIdent);
 		break;
 	default:
 		mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor token", TokenName(mToken));

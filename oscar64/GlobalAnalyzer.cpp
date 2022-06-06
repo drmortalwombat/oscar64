@@ -237,7 +237,7 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 			Analyze(exp, dec);
 		}
 		else
-			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent->mString);
+			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent);
 
 		dec->mFlags &= ~DTF_FUNC_ANALYZING;
 	}

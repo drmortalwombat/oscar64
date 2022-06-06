@@ -426,7 +426,7 @@ void Linker::Link(void)
 			else if (obj->mFlags & LOBJF_REFERENCED)
 			{
 				if (!obj->mRegion)
-					mErrors->Error(obj->mLocation, ERRR_INSUFFICIENT_MEMORY, "Could not place object", obj->mIdent->mString);
+					mErrors->Error(obj->mLocation, ERRR_INSUFFICIENT_MEMORY, "Could not place object", obj->mIdent);
 				else if (obj->mRegion->mCartridgeBanks != 0)
 				{
 					for (int i = 0; i < 64; i++)

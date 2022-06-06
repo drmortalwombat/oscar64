@@ -49,7 +49,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 				}
 				else
 				{
-					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Error duplicate struct declaration", structName->mString);
+					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Error duplicate struct declaration", structName);
 				}
 			}
 		}
@@ -92,7 +92,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 					dec->mSize = offset;
 
 				if (dec->mScope->Insert(mdec->mIdent, mdec))
-					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent->mString);
+					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
 
 				if (mlast)
 					mlast->mNext = mdec;
@@ -259,12 +259,12 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 		}
 		else if (!dec)
 		{
-			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", mScanner->mTokenIdent->mString);
+			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", mScanner->mTokenIdent);
 			mScanner->NextToken();
 		}
 		else
 		{			
-			mErrors->Error(mScanner->mLocation, EERR_NOT_A_TYPE, "Identifier is no type", mScanner->mTokenIdent->mString);
+			mErrors->Error(mScanner->mLocation, EERR_NOT_A_TYPE, "Identifier is no type", mScanner->mTokenIdent);
 			mScanner->NextToken();
 		}
 		break;
@@ -706,7 +706,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 		if (dtype->mType != DT_TYPE_ARRAY && !(dtype->mFlags & DTF_DEFINED))
 		{
 			if (dtype->mIdent)
-				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined type", dtype->mIdent->mString);
+				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined type", dtype->mIdent);
 			else
 				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined annonymous type");
 		}
@@ -1054,7 +1054,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			{
 				Declaration* pdec = mScope->Insert(ndec->mIdent, ndec->mBase);
 				if (pdec && pdec != ndec->mBase)
-					mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate type declaration", ndec->mIdent->mString);
+					mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate type declaration", ndec->mIdent);
 			}
 		}
 		else
@@ -1083,7 +1083,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 						if (ndec->mType == DT_VARIABLE)
 							ndec->mSection = mCompilationUnits->mSectionZeroPage;
 						else
-							mErrors->Error(ndec->mLocation, ERRR_INVALID_STORAGE_TYPE, "Invalid storage type", ndec->mIdent->mString);
+							mErrors->Error(ndec->mLocation, ERRR_INVALID_STORAGE_TYPE, "Invalid storage type", ndec->mIdent);
 					}
 
 					if (mGlobals == mScope && !(storageFlags & DTF_STATIC))
@@ -1102,9 +1102,9 @@ Declaration* Parser::ParseDeclaration(bool variable)
 						if (pdec->mType == DT_CONST_FUNCTION && ndec->mBase->mType == DT_TYPE_FUNCTION)
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
-								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent->mString);
+								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent);
 							else if (ndec->mFlags & ~pdec->mFlags & (DTF_HWINTERRUPT | DTF_INTERRUPT | DTF_FASTCALL | DTF_NATIVE))
-								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function call type declaration differs", ndec->mIdent->mString);
+								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function call type declaration differs", ndec->mIdent);
 							else
 							{
 								// 
@@ -1131,7 +1131,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 								else if (ndec->mBase->mType == DT_TYPE_POINTER && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase))
 									;
 								else
-									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent->mString);
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent);
 							}
 
 							ndec = pdec;
@@ -1147,7 +1147,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 									pdec->mBase = ndec->mBase;
 								}
 								else
-									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent->mString);
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent);
 							}
 
 							if (!(ndec->mFlags & DTF_EXTERN))
@@ -1159,7 +1159,7 @@ Declaration* Parser::ParseDeclaration(bool variable)
 							ndec = pdec;
 						}
 						else
-							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate variable declaration", ndec->mIdent->mString);
+							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate variable declaration", ndec->mIdent);
 					}
 				}
 
@@ -1475,13 +1475,13 @@ Expression* Parser::ParseSimpleExpression(void)
 			}
 			else
 			{
-				mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid identifier", mScanner->mTokenIdent->mString);
+				mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid identifier", mScanner->mTokenIdent);
 				mScanner->NextToken();
 			}
 		}
 		else
 		{
-			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent->mString);
+			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent);
 			mScanner->NextToken();
 		}
 
@@ -1615,7 +1615,7 @@ Expression* Parser::ParsePostfixExpression(void)
 							exp = nexp->ConstantFold(mErrors);
 						}
 						else
-							mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent->mString);
+							mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent);
 						mScanner->NextToken();
 					}
 					else
@@ -1644,7 +1644,7 @@ Expression* Parser::ParsePostfixExpression(void)
 						exp = nexp->ConstantFold(mErrors);
 					}
 					else
-						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent->mString);
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent);
 					mScanner->NextToken();
 				}
 				else
@@ -2410,7 +2410,7 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 						exp->mDecType = TheUnsignedIntTypeDeclaration;
 					}
 					else
-						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Assembler label not found", mScanner->mTokenIdent->mString);
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Assembler label not found", mScanner->mTokenIdent);
 				}
 				mScanner->NextToken();
 			}
@@ -3583,7 +3583,7 @@ void Parser::ParsePragma(void)
 					mScanner->NextToken();
 				ConsumeToken(TK_CLOSE_PARENTHESIS);
 			}
-			mErrors->Error(mScanner->mLocation, EWARN_UNKNOWN_PRAGMA, "Unknown pragma, ignored", mScanner->mTokenIdent->mString);
+			mErrors->Error(mScanner->mLocation, EWARN_UNKNOWN_PRAGMA, "Unknown pragma, ignored", mScanner->mTokenIdent);
 		}
 	}
 	else

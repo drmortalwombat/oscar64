@@ -108,7 +108,7 @@ void Compiler::RegisterRuntime(const Location & loc, const Ident* ident)
 	}
 	else
 	{
-		mErrors->Error(loc, EERR_RUNTIME_CODE, "Missing runtime code implementation", ident->mString);
+		mErrors->Error(loc, EERR_RUNTIME_CODE, "Missing runtime code implementation", ident);
 	}
 }
 
