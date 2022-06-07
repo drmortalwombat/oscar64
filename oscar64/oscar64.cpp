@@ -122,6 +122,10 @@ int main2(int argc, const char** argv)
 		char	targetFormat[20];
 		strcpy_s(targetFormat, "prg");
 
+		compiler->AddDefine(Ident::Unique("__OSCAR64C__"), "1");
+		compiler->AddDefine(Ident::Unique("__STDC__"), "1");
+		compiler->AddDefine(Ident::Unique("__STDC_VERSION__"), "199901L");
+
 		for (int i = 1; i < argc; i++)
 		{
 			const char* arg = argv[i];
