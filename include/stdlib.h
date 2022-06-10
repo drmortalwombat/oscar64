@@ -16,7 +16,23 @@ void ultoa(unsigned long n, char * s, unsigned radix);
 
 int atoi(const char * s);
 
+long atol(const char * s);
+
 float atof(const char * s);
+
+float strtof(const char *s, const char **endp);
+
+int strtoi(const char *s, const char **endp, char base);
+
+unsigned strtou(const char *s, const char **endp, char base);
+
+long strtol(const char *s, const char **endp, char base);
+
+unsigned long strtoul(const char *s, const char **endp, char base);
+
+int abs(int n);
+
+long labs(long n);
 
 
 void exit(int status);

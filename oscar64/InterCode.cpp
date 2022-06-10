@@ -14,6 +14,11 @@ int InterTypeSize[] = {
 	2
 };
 
+static bool IsCommutative(InterOperator op)
+{
+	return op == IA_ADD || op == IA_MUL || op == IA_AND || op == IA_OR || op == IA_XOR;
+}
+
 static bool IsIntegerType(InterType type)
 {
 	return type >= IT_INT8 && type <= IT_INT32;
@@ -510,10 +515,19 @@ static bool SameInstruction(const InterInstruction* ins1, const InterInstruction
 {
 	if (ins1->mCode == ins2->mCode && ins1->mNumOperands == ins2->mNumOperands && ins1->mOperator == ins2->mOperator)
 	{
-		for (int i = 0; i < ins1->mNumOperands; i++)
-			if (!ins1->mSrc[i].IsEqual(ins2->mSrc[i]))
-				return false;
-		return true;
+		if (ins1->mCode == IC_BINARY_OPERATOR && IsCommutative(ins1->mOperator))
+		{
+			return
+				ins1->mSrc[0].IsEqual(ins2->mSrc[0]) && ins1->mSrc[1].IsEqual(ins2->mSrc[1]) ||
+				ins1->mSrc[0].IsEqual(ins2->mSrc[1]) && ins1->mSrc[1].IsEqual(ins2->mSrc[0]);
+		}
+		else
+		{
+			for (int i = 0; i < ins1->mNumOperands; i++)
+				if (!ins1->mSrc[i].IsEqual(ins2->mSrc[i]))
+					return false;
+			return true;
+		}
 	}
 
 	return false;
@@ -1246,6 +1260,9 @@ void TempForwardingTable::Build(int from, int to)
 
 bool InterInstruction::ReferencesTemp(int temp) const
 {
+	if (temp < 0)
+		return false;
+
 	if (temp == mDst.mTemp)
 		return true;
 	for (int i = 0; i < mNumOperands; i++)
@@ -5611,6 +5628,21 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 							ins->mSrc[0].mRange.LimitMax(vr.mMaxValue - ins->mSrc[1].mIntConst);
 						mReverseValueRange[ins->mSrc[0].mTemp].Limit(ins->mSrc[0].mRange);
 					}
+					else if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0)
+					{
+						if (vr.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMin(vr.mMinValue - ins->mSrc[0].mRange.mMaxValue);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue - ins->mSrc[0].mRange.mMinValue);
+
+						if (vr.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mSrc[0].mRange.LimitMin(vr.mMinValue - ins->mSrc[1].mRange.mMaxValue);
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND)
+							ins->mSrc[0].mRange.LimitMax(vr.mMaxValue - ins->mSrc[1].mRange.mMinValue);
+
+						mReverseValueRange[ins->mSrc[0].mTemp].Limit(ins->mSrc[0].mRange);
+						mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+					}
 					break;
 				case IA_MUL:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mIntConst > 0)
@@ -7817,13 +7849,13 @@ void InterCodeBasicBlock::MarkRelevantStatics(void)
 	}
 }
 
-bool InterCodeBasicBlock::CanMoveInstructionBehindBlock(int ii) const
+bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 {
-	InterInstruction* ins = mInstructions[ii];
+	InterInstruction* ins = mInstructions[si];
 
 	if (ins->mCode == IC_LOAD)
 	{
-		for (int i = ii + 1; i < mInstructions.Size(); i++)
+		for (int i = si + 1; i < ti; i++)
 			if (!CanBypassLoad(ins, mInstructions[i]))
 				return false;
 	}
@@ -7836,13 +7868,19 @@ bool InterCodeBasicBlock::CanMoveInstructionBehindBlock(int ii) const
 		return false;
 	else
 	{
-		for (int i = ii + 1; i < mInstructions.Size(); i++)
+		for (int i = si + 1; i < ti; i++)
 			if (!CanBypass(ins, mInstructions[i]))
 				return false;
 	}
 
 	return true;
 }
+
+bool InterCodeBasicBlock::CanMoveInstructionBehindBlock(int ii) const
+{
+	return CanMoveInstructionDown(ii, mInstructions.Size());
+}
+
 
 
 bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii) const
@@ -9676,10 +9714,6 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 	}
 }
 
-static bool IsCommutative(InterOperator op)
-{
-	return op == IA_ADD || op == IA_MUL || op == IA_AND || op == IA_OR || op == IA_XOR;
-}
 void InterCodeBasicBlock::CompactInstructions(void)
 {
 	if (!mVisited)
@@ -10271,7 +10305,28 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
 						changed = true;
 					}
+#if 1
+					else if (
+						mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mMemory == IM_GLOBAL &&
+						mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+						mInstructions[i + 1]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && !mInstructions[i + 1]->mSrc[0].IsUByte() &&
+						mInstructions[i + 0]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && !mInstructions[i + 0]->mSrc[0].IsUByte())
+					{
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 
+						mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
+						mInstructions[i + 0]->mOperator = IA_ADD;
+						mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+						mInstructions[i + 0]->mDst.mType = IT_INT16;
+						mInstructions[i + 0]->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
+						mInstructions[i + 0]->mDst.mRange.mMaxValue = mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mRange.mMaxValue;
+						mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+						mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
+
+						mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+						changed = true;
+					}
+#endif
 #if 1
 					// Postincrement artifact
 					if (mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
@@ -10301,6 +10356,25 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			}
 
 		} while (changed);
+
+		// build trains
+
+		for(int i = mInstructions.Size() - 1; i > 0; i--)
+		{
+			InterInstruction* tins = mInstructions[i];
+
+			j = i - 1;
+			while (j >= 0 && !tins->ReferencesTemp(mInstructions[j]->mDst.mTemp))
+				j--;
+			if (j >= 0 && j < i - 1)
+			{
+				if (CanMoveInstructionDown(j, i)) 
+				{
+					mInstructions.Insert(i, mInstructions[j]);
+					mInstructions.Remove(j);
+				}
+			}
+		}
 
 		// sort stores up
 
@@ -11415,6 +11489,21 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
+	do {
+		GrowingInstructionPtrArray	gipa(nullptr);
+		ResetVisited();
+		changed = mEntryBlock->LoadStoreForwarding(gipa);
+
+		RemoveUnusedStoreInstructions(paramMemory);
+
+		TempForwarding();
+		RemoveUnusedInstructions();
+
+		DisassembleDebug("Load/Store forwarding2");
+	} while (changed);
+#endif
+
+#if 1
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
 
@@ -11638,6 +11727,39 @@ bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
 	return false;
 }
 
+bool PartitionSameExitCode(GrowingArray<InterCodeBasicBlock* > & eblocks, GrowingArray<InterCodeBasicBlock* > & mblocks)
+{
+	int i = 0;
+
+	mblocks.SetSize(0, true);
+
+	while (i + 1 < eblocks.Size())
+	{
+		int j = i + 1;
+		while (j < eblocks.Size())
+		{
+			if (eblocks[i]->SameExitCode(eblocks[j]))
+			{
+				mblocks.Push(eblocks[j]);
+				eblocks.Remove(j);
+			}
+			else
+				j++;
+		}
+
+		if (mblocks.Size())
+		{
+			mblocks.Push(eblocks[i]);
+			eblocks.Remove(i);
+			return true;
+		}
+
+		i++;
+	}
+
+	return false;
+}
+
 void InterCodeProcedure::MergeBasicBlocks(void)
 {
 	ResetVisited();
@@ -11645,6 +11767,8 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 
 	ResetVisited();
 	mEntryBlock->SplitBranches(this);
+
+	DisassembleDebug("PostSplit");
 
 	bool	changed;
 	do
@@ -11735,28 +11859,48 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 
 				if (eblocks.Size() == block->mNumEntries)
 				{
-					bool	ok;
-					do {
-						ok = false;
+					GrowingArray<InterCodeBasicBlock* >	mblocks(nullptr);
 
-						if (eblocks[0]->mInstructions.Size() > 1)
+					while (PartitionSameExitCode(eblocks, mblocks))
+					{
+						InterCodeBasicBlock* nblock;
+
+						if (eblocks.Size() || mblocks.IndexOf(block) != -1)
 						{
-							InterInstruction* ins = eblocks[0]->mInstructions[eblocks[0]->mInstructions.Size() - 2];
+//							break;
 
-							int j = 1;
-							while (j < eblocks.Size() && eblocks[0]->SameExitCode(eblocks[j]))
-								j++;
-							if (j == eblocks.Size())
-							{
-								block->mInstructions.Insert(0, ins);
-								for (int j = 0; j < eblocks.Size(); j++)
-									eblocks[j]->mInstructions.Remove(eblocks[j]->mInstructions.Size() - 2);
-								ok = true;
-								changed = true;
-							}
+							nblock = new InterCodeBasicBlock();
+							this->Append(nblock);
+
+							for (int i = 0; i < mblocks.Size(); i++)
+								mblocks[i]->mTrueJump = nblock;
+							block->mNumEntries -= mblocks.Size();
+
+							InterInstruction* jins = new InterInstruction();
+							jins->mCode = IC_JUMP;
+							nblock->mInstructions.Push(jins);
+							nblock->Close(block, nullptr);
+
+							nblock->mNumEntries = mblocks.Size();
+							block->mNumEntries++;
+
+							eblocks.Push(nblock);
 						}
+						else
+							nblock = block;
 
-					} while (ok);
+						InterInstruction* ins = mblocks[0]->mInstructions[mblocks[0]->mInstructions.Size() - 2];
+
+						nblock->mInstructions.Insert(0, ins);
+						for (int j = 0; j < mblocks.Size(); j++)
+						{
+							assert(mblocks[j]->mInstructions[mblocks[j]->mInstructions.Size() - 1]->mCode == IC_JUMP);
+							assert(mblocks[j]->mInstructions[mblocks[j]->mInstructions.Size() - 2]->IsEqual(ins));
+
+							mblocks[j]->mInstructions.Remove(mblocks[j]->mInstructions.Size() - 2);
+						}
+						changed = true;
+					}
 				}
 			}
 		}

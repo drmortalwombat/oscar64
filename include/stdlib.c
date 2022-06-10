@@ -225,6 +225,11 @@ const float tpow10[7] = {1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0}
 
 float atof(const char * s)
 {
+	return strtof(s, nullptr);
+}
+
+float strtof(const char *s, const char **endp)
+{
 	char	c;
 	while ((c = *s++) <= ' ')
 		if (!c) return 0;
@@ -302,7 +307,204 @@ float atof(const char * s)
 	if (neg)
 		v = -v;
 	
-	return v;	
+	if (endp)
+		*endp = (char *)s;
+
+	return v;		
+}
+
+int strtoi(const char *s, const char **endp, char base)
+{
+	char	c;
+	while ((c = *s++) <= ' ')
+		if (!c) return 0;
+	
+	bool neg = false;
+	if (c == '-')
+	{
+		neg = true;
+		c = *s++;
+	}
+	else if (c == '+')
+		c = *s++;
+
+	if (c == '0')
+	{
+		c = *s++;
+		if (c == 'x' || c == 'X')
+		{
+			base = 16;
+			c = *s++;
+		}
+		else if (base == 0)
+			base = 8;		
+	} else if (base == 0)
+		base = 10;
+	
+	int	v = 0;
+	for(;;)
+	{
+		if (c >= '0' && c <= '9')
+			v = v * base + (c - '0');
+		else if (c >= 'a' && c <= 'f')
+			v = v * base + (c - 'a' + 10);
+		else if (c >= 'A' && c <= 'F')
+			v = v * base + (c - 'A' + 10);
+		else
+			break;
+
+		c = *s++;
+	}
+	
+	if (neg)
+		v = -v;
+
+	if (endp)
+		*endp = (char *)s;
+	
+	return v;
+}
+
+unsigned strtou(const char *s, const char **endp, char base)
+{
+	char	c;
+	while ((c = *s++) <= ' ')
+		if (!c) return 0;
+
+	if (c == '0')
+	{
+		c = *s++;
+		if (c == 'x' || c == 'X')
+		{
+			base = 16;
+			c = *s++;
+		}
+		else if (base == 0)
+			base = 8;		
+	} else if (base == 0)
+		base = 10;
+		
+	unsigned	v = 0;
+	for(;;)
+	{
+		if (c >= '0' && c <= '9')
+			v = v * base + (c - '0');
+		else if (c >= 'a' && c <= 'f')
+			v = v * base + (c - 'a' + 10);
+		else if (c >= 'A' && c <= 'F')
+			v = v * base + (c - 'A' + 10);
+		else
+			break;
+
+		c = *s++;
+	}
+	
+	if (endp)
+		*endp = (char *)s;
+	
+	return v;
+}
+
+long strtol(const char *s, const char **endp, char base)
+{
+	char	c;
+	while ((c = *s++) <= ' ')
+		if (!c) return 0;
+	
+	bool neg = false;
+	if (c == '-')
+	{
+		neg = true;
+		c = *s++;
+	}
+	else if (c == '+')
+		c = *s++;
+
+	if (c == '0')
+	{
+		c = *s++;
+		if (c == 'x' || c == 'X')
+		{
+			base = 16;
+			c = *s++;
+		}
+		else if (base == 0)
+			base = 8;		
+	} else if (base == 0)
+		base = 10;
+	
+	long	v = 0;
+	for(;;)
+	{
+		if (c >= '0' && c <= '9')
+			v = v * base + (c - '0');
+		else if (c >= 'a' && c <= 'f')
+			v = v * base + (c - 'a' + 10);
+		else if (c >= 'A' && c <= 'F')
+			v = v * base + (c - 'A' + 10);
+		else
+			break;
+
+		c = *s++;
+	}
+	
+	if (neg)
+		v = -v;
+
+	if (endp)
+		*endp = (char *)s;
+	
+	return v;
+}
+
+unsigned long strtoul(const char *s, const char **endp, char base)
+{
+	char	c;
+	while ((c = *s++) <= ' ')
+		if (!c) return 0;
+		
+	if (c == '0')
+	{
+		c = *s++;
+		if (c == 'x' || c == 'X')
+		{
+			base = 16;
+			c = *s++;
+		}
+		else if (base == 0)
+			base = 8;		
+	} else if (base == 0)
+		base = 10;
+
+	unsigned long v = 0;
+	for(;;)
+	{
+		if (c >= '0' && c <= '9')
+			v = v * base + (c - '0');
+		else if (c >= 'a' && c <= 'f')
+			v = v * base + (c - 'a' + 10);
+		else if (c >= 'A' && c <= 'F')
+			v = v * base + (c - 'A' + 10);
+		else
+			break;
+
+		c = *s++;
+	}
+	
+	if (endp)
+		*endp = (char *)s;
+	
+	return v;
+}
+
+int abs(int n)
+{
+	return n < 0 ? - n : n;
+}
+
+long labs(long n)
+{
+	return n < 0 ? - n : n;	
 }
 
 void exit(int status)

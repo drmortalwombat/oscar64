@@ -148,7 +148,7 @@ public:
 
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
-	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset;
+	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset, mTemp;
 	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
@@ -258,7 +258,8 @@ public:
 	bool MoveAbsoluteLoadStoreUp(int at);
 	bool MoveLoadStoreOutOfXYRangeUp(int at);
 	bool MoveLoadIndirectTempStoreUp(int at);
-	
+	bool MoveLoadIndirectBypassYUp(int at);
+
 	bool MoveLoadAddImmStoreAbsXUp(int at);
 	bool MoveStaTaxLdaStaDown(int at);
 
@@ -344,6 +345,9 @@ public:
 	bool AlternateXYUsage(void);
 	bool OptimizeXYPairUsage(void);
 	bool ForwardAbsoluteLoadStores(void);
+	bool CanForwardZPMove(int saddr, int daddr, int & index) const;
+	bool Is16BitAddSubImmediate(int at, int& sreg, int &dreg, int& offset) const;
+	bool CanForward16BitAddSubImmediate(int sreg, int dreg, int offset, int & index) const;
 
 	bool CheckPatchFail(const NativeCodeBasicBlock* block, int reg);
 

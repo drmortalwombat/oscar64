@@ -263,6 +263,16 @@ public:
 		Grow(at, false);
 	}
 
+	void Remove(int at, int n)
+	{
+		while (at + n < size)
+		{
+			array[at] = array[at + n];
+			at++;
+		}
+		Grow(at, false);
+	}
+
 	T Top(void) const
 	{
 		return array[size - 1];

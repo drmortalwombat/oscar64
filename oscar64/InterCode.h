@@ -460,6 +460,7 @@ public:
 	bool PushSinglePathResultInstructions(void);
 	bool CanMoveInstructionBeforeBlock(int ii) const;
 	bool CanMoveInstructionBehindBlock(int ii) const;
+	bool CanMoveInstructionDown(int si, int ti) const;
 	bool MergeCommonPathInstructions(void);
 
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);
