@@ -344,3 +344,4 @@ make/oscar64
 *.bcs
 *.crt
 *.crt
+*.d64

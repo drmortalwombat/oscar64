@@ -19577,13 +19577,18 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 
 #if 1
 		// move load (),y store zp down to potential user
-		for (int i = 0; i + 1 < mIns.Size(); i++)
+		for (int i = 0; i + 2 < mIns.Size(); i++)
 		{
-			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
+				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 			{
 				if (MoveLoadIndirectTempStoreUp(i))
 					changed = true;
-				else if (MoveIndirectLoadStoreDown(i))
+			}				
+			else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				if (MoveIndirectLoadStoreDown(i))
 					changed = true;
 			}
 		}
@@ -22969,22 +22974,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 3].mType = ASMIT_ADC;
 						mIns[i + 2].mType = ASMIT_CLC; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_C;
 						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						!mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_LDA &&
-						mIns[i + 3].mType == ASMIT_CLC &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress)
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-
-						mIns[i + 3] = mIns[i + 2];
-						mIns[i + 3].mType = ASMIT_ADC;
-						mIns[i + 2].mType = ASMIT_CLC; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 					else if (
