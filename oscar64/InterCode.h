@@ -355,6 +355,7 @@ public:
 	GrowingInstructionArray			mLoadStoreInstructions;
 
 	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange, mLocalValueRange, mReverseValueRange;
+	GrowingArray<int64>				mMemoryValueSize, mEntryMemoryValueSize;
 
 	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
 
@@ -383,7 +384,7 @@ public:
 	void CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps);
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 
-	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps);
+	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps, const GrowingVariableArray& staticVars);
 
 	void BuildLocalTempSets(int num);
 	void BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps);
@@ -412,7 +413,7 @@ public:
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
 
-	bool LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue);
+	bool LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars);
 
 	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num);
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);
@@ -464,7 +465,7 @@ public:
 	bool MergeCommonPathInstructions(void);
 
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);
-	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams);
+	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	void SingleBlockLoopUnrolling(void);
 	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);

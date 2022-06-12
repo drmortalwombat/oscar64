@@ -15,9 +15,12 @@ void spr_set(char sp, bool show, int xpos, int ypos, char image, char color, boo
 
 inline void spr_show(char sp, bool show);
 
-// move a sprite the
+// move a sprite to the given position, only uses 8 bit y and 9 bit x
 
 inline void spr_move(char sp, int xpos, int ypos);
+
+// move a sprite to the given position
+void spr_move16(char sp, int xpos, int ypos);
 
 // change the image of a sprite
 

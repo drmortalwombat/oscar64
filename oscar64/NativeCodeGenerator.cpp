@@ -2944,7 +2944,9 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			else if (data.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE)
 			{
 #if 1
-				if (data.mRegs[data.mRegs[CPU_REG_A].mValue].mMode == NRDM_UNKNOWN && mAddress >= BC_REG_FPARAMS && mAddress < BC_REG_FPARAMS_END)
+				if (data.mRegs[data.mRegs[CPU_REG_A].mValue].mMode == NRDM_UNKNOWN && 
+					(mAddress >= BC_REG_FPARAMS && mAddress < BC_REG_FPARAMS_END) &&
+					!(data.mRegs[CPU_REG_A].mValue >= BC_REG_FPARAMS && data.mRegs[CPU_REG_A].mValue < BC_REG_FPARAMS_END))
 				{
 					data.mRegs[data.mRegs[CPU_REG_A].mValue].mMode = NRDM_ZERO_PAGE;
 					data.mRegs[data.mRegs[CPU_REG_A].mValue].mValue = mAddress;
@@ -9670,7 +9672,7 @@ void NativeCodeBasicBlock::LoadStoreOpAbsolute2D(InterCodeProcedure* proc, const
 	}
 	else
 	{
-		for (int i = 0; i < InterTypeSize[mins->mSrc[0].mType]; i++)
+		for (int i = 0; i < InterTypeSize[mins->mDst.mType]; i++)
 		{
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE_Y, lins1->mSrc[1].mIntConst + i, lins1->mSrc[1].mLinkerObject));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[mins->mDst.mTemp] + i));
@@ -16442,6 +16444,33 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				mNDataSet.mRegs[CPU_REG_C].Reset();
 				mNDataSet.mRegs[CPU_REG_Z].Reset();
 
+				bool	loopx = false, loopy = false;
+				int		loopya, loopxa;
+
+				if (mIns.Size() > 2)
+				{
+					int	sz = mIns.Size();
+
+					if ((mIns[sz - 2].mType == ASMIT_LDY || mIns[sz - 2].mType == ASMIT_STY) && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE)
+					{
+						if (mNDataSet.mRegs[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && mIns[sz - 2].mAddress == mNDataSet.mRegs[CPU_REG_Y].mValue ||
+							mNDataSet.mRegs[CPU_REG_Y].SameData(mNDataSet.mRegs[mIns[sz - 2].mAddress]))
+						{
+							loopya = mIns[sz - 2].mAddress;
+							loopy = true;
+						}
+					}
+					else if ((mIns[sz - 2].mType == ASMIT_LDX || mIns[sz - 2].mType == ASMIT_STX) && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE)
+					{
+						if (mNDataSet.mRegs[CPU_REG_X].mMode == NRDM_ZERO_PAGE && mIns[sz - 2].mAddress == mNDataSet.mRegs[CPU_REG_X].mValue ||
+							mNDataSet.mRegs[CPU_REG_X].SameData(mNDataSet.mRegs[mIns[sz - 2].mAddress]))
+						{
+							loopxa = mIns[sz - 2].mAddress;
+							loopx = true;
+						}
+					}
+				}
+
 				// Single block loop
 				for (int i = 0; i < mIns.Size(); i++)
 				{
@@ -16452,6 +16481,7 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 						mNDataSet.mRegs[CPU_REG_X].Reset();
 					if (ins.ChangesYReg())
 						mNDataSet.mRegs[CPU_REG_Y].Reset();
+
 					if (ins.mMode == ASMIM_ZERO_PAGE && ins.ChangesAddress())
 						mNDataSet.ResetZeroPage(ins.mAddress);
 					if (ins.mType == ASMIT_JSR)
@@ -16476,6 +16506,19 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 //						break;
 					}
 				}
+
+				if (loopy)
+				{
+					mNDataSet.mRegs[CPU_REG_Y].mMode = NRDM_ZERO_PAGE;
+					mNDataSet.mRegs[CPU_REG_Y].mValue = loopya;
+				}
+				if (loopx)
+				{
+					mNDataSet.mRegs[CPU_REG_X].mMode = NRDM_ZERO_PAGE;
+					mNDataSet.mRegs[CPU_REG_X].mValue = loopxa;
+				}
+
+
 			}
 			else
 #endif
@@ -25108,6 +25151,11 @@ void NativeCodeProcedure::Optimize(void)
 
 #endif
 
+		if (cnt > 200)
+		{
+			changed = false;
+			mGenerator->mErrors->Error(mInterProc->mLocation, EWARN_OPTIMIZER_LOCKED, "Optimizer locked in infinite loop", mInterProc->mIdent);
+		}
 #if 1
 		if (!changed && step < 8)
 		{
