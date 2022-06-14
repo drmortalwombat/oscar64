@@ -404,10 +404,10 @@ public:
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
 
-	void RestartLocalIntegerRangeSets(void);
-	void BuildLocalIntegerRangeSets(int num);
-	void UpdateLocalIntegerRangeSets(void);
-	bool BuildGlobalIntegerRangeSets(bool initial);
+	void RestartLocalIntegerRangeSets(const GrowingVariableArray& localVars);
+	void BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars);
+	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars);
+	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars);
 	void SimplifyIntegerRangeRelops(void);
 
 	GrowingIntArray			mEntryRenameTable;

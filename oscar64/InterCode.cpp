@@ -4970,7 +4970,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 }
 
 
-bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial)
+bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars)
 {
 	bool	changed = false;
 
@@ -5020,13 +5020,13 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial)
 		{
 			mEntryValueRange = mLocalValueRange;
 
-			UpdateLocalIntegerRangeSets();
+			UpdateLocalIntegerRangeSets(localVars);
 
 		}
 
-		if (mTrueJump && mTrueJump->BuildGlobalIntegerRangeSets(initial))
+		if (mTrueJump && mTrueJump->BuildGlobalIntegerRangeSets(initial, localVars))
 			changed = true;
-		if (mFalseJump && mFalseJump->BuildGlobalIntegerRangeSets(initial))
+		if (mFalseJump && mFalseJump->BuildGlobalIntegerRangeSets(initial, localVars))
 			changed = true;
 	}
 
@@ -5070,7 +5070,7 @@ static int64 BuildLowerBitsMask(int64 v)
 	return v;
 }
 
-void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
+void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars)
 {
 	mLocalValueRange = mEntryValueRange;
 
@@ -5122,13 +5122,28 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 						LinkerObject* lo = mInstructions[i - 1]->mSrc[1].mLinkerObject;
 						int	mi = 0, ma = 0;
 
-						for (int j = 0; j < lo->mSize; j++)
+						if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxState == IntegerValueRange::S_BOUND &&
+							vr.mMinValue >= -128 && vr.mMaxValue <= 127)
 						{
-							int v = lo->mData[j];
-							if (v & 0x80)
-								mi = -128;
-							if (v > ma)
-								ma = v;
+							for (int j = 0; j < lo->mSize; j++)
+							{
+								int v = (int8)(lo->mData[j]);
+								if (v < mi)
+									mi = v;
+								if (v > ma)
+									ma = v;
+							}
+						}
+						else
+						{
+							for (int j = 0; j < lo->mSize; j++)
+							{
+								int v = lo->mData[j];
+								if (v & 0x80)
+									mi = -128;
+								if (v > ma)
+									ma = v;
+							}
 						}
 
 						vr.LimitMax(ma);
@@ -5606,6 +5621,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 			int	asize = 0;
 			if (ins->mSrc[1].mMemory == IM_GLOBAL)
 				asize = ins->mSrc[1].mLinkerObject->mSize;
+			else if (ins->mSrc[1].mMemory == IM_LOCAL)
+				asize = localVars[ins->mSrc[1].mVarIndex]->mSize;
 
 			if (asize > 0)
 			{
@@ -5627,7 +5644,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				{
 				case IA_EXT8TO16U:
 				case IA_EXT8TO16S:
-					if (ins->mSrc[0].mTemp >= 0)
+					if (ins->mSrc[0].mTemp >= 0 && (vr.mMaxValue != 255 || vr.mMinValue != 0))
 						mReverseValueRange[ins->mSrc[0].mTemp].Limit(vr);
 					break;
 				}
@@ -5928,7 +5945,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 
 
 
-void InterCodeBasicBlock::RestartLocalIntegerRangeSets(void)
+void InterCodeBasicBlock::RestartLocalIntegerRangeSets(const GrowingVariableArray& localVars)
 {
 	if (!mVisited)
 	{
@@ -5943,14 +5960,14 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(void)
 				vr.mMaxState = IntegerValueRange::S_UNKNOWN;
 		}
 
-		UpdateLocalIntegerRangeSets();
+		UpdateLocalIntegerRangeSets(localVars);
 
-		if (mTrueJump) mTrueJump->RestartLocalIntegerRangeSets();
-		if (mFalseJump) mFalseJump->RestartLocalIntegerRangeSets();
+		if (mTrueJump) mTrueJump->RestartLocalIntegerRangeSets(localVars);
+		if (mFalseJump) mFalseJump->RestartLocalIntegerRangeSets(localVars);
 	}
 }
 
-void InterCodeBasicBlock::BuildLocalIntegerRangeSets(int num)
+void InterCodeBasicBlock::BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars)
 {
 	if (!mVisited)
 	{
@@ -5963,10 +5980,10 @@ void InterCodeBasicBlock::BuildLocalIntegerRangeSets(int num)
 		mMemoryValueSize.SetSize(num, true);
 		mEntryMemoryValueSize.SetSize(num, true);
 
-		UpdateLocalIntegerRangeSets();
+		UpdateLocalIntegerRangeSets(localVars);
 
-		if (mTrueJump) mTrueJump->BuildLocalIntegerRangeSets(num);
-		if (mFalseJump) mFalseJump->BuildLocalIntegerRangeSets(num);
+		if (mTrueJump) mTrueJump->BuildLocalIntegerRangeSets(num, localVars);
+		if (mFalseJump) mFalseJump->BuildLocalIntegerRangeSets(num, localVars);
 	}
 }
 
@@ -6949,11 +6966,32 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
 
-						if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0 && ains->mDst.mType == IT_INT16)
+						if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0)
 						{
-							ins->mSrc[0] = ains->mSrc[1];
-							ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
-							changed = true;
+							if (ains->mSrc[0].mType == IT_INT16)
+							{
+								ins->mSrc[0] = ains->mSrc[1];
+								ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
+								changed = true;
+							}
+							else if (ains->mSrc[0].mType == IT_INT8)
+							{
+								if (spareTemps + 2 >= ltvalue.Size())
+									return true;
+
+								InterInstruction* nins = new InterInstruction();
+								nins->mCode = IC_CONVERSION_OPERATOR;
+								nins->mOperator = IA_EXT8TO16U;
+								nins->mSrc[0] = ains->mSrc[1];
+								nins->mDst.mTemp = spareTemps++;
+								nins->mDst.mType = IT_INT16;
+								nins->mDst.mRange = pins->mDst.mRange;
+								mInstructions.Insert(i, nins);
+
+								ins->mSrc[0] = ains->mSrc[1];
+								ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
+								changed = true;
+							}
 						}
 					}
 #endif
@@ -11367,37 +11405,37 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 #if 1
 	ResetVisited();
-	mEntryBlock->BuildLocalIntegerRangeSets(mTemporaries.Size());
+	mEntryBlock->BuildLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars);
 
 	do {
 		DisassembleDebug("tt");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars));
 
 	do {
 		DisassembleDebug("tq");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars));
 
 
 	DisassembleDebug("Estimated value range");
 #if 1
 	ResetVisited();
-	mEntryBlock->RestartLocalIntegerRangeSets();
+	mEntryBlock->RestartLocalIntegerRangeSets(mLocalVars);
 
 	do {
 		DisassembleDebug("tr");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars));
 
 	do {
 		DisassembleDebug("tr");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars));
 
 	DisassembleDebug("Estimated value range 2");
 #endif
@@ -11465,19 +11503,19 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 	ResetVisited();
-	mEntryBlock->RestartLocalIntegerRangeSets();
+	mEntryBlock->RestartLocalIntegerRangeSets(mLocalVars);
 
 	do {
 		DisassembleDebug("tr");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars));
 
 	do {
 		DisassembleDebug("tr");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars));
 
 	DisassembleDebug("Estimated value range 2");
 #endif
