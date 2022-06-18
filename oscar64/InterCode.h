@@ -555,6 +555,12 @@ protected:
 	void BuildLoopPrefix(void);
 	void SingleAssignmentForwarding(void);
 	void RemoveUnusedStoreInstructions(InterMemory	paramMemory);
+	void MergeCommonPathInstructions(void);
+	void PushSinglePathResultInstructions(void);
+	void PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams);
+	void SimplifyIntegerNumeric(FastNumberSet& activeSet);
+	void EliminateAliasValues();
+	void LoadStoreForwarding(InterMemory paramMemory);
 
 	void MergeBasicBlocks(void);
 

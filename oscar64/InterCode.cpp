@@ -11191,6 +11191,182 @@ void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 	}
 }
 
+void InterCodeProcedure::MergeCommonPathInstructions(void)
+{
+	bool	changed;
+	do
+	{
+		ResetVisited();
+		mEntryBlock->CompactInstructions();
+
+		BuildDataFlowSets();
+
+		ResetVisited();
+		changed = mEntryBlock->MergeCommonPathInstructions();
+
+		DisassembleDebug("Merged common path part");
+
+		if (changed)
+		{
+			TempForwarding();
+			RemoveUnusedInstructions();
+
+		}
+
+	} while (changed);
+
+	DisassembleDebug("Merged common path instructions");
+}
+
+void InterCodeProcedure::PushSinglePathResultInstructions(void)
+{
+	bool	changed;
+	do
+	{
+		BuildDataFlowSets();
+
+		ResetVisited();
+		changed = mEntryBlock->PushSinglePathResultInstructions();
+
+		DisassembleDebug("Pushed single path result");
+
+	} while (changed);
+}
+
+void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams)
+{
+	ResetVisited();
+	mEntryBlock->CollectVariables(mModule->mGlobalVars, mLocalVars, mParamVars, paramMemory);
+
+	RemoveUnusedStoreInstructions(paramMemory);
+
+	for (int j = 0; j < 2; j++)
+	{
+		//
+		// Promote local variables to temporaries
+		//
+
+		FastNumberSet	simpleLocals(nlocals), complexLocals(nlocals);
+		GrowingTypeArray	localTypes(IT_NONE);
+
+		FastNumberSet	simpleParams(nparams), complexParams(nparams);
+		GrowingTypeArray	paramTypes(IT_NONE);
+
+		ResetVisited();
+		mEntryBlock->CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
+
+		for (int i = 0; i < simpleLocals.Num(); i++)
+		{
+			int vi = simpleLocals.Element(i);
+			if (!complexLocals[vi])
+			{
+				mLocalVars[vi]->mTemp = true;
+				ResetVisited();
+				mEntryBlock->SimpleLocalToTemp(vi, AddTemporary(localTypes[vi]));
+			}
+		}
+
+		DisassembleDebug("local variables to temps");
+
+		BuildTraces(false);
+
+		BuildDataFlowSets();
+
+		RenameTemporaries();
+
+		do {
+			BuildDataFlowSets();
+
+			TempForwarding();
+		} while (GlobalConstantPropagation());
+
+		//
+		// Now remove unused instructions
+		//
+
+		RemoveUnusedInstructions();
+
+		DisassembleDebug("removed unused instructions 2");
+
+		TempForwarding();
+	}
+
+
+	ResetVisited();
+	mEntryBlock->CompactInstructions();
+}
+
+void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet)
+{
+	GrowingInstructionPtrArray	silvalues(nullptr);
+	int							silvused;
+
+	do
+	{
+		BuildDataFlowSets();
+
+		TempForwarding();
+		RemoveUnusedInstructions();
+
+		activeSet.Clear();
+
+		ResetVisited();
+		mEntryBlock->CollectActiveTemporaries(activeSet);
+
+		silvused = activeSet.Num();
+		silvalues.SetSize(silvused + 16, true);
+
+		mTemporaries.SetSize(activeSet.Num(), true);
+
+		ResetVisited();
+		mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
+
+		ResetVisited();
+		mEntryBlock->RemapActiveTemporaries(activeSet);
+
+		ResetVisited();
+	} while (mEntryBlock->SimplifyIntegerNumeric(silvalues, silvused));
+
+	assert(silvused == mTemporaries.Size());
+
+	DisassembleDebug("SimplifyIntegerNumeric");
+}
+
+void InterCodeProcedure::EliminateAliasValues()
+{
+	GrowingInstructionPtrArray	eivalues(nullptr);
+	do {
+		BuildDataFlowSets();
+
+		assert(mTemporaries.Size() == mEntryBlock->mLocalValueRange.Size());
+
+		eivalues.SetSize(mTemporaries.Size(), true);
+
+		ResetVisited();
+	} while (mEntryBlock->EliminateAliasValues(eivalues, eivalues));
+
+	DisassembleDebug("EliminateAliasValues");
+}
+
+void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
+{
+	bool changed;
+	do {
+		GrowingInstructionPtrArray	gipa(nullptr);
+		ResetVisited();
+		changed = mEntryBlock->LoadStoreForwarding(gipa, mModule->mGlobalVars);
+
+		DisassembleDebug("Load/Store forwardingX");
+
+		RemoveUnusedStoreInstructions(paramMemory);
+
+		TempForwarding();
+		RemoveUnusedInstructions();
+
+		DisassembleDebug("Load/Store forwarding");
+	} while (changed);
+}
+
 void InterCodeProcedure::Close(void)
 {
 	int				i, j, k, start;
@@ -11321,86 +11497,13 @@ void InterCodeProcedure::Close(void)
 	// Now remove unused instructions
 	//
 
-	do {
-		ResetVisited();
-		mEntryBlock->BuildLocalTempSets(numTemps);
-
-		ResetVisited();
-		mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps));
-
-		NumberSet	totalRequired2(numTemps);
-
-		do {
-			ResetVisited();
-		} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired2));
-
-		ResetVisited();
-	} while (mEntryBlock->RemoveUnusedResultInstructions());
+	RemoveUnusedInstructions();
 
 	DisassembleDebug("removed unused instructions");
 
 	InterMemory	paramMemory = mFastCallProcedure ? IM_FPARAM : IM_PARAM;
 
-	ResetVisited();
-	mEntryBlock->CollectVariables(mModule->mGlobalVars, mLocalVars, mParamVars, paramMemory);
-
-	RemoveUnusedStoreInstructions(paramMemory);
-
-	for (int j = 0; j < 2; j++)
-	{
-		//
-		// Promote local variables to temporaries
-		//
-
-		FastNumberSet	simpleLocals(nlocals), complexLocals(nlocals);
-		GrowingTypeArray	localTypes(IT_NONE);
-
-		FastNumberSet	simpleParams(nparams), complexParams(nparams);
-		GrowingTypeArray	paramTypes(IT_NONE);
-
-		ResetVisited();
-		mEntryBlock->CollectSimpleLocals(complexLocals, simpleLocals, localTypes, complexParams, simpleParams, paramTypes);
-
-		for (int i = 0; i < simpleLocals.Num(); i++)
-		{
-			int vi = simpleLocals.Element(i);
-			if (!complexLocals[vi])
-			{
-				mLocalVars[vi]->mTemp = true;
-				ResetVisited();
-				mEntryBlock->SimpleLocalToTemp(vi, AddTemporary(localTypes[vi]));
-			}
-		}
-
-		DisassembleDebug("local variables to temps");
-
-		BuildTraces(false);
-
-		BuildDataFlowSets();
-
-		RenameTemporaries();
-
-		do {
-			BuildDataFlowSets();
-
-			TempForwarding();
-		} while (GlobalConstantPropagation());
-
-		//
-		// Now remove unused instructions
-		//
-
-		RemoveUnusedInstructions();
-
-		DisassembleDebug("removed unused instructions 2");
-
-		TempForwarding();
-	}
-
-
-	ResetVisited();
-	mEntryBlock->CompactInstructions();
-
+	PromoteSimpleLocalsToTemp(paramMemory, nlocals, nparams);
 
 	BuildDataFlowSets();
 
@@ -11460,18 +11563,8 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Peephole optimized");
 
 	bool changed = false;
-#if 1
-	do
-	{
-		BuildDataFlowSets();
 
-		ResetVisited();
-		changed = mEntryBlock->PushSinglePathResultInstructions();
-
-		DisassembleDebug("Pushed single path result");
-
-	} while (changed);
-#endif
+	PushSinglePathResultInstructions();
 
 	BuildDataFlowSets();
 	TempForwarding();
@@ -11487,33 +11580,7 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("propagate non local used temps");
 
-#if 1
-	do
-	{
-		ResetVisited();
-		mEntryBlock->CompactInstructions();
-
-		BuildDataFlowSets();
-
-		ResetVisited();
-		changed = mEntryBlock->MergeCommonPathInstructions();
-
-		DisassembleDebug("Merged common path part");
-
-		if (changed)
-		{
-			TempForwarding();
-			RemoveUnusedInstructions();
-
-		}
-
-	} while (changed);
-
-	DisassembleDebug("Merged common path instructions");
-#else
-	ResetVisited();
-	mEntryBlock->CompactInstructions();
-#endif
+	MergeCommonPathInstructions();
 
 	do
 	{
@@ -11526,20 +11593,7 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Copy forwarding");
 
-	do {
-		GrowingInstructionPtrArray	gipa(nullptr);
-		ResetVisited();
-		changed = mEntryBlock->LoadStoreForwarding(gipa, mModule->mGlobalVars);
-
-		DisassembleDebug("Load/Store forwardingX");
-
-		RemoveUnusedStoreInstructions(paramMemory);
-
-		TempForwarding();
-		RemoveUnusedInstructions();
-
-		DisassembleDebug("Load/Store forwarding");
-	} while (changed);
+	LoadStoreForwarding(paramMemory);
 
 	FastNumberSet	activeSet(numTemps);
 
@@ -11610,53 +11664,11 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
 #if 1
-	GrowingInstructionPtrArray	silvalues(nullptr);
-	int							silvused;
-
-	do
-	{	
-		BuildDataFlowSets();
-
-		TempForwarding();
-		RemoveUnusedInstructions();
-
-		activeSet.Clear();
-
-		ResetVisited();
-		mEntryBlock->CollectActiveTemporaries(activeSet);
-
-		silvused = activeSet.Num();
-		silvalues.SetSize(silvused + 16, true);
-
-		mTemporaries.SetSize(activeSet.Num(), true);
-
-		ResetVisited();
-		mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
-
-		ResetVisited();
-		mEntryBlock->RemapActiveTemporaries(activeSet);
-
-		ResetVisited();
-	} while (mEntryBlock->SimplifyIntegerNumeric(silvalues, silvused));
-	
-	assert(silvused == mTemporaries.Size());
-
-	DisassembleDebug("SimplifyIntegerNumeric");
+	SimplifyIntegerNumeric(activeSet);
 
 #endif
 
-	GrowingInstructionPtrArray	eivalues(nullptr);
-	do {
-		BuildDataFlowSets();
-
-		assert(mTemporaries.Size() == mEntryBlock->mLocalValueRange.Size());
-
-		eivalues.SetSize(mTemporaries.Size(), true);
-
-		ResetVisited();
-	} while (mEntryBlock->EliminateAliasValues(eivalues, eivalues));
-
-	DisassembleDebug("EliminateAliasValues");
+	EliminateAliasValues();
 
 #if 1
 	ResetVisited();
@@ -11724,20 +11736,7 @@ void InterCodeProcedure::Close(void)
 
 #endif
 
-#if 1
-	do {
-		GrowingInstructionPtrArray	gipa(nullptr);
-		ResetVisited();
-		changed = mEntryBlock->LoadStoreForwarding(gipa, mModule->mGlobalVars);
-
-		RemoveUnusedStoreInstructions(paramMemory);
-
-		TempForwarding();
-		RemoveUnusedInstructions();
-
-		DisassembleDebug("Load/Store forwarding2");
-	} while (changed);
-#endif
+	LoadStoreForwarding(paramMemory);
 
 #if 1
 	BuildLoopPrefix();
@@ -11906,55 +11905,11 @@ void InterCodeProcedure::Close(void)
 			TempForwarding();
 		} while (GlobalConstantPropagation());
 
-		do {
-			GrowingInstructionPtrArray	gipa(nullptr);
-			ResetVisited();
-			changed = mEntryBlock->LoadStoreForwarding(gipa, mModule->mGlobalVars);
+		LoadStoreForwarding(paramMemory);
 
-			DisassembleDebug("Load/Store forwardingX");
-
-			RemoveUnusedStoreInstructions(paramMemory);
-
-			TempForwarding();
-			RemoveUnusedInstructions();
-
-			DisassembleDebug("Load/Store forwarding");
-		} while (changed);
-
-		do
-		{
-			ResetVisited();
-			mEntryBlock->CompactInstructions();
-
-			BuildDataFlowSets();
-
-			ResetVisited();
-			changed = mEntryBlock->MergeCommonPathInstructions();
-
-			DisassembleDebug("Merged common path part");
-
-			if (changed)
-			{
-				TempForwarding();
-				RemoveUnusedInstructions();
-
-			}
-
-		} while (changed);
-
-		DisassembleDebug("Merged common path instructions");
-
+		MergeCommonPathInstructions();
 #if 1
-		do
-		{
-			BuildDataFlowSets();
-
-			ResetVisited();
-			changed = mEntryBlock->PushSinglePathResultInstructions();
-
-			DisassembleDebug("Pushed single path result");
-
-		} while (changed);
+		PushSinglePathResultInstructions();
 #endif
 
 		TempForwarding();

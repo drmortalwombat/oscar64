@@ -205,9 +205,11 @@ public:
 
 	GrowingArray & operator=(const GrowingArray& a)
 	{
-		Grow(a.size, true);
-		int i;
-		for (i = 0; i < size; i++) array[i] = a.array[i];
+		if (a.size != size)
+			Grow(a.size, true);
+
+		for (int i = 0; i < size; i++) array[i] = a.array[i];
+
 		return *this;
 	}
 
