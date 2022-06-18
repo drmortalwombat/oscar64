@@ -212,6 +212,7 @@ public:
 
 	void Intersect(const TempForwardingTable& table);
 
+	int Size(void) const;
 	void SetSize(int size);
 
 	void Reset(void);
@@ -371,7 +372,7 @@ public:
 
 	void CollectEntries(void);
 	void CollectEntryBlocks(InterCodeBasicBlock* from);
-	void GenerateTraces(bool expand);
+	void GenerateTraces(bool expand, bool compact);
 	void BuildDominatorTree(InterCodeBasicBlock * from);
 
 	void LocalToTemp(int vindex, int temp);
@@ -472,6 +473,7 @@ public:
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 
 	InterCodeBasicBlock* BuildLoopPrefix(InterCodeProcedure * proc);
+	void BuildLoopSuffix(InterCodeProcedure* proc);
 
 	void SplitBranches(InterCodeProcedure* proc);
 	void FollowJumps(void);
@@ -543,7 +545,7 @@ public:
 	void Disassemble(FILE* file);
 	void Disassemble(const char* name, bool dumpSets = false);
 protected:
-	void BuildTraces(bool expand, bool dominators = true);
+	void BuildTraces(bool expand, bool dominators = true, bool compact = false);
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);
 	void TempForwarding(void);

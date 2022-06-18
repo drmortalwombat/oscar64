@@ -303,6 +303,8 @@ public:
 	bool JoinTAYARange(int from, int to);
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
 	bool MergeXYSameValue(int from);
+	void InsertLoadYImmediate(int at, int val);
+	int RetrieveYValue(int at) const;
 
 	bool ReverseReplaceTAX(int at);
 

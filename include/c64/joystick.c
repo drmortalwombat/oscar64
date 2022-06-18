@@ -5,7 +5,7 @@ bool	joyb[2];
 
 void joy_poll(char n)
 {
-	char	b = ((char *)0xdc00)[n];
+	char	b = ((volatile char *)0xdc00)[n];
 
 	if (!(b & 1))
 		joyy[n] = -1;
