@@ -359,8 +359,8 @@ public:
 	bool CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains, int cycles);
 	bool PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains);
 
-	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, int index, int at, int yval);
-	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, int index, int at, int yval);
+	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
+	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 

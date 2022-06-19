@@ -540,6 +540,8 @@ public:
 	void MarkRelevantStatics(void);
 	void RemoveNonRelevantStatics(void);
 
+	void MapCallerSavedTemps(void);
+
 	void MapVariables(void);
 	void ReduceTemporaries(void);
 	void Disassemble(FILE* file);

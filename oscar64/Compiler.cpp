@@ -121,6 +121,8 @@ void Compiler::CompileProcedure(InterCodeProcedure* proc)
 		for (int i = 0; i < proc->mCalledFunctions.Size(); i++)
 			CompileProcedure(proc->mCalledFunctions[i]);
 
+		proc->MapCallerSavedTemps();
+
 		if (proc->mNativeProcedure)
 		{
 			NativeCodeProcedure* ncproc = new NativeCodeProcedure(mNativeCodeGenerator);

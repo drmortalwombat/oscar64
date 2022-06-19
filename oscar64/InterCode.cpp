@@ -11934,6 +11934,8 @@ void InterCodeProcedure::Close(void)
 	BuildTraces(false, false, true);
 	DisassembleDebug("Final Merged basic blocks");
 
+	MapCallerSavedTemps();
+
 	if (mSaveTempsLinkerObject && mTempSize > 16)
 		mSaveTempsLinkerObject->AddSpace(mTempSize - 16);
 }
@@ -12308,14 +12310,16 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	do {
 		ResetVisited();
 	} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired3));
+}
 
-
-	NumberSet	callerSaved(numRenamedTemps);
+void InterCodeProcedure::MapCallerSavedTemps(void)
+{
+	NumberSet	callerSaved(mTemporaries.Size());
 	ResetVisited();
 	mEntryBlock->BuildCallerSaveTempSet(callerSaved);
 
 	int		callerSavedTemps = 0, calleeSavedTemps = 16, freeCallerSavedTemps = 0, freeTemps = 0;
-	
+
 	if (mCallsFunctionPointer)
 		freeCallerSavedTemps = 16;
 	else
