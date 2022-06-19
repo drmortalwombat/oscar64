@@ -3783,6 +3783,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 				mInstructions[ns - 1]->mCode = IC_BRANCH;
 				mInstructions[ns - 1]->mOperator = tj->mInstructions[0]->mOperator;
 				mInstructions[ns - 1]->mSrc[0].Forward(tj->mInstructions[0]->mSrc[0]);
+				mInstructions[ns - 1]->mNumOperands = 1;
 				
 				mTrueJump = tj->mTrueJump;
 				mFalseJump = tj->mFalseJump;
@@ -10897,6 +10898,24 @@ void InterCodeProcedure::ResetVisited(void)
 
 	for (i = 0; i < mBlocks.Size(); i++)
 	{
+#if 0
+		if (mBlocks[i]->mInstructions.Size() > 0)
+		{
+			const InterInstruction* ins(mBlocks[i]->mInstructions.Last());
+			if (ins)
+			{
+				if (ins->mCode == IC_BRANCH)
+				{
+					assert(mBlocks[i]->mTrueJump && mBlocks[i]->mFalseJump && ins->mNumOperands >= 1 && ins->mSrc[0].mTemp >= 0);
+				}
+				else if (ins->mCode == IC_JUMP)
+				{
+					assert(mBlocks[i]->mTrueJump);
+				}
+			}
+		}
+#endif
+
 		mBlocks[i]->mVisited = false;
 		mBlocks[i]->mNumEntered = 0;
 	}
@@ -12334,6 +12353,10 @@ void InterCodeProcedure::MapCallerSavedTemps(void)
 
 	callerSavedTemps = freeCallerSavedTemps;
 
+	int maxCallerSavedTemps = mCallerSavedTemps;
+
+	assert(freeCallerSavedTemps <= mCallerSavedTemps);
+
 	mTempOffset.SetSize(0);
 	mTempSizes.SetSize(0);
 
@@ -12347,7 +12370,7 @@ void InterCodeProcedure::MapCallerSavedTemps(void)
 			mTempSizes.Push(size);
 			freeTemps += size;
 		}
-		else if (callerSavedTemps + size <= 16)
+		else if (callerSavedTemps + size <= maxCallerSavedTemps)
 		{
 			mTempOffset.Push(callerSavedTemps);
 			mTempSizes.Push(size);
@@ -12362,6 +12385,8 @@ void InterCodeProcedure::MapCallerSavedTemps(void)
 	}
 	mTempSize = calleeSavedTemps;
 	mCallerSavedTemps = callerSavedTemps;
+
+//	printf("Map %s, %d, %d, %d, %d\n", mIdent->mString, freeTemps, callerSavedTemps, calleeSavedTemps, freeCallerSavedTemps);
 }
 
 void InterCodeProcedure::Disassemble(FILE* file)

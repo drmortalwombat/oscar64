@@ -18490,6 +18490,8 @@ bool NativeCodeBasicBlock::OptimizeSelect(NativeCodeProcedure* proc)
 				mIns.Push(NativeCodeInstruction(ASMIT_AND, ASMIM_IMMEDIATE, vt ^ vf));
 				mIns.Push(NativeCodeInstruction(ASMIT_EOR, ASMIM_IMMEDIATE, vt));
 				changed = true;
+
+				mBranch = ASMIT_JMP;
 			}
 		}
 
@@ -24139,6 +24141,8 @@ void NativeCodeBasicBlock::CheckLive(void)
 #if _DEBUG
 	uint32	live = 0;
 
+	assert(mBranch == ASMIT_RTS || (mBranch == ASMIT_JMP) == (mFalseJump == nullptr));
+
 	if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
 		live |= LIVE_CPU_REG_C;
 	if (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE || mBranch == ASMIT_BPL || mBranch == ASMIT_BMI)
@@ -24447,6 +24451,7 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 NativeCodeBasicBlock::NativeCodeBasicBlock(void)
 	: mIns(NativeCodeInstruction(ASMIT_INV, ASMIM_IMPLIED)), mRelocations({ 0 }), mEntryBlocks(nullptr), mCode(0)
 {
+	mBranch = ASMIT_RTS;
 	mTrueJump = mFalseJump = NULL;
 	mOffset = -1;
 	mPlaced = false;
@@ -25050,6 +25055,11 @@ void NativeCodeProcedure::Optimize(void)
 #if 1
 	int		step = 0;
 	int cnt = 0;
+
+#if _DEBUG
+	ResetVisited();
+	mEntryBlock->CheckBlocks();
+#endif
 
 	bool	changed, xmapped = false, ymapped = false;
 	do
