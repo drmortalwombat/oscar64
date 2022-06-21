@@ -1642,6 +1642,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (ttype == IT_POINTER)
 			{
 				ains->mCode = IC_LEA;
+				ains->mSrc[1].mMemory = IM_INDIRECT;
 			}
 			else
 			{
@@ -1702,6 +1703,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (ttype == IT_POINTER)
 			{
 				ains->mCode = IC_LEA;
+				ains->mSrc[1].mMemory = IM_INDIRECT;
 			}
 			else
 			{
