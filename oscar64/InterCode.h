@@ -377,6 +377,8 @@ public:
 
 	void LocalToTemp(int vindex, int temp);
 
+	void CollectAllUsedDefinedTemps(NumberSet& defined, NumberSet& used);
+
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 
@@ -565,6 +567,7 @@ protected:
 	void LoadStoreForwarding(InterMemory paramMemory);
 
 	void MergeBasicBlocks(void);
+	void CheckUsedDefinedTemps(void);
 
 	void DisassembleDebug(const char* name);
 };
