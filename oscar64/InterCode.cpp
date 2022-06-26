@@ -9459,10 +9459,11 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			}
 
 #if 1
+			InterCodeBasicBlock* tailBlock = this == mTrueJump ? mFalseJump : mTrueJump;
+			assert(tailBlock->mNumEntries == 1);
+
 			if (!hasCall)
 			{
-				assert(this == mTrueJump && mFalseJump->mNumEntries == 1 || this == mFalseJump && mTrueJump->mNumEntries == 1);
-
 				// Check forwarding globals
 
 				int i = 0;
@@ -9513,10 +9514,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 											assert(nins->mSrc[0].mTemp >= 0);
 
 											// Move store behind loop
-											if (mTrueJump == this)
-												mFalseJump->mInstructions.Insert(0, sins);
-											else
-												mTrueJump->mInstructions.Insert(0, sins);
+											tailBlock->mInstructions.Insert(0, sins);
 											mInstructions.Remove(j);
 										}
 									}
@@ -9950,7 +9948,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 			mInstructions.SetSize(j);
 
-			NumberSet		requiredTemps(mTrueJump == this ? mFalseJump->mEntryRequiredTemps : mTrueJump->mEntryRequiredTemps);
+			NumberSet		requiredTemps(tailBlock->mEntryRequiredTemps);
 
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{
@@ -9987,6 +9985,43 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 				else
 					i++;
 			}
+
+			// move temp moves into tail if not used in loop
+
+			i = mInstructions.Size() - 1;
+			while (i >= 0)
+			{
+				InterInstruction* ins = mInstructions[i];
+				if (ins->mCode == IC_LOAD_TEMPORARY && !mEntryRequiredTemps[ins->mDst.mTemp])
+				{
+					int	dt = ins->mDst.mTemp, st = ins->mSrc[0].mTemp;
+
+					int	j = i + 1;
+					while (j < mInstructions.Size())
+					{
+						InterInstruction* cins = mInstructions[j];
+
+						if (cins->mDst.mTemp == dt)
+							break;
+						else if (cins->mCode == IC_LOAD_TEMPORARY && cins->mSrc[0].mTemp == st && cins->mSrc[0].mFinal)
+							st = cins->mDst.mTemp;
+						else if (cins->mDst.mTemp == st)
+							break;
+
+						j++;
+					}
+
+					if (j == mInstructions.Size())
+					{
+						ins->mSrc[0].mTemp = st;
+						tailBlock->mInstructions.Insert(0, ins);
+						mInstructions.Remove(i);
+					}
+				}
+				i--;
+			}
+
+
 		}
 
 		if (mTrueJump)

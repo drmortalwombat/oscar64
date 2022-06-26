@@ -503,6 +503,18 @@ int cwin_getch(void)
 	}
 }
 
+int cwin_checkch(void)
+{
+	__asm
+	{
+		L1:
+			jsr	0xffe4
+			sta	accu
+			lda	#0
+			sta	accu + 1
+	}
+}
+
 bool cwin_edit_char(CharWin * win, char ch)
 {
 	switch (ch)
