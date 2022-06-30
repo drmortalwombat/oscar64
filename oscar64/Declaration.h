@@ -164,6 +164,8 @@ public:
 
 	Expression* LogicInvertExpression(void);
 	Expression* ConstantFold(Errors * errors);
+
+	bool IsSame(const Expression* exp) const;
 };
 
 class Declaration

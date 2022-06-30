@@ -6875,6 +6875,103 @@ bool InterCodeBasicBlock::EliminateAliasValues(const GrowingInstructionPtrArray&
 	return changed;
 }
 
+bool  InterCodeBasicBlock::MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		GrowingInstructionPtrArray	ltvalue(tvalue);
+
+		if (mNumEntries > 1)
+			ltvalue.Clear();
+
+		mVisited = true;
+
+		// Move lea to front
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			if (ins->mCode == IC_LEA)
+			{
+				int j = i;
+				while (j > 0 && CanBypassUp(ins, mInstructions[j - 1]))
+				{
+					mInstructions[j] = mInstructions[j - 1];
+					j--;
+				}
+				mInstructions[j] = ins;
+			}
+		}
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			if (ins->mCode == IC_STORE || ins->mCode == IC_LOAD)
+			{
+				int pi = ins->mCode == IC_LOAD ? 0 : 1;
+
+				if (ins->mSrc[pi].mTemp >= 0 && ltvalue[ins->mSrc[pi].mTemp])
+				{
+					InterInstruction* lins = ltvalue[ins->mSrc[pi].mTemp];
+
+					if (lins->mSrc[0].mTemp >= 0)
+					{
+						InterInstruction* bins = lins;
+
+						for (int j = 0; j < ltvalue.Size(); j++)
+						{
+							InterInstruction* cins = ltvalue[j];
+							if (cins &&
+								cins->mSrc[0].mTemp == bins->mSrc[0].mTemp &&
+								cins->mSrc[1].mTemp < 0 && bins->mSrc[1].mTemp < 0 &&
+								cins->mSrc[1].mMemory == bins->mSrc[1].mMemory &&
+								cins->mSrc[1].mVarIndex == bins->mSrc[1].mVarIndex &&
+								cins->mSrc[1].mIntConst < bins->mSrc[1].mIntConst &&
+								cins->mSrc[1].mMemory != IM_ABSOLUTE)
+
+								bins = cins;
+						}
+
+						if (bins != lins && ins->mSrc[pi].mIntConst + lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst < 252)
+						{
+							ins->mSrc[pi].mTemp = bins->mDst.mTemp;
+							ins->mSrc[pi].mIntConst += lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst;
+							changed = true;
+						}
+					}
+				}
+			}
+
+			int	dtemp = ins->mDst.mTemp;
+
+			if (dtemp >= 0)
+			{
+
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (ltvalue[i] && ltvalue[i]->ReferencesTemp(dtemp))
+						ltvalue[i] = nullptr;
+				}
+
+				if (!ins->UsesTemp(dtemp))
+					ltvalue[dtemp] = ins;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MergeIndexedLoadStore(ltvalue))
+			changed = true;
+
+		if (mFalseJump && mFalseJump->MergeIndexedLoadStore(ltvalue))
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps)
 {
 	bool	changed = false;
@@ -7138,6 +7235,22 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						ins->mSrc[1].Forward(pins->mSrc[1]);
 						pins->mSrc[1].mFinal = false;
 						ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst;
+						changed = true;
+					}
+				}
+				break;
+#endif
+#if 1
+			case IC_LOAD:
+				if (ins->mSrc[0].mTemp >= 0 && ltvalue[ins->mSrc[0].mTemp])
+				{
+					InterInstruction* pins = ltvalue[ins->mSrc[0].mTemp];
+
+					if (pins->mCode == IC_LEA && pins->mSrc[0].mTemp < 0)
+					{
+						ins->mSrc[0].Forward(pins->mSrc[1]);
+						pins->mSrc[1].mFinal = false;
+						ins->mSrc[0].mIntConst += pins->mSrc[0].mIntConst;
 						changed = true;
 					}
 				}
@@ -9922,6 +10035,19 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ains->mSrc[0].mTemp = -1;
 						ains->mSrc[0].mIntConst = indexStep[ins->mSrc[0].mTemp];
 
+						if (tailBlock->mEntryRequiredTemps[ains->mDst.mTemp])
+						{
+							InterInstruction* dins = new InterInstruction();
+							dins->mCode = IC_LEA;
+							dins->mDst = ins->mDst;
+							dins->mSrc[1] = ins->mDst;
+							dins->mSrc[1].mMemory = IM_INDIRECT;
+							dins->mSrc[1].mIntConst = 0;
+							dins->mSrc[0].mType = IT_INT16;
+							dins->mSrc[0].mTemp = -1;
+							dins->mSrc[0].mIntConst = - indexStep[ins->mSrc[0].mTemp];
+							tailBlock->mInstructions.Insert(0, dins);
+						}
 						indexins.Push(ains);
 					}
 				}
@@ -11515,6 +11641,25 @@ void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int 
 	mEntryBlock->CompactInstructions();
 }
 
+void InterCodeProcedure::MergeIndexedLoadStore(void)
+{
+	GrowingInstructionPtrArray	silvalues(nullptr);
+
+	do
+	{
+		BuildDataFlowSets();
+
+		TempForwarding();
+		RemoveUnusedInstructions();
+
+		silvalues.SetSize(mTemporaries.Size(), true);
+
+		ResetVisited();
+	} while (mEntryBlock->MergeIndexedLoadStore(silvalues));
+
+	DisassembleDebug("MergeIndexedLoadStore");
+}
+
 void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet)
 {
 	GrowingInstructionPtrArray	silvalues(nullptr);
@@ -11738,6 +11883,8 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("interval compare");
 
+	MergeIndexedLoadStore();
+
 	BuildDataFlowSets();
 
 	ResetVisited();
@@ -11757,6 +11904,10 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet, mModule->mGlobalVars);
 
 	DisassembleDebug("single block loop opt");
+
+	BuildDataFlowSets();
+
+	RenameTemporaries();
 
 	BuildDataFlowSets();
 

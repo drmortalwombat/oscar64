@@ -94,6 +94,21 @@ Expression::~Expression(void)
 
 }
 
+bool Expression::IsSame(const Expression* exp) const
+{
+	if (!exp || mType != exp->mType)
+		return false;
+
+	switch (mType)
+	{
+	case EX_VARIABLE:
+		return mDecValue == exp->mDecValue;
+
+	default:
+		return false;
+	}
+}
+
 Expression* Expression::LogicInvertExpression(void) 
 {
 	if (mType == EX_LOGICAL_NOT)

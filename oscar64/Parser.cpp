@@ -13,6 +13,8 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 	mDataSection = compilationUnits->mSectionData;
 	mBSSection = compilationUnits->mSectionBSS;
 
+	mUnrollLoop = 0;
+
 	for (int i = 0; i < 256; i++)
 		mCharMap[i] = i;
 }
@@ -2017,6 +2019,12 @@ Expression* Parser::ParseStatement(void)
 {
 	Expression* exp = nullptr;
 
+	while (mScanner->mToken == TK_PREP_PRAGMA)
+	{
+		mScanner->NextToken();
+		ParsePragma();
+	}
+	
 	if (mScanner->mToken == TK_OPEN_BRACE)
 	{
 		DeclarationScope* scope = new DeclarationScope(mScope);
@@ -2111,12 +2119,16 @@ Expression* Parser::ParseStatement(void)
 
 				mScanner->NextToken();
 				exp = new Expression(mScanner->mLocation, EX_FOR);
-				exp->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);
-				exp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);
+
+				int unrollLoop = mUnrollLoop;
+				mUnrollLoop = 0;
+
+				Expression* initExp = nullptr, * iterateExp = nullptr, * conditionExp = nullptr, * bodyExp = nullptr, * finalExp = nullptr;
+
 
 				// Assignment
 				if (mScanner->mToken != TK_SEMICOLON)
-					exp->mLeft->mRight = ParseExpression();
+					initExp = ParseExpression();
 				if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
 				else
@@ -2124,7 +2136,8 @@ Expression* Parser::ParseStatement(void)
 
 				// Condition
 				if (mScanner->mToken != TK_SEMICOLON)
-					exp->mLeft->mLeft->mLeft = ParseExpression();
+					conditionExp = ParseExpression();
+
 				if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
 				else
@@ -2132,12 +2145,83 @@ Expression* Parser::ParseStatement(void)
 
 				// Iteration
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
-					exp->mLeft->mLeft->mRight = ParseExpression();
+					iterateExp = ParseExpression();
 				if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 					mScanner->NextToken();
 				else
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
-				exp->mRight = ParseStatement();
+				bodyExp = ParseStatement();
+
+				exp->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);
+				exp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);
+
+				if (unrollLoop > 1 && initExp && iterateExp && conditionExp)
+				{
+					if ((initExp->mType == EX_ASSIGNMENT || initExp->mType == EX_INITIALIZATION) && initExp->mLeft->mType == EX_VARIABLE && initExp->mRight->mType == EX_CONSTANT &&
+						(iterateExp->mType == EX_POSTINCDEC || iterateExp->mType == EX_PREINCDEC) && iterateExp->mLeft->IsSame(initExp->mLeft) &&
+						conditionExp->mType == EX_RELATIONAL && conditionExp->mToken == TK_LESS_THAN && conditionExp->mLeft->IsSame(initExp->mLeft) && conditionExp->mRight->mType == EX_CONSTANT)
+					{
+						if (initExp->mRight->mDecValue->mType == DT_CONST_INTEGER && conditionExp->mRight->mDecValue->mType == DT_CONST_INTEGER)
+						{
+							int	startValue = initExp->mRight->mDecValue->mInteger;
+							int	endValue = conditionExp->mRight->mDecValue->mInteger;
+							
+							int	remain = (endValue - startValue) % unrollLoop;
+							endValue -= remain;
+
+							conditionExp->mRight->mDecValue->mInteger = endValue;
+
+							Expression	*	unrollBody = new Expression(mScanner->mLocation, EX_SEQUENCE);
+							unrollBody->mLeft = bodyExp;
+							Expression* bexp = unrollBody;
+							if (endValue > startValue)
+							{
+								for (int i = 1; i < unrollLoop; i++)
+								{
+									bexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+									bexp = bexp->mRight;
+									bexp->mLeft = iterateExp;
+									bexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+									bexp = bexp->mRight;
+									bexp->mLeft = bodyExp;
+								}
+							}
+
+							if (remain)
+							{
+								finalExp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+								finalExp->mLeft = bodyExp;
+								Expression* bexp = finalExp;
+
+								for (int i = 1; i < remain; i++)
+								{
+									bexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+									bexp = bexp->mRight;
+									bexp->mLeft = iterateExp;
+									bexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+									bexp = bexp->mRight;
+									bexp->mLeft = bodyExp;
+								}
+							}
+
+							bodyExp = unrollBody;
+						}
+					}
+				}
+
+				exp->mLeft->mRight = initExp;
+				exp->mLeft->mLeft->mLeft = conditionExp;
+				exp->mLeft->mLeft->mRight = iterateExp;
+				exp->mRight = bodyExp;
+
+				if (finalExp)
+				{
+					Expression* nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+					nexp->mLeft = exp;
+					nexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+					nexp->mRight->mLeft = finalExp;
+					exp = nexp;
+				}
 
 				mScope = mScope->mParent;
 			}
@@ -3571,6 +3655,26 @@ void Parser::ParsePragma(void)
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Variable name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "unroll"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_INTEGER)
+			{
+				mUnrollLoop = mScanner->mTokenInteger;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_IDENT && !strcmp(mScanner->mTokenIdent->mString, "full"))
+			{
+				mUnrollLoop = 0x10000;
+				mScanner->NextToken();
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer literal expected");
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}

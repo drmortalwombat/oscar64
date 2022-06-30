@@ -251,7 +251,7 @@ int main(void)
 		dy += ay;
 
 		// New force
-		if ((rand() & 127) == 0)
+		if ((rand() & 63) == 0)
 		{
 			ax = (rand() & 63) - 32;
 			ay = (rand() & 63) - 32;

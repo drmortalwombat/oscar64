@@ -10,11 +10,15 @@ __native long lmul16s(int x, int y)
 // Multiply two 12.4 fixpoint numbers and return a 12.4 fixpoint result
 inline int lmul12f4s(int x, int y);
 
+
 // Multiply two 8.8 fixpoint numbers and return an 8.8 fixpoint result
 inline int lmul8f8s(int x, int y);
 
 // Multiply two 4.12 fixpoint numbers and return a 12.4 fixpoint result
 __native int lmul4f12s(int x, int y)
+
+// Square of a 4.12 sigend fixpoint number and return an 8.24 fixpoint result
+inline unsigned long lsqr4f12s(int x);
 
 // Divide a 32bit unsigned number by a 16bit number and return a 16bit number
 __native unsigned ldiv16u(unsigned long x, unsigned y)

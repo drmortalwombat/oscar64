@@ -24,6 +24,7 @@ protected:
 	bool ConsumeTokenIf(Token token);
 
 	char			mCharMap[256];
+	int				mUnrollLoop;
 
 	uint8* ParseStringLiteral(int msize);
 

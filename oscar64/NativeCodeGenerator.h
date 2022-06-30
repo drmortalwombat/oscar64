@@ -7,6 +7,7 @@
 class NativeCodeProcedure;
 class NativeCodeBasicBlock;
 class NativeCodeGenerator;
+class NativeCodeInstruction;
 
 enum NativeRegisterDataMode
 {
@@ -44,6 +45,14 @@ struct NativeRegisterDataSet
 	void ResetIndirect(void);
 	void Intersect(const NativeRegisterDataSet& set);
 	void IntersectMask(const NativeRegisterDataSet& set);
+};
+
+struct NativeRegisterSum16Info
+{
+	NativeCodeInstruction	*	mSrcL, * mSrcH, * mDstL, * mDstH, * mAddL, * mAddH;
+
+	int							mAddress;
+	LinkerObject			*	mLinkerObject;
 };
 
 
@@ -278,6 +287,8 @@ public:
 	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags, int & addr);
 	bool FindExternAddressSumY(int at, int reg, int& breg, int& ireg);
 	bool FindPageStartAddress(int at, int reg, int& addr);
+	bool FindBypassAddressSumY(int at, int reg, int& apos, int& breg);
+	bool PatchBypassAddressSumY(int at, int reg, int apos, int breg);
 	bool MoveStoreXUp(int at);
 	bool MoveLoadXUp(int at);
 	bool MoveStoreYUp(int at);
@@ -286,9 +297,13 @@ public:
 	bool MoveAddHighByteDown(int at);
 	bool ReverseLoadCommutativeOpUp(int aload, int aop);
 	bool ReplaceZeroPageUp(int at);
+	bool ReplaceZeroPageDown(int at);
 	bool ReplaceYRegWithXReg(int start, int end);
 	bool ReplaceXRegWithYReg(int start, int end);
 	bool MoveASLMemUp(int start);
+
+	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
+	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);
 
 	bool CanReplaceYRegWithXReg(int start, int end);
 	bool CanReplaceXRegWithYReg(int start, int end);
@@ -323,6 +338,9 @@ public:
 	bool SameTail(const NativeCodeInstruction& ins) const;
 	bool HasTailSTA(int& addr, int& index) const;
 	bool PropagateSinglePath(void);
+
+	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
+	bool Propagate16BitSum(void);
 
 	NativeRegisterDataSet	mEntryRegisterDataSet;
 

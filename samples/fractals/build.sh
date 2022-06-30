@@ -3,4 +3,5 @@
 ../../bin/oscar64 mbhires.c -n
 ../../bin/oscar64 mbmulti.c -n
 ../../bin/oscar64 mbmulti3d.c -n
+../../bin/oscar64 mbfixed.c -n -O3
 

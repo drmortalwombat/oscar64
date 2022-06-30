@@ -428,6 +428,7 @@ public:
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars);
 	bool EliminateDeadBranches(void);
 
+	bool MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue);
 	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps);
 	bool EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue);
 
@@ -563,6 +564,7 @@ protected:
 	void PushSinglePathResultInstructions(void);
 	void PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams);
 	void SimplifyIntegerNumeric(FastNumberSet& activeSet);
+	void MergeIndexedLoadStore(void);
 	void EliminateAliasValues();
 	void LoadStoreForwarding(InterMemory paramMemory);
 

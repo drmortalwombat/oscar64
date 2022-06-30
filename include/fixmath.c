@@ -106,6 +106,12 @@ inline int lmul8f8s(int x, int y)
 	return (int)(lmul16s(x, y) >> 8);
 }
 
+inline unsigned long lsqr4f12s(int x)
+{
+	if (x < 0) x = -x;
+	return lmul16u(x, x);
+}
+
 int lmul4f12s(int x, int y)
 {
 	__asm
