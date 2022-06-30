@@ -14,12 +14,12 @@ void copyFont(void)
 	mmap_set(MMAP_ROM);
 }
 
-// Screen and color space
-#define screen ((byte *)0x0400)
-#define color ((byte *)0xd800)
+// Single row of screen has 40 characters
+typedef char	ScreenRow[40];
 
-// Macro for easy access to screen space
-#define sline(x, y) (screen + 40 * (y) + (x))
+// Screen and color space
+ScreenRow * const screen = (ScreenRow *)0x0400;
+ScreenRow * const color = (ScreenRow *)0xd800;
 
 // Start row for text
 #define srow 5
@@ -30,12 +30,12 @@ void scrollLeft(void)
 	// Loop horizontaly
 	for(char x=0; x<39; x++)
 	{
-		// Unroll vetical loop 16 times
-#assign y 0		
-#repeat
-		sline(0, srow + y)[x] = sline(1, srow + y)[x];
-#assign y y + 1
-#until y == 16
+		// Unroll vertical loop 16 times
+		#pragma unroll(full)
+		for(char y=0; y<16; y++)
+		{
+			screen[srow + y][x] = screen[srow + y][x + 1];
+		}
 	}
 }
 
@@ -46,13 +46,13 @@ void expand(char c, byte f)
 	byte * fp = font + 8 * c;
 
 	// Unroll eight times for each byte in glyph data
-#assign y 0		
-#repeat
-	sline(39, srow + 2 * y + 0)[0] = 
-	sline(39, srow + 2 * y + 1)[0] = (fp[y] & f) ? 160 : 32;
-#assign y y + 1
-#until y == 8
-
+//	#pragma unroll(full)
+	for(char y=0; y<8; y++)
+	{
+		char t = (fp[y] & f) ? 160 : 32;
+		screen[srow + 2 * y + 0][39] = t;
+		screen[srow + 2 * y + 1][39] = t;
+	}
 }
 
 const char * text = 
@@ -77,7 +77,7 @@ int main(void)
 
 	// Color bars
 	for(int i=0; i<16; i++)
-		memset(color + 40 * (srow + i), i + 1, 40);
+		memset(color[srow + i], i + 1, 40);
 
 	vic.color_back = VCOL_BLACK;
 	vic.color_border = VCOL_BLACK;

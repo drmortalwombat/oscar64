@@ -869,6 +869,22 @@ void ValueSet::InsertValue(InterInstruction * ins)
 	mInstructions[mNum++] = ins;
 }
 
+static bool HasSideEffect(InterCode code)
+{
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER;
+}
+
+static bool IsMoveable(InterCode code)
+{
+	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
+		return false;
+	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
+		return false;
+
+	return true;
+}
+
+
 static bool CanBypassLoad(const InterInstruction* lins, const InterInstruction* bins)
 {
 	// Check ambiguity
@@ -922,6 +938,9 @@ static bool CanBypassLoad(const InterInstruction* lins, const InterInstruction* 
 
 static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins)
 {
+	if (HasSideEffect(lins->mCode) && HasSideEffect(bins->mCode))
+		return false;
+
 	if (lins->mDst.mTemp >= 0)
 	{
 		if (lins->mDst.mTemp == bins->mDst.mTemp)
@@ -948,6 +967,9 @@ static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins
 
 static bool CanBypassUp(const InterInstruction* lins, const InterInstruction* bins)
 {
+	if (HasSideEffect(lins->mCode) && HasSideEffect(bins->mCode))
+		return false;
+
 	if (lins->mDst.mTemp >= 0)
 	{
 		if (lins->mDst.mTemp == bins->mDst.mTemp)
@@ -2756,22 +2778,6 @@ void InterInstruction::PerformTempForwarding(TempForwardingTable& forwardingTabl
 		forwardingTable.Build(mDst.mTemp, mSrc[0].mTemp);
 	}
 }
-
-bool HasSideEffect(InterCode code)
-{
-	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER;
-}
-
-bool IsMoveable(InterCode code)
-{
-	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
-		return false;
-	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
-		return false;
-
-	return true;
-}
-
 
 bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps)
 {
@@ -6920,27 +6926,29 @@ bool  InterCodeBasicBlock::MergeIndexedLoadStore(const GrowingInstructionPtrArra
 
 					if (lins->mSrc[0].mTemp >= 0)
 					{
-						InterInstruction* bins = lins;
-
-						for (int j = 0; j < ltvalue.Size(); j++)
+						if (lins->mSrc[1].mMemory != IM_ABSOLUTE || (lins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && lins->mSrc[0].mRange.mMaxValue >= 256))
 						{
-							InterInstruction* cins = ltvalue[j];
-							if (cins &&
-								cins->mSrc[0].mTemp == bins->mSrc[0].mTemp &&
-								cins->mSrc[1].mTemp < 0 && bins->mSrc[1].mTemp < 0 &&
-								cins->mSrc[1].mMemory == bins->mSrc[1].mMemory &&
-								cins->mSrc[1].mVarIndex == bins->mSrc[1].mVarIndex &&
-								cins->mSrc[1].mIntConst < bins->mSrc[1].mIntConst &&
-								cins->mSrc[1].mMemory != IM_ABSOLUTE)
+							InterInstruction* bins = lins;
+							for (int j = 0; j < ltvalue.Size(); j++)
+							{
+								InterInstruction* cins = ltvalue[j];
+								if (cins &&
+									cins->mSrc[0].mTemp == bins->mSrc[0].mTemp &&
+									cins->mSrc[1].mTemp < 0 && bins->mSrc[1].mTemp < 0 &&
+									cins->mSrc[1].mMemory == bins->mSrc[1].mMemory &&
+									cins->mSrc[1].mVarIndex == bins->mSrc[1].mVarIndex &&
+									cins->mSrc[1].mIntConst < bins->mSrc[1].mIntConst)
+								{
+									bins = cins;
+								}
+							}
 
-								bins = cins;
-						}
-
-						if (bins != lins && ins->mSrc[pi].mIntConst + lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst < 252)
-						{
-							ins->mSrc[pi].mTemp = bins->mDst.mTemp;
-							ins->mSrc[pi].mIntConst += lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst;
-							changed = true;
+							if (bins != lins && ins->mSrc[pi].mIntConst + lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst < 252)
+							{
+								ins->mSrc[pi].mTemp = bins->mDst.mTemp;
+								ins->mSrc[pi].mIntConst += lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst;
+								changed = true;
+							}
 						}
 					}
 				}
@@ -10568,6 +10576,18 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
 						changed = true;
 					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+						(mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) < 65536)
+					{
+						mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;;
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 0]->mCode = IC_NONE;
+						mInstructions[i + 0]->mNumOperands = 0;
+						changed = true;
+					}
 #if 1
 					else if (
 						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_OR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
@@ -10808,6 +10828,15 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
 						changed = true;
 					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_STORE && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+						mInstructions[i + 1]->mSrc[1].mIntConst != 0)
+					{
+						mInstructions[i + 0]->mSrc[1].mIntConst += mInstructions[i + 1]->mSrc[1].mIntConst;
+						mInstructions[i + 1]->mSrc[1].mIntConst = 0;
+						changed = true;
+					}
 #if 1
 					else if (
 						mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mMemory == IM_GLOBAL &&
@@ -10830,6 +10859,22 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						changed = true;
 					}
 #endif
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+						mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL &&
+						mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+						mInstructions[i + 2]->mCode == IC_LEA &&
+						mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+						mInstructions[i + 2]->mSrc[1].mTemp < 0)
+					{
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst;
+
+						mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+						changed = true;
+					}
 
 #if 1
 					// Postincrement artifact
@@ -12046,6 +12091,8 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	EliminateAliasValues();
+
+	MergeIndexedLoadStore();
 
 #if 1
 	ResetVisited();
