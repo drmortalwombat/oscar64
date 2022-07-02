@@ -36,6 +36,7 @@ enum InterCode
 	IC_RETURN,
 	IC_ASSEMBLER,
 	IC_JUMPF,
+	IC_SELECT,
 	IC_UNREACHABLE
 };
 
@@ -478,6 +479,8 @@ public:
 	InterCodeBasicBlock* BuildLoopPrefix(InterCodeProcedure * proc);
 	void BuildLoopSuffix(InterCodeProcedure* proc);
 
+	void ExpandSelect(InterCodeProcedure* proc);
+
 	void SplitBranches(InterCodeProcedure* proc);
 	void FollowJumps(void);
 
@@ -567,6 +570,7 @@ protected:
 	void MergeIndexedLoadStore(void);
 	void EliminateAliasValues();
 	void LoadStoreForwarding(InterMemory paramMemory);
+	void ExpandSelect(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);

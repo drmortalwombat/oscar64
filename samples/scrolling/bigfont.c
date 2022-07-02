@@ -46,7 +46,7 @@ void expand(char c, byte f)
 	byte * fp = font + 8 * c;
 
 	// Unroll eight times for each byte in glyph data
-//	#pragma unroll(full)
+	//#pragma unroll(full)
 	for(char y=0; y<8; y++)
 	{
 		char t = (fp[y] & f) ? 160 : 32;

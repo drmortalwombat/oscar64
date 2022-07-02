@@ -192,6 +192,21 @@ The character map for string and char constants can be changed with a pragma to 
 
 The compiler can be provided with additional information using the built in function __assume(cond).  This can be useful to mark unreachable code using __assume(false) for e.g. the default of a switch statement.  Another good option is to limit the value range of arguments to allow the compiler using byte operations without the need for integer promotion.
 
+### Loop unrolling
+
+Loop unrolling on 6502 is hard to decide for the compiler.  Memory is usually scarce, so it only does it in realy obvious cases (and in less obbious cases for O3).  On the other hand unrolling is required to get good performance in e.g. scrolling code.  Therefore the compiler offers an unrolling pragma, that can be used to specifiy the amount of unrolling either as a number or "full" for complete.
+
+The following code scrolls the screen to the left, and completely unrolls the inner vertical loop.
+
+
+	for(char x=0; x<39; x++)
+	{
+		#pragma unroll(full)
+		for(char y=0; y<25; y++)
+			screen[y][x] = screen[y][x + 1];
+	}
+	
+
 ### Marking functions as native
 
 Routines can be marked to be compiled to 6502 machine code with the native pragma:

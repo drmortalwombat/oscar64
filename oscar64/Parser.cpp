@@ -2165,13 +2165,13 @@ Expression* Parser::ParseStatement(void)
 						{
 							int	startValue = initExp->mRight->mDecValue->mInteger;
 							int	endValue = conditionExp->mRight->mDecValue->mInteger;
-							
+
 							int	remain = (endValue - startValue) % unrollLoop;
 							endValue -= remain;
 
 							conditionExp->mRight->mDecValue->mInteger = endValue;
 
-							Expression	*	unrollBody = new Expression(mScanner->mLocation, EX_SEQUENCE);
+							Expression* unrollBody = new Expression(mScanner->mLocation, EX_SEQUENCE);
 							unrollBody->mLeft = bodyExp;
 							Expression* bexp = unrollBody;
 							if (endValue > startValue)
@@ -2206,7 +2206,11 @@ Expression* Parser::ParseStatement(void)
 
 							bodyExp = unrollBody;
 						}
+						else
+							mErrors->Error(exp->mLocation, EWARN_LOOP_UNROLL_IGNORED, "Loop unroll ignored, bounds and step not integer");
 					}
+					else
+						mErrors->Error(exp->mLocation, EWARN_LOOP_UNROLL_IGNORED, "Loop unroll ignored, bounds and step not const");
 				}
 
 				exp->mLeft->mRight = initExp;
