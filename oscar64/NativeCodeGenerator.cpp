@@ -11932,6 +11932,39 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			}
 #endif
 #if 1
+			if (i + 3 < mIns.Size() &&
+				mIns[i + 0].ChangesAccuAndFlag() &&
+				mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x01 &&
+				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x00 &&
+				mIns[i + 3].mType == ASMIT_ROL && mIns[i + 3].mMode == ASMIM_IMPLIED)
+			{
+				changed = true;
+
+				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* neblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+
+				rblock->mTrueJump = mTrueJump;
+				rblock->mFalseJump = mFalseJump;
+				rblock->mBranch = mBranch;
+
+				for (int j = i + 4; j < mIns.Size(); j++)
+					rblock->mIns.Push(mIns[j]);
+				mIns.SetSize(i + 1);
+				mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
+
+				mTrueJump = neblock;
+				mFalseJump = eblock;
+				mBranch = ASMIT_BNE;
+
+				neblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 1));
+
+				eblock->Close(rblock, nullptr, ASMIT_JMP);
+				neblock->Close(rblock, nullptr, ASMIT_JMP);
+				break;
+			}
+#endif
+#if 1
 			if (i + 4 < mIns.Size() &&
 				(mIns[i + 0].mType == ASMIT_CPX || mIns[i + 0].mType == ASMIT_CPY) && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x01 &&
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x00 &&
