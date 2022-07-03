@@ -10781,6 +10781,19 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 0]->mNumOperands = 0;
 						changed = true;
 					}
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_MUL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+						(mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst) < 65536)
+					{
+						mInstructions[i + 1]->mSrc[0].mIntConst = mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst;
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 1]->mOperator = IA_MUL;
+						mInstructions[i + 0]->mCode = IC_NONE;
+						mInstructions[i + 0]->mNumOperands = 0;
+						changed = true;
+					}
 #if 1
 					else if (
 						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_OR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&

@@ -182,6 +182,8 @@ public:
 	void Assemble(void);
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
+	void ShortcutTailRecursion();
+
 	bool RemoveNops(void);
 	bool PeepHoleOptimizer(NativeCodeProcedure* proc, int pass);
 	void BlockSizeReduction(NativeCodeProcedure* proc);

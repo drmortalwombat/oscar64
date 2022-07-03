@@ -194,7 +194,7 @@ The compiler can be provided with additional information using the built in func
 
 ### Loop unrolling
 
-Loop unrolling on 6502 is hard to decide for the compiler.  Memory is usually scarce, so it only does it in realy obvious cases (and in less obbious cases for O3).  On the other hand unrolling is required to get good performance in e.g. scrolling code.  Therefore the compiler offers an unrolling pragma, that can be used to specifiy the amount of unrolling either as a number or "full" for complete.
+Loop unrolling on 6502 is hard to decide for the compiler.  Memory is usually scarce, so it only does it in realy obvious cases (and in less obvious cases for O3).  On the other hand unrolling is required to get good performance in e.g. scrolling code.  Therefore the compiler offers an unrolling pragma, that can be used to specifiy the amount of unrolling either as a number or "full" for complete.
 
 The following code scrolls the screen to the left, and completely unrolls the inner vertical loop.
 

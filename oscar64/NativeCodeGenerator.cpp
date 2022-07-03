@@ -25240,6 +25240,23 @@ bool NativeCodeBasicBlock::CalculateOffset(int& total)
 	return changed;
 }
 
+void NativeCodeBasicBlock::ShortcutTailRecursion()
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+		if (!mFalseJump && mTrueJump && mTrueJump->mIns.Size() == 1 && mTrueJump->mIns[0].mType == ASMIT_RTS && mIns.Size() > 0 && mIns.Last().IsSimpleJSR())
+		{
+			this->mCode[this->mCode.Size() - 3] = 0x4c;
+			mTrueJump->mNumEntries--;
+			mTrueJump = nullptr;
+		}
+
+		if (mTrueJump) mTrueJump->ShortcutTailRecursion();
+		if (mFalseJump) mFalseJump->ShortcutTailRecursion();
+	}
+}
+
 void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 {
 	int i;
@@ -25822,7 +25839,10 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mEntryBlock->Assemble();
 
-	NativeCodeBasicBlock* lentryBlock = mEntryBlock->BypassEmptyBlocks();
+	mEntryBlock = mEntryBlock->BypassEmptyBlocks();
+
+	ResetVisited();
+	mEntryBlock->ShortcutTailRecursion();
 
 	proc->mLinkerObject->mType = LOT_NATIVE_CODE;
 
@@ -25831,7 +25851,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	int	total;
 	total = 0;
 
-	lentryBlock->BuildPlacement(placement);
+	mEntryBlock->BuildPlacement(placement);
 
 	for (int i = 0; i < placement.Size(); i++)
 		placement[i]->InitialOffset(total);
