@@ -986,6 +986,11 @@ Declaration* Parser::ParseDeclaration(bool variable)
 				storageFlags |= DTF_ZEROPAGE;
 				mScanner->NextToken();
 			}
+			else if (mScanner->mToken == TK_NOINLINE)
+			{
+				storageFlags |= DTF_PREVENT_INLINE;
+				mScanner->NextToken();
+			}
 			else if (mScanner->mToken == TK_INLINE)
 			{
 				storageFlags |= DTF_REQUEST_INLINE;

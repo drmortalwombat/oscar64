@@ -62,7 +62,14 @@ void GlobalAnalyzer::AutoInline(void)
 		for (int i = 0; i < mFunctions.Size(); i++)
 		{
 			Declaration* f = mFunctions[i];
-			if (!(f->mFlags & DTF_INLINE) && !(f->mBase->mFlags & DTF_VARIADIC) && !(f->mFlags & DTF_FUNC_VARIABLE) && !((f->mFlags & DTF_FUNC_ASSEMBLER) && !(f->mFlags & DTF_REQUEST_INLINE)) && !(f->mFlags & DTF_INTRINSIC) && !(f->mFlags & DTF_FUNC_RECURSIVE) && f->mLocalSize < 100)
+			if (!(f->mFlags & DTF_INLINE) && 
+				!(f->mFlags & DTF_EXPORT) && 
+				!(f->mFlags & DTF_PREVENT_INLINE) &&
+				!(f->mBase->mFlags & DTF_VARIADIC) &&
+				!(f->mFlags & DTF_FUNC_VARIABLE) && 
+				!((f->mFlags & DTF_FUNC_ASSEMBLER) && !(f->mFlags & DTF_REQUEST_INLINE)) && 
+				!(f->mFlags & DTF_INTRINSIC) && 
+				!(f->mFlags & DTF_FUNC_RECURSIVE) && f->mLocalSize < 100)
 			{
 				int		nparams = 0;
 				Declaration* dec = f->mBase->mParams;

@@ -231,6 +231,18 @@ The compiler uses basic zero page space for temporaries, local variables and fun
 
     __zeropage int a;
 
+### Prevent inlining
+
+With compiler option O2 and greater the compiler will try to inline small functions.  This may not always be desirable, so the __noinline qualifier can be added to a function to prevent this.
+
+    __noinline byte EzRead(char bank, const char * p)
+	{
+		eflash.bank = bank;
+		byte b = *p;
+		eflash.bank = CodeBank;
+		return b;
+	}
+
 ### Pre-Processor control
 
 The pre processor has additional commands to control the scanner and allow for dynamic code generation including loops.

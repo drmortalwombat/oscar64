@@ -62,9 +62,12 @@ void LinkerObject::AddData(const uint8* data, int size)
 
 uint8* LinkerObject::AddSpace(int size)
 {
-	mSize = size;
-	mData = new uint8[size];
-	memset(mData, 0, size);
+	if (mSize != size)
+	{
+		mSize = size;
+		mData = new uint8[size];
+		memset(mData, 0, size);
+	}
 	return mData;
 }
 

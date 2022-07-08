@@ -345,6 +345,10 @@ public:
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
 	bool Propagate16BitSum(void);
 
+	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair);
+	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
+	bool ForwardReplaceZeroPage(int at, int from, int to);
+
 	NativeRegisterDataSet	mEntryRegisterDataSet;
 
 	void BuildEntryDataSet(const NativeRegisterDataSet& set);

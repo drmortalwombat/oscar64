@@ -2419,8 +2419,14 @@ bool InterOperand::IsEqual(const InterOperand& op) const
 	if (mMemory != op.mMemory)
 		return false;
 
-	if (mIntConst != op.mIntConst || mFloatConst != op.mFloatConst || mVarIndex != op.mVarIndex || mLinkerObject != op.mLinkerObject)
+	if (mIntConst != op.mIntConst || mFloatConst != op.mFloatConst)
 		return false;
+
+	if (mMemory != IM_NONE && mMemory != IM_INDIRECT)
+	{
+		if (mVarIndex != op.mVarIndex || mLinkerObject != op.mLinkerObject)
+			return false;
+	}
 
 	return true;
 }
@@ -5740,8 +5746,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				switch (ins->mOperator)
 				{
 				case IA_EXT8TO16U:
-				case IA_EXT8TO16S:
 					if (ins->mSrc[0].mTemp >= 0 && (vr.mMaxValue != 255 || vr.mMinValue != 0))
+						mReverseValueRange[ins->mSrc[0].mTemp].Limit(vr);
+					break;
+				case IA_EXT8TO16S:
+					if (ins->mSrc[0].mTemp >= 0 && (vr.mMaxValue != 127 || vr.mMinValue != -128))
 						mReverseValueRange[ins->mSrc[0].mTemp].Limit(vr);
 					break;
 				}
@@ -13005,34 +13014,59 @@ void InterCodeProcedure::MapCallerSavedTemps(void)
 
 	assert(freeCallerSavedTemps <= mCallerSavedTemps);
 
-	mTempOffset.SetSize(0);
-	mTempSizes.SetSize(0);
+	mTempOffset.SetSize(mTemporaries.Size(), true);
+	mTempSizes.SetSize(mTemporaries.Size(), true);
 
 	for (int i = 0; i < mTemporaries.Size(); i++)
 	{
-		int size = InterTypeSize[mTemporaries[i]];
+		if (!callerSaved[i])
+		{
+			int size = InterTypeSize[mTemporaries[i]];
 
-		if (freeTemps + size <= freeCallerSavedTemps && !callerSaved[i])
-		{
-			mTempOffset.Push(freeTemps);
-			mTempSizes.Push(size);
-			freeTemps += size;
-		}
-		else if (callerSavedTemps + size <= maxCallerSavedTemps)
-		{
-			mTempOffset.Push(callerSavedTemps);
-			mTempSizes.Push(size);
-			callerSavedTemps += size;
-		}
-		else
-		{
-			mTempOffset.Push(calleeSavedTemps);
-			mTempSizes.Push(size);
-			calleeSavedTemps += size;
+			if (freeTemps + size <= freeCallerSavedTemps)
+			{
+				mTempOffset[i] = freeTemps;
+				mTempSizes[i] = size;
+				freeTemps += size;
+			}
 		}
 	}
+
+//	if (freeTemps > callerSavedTemps)
+//		callerSavedTemps = freeTemps;
+
+	for (int i = 0; i < mTemporaries.Size(); i++)
+	{
+		if (!mTempSizes[i])
+		{
+			int size = InterTypeSize[mTemporaries[i]];
+
+			if (callerSavedTemps + size <= maxCallerSavedTemps)
+			{
+				mTempOffset[i] = callerSavedTemps;
+				mTempSizes[i] = size;
+				callerSavedTemps += size;
+			}
+			else
+			{
+				mTempOffset[i] = calleeSavedTemps;
+				mTempSizes[i] = size;
+				calleeSavedTemps += size;
+			}
+		}
+	}
+
 	mTempSize = calleeSavedTemps;
 	mCallerSavedTemps = callerSavedTemps;
+
+#if 0
+	printf("Map %s, %d, %d, %d, %d\n", mIdent->mString, freeTemps, callerSavedTemps, calleeSavedTemps, freeCallerSavedTemps);
+	for (int i = 0; i < mTempOffset.Size(); i++)
+		printf("T%02d : %d, %d\n", i, mTempOffset[i], mTempSizes[i]);
+#endif
+
+	if (mSaveTempsLinkerObject && mTempSize > 16)
+		mSaveTempsLinkerObject->AddSpace(mTempSize - 16);
 
 //	printf("Map %s, %d, %d, %d, %d\n", mIdent->mString, freeTemps, callerSavedTemps, calleeSavedTemps, freeCallerSavedTemps);
 }

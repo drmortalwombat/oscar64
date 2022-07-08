@@ -72,6 +72,7 @@ static const uint64 DTF_EXPORT			= (1ULL << 19);
 static const uint64 DTF_HWINTERRUPT		= (1ULL << 20);
 static const uint64 DTF_STACKCALL		= (1ULL << 21);
 static const uint64 DTF_ZEROPAGE		= (1ULL << 22);
+static const uint64 DTF_PREVENT_INLINE  = (1ULL << 23);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
