@@ -43,6 +43,7 @@ bool key_shift(void)
 void keyb_poll(void)
 {
 	cia1.ddra = 0xff;
+    cia1.pra = 0xff;
 	keyb_key = 0x00;
 
 	if (cia1.prb == 0xff)
