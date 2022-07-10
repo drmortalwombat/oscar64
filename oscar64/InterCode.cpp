@@ -5302,7 +5302,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 				case IA_EXT8TO16U:
 					vr = ins->mSrc[0].mRange;
-					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255)
+					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255 || vr.mMinValue < 0)
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
 						vr.mMaxValue = 255;

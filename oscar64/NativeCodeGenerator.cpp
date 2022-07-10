@@ -7829,14 +7829,20 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				if (sins0)
 				{
 					insl = NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, BC_REG_WORK + 0);
-					insh = NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, BC_REG_WORK + 1);
+					if (ins->mDst.IsUByte())
+						insh = NativeCodeInstruction(ASMIT_AND, ASMIM_IMMEDIATE, 0);
+					else
+						insh = NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, BC_REG_WORK + 1);
 
 					LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
 				}
 				else
 				{
 					insl = NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]);
-					insh = NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1);
+					if (ins->mDst.IsUByte())
+						insh = NativeCodeInstruction(ASMIT_AND, ASMIM_IMMEDIATE, 0);
+					else
+						insh = NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1);
 				}
 
 				if (sins1)
@@ -7851,9 +7857,17 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg));
 					if (InterTypeSize[ins->mDst.mType] > 1)
 					{
-						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
-						mIns.Push(insh);
-						mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
+						if (ins->mDst.IsUByte())
+						{
+							mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+							mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
+						}
+						else
+						{
+							mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
+							mIns.Push(insh);
+							mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
+						}
 					}
 				}
 			}
@@ -13929,7 +13943,16 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 			mPatched = true;
 
 			if (!mEntryRequiredRegs[reg])
+			{
+				if (mExitRequiredRegs[reg])
+				{
+					if (mTrueJump && !mTrueJump->CheckPatchFail(block, reg))
+						return false;
+					if (mFalseJump && !mFalseJump->CheckPatchFail(block, reg))
+						return false;
+				}
 				return true;
+			}
 
 			assert(mNumEntries == mEntryBlocks.Size());
 
@@ -13976,7 +13999,17 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 					}
 				}
 				else
+				{
+					if (mExitRequiredRegs[reg])
+					{
+						if (mTrueJump && !mTrueJump->CheckPatchFail(block, reg))
+							return false;
+						if (mFalseJump && !mFalseJump->CheckPatchFail(block, reg))
+							return false;
+					}
+
 					return true;
+				}
 			}
 			else if (ins.mType == ASMIT_JSR)
 			{
