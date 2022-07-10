@@ -3620,6 +3620,7 @@ InterCodeBasicBlock::InterCodeBasicBlock(void)
 	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), 
 	mReverseValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr), mLoopPathBlocks(nullptr), mMemoryValueSize(0), mEntryMemoryValueSize(0)
 {
+	mVisited = false;
 	mInPath = false;
 	mLoopHead = false;
 	mChecked = false;
