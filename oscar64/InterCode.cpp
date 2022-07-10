@@ -12609,6 +12609,8 @@ void InterCodeProcedure::Close(void)
 	BuildTraces(false, false, true);
 	DisassembleDebug("Final Merged basic blocks");
 
+	BuildDataFlowSets();
+
 	MapCallerSavedTemps();
 
 	if (mSaveTempsLinkerObject && mTempSize > 16)
