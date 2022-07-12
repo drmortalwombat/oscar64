@@ -13787,6 +13787,10 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						mFalseJump->mEntryRequiredRegs += CPU_REG_X;
 
 						pb->mExitProvidedRegs += CPU_REG_X;
+						mExitProvidedRegs += CPU_REG_Y;
+
+						ns = mIns.Size();
+
 						mIns[ns - 3] = mIns[ns - 2];
 						mIns[ns - 2].mType = ASMIT_INX; mIns[ns - 2].mMode = ASMIM_IMPLIED;
 						changed = true;
@@ -13808,6 +13812,10 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						mFalseJump->mEntryRequiredRegs += CPU_REG_Y;
 
 						pb->mExitProvidedRegs += CPU_REG_Y;
+						mExitProvidedRegs += CPU_REG_Y;
+
+						ns = mIns.Size();
+
 						mIns[ns - 3] = mIns[ns - 2];
 						mIns[ns - 2].mType = ASMIT_INY; mIns[ns - 2].mMode = ASMIM_IMPLIED;
 						changed = true;
