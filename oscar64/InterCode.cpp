@@ -7187,13 +7187,13 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 						if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0)
 						{
-							if (ains->mSrc[0].mType == IT_INT16)
+							if (ains->mSrc[1].mType == IT_INT16)
 							{
 								ins->mSrc[0] = ains->mSrc[1];
 								ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
 								changed = true;
 							}
-							else if (ains->mSrc[0].mType == IT_INT8)
+							else if (ains->mSrc[1].mType == IT_INT8)
 							{
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
@@ -7207,7 +7207,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mDst.mRange = pins->mDst.mRange;
 								mInstructions.Insert(i, nins);
 
-								ins->mSrc[0] = ains->mSrc[1];
+								ins->mSrc[0] = nins->mDst;
 								ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
 								changed = true;
 							}
