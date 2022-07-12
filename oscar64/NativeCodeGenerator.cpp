@@ -25727,6 +25727,15 @@ void NativeCodeBasicBlock::ShortcutTailRecursion()
 			mTrueJump->mNumEntries--;
 			mTrueJump = nullptr;
 		}
+		else if (!mFalseJump && !mTrueJump)
+		{
+			int ns = mIns.Size();
+			if (ns >= 2 && mIns[ns - 1].mType == ASMIT_RTS && mIns[ns - 2].IsSimpleJSR())
+			{
+				this->mCode.Remove(this->mCode.Size() - 1);
+				this->mCode[this->mCode.Size() - 3] = 0x4c;
+			}
+		}
 
 		if (mTrueJump) mTrueJump->ShortcutTailRecursion();
 		if (mFalseJump) mFalseJump->ShortcutTailRecursion();

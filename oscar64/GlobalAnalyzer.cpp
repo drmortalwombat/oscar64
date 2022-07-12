@@ -350,6 +350,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		if ((exp->mDecValue->mFlags & DTF_STATIC) || (exp->mDecValue->mFlags & DTF_GLOBAL))
 		{
 			procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+			AnalyzeGlobalVariable(exp->mDecValue);
 		}
 		else
 		{

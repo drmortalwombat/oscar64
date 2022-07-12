@@ -2998,6 +2998,13 @@ void ByteCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const In
 			bins.mRelocate = true;
 			mIns.Push(bins);
 		}
+		else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
+		{
+			ByteCodeInstruction	bins(BC_LEA_LOCAL);
+			bins.mRegister = BC_REG_ACCU;
+			bins.mValue = ins->mSrc[1].mIntConst + proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
+			mIns.Push(bins);
+		}
 
 		ByteCodeInstruction	ains(BC_BINOP_ADDR_16);
 		ains.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
