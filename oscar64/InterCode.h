@@ -457,6 +457,8 @@ public:
 
 	bool ForwardDiamondMovedTemp(void);
 
+	bool MoveTrainCrossBlock(void);
+
 	void MarkRelevantStatics(void);
 	void RemoveNonRelevantStatics(void);
 
@@ -465,9 +467,13 @@ public:
 
 	bool PushSinglePathResultInstructions(void);
 	bool CanMoveInstructionBeforeBlock(int ii) const;
+	bool CanMoveInstructionBeforeBlock(int ii, const InterInstruction * ins) const;
 	bool CanMoveInstructionBehindBlock(int ii) const;
 	bool CanMoveInstructionDown(int si, int ti) const;
 	bool MergeCommonPathInstructions(void);
+
+	void CheckFinalLocal(void);
+	void CheckFinal(void);
 
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
@@ -574,6 +580,10 @@ protected:
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);
+
+	void PeepholeOptimization(void);
+
+	void CheckFinal(void);
 
 	void DisassembleDebug(const char* name);
 };

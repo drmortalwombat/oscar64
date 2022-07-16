@@ -47,6 +47,10 @@ inline void spr_color(char sp, char color);
 // rirq_sort();
 //
 
+#ifndef VSPRITES_MAX
+#define VSPRITES_MAX	16
+#endif
+
 // initialize the virtual (multiplexed) sprite system, offering 16 sprites
 
 void vspr_init(char * screen);

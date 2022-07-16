@@ -99,14 +99,12 @@ void spr_color(char sp, char color)
 }
 
 
-#define NUM_SPRITES		16
+static char	vspriteYLow[VSPRITES_MAX], vspriteXLow[VSPRITES_MAX], vspriteXHigh[VSPRITES_MAX];
+static char	vspriteImage[VSPRITES_MAX], vspriteColor[VSPRITES_MAX];
 
-static char	vspriteYLow[NUM_SPRITES], vspriteXLow[NUM_SPRITES], vspriteXHigh[NUM_SPRITES];
-static char	vspriteImage[NUM_SPRITES], vspriteColor[NUM_SPRITES];
+static char	spriteOrder[VSPRITES_MAX], spriteYPos[VSPRITES_MAX + 1];
 
-static char	spriteOrder[16], spriteYPos[17];
-
-static RIRQCode	spirq[8], synch;
+static RIRQCode	spirq[VSPRITES_MAX - 8], synch;
 
 
 void vspr_init(char * screen)
@@ -117,21 +115,23 @@ void vspr_init(char * screen)
 	vic.spr_expand_y = 0;
 	vic.spr_enable = 0xff;
 
-	for(int i=0; i<8; i++)
+	for(int i=0; i<VSPRITES_MAX - 8; i++)
 	{
+		int j = i & 7;
+
 		rirq_build(spirq + i, 5);
-		rirq_write(spirq + i, 0, &vic.spr_color[i], 0);
-		rirq_write(spirq + i, 1, &vic.spr_pos[i].x, 0);
-		rirq_write(spirq + i, 2, &vic.spr_pos[i].y, 0);
-		rirq_write(spirq + i, 3, &vspriteScreen[i], 0);
+		rirq_write(spirq + i, 0, &vic.spr_color[j], 0);
+		rirq_write(spirq + i, 1, &vic.spr_pos[j].x, 0);
+		rirq_write(spirq + i, 2, &vic.spr_pos[j].y, 0);
+		rirq_write(spirq + i, 3, &vspriteScreen[j], 0);
 		rirq_write(spirq + i, 4, &vic.spr_msbx, 0);
-		rirq_set(i, 80 + 8 * i, spirq + i);
+		rirq_set(i, 80 + 4 * i, spirq + i);
 	}
 
 	rirq_build(&synch, 0);
-	rirq_set(8, 250, &synch);
+	rirq_set(VSPRITES_MAX - 8, 250, &synch);
 
-	for(int i=0; i<16; i++)
+	for(int i=0; i<VSPRITES_MAX; i++)
 	{
 		spriteOrder[i] = i;
 		vspriteYLow[i] = 0xff;
@@ -185,7 +185,7 @@ void vspr_sort(void)
 {
 	spriteYPos[1] = vspriteYLow[spriteOrder[0]];
 
-	for(char i = 1; i<16; i++)
+	for(char i = 1; i<VSPRITES_MAX; i++)
 	{
 		byte ri = spriteOrder[i];
 		byte rr = vspriteYLow[ri];
@@ -209,6 +209,7 @@ void vspr_update(void)
 	char	xymask = 0;
 	char	*	vsprs = vspriteScreen;
 
+#pragma unroll(full)
 	for(char ui=0; ui<8; ui++)
 	{
 		byte ri = spriteOrder[ui];
@@ -224,9 +225,10 @@ void vspr_update(void)
 
 	if (spriteYPos[8] < 230)
 	{
-		char	m = 1;
-		for(char ti=0; ti<8; ti++)
+#pragma unroll(full)
+		for(char ti=0; ti<VSPRITES_MAX - 8; ti++)
 		{
+			char	m = 1 << (ti & 7);
 
 			byte ri = spriteOrder[ti + 8];
 
@@ -240,14 +242,12 @@ void vspr_update(void)
 			rirq_data(spirq + ti, 3, vspriteImage[ri]);
 
 			rirq_data(spirq + ti, 4, xymask);
-			rirq_move(ti, spriteYPos[ti + 1] + 21);
-
-			m <<= 1;
+			rirq_move(ti, spriteYPos[ti + 1] + 23);
 		}
 	}
 	else
 	{
-		for(char ti=0; ti<8; ti++)
+		for(char ti=0; ti<VSPRITES_MAX - 8; ti++)
 			rirq_clear(ti);
 	}
 }

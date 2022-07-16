@@ -3,7 +3,9 @@
 
 #include "types.h"
 
+#ifndef NUM_IRQS
 #define NUM_IRQS		16
+#endif
 
 extern volatile byte rirq_count;
 

@@ -414,6 +414,8 @@ static bool CollidingMem(const InterOperand& op1, const InterOperand& op2, const
 	case IM_INDIRECT:
 		if (op1.mTemp == op2.mTemp)
 			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+		else if (op1.mLinkerObject && op2.mLinkerObject && op1.mLinkerObject != op2.mLinkerObject)
+			return false;
 		else
 			return true;
 	default:
@@ -903,6 +905,10 @@ static bool CanBypassLoad(const InterInstruction* lins, const InterInstruction* 
 	{
 		if (lins->mVolatile)
 			return false;
+		else if (lins->mSrc[0].mMemory == IM_INDIRECT && bins->mSrc[1].mMemory == IM_INDIRECT)
+		{
+			return lins->mSrc[0].mLinkerObject && bins->mSrc[1].mLinkerObject && lins->mSrc[0].mLinkerObject != bins->mSrc[1].mLinkerObject;
+		}
 		else if (lins->mSrc[0].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
 			return false;
 		else if (lins->mSrc[0].mMemory != bins->mSrc[1].mMemory)
@@ -1018,6 +1024,10 @@ static bool CanBypassLoadUp(const InterInstruction* lins, const InterInstruction
 			return false;
 		else if (bins->mSrc[1].mMemory == IM_FRAME || bins->mSrc[1].mMemory == IM_FFRAME)
 			return true;
+		else if (lins->mSrc[0].mMemory == IM_INDIRECT && bins->mSrc[1].mMemory == IM_INDIRECT)
+		{
+			return lins->mSrc[0].mLinkerObject && bins->mSrc[1].mLinkerObject && lins->mSrc[0].mLinkerObject != bins->mSrc[1].mLinkerObject;
+		}
 		else if (lins->mSrc[0].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
 			return false;
 		else if (lins->mSrc[0].mMemory != bins->mSrc[1].mMemory)
@@ -1065,14 +1075,25 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_PUSH_FRAME)
 		return false;
 
+	// True data dependency
+	if (bins->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < sins->mNumOperands; i++)
+			if (bins->mDst.mTemp == sins->mSrc[i].mTemp)
+				return false;
+	}
+
 	InterMemory	sm = IM_NONE, bm = IM_NONE;
 	int			bi = -1, si = -1, bt = -1, st = -1, bo = 0, so = 0, bz = 1, sz = 1;
+	LinkerObject* slo = nullptr, * blo = nullptr;
+
 	if (sins->mCode == IC_LOAD)
 	{
 		sm = sins->mSrc[0].mMemory;
 		si = sins->mSrc[0].mVarIndex;
 		st = sins->mSrc[0].mTemp;
 		so = sins->mSrc[0].mIntConst;
+		slo = sins->mSrc[0].mLinkerObject;
 		sz = InterTypeSize[sins->mDst.mType];
 	}
 	else if (sins->mCode == IC_LEA || sins->mCode == IC_STORE)
@@ -1081,6 +1102,7 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 		si = sins->mSrc[1].mVarIndex;
 		st = sins->mSrc[1].mTemp;
 		so = sins->mSrc[1].mIntConst;
+		slo = sins->mSrc[1].mLinkerObject;
 		sz = InterTypeSize[sins->mSrc[0].mType];
 	}
 
@@ -1090,6 +1112,7 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 		bi = bins->mSrc[0].mVarIndex;
 		bt = bins->mSrc[0].mTemp;
 		bo = bins->mSrc[0].mIntConst;
+		blo = bins->mSrc[0].mLinkerObject;
 		bz = InterTypeSize[bins->mDst.mType];
 	}
 	else if (bins->mCode == IC_LEA || bins->mCode == IC_STORE)
@@ -1098,6 +1121,7 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 		bi = bins->mSrc[1].mVarIndex;
 		bt = bins->mSrc[1].mTemp;
 		bo = bins->mSrc[1].mIntConst;
+		blo = bins->mSrc[1].mLinkerObject;
 		bz = InterTypeSize[bins->mSrc[0].mType];
 	}
 
@@ -1123,10 +1147,15 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 			if (bi == si)
 				return false;
 		}
-		else if (sm == IM_INDIRECT && bm == IM_INDIRECT && st == bt)
+		else if (sm == IM_INDIRECT && bm == IM_INDIRECT)
 		{
-			if (so + sz > bo && bo + bz > so)
-				return false;
+			if (st == bt)
+			{
+				if (so + sz > bo && bo + bz > so)
+					return false;
+			}
+			else
+				return slo && blo && slo != blo;
 		}
 		else
 			return false;
@@ -1139,13 +1168,6 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
 		return false;
 
-	// True data dependency
-	if (bins->mDst.mTemp >= 0)
-	{
-		for (int i = 0; i < sins->mNumOperands; i++)
-			if (bins->mDst.mTemp == sins->mSrc[i].mTemp)
-				return false;
-	}
 
 	return true;
 }
@@ -2799,6 +2821,7 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 		mDst.mTemp = -1;
 		for (int i = 0; i < mNumOperands; i++)
 			mSrc[i].mTemp = -1;
+		mNumOperands = 0;
 
 		changed = true;
 	}
@@ -2808,6 +2831,7 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 		mDst.mTemp = -1;
 		for (int i = 0; i < mNumOperands; i++)
 			mSrc[i].mTemp = -1;
+		mNumOperands = 0;
 
 		changed = true;
 	}
@@ -7162,6 +7186,13 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 			}	break;
 
 			case IC_LEA:
+				if (ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp])
+				{
+					InterInstruction* pins = tvalue[ins->mSrc[1].mTemp];
+					if (pins->mCode == IC_LEA)
+						ins->mSrc[1].mLinkerObject = pins->mSrc[1].mLinkerObject;
+				}
+
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0 && ltvalue[ins->mSrc[0].mTemp])
 				{
 					InterInstruction* pins = ltvalue[ins->mSrc[0].mTemp];
@@ -7267,6 +7298,9 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 				{
 					InterInstruction* pins = ltvalue[ins->mSrc[1].mTemp];
 
+					if (ins->mSrc[1].mMemory == IM_INDIRECT && pins->mCode == IC_LEA)
+						ins->mSrc[1].mLinkerObject = pins->mSrc[1].mLinkerObject;
+
 					if (pins->mCode == IC_LEA && pins->mSrc[0].mTemp < 0 && ins->mSrc[1].mIntConst + pins->mSrc[0].mIntConst >= 0)
 					{
 						ins->mSrc[1].Forward(pins->mSrc[1]);
@@ -7283,6 +7317,9 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 				{
 					InterInstruction* pins = ltvalue[ins->mSrc[0].mTemp];
 
+					if (ins->mSrc[0].mMemory == IM_INDIRECT  && pins->mCode == IC_LEA)
+						ins->mSrc[0].mLinkerObject = pins->mSrc[1].mLinkerObject;
+
 					if (pins->mCode == IC_LEA && pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst >= 0)
 					{
 						ins->mSrc[0].Forward(pins->mSrc[1]);
@@ -7294,6 +7331,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 				break;
 #endif
 			}
+
 
 			// Now kill all instructions that referenced the current destination as source, they are
 			// not valid anymore
@@ -8284,12 +8322,8 @@ bool InterCodeBasicBlock::CanMoveInstructionBehindBlock(int ii) const
 	return CanMoveInstructionDown(ii, mInstructions.Size());
 }
 
-
-
-bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii) const
+bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstruction* ins) const
 {
-	InterInstruction* ins = mInstructions[ii];
-
 	if (ins->mCode == IC_LOAD)
 	{
 		for (int i = 0; i < ii; i++)
@@ -8302,7 +8336,7 @@ bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii) const
 			if (!CanBypassStore(ins, mInstructions[i]))
 				return false;
 	}
-	else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME || 
+	else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
 		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
 		return false;
 	else
@@ -8313,6 +8347,11 @@ bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii) const
 	}
 
 	return true;
+}
+
+bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii) const
+{
+	return CanMoveInstructionBeforeBlock(ii, mInstructions[ii]);
 }
 
 bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
@@ -8381,6 +8420,110 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 		if (mTrueJump && mTrueJump->MergeCommonPathInstructions())
 			changed = true;
 		if (mFalseJump && mFalseJump->MergeCommonPathInstructions())
+			changed = true;
+	}
+
+	return changed;
+}
+
+static void CollectDominatorPath(InterCodeBasicBlock* block, InterCodeBasicBlock* dom, GrowingInterCodeBasicBlockPtrArray& blocks)
+{
+	if (blocks.IndexOf(block) != -1)
+		return;
+	if (block != dom)
+	{
+		blocks.Push(block);
+		for (int i = 0; i < block->mEntryBlocks.Size(); i++)
+			CollectDominatorPath(block->mEntryBlocks[i], dom, blocks);
+	}
+}
+
+static bool CanMoveInstructionBeforePath(const GrowingInterCodeBasicBlockPtrArray& blocks, const InterInstruction* ins)
+{
+	for (int i = 0; i < blocks.Size(); i++)
+		if (!blocks[i]->CanMoveInstructionBeforeBlock(blocks[i]->mInstructions.Size(), ins))
+			return false;
+	return true;
+}
+
+bool InterCodeBasicBlock::MoveTrainCrossBlock(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mDominator)
+		{
+			GrowingInterCodeBasicBlockPtrArray	path(nullptr);
+
+			CollectDominatorPath(this, mDominator, path);
+
+			if ((!mDominator->mTrueJump || path.IndexOf(mDominator->mTrueJump) != -1) &&
+				(!mDominator->mFalseJump || path.IndexOf(mDominator->mFalseJump) != -1) &&
+				(!mTrueJump || path.IndexOf(mTrueJump) == -1) &&
+				(!mFalseJump || path.IndexOf(mFalseJump) == -1))
+			{
+				int i = 1;
+				while (i < path.Size() &&
+					(!path[i]->mTrueJump || path.IndexOf(path[i]->mTrueJump) != -1) &&
+					(!path[i]->mFalseJump || path.IndexOf(path[i]->mFalseJump) != -1))
+					i++;
+				if (i == path.Size())
+				{
+					path.Remove(0);
+
+					int	i = 0;
+					while (i < mInstructions.Size())
+					{
+						FastNumberSet	nset(mEntryRequiredTemps.Size());
+
+						InterInstruction* ins(mInstructions[i]);
+						if (ins->mCode == IC_STORE)
+						{
+							for (int k = 0; k < ins->mNumOperands; k++)
+							{
+								if (ins->mSrc[k].mTemp >= 0)
+									nset += ins->mSrc[k].mTemp;
+							}
+
+							int j = i;
+							while (j > 0 && mInstructions[j - 1]->mDst.mTemp >= 0 && nset[mInstructions[j - 1]->mDst.mTemp])
+							{
+								j--;
+								InterInstruction* nins(mInstructions[j]);
+
+								for (int k = 0; k < nins->mNumOperands; k++)
+								{
+									if (nins->mSrc[k].mTemp >= 0)
+										nset += nins->mSrc[k].mTemp;
+								}
+							}
+
+							int k = j;
+							while (k <= i && CanMoveInstructionBeforeBlock(j, mInstructions[k]) && CanMoveInstructionBeforePath(path, mInstructions[k]))
+								k++;
+
+							if (k > i)
+							{
+								for (int k = j; k <= i; k++)
+									mDominator->mInstructions.Insert(mDominator->mInstructions.Size() - 1, mInstructions[k]);
+								mInstructions.Remove(j, i - j + 1);
+								i = j - 1;
+								changed = true;
+							}
+						}
+
+						i++;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MoveTrainCrossBlock())
+			changed = true;
+		if (mFalseJump && mFalseJump->MoveTrainCrossBlock())
 			changed = true;
 	}
 
@@ -10409,6 +10552,59 @@ static void SwapInstructions(InterInstruction* it, InterInstruction* ib)
 	}
 }
 
+void InterCodeBasicBlock::CheckFinalLocal(void) 
+{
+#if _DEBUG
+	NumberSet	required(mExitRequiredTemps);
+
+	for (int i = mInstructions.Size() - 1; i >= 0; i--)
+	{
+		const InterInstruction* ins(mInstructions[i]);
+		if (ins->mDst.mTemp >= 0)
+			required -= ins->mDst.mTemp;
+		for (int j = 0; j < ins->mNumOperands; j++)
+		{
+			if (ins->mSrc[j].mTemp >= 0 && ins->mSrc[j].mFinal)
+				assert(!required[ins->mSrc[j].mTemp]);
+		}
+
+		for (int j = 0; j < ins->mNumOperands; j++)
+			if (ins->mSrc[j].mTemp >= 0)
+				required += ins->mSrc[j].mTemp;
+	}
+
+	NumberSet	provided(mEntryProvidedTemps);
+
+	for (int i = 0; i< mInstructions.Size(); i++)
+	{
+		const InterInstruction* ins(mInstructions[i]);
+		for (int j = 0; j < ins->mNumOperands; j++)
+		{
+			if (ins->mSrc[j].mTemp >= 0)
+				assert(provided[ins->mSrc[j].mTemp]);
+		}
+
+		if (ins->mDst.mTemp >= 0)
+			provided += ins->mDst.mTemp;
+	}
+#endif
+}
+
+void InterCodeBasicBlock::CheckFinal(void)
+{
+#if _DEBUG
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		CheckFinalLocal();
+
+		if (mTrueJump) mTrueJump->CheckFinal();
+		if (mFalseJump) mFalseJump->CheckFinal();
+	}
+#endif
+}
+
 void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& staticVars)
 {
 	int		i;
@@ -10416,6 +10612,8 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 	if (!mVisited)
 	{
 		mVisited = true;
+
+		CheckFinalLocal();
 
 		// Remove none instructions
 
@@ -10458,8 +10656,15 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 						if (k == limit)
 						{
-							mInstructions.Remove(i);
-							mInstructions.Insert(limit, ins);
+							for (int l = i; l < limit; l++)
+							{
+								SwapInstructions(ins, mInstructions[l + 1]);
+								mInstructions[l] = mInstructions[l + 1];
+							}
+							mInstructions[limit] = ins;
+
+//							mInstructions.Remove(i);
+//							mInstructions.Insert(limit, ins);
 						}
 					}
 				}
@@ -10501,6 +10706,8 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		}
 		else if (limit >= 0 && mInstructions[limit]->mCode == IC_JUMP)
 			limit --;
+
+		CheckFinalLocal();
 
 		int i = limit;
 #if 1
@@ -10560,6 +10767,8 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 			i--;
 		}
+
+		CheckFinalLocal();
 #endif
 #if 1
 		// move indirect load/store pairs up
@@ -10578,6 +10787,9 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						CanBypassLoadUp(lins, mInstructions[j - 1]) &&
 						CanBypassStore(sins, mInstructions[j - 1]))
 					{
+						SwapInstructions(mInstructions[j - 1], lins);
+						SwapInstructions(mInstructions[j - 1], sins);
+
 						mInstructions[j + 1] = mInstructions[j - 1];
 						j--;
 					}
@@ -10593,6 +10805,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			i++;
 		}
 
+		CheckFinalLocal();
 #endif
 #if 1
 		i = 0;
@@ -10641,6 +10854,8 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 			i++;
 		}
+
+		CheckFinalLocal();
 #endif
 
 #if 1
@@ -10679,6 +10894,8 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		}
 #endif
 
+		CheckFinalLocal();
+
 		bool	changed = false;
 		do
 		{
@@ -10699,6 +10916,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 				if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY && mInstructions[i]->mDst.mTemp == mInstructions[i]->mSrc->mTemp)
 				{
 					mInstructions[i]->mCode = IC_NONE;
+					mInstructions[i]->mNumOperands = 0;
 					changed = true;
 				}
 				if (mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory == IM_GLOBAL && (mInstructions[i]->mSrc->mLinkerObject->mFlags & LOBJF_CONST))
@@ -10714,6 +10932,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
 						mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst)
 					{
+						SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
 						InterInstruction* ins(mInstructions[i + 0]);
 						mInstructions[i + 0] = mInstructions[i + 1];
 						mInstructions[i + 1] = ins;
@@ -10731,6 +10950,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						int	t = mInstructions[i + 0]->mDst.mTemp;
 						mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
 						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 1]->mNumOperands = 0;
 						mInstructions[i + 2]->mSrc[0].mTemp = mInstructions[i + 1]->mDst.mTemp;
 						mInstructions[i + 2]->mSrc[0].mFinal = false;
 						if (mInstructions[i + 2]->mSrc[1].mTemp == t)
@@ -10751,6 +10971,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 						mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
 						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 1]->mNumOperands = 0;
 						mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
 						mInstructions[i + 2]->mSrc[1].mFinal = false;
 						changed = true;
@@ -10829,6 +11050,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 0]->mSrc[0].mIntConst &= mInstructions[i + 1]->mSrc[0].mIntConst;
 						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
 						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 1]->mNumOperands = 0;
 						changed = true;
 					}
 					else if (
@@ -10839,6 +11061,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 0]->mSrc[0].mIntConst |= mInstructions[i + 1]->mSrc[0].mIntConst;
 						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
 						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 1]->mNumOperands = 0;
 						changed = true;
 					}
 #endif
@@ -10916,6 +11139,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
 						mInstructions[i + 1]->mDst.mTemp = mInstructions[i + 1]->mSrc[0].mTemp;
 						mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mDst.mTemp;
+						mInstructions[i + 1]->mSrc[0].mFinal = false;
 						mInstructions[i + 0]->mSingleAssignment = mInstructions[i + 1]->mSingleAssignment;
 						changed = true;
 					}
@@ -11117,8 +11341,11 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						}
 					}
 
+					CheckFinalLocal();
 #endif
 				}
+
+
 
 #if 1
 				if (i + 1 < mInstructions.Size())
@@ -11160,11 +11387,21 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				if (CanMoveInstructionDown(j, i)) 
 				{
-					mInstructions.Insert(i, mInstructions[j]);
-					mInstructions.Remove(j);
+					InterInstruction* jins = mInstructions[j];
+					for (int k = j; k < i - 1; k++)
+					{
+						SwapInstructions(jins, mInstructions[k + 1]);
+						mInstructions[k] = mInstructions[k + 1];
+					}
+					mInstructions[i - 1] = jins;
+
+//					mInstructions.Insert(i, mInstructions[j]);
+//					mInstructions.Remove(j);
 				}
 			}
 		}
+
+		CheckFinalLocal();
 
 		// sort stores up
 
@@ -11183,6 +11420,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 0]->mSrc[1].mVarIndex == mInstructions[i + 1]->mSrc[1].mVarIndex &&
 						mInstructions[i + 0]->mSrc[1].mIntConst > mInstructions[i + 1]->mSrc[1].mIntConst))
 				{
+					SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
 					InterInstruction* ins = mInstructions[i + 1];
 					mInstructions[i + 1] = mInstructions[i + 0];
 					mInstructions[i + 0] = ins;
@@ -11192,6 +11430,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 		} while (changed);
 
+		CheckFinalLocal();
 
 		if (mTrueJump) mTrueJump->PeepholeOptimization(staticVars);
 		if (mFalseJump) mFalseJump->PeepholeOptimization(staticVars);
@@ -11502,6 +11741,12 @@ int InterCodeProcedure::AddTemporary(InterType type)
 	return temp;
 }
 
+void InterCodeProcedure::CheckFinal(void)
+{
+	ResetVisited();
+	mEntryBlock->CheckFinal();
+}
+
 void InterCodeProcedure::DisassembleDebug(const char* name)
 {
 	Disassemble(name);
@@ -11673,6 +11918,17 @@ void InterCodeProcedure::SingleAssignmentForwarding(void)
 	DisassembleDebug("single assignment forwarding");
 
 }
+
+void InterCodeProcedure::PeepholeOptimization(void)
+{
+	BuildDataFlowSets();
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	ResetVisited();
+	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
+}
+
 
 void InterCodeProcedure::CheckUsedDefinedTemps(void)
 {
@@ -12171,10 +12427,7 @@ void InterCodeProcedure::Close(void)
 
 	MergeIndexedLoadStore();
 
-	BuildDataFlowSets();
-
-	ResetVisited();
-	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
+	PeepholeOptimization();
 
 	DisassembleDebug("Peephole optimized");
 
@@ -12221,15 +12474,13 @@ void InterCodeProcedure::Close(void)
 
 	CheckUsedDefinedTemps();
 
-	ResetVisited();
-	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
-
-	DisassembleDebug("Broken Peephole");
+	PeepholeOptimization();
 
 	TempForwarding();
 	RemoveUnusedInstructions();
 
 	DisassembleDebug("Peephole optimized");
+
 
 	bool changed = false;
 
@@ -12283,6 +12534,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	BuildDataFlowSets();
+
 #if 1
 	ResetVisited();
 	mEntryBlock->BuildLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars);
@@ -12342,6 +12594,24 @@ void InterCodeProcedure::Close(void)
 	MergeIndexedLoadStore();
 
 #if 1
+	DisassembleDebug("PreMoveTrainCrossBlockA");
+
+	PeepholeOptimization();
+
+#if 1
+	DisassembleDebug("PreMoveTrainCrossBlockB");
+
+	ResetVisited();
+	mEntryBlock->MoveTrainCrossBlock();
+#endif
+	PeepholeOptimization();
+
+	DisassembleDebug("MoveTrainCrossBlock");
+
+#endif
+
+
+#if 1
 	ResetVisited();
 	mEntryBlock->RestartLocalIntegerRangeSets(mLocalVars);
 
@@ -12397,8 +12667,7 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
-	ResetVisited();
-	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
+	PeepholeOptimization();
 
 	TempForwarding();
 	RemoveUnusedInstructions();
@@ -12427,8 +12696,7 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
-	ResetVisited();
-	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
+	PeepholeOptimization();
 
 	TempForwarding();
 	RemoveUnusedInstructions();
@@ -12526,8 +12794,7 @@ void InterCodeProcedure::Close(void)
 		TempForwarding();
 	} while (GlobalConstantPropagation());
 
-	ResetVisited();
-	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
+	PeepholeOptimization();
 
 	TempForwarding();
 	RemoveUnusedInstructions();
@@ -12544,8 +12811,7 @@ void InterCodeProcedure::Close(void)
 #if 1
 	for (int i = 0; i < 4; i++)
 	{
-		ResetVisited();
-		mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
+		PeepholeOptimization();
 
 		DisassembleDebug("Peephole Temp Check");
 

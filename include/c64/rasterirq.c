@@ -51,7 +51,7 @@ jx:
 	tay
 
 	sec
-	sbc	#4
+	sbc	#3
 	cmp	$d012
 	bcc l1
 
@@ -97,7 +97,7 @@ __asm irq1
 {	
 	lda $d019
 	bpl ex2
-
+	
 	ldx	nextIRQ
 l1:
 	lda	rasterIRQNext, x
@@ -125,7 +125,7 @@ jx:
 	tay
 
 	sec
-	sbc	#4
+	sbc	#3
 	cmp	$d012
 	bcc l1
 
@@ -156,6 +156,7 @@ e1:
 	
 ex:
 	asl $d019
+
 	jmp $ea81
 
 ex2:
@@ -187,7 +188,11 @@ void rirq_build(RIRQCode * ic, byte size)
 	asm_rl(ic->code + 7, ASM_BCS, -5);
 	asm_ab(ic->code + 9, ASM_STY, 0x0000);
 
-	if (size == 1)
+	if (size == 0)
+	{
+		asm_np(ic->code + 0, ASM_RTS);
+	}
+	else if (size == 1)
 	{
 		asm_np(ic->code + 12, ASM_RTS);
 	}
