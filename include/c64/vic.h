@@ -97,6 +97,9 @@ void vic_setmode(VicMode mode, char * text, char * font);
 // x MSB
 inline void vic_sprxy(byte s, int x, int y);
 
+// Read the sprite x position from the LSB and MSB register
+inline int vic_sprgetx(byte s);
+
 // wait for the beam to reach the bottom of the visual area
 inline void vic_waitBottom(void);
 

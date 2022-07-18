@@ -84,6 +84,16 @@ void spr_move16(char sp, int xpos, int ypos)
 		vic.spr_msbx &= ~(1 << sp);	
 }
 
+int spr_posx(char sp)
+{
+	return vic.spr_pos[sp].x | ((vic.spr_msbx & (1 << sp)) ? 256 : 0);
+}
+
+int spr_posy(char sp)
+{
+	return vic.spr_pos[sp].y;
+}
+
 void spr_image(char sp, char image)
 {
 	__assume (sp < 8);

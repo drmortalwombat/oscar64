@@ -162,7 +162,7 @@ public:
 	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
-	NativeCodeBasicBlock* mLoopHeadBlock;
+	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
 
@@ -199,9 +199,8 @@ public:
 
 	bool OptimizeSelect(NativeCodeProcedure* proc);
 
-	NativeCodeBasicBlock* FindTailBlock(NativeCodeBasicBlock* head);
 	bool OptimizeInnerLoops(NativeCodeProcedure* proc);
-	void CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks);
+	NativeCodeBasicBlock* CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks);
 
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
@@ -345,6 +344,9 @@ public:
 	bool HasTailSTA(int& addr, int& index) const;
 	bool PropagateSinglePath(void);
 
+	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock) const;
+	void ChangeTailZPStoreToX(int addr);
+
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
 	bool Propagate16BitSum(void);
 
@@ -371,6 +373,9 @@ public:
 
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);
+
+	bool MoveAccuTrainUp(int at, int end);
+	bool MoveAccuTrainsUp(void);
 
 	bool AlternateXYUsage(void);
 	bool OptimizeXYPairUsage(void);

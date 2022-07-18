@@ -19,7 +19,16 @@ inline void spr_show(char sp, bool show);
 
 inline void spr_move(char sp, int xpos, int ypos);
 
-// move a sprite to the given position
+// get current x position of sprite
+
+inline int spr_posx(char sp);
+
+// get current y position of sprite
+
+inline int spr_posy(char sp);
+
+// move a sprite to the given position, only uses 16 bit y and 16 bit x,
+// moves the sprite to a zero y position if offscreen
 void spr_move16(char sp, int xpos, int ypos);
 
 // change the image of a sprite

@@ -16,6 +16,11 @@ void vic_sprxy(byte s, int x, int y)
 		vic.spr_msbx &= ~(1 << s);
 }
 
+int vic_sprgetx(byte s)
+{
+	return vic.spr_pos[s].x | ((vic.spr_msbx & (1 << s)) ? 256 : 0);
+}
+
 void vic_setmode(VicMode mode, char * text, char * font)
 {
 	switch (mode)

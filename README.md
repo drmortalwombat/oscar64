@@ -636,7 +636,7 @@ Expands a 2D 4x4 tile grid at any scroll speed.  Uses a raster IRQ to limit the 
 
 Sprites are independed image blocks, such as players, missiles or enemies that can be shown on top of the background.
 
-#### Control a sprite with a joy stick "joycontrol.c"
+#### Control a sprite with a joystick "joycontrol.c"
 
 Combines reading the joystick with the <c64/joystick.h> library and sprite movement with the <c64/sprites.h> library.
 
@@ -644,7 +644,21 @@ Combines reading the joystick with the <c64/joystick.h> library and sprite movem
 
 ![Large text](samples/sprites/multiplexer.png)
 
-Shows 16 virtual sprites multiplexed from the phyiscal eight sprites with raster interrupts, using the oscar sprite multiplexer library.
+Shows 16 virtual sprites multiplexed from the physical eight sprites with raster interrupts, using the oscar sprite multiplexer library.
+
+#### Use raster IRQ to show 32 sprites "sprmux32.c"
+
+![Large text](samples/sprites/sprmux32.png)
+
+Shows 32 virtual sprites multiplexed from the physical eight sprites with raster interrupts, using the oscar sprite multiplexer library. This sample requires command line defines to increase the default number of multiplexed sprites and raster interrupt slots:
+
+	oscar64 -n sprmux32.c -O2 -dVSPRITES_MAX=32 -dNUM_IRQS=28
+
+#### Use raster IRQ to show 64 sprites "sprmux64.c"
+
+![Large text](samples/sprites/sprmux64.png)
+
+Shows 64 moving sprites using raster interrupts to update the position of the eight physical sprites every 25 screen lines.
 
 
 #### Fill the screen with sprites "creditroll.c"
