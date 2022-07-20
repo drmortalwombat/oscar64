@@ -122,6 +122,17 @@ char cwin_getat_char_raw(CharWin * win, char x, char y);
 void cwin_getat_chars_raw(CharWin * win, char x, char y, char * chars, char num);
 
 
+// Put an array of characters into a rectangle in the char win
+void cwin_put_rect_raw(CharWin * win, char x, char y, char w, char h, const char * chars, char color);
+
+void cwin_put_rect(CharWin * win, char x, char y, char w, char h, const char * chars, char color);
+
+// Get an array of characters from a rectangle of a char win
+void cwin_get_rect_raw(CharWin * win, char x, char y, char w, char h, char * chars);
+
+void cwin_get_rect(CharWin * win, char x, char y, char w, char h, char * chars);
+
+
 
 // Insert one space character at the cursor position
 //
@@ -160,6 +171,8 @@ inline void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char c
 //
 void cwin_fill_rect_raw(CharWin * win, char x, char y, char w, char h, char ch, char color);
 
+
 #pragma compile("charwin.c")
+
 
 #endif

@@ -422,7 +422,7 @@ char cwin_getat_char_raw(CharWin * win, char x, char y)
 	return *sp;
 }
 
-#pragma native(cwin_getat_char_raw)
+#pragma native(cwin_getat_chars_raw)
 
 void cwin_getat_chars_raw(CharWin * win, char x, char y, char * chars, char num)
 {
@@ -433,6 +433,98 @@ void cwin_getat_chars_raw(CharWin * win, char x, char y, char * chars, char num)
 		chars[i] = sp[i];
 	}
 }
+
+
+#pragma native(cwin_put_rect_raw)
+
+void cwin_put_rect_raw(CharWin * win, char x, char y, char w, char h, const char * chars, char color)
+{
+	int	offset = mul40[y] + x;
+
+	char	*	sp = win->sp + offset;
+	char	*	cp = win->cp + offset;
+
+	for(char i=0; i<h; i++)
+	{
+
+		for(char j=0; j<w; j++)
+		{
+			sp[j] = chars[j];
+			cp[j] = color;
+		}
+
+		chars += w;
+		sp += 40;
+		cp += 40;
+	}
+}
+
+#pragma native(cwin_put_rect)
+
+void cwin_put_rect(CharWin * win, char x, char y, char w, char h, const char * chars, char color)
+{
+	int	offset = mul40[y] + x;
+
+	char	*	sp = win->sp + offset;
+	char	*	cp = win->cp + offset;
+
+	for(char i=0; i<h; i++)
+	{
+
+		for(char j=0; j<w; j++)
+		{
+			sp[j] = p2s(chars[j]);
+			cp[j] = color;
+		}
+
+		chars += w;
+		sp += 40;
+		cp += 40;
+	}
+}
+
+#pragma native(cwin_get_rect_raw)
+
+void cwin_get_rect_raw(CharWin * win, char x, char y, char w, char h, char * chars)
+{
+	int	offset = mul40[y] + x;
+
+	char	*	sp = win->sp + offset;
+
+	for(char i=0; i<h; i++)
+	{
+
+		for(char j=0; j<w; j++)
+		{
+			chars[j] = sp[j];
+		}
+
+		chars += w;
+		sp += 40;
+	}
+}
+
+#pragma native(cwin_get_rect)
+
+void cwin_get_rect(CharWin * win, char x, char y, char w, char h, char * chars)
+{
+	int	offset = mul40[y] + x;
+
+	char	*	sp = win->sp + offset;
+
+	for(char i=0; i<h; i++)
+	{
+
+		for(char j=0; j<w; j++)
+		{
+			chars[j] = s2p(sp[j]);
+		}
+
+		chars += w;
+		sp += 40;
+	}
+}
+
 
 #pragma native(cwin_getat_chars_raw)
 
