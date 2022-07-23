@@ -23882,8 +23882,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					}
 					else if (
 						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mType == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_CPY && mIns[i + 2].mType == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 1].mAddress &&
+						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 2].mType == ASMIT_CPY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 1].mAddress &&
 						!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
 					{
 						mIns[i + 1].mType = ASMIT_CMP; mIns[i + 1].CopyMode(mIns[i + 0]); mIns[i + 1].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_Z;
