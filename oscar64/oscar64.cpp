@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.7.148");
+		strcpy(strProductVersion, "1.7.149");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -303,15 +303,17 @@ int main2(int argc, const char** argv)
 
 int main(int argc, const char** argv)
 {
+#if 1
 #ifdef _WIN32
 #ifndef _DEBUG
 	__try 
 	{
 #endif
 #endif
-
+#endif
 		return main2(argc, argv);
 
+#if 1
 #ifdef _WIN32
 #ifndef _DEBUG
 }
@@ -320,6 +322,7 @@ int main(int argc, const char** argv)
 		printf("oscar64 crashed.");
 		return 30;
 	}
+#endif
 #endif
 #endif
 }

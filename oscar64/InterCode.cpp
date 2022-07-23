@@ -608,7 +608,17 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 		return -val1;
 		break;
 	case IA_NOT:
-		return ~val1;
+		switch (type)
+		{
+		case IT_INT8:
+			return uint8(~val1);
+		case IT_INT16:
+			return uint16(~val1);
+		case IT_INT32:
+			return uint32(~val1);
+		default:
+			return ~val1;
+		}
 		break;
 	case IA_SHL:
 		return val1 << val2;
@@ -773,6 +783,20 @@ static void ConversionConstantFold(InterInstruction * ins, const InterOperand & 
 	case IA_EXT16TO32U:
 		ins->mCode = IC_CONSTANT;
 		ins->mConst.mIntConst = (uint16)(cop.mIntConst);
+		ins->mConst.mType = IT_INT32;
+		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
+		break;
+	case IA_EXT8TO32S:
+		ins->mCode = IC_CONSTANT;
+		ins->mConst.mIntConst = (int8)(cop.mIntConst);
+		ins->mConst.mType = IT_INT32;
+		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
+		break;
+	case IA_EXT8TO32U:
+		ins->mCode = IC_CONSTANT;
+		ins->mConst.mIntConst = (uint8)(cop.mIntConst);
 		ins->mConst.mType = IT_INT32;
 		ins->mSrc[0].mTemp = -1;
 		ins->mNumOperands = 0;
@@ -3406,7 +3430,7 @@ bool InterInstruction::ConstantFolding(void)
 			if (mDst.mType == IT_FLOAT)
 				mConst.mFloatConst = ::ConstantFolding(mOperator, mSrc[0].mFloatConst);
 			else
-				mConst.mIntConst = ::ConstantFolding(mOperator, mSrc[0].mIntConst);
+				mConst.mIntConst = ::ConstantFolding(mOperator, mDst.mType, mSrc[0].mIntConst);
 			mNumOperands = 0;
 			return true;
 		}
@@ -11102,6 +11126,53 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 							mInstructions[i + 1]->mSrc[1].mIntConst = 255ULL >> shift << shift;
 							mInstructions[i + 2]->mSrc[0].mIntConst >>= shift;
+						}
+
+						changed = true;
+					}
+#endif
+#if 1
+					else if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+					{
+
+						int	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+						int	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+						mInstructions[i + 0]->mOperator = IA_AND;
+						mInstructions[i + 0]->mSrc[0].mType = IT_INT16;
+						mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
+
+						switch (mInstructions[i + 0]->mSrc[0].mType)
+						{
+						case IT_INT8:
+							mInstructions[i + 0]->mSrc[0].mIntConst = (0xffu >> shift) << shift;
+							break;
+						case IT_INT16:
+							mInstructions[i + 0]->mSrc[0].mIntConst = (0xffffu >> shift) << shift;
+							break;
+						case IT_INT32:
+							mInstructions[i + 0]->mSrc[0].mIntConst = (0xffffffffu >> shift) << shift;
+							break;
+						}
+
+						if (shift > mshift)
+						{
+							mInstructions[i + 1]->mOperator = IA_SHR;
+							mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
+						}
+						else if (shift < mshift)
+						{
+							mInstructions[i + 1]->mOperator = IA_SHL;
+							mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
+						}
+						else
+						{
+							mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+							mInstructions[i + 1]->mCode = IC_NONE;
+							mInstructions[i + 1]->mNumOperands = 0;
 						}
 
 						changed = true;

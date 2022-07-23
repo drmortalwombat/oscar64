@@ -127,7 +127,7 @@ public:
 	bool ChangesGlobalMemory(void) const;
 	bool UsesMemoryOf(const NativeCodeInstruction& ins) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
-	bool MayBeChangedOnAddress(const NativeCodeInstruction& ins) const;
+	bool MayBeChangedOnAddress(const NativeCodeInstruction& ins, bool sameXY = false) const;
 	bool MayBeSameAddress(const NativeCodeInstruction& ins, bool sameXY = false) const;
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
