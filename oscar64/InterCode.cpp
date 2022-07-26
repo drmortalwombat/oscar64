@@ -8846,7 +8846,10 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 							for (int j = 0; j < ins->mNumOperands; j++)
 							{
 								if (ins->mSrc[j].mTemp >= 0)
+								{
 									trueExitRequiredTemps += ins->mSrc[j].mTemp;
+									mTrueJump->mEntryRequiredTemps += ins->mSrc[j].mTemp;
+								}
 							}
 							mTrueJump->mInstructions.Insert(0, ins);
 							mInstructions.Remove(i);
@@ -8858,7 +8861,10 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 							for (int j = 0; j < ins->mNumOperands; j++)
 							{
 								if (ins->mSrc[j].mTemp >= 0)
+								{
 									falseExitRequiredTems += ins->mSrc[j].mTemp;
+									mFalseJump->mEntryRequiredTemps += ins->mSrc[j].mTemp;
+								}
 							}
 							mFalseJump->mInstructions.Insert(0, ins);
 							mInstructions.Remove(i);
@@ -8871,7 +8877,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 							!mTrueJump->mLocalUsedTemps[dtemp] && !mTrueJump->mLocalModifiedTemps[dtemp])
 						{
 							int j = 0;
-							while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && (mFalseJump->mLocalModifiedTemps[dtemp] || mTrueJump->mLocalModifiedTemps[dtemp])))
+							while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && (mFalseJump->mLocalModifiedTemps[ins->mSrc[j].mTemp] || mTrueJump->mLocalModifiedTemps[ins->mSrc[j].mTemp])))
 								j++;
 
 							if (j == ins->mNumOperands)

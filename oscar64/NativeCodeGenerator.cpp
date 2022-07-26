@@ -17323,18 +17323,22 @@ bool NativeCodeBasicBlock::MoveStoreXUp(int at)
 				return done;
 			}
 
-			mIns[at].mLive |= mIns[at - 1].mLive;
+			int live = mIns[at - 1].mLive;
 			mIns[at + n].mLive |= LIVE_CPU_REG_X;
 
 			NativeCodeInstruction	ins = mIns[at - 1];
 			if (ins.mMode == ASMIM_ABSOLUTE_X)
 				ins.mAddress -= inc;
 
-			if (ins.RequiresYReg()) mIns[at].mLive |= LIVE_CPU_REG_Y;
-			if (ins.RequiresAccu()) mIns[at].mLive |= LIVE_CPU_REG_A;
+			if (ins.RequiresCarry()) live |= LIVE_CPU_REG_C;
+			if (ins.RequiresYReg()) live |= LIVE_CPU_REG_Y;
+			if (ins.RequiresAccu()) live |= LIVE_CPU_REG_A;
 
 			for (int i = 0; i <= n; i++)
+			{
+				mIns[at + i].mLive |= live;
 				mIns[at - 1 + i] = mIns[at + i];
+			}
 			mIns[at + n] = ins;
 			done = true;
 		}
@@ -23036,6 +23040,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						(mIns[i + 2].mLive & LIVE_MEM) == 0)
 					{
 						mIns[i + 1].mType = mIns[i + 2].mType;
+						mIns[i + 1].mLive |= mIns[i + 2].mLive;
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 						progress = true;
