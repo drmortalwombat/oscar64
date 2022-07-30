@@ -15,7 +15,10 @@ enum NativeRegisterDataMode
 	NRDM_IMMEDIATE,
 	NRDM_IMMEDIATE_ADDRESS,
 	NRDM_ZERO_PAGE,
-	NRDM_ABSOLUTE
+	NRDM_ABSOLUTE,
+	NRDM_ABSOLUTE_X,
+	NRDM_ABSOLUTE_Y,
+	NRDM_INDIRECT_Y
 };
 
 struct NativeRegisterData
@@ -43,6 +46,8 @@ struct NativeRegisterDataSet
 	void ResetZeroPage(int addr);
 	void ResetAbsolute(LinkerObject * linkerObject, int addr);
 	void ResetIndirect(void);
+	void ResetX(void);
+	void ResetY(void);
 	void Intersect(const NativeRegisterDataSet& set);
 	void IntersectMask(const NativeRegisterDataSet& set);
 };
@@ -201,6 +206,8 @@ public:
 
 	bool OptimizeInnerLoops(NativeCodeProcedure* proc);
 	NativeCodeBasicBlock* CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks);
+
+	bool OptimizeFindLoop(NativeCodeProcedure* proc);
 
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
@@ -373,6 +380,7 @@ public:
 
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);
+	bool SimplifyDiamond(NativeCodeProcedure* proc);
 
 	bool MoveAccuTrainUp(int at, int end);
 	bool MoveAccuTrainsUp(void);

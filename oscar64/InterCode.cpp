@@ -6077,6 +6077,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					mFalseValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
 					mFalseValueRange[s1].LimitMin(0);
 				}
+				else
+					mFalseValueRange[s0].LimitMin(1);
 				break;
 			}
 
