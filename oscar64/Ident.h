@@ -9,6 +9,7 @@ public:
 	unsigned int	mHash;
 
 	static const Ident* Unique(const char* str);
+	const Ident* Mangle(const char* str) const;
 protected:
 	Ident(const char* str, unsigned int hash);
 };

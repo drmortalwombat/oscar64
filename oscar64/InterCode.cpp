@@ -12847,7 +12847,7 @@ void InterCodeProcedure::Close(void)
 	if (!mInterruptCalled && mEntryBlock->CheckStaticStack())
 	{
 		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
-		mLinkerObject->mStackSection = mModule->mLinker->AddSection(mIdent, LST_STATIC_STACK);
+		mLinkerObject->mStackSection = mModule->mLinker->AddSection(mIdent->Mangle("@stack"), LST_STATIC_STACK);
 
 		for (int i = 0; i < mLocalVars.Size(); i++)
 		{
@@ -12861,7 +12861,7 @@ void InterCodeProcedure::Close(void)
 			}
 		}
 
-		mSaveTempsLinkerObject = mModule->mLinker->AddObject(mLocation, mIdent, mLinkerObject->mStackSection, LOT_BSS);
+		mSaveTempsLinkerObject = mModule->mLinker->AddObject(mLocation, mIdent->Mangle("@stack"), mLinkerObject->mStackSection, LOT_BSS);
 
 		ResetVisited();
 		mEntryBlock->CollectStaticStack(mLinkerObject, mLocalVars);

@@ -438,7 +438,7 @@ bool Compiler::BuildLZO(const char* targetPath)
 
 	while (mErrors->mErrorCount == 0 && (cunit = mCompilationUnits->PendingUnit()))
 	{
-		if (mPreprocessor->EmbedData("Compressing", cunit->mFileName, true, 0, 65536, SFM_BINARY_LZO))
+		if (mPreprocessor->EmbedData("Compressing", cunit->mFileName, true, 0, 65536, SFM_BINARY_LZO, SFD_NONE))
 		{
 			Scanner* scanner = new Scanner(mErrors, mPreprocessor);
 			while (scanner->mToken == TK_INTEGER)

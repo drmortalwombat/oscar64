@@ -18,9 +18,24 @@ enum SourceFileMode
 {
 	SFM_TEXT,
 	SFM_BINARY,
+	SFM_BINARY_WORD,
 	SFM_BINARY_RLE,
 	SFM_BINARY_LZO
 };
+
+enum SourceFileDecoder
+{
+	SFD_NONE,
+	SFD_CTM_CHARS,
+	SFD_CTM_CHAR_ATTRIB_1,
+	SFD_CTM_CHAR_ATTRIB_2,
+	SFD_CTM_TILES_8,
+	SFD_CTM_TILES_16,
+	SFD_CTM_MAP_8,
+	SFD_CTM_MAP_16,
+	SFD_SPD_SPRITES
+};
+
 class SourceFile
 {
 public:
@@ -32,8 +47,9 @@ public:
 	SourceFileMode	mMode;
 	int				mLimit;
 
-	char			mBuffer[512];
-	int				mFill, mPos;
+	uint8			mBuffer[512];
+	int				mFill, mPos, mMemPos, mMemSize;
+	uint8		*	mMemData;
 
 	bool ReadLine(char* line);
 
@@ -46,7 +62,7 @@ public:
 	bool Open(const char* name, const char * path, SourceFileMode mode = SFM_TEXT);
 	void Close(void);
 
-	void Limit(int skip, int limit);
+	void Limit(SourceFileDecoder decoder, int skip, int limit);
 
 	bool PushSource(void);
 	bool PopSource(void);
@@ -54,6 +70,10 @@ public:
 
 protected:
 	FILE* mFile;
+
+	void ReadCharPad(SourceFileDecoder decoder);
+	void ReadSpritePad(SourceFileDecoder decoder);
+	int ReadChar(void);
 };
 
 class SourcePath
@@ -90,7 +110,7 @@ public:
 	bool PopSource(void);
 	bool DropSource(void);
 
-	bool EmbedData(const char* reason, const char* name, bool local, int skip, int limit, SourceFileMode mode);
+	bool EmbedData(const char* reason, const char* name, bool local, int skip, int limit, SourceFileMode mode, SourceFileDecoder decoder);
 
 	Preprocessor(Errors * errors);
 	~Preprocessor(void);

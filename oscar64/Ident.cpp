@@ -45,6 +45,13 @@ const Ident* Ident::Unique(const char* str)
 }
 
 
+const Ident* Ident::Mangle(const char* str) const
+{
+	char	buffer[100];
+	strcpy_s(buffer, mString);
+	strcat_s(buffer, str);
+	return Unique(buffer);
+}
 
 IdentDict::IdentDict(void)
 {

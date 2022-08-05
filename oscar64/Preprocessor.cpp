@@ -32,7 +32,7 @@ bool SourceFile::ReadLineLZO(char* line)
 	assert(mFill >= 0 && mFill - mPos < 384 && mPos <= mFill);
 
 	int	c;
-	while (mLimit && mFill < 384 && (c = fgetc(mFile)) >= 0)
+	while (mLimit && mFill < 384 && (c = ReadChar()) >= 0)
 	{
 		mLimit--;
 		mBuffer[mFill++] = c;
@@ -115,7 +115,7 @@ bool SourceFile::ReadLineRLE(char* line)
 	assert(mFill >= 0 && mFill < 256);
 
 	int	c;
-	while (mLimit && mFill < 256 && (c = fgetc(mFile)) >= 0)
+	while (mLimit && mFill < 256 && (c = ReadChar()) >= 0)
 	{
 		mLimit--;
 		mBuffer[mFill++] = c;
@@ -234,6 +234,19 @@ bool SourceFile::ReadLineRLE(char* line)
 	return false;
 }
 
+int SourceFile::ReadChar(void)
+{
+	if (mMemData)
+	{
+		if (mMemPos < mMemSize)
+			return mMemData[mMemPos++];
+		else
+			return -1;
+	}
+	else
+		return fgetc(mFile);
+}
+
 bool SourceFile::ReadLine(char* line)
 {
 	if (mFile)
@@ -249,7 +262,7 @@ bool SourceFile::ReadLine(char* line)
 			{
 				mLimit--;
 
-				int c = fgetc(mFile);
+				int c = ReadChar();
 				if (c >= 0)
 				{
 					sprintf_s(line, 1024, "0x%02x, ", c);
@@ -257,6 +270,22 @@ bool SourceFile::ReadLine(char* line)
 				}
 			}
 			break;
+		case SFM_BINARY_WORD:
+			if (mLimit >= 2)
+			{
+				mLimit -= 2;
+
+				int c = ReadChar();
+				if (c >= 0)
+				{
+					int d = ReadChar();
+					if (d >= 0)
+						sprintf_s(line, 1024, "0x%04x, ", c + 256 * d);
+					return true;
+				}
+			}
+			break;
+
 		case SFM_BINARY_RLE:
 			if (ReadLineRLE(line))
 				return true;
@@ -274,15 +303,265 @@ bool SourceFile::ReadLine(char* line)
 	return false;
 }
 
-void SourceFile::Limit(int skip, int limit)
+struct CTMHeader8
 {
-	mLimit = limit;
-	if (mFile)
-		fseek(mFile, skip, SEEK_SET);
+	uint8	mID[3];
+	uint8	mVersion[1];
+	uint8	mDispMode;
+	uint8	mColorMethod;
+	uint8	mFlags;
+	uint8	mColors[7];
+};
+
+#pragma pack(push, 1)
+struct SPDHeader5
+{
+	uint8	mID[3];
+	uint8	mVersion[1];
+	uint8	mFlags;
+	uint16	mNumSprites, mNumTiles;
+	uint8	mNumSpriteAnmis, mNumTileAnims;
+	uint8	mTileWidth, mTileHeight;
+	uint8	mColors[3];
+	int16	mSpriteOverlayDist, mTileOverlayDist;
+};
+#pragma pack(pop)
+
+void SourceFile::ReadSpritePad(SourceFileDecoder decoder)
+{
+	SPDHeader5	spdHeader;
+
+	fread(&spdHeader, sizeof(SPDHeader5), 1, mFile);
+
+	if (decoder == SFD_SPD_SPRITES)
+	{
+		mLimit = 64 * spdHeader.mNumSprites;
+		return;
+	}
+
+	mLimit = 0;
+}
+
+void SourceFile::ReadCharPad(SourceFileDecoder decoder)
+{
+	CTMHeader8	ctmHeader;
+	uint16		ctmMarker, numChars, numTiles;
+	char		tileWidth, tileHeight;
+
+	fread(&ctmHeader, sizeof(CTMHeader8), 1, mFile);
+	fread(&ctmMarker, 2, 1, mFile);
+	fread(&numChars, 2, 1, mFile);
+	numChars++;
+
+	if (decoder == SFD_CTM_CHARS)
+	{
+		mLimit = 8 * numChars;
+		return;
+	}
+
+	// Skip chars
+	fseek(mFile, 8 * numChars, SEEK_CUR);
+
+	fread(&ctmMarker, 2, 1, mFile);
+
+	if (ctmHeader.mColorMethod == 2 && (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2))
+	{
+		mMemSize = numChars;
+		mLimit = mMemSize;
+		mMemPos = 0;
+		mMemData = new uint8[mMemSize];
+	}
+
+	if (ctmHeader.mColorMethod == 2 && decoder == SFD_CTM_CHAR_ATTRIB_1)
+	{
+		for (int i = 0; i < mMemSize; i++)
+		{
+			uint8	fd;
+			fread(&fd, 1, 1, mFile);
+			mMemData[i] = fd << 4;
+		}
+	}
+	else
+	{
+		// Skip material
+		fseek(mFile, 1 * numChars, SEEK_CUR);
+	}
+
+	if (ctmHeader.mColorMethod == 2)
+	{
+		fread(&ctmMarker, 2, 1, mFile);
+
+		if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2)
+		{
+			if (ctmHeader.mDispMode == 4)
+			{
+				for (int i = 0; i < mMemSize; i++)
+				{
+					uint8	fd[3];
+					fread(fd, 1, 3, mFile);
+					if (decoder == SFD_CTM_CHAR_ATTRIB_1)
+						mMemData[i] |= fd[0];
+					else
+						mMemData[i] = (fd[2] << 4) | fd[1];
+				}
+			}
+			else
+			{
+				for (int i = 0; i < mMemSize; i++)
+				{
+					uint8	fd[3];
+					fread(fd, 1, 1, mFile);
+					mMemData[i] |= fd[0];
+				}
+			}
+
+
+			return;
+		}
+		else
+		{
+			// Skip colors
+			if (ctmHeader.mDispMode == 3)
+				fseek(mFile, 2 * numChars, SEEK_CUR);
+			else if (ctmHeader.mDispMode == 4)
+				fseek(mFile, 3 * numChars, SEEK_CUR);
+			else
+				fseek(mFile, numChars, SEEK_CUR);
+		}
+	}
+
+	if (ctmHeader.mFlags & 1)
+	{
+		fread(&ctmMarker, 2, 1, mFile);
+
+		fread(&numTiles, 2, 1, mFile);
+		numTiles++;
+
+		fread(&tileWidth, 1, 1, mFile);
+		fread(&tileHeight, 1, 1, mFile);
+
+		if (decoder == SFD_CTM_TILES_16)
+		{
+			mLimit = 2 * numTiles * tileWidth * tileHeight;
+			return;
+		}
+		else if (decoder == SFD_CTM_TILES_8)
+		{
+			mMemSize = numTiles * tileWidth * tileHeight;
+			mLimit = mMemSize;
+			mMemPos = 0;
+			mMemData = new uint8[mMemSize];
+			for (int i = 0; i < mMemSize; i++)
+			{
+				int16	d;
+				fread(&d, 2, 1, mFile);
+				mMemData[i] = d;
+			}
+			return;
+		}
+		else
+			fseek(mFile, 2 * numTiles * tileWidth * tileHeight, SEEK_CUR);
+
+		fread(&ctmMarker, 2, 1, mFile);
+
+		if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2)
+		{
+			mMemSize = numTiles;
+			mLimit = mMemSize;
+			mMemPos = 0;
+			mMemData = new uint8[mMemSize];
+
+			for (int i = 0; i < mMemSize; i++)
+			{
+				uint8	fd[3];
+				fread(&fd, 1, 1, mFile);
+				mMemData[i] = fd[0];
+			}
+
+			fread(&ctmMarker, 2, 1, mFile);
+
+			for (int i = 0; i < mMemSize; i++)
+			{
+				uint8	fd[3];
+				fread(&fd, 1, 1, mFile);
+				mMemData[i] |= fd[0] << 4;
+			}
+
+			return;
+		}
+		else
+		{
+			// Skip material
+			fseek(mFile, 1 * numTiles, SEEK_CUR);
+		}
+
+		// Skip tile names
+		fread(&ctmMarker, 2, 1, mFile);
+		for (int i = 0; i < numTiles; i++)
+		{
+			while (fgetc(mFile) > 0)
+				;
+		}
+	}
+
+	fread(&ctmMarker, 2, 1, mFile);
+
+	int16	mapWidth, mapHeight;
+	fread(&mapWidth, 2, 1, mFile);
+	fread(&mapHeight, 2, 1, mFile);
+
+	if (decoder == SFD_CTM_MAP_16)
+	{
+		mLimit = 2 * mapWidth * mapHeight;
+		return;
+	}
+	else if (decoder == SFD_CTM_MAP_8)
+	{
+		mMemSize = mapWidth * mapHeight;
+		mLimit = mMemSize;
+		mMemPos = 0;
+		mMemData = new uint8[mMemSize];
+		for (int i = 0; i < mMemSize; i++)
+		{
+			int16	d;
+			fread(&d, 2, 1, mFile);
+			mMemData[i] = d;
+		}
+		return;
+	}
+	else
+		fseek(mFile, 2 * mapWidth * mapHeight, SEEK_CUR);
+
+	mLimit = 0;
+}
+
+void SourceFile::Limit(SourceFileDecoder decoder, int skip, int limit)
+{
+	switch (decoder)
+	{
+	case SFD_CTM_CHARS:
+	case SFD_CTM_CHAR_ATTRIB_1:
+	case SFD_CTM_CHAR_ATTRIB_2:
+	case SFD_CTM_TILES_8:
+	case SFD_CTM_TILES_16:
+	case SFD_CTM_MAP_8:
+	case SFD_CTM_MAP_16:
+		ReadCharPad(decoder);
+		break;
+
+	case SFD_SPD_SPRITES:
+		ReadSpritePad(decoder);
+		break;
+
+	default:
+		mLimit = limit;
+		if (mFile)
+			fseek(mFile, skip, SEEK_SET);
+	}
 }
 
 SourceFile::SourceFile(void) 
-	: mFile(nullptr), mFileName{ 0 }, mStack(nullptr)
+	: mFile(nullptr), mFileName{ 0 }, mStack(nullptr), mMemData(nullptr)
 {
 
 }
@@ -293,6 +572,11 @@ SourceFile::~SourceFile(void)
 	{
 		fclose(mFile);
 		mFile = nullptr;
+	}
+
+	if (mMemData)
+	{
+		delete[] mMemData;
 	}
 }
 
@@ -398,7 +682,7 @@ bool Preprocessor::NextLine(void)
 	return false;
 }
 
-bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, int skip, int limit, SourceFileMode mode)
+bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, int skip, int limit, SourceFileMode mode, SourceFileDecoder decoder)
 {
 	if (strlen(name) > 200)
 	{
@@ -443,7 +727,7 @@ bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, i
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("%s \"%s\"\n", reason, source->mFileName);
 
-		source->Limit(skip, limit);
+		source->Limit(decoder, skip, limit);
 
 		source->mUp = mSource;
 		mSource = source;

@@ -45,7 +45,7 @@ struct NativeRegisterDataSet
 
 	void ResetZeroPage(int addr);
 	void ResetAbsolute(LinkerObject * linkerObject, int addr);
-	void ResetIndirect(void);
+	void ResetIndirect(int reg);
 	void ResetX(void);
 	void ResetY(void);
 	void Intersect(const NativeRegisterDataSet& set);

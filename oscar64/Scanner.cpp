@@ -651,6 +651,7 @@ void Scanner::NextToken(void)
 		{
 			int	limit = 65536, skip = 0;
 			SourceFileMode	mode = SFM_BINARY;
+			SourceFileDecoder decoder = SFD_NONE;
 
 			NextRawToken();
 			if (mToken == TK_INTEGER)
@@ -665,12 +666,30 @@ void Scanner::NextToken(void)
 				}
 			}
 
-			if (mToken == TK_IDENT)
+			while (mToken == TK_IDENT)
 			{
 				if (!strcmp(mTokenIdent->mString, "rle"))
 					mode = SFM_BINARY_RLE;
 				else if (!strcmp(mTokenIdent->mString, "lzo"))
 					mode = SFM_BINARY_LZO;
+				else if (!strcmp(mTokenIdent->mString, "word"))
+					mode = SFM_BINARY_WORD;
+				else if (!strcmp(mTokenIdent->mString, "ctm_chars"))
+					decoder = SFD_CTM_CHARS;
+				else if (!strcmp(mTokenIdent->mString, "ctm_attr1"))
+					decoder = SFD_CTM_CHAR_ATTRIB_1;
+				else if (!strcmp(mTokenIdent->mString, "ctm_attr2"))
+					decoder = SFD_CTM_CHAR_ATTRIB_2;
+				else if (!strcmp(mTokenIdent->mString, "ctm_tiles8"))
+					decoder = SFD_CTM_TILES_8;
+				else if (!strcmp(mTokenIdent->mString, "ctm_tiles16"))
+					decoder = SFD_CTM_TILES_16;
+				else if (!strcmp(mTokenIdent->mString, "ctm_map8"))
+					decoder = SFD_CTM_MAP_8;
+				else if (!strcmp(mTokenIdent->mString, "ctm_map16"))
+					decoder = SFD_CTM_MAP_16;
+				else if (!strcmp(mTokenIdent->mString, "spd_sprites"))
+					decoder = SFD_SPD_SPRITES;
 				else
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Invalid embed compression mode", mTokenIdent);
 
@@ -679,14 +698,14 @@ void Scanner::NextToken(void)
 
 			if (mToken == TK_STRING)
 			{
-				if (!mPreprocessor->EmbedData("Embedding", mTokenString, true, skip, limit, mode))
+				if (!mPreprocessor->EmbedData("Embedding", mTokenString, true, skip, limit, mode, decoder))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
 			else if (mToken == TK_LESS_THAN)
 			{
 				mOffset--;
 				StringToken('>', 'a');
-				if (!mPreprocessor->EmbedData("Embedding", mTokenString, false, skip, limit, mode))
+				if (!mPreprocessor->EmbedData("Embedding", mTokenString, false, skip, limit, mode, decoder))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
 			}
 		}

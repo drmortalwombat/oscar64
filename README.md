@@ -165,6 +165,48 @@ Embedded data can be compressed during compile time and expanded at runtime usin
 Compression algorithms so far are LZ (lzo) and run length (rle).
 
 
+### Embedding sprite and graphics data
+
+The #embed preprocessor can also import components from spritepad and charpad files (.spd version 5 and .ctm version 8).
+
+The component to extract (e.g. chars or tiles) is added as a further specifier.
+
+	const char FloorChars[] = {
+		#embed ctm_chars lzo "floortiles.ctm"
+	};
+
+Imports the character data and compresses it using lzo compression.
+
+	const char CardsTiles[] = {
+		#embed ctm_tiles8 "cards.ctm"
+	};
+
+Imports the tiles in 8 bit form and builds word constants
+
+	const unsigned CardsTiles[] = {
+		#embed ctm_tiles16 word "cards.ctm"
+	};
+
+Imports the tiles in 16 bit form and builds word constants
+
+	const char CardsAttrib1[] = {
+		#embed ctm_attr1 "cards.ctm"
+	};
+
+	const char CardsAttrib2[] = {
+		#embed ctm_attr2 "cards.ctm"
+	};
+
+Imports the attribute data
+
+	const char SpriteData[] = {
+		#embed spd_sprites lzo "sprites.spd"
+	};
+
+
+Imports the sprite data and compresses it using lzo compression
+
+
 ### Console input and output
 
 The C64 does not use ASCII it uses a derivative called PETSCII.  There are two fonts, one with uppercase and one with uppercase and lowercase characters.  It also used CR (13) as line terminator instead of LF (10).  The stdio and conio libaries can perform translations.
