@@ -9779,6 +9779,19 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		}
 	}
 #endif
+#if 1
+	// Special case counting to 256
+	else if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 256 && op == IA_CMPLU &&
+			ins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMinValue > 0 && 
+			ins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMaxValue == 256)
+	{
+		if (ins->mSrc[1].mTemp < 0)
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst & 0xff));
+		else
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
+		this->Close(falseJump, trueJump, ASMIT_BEQ);
+	}
+#endif
 	else
 	{
 		NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
@@ -19229,7 +19242,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				changed = true;
 			}
 		}
-		else if (mIns[ai].mType == ASMIT_LDY && mIns[ai].mMode == ASMIM_ZERO_PAGE)
+		else if (mIns[ai].mType == ASMIT_LDY && mIns[ai].mMode == ASMIM_ZERO_PAGE && !(mIns[ai].mLive & LIVE_CPU_REG_Z))
 		{
 			int i = 0;
 			while (i < mIns.Size() && (i == ai || !mIns[i].ChangesYReg()))
@@ -21811,7 +21824,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					if (MoveStoreXUp(i))
 						changed = true;
 				}
-				else if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM))
+				else if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
 				{
 					if (MoveLoadXUp(i))
 						changed = true;
@@ -21824,7 +21837,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 							changed = true;
 					}
 				}
-				else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM))
+				else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
 				{
 					if (MoveLoadYUp(i))
 						changed = true;
@@ -22836,7 +22849,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mType == ASMIT_TXA &&
 						mIns[i + 1].mType == ASMIT_TAX)
 					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
@@ -22844,7 +22857,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mType == ASMIT_TYA &&
 						mIns[i + 1].mType == ASMIT_TAY)
 					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
@@ -22852,7 +22865,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mType == ASMIT_TAX &&
 						mIns[i + 1].mType == ASMIT_TXA)
 					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
@@ -22860,7 +22873,23 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mType == ASMIT_TAY &&
 						mIns[i + 1].mType == ASMIT_TYA)
 					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_INY &&
+						mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_INX &&
+						mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}

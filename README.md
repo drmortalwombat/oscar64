@@ -247,7 +247,28 @@ The following code scrolls the screen to the left, and completely unrolls the in
 		for(char y=0; y<25; y++)
 			screen[y][x] = screen[y][x + 1];
 	}
-	
+
+Sometimes it is better to unroll the loop not in the order it normaly executes, but using page size chunks.  When e.g. filling a C64 screen with a loop:
+
+	for(int i=0; i<1000; i++)
+		Screen[i] = ' ';
+		
+Unrolling this loop would not help, the index would still not fit into the 8 bit x or y register.  Using a page level unroll, the compiler will unroll the loop into four stores, each 250 bytes appart, and use the y or x register for indexing:
+
+	#pragma unroll(page)
+	for(int i=0; i<1000; i++)
+		Screen[i] = ' ';
+
+	0921 LDY #$00
+	0923 LDA #$20
+	0925 STA $0400,y 
+	0928 STA $04fa,y 
+	092b STA $05f4,y 
+	092e STA $06ee,y 
+	0931 INY
+	0932 CPY #$fa
+	0934 BCC $0925
+
 
 ### Marking functions as native
 

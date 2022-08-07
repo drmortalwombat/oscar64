@@ -7343,15 +7343,41 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 				{
 					InterInstruction* pins = ltvalue[ins->mSrc[0].mTemp];
 
-					if (ins->mSrc[0].mMemory == IM_INDIRECT  && pins->mCode == IC_LEA)
-						ins->mSrc[0].mLinkerObject = pins->mSrc[1].mLinkerObject;
-
-					if (pins->mCode == IC_LEA && pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst >= 0)
+					if (pins->mCode == IC_LEA)
 					{
-						ins->mSrc[0].Forward(pins->mSrc[1]);
-						pins->mSrc[1].mFinal = false;
-						ins->mSrc[0].mIntConst += pins->mSrc[0].mIntConst;
-						changed = true;
+						if (ins->mSrc[0].mMemory == IM_INDIRECT)
+							ins->mSrc[0].mLinkerObject = pins->mSrc[1].mLinkerObject;
+
+						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst >= 0)
+						{
+							ins->mSrc[0].Forward(pins->mSrc[1]);
+							pins->mSrc[1].mFinal = false;
+							ins->mSrc[0].mIntConst += pins->mSrc[0].mIntConst;
+							changed = true;
+						}
+						else if (pins->mSrc[1].mTemp < 0 && pins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mIntConst && (ins->mSrc[0].mIntConst >= 256 || pins->mSrc[0].IsUByte()))
+						{
+							int k = mInstructions.IndexOf(pins);
+							if (k >= 0)
+							{
+								if (spareTemps + 2 >= ltvalue.Size())
+									return true;
+
+								InterInstruction* nins = new InterInstruction();
+								nins->mCode = IC_LEA;
+								nins->mSrc[0].Forward(pins->mSrc[0]);
+								nins->mSrc[1].ForwardMem(pins->mSrc[1]);
+								nins->mSrc[1].mIntConst += ins->mSrc[0].mIntConst;
+								nins->mDst.mTemp = spareTemps++;
+								nins->mDst.mType = IT_POINTER;
+								nins->mDst.mRange = ins->mDst.mRange;
+								ins->mSrc[0].mIntConst = 0;
+								ins->mSrc[0].mTemp = nins->mDst.mTemp;
+
+								mInstructions.Insert(k + 1, nins);
+								changed = true;
+							}
+						}
 					}
 				}
 				break;
@@ -10504,6 +10530,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						{
 							if (cins->mCode == IC_LEA && cins->mSrc[1].mTemp == st && cins->mSrc[0].mTemp < 0)
 								toffset += cins->mSrc[0].mIntConst;
+							else if (cins->mCode == IC_BINARY_OPERATOR && cins->mOperator == IA_ADD && cins->mSrc[1].mTemp == st && cins->mSrc[0].mTemp < 0)
+								toffset += cins->mSrc[0].mIntConst;
 							else
 								break;
 						}
@@ -10519,6 +10547,16 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							if (ins->mDst.mType == IT_POINTER)
 							{
 								ins->mCode = IC_LEA;
+								ins->mNumOperands = 2;
+								ins->mSrc[1] = ins->mSrc[0];
+								ins->mSrc[0].mTemp = -1;
+								ins->mSrc[0].mType = IT_INT16;
+								ins->mSrc[0].mIntConst = -toffset;
+							}
+							else
+							{
+								ins->mCode = IC_BINARY_OPERATOR;
+								ins->mOperator = IA_ADD;
 								ins->mNumOperands = 2;
 								ins->mSrc[1] = ins->mSrc[0];
 								ins->mSrc[0].mTemp = -1;
