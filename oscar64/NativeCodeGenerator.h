@@ -311,6 +311,7 @@ public:
 	bool ReplaceYRegWithXReg(int start, int end);
 	bool ReplaceXRegWithYReg(int start, int end);
 	bool MoveASLMemUp(int start);
+	bool CombineImmediateADCUp(int at);
 
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
 	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);
@@ -349,6 +350,7 @@ public:
 	bool JoinTailCodeSequences(NativeCodeProcedure* proc, bool loops);
 	bool SameTail(const NativeCodeInstruction& ins) const;
 	bool HasTailSTA(int& addr, int& index) const;
+	bool HasTailSTX(int& addr, int& index) const;
 	bool PropagateSinglePath(void);
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock) const;
