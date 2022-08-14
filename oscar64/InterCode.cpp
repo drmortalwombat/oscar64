@@ -971,6 +971,16 @@ static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins
 	if (HasSideEffect(lins->mCode) && HasSideEffect(bins->mCode))
 		return false;
 
+	if (lins->mCode == IC_CALL || lins->mCode == IC_CALL_NATIVE)
+	{
+		if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE ||
+			bins->mCode == IC_RETURN || bins->mCode == IC_RETURN_STRUCT || bins->mCode == IC_RETURN_VALUE ||
+			bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
+			return false;
+		if (bins->mCode == IC_LOAD || bins->mCode == IC_STORE || bins->mCode == IC_COPY)
+			return false;
+	}
+
 	if (lins->mDst.mTemp >= 0)
 	{
 		if (lins->mDst.mTemp == bins->mDst.mTemp)
@@ -8356,7 +8366,7 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 	{
 		return false;
 	}
-	else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
+	else if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
 		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
 		return false;
 	else
@@ -12392,6 +12402,39 @@ void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
 	} while (changed);
 }
 
+void InterCodeProcedure::PropagateConstOperationsUp(void)
+{
+#if 1
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	bool	changed;
+	do {
+		changed = false;
+
+		ResetVisited();
+		mEntryBlock->BuildConstTempSets();
+
+		ResetVisited();
+		if (mEntryBlock->PropagateConstOperationsUp())
+		{
+			BuildDataFlowSets();
+
+			GlobalConstantPropagation();
+
+			TempForwarding();
+
+			RemoveUnusedInstructions();
+
+			changed = true;
+
+			DisassembleDebug("prop const op up");
+		}
+	} while (changed);
+#endif
+}
+
 void InterCodeProcedure::Close(void)
 {
 	int				i, j, k, start;
@@ -12839,34 +12882,7 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Rebuilt traces");
 #endif
 
-#if 1
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
-
-	do {
-		changed = false;
-
-		ResetVisited();
-		mEntryBlock->BuildConstTempSets();
-
-		ResetVisited();
-		if (mEntryBlock->PropagateConstOperationsUp())
-		{
-			BuildDataFlowSets();
-
-			GlobalConstantPropagation();
-
-			TempForwarding();
-
-			RemoveUnusedInstructions();
-
-			changed = true;
-
-			DisassembleDebug("prop const op up");
-		}
-	} while (changed);
-#endif
+	PropagateConstOperationsUp();
 
 #if 1
 	BuildDataFlowSets();
@@ -12924,6 +12940,8 @@ void InterCodeProcedure::Close(void)
 	SimplifyIntegerNumeric(activeSet);
 
 #endif
+
+	PropagateConstOperationsUp();
 
 #if 1
 	for (int i = 0; i < 4; i++)

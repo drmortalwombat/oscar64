@@ -577,6 +577,7 @@ protected:
 	void EliminateAliasValues();
 	void LoadStoreForwarding(InterMemory paramMemory);
 	void ExpandSelect(void);
+	void PropagateConstOperationsUp(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);

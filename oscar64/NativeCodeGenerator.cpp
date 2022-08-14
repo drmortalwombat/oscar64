@@ -44,6 +44,7 @@ bool NativeRegisterData::SameData(const NativeRegisterData& d) const
 
 	switch (mMode)
 	{
+	case NRDM_UNKNOWN:
 	case NRDM_IMMEDIATE:
 	case NRDM_ZERO_PAGE:
 		return mValue == d.mValue;
@@ -189,7 +190,24 @@ void NativeRegisterDataSet::Intersect(const NativeRegisterDataSet& set)
 					changed = true;
 				}
 			}
-			else if (mRegs[i].mMode == NRDM_ABSOLUTE_X || mRegs[i].mMode == NRDM_ABSOLUTE_Y || mRegs[i].mMode == NRDM_INDIRECT_Y)
+			else if (mRegs[i].mMode == NRDM_INDIRECT_Y)
+			{
+				if (set.mRegs[i].mMode != NRDM_INDIRECT_Y || mRegs[i].mValue != set.mRegs[i].mValue || !mRegs[CPU_REG_Y].SameData(set.mRegs[CPU_REG_Y]))
+				{
+					mRegs[i].Reset();
+					changed = true;
+				}
+				else
+				{
+					int reg = mRegs[i].mValue;
+					if (!mRegs[reg].SameData(set.mRegs[reg]) || !mRegs[reg + 1].SameData(set.mRegs[reg + 1]))
+					{
+						mRegs[i].Reset();
+						changed = true;
+					}
+				}
+			}
+			else if (mRegs[i].mMode == NRDM_ABSOLUTE_X || mRegs[i].mMode == NRDM_ABSOLUTE_Y)
 			{
 				mRegs[i].Reset();
 				changed = true;
@@ -23145,6 +23163,26 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mAddress & 0x80) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
 					{
 						mIns[i + 0].mType = ASMIT_LSR;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+					{
+						mIns[i + 0] = mIns[i + 1];
+						mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+						mIns[i + 0].mAddress &= 0x7f;
+						mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+					{
+						mIns[i + 0] = mIns[i + 1];
+						mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+						mIns[i + 0].mAddress &= 0xfe;
+						mIns[i + 1].mType = ASMIT_ROR; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
 					else if (
