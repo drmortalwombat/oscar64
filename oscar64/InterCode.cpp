@@ -6246,7 +6246,13 @@ bool InterCodeBasicBlock::PropagateConstOperationsUp(void)
 							}
 
 							eb->mInstructions.Insert(di, nins);
+							if (ins->mDst.mTemp >= 0)
+								eb->mExitRequiredTemps += ins->mDst.mTemp;
 						}
+
+						if (ins->mDst.mTemp >= 0)
+							mEntryRequiredTemps += ins->mDst.mTemp;
+
 						mInstructions.Remove(i);
 						changed = true;
 					}
@@ -12408,6 +12414,8 @@ void InterCodeProcedure::PropagateConstOperationsUp(void)
 	ResetEntryBlocks();
 	ResetVisited();
 	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	BuildDataFlowSets();
 
 	bool	changed;
 	do {
