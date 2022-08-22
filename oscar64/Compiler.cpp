@@ -204,7 +204,9 @@ bool Compiler::GenerateCode(void)
 	{
 		if (!regionMain)
 		{
-			if (regionBytecode)
+			if (!(mCompilerOptions & COPT_TARGET_PRG))
+				regionMain = mLinker->AddRegion(identMain, 0x0900, 0x4700);
+			else if (regionBytecode)
 				regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
 			else
 				regionMain = mLinker->AddRegion(identMain, 0x0900, 0xa000);

@@ -616,7 +616,7 @@ bool Linker::WriteCrtFile(const char* filename)
 		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
 		fwrite(mMemory + 0x0800, 1, 0x2000, file);
 
-		memcpy(bootmem, mMemory + 0x2800, 0x1800);
+		memcpy(bootmem, mMemory + 0x2800, 0x1f00);
 
 		bootmem[0x1ffc] = 0x00;
 		bootmem[0x1ffd] = 0xff;
