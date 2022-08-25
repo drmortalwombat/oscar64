@@ -558,6 +558,11 @@ This sample reserves a fixed area of several banks for a common code segment.  A
 
 An alternative to calling the function in the cartridge ROM itself is to copy it to a different location in RAM and execute it there.  This sample creates functions in different ROM banks that are linked for a memory area in RAM at 0x7000.  The code is copied from the ROM to RAM and then executed.
 
+#### Easyflash low memory usage "easyflash.c"
+
+This sample will use the memory area starting from 0x0400 for the main code section when copying the code, using the stack page 0x100 for the startup itself, thus wasting small amount of RAM space.
+
+
 #### Terminate stay resident "tsr.c"
 
 A common usage for the RAM area in 0xc000..0xcfff which is visible but not usable from BASIC is to install a terminate stay resident BASIC extension, which can then be called using sys 49152.

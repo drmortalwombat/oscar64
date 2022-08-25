@@ -5365,6 +5365,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
 						vr.mMaxValue = 255;
+						vr.mMinState = IntegerValueRange::S_BOUND;
+						vr.mMinValue = 0;
 					}
 					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < 0 || vr.mMinValue > 255)
 					{
@@ -11779,6 +11781,15 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 					fprintf(file, "-");
 			}
 			fprintf(file, "\n\n");
+			fprintf(file, "Exit  required temps : ");
+			for (i = 0; i < mExitRequiredTemps.Size(); i++)
+			{
+				if (mExitRequiredTemps[i])
+					fprintf(file, "#");
+				else
+					fprintf(file, "-");
+			}
+			fprintf(file, "\n\n");
 		}
 
 		for (i = 0; i < mInstructions.Size(); i++)
@@ -12957,6 +12968,8 @@ void InterCodeProcedure::Close(void)
 		PeepholeOptimization();
 
 		DisassembleDebug("Peephole Temp Check");
+		
+		RemoveUnusedInstructions();
 
 		ReduceTemporaries();
 
@@ -13349,6 +13362,8 @@ void InterCodeProcedure::ReduceTemporaries(void)
 
 	for (i = 0; i < numTemps; i++)
 		collisionSet[i].Reset(numTemps);
+
+	Disassemble("ReduceTemps", true);
 
 	ResetVisited();
 	mEntryBlock->BuildCollisionTable(collisionSet);

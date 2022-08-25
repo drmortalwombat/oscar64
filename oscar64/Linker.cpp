@@ -568,6 +568,62 @@ bool Linker::WritePrgFile(const char* filename)
 		return false;
 }
 
+static int memlzcomp(uint8 * dp, const uint8 * sp, int size)
+{
+	int	pos = 0, csize = 0;
+	while (pos < size)
+	{
+		int	pi = 0;
+		while (pi < 127 && pos < size)
+		{
+			int	bi = pi, bj = 0;
+			for (int i = 1; i < (pos < 255 ? pos : 255); i++)
+			{
+				int j = 0;
+				while (j < 127 && pos + j < size && sp[pos - i + j] == sp[pos + j])
+					j++;
+
+				if (j > bj)
+				{
+					bi = i;
+					bj = j;
+				}
+			}
+
+			if (bj >= 4)
+			{
+				if (pi > 0)
+				{
+					dp[csize++] = pi;
+					for (int i = 0; i < pi; i++)
+						dp[csize++] = sp[pos - pi + i];
+					pi = 0;
+				}
+
+				dp[csize++] = 128 + bj;
+				dp[csize++] = bi;
+				pos += bj;
+			}
+			else
+			{
+				pos++;
+				pi++;
+			}
+		}
+
+		if (pi > 0)
+		{
+			dp[csize++] = pi;
+			for (int i = 0; i < pi; i++)
+				dp[csize++] = sp[pos - pi + i];
+		}
+	}
+
+	dp[csize++] = 0;
+
+	return csize;
+}
+
 bool Linker::WriteCrtFile(const char* filename)
 {
 	FILE* file;
@@ -608,18 +664,27 @@ bool Linker::WriteCrtFile(const char* filename)
 		chipHeader.mBankNumber = 0;
 		chipHeader.mImageSize = 0x0020;
 
-		uint8 bootmem[8192];
+		uint8 bootmem[0x4000];
 
-		memset(bootmem, 0, 0x2000);
+		memset(bootmem, 0, 0x4000);
 
-		chipHeader.mLoadAddress = 0x0080;
-		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-		fwrite(mMemory + 0x0800, 1, 0x2000, file);
+		LinkerRegion	* mainRegion = FindRegion(Ident::Unique("main"));
+		LinkerRegion	* startupRegion = FindRegion(Ident::Unique("startup"));
 
-		memcpy(bootmem, mMemory + 0x2800, 0x1f00);
+		memcpy(bootmem, mMemory + startupRegion->mStart, startupRegion->mNonzero - startupRegion->mStart);
+		int usedlz = memlzcomp(bootmem + 0x0100, mMemory + mainRegion->mStart, mainRegion->mNonzero - mainRegion->mStart);
 
-		bootmem[0x1ffc] = 0x00;
-		bootmem[0x1ffd] = 0xff;
+		Location	loc;
+
+		if (usedlz > 0x03e00)
+		{
+			mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Can not fit main region into first ROM bank");
+			fclose(file);
+			return false;
+		}
+
+		bootmem[0x3ffc] = 0x00;
+		bootmem[0x3ffd] = 0xff;
 
 		uint8	bootcode[] = {
 			0xa9, 0x87,
@@ -629,7 +694,7 @@ bool Linker::WriteCrtFile(const char* filename)
 			0x6c, 0xfc, 0xff
 		};
 
-		int j = 0x1f00;
+		int j = 0x3f00;
 		for (int i = 0; i < sizeof(bootcode); i++)
 		{
 			bootmem[j++] = 0xa9;
@@ -642,9 +707,13 @@ bool Linker::WriteCrtFile(const char* filename)
 		bootmem[j++] = 0x00;
 		bootmem[j++] = 0x04;
 
-		chipHeader.mLoadAddress = 0x00e0;
+		chipHeader.mLoadAddress = 0x0080;
 		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
 		fwrite(bootmem, 1, 0x2000, file);
+
+		chipHeader.mLoadAddress = 0x00e0;
+		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+		fwrite(bootmem + 0x2000, 1, 0x2000, file);
 
 		for (int i = 1; i < 64; i++)
 		{

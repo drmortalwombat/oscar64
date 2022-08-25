@@ -14,8 +14,9 @@
 #define	regs		__regs
 
 
-void StackStart, StackEnd, BSSStart, BSSEnd;
+void StackStart, StackEnd, BSSStart, BSSEnd, CodeStart, CodeEnd;
 
+#pragma section(code, 0x0000, CodeStart, CodeEnd)
 #pragma section(stack, 0x0000, StackStart, StackEnd)
 #pragma section(bss, 0x0000, BSSStart, BSSEnd)
 
@@ -26,6 +27,7 @@ int main(void);
 
 __asm startup
 {
+st0:
 #ifdef OSCAR_TARGET_CRT16
 		byt 0x09
 		byt 0x80
@@ -39,23 +41,88 @@ __asm startup
 
 // Copy cartridge rom to ram
 
-		ldx	#$40
-		ldy	#$00
-		lda #$80
+		ldx	#0
+lc0:	lda $8000, x
+		sta st0, x
+		inx	
+		bne	lc0
+
+// Set up address for decompress
+
+		lda #$00
+		sta ip
+		lda #$81
 		sta ip + 1
-		lda #$08
-		sta sp + 1
-		sty ip
-		sty sp
-l0:		lda (ip), y
+
+		lda #<CodeStart
+		sta sp
+		lda #>CodeStart		
+		sta sp + 1		
+
+		ldy	#0
+		lda (ip),y
+lx0:
+		sta accu
+		bmi wx1
+
+		clc
+		lda ip + 0
+		adc #1
+		sta addr + 0
+		lda ip + 1
+		adc #0
+		sta addr + 1
+
+		clc
+		lda addr + 0
+		adc accu
+		sta ip + 0
+		lda addr + 1
+		adc #0
+		sta ip + 1
+lx2:
+		ldy #0
+lx1:	lda (addr), y
 		sta (sp), y
 		iny
-		bne l0
-		inc ip + 1
-		inc sp + 1
-		dex
-		bne l0
+		cpy accu
+		bne lx1
+
+		clc
+		lda sp
+		adc accu
+		sta sp
+		lda sp + 1
+		adc #0
+		sta sp + 1
+
+		ldy #0
+		lda (ip), y
+		bne lx0
 		jmp w0
+wx1:
+		lda sp + 0
+		sec
+		ldy #1
+		sbc (ip), y
+		sta addr
+		lda sp + 1
+		sbc #0
+		sta addr + 1
+
+		clc
+		lda ip + 0
+		adc #2
+		sta ip + 0
+		lda ip + 1
+		adc #0
+		sta ip + 1
+
+		lda accu
+		and #$7f
+		sta accu
+		jmp lx2
+
 w0:
 		lda #$3f
 		sta $00

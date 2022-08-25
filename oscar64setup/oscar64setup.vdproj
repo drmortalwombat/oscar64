@@ -136,6 +136,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_23211A34D7544532ABFD8D17B647717F"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_24F2466589154E2DAA108C2EDB3BB432"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -1381,6 +1387,26 @@
             "TargetName" = "8:cgrid8way.c"
             "Tag" = "8:"
             "Folder" = "8:_AB905F99C1D249A080D01FB8FC118C9E"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_23211A34D7544532ABFD8D17B647717F"
+            {
+            "SourcePath" = "8:..\\samples\\memmap\\easyflashlow.c"
+            "TargetName" = "8:easyflashlow.c"
+            "Tag" = "8:"
+            "Folder" = "8:_A62A71A6A08941C5964B90112D87731F"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"

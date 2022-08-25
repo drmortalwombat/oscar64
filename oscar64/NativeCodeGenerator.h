@@ -138,6 +138,7 @@ public:
 	bool IsCommutative(void) const;
 	bool IsShift(void) const;
 	bool IsSimpleJSR(void) const;
+	bool MayBeMovedBefore(const NativeCodeInstruction& ins);
 
 	bool ReplaceYRegWithXReg(void);
 	bool ReplaceXRegWithYReg(void);
@@ -383,6 +384,7 @@ public:
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);
 	bool SimplifyDiamond(NativeCodeProcedure* proc);
+	bool SimplifyLoopEnd(NativeCodeProcedure* proc);
 
 	bool MoveAccuTrainUp(int at, int end);
 	bool MoveAccuTrainsUp(void);
