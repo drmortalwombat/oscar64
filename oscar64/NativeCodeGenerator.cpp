@@ -10688,7 +10688,7 @@ bool NativeCodeBasicBlock::FindSameBlocks(NativeCodeProcedure* nproc)
 		{
 			for (int i = 0; i < nproc->mBlocks.Size(); i++)
 			{
-				if (nproc->mBlocks[i]->IsSame(this))
+				if (nproc->mBlocks[i] != this && nproc->mBlocks[i]->IsSame(this))
 				{
 					nproc->mBlocks[i]->mSameBlock = this;
 					changed = true;
@@ -10731,7 +10731,7 @@ bool NativeCodeBasicBlock::MergeSameBlocks(NativeCodeProcedure* nproc)
 			changed = true;
 	}
 
-	return true;
+	return changed;
 }
 
 bool NativeCodeBasicBlock::MergeBasicBlocks(void)
@@ -12362,7 +12362,7 @@ bool NativeCodeBasicBlock::SimplifyLoopEnd(NativeCodeProcedure* proc)
 
 		if (mTrueJump && !mFalseJump && mTrueJump->mLoopHead)
 		{
-			if (mTrueJump->mIns.Size() == 1 && mTrueJump->mFalseJump)
+			if (mTrueJump->mIns.Size() == 1 && mTrueJump->mFalseJump && mTrueJump->mTrueJump != mTrueJump)
 			{
 				mIns.Push(mTrueJump->mIns[0]);
 				mBranch = mTrueJump->mBranch;
@@ -27364,7 +27364,12 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	Optimize();
 
-	assert(mEntryBlock->mIns.Size() == 0);
+	if (mEntryBlock->mIns.Size() > 0)
+	{
+		NativeCodeBasicBlock* eblock = AllocateBlock();
+		eblock->mTrueJump = mEntryBlock;
+		mEntryBlock = eblock;
+	}
 
 	// Remove temporary RTS
 
