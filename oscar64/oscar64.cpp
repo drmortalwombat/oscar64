@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.9.155");
+		strcpy(strProductVersion, "1.9.156");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
