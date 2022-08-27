@@ -34,6 +34,7 @@ struct NativeRegisterData
 	void ResetMask(void);
 
 	bool SameData(const NativeRegisterData& d) const;
+	bool SameData(const NativeCodeInstruction& ins) const;
 };
 
 struct NativeRegisterDataSet
@@ -320,6 +321,7 @@ public:
 	bool ReplaceXRegWithYReg(int start, int end);
 	bool MoveASLMemUp(int start);
 	bool CombineImmediateADCUp(int at);
+	bool CombineImmediateADCUpX(int at);
 
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
 	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);
