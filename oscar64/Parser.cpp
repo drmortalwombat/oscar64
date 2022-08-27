@@ -1932,7 +1932,7 @@ Expression* Parser::ParseConditionalExpression(void)
 		texp->mRight = ParseConditionalExpression();
 		
 		nexp->mDecType = texp->mLeft->mDecType;
-		exp = nexp;
+		exp = nexp->ConstantFold(mErrors);
 	}
 
 	return exp;

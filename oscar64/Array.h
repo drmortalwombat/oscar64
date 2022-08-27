@@ -326,4 +326,12 @@ public:
 				return i;
 		return -1;
 	}
+
+	bool Contains(const T& t) const
+	{
+		for (int i = 0; i < size; i++)
+			if (array[i] == t)
+				return true;
+		return false;
+	}
 };

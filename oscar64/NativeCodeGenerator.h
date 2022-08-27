@@ -208,7 +208,14 @@ public:
 	bool OptimizeInnerLoops(NativeCodeProcedure* proc);
 	NativeCodeBasicBlock* CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks);
 
+	bool OptimizeGenericLoop(NativeCodeProcedure* proc);
+	bool CollectGenericLoop(NativeCodeProcedure* proc, GrowingArray<NativeCodeBasicBlock*>& lblocks);
+	void CollectReachable(GrowingArray<NativeCodeBasicBlock*>& lblock);
+
 	bool OptimizeFindLoop(NativeCodeProcedure* proc);
+
+	NativeCodeBasicBlock* BuildSingleEntry(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
+	NativeCodeBasicBlock* BuildSingleExit(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
 
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
@@ -338,6 +345,7 @@ public:
 	bool ReverseReplaceTAX(int at);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final);
+	bool GlobalValueForwarding(void);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);
@@ -354,7 +362,7 @@ public:
 	bool HasTailSTX(int& addr, int& index) const;
 	bool PropagateSinglePath(void);
 
-	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock) const;
+	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;
 	void ChangeTailZPStoreToX(int addr);
 
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
@@ -410,7 +418,8 @@ public:
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 
 	void CheckLive(void);
-	void CheckBlocks(void);
+	void CheckBlocks(bool sequence = false);
+	void CheckVisited(void);
 };
 
 class NativeCodeProcedure
@@ -448,6 +457,7 @@ class NativeCodeProcedure
 		void ResetEntryBlocks(void);
 		void ResetVisited(void);
 		void ResetPatched(void);
+		void RebuildEntry(void);
 
 		void SaveTempsToStack(int tempSave);
 		void LoadTempsFromStack(int tempSave);

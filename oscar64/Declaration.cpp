@@ -455,6 +455,55 @@ Expression* Expression::ConstantFold(Errors * errors)
 		}
 #endif
 	}
+	else if (mType == EX_RELATIONAL && mLeft->mType == EX_CONSTANT && mRight->mType == EX_CONSTANT)
+	{
+		if (mLeft->mDecValue->mType == DT_CONST_INTEGER && mRight->mDecValue->mType == DT_CONST_INTEGER)
+		{
+			int64	ival = 0, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
+
+			bool	check = false;
+			switch (mToken)
+			{
+			case TK_EQUAL:
+				check = ileft == iright;
+				break;
+			case TK_NOT_EQUAL:
+				check = ileft != iright;
+				break;
+			case TK_GREATER_THAN:
+				check = ileft > iright;
+				break;
+			case TK_GREATER_EQUAL:
+				check = ileft >= iright;
+				break;
+			case TK_LESS_THAN:
+				check = ileft < iright;
+				break;
+			case TK_LESS_EQUAL:
+				check = ileft <= iright;
+				break;
+			}
+
+			Declaration	*	dec = new Declaration(mLocation, DT_CONST_INTEGER);
+			dec->mBase = TheBoolTypeDeclaration;
+			dec->mInteger = check ? 1 : 0;
+			Expression	*	exp = new Expression(mLocation, EX_CONSTANT);
+			exp->mDecValue = dec;
+			exp->mDecType = dec->mBase;
+			return exp;
+
+		}
+	}
+	else if (mType == EX_CONDITIONAL && mLeft->mType == EX_CONSTANT)
+	{
+		if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
+		{
+			if (mLeft->mDecValue->mInteger != 0)
+				return mRight->mLeft->ConstantFold(errors);
+			else
+				return mRight->mRight->ConstantFold(errors);
+		}
+	}
 	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_ARRAY && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
 	{
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
