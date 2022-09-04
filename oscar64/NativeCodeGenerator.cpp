@@ -12445,6 +12445,21 @@ bool NativeCodeBasicBlock::SimplifyLoopEnd(NativeCodeProcedure* proc)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::CanBytepassLoad(const NativeCodeInstruction& ains) const
+{
+	for (int i = 0; i < mIns.Size(); i++)
+	{
+		if (ains.MayBeChangedOnAddress(mIns[i]))
+			return false;
+
+		if (ains.mType == ASMIT_LDY && mIns[i].ReferencesYReg() ||
+			ains.mType == ASMIT_LDX && mIns[i].ReferencesXReg())
+			return false;
+	}
+
+	return true;
+}
+
 bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 {
 	bool	changed = false;
@@ -12471,6 +12486,36 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 						mTrueJump->mTrueJump->mIns.Insert(0, mTrueJump->mIns[0]);
 						mTrueJump->mIns.SetSize(0, true);
 						changed = true;
+					}
+				}
+
+				if (mTrueJump->mEntryRequiredRegs[CPU_REG_Y] && mFalseJump->mEntryRequiredRegs[CPU_REG_Y] && mTrueJump->mTrueJump->mEntryRequiredRegs[CPU_REG_Y])
+				{
+					int sz = mIns.Size() - 1;
+					while (sz >= 0 && !mIns[sz].ReferencesYReg())
+						sz--;
+					if (sz >= 0 && mIns[sz].mType == ASMIT_LDY && (mIns[sz].mMode == ASMIM_ZERO_PAGE || mIns[sz].mMode == ASMIM_ABSOLUTE) && !(mIns[sz].mLive & LIVE_CPU_REG_Z))
+					{
+						if (mTrueJump->CanBytepassLoad(mIns[sz]) && mFalseJump->CanBytepassLoad(mIns[sz]))
+						{
+							mTrueJump->mTrueJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_LDY, mIns[sz]));
+							changed = true;
+						}
+					}
+				}
+
+				if (mTrueJump->mEntryRequiredRegs[CPU_REG_X] && mFalseJump->mEntryRequiredRegs[CPU_REG_X] && mTrueJump->mTrueJump->mEntryRequiredRegs[CPU_REG_X])
+				{
+					int sz = mIns.Size() - 1;
+					while (sz >= 0 && !mIns[sz].ReferencesXReg())
+						sz--;
+					if (sz >= 0 && mIns[sz].mType == ASMIT_LDX && (mIns[sz].mMode == ASMIM_ZERO_PAGE || mIns[sz].mMode == ASMIM_ABSOLUTE) && !(mIns[sz].mLive & LIVE_CPU_REG_Z))
+					{
+						if (mTrueJump->CanBytepassLoad(mIns[sz]) && mFalseJump->CanBytepassLoad(mIns[sz]))
+						{
+							mTrueJump->mTrueJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_LDX, mIns[sz]));
+							changed = true;
+						}
 					}
 				}
 			}
@@ -16120,6 +16165,8 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 			for (int i = from + 1; i < to; i++)
 			{
 				if (mIns[start].MayBeChangedOnAddress(mIns[i]) || mIns[start + 1].MayBeChangedOnAddress(mIns[i]))
+					return false;
+				if (mIns[start + 1].RequiresCarry() && mIns[i].ChangesCarry())
 					return false;
 			}
 
@@ -29129,6 +29176,7 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->CheckBlocks();
 #endif
 
+#if 1
 		if (step == 5)
 		{
 			ResetVisited();
@@ -29137,6 +29185,13 @@ void NativeCodeProcedure::Optimize(void)
 
 			ResetVisited();
 			if (mEntryBlock->SimplifyLoopEnd(this))
+				changed = true;
+		}
+#endif
+		if (step == 7)
+		{
+			ResetVisited();
+			if (mEntryBlock->SimplifyDiamond(this))
 				changed = true;
 		}
 

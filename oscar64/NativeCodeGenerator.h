@@ -400,6 +400,8 @@ public:
 	bool SimplifyDiamond(NativeCodeProcedure* proc);
 	bool SimplifyLoopEnd(NativeCodeProcedure* proc);
 
+	bool CanBytepassLoad(const NativeCodeInstruction& ains) const;
+
 	bool MoveAccuTrainUp(int at, int end);
 	bool MoveAccuTrainsUp(void);
 
