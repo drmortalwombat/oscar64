@@ -374,6 +374,10 @@ public:
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
 	bool ForwardReplaceZeroPage(int at, int from, int to);
 
+	bool CanZeroPageCopyUp(int at, int from, int to);
+	bool ShortcutZeroPageCopyUp(NativeCodeProcedure* nproc);
+	bool BackwardReplaceZeroPage(int at, int from, int to);
+
 	NativeRegisterDataSet	mEntryRegisterDataSet;
 
 	void BuildEntryDataSet(const NativeRegisterDataSet& set);

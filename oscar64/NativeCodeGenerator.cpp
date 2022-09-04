@@ -17828,6 +17828,133 @@ bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to)
 	return changed;
 }
 
+
+bool NativeCodeBasicBlock::CanZeroPageCopyUp(int at, int from, int to)
+{
+	while (at > 0)
+	{
+		at--;
+
+		if (mIns[at].mType == ASMIT_JSR)
+			return false;
+
+		if (mIns[at].mMode == ASMIM_ZERO_PAGE && mIns[at].mAddress == to)
+			return false;
+
+		if (mIns[at].mMode == ASMIM_INDIRECT_Y)
+		{
+			if (mIns[at].mAddress == from || mIns[at].mAddress == from - 1 ||
+				mIns[at].mAddress == to || mIns[at].mAddress == to - 1)
+				return false;
+		}
+
+		if (mIns[at].mMode == ASMIM_ZERO_PAGE && mIns[at].mAddress == from)
+		{
+			if (mIns[at].mType == ASMIT_STA || mIns[at].mType == ASMIT_STX || mIns[at].mType == ASMIT_STY)
+				return true;
+		}
+	}
+
+	if (mLoopHead)
+		return false;
+
+	if (mEntryBlocks.Size() == 1)
+	{
+		if (mEntryBlocks[0]->mFalseJump)
+		{
+			if (this == mEntryBlocks[0]->mTrueJump)
+			{
+				if (mEntryBlocks[0]->mFalseJump->mExitRequiredRegs[from] || mEntryBlocks[0]->mFalseJump->mExitRequiredRegs[to])
+					return false;
+			}
+			else
+			{
+				if (mEntryBlocks[0]->mTrueJump->mExitRequiredRegs[from] || mEntryBlocks[0]->mTrueJump->mExitRequiredRegs[to])
+					return false;
+			}
+		}
+
+		return mEntryBlocks[0]->CanZeroPageCopyUp(mEntryBlocks[0]->mIns.Size(), from, to);
+	}
+	else if (mEntryBlocks.Size() == 2)
+	{
+		if (mEntryBlocks[0]->mTrueJump == this && mEntryBlocks[0]->mFalseJump == mEntryBlocks[1] && !mEntryBlocks[1]->mFalseJump ||
+			mEntryBlocks[0]->mFalseJump == this && mEntryBlocks[0]->mTrueJump == mEntryBlocks[1] && !mEntryBlocks[1]->mFalseJump)
+			return mEntryBlocks[1]->CanZeroPageCopyUp(mEntryBlocks[1]->mIns.Size(), from, to);
+		else if (mEntryBlocks[1]->mTrueJump == this && mEntryBlocks[1]->mFalseJump == mEntryBlocks[0] && !mEntryBlocks[0]->mFalseJump ||
+				mEntryBlocks[1]->mFalseJump == this && mEntryBlocks[1]->mTrueJump == mEntryBlocks[0] && !mEntryBlocks[0]->mFalseJump)
+			return mEntryBlocks[0]->CanZeroPageCopyUp(mEntryBlocks[0]->mIns.Size(), from, to);
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::ShortcutZeroPageCopyUp(NativeCodeProcedure* nproc)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM) &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				nproc->ResetPatched();
+				if (CanZeroPageCopyUp(i, mIns[i + 0].mAddress, mIns[i + 1].mAddress))
+				{
+					BackwardReplaceZeroPage(i, mIns[i + 0].mAddress, mIns[i + 1].mAddress);
+					changed = true;
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ShortcutZeroPageCopyUp(nproc))
+			changed = true;
+		if (mFalseJump && mFalseJump->ShortcutZeroPageCopyUp(nproc))
+			changed = true;
+	}
+
+	return changed;
+}
+
+bool NativeCodeBasicBlock::BackwardReplaceZeroPage(int at, int from, int to)
+{
+	bool	changed = false;
+
+	if (!mPatched)
+	{
+		mPatched = true;
+
+		while (at > 0)
+		{
+			at--;
+			if (mIns[at].mMode == ASMIM_ZERO_PAGE && mIns[at].mAddress == from)
+			{
+				mIns[at].mAddress = to;
+				if (mIns[at].mType == ASMIT_STA || mIns[at].mType == ASMIT_STX || mIns[at].mType == ASMIT_STY)
+					break;
+			}
+		}
+
+		mEntryRequiredRegs += to;
+		for (int i = 0; i < mEntryBlocks.Size(); i++)
+		{
+			mEntryBlocks[i]->mExitRequiredRegs += to;
+			if (mEntryBlocks[i]->BackwardReplaceZeroPage(mEntryBlocks[i]->mIns.Size(), from, to))
+				changed = true;
+		}
+	}
+
+	return changed;
+}
+
+
 bool NativeCodeBasicBlock::Propagate16BitSum(void)
 {
 	bool	changed = false;
@@ -28840,6 +28967,12 @@ void NativeCodeProcedure::Optimize(void)
 #if 1
 			ResetVisited();
 			if (!changed && mEntryBlock->OptimizeGenericLoop(this))
+				changed = true;
+#endif
+
+#if 1
+			ResetVisited();
+			if (!changed && mEntryBlock->ShortcutZeroPageCopyUp(this))
 				changed = true;
 #endif
 		}
