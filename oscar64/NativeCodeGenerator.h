@@ -166,7 +166,7 @@ public:
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset, mTemp;
-	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail;
+	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
 	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
@@ -374,9 +374,9 @@ public:
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
 	bool ForwardReplaceZeroPage(int at, int from, int to);
 
-	bool CanZeroPageCopyUp(int at, int from, int to);
+	bool CanZeroPageCopyUp(int at, int from, int to, bool diamond);
 	bool ShortcutZeroPageCopyUp(NativeCodeProcedure* nproc);
-	bool BackwardReplaceZeroPage(int at, int from, int to);
+	bool BackwardReplaceZeroPage(int at, int from, int to, bool diamond);
 
 	NativeRegisterDataSet	mEntryRegisterDataSet;
 
