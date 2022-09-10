@@ -74,7 +74,7 @@ void mat2_invert(Matrix2 * md, const Matrix2 * ms);
 struct Vector3
 {
 	float	v[3];
-}
+};
 
 inline void vec3_set(Vector3 * vd, float x, float y, float z);
 
@@ -127,7 +127,7 @@ void vec3_bend(Vector3 * vd, const Vector3 * vs, float chi1, float chi2);
 struct Matrix3
 {
 	float	m[9];
-}
+};
 
 void mat3_ident(Matrix3 * m);
 
@@ -160,7 +160,7 @@ void mat3_set_rotate(Matrix3 * m, const Vector3 * v, float a);
 struct Vector4
 {
 	float	v[4];
-}
+};
 
 inline void vec4_set(Vector4 * vd, float x, float y, float z, float w);
 
@@ -212,7 +212,7 @@ void vec4_bend(Vector4 * vd, const Vector4 * vs, float chi1, float chi2);
 struct Matrix4
 {
 	float	m[16];
-}
+};
 
 void mat4_ident(Matrix4 * m);
 

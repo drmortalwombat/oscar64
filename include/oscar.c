@@ -82,7 +82,7 @@ const char * oscar_expand_rle(char * dp, const char * sp)
 
 		cmd = sp[0];
 
-	} while (cmd)
+	} while (cmd);
 
 	return sp + 1;
 }

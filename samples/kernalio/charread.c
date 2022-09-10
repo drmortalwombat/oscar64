@@ -12,7 +12,7 @@ int main(void)
 		while ((ch = krnio_getch(2)) >= 0)
 		{
 			// Print the value of the byte
-			printf("%d : %d\n", k, ch)
+			printf("%d : %d\n", k, ch);
 			k++;
 
 			// Exit the loop if this was the last byte of the file

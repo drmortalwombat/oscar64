@@ -21,7 +21,7 @@
 
 char charset[2048] = {
 	#embed "../resources/charset.bin"
-}
+};
 
 #pragma data(data)
 
@@ -29,7 +29,7 @@ int main(void)
 {
 	// map the vic to the new charset
 
-	vic_setmode(VICM_TEXT, (char *)0x0400, charset)
+	vic_setmode(VICM_TEXT, (char *)0x0400, charset);
 
 	for(int i=0; i<10; i++)
 		printf(p"%D Hello World\n", i);	

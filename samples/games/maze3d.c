@@ -41,7 +41,7 @@ static const char * maze[16] =
 // Character set including some ramps for the upper edge
 char charset[2048] = {
 	#embed "../resources/maze3dchars.bin"
-}
+};
 
 // Current target screen
 char * DrawScreen;
@@ -302,7 +302,7 @@ void maze_draw(const char * zxdist)
 			for(char cx=sx; cx<40-sx; cx++)
 			{
 				color_column(cx, cfront);
-				screen_column(cx, sx, 96 + (sx & 3), 96, 96)
+				screen_column(cx, sx, 96 + (sx & 3), 96, 96);
 			}
 
 			// And be done
@@ -320,7 +320,7 @@ void maze_draw(const char * zxdist)
 				sbyte	by = 25 - cx;
 
 				color_column(cx, cleft);
-				screen_column(cx, cx, 100 + (cx & 3), 96, 124)
+				screen_column(cx, cx, 100 + (cx & 3), 96, 124);
 			}
 		}
 		else
@@ -333,7 +333,7 @@ void maze_draw(const char * zxdist)
 			for(char cx=sx; cx<tx; cx++)
 			{
 				color_column(cx, cfront);
-				screen_column(cx, tx, 96 + (tx & 3), 96, 96)
+				screen_column(cx, tx, 96 + (tx & 3), 96, 96);
 			}
 		}
 
@@ -345,7 +345,7 @@ void maze_draw(const char * zxdist)
 				sbyte	ty = cx / 4;
 				sbyte	by = 25 - cx;
 				color_column(39 - cx, cright);
-				screen_column(39 - cx, cx, 107 - (cx & 3), 96, 125)
+				screen_column(39 - cx, cx, 107 - (cx & 3), 96, 125);
 			}
 		}
 		else

@@ -23,7 +23,7 @@
 // lz compressed data
 char charset[] = {
 	#embed 2048 0 lzo "../resources/charset.bin"
-}
+};
 
 // back to normal
 
@@ -50,7 +50,7 @@ int main(void)
 
 	// map the vic to the new charset
 
-	vic_setmode(VICM_TEXT, Screen, Charset)
+	vic_setmode(VICM_TEXT, Screen, Charset);
 
 	for(int i=0; i<1000; i++)
 		Screen[i] = (char)i;
@@ -61,7 +61,7 @@ int main(void)
 
 	// restore VIC
 
-	vic_setmode(VICM_TEXT, (char *)0x0400, (char *)0x1000)
+	vic_setmode(VICM_TEXT, (char *)0x0400, (char *)0x1000);
 
 	// restore basic ROM
 	mmap_set(MMAP_ROM);

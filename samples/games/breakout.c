@@ -208,7 +208,7 @@ void brick_animate(void)
 
 		char * sp = Screen + 40 * (y - 1) + (x - 1);
 	
-		char ch = 96 + (x & 1) + 2 * (y & 1)
+		char ch = 96 + (x & 1) + 2 * (y & 1);
 		if (sp[ 0] >= 128)
 			sp[41] = ch | 4;
 		else
@@ -256,7 +256,7 @@ struct Ball
 	char	index;
 	bool	active;
 	int		sx, sy, vx, vy;	
-}
+};
 
 // using 10.6 bit fixed point math
 
@@ -527,7 +527,7 @@ void paddle_control(void)
 	if (paddlex < BALL_COORD(-4, 0) || paddlex > BALL_COORD(320 - 48 + 4, 0))
 	{
 		paddlevx = -paddlevx;
-		paddlex += paddlevx
+		paddlex += paddlevx;
 	}
 }
 
@@ -551,9 +551,9 @@ void game_state(GameState state)
 		break;
 
 	case GS_BALL_LOCKED:
-		ball_init(TheGame.balls + 0, 0, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
-		ball_init(TheGame.balls + 1, 1, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
-		ball_init(TheGame.balls + 2, 2, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0))
+		ball_init(TheGame.balls + 0, 0, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0));
+		ball_init(TheGame.balls + 1, 1, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0));
+		ball_init(TheGame.balls + 2, 2, paddlex + BALL_COORD(22, 0), BALL_COORD(184, 0), BALL_COORD(0,  0), BALL_COORD(0, 0));
 		break;		
 
 	case GS_PLAYING:

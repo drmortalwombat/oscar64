@@ -21,7 +21,7 @@ Bitmap		Screen = {
 
 ClipRect	SRect = {
 	0, 0, 320, 200
-}
+};
 
 
 Matrix4	wmat, pmat, tmat, rmat;
@@ -85,7 +85,7 @@ void qsort(Surf * n, int s)
 			{
 				n[pi] = n[i];
 				pi++;
-				n[i] = n[pi]
+				n[i] = n[pi];
 			}
 		}
 		n[pi] = pn;
@@ -105,8 +105,6 @@ int main(void)
 	mat4_ident(&wmat);
 	mat4_make_perspective(&pmat, 0.5 * PI, 1.0, 0.0, 200.0);
 	
-	bm_put
-
 	for(int ix=0; ix<SIZE; ix++)
 	{
 		for(int iy=0; iy<SIZE; iy++)

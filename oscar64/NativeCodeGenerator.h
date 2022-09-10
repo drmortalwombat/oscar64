@@ -412,6 +412,9 @@ public:
 	bool Is16BitAddSubImmediate(int at, int& sreg, int &dreg, int& offset) const;
 	bool CanForward16BitAddSubImmediate(int sreg, int dreg, int offset, int & index) const;
 
+	bool CheckShortcutPointerAddForward(int at);
+	bool ShortcutPointerAddForward(void);
+
 	bool CheckPatchFail(const NativeCodeBasicBlock* block, int reg);
 
 	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int at, int yval);

@@ -32,7 +32,7 @@ protected:
 	void ParsePragma(void);
 
 	Declaration* ParseBaseTypeDeclaration(uint64 flags);
-	Declaration* ParseDeclaration(bool variable);
+	Declaration* ParseDeclaration(bool variable, bool expression);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);

@@ -115,7 +115,7 @@ inline void rirq_delay(RIRQCode * ic, byte cycles);
 inline void rirq_set(byte n, byte row, RIRQCode * write);
 
 // Remove a raster IRQ from one of the 16 slots
-inline void rirq_clear(byte n)
+inline void rirq_clear(byte n);
 
 // Change the vertical position of the raster IRQ of one of the slots
 inline void rirq_move(byte n, byte row);

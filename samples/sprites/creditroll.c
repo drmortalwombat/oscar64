@@ -31,7 +31,7 @@ char spriteset[64 * 48] = {0};
 
 char charset[32 * 8] = {
 	#embed "../resources/scifiglyph.bin"	
-}
+};
 
 
 const char * scrolltext[] = {

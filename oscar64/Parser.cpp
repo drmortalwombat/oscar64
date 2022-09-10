@@ -70,7 +70,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		Declaration* mlast = nullptr;
 		for (;;)
 		{
-			Declaration* mdec = ParseDeclaration(false);
+			Declaration* mdec = ParseDeclaration(false, false);
 
 			int	offset = dec->mSize;
 			if (dt == DT_TYPE_UNION)
@@ -957,7 +957,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	return exp;
 }
 
-Declaration* Parser::ParseDeclaration(bool variable)
+Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 {
 	bool	definingType = false;
 	uint64	storageFlags = 0, typeFlags = 0;
@@ -1226,7 +1226,12 @@ Declaration* Parser::ParseDeclaration(bool variable)
 			return rdec;
 		}
 		else
+		{
+			if (!expression && mScanner->mToken != TK_SEMICOLON)
+				mErrors->Error(mScanner->mLocation, ERRR_SEMICOLON_EXPECTED, "Semicolon expected");
+
 			return rdec;
+		}
 	}
 
 	return rdec;
@@ -1237,7 +1242,7 @@ Expression* Parser::ParseDeclarationExpression(void)
 	Declaration* dec;
 	Expression* exp = nullptr, * rexp = nullptr;
 
-	dec = ParseDeclaration(true);
+	dec = ParseDeclaration(true, true);
 	if (dec->mType == DT_ANON && dec->mNext == 0)
 	{
 		exp = new Expression(dec->mLocation, EX_TYPE);
@@ -2112,6 +2117,7 @@ Expression* Parser::ParseStatement(void)
 			{
 				mScanner->NextToken();
 				exp->mLeft = ParseParenthesisExpression();
+				ConsumeToken(TK_SEMICOLON);
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'while' expected");
@@ -2326,17 +2332,21 @@ Expression* Parser::ParseStatement(void)
 			exp = new Expression(mScanner->mLocation, EX_RETURN);
 			if (mScanner->mToken != TK_SEMICOLON)
 				exp->mLeft = ParseRExpression();
+			ConsumeToken(TK_SEMICOLON);
 			break;
 		case TK_BREAK:
 			mScanner->NextToken();
 			exp = new Expression(mScanner->mLocation, EX_BREAK);
+			ConsumeToken(TK_SEMICOLON);
 			break;
 		case TK_CONTINUE:
 			mScanner->NextToken();
 			exp = new Expression(mScanner->mLocation, EX_CONTINUE);
+			ConsumeToken(TK_SEMICOLON);
 			break;
 		case TK_SEMICOLON:
 			exp = new Expression(mScanner->mLocation, EX_VOID);
+			mScanner->NextToken();
 			break;
 		case TK_ASM:
 			mScanner->NextToken();
@@ -2359,14 +2369,13 @@ Expression* Parser::ParseStatement(void)
 			mScanner->NextToken();
 			exp = new Expression(mScanner->mLocation, EX_ASSUME);
 			exp->mLeft = ParseParenthesisExpression();
+			ConsumeToken(TK_SEMICOLON);
 			break;
-
 
 		default:
 			exp = ParseExpression();
+			ConsumeToken(TK_SEMICOLON);
 		}
-		if (mScanner->mToken == TK_SEMICOLON)
-			mScanner->NextToken();
 	}
 
 	assert(exp);
@@ -3472,12 +3481,14 @@ void Parser::ParsePragma(void)
 
 				LinkerRegion* rgn = mCompilationUnits->mLinker->FindRegion(regionIdent);
 				if (!rgn)
+				{
 					rgn = mCompilationUnits->mLinker->AddRegion(regionIdent, start, end);
-				else if (rgn->mStart != start || rgn->mEnd != end)
+					rgn->mFlags = flags;
+					rgn->mCartridgeBanks = bank;
+				}
+				else if (rgn->mStart != start || rgn->mEnd != end || rgn->mFlags != flags || rgn->mCartridgeBanks != bank)
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Conflicting linker region definition");
 
-				rgn->mFlags = flags;
-				rgn->mCartridgeBanks = bank;
 
 				ConsumeToken(TK_COMMA);
 				ConsumeToken(TK_OPEN_BRACE);
@@ -3489,7 +3500,8 @@ void Parser::ParsePragma(void)
 							LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(mScanner->mTokenIdent);
 							if (lsec)
 							{
-								rgn->mSections.Push(lsec);
+								if (!rgn->mSections.Contains(lsec))
+									rgn->mSections.Push(lsec);
 							}
 							else
 								mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name not defined");
@@ -3831,6 +3843,6 @@ void Parser::Parse(void)
 		else if (mScanner->mToken == TK_SEMICOLON)
 			mScanner->NextToken();
 		else
-			ParseDeclaration(true);
+			ParseDeclaration(true, false);
 	}
 }

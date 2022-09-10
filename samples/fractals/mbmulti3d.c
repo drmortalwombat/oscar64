@@ -81,7 +81,7 @@ float iter(float xz, float yz)
 	if (i == 32)
 		return 32;
 	else
-		return i - log(log(r)/log(64.0))/log(2.0)
+		return i - log(log(r)/log(64.0))/log(2.0);
 }
 
 // Calculate light with given new and old heights

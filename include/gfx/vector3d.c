@@ -447,7 +447,7 @@ void mat3_rmmul(Matrix3 * md, const Matrix3 * ms)
 
 void mat3_transpose(Matrix3 * md, const Matrix3 * ms)
 {
-	float	t
+	float	t;
 	t = ms->m[1]; md->m[1] = ms->m[3]; md->m[3] = t; md->m[0] = ms->m[0];
 	t = ms->m[2]; md->m[2] = ms->m[6]; md->m[6] = t; md->m[4] = ms->m[4];
 	t = ms->m[5]; md->m[5] = ms->m[7]; md->m[7] = t; md->m[8] = ms->m[8];

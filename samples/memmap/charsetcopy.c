@@ -21,7 +21,7 @@
 
 char charset[2048] = {
 	#embed "../resources/charset.bin"
-}
+};
 
 // back to normal
 
@@ -41,14 +41,14 @@ int main(void)
 	mmap_set(MMAP_RAM);
 
 	// copy the font
-	memcpy(Charset, charset, 2048)
+	memcpy(Charset, charset, 2048);
 
 	// make lower part of RAM visible to CPU
 	mmap_set(MMAP_NO_BASIC);
 
 	// map the vic to the new charset
 
-	vic_setmode(VICM_TEXT, Screen, Charset)
+	vic_setmode(VICM_TEXT, Screen, Charset);
 
 	for(int i=0; i<1000; i++)
 		Screen[i] = (char)i;
@@ -59,7 +59,7 @@ int main(void)
 
 	// restore VIC
 
-	vic_setmode(VICM_TEXT, (char *)0x0400, (char *)0x1000)
+	vic_setmode(VICM_TEXT, (char *)0x0400, (char *)0x1000);
 
 	// restore basic ROM
 	mmap_set(MMAP_ROM);

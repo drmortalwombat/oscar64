@@ -20,7 +20,7 @@ void qsort(Node * n, int s)
 			{
 				n[pi] = n[i];
 				pi++;
-				n[i] = n[pi]
+				n[i] = n[pi];
 			}
 		}
 		n[pi] = pn;

@@ -11,6 +11,6 @@ int main(void)
 	
 	assert(lsum == 32157742L);
 	
-	return 0
+	return 0;
 }
 

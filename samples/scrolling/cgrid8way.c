@@ -157,7 +157,7 @@ void scroll_left(void)
 	vic_waitBottom();
 
 	// Now back to 4, 4
-	vic.ctrl2 = 0x04
+	vic.ctrl2 = 0x04;
 
 }
 
@@ -209,7 +209,7 @@ void scroll_right(void)
 #until ty == 25
 
 	vic_waitBottom();
-	vic.ctrl2 = 0x02
+	vic.ctrl2 = 0x02;
 
 	vic_waitTop();
 	vic_waitBottom();
@@ -383,7 +383,7 @@ int main(void)
 	// setup initial scroll offset
 	
 	vic.ctrl1 = 0x04 | VIC_CTRL1_DEN;
-	vic.ctrl2 = 0x04
+	vic.ctrl2 = 0x04;
 
 	for(;;)
 	{

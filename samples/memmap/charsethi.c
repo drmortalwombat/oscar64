@@ -13,7 +13,7 @@
 
 char charset[2048] = {
 	#embed "../resources/charset.bin"
-}
+};
 
 #pragma data(data)
 
@@ -24,7 +24,7 @@ int main(void)
 {
 	// map the vic to the new charset
 
-	vic_setmode(VICM_TEXT, Screen, charset)
+	vic_setmode(VICM_TEXT, Screen, charset);
 
 	for(int i=0; i<1000; i++)
 		Screen[i] = (char)i;

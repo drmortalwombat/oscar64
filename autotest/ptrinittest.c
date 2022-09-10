@@ -11,7 +11,7 @@ const struct A {
 	{
 		{4, 5, 6, 7, 8}
 	}
-}
+};
 
 const int * t[4] = {
 	a.b + 1 + 1

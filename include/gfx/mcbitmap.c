@@ -772,7 +772,7 @@ void bmmcu_rect_copy(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int
 {
 	int	rx = (dx + w + 1) & ~1;
 	dx &= ~1;
-	sx &= ~1
+	sx &= ~1;
 
 	bmu_bitblit(dbm, dx, dy, sbm, sx, sy, rx - dx, h, nullptr, BLTOP_COPY);	
 }
@@ -798,7 +798,7 @@ void bmmc_rect_copy(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, c
 {
 	int	rx = (dx + w + 1) & ~1;
 	dx &= ~1;
-	sx &= ~1
+	sx &= ~1;
 
 	bm_bitblit(dbm, clip, dx, dy, sbm, sx, sy, rx - dx, h, nullptr, BLTOP_COPY);	
 }

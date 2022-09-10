@@ -34,7 +34,7 @@ void bmmc_circle_fill(const Bitmap * bm, const ClipRect * clip, int x, int y, ch
 // Fill a trapezoid with horizontal top and bottom, top left is in x0, top right in x1
 // dx0 and dx1 are the horizontal delta for each line. Coordinates are in 16.16 fixed point
 // numbers.  y0 and y1 are vertical coordinates in pixel.
-void bmmc_trapezoid_fill(const Bitmap * bm, const ClipRect * clip, long x0, long x1, long dx0, long dx1, int y0, int y1, const char * pat)
+void bmmc_trapezoid_fill(const Bitmap * bm, const ClipRect * clip, long x0, long x1, long dx0, long dx1, int y0, int y1, const char * pat);
 
 // Fill a triangle with a pattern, coordinate pairs x0/y0, x1/y1 and x2/y2 are in pixel
 void bmmc_triangle_fill(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, int y1, int x2, int y2, const char * pat);

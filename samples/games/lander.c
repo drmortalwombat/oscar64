@@ -58,7 +58,7 @@ void screen_init(void)
 	memset(Screen, ' ', 1000);
 
 	for(char i=0; i<100; i++)
-		screen_put(rand() % 40, rand() % 25, '.', VCOL_WHITE)
+		screen_put(rand() % 40, rand() % 25, '.', VCOL_WHITE);
 
 	sbyte	height[41];
 	for(char i=0; i<41; i+=8)
@@ -78,7 +78,7 @@ void screen_init(void)
 	char yp = height[xp];
 	for(char i=1; i<4; i++)
 		if (height[xp + i] < yp)
-			yp = height[xp + i]
+			yp = height[xp + i];
 
 	for(char i=0; i<4; i++)
 		height[xp + i] = yp;
@@ -87,14 +87,14 @@ void screen_init(void)
 	{
 		char h = height[x];
 		for(char y=0; y<h; y++)
-			screen_put(x, 24 - y, 160, VCOL_YELLOW)
+			screen_put(x, 24 - y, 160, VCOL_YELLOW);
 	}
 
 
 	for(char i=0; i<4; i++)
 	{
-		screen_put(xp + i, 24 - yp, 128 + 86, VCOL_MED_GREY)
-		screen_put(xp + i, 23 - yp, 100, VCOL_WHITE)
+		screen_put(xp + i, 24 - yp, 128 + 86, VCOL_MED_GREY);
+		screen_put(xp + i, 23 - yp, 100, VCOL_WHITE);
 	}
 
 }
@@ -189,7 +189,7 @@ void game_state(GameState state)
 	{
 	case GS_READY:
 		// Clear the screen
-		lander_init(&TheGame.lander)
+		lander_init(&TheGame.lander);
 		screen_init();
 		TheGame.count = 32;
 		break;

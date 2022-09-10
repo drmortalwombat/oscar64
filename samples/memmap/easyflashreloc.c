@@ -70,7 +70,7 @@ void done1(void)
 const EntryTable	entry1 = {
 	.fhello = &print1,
 	.fdone = &done1
-}
+};
 
 // make sure the function is referenced
 #pragma reference(entry1)
@@ -93,7 +93,7 @@ void done2(void)
 const EntryTable	entry2 = {
 	.fhello = &print2,
 	.fdone = &done2
-}
+};
 
 // make sure the function is referenced
 #pragma reference(entry2)
@@ -114,7 +114,7 @@ void done3(void)
 const EntryTable	entry3 = {
 	.fhello = &print3,
 	.fdone = &done3
-}
+};
 
 #pragma reference(entry3)
 
@@ -134,7 +134,7 @@ void done4(void)
 const EntryTable	entry4 = {
 	.fhello = &print4,
 	.fdone = &done4
-}
+};
 
 #pragma reference(entry4)
 
@@ -154,7 +154,7 @@ void done5(void)
 const EntryTable	entry5 = {
 	.fhello = &print5,
 	.fdone = &done5
-}
+};
 
 #pragma reference(entry5)
 
@@ -174,7 +174,7 @@ void done6(void)
 const EntryTable	entry6 = {
 	.fhello = &print6,
 	.fdone = &done6
-}
+};
 
 #pragma reference(entry6)
 

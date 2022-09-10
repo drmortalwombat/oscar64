@@ -98,7 +98,7 @@ float atan2(float p, float q)
 	s *= g; s += F_ATAN_3;
 	s *= g; s += F_ATAN_2;
 	s *= g; s += F_ATAN_1;
-	s *= g; s += F_ATAN_0
+	s *= g; s += F_ATAN_0;
 	
 	if (quad & 1)
 		s = 0.5 * PI - s;
@@ -138,7 +138,7 @@ float exp(float f)
 	s *= g; s += F_EXP_3;
 	s *= g; s += F_EXP_2;
 	s *= g; s += F_EXP_1;
-	s *= g; s += F_EXP_0
+	s *= g; s += F_EXP_0;
 
 	return s * x.f;
 }
@@ -174,7 +174,7 @@ float log(float f)
 	s *= g; s += F_LOG_3;
 	s *= g; s += F_LOG_2;
 	s *= g; s += F_LOG_1;
-	s *= g; s += F_LOG_0
+	s *= g; s += F_LOG_0;
 	
 	return (fex + s) * 0.6931471806;
 }

@@ -20,7 +20,7 @@ Bitmap		Screen = {
 
 ClipRect	SRect = {
 	0, 0, 320, 200
-}
+};
 
 char chk[] = {0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55};
 char white[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -87,7 +87,7 @@ void qsort(Surf * n, int s)
 			{
 				n[pi] = n[i];
 				pi++;
-				n[i] = n[pi]
+				n[i] = n[pi];
 			}
 		}
 		n[pi] = pn;

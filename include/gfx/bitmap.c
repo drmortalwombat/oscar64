@@ -129,7 +129,7 @@ void bm_scan_fill(int left, int right, char * lp, int x0, int x1, char pat)
 
 unsigned bm_usqrt(unsigned n)
 {
-	unsigned p, q, r, h
+	unsigned p, q, r, h;
 
 	p = 0;
     r = n;

@@ -700,7 +700,7 @@ void game_play(void)
 		if (CrossX < 120)
 			sx = 24;
 		else if (CrossX > 200)
-			sx = 296
+			sx = 296;
 
 		// Fire missile
 		missile_start(sx, 184, CrossX, CrossY);

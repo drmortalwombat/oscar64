@@ -719,7 +719,7 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 {
 	char		fc, cs;
 	int			nv = 0;
-	unsigned	nch = 0
+	unsigned	nch = 0;
 	
 	cs = ffunc(fparam);
 	nch++;

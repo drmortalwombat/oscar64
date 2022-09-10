@@ -10,7 +10,7 @@ int main(void)
 {
 	// Hide the basic ROM, must be first instruction
 
-	mmap_set(MMAP_NO_BASIC)
+	mmap_set(MMAP_NO_BASIC);
 
 	// Allocate all memory
 
@@ -29,7 +29,7 @@ int main(void)
 
 	// Return basic ROM to normal state
 
-	mmap_set(MMAP_ROM)
+	mmap_set(MMAP_ROM);
 
     return 0;
 }

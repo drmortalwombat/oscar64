@@ -12206,9 +12206,7 @@ bool NativeCodeBasicBlock::MoveAccuTrainUp(int at, int end)
 			if (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z))
 				return false;
 
-			int live = 0;
-			if (i > 0)
-				live |= mIns[i - 1].mLive;
+			int live = mIns[i].mLive;
 
 			for (int j = i; j < at; j++)
 				mIns[j].mLive |= mIns[end - 1].mLive;
@@ -14343,6 +14341,72 @@ bool NativeCodeBasicBlock::CanForwardZPMove(int saddr, int daddr, int & index) c
 	}
 
 	return false;
+}
+
+bool NativeCodeBasicBlock::CheckShortcutPointerAddForward(int at)
+{
+	int i = at + 6;
+
+	while (i < mIns.Size())
+	{
+		if (mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i].mAddress == mIns[at + 1].mAddress)
+		{
+			if (!(mIns[i].mLive & LIVE_MEM))
+			{
+				mIns[at + 0].mType = ASMIT_NOP; mIns[at + 0].mMode = ASMIM_IMPLIED;
+				mIns[at + 1].mType = ASMIT_NOP; mIns[at + 1].mMode = ASMIM_IMPLIED;
+				mIns[at + 5].mAddress = mIns[at + 4].mAddress; mIns[at + 4].mLive |= LIVE_MEM;
+
+				for (int j = at + 6; j <= i; j++)
+				{
+					if (mIns[j].mMode == ASMIM_INDIRECT_Y && mIns[j].mAddress == mIns[at + 1].mAddress)
+						mIns[j].mAddress = mIns[at + 0].mAddress;
+				}
+
+				return true;
+			}
+		}
+		else if (mIns[i].ChangesZeroPage(mIns[at + 0].mAddress) ||
+			mIns[i].ReferencesZeroPage(mIns[at + 1].mAddress) ||
+			mIns[i].ReferencesZeroPage(mIns[at + 4].mAddress) ||
+			mIns[i].ReferencesZeroPage(mIns[at + 5].mAddress))
+			return false;
+
+		i++;
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::ShortcutPointerAddForward(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i + 6 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2].mType == ASMIT_CLC &&
+				mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE_ADDRESS &&
+				mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress + 1 && !(mIns[i + 4].mLive & LIVE_MEM) &&
+				mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 1].mAddress + 1)
+			{
+				if (CheckShortcutPointerAddForward(i))
+					changed = true;
+			}
+		}
+				
+		if (mTrueJump && mTrueJump->ShortcutPointerAddForward())
+			changed = true;
+		if (mFalseJump && mFalseJump->ShortcutPointerAddForward())
+			changed = true;
+	}
+
+	return changed;
 }
 
 bool NativeCodeBasicBlock::CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock* nblock, const NativeCodeBasicBlock* fblock) const
@@ -28922,6 +28986,16 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
+#if 1
+		if (step == 3)
+		{
+			ResetVisited();
+			if (mEntryBlock->ShortcutPointerAddForward())
+				changed = true;
+		}
+#endif
+
 #if 1
 		if (step > 0)
 		{
