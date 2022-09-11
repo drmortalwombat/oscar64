@@ -179,6 +179,7 @@ public:
 	int BranchByteSize(int from, int to);
 
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
+	void RemoveEntryBlock(NativeCodeBasicBlock* block);
 
 	int LeadsInto(NativeCodeBasicBlock* block, int dist);
 	void BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& placement);

@@ -2083,7 +2083,36 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 	switch (mType)
 	{
 	case ASMIT_JSR:
-		data.ResetMask();
+		data.mRegs[CPU_REG_C].ResetMask();
+		data.mRegs[CPU_REG_Z].ResetMask();
+		data.mRegs[CPU_REG_A].ResetMask();
+		data.mRegs[CPU_REG_X].ResetMask();
+		data.mRegs[CPU_REG_Y].ResetMask();
+
+		for (int i = 0; i < 4; i++)
+		{
+			data.mRegs[BC_REG_ACCU + i].ResetMask();
+			data.mRegs[BC_REG_WORK + i].ResetMask();
+			data.mRegs[BC_REG_ADDR + i].ResetMask();
+		}
+		data.mRegs[BC_REG_WORK_Y].ResetMask();
+
+		if (!(mFlags & NCIF_RUNTIME) || (mFlags & NCIF_FEXEC))
+		{
+			if (mLinkerObject && mLinkerObject->mProc)
+			{
+				for (int i = BC_REG_TMP; i < BC_REG_TMP + mLinkerObject->mProc->mCallerSavedTemps; i++)
+					data.mRegs[i].ResetMask();
+			}
+			else
+			{
+				for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
+					data.mRegs[i].ResetMask();
+			}
+
+			for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
+				data.mRegs[i].ResetMask();
+		}
 		break;
 	case ASMIT_CLC:
 		data.mRegs[CPU_REG_C].mMask = 1;
@@ -19082,6 +19111,8 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreDown(int at)
 	return false;
 }
 
+//static bool PeepCheck = false;
+
 bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 {
 	bool	changed = false;
@@ -19121,11 +19152,131 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 			if (carryop != ASMIT_NOP)
 				mIns.Insert(i + 1, NativeCodeInstruction(carryop));
 		}
-
-
 		if (mFalseJump)
 		{
 			mFDataSet = mNDataSet;
+
+			if (mIns.Size() > 0)
+			{
+				const NativeCodeInstruction& lins(mIns[mIns.Size() - 1]);
+
+				if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
+				{
+					switch (mBranch)
+					{
+					case ASMIT_BEQ:
+						if (mNDataSet.mRegs[lins.mAddress].mMask == 0xff)
+						{
+							if (mNDataSet.mRegs[lins.mAddress].mValue != 0)
+							{
+								mTrueJump->RemoveEntryBlock(this);
+								mTrueJump = mFalseJump;
+								mFalseJump = nullptr;
+							}
+							else
+							{
+								mFalseJump->RemoveEntryBlock(this);
+								mFalseJump = nullptr;
+							}
+							mBranch = ASMIT_JMP;
+							changed = true;
+						}
+						else
+						{
+							mNDataSet.mRegs[CPU_REG_A].mMask = 0xff;
+							mNDataSet.mRegs[CPU_REG_A].mValue = 0x00;
+							mNDataSet.mRegs[lins.mAddress].mMask = 0xff;
+							mNDataSet.mRegs[lins.mAddress].mValue = 0x00;
+						}
+						break;
+					case ASMIT_BNE:
+						if (mNDataSet.mRegs[lins.mAddress].mMask == 0xff)
+						{
+							if (mNDataSet.mRegs[lins.mAddress].mValue == 0)
+							{
+								mTrueJump->RemoveEntryBlock(this);
+								mTrueJump = mFalseJump;
+								mFalseJump = nullptr;
+							}
+							else
+							{
+								mFalseJump->RemoveEntryBlock(this);
+								mFalseJump = nullptr;
+							}
+							mBranch = ASMIT_JMP;
+							changed = true;
+						}
+						else
+						{
+							mFDataSet.mRegs[CPU_REG_A].mMask = 0xff;
+							mFDataSet.mRegs[CPU_REG_A].mValue = 0x00;
+							mFDataSet.mRegs[lins.mAddress].mMask = 0xff;
+							mFDataSet.mRegs[lins.mAddress].mValue = 0x00;
+						}
+						break;
+					case ASMIT_BPL:
+						if (mNDataSet.mRegs[lins.mAddress].mMask & 0x80)
+						{
+							if (mNDataSet.mRegs[lins.mAddress].mValue & 0x80)
+							{
+								mTrueJump->RemoveEntryBlock(this);
+								mTrueJump = mFalseJump;
+								mFalseJump = nullptr;
+							}
+							else
+							{
+								mFalseJump->RemoveEntryBlock(this);
+								mFalseJump = nullptr;
+							}
+							mBranch = ASMIT_JMP;
+							changed = true;
+						}
+						else
+						{
+							mNDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
+							mNDataSet.mRegs[CPU_REG_A].mValue &= 0x7f;
+							mFDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
+							mFDataSet.mRegs[CPU_REG_A].mValue |= 0x80;
+
+							mNDataSet.mRegs[lins.mAddress].mMask |= 0x80;
+							mNDataSet.mRegs[lins.mAddress].mValue &= 0x7f;
+							mFDataSet.mRegs[lins.mAddress].mMask |= 0x80;
+							mFDataSet.mRegs[lins.mAddress].mValue |= 0x80;
+						}
+						break;
+					case ASMIT_BMI:
+						if (mNDataSet.mRegs[lins.mAddress].mMask & 0x80)
+						{
+							if (!(mNDataSet.mRegs[lins.mAddress].mValue & 0x80))
+							{
+								mTrueJump->RemoveEntryBlock(this);
+								mTrueJump = mFalseJump;
+								mFalseJump = nullptr;
+							}
+							else
+							{
+								mFalseJump->RemoveEntryBlock(this);
+								mFalseJump = nullptr;
+							}
+							mBranch = ASMIT_JMP;
+							changed = true;
+						}
+						else
+						{
+							mFDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
+							mFDataSet.mRegs[CPU_REG_A].mValue &= 0x7f;
+							mNDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
+							mNDataSet.mRegs[CPU_REG_A].mValue |= 0x80;
+
+							mFDataSet.mRegs[lins.mAddress].mMask |= 0x80;
+							mFDataSet.mRegs[lins.mAddress].mValue &= 0x7f;
+							mNDataSet.mRegs[lins.mAddress].mMask |= 0x80;
+							mNDataSet.mRegs[lins.mAddress].mValue |= 0x80;
+						}
+						break;
+					}
+				}
+			}
 
 		}
 
@@ -23732,6 +23883,42 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		CheckLive();
 
 #if 1
+		for (int i = 0; i + 4 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 2].mAddress &&
+				mIns[i + 3].mType == ASMIT_ROR && mIns[i + 3].mMode == ASMIM_IMPLIED)
+			{
+				int j = 2;
+				while (i + 3 + j < mIns.Size() &&
+					mIns[i + 2 + j].mType == ASMIT_LSR && mIns[i + 2 + j].mMode == ASMIM_ZERO_PAGE && mIns[i + 2 + j].mAddress == mIns[i + 1].mAddress &&
+					mIns[i + 3 + j].mType == ASMIT_ROR && mIns[i + 3 + j].mMode == ASMIM_IMPLIED)
+				{
+					j += 2;
+				}
+
+				if (i + 2 + j < mIns.Size() && mIns[i + 2 + j].mType == ASMIT_STA && mIns[i + 2 + j].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2 + j].mAddress == mIns[i + 2].mAddress && !(mIns[i + 2 + j].mLive & LIVE_CPU_REG_A))
+				{
+					int	addrl = mIns[i + 2].mAddress, addrh = mIns[i + 1].mAddress;
+					for (int k = 0; k < j; k += 2)
+					{
+						mIns[i + k + 0] = NativeCodeInstruction(ASMIT_LSR, ASMIM_IMPLIED);
+						mIns[i + k + 1] = NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, addrl);
+					}
+					mIns[i + j] = NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, addrh);
+					mIns[i + j + 1].mType = ASMIT_NOP; mIns[i + j + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + j + 2].mType = ASMIT_NOP; mIns[i + j + 2].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+			}
+		}
+
+		CheckLive();
+#endif
+
+#if 1
 		bool	progress = false;
 		do {
 			progress = false;
@@ -28061,6 +28248,13 @@ void NativeCodeBasicBlock::Close(NativeCodeBasicBlock* trueJump, NativeCodeBasic
 	this->mBranch = branch;
 }
 
+void NativeCodeBasicBlock::RemoveEntryBlock(NativeCodeBasicBlock* block)
+{
+	int	i = mEntryBlocks.IndexOf(block);
+	assert(i >= 0);
+	mEntryBlocks.Remove(i);
+	mNumEntries--;
+}
 
 NativeCodeBasicBlock* NativeCodeBasicBlock::BypassEmptyBlocks(void)
 {
@@ -28983,7 +29177,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	//PeepChecker = !strcmp(mInterProc->mIdent->mString, "ghostUnit");
+//	PeepCheck = !strcmp(mInterProc->mIdent->mString, "main");
 
 #if 1
 	int		step = 0;
@@ -29030,6 +29224,13 @@ void NativeCodeProcedure::Optimize(void)
 			do {
 				ResetVisited();
 				bchanged = mEntryBlock->BitFieldForwarding(data);
+
+				if (!bchanged)
+				{
+					ResetPatched();
+					mEntryBlock->CheckVisited();
+				}
+
 			} while (bchanged);
 		}
 #endif
