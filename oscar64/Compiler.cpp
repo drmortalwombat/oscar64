@@ -23,6 +23,7 @@ Compiler::Compiler(void)
 	mCompilationUnits->mSectionStack = mLinker->AddSection(Ident::Unique("stack"), LST_STACK);
 	mCompilationUnits->mSectionZeroPage = mLinker->AddSection(Ident::Unique("zeropage"), LST_ZEROPAGE);
 	mCompilationUnits->mSectionStack->mSize = 4096;
+	mCompilationUnits->mSectionHeap->mSize = 1024;
 
 	mPreprocessor = new Preprocessor(mErrors);
 	mByteCodeGenerator = new ByteCodeGenerator(mErrors, mLinker);

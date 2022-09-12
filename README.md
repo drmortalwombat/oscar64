@@ -400,7 +400,16 @@ Regions can also be used to place assets such as character sets at fixed locatio
 
 The #pragma data(), #pragma code() and #pragma bss() control the placement of the generated objects into sections other than the default sections.
 
+#### Heap and Stack sections
 
+The heap and stack sections have an initial size of 1K and 4K.  The heap will grow to use all space between the end of the data/bss section and
+the start of the stack section.  The size of the stack and the minimum size of the heap can be specified using pragmas:
+
+	#pragma stacksize( 4096 )
+	
+	#pragma heapsize( 4096 )
+
+The linker will throw an error if the heap or stack cannot be placed without collision.
 
 ### Inline Assembler
 

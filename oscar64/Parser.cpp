@@ -3367,6 +3367,20 @@ void Parser::ParsePragma(void)
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "heapsize"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+			if (mScanner->mToken == TK_INTEGER)
+			{
+				mCompilationUnits->mSectionHeap->mSize = mScanner->mTokenInteger;
+				mScanner->NextToken();
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Heap size expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else if (!strcmp(mScanner->mTokenIdent->mString, "charmap"))
 		{
 			mScanner->NextToken();

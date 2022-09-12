@@ -392,6 +392,12 @@ void Linker::Link(void)
 
 					lsec->mEnd = lsec->mStart;
 					lsec->mStart = lrgn->mEnd;
+
+					if (lsec->mStart < lrgn->mStart + lrgn->mUsed)
+					{
+						Location	loc;
+						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Cannot place stack section");
+					}
 				}
 			}
 		}
@@ -409,6 +415,12 @@ void Linker::Link(void)
 				{
 					lsec->mStart = lrgn->mStart + lrgn->mUsed;
 					lsec->mEnd = lrgn->mEnd;
+
+					if (lsec->mStart + lsec->mSize > lsec->mEnd)
+					{
+						Location	loc;
+						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Cannot place heap section");
+					}
 				}
 			}
 		}
