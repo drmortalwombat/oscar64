@@ -586,6 +586,12 @@ The C64 has a hires graphics mode with 320x200 pixels.  Oscar provides a library
 
 Draws and clears lines with various patterns.
 
+#### Draw lines "fractaltree.c"
+
+Draws a recursive fractal tree.
+
+![Fractal recursive tree](samples/hires/fractaltree.png)
+
 #### Draw 3D wireframe "cube3d.c"
 
 Draws a rotating 3D wireframe cube using draw (OR) and clear (AND) operations.  The 3D operations are performed using 12.4 bit fixpoint math.

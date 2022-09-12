@@ -4,6 +4,8 @@
 
 // make space until 0x1000 by for the stack
 
+#pragma stacksize(0x0600)
+
 #pragma region( stack, 0x0a00, 0x1000, , , {stack} )
 
 // everything beyond will be code, data, bss and heap to the end

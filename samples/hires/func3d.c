@@ -8,6 +8,8 @@
 #include <gfx/bitmap.h>
 #include <stdio.h>
 
+#pragma stacksize(1024)
+
 #pragma region(main, 0x0a00, 0xc800, , , {code, data, bss, heap, stack} )
 
 
