@@ -405,6 +405,8 @@ public:
 
 	bool MoveAccuTrainUp(int at, int end);
 	bool MoveAccuTrainsUp(void);
+	bool MoveAccuTrainsDown(void);
+	bool MoveAccuTrainDown(int end, int start);
 
 	bool AlternateXYUsage(void);
 	bool OptimizeXYPairUsage(void);
