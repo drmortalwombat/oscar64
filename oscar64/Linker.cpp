@@ -77,6 +77,7 @@ Linker::Linker(Errors* errors)
 	for (int i = 0; i < 64; i++)
 	{
 		mCartridgeBankUsed[i] = 0;
+		mCartridgeBankSize[i] = 0;
 		memset(mCartridge[i], 0, 0x4000);
 	}
 	memset(mMemory, 0, 0x10000);
@@ -450,6 +451,8 @@ void Linker::Link(void)
 						{
 							mCartridgeBankUsed[i] = true;
 							memcpy(mCartridge[i] + obj->mAddress - 0x8000, obj->mData, obj->mSize);
+							if (obj->mAddress - 0x8000 + obj->mSize > mCartridgeBankSize[i])
+								mCartridgeBankSize[i] = obj->mAddress - 0x8000 + obj->mSize;
 						}
 					}
 				}
@@ -727,6 +730,9 @@ bool Linker::WriteCrtFile(const char* filename)
 		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
 		fwrite(bootmem + 0x2000, 1, 0x2000, file);
 
+		mCartridgeBankUsed[0] = true;
+		mCartridgeBankSize[0] = usedlz + 0x200;
+
 		for (int i = 1; i < 64; i++)
 		{
 			if (mCartridgeBankUsed[i])
@@ -786,6 +792,17 @@ bool Linker::WriteMapFile(const char* filename)
 					fprintf(file, "%04x - %04x : %s, %s:%s\n", obj->mAddress, obj->mAddress + obj->mSize, obj->mIdent->mString, LinkerObjectTypeNames[obj->mType], obj->mSection->mIdent->mString);
 				else
 					fprintf(file, "%04x - %04x : *, %s:%s\n", obj->mAddress, obj->mAddress + obj->mSize, LinkerObjectTypeNames[obj->mType], obj->mSection->mIdent->mString);
+			}
+		}
+
+		if (mCartridgeBankUsed[0])
+		{
+			fprintf(file, "\nbanks\n");
+
+			for (int i = 0; i < 64; i++)
+			{
+				if (mCartridgeBankUsed[i])
+					fprintf(file, "%02d : %04x\n", i, mCartridgeBankSize[i]);
 			}
 		}
 

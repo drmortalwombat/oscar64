@@ -209,6 +209,8 @@ public:
 
 	bool	mCartridgeBankUsed[64];
 
+	uint32	mCartridgeBankSize[64];
+
 	int	mProgramStart, mProgramEnd;
 
 	void ReferenceObject(LinkerObject* obj);
