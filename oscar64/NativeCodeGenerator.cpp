@@ -12258,6 +12258,8 @@ bool NativeCodeBasicBlock::MoveAccuTrainDown(int end, int start)
 				return false;
 		}
 	}
+
+	return false;
 }
 
 bool NativeCodeBasicBlock::MoveAccuTrainsDown(void)
@@ -21456,7 +21458,7 @@ bool NativeCodeBasicBlock::OptimizeInnerLoops(NativeCodeProcedure* proc)
 
 			NativeCodeBasicBlock* tail = CollectInnerLoop(this, lblocks);
 
-			if (tail)
+			if (tail && this != tail)
 				changed = OptimizeInnerLoop(proc, this, tail, lblocks);
 		}
 
@@ -28146,6 +28148,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 
 			changed = true;
 		}
+
+		if (sz == 1 && mBranch == ASMIT_BNE && mTrueJump == this)
+		{
+			if (mIns[0].mType == ASMIT_DEX || mIns[0].mType == ASMIT_INX)
+			{
+				mIns[0] = NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, 0);
+				changed = true;
+			}
+			else if (mIns[0].mType == ASMIT_DEY || mIns[0].mType == ASMIT_INY)
+			{
+				mIns[0] = NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, 0);
+				changed = true;
+			}
+		}
+
 #endif
 
 		CheckLive();
