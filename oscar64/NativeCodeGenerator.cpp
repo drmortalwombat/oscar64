@@ -1159,6 +1159,12 @@ bool NativeCodeInstruction::IsShift(void) const
 	return mType == ASMIT_ASL || mType == ASMIT_LSR || mType == ASMIT_ROL || mType == ASMIT_ROR;
 }
 
+bool NativeCodeInstruction::IsShiftOrInc(void) const
+{
+	return mType == ASMIT_INC || mType == ASMIT_DEC || mType == ASMIT_ASL || mType == ASMIT_LSR;// || mType == ASMIT_ROL || mType == ASMIT_ROR;
+}
+
+
 bool NativeCodeInstruction::IsCommutative(void) const
 {
 	return mType == ASMIT_ADC || mType == ASMIT_AND || mType == ASMIT_ORA || mType == ASMIT_EOR;
@@ -14268,6 +14274,46 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 		mVisited = true;
 
 		CheckLive();
+
+#if 1
+		if (mTrueJump && mFalseJump && mTrueJump->mEntryProvidedRegs.Size() && mFalseJump->mEntryRequiredRegs.Size())
+		{
+			mTempRegs.Reset(mTrueJump->mEntryRequiredRegs.Size());
+
+			for (int i = mIns.Size() - 1; i >= 0; i--)
+			{
+				NativeCodeInstruction	ins(mIns[i]);
+
+				if (ins.mMode == ASMIM_ZERO_PAGE)
+				{
+					int	addr = ins.mAddress;
+
+					if (!mTempRegs[addr])
+					{
+						if (ins.IsShiftOrInc() && !(ins.ChangesCarry() && (ins.mLive & LIVE_CPU_REG_C)) && !(ins.mLive & LIVE_CPU_REG_Z))
+						{
+							if (mTrueJump->mEntryRequiredRegs[addr] && !mFalseJump->mEntryRequiredRegs[addr] && mTrueJump->mNumEntries == 1 && !mTrueJump->mEntryRequiredRegs[CPU_REG_Z] && !mTrueJump->mEntryRequiredRegs[CPU_REG_C] ||
+								mFalseJump->mEntryRequiredRegs[addr] && !mTrueJump->mEntryRequiredRegs[addr] && mFalseJump->mNumEntries == 1 && !mFalseJump->mEntryRequiredRegs[CPU_REG_Z] && !mFalseJump->mEntryRequiredRegs[CPU_REG_C])
+							{
+								if (mTrueJump->mEntryRequiredRegs[addr])
+									mTrueJump->mIns.Insert(0, mIns[i]);
+								else
+									mFalseJump->mIns.Insert(0, mIns[i]);
+								mIns.Remove(i);
+							}
+						}
+						else
+							mTempRegs += addr;
+					}
+				}
+				else if (ins.mMode == ASMIM_INDIRECT_Y)
+				{
+					mTempRegs += ins.mAddress;
+					mTempRegs += ins.mAddress + 1;
+				}
+			}
+		}
+#endif
 
 #if 1
 		if (mTrueJump && mFalseJump && mTrueJump->mEntryProvidedRegs.Size() && mFalseJump->mEntryRequiredRegs.Size())

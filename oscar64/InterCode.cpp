@@ -71,6 +71,18 @@ void IntegerValueRange::LimitMax(int64 value)
 	}
 }
 
+void IntegerValueRange::LimitMinBound(int64 value)
+{
+	if (mMinState == S_BOUND && mMinValue < value)
+		mMinValue = value;
+}
+
+void IntegerValueRange::LimitMaxBound(int64 value)
+{
+	if (mMaxState == S_BOUND && mMaxValue > value)
+		mMaxValue = value;
+}
+
 void IntegerValueRange::LimitMinWeak(int64 value)
 {
 	if (mMinState == S_UNBOUND || mMinValue < value)
@@ -5270,7 +5282,18 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			{
 			case IC_LOAD:
 				vr = ins->mDst.mRange;
-
+#if 1
+				if (ins->mDst.mType == IT_INT8)
+				{
+					vr.LimitMin(-128);
+					vr.LimitMax(255);
+				}
+				else if (ins->mDst.mType == IT_INT16)
+				{
+					vr.LimitMin(-32768);
+					vr.LimitMax(65535);
+				}
+#endif
 				if (i > 0 &&
 					mInstructions[i - 1]->mCode == IC_LEA && mInstructions[i - 1]->mDst.mTemp == ins->mSrc[0].mTemp &&
 					mInstructions[i - 1]->mSrc[1].mTemp < 0 && mInstructions[i - 1]->mSrc[1].mMemory == IM_GLOBAL && (mInstructions[i - 1]->mSrc[1].mLinkerObject->mFlags & LOBJF_CONST))
@@ -5736,7 +5759,18 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			default:
 				vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 			}
-
+#if 1
+			if (ins->mDst.mType == IT_INT8)
+			{
+				vr.LimitMinBound(-128);
+				vr.LimitMaxBound(255);
+			}
+			else if (ins->mDst.mType == IT_INT16)
+			{
+				vr.LimitMinBound(-32768);
+				vr.LimitMaxBound(65535);
+			}
+#endif
 			ins->mDst.mRange = vr;
 #if 1
 			if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxValue == vr.mMinValue)
@@ -12810,6 +12844,11 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Estimated value range 2");
 #endif
+
+	ResetVisited();
+	mEntryBlock->SimplifyIntegerRangeRelops();
+
+	DisassembleDebug("Simplified range limited relational ops");
 
 #if 1
 	if (mModule->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)

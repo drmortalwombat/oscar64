@@ -138,6 +138,7 @@ public:
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
 	bool IsShift(void) const;
+	bool IsShiftOrInc(void) const;
 	bool IsSimpleJSR(void) const;
 	bool MayBeMovedBefore(const NativeCodeInstruction& ins);
 
@@ -262,6 +263,7 @@ public:
 	NumberSet		mLocalRequiredRegs, mLocalProvidedRegs;
 	NumberSet		mEntryRequiredRegs, mEntryProvidedRegs;
 	NumberSet		mExitRequiredRegs, mExitProvidedRegs;
+	NumberSet		mTempRegs;
 
 	void BuildLocalRegSets(void);
 	void BuildGlobalProvidedRegSet(NumberSet fromProvidedTemps);

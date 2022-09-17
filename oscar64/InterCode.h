@@ -159,6 +159,9 @@ public:
 	void LimitMin(int64 value);
 	void LimitMax(int64 value);
 
+	void LimitMinBound(int64 value);
+	void LimitMaxBound(int64 value);
+	
 	void LimitMinWeak(int64 value);
 	void LimitMaxWeak(int64 value);
 };
