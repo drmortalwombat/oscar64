@@ -7670,6 +7670,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						ins->mSrc[1].mTemp = cai->mDst.mTemp;
 					}
 				}
+#if 1
 				else if (mi0 && mi1 && mi0->mCode == IC_CONSTANT && mi1->mCode == IC_BINARY_OPERATOR && mi1->mOperator == IA_SUB)
 				{
 					InterInstruction* ai0 = ltvalue[mi1->mSrc[0].mTemp], * ai1 = ltvalue[mi1->mSrc[1].mTemp];
@@ -7701,35 +7702,8 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						ins->mSrc[1].mTemp = nai->mDst.mTemp;
 						ins->mSrc[0].mTemp = cai->mDst.mTemp;
 					}
-					else if (ai1 && ai1->mCode == IC_CONSTANT)
-					{
-						InterInstruction* nai = new InterInstruction();
-						nai->mCode = IC_BINARY_OPERATOR;
-						nai->mOperator = IA_MUL;
-						nai->mSrc[0].mTemp = mi1->mSrc[0].mTemp;
-						nai->mSrc[0].mType = IT_INT16;
-						nai->mSrc[1].mTemp = ins->mSrc[0].mTemp;
-						nai->mSrc[1].mType = IT_INT16;
-						nai->mDst.mTemp = spareTemps++;
-						nai->mDst.mType = IT_INT16;
-						mInstructions.Insert(i, nai);
-
-						ltvalue[nai->mDst.mTemp] = nullptr;
-
-						InterInstruction* cai = new InterInstruction();
-						cai->mCode = IC_CONSTANT;
-						cai->mDst.mTemp = spareTemps++;
-						cai->mDst.mType = IT_INT16;
-						cai->mConst.mIntConst = ai1->mConst.mIntConst * mi0->mConst.mIntConst;
-						mInstructions.Insert(i, cai);
-
-						ltvalue[cai->mDst.mTemp] = nullptr;
-
-						ins->mOperator = IA_SUB;
-						ins->mSrc[1].mTemp = nai->mDst.mTemp;
-						ins->mSrc[0].mTemp = cai->mDst.mTemp;
-					}
 				}
+#endif
 			}
 #endif
 #if 1
@@ -12623,10 +12597,12 @@ void InterCodeProcedure::Close(void)
 	do {
 		valueSet.FlushAll();
 		mValueForwardingTable.SetSize(numTemps, true);
-		tvalidSet.Reset(numTemps + 32);
+		tvalidSet.Reset(numTemps + 64);
 
 		ResetVisited();
 		mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet, numTemps, mModule->mGlobalVars);
+
+		assert(numTemps <= tvalidSet.Size());
 
 		DisassembleDebug("PerformValueForwarding");
 
