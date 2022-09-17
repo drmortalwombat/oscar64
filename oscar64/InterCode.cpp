@@ -12845,10 +12845,12 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Estimated value range 2");
 #endif
 
+#if 1
 	ResetVisited();
 	mEntryBlock->SimplifyIntegerRangeRelops();
 
 	DisassembleDebug("Simplified range limited relational ops");
+#endif
 
 #if 1
 	if (mModule->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)

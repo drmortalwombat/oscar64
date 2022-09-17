@@ -1,6 +1,9 @@
 #include "NativeCodeGenerator.h"
 #include "CompilerTypes.h"
 
+static bool CheckFunc;
+
+
 static const int CPU_REG_A = 256;
 static const int CPU_REG_X = 257;
 static const int CPU_REG_Y = 258;
@@ -21772,17 +21775,29 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 						{
 							block->mTrueJump = block->BuildSingleEntry(proc, block->mTrueJump);
 							if (yreg >= 0)
+							{
 								block->mTrueJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_STY, ASMIM_ZERO_PAGE, yreg));
+								block->mTrueJump->mEntryRequiredRegs += CPU_REG_Y;
+							}
 							if (xreg >= 0)
+							{
 								block->mTrueJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_STX, ASMIM_ZERO_PAGE, xreg));
+								block->mTrueJump->mEntryRequiredRegs += CPU_REG_X;
+							}
 						}
 						if (block->mFalseJump && !lblocks.Contains(block->mFalseJump))
 						{
 							block->mFalseJump = block->BuildSingleEntry(proc, block->mFalseJump);
 							if (yreg >= 0)
+							{
 								block->mFalseJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_STY, ASMIM_ZERO_PAGE, yreg));
+								block->mFalseJump->mEntryRequiredRegs += CPU_REG_Y;
+							}
 							if (xreg >= 0)
+							{
 								block->mFalseJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_STX, ASMIM_ZERO_PAGE, xreg));
+								block->mFalseJump->mEntryRequiredRegs += CPU_REG_X;
+							}
 						}
 
 						for (int j = 0; j < block->mEntryBlocks.Size(); j++)
@@ -21791,9 +21806,15 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							{
 								block->mEntryBlocks[j] = block->BuildSingleExit(proc, block->mEntryBlocks[j]);
 								if (yreg >= 0)
+								{
 									block->mEntryBlocks[j]->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, yreg));
+									block->mEntryBlocks[j]->mExitRequiredRegs += CPU_REG_Y;
+								}
 								if (xreg >= 0)
+								{
 									block->mEntryBlocks[j]->mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_ZERO_PAGE, xreg));
+									block->mEntryBlocks[j]->mExitRequiredRegs += CPU_REG_X;
+								}
 							}
 						}
 
@@ -21901,6 +21922,9 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 									block->mIns.Insert(j, NativeCodeInstruction(ASMIT_INY));
 									yoffset++;
 								}
+
+								if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.ChangesAccuAndFlag())
+									block->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_IMMEDIATE, 0));
 							}
 
 							if (xoffset && xreg >= 0 && !(ins.mLive & LIVE_CPU_REG_X))
@@ -21917,6 +21941,9 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 									block->mIns.Insert(j, NativeCodeInstruction(ASMIT_INX));
 									xoffset++;
 								}
+
+								if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.ChangesAccuAndFlag())
+									block->mIns.Push(NativeCodeInstruction(ASMIT_ORA, ASMIM_IMMEDIATE, 0));
 							}
 
 							if (yreg >= 0)
@@ -23211,8 +23238,6 @@ bool NativeCodeBasicBlock::RemoveNops(void)
 
 	return changed;
 }
-
-static bool CheckFunc;
 
 bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass)
 {
@@ -24624,6 +24649,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 					{
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+
+					else if (
+						(mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
+						mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						(mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
+						mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+					{
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
@@ -29351,8 +29391,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-//	CheckFunc = !strcmp(mInterProc->mIdent->mString, "bmmc_circle2");
-
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "dungeon_rand_path");
 #if 1
 	int		step = 0;
 	int cnt = 0;
@@ -29470,6 +29509,8 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->PeepHoleOptimizer(this, step))
 			changed = true;
 #endif
+
+
 //		if (cnt == 2)
 //			return;
 #if 1
@@ -29602,7 +29643,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		}
 #endif
-
 
 #if 1
 		if (step == 4 || step == 5)
@@ -29810,6 +29850,9 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
+//		if (CheckFunc && step == 4)
+//			return;
 
 	} while (changed);
 
