@@ -9770,6 +9770,25 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 					}
 				}
 
+				for (int bi = 0; bi < body.Size(); bi++)
+				{
+					InterCodeBasicBlock* block = body[bi];
+
+					for (int i = 0; i < block->mInstructions.Size(); i++)
+					{
+						InterInstruction* ins = block->mInstructions[i];
+
+						if (ins->mCode == IC_LEA && ins->mSrc[1].mMemory != IM_FRAME || ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR)
+						{
+							if (!block->mEntryRequiredTemps[ins->mDst.mTemp] && !block->mExitRequiredTemps[ins->mDst.mTemp])
+							{
+								ins->mInvariant = true;
+							}
+						}
+					}
+
+				}
+
 				enum Dependency
 				{
 					DEP_UNKNOWN,
@@ -9815,6 +9834,8 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							case IC_LEA:
 								if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0)
 									ins->mExpensive = true;
+								else if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mRange.mMaxValue >= 256)
+									ins->mExpensive = true;
 								break;
 							case IC_LOAD:
 							case IC_STORE:
@@ -9836,9 +9857,9 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 				{
 					changed = false;
 
-					for (int bi = 0; bi < path.Size(); bi++)
+					for (int bi = 0; bi < body.Size(); bi++)
 					{
-						InterCodeBasicBlock* block = path[bi];
+						InterCodeBasicBlock* block = body[bi];
 
 						for (int i = 0; i < block->mInstructions.Size(); i++)
 						{
@@ -9877,9 +9898,9 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 				{
 					changed = false;
 
-					for (int bi = 0; bi < path.Size(); bi++)
+					for (int bi = 0; bi < body.Size(); bi++)
 					{
-						InterCodeBasicBlock* block = path[bi];
+						InterCodeBasicBlock* block = body[bi];
 
 						for (int i = 0; i < block->mInstructions.Size(); i++)
 						{
@@ -9905,9 +9926,9 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 				} while(changed);
 
 
-				for (int bi = 0; bi < path.Size(); bi++)
+				for (int bi = 0; bi < body.Size(); bi++)
 				{
-					InterCodeBasicBlock* block = path[bi];
+					InterCodeBasicBlock* block = body[bi];
 
 					int	j = 0;
 					for (int i = 0; i < block->mInstructions.Size(); i++)
@@ -12863,6 +12884,16 @@ void InterCodeProcedure::Close(void)
 
 #endif
 
+#if 1
+	BuildTraces(false);
+
+	ResetVisited();
+	mEntryBlock->InnerLoopOptimization(mParamAliasedSet);
+
+	DisassembleDebug("inner loop opt 2");
+
+	BuildDataFlowSets();
+#endif
 
 #if 1
 	ResetVisited();
