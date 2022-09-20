@@ -1279,18 +1279,23 @@ TempForwardingTable::TempForwardingTable(void) : mAssoc(Assoc(-1, -1, -1))
 {
 }
 
-TempForwardingTable::TempForwardingTable(const TempForwardingTable& table) : mAssoc(Assoc(-1, -1, -1))
+TempForwardingTable::TempForwardingTable(const TempForwardingTable& table) : mAssoc(table.mAssoc)
 {
+#if 0
+	mAssoc.Reserve(table.mAssoc.Size());
 	for (int i = 0; i < table.mAssoc.Size(); i++)
 	{
 		mAssoc[i].mAssoc = table.mAssoc[i].mAssoc;
 		mAssoc[i].mSucc = table.mAssoc[i].mSucc;
 		mAssoc[i].mPred = table.mAssoc[i].mPred;
 	}
+#endif
 }
 
 TempForwardingTable& TempForwardingTable::operator=(const TempForwardingTable& table)
 {
+	mAssoc = table.mAssoc;
+#if 0
 	mAssoc.SetSize(table.mAssoc.Size());
 	for (int i = 0; i < table.mAssoc.Size(); i++)
 	{
@@ -1298,7 +1303,7 @@ TempForwardingTable& TempForwardingTable::operator=(const TempForwardingTable& t
 		mAssoc[i].mSucc = table.mAssoc[i].mSucc;
 		mAssoc[i].mPred = table.mAssoc[i].mPred;
 	}
-
+#endif
 	return *this;
 }
 
@@ -6341,7 +6346,7 @@ void InterCodeBasicBlock::BuildLocalTempSets(int num)
 	}
 }
 
-void InterCodeBasicBlock::BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps)
+void InterCodeBasicBlock::BuildGlobalProvidedTempSet(const NumberSet & fromProvidedTemps)
 {
 	bool	changed = false;
 
@@ -6555,61 +6560,50 @@ bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigne
 	return changed;
 }
 
-void InterCodeBasicBlock::PerformTempForwarding(TempForwardingTable& forwardingTable)
+void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwardingTable)
 {
 	int i;
 
 	if (!mVisited)
 	{
-		TempForwardingTable	localForwardingTable(forwardingTable);
-
 		if (mLoopHead)
 		{
 			if (mNumEntries == 2 && (mTrueJump == this || mFalseJump == this) && mLocalModifiedTemps.Size())
 			{
-				assert(localForwardingTable.Size() == mLocalModifiedTemps.Size());
+				mMergeForwardingTable = forwardingTable;
+				assert(mMergeForwardingTable.Size() == mLocalModifiedTemps.Size());
 
 				for (int i = 0; i < mLocalModifiedTemps.Size(); i++)
 				{
 					if (mLocalModifiedTemps[i])
-						localForwardingTable.Destroy(i);
+						mMergeForwardingTable.Destroy(i);
 				}
 			}
 			else
-				localForwardingTable.Reset();
+				mMergeForwardingTable.SetSize(forwardingTable.Size());
 		}
-#if 0
-		else if (mNumEntries > 1)
+		else
 		{
-			lvalues.FlushAll();
-			ltvalue.Clear();
-		}
-#endif
-		else if (mNumEntries > 0)
-		{
-			if (mNumEntered > 0)
-			{
-				localForwardingTable.Intersect(mMergeForwardingTable);
-			}
+			if (mNumEntered == 0)
+				mMergeForwardingTable = forwardingTable;
+			else
+				mMergeForwardingTable.Intersect(forwardingTable);
 
 			mNumEntered++;
 
 			if (mNumEntered < mNumEntries)
-			{
-				mMergeForwardingTable = localForwardingTable;
 				return;
-			}
 		}
 
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i]->PerformTempForwarding(localForwardingTable);
+			mInstructions[i]->PerformTempForwarding(mMergeForwardingTable);
 		}
 
-		if (mTrueJump) mTrueJump->PerformTempForwarding(localForwardingTable);
-		if (mFalseJump) mFalseJump->PerformTempForwarding(localForwardingTable);
+		if (mTrueJump) mTrueJump->PerformTempForwarding(mMergeForwardingTable);
+		if (mFalseJump) mFalseJump->PerformTempForwarding(mMergeForwardingTable);
 	}
 }
 
@@ -12440,13 +12434,16 @@ void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet)
 		silvused = activeSet.Num();
 		silvalues.SetSize(silvused + 16, true);
 
-		mTemporaries.SetSize(activeSet.Num(), true);
+		if (silvused != mTemporaries.Size())
+		{
+			mTemporaries.SetSize(activeSet.Num(), true);
 
-		ResetVisited();
-		mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
+			ResetVisited();
+			mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
 
-		ResetVisited();
-		mEntryBlock->RemapActiveTemporaries(activeSet);
+			ResetVisited();
+			mEntryBlock->RemapActiveTemporaries(activeSet);
+		}
 
 		ResetVisited();
 	} while (mEntryBlock->SimplifyIntegerNumeric(silvalues, silvused));

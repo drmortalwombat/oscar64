@@ -345,3 +345,7 @@ make/oscar64
 *.crt
 *.crt
 *.d64
+*.tlog
+*.res
+*.recipe
+*.exe

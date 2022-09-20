@@ -94,8 +94,6 @@ void NumberSet::Clear(void)
 
 NumberSet& NumberSet::operator=(const NumberSet& set)
 {
-	int i;
-
 	this->size = set.size;
 
 	if (dwsize != set.dwsize)
@@ -105,28 +103,36 @@ NumberSet& NumberSet::operator=(const NumberSet& set)
 		this->bits = new uint32[dwsize];
 	}
 
-	for (i = 0; i < dwsize; i++)
-		bits[i] = set.bits[i];
+	int	size = dwsize;
+	const uint32* sbits = set.bits;
+	uint32* dbits = bits;
+
+	for (int i = 0; i < size; i++)
+		dbits[i] = sbits[i];
 
 	return *this;
 }
 
 NumberSet& NumberSet::operator&=(const NumberSet& set)
 {
-	int i;
+	int	size = dwsize;
+	const uint32* sbits = set.bits;
+	uint32* dbits = bits;
 
-	for (i = 0; i < dwsize; i++)
-		bits[i] &= set.bits[i];
+	for (int i = 0; i < size; i++)
+		dbits[i] &= sbits[i];
 
 	return *this;
 }
 
 NumberSet& NumberSet::operator|=(const NumberSet& set)
 {
-	int i;
+	int	size = dwsize;
+	const uint32* sbits = set.bits;
+	uint32* dbits = bits;
 
-	for (i = 0; i < dwsize; i++)
-		bits[i] |= set.bits[i];
+	for (int i = 0; i < size; i++)
+		dbits[i] |= sbits[i];
 
 	return *this;
 }

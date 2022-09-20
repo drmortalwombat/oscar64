@@ -394,7 +394,7 @@ public:
 	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps, const GrowingVariableArray& staticVars);
 
 	void BuildLocalTempSets(int num);
-	void BuildGlobalProvidedTempSet(NumberSet fromProvidedTemps);
+	void BuildGlobalProvidedTempSet(const NumberSet & fromProvidedTemps);
 	bool BuildGlobalRequiredTempSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(void);
 	void BuildCallerSaveTempSet(NumberSet& callerSaveTemps);
@@ -427,7 +427,7 @@ public:
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
 	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars);
-	void PerformTempForwarding(TempForwardingTable& forwardingTable);
+	void PerformTempForwarding(const TempForwardingTable& forwardingTable);
 	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars);
 	bool EliminateDeadBranches(void);

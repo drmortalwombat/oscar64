@@ -196,11 +196,14 @@ public:
 	GrowingArray(const GrowingArray& a)
 		: empty(a.empty)
 	{
-		int i;
 		size = a.size;
 		range = a.range;
 		array = new T[range];
-		for (i = 0; i < size; i++) array[i] = a.array[i];
+
+		int lsize = size;
+		const T* sap = a.array;
+		T* dap = array;
+		for (int i = 0; i < lsize; i++) dap[i] = sap[i];
 	}
 
 	GrowingArray & operator=(const GrowingArray& a)
@@ -208,7 +211,10 @@ public:
 		if (a.size != size)
 			Grow(a.size, true);
 
-		for (int i = 0; i < size; i++) array[i] = a.array[i];
+		int lsize = size;
+		const T* sap = a.array;
+		T* dap = array;
+		for (int i = 0; i < lsize; i++) dap[i] = sap[i];
 
 		return *this;
 	}

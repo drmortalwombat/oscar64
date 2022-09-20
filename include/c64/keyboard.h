@@ -103,7 +103,9 @@ enum KeyScanCode
 	KSCAN_STOP,
 
 	KSCAN_QUAL_SHIFT = 0x40,
-	KSCAN_QUAL_DOWN = 0x80
+	KSCAN_QUAL_DOWN = 0x80,
+
+	KSCAN_MAX = 0xff
 };
 
 // map of keyboard codes to PETSCII, first 64 without shift
