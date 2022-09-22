@@ -6094,7 +6094,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 						if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
 						{
-							mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue);
+							mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mRange.mMinValue);
 						}
 					}
 				}
