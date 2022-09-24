@@ -7107,6 +7107,92 @@ bool  InterCodeBasicBlock::MergeIndexedLoadStore(const GrowingInstructionPtrArra
 	return changed;
 }
 
+static bool CheckSimplifyPointerOffsets(const InterInstruction* ins, int temp, int& mino, int& maxo)
+{
+	if (ins->mDst.mTemp == temp)
+		return false;
+
+	if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp == temp)
+	{
+		if (ins->mSrc[0].mIntConst < mino)
+			mino = ins->mSrc[0].mIntConst;
+		if (ins->mSrc[0].mIntConst > maxo)
+			maxo = ins->mSrc[0].mIntConst;
+
+		return true;
+	}
+
+	if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp == temp)
+	{
+		if (ins->mSrc[0].mTemp == temp)
+			return false;
+
+		if (ins->mSrc[1].mIntConst < mino)
+			mino = ins->mSrc[1].mIntConst;
+		if (ins->mSrc[1].mIntConst > maxo)
+			maxo = ins->mSrc[1].mIntConst;
+
+		return true;
+	}
+
+	for (int i = 0; i < ins->mNumOperands; i++)
+		if (ins->mSrc[i].mTemp == temp)
+			return false;
+
+	return true;
+}
+
+bool InterCodeBasicBlock::SimplifyPointerOffsets(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			
+			if (ins->mCode == IC_LEA && (ins->mSrc[0].mTemp < 0 || ins->mSrc[1].mTemp < 0) && !mExitRequiredTemps[ins->mDst.mTemp])
+			{
+				int minoffset = 65535, maxoffset = -65535;
+
+				int j = i + 1;
+				while (j < mInstructions.Size() && CheckSimplifyPointerOffsets(mInstructions[j], ins->mDst.mTemp, minoffset, maxoffset))
+					j++;
+
+				if (j == mInstructions.Size() && (minoffset < 0 || maxoffset > 255) && maxoffset - minoffset < 256)
+				{
+					if (ins->mSrc[0].mTemp < 0)
+						ins->mSrc[0].mIntConst += minoffset;
+					else
+						ins->mSrc[1].mIntConst += minoffset;
+
+					changed = true;
+
+					for (int j = i + 1; j < mInstructions.Size(); j++)
+					{
+						InterInstruction* tins = mInstructions[j];
+						if (tins->mCode == IC_LOAD && tins->mSrc[0].mTemp == ins->mDst.mTemp)
+							tins->mSrc[0].mIntConst -= minoffset;
+						else if (tins->mCode == IC_STORE && tins->mSrc[1].mTemp == ins->mDst.mTemp)
+							tins->mSrc[1].mIntConst -= minoffset;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->SimplifyPointerOffsets())
+			changed = true;
+		if (mFalseJump && mFalseJump->SimplifyPointerOffsets())
+			changed = true;
+	}
+
+	return true;
+}
+
+
 bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps)
 {
 	bool	changed = false;
@@ -12410,6 +12496,11 @@ void InterCodeProcedure::MergeIndexedLoadStore(void)
 	RemoveUnusedInstructions();
 
 	DisassembleDebug("MergeIndexedLoadStore");
+
+	ResetVisited();
+	mEntryBlock->SimplifyPointerOffsets();
+
+	DisassembleDebug("SimplifyPointerOffsets");
 }
 
 void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet)
@@ -13199,11 +13290,31 @@ bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
 		{
 			if (ins0->mCode == IC_STORE && ins0->mSrc[1].mTemp >= 0)
 			{
-				int	j0 = mInstructions.Size() - 2;
+				int	j0 = mInstructions.Size() - 3;
 				while (j0 >= 0 && mInstructions[j0]->mDst.mTemp != ins0->mSrc[1].mTemp)
 					j0--;
-				int	j1 = block->mInstructions.Size() - 2;
+				int	j1 = block->mInstructions.Size() - 3;
 				while (j1 >= 0 && block->mInstructions[j1]->mDst.mTemp != ins0->mSrc[1].mTemp)
+					j1--;
+
+				if (j0 >= 0 && j1 >= 0)
+				{
+					if (!(mInstructions[j0]->IsEqual(block->mInstructions[j1])))
+					{
+						if (mInstructions[j0]->mCode == IC_LEA && mInstructions[j0]->mSrc[1].mTemp < 0)
+							return false;
+						if (block->mInstructions[j1]->mCode == IC_LEA && mInstructions[j1]->mSrc[1].mTemp < 0)
+							return false;
+					}
+				}
+			}
+			else if (ins0->mCode == IC_LOAD && ins0->mSrc[0].mTemp >= 0)
+			{
+				int	j0 = mInstructions.Size() - 3;
+				while (j0 >= 0 && mInstructions[j0]->mDst.mTemp != ins0->mSrc[0].mTemp)
+					j0--;
+				int	j1 = block->mInstructions.Size() - 3;
+				while (j1 >= 0 && block->mInstructions[j1]->mDst.mTemp != ins0->mSrc[0].mTemp)
 					j1--;
 
 				if (j0 >= 0 && j1 >= 0)

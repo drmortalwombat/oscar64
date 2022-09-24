@@ -434,6 +434,7 @@ public:
 
 	bool MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue);
 	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps);
+	bool SimplifyPointerOffsets(void);
 	bool EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue);
 
 	bool CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory);
