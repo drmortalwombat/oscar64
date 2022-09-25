@@ -23756,7 +23756,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			{
 				int j = i;
 				while (j + 2 < mIns.Size() &&
-					!mIns[j + 2].ReferencesYReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].SameEffectiveAddress(mIns[j + 1]))
+					!mIns[j + 2].ReferencesYReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]))
 				{
 					mIns[j + 0].mLive |= mIns[j + 2].mLive;
 					mIns[j + 1].mLive |= mIns[j + 2].mLive;
@@ -23772,7 +23772,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			{
 				int j = i;
 				while (j + 2 < mIns.Size() &&
-					!mIns[j + 2].ReferencesXReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].SameEffectiveAddress(mIns[j + 1]))
+					!mIns[j + 2].ReferencesXReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]))
 				{
 					mIns[j + 0].mLive |= mIns[j + 2].mLive;
 					mIns[j + 1].mLive |= mIns[j + 2].mLive;
@@ -29527,7 +29527,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "dungeon_rand_path");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "maze_build_path");
 #if 1
 	int		step = 0;
 	int cnt = 0;
@@ -29987,7 +29987,7 @@ void NativeCodeProcedure::Optimize(void)
 		else
 			cnt++;
 
-//		if (CheckFunc && step == 4)
+//		if (CheckFunc && step == 3 && cnt == 3)
 //			return;
 
 	} while (changed);
