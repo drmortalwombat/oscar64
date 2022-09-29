@@ -4192,6 +4192,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			if (ins->mSrc[i].mTemp >= 0 && tvalue[ins->mSrc[i].mTemp] && tvalue[ins->mSrc[i].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mSrc[i] = tvalue[ins->mSrc[i].mTemp]->mConst;
+				ins->mSrc[i].mType = ins->mDst.mType;
 				ins->mSrc[i].mTemp = -1;
 			}
 		}
@@ -6155,11 +6156,18 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 
 
-void InterCodeBasicBlock::RestartLocalIntegerRangeSets(const GrowingVariableArray& localVars)
+void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars)
 {
 	if (!mVisited)
 	{
 		mVisited = true;
+
+		mEntryValueRange.SetSize(num, false);
+		mTrueValueRange.SetSize(num, false);
+		mFalseValueRange.SetSize(num, false);
+		mLocalValueRange.SetSize(num, false);
+		mMemoryValueSize.SetSize(num, false);
+		mEntryMemoryValueSize.SetSize(num, false);
 
 		for (int i = 0; i < mEntryValueRange.Size(); i++)
 		{
@@ -6172,8 +6180,8 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(const GrowingVariableArra
 
 		UpdateLocalIntegerRangeSets(localVars);
 
-		if (mTrueJump) mTrueJump->RestartLocalIntegerRangeSets(localVars);
-		if (mFalseJump) mFalseJump->RestartLocalIntegerRangeSets(localVars);
+		if (mTrueJump) mTrueJump->RestartLocalIntegerRangeSets(num, localVars);
+		if (mFalseJump) mFalseJump->RestartLocalIntegerRangeSets(num, localVars);
 	}
 }
 
@@ -10112,6 +10120,98 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 }
 
 
+bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mNumEntries == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
+		{
+			int	nins = mInstructions.Size();
+
+			InterCodeBasicBlock* pblock = mEntryBlocks[0];
+			if (pblock == this)
+				pblock = mEntryBlocks[1];
+
+			if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
+				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+			{
+				InterInstruction* ains = mInstructions[nins - 3];
+				InterInstruction* cins = mInstructions[nins - 2];
+				InterInstruction* bins = mInstructions[nins - 1];
+
+				if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+					cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+					cins->mSrc[0].mTemp < 0 &&
+					ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+					ains->mSrc[0].mTemp < 0)
+				{
+					GrowingArray<InterInstructionPtr>	tvalues(nullptr);
+					tvalues.SetSize(mEntryRequiredTemps.Size() + 16);
+
+					int i = 0;
+					while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+						i++;
+					if (i == nins - 3)
+					{
+						for (int i = 0; i < mInstructions.Size() - 3; i++)
+						{
+							InterInstruction* lins = mInstructions[i];
+							if (lins->mCode == IC_LEA && lins->mSrc[0].mTemp == ains->mDst.mTemp && lins->mSrc[0].IsUByte() && lins->mSrc[1].mTemp >= 0 && !mLocalModifiedTemps[lins->mSrc[1].mTemp])
+							{
+								tvalues[lins->mDst.mTemp] = lins;
+							}
+							else if (lins->mCode == IC_STORE && lins->mSrc[1].mTemp >= 0 && lins->mSrc[1].mIntConst >= 32 && tvalues[lins->mSrc[1].mTemp])
+							{
+								if (spareTemps + 2 >= mEntryRequiredTemps.Size() + 16)
+									return true;
+
+								InterInstruction* pins = tvalues[lins->mSrc[1].mTemp];
+								InterInstruction* nins = new InterInstruction();
+								nins->mCode = IC_LEA;
+								nins->mSrc[1] = pins->mSrc[1];
+								nins->mSrc[0].mTemp = -1;
+								nins->mSrc[0].mType = IT_INT16;
+								nins->mSrc[0].mIntConst = lins->mSrc[1].mIntConst;
+								nins->mDst.mMemory = IM_INDIRECT;
+								nins->mDst.mTemp = spareTemps++;
+								nins->mDst.mType = IT_POINTER;
+
+								pblock->mInstructions.Insert(pblock->mInstructions.Size() - 1, nins);
+
+								InterInstruction* mins = pins->Clone();
+								mins->mDst.mTemp = spareTemps++;
+								mins->mDst.mMemory = IM_INDIRECT;								
+								mins->mSrc[1] = nins->mDst;
+								mInstructions.Insert(i, mins);
+
+								
+								lins->mSrc[1].mTemp = mins->mDst.mTemp;
+								lins->mSrc[1].mIntConst = 0;
+
+								changed = true;
+							}
+							else if (lins->mDst.mTemp >= 0)
+								tvalues[lins->mDst.mTemp] = nullptr;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->SingleBlockLoopPointerSplit(spareTemps))
+			changed = true;
+		if (mFalseJump && mFalseJump->SingleBlockLoopPointerSplit(spareTemps))
+			changed = true;
+	}
+
+	return changed;
+}
+
 void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	if (!mVisited)
@@ -10682,7 +10782,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 				{
 					mInstructions.Insert(di, ins);
 					di++;
-				}
+				}	
 			}
 
 			int	i = 0;
@@ -11939,7 +12039,8 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 		mVisited = true;
 
 		const char* s = mLoopHead ? "Head" : "";
-		fprintf(file, "L%d: <= D%d: (%d) %s \n", mIndex, (mDominator ? mDominator->mIndex : -1), mNumEntries, s);
+		
+		fprintf(file, "L%d: <= D%d: (%d) %s P%d\n", mIndex, (mDominator ? mDominator->mIndex : -1), mNumEntries, s, (mLoopPrefix ? mLoopPrefix->mIndex : -1));
 
 		if (dumpSets)
 		{
@@ -12065,6 +12166,28 @@ void InterCodeProcedure::CheckFinal(void)
 void InterCodeProcedure::DisassembleDebug(const char* name)
 {
 	Disassemble(name);
+}
+
+void InterCodeProcedure::RebuildIntegerRangeSet(void)
+{
+	ResetVisited();
+	mEntryBlock->RestartLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars);
+
+	do {
+		DisassembleDebug("tr");
+
+		ResetVisited();
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars));
+
+	do {
+		DisassembleDebug("tr");
+
+		ResetVisited();
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars));
+
+	assert(mTemporaries.Size() == mEntryBlock->mLocalValueRange.Size());
+
+	DisassembleDebug("Estimated value range 2");
 }
 
 void InterCodeProcedure::BuildTraces(bool expand, bool dominators, bool compact)
@@ -12503,6 +12626,51 @@ void InterCodeProcedure::MergeIndexedLoadStore(void)
 	DisassembleDebug("SimplifyPointerOffsets");
 }
 
+void InterCodeProcedure::SingleBlockLoopPointerSplit(FastNumberSet& activeSet)
+{
+	int							silvused = mTemporaries.Size();
+
+	do
+	{
+		mTemporaries.SetSize(silvused, true);
+
+		DisassembleDebug("SingleBlockLoopPointerSplitA");
+
+		BuildDataFlowSets();
+
+		DisassembleDebug("SingleBlockLoopPointerSplitB");
+
+		TempForwarding();
+		RemoveUnusedInstructions();
+
+		DisassembleDebug("SingleBlockLoopPointerSplitC");
+
+		activeSet.Clear();
+
+		ResetVisited();
+		mEntryBlock->CollectActiveTemporaries(activeSet);
+
+		silvused = activeSet.Num();
+		if (silvused != mTemporaries.Size())
+		{
+			mTemporaries.SetSize(activeSet.Num(), true);
+
+			ResetVisited();
+			mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
+
+			ResetVisited();
+			mEntryBlock->RemapActiveTemporaries(activeSet);
+		}
+
+		ResetVisited();
+	} while (mEntryBlock->SingleBlockLoopPointerSplit(silvused));
+
+	assert(silvused == mTemporaries.Size());
+
+	DisassembleDebug("SingleBlockLoopPointerSplit");
+
+}
+
 void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet)
 {
 	GrowingInstructionPtrArray	silvalues(nullptr);
@@ -12565,6 +12733,8 @@ void InterCodeProcedure::ExpandSelect(void)
 
 void InterCodeProcedure::EliminateAliasValues()
 {
+	assert(mTemporaries.Size() == mEntryBlock->mLocalValueRange.Size());
+
 	GrowingInstructionPtrArray	eivalues(nullptr);
 	do {
 		BuildDataFlowSets();
@@ -12826,12 +12996,13 @@ void InterCodeProcedure::Close(void)
 #endif
 	CheckUsedDefinedTemps();
 
+#if 0
 	ExpandSelect();
 
 	BuildDataFlowSets();
 
 	CheckUsedDefinedTemps();
-
+#endif
 	SingleAssignmentForwarding();
 
 	CheckUsedDefinedTemps();
@@ -12915,24 +13086,9 @@ void InterCodeProcedure::Close(void)
 
 
 	DisassembleDebug("Estimated value range");
-#if 1
-	ResetVisited();
-	mEntryBlock->RestartLocalIntegerRangeSets(mLocalVars);
 
-	do {
-		DisassembleDebug("tr");
+	RebuildIntegerRangeSet();
 
-		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars));
-
-	do {
-		DisassembleDebug("tr");
-
-		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars));
-
-	DisassembleDebug("Estimated value range 2");
-#endif
 	ResetVisited();
 	mEntryBlock->SimplifyIntegerRangeRelops();
 
@@ -12951,7 +13107,13 @@ void InterCodeProcedure::Close(void)
 
 #endif
 
+	BuildDataFlowSets();
+
+	RebuildIntegerRangeSet();
+
 	EliminateAliasValues();
+
+	SingleBlockLoopPointerSplit(activeSet);
 
 	MergeIndexedLoadStore();
 
@@ -12973,7 +13135,30 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
+	BuildLoopPrefix();
+	DisassembleDebug("added dominators");
+
+	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet, mModule->mGlobalVars);
+
+	DisassembleDebug("single block loop opt X");
+
+	BuildDataFlowSets();
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+#endif
+
+#if 1
 	BuildTraces(false);
+
+	BuildLoopPrefix();
+	DisassembleDebug("added dominators");
+
+	BuildDataFlowSets();
 
 	ResetVisited();
 	mEntryBlock->InnerLoopOptimization(mParamAliasedSet);
@@ -12981,25 +13166,24 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("inner loop opt 2");
 
 	BuildDataFlowSets();
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	BuildTraces(false);
 #endif
 
 #if 1
-	ResetVisited();
-	mEntryBlock->RestartLocalIntegerRangeSets(mLocalVars);
+	ExpandSelect();
 
-	do {
-		DisassembleDebug("tr");
+	BuildDataFlowSets();
 
-		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars));
+	CheckUsedDefinedTemps();
+#endif
 
-	do {
-		DisassembleDebug("tr");
-
-		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars));
-
-	DisassembleDebug("Estimated value range 2");
+#if 1
+	RebuildIntegerRangeSet();
 #endif
 
 #if 1

@@ -411,7 +411,7 @@ public:
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
 
-	void RestartLocalIntegerRangeSets(const GrowingVariableArray& localVars);
+	void RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars);
 	void BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars);
 	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars);
 	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars);
@@ -482,6 +482,7 @@ public:
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	void SingleBlockLoopUnrolling(void);
+	bool SingleBlockLoopPointerSplit(int& spareTemps);
 	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
@@ -577,11 +578,13 @@ protected:
 	void PushSinglePathResultInstructions(void);
 	void PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams);
 	void SimplifyIntegerNumeric(FastNumberSet& activeSet);
+	void SingleBlockLoopPointerSplit(FastNumberSet& activeSet);
 	void MergeIndexedLoadStore(void);
 	void EliminateAliasValues();
 	void LoadStoreForwarding(InterMemory paramMemory);
 	void ExpandSelect(void);
 	void PropagateConstOperationsUp(void);
+	void RebuildIntegerRangeSet(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);
