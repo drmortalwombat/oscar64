@@ -2850,8 +2850,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_CONDITIONAL:
 		{			
 #if 1
-			if ((exp->mRight->mLeft->mType == EX_CONSTANT || exp->mRight->mLeft->mType == EX_VARIABLE) && 
-				(exp->mRight->mRight->mType == EX_CONSTANT || exp->mRight->mRight->mType == EX_VARIABLE))
+			if (!exp->mRight->mLeft->HasSideEffects() && !exp->mRight->mRight->HasSideEffects())
 			{
 				ExValue	vc = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);
 

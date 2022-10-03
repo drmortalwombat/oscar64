@@ -94,6 +94,30 @@ Expression::~Expression(void)
 
 }
 
+bool Expression::HasSideEffects(void) const
+{
+	switch (mType)
+	{
+	case EX_VARIABLE:
+	case EX_CONSTANT:
+		return false;
+
+	case EX_BINARY:
+	case EX_RELATIONAL:
+	case EX_INDEX:
+		return mLeft->HasSideEffects() || mRight->HasSideEffects();
+
+	case EX_QUALIFY:
+	case EX_TYPECAST:
+	case EX_PREFIX:
+	case EX_POSTFIX:
+		return mLeft->HasSideEffects();
+
+	default:
+		return true;
+	}
+}
+
 bool Expression::IsSame(const Expression* exp) const
 {
 	if (!exp || mType != exp->mType)

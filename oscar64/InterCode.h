@@ -379,6 +379,8 @@ public:
 	void GenerateTraces(bool expand, bool compact);
 	void BuildDominatorTree(InterCodeBasicBlock * from);
 
+	bool MergeSameConditionTraces(void);
+
 	void LocalToTemp(int vindex, int temp);
 
 	void CollectAllUsedDefinedTemps(NumberSet& defined, NumberSet& used);

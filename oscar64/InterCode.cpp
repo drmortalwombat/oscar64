@@ -2659,6 +2659,37 @@ void InterInstruction::FilterVarsUsage(const GrowingVariableArray& localVars, Nu
 				requiredParams += mSrc[0].mVarIndex;
 		}
 	}
+#if 0
+	else if (mCode == IC_LEA)
+	{
+		if (mSrc[1].mMemory == IM_LOCAL)
+		{
+			assert(mSrc[1].mTemp < 0);
+			if (!providedVars[mSrc[1].mVarIndex])
+				requiredVars += mSrc[1].mVarIndex;
+		}
+		else if (mSrc[1].mMemory == paramMemory)
+		{
+			assert(mSrc[1].mTemp < 0);
+			if (!providedParams[mSrc[1].mVarIndex])
+				requiredParams += mSrc[1].mVarIndex;
+		}
+	}
+	else if (mCode == IC_CONSTANT)
+	{
+		if (mConst.mMemory == IM_LOCAL)
+		{
+			if (!providedVars[mConst.mVarIndex])
+				requiredVars += mConst.mVarIndex;
+		}
+		else if (mConst.mMemory == paramMemory)
+		{
+			assert(mConst.mTemp < 0);
+			if (!providedParams[mConst.mVarIndex])
+				requiredParams += mConst.mVarIndex;
+		}
+	}
+#endif
 	else if (mCode == IC_STORE)
 	{
 		if (mSrc[1].mMemory == IM_LOCAL)
@@ -2828,7 +2859,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			this->ConstantFolding();
 			return true;
 		}
-		else if (mSrc[0].mTemp < 0 && mSrc[1].mTemp >= 0 && ctemps[mSrc[1].mTemp])
+		else if (mSrc[1].mTemp >= 0 && ctemps[mSrc[1].mTemp])
 		{
 			InterInstruction* ains = ctemps[mSrc[1].mTemp];
 			mSrc[1] = ains->mConst;
@@ -3909,25 +3940,75 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 	}
 }
 
-static bool IsSimpleAddressMultiply(int val)
+bool InterCodeBasicBlock::MergeSameConditionTraces(void)
 {
-	switch (val)
+	bool	changed = false;
+
+	if (!mVisited)
 	{
-	case 1:		//	SHR	3
-	case 2:		// SHR	2
-	case 4:		// SHR	1
-	case 8:
-	case 16:		// * 2
-	case 32:		// * 4
-	case 64:		// * 8
-	case 128:	// LEA	r * 2, * 8
-	case 192:	// LEA	r, r * 2, * 8
-	case 256:	// LEA	r * 4, * 8
-	case 512:	// LEA	r * 8, * 8
-		return true;
+		mVisited = true;
+
+		if (mTrueJump && mFalseJump && !mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump && mTrueJump->mNumEntries == 1 && mFalseJump->mNumEntries == 1)
+		{
+			// we have a diamond situation
+			InterCodeBasicBlock* mb0 = mTrueJump->mTrueJump;
+			if (mb0 && mb0->mNumEntries == 2)
+			{
+				if (mb0->mTrueJump && mb0->mFalseJump && !mb0->mTrueJump->mFalseJump && !mb0->mFalseJump->mFalseJump && mb0->mTrueJump->mTrueJump == mb0->mFalseJump->mTrueJump && mb0->mTrueJump->mNumEntries == 1 && mb0->mFalseJump->mNumEntries == 1)
+				{
+					// we have a dual diamond
+					InterCodeBasicBlock* mb1 = mb0->mTrueJump->mTrueJump;
+					if (mb1 && mb1->mNumEntries == 2 && mb0 != mb1)
+					{
+						int	tc = mInstructions.Last()->mSrc[0].mTemp;
+						if (tc == mb0->mInstructions.Last()->mSrc[0].mTemp)
+						{
+							if (!mTrueJump->mLocalModifiedTemps[tc] && !mFalseJump->mLocalModifiedTemps[tc] && !mb0->mLocalModifiedTemps[tc])
+							{
+								// Same conditions in both diamonds
+								if (mb0->mInstructions.Size() < 8)
+								{
+									// Join blocks
+
+									mTrueJump->mInstructions.Remove(mTrueJump->mInstructions.Size() - 1);
+									mFalseJump->mInstructions.Remove(mFalseJump->mInstructions.Size() - 1);
+
+									for (int i = 0; i + 1 < mb0->mInstructions.Size(); i++)
+									{
+										mTrueJump->mInstructions.Push(mb0->mInstructions[i]->Clone());
+										mFalseJump->mInstructions.Push(mb0->mInstructions[i]->Clone());
+									}
+
+									for(int i=0; i<mb0->mTrueJump->mInstructions.Size(); i++)
+										mTrueJump->mInstructions.Push(mb0->mTrueJump->mInstructions[i]->Clone());
+									for (int i = 0; i < mb0->mFalseJump->mInstructions.Size(); i++)
+										mFalseJump->mInstructions.Push(mb0->mFalseJump->mInstructions[i]->Clone());
+
+									mTrueJump->mLocalModifiedTemps |= mb0->mLocalModifiedTemps;
+									mFalseJump->mLocalModifiedTemps |= mb0->mLocalModifiedTemps;
+									mTrueJump->mLocalModifiedTemps |= mb0->mTrueJump->mLocalModifiedTemps;
+									mFalseJump->mLocalModifiedTemps |= mb0->mFalseJump->mLocalModifiedTemps;
+
+									mTrueJump->mTrueJump = mb1;
+									mFalseJump->mTrueJump = mb1;
+
+									changed = true;
+								}
+							}
+						}
+					}
+
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MergeSameConditionTraces())
+			changed = true;
+		if (mFalseJump && mFalseJump->MergeSameConditionTraces())
+			changed = true;
 	}
 
-	return false;
+	return changed;
 }
 
 static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, int offset)
@@ -7522,15 +7603,46 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 				{
 					InterInstruction* pins = ltvalue[ins->mSrc[1].mTemp];
 
-					if (ins->mSrc[1].mMemory == IM_INDIRECT && pins->mCode == IC_LEA)
-						ins->mSrc[1].mLinkerObject = pins->mSrc[1].mLinkerObject;
-
-					if (pins->mCode == IC_LEA && pins->mSrc[0].mTemp < 0 && ins->mSrc[1].mIntConst + pins->mSrc[0].mIntConst >= 0)
+					if (pins->mCode == IC_LEA)
 					{
-						ins->mSrc[1].Forward(pins->mSrc[1]);
-						pins->mSrc[1].mFinal = false;
-						ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst;
-						changed = true;
+						if (ins->mSrc[1].mMemory == IM_INDIRECT)
+						{
+							ins->mSrc[1].mLinkerObject = pins->mSrc[1].mLinkerObject;
+							ins->mSrc[1].mVarIndex = pins->mSrc[1].mVarIndex;
+						}
+
+						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[1].mIntConst + pins->mSrc[0].mIntConst >= 0)
+						{
+							ins->mSrc[1].Forward(pins->mSrc[1]);
+							pins->mSrc[1].mFinal = false;
+							ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst;
+							changed = true;
+						}
+#if 1
+						else if (pins->mSrc[1].mTemp < 0 && pins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mIntConst && (ins->mSrc[1].mIntConst >= 256 || pins->mSrc[0].IsUByte()))
+						{
+							int k = mInstructions.IndexOf(pins);
+							if (k >= 0)
+							{
+								if (spareTemps + 2 >= ltvalue.Size())
+									return true;
+
+								InterInstruction* nins = new InterInstruction();
+								nins->mCode = IC_LEA;
+								nins->mSrc[0].Forward(pins->mSrc[0]);
+								nins->mSrc[1].ForwardMem(pins->mSrc[1]);
+								nins->mSrc[1].mIntConst += ins->mSrc[1].mIntConst;
+								nins->mDst.mTemp = spareTemps++;
+								nins->mDst.mType = IT_POINTER;
+								nins->mDst.mRange = ins->mDst.mRange;
+								ins->mSrc[1].mIntConst = 0;
+								ins->mSrc[1].mTemp = nins->mDst.mTemp;
+
+								mInstructions.Insert(k + 1, nins);
+								changed = true;
+							}
+						}
+#endif
 					}
 				}
 				break;
@@ -7544,7 +7656,10 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					if (pins->mCode == IC_LEA)
 					{
 						if (ins->mSrc[0].mMemory == IM_INDIRECT)
+						{
 							ins->mSrc[0].mLinkerObject = pins->mSrc[1].mLinkerObject;
+							ins->mSrc[0].mVarIndex = pins->mSrc[1].mVarIndex;
+						}
 
 						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst >= 0)
 						{
@@ -9119,8 +9234,10 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 								{
 									trueExitRequiredTemps += ins->mSrc[j].mTemp;
 									mTrueJump->mEntryRequiredTemps += ins->mSrc[j].mTemp;
+									mTrueJump->mLocalUsedTemps += ins->mSrc[j].mTemp;
 								}
 							}
+							mTrueJump->mLocalModifiedTemps += dtemp;
 							mTrueJump->mInstructions.Insert(0, ins);
 							mInstructions.Remove(i);
 							moved = true;
@@ -9134,8 +9251,10 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 								{
 									falseExitRequiredTems += ins->mSrc[j].mTemp;
 									mFalseJump->mEntryRequiredTemps += ins->mSrc[j].mTemp;
+									mFalseJump->mLocalUsedTemps += ins->mSrc[j].mTemp;
 								}
 							}
+							mFalseJump->mLocalModifiedTemps += dtemp;
 							mFalseJump->mInstructions.Insert(0, ins);
 							mInstructions.Remove(i);
 							moved = true;
@@ -12032,6 +12151,31 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 				}
 				break;
 
+			case IC_LEA:
+				if (ins->mSrc[1].mMemory == IM_LOCAL)
+				{
+					int varIndex = ins->mSrc[1].mVarIndex;
+					if (!localVars[varIndex])
+						localVars[varIndex] = new InterVariable;
+
+					int	size = ins->mSrc[1].mOperandSize + ins->mSrc[1].mIntConst;
+					if (size > localVars[varIndex]->mSize)
+						localVars[varIndex]->mSize = size;
+					localVars[varIndex]->mAliased = true;
+				}
+				else if (ins->mSrc[1].mMemory == paramMemory)
+				{
+					int varIndex = ins->mSrc[1].mVarIndex;
+					if (!paramVars[varIndex])
+						paramVars[varIndex] = new InterVariable;
+
+					int	size = ins->mSrc[1].mOperandSize + ins->mSrc[1].mIntConst;
+					if (size > paramVars[varIndex]->mSize)
+						paramVars[varIndex]->mSize = size;
+					paramVars[varIndex]->mAliased = true;
+				}
+				break;
+
 			case IC_STORE:
 			case IC_LOAD:		
 			case IC_COPY:
@@ -13328,6 +13472,22 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 	ExpandSelect();
+
+	BuildDataFlowSets();
+
+	CheckUsedDefinedTemps();
+#endif
+
+#if 1
+	BuildTraces(false);
+
+	ResetVisited();
+	if (mEntryBlock->MergeSameConditionTraces())
+	{
+		ResetEntryBlocks();
+		ResetVisited();
+		mEntryBlock->CollectEntryBlocks(nullptr);
+	}
 
 	BuildDataFlowSets();
 

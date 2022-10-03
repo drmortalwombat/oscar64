@@ -165,6 +165,7 @@ public:
 
 	Expression* LogicInvertExpression(void);
 	Expression* ConstantFold(Errors * errors);
+	bool HasSideEffects(void) const;
 
 	bool IsSame(const Expression* exp) const;
 };
