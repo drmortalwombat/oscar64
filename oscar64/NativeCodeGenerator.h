@@ -147,6 +147,9 @@ public:
 
 	bool CanSwapXYReg(void);
 	bool SwapXYReg(void);
+
+	void BuildCollisionTable(NumberSet& liveTemps, NumberSet* collisionSets);
+
 };
 
 class NativeCodeBasicBlock
@@ -270,6 +273,8 @@ public:
 	bool BuildGlobalRequiredRegSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(void);
 
+	void BuildCollisionTable(NumberSet* collisionSets);
+
 	bool IsSame(const NativeCodeBasicBlock* block) const;
 	bool FindSameBlocks(NativeCodeProcedure* nproc);
 	bool MergeSameBlocks(NativeCodeProcedure* nproc);
@@ -365,10 +370,22 @@ public:
 	bool SameTail(const NativeCodeInstruction& ins) const;
 	bool HasTailSTA(int& addr, int& index) const;
 	bool HasTailSTX(int& addr, int& index) const;
+	bool HasTailSTY(int& addr, int& index) const;
 	bool PropagateSinglePath(void);
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;
 	void ChangeTailZPStoreToX(int addr);
+
+	bool CanCrossBlockAShortcut(int addr);
+	void DoCrossBlockAShortcut(int addr);
+
+	bool CanCrossBlockXShortcut(int addr);
+	void DoCrossBlockXShortcut(int addr);
+
+	bool CanCrossBlockYShortcut(int addr);
+	void DoCrossBlockYShortcut(int addr);
+
+	bool CrossBlockXYShortcut(void);
 
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
 	bool Propagate16BitSum(void);

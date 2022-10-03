@@ -5756,7 +5756,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					break;
-
+#if 1
+				case IA_MODU:
+					vr.LimitMin(0);
+					if (ins->mSrc[0].mTemp < 0)
+						vr.LimitMax(ins->mSrc[0].mIntConst - 1);
+					else if (ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
+						vr.LimitMax(ins->mSrc[0].mRange.mMaxValue - 1);
+					break;
+#endif
 				default:
 					vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 				}
@@ -7200,6 +7208,20 @@ bool InterCodeBasicBlock::SimplifyPointerOffsets(void)
 	return true;
 }
 
+static bool IsValidSignedIntRange(InterType t, int64 value)
+{
+	switch (t)
+	{
+	case IT_INT8:
+		return value >= -128 && value <= 127;
+	case IT_INT16:
+		return value >= -32768 && value <= 32767;
+	case IT_INT32:
+		return true;
+	default:
+		return false;
+	}
+}
 
 bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps)
 {
@@ -7352,6 +7374,40 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 #endif
 				}
 			}	break;
+
+			case IC_RELATIONAL_OPERATOR:
+				if (ins->mOperator == IA_CMPLS || ins->mOperator == IA_CMPLES || ins->mOperator == IA_CMPGS || ins->mOperator == IA_CMPGES)
+				{
+					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0 && ltvalue[ins->mSrc[1].mTemp])
+					{
+						InterInstruction* pins = ltvalue[ins->mSrc[1].mTemp];
+
+						if (pins->mCode == IC_BINARY_OPERATOR && pins->mOperator == IA_ADD)
+						{
+							if (pins->mSrc[0].mTemp < 0)
+							{
+								if (IsValidSignedIntRange(ins->mSrc[0].mType, ins->mSrc[0].mIntConst - pins->mSrc[0].mIntConst))
+								{
+									ins->mSrc[1].Forward(pins->mSrc[1]);
+									pins->mSrc[1].mFinal = false;
+									ins->mSrc[0].mIntConst -= pins->mSrc[0].mIntConst;
+									changed = true;
+								}
+							}
+							else if (pins->mSrc[1].mTemp < 0)
+							{
+								if (IsValidSignedIntRange(ins->mSrc[0].mType, ins->mSrc[0].mIntConst - pins->mSrc[1].mIntConst))
+								{
+									ins->mSrc[1].Forward(pins->mSrc[0]);
+									pins->mSrc[0].mFinal = false;
+									ins->mSrc[0].mIntConst -= pins->mSrc[1].mIntConst;
+									changed = true;
+								}
+							}
+						}
+					}
+				}
+				break;
 
 			case IC_LEA:
 				if (ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp])
@@ -8271,6 +8327,16 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					j++;
 				}
 				mLoadStoreInstructions.SetSize(k);
+
+				if (nins)
+				{
+					// Check self destruction of source operaand
+					int l = 0;
+					while (l < nins->mNumOperands && t != nins->mSrc[l].mTemp)
+						l++;
+					if (l != nins->mNumOperands)
+						nins = nullptr;
+				}
 			}
 
 			if (nins)
@@ -10822,6 +10888,15 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							else if (cins->mCode == IC_BINARY_OPERATOR && cins->mOperator == IA_ADD && cins->mSrc[1].mTemp == st && cins->mSrc[0].mTemp < 0)
 								toffset += cins->mSrc[0].mIntConst;
 							else
+								break;						
+						}
+						else
+						{
+							int k = 0;
+							while (k < cins->mNumOperands && cins->mSrc[k].mTemp != dt)
+								k++;
+
+							if (k != cins->mNumOperands)
 								break;
 						}
 
@@ -10973,6 +11048,8 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		mVisited = true;
 
 		CheckFinalLocal();
+		if (mTrueJump) mTrueJump->CheckFinalLocal();
+		if (mFalseJump) mFalseJump->CheckFinalLocal();
 
 		// Remove none instructions
 
@@ -11751,6 +11828,29 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 #endif
 				}
 
+				if (i + 3 < mInstructions.Size())
+				{
+					if (
+						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+						mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_ADD &&
+						mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+						mInstructions[i + 3]->mCode == IC_LEA && mInstructions[i + 3]->mSrc[1].mTemp < 0 &&
+						mInstructions[i + 3]->mSrc[0].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[0].mFinal)
+					{
+						int	d = mInstructions[i + 0]->mSrc[0].mIntConst * mInstructions[i + 1]->mSrc[0].mIntConst;
+						mInstructions[i + 3]->mSrc[1].mIntConst += d;
+						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+						mInstructions[i + 1]->mDst.mRange.mMinValue -= d; mInstructions[i + 1]->mDst.mRange.mMaxValue -= d;
+						mInstructions[i + 2]->mSrc[1].mRange.mMinValue -= d; mInstructions[i + 2]->mSrc[1].mRange.mMaxValue -= d;
+						mInstructions[i + 2]->mDst.mRange.mMinValue -= d; mInstructions[i + 2]->mDst.mRange.mMaxValue -= d;
+						mInstructions[i + 3]->mSrc[0].mRange.mMinValue -= d; mInstructions[i + 3]->mSrc[0].mRange.mMaxValue -= d;
+						mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+						changed = true;
+					}
+
+				}
 
 
 #if 1
@@ -11835,6 +11935,53 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			}
 
 		} while (changed);
+
+		// Check case of cmp signed immediate
+		if (mFalseJump && mInstructions.Size() > 3)
+		{
+			int nins = mInstructions.Size();
+			if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
+				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+				mInstructions[nins - 2]->mOperator == IA_CMPLS && mInstructions[nins - 2]->mSrc[0].mTemp < 0)
+			{
+				int j = nins - 2;
+				while (j >= 0 && mInstructions[j]->mDst.mTemp != mInstructions[nins - 2]->mSrc[1].mTemp)
+					j--;
+				if (j >= 0 && mInstructions[j]->mCode == IC_LOAD_TEMPORARY)
+				{
+					int si = mInstructions[j]->mSrc[0].mTemp, di = mInstructions[j]->mDst.mTemp, ioffset = 0;
+
+					InterInstruction* ains = nullptr;
+
+					int k = j + 1;
+					while (k < nins - 2)
+					{
+						InterInstruction* ins = mInstructions[k];
+						if (ins->mDst.mTemp == si)
+						{
+							if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp == si)
+							{
+								ioffset += ins->mSrc[0].mIntConst;
+								ains = ins;
+							}
+							else
+								break;
+						}
+
+						k++;
+					}
+
+					if (k == nins - 2)
+					{
+						if (ains)
+						{
+							mInstructions[nins - 2]->mSrc[1] = ains->mDst;
+							mInstructions[nins - 2]->mSrc[0].mIntConst += ioffset;
+						}
+					}
+				}
+			}
+		}
 
 		CheckFinalLocal();
 
@@ -12363,6 +12510,9 @@ void InterCodeProcedure::PeepholeOptimization(void)
 	TempForwarding();
 	RemoveUnusedInstructions();
 
+	Disassemble("Precheck Final");
+	CheckFinal();
+
 	ResetVisited();
 	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
 }
@@ -12751,6 +12901,8 @@ void InterCodeProcedure::EliminateAliasValues()
 
 void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
 {
+	DisassembleDebug("Load/Store forwardingY");
+
 	bool changed;
 	do {
 		GrowingInstructionPtrArray	gipa(nullptr);

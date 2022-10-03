@@ -89,6 +89,85 @@ e1:
 
 }
 
+__asm irq2
+{	
+    pha
+    txa
+    pha
+    tya
+    pha
+
+    lda #$35
+    sta $01
+
+	asl $d019
+
+	ldx	nextIRQ
+l1:
+	lda	rasterIRQNext, x
+	cmp	#$ff
+	beq	e1
+
+	ldy rasterIRQIndex, x
+	tax
+	lda	rasterIRQLow, y
+	sta ji + 1
+	lda	rasterIRQHigh, y
+	sta ji + 2
+
+ji:	
+	jsr $0000
+
+	inc	nextIRQ
+	ldx nextIRQ
+
+	lda	rasterIRQNext, x
+	cmp #$ff
+	beq e2
+	// carry is cleared at this point
+
+	tay
+	dey
+	sbc #2
+	cmp $d012
+	bcc	l1
+
+	sty	$d012
+
+ex:
+
+	lda PLAShadow
+	sta $01
+
+    pla
+    tay
+    pla
+    tax
+    pla
+    rti
+
+e2:
+
+	ldx npos
+	stx tpos
+	inc rirq_count
+
+	bit	$d011
+	bmi e1
+
+	sta	$d012
+	jmp ex
+
+e1:
+	ldx	#0
+	stx nextIRQ
+	ldy	rasterIRQNext
+	dey
+	sty	$d012
+	jmp	ex
+
+}
+
 __asm irq1
 {	
 	lda $d019
@@ -284,7 +363,7 @@ void rirq_clear(byte n)
 	rasterIRQRows[n] = 255;
 }
 
-void rirq_init(bool kernalIRQ)
+void rirq_init_kernal(void)
 {
 	for(byte i=0; i<NUM_IRQS; i++)
 	{
@@ -295,24 +374,64 @@ void rirq_init(bool kernalIRQ)
     __asm 
     {
         sei
-
-#if 0 
-        // disable CIA interrupts
-
-        lda #$7f
-        sta $dc0d
-        sta $dd0d
-#endif
     }
 
-    if (kernalIRQ)
-    	*(void **)0x0314 = irq1;
-    else
-    	*(void **)0xfffe = irq0;
+   	*(void **)0x0314 = irq1;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;
 	vic.raster = 255;
+
+}
+
+void rirq_init_io(void)
+{
+	for(byte i=0; i<NUM_IRQS; i++)
+	{
+		rasterIRQRows[i] = 255;
+		rasterIRQIndex[i] = i;
+	}
+
+    __asm 
+    {
+        sei
+    }
+
+   	*(void **)0xfffe = irq0;
+
+	vic.intr_enable = 1;
+	vic.ctrl1 &= 0x7f;
+	vic.raster = 255;
+
+}
+
+void rirq_init_memmap(void)
+{
+	for(byte i=0; i<NUM_IRQS; i++)
+	{
+		rasterIRQRows[i] = 255;
+		rasterIRQIndex[i] = i;
+	}
+
+    __asm 
+    {
+        sei
+    }
+
+   	*(void **)0xfffe = irq2;
+
+	vic.intr_enable = 1;
+	vic.ctrl1 &= 0x7f;
+	vic.raster = 255;
+
+}
+
+void rirq_init(bool kernalIRQ)
+{
+	if (kernalIRQ)
+		rirq_init_kernal();
+	else
+		rirq_init_io();
 }
 
 void rirq_wait(void)

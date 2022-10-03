@@ -124,7 +124,13 @@ inline void rirq_move(byte n, byte row);
 // Initialize the raster IRQ system with either the kernal IRQ vector
 // or the hardware IRQ vector if the kernal ROM is turned off (which is
 // the less resource hungry option)
-void rirq_init(bool kernalIRQ);
+inline void rirq_init(bool kernalIRQ);
+
+void rirq_init_kernal(void);
+
+void rirq_init_io(void);
+
+void rirq_init_memmap(void);
 
 // Start raster IRQ
 void rirq_start(void);
