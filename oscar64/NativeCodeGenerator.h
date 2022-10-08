@@ -375,6 +375,8 @@ public:
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;
 	void ChangeTailZPStoreToX(int addr);
+	bool CanChangeTailZPStoreToY(int addr, const NativeCodeBasicBlock* nblock, const NativeCodeBasicBlock* fblock = nullptr) const;
+	void ChangeTailZPStoreToY(int addr);
 
 	bool CanCrossBlockAShortcut(int addr);
 	void DoCrossBlockAShortcut(int addr);
@@ -426,6 +428,8 @@ public:
 	bool MoveAccuTrainsUp(void);
 	bool MoveAccuTrainsDown(void);
 	bool MoveAccuTrainDown(int end, int start);
+
+	bool CrossBlockXYPreservation(void);
 
 	bool AlternateXYUsage(void);
 	bool OptimizeXYPairUsage(void);
