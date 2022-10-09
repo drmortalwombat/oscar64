@@ -5780,27 +5780,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					break;
 				case IA_AND:
-					if (ins->mSrc[0].mTemp < 0)
-					{
-						vr = mLocalValueRange[ins->mSrc[1].mTemp];
-						if (ins->mSrc[0].mIntConst >= 0)
-						{
-							vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
-							vr.mMaxValue = ins->mSrc[0].mIntConst;
-							vr.mMinValue = 0;
-						}
-					}
-					else if (ins->mSrc[1].mTemp < 0)
-					{
-						vr = mLocalValueRange[ins->mSrc[0].mTemp];
-						if (ins->mSrc[1].mIntConst >= 0)
-						{
-							vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
-							vr.mMaxValue = ins->mSrc[1].mIntConst;
-							vr.mMinValue = 0;
-						}
-					}
-					else if (ins->mSrc[0].IsUnsigned() && ins->mSrc[1].IsUnsigned())
+					if (ins->mSrc[0].IsUnsigned() && ins->mSrc[1].IsUnsigned())
 					{
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
 						int64 v0 = (ins->mSrc[0].mRange.mMaxValue & BuildLowerBitsMask(ins->mSrc[1].mRange.mMaxValue));
@@ -5808,7 +5788,45 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 						vr.mMaxValue = (v0 > v1) ? v0 : v1;
 						vr.mMinValue = 0;
 					}
-					else
+					else if (ins->mSrc[0].mTemp < 0)
+					{
+						vr = mLocalValueRange[ins->mSrc[1].mTemp];
+						if (ins->mSrc[0].mIntConst >= 0)
+						{
+							if (ins->mSrc[1].IsUnsigned())
+							{
+								vr.mMinState = IntegerValueRange::S_BOUND;
+								vr.mMinValue = 0;
+								vr.LimitMax(ins->mSrc[0].mIntConst);
+							}
+							else
+							{
+								vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
+								vr.mMaxValue = ins->mSrc[0].mIntConst;
+								vr.mMinValue = 0;
+							}
+						}
+					}
+					else if (ins->mSrc[1].mTemp < 0)
+					{
+						vr = mLocalValueRange[ins->mSrc[0].mTemp];
+						if (ins->mSrc[1].mIntConst >= 0)
+						{
+							if (ins->mSrc[0].IsUnsigned())
+							{
+								vr.mMinState = IntegerValueRange::S_BOUND;
+								vr.mMinValue = 0;
+								vr.LimitMax(ins->mSrc[1].mIntConst);
+							}
+							else
+							{
+								vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
+								vr.mMaxValue = ins->mSrc[1].mIntConst;
+								vr.mMinValue = 0;
+							}
+						}
+					}
+					else 
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					break;
 
