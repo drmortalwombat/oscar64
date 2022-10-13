@@ -24449,7 +24449,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			{
 				int j = i;
 				while (j + 2 < mIns.Size() &&
-					!mIns[j + 2].ReferencesYReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]))
+					!mIns[j + 2].ReferencesYReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]) && !(mIns[j + 2].mLive & LIVE_CPU_REG_Z))
 				{
 					mIns[j + 0].mLive |= mIns[j + 2].mLive;
 					mIns[j + 1].mLive |= mIns[j + 2].mLive;
@@ -24465,7 +24465,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			{
 				int j = i;
 				while (j + 2 < mIns.Size() &&
-					!mIns[j + 2].ReferencesXReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]))
+					!mIns[j + 2].ReferencesXReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]) && !(mIns[j + 2].mLive & LIVE_CPU_REG_Z))
 				{
 					mIns[j + 0].mLive |= mIns[j + 2].mLive;
 					mIns[j + 1].mLive |= mIns[j + 2].mLive;
@@ -30280,7 +30280,8 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "title_line_expand");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "zombie_move");
+
 #if 1
 	int		step = 0;
 	int cnt = 0;
@@ -30393,14 +30394,14 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->CheckBlocks();
 #endif
 
+
 #if 1
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(this, step))
 			changed = true;
 #endif
 
-
-
+		
 //		if (cnt == 2)
 //			return;
 #if 1
@@ -30763,7 +30764,7 @@ void NativeCodeProcedure::Optimize(void)
 		else
 			cnt++;
 
-//		if (CheckFunc && step == 3 && cnt == 4)
+//		if (CheckFunc && cnt == 3)
 //			return;
 
 	} while (changed);
