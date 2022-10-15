@@ -7381,15 +7381,25 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
 
+								InterInstruction* cins = new InterInstruction();
+								cins->mCode = IC_CONVERSION_OPERATOR;
+								cins->mOperator = IA_EXT8TO16U;
+								cins->mSrc[0] = ains->mSrc[1];
+								cins->mDst.mTemp = spareTemps++;
+								cins->mDst.mType = IT_INT16;
+								cins->mDst.mRange = ains->mSrc[1].mRange;
+								cins->mDst.mRange.LimitMin(0);
+								mInstructions.Insert(i, cins);
+
 								InterInstruction* nins = new InterInstruction();
 								nins->mCode = IC_BINARY_OPERATOR;
 								nins->mOperator = IA_SHL;
 								nins->mSrc[0] = ins->mSrc[0];
-								nins->mSrc[1] = ains->mSrc[1];
+								nins->mSrc[1] = cins->mDst;
 								nins->mDst.mTemp = spareTemps++;
 								nins->mDst.mType = IT_INT16;
 								nins->mDst.mRange = ins->mDst.mRange;
-								mInstructions.Insert(i, nins);
+								mInstructions.Insert(i + 1, nins);
 
 								ins->mOperator = IA_ADD;
 								ins->mSrc[0] = ains->mSrc[0];

@@ -442,7 +442,8 @@ public:
 	bool CheckShortcutPointerAddForward(int at);
 	bool ShortcutPointerAddForward(void);
 
-	bool CheckPatchFail(const NativeCodeBasicBlock* block, int reg);
+	bool CheckPatchFailReg(const NativeCodeBasicBlock* block, int reg);
+	bool CheckPatchFailUse(void);
 
 	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int at, int yval);
 	bool PatchGlobalAddressSumYPointer(const NativeCodeBasicBlock* block, int reg, int at, int yval, LinkerObject * lobj, int address);

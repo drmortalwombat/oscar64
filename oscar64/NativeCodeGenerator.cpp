@@ -3910,7 +3910,7 @@ void NativeCodeInstruction::CopyMode(const NativeCodeInstruction& ins)
 	mMode = ins.mMode;
 	mAddress = ins.mAddress;
 	mLinkerObject = ins.mLinkerObject;
-	mFlags = (mFlags & ~(NCIF_LOWER | NCIF_UPPER)) | (ins.mFlags & (NCIF_LOWER | NCIF_UPPER));
+	mFlags = (mFlags & ~(NCIF_LOWER | NCIF_UPPER)) | (ins.mFlags & (NCIF_LOWER | NCIF_UPPER | NCIF_VOLATILE));
 }
 
 void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
@@ -16256,7 +16256,25 @@ bool NativeCodeBasicBlock::FindImmediateStore(int at, int reg, const NativeCodeI
 	return false;
 }
 
-bool NativeCodeBasicBlock::CheckPatchFail(const NativeCodeBasicBlock* block, int reg)
+bool NativeCodeBasicBlock::CheckPatchFailUse(void)
+{
+	if (mPatchChecked)
+		return false;
+
+	if (!mPatchFail)
+	{
+		mPatchFail = true;
+
+		if (mTrueJump && !mTrueJump->CheckPatchFailUse())
+			return false;
+		if (mFalseJump && !mFalseJump->CheckPatchFailUse())
+			return false;
+	}
+
+	return true;
+}
+
+bool NativeCodeBasicBlock::CheckPatchFailReg(const NativeCodeBasicBlock* block, int reg)
 {
 	if (mPatched)
 		return false;
@@ -16265,9 +16283,9 @@ bool NativeCodeBasicBlock::CheckPatchFail(const NativeCodeBasicBlock* block, int
 	{
 		mPatchFail = true;
 
-		if (mTrueJump && !mTrueJump->CheckPatchFail(block, reg))
+		if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
 			return false;
-		if (mFalseJump && !mFalseJump->CheckPatchFail(block, reg))
+		if (mFalseJump && !mFalseJump->CheckPatchFailReg(block, reg))
 			return false;
 	}
 
@@ -16289,9 +16307,9 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 			{
 				if (mExitRequiredRegs[reg])
 				{
-					if (mTrueJump && !mTrueJump->CheckPatchFail(block, reg))
+					if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
 						return false;
-					if (mFalseJump && !mFalseJump->CheckPatchFail(block, reg))
+					if (mFalseJump && !mFalseJump->CheckPatchFailReg(block, reg))
 						return false;
 				}
 				return true;
@@ -16332,9 +16350,9 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 					{
 						if (mExitRequiredRegs[reg])
 						{
-							if (mTrueJump && !mTrueJump->CheckPatchFail(block, reg))
+							if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
 								return false;
-							if (mFalseJump && !mFalseJump->CheckPatchFail(block, reg))
+							if (mFalseJump && !mFalseJump->CheckPatchFailReg(block, reg))
 								return false;
 						}
 
@@ -16345,9 +16363,9 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 				{
 					if (mExitRequiredRegs[reg])
 					{
-						if (mTrueJump && !mTrueJump->CheckPatchFail(block, reg))
+						if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
 							return false;
-						if (mFalseJump && !mFalseJump->CheckPatchFail(block, reg))
+						if (mFalseJump && !mFalseJump->CheckPatchFailReg(block, reg))
 							return false;
 					}
 
@@ -16612,7 +16630,7 @@ bool NativeCodeBasicBlock::CheckGlobalAddressSumYPointer(const NativeCodeBasicBl
 		if (at == 0)
 		{
 			if (!mEntryRequiredRegs[reg] && !mEntryRequiredRegs[reg + 1])
-				return true;
+				return CheckPatchFailUse();
 
 			if (mNumEntries > 1)
 			{
@@ -16634,7 +16652,10 @@ bool NativeCodeBasicBlock::CheckGlobalAddressSumYPointer(const NativeCodeBasicBl
 				if (yval < 0)
 					return false;
 				else if (!(ins.mLive & LIVE_MEM))
-					return true;
+				{
+					mPatchChecked = true;
+					return !mPatchFail;
+				}
 			}
 
 			if (ins.mType == ASMIT_LDY && ins.mMode == ASMIM_IMMEDIATE)
@@ -30402,7 +30423,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plant_draw");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 #if 1
 	int		step = 0;
@@ -30516,14 +30537,13 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->CheckBlocks();
 #endif
 
-
 #if 1
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(this, step))
 			changed = true;
 #endif
 
-		
+
 //		if (cnt == 2)
 //			return;
 #if 1
@@ -30572,6 +30592,7 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->MergeBasicBlocks())
 			changed = true;
 #endif
+
 		ResetEntryBlocks();
 		ResetVisited();
 		mEntryBlock->CollectEntryBlocks(nullptr);
@@ -30597,6 +30618,7 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
 
 #if _DEBUG
 		ResetVisited();
@@ -30891,9 +30913,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
-//		if (CheckFunc && cnt == 3)
-//			return;
 
 	} while (changed);
 
