@@ -208,6 +208,7 @@ public:
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
+	bool OptimizeXYSimpleLoop(void);
 
 	bool OptimizeSelect(NativeCodeProcedure* proc);
 
