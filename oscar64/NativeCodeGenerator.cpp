@@ -14679,6 +14679,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 							}
 							mIns.Remove(i + 1);
 							changed = true;
+							continue;
 						}
 						else if (mFalseJump->mEntryRequiredRegs[mIns[i + 1].mAddress] &&
 							!mTrueJump->mEntryRequiredRegs[mIns[i + 1].mAddress] &&
@@ -14691,6 +14692,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 							}
 							mIns.Remove(i + 1);
 							changed = true;
+							continue;
 						}
 					}					
 				}
@@ -14730,7 +14732,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 								mIns.Remove(i);
 							}
 							changed = true;
-							i--;
+							continue;
 						}
 						else if (mFalseJump->mEntryRequiredRegs[mIns[i + 3].mAddress] && mFalseJump->mEntryRequiredRegs[mIns[i + 6].mAddress] &&
 							!mTrueJump->mEntryRequiredRegs[mIns[i + 3].mAddress] && !mTrueJump->mEntryRequiredRegs[mIns[i + 6].mAddress] &&
@@ -14749,7 +14751,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 								mIns.Remove(i);
 							}
 							changed = true;
-							i--;
+							continue;
 						}
 					}
 				}
@@ -14786,7 +14788,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 								mIns.Remove(i);
 							}
 							changed = true;
-							i--;
+							continue;
 						}
 						else if (mFalseJump->mEntryRequiredRegs[mIns[i + 3].mAddress] && mFalseJump->mEntryRequiredRegs[mIns[i + 6].mAddress] &&
 							!mTrueJump->mEntryRequiredRegs[mIns[i + 3].mAddress] && !mTrueJump->mEntryRequiredRegs[mIns[i + 6].mAddress] &&
@@ -14803,7 +14805,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 								mIns.Remove(i);
 							}
 							changed = true;
-							i--;
+							continue;
 						}
 					}
 				}
