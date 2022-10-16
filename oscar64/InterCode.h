@@ -233,13 +233,13 @@ class InterVariable
 public:
 	Location						mLocation;
 	bool							mUsed, mAliased, mTemp;
-	int								mIndex, mSize, mOffset, mAddr;
+	int								mIndex, mSize, mOffset, mAddr, mTempIndex;
 	int								mNumReferences;
 	const Ident					*	mIdent;
 	LinkerObject				*	mLinkerObject;
 
 	InterVariable(void)
-		: mUsed(false), mAliased(false), mTemp(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr)
+		: mUsed(false), mAliased(false), mTemp(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1)
 	{
 	}
 };
@@ -274,17 +274,17 @@ public:
 class InterInstruction
 {
 public:
+	Location							mLocation;
 	InterCode							mCode;
 	InterOperand						mSrc[8];
 	InterOperand						mDst;
 	InterOperand						mConst;
 	InterOperator						mOperator;
 	int									mNumOperands;
-	Location							mLocation;
 
 	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment;
 
-	InterInstruction(void);
+	InterInstruction(const Location& loc, InterCode code);
 
 	bool IsEqual(const InterInstruction* ins) const;
 	bool IsEqualSource(const InterInstruction* ins) const;
@@ -293,8 +293,6 @@ public:
 
 	bool ReferencesTemp(int temp) const;
 	bool UsesTemp(int temp) const;
-
-	void SetCode(const Location & loc, InterCode code);
 
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
@@ -341,8 +339,8 @@ public:
 
 	NumberSet						mLocalUsedTemps, mLocalModifiedTemps;
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
-	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps;
-	NumberSet						mExitRequiredTemps, mExitProvidedTemps;
+	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps, mEntryPotentialTemps;
+	NumberSet						mExitRequiredTemps, mExitProvidedTemps, mExitPotentialTemps;
 	NumberSet						mEntryConstTemp, mExitConstTemp;
 
 	NumberSet						mLocalRequiredVars, mLocalProvidedVars;
@@ -396,7 +394,7 @@ public:
 	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps, const GrowingVariableArray& staticVars);
 
 	void BuildLocalTempSets(int num);
-	void BuildGlobalProvidedTempSet(const NumberSet & fromProvidedTemps);
+	void BuildGlobalProvidedTempSet(const NumberSet & fromProvidedTemps, const NumberSet& potentialProvidedTemps);
 	bool BuildGlobalRequiredTempSet(NumberSet& fromRequiredTemps);
 	bool RemoveUnusedResultInstructions(void);
 	void BuildCallerSaveTempSet(NumberSet& callerSaveTemps);
@@ -508,6 +506,8 @@ public:
 	void CollectStaticStack(LinkerObject * lobj, const GrowingVariableArray& localVars);
 
 	bool SameExitCode(const InterCodeBasicBlock* block) const;
+
+	void WarnUsedUndefinedVariables(InterCodeProcedure* proc);
 };
 
 class InterCodeModule;
@@ -590,6 +590,7 @@ protected:
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);
+	void WarnUsedUndefinedVariables(void);
 
 	void PeepholeOptimization(void);
 
@@ -601,7 +602,7 @@ protected:
 class InterCodeModule
 {
 public:
-	InterCodeModule(Linker * linker);
+	InterCodeModule(Errors* errors, Linker * linker);
 	~InterCodeModule(void);
 
 	bool Disassemble(const char* name);
@@ -611,6 +612,7 @@ public:
 	GrowingVariableArray				mGlobalVars;
 
 	Linker							*	mLinker;
+	Errors* mErrors;
 
 	uint64				mCompilerOptions;
 

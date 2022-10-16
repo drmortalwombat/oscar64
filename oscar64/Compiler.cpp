@@ -29,7 +29,7 @@ Compiler::Compiler(void)
 	mByteCodeGenerator = new ByteCodeGenerator(mErrors, mLinker);
 	mInterCodeGenerator = new InterCodeGenerator(mErrors, mLinker);
 	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker, mCompilationUnits->mSectionCode);
-	mInterCodeModule = new InterCodeModule(mLinker);
+	mInterCodeModule = new InterCodeModule(mErrors, mLinker);
 	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
 }
 

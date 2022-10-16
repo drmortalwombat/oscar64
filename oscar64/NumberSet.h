@@ -28,7 +28,7 @@ public:
 	NumberSet& operator|=(const NumberSet& set);
 	NumberSet& operator-=(const NumberSet& set);
 
-	bool operator<=(const NumberSet& set);
+	bool operator<=(const NumberSet& set) const;
 
 	void OrNot(const NumberSet& set);
 

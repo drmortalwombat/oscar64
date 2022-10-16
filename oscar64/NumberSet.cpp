@@ -147,7 +147,7 @@ NumberSet& NumberSet::operator-=(const NumberSet& set)
 	return *this;
 }
 
-bool NumberSet::operator<=(const NumberSet& set)
+bool NumberSet::operator<=(const NumberSet& set) const
 {
 	int i;
 

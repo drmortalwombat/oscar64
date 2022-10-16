@@ -1407,7 +1407,7 @@ bool InterInstruction::ReferencesTemp(int temp) const
 
 InterInstruction* InterInstruction::Clone(void) const
 {
-	InterInstruction* ins = new InterInstruction();
+	InterInstruction* ins = new InterInstruction(mLocation, mCode);
 	*ins = *this;
 	return ins;
 }
@@ -2504,9 +2504,9 @@ bool InterOperand::IsEqual(const InterOperand& op) const
 	return true;
 }
 
-InterInstruction::InterInstruction(void)
+InterInstruction::InterInstruction(const Location& loc, InterCode code)
+	: mLocation(loc), mCode(code)
 {
-	mCode = IC_NONE;
 	mOperator = IA_NONE;
 
 	mNumOperands = 3;
@@ -2515,12 +2515,6 @@ InterInstruction::InterInstruction(void)
 	mVolatile = false;
 	mInvariant = false;
 	mSingleAssignment = false;
-}
-
-void InterInstruction::SetCode(const Location& loc, InterCode code)
-{
-	this->mCode = code;
-	this->mLocation = loc;
 }
 
 static bool TypeInteger(InterType t)
@@ -6445,8 +6439,10 @@ void InterCodeBasicBlock::BuildLocalTempSets(int num)
 
 		mEntryRequiredTemps = NumberSet(num);
 		mEntryProvidedTemps = NumberSet(num);
+		mEntryPotentialTemps = NumberSet(num);
 		mExitRequiredTemps = NumberSet(num);
 		mExitProvidedTemps = NumberSet(num);
+		mExitPotentialTemps = NumberSet(num);
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
@@ -6455,25 +6451,35 @@ void InterCodeBasicBlock::BuildLocalTempSets(int num)
 
 		mEntryRequiredTemps = mLocalRequiredTemps;
 		mExitProvidedTemps = mLocalProvidedTemps;
+		mExitPotentialTemps = mLocalProvidedTemps;
 
 		if (mTrueJump) mTrueJump->BuildLocalTempSets(num);
 		if (mFalseJump) mFalseJump->BuildLocalTempSets(num);
 	}
 }
 
-void InterCodeBasicBlock::BuildGlobalProvidedTempSet(const NumberSet & fromProvidedTemps)
+void InterCodeBasicBlock::BuildGlobalProvidedTempSet(const NumberSet & fromProvidedTemps, const NumberSet& potentialProvidedTemps)
 {
 	bool	changed = false;
 
 	if (!mVisited)
 	{
 		mEntryProvidedTemps = fromProvidedTemps;
+		mEntryPotentialTemps = potentialProvidedTemps;
 		changed = true;
 	}
-	else if (!(mEntryProvidedTemps <= fromProvidedTemps))
+	else
 	{
-		mEntryProvidedTemps &= fromProvidedTemps;
-		changed = true;
+		if (!(mEntryProvidedTemps <= fromProvidedTemps))
+		{
+			mEntryProvidedTemps &= fromProvidedTemps;
+			changed = true;
+		}
+		if (!(potentialProvidedTemps <= mEntryPotentialTemps))
+		{
+			mEntryPotentialTemps |= potentialProvidedTemps;
+			changed = true;
+		}
 	}
 
 	if (changed)
@@ -6481,10 +6487,13 @@ void InterCodeBasicBlock::BuildGlobalProvidedTempSet(const NumberSet & fromProvi
 		mExitProvidedTemps = mLocalProvidedTemps;
 		mExitProvidedTemps |= mEntryProvidedTemps;
 
+		mExitPotentialTemps = mLocalProvidedTemps;
+		mExitPotentialTemps |= mEntryPotentialTemps;
+
 		mVisited = true;
 
-		if (mTrueJump) mTrueJump->BuildGlobalProvidedTempSet(mExitProvidedTemps);
-		if (mFalseJump) mFalseJump->BuildGlobalProvidedTempSet(mExitProvidedTemps);
+		if (mTrueJump) mTrueJump->BuildGlobalProvidedTempSet(mExitProvidedTemps, mExitPotentialTemps);
+		if (mFalseJump) mFalseJump->BuildGlobalProvidedTempSet(mExitProvidedTemps, mExitPotentialTemps);
 	}
 }
 
@@ -7381,8 +7390,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
 
-								InterInstruction* cins = new InterInstruction();
-								cins->mCode = IC_CONVERSION_OPERATOR;
+								InterInstruction* cins = new InterInstruction(ins->mLocation, IC_CONVERSION_OPERATOR);
 								cins->mOperator = IA_EXT8TO16U;
 								cins->mSrc[0] = ains->mSrc[1];
 								cins->mDst.mTemp = spareTemps++;
@@ -7391,8 +7399,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								cins->mDst.mRange.LimitMin(0);
 								mInstructions.Insert(i, cins);
 
-								InterInstruction* nins = new InterInstruction();
-								nins->mCode = IC_BINARY_OPERATOR;
+								InterInstruction* nins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 								nins->mOperator = IA_SHL;
 								nins->mSrc[0] = ins->mSrc[0];
 								nins->mSrc[1] = cins->mDst;
@@ -7562,8 +7569,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
 
-								InterInstruction* nins = new InterInstruction();
-								nins->mCode = IC_CONVERSION_OPERATOR;
+								InterInstruction* nins = new InterInstruction(ins->mLocation, IC_CONVERSION_OPERATOR);
 								nins->mOperator = IA_EXT8TO16U;
 								nins->mSrc[0] = ains->mSrc[1];
 								nins->mDst.mTemp = spareTemps++;
@@ -7655,8 +7661,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
 
-								InterInstruction* nins = new InterInstruction();
-								nins->mCode = IC_LEA;
+								InterInstruction* nins = new InterInstruction(ins->mLocation, IC_LEA);
 								nins->mSrc[0].Forward(pins->mSrc[0]);
 								nins->mSrc[1].ForwardMem(pins->mSrc[1]);
 								nins->mSrc[1].mIntConst += ins->mSrc[1].mIntConst;
@@ -7704,8 +7709,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
 
-								InterInstruction* nins = new InterInstruction();
-								nins->mCode = IC_LEA;
+								InterInstruction* nins = new InterInstruction(ins->mLocation, IC_LEA);
 								nins->mSrc[0].Forward(pins->mSrc[0]);
 								nins->mSrc[1].ForwardMem(pins->mSrc[1]);
 								nins->mSrc[1].mIntConst += ins->mSrc[0].mIntConst;
@@ -7842,8 +7846,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 					InterInstruction* ai0 = ltvalue[mi0->mSrc[0].mTemp], * ai1 = ltvalue[mi0->mSrc[1].mTemp];
 					if (ai0 && ai0->mCode == IC_CONSTANT)
 					{
-						InterInstruction* nai = new InterInstruction();
-						nai->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						nai->mOperator = IA_MUL;
 						nai->mSrc[0].mTemp = mi0->mSrc[1].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
@@ -7855,8 +7858,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[nai->mDst.mTemp] = nullptr;
 
-						InterInstruction* cai = new InterInstruction();
-						cai->mCode = IC_CONSTANT;
+						InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 						cai->mDst.mTemp = spareTemps++;
 						cai->mDst.mType = IT_INT16;
 						cai->mConst.mIntConst = ai0->mConst.mIntConst * mi1->mConst.mIntConst;
@@ -7870,8 +7872,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 					}
 					else if (ai1 && ai1->mCode == IC_CONSTANT)
 					{
-						InterInstruction* nai = new InterInstruction();
-						nai->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						nai->mOperator = IA_MUL;
 						nai->mSrc[0].mTemp = mi0->mSrc[0].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
@@ -7883,8 +7884,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[nai->mDst.mTemp] = nullptr;
 
-						InterInstruction* cai = new InterInstruction();
-						cai->mCode = IC_CONSTANT;
+						InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 						cai->mDst.mTemp = spareTemps++;
 						cai->mDst.mType = IT_INT16;
 						cai->mConst.mIntConst = ai1->mConst.mIntConst * mi1->mConst.mIntConst;
@@ -7902,8 +7902,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 					InterInstruction* ai0 = ltvalue[mi1->mSrc[0].mTemp], * ai1 = ltvalue[mi1->mSrc[1].mTemp];
 					if (ai0 && ai0->mCode == IC_CONSTANT)
 					{
-						InterInstruction* nai = new InterInstruction();
-						nai->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						nai->mOperator = IA_MUL;
 						nai->mSrc[0].mTemp = mi1->mSrc[1].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
@@ -7915,8 +7914,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[nai->mDst.mTemp] = nullptr;
 
-						InterInstruction* cai = new InterInstruction();
-						cai->mCode = IC_CONSTANT;
+						InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 						cai->mDst.mTemp = spareTemps++;
 						cai->mDst.mType = IT_INT16;
 						cai->mConst.mIntConst = ai0->mConst.mIntConst * mi0->mConst.mIntConst;
@@ -7930,8 +7928,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 					}
 					else if (ai1 && ai1->mCode == IC_CONSTANT)
 					{
-						InterInstruction* nai = new InterInstruction();
-						nai->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						nai->mOperator = IA_MUL;
 						nai->mSrc[0].mTemp = mi1->mSrc[0].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
@@ -7943,8 +7940,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[nai->mDst.mTemp] = nullptr;
 
-						InterInstruction* cai = new InterInstruction();
-						cai->mCode = IC_CONSTANT;
+						InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 						cai->mDst.mTemp = spareTemps++;
 						cai->mDst.mType = IT_INT16;
 						cai->mConst.mIntConst = ai1->mConst.mIntConst * mi0->mConst.mIntConst;
@@ -7963,8 +7959,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 					InterInstruction* ai0 = ltvalue[mi1->mSrc[0].mTemp], * ai1 = ltvalue[mi1->mSrc[1].mTemp];
 					if (ai0 && ai0->mCode == IC_CONSTANT)
 					{
-						InterInstruction* nai = new InterInstruction();
-						nai->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* nai = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						nai->mOperator = IA_MUL;
 						nai->mSrc[0].mTemp = mi1->mSrc[1].mTemp;
 						nai->mSrc[0].mType = IT_INT16;
@@ -7976,8 +7971,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 
 						ltvalue[nai->mDst.mTemp] = nullptr;
 
-						InterInstruction* cai = new InterInstruction();
-						cai->mCode = IC_CONSTANT;
+						InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 						cai->mDst.mTemp = spareTemps++;
 						cai->mDst.mType = IT_INT16;
 						cai->mConst.mIntConst = ai0->mConst.mIntConst * mi0->mConst.mIntConst;
@@ -8007,8 +8001,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						{
 							if (ai0 && ai0->mCode == IC_CONSTANT)
 							{
-								InterInstruction* cai = new InterInstruction();
-								cai->mCode = IC_CONSTANT;
+								InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 								cai->mDst.mTemp = spareTemps++;
 								cai->mDst.mType = IT_INT16;
 								cai->mConst.mIntConst = ai0->mConst.mIntConst + mi1->mConst.mIntConst;
@@ -8021,8 +8014,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 							}
 							else if (ai1 && ai1->mCode == IC_CONSTANT)
 							{
-								InterInstruction* cai = new InterInstruction();
-								cai->mCode = IC_CONSTANT;
+								InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 								cai->mDst.mTemp = spareTemps++;
 								cai->mDst.mType = IT_INT16;
 								cai->mConst.mIntConst = ai1->mConst.mIntConst + mi1->mConst.mIntConst;
@@ -8042,8 +8034,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						{
 							if (ai0 && ai0->mCode == IC_CONSTANT)
 							{
-								InterInstruction* cai = new InterInstruction();
-								cai->mCode = IC_CONSTANT;
+								InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 								cai->mDst.mTemp = spareTemps++;
 								cai->mDst.mType = IT_INT16;
 								cai->mConst.mIntConst = ai0->mConst.mIntConst + mi0->mConst.mIntConst;
@@ -8056,8 +8047,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 							}
 							else if (ai1 && ai1->mCode == IC_CONSTANT)
 							{
-								InterInstruction* cai = new InterInstruction();
-								cai->mCode = IC_CONSTANT;
+								InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 								cai->mDst.mTemp = spareTemps++;
 								cai->mDst.mType = IT_INT16;
 								cai->mConst.mIntConst = ai1->mConst.mIntConst + mi0->mConst.mIntConst;
@@ -8084,8 +8074,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						InterInstruction* ai0 = ltvalue[li0->mSrc[0].mTemp], * ai1 = ltvalue[li0->mSrc[1].mTemp];
 						if (ai0 && ai1 && ai0->mCode == IC_CONSTANT && ai0->mConst.mIntConst >= 0)
 						{
-							InterInstruction* nai = new InterInstruction();
-							nai->mCode = IC_LEA;
+							InterInstruction* nai = new InterInstruction(ins->mLocation, IC_LEA);
 							nai->mSrc[1].mMemory = IM_INDIRECT;
 							nai->mSrc[0].mTemp = li0->mSrc[1].mTemp;
 							nai->mSrc[0].mType = IT_INT16;
@@ -8109,8 +8098,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						InterInstruction* ai0 = ltvalue[li1->mSrc[0].mTemp], * ai1 = ltvalue[li1->mSrc[1].mTemp];
 						if (ai0 && ai1 && ai0->mCode == IC_CONSTANT && ai0->mConst.mIntConst >= 0)
 						{
-							InterInstruction* cai = new InterInstruction();
-							cai->mCode = IC_CONSTANT;
+							InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 							cai->mDst.mTemp = spareTemps++;
 							cai->mDst.mType = IT_INT16;
 							cai->mConst.mIntConst = ai0->mConst.mIntConst + li0->mConst.mIntConst;
@@ -8832,8 +8820,7 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 								{
 									if (fins->mDst.mTemp != tins->mDst.mTemp)
 									{
-										InterInstruction* nins = new InterInstruction();
-										nins->mCode = IC_LOAD_TEMPORARY;
+										InterInstruction* nins = new InterInstruction(tins->mLocation, IC_LOAD_TEMPORARY);
 										nins->mDst.mTemp = fins->mDst.mTemp;
 										nins->mDst.mType = fins->mDst.mType;
 										nins->mSrc[0].mTemp = tins->mDst.mTemp;
@@ -9105,8 +9092,7 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 									{
 										tblock->mInstructions[j]->mDst.mTemp = stemp;
 
-										InterInstruction* nins = new InterInstruction();
-										nins->mCode = IC_LOAD_TEMPORARY;
+										InterInstruction* nins = new InterInstruction(mins->mLocation, IC_LOAD_TEMPORARY);
 										nins->mDst.mTemp = ttemp;
 										nins->mDst.mType = mins->mDst.mType;
 										nins->mSrc[0].mTemp = stemp;
@@ -9483,49 +9469,46 @@ void InterCodeBasicBlock::ExpandSelect(InterCodeProcedure* proc)
 
 			mInstructions.SetSize(i);
 
-			InterInstruction* bins = new InterInstruction();
-			bins->mCode = IC_BRANCH;
+			InterInstruction* bins = new InterInstruction(sins->mLocation, IC_BRANCH);
 			bins->mSrc[0] = sins->mSrc[2];
 			mInstructions.Push(bins);
 
-			InterInstruction* tins = new InterInstruction();
+			InterInstruction* tins;
 			if (sins->mSrc[1].mTemp < 0)
 			{
-				tins->mCode = IC_CONSTANT;
+				tins = new InterInstruction(sins->mLocation, IC_CONSTANT);
 				tins->mConst = sins->mSrc[1];
 			}
 			else
 			{
-				tins->mCode = IC_LOAD_TEMPORARY;
+				tins = new InterInstruction(sins->mLocation, IC_LOAD_TEMPORARY);
 				tins->mSrc[0] = sins->mSrc[1];
 			}
 
 			tins->mDst = sins->mDst;
 
-			InterInstruction* fins = new InterInstruction();
+			InterInstruction* fins;
 			if (sins->mSrc[0].mTemp < 0)
 			{
-				fins->mCode = IC_CONSTANT;
+				fins = new InterInstruction(sins->mLocation, IC_CONSTANT);
 				fins->mConst = sins->mSrc[0];
 			}
 			else
 			{
-				fins->mCode = IC_LOAD_TEMPORARY;
+				fins = new InterInstruction(sins->mLocation, IC_LOAD_TEMPORARY);
 				fins->mSrc[0] = sins->mSrc[0];
 			}
 
 			fins->mDst = sins->mDst;
 
 			tblock->mInstructions.Push(tins);
-			InterInstruction* jins = new InterInstruction();
-			jins->mCode = IC_JUMP;
+			InterInstruction* jins = new InterInstruction(sins->mLocation, IC_JUMP);
 			tblock->mInstructions.Push(jins);
 
 			tblock->Close(eblock, nullptr);
 
 			fblock->mInstructions.Push(fins);
-			jins = new InterInstruction();
-			jins->mCode = IC_JUMP;
+			jins = new InterInstruction(sins->mLocation, IC_JUMP);
 			fblock->mInstructions.Push(jins);
 
 			fblock->Close(eblock, nullptr);
@@ -9550,6 +9533,8 @@ void InterCodeBasicBlock::SplitBranches(InterCodeProcedure* proc)
 		if (mTrueJump && mFalseJump && (mInstructions.Size() > 2 || mInstructions.Size() == 2 && mInstructions[0]->mCode != IC_RELATIONAL_OPERATOR))
 		{
 			InterCodeBasicBlock* block = new InterCodeBasicBlock();
+			InterInstruction* ins = mInstructions.Last();
+
 			proc->Append(block);
 			if (mInstructions[mInstructions.Size() - 2]->mCode == IC_RELATIONAL_OPERATOR)
 			{
@@ -9562,8 +9547,7 @@ void InterCodeBasicBlock::SplitBranches(InterCodeProcedure* proc)
 				block->mInstructions.Push(mInstructions.Pop());
 			}
 
-			InterInstruction* jins = new InterInstruction();
-			jins->mCode = IC_JUMP;
+			InterInstruction* jins = new InterInstruction(ins->mLocation, IC_JUMP);
 			mInstructions.Push(jins);
 			block->Close(mTrueJump, mFalseJump);
 			mTrueJump = block;
@@ -9848,8 +9832,7 @@ void InterCodeBasicBlock::BuildLoopSuffix(InterCodeProcedure* proc)
 				{
 					InterCodeBasicBlock* suffix = new InterCodeBasicBlock();
 					proc->Append(suffix);
-					InterInstruction* jins = new InterInstruction();
-					jins->mCode = IC_JUMP;
+					InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 					suffix->Append(jins);
 					suffix->Close(mFalseJump, nullptr);
 					mFalseJump = suffix;
@@ -9862,8 +9845,7 @@ void InterCodeBasicBlock::BuildLoopSuffix(InterCodeProcedure* proc)
 				{
 					InterCodeBasicBlock* suffix = new InterCodeBasicBlock();
 					proc->Append(suffix);
-					InterInstruction* jins = new InterInstruction();
-					jins->mCode = IC_JUMP;
+					InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 					suffix->Append(jins);
 					suffix->Close(mTrueJump, nullptr);
 					mTrueJump = suffix;
@@ -9894,8 +9876,7 @@ InterCodeBasicBlock* InterCodeBasicBlock::BuildLoopPrefix(InterCodeProcedure* pr
 		{
 			mLoopPrefix = new InterCodeBasicBlock();
 			proc->Append(mLoopPrefix);
-			InterInstruction* jins = new InterInstruction();
-			jins->mCode = IC_JUMP;
+			InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 			mLoopPrefix->Append(jins);
 			mLoopPrefix->Close(this, nullptr);
 		}
@@ -10314,8 +10295,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 									mTrueJump = mFalseJump;
 									mFalseJump = nullptr;
 
-									InterInstruction* jins = new InterInstruction();
-									jins->mCode = IC_JUMP;
+									InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 									mInstructions.Push(jins);
 								}
 							}
@@ -10384,8 +10364,7 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 									return true;
 
 								InterInstruction* pins = tvalues[lins->mSrc[1].mTemp];
-								InterInstruction* nins = new InterInstruction();
-								nins->mCode = IC_LEA;
+								InterInstruction* nins = new InterInstruction(lins->mLocation, IC_LEA);
 								nins->mSrc[1] = pins->mSrc[1];
 								nins->mSrc[0].mTemp = -1;
 								nins->mSrc[0].mType = IT_INT16;
@@ -10487,9 +10466,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 											// Move load before loop
 											mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
-											InterInstruction* nins = new InterInstruction();
+											InterInstruction* nins = new InterInstruction(sins->mLocation, IC_LOAD_TEMPORARY);
 											mInstructions[i] = nins;
-											nins->mCode = IC_LOAD_TEMPORARY;
 											nins->mDst.Forward(ins->mDst);
 											nins->mSrc[0].Forward(sins->mSrc[0]);
 											ins->mDst.Forward(sins->mSrc[0]);
@@ -10777,16 +10755,14 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						indexStep[ins->mDst.mTemp] = ins->mSrc[1].mIntConst * indexStep[ins->mSrc[0].mTemp];
 						indexBase[ins->mDst.mTemp] = ins->mSrc[1].mIntConst * indexBase[ins->mSrc[0].mTemp];
 
-						InterInstruction* bins = new InterInstruction();
-						bins->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						bins->mOperator = IA_MUL;
 						bins->mDst = ins->mDst;
 						bins->mSrc[0] = ins->mSrc[0];
 						bins->mSrc[1] = ins->mSrc[1];
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
-						InterInstruction* ains = new InterInstruction();
-						ains->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						ains->mOperator = IA_ADD;
 						ains->mDst = ins->mDst;
 						ains->mSrc[0] = ins->mDst;
@@ -10804,16 +10780,14 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						indexStep[ins->mDst.mTemp] = ins->mSrc[0].mIntConst * indexStep[ins->mSrc[1].mTemp];
 						indexBase[ins->mDst.mTemp] = ins->mSrc[0].mIntConst * indexBase[ins->mSrc[1].mTemp];
 
-						InterInstruction* bins = new InterInstruction();
-						bins->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						bins->mOperator = IA_MUL;
 						bins->mDst = ins->mDst;
 						bins->mSrc[0] = ins->mSrc[0];
 						bins->mSrc[1] = ins->mSrc[1];
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
-						InterInstruction* ains = new InterInstruction();
-						ains->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						ains->mOperator = IA_ADD;
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
@@ -10831,16 +10805,14 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						indexStep[ins->mDst.mTemp] = indexStep[ins->mSrc[1].mTemp] << ins->mSrc[0].mIntConst;
 						indexBase[ins->mDst.mTemp] = indexBase[ins->mSrc[1].mTemp] << ins->mSrc[0].mIntConst;
 
-						InterInstruction* bins = new InterInstruction();
-						bins->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						bins->mOperator = IA_SHL;
 						bins->mDst = ins->mDst;
 						bins->mSrc[0] = ins->mSrc[0];
 						bins->mSrc[1] = ins->mSrc[1];
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
 
-						InterInstruction* ains = new InterInstruction();
-						ains->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						ains->mOperator = IA_ADD;
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
@@ -10860,8 +10832,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 
-						InterInstruction* ains = new InterInstruction();
-						ains->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						ains->mOperator = IA_ADD;
 						ains->mDst = ins->mDst;
 						ains->mSrc[0] = ins->mDst;
@@ -10878,8 +10849,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 
-						InterInstruction* ains = new InterInstruction();
-						ains->mCode = IC_BINARY_OPERATOR;
+						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						ains->mOperator = IA_ADD;
 						ains->mDst = ins->mDst;
 						ains->mSrc[1] = ins->mDst;
@@ -10917,8 +10887,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 							mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 
-							InterInstruction* ains = new InterInstruction();
-							ains->mCode = IC_LEA;
+							InterInstruction* ains = new InterInstruction(ins->mLocation, IC_LEA);
 							ains->mDst = ins->mDst;
 							ains->mSrc[1] = ins->mDst;
 							ains->mSrc[1].mMemory = IM_INDIRECT;
@@ -10929,8 +10898,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 							if (tailBlock->mEntryRequiredTemps[ains->mDst.mTemp])
 							{
-								InterInstruction* dins = new InterInstruction();
-								dins->mCode = IC_LEA;
+								InterInstruction* dins = new InterInstruction(ins->mLocation, IC_LEA);
 								dins->mDst = ins->mDst;
 								dins->mSrc[1] = ins->mDst;
 								dins->mSrc[1].mMemory = IM_INDIRECT;
@@ -10954,8 +10922,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 					mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
 
-					InterInstruction* ains = new InterInstruction();
-					ains->mCode = ins->mCode;
+					InterInstruction* ains = new InterInstruction(ins->mLocation, ins->mCode);
 					ains->mOperator = ins->mOperator;
 					ains->mSrc[0] = ins->mSrc[0];
 					ains->mDst = ins->mDst;
@@ -12137,6 +12104,70 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 	}
 }
 
+void InterCodeBasicBlock::WarnUsedUndefinedVariables(InterCodeProcedure* proc)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		NumberSet	providedTemps(mEntryProvidedTemps), potentialTemps(mEntryPotentialTemps);
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+	
+			for (int j = 0; j < ins->mNumOperands; j++)
+			{
+				if (ins->mSrc[j].mTemp >= 0 && !providedTemps[ins->mSrc[j].mTemp])
+				{
+					int t = ins->mSrc[j].mTemp;
+
+					int k = 0;
+					while (k < proc->mLocalVars.Size() && !(proc->mLocalVars[k] && proc->mLocalVars[k]->mTempIndex == t))
+						k++;
+
+					if (potentialTemps[t])
+					{
+						if (k < proc->mLocalVars.Size() && proc->mLocalVars[k]->mIdent)
+							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentialy uninitialized variable", proc->mLocalVars[k]->mIdent);
+						else
+							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentialy uninitialized expression");
+					}
+					else
+					{
+						if (k < proc->mLocalVars.Size() && proc->mLocalVars[k]->mIdent)
+							proc->mModule->mErrors->Error(ins->mLocation, ERRR_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized variable", proc->mLocalVars[k]->mIdent);
+						else
+							proc->mModule->mErrors->Error(ins->mLocation, ERRR_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized expression");
+
+						if (ins->mCode == IC_LOAD_TEMPORARY)
+						{
+							ins->mCode = IC_CONSTANT;
+							ins->mConst = ins->mSrc[j];
+							ins->mConst.mTemp = -1;
+							ins->mConst.mIntConst = 0;
+							ins->mConst.mLinkerObject = nullptr;
+							ins->mConst.mVarIndex = -1;
+							ins->mConst.mMemory = IM_ABSOLUTE;
+						}
+						else
+						{
+							ins->mSrc[j].mTemp = -1;
+							ins->mSrc[j].mIntConst = 0;
+						}
+					}
+				}
+			}
+
+			if (ins->mDst.mTemp >= 0)
+				providedTemps += ins->mDst.mTemp;
+		}
+
+		if (mTrueJump) mTrueJump->WarnUsedUndefinedVariables(proc);
+		if (mFalseJump) mFalseJump->WarnUsedUndefinedVariables(proc);
+	}
+}
+
 
 void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars, GrowingVariableArray& paramVars, InterMemory	paramMemory)
 {
@@ -12553,7 +12584,7 @@ void InterCodeProcedure::BuildDataFlowSets(void)
 	// Build set of globaly provided temporaries
 	//
 	ResetVisited();
-	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps));
+	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps), NumberSet(numTemps));
 
 	//
 	// Build set of globaly required temporaries, might need
@@ -12708,6 +12739,17 @@ void InterCodeProcedure::CheckUsedDefinedTemps(void)
 #endif
 }
 
+void InterCodeProcedure::WarnUsedUndefinedVariables(void)
+{
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	ResetVisited();
+	mEntryBlock->WarnUsedUndefinedVariables(this);
+}
+
+
 void InterCodeProcedure::TempForwarding(void)
 {
 	int	numTemps = mTemporaries.Size();
@@ -12739,7 +12781,7 @@ void InterCodeProcedure::RemoveUnusedInstructions(void)
 		mEntryBlock->BuildLocalTempSets(numTemps);
 
 		ResetVisited();
-		mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps));
+		mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps), NumberSet(numTemps));
 
 		NumberSet	totalRequired2(numTemps);
 
@@ -12884,8 +12926,9 @@ void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int 
 			if (!complexLocals[vi])
 			{
 				mLocalVars[vi]->mTemp = true;
+				mLocalVars[vi]->mTempIndex = AddTemporary(localTypes[vi]);
 				ResetVisited();
-				mEntryBlock->SimpleLocalToTemp(vi, AddTemporary(localTypes[vi]));
+				mEntryBlock->SimpleLocalToTemp(vi, mLocalVars[vi]->mTempIndex);
 			}
 		}
 
@@ -12895,10 +12938,14 @@ void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int 
 
 		BuildDataFlowSets();
 
+		WarnUsedUndefinedVariables();
+
 		RenameTemporaries();
 
 		do {
 			BuildDataFlowSets();
+
+			WarnUsedUndefinedVariables();
 
 			TempForwarding();
 		} while (GlobalConstantPropagation());
@@ -14009,7 +14056,7 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 								mblocks[i]->mTrueJump = nblock;
 							block->mNumEntries -= mblocks.Size();
 
-							InterInstruction* jins = new InterInstruction();
+							InterInstruction* jins = new InterInstruction(mblocks[0]->mInstructions.Last()->mLocation, IC_JUMP);
 							jins->mCode = IC_JUMP;
 							nblock->mInstructions.Push(jins);
 							nblock->Close(block, nullptr);
@@ -14094,7 +14141,7 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	mEntryBlock->BuildLocalTempSets(numTemps);
 
 	ResetVisited();
-	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps));
+	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps), NumberSet(numTemps));
 
 	NumberSet	totalRequired2(numTemps);
 
@@ -14149,7 +14196,7 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	mEntryBlock->BuildLocalTempSets(numRenamedTemps);
 
 	ResetVisited();
-	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numRenamedTemps));
+	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numRenamedTemps), NumberSet(numRenamedTemps));
 
 	NumberSet	totalRequired3(numRenamedTemps);
 
@@ -14300,8 +14347,8 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 #endif
 }
 
-InterCodeModule::InterCodeModule(Linker * linker)
-	: mLinker(linker), mGlobalVars(nullptr), mProcedures(nullptr), mCompilerOptions(0)
+InterCodeModule::InterCodeModule(Errors* errors, Linker * linker)
+	: mErrors(errors), mLinker(linker), mGlobalVars(nullptr), mProcedures(nullptr), mCompilerOptions(0)
 {
 }
 
