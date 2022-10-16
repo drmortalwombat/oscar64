@@ -25883,7 +25883,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 									}
 									else
 									{
-										InsertLoadYImmediate(i + 2, 0);
+										InsertLoadYImmediate(i + 2, mIns[i + 0].mAddress);
 									}
 								}
 
@@ -30425,7 +30425,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test");
 
 #if 1
 	int		step = 0;
