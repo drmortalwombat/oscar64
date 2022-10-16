@@ -3550,6 +3550,9 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 	}
 
+	if (dec->mBase->mBase->mType != DT_TYPE_VOID)
+		proc->mValueReturn = true;
+
 	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock();
 
 	proc->Append(entryBlock);

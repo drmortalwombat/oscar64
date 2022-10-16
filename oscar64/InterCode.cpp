@@ -12104,6 +12104,27 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 	}
 }
 
+void InterCodeBasicBlock::CheckValueReturn(InterCodeProcedure* proc)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mCode == IC_ASSEMBLER)
+				return;
+			else if (ins->mCode == IC_RETURN)
+				proc->mModule->mErrors->Error(ins->mLocation, EWARN_MISSING_RETURN_STATEMENT, "Missing return statement");
+		}
+
+		if (mTrueJump) mTrueJump->CheckValueReturn(proc);
+		if (mFalseJump) mFalseJump->CheckValueReturn(proc);
+	}
+}
+
+
 void InterCodeBasicBlock::WarnUsedUndefinedVariables(InterCodeProcedure* proc)
 {
 	if (!mVisited)
@@ -12438,7 +12459,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mIdent(ident), mLinkerObject(linkerObject),
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
 	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), 
-	mSaveTempsLinkerObject(nullptr)
+	mSaveTempsLinkerObject(nullptr), mValueReturn(false)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
@@ -13806,6 +13827,12 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 	MapCallerSavedTemps();
+
+	if (mValueReturn)
+	{
+		ResetVisited();
+		mEntryBlock->CheckValueReturn(this);
+	}
 
 	if (mSaveTempsLinkerObject && mTempSize > 16)
 		mSaveTempsLinkerObject->AddSpace(mTempSize - 16);

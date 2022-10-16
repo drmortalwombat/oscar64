@@ -152,7 +152,7 @@ bool snake_advance(Snake * s)
 }
 
 // flash the snake after collision
-bool snake_flash(Snake * s, char c)
+void snake_flash(Snake * s, char c)
 {
 	// Loop over all tail elements
 	for(char i=0; i<s->length; i++)

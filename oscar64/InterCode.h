@@ -508,6 +508,8 @@ public:
 	bool SameExitCode(const InterCodeBasicBlock* block) const;
 
 	void WarnUsedUndefinedVariables(InterCodeProcedure* proc);
+	void CheckValueReturn(InterCodeProcedure* proc);
+
 };
 
 class InterCodeModule;
@@ -529,7 +531,7 @@ public:
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps;
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
-	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled;
+	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 
 	InterCodeModule					*	mModule;
