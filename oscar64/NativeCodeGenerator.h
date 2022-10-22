@@ -170,17 +170,17 @@ public:
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset, mTemp;
-	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked;
+	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked, mPatchStart;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
 	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
 
-	int PutBranch(NativeCodeProcedure* proc, AsmInsType code, int offset);
+	int PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int offset);
 	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset);
 	int JumpByteSize(NativeCodeBasicBlock * target, int offset);
-	int BranchByteSize(int from, int to);
+	int BranchByteSize(NativeCodeBasicBlock* target, int from, int to);
 
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
 	void RemoveEntryBlock(NativeCodeBasicBlock* block);
@@ -198,7 +198,7 @@ public:
 
 	bool RemoveNops(void);
 	bool PeepHoleOptimizer(NativeCodeProcedure* proc, int pass);
-	void BlockSizeReduction(NativeCodeProcedure* proc);
+	void BlockSizeReduction(NativeCodeProcedure* proc, int xenter, int yenter);
 	bool BlockSizeCopyReduction(NativeCodeProcedure* proc, int & si, int & di);
 
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc);

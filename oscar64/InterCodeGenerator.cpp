@@ -3550,7 +3550,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 	}
 
-	if (dec->mBase->mBase->mType != DT_TYPE_VOID)
+	if (dec->mBase->mBase->mType != DT_TYPE_VOID && dec->mBase->mBase->mType != DT_TYPE_STRUCT)
 		proc->mValueReturn = true;
 
 	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock();
@@ -3569,7 +3569,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	else
 		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent->mString);
 
-	InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_RETURN);
+	InterInstruction	*	ins = new InterInstruction(exp ? exp->mLocation : dec->mLocation, IC_RETURN);
 	exitBlock->Append(ins);
 	exitBlock->Close(nullptr, nullptr);
 

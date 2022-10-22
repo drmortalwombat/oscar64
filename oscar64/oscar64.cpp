@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.10.166");
+		strcpy(strProductVersion, "1.10.167");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -301,6 +301,16 @@ int main2(int argc, const char** argv)
 }
 
 
+#ifdef WIN32
+#ifndef _DEBUG
+int seh_filter(unsigned int code, struct _EXCEPTION_POINTERS* info)
+{
+	printf("oscar64 crashed. %08x %08x", info->ExceptionRecord->ExceptionCode, (uint32)(info->ExceptionRecord->ExceptionAddress));
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+#endif
+
 int main(int argc, const char** argv)
 {
 #if 1
@@ -317,9 +327,8 @@ int main(int argc, const char** argv)
 #ifdef _WIN32
 #ifndef _DEBUG
 }
-	__except (EXCEPTION_EXECUTE_HANDLER)
+	__except (seh_filter(GetExceptionCode(), GetExceptionInformation()))
 	{
-		printf("oscar64 crashed.");
 		return 30;
 	}
 #endif
