@@ -26520,18 +26520,18 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
-
+#if 1
 					else if (
 						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
 						mIns[i + 1].mType == ASMIT_CLC &&
 						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1)
 					{
 						mIns[i + 0].mType = ASMIT_SEC; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_ROL;
+						mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
-
+#endif
 					else if (
 						mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
 						mIns[i + 2].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) &&
@@ -30472,7 +30472,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "display_explosion");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plants_iterate");
 
 #if 1
 	int		step = 0;
@@ -30592,8 +30592,6 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 #endif
 
-//		if (cnt == 2)
-//			return;
 #if 1
 		if (step < 6)
 		{
