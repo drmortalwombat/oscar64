@@ -277,6 +277,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_ENUM);
 		dec->mFlags = flags;
 		dec->mSize = 1;
+		dec->mScope = new DeclarationScope(nullptr);
 
 		mScanner->NextToken();
 		if (mScanner->mToken == TK_IDENT)
@@ -635,7 +636,10 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 			dec->mOffset = offset;
 		}
 		else
+		{
+			dtype->CanAssign(exp->mDecType);
 			mErrors->Error(exp->mLocation, EERR_CONSTANT_INITIALIZER, "Incompatible constant initializer");
+		}
 	}
 	else
 		mErrors->Error(exp->mLocation, EERR_CONSTANT_INITIALIZER, "Constant initializer expected");
