@@ -7890,6 +7890,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				int	shift = ins->mSrc[0].mIntConst & 31;
 
 				int	sreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+				int	nbytes = 4;
 
 				if (shift >= 24)
 				{
@@ -7904,6 +7905,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + 3));
 					sreg = treg;
 					shift -= 24;
+					nbytes = 1;
 				}
 				else if (shift >= 16)
 				{
@@ -7919,6 +7921,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + 3));
 					sreg = treg;
 					shift -= 16;
+					nbytes = 2;
 				}
 				else if (shift >= 8)
 				{
@@ -7935,6 +7938,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + 3));
 					sreg = treg;
 					shift -= 8;
+					nbytes = 3;
 				}
 
 				if (shift == 0)
@@ -7971,12 +7975,12 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					}
 					else
 					{
-						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, treg + 3));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, treg + nbytes - 1));
 						mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_IMPLIED));
-						mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + 3));
-						mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + 2));
-						mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + 1));
-						mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + 0));
+						mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + nbytes - 1));
+
+						for(int i=nbytes - 2; i >=0; i--)
+							mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + i));
 					}
 				}
 				else
@@ -7995,21 +7999,39 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 3));
 					}
 					else
-						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, treg + 3));
+						mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, treg + nbytes - 1));
 
-					mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, shift));
-					this->Close(lblock, nullptr, ASMIT_JMP);
 
-					lblock->mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, 0x80));
-					lblock->mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_IMPLIED));
-					lblock->mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + 2));
-					lblock->mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + 1));
-					lblock->mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + 0));
-					lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEX, ASMIM_IMPLIED));
-					lblock->Close(lblock, eblock, ASMIT_BNE);
+					int lcost = 8 + 2 * (nbytes - 1);
+					int	ucost = shift * (1 + 2 * nbytes);
 
-					eblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + 3));
-					return eblock;
+					if ((nproc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)   && lcost < ucost ||
+						!(nproc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL) && 2 * lcost < ucost) 
+					{
+						mIns.Push(NativeCodeInstruction(ASMIT_LDX, ASMIM_IMMEDIATE, shift));
+						this->Close(lblock, nullptr, ASMIT_JMP);
+
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, 0x80));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_IMPLIED));
+						for (int i = nbytes - 2; i >= 0; i--)
+							lblock->mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + i));
+						lblock->mIns.Push(NativeCodeInstruction(ASMIT_DEX, ASMIM_IMPLIED));
+						lblock->Close(lblock, eblock, ASMIT_BNE);
+
+						eblock->mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + nbytes - 1));
+						return eblock;
+					}
+					else
+					{
+						for (int si = 0; si < shift; si++)
+						{
+							mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, 0x80));
+							mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_IMPLIED));
+							for (int i = nbytes - 2; i >= 0; i--)
+								mIns.Push(NativeCodeInstruction(ASMIT_ROR, ASMIM_ZERO_PAGE, treg + i));
+							mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, treg + nbytes - 1));
+						}
+					}
 				}
 			}
 			else
@@ -20098,6 +20120,135 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreDown(int at)
 
 //static bool PeepCheck = false;
 
+bool NativeCodeBasicBlock::ReverseBitfieldForwarding(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int		aused = 0xff;
+		bool	cused = 0;
+	
+		for (int i = mIns.Size() - 1; i >= 0; i--)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+			switch (ins.mType)
+			{
+			case ASMIT_TXA:
+			case ASMIT_TYA:
+			case ASMIT_LDA:
+				aused = 0;
+				break;
+			case ASMIT_CLC:
+			case ASMIT_SEC:
+				cused = false;
+				break;
+			case ASMIT_ADC:
+			case ASMIT_SBC:
+			case ASMIT_JSR:
+				cused = true;
+				aused = 0xff;
+				break;
+			case ASMIT_CMP:
+				cused = false;
+				aused = 0xff;
+				break;
+			case ASMIT_STA:
+			case ASMIT_TAX:
+			case ASMIT_TAY:
+			case ASMIT_EOR:
+				aused = 0xff;
+				break;
+			case ASMIT_LSR:
+				if (ins.mMode == ASMIM_IMPLIED)
+				{
+					aused = (aused << 1) & 0xff;
+					if (cused)
+						aused |= 1;
+				}
+				cused = false;
+				break;
+			case ASMIT_ASL:
+				if (ins.mMode == ASMIM_IMPLIED)
+				{
+					aused >>= 1;
+					if (cused)
+						aused |= 0x80;
+				}
+				cused = false;
+				break;
+			case ASMIT_ROR:
+				if (ins.mMode == ASMIM_IMPLIED)
+				{
+					if (aused & 0x80)
+					{
+						aused = (aused << 1) & 0xff;
+						if (cused)
+							aused |= 1;
+						cused = true;
+					}
+					else
+					{
+						ins.mType = ASMIT_LSR;
+						aused = (aused << 1) & 0xff;
+						if (cused)
+							aused |= 1;
+						cused = false;
+					}
+				}
+				else
+					cused = true;
+				break;
+			case ASMIT_ROL:
+				if (ins.mMode == ASMIM_IMPLIED)
+				{
+					if (aused & 0x01)
+					{
+						aused >>= 1;
+						if (cused)
+							aused |= 0x80;
+						cused = true;
+					}
+					else
+					{
+						ins.mType = ASMIT_ASL;
+						aused >>= 1;
+						if (cused)
+							aused |= 0x80;
+						cused = false;
+					}
+				}
+				else
+					cused = true;
+				break;
+			case ASMIT_ORA:
+				if (ins.mMode == ASMIM_IMMEDIATE)
+					aused &= ~ins.mAddress;
+				else
+					aused = 0xff;
+				break;
+			case ASMIT_AND:
+				if (ins.mMode == ASMIM_IMMEDIATE)
+					aused &= ins.mAddress;
+				else
+					aused = 0xff;
+				break;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ReverseBitfieldForwarding())
+			changed = true;
+		if (mFalseJump && mFalseJump->ReverseBitfieldForwarding())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
+
 bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 {
 	bool	changed = false;
@@ -30590,6 +30741,15 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(this, step))
 			changed = true;
+#endif
+
+#if 1
+		if (step >= 3)
+		{
+			ResetVisited();
+			if (mEntryBlock->ReverseBitfieldForwarding())
+				changed = true;
+		}
 #endif
 
 #if 1

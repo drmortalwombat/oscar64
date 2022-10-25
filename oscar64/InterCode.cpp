@@ -4990,11 +4990,19 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 				switch (cins->mOperator)
 				{
 				case IA_CMPEQ:
-					if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+					if (cins->mSrc[0].mType == IT_INT8 && cins->mSrc[1].mType == IT_INT8 &&
+						(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 256 + cins->mSrc[0].mRange.mMinValue ||
+							cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 256 + cins->mSrc[1].mRange.mMinValue))
+						;
+					else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
 						constFalse = true;
 					break;
 				case IA_CMPNE:
-					if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+					if (cins->mSrc[0].mType == IT_INT8 && cins->mSrc[1].mType == IT_INT8 &&
+						(cins->mSrc[0].mRange.mMinValue < 0 && cins->mSrc[1].mRange.mMaxValue >= 256 + cins->mSrc[0].mRange.mMinValue ||
+							cins->mSrc[1].mRange.mMinValue < 0 && cins->mSrc[0].mRange.mMaxValue >= 256 + cins->mSrc[1].mRange.mMinValue))
+						;
+					else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue || cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
 						constTrue = true;
 					break;
 				case IA_CMPLS:
@@ -5527,6 +5535,17 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 					}
 
+#if 0
+					if (ins->mDst.mType == IT_INT8)
+					{
+						if (vr.mMinValue < 0)
+							vr.mMaxValue = 255;
+						if (vr.mMaxValue > 127)
+							vr.mMinValue = -128;
+						vr.LimitMax(255);
+						vr.LimitMin(-128);
+					}
+#endif
 					break;
 				case IA_SUB:
 					if (ins->mSrc[0].mTemp < 0)

@@ -1630,7 +1630,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			sins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
 			block->Append(sins);
 
-			return ExValue(vdl.mType, ains->mDst.mTemp);
+			// Return reference to value
+			return ExValue(vl.mType, vl.mTemp, 1);
 		}
 		break;
 

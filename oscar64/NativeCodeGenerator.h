@@ -358,6 +358,7 @@ public:
 	bool ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final);
 	bool GlobalValueForwarding(void);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
+	bool ReverseBitfieldForwarding(void);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);
 
