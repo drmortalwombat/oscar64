@@ -29946,6 +29946,7 @@ NativeCodeBasicBlock::NativeCodeBasicBlock(void)
 	mLocked = false;
 	mDominator = nullptr;
 	mLoopHeadBlock = nullptr;
+	mLoopTailBlock = nullptr;
 }
 
 NativeCodeBasicBlock::~NativeCodeBasicBlock(void)
