@@ -431,6 +431,9 @@ public:
 	bool MoveAccuTrainsDown(void);
 	bool MoveAccuTrainDown(int end, int start);
 
+	void BuildUseChangeSets(int start, int end, unsigned & used, unsigned & changed);
+	bool CanExchangeSegments(int start, int mid, int end);
+
 	bool CrossBlockXYPreservation(void);
 
 	bool AlternateXYUsage(void);

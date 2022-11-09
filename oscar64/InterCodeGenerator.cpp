@@ -1937,8 +1937,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 							InterInstruction* ins = new InterInstruction(exp->mLocation, IC_STRCPY);
 							ins->mSrc[0].mType = IT_POINTER;
+							ins->mSrc[0].mMemory = IM_INDIRECT;
 							ins->mSrc[0].mTemp = vr.mTemp;
 							ins->mSrc[1].mType = IT_POINTER;
+							ins->mSrc[1].mMemory = IM_INDIRECT;
 							ins->mSrc[1].mTemp = vl.mTemp;
 							block->Append(ins);
 
@@ -1972,8 +1974,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 							InterInstruction* ins = new InterInstruction(exp->mLocation, IC_COPY);
 							ins->mSrc[0].mType = IT_POINTER;
+							ins->mSrc[0].mMemory = IM_INDIRECT;
 							ins->mSrc[0].mTemp = vr.mTemp;
 							ins->mSrc[1].mType = IT_POINTER;
+							ins->mSrc[1].mMemory = IM_INDIRECT;
 							ins->mSrc[1].mTemp = vl.mTemp;
 							ins->mSrc[0].mOperandSize = nex->mDecValue->mInteger;
 							ins->mSrc[1].mOperandSize = nex->mDecValue->mInteger;
