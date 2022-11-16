@@ -48,6 +48,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 		ins->mDst.mType = v.mReference == 1 ? InterTypeOf(v.mType) : IT_POINTER;
 		ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 		ins->mSrc[0].mOperandSize = v.mReference == 1 ? v.mType->mSize : 2;
+		ins->mSrc[0].mStride = v.mReference == 1 ? v.mType->mStripe : 1;
+
 		if (v.mReference == 1 && v.mType->mType == DT_TYPE_ENUM)
 		{
 			ins->mDst.mRange.LimitMin(v.mType->mMinValue);
@@ -1189,6 +1191,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mSrc[1].mType = IT_POINTER;
 				ins->mSrc[1].mTemp = vl.mTemp;
 				ins->mSrc[1].mOperandSize = vl.mType->mSize;
+				ins->mSrc[1].mStride = vl.mType->mStripe;
 				ins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
 				block->Append(ins);
 			}
@@ -1201,12 +1204,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);
 			vr = TranslateExpression(procType, proc, block, exp->mRight, breakBlock, continueBlock, inlineMapper);
 
+			int stride = vl.mType->mStride;
+
 			if (vl.mType->mType == DT_TYPE_ARRAY && exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				if (vl.mType->mFlags & DTF_DEFINED)
 				{
 					int64	index = exp->mRight->mDecValue->mInteger;
-					if (index < 0 || index * vl.mType->mBase->mSize >= vl.mType->mSize)
+					if (index < 0 || index * stride >= vl.mType->mSize)
 						mErrors->Error(exp->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant array index out of bounds");
 				}
 			}
@@ -1223,7 +1228,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vr = CoerceType(proc, exp, block, vr, TheSignedIntTypeDeclaration);
 
 			InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT);
-			cins->mConst.mIntConst = vl.mType->mBase->mSize;
+			cins->mConst.mIntConst = stride;
 			cins->mDst.mType = IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 			block->Append(cins);
@@ -3366,7 +3371,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		int64	t = data->mInteger;
 		for (int i = 0; i < data->mBase->mSize; i++)
 		{
-			dp[offset + i] = uint8(t & 0xff);
+			dp[offset + i * data->mBase->mStripe] = uint8(t & 0xff);
 			t >>= 8;
 		}
 	}
@@ -3374,7 +3379,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	{
 		int64	t = data->mInteger;
 		dp[offset + 0] = uint8(t & 0xff);
-		dp[offset + 1] = t >> 8;
+		dp[offset + data->mBase->mStripe] = t >> 8;
 	}
 	else if (data->mType == DT_CONST_FLOAT)
 	{
@@ -3383,7 +3388,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		int64	t = cast.i;
 		for (int i = 0; i < 4; i++)
 		{
-			dp[offset + i] = t & 0xff;
+			dp[offset + i * data->mBase->mStripe] = t & 0xff;
 			t >>= 8;
 		}
 	}

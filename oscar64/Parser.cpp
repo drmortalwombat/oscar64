@@ -235,6 +235,13 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 		mScanner->NextToken();
 		break;
 
+	case TK_AUTO:
+		dec = new Declaration(mScanner->mLocation, DT_TYPE_AUTO);
+		dec->mSize = 0;
+		dec->mFlags = flags | DTF_DEFINED;
+		mScanner->NextToken();
+		break;
+
 	case TK_IDENT:
 		dec = mScope->Lookup(mScanner->mTokenIdent);
 		if (dec && dec->mType <= DT_TYPE_FUNCTION)
@@ -546,7 +553,12 @@ Declaration* Parser::ReverseDeclaration(Declaration* odec, Declaration* bdec)
 	if (bdec)
 	{
 		if (odec->mType == DT_TYPE_ARRAY)
+		{
+			odec->mStride = bdec->mSize;
 			odec->mSize *= bdec->mSize;
+		}
+		else if (odec->mType == DT_TYPE_POINTER)
+			odec->mStride = bdec->mSize;
 		else if (odec->mType == DT_VARIABLE || odec->mType == DT_ARGUMENT || odec->mType == DT_ANON)
 			odec->mSize = bdec->mSize;
 		odec->mBase = bdec;
@@ -620,6 +632,13 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 					ndec->mBase = dtype;
 					dec = ndec;
 				}
+			}
+			else if (dec->mType == DT_CONST_ADDRESS)
+			{
+				Declaration* ndec = new Declaration(dec->mLocation, DT_CONST_ADDRESS);
+				ndec->mInteger = dec->mInteger;
+				ndec->mBase = dtype;
+				dec = ndec;
 			}
 
 			dec->mOffset = offset;
@@ -708,7 +727,11 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	Expression* exp = nullptr;
 	Declaration* dec;
 
-	if (dtype->mType == DT_TYPE_ARRAY || dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
+	if (dtype->mType == DT_TYPE_AUTO)
+	{
+		exp = ParseRExpression();
+	}
+	else if (dtype->mType == DT_TYPE_ARRAY || dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
 	{
 		if (dtype->mType != DT_TYPE_ARRAY && !(dtype->mFlags & DTF_DEFINED))
 		{
@@ -728,8 +751,12 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 
 			if (dtype->mType == DT_TYPE_ARRAY)
 			{
-				int	index = 0;
-				while (!(dtype->mFlags & DTF_DEFINED) || index < dtype->mSize)
+				int	index = 0, stride = dtype->mStride, size = 0;
+
+				if (dtype->mFlags & DTF_STRIPED)
+					dec->mStripe = dtype->mBase->mStripe;
+
+				while (!(dtype->mFlags & DTF_DEFINED) || size < dtype->mSize)
 				{
 					int	nrep = 1;
 
@@ -740,7 +767,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant index expected");
 						else
 						{
-							index = dtype->mBase->mSize * istart->mDecValue->mInteger;
+							index = stride * istart->mDecValue->mInteger;
 							if (index >= dtype->mSize)
 							{
 								mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant initializer out of range");
@@ -756,7 +783,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 								{
 									nrep = iend->mDecValue->mInteger - istart->mDecValue->mInteger + 1;
 
-									if (index + nrep * dtype->mBase->mSize > dtype->mSize)
+									if (size + nrep * dtype->mBase->mSize > dtype->mSize)
 									{
 										mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant initializer out of range");
 										break;
@@ -780,7 +807,8 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 							dec->mParams = cdec;
 						last = cdec;
 
-						index += dtype->mBase->mSize;
+						index += stride;
+						size += dtype->mBase->mSize;
 					}
 
 					if (!ConsumeTokenIf(TK_COMMA))
@@ -792,8 +820,8 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 				if (!(dtype->mFlags & DTF_DEFINED))
 				{
 					dtype->mFlags |= DTF_DEFINED;
-					dtype->mSize = index;
-					dec->mSize = index;
+					dtype->mSize = size;
+					dec->mSize = size;
 				}
 			}
 			else
@@ -991,6 +1019,11 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 				storageFlags |= DTF_ZEROPAGE;
 				mScanner->NextToken();
 			}
+			else if (mScanner->mToken == TK_STRIPED)
+			{
+				storageFlags |= DTF_STRIPED;
+				mScanner->NextToken();
+			}
 			else if (mScanner->mToken == TK_NOINLINE)
 			{
 				storageFlags |= DTF_PREVENT_INLINE;
@@ -1040,6 +1073,9 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 		Declaration* ndec = ParsePostfixDeclaration();
 
 		ndec = ReverseDeclaration(ndec, bdec);
+
+		if (storageFlags & DTF_STRIPED)
+			ndec = ndec->ToStriped();
 
 		Declaration* npdec = ndec;
 
@@ -1197,6 +1233,17 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 			{
 				mScanner->NextToken();
 				ndec->mValue = ParseInitExpression(ndec->mBase);
+				if (ndec->mBase->mType == DT_TYPE_AUTO)
+				{
+					ndec->mBase = ndec->mValue->mDecType;
+					if (ndec->mBase->mType == DT_TYPE_ARRAY)
+					{
+						ndec->mBase = ndec->mBase->Clone();
+						ndec->mBase->mType = DT_TYPE_POINTER;
+						ndec->mBase->mSize = 2;
+					}
+				}
+
 				if (ndec->mFlags & DTF_GLOBAL)
 				{
 					if (ndec->mFlags & DTF_ZEROPAGE)
@@ -1313,6 +1360,8 @@ Expression* Parser::ParseSimpleExpression(void)
 	case TK_UNION:
 	case TK_TYPEDEF:
 	case TK_STATIC:
+	case TK_AUTO:
+	case TK_STRIPED:
 		exp = ParseDeclarationExpression();
 		break;
 	case TK_CHARACTER:

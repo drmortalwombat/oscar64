@@ -252,7 +252,7 @@ public:
 	bool				mFinal;
 	int64				mIntConst;
 	double				mFloatConst;
-	int					mVarIndex, mOperandSize;
+	int					mVarIndex, mOperandSize, mStride;
 	LinkerObject	*	mLinkerObject;
 	InterMemory			mMemory;
 	IntegerValueRange	mRange;

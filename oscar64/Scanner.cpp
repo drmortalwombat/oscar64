@@ -45,6 +45,7 @@ const char* TokenNames[] =
 	"'enum'",
 	"'sizeof'",
 	"'static'",
+	"'auto'",
 	"'extern'",
 	"'inline'",
 	"'__assume'",
@@ -57,6 +58,7 @@ const char* TokenNames[] =
 	"__export",
 	"__zeropage",
 	"__noinline",
+	"__striped",
 
 	"number",
 	"char",
@@ -1341,6 +1343,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_TYPEDEF;
 				else if (!strcmp(tkident, "static"))
 					mToken = TK_STATIC;
+				else if (!strcmp(tkident, "auto"))
+					mToken = TK_AUTO;
 				else if (!strcmp(tkident, "extern"))
 					mToken = TK_EXTERN;
 				else if (!strcmp(tkident, "inline"))
@@ -1363,6 +1367,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_ZEROPAGE;
 				else if (!strcmp(tkident, "__noinline"))
 					mToken = TK_NOINLINE;
+				else if (!strcmp(tkident, "__striped"))
+					mToken = TK_STRIPED;
 				else
 				{
 					mToken = TK_IDENT;

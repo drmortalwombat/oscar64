@@ -270,6 +270,43 @@ Unrolling this loop would not help, the index would still not fit into the 8 bit
 	0934 BCC $0925
 
 
+### Striped arrays
+
+The 6502 has no real address registers for indirect/offset addressing and no native multiply instruction.  Accessing array elements of structs or integers is thus more expensive than on most other processors.  The index registers and the byte structure of the processor work nice with arrays of byte that are up to 256 elements in size.  An array of structs (or 16 bit integers/pointers) could thus be split into individual arrays of bytes for each element, allowing fast access using the index registers.  Oscar supports this layout with the __striped storage qualifier.
+
+	int array[8];
+	
+The memory layout of this array will be
+
+	LHLHLHLHLHLHLHLH
+	
+so the compiler has to multiply the index by two to access each element.  A striped layout
+
+	__striped int array[8];
+	
+will result in this memory structure:
+
+	LLLLLLLLHHHHHHHH
+	
+so the compiler can use absolute with index to access each element. 
+
+Similar for a struct:
+
+	struct A {char x; char y; char z} a[5];
+	
+	xyzxyzxyzxyzxyz
+	
+	__striped struct A {char x; char y; char z} a[5];
+	
+	xxxxxyyyyyzzzzz
+	
+The downside of this layout is the inability to have a native pointer to reference one of the elements.  The pointer would have to know the memory layout of the array.  Oscar borrows the "auto" keyword from C++ to enable some of this functionality:
+		
+	auto pa = a + 4;
+	pa-> x = 1;
+	
+This feature is still experimental and only a benefit, if the array has not more than 256 elements.
+
 ### Marking functions as native
 
 Routines can be marked to be compiled to 6502 machine code with the native pragma:

@@ -23,6 +23,7 @@ enum DecType
 	DT_TYPE_UNION,
 	DT_TYPE_FUNCTION,
 	DT_TYPE_ASSEMBLER,
+	DT_TYPE_AUTO,
 
 	DT_TYPE_CONST,
 	DT_TYPE_VOLATILE,
@@ -73,6 +74,7 @@ static const uint64 DTF_HWINTERRUPT		= (1ULL << 20);
 static const uint64 DTF_STACKCALL		= (1ULL << 21);
 static const uint64 DTF_ZEROPAGE		= (1ULL << 22);
 static const uint64 DTF_PREVENT_INLINE  = (1ULL << 23);
+static const uint64 DTF_STRIPED			= (1ULL << 24);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
@@ -182,7 +184,7 @@ public:
 	Declaration*		mBase, *mParams, * mNext;
 	Expression*			mValue;
 	DeclarationScope*	mScope;
-	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize;
+	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
 	uint64				mFlags;
@@ -203,6 +205,9 @@ public:
 	bool IsSimpleType(void) const;
 
 	Declaration* ToConstType(void);
+	Declaration* ToStriped(int stripe);
+	Declaration* ToStriped(void);
+	Declaration* Clone(void);
 };
 
 void InitDeclarations(void);

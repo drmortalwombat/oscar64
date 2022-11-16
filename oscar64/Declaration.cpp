@@ -586,15 +586,107 @@ Expression* Expression::ConstantFold(Errors * errors)
 }
 
 Declaration::Declaration(const Location& loc, DecType type)
-	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), 
-	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), 
-	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0)
+	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
+	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
+	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(1), mStripe(1)
 {}
 
 Declaration::~Declaration(void)
 {
 	delete mScope;
 	delete[] mData;
+}
+
+Declaration* Declaration::Clone(void)
+{
+	Declaration* ndec = new Declaration(mLocation, mType);
+	ndec->mSize = mSize;
+	ndec->mOffset = mOffset;
+	ndec->mStride = mStride;
+	ndec->mStripe = mStripe;
+	ndec->mBase = mBase;
+	ndec->mFlags = mFlags;
+	ndec->mScope = mScope;
+	ndec->mParams = mParams;
+	ndec->mIdent = mIdent;
+	ndec->mValue = mValue;
+	ndec->mVarIndex = mVarIndex;
+	ndec->mLinkerObject = mLinkerObject;
+	ndec->mAlignment = mAlignment;
+	ndec->mSection = mSection;
+
+	return ndec;
+}
+
+Declaration* Declaration::ToStriped(void)
+{
+	Declaration* ndec = this->Clone();
+
+	if (mType == DT_TYPE_ARRAY)
+	{
+		ndec->mFlags |= DTF_STRIPED;
+		if (mBase->mType == DT_TYPE_ARRAY)
+		{
+			ndec->mBase = mBase->Clone();
+			ndec->mStride = mSize / mBase->mSize;
+			ndec->mBase->mStride = 1;
+			ndec->mBase->mBase = mBase->mBase->ToStriped(mSize / mBase->mBase->mSize);
+		}
+		else
+		{
+			ndec->mStride = 1;
+			ndec->mBase = mBase->ToStriped(mSize / mBase->mSize);
+		}
+	}
+	else
+	{
+		ndec->mBase = mBase->ToStriped();
+	}
+
+	return ndec;
+}
+
+Declaration* Declaration::ToStriped(int stripe)
+{
+	Declaration* ndec = new Declaration(mLocation, mType);
+	ndec->mSize = mSize;
+	ndec->mOffset = mOffset * stripe;
+	ndec->mStride = mStride;
+	ndec->mStripe = stripe;
+	ndec->mFlags = mFlags;
+	ndec->mIdent = mIdent;
+
+	if (mType == DT_ELEMENT)
+		ndec->mBase = mBase->ToStriped(stripe);
+	else
+		ndec->mBase = mBase;
+
+	if (mType == DT_TYPE_STRUCT)
+	{
+		ndec->mScope = new DeclarationScope(nullptr);
+		Declaration	* p = mParams;
+		Declaration* prev = nullptr;
+		while (p)
+		{
+			Declaration* pnec = p->ToStriped(stripe);
+
+			ndec->mScope->Insert(pnec->mIdent, pnec);
+
+			if (prev)
+				prev->mNext = pnec;
+			else
+				ndec->mParams = pnec;
+			prev = pnec;
+			p = p->mNext;
+		}		
+	}
+	else
+	{
+		ndec->mScope = mScope;
+		ndec->mParams = mParams;
+	}
+
+	return ndec;
 }
 
 Declaration* Declaration::ToConstType(void)
@@ -604,6 +696,7 @@ Declaration* Declaration::ToConstType(void)
 
 	Declaration* ndec = new Declaration(mLocation, mType);
 	ndec->mSize = mSize;
+	ndec->mStride = mStride;
 	ndec->mBase = mBase;
 	ndec->mFlags = mFlags | DTF_CONST;
 	ndec->mScope = mScope;
@@ -621,12 +714,14 @@ bool Declaration::IsSubType(const Declaration* dec) const
 	if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 	{
 		if (dec->mType == DT_TYPE_POINTER)
-			return mBase->IsSubType(dec->mBase);
+			return mStride == dec->mStride && mBase->IsSubType(dec->mBase);
 	}
 
 	if (mType != dec->mType)
 		return false;
 	if (mSize != dec->mSize)
+		return false;
+	if (mStripe != dec->mStripe)
 		return false;
 
 	if ((mFlags & DTF_SIGNED) != (dec->mFlags & DTF_SIGNED))
@@ -681,6 +776,8 @@ bool Declaration::IsConstSame(const Declaration* dec) const
 		return false;
 	if (mSize != dec->mSize)
 		return false;
+	if (mStripe != dec->mStripe)
+		return false;
 
 	if ((mFlags & DTF_SIGNED) != (dec->mFlags & DTF_SIGNED))
 		return false;
@@ -692,7 +789,7 @@ bool Declaration::IsConstSame(const Declaration* dec) const
 	else if (mType == DT_TYPE_ENUM)
 		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
-		return mBase->IsSame(dec->mBase);
+		return mStride == dec->mStride && mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)
 		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_FUNCTION)
@@ -728,6 +825,8 @@ bool Declaration::IsSame(const Declaration* dec) const
 		return false;
 	if (mSize != dec->mSize)
 		return false;
+	if (mStripe != dec->mStripe)
+		return false;
 
 	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dec->mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
 		return false;
@@ -739,7 +838,7 @@ bool Declaration::IsSame(const Declaration* dec) const
 	else if (mType == DT_TYPE_ENUM)
 		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
-		return mBase->IsSame(dec->mBase);
+		return mStride == dec->mStride && mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)
 		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_FUNCTION)

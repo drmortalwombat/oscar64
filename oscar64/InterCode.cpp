@@ -2426,7 +2426,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 
 
 InterOperand::InterOperand(void)
-	: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0), mVarIndex(-1), mOperandSize(0), mLinkerObject(nullptr), mMemory(IM_NONE)
+	: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0), mVarIndex(-1), mOperandSize(0), mLinkerObject(nullptr), mMemory(IM_NONE), mStride(1)
 {}
 
 bool InterOperand::IsUByte(void) const
@@ -2473,6 +2473,7 @@ void InterOperand::ForwardMem(const InterOperand& op)
 	mTemp = op.mTemp;
 	mType = op.mType;
 	mRange = op.mRange;
+	mStride = op.mStride;
 	mFinal = false;
 }
 
@@ -3603,10 +3604,16 @@ void InterInstruction::Disassemble(FILE* file)
 			fprintf(file, "CONV%d", mOperator);
 			break;
 		case IC_STORE:
-			fprintf(file, "STORE%c%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize);
+			if (mSrc[1].mStride != 1)
+				fprintf(file, "STORE%c%d:%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize, mSrc[1].mStride);
+			else
+				fprintf(file, "STORE%c%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize);
 			break;
 		case IC_LOAD:
-			fprintf(file, "LOAD%c%d", memchars[mSrc[0].mMemory], mSrc[0].mOperandSize);
+			if (mSrc[0].mStride != 1)
+				fprintf(file, "LOAD%c%d:%d", memchars[mSrc[0].mMemory], mSrc[0].mOperandSize, mSrc[0].mStride);
+			else
+				fprintf(file, "LOAD%c%d", memchars[mSrc[0].mMemory], mSrc[0].mOperandSize);
 			break;
 		case IC_COPY:
 			fprintf(file, "COPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
