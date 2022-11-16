@@ -143,12 +143,12 @@ float exp(float f)
 	return s * x.f;
 }
 
-#define F_LOG_0 	-2.79423993
-#define F_LOG_1		5.05984692
-#define F_LOG_2		-3.49247429
-#define F_LOG_3		1.58181193
-#define F_LOG_4		-0.396821126
-#define F_LOG_5		0.041845518
+#define F_LOG_0 	-3.78712618	
+#define F_LOG_1		10.0957081
+#define F_LOG_2		-13.9747486
+#define F_LOG_3		12.7568806
+#define F_LOG_4		-6.48114552
+#define F_LOG_5		1.39045416
 
 float log(float f)
 {
@@ -162,8 +162,8 @@ float log(float f)
 	
 	x.f = f;
 	int	ei = x.i[1];
-	int ex = (ei >> 7) - 0x7f;	
-	x.i[1] = (ei & 0x007f) | 0x3f80;
+	int ex = (ei >> 7) - 0x7e;
+	x.i[1] = (ei & 0x007f) | 0x3f00;
 	
 	float	g = x.f;
 
