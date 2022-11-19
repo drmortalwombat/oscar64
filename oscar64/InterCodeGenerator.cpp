@@ -98,7 +98,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 		}
 
 		InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONVERSION_OPERATOR);
-		cins->mOperator = IA_INT2FLOAT;
+		cins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_INT2FLOAT : IA_UINT2FLOAT;
 		cins->mSrc[0].mType = IT_INT16;
 		cins->mSrc[0].mTemp = stemp;
 		cins->mDst.mType = IT_FLOAT;
@@ -3020,7 +3020,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 				}
 
-				ins->mOperator = IA_INT2FLOAT;
+				ins->mOperator = (vr.mType->mFlags & DTF_SIGNED) ? IA_INT2FLOAT : IA_UINT2FLOAT;
 				ins->mSrc[0].mType = IT_INT16;
 				ins->mSrc[0].mTemp = stemp;
 				ins->mDst.mType = InterTypeOf(exp->mLeft->mDecType);
@@ -3030,7 +3030,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else if (exp->mLeft->mDecType->IsIntegerType() && vr.mType->mType == DT_TYPE_FLOAT)
 			{
 				vr = Dereference(proc, exp, block, vr);
-				ins->mOperator = IA_FLOAT2INT;
+				ins->mOperator = (exp->mLeft->mDecType->mFlags & DTF_SIGNED) ? IA_FLOAT2INT : IA_FLOAT2UINT;
 				ins->mSrc[0].mType = InterTypeOf(vr.mType);
 				ins->mSrc[0].mTemp = vr.mTemp;
 				ins->mDst.mType = IT_INT16;

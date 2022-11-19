@@ -771,6 +771,20 @@ static void ConversionConstantFold(InterInstruction * ins, const InterOperand & 
 		ins->mSrc[0].mTemp = -1;
 		ins->mNumOperands = 0;
 		break;
+	case IA_UINT2FLOAT:
+		ins->mCode = IC_CONSTANT;
+		ins->mConst.mFloatConst = (double)((uint16)cop.mIntConst);
+		ins->mConst.mType = IT_FLOAT;
+		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
+		break;
+	case IA_FLOAT2UINT:
+		ins->mCode = IC_CONSTANT;
+		ins->mConst.mIntConst = (int)(cop.mFloatConst);
+		ins->mConst.mType = IT_INT16;
+		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
+		break;
 	case IA_EXT8TO16S:
 		ins->mCode = IC_CONSTANT;
 		ins->mConst.mIntConst = (int8)(cop.mIntConst);
@@ -2096,6 +2110,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
 			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONVERSION_OPERATOR && 
 					 tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_INT2FLOAT &&
+					 tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2UINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_UINT2FLOAT &&
 					 tvalue[ins->mSrc[0].mTemp]->mOperator == tvalue[ins->mSrc[1].mTemp]->mOperator)
 			{
 				ins->mSrc[0].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
@@ -2107,7 +2122,8 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			}
 			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
 			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT &&
-					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_INT2FLOAT)
+					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_INT2FLOAT &&
+					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2UINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_UINT2FLOAT)
 			{
 				bool	toconst = false;
 				int		cvalue = 0;
@@ -2241,7 +2257,8 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			}
 			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
 			 	     ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT &&
-					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_INT2FLOAT)
+					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_INT2FLOAT &&
+					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2UINT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_UINT2FLOAT)
 			{
 				bool	toconst = false;
 				int		cvalue = 0;

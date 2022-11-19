@@ -3568,7 +3568,6 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 		mIns.Push(lins);
 
 		ByteCodeInstruction	bins(BC_CONV_F32_I16);
-//		ByteCodeInstruction	bins(ins->mDst.mType == IT_SIGNED ? BC_CONV_F32_I16 : BC_CONV_F32_U16);
 		mIns.Push(bins);
 
 		ByteCodeInstruction	sins(BC_STORE_REG_16);
@@ -3584,7 +3583,6 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 		mIns.Push(lins);
 
 		ByteCodeInstruction	bins(BC_CONV_I16_F32);
-//		ByteCodeInstruction	bins(ins.mSType[0] == IT_SIGNED ? BC_CONV_I16_F32 : BC_CONV_U16_F32);
 		mIns.Push(bins);
 
 		ByteCodeInstruction	sins(BC_STORE_REG_32);
@@ -3592,6 +3590,37 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 		mIns.Push(sins);
 
 	} break;
+	case IA_FLOAT2UINT:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_32);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+
+		ByteCodeInstruction	bins(BC_CONV_F32_U16);
+		mIns.Push(bins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_16);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(sins);
+
+	}	break;
+	case IA_UINT2FLOAT:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_16);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+
+		ByteCodeInstruction	bins(BC_CONV_U16_F32);
+		mIns.Push(bins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(sins);
+
+	} break;
+
 	case IA_EXT8TO16S:
 	{
 		if (ins->mSrc[0].mTemp == ins->mDst.mTemp)
