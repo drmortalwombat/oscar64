@@ -28437,8 +28437,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 
-						mIns[i + 3] = mIns[i + 2];
 						mIns[i + 3].mType = ASMIT_ADC;
+						mIns[i + 3].CopyMode(mIns[i + 2]);
 						mIns[i + 2].mType = ASMIT_CLC; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_C;
 						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 						mIns[i + 2].mLive |= mIns[i + 1].mLive;
@@ -30847,7 +30847,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plant_draw_field");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plant_place");
 
 #if 1
 	int		step = 0;

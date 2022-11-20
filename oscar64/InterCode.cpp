@@ -13674,6 +13674,8 @@ void InterCodeProcedure::Close(void)
 	BuildTraces(false);
 	DisassembleDebug("Rebuilt traces");
 
+	BuildDataFlowSets();
+
 	do {
 		TempForwarding();
 	} while (GlobalConstantPropagation());
