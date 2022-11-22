@@ -4283,15 +4283,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{9E8C8C98-9B2C-4CE0-8D0A-81C8012D11B2}"
-        "PackageCode" = "8:{8F995E13-1150-4D61-9892-33AAC0823D83}"
+        "ProductCode" = "8:{B6E47BFE-938F-4B25-8C95-E51AF35165C7}"
+        "PackageCode" = "8:{8AD29ABB-862F-458C-972F-A1D656646CF8}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.11.169"
+        "ProductVersion" = "8:1.11.170"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -4805,7 +4805,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_FB2E467BC172457785F4279BB0BFE8B6"
             {
-            "SourcePath" = "8:..\\Debug\\oscar64.exe"
+            "SourcePath" = "8:..\\Release\\oscar64.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_607E75AF0E2A4CB9908C4C39DF8FE6E4"

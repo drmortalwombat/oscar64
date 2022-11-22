@@ -2680,7 +2680,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		}
 		else
 		{
-			if (mMode != ASMIM_ZERO_PAGE && mMode != ASMIM_ABSOLUTE && mMode != ASMIM_INDIRECT_Y)
+			if (mMode != ASMIM_ZERO_PAGE && mMode != ASMIM_ABSOLUTE && mMode != ASMIM_INDIRECT_Y && mMode != ASMIM_ABSOLUTE_X && mMode != ASMIM_ABSOLUTE_Y)
 				data.mRegs[CPU_REG_A].Reset();
 			data.mRegs[CPU_REG_Z].Reset();
 		}
@@ -28288,6 +28288,44 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						progress = true;
 					}
 #endif
+#if 1
+					else if (
+						mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_X &&
+						mIns[i + 3].mType == ASMIT_LDX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+					{
+
+						mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 2].mMode = ASMIM_ABSOLUTE_Y; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+
+						if (!(mIns[i + 3].mLive & LIVE_MEM))
+						{
+							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						}
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_STY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y &&
+						mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+					{
+
+						mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 2].mMode = ASMIM_ABSOLUTE_X; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+
+						if (!(mIns[i + 3].mLive & LIVE_MEM))
+						{
+							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						}
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+						progress = true;
+					}
+#endif
 					else if (
 						mIns[i + 0].ChangesAccuAndFlag() &&
 						mIns[i + 1].mType == ASMIT_STA &&
@@ -30847,7 +30885,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plant_place");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plants_animate");
 
 #if 1
 	int		step = 0;
