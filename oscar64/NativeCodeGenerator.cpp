@@ -5296,6 +5296,7 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 	int	rindex = rins->mSrc[0].mIntConst;
 	int rareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 	LinkerObject* rlobject = nullptr;
+	int rstride = rins->mSrc[0].mStride;
 
 	uint32	rflags = NCIF_LOWER | NCIF_UPPER;
 	if (rins->mVolatile)
@@ -5337,6 +5338,7 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 	int	windex = wins->mSrc[1].mIntConst;
 	int wareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 	LinkerObject* wlobject = nullptr;
+	int wstride = wins->mSrc[1].mStride;
 
 	uint32	wflags = NCIF_LOWER | NCIF_UPPER;
 	if (wins->mVolatile)
@@ -5384,23 +5386,23 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 	{
 		if (rmode == ASMIM_INDIRECT_Y)
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, rindex + i));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, rindex + i * rstride));
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_INDIRECT_Y, rareg, nullptr, rflags));
 		}
 		else if (rmode == ASMIM_ZERO_PAGE)
 			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, rareg + i));
 		else
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, rindex + i, rlobject, rflags));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ABSOLUTE, rindex + i * rstride, rlobject, rflags));
 
 		if (wmode == ASMIM_INDIRECT_Y)
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, windex + i));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, windex + i * wstride));
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_INDIRECT_Y, wareg, nullptr, wflags));
 		}
 		else if (wmode == ASMIM_ZERO_PAGE)
 			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, wareg + i));
 		else
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, windex + i, wlobject, wflags));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ABSOLUTE, windex + i * wstride, wlobject, wflags));
 	}
 }
 
