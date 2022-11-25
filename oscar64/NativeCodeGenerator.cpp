@@ -20937,6 +20937,37 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 
 						}
 					}
+					else if (lins.mType == ASMIT_LDX)
+					{
+						mFDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
+						mFDataSet.mRegs[CPU_REG_X].mValue = 0;
+
+						if (lins.mMode == ASMIM_ZERO_PAGE)
+						{
+							mFDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
+							mFDataSet.mRegs[lins.mAddress].mValue = 0;
+
+						}
+					}
+					else if (lins.mType == ASMIT_LDA)
+					{
+						mFDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
+						mFDataSet.mRegs[CPU_REG_A].mValue = 0;
+
+						if (lins.mMode == ASMIM_ZERO_PAGE)
+						{
+							mFDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
+							mFDataSet.mRegs[lins.mAddress].mValue = 0;
+
+						}
+					}
+					else if (lins.mType == ASMIT_TXA || lins.mType == ASMIT_TAX)
+					{
+						mFDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
+						mFDataSet.mRegs[CPU_REG_A].mValue = 0;
+						mFDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
+						mFDataSet.mRegs[CPU_REG_X].mValue = 0;
+					}
 				}
 				break;
 			case ASMIT_BEQ:
@@ -20958,6 +20989,53 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 					}
 					mFalseJump = nullptr;
 					changed = true;
+				}
+				else if (global && mIns.Size() > 0)
+				{
+					NativeCodeInstruction& lins(mIns[mIns.Size() - 1]);
+
+					if (lins.mType == ASMIT_LDY)
+					{
+						mNDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
+						mNDataSet.mRegs[CPU_REG_Y].mValue = 0;
+
+						if (lins.mMode == ASMIM_ZERO_PAGE)
+						{
+							mNDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
+							mNDataSet.mRegs[lins.mAddress].mValue = 0;
+
+						}
+					}
+					else if (lins.mType == ASMIT_LDX)
+					{
+						mNDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
+						mNDataSet.mRegs[CPU_REG_X].mValue = 0;
+
+						if (lins.mMode == ASMIM_ZERO_PAGE)
+						{
+							mNDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
+							mNDataSet.mRegs[lins.mAddress].mValue = 0;
+
+						}
+					}
+					else if (lins.mType == ASMIT_LDA)
+					{
+						mNDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
+						mNDataSet.mRegs[CPU_REG_A].mValue = 0;
+
+						if (lins.mMode == ASMIM_ZERO_PAGE)
+						{
+							mNDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
+							mNDataSet.mRegs[lins.mAddress].mValue = 0;
+						}
+					}
+					else if (lins.mType == ASMIT_TXA || lins.mType == ASMIT_TAX)
+					{
+						mNDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
+						mNDataSet.mRegs[CPU_REG_A].mValue = 0;
+						mNDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
+						mNDataSet.mRegs[CPU_REG_X].mValue = 0;
+					}
 				}
 				break;
 			case ASMIT_BPL:
@@ -23991,6 +24069,31 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 			{
 				mIns[j + 0].mType = ASMIT_DEC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress;
 				mIns[j + 1].mType = ASMIT_DEC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress;
+				j += 2;
+				i += 4;
+			}
+
+			else if (i + 3 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 1].mType == ASMIT_CLC &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].CopyMode(mIns[i + 0]);
+				mIns[j + 1].mType = ASMIT_INC; mIns[j + 1].CopyMode(mIns[i + 0]);
+				j += 2;
+				i += 4;
+			}
+			else if (i + 3 < mIns.Size() &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 0].mType == ASMIT_SEC &&
+				mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				mIns[j + 0].mType = ASMIT_DEC; mIns[j + 0].CopyMode(mIns[i + 0]);
+				mIns[j + 1].mType = ASMIT_DEC; mIns[j + 1].CopyMode(mIns[i + 0]);
 				j += 2;
 				i += 4;
 			}
