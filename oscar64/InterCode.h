@@ -270,6 +270,8 @@ public:
 	bool IsSByte(void) const;
 	bool IsUnsigned(void) const;
 
+	bool IsNotUByte(void) const;
+
 	void Disassemble(FILE* file);
 };
 
@@ -477,6 +479,10 @@ public:
 	bool CanMoveInstructionBehindBlock(int ii) const;
 	bool CanMoveInstructionDown(int si, int ti) const;
 	bool MergeCommonPathInstructions(void);
+
+	bool IsTempModifiedInRange(int from, int to, int temp);
+	bool IsTempUsedInRange(int from, int to, int temp);
+	bool IsTempReferencedInRange(int from, int to, int temp);
 
 	void CheckFinalLocal(void);
 	void CheckFinal(void);

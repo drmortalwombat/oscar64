@@ -15541,7 +15541,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 			//
 			int	nins = mIns.Size(), tins = mTrueJump->mIns.Size(), fins = mFalseJump->mIns.Size();
 			if (nins > 1 && tins > 0 && fins > 0 && mFalseJump->mIns[0].mType == ASMIT_TXA &&
-				!mIns[nins - 1].ChangesAccu() && !mFalseJump->mEntryRequiredRegs[CPU_REG_A])
+				mIns[nins - 2].mType == ASMIT_TAX && !mIns[nins - 1].ChangesAccu() && !mFalseJump->mEntryRequiredRegs[CPU_REG_A])
 			{
 				mTrueJump->mIns.Push(NativeCodeInstruction(ASMIT_TXA));
 				mFalseJump->mIns[0].mType = ASMIT_NOP; mFalseJump->mIns[0].mMode = ASMIM_IMPLIED;
@@ -30990,7 +30990,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plants_animate");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "menu_draw_color_line");
 
 #if 1
 	int		step = 0;
@@ -31028,6 +31028,7 @@ void NativeCodeProcedure::Optimize(void)
 
 		RebuildEntry();
 
+		
 #if 1
 		if (step > 3)
 		{
@@ -31061,7 +31062,6 @@ void NativeCodeProcedure::Optimize(void)
 			mEntryBlock->ReplaceFinalZeroPageUse(this);
 		}
 #endif
-
 #if 1
 		do
 		{
@@ -31071,10 +31071,13 @@ void NativeCodeProcedure::Optimize(void)
 			ResetVisited();
 			changed = mEntryBlock->RemoveUnusedResultInstructions();
 
+
 			ResetVisited();
 			NativeRegisterDataSet	data;
 			if (mEntryBlock->ValueForwarding(data, step > 0, step == 7))
+			{
 				changed = true;
+			}
 			else
 			{
 #if 1
@@ -31146,7 +31149,6 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
-
 #if 1
 		if (step > 0)
 		{
@@ -31192,7 +31194,6 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
-
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckBlocks(true);
@@ -31211,6 +31212,8 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
+
 
 #if _DEBUG
 		ResetVisited();
@@ -31358,7 +31361,6 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
-
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckBlocks();
@@ -31373,7 +31375,6 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->ApplyEntryDataSet())
 			changed = true;
 #endif
-
 
 #if 1
 		if (step >= 4)
@@ -31486,6 +31487,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 
