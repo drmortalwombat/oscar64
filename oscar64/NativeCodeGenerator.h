@@ -449,8 +449,8 @@ public:
 	bool CheckPatchFailReg(const NativeCodeBasicBlock* block, int reg);
 	bool CheckPatchFailUse(void);
 
-	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int at, int yval);
-	bool PatchGlobalAddressSumYPointer(const NativeCodeBasicBlock* block, int reg, int at, int yval, LinkerObject * lobj, int address);
+	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int index, int at, int yval);
+	bool PatchGlobalAddressSumYPointer(const NativeCodeBasicBlock* block, int reg, int index, int at, int yval, LinkerObject * lobj, int address);
 
 	bool CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains, int cycles);
 	bool PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains);

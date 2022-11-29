@@ -1019,11 +1019,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mSrc[0].mType = IT_POINTER;
 					ins->mSrc[0].mTemp = vr.mTemp;
 					ins->mSrc[0].mMemory = IM_INDIRECT;
+					ins->mSrc[0].mOperandSize = vl.mType->mSize;
+					ins->mSrc[0].mStride = vr.mType->mStripe;
+
 					ins->mSrc[1].mType = IT_POINTER;
 					ins->mSrc[1].mTemp = vl.mTemp;
 					ins->mSrc[1].mMemory = IM_INDIRECT;
-					ins->mSrc[0].mOperandSize = vl.mType->mSize;
 					ins->mSrc[1].mOperandSize = vl.mType->mSize;
+					ins->mSrc[1].mStride = vl.mType->mStripe;
 					ins->mConst.mOperandSize = vl.mType->mSize;
 					block->Append(ins);
 				}
@@ -2115,14 +2118,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						if (vp.mTemp != vr.mTemp)
 						{
 							InterInstruction* cins = new InterInstruction(exp->mLocation, IC_COPY);
+
 							cins->mSrc[0].mType = IT_POINTER;
 							cins->mSrc[0].mTemp = vr.mTemp;
 							cins->mSrc[0].mMemory = IM_INDIRECT;
+							cins->mSrc[0].mOperandSize = vr.mType->mSize;
+							cins->mSrc[0].mStride = vr.mType->mStripe;
+
 							cins->mSrc[1].mType = IT_POINTER;
 							cins->mSrc[1].mTemp = ains->mDst.mTemp;
 							cins->mSrc[1].mMemory = IM_INDIRECT;
-							cins->mSrc[0].mOperandSize = vr.mType->mSize;
 							cins->mSrc[1].mOperandSize = vr.mType->mSize;
+
 							cins->mConst.mOperandSize = vr.mType->mSize;
 							block->Append(cins);
 						}
@@ -2374,11 +2381,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							cins->mSrc[0].mType = IT_POINTER;
 							cins->mSrc[0].mTemp = vr.mTemp;
 							cins->mSrc[0].mMemory = IM_INDIRECT;
+							cins->mSrc[0].mOperandSize = vr.mType->mSize;
+							cins->mSrc[0].mStride = vr.mType->mStripe;
+
+							cins->mSrc[1].mOperandSize = vr.mType->mSize;
 							cins->mSrc[1].mType = IT_POINTER;
 							cins->mSrc[1].mTemp = ains->mDst.mTemp;
 							cins->mSrc[1].mMemory = IM_INDIRECT;
-							cins->mSrc[0].mOperandSize = vr.mType->mSize;
-							cins->mSrc[1].mOperandSize = vr.mType->mSize;
+
 							cins->mConst.mOperandSize = vr.mType->mSize;
 							block->Append(cins);
 						}
@@ -2636,11 +2646,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					cins->mSrc[0].mType = IT_POINTER;
 					cins->mSrc[0].mTemp = vr.mTemp;
 					cins->mSrc[0].mMemory = IM_INDIRECT;
+					cins->mSrc[0].mOperandSize = vr.mType->mSize;
+					cins->mSrc[0].mStride = vr.mType->mStripe;
+
+					cins->mSrc[1].mOperandSize = vr.mType->mSize;
 					cins->mSrc[1].mType = IT_POINTER;
 					cins->mSrc[1].mTemp = ains->mDst.mTemp;
 					cins->mSrc[1].mMemory = IM_INDIRECT;
-					cins->mSrc[0].mOperandSize = vr.mType->mSize;
-					cins->mSrc[1].mOperandSize = vr.mType->mSize;
+
 					cins->mConst.mOperandSize = vr.mType->mSize;
 					block->Append(cins);
 				}

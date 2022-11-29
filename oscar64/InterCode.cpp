@@ -3640,7 +3640,17 @@ void InterInstruction::Disassemble(FILE* file)
 				fprintf(file, "LOAD%c%d", memchars[mSrc[0].mMemory], mSrc[0].mOperandSize);
 			break;
 		case IC_COPY:
-			fprintf(file, "COPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
+			if (mSrc[1].mStride != 1)
+			{
+				if (mSrc[0].mStride != 1)
+					fprintf(file, "COPY%c%d%c%d", memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory], mSrc[1].mStride);
+				else
+					fprintf(file, "COPY%c%c%d", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory], mSrc[1].mStride);
+			}
+			else if (mSrc[0].mStride != 1)
+				fprintf(file, "COPY%c%d%c", memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory]);
+			else
+				fprintf(file, "COPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
 		case IC_STRCPY:
 			fprintf(file, "STRCPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
