@@ -8525,7 +8525,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				}
 				mLoadStoreInstructions.SetSize(k);
 
-				if (nins)
+				if (nins && t >= 0)
 				{
 					// Check self destruction of source operaand
 					int l = 0;
