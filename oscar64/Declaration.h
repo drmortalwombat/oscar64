@@ -208,6 +208,8 @@ public:
 	Declaration* ToStriped(int stripe);
 	Declaration* ToStriped(void);
 	Declaration* Clone(void);
+
+	int Stride(void) const;
 };
 
 void InitDeclarations(void);

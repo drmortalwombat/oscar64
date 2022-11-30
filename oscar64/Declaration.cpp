@@ -588,13 +588,18 @@ Expression* Expression::ConstantFold(Errors * errors)
 Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
 	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
-	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(1), mStripe(1)
+	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1)
 {}
 
 Declaration::~Declaration(void)
 {
 	delete mScope;
 	delete[] mData;
+}
+
+int Declaration::Stride(void) const
+{
+	return mStride > 0 ? mStride : mBase->mSize;
 }
 
 Declaration* Declaration::Clone(void)
@@ -714,7 +719,7 @@ bool Declaration::IsSubType(const Declaration* dec) const
 	if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 	{
 		if (dec->mType == DT_TYPE_POINTER)
-			return mStride == dec->mStride && mBase->IsSubType(dec->mBase);
+			return this->Stride() == dec->Stride() && mBase->IsSubType(dec->mBase);
 	}
 
 	if (mType != dec->mType)
@@ -789,7 +794,7 @@ bool Declaration::IsConstSame(const Declaration* dec) const
 	else if (mType == DT_TYPE_ENUM)
 		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
-		return mStride == dec->mStride && mBase->IsSame(dec->mBase);
+		return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)
 		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_FUNCTION)
@@ -838,7 +843,7 @@ bool Declaration::IsSame(const Declaration* dec) const
 	else if (mType == DT_TYPE_ENUM)
 		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
-		return mStride == dec->mStride && mBase->IsSame(dec->mBase);
+		return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)
 		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_FUNCTION)

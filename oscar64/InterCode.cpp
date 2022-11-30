@@ -11289,8 +11289,10 @@ void InterCodeBasicBlock::CheckFinalLocal(void)
 		const InterInstruction* ins(mInstructions[i]);
 		for (int j = 0; j < ins->mNumOperands; j++)
 		{
-			if (ins->mSrc[j].mTemp >= 0)
-				assert(provided[ins->mSrc[j].mTemp]);
+			if (ins->mSrc[j].mTemp >= 0 && !provided[ins->mSrc[j].mTemp])
+			{
+				printf("Use of potentially undefined temp %d\n", ins->mSrc[j].mTemp);
+			}
 		}
 
 		if (ins->mDst.mTemp >= 0)
@@ -12311,16 +12313,16 @@ void InterCodeBasicBlock::WarnUsedUndefinedVariables(InterCodeProcedure* proc)
 					if (potentialTemps[t])
 					{
 						if (k < proc->mLocalVars.Size() && proc->mLocalVars[k]->mIdent)
-							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentialy uninitialized variable", proc->mLocalVars[k]->mIdent);
+							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized variable", proc->mLocalVars[k]->mIdent);
 						else
-							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentialy uninitialized expression");
+							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized expression");
 					}
 					else
 					{
 						if (k < proc->mLocalVars.Size() && proc->mLocalVars[k]->mIdent)
-							proc->mModule->mErrors->Error(ins->mLocation, ERRR_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized variable", proc->mLocalVars[k]->mIdent);
+							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized variable", proc->mLocalVars[k]->mIdent);
 						else
-							proc->mModule->mErrors->Error(ins->mLocation, ERRR_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized expression");
+							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized expression");
 
 						if (ins->mCode == IC_LOAD_TEMPORARY)
 						{

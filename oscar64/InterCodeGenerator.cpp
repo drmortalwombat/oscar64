@@ -1207,7 +1207,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);
 			vr = TranslateExpression(procType, proc, block, exp->mRight, breakBlock, continueBlock, inlineMapper);
 
-			int stride = vl.mType->mStride;
+			int stride = vl.mType->Stride();
 
 			if (vl.mType->mType == DT_TYPE_ARRAY && exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 			{
@@ -2405,7 +2405,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						if (pdec)
 						{
 							if (!pdec->mBase->CanAssign(vr.mType))
+							{
+								pdec->mBase->CanAssign(vr.mType);
 								mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+							}
 							vr = CoerceType(proc, texp, block, vr, pdec->mBase);
 						}
 						else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)

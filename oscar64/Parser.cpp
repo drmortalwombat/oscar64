@@ -553,12 +553,7 @@ Declaration* Parser::ReverseDeclaration(Declaration* odec, Declaration* bdec)
 	if (bdec)
 	{
 		if (odec->mType == DT_TYPE_ARRAY)
-		{
-			odec->mStride = bdec->mSize;
 			odec->mSize *= bdec->mSize;
-		}
-		else if (odec->mType == DT_TYPE_POINTER)
-			odec->mStride = bdec->mSize;
 		else if (odec->mType == DT_VARIABLE || odec->mType == DT_ARGUMENT || odec->mType == DT_ANON)
 			odec->mSize = bdec->mSize;
 		odec->mBase = bdec;
@@ -751,7 +746,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 
 			if (dtype->mType == DT_TYPE_ARRAY)
 			{
-				int	index = 0, stride = dtype->mStride, size = 0;
+				int	index = 0, stride = dtype->Stride(), size = 0;
 
 				if (dtype->mFlags & DTF_STRIPED)
 					dec->mStripe = dtype->mBase->mStripe;
@@ -913,6 +908,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			nexp->mDecType = new Declaration(dec->mLocation, DT_TYPE_POINTER);
 			nexp->mDecType->mBase = exp->mDecType->mBase;
 			nexp->mDecType->mSize = 2;
+			nexp->mDecType->mStride = exp->mDecType->mStride;
 			nexp->mDecType->mFlags |= DTF_DEFINED;
 			nexp->mDecValue = ndec;
 			exp = nexp;
@@ -1824,6 +1820,8 @@ Expression* Parser::ParseAddExpression(void)
 			Declaration* dec = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
 			dec->mSize = 2;
 			dec->mBase = nexp->mLeft->mDecType->mBase;
+			dec->mStride = nexp->mLeft->mDecType->mStride;
+			dec->mStripe = nexp->mLeft->mDecType->mStripe;
 			nexp->mDecType = dec;
 		}
 		else if (nexp->mRight->mDecType->mType == DT_TYPE_ARRAY && nexp->mLeft->mDecType->IsIntegerType())
@@ -1831,6 +1829,8 @@ Expression* Parser::ParseAddExpression(void)
 			Declaration* dec = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
 			dec->mSize = 2;
 			dec->mBase = nexp->mRight->mDecType->mBase;
+			dec->mStride = nexp->mRight->mDecType->mStride;
+			dec->mStripe = nexp->mRight->mDecType->mStripe;
 			nexp->mDecType = dec;
 		}
 		else if (nexp->mLeft->mDecType->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->mType == DT_TYPE_FLOAT)
