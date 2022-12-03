@@ -1766,6 +1766,7 @@ Expression* Parser::ParsePrefixExpression(void)
 				Declaration* pdec = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
 				pdec->mBase = nexp->mLeft->mDecType;
 				pdec->mSize = 2;
+				pdec->mFlags |= DTF_DEFINED;
 				nexp->mDecType = pdec;
 			}
 			else
@@ -1822,6 +1823,7 @@ Expression* Parser::ParseAddExpression(void)
 			dec->mBase = nexp->mLeft->mDecType->mBase;
 			dec->mStride = nexp->mLeft->mDecType->mStride;
 			dec->mStripe = nexp->mLeft->mDecType->mStripe;
+			dec->mFlags |= DTF_DEFINED;
 			nexp->mDecType = dec;
 		}
 		else if (nexp->mRight->mDecType->mType == DT_TYPE_ARRAY && nexp->mLeft->mDecType->IsIntegerType())
@@ -1831,6 +1833,7 @@ Expression* Parser::ParseAddExpression(void)
 			dec->mBase = nexp->mRight->mDecType->mBase;
 			dec->mStride = nexp->mRight->mDecType->mStride;
 			dec->mStripe = nexp->mRight->mDecType->mStripe;
+			dec->mFlags |= DTF_DEFINED;
 			nexp->mDecType = dec;
 		}
 		else if (nexp->mLeft->mDecType->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->mType == DT_TYPE_FLOAT)

@@ -1059,11 +1059,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						if (exp->mToken == TK_ASSIGN_ADD)
 						{
-							cins->mConst.mIntConst = vl.mType->mBase->mSize;
+							cins->mConst.mIntConst = vl.mType->Stride();
 						}
 						else if (exp->mToken == TK_ASSIGN_SUB)
 						{
-							cins->mConst.mIntConst = -vl.mType->mBase->mSize;
+							cins->mConst.mIntConst = -vl.mType->Stride();
 						}
 						else
 							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer assignment");
@@ -1305,6 +1305,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					Declaration* ptype = new Declaration(exp->mLocation, DT_TYPE_POINTER);
 					ptype->mBase = vl.mType->mBase;
 					ptype->mSize = 2;
+					ptype->mStride = vl.mType->mStride;
 					vl.mType = ptype;
 				}
 
@@ -1314,11 +1315,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					if (exp->mToken == TK_ADD)
 					{
-						cins->mConst.mIntConst = vl.mType->mBase->mSize;
+						cins->mConst.mIntConst = vl.mType->Stride();
 					}
 					else if (exp->mToken == TK_SUB)
 					{
-						cins->mConst.mIntConst = -vl.mType->mBase->mSize;
+						cins->mConst.mIntConst = -vl.mType->Stride();
 					}
 					else
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
@@ -1368,7 +1369,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						block->Append(crins);
 
 						InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT);
-						cins->mConst.mIntConst = vl.mType->mBase->mSize;
+						cins->mConst.mIntConst = vl.mType->Stride();
 						cins->mDst.mType = IT_INT16;
 						cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 						block->Append(cins);
@@ -1420,7 +1421,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					if (exp->mToken == TK_ADD)
 					{
-						cins->mConst.mIntConst = vr.mType->mBase->mSize;
+						cins->mConst.mIntConst = vr.mType->Stride();
 					}
 					else
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
@@ -1602,7 +1603,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			cins->mDst.mType = ftype ? IT_FLOAT : IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 			if (vdl.mType->mType == DT_TYPE_POINTER)
-				cins->mConst.mIntConst = exp->mToken == TK_INC ? vdl.mType->mBase->mSize : -(vdl.mType->mBase->mSize);
+				cins->mConst.mIntConst = exp->mToken == TK_INC ? vdl.mType->Stride() : -(vdl.mType->Stride());
 			else if (vdl.mType->IsNumericType())
 				cins->mConst.mIntConst = exp->mToken == TK_INC ? 1 : -1;
 			else
@@ -1663,7 +1664,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			cins->mDst.mType = ftype ? IT_FLOAT : IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 			if (vdl.mType->mType == DT_TYPE_POINTER)
-				cins->mConst.mIntConst = exp->mToken == TK_INC ? vdl.mType->mBase->mSize : -(vdl.mType->mBase->mSize);
+				cins->mConst.mIntConst = exp->mToken == TK_INC ? vdl.mType->Stride() : -(vdl.mType->Stride());
 			else if (vdl.mType->IsNumericType())
 				cins->mConst.mIntConst = exp->mToken == TK_INC ? 1 : -1;
 			else
@@ -1733,6 +1734,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			case TK_MUL:
 				if (vl.mType->mType != DT_TYPE_POINTER)
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a pointer type");
+				if (vl.mType->mStride != 1)
+					vl = Dereference(proc, exp, block, vl, 0);
 				return ExValue(vl.mType->mBase, vl.mTemp, vl.mReference + 1);
 			case TK_BINARY_AND:
 			{

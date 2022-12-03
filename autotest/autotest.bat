@@ -153,6 +153,9 @@ rem @echo off
 @call :test cplxstructtest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testn stripedarraytest.c
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error
@@ -206,6 +209,24 @@ exit /b %errorlevel%
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -O3 %~1
+@if %errorlevel% neq 0 goto :error
+
+@exit /b 0
+
+:testn
+..\release\oscar64 -e -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O2 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O0 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -Os -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O3 -n %~1
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

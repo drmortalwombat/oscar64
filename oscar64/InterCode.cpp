@@ -3083,10 +3083,11 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 		}
 	}
 
+
 	return changed;
 }
 
-bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars, NumberSet& requiredVars)
+bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars, NumberSet& requiredVars, GrowingInstructionPtrArray& storeIns)
 {
 	bool	changed = false;
 
@@ -3104,6 +3105,14 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariable
 		{
 			requiredVars += mSrc[0].mVarIndex;
 		}
+
+		int k = 0;
+		for (int i = 0; i < storeIns.Size(); i++)
+		{
+			if (!CollidingMem(this, storeIns[i], staticVars))
+				storeIns[k++] = storeIns[i];
+		}
+		storeIns.SetSize(k);
 	}
 	else if (mCode == IC_STORE)
 	{
@@ -3121,15 +3130,42 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariable
 				changed = true;
 			}
 		}
+		else
+		{
+			int i = 0;
+			while (i < storeIns.Size() && !SameMem(mSrc[1], storeIns[i]))
+				i++;
+			if (!mVolatile && i < storeIns.Size())
+			{
+				mCode = IC_NONE;
+				mNumOperands = 0;
+				changed = true;
+			}
+			else
+			{
+				int k = 0;
+				for (int i = 0; i < storeIns.Size(); i++)
+				{
+					if (!CollidingMem(this, storeIns[i], staticVars))
+						storeIns[k++] = storeIns[i];
+				}
+				storeIns.SetSize(k);
+			}
+		}
 	}
 	else if (mCode == IC_COPY || mCode == IC_STRCPY)
 	{
 		requiredVars.Fill();
+		storeIns.SetSize(0);
 	}
 	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE)
 	{
 		requiredVars.Fill();
+		storeIns.SetSize(0);
 	}
+
+	if (mCode == IC_STORE)
+		storeIns.Push(this);
 
 	return changed;
 }
@@ -6959,13 +6995,14 @@ bool InterCodeBasicBlock::RemoveUnusedStaticStoreInstructions(const GrowingVaria
 	{
 		mVisited = true;
 
-		NumberSet		requiredVars(mExitRequiredStatics);
+		NumberSet						requiredVars(mExitRequiredStatics);
+		GrowingInstructionPtrArray		storeIns(nullptr);
 
 		int i;
 
 		for (i = mInstructions.Size() - 1; i >= 0; i--)
 		{
-			if (mInstructions[i]->RemoveUnusedStaticStoreInstructions(staticVars, requiredVars))
+			if (mInstructions[i]->RemoveUnusedStaticStoreInstructions(staticVars, requiredVars, storeIns))
 				changed = true;
 		}
 
@@ -7084,8 +7121,8 @@ bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArr
 	{
 		mVisited = true;
 
-		NumberSet		requiredVars(mExitRequiredVars);
-		NumberSet		requiredParams(mExitRequiredParams);
+		NumberSet						requiredVars(mExitRequiredVars);
+		NumberSet						requiredParams(mExitRequiredParams);	
 
 		int i;
 
