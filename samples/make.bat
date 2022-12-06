@@ -14,6 +14,10 @@ cd hiresmc
 call make.bat
 cd ..
 
+cd particles
+call make.bat
+cd ..
+
 cd kernalio
 call make.bat
 cd ..

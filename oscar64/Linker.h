@@ -167,6 +167,8 @@ public:
 	void AddReference(const LinkerReference& ref);
 
 	void MoveToSection(LinkerSection* section);
+
+	void MarkRelevant(void);
 };
 
 class Linker

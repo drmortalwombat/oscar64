@@ -15,6 +15,10 @@ cd hiresmc
 ./build.sh
 cd ..
 
+cd particles
+./build.sh
+cd ..
+
 cd kernalio
 ./build.sh
 cd ..

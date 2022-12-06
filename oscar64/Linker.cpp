@@ -43,6 +43,17 @@ void LinkerObject::AddReference(const LinkerReference& ref)
 	mReferences.Push(nref);
 }
 
+void LinkerObject::MarkRelevant(void)
+{
+	if (!(mFlags & LOBJF_RELEVANT))
+	{
+		mFlags |= LOBJF_RELEVANT;
+		for (int i = 0; i < mReferences.Size(); i++)
+			if (mReferences[i]->mRefObject)
+				mReferences[i]->mRefObject->MarkRelevant();
+	}
+}
+
 void LinkerObject::MoveToSection(LinkerSection* section)
 {
 	if (section != mSection)

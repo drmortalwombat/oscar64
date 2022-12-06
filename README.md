@@ -672,6 +672,23 @@ Draws filled random circles and fills the space using flood fill.
 Similar to its hires counterpart but using four shades of grey.
 
 
+### Particle systems "particles"
+
+Active hires graphics using particle system
+
+#### Hires fireworks "fireworks_hires.c"
+
+Simple hires particle system using velocity and gravity integration.
+
+#### Multicolor fireworks "fireworks_ptr.c"
+
+Simple multi color hires particle system using velocity and gravity integration.
+
+#### Fireworks with striped memory layout "fireworks_stripe.c"
+
+Simple multi color hires particle system using velocity and gravity integration.  This version uses striped memory layout for the particles to simplify addressing for the CPU.
+
+
 ### Mandelbrot renderer "fractals"
 
 Various versions of the mandelbrot set using float arithmetic.
@@ -693,6 +710,10 @@ Multi color version using pure and mixed colors.
 ![Mandelbrot fractal in 3D](samples/fractals/mbmulti3d.png)
 
 Mandelbrot rendered in 3D with shading.  The image is drawn in columns from back to front, using two adjacent columns to calculate slope and brightness.
+
+#### Interactive Navigate a fractal "mbzoom.c"
+
+Navigate using WASD and zoom using + and -.
 
 
 ### Raster beam interrupts "rasterirq"

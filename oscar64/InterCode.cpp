@@ -8792,24 +8792,24 @@ void InterCodeBasicBlock::MarkRelevantStatics(void)
 			if (ins->mCode == IC_LOAD)
 			{
 				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL)
-					ins->mSrc[0].mLinkerObject->mFlags |= LOBJF_RELEVANT;
+					ins->mSrc[0].mLinkerObject->MarkRelevant();
 			}
 			else if (ins->mCode == IC_LEA)
 			{
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL)
-					ins->mSrc[1].mLinkerObject->mFlags |= LOBJF_RELEVANT;
+					ins->mSrc[1].mLinkerObject->MarkRelevant();
 			}
 			else if (ins->mCode == IC_CONSTANT && ins->mDst.mType == IT_POINTER)
 			{
 				if (ins->mConst.mMemory == IM_GLOBAL)
-					ins->mConst.mLinkerObject->mFlags |= LOBJF_RELEVANT;
+					ins->mConst.mLinkerObject->MarkRelevant();
 			}
 			else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
 			{
 				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL)
-					ins->mSrc[0].mLinkerObject->mFlags |= LOBJF_RELEVANT;
+					ins->mSrc[0].mLinkerObject->MarkRelevant();
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL)
-					ins->mSrc[1].mLinkerObject->mFlags |= LOBJF_RELEVANT;
+					ins->mSrc[1].mLinkerObject->MarkRelevant();
 			}
 		}
 
@@ -13018,12 +13018,12 @@ void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 {
 	if (mLocalVars.Size() > 0 || mParamVars.Size() > 0)
 	{
-		for (int i = 0; i < mLocalVars.Size(); i++)
+		for (int i = 0; i < mLocalAliasedSet.Size(); i++)
 		{
 			if (mLocalAliasedSet[i])
 				mLocalVars[i]->mAliased = true;
 		}
-		for (int i = 0; i < mParamVars.Size(); i++)
+		for (int i = 0; i < mParamAliasedSet.Size(); i++)
 		{
 			if (mParamAliasedSet[i])
 				mParamVars[i]->mAliased = true;

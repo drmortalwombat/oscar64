@@ -3038,7 +3038,14 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 #if 1
 	if (mMode == ASMIM_ABSOLUTE_X && data.mRegs[CPU_REG_X].SameData(data.mRegs[CPU_REG_Y]) && HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y) && !(mFlags & NICT_INDEXFLIPPED))
 	{
+		mFlags |= NICT_INDEXFLIPPED;
 		mMode = ASMIM_ABSOLUTE_Y;
+		changed = true;
+	}
+	else if (mMode == ASMIM_ABSOLUTE_Y && data.mRegs[CPU_REG_X].SameData(data.mRegs[CPU_REG_Y]) && HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X) && !(mFlags & NICT_INDEXFLIPPED))
+	{
+		mFlags |= NICT_INDEXFLIPPED;
+		mMode = ASMIM_ABSOLUTE_X;
 		changed = true;
 	}
 #endif
@@ -20966,6 +20973,23 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 		{
 			AsmInsType	carryop;
 
+#if 1
+			if (mIns[i].mMode == ASMIM_INDIRECT_Y && HasAsmInstructionMode(mIns[i].mType, ASMIM_ABSOLUTE_Y) &&
+				mNDataSet.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE &&
+				mNDataSet.mRegs[mIns[i].mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && (mNDataSet.mRegs[mIns[i].mAddress + 1].mFlags & NCIF_UPPER) &&
+				mNDataSet.mRegs[mIns[i].mAddress].mMode != NRDM_IMMEDIATE_ADDRESS)
+			{
+				int	reg = mIns[i].mAddress;
+				mIns.Insert(i, NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, reg));
+				mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
+				mIns[i + 1].mLinkerObject = mNDataSet.mRegs[reg + 1].mLinkerObject;
+				mIns[i + 1].mAddress = mNDataSet.mRegs[reg + 1].mValue + mNDataSet.mRegs[CPU_REG_Y].mValue;
+				mIns[i + 1].mFlags |= NCIF_LOWER;
+				mIns.Insert(i + 2, NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, mNDataSet.mRegs[CPU_REG_Y].mValue));
+				mIns.Insert(i + 3, NativeCodeInstruction(ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+				changed = true;
+			}
+#endif
 			// Check load and commutative with current accu value
 #if 1
 			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 1].mAddress)
@@ -29339,21 +29363,19 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					}
 
 #endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_UPPER) &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						!(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				}
+
+				if (i + 1 < mIns.Size() &&
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 0].mFlags & NCIF_UPPER) &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+				{
+					proc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1))
 					{
 						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1))
-						{
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1, mIns[i + 0].mLinkerObject, mIns[i + 0].mAddress))
-								progress = true;
-						}
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1, mIns[i + 0].mLinkerObject, mIns[i + 0].mAddress))
+							progress = true;
 					}
-#endif
 				}
 
 				if (i + 5 < mIns.Size() &&
