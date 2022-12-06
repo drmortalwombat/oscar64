@@ -79,7 +79,6 @@ struct Shot
 
 Shot	*	freeShot;
 
-
 // Player data
 struct Player
 {
