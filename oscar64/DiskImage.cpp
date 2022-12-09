@@ -89,9 +89,9 @@ void DiskImage::MarkBAMSector(int track, int sector)
 
 	uint8* dp = bam + 4 * track;
 
-	if (dp[sector >> 3] & (1 << (sector & 7)))
+	if (dp[1 + (sector >> 3)] & (1 << (sector & 7)))
 	{
-		dp[sector >> 3] &= ~(1 << (sector & 7));
+		dp[1 + (sector >> 3)] &= ~(1 << (sector & 7));
 		dp[0]--;
 	}
 }
@@ -108,7 +108,7 @@ int DiskImage::AllocBAMSector(int track, int sector)
 		if (sector >= SectorsPerTrack[track])
 			sector -= SectorsPerTrack[track];
 
-		while (!(dp[sector >> 3] & (1 << (sector & 7))))
+		while (!(dp[1 + (sector >> 3)] & (1 << (sector & 7))))
 		{
 			sector++;
 			if (sector >= SectorsPerTrack[track])
