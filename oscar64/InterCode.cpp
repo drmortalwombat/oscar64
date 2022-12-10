@@ -384,7 +384,18 @@ void ValueSet::FlushCallAliases(const GrowingInstructionPtrArray& tvalue, const 
 	}
 }
 
-static bool CollidingMem(const InterOperand& op1, const InterOperand& op2, const GrowingVariableArray& staticVars)
+static bool CollidingMemType(InterType type1, InterType type2)
+{
+	if (type1 == IT_NONE || type2 == IT_NONE)
+		return true;
+	else if (type1 == IT_POINTER || type1 == IT_FLOAT || type2 == IT_POINTER || type2 == IT_FLOAT)
+		return type1 == type2;
+	else
+		return false;
+
+}
+
+static bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2, const GrowingVariableArray& staticVars)
 {
 	if (op1.mMemory != op2.mMemory)
 	{
@@ -395,7 +406,7 @@ static bool CollidingMem(const InterOperand& op1, const InterOperand& op2, const
 			else if (op2.mMemory == IM_FPARAM)
 				return false;
 			else
-				return true;
+				return CollidingMemType(type1, type2);
 		}
 		else if (op2.mMemory == IM_INDIRECT)
 		{
@@ -404,7 +415,7 @@ static bool CollidingMem(const InterOperand& op1, const InterOperand& op2, const
 			else if (op1.mMemory == IM_FPARAM)
 				return false;
 			else
-				return true;
+				return CollidingMemType(type1, type2);
 		}
 		else
 			return false;
@@ -429,18 +440,20 @@ static bool CollidingMem(const InterOperand& op1, const InterOperand& op2, const
 		else if (op1.mLinkerObject && op2.mLinkerObject && op1.mLinkerObject != op2.mLinkerObject)
 			return false;
 		else
-			return true;
+			return CollidingMemType(type1, type2);
 	default:
 		return false;
 	}
 }
 
-static bool CollidingMem(const InterOperand& op, const InterInstruction* ins, const GrowingVariableArray& staticVars)
+static bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins, const GrowingVariableArray& staticVars)
 {
 	if (ins->mCode == IC_LOAD)
-		return CollidingMem(op, ins->mSrc[0], staticVars);
+		return CollidingMem(op, type, ins->mSrc[0], ins->mDst.mType, staticVars);
 	else if (ins->mCode == IC_STORE)
-		return CollidingMem(op, ins->mSrc[1], staticVars);
+		return CollidingMem(op, type, ins->mSrc[1], ins->mSrc[0].mType, staticVars);
+	else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+		return CollidingMem(op, type, ins->mSrc[0], IT_NONE, staticVars) || CollidingMem(op, type, ins->mSrc[1], IT_NONE, staticVars);
 	else
 		return false;
 }
@@ -448,9 +461,11 @@ static bool CollidingMem(const InterOperand& op, const InterInstruction* ins, co
 static bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2, const GrowingVariableArray& staticVars)
 {
 	if (ins1->mCode == IC_LOAD)
-		return CollidingMem(ins1->mSrc[0], ins2, staticVars);
+		return CollidingMem(ins1->mSrc[0], ins1->mDst.mType, ins2, staticVars);
 	else if (ins1->mCode == IC_STORE)
-		return CollidingMem(ins1->mSrc[1], ins2, staticVars);
+		return CollidingMem(ins1->mSrc[1], ins1->mSrc[0].mType, ins2, staticVars);
+	else if (ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+		return CollidingMem(ins1->mSrc[0], IT_NONE, ins2, staticVars) || CollidingMem(ins1->mSrc[1], IT_NONE, ins2, staticVars);
 	else
 		return false;
 }
@@ -988,6 +1003,91 @@ static bool CanBypassLoad(const InterInstruction* lins, const InterInstruction* 
 	// False data dependency
 	if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].mTemp == bins->mDst.mTemp)
 		return false;
+
+	return true;
+}
+
+static bool CanBypassStoreDown(const InterInstruction* sins, const InterInstruction* bins)
+{
+	// Check ambiguity
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
+		return false;
+
+	// Side effects
+	if (bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE || bins->mCode == IC_ASSEMBLER)
+		return false;
+
+	// True data dependency
+	if (bins->mDst.mTemp >= 0 && sins->UsesTemp(bins->mDst.mTemp))
+		return false;
+
+	if (bins->mCode == IC_STORE)
+	{
+		if (sins->mVolatile)
+			return false;
+		else if (sins->mSrc[1].mMemory == IM_INDIRECT && bins->mSrc[1].mMemory == IM_INDIRECT)
+		{
+			return sins->mSrc[1].mLinkerObject && bins->mSrc[1].mLinkerObject && sins->mSrc[1].mLinkerObject != bins->mSrc[1].mLinkerObject;
+		}
+		else if (sins->mSrc[1].mTemp >= 0 || bins->mSrc[1].mTemp >= 0)
+			return false;
+		else if (sins->mSrc[1].mMemory != bins->mSrc[1].mMemory)
+			return true;
+		else if (sins->mSrc[1].mMemory == IM_GLOBAL)
+		{
+			return sins->mSrc[1].mLinkerObject != bins->mSrc[1].mLinkerObject ||
+				sins->mSrc[1].mIntConst + sins->mSrc[1].mOperandSize <= bins->mSrc[1].mIntConst ||
+				sins->mSrc[1].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (sins->mSrc[1].mMemory == IM_ABSOLUTE)
+		{
+			return
+				sins->mSrc[1].mIntConst + sins->mSrc[1].mOperandSize <= bins->mSrc[1].mIntConst ||
+				sins->mSrc[1].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else if (sins->mSrc[1].mMemory == IM_LOCAL)
+		{
+			return sins->mSrc[1].mVarIndex != bins->mSrc[1].mVarIndex ||
+				sins->mSrc[1].mIntConst + sins->mSrc[1].mOperandSize <= bins->mSrc[1].mIntConst ||
+				sins->mSrc[1].mIntConst >= bins->mSrc[1].mIntConst + bins->mSrc[1].mOperandSize;
+		}
+		else
+			return false;
+	}
+
+	if (bins->mCode == IC_LOAD)
+	{
+		if (sins->mVolatile)
+			return false;
+		else if (sins->mSrc[1].mMemory == IM_INDIRECT && bins->mSrc[0].mMemory == IM_INDIRECT)
+		{
+			return sins->mSrc[1].mLinkerObject && bins->mSrc[0].mLinkerObject && sins->mSrc[1].mLinkerObject != bins->mSrc[0].mLinkerObject;
+		}
+		else if (sins->mSrc[1].mTemp >= 0 || bins->mSrc[0].mTemp >= 0)
+			return false;
+		else if (sins->mSrc[1].mMemory != bins->mSrc[0].mMemory)
+			return true;
+		else if (sins->mSrc[1].mMemory == IM_GLOBAL)
+		{
+			return sins->mSrc[1].mLinkerObject != bins->mSrc[0].mLinkerObject ||
+				sins->mSrc[1].mIntConst + sins->mSrc[1].mOperandSize <= bins->mSrc[0].mIntConst ||
+				sins->mSrc[1].mIntConst >= bins->mSrc[0].mIntConst + bins->mSrc[0].mOperandSize;
+		}
+		else if (sins->mSrc[1].mMemory == IM_ABSOLUTE)
+		{
+			return
+				sins->mSrc[1].mIntConst + sins->mSrc[1].mOperandSize <= bins->mSrc[0].mIntConst ||
+				sins->mSrc[1].mIntConst >= bins->mSrc[0].mIntConst + bins->mSrc[0].mOperandSize;
+		}
+		else if (sins->mSrc[1].mMemory == IM_LOCAL)
+		{
+			return sins->mSrc[1].mVarIndex != bins->mSrc[0].mVarIndex ||
+				sins->mSrc[1].mIntConst + sins->mSrc[1].mOperandSize <= bins->mSrc[0].mIntConst ||
+				sins->mSrc[1].mIntConst >= bins->mSrc[0].mIntConst + bins->mSrc[0].mOperandSize;
+		}
+		else
+			return false;
+	}
 
 	return true;
 }
@@ -4978,8 +5078,7 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 				j = 0;
 				for(int k=0; k<ltemps.Size(); k++)
 				{
-					if (!CollidingMem(ltemps[k]->mSrc[0], ins->mSrc[1], staticVars) &&
-						!CollidingMem(ltemps[k]->mSrc[1], ins->mSrc[1], staticVars))
+					if (!CollidingMem(ltemps[k], ins, staticVars))
 					{
 						ltemps[j++] = ltemps[k];
 					}
@@ -5000,8 +5099,7 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 				j = 0;
 				for (int k = 0; k < ltemps.Size(); k++)
 				{
-					if (!CollidingMem(ltemps[k]->mSrc[0], ins->mSrc[1], staticVars) &&
-						!CollidingMem(ltemps[k]->mSrc[1], ins->mSrc[1], staticVars))
+					if (!CollidingMem(ltemps[k], ins, staticVars))
 					{
 						ltemps[j++] = ltemps[k];
 					}
@@ -5466,6 +5564,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				{
 					if (ins->mDst.mType == IT_INT8)
 					{
+						bool	isUnsigned = false;
+						if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+							mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
+							isUnsigned = true;
+
 						LinkerObject* lo = mInstructions[i - 1]->mSrc[1].mLinkerObject;
 						int	mi = 0, ma = 0;
 
@@ -5474,7 +5577,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 						{
 							for (int j = 0; j < lo->mSize; j++)
 							{
-								int v = (int8)(lo->mData[j]);
+								int v = isUnsigned ? lo->mData[j] : (int8)(lo->mData[j]);
 								if (v < mi)
 									mi = v;
 								if (v > ma)
@@ -5486,7 +5589,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 							for (int j = 0; j < lo->mSize; j++)
 							{
 								int v = lo->mData[j];
-								if (v & 0x80)
+								if (!isUnsigned && (v & 0x80))
 									mi = -128;
 								if (v > ma)
 									ma = v;
@@ -8509,7 +8612,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					j = 0;
 					while (j < mLoadStoreInstructions.Size())
 					{
-						if (!CollidingMem(ins->mSrc[1], mLoadStoreInstructions[j], staticVars))
+						if (!CollidingMem(ins, mLoadStoreInstructions[j], staticVars))
 							mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
 						j++;
 					}
@@ -8864,7 +8967,9 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 	}
 	else if (ins->mCode == IC_STORE)
 	{
-		return false;
+		for (int i = si + 1; i < ti; i++)
+			if (!CanBypassStore(ins, mInstructions[i]))
+				return false;
 	}
 	else if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
 		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
@@ -8877,6 +8982,14 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 	}
 
 	return true;
+}
+
+int InterCodeBasicBlock::FindSameInstruction(const InterInstruction* ins) const
+{
+	int	i = mInstructions.Size() - 1;
+	while (i >= 0 && !mInstructions[i]->IsEqual(ins))
+		i--;
+	return i;
 }
 
 bool InterCodeBasicBlock::CanMoveInstructionBehindBlock(int ii) const
@@ -8977,7 +9090,41 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 				ti++;
 			}
 		}
+#if 1
+		if (mNumEntries > 1)
+		{
+			int i = 0;
+			while (i < mEntryBlocks.Size() && mEntryBlocks[i]->mInstructions.Size() > 1 && !mEntryBlocks[i]->mFalseJump)
+				i++;
+			if (i == mEntryBlocks.Size())
+			{
+				InterCodeBasicBlock* eb = mEntryBlocks[0];
 
+				int	ebi = eb->mInstructions.Size() - 2;
+				while (ebi >= 0)
+				{
+					InterInstruction* ins = eb->mInstructions[ebi];
+
+					if (ins && eb->CanMoveInstructionBehindBlock(ebi))
+					{
+						int j = 1, eji = -1;
+						while (j < mEntryBlocks.Size() && (eji = mEntryBlocks[j]->FindSameInstruction(ins)) >= 0 && mEntryBlocks[j]->CanMoveInstructionBehindBlock(eji))
+							j++;
+
+						if (j == mEntryBlocks.Size())
+						{
+							mInstructions.Insert(0, ins);
+							for (int j = 0; j < mEntryBlocks.Size(); j++)
+								mEntryBlocks[j]->mInstructions.Remove(mEntryBlocks[j]->FindSameInstruction(ins));
+							changed = true;
+						}
+					}
+
+					ebi--;
+				}
+			}
+		}
+#endif
 		if (mTrueJump && mTrueJump->MergeCommonPathInstructions())
 			changed = true;
 		if (mFalseJump && mFalseJump->MergeCommonPathInstructions())
@@ -10494,12 +10641,25 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 						i++;
 					if (i == nins - 3)
 					{
+						InterInstruction* xins = nullptr;
 						for (int i = 0; i < mInstructions.Size() - 3; i++)
 						{
 							InterInstruction* lins = mInstructions[i];
+							
+							if (xins && lins->mDst.mTemp >= 0 && lins->mDst.mTemp == xins->mDst.mTemp)
+								xins = nullptr;
+
 							if (lins->mCode == IC_LEA && lins->mSrc[0].mTemp == ains->mDst.mTemp && lins->mSrc[0].IsUByte() && lins->mSrc[1].mTemp >= 0 && !mLocalModifiedTemps[lins->mSrc[1].mTemp])
 							{
 								tvalues[lins->mDst.mTemp] = lins;
+							}
+							else if (lins->mCode == IC_LEA && xins && lins->mSrc[0].mTemp == xins->mDst.mTemp && lins->mSrc[0].IsUByte() && lins->mSrc[1].mTemp >= 0 && !mLocalModifiedTemps[lins->mSrc[1].mTemp])
+							{
+								tvalues[lins->mDst.mTemp] = lins;
+							}
+							else if (lins->mCode == IC_CONVERSION_OPERATOR && lins->mOperator == IA_EXT8TO16U && lins->mSrc[0].mTemp == ains->mDst.mTemp && lins->mSrc[0].IsUByte())
+							{
+								xins = lins;
 							}
 							else if (lins->mCode == IC_LEA && lins->mSrc[0].mTemp < 0 && lins->mSrc[0].mIntConst == ains->mSrc[0].mIntConst && lins->mSrc[1].mTemp == lins->mDst.mTemp && 
 								pi >= 0 && pblock->mInstructions[pi]->mCode == IC_CONSTANT && ains->mSrc[1].IsUByte() && pblock->mInstructions[pi]->mConst.mIntConst == 0 &&
@@ -10577,6 +10737,35 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 
 								changed = true;
 							}
+							else if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].mIntConst >= 16 && tvalues[lins->mSrc[0].mTemp])
+							{
+								if (spareTemps + 2 >= mEntryRequiredTemps.Size() + 16)
+									return true;
+
+								InterInstruction* pins = tvalues[lins->mSrc[0].mTemp];
+								InterInstruction* nins = new InterInstruction(lins->mLocation, IC_LEA);
+								nins->mSrc[1] = pins->mSrc[1];
+								nins->mSrc[0].mTemp = -1;
+								nins->mSrc[0].mType = IT_INT16;
+								nins->mSrc[0].mIntConst = lins->mSrc[0].mIntConst;
+								nins->mDst.mMemory = IM_INDIRECT;
+								nins->mDst.mTemp = spareTemps++;
+								nins->mDst.mType = IT_POINTER;
+
+								pblock->mInstructions.Insert(pblock->mInstructions.Size() - 1, nins);
+
+								InterInstruction* mins = pins->Clone();
+								mins->mDst.mTemp = spareTemps++;
+								mins->mDst.mMemory = IM_INDIRECT;
+								mins->mSrc[1] = nins->mDst;
+								mInstructions.Insert(i, mins);
+
+
+								lins->mSrc[0].mTemp = mins->mDst.mTemp;
+								lins->mSrc[0].mIntConst = 0;
+
+								changed = true;
+							}
 							else if (lins->mDst.mTemp >= 0)
 								tvalues[lins->mDst.mTemp] = nullptr;
 						}
@@ -10628,7 +10817,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					{
 						// Find the last store that overlaps the load
 						int	j = mInstructions.Size() - 1;
-						while (j > i && !(mInstructions[j]->mCode == IC_STORE && CollidingMem(ins->mSrc[0], mInstructions[j]->mSrc[1], staticVars)))
+						while (j > i && !(mInstructions[j]->mCode == IC_STORE && CollidingMem(ins, mInstructions[j], staticVars)))
 							j--;
 
 						if (j > i)
@@ -10699,7 +10888,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					ins->mInvariant = false;
 				else if (ins->mCode == IC_LOAD)
 				{
-					if (ins->mSrc[0].mTemp >= 0 || ins->mVolatile)
+					if ((ins->mSrc[0].mTemp >= 0 && mLocalModifiedTemps[ins->mSrc[0].mTemp]) || ins->mVolatile)
 					{
 						ins->mInvariant = false;
 					}
@@ -10716,7 +10905,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						for (int j = 0; j < mInstructions.Size(); j++)
 						{
 							InterInstruction* sins = mInstructions[j];
-							if (sins->mCode == IC_STORE && CollidingMem(ins->mSrc[0], sins->mSrc[1], staticVars))
+							if (sins->mCode == IC_STORE && CollidingMem(ins, sins, staticVars))
 							{
 								if (sins->mSrc[1].mTemp >= 0)
 								{
@@ -10740,7 +10929,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 											ins->mInvariant = false;
 									}
 								}
-								else if (CollidingMem(ins->mSrc[0], sins->mSrc[1], staticVars))
+								else if (CollidingMem(ins, sins, staticVars))
 								{
 									ins->mInvariant = false;
 								}
@@ -11352,6 +11541,23 @@ void InterCodeBasicBlock::CheckFinal(void)
 	}
 #endif
 }
+
+void InterCodeBasicBlock::CheckBlocks(void)
+{
+#if _DEBUG
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+			assert(mInstructions[i] != nullptr);
+		
+		if (mTrueJump) mTrueJump->CheckBlocks();
+		if (mFalseJump) mFalseJump->CheckBlocks();
+	}
+#endif
+}
+
 
 void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& staticVars)
 {
@@ -12728,6 +12934,12 @@ int InterCodeProcedure::AddTemporary(InterType type)
 	return temp;
 }
 
+void InterCodeProcedure::CheckBlocks(void)
+{
+	ResetVisited();
+	mEntryBlock->CheckBlocks();
+}
+
 void InterCodeProcedure::CheckFinal(void)
 {
 	ResetVisited();
@@ -14000,6 +14212,7 @@ void InterCodeProcedure::Close(void)
 
 		TempForwarding();
 #if 1
+		CheckBlocks();
 
 		BuildDataFlowSets();
 		do {
@@ -14008,8 +14221,13 @@ void InterCodeProcedure::Close(void)
 
 		LoadStoreForwarding(paramMemory);
 
+		ResetEntryBlocks();
+		ResetVisited();
+		mEntryBlock->CollectEntryBlocks(nullptr);
 		MergeCommonPathInstructions();
-#if 1
+
+		CheckBlocks();
+#if 1	
 		PushSinglePathResultInstructions();
 #endif
 
@@ -14275,7 +14493,8 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 						eblocks.Push(eblock);
 				}
 
-				if (eblocks.Size() == block->mNumEntries)
+				bool	allBlocks = eblocks.Size() == block->mNumEntries;
+//				if ()
 				{
 					GrowingArray<InterCodeBasicBlock* >	mblocks(nullptr);
 
@@ -14283,10 +14502,8 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 					{
 						InterCodeBasicBlock* nblock;
 
-						if (eblocks.Size() || mblocks.IndexOf(block) != -1)
+						if (!allBlocks || eblocks.Size() || mblocks.IndexOf(block) != -1)
 						{
-//							break;
-
 							nblock = new InterCodeBasicBlock();
 							this->Append(nblock);
 

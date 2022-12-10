@@ -1178,6 +1178,8 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent);
 							}
 
+							pdec->mFlags |= ndec->mFlags & DTF_ZEROPAGE;
+
 							ndec = pdec;
 						}
 						else if (pdec->mFlags & DTF_EXTERN)
@@ -1199,6 +1201,8 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 								pdec->mFlags &= ~DTF_EXTERN;
 								pdec->mSection = ndec->mSection;
 							}
+
+							pdec->mFlags |= ndec->mFlags & DTF_ZEROPAGE;
 
 							ndec = pdec;
 						}
@@ -2604,6 +2608,12 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 		exp->mDecType = dec->mBase;
 
 		mScanner->NextToken();
+		break;
+
+	case TK_OPEN_BRACKET:
+		mScanner->NextToken();
+		exp = ParseAssemblerOperand(pcasm, pcoffset);
+		ConsumeToken(TK_CLOSE_BRACKET);
 		break;
 
 	case TK_IDENT:

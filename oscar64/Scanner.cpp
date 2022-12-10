@@ -958,20 +958,15 @@ void Scanner::NextRawToken(void)
 			}
 			break;
 		case '%':
-			if (mAssemblerMode)
+			NextChar();
+			if (mAssemblerMode && mTokenChar >= '0' && mTokenChar <= '1')
 			{
 				int	n = 0;
 				int64	mant = 0;
-				while (NextChar())
+				while (mTokenChar >= '0' && mTokenChar <= '1')
 				{
-					if (mTokenChar >= '0' && mTokenChar <= '9')
-						mant = mant * 16 + (int)mTokenChar - (int)'0';
-					else if (mTokenChar >= 'a' && mTokenChar <= 'f')
-						mant = mant * 16 + 10 + (int)mTokenChar - (int)'a';
-					else if (mTokenChar >= 'A' && mTokenChar <= 'F')
-						mant = mant * 16 + 10 + (int)mTokenChar - (int)'A';
-					else
-						break;
+					mant = mant * 2 + (mTokenChar - '0');
+					NextChar();
 					n++;
 				}
 
@@ -981,12 +976,14 @@ void Scanner::NextRawToken(void)
 				mToken = TK_INTEGER;
 				mTokenInteger = mant;
 			}
-			mToken = TK_MOD;
-			NextChar();
-			if (mTokenChar == '=')
+			else
 			{
-				NextChar();
-				mToken = TK_ASSIGN_MOD;
+				mToken = TK_MOD;
+				if (mTokenChar == '=')
+				{
+					NextChar();
+					mToken = TK_ASSIGN_MOD;
+				}
 			}
 			break;
 		case '~':

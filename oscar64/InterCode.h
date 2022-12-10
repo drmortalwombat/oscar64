@@ -478,6 +478,7 @@ public:
 	bool CanMoveInstructionBeforeBlock(int ii, const InterInstruction * ins) const;
 	bool CanMoveInstructionBehindBlock(int ii) const;
 	bool CanMoveInstructionDown(int si, int ti) const;
+	int FindSameInstruction(const InterInstruction* ins) const;
 	bool MergeCommonPathInstructions(void);
 
 	bool IsTempModifiedInRange(int from, int to, int temp);
@@ -486,6 +487,7 @@ public:
 
 	void CheckFinalLocal(void);
 	void CheckFinal(void);
+	void CheckBlocks(void);
 
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
@@ -605,6 +607,7 @@ protected:
 	void PeepholeOptimization(void);
 
 	void CheckFinal(void);
+	void CheckBlocks(void);
 
 	void DisassembleDebug(const char* name);
 };

@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.11.172");
+		strcpy(strProductVersion, "1.11.173");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -221,6 +221,7 @@ int main2(int argc, const char** argv)
 		{
 			compiler->mCompilerOptions |= COPT_TARGET_PRG;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_PRG"), "1");
+			compiler->AddDefine(Ident::Unique("OSCAR_BASIC_START"), "0x0801");
 		}
 		else if (!strcmp(targetFormat, "crt"))
 		{
@@ -236,6 +237,7 @@ int main2(int argc, const char** argv)
 		{
 			compiler->mCompilerOptions |= COPT_TARGET_LZO;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_LZO"), "1");
+			compiler->AddDefine(Ident::Unique("OSCAR_BASIC_START"), "0x0801");
 		}
 		else
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target format option", targetFormat);

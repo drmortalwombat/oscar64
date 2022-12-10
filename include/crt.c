@@ -137,10 +137,10 @@ w0:
 		byt	0x0a
 		byt	0x00
 		byt	0x9e
-		byt	0x32
-		byt	0x30
-		byt	0x36
-		byt	0x31
+		byt	[OSCAR_BASIC_START + 12] / 1000 % 10 + 0x30
+		byt	[OSCAR_BASIC_START + 12] / 100 % 10 + 0x30
+		byt	[OSCAR_BASIC_START + 12] / 10 % 10 + 0x30
+		byt	[OSCAR_BASIC_START + 12] % 10 + 0x30
 		byt	0x00
 		byt	0x00
 		byt	0x00
