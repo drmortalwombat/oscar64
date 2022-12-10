@@ -546,9 +546,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 		while (i > 0 && prgPath[i - 1] != '/' && prgPath[i - 1] != '\\')
 			i--;
 
-		d64->OpenFile(prgPath + i);
-		mLinker->WritePrgFile(d64);
-		d64->CloseFile();
+		mLinker->WritePrgFile(d64, prgPath + i);
 	}
 
 	if (mCompilerOptions & COPT_VERBOSE)

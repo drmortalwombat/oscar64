@@ -838,6 +838,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_E3FF6A8B315C439DA54DE18DB39FB3AD"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_E4138658F1F544CF86255EDC1659936D"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -3777,6 +3783,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E3FF6A8B315C439DA54DE18DB39FB3AD"
+            {
+            "SourcePath" = "8:..\\samples\\memmap\\overlay.c"
+            "TargetName" = "8:overlay.c"
+            "Tag" = "8:"
+            "Folder" = "8:_A62A71A6A08941C5964B90112D87731F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E4138658F1F544CF86255EDC1659936D"
             {
             "SourcePath" = "8:..\\samples\\kernalio\\charread.c"
@@ -4424,15 +4450,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{B37C3691-BB18-4F82-B574-F47BF7A70D6E}"
-        "PackageCode" = "8:{1B3B4C99-2560-4BE0-8F6A-05067CD5006F}"
+        "ProductCode" = "8:{2FD4FD95-A0D1-4DC0-A9F4-DE9085C7F327}"
+        "PackageCode" = "8:{9C02A8C7-2D5F-4FAB-8185-219EDC622E4E}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.11.173"
+        "ProductVersion" = "8:1.12.174"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

@@ -82,14 +82,25 @@ uint8* LinkerObject::AddSpace(int size)
 	return mData;
 }
 
+LinkerOverlay::LinkerOverlay(void)
+{
+
+}
+
+LinkerOverlay::~LinkerOverlay(void)
+{
+
+}
+
 Linker::Linker(Errors* errors)
-	: mErrors(errors), mSections(nullptr), mReferences(nullptr), mObjects(nullptr), mRegions(nullptr), mCompilerOptions(COPT_DEFAULT)
+	: mErrors(errors), mSections(nullptr), mReferences(nullptr), mObjects(nullptr), mRegions(nullptr), mOverlays(nullptr), mCompilerOptions(COPT_DEFAULT)
 {
 	for (int i = 0; i < 64; i++)
 	{
 		mCartridgeBankUsed[i] = 0;
-		mCartridgeBankSize[i] = 0;
-		memset(mCartridge[i], 0, 0x4000);
+		mCartridgeBankStart[i] = 0x10000;
+		mCartridgeBankEnd[i] = 0x00000;
+		memset(mCartridge[i], 0, 0x10000);
 	}
 	memset(mMemory, 0, 0x10000);
 }
@@ -145,6 +156,17 @@ LinkerSection* Linker::FindSection(const Ident* section)
 	}
 
 	return nullptr;
+}
+
+LinkerOverlay* Linker::AddOverlay(const Location& location, const Ident* ident, int bank)
+{
+	LinkerOverlay* lovl = new LinkerOverlay;
+	lovl->mLocation = location;
+	lovl->mIdent = ident;
+	lovl->mBank = bank;
+	mOverlays.Push(lovl);
+
+	return lovl;
 }
 
 bool Linker::IsSectionPlaced(LinkerSection* section)
@@ -376,7 +398,7 @@ void Linker::Link(void)
 		{
 			LinkerRegion* lrgn = mRegions[i];
 
-			if (lrgn->mNonzero)
+			if (lrgn->mNonzero && lrgn->mCartridgeBanks == 0)
 			{
 				if (lrgn->mStart < mProgramStart)
 					mProgramStart = lrgn->mStart;
@@ -461,9 +483,11 @@ void Linker::Link(void)
 						if (obj->mRegion->mCartridgeBanks & (1ULL << i))
 						{
 							mCartridgeBankUsed[i] = true;
-							memcpy(mCartridge[i] + obj->mAddress - 0x8000, obj->mData, obj->mSize);
-							if (obj->mAddress - 0x8000 + obj->mSize > mCartridgeBankSize[i])
-								mCartridgeBankSize[i] = obj->mAddress - 0x8000 + obj->mSize;
+							memcpy(mCartridge[i] + obj->mAddress, obj->mData, obj->mSize);
+							if (obj->mAddress < mCartridgeBankStart[i])
+								mCartridgeBankStart[i] = obj->mAddress;
+							if (obj->mAddress + obj->mSize > mCartridgeBankEnd[i])
+								mCartridgeBankEnd[i] = obj->mAddress + obj->mSize;
 						}
 					}
 				}
@@ -493,7 +517,7 @@ void Linker::Link(void)
 						{
 							if (obj->mRegion->mCartridgeBanks & (1ULL << i))
 							{
-								dp = mCartridge[i] + obj->mAddress - 0x8000 + ref->mOffset;
+								dp = mCartridge[i] + obj->mAddress + ref->mOffset;
 
 								if (ref->mFlags & LREF_LOWBYTE)
 								{
@@ -569,12 +593,38 @@ bool Linker::WriteBinFile(const char* filename)
 		return false;
 }
 
-bool Linker::WritePrgFile(DiskImage* image)
+bool Linker::WritePrgFile(DiskImage* image, const char* filename)
 {
-	mMemory[mProgramStart - 2] = mProgramStart & 0xff;
-	mMemory[mProgramStart - 1] = mProgramStart >> 8;
+	if (image->OpenFile(filename))
+	{
+		mMemory[mProgramStart - 2] = mProgramStart & 0xff;
+		mMemory[mProgramStart - 1] = mProgramStart >> 8;
 
-	return image->WriteBytes(mMemory + mProgramStart - 2, mProgramEnd - mProgramStart + 2);
+		image->WriteBytes(mMemory + mProgramStart - 2, mProgramEnd - mProgramStart + 2);
+		image->CloseFile();
+
+		for (int i = 0; i < mOverlays.Size(); i++)
+		{
+			if (image->OpenFile(mOverlays[i]->mIdent->mString))
+			{
+				int	b = mOverlays[i]->mBank;
+				int	s = mCartridgeBankStart[b];
+
+				mCartridge[b][s - 2] = s & 0xff;
+				mCartridge[b][s - 1] = s >> 8;
+
+				image->WriteBytes(mCartridge[b] + s - 2, mCartridgeBankEnd[b] - s + 2);
+
+				image->CloseFile();
+			}
+			else
+				return false;
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
 bool Linker::WritePrgFile(const char* filename)
@@ -742,7 +792,8 @@ bool Linker::WriteCrtFile(const char* filename)
 		fwrite(bootmem + 0x2000, 1, 0x2000, file);
 
 		mCartridgeBankUsed[0] = true;
-		mCartridgeBankSize[0] = usedlz + 0x200;
+		mCartridgeBankStart[0] = 0x8000;
+		mCartridgeBankEnd[0] = 0x8000 + usedlz + 0x200;
 
 		for (int i = 1; i < 64; i++)
 		{
@@ -752,11 +803,11 @@ bool Linker::WriteCrtFile(const char* filename)
 
 				chipHeader.mLoadAddress = 0x0080;
 				fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-				fwrite(mCartridge[i] + 0x0000, 1, 0x2000, file);
+				fwrite(mCartridge[i] + 0x8000, 1, 0x2000, file);
 
 				chipHeader.mLoadAddress = 0x00a0;
 				fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-				fwrite(mCartridge[i] + 0x2000, 1, 0x2000, file);
+				fwrite(mCartridge[i] + 0xa000, 1, 0x2000, file);
 			}
 		}
 
@@ -813,7 +864,7 @@ bool Linker::WriteMapFile(const char* filename)
 			for (int i = 0; i < 64; i++)
 			{
 				if (mCartridgeBankUsed[i])
-					fprintf(file, "%02d : %04x\n", i, mCartridgeBankSize[i]);
+					fprintf(file, "%02d : %04x .. %04x (%04x)\n", i, mCartridgeBankStart[i], mCartridgeBankEnd[i], mCartridgeBankEnd[i] - mCartridgeBankStart[i]);
 			}
 		}
 
@@ -873,7 +924,7 @@ bool Linker::WriteAsmFile(const char* filename)
 						int i = 0;
 						while (!(obj->mRegion->mCartridgeBanks & (1ULL << i)))
 							i++;
-						mNativeDisassembler.Disassemble(file, mCartridge[i] - 0x8000, i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+						mNativeDisassembler.Disassemble(file, mCartridge[i], i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					}
 					else
 						mNativeDisassembler.Disassemble(file, mMemory, 0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
@@ -884,7 +935,7 @@ bool Linker::WriteAsmFile(const char* filename)
 						int i = 0;
 						while (!(obj->mRegion->mCartridgeBanks & (1ULL << i)))
 							i++;
-						mNativeDisassembler.DumpMemory(file, mCartridge[i] - 0x8000, i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
+						mNativeDisassembler.DumpMemory(file, mCartridge[i], i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
 					}
 					else
 						mNativeDisassembler.DumpMemory(file, mMemory, 0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);

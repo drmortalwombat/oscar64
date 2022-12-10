@@ -172,6 +172,17 @@ public:
 	void MarkRelevant(void);
 };
 
+class LinkerOverlay
+{
+public:
+	LinkerOverlay(void);
+	~LinkerOverlay(void);
+
+	Location						mLocation;
+	const Ident					*	mIdent;
+	int								mBank;
+};
+
 class Linker
 {
 public:
@@ -190,9 +201,11 @@ public:
 
 	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment = 1);
 
+	LinkerOverlay* AddOverlay(const Location& location, const Ident* ident, int bank);
+
 //	void AddReference(const LinkerReference& ref);
 
-	bool WritePrgFile(DiskImage * image);
+	bool WritePrgFile(DiskImage * image, const char* filename);
 	bool WritePrgFile(const char* filename);
 	bool WriteMapFile(const char* filename);
 	bool WriteAsmFile(const char* filename);
@@ -206,13 +219,14 @@ public:
 	GrowingArray<LinkerRegion*>		mRegions;
 	GrowingArray<LinkerSection*>	mSections;
 	GrowingArray<LinkerObject*>		mObjects;
+	GrowingArray<LinkerOverlay*>	mOverlays;
 
 	uint8	mMemory[0x10000];
-	uint8	mCartridge[64][0x4000];
+	uint8	mCartridge[64][0x10000];
 
 	bool	mCartridgeBankUsed[64];
 
-	uint32	mCartridgeBankSize[64];
+	uint32	mCartridgeBankStart[64], mCartridgeBankEnd[64];
 
 	int	mProgramStart, mProgramEnd;
 

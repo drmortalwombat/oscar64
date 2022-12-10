@@ -448,6 +448,22 @@ the start of the stack section.  The size of the stack and the minimum size of t
 
 The linker will throw an error if the heap or stack cannot be placed without collision.
 
+
+#### Overlays
+
+The linker can generate overlay files that are stored as .prg in the .d64 when selected as target.
+
+The mechanism uses the cartridge bank to denote up to 64 overlays.  Each bank can be associated with one overlay file, which will then contain the used content of this bank.
+
+	#pragma overlay( ovl1, 1 )
+	
+The overlay file can then be loaded in memory during program execution:
+
+	krnio_setnam(P"OVL1");
+	krnio_load(1, 8, 1);
+
+
+
 ### Inline Assembler
 
 Inline assembler can be embedded inside of any functions, regardles of their compilation target of byte code or native.  
@@ -607,6 +623,10 @@ An alternative to calling the function in the cartridge ROM itself is to copy it
 #### Easyflash low memory usage "easyflash.c"
 
 This sample will use the memory area starting from 0x0400 for the main code section when copying the code, using the stack page 0x100 for the startup itself, thus wasting small amount of RAM space.
+
+#### Dynamic overlays "overlay.c"
+
+When compiling for .d64 format, the linker will place code and data sections from virtual cartridge banks into overlay files.  These files can be loaded when needed and called using normal function calls.
 
 
 #### Terminate stay resident "tsr.c"

@@ -3607,6 +3607,33 @@ void Parser::ParsePragma(void)
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "overlay"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				const Ident* overlayIdent = mScanner->mTokenIdent;
+				mScanner->NextToken();
+
+				int	bank = 0;
+
+				ConsumeToken(TK_COMMA);
+
+				Expression* exp;
+
+				exp = ParseRExpression();
+				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+					bank = exp->mDecValue->mInteger;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
+
+				LinkerOverlay* lovl = mCompilationUnits->mLinker->AddOverlay(mScanner->mLocation, overlayIdent, bank);
+			}
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else if (!strcmp(mScanner->mTokenIdent->mString, "section"))
 		{
 			mScanner->NextToken();

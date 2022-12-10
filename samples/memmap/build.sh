@@ -10,3 +10,4 @@
 ../../bin/oscar64 easyflashreloc.c -n -tf=crt
 ../../bin/oscar64 easyflashshared.c -n -tf=crt
 ../../bin/oscar64 tsr.c -n -dNOFLOAT -dNOLONG
+../../bin/oscar64 overlay.c -n -d64=overlay.d64
