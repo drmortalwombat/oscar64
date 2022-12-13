@@ -150,10 +150,12 @@ enum Token
 
 extern const char* TokenNames[];
 
+class MacroDict;
+
 class Macro
 {
 public:
-	Macro(const Ident* ident);
+	Macro(const Ident* ident, MacroDict* scope);
 	~Macro(void);
 
 	void SetString(const char* str);
@@ -164,6 +166,7 @@ public:
 	const char* mString;
 	int		mNumArguments;
 	const Ident	* mArguments[32];
+	MacroDict* mScope;
 };
 
 typedef Macro* MacroPtr;
@@ -181,6 +184,7 @@ public:
 protected:
 	MacroPtr	*	mHash;
 	int				mHashSize, mHashFill;
+	MacroDict	*	mParent;
 };
 
 class Scanner

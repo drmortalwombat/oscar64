@@ -149,8 +149,8 @@ const char* TokenNames[] =
 };
 
 
-Macro::Macro(const Ident* ident)
-	: mIdent(ident), mString(nullptr), mNumArguments(-1)
+Macro::Macro(const Ident* ident, MacroDict * scope)
+	: mIdent(ident), mString(nullptr), mNumArguments(-1), mScope(scope)
 {
 
 }
@@ -389,7 +389,7 @@ static inline int HexValue(char ch)
 
 void Scanner::AddMacro(const Ident* ident, const char* value)
 {
-	Macro* macro = new Macro(ident);
+	Macro* macro = new Macro(ident, nullptr);
 	macro->SetString(value);
 	mDefines->Insert(macro);
 }
@@ -501,7 +501,7 @@ void Scanner::NextToken(void)
 			{
 				if (mToken != TK_IDENT)
 					mTokenIdent = Ident::Unique(TokenNames[mToken]);
-				Macro* macro = new Macro(mTokenIdent);
+				Macro* macro = new Macro(mTokenIdent, nullptr);
 
 				if (mTokenChar == '(')
 				{
@@ -614,7 +614,7 @@ void Scanner::NextToken(void)
 				Macro* macro = mDefines->Lookup(ident);
 				if (!macro)
 				{
-					macro = new Macro(ident);
+					macro = new Macro(ident, nullptr);
 					mDefines->Insert(macro);
 				}
 				char	buffer[20];
@@ -739,6 +739,8 @@ void Scanner::NextToken(void)
 				}
 				else if (def->mNumArguments > 0)
 				{
+					MacroDict* scope = mDefineArguments;
+
 					mDefineArguments = new MacroDict();
 					NextRawToken();
 					if (mToken == TK_OPEN_PARENTHESIS)
@@ -765,7 +767,7 @@ void Scanner::NextToken(void)
 								}
 								offset++;
 							}
-							Macro* arg = new Macro(def->mArguments[i]);
+							Macro* arg = new Macro(def->mArguments[i], scope);
 							arg->SetString(mLine + mOffset, offset - mOffset);
 							mDefineArguments->Insert(arg);
 							mOffset = offset;
@@ -790,7 +792,7 @@ void Scanner::NextToken(void)
 					NextChar();
 				}
 				else
-					mDefineArguments = nullptr;
+					mDefineArguments = def->mScope;
 
 				ex->mLine = mLine;
 				ex->mOffset = mOffset;
@@ -1628,7 +1630,7 @@ bool Scanner::NextChar(void)
 		if (mMacroExpansion)
 		{
 			MacroExpansion* mac = mMacroExpansion->mLink;
-			delete mDefineArguments;
+//			delete mDefineArguments;
 
 			mLine = mMacroExpansion->mLine;
 			mOffset = mMacroExpansion->mOffset;

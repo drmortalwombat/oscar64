@@ -14815,6 +14815,9 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::SplitMatchingTails(NativeCodeProced
 							nblock->mEntryBlocks.Push(bi);
 							nblock->mNumEntries++;
 
+							nblock->mEntryRequiredRegs = mEntryRequiredRegs;
+							nblock->mExitRequiredRegs = mEntryRequiredRegs;
+
 							bi->mTrueJump = nblock;
 							mEntryBlocks[i] = nullptr;
 							mNumEntries--;
@@ -14862,6 +14865,9 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::AddDominatorBlock(NativeCodeProcedur
 		tblock->mEntryBlocks.Push(pblock);
 
 		mEntryBlocks[mEntryBlocks.IndexOf(pblock)] = tblock;
+
+		tblock->mEntryRequiredRegs = mEntryRequiredRegs;
+		tblock->mExitRequiredRegs = mEntryRequiredRegs;
 
 		if (pblock->mTrueJump == this)
 			pblock->mTrueJump = tblock;
@@ -26936,8 +26942,10 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].mType == ASMIT_DEC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
 						!(mIns[i + 2].mLive & LIVE_CPU_REG_C))
 					{
-						mIns[i + 0].mType = ASMIT_SEC; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_SBC; mIns[i + 1].mMode = ASMIM_IMMEDIATE; mIns[i + 1].mAddress = 1;
+						mIns[i + 0].mType = ASMIT_SEC; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+						mIns[i + 1].mType = ASMIT_SBC; mIns[i + 1].mMode = ASMIM_IMMEDIATE; mIns[i + 1].mAddress = 1; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+						if (mIns[i + 2].mLive & LIVE_CPU_REG_Z)
+							mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
 						mIns[i + 2].mType = ASMIT_STA;
 						progress = true;
 					}
