@@ -349,3 +349,5 @@ make/oscar64
 *.res
 *.recipe
 *.exe
+*.d64
+*.d64

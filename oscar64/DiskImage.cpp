@@ -80,6 +80,7 @@ DiskImage::DiskImage(const char* fname)
 
 	MarkBAMSector(18, 1);
 	
+	dir[1] = 0xff;
 
 }
 
@@ -187,8 +188,9 @@ bool DiskImage::OpenFile(const char* fname)
 				{
 					int ni = AllocBAMSector(18, si);
 					mSectors[18][si][0] = 18;
-					mSectors[18][si][0] = ni;
+					mSectors[18][si][1] = ni;
 					si = ni;
+					mSectors[18][si][1] = 0xff;
 				}
 			}
 		}
@@ -324,9 +326,6 @@ int DiskImage::WriteBytes(const uint8* data, int size)
 	uint8* dp = mSectors[mTrack][mSector];
 	for (int i = 0; i < size; i++)
 	{
-		dp[mBytes] = data[i];
-		mBytes++;
-
 		if (mBytes >= 256)
 		{
 			mSector = AllocBAMSector(mTrack, mSector);
@@ -347,6 +346,8 @@ int DiskImage::WriteBytes(const uint8* data, int size)
 		}
 
 		dp[1] = mBytes;
+		dp[mBytes] = data[i];
+		mBytes++;
 	}
 	return 0;
 }
