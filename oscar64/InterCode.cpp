@@ -5622,10 +5622,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					IntegerValueRange	tr;
 					IntegerValueRange& sr(mLocalValueRange[ins->mSrc[0].mTemp]);
 
-					tr.mMinState = vr.mMaxState;
-					tr.mMinValue = -vr.mMaxValue;
-					tr.mMaxState = vr.mMinState;
-					tr.mMaxValue = -vr.mMinValue;
+					tr.mMinState = sr.mMaxState;
+					tr.mMinValue = -sr.mMaxValue;
+					tr.mMaxState = sr.mMinState;
+					tr.mMaxValue = -sr.mMinValue;
 					vr = tr;
 				}
 				break;
@@ -6294,6 +6294,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp && IsIntegerType(mInstructions[sz - 2]->mSrc[0].mType))
 		{
 			int	s1 = mInstructions[sz - 2]->mSrc[1].mTemp, s0 = mInstructions[sz - 2]->mSrc[0].mTemp;
+			int s1c = -1, s0c = -1;
+
+			if (sz > 2 && mInstructions[sz - 3]->mCode == IC_CONVERSION_OPERATOR && mInstructions[sz - 3]->mOperator == IA_EXT8TO16S)
+			{
+				if (s1 == mInstructions[sz - 3]->mSrc[0].mTemp)
+					s1c = mInstructions[sz - 3]->mDst.mTemp;
+				if (s0 == mInstructions[sz - 3]->mSrc[0].mTemp)
+					s0c = mInstructions[sz - 3]->mDst.mTemp;
+			}
 
 			switch (mInstructions[sz - 2]->mOperator)
 			{
@@ -6340,6 +6349,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 					mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
 					mFalseValueRange[s1].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
+
+					if (s1c >= 0)
+					{
+						mTrueValueRange[s1c].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
+						mTrueValueRange[s1c].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
+
+						mFalseValueRange[s1c].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
+						mFalseValueRange[s1c].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
+					}
 				}
 				else if (s1 < 0)
 				{
@@ -6348,6 +6366,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 					mFalseValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst);
 					mFalseValueRange[s0].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
+
+					if (s0c >= 0)
+					{
+						mTrueValueRange[s0c].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst + 1);
+						mTrueValueRange[s0c].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
+
+						mFalseValueRange[s0c].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst);
+						mFalseValueRange[s0c].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
+					}
 				}
 				else
 				{
@@ -13998,6 +14025,8 @@ void InterCodeProcedure::Close(void)
 #if 1
 	BuildTraces(false);
 
+	PushSinglePathResultInstructions();
+
 	ResetVisited();
 	if (mEntryBlock->MergeSameConditionTraces())
 	{
@@ -14010,6 +14039,8 @@ void InterCodeProcedure::Close(void)
 
 	CheckUsedDefinedTemps();
 #endif
+
+	PeepholeOptimization();
 
 #if 1
 	RebuildIntegerRangeSet();

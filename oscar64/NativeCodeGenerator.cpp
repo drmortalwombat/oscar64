@@ -20083,6 +20083,51 @@ bool NativeCodeBasicBlock::CombineImmediateADCUp(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::MoveTXADCDown(int at)
+{
+	int	i = at + 4;
+	while (i < mIns.Size())
+	{
+		if (mIns[i].ChangesXReg())
+			return false;
+		if (mIns[i].ReferencesZeroPage(mIns[at + 3].mAddress))
+			return false;
+
+		if (!(mIns[i].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+		{
+			mIns.Insert(i + 1, NativeCodeInstruction(ASMIT_STX, ASMIM_ZERO_PAGE, mIns[at + 3].mAddress));
+
+			switch (mIns[at + 2].mAddress)
+			{
+			case -2:
+			case 254:
+				mIns.Insert(i + 1, NativeCodeInstruction(ASMIT_DEX));
+			case -1:
+			case 255:
+				mIns.Insert(i + 1, NativeCodeInstruction(ASMIT_DEX));
+				break;
+			case 2:
+				mIns.Insert(i + 1, NativeCodeInstruction(ASMIT_INX));
+			case 1:
+				mIns.Insert(i + 1, NativeCodeInstruction(ASMIT_INX));
+				break;
+			}
+
+			while (i > at)
+			{
+				mIns[i].mLive |= LIVE_CPU_REG_X;
+				i--;
+			}
+			mIns.Remove(at, 4);
+			return true;
+		}
+
+		i++;
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::CombineImmediateADCUpX(int at)
 {
 	int i = at;
@@ -22047,12 +22092,30 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			if (i == mIns.Size())
 			{
 				int addr = mIns[ai].mAddress;
-				i = 0;
-				while (i < mIns.Size() &&
-					(mIns[i].mMode != ASMIM_ZERO_PAGE || mIns[i].mAddress != addr ||
-						mIns[i].mType == ASMIT_LDA || mIns[i].mType == ASMIT_STA || mIns[i].mType == ASMIT_INC || mIns[i].mType == ASMIT_DEC || mIns[i].mType == ASMIT_LDY))
-					i++;
-				if (i == mIns.Size())
+				bool	fail = false, changey = false;
+				
+				for (int i = 0; i < mIns.Size(); i++)
+				{
+					if (mIns[i].mType == ASMIT_LDY)
+						changey = false;
+					else if (mIns[i].ReferencesYReg() && changey)
+					{
+						fail = true;
+						break;
+					}
+					else if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == addr)
+					{
+						if (mIns[i].mType == ASMIT_STA || mIns[i].mType == ASMIT_INC || mIns[i].mType == ASMIT_DEC)
+							changey = true;
+						else if (mIns[i].mType != ASMIT_LDA)
+						{
+							fail = true;
+							break;
+						}
+					}
+				}
+
+				if (!fail)
 				{
 					if (!prevBlock)
 						return OptimizeSimpleLoopInvariant(proc);
@@ -23322,7 +23385,6 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							}
 							break;
 						case ASMIT_LDA:
-						case ASMIT_STA:
 							if (ins.mMode == ASMIM_ZERO_PAGE)
 							{
 								if (ins.mAddress == yreg && yoffset != 0)
@@ -23330,6 +23392,20 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								if (ins.mAddress == xreg && xoffset != 0)
 									xreg = -2;
 
+								if (zxreg[ins.mAddress] >= 0)
+									zxreg[ins.mAddress]++;
+								if (zyreg[ins.mAddress] >= 0)
+									zyreg[ins.mAddress]++;
+							}
+							break;
+						case ASMIT_STA:
+							if (ins.mMode == ASMIM_ZERO_PAGE)
+							{
+								if (ins.mAddress == yreg && (yoffset != 0 || (ins.mLive & LIVE_CPU_REG_Y)))
+									yreg = -2;
+								if (ins.mAddress == xreg && (xoffset != 0 || (ins.mLive & LIVE_CPU_REG_X)))
+									xreg = -2;
+								
 								if (zxreg[ins.mAddress] >= 0)
 									zxreg[ins.mAddress]++;
 								if (zyreg[ins.mAddress] >= 0)
@@ -25787,6 +25863,24 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		}
 
 		CheckLive();
+#endif
+
+
+#if 1
+		for (int i = 0; i + 4 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_TXA &&
+				mIns[i + 1].mType == ASMIT_CLC &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress >= -2 && mIns[i + 2].mAddress <= 2 || mIns[i + 2].mAddress >= 254 && mIns[i + 2].mAddress < 256) &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+			{
+				if (MoveTXADCDown(i))
+					changed = true;
+			}
+		}
+
+		CheckLive();
+
 #endif
 
 #if 1
@@ -31515,7 +31609,6 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 #endif
 
-
 #if 1
 		if (step >= 3)
 		{
@@ -31535,6 +31628,7 @@ void NativeCodeProcedure::Optimize(void)
 			}
 		}
 
+
 #if 1
 		if (step == 3)
 		{
@@ -31552,6 +31646,7 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
 #if 1
 		if (step > 0)
 		{
@@ -31559,12 +31654,12 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->OptimizeSimpleLoop(this))
 				changed = true;
 
-
 			ResetVisited();
 			if (mEntryBlock->SimpleLoopReversal(this))
 				changed = true;
 		}
 #endif
+
 #if 1
 		ResetVisited();
 		if (mEntryBlock->MergeBasicBlocks())
@@ -31615,7 +31710,6 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
-
 
 
 #if _DEBUG
@@ -31875,6 +31969,7 @@ void NativeCodeProcedure::Optimize(void)
 			printf("Opps\n");
 		}
 #endif
+
 		if (cnt > 200)
 		{
 			changed = false;
@@ -31892,6 +31987,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 
