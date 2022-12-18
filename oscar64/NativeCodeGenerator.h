@@ -71,6 +71,7 @@ static const uint32 NCIF_LONG = 0x00000020;
 static const uint32 NCIF_FEXEC = 0x00000040;
 static const uint32 NCIF_JSRFLAGS = 0x00000080;
 static const uint32 NICT_INDEXFLIPPED = 0x00000100;
+static const uint32 NICT_ZPFLIPPED = 0x00000200;
 
 static const uint32 NCIF_USE_CPU_REG_A = 0x00001000;
 static const uint32 NCIF_USE_CPU_REG_X = 0x00002000;
@@ -290,6 +291,7 @@ public:
 	bool MoveLoadImmStoreAbsoluteUp(int at);
 
 	bool MoveIndirectLoadStoreDown(int at);
+	bool MoveIndirectLoadStoreDownY(int at);
 
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
