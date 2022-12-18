@@ -28004,6 +28004,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].ChangesAccuAndFlag() &&
+						(mIns[i + 1].mType == ASMIT_INC || mIns[i + 1].mType == ASMIT_DEC) &&
+						mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 &&
+						mIns[i + 1].MayBeMovedBefore(mIns[i + 0]))
+					{
+						mIns.Insert(i, mIns[i + 1]);
+						mIns[i].mLive |= LIVE_CPU_REG_A;
+						if (mIns[i + 1].RequiresYReg())
+							mIns[i].mLive |= LIVE_CPU_REG_Y;
+						if (mIns[i + 1].RequiresXReg())
+							mIns[i].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+						mIns.Remove(i + 2);
+						progress = true;
+					}
 
 					if (
 						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress <= 1 &&
@@ -28882,6 +28898,19 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					}
 #endif
 #if 1
+					else if (
+						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+						mIns[i + 1].mType == ASMIT_STA && 
+						mIns[i + 2].mType == ASMIT_LDA && 
+						mIns[i + 3].mType == ASMIT_CMP && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == mIns[i + 0].mAddress && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+					{
+						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 2].mType = ASMIT_CMP; mIns[i + 2].mLive |= LIVE_CPU_REG_Z;
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+						progress = true;
+					}
+
 					else if (
 						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_CPU_REG_A) &&
 						!mIns[i + 1].ReferencesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].ChangesCarry() &&

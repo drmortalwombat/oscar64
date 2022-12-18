@@ -464,6 +464,7 @@ public:
 	bool IsLeafProcedure(void);
 
 	bool ForwardDiamondMovedTemp(void);
+	bool ForwardLoopMovedTemp(void);
 
 	bool MoveTrainCrossBlock(void);
 

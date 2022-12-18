@@ -9265,6 +9265,50 @@ bool InterCodeBasicBlock::MoveTrainCrossBlock(void)
 	return changed;
 }
 
+bool InterCodeBasicBlock::ForwardLoopMovedTemp(void)
+{
+	bool changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump && !mFalseJump && mTrueJump->mLoopHead && mTrueJump->mNumEntries == 2)
+		{
+			InterCodeBasicBlock* eblock = nullptr;
+			if (mTrueJump->mTrueJump == mTrueJump)
+				eblock = mTrueJump->mFalseJump;
+			else if (mTrueJump->mFalseJump == mTrueJump)
+				eblock = mTrueJump->mTrueJump;
+
+			if (eblock)
+			{
+				int i = mInstructions.Size() - 1;
+				while (i >= 0)
+				{
+					if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY && CanMoveInstructionBehindBlock(i) &&
+						!mTrueJump->mLocalUsedTemps[mInstructions[i]->mDst.mTemp] &&
+						!mTrueJump->mLocalModifiedTemps[mInstructions[i]->mSrc[0].mTemp])
+					{
+						eblock->mInstructions.Insert(0, mInstructions[i]);
+						mInstructions.Remove(i);
+						changed = true;
+					}
+					else
+						i--;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ForwardLoopMovedTemp())
+			changed = true;
+		if (mFalseJump && mFalseJump->ForwardLoopMovedTemp())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 {
 	bool changed = false;
@@ -14186,6 +14230,10 @@ void InterCodeProcedure::Close(void)
 		mEntryBlock->CollectStaticStack(mLinkerObject, mLocalVars);
 	}
 #endif
+
+	BuildDataFlowSets();
+	ResetVisited();
+	mEntryBlock->ForwardLoopMovedTemp();
 
 #if 1
 	do {
