@@ -122,6 +122,7 @@ public:
 	bool ChangesYReg(void) const;
 	bool ChangesXReg(void) const;
 
+	bool ReferencesCarry(void) const;
 	bool ReferencesAccu(void) const;
 	bool ReferencesYReg(void) const;
 	bool ReferencesXReg(void) const;
@@ -421,6 +422,9 @@ public:
 	bool LocalRegisterXYMap(void);
 	bool ReduceLocalYPressure(void);
 	bool ReduceLocalXPressure(void);
+
+	bool CombineZPPair(int at, int r0, int r1, bool use0, bool use1);
+	bool RemoveDoubleZPStore(void);
 
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);

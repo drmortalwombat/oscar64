@@ -5413,19 +5413,29 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 
 	assert(mLocalValueRange.Size() == mExitRequiredTemps.Size());
 
+	bool	firstEntry = true;
+
 	for (int j = 0; j < mEntryBlocks.Size(); j++)
 	{
 		InterCodeBasicBlock* from = mEntryBlocks[j];
 		GrowingIntegerValueRangeArray& range(this == from->mTrueJump ? from->mTrueValueRange : from->mFalseValueRange);
-		if (j == 0)
-			mLocalValueRange = range;
-		else
+
+		if (range.Size())
 		{
-			for (int i = 0; i < mLocalValueRange.Size(); i++)
-				mLocalValueRange[i].Merge(range[i], mLoopHead, initial);
+			if (firstEntry)
+			{
+				firstEntry = false;
+				mLocalValueRange = range;
+			}
+			else
+			{
+				for (int i = 0; i < mLocalValueRange.Size(); i++)
+					mLocalValueRange[i].Merge(range[i], mLoopHead, initial);
+			}
 		}
-		assert(mLocalValueRange.Size() == mExitRequiredTemps.Size());
 	}
+
+	assert(mLocalValueRange.Size() == mExitRequiredTemps.Size());
 
 	for (int i = 0; i < mLocalValueRange.Size(); i++)
 		if (!mLocalValueRange[i].Same(mEntryValueRange[i]))
@@ -5715,15 +5725,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 					}
 
-#if 0
+#if 1
 					if (ins->mDst.mType == IT_INT8)
 					{
-						if (vr.mMinValue < 0)
-							vr.mMaxValue = 255;
-						if (vr.mMaxValue > 127)
-							vr.mMinValue = -128;
-						vr.LimitMax(255);
-						vr.LimitMin(-128);
+						if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < -255 || vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > 255)
+						{
+							vr.LimitMax(255);
+							vr.LimitMin(-128);
+						}
 					}
 #endif
 					break;
