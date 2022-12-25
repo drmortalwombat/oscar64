@@ -4060,6 +4060,32 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 				if (mFalseJump)
 					mFalseJump->mNumEntries++;
 			}
+			else if (
+				mTrueJump &&
+				mInstructions.Size() > 0 &&
+				mInstructions.Last()->mCode == IC_BRANCH &&
+				mTrueJump->mInstructions.Size() == 1 &&
+				mTrueJump->mInstructions[0]->mCode == IC_BRANCH &&
+				mTrueJump->mInstructions[0]->mSrc[0].mTemp == mInstructions.Last()->mSrc[0].mTemp)
+			{
+				mTrueJump->mNumEntries--;
+				mTrueJump = mTrueJump->mTrueJump;
+				if (mTrueJump)
+					mTrueJump->mNumEntries++;
+			}
+			else if (
+				mFalseJump &&
+				mInstructions.Size() > 0 &&
+				mInstructions.Last()->mCode == IC_BRANCH &&
+				mFalseJump->mInstructions.Size() == 1 &&
+				mFalseJump->mInstructions[0]->mCode == IC_BRANCH &&
+				mFalseJump->mInstructions[0]->mSrc[0].mTemp == mInstructions.Last()->mSrc[0].mTemp)
+			{
+				mFalseJump->mNumEntries--;
+				mFalseJump = mFalseJump->mFalseJump;
+				if (mFalseJump)
+					mFalseJump->mNumEntries++;
+			}
 			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1 && !mLoopHead) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
 			{
 				mTrueJump->mNumEntries--;

@@ -16780,17 +16780,20 @@ bool NativeCodeBasicBlock::CheckPatchFailUse(void)
 
 bool NativeCodeBasicBlock::CheckPatchFailReg(const NativeCodeBasicBlock* block, int reg)
 {
-	if (mPatched)
+	if (mPatched && mEntryRequiredRegs[reg])
 		return false;
 
 	if (!mPatchFail)
 	{
 		mPatchFail = true;
 
-		if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
-			return false;
-		if (mFalseJump && !mFalseJump->CheckPatchFailReg(block, reg))
-			return false;
+		if (this != block)
+		{
+			if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
+				return false;
+			if (mFalseJump && !mFalseJump->CheckPatchFailReg(block, reg))
+				return false;
+		}
 	}
 
 	return true;
@@ -16798,9 +16801,6 @@ bool NativeCodeBasicBlock::CheckPatchFailReg(const NativeCodeBasicBlock* block, 
 
 bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains, int cycles)
 {
-	if (mPatchFail)
-		return false;
-
 	if (!mPatched)
 	{
 		if (at == 0)
@@ -16809,7 +16809,9 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 
 			if (!mEntryRequiredRegs[reg])
 			{
-				if (mExitRequiredRegs[reg])
+				mPatchFail = true;
+
+//				if (mExitRequiredRegs[reg])
 				{
 					if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
 						return false;
@@ -16831,6 +16833,9 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 						return false;
 			}
 		}
+
+		if (mPatchFail)
+			return false;
 
 		while (at < mIns.Size())
 		{
@@ -25301,6 +25306,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 
 		CheckLive();
 
+
 #if 1
 #if 1
 		// move load store pairs up to initial store
@@ -31826,7 +31832,8 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "chain_prepend");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+
 #if 1
 	int		step = 0;
 	int cnt = 0;
@@ -31995,6 +32002,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->RemoveDoubleZPStore())
 				changed = true;
 		}
+
 #if 1
 		if (step > 0)
 		{
@@ -32045,7 +32053,6 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->CheckBlocks(true);
 #endif
-
 
 #if 1
 		if (step > 2 && !changed)
@@ -32295,6 +32302,7 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
 		if (step == 7)
 		{
 			ResetVisited();
@@ -32336,6 +32344,8 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
+
 
 	} while (changed);
 

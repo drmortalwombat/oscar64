@@ -114,6 +114,7 @@ inline void sidfx_loop_ch(byte ch)
 			{
 				channels[ch].cnt--;
 				channels[ch].com++;
+				channels[ch].priority = channels[ch].com->priority;
 				channels[ch].state = SIDFX_READY;
 			}
 			else
@@ -140,6 +141,7 @@ inline void sidfx_loop_ch(byte ch)
 			{
 				channels[ch].cnt--;
 				channels[ch].com++;
+				channels[ch].priority = channels[ch].com->priority;
 				channels[ch].state = SIDFX_RESET_0;
 			}
 			else
