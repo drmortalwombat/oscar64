@@ -2238,6 +2238,34 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		break;
 
 	case ASMIT_ADC:
+		if (mMode == ASMIM_IMMEDIATE && data.mRegs[CPU_REG_C].mMask == 1 && data.mRegs[CPU_REG_C].mValue == 0)
+		{
+			if ((mAddress & ~data.mRegs[CPU_REG_A].mMask) == 0 && (mAddress & data.mRegs[CPU_REG_A].mValue) == 0)
+			{
+				mType = ASMIT_ORA;
+				data.mRegs[CPU_REG_A].mValue |= mAddress;
+				changed = true;
+			}
+			else if (mAddress == 1 && (data.mRegs[CPU_REG_A].mMask & 3) == 3 && (data.mRegs[CPU_REG_A].mValue & 3) == 1)
+			{
+				mType = ASMIT_EOR;
+				mAddress = 3;
+				data.mRegs[CPU_REG_A].mValue ^= 3;
+				changed = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_C].mMask = 0;
+				data.mRegs[CPU_REG_A].mMask = 0;
+			}
+		}
+		else
+		{
+			data.mRegs[CPU_REG_C].mMask = 0;
+			data.mRegs[CPU_REG_A].mMask = 0;
+		}
+
+		break;
 	case ASMIT_SBC:
 		data.mRegs[CPU_REG_C].mMask = 0;
 		data.mRegs[CPU_REG_A].mMask = 0;
@@ -17851,8 +17879,8 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 			return true;
 		}
 		else if (mIns[start + 0].mType == ASMIT_LDY && mIns[start + 0].mMode == ASMIM_IMMEDIATE &&
-			     mIns[start + 1].mType == ASMIT_LDA && mIns[start + 1].mMode == ASMIM_INDIRECT_Y &&
-				!(mIns[start + 1].mLive & LIVE_CPU_REG_Y) && !(mIns[to].mLive & LIVE_CPU_REG_Y))
+			mIns[start + 1].mType == ASMIT_LDA && mIns[start + 1].mMode == ASMIM_INDIRECT_Y &&
+			!(mIns[start + 1].mLive & LIVE_CPU_REG_Y) && !(mIns[to].mLive & LIVE_CPU_REG_Y))
 		{
 
 			for (int i = from + 1; i < to; i++)
@@ -28067,6 +28095,16 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
 					{
 						mIns[i + 0].mType = ASMIT_NOP;  mIns[i + 0].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (
+						mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+						mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+					{
+						mIns[i + 0].mType = ASMIT_NOP;  mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mAddress = (mIns[i + 1].mAddress << 1) & 0xff;
+						mIns[i + 2].mType = ASMIT_NOP;  mIns[i + 2].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
 					else if (
