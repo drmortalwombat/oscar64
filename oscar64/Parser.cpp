@@ -966,6 +966,18 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 					nexp->mDecValue = ndec;
 					exp = nexp;
 				}
+				else if (exp->mDecValue->mType == DT_CONST_INTEGER && exp->mDecValue->mInteger == 0)
+				{
+					Declaration	*	ndec = new Declaration(exp->mDecValue->mLocation, DT_CONST_ADDRESS);
+					ndec->mBase = TheVoidPointerTypeDeclaration;
+					ndec->mInteger = 0;
+					dec = ndec;
+
+					Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					nexp->mDecValue = ndec;
+					nexp->mDecType = ndec->mBase;
+					exp = nexp;
+				}
 				else
 					mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Illegal pointer constant initializer");
 
@@ -2433,7 +2445,7 @@ Expression* Parser::ParseStatement(void)
 			break;
 
 		default:
-			exp = ParseExpression();
+			exp = ParseListExpression();
 			ConsumeToken(TK_SEMICOLON);
 		}
 	}

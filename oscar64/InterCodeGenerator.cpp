@@ -717,6 +717,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			return ExValue(TheVoidTypeDeclaration);
 
 		case EX_SEQUENCE:
+		case EX_LIST:
 			vr = TranslateExpression(procType, proc, block, exp->mLeft, breakBlock, continueBlock, inlineMapper);
 			exp = exp->mRight;
 			if (!exp)
@@ -1732,9 +1733,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mOperator = IA_NOT;
 				break;
 			case TK_MUL:
-				if (vl.mType->mType != DT_TYPE_POINTER)
+				if (vl.mType->mType == DT_TYPE_ARRAY)
+					vl = Dereference(proc, exp, block, vl, 1);
+				else if (vl.mType->mType != DT_TYPE_POINTER)
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a pointer type");
-				if (vl.mType->mStride != 1)
+				else if (vl.mType->mStride != 1)
 					vl = Dereference(proc, exp, block, vl, 0);
 				return ExValue(vl.mType->mBase, vl.mTemp, vl.mReference + 1);
 			case TK_BINARY_AND:
@@ -2402,6 +2405,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
 							vr = Dereference(proc, texp, block, vr, 1);
+						else if (pdec && pdec->mBase->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_INTEGER && texp->mDecValue->mType == DT_CONST_INTEGER && texp->mDecValue->mInteger == 0)
+							vr = CoerceType(proc, texp, block, vr, pdec->mBase);
 						else
 							vr = Dereference(proc, texp, block, vr);
 

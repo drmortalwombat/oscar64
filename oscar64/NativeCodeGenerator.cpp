@@ -15952,7 +15952,6 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				{
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
 						mEntryBlocks[i]->ChangeTailZPStoreToX(mIns[0].mAddress);
-					mEntryProvidedRegs += CPU_REG_X;
 					mEntryRequiredRegs += CPU_REG_X;
 					mIns[0].mType = ASMIT_TXA;
 					mIns[0].mMode = ASMIM_IMPLIED;
@@ -15970,7 +15969,6 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				{
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
 						mEntryBlocks[i]->ChangeTailZPStoreToY(mIns[0].mAddress);
-					mEntryProvidedRegs += CPU_REG_Y;
 					mEntryRequiredRegs += CPU_REG_Y;
 					mIns[0].mType = ASMIT_TYA;
 					mIns[0].mMode = ASMIM_IMPLIED;
@@ -16939,7 +16937,11 @@ bool NativeCodeBasicBlock::PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 				{
 					ins.CopyMode(ains);
 					if (!(ins.mLive & LIVE_MEM))
+					{
+						if (ains.mMode == ASMIM_INDIRECT_Y)
+							ins.mLive |= LIVE_MEM;
 						return true;
+					}
 					changed = true;
 				}
 				else
@@ -16950,6 +16952,8 @@ bool NativeCodeBasicBlock::PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 				ins.mLive |= LIVE_CPU_REG_X;
 			if (ains.mMode == ASMIM_ABSOLUTE_Y || ains.mMode == ASMIM_INDIRECT_Y)
 				ins.mLive |= LIVE_CPU_REG_Y;
+			if (ains.mMode == ASMIM_INDIRECT_Y)
+				ins.mLive |= LIVE_MEM;
 
 			at++;
 		}
@@ -31952,6 +31956,7 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->CheckBlocks();
 #endif
 
+
 #if 1
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(this, step))
@@ -32344,8 +32349,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
-
 
 	} while (changed);
 
