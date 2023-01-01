@@ -850,18 +850,21 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, cons
 	const uint8* data;
 
 	LinkerObject	*	lobj;
-	int					offset;
+	int					offset, stride;
 
 	if (ains)
 	{
 		lobj = ains->mConst.mLinkerObject;
 		offset = ains->mConst.mIntConst;
+		stride = ains->mConst.mStride;
 	}
 	else
 	{
 		lobj = ins->mSrc[0].mLinkerObject;
 		offset = ins->mSrc[0].mIntConst;
+		stride = ins->mSrc[0].mStride;
 	}
+
 	
 	data = lobj->mData + offset;
 
@@ -873,7 +876,7 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, cons
 		ins->mConst.mIntConst = data[0];
 		break;
 	case IT_INT16:
-		ins->mConst.mIntConst = (int)data[0] | ((int)data[1] << 8);
+		ins->mConst.mIntConst = (int)data[0 * stride] | ((int)data[1 * stride] << 8);
 		break;
 	case IT_POINTER:
 	{
@@ -897,18 +900,18 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, cons
 		}
 		else
 		{
-			ins->mConst.mIntConst = (int)data[0] | ((int)data[1] << 8);
+			ins->mConst.mIntConst = (int)data[0 * stride] | ((int)data[1 * stride] << 8);
 			ins->mConst.mMemory = IM_ABSOLUTE;
 		}
 
 	} break;
 	case IT_INT32:
-		ins->mConst.mIntConst = (int)data[0] | ((int)data[1] << 8) | ((int)data[2] << 16) | ((int)data[3] << 24);
+		ins->mConst.mIntConst = (int)data[0 * stride] | ((int)data[1 * stride] << 8) | ((int)data[2 * stride] << 16) | ((int)data[3 * stride] << 24);
 		break;
 	case IT_FLOAT:
 	{
 		union { float f; unsigned int v; } cc;
-		cc.v = (int)data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+		cc.v = (int)data[0 * stride] | (data[1 * stride] << 8) | (data[2 * stride] << 16) | (data[3 * stride] << 24);
 		ins->mConst.mFloatConst = cc.v;
 	} break;
 	}
