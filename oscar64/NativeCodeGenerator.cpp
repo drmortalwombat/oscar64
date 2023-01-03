@@ -4093,7 +4093,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			assert(HasAsmInstructionMode(mType, mode));
 			block->PutByte(AsmInsOpcodes[mType][mode]);
 		}
-
+		
 		switch (mode)
 		{
 		case ASMIM_IMPLIED:
@@ -13416,12 +13416,13 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mIns[i + 6].mType == ASMIT_STA && mIns[i + 4].SameEffectiveAddress(mIns[i + 6]) &&
 					HasAsmInstructionMode(ASMIT_INC, mIns[i + 3].mMode) &&
 					HasAsmInstructionMode(ASMIT_INC, mIns[i + 6].mMode) &&
-					!(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+					!(mIns[i + 6].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
 				{
 					changed = true;
 
 					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
 					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -13432,8 +13433,12 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 					mIns[i + 3].mType = ASMIT_INC; mIns[i + 3].mLive |= LIVE_CPU_REG_Z;
 
+					if (mIns[i + 6].mLive & LIVE_CPU_REG_A)
+						fblock->mIns.Push(mIns[i + 4]);
+
 					for (int j = i + 7; j < mIns.Size(); j++)
 						fblock->mIns.Push(mIns[j]);
+
 					iblock->mIns.Push(mIns[i + 6]);
 					mIns.SetSize(i + 4);
 					iblock->mIns[0].mType = ASMIT_INC;
@@ -24580,7 +24585,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 			{
 				mIns[j + 0] = NativeCodeInstruction(ASMIT_LDX, mIns[i + 1]);
 				mIns[j + 1].mType = ASMIT_INX; mIns[j + 1].mMode = ASMIM_IMPLIED;
-				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress;
+				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress; mIns[j + 2].mLinkerObject = nullptr;
 				j += 3;
 				i += 4;
 			}
@@ -24593,7 +24598,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 			{
 				mIns[j + 0] = NativeCodeInstruction(ASMIT_LDX, mIns[i + 1]);
 				mIns[j + 1].mType = ASMIT_DEX; mIns[j + 1].mMode = ASMIM_IMPLIED;
-				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress;
+				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress; mIns[j + 2].mLinkerObject = nullptr;
 				j += 3;
 				i += 4;
 			}
@@ -24608,7 +24613,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[j + 0] = mIns[i + 0];
 				mIns[j + 0].mType = ASMIT_LDX;
 				mIns[j + 1].mType = ASMIT_INX; mIns[j + 1].mMode = ASMIM_IMPLIED;
-				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress;
+				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress; mIns[j + 2].mLinkerObject = nullptr;
 				j += 3;
 				i += 4;
 			}
@@ -24622,7 +24627,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[j + 0] = mIns[i + 0];
 				mIns[j + 0].mType = ASMIT_LDX; 
 				mIns[j + 1].mType = ASMIT_DEX; mIns[j + 1].mMode = ASMIM_IMPLIED;
-				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress;
+				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress; mIns[j + 2].mLinkerObject = nullptr;
 				j += 3;
 				i += 4;
 			}
@@ -24638,7 +24643,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[j + 0].mType = ASMIT_LDX;
 				mIns[j + 1].mType = ASMIT_INX; mIns[j + 1].mMode = ASMIM_IMPLIED;
 				mIns[j + 2].mType = ASMIT_INX; mIns[j + 2].mMode = ASMIM_IMPLIED;
-				mIns[j + 3].mType = ASMIT_STX; mIns[j + 3].mMode = ASMIM_ZERO_PAGE; mIns[j + 3].mAddress = mIns[i + 3].mAddress;
+				mIns[j + 3].mType = ASMIT_STX; mIns[j + 3].mMode = ASMIM_ZERO_PAGE; mIns[j + 3].mAddress = mIns[i + 3].mAddress; mIns[j + 3].mLinkerObject = nullptr;
 				j += 4;
 				i += 4;
 			}
@@ -24653,7 +24658,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[j + 0].mType = ASMIT_LDX; 
 				mIns[j + 1].mType = ASMIT_DEX; mIns[j + 1].mMode = ASMIM_IMPLIED;
 				mIns[j + 2].mType = ASMIT_DEX; mIns[j + 2].mMode = ASMIM_IMPLIED;
-				mIns[j + 3].mType = ASMIT_STX; mIns[j + 3].mMode = ASMIM_ZERO_PAGE; mIns[j + 3].mAddress = mIns[i + 3].mAddress;
+				mIns[j + 3].mType = ASMIT_STX; mIns[j + 3].mMode = ASMIM_ZERO_PAGE; mIns[j + 3].mAddress = mIns[i + 3].mAddress; mIns[j + 3].mLinkerObject = nullptr;
 				j += 4;
 				i += 4;
 			}
@@ -24665,8 +24670,8 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
 				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
 			{
-				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress;
-				mIns[j + 1].mType = ASMIT_INC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress;
+				mIns[j + 0].mType = ASMIT_INC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress; mIns[j + 0].mLinkerObject = nullptr;
+				mIns[j + 1].mType = ASMIT_INC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress; mIns[j + 1].mLinkerObject = nullptr;
 				j += 2;
 				i += 4;
 			}
@@ -24677,8 +24682,8 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
 				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
 			{
-				mIns[j + 0].mType = ASMIT_DEC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress;
-				mIns[j + 1].mType = ASMIT_DEC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress;
+				mIns[j + 0].mType = ASMIT_DEC; mIns[j + 0].mMode = ASMIM_ZERO_PAGE; mIns[j + 0].mAddress = mIns[i + 1].mAddress; mIns[j + 0].mLinkerObject = nullptr;
+				mIns[j + 1].mType = ASMIT_DEC; mIns[j + 1].mMode = ASMIM_ZERO_PAGE; mIns[j + 1].mAddress = mIns[i + 3].mAddress; mIns[j + 1].mLinkerObject = nullptr;
 				j += 2;
 				i += 4;
 			}
