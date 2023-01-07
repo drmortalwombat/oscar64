@@ -73,8 +73,8 @@ void spr_move16(char sp, int xpos, int ypos)
 {
 	__assume (sp < 8);
 
-	if (ypos < 0 || ypos >= 256 || xpos < 0 || xpos >= 512)
-		ypos = 0;
+	if (ypos < 0 || ypos >= 256 || xpos < 0 || xpos >= 384)
+		xpos = 384;
 
 	vic.spr_pos[sp].y = ypos;
 	vic.spr_pos[sp].x = xpos & 0xff;

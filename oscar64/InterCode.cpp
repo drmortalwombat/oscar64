@@ -6174,8 +6174,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 			if (asize > 0)
 			{
-				mReverseValueRange[ins->mSrc[0].mTemp].LimitMin(0);
-				mReverseValueRange[ins->mSrc[0].mTemp].LimitMax(asize - mMemoryValueSize[ins->mDst.mTemp]);
+				mReverseValueRange[ins->mSrc[0].mTemp].LimitMin(- ins->mSrc[1].mIntConst);
+				mReverseValueRange[ins->mSrc[0].mTemp].LimitMax(asize - ins->mSrc[1].mIntConst - mMemoryValueSize[ins->mDst.mTemp]);
 			}
 		}
 

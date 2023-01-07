@@ -2924,6 +2924,10 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			changed = true;
 		}
+		else if (mMode == ASMIM_IMMEDIATE && ((mAddress == 0 && (mType == ASMIT_ORA || mType == ASMIT_EOR)) || (mAddress == 0xff && mType == ASMIT_AND)))
+		{
+			data.mRegs[CPU_REG_Z].Reset();
+		}
 		else
 		{
 			data.mRegs[CPU_REG_A].Reset();
@@ -7053,6 +7057,77 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 		return dreg;
 	}
 
+#if 1
+	if (mul >= 0xfffc)
+	{
+		int	dreg = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		int	sreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[index].mTemp];
+
+		if (sins)
+		{
+			LoadValueToReg(proc, sins, dreg, nullptr, nullptr);
+			sreg = dreg;
+		}
+
+		switch (mul)
+		{
+		case 0xffff: // -1
+			mIns.Push(NativeCodeInstruction(ASMIT_SEC));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, sreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, sreg + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
+			break;
+		case 0xfffe: // -2
+			mIns.Push(NativeCodeInstruction(ASMIT_SEC));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, sreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, sreg + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_ROL));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
+			break;
+		case 0xfffd: // -3
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_ASL));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 4));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_ROL));
+			mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_ZERO_PAGE, BC_REG_WORK + 4));
+			mIns.Push(NativeCodeInstruction(ASMIT_ROL));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 5));
+
+			mIns.Push(NativeCodeInstruction(ASMIT_SEC, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, BC_REG_WORK + 4));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, BC_REG_WORK + 5));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
+			break;
+		case 0xfffc: // -4
+			mIns.Push(NativeCodeInstruction(ASMIT_SEC));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, sreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_SBC, ASMIM_ZERO_PAGE, sreg + 1));
+			mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_ROL));
+			mIns.Push(NativeCodeInstruction(ASMIT_ASL, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ASMIT_ROL));
+			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
+			break;
+		}
+
+		return dreg;
+	}
+#endif
+
 	int	lshift = 0, lmul = mul;
 	while (!(lmul & 1))
 	{
@@ -10688,18 +10763,38 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 		mIns.Push(NativeCodeInstruction(isub ? ASMIT_SEC : ASMIT_CLC, ASMIM_IMPLIED));
 		if (ins->mSrc[1].mMemory == IM_GLOBAL)
 		{
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
-			mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
-			// if the global variable is smaller than 256 bytes, we can safely ignore the upper byte?
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
-#if 1
-			if (ins->mSrc[1].mLinkerObject->mSize < 256 || ins->mSrc[0].IsUByte() || (addrvalid && ins->mSrc[1].mLinkerObject->mSize <= 256))
-				mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
+			if (!ins->mSrc[0].IsUnsigned() && ins->mSrc[1].mIntConst != 0 && ins->mSrc[1].mLinkerObject->mSize < 256)
+			{
+				// Negative index, small global
+
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
+
+				mIns.Push(NativeCodeInstruction(ASMIT_CLC));
+				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE_ADDRESS, 0, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, 0, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
+				mIns.Push(NativeCodeInstruction(ASMIT_ADC, ASMIM_IMMEDIATE, 0));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
+			}
 			else
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
+				mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
+				// if the global variable is smaller than 256 bytes, we can safely ignore the upper byte?
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
+#if 1
+				if (ins->mSrc[0].IsUByte())
+					mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
+				else if ((ins->mSrc[1].mIntConst == 0 || ins->mSrc[0].IsUnsigned()) &&
+					(ins->mSrc[1].mLinkerObject->mSize < 256 || (addrvalid && ins->mSrc[1].mLinkerObject->mSize <= 256)))
+					mIns.Push(NativeCodeInstruction(iop, ASMIM_IMMEDIATE, 0));
+				else
 #endif
-				mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
+					mIns.Push(NativeCodeInstruction(iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
+			}
 		}
 		else if (ins->mSrc[1].mMemory == IM_ABSOLUTE)
 		{
@@ -24607,13 +24702,13 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
 				mIns[i + 1].mType == ASMIT_CLC &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 3].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 3].mMode) &&
 				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
 			{
 				mIns[j + 0] = mIns[i + 0];
 				mIns[j + 0].mType = ASMIT_LDX;
 				mIns[j + 1].mType = ASMIT_INX; mIns[j + 1].mMode = ASMIM_IMPLIED;
-				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress; mIns[j + 2].mLinkerObject = nullptr;
+				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].CopyMode(mIns[i + 3]);
 				j += 3;
 				i += 4;
 			}
@@ -24621,13 +24716,41 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
 				mIns[i + 1].mType == ASMIT_SEC &&
 				mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 3].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 3].mMode) &&
 				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
 			{
 				mIns[j + 0] = mIns[i + 0];
 				mIns[j + 0].mType = ASMIT_LDX; 
 				mIns[j + 1].mType = ASMIT_DEX; mIns[j + 1].mMode = ASMIM_IMPLIED;
-				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].mMode = ASMIM_ZERO_PAGE; mIns[j + 2].mAddress = mIns[i + 3].mAddress; mIns[j + 2].mLinkerObject = nullptr;
+				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].CopyMode(mIns[i + 3]);
+				j += 3;
+				i += 4;
+			}
+			else if (i + 3 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+				mIns[i + 3].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 3].mMode) &&
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
+			{
+				mIns[j + 0] = mIns[i + 1];
+				mIns[j + 0].mType = ASMIT_LDX;
+				mIns[j + 1].mType = ASMIT_INX; mIns[j + 1].mMode = ASMIM_IMPLIED;
+				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].CopyMode(mIns[i + 3]);
+				j += 3;
+				i += 4;
+			}
+			else if (i + 3 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_SEC &&
+				mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
+				mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+				mIns[i + 3].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 3].mMode) &&
+				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
+			{
+				mIns[j + 0] = mIns[i + 1];
+				mIns[j + 0].mType = ASMIT_LDX; 
+				mIns[j + 1].mType = ASMIT_DEX; mIns[j + 1].mMode = ASMIM_IMPLIED;
+				mIns[j + 2].mType = ASMIT_STX; mIns[j + 2].CopyMode(mIns[i + 3]);
 				j += 3;
 				i += 4;
 			}
@@ -24636,14 +24759,14 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
 				mIns[i + 1].mType == ASMIT_CLC &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 3].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 3].mMode) &&
 				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
 			{
 				mIns[j + 0] = mIns[i + 0];
 				mIns[j + 0].mType = ASMIT_LDX;
 				mIns[j + 1].mType = ASMIT_INX; mIns[j + 1].mMode = ASMIM_IMPLIED;
 				mIns[j + 2].mType = ASMIT_INX; mIns[j + 2].mMode = ASMIM_IMPLIED;
-				mIns[j + 3].mType = ASMIT_STX; mIns[j + 3].mMode = ASMIM_ZERO_PAGE; mIns[j + 3].mAddress = mIns[i + 3].mAddress; mIns[j + 3].mLinkerObject = nullptr;
+				mIns[j + 3].mType = ASMIT_STX; mIns[j + 3].CopyMode(mIns[i + 3]);
 				j += 4;
 				i += 4;
 			}
@@ -24651,14 +24774,14 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
 				mIns[i + 1].mType == ASMIT_SEC &&
 				mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 3].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 3].mMode) &&
 				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
 			{
 				mIns[j + 0] = mIns[i + 0];
 				mIns[j + 0].mType = ASMIT_LDX; 
 				mIns[j + 1].mType = ASMIT_DEX; mIns[j + 1].mMode = ASMIM_IMPLIED;
 				mIns[j + 2].mType = ASMIT_DEX; mIns[j + 2].mMode = ASMIM_IMPLIED;
-				mIns[j + 3].mType = ASMIT_STX; mIns[j + 3].mMode = ASMIM_ZERO_PAGE; mIns[j + 3].mAddress = mIns[i + 3].mAddress; mIns[j + 3].mLinkerObject = nullptr;
+				mIns[j + 3].mType = ASMIT_STX; mIns[j + 3].CopyMode(mIns[i + 3]);
 				j += 4;
 				i += 4;
 			}
