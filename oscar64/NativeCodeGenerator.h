@@ -263,6 +263,7 @@ public:
 	void ShiftRegisterLeftByte(InterCodeProcedure* proc, int reg, int shift);
 	void ShiftRegisterLeftFromByte(InterCodeProcedure* proc, int reg, int shift, int max);
 	int ShortMultiply(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins, int index, int mul);
+	int ShortSignedDivide(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins, const InterInstruction* sins, int mul);
 
 	bool CheckPredAccuStore(int reg);
 

@@ -6,13 +6,15 @@ void fill_mulli(int m)
 {
 #pragma unroll(full)
 	for(int i=-16; i<16; i++)
-		multab[i + 16] = m * i;
+		if (i != 0)
+			multab[i + 16] = m / i;
 }
 
 void check_mulli(int m)
 {
 	for(int i=-16; i<16; i++)
-		assert(multab[i + 16] == m * i);	
+		if (i != 0)
+			assert(multab[i + 16] == m / i);	
 }
 
 int main(void)

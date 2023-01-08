@@ -15,6 +15,9 @@ rem @echo off
 @call :test testsigned16mul.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test testsigned16div.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test recursiontest.c
 @if %errorlevel% neq 0 goto :error
 
