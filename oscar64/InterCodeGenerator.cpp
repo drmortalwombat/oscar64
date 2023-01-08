@@ -2818,8 +2818,6 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vr = TranslateExpression(procType, proc, block, exp->mRight->mRight, breakBlock, continueBlock, inlineMapper);
 
 				vc = Dereference(proc, exp, block, vc);
-				vl = Dereference(proc, exp, block, vl);
-				vr = Dereference(proc, exp, block, vr);
 
 				int			ttemp;
 				InterType	ttype, stypel, styper;
@@ -2858,6 +2856,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else
 				{
+					vl = Dereference(proc, exp, block, vl);
+					vr = Dereference(proc, exp, block, vr);
 
 					if (stypel == styper)
 					{
