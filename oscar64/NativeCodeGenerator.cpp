@@ -18048,6 +18048,28 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 		}
 	}
 
+
+	int i = from + 1;
+	while (i < to && (mIns[i].mType == ASMIT_LDA || mIns[i].mType == ASMIT_STA) && (mIns[i].mMode == ASMIM_IMMEDIATE || mIns[i].mMode == ASMIM_ABSOLUTE || mIns[i].mMode == ASMIM_ZERO_PAGE))
+		i++;
+	if (i == to)
+	{
+		for (int i = from + 1; i < to; i++)
+		{
+			if (mIns[i].mType == ASMIT_LDA)
+				mIns[i].mType = ASMIT_LDX;
+			else if (mIns[i].mType == ASMIT_STA)
+				mIns[i].mType = ASMIT_STX;
+			mIns[i].mLive |= LIVE_CPU_REG_X;
+		}
+		mIns[from].mType = ASMIT_NOP; mIns[from].mMode = ASMIM_IMPLIED;
+		mIns[to].mType = ASMIT_NOP; mIns[to].mMode = ASMIM_IMPLIED;
+
+		CheckLive();
+
+		return true;
+	}
+
 	if (to + 1 < mIns.Size() && mIns[to + 1].mType == ASMIT_STA && !(mIns[to + 1].mLive & LIVE_CPU_REG_A))
 	{
 		NativeCodeInstruction	ins(mIns[to + 1]);
