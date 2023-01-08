@@ -59,5 +59,5 @@ void mmap_trampoline(void)
 void mmap_set(char pla)
 {
 	PLAShadow = pla;
-	*((char *)0x01) = pla;
+	*((volatile char *)0x01) = pla;
 }
