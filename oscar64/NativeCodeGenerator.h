@@ -173,6 +173,7 @@ public:
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset, mTemp;
 	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked, mPatchStart, mPatchLoop, mPatchLoopChanged;
+	bool						mEntryRegA, mEntryRegX, mEntryRegY, mExitRegA, mExitRegX;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
 	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
@@ -396,6 +397,7 @@ public:
 
 	bool CrossBlockXYShortcut(void);
 
+
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
 	bool Propagate16BitSum(void);
 
@@ -431,6 +433,7 @@ public:
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);
 	bool SimplifyDiamond(NativeCodeProcedure* proc);
 	bool SimplifyLoopEnd(NativeCodeProcedure* proc);
+	bool CrossBlockStoreLoadBypass(NativeCodeProcedure* proc);
 
 	bool CanBytepassLoad(const NativeCodeInstruction& ains) const;
 

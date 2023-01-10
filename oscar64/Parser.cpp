@@ -3695,6 +3695,11 @@ void Parser::ParsePragma(void)
 									type = LST_BSS;
 								else if (!strcmp(mScanner->mTokenIdent->mString, "data"))
 									type = LST_DATA;
+								else if (!strcmp(mScanner->mTokenIdent->mString, "packed"))
+								{
+									type = LST_DATA;
+									flags |= LSECF_PACKED;
+								}
 								else
 									mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Unknown section type");
 							}
@@ -3710,6 +3715,8 @@ void Parser::ParsePragma(void)
 				LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(sectionIdent);
 				if (!lsec)
 					lsec = mCompilationUnits->mLinker->AddSection(sectionIdent, type);
+
+				lsec->mFlags |= flags;
 
 				if (dstart)
 				{
@@ -3808,7 +3815,9 @@ void Parser::ParsePragma(void)
 
 					Expression * exp = ParseRExpression();
 					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+					{
 						dec->mAlignment = exp->mDecValue->mInteger;
+					}
 					else
 						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for alignment expected");
 				}

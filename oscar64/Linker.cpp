@@ -8,7 +8,7 @@ LinkerRegion::LinkerRegion(void)
 {}
 
 LinkerSection::LinkerSection(void)
-	: mObjects(nullptr), mSections(nullptr)
+	: mObjects(nullptr), mSections(nullptr), mFlags(0)
 {}
 
 
@@ -248,7 +248,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 		int start = (mFreeChunks[i].mStart + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
 		int end = start + lobj->mSize;
 
-		if (!(linker->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE) && (lobj->mFlags & LOBJF_NO_CROSS) && lobj->mSize <= 256 && (start & 0xff00) != ((end - 1) & 0xff00))
+		if (!(linker->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE) && (lobj->mFlags & LOBJF_NO_CROSS) && lobj->mSize <= 256 && (start & 0xff00) != ((end - 1) & 0xff00) && !(lobj->mSection->mFlags & LSECF_PACKED))
 			;
 		else if (end <= mFreeChunks[i].mEnd)
 		{
@@ -282,7 +282,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 	int start = (mStart + mUsed + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
 	int end = start + lobj->mSize;
 
-	if (!(linker->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE) && (lobj->mFlags & LOBJF_NO_CROSS) && lobj->mSize <= 256 && (start & 0xff00) != ((end - 1) & 0xff00))
+	if (!(linker->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE) && (lobj->mFlags & LOBJF_NO_CROSS) && !(lobj->mFlags & LOBJF_FORCE_ALIGN) && lobj->mSize <= 256 && (start & 0xff00) != ((end - 1) & 0xff00) && !(lobj->mSection->mFlags & LSECF_PACKED))
 	{
 		start = (start + 0x00ff) & 0xff00;
 		end = start + lobj->mSize;
