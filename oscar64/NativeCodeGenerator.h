@@ -311,6 +311,8 @@ public:
 	bool MoveLoadShiftRotateUp(int at);
 	bool MoveLoadShiftStoreUp(int at);
 
+	bool MoveLDSTXOutOfRange(int at);
+
 	bool MoveCLCLoadAddZPStoreDown(int at);
 	bool FindDirectAddressSumY(int at, int reg, int& apos, int& breg);
 	bool PatchDirectAddressSumY(int at, int reg, int apos, int breg);
