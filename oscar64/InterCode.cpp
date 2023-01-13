@@ -12180,43 +12180,52 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 					{
 
 						int	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
-						int	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
-
-						mInstructions[i + 0]->mOperator = IA_AND;
-						mInstructions[i + 0]->mSrc[0].mType = IT_INT16;
-						mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
-
-						switch (mInstructions[i + 0]->mSrc[0].mType)
+						if (shift & 7)
 						{
-						case IT_INT8:
-							mInstructions[i + 0]->mSrc[0].mIntConst = (0xffu >> shift) << shift;
-							break;
-						case IT_INT16:
-							mInstructions[i + 0]->mSrc[0].mIntConst = (0xffffu >> shift) << shift;
-							break;
-						case IT_INT32:
-							mInstructions[i + 0]->mSrc[0].mIntConst = (0xffffffffu >> shift) << shift;
-							break;
-						}
+							int	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
 
-						if (shift > mshift)
-						{
-							mInstructions[i + 1]->mOperator = IA_SHR;
-							mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
-						}
-						else if (shift < mshift)
-						{
-							mInstructions[i + 1]->mOperator = IA_SHL;
-							mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
-						}
-						else
-						{
-							mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
-							mInstructions[i + 1]->mCode = IC_NONE;
-							mInstructions[i + 1]->mNumOperands = 0;
-						}
+							mInstructions[i + 0]->mOperator = IA_AND;
+							mInstructions[i + 0]->mSrc[0].mType = IT_INT16;
+							mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
 
-						changed = true;
+							switch (mInstructions[i + 0]->mSrc[1].mType)
+							{
+							case IT_INT8:
+								mInstructions[i + 0]->mSrc[0].mIntConst = (0xffu >> shift) << shift;
+								break;
+							case IT_INT16:
+								mInstructions[i + 0]->mSrc[0].mIntConst = (0xffffu >> shift) << shift;
+								break;
+							case IT_INT32:
+								mInstructions[i + 0]->mSrc[0].mIntConst = (0xffffffffu >> shift) << shift;
+								break;
+							}
+
+							if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
+							{
+								mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
+								mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
+							}
+
+							if (shift > mshift)
+							{
+								mInstructions[i + 1]->mOperator = IA_SHR;
+								mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
+							}
+							else if (shift < mshift)
+							{
+								mInstructions[i + 1]->mOperator = IA_SHL;
+								mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
+							}
+							else
+							{
+								mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+								mInstructions[i + 1]->mCode = IC_NONE;
+								mInstructions[i + 1]->mNumOperands = 0;
+							}
+
+							changed = true;
+						}
 					}
 #endif
 #if 1
