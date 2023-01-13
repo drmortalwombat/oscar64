@@ -87,6 +87,9 @@ static const byte rmask[8] = {0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe};
 
 void bm_scan_fill(int left, int right, char * lp, int x0, int x1, char pat)
 {
+	__assume(left >= 0);
+	__assume(right >= 0);
+	
 	if (x0 < left)
 		x0 = left;
 	if (x1 > right)
@@ -95,7 +98,7 @@ void bm_scan_fill(int left, int right, char * lp, int x0, int x1, char pat)
 	if (x1 > x0)
 	{
 		char	*	dp = lp + (x0 & ~7);
-		char		l = (x1 >> 3) - (x0 >> 3);
+		unsigned	l = (x1 & ~7) - (x0 & ~7);
 		char 		lm = lmask[x0 & 7], rm = rmask[x1 & 7];
 		char 		o = 0;
 
@@ -105,17 +108,19 @@ void bm_scan_fill(int left, int right, char * lp, int x0, int x1, char pat)
 		{
 			*dp = (*dp & ~lm) | (pat & lm);
 			o = 8;
-			if (l >= 32)
-			{					
+			if (l >= 256)
+			{				
+				#pragma unroll(full)	
 				for(char i=0; i<31; i++)
 				{
 					dp[o] = pat;
 					o += 8;
 				}
 				dp += 256;
-				l -= 31;
+				l -= 248;
 			}
-			for(char i=1; i<l; i++)
+
+			while (o < (char)l)
 			{
 				dp[o] = pat;
 				o += 8;

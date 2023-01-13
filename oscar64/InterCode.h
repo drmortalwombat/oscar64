@@ -269,6 +269,7 @@ public:
 	bool IsUByte(void) const;
 	bool IsSByte(void) const;
 	bool IsUnsigned(void) const;
+	bool IsPositive(void) const;
 
 	bool IsNotUByte(void) const;
 
@@ -362,6 +363,8 @@ public:
 	GrowingInstructionArray			mLoadStoreInstructions;
 
 	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange, mLocalValueRange, mReverseValueRange;
+	GrowingIntegerValueRangeArray	mEntryParamValueRange, mTrueParamValueRange, mFalseParamValueRange, mLocalParamValueRange;
+
 	GrowingArray<int64>				mMemoryValueSize, mEntryMemoryValueSize;
 
 	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
@@ -415,10 +418,10 @@ public:
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
 
-	void RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars);
-	void BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars);
-	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars);
-	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars);
+	void RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
+	void BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
+	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
+	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void SimplifyIntegerRangeRelops(void);
 
 	GrowingIntArray			mEntryRenameTable;
