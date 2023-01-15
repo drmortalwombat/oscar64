@@ -548,6 +548,7 @@ void screen_clear(void)
 
 __interrupt void joy_interrupt()
 {
+//	vic.color_border++;
 	// Poll joystick
 	joy_poll(0);
 
@@ -580,6 +581,7 @@ __interrupt void joy_interrupt()
 	}
 	else if (CrossDelay > 0)
 		CrossDelay--;
+//	vic.color_border--;
 }
 
 enum GameState
@@ -843,7 +845,7 @@ int main(void)
 	rirq_write(&bottom, 0, &vic.memptr, 0x27);
 	rirq_write(&bottom, 1, &vic.ctrl1, VIC_CTRL1_DEN | VIC_CTRL1_RSEL | 3);
 	rirq_call(&bottom, 2, joy_interrupt);
-	rirq_set(1, 250, &bottom);
+	rirq_set(1, 252, &bottom);
 
 	// sort the raster IRQs
 	rirq_sort();

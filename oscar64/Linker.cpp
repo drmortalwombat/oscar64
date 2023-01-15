@@ -71,6 +71,12 @@ void LinkerObject::AddData(const uint8* data, int size)
 	memcpy(mData, data, size);
 }
 
+void LinkerObject::EnsureSpace(int offset, int size)
+{
+	if (offset + size > mSize)
+		AddSpace(offset + size);
+}
+
 uint8* LinkerObject::AddSpace(int size)
 {
 	if (mSize != size)

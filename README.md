@@ -83,6 +83,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -d64 : create a d64 disk image
 * -f : add a binary file to the disk image
 * -fz : add a compressed binary file to the disk image
+* -xz : extended zero page usage, more zero page space, but no return to basic
 
 
 A list of source files can be provided.

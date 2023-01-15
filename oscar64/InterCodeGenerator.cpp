@@ -704,6 +704,186 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 	}
 }
 
+InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr)
+{
+	Declaration* dec;
+	ExValue	vl, vr;
+
+	Declaration* fdec = exp->mLeft->mDecValue;
+	Expression* fexp = fdec->mValue;
+	Declaration* ftype = fdec->mBase;
+
+	InlineMapper	nmapper;
+	nmapper.mReturn = new InterCodeBasicBlock();
+	nmapper.mVarIndex = proc->mNumLocals;
+	nmapper.mConstExpr = inlineConstexpr;
+	proc->mNumLocals += fdec->mNumVars;
+	if (inlineMapper)
+		nmapper.mDepth = inlineMapper->mDepth + 1;
+	proc->Append(nmapper.mReturn);
+
+	Declaration* pdec = ftype->mParams;
+	Expression* pex = exp->mRight;
+	while (pex)
+	{
+		int	nindex = proc->mNumLocals++;
+		Declaration* vdec = new Declaration(pex->mLocation, DT_VARIABLE);
+
+		InterInstruction* ains = new InterInstruction(pex->mLocation, IC_CONSTANT);
+		ains->mDst.mType = IT_POINTER;
+		ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
+		ains->mConst.mMemory = IM_LOCAL;
+		ains->mConst.mVarIndex = nindex;
+
+		if (pdec)
+		{
+			nmapper.mParams[pdec->mVarIndex] = nindex;
+
+			vdec->mVarIndex = nindex;
+			vdec->mBase = pdec->mBase;
+			if (pdec->mBase->mType == DT_TYPE_ARRAY)
+				ains->mConst.mOperandSize = 2;
+			else
+				ains->mConst.mOperandSize = pdec->mSize;
+			vdec->mSize = ains->mConst.mOperandSize;
+			vdec->mIdent = pdec->mIdent;
+		}
+		else
+		{
+			mErrors->Error(pex->mLocation, EERR_WRONG_PARAMETER, "Too many arguments for function call");
+		}
+
+		block->Append(ains);
+
+		Expression* texp;
+
+		if (pex->mType == EX_LIST)
+		{
+			texp = pex->mLeft;
+			pex = pex->mRight;
+		}
+		else
+		{
+			texp = pex;
+			pex = nullptr;
+		}
+
+		ExValue	vp(pdec ? pdec->mBase : TheSignedIntTypeDeclaration, ains->mDst.mTemp, 1);
+
+		vr = TranslateExpression(procType, proc, block, texp, breakBlock, continueBlock, inlineMapper, &vp);
+
+		if (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION)
+		{
+			if (pdec && !pdec->mBase->CanAssign(vr.mType))
+				mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+
+			vr = Dereference(proc, texp, block, vr, 1);
+
+			if (vr.mReference != 1)
+				mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an adressable expression");
+
+			if (vp.mTemp != vr.mTemp)
+			{
+				InterInstruction* cins = new InterInstruction(exp->mLocation, IC_COPY);
+
+				cins->mSrc[0].mType = IT_POINTER;
+				cins->mSrc[0].mTemp = vr.mTemp;
+				cins->mSrc[0].mMemory = IM_INDIRECT;
+				cins->mSrc[0].mOperandSize = vr.mType->mSize;
+				cins->mSrc[0].mStride = vr.mType->mStripe;
+
+				cins->mSrc[1].mType = IT_POINTER;
+				cins->mSrc[1].mTemp = ains->mDst.mTemp;
+				cins->mSrc[1].mMemory = IM_INDIRECT;
+				cins->mSrc[1].mOperandSize = vr.mType->mSize;
+
+				cins->mConst.mOperandSize = vr.mType->mSize;
+				block->Append(cins);
+			}
+		}
+		else
+		{
+			if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
+				vr = Dereference(proc, texp, block, vr, 1);
+			else
+				vr = Dereference(proc, texp, block, vr);
+
+			if (pdec)
+			{
+				if (!pdec->mBase->CanAssign(vr.mType))
+					mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+				vr = CoerceType(proc, texp, block, vr, pdec->mBase);
+			}
+			else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
+			{
+				vr = CoerceType(proc, texp, block, vr, TheSignedIntTypeDeclaration);
+			}
+
+			InterInstruction* wins = new InterInstruction(texp->mLocation, IC_STORE);
+			wins->mSrc[1].mMemory = IM_INDIRECT;
+			wins->mSrc[0].mType = InterTypeOf(vr.mType);;
+			wins->mSrc[0].mTemp = vr.mTemp;
+			wins->mSrc[1].mType = IT_POINTER;
+			wins->mSrc[1].mTemp = ains->mDst.mTemp;
+			if (pdec)
+			{
+				if (pdec->mBase->mType == DT_TYPE_ARRAY)
+					wins->mSrc[1].mOperandSize = 2;
+				else
+					wins->mSrc[1].mOperandSize = pdec->mSize;
+			}
+			else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
+				wins->mSrc[1].mOperandSize = vr.mType->mSize;
+			else
+				wins->mSrc[1].mOperandSize = 2;
+			block->Append(wins);
+		}
+
+		if (pdec)
+			pdec = pdec->mNext;
+	}
+
+	if (pdec)
+		mErrors->Error(exp->mLocation, EERR_WRONG_PARAMETER, "Not enough arguments for function call");
+
+	Declaration* rdec = nullptr;
+	if (ftype->mBase->mType != DT_TYPE_VOID)
+	{
+		int	nindex = proc->mNumLocals++;
+		nmapper.mResult = nindex;
+
+		rdec = new Declaration(ftype->mLocation, DT_VARIABLE);
+		rdec->mVarIndex = nindex;
+		rdec->mBase = ftype->mBase;
+		rdec->mSize = rdec->mBase->mSize;
+	}
+
+	vl = TranslateExpression(ftype, proc, block, fexp, nullptr, nullptr, &nmapper);
+
+	InterInstruction* jins = new InterInstruction(exp->mLocation, IC_JUMP);
+	block->Append(jins);
+
+	block->Close(nmapper.mReturn, nullptr);
+	block = nmapper.mReturn;
+
+	if (rdec)
+	{
+		InterInstruction* ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+		ins->mDst.mType = IT_POINTER;
+		ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+		ins->mConst.mOperandSize = rdec->mSize;
+		ins->mConst.mIntConst = rdec->mOffset;
+		ins->mConst.mVarIndex = rdec->mVarIndex;
+		ins->mConst.mMemory = IM_LOCAL;
+
+		block->Append(ins);
+
+		return ExValue(rdec->mBase, ins->mDst.mTemp, 1);
+	}
+	else
+		return ExValue(TheVoidTypeDeclaration);
+}
+
 InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper* inlineMapper, ExValue* lrexp)
 {
 	Declaration* dec;
@@ -2048,179 +2228,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (doInline)
 			{
-				Declaration* fdec = exp->mLeft->mDecValue;
-				Expression* fexp = fdec->mValue;
-				Declaration* ftype = fdec->mBase;
-
-				InlineMapper	nmapper;
-				nmapper.mReturn = new InterCodeBasicBlock();
-				nmapper.mVarIndex = proc->mNumLocals;
-				nmapper.mConstExpr = inlineConstexpr;
-				proc->mNumLocals += fdec->mNumVars;
-				if (inlineMapper)
-					nmapper.mDepth = inlineMapper->mDepth + 1;
-				proc->Append(nmapper.mReturn);
-
-				Declaration* pdec = ftype->mParams;
-				Expression* pex = exp->mRight;
-				while (pex)
-				{
-					int	nindex = proc->mNumLocals++;
-					Declaration* vdec = new Declaration(pex->mLocation, DT_VARIABLE);
-
-					InterInstruction* ains = new InterInstruction(pex->mLocation, IC_CONSTANT);
-					ains->mDst.mType = IT_POINTER;
-					ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
-					ains->mConst.mMemory = IM_LOCAL;
-					ains->mConst.mVarIndex = nindex;
-					
-					if (pdec)
-					{
-						nmapper.mParams[pdec->mVarIndex] = nindex;
-
-						vdec->mVarIndex = nindex;
-						vdec->mBase = pdec->mBase;
-						if (pdec->mBase->mType == DT_TYPE_ARRAY)
-							ains->mConst.mOperandSize = 2;
-						else
-							ains->mConst.mOperandSize = pdec->mSize;
-						vdec->mSize = ains->mConst.mOperandSize;
-						vdec->mIdent = pdec->mIdent;
-					}
-					else
-					{
-						mErrors->Error(pex->mLocation, EERR_WRONG_PARAMETER, "Too many arguments for function call");
-					}
-
-					block->Append(ains);
-
-					Expression* texp;
-
-					if (pex->mType == EX_LIST)
-					{
-						texp = pex->mLeft;
-						pex = pex->mRight;
-					}
-					else
-					{
-						texp = pex;
-						pex = nullptr;
-					}
-
-					ExValue	vp(pdec ? pdec->mBase : TheSignedIntTypeDeclaration, ains->mDst.mTemp, 1);
-
-					vr = TranslateExpression(procType, proc, block, texp, breakBlock, continueBlock, inlineMapper, &vp);
-
-					if (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION)
-					{
-						if (pdec && !pdec->mBase->CanAssign(vr.mType))
-							mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
-
-						vr = Dereference(proc, texp, block, vr, 1);
-
-						if (vr.mReference != 1)
-							mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an adressable expression");
-
-						if (vp.mTemp != vr.mTemp)
-						{
-							InterInstruction* cins = new InterInstruction(exp->mLocation, IC_COPY);
-
-							cins->mSrc[0].mType = IT_POINTER;
-							cins->mSrc[0].mTemp = vr.mTemp;
-							cins->mSrc[0].mMemory = IM_INDIRECT;
-							cins->mSrc[0].mOperandSize = vr.mType->mSize;
-							cins->mSrc[0].mStride = vr.mType->mStripe;
-
-							cins->mSrc[1].mType = IT_POINTER;
-							cins->mSrc[1].mTemp = ains->mDst.mTemp;
-							cins->mSrc[1].mMemory = IM_INDIRECT;
-							cins->mSrc[1].mOperandSize = vr.mType->mSize;
-
-							cins->mConst.mOperandSize = vr.mType->mSize;
-							block->Append(cins);
-						}
-					}
-					else
-					{
-						if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
-							vr = Dereference(proc, texp, block, vr, 1);
-						else
-							vr = Dereference(proc, texp, block, vr);
-
-						if (pdec)
-						{
-							if (!pdec->mBase->CanAssign(vr.mType))
-								mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
-							vr = CoerceType(proc, texp, block, vr, pdec->mBase);
-						}
-						else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
-						{
-							vr = CoerceType(proc, texp, block, vr, TheSignedIntTypeDeclaration);
-						}
-
-						InterInstruction* wins = new InterInstruction(texp->mLocation, IC_STORE);
-						wins->mSrc[1].mMemory = IM_INDIRECT;
-						wins->mSrc[0].mType = InterTypeOf(vr.mType);;
-						wins->mSrc[0].mTemp = vr.mTemp;
-						wins->mSrc[1].mType = IT_POINTER;
-						wins->mSrc[1].mTemp = ains->mDst.mTemp;
-						if (pdec)
-						{
-							if (pdec->mBase->mType == DT_TYPE_ARRAY)
-								wins->mSrc[1].mOperandSize = 2;
-							else
-								wins->mSrc[1].mOperandSize = pdec->mSize;
-						}
-						else if (vr.mType->mSize > 2 && vr.mType->mType != DT_TYPE_ARRAY)
-							wins->mSrc[1].mOperandSize = vr.mType->mSize;
-						else
-							wins->mSrc[1].mOperandSize = 2;
-						block->Append(wins);
-					}
-
-					if (pdec)
-						pdec = pdec->mNext;
-				}
-
-				if (pdec)
-					mErrors->Error(exp->mLocation, EERR_WRONG_PARAMETER, "Not enough arguments for function call");
-
-				Declaration* rdec = nullptr;
-				if (ftype->mBase->mType != DT_TYPE_VOID)
-				{
-					int	nindex = proc->mNumLocals++;
-					nmapper.mResult = nindex;
-
-					rdec = new Declaration(ftype->mLocation, DT_VARIABLE);
-					rdec->mVarIndex = nindex;
-					rdec->mBase = ftype->mBase;
-					rdec->mSize = rdec->mBase->mSize;
-				}
-
-				vl = TranslateExpression(ftype, proc, block, fexp, nullptr, nullptr, &nmapper);
-
-				InterInstruction* jins = new InterInstruction(exp->mLocation, IC_JUMP);
-				block->Append(jins);
-
-				block->Close(nmapper.mReturn, nullptr);
-				block = nmapper.mReturn;
-
-				if (rdec)
-				{
-					InterInstruction* ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
-					ins->mDst.mType = IT_POINTER;
-					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-					ins->mConst.mOperandSize = rdec->mSize;
-					ins->mConst.mIntConst = rdec->mOffset;
-					ins->mConst.mVarIndex = rdec->mVarIndex;
-					ins->mConst.mMemory = IM_LOCAL;
-
-					block->Append(ins);
-
-					return ExValue(rdec->mBase, ins->mDst.mTemp, 1);
-				}
-				else
-					return ExValue(TheVoidTypeDeclaration);
+				return TranslateInline(procType, proc, block, exp, breakBlock, continueBlock, inlineMapper, inlineConstexpr);
 			}
 			else
 			{

@@ -49,6 +49,22 @@ void Compiler::AddDefine(const Ident* ident, const char* value)
 
 bool Compiler::ParseSource(void)
 {
+	if (mCompilerOptions & COPT_EXTENDED_ZERO_PAGE)
+	{
+		BC_REG_FPARAMS = 0x0d;
+		BC_REG_FPARAMS_END = 0x25;
+
+		BC_REG_IP = 0x25;
+		BC_REG_ACCU = 0x27;
+		BC_REG_ADDR = 0x2b;
+		BC_REG_STACK = 0x2f;
+		BC_REG_LOCALS = 0x31;
+#if 1
+		BC_REG_TMP = 0x33;
+		BC_REG_TMP_SAVED = 0x53;
+#endif
+	}
+
 	mPreprocessor->mCompilerOptions = mCompilerOptions;
 	mLinker->mCompilerOptions = mCompilerOptions;
 
@@ -219,6 +235,8 @@ bool Compiler::GenerateCode(void)
 		regionMain->mSections.Push(mCompilationUnits->mSectionHeap);
 		regionMain->mSections.Push(mCompilationUnits->mSectionStack);
 	}
+
+	mInterCodeModule->InitParamStack(mCompilationUnits->mSectionStack);
 
 	dcrtstart->mSection = sectionStartup;
 

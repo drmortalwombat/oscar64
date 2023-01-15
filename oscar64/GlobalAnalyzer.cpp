@@ -156,24 +156,51 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
 					nbase = 1000;
 			}
 
-			int		nparams = 0;
+			int		nparams = 0, npalign = 0;
+			int		numfpzero = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
+			int		fplimit = numfpzero;
+
+			if (!(procDec->mFlags & DTF_FUNC_INTRCALLED))
+				fplimit += 256;
 
 			if (procDec->mBase->mBase->mType == DT_TYPE_STRUCT)
+			{
+				if (nbase < numfpzero && nbase + 2 > numfpzero)
+					nbase = numfpzero;
 				nparams += 2;
+			}
 
 			Declaration* dec = procDec->mBase->mParams;
 			while (dec)
 			{
+				// Check for paramter crossing boundary
+				if (nbase + nparams < numfpzero && nbase + nparams + dec->mBase->mSize > numfpzero)
+				{
+					npalign = numfpzero - (nbase + nparams);
+					nparams += npalign;
+				}
 				nparams += dec->mBase->mSize;
 				dec = dec->mNext;
 			}
 
-			if (nbase + nparams <= BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+			if (nbase + nparams <= fplimit)
 			{
 				procDec->mFastCallBase = nbase;
 				procDec->mFastCallSize = nparams;
 				procDec->mBase->mFastCallBase = nbase;
 				procDec->mBase->mFastCallSize = nparams;
+
+				// Align fast call parameters to avoid crossing the zero page boundary
+				if (npalign)
+				{
+					Declaration* dec = procDec->mBase->mParams;
+					while (dec)
+					{	
+						if (nbase + dec->mVarIndex + dec->mBase->mSize > numfpzero)
+							dec->mVarIndex += npalign;
+						dec = dec->mNext;
+					}
+				}
 
 				procDec->mBase->mFlags |= DTF_FASTCALL;
 #if 0
@@ -410,16 +437,39 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		return exp->mDecValue->mBase;
 	case EX_CALL:
 		ldec = Analyze(exp->mLeft, procDec);
-		RegisterCall(procDec, ldec);
-		if (!(GetProcFlags(ldec) & (DTF_FUNC_INTRSAVE | DTF_INTERRUPT)))
+		if ((ldec->mFlags & DTF_INTRINSIC) && !ldec->mValue)
 		{
-			procDec->mFlags &= ~DTF_FUNC_INTRSAVE;
-			if (procDec->mFlags & DTF_INTERRUPT)
-				mErrors->Error(exp->mLocation, EWARN_NOT_INTERRUPT_SAFE, "Calling non interrupt safe function", ldec->mIdent);
+
+		}
+		else
+		{
+			RegisterCall(procDec, ldec);
+			if (!(GetProcFlags(ldec) & (DTF_FUNC_INTRSAVE | DTF_INTERRUPT)))
+			{
+				procDec->mFlags &= ~DTF_FUNC_INTRSAVE;
+				if (procDec->mFlags & DTF_INTERRUPT)
+					mErrors->Error(exp->mLocation, EWARN_NOT_INTERRUPT_SAFE, "Calling non interrupt safe function", ldec->mIdent);
+			}
 		}
 
 		if (exp->mRight)
+		{
+			// Check for struct to struct forwarding
+			Expression* rex = exp->mRight;
+			while (rex)
+			{
+				Expression* pex = rex->mType == EX_LIST ? rex->mLeft : rex;
+
+				if (pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT)
+					ldec->mBase->mFlags |= DTF_STACKCALL;
+
+				if (rex->mType == EX_LIST)
+					rex = rex->mRight;
+				else
+					rex = nullptr;
+			}
 			RegisterProc(Analyze(exp->mRight, procDec));
+		}
 		break;
 	case EX_LIST:
 		RegisterProc(Analyze(exp->mLeft, procDec));

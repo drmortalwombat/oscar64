@@ -85,7 +85,7 @@ void IntegerValueRange::LimitMaxBound(int64 value)
 
 void IntegerValueRange::LimitMinWeak(int64 value)
 {
-	if (mMinState == S_UNBOUND || mMinValue < value)
+	if (mMinState == S_UNBOUND || mMinState != S_UNKNOWN && mMinValue < value)
 	{
 		mMinState = S_BOUND;
 		mMinValue = value;
@@ -95,7 +95,7 @@ void IntegerValueRange::LimitMinWeak(int64 value)
 
 void IntegerValueRange::LimitMaxWeak(int64 value)
 {
-	if (mMaxState == S_UNBOUND || mMaxValue > value)
+	if (mMaxState == S_UNBOUND || mMinState != S_UNKNOWN && mMaxValue > value)
 	{
 		mMaxState = S_BOUND;
 		mMaxValue = value;
@@ -6130,6 +6130,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			default:
 				vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 			}
+
 #if 1
 			if (ins->mDst.mType == IT_INT8)
 			{
@@ -6599,6 +6600,11 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVar
 		mLocalValueRange.SetSize(num, false);
 		mMemoryValueSize.SetSize(num, false);
 		mEntryMemoryValueSize.SetSize(num, false);
+
+		mEntryParamValueRange.SetSize(paramVars.Size(), false);
+		mTrueParamValueRange.SetSize(paramVars.Size(), false);
+		mFalseParamValueRange.SetSize(paramVars.Size(), false);
+		mLocalParamValueRange.SetSize(paramVars.Size(), false);
 
 		for (int i = 0; i < mEntryValueRange.Size(); i++)
 		{
@@ -10080,7 +10086,7 @@ void ApplyStaticStack(InterOperand & iop, const GrowingVariableArray& localVars)
 		iop.mMemory = IM_GLOBAL;
 		iop.mLinkerObject = localVars[iop.mVarIndex]->mLinkerObject;
 		iop.mVarIndex = localVars[iop.mVarIndex]->mIndex;
-	}
+	}	
 }
 
 void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVariableArray& localVars)
@@ -10095,7 +10101,7 @@ void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVa
 				lobj->mStackSection->mSections.Push(mInstructions[i]->mSrc[0].mLinkerObject->mStackSection);
 
 			if (mInstructions[i]->mCode == IC_LOAD)
-				ApplyStaticStack(mInstructions[i]->mSrc[0], localVars);
+				ApplyStaticStack(mInstructions[i]->mSrc[0],localVars);
 			else if (mInstructions[i]->mCode == IC_STORE || mInstructions[i]->mCode == IC_LEA)
 				ApplyStaticStack(mInstructions[i]->mSrc[1], localVars);
 			else if (mInstructions[i]->mCode == IC_CONSTANT && mInstructions[i]->mDst.mType == IT_POINTER)
@@ -10109,6 +10115,47 @@ void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVa
 
 		if (mTrueJump) mTrueJump->CollectStaticStack(lobj, localVars);
 		if (mFalseJump) mFalseJump->CollectStaticStack(lobj, localVars);
+	}
+}
+
+void PromoteStaticStackParam(InterOperand& iop, LinkerObject* paramlobj)
+{
+	if (iop.mMemory == IM_FFRAME || iop.mMemory == IM_FPARAM)
+	{
+		if (iop.mVarIndex >= BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+		{
+			int	offset = iop.mVarIndex - (BC_REG_FPARAMS_END - BC_REG_FPARAMS);
+			iop.mMemory = IM_GLOBAL;
+			iop.mIntConst += offset;
+			iop.mLinkerObject = paramlobj;
+			paramlobj->EnsureSpace(iop.mIntConst, iop.mOperandSize);
+		}
+	}
+}
+
+void InterCodeBasicBlock::PromoteStaticStackParams(LinkerObject* paramlobj)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i]->mCode == IC_LOAD)
+				PromoteStaticStackParam(mInstructions[i]->mSrc[0], paramlobj);
+			else if (mInstructions[i]->mCode == IC_STORE || mInstructions[i]->mCode == IC_LEA)
+				PromoteStaticStackParam(mInstructions[i]->mSrc[1], paramlobj);
+			else if (mInstructions[i]->mCode == IC_CONSTANT && mInstructions[i]->mDst.mType == IT_POINTER)
+				PromoteStaticStackParam(mInstructions[i]->mConst, paramlobj);
+			else if (mInstructions[i]->mCode == IC_COPY)
+			{
+				PromoteStaticStackParam(mInstructions[i]->mSrc[0], paramlobj);
+				PromoteStaticStackParam(mInstructions[i]->mSrc[1], paramlobj);
+			}
+		}
+
+		if (mTrueJump) mTrueJump->PromoteStaticStackParams(paramlobj);
+		if (mFalseJump) mFalseJump->PromoteStaticStackParams(paramlobj);
 	}
 }
 
@@ -14333,6 +14380,7 @@ void InterCodeProcedure::Close(void)
 	{
 		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
 		mLinkerObject->mStackSection = mModule->mLinker->AddSection(mIdent->Mangle("@stack"), LST_STATIC_STACK);
+		mLinkerObject->mStackSection->mSections.Push(mModule->mParamLinkerSection);
 
 		for (int i = 0; i < mLocalVars.Size(); i++)
 		{
@@ -14458,14 +14506,17 @@ void InterCodeProcedure::Close(void)
 
 	MapCallerSavedTemps();
 
+	ResetVisited();
+	mEntryBlock->PromoteStaticStackParams(mModule->mParamLinkerObject);
+
 	if (mValueReturn)
 	{
 		ResetVisited();
 		mEntryBlock->CheckValueReturn(this);
 	}
 
-	if (mSaveTempsLinkerObject && mTempSize > 16)
-		mSaveTempsLinkerObject->AddSpace(mTempSize - 16);
+	if (mSaveTempsLinkerObject && mTempSize > BC_REG_TMP_SAVED - BC_REG_TMP)
+		mSaveTempsLinkerObject->AddSpace(mTempSize - (BC_REG_TMP_SAVED - BC_REG_TMP));
 }
 
 void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)
@@ -14867,10 +14918,10 @@ void InterCodeProcedure::MapCallerSavedTemps(void)
 	ResetVisited();
 	mEntryBlock->BuildCallerSaveTempSet(callerSaved);
 
-	int		callerSavedTemps = 0, calleeSavedTemps = 16, freeCallerSavedTemps = 0, freeTemps = 0;
+	int		callerSavedTemps = 0, calleeSavedTemps = BC_REG_TMP_SAVED - BC_REG_TMP, freeCallerSavedTemps = 0, freeTemps = 0;
 
 	if (mCallsFunctionPointer)
-		freeCallerSavedTemps = 16;
+		freeCallerSavedTemps = BC_REG_TMP_SAVED - BC_REG_TMP;
 	else
 	{
 		for (int i = 0; i < mCalledFunctions.Size(); i++)
@@ -14939,8 +14990,8 @@ void InterCodeProcedure::MapCallerSavedTemps(void)
 		printf("T%02d : %d, %d\n", i, mTempOffset[i], mTempSizes[i]);
 #endif
 
-	if (mSaveTempsLinkerObject && mTempSize > 16)
-		mSaveTempsLinkerObject->AddSpace(mTempSize - 16);
+	if (mSaveTempsLinkerObject && mTempSize > BC_REG_TMP_SAVED - BC_REG_TMP)
+		mSaveTempsLinkerObject->AddSpace(mTempSize - (BC_REG_TMP_SAVED - BC_REG_TMP));
 
 //	printf("Map %s, %d, %d, %d, %d\n", mIdent->mString, freeTemps, callerSavedTemps, calleeSavedTemps, freeCallerSavedTemps);
 }
@@ -15004,13 +15055,22 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 }
 
 InterCodeModule::InterCodeModule(Errors* errors, Linker * linker)
-	: mErrors(errors), mLinker(linker), mGlobalVars(nullptr), mProcedures(nullptr), mCompilerOptions(0)
+	: mErrors(errors), mLinker(linker), mGlobalVars(nullptr), mProcedures(nullptr), mCompilerOptions(0), mParamLinkerObject(nullptr), mParamLinkerSection(nullptr)
 {
 }
 
 InterCodeModule::~InterCodeModule(void)
 {
 
+}
+
+
+void InterCodeModule::InitParamStack(LinkerSection* stackSection)
+{
+	mParamLinkerSection = mLinker->AddSection(Ident::Unique("sstack"), LST_STATIC_STACK);
+	stackSection->mSections.Push(mParamLinkerSection);
+
+	mParamLinkerObject = mLinker->AddObject(Location(), Ident::Unique("sstack"), mParamLinkerSection, LOT_STACK);
 }
 
 bool InterCodeModule::Disassemble(const char* filename)

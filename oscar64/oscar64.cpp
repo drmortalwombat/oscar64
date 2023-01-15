@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.13.178");
+		strcpy(strProductVersion, "1.14.179");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -205,6 +205,10 @@ int main2(int argc, const char** argv)
 					compiler->mCompilerOptions |= COPT_VERBOSE;
 					if (arg[2] == '2')
 						compiler->mCompilerOptions |= COPT_VERBOSE2;
+				}
+				else if (arg[1] == 'x' && arg[2] == 'z')
+				{
+					compiler->mCompilerOptions |= COPT_EXTENDED_ZERO_PAGE;
 				}
 				else
 					compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);

@@ -518,6 +518,7 @@ public:
 	
 	bool CheckStaticStack(void);
 	void CollectStaticStack(LinkerObject * lobj, const GrowingVariableArray& localVars);
+	void PromoteStaticStackParams(LinkerObject* paramlobj);
 
 	bool SameExitCode(const InterCodeBasicBlock* block) const;
 
@@ -622,11 +623,15 @@ public:
 	InterCodeModule(Errors* errors, Linker * linker);
 	~InterCodeModule(void);
 
+	void InitParamStack(LinkerSection * stackSection);
+
 	bool Disassemble(const char* name);
 
 	GrowingInterCodeProcedurePtrArray	mProcedures;
 
 	GrowingVariableArray				mGlobalVars;
+	LinkerObject					*	mParamLinkerObject;
+	LinkerSection					*	mParamLinkerSection;
 
 	Linker							*	mLinker;
 	Errors* mErrors;

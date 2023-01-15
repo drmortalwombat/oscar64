@@ -174,6 +174,7 @@ public:
 
 	void AddData(const uint8* data, int size);
 	uint8* AddSpace(int size);
+	void EnsureSpace(int offset, int size);
 
 	GrowingArray<LinkerReference*>	mReferences;
 

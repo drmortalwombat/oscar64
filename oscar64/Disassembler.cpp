@@ -797,7 +797,7 @@ const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeP
 		sprintf_s(buffer, 10, "P%d", tmp - BC_REG_FPARAMS);
 		return buffer;
 	}
-	else if (tmp >= BC_REG_LOCALS && tmp <= BC_REG_LOCALS + 3)
+	else if (tmp >= BC_REG_LOCALS && tmp <= BC_REG_LOCALS + 1)
 	{
 		sprintf_s(buffer, 10, "FP + %d", tmp - BC_REG_LOCALS);
 		return buffer;
