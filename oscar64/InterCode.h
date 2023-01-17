@@ -287,7 +287,7 @@ public:
 	InterOperator						mOperator;
 	int									mNumOperands;
 
-	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment;
+	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr;
 
 	InterInstruction(const Location& loc, InterCode code);
 
@@ -298,6 +298,7 @@ public:
 
 	bool ReferencesTemp(int temp) const;
 	bool UsesTemp(int temp) const;
+	int NumUsedTemps(void) const;
 
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);

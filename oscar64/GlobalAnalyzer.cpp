@@ -376,7 +376,13 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_VARIABLE:
 		if ((exp->mDecValue->mFlags & DTF_STATIC) || (exp->mDecValue->mFlags & DTF_GLOBAL))
 		{
-			procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+			Declaration* type = exp->mDecValue->mBase;
+			while (type->mType == DT_TYPE_ARRAY)
+				type = type->mBase;
+
+			if (!(type->mFlags & DTF_CONST))
+				procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+
 			AnalyzeGlobalVariable(exp->mDecValue);
 		}
 		else

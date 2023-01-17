@@ -79,6 +79,7 @@ static const uint32 NCIF_USE_CPU_REG_Y = 0x00004000;
 
 // use a 32bit zero page register indexed by X for JSR
 static const uint32 NCIF_USE_ZP_32_X = 0x00008000;
+static const uint32 NICF_USE_ZP_ADDR = 0x00010000;
 
 class NativeCodeInstruction
 {
@@ -217,11 +218,11 @@ public:
 	void BlockSizeReduction(NativeCodeProcedure* proc, int xenter, int yenter);
 	bool BlockSizeCopyReduction(NativeCodeProcedure* proc, int & si, int & di);
 
-	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc);
-	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock);
+	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, bool full);
+	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock, bool full);
 	bool RemoveSimpleLoopUnusedIndex(void);
 
-	bool OptimizeSimpleLoop(NativeCodeProcedure* proc);
+	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeXYSimpleLoop(void);
@@ -484,6 +485,11 @@ public:
 	bool CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains, int cycles);
 	bool PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains);
 
+	// reg : base register pair to replace
+	// base: new base register
+	// iins : indexing instruction
+	// at : start position in block
+	// yval: known y immediate value of -1 if not known
 	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 

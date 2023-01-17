@@ -735,6 +735,9 @@ void bm_line(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, i
 
 	if (dx > 0)
 	{
+		__assume(clip->left >= 0);
+		__assume(clip->right >= 0);
+
 		if (x1 < clip->left || x0 >= clip->right)
 			return;
 
@@ -752,6 +755,9 @@ void bm_line(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, i
 	}
 	else
 	{
+		__assume(clip->left >= 0);
+		__assume(clip->right >= 0);
+
 		if (x0 < clip->left || x1 >= clip->right)
 			return;
 
@@ -770,6 +776,9 @@ void bm_line(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, i
 
 	if (dy > 0)
 	{
+		__assume(clip->top >= 0);
+		__assume(clip->bottom >= 0);
+
 		if (y1 < clip->top || y0 >= clip->bottom)
 			return;
 
@@ -787,6 +796,9 @@ void bm_line(const Bitmap * bm, const ClipRect * clip, int x0, int y0, int x1, i
 	}
 	else
 	{
+		__assume(clip->top >= 0);
+		__assume(clip->bottom >= 0);
+
 		if (y0 < clip->top || y1 >= clip->bottom)
 			return;
 

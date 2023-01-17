@@ -388,10 +388,10 @@ static bool CollidingMemType(InterType type1, InterType type2)
 {
 	if (type1 == IT_NONE || type2 == IT_NONE)
 		return true;
-	else if (type1 == IT_POINTER || type1 == IT_FLOAT || type2 == IT_POINTER || type2 == IT_FLOAT)
+	else// if (type1 == IT_POINTER || type1 == IT_FLOAT || type2 == IT_POINTER || type2 == IT_FLOAT)
 		return type1 == type2;
-	else
-		return false;
+//	else
+//		return false;
 
 }
 
@@ -403,7 +403,7 @@ static bool CollidingMem(const InterOperand& op1, InterType type1, const InterOp
 		{
 			if (op2.mMemory == IM_GLOBAL)
 				return staticVars[op2.mVarIndex]->mAliased;
-			else if (op2.mMemory == IM_FPARAM)
+			else if (op2.mMemory == IM_FPARAM || op2.mMemory == IM_FFRAME)
 				return false;
 			else
 				return CollidingMemType(type1, type2);
@@ -412,7 +412,7 @@ static bool CollidingMem(const InterOperand& op1, InterType type1, const InterOp
 		{
 			if (op1.mMemory == IM_GLOBAL)
 				return staticVars[op1.mVarIndex]->mAliased;
-			else if (op1.mMemory == IM_FPARAM)
+			else if (op1.mMemory == IM_FPARAM || op1.mMemory == IM_FFRAME)
 				return false;
 			else
 				return CollidingMemType(type1, type2);
@@ -2648,6 +2648,8 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	mVolatile = false;
 	mInvariant = false;
 	mSingleAssignment = false;
+	mNoSideEffects = false;
+	mConstExpr = false;
 }
 
 static bool TypeInteger(InterType t)
@@ -3278,6 +3280,15 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariable
 	return changed;
 }
 
+int InterInstruction::NumUsedTemps(void) const
+{
+	int n = 0;
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp >= 0)
+			n++;
+	return n;
+}
+
 bool InterInstruction::UsesTemp(int temp) const
 {
 	for (int i = 0; i < mNumOperands; i++)
@@ -3894,6 +3905,10 @@ void InterInstruction::Disassemble(FILE* file)
 			fprintf(file, "I");
 		if (mVolatile)
 			fprintf(file, "V");
+		if (mNoSideEffects)
+			fprintf(file, "E");
+		if (mConstExpr)
+			fprintf(file, "C");
 		if (mSingleAssignment)
 			fprintf(file, "S");
 		fprintf(file, "}\n");
@@ -11026,7 +11041,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{
 				InterInstruction* ins = mInstructions[i];
-				if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+				if ((ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE) && !ins->mConstExpr)
 					hasCall = true;
 			}
 
@@ -11119,7 +11134,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					ins->mInvariant = false;
 				else if (ins->mCode == IC_LOAD)
 				{
-					if ((ins->mSrc[0].mTemp >= 0 && mLocalModifiedTemps[ins->mSrc[0].mTemp]) || ins->mVolatile)
+					if ((ins->mSrc[0].mTemp >= 0 && mLocalModifiedTemps[ins->mSrc[0].mTemp]) || ins->mVolatile || hasCall)
 					{
 						ins->mInvariant = false;
 					}
@@ -12641,32 +12656,45 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		} while (changed);
 
 		// build trains
-
+#if 1
 		for(int i = mInstructions.Size() - 1; i > 0; i--)
 		{
 			InterInstruction* tins = mInstructions[i];
 
+			int	ti = i;
+
 			j = i - 1;
 			while (j >= 0 && !tins->ReferencesTemp(mInstructions[j]->mDst.mTemp))
 				j--;
-			if (j >= 0 && j < i - 1)
+			while (j >= 0)
 			{
-				if (CanMoveInstructionDown(j, i)) 
+				if (j < ti - 1)
 				{
-					InterInstruction* jins = mInstructions[j];
-					for (int k = j; k < i - 1; k++)
+					if (CanMoveInstructionDown(j, ti))
 					{
-						SwapInstructions(jins, mInstructions[k + 1]);
-						mInstructions[k] = mInstructions[k + 1];
-					}
-					mInstructions[i - 1] = jins;
+						InterInstruction* jins = mInstructions[j];
+						for (int k = j; k < ti - 1; k++)
+						{
+							SwapInstructions(jins, mInstructions[k + 1]);
+							mInstructions[k] = mInstructions[k + 1];
+						}
+						mInstructions[ti - 1] = jins;
+						if (mInstructions[ti - 1]->NumUsedTemps() <= 1)
+							ti--;
 
-//					mInstructions.Insert(i, mInstructions[j]);
-//					mInstructions.Remove(j);
+						//					mInstructions.Insert(i, mInstructions[j]);
+						//					mInstructions.Remove(j);
+					}
 				}
+				else if (mInstructions[j]->NumUsedTemps() <= 1)
+					ti--;
+
+				j--;
+				while (j >= 0 && !tins->ReferencesTemp(mInstructions[j]->mDst.mTemp))
+					j--;
 			}
 		}
-
+#endif
 		CheckFinalLocal();
 
 		// sort stores up
