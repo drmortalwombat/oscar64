@@ -199,6 +199,19 @@ public:
 
 	void ShortcutTailRecursion();
 
+	bool ReferencesAccu(int from = 0) const;
+	bool ReferencesYReg(int from = 0) const;
+	bool ReferencesXReg(int from = 0) const;
+
+	bool ChangesAccu(int from = 0) const;
+	bool ChangesYReg(int from = 0) const;
+	bool ChangesXReg(int from = 0) const;
+
+	bool ChangesZeroPage(int address, int from = 0) const;
+	bool UsesZeroPage(int address, int from = 0) const;
+	bool ReferencesZeroPage(int address, int from = 0) const;
+
+
 	bool RemoveNops(void);
 	bool PeepHoleOptimizer(NativeCodeProcedure* proc, int pass);
 	void BlockSizeReduction(NativeCodeProcedure* proc, int xenter, int yenter);
@@ -399,6 +412,7 @@ public:
 
 	bool CrossBlockXYShortcut(void);
 
+	bool BypassRegisterConditionBlock(void);
 
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
 	bool Propagate16BitSum(void);

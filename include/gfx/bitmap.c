@@ -89,7 +89,7 @@ void bm_scan_fill(int left, int right, char * lp, int x0, int x1, char pat)
 {
 	__assume(left >= 0);
 	__assume(right >= 0);
-	
+
 	if (x0 < left)
 		x0 = left;
 	if (x1 > right)
@@ -119,6 +119,15 @@ void bm_scan_fill(int left, int right, char * lp, int x0, int x1, char pat)
 				dp += 256;
 				l -= 248;
 			}
+			else if (l >= 128)
+			{
+				#pragma unroll(full)	
+				for(char i=0; i<15; i++)
+				{
+					dp[o] = pat;
+					o += 8;
+				}
+			}
 
 			while (o < (char)l)
 			{
@@ -132,6 +141,7 @@ void bm_scan_fill(int left, int right, char * lp, int x0, int x1, char pat)
 
 #pragma native(bm_scan_fill)
 
+#if 0
 unsigned bm_usqrt(unsigned n)
 {
 	unsigned p, q, r, h;
@@ -157,6 +167,32 @@ unsigned bm_usqrt(unsigned n)
 
     return p;
 }
+#else
+unsigned bm_usqrt(unsigned n)
+{
+    unsigned p, q, r, h;
+
+    p = 0;
+    r = n;
+
+#assign q 0x4000
+#repeat
+    {
+        h = p | q;
+        p >>= 1;
+        if (r >= h)
+        {
+            p |= q;
+            r -= h;
+        } 
+    }
+#assign q q >> 2
+#until q == 0
+#undef q
+
+    return p;
+}
+#endif
 
 #pragma native(bm_usqrt)
 

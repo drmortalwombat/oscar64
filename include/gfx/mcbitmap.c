@@ -204,16 +204,19 @@ void bmmc_circle_fill(const Bitmap * bm, const ClipRect * clip, int x, int y, ch
 	int			stride = 8 * bm->cwidth - 8;
 
 	unsigned rr = r * r + r;
+	unsigned d = rr - (y0 - y) * (y0 - y);
+	int tt = 2 * (y0 - y) + 1;
 	for(char iy=y0; iy<(char)y1; iy++)
 	{
-		int d = (iy - y);
-
-		int t = bm_usqrt(rr - d * d);
+		int t = bm_usqrt(d);
 
 		bmmc_scan_fill(clip->left, clip->right, lp, x - t, x + t + 1, pat[iy & 7]);
 		lp ++;
 		if (!((int)lp & 7))
 			lp += stride;
+
+		d -= tt;
+		tt += 2;
 	}
 }
 
