@@ -148,7 +148,7 @@ inline void bm_rect_copy(const Bitmap * dbm, const ClipRect * clip, int dx, int 
 
 
 // Unclipped text rendering
-int bmu_text(const Bitmap * bm, const char * str, char len);
+int bmu_text(const Bitmap * bm, char lx, const char * str, char len);
 
 // Calculate size of a char range
 int bmu_text_size(const char * str, char len);

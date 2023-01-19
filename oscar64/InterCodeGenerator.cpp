@@ -3474,7 +3474,6 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 
 			ref.mRefObject = dec->mLinkerObject;
 			ref.mRefOffset = 0;
-			variable->mLinkerObject->AddReference(ref);
 			break;
 		}
 		case DT_CONST_FUNCTION:
@@ -3483,13 +3482,8 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 				InterCodeProcedure* cproc = this->TranslateProcedure(mod, dec->mValue, dec);
 			}
 
-			LinkerReference	ref;
-			ref.mObject = variable->mLinkerObject;
-			ref.mOffset = offset;
-			ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 			ref.mRefObject = dec->mLinkerObject;
 			ref.mRefOffset = 0;
-			variable->mLinkerObject->AddReference(ref);
 			break;
 
 		case DT_VARIABLE:
@@ -3499,13 +3493,8 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 				InitGlobalVariable(mod, dec);
 			}
 
-			LinkerReference	ref;
-			ref.mObject = variable->mLinkerObject;
-			ref.mOffset = offset;
-			ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 			ref.mRefObject = dec->mLinkerObject;
 			ref.mRefOffset = 0;
-			variable->mLinkerObject->AddReference(ref);
 		}	break;
 
 		case DT_VARIABLE_REF:
@@ -3515,15 +3504,21 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 				InitGlobalVariable(mod, dec->mBase);
 			}
 
-			LinkerReference	ref;
-			ref.mObject = variable->mLinkerObject;
-			ref.mOffset = offset;
-			ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 			ref.mRefObject = dec->mBase->mLinkerObject;
 			ref.mRefOffset = dec->mOffset;
-			variable->mLinkerObject->AddReference(ref);
 		}	break;
 
+		}
+
+		if (data->mBase->mStripe == 1)
+			variable->mLinkerObject->AddReference(ref);
+		else
+		{
+			ref.mFlags = LREF_LOWBYTE;
+			variable->mLinkerObject->AddReference(ref);
+			ref.mFlags = LREF_HIGHBYTE;
+			ref.mOffset += data->mBase->mStripe;
+			variable->mLinkerObject->AddReference(ref);
 		}
 	}
 }

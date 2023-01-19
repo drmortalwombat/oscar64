@@ -901,6 +901,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 		if (dtype->mType == DT_TYPE_POINTER && exp->mDecType && exp->mDecType->mType == DT_TYPE_ARRAY && exp->mType == EX_CONSTANT)
 		{
 			Declaration* ndec = new Declaration(exp->mDecValue->mLocation, DT_CONST_POINTER);
+			ndec->mBase = dtype;
 			ndec->mValue = exp;
 			dec = ndec;
 
@@ -955,6 +956,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 				else if (exp->mDecValue->mType == DT_CONST_FUNCTION)
 				{
 					Declaration* ndec = new Declaration(exp->mDecValue->mLocation, DT_CONST_POINTER);
+					ndec->mBase = dtype;
 					ndec->mValue = exp;
 					dec = ndec;
 
@@ -1083,7 +1085,7 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 		ndec = ReverseDeclaration(ndec, bdec);
 
 		if (storageFlags & DTF_STRIPED)
-			ndec = ndec->ToStriped();
+			ndec = ndec->ToStriped(mErrors);
 
 		Declaration* npdec = ndec;
 

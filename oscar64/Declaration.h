@@ -206,7 +206,7 @@ public:
 
 	Declaration* ToConstType(void);
 	Declaration* ToStriped(int stripe);
-	Declaration* ToStriped(void);
+	Declaration* ToStriped(Errors* errors);
 	Declaration* Clone(void);
 
 	int Stride(void) const;

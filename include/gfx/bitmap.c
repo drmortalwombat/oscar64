@@ -843,6 +843,16 @@ static char builddop_src(char ip, char shift, bool reverse)
 	if (shift != 0)
 	{
 		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_S0);
+		if (reverse)
+		{
+			if (shift > 4)
+				ip += asm_ac(BLIT_CODE + ip, ASM_ASL);			
+		}
+		else
+		{
+			if (shift <= 4)
+				ip += asm_ac(BLIT_CODE + ip, ASM_LSR);
+		}
 		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_S1);
 
 		ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_SP);
@@ -852,40 +862,46 @@ static char builddop_src(char ip, char shift, bool reverse)
 		{
 			if (shift > 4)
 			{
-				for(char i=shift; i<8; i++)
+				for(char i=shift; i<7; i++)
 				{
-					ip += asm_zp(BLIT_CODE + ip, ASM_ASL, REG_S1);
 					ip += asm_ac(BLIT_CODE + ip, ASM_ROL);
+					ip += asm_zp(BLIT_CODE + ip, ASM_ASL, REG_S1);
 				}
+				ip += asm_ac(BLIT_CODE + ip, ASM_ROL);
 			}
 			else
 			{
-				for(char i=0; i<shift; i++)
+				ip += asm_ac(BLIT_CODE + ip, ASM_LSR);
+				for(char i=1; i<shift; i++)
 				{
-					ip += asm_ac(BLIT_CODE + ip, ASM_LSR);
 					ip += asm_zp(BLIT_CODE + ip, ASM_ROR, REG_S1);
+					ip += asm_ac(BLIT_CODE + ip, ASM_LSR);
 				}
 				ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_S1);
+				ip += asm_ac(BLIT_CODE + ip, ASM_ROR);
 			}
 		}
 		else
 		{
 			if (shift > 4)
 			{
-				for(char i=shift; i<8; i++)
+				ip += asm_ac(BLIT_CODE + ip, ASM_ASL);
+				for(char i=shift; i<7; i++)
 				{
-					ip += asm_ac(BLIT_CODE + ip, ASM_ASL);
 					ip += asm_zp(BLIT_CODE + ip, ASM_ROL, REG_S1);
+					ip += asm_ac(BLIT_CODE + ip, ASM_ASL);
 				}
 				ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_S1);
+				ip += asm_ac(BLIT_CODE + ip, ASM_ROL);
 			}
 			else
 			{
-				for(char i=0; i<shift; i++)
+				for(char i=1; i<shift; i++)
 				{
-					ip += asm_zp(BLIT_CODE + ip, ASM_LSR, REG_S1);
 					ip += asm_ac(BLIT_CODE + ip, ASM_ROR);
+					ip += asm_zp(BLIT_CODE + ip, ASM_LSR, REG_S1);
 				}
+				ip += asm_ac(BLIT_CODE + ip, ASM_ROR);
 			}
 		}
 	}
@@ -899,27 +915,50 @@ static char builddop_src(char ip, char shift, bool reverse)
 
 static AsmIns blitops_op[4] = {ASM_BRK, ASM_AND, ASM_ORA, ASM_EOR};
 
-static char builddop_op(char ip, BlitOp op)
+static char builddop_op(char ip, BlitOp op, char mask)
 {
 	char	reg = REG_D0;
 	if (op & BLIT_PATTERN)
 		reg = REG_PAT;
 
+	BlitOp	rop = op & BLIT_OP;
+
 	if (op & BLIT_IMM)
 	{
-		if (op & BLIT_INVERT)
-			ip += asm_im(BLIT_CODE + ip, ASM_LDA, 0xff);
-		else
-			ip += asm_im(BLIT_CODE + ip, ASM_LDA, 0x00);
+		if (!rop && mask)
+		{
+			ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_DP);
+			if (op & BLIT_INVERT)
+				ip += asm_im(BLIT_CODE + ip, ASM_ORA, ~mask);
+			else
+				ip += asm_im(BLIT_CODE + ip, ASM_AND, mask);
+			ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_DP);
+
+			return ip;
+		}
+
+		ip += asm_im(BLIT_CODE + ip, ASM_LDA, (op & BLIT_INVERT) ? 0xff : 0x00);
 	}
 	else if (!(op & BLIT_SRC))
 		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, reg);
 	else if (op & BLIT_INVERT)
 		ip += asm_im(BLIT_CODE + ip, ASM_EOR, 0xff);
 
-	op &= BLIT_OP;
-	if (op)
-		ip += asm_zp(BLIT_CODE + ip, blitops_op[op], reg);
+	if (rop)
+		ip += asm_zp(BLIT_CODE + ip, blitops_op[rop], reg);
+
+	if (mask)
+	{
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_S1);
+		if (op & BLIT_DST)
+			ip += asm_zp(BLIT_CODE + ip, ASM_EOR, REG_D0);
+		else
+			ip += asm_iy(BLIT_CODE + ip, ASM_EOR, REG_DP);
+		ip += asm_im(BLIT_CODE + ip, ASM_AND, mask);	
+		ip += asm_zp(BLIT_CODE + ip, ASM_EOR, REG_S1);
+	}
+	
+	ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_DP);
 
 	return ip;
 }
@@ -933,7 +972,7 @@ static void builddop(char shift, char w, char lmask, char rmask, BlitOp op, bool
 	bool	usesrc = op & BLIT_SRC;
 	bool	usedst = op & BLIT_DST;
 
-	char	asm_clc = ASM_CLC, asm_adc = ASM_ADC, asm_bcc = ASM_BCC, asm_inc = ASM_INC, ystart = 0;
+	char	asm_clc = ASM_CLC, asm_adc = ASM_ADC, asm_bcc = ASM_BCC, asm_inc = ASM_INC, ystart = 0, yinc = 8;
 	if (reverse)
 	{
 		asm_clc = ASM_SEC;
@@ -941,49 +980,74 @@ static void builddop(char shift, char w, char lmask, char rmask, BlitOp op, bool
 		asm_bcc = ASM_BCS;
 		asm_inc = ASM_DEC;
 		ystart = 0xf8;
-	}
-
-	ip += asm_im(BLIT_CODE + ip, ASM_LDY, ystart);
-
-	ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_DP);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_D0);
-
-	if (usesrc)
-	{
-		ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_SP);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_S0);
-
-		ip += asm_np(BLIT_CODE + ip, asm_clc);
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
-		ip += asm_im(BLIT_CODE + ip, asm_adc, 8);	
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
-		ip += asm_rl(BLIT_CODE + ip, asm_bcc, 2);
-		ip += asm_zp(BLIT_CODE + ip, asm_inc, REG_SP + 1);
-	
-		ip = builddop_src(ip, shift, reverse);
+		yinc = 0xf8;
 	}
 
 	if (w == 0)
 		lmask &= rmask;
 
-	ip = builddop_op(ip, op);
-	ip += asm_im(BLIT_CODE + ip, ASM_AND, lmask);	
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_S1);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_D0);
-	ip += asm_im(BLIT_CODE + ip, ASM_AND, ~lmask);	
-	ip += asm_zp(BLIT_CODE + ip, ASM_ORA, REG_S1);
-	ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_DP);
+	ip += asm_im(BLIT_CODE + ip, ASM_LDY, ystart);
+
+	if (lmask == 0xff)
+	{
+		if (usesrc && shift)
+		{
+			ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_SP);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_S0);
+
+			ip += asm_np(BLIT_CODE + ip, asm_clc);
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
+			ip += asm_im(BLIT_CODE + ip, asm_adc, 8);	
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
+			ip += asm_rl(BLIT_CODE + ip, asm_bcc, 2);
+			ip += asm_zp(BLIT_CODE + ip, asm_inc, REG_SP + 1);
+		}
+
+		w++;
+	}
+	else
+	{
+		if (usedst)
+		{
+			ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_DP);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_D0);
+		}
+
+		if (usesrc)
+		{
+			if (shift)
+			{
+				ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_SP);
+				ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_S0);
+
+				ip += asm_np(BLIT_CODE + ip, asm_clc);
+				ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
+				ip += asm_im(BLIT_CODE + ip, asm_adc, 8);	
+				ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
+				ip += asm_rl(BLIT_CODE + ip, asm_bcc, 2);
+				ip += asm_zp(BLIT_CODE + ip, asm_inc, REG_SP + 1);
+			}
+		
+			ip = builddop_src(ip, shift, reverse);
+		}
+
+		ip = builddop_op(ip, op, ~lmask);
+
+		if (w > 0)
+		{
+			ystart += yinc;
+			ip += asm_im(BLIT_CODE + ip, ASM_LDY, ystart);
+		}
+	}
 
 	if (w > 0)
 	{
-		ip += asm_np(BLIT_CODE + ip, asm_clc);
-		ip += asm_np(BLIT_CODE + ip, ASM_TYA);
-		ip += asm_im(BLIT_CODE + ip, asm_adc, 8);	
-		ip += asm_np(BLIT_CODE + ip, ASM_TAY);
-
 		if (w > 1)
 		{
-			ip += asm_im(BLIT_CODE + ip, ASM_LDX, w - 1);	
+			if (w > 2)
+				ip += asm_im(BLIT_CODE + ip, ASM_LDX, w - 1);	
+			if (w <= 31 && !shift)
+				ip += asm_np(BLIT_CODE + ip, asm_clc);
 			char lp = ip;
 
 			if (usedst)
@@ -997,46 +1061,54 @@ static void builddop(char shift, char w, char lmask, char rmask, BlitOp op, bool
 				ip = builddop_src(ip, shift, reverse);
 			}
 
-			ip = builddop_op(ip, op);
-			ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_DP);
+			ip = builddop_op(ip, op, 0);
 
-			ip += asm_np(BLIT_CODE + ip, asm_clc);
-			ip += asm_np(BLIT_CODE + ip, ASM_TYA);
-			ip += asm_im(BLIT_CODE + ip, asm_adc, 8);	
-			ip += asm_np(BLIT_CODE + ip, ASM_TAY);
-			if (w > 31)
+			if (w > 2)
 			{
-				if (usesrc)
+				if (w > 31 || shift)
+					ip += asm_np(BLIT_CODE + ip, asm_clc);
+				ip += asm_np(BLIT_CODE + ip, ASM_TYA);
+				ip += asm_im(BLIT_CODE + ip, asm_adc, 8);	
+				ip += asm_np(BLIT_CODE + ip, ASM_TAY);
+				if (w > 31)
 				{
-					ip += asm_rl(BLIT_CODE + ip, asm_bcc, 4);
-					ip += asm_zp(BLIT_CODE + ip, asm_inc, REG_SP + 1);
+					if (usesrc)
+					{
+						ip += asm_rl(BLIT_CODE + ip, asm_bcc, 4);
+						ip += asm_zp(BLIT_CODE + ip, asm_inc, REG_SP + 1);
+					}
+					else
+					{
+						ip += asm_rl(BLIT_CODE + ip, asm_bcc, 2);		
+					}
+					ip += asm_zp(BLIT_CODE + ip, asm_inc, REG_DP + 1);
 				}
-				else
-				{
-					ip += asm_rl(BLIT_CODE + ip, asm_bcc, 2);		
-				}
-				ip += asm_zp(BLIT_CODE + ip, asm_inc, REG_DP + 1);
+
+				ip += asm_np(BLIT_CODE + ip, ASM_DEX);
+				ip += asm_rl(BLIT_CODE + ip, ASM_BNE, lp - ip - 2);
+			}
+			else
+			{
+				ystart += yinc;
+				ip += asm_im(BLIT_CODE + ip, ASM_LDY, ystart);
+			}
+		}
+
+		if (rmask != 0)
+		{
+			if (usedst)
+			{
+				ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_DP);
+				ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_D0);
 			}
 
-			ip += asm_np(BLIT_CODE + ip, ASM_DEX);
-			ip += asm_rl(BLIT_CODE + ip, ASM_BNE, lp - ip - 2);
+			if (usesrc)
+			{
+				ip = builddop_src(ip, shift, reverse);
+			}
+
+			ip = builddop_op(ip, op, ~rmask);
 		}
-
-		ip += asm_iy(BLIT_CODE + ip, ASM_LDA, REG_DP);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_D0);
-
-		if (usesrc)
-		{
-			ip = builddop_src(ip, shift, reverse);
-		}
-
-		ip = builddop_op(ip, op);
-		ip += asm_im(BLIT_CODE + ip, ASM_AND, rmask);	
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_S1);
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_D0);
-		ip += asm_im(BLIT_CODE + ip, ASM_AND, ~rmask);	
-		ip += asm_zp(BLIT_CODE + ip, ASM_ORA, REG_S1);
-		ip += asm_iy(BLIT_CODE + ip, ASM_STA, REG_DP);
 	}
 
 	ip += asm_np(BLIT_CODE + ip, ASM_RTS);
@@ -1053,7 +1125,7 @@ void bmu_bitblit(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx,
 
 	char		cw = dxh1 - dxh0;
 
-	bool	reverse = dbm == sbm && (dy > sy || dy == sy && dx > sx);
+	bool	reverse = dbm == sbm && (dy > sy || dy == sy && dx > sx) && (op & BLIT_SRC);
 
 	if (reverse)
 	{
@@ -1064,23 +1136,24 @@ void bmu_bitblit(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx,
 	char	*	dp = dbm->data + dbm->cwidth * (dy & ~7) + (dx & ~7) + (dy & 7);
 	char	*	sp = sbm->data + sbm->cwidth * (sy & ~7) + (sx & ~7) + (sy & 7);
 
+	char		shift = (dx & 7) - (sx & 7);
 	if (reverse)
 	{
-		sp += 8 * cw + 8 - 0xf8;
+		sp += 8 * cw - 0xf8;
 		dp += 8 * cw - 0xf8;
 		byte	t = lm; lm = rm; rm = t;
+		if (shift & 0x80)
+			sp += 8;
+	}
+	else if (shift)
+	{
+		if (!(shift & 0x80))
+			sp -= 8;
 	}
 
-	char		shift;
-	if ((dx & 7) > (sx & 7))
-	{
-		shift = (dx & 7) - (sx & 7);
-		sp -= 8;
-	}
-	else
-	{		
-		shift = 8 + (dx & 7) - (sx & 7);
-	}
+	shift &= 7;
+
+
 
 	builddop(shift, cw, lm, rm, op, reverse);
 
@@ -1089,42 +1162,81 @@ void bmu_bitblit(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx,
 	int	sstride = 8 * sbm->cwidth - 8;
 	int	dstride = 8 * dbm->cwidth - 8;
 
-	if (reverse)
+	if (pattern)
 	{
-		sstride = -sstride;
-		dstride = -dstride;
+		if (reverse)
+		{
+			sstride = -sstride;
+			dstride = -dstride;
 
-		for(char y=h; y>0; y--)
-		{		
-			if (((int)sp & 7) == 0)
-				sp += sstride;
-			sp--;
+			for(char y=h; y>0; y--)
+			{		
+				if (((int)sp & 7) == 0)
+					sp += sstride;
+				sp--;
 
-			if (((int)dp & 7) == 0)
-				dp += dstride;
-			dp--;
+				if (((int)dp & 7) == 0)
+					dp += dstride;
+				dp--;
 
-			char pi = (int)dp & 7;
+				char pi = (int)dp & 7;
 
-			callddop(sp, dp, pat[pi]);
+				callddop(sp, dp, pat[pi]);
+			}
+		}
+		else
+		{
+			for(char y=h; y>0; y--)
+			{	
+				char pi = (int)dp & 7;
+
+				callddop(sp, dp, pat[pi]);
+
+				sp++;
+				if (((int)sp & 7) == 0)
+					sp += sstride;
+
+				dp++;
+				if (((int)dp & 7) == 0)
+					dp += dstride;
+			}
 		}
 	}
 	else
 	{
-		for(char y=h; y>0; y--)
-		{	
-			char pi = (int)dp & 7;
+		if (reverse)
+		{
+			sstride = -sstride;
+			dstride = -dstride;
 
-			callddop(sp, dp, pat[pi]);
+			for(char y=h; y>0; y--)
+			{		
+				if (((int)sp & 7) == 0)
+					sp += sstride;
+				sp--;
 
-			sp++;
-			if (((int)sp & 7) == 0)
-				sp += sstride;
+				if (((int)dp & 7) == 0)
+					dp += dstride;
+				dp--;
 
-			dp++;
-			if (((int)dp & 7) == 0)
-				dp += dstride;
+				callddop(sp, dp, 0);
+			}
 		}
+		else
+		{
+			for(char y=h; y>0; y--)
+			{	
+				callddop(sp, dp, 0);
+
+				sp++;
+				if (((int)sp & 7) == 0)
+					sp += sstride;
+
+				dp++;
+				if (((int)dp & 7) == 0)
+					dp += dstride;
+			}
+		}		
 	}
 }
 
@@ -1204,10 +1316,18 @@ inline void bm_rect_copy(const Bitmap * dbm, const ClipRect * clip, int dx, int 
 
 static char	tworks[8];
 
-int bmu_text(const Bitmap * bm, const char * str, char len)
+int bmu_text(const Bitmap * bm, char lx, const char * str, char len)
 {
-	char lx = 0;
 	int  tw = 0;
+
+	tworks[0] = 0;
+	tworks[1] = 0;
+	tworks[2] = 0;
+	tworks[3] = 0;
+	tworks[4] = 0;
+	tworks[5] = 0;
+	tworks[6] = 0;
+	tworks[7] = 0;
 
 	char * cp = bm->data;
 
@@ -1347,9 +1467,9 @@ static Bitmap tbitmap = {
 
 int bmu_put_chars(const Bitmap * bm, int x, int y, const char * str, char len, BlitOp op)
 {
-	int	tw = bmu_text(&tbitmap, str, len);
+	int	tw = bmu_text(&tbitmap, x & 7, str, len);
 
-	bmu_bitblit(bm, x, y, &tbitmap, 0, 0, tw, 8, nullptr, op);
+	bmu_bitblit(bm, x, y, &tbitmap, x & 7, 0, tw, 8, nullptr, op);
 
 	return tw;
 }
@@ -1401,9 +1521,9 @@ int bm_put_chars(const Bitmap * bm, const ClipRect * clip, int x, int y, const c
 		fx++;
 	}
 
-	int cw = bmu_text(&tbitmap, str, fx);
+	int cw = bmu_text(&tbitmap, x & 7, str, fx);
 
-	bm_bitblit(bm, clip, x, y, &tbitmap, 0, 0, cw, 8, nullptr, op);
+	bm_bitblit(bm, clip, x, y, &tbitmap, x & 7, 0, cw, 8, nullptr, op);
 
 	while (fx < len)
 	{

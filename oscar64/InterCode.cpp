@@ -5593,7 +5593,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				{
 					ins->mSrc[i].mRange = mLocalValueRange[ins->mSrc[i].mTemp];
 #if 1
-					if (ins->mSrc[i].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMinValue == ins->mSrc[i].mRange.mMaxValue)
+					if (ins->mCode != IC_ASSEMBLER && ins->mSrc[i].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMinValue == ins->mSrc[i].mRange.mMaxValue)
 					{
 						ins->mSrc[i].mTemp = -1;
 						ins->mSrc[i].mIntConst = ins->mSrc[i].mRange.mMinValue;

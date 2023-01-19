@@ -623,12 +623,15 @@ Declaration* Declaration::Clone(void)
 	return ndec;
 }
 
-Declaration* Declaration::ToStriped(void)
+Declaration* Declaration::ToStriped(Errors * errors)
 {
 	Declaration* ndec = this->Clone();
 
 	if (mType == DT_TYPE_ARRAY)
 	{
+		if (mSize == 0)
+			errors->Error(ndec->mLocation, ERRR_STRIPE_REQUIRES_FIXED_SIZE_ARRAY, "__striped requires fixed size array");
+
 		ndec->mFlags |= DTF_STRIPED;
 		if (mBase->mType == DT_TYPE_ARRAY)
 		{
@@ -643,10 +646,12 @@ Declaration* Declaration::ToStriped(void)
 			ndec->mBase = mBase->ToStriped(mSize / mBase->mSize);
 		}
 	}
-	else
+	else if (ndec->mBase)
 	{
-		ndec->mBase = mBase->ToStriped();
+		ndec->mBase = mBase->ToStriped(errors);
 	}
+	else
+		errors->Error(ndec->mLocation, ERRR_STRIPE_REQUIRES_FIXED_SIZE_ARRAY, "__striped requires fixed size array");
 
 	return ndec;
 }
