@@ -24680,6 +24680,17 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							yreg = -2;
 							xreg = -2;
 							break;
+						case ASMIT_CMP:
+							if (ins.mMode == ASMIM_INDIRECT_Y && yoffset != 0 && yreg >= 0)
+							{
+								yreg = -2;
+							}
+							else if (ins.mMode == ASMIM_ZERO_PAGE)
+							{
+								zxreg[ins.mAddress] = -1;
+								zyreg[ins.mAddress] = -1;
+							}
+							break;
 						default:
 							if (ins.mMode == ASMIM_ZERO_PAGE)
 							{
@@ -33110,7 +33121,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "checkKeys");
 
 #if 1
 	int		step = 0;
@@ -33346,7 +33357,6 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
-
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckBlocks(true);
@@ -33365,7 +33375,6 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->OptimizeFindLoop(this))
 				changed = true;
 #endif
-
 #if 1
 			ResetVisited();
 			if (mEntryBlock->ReduceLocalYPressure())
@@ -33397,7 +33406,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		}
 #endif
-
 
 		if (step > 3 && !changed)
 		{
@@ -33639,7 +33647,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 
