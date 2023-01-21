@@ -2545,6 +2545,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				block->Append(ins);
 
 				InterInstruction	*	jins = new InterInstruction(exp->mLocation, IC_ASSEMBLER);
+				jins->mDst.mTemp = proc->AddTemporary(IT_INT32);
+				jins->mDst.mType = IT_INT32;
+
 				jins->mSrc[0].mType = IT_POINTER;
 				jins->mSrc[0].mTemp = ins->mDst.mTemp;
 				jins->mNumOperands = 1;
@@ -2599,6 +2602,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 
 				block->Append(jins);
+
+				return ExValue(exp->mDecType, jins->mDst.mTemp);
 			}
 
 			return ExValue(TheVoidTypeDeclaration);
@@ -3586,9 +3591,15 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	{
 		proc->mFastCallProcedure = true;
 
-		dec->mLinkerObject->mNumTemporaries = 1;
-		dec->mLinkerObject->mTemporaries[0] = BC_REG_FPARAMS;
-		dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
+		if (dec->mFastCallSize > 0 && dec->mFastCallBase < BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+		{
+			dec->mLinkerObject->mNumTemporaries = 1;
+			dec->mLinkerObject->mTemporaries[0] = BC_REG_FPARAMS + dec->mFastCallBase;
+			if (dec->mFastCallBase + dec->mFastCallBase < BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+				dec->mLinkerObject->mTempSizes[0] = dec->mFastCallSize;
+			else
+				dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - BC_REG_FPARAMS - dec->mFastCallBase;
+		}
 	}
 
 	if (dec->mBase->mBase->mType != DT_TYPE_VOID && dec->mBase->mBase->mType != DT_TYPE_STRUCT)

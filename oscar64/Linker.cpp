@@ -43,6 +43,18 @@ void LinkerObject::AddReference(const LinkerReference& ref)
 	mReferences.Push(nref);
 }
 
+LinkerReference* LinkerObject::FindReference(int offset)
+{
+	for (int i = 0; i < mReferences.Size(); i++)
+	{
+		if (mReferences[i]->mOffset == offset)
+			return mReferences[i];
+	}
+
+	return nullptr;
+}
+
+
 void LinkerObject::MarkRelevant(void)
 {
 	if (!(mFlags & LOBJF_RELEVANT))

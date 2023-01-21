@@ -49,6 +49,8 @@ struct NativeRegisterDataSet
 	void ResetIndirect(int reg);
 	void ResetX(void);
 	void ResetY(void);
+	void ResetWorkRegs(void);
+	void ResetWorkMasks(void);
 	void Intersect(const NativeRegisterDataSet& set);
 	void IntersectMask(const NativeRegisterDataSet& set);
 };
@@ -80,6 +82,7 @@ static const uint32 NCIF_USE_CPU_REG_Y = 0x00004000;
 // use a 32bit zero page register indexed by X for JSR
 static const uint32 NCIF_USE_ZP_32_X = 0x00008000;
 static const uint32 NICF_USE_ZP_ADDR = 0x00010000;
+static const uint32 NICF_USE_WORKREGS = 0x00020000;
 
 class NativeCodeInstruction
 {
@@ -181,6 +184,8 @@ public:
 	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
+
+	NativeCodeInstruction DecodeNative(LinkerObject * lobj, int& offset) const;
 
 	int PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int offset);
 	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset);

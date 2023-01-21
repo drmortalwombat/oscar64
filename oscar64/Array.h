@@ -281,6 +281,26 @@ public:
 		Grow(at, false);
 	}
 
+	int RemoveAll(const T & t)
+	{
+		int j = 0, i = 0;
+		while (i < size)
+		{
+			if (array[i] != t)
+			{
+				if (i != j)
+					array[j] = array[i];
+				j++;
+			}
+			i++;
+		}
+
+		Grow(j, false);
+
+		return i - j;
+	}
+
+
 	T Top(void) const
 	{
 		return array[size - 1];

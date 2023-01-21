@@ -133,6 +133,9 @@ typedef GrowingArray<InterVariable * >			GrowingVariableArray;
 
 #define INVALID_TEMPORARY	(-1)
 
+InterOperator MirrorRelational(InterOperator oper);
+InterOperator InvertRelational(InterOperator oper);
+
 class IntegerValueRange
 {
 public:

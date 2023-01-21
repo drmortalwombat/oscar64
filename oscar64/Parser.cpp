@@ -1594,6 +1594,24 @@ Expression* Parser::ParseSimpleExpression(void)
 			exp = nexp->ConstantFold(mErrors);
 		}
 		break;
+	case TK_ASM:
+		mScanner->NextToken();
+		if (mScanner->mToken == TK_OPEN_BRACE)
+		{
+			mScanner->NextToken();
+			exp = ParseAssembler();
+			exp->mDecType = TheSignedLongTypeDeclaration;
+			if (mScanner->mToken == TK_CLOSE_BRACE)
+				mScanner->NextToken();
+			else
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
+		}
+		else
+		{
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
+			exp = new Expression(mScanner->mLocation, EX_VOID);
+		}
+		break;
 	default:
 		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Term starts with invalid token", TokenNames[mScanner->mToken]);
 		mScanner->NextToken();

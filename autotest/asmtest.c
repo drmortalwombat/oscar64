@@ -3,7 +3,7 @@
 
 int asum(int a, int b)
 {
-	__asm 
+	return __asm 
 	{
 		clc
 		lda	a
@@ -12,14 +12,14 @@ int asum(int a, int b)
 		lda	a + 1
 		adc	b + 1
 		sta	accu + 1
-	}
+	};
 }
 
 int bsum(int a, int b)
 {
 	puts("Hello\n");
 
-	__asm 
+	return __asm 
 	{
 		clc
 		lda	a
@@ -28,7 +28,7 @@ int bsum(int a, int b)
 		lda	a + 1
 		adc	b + 1
 		sta	accu + 1
-	}
+	};
 }
 
 int b, t[10];

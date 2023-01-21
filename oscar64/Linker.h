@@ -178,6 +178,8 @@ public:
 
 	GrowingArray<LinkerReference*>	mReferences;
 
+	LinkerReference* FindReference(int offset);
+
 	void AddReference(const LinkerReference& ref);
 
 	void MoveToSection(LinkerSection* section);

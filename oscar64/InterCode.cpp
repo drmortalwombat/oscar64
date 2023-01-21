@@ -768,6 +768,63 @@ static double ConstantFolding(InterOperator oper, double val1, double val2 = 0.0
 	}
 }
 
+InterOperator InvertRelational(InterOperator oper)
+{
+	switch (oper)
+	{
+	case IA_CMPGES:
+		return IA_CMPLS;
+	case IA_CMPLES:
+		return IA_CMPGS;
+	case IA_CMPGS:
+		return IA_CMPLES;
+	case IA_CMPLS:
+		return IA_CMPGES;
+	case IA_CMPGEU:
+		return IA_CMPLU;
+	case IA_CMPLEU:
+		return IA_CMPGU;
+	case IA_CMPGU:
+		return IA_CMPLEU;
+	case IA_CMPLU:
+		return IA_CMPGEU;
+	case IA_CMPEQ:
+		return IA_CMPNE;
+	case IA_CMPNE:
+		return IA_CMPEQ;
+	default:
+		return oper;
+	}
+
+}
+
+InterOperator MirrorRelational(InterOperator oper)
+{
+	switch (oper)
+	{
+	case IA_CMPGES:
+		return IA_CMPLES;
+	case IA_CMPLES:
+		return IA_CMPGES;
+	case IA_CMPGS:
+		return IA_CMPLS;
+	case IA_CMPLS:
+		return IA_CMPGS;
+	case IA_CMPGEU:
+		return IA_CMPLEU;
+	case IA_CMPLEU:
+		return IA_CMPGEU;
+	case IA_CMPGU:
+		return IA_CMPLU;
+	case IA_CMPLU:
+		return IA_CMPGU;
+	default:
+		return oper;
+	}
+
+}
+
+
 static void ConversionConstantFold(InterInstruction * ins, const InterOperand & cop)
 {
 	switch (ins->mOperator)
@@ -12391,6 +12448,90 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 #endif
 #if 1
 					else if (
+						mInstructions[i + 0]->mCode == IC_RELATIONAL_OPERATOR &&
+						mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && 
+							(mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal && mInstructions[i + 1]->mSrc[1].mTemp < 0 ||
+							 mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0)
+						)
+					{	
+						int v = mInstructions[i + 1]->mSrc[1].mIntConst; 
+						InterOperator	op = mInstructions[i + 1]->mOperator;
+						if (mInstructions[i + 1]->mSrc[1].mTemp >= 0)
+						{
+							v = mInstructions[i + 1]->mSrc[0].mIntConst;
+							op = MirrorRelational(op);
+						}
+
+						bool	flip = false, istrue = false, isfalse = true;
+
+						switch (op)
+						{
+						case IA_CMPEQ:
+							flip = v == 0;
+							isfalse = (v != 0 && v != 1);
+							break;
+						case IA_CMPNE:
+							flip = v != 0;
+							istrue = (v != 0 && v != 1);
+							break;
+						case IA_CMPGEU:
+						case IA_CMPGES:
+							istrue = v <= 0;
+							isfalse = v > 1;
+							break;
+						case IA_CMPGU:
+						case IA_CMPGS:
+							istrue = v < 0;
+							isfalse = v >= 1;
+							break;
+						case IA_CMPLEU:
+						case IA_CMPLES:
+							flip = true;
+							isfalse = v < 0;
+							istrue = v >= 1;
+							break;
+						case IA_CMPLU:
+						case IA_CMPLS:
+							flip = true;
+							isfalse = v <= 0;
+							istrue = v > 1;
+							break;
+						}
+
+						if (istrue)
+						{
+							mInstructions[i + 1]->mCode = IC_CONSTANT;
+							mInstructions[i + 1]->mConst.mType = IT_BOOL;
+							mInstructions[i + 1]->mConst.mIntConst = 1;
+							mInstructions[i + 1]->mSrc[0].mTemp = -1;
+							mInstructions[i + 1]->mSrc[0].mType = IT_NONE;
+							mInstructions[i + 1]->mSrc[1].mTemp = -1;
+							mInstructions[i + 1]->mSrc[1].mType = IT_NONE;
+							mInstructions[i + 1]->mNumOperands = 0;
+						}
+						else if (isfalse)
+						{
+							mInstructions[i + 1]->mCode = IC_CONSTANT;
+							mInstructions[i + 1]->mConst.mType = IT_BOOL;
+							mInstructions[i + 1]->mConst.mIntConst = 0;
+							mInstructions[i + 1]->mSrc[0].mTemp = -1;
+							mInstructions[i + 1]->mSrc[0].mType = IT_NONE;
+							mInstructions[i + 1]->mSrc[1].mTemp = -1;
+							mInstructions[i + 1]->mSrc[1].mType = IT_NONE;
+							mInstructions[i + 1]->mNumOperands = 0;
+						}
+						else
+						{
+							mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+							mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+							if (flip)
+								mInstructions[i + 0]->mOperator = InvertRelational(mInstructions[i + 0]->mOperator);
+						}
+						changed = true;
+					}
+#endif
+#if 1
+					else if (
 						mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mExitRequiredTemps[mInstructions[i + 1]->mDst.mTemp] &&
 						(!mExitRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp] ||
 							(mEntryRequiredTemps[mInstructions[i + 1]->mDst.mTemp] && !mEntryRequiredTemps[mInstructions[i + 1]->mSrc[0].mTemp])) &&
@@ -12413,6 +12554,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						mInstructions[i + 1]->mSrc[0] = io;
 						changed = true;
 					}
+
 					else if (
 						mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
 						mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
@@ -13140,7 +13282,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
 	mLinkerObject->mProc = this;
-	mCallerSavedTemps = 16;
+	mCallerSavedTemps = BC_REG_TMP_SAVED - BC_REG_TMP;
 }
 
 InterCodeProcedure::~InterCodeProcedure(void)
