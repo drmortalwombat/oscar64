@@ -1578,7 +1578,7 @@ bool InterInstruction::IsEqualSource(const InterInstruction* ins) const
 
 void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
-	int	i, value, temp;
+	int	i, temp;
 
 	temp = ins->mDst.mTemp;
 
@@ -3004,7 +3004,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 	return false;
 }
 
-void InterInstruction::PerformTempForwarding(TempForwardingTable& forwardingTable)
+void InterInstruction::PerformTempForwarding(TempForwardingTable& forwardingTable, bool reverse)
 {
 	if (mCode != IC_NONE)
 	{
@@ -3014,7 +3014,10 @@ void InterInstruction::PerformTempForwarding(TempForwardingTable& forwardingTabl
 	}
 	if (mCode == IC_LOAD_TEMPORARY && mDst.mTemp != mSrc[0].mTemp)
 	{
-		forwardingTable.Build(mDst.mTemp, mSrc[0].mTemp);
+		if (reverse)
+			forwardingTable.Build(mSrc[0].mTemp, mDst.mTemp);
+		else
+			forwardingTable.Build(mDst.mTemp, mSrc[0].mTemp);
 	}
 }
 
@@ -7050,7 +7053,7 @@ bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigne
 	return changed;
 }
 
-void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwardingTable)
+void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse)
 {
 	int i;
 
@@ -7089,11 +7092,11 @@ void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwa
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			mInstructions[i]->PerformTempForwarding(mMergeForwardingTable);
+			mInstructions[i]->PerformTempForwarding(mMergeForwardingTable, reverse);
 		}
 
-		if (mTrueJump) mTrueJump->PerformTempForwarding(mMergeForwardingTable);
-		if (mFalseJump) mFalseJump->PerformTempForwarding(mMergeForwardingTable);
+		if (mTrueJump) mTrueJump->PerformTempForwarding(mMergeForwardingTable, reverse);
+		if (mFalseJump) mFalseJump->PerformTempForwarding(mMergeForwardingTable, reverse);
 	}
 }
 
@@ -9008,7 +9011,8 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 				break;
 
 			case IC_STORE:
-				if (mInstructions[i]->mSrc[1].mMemory == IM_LOCAL)
+			case IC_LEA:
+				if (mInstructions[i]->mSrc[1].mTemp < 0 && mInstructions[i]->mSrc[1].mMemory == IM_LOCAL)
 				{
 					localVars[mInstructions[i]->mSrc[1].mVarIndex]->mUsed = true;
 				}
@@ -9016,7 +9020,7 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 
 			case IC_LOAD:
 			case IC_CALL_NATIVE:
-				if (mInstructions[i]->mSrc[0].mMemory == IM_LOCAL)
+				if (mInstructions[i]->mSrc[0].mTemp < 0 && mInstructions[i]->mSrc[0].mMemory == IM_LOCAL)
 				{
 					localVars[mInstructions[i]->mSrc[0].mVarIndex]->mUsed = true;
 				}
@@ -9024,11 +9028,11 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 
 			case IC_COPY:
 			case IC_STRCPY:
-				if (mInstructions[i]->mSrc[0].mMemory == IM_LOCAL)
+				if (mInstructions[i]->mSrc[0].mTemp < 0 && mInstructions[i]->mSrc[0].mMemory == IM_LOCAL)
 				{
 					localVars[mInstructions[i]->mSrc[0].mVarIndex]->mUsed = true;
 				}
-				if (mInstructions[i]->mSrc[1].mMemory == IM_LOCAL)
+				if (mInstructions[i]->mSrc[1].mTemp < 0 && mInstructions[i]->mSrc[1].mMemory == IM_LOCAL)
 				{
 					localVars[mInstructions[i]->mSrc[1].mVarIndex]->mUsed = true;
 				}
@@ -9687,8 +9691,6 @@ bool InterCodeBasicBlock::IsTempReferencedOnPath(int temp, int at) const
 
 bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 {
-	int i;
-
 	bool changed = false;
 
 	if (!mVisited)
@@ -13451,7 +13453,7 @@ void InterCodeProcedure::WarnUsedUndefinedVariables(void)
 }
 
 
-void InterCodeProcedure::TempForwarding(void)
+void InterCodeProcedure::TempForwarding(bool reverse)
 {
 	int	numTemps = mTemporaries.Size();
 
@@ -13468,7 +13470,7 @@ void InterCodeProcedure::TempForwarding(void)
 
 	mTempForwardingTable.Reset();
 	ResetVisited();
-	mEntryBlock->PerformTempForwarding(mTempForwardingTable);
+	mEntryBlock->PerformTempForwarding(mTempForwardingTable, reverse);
 
 	DisassembleDebug("temp forwarding");
 }
@@ -14000,7 +14002,7 @@ void InterCodeProcedure::Close(void)
 	mTempForwardingTable.SetSize(numTemps);
 
 	ResetVisited();
-	mEntryBlock->PerformTempForwarding(mTempForwardingTable);
+	mEntryBlock->PerformTempForwarding(mTempForwardingTable, false);
 
 	DisassembleDebug("temp forwarding 2");
 
@@ -14404,7 +14406,7 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 	ResetVisited();
-	if (!mInterruptCalled && mEntryBlock->CheckStaticStack())
+	if (!mInterruptCalled && mNativeProcedure && mEntryBlock->CheckStaticStack())
 	{
 		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
 		mLinkerObject->mStackSection = mModule->mLinker->AddSection(mIdent->Mangle("@stack"), LST_STATIC_STACK);
@@ -14467,9 +14469,21 @@ void InterCodeProcedure::Close(void)
 
 		MergeBasicBlocks();
 
+		DisassembleDebug("TempForward Rev 1");
+
 		BuildDataFlowSets();
 
+		TempForwarding(true);
+
+		RemoveUnusedInstructions();
+
+		BuildDataFlowSets();
+
+		DisassembleDebug("TempForward Rev 2");
+
 		TempForwarding();
+
+		DisassembleDebug("TempForward Rev 3");
 
 		BuildLoopPrefix();
 
@@ -14578,6 +14592,14 @@ void InterCodeProcedure::MapVariables(void)
 	mLocalSize = 0;
 	for (int i = 0; i < mLocalVars.Size(); i++)
 	{
+#if 0
+		if (mLocalVars[i])
+		{
+			printf("MapVars %s, %d: %s %d %d\n",
+				mIdent->mString, i, mLocalVars[i]->mIdent ? mLocalVars[i]->mIdent->mString : "?",
+				mLocalVars[i]->mUsed, mLocalVars[i]->mSize);
+		}
+#endif
 		if (mLocalVars[i] && mLocalVars[i]->mUsed && !mLocalVars[i]->mLinkerObject)
 		{
 			mLocalVars[i]->mOffset = mLocalSize;

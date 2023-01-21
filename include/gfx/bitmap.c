@@ -1162,8 +1162,11 @@ void bmu_bitblit(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx,
 	int	sstride = 8 * sbm->cwidth - 8;
 	int	dstride = 8 * dbm->cwidth - 8;
 
-	if (pattern)
+	if (op & BLIT_SRC)
 	{
+		if (!pattern)
+			pattern = sp;
+
 		if (reverse)
 		{
 			sstride = -sstride;
@@ -1202,41 +1205,29 @@ void bmu_bitblit(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx,
 			}
 		}
 	}
+	else if (op & BLIT_PATTERN)
+	{
+		for(char y=h; y>0; y--)
+		{	
+			char pi = (int)dp & 7;
+
+			callddop(dp, dp, pat[pi]);
+
+			dp++;
+			if (((int)dp & 7) == 0)
+				dp += dstride;
+		}		
+	}
 	else
 	{
-		if (reverse)
-		{
-			sstride = -sstride;
-			dstride = -dstride;
+		for(char y=h; y>0; y--)
+		{	
+			callddop(dp, dp, 0);
 
-			for(char y=h; y>0; y--)
-			{		
-				if (((int)sp & 7) == 0)
-					sp += sstride;
-				sp--;
-
-				if (((int)dp & 7) == 0)
-					dp += dstride;
-				dp--;
-
-				callddop(sp, dp, 0);
-			}
+			dp++;
+			if (((int)dp & 7) == 0)
+				dp += dstride;
 		}
-		else
-		{
-			for(char y=h; y>0; y--)
-			{	
-				callddop(sp, dp, 0);
-
-				sp++;
-				if (((int)sp & 7) == 0)
-					sp += sstride;
-
-				dp++;
-				if (((int)dp & 7) == 0)
-					dp += dstride;
-			}
-		}		
 	}
 }
 
@@ -1244,30 +1235,35 @@ void bmu_bitblit(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx,
 
 void bm_bitblit(const Bitmap * dbm, const ClipRect * clip, int dx, int dy, const Bitmap * sbm, int sx, int sy, int w, int h, const char * pattern, BlitOp op)
 {
-	if (dx >= clip->right || dy >= clip->bottom)
-		return;
+	int d;
 
-	if (dx < clip->left)
+	d = dx - clip->left;
+
+	if (d < 0)
 	{
-		int	d = clip->left - dx;
-		dx += d;
-		sx += d;
-		w -= d;
+		dx -= d;
+		sx -= d;
+		w += d;
 	}
 
-	if (dy < clip->top)
+	d = dy - clip->top;
+
+	if (d < 0)
 	{
-		int	d = clip->top - dy;
-		dy += d;
-		sy += d;
-		h -= d;
+		dy -= d;
+		sy -= d;
+		h += d;
 	}
 
-	if (dx + w > clip->right)
-		w = clip->right - dx;
+	d = clip->right - dx - w;
 
-	if (dy + h > clip->bottom)
-		h = clip->bottom - dy;
+	if (d < 0)
+		w += d;
+
+	d = clip->bottom - dy - h;
+
+	if (d < 0)
+		h += d;
 
 	if (w > 0 && h > 0)
 		bmu_bitblit(dbm, dx, dy, sbm, sx, sy, w, h, pattern, op);

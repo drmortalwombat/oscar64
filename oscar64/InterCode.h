@@ -316,7 +316,7 @@ public:
 	void LocalRenameRegister(GrowingIntArray& renameTable, int& num);
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
-	void PerformTempForwarding(TempForwardingTable& forwardingTable);
+	void PerformTempForwarding(TempForwardingTable& forwardingTable, bool reverse);
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 
 	void BuildCollisionTable(NumberSet& liveTemps, NumberSet* collisionSets);
@@ -435,7 +435,7 @@ public:
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
 	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars);
-	void PerformTempForwarding(const TempForwardingTable& forwardingTable);
+	void PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse);
 	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars);
 	bool EliminateDeadBranches(void);
@@ -587,7 +587,7 @@ protected:
 	void BuildTraces(bool expand, bool dominators = true, bool compact = false);
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);
-	void TempForwarding(void);
+	void TempForwarding(bool reverse = false);
 	void RemoveUnusedInstructions(void);
 	bool GlobalConstantPropagation(void);
 	bool PropagateNonLocalUsedTemps(void);

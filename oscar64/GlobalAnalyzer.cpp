@@ -160,8 +160,11 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
 			int		numfpzero = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 			int		fplimit = numfpzero;
 
-			if (!(procDec->mFlags & DTF_FUNC_INTRCALLED))
-				fplimit += 256;
+			if ((procDec->mFlags & DTF_NATIVE) || (mCompilerOptions & COPT_NATIVE))
+			{
+				if (!(procDec->mFlags & DTF_FUNC_INTRCALLED))
+					fplimit += 256;
+			}
 
 			if (procDec->mBase->mBase->mType == DT_TYPE_STRUCT)
 			{

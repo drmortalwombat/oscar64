@@ -153,6 +153,7 @@ public:
 
 	void BuildCollisionTable(NumberSet& liveTemps, NumberSet* collisionSets);
 
+	uint32 NeedsLive(void) const;
 };
 
 class NativeCodeBasicBlock
@@ -197,6 +198,8 @@ public:
 	void CopyCode(NativeCodeProcedure* proc, uint8* target);
 	void Assemble(void);
 	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
+
+	void PrependInstruction(const NativeCodeInstruction& ins);
 
 	void ShortcutTailRecursion();
 
