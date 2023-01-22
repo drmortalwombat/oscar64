@@ -96,5 +96,5 @@ void keyb_poll(void)
 		}
 	}
 
-	cia1.pra = 0xff;	
+	cia1.pra = ciaa_pra_def;	
 }

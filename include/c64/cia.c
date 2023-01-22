@@ -1,5 +1,7 @@
 #include "cia.h"
 
+byte ciaa_pra_def;
+
 void cia_init(void)
 {
 	cia1.icr = 0x7f;
@@ -19,4 +21,6 @@ void cia_init(void)
 
 	char i0 = cia1.icr;
 	char i1 = cia2.icr;
+
+	ciaa_pra_def = 0x7f;	
 }

@@ -46,6 +46,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_06971480436546E1B12DDC7EC9F704FD"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_0819C3D33D0942EF9E319C754E6C43D8"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -496,6 +502,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_8E57961EDF0840A7A08877E8ED4826BC"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_8EBEED55D3F142769DE0A0014758447D"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -790,6 +802,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_D52B954DFBCE4EB0932433DE7FCE9090"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_D76DA8C7D3964C93ABE193A7B53A0A9B"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -803,6 +821,12 @@
         "Entry"
         {
         "MsmKey" = "8:_D82F590F7B264CCEBE12A9427BD4A6C9"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_D9089340F2BF445B85880C886B30D7B7"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1129,6 +1153,26 @@
             "TargetName" = "8:hiresread.c"
             "Tag" = "8:"
             "Folder" = "8:_35EAA89057B0488590EC66D0D27D657A"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_06971480436546E1B12DDC7EC9F704FD"
+            {
+            "SourcePath" = "8:..\\samples\\resources\\mouse.spd"
+            "TargetName" = "8:mouse.spd"
+            "Tag" = "8:"
+            "Folder" = "8:_758C6547998745659548D0656D380FEA"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2643,6 +2687,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8E57961EDF0840A7A08877E8ED4826BC"
+            {
+            "SourcePath" = "8:..\\include\\c64\\mouse.h"
+            "TargetName" = "8:mouse.h"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8EBEED55D3F142769DE0A0014758447D"
             {
             "SourcePath" = "8:..\\samples\\particles\\fireworks_hires.c"
@@ -3623,6 +3687,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D52B954DFBCE4EB0932433DE7FCE9090"
+            {
+            "SourcePath" = "8:..\\samples\\hiresmc\\paint.c"
+            "TargetName" = "8:paint.c"
+            "Tag" = "8:"
+            "Folder" = "8:_3E74C69B2EF64E938EA60950128C5A74"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D76DA8C7D3964C93ABE193A7B53A0A9B"
             {
             "SourcePath" = "8:..\\samples\\stdio\\make.bat"
@@ -3669,6 +3753,26 @@
             "TargetName" = "8:ctype.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D9089340F2BF445B85880C886B30D7B7"
+            {
+            "SourcePath" = "8:..\\include\\c64\\mouse.c"
+            "TargetName" = "8:mouse.c"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -4450,15 +4554,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{F041F169-30F1-469E-BB7C-E316C7A562B5}"
-        "PackageCode" = "8:{B0EC0EC4-A9FC-496F-B024-6515FEB53CC0}"
+        "ProductCode" = "8:{D9D7E97A-B793-4546-B204-9518010E2DB9}"
+        "PackageCode" = "8:{40E0B5C5-53B2-4285-802B-FBA08B4E661D}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.14.181"
+        "ProductVersion" = "8:1.15.182"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

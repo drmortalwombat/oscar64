@@ -17,6 +17,8 @@ struct CIA
 #define cia1	(*((struct CIA *)0xdc00))
 #define cia2	(*((struct CIA *)0xdd00))
 
+extern byte ciaa_pra_def;
+
 void cia_init(void);
 
 #pragma compile("cia.c")

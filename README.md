@@ -79,6 +79,8 @@ The compiler is command line driven, and creates an executable .prg file.
 * -O2: more aggressive speed optimizations including auto inline of small functions
 * -O3: aggressive optimization for speed
 * -Os: optimize for size
+* -Oi: enable auto inline of small functions (part of O2/O3)
+* -Oa: optimize inline assembler (part of O2/O3)
 * -tf: target format, may be prg, crt or bin
 * -d64 : create a d64 disk image
 * -f : add a binary file to the disk image
@@ -687,6 +689,11 @@ Similar to its hires counterpart but using different colors and patterns.
 #### Fill similar colored areas "floodfill.c"
 
 Draws filled random circles and fills the space using flood fill.
+
+#### Painting with mouse or joystick "paint.c"
+
+Paint on the screen with mouse or joystick.  Keyboard 0..9 for color selection, HOME to clear the screen.
+
 
 #### 3D Function plotter "func3d.c"
 
