@@ -17064,9 +17064,11 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					int						sz = b->mIns.Size();
 					b->mIns[sz - 1].mType = ASMIT_LDX;
 					b->mIns[sz - 1].mLive |= LIVE_CPU_REG_X;
+					b->mExitRequiredRegs += CPU_REG_X;
 					changed = true;
 				}
 
+				mEntryRequiredRegs += CPU_REG_X;
 				mIns[0].mType = ASMIT_NOP; mIns[0].mMode = ASMIM_IMPLIED;
 			}
 		}
@@ -17085,9 +17087,11 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					int						sz = b->mIns.Size();
 					b->mIns[sz - 1].mType = ASMIT_LDY;
 					b->mIns[sz - 1].mLive |= LIVE_CPU_REG_Y;
+					b->mExitRequiredRegs += CPU_REG_Y;
 					changed = true;
 				}
 
+				mEntryRequiredRegs += CPU_REG_Y;
 				mIns[0].mType = ASMIT_NOP; mIns[0].mMode = ASMIM_IMPLIED;
 			}
 		}
@@ -22797,7 +22801,7 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 					mFalseJump = nullptr;
 					changed = true;
 				}
-				else if (global && mIns.Size() > 0)
+				else if (global && mIns.Size() > 0 && fork == this)
 				{
 					NativeCodeInstruction& lins(mIns[mIns.Size() - 1]);
 
@@ -22881,7 +22885,7 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 					mFalseJump = nullptr;
 					changed = true;
 				}
-				else if (global && mIns.Size() > 0)
+				else if (global && mIns.Size() > 0 && fork == this)
 				{
 					NativeCodeInstruction& lins(mIns[mIns.Size() - 1]);
 
@@ -33678,7 +33682,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "joy_interrupt");
 
 #if 1
 	int		step = 0;
@@ -33750,6 +33754,7 @@ void NativeCodeProcedure::Optimize(void)
 			mEntryBlock->ReplaceFinalZeroPageUse(this);
 		}
 #endif
+
 #if 1
 		do
 		{
@@ -33790,8 +33795,12 @@ void NativeCodeProcedure::Optimize(void)
 				}
 			}
 
+
 		} while (changed);
 #endif
+
+
+
 
 #if _DEBUG
 		ResetVisited();
