@@ -256,6 +256,7 @@ Expression* Expression::ConstantFold(Errors * errors)
 		Expression* ex = new Expression(mLocation, EX_CONSTANT);
 		Declaration* dec = new Declaration(mLocation, DT_CONST_POINTER);
 		dec->mValue = mLeft;
+		dec->mBase = mDecType;
 		ex->mDecValue = dec;
 		ex->mDecType = mDecType;
 		return ex;

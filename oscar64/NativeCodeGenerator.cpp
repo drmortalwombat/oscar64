@@ -1426,6 +1426,9 @@ bool NativeCodeInstruction::MayBeSameAddress(const NativeCodeInstruction& ins, b
 
 bool NativeCodeInstruction::MayBeChangedOnAddress(const NativeCodeInstruction& ins, bool sameXY) const
 {
+	if (mMode == ASMIM_IMMEDIATE || mMode == ASMIM_IMMEDIATE_ADDRESS)
+		return false;
+
 	if (ins.mType == ASMIT_JSR)
 	{
 		if (mMode == ASMIM_ZERO_PAGE)
@@ -10753,9 +10756,11 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 	{
 		int	rt = ins->mSrc[1].mTemp;
 		int ival = ins->mSrc[0].mIntConst;
+		bool	u8 = ins->mSrc[1].IsUByte();
 		if (rt < 0)
 		{
 			rt = ins->mSrc[0].mTemp;
+			u8 = ins->mSrc[0].IsUByte();;
 			ival = ins->mSrc[1].mIntConst;
 			switch (op)
 			{
@@ -10786,12 +10791,16 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 			}
 		}
 
+		NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+		if (u8)
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+		else
+			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
+
 		switch (op)
 		{
 		case IA_CMPEQ:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(eblock, falseJump, ASMIT_BEQ);
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, ival));
@@ -10800,8 +10809,6 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		}
 		case IA_CMPNE:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(eblock, trueJump, ASMIT_BEQ);
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, ival));
@@ -10811,8 +10818,6 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		case IA_CMPLEU:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(eblock, falseJump, ASMIT_BEQ);
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ival));
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
@@ -10822,8 +10827,6 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		case IA_CMPGEU:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(eblock, trueJump, ASMIT_BEQ);
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, ival));
@@ -10833,8 +10836,6 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		case IA_CMPLU:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(eblock, falseJump, ASMIT_BEQ);
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_IMMEDIATE, ival));
@@ -10844,8 +10845,6 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		case IA_CMPGU:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(eblock, trueJump, ASMIT_BEQ);
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ival));
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_CMP, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
@@ -10855,9 +10854,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		case IA_CMPLES:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
 			NativeCodeBasicBlock* sblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(sblock, trueJump, ASMIT_BPL);
 			sblock->Close(eblock, falseJump, ASMIT_BEQ);
 
@@ -10869,9 +10866,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		case IA_CMPGES:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
 			NativeCodeBasicBlock* sblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(sblock, falseJump, ASMIT_BPL);
 			sblock->Close(eblock, trueJump, ASMIT_BEQ);
 
@@ -10883,9 +10878,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		case IA_CMPLS:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
 			NativeCodeBasicBlock* sblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(sblock, trueJump, ASMIT_BPL);
 			sblock->Close(eblock, falseJump, ASMIT_BEQ);
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
@@ -10896,9 +10889,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		case IA_CMPGS:
 		{
-			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
 			NativeCodeBasicBlock* sblock = nproc->AllocateBlock();
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(sblock, falseJump, ASMIT_BPL);
 			sblock->Close(eblock, trueJump, ASMIT_BEQ);
 			eblock->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_IMMEDIATE, ival));
@@ -17204,6 +17195,42 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 			}
 		}
 #endif
+
+#if 1
+		if (mLoopHead && mIns.Size() > 0 && mIns[0].mType == ASMIT_LDA && mIns[0].mMode == ASMIM_ZERO_PAGE && mEntryBlocks.Size() == 2 && !(mIns[0].mLive & LIVE_CPU_REG_Z))
+		{
+			NativeCodeBasicBlock* dblock = nullptr, * lblock = nullptr;
+			if (mEntryBlocks[0]->mFalseJump && !mEntryBlocks[1]->mFalseJump)
+			{
+				lblock = mEntryBlocks[0];
+				dblock = mEntryBlocks[1];
+			}
+			else if (mEntryBlocks[1]->mFalseJump && !mEntryBlocks[0]->mFalseJump)
+			{
+				lblock = mEntryBlocks[0];
+				dblock = mEntryBlocks[1];
+			}
+
+			if (lblock && lblock != this)
+			{
+				int	ls = lblock->mIns.Size();
+				if (ls > 0 && lblock->mIns[ls - 1].mType == ASMIT_CMP)
+					ls--;
+				if (ls > 0 && lblock->mIns[ls - 1].IsSame(mIns[0]))
+				{
+					dblock->mIns.Push(mIns[0]);
+					mIns.Remove(0);
+					mEntryRequiredRegs += CPU_REG_A;
+					dblock->mExitRequiredRegs += CPU_REG_A;
+					lblock->mExitRequiredRegs += CPU_REG_A;
+					changed = true;
+				}
+			}
+
+
+		}
+#endif
+
 #if 1
 		if (mTrueJump && mFalseJump && mTrueJump->mLoopHead && mIns.Size() >= 3 && mTrueJump->mNumEntries == 2)
 		{
@@ -17475,6 +17502,39 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 							mIns[0].mType = ASMIT_NOP;
 							mIns[1].mType = ASMIT_NOP; mIns[1].mMode = ASMIM_IMPLIED;
 							mIns[2].mType = ASMIT_INC;
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mEntryBlocks.Size() == 1 && mIns.Size() > 0)
+		{
+			if (mIns[0].mType == ASMIT_TAY && !(mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				NativeCodeBasicBlock* pblock = mEntryBlocks[0];
+				if (pblock->mTrueJump && pblock->mFalseJump && pblock->mIns.Size() > 0 && !pblock->mExitRequiredRegs[CPU_REG_Y])
+				{
+					if (this == pblock->mTrueJump && !pblock->mFalseJump->mEntryRequiredRegs[CPU_REG_A] ||
+						this == pblock->mFalseJump && !pblock->mTrueJump->mEntryRequiredRegs[CPU_REG_A])
+					{
+						int si = pblock->mIns.Size();
+						if (pblock->mIns[si - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, pblock->mIns[si - 1].mMode))
+							si--;
+
+						if (si > 0 && pblock->mIns[si - 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, pblock->mIns[si - 1].mMode))
+						{
+							pblock->mIns[si - 1].mType = ASMIT_LDY;
+							pblock->mIns[si - 1].mLive |= LIVE_CPU_REG_Y;
+							if (si != pblock->mIns.Size())
+							{
+								pblock->mIns[si].mType = ASMIT_CPY;
+								pblock->mIns[si].mLive |= LIVE_CPU_REG_Y;
+							}
+							pblock->mExitRequiredRegs += CPU_REG_Y;
+							mEntryRequiredRegs += CPU_REG_Y;
+							mIns[0].mType = ASMIT_NOP;
 							changed = true;
 						}
 					}
@@ -22704,7 +22764,7 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 #endif
 			// Check load and commutative with current accu value
 #if 1
-			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && 
+			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA &&
 				mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 1].mAddress)
 			{
 				mIns[i].mType = mIns[i + 1].mType;
@@ -22712,6 +22772,20 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 				changed = true;
 			}
 #endif
+			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && !mIns[i].RequiresYReg() &&
+				mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+			{
+				mIns[i + 1] = mIns[i];
+				mIns[i].mType = ASMIT_TAY; mIns[i].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && !mIns[i].RequiresXReg() &&
+				mIns[i + 1].mType == ASMIT_LDX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+			{
+				mIns[i + 1] = mIns[i];
+				mIns[i].mType = ASMIT_TAX; mIns[i].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
 #if 1
 			if (i + 2 < mIns.Size() && mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_CLC && 
 				mIns[i + 2].IsCommutative() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 2].mAddress)
@@ -24917,6 +24991,10 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 				head->mTrueJump = lblock;
 				head->mFalseJump = nullptr;
 
+				tail->mEntryRequiredRegs += CPU_REG_Y;
+				tail->mExitRequiredRegs += CPU_REG_Y;
+				head->mExitRequiredRegs += CPU_REG_Y;
+
 				lblock->CheckLive();
 
 				return true;
@@ -24990,6 +25068,13 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 				head->mTrueJump = lblock;
 				head->mFalseJump = nullptr;
 
+				tail->mEntryRequiredRegs += CPU_REG_X;
+				tail->mExitRequiredRegs += CPU_REG_X;
+				head->mExitRequiredRegs += CPU_REG_X;
+
+				tail->CheckLive();
+				head->CheckLive();
+				eblock->CheckLive();
 				lblock->CheckLive();
 
 				return true;
@@ -33240,6 +33325,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		}
 #endif
 #if 1
+		if (mExitBlock->mIns[0].mFlags == NCIF_LOWER)
 		if (mExitBlock->mIns[0].mFlags == NCIF_LOWER)
 		{
 			mExitBlock->mIns[0].mFlags = 0;
