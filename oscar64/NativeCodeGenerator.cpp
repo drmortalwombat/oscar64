@@ -20572,6 +20572,19 @@ bool NativeCodeBasicBlock::MoveZeroPageCrossBlockUp(int at, const NativeCodeInst
 			else
 				return false;
 
+			if (!eb->mFalseJump)
+				;
+			else if (eb->mTrueJump == eb || eb->mFalseJump == eb)
+				;
+			else if (eb->mFalseJump->mPatched && eb->mTrueJump->mPatched)
+				;
+			else if (
+				eb->mTrueJump == this && !eb->mFalseJump->mEntryRequiredRegs[lins.mAddress] && !eb->mFalseJump->mEntryRequiredRegs[sins.mAddress] ||
+				eb->mFalseJump == this && !eb->mTrueJump->mEntryRequiredRegs[lins.mAddress] && !eb->mTrueJump->mEntryRequiredRegs[sins.mAddress])
+				;
+			else
+				return false;
+
 			pat = -2;
 		}
 		else
@@ -30840,6 +30853,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].IsShift() && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_MEM) &&
+						!mIns[i + 1].ChangesCarry() && !mIns[i + 2].ChangesCarry() &&
+						!mIns[i + 1].RequiresCarry() && !mIns[i + 2].RequiresCarry() &&
+						!mIns[i + 1].MayBeSameAddress(mIns[i + 0]) && !mIns[i + 2].MayBeSameAddress(mIns[i + 0]))
+					{
+						mIns.Insert(i + 4, NativeCodeInstruction(mIns[i + 0].mType, ASMIM_IMPLIED));
+						mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_C;
+						mIns[i + 3].mLive |= LIVE_CPU_REG_C;
+
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+
 #endif
 #if 1
 					else if (
@@ -33768,7 +33797,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "joy_interrupt");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "missile_animate");
 
 #if 1
 	int		step = 0;
@@ -33981,6 +34010,9 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
+
+
+
 #if 1
 
 		if (step > 4 && !changed)
@@ -34008,6 +34040,7 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
 
 #if _DEBUG
 		ResetVisited();
@@ -34299,6 +34332,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 
