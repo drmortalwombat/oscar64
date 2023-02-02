@@ -46,6 +46,7 @@ struct NativeRegisterDataSet
 
 	void ResetZeroPage(int addr);
 	void ResetAbsolute(LinkerObject * linkerObject, int addr);
+	int FindAbsolute(LinkerObject* linkerObject, int addr);
 	void ResetIndirect(int reg);
 	void ResetX(void);
 	void ResetY(void);
@@ -177,7 +178,7 @@ public:
 	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset, mTemp;
-	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked, mPatchStart, mPatchLoop, mPatchLoopChanged;
+	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked, mPatchStart, mPatchLoop, mPatchLoopChanged, mPatchExit;
 	bool						mEntryRegA, mEntryRegX, mEntryRegY, mExitRegA, mExitRegX;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
@@ -386,7 +387,7 @@ public:
 	bool ReverseReplaceTAX(int at);
 
 	bool ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final);
-	bool GlobalValueForwarding(void);
+	bool GlobalValueForwarding(bool final);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 	bool ReverseBitfieldForwarding(void);
 
@@ -501,11 +502,24 @@ public:
 	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 
+	bool CrossBlockXYFlood(NativeCodeProcedure * proc);
+
+	bool CheckCrossBlockXFlood(const NativeCodeBasicBlock* block, int reg, int at);
+	bool CheckCrossBlockXFloodExit(const NativeCodeBasicBlock* block, int reg);
+	bool PatchCrossBlockXFlood(const NativeCodeBasicBlock* block, int reg, int at);
+	bool PatchCrossBlockXFloodExit(const NativeCodeBasicBlock* block, int reg);
+
+	bool CheckCrossBlockYFlood(const NativeCodeBasicBlock* block, int reg, int at);
+	bool CheckCrossBlockYFloodExit(const NativeCodeBasicBlock* block, int reg);
+	bool PatchCrossBlockYFlood(const NativeCodeBasicBlock* block, int reg, int at);
+	bool PatchCrossBlockYFloodExit(const NativeCodeBasicBlock* block, int reg);
+
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 
 	void CheckLive(void);
 	void CheckBlocks(bool sequence = false);
 	void CheckVisited(void);
+
 };
 
 class NativeCodeProcedure

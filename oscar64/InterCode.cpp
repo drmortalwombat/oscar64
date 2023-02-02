@@ -8523,7 +8523,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 					else if (li0->mCode == IC_CONSTANT && li1->mCode == IC_LEA)
 					{
 						InterInstruction* ai0 = ltvalue[li1->mSrc[0].mTemp], * ai1 = ltvalue[li1->mSrc[1].mTemp];
-						if (ai0 && ai1 && ai0->mCode == IC_CONSTANT && ai0->mConst.mIntConst >= 0)
+						if (ai0 && ai1 && ai0->mCode == IC_CONSTANT)// && ai0->mConst.mIntConst >= 0)
 						{
 							InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
 							cai->mDst.mTemp = spareTemps++;
