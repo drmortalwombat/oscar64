@@ -514,6 +514,12 @@ public:
 	bool PatchCrossBlockYFlood(const NativeCodeBasicBlock* block, int reg, int at);
 	bool PatchCrossBlockYFloodExit(const NativeCodeBasicBlock* block, int reg);
 
+	bool CrossBlockY2XFlood(NativeCodeProcedure* proc);
+	bool CheckCrossBlockY2XFlood(const NativeCodeBasicBlock* block, int at);
+	bool CheckCrossBlockY2XFloodExit(const NativeCodeBasicBlock* block);
+	bool PatchCrossBlockY2XFlood(const NativeCodeBasicBlock* block, int at);
+	bool PatchCrossBlockY2XFloodExit(const NativeCodeBasicBlock* block);
+
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 
 	void CheckLive(void);
