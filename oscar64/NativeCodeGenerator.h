@@ -462,6 +462,7 @@ public:
 	bool CrossBlockStoreLoadBypass(NativeCodeProcedure* proc);
 
 	bool CanBytepassLoad(const NativeCodeInstruction& ains) const;
+	bool CanHoistStore(const NativeCodeInstruction& ains) const;
 
 	bool MoveAccuTrainUp(int at, int end);
 	bool MoveAccuTrainsUp(void);
@@ -504,13 +505,13 @@ public:
 
 	bool CrossBlockXYFlood(NativeCodeProcedure * proc);
 
-	bool CheckCrossBlockXFlood(const NativeCodeBasicBlock* block, int reg, int at);
-	bool CheckCrossBlockXFloodExit(const NativeCodeBasicBlock* block, int reg);
+	bool CheckCrossBlockXFlood(const NativeCodeBasicBlock* block, int reg, int at, bool rvalid);
+	bool CheckCrossBlockXFloodExit(const NativeCodeBasicBlock* block, int reg, bool rvalid);
 	bool PatchCrossBlockXFlood(const NativeCodeBasicBlock* block, int reg, int at);
 	bool PatchCrossBlockXFloodExit(const NativeCodeBasicBlock* block, int reg);
 
-	bool CheckCrossBlockYFlood(const NativeCodeBasicBlock* block, int reg, int at);
-	bool CheckCrossBlockYFloodExit(const NativeCodeBasicBlock* block, int reg);
+	bool CheckCrossBlockYFlood(const NativeCodeBasicBlock* block, int reg, int at, bool rvalid);
+	bool CheckCrossBlockYFloodExit(const NativeCodeBasicBlock* block, int reg, bool rvalid);
 	bool PatchCrossBlockYFlood(const NativeCodeBasicBlock* block, int reg, int at);
 	bool PatchCrossBlockYFloodExit(const NativeCodeBasicBlock* block, int reg);
 
