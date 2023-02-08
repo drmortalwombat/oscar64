@@ -10381,6 +10381,23 @@ bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
 	return changed;
 }
 
+static bool BlockSameCondition(InterCodeBasicBlock* b, InterCodeBasicBlock* s)
+{
+	int nb = b->mInstructions.Size();
+	if (s->mInstructions.Size() == 2 && 
+		s->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR &&
+		s->mInstructions[0]->mOperator == b->mInstructions[nb - 2]->mOperator &&
+		s->mInstructions[1]->mCode == IC_BRANCH &&
+		s->mInstructions[1]->mSrc[0].mTemp == s->mInstructions[0]->mDst.mTemp &&
+		s->mInstructions[1]->mSrc[0].mFinal &&
+		s->mInstructions[0]->IsEqualSource(b->mInstructions[nb - 2]))
+	{
+		return true;
+	}
+	
+	return false;
+}
+
 void InterCodeBasicBlock::FollowJumps(void)
 {
 	if (!mVisited)
@@ -10398,6 +10415,32 @@ void InterCodeBasicBlock::FollowJumps(void)
 			block->mInstructions.Clear();
 			mTrueJump = block->mTrueJump;
 			mFalseJump = block->mFalseJump;
+		}
+
+		int sz = mInstructions.Size();
+		if (sz > 1 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+			mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp &&
+			mInstructions[sz - 2]->mSrc[0].mTemp != mInstructions[sz - 2]->mDst.mTemp &&
+			mInstructions[sz - 2]->mSrc[1].mTemp != mInstructions[sz - 2]->mDst.mTemp)
+		{
+			if (mTrueJump && BlockSameCondition(this, mTrueJump))
+			{
+				InterCodeBasicBlock* target = mTrueJump->mTrueJump;
+				mTrueJump->mNumEntries--;
+				mTrueJump->mEntryBlocks.RemoveAll(this);
+				target->mNumEntries++;
+				target->mEntryBlocks.Push(this);
+				mTrueJump = target;
+			}
+			else if (mFalseJump && BlockSameCondition(this, mFalseJump))
+			{
+				InterCodeBasicBlock* target = mFalseJump->mFalseJump;
+				mFalseJump->mNumEntries--;
+				mFalseJump->mEntryBlocks.RemoveAll(this);
+				target->mNumEntries++;
+				target->mEntryBlocks.Push(this);
+				mFalseJump = target;
+			}
 		}
 
 		if (mTrueJump)
@@ -14264,6 +14307,11 @@ void InterCodeProcedure::Close(void)
 
 	LoadStoreForwarding(paramMemory);
 
+	ResetVisited();
+	mEntryBlock->FollowJumps();
+
+	DisassembleDebug("Followed Jumps");
+
 	FastNumberSet	activeSet(numTemps);
 
 	//
@@ -14324,6 +14372,11 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->FollowJumps();
+
+	DisassembleDebug("Followed Jumps 2");
 
 	RebuildIntegerRangeSet();
 

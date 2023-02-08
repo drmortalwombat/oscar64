@@ -2356,6 +2356,26 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 				data.mRegs[CPU_REG_A].mMask = 0;
 			}
 		}
+		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
+		{
+			int zeros = data.mRegs[CPU_REG_A].mMask & ~data.mRegs[CPU_REG_A].mValue;
+
+			int fzero = 0x01;
+			while (fzero < 0x100 && (fzero & zeros) == 0)
+				fzero <<= 1;
+
+			fzero |= (fzero - 1);
+
+			data.mRegs[CPU_REG_A].mMask &= ~fzero;
+
+			if (fzero >= 0x100)
+				data.mRegs[CPU_REG_C].mMask = 0;
+			else
+			{
+				data.mRegs[CPU_REG_C].mMask = 1;
+				data.mRegs[CPU_REG_C].mValue = 0;
+			}
+		}
 		else
 		{
 			data.mRegs[CPU_REG_C].mMask = 0;
@@ -2629,24 +2649,36 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		{
 			int	mask = data.mRegs[iaddr].mMask, value = data.mRegs[iaddr].mValue;
 
-			data.mRegs[iaddr].mMask = ((mask >> 1) & 0xff) | 0x80;
-			data.mRegs[iaddr].mValue = ((value >> 1) & 0x7f);
-
-			if (mask & 0x01)
+			if (mask == 0xff && value == 0x00)
 			{
+				mType = ASMIT_CLC;
+				mMode = ASMIM_IMPLIED;
 				data.mRegs[CPU_REG_C].mMask = 1;
-				data.mRegs[CPU_REG_C].mValue = value & 1;
+				data.mRegs[CPU_REG_C].mValue = 0;
+
+				changed = true;
 			}
 			else
-				data.mRegs[CPU_REG_C].mMask = 0;
-
-			if (mMode == ASMIM_IMPLIED && data.mRegs[CPU_REG_A].mMask == 0xff && data.mRegs[CPU_REG_C].mMask)
 			{
-				carryop = data.mRegs[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
-				mType = ASMIT_LDA;
-				mMode = ASMIM_IMMEDIATE;
-				mAddress = data.mRegs[CPU_REG_A].mValue;
-				changed = true;
+				data.mRegs[iaddr].mMask = ((mask >> 1) & 0xff) | 0x80;
+				data.mRegs[iaddr].mValue = ((value >> 1) & 0x7f);
+
+				if (mask & 0x01)
+				{
+					data.mRegs[CPU_REG_C].mMask = 1;
+					data.mRegs[CPU_REG_C].mValue = value & 1;
+				}
+				else
+					data.mRegs[CPU_REG_C].mMask = 0;
+
+				if (mMode == ASMIM_IMPLIED && data.mRegs[CPU_REG_A].mMask == 0xff && data.mRegs[CPU_REG_C].mMask)
+				{
+					carryop = data.mRegs[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
+					mType = ASMIT_LDA;
+					mMode = ASMIM_IMMEDIATE;
+					mAddress = data.mRegs[CPU_REG_A].mValue;
+					changed = true;
+				}
 			}
 		}
 		else
