@@ -504,6 +504,7 @@ public:
 	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
+	void PushMoveOutOfLoop(void);
 
 	InterCodeBasicBlock* BuildLoopPrefix(InterCodeProcedure * proc);
 	void BuildLoopSuffix(InterCodeProcedure* proc);

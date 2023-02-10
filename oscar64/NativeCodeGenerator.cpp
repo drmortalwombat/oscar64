@@ -17151,6 +17151,22 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						changed = true;
 					}
 				}
+				
+				if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE)
+				{
+					if (lblock->mIns[ls - 2].mType == ASMIT_STY && lblock->mIns[ls - 2].mMode == ASMIM_ZERO_PAGE && lblock->mIns[ls - 2].mAddress == mIns[0].mAddress && lblock->mIns[ls - 1].mType == ASMIT_CPY)
+					{
+						pblock = AddDominatorBlock(proc, pblock);
+
+						pblock->mIns.Push(mIns[0]);
+						mIns.Remove(0);
+
+						pblock->mExitRequiredRegs += CPU_REG_Y;
+						lblock->mExitRequiredRegs += CPU_REG_Y;
+						mEntryRequiredRegs += CPU_REG_Y;
+						mExitRequiredRegs += CPU_REG_Y;
+					}
+				}
 			}
 		}
 #endif
@@ -18855,6 +18871,9 @@ bool NativeCodeBasicBlock::CheckCrossBlockXFloodExit(const NativeCodeBasicBlock*
 
 		mPatched = true;
 
+		if (mEntryBlocks.Size() == 0)
+			return false;
+
 		for (int i = 0; i < mEntryBlocks.Size(); i++)
 			if (!mEntryBlocks[i]->CheckCrossBlockXFloodExit(block, reg, rvalid))
 				return false;
@@ -19110,6 +19129,9 @@ bool NativeCodeBasicBlock::CheckCrossBlockYFloodExit(const NativeCodeBasicBlock*
 		}
 
 		mPatched = true;
+
+		if (mEntryBlocks.Size() == 0)
+			return false;
 
 		for (int i = 0; i < mEntryBlocks.Size(); i++)
 			if (!mEntryBlocks[i]->CheckCrossBlockYFloodExit(block, reg, false))
@@ -31925,6 +31947,20 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						progress = true;
 					}
 					else if (
+						mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mLive & LIVE_CPU_REG_A) &&
+						!mIns[i + 1].ReferencesAccu() && !mIns[i + 0].MayBeSameAddress(mIns[i + 1]) &&
+						!mIns[i + 2].ReferencesAccu() && !mIns[i + 0].MayBeSameAddress(mIns[i + 2]) &&
+						mIns[i + 3].IsShift() && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+					{
+						NativeCodeInstruction	ins = mIns[i + 0];
+						mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 1] = mIns[i + 2]; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 2] = mIns[i + 3]; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 3] = ins; mIns[i + 3].mLive |= mIns[i + 2].mLive;
+
+						progress = true;
+					}
+					else if (
 						mIns[i + 0].IsShift() && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
 						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_MEM) &&
 						!mIns[i + 1].ChangesCarry() && !mIns[i + 2].ChangesCarry() &&
@@ -34890,7 +34926,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "malloc");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "tile_draw_p");
 
 #if 1
 	int		step = 0;
@@ -35380,6 +35416,7 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->CheckBlocks();
 #endif
 
+
 		if (step == 7)
 		{
 			ResetVisited();
@@ -35400,6 +35437,7 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
 
 #if 1
 		if (step == 7)
@@ -35441,7 +35479,6 @@ void NativeCodeProcedure::Optimize(void)
 			changed = false;
 			mGenerator->mErrors->Error(mInterProc->mLocation, EWARN_OPTIMIZER_LOCKED, "Optimizer locked in infinite loop", mInterProc->mIdent);
 		}
-
 
 #if 1
 		if (!changed && step < 9)

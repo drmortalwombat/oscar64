@@ -10944,6 +10944,118 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 	}
 }
 
+void InterCodeBasicBlock::PushMoveOutOfLoop(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump && mFalseJump)
+		{
+			InterCodeBasicBlock* eblock = nullptr, * lblock = nullptr;
+
+			if (mTrueJump->mLoopHead)
+			{
+				lblock = mTrueJump;
+				eblock = mFalseJump;
+			}
+			else if (mFalseJump->mLoopHead)
+			{
+				lblock = mFalseJump;
+				eblock = mTrueJump;
+			}				
+
+			if (eblock)
+			{
+				int i = 0;
+				while (i < mInstructions.Size())
+				{
+					InterInstruction* mins = mInstructions[i];
+					if (mins->mCode == IC_LOAD_TEMPORARY && !mins->mSrc[0].mFinal)
+					{
+						if (!lblock->mEntryRequiredTemps[mins->mDst.mTemp] && eblock->mEntryRequiredTemps[mins->mDst.mTemp] && !eblock->mExitRequiredTemps[mins->mDst.mTemp])
+						{
+							int	offset = 0;
+							int j = i + 1;
+							bool	fail = false;
+
+							while (j < mInstructions.Size() && !fail)
+							{
+								InterInstruction* cins = mInstructions[j];
+								if (cins->ReferencesTemp(mins->mDst.mTemp))
+									fail = true;
+								else if (cins->mDst.mTemp == mins->mSrc[0].mTemp)
+								{
+									if (cins->mCode == IC_LEA && cins->mSrc[1].mTemp == mins->mSrc[0].mTemp && cins->mSrc[0].mTemp < 0)
+										offset += cins->mSrc[0].mIntConst;
+									else
+										fail = true;
+								}
+								j++;
+							}
+
+							if (!fail)
+							{
+								int j = 0;
+								while (j < eblock->mInstructions.Size() && !fail)
+								{
+									InterInstruction* cins = eblock->mInstructions[j];
+
+									if (cins->ReferencesTemp(mins->mDst.mTemp))
+									{
+										if (cins->mCode == IC_LEA && cins->mSrc[1].mTemp == mins->mDst.mTemp && cins->mSrc[0].mTemp < 0)
+										{
+											if (cins->mSrc[1].mFinal)
+												break;
+										}
+										else
+											fail = true;
+									}
+
+									if (cins->mDst.mTemp == mins->mSrc[0].mTemp)
+										fail = true;
+
+									j++;
+								}
+
+								if (!fail)
+								{
+									eblock->mEntryRequiredTemps += mins->mSrc[0].mTemp;
+
+									j = 0;
+									while (j < eblock->mInstructions.Size())
+									{
+										InterInstruction* cins = eblock->mInstructions[j];
+										if (cins->ReferencesTemp(mins->mDst.mTemp))
+										{
+											if (cins->mCode == IC_LEA && cins->mSrc[1].mTemp == mins->mDst.mTemp && cins->mSrc[0].mTemp < 0)
+											{
+												cins->mSrc[1].mTemp = mins->mSrc[0].mTemp;
+												cins->mSrc[0].mIntConst -= offset;
+
+												if (cins->mSrc[1].mFinal)
+													break;
+											}
+										}
+										j++;
+									}
+								}
+							}
+						}
+					}
+
+					i++;
+				}
+			}
+		}
+
+		if (mTrueJump)
+			mTrueJump->PushMoveOutOfLoop();
+		if (mFalseJump)
+			mFalseJump->PushMoveOutOfLoop();
+	}
+}
+
 
 bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 {
@@ -12647,6 +12759,19 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 						mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mDst;
 						mInstructions[i + 1]->mSrc[1].mMemory = IM_INDIRECT;
+						changed = true;
+					}
+#endif
+#if 1
+					else if (
+						mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && 
+						mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp < 0 && 
+						mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+					{
+						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+						mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+
+						mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
 						changed = true;
 					}
 #endif
@@ -14635,12 +14760,19 @@ void InterCodeProcedure::Close(void)
 		TempForwarding();
 	} while (GlobalConstantPropagation());
 
-	PeepholeOptimization();
 
+	PeepholeOptimization();
 	TempForwarding();
 	RemoveUnusedInstructions();
 
 	DisassembleDebug("Global Constant Prop 1");
+
+	BuildDataFlowSets();
+	ResetVisited();
+	mEntryBlock->PushMoveOutOfLoop();
+	BuildDataFlowSets();
+
+	DisassembleDebug("PushMoveOutOfLoop");
 
 #endif
 
