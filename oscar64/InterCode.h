@@ -158,6 +158,7 @@ public:
 	bool Merge(const IntegerValueRange& range, bool head, bool initial);
 
 	void Limit(const IntegerValueRange& range);
+	void SetLimit(int64 minValue, int64 maxValue);
 
 	bool IsConstant(void) const;
 
@@ -505,6 +506,10 @@ public:
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void PushMoveOutOfLoop(void);
+		
+	bool CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body);
+
+	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 
 	InterCodeBasicBlock* BuildLoopPrefix(InterCodeProcedure * proc);
 	void BuildLoopSuffix(InterCodeProcedure* proc);

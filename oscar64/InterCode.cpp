@@ -115,6 +115,15 @@ void IntegerValueRange::Limit(const IntegerValueRange& range)
 		LimitMax(range.mMaxValue);
 }
 
+
+void IntegerValueRange::SetLimit(int64 minValue, int64 maxValue)
+{
+	mMinState = S_BOUND;
+	mMinValue = minValue;
+	mMaxState = S_BOUND;
+	mMaxValue = maxValue;
+}
+
 bool IntegerValueRange::Merge(const IntegerValueRange& range, bool head, bool initial)
 {
 	bool	changed = false;
@@ -10568,6 +10577,242 @@ void InterCodeBasicBlock::CollectLoopPath(const GrowingArray<InterCodeBasicBlock
 	}
 }
 
+static bool IsMatchingStore(const InterInstruction* lins, const InterInstruction* sins)
+{
+	if (sins->mCode == IC_STORE && 
+		sins->mSrc[1].mTemp < 0 && lins->mSrc[0].mMemory == sins->mSrc[1].mMemory && lins->mSrc[0].mIntConst == sins->mSrc[1].mIntConst &&
+		lins->mDst.mType == sins->mSrc[0].mType)
+	{
+		switch (lins->mSrc[0].mMemory)
+		{
+		case IM_FPARAM:
+			return lins->mSrc[0].mVarIndex == sins->mSrc[1].mVarIndex;
+		}
+	}
+
+	return false;
+}
+
+static bool CollidingMem(InterCodeBasicBlock* block, InterInstruction * lins, int from, int to, const GrowingVariableArray& staticVars)
+{
+	for (int i = from; i < to; i++)
+	{
+		InterInstruction* ins = block->mInstructions[i];
+		if (CollidingMem(lins, ins, staticVars))
+			return true;
+	}
+
+	return false;
+}
+
+bool InterCodeBasicBlock::CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body)
+{
+	int i = 0;
+	body.Push(head);
+
+	while (i < body.Size())
+	{
+		InterCodeBasicBlock* block = body[i++];
+		if (block->mTrueJump)
+		{
+			if (block->mTrueJump == head)
+				return false;
+			if (block->mTrueJump != tail && !body.Contains(block->mTrueJump))
+				body.Push(block->mTrueJump);
+
+			if (block->mFalseJump)
+			{
+				if (block->mFalseJump == head)
+					return false;
+				if (block->mFalseJump != tail && !body.Contains(block->mFalseJump))
+					body.Push(block->mFalseJump);
+			}
+		}
+		else
+			return false;
+	}
+
+	body.Push(tail);
+
+	return true;
+}
+
+static InterInstruction * FindSourceInstruction(InterCodeBasicBlock* block, int temp)
+{
+	for (;;)
+	{
+		int i = block->mInstructions.Size() - 1;
+		while (i >= 0)
+		{
+			if (block->mInstructions[i]->mDst.mTemp == temp)
+				return block->mInstructions[i];
+			i--;
+		}
+
+		if (block->mEntryBlocks.Size() != 1)
+			return nullptr;
+
+		block = block->mEntryBlocks[0];
+	}
+}
+
+bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
+{
+	bool	modified = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2)
+		{
+			InterCodeBasicBlock* tail, *post;
+
+			if (mEntryBlocks[0] == mLoopPrefix)
+				tail = mEntryBlocks[1];
+			else
+				tail = mEntryBlocks[0];
+
+			if (tail->mTrueJump == this)
+				post = tail->mFalseJump;
+			else
+				post = tail->mTrueJump;
+
+			if (post && post->mNumEntries == 1)
+			{
+				GrowingArray<InterCodeBasicBlock*> body(nullptr);
+
+				if (tail->CollectSingleHeadLoopBody(this, tail, body))
+				{
+					int tz = tail->mInstructions.Size();
+
+					if (tz > 2)
+					{
+						InterInstruction* ai = tail->mInstructions[tz - 3];
+						InterInstruction* ci = tail->mInstructions[tz - 2];
+						InterInstruction* bi = tail->mInstructions[tz - 1];
+
+						if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst > 0 && IsIntegerType(ai->mDst.mType) &&
+							ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[0].mTemp < 0 && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
+							bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp && !post->mEntryRequiredTemps[ai->mDst.mTemp] &&
+							!tail->IsTempReferencedInRange(0, tz - 3, ai->mDst.mTemp))
+						{
+							int i = 0;
+							while (i + 1 < body.Size() && !body[i]->IsTempReferencedInRange(0, body[i]->mInstructions.Size(), ai->mDst.mTemp))
+								i++;
+							if (i + 1 == body.Size())
+							{
+								InterInstruction* si = FindSourceInstruction(mLoopPrefix, ai->mDst.mTemp);
+								if (si && si->mCode == IC_CONSTANT)
+								{
+									int	num = (ci->mSrc[0].mIntConst - si->mSrc[0].mIntConst) / ai->mSrc[0].mIntConst;
+									if (num > 0)
+									{
+										ai->mOperator = IA_SUB;
+										ai->mSrc[0].mIntConst = 1;
+										ci->mOperator = IA_CMPGU;
+										ci->mSrc[0].mIntConst = 0;
+
+										InterInstruction* mins = new InterInstruction(si->mLocation, IC_CONSTANT);
+										mins->mConst.mType = ai->mDst.mType;
+										mins->mConst.mIntConst = num;
+										mins->mDst = ai->mDst;
+										mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, mins);
+
+										ai->mSrc[1].mRange.SetLimit(1, num);
+										ai->mDst.mRange.SetLimit(0, num - 1);
+										ci->mSrc[1].mRange.SetLimit(0, num - 1);
+									}
+
+									modified = true;
+								}
+							}
+						}
+					}
+
+
+					int i = 0;
+					while (i < mInstructions.Size())
+					{
+						InterInstruction* lins = mInstructions[i];
+
+						if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0)
+						{
+							if (CanMoveInstructionBeforeBlock(i))
+							{
+								int j = tail->mInstructions.Size() - 1;
+								while (j >= 0 && !IsMatchingStore(lins, tail->mInstructions[j]))
+									j--;
+
+								if (j >= 0)
+								{
+									InterInstruction* sins = tail->mInstructions[j];
+
+									if (tail->CanMoveInstructionBehindBlock(j))
+									{
+										if (!CollidingMem(this, lins, i + 1, mInstructions.Size(), staticVars) &&
+											!CollidingMem(tail, lins, 0, j, staticVars))
+										{
+											int k = 1;
+											while (k + 1 < body.Size() && !CollidingMem(body[k], lins, 0, body[k]->mInstructions.Size(), staticVars))
+												k++;
+
+											if (k + 1 == body.Size())
+											{
+												if (sins->mSrc[0].mTemp >= 0)
+													tail->mExitRequiredTemps += sins->mSrc[0].mTemp;
+
+												post->mInstructions.Insert(0, sins);
+												tail->mInstructions.Remove(j);
+
+												if (sins->mSrc[0].mTemp != lins->mDst.mTemp)
+												{
+													InterInstruction* mins;
+
+													if (sins->mSrc[0].mTemp >= 0)
+													{
+														mins = new InterInstruction(sins->mLocation, IC_LOAD_TEMPORARY);
+														mins->mSrc[0] = sins->mSrc[0];
+													}
+													else
+													{
+														mins = new InterInstruction(sins->mLocation, IC_CONSTANT);
+														mins->mConst = sins->mSrc[0];
+													}
+
+													mins->mDst = lins->mDst;
+													tail->mExitRequiredTemps += mins->mDst.mTemp;
+													tail->mInstructions.Insert(tail->mInstructions.Size() - 1, mins);
+												}
+
+												mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
+												mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
+												mEntryRequiredTemps += lins->mDst.mTemp;
+												mInstructions.Remove(i);
+												i--;
+
+												modified = true;
+											}
+										}
+									}
+								}
+							}
+						}
+						i++;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->SingleTailLoopOptimization(aliasedParams, staticVars))
+			modified = true;
+		if (mFalseJump && mFalseJump->SingleTailLoopOptimization(aliasedParams, staticVars))
+			modified = true;
+	}
+
+	return modified;
+}
+
 void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 {
 	if (!mVisited)
@@ -14711,6 +14956,43 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	PropagateConstOperationsUp();
+
+
+#if 1
+
+	do {
+		changed = false;
+
+		BuildLoopPrefix();
+		DisassembleDebug("added dominators");
+
+		ResetEntryBlocks();
+		ResetVisited();
+		mEntryBlock->CollectEntryBlocks(nullptr);
+
+		BuildDataFlowSets();
+
+		ResetVisited();
+		changed = mEntryBlock->SingleTailLoopOptimization(mParamAliasedSet, mModule->mGlobalVars);
+		DisassembleDebug("SingleTailLoopOptimization");
+
+
+		if (changed)
+		{
+			TempForwarding();
+
+			RemoveUnusedInstructions();
+
+			RemoveUnusedStoreInstructions(paramMemory);
+		}
+
+		BuildTraces(false);
+		DisassembleDebug("Rebuilt traces");
+
+	} while (changed);
+
+
+#endif
 
 #if 1
 	BuildDataFlowSets();
