@@ -499,6 +499,8 @@ public:
 	void CheckBlocks(void);
 
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);
+	bool PeepholeReplaceOptimization(const GrowingVariableArray& staticVars);
+
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	void SingleBlockLoopUnrolling(void);
 	bool SingleBlockLoopPointerSplit(int& spareTemps);
