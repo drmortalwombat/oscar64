@@ -209,17 +209,17 @@ public:
 
 	void ShortcutTailRecursion();
 
-	bool ReferencesAccu(int from = 0) const;
-	bool ReferencesYReg(int from = 0) const;
-	bool ReferencesXReg(int from = 0) const;
+	bool ReferencesAccu(int from = 0, int to = 65536) const;
+	bool ReferencesYReg(int from = 0, int to = 65536) const;
+	bool ReferencesXReg(int from = 0, int to = 65536) const;
 
-	bool ChangesAccu(int from = 0) const;
-	bool ChangesYReg(int from = 0) const;
-	bool ChangesXReg(int from = 0) const;
+	bool ChangesAccu(int from = 0, int to = 65536) const;
+	bool ChangesYReg(int from = 0, int to = 65536) const;
+	bool ChangesXReg(int from = 0, int to = 65536) const;
 
-	bool ChangesZeroPage(int address, int from = 0) const;
-	bool UsesZeroPage(int address, int from = 0) const;
-	bool ReferencesZeroPage(int address, int from = 0) const;
+	bool ChangesZeroPage(int address, int from = 0, int to = 65536) const;
+	bool UsesZeroPage(int address, int from = 0, int to = 65536) const;
+	bool ReferencesZeroPage(int address, int from = 0, int to = 65536) const;
 
 
 	bool RemoveNops(void);
@@ -476,6 +476,9 @@ public:
 
 	bool AlternateXYUsage(void);
 	bool OptimizeXYPairUsage(void);
+	bool CanGlobalSwapXY(void);
+	bool GlobalSwapXY(void);
+
 	bool ForwardAbsoluteLoadStores(void);
 	bool CanForwardZPMove(int saddr, int daddr, int & index) const;
 	bool Is16BitAddSubImmediate(int at, int& sreg, int &dreg, int& offset) const;
