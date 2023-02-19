@@ -2,6 +2,7 @@
 #include "CompilerTypes.h"
 
 static bool CheckFunc;
+static bool CheckCase;
 
 
 static const int CPU_REG_A = 256;
@@ -21782,6 +21783,8 @@ bool NativeCodeBasicBlock::ReplaceZeroPageUp(int at)
 			return false;
 		if (mIns[i].mMode == ASMIM_INDIRECT_Y && (mIns[i].mAddress == mIns[at + 1].mAddress || mIns[i].mAddress + 1 == mIns[at + 1].mAddress))
 			return false;
+		if (mIns[i].mMode == ASMIM_INDIRECT_Y && (mIns[i].mAddress == mIns[at].mAddress || mIns[i].mAddress + 1 == mIns[at].mAddress))
+			return false;
 
 		i--;
 	}
@@ -21971,6 +21974,7 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 					info.mSrcH = &(mIns[at + 5]);
 					info.mAddL = &(mIns[at + 1]);
 					info.mAddH = &(mIns[at + 4]);
+					info.mImmediate = true;
 
 					return true;
 				}
@@ -21982,6 +21986,7 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 					info.mSrcH = &(mIns[at + 5]);
 					info.mAddL = &(mIns[at + 1]);
 					info.mAddH = &(mIns[at + 4]);
+					info.mImmediate = true;
 
 					return true;
 				}
@@ -21996,6 +22001,7 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 					info.mSrcH = &(mIns[at + 4]);
 					info.mAddL = &(mIns[at + 2]);
 					info.mAddH = &(mIns[at + 5]);
+					info.mImmediate = true;
 
 					return true;
 				}
@@ -22007,9 +22013,21 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 					info.mSrcH = &(mIns[at + 4]);
 					info.mAddL = &(mIns[at + 2]);
 					info.mAddH = &(mIns[at + 5]);
+					info.mImmediate = true;
 
 					return true;
 				}
+			}
+
+			if (mIns[at + 1].mMode == ASMIM_ZERO_PAGE && mIns[at + 4].mMode == ASMIM_ZERO_PAGE)
+			{
+				info.mSrcL = &(mIns[at + 1]);
+				info.mSrcH = &(mIns[at + 4]);
+				info.mAddL = &(mIns[at + 2]);
+				info.mAddH = &(mIns[at + 5]);
+				info.mImmediate = false;
+
+				return true;
 			}
 		}
 		else if (mIns[at + 0].mType == ASMIT_LDA &&
@@ -22033,6 +22051,7 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 					info.mSrcH = &(mIns[at + 5]);
 					info.mAddL = &(mIns[at + 0]);
 					info.mAddH = &(mIns[at + 4]);
+					info.mImmediate = true;
 
 					return true;
 				}
@@ -22044,6 +22063,7 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 					info.mSrcH = &(mIns[at + 5]);
 					info.mAddL = &(mIns[at + 0]);
 					info.mAddH = &(mIns[at + 4]);
+					info.mImmediate = true;
 
 					return true;
 				}
@@ -22058,6 +22078,7 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 					info.mSrcH = &(mIns[at + 4]);
 					info.mAddL = &(mIns[at + 2]);
 					info.mAddH = &(mIns[at + 5]);
+					info.mImmediate = true;
 
 					return true;
 				}
@@ -22069,6 +22090,7 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 					info.mSrcH = &(mIns[at + 4]);
 					info.mAddL = &(mIns[at + 2]);
 					info.mAddH = &(mIns[at + 5]);
+					info.mImmediate = true;
 
 					return true;
 				}
@@ -22523,41 +22545,56 @@ bool NativeCodeBasicBlock::Propagate16BitSum(void)
 				{
 					if (info.mSrcL->mAddress == infos[j].mDstL->mAddress && info.mSrcH->mAddress == infos[j].mDstH->mAddress)
 					{
-						if (!info.mLinkerObject && !infos[j].mLinkerObject)
+						if (info.mImmediate && infos[j].mImmediate)
 						{
-							info.mAddress += infos[j].mAddress;
-							info.mAddL->mAddress = info.mAddress & 0xff;
-							info.mAddH->mAddress = info.mAddress >> 8;
-							info.mSrcL->mAddress = infos[j].mSrcL->mAddress;
-							info.mSrcH->mAddress = infos[j].mSrcH->mAddress;
-							info.mSrcH->mMode = infos[j].mSrcH->mMode;
-							changed = true;
+							if (!info.mLinkerObject && !infos[j].mLinkerObject)
+							{
+								info.mAddress += infos[j].mAddress;
+								info.mAddL->mAddress = info.mAddress & 0xff;
+								info.mAddH->mAddress = info.mAddress >> 8;
+								info.mSrcL->mAddress = infos[j].mSrcL->mAddress;
+								info.mSrcH->mAddress = infos[j].mSrcH->mAddress;
+								info.mSrcH->mMode = infos[j].mSrcH->mMode;
+								changed = true;
+							}
+							else if (!infos[j].mLinkerObject)
+							{
+								info.mAddress += infos[j].mAddress;
+								info.mAddL->mAddress = info.mAddress;
+								info.mAddH->mAddress = info.mAddress;
+								info.mSrcL->mAddress = infos[j].mSrcL->mAddress;
+								info.mSrcH->mAddress = infos[j].mSrcH->mAddress;
+								info.mSrcH->mMode = infos[j].mSrcH->mMode;
+								changed = true;
+							}
+							else if (!info.mLinkerObject)
+							{
+								info.mAddress += infos[j].mAddress;
+								info.mLinkerObject = infos[j].mLinkerObject;
+								info.mAddL->mAddress = info.mAddress;
+								info.mAddL->mLinkerObject = info.mLinkerObject;
+								info.mAddL->mMode = ASMIM_IMMEDIATE_ADDRESS;
+								info.mAddL->mFlags = NCIF_LOWER;
+								info.mAddH->mAddress = info.mAddress;
+								info.mAddH->mLinkerObject = info.mLinkerObject;
+								info.mAddH->mMode = ASMIM_IMMEDIATE_ADDRESS;
+								info.mAddH->mFlags = NCIF_UPPER;
+								info.mSrcL->mAddress = infos[j].mSrcL->mAddress;
+								info.mSrcH->mAddress = infos[j].mSrcH->mAddress;
+								info.mSrcH->mMode = infos[j].mSrcH->mMode;
+								changed = true;
+							}
 						}
-						else if (!infos[j].mLinkerObject)
+					}
+					else if (info.mSrcL->mAddress == infos[j].mSrcL->mAddress && info.mSrcH->mAddress == infos[j].mSrcH->mAddress)
+					{
+						if (info.mAddH->mMode == ASMIM_IMMEDIATE && infos[j].mAddH->mMode == ASMIM_IMMEDIATE && 
+							info.mAddL->mMode == ASMIM_ZERO_PAGE && infos[j].mAddL->mMode == ASMIM_ZERO_PAGE && info.mAddL->mAddress == infos[j].mAddL->mAddress)
 						{
-							info.mAddress += infos[j].mAddress;
-							info.mAddL->mAddress = info.mAddress;
-							info.mAddH->mAddress = info.mAddress;
-							info.mSrcL->mAddress = infos[j].mSrcL->mAddress;
-							info.mSrcH->mAddress = infos[j].mSrcH->mAddress;
-							info.mSrcH->mMode = infos[j].mSrcH->mMode;
-							changed = true;
-						}
-						else if (!info.mLinkerObject)
-						{
-							info.mAddress += infos[j].mAddress;
-							info.mLinkerObject = infos[j].mLinkerObject;
-							info.mAddL->mAddress = info.mAddress;
-							info.mAddL->mLinkerObject = info.mLinkerObject;
-							info.mAddL->mMode = ASMIM_IMMEDIATE_ADDRESS;
-							info.mAddL->mFlags = NCIF_LOWER;
-							info.mAddH->mAddress = info.mAddress;
-							info.mAddH->mLinkerObject = info.mLinkerObject;
-							info.mAddH->mMode = ASMIM_IMMEDIATE_ADDRESS;
-							info.mAddH->mFlags = NCIF_UPPER;
-							info.mSrcL->mAddress = infos[j].mSrcL->mAddress;
-							info.mSrcH->mAddress = infos[j].mSrcH->mAddress;
-							info.mSrcH->mMode = infos[j].mSrcH->mMode;
+							info.mAddL->mType = ASMIT_NOP; info.mAddL->mMode = ASMIM_IMPLIED;
+							info.mSrcL->mAddress = infos[j].mDstL->mAddress;
+							info.mSrcH->mAddress = infos[j].mDstH->mAddress;
+							info.mAddH->mAddress -= infos[j].mAddH->mAddress;
 							changed = true;
 						}
 					}
@@ -22575,6 +22612,8 @@ bool NativeCodeBasicBlock::Propagate16BitSum(void)
 					if (
 						infos[j].mSrcL->MayBeChangedOnAddress(mIns[i]) ||
 						infos[j].mSrcH->MayBeChangedOnAddress(mIns[i]) ||
+						infos[j].mAddL->MayBeChangedOnAddress(mIns[i]) ||
+						infos[j].mAddH->MayBeChangedOnAddress(mIns[i]) ||
 						infos[j].mDstL->MayBeChangedOnAddress(mIns[i]) ||
 						infos[j].mDstH->MayBeChangedOnAddress(mIns[i]))
 					{
@@ -26344,6 +26383,9 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 							block->mIns[i].mLive |= LIVE_CPU_REG_Y;
 						}
 					}
+
+					block->mEntryRequiredRegs += CPU_REG_Y;
+					block->mExitRequiredRegs += CPU_REG_Y;
 				}
 
 				tail->mIns.Push(NativeCodeInstruction(ASMIT_INY, ASMIM_IMPLIED));
@@ -26421,6 +26463,9 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 							block->mIns[i].mLive |= LIVE_CPU_REG_X;
 						}
 					}
+
+					block->mEntryRequiredRegs += CPU_REG_X;
+					block->mExitRequiredRegs += CPU_REG_X;
 				}
 
 				tail->mIns.Push(NativeCodeInstruction(ASMIT_INX, ASMIM_IMPLIED));
@@ -33494,6 +33539,33 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					}
 #endif
 #if 1
+					if (mIns[i + 0].mType == ASMIT_CLC &&
+						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
+						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+					{
+						int yval = RetrieveYValue(i);
+						proc->ResetPatched();
+						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+						{
+							proc->ResetPatched();
+							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+								progress = true;
+
+							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+							if (mTrueJump)
+								mTrueJump->CheckLive();
+							if (mFalseJump)
+								mFalseJump->CheckLive();
+						}
+					}
+#endif
+#if 1
 					if (
 						mIns[i + 0].mType == ASMIT_CLC &&
 						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
@@ -35260,7 +35332,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "memmove");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "disp_menu_color");
 
 #if 1
 	int		step = 0;

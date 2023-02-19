@@ -60,6 +60,7 @@ struct NativeRegisterSum16Info
 {
 	NativeCodeInstruction	*	mSrcL, * mSrcH, * mDstL, * mDstH, * mAddL, * mAddH;
 
+	bool						mImmediate;
 	int							mAddress;
 	LinkerObject			*	mLinkerObject;
 };

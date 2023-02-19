@@ -4321,6 +4321,8 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 		{
 			ins->mSrc[offset].mIntConst += ains->mSrc[0].mIntConst;
 			ins->mSrc[offset].mTemp = ains->mSrc[1].mTemp;
+			ins->mSrc[offset].mFinal = false;
+			ains->mSrc[1].mFinal = false;
 		}
 		else if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0 && ains->mSrc[1].mTemp >= 0 && tvalue[ains->mSrc[1].mTemp] && ains->mSrc[0].mIntConst >= 0)
 		{
@@ -4340,7 +4342,7 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 }
 
 
-void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars)
+void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, FastNumberSet& fsingle)
 {
 	switch (ins->mCode)
 	{
@@ -4467,6 +4469,28 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mNumOperands = 1;
 				assert(ins->mSrc[0].mTemp >= 0);
 			}
+#if 1
+			else if (ins->mSrc[1].mTemp >= 0 && fsingle[ins->mSrc[1].mTemp])
+			{
+				InterInstruction* lins = tvalue[ins->mSrc[1].mTemp];
+				while (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp >= 0 && fsingle[ins->mSrc[1].mTemp])
+					lins = tvalue[lins->mSrc[1].mTemp];
+				if (lins && lins->mSrc[1].mTemp < 0 && (lins->mSrc[1].mMemory == IM_ABSOLUTE || lins->mSrc[1].mMemory == IM_GLOBAL))
+				{
+					lins->mSrc[1].mIntConst += tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					ins->mCode = IC_LOAD_TEMPORARY;
+					ins->mSrc[0].mType = ins->mSrc[1].mType;
+					ins->mSrc[0].mTemp = ins->mSrc[1].mTemp;
+					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
+				}
+				else
+				{
+					ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					ins->mSrc[0].mTemp = -1;
+				}
+			}
+#endif
 			else
 			{
 				ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
@@ -7017,6 +7041,39 @@ bool InterCodeBasicBlock::SingleAssignmentTempForwarding(const GrowingInstructio
 	return changed;
 }
 
+void InterCodeBasicBlock::CalculateSingleUsedTemps(FastNumberSet& fused, FastNumberSet& fsingle)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			for (int j = 0; j < ins->mNumOperands; j++)
+			{
+				if (ins->mSrc[j].mTemp >= 0)
+				{
+					if (fused[ins->mSrc[j].mTemp])
+						fsingle -= ins->mSrc[j].mTemp;
+					else
+					{
+						fused += ins->mSrc[j].mTemp;
+						fsingle += ins->mSrc[j].mTemp;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump)
+			mTrueJump->CalculateSingleUsedTemps(fused, fsingle);
+		if (mFalseJump)
+			mFalseJump->CalculateSingleUsedTemps(fused, fsingle);
+	}
+}
+
+
 bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory)
 {
 	bool	changed = false;
@@ -8559,7 +8616,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 	}
 }
 
-void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars)
+void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, FastNumberSet &fsingle)
 {
 	int i;
 
@@ -8609,12 +8666,12 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			CheckValueUsage(mInstructions[i], ltvalue, staticVars);
+			CheckValueUsage(mInstructions[i], ltvalue, staticVars, fsingle);
 			mInstructions[i]->PerformValueForwarding(ltvalue, tvalid);
 		}
 
-		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars);
-		if (mFalseJump) mFalseJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars);
+		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars, fsingle);
+		if (mFalseJump) mFalseJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars, fsingle);
 	}
 }
 
@@ -8867,6 +8924,29 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					ins->mSrc[0] = lins->mDst;
 					ins->mNumOperands = 1;
 					changed = true;
+				}
+				else if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_ABSOLUTE && ins->mSrc[0].mTemp >= 0)
+				{
+					int	offset = ins->mSrc[1].mIntConst;
+
+					j = 0;
+					while (j < mLoadStoreInstructions.Size() && !(
+						mLoadStoreInstructions[j]->mCode == IC_LEA && mLoadStoreInstructions[j]->mSrc[1].mTemp < 0 && mLoadStoreInstructions[j]->mSrc[1].mMemory == IM_ABSOLUTE &&
+						mLoadStoreInstructions[j]->mSrc[0].mTemp == ins->mSrc[0].mTemp &&
+						(((mLoadStoreInstructions[j]->mSrc[0].mIntConst + mLoadStoreInstructions[j]->mSrc[1].mIntConst - offset) & 255) == 0)))
+						j++;
+					if (j < mLoadStoreInstructions.Size())
+					{
+						ins->mSrc[1] = mLoadStoreInstructions[j]->mDst;
+						ins->mSrc[1].mMemory = IM_INDIRECT;
+						ins->mSrc[1].mIntConst = 0;
+
+						ins->mSrc[0].mTemp = -1;
+						ins->mSrc[0].mIntConst = offset - mLoadStoreInstructions[j]->mSrc[1].mIntConst;
+						changed = true;
+					}
+					else
+						nins = ins;
 				}
 				else
 					nins = ins;
@@ -14595,8 +14675,14 @@ void InterCodeProcedure::Close(void)
 	mValueForwardingTable.SetSize(numTemps, true);
 	mTemporaries.SetSize(numTemps, true);
 
+	RemoveUnusedInstructions();
+
+	FastNumberSet	fusedSet(numTemps), fsingleSet(numTemps);
 	ResetVisited();
-	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet, mModule->mGlobalVars);
+	mEntryBlock->CalculateSingleUsedTemps(fusedSet, fsingleSet);
+
+	ResetVisited();
+	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet, mModule->mGlobalVars, fsingleSet);
 
 	GlobalConstantPropagation();
 
@@ -14859,6 +14945,10 @@ void InterCodeProcedure::Close(void)
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
 
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
 	BuildDataFlowSets();
 
 	ResetVisited();
@@ -15006,6 +15096,30 @@ void InterCodeProcedure::Close(void)
 
 	BuildTraces(false);
 	DisassembleDebug("Rebuilt traces");
+#endif
+
+#if 1
+	BuildLoopPrefix();
+	DisassembleDebug("added dominators");
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->InnerLoopOptimization(mParamAliasedSet);
+
+	DisassembleDebug("inner loop opt 3");
+
+	BuildDataFlowSets();
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	BuildTraces(false);
 #endif
 
 	PropagateConstOperationsUp();
