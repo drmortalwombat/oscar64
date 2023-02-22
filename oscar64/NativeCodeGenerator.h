@@ -426,7 +426,7 @@ public:
 	bool BypassRegisterConditionBlock(void);
 
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
-	bool Propagate16BitSum(void);
+	bool Propagate16BitSum(const GrowingArray<NativeRegisterSum16Info>& cinfo);
 
 	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair);
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
@@ -479,6 +479,9 @@ public:
 	bool OptimizeXYPairUsage(void);
 	bool CanGlobalSwapXY(void);
 	bool GlobalSwapXY(void);
+
+	bool IsSimpleSubExpression(int at) const;
+	bool PropagateCommonSubExpression(void);
 
 	bool ForwardAbsoluteLoadStores(void);
 	bool CanForwardZPMove(int saddr, int daddr, int & index) const;

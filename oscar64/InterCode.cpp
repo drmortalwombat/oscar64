@@ -711,6 +711,22 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 	}
 }
 
+static int64 ConstantRelationalPointerFolding(InterOperator oper, const InterOperand& op1, const InterOperand& op2)
+{
+	if (op1.mMemory == op2.mMemory)
+	{
+		if (op1.mMemory == IM_ABSOLUTE)
+			return ConstantFolding(oper, IT_INT16, op1.mIntConst, op2.mIntConst);
+		else if (op1.mMemory != IM_INDIRECT && op1.mVarIndex == op2.mVarIndex)
+			return ConstantFolding(oper, IT_INT16, op1.mIntConst, op2.mIntConst);
+	}
+
+	if (oper == IA_CMPNE)
+		return 1;
+	else
+		return 0;
+}
+
 static int64 ConstantRelationalFolding(InterOperator oper, double val1, double val2)
 {
 	switch (oper)
@@ -3030,6 +3046,29 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 		}
 	} break;
 
+	case IC_RELATIONAL_OPERATOR:
+	{
+		bool	changed = false;
+
+		for (int i = 0; i < 2; i++)
+		{
+			if (mSrc[i].mTemp >= 0 && ctemps[mSrc[i].mTemp])
+			{
+				InterType	t = mSrc[i].mType;
+				InterInstruction* ains = ctemps[mSrc[i].mTemp];
+				mSrc[i] = ains->mConst;
+				mSrc[i].mType = t;
+				changed = true;
+			}
+		}
+
+		if (changed)
+		{
+			this->ConstantFolding();
+			return true;
+		}
+	} break;
+
 	case IC_CONVERSION_OPERATOR:
 	case IC_UNARY_OPERATOR:
 	{
@@ -3628,7 +3667,9 @@ bool InterInstruction::ConstantFolding(void)
 		if (mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0)
 		{
 			mCode = IC_CONSTANT;
-			if (IsIntegerType(mSrc[0].mType))
+			if (mSrc[0].mType == IT_POINTER)
+				mConst.mIntConst = ::ConstantRelationalPointerFolding(mOperator, mSrc[1], mSrc[0]);
+			else if (IsIntegerType(mSrc[0].mType))
 				mConst.mIntConst = ::ConstantFolding(mOperator, mSrc[0].mType, mSrc[1].mIntConst, mSrc[0].mIntConst);
 			else
 				mConst.mIntConst = ConstantRelationalFolding(mOperator, mSrc[1].mFloatConst, mSrc[0].mFloatConst);
@@ -11213,7 +11254,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 			if (nins > 3 && nins < 20)
 			{
 				if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
-					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[nins - 2]->mOperator == IA_CMPLU && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU) && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
 					mInstructions[nins - 2]->mSrc[0].mTemp < 0 &&
 					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
 				{
@@ -11232,6 +11273,9 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 							{
 								int	start = mDominator->mTrueValueRange[ireg].mMinValue;
 								int	end = mInstructions[nins - 2]->mSrc[0].mIntConst;
+								if (mInstructions[nins - 2]->mOperator == IA_CMPLEU)
+									end++;
+
 								int	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
 								int	count = (end - start) / step;
 
@@ -14994,6 +15038,14 @@ void InterCodeProcedure::Close(void)
 	PeepholeOptimization();
 
 #if 1
+	BuildDataFlowSets();
+
+	do {
+		TempForwarding();
+	} while (GlobalConstantPropagation());
+#endif
+
+#if 1
 	RebuildIntegerRangeSet();
 #endif
 
@@ -15123,7 +15175,6 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	PropagateConstOperationsUp();
-
 
 #if 1
 
