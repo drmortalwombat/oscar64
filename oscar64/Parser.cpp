@@ -15,6 +15,7 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 
 	mUnrollLoop = 0;
 	mUnrollLoopPage = false;
+	mInlineCall = false;
 
 	for (int i = 0; i < 256; i++)
 		mCharMap[i] = i;
@@ -1666,6 +1667,10 @@ Expression* Parser::ParsePostfixExpression(void)
 
 			mScanner->NextToken();
 			Expression* nexp = new Expression(mScanner->mLocation, EX_CALL);
+			if (mInlineCall)
+				nexp->mType = EX_INLINE;
+			mInlineCall = false;
+
 			nexp->mLeft = exp;
 			nexp->mDecType = exp->mDecType->mBase;
 			if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
@@ -3934,6 +3939,13 @@ void Parser::ParsePragma(void)
 				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer literal expected");
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "callinline"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+			mInlineCall = true;
 		}
 		else
 		{

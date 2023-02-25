@@ -65,10 +65,21 @@ int main(void)
 	testmuli( 1, -1, -1);
 	
 	testmuli(5, 5, 25);
+
 	testmuli( 127,  255, 32385);
 	testmuli(-127,  255, -32385);
 	testmuli( 127, -255, -32385);
 	testmuli(-127, -255, 32385);
+
+	testmuli( 1237,  1024, 1266688l);
+	testmuli(-1237,  1024, -1266688l);
+	testmuli( 1237, -1024, -1266688l);
+	testmuli(-1237, -1024, 1266688l);
+
+	testmuli(  1024, 1237, 1266688l);
+	testmuli(  1024,-1237, -1266688l);
+	testmuli( -1024, 1237, -1266688l);
+	testmuli( -1024,-1237, 1266688l);
 
 	testdivi( 1,  1,  1);
 	testdivi(-1,  1, -1);
@@ -117,6 +128,15 @@ int main(void)
 		assert(-10000 * i == d);
 		c += 10000;
 		d -= 10000;
+	}
+
+	long	e = 0, f = 0;
+	for(long i=0; i<177000l; i += 1000)
+	{
+		assert( 1024 * i == e);
+		assert(-1024 * i == f);
+		e += 1024000l;
+		f -= 1024000l;
 	}
 
 	return 0;

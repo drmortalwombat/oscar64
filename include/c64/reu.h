@@ -44,6 +44,24 @@ struct REU
 
 #define reu 	(*((struct REU *)0xdf00))
 
+// Count the number of 64k pages in the REU, the test is destructive
+int reu_count_pages(void);
+
+// Copy an array of data from C64 memory to the REU memory
+inline void reu_store(unsigned long raddr, const volatile char * sp, unsigned length);
+
+// Copy an array of data from REU memory to the C64 memory
+inline void reu_load(unsigned long raddr, volatile char * dp, unsigned length);
+
+// Fill an array of data in the REU with a single value
+inline void reu_fill(unsigned long raddr, char c, unsigned length);
+
+// Copy a 2D array from REU memory to the C64 memory.  The stride parameter 
+// is the distance of two rows in REU memory
+inline void reu_load2d(unsigned long raddr, volatile char * dp, char height, unsigned width, unsigned stride);
+
+
+inline void reu_load2dpage(unsigned long raddr, volatile char * dp, char height, unsigned width, unsigned stride);
 
 #pragma compile("reu.c")
 

@@ -2041,6 +2041,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		}
 
 		case EX_CALL:
+		case EX_INLINE:
 		{
 			if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && (exp->mLeft->mDecValue->mFlags & DTF_INTRINSIC))
 			{
@@ -2217,7 +2218,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 				}
 
-				if (inlineConstexpr)
+				if (exp->mType == EX_INLINE)
+					doInline = true;
+				else if (inlineConstexpr)
 					doInline = true;
 				else if (exp->mLeft->mDecValue->mFlags & DTF_INLINE)
 				{

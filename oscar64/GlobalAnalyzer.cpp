@@ -445,6 +445,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		Analyze(exp->mLeft, procDec);
 		return exp->mDecValue->mBase;
 	case EX_CALL:
+	case EX_INLINE:
 		ldec = Analyze(exp->mLeft, procDec);
 		if ((ldec->mFlags & DTF_INTRINSIC) && !ldec->mValue)
 		{

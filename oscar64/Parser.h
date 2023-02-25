@@ -26,6 +26,7 @@ protected:
 	char			mCharMap[256];
 	int				mUnrollLoop;
 	bool			mUnrollLoopPage;
+	bool			mInlineCall;
 
 	uint8* ParseStringLiteral(int msize);
 

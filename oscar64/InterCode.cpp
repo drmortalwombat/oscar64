@@ -4383,6 +4383,18 @@ static void OptimizeAddress(InterInstruction * ins, const GrowingInstructionPtrA
 }
 
 
+static bool ispow2(int64 v)
+{
+	if (v > 0)
+	{
+		while (!(v & 1))
+			v >>= 1;
+		return v == 1;
+	}
+
+	return 0;
+}
+
 void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, FastNumberSet& fsingle)
 {
 	switch (ins->mCode)
@@ -4791,6 +4803,20 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 							ins->mSrc[0].mTemp = -1;
 							ins->mSrc[0].mIntConst = 3;
 						}
+						else if (ins->mSrc[0].mType == IT_INT32 && ispow2(ins->mSrc[1].mIntConst))
+						{
+							__int64 s = ins->mSrc[1].mIntConst;
+							ins->mOperator = IA_SHL;
+							ins->mSrc[1].mTemp = ins->mSrc[0].mTemp;
+							ins->mSrc[1].mType = ins->mSrc[0].mType;
+							ins->mSrc[0].mTemp = -1;
+							ins->mSrc[0].mIntConst = 0;
+							while (s > 1)
+							{
+								ins->mSrc[0].mIntConst++;
+								s >>= 1;
+							}							
+						}
 
 					}
 #endif
@@ -4833,6 +4859,17 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					{
 						ins->mOperator = IA_SHL;
 						ins->mSrc[0].mIntConst = 3;
+					}
+					else if (ins->mSrc[1].mType == IT_INT32 && ispow2(ins->mSrc[0].mIntConst))
+					{
+						__int64 s = ins->mSrc[0].mIntConst;
+						ins->mOperator = IA_SHL;
+						ins->mSrc[0].mIntConst = 0;
+						while (s > 1)
+						{
+							ins->mSrc[0].mIntConst++;
+							s >>= 1;
+						}
 					}
 				}
 				else if (ins->mOperator == IA_MODU && (ins->mSrc[0].mIntConst & (ins->mSrc[0].mIntConst - 1)) == 0)

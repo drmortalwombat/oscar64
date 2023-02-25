@@ -126,6 +126,7 @@ enum ExpressionType
 	EX_INDEX,
 	EX_QUALIFY,
 	EX_CALL,
+	EX_INLINE,
 	EX_LIST,
 	EX_RETURN,
 	EX_SEQUENCE,
