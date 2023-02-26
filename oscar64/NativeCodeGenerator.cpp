@@ -7013,6 +7013,23 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 		{
 			block = nproc->AllocateBlock();
 
+			if (sreg != BC_REG_ACCU && !ins->mSrc[0].mFinal)
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg + 1));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+				sreg = BC_REG_ACCU;
+			}
+			if (dreg != BC_REG_ADDR && !ins->mSrc[1].mFinal)
+			{
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, dreg));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR));
+				mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, dreg + 1));
+				mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
+				dreg = BC_REG_ADDR;
+			}
+
 			NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
 			NativeCodeBasicBlock* lblock2 = nproc->AllocateBlock();
 
@@ -17069,6 +17086,81 @@ void NativeCodeBasicBlock::ChangeTailZPStoreToY(int addr)
 	assert(false);
 }
 
+bool NativeCodeBasicBlock::IsExitYRegZP(int addr, int& index) const
+{
+	int i = mIns.Size() - 1;
+	while (i >= 0)
+	{
+		if (mIns[i].mMode == ASMIM_ZERO_PAGE && (mIns[i].mType == ASMIT_STY || mIns[i].mType == ASMIT_LDY))
+		{
+			if (addr == mIns[i].mAddress)
+			{
+				index = i;
+				return true;
+			}
+			return false;
+		}
+		else if (mIns[i].ChangesYReg())
+			return false;
+		else if (mIns[i].ChangesZeroPage(addr))
+			return false;
+
+		i--;
+	}
+	
+	return false;
+}
+
+bool NativeCodeBasicBlock::IsExitXRegZP(int addr, int& index) const
+{
+	int i = mIns.Size() - 1;
+	while (i >= 0)
+	{
+		if (mIns[i].mMode == ASMIM_ZERO_PAGE && (mIns[i].mType == ASMIT_STX || mIns[i].mType == ASMIT_LDX))
+		{
+			if (addr == mIns[i].mAddress)
+			{
+				index = i;
+				return true;
+			}
+			return false;
+		}
+		else if (mIns[i].ChangesXReg())
+			return false;
+		else if (mIns[i].ChangesZeroPage(addr))
+			return false;
+
+		i--;
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::IsExitARegZP(int addr, int& index) const
+{
+	int i = mIns.Size() - 1;
+	while (i >= 0)
+	{
+		if (mIns[i].mMode == ASMIM_ZERO_PAGE && (mIns[i].mType == ASMIT_STA || mIns[i].mType == ASMIT_LDA))
+		{
+			if (addr == mIns[i].mAddress)
+			{
+				index = i;
+				return true;
+			}
+			return false;
+		}
+		else if (mIns[i].ChangesAccu())
+			return false;
+		else if (mIns[i].ChangesZeroPage(addr))
+			return false;
+
+		i--;
+	}
+
+	return false;
+}
+
 
 bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool loops)
 {
@@ -18185,6 +18277,117 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				}
 			}
 		}
+
+#if 1
+		if (mEntryBlocks.Size() > 1 && mIns.Size() > 0)
+		{
+			if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_Z))
+			{
+				int		ei = 0;
+				int		index;
+				bool	found = false, fail = false;
+
+				for (int i = 0; i < mEntryBlocks.Size(); i++)
+				{
+					if (mEntryBlocks[i]->IsExitYRegZP(mIns[0].mAddress, index))
+						found = true;
+					else if (mEntryBlocks[i]->mFalseJump)
+						fail = true;
+				}
+
+				if (found && !fail)
+				{
+					for (int i = 0; i < mEntryBlocks.Size(); i++)
+					{
+						if (mEntryBlocks[i]->IsExitYRegZP(mIns[0].mAddress, index))
+						{
+							while (index < mEntryBlocks[i]->mIns.Size())
+								mEntryBlocks[i]->mIns[index++].mLive |= LIVE_CPU_REG_Y;
+							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_Y;
+						}
+						else
+						{
+							mEntryBlocks[i]->mIns.Push(mIns[0]);
+						}
+					}
+
+					mEntryRequiredRegs += CPU_REG_Y;
+					mIns.Remove(0);
+					changed = true;
+				}
+			}
+			else if (mIns[0].mType == ASMIT_LDX && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_Z))
+			{
+				int		ei = 0;
+				int		index;
+				bool	found = false, fail = false;
+
+				for (int i = 0; i < mEntryBlocks.Size(); i++)
+				{
+					if (mEntryBlocks[i]->IsExitXRegZP(mIns[0].mAddress, index))
+						found = true;
+					else if (mEntryBlocks[i]->mFalseJump)
+						fail = true;
+				}
+
+				if (found && !fail)
+				{
+					for (int i = 0; i < mEntryBlocks.Size(); i++)
+					{
+						if (mEntryBlocks[i]->IsExitXRegZP(mIns[0].mAddress, index))
+						{
+							while (index < mEntryBlocks[i]->mIns.Size())
+								mEntryBlocks[i]->mIns[index++].mLive |= LIVE_CPU_REG_X;
+							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_X;
+						}
+						else
+						{
+							mEntryBlocks[i]->mIns.Push(mIns[0]);
+						}
+					}
+
+					mEntryRequiredRegs += CPU_REG_X;
+					mIns.Remove(0);
+					changed = true;
+				}
+			}
+			else if (mIns[0].mType == ASMIT_LDA && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_Z))
+			{
+				int		ei = 0;
+				int		index;
+				bool	found = false, fail = false;
+
+				for (int i = 0; i < mEntryBlocks.Size(); i++)
+				{
+					if (mEntryBlocks[i]->IsExitARegZP(mIns[0].mAddress, index))
+						found = true;
+					else if (mEntryBlocks[i]->mFalseJump)
+						fail = true;
+				}
+
+				if (found && !fail)
+				{
+					for (int i = 0; i < mEntryBlocks.Size(); i++)
+					{
+						if (mEntryBlocks[i]->IsExitARegZP(mIns[0].mAddress, index))
+						{
+							while (index < mEntryBlocks[i]->mIns.Size())
+								mEntryBlocks[i]->mIns[index++].mLive |= LIVE_CPU_REG_A;
+							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_A;
+						}
+						else
+						{
+							mEntryBlocks[i]->mIns.Push(mIns[0]);
+						}
+					}
+
+					mEntryRequiredRegs += CPU_REG_A;
+					mIns.Remove(0);
+					changed = true;
+				}
+			}
+		}
+#endif
 
 		CheckLive();
 
@@ -26831,24 +27034,27 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 			proc->ResetPatched();
 			if (CollectGenericLoop(proc, lblocks))
 			{
-				int		yreg = -1, xreg = -1;
-				int		zyreg[256], zxreg[256];
-				for (int i = 0; i < 256; i++)
+				int		yreg = -1, xreg = -1, areg = -1;
+				int		zyreg[NUM_REGS], zxreg[NUM_REGS], zareg[NUM_REGS];
+				for (int i = 0; i < NUM_REGS; i++)
 				{
 					zyreg[i] = 0;
 					zxreg[i] = 0;
+					zareg[i] = 0;
 				}
 
 				if (mEntryRequiredRegs[CPU_REG_Y])
 					yreg = -2;
 				if (mEntryRequiredRegs[CPU_REG_X])
 					xreg = -2;
+				if (mEntryRequiredRegs[CPU_REG_A])
+					areg = -2;
 
 				for (int i = 0; i < lblocks.Size(); i++)
 				{
 					NativeCodeBasicBlock* block = lblocks[i];
 
-					int	yoffset = 0, xoffset = 0;
+					int	yoffset = 0, xoffset = 0, aoffset = 0;
 
 					for (int j = 0; j < block->mIns.Size(); j++)
 					{
@@ -26862,8 +27068,12 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							else
 								yreg = -2;
 							if (ins.mMode == ASMIM_ZERO_PAGE)
+							{
 								zxreg[ins.mAddress] = -1;
+								zareg[ins.mAddress] = -1;
+							}
 							yoffset = 0;
+							zareg[CPU_REG_Y] = -1;
 							break;
 						case ASMIT_LDX:
 							if (ins.mMode == ASMIM_ZERO_PAGE && (xreg == -1 || xreg == ins.mAddress))
@@ -26871,28 +27081,42 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							else
 								xreg = -2;
 							if (ins.mMode == ASMIM_ZERO_PAGE)
+							{
 								zyreg[ins.mAddress] = -1;
+								zareg[ins.mAddress] = -1;
+							}
 							xoffset = 0;
+							zareg[CPU_REG_X] = -1;
 							break;
 						case ASMIT_STY:
 							if (ins.mMode == ASMIM_ZERO_PAGE)
+							{
 								zxreg[ins.mAddress] = -1;
+								zareg[ins.mAddress] = -1;
+							}
 							break;
 						case ASMIT_STX:
 							if (ins.mMode == ASMIM_ZERO_PAGE)
+							{
 								zyreg[ins.mAddress] = -1;
+								zareg[ins.mAddress] = -1;
+							}
 							break;
 						case ASMIT_INY:
 							yoffset++;
+							zareg[CPU_REG_Y] = -1;
 							break;
 						case ASMIT_DEY:
 							yoffset--;
+							zareg[CPU_REG_Y] = -1;
 							break;
 						case ASMIT_INX:
 							xoffset++;
+							zareg[CPU_REG_X] = -1;
 							break;
 						case ASMIT_DEX:
 							xoffset--;
+							zareg[CPU_REG_X] = -1;
 							break;
 						case ASMIT_INC:
 						case ASMIT_DEC:
@@ -26907,6 +27131,11 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 						case ASMIT_LDA:
 							if (ins.mMode == ASMIM_ZERO_PAGE)
 							{
+								if ((areg == -1 || areg == ins.mAddress) && !(ins.mLive & LIVE_CPU_REG_Z))
+									areg = ins.mAddress;
+								else
+									areg = -2;
+
 								if (ins.mAddress == yreg && yoffset != 0)
 									yreg = -2;
 								if (ins.mAddress == xreg && xoffset != 0)
@@ -26917,6 +27146,8 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								if (zyreg[ins.mAddress] >= 0)
 									zyreg[ins.mAddress]++;
 							}
+							else
+								areg = -2;
 							break;
 						case ASMIT_STA:
 							if (ins.mMode == ASMIM_ZERO_PAGE)
@@ -26935,20 +27166,33 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 						case ASMIT_TYA:
 							if (yoffset)
 								yreg = -2;
+							else if ((areg == -1 || areg == CPU_REG_Y) && !(ins.mLive & LIVE_CPU_REG_Z))
+								areg = CPU_REG_Y;
+							else
+								areg = -2;
 							break;
 						case ASMIT_TXA:
 							if (xoffset)
 								xreg = -2;
+							else if ((areg == -1 || areg == CPU_REG_X) && !(ins.mLive & LIVE_CPU_REG_Z))
+								areg = CPU_REG_X;
+							else
+								areg = -2;
 							break;
 						case ASMIT_TAY:
 							yreg = -2;
+							zareg[CPU_REG_Y] = -1;
 							break;
 						case ASMIT_TAX:
 							xreg = -2;
+							zareg[CPU_REG_X] = -1;
 							break;
 						case ASMIT_JSR:
 							yreg = -2;
 							xreg = -2;
+							areg = -2;
+							zareg[CPU_REG_X] = -1;
+							zareg[CPU_REG_Y] = -1;
 							break;
 						case ASMIT_CMP:
 							if (ins.mMode == ASMIM_INDIRECT_Y && yoffset != 0 && yreg >= 0)
@@ -26959,6 +27203,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							{
 								zxreg[ins.mAddress] = -1;
 								zyreg[ins.mAddress] = -1;
+								zareg[ins.mAddress] = -1;
 							}
 							break;
 						default:
@@ -26966,20 +27211,27 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							{
 								zxreg[ins.mAddress] = -1;
 								zyreg[ins.mAddress] = -1;
+								zareg[ins.mAddress] = -1;
 							}
+							if (ins.ChangesAccu())
+								areg = -2;
 						}
 
 						if (!(ins.mLive & LIVE_CPU_REG_Y))
 							yoffset = 0;
 						if (!(ins.mLive & LIVE_CPU_REG_X))
 							xoffset = 0;
+						if (!(ins.mLive & LIVE_CPU_REG_A))
+							aoffset = 0;
 
 						if (ins.mMode == ASMIM_INDIRECT_Y)
 						{
 							zxreg[ins.mAddress] = -1;
 							zyreg[ins.mAddress] = -1;
+							zareg[ins.mAddress] = -1;
 							zxreg[ins.mAddress + 1] = -1;
 							zyreg[ins.mAddress + 1] = -1;
+							zareg[ins.mAddress + 1] = -1;
 						}
 					}
 #if 1
@@ -26987,7 +27239,20 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 						yreg = -2;
 					if (xoffset && block->mExitRequiredRegs[CPU_REG_X])
 						xreg = -2;
+					if (aoffset && block->mExitRequiredRegs[CPU_REG_A])
+						areg = -2;
 #endif
+				}
+
+				if (areg >= 0)
+				{
+					if (zareg[areg] < 0)
+						areg = -2;
+					else
+					{
+						zxreg[areg] = -1;
+						zyreg[areg] = -1;
+					}
 				}
 
 				if (xreg != -2)
@@ -27026,7 +27291,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 						yreg = -1;
 				}
 
-				if (yreg >= 0 || xreg >= 0)
+				if (yreg >= 0 || xreg >= 0 || areg >= 0)
 				{
 					GrowingArray<NativeCodeBasicBlock*>	 entries(nullptr);
 					GrowingArray<NativeCodeBasicBlock*>	 exits(nullptr);
@@ -27045,10 +27310,21 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							block->mEntryRequiredRegs += CPU_REG_X;
 							block->mExitRequiredRegs += CPU_REG_X;
 						}
+						if (areg >= 0)
+						{
+							block->mEntryRequiredRegs += CPU_REG_A;
+							block->mExitRequiredRegs += CPU_REG_A;
+						}
 
 						if (block->mTrueJump && !lblocks.Contains(block->mTrueJump))
 						{
 							block->mTrueJump = block->BuildSingleEntry(proc, block->mTrueJump);
+							if (areg >= 0 && block->mTrueJump->mEntryRequiredRegs[areg])
+							{
+								if (areg < 256)
+									block->mTrueJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, areg));
+								block->mTrueJump->mEntryRequiredRegs += CPU_REG_A;
+							}
 							if (yreg >= 0 && block->mTrueJump->mEntryRequiredRegs[yreg])
 							{
 								block->mTrueJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_STY, ASMIM_ZERO_PAGE, yreg));
@@ -27063,6 +27339,12 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 						if (block->mFalseJump && !lblocks.Contains(block->mFalseJump))
 						{
 							block->mFalseJump = block->BuildSingleEntry(proc, block->mFalseJump);
+							if (areg >= 0 && block->mFalseJump->mEntryRequiredRegs[areg])
+							{
+								if (areg < 256)
+									block->mFalseJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, areg));
+								block->mFalseJump->mEntryRequiredRegs += CPU_REG_A;
+							}
 							if (yreg >= 0 && block->mFalseJump->mEntryRequiredRegs[yreg])
 							{
 								block->mFalseJump->mIns.Insert(0, NativeCodeInstruction(ASMIT_STY, ASMIM_ZERO_PAGE, yreg));
@@ -27080,6 +27362,16 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							if (!lblocks.Contains(block->mEntryBlocks[j]))
 							{
 								block->mEntryBlocks[j] = block->BuildSingleExit(proc, block->mEntryBlocks[j]);
+								if (areg >= 0 && mEntryRequiredRegs[areg])
+								{
+									if (areg == CPU_REG_X)
+										block->mEntryBlocks[j]->mIns.Push(NativeCodeInstruction(ASMIT_TXA));
+									else if (areg == CPU_REG_Y)
+										block->mEntryBlocks[j]->mIns.Push(NativeCodeInstruction(ASMIT_TYA));
+									else
+										block->mEntryBlocks[j]->mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, areg));
+									block->mEntryBlocks[j]->mExitRequiredRegs += CPU_REG_A;
+								}
 								if (yreg >= 0 && mEntryRequiredRegs[yreg])
 								{
 									block->mEntryBlocks[j]->mIns.Push(NativeCodeInstruction(ASMIT_LDY, ASMIM_ZERO_PAGE, yreg));
@@ -27145,7 +27437,12 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								break;
 
 							case ASMIT_LDA:
-								if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == yreg)
+								if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == areg)
+								{
+									ins.mType = ASMIT_NOP;
+									ins.mMode = ASMIM_IMPLIED;
+								}
+								else if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == yreg)
 								{
 									ins.mType = ASMIT_TYA;
 									ins.mMode = ASMIM_IMPLIED;
@@ -27157,7 +27454,12 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								}
 								break;
 							case ASMIT_STA:
-								if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == yreg)
+								if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == areg)
+								{
+									ins.mType = ASMIT_NOP;
+									ins.mMode = ASMIM_IMPLIED;
+								}
+								else if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == yreg)
 								{
 									ins.mType = ASMIT_TAY;
 									ins.mMode = ASMIM_IMPLIED;
@@ -27180,6 +27482,15 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								break;
 							case ASMIT_DEX:
 								xoffset--;
+								break;
+
+							case ASMIT_TXA:
+								if (areg == CPU_REG_X)
+									ins.mType = ASMIT_NOP;
+								break;
+							case ASMIT_TYA:
+								if (areg == CPU_REG_Y)
+									ins.mType = ASMIT_NOP;
 								break;
 							}
 
@@ -27225,6 +27536,8 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								ins.mLive |= LIVE_CPU_REG_Y;
 							if (xreg >= 0)
 								ins.mLive |= LIVE_CPU_REG_X;
+							if (areg >= 0)
+								ins.mLive |= LIVE_CPU_REG_A;
 
 						}
 
@@ -30022,6 +30335,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
+#if 1
+					else if (pass >= 3 && 
+						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+					{
+						NativeCodeInstruction	ins(mIns[i + 1]);
+						mIns[i + 1].CopyMode(mIns[i + 0]);
+						mIns[i + 0].CopyMode(ins);
+						if (mIns[i + 1].RequiresXReg())
+							mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						if (mIns[i + 1].RequiresYReg())
+							mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						progress = true;
+					}
+#endif
 					else if (
 						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[i + 1].mAddress &&
 						(mIns[i + 1].mType == ASMIT_LSR || mIns[i + 1].mType == ASMIT_ASL || mIns[i + 1].mType == ASMIT_ROL || mIns[i + 1].mType == ASMIT_ROR) && !(mIns[i + 0].mLive & LIVE_CPU_REG_A))
@@ -35624,7 +35952,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "rscreen_copy");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "rirq_sort");
 
 #if 1
 	int		step = 0;

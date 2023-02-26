@@ -405,6 +405,11 @@ public:
 	bool HasTailSTA(int& addr, int& index) const;
 	bool HasTailSTX(int& addr, int& index) const;
 	bool HasTailSTY(int& addr, int& index) const;
+
+	bool IsExitYRegZP(int addr, int& index) const;
+	bool IsExitXRegZP(int addr, int& index) const;
+	bool IsExitARegZP(int addr, int& index) const;
+
 	bool PropagateSinglePath(void);
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;
