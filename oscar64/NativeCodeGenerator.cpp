@@ -20904,6 +20904,8 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 				{
 					if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[start - 1].mAddress && mIns[i].ChangesAddress())
 						return false;
+					if ((mIns[start - 1].mLive & LIVE_CPU_REG_C) && mIns[i].ChangesCarry())
+						return false;
 				}
 
 				start--;
@@ -35952,7 +35954,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "rirq_sort");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 #if 1
 	int		step = 0;
