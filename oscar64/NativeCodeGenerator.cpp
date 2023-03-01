@@ -232,11 +232,13 @@ void NativeRegisterDataSet::Intersect(const NativeRegisterDataSet& set)
 					mRegs[i].Reset();
 					changed = true;
 				}
+#if 0
 				else if (mRegs[mRegs[i].mValue].mValue != set.mRegs[set.mRegs[i].mValue].mValue)
 				{
 					mRegs[i].Reset();
 					changed = true;
 				}
+#endif
 			}
 			else if (mRegs[i].mMode == NRDM_ABSOLUTE)
 			{
@@ -15451,7 +15453,6 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					if (mTrueJump->mIns[0].mType == ASMIT_STA && mTrueJump->mIns[0].mMode == ASMIM_ZERO_PAGE && !mFalseJump->mEntryRequiredRegs[mTrueJump->mIns[0].mAddress])
 					{
-						printf("Blumb");
 						if (mIns[sz - 1].mMode == ASMIM_IMMEDIATE)
 						{
 							mIns.Insert(sz - 1, mTrueJump->mIns[0]);
@@ -35984,7 +35985,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "tile_dig");
 
 #if 1
 	int		step = 0;
