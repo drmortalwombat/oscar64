@@ -2767,7 +2767,7 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 	return changed;
 }
 
-bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsType& carryop, bool initial, bool final)
+bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsType& carryop, bool initial, bool final, int fastCallBase)
 {
 	bool	changed = false;
 
@@ -2803,8 +2803,17 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 					data.ResetZeroPage(i);
 			}
 
-			for(int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
-				data.ResetZeroPage(i);
+			if (mLinkerObject && (mLinkerObject->mFlags & LOBJF_ZEROPAGESET))
+			{
+				for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS + fastCallBase; i++)
+					if (mLinkerObject->mZeroPageSet[i])
+						data.ResetZeroPage(i);
+			}
+			else
+			{
+				for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS + fastCallBase; i++)
+					data.ResetZeroPage(i);
+			}
 		}
 
 		return false;
@@ -12363,7 +12372,7 @@ void NativeCodeBasicBlock::FindZeroPageAlias(const NumberSet& statics, NumberSet
 	}
 }
 
-void NativeCodeBasicBlock::CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global)
+bool NativeCodeBasicBlock::CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global)
 {
 	if (!mVisited)
 	{
@@ -12393,18 +12402,33 @@ void NativeCodeBasicBlock::CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& 
 					{
 						LinkerObject* lo = mIns[i].mLinkerObject;
 
-						global |= lo->mZeroPageSet;
+						if (lo->mFlags & LOBJF_ZEROPAGESET)
+						{
+							global |= lo->mZeroPageSet;
+						}
+						else if (!lo->mProc)
+						{
+							for (int i = 0; i < lo->mNumTemporaries; i++)
+							{
+								for (int j = 0; j < lo->mTempSizes[i]; j++)
+									global += lo->mTemporaries[i] + j;
+							}
+						}
+						else
+							return false;
 					}
 				}
 				break;
 			}
 		}
 
-		if (mTrueJump)
-			mTrueJump->CollectZeroPageSet(locals, global);
-		if (mFalseJump)
-			mFalseJump->CollectZeroPageSet(locals, global);
+		if (mTrueJump && !mTrueJump->CollectZeroPageSet(locals, global))
+			return false;
+		if (mFalseJump && !mFalseJump->CollectZeroPageSet(locals, global))
+			return false;
 	}
+
+	return true;
 }
 
 void NativeCodeBasicBlock::CollectZeroPageUsage(NumberSet& used, NumberSet &modified, NumberSet& pairs)
@@ -24332,7 +24356,7 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 	return changed;
 }
 
-bool NativeCodeBasicBlock::GlobalValueForwarding(bool final)
+bool NativeCodeBasicBlock::GlobalValueForwarding(NativeCodeProcedure* proc, bool final)
 {
 	bool	changed = false;
 
@@ -24362,16 +24386,16 @@ bool NativeCodeBasicBlock::GlobalValueForwarding(bool final)
 		{
 			AsmInsType	carryop;
 
-			if (mIns[i].ValueForwarding(mDataSet, carryop, true, final))
+			if (mIns[i].ValueForwarding(mDataSet, carryop, true, final, proc->mFastCallBase))
 				changed = true;
 			if (carryop != ASMIT_NOP)
 				mIns.Insert(i + 1, NativeCodeInstruction(carryop));
 		}
 
 
-		if (this->mTrueJump && this->mTrueJump->GlobalValueForwarding(final))
+		if (this->mTrueJump && this->mTrueJump->GlobalValueForwarding(proc, final))
 			changed = true;
-		if (this->mFalseJump && this->mFalseJump->GlobalValueForwarding(final))
+		if (this->mFalseJump && this->mFalseJump->GlobalValueForwarding(proc, final))
 			changed = true;
 	}
 
@@ -24379,7 +24403,7 @@ bool NativeCodeBasicBlock::GlobalValueForwarding(bool final)
 }
 
 
-bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final)
+bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final)
 {
 	bool	changed = false;
 
@@ -24561,7 +24585,7 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 			}
 #endif
 
-			if (mIns[i].ValueForwarding(mNDataSet, carryop, !global, final))
+			if (mIns[i].ValueForwarding(mNDataSet, carryop, !global, final, proc->mFastCallBase))
 				changed = true;
 			if (carryop != ASMIT_NOP)
 				mIns.Insert(i + 1, NativeCodeInstruction(carryop));
@@ -24917,9 +24941,9 @@ bool NativeCodeBasicBlock::ValueForwarding(const NativeRegisterDataSet& data, bo
 #endif
 		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
 
-		if (this->mTrueJump && this->mTrueJump->ValueForwarding(mNDataSet, global, final))
+		if (this->mTrueJump && this->mTrueJump->ValueForwarding(proc, mNDataSet, global, final))
 			changed = true;
-		if (this->mFalseJump && this->mFalseJump->ValueForwarding(mFDataSet, global, final))
+		if (this->mFalseJump && this->mFalseJump->ValueForwarding(proc, mFDataSet, global, final))
 			changed = true;
 
 
@@ -35452,6 +35476,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		tblocks[i] = nullptr;
 
 	mIndex = proc->mID;
+	mFastCallBase = proc->mFastCallBase;
 
 	int		tempSave = proc->mTempSize > BC_REG_TMP_SAVED - BC_REG_TMP && !proc->mSaveTempsLinkerObject && !mInterProc->mInterrupt ? proc->mTempSize - (BC_REG_TMP_SAVED - BC_REG_TMP) : 0;
 	int		commonFrameSize = proc->mCommonFrameSize;
@@ -35552,8 +35577,10 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 		ZeroPageSet	zpLocal, zpGlobal;
 		ResetVisited();
-		mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal);
-		zpLocal |= zpGlobal;
+		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal))
+			zpLocal |= zpGlobal;
+		else
+			mGenerator->mErrors->Error(mInterProc->mLocation, ERRR_INTERRUPT_TO_COMPLEX, "No recursive functions in interrupt");
 
 		if (proc->mHardwareInterrupt)
 		{
@@ -35835,10 +35862,13 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 		ZeroPageSet	zpLocal, zpGlobal;
 		ResetVisited();
-		mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal);
-		zpLocal |= zpGlobal;
+		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal))
+		{
+			zpLocal |= zpGlobal;
 
-		proc->mLinkerObject->mZeroPageSet = zpLocal;
+			proc->mLinkerObject->mZeroPageSet = zpLocal;
+			proc->mLinkerObject->mFlags |= LOBJF_ZEROPAGESET;
+		}
 	}
 
 	if (proc->mHardwareInterrupt)
@@ -36050,7 +36080,7 @@ void NativeCodeProcedure::Optimize(void)
 			{
 				ResetVisited();
 				NativeRegisterDataSet	data;
-				if (mEntryBlock->ValueForwarding(data, step > 0, step == 7))
+				if (mEntryBlock->ValueForwarding(this, data, step > 0, step == 7))
 				{
 					changed = true;
 				}
@@ -36063,7 +36093,7 @@ void NativeCodeProcedure::Optimize(void)
 					if (step > 1)
 					{
 						ResetVisited();
-						if (mEntryBlock->GlobalValueForwarding(step == 7))
+						if (mEntryBlock->GlobalValueForwarding(this, step == 7))
 							changed = true;
 					}
 #endif
@@ -36569,7 +36599,7 @@ void NativeCodeProcedure::Optimize(void)
 		{
 			ResetVisited();
 			NativeRegisterDataSet	data;
-			if (mEntryBlock->ValueForwarding(data, true, true))
+			if (mEntryBlock->ValueForwarding(this, data, true, true))
 			{
 				changed = true;
 			}
@@ -36580,7 +36610,7 @@ void NativeCodeProcedure::Optimize(void)
 				mEntryBlock->CheckVisited();
 
 				ResetVisited();
-				if (mEntryBlock->GlobalValueForwarding(true))
+				if (mEntryBlock->GlobalValueForwarding(this, true))
 					changed = true;
 #endif
 			}
@@ -36609,7 +36639,7 @@ void NativeCodeProcedure::Optimize(void)
 
 	ResetVisited();
 	NativeRegisterDataSet	data;
-	mEntryBlock->ValueForwarding(data, true, true);
+	mEntryBlock->ValueForwarding(this, data, true, true);
 
 #if 1
 	ResetVisited();

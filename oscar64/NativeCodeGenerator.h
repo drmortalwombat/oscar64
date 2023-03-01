@@ -106,7 +106,7 @@ public:
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	bool IsUsedResultInstructions(NumberSet& requiredTemps);
 	bool BitFieldForwarding(NativeRegisterDataSet& data, AsmInsType& carryop);
-	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool initial, bool final);
+	bool ValueForwarding(NativeRegisterDataSet& data, AsmInsType & carryop, bool initial, bool final, int fastCallBase);
 
 	void Simulate(NativeRegisterDataSet& data);
 	bool ApplySimulation(const NativeRegisterDataSet& data);
@@ -387,8 +387,8 @@ public:
 
 	bool ReverseReplaceTAX(int at);
 
-	bool ValueForwarding(const NativeRegisterDataSet& data, bool global, bool final);
-	bool GlobalValueForwarding(bool final);
+	bool ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final);
+	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 	bool ReverseBitfieldForwarding(void);
 
@@ -446,7 +446,7 @@ public:
 	void BuildEntryDataSet(const NativeRegisterDataSet& set);
 	bool ApplyEntryDataSet(void);
 
-	void CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global);
+	bool CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global);
 	void CollectZeroPageUsage(NumberSet& used, NumberSet& modified, NumberSet& pairs);
 	void FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias, int accu);
 	bool RemapZeroPage(const uint8* remap);
@@ -555,6 +555,7 @@ class NativeCodeProcedure
 		InterCodeProcedure* mInterProc;
 
 		int		mProgStart, mProgSize, mIndex, mFrameOffset, mStackExpand;
+		int		mFastCallBase;
 		bool	mNoFrame;
 		int		mTempBlocks;
 

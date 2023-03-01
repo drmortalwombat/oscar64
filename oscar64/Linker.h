@@ -141,6 +141,7 @@ static const uint32 LOBJF_STATIC_STACK	= 0x00000040;
 static const uint32 LOBJF_NO_CROSS		= 0x00000080;
 static const uint32 LOBJF_ZEROPAGE		= 0x00000100;
 static const uint32 LOBJF_FORCE_ALIGN	= 0x00000200;
+static const uint32 LOBJF_ZEROPAGESET = 0x00000400;
 
 static const uint32 LOBJF_ARG_REG_A = 0x00001000;
 static const uint32 LOBJF_ARG_REG_X = 0x00002000;

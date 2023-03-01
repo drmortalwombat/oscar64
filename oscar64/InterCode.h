@@ -558,7 +558,7 @@ public:
 	GrowingInterCodeBasicBlockPtrArray	mBlocks;
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
-	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps;
+	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase;
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
 	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;

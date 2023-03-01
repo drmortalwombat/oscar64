@@ -3596,6 +3596,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 		if (dec->mFastCallSize > 0 && dec->mFastCallBase < BC_REG_FPARAMS_END - BC_REG_FPARAMS)
 		{
+			proc->mFastCallBase = dec->mFastCallBase;
 			dec->mLinkerObject->mNumTemporaries = 1;
 			dec->mLinkerObject->mTemporaries[0] = BC_REG_FPARAMS + dec->mFastCallBase;
 			if (dec->mFastCallBase + dec->mFastCallBase < BC_REG_FPARAMS_END - BC_REG_FPARAMS)
@@ -3603,7 +3604,11 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 			else
 				dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - BC_REG_FPARAMS - dec->mFastCallBase;
 		}
+		else
+			proc->mFastCallBase = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 	}
+	else
+		proc->mFastCallBase = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 
 	if (dec->mBase->mBase->mType != DT_TYPE_VOID && dec->mBase->mBase->mType != DT_TYPE_STRUCT)
 		proc->mValueReturn = true;
