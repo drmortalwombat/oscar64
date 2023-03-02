@@ -28,7 +28,8 @@ public:
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
 
-	uint64	mCompilerOptions;
+	TargetMachine	mTargetMachine;
+	uint64			mCompilerOptions;
 
 	struct Define
 	{

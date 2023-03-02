@@ -145,6 +145,10 @@ w0:
 		byt	0x00
 		byt	0x00
 
+#if defined(__C128__)
+		sta 0xff01
+#endif
+
 		tsx
 		stx spentry
 
@@ -241,6 +245,10 @@ spexit:
 		sta $13
 		lda #$19
 		sta $16
+#if defined(__C128__)
+		lda #0
+		sta 0xff00
+#endif
 		rts
 }
 

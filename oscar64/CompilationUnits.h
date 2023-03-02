@@ -28,7 +28,7 @@ public:
 
 	DeclarationScope* mRuntimeScope;
 
-	LinkerSection* mSectionCode, * mSectionData, * mSectionBSS, * mSectionHeap, * mSectionStack, * mSectionZeroPage;
+	LinkerSection* mSectionCode, * mSectionData, * mSectionBSS, * mSectionHeap, * mSectionStack, * mSectionZeroPage, * mSectionLowCode;
 	Linker* mLinker;
 
 	bool AddUnit(Location & location, const char* name, const char * from);

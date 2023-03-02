@@ -2,6 +2,44 @@
 
 static IOCharMap		giocharmap = IOCHM_ASCII;
 
+#if defined(__C128__)
+#pragma code(lowcode)
+__asm bsout
+{	
+		ldx #0
+		stx 0xff00
+		jsr 0xffd2
+		sta 0xff01
+}
+__asm bsin
+{
+		lda #0
+		sta 0xff00
+		jsr 0xffe4
+		sta 0xff01	
+}
+__asm bsplot
+{	
+		lda #0
+		sta 0xff00
+		jsr 0xfff0
+		sta 0xff01
+}
+__asm bsinit
+{	
+		lda #0
+		sta 0xff00
+		jsr 0xff81
+		sta 0xff01
+}
+#pragma code(code)
+#else
+#define bsout	0xffd2
+#define bsin	0xffe4
+#define bsplot	0xfff0
+#define bsinit	0xff81
+#endif
+
 void iocharmap(IOCharMap chmap)
 {
 	giocharmap = chmap;
@@ -38,12 +76,12 @@ __asm putpch
 		beq	w3
 		and #$df
 	w3:
-		jmp	0xffd2	
+		jmp	bsout	
 }
 
 __asm getpch
 {
-		jsr	0xffe4
+		jsr	bsin
 
 		ldx	giocharmap
 		cpx	#IOCHM_ASCII
@@ -117,7 +155,7 @@ void putch(int c)
 {
 	__asm {
 		lda	c
-		jsr	0xffd2
+		jsr	bsout
 	}
 }
 
@@ -125,7 +163,7 @@ void clrscr(void)
 {
 	__asm
 	{
-		jsr	$ff5b
+		jsr	bsinit
 	}
 }
 
@@ -141,7 +179,7 @@ void gotoxy(int cx, int cy)
 		ldx	cy
 		ldy	cx
 		clc
-		jsr $fff0
+		jsr bsplot
 	}	
 }
 

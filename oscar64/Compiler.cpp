@@ -22,6 +22,7 @@ Compiler::Compiler(void)
 	mCompilationUnits->mSectionHeap = mLinker->AddSection(Ident::Unique("heap"), LST_HEAP);
 	mCompilationUnits->mSectionStack = mLinker->AddSection(Ident::Unique("stack"), LST_STACK);
 	mCompilationUnits->mSectionZeroPage = mLinker->AddSection(Ident::Unique("zeropage"), LST_ZEROPAGE);
+	mCompilationUnits->mSectionLowCode = nullptr;
 	mCompilationUnits->mSectionStack->mSize = 4096;
 	mCompilationUnits->mSectionHeap->mSize = 1024;
 
@@ -63,6 +64,24 @@ bool Compiler::ParseSource(void)
 		BC_REG_TMP = 0x33;
 		BC_REG_TMP_SAVED = 0x53;
 #endif
+	}
+
+	switch (mTargetMachine)
+	{
+	case TMACH_VIC20:
+	case TMACH_VIC20_3K:
+	case TMACH_VIC20_8K:
+		mCompilationUnits->mSectionStack->mSize = 512;
+		mCompilationUnits->mSectionHeap->mSize = 512;
+		break;
+	case TMACH_VIC20_16K:
+	case TMACH_VIC20_24K:
+		mCompilationUnits->mSectionStack->mSize = 1024;
+		mCompilationUnits->mSectionHeap->mSize = 1024;
+		break;
+	case TMACH_C128:
+		mCompilationUnits->mSectionLowCode = mLinker->AddSection(Ident::Unique("lowcode"), LST_DATA);
+		break;
 	}
 
 	mPreprocessor->mCompilerOptions = mCompilerOptions;
@@ -177,6 +196,7 @@ bool Compiler::GenerateCode(void)
 	const Ident* identMain = Ident::Unique("main");
 	const Ident* identCode = Ident::Unique("code");
 	const Ident* identZeroPage = Ident::Unique("zeropage");
+	const Ident* identLowcode = Ident::Unique("lowcode");
 
 	LinkerRegion* regionZeroPage = mLinker->FindRegion(identZeroPage);
 	if (!regionZeroPage)
@@ -185,10 +205,61 @@ bool Compiler::GenerateCode(void)
 	}
 
 	LinkerRegion* regionStartup = mLinker->FindRegion(identStartup);
+	LinkerRegion* regionLowcode = nullptr;
+
 	if (!regionStartup)
 	{
 		if (mCompilerOptions & COPT_TARGET_PRG)
-			regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0900);
+		{
+			switch (mTargetMachine)
+			{
+			case TMACH_C64:
+				if (mCompilerOptions & COPT_NATIVE)
+					regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0880);
+				else
+					regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0900);
+				break;
+			case TMACH_C128:
+				if (mCompilerOptions & COPT_NATIVE)
+				{
+					regionStartup = mLinker->AddRegion(identStartup, 0x1c01, 0x1c80);
+					regionLowcode = mLinker->AddRegion(identLowcode, 0x1c80, 0x1d00);
+				}
+				else
+				{
+					regionStartup = mLinker->AddRegion(identStartup, 0x1c01, 0x1c80);
+					regionLowcode = mLinker->AddRegion(identLowcode, 0x1c80, 0x1d00);
+				}
+				regionLowcode->mSections.Push(mCompilationUnits->mSectionLowCode);
+				break;
+			case TMACH_C128B:
+				if (mCompilerOptions & COPT_NATIVE)
+					regionStartup = mLinker->AddRegion(identStartup, 0x1c01, 0x1c80);
+				else
+					regionStartup = mLinker->AddRegion(identStartup, 0x1c01, 0x1d00);
+				break;
+			case TMACH_VIC20:
+				if (mCompilerOptions & COPT_NATIVE)
+					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1080);
+				else
+					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1100);
+				break;
+			case TMACH_VIC20_3K:
+				if (mCompilerOptions & COPT_NATIVE)
+					regionStartup = mLinker->AddRegion(identStartup, 0x0401, 0x0480);
+				else
+					regionStartup = mLinker->AddRegion(identStartup, 0x0401, 0x0500);
+				break;
+			case TMACH_VIC20_8K:
+			case TMACH_VIC20_16K:
+			case TMACH_VIC20_24K:
+				if (mCompilerOptions & COPT_NATIVE)
+					regionStartup = mLinker->AddRegion(identStartup, 0x1201, 0x1280);
+				else
+					regionStartup = mLinker->AddRegion(identStartup, 0x1201, 0x1300);
+				break;
+			}
+		}
 		else
 			regionStartup = mLinker->AddRegion(identStartup, 0x0800, 0x0900);
 	}
@@ -198,7 +269,30 @@ bool Compiler::GenerateCode(void)
 	{
 		regionBytecode = mLinker->FindRegion(identBytecode);
 		if (!regionBytecode)
-			regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
+		{
+			switch (mTargetMachine)
+			{
+			case TMACH_C64:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
+				break;
+			case TMACH_C128:
+			case TMACH_C128B:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x1d00, 0x1e00);
+				break;
+			case TMACH_VIC20:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x1100, 0x1200);
+				break;
+			case TMACH_VIC20_3K:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x0500, 0x0600);
+				break;
+			case TMACH_VIC20_8K:
+			case TMACH_VIC20_16K:
+			case TMACH_VIC20_24K:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x1300, 0x1400);
+				break;
+			}
+
+		}
 	}
 
 	LinkerRegion* regionMain = mLinker->FindRegion(identMain);
@@ -224,9 +318,65 @@ bool Compiler::GenerateCode(void)
 			if (!(mCompilerOptions & COPT_TARGET_PRG))
 				regionMain = mLinker->AddRegion(identMain, 0x0900, 0x4700);
 			else if (regionBytecode)
-				regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
+			{
+				switch (mTargetMachine)
+				{
+				case TMACH_C64:
+					regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
+					break;
+				case TMACH_C128:
+					regionMain = mLinker->AddRegion(identMain, 0x1e00, 0xfe00);
+					break;
+				case TMACH_C128B:
+					regionMain = mLinker->AddRegion(identMain, 0x1e00, 0x4000);
+					break;
+				case TMACH_VIC20:
+					regionMain = mLinker->AddRegion(identMain, 0x1200, 0x1e00);
+					break;
+				case TMACH_VIC20_3K:
+					regionMain = mLinker->AddRegion(identMain, 0x0600, 0x1e00);
+					break;
+				case TMACH_VIC20_8K:
+					regionMain = mLinker->AddRegion(identMain, 0x1400, 0x4000);
+					break;
+				case TMACH_VIC20_16K:
+					regionMain = mLinker->AddRegion(identMain, 0x1400, 0x6000);
+					break;
+				case TMACH_VIC20_24K:
+					regionMain = mLinker->AddRegion(identMain, 0x1400, 0x8000);
+					break;
+				}
+			}
 			else
-				regionMain = mLinker->AddRegion(identMain, 0x0900, 0xa000);
+			{
+				switch (mTargetMachine)
+				{
+				case TMACH_C64:
+					regionMain = mLinker->AddRegion(identMain, 0x0880, 0xa000);
+					break;
+				case TMACH_C128:
+					regionMain = mLinker->AddRegion(identMain, 0x1d00, 0xfe00);
+					break;
+				case TMACH_C128B:
+					regionMain = mLinker->AddRegion(identMain, 0x1c80, 0x4000);
+					break;
+				case TMACH_VIC20:
+					regionMain = mLinker->AddRegion(identMain, 0x1080, 0x1e00);
+					break;
+				case TMACH_VIC20_3K:
+					regionMain = mLinker->AddRegion(identMain, 0x0580, 0x1e00);
+					break;
+				case TMACH_VIC20_8K:
+					regionMain = mLinker->AddRegion(identMain, 0x1280, 0x4000);
+					break;
+				case TMACH_VIC20_16K:
+					regionMain = mLinker->AddRegion(identMain, 0x1280, 0x6000);
+					break;
+				case TMACH_VIC20_24K:
+					regionMain = mLinker->AddRegion(identMain, 0x1280, 0x8000);
+					break;
+				}
+			}
 		}
 
 		regionMain->mSections.Push(mCompilationUnits->mSectionCode);

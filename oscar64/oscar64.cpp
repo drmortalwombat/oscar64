@@ -122,6 +122,9 @@ int main2(int argc, const char** argv)
 		char	targetFormat[20];
 		strcpy_s(targetFormat, "prg");
 
+		char	targetMachine[20];
+		strcpy_s(targetMachine, "c64");
+
 		compiler->AddDefine(Ident::Unique("__OSCAR64C__"), "1");
 		compiler->AddDefine(Ident::Unique("__STDC__"), "1");
 		compiler->AddDefine(Ident::Unique("__STDC_VERSION__"), "199901L");
@@ -160,6 +163,10 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 't' && arg[2] == 'f' && arg[3] == '=')
 				{
 					strcpy_s(targetFormat, arg + 4);
+				}
+				else if (arg[1] == 't' && arg[2] == 'm' && arg[3] == '=')
+				{
+					strcpy_s(targetMachine, arg + 4);
 				}
 				else if (arg[1] == 'n')
 				{
@@ -225,11 +232,65 @@ int main2(int argc, const char** argv)
 			}
 		}
 
+		char	basicStart[10];
+		strcpy_s(basicStart, "0x0801");
+
+		if (!strcmp(targetMachine, "c64"))
+		{
+			compiler->mTargetMachine = TMACH_C64;
+			compiler->AddDefine(Ident::Unique("__C64__"), "1");
+		}
+		else if (!strcmp(targetMachine, "c128"))
+		{
+			strcpy_s(basicStart, "0x1c01");
+			compiler->mTargetMachine = TMACH_C128;
+			compiler->AddDefine(Ident::Unique("__C128__"), "1");
+		}
+		else if (!strcmp(targetMachine, "c128b"))
+		{
+			strcpy_s(basicStart, "0x1c01");
+			compiler->mTargetMachine = TMACH_C128B;
+			compiler->AddDefine(Ident::Unique("__C128B__"), "1");
+		}
+		else if (!strcmp(targetMachine, "vic20"))
+		{
+			strcpy_s(basicStart, "0x1001");
+			compiler->mTargetMachine = TMACH_VIC20;
+			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+		}
+		else if (!strcmp(targetMachine, "vic20+3"))
+		{
+			strcpy_s(basicStart, "0x0401");
+			compiler->mTargetMachine = TMACH_VIC20_3K;
+			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+		}
+		else if (!strcmp(targetMachine, "vic20+8"))
+		{
+			strcpy_s(basicStart, "0x1201");
+			compiler->mTargetMachine = TMACH_VIC20_8K;
+			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+		}
+		else if (!strcmp(targetMachine, "vic20+16"))
+		{
+			strcpy_s(basicStart, "0x1201");
+			compiler->mTargetMachine = TMACH_VIC20_16K;
+			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+		}
+		else if (!strcmp(targetMachine, "vic20+24"))
+		{
+			strcpy_s(basicStart, "0x1201");
+			compiler->mTargetMachine = TMACH_VIC20_24K;
+			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+		}
+		else
+			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target machine option", targetMachine);
+
+
 		if (!strcmp(targetFormat, "prg"))
 		{
 			compiler->mCompilerOptions |= COPT_TARGET_PRG;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_PRG"), "1");
-			compiler->AddDefine(Ident::Unique("OSCAR_BASIC_START"), "0x0801");
+			compiler->AddDefine(Ident::Unique("OSCAR_BASIC_START"), basicStart);
 		}
 		else if (!strcmp(targetFormat, "crt"))
 		{
@@ -245,7 +306,7 @@ int main2(int argc, const char** argv)
 		{
 			compiler->mCompilerOptions |= COPT_TARGET_LZO;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_LZO"), "1");
-			compiler->AddDefine(Ident::Unique("OSCAR_BASIC_START"), "0x0801");
+			compiler->AddDefine(Ident::Unique("OSCAR_BASIC_START"), basicStart);
 		}
 		else
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target format option", targetFormat);
@@ -302,7 +363,7 @@ int main2(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-e] [-n] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
+		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
 
 		return 0;
 	}
