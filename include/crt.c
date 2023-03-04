@@ -131,6 +131,9 @@ w0:
 
 #elif defined(OSCAR_TARGET_BIN)
 
+#elif defined(OSCAR_TARGET_NES)
+		sei
+		cld
 #else		
 		byt	0x0b
 		byt 0x08
@@ -153,6 +156,7 @@ w0:
 		stx spentry
 
 #endif
+
 // Clear BSS Segment
 
 		lda #<BSSStart
@@ -239,6 +243,7 @@ bcode:
 #endif
 
 spexit:
+#if !defined(OSCAR_TARGET_NES)
 		lda	#$4c
 		sta	$54
 		lda #0
@@ -248,6 +253,7 @@ spexit:
 #if defined(__C128__)
 		lda #0
 		sta 0xff00
+#endif
 #endif
 		rts
 }

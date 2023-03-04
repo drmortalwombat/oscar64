@@ -611,6 +611,25 @@ bool Linker::WriteBinFile(const char* filename)
 		return false;
 }
 
+bool Linker::WriteNesFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		char header[16] = { 0x4e, 0x45, 0x53, 0x1a, 0x02, 0x01, 0x01, 0x00, 0x02, 0x00, 0x00 };
+
+		fwrite(header, 1, 16, file);
+		int	done = fwrite(mMemory + 0x8000, 1, 0x8000, file);
+		done += fwrite(mCartridge[0], 1, 0x2000, file);
+
+		fclose(file);
+		return done == 0x8000 + 0x2000;
+	}
+	else
+		return false;
+}
+
 bool Linker::WritePrgFile(DiskImage* image, const char* filename)
 {
 	if (image->OpenFile(filename))

@@ -228,6 +228,7 @@ public:
 	bool WriteLblFile(const char* filename);
 	bool WriteCrtFile(const char* filename);
 	bool WriteBinFile(const char* filename);
+	bool WriteNesFile(const char* filename);
 
 	uint64							mCompilerOptions;
 

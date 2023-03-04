@@ -186,6 +186,7 @@ public:
 	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
+	int						mYAlias[256], mYOffset;
 
 	NativeCodeInstruction DecodeNative(LinkerObject * lobj, int& offset) const;
 
@@ -428,6 +429,8 @@ public:
 
 	bool CrossBlockXYShortcut(void);
 
+	bool CrossBlockYAliasProgpagation(const int * yalias, int yoffset);
+
 	bool BypassRegisterConditionBlock(void);
 
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
@@ -514,6 +517,12 @@ public:
 	// yval: known y immediate value of -1 if not known
 	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
+
+	bool CrossBlock16BitFlood(NativeCodeProcedure* proc);
+	bool CheckCrossBlock16BitFlood(const NativeCodeBasicBlock* block, int sreg, int dreg, int at, bool rvalid);
+	bool CheckCrossBlock16BitFloodExit(const NativeCodeBasicBlock* block, int sreg, int dreg, bool rvalid);
+	bool PatchCrossBlock16BitFlood(const NativeCodeBasicBlock* block, int sreg, int dreg, int at);
+	bool PatchCrossBlock16BitFloodExit(const NativeCodeBasicBlock* block, int sreg, int dreg);
 
 	bool CrossBlockXYFlood(NativeCodeProcedure * proc);
 

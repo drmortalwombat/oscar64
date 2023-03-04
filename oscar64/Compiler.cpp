@@ -23,6 +23,7 @@ Compiler::Compiler(void)
 	mCompilationUnits->mSectionStack = mLinker->AddSection(Ident::Unique("stack"), LST_STACK);
 	mCompilationUnits->mSectionZeroPage = mLinker->AddSection(Ident::Unique("zeropage"), LST_ZEROPAGE);
 	mCompilationUnits->mSectionLowCode = nullptr;
+	mCompilationUnits->mSectionBoot = nullptr;
 	mCompilationUnits->mSectionStack->mSize = 4096;
 	mCompilationUnits->mSectionHeap->mSize = 1024;
 
@@ -81,6 +82,11 @@ bool Compiler::ParseSource(void)
 		break;
 	case TMACH_C128:
 		mCompilationUnits->mSectionLowCode = mLinker->AddSection(Ident::Unique("lowcode"), LST_DATA);
+		break;
+	case TMACH_NES:
+		mCompilationUnits->mSectionStack->mSize = 256;
+		mCompilationUnits->mSectionHeap->mSize = 256;
+		mCompilationUnits->mSectionBoot = mLinker->AddSection(Ident::Unique("boot"), LST_DATA);
 		break;
 	}
 
@@ -194,6 +200,8 @@ bool Compiler::GenerateCode(void)
 	const Ident* identStartup = Ident::Unique("startup");
 	const Ident* identBytecode = Ident::Unique("bytecode");
 	const Ident* identMain = Ident::Unique("main");
+	const Ident* identRom = Ident::Unique("rom");
+	const Ident* identBoot = Ident::Unique("boot");
 	const Ident* identCode = Ident::Unique("code");
 	const Ident* identZeroPage = Ident::Unique("zeropage");
 	const Ident* identLowcode = Ident::Unique("lowcode");
@@ -205,7 +213,7 @@ bool Compiler::GenerateCode(void)
 	}
 
 	LinkerRegion* regionStartup = mLinker->FindRegion(identStartup);
-	LinkerRegion* regionLowcode = nullptr;
+	LinkerRegion* regionLowcode = nullptr, * regionBoot = nullptr;
 
 	if (!regionStartup)
 	{
@@ -260,6 +268,8 @@ bool Compiler::GenerateCode(void)
 				break;
 			}
 		}
+		else if (mTargetMachine == TMACH_NES)
+			regionStartup = mLinker->AddRegion(identStartup, 0x8000, 0x8080);
 		else
 			regionStartup = mLinker->AddRegion(identStartup, 0x0800, 0x0900);
 	}
@@ -296,6 +306,7 @@ bool Compiler::GenerateCode(void)
 	}
 
 	LinkerRegion* regionMain = mLinker->FindRegion(identMain);
+	LinkerRegion* regionRom = mLinker->FindRegion(identRom);
 
 	LinkerSection * sectionStartup = mLinker->AddSection(identStartup, LST_DATA);
 	LinkerSection* sectionBytecode = nullptr;
@@ -315,7 +326,14 @@ bool Compiler::GenerateCode(void)
 	{
 		if (!regionMain)
 		{
-			if (!(mCompilerOptions & COPT_TARGET_PRG))
+			if (mTargetMachine == TMACH_NES)
+			{
+				regionBoot = mLinker->AddRegion(identBoot, 0xfffa, 0x10000);
+				regionBoot->mSections.Push(mCompilationUnits->mSectionBoot);
+				regionRom = mLinker->AddRegion(identRom, 0x8080, 0xfffa);
+				regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
+			}
+			else if (!(mCompilerOptions & COPT_TARGET_PRG))
 				regionMain = mLinker->AddRegion(identMain, 0x0900, 0x4700);
 			else if (regionBytecode)
 			{
@@ -379,8 +397,17 @@ bool Compiler::GenerateCode(void)
 			}
 		}
 
-		regionMain->mSections.Push(mCompilationUnits->mSectionCode);
-		regionMain->mSections.Push(mCompilationUnits->mSectionData);
+		if (regionRom)
+		{
+			regionRom->mSections.Push(mCompilationUnits->mSectionCode);
+			regionRom->mSections.Push(mCompilationUnits->mSectionData);
+		}
+		else
+		{
+			regionMain->mSections.Push(mCompilationUnits->mSectionCode);
+			regionMain->mSections.Push(mCompilationUnits->mSectionData);
+		}
+
 		regionMain->mSections.Push(mCompilationUnits->mSectionBSS);
 		regionMain->mSections.Push(mCompilationUnits->mSectionHeap);
 		regionMain->mSections.Push(mCompilationUnits->mSectionStack);
@@ -700,6 +727,13 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("Writing <%s>\n", prgPath);
 		mLinker->WriteBinFile(prgPath);
+	}
+	else if (mCompilerOptions & COPT_TARGET_NES)
+	{
+		strcat_s(prgPath, "nes");
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Writing <%s>\n", prgPath);
+		mLinker->WriteNesFile(prgPath);
 	}
 
 

@@ -282,11 +282,22 @@ int main2(int argc, const char** argv)
 			compiler->mTargetMachine = TMACH_VIC20_24K;
 			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
 		}
+		else if (!strcmp(targetMachine, "nes"))
+		{
+			compiler->mTargetMachine = TMACH_NES;
+			compiler->mCompilerOptions |= COPT_EXTENDED_ZERO_PAGE;
+			compiler->AddDefine(Ident::Unique("__NES__"), "1");
+		}
 		else
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target machine option", targetMachine);
 
 
-		if (!strcmp(targetFormat, "prg"))
+		if (compiler->mTargetMachine == TMACH_NES)
+		{
+			compiler->mCompilerOptions |= COPT_TARGET_NES;
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_NES"), "1");
+		}
+		else if (!strcmp(targetFormat, "prg"))
 		{
 			compiler->mCompilerOptions |= COPT_TARGET_PRG;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_PRG"), "1");
