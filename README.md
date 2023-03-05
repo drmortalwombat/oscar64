@@ -82,13 +82,29 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Oi: enable auto inline of small functions (part of O2/O3)
 * -Oa: optimize inline assembler (part of O2/O3)
 * -tf: target format, may be prg, crt or bin
+* -tm : target machine
 * -d64 : create a d64 disk image
 * -f : add a binary file to the disk image
 * -fz : add a compressed binary file to the disk image
 * -xz : extended zero page usage, more zero page space, but no return to basic
 
-
 A list of source files can be provided.
+
+#### Supported target machines
+
+* c64 : Commodore C64, (0x0800..0xa000)
+* c128 : Commodore C128, memory range (0x1c00..0xfc00)
+* c128b : Commodore C128, first 16KB only (0x1c00..0x4000)
+* plus4 : Commodore PLUS4, (0x1000..0xfc00)
+* vic20: Commodore VIC20, no extra memory (0x1000..0x1e00)
+* vic20+3 : Commodore VIC20, 3K RAM expansion (0x0400..0x1e00)
+* vic20+8 : Commodore VIC20, 8K RAM expansion (0x1200..0x4000)
+* vic20+16 : Commodore VIC20, 16K RAM expansion (0x1200..0x6000)
+* vic20+24 : Commodore VIC20, 24K RAM expansion (0x1200..0x8000)
+* pet: Commodore PET, 8K RAM (0x0400..0x2000)
+* pet16 : Commodore PET, 16K RAM (0x0400..0x4000)
+* pet32 : Commodore PET, 32K RAM (0x0400..0x8000)
+* nes : Nintendo entertainment system, NROM 32 K ROM
 
 ### Files generated
 

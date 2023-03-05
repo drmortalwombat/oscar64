@@ -70,6 +70,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_0D15550C6DED4A3DB1301B4EC13A4320"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_0D8B657E4A954DBFAF14055CDFFB384C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -190,6 +196,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_315C94A7D90D4CF5BF95F3B57482CADA"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_317711E6E48744A18655469B4C53767E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -286,6 +298,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_494DB63135144419A8E0E6037E1B3237"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_4A1182DE6E79476B9FE3EAE072252A90"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -305,6 +323,12 @@
         "Entry"
         {
         "MsmKey" = "8:_4D4981B8F95A4704A9E34C066DBD7563"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_4E9503F4F8F343739E4685C2066B3AD0"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -335,6 +359,12 @@
         "Entry"
         {
         "MsmKey" = "8:_585B41257840451B8AF01582B8B032D1"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_5A2F25CDE50B4AFAB0E0D5A3E787ABDD"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -430,6 +460,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_76FEB96DC82F4EC681034B0A54620EAB"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_79985361F09A43299E258E1A8E5ED934"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -473,6 +509,12 @@
         "Entry"
         {
         "MsmKey" = "8:_7FF22AC441314566AA43E02CA040F4BC"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_8004350ED41848E29D306A0A86DDA90E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -526,6 +568,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_90171C7FE48D426E8664B043F5E75D6B"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_94AD9BFFA9D04AA0B6BC6EEA1D9A93ED"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -557,6 +605,12 @@
         "Entry"
         {
         "MsmKey" = "8:_98968728BFD9473FBCFD4E6A3B113A1F"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_9B2E1BB3CD154CEFB214378A64B0B00C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -658,6 +712,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_B275D22D5B444CC0A8E44E63010B9759"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_B2F1B217D45A434DBA8EC21095F4D717"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -725,6 +785,12 @@
         "Entry"
         {
         "MsmKey" = "8:_C3C6C74DFAB942AA8BFC15885A2D9BD0"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_C433B7556E0448C6A98F8357DEA96507"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -857,6 +923,12 @@
         "Entry"
         {
         "MsmKey" = "8:_DEADBEA270134B77800770802B21859C"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_E00658F953AC4735A6ED77408A74163D"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1245,6 +1317,26 @@
             "TargetName" = "8:sidfx.h"
             "Tag" = "8:"
             "Folder" = "8:_A4C8078BC7A74CCABB1050E80BC79950"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_0D15550C6DED4A3DB1301B4EC13A4320"
+            {
+            "SourcePath" = "8:..\\include\\vic20\\vic.h"
+            "TargetName" = "8:vic.h"
+            "Tag" = "8:"
+            "Folder" = "8:_042C172681BD4CC89F4C8AD83B406959"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -1659,6 +1751,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_315C94A7D90D4CF5BF95F3B57482CADA"
+            {
+            "SourcePath" = "8:..\\include\\c128\\bank1.h"
+            "TargetName" = "8:bank1.h"
+            "Tag" = "8:"
+            "Folder" = "8:_0DAA950D275540D381CEA1427C33C8AA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_317711E6E48744A18655469B4C53767E"
             {
             "SourcePath" = "8:..\\include\\math.c"
@@ -1979,6 +2091,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_494DB63135144419A8E0E6037E1B3237"
+            {
+            "SourcePath" = "8:..\\include\\c128\\bank1.c"
+            "TargetName" = "8:bank1.c"
+            "Tag" = "8:"
+            "Folder" = "8:_0DAA950D275540D381CEA1427C33C8AA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_4A1182DE6E79476B9FE3EAE072252A90"
             {
             "SourcePath" = "8:..\\samples\\resources\\connect4chars.bin"
@@ -2045,6 +2177,26 @@
             "TargetName" = "8:fireworks_ptr.c"
             "Tag" = "8:"
             "Folder" = "8:_8E34FB2717EA4D6583CFF4927C713690"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_4E9503F4F8F343739E4685C2066B3AD0"
+            {
+            "SourcePath" = "8:..\\include\\plus4\\ted.c"
+            "TargetName" = "8:ted.c"
+            "Tag" = "8:"
+            "Folder" = "8:_176312291F834CD18F492496EBCF9B7F"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2145,6 +2297,26 @@
             "TargetName" = "8:petscii.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_5A2F25CDE50B4AFAB0E0D5A3E787ABDD"
+            {
+            "SourcePath" = "8:..\\include\\c128\\mmu.h"
+            "TargetName" = "8:mmu.h"
+            "Tag" = "8:"
+            "Folder" = "8:_0DAA950D275540D381CEA1427C33C8AA"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2459,6 +2631,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_76FEB96DC82F4EC681034B0A54620EAB"
+            {
+            "SourcePath" = "8:..\\include\\c128\\vdc.c"
+            "TargetName" = "8:vdc.c"
+            "Tag" = "8:"
+            "Folder" = "8:_0DAA950D275540D381CEA1427C33C8AA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_79985361F09A43299E258E1A8E5ED934"
             {
             "SourcePath" = "8:..\\include\\gfx\\mcbitmap.c"
@@ -2605,6 +2797,26 @@
             "TargetName" = "8:make.bat"
             "Tag" = "8:"
             "Folder" = "8:_BDDE04AB523C4059AABE326807998F7A"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_8004350ED41848E29D306A0A86DDA90E"
+            {
+            "SourcePath" = "8:..\\include\\nes\\nes.h"
+            "TargetName" = "8:nes.h"
+            "Tag" = "8:"
+            "Folder" = "8:_9F35D1516FB34C30A2C5C1CA12501231"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2779,6 +2991,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_90171C7FE48D426E8664B043F5E75D6B"
+            {
+            "SourcePath" = "8:..\\include\\c128\\mmu.c"
+            "TargetName" = "8:mmu.c"
+            "Tag" = "8:"
+            "Folder" = "8:_0DAA950D275540D381CEA1427C33C8AA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_94AD9BFFA9D04AA0B6BC6EEA1D9A93ED"
             {
             "SourcePath" = "8:..\\bin\\oscar64.bat"
@@ -2885,6 +3117,26 @@
             "TargetName" = "8:mbhires.c"
             "Tag" = "8:"
             "Folder" = "8:_BDDE04AB523C4059AABE326807998F7A"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_9B2E1BB3CD154CEFB214378A64B0B00C"
+            {
+            "SourcePath" = "8:..\\include\\plus4\\ted.h"
+            "TargetName" = "8:ted.h"
+            "Tag" = "8:"
+            "Folder" = "8:_176312291F834CD18F492496EBCF9B7F"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3219,6 +3471,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_B275D22D5B444CC0A8E44E63010B9759"
+            {
+            "SourcePath" = "8:..\\include\\nes\\nes.c"
+            "TargetName" = "8:nes.c"
+            "Tag" = "8:"
+            "Folder" = "8:_9F35D1516FB34C30A2C5C1CA12501231"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_B2F1B217D45A434DBA8EC21095F4D717"
             {
             "SourcePath" = "8:..\\samples\\memmap\\charsetload.c"
@@ -3445,6 +3717,26 @@
             "TargetName" = "8:asm6502.h"
             "Tag" = "8:"
             "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_C433B7556E0448C6A98F8357DEA96507"
+            {
+            "SourcePath" = "8:..\\include\\vic20\\vic.c"
+            "TargetName" = "8:vic.c"
+            "Tag" = "8:"
+            "Folder" = "8:_042C172681BD4CC89F4C8AD83B406959"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3885,6 +4177,26 @@
             "TargetName" = "8:connectfour.c"
             "Tag" = "8:"
             "Folder" = "8:_BC04C0DDE264410096618981E4E890DA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E00658F953AC4735A6ED77408A74163D"
+            {
+            "SourcePath" = "8:..\\include\\c128\\vdc.h"
+            "TargetName" = "8:vdc.h"
+            "Tag" = "8:"
+            "Folder" = "8:_0DAA950D275540D381CEA1427C33C8AA"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -4553,6 +4865,39 @@
                     "Property" = "8:_6AA93D53766B4EE0953D25E157222875"
                         "Folders"
                         {
+                            "{9EF0B969-E518-4E46-987F-47570745A589}:_042C172681BD4CC89F4C8AD83B406959"
+                            {
+                            "Name" = "8:vic20"
+                            "AlwaysCreate" = "11:FALSE"
+                            "Condition" = "8:"
+                            "Transitive" = "11:FALSE"
+                            "Property" = "8:_EE2F6B12EB07400C8843B7F4C5B49C52"
+                                "Folders"
+                                {
+                                }
+                            }
+                            "{9EF0B969-E518-4E46-987F-47570745A589}:_0DAA950D275540D381CEA1427C33C8AA"
+                            {
+                            "Name" = "8:c128"
+                            "AlwaysCreate" = "11:FALSE"
+                            "Condition" = "8:"
+                            "Transitive" = "11:FALSE"
+                            "Property" = "8:_A41957B106C34BD6B545B6AF90430469"
+                                "Folders"
+                                {
+                                }
+                            }
+                            "{9EF0B969-E518-4E46-987F-47570745A589}:_176312291F834CD18F492496EBCF9B7F"
+                            {
+                            "Name" = "8:plus4"
+                            "AlwaysCreate" = "11:FALSE"
+                            "Condition" = "8:"
+                            "Transitive" = "11:FALSE"
+                            "Property" = "8:_3E40B4176706486A92CFA4B195216DBF"
+                                "Folders"
+                                {
+                                }
+                            }
                             "{9EF0B969-E518-4E46-987F-47570745A589}:_247D4CAD3CB843B3A8A4DC2D90F47C28"
                             {
                             "Name" = "8:c64"
@@ -4560,6 +4905,17 @@
                             "Condition" = "8:"
                             "Transitive" = "11:FALSE"
                             "Property" = "8:_6E28C9C364374358A6470A35DBE3C7C3"
+                                "Folders"
+                                {
+                                }
+                            }
+                            "{9EF0B969-E518-4E46-987F-47570745A589}:_9F35D1516FB34C30A2C5C1CA12501231"
+                            {
+                            "Name" = "8:nes"
+                            "AlwaysCreate" = "11:FALSE"
+                            "Condition" = "8:"
+                            "Transitive" = "11:FALSE"
+                            "Property" = "8:_2D1C556D213E4762AB26C7A8451860A2"
                                 "Folders"
                                 {
                                 }
@@ -4606,15 +4962,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{824987DF-8E45-4029-93AD-538B2EB0E527}"
-        "PackageCode" = "8:{B9F22EC1-17FF-4D70-A476-40D34F691C3B}"
+        "ProductCode" = "8:{73EA19D3-9D64-4228-B7C4-145167C1C866}"
+        "PackageCode" = "8:{D9206A10-2163-43EE-BC5D-FBC0769FF045}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.16.187"
+        "ProductVersion" = "8:1.17.188"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
