@@ -282,6 +282,30 @@ int main2(int argc, const char** argv)
 			compiler->mTargetMachine = TMACH_VIC20_24K;
 			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
 		}
+		else if (!strcmp(targetMachine, "pet"))
+		{
+			strcpy_s(basicStart, "0x0401");
+			compiler->mTargetMachine = TMACH_PET_8K;
+			compiler->AddDefine(Ident::Unique("__CBMPET__"), "1");
+		}
+		else if (!strcmp(targetMachine, "pet16"))
+		{
+			strcpy_s(basicStart, "0x0401");
+			compiler->mTargetMachine = TMACH_PET_16K;
+			compiler->AddDefine(Ident::Unique("__CBMPET__"), "1");
+		}
+		else if (!strcmp(targetMachine, "pet32"))
+		{
+			strcpy_s(basicStart, "0x0401");
+			compiler->mTargetMachine = TMACH_PET_32K;
+			compiler->AddDefine(Ident::Unique("__CBMPET__"), "1");
+		}
+		else if (!strcmp(targetMachine, "plus4"))
+		{
+			strcpy_s(basicStart, "0x1001");
+			compiler->mTargetMachine = TMACH_PLUS4;
+			compiler->AddDefine(Ident::Unique("__PLUS4__"), "1");
+		}
 		else if (!strcmp(targetMachine, "nes"))
 		{
 			compiler->mTargetMachine = TMACH_NES;

@@ -27,6 +27,27 @@ __asm bsin
 }
 
 #pragma code(code)
+#elif defined(__PLUS4__)
+#pragma code(lowcode)
+__asm bsout
+{	
+		sta 0xff3e
+		jsr 0xffd2
+		sta 0xff3f
+}
+__asm bsin
+{
+		sta 0xff3e
+		jsr 0xffe4
+		sta 0xff3f
+}
+__asm bsplot
+{	
+		sta 0xff3e
+		jsr 0xfff0
+		sta 0xff3f
+}
+#pragma code(code)
 #else
 #define bsout	0xffd2
 #define bsplot	0xfff0
@@ -53,12 +74,24 @@ __asm putpch
 		bcc w3
 		cmp	#123
 		bcs	w3
+#if defined(__CBMPET__)
+		cmp	#97
+		bcs	w4
+		cmp #91
+		bcs	w3
+	w2:
+		eor	#$a0
+	w4:
+		eor #$20
+
+#else
 		cmp	#97
 		bcs	w2
 		cmp #91
 		bcs	w3
 	w2:
 		eor	#$20
+#endif
 		cpx #IOCHM_PETSCII_2
 		beq	w3
 		and #$df

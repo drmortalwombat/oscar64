@@ -24,6 +24,41 @@ char spentry = 0;
 
 int main(void);
 
+#if defined (__PLUS4__)
+
+#pragma code(lowcode)
+__asm p4irqx
+{
+	sta $ff3f
+	pla
+	tax
+	pla
+	rti
+}
+
+__asm p4irq
+{
+	pha
+	txa
+	pha
+	sta $ff3e
+
+	lda #>p4irqx
+	pha
+	lda #<p4irqx
+	pha
+	tsx
+	lda $0105, x
+	pha
+	pha
+	txa
+	pha
+	tya
+	pha
+	jmp $ce00
+}
+#pragma code(code)
+#endif
 
 __asm startup
 {
@@ -150,6 +185,12 @@ w0:
 
 #if defined(__C128__)
 		sta 0xff01
+#elif defined(__PLUS4__)
+		lda #<p4irq
+		sta $fffe
+		lda #>p4irq
+		sta $ffff
+		sta $ff3f
 #endif
 
 		tsx
@@ -253,7 +294,8 @@ spexit:
 #if defined(__C128__)
 		lda #0
 		sta 0xff00
-#endif
+#elif defined(__PLUS4__)
+		sta $ff3e
 #endif
 		rts
 }

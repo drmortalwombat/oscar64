@@ -72,15 +72,18 @@ bool Compiler::ParseSource(void)
 	case TMACH_VIC20:
 	case TMACH_VIC20_3K:
 	case TMACH_VIC20_8K:
+	case TMACH_PET_8K:
 		mCompilationUnits->mSectionStack->mSize = 512;
 		mCompilationUnits->mSectionHeap->mSize = 512;
 		break;
+	case TMACH_PET_16K:
 	case TMACH_VIC20_16K:
 	case TMACH_VIC20_24K:
 		mCompilationUnits->mSectionStack->mSize = 1024;
 		mCompilationUnits->mSectionHeap->mSize = 1024;
 		break;
 	case TMACH_C128:
+	case TMACH_PLUS4:
 		mCompilationUnits->mSectionLowCode = mLinker->AddSection(Ident::Unique("lowcode"), LST_DATA);
 		break;
 	case TMACH_NES:
@@ -246,6 +249,19 @@ bool Compiler::GenerateCode(void)
 				else
 					regionStartup = mLinker->AddRegion(identStartup, 0x1c01, 0x1d00);
 				break;
+			case TMACH_PLUS4:
+				if (mCompilerOptions & COPT_NATIVE)
+				{
+					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1080);
+					regionLowcode = mLinker->AddRegion(identLowcode, 0x1080, 0x1100);
+				}
+				else
+				{
+					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1080);
+					regionLowcode = mLinker->AddRegion(identLowcode, 0x1080, 0x1000);
+				}
+				regionLowcode->mSections.Push(mCompilationUnits->mSectionLowCode);
+				break;
 			case TMACH_VIC20:
 				if (mCompilerOptions & COPT_NATIVE)
 					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1080);
@@ -253,6 +269,9 @@ bool Compiler::GenerateCode(void)
 					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1100);
 				break;
 			case TMACH_VIC20_3K:
+			case TMACH_PET_8K:
+			case TMACH_PET_16K:
+			case TMACH_PET_32K:
 				if (mCompilerOptions & COPT_NATIVE)
 					regionStartup = mLinker->AddRegion(identStartup, 0x0401, 0x0480);
 				else
@@ -289,10 +308,14 @@ bool Compiler::GenerateCode(void)
 			case TMACH_C128B:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x1d00, 0x1e00);
 				break;
+			case TMACH_PLUS4:
 			case TMACH_VIC20:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x1100, 0x1200);
 				break;
 			case TMACH_VIC20_3K:
+			case TMACH_PET_8K:
+			case TMACH_PET_16K:
+			case TMACH_PET_32K:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x0500, 0x0600);
 				break;
 			case TMACH_VIC20_8K:
@@ -348,6 +371,9 @@ bool Compiler::GenerateCode(void)
 				case TMACH_C128B:
 					regionMain = mLinker->AddRegion(identMain, 0x1e00, 0x4000);
 					break;
+				case TMACH_PLUS4:
+					regionMain = mLinker->AddRegion(identMain, 0x1200, 0xfc00);
+					break;
 				case TMACH_VIC20:
 					regionMain = mLinker->AddRegion(identMain, 0x1200, 0x1e00);
 					break;
@@ -362,6 +388,15 @@ bool Compiler::GenerateCode(void)
 					break;
 				case TMACH_VIC20_24K:
 					regionMain = mLinker->AddRegion(identMain, 0x1400, 0x8000);
+					break;
+				case TMACH_PET_8K:
+					regionMain = mLinker->AddRegion(identMain, 0x0600, 0x2000);
+					break;
+				case TMACH_PET_16K:
+					regionMain = mLinker->AddRegion(identMain, 0x0600, 0x4000);
+					break;
+				case TMACH_PET_32K:
+					regionMain = mLinker->AddRegion(identMain, 0x0600, 0x8000);
 					break;
 				}
 			}
@@ -378,6 +413,9 @@ bool Compiler::GenerateCode(void)
 				case TMACH_C128B:
 					regionMain = mLinker->AddRegion(identMain, 0x1c80, 0x4000);
 					break;
+				case TMACH_PLUS4:
+					regionMain = mLinker->AddRegion(identMain, 0x1100, 0xfc00);
+					break;
 				case TMACH_VIC20:
 					regionMain = mLinker->AddRegion(identMain, 0x1080, 0x1e00);
 					break;
@@ -392,6 +430,15 @@ bool Compiler::GenerateCode(void)
 					break;
 				case TMACH_VIC20_24K:
 					regionMain = mLinker->AddRegion(identMain, 0x1280, 0x8000);
+					break;
+				case TMACH_PET_8K:
+					regionMain = mLinker->AddRegion(identMain, 0x0480, 0x2000);
+					break;
+				case TMACH_PET_16K:
+					regionMain = mLinker->AddRegion(identMain, 0x0480, 0x4000);
+					break;
+				case TMACH_PET_32K:
+					regionMain = mLinker->AddRegion(identMain, 0x0480, 0x8000);
 					break;
 				}
 			}
