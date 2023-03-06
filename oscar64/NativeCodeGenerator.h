@@ -580,7 +580,7 @@ class NativeCodeProcedure
 		void CompileInterBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* iblock, NativeCodeBasicBlock*block);
 
 		bool MapFastParamsToTemps(void);
-		void CompressTemporaries(void);
+		void CompressTemporaries(bool singles);
 
 		void BuildDataFlowSets(void);
 		void ResetEntryBlocks(void);

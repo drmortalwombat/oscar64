@@ -297,6 +297,7 @@ spexit:
 #elif defined(__PLUS4__)
 		sta $ff3e
 #endif
+#endif
 		rts
 }
 

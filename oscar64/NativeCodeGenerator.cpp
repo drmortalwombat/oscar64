@@ -13981,13 +13981,20 @@ bool NativeCodeBasicBlock::MoveAccuTrainUp(int at, int end)
 	CheckLive();
 
 	bool needXY = (mIns[end - 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)) != 0;
+	
+	int addr = mIns[at].mAddress;
+	if (mIns[at].mLive & LIVE_CPU_REG_C)
+		at--;
 
 	int	i = at;
 	while (i > 0)
 	{
 		i--;
-		if (mIns[i].mType == ASMIT_STA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[at].mAddress)
+		if ((mIns[i].mType == ASMIT_STA || mIns[i].mType == ASMIT_LDA) && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == addr)
 		{
+			if (mIns[i].mType == ASMIT_LDA)
+				i++;
+
 			if (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z))
 				return false;
 
@@ -14049,7 +14056,8 @@ bool NativeCodeBasicBlock::MoveAccuTrainsUp(void)
 					wzero += mIns[i].mAddress;
 				i++;
 			}
-			else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && wzero[mIns[i].mAddress] && !(mIns[i].mLive & LIVE_CPU_REG_C))
+			else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && wzero[mIns[i].mAddress] && 
+				(!(mIns[i].mLive & LIVE_CPU_REG_C) || i > 0 && (mIns[i-1].mType == ASMIT_CLC || mIns[i-1].mType == ASMIT_SEC)))
 			{
 				int j = i;
 				while (j < mIns.Size() && (mIns[j].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) && mIns[j].mType != ASMIT_JSR)
@@ -14068,6 +14076,11 @@ bool NativeCodeBasicBlock::MoveAccuTrainsUp(void)
 				}
 				else
 					i++;
+			}
+			else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && i + 1 < mIns.Size() && mIns[i + 1].mType == ASMIT_STA && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				wzero += mIns[i].mAddress;
+				i++;
 			}
 			else if (mIns[i].mType == ASMIT_JSR)
 			{
@@ -26571,6 +26584,72 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	}
 #endif
 
+#if 1
+	sz = mIns.Size();
+	if (sz >= 2 && mIns[sz - 2].mType == ASMIT_INX && mIns[sz - 1].mType == ASMIT_CPX && !mEntryRequiredRegs[CPU_REG_Y] && !mExitRequiredRegs[CPU_REG_Y])
+	{
+		int xtoy = -1;
+
+		for (int i = 0; i < sz - 2; i++)
+		{
+			if (mIns[i].ChangesXReg())
+			{
+				xtoy = -1;
+				break;
+			}
+
+			if (mIns[i].ChangesYReg())
+			{
+				if (xtoy >= 0)
+				{
+					xtoy = -1;
+					break;
+				}
+
+				if (i >= 3 &&
+					mIns[i - 0].mType == ASMIT_TAY &&
+					mIns[i - 1].mType == ASMIT_ADC &&
+					mIns[i - 2].mType == ASMIT_TXA &&
+					mIns[i - 3].mType == ASMIT_CLC &&
+					!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+					xtoy = i - 3;
+				else
+				{
+					xtoy = -1;
+					break;
+				}
+			}
+
+
+		}
+
+		if (xtoy >= 0)
+		{
+			int i = 0;
+			while (i < sz && !mIns[xtoy + 1].MayBeChangedOnAddress(mIns[i]))
+				i++;
+			if (i == sz)
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc, full);
+
+				prevBlock->mIns.Push(mIns[xtoy + 0]);
+				prevBlock->mIns.Push(mIns[xtoy + 1]);
+				prevBlock->mIns.Push(mIns[xtoy + 2]);
+				prevBlock->mIns.Push(mIns[xtoy + 3]);
+
+				mIns.Insert(sz - 2, NativeCodeInstruction(ASMIT_INY));
+
+				mIns.Remove(xtoy, 4);
+				for (int i = 0; i < mIns.Size(); i++)
+					mIns[i].mLive |= LIVE_CPU_REG_Y;
+				mEntryRequiredRegs += CPU_REG_Y;
+				mExitRequiredRegs += CPU_REG_Y;
+			}
+		}
+	}
+#endif
+
 	CheckLive();
 
 	return changed;
@@ -36065,7 +36144,7 @@ NativeCodeProcedure::~NativeCodeProcedure(void)
 
 }
 
-void NativeCodeProcedure::CompressTemporaries(void)
+void NativeCodeProcedure::CompressTemporaries(bool singles)
 {
 	if (mInterProc->mTempSize > 0)
 	{
@@ -36115,22 +36194,43 @@ void NativeCodeProcedure::CompressTemporaries(void)
 							int pos = spos;
 
 #if 1
-							if (mInterProc->mLeafProcedure)
+//							if (mInterProc->mLeafProcedure)
 							{
-								int k = 0;
-								while (k < usize && !collisionSet[k + BC_REG_ACCU][k + reg])
-									k++;
-								if (k == usize)
+								if (singles && usize == 1)
 								{
-									pos = BC_REG_ACCU;
-									for (int i = 0; i < 256; i++)
+									int k = 0;
+									while (k < 4 && collisionSet[k + BC_REG_ACCU][reg])
+										k++;
+									if (k < 4)
 									{
-										for (int j = 0; j < usize; j++)
+										pos = BC_REG_ACCU + k;
+										for (int i = 0; i < 256; i++)
 										{
-											if (collisionSet[j + reg][i])
+											if (collisionSet[reg][i])
 											{
-												collisionSet[j + BC_REG_ACCU] += i;
-												collisionSet[i] += j + BC_REG_ACCU;
+												collisionSet[pos] += i;
+												collisionSet[i] += pos;
+											}
+										}
+									}
+								}
+								else
+								{
+									int k = 0;
+									while (k < usize && !collisionSet[k + BC_REG_ACCU][k + reg])
+										k++;
+									if (k == usize)
+									{
+										pos = BC_REG_ACCU;
+										for (int i = 0; i < 256; i++)
+										{
+											for (int j = 0; j < usize; j++)
+											{
+												if (collisionSet[j + reg][i])
+												{
+													collisionSet[j + BC_REG_ACCU] += i;
+													collisionSet[i] += j + BC_REG_ACCU;
+												}
 											}
 										}
 									}
@@ -37366,7 +37466,12 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 #if 1
-	CompressTemporaries();
+	BuildDataFlowSets();
+	CompressTemporaries(false);
+	BuildDataFlowSets();
+	CompressTemporaries(false);
+	BuildDataFlowSets();
+	CompressTemporaries(true);
 #endif
 
 #if 1
