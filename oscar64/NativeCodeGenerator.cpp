@@ -25615,6 +25615,53 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	return lblock->OptimizeSimpleLoopInvariant(proc, this, eblock, full);
 }
 
+bool NativeCodeBasicBlock::OptimizeLoopCarryOver(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mFalseJump)
+		{
+			NativeCodeBasicBlock* hblock = nullptr;
+
+			if (mBranch == ASMIT_BCC && mTrueJump->mLoopHead)
+				hblock = mTrueJump;
+			else if (mBranch == ASMIT_BCS && mFalseJump->mLoopHead)
+				hblock = mFalseJump;
+
+			if (hblock && hblock->mIns.Size() > 0 && hblock->mIns[0].mType == ASMIT_CLC && hblock->mNumEntries == 2)
+			{
+				NativeCodeBasicBlock* pblock;
+				if (hblock->mEntryBlocks[0] == this)
+					pblock = hblock->mEntryBlocks[1];
+				else
+					pblock = hblock->mEntryBlocks[0];
+
+				if (!pblock->mFalseJump)
+				{
+					pblock->mIns.Push(NativeCodeInstruction(ASMIT_CLC));
+					hblock->mIns.Remove(0);
+
+					pblock->mExitRequiredRegs += CPU_REG_C;
+					hblock->mEntryRequiredRegs += CPU_REG_C;
+					mExitRequiredRegs += CPU_REG_C;
+					changed = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->OptimizeLoopCarryOver())
+			changed = true;
+		if (mFalseJump && mFalseJump->OptimizeLoopCarryOver())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::RemoveSimpleLoopUnusedIndex(void)
 {
 	bool	changed = false;
@@ -37526,6 +37573,9 @@ void NativeCodeProcedure::Optimize(void)
 
 	} while (changed);
 #endif
+
+	ResetVisited();
+	mEntryBlock->OptimizeLoopCarryOver();
 
 	ResetVisited();
 	NativeRegisterDataSet	data;

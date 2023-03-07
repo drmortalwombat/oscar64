@@ -232,6 +232,7 @@ public:
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, bool full);
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock, bool full);
 	bool RemoveSimpleLoopUnusedIndex(void);
+	bool OptimizeLoopCarryOver(void);
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
