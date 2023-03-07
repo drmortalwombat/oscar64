@@ -36506,6 +36506,9 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_TAX));
 			mExitBlock->mIns.Push(NativeCodeInstruction(ASMIT_PLA));
 		}
+	
+		// We safe all registers
+		proc->mLinkerObject->mFlags |= LOBJF_ZEROPAGESET;
 	}
 	else
 	{
