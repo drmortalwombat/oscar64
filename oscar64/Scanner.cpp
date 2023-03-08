@@ -145,7 +145,8 @@ const char* TokenNames[] =
 	"'#assign'",
 	"'#repeat'",
 	"'#until'",
-	"'#embed'"
+	"'#embed'",
+	"'##'"
 };
 
 
@@ -806,6 +807,9 @@ void Scanner::NextToken(void)
 			}
 			else
 			{
+				while (mTokenChar == ' ')
+					NextChar();
+
 				while (mTokenChar == '#' && mLine[mOffset] == '#')
 				{
 					mOffset++;

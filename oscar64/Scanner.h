@@ -145,6 +145,8 @@ enum Token
 	TK_PREP_UNTIL,
 	TK_PREP_EMBED,
 
+	TK_PREP_CONCAT,
+
 	NUM_TOKENS
 };
 
