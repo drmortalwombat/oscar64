@@ -223,6 +223,7 @@ public:
 
 	bool WritePrgFile(DiskImage * image, const char* filename);
 	bool WritePrgFile(const char* filename);
+	bool WriteXexFile(const char* filename);
 	bool WriteMapFile(const char* filename);
 	bool WriteAsmFile(const char* filename);
 	bool WriteLblFile(const char* filename);

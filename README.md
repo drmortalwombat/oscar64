@@ -105,6 +105,7 @@ A list of source files can be provided.
 * pet16 : Commodore PET, 16K RAM (0x0400..0x4000)
 * pet32 : Commodore PET, 32K RAM (0x0400..0x8000)
 * nes : Nintendo entertainment system, NROM 32 K ROM
+* atari : Atari 8bit systems, (0x2000..0xbc00)
 
 ### Files generated
 

@@ -60,6 +60,33 @@ __asm bsinit
 		sta 0xff3f
 }
 #pragma code(code)
+#elif defined(__ATARI__)
+__asm bsout
+{
+		tax
+		lda	0xe407
+		pha
+		lda 0xe406
+		pha
+		txa
+}
+
+__asm bsin
+{
+		lda	0xe405
+		pha
+		lda 0xe404
+		pha
+}
+
+__asm bsplot
+{
+
+}
+__asm bsinit
+{
+
+}
 #else
 #define bsout	0xffd2
 #define bsin	0xffe4
@@ -69,11 +96,13 @@ __asm bsinit
 
 void iocharmap(IOCharMap chmap)
 {
-	giocharmap = chmap;
+	giocharmap = chmap;	
+#if !defined(__ATARI__)
 	if (chmap == IOCHM_PETSCII_1)
 		putch(128 + 14);
 	else if (chmap == IOCHM_PETSCII_2)
 		putch(14);
+#endif
 }
 
 __asm putpch

@@ -48,6 +48,30 @@ __asm bsplot
 		sta 0xff3f
 }
 #pragma code(code)
+#elif defined(__ATARI__)
+__asm bsout
+{
+		tax
+		lda	0xe407
+		pha
+		lda 0xe406
+		pha
+		txa
+}
+
+__asm bsin
+{
+		lda	0xe405
+		pha
+		lda 0xe404
+		pha
+}
+
+__asm bsplot
+{
+
+}
+
 #else
 #define bsout	0xffd2
 #define bsplot	0xfff0
@@ -56,6 +80,13 @@ __asm bsplot
 
 __asm putpch
 {
+#if defined(__ATARI__)
+		cmp #10
+		bne	w1
+		lda #0x9b
+	w1:
+		jmp	bsout
+#else
 		ldx	giocharmap
 		cpx	#IOCHM_ASCII
 		bcc	w3
@@ -109,12 +140,13 @@ __asm putpch
 		jsr bsout
 		dex
 		bpl l1
+#endif		
 }
 
 __asm getpch
 {
 		jsr	bsin
-
+#if !defined(__ATARI__)
 		ldx	giocharmap
 		cpx	#IOCHM_ASCII
 		bcc	w3
@@ -137,6 +169,7 @@ __asm getpch
 	w2:
 		eor	#$20
 	w3:
+#endif	
 }
 
 void putchar(char c)

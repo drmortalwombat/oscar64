@@ -312,6 +312,11 @@ int main2(int argc, const char** argv)
 			compiler->mCompilerOptions |= COPT_EXTENDED_ZERO_PAGE;
 			compiler->AddDefine(Ident::Unique("__NES__"), "1");
 		}
+		else if (!strcmp(targetMachine, "atari"))
+		{
+			compiler->mTargetMachine = TMACH_ATARI;
+			compiler->AddDefine(Ident::Unique("__ATARI__"), "1");
+		}
 		else
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target machine option", targetMachine);
 

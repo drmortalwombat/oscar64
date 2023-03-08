@@ -664,6 +664,37 @@ bool Linker::WritePrgFile(DiskImage* image, const char* filename)
 	return false;
 }
 
+bool Linker::WriteXexFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		// prefix
+		fputc(0xff, file); fputc(0xff, file);
+
+		// first segment
+		fputc(mProgramStart & 0xff, file);
+		fputc(mProgramStart >> 8, file);
+		fputc((mProgramEnd - 1) & 0xff, file);
+		fputc((mProgramEnd - 1) >> 8, file);
+
+		int	done = fwrite(mMemory + mProgramStart, 1, mProgramEnd - mProgramStart, file);
+
+		fputc(0xe0, file);
+		fputc(0x02, file);
+		fputc(0xe1, file);
+		fputc(0x02, file);
+		fputc(mProgramStart & 0xff, file);
+		fputc(mProgramStart >> 8, file);
+
+		fclose(file);
+		return true;
+	}
+	else
+		return false;
+}
+
 bool Linker::WritePrgFile(const char* filename)
 {
 	FILE* file;

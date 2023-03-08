@@ -22,6 +22,20 @@ clock_t clock(void)
 		sta accu + 2
 		lda #0
 		sta accu + 3
+#elif defined(__ATARI__)
+loop:
+		lda $14
+		ldx $13
+		ldy $12
+		cmp $14
+		bne loop
+		
+		sta accu + 0
+		stx accu + 1
+		sty accu + 2
+		lda #0
+		sta accu + 3		
+
 #else
 		lda $a2
 		sta accu + 0

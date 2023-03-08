@@ -52,7 +52,8 @@ enum TargetMachine
 	TMACH_PET_16K,
 	TMACH_PET_32K,
 	TMACH_PLUS4,
-	TMACH_NES
+	TMACH_NES,
+	TMACH_ATARI
 };
 
 

@@ -166,6 +166,8 @@ w0:
 
 #elif defined(OSCAR_TARGET_BIN)
 
+#elif defined(__ATARI__)
+
 #elif defined(OSCAR_TARGET_NES)
 		sei
 		cld
@@ -284,7 +286,9 @@ bcode:
 #endif
 
 spexit:
-#if !defined(OSCAR_TARGET_NES)
+#if defined(__ATARI__) || defined(OSCAR_TARGET_NES)
+		jmp spexit
+#else
 		lda	#$4c
 		sta	$54
 		lda #0

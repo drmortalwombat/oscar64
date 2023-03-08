@@ -51,7 +51,23 @@ void Compiler::AddDefine(const Ident* ident, const char* value)
 
 bool Compiler::ParseSource(void)
 {
-	if (mCompilerOptions & COPT_EXTENDED_ZERO_PAGE)
+	if (mTargetMachine == TMACH_ATARI)
+	{
+		BC_REG_WORK_Y = 0x80;
+		BC_REG_WORK = 0x81;
+		BC_REG_FPARAMS = 0x8b;
+		BC_REG_FPARAMS_END = 0x97;
+
+		BC_REG_IP = 0x97;
+		BC_REG_ACCU = 0x99;
+		BC_REG_ADDR = 0x9d;
+		BC_REG_STACK = 0xa1;
+		BC_REG_LOCALS = 0xa3;
+
+		BC_REG_TMP = 0xa5;
+		BC_REG_TMP_SAVED = 0xc5;
+	}
+	else if (mCompilerOptions & COPT_EXTENDED_ZERO_PAGE)
 	{
 		BC_REG_FPARAMS = 0x0d;
 		BC_REG_FPARAMS_END = 0x25;
@@ -212,7 +228,10 @@ bool Compiler::GenerateCode(void)
 	LinkerRegion* regionZeroPage = mLinker->FindRegion(identZeroPage);
 	if (!regionZeroPage)
 	{
-		regionZeroPage = mLinker->AddRegion(identZeroPage, 0x0080, 0x00ff);
+		if (mTargetMachine == TMACH_ATARI)
+			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x00e0, 0x00ff);
+		else
+			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x0080, 0x00ff);
 	}
 
 	LinkerRegion* regionStartup = mLinker->FindRegion(identStartup);
@@ -285,6 +304,12 @@ bool Compiler::GenerateCode(void)
 				else
 					regionStartup = mLinker->AddRegion(identStartup, 0x1201, 0x1300);
 				break;
+			case TMACH_ATARI:
+				if (mCompilerOptions & COPT_NATIVE)
+					regionStartup = mLinker->AddRegion(identStartup, 0x2000, 0x2080);
+				else
+					regionStartup = mLinker->AddRegion(identStartup, 0x2000, 0x2100);
+				break;
 			}
 		}
 		else if (mTargetMachine == TMACH_NES)
@@ -322,6 +347,9 @@ bool Compiler::GenerateCode(void)
 			case TMACH_VIC20_16K:
 			case TMACH_VIC20_24K:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x1300, 0x1400);
+				break;
+			case TMACH_ATARI:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x2100, 0x2200);
 				break;
 			}
 
@@ -398,6 +426,9 @@ bool Compiler::GenerateCode(void)
 				case TMACH_PET_32K:
 					regionMain = mLinker->AddRegion(identMain, 0x0600, 0x8000);
 					break;
+				case TMACH_ATARI:
+					regionMain = mLinker->AddRegion(identMain, 0x2200, 0xbc00);
+					break;
 				}
 			}
 			else
@@ -439,6 +470,9 @@ bool Compiler::GenerateCode(void)
 					break;
 				case TMACH_PET_32K:
 					regionMain = mLinker->AddRegion(identMain, 0x0480, 0x8000);
+					break;
+				case TMACH_ATARI:
+					regionMain = mLinker->AddRegion(identMain, 0x2080, 0xbc00);
 					break;
 				}
 			}
@@ -756,10 +790,20 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 
 	if (mCompilerOptions & COPT_TARGET_PRG)
 	{
-		strcat_s(prgPath, "prg");
-		if (mCompilerOptions & COPT_VERBOSE)
-			printf("Writing <%s>\n", prgPath);
-		mLinker->WritePrgFile(prgPath);
+		if (mTargetMachine == TMACH_ATARI)
+		{
+			strcat_s(prgPath, "xex");
+			if (mCompilerOptions & COPT_VERBOSE)
+				printf("Writing <%s>\n", prgPath);
+			mLinker->WriteXexFile(prgPath);
+		}
+		else
+		{
+			strcat_s(prgPath, "prg");
+			if (mCompilerOptions & COPT_VERBOSE)
+				printf("Writing <%s>\n", prgPath);
+			mLinker->WritePrgFile(prgPath);
+		}
 	}
 	else if (mCompilerOptions & COPT_TARGET_CRT16)
 	{
