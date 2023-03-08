@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+#include "MachineTypes.h"
 
 template <class T>
 class DynamicArray
@@ -147,6 +148,7 @@ public:
 	}
 };
 
+
 template <class T>
 class GrowingArray
 {
@@ -231,7 +233,7 @@ public:
 		return array[n];
 	}
 
-	T operator[](int n) const
+	const T & operator[](int n) const
 	{
 		assert(n >= 0);
 		if (n >= size) return empty;
@@ -359,5 +361,209 @@ public:
 			if (array[i] == t)
 				return true;
 		return false;
+	}
+};
+
+template <class T>
+class ExpandingArray
+{
+public:
+protected:
+	int			size, range;
+	T		*	array;
+
+	void Grow(int to, bool clear)
+	{
+		T* a2;
+		int i;
+
+		if (clear) size = 0;
+
+		if (to > range)
+		{
+			if (to > range * 2)
+				range = to;
+			else
+				range = range * 2;
+
+			a2 = new T[range];
+			if (to > size)
+				for (i = 0; i < size; i++) a2[i] = array[i];
+			else
+				for (i = 0; i < to; i++) a2[i] = array[i];
+
+			delete[] array;
+			array = a2;
+		}
+
+		size = to;
+	}
+
+public:
+	ExpandingArray(void)
+	{
+		size = 0;
+		range = 4;
+		array = new T[range];
+	}
+
+	ExpandingArray(const ExpandingArray& a)
+	{
+		size = a.size;
+		range = a.range;
+		array = new T[range];
+
+		int lsize = size;
+		const T* sap = a.array;
+		T* dap = array;
+		for (int i = 0; i < lsize; i++) dap[i] = sap[i];
+	}
+
+	ExpandingArray& operator=(const ExpandingArray& a)
+	{
+		if (a.size != size)
+			Grow(a.size, true);
+
+		int lsize = size;
+		const T* sap = a.array;
+		T* dap = array;
+		for (int i = 0; i < lsize; i++) dap[i] = sap[i];
+
+		return *this;
+	}
+
+	~ExpandingArray(void)
+	{
+		delete[] array;
+	}
+
+	void Push(const T & t)
+	{
+		int s = size;
+		Grow(size + 1, false);
+		array[s] = t;
+	}
+
+	T Pop(void)
+	{
+		assert(size > 0);
+		return array[--size];
+	}
+
+	void Insert(int at, T t)
+	{
+		Grow(size + 1, false);
+		int	j = size - 1;
+		while (j > at)
+		{
+			array[j] = array[j - 1];
+			j--;
+		}
+		array[at] = t;
+	}
+
+	void Remove(int at)
+	{
+		while (at + 1 < size)
+		{
+			array[at] = array[at + 1];
+			at++;
+		}
+		Grow(at, false);
+	}
+
+	void Remove(int at, int n)
+	{
+		while (at + n < size)
+		{
+			array[at] = array[at + n];
+			at++;
+		}
+		Grow(at, false);
+	}
+
+	int RemoveAll(const T& t)
+	{
+		int j = 0, i = 0;
+		while (i < size)
+		{
+			if (array[i] != t)
+			{
+				if (i != j)
+					array[j] = array[i];
+				j++;
+			}
+			i++;
+		}
+
+		Grow(j, false);
+
+		return i - j;
+	}
+
+
+	T Top(void) const
+	{
+		return array[size - 1];
+	}
+
+	bool IsEmpty(void) const { return size == 0; }
+
+	int Size(void) const { return size; }
+
+	T Last() const
+	{
+		assert(size > 0);
+		return array[size - 1];
+	}
+
+	void SetSize(int size, bool clear = false)
+	{
+		Grow(size, clear);
+	}
+
+	void Reserve(int to)
+	{
+		if (to > range)
+		{
+			range = to;
+
+			T* a2 = new T[range];
+			if (to > size)
+				for (int i = 0; i < size; i++) a2[i] = array[i];
+			else
+				for (int i = 0; i < to; i++) a2[i] = array[i];
+
+			delete[] array;
+			array = a2;
+		}
+	}
+
+	int IndexOf(const T& t) const
+	{
+		for (int i = 0; i < size; i++)
+			if (array[i] == t)
+				return i;
+		return -1;
+	}
+
+	bool Contains(const T& t) const
+	{
+		for (int i = 0; i < size; i++)
+			if (array[i] == t)
+				return true;
+		return false;
+	}
+
+	__forceinline T& operator[](int n)
+	{
+		assert(n >= 0 && n < size);
+		return array[n];
+	}
+
+	__forceinline const T& operator[](int n) const
+	{
+		assert(n >= 0 && n < size);
+		return array[n];
 	}
 };

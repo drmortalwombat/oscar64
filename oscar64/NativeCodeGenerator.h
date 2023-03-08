@@ -167,16 +167,16 @@ public:
 	NativeCodeBasicBlock(void);
 	~NativeCodeBasicBlock(void);
 
-	GrowingArray<uint8>					mCode;
+	ExpandingArray<uint8>				mCode;
 	int									mIndex;
 
 	NativeCodeBasicBlock* mTrueJump, * mFalseJump, * mFromJump;
 	AsmInsType							mBranch;
 
-	GrowingArray<NativeCodeInstruction>	mIns;
-	GrowingArray<LinkerReference>	mRelocations;
+	ExpandingArray<NativeCodeInstruction>	mIns;
+	ExpandingArray<LinkerReference>	mRelocations;
 
-	GrowingArray<NativeCodeBasicBlock*>	mEntryBlocks;
+	ExpandingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset, mTemp;
 	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked, mPatchStart, mPatchLoop, mPatchLoopChanged, mPatchExit;
@@ -199,7 +199,7 @@ public:
 	void RemoveEntryBlock(NativeCodeBasicBlock* block);
 
 	int LeadsInto(NativeCodeBasicBlock* block, int dist);
-	void BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& placement);
+	void BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>& placement);
 	void InitialOffset(int& total);
 	bool CalculateOffset(int& total);
 
@@ -236,17 +236,17 @@ public:
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
-	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& blocks);
+	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeXYSimpleLoop(void);
 
 	bool OptimizeSelect(NativeCodeProcedure* proc);
 
 	bool OptimizeInnerLoops(NativeCodeProcedure* proc);
-	NativeCodeBasicBlock* CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks);
+	NativeCodeBasicBlock* CollectInnerLoop(NativeCodeBasicBlock* head, ExpandingArray<NativeCodeBasicBlock*>& lblocks);
 
 	bool OptimizeGenericLoop(NativeCodeProcedure* proc);
-	bool CollectGenericLoop(NativeCodeProcedure* proc, GrowingArray<NativeCodeBasicBlock*>& lblocks);
-	void CollectReachable(GrowingArray<NativeCodeBasicBlock*>& lblock);
+	bool CollectGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks);
+	void CollectReachable(ExpandingArray<NativeCodeBasicBlock*>& lblock);
 
 	bool OptimizeFindLoop(NativeCodeProcedure* proc);
 
@@ -435,7 +435,7 @@ public:
 	bool BypassRegisterConditionBlock(void);
 
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
-	bool Propagate16BitSum(const GrowingArray<NativeRegisterSum16Info>& cinfo);
+	bool Propagate16BitSum(const ExpandingArray<NativeRegisterSum16Info>& cinfo);
 
 	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair);
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
@@ -569,8 +569,8 @@ class NativeCodeProcedure
 		bool	mNoFrame;
 		int		mTempBlocks;
 
-		GrowingArray<LinkerReference>	mRelocations;
-		GrowingArray < NativeCodeBasicBlock*>	 mBlocks;
+		ExpandingArray<LinkerReference>	mRelocations;
+		ExpandingArray< NativeCodeBasicBlock*>	 mBlocks;
 
 		void Compile(InterCodeProcedure* proc);
 		void Optimize(void);
@@ -626,6 +626,6 @@ public:
 	Linker* mLinker;
 	LinkerSection* mRuntimeSection;
 
-	GrowingArray<Runtime>	mRuntime;
-	GrowingArray<MulTable>	mMulTables;
+	ExpandingArray<Runtime>	mRuntime;
+	ExpandingArray<MulTable>	mMulTables;
 };

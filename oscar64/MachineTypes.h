@@ -79,6 +79,8 @@ inline int sprintf_s(char* buffer, int size, const char* format, ...)
 	return n;
 }
 
+#define __forceinline inline 
+
 #endif
 
 extern uint8 BC_REG_WORK;

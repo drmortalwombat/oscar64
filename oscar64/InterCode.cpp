@@ -1001,6 +1001,7 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, cons
 	ins->mCode = IC_CONSTANT;
 	ins->mConst.mType = ins->mDst.mType;
 	ins->mSrc[0].mTemp = -1;
+	ins->mNumOperands = 0;
 }
 
 void ValueSet::InsertValue(InterInstruction * ins)
@@ -1728,6 +1729,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[0].mType = mInstructions[i]->mSrc[0].mType;
 					ins->mConst.mIntConst = mInstructions[i]->mSrc[0].mIntConst;
+					ins->mNumOperands = 0;
 				}
 				else
 				{
@@ -1874,6 +1876,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mConst.mFloatConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 0;
 
 				i = 0;
 				while (i < mNum &&
@@ -1936,6 +1939,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 0;
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
@@ -1967,6 +1971,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mConst.mIntConst = 0;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 0;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
@@ -2007,6 +2012,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mConst.mIntConst = 0;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 0;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
@@ -2042,6 +2048,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mConst.mIntConst = 0;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 0;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
@@ -2156,6 +2163,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mFloatConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
 				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
 
 				i = 0;
 				while (i < mNum &&
@@ -2213,6 +2221,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
 
 				i = 0;
 				while (i < mNum &&
@@ -2275,6 +2284,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mConst.mIntConst = ConstantRelationalFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 0;
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}
@@ -2289,6 +2299,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 0;
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}
@@ -2430,6 +2441,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mConst.mIntConst = cvalue;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 0;
 				}
 				else
 				{
@@ -2565,6 +2577,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mConst.mIntConst = cvalue;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 0;
 				}
 				else
 				{
@@ -2598,6 +2611,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				}
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 0;
 
 				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 			}
@@ -2612,6 +2626,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			else
 				ins->mCode = IC_JUMPF;
 			ins->mSrc[0].mTemp = -1;
+			ins->mNumOperands = 0;
 		}
 		break;
 	case IC_PUSH_FRAME:
@@ -2724,7 +2739,37 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 {
 	mOperator = IA_NONE;
 
-	mNumOperands = 3;
+	switch (code)
+	{
+	case IC_LOAD_TEMPORARY:
+	case IC_LOAD:
+	case IC_UNARY_OPERATOR:
+	case IC_BRANCH:
+	case IC_TYPECAST:
+	case IC_RETURN_VALUE:
+	case IC_RETURN_STRUCT:
+	case IC_CONVERSION_OPERATOR:
+		mNumOperands = 1;
+		break;
+
+	case IC_BINARY_OPERATOR:
+	case IC_RELATIONAL_OPERATOR:
+	case IC_STORE:
+	case IC_LEA:
+		mNumOperands = 2;
+		break;
+
+	case IC_CONSTANT:
+	case IC_JUMP:
+	case IC_JUMPF:
+	case IC_RETURN:
+		mNumOperands = 0;
+		break;
+
+	default:
+		mNumOperands = 3;
+		break;
+	}
 
 	mInUse = false;
 	mVolatile = false;
@@ -3021,6 +3066,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			mConst.mVarIndex = ains->mConst.mVarIndex;
 			mConst.mMemory = ains->mConst.mMemory;
 			mSrc[0].mTemp = -1;
+			mNumOperands = 0;
 			return true;
 		}
 		break;
@@ -3644,6 +3690,7 @@ void InterInstruction::SimpleLocalToTemp(int vindex, int temp)
 				mCode = IC_CONSTANT;
 				mConst.mIntConst = mSrc[0].mIntConst;
 				mConst.mFloatConst = mSrc[0].mFloatConst;
+				mNumOperands = 0;
 			}
 			else
 			{
@@ -3877,28 +3924,34 @@ void InterInstruction::Disassemble(FILE* file)
 		switch (this->mCode)
 		{
 		case IC_LOAD_TEMPORARY:
-		case IC_STORE_TEMPORARY:
+			assert(mNumOperands == 1);
 			fprintf(file, "MOVE");
 			break;
 		case IC_BINARY_OPERATOR:
+			assert(mNumOperands == 2);
 			fprintf(file, "BINOP%d", mOperator);
 			break;
 		case IC_UNARY_OPERATOR:
+			assert(mNumOperands == 1);
 			fprintf(file, "UNOP%d", mOperator);
 			break;
 		case IC_RELATIONAL_OPERATOR:
+			assert(mNumOperands == 2);
 			fprintf(file, "RELOP%d", mOperator);
 			break;
 		case IC_CONVERSION_OPERATOR:
+			assert(mNumOperands == 1);
 			fprintf(file, "CONV%d", mOperator);
 			break;
 		case IC_STORE:
+			assert(mNumOperands == 2);
 			if (mSrc[1].mStride != 1)
 				fprintf(file, "STORE%c%d:%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize, mSrc[1].mStride);
 			else
 				fprintf(file, "STORE%c%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize);
 			break;
 		case IC_LOAD:
+			assert(mNumOperands == 1);
 			if (mSrc[0].mStride != 1)
 				fprintf(file, "LOAD%c%d:%d", memchars[mSrc[0].mMemory], mSrc[0].mOperandSize, mSrc[0].mStride);
 			else
@@ -3921,24 +3974,31 @@ void InterInstruction::Disassemble(FILE* file)
 			fprintf(file, "STRCPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
 		case IC_LEA:
+			assert(mNumOperands == 2);
 			fprintf(file, "LEA%c", memchars[mSrc[1].mMemory]);
 			break;
 		case IC_TYPECAST:
+			assert(mNumOperands == 1);
 			fprintf(file, "CAST");
 			break;
 		case IC_SELECT:
+			assert(mNumOperands == 3);
 			fprintf(file, "SELECT");
 			break;
 		case IC_CONSTANT:
+			assert(mNumOperands == 0);
 			fprintf(file, "CONST");
 			break;
 		case IC_BRANCH:
+			assert(mNumOperands == 1);
 			fprintf(file, "BRANCH");
 			break;
 		case IC_JUMP:
+			assert(mNumOperands == 0);
 			fprintf(file, "JUMP");
 			break;
 		case IC_JUMPF:
+			assert(mNumOperands == 0);
 			fprintf(file, "JUMPF");
 			break;
 		case IC_PUSH_FRAME:
@@ -3957,9 +4017,11 @@ void InterInstruction::Disassemble(FILE* file)
 			fprintf(file, "JSR");
 			break;
 		case IC_RETURN_VALUE:
+			assert(mNumOperands == 1);
 			fprintf(file, "RETV");
 			break;
 		case IC_RETURN_STRUCT:
+			assert(mNumOperands == 1);
 			fprintf(file, "RETS");
 			break;
 		case IC_RETURN:
@@ -4449,6 +4511,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mFloatConst = tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst;
 				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
 				break;
 			case IT_POINTER:
 				ins->mCode = IC_CONSTANT;
@@ -4458,11 +4521,13 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mConst.mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 				ins->mConst.mOperandSize = tvalue[ins->mSrc[0].mTemp]->mConst.mOperandSize;
 				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
 				break;
 			default:
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
 				break;
 			}
 		}
@@ -4512,6 +4577,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mConst.mOperandSize = tvalue[ins->mSrc[1].mTemp]->mConst.mOperandSize;
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 0;
 			}
 			else if (tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst == 0)
 			{
@@ -4609,6 +4675,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mConst.mVarIndex = 0;
 				ins->mConst.mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
 			}
 		}
 		else if (ins->mDst.mType == IT_INT16 && ins->mSrc[0].mType == IT_POINTER)
@@ -4622,6 +4689,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mDst.mType = IT_INT16;
 					ins->mConst.mIntConst = cins->mConst.mIntConst;
 					ins->mSrc[0].mTemp = -1;
+					ins->mNumOperands = 0;
 				}
 			}
 		}
@@ -4673,6 +4741,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mConst.mFloatConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 0;
 				}
 				else
 				{
@@ -4699,6 +4768,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 							ins->mConst.mFloatConst = 0.0;
 							ins->mSrc[0].mTemp = -1;
 							ins->mSrc[1].mTemp = -1;
+							ins->mNumOperands = 0;
 						}
 						else if (ins->mSrc[1].mFloatConst == 2.0)
 						{
@@ -4738,6 +4808,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						ins->mConst.mFloatConst = 0.0;
 						ins->mSrc[0].mTemp = -1;
 						ins->mSrc[1].mTemp = -1;
+						ins->mNumOperands = 0;
 					}
 					else if (ins->mSrc[0].mFloatConst == 2.0)
 					{
@@ -4759,6 +4830,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 0;
 				}
 				else
 				{
@@ -4805,7 +4877,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						}
 						else if (ins->mSrc[0].mType == IT_INT32 && ispow2(ins->mSrc[1].mIntConst))
 						{
-							__int64 s = ins->mSrc[1].mIntConst;
+							int64 s = ins->mSrc[1].mIntConst;
 							ins->mOperator = IA_SHL;
 							ins->mSrc[1].mTemp = ins->mSrc[0].mTemp;
 							ins->mSrc[1].mType = ins->mSrc[0].mType;
@@ -4862,7 +4934,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					}
 					else if (ins->mSrc[1].mType == IT_INT32 && ispow2(ins->mSrc[0].mIntConst))
 					{
-						__int64 s = ins->mSrc[0].mIntConst;
+						int64 s = ins->mSrc[0].mIntConst;
 						ins->mOperator = IA_SHL;
 						ins->mSrc[0].mIntConst = 0;
 						while (s > 1)
@@ -4892,6 +4964,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mType = ins->mDst.mType;
 					ins->mConst.mIntConst = 0;
+					ins->mNumOperands = 0;
 				}
 			}
 
@@ -4977,6 +5050,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mFloatConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
 				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
 			}
 			break;
 		case IT_POINTER:
@@ -4997,6 +5071,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mDst.mType = IT_BOOL;
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 0;
 			}
 			else
 			{
@@ -5037,6 +5112,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
+				ins->mNumOperands = 0;
 			}
 			else
 			{
@@ -5764,10 +5840,20 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				{
 					ins->mSrc[i].mRange = mLocalValueRange[ins->mSrc[i].mTemp];
 #if 1
-					if (ins->mCode != IC_ASSEMBLER && ins->mSrc[i].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMinValue == ins->mSrc[i].mRange.mMaxValue)
+					if (ins->mCode != IC_ASSEMBLER&& ins->mSrc[i].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMinValue == ins->mSrc[i].mRange.mMaxValue)
 					{
-						ins->mSrc[i].mTemp = -1;
-						ins->mSrc[i].mIntConst = ins->mSrc[i].mRange.mMinValue;
+						if (ins->mCode == IC_LOAD_TEMPORARY)
+						{
+							ins->mCode = IC_CONSTANT;
+							ins->mConst.mType = ins->mSrc[0].mType;
+							ins->mConst.mIntConst = ins->mSrc[0].mRange.mMinValue;
+							ins->mNumOperands = 0;
+						}
+						else
+						{
+							ins->mSrc[i].mTemp = -1;
+							ins->mSrc[i].mIntConst = ins->mSrc[i].mRange.mMinValue;
+						}
 					}
 #endif
 				}
@@ -6971,15 +7057,15 @@ void InterCodeBasicBlock::BuildLocalTempSets(int num)
 	{
 		mVisited = true;
 
-		mLocalRequiredTemps = NumberSet(num);
-		mLocalProvidedTemps = NumberSet(num);
+		mLocalRequiredTemps.Reset(num);
+		mLocalProvidedTemps.Reset(num);
 
-		mEntryRequiredTemps = NumberSet(num);
-		mEntryProvidedTemps = NumberSet(num);
-		mEntryPotentialTemps = NumberSet(num);
-		mExitRequiredTemps = NumberSet(num);
-		mExitProvidedTemps = NumberSet(num);
-		mExitPotentialTemps = NumberSet(num);
+		mEntryRequiredTemps.Reset(num);
+		mEntryProvidedTemps.Reset(num);
+		mEntryPotentialTemps.Reset(num);
+		mExitRequiredTemps.Reset(num);
+		mExitProvidedTemps.Reset(num);
+		mExitPotentialTemps.Reset(num);
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
@@ -8943,6 +9029,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							{
 								ins->mCode = IC_CONSTANT;
 								ins->mConst = lins->mSrc[0];
+								ins->mNumOperands = 0;
 								changed = true;
 							}
 							else
@@ -13615,6 +13702,7 @@ void InterCodeBasicBlock::WarnUsedUndefinedVariables(InterCodeProcedure* proc)
 							ins->mConst.mLinkerObject = nullptr;
 							ins->mConst.mVarIndex = -1;
 							ins->mConst.mMemory = IM_ABSOLUTE;
+							ins->mNumOperands = 0;
 						}
 						else
 						{
@@ -15678,7 +15766,6 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 							block->mNumEntries -= mblocks.Size();
 
 							InterInstruction* jins = new InterInstruction(mblocks[0]->mInstructions.Last()->mLocation, IC_JUMP);
-							jins->mCode = IC_JUMP;
 							nblock->mInstructions.Push(jins);
 							nblock->Close(block, nullptr);
 

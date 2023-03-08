@@ -1377,6 +1377,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mSrc[1].mOperandSize = vl.mType->mSize;
 				ins->mSrc[1].mStride = vl.mType->mStripe;
 				ins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
+				ins->mNumOperands = 2;
 				block->Append(ins);
 			}
 			}
@@ -2668,6 +2669,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						ains->mSrc[0].mTemp = pins->mDst.mTemp;
 						ains->mDst.mType = IT_POINTER;
 						ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+						ains->mNumOperands = 1;
 						block->Append(ains);
 
 						ins->mCode = IC_RETURN;
@@ -2718,9 +2720,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						ins->mSrc[1].mMemory = IM_INDIRECT;
 						ins->mCode = IC_STORE;
 						ins->mSrc[1].mOperandSize = ains->mConst.mOperandSize;
+						ins->mNumOperands = 2;
 					}
 					else
+					{
 						ins->mCode = IC_RETURN_VALUE;
+						ins->mNumOperands = 1;
+					}
+
 				}
 			}
 			else

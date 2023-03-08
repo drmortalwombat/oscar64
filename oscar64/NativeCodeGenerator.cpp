@@ -1109,7 +1109,7 @@ bool NativeCodeInstruction::ReferencesAccu(void) const
 	return ChangesAccu() || RequiresAccu();
 }
 
-bool NativeCodeInstruction::ReferencesYReg(void) const
+bool NativeCodeInstruction::ReferencesYReg(void) const	
 {
 	return ChangesYReg() || RequiresYReg();
 }
@@ -11641,7 +11641,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 
 		if (ins->mCode == IC_ASSEMBLER && (proc->mModule->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER))
 		{
-			GrowingArray<NativeCodeInstruction>	tains(NativeCodeInstruction(ASMIT_INV, ASMIM_IMPLIED));
+			ExpandingArray<NativeCodeInstruction>	tains;
 
 			uint32	uflags = 0;
 			bool	simple = true;
@@ -11952,7 +11952,7 @@ void NativeCodeBasicBlock::BuildDominatorTree(NativeCodeBasicBlock* from)
 		return;
 	else
 	{
-		GrowingArray< NativeCodeBasicBlock * >	d1(nullptr), d2(nullptr);
+		ExpandingArray< NativeCodeBasicBlock * >	d1, d2;
 
 		NativeCodeBasicBlock* b = mDominator;
 		while (b)
@@ -17584,6 +17584,9 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 		}
 
 #endif
+
+		CheckLive();
+
 		if (mTrueJump && mFalseJump)
 		{
 			int	addr, index, taddr;
@@ -17628,6 +17631,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 			}
 		}
 
+		CheckLive();
+
 		if (mTrueJump && mFalseJump)
 		{
 			if (mTrueJump->mIns.Size() > 0 && mFalseJump->mIns.Size() > 0 && !mExitRequiredRegs[CPU_REG_Z] && (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) &&
@@ -17636,6 +17641,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				if (!mTrueJump->mIns[0].ChangesCarry() && mTrueJump->mIns[0].IsSame(mFalseJump->mIns[0]))
 				{
 					int live = mTrueJump->mIns[0].mLive;
+					mTrueJump->mIns[0].mLive |= LIVE_CPU_REG_C;
 					mIns.Push(mTrueJump->mIns[0]);
 					mTrueJump->mIns.Remove(0);
 					mFalseJump->mIns.Remove(0);
@@ -17665,6 +17671,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					}
 
 					changed = true;
+
+					CheckLive();
 				}
 			}
 		}
@@ -17895,6 +17903,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 			}
 		}
 #endif
+		CheckLive();
 
 #if 1
 		if (mIns.Size() >= 1 && mIns[0].mType == ASMIT_TAX && !(mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mEntryRegA)
@@ -18141,6 +18150,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					}
 				}
 			}
+			CheckLive();
 		}
 #endif
 
@@ -18240,6 +18250,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					}
 				}
 			}
+			CheckLive();
 		}
 #endif
 
@@ -23518,7 +23529,7 @@ bool NativeCodeBasicBlock::BackwardReplaceZeroPage(int at, int from, int to, boo
 }
 
 
-bool NativeCodeBasicBlock::Propagate16BitSum(const GrowingArray<NativeRegisterSum16Info> & cinfo)
+bool NativeCodeBasicBlock::Propagate16BitSum(const ExpandingArray<NativeRegisterSum16Info> & cinfo)
 {
 	bool	changed = false;
 
@@ -23526,7 +23537,7 @@ bool NativeCodeBasicBlock::Propagate16BitSum(const GrowingArray<NativeRegisterSu
 	{
 		mVisited = true;
 
-		GrowingArray<NativeRegisterSum16Info>	infos(NativeRegisterSum16Info{});
+		ExpandingArray<NativeRegisterSum16Info>	infos;
 		if (mNumEntries == 1)
 			infos = cinfo;
 
@@ -27543,7 +27554,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 	return false;
 }
 
-bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, GrowingArray<NativeCodeBasicBlock*>& lblocks)
+bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& lblocks)
 {
 	bool		simple = true;
 
@@ -27781,7 +27792,7 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 	return false;
 }
 
-NativeCodeBasicBlock* NativeCodeBasicBlock::CollectInnerLoop(NativeCodeBasicBlock* head, GrowingArray<NativeCodeBasicBlock*>& lblocks)
+NativeCodeBasicBlock* NativeCodeBasicBlock::CollectInnerLoop(NativeCodeBasicBlock* head, ExpandingArray<NativeCodeBasicBlock*>& lblocks)
 {
 	if (mLoopHeadBlock != head)
 	{
@@ -27817,7 +27828,7 @@ bool NativeCodeBasicBlock::OptimizeInnerLoops(NativeCodeProcedure* proc)
 
 		if (mLoopHead)
 		{
-			GrowingArray<NativeCodeBasicBlock*>	 lblocks(nullptr);
+			ExpandingArray<NativeCodeBasicBlock*>	 lblocks;
 
 			NativeCodeBasicBlock* tail = CollectInnerLoop(this, lblocks);
 
@@ -27889,7 +27900,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 	{
 		if (mLoopHead)
 		{
-			GrowingArray<NativeCodeBasicBlock*>	 lblocks(nullptr);
+			ExpandingArray<NativeCodeBasicBlock*>	 lblocks;
 
 			proc->ResetPatched();
 			if (CollectGenericLoop(proc, lblocks))
@@ -28153,8 +28164,8 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 
 				if (yreg >= 0 || xreg >= 0 || areg >= 0)
 				{
-					GrowingArray<NativeCodeBasicBlock*>	 entries(nullptr);
-					GrowingArray<NativeCodeBasicBlock*>	 exits(nullptr);
+					ExpandingArray<NativeCodeBasicBlock*>	 entries;
+					ExpandingArray<NativeCodeBasicBlock*>	 exits;
 
 					for (int i = 0; i < lblocks.Size(); i++)
 					{
@@ -28420,7 +28431,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 	return changed;
 }
 
-void NativeCodeBasicBlock::CollectReachable(GrowingArray<NativeCodeBasicBlock*>& lblock)
+void NativeCodeBasicBlock::CollectReachable(ExpandingArray<NativeCodeBasicBlock*>& lblock)
 {
 	if (!mVisited && !mPatched)
 	{
@@ -28432,9 +28443,9 @@ void NativeCodeBasicBlock::CollectReachable(GrowingArray<NativeCodeBasicBlock*>&
 	}
 }
 
-bool NativeCodeBasicBlock::CollectGenericLoop(NativeCodeProcedure* proc, GrowingArray<NativeCodeBasicBlock*>& lblocks)
+bool NativeCodeBasicBlock::CollectGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks)
 {
-	GrowingArray<NativeCodeBasicBlock*>	 rblocks(nullptr);
+	ExpandingArray<NativeCodeBasicBlock*>	 rblocks;
 	
 	proc->ResetPatched();
 	CollectReachable(rblocks);
@@ -28587,7 +28598,7 @@ bool NativeCodeBasicBlock::OptimizeSelect(NativeCodeProcedure* proc)
 	return changed;
 }
 
-static bool CheckBlockCopySequence(const GrowingArray<NativeCodeInstruction>& ins, int si, int n)
+static bool CheckBlockCopySequence(const ExpandingArray<NativeCodeInstruction>& ins, int si, int n)
 {
 	if (si + 2 * n <= ins.Size() &&
 		ins[si + 0].mType == ASMIT_LDA && (ins[si + 0].mMode == ASMIM_ZERO_PAGE || ins[si + 0].mMode == ASMIM_ABSOLUTE) &&
@@ -35897,7 +35908,7 @@ int NativeCodeBasicBlock::LeadsInto(NativeCodeBasicBlock* block, int dist)
 	return 6;
 }
 
-void NativeCodeBasicBlock::BuildPlacement(GrowingArray<NativeCodeBasicBlock*>& placement)
+void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>& placement)
 {
 	if (!mPlaced)
 	{
@@ -36153,7 +36164,6 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 }
 
 NativeCodeBasicBlock::NativeCodeBasicBlock(void)
-	: mIns(NativeCodeInstruction(ASMIT_INV, ASMIM_IMPLIED)), mRelocations({ 0 }), mEntryBlocks(nullptr), mCode(0)
 {
 	mBranch = ASMIT_RTS;
 	mTrueJump = mFalseJump = NULL;
@@ -36181,7 +36191,7 @@ NativeCodeBasicBlock::~NativeCodeBasicBlock(void)
 }
 
 NativeCodeProcedure::NativeCodeProcedure(NativeCodeGenerator* generator)
-	: mGenerator(generator), mRelocations({ 0 }), mBlocks(nullptr)
+	: mGenerator(generator)
 {
 	mTempBlocks = 1000;
 }
@@ -36806,7 +36816,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	proc->mLinkerObject->mType = LOT_NATIVE_CODE;
 
-	GrowingArray<NativeCodeBasicBlock*>	placement(nullptr);
+	ExpandingArray<NativeCodeBasicBlock*>	placement;
 
 	int	total;
 	total = 0;
@@ -36997,7 +37007,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (step == 0)
 			{
 				ResetVisited();
-				GrowingArray<NativeRegisterSum16Info>	cinfo({ 0 });
+				ExpandingArray<NativeRegisterSum16Info>	cinfo;
 
 				if (mEntryBlock->Propagate16BitSum(cinfo))
 					changed = true;
@@ -38129,7 +38139,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 
 
 NativeCodeGenerator::NativeCodeGenerator(Errors* errors, Linker* linker, LinkerSection* runtimeSection)
-	: mErrors(errors), mLinker(linker), mRuntimeSection(runtimeSection), mCompilerOptions(COPT_DEFAULT), mRuntime({ 0 }), mMulTables({nullptr})
+	: mErrors(errors), mLinker(linker), mRuntimeSection(runtimeSection), mCompilerOptions(COPT_DEFAULT)
 {
 }
 

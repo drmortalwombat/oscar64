@@ -49,12 +49,15 @@ void NumberSet::Reset(int size, bool set)
 {
 	int i;
 
-	delete[] bits;
+	int ndwsize = (size + 31) >> 5;
+	if (this->dwsize != ndwsize)
+	{
+		delete[] bits;
+		dwsize = ndwsize;
+		bits = new uint32[dwsize];
+	}
 
 	this->size = size;
-	dwsize = (size + 31) >> 5;
-
-	bits = new uint32[dwsize];
 
 	if (set)
 	{
