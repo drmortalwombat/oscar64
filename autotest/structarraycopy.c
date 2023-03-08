@@ -10,7 +10,7 @@ Point	tcorners[8], pcorners[8];
 
 int bm_line(void)
 {
-
+	return 0;
 }
 
 void drawCube(void)

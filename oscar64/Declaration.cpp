@@ -276,6 +276,13 @@ Expression* Expression::ConstantFold(Errors * errors)
 				ex->mDecType = mLeft->mDecType;
 				return ex;
 			}
+			else if (mRight->mDecValue->mType == DT_CONST_FUNCTION)
+			{
+				Expression* ex = new Expression(mLocation, EX_CONSTANT);
+				ex->mDecValue = mRight->mDecValue;
+				ex->mDecType = mLeft->mDecType;
+				return ex;
+			}
 		}
 		else if (mLeft->mDecType->mType == DT_TYPE_INTEGER)
 		{
