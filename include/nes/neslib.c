@@ -285,13 +285,13 @@ unsigned char oam_spr(unsigned char x,unsigned char y,unsigned char chrnum,unsig
 	OAM_BUF[sprid + 1] = chrnum;
 	OAM_BUF[sprid + 0] = y;
 	OAM_BUF[sprid + 3] = x;
-	return attr + 4;
+	return sprid + 4;
 }
 
 unsigned char oam_meta_spr(unsigned char x,unsigned char y,unsigned char sprid,const unsigned char *data)
 {
 	char i = 0;
-	while (!(data[i] & 0x80))
+	while (data[i] != 0x80)
 	{
 		OAM_BUF[sprid + 3] = x + data[i + 0];
 		OAM_BUF[sprid + 0] = y + data[i + 1];
