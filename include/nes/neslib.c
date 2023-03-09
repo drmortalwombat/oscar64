@@ -530,6 +530,7 @@ unsigned char rand2(void)
 	}
 	else
 		RAND_SEED[1] <<= 1;
+	return RAND_SEED[1];
 }
 
 unsigned char rand8(void)
