@@ -37227,7 +37227,20 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	uint8* data = proc->mLinkerObject->AddSpace(total);
 
 	for (int i = 0; i < placement.Size(); i++)
+	{
+		LinkerObjectRange	range;
+		char buffer[100];
+		if (placement[i]->mLoopHead)
+			sprintf_s(buffer, "l%d", placement[i]->mIndex);
+		else
+			sprintf_s(buffer, "s%d", placement[i]->mIndex);
+
+		range.mIdent = Ident::Unique(buffer);
+		range.mOffset = placement[i]->mOffset;
+		range.mSize = placement[i]->mSize;
+		proc->mLinkerObject->mRanges.Push(range);
 		placement[i]->CopyCode(this, data);
+	}
 
 
 	for (int i = 0; i < mRelocations.Size(); i++)

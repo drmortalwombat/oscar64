@@ -965,16 +965,38 @@ bool Linker::WriteMlbFile(const char* filename)
 			if ((obj->mFlags & LOBJF_REFERENCED) && obj->mIdent && obj->mSize > 0)
 			{
 				if (obj->mSection->mType == LST_BSS)
+				{
+					if (obj->mRanges.Size() > 0)
+					{
+						for(int i=0; i<obj->mRanges.Size(); i++)
+							fprintf(file, "R:%04x-%04x:%s@%s\n", obj->mAddress + obj->mRanges[i].mOffset, obj->mAddress + obj->mRanges[i].mOffset + obj->mRanges[i].mSize - 1, obj->mIdent->mString, obj->mRanges[i].mIdent->mString);
+					}
 					fprintf(file, "R:%04x-%04x:%s\n", obj->mAddress, obj->mAddress + obj->mSize - 1, obj->mIdent->mString);
+				}
 				else if (obj->mType == LOT_DATA)
 				{
 					if (!obj->mRegion->mCartridgeBanks)
+					{
+						if (obj->mRanges.Size() > 0)
+						{
+							for (int i = 0; i < obj->mRanges.Size(); i++)
+								fprintf(file, "P:%04x-%04x:%s@%s\n", obj->mAddress + obj->mRanges[i].mOffset - 0x8000, obj->mAddress + obj->mRanges[i].mOffset + obj->mRanges[i].mSize - 0x8000 - 1, obj->mIdent->mString, obj->mRanges[i].mIdent->mString);
+						}
 						fprintf(file, "P:%04x-%04x:%s\n", obj->mAddress - 0x8000, obj->mAddress - 0x8000 + obj->mSize - 1, obj->mIdent->mString);
+					}
 				}
 				else if (obj->mType == LOT_NATIVE_CODE)
 				{
 					if (!obj->mRegion->mCartridgeBanks)
+					{
+						if (obj->mRanges.Size() > 0)
+						{
+							for (int i = 0; i < obj->mRanges.Size(); i++)
+								fprintf(file, "P:%04x:%s@%s\n", obj->mAddress + obj->mRanges[i].mOffset - 0x8000, obj->mIdent->mString, obj->mRanges[i].mIdent->mString);
+						}
+
 						fprintf(file, "P:%04x:%s\n", obj->mAddress - 0x8000, obj->mIdent->mString);
+					}
 				}
 			}
 		}
