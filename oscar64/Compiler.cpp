@@ -821,10 +821,14 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	}
 	else if (mCompilerOptions & COPT_TARGET_NES)
 	{
+		strcpy_s(lblPath, prgPath);
+		strcat_s(lblPath, "mlb");
+
 		strcat_s(prgPath, "nes");
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("Writing <%s>\n", prgPath);
 		mLinker->WriteNesFile(prgPath);
+
 	}
 
 
@@ -852,7 +856,11 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Writing <%s>\n", lblPath);
-	mLinker->WriteLblFile(lblPath);
+
+	if (mCompilerOptions & COPT_TARGET_NES)
+		mLinker->WriteMlbFile(lblPath);
+	else
+		mLinker->WriteLblFile(lblPath);
 
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Writing <%s>\n", intPath);

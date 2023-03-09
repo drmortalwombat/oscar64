@@ -570,9 +570,9 @@ void flush_vram_update(unsigned char *buf)
 		else
 		{
 			if (c < 0x80)
-				ppu.control = PPU_CTRL_VAR | 0x04;
-			else if (c != 0xff)
 				ppu.control = PPU_CTRL_VAR & ~0x04;
+			else if (c != 0xff)
+				ppu.control = PPU_CTRL_VAR | 0x04;
 			else
 				return;
 

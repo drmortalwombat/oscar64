@@ -238,6 +238,82 @@ void InterCodeGenerator::InitLocalVariable(InterCodeProcedure* proc, Declaration
 		proc->mLocalVars[index]->mIdent = dec->mIdent;
 	}
 }
+static const Ident* StructIdent(const Ident* base, const Ident* item)
+{
+	if (base)
+	{
+		char	buffer[200];
+		strcpy_s(buffer, base->mString);
+		strcat_s(buffer, ".");
+		strcat_s(buffer, item->mString);
+		return Ident::Unique(buffer);
+	}
+	else
+		return item;
+}
+
+static void AddGlobalVariableRanges(LinkerObject* lo, Declaration* dec, int offset, const Ident* ident)
+{
+	switch (dec->mType)
+	{
+	case DT_TYPE_STRUCT:
+	{
+		Declaration* deci = dec->mParams;
+		while (deci)
+		{
+			AddGlobalVariableRanges(lo, deci->mBase, offset + deci->mOffset, StructIdent(ident, deci->mIdent));
+			deci = deci->mNext;
+		}
+	} break;
+	case DT_TYPE_INTEGER:
+	case DT_TYPE_FLOAT:
+	case DT_TYPE_POINTER:
+	case DT_TYPE_BOOL:
+	case DT_TYPE_ENUM:
+	{
+		LinkerObjectRange	range;
+		range.mOffset = offset;
+		range.mSize = dec->mStripe;
+		switch (dec->mSize)
+		{
+		case 1:
+			range.mIdent = ident;
+			lo->mRanges.Push(range);
+			break;
+		case 2:
+			range.mIdent = StructIdent(ident, Ident::Unique("lo"));
+			lo->mRanges.Push(range);
+			range.mOffset += dec->mStripe;
+			range.mIdent = StructIdent(ident, Ident::Unique("hi"));
+			lo->mRanges.Push(range);
+			break;
+		case 4:
+			range.mIdent = StructIdent(ident, Ident::Unique("b0"));
+			lo->mRanges.Push(range);
+			range.mOffset += dec->mStripe;
+			range.mIdent = StructIdent(ident, Ident::Unique("b1"));
+			lo->mRanges.Push(range);
+			range.mOffset += dec->mStripe;
+			range.mIdent = StructIdent(ident, Ident::Unique("b2"));
+			lo->mRanges.Push(range);
+			range.mOffset += dec->mStripe;
+			range.mIdent = StructIdent(ident, Ident::Unique("b3"));
+			lo->mRanges.Push(range);
+			break;
+		}
+	}	break;
+
+	default:
+		if (ident)
+		{
+			LinkerObjectRange	range;
+			range.mIdent = ident;
+			range.mOffset = offset;
+			range.mSize = dec->mSize * dec->mStripe;
+			lo->mRanges.Push(range);
+		}
+	}
+}
 
 void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* dec)
 {
@@ -248,6 +324,13 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		var->mSize = dec->mSize;
 		var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 		var->mIdent = dec->mIdent;
+
+		Declaration* decb = dec->mBase;
+		while (decb && decb->mType == DT_TYPE_ARRAY)
+			decb = decb->mBase;
+
+		if (decb && decb->mStripe != 1)
+			AddGlobalVariableRanges(var->mLinkerObject, decb, 0, nullptr);
 
 		Declaration* type = dec->mBase;
 		while (type->mType == DT_TYPE_ARRAY)

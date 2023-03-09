@@ -377,6 +377,11 @@ public:
 	bool ForwardZpXIndex(bool full);
 
 	bool RegisterValueForwarding(void);
+	bool CanCombineSameXtoY(int start, int end);
+	bool CanCombineSameYtoX(int start, int end);
+		bool CombineSameXY(void);
+	bool CombineSameXtoY(int xpos, int ypos, int end);
+	bool CombineSameYtoX(int xpos, int ypos, int end);
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
 

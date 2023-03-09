@@ -944,6 +944,49 @@ bool Linker::WriteMapFile(const char* filename)
 		return false;
 }
 
+bool Linker::WriteMlbFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		fprintf(file, "R:%02x-%02x:__ACCU\n", BC_REG_ACCU, BC_REG_ACCU + 3);
+		fprintf(file, "R:%02x-%02x:__ADDR\n", BC_REG_ADDR, BC_REG_ADDR + 1);
+		fprintf(file, "R:%02x-%02x:__IP\n", BC_REG_IP, BC_REG_IP + 1);
+		fprintf(file, "R:%02x-%02x:__SP\n", BC_REG_STACK, BC_REG_STACK + 1);
+		fprintf(file, "R:%02x-%02x:__FP\n", BC_REG_LOCALS, BC_REG_LOCALS + 1);
+		fprintf(file, "R:%02x-%02x:__P\n", BC_REG_FPARAMS, BC_REG_FPARAMS_END - 1);
+		fprintf(file, "R:%02x-%02x:__T\n", BC_REG_TMP, 0x7f);
+
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* obj = mObjects[i];
+
+			if ((obj->mFlags & LOBJF_REFERENCED) && obj->mIdent && obj->mSize > 0)
+			{
+				if (obj->mSection->mType == LST_BSS)
+					fprintf(file, "R:%04x-%04x:%s\n", obj->mAddress, obj->mAddress + obj->mSize - 1, obj->mIdent->mString);
+				else if (obj->mType == LOT_DATA)
+				{
+					if (!obj->mRegion->mCartridgeBanks)
+						fprintf(file, "P:%04x-%04x:%s\n", obj->mAddress - 0x8000, obj->mAddress - 0x8000 + obj->mSize - 1, obj->mIdent->mString);
+				}
+				else if (obj->mType == LOT_NATIVE_CODE)
+				{
+					if (!obj->mRegion->mCartridgeBanks)
+						fprintf(file, "P:%04x:%s\n", obj->mAddress - 0x8000, obj->mIdent->mString);
+				}
+			}
+		}
+
+		fclose(file);
+
+		return true;
+	}
+	else
+		return false;
+}
+
 bool Linker::WriteLblFile(const char* filename)
 {
 	FILE* file;

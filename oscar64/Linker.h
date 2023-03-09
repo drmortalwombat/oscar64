@@ -151,24 +151,33 @@ static const uint32 LOBJF_RET_REG_A = 0x00010000;
 static const uint32 LOBJF_RET_REG_X = 0x00020000;
 
 
+class LinkerObjectRange
+{
+public:
+	const Ident	*	mIdent;
+	int				mOffset, mSize;
+};
+
 class LinkerObject
 {
 public:
-	Location						mLocation;
-	const Ident					*	mIdent;
-	LinkerObjectType				mType;
-	int								mID;
-	int								mAddress, mRefAddress;
-	int								mSize, mAlignment;
-	LinkerSection				*	mSection;
-	LinkerRegion				*	mRegion;
-	uint8						*	mData;
-	InterCodeProcedure			*	mProc;
-	uint32							mFlags;
-	uint8							mTemporaries[16], mTempSizes[16];
-	int								mNumTemporaries;
-	ZeroPageSet						mZeroPageSet;
-	LinkerSection				*	mStackSection;
+	Location							mLocation;
+	const Ident						*	mIdent;
+	LinkerObjectType					mType;
+	int									mID;
+	int									mAddress, mRefAddress;
+	int									mSize, mAlignment;
+	LinkerSection					*	mSection;
+	LinkerRegion					*	mRegion;
+	uint8							*	mData;
+	InterCodeProcedure				*	mProc;
+	uint32								mFlags;
+	uint8								mTemporaries[16], mTempSizes[16];
+	int									mNumTemporaries;
+	ZeroPageSet							mZeroPageSet;
+	LinkerSection					*	mStackSection;
+
+	ExpandingArray<LinkerObjectRange>	mRanges;
 
 	LinkerObject(void);
 	~LinkerObject(void);
@@ -230,6 +239,7 @@ public:
 	bool WriteCrtFile(const char* filename);
 	bool WriteBinFile(const char* filename);
 	bool WriteNesFile(const char* filename);
+	bool WriteMlbFile(const char* filename);
 
 	uint64							mCompilerOptions;
 
