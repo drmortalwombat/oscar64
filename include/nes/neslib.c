@@ -18,30 +18,30 @@ const char palBrightTable[] = {
 	0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30,0x30
 };
 
-char OAM_BUF[256];
-char PAL_BUF[32];
+volatile char OAM_BUF[256];
+volatile char PAL_BUF[32];
 
 #pragma align(OAM_BUF, 256)
 
 char NTSC_MODE;
 volatile char FRAME_CNT1;
 volatile char FRAME_CNT2;
-char VRAM_UPDATE;
-char *	NAME_UPD_ADR;
-char NAME_UPD_ENABLE;
-char PAL_UPDATE;
-const char *	PAL_BG_PTR;
-const char *	PAL_SPR_PTR;
-char SCROLL_X;
-char SCROLL_Y;
+volatile char VRAM_UPDATE;
+char *	volatile NAME_UPD_ADR;
+volatile char NAME_UPD_ENABLE;
+volatile char PAL_UPDATE;
+const char *volatile 	PAL_BG_PTR;
+const char *volatile 	PAL_SPR_PTR;
+volatile char SCROLL_X;
+volatile char SCROLL_Y;
 char SCROLL_X1;
 char SCROLL_Y1;
 char PAD_STATE[2];
 char PAD_STATEP[2];
 char PAD_STATET[2];
-char PPU_CTRL_VAR;
+volatile char PPU_CTRL_VAR;
 char PPU_CTRL_VAR1;
-char PPU_MASK_VAR;
+volatile char PPU_MASK_VAR;
 char RAND_SEED[2];
 
 int main(void)

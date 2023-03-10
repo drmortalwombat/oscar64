@@ -25,6 +25,7 @@ static const uint64 COPT_TARGET_NES = 0x4000000000ULL;
 
 static const uint64 COPT_VERBOSE = 0x10000000000ULL;
 static const uint64 COPT_VERBOSE2 = 0x20000000000ULL;
+static const uint64 COPT_VERBOSE3 = 0x40000000000ULL;
 
 static const uint64 COPT_NATIVE = 0x01000000;
 

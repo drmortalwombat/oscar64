@@ -971,7 +971,10 @@ bool Linker::WriteMlbFile(const char* filename)
 						for(int i=0; i<obj->mRanges.Size(); i++)
 							fprintf(file, "R:%04x-%04x:%s@%s\n", obj->mAddress + obj->mRanges[i].mOffset, obj->mAddress + obj->mRanges[i].mOffset + obj->mRanges[i].mSize - 1, obj->mIdent->mString, obj->mRanges[i].mIdent->mString);
 					}
-					fprintf(file, "R:%04x-%04x:%s\n", obj->mAddress, obj->mAddress + obj->mSize - 1, obj->mIdent->mString);
+					if (obj->mSize > 1)
+						fprintf(file, "R:%04x-%04x:%s\n", obj->mAddress, obj->mAddress + obj->mSize - 1, obj->mIdent->mString);
+					else
+						fprintf(file, "R:%04x:%s\n", obj->mAddress, obj->mIdent->mString);
 				}
 				else if (obj->mType == LOT_DATA)
 				{

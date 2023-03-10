@@ -48,7 +48,7 @@ void pal_bg(const char *data);
 void pal_spr(const char *data);
 
 // set a palette entry, index is 0..31
-void pal_col(unsigned char index, unsigned char color);
+inline void pal_col(unsigned char index, unsigned char color);
 
 // reset palette to $0f
 void pal_clear(void);
@@ -83,7 +83,7 @@ void ppu_on_bg(void);
 void ppu_on_spr(void);
 
 // set PPU_MASK directly
-void ppu_mask(unsigned char mask);
+inline void ppu_mask(unsigned char mask);
 
 // get current video system, 0 for PAL, not 0 for NTSC
 unsigned char ppu_system(void);
@@ -92,19 +92,19 @@ unsigned char ppu_system(void);
 unsigned char nesclock(void);
 
 // get/set the internal ppu ctrl cache var for manual writing
-unsigned char get_ppu_ctrl_var(void);
-void set_ppu_ctrl_var(unsigned char var);
+inline unsigned char get_ppu_ctrl_var(void);
+inline void set_ppu_ctrl_var(unsigned char var);
 
 
 // clear OAM buffer, all the sprites are hidden
 void oam_clear(void);
 
 // set sprite display mode, 0 for 8x8 sprites, 1 for 8x16 sprites
-void oam_size(unsigned char size);
+inline void oam_size(unsigned char size);
 
 // set sprite in OAM buffer, chrnum is tile, attr is attribute, sprid is offset in OAM in bytes
 // returns sprid+4, which is offset for a next sprite
-unsigned char oam_spr(unsigned char x, unsigned char y,
+inline unsigned char oam_spr(unsigned char x, unsigned char y,
 					unsigned char chrnum, unsigned char attr,
 					unsigned char sprid);
 
@@ -147,7 +147,7 @@ unsigned char pad_poll(unsigned char pad);
 unsigned char pad_trigger(unsigned char pad);
 
 // get previous pad state without polling ports
-unsigned char pad_state(unsigned char pad);
+inline unsigned char pad_state(unsigned char pad);
 
 
 // set scroll, including rhe top bits
@@ -195,7 +195,7 @@ void set_rand(unsigned int seed);
 
 // length of this data should be under 256 bytes
 
-void set_vram_update(unsigned char *buf);
+inline void set_vram_update(unsigned char *buf);
 
 // all following vram functions only work when display is disabled
 
@@ -203,16 +203,16 @@ void set_vram_update(unsigned char *buf);
 void flush_vram_update(unsigned char *buf);
 
 // set vram pointer to write operations if you need to write some data to vram
-void vram_adr(unsigned int adr);
+inline void vram_adr(unsigned int adr);
 
 // put a byte at current vram address, works only when rendering is turned off
-void vram_put(unsigned char n);
+inline void vram_put(unsigned char n);
 
 // fill a block with a byte at current vram address, works only when rendering is turned off
 void vram_fill(unsigned char n, unsigned int len);
 
 // set vram autoincrement, 0 for +1 and not 0 for +32
-void vram_inc(unsigned char n);
+inline void vram_inc(unsigned char n);
 
 // read a block from current address of vram, works only when rendering is turned off
 void vram_read(unsigned char *dst, unsigned int size);

@@ -216,6 +216,8 @@ int main2(int argc, const char** argv)
 					compiler->mCompilerOptions |= COPT_VERBOSE;
 					if (arg[2] == '2')
 						compiler->mCompilerOptions |= COPT_VERBOSE2;
+					else if (arg[2] == '3')
+						compiler->mCompilerOptions |= COPT_VERBOSE2 | COPT_VERBOSE3;
 				}
 				else if (arg[1] == 'x' && arg[2] == 'z')
 				{

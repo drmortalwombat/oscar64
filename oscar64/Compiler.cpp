@@ -516,7 +516,8 @@ bool Compiler::GenerateCode(void)
 
 	mGlobalAnalyzer->CheckInterrupt();
 	mGlobalAnalyzer->AutoInline();
-	//mGlobalAnalyzer->DumpCallGraph();
+	if (mCompilerOptions & COPT_VERBOSE3)
+		mGlobalAnalyzer->DumpCallGraph();
 
 	mInterCodeGenerator->mCompilerOptions = mCompilerOptions;
 	mNativeCodeGenerator->mCompilerOptions = mCompilerOptions;

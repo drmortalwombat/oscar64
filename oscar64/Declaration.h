@@ -80,6 +80,7 @@ static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
 static const uint64 DTF_FUNC_RECURSIVE  = (1ULL << 34);
 static const uint64 DTF_FUNC_ANALYZING  = (1ULL << 35);
+
 static const uint64 DTF_FUNC_CONSTEXPR	= (1ULL << 36);
 static const uint64 DTF_FUNC_INTRSAVE   = (1ULL << 37);
 static const uint64 DTF_FUNC_INTRCALLED = (1ULL << 38);
