@@ -293,7 +293,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 			dec->mIdent = mScanner->mTokenIdent;
 			
 			if (mScope->Insert(dec->mIdent, dec))
-				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name");
+				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name", dec->mIdent);
 			mScanner->NextToken();
 		}
 

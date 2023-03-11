@@ -103,6 +103,10 @@ bool Compiler::ParseSource(void)
 		mCompilationUnits->mSectionLowCode = mLinker->AddSection(Ident::Unique("lowcode"), LST_DATA);
 		break;
 	case TMACH_NES:
+	case TMACH_NES_NROM_H:
+	case TMACH_NES_NROM_V:
+	case TMACH_NES_MMC1:
+	case TMACH_NES_MMC3:
 		mCompilationUnits->mSectionStack->mSize = 256;
 		mCompilationUnits->mSectionHeap->mSize = 256;
 		mCompilationUnits->mSectionBoot = mLinker->AddSection(Ident::Unique("boot"), LST_DATA);
@@ -239,7 +243,7 @@ bool Compiler::GenerateCode(void)
 
 	if (!regionStartup)
 	{
-		if (mCompilerOptions & COPT_TARGET_PRG)
+		if (mCompilerOptions & (COPT_TARGET_PRG | COPT_TARGET_NES))
 		{
 			switch (mTargetMachine)
 			{
@@ -310,10 +314,22 @@ bool Compiler::GenerateCode(void)
 				else
 					regionStartup = mLinker->AddRegion(identStartup, 0x2000, 0x2100);
 				break;
+			case TMACH_NES:
+			case TMACH_NES_NROM_H:
+			case TMACH_NES_NROM_V:
+				regionStartup = mLinker->AddRegion(identStartup, 0xff80, 0xfffa);
+				regionStartup->mCartridgeBanks = 1;
+				break;
+			case TMACH_NES_MMC1:
+				regionStartup = mLinker->AddRegion(identStartup, 0xff80, 0xfffa);
+				regionStartup->mCartridgeBanks = 1ULL << 15;
+				break;
+			case TMACH_NES_MMC3:
+				regionStartup = mLinker->AddRegion(identStartup, 0xff80, 0xfffa);
+				regionStartup->mCartridgeBanks = 1ULL << 31;
+				break;
 			}
 		}
-		else if (mTargetMachine == TMACH_NES)
-			regionStartup = mLinker->AddRegion(identStartup, 0x8000, 0x8080);
 		else
 			regionStartup = mLinker->AddRegion(identStartup, 0x0800, 0x0900);
 	}
@@ -377,14 +393,7 @@ bool Compiler::GenerateCode(void)
 	{
 		if (!regionMain)
 		{
-			if (mTargetMachine == TMACH_NES)
-			{
-				regionBoot = mLinker->AddRegion(identBoot, 0xfffa, 0x10000);
-				regionBoot->mSections.Push(mCompilationUnits->mSectionBoot);
-				regionRom = mLinker->AddRegion(identRom, 0x8080, 0xfffa);
-				regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
-			}
-			else if (!(mCompilerOptions & COPT_TARGET_PRG))
+			if (!(mCompilerOptions & (COPT_TARGET_PRG | COPT_TARGET_NES)))
 				regionMain = mLinker->AddRegion(identMain, 0x0900, 0x4700);
 			else if (regionBytecode)
 			{
@@ -473,6 +482,32 @@ bool Compiler::GenerateCode(void)
 					break;
 				case TMACH_ATARI:
 					regionMain = mLinker->AddRegion(identMain, 0x2080, 0xbc00);
+					break;
+				case TMACH_NES:
+				case TMACH_NES_NROM_H:
+				case TMACH_NES_NROM_V:
+					regionBoot = mLinker->AddRegion(identBoot, 0xfffa, 0x10000);
+					regionBoot->mCartridgeBanks = 1;
+					regionBoot->mSections.Push(mCompilationUnits->mSectionBoot);
+					regionRom = mLinker->AddRegion(identRom, 0x8000, 0xff80);
+					regionRom->mCartridgeBanks = 1;
+					regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
+					break;
+				case TMACH_NES_MMC1:
+					regionBoot = mLinker->AddRegion(identBoot, 0xfffa, 0x10000);
+					regionBoot->mCartridgeBanks = 1ULL << 15;
+					regionBoot->mSections.Push(mCompilationUnits->mSectionBoot);
+					regionRom = mLinker->AddRegion(identRom, 0xc000, 0xff80);
+					regionRom->mCartridgeBanks = 1ULL << 15;
+					regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
+					break;
+				case TMACH_NES_MMC3:
+					regionBoot = mLinker->AddRegion(identBoot, 0xfffa, 0x10000);
+					regionBoot->mCartridgeBanks = 1ULL << 31;
+					regionBoot->mSections.Push(mCompilationUnits->mSectionBoot);
+					regionRom = mLinker->AddRegion(identRom, 0xc000, 0xff80);
+					regionRom->mCartridgeBanks = 1ULL << 31;
+					regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
 					break;
 				}
 			}
@@ -828,7 +863,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 		strcat_s(prgPath, "nes");
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("Writing <%s>\n", prgPath);
-		mLinker->WriteNesFile(prgPath);
+		mLinker->WriteNesFile(prgPath, mTargetMachine);
 
 	}
 
@@ -859,7 +894,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 		printf("Writing <%s>\n", lblPath);
 
 	if (mCompilerOptions & COPT_TARGET_NES)
-		mLinker->WriteMlbFile(lblPath);
+		mLinker->WriteMlbFile(lblPath, mTargetMachine);
 	else
 		mLinker->WriteLblFile(lblPath);
 

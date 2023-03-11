@@ -86,7 +86,7 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 	{
 		ByteCode	bc = ByteCode(memory[start + i] / 2);
 
-		if (bank)
+		if (bank >= 0)
 			fprintf(file, "%02x:", bank);
 
 		fprintf(file, "%04x:\t", start + i);
@@ -627,7 +627,7 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int ban
 
 	if (lobj->mSection->mType == LST_BSS)
 	{
-		if (bank)
+		if (bank >= 0)
 			fprintf(file, "%02x:", bank);
 
 		fprintf(file, "%04x : __ __ __ BSS\t%d\n", start, size);
@@ -641,7 +641,7 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int ban
 			if (ip + n > start + size)
 				n = start + size - ip;
 
-			if (bank)
+			if (bank >= 0)
 				fprintf(file, "%02x:", bank);
 
 			fprintf(file, "%04x : __ __ __ BYT", ip);
@@ -693,7 +693,7 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 				fprintf(file, ".%s:\n", proc->mLinkerObject->mRanges[i].mIdent->mString);
 		}
 
-		if (bank)
+		if (bank >= 0)
 			fprintf(file, "%02x:", bank);
 
 		switch (d.mMode)

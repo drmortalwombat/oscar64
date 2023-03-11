@@ -104,7 +104,11 @@ A list of source files can be provided.
 * pet: Commodore PET, 8K RAM (0x0400..0x2000)
 * pet16 : Commodore PET, 16K RAM (0x0400..0x4000)
 * pet32 : Commodore PET, 32K RAM (0x0400..0x8000)
-* nes : Nintendo entertainment system, NROM 32 K ROM
+* nes : Nintendo entertainment system, NROM 32 K ROM, no mirror
+* nes_nrom_h : Nintendo entertainment system, NROM 32 K ROM, h mirror
+* nes_nrom_v : Nintendo entertainment system, NROM 32 K ROM, v mirror
+* nes_mmc1 : Nintendo entertainment system, MMC1, 256K PROM, 128K CROM
+* nes_mmc3 : Nintendo entertainment system, MMC3, 512K PROM, 256K CROM
 * atari : Atari 8bit systems, (0x2000..0xbc00)
 
 ### Files generated
@@ -482,6 +486,50 @@ The overlay file can then be loaded in memory during program execution:
 	krnio_setnam(P"OVL1");
 	krnio_load(1, 8, 1);
 
+#### NES ROM Banks
+
+With NROM mappers, the prg and chr code is put into cartridge bank zero.
+
+	#pragma section( tiles, 0 )
+	
+	#pragma region( tbank, 0x0000, 0x2000, , 0, { tiles } )
+
+	#pragma data(tiles)
+
+	__export char tiles[] = {
+		#embed "nesmini.chr"
+	};
+
+	#pragma data(data)
+
+The 32KByte of prg code starts at 0x8000 and goes upto 0xff80.  A startup section from 0xff80 to 0xfff9 is taken from the crt.c.
+
+A six byte boot section is placed from 0xfffa to 0xffff in all modes, which has to be populated by the game code with the appropriate pointers.
+
+	#pragma data(boot)
+
+	__export struct Boot
+	{
+		void * nmi, * reset, * irq;
+	}	boot = {
+		nmi,
+		(void *)0xff80,
+		nullptr
+	};
+
+	#pragma data(data)
+
+Rom mappers MMC1 and MMC3 share the last rom bank from 0xc000 to 0xffff including the boot section.  This is bank 15 in MMC1 and bank 31 in MMC3.
+
+The pageable ROM is assumed to be 0x8000 to 0xbfff in all banks from zero up.
+
+	#pragma section( code0, 0 )
+	#pragma region( code0, 0x8000, 0xc000, , 0, { code0 } )
+
+And for bank one
+
+	#pragma section( code1, 0 )
+	#pragma region( code1, 0x8000, 0xc000, , 1, { code1 } )
 
 
 ### Inline Assembler

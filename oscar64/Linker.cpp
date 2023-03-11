@@ -611,7 +611,7 @@ bool Linker::WriteBinFile(const char* filename)
 		return false;
 }
 
-bool Linker::WriteNesFile(const char* filename)
+bool Linker::WriteNesFile(const char* filename, TargetMachine machine)
 {
 	FILE* file;
 	fopen_s(&file, filename, "wb");
@@ -619,12 +619,57 @@ bool Linker::WriteNesFile(const char* filename)
 	{
 		char header[16] = { 0x4e, 0x45, 0x53, 0x1a, 0x02, 0x01, 0x01, 0x00, 0x02, 0x00, 0x00 };
 
-		fwrite(header, 1, 16, file);
-		int	done = fwrite(mMemory + 0x8000, 1, 0x8000, file);
-		done += fwrite(mCartridge[0], 1, 0x2000, file);
+		switch (machine)
+		{
+		case TMACH_NES:
+			header[6] = 0x08;
+			break;
+		case TMACH_NES_NROM_H:
+			header[6] = 0x00;
+			break;
+		case TMACH_NES_NROM_V:
+			header[6] = 0x01;
+			break;
+		case TMACH_NES_MMC1:
+			header[4] = 16;
+			header[5] = 16;
+			header[6] = 0x10;
+			break;
+		case TMACH_NES_MMC3:
+			header[4] = 32;
+			header[5] = 32;
+			header[6] = 0x48;
+			break;
+		}
+
+		int done = fwrite(header, 1, 16, file);
+
+		switch (machine)
+		{
+		case TMACH_NES:
+		case TMACH_NES_NROM_H:
+		case TMACH_NES_NROM_V:
+			fwrite(mCartridge[0] + 0x8000, 1, 0x8000, file);
+			fwrite(mCartridge[0], 1, 0x2000, file);
+			break;
+		case TMACH_NES_MMC1:
+			for(int i=0; i<15; i++)
+				fwrite(mCartridge[i] + 0x8000, 1, 0x4000, file);
+			fwrite(mCartridge[15] + 0xc000, 1, 0x4000, file);
+			for (int i = 0; i < 16; i++)
+				fwrite(mCartridge[i], 1, 0x2000, file);
+			break;
+		case TMACH_NES_MMC3:
+			for (int i = 0; i < 31; i++)
+				fwrite(mCartridge[i] + 0x8000, 1, 0x4000, file);
+			fwrite(mCartridge[31] + 0xc000, 1, 0x4000, file);
+			for (int i = 0; i < 32; i++)
+				fwrite(mCartridge[i], 1, 0x2000, file);
+			break;
+		}
 
 		fclose(file);
-		return done == 0x8000 + 0x2000;
+		return done == 16;
 	}
 	else
 		return false;
@@ -944,7 +989,29 @@ bool Linker::WriteMapFile(const char* filename)
 		return false;
 }
 
-bool Linker::WriteMlbFile(const char* filename)
+int Linker::TranslateMlbAddress(int address, int bank, TargetMachine machine)
+{
+	switch (machine)
+	{
+	default:
+	case TMACH_NES:
+	case TMACH_NES_NROM_H:
+	case TMACH_NES_NROM_V:
+		return address - 0x8000;
+	case TMACH_NES_MMC1:
+		if (bank == 15)
+			return 15 * 0x4000 + address - 0xc000;
+		else
+			return bank * 0x4000 + address - 0x8000;
+	case TMACH_NES_MMC3:
+		if (bank == 31)
+			return 31 * 0x4000 + address - 0xc000;
+		else
+			return bank * 0x4000 + address - 0x8000;
+	}
+}
+
+bool Linker::WriteMlbFile(const char* filename, TargetMachine machine)
 {
 	FILE* file;
 	fopen_s(&file, filename, "wb");
@@ -964,6 +1031,12 @@ bool Linker::WriteMlbFile(const char* filename)
 
 			if ((obj->mFlags & LOBJF_REFERENCED) && obj->mIdent && obj->mSize > 0)
 			{
+				int bank = -1;
+				if (obj->mRegion->mCartridgeBanks)
+				{
+					do { bank++; } while (!((1ULL << bank) & obj->mRegion->mCartridgeBanks));
+				}
+
 				if (obj->mSection->mType == LST_BSS)
 				{
 					if (obj->mRanges.Size() > 0)
@@ -978,27 +1051,27 @@ bool Linker::WriteMlbFile(const char* filename)
 				}
 				else if (obj->mType == LOT_DATA)
 				{
-					if (!obj->mRegion->mCartridgeBanks)
+					if (obj->mAddress >= 0x8000)
 					{
 						if (obj->mRanges.Size() > 0)
 						{
 							for (int i = 0; i < obj->mRanges.Size(); i++)
-								fprintf(file, "P:%04x-%04x:%s@%s\n", obj->mAddress + obj->mRanges[i].mOffset - 0x8000, obj->mAddress + obj->mRanges[i].mOffset + obj->mRanges[i].mSize - 0x8000 - 1, obj->mIdent->mString, obj->mRanges[i].mIdent->mString);
+								fprintf(file, "P:%04x-%04x:%s@%s\n", TranslateMlbAddress(obj->mAddress + obj->mRanges[i].mOffset, bank, machine), TranslateMlbAddress(obj->mAddress + obj->mRanges[i].mOffset + obj->mRanges[i].mSize - 1, bank, machine), obj->mIdent->mString, obj->mRanges[i].mIdent->mString);
 						}
-						fprintf(file, "P:%04x-%04x:%s\n", obj->mAddress - 0x8000, obj->mAddress - 0x8000 + obj->mSize - 1, obj->mIdent->mString);
+						fprintf(file, "P:%04x-%04x:%s\n", TranslateMlbAddress(obj->mAddress, bank, machine), TranslateMlbAddress(obj->mAddress + obj->mSize - 1, bank, machine), obj->mIdent->mString);
 					}
 				}
 				else if (obj->mType == LOT_NATIVE_CODE)
 				{
-					if (!obj->mRegion->mCartridgeBanks)
+					if (obj->mAddress >= 0x8000)
 					{
 						if (obj->mRanges.Size() > 0)
 						{
 							for (int i = 0; i < obj->mRanges.Size(); i++)
-								fprintf(file, "P:%04x:%s@%s\n", obj->mAddress + obj->mRanges[i].mOffset - 0x8000, obj->mIdent->mString, obj->mRanges[i].mIdent->mString);
+								fprintf(file, "P:%04x:%s@%s\n", TranslateMlbAddress(obj->mAddress + obj->mRanges[i].mOffset, bank, machine), obj->mIdent->mString, obj->mRanges[i].mIdent->mString);
 						}
 
-						fprintf(file, "P:%04x:%s\n", obj->mAddress - 0x8000, obj->mIdent->mString);
+						fprintf(file, "P:%04x:%s\n", TranslateMlbAddress(obj->mAddress, bank, machine), obj->mIdent->mString);
 					}
 				}
 			}
@@ -1052,7 +1125,7 @@ bool Linker::WriteAsmFile(const char* filename)
 				switch (obj->mType)
 				{
 				case LOT_BYTE_CODE:
-					mByteCodeDisassembler.Disassemble(file, mMemory, 0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+					mByteCodeDisassembler.Disassemble(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				case LOT_NATIVE_CODE:
 					if (obj->mRegion->mCartridgeBanks)
@@ -1063,7 +1136,7 @@ bool Linker::WriteAsmFile(const char* filename)
 						mNativeDisassembler.Disassemble(file, mCartridge[i], i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					}
 					else
-						mNativeDisassembler.Disassemble(file, mMemory, 0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+						mNativeDisassembler.Disassemble(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				case LOT_DATA:
 					if (obj->mRegion->mCartridgeBanks)
@@ -1074,7 +1147,7 @@ bool Linker::WriteAsmFile(const char* filename)
 						mNativeDisassembler.DumpMemory(file, mCartridge[i], i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
 					}
 					else
-						mNativeDisassembler.DumpMemory(file, mMemory, 0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
+						mNativeDisassembler.DumpMemory(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
 					break;
 				}
 			}

@@ -171,6 +171,10 @@ w0:
 #elif defined(OSCAR_TARGET_NES)
 		sei
 		cld
+#if defined(__NES_MMC3__)
+		lda #$00
+		sta $8000
+#endif
 #else		
 		byt	0x0b
 		byt 0x08

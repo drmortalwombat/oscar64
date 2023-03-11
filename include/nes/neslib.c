@@ -641,7 +641,7 @@ __export struct Boot
 	void * nmi, * reset, * irq;
 }	boot = {
 	nmi,
-	(void *)0x8000,
+	(void *)0xff80,
 	nullptr
 };
 

@@ -190,6 +190,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_2CC169DCBB0B4CC0BFE38AE63B285359"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_2D828D0247F144CDB0112B2AD4004C2C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -293,6 +299,12 @@
         "Entry"
         {
         "MsmKey" = "8:_47A877D439EE429BAB64C52FEF69EDA4"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_492AD1ED992D44F1A65903A5232C0426"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -850,6 +862,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_CDBE2B8738C843CBB146767FBEE9A828"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_D0E45B48D76B4407B0BDE4378C1DB2C7"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -989,6 +1007,12 @@
         "Entry"
         {
         "MsmKey" = "8:_E87F2F9F79424FBBBD071EF633A81BB5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_ED5FED616EA64689AB793E5D8BD3F13D"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1731,6 +1755,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_2CC169DCBB0B4CC0BFE38AE63B285359"
+            {
+            "SourcePath" = "8:..\\include\\nes\\mmc1.c"
+            "TargetName" = "8:mmc1.c"
+            "Tag" = "8:"
+            "Folder" = "8:_9F35D1516FB34C30A2C5C1CA12501231"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_2D828D0247F144CDB0112B2AD4004C2C"
             {
             "SourcePath" = "8:..\\samples\\scrolling\\tunnel.c"
@@ -2077,6 +2121,26 @@
             "TargetName" = "8:largemem.c"
             "Tag" = "8:"
             "Folder" = "8:_A62A71A6A08941C5964B90112D87731F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_492AD1ED992D44F1A65903A5232C0426"
+            {
+            "SourcePath" = "8:..\\include\\nes\\mmc3.h"
+            "TargetName" = "8:mmc3.h"
+            "Tag" = "8:"
+            "Folder" = "8:_9F35D1516FB34C30A2C5C1CA12501231"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3931,6 +3995,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_CDBE2B8738C843CBB146767FBEE9A828"
+            {
+            "SourcePath" = "8:..\\include\\nes\\mmc1.h"
+            "TargetName" = "8:mmc1.h"
+            "Tag" = "8:"
+            "Folder" = "8:_9F35D1516FB34C30A2C5C1CA12501231"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D0E45B48D76B4407B0BDE4378C1DB2C7"
             {
             "SourcePath" = "8:..\\include\\stdlib.h"
@@ -4397,6 +4481,26 @@
             "TargetName" = "8:math.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_ED5FED616EA64689AB793E5D8BD3F13D"
+            {
+            "SourcePath" = "8:..\\include\\nes\\mmc3.c"
+            "TargetName" = "8:mmc3.c"
+            "Tag" = "8:"
+            "Folder" = "8:_9F35D1516FB34C30A2C5C1CA12501231"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -4963,7 +5067,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
         "ProductCode" = "8:{85311ED7-CC4D-4512-840D-20C87C74DAC0}"
-        "PackageCode" = "8:{84A20228-DD88-421A-9DE4-33A058638C87}"
+        "PackageCode" = "8:{9C4FC9E1-982E-42B2-B9D0-8D5984BC0B2B}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"

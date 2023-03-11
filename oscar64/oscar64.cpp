@@ -311,8 +311,22 @@ int main2(int argc, const char** argv)
 		else if (!strcmp(targetMachine, "nes"))
 		{
 			compiler->mTargetMachine = TMACH_NES;
-			compiler->mCompilerOptions |= COPT_EXTENDED_ZERO_PAGE;
-			compiler->AddDefine(Ident::Unique("__NES__"), "1");
+		}
+		else if (!strcmp(targetMachine, "nes_nrom_h"))
+		{
+			compiler->mTargetMachine = TMACH_NES_NROM_H;
+		}
+		else if (!strcmp(targetMachine, "nes_nrom_v"))
+		{
+			compiler->mTargetMachine = TMACH_NES_NROM_V;
+		}
+		else if (!strcmp(targetMachine, "nes_mmc1"))
+		{
+			compiler->mTargetMachine = TMACH_NES_MMC1;
+		}
+		else if (!strcmp(targetMachine, "nes_mmc3"))
+		{
+			compiler->mTargetMachine = TMACH_NES_MMC3;
 		}
 		else if (!strcmp(targetMachine, "atari"))
 		{
@@ -323,10 +337,27 @@ int main2(int argc, const char** argv)
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target machine option", targetMachine);
 
 
-		if (compiler->mTargetMachine == TMACH_NES)
+		if (compiler->mTargetMachine >= TMACH_NES && compiler->mTargetMachine <= TMACH_NES_MMC3)
 		{
 			compiler->mCompilerOptions |= COPT_TARGET_NES;
+			compiler->mCompilerOptions |= COPT_EXTENDED_ZERO_PAGE;
+			compiler->mCompilerOptions |= COPT_NATIVE;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_NES"), "1");
+			switch (compiler->mTargetMachine)
+			{
+			default:
+			case TMACH_NES:
+			case TMACH_NES_NROM_H:
+			case TMACH_NES_NROM_V:
+				break;
+			case TMACH_NES_MMC1:
+				compiler->AddDefine(Ident::Unique("__NES_MMC1__"), "1");
+				break;
+			case TMACH_NES_MMC3:
+				compiler->AddDefine(Ident::Unique("__NES_MMC3__"), "1");
+				break;
+			}
+			compiler->AddDefine(Ident::Unique("__NES__"), "1");
 		}
 		else if (!strcmp(targetFormat, "prg"))
 		{

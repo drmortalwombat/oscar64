@@ -6,6 +6,7 @@
 #include "Errors.h"
 #include "Disassembler.h"
 #include "DiskImage.h"
+#include "CompilerTypes.h"
 
 class InterCodeProcedure;
 
@@ -238,8 +239,10 @@ public:
 	bool WriteLblFile(const char* filename);
 	bool WriteCrtFile(const char* filename);
 	bool WriteBinFile(const char* filename);
-	bool WriteNesFile(const char* filename);
-	bool WriteMlbFile(const char* filename);
+	bool WriteNesFile(const char* filename, TargetMachine machine);
+	bool WriteMlbFile(const char* filename, TargetMachine machine);
+
+	int TranslateMlbAddress(int address, int bank, TargetMachine machine);
 
 	uint64							mCompilerOptions;
 
