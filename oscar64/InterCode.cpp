@@ -1984,6 +1984,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0] = ins->mSrc[1];
 					ins->mSrc[1].mTemp = -1;
 					ins->mSrc[1].mType = IT_NONE;
+					ins->mNumOperands = 1;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
@@ -2024,6 +2025,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mOperator = IA_NEG;
 					ins->mSrc[1].mTemp = -1;
 					ins->mSrc[1].mType = IT_NONE;
+					ins->mNumOperands = 1;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
@@ -2034,6 +2036,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mCode = IC_UNARY_OPERATOR;
 					ins->mOperator = IA_NEG;
 					ins->mSrc[1].mTemp = -1;
+					ins->mNumOperands = 1;
 
 					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
 
