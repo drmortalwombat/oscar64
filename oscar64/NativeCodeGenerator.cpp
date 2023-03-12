@@ -23619,6 +23619,78 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::Propagate16BitHighSum(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i + 5 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2].mType == ASMIT_CLC &&
+				mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress + 1 && !(mIns[i + 3].mLive & LIVE_MEM) &&
+				mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 1].mAddress + 1)
+			{
+				bool	success = false;
+
+				int taddr = mIns[i + 1].mAddress, saddr = mIns[i + 0].mAddress;
+
+				int j = i + 6;
+				while (j < mIns.Size())
+				{
+					if (mIns[j].mType == ASMIT_JSR)
+						break;
+					else if (mIns[j].ChangesZeroPage(saddr) || mIns[j].ChangesZeroPage(saddr + 1))
+						break;
+					else if (mIns[j].ChangesZeroPage(taddr) || mIns[j].ChangesZeroPage(taddr + 1))
+						break;
+					else if (mIns[j].UsesZeroPage(taddr + 1) && !(mIns[j].mLive & LIVE_MEM))
+					{
+						success = true;
+						break;
+					}
+					j++;
+				}
+
+				if (success)
+				{
+					mIns[i + 5].mAddress = saddr + 1;
+					for (int k = i + 6; k <= j; k++)
+					{
+						if (mIns[k].mMode == ASMIM_ZERO_PAGE)
+						{
+							if (mIns[k].mAddress == taddr)
+								mIns[k].mAddress = saddr;
+							else if (mIns[k].mAddress == taddr + 1)
+								mIns[k].mAddress = saddr + 1;
+						}
+						else if (mIns[k].mMode == ASMIM_INDIRECT_Y)
+						{
+							if (mIns[k].mAddress == taddr)
+								mIns[k].mAddress = saddr;
+						}
+					}
+					changed = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->Propagate16BitHighSum())
+			changed = true;
+		if (mFalseJump && mFalseJump->Propagate16BitHighSum())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
+
 bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to)
 {
 	bool	changed = false;
@@ -37338,7 +37410,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "diggers_list");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "tile_draw_p");
 
 #if 1
 	int		step = 0;
@@ -37846,6 +37918,13 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->CheckBlocks();
 #endif
+
+		if (step == 6 || step == 7)
+		{
+			ResetVisited();
+			if (mEntryBlock->Propagate16BitHighSum())
+				changed = true;
+		}		
 
 
 		if (step == 8)

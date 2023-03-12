@@ -441,6 +441,8 @@ public:
 
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
 	bool Propagate16BitSum(const ExpandingArray<NativeRegisterSum16Info>& cinfo);
+	
+	bool Propagate16BitHighSum(void);
 
 	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair);
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);

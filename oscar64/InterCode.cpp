@@ -10984,7 +10984,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 					{
 						InterInstruction* lins = mInstructions[i];
 
-						if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0)
+						if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
 						{
 							if (CanMoveInstructionBeforeBlock(i))
 							{
