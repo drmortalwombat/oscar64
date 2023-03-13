@@ -10858,6 +10858,9 @@ bool InterCodeBasicBlock::CollectSingleHeadLoopBody(InterCodeBasicBlock* head, I
 	int i = 0;
 	body.Push(head);
 
+	if (head == tail)
+		return true;
+
 	while (i < body.Size())
 	{
 		InterCodeBasicBlock* block = body[i++];

@@ -311,6 +311,7 @@ public:
 	bool MergeSameBlocks(NativeCodeProcedure* nproc);
 
 	void CountEntries(NativeCodeBasicBlock* fromJump);
+	NativeCodeBasicBlock * ForwardAccuBranch(bool eq, bool ne, bool pl, bool mi, int limit);
 	bool MergeBasicBlocks(void);
 	void MarkLoopHead(void);
 	void BuildDominatorTree(NativeCodeBasicBlock * from);
@@ -379,7 +380,7 @@ public:
 	bool RegisterValueForwarding(void);
 	bool CanCombineSameXtoY(int start, int end);
 	bool CanCombineSameYtoX(int start, int end);
-		bool CombineSameXY(void);
+	bool CombineSameXY(void);
 	bool CombineSameXtoY(int xpos, int ypos, int end);
 	bool CombineSameYtoX(int xpos, int ypos, int end);
 

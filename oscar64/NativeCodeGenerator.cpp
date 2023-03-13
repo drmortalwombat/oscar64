@@ -12147,6 +12147,48 @@ bool NativeCodeBasicBlock::MergeSameBlocks(NativeCodeProcedure* nproc)
 	return changed;
 }
 
+NativeCodeBasicBlock* NativeCodeBasicBlock::ForwardAccuBranch(bool eq, bool ne, bool pl, bool mi, int limit)
+{
+	if (limit == 4)
+		return this;
+	limit++;
+
+	if (mIns.Size() == 0 && mNumEntries == 1 || mIns.Size() == 1 && mIns[0].mType == ASMIT_ORA && mIns[0].mMode == ASMIM_IMMEDIATE && mIns[0].mAddress == 0)
+	{
+		if (mBranch == ASMIT_BEQ)
+		{
+			if (eq)
+				return mTrueJump->ForwardAccuBranch(true, false, true, false, limit);
+			if (ne || mi)
+				return mFalseJump->ForwardAccuBranch(false, true, pl, mi, limit);
+		}
+		else if (mBranch == ASMIT_BNE)
+		{
+			if (eq)
+				return mFalseJump->ForwardAccuBranch(true, false, true, false, limit);
+			if (ne || mi)
+				return mTrueJump->ForwardAccuBranch(false, true, pl, mi, limit);
+		}
+		else if (mBranch == ASMIT_BPL)
+		{
+			if (eq || pl)
+				return mTrueJump->ForwardAccuBranch(eq, ne, true, false, limit);
+			if (mi)
+				return mFalseJump->ForwardAccuBranch(false, true, false, true, limit);
+		}
+		else if (mBranch == ASMIT_BMI)
+		{
+			if (eq || pl)
+				return mFalseJump->ForwardAccuBranch(eq, ne, true, false, limit);
+			if (mi)
+				return mTrueJump->ForwardAccuBranch(false, true, false, true, limit);
+		}
+	}
+
+	return this;
+}
+
+
 bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 {
 	bool	changed = false;
@@ -12254,6 +12296,49 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 				mFalseJump = nullptr;
 				changed = true;
 			}
+#if 1
+			if (mIns.Size() > 0 && mIns.Last().ChangesAccuAndFlag() && mTrueJump && mFalseJump)
+			{
+				NativeCodeBasicBlock* ntb = mTrueJump, * nfb = mFalseJump;
+
+				if (mBranch == ASMIT_BEQ)
+				{
+					ntb = ntb->ForwardAccuBranch(true, false, true, false, 0);
+					nfb = nfb->ForwardAccuBranch(false, true, false, false, 0);
+				}
+				else if (mBranch == ASMIT_BNE)
+				{
+					nfb = nfb->ForwardAccuBranch(true, false, true, false, 0);
+					ntb = ntb->ForwardAccuBranch(false, true, false, false, 0);
+				}
+				else if (mBranch == ASMIT_BPL)
+				{
+					ntb = ntb->ForwardAccuBranch(false, false, true, false, 0);
+					nfb = nfb->ForwardAccuBranch(false, true, false, true, 0);
+				}
+				else if (mBranch == ASMIT_BMI)
+				{
+					nfb = nfb->ForwardAccuBranch(false, false, true, false, 0);
+					ntb = ntb->ForwardAccuBranch(false, true, false, true, 0);
+				}
+
+				if (ntb != mTrueJump)
+				{
+					mTrueJump->mNumEntries--;
+					mTrueJump = ntb;
+					mTrueJump->mNumEntries++;
+					changed = true;
+				}
+
+				if (nfb != mFalseJump)
+				{
+					mFalseJump->mNumEntries--;
+					mFalseJump = nfb;
+					mFalseJump->mNumEntries++;
+					changed = true;
+				}
+			}
+#endif
 		}
 
 		if (mTrueJump)
@@ -25273,6 +25358,7 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 					mIns.Insert(i + 1, NativeCodeInstruction(carryop));
 			}
 		}
+
 		if (mFalseJump)
 		{
 			mFDataSet = mNDataSet;
@@ -25281,14 +25367,14 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 			{
 				const NativeCodeInstruction& lins(mIns[mIns.Size() - 1]);
 
-				if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
+				if (lins.ChangesAccuAndFlag())
 				{
 					switch (mBranch)
 					{
 					case ASMIT_BEQ:
-						if (mNDataSet.mRegs[lins.mAddress].mMask == 0xff)
+						if (mNDataSet.mRegs[CPU_REG_A].mMask == 0xff)
 						{
-							if (mNDataSet.mRegs[lins.mAddress].mValue != 0)
+							if (mNDataSet.mRegs[CPU_REG_A].mValue != 0)
 							{
 								mTrueJump->RemoveEntryBlock(this);
 								mTrueJump = mFalseJump;
@@ -25306,14 +25392,18 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 						{
 							mNDataSet.mRegs[CPU_REG_A].mMask = 0xff;
 							mNDataSet.mRegs[CPU_REG_A].mValue = 0x00;
-							mNDataSet.mRegs[lins.mAddress].mMask = 0xff;
-							mNDataSet.mRegs[lins.mAddress].mValue = 0x00;
+
+							if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
+							{
+								mNDataSet.mRegs[lins.mAddress].mMask = 0xff;
+								mNDataSet.mRegs[lins.mAddress].mValue = 0x00;
+							}
 						}
 						break;
 					case ASMIT_BNE:
-						if (mNDataSet.mRegs[lins.mAddress].mMask == 0xff)
+						if (mNDataSet.mRegs[CPU_REG_A].mMask == 0xff)
 						{
-							if (mNDataSet.mRegs[lins.mAddress].mValue == 0)
+							if (mNDataSet.mRegs[CPU_REG_A].mValue == 0)
 							{
 								mTrueJump->RemoveEntryBlock(this);
 								mTrueJump = mFalseJump;
@@ -25331,14 +25421,18 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 						{
 							mFDataSet.mRegs[CPU_REG_A].mMask = 0xff;
 							mFDataSet.mRegs[CPU_REG_A].mValue = 0x00;
-							mFDataSet.mRegs[lins.mAddress].mMask = 0xff;
-							mFDataSet.mRegs[lins.mAddress].mValue = 0x00;
+
+							if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
+							{
+								mFDataSet.mRegs[lins.mAddress].mMask = 0xff;
+								mFDataSet.mRegs[lins.mAddress].mValue = 0x00;
+							}
 						}
 						break;
 					case ASMIT_BPL:
-						if (mNDataSet.mRegs[lins.mAddress].mMask & 0x80)
+						if (mNDataSet.mRegs[CPU_REG_A].mMask & 0x80)
 						{
-							if (mNDataSet.mRegs[lins.mAddress].mValue & 0x80)
+							if (mNDataSet.mRegs[CPU_REG_A].mValue & 0x80)
 							{
 								mTrueJump->RemoveEntryBlock(this);
 								mTrueJump = mFalseJump;
@@ -25359,16 +25453,19 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 							mFDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
 							mFDataSet.mRegs[CPU_REG_A].mValue |= 0x80;
 
-							mNDataSet.mRegs[lins.mAddress].mMask |= 0x80;
-							mNDataSet.mRegs[lins.mAddress].mValue &= 0x7f;
-							mFDataSet.mRegs[lins.mAddress].mMask |= 0x80;
-							mFDataSet.mRegs[lins.mAddress].mValue |= 0x80;
+							if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
+							{
+								mNDataSet.mRegs[lins.mAddress].mMask |= 0x80;
+								mNDataSet.mRegs[lins.mAddress].mValue &= 0x7f;
+								mFDataSet.mRegs[lins.mAddress].mMask |= 0x80;
+								mFDataSet.mRegs[lins.mAddress].mValue |= 0x80;
+							}
 						}
 						break;
 					case ASMIT_BMI:
-						if (mNDataSet.mRegs[lins.mAddress].mMask & 0x80)
+						if (mNDataSet.mRegs[CPU_REG_A].mMask & 0x80)
 						{
-							if (!(mNDataSet.mRegs[lins.mAddress].mValue & 0x80))
+							if (!(mNDataSet.mRegs[CPU_REG_A].mValue & 0x80))
 							{
 								mTrueJump->RemoveEntryBlock(this);
 								mTrueJump = mFalseJump;
@@ -25389,10 +25486,13 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 							mNDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
 							mNDataSet.mRegs[CPU_REG_A].mValue |= 0x80;
 
-							mFDataSet.mRegs[lins.mAddress].mMask |= 0x80;
-							mFDataSet.mRegs[lins.mAddress].mValue &= 0x7f;
-							mNDataSet.mRegs[lins.mAddress].mMask |= 0x80;
-							mNDataSet.mRegs[lins.mAddress].mValue |= 0x80;
+							if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
+							{
+								mFDataSet.mRegs[lins.mAddress].mMask |= 0x80;
+								mFDataSet.mRegs[lins.mAddress].mValue &= 0x7f;
+								mNDataSet.mRegs[lins.mAddress].mMask |= 0x80;
+								mNDataSet.mRegs[lins.mAddress].mValue |= 0x80;
+							}
 						}
 						break;
 					}
@@ -37427,7 +37527,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "move");
 
 #if 1
 	int		step = 0;
@@ -38050,7 +38150,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 
