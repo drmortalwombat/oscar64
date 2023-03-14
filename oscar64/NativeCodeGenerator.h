@@ -495,7 +495,7 @@ public:
 	bool MoveAccuTrainsDown(void);
 	bool MoveAccuTrainDown(int end, int start);
 
-	void BuildUseChangeSets(int start, int end, unsigned & used, unsigned & changed);
+	void BuildUseChangeSets(int start, int end, unsigned & used, unsigned & changed, uint32 & flags);
 	bool CanExchangeSegments(int start, int mid, int end);
 
 	bool CrossBlockXYPreservation(void);

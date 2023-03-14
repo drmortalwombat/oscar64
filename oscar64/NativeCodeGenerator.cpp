@@ -14092,13 +14092,16 @@ bool NativeCodeBasicBlock::OptimizeXYPairUsage(void)
 
 
 
-void NativeCodeBasicBlock::BuildUseChangeSets(int start, int end, unsigned & used, unsigned & changed)
+void NativeCodeBasicBlock::BuildUseChangeSets(int start, int end, unsigned & used, unsigned & changed, uint32 & flags)
 {
 	used = 0;
 	changed = 0;
+	flags = 0;
 
 	for (int i = start; i < end; i++)
 	{
+		flags |= mIns[i].mFlags;
+
 		if (mIns[i].RequiresCarry() && !(changed & LIVE_CPU_REG_C))
 			used |= LIVE_CPU_REG_C;
 		if (mIns[i].RequiresXReg() && !(changed & LIVE_CPU_REG_X))
@@ -14118,9 +14121,13 @@ void NativeCodeBasicBlock::BuildUseChangeSets(int start, int end, unsigned & use
 bool NativeCodeBasicBlock::CanExchangeSegments(int start, int mid, int end)
 {
 	unsigned usedFront, changedFront, usedBack, changedBack;
+	uint32		flagsFront, flagsBack;
 
-	BuildUseChangeSets(start, mid, usedFront, changedFront);
-	BuildUseChangeSets(mid, end, usedBack, changedBack);
+	BuildUseChangeSets(start, mid, usedFront, changedFront, flagsFront);
+	BuildUseChangeSets(mid, end, usedBack, changedBack, flagsBack);
+
+	if (flagsFront & flagsBack & NCIF_VOLATILE)
+		return false;
 
 	if (usedFront & changedBack)
 		return false;
@@ -37788,7 +37795,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "check");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "_mapUp");
 
 #if 1
 	int		step = 0;
@@ -38213,6 +38220,7 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->ApplyEntryDataSet())
 			changed = true;
 #endif
+
 
 #if 1
 		if (step >= 5)
