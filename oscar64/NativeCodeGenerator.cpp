@@ -21286,7 +21286,8 @@ bool NativeCodeBasicBlock::CheckGlobalAddressSumYPointer(const NativeCodeBasicBl
 		{
 			NativeCodeInstruction& ins(mIns[at]);
 
-			if (mIns[at + 0].mType == ASMIT_CLC &&
+			if (at + 6 < mIns.Size() &&
+				mIns[at + 0].mType == ASMIT_CLC &&
 				mIns[at + 1].mType == ASMIT_LDA && mIns[at + 1].mMode == ASMIM_ZERO_PAGE && mIns[at + 1].mAddress == reg &&
 				mIns[at + 2].mType == ASMIT_ADC && mIns[at + 2].mMode == ASMIM_IMMEDIATE &&
 				mIns[at + 3].mType == ASMIT_STA && mIns[at + 3].mMode == ASMIM_ZERO_PAGE && mIns[at + 3].mAddress != index &&
@@ -21363,7 +21364,8 @@ bool NativeCodeBasicBlock::PatchGlobalAddressSumYPointer(const NativeCodeBasicBl
 
 			assert(!(ins.mMode == ASMIM_ZERO_PAGE && (ins.mAddress == reg || ins.mAddress == reg + 1) && reg == index));
 
-			if (mIns[at + 0].mType == ASMIT_CLC &&
+			if (at + 6 < mIns.Size() &&
+				mIns[at + 0].mType == ASMIT_CLC &&
 				mIns[at + 1].mType == ASMIT_LDA && mIns[at + 1].mMode == ASMIM_ZERO_PAGE && mIns[at + 1].mAddress == reg &&
 				mIns[at + 2].mType == ASMIT_ADC && mIns[at + 2].mMode == ASMIM_IMMEDIATE &&
 				mIns[at + 3].mType == ASMIT_STA && mIns[at + 3].mMode == ASMIM_ZERO_PAGE && mIns[at + 3].mAddress != index &&
