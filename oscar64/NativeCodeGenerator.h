@@ -63,6 +63,9 @@ struct NativeRegisterSum16Info
 	bool						mImmediate;
 	int							mAddress;
 	LinkerObject			*	mLinkerObject;
+
+	bool operator==(const NativeRegisterSum16Info& ri) const;
+	bool operator!=(const NativeRegisterSum16Info& ri) const;
 };
 
 
@@ -187,6 +190,8 @@ public:
 
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
 	int						mYAlias[256], mYOffset;
+
+	ExpandingArray<NativeRegisterSum16Info>	mRSumInfos;
 
 	NativeCodeInstruction DecodeNative(LinkerObject * lobj, int& offset) const;
 
@@ -509,6 +514,7 @@ public:
 	bool ShortcutPointerAddForward(void);
 
 	bool CheckPatchFailReg(const NativeCodeBasicBlock* block, int reg);
+	bool CheckPatchFailRegPair(const NativeCodeBasicBlock* block, int reg);
 	bool CheckPatchFailUse(void);
 
 	bool CheckPatchFailLoop(const NativeCodeBasicBlock* block, const NativeCodeBasicBlock* head, int reg, bool changed);
