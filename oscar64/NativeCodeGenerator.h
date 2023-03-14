@@ -396,7 +396,10 @@ public:
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
 	bool MergeXYSameValue(int from);
 	void InsertLoadYImmediate(int at, int val);
+	int RetrieveAValue(int at) const;
+	int RetrieveXValue(int at) const;
 	int RetrieveYValue(int at) const;
+	int RetrieveZPValue(int reg, int at) const;
 
 	bool ReverseReplaceTAX(int at);
 
