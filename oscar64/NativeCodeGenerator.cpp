@@ -19842,6 +19842,9 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 		{
 			NativeCodeInstruction& ins(mIns[at]);
 
+			if (ains.mFlags & ins.mFlags & NCIF_VOLATILE)
+				return false;
+
 			if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == reg)
 			{
 				if (ins.UsesAddress())
@@ -31039,7 +31042,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 #if 1
 			if (mIns[i].mType == ASMIT_LDY)
 			{
-				if (!mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				if (!mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z) && !(mIns[i].mFlags & mIns[i + 1].mFlags & NCIF_VOLATILE))
 				{
 					if (mIns[i].mMode != ASMIM_ABSOLUTE_X || !mIns[i + 1].ChangesXReg())
 					{
@@ -31061,7 +31064,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			}
 			else if (mIns[i].mType == ASMIT_LDX)
 			{
-				if (!mIns[i + 1].RequiresXReg() && !mIns[i + 1].ChangesXReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				if (!mIns[i + 1].RequiresXReg() && !mIns[i + 1].ChangesXReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z) && !(mIns[i].mFlags & mIns[i + 1].mFlags & NCIF_VOLATILE))
 				{
 					if (mIns[i].mMode != ASMIM_ABSOLUTE_Y || !mIns[i + 1].ChangesYReg())
 					{
@@ -37785,7 +37788,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "pad_poll");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "check");
 
 #if 1
 	int		step = 0;
@@ -38048,6 +38051,7 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
 
 #if _DEBUG
 		ResetVisited();
@@ -38414,6 +38418,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 
