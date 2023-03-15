@@ -2246,9 +2246,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							else
 								vr = Dereference(proc, exp, block, vr);
 
-							if (!TheCharPointerTypeDeclaration->CanAssign(vl.mType))
+							if (!TheVoidPointerTypeDeclaration->CanAssign(vl.mType))
 								mErrors->Error(tex->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
-							if (!TheConstCharPointerTypeDeclaration->CanAssign(vr.mType))
+							if (!TheConstVoidPointerTypeDeclaration->CanAssign(vr.mType))
 								mErrors->Error(sex->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 
 							InterInstruction* ins = new InterInstruction(exp->mLocation, IC_COPY);

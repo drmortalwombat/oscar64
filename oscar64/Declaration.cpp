@@ -900,7 +900,7 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 		if (fromType->mType == DT_TYPE_POINTER || fromType->mType == DT_TYPE_ARRAY)
 		{
 			if (mBase->mType == DT_TYPE_VOID || fromType->mBase->mType == DT_TYPE_VOID)
-				return true;
+				return (mBase->mFlags & DTF_CONST) || !(fromType->mBase->mFlags & DTF_CONST);
 			else if (mBase->IsSubType(fromType->mBase))
 				return true;
 		}
@@ -937,8 +937,8 @@ bool Declaration::IsSimpleType(void) const
 }
 
 
-Declaration* TheVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
-Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
+Declaration* TheVoidTypeDeclaration, * TheConstVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
+Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheConstVoidPointerTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
 
@@ -948,10 +948,18 @@ void InitDeclarations(void)
 	TheVoidTypeDeclaration = new Declaration(noloc, DT_TYPE_VOID);
 	TheVoidTypeDeclaration->mFlags = DTF_DEFINED;
 
+	TheConstVoidTypeDeclaration = new Declaration(noloc, DT_TYPE_VOID);
+	TheConstVoidTypeDeclaration->mFlags = DTF_DEFINED | DTF_CONST;
+
 	TheVoidPointerTypeDeclaration = new Declaration(noloc, DT_TYPE_POINTER);
 	TheVoidPointerTypeDeclaration->mBase = TheVoidTypeDeclaration;
 	TheVoidPointerTypeDeclaration->mSize = 2;
 	TheVoidPointerTypeDeclaration->mFlags = DTF_DEFINED;
+
+	TheConstVoidPointerTypeDeclaration = new Declaration(noloc, DT_TYPE_POINTER);
+	TheConstVoidPointerTypeDeclaration->mBase = TheConstVoidTypeDeclaration;
+	TheConstVoidPointerTypeDeclaration->mSize = 2;
+	TheConstVoidPointerTypeDeclaration->mFlags = DTF_DEFINED;
 
 	TheVoidFunctionTypeDeclaration = new Declaration(noloc, DT_TYPE_FUNCTION);
 	TheVoidFunctionTypeDeclaration->mBase = TheVoidTypeDeclaration;
