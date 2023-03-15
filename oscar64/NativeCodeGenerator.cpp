@@ -35601,6 +35601,30 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					}
 				}
 
+				if (i + 8 < mIns.Size() && pass > 3 &&
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					mIns[i + 7].mType == ASMIT_LDY && mIns[i + 7].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 8].mMode == ASMIM_INDIRECT_Y && mIns[i + 8].mAddress == mIns[i + 3].mAddress && !(mIns[i + 8].mLive & LIVE_MEM))
+				{
+					int total = mIns[i + 2].mAddress + mIns[i + 7].mAddress + 256 * mIns[i + 5].mAddress;
+					if (!(mIns[i + 8].mLive & LIVE_CPU_REG_Y) || !(mIns[i + 8].mLive & LIVE_CPU_REG_Z))
+					{
+						if (mIns[i + 8].mLive & LIVE_CPU_REG_Y)
+							mIns.Insert(i + 9, NativeCodeInstruction(ASMIT_LDY, ASMIM_IMMEDIATE, mIns[i + 7].mAddress));
+						mIns[i + 7].mAddress = total & 255;
+						mIns[i + 5].mAddress = total >> 8;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						changed = true;
+					}
+				}
+
+
 				if (i + 6 < mIns.Size())
 				{
 					if (
