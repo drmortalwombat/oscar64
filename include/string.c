@@ -222,7 +222,8 @@ void * memmove(void * dst, const void * src, int size)
 	int	sz = size;
 	if (sz > 0)
 	{
-		char	*	d = dst, * s = src;
+		char		*	d = dst;
+		const char	*	s = src;
 		if (d < s)
 		{
 			do {
@@ -243,7 +244,7 @@ void * memmove(void * dst, const void * src, int size)
 
 int memcmp(const void * ptr1, const void * ptr2, int size)
 {
-	char	*	p = ptr1, * q = ptr2;
+	const char	*	p = ptr1, * q = ptr2;
 	char		c, d;
 
 	while (size--)
