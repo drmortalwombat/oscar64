@@ -12685,7 +12685,19 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mNumOperands = 0;
 				changed = true;
 			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 0]->mOperator == IA_SUB || mInstructions[i + 0]->mOperator == IA_XOR) &&
+				mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[1].mTemp)
+			{
+				mInstructions[i + 0]->mCode = IC_CONSTANT;
+				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mConst.mType = mInstructions[i + 0]->mDst.mType;
+				mInstructions[i + 0]->mConst.mIntConst = 0;
+				mInstructions[i + 0]->mConst.mFloatConst = 0;
+				changed = true;
+			}
 #endif
+
 #if 1
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
@@ -13136,6 +13148,96 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
 				changed = true;
 			}
+
+#if 1
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && 
+				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[0].mTemp &&
+				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp &&
+				mInstructions[i + 2]->mSrc[0].mTemp >= 0 && mInstructions[i + 2]->mSrc[1].mTemp >= 0 &&
+				mInstructions[i + 2]->mSrc[0].mFinal && mInstructions[i + 2]->mSrc[1].mFinal &&
+				mInstructions[i + 2]->mDst.mType == IT_INT16)
+			{
+				bool	fail = false;
+				int		s0, s1, c0, c1, s2 = i + 2;
+
+				if (mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp)
+				{
+					s0 = i + 0; s1 = i + 1;
+				}
+				else if (mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
+				{
+					s0 = i + 1; s1 = i + 0;
+				}
+				else
+					fail = true;
+
+				if (!fail)
+				{
+					if (mInstructions[s0]->mSrc[0].mTemp < 0)
+						c0 = 0;
+					else if (mInstructions[s0]->mSrc[1].mTemp < 0)
+						c0 = 1;
+					else
+						fail = true;
+
+					if (mInstructions[s1]->mSrc[0].mTemp < 0)
+						c1 = 0;
+					else if (mInstructions[s1]->mSrc[1].mTemp < 0)
+						c1 = 1;
+					else
+						fail = true;
+
+					if (!fail)
+					{
+						InterOperator	o0 = mInstructions[s0]->mOperator;
+						InterOperator	o1 = mInstructions[s1]->mOperator;
+						InterOperator	o2 = mInstructions[s2]->mOperator;
+
+						if (o2 == IA_SUB)
+						{
+							if ((o0 == IA_ADD || o0 == IA_SUB && c0 == 0) && (o1 == IA_ADD || o1 == IA_SUB && c1 == 0))
+							{
+								int iconst =
+									(o1 == IA_ADD ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) -
+									(o0 == IA_ADD ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
+
+								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0];
+								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1];
+								mInstructions[s0]->mDst.mRange.Reset();
+								mInstructions[s0]->mOperator = IA_SUB;
+								mInstructions[s2]->mOperator = IA_ADD;
+								mInstructions[s2]->mSrc[0].mRange = mInstructions[s0]->mDst.mRange;
+								mInstructions[s2]->mSrc[1].mTemp = -1;
+								mInstructions[s2]->mSrc[1].mIntConst = iconst;
+								changed = true;
+							}
+						}
+						else if (o2 == IA_ADD)
+						{
+							if ((o0 == IA_ADD || o0 == IA_SUB && c0 == 0) && (o1 == IA_ADD || o1 == IA_SUB && c1 == 0))
+							{
+								int iconst =
+									(o1 == IA_ADD ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) +
+									(o0 == IA_ADD ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
+
+								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0];
+								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1];
+								mInstructions[s0]->mDst.mRange.Reset();
+								mInstructions[s0]->mOperator = IA_ADD;
+								mInstructions[s2]->mOperator = IA_ADD;
+								mInstructions[s2]->mSrc[0].mRange = mInstructions[s0]->mDst.mRange;
+								mInstructions[s2]->mSrc[1].mTemp = -1;
+								mInstructions[s2]->mSrc[1].mIntConst = iconst;
+								changed = true;
+							}
+						}
+					}
+				}
+			}
+#endif
 
 #if 1
 			// Postincrement artifact

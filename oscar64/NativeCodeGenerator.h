@@ -147,6 +147,7 @@ public:
 	bool MayBeChangedOnAddress(const NativeCodeInstruction& ins, bool sameXY = false) const;
 	bool MayBeSameAddress(const NativeCodeInstruction& ins, bool sameXY = false) const;
 	bool IsSame(const NativeCodeInstruction& ins) const;
+	bool IsSameLS(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
 	bool IsShift(void) const;
 	bool IsShiftOrInc(void) const;
@@ -506,6 +507,7 @@ public:
 	bool GlobalSwapXY(void);
 
 	bool IsSimpleSubExpression(int at) const;
+	bool IsSameSimpleSubExpression(int pat, int at) const;
 	bool PropagateCommonSubExpression(void);
 
 	bool ForwardAbsoluteLoadStores(void);
@@ -515,6 +517,8 @@ public:
 
 	bool CheckShortcutPointerAddForward(int at);
 	bool ShortcutPointerAddForward(void);
+
+	bool CommonSubExpressionElimination(void);
 
 	bool CheckPatchFailReg(const NativeCodeBasicBlock* block, int reg);
 	bool CheckPatchFailRegPair(const NativeCodeBasicBlock* block, int reg);
