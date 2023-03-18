@@ -68,6 +68,21 @@ struct NativeRegisterSum16Info
 	bool operator!=(const NativeRegisterSum16Info& ri) const;
 };
 
+struct NativeSimpleSubExpression
+{
+	AsmInsType						mType;
+	int								mValue;
+	NativeCodeInstruction		*	mSrc, * mDst, * mOp;
+};
+
+struct NativeSimpleSubExpressions
+{
+	ExpandingArray<NativeSimpleSubExpression>	mExps;
+
+	int FindCommon(const NativeSimpleSubExpression& ex) const;
+	void Filter(const NativeCodeInstruction& ins);
+};
+
 
 static const uint32 NCIF_LOWER = 0x00000001;
 static const uint32 NCIF_UPPER = 0x00000002;
@@ -454,6 +469,9 @@ public:
 	
 	bool Propagate16BitHighSum(void);
 
+	bool Check16BitSum(const NativeCodeBasicBlock* block, int origin, int at, int reg);
+	bool EliminateUpper16BitSum(NativeCodeProcedure* nproc);
+
 	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair);
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
 	bool ForwardReplaceZeroPage(int at, int from, int to);
@@ -506,8 +524,7 @@ public:
 	bool CanGlobalSwapXY(void);
 	bool GlobalSwapXY(void);
 
-	bool IsSimpleSubExpression(int at) const;
-	bool IsSameSimpleSubExpression(int pat, int at) const;
+	bool IsSimpleSubExpression(int at, NativeSimpleSubExpression & ex);
 	bool PropagateCommonSubExpression(void);
 
 	bool ForwardAbsoluteLoadStores(void);
