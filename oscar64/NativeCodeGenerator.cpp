@@ -21624,7 +21624,7 @@ bool NativeCodeBasicBlock::CheckGlobalAddressSumYPointer(const NativeCodeBasicBl
 			if (at + 6 < mIns.Size() &&
 				mIns[at + 0].mType == ASMIT_CLC &&
 				mIns[at + 1].mType == ASMIT_LDA && mIns[at + 1].mMode == ASMIM_ZERO_PAGE && mIns[at + 1].mAddress == reg &&
-				mIns[at + 2].mType == ASMIT_ADC && mIns[at + 2].mMode == ASMIM_IMMEDIATE &&
+				mIns[at + 2].mMode == ASMIM_IMMEDIATE && (mIns[at + 2].mType == ASMIT_ADC || mIns[at + 2].mType == ASMIT_ORA && mIns[at + 2].mAddress == 0) &&
 				mIns[at + 3].mType == ASMIT_STA && mIns[at + 3].mMode == ASMIM_ZERO_PAGE && mIns[at + 3].mAddress != index &&
 				mIns[at + 4].mType == ASMIT_LDA && mIns[at + 4].mMode == ASMIM_ZERO_PAGE && mIns[at + 4].mAddress == reg + 1 &&
 				mIns[at + 5].mType == ASMIT_ADC && mIns[at + 5].mMode == ASMIM_IMMEDIATE &&
@@ -21702,7 +21702,7 @@ bool NativeCodeBasicBlock::PatchGlobalAddressSumYPointer(const NativeCodeBasicBl
 			if (at + 6 < mIns.Size() &&
 				mIns[at + 0].mType == ASMIT_CLC &&
 				mIns[at + 1].mType == ASMIT_LDA && mIns[at + 1].mMode == ASMIM_ZERO_PAGE && mIns[at + 1].mAddress == reg &&
-				mIns[at + 2].mType == ASMIT_ADC && mIns[at + 2].mMode == ASMIM_IMMEDIATE &&
+				mIns[at + 2].mMode == ASMIM_IMMEDIATE && (mIns[at + 2].mType == ASMIT_ADC || mIns[at + 2].mType == ASMIT_ORA && mIns[at + 2].mAddress == 0) &&
 				mIns[at + 3].mType == ASMIT_STA && mIns[at + 3].mMode == ASMIM_ZERO_PAGE && mIns[at + 3].mAddress != index &&
 				mIns[at + 4].mType == ASMIT_LDA && mIns[at + 4].mMode == ASMIM_ZERO_PAGE && mIns[at + 4].mAddress == reg + 1 &&
 				mIns[at + 5].mType == ASMIT_ADC && mIns[at + 5].mMode == ASMIM_IMMEDIATE &&
@@ -21715,6 +21715,7 @@ bool NativeCodeBasicBlock::PatchGlobalAddressSumYPointer(const NativeCodeBasicBl
 
 				int	naddr = address + mIns[at + 2].mAddress + 256 * mIns[at + 5].mAddress;
 
+				mIns[at + 2].mType = ASMIT_ADC;
 				mIns[at + 2].mMode = ASMIM_IMMEDIATE_ADDRESS;
 				mIns[at + 2].mLinkerObject = lobj;
 				mIns[at + 2].mAddress = naddr;
@@ -24827,6 +24828,12 @@ bool NativeCodeBasicBlock::MoveStoreXUp(int at)
 				if (mIns[at - 1].mMode == ASMIM_ABSOLUTE && mIns[at - 1].mLinkerObject == mIns[at + n].mLinkerObject && mIns[at - 1].mAddress == mIns[at + n].mAddress)
 					return done;
 				else if ((mIns[at - 1].mMode == ASMIM_ABSOLUTE_X || mIns[at - 1].mMode == ASMIM_ABSOLUTE_Y) && mIns[at - 1].mLinkerObject == mIns[at + n].mLinkerObject)
+					return done;
+			}
+
+			if (mIns[at - 1].mMode == ASMIM_ABSOLUTE_X && inc)
+			{
+				if (mIns[at - 1].mLinkerObject && mIns[at - 1].mLinkerObject->mSize > 255)
 					return done;
 			}
 
@@ -33758,6 +33765,26 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 2].mMode = ASMIM_ABSOLUTE_X;
 						progress = true;
 					}
+
+					else if (
+						(mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
+						mIns[i + 1].mType == ASMIT_STX &&
+						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[i + 0].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
+						mIns[i + 1].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					}
+					else if (
+						(mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
+						mIns[i + 1].mType == ASMIT_STY &&
+						mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[i + 0].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
+						mIns[i + 1].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					}
+
 					else if (
 						mIns[i + 0].mType == ASMIT_LDA && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
 						mIns[i + 1].mType == ASMIT_STA && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1], true) &&
@@ -38322,7 +38349,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "setpair");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test");
 
 #if 1
 	int		step = 0;
