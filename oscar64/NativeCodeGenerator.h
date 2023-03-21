@@ -497,7 +497,7 @@ public:
 	bool ReduceLocalYPressure(void);
 	bool ReduceLocalXPressure(void);
 
-	bool CombineZPPair(int at, int r0, int r1, bool use0, bool use1);
+	bool CombineZPPair(int at, int r0, int r1, bool use0, bool use1, bool & swap);
 	bool RemoveDoubleZPStore(void);
 
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);

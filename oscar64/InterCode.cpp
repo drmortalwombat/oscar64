@@ -12715,6 +12715,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 				mInstructions[i + 1]->mCode = IC_BINARY_OPERATOR;
 				mInstructions[i + 1]->mOperator = IA_AND;
+				mInstructions[i + 1]->mNumOperands = 2;
 				mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
 				mInstructions[i + 1]->mSrc[1].mType = IT_INT16;
 				mInstructions[i + 1]->mSrc[1].mTemp = -1;

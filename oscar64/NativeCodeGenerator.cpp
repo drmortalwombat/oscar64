@@ -16509,7 +16509,7 @@ bool NativeCodeBasicBlock::ReduceLocalXPressure(void)
 	return changed;
 }
 
-bool NativeCodeBasicBlock::CombineZPPair(int at, int r0, int r1, bool use0, bool use1) 
+bool NativeCodeBasicBlock::CombineZPPair(int at, int r0, int r1, bool use0, bool use1, bool & used1) 
 {
 	bool	changed = false;
 
@@ -16560,6 +16560,8 @@ bool NativeCodeBasicBlock::CombineZPPair(int at, int r0, int r1, bool use0, bool
 	}
 
 	bool	valid0 = true, valid1 = true;
+
+	used1 = use1;
 
 	i = at;
 	while (i < mIns.Size() && valid0 && valid1)
@@ -16618,25 +16620,45 @@ bool NativeCodeBasicBlock::RemoveDoubleZPStore(void)
 	{
 		mVisited = true;
 
+		bool	swap;
+
 		for (int i = 0; i + 1 < mIns.Size(); i++)
 		{
 			if (mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 1].mAddress)
 			{
-				if (CombineZPPair(i + 2, mIns[i + 0].mAddress, mIns[i + 1].mAddress, false, false))
+				if (CombineZPPair(i + 2, mIns[i + 0].mAddress, mIns[i + 1].mAddress, false, false, swap))
+				{
+					if (swap)
+					{
+						int a = mIns[i + 0].mAddress; mIns[i + 0].mAddress = mIns[i + 1].mAddress; mIns[i + 1].mAddress = a;
+					}
 					changed = true;
+				}
 			}
 			else if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 				     mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 1].mAddress)
 			{
-				if (CombineZPPair(i + 2, mIns[i + 0].mAddress, mIns[i + 1].mAddress, false, false))
+				if (CombineZPPair(i + 2, mIns[i + 0].mAddress, mIns[i + 1].mAddress, false, false, swap))
+				{
+					if (swap)
+					{
+						int a = mIns[i + 0].mAddress; mIns[i + 0].mAddress = mIns[i + 1].mAddress; mIns[i + 1].mAddress = a;
+					}
 					changed = true;
+				}
 			}
 			else if (mIns[i + 0].mType == ASMIT_STY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 				     mIns[i + 1].mType == ASMIT_STY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 1].mAddress)
 			{
-				if (CombineZPPair(i + 2, mIns[i + 0].mAddress, mIns[i + 1].mAddress, false, false))
+				if (CombineZPPair(i + 2, mIns[i + 0].mAddress, mIns[i + 1].mAddress, false, false, swap))
+				{
+					if (swap)
+					{
+						int a = mIns[i + 0].mAddress; mIns[i + 0].mAddress = mIns[i + 1].mAddress; mIns[i + 1].mAddress = a;
+					}
 					changed = true;
+				}
 			}
 		}
 
@@ -18519,7 +18541,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					}
 				}
 				
-				if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE)
+				if (!changed && mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE)
 				{
 					if (lblock->mIns[ls - 2].mType == ASMIT_STY && lblock->mIns[ls - 2].mMode == ASMIM_ZERO_PAGE && lblock->mIns[ls - 2].mAddress == mIns[0].mAddress && lblock->mIns[ls - 1].mType == ASMIT_CPY)
 					{
@@ -19893,6 +19915,7 @@ bool NativeCodeBasicBlock::BypassRegisterConditionBlock(void)
 								changed = true;
 								mExitRequiredRegs -= CPU_REG_A;
 								mExitRequiredRegs += CPU_REG_X;
+								cblock->mEntryRequiredRegs += CPU_REG_X;
 							}
 						}
 						else if (i >= 0 && mIns[i].mType == ASMIT_TYA && !(mIns[i].mLive & LIVE_CPU_REG_Z))
@@ -19904,6 +19927,7 @@ bool NativeCodeBasicBlock::BypassRegisterConditionBlock(void)
 								changed = true;
 								mExitRequiredRegs -= CPU_REG_A;
 								mExitRequiredRegs += CPU_REG_Y;
+								cblock->mEntryRequiredRegs += CPU_REG_Y;
 							}
 						}
 					}
@@ -23577,11 +23601,21 @@ bool NativeCodeBasicBlock::MoveLoadStoreOutOfXYRangeUp(int at)
 				j--;
 			mIns.Insert(j, mIns[at + 2]);
 			mIns.Insert(j, mIns[at + 2]);
+			int live = 0;
+
 			if (j > 0)
+				live = mIns[j - 1].mLive;
+			else
 			{
-				mIns[j].mLive |= mIns[j - 1].mLive;
-				mIns[j + 1].mLive |= mIns[j - 1].mLive;
+				if (mEntryRequiredRegs[CPU_REG_X])
+					live |= LIVE_CPU_REG_X;
+				if (mEntryRequiredRegs[CPU_REG_Y])
+					live |= LIVE_CPU_REG_Y;
 			}
+
+			mIns[j].mLive |= live;
+			mIns[j + 1].mLive |= live;
+
 			mIns.Remove(at + 3);
 			mIns.Remove(at + 3);
 
