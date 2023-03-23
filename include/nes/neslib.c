@@ -94,6 +94,24 @@ int main(void)
 	ppu.scroll = 0x00;
 	ppu.oamaddr = 0x00;
 
+	//	detech PAL or NTSC based on Blarg code.
+
+	ppu_wait_nmi();
+	
+	__asm {
+		ldx #52				
+		ldy #24
+	system_check_wait:
+		dex
+		bne system_check_wait
+		dey
+		bne system_check_wait
+
+		lda $2002
+		and #$80
+		sta NTSC_MODE
+	}
+
 	nes_game();
 
 	return 0;
@@ -266,7 +284,7 @@ void oam_clear(void)
 {
 	char i = 0;
 	do {
-		OAM_BUF[i] = 0;
+		OAM_BUF[i] = 255;	//	off screen not top corner.
 		i += 4;
 	} while (i);
 }
