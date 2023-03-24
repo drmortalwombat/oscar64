@@ -71,8 +71,12 @@ struct NativeRegisterSum16Info
 struct NativeSimpleSubExpression
 {
 	AsmInsType						mType;
+	AsmInsMode						mMode;
 	int								mValue;
 	NativeCodeInstruction		*	mSrc, * mDst, * mOp;
+	int								mIndex;
+
+	bool MayBeChangedBy(const NativeCodeInstruction& ins);
 };
 
 struct NativeSimpleSubExpressions

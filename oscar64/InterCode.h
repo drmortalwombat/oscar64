@@ -438,7 +438,7 @@ public:
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
 	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, FastNumberSet& fsingle);
-	void PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse);
+	void PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse, bool checkloops);
 	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars);
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, FastNumberSet& fsingle);
 	bool EliminateDeadBranches(void);
@@ -599,7 +599,7 @@ protected:
 	void BuildTraces(bool expand, bool dominators = true, bool compact = false);
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);
-	void TempForwarding(bool reverse = false);
+	void TempForwarding(bool reverse = false, bool checkloops = false);
 	void RemoveUnusedInstructions(void);
 	bool GlobalConstantPropagation(void);
 	bool PropagateNonLocalUsedTemps(void);

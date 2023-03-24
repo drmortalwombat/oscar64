@@ -823,6 +823,26 @@ InterOperator InvertRelational(InterOperator oper)
 
 }
 
+static bool IsStrictUnsignedRelational(InterOperator oper)
+{
+	return
+		oper == IA_CMPLEU ||
+		oper == IA_CMPGEU ||
+		oper == IA_CMPLU ||
+		oper == IA_CMPGU;
+}
+
+static bool IsSignedRelational(InterOperator oper)
+{
+	return
+		oper == IA_CMPEQ ||
+		oper == IA_CMPNE || 
+		oper == IA_CMPLES ||
+		oper == IA_CMPGES ||
+		oper == IA_CMPLS ||
+		oper == IA_CMPGS;
+}
+
 InterOperator MirrorRelational(InterOperator oper)
 {
 	switch (oper)
@@ -7343,7 +7363,7 @@ bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigne
 	return changed;
 }
 
-void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse)
+void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse, bool checkloops)
 {
 	int i;
 
@@ -7361,6 +7381,38 @@ void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwa
 					if (mLocalModifiedTemps[i])
 						mMergeForwardingTable.Destroy(i);
 				}
+			}
+			else if (mLoopPrefix && checkloops)
+			{
+				GrowingArray<InterCodeBasicBlock*> body(nullptr);
+				body.Push(this);
+				bool	innerLoop = true;
+
+				for (int i = 0; i < mEntryBlocks.Size(); i++)
+				{
+					if (mEntryBlocks[i] != mLoopPrefix)
+					{
+						if (!mEntryBlocks[i]->CollectLoopBody(this, body))
+							innerLoop = false;
+					}
+				}
+
+				if (innerLoop)
+				{
+					mMergeForwardingTable = forwardingTable;
+					assert(mMergeForwardingTable.Size() == mLocalModifiedTemps.Size());
+
+					for (int j = 0; j < body.Size(); j++)
+					{
+						for (int i = 0; i < mLocalModifiedTemps.Size(); i++)
+						{
+							if (body[j]->mLocalModifiedTemps[i])
+								mMergeForwardingTable.Destroy(i);
+						}
+					}
+				}
+				else
+					mMergeForwardingTable.SetSize(forwardingTable.Size());
 			}
 			else
 				mMergeForwardingTable.SetSize(forwardingTable.Size());
@@ -7385,8 +7437,8 @@ void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwa
 			mInstructions[i]->PerformTempForwarding(mMergeForwardingTable, reverse);
 		}
 
-		if (mTrueJump) mTrueJump->PerformTempForwarding(mMergeForwardingTable, reverse);
-		if (mFalseJump) mFalseJump->PerformTempForwarding(mMergeForwardingTable, reverse);
+		if (mTrueJump) mTrueJump->PerformTempForwarding(mMergeForwardingTable, reverse, checkloops);
+		if (mFalseJump) mFalseJump->PerformTempForwarding(mMergeForwardingTable, reverse, checkloops);
 	}
 }
 
@@ -13149,6 +13201,33 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
 				changed = true;
 			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 0]->mDst.mIntConst >= 0 &&
+				mInstructions[i + 0]->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mIntConst < 32767 &&
+				(IsSignedRelational(mInstructions[i + 1]->mOperator) ||	mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue >= 0) &&
+				mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? 0 : -32768) &&
+				mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst <= 32767)
+			{
+				mInstructions[i + 1]->mSrc[0].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 0]->mSrc[1].mFinal = false;
+				changed = true;
+			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SUB && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mType == IT_INT16 &&
+				mInstructions[i + 0]->mDst.mIntConst >= 0 &&
+				mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? -32768 : 0) &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? -32768 : 0) &&
+				mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst <= 32767)
+			{
+				mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 0]->mSrc[1].mFinal = false;
+				changed = true;
+			}
 
 #if 1
 			if (i + 2 < mInstructions.Size() &&
@@ -14419,7 +14498,7 @@ void InterCodeProcedure::WarnUsedUndefinedVariables(void)
 }
 
 
-void InterCodeProcedure::TempForwarding(bool reverse)
+void InterCodeProcedure::TempForwarding(bool reverse, bool checkloops)
 {
 	int	numTemps = mTemporaries.Size();
 
@@ -14427,6 +14506,15 @@ void InterCodeProcedure::TempForwarding(bool reverse)
 
 	ValueSet		valueSet;
 	FastNumberSet	tvalidSet(numTemps);
+
+	if (checkloops)
+	{
+		BuildLoopPrefix();
+
+		ResetEntryBlocks();
+		ResetVisited();
+		mEntryBlock->CollectEntryBlocks(nullptr);
+	}
 
 	//
 	// Now remove needless temporary moves, that apear due to
@@ -14436,10 +14524,14 @@ void InterCodeProcedure::TempForwarding(bool reverse)
 
 	mTempForwardingTable.Reset();
 	ResetVisited();
-	mEntryBlock->PerformTempForwarding(mTempForwardingTable, reverse);
-
-	DisassembleDebug("temp forwarding");
+	mEntryBlock->PerformTempForwarding(mTempForwardingTable, reverse, checkloops);
+	
+	if (checkloops)
+		DisassembleDebug("loop temp forwarding");
+	else
+		DisassembleDebug("temp forwarding");
 }
+
 
 void InterCodeProcedure::RemoveUnusedInstructions(void)
 {
@@ -14974,7 +15066,7 @@ void InterCodeProcedure::Close(void)
 	mTempForwardingTable.SetSize(numTemps);
 
 	ResetVisited();
-	mEntryBlock->PerformTempForwarding(mTempForwardingTable, false);
+	mEntryBlock->PerformTempForwarding(mTempForwardingTable, false, false);
 
 	DisassembleDebug("temp forwarding 2");
 
@@ -15507,6 +15599,8 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 	DisassembleDebug("PushMoveOutOfLoop");
+
+	TempForwarding(false, true);
 
 #endif
 
