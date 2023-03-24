@@ -110,6 +110,7 @@ A list of source files can be provided.
 * nes_mmc1 : Nintendo entertainment system, MMC1, 256K PROM, 128K CROM
 * nes_mmc3 : Nintendo entertainment system, MMC3, 512K PROM, 256K CROM
 * atari : Atari 8bit systems, (0x2000..0xbc00)
+* x16 : Commander X16, (0x0800..0x9f00)
 
 ### Files generated
 

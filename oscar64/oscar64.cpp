@@ -308,6 +308,12 @@ int main2(int argc, const char** argv)
 			compiler->mTargetMachine = TMACH_PLUS4;
 			compiler->AddDefine(Ident::Unique("__PLUS4__"), "1");
 		}
+		else if (!strcmp(targetMachine, "x16"))
+		{
+			strcpy_s(basicStart, "0x0801");
+			compiler->mTargetMachine = TMACH_X16;
+			compiler->AddDefine(Ident::Unique("__X16__"), "1");
+		}
 		else if (!strcmp(targetMachine, "nes"))
 		{
 			compiler->mTargetMachine = TMACH_NES;

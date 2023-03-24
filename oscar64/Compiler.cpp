@@ -67,6 +67,22 @@ bool Compiler::ParseSource(void)
 		BC_REG_TMP = 0xa5;
 		BC_REG_TMP_SAVED = 0xc5;
 	}
+	else if (mTargetMachine == TMACH_X16)
+	{
+		BC_REG_WORK_Y = 0x22;
+		BC_REG_WORK = 0x23;
+		BC_REG_FPARAMS = 0x2d;
+		BC_REG_FPARAMS_END = 0x39;
+
+		BC_REG_IP = 0x39;
+		BC_REG_ACCU = 0x3b;
+		BC_REG_ADDR = 0x3f;
+		BC_REG_STACK = 0x43;
+		BC_REG_LOCALS = 0x45;
+
+		BC_REG_TMP = 0x47;
+		BC_REG_TMP_SAVED = 0x67;
+	}
 	else if (mCompilerOptions & COPT_EXTENDED_ZERO_PAGE)
 	{
 		BC_REG_FPARAMS = 0x0d;
@@ -95,6 +111,7 @@ bool Compiler::ParseSource(void)
 	case TMACH_PET_16K:
 	case TMACH_VIC20_16K:
 	case TMACH_VIC20_24K:
+	case TMACH_X16:
 		mCompilationUnits->mSectionStack->mSize = 1024;
 		mCompilationUnits->mSectionHeap->mSize = 1024;
 		break;
@@ -248,6 +265,7 @@ bool Compiler::GenerateCode(void)
 			switch (mTargetMachine)
 			{
 			case TMACH_C64:
+			case TMACH_X16:
 				if (mCompilerOptions & COPT_NATIVE)
 					regionStartup = mLinker->AddRegion(identStartup, 0x0801, 0x0880);
 				else
@@ -343,6 +361,7 @@ bool Compiler::GenerateCode(void)
 			switch (mTargetMachine)
 			{
 			case TMACH_C64:
+			case TMACH_X16:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
 				break;
 			case TMACH_C128:
@@ -402,6 +421,9 @@ bool Compiler::GenerateCode(void)
 				case TMACH_C64:
 					regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
 					break;
+				case TMACH_X16:
+					regionMain = mLinker->AddRegion(identMain, 0x0a00, 0x9f00);
+					break;
 				case TMACH_C128:
 					regionMain = mLinker->AddRegion(identMain, 0x1e00, 0xfe00);
 					break;
@@ -446,6 +468,9 @@ bool Compiler::GenerateCode(void)
 				{
 				case TMACH_C64:
 					regionMain = mLinker->AddRegion(identMain, 0x0880, 0xa000);
+					break;
+				case TMACH_X16:
+					regionMain = mLinker->AddRegion(identMain, 0x0880, 0x9f00);
 					break;
 				case TMACH_C128:
 					regionMain = mLinker->AddRegion(identMain, 0x1d00, 0xfe00);

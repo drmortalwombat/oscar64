@@ -35,7 +35,13 @@ loop:
 		sty accu + 2
 		lda #0
 		sta accu + 3		
-
+#elif defined(__X16__)
+		jsr $ffde
+		sta accu + 0
+		stx accu + 1
+		sty accu + 2
+		lda #0
+		sta accu + 3
 #else
 		lda $a2
 		sta accu + 0
