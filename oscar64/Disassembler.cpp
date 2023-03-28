@@ -691,6 +691,12 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 				i++;
 			if (i < proc->mLinkerObject->mRanges.Size())
 				fprintf(file, ".%s:\n", proc->mLinkerObject->mRanges[i].mIdent->mString);
+
+			i = 0;
+			while (i < proc->mLinkerObject->mCodeLocations.Size() && iip - start != proc->mLinkerObject->mCodeLocations[i].mStart)
+				i++;
+			if (i < proc->mLinkerObject->mCodeLocations.Size())
+				fprintf(file, ";%4d, \"%s\"\n", proc->mLinkerObject->mCodeLocations[i].mLocation.mLine, proc->mLinkerObject->mCodeLocations[i].mLocation.mFileName);
 		}
 
 		if (bank >= 0)

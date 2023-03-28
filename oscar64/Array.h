@@ -547,6 +547,17 @@ public:
 		return -1;
 	}
 
+	int IndexOrPush(const T& t)
+	{
+		for (int i = 0; i < size; i++)
+			if (array[i] == t)
+				return i;
+		int s = size;
+		Grow(size + 1, false);
+		array[s] = t;
+		return s;
+	}
+
 	bool Contains(const T& t) const
 	{
 		for (int i = 0; i < size; i++)

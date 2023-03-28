@@ -111,16 +111,18 @@ static const uint32 NICF_USE_WORKREGS = 0x00020000;
 class NativeCodeInstruction
 {
 public:
-	NativeCodeInstruction(AsmInsType type = ASMIT_INV, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER, int param = 0);
-	NativeCodeInstruction(AsmInsType type, const NativeCodeInstruction & addr);
+	NativeCodeInstruction(void);
+	NativeCodeInstruction(const InterInstruction * ins, AsmInsType type, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER, int param = 0);
+	NativeCodeInstruction(const InterInstruction* ins, AsmInsType type, const NativeCodeInstruction & addr);
 
-	AsmInsType		mType;
-	AsmInsMode		mMode;
+	AsmInsType				mType;
+	AsmInsMode				mMode;
 
-	int				mAddress, mParam;
-	uint32			mFlags;
-	uint32			mLive;
-	LinkerObject*	mLinkerObject;
+	int						mAddress, mParam;
+	uint32					mFlags;
+	uint32					mLive;
+	LinkerObject		*	mLinkerObject;
+	const InterInstruction	*	mIns;
 
 	void CopyMode(const NativeCodeInstruction& ins);
 
@@ -191,10 +193,13 @@ public:
 	~NativeCodeBasicBlock(void);
 
 	ExpandingArray<uint8>				mCode;
+	ExpandingArray<CodeLocation>		mCodeLocations;
+
 	int									mIndex;
 
 	NativeCodeBasicBlock* mTrueJump, * mFalseJump, * mFromJump;
 	AsmInsType							mBranch;
+	const InterInstruction*				mBranchIns;
 
 	ExpandingArray<NativeCodeInstruction>	mIns;
 	ExpandingArray<LinkerReference>	mRelocations;
@@ -213,7 +218,7 @@ public:
 
 	ExpandingArray<NativeRegisterSum16Info>	mRSumInfos;
 
-	NativeCodeInstruction DecodeNative(LinkerObject * lobj, int& offset) const;
+	NativeCodeInstruction DecodeNative(const InterInstruction* ins, LinkerObject * lobj, int& offset) const;
 
 	int PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int offset);
 	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset);
@@ -230,7 +235,7 @@ public:
 
 	void CopyCode(NativeCodeProcedure* proc, uint8* target);
 	void Assemble(void);
-	void Close(NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
+	void Close(const InterInstruction * ins, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump, AsmInsType branch);
 
 	void PrependInstruction(const NativeCodeInstruction& ins);
 
@@ -278,10 +283,11 @@ public:
 	NativeCodeBasicBlock* BuildSingleEntry(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
 	NativeCodeBasicBlock* BuildSingleExit(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
 
+	void PutLocation(const Location& loc);
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
 
-	void CheckFrameIndex(int & reg, int & index, int size, int treg = 0);
+	void CheckFrameIndex(const InterInstruction * ins, int & reg, int & index, int size, int treg = 0);
 	void LoadValueToReg(InterCodeProcedure* proc, const InterInstruction * ins, int reg, const NativeCodeInstruction * ainsl, const NativeCodeInstruction* ainsh);
 	void LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction * ins, InterType type, int reg);
 
@@ -311,9 +317,9 @@ public:
 	void CallAssembler(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 
-	void ShiftRegisterLeft(InterCodeProcedure* proc, int reg, int shift);
-	void ShiftRegisterLeftByte(InterCodeProcedure* proc, int reg, int shift);
-	void ShiftRegisterLeftFromByte(InterCodeProcedure* proc, int reg, int shift, int max);
+	void ShiftRegisterLeft(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift);
+	void ShiftRegisterLeftByte(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift);
+	void ShiftRegisterLeftFromByte(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift, int max);
 	int ShortMultiply(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins, int index, int mul);
 	int ShortSignedDivide(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins, const InterInstruction* sins, int mul);
 
@@ -415,7 +421,7 @@ public:
 	bool JoinTAYARange(int from, int to);
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
 	bool MergeXYSameValue(int from);
-	void InsertLoadYImmediate(int at, int val);
+	void InsertLoadYImmediate(const InterInstruction * iins, int at, int val);
 	int RetrieveAValue(int at) const;
 	int RetrieveXValue(int at) const;
 	int RetrieveYValue(int at) const;
@@ -613,6 +619,8 @@ class NativeCodeProcedure
 
 		ExpandingArray<LinkerReference>	mRelocations;
 		ExpandingArray< NativeCodeBasicBlock*>	 mBlocks;
+		ExpandingArray<CodeLocation>		mCodeLocations;
+
 
 		void Compile(InterCodeProcedure* proc);
 		void Optimize(void);

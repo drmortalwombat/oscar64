@@ -828,7 +828,7 @@ bool Compiler::BuildLZO(const char* targetPath)
 
 bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 {
-	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200];
+	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200], dbjPath[200];
 
 	strcpy_s(prgPath, targetPath);
 	int		i = strlen(prgPath);
@@ -842,12 +842,14 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	strcpy_s(lblPath, prgPath);
 	strcpy_s(intPath, prgPath);
 	strcpy_s(bcsPath, prgPath);
+	strcpy_s(dbjPath, prgPath);
 
 	strcat_s(mapPath, "map");
 	strcat_s(asmPath, "asm");
 	strcat_s(lblPath, "lbl");
 	strcat_s(intPath, "int");
 	strcat_s(bcsPath, "bcs");
+	strcat_s(dbjPath, "dbj");
 
 	if (mCompilerOptions & COPT_TARGET_PRG)
 	{
@@ -927,6 +929,9 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 		printf("Writing <%s>\n", intPath);
 	mInterCodeModule->Disassemble(intPath);
 
+	if (mCompilerOptions & COPT_DEBUGINFO)
+		WriteDbjFile(dbjPath);
+
 	if (!(mCompilerOptions & COPT_NATIVE))
 	{
 		if (mCompilerOptions & COPT_VERBOSE)
@@ -971,4 +976,131 @@ int Compiler::ExecuteCode(bool profile)
 	}
 
 	return ecode;
+}
+
+bool Compiler::WriteDbjFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		fprintf(file, "{");
+		mLinker->WriteDbjFile(file);
+		fprintf(file, ",\n");
+
+		ExpandingArray<Declaration*>	types;
+
+		fprintf(file, "\tvariables: [\n");
+		bool	first = true;
+		for (int i = 0; i < mInterCodeModule->mGlobalVars.Size(); i++)
+		{
+			InterVariable* v(mInterCodeModule->mGlobalVars[i]);
+			if (v->mLinkerObject && v->mIdent && v->mDeclaration)
+			{
+				if (!first)
+					fprintf(file, ",\n");
+				first = false;
+
+				fprintf(file, "\t\t{name: \"%s\", start: %d, end: %d, typeid: %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+			}
+		}
+		fprintf(file, "\t],\n");
+
+		fprintf(file, "\tfunctions: [\n");
+		first = true;
+		for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
+		{
+			InterCodeProcedure* p(mInterCodeModule->mProcedures[i]);
+			if (p->mLinkerObject && p->mIdent && p->mDeclaration)
+			{
+				if (!first)
+					fprintf(file, ",\n");
+				first = false;
+
+				fprintf(file, "\t\t{name: \"%s\", start: %d, end: %d, typeid: %d, source: \"%s\", line: %d, lines: [\n", 
+					p->mIdent->mString, p->mLinkerObject->mAddress, p->mLinkerObject->mAddress + p->mLinkerObject->mSize, types.IndexOrPush(p->mDeclaration->mBase),
+					p->mLocation.mFileName, p->mLocation.mLine);
+
+				bool lfirst = true;
+				LinkerObject* lo = p->mLinkerObject;
+
+				for (int j = 0; j < lo->mCodeLocations.Size(); j++)
+				{
+					if (!lfirst)
+						fprintf(file, ",\n");
+					lfirst = false;
+
+					fprintf(file, "\t\t\t{start: %d, end: %d, source: \"%s\", line: %d}",
+						lo->mCodeLocations[j].mStart + lo->mAddress,
+						lo->mCodeLocations[j].mEnd + lo->mAddress,
+						lo->mCodeLocations[j].mLocation.mFileName,
+						lo->mCodeLocations[j].mLocation.mLine);
+				}
+
+				fprintf(file, "]}");
+			}
+		}
+		fprintf(file, "\t],\n");
+
+		first = true;
+		fprintf(file, "\ttypes: [\n");
+		for (int i = 0; i < types.Size(); i++)
+		{
+			if (!first)
+				fprintf(file, ",\n");
+			first = false;
+
+			Declaration* dec = types[i];
+			switch (dec->mType)
+			{
+			case DT_TYPE_INTEGER:
+				if (dec->mFlags & DTF_SIGNED)
+					fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"int\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				else
+					fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"uint\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				break;
+			case DT_TYPE_FLOAT:
+				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"float\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				break;
+			case DT_TYPE_BOOL:
+				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"bool\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				break;
+			case DT_TYPE_ARRAY:
+				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"array\", eid: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				break;
+			case DT_TYPE_POINTER:
+				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"ptr\", eid: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				break;
+			case DT_TYPE_STRUCT:
+			{
+				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"struct\", members: [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+					bool	tfirst = true;
+					Declaration* mdec = dec->mParams;
+					while (mdec)
+					{
+						if (!tfirst)
+							fprintf(file, ",\n");
+						tfirst = false;
+
+						fprintf(file, "\t\t\t{name: \"%s\", offset: %d, typeid: %d}", mdec->mIdent->mString, mdec->mOffset, types.IndexOrPush(mdec->mBase));
+
+						mdec = mdec->mNext;
+					}
+					fprintf(file, "]}");
+				}
+				break;
+			default:
+				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+			}
+		}
+
+		fprintf(file, "\t]");
+
+		fprintf(file, "}");
+		fclose(file);
+
+		return true;
+	}
+
+	return false;
 }

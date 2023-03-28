@@ -9,6 +9,8 @@
 #include "Ident.h"
 #include "Linker.h"
 
+class Declaration;
+
 enum InterCode
 {
 	IC_NONE,
@@ -242,9 +244,10 @@ public:
 	int								mNumReferences;
 	const Ident					*	mIdent;
 	LinkerObject				*	mLinkerObject;
+	Declaration					*	mDeclaration;
 
 	InterVariable(void)
-		: mUsed(false), mAliased(false), mTemp(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1)
+		: mUsed(false), mAliased(false), mTemp(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1), mDeclaration(nullptr)
 	{
 	}
 };
@@ -572,6 +575,7 @@ public:
 	const Ident						*	mIdent, * mSection;
 
 	LinkerObject					*	mLinkerObject, * mSaveTempsLinkerObject;
+	Declaration						*	mDeclaration;
 
 	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
 	~InterCodeProcedure(void);

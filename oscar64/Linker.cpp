@@ -83,6 +83,13 @@ void LinkerObject::AddData(const uint8* data, int size)
 	memcpy(mData, data, size);
 }
 
+void LinkerObject::AddLocations(const ExpandingArray<CodeLocation>& locations)
+{
+	for (int i = 0; i < locations.Size(); i++)
+		mCodeLocations.Push(locations[i]);
+}
+
+
 void LinkerObject::EnsureSpace(int offset, int size)
 {
 	if (offset + size > mSize)
@@ -1083,6 +1090,36 @@ bool Linker::WriteMlbFile(const char* filename, TargetMachine machine)
 	}
 	else
 		return false;
+}
+
+bool Linker::WriteDbjFile(FILE* file)
+{
+	fprintf(file, "\tmemory: [");
+
+	bool first = true;
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* obj = mObjects[i];
+
+		if (obj->mFlags & LOBJF_REFERENCED)
+		{
+			if (obj->mIdent)
+			{
+				if (!first)
+					fprintf(file, ",\n");
+				first = false;
+
+				fprintf(file, "\t\t{name: \"%s\", start: %d, end: %d, type: \"%s\", source: \"%s\", line: %d }", 
+					obj->mIdent->mString, obj->mAddress, obj->mAddress + obj->mSize, LinkerObjectTypeNames[obj->mType],
+					obj->mLocation.mFileName, obj->mLocation.mLine);
+			}
+		}
+	}
+
+	fprintf(file, "]");
+
+
+	return true;
 }
 
 bool Linker::WriteLblFile(const char* filename)

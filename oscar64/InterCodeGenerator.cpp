@@ -341,6 +341,7 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 			var->mLinkerObject->mFlags |= LOBJF_ZEROPAGE;
 
 		var->mIndex = mod->mGlobalVars.Size();
+		var->mDeclaration = dec;
 		mod->mGlobalVars.Push(var);
 
 		dec->mVarIndex = var->mIndex;
@@ -3667,6 +3668,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	dec->mVarIndex = proc->mID;
 	dec->mLinkerObject = proc->mLinkerObject;
 	proc->mNumLocals = dec->mNumVars;
+	proc->mDeclaration = dec;
 
 	if (dec->mFlags & DTF_NATIVE)
 		proc->mNativeProcedure = true;

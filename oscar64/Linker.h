@@ -159,6 +159,13 @@ public:
 	int				mOffset, mSize;
 };
 
+struct CodeLocation
+{
+	Location	mLocation;
+	int			mStart, mEnd;
+};
+
+
 class LinkerObject
 {
 public:
@@ -179,11 +186,13 @@ public:
 	LinkerSection					*	mStackSection;
 
 	ExpandingArray<LinkerObjectRange>	mRanges;
+	ExpandingArray<CodeLocation>		mCodeLocations;
 
 	LinkerObject(void);
 	~LinkerObject(void);
 
 	void AddData(const uint8* data, int size);
+	void AddLocations(const ExpandingArray<CodeLocation>& locations);
 	uint8* AddSpace(int size);
 	void EnsureSpace(int offset, int size);
 
@@ -241,6 +250,7 @@ public:
 	bool WriteBinFile(const char* filename);
 	bool WriteNesFile(const char* filename, TargetMachine machine);
 	bool WriteMlbFile(const char* filename, TargetMachine machine);
+	bool WriteDbjFile(FILE * file);
 
 	int TranslateMlbAddress(int address, int bank, TargetMachine machine);
 

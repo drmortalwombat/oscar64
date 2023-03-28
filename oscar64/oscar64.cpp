@@ -211,6 +211,10 @@ int main2(int argc, const char** argv)
 					else
 						compiler->AddDefine(Ident::Unique(def), "");
 				}
+				else if (arg[1] == 'g')
+				{
+					compiler->mCompilerOptions |= COPT_DEBUGINFO;
+				}
 				else if (arg[1] == 'v')
 				{
 					compiler->mCompilerOptions |= COPT_VERBOSE;
@@ -442,7 +446,7 @@ int main2(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
+		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
 
 		return 0;
 	}

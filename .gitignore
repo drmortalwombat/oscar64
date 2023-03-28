@@ -351,3 +351,4 @@ make/oscar64
 *.exe
 *.d64
 *.d64
+*.dbj
