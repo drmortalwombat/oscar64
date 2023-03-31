@@ -1094,7 +1094,7 @@ bool Linker::WriteMlbFile(const char* filename, TargetMachine machine)
 
 bool Linker::WriteDbjFile(FILE* file)
 {
-	fprintf(file, "\tmemory: [");
+	fprintf(file, "\t\"memory\": [");
 
 	bool first = true;
 	for (int i = 0; i < mObjects.Size(); i++)
@@ -1109,7 +1109,7 @@ bool Linker::WriteDbjFile(FILE* file)
 					fprintf(file, ",\n");
 				first = false;
 
-				fprintf(file, "\t\t{name: \"%s\", start: %d, end: %d, type: \"%s\", source: \"%s\", line: %d }", 
+				fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"type\": \"%s\", \"source\": \"%s\", \"line\": %d }", 
 					obj->mIdent->mString, obj->mAddress, obj->mAddress + obj->mSize, LinkerObjectTypeNames[obj->mType],
 					obj->mLocation.mFileName, obj->mLocation.mLine);
 			}

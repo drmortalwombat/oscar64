@@ -990,7 +990,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 
 		ExpandingArray<Declaration*>	types;
 
-		fprintf(file, "\tvariables: [\n");
+		fprintf(file, "\t\"variables\": [\n");
 		bool	first = true;
 		for (int i = 0; i < mInterCodeModule->mGlobalVars.Size(); i++)
 		{
@@ -1001,12 +1001,12 @@ bool Compiler::WriteDbjFile(const char* filename)
 					fprintf(file, ",\n");
 				first = false;
 
-				fprintf(file, "\t\t{name: \"%s\", start: %d, end: %d, typeid: %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+				fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
 			}
 		}
 		fprintf(file, "\t],\n");
 
-		fprintf(file, "\tfunctions: [\n");
+		fprintf(file, "\t\"functions\": [\n");
 		first = true;
 		for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
 		{
@@ -1017,7 +1017,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 					fprintf(file, ",\n");
 				first = false;
 
-				fprintf(file, "\t\t{name: \"%s\", start: %d, end: %d, typeid: %d, source: \"%s\", line: %d, lines: [\n", 
+				fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d, \"source\": \"%s\", \"line\": %d, \"lines\": [\n", 
 					p->mIdent->mString, p->mLinkerObject->mAddress, p->mLinkerObject->mAddress + p->mLinkerObject->mSize, types.IndexOrPush(p->mDeclaration->mBase),
 					p->mLocation.mFileName, p->mLocation.mLine);
 
@@ -1030,7 +1030,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 						fprintf(file, ",\n");
 					lfirst = false;
 
-					fprintf(file, "\t\t\t{start: %d, end: %d, source: \"%s\", line: %d}",
+					fprintf(file, "\t\t\t{\"start\": %d, \"end\": %d, \"source\": \"%s\", \"line\": %d}",
 						lo->mCodeLocations[j].mStart + lo->mAddress,
 						lo->mCodeLocations[j].mEnd + lo->mAddress,
 						lo->mCodeLocations[j].mLocation.mFileName,
@@ -1043,7 +1043,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 		fprintf(file, "\t],\n");
 
 		first = true;
-		fprintf(file, "\ttypes: [\n");
+		fprintf(file, "\t\"types\": [\n");
 		for (int i = 0; i < types.Size(); i++)
 		{
 			if (!first)
@@ -1055,25 +1055,25 @@ bool Compiler::WriteDbjFile(const char* filename)
 			{
 			case DT_TYPE_INTEGER:
 				if (dec->mFlags & DTF_SIGNED)
-					fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"int\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+					fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"int\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
 				else
-					fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"uint\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+					fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"uint\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
 				break;
 			case DT_TYPE_FLOAT:
-				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"float\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"float\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
 				break;
 			case DT_TYPE_BOOL:
-				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"bool\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"bool\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
 				break;
 			case DT_TYPE_ARRAY:
-				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"array\", eid: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"array\", \"eid\": %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_POINTER:
-				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"ptr\", eid: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ptr\", eid: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_STRUCT:
 			{
-				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d, type: \"struct\", members: [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"struct\",\" members\": [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
 					bool	tfirst = true;
 					Declaration* mdec = dec->mParams;
 					while (mdec)
@@ -1082,7 +1082,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 							fprintf(file, ",\n");
 						tfirst = false;
 
-						fprintf(file, "\t\t\t{name: \"%s\", offset: %d, typeid: %d}", mdec->mIdent->mString, mdec->mOffset, types.IndexOrPush(mdec->mBase));
+						fprintf(file, "\t\t\t{\"name\": \"%s\", \"offset\": %d, \"typeid\": %d}", mdec->mIdent->mString, mdec->mOffset, types.IndexOrPush(mdec->mBase));
 
 						mdec = mdec->mNext;
 					}
@@ -1090,7 +1090,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 				}
 				break;
 			default:
-				fprintf(file, "\t\t{name: \"%s\", typeid: %d, size: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
 			}
 		}
 
