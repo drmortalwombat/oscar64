@@ -187,6 +187,7 @@ public:
 
 	ExpandingArray<LinkerObjectRange>	mRanges;
 	ExpandingArray<CodeLocation>		mCodeLocations;
+	ExpandingArray<LinkerObjectRange>	mZeroPageRanges;
 
 	LinkerObject(void);
 	~LinkerObject(void);

@@ -425,6 +425,8 @@ public:
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
 
+	bool CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int& nloop);
+
 	void RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
@@ -498,6 +500,8 @@ public:
 	bool IsTempUsedInRange(int from, int to, int temp);
 	bool IsTempReferencedInRange(int from, int to, int temp);
 
+	InterInstruction* FindTempOrigin(int temp) const;
+
 	void CheckFinalLocal(void);
 	void CheckFinal(void);
 	void CheckBlocks(void);
@@ -508,6 +512,7 @@ public:
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	void SingleBlockLoopUnrolling(void);
 	bool SingleBlockLoopPointerSplit(int& spareTemps);
+	bool SingleBlockLoopPointerToByte(int& spareTemps);
 	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
@@ -577,6 +582,8 @@ public:
 	LinkerObject					*	mLinkerObject, * mSaveTempsLinkerObject;
 	Declaration						*	mDeclaration;
 
+	uint64								mCompilerOptions;
+
 	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
 	~InterCodeProcedure(void);
 
@@ -615,6 +622,7 @@ protected:
 	void PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams);
 	void SimplifyIntegerNumeric(FastNumberSet& activeSet);
 	void SingleBlockLoopPointerSplit(FastNumberSet& activeSet);
+	void SingleBlockLoopPointerToByte(FastNumberSet& activeSet);
 	void MergeIndexedLoadStore(void);
 	void EliminateAliasValues();
 	void LoadStoreForwarding(InterMemory paramMemory);

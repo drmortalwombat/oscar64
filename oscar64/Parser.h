@@ -16,12 +16,15 @@ public:
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 
-	uint64		mCompilerOptions;
+	uint64			mCompilerOptions;
+	uint64			mCompilerOptionStack[32];
+	int				mCompilerOptionSP;
 
 	void Parse(void);
 protected:
 	bool ConsumeToken(Token token);
 	bool ConsumeTokenIf(Token token);
+	bool ConsumeIdentIf(const char* ident);
 
 	char			mCharMap[256];
 	int				mUnrollLoop;

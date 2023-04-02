@@ -6857,9 +6857,9 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 
 	if (sstride > 1 || dstride > 1)
 		msize = 32;
-	else if (nproc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
+	else if (nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
 		msize = 8;
-	else if (nproc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
+	else if (nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
 		msize = 2;
 #if 1
 	if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp < 0)
@@ -8771,8 +8771,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					int lcost = 8 + 2 * (nbytes - 1);
 					int	ucost = shift * (1 + 2 * nbytes);
 
-					if ((nproc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)   && lcost < ucost ||
-						!(nproc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL) && 2 * lcost < ucost) 
+					if ((nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)   && lcost < ucost ||
+						!(nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL) && 2 * lcost < ucost)
 					{
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDX, ASMIM_IMMEDIATE, shift));
 						this->Close(ins, lblock, nullptr, ASMIT_JMP);
@@ -11768,7 +11768,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 
 		assert(ins->mSrc[0].mLinkerObject);
 
-		if (ins->mCode == IC_ASSEMBLER && (proc->mModule->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER))
+		if (ins->mCode == IC_ASSEMBLER && (proc->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER))
 		{
 			ExpandingArray<NativeCodeInstruction>	tains;
 
@@ -12372,20 +12372,24 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 				changed = true;
 			}
 
-			while (mTrueJump && mTrueJump->mIns.Size() == 0 && !mTrueJump->mFalseJump && !mTrueJump->mLocked && mTrueJump != this && mTrueJump->mTrueJump != mTrueJump)
+			int steps = 100;
+			while (mTrueJump && mTrueJump->mIns.Size() == 0 && !mTrueJump->mFalseJump && !mTrueJump->mLocked && mTrueJump != this && mTrueJump->mTrueJump != mTrueJump && steps > 0)
 			{
 				mTrueJump->mNumEntries--;
 				mTrueJump = mTrueJump->mTrueJump;
 				mTrueJump->mNumEntries++;
 				changed = true;
+				steps--;
 			}
 
-			while (mFalseJump && mFalseJump->mTrueJump && mFalseJump->mIns.Size() == 0 && !mFalseJump->mFalseJump && !mFalseJump->mLocked && mFalseJump != this && mFalseJump->mTrueJump != mFalseJump)
+			steps = 100;
+			while (mFalseJump && mFalseJump->mTrueJump && mFalseJump->mIns.Size() == 0 && !mFalseJump->mFalseJump && !mFalseJump->mLocked && mFalseJump != this && mFalseJump->mTrueJump != mFalseJump && steps > 0)
 			{
 				mFalseJump->mNumEntries--;
 				mFalseJump = mFalseJump->mTrueJump;
 				mFalseJump->mNumEntries++;
 				changed = true;
+				steps--;
 			}
 
 			if (mTrueJump && mTrueJump == mFalseJump)
@@ -25777,6 +25781,8 @@ bool NativeCodeBasicBlock::MoveLoadShiftStoreUp(int at)
 					return false;
 			}
 
+			mIns[j].mLive |= LIVE_CPU_REG_A;
+
 			mIns[at + 1].mLive |= mIns[j].mLive;
 			mIns[at + 2].mLive |= mIns[j].mLive;
 
@@ -26437,6 +26443,9 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 
 					if (ins.mMode == ASMIM_ZERO_PAGE && ins.ChangesAddress())
 						mNDataSet.ResetZeroPage(ins.mAddress);
+					else if (ins.mMode == ASMIM_ABSOLUTE && ins.ChangesAddress())
+						mNDataSet.ResetAbsolute(ins.mLinkerObject, ins.mAddress);
+
 					if (ins.mType == ASMIT_JSR)
 					{
 						mNDataSet.ResetWorkRegs();
@@ -30165,7 +30174,7 @@ static bool CheckBlockCopySequence(const ExpandingArray<NativeCodeInstruction>& 
 
 bool NativeCodeBasicBlock::BlockSizeCopyReduction(NativeCodeProcedure* proc, int& si, int& di) 
 {
-	if ((proc->mGenerator->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE))
+	if ((proc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE))
 	{
 		if (si + 1 < mIns.Size() &&
 			mIns[si + 0].mType == ASMIT_LDA && (mIns[si + 0].mMode == ASMIM_ZERO_PAGE || mIns[si + 0].mMode == ASMIM_ABSOLUTE) &&
@@ -38656,7 +38665,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 #if 1
 	int		step = 0;
@@ -39968,6 +39977,8 @@ void NativeCodeGenerator::CompleteRuntime(void)
 
 LinkerObject* NativeCodeGenerator::AllocateShortMulTable(InterOperator op, int factor, int size, bool msb)
 {
+	assert(size > 0);
+
 	int	i = 0;
 	while (i < mMulTables.Size() && (mMulTables[i].mFactor != factor || mMulTables[i].mOperator != op))
 		i++;

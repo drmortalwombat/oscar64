@@ -16,6 +16,7 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 	mUnrollLoop = 0;
 	mUnrollLoopPage = false;
 	mInlineCall = false;
+	mCompilerOptionSP = 0;
 
 	for (int i = 0; i < 256; i++)
 		mCharMap[i] = i;
@@ -1283,6 +1284,9 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 			{
 				if (ndec->mFlags & DTF_DEFINED)
 					mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate function definition");
+
+				ndec->mCompilerOptions = mCompilerOptions;
+				ndec->mBase->mCompilerOptions = mCompilerOptions;
 
 				ndec->mVarIndex = -1;
 				ndec->mValue = ParseFunction(ndec->mBase);
@@ -3234,8 +3238,19 @@ bool Parser::ConsumeTokenIf(Token token)
 	}
 	else
 		return false;
-
 }
+
+bool Parser::ConsumeIdentIf(const char* ident)
+{
+	if (mScanner->mToken == TK_IDENT && !strcmp(ident, mScanner->mTokenIdent->mString))
+	{
+		mScanner->NextToken();
+		return true;
+	}
+	else
+		return false;
+}
+
 
 void Parser::ParsePragma(void)
 {
@@ -3946,6 +3961,71 @@ void Parser::ParsePragma(void)
 			ConsumeToken(TK_OPEN_PARENTHESIS);
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 			mInlineCall = true;
+		}
+		else if (ConsumeIdentIf("optimize"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+			if (!ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
+			{
+				do {
+					if (ConsumeIdentIf("push"))
+					{
+						if (mCompilerOptionSP < 32)
+							mCompilerOptionStack[mCompilerOptionSP++] = mCompilerOptions;
+						else
+							mErrors->Error(mScanner->mLocation, ERRR_STACK_OVERFLOW, "Stack overflow");
+					}
+					else if (ConsumeIdentIf("pop"))
+					{
+						if (mCompilerOptionSP > 0)
+							mCompilerOptions = mCompilerOptionStack[--mCompilerOptionSP] = mCompilerOptions;
+						else
+							mErrors->Error(mScanner->mLocation, ERRR_STACK_OVERFLOW, "Stack underflow");
+					}
+					else if (mScanner->mToken == TK_INTEGER)
+					{
+						mCompilerOptions &= ~(COPT_OPTIMIZE_ALL);
+						switch (mScanner->mTokenInteger)
+						{
+						case 0:
+							break;
+						case 1:
+							mCompilerOptions |= COPT_OPTIMIZE_DEFAULT;
+							break;
+						case 2:
+							mCompilerOptions |= COPT_OPTIMIZE_SPEED;
+							break;
+						case 3:
+							mCompilerOptions |= COPT_OPTIMIZE_ALL;
+							break;
+						default:
+							mErrors->Error(mScanner->mLocation, ERRR_INVALID_NUMBER, "Invalid number");
+						}
+					}
+					else if (ConsumeIdentIf("asm"))
+						mCompilerOptions |= COPT_OPTIMIZE_ASSEMBLER;
+					else if (ConsumeIdentIf("noasm"))
+						mCompilerOptions &= ~COPT_OPTIMIZE_ASSEMBLER;
+					else if (ConsumeIdentIf("size"))
+						mCompilerOptions |= COPT_OPTIMIZE_SIZE;
+					else if (ConsumeIdentIf("speed"))
+						mCompilerOptions &= ~COPT_OPTIMIZE_SIZE;
+					else if (ConsumeIdentIf("noinline"))
+						mCompilerOptions &= ~(COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE_ALL);
+					else if (ConsumeIdentIf("inline"))
+						mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE;
+					else if (ConsumeIdentIf("autoinline"))
+						mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE;
+					else if (ConsumeIdentIf("maxinline"))
+						mCompilerOptions |= COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE_ALL;
+					else
+						mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid option");
+
+				} while (ConsumeTokenIf(TK_COMMA));
+
+				ConsumeToken(TK_CLOSE_PARENTHESIS);
+			}
 		}
 		else
 		{

@@ -769,6 +769,22 @@ const char* NativeCodeDisassembler::AddrName(int addr, char* buffer, InterCodePr
 	if (linker)
 	{
 		LinkerObject* obj;
+
+		if (proc && proc->mLinkerObject && addr < 256)
+		{
+			obj = proc->mLinkerObject;
+
+			int	i = 0;
+			while (i < obj->mZeroPageRanges.Size() && !(addr >= obj->mZeroPageRanges[i].mOffset && addr < obj->mZeroPageRanges[i].mOffset + obj->mZeroPageRanges[i].mSize))
+				i++;
+
+			if (i < obj->mZeroPageRanges.Size())
+			{
+				sprintf_s(buffer, 160, "; (%s + %d)", obj->mZeroPageRanges[i].mIdent->mString, addr - obj->mZeroPageRanges[i].mOffset);
+				return buffer;
+
+			}
+		}
 		
 		if (proc && proc->mLinkerObject && addr >= proc->mLinkerObject->mAddress && addr < proc->mLinkerObject->mAddress + proc->mLinkerObject->mSize)
 			obj = proc->mLinkerObject;

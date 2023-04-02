@@ -230,6 +230,15 @@ static inline InterType InterTypeOfArithmetic(InterType t1, InterType t2)
 		return IT_INT16;
 }
 
+void InterCodeGenerator::InitParameter(InterCodeProcedure* proc, Declaration* dec, int index)
+{
+	if (!proc->mParamVars[index])
+	{
+		proc->mParamVars[index] = new InterVariable();
+		proc->mParamVars[index]->mIdent = dec->mIdent;
+	}
+}
+
 void InterCodeGenerator::InitLocalVariable(InterCodeProcedure* proc, Declaration* dec, int index)
 {
 	if (!proc->mLocalVars[index])
@@ -1204,14 +1213,20 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					ins->mConst.mMemory = IM_LOCAL;
 					ins->mConst.mVarIndex = inlineMapper->mParams[dec->mVarIndex];
+					InitLocalVariable(proc, dec, ins->mConst.mVarIndex);
 				}
 				else if (procType->mFlags & DTF_FASTCALL)
 				{
 					ins->mConst.mMemory = IM_FPARAM;
 					ins->mConst.mVarIndex += procType->mFastCallBase;
+					InitParameter(proc, dec, ins->mConst.mVarIndex);
 				}
 				else
+				{
 					ins->mConst.mMemory = IM_PARAM;
+					InitParameter(proc, dec, ins->mConst.mVarIndex);
+				}
+
 				if (dec->mBase->mType == DT_TYPE_ARRAY)
 				{
 					ref = 2;
@@ -2275,7 +2290,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 			}
 
-			bool	canInline = exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && !(inlineMapper && inlineMapper->mDepth > 10);
+			bool	canInline = exp->mLeft->mType == EX_CONSTANT && 
+								exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && 
+								(mCompilerOptions & COPT_OPTIMIZE_INLINE) &&
+								!(inlineMapper && inlineMapper->mDepth > 10);
 			bool	doInline = false, inlineConstexpr = false;
 
 			if (canInline)
@@ -2309,8 +2327,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					doInline = true;
 				else if (exp->mLeft->mDecValue->mFlags & DTF_INLINE)
 				{
-					if (proc->mNativeProcedure || !(exp->mLeft->mDecValue->mFlags & DTF_NATIVE))
-						doInline = true;
+					if ((exp->mLeft->mDecValue->mFlags & DTF_REQUEST_INLINE) || (mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE))
+					{
+						if (proc->mNativeProcedure || !(exp->mLeft->mDecValue->mFlags & DTF_NATIVE))
+							doInline = true;
+					}
 				}
 			}
 
@@ -3665,6 +3686,11 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mIdent, mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_BYTE_CODE));
 
+	uint64	outerCompilerOptions = mCompilerOptions;
+	mCompilerOptions = dec->mCompilerOptions;
+
+	proc->mCompilerOptions = mCompilerOptions;
+
 	dec->mVarIndex = proc->mID;
 	dec->mLinkerObject = proc->mLinkerObject;
 	proc->mNumLocals = dec->mNumVars;
@@ -3732,6 +3758,8 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 		proc->Close();
 	}
+
+	mCompilerOptions = outerCompilerOptions;
 
 	return proc;
 }

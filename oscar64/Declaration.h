@@ -189,7 +189,7 @@ public:
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
-	uint64				mFlags;
+	uint64				mFlags, mCompilerOptions;
 	const Ident		*	mIdent;
 	LinkerSection	*	mSection;
 	const uint8		*	mData;

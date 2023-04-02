@@ -5851,6 +5851,38 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 	assert(mLocalValueRange.Size() == mExitRequiredTemps.Size());
 
+	InterCodeBasicBlock	*	pblock;
+	int						nloop;
+
+	bool singleLoop = CheckSingleBlockLimitedLoop(pblock, nloop);
+
+	FastNumberSet		dependTemps(mExitRequiredTemps.Size());
+
+	if (singleLoop)
+	{
+		FastNumberSet		changedTemps(mExitRequiredTemps.Size());
+
+		for (int i = 0; i < sz; i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+
+			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 0)
+			{
+				if (dependTemps[ins->mDst.mTemp])
+					changedTemps += ins->mDst.mTemp;
+				else if (pblock->mTrueValueRange[ins->mDst.mTemp].IsConstant())
+					dependTemps += ins->mDst.mTemp;
+				else
+					changedTemps += ins->mDst.mTemp;
+			}
+			else if (ins->mDst.mTemp >= 0)
+			{
+				changedTemps += ins->mDst.mTemp;
+				dependTemps -= ins->mDst.mTemp;
+			}
+		}
+	}
+
 	for (int i = 0; i < sz; i++)
 	{
 		InterInstruction* ins(mInstructions[i]);
@@ -6033,13 +6065,21 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				case IA_ADD:
 					if (ins->mSrc[0].mTemp < 0)
 					{
-						vr = mLocalValueRange[ins->mSrc[1].mTemp];
-						if (ins->mSrc[0].mIntConst > 0 && vr.mMaxState == IntegerValueRange::S_WEAK)
-							vr.mMaxState = IntegerValueRange::S_UNBOUND;
-						else if (ins->mSrc[0].mIntConst < 0 && vr.mMinState == IntegerValueRange::S_WEAK)
-							vr.mMinState = IntegerValueRange::S_UNBOUND;
-						vr.mMaxValue += ins->mSrc[0].mIntConst;
-						vr.mMinValue += ins->mSrc[0].mIntConst;
+						if (ins->mSrc[1].mTemp == ins->mDst.mTemp && dependTemps[ins->mDst.mTemp] && i + 3 != sz)
+						{
+							int start = pblock->mTrueValueRange[ins->mDst.mTemp].mMinValue;
+							vr.SetLimit(start + ins->mSrc[0].mIntConst, start + nloop * ins->mSrc[0].mIntConst);
+						}
+						else
+						{
+							vr = mLocalValueRange[ins->mSrc[1].mTemp];
+							if (ins->mSrc[0].mIntConst > 0 && vr.mMaxState == IntegerValueRange::S_WEAK)
+								vr.mMaxState = IntegerValueRange::S_UNBOUND;
+							else if (ins->mSrc[0].mIntConst < 0 && vr.mMinState == IntegerValueRange::S_WEAK)
+								vr.mMinState = IntegerValueRange::S_UNBOUND;
+							vr.mMaxValue += ins->mSrc[0].mIntConst;
+							vr.mMinValue += ins->mSrc[0].mIntConst;
+						}
 					}
 					else if (ins->mSrc[1].mTemp < 0)
 					{
@@ -6604,11 +6644,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				{
 					if (ins->mSrc[0].mTemp < 0)
 					{
-						mMemoryValueSize[ins->mSrc[1].mTemp] = mMemoryValueSize[ins->mDst.mTemp] - ins->mSrc[0].mIntConst;
+						if (ins->mSrc[0].mIntConst >= 0)
+							mMemoryValueSize[ins->mSrc[1].mTemp] = mMemoryValueSize[ins->mDst.mTemp] - ins->mSrc[0].mIntConst;
 					}
 					else if (ins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)
 					{
-						mMemoryValueSize[ins->mSrc[1].mTemp] = mMemoryValueSize[ins->mDst.mTemp] - ins->mSrc[0].mRange.mMinValue;
+						if (ins->mSrc[0].mRange.mMinValue >= 0)
+							mMemoryValueSize[ins->mSrc[1].mTemp] = mMemoryValueSize[ins->mDst.mTemp] - ins->mSrc[0].mRange.mMinValue;
 					}
 				}
 				break;
@@ -9486,6 +9528,16 @@ bool InterCodeBasicBlock::IsTempReferencedInRange(int from, int to, int temp)
 	return false;
 }
 
+InterInstruction* InterCodeBasicBlock::FindTempOrigin(int temp) const
+{
+	for (int i = mInstructions.Size() - 1; i >= 0; i--)
+	{
+		if (mInstructions[i]->mDst.mTemp == temp)
+			return mInstructions[i];
+	}
+	return nullptr;	
+}
+
 bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 {
 	InterInstruction* ins = mInstructions[si];
@@ -11607,6 +11659,236 @@ void InterCodeBasicBlock::PushMoveOutOfLoop(void)
 	}
 }
 
+bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int& nloop)
+{
+	if (mLoopHead && mNumEntries == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
+	{
+		int	nins = mInstructions.Size();
+
+		pblock = mEntryBlocks[0];
+		if (pblock == this)
+			pblock = mEntryBlocks[1];
+
+		if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
+			mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+			mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+		{
+			InterInstruction* ains = mInstructions[nins - 3];
+			InterInstruction* cins = mInstructions[nins - 2];
+			InterInstruction* bins = mInstructions[nins - 1];
+
+			if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+				cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+				cins->mSrc[0].mTemp < 0 &&
+				ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+				ains->mSrc[0].mTemp < 0 &&
+				(cins->mOperator == IA_CMPLU || cins->mOperator == IA_CMPLEU) &&
+				cins->mSrc[0].mIntConst < 255 &&
+				ains->mSrc[0].mIntConst > 0)
+			{
+				int pi = pblock->mInstructions.Size() - 1;
+				while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ains->mDst.mTemp)
+					pi--;
+
+				int i = 0;
+				while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+					i++;
+				if (i == nins - 3)
+				{
+					nloop = cins->mSrc[0].mIntConst;
+					if (cins->mOperator == IA_CMPLEU)
+						nloop++;
+					nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
+
+					return true;
+				}
+			}
+		}
+	}
+	
+	return false;
+}
+
+
+
+bool InterCodeBasicBlock::SingleBlockLoopPointerToByte(int& spareTemps)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mNumEntries == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
+		{
+			int	nins = mInstructions.Size();
+
+			InterCodeBasicBlock* pblock = mEntryBlocks[0], * eblock = mFalseJump;
+			if (pblock == this)
+				pblock = mEntryBlocks[1];
+			if (eblock == this)
+				eblock = mTrueJump;
+
+			if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
+				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+			{
+				InterInstruction* ains = mInstructions[nins - 3];
+				InterInstruction* cins = mInstructions[nins - 2];
+				InterInstruction* bins = mInstructions[nins - 1];
+
+				if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+					cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+					cins->mSrc[0].mTemp < 0 &&
+					ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+					ains->mSrc[0].mTemp < 0 &&
+					(cins->mOperator == IA_CMPLU || cins->mOperator == IA_CMPLEU) &&
+					cins->mSrc[0].mIntConst < 255 &&
+					ains->mSrc[0].mIntConst > 0)
+				{
+					GrowingArray<InterInstructionPtr>	tvalues(nullptr);
+					tvalues.SetSize(mEntryRequiredTemps.Size() + 16);
+
+					GrowingArray<int>					mtemps(-1);
+
+					int pi = pblock->mInstructions.Size() - 1;
+					while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ains->mDst.mTemp)
+						pi--;
+
+					int i = 0;
+					while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+						i++;
+					if (i == nins - 3)
+					{					
+						int nloop = cins->mSrc[0].mIntConst;
+						if (cins->mOperator == IA_CMPLEU)
+							nloop++;
+						nloop /= ains->mSrc[0].mIntConst;
+
+						for (int i = 0; i < mInstructions.Size() - 3; i++)
+						{
+							InterInstruction* lins = mInstructions[i];
+							if (lins->mCode == IC_LEA && lins->mDst.mTemp == lins->mSrc[1].mTemp && lins->mSrc[0].mTemp < 0 && lins->mSrc[0].mIntConst > 0 && lins->mSrc[0].mIntConst * nloop < 256 &&
+								!IsTempReferencedInRange(i + 1, mInstructions.Size(), lins->mDst.mTemp) && !IsTempModifiedInRange(0, i, lins->mDst.mTemp) &&
+								!eblock->mEntryRequiredTemps[lins->mDst.mTemp])
+							{
+								bool	isglobal = false;
+								InterInstruction* slins = pblock->FindTempOrigin(lins->mSrc[1].mTemp);
+								if (slins)
+								{
+									if (slins->mCode == IC_CONSTANT)
+									{
+										if (slins->mConst.mMemory == IM_ABSOLUTE || slins->mConst.mMemory == IM_GLOBAL)
+											isglobal = true;
+									}
+									else if (slins->mCode == IC_LEA)
+									{
+										if (slins->mSrc[0].mTemp < 0)
+										{
+											if (slins->mSrc[1].mMemory == IM_ABSOLUTE || slins->mSrc[1].mMemory == IM_GLOBAL)
+												isglobal = true;
+										}
+									}
+								}
+
+								bool	failed = false;
+								for (int j = 0; j < i; j++)
+								{
+									InterInstruction* jins = mInstructions[j];
+
+									if (jins->ReferencesTemp(lins->mDst.mTemp))
+									{
+										if (jins->mCode == IC_LOAD)
+										{
+											if (!isglobal && (jins->mSrc[0].mIntConst < 0 || jins->mSrc[0].mIntConst > 2))
+												failed = true;
+										}
+										else if (jins->mCode == IC_STORE)
+										{
+											if (!isglobal && (jins->mSrc[1].mIntConst < 0 || jins->mSrc[1].mIntConst > 2))
+												failed = true;
+										}
+										else
+											failed = true;
+									}
+								}
+
+								if (!failed)
+								{
+									if (spareTemps + 2 >= mEntryRequiredTemps.Size() + 16)
+										return true;
+									
+									int inc = lins->mSrc[0].mIntConst;
+
+									int ireg = mtemps[inc];
+
+									if (ireg < 0)
+									{
+										ireg = spareTemps++;
+
+										InterInstruction* cins = new InterInstruction(lins->mLocation, IC_CONSTANT);
+										cins->mDst.mTemp = ireg;
+										cins->mDst.mType = IT_INT16;
+										cins->mConst.mType = IT_INT16;
+										cins->mConst.mIntConst = 0;
+										mtemps[inc] = cins->mDst.mTemp;
+
+										pblock->mInstructions.Insert(pblock->mInstructions.Size() - 1, cins);
+
+										InterInstruction* iins = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
+										iins->mNumOperands = 2;
+										iins->mOperator = IA_ADD;
+										iins->mDst = cins->mDst;
+										iins->mSrc[1] = cins->mDst;
+										iins->mSrc[0].mTemp = -1;
+										iins->mSrc[0].mType = IT_INT16;
+										iins->mSrc[0].mIntConst = lins->mSrc[0].mIntConst;
+										iins->mSrc[1].mRange.SetLimit(0, inc * (nloop - 1));
+										iins->mDst.mRange.SetLimit(lins->mSrc[0].mIntConst, inc * nloop);
+										mInstructions.Insert(i, iins);
+									}
+
+									InterInstruction* nins = new InterInstruction(lins->mLocation, IC_LEA);
+									nins->mNumOperands = 2;
+									nins->mDst.mTemp = spareTemps++;
+									nins->mDst.mType = IT_POINTER;
+									nins->mSrc[1] = lins->mSrc[1];
+									nins->mSrc[1].mFinal = false;
+									nins->mSrc[0].mType = IT_INT16;
+									nins->mSrc[0].mTemp = ireg;
+									nins->mSrc[0].mRange.SetLimit(0, inc * (nloop - 1));
+
+									for (int j = 0; j < i; j++)
+									{
+										InterInstruction* jins = mInstructions[j];
+										for (int k = 0; k < jins->mNumOperands; k++)
+											if (jins->mSrc[k].mTemp == lins->mDst.mTemp)
+												jins->mSrc[k].mTemp = nins->mDst.mTemp;
+									}
+
+									mInstructions.Insert(0, nins);
+
+									lins->mCode = IC_NONE;
+									lins->mNumOperands = 0;
+									lins->mDst.mTemp = -1;
+
+									changed = true;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->SingleBlockLoopPointerToByte(spareTemps))
+			changed = true;
+		if (mFalseJump && mFalseJump->SingleBlockLoopPointerToByte(spareTemps))
+			changed = true;
+	}
+
+	return changed;
+}
 
 bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 {
@@ -14757,6 +15039,53 @@ void InterCodeProcedure::MergeIndexedLoadStore(void)
 	DisassembleDebug("SimplifyPointerOffsets");
 }
 
+void InterCodeProcedure::SingleBlockLoopPointerToByte(FastNumberSet& activeSet)
+{
+	int							silvused = mTemporaries.Size();
+
+	do
+	{
+		mTemporaries.SetSize(silvused, true);
+
+		DisassembleDebug("SingleBlockLoopPointerToByteA");
+
+		BuildDataFlowSets();
+
+		DisassembleDebug("SingleBlockLoopPointerToByteB");
+
+		TempForwarding();
+		RemoveUnusedInstructions();
+
+		DisassembleDebug("SingleBlockLoopPointerToByteC");
+
+		activeSet.Clear();
+
+		ResetVisited();
+		mEntryBlock->CollectActiveTemporaries(activeSet);
+
+		silvused = activeSet.Num();
+		if (silvused != mTemporaries.Size())
+		{
+			mTemporaries.SetSize(activeSet.Num(), true);
+
+			ResetVisited();
+			mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
+
+			ResetVisited();
+			mEntryBlock->RemapActiveTemporaries(activeSet);
+		}
+
+		ResetVisited();
+	} while (mEntryBlock->SingleBlockLoopPointerToByte(silvused));
+
+	assert(silvused == mTemporaries.Size());
+
+	DisassembleDebug("SingleBlockLoopPointerToByte");
+
+
+}
+
+
 void InterCodeProcedure::SingleBlockLoopPointerSplit(FastNumberSet& activeSet)
 {
 	int							silvused = mTemporaries.Size();
@@ -15082,7 +15411,13 @@ void InterCodeProcedure::Close(void)
 
 	InterMemory	paramMemory = mFastCallProcedure ? IM_FPARAM : IM_PARAM;
 
-	PromoteSimpleLocalsToTemp(paramMemory, nlocals, nparams);
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+		PromoteSimpleLocalsToTemp(paramMemory, nlocals, nparams);
+	else
+	{
+		ResetVisited();
+		mEntryBlock->CollectVariables(mModule->mGlobalVars, mLocalVars, mParamVars, paramMemory);
+	}
 
 	BuildDataFlowSets();
 
@@ -15265,6 +15600,8 @@ void InterCodeProcedure::Close(void)
 	SingleBlockLoopPointerSplit(activeSet);
 
 	MergeIndexedLoadStore();
+	
+	SingleBlockLoopPointerToByte(activeSet);
 
 #if 1
 	DisassembleDebug("PreMoveTrainCrossBlockA");
@@ -15384,7 +15721,7 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
-	if (mModule->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
+	if (mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
 	{
 		ResetVisited();
 		mEntryBlock->SingleBlockLoopUnrolling();
@@ -15715,6 +16052,25 @@ void InterCodeProcedure::Close(void)
 
 	if (mSaveTempsLinkerObject && mTempSize > BC_REG_TMP_SAVED - BC_REG_TMP)
 		mSaveTempsLinkerObject->AddSpace(mTempSize - (BC_REG_TMP_SAVED - BC_REG_TMP));
+
+	for (int i = 0; i < mParamVars.Size(); i++)
+	{
+		InterVariable* v(mParamVars[i]);
+		if (v && v->mIdent)
+		{
+			if (v->mLinkerObject)
+			{
+			}
+			else
+			{
+				LinkerObjectRange	range;
+				range.mIdent = v->mIdent;
+				range.mOffset = i + BC_REG_FPARAMS;
+				range.mSize = v->mSize;
+				mLinkerObject->mZeroPageRanges.Push(range);
+			}
+		}
+	}
 }
 
 void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)
