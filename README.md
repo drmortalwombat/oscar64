@@ -260,6 +260,28 @@ The character map for string and char constants can be changed with a pragma to 
 
 The compiler can be provided with additional information using the built in function __assume(cond).  This can be useful to mark unreachable code using __assume(false) for e.g. the default of a switch statement.  Another good option is to limit the value range of arguments to allow the compiler using byte operations without the need for integer promotion.
 
+### Function level optimizer settings
+
+	#pragma optimize(option {,option})
+	
+Set optimizer options that are active for the functions after it
+
+* push : put current options on a stack
+* pop : get options back from stack
+* asm : allow optimization of assembler code
+* noasm : prevent optimization of assembler code
+* size : optimize for size
+* speed : optimize for speed
+* noinline : no inlinening in any case
+* inline : inline if requesed with inline storage attribute
+* autoinline : auto inline of small or only once used functions
+* maxinline : inline any function suitable
+* 0 : no optimization
+* 1 : default optimizations
+* 2 : aggressive optimizations
+* 3 : even more aggressive optimizations
+
+
 ### Loop unrolling
 
 Loop unrolling on 6502 is hard to decide for the compiler.  Memory is usually scarce, so it only does it in realy obvious cases (and in less obvious cases for O3).  On the other hand unrolling is required to get good performance in e.g. scrolling code.  Therefore the compiler offers an unrolling pragma, that can be used to specifiy the amount of unrolling either as a number or "full" for complete.
