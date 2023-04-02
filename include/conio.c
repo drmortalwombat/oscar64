@@ -220,6 +220,17 @@ int getch(void)
 	}
 }
 
+int getchx(void)
+{
+	__asm
+	{
+		jsr	getpch
+		sta	accu
+		lda	#0
+		sta	accu + 1		
+	}
+}
+
 void putch(int c)
 {
 	__asm {

@@ -25,6 +25,10 @@ int getche(void);
 
 int getch(void);
 
+// like getch but does not wait, returns zero if no
+// key is pressed
+int getchx(void);
+
 void putch(int c);
 
 void clrscr(void);
