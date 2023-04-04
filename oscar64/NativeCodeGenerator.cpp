@@ -26897,11 +26897,15 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 							target = mTrueJump->mFalseJump;
 					}
 
-					mTrueJump->mEntryBlocks.RemoveAll(this);
-					mTrueJump->mNumEntries--;
-					target->mEntryBlocks.Push(this);
-					target->mNumEntries++;
-					mTrueJump = target;
+					if (target != mTrueJump)
+					{
+						mTrueJump->mEntryBlocks.RemoveAll(this);
+						mTrueJump->mNumEntries--;
+						target->mEntryBlocks.Push(this);
+						target->mNumEntries++;
+						mTrueJump = target;
+						changed = true;
+					}
 				}
 			}
 			else if (mTrueJump->mIns[0].mType == ASMIT_ORA && mTrueJump->mIns[0].mAddress == 0)
@@ -26925,11 +26929,15 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 							target = mTrueJump->mFalseJump;
 					}
 
-					mTrueJump->mEntryBlocks.RemoveAll(this);
-					mTrueJump->mNumEntries--;
-					target->mEntryBlocks.Push(this);
-					target->mNumEntries++;
-					mTrueJump = target;
+					if (target != mTrueJump)
+					{
+						mTrueJump->mEntryBlocks.RemoveAll(this);
+						mTrueJump->mNumEntries--;
+						target->mEntryBlocks.Push(this);
+						target->mNumEntries++;
+						mTrueJump = target;
+						changed = true;
+					}
 				}
 			}
 		}
@@ -27278,6 +27286,33 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		}
 	}
 #endif
+
+	for (int i = 0; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) &&
+			mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+		{
+			int reg = mIns[i + 1].mAddress;
+
+			if (!ReferencesZeroPage(reg, 0, i) && !ChangesZeroPage(reg, i + 2))
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc, full);
+
+				if (!mEntryRequiredRegs[CPU_REG_A])
+				{
+					prevBlock->mIns.Push(mIns[i + 0]);
+					prevBlock->mIns.Push(mIns[i + 1]);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					prevBlock->mExitRequiredRegs += reg;
+					mEntryRequiredRegs += reg;
+					mExitRequiredRegs += reg;
+					changed = true;
+				}
+			}
+		}
+	}
+
 	if (sz >= 3 && mIns[0].mType == ASMIT_LDA && mIns[sz - 2].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 2]) && mIns[sz - 1].mType == ASMIT_CMP)
 	{
 		if (!prevBlock)
@@ -38786,7 +38821,9 @@ void NativeCodeProcedure::Optimize(void)
 					{
 						ResetVisited();
 						if (mEntryBlock->GlobalValueForwarding(this, step == 8))
+						{
 							changed = true;
+						}
 					}
 #endif
 				}

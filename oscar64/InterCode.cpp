@@ -4261,7 +4261,8 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 		mVisited = true;
 		mInPath = true;
 
-		for (;;)
+		// Limit number of contractions
+		for (int i=0; i<100; i++)
 		{
 			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP && !mTrueJump->mLoopHead && mTrueJump->mTraceIndex != mIndex)
 			{
