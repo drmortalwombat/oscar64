@@ -405,7 +405,7 @@ public:
 	void CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps);
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 
-	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps, const GrowingVariableArray& staticVars);
+	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps, const GrowingVariableArray& staticVars, const NumberSet & aliasedLocals, const NumberSet & aliasedParams);
 
 	void BuildLocalTempSets(int num);
 	void BuildGlobalProvidedTempSet(const NumberSet & fromProvidedTemps, const NumberSet& potentialProvidedTemps);

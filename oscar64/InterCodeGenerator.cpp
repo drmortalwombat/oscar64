@@ -1198,6 +1198,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 			ins->mDst.mType = IT_POINTER;
 			ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+			ins->mConst.mType = IT_POINTER;
 			ins->mConst.mOperandSize = dec->mSize;
 			ins->mConst.mIntConst = dec->mOffset;
 
@@ -1282,6 +1283,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (exp->mType != EX_INITIALIZATION && (vl.mType->mFlags & DTF_CONST))
 				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot assign to const type");
+
+			if (exp->mType == EX_INITIALIZATION && exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecValue && exp->mRight->mDecValue->mLinkerObject)
+			{
+				exp->mRight->mDecValue->mLinkerObject->mFlags |= LOBJF_CONST;
+			}
 
 			if (vl.mType->mType == DT_TYPE_STRUCT || vl.mType->mType == DT_TYPE_ARRAY || vl.mType->mType == DT_TYPE_UNION)
 			{
@@ -2579,12 +2585,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					block->Append(defins[i]);
 
 				InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CALL);
-				if (exp->mLeft->mDecValue && exp->mLeft->mDecValue->mFlags & DTF_NATIVE)
+				if (exp->mLeft->mDecValue && (exp->mLeft->mDecValue->mFlags & DTF_NATIVE))
 					cins->mCode = IC_CALL_NATIVE;
 				else
 					cins->mCode = IC_CALL;
 
-				if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mFlags & DTF_FUNC_CONSTEXPR)
+				if (exp->mLeft->mDecValue && (exp->mLeft->mDecValue->mFlags & DTF_FUNC_PURE))
+					cins->mNoSideEffects = true;
+
+				if (exp->mLeft->mType == EX_CONSTANT && (exp->mLeft->mDecValue->mFlags & DTF_FUNC_CONSTEXPR))
 					cins->mConstExpr = true;
 
 				cins->mSrc[0].mType = IT_POINTER;

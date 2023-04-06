@@ -271,7 +271,8 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 		{
 			if (mCompilerOptions & COPT_OPTIMIZE_CONST_EXPRESSIONS)
 				dec->mFlags |= DTF_FUNC_CONSTEXPR;
-			Analyze(exp, dec);
+			dec->mFlags |= DTF_FUNC_PURE;
+			Analyze(exp, dec, false);
 		}
 		else
 			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent);
@@ -333,12 +334,12 @@ void GlobalAnalyzer::AnalyzeGlobalVariable(Declaration* dec)
 
 		if (dec->mValue)
 		{
-			Analyze(dec->mValue, dec);
+			Analyze(dec->mValue, dec, false);
 		}
 	}
 }
 
-Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
+Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, bool lhs)
 {
 	Declaration* ldec, * rdec;
 
@@ -358,13 +359,13 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 			while (mdec)
 			{
 				if (mdec->mValue)
-					RegisterProc(Analyze(mdec->mValue, mdec));
+					RegisterProc(Analyze(mdec->mValue, mdec, false));
 				mdec = mdec->mNext;
 			}
 		}
 		else if (exp->mDecValue->mType == DT_CONST_POINTER)
 		{
-			RegisterProc(Analyze(exp->mDecValue->mValue, procDec));
+			RegisterProc(Analyze(exp->mDecValue->mValue, procDec, false));
 		}
 		else if (exp->mDecValue->mType == DT_CONST_ADDRESS)
 		{
@@ -386,6 +387,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 			if (!(type->mFlags & DTF_CONST))
 				procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 
+			if (lhs)
+				procDec->mFlags &= ~DTF_FUNC_PURE;
+
 			AnalyzeGlobalVariable(exp->mDecValue);
 		}
 		else
@@ -399,54 +403,66 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		return exp->mDecValue;
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
-		ldec = Analyze(exp->mLeft, procDec);
-		rdec = Analyze(exp->mRight, procDec);
+		ldec = Analyze(exp->mLeft, procDec, true);
+		rdec = Analyze(exp->mRight, procDec, false);
 		RegisterProc(rdec);
 		return ldec;
 
 	case EX_BINARY:
-		ldec = Analyze(exp->mLeft, procDec);
-		rdec = Analyze(exp->mRight, procDec);
+		ldec = Analyze(exp->mLeft, procDec, lhs);
+		rdec = Analyze(exp->mRight, procDec, lhs);
 		return ldec;
 
 	case EX_RELATIONAL:
-		ldec = Analyze(exp->mLeft, procDec);
-		rdec = Analyze(exp->mRight, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
+		rdec = Analyze(exp->mRight, procDec, false);
 		return TheBoolTypeDeclaration;
 
 	case EX_PREINCDEC:
-		return Analyze(exp->mLeft, procDec);
+		return Analyze(exp->mLeft, procDec, true);
 	case EX_PREFIX:
-		ldec = Analyze(exp->mLeft, procDec);
 		if (exp->mToken == TK_BINARY_AND)
 		{
+			ldec = Analyze(exp->mLeft, procDec, true);
 			if (ldec->mType == DT_VARIABLE)
 				ldec->mFlags |= DTF_VAR_ALIASING;
 		} 
 		else if (exp->mToken == TK_MUL)
 		{
+			ldec = Analyze(exp->mLeft, procDec, false);
 			procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+			if (lhs)
+				procDec->mFlags &= ~DTF_FUNC_PURE;
+
 			return exp->mDecType;
 		}
 		break;
 	case EX_POSTFIX:
 		break;
 	case EX_POSTINCDEC:
-		return Analyze(exp->mLeft, procDec);
+		return Analyze(exp->mLeft, procDec, true);
 	case EX_INDEX:
-		ldec = Analyze(exp->mLeft, procDec);
+		ldec = Analyze(exp->mLeft, procDec, lhs);
 		if (ldec->mType == DT_VARIABLE || ldec->mType == DT_ARGUMENT)
+		{
 			ldec = ldec->mBase;
-		rdec = Analyze(exp->mRight, procDec);
+			if (ldec->mType == DT_TYPE_POINTER)
+			{
+				if (lhs)
+					procDec->mFlags &= ~DTF_FUNC_PURE;
+				procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+			}
+		}
+		rdec = Analyze(exp->mRight, procDec, false);
 		if (ldec->mBase)
 			return ldec->mBase;
 		break;
 	case EX_QUALIFY:
-		Analyze(exp->mLeft, procDec);
+		Analyze(exp->mLeft, procDec, lhs);
 		return exp->mDecValue->mBase;
 	case EX_CALL:
 	case EX_INLINE:
-		ldec = Analyze(exp->mLeft, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
 		if ((ldec->mFlags & DTF_INTRINSIC) && !ldec->mValue)
 		{
 
@@ -460,6 +476,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 				if (procDec->mFlags & DTF_INTERRUPT)
 					mErrors->Error(exp->mLocation, EWARN_NOT_INTERRUPT_SAFE, "Calling non interrupt safe function", ldec->mIdent);
 			}
+			if (!(GetProcFlags(ldec) & DTF_FUNC_PURE))
+				procDec->mFlags &= ~DTF_FUNC_PURE;
 		}
 
 		if (exp->mRight)
@@ -478,35 +496,35 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 				else
 					rex = nullptr;
 			}
-			RegisterProc(Analyze(exp->mRight, procDec));
+			RegisterProc(Analyze(exp->mRight, procDec, false));
 		}
 		break;
 	case EX_LIST:
-		RegisterProc(Analyze(exp->mLeft, procDec));
-		return Analyze(exp->mRight, procDec);
+		RegisterProc(Analyze(exp->mLeft, procDec, false));
+		return Analyze(exp->mRight, procDec, false);
 	case EX_RETURN:
 		if (exp->mLeft)
-			RegisterProc(Analyze(exp->mLeft, procDec));
+			RegisterProc(Analyze(exp->mLeft, procDec, false));
 		break;
 	case EX_SEQUENCE:
 		do
 		{
 			if (exp->mLeft)
-				ldec = Analyze(exp->mLeft, procDec);
+				ldec = Analyze(exp->mLeft, procDec, false);
 			exp = exp->mRight;
 		} while (exp);
 		break;
 	case EX_WHILE:
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 
-		ldec = Analyze(exp->mLeft, procDec);
-		rdec = Analyze(exp->mRight, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
+		rdec = Analyze(exp->mRight, procDec, false);
 		break;
 	case EX_IF:
-		ldec = Analyze(exp->mLeft, procDec);
-		rdec = Analyze(exp->mRight->mLeft, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
+		rdec = Analyze(exp->mRight->mLeft, procDec, false);
 		if (exp->mRight->mRight)
-			rdec = Analyze(exp->mRight->mRight, procDec);
+			rdec = Analyze(exp->mRight->mRight, procDec, false);
 		break;
 	case EX_ELSE:
 		break;
@@ -514,16 +532,16 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 
 		if (exp->mLeft->mRight)
-			ldec = Analyze(exp->mLeft->mRight, procDec);
+			ldec = Analyze(exp->mLeft->mRight, procDec, false);
 		if (exp->mLeft->mLeft->mLeft)
-			ldec = Analyze(exp->mLeft->mLeft->mLeft, procDec);
-		rdec = Analyze(exp->mRight, procDec);
+			ldec = Analyze(exp->mLeft->mLeft->mLeft, procDec, false);
+		rdec = Analyze(exp->mRight, procDec, false);
 		if (exp->mLeft->mLeft->mRight)
-			ldec = Analyze(exp->mLeft->mLeft->mRight, procDec);
+			ldec = Analyze(exp->mLeft->mLeft->mRight, procDec, false);
 		break;
 	case EX_DO:
-		ldec = Analyze(exp->mLeft, procDec);
-		rdec = Analyze(exp->mRight, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
+		rdec = Analyze(exp->mRight, procDec, false);
 		break;
 	case EX_BREAK:
 	case EX_CONTINUE:
@@ -532,33 +550,34 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_TYPE:
 		break;
 	case EX_TYPECAST:
-		return Analyze(exp->mRight, procDec);
+		return Analyze(exp->mRight, procDec, false);
 		break;
 	case EX_LOGICAL_AND:
-		ldec = Analyze(exp->mLeft, procDec);
-		rdec = Analyze(exp->mRight, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
+		rdec = Analyze(exp->mRight, procDec, false);
 		break;
 	case EX_LOGICAL_OR:
-		ldec = Analyze(exp->mLeft, procDec);
-		rdec = Analyze(exp->mRight, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
+		rdec = Analyze(exp->mRight, procDec, false);
 		break;
 	case EX_LOGICAL_NOT:
-		ldec = Analyze(exp->mLeft, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
 		break;
 	case EX_ASSEMBLER:
 		procDec->mFlags |= DTF_FUNC_ASSEMBLER;
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+		procDec->mFlags &= ~DTF_FUNC_PURE;
 		AnalyzeAssembler(exp, procDec);
 		break;
 	case EX_UNDEFINED:
 		break;
 	case EX_SWITCH:
-		ldec = Analyze(exp->mLeft, procDec);
+		ldec = Analyze(exp->mLeft, procDec, false);
 		exp = exp->mRight;
 		while (exp)
 		{
 			if (exp->mLeft->mRight)
-				rdec = Analyze(exp->mLeft->mRight, procDec);
+				rdec = Analyze(exp->mLeft->mRight, procDec, false);
 			exp = exp->mRight;
 		}
 		break;
@@ -567,9 +586,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec)
 	case EX_DEFAULT:
 		break;
 	case EX_CONDITIONAL:
-		ldec = Analyze(exp->mLeft, procDec);
-		RegisterProc(Analyze(exp->mRight->mLeft, procDec));
-		RegisterProc(Analyze(exp->mRight->mRight, procDec));
+		ldec = Analyze(exp->mLeft, procDec, false);
+		RegisterProc(Analyze(exp->mRight->mLeft, procDec, false));
+		RegisterProc(Analyze(exp->mRight->mRight, procDec, false));
 		break;
 	}
 

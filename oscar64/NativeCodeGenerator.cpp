@@ -24480,9 +24480,9 @@ bool NativeCodeBasicBlock::EliminateUpper16BitSum(NativeCodeProcedure* nproc)
 				nproc->ResetPatched();
 				if (Check16BitSum(this, i, i + 3, mIns[i + 2].mAddress))
 				{
-					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode == ASMIM_IMPLIED;
-					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode == ASMIM_IMPLIED;
-					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode == ASMIM_IMPLIED;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
 			}

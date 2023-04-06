@@ -27,7 +27,7 @@ protected:
 
 	GrowingArray<Declaration*>		mCalledFunctions, mCallingFunctions, mVariableFunctions, mFunctions;
 
-	Declaration* Analyze(Expression* exp, Declaration* procDec);
+	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs);
 
 	uint64 GetProcFlags(Declaration* to) const;
 	void RegisterCall(Declaration* from, Declaration* to);

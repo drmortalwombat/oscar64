@@ -84,8 +84,9 @@ static const uint64 DTF_FUNC_ANALYZING  = (1ULL << 35);
 static const uint64 DTF_FUNC_CONSTEXPR	= (1ULL << 36);
 static const uint64 DTF_FUNC_INTRSAVE   = (1ULL << 37);
 static const uint64 DTF_FUNC_INTRCALLED = (1ULL << 38);
+static const uint64 DTF_FUNC_PURE		= (1ULL << 39);
 
-static const uint64 DTF_VAR_ALIASING	= (1ULL << 39);
+static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 
 
 class Declaration;
