@@ -22587,6 +22587,17 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 		}
 	}
 
+	if (to + 2 < mIns.Size() && mIns[to + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[to + 2].mMode) && !(mIns[to + 2].mLive & LIVE_CPU_REG_X) && !ReferencesXReg(from + 1, to))
+	{
+		if (mIns[to + 1].mType == ASMIT_ORA && mIns[to + 1].mMode == ASMIM_IMMEDIATE)
+		{
+			mIns[to + 0].mType = ASMIT_NOP; mIns[to + 0].mMode == ASMIM_IMPLIED;
+			mIns[to + 1].mType = ASMIT_NOP; mIns[to + 1].mMode == ASMIM_IMPLIED;
+			mIns[to + 2].mType = ASMIT_STX;
+			mIns.Insert(from, NativeCodeInstruction(mIns[to + 0].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, mIns[to + 1].mAddress));
+			return true;
+		}
+	}
 
 	int i = from + 1;
 	while (i < to && (mIns[i].mType == ASMIT_LDA || mIns[i].mType == ASMIT_STA) && (mIns[i].mMode == ASMIM_IMMEDIATE || mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i].mMode == ASMIM_ABSOLUTE || mIns[i].mMode == ASMIM_ZERO_PAGE))
@@ -25308,6 +25319,43 @@ bool NativeCodeBasicBlock::MoveLoadStoreUp(int at)
 		mIns[at + 2].mType = ASMIT_NOP;	mIns[at + 2].mMode = ASMIM_IMPLIED;
 
 		return true;
+	}
+
+	return false;
+}
+
+// Assume [at    ] = SHIFT
+// Assume [at + 1] = ORA
+
+bool NativeCodeBasicBlock::FoldShiftORAIntoLoadImmUp(int at)
+{
+	int		ora = mIns[at + 1].mAddress;
+	int		i = at;
+
+	while (i >= 0)
+	{
+		if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_IMMEDIATE)
+		{
+			mIns[i].mAddress |= ora;
+			mIns[at + 1].mType = ASMIT_NOP;
+			mIns[at + 1].mMode = ASMIM_IMPLIED;
+			return true;
+		}
+		else if ((mIns[i].mType == ASMIT_ROL || mIns[i].mType == ASMIT_ASL) && mIns[i].mMode == ASMIM_IMPLIED)
+		{
+			if ((mIns[i].mLive & LIVE_CPU_REG_C) || (ora & 0x01))
+				return false;
+			ora >>= 1;
+		}
+		else if ((mIns[i].mType == ASMIT_ROR || mIns[i].mType == ASMIT_LSR) && mIns[i].mMode == ASMIM_IMPLIED)
+		{
+			if ((mIns[i].mLive & LIVE_CPU_REG_C) || (ora & 0x80))
+				return false;
+			ora <<= 1;
+		}
+		else if (mIns[i].ReferencesAccu())
+			return false;
+		i--;
 	}
 
 	return false;
@@ -31499,6 +31547,20 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 
 #endif
 
+#if 1
+		// move ORA #imm up a shift chain to an LDA #imm
+
+		for (int i = 1; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i].IsShift() && mIns[i].mMode == ASMIM_IMPLIED && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+			{
+				if (FoldShiftORAIntoLoadImmUp(i))
+					changed = true;
+			}
+		}
+		CheckLive();
+
+#endif
 
 
 #if 1

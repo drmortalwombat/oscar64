@@ -18,6 +18,37 @@
 #define VERA_IRQ_LINE		0x02
 #define VERA_IRQ_VSYNC		0x01
 
+#define VERA_DCVIDEO_MODE_OFF		0x00
+#define VERA_DCVIDEO_MODE_VGA		0x01
+#define VERA_DCVIDEO_MODE_NTSC		0x02
+#define VERA_DCVIDEO_MODE_RGBI		0x03
+
+#define VERA_DCVIDEO_NCHROMA		0x04
+#define VERA_DCVIDEO_LAYER0			0x10
+#define VERA_DCVIDEO_LAYER1			0x20
+#define VERA_DCVIDEO_SPRITES		0x40
+
+#define VERA_LAYER_DEPTH_1		0x00
+#define VERA_LAYER_DEPTH_2		0x01
+#define VERA_LAYER_DEPTH_4		0x02
+#define VERA_LAYER_DEPTH_8		0x03
+
+#define VERA_LAYER_BITMAP		0x04
+#define VERA_LAYER_T256C		0x08
+#define VERA_LAYER_WIDTH_32		0x00
+#define VERA_LAYER_WIDTH_64		0x10
+#define VERA_LAYER_WIDTH_128	0x20
+#define VERA_LAYER_WIDTH_256	0x30
+#define VERA_LAYER_HEIGHT_32	0x00
+#define VERA_LAYER_HEIGHT_64	0x40
+#define VERA_LAYER_HEIGHT_128	0x80
+#define VERA_LAYER_HEIGHT_256	0xc0
+
+#define VERA_TILE_WIDTH_8		0x00
+#define VERA_TILE_WIDTH_16		0x01
+#define VERA_TILE_HEIGHT_8		0x00
+#define VERA_TILE_HEIGHT_16		0x02
+
 
 struct VERA
 {
@@ -55,6 +86,28 @@ struct VERA
 	volatile byte	spictrl;
 };
 
+enum VERASpriteMode
+{
+	VSPRMODE_4,
+	VSPRMODE_8
+};
+
+enum VERASpriteSize
+{
+	VSPRSZIZE_8,
+	VSPRSZIZE_16,
+	VSPRSZIZE_32,
+	VSPRSZIZE_64
+};
+
+enum VERASpritePriority
+{
+	VSPRPRI_OFF,
+	VSPRPRI_BACK,
+	VSPRPRI_MIDDLE,
+	VSPRPRI_FRONT
+};
+
 #define vera    (*(VERA *)0x9f20)
 
 inline void vram_addr(unsigned long addr);
@@ -75,9 +128,11 @@ void vram_getn(unsigned long addr, char * data, unsigned size);
 
 void vram_fill(unsigned long addr, char data, unsigned size);
 
-void vera_spr_set(char spr, unsigned addr32, bool mode8, char w, char h, char z, char pal);
+void vera_spr_set(char spr, unsigned addr32, VERASpriteMode mode8, VERASpriteSize w, VERASpriteSize h, VERASpritePriority z, char pal);
 
 void vera_spr_move(char spr, int x, int y);
+
+void vera_spr_image(char spr, unsigned addr32);
 
 #pragma compile("vera.c")
 

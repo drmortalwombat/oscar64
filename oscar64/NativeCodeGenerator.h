@@ -397,6 +397,7 @@ public:
 	bool CombineImmediateADCUp(int at);
 	bool CombineImmediateADCUpX(int at);
 	bool MoveTXADCDown(int at);
+	bool FoldShiftORAIntoLoadImmUp(int at);
 
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
 	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);

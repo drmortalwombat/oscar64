@@ -68,12 +68,12 @@ void vram_fill(unsigned long addr, char data, unsigned size)
 }
 
 
-void vera_spr_set(char spr, unsigned addr32, bool mode8, char w, char h, char z, char pal)
+void vera_spr_set(char spr, unsigned addr32, VERASpriteMode mode8, VERASpriteSize w, VERASpriteSize h, VERASpritePriority z, char pal)
 {
 	__assume(spr < 128);
 
 	vram_addr(0x1fc00UL + spr * 8);
-	vram_putw(addr32 | (mode8 ? 0x80 : 0x00));
+	vram_putw(addr32 | (mode8 ? 0x8000 : 0x0000));
 	vram_putw(0);
 	vram_putw(0);
 	vram_put(z << 2);
@@ -87,4 +87,15 @@ void vera_spr_move(char spr, int x, int y)
 	vram_addr(0x1fc00UL + spr * 8 + 2);
 	vram_putw(x);
 	vram_putw(y);	
+}
+
+void vera_spr_image(char spr, unsigned addr32)
+{
+	__assume(spr < 128);
+
+	vram_addr(0x1fc00UL + spr * 8);
+	vram_put(addr32 & 0xff);
+	vera.addrh &= 0x0f;
+	char b = vram_get() & 0x80;
+	vram_put((addr32 >> 8) | b);
 }
