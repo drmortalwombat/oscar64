@@ -4167,6 +4167,17 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 	this->mInstructions.Push(code);
 }
 
+const InterInstruction* InterCodeBasicBlock::FindByDst(int dst) const
+{
+	int n = mInstructions.Size() - 1;
+	while (n >= 0 && mInstructions[n]->mDst.mTemp != dst)
+		n--;
+	if (n >= 0)
+		return mInstructions[n];
+	else
+		return nullptr;
+}
+
 void InterCodeBasicBlock::Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump)
 {
 	this->mTrueJump = trueJump;

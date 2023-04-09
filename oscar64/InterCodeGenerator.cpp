@@ -65,7 +65,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 	return v;
 }
 
-InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v, Declaration* type)
+InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v, Declaration* type, bool checkTrunc)
 {
 	int		stemp = v.mTemp;
 
@@ -204,7 +204,50 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 	else
 	{
 		// ignore size reduction
+		if (checkTrunc && v.mType->mSize > type->mSize)
+		{
+			const InterInstruction* ins = block->FindByDst(stemp);
+			if (ins && ins->mCode == IC_CONSTANT)
+			{
+				int64 min = 0, max = 0;
 
+				if (type->mFlags & DTF_SIGNED)
+				{
+					switch (type->mSize)
+					{
+					case 1:
+						min = -128; max = 127;
+						break;
+					case 2:
+						min = -32768; max = 32767;
+						break;
+					case 4:
+						min = -2147483648LL; max = 2147483647LL;
+						break;
+					}
+				}
+				else
+				{
+					switch (type->mSize)
+					{
+					case 1:
+						max = 255;
+						break;
+					case 2:
+						max = 65535;
+						break;
+					case 4:
+						max = 429467295LL;
+						break;
+					}
+				}
+
+				if (ins->mConst.mIntConst < min || ins->mConst.mIntConst > max)
+				{
+					mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+				}
+			}
+		}
 		v.mType = type;
 	}
 
@@ -1402,7 +1445,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							vll = CoerceType(proc, exp, block, vll, otype);
 						}
 
-						vr = CoerceType(proc, exp, block, vr, otype);
+						vr = CoerceType(proc, exp, block, vr, otype, exp->mToken != TK_ASSIGN_AND);
 
 						InterInstruction	*	oins = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);
 						oins->mSrc[0].mType = InterTypeOf(otype);

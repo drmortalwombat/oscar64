@@ -108,6 +108,8 @@ enum VERASpritePriority
 	VSPRPRI_FRONT
 };
 
+#define VERA_COLOR(r, g, b) (((unsigned)(r) << 8) | ((unsigned)(g) << 4) | (unsigned)(b))
+
 #define vera    (*(VERA *)0x9f20)
 
 inline void vram_addr(unsigned long addr);
@@ -117,6 +119,8 @@ inline void vram_put(char data);
 inline void vram_putw(unsigned data);
 
 inline char vram_get(void);
+
+inline unsigned vram_getw(void);
 
 inline void vram_put_at(unsigned long addr, char data);
 
@@ -133,6 +137,12 @@ void vera_spr_set(char spr, unsigned addr32, VERASpriteMode mode8, VERASpriteSiz
 void vera_spr_move(char spr, int x, int y);
 
 void vera_spr_image(char spr, unsigned addr32);
+
+void vera_pal_put(char index, unsigned color);
+
+unsigned vera_pal_get(char index);
+
+void vera_pal_putn(char index, const unsigned * color, unsigned size);
 
 #pragma compile("vera.c")
 

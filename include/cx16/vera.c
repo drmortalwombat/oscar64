@@ -3,7 +3,7 @@
 void vram_addr(unsigned long addr)
 {
 	vera.ctrl &= ~VERA_CTRL_ADDRSEL;
-	vera.addr = addr;
+	vera.addr = (unsigned)addr;
 	vera.addrh = (char)((addr >> 16) & 1) | 0x10;	
 }
 
@@ -22,6 +22,14 @@ char vram_get(void)
 {
 	return vera.data0;
 }
+
+unsigned vram_getw(void)
+{
+	unsigned l = vera.data0;
+	unsigned h = vera.data0;
+	return (h << 8) | l;
+}
+
 
 void vram_put_at(unsigned long addr, char data)
 {
@@ -98,4 +106,26 @@ void vera_spr_image(char spr, unsigned addr32)
 	vera.addrh &= 0x0f;
 	char b = vram_get() & 0x80;
 	vram_put((addr32 >> 8) | b);
+}
+
+void vera_pal_put(char index, unsigned color)
+{
+	vram_addr(0x1fa00ul + 2 * index);
+	vram_putw(color);
+}
+
+unsigned vera_pal_get(char index)
+{
+	vram_addr(0x1fa00ul + 2 * index);
+	return vram_getw();
+}
+
+void vera_pal_putn(char index, const unsigned * color, unsigned size)
+{
+	vram_addr(0x1fa00ul + 2 * index);
+	while (size > 0)
+	{
+		vram_putw(*color++);
+		size--;
+	}
 }

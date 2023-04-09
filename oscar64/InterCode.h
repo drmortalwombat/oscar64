@@ -384,6 +384,7 @@ public:
 	~InterCodeBasicBlock(void);
 
 	void Append(InterInstruction * code);
+	const InterInstruction* FindByDst(int dst) const;
 	void Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump);
 
 	void CollectEntries(void);
