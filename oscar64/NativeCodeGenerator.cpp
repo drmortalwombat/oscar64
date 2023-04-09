@@ -38229,6 +38229,11 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mFrameOffset = 0;
 	mNoFrame = (mStackExpand + proc->mCommonFrameSize) < 64 && !proc->mHasDynamicStack;// && !(proc->mHasInlineAssembler && !proc->mLeafProcedure);
 
+#if 0
+	if (!(proc->mCompilerOptions & COPT_OPTIMIZE_BASIC) && (proc->mCompilerOptions & COPT_DEBUGINFO))
+		mNoFrame = mStackExpand + proc->mCommonFrameSize == 0 && !proc->mHasDynamicStack;
+#endif
+
 	if (mNoFrame)
 		proc->mLinkerObject->mFlags |= LOBJF_NO_FRAME;
 
@@ -38612,6 +38617,18 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 			proc->mLinkerObject->mZeroPageSet = zpLocal;
 			proc->mLinkerObject->mFlags |= LOBJF_ZEROPAGESET;
 		}
+	}
+
+	proc->mFramePointer = !mNoFrame;
+	for (int i = 0; i < proc->mParamVars.Size(); i++)
+	{
+		if (proc->mParamVars[i])
+			proc->mParamVars[i]->mOffset = i + proc->mLocalSize + 2 + mFrameOffset;
+	}
+	for (int i = 0; i < proc->mLocalVars.Size(); i++)
+	{
+		if (proc->mLocalVars[i])
+			proc->mLocalVars[i]->mOffset += mFrameOffset;
 	}
 
 	if (proc->mHardwareInterrupt)

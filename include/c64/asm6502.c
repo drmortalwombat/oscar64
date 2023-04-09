@@ -19,10 +19,10 @@ inline byte asm_zp(byte * ip, AsmIns ins, byte addr)
 	return 2;
 }
 
-inline byte asm_rl(byte * ip, AsmIns ins, byte addr)
+inline byte asm_rl(byte * ip, AsmIns ins, sbyte addr)
 {
 	ip[0] = ins & 0xff;
-	ip[1] = addr;
+	ip[1] = (byte)addr;
 	return 2;
 }
 

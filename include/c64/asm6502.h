@@ -97,7 +97,7 @@ inline byte asm_ac(byte * ip, AsmIns ins);
 inline byte asm_zp(byte * ip, AsmIns ins, byte addr);
 
 // relative branch
-inline byte asm_rl(byte * ip, AsmIns ins, byte addr);
+inline byte asm_rl(byte * ip, AsmIns ins, sbyte addr);
 
 // immediate
 inline byte asm_im(byte * ip, AsmIns ins, byte value);

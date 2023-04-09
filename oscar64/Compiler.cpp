@@ -1048,17 +1048,16 @@ bool Compiler::WriteDbjFile(const char* filename)
 					InterVariable* v(p->mParamVars[i]);
 					if (v && v->mIdent)
 					{
-						if (v->mLinkerObject)
-						{
-						}
-						else
-						{
-							if (!vfirst)
-								fprintf(file, ",\n");
-							vfirst = false;
+						if (!vfirst)
+							fprintf(file, ",\n");
+						vfirst = false;
 
+						if (p->mFastCallProcedure)
 							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, i + BC_REG_FPARAMS, i + BC_REG_FPARAMS + v->mSize, types.IndexOrPush(v->mDeclaration->mBase));
-						}
+						else if (p->mFramePointer)
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"typeid\": %d}", v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_LOCALS, types.IndexOrPush(v->mDeclaration->mBase));
+						else
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"typeid\": %d}", v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_STACK, types.IndexOrPush(v->mDeclaration->mBase));
 					}
 				}
 				for (int i = 0; i < p->mLocalVars.Size(); i++)
@@ -1077,8 +1076,21 @@ bool Compiler::WriteDbjFile(const char* filename)
 								fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
 							}
 						}
+						else if (p->mFramePointer)
+						{
+							if (!vfirst)
+								fprintf(file, ",\n");
+							vfirst = false;
+
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"typeid\": %d}", v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_LOCALS, types.IndexOrPush(v->mDeclaration->mBase));
+						}
 						else
 						{
+							if (!vfirst)
+								fprintf(file, ",\n");
+							vfirst = false;
+
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"typeid\": %d}", v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_STACK, types.IndexOrPush(v->mDeclaration->mBase));
 						}
 					}
 				}

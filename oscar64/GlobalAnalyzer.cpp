@@ -436,6 +436,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 
 			return exp->mDecType;
 		}
+		else
+			return Analyze(exp->mLeft, procDec, false);
 		break;
 	case EX_POSTFIX:
 		break;
