@@ -279,6 +279,7 @@ void InterCodeGenerator::InitParameter(InterCodeProcedure* proc, Declaration* de
 	{
 		proc->mParamVars[index] = new InterVariable();
 		proc->mParamVars[index]->mIdent = dec->mIdent;
+		proc->mParamVars[index]->mDeclaration = dec;
 	}
 }
 
@@ -288,6 +289,7 @@ void InterCodeGenerator::InitLocalVariable(InterCodeProcedure* proc, Declaration
 	{
 		proc->mLocalVars[index] = new InterVariable();
 		proc->mLocalVars[index]->mIdent = dec->mIdent;
+		proc->mLocalVars[index]->mDeclaration = dec;
 	}
 }
 static const Ident* StructIdent(const Ident* base, const Ident* item)

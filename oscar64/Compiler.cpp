@@ -997,11 +997,14 @@ bool Compiler::WriteDbjFile(const char* filename)
 			InterVariable* v(mInterCodeModule->mGlobalVars[i]);
 			if (v->mLinkerObject && v->mIdent && v->mDeclaration)
 			{
-				if (!first)
-					fprintf(file, ",\n");
-				first = false;
+				if (v->mLinkerObject->mSection->mType != LST_STATIC_STACK && v->mLinkerObject->mFlags & LOBJF_PLACED)
+				{
+					if (!first)
+						fprintf(file, ",\n");
+					first = false;
 
-				fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+					fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+				}
 			}
 		}
 		fprintf(file, "\t],\n");
@@ -1037,7 +1040,50 @@ bool Compiler::WriteDbjFile(const char* filename)
 						lo->mCodeLocations[j].mLocation.mLine);
 				}
 
-				fprintf(file, "]}");
+				fprintf(file, "], \n\t\t\t\"variables\":[\n");
+
+				bool	vfirst = true;
+				for (int i = 0; i < p->mParamVars.Size(); i++)
+				{
+					InterVariable* v(p->mParamVars[i]);
+					if (v && v->mIdent)
+					{
+						if (v->mLinkerObject)
+						{
+						}
+						else
+						{
+							if (!vfirst)
+								fprintf(file, ",\n");
+							vfirst = false;
+
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, i + BC_REG_FPARAMS, i + BC_REG_FPARAMS + v->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+						}
+					}
+				}
+				for (int i = 0; i < p->mLocalVars.Size(); i++)
+				{
+					InterVariable* v(p->mLocalVars[i]);
+					if (v && v->mIdent)
+					{
+						if (v->mLinkerObject)
+						{
+							if (v->mLinkerObject->mFlags & LOBJF_PLACED)
+							{
+								if (!vfirst)
+									fprintf(file, ",\n");
+								vfirst = false;
+
+								fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+							}
+						}
+						else
+						{
+						}
+					}
+				}
+
+				fprintf(file, "]}\n");
 			}
 		}
 		fprintf(file, "\t],\n");
