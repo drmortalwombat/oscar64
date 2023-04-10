@@ -14,11 +14,12 @@
 #define	regs		__regs
 
 
-void StackStart, StackEnd, BSSStart, BSSEnd, CodeStart, CodeEnd;
+void StackStart, StackEnd, BSSStart, BSSEnd, CodeStart, CodeEnd, ZeroStart, ZeroEnd;
 
 #pragma section(code, 0x0000, CodeStart, CodeEnd)
 #pragma section(stack, 0x0000, StackStart, StackEnd)
 #pragma section(bss, 0x0000, BSSStart, BSSEnd)
+#pragma section(zeropage, 0x0000, ZeroStart, ZeroEnd)
 
 char spentry = 0;
 
@@ -236,6 +237,14 @@ l2:		dey
 		bne l2
 w2:
 
+		ldx #<ZeroStart
+		cpx #<ZeroEnd
+		beq	w3
+l3:		sta $00, x
+		inx
+		cpx #<ZeroEnd
+		bne l3
+w3:
 		lda	#<StackEnd - 2
 		sta	sp
 		lda	#>StackEnd - 2

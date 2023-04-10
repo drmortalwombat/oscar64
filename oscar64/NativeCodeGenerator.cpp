@@ -21713,6 +21713,67 @@ bool NativeCodeBasicBlock::PatchCrossBlockY2XFloodExit(const NativeCodeBasicBloc
 	return false;
 }
 
+void NativeCodeBasicBlock::PropagateZPAbsolute(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		mDataSet.Reset();
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (i + 1 < mIns.Size() &&
+				mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_ZEROPAGE) &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+			{
+				int r = mIns[i + 1].mAddress;
+
+				mDataSet.mRegs[r].mMode = NRDM_ABSOLUTE;
+				mDataSet.mRegs[r].mLinkerObject = mIns[i].mLinkerObject;
+				mDataSet.mRegs[r].mValue = mIns[i].mAddress;
+				mDataSet.mRegs[r].mFlags = mIns[i].mFlags;
+				i++;
+			}
+			else if (mIns[i].mType == ASMIT_JSR)
+				mDataSet.Reset();
+			else if (mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				int r = mIns[i].mAddress;
+
+				if (mIns[i].ChangesAddress())
+					mDataSet.ResetZeroPage(r);
+				else if (mDataSet.mRegs[r].mMode == NRDM_ABSOLUTE)
+				{
+					mIns[i].mMode = ASMIM_ABSOLUTE;
+					mIns[i].mLinkerObject = mDataSet.mRegs[r].mLinkerObject;
+					mIns[i].mAddress = mDataSet.mRegs[r].mValue;
+				}
+			}
+			else if (mIns[i].mMode == ASMIM_ABSOLUTE || mIns[i].mMode == ASMIM_ABSOLUTE_X || mIns[i].mMode == ASMIM_ABSOLUTE_Y)
+			{
+				if (mIns[i].ChangesAddress())
+					mDataSet.ResetAbsolute(mIns[i].mLinkerObject, mIns[i].mAddress);
+			}
+			else if (mIns[i].mMode == ASMIM_INDIRECT_Y)
+			{
+				int r = mIns[i].mAddress;
+
+				if (mDataSet.mRegs[r].mMode == NRDM_ABSOLUTE && mDataSet.mRegs[r + 1].mMode == NRDM_ABSOLUTE &&
+					mDataSet.mRegs[r].mLinkerObject == mDataSet.mRegs[r + 1].mLinkerObject &&
+					mDataSet.mRegs[r].mValue + 1 == mDataSet.mRegs[r + 1].mValue)
+				{
+					mIns[i].mLinkerObject = mDataSet.mRegs[r].mLinkerObject;
+					mIns[i].mAddress = mDataSet.mRegs[r].mValue;
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->PropagateZPAbsolute();
+		if (mFalseJump) mFalseJump->PropagateZPAbsolute();
+	}
+}
+
 bool NativeCodeBasicBlock::IsDominatedBy(const NativeCodeBasicBlock* block) const
 {
 	if (this == block)
@@ -30287,14 +30348,14 @@ bool NativeCodeBasicBlock::BlockSizeCopyReduction(NativeCodeProcedure* proc, int
 						NativeCodeInstruction	lins = mIns[si + 2 * i * j + 0];
 						NativeCodeInstruction	sins = mIns[si + 2 * i * j + 1];
 
-						if (lins.mMode == ASMIM_ZERO_PAGE)
+						if (lins.mMode == ASMIM_ZERO_PAGE || (lins.mLinkerObject && (lins.mLinkerObject->mFlags & LOBJF_ZEROPAGE)))
 							lins.mMode = ASMIM_ZERO_PAGE_X;
 						else
 						{
 							lins.mMode = ASMIM_ABSOLUTE_X;
 							sz++;
 						}
-						if (sins.mMode == ASMIM_ZERO_PAGE)
+						if (sins.mMode == ASMIM_ZERO_PAGE || (sins.mLinkerObject && (sins.mLinkerObject->mFlags & LOBJF_ZEROPAGE)))
 							sins.mMode = ASMIM_ZERO_PAGE_X;
 						else
 						{
@@ -30410,7 +30471,11 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 
 		while (i < mIns.Size())
 		{
-			if (i + 6 < mIns.Size() &&
+			if (mIns[i].mType == ASMIT_NOP)
+			{
+				i++;
+			}
+			else if (i + 6 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_CLC &&
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
@@ -36191,6 +36256,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
 					{
 						int	n = 3;
+						if (mIns[i + 0].mLinkerObject && (mIns[i + 0].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+							n = 100;
 						if (mIns[i + 0].mFlags & NCIF_VOLATILE)
 							n = 1;
 						if (mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z))
@@ -36229,6 +36296,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
 					{
 						int	n = 3;
+						if (mIns[i + 0].mLinkerObject && (mIns[i + 0].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+							n = 100;
 						if (mIns[i + 0].mFlags & NCIF_VOLATILE)
 							n = 1;
 						if (mIns[i + 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z))
@@ -36254,8 +36323,12 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ABSOLUTE && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
 					{
+						int	n = 2;
+						if (mIns[i + 1].mLinkerObject && (mIns[i + 1].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+							n = 100;
+
 						proc->ResetPatched();
-						if (CheckSingleUseGlobalLoad(this, mIns[i + 0].mAddress, i + 2, mIns[i + 1], 2))
+						if (CheckSingleUseGlobalLoad(this, mIns[i + 0].mAddress, i + 2, mIns[i + 1], n))
 						{
 							proc->ResetPatched();
 							if (PatchSingleUseGlobalLoad(this, mIns[i + 0].mAddress, i + 2, mIns[i + 1]))
@@ -39499,6 +39572,13 @@ void NativeCodeProcedure::Optimize(void)
 	ResetVisited();
 	NativeRegisterDataSet	data;
 	mEntryBlock->ValueForwarding(this, data, true, true);
+
+	ResetVisited();
+	mEntryBlock->PropagateZPAbsolute();
+
+	BuildDataFlowSets();
+	ResetVisited();
+	mEntryBlock->RemoveUnusedResultInstructions();
 
 #if 1
 	ResetVisited();

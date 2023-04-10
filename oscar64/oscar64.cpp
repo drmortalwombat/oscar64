@@ -189,6 +189,8 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_ASSEMBLER;
 					else if (arg[2] == 'i')
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE;
+					else if (arg[2] == 'z')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_ZEROPAGE;
 				}
 				else if (arg[1] == 'e')
 				{

@@ -251,8 +251,10 @@ bool Compiler::GenerateCode(void)
 	{
 		if (mTargetMachine == TMACH_ATARI)
 			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x00e0, 0x00ff);
-		else
+		else if (mCompilerOptions & (COPT_EXTENDED_ZERO_PAGE | COPT_TARGET_NES))
 			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x0080, 0x00ff);
+		else
+			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x00f7, 0x00ff);
 	}
 
 	LinkerRegion* regionStartup = mLinker->FindRegion(identStartup);
@@ -576,6 +578,7 @@ bool Compiler::GenerateCode(void)
 
 	mGlobalAnalyzer->CheckInterrupt();
 	mGlobalAnalyzer->AutoInline();
+	mGlobalAnalyzer->AutoZeroPage(mCompilationUnits->mSectionZeroPage, regionZeroPage->mEnd - regionZeroPage->mStart);
 	if (mCompilerOptions & COPT_VERBOSE3)
 		mGlobalAnalyzer->DumpCallGraph();
 

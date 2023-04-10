@@ -592,12 +592,13 @@ public:
 	bool PatchCrossBlockY2XFlood(const NativeCodeBasicBlock* block, int at);
 	bool PatchCrossBlockY2XFloodExit(const NativeCodeBasicBlock* block);
 
+	void PropagateZPAbsolute(void);
+
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 
 	void CheckLive(void);
 	void CheckBlocks(bool sequence = false);
 	void CheckVisited(void);
-
 };
 
 class NativeCodeProcedure

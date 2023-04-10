@@ -14,6 +14,7 @@ public:
 	void AutoInline(void);
 	void CheckFastcall(Declaration* procDec);
 	void CheckInterrupt(void);
+	void AutoZeroPage(LinkerSection * lszp, int zpsize);
 
 	void AnalyzeProcedure(Expression* exp, Declaration* procDec);
 	void AnalyzeAssembler(Expression* exp, Declaration* procDec);
@@ -26,6 +27,7 @@ protected:
 	Linker* mLinker;
 
 	GrowingArray<Declaration*>		mCalledFunctions, mCallingFunctions, mVariableFunctions, mFunctions;
+	GrowingArray<Declaration*>		mGlobalVariables;
 
 	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs);
 

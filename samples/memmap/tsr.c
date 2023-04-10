@@ -11,12 +11,12 @@
 // shrink size of startup section
 
 #pragma section(startup, 0);
-#pragma region(startup, 0x0801, 0x0860, , , { startup } )
+#pragma region(startup, 0x0801, 0x0870, , , { startup } )
 
 // section for code copy
 
 #pragma section(rcode, 0)
-#pragma region(rcode, 0x0860, 0x0900, , , { rcode } )
+#pragma region(rcode, 0x0870, 0x0900, , , { rcode } )
 
 // main section to stay resident, save three bytes at the
 // beginning to have space for an entry jump

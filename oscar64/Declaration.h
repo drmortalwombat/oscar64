@@ -195,6 +195,7 @@ public:
 	LinkerSection	*	mSection;
 	const uint8		*	mData;
 	LinkerObject	*	mLinkerObject;
+	int					mUseCount;
 
 	GrowingArray<Declaration*>	mCallers, mCalled;
 

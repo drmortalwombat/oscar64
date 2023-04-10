@@ -1,7 +1,7 @@
 #include "GlobalAnalyzer.h"
 
 GlobalAnalyzer::GlobalAnalyzer(Errors* errors, Linker* linker)
-	: mErrors(errors), mLinker(linker), mCalledFunctions(nullptr), mCallingFunctions(nullptr), mVariableFunctions(nullptr), mFunctions(nullptr), mCompilerOptions(COPT_DEFAULT)
+	: mErrors(errors), mLinker(linker), mCalledFunctions(nullptr), mCallingFunctions(nullptr), mVariableFunctions(nullptr), mFunctions(nullptr), mGlobalVariables(nullptr), mCompilerOptions(COPT_DEFAULT)
 {
 
 }
@@ -48,6 +48,86 @@ void GlobalAnalyzer::DumpCallGraph(void)
 		else
 		{
 			printf("LEAF %d -> %s[%d, %08llx]\n", from->mCallers.Size(), from->mIdent->mString, from->mComplexity, from->mFlags );
+		}
+	}
+
+	for (int i = 0; i < mGlobalVariables.Size(); i++)
+	{
+		Declaration* var = mGlobalVariables[i];
+		printf("VAR %s[%d, %08llx, %d]\n", var->mIdent->mString, var->mSize, var->mFlags, var->mUseCount);
+	}
+}
+
+static int VarUseCountScale(Declaration* type)
+{
+	if (type->mType == DT_TYPE_BOOL || type->mType == DT_TYPE_INTEGER || type->mType == DT_TYPE_FLOAT || type->mType == DT_TYPE_ENUM)
+		return 0x100 / type->mSize;
+	else if (type->mType == DT_TYPE_POINTER)
+		return 0x800;
+	else if (type->mType == DT_TYPE_ARRAY)
+	{
+		if (type->mSize > 0)
+			return VarUseCountScale(type->mBase) / type->mSize;
+		else
+			return 0;
+	}
+	else if (type->mSize == DT_TYPE_STRUCT)
+	{
+		int size = 0;
+		Declaration* e = type->mParams;
+		while (e)
+		{
+			int t = VarUseCountScale(e->mBase);
+			if (t == 0)
+				return 0;
+			size += t;
+			e = e->mNext;
+		}
+		return size / (type->mSize * type->mSize);
+	}
+	else
+		return 0;
+}
+
+void GlobalAnalyzer::AutoZeroPage(LinkerSection* lszp, int zpsize)
+{
+	if (mCompilerOptions & COPT_OPTIMIZE_AUTO_ZEROPAGE)
+	{
+		GrowingArray<Declaration*>	vars(nullptr);
+
+		for (int i = 0; i < mGlobalVariables.Size(); i++)
+		{
+			Declaration* var = mGlobalVariables[i];
+			if (var->mFlags & DTF_ANALYZED)
+			{
+				if (var->mFlags & DTF_ZEROPAGE)
+					zpsize -= var->mSize;
+				else if (var->mValue)
+					;
+				else
+				{
+					var->mUseCount *= VarUseCountScale(var->mBase);
+					if (var->mUseCount)
+					{
+						int j = 0;
+						while (j < vars.Size() && vars[j]->mUseCount > var->mUseCount)
+							j++;
+						vars.Insert(j, var);
+					}
+				}
+			}
+		}
+
+		int i = 0;
+		while (i < vars.Size() && zpsize > 0)
+		{
+			if (vars[i]->mSize <= zpsize && !vars[i]->mLinkerObject)
+			{
+				vars[i]->mSection = lszp;
+				vars[i]->mFlags |= DTF_ZEROPAGE;
+				zpsize -= vars[i]->mSize;
+			}
+			i++;
 		}
 	}
 }
@@ -247,6 +327,8 @@ void GlobalAnalyzer::CheckInterrupt(void)
 
 void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 {
+	dec->mUseCount++;
+
 	if (dec->mFlags & DTF_FUNC_ANALYZING)
 	{
 		dec->mFlags |= DTF_FUNC_RECURSIVE;
@@ -328,9 +410,13 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 
 void GlobalAnalyzer::AnalyzeGlobalVariable(Declaration* dec)
 {
+	dec->mUseCount++;
+
 	if (!(dec->mFlags & DTF_ANALYZED))
 	{
 		dec->mFlags |= DTF_ANALYZED;
+
+		mGlobalVariables.Push(dec);
 
 		if (dec->mValue)
 		{

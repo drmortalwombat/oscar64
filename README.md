@@ -81,6 +81,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Os: optimize for size
 * -Oi: enable auto inline of small functions (part of O2/O3)
 * -Oa: optimize inline assembler (part of O2/O3)
+* -Oz: enable auto placement of global variables in zero page (part of O3)
 * -g: create source level debug info and add source line numbers to asm listing
 * -tf: target format, may be prg, crt or bin
 * -tm : target machine

@@ -597,7 +597,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
 	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
-	mCompilerOptions(0)
+	mCompilerOptions(0), mUseCount(0)
 {}
 
 Declaration::~Declaration(void)
