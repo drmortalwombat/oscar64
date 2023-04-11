@@ -1078,6 +1078,14 @@ bool Compiler::WriteDbjFile(const char* filename)
 
 								fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
 							}
+							else
+							{
+								// Prepared space on the stack but not used
+							}
+						}
+						else if (v->mTemp)
+						{
+							// Promoted to local variable
 						}
 						else if (p->mFramePointer)
 						{
