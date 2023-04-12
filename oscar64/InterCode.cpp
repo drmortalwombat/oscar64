@@ -301,7 +301,7 @@ static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtr
 		{
 			mem = ins->mConst.mMemory;
 			vindex = ins->mConst.mVarIndex;
-			offset = ins->mConst.mIntConst;
+			offset = int(ins->mConst.mIntConst);
 
 			return true;
 		}
@@ -309,7 +309,7 @@ static bool MemPtrRange(const InterInstruction* ins, const GrowingInstructionPtr
 		{
 			mem = ins->mSrc[1].mMemory;
 			vindex = ins->mSrc[1].mVarIndex;
-			offset = ins->mSrc[1].mIntConst;
+			offset = int(ins->mSrc[1].mIntConst);
 
 			return true;
 		}
@@ -341,14 +341,14 @@ static bool MemRange(const InterInstruction* ins, const GrowingInstructionPtrArr
 		{
 			mem = ins->mSrc[0].mMemory;
 			vindex = ins->mSrc[0].mVarIndex;
-			offset = ins->mSrc[0].mIntConst;
+			offset = int(ins->mSrc[0].mIntConst);
 			size = ins->mSrc[0].mOperandSize;
 		}
 		else
 		{
 			mem = ins->mSrc[1].mMemory;
 			vindex = ins->mSrc[1].mVarIndex;
-			offset = ins->mSrc[1].mIntConst;
+			offset = int(ins->mSrc[1].mIntConst);
 			size = ins->mSrc[1].mOperandSize;
 		}
 
@@ -969,13 +969,13 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, cons
 	if (ains)
 	{
 		lobj = ains->mConst.mLinkerObject;
-		offset = ains->mConst.mIntConst;
+		offset = int(ains->mConst.mIntConst);
 		stride = ains->mConst.mStride;
 	}
 	else
 	{
 		lobj = ins->mSrc[0].mLinkerObject;
-		offset = ins->mSrc[0].mIntConst;
+		offset = int(ins->mSrc[0].mIntConst);
 		stride = ins->mSrc[0].mStride;
 	}
 
@@ -1370,7 +1370,7 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 		sm = sins->mSrc[0].mMemory;
 		si = sins->mSrc[0].mVarIndex;
 		st = sins->mSrc[0].mTemp;
-		so = sins->mSrc[0].mIntConst;
+		so = int(sins->mSrc[0].mIntConst);
 		slo = sins->mSrc[0].mLinkerObject;
 		sz = InterTypeSize[sins->mDst.mType];
 	}
@@ -1379,7 +1379,7 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 		sm = sins->mSrc[1].mMemory;
 		si = sins->mSrc[1].mVarIndex;
 		st = sins->mSrc[1].mTemp;
-		so = sins->mSrc[1].mIntConst;
+		so = int(sins->mSrc[1].mIntConst);
 		slo = sins->mSrc[1].mLinkerObject;
 		sz = InterTypeSize[sins->mSrc[0].mType];
 	}
@@ -1389,7 +1389,7 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 		bm = bins->mSrc[0].mMemory;
 		bi = bins->mSrc[0].mVarIndex;
 		bt = bins->mSrc[0].mTemp;
-		bo = bins->mSrc[0].mIntConst;
+		bo = int(bins->mSrc[0].mIntConst);
 		blo = bins->mSrc[0].mLinkerObject;
 		bz = InterTypeSize[bins->mDst.mType];
 	}
@@ -1398,7 +1398,7 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 		bm = bins->mSrc[1].mMemory;
 		bi = bins->mSrc[1].mVarIndex;
 		bt = bins->mSrc[1].mTemp;
-		bo = bins->mSrc[1].mIntConst;
+		bo = int(bins->mSrc[1].mIntConst);
 		blo = bins->mSrc[1].mLinkerObject;
 		bz = InterTypeSize[bins->mSrc[0].mType];
 	}
@@ -2361,7 +2361,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 
 				if (tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO16S || tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO32S)
 				{
-					int	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					int64	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 					if (ivalue < -128)
 					{
 						toconst = true;
@@ -2407,7 +2407,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				}
 				else if (tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO16U || tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO32U)
 				{
-					int	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					int64	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 					if (ivalue < 0)
 					{
 						toconst = true;
@@ -2497,7 +2497,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 
 				if (tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT8TO16S || tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT8TO32S)
 				{
-					int	ivalue = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
+					int64	ivalue = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
 					if (ivalue > 127)
 					{
 						toconst = true;
@@ -2543,7 +2543,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				}
 				else if (tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT8TO16U || tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT8TO32U)
 				{
-					int	ivalue = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
+					int64	ivalue = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
 					if (ivalue > 255)
 					{
 						toconst = true;
@@ -4288,8 +4288,6 @@ static bool IsInfiniteLoop(InterCodeBasicBlock* head, InterCodeBasicBlock* block
 
 void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 {
-	int i;
-
 	if (mInPath)
 		mLoopHead = true;
 
@@ -5910,7 +5908,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 	assert(mLocalValueRange.Size() == mExitRequiredTemps.Size());
 
 	InterCodeBasicBlock	*	pblock;
-	int						nloop;
+	int64					nloop;
 
 	bool singleLoop = CheckSingleBlockLimitedLoop(pblock, nloop);
 
@@ -6125,7 +6123,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					{
 						if (ins->mSrc[1].mTemp == ins->mDst.mTemp && dependTemps[ins->mDst.mTemp] && i + 3 != sz)
 						{
-							int start = pblock->mTrueValueRange[ins->mDst.mTemp].mMinValue;
+							int64 start = pblock->mTrueValueRange[ins->mDst.mTemp].mMinValue;
 							vr.SetLimit(start + ins->mSrc[0].mIntConst, start + nloop * ins->mSrc[0].mIntConst);
 						}
 						else
@@ -6193,7 +6191,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					else if (ins->mSrc[1].mTemp < 0)
 					{
 						vr = mLocalValueRange[ins->mSrc[0].mTemp];
-						int	maxv = vr.mMaxValue, minv = vr.mMinValue;
+						int64	maxv = vr.mMaxValue, minv = vr.mMinValue;
 
 						if (vr.mMaxState == IntegerValueRange::S_WEAK)
 						{
@@ -6252,7 +6250,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 							if (vr.mMinState == IntegerValueRange::S_WEAK)
 								vr.mMaxState = IntegerValueRange::S_UNBOUND;
 
-							int	maxv = vr.mMaxValue, minv = vr.mMinValue;
+							int64	maxv = vr.mMaxValue, minv = vr.mMinValue;
 							vr.mMaxValue = ins->mSrc[0].mIntConst * minv;
 							vr.mMinValue = ins->mSrc[0].mIntConst * maxv;
 						}
@@ -6281,7 +6279,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 							if (vr.mMinState == IntegerValueRange::S_WEAK)
 								vr.mMaxState = IntegerValueRange::S_UNBOUND;
 
-							int	maxv = vr.mMaxValue, minv = vr.mMinValue;
+							int64	maxv = vr.mMaxValue, minv = vr.mMinValue;
 							vr.mMaxValue = ins->mSrc[1].mIntConst * minv;
 							vr.mMinValue = ins->mSrc[1].mIntConst * maxv;
 						}
@@ -8051,9 +8049,9 @@ static bool CheckSimplifyPointerOffsets(const InterInstruction* ins, int temp, i
 	if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp == temp)
 	{
 		if (ins->mSrc[0].mIntConst < mino)
-			mino = ins->mSrc[0].mIntConst;
+			mino = int(ins->mSrc[0].mIntConst);
 		if (ins->mSrc[0].mIntConst > maxo)
-			maxo = ins->mSrc[0].mIntConst;
+			maxo = int(ins->mSrc[0].mIntConst);
 
 		return true;
 	}
@@ -8064,9 +8062,9 @@ static bool CheckSimplifyPointerOffsets(const InterInstruction* ins, int temp, i
 			return false;
 
 		if (ins->mSrc[1].mIntConst < mino)
-			mino = ins->mSrc[1].mIntConst;
+			mino = int(ins->mSrc[1].mIntConst);
 		if (ins->mSrc[1].mIntConst > maxo)
-			maxo = ins->mSrc[1].mIntConst;
+			maxo = int(ins->mSrc[1].mIntConst);
 
 		return true;
 	}
@@ -9258,7 +9256,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				}
 				else if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_ABSOLUTE && ins->mSrc[0].mTemp >= 0)
 				{
-					int	offset = ins->mSrc[1].mIntConst;
+					int	offset = int(ins->mSrc[1].mIntConst);
 
 					j = 0;
 					while (j < mLoadStoreInstructions.Size() && !(
@@ -10026,7 +10024,7 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 									{
 										if (mInstructions[j]->mCode == IC_LEA && mInstructions[j]->mSrc[1].mTemp == tins->mSrc[0].mTemp && mInstructions[j]->mSrc[0].mTemp < 0)
 										{
-											offset += mInstructions[j]->mSrc[0].mIntConst;
+											offset += int(mInstructions[j]->mSrc[0].mIntConst);
 										}
 										else
 											fail = true;
@@ -10373,7 +10371,7 @@ void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, b
 				if (level == 1)
 				{
 					if (mInstructions[i]->mConst.mIntConst > size)
-						size = mInstructions[i]->mConst.mIntConst;
+						size = int(mInstructions[i]->mConst.mIntConst);
 					mInstructions[i]->mCode = IC_NONE;
 				}
 				else
@@ -10632,7 +10630,7 @@ void PromoteStaticStackParam(InterOperand& iop, LinkerObject* paramlobj)
 			iop.mMemory = IM_GLOBAL;
 			iop.mIntConst += offset;
 			iop.mLinkerObject = paramlobj;
-			paramlobj->EnsureSpace(iop.mIntConst, iop.mOperandSize);
+			paramlobj->EnsureSpace(int(iop.mIntConst), iop.mOperandSize);
 		}
 	}
 }
@@ -11129,7 +11127,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								InterInstruction* si = FindSourceInstruction(mLoopPrefix, ai->mDst.mTemp);
 								if (si && si->mCode == IC_CONSTANT)
 								{
-									int	num = (ci->mSrc[0].mIntConst - si->mSrc[0].mIntConst) / ai->mSrc[0].mIntConst;
+									int64	num = (ci->mSrc[0].mIntConst - si->mSrc[0].mIntConst) / ai->mSrc[0].mIntConst;
 									if (num > 0)
 									{
 										ai->mOperator = IA_SUB;
@@ -11574,13 +11572,13 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 						{
 							if (mDominator->mTrueValueRange[ireg].IsConstant())
 							{
-								int	start = mDominator->mTrueValueRange[ireg].mMinValue;
-								int	end = mInstructions[nins - 2]->mSrc[0].mIntConst;
+								int64	start = mDominator->mTrueValueRange[ireg].mMinValue;
+								int64	end = mInstructions[nins - 2]->mSrc[0].mIntConst;
 								if (mInstructions[nins - 2]->mOperator == IA_CMPLEU)
 									end++;
 
-								int	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
-								int	count = (end - start) / step;
+								int64	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
+								int	count = int((end - start) / step);
 
 								if (count < 5 && (nins - 3) * count < 20)
 								{
@@ -11659,7 +11657,7 @@ void InterCodeBasicBlock::PushMoveOutOfLoop(void)
 								else if (cins->mDst.mTemp == mins->mSrc[0].mTemp)
 								{
 									if (cins->mCode == IC_LEA && cins->mSrc[1].mTemp == mins->mSrc[0].mTemp && cins->mSrc[0].mTemp < 0)
-										offset += cins->mSrc[0].mIntConst;
+										offset += int(cins->mSrc[0].mIntConst);
 									else
 										fail = true;
 								}
@@ -11728,7 +11726,7 @@ void InterCodeBasicBlock::PushMoveOutOfLoop(void)
 	}
 }
 
-bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int& nloop)
+bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64& nloop)
 {
 	if (mLoopHead && mNumEntries == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
 	{
@@ -11829,10 +11827,10 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerToByte(int& spareTemps)
 						i++;
 					if (i == nins - 3)
 					{					
-						int nloop = cins->mSrc[0].mIntConst;
+						int nloop = int(cins->mSrc[0].mIntConst);
 						if (cins->mOperator == IA_CMPLEU)
 							nloop++;
-						nloop /= ains->mSrc[0].mIntConst;
+						nloop /= int(ains->mSrc[0].mIntConst);
 
 						for (int i = 0; i < mInstructions.Size() - 3; i++)
 						{
@@ -11887,7 +11885,7 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerToByte(int& spareTemps)
 									if (spareTemps + 2 >= mEntryRequiredTemps.Size() + 16)
 										return true;
 									
-									int inc = lins->mSrc[0].mIntConst;
+									int inc = int(lins->mSrc[0].mIntConst);
 
 									int ireg = mtemps[inc];
 
@@ -12747,9 +12745,9 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						else if (cins->mDst.mTemp == st)
 						{
 							if (cins->mCode == IC_LEA && cins->mSrc[1].mTemp == st && cins->mSrc[0].mTemp < 0)
-								toffset += cins->mSrc[0].mIntConst;
+								toffset += int(cins->mSrc[0].mIntConst);
 							else if (cins->mCode == IC_BINARY_OPERATOR && cins->mOperator == IA_ADD && cins->mSrc[1].mTemp == st && cins->mSrc[0].mTemp < 0)
-								toffset += cins->mSrc[0].mIntConst;
+								toffset += int(cins->mSrc[0].mIntConst);
 							else
 								break;						
 						}
@@ -13006,7 +13004,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 				(mInstructions[i + 1]->mSrc[0].mIntConst & (1LL << mInstructions[i + 0]->mSrc[0].mIntConst)) == 0)
 			{
-				int	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
 				mInstructions[i + 1]->mSrc[0].mIntConst >>= shift;
 				mInstructions[i + 0]->mOperator = IA_AND;
 				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
@@ -13018,7 +13016,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
 				(mInstructions[i + 1]->mSrc[1].mIntConst & (1LL << mInstructions[i + 0]->mSrc[0].mIntConst)) == 0)
 			{
-				int	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
 				mInstructions[i + 1]->mSrc[1].mIntConst >>= shift;
 				mInstructions[i + 0]->mOperator = IA_AND;
 				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
@@ -13111,8 +13109,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				(mInstructions[i + 2]->mSrc[0].mIntConst & 1) == 0)
 			{
 
-				int	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
-				int	mshift = 1;
+				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+				int64	mshift = 1;
 				while (!(mInstructions[i + 2]->mSrc[0].mIntConst & (1ULL << mshift)))
 					mshift++;
 
@@ -13151,10 +13149,10 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
 			{
 
-				int	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
 				if (shift & 7)
 				{
-					int	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
+					int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
 
 					mInstructions[i + 0]->mOperator = IA_AND;
 					mInstructions[i + 0]->mSrc[0].mType = IT_INT16;
@@ -13230,7 +13228,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0)
 				)
 			{
-				int v = mInstructions[i + 1]->mSrc[1].mIntConst;
+				int64 v = mInstructions[i + 1]->mSrc[1].mIntConst;
 				InterOperator	op = mInstructions[i + 1]->mOperator;
 				if (mInstructions[i + 1]->mSrc[1].mTemp >= 0)
 				{
@@ -13631,7 +13629,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 						{
 							if ((o0 == IA_ADD || o0 == IA_SUB && c0 == 0) && (o1 == IA_ADD || o1 == IA_SUB && c1 == 0))
 							{
-								int iconst =
+								int64 iconst =
 									(o1 == IA_ADD ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) -
 									(o0 == IA_ADD ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
 
@@ -13650,7 +13648,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 						{
 							if ((o0 == IA_ADD || o0 == IA_SUB && c0 == 0) && (o1 == IA_ADD || o1 == IA_SUB && c1 == 0))
 							{
-								int iconst =
+								int64 iconst =
 									(o1 == IA_ADD ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) +
 									(o0 == IA_ADD ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
 
@@ -13709,7 +13707,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 3]->mCode == IC_LEA && mInstructions[i + 3]->mSrc[1].mTemp < 0 &&
 				mInstructions[i + 3]->mSrc[0].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[0].mFinal)
 			{
-				int	d = mInstructions[i + 0]->mSrc[0].mIntConst * mInstructions[i + 1]->mSrc[0].mIntConst;
+				int64	d = mInstructions[i + 0]->mSrc[0].mIntConst * mInstructions[i + 1]->mSrc[0].mIntConst;
 				mInstructions[i + 3]->mSrc[1].mIntConst += d;
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 				mInstructions[i + 1]->mDst.mRange.mMinValue -= d; mInstructions[i + 1]->mDst.mRange.mMaxValue -= d;
@@ -14142,7 +14140,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 						{
 							if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp == si)
 							{
-								ioffset += ins->mSrc[0].mIntConst;
+								ioffset += int(ins->mSrc[0].mIntConst);
 								ains = ins;
 							}
 							else
@@ -14285,7 +14283,7 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 					if (!localVars[varIndex])
 						localVars[varIndex] = new InterVariable;
 
-					int	size = ins->mConst.mOperandSize + ins->mConst.mIntConst;
+					int	size = int(ins->mConst.mOperandSize + ins->mConst.mIntConst);
 					if (size > localVars[varIndex]->mSize)
 						localVars[varIndex]->mSize = size;
 					localVars[varIndex]->mAliased = true;
@@ -14296,7 +14294,7 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 					if (!paramVars[varIndex])
 						paramVars[varIndex] = new InterVariable;
 
-					int	size = ins->mConst.mOperandSize + ins->mConst.mIntConst;
+					int	size = int(ins->mConst.mOperandSize + ins->mConst.mIntConst);
 					if (size > paramVars[varIndex]->mSize)
 						paramVars[varIndex]->mSize = size;
 					paramVars[varIndex]->mAliased = true;
@@ -14310,7 +14308,7 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 					if (!localVars[varIndex])
 						localVars[varIndex] = new InterVariable;
 
-					int	size = ins->mSrc[1].mOperandSize + ins->mSrc[1].mIntConst;
+					int	size = int(ins->mSrc[1].mOperandSize + ins->mSrc[1].mIntConst);
 					if (size > localVars[varIndex]->mSize)
 						localVars[varIndex]->mSize = size;
 					localVars[varIndex]->mAliased = true;
@@ -14321,7 +14319,7 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 					if (!paramVars[varIndex])
 						paramVars[varIndex] = new InterVariable;
 
-					int	size = ins->mSrc[1].mOperandSize + ins->mSrc[1].mIntConst;
+					int	size = int(ins->mSrc[1].mOperandSize + ins->mSrc[1].mIntConst);
 					if (size > paramVars[varIndex]->mSize)
 						paramVars[varIndex]->mSize = size;
 					paramVars[varIndex]->mAliased = true;
@@ -14343,7 +14341,7 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 						if (!localVars[varIndex])
 							localVars[varIndex] = new InterVariable;
 
-						int	size = ins->mSrc[j].mOperandSize + ins->mSrc[j].mIntConst;
+						int	size = int(ins->mSrc[j].mOperandSize + ins->mSrc[j].mIntConst);
 						if (size > localVars[varIndex]->mSize)
 							localVars[varIndex]->mSize = size;
 					}
@@ -14353,7 +14351,7 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 						if (!paramVars[varIndex])
 							paramVars[varIndex] = new InterVariable;
 
-						int	size = ins->mSrc[j].mOperandSize + ins->mSrc[j].mIntConst;
+						int	size = int(ins->mSrc[j].mOperandSize + ins->mSrc[j].mIntConst);
 						if (size > paramVars[varIndex]->mSize)
 							paramVars[varIndex]->mSize = size;
 					}
@@ -15336,7 +15334,6 @@ void InterCodeProcedure::PropagateConstOperationsUp(void)
 
 void InterCodeProcedure::Close(void)
 {
-	int				i, j, k, start;
 	GrowingTypeArray	tstack(IT_NONE);
 
 	mEntryBlock = mBlocks[0];

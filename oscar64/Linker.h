@@ -268,7 +268,7 @@ public:
 
 	bool	mCartridgeBankUsed[64];
 
-	uint32	mCartridgeBankStart[64], mCartridgeBankEnd[64];
+	int	mCartridgeBankStart[64], mCartridgeBankEnd[64];
 
 	int	mProgramStart, mProgramEnd;
 

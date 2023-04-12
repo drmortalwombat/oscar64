@@ -623,8 +623,6 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int ban
 	else if (ident)
 		fprintf(file, "%s:\n", ident->mString);
 
-	char	tbuffer[10], abuffer[100];
-
 	if (lobj->mSection->mType == LST_BSS)
 	{
 		if (bank >= 0)

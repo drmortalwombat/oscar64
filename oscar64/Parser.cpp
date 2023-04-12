@@ -304,7 +304,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 			mScanner->NextToken();
 			if (mScanner->mToken == TK_IDENT)
 			{
-				int	minValue = 0, maxValue = 0;
+				int64	minValue = 0, maxValue = 0;
 
 				for (;;)
 				{
@@ -764,7 +764,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant index expected");
 						else
 						{
-							index = stride * istart->mDecValue->mInteger;
+							index = stride * int(istart->mDecValue->mInteger);
 							if (index >= dtype->mSize)
 							{
 								mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant initializer out of range");
@@ -778,7 +778,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 									mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Constant index expected");
 								else
 								{
-									nrep = iend->mDecValue->mInteger - istart->mDecValue->mInteger + 1;
+									nrep = int(iend->mDecValue->mInteger - istart->mDecValue->mInteger + 1);
 
 									if (size + nrep * dtype->mBase->mSize > dtype->mSize)
 									{
@@ -2279,11 +2279,11 @@ Expression* Parser::ParseStatement(void)
 					{
 						if (initExp->mRight->mDecValue->mType == DT_CONST_INTEGER && conditionExp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 						{
-							int	startValue = initExp->mRight->mDecValue->mInteger;
-							int	endValue = conditionExp->mRight->mDecValue->mInteger;
+							int	startValue = int(initExp->mRight->mDecValue->mInteger);
+							int	endValue = int(conditionExp->mRight->mDecValue->mInteger);
 							int	stepValue = 1;
 							if (iterateExp->mType == EX_ASSIGNMENT)
-								stepValue = iterateExp->mRight->mDecValue->mInteger;
+								stepValue = int(iterateExp->mRight->mDecValue->mInteger);
 
 							if (unrollPage)
 							{
@@ -3341,7 +3341,7 @@ void Parser::ParsePragma(void)
 				ConsumeToken(TK_COMMA);
 				Expression* exp = ParseRExpression();
 				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER && exp->mDecValue->mInteger >= 2 && exp->mDecValue->mInteger < 0x100)
-					index = exp->mDecValue->mInteger;
+					index = int(exp->mDecValue->mInteger);
 				else
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for start expected");
 
@@ -3477,7 +3477,7 @@ void Parser::ParsePragma(void)
 			ConsumeToken(TK_OPEN_PARENTHESIS);
 			if (mScanner->mToken == TK_INTEGER)
 			{
-				mCompilationUnits->mSectionStack->mSize = mScanner->mTokenInteger;
+				mCompilationUnits->mSectionStack->mSize = int(mScanner->mTokenInteger);
 				mScanner->NextToken();
 			}
 			else
@@ -3491,7 +3491,7 @@ void Parser::ParsePragma(void)
 			ConsumeToken(TK_OPEN_PARENTHESIS);
 			if (mScanner->mToken == TK_INTEGER)
 			{
-				mCompilationUnits->mSectionHeap->mSize = mScanner->mTokenInteger;
+				mCompilationUnits->mSectionHeap->mSize = int(mScanner->mTokenInteger);
 				mScanner->NextToken();
 			}
 			else
@@ -3505,20 +3505,20 @@ void Parser::ParsePragma(void)
 			ConsumeToken(TK_OPEN_PARENTHESIS);
 			if (mScanner->mToken == TK_INTEGER)
 			{
-				int	cindex = mScanner->mTokenInteger;
+				int	cindex = int(mScanner->mTokenInteger);
 				mScanner->NextToken();
 				ConsumeToken(TK_COMMA);
 
 				if (mScanner->mToken == TK_INTEGER)
 				{
-					int	ccode = mScanner->mTokenInteger;
+					int	ccode = int(mScanner->mTokenInteger);
 					int	ccount = 1;
 					mScanner->NextToken();
 					if (ConsumeTokenIf(TK_COMMA))
 					{
 						if (mScanner->mToken == TK_INTEGER)
 						{
-							ccount = mScanner->mTokenInteger;
+							ccount = int(mScanner->mTokenInteger);
 							mScanner->NextToken();
 						}
 						else
@@ -3558,7 +3558,7 @@ void Parser::ParsePragma(void)
 				
 				exp = ParseRExpression();
 				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-					start = exp->mDecValue->mInteger;
+					start = int(exp->mDecValue->mInteger);
 				else
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for start expected");
 				
@@ -3566,7 +3566,7 @@ void Parser::ParsePragma(void)
 				
 				exp = ParseRExpression();
 				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-					end = exp->mDecValue->mInteger;
+					end = int(exp->mDecValue->mInteger);
 				else
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for end expected");
 				
@@ -3576,7 +3576,7 @@ void Parser::ParsePragma(void)
 				{
 					exp = ParseRExpression();
 					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-						flags = exp->mDecValue->mInteger;
+						flags = int(exp->mDecValue->mInteger);
 					else
 						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for flags expected");
 				}
@@ -3649,7 +3649,7 @@ void Parser::ParsePragma(void)
 				{
 					exp = ParseRExpression();
 					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-						rgn->mReloc = exp->mDecValue->mInteger - rgn->mStart;
+						rgn->mReloc = int(exp->mDecValue->mInteger - rgn->mStart);
 					else
 						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
 				}
@@ -3677,7 +3677,7 @@ void Parser::ParsePragma(void)
 
 				exp = ParseRExpression();
 				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-					bank = exp->mDecValue->mInteger;
+					bank = int(exp->mDecValue->mInteger);
 				else
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
 
@@ -3705,7 +3705,7 @@ void Parser::ParsePragma(void)
 
 				exp = ParseRExpression();
 				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-					flags = exp->mDecValue->mInteger;
+					flags = int(exp->mDecValue->mInteger);
 				else
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for flags expected");
 
@@ -3856,7 +3856,7 @@ void Parser::ParsePragma(void)
 					Expression * exp = ParseRExpression();
 					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
 					{
-						dec->mAlignment = exp->mDecValue->mInteger;
+						dec->mAlignment = int(exp->mDecValue->mInteger);
 					}
 					else
 						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for alignment expected");
@@ -3936,7 +3936,7 @@ void Parser::ParsePragma(void)
 
 			if (mScanner->mToken == TK_INTEGER)
 			{
-				mUnrollLoop = mScanner->mTokenInteger;
+				mUnrollLoop = int(mScanner->mTokenInteger);
 				mScanner->NextToken();
 			}
 			else if (mScanner->mToken == TK_IDENT && !strcmp(mScanner->mTokenIdent->mString, "full"))

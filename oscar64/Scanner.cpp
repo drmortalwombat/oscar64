@@ -444,7 +444,7 @@ void Scanner::NextToken(void)
 				mPrepCondFalse = 0;
 
 				NextToken();
-				int v = PrepParseConditional();
+				int64 v = PrepParseConditional();
 				if (v)
 				{
 					mPrepCondFalse = 0;
@@ -592,7 +592,7 @@ void Scanner::NextToken(void)
 		{
 			mPreprocessorMode = true;
 			NextToken();
-			int v = PrepParseConditional();
+			int64 v = PrepParseConditional();
 			if (v)
 				mPrepCondDepth++;
 			else
@@ -611,7 +611,7 @@ void Scanner::NextToken(void)
 
 				NextToken();
 
-				int v = PrepParseConditional();
+				int64 v = PrepParseConditional();
 				Macro* macro = mDefines->Lookup(ident);
 				if (!macro)
 				{
@@ -619,7 +619,7 @@ void Scanner::NextToken(void)
 					mDefines->Insert(macro);
 				}
 				char	buffer[20];
-				sprintf_s(buffer, "%d", v);
+				sprintf_s(buffer, "%d", int(v));
 				macro->SetString(buffer);
 				mPreprocessorMode = false;
 				if (mToken != TK_EOL)
@@ -634,7 +634,7 @@ void Scanner::NextToken(void)
 		{
 			mPreprocessorMode = true;
 			NextToken();
-			int v = PrepParseConditional();
+			int64 v = PrepParseConditional();
 			if (mToken != TK_EOL)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "End of line expected");
 
@@ -659,12 +659,12 @@ void Scanner::NextToken(void)
 			NextRawToken();
 			if (mToken == TK_INTEGER)
 			{
-				limit = mTokenInteger;
+				limit = int(mTokenInteger);
 				NextRawToken();
 
 				if (mToken == TK_INTEGER)
 				{
-					skip = mTokenInteger;
+					skip = int(mTokenInteger);
 					NextRawToken();
 				}
 			}
@@ -1791,7 +1791,7 @@ void Scanner::ParseNumberToken(void)
 		}
 		else
 		{
-			double	facc = mant, fract = 1.0;
+			double	facc = double(mant), fract = 1.0;
 
 			NextChar();
 

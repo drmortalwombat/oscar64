@@ -291,7 +291,7 @@ Expression* Expression::ConstantFold(Errors * errors)
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
 				dec->mBase = mLeft->mDecType;
-				dec->mInteger = mRight->mDecValue->mNumber;
+				dec->mInteger = int64(mRight->mDecValue->mNumber);
 				ex->mDecValue = dec;
 				ex->mDecType = mLeft->mDecType;
 				return ex;
@@ -323,7 +323,7 @@ Expression* Expression::ConstantFold(Errors * errors)
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_FLOAT);
 				dec->mBase = mLeft->mDecType;
-				dec->mNumber = mRight->mDecValue->mInteger;
+				dec->mNumber = double(mRight->mDecValue->mInteger);
 				ex->mDecValue = dec;
 				ex->mDecType = mLeft->mDecType;
 				return ex;
@@ -542,8 +542,8 @@ Expression* Expression::ConstantFold(Errors * errors)
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
 		dec->mBase = mLeft->mDecValue;
-		dec->mSize = mLeft->mDecType->mBase->mSize - mRight->mDecValue->mInteger * dec->mSize;
-		dec->mOffset = mRight->mDecValue->mInteger * dec->mSize;
+		dec->mSize = mLeft->mDecType->mBase->mSize - int(mRight->mDecValue->mInteger) * dec->mSize;
+		dec->mOffset = int(mRight->mDecValue->mInteger) * dec->mSize;
 		ex->mDecValue = dec;
 		ex->mDecType = mLeft->mDecType;
 		return ex;
@@ -554,8 +554,8 @@ Expression* Expression::ConstantFold(Errors * errors)
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
 		dec->mBase = mLeft->mDecValue->mBase;
-		dec->mSize = mLeft->mDecType->mBase->mSize - mRight->mDecValue->mInteger * dec->mSize;
-		dec->mOffset = mLeft->mDecValue->mOffset + mRight->mDecValue->mInteger * dec->mSize;
+		dec->mSize = mLeft->mDecType->mBase->mSize - int(mRight->mDecValue->mInteger) * dec->mSize;
+		dec->mOffset = mLeft->mDecValue->mOffset + int(mRight->mDecValue->mInteger) * dec->mSize;
 		ex->mDecValue = dec;
 		ex->mDecType = mLeft->mDecType;
 		return ex;

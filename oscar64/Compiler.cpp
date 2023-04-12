@@ -176,7 +176,7 @@ void Compiler::RegisterRuntime(const Location & loc, const Ident* ident)
 				mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue, nullptr);
 
 			linkerObject = bcdec->mBase->mLinkerObject;
-			offset = bcdec->mInteger;
+			offset = int(bcdec->mInteger);
 		}
 		else if (bcdec->mType == DT_VARIABLE)
 		{
@@ -728,7 +728,7 @@ bool Compiler::GenerateCode(void)
 						if (!bcdec->mBase->mLinkerObject)
 							mInterCodeGenerator->TranslateAssembler(mInterCodeModule, bcdec->mBase->mValue, nullptr);
 						linkerObject = bcdec->mBase->mLinkerObject;
-						offset = bcdec->mInteger;
+						offset = int(bcdec->mInteger);
 					}
 
 					assert(linkerObject);
@@ -788,7 +788,9 @@ bool Compiler::BuildLZO(const char* targetPath)
 			Scanner* scanner = new Scanner(mErrors, mPreprocessor);
 			while (scanner->mToken == TK_INTEGER)
 			{
-				data[n++] = scanner->mTokenInteger;
+				if (scanner->mTokenInteger < 0 || scanner->mTokenInteger > 255)
+					mErrors->Error(scanner->mLocation, EWARN_CONSTANT_TRUNCATED, "Constant integer truncated");
+				data[n++] = uint8(scanner->mTokenInteger);
 				do {
 					scanner->NextToken();
 				} while (scanner->mToken == TK_COMMA);				

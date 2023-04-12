@@ -455,7 +455,7 @@ void SourceFile::ReadCharPad(SourceFileDecoder decoder)
 			{
 				int16	d;
 				fread(&d, 2, 1, mFile);
-				mMemData[i] = d;
+				mMemData[i] = uint8(d);
 			}
 			return;
 		}
@@ -525,7 +525,7 @@ void SourceFile::ReadCharPad(SourceFileDecoder decoder)
 		{
 			int16	d;
 			fread(&d, 2, 1, mFile);
-			mMemData[i] = d;
+			mMemData[i] = uint8(d);
 		}
 		return;
 	}

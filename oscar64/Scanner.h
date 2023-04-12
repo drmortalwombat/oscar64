@@ -220,7 +220,7 @@ public:
 
 	Token			mToken;
 	double			mTokenNumber;
-	unsigned int	mTokenInteger;
+	int64			mTokenInteger;
 
 	Location		mLocation;
 

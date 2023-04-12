@@ -53,7 +53,6 @@ DiskImage::DiskImage(const char* fname)
 	for (int i = 0x90; i < 0xab; i++)
 		bam[i] = 0xa0;
 
-	char	dname[200];
 	int		i = strlen(fname);
 
 	while (i > 0 && fname[i - 1] != '/' && fname[i - 1] != '\\')

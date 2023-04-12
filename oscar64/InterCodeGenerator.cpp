@@ -474,7 +474,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					else
 						ref.mFlags = LREF_LOWBYTE;
 					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
-					ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
+					ref.mRefOffset = aexp->mOffset + int(aexp->mBase->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
@@ -581,7 +581,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Local variable outside scope");
 			}
 			else
-				d[offset] = aexp->mInteger;
+				d[offset] = uint8(aexp->mInteger);
 			offset += 1;
 			break;
 		case ASMIM_ABSOLUTE:
@@ -592,8 +592,8 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
 			else if (aexp->mType == DT_CONST_INTEGER)
 			{
-				d[offset + 0] = cexp->mLeft->mDecValue->mInteger & 255;
-				d[offset + 1] = cexp->mLeft->mDecValue->mInteger >> 8;
+				d[offset + 0] = uint8(cexp->mLeft->mDecValue->mInteger & 255);
+				d[offset + 1] = uint8(cexp->mLeft->mDecValue->mInteger >> 8);
 			}
 			else if (aexp->mType == DT_LABEL)
 			{
@@ -607,7 +607,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mBase->mLinkerObject;
-					ref.mRefOffset = aexp->mInteger;
+					ref.mRefOffset = uint8(aexp->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
@@ -626,7 +626,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mBase->mBase->mLinkerObject;
-					ref.mRefOffset = aexp->mOffset + aexp->mBase->mInteger;
+					ref.mRefOffset = aexp->mOffset + int(aexp->mBase->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
@@ -722,12 +722,12 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				if (aexp->mType == DT_LABEL_REF)
 				{
 					if (aexp->mBase->mBase)
-						d[offset] = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
+						d[offset] = uint8(aexp->mOffset + aexp->mBase->mInteger - offset - 1);
 					else
 						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent);
 				}
 				else
-					d[offset] = aexp->mInteger - offset - 1;
+					d[offset] = uint8(aexp->mInteger - offset - 1);
 			}
 			offset++;
 			break;
@@ -844,7 +844,6 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 
 InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr)
 {
-	Declaration* dec;
 	ExValue	vl, vr;
 
 	Declaration* fdec = exp->mLeft->mDecValue;
@@ -2325,9 +2324,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							ins->mSrc[1].mType = IT_POINTER;
 							ins->mSrc[1].mMemory = IM_INDIRECT;
 							ins->mSrc[1].mTemp = vl.mTemp;
-							ins->mSrc[0].mOperandSize = nex->mDecValue->mInteger;
-							ins->mSrc[1].mOperandSize = nex->mDecValue->mInteger;
-							ins->mConst.mOperandSize = nex->mDecValue->mInteger;
+							ins->mSrc[0].mOperandSize = int(nex->mDecValue->mInteger);
+							ins->mSrc[1].mOperandSize = int(nex->mDecValue->mInteger);
+							ins->mConst.mOperandSize = int(nex->mDecValue->mInteger);
 							block->Append(ins);
 
 							return vl;
@@ -3491,7 +3490,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					snode.mValue = 0;
 
 					if (cexp->mLeft->mType == EX_CONSTANT && cexp->mLeft->mDecValue->mType == DT_CONST_INTEGER)
-						snode.mValue = cexp->mLeft->mDecValue->mInteger;
+						snode.mValue = int(cexp->mLeft->mDecValue->mInteger);
 					else
 						mErrors->Error(cexp->mLeft->mLocation, ERRR_INVALID_CASE, "Integral constant expected");
 
@@ -3589,12 +3588,12 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	{
 		int64	t = data->mInteger;
 		dp[offset + 0] = uint8(t & 0xff);
-		dp[offset + data->mBase->mStripe] = t >> 8;
+		dp[offset + data->mBase->mStripe] = uint8(t >> 8);
 	}
 	else if (data->mType == DT_CONST_FLOAT)
 	{
 		union { float f; uint32 i; } cast;
-		cast.f = data->mNumber;
+		cast.f = float(data->mNumber);
 		int64	t = cast.i;
 		for (int i = 0; i < 4; i++)
 		{

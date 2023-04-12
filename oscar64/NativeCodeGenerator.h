@@ -112,7 +112,7 @@ class NativeCodeInstruction
 {
 public:
 	NativeCodeInstruction(void);
-	NativeCodeInstruction(const InterInstruction * ins, AsmInsType type, AsmInsMode mode = ASMIM_IMPLIED, int address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER, int param = 0);
+	NativeCodeInstruction(const InterInstruction * ins, AsmInsType type, AsmInsMode mode = ASMIM_IMPLIED, int64 address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER, int param = 0);
 	NativeCodeInstruction(const InterInstruction* ins, AsmInsType type, const NativeCodeInstruction & addr);
 
 	AsmInsType				mType;
@@ -284,6 +284,7 @@ public:
 	NativeCodeBasicBlock* BuildSingleExit(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
 
 	void PutLocation(const Location& loc);
+	void PutOpcode(short opcode);
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
 

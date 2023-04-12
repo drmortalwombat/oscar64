@@ -281,8 +281,8 @@ NativeCodeInstruction::NativeCodeInstruction(void)
 	: mIns(nullptr), mType(ASMIT_INV), mMode(ASMIM_IMPLIED), mAddress(0), mLinkerObject(nullptr), mFlags(NCIF_LOWER | NCIF_UPPER), mParam(0), mLive(LIVE_ALL)
 {}
 
-NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmInsType type, AsmInsMode mode, int address, LinkerObject* linkerObject, uint32 flags, int param)
-	: mIns(ins), mType(type), mMode(mode), mAddress(address), mLinkerObject(linkerObject), mFlags(flags), mParam(param), mLive(LIVE_ALL)
+NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmInsType type, AsmInsMode mode, int64 address, LinkerObject* linkerObject, uint32 flags, int param)
+	: mIns(ins), mType(type), mMode(mode), mAddress(int(address)), mLinkerObject(linkerObject), mFlags(flags), mParam(param), mLive(LIVE_ALL)
 {
 	if (mode == ASMIM_IMMEDIATE_ADDRESS)
 	{
@@ -4395,7 +4395,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 	{
 		if (mType == ASMIT_JSR && (mFlags & NCIF_USE_ZP_32_X))
 		{
-			block->PutByte(AsmInsOpcodes[ASMIT_LDX][ASMIM_IMMEDIATE]);
+			block->PutOpcode(AsmInsOpcodes[ASMIT_LDX][ASMIM_IMMEDIATE]);
 			block->PutByte(mParam);
 		}
 
@@ -4418,12 +4418,12 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 		{
 			assert((mFlags & (NCIF_LOWER | NCIF_UPPER)) != (NCIF_LOWER | NCIF_UPPER));
 			assert(HasAsmInstructionMode(mType, ASMIM_IMMEDIATE));
-			block->PutByte(AsmInsOpcodes[mType][ASMIM_IMMEDIATE]);
+			block->PutOpcode(AsmInsOpcodes[mType][ASMIM_IMMEDIATE]);
 		}
 		else
 		{
 			assert(HasAsmInstructionMode(mType, mode));
-			block->PutByte(AsmInsOpcodes[mType][mode]);
+			block->PutOpcode(AsmInsOpcodes[mType][mode]);
 		}
 		
 		switch (mode)
@@ -4547,6 +4547,12 @@ void NativeCodeBasicBlock::PutLocation(const Location& location)
 	}
 }
 
+void NativeCodeBasicBlock::PutOpcode(short opcode)
+{
+	assert(opcode >= 0 && opcode < 256);
+	this->mCode.Push(uint8(opcode));
+}
+
 void NativeCodeBasicBlock::PutByte(uint8 code)
 {
 	this->mCode.Push(code);
@@ -4610,9 +4616,9 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 		if (mNDataSet.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 		{
 			if (mNDataSet.mRegs[CPU_REG_C].mValue)
-				PutByte(AsmInsOpcodes[ASMIT_BCS][ASMIM_RELATIVE]);
+				PutOpcode(AsmInsOpcodes[ASMIT_BCS][ASMIM_RELATIVE]);
 			else
-				PutByte(AsmInsOpcodes[ASMIT_BCC][ASMIM_RELATIVE]);
+				PutOpcode(AsmInsOpcodes[ASMIT_BCC][ASMIM_RELATIVE]);
 
 			PutByte(offset - 2);
 			return 2;
@@ -4620,9 +4626,9 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 		else if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 		{
 			if (mNDataSet.mRegs[CPU_REG_Z].mValue)
-				PutByte(AsmInsOpcodes[ASMIT_BNE][ASMIM_RELATIVE]);
+				PutOpcode(AsmInsOpcodes[ASMIT_BNE][ASMIM_RELATIVE]);
 			else
-				PutByte(AsmInsOpcodes[ASMIT_BEQ][ASMIM_RELATIVE]);
+				PutOpcode(AsmInsOpcodes[ASMIT_BEQ][ASMIM_RELATIVE]);
 
 			PutByte(offset - 2);
 			return 2;
@@ -4684,13 +4690,13 @@ int NativeCodeBasicBlock::PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBl
 {
 	if (offset >= -126 && offset <= 129)
 	{
-		PutByte(AsmInsOpcodes[code][ASMIM_RELATIVE]);
+		PutOpcode(AsmInsOpcodes[code][ASMIM_RELATIVE]);
 		PutByte(offset - 2);
 		return 2;
 	}
 	else
 	{
-		PutByte(AsmInsOpcodes[InvertBranchCondition(code)][ASMIM_RELATIVE]);
+		PutOpcode(AsmInsOpcodes[InvertBranchCondition(code)][ASMIM_RELATIVE]);
 
 		if (target->mIns.Size() == 1 && target->mIns[0].mType == ASMIT_RTS)
 		{
@@ -4722,7 +4728,7 @@ void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure * proc, const In
 	if (type == IT_FLOAT)
 	{
 		union { float f; unsigned int v; } cc;
-		cc.f = ins->mConst.mFloatConst;
+		cc.f = float(ins->mConst.mFloatConst);
 
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg));
@@ -4758,7 +4764,7 @@ void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure * proc, const In
 		}
 		else if (ins->mConst.mMemory == IM_FRAME)
 		{
-			int	index = ins->mConst.mVarIndex + ins->mConst.mIntConst + 2;
+			int	index = ins->mConst.mVarIndex + int(ins->mConst.mIntConst) + 2;
 
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
@@ -4770,7 +4776,7 @@ void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure * proc, const In
 		}
 		else if (ins->mConst.mMemory == IM_LOCAL || ins->mConst.mMemory == IM_PARAM)
 		{
-			int	index = ins->mConst.mIntConst;
+			int	index = int(ins->mConst.mIntConst);
 			int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 			if (ins->mConst.mMemory == IM_LOCAL)
 				index += proc->mLocalVars[ins->mConst.mVarIndex]->mOffset;
@@ -4863,7 +4869,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 			if (ins->mSrc[0].mTemp < 0)
 			{
 				union { float f; unsigned int v; } cc;
-				cc.f = ins->mSrc[0].mFloatConst;
+				cc.f = float(ins->mSrc[0].mFloatConst);
 
 				if (ins->mSrc[1].mMemory == IM_GLOBAL)
 				{
@@ -4900,7 +4906,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				}
 				else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 				{
-					int	index = ins->mSrc[1].mIntConst;
+					int	index = int(ins->mSrc[1].mIntConst);
 					int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (ins->mSrc[1].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -4924,7 +4930,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				}
 				else if (ins->mSrc[1].mMemory == IM_FRAME)
 				{
-					int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+					int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
@@ -4986,7 +4992,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				}
 				else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 				{
-					int	index = ins->mSrc[1].mIntConst;
+					int	index = int(ins->mSrc[1].mIntConst);
 					int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (ins->mSrc[1].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -5010,7 +5016,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				}
 				else if (ins->mSrc[1].mMemory == IM_FRAME)
 				{
-					int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+					int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, sreg));
@@ -5034,10 +5040,10 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					union { float f; unsigned int v; } cc;
-					cc.f = ins->mSrc[0].mFloatConst;
+					cc.f = float(ins->mSrc[0].mFloatConst);
 
 					int	reg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					int index = ins->mSrc[1].mIntConst;
+					int index = int(ins->mSrc[1].mIntConst);
 					int stride = ins->mSrc[1].mStride;
 
 					if (stride * 4 <= 256)
@@ -5071,7 +5077,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	reg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					int index = ins->mSrc[1].mIntConst;
+					int index = int(ins->mSrc[1].mIntConst);
 					int stride = ins->mSrc[1].mStride;
 
 					if (stride * 4 <= 256)
@@ -5133,7 +5139,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				}
 				else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 				{
-					int	index = ins->mSrc[1].mIntConst;
+					int	index = int(ins->mSrc[1].mIntConst);
 					int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (ins->mSrc[1].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -5151,7 +5157,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				}
 				else if (ins->mSrc[1].mMemory == IM_FRAME)
 				{
-					int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+					int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
@@ -5186,7 +5192,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				}
 				else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 				{
-					int	index = ins->mSrc[1].mIntConst;
+					int	index = int(ins->mSrc[1].mIntConst);
 					int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (ins->mSrc[1].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -5204,7 +5210,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				}
 				else if (ins->mSrc[1].mMemory == IM_FRAME)
 				{
-					int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+					int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
@@ -5222,7 +5228,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	reg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					int index = ins->mSrc[1].mIntConst;
+					int index = int(ins->mSrc[1].mIntConst);
 					int stride = ins->mSrc[1].mStride;
 
 					if (2 * stride <= 256)
@@ -5256,7 +5262,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	reg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					int index = ins->mSrc[1].mIntConst;
+					int index = int(ins->mSrc[1].mIntConst);
 					int stride = ins->mSrc[1].mStride;
 
 					if (2 * stride <= 256)
@@ -5312,7 +5318,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 					{
-						int	index = ins->mSrc[1].mIntConst;
+						int	index = int(ins->mSrc[1].mIntConst);
 						int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 						if (ins->mSrc[1].mMemory == IM_LOCAL)
 							index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -5327,7 +5333,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_FRAME)
 					{
-						int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+						int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
@@ -5361,7 +5367,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 					{
-						int	index = ins->mSrc[1].mIntConst;
+						int	index = int(ins->mSrc[1].mIntConst);
 						int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 						if (ins->mSrc[1].mMemory == IM_LOCAL)
 							index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -5379,7 +5385,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_FRAME)
 					{
-						int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+						int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
@@ -5428,7 +5434,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 					{
-						int	index = ins->mSrc[1].mIntConst;
+						int	index = int(ins->mSrc[1].mIntConst);
 						int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 						if (ins->mSrc[1].mMemory == IM_LOCAL)
 							index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -5452,7 +5458,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_FRAME)
 					{
-						int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+						int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff));
@@ -5490,7 +5496,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 					{
-						int	index = ins->mSrc[1].mIntConst;
+						int	index = int(ins->mSrc[1].mIntConst);
 						int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 						if (ins->mSrc[1].mMemory == IM_LOCAL)
 							index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -5505,7 +5511,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_FRAME)
 					{
-						int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+						int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
@@ -5539,7 +5545,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 					{
-						int	index = ins->mSrc[1].mIntConst;
+						int	index = int(ins->mSrc[1].mIntConst);
 						int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 
 						if (ins->mSrc[1].mMemory == IM_LOCAL)
@@ -5558,7 +5564,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_FRAME)
 					{
-						int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+						int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
@@ -5607,7 +5613,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 					{
-						int	index = ins->mSrc[1].mIntConst;
+						int	index = int(ins->mSrc[1].mIntConst);
 						int	reg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 
 						if (ins->mSrc[1].mMemory == IM_LOCAL)
@@ -5632,7 +5638,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					}
 					else if (ins->mSrc[1].mMemory == IM_FRAME)
 					{
-						int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+						int	index = int(ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2);
 
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
@@ -5657,7 +5663,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	reg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					int index = ins->mSrc[1].mIntConst;
+					int index = int(ins->mSrc[1].mIntConst);
 					int stride = ins->mSrc[1].mStride;
 					int size = InterTypeSize[ins->mSrc[0].mType];
 
@@ -5692,7 +5698,7 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 				if (ins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	reg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-					int index = ins->mSrc[1].mIntConst;
+					int index = int(ins->mSrc[1].mIntConst);
 					int stride = ins->mSrc[1].mStride;
 					int size = InterTypeSize[ins->mSrc[0].mType];
 
@@ -5770,7 +5776,7 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 	int size = InterTypeSize[wins->mSrc[0].mType];
 
 	AsmInsMode	rmode = ASMIM_INDIRECT_Y;
-	int	rindex = rins->mSrc[0].mIntConst;
+	int	rindex = int(rins->mSrc[0].mIntConst);
 	int rareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 	LinkerObject* rlobject = nullptr;
 	int rstride = rins->mSrc[0].mStride;
@@ -5791,10 +5797,10 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 	case IM_GLOBAL:
 		rmode = ASMIM_ABSOLUTE;
 		rlobject = rins->mSrc[0].mLinkerObject;
-		rindex = rins->mSrc[0].mIntConst;
+		rindex = int(rins->mSrc[0].mIntConst);
 		break;
 	case IM_FRAME:
-		rindex = rins->mSrc[0].mVarIndex + rins->mSrc[0].mIntConst + 2;
+		rindex = int(rins->mSrc[0].mVarIndex + rins->mSrc[0].mIntConst + 2);
 		rareg = BC_REG_STACK;
 		break;
 	case IM_INDIRECT:
@@ -5802,17 +5808,17 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 		break;
 	case IM_ABSOLUTE:
 		rmode = ASMIM_ABSOLUTE;
-		rindex = rins->mSrc[0].mIntConst;
+		rindex = int(rins->mSrc[0].mIntConst);
 		break;
 	case IM_FPARAM:
 	case IM_FFRAME:
 		rmode = ASMIM_ZERO_PAGE;
-		rareg = BC_REG_FPARAMS + rins->mSrc[0].mVarIndex + rins->mSrc[0].mIntConst;
+		rareg = int(BC_REG_FPARAMS + rins->mSrc[0].mVarIndex + rins->mSrc[0].mIntConst);
 		break;
 	}
 
 	AsmInsMode	wmode = ASMIM_INDIRECT_Y;
-	int	windex = wins->mSrc[1].mIntConst;
+	int	windex = int(wins->mSrc[1].mIntConst);
 	int wareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 	LinkerObject* wlobject = nullptr;
 	int wstride = wins->mSrc[1].mStride;
@@ -5833,10 +5839,10 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 	case IM_GLOBAL:
 		wmode = ASMIM_ABSOLUTE;
 		wlobject = wins->mSrc[1].mLinkerObject;
-		windex = wins->mSrc[1].mIntConst;
+		windex = int(wins->mSrc[1].mIntConst);
 		break;
 	case IM_FRAME:
-		windex = wins->mSrc[1].mVarIndex + wins->mSrc[1].mIntConst + 2;
+		windex = int(wins->mSrc[1].mVarIndex + wins->mSrc[1].mIntConst + 2);
 		wareg = BC_REG_STACK;
 		break;
 	case IM_INDIRECT:
@@ -5844,12 +5850,12 @@ void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, cons
 		break;
 	case IM_ABSOLUTE:
 		wmode = ASMIM_ABSOLUTE;
-		windex = wins->mSrc[1].mIntConst;
+		windex = int(wins->mSrc[1].mIntConst);
 		break;
 	case IM_FPARAM:
 	case IM_FFRAME:
 		wmode = ASMIM_ZERO_PAGE;
-		wareg = BC_REG_FPARAMS + wins->mSrc[1].mVarIndex + wins->mSrc[1].mIntConst;
+		wareg = BC_REG_FPARAMS + wins->mSrc[1].mVarIndex + int(wins->mSrc[1].mIntConst);
 		break;
 	}
 
@@ -5925,7 +5931,7 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 				}
 				else if (rins->mSrc[0].mMemory == IM_LOCAL || rins->mSrc[0].mMemory == IM_PARAM)
 				{
-					int	index = rins->mSrc[0].mIntConst;
+					int	index = int(rins->mSrc[0].mIntConst);
 					int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (rins->mSrc[0].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[rins->mSrc[0].mVarIndex]->mOffset;
@@ -5943,7 +5949,7 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 				if (rins->mSrc[0].mMemory == IM_INDIRECT)
 				{
 					int	areg = BC_REG_TMP + proc->mTempOffset[rins->mSrc[0].mTemp];
-					int index = rins->mSrc[0].mIntConst;
+					int index = int(rins->mSrc[0].mIntConst);
 
 					CheckFrameIndex(rins, areg, index, 1);
 
@@ -5968,7 +5974,7 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 				}
 				else if (wins->mSrc[1].mMemory == IM_LOCAL || wins->mSrc[1].mMemory == IM_PARAM)
 				{
-					int	index = wins->mSrc[1].mIntConst;
+					int	index = int(wins->mSrc[1].mIntConst);
 					int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (wins->mSrc[1].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[wins->mSrc[1].mVarIndex]->mOffset;
@@ -5982,7 +5988,7 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 				}
 				else if (wins->mSrc[1].mMemory == IM_FRAME)
 				{
-					int	index = wins->mSrc[1].mVarIndex + wins->mSrc[1].mIntConst + 2;
+					int	index = wins->mSrc[1].mVarIndex + int(wins->mSrc[1].mIntConst) + 2;
 
 					mIns.Push(NativeCodeInstruction(wins, ASMIT_LDY, ASMIM_IMMEDIATE, index));
 					mIns.Push(NativeCodeInstruction(wins, ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_STACK));
@@ -5993,7 +5999,7 @@ void NativeCodeBasicBlock::LoadStoreValue(InterCodeProcedure* proc, const InterI
 				if (wins->mSrc[1].mMemory == IM_INDIRECT)
 				{
 					int	areg = BC_REG_TMP + proc->mTempOffset[wins->mSrc[1].mTemp];
-					int index = wins->mSrc[1].mIntConst;
+					int index = int(wins->mSrc[1].mIntConst);
 
 					CheckFrameIndex(wins, areg, index, 1);
 
@@ -6082,7 +6088,7 @@ bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, 
 		return false;
 	}
 
-	int	rindex = rins->mSrc[0].mIntConst;
+	int	rindex = int(rins->mSrc[0].mIntConst);
 	int rareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 
 	switch (rins->mSrc[0].mMemory)
@@ -6099,13 +6105,13 @@ bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, 
 	case IM_FPARAM:
 	case IM_FFRAME:
 		ram = ASMIM_ZERO_PAGE;
-		rareg = BC_REG_FPARAMS + rins->mSrc[0].mVarIndex + rins->mSrc[0].mIntConst;
+		rareg = BC_REG_FPARAMS + rins->mSrc[0].mVarIndex + int(rins->mSrc[0].mIntConst);
 		break;
 	default:
 		return false;
 	}
 
-	int	windex = wins->mSrc[1].mIntConst;
+	int	windex = int(wins->mSrc[1].mIntConst);
 	int wareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 
 	switch (wins->mSrc[1].mMemory)
@@ -6122,7 +6128,7 @@ bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, 
 	case IM_FPARAM:
 	case IM_FFRAME:
 		wam = ASMIM_ZERO_PAGE;
-		wareg = BC_REG_FPARAMS + +wins->mSrc[1].mVarIndex + wins->mSrc[1].mIntConst;
+		wareg = BC_REG_FPARAMS + +wins->mSrc[1].mVarIndex + int(wins->mSrc[1].mIntConst);
 		break;
 	default:
 		return false;
@@ -6212,7 +6218,7 @@ bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, co
 		return false;
 	}
 
-	int	rindex = rins->mSrc[0].mIntConst;
+	int	rindex = int(rins->mSrc[0].mIntConst);
 	int rareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 	int rstride = rins->mSrc[0].mStride;
 
@@ -6230,13 +6236,13 @@ bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, co
 	case IM_FPARAM:
 	case IM_FFRAME:
 		ram = ASMIM_ZERO_PAGE;
-		rareg = BC_REG_FPARAMS + rins->mSrc[0].mVarIndex + rins->mSrc[0].mIntConst;
+		rareg = BC_REG_FPARAMS + rins->mSrc[0].mVarIndex + int(rins->mSrc[0].mIntConst);
 		break;
 	default:
 		return false;
 	}
 
-	int	windex = wins->mSrc[1].mIntConst;
+	int	windex = int(wins->mSrc[1].mIntConst);
 	int wareg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 	int wstride = wins->mSrc[1].mStride;
 
@@ -6254,7 +6260,7 @@ bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, co
 	case IM_FPARAM:
 	case IM_FFRAME:
 		wam = ASMIM_ZERO_PAGE;
-		wareg = BC_REG_FPARAMS + +wins->mSrc[1].mVarIndex + wins->mSrc[1].mIntConst;
+		wareg = BC_REG_FPARAMS + +wins->mSrc[1].mVarIndex + int(wins->mSrc[1].mIntConst);
 		break;
 	default:
 		return false;
@@ -6396,7 +6402,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 			}
 			else if (ins->mSrc[0].mMemory == IM_LOCAL || ins->mSrc[0].mMemory == IM_PARAM)
 			{
-				int	index = ins->mSrc[0].mIntConst;
+				int	index = int(ins->mSrc[0].mIntConst);
 				int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 				if (ins->mSrc[0].mMemory == IM_LOCAL)
 					index += proc->mLocalVars[ins->mSrc[0].mVarIndex]->mOffset;
@@ -6424,7 +6430,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
 				int	areg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
-				int index = ins->mSrc[0].mIntConst;
+				int index = int(ins->mSrc[0].mIntConst);
 				int stride = ins->mSrc[0].mStride;
 
 				if (stride * 4 <= 256)
@@ -6510,7 +6516,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 			}
 			else if (ins->mSrc[0].mMemory == IM_LOCAL || ins->mSrc[0].mMemory == IM_PARAM)
 			{
-				int	index = ins->mSrc[0].mIntConst;
+				int	index = int(ins->mSrc[0].mIntConst);
 				int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 				if (ins->mSrc[0].mMemory == IM_LOCAL)
 					index += proc->mLocalVars[ins->mSrc[0].mVarIndex]->mOffset;
@@ -6541,7 +6547,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
 				int	areg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
-				int index = ins->mSrc[0].mIntConst;
+				int index = int(ins->mSrc[0].mIntConst);
 
 				CheckFrameIndex(ins, areg, index, 2);
 
@@ -6592,7 +6598,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				}
 				else if (ins->mSrc[0].mMemory == IM_LOCAL || ins->mSrc[0].mMemory == IM_PARAM)
 				{
-					int	index = ins->mSrc[0].mIntConst;
+					int	index = int(ins->mSrc[0].mIntConst);
 					int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (ins->mSrc[0].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[ins->mSrc[0].mVarIndex]->mOffset;
@@ -6676,7 +6682,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				}
 				else if (ins->mSrc[0].mMemory == IM_LOCAL || ins->mSrc[0].mMemory == IM_PARAM)
 				{
-					int	index = ins->mSrc[0].mIntConst;
+					int	index = int(ins->mSrc[0].mIntConst);
 					int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (ins->mSrc[0].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[ins->mSrc[0].mVarIndex]->mOffset;
@@ -6741,7 +6747,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				}
 				else if (ins->mSrc[0].mMemory == IM_LOCAL || ins->mSrc[0].mMemory == IM_PARAM)
 				{
-					int	index = ins->mSrc[0].mIntConst;
+					int	index = int(ins->mSrc[0].mIntConst);
 					int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 					if (ins->mSrc[0].mMemory == IM_LOCAL)
 						index += proc->mLocalVars[ins->mSrc[0].mVarIndex]->mOffset;
@@ -6770,7 +6776,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 			if (ins->mSrc[0].mMemory == IM_INDIRECT)
 			{
 				int		areg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
-				int		index = ins->mSrc[0].mIntConst;
+				int		index = int(ins->mSrc[0].mIntConst);
 				int		stride = ins->mSrc[0].mStride;
 				int		size = InterTypeSize[ins->mDst.mType];
 				bool	accu = false;
@@ -6868,7 +6874,7 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 		{
 			int areg = BC_REG_STACK;
 
-			int	index = ins->mSrc[1].mIntConst;
+			int	index = int(ins->mSrc[1].mIntConst);
 			if (ins->mSrc[1].mMemory == IM_FRAME)
 				index += ins->mSrc[1].mVarIndex + 2;
 			else
@@ -7034,7 +7040,7 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 		}
 		else if (ins->mSrc[0].mMemory == IM_LOCAL || ins->mSrc[0].mMemory == IM_PARAM)
 		{
-			int	index = ins->mSrc[0].mIntConst;
+			int	index = int(ins->mSrc[0].mIntConst);
 			sreg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 			if (ins->mSrc[0].mMemory == IM_LOCAL)
 				index += proc->mLocalVars[ins->mSrc[0].mVarIndex]->mOffset;
@@ -7046,7 +7052,7 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 	}
 	else if (ins->mSrc[0].mIntConst != 0)
 	{
-		int	index = ins->mSrc[0].mIntConst;
+		int	index = int(ins->mSrc[0].mIntConst);
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_IMMEDIATE, index & 0xff));
@@ -7089,7 +7095,7 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 		}
 		else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 		{
-			int	index = ins->mSrc[1].mIntConst;
+			int	index = int(ins->mSrc[1].mIntConst);
 			dreg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 			if (ins->mSrc[1].mMemory == IM_LOCAL)
 				index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -7100,7 +7106,7 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 		}
 		else if (ins->mSrc[1].mMemory == IM_FRAME)
 		{
-			int	index = ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + 2;
+			int	index = ins->mSrc[1].mVarIndex + int(ins->mSrc[1].mIntConst) + 2;
 
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_STACK));
@@ -7114,7 +7120,7 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 	}
 	else if (ins->mSrc[1].mIntConst != 0)
 	{
-		int	index = ins->mSrc[1].mIntConst;
+		int	index = int(ins->mSrc[1].mIntConst);
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_IMMEDIATE, index & 0xff));
@@ -7570,7 +7576,7 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDX, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[index].mTemp]));
 		}
 
-		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_MUL, mul, ins->mSrc[index].mRange.mMaxValue + 1, false)));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_MUL, mul, int(ins->mSrc[index].mRange.mMaxValue) + 1, false)));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg));
 		if (ins->mDst.IsUByte())
 		{
@@ -7579,7 +7585,7 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 		}
 		else
 		{
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_MUL, mul, ins->mSrc[index].mRange.mMaxValue + 1, true)));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_MUL, mul, int(ins->mSrc[index].mRange.mMaxValue) + 1, true)));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
 		}
 
@@ -7599,7 +7605,7 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
 		}
 		else if (ins->mSrc[index].IsUByte())
-			ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, ins->mSrc[index].mRange.mMaxValue);
+			ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, int(ins->mSrc[index].mRange.mMaxValue));
 		else
 			ShiftRegisterLeft(proc, ins, dreg, lshift);
 		return dreg;
@@ -7637,7 +7643,7 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
 		}
 		else if (ins->mSrc[index].IsUByte())
-			ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, ins->mSrc[index].mRange.mMaxValue);
+			ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, int(ins->mSrc[index].mRange.mMaxValue));
 		else
 			ShiftRegisterLeft(proc, ins, dreg, lshift);
 		return dreg;
@@ -7690,7 +7696,7 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
 			}
 			else
-				ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, ins->mSrc[index].mRange.mMaxValue * 5);
+				ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, int(ins->mSrc[index].mRange.mMaxValue) * 5);
 		}
 		else
 		{
@@ -7958,10 +7964,10 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			if (ins->mOperator == IA_SUB && flipop)
 			{
 				changedSign = true;
-				cc.f = -ins->mSrc[sop1].mFloatConst;
+				cc.f = float(-ins->mSrc[sop1].mFloatConst);
 			}
 			else
-				cc.f = ins->mSrc[sop1].mFloatConst;
+				cc.f = float(ins->mSrc[sop1].mFloatConst);
 
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
@@ -8005,10 +8011,10 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			if (ins->mOperator == IA_SUB && !flipop)
 			{
 				changedSign = true;
-				cc.f = -ins->mSrc[sop0].mFloatConst;
+				cc.f = float(-ins->mSrc[sop0].mFloatConst);
 			}
 			else
-				cc.f = ins->mSrc[sop0].mFloatConst;
+				cc.f = float(ins->mSrc[sop0].mFloatConst);
 
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
@@ -9206,11 +9212,11 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 			if (ins->mOperator == IA_MUL && ins->mSrc[1].mTemp < 0)
 			{
-				reg = ShortMultiply(proc, nproc, ins, sins0, 0, ins->mSrc[1].mIntConst);
+				reg = ShortMultiply(proc, nproc, ins, sins0, 0, int(ins->mSrc[1].mIntConst));
 			}
 			else if (ins->mOperator == IA_MUL && ins->mSrc[0].mTemp < 0)
 			{
-				reg = ShortMultiply(proc, nproc, ins, sins1, 1, ins->mSrc[0].mIntConst);
+				reg = ShortMultiply(proc, nproc, ins, sins1, 1, int(ins->mSrc[0].mIntConst));
 			}
 			else if (ins->mOperator == IA_MUL && ins->mSrc[0].IsUByte())
 			{
@@ -9262,7 +9268,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			}
 			else if (ins->mOperator == IA_DIVS && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 2)
 			{
-				reg = ShortSignedDivide(proc, nproc, ins, sins1, ins->mSrc[0].mIntConst);
+				reg = ShortSignedDivide(proc, nproc, ins, sins1, int(ins->mSrc[0].mIntConst));
 			}
 			else
 			{
@@ -9504,7 +9510,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 						int	check = 0xffff;
 						if (ins->mSrc[1].IsUByte())
-							check = ins->mSrc[1].mRange.mMaxValue;
+							check = int(ins->mSrc[1].mRange.mMaxValue);
 
 						check <<= 1;
 						if (check >= 0x100)
@@ -9542,7 +9548,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			}
 			else if (ins->mSrc[1].mTemp < 0)
 			{
-				int	size = ins->mSrc[0].mRange.mMaxValue + 1;
+				int	size = int(ins->mSrc[0].mRange.mMaxValue) + 1;
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 				if (!ins->mSrc[0].IsUByte() || ins->mSrc[0].mRange.mMaxValue > 15)
 				{
@@ -9551,7 +9557,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_TAX, ASMIM_IMPLIED));
 
-				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SHL, ins->mSrc[1].mIntConst, size, false)));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SHL, int(ins->mSrc[1].mIntConst), size, false)));
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
 				if (ins->mDst.IsUByte())
 				{
@@ -9560,7 +9566,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 				else
 				{
-					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SHL, ins->mSrc[1].mIntConst, size, true)));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SHL, int(ins->mSrc[1].mIntConst), size, true)));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
 				}
 			}
@@ -9784,7 +9790,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			}
 			else if (ins->mSrc[1].mTemp < 0)
 			{
-				int	size = ins->mSrc[0].mRange.mMaxValue + 1;
+				int	size = int(ins->mSrc[0].mRange.mMaxValue) + 1;
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 				if (!ins->mSrc[0].IsUByte() || ins->mSrc[0].mRange.mMaxValue > 15)
 				{
@@ -9793,7 +9799,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_TAX, ASMIM_IMPLIED));
 
-				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SHR, ins->mSrc[1].mIntConst, size, false)));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SHR, int(ins->mSrc[1].mIntConst), size, false)));
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
 				if (ins->mDst.IsUByte())
 				{
@@ -9802,7 +9808,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 				else
 				{
-					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SHR, ins->mSrc[1].mIntConst, size, true)));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SHR, int(ins->mSrc[1].mIntConst), size, true)));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
 				}
 			}
@@ -10060,7 +10066,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			}
 			else if (ins->mSrc[1].mTemp < 0)
 			{
-				int	size = ins->mSrc[0].mRange.mMaxValue + 1;
+				int	size = int(ins->mSrc[0].mRange.mMaxValue) + 1;
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 				if (!ins->mSrc[0].IsUByte() || ins->mSrc[0].mRange.mMaxValue > 15)
 				{
@@ -10069,7 +10075,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_TAX, ASMIM_IMPLIED));
 
-				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SAR, ins->mSrc[1].mIntConst, size, false)));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SAR, int(ins->mSrc[1].mIntConst), size, false)));
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
 				if (ins->mDst.IsUByte())
 				{
@@ -10078,7 +10084,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 				else
 				{
-					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SAR, ins->mSrc[1].mIntConst, size, true)));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, nproc->mGenerator->AllocateShortMulTable(IA_SAR, int(ins->mSrc[1].mIntConst), size, true)));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
 				}
 			}
@@ -10160,7 +10166,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 void NativeCodeBasicBlock::SignExtendAddImmediate(InterCodeProcedure* proc, const InterInstruction* xins, const InterInstruction* ains)
 {
-	int val = ains->mSrc[0].mTemp == xins->mDst.mTemp ? ains->mSrc[1].mIntConst : ains->mSrc[0].mIntConst;
+	int val = ains->mSrc[0].mTemp == xins->mDst.mTemp ? int(ains->mSrc[1].mIntConst) : int(ains->mSrc[0].mIntConst);
 	val -= 128;
 
 	mIns.Push(NativeCodeInstruction(xins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[xins->mSrc[0].mTemp] + 0));
@@ -10459,7 +10465,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 			}
 
 			union { float f; unsigned int v; } cc;
-			cc.f = ins->mSrc[ci].mFloatConst;
+			cc.f = float(ins->mSrc[ci].mFloatConst);
 
 			int	ti = BC_REG_TMP + proc->mTempOffset[ins->mSrc[vi].mTemp];
 
@@ -10615,7 +10621,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		if (ins->mSrc[li].mTemp < 0)
 		{
 			union { float f; unsigned int v; } cc;
-			cc.f = ins->mSrc[li].mFloatConst;
+			cc.f = float(ins->mSrc[li].mFloatConst);
 
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
@@ -10646,7 +10652,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		if (ins->mSrc[ri].mTemp < 0)
 		{
 			union { float f; unsigned int v; } cc;
-			cc.f = ins->mSrc[ri].mFloatConst;
+			cc.f = float(ins->mSrc[ri].mFloatConst);
 
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
@@ -10917,7 +10923,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		if (ins->mSrc[li].mTemp < 0 && (op == IA_CMPGES || op == IA_CMPLS) && int16(ins->mSrc[li].mIntConst) > - 128)
 		{
-			iconst = ins->mSrc[li].mIntConst - 1;
+			iconst = int(ins->mSrc[li].mIntConst) - 1;
 			rconst = true;
 			li = ri; ri = 1 - li;
 
@@ -10925,7 +10931,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		}
 		else if (ins->mSrc[li].mTemp < 0 && (op == IA_CMPLES || op == IA_CMPGS) && int16(ins->mSrc[li].mIntConst) < 127)
 		{
-			iconst = ins->mSrc[li].mIntConst + 1;
+			iconst = int(ins->mSrc[li].mIntConst) + 1;
 			rconst = true;
 			li = ri; ri = 1 - li;
 
@@ -10933,7 +10939,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		}
 		else if (ins->mSrc[ri].mTemp < 0)
 		{
-			iconst = ins->mSrc[ri].mIntConst;
+			iconst = int(ins->mSrc[ri].mIntConst);
 			rconst = true;
 		}
 
@@ -10999,13 +11005,13 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 	else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst < 256 && ins->mSrc[1].mIntConst > 0 || ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst < 256 && ins->mSrc[0].mIntConst > 0)
 	{
 		int	rt = ins->mSrc[1].mTemp;
-		int ival = ins->mSrc[0].mIntConst;
+		int ival = int(ins->mSrc[0].mIntConst);
 		bool	u8 = ins->mSrc[1].IsUByte();
 		if (rt < 0)
 		{
 			rt = ins->mSrc[0].mTemp;
 			u8 = ins->mSrc[0].IsUByte();;
-			ival = ins->mSrc[1].mIntConst;
+			ival = int(ins->mSrc[1].mIntConst);
 			switch (op)
 			{
 			case IA_CMPLEU:
@@ -11174,7 +11180,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		if (ins->mSrc[ri].mTemp < 0)
 		{
-			iconst = ins->mSrc[ri].mIntConst;
+			iconst = int(ins->mSrc[ri].mIntConst);
 			rconst = true;
 		}
 
@@ -11228,7 +11234,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		if (ins->mSrc[li].mTemp < 0 && (op == IA_CMPGES || op == IA_CMPLS) && int16(ins->mSrc[li].mIntConst) > - 32768)
 		{
-			iconst = ins->mSrc[li].mIntConst - 1;
+			iconst = int(ins->mSrc[li].mIntConst) - 1;
 			rconst = true;
 			li = ri; ri = 1 - li;
 
@@ -11236,7 +11242,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		}
 		else if (ins->mSrc[li].mTemp < 0 && (op == IA_CMPLES || op == IA_CMPGS) && int16(ins->mSrc[li].mIntConst) < 32767)
 		{
-			iconst = ins->mSrc[li].mIntConst + 1;
+			iconst = int(ins->mSrc[li].mIntConst) + 1;
 			rconst = true;
 			li = ri; ri = 1 - li;
 
@@ -11244,7 +11250,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		}
 		else if (ins->mSrc[ri].mTemp < 0)
 		{
-			iconst = ins->mSrc[ri].mIntConst;
+			iconst = int(ins->mSrc[ri].mIntConst);
 			rconst = true;
 		}
 
@@ -11524,7 +11530,7 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 		else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
 		{
 			int dreg = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
-			int	index = ins->mSrc[1].mIntConst;
+			int	index = int(ins->mSrc[1].mIntConst);
 			int areg = mNoFrame ? BC_REG_STACK : BC_REG_LOCALS;
 			if (ins->mSrc[1].mMemory == IM_LOCAL)
 				index += proc->mLocalVars[ins->mSrc[1].mVarIndex]->mOffset;
@@ -11742,7 +11748,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 			if (ins->mSrc[i].mTemp < 0)
 			{
 				if (ins->mSrc[i].mMemory == IM_FPARAM || ins->mSrc[i].mMemory == IM_FFRAME)
-					ins->mSrc[0].mLinkerObject->mTemporaries[i - 1] = BC_REG_FPARAMS + ins->mSrc[i].mVarIndex + ins->mSrc[i].mIntConst;
+					ins->mSrc[0].mLinkerObject->mTemporaries[i - 1] = BC_REG_FPARAMS + ins->mSrc[i].mVarIndex + int(ins->mSrc[i].mIntConst);
 			}
 			else
 				ins->mSrc[0].mLinkerObject->mTemporaries[i - 1] = BC_REG_TMP + proc->mTempOffset[ins->mSrc[i].mTemp];
@@ -18544,7 +18550,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 		if (mTrueJump && mFalseJump)
 		{
-			int	addr, index, taddr;
+			int	addr, index;
 			if (HasTailSTX(addr, index))
 			{
 				if (mTrueJump->mEntryRequiredRegs[addr] && !mFalseJump->mEntryRequiredRegs[addr] && mTrueJump->mNumEntries == 1)
@@ -22652,8 +22658,8 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 	{
 		if (mIns[to + 1].mType == ASMIT_ORA && mIns[to + 1].mMode == ASMIM_IMMEDIATE)
 		{
-			mIns[to + 0].mType = ASMIT_NOP; mIns[to + 0].mMode == ASMIM_IMPLIED;
-			mIns[to + 1].mType = ASMIT_NOP; mIns[to + 1].mMode == ASMIM_IMPLIED;
+			mIns[to + 0].mType = ASMIT_NOP; mIns[to + 0].mMode = ASMIM_IMPLIED;
+			mIns[to + 1].mType = ASMIT_NOP; mIns[to + 1].mMode = ASMIM_IMPLIED;
 			mIns[to + 2].mType = ASMIT_STX;
 			mIns.Insert(from, NativeCodeInstruction(mIns[to + 0].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, mIns[to + 1].mAddress));
 			return true;
@@ -28352,9 +28358,9 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 						if (!mExitRequiredRegs[CPU_REG_A])
 						{
 							if (lb->mIns[lbs - 2].mType == ASMIT_ROR)
-								mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1 << (lcount - 1)));
+								mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1LL << (lcount - 1)));
 							else
-								mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1 << (8 - lcount)));
+								mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1LL << (8 - lcount)));
 
 							mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, lb->mIns[lbs - 2].mAddress));
 							lb->mBranch = ASMIT_BCC;
@@ -28522,9 +28528,9 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 						if (!mExitRequiredRegs[CPU_REG_A])
 						{
 							if (lb->mIns[lbs - 2].mType == ASMIT_ROR)
-								mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1 << (lcount - 1)));
+								mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1LL << (lcount - 1)));
 							else
-								mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1 << (8 - lcount)));
+								mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1LL << (8 - lcount)));
 
 							mIns.Push(NativeCodeInstruction(lb->mIns[lbs - 2].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, lb->mIns[lbs - 3].mAddress));
 							lb->mBranch = ASMIT_BCC;
@@ -33491,12 +33497,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO) &&
 						mIns[i + 1].mMode == ASMIM_INDIRECT_Y && mIns[i + 0].mAddress == mIns[i + 1].mAddress)
 					{
-						const NativeCodeInstruction* ains, * iins;
-
 						int	sreg = mIns[i + 0].mAddress;
 
 						int	apos, breg, ireg;
-						uint32	flags;
 
 						if (FindAddressSumY(i, sreg, apos, breg, ireg))
 						{
@@ -40007,7 +40010,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				if (ins->mSrc[0].mType == IT_FLOAT)
 				{
 					union { float f; unsigned int v; } cc;
-					cc.f = ins->mSrc[0].mFloatConst;
+					cc.f = float(ins->mSrc[0].mFloatConst);
 
 					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
 					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
