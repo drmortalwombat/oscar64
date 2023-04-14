@@ -820,7 +820,17 @@ static int memlzcomp(uint8 * dp, const uint8 * sp, int size)
 	return csize;
 }
 
-bool Linker::WriteCrtFile(const char* filename)
+static uint16 flip16(uint16 w)
+{
+	return (w >> 8) | (w << 8);
+}
+
+static uint32 flip32(uint32 d)
+{
+	return uint32(flip16(uint16(d >> 16))) | (uint32(flip16(uint16(d))) << 16);
+}
+
+bool Linker::WriteCrtFile(const char* filename, uint16 id)
 {
 	FILE* file;
 	fopen_s(&file, filename, "wb");
@@ -830,7 +840,8 @@ bool Linker::WriteCrtFile(const char* filename)
 		{
 			char	mSignature[16];
 			uint32	mHeaderLength;
-			uint16	mVersion, mHardware;
+			uint16	mVersion;
+			uint8	mIDHi, mIDLo;
 			uint8	mExrom, mGameLine;
 			uint8	mPad[6];
 			char	mName[32];
@@ -839,9 +850,25 @@ bool Linker::WriteCrtFile(const char* filename)
 		memcpy(criHeader.mSignature, "C64 CARTRIDGE   ", 16);
 		criHeader.mHeaderLength = 0x40000000;
 		criHeader.mVersion = 0x0001;
-		criHeader.mHardware = 0x2000;
-		criHeader.mExrom = 0;
-		criHeader.mGameLine = 0;
+		criHeader.mIDHi = uint8(id >> 8);
+		criHeader.mIDLo = uint8(id & 0xff);
+
+		if (mCompilerOptions & COPT_TARGET_CRT8)
+		{
+			criHeader.mExrom = 0;
+			criHeader.mGameLine = 1;
+		}
+		else if (mCompilerOptions & COPT_TARGET_CRT16)
+		{
+			criHeader.mExrom = 0;
+			criHeader.mGameLine = 0;
+		}
+		else
+		{
+			criHeader.mExrom = 0;
+			criHeader.mGameLine = 0;
+		}
+
 		memset(criHeader.mName, 0, 32);
 		strcpy_s(criHeader.mName, "OSCAR");
 
@@ -854,80 +881,132 @@ bool Linker::WriteCrtFile(const char* filename)
 			uint16	mChipType, mBankNumber, mLoadAddress, mImageSize;
 		}	chipHeader = { 0 };
 
-		memcpy(chipHeader.mSignature, "CHIP", 4);
-		chipHeader.mPacketLength = 0x10200000;
-		chipHeader.mChipType = 0;
-		chipHeader.mBankNumber = 0;
-		chipHeader.mImageSize = 0x0020;
 
-		uint8 bootmem[0x4000];
-
-		memset(bootmem, 0, 0x4000);
-
-		LinkerRegion	* mainRegion = FindRegion(Ident::Unique("main"));
-		LinkerRegion	* startupRegion = FindRegion(Ident::Unique("startup"));
-
-		memcpy(bootmem, mMemory + startupRegion->mStart, startupRegion->mNonzero - startupRegion->mStart);
-		int usedlz = memlzcomp(bootmem + 0x0100, mMemory + mainRegion->mStart, mainRegion->mNonzero - mainRegion->mStart);
-
-		Location	loc;
-
-		if (usedlz > 0x03e00)
+		if (mCompilerOptions & COPT_TARGET_CRT_EASYFLASH) // EASYFLASH
 		{
-			mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Can not fit main region into first ROM bank");
-			fclose(file);
-			return false;
-		}
+			memcpy(chipHeader.mSignature, "CHIP", 4);
+			chipHeader.mPacketLength = 0x10200000;
+			chipHeader.mChipType = 0;
+			chipHeader.mBankNumber = 0;
+			chipHeader.mImageSize = 0x0020;
 
-		bootmem[0x3ffc] = 0x00;
-		bootmem[0x3ffd] = 0xff;
+			uint8 bootmem[0x4000];
 
-		uint8	bootcode[] = {
-			0xa9, 0x87,
-			0x8d, 0x02, 0xde,
-			0xa9, 0x00,
-			0x8d, 0x00, 0xde,
-			0x6c, 0xfc, 0xff
-		};
+			memset(bootmem, 0, 0x4000);
 
-		int j = 0x3f00;
-		for (int i = 0; i < sizeof(bootcode); i++)
-		{
-			bootmem[j++] = 0xa9;
-			bootmem[j++] = bootcode[i];
-			bootmem[j++] = 0x8d;
-			bootmem[j++] = i;
-			bootmem[j++] = 0x04;
-		}
-		bootmem[j++] = 0x4c;
-		bootmem[j++] = 0x00;
-		bootmem[j++] = 0x04;
+			LinkerRegion* mainRegion = FindRegion(Ident::Unique("main"));
+			LinkerRegion* startupRegion = FindRegion(Ident::Unique("startup"));
 
-		chipHeader.mLoadAddress = 0x0080;
-		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-		fwrite(bootmem, 1, 0x2000, file);
+			memcpy(bootmem, mMemory + startupRegion->mStart, startupRegion->mNonzero - startupRegion->mStart);
+			int usedlz = memlzcomp(bootmem + 0x0100, mMemory + mainRegion->mStart, mainRegion->mNonzero - mainRegion->mStart);
 
-		chipHeader.mLoadAddress = 0x00e0;
-		fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-		fwrite(bootmem + 0x2000, 1, 0x2000, file);
+			Location	loc;
 
-		mCartridgeBankUsed[0] = true;
-		mCartridgeBankStart[0] = 0x8000;
-		mCartridgeBankEnd[0] = 0x8000 + usedlz + 0x200;
-
-		for (int i = 1; i < 64; i++)
-		{
-			if (mCartridgeBankUsed[i])
+			if (usedlz > 0x03e00)
 			{
-				chipHeader.mBankNumber = i << 8;
+				mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Can not fit main region into first ROM bank");
+				fclose(file);
+				return false;
+			}
 
-				chipHeader.mLoadAddress = 0x0080;
-				fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-				fwrite(mCartridge[i] + 0x8000, 1, 0x2000, file);
+			bootmem[0x3ffc] = 0x00;
+			bootmem[0x3ffd] = 0xff;
 
-				chipHeader.mLoadAddress = 0x00a0;
-				fwrite(&chipHeader, sizeof(chipHeader), 1, file);
-				fwrite(mCartridge[i] + 0xa000, 1, 0x2000, file);
+			uint8	bootcode[] = {
+				0xa9, 0x87,
+				0x8d, 0x02, 0xde,
+				0xa9, 0x00,
+				0x8d, 0x00, 0xde,
+				0x6c, 0xfc, 0xff
+			};
+
+			int j = 0x3f00;
+			for (int i = 0; i < sizeof(bootcode); i++)
+			{
+				bootmem[j++] = 0xa9;
+				bootmem[j++] = bootcode[i];
+				bootmem[j++] = 0x8d;
+				bootmem[j++] = i;
+				bootmem[j++] = 0x04;
+			}
+			bootmem[j++] = 0x4c;
+			bootmem[j++] = 0x00;
+			bootmem[j++] = 0x04;
+
+			chipHeader.mLoadAddress = 0x0080;
+			fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+			fwrite(bootmem, 1, 0x2000, file);
+
+			chipHeader.mLoadAddress = 0x00e0;
+			fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+			fwrite(bootmem + 0x2000, 1, 0x2000, file);
+
+			mCartridgeBankUsed[0] = true;
+			mCartridgeBankStart[0] = 0x8000;
+			mCartridgeBankEnd[0] = 0x8000 + usedlz + 0x200;
+
+			for (int i = 1; i < 64; i++)
+			{
+				if (mCartridgeBankUsed[i])
+				{
+					chipHeader.mBankNumber = i << 8;
+
+					chipHeader.mLoadAddress = 0x0080;
+					fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+					fwrite(mCartridge[i] + 0x8000, 1, 0x2000, file);
+
+					chipHeader.mLoadAddress = 0x00a0;
+					fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+					fwrite(mCartridge[i] + 0xa000, 1, 0x2000, file);
+				}
+			}
+		}
+		else if (mCompilerOptions & COPT_TARGET_CRT8)
+		{
+			int	numBanks = 64;
+			while (numBanks > 1 && !mCartridgeBankUsed[numBanks - 1])
+				numBanks--;
+
+			memcpy(chipHeader.mSignature, "CHIP", 4);
+			chipHeader.mPacketLength = flip32(0x10 + 0x2000);
+			chipHeader.mChipType = 0;
+			chipHeader.mBankNumber = 0;
+			chipHeader.mImageSize = flip16(0x2000);
+
+			for (int i = 0; i < numBanks; i++)
+			{
+				if (mCartridgeBankUsed[i])
+				{
+					chipHeader.mBankNumber = flip16(uint16(i));
+
+					chipHeader.mLoadAddress = flip16(0x8000);
+					fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+					fwrite(mCartridge[i] + 0x8000, 1, 0x2000, file);
+				}
+			}
+		}
+		else if (mCompilerOptions & COPT_TARGET_CRT16)
+		{
+			int	numBanks = 64;
+			while (numBanks > 1 && !mCartridgeBankUsed[numBanks - 1])
+				numBanks--;
+
+			memcpy(chipHeader.mSignature, "CHIP", 4);
+			chipHeader.mPacketLength = flip32(0x10 + 0x4000);
+			chipHeader.mChipType = 0;
+			chipHeader.mBankNumber = 0;
+			chipHeader.mImageSize = flip16(0x4000);
+
+			for (int i = 0; i < numBanks; i++)
+			{
+				if (mCartridgeBankUsed[i])
+				{
+					chipHeader.mBankNumber = flip16(uint16(i));
+
+					chipHeader.mLoadAddress = flip16(0x8000);
+					fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+					fwrite(mCartridge[i] + 0x8000, 1, 0x4000, file);
+				}
 			}
 		}
 

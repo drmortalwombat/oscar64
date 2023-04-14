@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.18.197");
+		strcpy(strProductVersion, "1.19.198");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -167,6 +167,12 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 't' && arg[2] == 'm' && arg[3] == '=')
 				{
 					strcpy_s(targetMachine, arg + 4);
+				}
+				else if (arg[1] == 'c' && arg[2] == 'i' && arg[3] == 'd' && arg[4] == '=')
+				{
+					char	cid[10];
+					strcpy_s(cid, arg + 5);
+					compiler->mCartridgeID = atoi(cid);
 				}
 				else if (arg[1] == 'n')
 				{
@@ -379,8 +385,20 @@ int main2(int argc, const char** argv)
 		}
 		else if (!strcmp(targetFormat, "crt"))
 		{
+			compiler->mCompilerOptions |= COPT_TARGET_CRT_EASYFLASH;
+			compiler->mCartridgeID = 0x0020;
+
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_CRT_EASYFLASH"), "1");
+		}
+		else if (!strcmp(targetFormat, "crt16"))
+		{
 			compiler->mCompilerOptions |= COPT_TARGET_CRT16;
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_CRT16"), "1");
+		}
+		else if (!strcmp(targetFormat, "crt8"))
+		{
+			compiler->mCompilerOptions |= COPT_TARGET_CRT8;
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_CRT8"), "1");
 		}
 		else if (!strcmp(targetFormat, "bin"))
 		{

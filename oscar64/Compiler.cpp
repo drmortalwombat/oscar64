@@ -33,6 +33,8 @@ Compiler::Compiler(void)
 	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker, mCompilationUnits->mSectionCode);
 	mInterCodeModule = new InterCodeModule(mErrors, mLinker);
 	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
+
+	mCartridgeID = 0x0000;
 }
 
 Compiler::~Compiler(void)
@@ -350,6 +352,11 @@ bool Compiler::GenerateCode(void)
 				break;
 			}
 		}
+		else if (mCompilerOptions & (COPT_TARGET_CRT8 | COPT_TARGET_CRT16))
+		{
+			regionStartup = mLinker->AddRegion(identStartup, 0x8000, 0x8080);
+			regionStartup->mCartridgeBanks = 1;
+		}
 		else
 			regionStartup = mLinker->AddRegion(identStartup, 0x0800, 0x0900);
 	}
@@ -469,7 +476,11 @@ bool Compiler::GenerateCode(void)
 				switch (mTargetMachine)
 				{
 				case TMACH_C64:
-					regionMain = mLinker->AddRegion(identMain, 0x0880, 0xa000);
+
+					if (mCompilerOptions & (COPT_TARGET_CRT8 | COPT_TARGET_CRT16))
+						regionMain = mLinker->AddRegion(identMain, 0x0800, 0x8000);
+					else
+						regionMain = mLinker->AddRegion(identMain, 0x0880, 0xa000);
 					break;
 				case TMACH_X16:
 					regionMain = mLinker->AddRegion(identMain, 0x0880, 0x9f00);
@@ -537,6 +548,20 @@ bool Compiler::GenerateCode(void)
 					regionMain = mLinker->AddRegion(identMain, 0x0200, 0x0800);
 					break;
 				}
+			}
+		}
+
+		if (!regionRom)
+		{
+			if (mCompilerOptions & COPT_TARGET_CRT8)
+			{
+				regionRom = mLinker->AddRegion(identRom, 0x8080, 0xa000);
+				regionRom->mCartridgeBanks = 1;
+			}
+			else if (mCompilerOptions & COPT_TARGET_CRT16)
+			{
+				regionRom = mLinker->AddRegion(identRom, 0x8080, 0xc000);
+				regionRom->mCartridgeBanks = 1;
 			}
 		}
 
@@ -873,12 +898,12 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 			mLinker->WritePrgFile(prgPath);
 		}
 	}
-	else if (mCompilerOptions & COPT_TARGET_CRT16)
+	else if (mCompilerOptions & COPT_TARGET_CRT)
 	{
 		strcat_s(prgPath, "crt");
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("Writing <%s>\n", prgPath);
-		mLinker->WriteCrtFile(prgPath);
+		mLinker->WriteCrtFile(prgPath, mCartridgeID);
 	}
 	else if (mCompilerOptions & COPT_TARGET_BIN)
 	{
@@ -962,7 +987,7 @@ int Compiler::ExecuteCode(bool profile)
 		emu->mMemory[0x2e] = mLinker->mProgramEnd >> 8;
 		ecode = emu->Emulate(2061);
 	}
-	else if (mCompilerOptions & COPT_TARGET_CRT16)
+	else if (mCompilerOptions & COPT_TARGET_CRT)
 	{
 		memcpy(emu->mMemory + 0x8000, mLinker->mMemory + 0x0800, 0x4000);
 		ecode = emu->Emulate(0x8009);

@@ -64,7 +64,7 @@ __asm p4irq
 __asm startup
 {
 st0:
-#ifdef OSCAR_TARGET_CRT16
+#ifdef OSCAR_TARGET_CRT_EASYFLASH
 		byt 0x09
 		byt 0x80
 		byt 0xbc
@@ -164,6 +164,25 @@ w0:
 		sta $00
 		lda #$36
 		sta $01
+
+#elif defined(OSCAR_TARGET_CRT8) || defined(OSCAR_TARGET_CRT16)
+
+// Start at 0x8000 autostart vectors
+
+		byt	0x09
+		byt	0x80
+		byt	0x09
+		byt	0x80
+		byt 0xc3
+		byt 0xc2
+		byt 0xcd
+		byt 0x38
+		byt 0x30
+
+		lda #$e7
+		sta $01
+		lda #$2f
+		sta $00
 
 #elif defined(OSCAR_TARGET_BIN)
 

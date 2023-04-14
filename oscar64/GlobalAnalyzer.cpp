@@ -451,7 +451,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		}
 		else if (exp->mDecValue->mType == DT_CONST_POINTER)
 		{
-			RegisterProc(Analyze(exp->mDecValue->mValue, procDec, false));
+			RegisterProc(Analyze(exp->mDecValue->mValue, procDec, true));
 		}
 		else if (exp->mDecValue->mType == DT_CONST_ADDRESS)
 		{

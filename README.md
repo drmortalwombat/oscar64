@@ -75,20 +75,21 @@ The compiler is command line driven, and creates an executable .prg file.
 * -n : create pure native code for all functions
 * -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)
 * -O1 or -O : default optimizations
-* -O0: disable optimizations
-* -O2: more aggressive speed optimizations including auto inline of small functions
-* -O3: aggressive optimization for speed
-* -Os: optimize for size
-* -Oi: enable auto inline of small functions (part of O2/O3)
-* -Oa: optimize inline assembler (part of O2/O3)
-* -Oz: enable auto placement of global variables in zero page (part of O3)
-* -g: create source level debug info and add source line numbers to asm listing
-* -tf: target format, may be prg, crt or bin
+* -O0 : disable optimizations
+* -O2 : more aggressive speed optimizations including auto inline of small functions
+* -O3 : aggressive optimization for speed
+* -Os : optimize for size
+* -Oi : enable auto inline of small functions (part of O2/O3)
+* -Oa : optimize inline assembler (part of O2/O3)
+* -Oz : enable auto placement of global variables in zero page (part of O3)
+* -g : create source level debug info and add source line numbers to asm listing
+* -tf : target format, may be prg, crt or bin
 * -tm : target machine
 * -d64 : create a d64 disk image
 * -f : add a binary file to the disk image
 * -fz : add a compressed binary file to the disk image
 * -xz : extended zero page usage, more zero page space, but no return to basic
+* -cid : cartridge type ID, used by vice emulator
 
 A list of source files can be provided.
 
@@ -113,6 +114,24 @@ A list of source files can be provided.
 * nes_mmc3 : Nintendo entertainment system, MMC3, 512K PROM, 256K CROM
 * atari : Atari 8bit systems, (0x2000..0xbc00)
 * x16 : Commander X16, (0x0800..0x9f00)
+
+#### C64 Cartridge formats
+
+Three cartridge formats are supported
+
+* -tf=crt : creates an easyflash cartridge with common code expanded from bank 0 into memory
+* -tf=crt8 : creates a generic 8KB cartridge from 0x8000-0xa000 with autostart header
+* -tf=crt16 : creates a generic 16KB cartridge from 0x8000-0xc000 with autostart header
+* -cid=nnn : specifies the type ID, used by vice emul
+
+The easyflash format cartridge expands the first 16KB bank into memory to provide a
+common area of "code" and "data".  This is taken from the standard code and data section in region "main".
+
+The generic cartridge formats use the region "rom" from the first bank and include an autostart header.
+The sections "code" and "data" are placed into this "rom" region. The "bss", "stack" and "heap" sections
+are placed into the "main" region from 0x0800 to 0x8000.
+
+The layout can be changed by defining own "main" and "rom" regions.
 
 ### Files generated
 

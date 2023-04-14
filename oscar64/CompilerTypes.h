@@ -2,35 +2,38 @@
 
 #include "MachineTypes.h"
 
-static const uint64 COPT_OPTIMIZE_BASIC = 0x00000001;
-static const uint64 COPT_OPTIMIZE_INLINE = 0x00000002;
-static const uint64 COPT_OPTIMIZE_ASSEMBLER = 0x00000004;
+static const uint64 COPT_OPTIMIZE_BASIC = 1ULL << 0;
+static const uint64 COPT_OPTIMIZE_INLINE = 1ULL << 1;
+static const uint64 COPT_OPTIMIZE_ASSEMBLER = 1ULL << 2;
 
-static const uint64 COPT_OPTIMIZE_AUTO_INLINE = 0x00000010;
-static const uint64 COPT_OPTIMIZE_AUTO_INLINE_ALL = 0x00000020;
-static const uint64 COPT_OPTIMIZE_AUTO_UNROLL = 0x00000040;
-static const uint64 COPT_OPTIMIZE_CONST_EXPRESSIONS = 0x00000080;
-static const uint64 COPT_OPTIMIZE_AUTO_ZEROPAGE = 0x00000100;
+static const uint64 COPT_OPTIMIZE_AUTO_INLINE = 1ULL << 4;
+static const uint64 COPT_OPTIMIZE_AUTO_INLINE_ALL = 1ULL << 5;
+static const uint64 COPT_OPTIMIZE_AUTO_UNROLL = 1ULL << 6;
+static const uint64 COPT_OPTIMIZE_CONST_EXPRESSIONS = 1ULL << 7;
+static const uint64 COPT_OPTIMIZE_AUTO_ZEROPAGE = 1ULL << 8;
 
-static const uint64 COPT_OPTIMIZE_CODE_SIZE = 0x00001000;
+static const uint64 COPT_OPTIMIZE_CODE_SIZE = 1ULL << 16;
+static const uint64 COPT_NATIVE = 1ULL << 17;
+static const uint64 COPT_EXTENDED_ZERO_PAGE = 1ULL << 20;
 
-static const uint64 COPT_EXTENDED_ZERO_PAGE = 0x00010000;
+static const uint64 COPT_TARGET_PRG = 1ULL << 32;
+static const uint64 COPT_TARGET_CRT8 = 1ULL << 33;
+static const uint64 COPT_TARGET_CRT16 = 1ULL << 34;
+static const uint64 COPT_TARGET_CRT_EASYFLASH = 1ULL << 35;
 
-static const uint64 COPT_TARGET_PRG = 0x100000000ULL;
-static const uint64 COPT_TARGET_CRT16 = 0x200000000ULL;
-static const uint64 COPT_TARGET_CRT512 = 0x400000000ULL;
-static const uint64 COPT_TARGET_COPY = 0x800000000ULL;
-static const uint64 COPT_TARGET_BIN = 0x1000000000ULL;
-static const uint64 COPT_TARGET_LZO = 0x2000000000ULL;
-static const uint64 COPT_TARGET_NES = 0x4000000000ULL;
+static const uint64 COPT_TARGET_CRT = COPT_TARGET_CRT8 | COPT_TARGET_CRT16 | COPT_TARGET_CRT_EASYFLASH;
 
-static const uint64 COPT_VERBOSE = 0x10000000000ULL;
-static const uint64 COPT_VERBOSE2 = 0x20000000000ULL;
-static const uint64 COPT_VERBOSE3 = 0x40000000000ULL;
+static const uint64 COPT_TARGET_COPY = 1ULL << 36;
+static const uint64 COPT_TARGET_BIN = 1ULL << 37;
+static const uint64 COPT_TARGET_LZO = 1ULL << 38;
+static const uint64 COPT_TARGET_NES = 1ULL << 39;
 
-static const uint64 COPT_DEBUGINFO = 0x100000000000ULL;
+static const uint64 COPT_VERBOSE = 1ULL << 48;
+static const uint64 COPT_VERBOSE2 = 1ULL << 49;
+static const uint64 COPT_VERBOSE3 = 1ULL << 50;
 
-static const uint64 COPT_NATIVE = 0x01000000;
+static const uint64 COPT_DEBUGINFO = 1ULL << 51;
+
 
 static const uint64 COPT_DEFAULT = COPT_OPTIMIZE_BASIC | COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_CONST_EXPRESSIONS;
 

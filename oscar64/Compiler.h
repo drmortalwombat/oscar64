@@ -30,6 +30,7 @@ public:
 
 	TargetMachine	mTargetMachine;
 	uint64			mCompilerOptions;
+	uint16			mCartridgeID;
 
 	struct Define
 	{
