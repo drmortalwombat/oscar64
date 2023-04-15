@@ -158,8 +158,15 @@ __asm getpch
 		cpx	#IOCHM_PETSCII_1
 		bcc	w3
 
+		cmp #219
+		bcs w3
 		cmp #65
 		bcc w3
+
+		cmp #193
+		bcc w4
+		eor #$a0
+	w4:
 		cmp	#123
 		bcs	w3
 		cmp	#97
@@ -799,9 +806,6 @@ static const char * scanpat(const char * fmt, char * mask)
 		fc = nc;
 				
 	} while (fc && fc != ']');
-
-	if (fc == ']')
-		fmt++;
 
 	if (negated)
 	{

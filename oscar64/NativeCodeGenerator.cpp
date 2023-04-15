@@ -33623,7 +33623,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					}
 					else if (
 						mIns[i + 0].ChangesAccuAndFlag() &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 2].mType == ASMIT_LDA &&
+						mIns[i + 1].mType == ASMIT_STA && mIns[i + 2].mType == ASMIT_LDA && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
 						mIns[i + 1].SameEffectiveAddress(mIns[i + 2]))
 					{
 						mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
