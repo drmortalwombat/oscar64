@@ -1169,7 +1169,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 				break;
 			case DT_TYPE_STRUCT:
 			{
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"struct\",\" members\": [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"struct\",\"members\": [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
 					bool	tfirst = true;
 					Declaration* mdec = dec->mParams;
 					while (mdec)
