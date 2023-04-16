@@ -2275,15 +2275,18 @@ Expression* Parser::ParseStatement(void)
 					if ((initExp->mType == EX_ASSIGNMENT || initExp->mType == EX_INITIALIZATION) && initExp->mLeft->mType == EX_VARIABLE && initExp->mRight->mType == EX_CONSTANT &&
 						(iterateExp->mType == EX_POSTINCDEC || iterateExp->mType == EX_PREINCDEC || iterateExp->mType == EX_ASSIGNMENT && iterateExp->mToken == TK_ASSIGN_ADD && iterateExp->mRight->mType == EX_CONSTANT) && 
 						iterateExp->mLeft->IsSame(initExp->mLeft) &&
-						conditionExp->mType == EX_RELATIONAL && conditionExp->mToken == TK_LESS_THAN && conditionExp->mLeft->IsSame(initExp->mLeft) && conditionExp->mRight->mType == EX_CONSTANT)
+						conditionExp->mType == EX_RELATIONAL && (conditionExp->mToken == TK_LESS_THAN || conditionExp->mToken == TK_GREATER_THAN) && conditionExp->mLeft->IsSame(initExp->mLeft) && conditionExp->mRight->mType == EX_CONSTANT)
 					{
 						if (initExp->mRight->mDecValue->mType == DT_CONST_INTEGER && conditionExp->mRight->mDecValue->mType == DT_CONST_INTEGER)
 						{
 							int	startValue = int(initExp->mRight->mDecValue->mInteger);
 							int	endValue = int(conditionExp->mRight->mDecValue->mInteger);
 							int	stepValue = 1;
+
 							if (iterateExp->mType == EX_ASSIGNMENT)
 								stepValue = int(iterateExp->mRight->mDecValue->mInteger);
+							else if (iterateExp->mToken == TK_DEC)
+								stepValue = -1;
 
 							if (unrollPage)
 							{

@@ -38900,7 +38900,6 @@ void NativeCodeProcedure::Optimize(void)
 
 		RebuildEntry();
 
-		
 #if 1
 		if (step > 3)
 		{
@@ -39055,7 +39054,6 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
-
 #if 1
 		if (step > 0)
 		{
@@ -39075,9 +39073,7 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 #endif
 
-		ResetEntryBlocks();
-		ResetVisited();
-		mEntryBlock->CollectEntryBlocks(nullptr);
+		RebuildEntry();
 
 #if _DEBUG
 		ResetVisited();
@@ -39092,11 +39088,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
-
-
-
 #if 1
-
 		if (step > 5 && !changed)
 		{
 			ResetVisited();
@@ -39175,7 +39167,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		}
 #endif
-
 		if (step > 4 && !changed)
 		{
 			ResetVisited();
@@ -39292,7 +39283,6 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 #endif
 
-
 #if 1
 		if (step >= 5)
 		{
@@ -39345,7 +39335,6 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->ForwardZpYIndex(step >= 5))
 			changed = true;
 #endif
-
 
 #if 1
 		ResetVisited();
