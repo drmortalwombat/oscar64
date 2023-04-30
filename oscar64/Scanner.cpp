@@ -44,6 +44,7 @@ const char* TokenNames[] =
 	"'union'",
 	"'enum'",
 	"'sizeof'",
+	"'__bankof'",
 	"'static'",
 	"'auto'",
 	"'extern'",
@@ -1342,6 +1343,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_ENUM;
 				else if (!strcmp(tkident, "sizeof"))
 					mToken = TK_SIZEOF;
+				else if (!strcmp(tkident, "__bankof"))
+					mToken = TK_BANKOF;
 				else if (!strcmp(tkident, "typedef"))
 					mToken = TK_TYPEDEF;
 				else if (!strcmp(tkident, "static"))

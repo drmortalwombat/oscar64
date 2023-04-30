@@ -1768,7 +1768,9 @@ Expression* Parser::ParsePostfixExpression(void)
 
 Expression* Parser::ParsePrefixExpression(void)
 {
-	if (mScanner->mToken == TK_SUB || mScanner->mToken == TK_BINARY_NOT || mScanner->mToken == TK_LOGICAL_NOT || mScanner->mToken == TK_MUL || mScanner->mToken == TK_INC || mScanner->mToken == TK_DEC || mScanner->mToken == TK_BINARY_AND)
+	if (mScanner->mToken == TK_SUB || mScanner->mToken == TK_BINARY_NOT || mScanner->mToken == TK_LOGICAL_NOT || 
+		mScanner->mToken == TK_MUL || mScanner->mToken == TK_INC || mScanner->mToken == TK_DEC || mScanner->mToken == TK_BINARY_AND ||
+		mScanner->mToken == TK_BANKOF)
 	{
 		Expression* nexp;
 		if (mScanner->mToken == TK_LOGICAL_NOT)
@@ -1813,6 +1815,10 @@ Expression* Parser::ParsePrefixExpression(void)
 				pdec->mSize = 2;
 				pdec->mFlags |= DTF_DEFINED;
 				nexp->mDecType = pdec;
+			}
+			else if (nexp->mToken == TK_BANKOF)
+			{
+				nexp->mDecType == TheUnsignedCharTypeDeclaration;
 			}
 			else
 				nexp->mDecType = nexp->mLeft->mDecType;

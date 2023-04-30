@@ -7,6 +7,20 @@ void vram_addr(unsigned long addr)
 	vera.addrh = (char)((addr >> 16) & 1) | 0x10;	
 }
 
+void vram_addr0(unsigned long addr)
+{
+	vera.ctrl &= ~VERA_CTRL_ADDRSEL;
+	vera.addr = (unsigned)addr;
+	vera.addrh = (char)((addr >> 16) & 1) | 0x00;	
+}
+
+void vram_addr2(unsigned long addr)
+{
+	vera.ctrl &= ~VERA_CTRL_ADDRSEL;
+	vera.addr = (unsigned)addr;
+	vera.addrh = (char)((addr >> 16) & 1) | 0x20;	
+}
+
 void vram_put(char data)
 {
 	vera.data0 = data;
@@ -88,6 +102,17 @@ void vera_spr_set(char spr, unsigned addr32, VERASpriteMode mode8, VERASpriteSiz
 	vram_put((h << 6) | (w << 4) | pal);	
 }
 
+void vera_spr_flip(char spr, bool fliph, bool flipv)
+{
+	__assume(spr < 128);
+	
+	vram_addr0(0x1fc00UL + spr * 8 + 6);
+	char b = vram_get() & 0xfc;
+	if (fliph) b |= 0x01;
+	if (flipv) b |= 0x02;
+	vram_put(b);
+}
+
 void vera_spr_move(char spr, int x, int y)
 {
 	__assume(spr < 128);
@@ -126,6 +151,16 @@ void vera_pal_putn(char index, const unsigned * color, unsigned size)
 	while (size > 0)
 	{
 		vram_putw(*color++);
+		size--;
+	}
+}
+
+void vera_pal_getn(char index, unsigned * color, unsigned size)
+{
+	vram_addr(0x1fa00ul + 2 * index);
+	while (size > 0)
+	{
+		*color++ = vram_getw();
 		size--;
 	}
 }

@@ -2081,6 +2081,28 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				dec->mFlags = DTF_DEFINED;
 				return ExValue(dec, vl.mTemp, vl.mReference - 1);
 			}
+			case TK_BANKOF:
+			{
+				LinkerRegion* rgn;
+				if (exp->mLeft->mDecValue->mSection && (rgn = mLinker->FindRegionOfSection(exp->mLeft->mDecValue->mSection)))
+				{
+					uint64	i = 0;
+					while (i < 64 && rgn->mCartridgeBanks != (1ULL << i))
+						i++;
+					if (i < 64)
+					{
+						ins->mCode = IC_CONSTANT;
+						ins->mNumOperands = 0;
+						ins->mConst.mType = IT_INT8;
+						ins->mConst.mIntConst = i;
+						ins->mDst.mType = IT_INT8;
+						ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+						block->Append(ins);
+						return ExValue(TheUnsignedCharTypeDeclaration, ins->mDst.mTemp, vl.mReference - 1);
+					}
+				}
+				mErrors->Error(exp->mLocation, ERRR_CANNOT_FIND_BANK_OF_EXPRESSION, "Cannot find bank of expressiohn");
+			}	break;
 			}
 			
 			ins->mSrc[0].mType = InterTypeOf(vl.mType);

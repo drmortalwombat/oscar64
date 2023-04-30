@@ -27443,6 +27443,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		prevBlock->mIns.Push(mIns[0]);
 		mIns.Remove(0);
 
+		mEntryRequiredRegs += CPU_REG_A;
+		mExitRequiredRegs += CPU_REG_A;
+		prevBlock->mExitRequiredRegs += CPU_REG_A;
+
 		CheckLive();
 
 		return true;
@@ -27747,6 +27751,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				prevBlock->mIns.Push(mIns[si]);
 				mIns.Remove(si);
 
+				mEntryRequiredRegs += CPU_REG_A;
+				mExitRequiredRegs += CPU_REG_A;
+				prevBlock->mExitRequiredRegs += CPU_REG_A;
+
 				CheckLive();
 
 				return true;
@@ -27790,6 +27798,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 				prevBlock->mIns.Push(mIns[si]);
 				mIns.Remove(si);
+
+				mEntryRequiredRegs += CPU_REG_A;
+				mExitRequiredRegs += CPU_REG_A;
+				prevBlock->mExitRequiredRegs += CPU_REG_A;
 
 				CheckLive();
 
@@ -27844,6 +27856,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				prevBlock->mIns.Push(mIns[si]);
 				mIns.Remove(si);
 
+				mEntryRequiredRegs += CPU_REG_A;
+				mExitRequiredRegs += CPU_REG_A;
+				prevBlock->mExitRequiredRegs += CPU_REG_A;
+
 				CheckLive();
 
 				return true;
@@ -27893,6 +27909,9 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			prevBlock->mIns.Push(mIns[0]);
 			mIns.Remove(0);
 
+			mEntryRequiredRegs += CPU_REG_Y;
+			mExitRequiredRegs += CPU_REG_Y;
+
 			CheckLive();
 
 			return true;
@@ -27919,6 +27938,9 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 			prevBlock->mIns.Push(mIns[0]);
 			mIns.Remove(0);
+
+			mEntryRequiredRegs += CPU_REG_X;
+			mExitRequiredRegs += CPU_REG_X;
 
 			CheckLive();
 
@@ -27996,6 +28018,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				prevBlock->mIns.Push(mIns[ai]);
 				mIns.Remove(ai);
 
+				mEntryRequiredRegs += CPU_REG_A;
+				mExitRequiredRegs += CPU_REG_A;
+				prevBlock->mExitRequiredRegs += CPU_REG_A;
+
 				changed = true;
 			}
 
@@ -28009,6 +28035,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 				prevBlock->mIns.Push(mIns[ai]);
 				mIns.Remove(ai);
+
+				mEntryRequiredRegs += CPU_REG_A;
+				mExitRequiredRegs += CPU_REG_A;
+				prevBlock->mExitRequiredRegs += CPU_REG_A;
 
 				changed = true;
 			}
@@ -28156,6 +28186,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		}
 	}
 
+#if 1
 	if (mEntryRequiredRegs.Size() && (!mEntryRequiredRegs[CPU_REG_A] || !mEntryRequiredRegs[CPU_REG_X]))
 	{
 		for (int i = 0; i + 1 < mIns.Size(); i++)
@@ -28174,6 +28205,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 						return OptimizeSimpleLoopInvariant(proc, full);
 					if (!mEntryRequiredRegs[CPU_REG_A])
 					{
+						assert(mIns[0].mType != ASMIT_STA);
 						prevBlock->mIns.Push(NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, mIns[i + 0].mAddress));
 						prevBlock->mIns.Push(NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, mIns[i + 1].mAddress));
 					}
@@ -28200,6 +28232,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 						if (!mEntryRequiredRegs[CPU_REG_A])
 						{
+							assert(mIns[0].mType != ASMIT_STA);
 							prevBlock->mIns.Push(NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, mIns[i + 0].mAddress));
 							prevBlock->mIns.Push(NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, mIns[i + 1].mAddress));
 						}
@@ -28237,6 +28270,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 					
 					if (!mEntryRequiredRegs[CPU_REG_A])
 					{
+						assert(mIns[0].mType != ASMIT_STA);
 						prevBlock->mIns.Insert(k, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, mIns[i + 0].mAddress));
 						prevBlock->mIns.Insert(k + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, mIns[i + 1].mAddress));
 					}
@@ -28250,6 +28284,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			}
 		}
 	}
+#endif
 
 #if 1
 	for (int i = 0; i < mIns.Size(); i++)
@@ -39542,6 +39577,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 

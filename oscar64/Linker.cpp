@@ -172,6 +172,23 @@ LinkerSection* Linker::AddSection(const Ident* section, LinkerSectionType type)
 
 }
 
+LinkerRegion* Linker::FindRegionOfSection(LinkerSection* section)
+{
+	LinkerRegion* srgn = nullptr;
+	for (int i = 0; i < mRegions.Size(); i++)
+	{
+		LinkerRegion* rgn = mRegions[i];
+		if (rgn->mSections.Contains(section))
+		{
+			if (srgn)
+				return nullptr;
+			srgn = rgn;
+		}
+	}
+
+	return srgn;
+}
+
 LinkerSection* Linker::FindSection(const Ident* section)
 {
 	for (int i = 0; i < mSections.Size(); i++)

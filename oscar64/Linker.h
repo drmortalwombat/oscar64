@@ -231,6 +231,8 @@ public:
 	LinkerSection * AddSection(const Ident* section, LinkerSectionType type);
 	LinkerSection* FindSection(const Ident* section);
 
+	LinkerRegion* FindRegionOfSection(LinkerSection* section);
+
 	LinkerObject* FindObjectByAddr(int addr);
 
 	bool IsSectionPlaced(LinkerSection* section);

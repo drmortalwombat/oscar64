@@ -114,6 +114,10 @@ enum VERASpritePriority
 
 inline void vram_addr(unsigned long addr);
 
+inline void vram_addr0(unsigned long addr);
+
+inline void vram_addr2(unsigned long addr);
+
 inline void vram_put(char data);
 
 inline void vram_putw(unsigned data);
@@ -134,6 +138,8 @@ void vram_fill(unsigned long addr, char data, unsigned size);
 
 void vera_spr_set(char spr, unsigned addr32, VERASpriteMode mode8, VERASpriteSize w, VERASpriteSize h, VERASpritePriority z, char pal);
 
+void vera_spr_flip(char spr, bool fliph, bool flipv);
+
 void vera_spr_move(char spr, int x, int y);
 
 void vera_spr_image(char spr, unsigned addr32);
@@ -143,6 +149,8 @@ void vera_pal_put(char index, unsigned color);
 unsigned vera_pal_get(char index);
 
 void vera_pal_putn(char index, const unsigned * color, unsigned size);
+
+void vera_pal_getn(char index, unsigned * color, unsigned size);
 
 #pragma compile("vera.c")
 

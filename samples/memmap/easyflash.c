@@ -106,6 +106,16 @@ void print6(void)
 #pragma data ( data )
 
 
+// Function for indirect cross bank call
+void fcall(char bank, void (* func)())
+{
+	eflash.bank = bank;
+	func();
+}
+
+// Macro for indirect cross bank call
+#define FCALL(f) fcall(__bankof(f), f)
+
 int main(void)
 {
 	// Enable ROM
@@ -136,14 +146,15 @@ int main(void)
 	eflash.bank = 3;
 	print3();
 
-	eflash.bank = 4;
+	// Get bank of function using __bankof operator
+	eflash.bank = __bankof print4;
 	print4();
 
-	eflash.bank = 5;
-	print5();
+	// Indirect call
+	fcall(__bankof print5, print5);
 
-	eflash.bank = 6;
-	print6();
+	// Macro call
+	FCALL(print6);
 
 	// Loop forever
 	while (true)

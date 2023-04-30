@@ -150,7 +150,8 @@ enum ExpressionType
 	EX_CASE,
 	EX_DEFAULT,
 	EX_CONDITIONAL,
-	EX_ASSUME
+	EX_ASSUME,
+	EX_BANKOF
 };
 
 class Expression
