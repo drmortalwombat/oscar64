@@ -585,3 +585,28 @@ int lmuldiv16sby8(int a, char b, char c)
 	else
 		return lmuldiv16by8(a, b, c);
 }
+
+unsigned usqrt(unsigned n)
+{
+    unsigned p, q, r, h;
+
+    p = 0;
+    r = n;
+
+#assign q 0x4000
+#repeat
+    {
+        h = p | q;
+        p >>= 1;
+        if (r >= h)
+        {
+            p |= q;
+            r -= h;
+        } 
+    }
+#assign q q >> 2
+#until q == 0
+#undef q
+
+    return p;
+}

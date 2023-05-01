@@ -25991,6 +25991,13 @@ bool NativeCodeBasicBlock::MoveLoadAddZPStoreUp(int at)
 	{
 		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at + 0].mAddress)
 		{
+			while (j < at && (mIns[j].mLive & LIVE_CPU_REG_A))
+			{
+				if (mIns[j].ChangesAccu())
+					return false;
+				j++;
+			}
+
 			mIns[at + 1].mLive |= mIns[j].mLive;
 			mIns[at + 2].mLive |= mIns[j].mLive;
 
@@ -31953,6 +31960,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				if (MoveCLCLoadAddZPStoreUp(i))
 					changed = true;
 			}
+#if 1
 			else if (
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
@@ -31961,6 +31969,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				if (MoveLoadAddZPStoreUp(i))
 					changed = true;
 			}
+#endif
 #if 1
 			else if (
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
@@ -39595,7 +39604,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 
