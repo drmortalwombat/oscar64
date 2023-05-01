@@ -283,7 +283,7 @@ public:
 	NativeCodeBasicBlock* BuildSingleEntry(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
 	NativeCodeBasicBlock* BuildSingleExit(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
 
-	void PutLocation(const Location& loc);
+	void PutLocation(const Location& loc, bool weak);
 	void PutOpcode(short opcode);
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);

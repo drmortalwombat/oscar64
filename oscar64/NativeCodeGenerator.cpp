@@ -4354,8 +4354,16 @@ void NativeCodeInstruction::CopyMode(const NativeCodeInstruction& ins)
 
 void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 {
+	bool	weak = true;
+
 	if (mIns)
-		block->PutLocation(mIns->mLocation);
+	{
+		if (ChangesAddress() && (mMode != ASMIM_ZERO_PAGE || mLinkerObject))
+			weak = false;
+		else if (mType == ASMIT_JSR && !(mFlags & NCIF_RUNTIME))
+			weak = false;
+		block->PutLocation(mIns->mLocation, weak);
+	}
 
 	if (mType == ASMIT_BYTE)
 		block->PutByte(mAddress);
@@ -4526,23 +4534,33 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 	}
 
 	if (mIns)
-		block->PutLocation(mIns->mLocation);
+		block->PutLocation(mIns->mLocation, weak);
 }
 
-void NativeCodeBasicBlock::PutLocation(const Location& location)
+void NativeCodeBasicBlock::PutLocation(const Location& location, bool weak)
 {
 	int sz = mCodeLocations.Size();
 	if (sz > 0 && 
-		mCodeLocations[sz - 1].mLocation.mFileName == location.mFileName &&
-		mCodeLocations[sz - 1].mLocation.mLine == location.mLine)
+		(weak ||
+		 (mCodeLocations[sz - 1].mLocation.mFileName == location.mFileName &&
+		 mCodeLocations[sz - 1].mLocation.mLine == location.mLine)))
 	{
 		mCodeLocations[sz - 1].mEnd = this->mCode.Size();
+		if (mCodeLocations[sz - 1].mWeak)
+			mCodeLocations[sz - 1].mWeak = weak;
+	}
+	else if (sz > 0 && mCodeLocations[sz - 1].mWeak)
+	{
+		mCodeLocations[sz - 1].mLocation = location;
+		mCodeLocations[sz - 1].mEnd = this->mCode.Size();
+		mCodeLocations[sz - 1].mWeak = weak;
 	}
 	else
 	{
 		CodeLocation	loc;
 		loc.mLocation = location;
 		loc.mStart = loc.mEnd = this->mCode.Size();
+		loc.mWeak = weak;
 		mCodeLocations.Push(loc);
 	}
 }
@@ -38081,7 +38099,7 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 	next = mOffset + mSize;
 
 	if (mBranchIns)
-		PutLocation(mBranchIns->mLocation);
+		PutLocation(mBranchIns->mLocation, false);
 
 	if (mFalseJump)
 	{
@@ -38111,7 +38129,7 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 	}
 
 	if (mBranchIns)
-		PutLocation(mBranchIns->mLocation);
+		PutLocation(mBranchIns->mLocation, false);
 
 	assert(end == next);
 

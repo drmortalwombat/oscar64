@@ -163,6 +163,7 @@ struct CodeLocation
 {
 	Location	mLocation;
 	int			mStart, mEnd;
+	bool		mWeak;
 };
 
 
