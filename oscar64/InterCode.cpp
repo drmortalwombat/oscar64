@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <math.h>
 
+static bool CheckFunc;
+
 int InterTypeSize[] = {
 	0,
 	1,
@@ -14906,64 +14908,67 @@ void InterCodeProcedure::RemoveUnusedInstructions(void)
 
 void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 {
-	if (mLocalVars.Size() > 0 || mParamVars.Size() > 0)
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
 	{
-		for (int i = 0; i < mLocalAliasedSet.Size(); i++)
+		if (mLocalVars.Size() > 0 || mParamVars.Size() > 0)
 		{
-			if (mLocalAliasedSet[i])
-				mLocalVars[i]->mAliased = true;
-		}
-		for (int i = 0; i < mParamAliasedSet.Size(); i++)
-		{
-			if (mParamAliasedSet[i])
-				mParamVars[i]->mAliased = true;
-		}
+			for (int i = 0; i < mLocalAliasedSet.Size(); i++)
+			{
+				if (mLocalAliasedSet[i])
+					mLocalVars[i]->mAliased = true;
+			}
+			for (int i = 0; i < mParamAliasedSet.Size(); i++)
+			{
+				if (mParamAliasedSet[i])
+					mParamVars[i]->mAliased = true;
+			}
 
-		//
-		// Now remove unused stores
-		//
-
-		do {
-			ResetVisited();
-			mEntryBlock->BuildLocalVariableSets(mLocalVars, mParamVars, paramMemory);
-
-			ResetVisited();
-			mEntryBlock->BuildGlobalProvidedVariableSet(mLocalVars, NumberSet(mLocalVars.Size()), mParamVars, NumberSet(mParamVars.Size()), paramMemory);
-
-			NumberSet	totalRequired2(mLocalVars.Size());
-			NumberSet	totalRequiredParams(mParamVars.Size());
+			//
+			// Now remove unused stores
+			//
 
 			do {
 				ResetVisited();
-			} while (mEntryBlock->BuildGlobalRequiredVariableSet(mLocalVars, totalRequired2, mParamVars, totalRequiredParams, paramMemory));
+				mEntryBlock->BuildLocalVariableSets(mLocalVars, mParamVars, paramMemory);
 
-			ResetVisited();
-		} while (mEntryBlock->RemoveUnusedStoreInstructions(mLocalVars, mParamVars, paramMemory));
+				ResetVisited();
+				mEntryBlock->BuildGlobalProvidedVariableSet(mLocalVars, NumberSet(mLocalVars.Size()), mParamVars, NumberSet(mParamVars.Size()), paramMemory);
 
-		DisassembleDebug("removed unused local stores");
-	}
+				NumberSet	totalRequired2(mLocalVars.Size());
+				NumberSet	totalRequiredParams(mParamVars.Size());
 
-	// Remove unused global stores
+				do {
+					ResetVisited();
+				} while (mEntryBlock->BuildGlobalRequiredVariableSet(mLocalVars, totalRequired2, mParamVars, totalRequiredParams, paramMemory));
 
-	if (mModule->mGlobalVars.Size())
-	{
-		do {
-			ResetVisited();
-			mEntryBlock->BuildStaticVariableSet(mModule->mGlobalVars);
+				ResetVisited();
+			} while (mEntryBlock->RemoveUnusedStoreInstructions(mLocalVars, mParamVars, paramMemory));
 
-			ResetVisited();
-			mEntryBlock->BuildGlobalProvidedStaticVariableSet(mModule->mGlobalVars, NumberSet(mModule->mGlobalVars.Size()));
+			DisassembleDebug("removed unused local stores");
+		}
 
-			NumberSet	totalRequired2(mModule->mGlobalVars.Size());
+		// Remove unused global stores
 
+		if (mModule->mGlobalVars.Size())
+		{
 			do {
 				ResetVisited();
-			} while (mEntryBlock->BuildGlobalRequiredStaticVariableSet(mModule->mGlobalVars, totalRequired2));
+				mEntryBlock->BuildStaticVariableSet(mModule->mGlobalVars);
 
-			ResetVisited();
-		} while (mEntryBlock->RemoveUnusedStaticStoreInstructions(mModule->mGlobalVars));
+				ResetVisited();
+				mEntryBlock->BuildGlobalProvidedStaticVariableSet(mModule->mGlobalVars, NumberSet(mModule->mGlobalVars.Size()));
 
-		DisassembleDebug("removed unused static stores");
+				NumberSet	totalRequired2(mModule->mGlobalVars.Size());
+
+				do {
+					ResetVisited();
+				} while (mEntryBlock->BuildGlobalRequiredStaticVariableSet(mModule->mGlobalVars, totalRequired2));
+
+				ResetVisited();
+			} while (mEntryBlock->RemoveUnusedStaticStoreInstructions(mModule->mGlobalVars));
+
+			DisassembleDebug("removed unused static stores");
+		}
 	}
 }
 
@@ -15335,6 +15340,8 @@ void InterCodeProcedure::PropagateConstOperationsUp(void)
 void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
+
+//	CheckFunc = !strcmp(mIdent->mString, "joy_poll");
 
 	mEntryBlock = mBlocks[0];
 
@@ -16158,9 +16165,12 @@ void InterCodeProcedure::MarkRelevantStatics(void)
 
 void InterCodeProcedure::RemoveNonRelevantStatics(void)
 {
-	ResetVisited();
-	mEntryBlock->RemoveNonRelevantStatics();
-	RemoveUnusedInstructions();
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+	{
+		ResetVisited();
+		mEntryBlock->RemoveNonRelevantStatics();
+		RemoveUnusedInstructions();
+	}
 }
 
 void InterCodeProcedure::MapVariables(void)
@@ -16646,6 +16656,9 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
+
+	if (!CheckFunc)
+		return;
 
 	if (!initial)
 	{
