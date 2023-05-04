@@ -434,6 +434,8 @@ public:
 	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void SimplifyIntegerRangeRelops(void);
 
+	bool CombineIndirectAddressing(void);
+
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
 
@@ -630,6 +632,7 @@ protected:
 	void ExpandSelect(void);
 	void PropagateConstOperationsUp(void);
 	void RebuildIntegerRangeSet(void);
+	void CombineIndirectAddressing(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);

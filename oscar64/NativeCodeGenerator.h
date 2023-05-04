@@ -409,6 +409,7 @@ public:
 	bool ForwardAccuAddSub(void);
 	bool ForwardZpYIndex(bool full);
 	bool ForwardZpXIndex(bool full);
+	bool ForwardAXYReg(void);
 
 	bool RegisterValueForwarding(void);
 	bool CanCombineSameXtoY(int start, int end);

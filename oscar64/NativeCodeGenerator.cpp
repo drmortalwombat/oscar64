@@ -12831,7 +12831,7 @@ bool NativeCodeBasicBlock::ReplaceYRegWithXReg(int start, int end)
 {
 	bool	changed = false;
 
-	CheckLive();
+//	CheckLive();
 
 	for (int i = start; i < end; i++)
 	{
@@ -12840,7 +12840,7 @@ bool NativeCodeBasicBlock::ReplaceYRegWithXReg(int start, int end)
 			changed = true;
 	}
 
-	CheckLive();
+//	CheckLive();
 
 	return changed;
 }
@@ -13055,6 +13055,89 @@ bool NativeCodeBasicBlock::ForwardAccuAddSub(void)
 			changed = true;
 
 		if (mFalseJump && mFalseJump->ForwardAccuAddSub())
+			changed = true;
+	}
+
+	return changed;
+}
+
+bool NativeCodeBasicBlock::ForwardAXYReg(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		bool	xisa = false, yisa = false;
+		int		xoffset = -1, yoffset = -1;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_TAX)
+			{
+				xisa = true;
+				xoffset = i;
+			}
+			else if (mIns[i].mType == ASMIT_TXA)
+			{
+				xisa = true;
+				yisa = false;
+				xoffset = i;
+			}
+			else if (mIns[i].mType == ASMIT_TAY)
+			{
+				yisa = true;
+				yoffset = i;
+			}
+			else if (mIns[i].mType == ASMIT_TYA)
+			{
+				yisa = true;
+				xisa = false;
+				yoffset = i;
+			}
+			else if (mIns[i].ChangesXReg())
+				xisa = false;
+			else if (mIns[i].ChangesYReg())
+				xisa = false;
+			else if (mIns[i].ChangesAccu())
+			{
+				xisa = false;
+				yisa = false;
+			}
+			else if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+			{
+				if (xisa && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+				{
+					if (mIns[i + 1].mAddress == 1)
+					{
+						mIns[i + 0].mType = ASMIT_INX;
+						mIns[i + 1].mType = ASMIT_TXA; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						for (int j = xoffset; j < i + 1; j++)
+							mIns[j].mLive |= LIVE_CPU_REG_X;
+						xisa = false;
+						changed = true;
+					}
+				}
+				else if (yisa && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+				{
+					if (mIns[i + 1].mAddress == 1)
+					{
+						mIns[i + 0].mType = ASMIT_INY;
+						mIns[i + 1].mType = ASMIT_TYA; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						for (int j = yoffset; j < i + 1; j++)
+							mIns[j].mLive |= LIVE_CPU_REG_Y;
+						yisa = false;
+						changed = true;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ForwardAXYReg())
+			changed = true;
+		if (mFalseJump && mFalseJump->ForwardAXYReg())
 			changed = true;
 	}
 
@@ -13487,21 +13570,41 @@ bool NativeCodeBasicBlock::CombineSameXY(void)
 		int	xpos, ypos;
 		bool	samexy = false;
 
+		CheckLive();
+
 		for (int i = 0; i < mIns.Size(); i++)
 		{
 			NativeCodeInstruction& ins(mIns[i]);
 
 			if (ins.ChangesXReg())
 			{
-				if (samexy && CombineSameXtoY(xpos, ypos, i))
-					changed = true;
+				if (samexy)
+				{
+					if (!ins.RequiresXReg() && CombineSameXtoY(xpos, ypos, i))
+						changed = true;
+					else if (!ins.RequiresYReg() && !(ins.mLive & LIVE_CPU_REG_Y) && CombineSameYtoX(xpos, ypos, i))
+					{
+						changed = true;
+						yreg = -1;
+					}
+				}
+
 				xreg = -1;
 				samexy = false;
 			}
 			if (ins.ChangesYReg())
 			{
-				if (samexy && CombineSameYtoX(ypos, xpos, i))
-					changed = true;
+				if (samexy)
+				{
+					if (!ins.RequiresYReg() && CombineSameYtoX(xpos, ypos, i))
+						changed = true;
+					else if (!ins.RequiresXReg() && !(ins.mLive & LIVE_CPU_REG_X) && CombineSameXtoY(xpos, ypos, i))
+					{
+						changed = true;
+						xreg = -1;
+					}
+				}
+
 				yreg = -1;
 				samexy = false;
 			}
@@ -13564,6 +13667,8 @@ bool NativeCodeBasicBlock::CombineSameXY(void)
 			else  if (!mExitRequiredRegs[CPU_REG_Y] && CombineSameYtoX(xpos, ypos, mIns.Size()))
 				changed = true;
 		}
+
+		CheckLive();
 
 		if (mTrueJump && mTrueJump->CombineSameXY())
 			changed = true;
@@ -13854,14 +13959,14 @@ bool NativeCodeBasicBlock::ReplaceXRegWithYReg(int start, int end)
 {
 	bool	changed = false;
 
-	CheckLive();
+	//CheckLive();
 	for (int i = start; i < end; i++)
 	{
 		NativeCodeInstruction& ins(mIns[i]);
 		if (ins.ReplaceXRegWithYReg())
 			changed = true;
 	}
-	CheckLive();
+	//CheckLive();
 
 	return changed;
 }
@@ -39562,6 +39667,12 @@ void NativeCodeProcedure::Optimize(void)
 
 #endif
 
+		if (step == 8)
+		{
+			ResetVisited();
+			if (mEntryBlock->ForwardAXYReg())
+				changed = true;			
+		}
 #if 1
 		if (step == 10)
 		{

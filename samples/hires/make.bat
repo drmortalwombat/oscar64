@@ -5,3 +5,4 @@ call ..\..\bin\oscar64 polygon.c -n
 call ..\..\bin\oscar64 bitblit.c -n
 call ..\..\bin\oscar64 cube3d.c -n
 call ..\..\bin\oscar64 fractaltree.c -n
+call ..\..\bin\oscar64 qsort.c -n

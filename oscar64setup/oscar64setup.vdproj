@@ -268,6 +268,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_414E74B8FB564A7EBE074E9464FAB0F5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_41A6A127243E4EC2A1E1E2171993C5C1"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -2019,6 +2025,26 @@
             "TargetName" = "8:assert.c"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_414E74B8FB564A7EBE074E9464FAB0F5"
+            {
+            "SourcePath" = "8:..\\samples\\hires\\qsort.prg"
+            "TargetName" = "8:qsort.prg"
+            "Tag" = "8:"
+            "Folder" = "8:_82FDD682B0334DE1B89A843D32862B85"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
