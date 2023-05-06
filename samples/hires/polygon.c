@@ -70,7 +70,6 @@ int main(void)
 		}
 
 		bm_polygon_nc_fill(&Screen, &cr, rpx, rpy, 10, NineShadesOfGrey[i % 9]);
-
 		for(int j=0; j<10; j++)
 		{
 			int k = (j + 1) % 10;

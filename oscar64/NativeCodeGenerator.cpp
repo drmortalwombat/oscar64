@@ -19208,7 +19208,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						changed = true;
 					}
 				}
-				else if (ns >= 3 && mIns[ns - 3].mType == ASMIT_LDA && mIns[ns - 3].mMode == ASMIM_ZERO_PAGE && !(mIns[ns - 2].mLive & LIVE_CPU_REG_X))
+				else if (ns >= 3 && mIns[ns - 3].mType == ASMIT_LDA && mIns[ns - 3].mMode == ASMIM_ZERO_PAGE && !(mIns[ns - 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_A)))
 				{
 					if (mTrueJump->mEntryRequiredRegs[ins.mAddress] && !mFalseJump->mEntryRequiredRegs[ins.mAddress] && mTrueJump->mEntryBlocks.Size() == 1)
 					{
@@ -24671,6 +24671,8 @@ bool NativeCodeBasicBlock::EliminateUpper16BitSum(NativeCodeProcedure* nproc)
 	{
 		mVisited = true;
 
+		CheckLive();
+
 		for (int i = 0; i + 2 < mIns.Size(); i++)
 		{
 			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
@@ -28346,7 +28348,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 					}
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 				}
-				else if (!(mIns[i + 0].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[mIns[i + 1].mAddress])
+				else if (j > i && !(mIns[i + 0].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[mIns[i + 1].mAddress])
 				{
 					int j = mIns.Size() - 1;
 
@@ -39078,7 +39080,7 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "bm_polygon_nc_fill");
 
 #if 1
 	int		step = 0;
@@ -39330,13 +39332,17 @@ void NativeCodeProcedure::Optimize(void)
 		{
 			ResetVisited();
 			if (mEntryBlock->JoinTailCodeSequences(this, step > 4))
+			{
 				changed = true;
+				BuildDataFlowSets();
+			}
 
 			ResetVisited();
 			if (mEntryBlock->PropagateSinglePath())
 				changed = true;
 		}
 #endif
+
 
 
 #if _DEBUG
@@ -39390,6 +39396,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		}
 #endif
+
 		if (step > 4 && !changed)
 		{
 			ResetVisited();
@@ -39704,6 +39711,7 @@ void NativeCodeProcedure::Optimize(void)
 			mGenerator->mErrors->Error(mInterProc->mLocation, EWARN_OPTIMIZER_LOCKED, "Optimizer locked in infinite loop", mInterProc->mIdent);
 		}
 
+
 #if 1
 		if (!changed && step < 11)
 		{
@@ -39716,7 +39724,9 @@ void NativeCodeProcedure::Optimize(void)
 		else
 			cnt++;
 
+
 	} while (changed);
+
 
 #if 1
 	ResetVisited();

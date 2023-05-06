@@ -321,10 +321,10 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		mIP = addr;
 		break;
 	case ASMIT_JSR:
-		mRegS--;
 		mMemory[0x100 + mRegS] = (mIP - 1) >> 8;
 		mRegS--;
 		mMemory[0x100 + mRegS] = (mIP - 1) & 0xff;
+		mRegS--;
 		mIP = addr;
 		cycles += 2;
 		break;
@@ -372,23 +372,23 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		UpdateStatus(mRegA);
 		break;
 	case ASMIT_PHA:
-		mRegS--;
 		mMemory[0x100 + mRegS] = mRegA;
+		mRegS--;
 		cycles ++;
 		break;
 	case ASMIT_PHP:
-		mRegS--;
 		mMemory[0x100 + mRegS] = mRegP;
+		mRegS--;
 		cycles++;
 		break;
 	case ASMIT_PLA:
-		mRegA = mMemory[0x100 + mRegS];
 		mRegS++;
+		mRegA = mMemory[0x100 + mRegS];
 		cycles++;
 		break;
 	case ASMIT_PLP:
-		mRegP = mMemory[0x100 + mRegS];
 		mRegS++;
+		mRegP = mMemory[0x100 + mRegS];
 		cycles++;
 		break;
 	case ASMIT_ROL:
@@ -426,7 +426,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 	case ASMIT_RTI:
 		break;
 	case ASMIT_RTS:
-		mIP = (mMemory[0x100 + mRegS] + 256 * mMemory[0x101 + mRegS] + 1) & 0xffff;
+		mIP = (mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1) & 0xffff;
 		mRegS += 2;
 		cycles += 4;
 		break;
@@ -496,10 +496,8 @@ void Emulator::DumpProfile(void)
 	DumpCycles();
 }
 
-int Emulator::Emulate(int startIP)
+int Emulator::Emulate(int startIP, int trace)
 {
-	int	trace = 0;
-
 	for (int i = 0; i < 0x10000; i++)
 		mCycles[i] = 0;
 
@@ -508,7 +506,7 @@ int Emulator::Emulate(int startIP)
 	mRegX = 0;
 	mRegY = 0;
 	mRegP = 0;
-	mRegS = 0xfe;
+	mRegS = 0xfd;
 
 	mMemory[0x1fe] = 0xff;
 	mMemory[0x1ff] = 0xff;
@@ -537,14 +535,14 @@ int Emulator::Emulate(int startIP)
 				putchar('\n');
 			else
 				putchar(mRegA);
-			mIP = mMemory[0x100 + mRegS] + 256 * mMemory[0x101 + mRegS] + 1;
+			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 			mRegS += 2;
 		}
 		else if (mIP == 0xffcf)
 		{
 			int ch = getchar();
 			mRegA = ch;
-			mIP = mMemory[0x100 + mRegS] + 256 * mMemory[0x101 + mRegS] + 1;
+			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 			mRegS += 2;
 		}
 
@@ -681,7 +679,7 @@ int Emulator::Emulate(int startIP)
 			return -1;
 	}
 
-	if (mRegS == 0)
+	if (mRegS == 0xff)
 	{
 #if 0
 		for (int i = 0; i < 256; i++)

@@ -619,6 +619,95 @@ static bool SameInstruction(const InterInstruction* ins1, const InterInstruction
 	return false;
 }
 
+bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const
+{
+	// Cannot swap branches
+	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH)
+		return false;
+
+	// Check function call
+	if (ins1->mCode == IC_CALL || ins1->mCode == IC_CALL_NATIVE || ins1->mCode == IC_ASSEMBLER)
+	{
+		if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER ||
+			ins0->mCode == IC_RETURN || ins0->mCode == IC_RETURN_STRUCT || ins0->mCode == IC_RETURN_VALUE ||
+			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME)
+			return false;
+
+		if (ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
+			return false;
+	}
+	if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER)
+	{
+		if (ins1->mCode == IC_RETURN || ins1->mCode == IC_RETURN_STRUCT || ins1->mCode == IC_RETURN_VALUE ||
+			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME)
+			return false;
+
+		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+			return false;
+	}
+
+	// Check frame pointer
+	if (ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME)
+	{
+		if (ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME)
+			return false;
+		if (ins1->mCode == IC_CONSTANT && ins1->mDst.mType == IT_POINTER && ins1->mConst.mMemory == IM_FRAME)
+			return false;
+		if (ins1->mCode == IC_STORE && ins1->mSrc[1].mMemory == IM_FRAME)
+			return false;
+	}
+	if (ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME)
+	{
+		if (ins0->mCode == IC_CONSTANT && ins0->mDst.mType == IT_POINTER && ins0->mConst.mMemory == IM_FRAME)
+			return false;
+		if (ins0->mCode == IC_STORE && ins0->mSrc[1].mMemory == IM_FRAME)
+			return false;
+	}
+
+	// False data dependency
+	if (ins1->mDst.mTemp >= 0)
+	{
+		if (ins1->mDst.mTemp == ins0->mDst.mTemp)
+			return false;
+
+		for (int i = 0; i < ins0->mNumOperands; i++)
+			if (ins1->mDst.mTemp == ins0->mSrc[i].mTemp)
+				return false;
+	}
+
+	// True data dependency
+	if (ins0->mDst.mTemp >= 0)
+	{
+		for (int i = 0; i < ins1->mNumOperands; i++)
+			if (ins0->mDst.mTemp == ins1->mSrc[i].mTemp)
+				return false;
+	}
+
+	if ((ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY) &&
+		(ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY))
+	{
+		if (ins0->mVolatile || ins1->mVolatile)
+			return false;
+
+		if (ins0->mCode == IC_LOAD)
+		{
+			if (DestroyingMem(ins0, ins1, mProc->mModule->mGlobalVars))
+				return false;
+		}
+		else if (ins1->mCode == IC_LOAD)
+		{
+			if (DestroyingMem(ins1, ins0, mProc->mModule->mGlobalVars))
+				return false;
+		}
+		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
+		{
+			if (CollidingMem(ins0, ins1, mProc->mModule->mGlobalVars))
+				return false;
+		}
+	}
+
+	return true;
+}
 
 static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int64 val2 = 0)
 {
@@ -1271,6 +1360,12 @@ static bool CanBypassUp(const InterInstruction* lins, const InterInstruction* bi
 			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
 				return false;
 	}
+	if (lins->mCode == IC_STORE || lins->mCode == IC_COPY)
+	{
+		if (bins->mCode == IC_STORE || bins->mCode == IC_LOAD || bins->mCode == IC_COPY || bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE)
+			return false;
+	}
+
 	if (bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
 	{
 		if (lins->mCode == IC_CONSTANT && lins->mDst.mType == IT_POINTER && lins->mConst.mMemory == IM_FRAME)
@@ -4138,8 +4233,9 @@ void InterInstruction::Disassemble(FILE* file)
 	}
 }
 
-InterCodeBasicBlock::InterCodeBasicBlock(void)
-	: mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mMergeAValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
+InterCodeBasicBlock::InterCodeBasicBlock(InterCodeProcedure * proc)
+	: mProc(proc),
+	mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mMergeAValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
 	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), 
 	mEntryParamValueRange(IntegerValueRange()), mTrueParamValueRange(IntegerValueRange()), mFalseParamValueRange(IntegerValueRange()), mLocalParamValueRange(IntegerValueRange()),
 	mReverseValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr), mLoopPathBlocks(nullptr), mMemoryValueSize(0), mEntryMemoryValueSize(0)
@@ -4150,6 +4246,9 @@ InterCodeBasicBlock::InterCodeBasicBlock(void)
 	mChecked = false;
 	mTraceIndex = -1;
 	mUnreachable = false;
+
+	mIndex = proc->mBlocks.Size();
+	proc->mBlocks.Push(this);
 }
 
 InterCodeBasicBlock::~InterCodeBasicBlock(void)
@@ -5554,7 +5653,7 @@ bool InterCodeBasicBlock::CombineIndirectAddressing(void)
 
 				if (j < tvalue.Size())
 				{
-					int	offset = lins->mSrc[1].mIntConst - tvalue[j]->mSrc[1].mIntConst;
+					int64	offset = lins->mSrc[1].mIntConst - tvalue[j]->mSrc[1].mIntConst;
 					lins->mSrc[1] = tvalue[j]->mDst;
 					lins->mSrc[0].mTemp = -1;
 					lins->mSrc[0].mIntConst = offset;
@@ -7206,7 +7305,7 @@ bool InterCodeBasicBlock::PropagateConstOperationsUp(void)
 
 							int di = eb->mInstructions.Size() - 1;
 							if (eb->mInstructions[di]->mCode == IC_BRANCH && di > 0 && eb->mInstructions[di - 1]->mDst.mTemp == eb->mInstructions[di]->mSrc[0].mTemp &&
-								CanBypassUp(ins, eb->mInstructions[di - 1]))
+								CanSwapInstructions(eb->mInstructions[di - 1], ins))
 							{
 								di--;
 							}
@@ -8033,7 +8132,7 @@ bool  InterCodeBasicBlock::MergeIndexedLoadStore(const GrowingInstructionPtrArra
 			if (ins->mCode == IC_LEA)
 			{
 				int j = i;
-				while (j > 0 && CanBypassUp(ins, mInstructions[j - 1]))
+				while (j > 0 && CanSwapInstructions(mInstructions[j - 1], ins))
 				{
 					mInstructions[j] = mInstructions[j - 1];
 					j--;
@@ -9679,6 +9778,18 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 {
 	InterInstruction* ins = mInstructions[si];
 
+#if 1
+	if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
+		return false;
+
+	for (int i = si + 1; i < ti; i++)
+		if (!CanSwapInstructions(ins, mInstructions[i]))
+			return false;
+	return true;
+
+#else
+
 	if (ins->mCode == IC_LOAD)
 	{
 		for (int i = si + 1; i < ti; i++)
@@ -9702,6 +9813,7 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 	}
 
 	return true;
+#endif
 }
 
 int InterCodeBasicBlock::FindSameInstruction(const InterInstruction* ins) const
@@ -9719,6 +9831,17 @@ bool InterCodeBasicBlock::CanMoveInstructionBehindBlock(int ii) const
 
 bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstruction* ins) const
 {
+
+#if 1
+	if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
+		return false;
+
+	for (int i = 0; i < ii; i++)
+		if (!CanSwapInstructions(mInstructions[i], ins))
+			return false;
+	return true;
+#else
 	if (ins->mCode == IC_LOAD)
 	{
 		for (int i = 0; i < ii; i++)
@@ -9740,7 +9863,7 @@ bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstr
 			if (!CanBypassUp(ins, mInstructions[i]))
 				return false;
 	}
-
+#endif
 	return true;
 }
 
@@ -9781,7 +9904,9 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 							if (mTrueJump->CanMoveInstructionBeforeBlock(ti) && mFalseJump->CanMoveInstructionBeforeBlock(fi))
 							{
 								int	tindex = mInstructions.Size() - 1;
-								if (mInstructions.Size() >= 2 && mInstructions[tindex - 1]->mDst.mTemp == mInstructions[tindex]->mSrc[0].mTemp && CanBypassUp(tins, mInstructions[tindex - 1]))
+								if (mInstructions.Size() >= 2 && mInstructions[tindex - 1]->mDst.mTemp == mInstructions[tindex]->mSrc[0].mTemp && 
+									CanSwapInstructions(mInstructions[tindex - 1], tins))
+//									CanBypassUp(tins, mInstructions[tindex - 1]))
 									tindex--;
 
 								mInstructions.Insert(tindex, tins);
@@ -10334,7 +10459,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 								if (ins->mCode == IC_LOAD)
 								{
 									j = 0;
-									while (j < mTrueJump->mInstructions.Size() && CanBypassLoad(ins, mTrueJump->mInstructions[j]))
+									while (j < mTrueJump->mInstructions.Size() && CanSwapInstructions(ins, mTrueJump->mInstructions[j]))
 										j++;
 								}
 								if (ins->mCode != IC_LOAD || j == mTrueJump->mInstructions.Size())
@@ -10342,7 +10467,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 									if (ins->mCode == IC_LOAD)
 									{
 										j = 0;
-										while (j < mFalseJump->mInstructions.Size() && CanBypassLoad(ins, mFalseJump->mInstructions[j]))
+										while (j < mFalseJump->mInstructions.Size() && CanSwapInstructions(ins, mFalseJump->mInstructions[j]))
 											j++;
 									}
 
@@ -10488,7 +10613,7 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 }
 
 
-void InterCodeBasicBlock::ExpandSelect(InterCodeProcedure* proc)
+void InterCodeBasicBlock::ExpandSelect(void)
 {
 	if (!mVisited)
 	{
@@ -10502,12 +10627,9 @@ void InterCodeBasicBlock::ExpandSelect(InterCodeProcedure* proc)
 		{
 			InterInstruction* sins = mInstructions[i];
 
-			InterCodeBasicBlock* tblock = new InterCodeBasicBlock();
-			proc->Append(tblock);
-			InterCodeBasicBlock* fblock = new InterCodeBasicBlock();
-			proc->Append(fblock);
-			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
-			proc->Append(eblock);
+			InterCodeBasicBlock* tblock = new InterCodeBasicBlock(mProc);
+			InterCodeBasicBlock* fblock = new InterCodeBasicBlock(mProc);
+			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(mProc);
 
 			for (int j = i + 1; j < mInstructions.Size(); j++)
 				eblock->mInstructions.Push(mInstructions[j]);
@@ -10564,13 +10686,13 @@ void InterCodeBasicBlock::ExpandSelect(InterCodeProcedure* proc)
 		}
 
 		if (mTrueJump)
-			mTrueJump->ExpandSelect(proc);
+			mTrueJump->ExpandSelect();
 		if (mFalseJump)
-			mFalseJump->ExpandSelect(proc);
+			mFalseJump->ExpandSelect();
 	}
 }
 
-void InterCodeBasicBlock::SplitBranches(InterCodeProcedure* proc)
+void InterCodeBasicBlock::SplitBranches(void)
 {
 	if (!mVisited)
 	{
@@ -10578,10 +10700,9 @@ void InterCodeBasicBlock::SplitBranches(InterCodeProcedure* proc)
 
 		if (mTrueJump && mFalseJump && (mInstructions.Size() > 2 || mInstructions.Size() == 2 && mInstructions[0]->mCode != IC_RELATIONAL_OPERATOR))
 		{
-			InterCodeBasicBlock* block = new InterCodeBasicBlock();
+			InterCodeBasicBlock* block = new InterCodeBasicBlock(mProc);
 			InterInstruction* ins = mInstructions.Last();
 
-			proc->Append(block);
 			if (mInstructions[mInstructions.Size() - 2]->mCode == IC_RELATIONAL_OPERATOR)
 			{
 				block->mInstructions.Push(mInstructions[mInstructions.Size() - 2]);
@@ -10600,14 +10721,14 @@ void InterCodeBasicBlock::SplitBranches(InterCodeProcedure* proc)
 			mFalseJump = nullptr;
 			block->mNumEntries = 1;
 
-			block->SplitBranches(proc);
+			block->SplitBranches();
 		}
 		else
 		{
 			if (mTrueJump)
-				mTrueJump->SplitBranches(proc);
+				mTrueJump->SplitBranches();
 			if (mFalseJump)
-				mFalseJump->SplitBranches(proc);
+				mFalseJump->SplitBranches();
 		}
 	}
 }
@@ -10948,7 +11069,7 @@ void InterCodeBasicBlock::FollowJumps(void)
 	}
 }
 
-void InterCodeBasicBlock::BuildLoopSuffix(InterCodeProcedure* proc)
+void InterCodeBasicBlock::BuildLoopSuffix(void)
 {
 	if (!mVisited)
 	{
@@ -10960,8 +11081,7 @@ void InterCodeBasicBlock::BuildLoopSuffix(InterCodeProcedure* proc)
 			{
 				if (mFalseJump->mNumEntries > 1)
 				{
-					InterCodeBasicBlock* suffix = new InterCodeBasicBlock();
-					proc->Append(suffix);
+					InterCodeBasicBlock* suffix = new InterCodeBasicBlock(mProc);
 					InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 					suffix->Append(jins);
 					suffix->Close(mFalseJump, nullptr);
@@ -10973,8 +11093,7 @@ void InterCodeBasicBlock::BuildLoopSuffix(InterCodeProcedure* proc)
 			{
 				if (mTrueJump->mNumEntries > 1)
 				{
-					InterCodeBasicBlock* suffix = new InterCodeBasicBlock();
-					proc->Append(suffix);
+					InterCodeBasicBlock* suffix = new InterCodeBasicBlock(mProc);
 					InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 					suffix->Append(jins);
 					suffix->Close(mTrueJump, nullptr);
@@ -10985,27 +11104,26 @@ void InterCodeBasicBlock::BuildLoopSuffix(InterCodeProcedure* proc)
 		}
 
 		if (mTrueJump)
-			mTrueJump->BuildLoopSuffix(proc);
+			mTrueJump->BuildLoopSuffix();
 		if (mFalseJump)
-			mFalseJump->BuildLoopSuffix(proc);
+			mFalseJump->BuildLoopSuffix();
 	}
 }
 
-InterCodeBasicBlock* InterCodeBasicBlock::BuildLoopPrefix(InterCodeProcedure* proc)
+InterCodeBasicBlock* InterCodeBasicBlock::BuildLoopPrefix(void)
 {
 	if (!mVisited)
 	{
 		mVisited = true;
 
 		if (mTrueJump)
-			mTrueJump = mTrueJump->BuildLoopPrefix(proc);
+			mTrueJump = mTrueJump->BuildLoopPrefix();
 		if (mFalseJump)
-			mFalseJump = mFalseJump->BuildLoopPrefix(proc);
+			mFalseJump = mFalseJump->BuildLoopPrefix();
 
 		if (mLoopHead)
 		{
-			mLoopPrefix = new InterCodeBasicBlock();
-			proc->Append(mLoopPrefix);
+			mLoopPrefix = new InterCodeBasicBlock(mProc);
 			InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 			mLoopPrefix->Append(jins);
 			mLoopPrefix->Close(this, nullptr);
@@ -13658,6 +13776,15 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mSrc[1].mFinal = false;
 				changed = true;
 			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_STORE && mInstructions[i + 1]->mCode == IC_STORE &&
+				SameMemSegment(mInstructions[i + 1]->mSrc[1], mInstructions[i + 0]->mSrc[1]) &&
+				!mInstructions[i + 0]->mVolatile && !mInstructions[i + 1]->mVolatile)
+			{
+				mInstructions[i + 0]->mCode = IC_NONE;
+				mInstructions[i + 0]->mNumOperands = 0;
+				changed = true;
+			}
 
 #if 1
 			if (i + 2 < mInstructions.Size() &&
@@ -13878,7 +14005,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 					if (ins->mSrc[0].mTemp < 0)
 					{
 						int k = i;
-						while (k < limit && CanBypass(ins, mInstructions[k + 1]))
+						while (k < limit && CanSwapInstructions(ins, mInstructions[k + 1]))
 							k++;
 
 						if (k == limit)
@@ -13914,7 +14041,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 					{
 						InterInstruction* ins(mInstructions[i]);
 						int j = i;
-						while (j < limit && CanBypass(ins, mInstructions[j + 1]))
+						while (j < limit && CanSwapInstructions(ins, mInstructions[j + 1]))
 						{
 							SwapInstructions(ins, mInstructions[j + 1]);
 							mInstructions[j] = mInstructions[j + 1];
@@ -13945,7 +14072,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				InterInstruction	*	ins(mInstructions[i]);
 				int j = i;
-				while (j < limit && CanBypassLoad(ins, mInstructions[j + 1]))
+				while (j < limit && CanSwapInstructions(ins, mInstructions[j + 1]))
 				{
 					SwapInstructions(ins, mInstructions[j + 1]);
 					mInstructions[j] = mInstructions[j + 1];
@@ -13959,7 +14086,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 				InterInstruction* ins(mInstructions[i]);
 
 				int k = i;
-				while (k < limit && CanBypass(ins, mInstructions[k + 1]))
+				while (k < limit && CanSwapInstructions(ins, mInstructions[k + 1]))
 					k++;
 				if (k < limit)
 				{
@@ -13982,7 +14109,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
-				while (j < limit && CanBypass(ins, mInstructions[j + 1]))
+				while (j < limit && CanSwapInstructions(ins, mInstructions[j + 1]))
 				{
 					SwapInstructions(ins, mInstructions[j + 1]);
 					mInstructions[j] = mInstructions[j + 1];
@@ -13997,6 +14124,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 		CheckFinalLocal();
 #endif
+
 #if 1
 		// move indirect load/store pairs up
 		i = 0;
@@ -14011,8 +14139,8 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 					int j = i;
 					while (j > 0 && 
-						CanBypassLoadUp(lins, mInstructions[j - 1]) &&
-						CanBypassStore(sins, mInstructions[j - 1]))
+						CanSwapInstructions(mInstructions[j - 1], lins) &&
+						CanSwapInstructions(mInstructions[j - 1], sins))
 					{
 						SwapInstructions(mInstructions[j - 1], lins);
 						SwapInstructions(mInstructions[j - 1], sins);
@@ -14034,6 +14162,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 		CheckFinalLocal();
 #endif
+
 #if 1
 		i = 0;
 		while (i < mInstructions.Size())
@@ -14043,8 +14172,12 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				InterInstruction	*	ins(mInstructions[i]);
 				int j = i;
-				while (j > 0 && CanBypassStore(ins, mInstructions[j - 1]))
+				while (j > 0 && CanSwapInstructions(mInstructions[j - 1], ins))
 				{
+					if (mInstructions[j - 1]->mCode == IC_STORE && mInstructions[j - 1]->mSrc[1].mMemory == IM_INDIRECT)
+					{
+						CanSwapInstructions(mInstructions[j - 1], ins);
+					}
 					SwapInstructions(mInstructions[j - 1], ins);
 					mInstructions[j] = mInstructions[j - 1];
 					j--;
@@ -14056,7 +14189,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
-				while (j > 0 && CanBypassUp(ins, mInstructions[j - 1]))
+				while (j > 0 && CanSwapInstructions(mInstructions[j - 1], ins))
 				{
 					SwapInstructions(mInstructions[j - 1], ins);
 					mInstructions[j] = mInstructions[j - 1];
@@ -14069,7 +14202,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
-				while (j > 0 && CanBypassLoadUp(ins, mInstructions[j - 1]))
+				while (j > 0 && CanSwapInstructions(mInstructions[j - 1], ins))
 				{
 					SwapInstructions(mInstructions[j - 1], ins);
 					mInstructions[j] = mInstructions[j - 1];
@@ -14094,7 +14227,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
-				while (j < limit && CanBypassLoad(ins, mInstructions[j + 1]))
+				while (j < limit && CanSwapInstructions(ins, mInstructions[j + 1]))
 				{
 					SwapInstructions(ins, mInstructions[j + 1]);
 					mInstructions[j] = mInstructions[j + 1];
@@ -14107,7 +14240,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				InterInstruction* ins(mInstructions[i]);
 				int j = i;
-				while (j < limit && CanBypass(ins, mInstructions[j + 1]))
+				while (j < limit && CanSwapInstructions(ins, mInstructions[j + 1]))
 				{
 					SwapInstructions(ins, mInstructions[j + 1]);
 					mInstructions[j] = mInstructions[j + 1];
@@ -14254,7 +14387,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 	}
 }
 
-void InterCodeBasicBlock::CheckValueReturn(InterCodeProcedure* proc)
+void InterCodeBasicBlock::CheckValueReturn(void)
 {
 	if (!mVisited)
 	{
@@ -14266,16 +14399,16 @@ void InterCodeBasicBlock::CheckValueReturn(InterCodeProcedure* proc)
 			if (ins->mCode == IC_ASSEMBLER)
 				return;
 			else if (ins->mCode == IC_RETURN)
-				proc->mModule->mErrors->Error(ins->mLocation, EWARN_MISSING_RETURN_STATEMENT, "Missing return statement");
+				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_MISSING_RETURN_STATEMENT, "Missing return statement");
 		}
 
-		if (mTrueJump) mTrueJump->CheckValueReturn(proc);
-		if (mFalseJump) mFalseJump->CheckValueReturn(proc);
+		if (mTrueJump) mTrueJump->CheckValueReturn();
+		if (mFalseJump) mFalseJump->CheckValueReturn();
 	}
 }
 
 
-void InterCodeBasicBlock::WarnUsedUndefinedVariables(InterCodeProcedure* proc)
+void InterCodeBasicBlock::WarnUsedUndefinedVariables(void)
 {
 	if (!mVisited)
 	{
@@ -14294,22 +14427,22 @@ void InterCodeBasicBlock::WarnUsedUndefinedVariables(InterCodeProcedure* proc)
 					int t = ins->mSrc[j].mTemp;
 
 					int k = 0;
-					while (k < proc->mLocalVars.Size() && !(proc->mLocalVars[k] && proc->mLocalVars[k]->mTempIndex == t))
+					while (k < mProc->mLocalVars.Size() && !(mProc->mLocalVars[k] && mProc->mLocalVars[k]->mTempIndex == t))
 						k++;
 
 					if (potentialTemps[t])
 					{
-						if (k < proc->mLocalVars.Size() && proc->mLocalVars[k]->mIdent)
-							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized variable", proc->mLocalVars[k]->mIdent);
+						if (k < mProc->mLocalVars.Size() && mProc->mLocalVars[k]->mIdent)
+							mProc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized variable", mProc->mLocalVars[k]->mIdent);
 						else
-							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized expression");
+							mProc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of potentially uninitialized expression");
 					}
 					else
 					{
-						if (k < proc->mLocalVars.Size() && proc->mLocalVars[k]->mIdent)
-							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized variable", proc->mLocalVars[k]->mIdent);
+						if (k < mProc->mLocalVars.Size() && mProc->mLocalVars[k]->mIdent)
+							mProc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized variable", mProc->mLocalVars[k]->mIdent);
 						else
-							proc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized expression");
+							mProc->mModule->mErrors->Error(ins->mLocation, EWARN_USE_OF_UNINITIALIZED_VARIABLE, "Use of uninitialized expression");
 
 						if (ins->mCode == IC_LOAD_TEMPORARY)
 						{
@@ -14335,8 +14468,8 @@ void InterCodeBasicBlock::WarnUsedUndefinedVariables(InterCodeProcedure* proc)
 				providedTemps += ins->mDst.mTemp;
 		}
 
-		if (mTrueJump) mTrueJump->WarnUsedUndefinedVariables(proc);
-		if (mFalseJump) mFalseJump->WarnUsedUndefinedVariables(proc);
+		if (mTrueJump) mTrueJump->WarnUsedUndefinedVariables();
+		if (mFalseJump) mFalseJump->WarnUsedUndefinedVariables();
 	}
 }
 
@@ -14609,7 +14742,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mValueForwardingTable(nullptr), mLocalVars(nullptr), mParamVars(nullptr), mModule(mod),
 	mIdent(ident), mLinkerObject(linkerObject),
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
-	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), 
+	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false),
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
 	mDeclaration(nullptr)
 {
@@ -14665,12 +14798,6 @@ void InterCodeProcedure::ResetVisited(void)
 		mBlocks[i]->mVisited = false;
 		mBlocks[i]->mNumEntered = 0;
 	}
-}
-
-void InterCodeProcedure::Append(InterCodeBasicBlock* block)
-{
-	block->mIndex = mBlocks.Size();
-	mBlocks.Push(block);
 }
 
 int InterCodeProcedure::AddTemporary(InterType type)
@@ -14925,7 +15052,7 @@ void InterCodeProcedure::WarnUsedUndefinedVariables(void)
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	ResetVisited();
-	mEntryBlock->WarnUsedUndefinedVariables(this);
+	mEntryBlock->WarnUsedUndefinedVariables();
 }
 
 
@@ -15327,7 +15454,7 @@ void InterCodeProcedure::ExpandSelect(void)
 {
 #if 1
 	ResetVisited();
-	mEntryBlock->ExpandSelect(this);
+	mEntryBlock->ExpandSelect();
 
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
@@ -15428,7 +15555,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-//	CheckFunc = !strcmp(mIdent->mString, "joy_poll");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 
@@ -15705,6 +15832,16 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
+#if 1
+	BuildDataFlowSets();
+
+	do {
+		Disassemble("gcp+");
+		TempForwarding();
+	} while (GlobalConstantPropagation());
+	Disassemble("gcp-");
+#endif
+
 	BuildDataFlowSets();
 
 #if 1
@@ -15865,8 +16002,10 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 	do {
+		Disassemble("gcp+");
 		TempForwarding();
 	} while (GlobalConstantPropagation());
+	Disassemble("gcp-");
 #endif
 
 #if 1
@@ -16050,7 +16189,7 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 	ResetVisited();
-	if (!mInterruptCalled && mNativeProcedure && mEntryBlock->CheckStaticStack())
+	if (!mInterruptCalled && !mDynamicStack && mNativeProcedure && mEntryBlock->CheckStaticStack())
 	{
 		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
 		mLinkerObject->mStackSection = mModule->mLinker->AddSection(mIdent->Mangle("@stack"), LST_STATIC_STACK);
@@ -16209,7 +16348,7 @@ void InterCodeProcedure::Close(void)
 	if (mValueReturn)
 	{
 		ResetVisited();
-		mEntryBlock->CheckValueReturn(this);
+		mEntryBlock->CheckValueReturn();
 	}
 
 	if (mSaveTempsLinkerObject && mTempSize > BC_REG_TMP_SAVED - BC_REG_TMP)
@@ -16381,7 +16520,7 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 	mEntryBlock->FollowJumps();
 
 	ResetVisited();
-	mEntryBlock->SplitBranches(this);
+	mEntryBlock->SplitBranches();
 
 	DisassembleDebug("PostSplit");
 
@@ -16483,8 +16622,7 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 
 						if (!allBlocks || eblocks.Size() || mblocks.IndexOf(block) != -1)
 						{
-							nblock = new InterCodeBasicBlock();
-							this->Append(nblock);
+							nblock = new InterCodeBasicBlock(this);
 
 							for (int i = 0; i < mblocks.Size(); i++)
 								mblocks[i]->mTrueJump = nblock;
@@ -16532,7 +16670,7 @@ void InterCodeProcedure::BuildLoopPrefix(void)
 	for (int i = 0; i < mBlocks.Size(); i++)
 		mBlocks[i]->mLoopPrefix = nullptr;
 
-	mEntryBlock = mEntryBlock->BuildLoopPrefix(this);
+	mEntryBlock = mEntryBlock->BuildLoopPrefix();
 
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
@@ -16540,7 +16678,7 @@ void InterCodeProcedure::BuildLoopPrefix(void)
 	mEntryBlock->CollectEntries();
 
 	ResetVisited();
-	mEntryBlock->BuildLoopSuffix(this);
+	mEntryBlock->BuildLoopSuffix();
 }
 
 bool InterCodeProcedure::PropagateNonLocalUsedTemps(void)
@@ -16646,7 +16784,7 @@ void InterCodeProcedure::MapCallerSavedTemps(void)
 
 	int		callerSavedTemps = 0, calleeSavedTemps = BC_REG_TMP_SAVED - BC_REG_TMP, freeCallerSavedTemps = 0, freeTemps = 0;
 
-	if (mCallsFunctionPointer)
+	if (mCallsFunctionPointer || mDynamicStack)
 		freeCallerSavedTemps = BC_REG_TMP_SAVED - BC_REG_TMP;
 	else
 	{

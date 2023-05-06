@@ -60,6 +60,7 @@ const char* TokenNames[] =
 	"__zeropage",
 	"__noinline",
 	"__striped",
+	"__dynstack",
 
 	"number",
 	"char",
@@ -1375,6 +1376,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_NOINLINE;
 				else if (!strcmp(tkident, "__striped"))
 					mToken = TK_STRIPED;
+				else if (!strcmp(tkident, "__dynstack"))
+					mToken = TK_DYNSTACK;
 				else
 				{
 					mToken = TK_IDENT;

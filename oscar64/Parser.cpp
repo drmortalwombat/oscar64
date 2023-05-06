@@ -1051,6 +1051,11 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 				storageFlags |= DTF_EXPORT;
 				mScanner->NextToken();
 			}
+			else if (mScanner->mToken == TK_DYNSTACK)
+			{
+				storageFlags |= DTF_DYNSTACK;
+				mScanner->NextToken();
+			}
 			else if (mScanner->mToken == TK_FASTCALL)
 			{
 				storageFlags |= DTF_FASTCALL;
@@ -1818,7 +1823,7 @@ Expression* Parser::ParsePrefixExpression(void)
 			}
 			else if (nexp->mToken == TK_BANKOF)
 			{
-				nexp->mDecType == TheUnsignedCharTypeDeclaration;
+				nexp->mDecType = TheUnsignedCharTypeDeclaration;
 			}
 			else
 				nexp->mDecType = nexp->mLeft->mDecType;

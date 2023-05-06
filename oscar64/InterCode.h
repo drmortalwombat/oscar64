@@ -117,6 +117,7 @@ class InterInstruction;
 class InterCodeBasicBlock;
 class InterCodeProcedure;
 class InterVariable;
+class InterCodeModule;
 
 typedef InterInstruction* InterInstructionPtr;
 typedef InterCodeBasicBlock* InterCodeBasicBlockPtr;
@@ -343,6 +344,7 @@ public:
 class InterCodeBasicBlock
 {
 public:
+	InterCodeProcedure			*	mProc;
 	int								mIndex, mNumEntries, mNumEntered, mTraceIndex;
 	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mLoopPrefix, * mDominator;
 	GrowingInstructionArray			mInstructions;
@@ -380,7 +382,7 @@ public:
 	ValueSet						mMergeValues;
 	TempForwardingTable				mMergeForwardingTable;
 
-	InterCodeBasicBlock(void);
+	InterCodeBasicBlock(InterCodeProcedure * proc);
 	~InterCodeBasicBlock(void);
 
 	void Append(InterInstruction * code);
@@ -492,6 +494,8 @@ public:
 	bool IsTempReferencedOnPath(int temp, int at) const;
 
 	bool PushSinglePathResultInstructions(void);
+
+	bool CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const;
 	bool CanMoveInstructionBeforeBlock(int ii) const;
 	bool CanMoveInstructionBeforeBlock(int ii, const InterInstruction * ins) const;
 	bool CanMoveInstructionBehindBlock(int ii) const;
@@ -525,12 +529,12 @@ public:
 
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 
-	InterCodeBasicBlock* BuildLoopPrefix(InterCodeProcedure * proc);
-	void BuildLoopSuffix(InterCodeProcedure* proc);
+	InterCodeBasicBlock* BuildLoopPrefix(void);
+	void BuildLoopSuffix(void);
 
-	void ExpandSelect(InterCodeProcedure* proc);
+	void ExpandSelect(void);
 
-	void SplitBranches(InterCodeProcedure* proc);
+	void SplitBranches(void);
 	void FollowJumps(void);
 
 	bool IsEqual(const InterCodeBasicBlock* block) const;
@@ -546,12 +550,10 @@ public:
 
 	bool SameExitCode(const InterCodeBasicBlock* block) const;
 
-	void WarnUsedUndefinedVariables(InterCodeProcedure* proc);
-	void CheckValueReturn(InterCodeProcedure* proc);
+	void WarnUsedUndefinedVariables(void);
+	void CheckValueReturn(void);
 
 };
-
-class InterCodeModule;
 
 class InterCodeProcedure
 {
@@ -570,7 +572,7 @@ public:
 	GrowingIntArray						mTempOffset, mTempSizes;
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase;
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
-	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer;
+	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 
 	InterCodeModule					*	mModule;
@@ -592,7 +594,6 @@ public:
 
 	int AddTemporary(InterType type);
 
-	void Append(InterCodeBasicBlock * block);
 	void Close(void);
 
 //	void Set(InterCodeIDMapper* mapper, BitVector localStructure, Scanner scanner, bool debug);

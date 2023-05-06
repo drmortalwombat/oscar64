@@ -114,7 +114,7 @@ int main2(int argc, const char** argv)
 		strcpy_s(crtPath, includePath);
 		strcat_s(crtPath, "crt.c");
 
-		bool		emulate = false, profile = false;
+		bool		emulate = false, profile = false, trace = false;
 
 		targetPath[0] = 0;
 		diskPath[0] = 0;
@@ -203,6 +203,8 @@ int main2(int argc, const char** argv)
 					emulate = true;
 					if (arg[2] == 'p')
 						profile = true;
+					else if (arg[2] == 't')
+						trace = true;
 				}
 				else if (arg[1] == 'd')
 				{
@@ -457,7 +459,7 @@ int main2(int argc, const char** argv)
 				}
 
 				if (emulate)
-					compiler->ExecuteCode(profile);
+					compiler->ExecuteCode(profile, trace);
 			}
 		}
 

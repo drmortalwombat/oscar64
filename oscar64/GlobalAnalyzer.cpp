@@ -216,7 +216,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
 {
 	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && !(procDec->mBase->mFlags & DTF_STACKCALL) && (procDec->mType == DT_CONST_FUNCTION))
 	{
-		if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_FUNC_RECURSIVE))
+		if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_FUNC_RECURSIVE) && !(procDec->mFlags & DTF_DYNSTACK))
 		{
 			int	nbase = 0;
 			for (int i = 0; i < procDec->mCalled.Size(); i++)
@@ -451,7 +451,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		}
 		else if (exp->mDecValue->mType == DT_CONST_POINTER)
 		{
-			RegisterProc(Analyze(exp->mDecValue->mValue, procDec, true));
+			ldec = Analyze(exp->mDecValue->mValue, procDec, true);
+			if (ldec->mType == DT_VARIABLE)
+				ldec->mFlags |= DTF_VAR_ALIASING;
+			RegisterProc(ldec);
 		}
 		else if (exp->mDecValue->mType == DT_CONST_ADDRESS)
 		{
@@ -703,6 +706,9 @@ void GlobalAnalyzer::RegisterCall(Declaration* from, Declaration* to)
 	{
 		if (to->mType == DT_CONST_FUNCTION)
 		{
+			if (to->mFlags & DTF_DYNSTACK)
+				from->mFlags |= DTF_DYNSTACK;
+
 			if (!(to->mFlags & DTF_FUNC_CONSTEXPR))
 				from->mFlags &= ~DTF_FUNC_CONSTEXPR;
 

@@ -1,5 +1,56 @@
 #include "setjmp.h"
 
+int setjmpsp(jmp_buf env, void * sp)
+{
+	__asm
+	{
+		ldy	#0
+		lda sp + 0
+		sta (env), y
+		iny
+		lda sp + 1
+		sta (env), y
+		iny
+
+		lda __ip + 0
+		sta (env), y
+		iny
+		lda __ip + 1
+		sta (env), y
+		iny
+
+		lda __fp + 0
+		sta (env), y
+		iny
+		lda __fp + 1
+		sta (env), y
+		iny
+
+		ldx #0
+	l1:
+		lda __sregs, x
+		sta (env), y
+		iny
+		inx
+		cpx #32
+		bne l1
+
+		tsx
+		txa
+		sta (env), y
+
+		inx
+	l2:
+		iny 
+		lda $0100, x
+		sta (env), y
+		inx
+		bne l2
+	}
+
+	return 0;	
+}
+
 int setjmp(jmp_buf env)
 {
 	__asm
@@ -27,29 +78,28 @@ int setjmp(jmp_buf env)
 		iny
 
 		ldx #0
-	loop:
+	l1:
 		lda __sregs, x
 		sta (env), y
 		iny
 		inx
 		cpx #32
-		bne loop
+		bne l1
 
 		tsx
 		txa
 		sta (env), y
+
+		inx
+	l2:
 		iny 
-
-		lda $0101, x
+		lda $0100, x
 		sta (env), y
-		iny
-
-		lda $0102, x
-		sta (env), y
-		iny
+		inx
+		bne l2
 	}
 
-	return 0
+	return 0;
 }
 
 #pragma native(setjmp)
@@ -81,26 +131,25 @@ void longjmp(jmp_buf env, int value)
 		iny
 		
 		ldx #0
-	loop:
+	l1:
 		lda (env), y
 		sta __sregs, x
 		iny
 		inx
 		cpx #32
-		bne loop
+		bne l1
 
 		lda (env), y
 		tax
 		txs
-		iny 
 
-		lda (env), y
-		sta $0101, x
+		inx
+	l2:
 		iny
-
 		lda (env), y
-		sta $0102, x
-		iny
+		sta $0100, x
+		inx
+		bne l2
 
 		lda value
 		sta __accu

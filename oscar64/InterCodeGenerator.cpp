@@ -398,6 +398,9 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		var->mDeclaration = dec;
 		mod->mGlobalVars.Push(var);
 
+		if (dec->mFlags & DTF_VAR_ALIASING)
+			var->mAliased = true;
+
 		dec->mVarIndex = var->mIndex;
 		dec->mLinkerObject = var->mLinkerObject;
 
@@ -745,8 +748,7 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 	{
 		for (int i = left; i < right; i++)
 		{
-			InterCodeBasicBlock* cblock = new InterCodeBasicBlock();
-			proc->Append(cblock);
+			InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
 
 			InterInstruction* vins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 			vins->mConst.mType = IT_INT16;
@@ -785,14 +787,9 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 	{
 		int	center = (left + right + 1) >> 1;
 
-		InterCodeBasicBlock* cblock = new InterCodeBasicBlock();
-		proc->Append(cblock);
-
-		InterCodeBasicBlock* rblock = new InterCodeBasicBlock();
-		proc->Append(rblock);
-
-		InterCodeBasicBlock* lblock = new InterCodeBasicBlock();
-		proc->Append(lblock);
+		InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
+		InterCodeBasicBlock* rblock = new InterCodeBasicBlock(proc);
+		InterCodeBasicBlock* lblock = new InterCodeBasicBlock(proc);
 
 		InterInstruction* vins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 		vins->mConst.mType = IT_INT16;
@@ -851,13 +848,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	Declaration* ftype = fdec->mBase;
 
 	InlineMapper	nmapper;
-	nmapper.mReturn = new InterCodeBasicBlock();
+	nmapper.mReturn = new InterCodeBasicBlock(proc);
 	nmapper.mVarIndex = proc->mNumLocals;
 	nmapper.mConstExpr = inlineConstexpr;
 	proc->mNumLocals += fdec->mNumVars;
 	if (inlineMapper)
 		nmapper.mDepth = inlineMapper->mDepth + 1;
-	proc->Append(nmapper.mReturn);
 
 	Declaration* pdec = ftype->mParams;
 	Expression* pex = exp->mRight;
@@ -1205,6 +1201,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					InterVariable	* var = new InterVariable();
 					var->mOffset = 0;
 					var->mSize = dec->mSize;
+					if (dec->mFlags & DTF_VAR_ALIASING)
+						var->mAliased = true;
 					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 					dec->mLinkerObject = var->mLinkerObject;
 					var->mIdent = dec->mIdent;
@@ -2932,8 +2930,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else
 				block->Close(nullptr, nullptr);
-			block = new InterCodeBasicBlock();
-			proc->Append(block);
+			block = new InterCodeBasicBlock(proc);
 
 			return ExValue(TheVoidTypeDeclaration);
 		}
@@ -2946,8 +2943,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				block->Append(jins);
 
 				block->Close(breakBlock, nullptr);
-				block = new InterCodeBasicBlock();
-				proc->Append(block);
+				block = new InterCodeBasicBlock(proc);
 			}
 			else
 				mErrors->Error(exp->mLocation, EERR_INVALID_BREAK, "No break target");
@@ -2963,8 +2959,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				block->Append(jins);
 
 				block->Close(continueBlock, nullptr);
-				block = new InterCodeBasicBlock();
-				proc->Append(block);
+				block = new InterCodeBasicBlock(proc);
 			}
 			else
 				mErrors->Error(exp->mLocation, EERR_INVALID_CONTINUE, "No continue target");
@@ -2975,10 +2970,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_ASSUME:
 		{
 #if 1
-			InterCodeBasicBlock* tblock = new InterCodeBasicBlock();
-			proc->Append(tblock);
-			InterCodeBasicBlock* fblock = new InterCodeBasicBlock();
-			proc->Append(fblock);
+			InterCodeBasicBlock* tblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* fblock = new InterCodeBasicBlock(proc);
 
 			TranslateLogic(procType, proc, block, tblock, fblock, exp->mLeft, inlineMapper);
 
@@ -3110,12 +3103,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction* jins0 = new InterInstruction(exp->mLocation, IC_JUMP);
 				InterInstruction* jins1 = new InterInstruction(exp->mLocation, IC_JUMP);
 
-				InterCodeBasicBlock* tblock = new InterCodeBasicBlock();
-				proc->Append(tblock);
-				InterCodeBasicBlock* fblock = new InterCodeBasicBlock();
-				proc->Append(fblock);
-				InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
-				proc->Append(eblock);
+				InterCodeBasicBlock* tblock = new InterCodeBasicBlock(proc);
+				InterCodeBasicBlock* fblock = new InterCodeBasicBlock(proc);
+				InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
 
 				TranslateLogic(procType, proc, block, tblock, fblock, exp->mLeft, inlineMapper);
 
@@ -3320,13 +3310,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction* jins0 = new InterInstruction(exp->mLocation, IC_JUMP);
 			InterInstruction* jins1 = new InterInstruction(exp->mLocation, IC_JUMP);
 
-			InterCodeBasicBlock* tblock = new InterCodeBasicBlock();
-			proc->Append(tblock);
-			InterCodeBasicBlock* fblock = new InterCodeBasicBlock();
-			proc->Append(fblock);
-			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
-			proc->Append(eblock);
-
+			InterCodeBasicBlock* tblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* fblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
+			
 			TranslateLogic(procType, proc, block, tblock, fblock, exp, inlineMapper);
 
 			int	ttemp = proc->AddTemporary(IT_BOOL);
@@ -3360,13 +3347,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	*	jins0 = new InterInstruction(exp->mLocation, IC_JUMP);
 			InterInstruction* jins1 = new InterInstruction(exp->mLocation, IC_JUMP);
 
-			InterCodeBasicBlock* cblock = new InterCodeBasicBlock();
+			InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
 			InterCodeBasicBlock* lblock = cblock;
-			proc->Append(cblock);
-			InterCodeBasicBlock* bblock = new InterCodeBasicBlock();
-			proc->Append(bblock);
-			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
-			proc->Append(eblock);
+			InterCodeBasicBlock* bblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
 			
 			block->Append(jins0);
 			block->Close(cblock, nullptr);
@@ -3387,12 +3371,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	*	jins0 = new InterInstruction(exp->mLocation, IC_JUMP);
 			InterInstruction* jins1 = new InterInstruction(exp->mLocation, IC_JUMP);
 
-			InterCodeBasicBlock* tblock = new InterCodeBasicBlock();
-			proc->Append(tblock);
-			InterCodeBasicBlock* fblock = new InterCodeBasicBlock();
-			proc->Append(fblock);
-			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
-			proc->Append(eblock);
+			InterCodeBasicBlock* tblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* fblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
 
 			TranslateLogic(procType, proc, block, tblock, fblock, exp->mLeft, inlineMapper);
 
@@ -3421,15 +3402,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction* jins2 = new InterInstruction(exp->mLocation, IC_JUMP);
 			InterInstruction* jins3 = new InterInstruction(exp->mLocation, IC_JUMP);
 
-			InterCodeBasicBlock* cblock = new InterCodeBasicBlock();
+			InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
 			InterCodeBasicBlock* lblock = cblock;
-			proc->Append(cblock);
-			InterCodeBasicBlock* bblock = new InterCodeBasicBlock();
-			proc->Append(bblock);
-			InterCodeBasicBlock* iblock = new InterCodeBasicBlock();
-			proc->Append(iblock);
-			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
-			proc->Append(eblock);
+			InterCodeBasicBlock* bblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* iblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
 
 			block->Append(jins0);
 			block->Close(cblock, nullptr);
@@ -3464,11 +3441,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		{
 			InterInstruction	*	jins = new InterInstruction(exp->mLocation, IC_JUMP);
 
-			InterCodeBasicBlock* cblock = new InterCodeBasicBlock();
+			InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
 			InterCodeBasicBlock* lblock = cblock;
-			proc->Append(cblock);
-			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
-			proc->Append(eblock);
+			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
 
 			block->Append(jins);
 			block->Close(cblock, nullptr);
@@ -3493,8 +3468,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			block = nullptr;
 			
-			InterCodeBasicBlock* eblock = new InterCodeBasicBlock();
-			proc->Append(eblock);
+			InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
 
 			SwitchNodeArray		switchNodes({ 0 });
 
@@ -3504,8 +3478,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				Expression* cexp = sexp->mLeft;
 				if (cexp->mType == EX_CASE)
 				{
-					InterCodeBasicBlock* nblock = new InterCodeBasicBlock();
-					proc->Append(nblock);
+					InterCodeBasicBlock* nblock = new InterCodeBasicBlock(proc);
 
 					SwitchNode	snode;
 					snode.mBlock = nblock;
@@ -3538,8 +3511,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					if (!dblock)
 					{
-						dblock = new InterCodeBasicBlock();
-						proc->Append(dblock);
+						dblock = new InterCodeBasicBlock(proc);
 
 						if (block)
 						{
@@ -3661,6 +3633,8 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 				var->mIndex = dec->mVarIndex;
 				var->mOffset = 0;
 				var->mSize = dec->mSize;
+				if (dec->mFlags & DTF_VAR_ALIASING)
+					var->mAliased = true;
 				var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 				dec->mLinkerObject = var->mLinkerObject;
 				var->mLinkerObject->AddData(dec->mData, dec->mSize);
@@ -3727,16 +3701,14 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 		break;
 	case EX_LOGICAL_AND:
 	{
-		InterCodeBasicBlock* ablock = new InterCodeBasicBlock();
-		proc->Append(ablock);
+		InterCodeBasicBlock* ablock = new InterCodeBasicBlock(proc);
 		TranslateLogic(procType, proc, block, ablock, fblock, exp->mLeft, inlineMapper);
 		TranslateLogic(procType, proc, ablock, tblock, fblock, exp->mRight, inlineMapper);
 		break;
 	}
 	case EX_LOGICAL_OR:
 	{
-		InterCodeBasicBlock* oblock = new InterCodeBasicBlock();
-		proc->Append(oblock);
+		InterCodeBasicBlock* oblock = new InterCodeBasicBlock(proc);
 		TranslateLogic(procType, proc, block, tblock, oblock, exp->mLeft, inlineMapper);
 		TranslateLogic(procType, proc, oblock, tblock, fblock, exp->mRight, inlineMapper);
 		break;
@@ -3782,6 +3754,9 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 	if (dec->mFlags & DTF_FUNC_INTRCALLED)
 		proc->mInterruptCalled = true;
+	
+	if (dec->mFlags & DTF_DYNSTACK)
+		proc->mDynamicStack = true;
 
 	if (dec->mBase->mFlags & DTF_FASTCALL)
 	{
@@ -3806,9 +3781,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	if (dec->mBase->mBase->mType != DT_TYPE_VOID && dec->mBase->mBase->mType != DT_TYPE_STRUCT)
 		proc->mValueReturn = true;
 
-	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock();
-
-	proc->Append(entryBlock);
+	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock(proc);
 
 	InterCodeBasicBlock* exitBlock = entryBlock;
 
