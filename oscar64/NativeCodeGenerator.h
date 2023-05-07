@@ -476,6 +476,7 @@ public:
 	bool CrossBlockYAliasProgpagation(const int * yalias, int yoffset);
 
 	bool BypassRegisterConditionBlock(void);
+	bool FoldLoopEntry(void);
 
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
 	bool Propagate16BitSum(const ExpandingArray<NativeRegisterSum16Info>& cinfo);

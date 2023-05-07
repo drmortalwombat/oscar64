@@ -6081,11 +6081,62 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 	bool singleLoop = CheckSingleBlockLimitedLoop(pblock, nloop);
 
+#if 0
 	FastNumberSet		dependTemps(mExitRequiredTemps.Size());
+#endif
 
 	if (singleLoop)
 	{
+#if 1
+		struct TempChain
+		{
+			int		mBaseTemp;
+			int64	mOffset;
+		};
+
+		ExpandingArray<TempChain>		tempChain;
+		tempChain.SetSize(mExitRequiredTemps.Size());
+
+		for (int i = 0; i < mExitRequiredTemps.Size(); i++)
+		{
+			tempChain[i].mBaseTemp = i;
+			tempChain[i].mOffset = 0;
+		}
+		
+		for (int i = 0; i < sz; i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && 
+				ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 0 &&
+				tempChain[ins->mSrc[1].mTemp].mBaseTemp >= 0)
+			{
+				tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[1].mTemp].mBaseTemp;
+				tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[1].mTemp].mOffset + ins->mSrc[0].mIntConst;
+			}
+			else if (ins->mCode == IC_CONVERSION_OPERATOR && ins->mOperator == IA_EXT8TO16U && ins->mSrc[0].mTemp >= 0)
+				tempChain[ins->mDst.mTemp] = tempChain[ins->mSrc[0].mTemp];
+			else if (ins->mDst.mTemp >= 0)
+			{
+				tempChain[ins->mDst.mTemp].mBaseTemp = -1;
+			}
+		}
+
+		for (int i = 0; i < tempChain.Size(); i++)
+		{
+			if (tempChain[i].mBaseTemp == i)
+			{
+				IntegerValueRange& r(pblock->mTrueValueRange[i]);
+				if (r.IsConstant())
+				{
+					mLocalValueRange[i].LimitMax(r.mMinValue + (nloop - 1) * tempChain[i].mOffset);
+				}
+			}
+		}
+
+		
+#else
 		FastNumberSet		changedTemps(mExitRequiredTemps.Size());
+		GrowingArray<int>	expandedTemps(-1);
 
 		for (int i = 0; i < sz; i++)
 		{
@@ -6100,12 +6151,31 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				else
 					changedTemps += ins->mDst.mTemp;
 			}
+			else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && 
+				ins->mSrc[1].mTemp >= 0 &&
+				ins->mDst.mTemp == expandedTemps[ins->mSrc[1].mTemp] && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 0)
+			{
+				if (dependTemps[ins->mDst.mTemp])
+					changedTemps += ins->mDst.mTemp;
+				else if (pblock->mTrueValueRange[ins->mDst.mTemp].IsConstant())
+					dependTemps += ins->mDst.mTemp;
+				else
+					changedTemps += ins->mDst.mTemp;
+				expandedTemps[ins->mSrc[1].mTemp] = -1;
+			}
+			else if (ins->mCode == IC_CONVERSION_OPERATOR && ins->mOperator == IA_EXT8TO16U && ins->mSrc[0].mTemp >= 0)
+			{
+				expandedTemps[ins->mDst.mTemp] = ins->mSrc[0].mTemp;
+				changedTemps += ins->mDst.mTemp;
+			}
 			else if (ins->mDst.mTemp >= 0)
 			{
+				expandedTemps[ins->mDst.mTemp] = -1;
 				changedTemps += ins->mDst.mTemp;
 				dependTemps -= ins->mDst.mTemp;
 			}
 		}
+#endif
 	}
 
 	for (int i = 0; i < sz; i++)
@@ -6290,12 +6360,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				case IA_ADD:
 					if (ins->mSrc[0].mTemp < 0)
 					{
-						if (ins->mSrc[1].mTemp == ins->mDst.mTemp && dependTemps[ins->mDst.mTemp] && i + 3 != sz)
+#if 0
+						if (/*ins->mSrc[1].mTemp == ins->mDst.mTemp &&*/ dependTemps[ins->mDst.mTemp] && i + 3 != sz)
 						{
 							int64 start = pblock->mTrueValueRange[ins->mDst.mTemp].mMinValue;
 							vr.SetLimit(start + ins->mSrc[0].mIntConst, start + nloop * ins->mSrc[0].mIntConst);
 						}
 						else
+#endif
 						{
 							vr = mLocalValueRange[ins->mSrc[1].mTemp];
 							if (ins->mSrc[0].mIntConst > 0 && vr.mMaxState == IntegerValueRange::S_WEAK)
@@ -11958,6 +12030,32 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 					return true;
 				}
 			}
+			else if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+				cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+				cins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND &&
+				ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+				ains->mSrc[0].mTemp < 0 &&
+				(cins->mOperator == IA_CMPLU || cins->mOperator == IA_CMPLEU) &&
+				cins->mSrc[0].mRange.mMaxValue < 255 &&
+				ains->mSrc[0].mRange.mMaxValue > 0)
+			{
+				int pi = pblock->mInstructions.Size() - 1;
+				while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ains->mDst.mTemp)
+					pi--;
+
+				int i = 0;
+				while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+					i++;
+				if (i == nins - 3)
+				{
+					nloop = cins->mSrc[0].mRange.mMaxValue;
+					if (cins->mOperator == IA_CMPLEU)
+						nloop++;
+					nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
+
+					return true;
+				}
+			}
 		}
 	}
 	
@@ -15555,7 +15653,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "rirq_build1");
 
 	mEntryBlock = mBlocks[0];
 

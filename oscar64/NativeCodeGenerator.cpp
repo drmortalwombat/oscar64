@@ -20148,6 +20148,64 @@ bool NativeCodeBasicBlock::CrossBlockXYPreservation(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::FoldLoopEntry(void)
+{
+	bool	changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump && mFalseJump && mIns.Size() >= 1)
+		{
+			int	sz = mIns.Size();
+
+			if (mIns[sz - 1].mType == ASMIT_LDA)
+			{
+				if (mTrueJump->mIns.Size() == 1 && mTrueJump != this)
+				{
+					if (mTrueJump->mIns[0].mType == ASMIT_LDA && mTrueJump->mIns[0].SameEffectiveAddress(mIns[sz - 1]))
+					{
+						if (mBranch == mTrueJump->mBranch &&  mFalseJump == mTrueJump->mFalseJump && mTrueJump == mTrueJump->mTrueJump ||
+							mBranch == InvertBranchCondition(mTrueJump->mBranch) && mFalseJump == mTrueJump->mTrueJump && mTrueJump == mTrueJump->mFalseJump)
+						{
+							mIns[sz - 1].mType = ASMIT_NOP;
+							mIns[sz - 1].mMode = ASMIM_IMPLIED;
+							mBranch = ASMIT_JMP;
+							mFalseJump->RemEntryBlock(this);
+							mFalseJump = nullptr;
+							changed = true;
+						}
+					}
+				}
+				if (!changed && mFalseJump->mIns.Size() == 1 && mFalseJump != this)
+				{
+					if (mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].SameEffectiveAddress(mIns[sz - 1]))
+					{
+						if (mBranch == mFalseJump->mBranch && mFalseJump == mFalseJump->mFalseJump && mFalseJump == mTrueJump->mTrueJump ||
+							mBranch == InvertBranchCondition(mFalseJump->mBranch) && mFalseJump == mFalseJump->mTrueJump && mTrueJump == mFalseJump->mFalseJump)
+						{
+							mIns[sz - 1].mType = ASMIT_NOP;
+							mIns[sz - 1].mMode = ASMIM_IMPLIED;
+							mBranch = ASMIT_JMP;
+							mTrueJump->RemEntryBlock(this);
+							mTrueJump = mFalseJump;
+							mFalseJump = nullptr;
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->FoldLoopEntry())
+			changed = true;
+		if (mFalseJump && mFalseJump->FoldLoopEntry())
+			changed = true;
+	}
+	
+	return changed;
+}
+
 bool NativeCodeBasicBlock::BypassRegisterConditionBlock(void)
 {
 	bool	changed = false;
@@ -39236,6 +39294,13 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
+		if (step == 5)
+		{
+			ResetVisited();
+			if (mEntryBlock->FoldLoopEntry())
+				changed = true;
+		}
 
 #if 1
 		if (step < 7)

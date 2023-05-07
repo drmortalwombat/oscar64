@@ -10,7 +10,7 @@ volatile byte rirq_count;
 
 byte		rasterIRQRows[NUM_IRQS];
 byte		rasterIRQIndex[NUM_IRQS];
-byte		rasterIRQNext[NUM_IRQS];
+byte		rasterIRQNext[NUM_IRQS + 1];
 byte		rasterIRQLow[NUM_IRQS];
 byte		rasterIRQHigh[NUM_IRQS];
 
@@ -255,6 +255,8 @@ ex2:
 
 void rirq_build(RIRQCode * ic, byte size)
 {
+	__assume(size < 26);
+
 	ic->size = size;
 
 	asm_im(ic->code + 0, ASM_LDY, 0);
@@ -372,6 +374,7 @@ void rirq_init_kernal(void)
 		rasterIRQRows[i] = 255;
 		rasterIRQIndex[i] = i;
 	}
+	rasterIRQNext[NUM_IRQS] = 255;
 
     __asm 
     {
@@ -393,6 +396,7 @@ void rirq_init_io(void)
 		rasterIRQRows[i] = 255;
 		rasterIRQIndex[i] = i;
 	}
+	rasterIRQNext[NUM_IRQS] = 255;
 
     __asm 
     {
@@ -414,6 +418,7 @@ void rirq_init_memmap(void)
 		rasterIRQRows[i] = 255;
 		rasterIRQIndex[i] = i;
 	}
+	rasterIRQNext[NUM_IRQS] = 255;
 
     __asm 
     {
