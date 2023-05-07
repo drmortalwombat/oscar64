@@ -79,6 +79,24 @@ __interrupt void setspr(void)
 		xpos1 += step;
 	}
 
+	// build highbyte for sprite pos
+	char xymask = 0;
+	if (phase & 0x80)
+	{
+		// put MSB into xymask bit
+		#pragma unroll(full)
+		for(char i=0; i<8; i++)
+			xymask = ((unsigned)xymask | (xp[i] & 0xff00)) >> 1;
+	}
+	else
+	{
+		// put MSB into xymask bit
+		#pragma unroll(full)
+		for(char i=0; i<8; i++)
+			xymask = ((unsigned)xymask | (xp[7 - i] & 0xff00)) >> 1;
+	}
+
+
 	// Wait for end of current sprite, xpos will take effect
 	// at start of line, so we need to patch it after the last
 	// pixel line has started
@@ -87,15 +105,10 @@ __interrupt void setspr(void)
 	// Left to right or right to left to get a matching z order
 	if (phase & 0x80)
 	{
-		// MSB mask
-		char	xymask = 0;
-
-		// Update all sprite x LSB and color, put MSB into
-		// xymask bit
+		// Update all sprite x LSB and color
 		#pragma unroll(full)
 		for(char i=0; i<8; i++)
 		{
-			xymask = ((unsigned)xymask | (xp[i] & 0xff00)) >> 1;
 			vic.spr_pos[i].x = xp[i];
 			vic.spr_color[i] = VCOL_ORANGE + i;
 		}
@@ -105,22 +118,16 @@ __interrupt void setspr(void)
 	}
 	else
 	{
-		char	xymask = 0;
-
-		// Update all sprite x LSB and color, put MSB into
-		// xymask bit
-
+		// Update all sprite x LSB and color
 		#pragma unroll(full)
 		for(char i=0; i<8; i++)
 		{
-			xymask = ((unsigned)xymask | (xp[7 - i] & 0xff00)) >> 1;
 			vic.spr_pos[i].x = xp[7 - i];
 			vic.spr_color[i] = VCOL_ORANGE + (7 - i);
 		}
-
-		// Update MSB
-		vic.spr_msbx = xymask;		
 	}
+	// Update MSB
+	vic.spr_msbx = xymask;		
 }
 
 // Eight raster interrupts
