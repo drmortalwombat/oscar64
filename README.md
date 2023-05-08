@@ -175,6 +175,10 @@ The windows installer puts the samples into the users documents folder, using th
 
 On a linux installation one can build the samples invoking the *build.sh* shell script in the samples directory.
 
+### Debugging
+
+The .asm file is a great resource when debugging from within e.g. the VICE monitor, but there is also a source level debugging project underway: [Modern VICE PDB Monitor](https://github.com/MihaMarkic/modern-vice-pdb-monitor) by MihaMarkic
+
 ## Language extensions
 
 The compiler has various extensions to simplify developing for the C64.
