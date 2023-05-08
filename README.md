@@ -177,7 +177,7 @@ On a linux installation one can build the samples invoking the *build.sh* shell 
 
 ### Debugging
 
-The .asm file is a great resource when debugging from within e.g. the VICE monitor, but there is also a source level debugging project underway: [Modern VICE PDB Monitor](https://github.com/MihaMarkic/modern-vice-pdb-monitor) by MihaMarkic
+The .asm file is a great resource when debugging from within e.g. the VICE monitor, but there is also a source level debugging project underway: [Modern VICE PDB Monitor](https://github.com/MihaMarkic/modern-vice-pdb-monitor) by MihaMarkic.  The compiler options for a good source level debugging experience should be "-n -g -O0" to generate native code with debugging symbols and no (well less) optimization.
 
 ## Language extensions
 
