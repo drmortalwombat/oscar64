@@ -337,6 +337,9 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 						mScanner->NextToken();
 					else
 						break;
+
+					cdec->mNext = dec->mParams;
+					dec->mParams = cdec;
 				}
 
 				dec->mMinValue = minValue;
@@ -350,6 +353,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 				}
 				else if (maxValue > 255)
 					dec->mSize = 2;
+
 			}
 
 			if (mScanner->mToken == TK_CLOSE_BRACE)

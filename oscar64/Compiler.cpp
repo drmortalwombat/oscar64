@@ -1167,6 +1167,25 @@ bool Compiler::WriteDbjFile(const char* filename)
 			case DT_TYPE_POINTER:
 				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ptr\", eid: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
+			case DT_TYPE_ENUM:
+			{
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"enum\",\"members\": [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				bool	tfirst = true;
+				Declaration* mdec = dec->mParams;
+				while (mdec)
+				{
+					if (!tfirst)
+						fprintf(file, ",\n");
+					tfirst = false;
+
+					fprintf(file, "\t\t\t{\"name\": \"%s\", \"value\": %d}", mdec->mIdent->mString, int(mdec->mInteger));
+
+					mdec = mdec->mNext;
+				}
+				fprintf(file, "]}");
+			}
+			break;
+			break;
 			case DT_TYPE_STRUCT:
 			{
 				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"struct\",\"members\": [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
