@@ -6335,7 +6335,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 				case IA_EXT8TO16U:
 					vr = ins->mSrc[0].mRange;
-					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255 || vr.mMinValue < 0)
+					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255 || vr.mMinValue < 0 ||  
+						vr.mMinState != IntegerValueRange::S_BOUND)
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
 						vr.mMaxValue = 255;
@@ -16982,8 +16983,8 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 	FILE* file;
 	static bool	initial = true;
 
-	if (!CheckFunc)
-		return;
+//	if (!CheckFunc)
+//		return;
 
 	if (!initial)
 	{

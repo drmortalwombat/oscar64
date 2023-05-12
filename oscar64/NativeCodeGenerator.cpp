@@ -5764,7 +5764,19 @@ void NativeCodeBasicBlock::LoadByteIndexedValue(InterCodeProcedure* proc, const 
 		if (i != 0)
 			mIns.Push(NativeCodeInstruction(rins, ASMIT_INY, ASMIM_IMPLIED));
 		mIns.Push(NativeCodeInstruction(rins, ASMIT_LDA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[iins->mSrc[1].mTemp], nullptr, flags));
-		mIns.Push(NativeCodeInstruction(rins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rins->mDst.mTemp] + i));
+		if (rins->mDst.mTemp == iins->mSrc[1].mTemp)
+			mIns.Push(NativeCodeInstruction(rins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + i));
+		else
+			mIns.Push(NativeCodeInstruction(rins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rins->mDst.mTemp] + i));
+	}
+
+	if (rins->mDst.mTemp == iins->mSrc[1].mTemp)
+	{
+		for (int i = 0; i < InterTypeSize[rins->mDst.mType]; i++)
+		{
+			mIns.Push(NativeCodeInstruction(rins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + i));
+			mIns.Push(NativeCodeInstruction(rins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rins->mDst.mTemp] + i));
+		}
 	}
 }
 
@@ -38576,6 +38588,8 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "move");
+
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
 	for (int i = 0; i < nblocks; i++)
@@ -39145,8 +39159,6 @@ void NativeCodeProcedure::RebuildEntry(void)
 
 void NativeCodeProcedure::Optimize(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "bm_polygon_nc_fill");
-
 #if 1
 	int		step = 0;
 	int cnt = 0;
@@ -40113,7 +40125,12 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			else if (i + 1 < iblock->mInstructions.Size() &&
 				InterTypeSize[ins->mDst.mType] >= 2 &&
 				iblock->mInstructions[i + 1]->mCode == IC_LEA &&
-				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal)
+				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal &&
+				!(iblock->mInstructions[i + 1]->mSrc[0].IsUByte() && 
+				 iblock->mInstructions[i + 1]->mSrc[0].mTemp >= 0 &&
+				 i + 2 < iblock->mInstructions.Size() &&
+				 iblock->mInstructions[i + 2]->mCode == IC_LOAD &&
+				 iblock->mInstructions[i + 2]->mSrc->mTemp == iblock->mInstructions[i + 1]->mDst.mTemp))
 			{
 				block->LoadEffectiveAddress(iproc, iblock->mInstructions[i + 1], ins, nullptr, false);
 				i++;
@@ -40193,13 +40210,13 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				else if (iblock->mInstructions[i + 1]->mCode == IC_COPY && (iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp || iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp))
 					avalid = true;
 			}
+
 #if 1
 			if (i + 1 < iblock->mInstructions.Size() &&
 				iblock->mInstructions[i + 1]->mCode == IC_LOAD && iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
 				ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].IsUByte() && ins->mSrc[0].mTemp >= 0 &&
 				iblock->mInstructions[i + 1]->mSrc[0].mIntConst == 0 && 
-				(InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] == 1 || ins->mSrc[1].mTemp != iblock->mInstructions[i + 1]->mDst.mTemp) &&
-				(InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] == 1 || iblock->mInstructions[i + 1]->mSrc[0].mStride == 1))
+				(ins->mSrc[0].mRange.mMaxValue + InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] <= 256 || iblock->mInstructions[i + 1]->mSrc[0].mStride == 1))
 			{
 				block->LoadByteIndexedValue(iproc, ins, iblock->mInstructions[i + 1]);
 				i++;
