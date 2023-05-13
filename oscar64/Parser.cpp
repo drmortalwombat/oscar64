@@ -739,7 +739,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			if (dtype->mIdent)
 				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined type", dtype->mIdent);
 			else
-				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined annonymous type");
+				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined anonymous type");
 		}
 		if (ConsumeTokenIf(TK_OPEN_BRACE))
 		{

@@ -9547,7 +9547,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 
 				if (nins && t >= 0)
 				{
-					// Check self destruction of source operaand
+					// Check self destruction of source operand
 					int l = 0;
 					while (l < nins->mNumOperands && t != nins->mSrc[l].mTemp)
 						l++;
@@ -14985,13 +14985,13 @@ void InterCodeProcedure::BuildDataFlowSets(void)
 	mEntryBlock->BuildLocalTempSets(numTemps);
 
 	//
-	// Build set of globaly provided temporaries
+	// Build set of globally provided temporaries
 	//
 	ResetVisited();
 	mEntryBlock->BuildGlobalProvidedTempSet(NumberSet(numTemps), NumberSet(numTemps));
 
 	//
-	// Build set of globaly required temporaries, might need
+	// Build set of globally required temporaries, might need
 	// multiple iterations until it stabilizes
 	//
 	NumberSet	totalRequired(numTemps);
@@ -15018,7 +15018,7 @@ void InterCodeProcedure::RenameTemporaries(void)
 	numRename = 0;
 
 	//
-	// First localy rename all temporaries
+	// First locally rename all temporaries
 	//
 	ResetVisited();
 	mEntryBlock->LocalRenameRegister(mRenameTable, numRename);
@@ -15173,7 +15173,7 @@ void InterCodeProcedure::TempForwarding(bool reverse, bool checkloops)
 	}
 
 	//
-	// Now remove needless temporary moves, that apear due to
+	// Now remove needless temporary moves, that appear due to
 	// stack evaluation
 	//
 	mTempForwardingTable.SetSize(numTemps);
@@ -15774,7 +15774,7 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("machine value forwarding");
 
 	//
-	// Now remove needless temporary moves, that apear due to
+	// Now remove needless temporary moves, that appear due to
 	// stack evaluation
 	//
 	mTempForwardingTable.Reset();

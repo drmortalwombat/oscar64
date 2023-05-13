@@ -46,7 +46,7 @@ int main(void)
 	// initialize sprite multiplexer
 	vspr_init(Screen);
 
-	// initalize sprites
+	// initialize sprites
 	for(int i=0; i<16; i++)
 	{
 		vspr_set(i, 30 + 16 * i, 220 - 8 * i, (unsigned)&(spriteset[0]) / 64 + i, (i & 7) + 8);

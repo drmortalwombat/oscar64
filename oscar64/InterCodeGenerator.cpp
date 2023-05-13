@@ -913,7 +913,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 			vr = Dereference(proc, texp, block, vr, 1);
 
 			if (vr.mReference != 1)
-				mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an adressable expression");
+				mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 			if (vp.mTemp != vr.mTemp)
 			{
@@ -1339,7 +1339,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (vl.mReference != 1)
 					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not a left hand expression");
 				if (vr.mReference != 1)
-					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an adressable expression");
+					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 				if (vr.mTemp != vl.mTemp)
 				{
@@ -2566,7 +2566,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vr = Dereference(proc, texp, block, vr, 1);
 
 						if (vr.mReference != 1)
-							mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an adressable expression");
+							mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 						if (vp.mTemp != vr.mTemp)
 						{

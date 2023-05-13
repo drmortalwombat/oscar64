@@ -259,7 +259,7 @@ Imports the sprite data and compresses it using lzo compression
 
 ### Console input and output
 
-The C64 does not use ASCII it uses a derivative called PETSCII.  There are two fonts, one with uppercase and one with uppercase and lowercase characters.  It also used CR (13) as line terminator instead of LF (10).  The stdio and conio libaries can perform translations.
+The C64 does not use ASCII it uses a derivative called PETSCII.  There are two fonts, one with uppercase and one with uppercase and lowercase characters.  It also used CR (13) as line terminator instead of LF (10).  The stdio and conio libraries can perform translations.
 
 The translation mode is selected in conio with the variable "giocharmap" and the function "iocharmap" which will also switch the font.
 
@@ -276,7 +276,7 @@ Screen codes can be generated similar using "s" or "S" prefix.
 
 Input from the console will also be translated accordingly.
 
-The character map for string and char constants can be changed with a pragma to match a custon character set or PETSCII.
+The character map for string and char constants can be changed with a pragma to match a custom character set or PETSCII.
 
     #pragma charmap(char, code [,count])
 
@@ -308,7 +308,7 @@ Set optimizer options that are active for the functions after it
 
 ### Loop unrolling
 
-Loop unrolling on 6502 is hard to decide for the compiler.  Memory is usually scarce, so it only does it in realy obvious cases (and in less obvious cases for O3).  On the other hand unrolling is required to get good performance in e.g. scrolling code.  Therefore the compiler offers an unrolling pragma, that can be used to specifiy the amount of unrolling either as a number or "full" for complete.
+Loop unrolling on 6502 is hard to decide for the compiler.  Memory is usually scarce, so it only does it in really obvious cases (and in less obvious cases for O3).  On the other hand unrolling is required to get good performance in e.g. scrolling code.  Therefore the compiler offers an unrolling pragma, that can be used to specify the amount of unrolling either as a number or "full" for complete.
 
 The following code scrolls the screen to the left, and completely unrolls the inner vertical loop.
 
@@ -320,12 +320,12 @@ The following code scrolls the screen to the left, and completely unrolls the in
 			screen[y][x] = screen[y][x + 1];
 	}
 
-Sometimes it is better to unroll the loop not in the order it normaly executes, but using page size chunks.  When e.g. filling a C64 screen with a loop:
+Sometimes it is better to unroll the loop not in the order it normally executes, but using page size chunks.  When e.g. filling a C64 screen with a loop:
 
 	for(int i=0; i<1000; i++)
 		Screen[i] = ' ';
 		
-Unrolling this loop would not help, the index would still not fit into the 8 bit x or y register.  Using a page level unroll, the compiler will unroll the loop into four stores, each 250 bytes appart, and use the y or x register for indexing:
+Unrolling this loop would not help, the index would still not fit into the 8 bit x or y register.  Using a page level unroll, the compiler will unroll the loop into four stores, each 250 bytes apart, and use the y or x register for indexing:
 
 	#pragma unroll(page)
 	for(int i=0; i<1000; i++)
@@ -441,7 +441,7 @@ This sample fills a single screen column with a given color, by generating 25 as
 	#undef ry
 	}
 	
-This sample initialy assigns the value 0 to the pre processor macro ry and increments it each time the loop body is replicated.  The loop generates 25 copies of the body, each with a different value for ry.
+This sample initially assigns the value 0 to the pre processor macro ry and increments it each time the loop body is replicated.  The loop generates 25 copies of the body, each with a different value for ry.
 
 	
 ### Linker control
@@ -584,7 +584,7 @@ And for bank one
 
 ### Inline Assembler
 
-Inline assembler can be embedded inside of any functions, regardles of their compilation target of byte code or native.  
+Inline assembler can be embedded inside of any functions, regardless of their compilation target of byte code or native.  
 
 #### Accessing variables in assembler
 
@@ -708,19 +708,19 @@ Moves the BASIC ROM, Kernal ROM and the IO area out of the way and allows the us
 
 #### Custom character set "charsetlo.c"
 
-Embedds a custom character set into the prg file at 0x2000..0x27ff and switches the character set base address in the VIC to this address.  The code and data portion of the compiled program is split into two areas to make room for this fixed location data.
+Embeds a custom character set into the prg file at 0x2000..0x27ff and switches the character set base address in the VIC to this address.  The code and data portion of the compiled program is split into two areas to make room for this fixed location data.
 
 #### Himem character set "charsethi.c"
 
-Embedds a custom character set into the prg file at 0xc800..0xcfff and switches the character set base address in the VIC to this address.
+Embeds a custom character set into the prg file at 0xc800..0xcfff and switches the character set base address in the VIC to this address.
   
 #### Copy character set "charsetcopy.c"
 
-Embedds a custom character set into the prg file at 0xc000..0xc7ff and copies it to 0xd000 on startup.  This frees this area for stack and heap usage.
+Embeds a custom character set into the prg file at 0xc000..0xc7ff and copies it to 0xd000 on startup.  This frees this area for stack and heap usage.
 
 #### Copy character set "charsetexpand.c"
 
-Embedds a custom character set into the prg file at 0xc000..0xc7ff using lz comression and expands it to 0xd000 on startup.  This frees this area for stack and heap usage.
+Embeds a custom character set into the prg file at 0xc000..0xc7ff using lz compression and expands it to 0xd000 on startup.  This frees this area for stack and heap usage.
 
 #### Custom character set "charsetload.c"
 
@@ -918,7 +918,7 @@ Expands a 2D 4x4 tile grid at any scroll speed.  Uses a raster IRQ to limit the 
 
 ### Moving image blocks "sprites"
 
-Sprites are independed image blocks, such as players, missiles or enemies that can be shown on top of the background.
+Sprites are independent image blocks, such as players, missiles or enemies that can be shown on top of the background.
 
 #### Control a sprite with a joystick "joycontrol.c"
 
@@ -1071,7 +1071,7 @@ The intermediate code generator takes the declaration graph and converts it into
 
 #### Intermediate Code Optimizer
 
-The intermediate code optimizer works on the intermediat code to perform machine agnostic optimizations, such as value forwarding, strength reduction or loop unrolling.  It also tries to build evaluation trains to reduce the amount of temporaries required for execution.
+The intermediate code optimizer works on the intermediate code to perform machine agnostic optimizations, such as value forwarding, strength reduction or loop unrolling.  It also tries to build evaluation trains to reduce the amount of temporaries required for execution.
 
 #### Native/Bytecode Generator
 
@@ -1087,7 +1087,7 @@ This stage translates the symbolic assembler / bytecode into binary and makes it
 
 #### Linker
 
-The linker determines all objects that are referenced and discards objects that are not.  It then places the objects into their sections and spreads the sections over the regions.  Then all references between the objects are resolved.  Finaly the prg or crt file is written.
+The linker determines all objects that are referenced and discards objects that are not.  It then places the objects into their sections and spreads the sections over the regions.  Then all references between the objects are resolved.  Finally the prg or crt file is written.
 
 #### Listing generator
 
@@ -1172,7 +1172,7 @@ The sum of the array elements is only needed when the condition is false:
 		return x;
 	}
 
-In this case, the evaluation of the sum is moved into an artifical else case:
+In this case, the evaluation of the sum is moved into an artificial else case:
 
 	test:
 		090e LDA P0

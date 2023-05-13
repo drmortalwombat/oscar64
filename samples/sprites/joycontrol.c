@@ -15,7 +15,7 @@ int main(void)
 	// Copy the sprite data
 	memcpy(SpriteData, spdata, 128);
 
-	// Initalize the sprite system
+	// Initialize the sprite system
 	spr_init((char*)0x0400);
 
 	// Center screen position

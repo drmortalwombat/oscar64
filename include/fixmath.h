@@ -1,7 +1,7 @@
 #ifndef FIXMATH_H
 #define FIXMATH_H
 
-// Multiply two unsinged 16bit numbers and return a 32bit result
+// Multiply two unsigned 16bit numbers and return a 32bit result
 __native unsigned long lmul16u(unsigned x, unsigned y);
 
 // Multiply two signed 16bit numbers and return a signed 32bit result
