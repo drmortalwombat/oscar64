@@ -124,7 +124,7 @@ void expandrow3(char * dp, const char * grid, char ly)
 	dp[39] = quad[2][gi];
 }
 
-// expand the visibile portion of the screen at the
+// expand the visible portion of the screen at the
 // given char offset into the tiles
 void expand(char * dp, const char * grid, char px, char py)
 {

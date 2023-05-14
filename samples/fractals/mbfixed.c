@@ -9,7 +9,7 @@
 #define Color	((char *)0xc800)
 #define Color2	((char *)0xd800)
 
-// Bit patters for eight different color pairs
+// Bit patterns for eight different color pairs
 char colors[] = {
 	0xff, 0xff, 
 	0xee, 0xbb,

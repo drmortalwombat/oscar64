@@ -52,7 +52,7 @@ bool FlipIndex;
 // Position and direction inside the maze
 sbyte	px = 1, py = 3, dx = 1, dy = 0;
 
-// Distance of blocks to the side, relative to the center ot the screen
+// Distance of blocks to the side, relative to the center of the screen
 // for full and half step
 static const char zxdist0[] = {18, 6, 4, 3, 2, 1, 0};
 static const char zxdist1[] = { 9, 5, 3, 2, 1, 0, 0};

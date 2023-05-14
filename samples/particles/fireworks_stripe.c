@@ -30,7 +30,7 @@ static char * Hirows[25];
 static const char setmask[4] = {0xc0, 0x30, 0x0c, 0x03};
 static const char clrmask[4] = {0x3f, 0xcf, 0xf3, 0xfc};
 
-// Set a pixel at the given coordiate
+// Set a pixel at the given coordinate
 void pix_set(char px, char py, char pat)
 {
 	__assume(px < 160);
@@ -44,7 +44,7 @@ void pix_set(char px, char py, char pat)
 	dp[ly + 1] = dp[ly + 0] |= setmask[px & 3] & pat;
 }
 
-// Clear a pixel at the given coordiate
+// Clear a pixel at the given coordinate
 void pix_clr(char px, char py)
 {
 	__assume(px < 160);

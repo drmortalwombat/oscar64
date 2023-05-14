@@ -74,7 +74,7 @@ char			nmissiles;
 Missile			icbms[16];
 // First free and first used ICBM
 Missile		*	ifree, * iused;
-// Speed and number of ICBMs still incomming
+// Speed and number of ICBMs still incoming
 char			icbmspeed, icbmcount;
 
 // Cities not yet destroyed
@@ -95,7 +95,7 @@ void status_init(void)
 	}
 }
 
-// Expand an 8x8 charactor to 16x16 on screen
+// Expand an 8x8 character to 16x16 on screen
 void char_put(char cx, char cy, char c, char color)
 {
 	// Get pointer to glyph data
@@ -387,7 +387,7 @@ void missile_animate(void)
 	}
 }
 
-// Initialize incomming ICBM list
+// Initialize incoming ICBM list
 void icbm_init(void)
 {
 	iused = nullptr;
@@ -697,7 +697,7 @@ void game_play(void)
 	// Check if fire request
 	if (CrossP)
 	{
-		// Find lauch site
+		// Find launch site
 		int	sx = 160;
 		if (CrossX < 120)
 			sx = 24;
@@ -729,7 +729,7 @@ void game_play(void)
 		// Launch ICBM
 		icbm_start((rand() & 0xff) + 32, 0, cx, 184);
 
-		// Next lauch time
+		// Next launch time
 		TheGame.count = 8 + (rand() & 63);
 	}
 
@@ -761,7 +761,7 @@ void game_loop(void)
 	case GS_PLAYING:
 		game_play();
 
-		// Check for level and game end coditions
+		// Check for level and game end conditions
 		if (!icbmcount && !iused && !eused)
 			game_state(GS_BONUS);
 		else if (ncities == 0)

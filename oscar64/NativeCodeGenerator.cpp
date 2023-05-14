@@ -23885,7 +23885,7 @@ bool NativeCodeBasicBlock::MoveLoadIndirectBypassYUp(int at)
 	// ldy #imm
 	// lda (t0), y
 
-	// move up, and keep A in Y for the intervall	
+	// move up, and keep A in Y for the interval	
 
 	int	j = at - 1;
 	while (j >= 3)
@@ -32183,7 +32183,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 #endif
 
 		// 
-		// shorten x/y register livetime
+		// shorten x/y register lifetime
 
 #if 1
 		//
@@ -39773,7 +39773,7 @@ void NativeCodeProcedure::Optimize(void)
 #if 1
 		if (cnt > 190)
 		{
-			printf("Opps\n");
+			printf("Oops\n");
 		}
 #endif
 
@@ -39900,13 +39900,13 @@ void NativeCodeProcedure::BuildDataFlowSets(void)
 	mBlocks[0]->BuildLocalRegSets();
 
 	//
-	// Build set of globaly provided temporaries
+	// Build set of globally provided temporaries
 	//
 	ResetVisited();
 	mBlocks[0]->BuildGlobalProvidedRegSet(NumberSet(NUM_REGS));
 
 	//
-	// Build set of globaly required temporaries, might need
+	// Build set of globally required temporaries, might need
 	// multiple iterations until it stabilizes
 	//
 	NumberSet	totalRequired(NUM_REGS);
@@ -40535,7 +40535,7 @@ NativeCodeGenerator::Runtime& NativeCodeGenerator::ResolveRuntime(const Ident* i
 		i++;
 	Location	loc;
 	if (i == mRuntime.Size() || !mRuntime[i].mLinkerObject)
-		mErrors->Error(loc, EERR_RUNTIME_CODE, "Undefied runtime function", ident->mString);
+		mErrors->Error(loc, EERR_RUNTIME_CODE, "Undefined runtime function", ident->mString);
 	return mRuntime[i];
 }
 

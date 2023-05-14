@@ -39,7 +39,7 @@ int main(void)
 	// Install the trampoline
 	mmap_trampoline();
 
-	// make all of RAM visibile to the CPU
+	// make all of RAM visible to the CPU
 	mmap_set(MMAP_RAM);
 
 	// expand the font
