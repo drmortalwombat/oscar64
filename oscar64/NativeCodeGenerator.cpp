@@ -14211,14 +14211,14 @@ bool NativeSimpleSubExpression::MayBeChangedBy(const NativeCodeInstruction& ins)
 	{
 		if (&ins != mDst && mDst->mType == ASMIT_TAY)
 			return true;
-		if (mSrc->mType == ASMIM_ABSOLUTE_Y)
+		if (mSrc->mMode == ASMIM_ABSOLUTE_Y)
 			return true;
 	}
 	if (ins.ChangesXReg())
 	{
 		if (&ins != mDst && mDst->mType == ASMIT_TAX)
 			return true;
-		if (mSrc->mType == ASMIM_ABSOLUTE_X)
+		if (mSrc->mMode == ASMIM_ABSOLUTE_X)
 			return true;
 	}
 
@@ -28467,7 +28467,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 						return OptimizeSimpleLoopInvariant(proc, full);
 
 					int k = prevBlock->mIns.Size();
-					while (k > 0 && (prevBlock->mIns[k - 1].mLive && LIVE_CPU_REG_A))
+					while (k > 0 && (prevBlock->mIns[k - 1].mLive & LIVE_CPU_REG_A))
 						k--;
 					
 					if (!mEntryRequiredRegs[CPU_REG_A])
