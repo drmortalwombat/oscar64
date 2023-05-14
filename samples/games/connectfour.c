@@ -40,7 +40,7 @@ byte * const Sprites = (byte *)0xd800;
 
 struct Board
 {	
-	char	fcols[48];	// Pieces in the 6x7 grid using 48 to have a multplier of 8
+	char	fcols[48];	// Pieces in the 6x7 grid using 48 to have a multiplier of 8
 	char	ffree[7];	// Number of free places in each column
 }	board;
 
@@ -291,7 +291,7 @@ char frows[5][69];
 
 #pragma align(fscore, 256)
 
-// Tables for opening libary for computer move 1, 2, 3 and 4
+// Tables for opening library for computer move 1, 2, 3 and 4
 
 const char open1 = 3;
 const char open2[4 * 7] = 
@@ -438,7 +438,7 @@ void ai_init(void)
 	}
 }
 
-// Evaluate the current board state for te player
+// Evaluate the current board state for the player
 
 int board_eval(bool player)
 {

@@ -483,7 +483,7 @@ inline void shot_draw(char * dp, char i, char xp, char yp)
 	// We know there are only 20 shots
 	__assume(i < 20);
 
-	// Character code for background with overlayed shot
+	// Character code for background with overlaid shot
 	dp[xp] = i | 0xe0;
 
 	// Source and target character code
@@ -523,7 +523,7 @@ void shot_add(int sx, char sy, sbyte dx)
 	s->ry = ry;
 	s->dx = dx;
 
-	// Horizontal start postion based on player sprite
+	// Horizontal start position based on player sprite
 	if (dx < 0)
 	{
 		char	x = (sx) >> 3;
@@ -669,7 +669,7 @@ void tiles_draw(unsigned x)
 
 }
 
-// Intitialize player
+// Initialize player
 void player_init(void)
 {
 	// Set up start position and direction
@@ -830,7 +830,7 @@ void enemies_move(void)
 	}
 }
 
-// Spwan one new enemy outside screen
+// Spawn one new enemy outside screen
 void enemies_spawn(void)
 {
 	// Seed for enemy

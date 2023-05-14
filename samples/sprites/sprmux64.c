@@ -163,7 +163,7 @@ int main(void)
 		rirq_call(spmux + i, 2, setspr);
 
 		// Place raster interrupt 16 lines before sprite start to
-		// give it enough time for procesing
+		// give it enough time for processing
 		rirq_set(i, 36 + 25 * i, spmux + i);
 	}
 

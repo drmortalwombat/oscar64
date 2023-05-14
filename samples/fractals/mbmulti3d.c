@@ -9,7 +9,7 @@
 #define Color1	((char *)0xc800)
 #define Color2	((char *)0xd800)
 
-// Bit patters for two different color pairs and eight shades
+// Bit patterns for two different color pairs and eight shades
 byte	colors[2][17] = 
 {
 	{0x00, 

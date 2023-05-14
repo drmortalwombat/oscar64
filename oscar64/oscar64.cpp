@@ -447,7 +447,7 @@ int main2(int argc, const char** argv)
 					{
 						if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i]))
 						{
-							printf("Could not embedd disk file %s\n", dataFiles[i]);
+							printf("Could not embed disk file %s\n", dataFiles[i]);
 							return 20;
 						}
 					}

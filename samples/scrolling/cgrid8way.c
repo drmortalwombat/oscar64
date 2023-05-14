@@ -371,7 +371,7 @@ int main(void)
 
 	char	gridX = 0, gridY = 0;
 
-	// Inital drwaing of the screen
+	// Initial drawing of the screen
 	char	*	dp = Screen, * cp = Color;
 	for(char y=0; y<25; y++)
 	{

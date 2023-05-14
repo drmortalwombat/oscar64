@@ -53,7 +53,7 @@ inline unsigned long ssquare(unsigned x)
 	sum -= (unsigned long)a2 << 8;
 	sum -= (unsigned long)b2 << 8;
 
-	// And finaly the complete result
+	// And finally the complete result
 	return sum;
 }
 
@@ -116,7 +116,7 @@ inline char fcolor(int xz, int yz)
 
 	for(int i=0; i<32; i++)
 	{
-		// Build squares of real and imaginery component
+		// Build squares of real and imaginary component
 		long xx = sq(x), yy = sq(y), xxyy = sq(x + y);
 
 		// Use squares to check for exit condition of sure

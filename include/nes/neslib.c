@@ -94,7 +94,7 @@ int main(void)
 	ppu.scroll = 0x00;
 	ppu.oamaddr = 0x00;
 
-	//	detech PAL or NTSC based on Blarg code.
+	//	detect PAL or NTSC based on Blarg code.
 
 	ppu_wait_nmi();
 	

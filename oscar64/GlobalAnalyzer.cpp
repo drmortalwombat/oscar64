@@ -256,7 +256,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
 			Declaration* dec = procDec->mBase->mParams;
 			while (dec)
 			{
-				// Check for paramter crossing boundary
+				// Check for parameter crossing boundary
 				if (nbase + nparams < numfpzero && nbase + nparams + dec->mBase->mSize > numfpzero)
 				{
 					npalign = numfpzero - (nbase + nparams);
