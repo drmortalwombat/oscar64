@@ -2804,6 +2804,13 @@ bool InterOperand::IsPositive(void) const
 	return mRange.mMinState == IntegerValueRange::S_BOUND && mRange.mMinValue >= 0;
 }
 
+bool InterOperand::IsInRange(int lower, int upper) const
+{
+	return
+		mRange.mMinState == IntegerValueRange::S_BOUND && mRange.mMinValue >= lower &&
+		mRange.mMaxState == IntegerValueRange::S_BOUND && mRange.mMaxValue <= upper;
+}
+
 bool InterOperand::IsUnsigned(void) const
 {
 	if (mRange.mMinState == IntegerValueRange::S_BOUND && mRange.mMinValue >= 0 && mRange.mMaxState == IntegerValueRange::S_BOUND)
