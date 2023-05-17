@@ -101,6 +101,8 @@ public:
 	Declaration* Insert(const Ident* ident, Declaration* dec);
 	Declaration* Lookup(const Ident* ident);
 
+	void End(const Location & loc);
+
 	DeclarationScope* mParent;
 protected:
 	struct Entry
@@ -183,7 +185,7 @@ public:
 	Declaration(const Location & loc, DecType type);
 	~Declaration(void);
 
-	Location			mLocation;
+	Location			mLocation, mEndLocation;
 	DecType				mType;
 	Token				mToken;
 	Declaration*		mBase, *mParams, * mNext;

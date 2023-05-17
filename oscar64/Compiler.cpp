@@ -1103,7 +1103,10 @@ bool Compiler::WriteDbjFile(const char* filename)
 									fprintf(file, ",\n");
 								vfirst = false;
 
-								fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+								fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d}", 
+									v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, 
+									v->mDeclaration->mLocation.mLine, v->mDeclaration->mEndLocation.mLine,
+									types.IndexOrPush(v->mDeclaration->mBase));
 							}
 							else
 							{
@@ -1120,7 +1123,10 @@ bool Compiler::WriteDbjFile(const char* filename)
 								fprintf(file, ",\n");
 							vfirst = false;
 
-							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"typeid\": %d}", v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_LOCALS, types.IndexOrPush(v->mDeclaration->mBase));
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d}", 
+								v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_LOCALS, 
+								v->mDeclaration->mLocation.mLine, v->mDeclaration->mEndLocation.mLine,
+								types.IndexOrPush(v->mDeclaration->mBase));
 						}
 						else
 						{
@@ -1128,7 +1134,10 @@ bool Compiler::WriteDbjFile(const char* filename)
 								fprintf(file, ",\n");
 							vfirst = false;
 
-							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"typeid\": %d}", v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_STACK, types.IndexOrPush(v->mDeclaration->mBase));
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d}", 
+								v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_STACK, 
+								v->mDeclaration->mLocation.mLine, v->mDeclaration->mEndLocation.mLine,
+								types.IndexOrPush(v->mDeclaration->mBase));
 						}
 					}
 				}

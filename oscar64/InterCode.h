@@ -239,7 +239,6 @@ public:
 class InterVariable
 {
 public:
-	Location						mLocation;
 	bool							mUsed, mAliased, mTemp;
 	int								mIndex, mSize, mOffset, mAddr, mTempIndex;
 	int								mNumReferences;

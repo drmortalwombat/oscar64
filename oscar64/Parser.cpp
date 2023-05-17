@@ -2137,6 +2137,7 @@ Expression* Parser::ParseFunction(Declaration * dec)
 
 	Expression * exp = ParseStatement();
 
+	mScope->End(mScanner->mLocation);
 	mScope = mScope->mParent;
 
 	return exp;
@@ -2183,6 +2184,8 @@ Expression* Parser::ParseStatement(void)
 			} while (mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_EOF);
 			if (mScanner->mToken != TK_CLOSE_BRACE)
 				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
+
+			mScope->End(mScanner->mLocation);
 			mScanner->NextToken();
 		}
 		else
@@ -2222,6 +2225,7 @@ Expression* Parser::ParseStatement(void)
 			exp->mLeft = ParseParenthesisExpression();
 			exp->mRight = ParseStatement();
 
+			mScope->End(mScanner->mLocation);
 			mScope = mScope->mParent;
 		}
 			break;
@@ -2281,6 +2285,7 @@ Expression* Parser::ParseStatement(void)
 				else
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
 				bodyExp = ParseStatement();
+				mScope->End(mScanner->mLocation);
 
 				exp->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);
 				exp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);
@@ -3222,6 +3227,7 @@ Expression* Parser::ParseAssembler(void)
 	}
 #endif
 
+	mScope->End(mScanner->mLocation);
 	mScope = mScope->mParent;
 	dassm->mSize = offset;
 	dassm->mScope->mParent = nullptr;
