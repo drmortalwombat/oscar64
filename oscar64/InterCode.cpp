@@ -3616,11 +3616,11 @@ static void DestroySourceValues(int temp, GrowingInstructionPtrArray& tvalue, Fa
 		{
 			j = tvalid.Element(i);
 
-			ins = tvalue[j];
+			ins = tvalue.getAt(j);
 
 			if (ins->UsesTemp(temp))
 			{
-				tvalue[j] = NULL;
+				tvalue.destroyAt(j);
 				tvalid -= j;
 			}
 			else
@@ -15661,7 +15661,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "rirq_build1");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 
@@ -15993,6 +15993,10 @@ void InterCodeProcedure::Close(void)
 
 	ResetVisited();
 	mEntryBlock->FollowJumps();
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	DisassembleDebug("Followed Jumps 2");
 
@@ -16990,8 +16994,8 @@ void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 	FILE* file;
 	static bool	initial = true;
 
-//	if (!CheckFunc)
-//		return;
+	if (!CheckFunc)
+		return;
 
 	if (!initial)
 	{

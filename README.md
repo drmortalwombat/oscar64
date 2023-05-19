@@ -231,13 +231,25 @@ Imports the character data and compresses it using lzo compression.
 		#embed ctm_tiles8 "cards.ctm"
 	};
 
-Imports the tiles in 8 bit form and builds word constants
+Imports the tiles in 8 bit form and builds byte constants
 
 	const unsigned CardsTiles[] = {
 		#embed ctm_tiles16 word "cards.ctm"
 	};
 
 Imports the tiles in 16 bit form and builds word constants
+
+	const char CardsMap[] = {
+		#embed ctm_map8 "cards.ctm"
+	};
+
+Imports the map (screen) in 8 bit form and builds byte constants
+
+	const unsigned	CardsMap[] = {
+		#embed ctm_map16 word "cards.ctm"
+	};
+
+Imports the map (screen) in 16 bit form and builds word constants
 
 	const char CardsAttrib1[] = {
 		#embed ctm_attr1 "cards.ctm"

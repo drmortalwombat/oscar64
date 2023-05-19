@@ -240,6 +240,18 @@ public:
 		else return array[n];
 	}
 
+	const T getAt(int n) const
+	{
+		if (n >= size) return empty;
+		else return array[n];
+	}
+
+	void destroyAt(int n)
+	{
+		if (n < size)
+			array[n] = empty;
+	}
+
 	void Push(T t)
 	{
 		(*this)[size] = t;

@@ -263,6 +263,7 @@ public:
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock, bool full);
 	bool RemoveSimpleLoopUnusedIndex(void);
 	bool OptimizeLoopCarryOver(void);
+	bool OptimizeSingleEntryLoop(NativeCodeProcedure* proc);
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
@@ -570,6 +571,13 @@ public:
 	// yval: known y immediate value of -1 if not known
 	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
+
+	// reg : base register pair to replace LSB with zero
+	// ireg : index register
+	// at : start position in block
+	// yval: known y immediate value of -1 if not known
+	bool CheckForwardLowYPointer(const NativeCodeBasicBlock* block, int reg, int yreg, int at, int yval);
+	bool PatchForwardLowYPointer(const NativeCodeBasicBlock* block, int reg, int yreg, int at, int yval);
 
 	bool CrossBlock16BitFlood(NativeCodeProcedure* proc);
 	bool CheckCrossBlock16BitFlood(const NativeCodeBasicBlock* block, int sreg, int dreg, int at, bool rvalid);
