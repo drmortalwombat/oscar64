@@ -4253,6 +4253,7 @@ InterCodeBasicBlock::InterCodeBasicBlock(InterCodeProcedure * proc)
 	mChecked = false;
 	mTraceIndex = -1;
 	mUnreachable = false;
+	mValueRangeValid = false;
 
 	mIndex = proc->mBlocks.Size();
 	proc->mBlocks.Push(this);
@@ -7236,6 +7237,8 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVar
 	{
 		mVisited = true;
 
+		mValueRangeValid = false;
+
 		mEntryValueRange.SetSize(num, false);
 		mTrueValueRange.SetSize(num, false);
 		mFalseValueRange.SetSize(num, false);
@@ -7265,7 +7268,6 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVar
 			if (vr.mMaxState == IntegerValueRange::S_UNBOUND)
 				vr.mMaxState = IntegerValueRange::S_UNKNOWN;
 		}
-
 
 		UpdateLocalIntegerRangeSets(localVars, paramVars);
 
@@ -15997,6 +15999,7 @@ void InterCodeProcedure::Close(void)
 	ResetEntryBlocks();
 	ResetVisited();
 	mEntryBlock->CollectEntryBlocks(nullptr);
+	BuildDataFlowSets();
 
 	DisassembleDebug("Followed Jumps 2");
 

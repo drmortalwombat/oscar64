@@ -349,7 +349,7 @@ public:
 	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mLoopPrefix, * mDominator;
 	GrowingInstructionArray			mInstructions;
 
-	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable, mLoopPath;
+	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable, mLoopPath, mValueRangeValid;
 
 	NumberSet						mLocalUsedTemps, mLocalModifiedTemps;
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
