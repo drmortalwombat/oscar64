@@ -406,25 +406,29 @@ static bool CollidingMemType(InterType type1, InterType type2)
 
 }
 
-static bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2, const GrowingVariableArray& staticVars)
+bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const
 {
 	if (op1.mMemory != op2.mMemory)
 	{
 		if (op1.mMemory == IM_INDIRECT)
 		{
 			if (op2.mMemory == IM_GLOBAL)
-				return staticVars[op2.mVarIndex]->mAliased;
+				return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
 			else if (op2.mMemory == IM_FPARAM || op2.mMemory == IM_FFRAME)
 				return false;
+			else if (op2.mMemory == IM_LOCAL)
+				return mProc->mLocalVars[op2.mVarIndex]->mAliased && CollidingMemType(type1, type2);
 			else
 				return CollidingMemType(type1, type2);
 		}
 		else if (op2.mMemory == IM_INDIRECT)
 		{
 			if (op1.mMemory == IM_GLOBAL)
-				return staticVars[op1.mVarIndex]->mAliased;
+				return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
 			else if (op1.mMemory == IM_FPARAM || op1.mMemory == IM_FFRAME)
 				return false;
+			else if (op1.mMemory == IM_LOCAL)
+				return mProc->mLocalVars[op1.mVarIndex]->mAliased && CollidingMemType(type1, type2);
 			else
 				return CollidingMemType(type1, type2);
 		}
@@ -457,38 +461,38 @@ static bool CollidingMem(const InterOperand& op1, InterType type1, const InterOp
 	}
 }
 
-static bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins, const GrowingVariableArray& staticVars)
+bool InterCodeBasicBlock::CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const
 {
 	if (ins->mCode == IC_LOAD)
-		return CollidingMem(op, type, ins->mSrc[0], ins->mDst.mType, staticVars);
+		return CollidingMem(op, type, ins->mSrc[0], ins->mDst.mType);
 	else if (ins->mCode == IC_STORE)
-		return CollidingMem(op, type, ins->mSrc[1], ins->mSrc[0].mType, staticVars);
+		return CollidingMem(op, type, ins->mSrc[1], ins->mSrc[0].mType);
 	else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
-		return CollidingMem(op, type, ins->mSrc[0], IT_NONE, staticVars) || CollidingMem(op, type, ins->mSrc[1], IT_NONE, staticVars);
+		return CollidingMem(op, type, ins->mSrc[0], IT_NONE) || CollidingMem(op, type, ins->mSrc[1], IT_NONE);
 	else
 		return false;
 }
 
-static bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2, const GrowingVariableArray& staticVars)
+bool InterCodeBasicBlock::CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const
 {
 	if (ins1->mCode == IC_LOAD)
-		return CollidingMem(ins1->mSrc[0], ins1->mDst.mType, ins2, staticVars);
+		return CollidingMem(ins1->mSrc[0], ins1->mDst.mType, ins2);
 	else if (ins1->mCode == IC_STORE)
-		return CollidingMem(ins1->mSrc[1], ins1->mSrc[0].mType, ins2, staticVars);
+		return CollidingMem(ins1->mSrc[1], ins1->mSrc[0].mType, ins2);
 	else if (ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
-		return CollidingMem(ins1->mSrc[0], IT_NONE, ins2, staticVars) || CollidingMem(ins1->mSrc[1], IT_NONE, ins2, staticVars);
+		return CollidingMem(ins1->mSrc[0], IT_NONE, ins2) || CollidingMem(ins1->mSrc[1], IT_NONE, ins2);
 	else
 		return false;
 }
 
-static bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins, const GrowingVariableArray& staticVars)
+bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const
 {
 	if (sins->mCode == IC_LOAD)
 		return false;
 	else if (sins->mCode == IC_STORE)
-		return CollidingMem(sins->mSrc[1], sins->mSrc[0].mType, lins, staticVars);
+		return CollidingMem(sins->mSrc[1], sins->mSrc[0].mType, lins);
 	else if (sins->mCode == IC_COPY || sins->mCode == IC_STRCPY)
-		return CollidingMem(sins->mSrc[1], IT_NONE, lins, staticVars);
+		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
 	else
 		return false;
 }
@@ -691,17 +695,17 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 
 		if (ins0->mCode == IC_LOAD)
 		{
-			if (DestroyingMem(ins0, ins1, mProc->mModule->mGlobalVars))
+			if (DestroyingMem(ins0, ins1))
 				return false;
 		}
 		else if (ins1->mCode == IC_LOAD)
 		{
-			if (DestroyingMem(ins1, ins0, mProc->mModule->mGlobalVars))
+			if (DestroyingMem(ins1, ins0))
 				return false;
 		}
 		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
 		{
-			if (CollidingMem(ins0, ins1, mProc->mModule->mGlobalVars))
+			if (CollidingMem(ins0, ins1))
 				return false;
 		}
 	}
@@ -2949,26 +2953,79 @@ static void FilterTempDefineUsage(NumberSet& requiredTemps, NumberSet& providedT
 	}
 }
 
-void InterInstruction::CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable)
+void InterInstruction::CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable, int& nlocals, int& nparams)
 {
 	if (mCode == IC_CONSTANT)
 	{
 		if (mDst.mType == IT_POINTER && mConst.mMemory == IM_LOCAL)
+		{
 			localTable[mDst.mTemp] = mConst.mVarIndex;
+			if (mConst.mVarIndex >= nlocals)
+				nlocals = mConst.mVarIndex + 1;
+		}
 		else if (mDst.mType == IT_POINTER && (mConst.mMemory == IM_PARAM || mConst.mMemory == IM_FPARAM))
+		{
 			paramTable[mDst.mTemp] = mConst.mVarIndex;
+			if (mConst.mVarIndex >= nparams)
+				nparams = mConst.mVarIndex + 1;
+		}
+
 	}
 	else if (mCode == IC_LEA)
 	{
 		if (mSrc[1].mMemory == IM_LOCAL)
-			localTable[mDst.mTemp] = localTable[mSrc[1].mTemp];
+		{
+			if (mSrc[1].mTemp >= 0)
+				localTable[mDst.mTemp] = localTable[mSrc[1].mTemp];
+			else
+			{
+				localTable[mDst.mTemp] = mSrc[1].mVarIndex;
+				if (mSrc[1].mVarIndex >= nlocals)
+					nlocals = mSrc[1].mVarIndex + 1;
+			}
+		}
 		else if (mSrc[1].mMemory == IM_PARAM || mSrc[1].mMemory == IM_FPARAM)
-			paramTable[mDst.mTemp] = paramTable[mSrc[1].mTemp];
+		{
+			if (mSrc[1].mTemp >= 0)
+				paramTable[mDst.mTemp] = paramTable[mSrc[1].mTemp];
+			else
+			{
+				paramTable[mDst.mTemp] = mSrc[1].mVarIndex;
+				if (mSrc[1].mVarIndex >= nparams)
+					nparams = mSrc[1].mVarIndex + 1;
+			}
+		}
 	}
 	else if (mCode == IC_LOAD_TEMPORARY)
 	{
 		localTable[mDst.mTemp] = localTable[mSrc[0].mTemp];
 		paramTable[mDst.mTemp] = paramTable[mSrc[0].mTemp];
+	}
+	else if (mCode == IC_STORE && mSrc[1].mTemp < 0)
+	{
+		if (mSrc[1].mMemory == IM_LOCAL)
+		{
+			if (mSrc[1].mVarIndex >= nlocals)
+				nlocals = mSrc[1].mVarIndex + 1;
+		}
+		else if (mSrc[1].mMemory == IM_PARAM || mSrc[1].mMemory == IM_FPARAM)
+		{
+			if (mSrc[1].mVarIndex >= nparams)
+				nparams = mSrc[1].mVarIndex + 1;
+		}
+	}
+	else if (mCode == IC_LOAD && mSrc[0].mTemp < 0)
+	{
+		if (mSrc[0].mMemory == IM_LOCAL)
+		{
+			if (mSrc[0].mVarIndex >= nlocals)
+				nlocals = mSrc[0].mVarIndex + 1;
+		}
+		else if (mSrc[0].mMemory == IM_PARAM || mSrc[0].mMemory == IM_FPARAM)
+		{
+			if (mSrc[0].mVarIndex >= nparams)
+				nparams = mSrc[0].mVarIndex + 1;
+		}
 	}
 }
 
@@ -3504,7 +3561,7 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 	return changed;
 }
 
-bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars, NumberSet& requiredVars, GrowingInstructionPtrArray& storeIns)
+bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* block, const GrowingVariableArray& staticVars, NumberSet& requiredVars, GrowingInstructionPtrArray& storeIns)
 {
 	bool	changed = false;
 
@@ -3526,7 +3583,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariable
 		int k = 0;
 		for (int i = 0; i < storeIns.Size(); i++)
 		{
-			if (!CollidingMem(this, storeIns[i], staticVars))
+			if (!block->CollidingMem(this, storeIns[i]))
 				storeIns[k++] = storeIns[i];
 		}
 		storeIns.SetSize(k);
@@ -3563,7 +3620,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(const GrowingVariable
 				int k = 0;
 				for (int i = 0; i < storeIns.Size(); i++)
 				{
-					if (!CollidingMem(this, storeIns[i], staticVars))
+					if (!block->CollidingMem(this, storeIns[i]))
 						storeIns[k++] = storeIns[i];
 				}
 				storeIns.SetSize(k);
@@ -5309,7 +5366,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 }
 
 
-void InterCodeBasicBlock::CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable)
+void InterCodeBasicBlock::CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable, int& nlocals, int& nparams)
 {
 	int i;
 
@@ -5318,10 +5375,10 @@ void InterCodeBasicBlock::CollectLocalAddressTemps(GrowingIntArray& localTable, 
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
-			mInstructions[i]->CollectLocalAddressTemps(localTable, paramTable);
+			mInstructions[i]->CollectLocalAddressTemps(localTable, paramTable, nlocals, nparams);
 
-		if (mTrueJump) mTrueJump->CollectLocalAddressTemps(localTable, paramTable);
-		if (mFalseJump) mFalseJump->CollectLocalAddressTemps(localTable, paramTable);
+		if (mTrueJump) mTrueJump->CollectLocalAddressTemps(localTable, paramTable, nlocals, nparams);
+		if (mFalseJump) mFalseJump->CollectLocalAddressTemps(localTable, paramTable, nlocals, nparams);
 	}
 }
 
@@ -5543,7 +5600,7 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 				j = 0;
 				for (int k = 0; k < ltemps.Size(); k++)
 				{
-					if (!CollidingMem(ltemps[k], ins, staticVars))
+					if (!CollidingMem(ltemps[k], ins))
 					{
 						ltemps[j++] = ltemps[k];
 					}
@@ -5564,7 +5621,7 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 				j = 0;
 				for (int k = 0; k < ltemps.Size(); k++)
 				{
-					if (!CollidingMem(ltemps[k], ins, staticVars))
+					if (!CollidingMem(ltemps[k], ins))
 					{
 						ltemps[j++] = ltemps[k];
 					}
@@ -7960,7 +8017,7 @@ bool InterCodeBasicBlock::RemoveUnusedStaticStoreInstructions(const GrowingVaria
 
 		for (i = mInstructions.Size() - 1; i >= 0; i--)
 		{
-			if (mInstructions[i]->RemoveUnusedStaticStoreInstructions(staticVars, requiredVars, storeIns))
+			if (mInstructions[i]->RemoveUnusedStaticStoreInstructions(this, staticVars, requiredVars, storeIns))
 				changed = true;
 		}
 
@@ -9388,7 +9445,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					int j = 0;
 					while (j < mLoadStoreInstructions.Size())
 					{
-						if (mLoadStoreInstructions[j]->ReferencesTemp(ins->mDst.mTemp) || CollidingMem(ins, mLoadStoreInstructions[j], staticVars))
+						if (mLoadStoreInstructions[j]->ReferencesTemp(ins->mDst.mTemp) || CollidingMem(ins, mLoadStoreInstructions[j]))
 							mLoadStoreInstructions.Remove(j);
 						else
 							j++;
@@ -9468,7 +9525,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					j = 0;
 					while (j < mLoadStoreInstructions.Size())
 					{
-						if (!DestroyingMem(mLoadStoreInstructions[j], ins, staticVars))
+						if (!DestroyingMem(mLoadStoreInstructions[j], ins))
 							mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
 						j++;
 					}
@@ -9483,7 +9540,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				int	j = 0, k = 0;
 				while (j < mLoadStoreInstructions.Size())
 				{
-					if (!DestroyingMem(mLoadStoreInstructions[j], ins, staticVars))
+					if (!DestroyingMem(mLoadStoreInstructions[j], ins))
 						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
 					j++;
 				}
@@ -11282,12 +11339,12 @@ static bool IsMatchingStore(const InterInstruction* lins, const InterInstruction
 	return false;
 }
 
-static bool CollidingMem(InterCodeBasicBlock* block, InterInstruction * lins, int from, int to, const GrowingVariableArray& staticVars)
+bool InterCodeBasicBlock::CollidingMem(InterCodeBasicBlock* block, InterInstruction * lins, int from, int to) const
 {
 	for (int i = from; i < to; i++)
 	{
 		InterInstruction* ins = block->mInstructions[i];
-		if (CollidingMem(lins, ins, staticVars))
+		if (CollidingMem(lins, ins))
 			return true;
 	}
 
@@ -11442,11 +11499,11 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 									if (tail->CanMoveInstructionBehindBlock(j))
 									{
-										if (!CollidingMem(this, lins, i + 1, mInstructions.Size(), staticVars) &&
-											!CollidingMem(tail, lins, 0, j, staticVars))
+										if (!CollidingMem(this, lins, i + 1, mInstructions.Size()) &&
+											!CollidingMem(tail, lins, 0, j))
 										{
 											int k = 1;
-											while (k + 1 < body.Size() && !CollidingMem(body[k], lins, 0, body[k]->mInstructions.Size(), staticVars))
+											while (k + 1 < body.Size() && !CollidingMem(body[k], lins, 0, body[k]->mInstructions.Size()))
 												k++;
 
 											if (k + 1 == body.Size())
@@ -12473,7 +12530,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					{
 						// Find the last store that overlaps the load
 						int	j = mInstructions.Size() - 1;
-						while (j > i && !(mInstructions[j]->mCode == IC_STORE && CollidingMem(ins, mInstructions[j], staticVars)))
+						while (j > i && !(mInstructions[j]->mCode == IC_STORE && CollidingMem(ins, mInstructions[j])))
 							j--;
 
 						if (j > i)
@@ -12561,7 +12618,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						for (int j = 0; j < mInstructions.Size(); j++)
 						{
 							InterInstruction* sins = mInstructions[j];
-							if (sins->mCode == IC_STORE && CollidingMem(ins, sins, staticVars))
+							if (sins->mCode == IC_STORE && CollidingMem(ins, sins))
 							{
 								if (sins->mSrc[1].mTemp >= 0)
 								{
@@ -12585,7 +12642,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 											ins->mInvariant = false;
 									}
 								}
-								else if (CollidingMem(ins, sins, staticVars))
+								else if (CollidingMem(ins, sins))
 								{
 									ins->mInvariant = false;
 								}
@@ -15226,17 +15283,18 @@ void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 	{
 		if (mLocalVars.Size() > 0 || mParamVars.Size() > 0)
 		{
+#if 0
 			for (int i = 0; i < mLocalAliasedSet.Size(); i++)
 			{
-				if (mLocalAliasedSet[i])
-					mLocalVars[i]->mAliased = true;
+				if (mLocalVars[i])
+					mLocalVars[i]->mAliased = mLocalAliasedSet[i];
 			}
 			for (int i = 0; i < mParamAliasedSet.Size(); i++)
 			{
-				if (mParamAliasedSet[i])
-					mParamVars[i]->mAliased = true;
+				if (mParamVars[i])
+					mParamVars[i]->mAliased = mParamAliasedSet[i];
 			}
-
+#endif
 			//
 			// Now remove unused stores
 			//
@@ -15328,15 +15386,27 @@ void InterCodeProcedure::PushSinglePathResultInstructions(void)
 	} while (changed);
 }
 
-void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams)
+void InterCodeProcedure::CollectVariables(InterMemory paramMemory)
 {
+	for (int i = 0; i < mLocalVars.Size(); i++)
+		if (mLocalVars[i])
+			mLocalVars[i]->mAliased = false;
+	for (int i = 0; i < mParamVars.Size(); i++)
+		if (mParamVars[i])
+			mParamVars[i]->mAliased = false;
+
 	ResetVisited();
 	mEntryBlock->CollectVariables(mModule->mGlobalVars, mLocalVars, mParamVars, paramMemory);
+}
 
-	RemoveUnusedStoreInstructions(paramMemory);
-
+void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams)
+{
 	for (int j = 0; j < 2; j++)
 	{
+		CollectVariables(paramMemory);
+
+		RemoveUnusedStoreInstructions(paramMemory);
+
 		//
 		// Promote local variables to temporaries
 		//
@@ -15659,11 +15729,30 @@ void InterCodeProcedure::PropagateConstOperationsUp(void)
 #endif
 }
 
+void InterCodeProcedure::BuildLocalAliasTable(void)
+{
+	//
+	// Find all local variables that are never aliased
+	//
+	GrowingIntArray		localTable(-1), paramTable(-1);
+	int					nlocals = 0, nparams = 0;
+
+	ResetVisited();
+	mEntryBlock->CollectLocalAddressTemps(localTable, paramTable, nlocals, nparams);
+
+	mLocalAliasedSet.Reset(nlocals);
+	mParamAliasedSet.Reset(nparams);
+	ResetVisited();
+	mEntryBlock->MarkAliasedLocalTemps(localTable, mLocalAliasedSet, paramTable, mParamAliasedSet);
+
+	Disassemble("Built alias temps");
+}
+
 void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "sieve");
 
 	mEntryBlock = mBlocks[0];
 
@@ -15701,25 +15790,7 @@ void InterCodeProcedure::Close(void)
 
 	int	numTemps = mTemporaries.Size();
 
-	//
-	// Find all local variables that are never aliased
-	//
-	GrowingIntArray		localTable(-1), paramTable(-1);
-	ResetVisited();
-	mEntryBlock->CollectLocalAddressTemps(localTable, paramTable);
-
-	int			nlocals = 0, nparams = 0;
-	for (int i = 0; i < localTable.Size(); i++)
-		if (localTable[i] + 1 > nlocals)
-			nlocals = localTable[i] + 1;
-	for (int i = 0; i < paramTable.Size(); i++)
-		if (paramTable[i] + 1 > nparams)
-			nparams = paramTable[i] + 1;
-
-	mLocalAliasedSet.Reset(nlocals);
-	mParamAliasedSet.Reset(nparams);
-	ResetVisited();
-	mEntryBlock->MarkAliasedLocalTemps(localTable, mLocalAliasedSet, paramTable, mParamAliasedSet);
+	BuildLocalAliasTable();
 
 	ValueSet		valueSet;
 	FastNumberSet	tvalidSet(numTemps + 32);
@@ -15795,7 +15866,6 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("temp forwarding 2");
 
-
 	//
 	// Now remove unused instructions
 	//
@@ -15807,12 +15877,9 @@ void InterCodeProcedure::Close(void)
 	InterMemory	paramMemory = mFastCallProcedure ? IM_FPARAM : IM_PARAM;
 
 	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
-		PromoteSimpleLocalsToTemp(paramMemory, nlocals, nparams);
+		PromoteSimpleLocalsToTemp(paramMemory, mLocalAliasedSet.Size(), mParamAliasedSet.Size());
 	else
-	{
-		ResetVisited();
-		mEntryBlock->CollectVariables(mModule->mGlobalVars, mLocalVars, mParamVars, paramMemory);
-	}
+		CollectVariables(paramMemory);
 
 	BuildDataFlowSets();
 

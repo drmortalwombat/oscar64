@@ -28440,21 +28440,38 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[1].mAddress &&
 				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[0].mAddress && !(mIns[1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 			{
-				if (!prevBlock)
-					return OptimizeSimpleLoopInvariant(proc, full);
+				if ((!mEntryRequiredRegs[CPU_REG_A] || !mEntryRequiredRegs[CPU_REG_X]) && (!mExitRequiredRegs[CPU_REG_A] || !mExitRequiredRegs[CPU_REG_X]))
+				{
+					if (!prevBlock)
+						return OptimizeSimpleLoopInvariant(proc, full);
 
-				prevBlock->mIns.Push(mIns[0]);
-				prevBlock->mIns.Push(mIns[1]);
+					prevBlock->mIns.Push(mIns[0]);
+					prevBlock->mIns.Push(mIns[1]);
 
-				exitBlock->mIns.Insert(0, mIns[i + 0]);
-				exitBlock->mIns.Insert(1, mIns[i + 1]);
+					if (mEntryRequiredRegs[CPU_REG_A])
+					{
+						prevBlock->mIns[prevBlock->mIns.Size() - 2].mType = ASMIT_LDX;
+						prevBlock->mIns[prevBlock->mIns.Size() - 2].mLive |= LIVE_CPU_REG_X;
+						prevBlock->mIns[prevBlock->mIns.Size() - 1].mType = ASMIT_STX;
+					}
 
-				mIns.Remove(i); mIns.Remove(i);
-				mIns.Remove(0); mIns.Remove(0);
+					exitBlock->mIns.Insert(0, mIns[i + 0]);
+					exitBlock->mIns.Insert(1, mIns[i + 1]);
 
-				CheckLive();
+					if (mExitRequiredRegs[CPU_REG_A])
+					{
+						exitBlock->mIns[0].mType = ASMIT_LDX;
+						exitBlock->mIns[0].mLive |= LIVE_CPU_REG_X;
+						exitBlock->mIns[1].mType = ASMIT_STX;
+					}
 
-				return true;
+					mIns.Remove(i); mIns.Remove(i);
+					mIns.Remove(0); mIns.Remove(0);
+
+					CheckLive();
+
+					return true;
+				}
 			}
 		}
 	}
@@ -28664,7 +28681,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	}
 
 #if 1
-	if (mEntryRequiredRegs.Size() && (!mEntryRequiredRegs[CPU_REG_A] || !mEntryRequiredRegs[CPU_REG_X]))
+	if (mEntryRequiredRegs.Size() && (!mEntryRequiredRegs[CPU_REG_A] || !mEntryRequiredRegs[CPU_REG_X]) && (!mExitRequiredRegs[CPU_REG_A] || !mExitRequiredRegs[CPU_REG_X]))
 	{
 		for (int i = 0; i + 1 < mIns.Size(); i++)
 		{
@@ -28722,8 +28739,16 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 						prevBlock->mExitRequiredRegs += mIns[i + 1].mAddress;
 						mEntryRequiredRegs += mIns[i + 1].mAddress;
 						mExitRequiredRegs += mIns[i + 1].mAddress;
-						exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, mIns[i + 1].mAddress));
-						exitBlock->mIns.Insert(1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, mIns[i + 0].mAddress));
+						if (!mExitRequiredRegs[CPU_REG_A])
+						{
+							exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, mIns[i + 1].mAddress));
+							exitBlock->mIns.Insert(1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, mIns[i + 0].mAddress));
+						}
+						else
+						{
+							exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mIns[i + 1].mAddress));
+							exitBlock->mIns.Insert(1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_STX, ASMIM_ZERO_PAGE, mIns[i + 0].mAddress));
+						}
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						changed = true;
 					}
@@ -38921,7 +38946,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "bmul");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "fill_screen");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -40137,7 +40162,6 @@ void NativeCodeProcedure::Optimize(void)
 			mGenerator->mErrors->Error(mInterProc->mLocation, EWARN_OPTIMIZER_LOCKED, "Optimizer locked in infinite loop", mInterProc->mIdent);
 		}
 
-
 #if 1
 		if (!changed && step < 11)
 		{
@@ -40151,7 +40175,6 @@ void NativeCodeProcedure::Optimize(void)
 			cnt++;
 
 	} while (changed);
-
 
 #if 1
 	ResetVisited();

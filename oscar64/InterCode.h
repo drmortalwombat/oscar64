@@ -307,7 +307,7 @@ public:
 	bool UsesTemp(int temp) const;
 	int NumUsedTemps(void) const;
 
-	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
+	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable, int& nlocals, int& nparams);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 
 	void FilterTempUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
@@ -316,7 +316,7 @@ public:
 	
 	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredVars, const GrowingVariableArray& params, NumberSet& requiredParams, InterMemory paramMemory);
-	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars, NumberSet& requiredVars, GrowingInstructionPtrArray& storeIns);
+	bool RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock * block, const GrowingVariableArray& staticVars, NumberSet& requiredVars, GrowingInstructionPtrArray& storeIns);
 	void PerformValueForwarding(GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	void BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps);
 
@@ -400,7 +400,7 @@ public:
 
 	void CollectAllUsedDefinedTemps(NumberSet& defined, NumberSet& used);
 
-	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable);
+	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable, int & nlocals, int & nparams);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 
 	void CollectLocalUsedTemps(int numTemps);
@@ -493,6 +493,12 @@ public:
 	bool IsTempModifiedOnPath(int temp, int at) const;
 	bool IsTempReferencedOnPath(int temp, int at) const;
 
+	bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const;
+	bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
+	bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
+	bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
+	bool CollidingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+
 	bool PushSinglePathResultInstructions(void);
 
 	bool CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const;
@@ -561,7 +567,6 @@ protected:
 	GrowingIntArray						mRenameTable, mRenameUnionTable, mGlobalRenameTable;
 	TempForwardingTable					mTempForwardingTable;
 	GrowingInstructionPtrArray			mValueForwardingTable;
-	NumberSet							mLocalAliasedSet, mParamAliasedSet;
 
 	void ResetVisited(void);
 	void ResetEntryBlocks(void);
@@ -580,6 +585,7 @@ public:
 
 	int									mLocalSize, mNumLocals;
 	GrowingVariableArray				mLocalVars, mParamVars;
+	NumberSet							mLocalAliasedSet, mParamAliasedSet;
 
 	Location							mLocation;
 	const Ident						*	mIdent, * mSection;
@@ -611,6 +617,7 @@ public:
 	void Disassemble(FILE* file);
 	void Disassemble(const char* name, bool dumpSets = false);
 protected:
+	void BuildLocalAliasTable(void);
 	void BuildTraces(bool expand, bool dominators = true, bool compact = false);
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);
@@ -623,6 +630,7 @@ protected:
 	void RemoveUnusedStoreInstructions(InterMemory	paramMemory);
 	void MergeCommonPathInstructions(void);
 	void PushSinglePathResultInstructions(void);
+	void CollectVariables(InterMemory paramMemory);
 	void PromoteSimpleLocalsToTemp(InterMemory paramMemory, int nlocals, int nparams);
 	void SimplifyIntegerNumeric(FastNumberSet& activeSet);
 	void SingleBlockLoopPointerSplit(FastNumberSet& activeSet);
