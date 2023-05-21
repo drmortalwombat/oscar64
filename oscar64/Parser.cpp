@@ -3988,7 +3988,6 @@ void Parser::ParsePragma(void)
 		}
 		else if (ConsumeIdentIf("optimize"))
 		{
-			mScanner->NextToken();
 			ConsumeToken(TK_OPEN_PARENTHESIS);
 			if (!ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
 			{
@@ -4026,6 +4025,7 @@ void Parser::ParsePragma(void)
 						default:
 							mErrors->Error(mScanner->mLocation, ERRR_INVALID_NUMBER, "Invalid number");
 						}
+						mScanner->NextToken();
 					}
 					else if (ConsumeIdentIf("asm"))
 						mCompilerOptions |= COPT_OPTIMIZE_ASSEMBLER;

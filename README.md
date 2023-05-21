@@ -63,7 +63,7 @@ The compiler can also be built using MSVC or GCC.  A visual studio project and a
 
 The compiler is command line driven, and creates an executable .prg file.
 
-    oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=format] [-e] [-n] [-dSYMBOL[=value]] {source.c}
+    oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=format] [-tm=machine] [-e] [-n] [-dSYMBOL[=value]] {source.c}
     
 * -v : verbose output for diagnostics
 * -v2 : more verbose output

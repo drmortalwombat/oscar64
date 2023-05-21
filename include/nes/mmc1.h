@@ -1,7 +1,6 @@
 #ifndef NES_MMC1_H
 #define NES_MMC1_H
 
-
 #include <c64/types.h>
 
 enum MMC1Mirror
