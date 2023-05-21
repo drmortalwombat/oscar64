@@ -220,6 +220,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_33E047EAEFFB45778C59472F157161DA"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_343F58F80DF84D40AE23457288C5D7D5"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -731,6 +737,12 @@
         "Entry"
         {
         "MsmKey" = "8:_B037CA4170834093B03F7067F7E2D5A5"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_B0A61EA0BB804AEAB25D6C4B6F4C57E6"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1865,6 +1877,26 @@
             "TargetName" = "8:autocrawler.c"
             "Tag" = "8:"
             "Folder" = "8:_E925E579BC89433389A5D5B048CAA36A"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_33E047EAEFFB45778C59472F157161DA"
+            {
+            "SourcePath" = "8:..\\include\\c64\\iecbus.h"
+            "TargetName" = "8:iecbus.h"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3599,6 +3631,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_B0A61EA0BB804AEAB25D6C4B6F4C57E6"
+            {
+            "SourcePath" = "8:..\\include\\c64\\iecbus.c"
+            "TargetName" = "8:iecbus.c"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_B275D22D5B444CC0A8E44E63010B9759"
             {
             "SourcePath" = "8:..\\include\\nes\\nes.c"
@@ -5182,7 +5234,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
         "ProductCode" = "8:{AED61249-4A7B-4472-9783-1F5014AC87EF}"
-        "PackageCode" = "8:{7F092DAD-940B-4A03-83D2-B4BC34BC0C44}"
+        "PackageCode" = "8:{99957648-E168-4853-BA75-AA7B61A0AE71}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
@@ -5703,7 +5755,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_FB2E467BC172457785F4279BB0BFE8B6"
             {
-            "SourcePath" = "8:..\\Release\\oscar64.exe"
+            "SourcePath" = "8:..\\Debug\\oscar64.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_607E75AF0E2A4CB9908C4C39DF8FE6E4"
