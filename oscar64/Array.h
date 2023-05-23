@@ -465,6 +465,7 @@ public:
 	void Insert(int at, T t)
 	{
 		Grow(size + 1, false);
+		assert(at >= 0 && at < size);
 		int	j = size - 1;
 		while (j > at)
 		{
@@ -476,6 +477,7 @@ public:
 
 	void Remove(int at)
 	{
+		assert(at >= 0 && at < size);
 		while (at + 1 < size)
 		{
 			array[at] = array[at + 1];
@@ -486,6 +488,7 @@ public:
 
 	void Remove(int at, int n)
 	{
+		assert(at >= 0 && at + n <= size);
 		while (at + n < size)
 		{
 			array[at] = array[at + n];
@@ -516,6 +519,7 @@ public:
 
 	T Top(void) const
 	{
+		assert(size > 0);
 		return array[size - 1];
 	}
 
@@ -531,6 +535,7 @@ public:
 
 	void SetSize(int size, bool clear = false)
 	{
+		assert(size >= 0);
 		Grow(size, clear);
 	}
 

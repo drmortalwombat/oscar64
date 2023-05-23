@@ -441,6 +441,7 @@ public:
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
 
+	void LinkerObjectForwarding(const GrowingInstructionPtrArray& tvalue);
 	bool LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars);
 
 	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num);

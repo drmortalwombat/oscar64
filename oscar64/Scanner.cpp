@@ -308,6 +308,7 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 
 	mDefines = new MacroDict();
 	mDefineArguments = nullptr;
+	mToken = TK_NONE;
 
 	NextChar();
 	NextToken();

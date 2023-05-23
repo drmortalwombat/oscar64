@@ -1,5 +1,6 @@
 #include "Assembler.h"
 #include <assert.h>
+#include <string.h>
 
 
 AsmInsData	DecInsData[256] = {
@@ -347,7 +348,7 @@ static inline char toupper(char ch)
 }
 AsmInsType FindAsmInstruction(const char* ins)
 {
-	if (!ins[3])
+	if (ins && strlen(ins) == 3)
 	{
 		for (int i = 0; i < NUM_ASM_INS_TYPES; i++)
 		{

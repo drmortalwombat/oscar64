@@ -1,5 +1,7 @@
 #include "NumberSet.h"
 
+#define VALGRIND	0
+
 NumberSet::NumberSet(void)
 {
 	size = 0;
@@ -174,6 +176,10 @@ FastNumberSet::FastNumberSet(int size, bool set)
 {
 	this->size = this->asize = size;
 	buffer = new uint32[2 * size];
+#if VALGRIND
+	for (int i = 0; i < 2 * size; i++)
+		buffer[i] = 0;
+#endif
 	if (set)
 	{
 		for (num = 0; num < size; num++)
@@ -193,6 +199,11 @@ FastNumberSet::FastNumberSet(const FastNumberSet& set)
 	this->size = this->asize = set.size;
 	this->num = set.num;
 	buffer = new uint32[2 * size];
+#if VALGRIND
+	for (int i = 0; i < 2 * size; i++)
+		buffer[i] = 0;
+#endif
+
 	for (i = 0; i < num; i++)
 	{
 		buffer[i] = set.buffer[i];
@@ -206,6 +217,10 @@ void FastNumberSet::Reset(int size, bool set)
 	{
 		delete[] buffer;
 		buffer = new uint32[2 * size];
+#if VALGRIND
+		for (int i = 0; i < 2 * size; i++)
+			buffer[i] = 0;
+#endif
 
 		this->asize = size;
 	}
