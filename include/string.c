@@ -227,7 +227,7 @@ void * memmove(void * dst, const void * src, int size)
 		if (d < s)
 		{
 			do {
-				*d++ = *s++;				
+				*d++ = *s++;
 			} while (--sz);
 		}
 		else if (d > s)

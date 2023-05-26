@@ -10004,7 +10004,15 @@ int InterCodeBasicBlock::FindSameInstruction(const InterInstruction* ins) const
 
 bool InterCodeBasicBlock::CanMoveInstructionBehindBlock(int ii) const
 {
-	return CanMoveInstructionDown(ii, mInstructions.Size());
+	if (CanMoveInstructionDown(ii, mInstructions.Size() - 1))
+	{
+		InterInstruction* ins = mInstructions.Last();
+		if (ins->mCode == IC_BRANCH && mInstructions[ii]->mDst.mTemp == ins->mSrc[0].mTemp)
+			return false;
+		return true;
+	}
+	else
+		return false;
 }
 
 bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstruction* ins) const
@@ -12160,6 +12168,39 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 					nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
 
 					return true;
+				}
+			}
+		}
+		else if (
+			mInstructions[nins - 1]->mCode == IC_BRANCH &&
+			mInstructions[nins - 2]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 2]->mOperator == IA_ADD)
+		{
+			InterInstruction* ains = mInstructions[nins - 2];
+			InterInstruction* bins = mInstructions[nins - 1];
+
+			if (bins->mSrc[0].mTemp == ains->mDst.mTemp &&
+				ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+				ains->mSrc[0].mTemp < 0 &&
+				ains->mSrc[0].mIntConst == -1)
+			{
+				int pi = pblock->mInstructions.Size() - 1;
+				while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ains->mDst.mTemp)
+					pi--;
+
+				if (pi >= 0 && pblock->mInstructions[pi]->mCode == IC_CONSTANT)
+				{
+					int i = 0;
+					while (i < nins - 2 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+						i++;
+					if (i == nins - 2)
+					{
+						nloop = pblock->mInstructions[pi]->mConst.mIntConst;
+
+						mLocalValueRange[ains->mDst.mTemp].LimitMin(1);
+						mLocalValueRange[ains->mDst.mTemp].LimitMax(pblock->mInstructions[pi]->mConst.mIntConst);
+
+						return true;
+					}
 				}
 			}
 		}
@@ -15791,7 +15832,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "strtof");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 

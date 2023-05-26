@@ -478,6 +478,8 @@ public:
 	bool BypassRegisterConditionBlock(void);
 	bool FoldLoopEntry(void);
 
+	bool Is16BitImmSum(int at, int & val, int& reg) const;
+
 	bool Check16BitSum(int at, NativeRegisterSum16Info& info);
 	bool Propagate16BitSum(const ExpandingArray<NativeRegisterSum16Info>& cinfo);
 	
