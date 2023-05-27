@@ -28173,6 +28173,9 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		{
 			if (!prevBlock)
 				return OptimizeSimpleLoopInvariant(proc, full);
+			mExitRequiredRegs += CPU_REG_Y;
+			exitBlock->mEntryRequiredRegs += CPU_REG_Y;
+
 			exitBlock->mIns.Insert(0, mIns[ei]);
 			mIns.Remove(ei);
 
@@ -29500,6 +29503,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 		assert(mBranch != ASMIT_JMP || mFalseJump == nullptr);
 
 		CheckLive();
+		if (mTrueJump)
+			mTrueJump->CheckLive();
+		if (mFalseJump)
+			mFalseJump->CheckLive();
 
 #if 1
 		if (sz > 3 &&
@@ -30226,6 +30233,8 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 				tail->mEntryRequiredRegs += CPU_REG_Y;
 				tail->mExitRequiredRegs += CPU_REG_Y;
 				head->mExitRequiredRegs += CPU_REG_Y;
+				eblock->mEntryRequiredRegs = tail->mExitRequiredRegs;
+				eblock->mEntryRequiredRegs += CPU_REG_Y;
 
 				lblock->CheckLive();
 
@@ -39225,7 +39234,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "iec_read");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "rirq_build");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

@@ -333,13 +333,13 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 					else if (cdec->mInteger > maxValue)
 						maxValue = cdec->mInteger;
 
+					cdec->mNext = dec->mParams;
+					dec->mParams = cdec;
+
 					if (mScanner->mToken == TK_COMMA)
 						mScanner->NextToken();
 					else
 						break;
-
-					cdec->mNext = dec->mParams;
-					dec->mParams = cdec;
 				}
 
 				dec->mMinValue = minValue;

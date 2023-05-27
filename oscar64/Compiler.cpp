@@ -1183,11 +1183,14 @@ bool Compiler::WriteDbjFile(const char* filename)
 				Declaration* mdec = dec->mParams;
 				while (mdec)
 				{
-					if (!tfirst)
-						fprintf(file, ",\n");
-					tfirst = false;
+					if (mdec->mIdent)
+					{
+						if (!tfirst)
+							fprintf(file, ",\n");
+						tfirst = false;
 
-					fprintf(file, "\t\t\t{\"name\": \"%s\", \"value\": %d}", mdec->mIdent->mString, int(mdec->mInteger));
+						fprintf(file, "\t\t\t{\"name\": \"%s\", \"value\": %d}", mdec->mIdent->mString, int(mdec->mInteger));
+					}
 
 					mdec = mdec->mNext;
 				}
