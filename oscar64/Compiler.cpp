@@ -602,6 +602,7 @@ bool Compiler::GenerateCode(void)
 	}
 
 	mGlobalAnalyzer->CheckInterrupt();
+	mGlobalAnalyzer->MarkRecursions();
 	mGlobalAnalyzer->AutoInline();
 	mGlobalAnalyzer->AutoZeroPage(mCompilationUnits->mSectionZeroPage, regionZeroPage->mEnd - regionZeroPage->mStart);
 	if (mCompilerOptions & COPT_VERBOSE3)

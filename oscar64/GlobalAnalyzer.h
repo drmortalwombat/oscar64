@@ -12,9 +12,10 @@ public:
 
 	void DumpCallGraph(void);
 	void AutoInline(void);
-	void CheckFastcall(Declaration* procDec);
+	void CheckFastcall(Declaration* procDec, bool head);
 	void CheckInterrupt(void);
 	void AutoZeroPage(LinkerSection * lszp, int zpsize);
+	void MarkRecursions(void);
 
 	void AnalyzeProcedure(Expression* exp, Declaration* procDec);
 	void AnalyzeAssembler(Expression* exp, Declaration* procDec);
@@ -30,6 +31,8 @@ protected:
 	GrowingArray<Declaration*>		mGlobalVariables;
 
 	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs);
+
+	bool MarkCycle(Declaration* rootDec, Declaration* procDec);
 
 	uint64 GetProcFlags(Declaration* to) const;
 	void RegisterCall(Declaration* from, Declaration* to);

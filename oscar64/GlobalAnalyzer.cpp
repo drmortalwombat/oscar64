@@ -208,34 +208,91 @@ void GlobalAnalyzer::AutoInline(void)
 
 	for (int i = 0; i < mFunctions.Size(); i++)
 	{
-		CheckFastcall(mFunctions[i]);
+		CheckFastcall(mFunctions[i], true);
 	}
 }
 
-void GlobalAnalyzer::CheckFastcall(Declaration* procDec)
+bool GlobalAnalyzer::MarkCycle(Declaration* rootDec, Declaration* procDec)
 {
-	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && !(procDec->mBase->mFlags & DTF_STACKCALL) && (procDec->mType == DT_CONST_FUNCTION))
+	if (rootDec == procDec)
+		return true;
+
+	if (!(procDec->mFlags & DTF_FUNC_ANALYZING))
 	{
-		if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_FUNC_RECURSIVE) && !(procDec->mFlags & DTF_DYNSTACK))
+		procDec->mFlags |= DTF_FUNC_ANALYZING;
+
+		bool	cycle = false;
+		for (int i = 0; i < procDec->mCalled.Size(); i++)
 		{
-			int	nbase = 0;
-			for (int i = 0; i < procDec->mCalled.Size(); i++)
-			{
-				Declaration* cf = procDec->mCalled[i];
+			if (MarkCycle(rootDec, procDec->mCalled[i]))
+				cycle = true;
+		}
+		if (cycle)
+			procDec->mFlags |= DTF_FUNC_RECURSIVE;
 
-				CheckFastcall(cf);
+		procDec->mFlags &= ~DTF_FUNC_ANALYZING;
 
-				cf = cf->mBase;
-				if (cf->mFlags & DTF_FASTCALL)
-				{
-					int n = cf->mFastCallBase + cf->mFastCallSize;
-					if (n > nbase)
-						nbase = n;
-				}
-				else
-					nbase = 1000;
-			}
+		return cycle;
+	}
 
+	return false;
+}
+
+void GlobalAnalyzer::MarkRecursions(void)
+{
+	for (int i = 0; i < mFunctions.Size(); i++)
+	{
+		Declaration* cf = mFunctions[i];
+		for (int j = 0; j < cf->mCalled.Size(); j++)
+		{
+			if (MarkCycle(cf, cf->mCalled[j]))
+				cf->mFlags |= DTF_FUNC_RECURSIVE;
+		}
+	}
+}
+
+void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
+{
+	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && !(procDec->mBase->mFlags & DTF_STACKCALL) && (procDec->mType == DT_CONST_FUNCTION) && !(procDec->mFlags & DTF_FUNC_ANALYZING))
+	{
+		procDec->mFlags |= DTF_FUNC_ANALYZING;
+		int	nbase = 0;
+		for (int i = 0; i < procDec->mCalled.Size(); i++)
+		{
+			Declaration* cf = procDec->mCalled[i];
+
+			if (cf->mType == DT_TYPE_FUNCTION)
+				procDec->mFlags |= DTF_DYNSTACK;
+
+			CheckFastcall(cf, false);
+
+//			if (!(cf->mBase->mFlags & DTF_FASTCALL))
+//				procDec->mBase->mFlags |= DTF_STACKCALL;
+
+			cf = cf->mBase;
+			int n = cf->mFastCallBase + cf->mFastCallSize;
+			if (n > nbase)
+				nbase = n;
+		}
+
+		procDec->mFastCallBase = nbase;
+		procDec->mFastCallSize = 0;
+		procDec->mBase->mFastCallBase = nbase;
+		procDec->mBase->mFastCallSize = 0;
+
+		procDec->mFlags &= ~DTF_FUNC_ANALYZING;
+
+		if (procDec->mBase->mFlags & DTF_STACKCALL)
+		{
+			procDec->mBase->mFlags |= DTF_STACKCALL;
+		}
+		else if (procDec->mFlags & DTF_FUNC_RECURSIVE)
+		{
+			if (head)
+				procDec->mBase->mFlags |= DTF_STACKCALL;
+		}
+		else if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_DYNSTACK))
+		{
 			int		nparams = 0, npalign = 0;
 			int		numfpzero = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 			int		fplimit = numfpzero;
@@ -410,6 +467,9 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 
 void GlobalAnalyzer::AnalyzeGlobalVariable(Declaration* dec)
 {
+	while (dec->mType == DT_VARIABLE_REF)
+		dec = dec->mBase;
+
 	dec->mUseCount++;
 
 	if (!(dec->mFlags & DTF_ANALYZED))

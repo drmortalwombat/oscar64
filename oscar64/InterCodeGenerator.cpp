@@ -414,7 +414,10 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		{
 			if (dec->mValue->mType == EX_CONSTANT)
 			{				
-				BuildInitializer(mod, d, 0, dec->mValue->mDecValue, var);
+				if (dec->mBase->CanAssign(dec->mValue->mDecType))
+					BuildInitializer(mod, d, 0, dec->mValue->mDecValue, var);
+				else
+					mErrors->Error(dec->mLocation, EERR_INCOMPATIBLE_TYPES, "Incompatible constant initializer");
 			}
 			else
 				mErrors->Error(dec->mLocation, EERR_CONSTANT_INITIALIZER, "Non constant initializer");
