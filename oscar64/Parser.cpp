@@ -2185,12 +2185,14 @@ Expression* Parser::ParseStatement(void)
 			if (mScanner->mToken != TK_CLOSE_BRACE)
 				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 
+			exp->mEndLocation = mScanner->mLocation;
 			mScope->End(mScanner->mLocation);
 			mScanner->NextToken();
 		}
 		else
 		{
 			exp = new Expression(mScanner->mLocation, EX_VOID);
+			exp->mEndLocation = mScanner->mLocation;
 			mScanner->NextToken();
 		}
 

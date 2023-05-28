@@ -92,7 +92,7 @@ void DeclarationScope::End(const Location& loc)
 }
 
 Expression::Expression(const Location& loc, ExpressionType type)
-	:	mLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false)
+	:	mLocation(loc), mEndLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false)
 {
 
 }

@@ -163,7 +163,7 @@ public:
 	Expression(const Location& loc, ExpressionType type);
 	~Expression(void);
 
-	Location				mLocation;
+	Location				mLocation, mEndLocation;
 	ExpressionType			mType;
 	Expression			*	mLeft, * mRight;
 	Token					mToken;
