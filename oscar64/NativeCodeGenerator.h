@@ -429,6 +429,7 @@ public:
 	int RetrieveXValue(int at) const;
 	int RetrieveYValue(int at) const;
 	int RetrieveZPValue(int reg, int at) const;
+	int FindFreeAccu(int at) const;
 
 	bool ReverseReplaceTAX(int at);
 
