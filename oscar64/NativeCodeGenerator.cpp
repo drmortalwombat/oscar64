@@ -33170,7 +33170,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					taxPos = -1; tayPos = -1;
 				}
 				else
-					taxPos = -1;
+					tayPos = -1;
 			}
 			else if (mIns[i].RequiresXReg())
 				taxPos = -1;
@@ -40013,6 +40013,7 @@ void NativeCodeProcedure::Optimize(void)
 		BuildDataFlowSets();
 		ResetVisited();
 		mEntryBlock->RemoveUnusedResultInstructions();
+
 
 #if _DEBUG
 		ResetVisited();
