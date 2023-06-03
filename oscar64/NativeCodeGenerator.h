@@ -411,6 +411,9 @@ public:
 	bool ForwardZpXIndex(bool full);
 	bool ForwardAXYReg(void);
 
+	// Join sequences of TXA, CLC, ADC #xx into INX, TXA sequences if possible
+	bool JoinXYCascade(void);
+
 	bool RegisterValueForwarding(void);
 	bool CanCombineSameXtoY(int start, int end);
 	bool CanCombineSameYtoX(int start, int end);

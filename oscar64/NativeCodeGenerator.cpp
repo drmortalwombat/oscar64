@@ -13856,6 +13856,92 @@ bool NativeCodeBasicBlock::CombineSameXY(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::JoinXYCascade(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		bool	restart;
+		
+		do {
+			restart = false;
+			int predXPos = -1, predYPos = -1;
+
+			for (int i = 0; i + 2 < mIns.Size(); i++)
+			{
+				if (mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
+				{
+					if (predXPos >= 0 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C)) && mIns[predXPos + 2].mAddress + 1 == mIns[i + 2].mAddress)
+					{
+						// Remove add
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+						// Insert INX
+						mIns.Insert(i, NativeCodeInstruction(mIns[i].mIns, ASMIT_INX));
+
+						// Insert TAX
+						mIns[predXPos + 2].mLive &= ~LIVE_CPU_REG_X;
+						mIns.Insert(predXPos + 3, NativeCodeInstruction(mIns[i].mIns, ASMIT_TAX));
+
+						// Restart
+						restart = true;
+						predXPos = -1;
+						predYPos = -1;
+
+						changed = true;
+					}
+					else
+						predXPos = i;
+				}
+				else if (mIns[i + 0].ReferencesXReg())
+					predXPos = -1;
+				else if (mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
+				{
+					if (predYPos >= 0 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_C)) && mIns[predYPos + 2].mAddress + 1 == mIns[i + 2].mAddress)
+					{
+						// Remove add
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+						// Insert INY
+						mIns.Insert(i, NativeCodeInstruction(mIns[i].mIns, ASMIT_INY));
+
+						// Insert TAX
+						mIns[predYPos + 2].mLive &= ~LIVE_CPU_REG_Y;
+						mIns.Insert(predYPos + 3, NativeCodeInstruction(mIns[i].mIns, ASMIT_TAY));
+
+						// Restart
+						restart = true;
+						predXPos = -1;
+						predYPos = -1;
+
+						changed = true;
+					}
+					else
+						predYPos = i;
+				}
+				else if (mIns[i + 0].ReferencesYReg())
+					predYPos = -1;
+			}
+		} while (restart);
+
+		if (mTrueJump && mTrueJump->JoinXYCascade())
+			changed = true;
+		if (mFalseJump && mFalseJump->JoinXYCascade())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::RegisterValueForwarding(void)
 {
 	bool	changed = false;
@@ -26323,6 +26409,7 @@ bool NativeCodeBasicBlock::MoveLoadAddImmStoreUp(int at)
 			if (mIns[j].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C))
 				return false;
 
+			mIns[j].mLive |= LIVE_CPU_REG_A;
 			for (int i = j + 1; i < at; i++)
 				mIns[i].mLive |= LIVE_CPU_REG_C;
 
@@ -38876,11 +38963,13 @@ void NativeCodeBasicBlock::CheckLive(void)
 					assert(!(live & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)));
 			}
 
+			if (mIns[j].ChangesAccu()) live &= ~LIVE_CPU_REG_A;
 			if (mIns[j].ChangesXReg()) live &= ~LIVE_CPU_REG_X;
 			if (mIns[j].ChangesYReg()) live &= ~LIVE_CPU_REG_Y;
 			if (mIns[j].ChangesCarry()) live &= ~LIVE_CPU_REG_C;
 			if (mIns[j].ChangesZFlag()) live &= ~LIVE_CPU_REG_Z;
 
+			if (mIns[j].RequiresAccu()) live |= LIVE_CPU_REG_A;
 			if (mIns[j].RequiresXReg()) live |= LIVE_CPU_REG_X;
 			if (mIns[j].RequiresYReg()) live |= LIVE_CPU_REG_Y;
 			if (mIns[j].RequiresCarry()) live |= LIVE_CPU_REG_C;
@@ -38889,6 +38978,8 @@ void NativeCodeBasicBlock::CheckLive(void)
 
 	if (mEntryRequiredRegs.Size() > 0)
 	{
+		if (live & LIVE_CPU_REG_A)
+			assert(mEntryRequiredRegs[CPU_REG_A]);
 		if (live & LIVE_CPU_REG_X)
 			assert(mEntryRequiredRegs[CPU_REG_X]);
 		if (live & LIVE_CPU_REG_Y)
@@ -39467,7 +39558,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sieve");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -40499,6 +40590,12 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
+		if (step == 8)
+		{
+			ResetVisited();
+			if (mEntryBlock->JoinXYCascade())
+				changed = true;
+		}
 
 #if 1
 		if (step == 6)
@@ -40696,7 +40793,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 

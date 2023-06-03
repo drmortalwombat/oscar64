@@ -233,10 +233,10 @@ void vspr_update(void)
 
 	vic.spr_msbx = xymask;
 
-	if (spriteYPos[8] < 230)
-	{
 #pragma unroll(full)
-		for(char ti=0; ti<VSPRITES_MAX - 8; ti++)
+	for(char ti=0; ti<VSPRITES_MAX - 8; ti++)
+	{
+		if (spriteYPos[ti + 8] < 250)
 		{
 			char	m = 1 << (ti & 7);
 
@@ -254,10 +254,7 @@ void vspr_update(void)
 			rirq_data(spirq + ti, 4, xymask);
 			rirq_move(ti, spriteYPos[ti + 1] + 23);
 		}
-	}
-	else
-	{
-		for(char ti=0; ti<VSPRITES_MAX - 8; ti++)
+		else
 			rirq_clear(ti);
 	}
 }
