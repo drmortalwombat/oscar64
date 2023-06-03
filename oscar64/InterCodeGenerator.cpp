@@ -3721,7 +3721,10 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 		ExValue	vr = TranslateExpression(procType, proc, block, exp, nullptr, nullptr, inlineMapper);
 		vr = Dereference(proc, exp, block, vr);
 
-		InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_BRANCH);
+		if (!vr.mType->IsSimpleType())
+			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Not a valid condition value");
+				
+		InterInstruction* ins = new InterInstruction(exp->mLocation, IC_BRANCH);
 		ins->mSrc[0].mType = InterTypeOf(vr.mType);
 		ins->mSrc[0].mTemp = vr.mTemp;
 		block->Append(ins);
