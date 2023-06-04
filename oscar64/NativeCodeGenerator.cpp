@@ -277,6 +277,90 @@ void NativeRegisterDataSet::Intersect(const NativeRegisterDataSet& set)
 	} while (changed);
 }
 
+ValueNumberingData::ValueNumberingData(void)
+{
+	mIndex = GlobalValueNumber++;
+	mOffset = 0;
+}
+
+void ValueNumberingData::Reset(void)
+{
+	mIndex = GlobalValueNumber++;
+	mOffset = 0;
+}
+
+bool ValueNumberingData::SameBase(const  ValueNumberingData& d) const
+{
+	return mIndex == d.mIndex;
+}
+
+void ValueNumberingDataSet::Reset(void)
+{
+	for (int i = 0; i < 261; i++)
+		mRegs[i].Reset();
+}
+
+void ValueNumberingDataSet::ResetWorkRegs(void)
+{
+	mRegs[BC_REG_WORK_Y].Reset();
+	mRegs[BC_REG_ADDR].Reset();
+	mRegs[BC_REG_ADDR + 1].Reset();
+
+	for (int i = 0; i < 4; i++)
+		mRegs[BC_REG_ACCU + i].Reset();
+	for (int i = 0; i < 8; i++)
+		mRegs[BC_REG_WORK + i].Reset();
+}
+
+void ValueNumberingDataSet::ResetCall(const NativeCodeInstruction& ins)
+{
+	mRegs[CPU_REG_C].Reset();
+	mRegs[CPU_REG_Z].Reset();
+	mRegs[CPU_REG_A].Reset();
+	mRegs[CPU_REG_X].Reset();
+	mRegs[CPU_REG_Y].Reset();
+
+	ResetWorkRegs();
+
+	if (!(ins.mFlags & NCIF_RUNTIME) || (ins.mFlags & NCIF_FEXEC))
+	{
+		if (ins.mLinkerObject && ins.mLinkerObject->mProc)
+		{
+			if (!(ins.mFlags & NCIF_FEXEC) && (ins.mLinkerObject->mFlags & LOBJF_ZEROPAGESET))
+			{
+				for (int i = 0; i < 256; i++)
+					if (ins.mLinkerObject->mZeroPageSet[i])
+						mRegs[i].Reset();
+				return;
+			}
+
+			for (int i = BC_REG_TMP; i < BC_REG_TMP + ins.mLinkerObject->mProc->mCallerSavedTemps; i++)
+				mRegs[i].Reset();
+		}
+		else
+		{
+			for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
+				mRegs[i].Reset();
+		}
+
+		for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
+			mRegs[i].Reset();
+	}
+
+}
+
+
+void ValueNumberingDataSet::Intersect(const ValueNumberingDataSet& set)
+{
+	for (int i = 0; i < 261; i++)
+	{
+		if (mRegs[i].mIndex != set.mRegs[i].mIndex || mRegs[i].mOffset != set.mRegs[i].mOffset)
+			mRegs[i].Reset();
+	}
+}
+
+
+
 NativeCodeInstruction::NativeCodeInstruction(void)
 	: mIns(nullptr), mType(ASMIT_INV), mMode(ASMIM_IMPLIED), mAddress(0), mLinkerObject(nullptr), mFlags(NCIF_LOWER | NCIF_UPPER), mParam(0), mLive(LIVE_ALL)
 {}
@@ -26860,6 +26944,105 @@ bool NativeCodeBasicBlock::ReverseBitfieldForwarding(void)
 }
 
 
+bool NativeCodeBasicBlock::OffsetValueForwarding(const ValueNumberingDataSet& data)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mNNumDataSet = data;
+
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
+
+		if (mLoopHead)
+		{
+			mNNumDataSet.Reset();
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+				mNNumDataSet.Intersect(mNumDataSet);
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mNumDataSet = mNNumDataSet;
+				return false;
+			}
+		}
+
+		mVisited = true;
+
+		int carry = -1;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+
+			if (ins.mType == ASMIT_JSR)
+			{
+				mNNumDataSet.ResetCall(ins);
+				carry = -1;
+			}
+			else if (ins.mType == ASMIT_LDA && ins.mMode == ASMIM_ZERO_PAGE)
+			{
+				mNNumDataSet.mRegs[CPU_REG_A] = mNNumDataSet.mRegs[mIns[i + 0].mAddress];
+			}
+			else if (ins.mType == ASMIT_STA && ins.mMode == ASMIM_ZERO_PAGE)
+			{
+				int reg = ins.mAddress;
+
+				if (mNNumDataSet.mRegs[reg].SameBase(mNNumDataSet.mRegs[CPU_REG_A]))
+				{
+					int d = mNNumDataSet.mRegs[CPU_REG_A].mOffset - mNNumDataSet.mRegs[reg].mOffset;
+					if (d == 0)
+					{
+						ins.mType = ASMIT_NOP; ins.mMode = ASMIM_IMPLIED;
+						changed = true;
+					}
+					else if (d == 1 && !(ins.mLive & LIVE_CPU_REG_Z))
+					{
+						ins.mType = ASMIT_INC;
+						changed = true;
+					}
+					else if (d == -1 && !(ins.mLive & LIVE_CPU_REG_Z))
+					{
+						ins.mType = ASMIT_DEC;
+						changed = true;
+					}
+				}
+
+				mNNumDataSet.mRegs[reg] = mNNumDataSet.mRegs[CPU_REG_A];
+			}
+			else if (ins.mType == ASMIT_ADC && ins.mMode == ASMIM_IMMEDIATE && carry != -1)
+				mNNumDataSet.mRegs[CPU_REG_A].mOffset += ins.mAddress + carry;
+			else if (ins.mType == ASMIT_SBC && ins.mMode == ASMIM_IMMEDIATE && carry != -1)
+				mNNumDataSet.mRegs[CPU_REG_A].mOffset -= ins.mAddress + 1 - carry;
+			else if (ins.ChangesAccu())
+				mNNumDataSet.mRegs[CPU_REG_A].Reset();
+			else if (ins.mMode == ASMIM_ZERO_PAGE && ins.ChangesAddress())
+				mNNumDataSet.mRegs[ins.mAddress].Reset();
+			
+			if (ins.mType == ASMIT_CLC)
+				carry = 0;
+			else if (ins.mType == ASMIT_SEC)
+				carry = 1;
+			else if (ins.ChangesCarry())
+				carry = -1;
+		}
+
+		mFNumDataSet = mNNumDataSet;
+
+		if (this->mTrueJump && this->mTrueJump->OffsetValueForwarding(mNNumDataSet))
+			changed = true;
+		if (this->mFalseJump && this->mFalseJump->OffsetValueForwarding(mFNumDataSet))
+			changed = true;
+	}
+
+	return changed;
+}
+
 
 bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 {
@@ -40263,6 +40446,19 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->RemoveUnusedResultInstructions();
 
+		if (step == 8)
+		{
+			ResetVisited();
+			ValueNumberingDataSet	data;
+			if (mEntryBlock->OffsetValueForwarding(data))
+			{
+				changed = true;
+
+				BuildDataFlowSets();
+				ResetVisited();
+				mEntryBlock->RemoveUnusedResultInstructions();
+			}
+		}
 
 #if _DEBUG
 		ResetVisited();

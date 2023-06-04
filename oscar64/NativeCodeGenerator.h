@@ -56,6 +56,27 @@ struct NativeRegisterDataSet
 	void IntersectMask(const NativeRegisterDataSet& set);
 };
 
+struct ValueNumberingData
+{
+	uint32				mIndex, mOffset;
+
+	ValueNumberingData(void);
+
+	void Reset(void);
+	bool SameBase(const  ValueNumberingData& d) const;
+};
+
+struct ValueNumberingDataSet
+{
+	ValueNumberingData	mRegs[261];
+
+	void Reset(void);
+	void ResetWorkRegs(void);
+	void ResetCall(const NativeCodeInstruction& ins);
+
+	void Intersect(const ValueNumberingDataSet& set);
+};
+
 struct NativeRegisterSum16Info
 {
 	NativeCodeInstruction	*	mSrcL, * mSrcH, * mDstL, * mDstH, * mAddL, * mAddH;
@@ -214,6 +235,8 @@ public:
 	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
+	ValueNumberingDataSet	mNumDataSet, mNNumDataSet, mFNumDataSet;
+
 	int						mYAlias[256], mYOffset;
 
 	ExpandingArray<NativeRegisterSum16Info>	mRSumInfos;
@@ -440,6 +463,7 @@ public:
 	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 	bool ReverseBitfieldForwarding(void);
+	bool OffsetValueForwarding(const ValueNumberingDataSet & data);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);
 
