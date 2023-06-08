@@ -26097,6 +26097,7 @@ bool NativeCodeBasicBlock::MoveLoadImmStoreAbsoluteUp(int at)
 			{
 				while (j < at && mIns[j].mType == ASMIT_STA)
 					j++;
+				mIns[j - 1].mLive |= LIVE_CPU_REG_A;
 
 				NativeCodeInstruction	sins = mIns[at + 1];
 				mIns.Remove(at + 1);
@@ -26107,7 +26108,7 @@ bool NativeCodeBasicBlock::MoveLoadImmStoreAbsoluteUp(int at)
 					sins.mLive |= LIVE_CPU_REG_X;
 				if (sins.ReferencesYReg())
 					sins.mLive |= LIVE_CPU_REG_Y;
-
+				
 				mIns.Insert(j, sins);
 
 				return true;
@@ -28169,6 +28170,16 @@ bool NativeCodeBasicBlock::OptimizeLoopCarryOver(void)
 							pblock->mExitRequiredRegs += CPU_REG_Y;
 							hblock->mEntryRequiredRegs += CPU_REG_Y;
 							mExitRequiredRegs += CPU_REG_Y;
+							changed = true;
+						}
+						else if (sz > 1 && hblock->mIns[0].mType == ASMIT_LDA && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 2].mType == ASMIT_LDA && hblock->mIns[0].SameEffectiveAddress(mIns[sz - 2]) && !(hblock->mIns[0].mLive & LIVE_CPU_REG_Z))
+						{
+							pblock->mIns.Push(hblock->mIns[0]);
+							hblock->mIns.Remove(0);
+
+							pblock->mExitRequiredRegs += CPU_REG_A;
+							hblock->mEntryRequiredRegs += CPU_REG_A;
+							mExitRequiredRegs += CPU_REG_A;
 							changed = true;
 						}
 					}

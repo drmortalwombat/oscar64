@@ -1154,6 +1154,11 @@ static bool HasSideEffect(InterCode code)
 	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER;
 }
 
+static bool IsObservable(InterCode code)
+{
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_STORE || code == IC_COPY || code == IC_STRCPY;
+}
+
 static bool IsMoveable(InterCode code)
 {
 	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
@@ -5893,6 +5898,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			if (bins->mSrc[0].mIntConst)
 			{
 				mFalseJump->mNumEntries--;
+				mFalseJump->WarnUnreachable();
 				mFalseJump = nullptr;
 				bins->mCode = IC_JUMP;
 				bins->mSrc[0].mTemp = -1;
@@ -5901,6 +5907,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			else
 			{
 				mTrueJump->mNumEntries--;
+				mTrueJump->WarnUnreachable();
 				mTrueJump = mFalseJump;
 				mFalseJump = nullptr;
 				bins->mCode = IC_JUMP;
@@ -5916,6 +5923,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			if (mInstructions[sz - 2]->mConst.mIntConst)
 			{
 				mFalseJump->mNumEntries--;
+				mFalseJump->WarnUnreachable();
 				mFalseJump = nullptr;
 				bins->mCode = IC_JUMP;
 				bins->mSrc[0].mTemp = -1;
@@ -5924,6 +5932,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			else
 			{
 				mTrueJump->mNumEntries--;
+				mTrueJump->WarnUnreachable();
 				mTrueJump = mFalseJump;
 				mFalseJump = nullptr;
 				bins->mCode = IC_JUMP;
@@ -9908,6 +9917,30 @@ void InterCodeBasicBlock::MarkRelevantStatics(void)
 	}
 }
 
+bool InterCodeBasicBlock::IsInsModified(const InterInstruction* ins)
+{
+	return IsInsModifiedInRange(0, mInstructions.Size(), ins);
+}
+
+bool InterCodeBasicBlock::IsInsModifiedInRange(int from, int to, const InterInstruction* ins)
+{
+	if (ins->mDst.mTemp >= 0 && IsTempModifiedInRange(from, to, ins->mDst.mTemp))
+		return true;
+
+	for (int i = 0; i < ins->mNumOperands; i++)
+	{
+		if (ins->mSrc[i].mTemp >= 0 && IsTempModifiedInRange(from, to, ins->mSrc[i].mTemp))
+			return true;
+	}
+
+	return false;
+}
+
+bool InterCodeBasicBlock::IsTempModified(int temp)
+{
+	return IsTempModifiedInRange(0, mInstructions.Size(), temp);
+}
+
 bool InterCodeBasicBlock::IsTempModifiedInRange(int from, int to, int temp)
 {
 	for (int i = from; i < to; i++)
@@ -9926,6 +9959,11 @@ bool InterCodeBasicBlock::IsTempUsedInRange(int from, int to, int temp)
 				return true;
 	}
 	return false;
+}
+
+bool InterCodeBasicBlock::IsTempReferenced(int temp)
+{
+	return IsTempReferencedInRange(0, mInstructions.Size(), temp);
 }
 
 bool InterCodeBasicBlock::IsTempReferencedInRange(int from, int to, int temp)
@@ -11481,7 +11519,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 				if (tail->CollectSingleHeadLoopBody(this, tail, body))
 				{
 					int tz = tail->mInstructions.Size();
-
+#if 1
 					if (tz > 2)
 					{
 						InterInstruction* ai = tail->mInstructions[tz - 3];
@@ -11524,15 +11562,74 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								}
 							}
 						}
-					}
+						else if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst == 1 && IsIntegerType(ai->mDst.mType) &&
+							ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[0].mTemp >= 0 && ci->mSrc[0].IsUnsigned() && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
+							bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp && !post->mEntryRequiredTemps[ai->mDst.mTemp] &&
+							!tail->IsTempReferencedInRange(0, tz - 3, ai->mDst.mTemp) && !tail->IsTempModifiedInRange(0, tz - 3, ci->mSrc[0].mTemp))
+						{
+							int i = 0;
+							while (i + 1 < body.Size() && 
+								!body[i]->IsTempReferenced(ai->mDst.mTemp) &&
+								!body[i]->IsTempModified(ci->mSrc[0].mTemp))
+								i++;
+							if (i + 1 == body.Size())
+							{
+								int64 num = ci->mSrc[0].mRange.mMaxValue;
 
+								InterInstruction* si = FindSourceInstruction(mLoopPrefix, ai->mDst.mTemp);
+								if (si && si->mCode == IC_CONSTANT && si->mSrc[0].mIntConst == 0)
+								{
+									InterInstruction* mins = new InterInstruction(si->mLocation, IC_LOAD_TEMPORARY);
+									mins->mSrc[0] = ci->mSrc[0];
+									mins->mDst = ai->mDst;
+									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, mins);
+
+									ai->mOperator = IA_SUB;
+									ai->mSrc[0].mIntConst = 1;
+									ci->mOperator = IA_CMPGU;
+									ci->mSrc[0].mTemp = -1;
+									ci->mSrc[0].mIntConst = 0;
+
+									ai->mSrc[1].mRange.SetLimit(1, num);
+									ai->mDst.mRange.SetLimit(0, num - 1);
+									ci->mSrc[1].mRange.SetLimit(0, num - 1);
+
+									modified = true;
+								}
+							}
+						}
+					}
+#endif
 
 					int i = 0;
 					while (i < mInstructions.Size())
 					{
 						InterInstruction* lins = mInstructions[i];
 
-						if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
+						if (lins->mCode == IC_BINARY_OPERATOR || lins->mCode == IC_CONSTANT || lins->mCode == IC_UNARY_OPERATOR || 
+							lins->mCode == IC_CONVERSION_OPERATOR || lins->mCode == IC_SELECT ||
+							lins->mCode == IC_RELATIONAL_OPERATOR)
+						{
+#if 1
+							if (CanMoveInstructionBeforeBlock(i) && !IsInsModifiedInRange(i + 1, mInstructions.Size(), lins) && !tail->IsInsModified(lins) && !lins->UsesTemp(lins->mDst.mTemp))
+							{
+								int j = 1;
+								while (j < body.Size() && !body[j]->IsInsModified(lins))
+									j++;
+								if (j == body.Size())
+								{
+									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
+									mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
+									mEntryRequiredTemps += lins->mDst.mTemp;
+									mInstructions.Remove(i);
+									i--;
+
+									modified = true;
+								}
+							}
+#endif
+						}
+						else if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
 						{
 							if (CanMoveInstructionBeforeBlock(i))
 							{
@@ -12168,6 +12265,43 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 					nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
 
 					return true;
+				}
+			}
+		}
+		else if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
+			mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+			mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_SUB)
+		{
+			InterInstruction* ains = mInstructions[nins - 3];
+			InterInstruction* cins = mInstructions[nins - 2];
+			InterInstruction* bins = mInstructions[nins - 1];
+
+			if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+				cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+				cins->mSrc[0].mTemp < 0 &&
+				ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+				ains->mSrc[0].mTemp < 0 &&
+				(cins->mOperator == IA_CMPGU || cins->mOperator == IA_CMPGEU) &&
+				ains->mSrc[0].mIntConst > 0)
+			{
+				int pi = pblock->mInstructions.Size() - 1;
+				while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ains->mDst.mTemp)
+					pi--;
+
+				if (pi >= 0 && pblock->mInstructions[pi]->mCode == IC_CONSTANT)
+				{
+					int i = 0;
+					while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+						i++;
+					if (i == nins - 3)
+					{
+						nloop = pblock->mInstructions[pi]->mConst.mIntConst - cins->mSrc[0].mIntConst;
+						if (cins->mOperator == IA_CMPGEU)
+							nloop++;
+						nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
+
+						return true;
+					}
 				}
 			}
 		}
@@ -14981,6 +15115,21 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 	}
 }
 
+
+void InterCodeBasicBlock::WarnUnreachable(void)
+{
+	if (mNumEntries == 0)
+	{
+		int i = 0;
+		while (i < mInstructions.Size() && !IsObservable(mInstructions[i]->mCode))
+			i++;
+		if (i < mInstructions.Size())
+			mProc->mModule->mErrors->Error(mInstructions[i]->mLocation, EWARN_UNREACHABLE_CODE, "Unreachable code");
+	}
+}
+
+
+
 InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & location, const Ident* ident, LinkerObject * linkerObject)
 	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), mTempSizes(0), 
 	mRenameTable(-1), mRenameUnionTable(-1), mGlobalRenameTable(-1),
@@ -15832,7 +15981,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "sformat");
 
 	mEntryBlock = mBlocks[0];
 
@@ -16234,6 +16383,9 @@ void InterCodeProcedure::Close(void)
 	BuildTraces(false);
 #endif
 
+	SingleTailLoopOptimization(paramMemory);
+	BuildDataFlowSets();
+
 #if 1
 	ExpandSelect();
 
@@ -16405,37 +16557,8 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 
-	do {
-		changed = false;
-
-		BuildLoopPrefix();
-		DisassembleDebug("added dominators");
-
-		ResetEntryBlocks();
-		ResetVisited();
-		mEntryBlock->CollectEntryBlocks(nullptr);
-
-		BuildDataFlowSets();
-
-		ResetVisited();
-		changed = mEntryBlock->SingleTailLoopOptimization(mParamAliasedSet, mModule->mGlobalVars);
-		DisassembleDebug("SingleTailLoopOptimization");
-
-
-		if (changed)
-		{
-			TempForwarding();
-
-			RemoveUnusedInstructions();
-
-			RemoveUnusedStoreInstructions(paramMemory);
-		}
-
-		BuildTraces(false);
-		DisassembleDebug("Rebuilt traces");
-
-	} while (changed);
-
+	SingleTailLoopOptimization(paramMemory);
+	BuildDataFlowSets();
 
 #endif
 
@@ -16685,6 +16808,44 @@ void InterCodeProcedure::RemoveNonRelevantStatics(void)
 		RemoveUnusedInstructions();
 	}
 }
+
+
+void InterCodeProcedure::SingleTailLoopOptimization(InterMemory paramMemory)
+{
+	bool	changed;
+
+	do {
+		changed = false;
+
+		BuildLoopPrefix();
+		DisassembleDebug("added dominators");
+
+		ResetEntryBlocks();
+		ResetVisited();
+		mEntryBlock->CollectEntryBlocks(nullptr);
+
+		BuildDataFlowSets();
+
+		ResetVisited();
+		changed = mEntryBlock->SingleTailLoopOptimization(mParamAliasedSet, mModule->mGlobalVars);
+		DisassembleDebug("SingleTailLoopOptimization");
+
+
+		if (changed)
+		{
+			TempForwarding();
+
+			RemoveUnusedInstructions();
+
+			RemoveUnusedStoreInstructions(paramMemory);
+		}
+
+		BuildTraces(false);
+		DisassembleDebug("Rebuilt traces");
+
+	} while (changed);
+}
+
 
 void InterCodeProcedure::MapVariables(void)
 {

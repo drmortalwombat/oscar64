@@ -438,6 +438,8 @@ public:
 
 	bool CombineIndirectAddressing(void);
 
+	void WarnUnreachable(void);
+
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
 
@@ -510,9 +512,14 @@ public:
 	int FindSameInstruction(const InterInstruction* ins) const;
 	bool MergeCommonPathInstructions(void);
 
+	bool IsTempModified(int temp);
 	bool IsTempModifiedInRange(int from, int to, int temp);
 	bool IsTempUsedInRange(int from, int to, int temp);
+	bool IsTempReferenced(int temp);
 	bool IsTempReferencedInRange(int from, int to, int temp);
+
+	bool IsInsModified(const InterInstruction* ins);
+	bool IsInsModifiedInRange(int from, int to, const InterInstruction* ins);
 
 	InterInstruction* FindTempOrigin(int temp) const;
 
@@ -643,6 +650,7 @@ protected:
 	void PropagateConstOperationsUp(void);
 	void RebuildIntegerRangeSet(void);
 	void CombineIndirectAddressing(void);
+	void SingleTailLoopOptimization(InterMemory paramMemory);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);

@@ -653,9 +653,15 @@ Declaration* Declaration::ToStriped(Errors * errors)
 		if (mBase->mType == DT_TYPE_ARRAY)
 		{
 			ndec->mBase = mBase->Clone();
-			ndec->mStride = mSize / mBase->mSize;
-			ndec->mBase->mStride = 1;
-			ndec->mBase->mBase = mBase->mBase->ToStriped(mSize / mBase->mBase->mSize);
+			if (mBase->mSize)
+			{
+				ndec->mStride = mBase->mSize / mBase->mBase->mSize;
+				ndec->mBase->mStride = 1;
+				ndec->mBase->mBase = mBase->mBase->ToStriped(mSize / mBase->mBase->mSize);
+			}
+			else
+				errors->Error(ndec->mLocation, ERRR_STRIPE_REQUIRES_FIXED_SIZE_ARRAY, "__striped with zero size");
+
 		}
 		else
 		{
