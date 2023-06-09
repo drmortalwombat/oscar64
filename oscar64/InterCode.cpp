@@ -11646,6 +11646,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 										if (!CollidingMem(this, lins, i + 1, mInstructions.Size()) &&
 											!CollidingMem(tail, lins, 0, j))
 										{
+#if 1
 											int k = 1;
 											while (k + 1 < body.Size() && !CollidingMem(body[k], lins, 0, body[k]->mInstructions.Size()))
 												k++;
@@ -11686,6 +11687,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 												modified = true;
 											}
+#endif
 										}
 									}
 								}
@@ -13516,7 +13518,11 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 		if (i + 2 < mInstructions.Size())
 		{
-			if (mInstructions[i + 0]->mCode == IC_LOAD &&
+			if (mInstructions[i + 0]->mCode == IC_NONE)
+			{
+				// just skip it
+			}
+			else if (mInstructions[i + 0]->mCode == IC_LOAD &&
 				mInstructions[i + 1]->mCode == IC_LOAD &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
 				mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst)
@@ -15981,7 +15987,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "sformat");
+	CheckFunc = !strcmp(mIdent->mString, "tile_draw_p");
 
 	mEntryBlock = mBlocks[0];
 
