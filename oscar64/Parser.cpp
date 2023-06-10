@@ -1601,11 +1601,30 @@ Expression* Parser::ParseSimpleExpression(void)
 
 		if (exp->mType == EX_TYPE)
 		{
-			Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
-			nexp->mDecType = exp->mDecType;
-			nexp->mLeft = exp;
-			nexp->mRight = ParsePrefixExpression();
-			exp = nexp->ConstantFold(mErrors);
+			if (mScanner->mToken == TK_OPEN_BRACE)
+			{
+				Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+				vdec->mBase = exp->mDecType;
+				vdec->mFlags |= DTF_CONST | DTF_STATIC | DTF_GLOBAL;
+
+				Expression* nexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+				nexp->mDecValue = vdec;
+				nexp->mDecType = vdec->mBase;
+
+				vdec->mValue = ParseInitExpression(vdec->mBase);
+				vdec->mSection = mDataSection;
+				vdec->mSize = vdec->mBase->mSize;
+
+				exp = nexp;
+			}
+			else
+			{
+				Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
+				nexp->mDecType = exp->mDecType;
+				nexp->mLeft = exp;
+				nexp->mRight = ParsePrefixExpression();
+				exp = nexp->ConstantFold(mErrors);
+			}
 		}
 		break;
 	case TK_ASM:
