@@ -873,7 +873,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 		if (pdec)
 		{
-			nmapper.mParams[pdec->mVarIndex] = nindex;
+			if (!(pdec->mFlags & DTF_FPARAM_CONST))
+				nmapper.mParams[pdec->mVarIndex] = nindex;
 
 			vdec->mVarIndex = nindex;
 			vdec->mBase = pdec->mBase;
@@ -972,7 +973,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 				wins->mSrc[1].mOperandSize = vr.mType->mSize;
 			else
 				wins->mSrc[1].mOperandSize = 2;
-			block->Append(wins);
+
+			if (!pdec || !(pdec->mFlags & DTF_FPARAM_CONST))
+				block->Append(wins);
 		}
 
 		if (pdec)
@@ -1255,7 +1258,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			int ref = 1;
 			if (dec->mType == DT_ARGUMENT)
 			{
-				if (inlineMapper)
+				if (dec->mFlags & DTF_FPARAM_CONST)
+				{
+					ins->mConst.mMemory = IM_LOCAL;
+					if (inlineMapper)
+						ins->mConst.mVarIndex += inlineMapper->mVarIndex;
+					InitLocalVariable(proc, dec, ins->mConst.mVarIndex);
+				}
+				else if (inlineMapper)
 				{
 					ins->mConst.mMemory = IM_LOCAL;
 					ins->mConst.mVarIndex = inlineMapper->mParams[dec->mVarIndex];
@@ -2633,10 +2643,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						else
 							wins->mSrc[1].mOperandSize = 2;
 
-						if (ftype->mFlags & DTF_FASTCALL)
-							defins.Push(wins);
-						else
-							block->Append(wins);
+						if (!pdec || !(pdec->mFlags & DTF_FPARAM_CONST))
+						{
+							if (ftype->mFlags & DTF_FASTCALL)
+								defins.Push(wins);
+							else
+								block->Append(wins);
+						}
 
 						atotal += wins->mSrc[1].mOperandSize;
 					}
@@ -2747,7 +2760,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (vdec->mType == DT_ARGUMENT)
 					{
 						vins->mConst.mVarIndex = vdec->mVarIndex;
-						if (inlineMapper)
+						if (vdec->mFlags & DTF_FPARAM_CONST)
+						{
+							vins->mConst.mMemory = IM_LOCAL;
+							if (inlineMapper)
+								vins->mConst.mVarIndex += inlineMapper->mVarIndex;
+						}
+						else if (inlineMapper)
 						{
 							vins->mConst.mMemory = IM_LOCAL;
 							vins->mConst.mVarIndex = inlineMapper->mParams[vdec->mVarIndex];
@@ -3795,6 +3814,33 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	{
 		if (mCompilerOptions & COPT_VERBOSE2)
 			printf("Generate intermediate code <%s>\n", proc->mIdent->mString);
+#if 0
+		Declaration* pdec = dec->mBase->mParams;
+		while (pdec)
+		{
+			if (pdec->mFlags & DTF_FPARAM_CONST)
+			{
+				pdec->mVarIndex = proc->mNumLocals;
+				proc->mNumLocals ++;
+				dec->mNumVars++;
+
+				InitParameter(proc, pdec, pdec->mVarIndex + proc->mFastCallBase);
+				Expression* aexp = new Expression(pdec->mLocation, EX_ASSIGNMENT);
+				Expression* pexp = new Expression(pdec->mLocation, EX_VARIABLE);
+
+				pexp->mDecType = pdec->mBase;
+				pexp->mDecValue = pdec;
+
+				aexp->mDecType = pdec->mBase;
+				aexp->mToken = TK_ASSIGN;
+				aexp->mLeft = pexp;
+				aexp->mRight = pdec->mValue;
+
+				TranslateExpression(dec->mBase, proc, exitBlock, aexp, nullptr, nullptr, nullptr);
+			}
+			pdec = pdec->mNext;
+		}
+#endif
 
 		TranslateExpression(dec->mBase, proc, exitBlock, exp, nullptr, nullptr, nullptr);
 	}

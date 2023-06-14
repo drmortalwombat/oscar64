@@ -3351,7 +3351,18 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 		}
 		break;
 
+	case IC_BRANCH:
+		if (mSrc[0].mTemp >= 0 && ctemps[mSrc[0].mTemp])
+		{
+			InterInstruction* ains = ctemps[mSrc[0].mTemp];
+			mSrc[0] = ains->mConst;
+
+			this->ConstantFolding();
+			return true;
+		}
+		break;
 	}
+
 
 	return false;
 }
@@ -4073,6 +4084,24 @@ bool InterInstruction::ConstantFolding(void)
 			mSrc[1].mTemp = -1;
 			mNumOperands = 1;
 			assert(mSrc[0].mTemp >= 0);
+			return true;
+		}
+		break;
+	case IC_BRANCH:
+		if (mSrc[0].mTemp < 0)
+		{
+			if (IsIntegerType(mSrc[0].mType))
+				mSrc[0].mIntConst = mSrc[0].mIntConst != 0;
+			else if (mSrc[0].mType == IT_FLOAT)
+				mSrc[0].mIntConst = mSrc[0].mFloatConst != 0;
+			else if (mSrc[0].mType == IT_POINTER)
+			{
+				if (mSrc[0].mMemory == IM_ABSOLUTE)
+					mSrc[0].mIntConst = mSrc[0].mIntConst != 0;
+				else
+					mSrc[0].mIntConst = 1;
+			}
+			mSrc[0].mType = IT_BOOL;
 			return true;
 		}
 		break;
@@ -15987,7 +16016,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "tile_draw_p");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 
@@ -16790,6 +16819,7 @@ void InterCodeProcedure::Close(void)
 
 void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)
 {
+	assert(proc != nullptr);
 	mCalledFunctions.Push(proc);
 }
 

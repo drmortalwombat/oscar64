@@ -27,7 +27,6 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Language
 
-* Missing const checks for structs and enums
 * Missing warnings for all kind of abuses
 
 ### Linker

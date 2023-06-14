@@ -1551,16 +1551,27 @@ Expression* Parser::ParseSimpleExpression(void)
 			}
 			else if (dec->mType == DT_VARIABLE || dec->mType == DT_ARGUMENT)
 			{
-				if ((dec->mFlags & DTF_STATIC) && (dec->mFlags & DTF_CONST) && dec->mValue && dec->mBase->IsNumericType())
+				if (/*(dec->mFlags & DTF_STATIC) &&*/ (dec->mFlags & DTF_CONST) && dec->mValue)
 				{
-					exp = dec->mValue;
+					if (dec->mBase->IsNumericType())
+						exp = dec->mValue;
+					else if (dec->mBase->mType == DT_TYPE_POINTER)
+					{
+						if (dec->mValue->mType == EX_CONSTANT)
+						{
+							if (dec->mValue->mDecValue->mType == DT_CONST_ADDRESS || dec->mValue->mDecValue->mType == DT_CONST_POINTER)
+								exp = dec->mValue;
+						}
+					}
 				}
-				else
+
+				if (!exp)
 				{
 					exp = new Expression(mScanner->mLocation, EX_VARIABLE);
 					exp->mDecValue = dec;
 					exp->mDecType = dec->mBase;
 				}
+
 				mScanner->NextToken();
 			}
 			else if (dec->mType <= DT_TYPE_FUNCTION)
@@ -1747,6 +1758,9 @@ Expression* Parser::ParsePostfixExpression(void)
 						{
 							nexp->mDecValue = mdec;
 							nexp->mDecType = mdec->mBase;
+							if (exp->mDecType->mFlags & DTF_CONST)
+								nexp->mDecType = nexp->mDecType->ToConstType();
+
 							exp = nexp->ConstantFold(mErrors);
 						}
 						else
@@ -1776,6 +1790,9 @@ Expression* Parser::ParsePostfixExpression(void)
 					{
 						nexp->mDecValue = mdec;
 						nexp->mDecType = mdec->mBase;
+						if (exp->mDecType->mFlags & DTF_CONST)
+							nexp->mDecType = nexp->mDecType->ToConstType();
+
 						exp = nexp->ConstantFold(mErrors);
 					}
 					else

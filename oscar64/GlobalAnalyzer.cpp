@@ -205,11 +205,42 @@ void GlobalAnalyzer::AutoInline(void)
 
 	} while (changed);
 
-
 	for (int i = 0; i < mFunctions.Size(); i++)
 	{
 		CheckFastcall(mFunctions[i], true);
 	}
+
+	for (int i = 0; i < mFunctions.Size(); i++)
+	{
+		Declaration* dec = mFunctions[i];
+		Declaration* pdec = dec->mBase->mParams;
+		while (pdec)
+		{
+			if (pdec->mFlags & DTF_FPARAM_CONST)
+			{
+				pdec->mVarIndex = dec->mNumVars++;
+
+				Expression* aexp = new Expression(pdec->mLocation, EX_ASSIGNMENT);
+				Expression* pexp = new Expression(pdec->mLocation, EX_VARIABLE);
+				Expression* lexp = new Expression(dec->mLocation, EX_SEQUENCE);
+
+				pexp->mDecType = pdec->mBase;
+				pexp->mDecValue = pdec;
+
+				aexp->mDecType = pdec->mBase;
+				aexp->mToken = TK_ASSIGN;
+				aexp->mLeft = pexp;
+				aexp->mRight = pdec->mValue;
+
+				lexp->mLeft = aexp;
+				lexp->mRight = dec->mValue;
+				dec->mValue = lexp;
+			}
+
+			pdec = pdec->mNext;
+		}
+	}
+
 }
 
 bool GlobalAnalyzer::MarkCycle(Declaration* rootDec, Declaration* procDec)
@@ -635,12 +666,54 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		{
 			// Check for struct to struct forwarding
 			Expression* rex = exp->mRight;
+			Declaration* pdec = ldec->mBase->mParams;
 			while (rex)
 			{
 				Expression* pex = rex->mType == EX_LIST ? rex->mLeft : rex;
 
+				if (pdec && !(ldec->mBase->mFlags & DTF_VARIADIC) && !(ldec->mFlags & (DTF_INTRINSIC | DTF_FUNC_ASSEMBLER)))
+				{
+#if 1
+					if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+					{
+						if (!(pdec->mFlags & DTF_FPARAM_NOCONST))
+						{
+							if (pex->mType == EX_CONSTANT)
+							{
+								if (pdec->mFlags & DTF_FPARAM_CONST)
+								{
+									if (!pex->mDecValue->IsSame(pdec->mValue->mDecValue))
+									{
+										pdec->mFlags |= DTF_FPARAM_NOCONST;
+										pdec->mFlags &= ~DTF_FPARAM_CONST;
+									}
+								}
+								else
+								{
+									pdec->mValue = pex;
+									pdec->mFlags |= DTF_FPARAM_CONST;
+								}
+							}
+							else
+							{
+								pdec->mFlags |= DTF_FPARAM_NOCONST;
+								pdec->mFlags &= ~DTF_FPARAM_CONST;
+							}
+						}
+					}
+					else
+					{
+						pdec->mFlags |= DTF_FPARAM_NOCONST;
+						pdec->mFlags &= ~DTF_FPARAM_CONST;
+					}
+#endif
+				}
+				
 				if (pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT)
 					ldec->mBase->mFlags |= DTF_STACKCALL;
+
+				if (pdec)
+					pdec = pdec->mNext;
 
 				if (rex->mType == EX_LIST)
 					rex = rex->mRight;
@@ -800,7 +873,17 @@ void GlobalAnalyzer::RegisterProc(Declaration* to)
 {
 	if (to->mType == DT_CONST_FUNCTION)
 	{
-		to->mFlags |= DTF_FUNC_VARIABLE;
-		mVariableFunctions.Push(to);
+		if (!(to->mFlags & DTF_FUNC_VARIABLE))
+		{
+			to->mFlags |= DTF_FUNC_VARIABLE;
+			mVariableFunctions.Push(to);
+			Declaration* pdec = to->mParams;
+			while (pdec)
+			{
+				pdec->mFlags |= DTF_FPARAM_NOCONST;
+				pdec->mFlags &= ~DTF_FPARAM_CONST;
+				pdec = pdec->mNext;
+			}
+		}
 	}
 }
