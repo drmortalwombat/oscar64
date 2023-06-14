@@ -15284,6 +15284,7 @@ void InterCodeProcedure::BuildTraces(bool expand, bool dominators, bool compact)
 	{
 		mBlocks[i]->mNumEntries = 0;
 		mBlocks[i]->mLoopHead = false;
+		mBlocks[i]->mTraceIndex = -1;
 	}
 	mEntryBlock->CollectEntries();
 

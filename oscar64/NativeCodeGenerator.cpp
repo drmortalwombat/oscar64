@@ -29097,8 +29097,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		}
 		else if (mIns[ai].mType == ASMIT_LDA && mIns[ai].mMode == ASMIM_ZERO_PAGE)
 		{
-			int i = ai + 1;
-			while (i < mIns.Size() && !mIns[i].ChangesAccu() && !mIns[i].ChangesZeroPage(mIns[ai].mAddress))
+			int i = 0;
+			while (i < mIns.Size() && (i <= ai || !mIns[i].ChangesAccu()) && !mIns[i].ChangesZeroPage(mIns[ai].mAddress))
 				i++;
 			if (i == mIns.Size())
 			{
@@ -31008,6 +31008,8 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 									zxreg[ins.mAddress] += 3;
 								if (zyreg[ins.mAddress] >= 0)
 									zyreg[ins.mAddress] += 3;
+
+								zareg[ins.mAddress] = -1;
 							}
 							break;
 						case ASMIT_LDA:
@@ -39802,7 +39804,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sieve");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -40660,7 +40662,6 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->CheckBlocks(true);
 #endif
-
 #if 1
 		if (step == 3 || step == 4)
 		{
@@ -40689,6 +40690,7 @@ void NativeCodeProcedure::Optimize(void)
 					changed = true;
 			}
 #endif
+
 #if 1
 			ResetVisited();
 			if (!changed && mEntryBlock->ShortcutZeroPageCopyUp(this))
