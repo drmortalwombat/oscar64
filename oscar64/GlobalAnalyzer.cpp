@@ -682,7 +682,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 							{
 								if (pdec->mFlags & DTF_FPARAM_CONST)
 								{
-									if (!pex->mDecValue->IsSame(pdec->mValue->mDecValue))
+									if (!pex->mDecValue->IsSameValue(pdec->mValue->mDecValue))
 									{
 										pdec->mFlags |= DTF_FPARAM_NOCONST;
 										pdec->mFlags &= ~DTF_FPARAM_CONST;

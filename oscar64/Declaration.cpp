@@ -714,6 +714,11 @@ Declaration* Declaration::ToStriped(int stripe)
 			p = p->mNext;
 		}		
 	}
+	else if (mType == DT_TYPE_ARRAY)
+	{
+		ndec->mStride = stripe;
+		ndec->mBase = mBase->ToStriped(stripe);
+	}
 	else
 	{
 		ndec->mScope = mScope;
@@ -899,6 +904,26 @@ bool Declaration::IsSame(const Declaration* dec) const
 			return false;
 
 		return true;
+	}
+
+	return false;
+}
+
+bool Declaration::IsSameValue(const Declaration* dec) const 
+{
+	if (mType != dec->mType || mSize != dec->mSize)
+		return false;
+
+	switch (mType)
+	{
+	case DT_CONST_INTEGER:
+		return mInteger == dec->mInteger;
+	case DT_CONST_FLOAT:
+		return mNumber == dec->mNumber;
+	case DT_CONST_ADDRESS:
+		return mInteger == dec->mInteger;
+	case DT_CONST_POINTER:
+		return mValue && dec->mValue && mValue->mType == dec->mValue->mType && mValue->mDecValue == dec->mValue->mDecValue;
 	}
 
 	return false;

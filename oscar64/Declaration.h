@@ -211,6 +211,7 @@ public:
 	bool IsSame(const Declaration* dec) const;
 	bool IsSubType(const Declaration* dec) const;
 	bool IsConstSame(const Declaration* dec) const;
+	bool IsSameValue(const Declaration* dec) const;
 
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;

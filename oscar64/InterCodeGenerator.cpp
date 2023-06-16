@@ -1556,7 +1556,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (vl.mType->mFlags & DTF_DEFINED)
 				{
 					int64	index = exp->mRight->mDecValue->mInteger;
-					if (index < 0 || index * stride >= vl.mType->mSize)
+					if (index < 0 || index * stride >= vl.mType->mSize * vl.mType->mStripe)
 						mErrors->Error(exp->mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Constant array index out of bounds");
 				}
 			}
