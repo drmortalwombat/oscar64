@@ -516,6 +516,18 @@ void GlobalAnalyzer::AnalyzeGlobalVariable(Declaration* dec)
 	}
 }
 
+void GlobalAnalyzer::AnalyzeInit(Declaration* mdec)
+{
+	while (mdec)
+	{
+		if (mdec->mValue)
+			RegisterProc(Analyze(mdec->mValue, mdec, false));
+		else if (mdec->mParams)
+			AnalyzeInit(mdec->mParams);
+		mdec = mdec->mNext;
+	}
+}
+
 Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, bool lhs)
 {
 	Declaration* ldec, * rdec;
@@ -532,13 +544,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			AnalyzeProcedure(exp->mDecValue->mValue, exp->mDecValue);
 		else if (exp->mDecValue->mType == DT_CONST_STRUCT)
 		{
-			Declaration* mdec = exp->mDecValue->mParams;
-			while (mdec)
-			{
-				if (mdec->mValue)
-					RegisterProc(Analyze(mdec->mValue, mdec, false));
-				mdec = mdec->mNext;
-			}
+			AnalyzeInit(exp->mDecValue->mParams);
 		}
 		else if (exp->mDecValue->mType == DT_CONST_POINTER)
 		{

@@ -30,6 +30,8 @@ protected:
 	GrowingArray<Declaration*>		mCalledFunctions, mCallingFunctions, mVariableFunctions, mFunctions;
 	GrowingArray<Declaration*>		mGlobalVariables;
 
+	void AnalyzeInit(Declaration* mdec);
+
 	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs);
 
 	bool MarkCycle(Declaration* rootDec, Declaration* procDec);
