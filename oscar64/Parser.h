@@ -13,6 +13,7 @@ public:
 	DeclarationScope	*	mGlobals, * mScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
+	Declaration			*	mNamespace;
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 
@@ -33,15 +34,17 @@ protected:
 
 	uint8* ParseStringLiteral(int msize);
 
+	void ParseNamespace(void);
+
 	void ParsePragma(void);
 
 	Declaration* ParseBaseTypeDeclaration(uint64 flags);
-	Declaration* ParseDeclaration(bool variable, bool expression);
+	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
 	Expression* ParseInitExpression(Declaration* dtype);
-	Expression* ParseDeclarationExpression(void);
+	Expression* ParseDeclarationExpression(Declaration* pdec);
 
 	Declaration* ParsePostfixDeclaration(void);
 	Declaration* ReverseDeclaration(Declaration* odec, Declaration* bdec);
@@ -55,6 +58,8 @@ protected:
 	Expression* ParseAssemblerOperand(Declaration * pcasm, int pcoffset);
 
 	void AddAssemblerRegister(const Ident* ident, int value);
+
+	Declaration* ParseQualIdent(void);
 
 	Expression* ParseStatement(void);
 	Expression* ParseSwitchStatement(void);

@@ -237,6 +237,11 @@ int main2(int argc, const char** argv)
 				{
 					compiler->mCompilerOptions |= COPT_EXTENDED_ZERO_PAGE;
 				}
+				else if (arg[1] == 'p' && arg[2] == 'p')
+				{
+					compiler->mCompilerOptions |= COPT_CPLUSPLUS;
+					compiler->AddDefine(Ident::Unique("__cplusplus"), "1");
+				}
 				else
 					compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
 			}
@@ -244,6 +249,14 @@ int main2(int argc, const char** argv)
 			{
 				if (!targetPath[0])
 					strcpy_s(targetPath, argv[i]);
+
+				int n = strlen(argv[i]);
+				if (n > 4 && argv[i][n - 4] == '.' && argv[i][n - 3] == 'c' && argv[i][n - 2] == 'p' && argv[i][n - 1] == 'p')
+				{
+					compiler->mCompilerOptions |= COPT_CPLUSPLUS;
+					compiler->AddDefine(Ident::Unique("__cplusplus"), "1");
+				}
+
 				compiler->mCompilationUnits->AddUnit(loc, argv[i], nullptr);
 			}
 		}

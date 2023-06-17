@@ -6,7 +6,7 @@
 Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUnits)
 	: mErrors(errors), mScanner(scanner), mCompilationUnits(compilationUnits)
 {
-	mGlobals = new DeclarationScope(compilationUnits->mScope);
+	mGlobals = new DeclarationScope(compilationUnits->mScope, SLEVEL_STATIC);
 	mScope = mGlobals;
 
 	mCodeSection = compilationUnits->mSectionCode;
@@ -63,7 +63,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 	if (!dec->mIdent || !dec->mScope)
 	{
 		dec->mIdent = structName;
-		dec->mScope = new DeclarationScope(nullptr);
+		dec->mQualIdent = mScope->Mangle(structName);
+		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
 	}
 
 	if (mScanner->mToken == TK_OPEN_BRACE)
@@ -72,7 +73,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		Declaration* mlast = nullptr;
 		for (;;)
 		{
-			Declaration* mdec = ParseDeclaration(false, false);
+			Declaration* mdec = ParseDeclaration(nullptr, false, false);
 
 			int	offset = dec->mSize;
 			if (dt == DT_TYPE_UNION)
@@ -265,6 +266,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 				ndec->mScope = dec->mScope;
 				ndec->mParams = dec->mParams;
 				ndec->mIdent = dec->mIdent;
+				ndec->mQualIdent = dec->mQualIdent;
 				dec = ndec;
 			}
 			mScanner->NextToken();
@@ -286,12 +288,13 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_ENUM);
 		dec->mFlags = flags;
 		dec->mSize = 1;
-		dec->mScope = new DeclarationScope(nullptr);
+		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
 
 		mScanner->NextToken();
 		if (mScanner->mToken == TK_IDENT)
 		{
 			dec->mIdent = mScanner->mTokenIdent;
+			dec->mQualIdent = mScope->Mangle(dec->mIdent);
 			
 			if (mScope->Insert(dec->mIdent, dec))
 				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name", dec->mIdent);
@@ -314,6 +317,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 					if (mScanner->mToken == TK_IDENT)
 					{
 						cdec->mIdent = mScanner->mTokenIdent;
+						cdec->mQualIdent = mScope->Mangle(cdec->mIdent);
 						if (mScope->Insert(cdec->mIdent, cdec) != nullptr)
 							mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate declaration", mScanner->mTokenIdent->mString);
 						mScanner->NextToken();
@@ -441,6 +445,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 	{
 		dec = new Declaration(mScanner->mLocation, DT_VARIABLE);
 		dec->mIdent = mScanner->mTokenIdent;
+		dec->mQualIdent = mScope->Mangle(dec->mIdent);
 		dec->mSection = mBSSection;
 		dec->mBase = nullptr;
 		mScanner->NextToken();
@@ -1005,87 +1010,126 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	return exp;
 }
 
-Declaration* Parser::ParseDeclaration(bool variable, bool expression)
+Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression)
 {
 	bool	definingType = false;
 	uint64	storageFlags = 0, typeFlags = 0;
+	Declaration* bdec;
 
-	if (mScanner->mToken == TK_TYPEDEF)
+	if (pdec)
 	{
-		definingType = true;
-		variable = false;
-		mScanner->NextToken();
+		bdec = pdec;
 	}
 	else
 	{
-		for (;;)
+		if (mScanner->mToken == TK_TYPEDEF)
 		{
-			if (mScanner->mToken == TK_STATIC)
+			definingType = true;
+			variable = false;
+			mScanner->NextToken();
+		}
+		else if (mScanner->mToken == TK_USING)
+		{
+			mScanner->NextToken();
+			if (ConsumeTokenIf(TK_NAMESPACE))
 			{
-				storageFlags |= DTF_STATIC;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_EXTERN)
-			{
-				storageFlags |= DTF_EXTERN;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_ZEROPAGE)
-			{
-				storageFlags |= DTF_ZEROPAGE;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_STRIPED)
-			{
-				storageFlags |= DTF_STRIPED;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_NOINLINE)
-			{
-				storageFlags |= DTF_PREVENT_INLINE;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_INLINE)
-			{
-				storageFlags |= DTF_REQUEST_INLINE;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_EXPORT)
-			{
-				storageFlags |= DTF_EXPORT;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_DYNSTACK)
-			{
-				storageFlags |= DTF_DYNSTACK;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_FASTCALL)
-			{
-				storageFlags |= DTF_FASTCALL;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_NATIVE)
-			{
-				storageFlags |= DTF_NATIVE;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_INTERRUPT)
-			{
-				storageFlags |= DTF_INTERRUPT | DTF_NATIVE;
-				mScanner->NextToken();
-			}
-			else if (mScanner->mToken == TK_HWINTERRUPT)
-			{
-				storageFlags |= DTF_INTERRUPT | DTF_HWINTERRUPT | DTF_NATIVE;
-				mScanner->NextToken();
+				Declaration* dec = ParseQualIdent();
+				if (dec)
+				{
+					if (dec->mType == DT_NAMESPACE)
+					{
+						mScope->UseScope(dec->mScope);
+					}
+					else
+						mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a class or namespace");
+				}
+
+				return dec;
 			}
 			else
-				break;
-		}
-	}
+			{
+				Declaration* dec = ParseQualIdent();
+				if (dec)
+				{
+					Declaration* pdec = mScope->Insert(dec->mIdent, dec);
+					if (pdec && pdec != dec)
+						mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate declaration", dec->mIdent);
+				}
 
-	Declaration* bdec = ParseBaseTypeDeclaration(typeFlags);
+				return dec;
+			}
+		}
+		else
+		{
+			for (;;)
+			{
+				if (mScanner->mToken == TK_STATIC)
+				{
+					storageFlags |= DTF_STATIC;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_EXTERN)
+				{
+					storageFlags |= DTF_EXTERN;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_ZEROPAGE)
+				{
+					storageFlags |= DTF_ZEROPAGE;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_STRIPED)
+				{
+					storageFlags |= DTF_STRIPED;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_NOINLINE)
+				{
+					storageFlags |= DTF_PREVENT_INLINE;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_INLINE)
+				{
+					storageFlags |= DTF_REQUEST_INLINE;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_EXPORT)
+				{
+					storageFlags |= DTF_EXPORT;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_DYNSTACK)
+				{
+					storageFlags |= DTF_DYNSTACK;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_FASTCALL)
+				{
+					storageFlags |= DTF_FASTCALL;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_NATIVE)
+				{
+					storageFlags |= DTF_NATIVE;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_INTERRUPT)
+				{
+					storageFlags |= DTF_INTERRUPT | DTF_NATIVE;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_HWINTERRUPT)
+				{
+					storageFlags |= DTF_INTERRUPT | DTF_HWINTERRUPT | DTF_NATIVE;
+					mScanner->NextToken();
+				}
+				else
+					break;
+			}
+		}
+
+		bdec = ParseBaseTypeDeclaration(typeFlags);
+	}
 
 	Declaration* rdec = nullptr, * ldec = nullptr;
 
@@ -1155,9 +1199,9 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 							mErrors->Error(ndec->mLocation, ERRR_INVALID_STORAGE_TYPE, "Invalid storage type", ndec->mIdent);
 					}
 
-					if (mGlobals == mScope && !(storageFlags & DTF_STATIC))
+					if (mScope->mLevel < SLEVEL_FUNCTION && !(storageFlags & DTF_STATIC))
 					{
-						pdec = mCompilationUnits->mScope->Insert(ndec->mIdent, ndec);
+						pdec = mCompilationUnits->mScope->Insert(ndec->mQualIdent, ndec);
 
 						Declaration	*	ldec = mScope->Insert(ndec->mIdent, pdec ? pdec : ndec);
 						if (ldec && ldec != pdec)
@@ -1183,7 +1227,10 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 								while (npdec && ppdec)
 								{
 									if (npdec->mIdent)
+									{
 										ppdec->mIdent = npdec->mIdent;
+										ppdec->mQualIdent = npdec->mQualIdent;
+									}
 									npdec = npdec->mNext;
 									ppdec = ppdec->mNext;
 								}
@@ -1236,7 +1283,7 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 					}
 				}
 
-				if (mGlobals == mScope || (ndec->mFlags & DTF_STATIC))
+				if (mScope->mLevel < SLEVEL_FUNCTION || (ndec->mFlags & DTF_STATIC))
 				{
 					ndec->mFlags |= DTF_GLOBAL;
 					ndec->mVarIndex = -1;
@@ -1316,12 +1363,12 @@ Declaration* Parser::ParseDeclaration(bool variable, bool expression)
 	return rdec;
 }
 
-Expression* Parser::ParseDeclarationExpression(void)
+Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 {
 	Declaration* dec;
 	Expression* exp = nullptr, * rexp = nullptr;
 
-	dec = ParseDeclaration(true, true);
+	dec = ParseDeclaration(pdec, true, true);
 	if (dec->mType == DT_ANON && dec->mNext == 0)
 	{
 		exp = new Expression(dec->mLocation, EX_TYPE);
@@ -1366,6 +1413,44 @@ Expression* Parser::ParseDeclarationExpression(void)
 	return exp;
 }
 
+Declaration* Parser::ParseQualIdent(void)
+{
+	Declaration* dec = mScope->Lookup(mScanner->mTokenIdent);
+	if (dec)
+	{
+		mScanner->NextToken();
+		while (ConsumeTokenIf(TK_COLCOLON))
+		{
+			if (mScanner->mToken == TK_IDENT)
+			{
+				if (dec->mType == DT_NAMESPACE)
+				{
+					Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent);
+
+					if (ndec)
+						dec = ndec;
+					else
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent);
+				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a class or namespace");
+
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
+
+			mScanner->NextToken();
+		}
+	}
+	else
+	{
+		mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent);
+		mScanner->NextToken();
+	}
+
+	return dec;
+}
+
 Expression* Parser::ParseSimpleExpression(void)
 {
 	Declaration* dec;
@@ -1390,7 +1475,7 @@ Expression* Parser::ParseSimpleExpression(void)
 	case TK_STATIC:
 	case TK_AUTO:
 	case TK_STRIPED:
-		exp = ParseDeclarationExpression();
+		exp = ParseDeclarationExpression(nullptr);
 		break;
 	case TK_CHARACTER:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
@@ -1538,7 +1623,7 @@ Expression* Parser::ParseSimpleExpression(void)
 		mScanner->NextToken();
 		break;
 	case TK_IDENT:
-		dec = mScope->Lookup(mScanner->mTokenIdent);
+		dec = ParseQualIdent();
 		if (dec)
 		{
 			if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
@@ -1547,7 +1632,6 @@ Expression* Parser::ParseSimpleExpression(void)
 				exp->mDecValue = dec;
 				exp->mDecType = dec->mBase;
 				exp->mConst = true;
-				mScanner->NextToken();
 			}
 			else if (dec->mType == DT_VARIABLE || dec->mType == DT_ARGUMENT)
 			{
@@ -1571,23 +1655,15 @@ Expression* Parser::ParseSimpleExpression(void)
 					exp->mDecValue = dec;
 					exp->mDecType = dec->mBase;
 				}
-
-				mScanner->NextToken();
 			}
 			else if (dec->mType <= DT_TYPE_FUNCTION)
 			{
-				exp = ParseDeclarationExpression();
+				exp = ParseDeclarationExpression(dec);
 			}
 			else
 			{
 				mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid identifier", mScanner->mTokenIdent);
-				mScanner->NextToken();
 			}
-		}
-		else
-		{
-			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent);
-			mScanner->NextToken();
 		}
 
 		break;
@@ -2159,7 +2235,7 @@ Expression* Parser::ParseListExpression(void)
 
 Expression* Parser::ParseFunction(Declaration * dec)
 {
-	DeclarationScope* scope = new DeclarationScope(mScope);
+	DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_FUNCTION);
 	mScope = scope;
 
 	Declaration* pdec = dec->mParams;
@@ -2191,7 +2267,7 @@ Expression* Parser::ParseStatement(void)
 	
 	if (mScanner->mToken == TK_OPEN_BRACE)
 	{
-		DeclarationScope* scope = new DeclarationScope(mScope);
+		DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_LOCAL);
 		mScope = scope;
 
 		mScanner->NextToken();
@@ -2256,7 +2332,7 @@ Expression* Parser::ParseStatement(void)
 		{
 			mScanner->NextToken();
 
-			DeclarationScope* scope = new DeclarationScope(mScope);
+			DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_LOCAL);
 			mScope = scope;
 
 			exp = new Expression(mScanner->mLocation, EX_WHILE);
@@ -2284,7 +2360,7 @@ Expression* Parser::ParseStatement(void)
 			mScanner->NextToken();
 			if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 			{
-				DeclarationScope* scope = new DeclarationScope(mScope);
+				DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_LOCAL);
 				mScope = scope;
 
 				mScanner->NextToken();
@@ -2725,6 +2801,7 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 			exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 			dec = new Declaration(mScanner->mLocation, DT_LABEL);
 			dec->mIdent = mScanner->mTokenIdent;
+			dec->mQualIdent = mScanner->mTokenIdent;
 			exp->mDecType = TheUnsignedIntTypeDeclaration;
 			mScope->Insert(dec->mIdent, dec);
 		}
@@ -2772,6 +2849,7 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 		{
 			Declaration* ndec = new Declaration(mScanner->mLocation, DT_LABEL);
 			ndec->mIdent = exp->mDecValue->mIdent;
+			ndec->mQualIdent = exp->mDecValue->mQualIdent;
 			ndec->mBase = exp->mDecValue;
 			ndec->mInteger = 0;
 			exp->mDecValue = ndec;
@@ -3017,6 +3095,7 @@ void Parser::AddAssemblerRegister(const Ident* ident, int value)
 {
 	Declaration* decaccu = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 	decaccu->mIdent = ident;
+	decaccu->mQualIdent = ident;
 	decaccu->mBase = TheUnsignedIntTypeDeclaration;
 	decaccu->mSize = 2;
 	decaccu->mInteger = value;
@@ -3025,7 +3104,7 @@ void Parser::AddAssemblerRegister(const Ident* ident, int value)
 
 Expression* Parser::ParseAssembler(void)
 {
-	DeclarationScope* scope = new DeclarationScope(mScope);
+	DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_LOCAL);
 	mScope = scope;
 
 	mScanner->SetAssemblerMode(true);
@@ -3044,6 +3123,7 @@ Expression* Parser::ParseAssembler(void)
 
 	Declaration* decaccu = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 	decaccu->mIdent = Ident::Unique("accu");
+	decaccu->mQualIdent = decaccu->mIdent;
 	decaccu->mBase = TheUnsignedIntTypeDeclaration;
 	decaccu->mSize = 2;
 	decaccu->mInteger = BC_REG_ACCU;
@@ -3095,6 +3175,7 @@ Expression* Parser::ParseAssembler(void)
 					dec = new Declaration(mScanner->mLocation, DT_LABEL);
 
 				dec->mIdent = label;
+				dec->mQualIdent = dec->mIdent;
 				dec->mValue = ilast;
 				dec->mInteger = offset;
 				dec->mBase = vdasm;
@@ -4105,6 +4186,84 @@ void Parser::ParsePragma(void)
 		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Invalid pragma directive");
 }
 
+void Parser::ParseNamespace(void)
+{
+	if (mScanner->mToken == TK_IDENT)
+	{
+		const Ident* ident = mScanner->mTokenIdent;
+
+		mScanner->NextToken();
+
+		if (mScanner->mToken == TK_OPEN_BRACE)
+		{
+			Declaration* ns = mScope->Lookup(ident);
+			if (ns)
+			{
+				if (ns->mType != DT_NAMESPACE)
+				{
+					mErrors->Error(mScanner->mLocation, ERRO_NOT_A_NAMESPACE, "Not a namespace", ident);
+					ns = nullptr;
+				}
+			}
+
+			if (!ns)
+			{
+				ns = new Declaration(mScanner->mLocation, DT_NAMESPACE);
+				mScope->Insert(ident, ns);
+				ns->mScope = new DeclarationScope(mScope, SLEVEL_NAMESPACE, ident);
+			}
+
+			mScanner->NextToken();
+
+			DeclarationScope* outerScope = mScope;
+			mScope = ns->mScope;
+
+			while (mScanner->mToken != TK_EOF && mScanner->mToken != TK_CLOSE_BRACE)
+			{
+				if (mScanner->mToken == TK_PREP_PRAGMA)
+				{
+					mScanner->NextToken();
+					ParsePragma();
+				}
+				else if (mScanner->mToken == TK_SEMICOLON)
+					mScanner->NextToken();
+				else if (mScanner->mToken == TK_NAMESPACE)
+				{
+					mScanner->NextToken();
+					ParseNamespace();
+				}
+				else
+					ParseDeclaration(nullptr, true, false);
+			}
+
+			ConsumeToken(TK_CLOSE_BRACE);
+
+			mScope = outerScope;
+		}
+		else
+		{
+			ConsumeToken(TK_ASSIGN);
+			Declaration* dec = ParseQualIdent();
+			if (dec)
+			{
+				if (dec->mType == DT_NAMESPACE)
+				{
+					Declaration* ns = mScope->Insert(ident, dec);
+					if (ns)
+						mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition", ident);
+				}
+				else
+					mErrors->Error(mScanner->mLocation, ERRO_NOT_A_NAMESPACE, "Not a namespace", ident);
+			}
+			ConsumeToken(TK_SEMICOLON);
+		}
+	}
+	else
+	{
+		// Annonymous namespace
+	}
+}
+
 void Parser::Parse(void)
 {
 	mLocalIndex = 0;
@@ -4144,7 +4303,12 @@ void Parser::Parse(void)
 		}
 		else if (mScanner->mToken == TK_SEMICOLON)
 			mScanner->NextToken();
+		else if (mScanner->mToken == TK_NAMESPACE)
+		{
+			mScanner->NextToken();
+			ParseNamespace();
+		}
 		else
-			ParseDeclaration(true, false);
+			ParseDeclaration(nullptr, true, false);
 	}
 }

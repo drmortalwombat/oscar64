@@ -376,8 +376,8 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		InterVariable	*	var = new InterVariable();
 		var->mOffset = 0;
 		var->mSize = dec->mSize;
-		var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
-		var->mIdent = dec->mIdent;
+		var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_DATA, dec->mAlignment);
+		var->mIdent = dec->mQualIdent;
 
 		Declaration* decb = dec->mBase;
 		while (decb && decb->mType == DT_TYPE_ARRAY)
@@ -437,7 +437,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 
 	Declaration* dec = exp->mDecValue;
 
-	dec->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_NATIVE_CODE);
+	dec->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_NATIVE_CODE);
 
 	uint8* d = dec->mLinkerObject->AddSpace(osize);
 
@@ -485,7 +485,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					dec->mLinkerObject->AddReference(ref);
 				}
 				else
-					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent);
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mQualIdent);
 			}
 			else if (aexp->mType == DT_VARIABLE_REF)
 			{
@@ -730,7 +730,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					if (aexp->mBase->mBase)
 						d[offset] = uint8(aexp->mOffset + aexp->mBase->mInteger - offset - 1);
 					else
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mIdent);
+						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mQualIdent);
 				}
 				else
 					d[offset] = uint8(aexp->mInteger - offset - 1);
@@ -884,6 +884,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 				ains->mConst.mOperandSize = pdec->mSize;
 			vdec->mSize = ains->mConst.mOperandSize;
 			vdec->mIdent = pdec->mIdent;
+			vdec->mQualIdent = pdec->mQualIdent;
 		}
 		else
 		{
@@ -1177,12 +1178,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					dec->mVarIndex = proc->mModule->mGlobalVars.Size();
 					InterVariable* var = new InterVariable();
 					var->mIndex = dec->mVarIndex;
-					var->mIdent = dec->mIdent;
+					var->mIdent = dec->mQualIdent;
 					var->mOffset = 0;
 					var->mSize = dec->mSize;
 					if ((dec->mFlags & DTF_VAR_ALIASING) || dec->mBase->mType == DT_TYPE_ARRAY)
 						var->mAliased = true;
-					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
+					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 					dec->mLinkerObject = var->mLinkerObject;
 					var->mLinkerObject->AddData(dec->mData, dec->mSize);
 					proc->mModule->mGlobalVars.Push(var);
@@ -1209,9 +1210,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					var->mSize = dec->mSize;
 					if (dec->mFlags & DTF_VAR_ALIASING)
 						var->mAliased = true;
-					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
+					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 					dec->mLinkerObject = var->mLinkerObject;
-					var->mIdent = dec->mIdent;
+					var->mIdent = dec->mQualIdent;
 					dec->mVarIndex = proc->mModule->mGlobalVars.Size();
 					var->mIndex = dec->mVarIndex;
 					proc->mModule->mGlobalVars.Push(var);
@@ -2229,7 +2230,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && (exp->mLeft->mDecValue->mFlags & DTF_INTRINSIC))
 			{
 				Declaration* decf = exp->mLeft->mDecValue;
-				const Ident	*	iname = decf->mIdent;
+				const Ident	*	iname = decf->mQualIdent;
 
 				if (!strcmp(iname->mString, "fabs"))
 				{
@@ -3657,7 +3658,7 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 				var->mSize = dec->mSize;
 				if (dec->mFlags & DTF_VAR_ALIASING)
 					var->mAliased = true;
-				var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_DATA, dec->mAlignment);
+				var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_DATA, dec->mAlignment);
 				dec->mLinkerObject = var->mLinkerObject;
 				var->mLinkerObject->AddData(dec->mData, dec->mSize);
 				mod->mGlobalVars.Push(var);
@@ -3756,7 +3757,7 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 
 InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod, Expression* exp, Declaration * dec)
 {
-	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mIdent, mLinker->AddObject(dec->mLocation, dec->mIdent, dec->mSection, LOT_BYTE_CODE));
+	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE));
 
 	uint64	outerCompilerOptions = mCompilerOptions;
 	mCompilerOptions = dec->mCompilerOptions;
@@ -3845,7 +3846,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		TranslateExpression(dec->mBase, proc, exitBlock, exp, nullptr, nullptr, nullptr);
 	}
 	else
-		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent->mString);
+		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent->mString);
 
 	InterInstruction	*	ins = new InterInstruction(exp ? exp->mEndLocation : dec->mLocation, IC_RETURN);
 	exitBlock->Append(ins);

@@ -40,21 +40,21 @@ void GlobalAnalyzer::DumpCallGraph(void)
 			for (int j = 0; j < decs.Size(); j++)
 			{
 				if (decs[j]->mType == DT_CONST_FUNCTION)
-					printf("CALL %s[%d, %08llx] -> %d -> %s[%d, %08llx]\n", from->mIdent->mString, from->mComplexity, from->mFlags, calls[j], decs[j]->mIdent->mString, decs[j]->mComplexity, decs[j]->mFlags);
+					printf("CALL %s[%d, %08llx] -> %d -> %s[%d, %08llx]\n", from->mQualIdent->mString, from->mComplexity, from->mFlags, calls[j], decs[j]->mQualIdent->mString, decs[j]->mComplexity, decs[j]->mFlags);
 				else
-					printf("CALL %s[%d, %08llx] -> %d\n", from->mIdent->mString, from->mComplexity, from->mFlags, calls[j]);
+					printf("CALL %s[%d, %08llx] -> %d\n", from->mQualIdent->mString, from->mComplexity, from->mFlags, calls[j]);
 			}
 		}
 		else
 		{
-			printf("LEAF %d -> %s[%d, %08llx]\n", from->mCallers.Size(), from->mIdent->mString, from->mComplexity, from->mFlags );
+			printf("LEAF %d -> %s[%d, %08llx]\n", from->mCallers.Size(), from->mQualIdent->mString, from->mComplexity, from->mFlags );
 		}
 	}
 
 	for (int i = 0; i < mGlobalVariables.Size(); i++)
 	{
 		Declaration* var = mGlobalVariables[i];
-		printf("VAR %s[%d, %08llx, %d]\n", var->mIdent->mString, var->mSize, var->mFlags, var->mUseCount);
+		printf("VAR %s[%d, %08llx, %d]\n", var->mQualIdent->mString, var->mSize, var->mFlags, var->mUseCount);
 	}
 }
 
@@ -445,7 +445,7 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 			Analyze(exp, dec, false);
 		}
 		else
-			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mIdent);
+			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent);
 
 		dec->mFlags &= ~DTF_FUNC_ANALYZING;
 	}
@@ -662,7 +662,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			{
 				procDec->mFlags &= ~DTF_FUNC_INTRSAVE;
 				if (procDec->mFlags & DTF_INTERRUPT)
-					mErrors->Error(exp->mLocation, EWARN_NOT_INTERRUPT_SAFE, "Calling non interrupt safe function", ldec->mIdent);
+					mErrors->Error(exp->mLocation, EWARN_NOT_INTERRUPT_SAFE, "Calling non interrupt safe function", ldec->mQualIdent);
 			}
 			if (!(GetProcFlags(ldec) & DTF_FUNC_PURE))
 				procDec->mFlags &= ~DTF_FUNC_PURE;

@@ -34,6 +34,9 @@ static const uint64 COPT_VERBOSE3 = 1ULL << 50;
 
 static const uint64 COPT_DEBUGINFO = 1ULL << 51;
 
+static const uint64 COPT_CPLUSPLUS = 1ULL << 52;
+
+
 
 static const uint64 COPT_DEFAULT = COPT_OPTIMIZE_BASIC | COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_CONST_EXPRESSIONS;
 

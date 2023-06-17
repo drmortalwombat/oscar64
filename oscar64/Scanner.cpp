@@ -148,7 +148,11 @@ const char* TokenNames[] =
 	"'#repeat'",
 	"'#until'",
 	"'#embed'",
-	"'##'"
+	"'##'",
+
+	"'namespace'",
+	"'using'",
+	"'::'"
 };
 
 
@@ -311,7 +315,6 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	mToken = TK_NONE;
 
 	NextChar();
-	NextToken();
 
 	assert(sizeof(TokenNames) == NUM_TOKENS * sizeof(char*));
 }
@@ -1088,6 +1091,11 @@ void Scanner::NextRawToken(void)
 		case ':':
 			mToken = TK_COLON;
 			NextChar();
+			if (mTokenChar == ':' && (mCompilerOptions & COPT_CPLUSPLUS))
+			{
+				mToken = TK_COLCOLON;
+				NextChar();
+			}
 			break;
 		case '?':
 			mToken = TK_QUESTIONMARK;
@@ -1379,6 +1387,10 @@ void Scanner::NextRawToken(void)
 					mToken = TK_STRIPED;
 				else if (!strcmp(tkident, "__dynstack"))
 					mToken = TK_DYNSTACK;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "namespace"))
+					mToken = TK_NAMESPACE;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "using"))
+					mToken = TK_USING;
 				else
 				{
 					mToken = TK_IDENT;

@@ -1,8 +1,10 @@
 #include "Declaration.h"
 
-DeclarationScope::DeclarationScope(DeclarationScope* parent)
+DeclarationScope::DeclarationScope(DeclarationScope* parent, ScopeLevel level, const Ident* name)
 {
 	mParent = parent;
+	mLevel = level;
+	mName = name;
 	mHashSize = 0;
 	mHashFill = 0;
 	mHash = nullptr;
@@ -11,6 +13,25 @@ DeclarationScope::DeclarationScope(DeclarationScope* parent)
 DeclarationScope::~DeclarationScope(void)
 {
 	delete[] mHash;
+}
+
+const Ident* DeclarationScope::Mangle(const Ident* ident) const
+{
+	if (mName)
+	{
+		char	buffer[200];
+		strcpy_s(buffer, mName->mString);
+		strcat_s(buffer, "::");
+		strcat_s(buffer, ident->mString);
+		return Ident::Unique(buffer);
+	}
+	else
+		return ident;
+}
+
+void DeclarationScope::UseScope(DeclarationScope* scope)
+{
+	mUsed.Push(scope);
 }
 
 Declaration * DeclarationScope::Insert(const Ident* ident, Declaration* dec)
@@ -77,6 +98,13 @@ Declaration* DeclarationScope::Lookup(const Ident* ident)
 				return mHash[hi].mDec;
 			hi = (hi + 1) & hm;
 		}
+	}
+
+	for (int i = 0; i < mUsed.Size(); i++)
+	{
+		Declaration* dec = mUsed[i]->Lookup(ident);
+		if (dec)
+			return dec;
 	}
 
 	return mParent ? mParent->Lookup(ident) : nullptr;
@@ -602,7 +630,8 @@ Expression* Expression::ConstantFold(Errors * errors)
 }
 
 Declaration::Declaration(const Location& loc, DecType type)
-	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
+	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr),
+	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
 	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mConst(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
@@ -632,6 +661,7 @@ Declaration* Declaration::Clone(void)
 	ndec->mScope = mScope;
 	ndec->mParams = mParams;
 	ndec->mIdent = mIdent;
+	ndec->mQualIdent = mQualIdent;
 	ndec->mValue = mValue;
 	ndec->mVarIndex = mVarIndex;
 	ndec->mLinkerObject = mLinkerObject;
@@ -689,6 +719,7 @@ Declaration* Declaration::ToStriped(int stripe)
 	ndec->mStripe = stripe;
 	ndec->mFlags = mFlags;
 	ndec->mIdent = mIdent;
+	ndec->mQualIdent = mQualIdent;
 
 	if (mType == DT_ELEMENT)
 		ndec->mBase = mBase->ToStriped(stripe);
@@ -697,7 +728,7 @@ Declaration* Declaration::ToStriped(int stripe)
 
 	if (mType == DT_TYPE_STRUCT)
 	{
-		ndec->mScope = new DeclarationScope(nullptr);
+		ndec->mScope = new DeclarationScope(nullptr, mScope->mLevel);
 		Declaration	* p = mParams;
 		Declaration* prev = nullptr;
 		while (p)
@@ -743,6 +774,7 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mScope = mScope;
 		ndec->mParams = mParams;
 		ndec->mIdent = mIdent;
+		ndec->mQualIdent = mQualIdent;
 		mConst = ndec;
 	}
 	

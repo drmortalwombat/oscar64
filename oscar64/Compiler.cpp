@@ -145,6 +145,10 @@ bool Compiler::ParseSource(void)
 			for (int i = 0; i < mDefines.Size(); i++)
 				scanner->AddMacro(mDefines[i].mIdent, mDefines[i].mValue);
 
+			scanner->mCompilerOptions = mCompilerOptions;
+
+			scanner->NextToken();
+
 			Parser* parser = new Parser(mErrors, scanner, mCompilationUnits);
 
 			parser->mCompilerOptions = mCompilerOptions;
@@ -1161,25 +1165,25 @@ bool Compiler::WriteDbjFile(const char* filename)
 			{
 			case DT_TYPE_INTEGER:
 				if (dec->mFlags & DTF_SIGNED)
-					fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"int\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+					fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"int\"}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize);
 				else
-					fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"uint\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+					fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"uint\"}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize);
 				break;
 			case DT_TYPE_FLOAT:
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"float\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"float\"}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize);
 				break;
 			case DT_TYPE_BOOL:
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"bool\"}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"bool\"}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize);
 				break;
 			case DT_TYPE_ARRAY:
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"array\", \"eid\": %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"array\", \"eid\": %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_POINTER:
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ptr\", eid: %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ptr\", eid: %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_ENUM:
 			{
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"enum\",\"members\": [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"enum\",\"members\": [\n", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize);
 				bool	tfirst = true;
 				Declaration* mdec = dec->mParams;
 				while (mdec)
@@ -1201,7 +1205,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 			break;
 			case DT_TYPE_STRUCT:
 			{
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"struct\",\"members\": [\n", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"struct\",\"members\": [\n", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize);
 					bool	tfirst = true;
 					Declaration* mdec = dec->mParams;
 					while (mdec)
@@ -1218,7 +1222,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 				}
 				break;
 			default:
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d}", dec->mIdent ? dec->mIdent->mString : "", i, dec->mSize);
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize);
 			}
 		}
 

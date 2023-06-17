@@ -149,6 +149,10 @@ enum Token
 
 	TK_PREP_CONCAT,
 
+	TK_NAMESPACE,
+	TK_USING,
+	TK_COLCOLON,
+
 	NUM_TOKENS
 };
 
@@ -230,6 +234,8 @@ public:
 
 	bool			mAssemblerMode;
 	bool			mPreprocessorMode;
+
+	uint64			mCompilerOptions;
 
 	void AddMacro(const Ident* ident, const char* value);
 protected:

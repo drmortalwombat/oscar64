@@ -12,8 +12,8 @@ CompilationUnits::CompilationUnits(Errors * errors)
 {
 	mCompilationUnits = nullptr; 
 	mPendingUnits = nullptr;
-	mScope = new DeclarationScope(nullptr);
-	mRuntimeScope = new DeclarationScope(nullptr);
+	mScope = new DeclarationScope(nullptr, SLEVEL_GLOBAL);
+	mRuntimeScope = new DeclarationScope(nullptr, SLEVEL_GLOBAL);
 	mStartup = nullptr;
 
 	for (int i = 0; i < 256; i++)

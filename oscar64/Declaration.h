@@ -45,7 +45,8 @@ enum DecType
 	DT_LABEL,
 	DT_VARIABLE_REF,
 	DT_FUNCTION_REF,
-	DT_LABEL_REF
+	DT_LABEL_REF,
+	DT_NAMESPACE,
 };
 
 // TypeFlags
@@ -96,16 +97,33 @@ static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 
 class Declaration;
 
+enum ScopeLevel
+{
+	SLEVEL_GLOBAL,
+	SLEVEL_STATIC,
+	SLEVEL_NAMESPACE,
+	SLEVEL_CLASS,
+	SLEVEL_FUNCTION,
+	SLEVEL_LOCAL
+};
+
 class DeclarationScope
 {
 public:
-	DeclarationScope(DeclarationScope * parent);
+	DeclarationScope(DeclarationScope * parent, ScopeLevel level, const Ident * name = nullptr);
 	~DeclarationScope(void);
+
+	const Ident* Mangle(const Ident* ident) const;
 
 	Declaration* Insert(const Ident* ident, Declaration* dec);
 	Declaration* Lookup(const Ident* ident);
 
 	void End(const Location & loc);
+
+	void UseScope(DeclarationScope* scope);
+
+	ScopeLevel		mLevel;
+	const Ident	*	mName;
 
 	DeclarationScope* mParent;
 protected:
@@ -116,6 +134,7 @@ protected:
 	};
 	Entry	* mHash;
 	int			mHashSize, mHashFill;
+	ExpandingArray<DeclarationScope*>	mUsed;
 };
 
 enum ExpressionType
@@ -199,7 +218,7 @@ public:
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
 	uint64				mFlags, mCompilerOptions;
-	const Ident		*	mIdent;
+	const Ident		*	mIdent, * mQualIdent;
 	LinkerSection	*	mSection;
 	const uint8		*	mData;
 	LinkerObject	*	mLinkerObject;
