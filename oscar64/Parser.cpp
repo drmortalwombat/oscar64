@@ -431,6 +431,34 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		ndec->mBase = dec;
 		return ndec;
 	}
+	else if (mScanner->mToken == TK_BINARY_AND && (mCompilerOptions & COPT_CPLUSPLUS))
+	{
+		mScanner->NextToken();
+
+		Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_REFERENCE);
+		ndec->mSize = 2;
+		ndec->mFlags |= DTF_DEFINED;
+
+		for (;;)
+		{
+			if (mScanner->mToken == TK_CONST)
+			{
+				ndec->mFlags |= DTF_CONST;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_VOLATILE)
+			{
+				ndec->mFlags |= DTF_VOLATILE;
+				mScanner->NextToken();
+			}
+			else
+				break;
+		}
+
+		Declaration* dec = ParsePostfixDeclaration();
+		ndec->mBase = dec;
+		return ndec;
+	}
 	else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 	{
 		mScanner->NextToken();
@@ -1855,13 +1883,18 @@ Expression* Parser::ParsePostfixExpression(void)
 		else if (mScanner->mToken == TK_DOT)
 		{
 			mScanner->NextToken();
-			if (exp->mDecType->mType == DT_TYPE_STRUCT || exp->mDecType->mType == DT_TYPE_UNION)
+			Declaration* dtype = exp->mDecType;
+
+			if (dtype->mType == DT_TYPE_REFERENCE)
+				dtype = dtype->mBase;
+			
+			if (dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
 			{
 				Expression* nexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 				nexp->mLeft = exp;
 				if (mScanner->mToken == TK_IDENT)
 				{
-					Declaration* mdec = exp->mDecType->mScope->Lookup(mScanner->mTokenIdent);
+					Declaration* mdec = dtype->mScope->Lookup(mScanner->mTokenIdent);
 					if (mdec)
 					{
 						nexp->mDecValue = mdec;

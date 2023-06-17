@@ -22696,7 +22696,7 @@ bool NativeCodeBasicBlock::CheckGlobalAddressSumYPointer(const NativeCodeBasicBl
 				yval = (yval + 1) & 255;
 			else if (ins.mType == ASMIT_DEY && yval >= 0)
 				yval = (yval - 1) & 255;
-			else if (ins.mType == ASMIT_JSR)
+			else if (ins.mType == ASMIT_JSR || ins.mType == ASMIT_RTS)
 			{
 				if (ins.UsesZeroPage(reg) || ins.UsesZeroPage(reg + 1) || ins.ChangesZeroPage(index))
 					return false;
@@ -39839,7 +39839,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "data");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

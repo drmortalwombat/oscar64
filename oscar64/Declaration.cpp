@@ -963,6 +963,11 @@ bool Declaration::IsSameValue(const Declaration* dec) const
 
 bool Declaration::CanAssign(const Declaration* fromType) const
 {
+	if (mType == DT_TYPE_REFERENCE)
+		return fromType->IsSubType(mBase);
+	else if (fromType->mType == DT_TYPE_REFERENCE)
+		return this->CanAssign(fromType->mBase);
+
 	if (this->IsSame(fromType))
 		return true;
 	else if (IsNumericType())
