@@ -13,7 +13,7 @@ public:
 	DeclarationScope	*	mGlobals, * mScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
-	Declaration			*	mNamespace;
+	Declaration			*	mThisPointer;
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 
@@ -63,6 +63,8 @@ protected:
 
 	Expression* ParseStatement(void);
 	Expression* ParseSwitchStatement(void);
+
+	Expression* ParseQualify(Expression * exp);
 
 	Expression* ParseSimpleExpression(void);
 	Expression* ParsePrefixExpression(void);

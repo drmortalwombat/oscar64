@@ -152,6 +152,7 @@ const char* TokenNames[] =
 
 	"'namespace'",
 	"'using'",
+	"'this'",
 	"'::'"
 };
 
@@ -1391,6 +1392,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_NAMESPACE;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "using"))
 					mToken = TK_USING;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "this"))
+					mToken = TK_THIS;
 				else
 				{
 					mToken = TK_IDENT;

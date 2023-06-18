@@ -17,6 +17,7 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 	mUnrollLoopPage = false;
 	mInlineCall = false;
 	mCompilerOptionSP = 0;
+	mThisPointer = nullptr;
 
 	for (int i = 0; i < 256; i++)
 		mCharMap[i] = i;
@@ -64,7 +65,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 	{
 		dec->mIdent = structName;
 		dec->mQualIdent = mScope->Mangle(structName);
-		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
+		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS, structName);
 	}
 
 	if ((mCompilerOptions & COPT_CPLUSPLUS) && mScanner->mToken == TK_COLON)
@@ -85,51 +86,82 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 
 	if (mScanner->mToken == TK_OPEN_BRACE)
 	{
+		Declaration* othis = mThisPointer;
+
+		mThisPointer = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+		mThisPointer->mFlags |= DTF_CONST | DTF_DEFINED;
+		mThisPointer->mBase = dec;
+		mThisPointer->mSize = 2;
+
 		mScanner->NextToken();
 		Declaration* mlast = nullptr;
 		for (;;)
 		{
 			Declaration* mdec = ParseDeclaration(nullptr, false, false);
 
+			mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
+
 			int	offset = dec->mSize;
 			if (dt == DT_TYPE_UNION)
 				offset = 0;
 
-			while (mdec)
+			if (mdec->mBase->mType == DT_TYPE_FUNCTION)
 			{
-				if (!(mdec->mBase->mFlags & DTF_DEFINED))
-					mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+				mdec->mType = DT_CONST_FUNCTION;
+				mdec->mSection = mCodeSection;
+				mdec->mFlags |= DTF_GLOBAL;
+				mdec->mBase->mFlags |= DTF_FUNC_THIS;
 
-				if (mdec->mType != DT_VARIABLE)
-				{
-					mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
-					break;
-				}
-
-				mdec->mType = DT_ELEMENT;
-				mdec->mOffset = offset;
-
-				offset += mdec->mBase->mSize;
-				if (offset > dec->mSize)
-					dec->mSize = offset;
+				if (mCompilerOptions & COPT_NATIVE)
+					mdec->mFlags |= DTF_NATIVE;
 
 				if (dec->mScope->Insert(mdec->mIdent, mdec))
 					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
 
-				if (mlast)
-					mlast->mNext = mdec;
-				else
-					dec->mParams = mdec;
-				mlast = mdec;
-				mdec = mdec->mNext;
-			}
+				if (mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec))
+					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
 
-			if (mScanner->mToken == TK_SEMICOLON)
-				mScanner->NextToken();
+				if (!(mdec->mFlags & DTF_DEFINED))
+					ConsumeToken(TK_SEMICOLON);
+			}
 			else
 			{
-				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
-				break;
+				while (mdec)
+				{
+					if (!(mdec->mBase->mFlags & DTF_DEFINED))
+						mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+
+					if (mdec->mType != DT_VARIABLE)
+					{
+						mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
+						break;
+					}
+
+					mdec->mType = DT_ELEMENT;
+					mdec->mOffset = offset;
+
+					offset += mdec->mBase->mSize;
+					if (offset > dec->mSize)
+						dec->mSize = offset;
+
+					if (dec->mScope->Insert(mdec->mIdent, mdec))
+						mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+
+					if (mlast)
+						mlast->mNext = mdec;
+					else
+						dec->mParams = mdec;
+					mlast = mdec;
+					mdec = mdec->mNext;
+				}
+
+				if (mScanner->mToken == TK_SEMICOLON)
+					mScanner->NextToken();
+				else
+				{
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+					break;
+				}
 			}
 
 			if (mScanner->mToken == TK_CLOSE_BRACE)
@@ -145,6 +177,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 			dec->mParams = nullptr;
 
 		dec->mFlags |= DTF_DEFINED;
+
+		mThisPointer = othis;
 	}
 
 	return dec;
@@ -493,6 +527,21 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		dec->mSection = mBSSection;
 		dec->mBase = nullptr;
 		mScanner->NextToken();
+		while (ConsumeTokenIf(TK_COLCOLON))
+		{
+			if (mScanner->mToken == TK_IDENT)
+			{
+				dec->mIdent = mScanner->mTokenIdent;
+
+				char	buffer[200];
+				strcpy_s(buffer, dec->mQualIdent->mString);
+				strcat_s(buffer, "::");
+				strcat_s(buffer, dec->mIdent->mString);
+				dec->mQualIdent = Ident::Unique(buffer);
+
+				mScanner->NextToken();
+			}
+		}
 	}
 	else
 	{
@@ -594,6 +643,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 			else
 				mScanner->NextToken();
 			ndec->mBase = dec;
+			ndec->mFlags |= DTF_DEFINED;
 			dec = ndec;
 		}
 		else
@@ -1216,6 +1266,29 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		}
 		else
 		{
+			if (ndec->mBase->mType == DT_TYPE_FUNCTION && mThisPointer)
+			{
+				Declaration* adec = new Declaration(ndec->mLocation, DT_ARGUMENT);
+
+				adec->mVarIndex = 0;
+				adec->mOffset = 0;
+				adec->mBase = mThisPointer;
+				adec->mSize = adec->mBase->mSize;
+				adec->mNext = ndec->mBase->mParams;
+				adec->mIdent = adec->mQualIdent = Ident::Unique("this");
+
+				Declaration* p = adec->mBase->mParams;
+				while (p)
+				{
+					p->mVarIndex += 2;
+					p = p->mNext;
+				}
+
+				ndec->mBase->mParams = adec;
+
+				ndec->mBase->mFlags |= DTF_FUNC_THIS;
+			}
+
 			if (variable)
 			{
 				ndec->mFlags |= storageFlags;
@@ -1258,6 +1331,23 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					{
 						if (pdec->mType == DT_CONST_FUNCTION && ndec->mBase->mType == DT_TYPE_FUNCTION)
 						{
+							if (pdec->mBase->mFlags & DTF_FUNC_THIS)
+							{
+								Declaration* adec = pdec->mBase->mParams->Clone();
+								adec->mNext = ndec->mBase->mParams;
+
+								Declaration* p = adec->mBase->mParams;
+								while (p)
+								{
+									p->mVarIndex += 2;
+									p = p->mNext;
+								}
+
+								ndec->mBase->mParams = adec;
+
+								ndec->mBase->mFlags |= DTF_FUNC_THIS;
+							}
+
 							if (!ndec->mBase->IsSame(pdec->mBase))
 								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent);
 							else if (ndec->mFlags & ~pdec->mFlags & (DTF_HWINTERRUPT | DTF_INTERRUPT | DTF_FASTCALL | DTF_NATIVE))
@@ -1389,9 +1479,12 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				ndec->mBase->mCompilerOptions = mCompilerOptions;
 
 				ndec->mVarIndex = -1;
+
 				ndec->mValue = ParseFunction(ndec->mBase);
+
 				ndec->mFlags |= DTF_DEFINED;
 				ndec->mNumVars = mLocalIndex;
+
 			}
 			return rdec;
 		}
@@ -1666,6 +1759,18 @@ Expression* Parser::ParseSimpleExpression(void)
 
 		mScanner->NextToken();
 		break;
+	case TK_THIS:
+		if (mThisPointer)
+		{
+			exp = new Expression(mScanner->mLocation, EX_VARIABLE);
+			exp->mDecType = mThisPointer->mBase;
+			exp->mDecValue = mThisPointer;
+		}
+		else
+			mErrors->Error(mScanner->mLocation, ERRO_THIS_OUTSIDE_OF_METHOD, "Use of this outside of method");
+
+		mScanner->NextToken();
+		break;
 	case TK_IDENT:
 		dec = ParseQualIdent();
 		if (dec)
@@ -1791,6 +1896,88 @@ Expression* Parser::ParseSimpleExpression(void)
 }
 
 
+Expression* Parser::ParseQualify(Expression* exp)
+{
+	Declaration* dtype = exp->mDecType;
+
+	if (dtype->mType == DT_TYPE_REFERENCE)
+		dtype = dtype->mBase;
+
+	if (dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
+	{
+		Expression* nexp = new Expression(mScanner->mLocation, EX_QUALIFY);
+		nexp->mLeft = exp;
+		if (mScanner->mToken == TK_IDENT)
+		{
+			Declaration* mdec = dtype->mScope->Lookup(mScanner->mTokenIdent);
+
+			if (mdec)
+			{
+				mScanner->NextToken();
+				if (mdec->mType == DT_ELEMENT)
+				{
+					nexp->mDecValue = mdec;
+					nexp->mDecType = mdec->mBase;
+					if (exp->mDecType->mFlags & DTF_CONST)
+						nexp->mDecType = nexp->mDecType->ToConstType();
+
+					exp = nexp->ConstantFold(mErrors);
+				}
+				else if (mdec->mType == DT_CONST_FUNCTION)
+				{
+					ConsumeToken(TK_OPEN_PARENTHESIS);
+
+					nexp = new Expression(mScanner->mLocation, EX_CALL);
+					if (mInlineCall)
+						nexp->mType = EX_INLINE;
+					mInlineCall = false;
+
+					nexp->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+					nexp->mLeft->mDecType = mdec->mBase;
+					nexp->mLeft->mDecValue = mdec;
+
+					nexp->mDecType = mdec->mBase;
+					if (ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
+						nexp->mRight = nullptr;
+					else
+					{
+						nexp->mRight = ParseListExpression();
+						ConsumeToken(TK_CLOSE_PARENTHESIS);
+					}
+
+					Expression* texp = new Expression(nexp->mLocation, EX_PREFIX);
+					texp->mToken = TK_BINARY_AND;
+					texp->mLeft = exp;
+
+					if (nexp->mRight)
+					{
+						Expression* lexp = new Expression(nexp->mLocation, EX_SEQUENCE);
+						lexp->mLeft = texp;
+						lexp->mRight = nexp->mRight;
+						nexp->mRight = lexp;
+					}
+					else
+						nexp->mRight = texp;
+
+					exp = nexp;
+				}
+			}
+			else
+			{
+				mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent);
+				mScanner->NextToken();
+			}
+
+		}
+		else
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Struct member identifier expected");
+	}
+	else
+		mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
+
+	return exp;
+}
+
 Expression* Parser::ParsePostfixExpression(void)
 {
 	Expression* exp = ParseSimpleExpression();
@@ -1867,6 +2054,8 @@ Expression* Parser::ParsePostfixExpression(void)
 				dexp->mDecType = exp->mDecType->mBase;
 				dexp->mLeft = exp;
 
+				exp = ParseQualify(dexp);
+/*
 				if (dexp->mDecType->mType == DT_TYPE_STRUCT || dexp->mDecType->mType == DT_TYPE_UNION)
 				{
 					Expression* nexp = new Expression(mScanner->mLocation, EX_QUALIFY);
@@ -1876,12 +2065,19 @@ Expression* Parser::ParsePostfixExpression(void)
 						Declaration* mdec = dexp->mDecType->mScope->Lookup(mScanner->mTokenIdent);
 						if (mdec)
 						{
-							nexp->mDecValue = mdec;
-							nexp->mDecType = mdec->mBase;
-							if (exp->mDecType->mFlags & DTF_CONST)
-								nexp->mDecType = nexp->mDecType->ToConstType();
+							if (mdec->mType == DT_ELEMENT)
+							{
+								nexp->mDecValue = mdec;
+								nexp->mDecType = mdec->mBase;
+								if (exp->mDecType->mFlags & DTF_CONST)
+									nexp->mDecType = nexp->mDecType->ToConstType();
 
-							exp = nexp->ConstantFold(mErrors);
+								exp = nexp->ConstantFold(mErrors);
+							}
+							else if (mdec->mType == DT_CONST_FUNCTION)
+							{
+								assert(false);
+							}
 						}
 						else
 							mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent);
@@ -1892,6 +2088,7 @@ Expression* Parser::ParsePostfixExpression(void)
 				}
 				else
 					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
+*/
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Pointer expected");
@@ -1899,36 +2096,8 @@ Expression* Parser::ParsePostfixExpression(void)
 		else if (mScanner->mToken == TK_DOT)
 		{
 			mScanner->NextToken();
-			Declaration* dtype = exp->mDecType;
 
-			if (dtype->mType == DT_TYPE_REFERENCE)
-				dtype = dtype->mBase;
-			
-			if (dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
-			{
-				Expression* nexp = new Expression(mScanner->mLocation, EX_QUALIFY);
-				nexp->mLeft = exp;
-				if (mScanner->mToken == TK_IDENT)
-				{
-					Declaration* mdec = dtype->mScope->Lookup(mScanner->mTokenIdent);
-					if (mdec)
-					{
-						nexp->mDecValue = mdec;
-						nexp->mDecType = mdec->mBase;
-						if (exp->mDecType->mFlags & DTF_CONST)
-							nexp->mDecType = nexp->mDecType->ToConstType();
-
-						exp = nexp->ConstantFold(mErrors);
-					}
-					else
-						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent);
-					mScanner->NextToken();
-				}
-				else
-					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Struct member identifier expected");
-			}
-			else
-				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
+			exp = ParseQualify(exp);
 		}
 		else
 			return exp;
@@ -2284,6 +2453,11 @@ Expression* Parser::ParseListExpression(void)
 
 Expression* Parser::ParseFunction(Declaration * dec)
 {
+	Declaration* othis = mThisPointer;
+	if (dec->mFlags & DTF_FUNC_THIS)
+		mThisPointer = dec->mParams;
+
+
 	DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_FUNCTION);
 	mScope = scope;
 
@@ -2300,6 +2474,8 @@ Expression* Parser::ParseFunction(Declaration * dec)
 
 	mScope->End(mScanner->mLocation);
 	mScope = mScope->mParent;
+
+	mThisPointer = othis;
 
 	return exp;
 }

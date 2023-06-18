@@ -92,6 +92,8 @@ static const uint64 DTF_FUNC_PURE		= (1ULL << 39);
 static const uint64 DTF_FPARAM_CONST = (1ULL << 40);
 static const uint64 DTF_FPARAM_NOCONST = (1ULL << 41);
 
+static const uint64 DTF_FUNC_THIS		= (1ULL << 42);
+
 static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 
 
