@@ -86,18 +86,21 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 
 	if (mScanner->mToken == TK_OPEN_BRACE)
 	{
-		Declaration* othis = mThisPointer;
-
-		mThisPointer = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
-		mThisPointer->mFlags |= DTF_CONST | DTF_DEFINED;
-		mThisPointer->mBase = dec;
-		mThisPointer->mSize = 2;
+		Declaration* pthis = nullptr;
+		
+		if (mCompilerOptions & COPT_CPLUSPLUS)
+		{
+			pthis = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+			pthis->mFlags |= DTF_CONST | DTF_DEFINED;
+			pthis->mBase = dec;
+			pthis->mSize = 2;
+		}
 
 		mScanner->NextToken();
 		Declaration* mlast = nullptr;
 		for (;;)
 		{
-			Declaration* mdec = ParseDeclaration(nullptr, false, false);
+			Declaration* mdec = ParseDeclaration(nullptr, false, false, pthis);
 
 			mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
 
@@ -115,10 +118,29 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 				if (mCompilerOptions & COPT_NATIVE)
 					mdec->mFlags |= DTF_NATIVE;
 
-				if (dec->mScope->Insert(mdec->mIdent, mdec))
-					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+				Declaration* pdec = dec->mScope->Insert(mdec->mIdent, mdec);
 
-				if (mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec))
+				if (pdec)
+				{
+					if (pdec->mType == DT_CONST_FUNCTION)
+					{
+						Declaration* pcdec = nullptr;
+
+						while (pdec && !mdec->mBase->IsSameParams(pdec->mBase))
+						{
+							pcdec = pdec;
+							pdec = pdec->mNext;
+						}
+
+						if (!pdec)
+							pcdec->mNext = mdec;
+						else
+							mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+					}
+					else
+						mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+				}
+				else if (mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec))
 					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
 
 				if (!(mdec->mFlags & DTF_DEFINED))
@@ -177,8 +199,6 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 			dec->mParams = nullptr;
 
 		dec->mFlags |= DTF_DEFINED;
-
-		mThisPointer = othis;
 	}
 
 	return dec;
@@ -1104,7 +1124,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	return exp;
 }
 
-Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression)
+Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, Declaration* pthis)
 {
 	bool	definingType = false;
 	uint64	storageFlags = 0, typeFlags = 0;
@@ -1266,13 +1286,13 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		}
 		else
 		{
-			if (ndec->mBase->mType == DT_TYPE_FUNCTION && mThisPointer)
+			if (ndec->mBase->mType == DT_TYPE_FUNCTION && pthis)
 			{
 				Declaration* adec = new Declaration(ndec->mLocation, DT_ARGUMENT);
 
 				adec->mVarIndex = 0;
 				adec->mOffset = 0;
-				adec->mBase = mThisPointer;
+				adec->mBase = pthis;
 				adec->mSize = adec->mBase->mSize;
 				adec->mNext = ndec->mBase->mParams;
 				adec->mIdent = adec->mQualIdent = Ident::Unique("this");
@@ -1348,29 +1368,46 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 								ndec->mBase->mFlags |= DTF_FUNC_THIS;
 							}
 
-							if (!ndec->mBase->IsSame(pdec->mBase))
-								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent);
-							else if (ndec->mFlags & ~pdec->mFlags & (DTF_HWINTERRUPT | DTF_INTERRUPT | DTF_FASTCALL | DTF_NATIVE))
-								mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function call type declaration differs", ndec->mIdent);
-							else
+							if (mCompilerOptions & COPT_CPLUSPLUS)
 							{
-								// 
-								// Take parameter names from new declaration
-								//
-								Declaration* npdec = ndec->mBase->mParams, *ppdec = pdec->mBase->mParams;
-								while (npdec && ppdec)
+								Declaration* pcdec = nullptr;
+
+								while (pdec && !ndec->mBase->IsSameParams(pdec->mBase))
 								{
-									if (npdec->mIdent)
-									{
-										ppdec->mIdent = npdec->mIdent;
-										ppdec->mQualIdent = npdec->mQualIdent;
-									}
-									npdec = npdec->mNext;
-									ppdec = ppdec->mNext;
+									pcdec = pdec;
+									pdec = pdec->mNext;
 								}
+
+								if (!pdec)
+									pcdec->mNext = ndec;
 							}
 
-							ndec = pdec;
+							if (pdec)
+							{
+								if (!ndec->mBase->IsSame(pdec->mBase))
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent);
+								else if (ndec->mFlags & ~pdec->mFlags & (DTF_HWINTERRUPT | DTF_INTERRUPT | DTF_FASTCALL | DTF_NATIVE))
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function call type declaration differs", ndec->mIdent);
+								else
+								{
+									// 
+									// Take parameter names from new declaration
+									//
+									Declaration* npdec = ndec->mBase->mParams, * ppdec = pdec->mBase->mParams;
+									while (npdec && ppdec)
+									{
+										if (npdec->mIdent)
+										{
+											ppdec->mIdent = npdec->mIdent;
+											ppdec->mQualIdent = npdec->mQualIdent;
+										}
+										npdec = npdec->mNext;
+										ppdec = ppdec->mNext;
+									}
+								}
+
+								ndec = pdec;
+							}
 						}
 						else if (ndec->mFlags & DTF_EXTERN)
 						{
@@ -1772,7 +1809,7 @@ Expression* Parser::ParseSimpleExpression(void)
 		mScanner->NextToken();
 		break;
 	case TK_IDENT:
-		if (mThisPointer)
+		if (mThisPointer && !mScope->Lookup(mScanner->mTokenIdent, SLEVEL_FUNCTION))
 		{
 			dec = mThisPointer->mBase->mBase->mScope->Lookup(mScanner->mTokenIdent);
 			if (dec)
@@ -1969,16 +2006,23 @@ Expression* Parser::ParseQualify(Expression* exp)
 					Expression* texp = new Expression(nexp->mLocation, EX_PREFIX);
 					texp->mToken = TK_BINARY_AND;
 					texp->mLeft = exp;
+					texp->mDecType = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
+					texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+					texp->mDecType->mBase = exp->mDecType;
+					texp->mDecType->mSize = 2;
 
 					if (nexp->mRight)
 					{
-						Expression* lexp = new Expression(nexp->mLocation, EX_SEQUENCE);
+						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
 						lexp->mLeft = texp;
 						lexp->mRight = nexp->mRight;
 						nexp->mRight = lexp;
 					}
 					else
 						nexp->mRight = texp;
+
+					ResolveOverloadCall(nexp->mLeft, nexp->mRight);
+					nexp->mDecType = nexp->mLeft->mDecType->mBase;
 
 					exp = nexp;
 				}
@@ -1997,6 +2041,116 @@ Expression* Parser::ParseQualify(Expression* exp)
 		mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
 
 	return exp;
+}
+
+int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
+{
+	Declaration* pdec = fdec->mParams;
+
+	int dist = 0;
+
+	while (pexp)
+	{
+		Expression* ex = pexp;
+		if (pexp->mType == EX_LIST)
+		{
+			ex = pexp->mLeft;
+			pexp = pexp->mRight;
+		}
+		else
+			pexp = nullptr;
+
+		if (pdec)
+		{
+			Declaration* ptype = pdec->mBase;
+			Declaration* etype = ex->mDecType;
+			if (etype->mType == DT_TYPE_REFERENCE)
+				etype = etype->mBase;
+
+			if (ptype->mType == DT_TYPE_INTEGER && etype->mType == DT_TYPE_INTEGER)
+				;
+			else if (ptype->mType == DT_TYPE_FLOAT && etype->mType == DT_TYPE_FLOAT)
+				;
+			else if (ptype->mType == DT_TYPE_INTEGER && etype->mType == DT_TYPE_FLOAT)
+				dist += 8;
+			else if (ptype->mType == DT_TYPE_FLOAT && etype->mType == DT_TYPE_INTEGER)
+				dist++;
+			else if (ptype->IsSame(ex->mDecType))
+				;
+			else if (ptype->mType == DT_TYPE_REFERENCE && ptype->mBase->mType == DT_TYPE_STRUCT && etype->mType == DT_TYPE_STRUCT)
+			{
+				int	ncast = 0;
+				Declaration* ext = ex->mDecType;
+				while (ext && !ext->IsConstSame(ptype->mBase))
+					ext = ext->mBase;
+
+				if (ext)
+				{
+					if ((etype->mFlags & DTF_CONST) && !(ptype->mBase->mFlags & DTF_CONST))
+						return INT_MAX;
+
+					dist += 16 * ncast;
+				}
+				else
+					return INT_MAX;
+			}
+			else if (ptype->IsSubType(ex->mDecType))
+				dist += 256;
+			else
+				return INT_MAX;
+
+			pdec = pdec->mNext;
+		}
+		else if (fdec->mFlags & DTF_VARIADIC)
+		{
+			dist += 1024;
+			break;
+		}
+		else
+			return INT_MAX;
+	}
+
+	if (pdec)
+		return INT_MAX;
+
+	return dist;
+}
+
+void Parser::ResolveOverloadCall(Expression* cexp, Expression* pexp)
+{
+	if (cexp->mDecValue)
+	{
+		Declaration* fdec = cexp->mDecValue;
+		if (fdec->mType == DT_CONST_FUNCTION && fdec->mNext)
+		{
+			Declaration* dbest = nullptr;
+			int				ibest = INT_MAX, nbest = 0;
+
+			while (fdec)
+			{
+				int d = OverloadDistance(fdec->mBase, pexp);
+				if (d < ibest)
+				{
+					dbest = fdec;
+					ibest = d;
+					nbest = 1;
+				}
+				else if (d == ibest)
+					nbest++;
+				fdec = fdec->mNext;
+			}
+
+			if (ibest == INT_MAX)
+				mErrors->Error(cexp->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching function call");
+			else if (nbest > 1)
+				mErrors->Error(cexp->mLocation, ERRO_AMBIGUOUS_FUNCTION_CALL, "Ambiguous function call");
+			else
+			{
+				cexp->mDecValue = dbest;
+				cexp->mDecType = dbest->mBase;
+			}
+		}
+	}
 }
 
 Expression* Parser::ParsePostfixExpression(void)
@@ -2043,7 +2197,6 @@ Expression* Parser::ParsePostfixExpression(void)
 			mInlineCall = false;
 
 			nexp->mLeft = exp;
-			nexp->mDecType = exp->mDecType->mBase;
 			if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 			{
 				nexp->mRight = ParseListExpression();
@@ -2054,6 +2207,10 @@ Expression* Parser::ParsePostfixExpression(void)
 				nexp->mRight = nullptr;
 				mScanner->NextToken();
 			}
+
+			ResolveOverloadCall(exp, nexp->mRight);
+			nexp->mDecType = exp->mDecType->mBase;
+
 			exp = nexp;
 		}
 		else if (mScanner->mToken == TK_INC || mScanner->mToken == TK_DEC)
@@ -4536,6 +4693,8 @@ void Parser::Parse(void)
 					Expression* exp = ParseAssembler();
 
 					exp->mDecValue->mIdent = ident;
+					exp->mDecValue->mQualIdent = ident;
+
 					mScope->Insert(ident, exp->mDecValue);
 
 					if (mScanner->mToken == TK_CLOSE_BRACE)

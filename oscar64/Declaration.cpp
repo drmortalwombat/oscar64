@@ -85,8 +85,11 @@ Declaration * DeclarationScope::Insert(const Ident* ident, Declaration* dec)
 	return nullptr;
 }
 
-Declaration* DeclarationScope::Lookup(const Ident* ident)
+Declaration* DeclarationScope::Lookup(const Ident* ident, ScopeLevel limit)
 {
+	if (mLevel < limit)
+		return nullptr;
+
 	if (mHashSize > 0)
 	{
 		int		hm = mHashSize - 1;
@@ -898,6 +901,25 @@ bool Declaration::IsConstSame(const Declaration* dec) const
 	}
 
 	return false;
+}
+
+bool Declaration::IsSameParams(const Declaration* dec) const
+{
+	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION)
+	{
+		Declaration* ld = mParams, * rd = dec->mParams;
+		while (ld && rd)
+		{
+			if (!ld->mBase->IsSame(rd->mBase))
+				return false;
+			ld = ld->mNext;
+			rd = rd->mNext;
+		}
+
+		return !ld && !rd;
+	}
+	else
+		return false;
 }
 
 bool Declaration::IsSame(const Declaration* dec) const

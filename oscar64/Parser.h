@@ -39,7 +39,7 @@ protected:
 	void ParsePragma(void);
 
 	Declaration* ParseBaseTypeDeclaration(uint64 flags);
-	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression);
+	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
@@ -65,6 +65,9 @@ protected:
 	Expression* ParseSwitchStatement(void);
 
 	Expression* ParseQualify(Expression * exp);
+	
+	int OverloadDistance(Declaration* pdec, Expression* pexp);
+	void ResolveOverloadCall(Expression* cexp, Expression* pexp);
 
 	Expression* ParseSimpleExpression(void);
 	Expression* ParsePrefixExpression(void);

@@ -119,7 +119,7 @@ public:
 	const Ident* Mangle(const Ident* ident) const;
 
 	Declaration* Insert(const Ident* ident, Declaration* dec);
-	Declaration* Lookup(const Ident* ident);
+	Declaration* Lookup(const Ident* ident, ScopeLevel limit = SLEVEL_GLOBAL);
 
 	void End(const Location & loc);
 
@@ -234,6 +234,7 @@ public:
 	bool IsSubType(const Declaration* dec) const;
 	bool IsConstSame(const Declaration* dec) const;
 	bool IsSameValue(const Declaration* dec) const;
+	bool IsSameParams(const Declaration* dec) const;
 
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;

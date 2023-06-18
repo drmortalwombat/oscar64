@@ -18841,6 +18841,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 								if (mEntryRequiredRegs[CPU_REG_A])
 								{
 									mIns.Insert(0, NativeCodeInstruction(mIns[0].mIns, ASMIT_TAX));
+									for (int i = 1; i < 8; i++)
+										mIns[i].mLive |= LIVE_CPU_REG_X;
 									mIns.Insert(8, NativeCodeInstruction(mIns[0].mIns, ASMIT_TXA));
 								}
 
@@ -31389,6 +31391,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 									block->mIns.Insert(j, NativeCodeInstruction(ins.mIns, ASMIT_DEY));
 									yoffset--;
 								}
+
 								while (yoffset < 0)
 								{
 									j++;
@@ -31397,7 +31400,10 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								}
 
 								if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.ChangesAccuAndFlag())
+								{
+									ins.mLive |= LIVE_CPU_REG_A;
 									block->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+								}
 							}
 
 							if (xoffset && xreg >= 0 && !(ins.mLive & LIVE_CPU_REG_X))
@@ -31408,6 +31414,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 									block->mIns.Insert(j, NativeCodeInstruction(ins.mIns, ASMIT_DEX));
 									xoffset--;
 								}
+
 								while (xoffset < 0)
 								{
 									j++;
@@ -31416,7 +31423,10 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								}
 
 								if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.ChangesAccuAndFlag())
+								{
+									ins.mLive |= LIVE_CPU_REG_A;
 									block->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+								}
 							}
 
 							if (yreg >= 0)
