@@ -210,9 +210,10 @@ public:
 class NativeCodeBasicBlock
 {
 public:
-	NativeCodeBasicBlock(void);
+	NativeCodeBasicBlock(NativeCodeProcedure * proc);
 	~NativeCodeBasicBlock(void);
 
+	NativeCodeProcedure				*	mProc;
 	ExpandingArray<uint8>				mCode;
 	ExpandingArray<CodeLocation>		mCodeLocations;
 

@@ -4541,7 +4541,8 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			}
 			else
 			{
-				assert(mAddress != 0);
+				if (mAddress == 0)
+					block->mProc->mGenerator->mErrors->Error(mIns->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
 				block->PutByte(uint8(mAddress));
 			}
 			break;
@@ -4608,6 +4609,8 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			}
 			else
 			{
+				if (mAddress == 0)
+					block->mProc->mGenerator->mErrors->Error(mIns->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
 				block->PutWord(uint16(mAddress));
 			}
 			break;
@@ -39601,8 +39604,9 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 	}
 }
 
-NativeCodeBasicBlock::NativeCodeBasicBlock(void)
+NativeCodeBasicBlock::NativeCodeBasicBlock(NativeCodeProcedure* proc)
 {
+	mProc = proc;
 	mBranch = ASMIT_RTS;
 	mBranchIns = nullptr;
 	mTrueJump = mFalseJump = NULL;
@@ -41209,7 +41213,7 @@ void NativeCodeProcedure::BuildDataFlowSets(void)
 
 NativeCodeBasicBlock* NativeCodeProcedure::AllocateBlock(void)
 {
-	NativeCodeBasicBlock* block = new NativeCodeBasicBlock();
+	NativeCodeBasicBlock* block = new NativeCodeBasicBlock(this);
 	block->mNoFrame = mNoFrame;
 	block->mFrameOffset = mFrameOffset;
 	block->mIndex = mTempBlocks++;
@@ -41223,7 +41227,7 @@ NativeCodeBasicBlock* NativeCodeProcedure::CompileBlock(InterCodeProcedure* ipro
 	if (tblocks[sblock->mIndex])
 		return tblocks[sblock->mIndex];
 
-	NativeCodeBasicBlock* block = new NativeCodeBasicBlock();
+	NativeCodeBasicBlock* block = new NativeCodeBasicBlock(this);
 	block->mNoFrame = mNoFrame;
 	block->mFrameOffset = mFrameOffset;
 	mBlocks.Push(block);

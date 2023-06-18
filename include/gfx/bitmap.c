@@ -1164,8 +1164,8 @@ void bmu_bitblit(const Bitmap * dbm, int dx, int dy, const Bitmap * sbm, int sx,
 
 	if (op & BLIT_SRC)
 	{
-		if (!pattern)
-			pattern = sp;
+		if (!pat)
+			pat = sp;
 
 		if (reverse)
 		{
