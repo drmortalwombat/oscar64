@@ -39,7 +39,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		structName = mScanner->mTokenIdent;
 		mScanner->NextToken();
 		Declaration* edec = mScope->Lookup(structName);
-		if (edec && mScanner->mToken != TK_OPEN_BRACE)
+		if (edec && mScanner->mToken != TK_OPEN_BRACE && mScanner->mToken != TK_COLON)
 		{
 			dec = edec;
 		}
@@ -65,6 +65,22 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		dec->mIdent = structName;
 		dec->mQualIdent = mScope->Mangle(structName);
 		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
+	}
+
+	if ((mCompilerOptions & COPT_CPLUSPLUS) && mScanner->mToken == TK_COLON)
+	{
+		mScanner->NextToken();
+		Declaration* pdec = ParseQualIdent();
+		if (pdec)
+		{
+			if (pdec->mType == DT_TYPE_STRUCT)
+			{
+				dec->mBase = pdec;
+				dec->mSize = pdec->mSize;
+			}
+			else
+				mErrors->Error(mScanner->mLocation, ERRO_NOT_A_BASE_CLASS, "Not a base class", dec->mIdent);
+		}
 	}
 
 	if (mScanner->mToken == TK_OPEN_BRACE)

@@ -794,7 +794,7 @@ bool Declaration::IsSubType(const Declaration* dec) const
 
 	if (mType != dec->mType)
 		return false;
-	if (mSize != dec->mSize)
+	if (mType != DT_TYPE_STRUCT && mSize != dec->mSize)
 		return false;
 	if (mStripe != dec->mStripe)
 		return false;
@@ -810,7 +810,15 @@ bool Declaration::IsSubType(const Declaration* dec) const
 	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
 		return true;
 	else if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_ENUM)
-		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
+	{
+		if (mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize))
+			return true;
+
+		if (dec->mBase)
+			return IsSubType(dec->mBase);
+
+		return false;
+	}
 	else if (mType == DT_TYPE_UNION)
 		return false;
 	else if (mType == DT_TYPE_ARRAY)
@@ -964,7 +972,7 @@ bool Declaration::IsSameValue(const Declaration* dec) const
 bool Declaration::CanAssign(const Declaration* fromType) const
 {
 	if (mType == DT_TYPE_REFERENCE)
-		return fromType->IsSubType(mBase);
+		return mBase->IsSubType(fromType);
 	else if (fromType->mType == DT_TYPE_REFERENCE)
 		return this->CanAssign(fromType->mBase);
 
@@ -976,7 +984,13 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 			return true;
 	}
 	else if (mType == DT_TYPE_STRUCT && fromType->mType == DT_TYPE_STRUCT)
-		return mScope == fromType->mScope || (mIdent == fromType->mIdent && mSize == fromType->mSize);
+	{
+		if (mScope == fromType->mScope || (mIdent == fromType->mIdent && mSize == fromType->mSize))
+			return true;
+		if (fromType->mBase)
+			return this->CanAssign(fromType->mBase);
+		return false;
+	}
 	else if (mType == DT_TYPE_POINTER)
 	{
 		if (fromType->mType == DT_TYPE_POINTER || fromType->mType == DT_TYPE_ARRAY)
