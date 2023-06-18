@@ -1772,46 +1772,67 @@ Expression* Parser::ParseSimpleExpression(void)
 		mScanner->NextToken();
 		break;
 	case TK_IDENT:
-		dec = ParseQualIdent();
-		if (dec)
+		if (mThisPointer)
 		{
-			if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
+			dec = mThisPointer->mBase->mBase->mScope->Lookup(mScanner->mTokenIdent);
+			if (dec)
 			{
-				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
-				exp->mDecValue = dec;
-				exp->mDecType = dec->mBase;
-				exp->mConst = true;
-			}
-			else if (dec->mType == DT_VARIABLE || dec->mType == DT_ARGUMENT)
-			{
-				if (/*(dec->mFlags & DTF_STATIC) &&*/ (dec->mFlags & DTF_CONST) && dec->mValue)
-				{
-					if (dec->mBase->IsNumericType())
-						exp = dec->mValue;
-					else if (dec->mBase->mType == DT_TYPE_POINTER)
-					{
-						if (dec->mValue->mType == EX_CONSTANT)
-						{
-							if (dec->mValue->mDecValue->mType == DT_CONST_ADDRESS || dec->mValue->mDecValue->mType == DT_CONST_POINTER)
-								exp = dec->mValue;
-						}
-					}
-				}
+				Expression * texp = new Expression(mScanner->mLocation, EX_VARIABLE);
+				texp->mDecType = mThisPointer->mBase;
+				texp->mDecValue = mThisPointer;
 
-				if (!exp)
+				Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
+				dexp->mToken = TK_MUL;
+				dexp->mDecType = texp->mDecType->mBase;
+				dexp->mLeft = texp;
+
+				exp = ParseQualify(dexp);
+			}
+		}
+
+		if (!exp)
+		{
+			dec = ParseQualIdent();
+			if (dec)
+			{
+				if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
 				{
-					exp = new Expression(mScanner->mLocation, EX_VARIABLE);
+					exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 					exp->mDecValue = dec;
 					exp->mDecType = dec->mBase;
+					exp->mConst = true;
 				}
-			}
-			else if (dec->mType <= DT_TYPE_FUNCTION)
-			{
-				exp = ParseDeclarationExpression(dec);
-			}
-			else
-			{
-				mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid identifier", mScanner->mTokenIdent);
+				else if (dec->mType == DT_VARIABLE || dec->mType == DT_ARGUMENT)
+				{
+					if (/*(dec->mFlags & DTF_STATIC) &&*/ (dec->mFlags & DTF_CONST) && dec->mValue)
+					{
+						if (dec->mBase->IsNumericType())
+							exp = dec->mValue;
+						else if (dec->mBase->mType == DT_TYPE_POINTER)
+						{
+							if (dec->mValue->mType == EX_CONSTANT)
+							{
+								if (dec->mValue->mDecValue->mType == DT_CONST_ADDRESS || dec->mValue->mDecValue->mType == DT_CONST_POINTER)
+									exp = dec->mValue;
+							}
+						}
+					}
+
+					if (!exp)
+					{
+						exp = new Expression(mScanner->mLocation, EX_VARIABLE);
+						exp->mDecValue = dec;
+						exp->mDecType = dec->mBase;
+					}
+				}
+				else if (dec->mType <= DT_TYPE_FUNCTION)
+				{
+					exp = ParseDeclarationExpression(dec);
+				}
+				else
+				{
+					mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid identifier", mScanner->mTokenIdent);
+				}
 			}
 		}
 
