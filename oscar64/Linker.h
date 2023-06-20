@@ -151,6 +151,8 @@ static const uint32 LOBJF_ARG_REG_Y = 0x00004000;
 static const uint32 LOBJF_RET_REG_A = 0x00010000;
 static const uint32 LOBJF_RET_REG_X = 0x00020000;
 
+static const uint32 LOBJF_LOCAL_VAR = 0x00100000;
+static const uint32 LOBJF_LOCAL_USED = 0x00200000;
 
 class LinkerObjectRange
 {

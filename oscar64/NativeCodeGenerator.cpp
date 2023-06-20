@@ -26983,6 +26983,150 @@ bool NativeCodeBasicBlock::ReverseBitfieldForwarding(void)
 	return changed;
 }
 
+struct NativeCodeLoadStorePair
+{
+	NativeCodeInstruction	mLoad, mStore;
+};
+
+bool NativeCodeBasicBlock::RemoveLocalUnusedLinkerObjects(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+			if (ins.mLinkerObject && (ins.mLinkerObject->mFlags & LOBJF_LOCAL_VAR) && !(ins.mLinkerObject->mFlags & LOBJF_LOCAL_USED))
+			{
+				ins.mType = ASMIT_NOP;
+				ins.mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->RemoveLocalUnusedLinkerObjects())
+			changed = true;
+		if (mFalseJump && mFalseJump->RemoveLocalUnusedLinkerObjects())
+			changed = true;
+	}
+	
+	return changed;
+}
+
+void NativeCodeBasicBlock::MarkLocalUsedLinkerObjects(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+			if (ins.mLinkerObject)
+			{
+				if (ins.mMode == ASMIM_IMMEDIATE_ADDRESS && ins.UsesAddress())
+					ins.mLinkerObject->mFlags |= LOBJF_LOCAL_USED;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->MarkLocalUsedLinkerObjects();
+		if (mFalseJump) mFalseJump->MarkLocalUsedLinkerObjects();
+	}
+}
+
+bool NativeCodeBasicBlock::AbsoluteValueForwarding(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		ExpandingArray<NativeCodeLoadStorePair>	pairs;
+
+		int ains = -1;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			// Check content of accu
+			if (mIns[i].mType == ASMIT_LDA)
+			{
+				if (mIns[i].mMode == ASMIM_IMMEDIATE || mIns[i].mMode == ASMIM_ZERO_PAGE)
+					ains = i;
+				else if (mIns[i].mMode == ASMIM_ABSOLUTE && !(mIns[i].mFlags & NCIF_VOLATILE))
+				{
+					int j = 0;
+					while (j < pairs.Size() && !pairs[j].mStore.SameEffectiveAddress(mIns[i]))
+						j++;
+					if (j < pairs.Size())
+					{
+						mIns[i].CopyMode(pairs[j].mLoad);
+						ains = i;
+						changed = true;
+					}
+					else
+						ains = -1;
+				}
+				else
+					ains = -1;
+			}
+			else if (mIns[i].ChangesAccu())
+				ains = -1;
+			else if (ains >= 0 && mIns[ains].MayBeChangedOnAddress(mIns[i]))
+				ains = -1;
+
+			if (ains >= 0 && mIns[i].mType == ASMIT_STA && mIns[i].mMode == ASMIM_ABSOLUTE && !(mIns[i].mFlags & NCIF_VOLATILE))
+			{
+				int j = 0;
+				while (j < pairs.Size() && !pairs[j].mStore.SameEffectiveAddress(mIns[i]))
+					j++;
+				if (j < pairs.Size())
+				{
+					pairs[j].mLoad = mIns[ains];
+					pairs[j].mStore = mIns[i];
+				}
+				else
+				{
+					NativeCodeLoadStorePair	pair;
+					pair.mLoad = mIns[ains];
+					pair.mStore = mIns[i];
+					pairs.Push(pair);
+				}
+			}
+			else if (mIns[i].mType == ASMIT_JSR)
+			{
+				pairs.SetSize(0);
+				ains = -1;
+			}
+			else if (mIns[i].ChangesAddress())
+			{
+				int j = 0, k = 0;
+				while (j < pairs.Size())
+				{
+					if (!pairs[j].mLoad.MayBeChangedOnAddress(mIns[i]) && !pairs[j].mStore.MayBeChangedOnAddress(mIns[i]))
+					{
+						if (k != j)
+							pairs[k] = pairs[j];
+						k++;
+					}
+					j++;
+				}
+				pairs.SetSize(k);
+			}
+		}
+
+		if (mTrueJump && mTrueJump->AbsoluteValueForwarding())
+			changed = true;
+		if (mFalseJump && mFalseJump->AbsoluteValueForwarding())
+			changed = true;
+	}
+
+	return changed;
+}
 
 bool NativeCodeBasicBlock::OffsetValueForwarding(const ValueNumberingDataSet& data)
 {
@@ -39853,7 +39997,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "data");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sprintf");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -40572,6 +40716,19 @@ void NativeCodeProcedure::Optimize(void)
 			}
 		}
 
+		if (step == 9)
+		{
+			ResetVisited();
+			if (mEntryBlock->AbsoluteValueForwarding())
+			{
+				changed = true;
+
+				BuildDataFlowSets();
+				ResetVisited();
+				mEntryBlock->RemoveUnusedResultInstructions();
+			}
+		}
+
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckBlocks();
@@ -41051,6 +41208,15 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
+		if (step == 10)
+		{
+			ResetVisited();
+			mEntryBlock->MarkLocalUsedLinkerObjects();
+
+			ResetVisited();
+			if (mEntryBlock->RemoveLocalUnusedLinkerObjects())
+				changed = true;
+		}
 #endif
 
 		if (step == 8)

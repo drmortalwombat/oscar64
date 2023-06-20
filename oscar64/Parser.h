@@ -38,6 +38,9 @@ protected:
 
 	void ParsePragma(void);
 
+	Declaration * ParseFunctionDeclaration(Declaration* bdec);
+	void PrependThisArgument(Declaration* fdec, Declaration * pthis);
+
 	Declaration* ParseBaseTypeDeclaration(uint64 flags);
 	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
@@ -69,21 +72,21 @@ protected:
 	int OverloadDistance(Declaration* pdec, Expression* pexp);
 	void ResolveOverloadCall(Expression* cexp, Expression* pexp);
 
-	Expression* ParseSimpleExpression(void);
-	Expression* ParsePrefixExpression(void);
-	Expression* ParsePostfixExpression(void);
-	Expression* ParseMulExpression(void);
-	Expression* ParseAddExpression(void);
-	Expression* ParseShiftExpression(void);
-	Expression* ParseRelationalExpression(void);
-	Expression* ParseBinaryAndExpression(void);
-	Expression* ParseBinaryXorExpression(void);
-	Expression* ParseBinaryOrExpression(void);
-	Expression* ParseLogicAndExpression(void);
-	Expression* ParseLogicOrExpression(void);
-	Expression* ParseConditionalExpression(void);
-	Expression* ParseAssignmentExpression(void);
-	Expression* ParseExpression(void);
+	Expression* ParseSimpleExpression(bool lhs);
+	Expression* ParsePrefixExpression(bool lhs);
+	Expression* ParsePostfixExpression(bool lhs);
+	Expression* ParseMulExpression(bool lhs);
+	Expression* ParseAddExpression(bool lhs);
+	Expression* ParseShiftExpression(bool lhs);
+	Expression* ParseRelationalExpression(bool lhs);
+	Expression* ParseBinaryAndExpression(bool lhs);
+	Expression* ParseBinaryXorExpression(bool lhs);
+	Expression* ParseBinaryOrExpression(bool lhs);
+	Expression* ParseLogicAndExpression(bool lhs);
+	Expression* ParseLogicOrExpression(bool lhs);
+	Expression* ParseConditionalExpression(bool lhs);
+	Expression* ParseAssignmentExpression(bool lhs);
+	Expression* ParseExpression(bool lhs);
 	Expression* ParseRExpression(void);
 	Expression* ParseListExpression(void);
 

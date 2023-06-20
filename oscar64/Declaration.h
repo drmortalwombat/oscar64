@@ -93,6 +93,7 @@ static const uint64 DTF_FPARAM_CONST = (1ULL << 40);
 static const uint64 DTF_FPARAM_NOCONST = (1ULL << 41);
 
 static const uint64 DTF_FUNC_THIS		= (1ULL << 42);
+static const uint64 DTF_FUNC_CONSTRUCTOR = (1ULL << 43);
 
 static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 
@@ -214,7 +215,7 @@ public:
 	Location			mLocation, mEndLocation;
 	DecType				mType;
 	Token				mToken;
-	Declaration*		mBase, *mParams, * mNext, * mConst;
+	Declaration*		mBase, *mParams, * mNext, * mConst, * mConstructor, * mDestructor;
 	Expression*			mValue;
 	DeclarationScope*	mScope;
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;

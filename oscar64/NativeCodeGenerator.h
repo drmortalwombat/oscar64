@@ -465,6 +465,10 @@ public:
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 	bool ReverseBitfieldForwarding(void);
 	bool OffsetValueForwarding(const ValueNumberingDataSet & data);
+	bool AbsoluteValueForwarding(void);
+
+	void MarkLocalUsedLinkerObjects(void);
+	bool RemoveLocalUnusedLinkerObjects(void);
 
 	void CollectEntryBlocks(NativeCodeBasicBlock* block);
 

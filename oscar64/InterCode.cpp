@@ -16624,6 +16624,7 @@ void InterCodeProcedure::Close(void)
 			if (var && !var->mTemp && !var->mLinkerObject)
 			{
 				var->mLinkerObject = mModule->mLinker->AddObject(mLocation, var->mIdent, mLinkerObject->mStackSection, LOT_BSS);
+				var->mLinkerObject->mFlags |= LOBJF_LOCAL_VAR;
 				var->mLinkerObject->AddSpace(var->mSize);
 				var->mIndex = mModule->mGlobalVars.Size();
 				mModule->mGlobalVars.Push(var);

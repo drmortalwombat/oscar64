@@ -118,30 +118,33 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 				if (mCompilerOptions & COPT_NATIVE)
 					mdec->mFlags |= DTF_NATIVE;
 
-				Declaration* pdec = dec->mScope->Insert(mdec->mIdent, mdec);
-
-				if (pdec)
+				if (!(mdec->mFlags & DTF_FUNC_CONSTRUCTOR))
 				{
-					if (pdec->mType == DT_CONST_FUNCTION)
+					Declaration* pdec = dec->mScope->Insert(mdec->mIdent, mdec);
+
+					if (pdec)
 					{
-						Declaration* pcdec = nullptr;
-
-						while (pdec && !mdec->mBase->IsSameParams(pdec->mBase))
+						if (pdec->mType == DT_CONST_FUNCTION)
 						{
-							pcdec = pdec;
-							pdec = pdec->mNext;
-						}
+							Declaration* pcdec = nullptr;
 
-						if (!pdec)
-							pcdec->mNext = mdec;
+							while (pdec && !mdec->mBase->IsSameParams(pdec->mBase))
+							{
+								pcdec = pdec;
+								pdec = pdec->mNext;
+							}
+
+							if (!pdec)
+								pcdec->mNext = mdec;
+							else
+								mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+						}
 						else
 							mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
 					}
-					else
+					else if (mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec))
 						mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
 				}
-				else if (mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec))
-					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
 
 				if (!(mdec->mFlags & DTF_DEFINED))
 					ConsumeToken(TK_SEMICOLON);
@@ -595,80 +598,86 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		}
 		else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 		{
-			Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_FUNCTION);
-			ndec->mSize = 0;
-			Declaration* pdec = nullptr;
-			mScanner->NextToken();
-			if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
-			{
-				int	vi = 0;
-				for(;;)
-				{
-					if (mScanner->mToken == TK_ELLIPSIS)
-					{
-						ndec->mFlags |= DTF_VARIADIC;
-						mScanner->NextToken();
-						break;
-					}
-
-					Declaration* bdec = ParseBaseTypeDeclaration(0);
-					Declaration* adec = ParsePostfixDeclaration();
-
-					adec = ReverseDeclaration(adec, bdec);
-
-					if (adec->mBase->mType == DT_TYPE_VOID)
-					{
-						if (pdec)
-							mErrors->Error(pdec->mLocation, EERR_WRONG_PARAMETER, "Invalid void argument");
-						break;
-					}
-					else
-					{
-						if (!(adec->mBase->mFlags & DTF_DEFINED) && adec->mBase->mType != DT_TYPE_ARRAY)
-							mErrors->Error(adec->mLocation, EERR_UNDEFINED_OBJECT, "Type of argument not defined");
-
-						adec->mType = DT_ARGUMENT;
-						adec->mVarIndex = vi;
-						adec->mOffset = 0;
-						if (adec->mBase->mType == DT_TYPE_ARRAY)
-						{
-							Declaration		*	ndec = new Declaration(adec->mBase->mLocation, DT_TYPE_POINTER);
-							ndec->mBase = adec->mBase->mBase;
-							ndec->mSize = 2;
-							ndec->mFlags |= DTF_DEFINED;
-							adec->mBase = ndec;
-						}
-
-						adec->mSize = adec->mBase->mSize;
-
-						vi += adec->mSize;
-						if (pdec)
-							pdec->mNext = adec;
-						else
-							ndec->mParams = adec;
-						pdec = adec;
-
-						if (mScanner->mToken == TK_COMMA)
-							mScanner->NextToken();
-						else
-							break;
-					}
-				}
-
-				if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
-					mScanner->NextToken();
-				else
-					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
-			}
-			else
-				mScanner->NextToken();
-			ndec->mBase = dec;
-			ndec->mFlags |= DTF_DEFINED;
-			dec = ndec;
+			dec = ParseFunctionDeclaration(dec);
 		}
 		else
 			return dec;
 	}
+}
+
+Declaration * Parser::ParseFunctionDeclaration(Declaration* bdec)
+{
+	Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_FUNCTION);
+	ndec->mSize = 0;
+	Declaration* pdec = nullptr;
+	mScanner->NextToken();
+	if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
+	{
+		int	vi = 0;
+		for (;;)
+		{
+			if (mScanner->mToken == TK_ELLIPSIS)
+			{
+				ndec->mFlags |= DTF_VARIADIC;
+				mScanner->NextToken();
+				break;
+			}
+
+			Declaration* bdec = ParseBaseTypeDeclaration(0);
+			Declaration* adec = ParsePostfixDeclaration();
+
+			adec = ReverseDeclaration(adec, bdec);
+
+			if (adec->mBase->mType == DT_TYPE_VOID)
+			{
+				if (pdec)
+					mErrors->Error(pdec->mLocation, EERR_WRONG_PARAMETER, "Invalid void argument");
+				break;
+			}
+			else
+			{
+				if (!(adec->mBase->mFlags & DTF_DEFINED) && adec->mBase->mType != DT_TYPE_ARRAY)
+					mErrors->Error(adec->mLocation, EERR_UNDEFINED_OBJECT, "Type of argument not defined");
+
+				adec->mType = DT_ARGUMENT;
+				adec->mVarIndex = vi;
+				adec->mOffset = 0;
+				if (adec->mBase->mType == DT_TYPE_ARRAY)
+				{
+					Declaration* ndec = new Declaration(adec->mBase->mLocation, DT_TYPE_POINTER);
+					ndec->mBase = adec->mBase->mBase;
+					ndec->mSize = 2;
+					ndec->mFlags |= DTF_DEFINED;
+					adec->mBase = ndec;
+				}
+
+				adec->mSize = adec->mBase->mSize;
+
+				vi += adec->mSize;
+				if (pdec)
+					pdec->mNext = adec;
+				else
+					ndec->mParams = adec;
+				pdec = adec;
+
+				if (mScanner->mToken == TK_COMMA)
+					mScanner->NextToken();
+				else
+					break;
+			}
+		}
+
+		if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
+			mScanner->NextToken();
+		else
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
+	}
+	else
+		mScanner->NextToken();
+	ndec->mBase = bdec;
+	ndec->mFlags |= DTF_DEFINED;
+
+	return ndec;
 }
 
 Declaration* Parser::ReverseDeclaration(Declaration* odec, Declaration* bdec)
@@ -1124,6 +1133,29 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	return exp;
 }
 
+void Parser::PrependThisArgument(Declaration* fdec, Declaration* pthis)
+{
+	Declaration* adec = new Declaration(fdec->mLocation, DT_ARGUMENT);
+
+	adec->mVarIndex = 0;
+	adec->mOffset = 0;
+	adec->mBase = pthis;
+	adec->mSize = adec->mBase->mSize;
+	adec->mNext = fdec->mParams;
+	adec->mIdent = adec->mQualIdent = Ident::Unique("this");
+
+	Declaration* p = adec->mBase->mParams;
+	while (p)
+	{
+		p->mVarIndex += 2;
+		p = p->mNext;
+	}
+
+	fdec->mParams = adec;
+
+	fdec->mFlags |= DTF_FUNC_THIS;
+}
+
 Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, Declaration* pthis)
 {
 	bool	definingType = false;
@@ -1247,6 +1279,88 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 	Declaration* rdec = nullptr, * ldec = nullptr;
 
+	if (mCompilerOptions & COPT_CPLUSPLUS)
+	{
+		if (bdec && pthis && bdec == pthis->mBase && mScanner->mToken == TK_OPEN_PARENTHESIS)
+		{
+			Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
+
+			PrependThisArgument(ctdec, pthis);
+
+			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mBase = ctdec;
+
+			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+			cdec->mFlags |= DTF_FUNC_CONSTRUCTOR;
+
+			cdec->mSection = mCodeSection;
+			cdec->mBase->mFlags |= typeFlags;
+
+			if (mCompilerOptions & COPT_NATIVE)
+				cdec->mFlags |= DTF_NATIVE;
+
+			Declaration* pdec = pthis->mBase->mConstructor;
+			if (pdec)
+			{
+				while (pdec && !cdec->mBase->IsSameParams(pdec->mBase))
+					pdec = pdec->mNext;
+			}
+
+			if (pdec)
+			{
+				if (!cdec->mBase->IsSame(pdec->mBase))
+					mErrors->Error(cdec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs");
+				else if (cdec->mFlags & ~pdec->mFlags & (DTF_HWINTERRUPT | DTF_INTERRUPT | DTF_FASTCALL | DTF_NATIVE))
+					mErrors->Error(cdec->mLocation, EERR_DECLARATION_DIFFERS, "Function call type declaration differs");
+				else
+				{
+					// 
+					// Take parameter names from new declaration
+					//
+					Declaration* npdec = cdec->mBase->mParams, * ppdec = pdec->mBase->mParams;
+					while (npdec && ppdec)
+					{
+						if (npdec->mIdent)
+						{
+							ppdec->mIdent = npdec->mIdent;
+							ppdec->mQualIdent = npdec->mQualIdent;
+						}
+						npdec = npdec->mNext;
+						ppdec = ppdec->mNext;
+					}
+				}
+
+				cdec = pdec;
+			}
+			else
+			{
+				cdec->mNext = pthis->mBase->mConstructor;
+				pthis->mBase->mConstructor = cdec;
+			}
+
+			cdec->mIdent = pthis->mBase->mIdent;
+			cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
+
+			if (mScanner->mToken == TK_OPEN_BRACE)
+			{
+				if (cdec->mFlags & DTF_DEFINED)
+					mErrors->Error(cdec->mLocation, EERR_DUPLICATE_DEFINITION, "Function already has a body");
+
+				cdec->mCompilerOptions = mCompilerOptions;
+				cdec->mBase->mCompilerOptions = mCompilerOptions;
+
+				cdec->mVarIndex = -1;
+
+				cdec->mValue = ParseFunction(cdec->mBase);
+
+				cdec->mFlags |= DTF_DEFINED;
+				cdec->mNumVars = mLocalIndex;
+			}
+
+			return cdec;
+		}
+	}
+
 	for (;;)
 	{
 		Declaration* ndec = ParsePostfixDeclaration();
@@ -1288,25 +1402,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		{
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION && pthis)
 			{
-				Declaration* adec = new Declaration(ndec->mLocation, DT_ARGUMENT);
-
-				adec->mVarIndex = 0;
-				adec->mOffset = 0;
-				adec->mBase = pthis;
-				adec->mSize = adec->mBase->mSize;
-				adec->mNext = ndec->mBase->mParams;
-				adec->mIdent = adec->mQualIdent = Ident::Unique("this");
-
-				Declaration* p = adec->mBase->mParams;
-				while (p)
-				{
-					p->mVarIndex += 2;
-					p = p->mNext;
-				}
-
-				ndec->mBase->mParams = adec;
-
-				ndec->mBase->mFlags |= DTF_FUNC_THIS;
+				PrependThisArgument(ndec->mBase, pthis);
 			}
 
 			if (variable)
@@ -1625,7 +1721,7 @@ Declaration* Parser::ParseQualIdent(void)
 	return dec;
 }
 
-Expression* Parser::ParseSimpleExpression(void)
+Expression* Parser::ParseSimpleExpression(bool lhs)
 {
 	Declaration* dec;
 	Expression* exp = nullptr, * rexp = nullptr;
@@ -1641,6 +1737,15 @@ Expression* Parser::ParseSimpleExpression(void)
 	case TK_VOID:
 	case TK_UNSIGNED:
 	case TK_SIGNED:
+		if (lhs)
+			exp = ParseDeclarationExpression(nullptr);
+		else
+		{
+			exp = new Expression(mScanner->mLocation, EX_TYPE);
+			exp->mDecValue = nullptr;
+			exp->mDecType = ParseBaseTypeDeclaration(0);
+		}
+		break;
 	case TK_CONST:
 	case TK_VOLATILE:
 	case TK_STRUCT:
@@ -1651,6 +1756,7 @@ Expression* Parser::ParseSimpleExpression(void)
 	case TK_STRIPED:
 		exp = ParseDeclarationExpression(nullptr);
 		break;
+
 	case TK_CHARACTER:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 		dec->mInteger = mCharMap[(unsigned char)mScanner->mTokenInteger];
@@ -1864,7 +1970,14 @@ Expression* Parser::ParseSimpleExpression(void)
 				}
 				else if (dec->mType <= DT_TYPE_FUNCTION)
 				{
-					exp = ParseDeclarationExpression(dec);
+					if (lhs)
+						exp = ParseDeclarationExpression(dec);
+					else
+					{
+						exp = new Expression(mScanner->mLocation, EX_TYPE);
+						exp->mDecValue = nullptr;
+						exp->mDecType = dec;
+					}
 				}
 				else
 				{
@@ -1887,7 +2000,7 @@ Expression* Parser::ParseSimpleExpression(void)
 
 	case TK_OPEN_PARENTHESIS:
 		mScanner->NextToken();
-		exp = ParseExpression();
+		exp = ParseExpression(true);
 		if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 			mScanner->NextToken();
 		else
@@ -1916,7 +2029,7 @@ Expression* Parser::ParseSimpleExpression(void)
 				Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
 				nexp->mDecType = exp->mDecType;
 				nexp->mLeft = exp;
-				nexp->mRight = ParsePrefixExpression();
+				nexp->mRight = ParsePrefixExpression(false);
 				exp = nexp->ConstantFold(mErrors);
 			}
 		}
@@ -2153,9 +2266,9 @@ void Parser::ResolveOverloadCall(Expression* cexp, Expression* pexp)
 	}
 }
 
-Expression* Parser::ParsePostfixExpression(void)
+Expression* Parser::ParsePostfixExpression(bool lhs)
 {
-	Expression* exp = ParseSimpleExpression();
+	Expression* exp = ParseSimpleExpression(lhs);
 
 	for (;;)
 	{
@@ -2166,7 +2279,7 @@ Expression* Parser::ParsePostfixExpression(void)
 			mScanner->NextToken();
 			Expression* nexp = new Expression(mScanner->mLocation, EX_INDEX);
 			nexp->mLeft = exp;
-			nexp->mRight = ParseExpression();
+			nexp->mRight = ParseExpression(false);
 			if (mScanner->mToken == TK_CLOSE_BRACKET)
 				mScanner->NextToken();
 			else
@@ -2178,40 +2291,115 @@ Expression* Parser::ParsePostfixExpression(void)
 		}
 		else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 		{
-			if (exp->mDecType->mType == DT_TYPE_POINTER && exp->mDecType->mBase->mType == DT_TYPE_FUNCTION)
-			{				
-			}
-			else if (exp->mDecType->mType == DT_TYPE_FUNCTION)
+			if (exp->mType == EX_TYPE)
 			{
+				if (exp->mDecType->mConstructor)
+				{
+					Declaration* tdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+
+					tdec->mBase = exp->mDecType;
+					tdec->mVarIndex = mLocalIndex++;
+					tdec->mSize = exp->mDecType->mSize;
+					tdec->mFlags |= DTF_DEFINED;
+
+					Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+					vexp->mDecType = exp->mDecType;
+					vexp->mDecValue = tdec;
+
+					Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					cexp->mDecValue = exp->mDecType->mConstructor;
+					cexp->mDecType = cexp->mDecValue->mBase;
+
+					Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+					fexp->mLeft = cexp;
+
+					mScanner->NextToken();
+					if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
+					{
+						fexp->mRight = ParseListExpression();
+						ConsumeToken(TK_CLOSE_PARENTHESIS);
+					}
+					else
+					{
+						fexp->mRight = nullptr;
+						mScanner->NextToken();
+					}
+
+					Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+					texp->mToken = TK_BINARY_AND;
+					texp->mLeft = vexp;
+					texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+					texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+					texp->mDecType->mBase = exp->mDecType;
+					texp->mDecType->mSize = 2;
+
+					if (fexp->mRight)
+					{
+						Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+						lexp->mLeft = texp;
+						lexp->mRight = fexp->mRight;
+						fexp->mRight = lexp;
+					}
+					else
+						fexp->mRight = texp;
+
+					ResolveOverloadCall(cexp, fexp->mRight);
+
+					Expression* nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+					nexp->mLeft = fexp;
+					nexp->mRight = vexp;
+					nexp->mDecType = vexp->mDecType;
+
+					exp = nexp;
+				}
+				else
+				{
+					Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
+					nexp->mDecType = exp->mDecType;
+					nexp->mLeft = exp;
+					mScanner->NextToken();
+					nexp->mRight = ParseListExpression();
+					ConsumeToken(TK_CLOSE_PARENTHESIS);
+					exp = nexp->ConstantFold(mErrors);
+				}
 			}
 			else
 			{
-				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
-				exp->mDecType = TheVoidFunctionTypeDeclaration;
-			}
+				if (exp->mDecType->mType == DT_TYPE_POINTER && exp->mDecType->mBase->mType == DT_TYPE_FUNCTION)
+				{
+				}
+				else if (exp->mDecType->mType == DT_TYPE_FUNCTION)
+				{
+				}
+				else
+				{
+					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
+					exp->mDecType = TheVoidFunctionTypeDeclaration;
+				}
 
-			mScanner->NextToken();
-			Expression* nexp = new Expression(mScanner->mLocation, EX_CALL);
-			if (mInlineCall)
-				nexp->mType = EX_INLINE;
-			mInlineCall = false;
-
-			nexp->mLeft = exp;
-			if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
-			{
-				nexp->mRight = ParseListExpression();
-				ConsumeToken(TK_CLOSE_PARENTHESIS);
-			}
-			else
-			{
-				nexp->mRight = nullptr;
 				mScanner->NextToken();
+				Expression* nexp = new Expression(mScanner->mLocation, EX_CALL);
+				if (mInlineCall)
+					nexp->mType = EX_INLINE;
+				mInlineCall = false;
+
+				nexp->mLeft = exp;
+				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
+				{
+					nexp->mRight = ParseListExpression();
+					ConsumeToken(TK_CLOSE_PARENTHESIS);
+				}
+				else
+				{
+					nexp->mRight = nullptr;
+					mScanner->NextToken();
+				}
+
+				ResolveOverloadCall(exp, nexp->mRight);
+				nexp->mDecType = exp->mDecType->mBase;
+
+				exp = nexp;
 			}
-
-			ResolveOverloadCall(exp, nexp->mRight);
-			nexp->mDecType = exp->mDecType->mBase;
-
-			exp = nexp;
 		}
 		else if (mScanner->mToken == TK_INC || mScanner->mToken == TK_DEC)
 		{
@@ -2283,7 +2471,7 @@ Expression* Parser::ParsePostfixExpression(void)
 }
 
 
-Expression* Parser::ParsePrefixExpression(void)
+Expression* Parser::ParsePrefixExpression(bool lhs)
 {
 	if (mScanner->mToken == TK_SUB || mScanner->mToken == TK_BINARY_NOT || mScanner->mToken == TK_LOGICAL_NOT || 
 		mScanner->mToken == TK_MUL || mScanner->mToken == TK_INC || mScanner->mToken == TK_DEC || mScanner->mToken == TK_BINARY_AND ||
@@ -2293,7 +2481,7 @@ Expression* Parser::ParsePrefixExpression(void)
 		if (mScanner->mToken == TK_LOGICAL_NOT)
 		{
 			mScanner->NextToken();
-			nexp = ParsePrefixExpression();
+			nexp = ParsePrefixExpression(false);
 			nexp = nexp->LogicInvertExpression();
 		}
 		else if (mScanner->mToken == TK_INC || mScanner->mToken == TK_DEC)
@@ -2301,7 +2489,7 @@ Expression* Parser::ParsePrefixExpression(void)
 			nexp = new Expression(mScanner->mLocation, EX_PREINCDEC);
 			nexp->mToken = mScanner->mToken;
 			mScanner->NextToken();
-			nexp->mLeft = ParsePrefixExpression();;
+			nexp->mLeft = ParsePrefixExpression(false);;
 			nexp->mDecType = nexp->mLeft->mDecType;
 		}
 		else
@@ -2309,7 +2497,7 @@ Expression* Parser::ParsePrefixExpression(void)
 			nexp = new Expression(mScanner->mLocation, EX_PREFIX);
 			nexp->mToken = mScanner->mToken;
 			mScanner->NextToken();
-			nexp->mLeft = ParsePrefixExpression();
+			nexp->mLeft = ParsePrefixExpression(false);
 			if (nexp->mToken == TK_MUL)
 			{
 				if (nexp->mLeft->mDecType->mType == DT_TYPE_POINTER || nexp->mLeft->mDecType->mType == DT_TYPE_ARRAY)
@@ -2343,12 +2531,12 @@ Expression* Parser::ParsePrefixExpression(void)
 		return nexp->ConstantFold(mErrors);
 	}
 	else
-		return ParsePostfixExpression();
+		return ParsePostfixExpression(lhs);
 }
 
-Expression* Parser::ParseMulExpression(void)
+Expression* Parser::ParseMulExpression(bool lhs)
 {
-	Expression* exp = ParsePrefixExpression();
+	Expression* exp = ParsePrefixExpression(lhs);
 
 	while (mScanner->mToken == TK_MUL || mScanner->mToken == TK_DIV || mScanner->mToken == TK_MOD)
 	{
@@ -2356,7 +2544,7 @@ Expression* Parser::ParseMulExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParsePrefixExpression();
+		nexp->mRight = ParsePrefixExpression(false);
 
 		if (nexp->mLeft->mDecType->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->mType == DT_TYPE_FLOAT)
 			nexp->mDecType = TheFloatTypeDeclaration;
@@ -2369,9 +2557,9 @@ Expression* Parser::ParseMulExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseAddExpression(void)
+Expression* Parser::ParseAddExpression(bool lhs)
 {
-	Expression* exp = ParseMulExpression();
+	Expression* exp = ParseMulExpression(lhs);
 
 	while (mScanner->mToken == TK_ADD || mScanner->mToken == TK_SUB)
 	{
@@ -2379,7 +2567,7 @@ Expression* Parser::ParseAddExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseMulExpression();
+		nexp->mRight = ParseMulExpression(false);
 		if (nexp->mLeft->mDecType->mType == DT_TYPE_POINTER && nexp->mRight->mDecType->IsIntegerType())
 			nexp->mDecType = nexp->mLeft->mDecType;
 		else if (nexp->mRight->mDecType->mType == DT_TYPE_POINTER && nexp->mLeft->mDecType->IsIntegerType())
@@ -2415,9 +2603,9 @@ Expression* Parser::ParseAddExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseShiftExpression(void)
+Expression* Parser::ParseShiftExpression(bool lhs)
 {
-	Expression* exp = ParseAddExpression();
+	Expression* exp = ParseAddExpression(lhs);
 
 	while (mScanner->mToken == TK_LEFT_SHIFT || mScanner->mToken == TK_RIGHT_SHIFT)
 	{
@@ -2425,7 +2613,7 @@ Expression* Parser::ParseShiftExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseAddExpression();
+		nexp->mRight = ParseAddExpression(false);
 		nexp->mDecType = exp->mDecType;
 
 		exp = nexp->ConstantFold(mErrors);
@@ -2434,9 +2622,9 @@ Expression* Parser::ParseShiftExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseRelationalExpression(void)
+Expression* Parser::ParseRelationalExpression(bool lhs)
 {
-	Expression* exp = ParseShiftExpression();
+	Expression* exp = ParseShiftExpression(lhs);
 
 	while (mScanner->mToken >= TK_EQUAL && mScanner->mToken <= TK_LESS_EQUAL)
 	{
@@ -2444,7 +2632,7 @@ Expression* Parser::ParseRelationalExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseShiftExpression();
+		nexp->mRight = ParseShiftExpression(false);
 		nexp->mDecType = TheBoolTypeDeclaration;
 
 		exp = nexp->ConstantFold(mErrors);
@@ -2453,9 +2641,9 @@ Expression* Parser::ParseRelationalExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseBinaryAndExpression(void)
+Expression* Parser::ParseBinaryAndExpression(bool lhs)
 {
-	Expression* exp = ParseRelationalExpression();
+	Expression* exp = ParseRelationalExpression(lhs);
 
 	while (mScanner->mToken == TK_BINARY_AND)
 	{
@@ -2463,7 +2651,7 @@ Expression* Parser::ParseBinaryAndExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseRelationalExpression();
+		nexp->mRight = ParseRelationalExpression(false);
 		nexp->mDecType = exp->mDecType;
 
 		exp = nexp->ConstantFold(mErrors);
@@ -2472,9 +2660,9 @@ Expression* Parser::ParseBinaryAndExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseBinaryXorExpression(void)
+Expression* Parser::ParseBinaryXorExpression(bool lhs)
 {
-	Expression* exp = ParseBinaryAndExpression();
+	Expression* exp = ParseBinaryAndExpression(lhs);
 
 	while (mScanner->mToken == TK_BINARY_XOR)
 	{
@@ -2482,7 +2670,7 @@ Expression* Parser::ParseBinaryXorExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseBinaryAndExpression();
+		nexp->mRight = ParseBinaryAndExpression(false);
 		nexp->mDecType = exp->mDecType;
 		exp = nexp->ConstantFold(mErrors);
 	}
@@ -2490,9 +2678,9 @@ Expression* Parser::ParseBinaryXorExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseBinaryOrExpression(void)
+Expression* Parser::ParseBinaryOrExpression(bool lhs)
 {
-	Expression* exp = ParseBinaryXorExpression();
+	Expression* exp = ParseBinaryXorExpression(lhs);
 
 	while (mScanner->mToken == TK_BINARY_OR)
 	{
@@ -2500,7 +2688,7 @@ Expression* Parser::ParseBinaryOrExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseBinaryXorExpression();
+		nexp->mRight = ParseBinaryXorExpression(false);
 		nexp->mDecType = exp->mDecType;
 		exp = nexp->ConstantFold(mErrors);
 	}
@@ -2508,9 +2696,9 @@ Expression* Parser::ParseBinaryOrExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseLogicAndExpression(void)
+Expression* Parser::ParseLogicAndExpression(bool lhs)
 {
-	Expression* exp = ParseBinaryOrExpression();
+	Expression* exp = ParseBinaryOrExpression(lhs);
 
 	while (mScanner->mToken == TK_LOGICAL_AND)
 	{
@@ -2518,7 +2706,7 @@ Expression* Parser::ParseLogicAndExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseBinaryOrExpression();
+		nexp->mRight = ParseBinaryOrExpression(false);
 		nexp->mDecType = TheBoolTypeDeclaration;
 		exp = nexp->ConstantFold(mErrors);
 	}
@@ -2526,9 +2714,9 @@ Expression* Parser::ParseLogicAndExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseLogicOrExpression(void)
+Expression* Parser::ParseLogicOrExpression(bool lhs)
 {
-	Expression* exp = ParseLogicAndExpression();
+	Expression* exp = ParseLogicAndExpression(lhs);
 
 	while (mScanner->mToken == TK_LOGICAL_OR)
 	{
@@ -2536,7 +2724,7 @@ Expression* Parser::ParseLogicOrExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseLogicAndExpression();
+		nexp->mRight = ParseLogicAndExpression(false);
 		nexp->mDecType = TheBoolTypeDeclaration;
 		exp = nexp->ConstantFold(mErrors);
 	}
@@ -2544,9 +2732,9 @@ Expression* Parser::ParseLogicOrExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseConditionalExpression(void)
+Expression* Parser::ParseConditionalExpression(bool lhs)
 {
-	Expression* exp = ParseLogicOrExpression();
+	Expression* exp = ParseLogicOrExpression(lhs);
 	
 	if (mScanner->mToken == TK_QUESTIONMARK)
 	{
@@ -2556,9 +2744,9 @@ Expression* Parser::ParseConditionalExpression(void)
 		Expression* texp = new Expression(mScanner->mLocation, EX_SEQUENCE);
 		nexp->mRight = texp;
 
-		texp->mLeft = ParseLogicOrExpression();
+		texp->mLeft = ParseLogicOrExpression(false);
 		ConsumeToken(TK_COLON);
-		texp->mRight = ParseConditionalExpression();
+		texp->mRight = ParseConditionalExpression(false);
 		
 		nexp->mDecType = texp->mLeft->mDecType;
 		exp = nexp->ConstantFold(mErrors);
@@ -2569,7 +2757,7 @@ Expression* Parser::ParseConditionalExpression(void)
 
 Expression* Parser::ParseRExpression(void)
 {
-	return ParseConditionalExpression();
+	return ParseConditionalExpression(false);
 }
 
 Expression* Parser::ParseParenthesisExpression(void)
@@ -2579,7 +2767,7 @@ Expression* Parser::ParseParenthesisExpression(void)
 	else
 		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'(' expected");
 
-	Expression* exp = ParseExpression();
+	Expression* exp = ParseExpression(true);
 
 	if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 		mScanner->NextToken();
@@ -2589,9 +2777,9 @@ Expression* Parser::ParseParenthesisExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseAssignmentExpression(void)
+Expression* Parser::ParseAssignmentExpression(bool lhs)
 {
-	Expression* exp = ParseConditionalExpression();
+	Expression* exp = ParseConditionalExpression(lhs);
 
 	if (mScanner->mToken >= TK_ASSIGN && mScanner->mToken <= TK_ASSIGN_OR)
 	{
@@ -2599,7 +2787,7 @@ Expression* Parser::ParseAssignmentExpression(void)
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseAssignmentExpression();
+		nexp->mRight = ParseAssignmentExpression(false);
 		nexp->mDecType = exp->mDecType;
 		exp = nexp;
 		assert(exp->mDecType);
@@ -2608,14 +2796,14 @@ Expression* Parser::ParseAssignmentExpression(void)
 	return exp;
 }
 
-Expression* Parser::ParseExpression(void)
+Expression* Parser::ParseExpression(bool lhs)
 {
-	return ParseAssignmentExpression();
+	return ParseAssignmentExpression(lhs);
 }
 
 Expression* Parser::ParseListExpression(void)
 {
-	Expression* exp = ParseExpression();
+	Expression* exp = ParseExpression(true);
 	if (mScanner->mToken == TK_COMMA)
 	{
 		Expression* nexp = new Expression(mScanner->mLocation, EX_LIST);
@@ -2779,7 +2967,7 @@ Expression* Parser::ParseStatement(void)
 
 				// Assignment
 				if (mScanner->mToken != TK_SEMICOLON)
-					initExp = ParseExpression();
+					initExp = ParseExpression(true);
 				if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
 				else
@@ -2787,7 +2975,7 @@ Expression* Parser::ParseStatement(void)
 
 				// Condition
 				if (mScanner->mToken != TK_SEMICOLON)
-					conditionExp = ParseExpression();
+					conditionExp = ParseExpression(false);
 
 				if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
@@ -2796,7 +2984,7 @@ Expression* Parser::ParseStatement(void)
 
 				// Iteration
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
-					iterateExp = ParseExpression();
+					iterateExp = ParseExpression(false);
 				if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 					mScanner->NextToken();
 				else
@@ -4259,7 +4447,7 @@ void Parser::ParsePragma(void)
 				{
 					if (mScanner->mToken != TK_COMMA)
 					{
-						exp = ParseExpression();
+						exp = ParseExpression(false);
 						if (exp->mDecValue && exp->mDecValue->mType == DT_VARIABLE)
 							dstart = exp->mDecValue;
 					}
@@ -4268,7 +4456,7 @@ void Parser::ParsePragma(void)
 					{
 						if (mScanner->mToken != TK_COMMA)
 						{
-							exp = ParseExpression();
+							exp = ParseExpression(false);
 							if (exp->mDecValue && exp->mDecValue->mType == DT_VARIABLE)
 								dend = exp->mDecValue;
 						}
