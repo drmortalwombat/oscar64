@@ -27028,7 +27028,7 @@ void NativeCodeBasicBlock::MarkLocalUsedLinkerObjects(void)
 			NativeCodeInstruction& ins(mIns[i]);
 			if (ins.mLinkerObject)
 			{
-				if (ins.mMode == ASMIM_IMMEDIATE_ADDRESS && ins.UsesAddress())
+				if (ins.mMode == ASMIM_IMMEDIATE_ADDRESS || ins.UsesAddress())
 					ins.mLinkerObject->mFlags |= LOBJF_LOCAL_USED;
 			}
 		}
@@ -41208,6 +41208,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
+#if 1
 		if (step == 10)
 		{
 			ResetVisited();
@@ -41217,6 +41218,8 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->RemoveLocalUnusedLinkerObjects())
 				changed = true;
 		}
+#endif
+
 #endif
 
 		if (step == 8)

@@ -550,6 +550,14 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		dec->mSection = mBSSection;
 		dec->mBase = nullptr;
 		mScanner->NextToken();
+		if (mScanner->mToken == TK_OPEN_PARENTHESIS && mScope->mLevel >= SLEVEL_FUNCTION)
+		{
+			// Can't be a function declaration in local context, so it must be an object
+			// declaration with initializer, so return immediately
+
+			return dec;
+		}
+
 		while (ConsumeTokenIf(TK_COLCOLON))
 		{
 			if (mScanner->mToken == TK_IDENT)
@@ -1592,6 +1600,100 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				}
 				ndec->mSize = ndec->mBase->mSize;
 			}
+			else if (mScanner->mToken == TK_OPEN_PARENTHESIS && (mCompilerOptions & COPT_CPLUSPLUS))
+			{
+				if (ndec->mBase->mConstructor)
+				{
+					Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+					vexp->mDecType = ndec->mBase;
+					vexp->mDecValue = ndec;
+
+					Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					cexp->mDecValue = ndec->mBase->mConstructor;
+					cexp->mDecType = cexp->mDecValue->mBase;
+
+					Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+					fexp->mLeft = cexp;
+
+					mScanner->NextToken();
+					if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
+					{
+						fexp->mRight = ParseListExpression();
+						ConsumeToken(TK_CLOSE_PARENTHESIS);
+					}
+					else
+					{
+						fexp->mRight = nullptr;
+						mScanner->NextToken();
+					}
+
+					Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+					texp->mToken = TK_BINARY_AND;
+					texp->mLeft = vexp;
+					texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+					texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+					texp->mDecType->mBase = ndec->mBase;
+					texp->mDecType->mSize = 2;
+
+					if (fexp->mRight)
+					{
+						Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+						lexp->mLeft = texp;
+						lexp->mRight = fexp->mRight;
+						fexp->mRight = lexp;
+					}
+					else
+						fexp->mRight = texp;
+
+					ResolveOverloadCall(cexp, fexp->mRight);
+
+					Expression* nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+					nexp->mLeft = fexp;
+					nexp->mRight = vexp;
+					nexp->mDecType = vexp->mDecType;
+
+					ndec->mValue = nexp;
+				}
+			}
+			else if ((mCompilerOptions & COPT_CPLUSPLUS) && ndec->mBase->mConstructor)
+			{
+				// Find default constructor
+
+				Declaration* cdec = ndec->mBase->mConstructor;
+				while (cdec && cdec->mBase->mParams->mNext)
+					cdec = cdec->mNext;
+
+				if (cdec)
+				{
+					Expression* vexp = new Expression(ndec->mLocation, EX_VARIABLE);
+					vexp->mDecType = ndec->mBase;
+					vexp->mDecValue = ndec;
+
+					Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					cexp->mDecValue = cdec;
+					cexp->mDecType = cexp->mDecValue->mBase;
+
+					Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+					fexp->mLeft = cexp;
+
+					Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+					texp->mToken = TK_BINARY_AND;
+					texp->mLeft = vexp;
+					texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+					texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+					texp->mDecType->mBase = ndec->mBase;
+					texp->mDecType->mSize = 2;
+
+					fexp->mRight = texp;
+
+					Expression* nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+					nexp->mLeft = fexp;
+					nexp->mRight = vexp;
+					nexp->mDecType = vexp->mDecType;
+				}
+				else
+					mErrors->Error(ndec->mLocation, EERR_NO_DEFAULT_CONSTRUCTOR, "No default constructor for class", ndec->mBase->mIdent);
+			}
 
 			if (storageFlags & DTF_EXPORT)
 			{
@@ -1651,14 +1753,29 @@ Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 		{
 			if (dec->mValue && !(dec->mFlags & DTF_GLOBAL))
 			{
-				Expression* nexp = new Expression(dec->mValue->mLocation, EX_INITIALIZATION);
-				nexp->mToken = TK_ASSIGN;
-				nexp->mLeft = new Expression(dec->mLocation, EX_VARIABLE);
-				nexp->mLeft->mDecValue = dec;
-				nexp->mLeft->mDecType = dec->mBase;
-				nexp->mDecType = nexp->mLeft->mDecType;
+				Expression* nexp;
 
-				nexp->mRight = dec->mValue;
+				if ((mCompilerOptions & COPT_CPLUSPLUS) && dec->mValue->mType == EX_SEQUENCE)
+				{
+					nexp = dec->mValue;
+
+					Expression* vdec = nexp->mRight;
+					if (vdec->mDecValue != dec)
+					{
+						vdec->mDecValue = dec;
+					}
+				}
+				else
+				{
+					nexp = new Expression(dec->mValue->mLocation, EX_INITIALIZATION);
+					nexp->mToken = TK_ASSIGN;
+					nexp->mLeft = new Expression(dec->mLocation, EX_VARIABLE);
+					nexp->mLeft->mDecValue = dec;
+					nexp->mLeft->mDecType = dec->mBase;
+					nexp->mDecType = nexp->mLeft->mDecType;
+
+					nexp->mRight = dec->mValue;
+				}
 
 				if (!exp)
 					exp = nexp;
