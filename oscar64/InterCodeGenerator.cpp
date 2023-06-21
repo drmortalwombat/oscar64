@@ -863,7 +863,7 @@ void InterCodeGenerator::UnwindDestructStack(Declaration* procType, InterCodePro
 		if (stack->mDestruct)
 		{
 			DestructStack* destack = nullptr;
-			TranslateExpression(procType, proc, block, stack->mDestruct, destack, nullptr, nullptr, nullptr);
+			TranslateExpression(procType, proc, block, stack->mDestruct, destack, BranchTarget(), BranchTarget(), nullptr);
 		}
 
 		stack = stack->mNext;
@@ -873,7 +873,7 @@ void InterCodeGenerator::UnwindDestructStack(Declaration* procType, InterCodePro
 		mErrors->Error(proc->mLocation, EWARN_DESTRUCTOR_MISMATCH, "Destructor sequence mismatch");
 }
 
-InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr)
+InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, const BranchTarget& breakBlock, const BranchTarget& continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr)
 {
 	DestructStack* destack = nullptr;
 
@@ -1033,7 +1033,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		rdec->mSize = rdec->mBase->mSize;
 	}
 
-	vl = TranslateExpression(ftype, proc, block, fexp, destack, nullptr, nullptr, &nmapper);
+	vl = TranslateExpression(ftype, proc, block, fexp, destack, BranchTarget(), BranchTarget(), &nmapper);
 
 	InterInstruction* jins = new InterInstruction(exp->mLocation, IC_JUMP);
 	block->Append(jins);
@@ -1059,7 +1059,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		return ExValue(TheVoidTypeDeclaration);
 }
 
-InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, DestructStack*& destack, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper* inlineMapper, ExValue* lrexp)
+InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, DestructStack*& destack, const BranchTarget& breakBlock, const BranchTarget& continueBlock, InlineMapper* inlineMapper, ExValue* lrexp)
 {
 	Declaration* dec;
 	ExValue	vl, vr;
@@ -3071,6 +3071,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mCode = IC_RETURN;
 			}
 
+			UnwindDestructStack(procType, proc, block, destack, nullptr);
+
 			if (ins->mCode != IC_NONE)
 				block->Append(ins);
 
@@ -3089,12 +3091,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 		case EX_BREAK:
 		{
-			if (breakBlock)
+			if (breakBlock.mBlock)
 			{
+				UnwindDestructStack(procType, proc, block, destack, breakBlock.mStack);
 				InterInstruction	*	jins = new InterInstruction(exp->mLocation, IC_JUMP);
 				block->Append(jins);
 
-				block->Close(breakBlock, nullptr);
+				block->Close(breakBlock.mBlock, nullptr);
 				block = new InterCodeBasicBlock(proc);
 			}
 			else
@@ -3105,12 +3108,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 		case EX_CONTINUE:
 		{
-			if (continueBlock)
+			if (continueBlock.mBlock)
 			{
+				UnwindDestructStack(procType, proc, block, destack, continueBlock.mStack);
 				InterInstruction	*	jins = new InterInstruction(exp->mLocation, IC_JUMP);
 				block->Append(jins);
 
-				block->Close(continueBlock, nullptr);
+				block->Close(continueBlock.mBlock, nullptr);
 				block = new InterCodeBasicBlock(proc);
 			}
 			else
@@ -3526,7 +3530,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			DestructStack* idestack = destack;
 
-			vr = TranslateExpression(procType, proc, bblock, exp->mRight, destack, eblock, lblock, inlineMapper);
+			vr = TranslateExpression(procType, proc, bblock, exp->mRight, destack, BranchTarget(eblock, odestack), BranchTarget(lblock, idestack), inlineMapper);
 
 			UnwindDestructStack(procType, proc, bblock, destack, idestack);
 			destack = idestack;
@@ -3616,7 +3620,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			DestructStack* idestack = destack;
 
-			vr = TranslateExpression(procType, proc, bblock, exp->mRight, destack, eblock, iblock, inlineMapper);
+			vr = TranslateExpression(procType, proc, bblock, exp->mRight, destack, BranchTarget(eblock, odestack), BranchTarget(iblock, idestack), inlineMapper);
 
 			UnwindDestructStack(procType, proc, bblock, destack, idestack);
 			destack = idestack;
@@ -3641,6 +3645,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 		case EX_DO:
 		{
+			DestructStack* odestack = destack;
+
 			InterInstruction	*	jins = new InterInstruction(exp->mLocation, IC_JUMP);
 
 			InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
@@ -3650,17 +3656,27 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(jins);
 			block->Close(cblock, nullptr);
 
-			vr = TranslateExpression(procType, proc, cblock, exp->mRight, destack, eblock, cblock, inlineMapper);
+			DestructStack* idestack = destack;
+
+			vr = TranslateExpression(procType, proc, cblock, exp->mRight, destack, BranchTarget(eblock, odestack), BranchTarget(cblock, idestack), inlineMapper);
+
+			UnwindDestructStack(procType, proc, cblock, destack, idestack);
+			destack = idestack;
 
 			TranslateLogic(procType, proc, cblock, lblock, eblock, exp->mLeft, destack, inlineMapper);
 
 			block = eblock;
+
+			UnwindDestructStack(procType, proc, block, destack, odestack);
+			destack = odestack;
 
 			return ExValue(TheVoidTypeDeclaration);
 		}
 
 		case EX_SWITCH:
 		{
+			DestructStack* odestack = destack;
+
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 			vl = Dereference(proc, exp, block, vl);
 			vl = CoerceType(proc, exp, block, vl, TheSignedIntTypeDeclaration);
@@ -3730,7 +3746,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 
 				if (cexp->mRight)
-					TranslateExpression(procType, proc, block, cexp->mRight, destack, eblock, continueBlock, inlineMapper);
+					TranslateExpression(procType, proc, block, cexp->mRight, destack, BranchTarget(eblock, odestack), continueBlock, inlineMapper);
 
 				sexp = sexp->mRight;
 			}
@@ -3739,6 +3755,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (block)
 			{
+				UnwindDestructStack(procType, proc, block, destack, odestack);
+
 				InterInstruction* jins = new InterInstruction(exp->mLocation, IC_JUMP);
 
 				block->Append(jins);
@@ -3746,6 +3764,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 
 			block = eblock;
+			
+			destack = odestack;
 
 			return ExValue(TheVoidTypeDeclaration);
 		}
@@ -3917,7 +3937,7 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 	}
 	default:
 	{
-		ExValue	vr = TranslateExpression(procType, proc, block, exp, destack, nullptr, nullptr, inlineMapper);
+		ExValue	vr = TranslateExpression(procType, proc, block, exp, destack, BranchTarget(), BranchTarget(), inlineMapper);
 		vr = Dereference(proc, exp, block, vr);
 
 		if (!vr.mType->IsSimpleType())
@@ -4024,7 +4044,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 		DestructStack* destack = nullptr;
 
-		TranslateExpression(dec->mBase, proc, exitBlock, exp, destack, nullptr, nullptr, nullptr);
+		TranslateExpression(dec->mBase, proc, exitBlock, exp, destack, BranchTarget(), BranchTarget(), nullptr);
 
 		UnwindDestructStack(dec->mBase, proc, exitBlock, destack, nullptr);
 	}

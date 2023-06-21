@@ -27,6 +27,20 @@ public:
 		{}
 	};
 
+	struct BranchTarget
+	{
+		InterCodeBasicBlock* mBlock;
+		DestructStack* mStack;
+
+		BranchTarget(void)
+			: mBlock(nullptr), mStack(nullptr)
+		{}
+		BranchTarget(InterCodeBasicBlock * block, DestructStack * stack)
+		: mBlock(block), mStack(stack)
+		{}
+
+	};
+
 	uint64		mCompilerOptions;
 
 	InterCodeProcedure* TranslateProcedure(InterCodeModule* mod, Expression* exp, Declaration * dec);
@@ -63,9 +77,9 @@ protected:
 
 	ExValue Dereference(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v, int level = 0);
 	ExValue CoerceType(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v, Declaration * type, bool checkTrunc = true);
-	ExValue TranslateExpression(Declaration * procType, InterCodeProcedure * proc, InterCodeBasicBlock*& block, Expression* exp, DestructStack*& destack, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper * inlineMapper, ExValue * lrexp = nullptr);
+	ExValue TranslateExpression(Declaration * procType, InterCodeProcedure * proc, InterCodeBasicBlock*& block, Expression* exp, DestructStack*& destack, const BranchTarget & breakBlock, const BranchTarget& continueBlock, InlineMapper * inlineMapper, ExValue * lrexp = nullptr);
 	void TranslateLogic(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock* block, InterCodeBasicBlock* tblock, InterCodeBasicBlock* fblock, Expression* exp, DestructStack*& destack, InlineMapper* inlineMapper);
-	ExValue TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, InterCodeBasicBlock* breakBlock, InterCodeBasicBlock* continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr);
+	ExValue TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, const BranchTarget& breakBlock, const BranchTarget& continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr);
 
 	void UnwindDestructStack(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, DestructStack* stack, DestructStack * bottom);
 	void BuildInitializer(InterCodeModule* mod, uint8 * dp, int offset, Declaration* data, InterVariable * variable);
