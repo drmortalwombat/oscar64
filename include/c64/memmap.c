@@ -27,7 +27,7 @@ __asm IRQTrampoline
 	tsx
 	lda $0105, x
 	pha
-	jmp ($fffa)
+	jmp ($fffe)
 }
 
 __asm NMITrampoline
@@ -45,13 +45,13 @@ __asm NMITrampoline
 	tsx
 	lda $0105, x
 	pha
-	jmp ($fffe)
+	jmp ($fffa)
 }
 
 void mmap_trampoline(void)
 {
-	*((void **)0xfffa) = IRQTrampoline;
-	*((void **)0xfffe) = NMITrampoline;	
+	*((void **)0xfffa) = NMITrampoline;	
+	*((void **)0xfffe) = IRQTrampoline;
 }
 
 #pragma native(mmap_trampoline)

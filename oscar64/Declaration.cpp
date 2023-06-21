@@ -17,7 +17,7 @@ DeclarationScope::~DeclarationScope(void)
 
 const Ident* DeclarationScope::Mangle(const Ident* ident) const
 {
-	if (mName)
+	if (mName && ident)
 	{
 		char	buffer[200];
 		strcpy_s(buffer, mName->mString);

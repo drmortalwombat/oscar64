@@ -94,6 +94,7 @@ static const uint64 DTF_FPARAM_NOCONST = (1ULL << 41);
 
 static const uint64 DTF_FUNC_THIS		= (1ULL << 42);
 static const uint64 DTF_FUNC_CONSTRUCTOR = (1ULL << 43);
+static const uint64 DTF_FUNC_DESTRUCTOR = (1ULL << 44);
 
 static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 
@@ -167,6 +168,7 @@ enum ExpressionType
 	EX_ELSE,
 	EX_FOR,
 	EX_DO,
+	EX_SCOPE,
 	EX_BREAK,
 	EX_CONTINUE,
 	EX_TYPE,
@@ -181,7 +183,8 @@ enum ExpressionType
 	EX_DEFAULT,
 	EX_CONDITIONAL,
 	EX_ASSUME,
-	EX_BANKOF
+	EX_BANKOF,
+	EX_CONSTRUCT
 };
 
 class Expression

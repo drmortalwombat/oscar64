@@ -744,6 +744,18 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			exp = exp->mRight;
 		} while (exp);
 		break;
+
+	case EX_SCOPE:
+		Analyze(exp->mLeft, procDec, false);
+		break;
+
+	case EX_CONSTRUCT:
+		if (exp->mLeft->mLeft)
+			Analyze(exp->mLeft->mLeft, procDec, false);
+		if (exp->mLeft->mRight)
+			Analyze(exp->mLeft->mRight, procDec, false);
+		return Analyze(exp->mRight, procDec, false);
+		
 	case EX_WHILE:
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 
