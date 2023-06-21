@@ -57,6 +57,11 @@ A windows installer is provided with the release, the compiler is installed into
 ### Building
 
 The compiler can also be built using MSVC or GCC.  A visual studio project and a makefile are part of the source repository. The makefile is in the make folder.
+You should build from a subdirectory of Oscar64 so that references in the makefile work out correctly.
+
+* mkdir build
+* cd build
+* make -f ../make/makefile
 
 ### Compiler arguments
 
