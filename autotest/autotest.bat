@@ -172,31 +172,31 @@ echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
 
 :test
-..\release\oscar64 -e %~1
+..\release\oscar64 -e -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -n %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O2 %~1
+..\release\oscar64 -e -O2 -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -O2 -n %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O0 %~1
+..\release\oscar64 -e -O0 -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -O0 -n %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -Os %~1
+..\release\oscar64 -e -Os -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -Os -n %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O3 %~1
+..\release\oscar64 -e -O3 -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -O3 -n %~1
@@ -205,19 +205,19 @@ exit /b %errorlevel%
 @exit /b 0
 
 :testb
-..\release\oscar64 -e %~1
+..\release\oscar64 -e -bc %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O2 %~1
+..\release\oscar64 -e -bc -O2 %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O0 %~1
+..\release\oscar64 -e -bc -O0 %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -Os %~1
+..\release\oscar64 -e -bc -Os %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O3 %~1
+..\release\oscar64 -e -bc -O3 %~1
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

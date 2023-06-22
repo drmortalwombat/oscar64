@@ -71,7 +71,8 @@ The compiler is command line driven, and creates an executable .prg file.
 * -rt : alternative runtime library, replaces the crt.c (or empty for none)
 * -e : execute the result in the integrated emulator
 * -ep : execute and profile the result in the integrated emulator
-* -n : create pure native code for all functions
+* -bc : create byte code for all functions
+* -n : create pure native code for all functions (now default)
 * -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)
 * -O1 or -O : default optimizations
 * -O0 : disable optimizations

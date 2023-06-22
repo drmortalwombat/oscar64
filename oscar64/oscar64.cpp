@@ -102,6 +102,8 @@ int main2(int argc, const char** argv)
 
 		Compiler* compiler = new Compiler();
 
+		compiler->mCompilerOptions |= COPT_NATIVE;
+
 		Location	loc;
 
 		GrowingArray<const char*>	dataFiles(nullptr);
@@ -177,7 +179,10 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 'n')
 				{
 					compiler->mCompilerOptions |= COPT_NATIVE;
-					compiler->AddDefine(Ident::Unique("OSCAR_NATIVE_ALL"), "1");
+				}
+				else if (arg[1] == 'b' && arg[2] == 'c')
+				{
+					compiler->mCompilerOptions &= ~COPT_NATIVE;
 				}
 				else if (arg[1] == 'O')
 				{
@@ -259,6 +264,11 @@ int main2(int argc, const char** argv)
 
 				compiler->mCompilationUnits->AddUnit(loc, argv[i], nullptr);
 			}
+		}
+
+		if (compiler->mCompilerOptions & COPT_NATIVE)
+		{
+			compiler->AddDefine(Ident::Unique("OSCAR_NATIVE_ALL"), "1");
 		}
 
 		char	basicStart[10];

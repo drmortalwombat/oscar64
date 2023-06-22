@@ -1073,7 +1073,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 		case EX_SEQUENCE:
 		case EX_LIST:
-			vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+			if (exp->mLeft)
+				vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 			exp = exp->mRight;
 			if (!exp)
 				return ExValue(TheVoidTypeDeclaration);
@@ -2695,7 +2696,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
 							vr = Dereference(proc, texp, block, vr, 1);
 						else if (pdec && pdec->mBase->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_INTEGER && texp->mType == EX_CONSTANT && texp->mDecValue->mType == DT_CONST_INTEGER && texp->mDecValue->mInteger == 0)
+						{
+							mErrors->Error(texp->mLocation, EWARN_NUMERIC_0_USED_AS_NULLPTR, "Numeric 0 used for nullptr");
 							vr = CoerceType(proc, texp, block, vr, pdec->mBase);
+						}
 						else if (pdec && pdec->mBase->mType == DT_TYPE_REFERENCE)
 							vr = Dereference(proc, texp, block, vr, 1);
 						else

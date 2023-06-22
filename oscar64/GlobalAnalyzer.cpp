@@ -739,9 +739,15 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_SEQUENCE:
 		do
 		{
-			if (exp->mLeft)
-				ldec = Analyze(exp->mLeft, procDec, false);
-			exp = exp->mRight;
+			if (exp->mType == EX_SEQUENCE)
+			{
+				if (exp->mLeft)
+					ldec = Analyze(exp->mLeft, procDec, false);
+				exp = exp->mRight;
+			}
+			else
+				return Analyze(exp, procDec, false);
+
 		} while (exp);
 		break;
 

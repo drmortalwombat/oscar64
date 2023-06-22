@@ -21109,7 +21109,7 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 					}
 					else
 					{
-						if (mExitRequiredRegs[reg])
+//						if (mExitRequiredRegs[reg])
 						{
 							if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
 								return false;
@@ -21122,7 +21122,7 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 				}
 				else
 				{
-					if (mExitRequiredRegs[reg])
+//					if (mExitRequiredRegs[reg])
 					{
 						if (mTrueJump && !mTrueJump->CheckPatchFailReg(block, reg))
 							return false;
@@ -39997,7 +39997,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sprintf");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "mapTimeTick");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

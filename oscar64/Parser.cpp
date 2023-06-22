@@ -202,6 +202,11 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 			dec->mParams = nullptr;
 
 		dec->mFlags |= DTF_DEFINED;
+
+		if (mCompilerOptions & COPT_CPLUSPLUS)
+		{
+			AppendMemberDestructor(pthis);
+		}
 	}
 
 	return dec;
@@ -1139,6 +1144,111 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	}
 
 	return exp;
+}
+
+void Parser::AppendMemberDestructor(Declaration* pthis)
+{
+	bool	needDestructor = !pthis->mBase->mDestructor;
+
+	Declaration* dec = pthis->mBase->mParams;
+	while (!needDestructor && dec)
+	{
+		if (dec->mType == DT_ELEMENT && dec->mBase->mType == DT_TYPE_STRUCT && dec->mBase->mDestructor)
+		{
+			needDestructor = true;
+			break;
+		}
+		dec = dec->mNext;
+	}
+
+	if (needDestructor)
+	{
+		if (!pthis->mBase->mDestructor)
+		{
+			Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
+
+			if (ctdec->mParams)
+				mErrors->Error(ctdec->mLocation, EERR_WRONG_PARAMETER, "Destructor can't have parameter");
+
+			PrependThisArgument(ctdec, pthis);
+
+			Declaration* cdec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+			cdec->mBase = ctdec;
+
+			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+			cdec->mFlags |= DTF_FUNC_DESTRUCTOR;
+
+			cdec->mSection = mCodeSection;
+
+			if (mCompilerOptions & COPT_NATIVE)
+				cdec->mFlags |= DTF_NATIVE;
+
+			if (pthis->mBase->mDestructor)
+				mErrors->Error(ctdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate destrcutor definition");
+			else
+				pthis->mBase->mDestructor = cdec;
+
+			char	dname[100];
+			strcpy_s(dname, "~");
+			strcat_s(dname, pthis->mBase->mIdent->mString);
+			cdec->mIdent = Ident::Unique(dname);
+			cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
+
+			cdec->mCompilerOptions = mCompilerOptions;
+			cdec->mBase->mCompilerOptions = mCompilerOptions;
+
+			cdec->mVarIndex = -1;
+
+			cdec->mFlags |= DTF_DEFINED;
+			cdec->mNumVars = mLocalIndex;
+		}
+
+		Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
+		pthisexp->mDecType = pthis;
+		pthisexp->mDecValue = pthis->mBase->mDestructor->mBase->mParams;
+
+		Expression* thisexp = new Expression(mScanner->mLocation, EX_PREFIX);
+		thisexp->mToken = TK_MUL;
+		thisexp->mDecType = pthis->mBase;
+		thisexp->mLeft = pthisexp;
+
+		dec = pthis->mBase->mParams;
+		while (dec)
+		{
+			if (dec->mType == DT_ELEMENT && dec->mBase->mType == DT_TYPE_STRUCT && dec->mBase->mDestructor)
+			{
+				Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
+				qexp->mLeft = thisexp;
+				qexp->mDecValue = dec;
+				qexp->mDecType = dec->mBase;
+
+				Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
+				pexp->mLeft = qexp;
+				pexp->mToken = TK_BINARY_AND;
+				pexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
+				pexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+				pexp->mDecType->mBase = dec->mBase;
+				pexp->mDecType->mSize = 2;
+
+				Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
+				cexp->mDecValue = dec->mBase->mDestructor;
+				cexp->mDecType = cexp->mDecValue->mBase;
+
+				Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
+				dexp->mLeft = cexp;
+				dexp->mRight = pexp;
+	
+				Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+
+				sexp->mLeft = pthis->mBase->mDestructor->mValue;
+				sexp->mRight = dexp;
+
+				pthis->mBase->mDestructor->mValue = sexp;
+			}
+
+			dec = dec->mNext;
+		}
+	}
 }
 
 void Parser::PrependThisArgument(Declaration* fdec, Declaration* pthis)

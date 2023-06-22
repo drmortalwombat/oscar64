@@ -40,6 +40,7 @@ protected:
 
 	Declaration * ParseFunctionDeclaration(Declaration* bdec);
 	void PrependThisArgument(Declaration* fdec, Declaration * pthis);
+	void AppendMemberDestructor(Declaration* sdec);
 
 	Declaration* ParseBaseTypeDeclaration(uint64 flags);
 	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr);
