@@ -23,6 +23,7 @@ public:
 
 	void Parse(void);
 protected:
+	bool ExpectToken(Token token);
 	bool ConsumeToken(Token token);
 	bool ConsumeTokenIf(Token token);
 	bool ConsumeIdentIf(const char* ident);
@@ -40,7 +41,10 @@ protected:
 
 	Declaration * ParseFunctionDeclaration(Declaration* bdec);
 	void PrependThisArgument(Declaration* fdec, Declaration * pthis);
-	void AppendMemberDestructor(Declaration* sdec);
+	void AppendMemberDestructor(Declaration* pthis);
+	void BuildMemberConstructor(Declaration* pthis, Declaration* cfunc);
+	Expression* BuildMemberInitializer(Expression* vexp);
+	void PrependMemberConstructor(Declaration* pthis, Declaration* cfunc);
 
 	Declaration* ParseBaseTypeDeclaration(uint64 flags);
 	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr);

@@ -205,6 +205,14 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 
 		if (mCompilerOptions & COPT_CPLUSPLUS)
 		{
+			Declaration* cdec = pthis->mBase->mConstructor;
+			while (cdec)
+			{
+				if (cdec->mFlags & DTF_DEFINED)
+					PrependMemberConstructor(pthis, cdec);
+				cdec = cdec->mNext;
+			}
+
 			AppendMemberDestructor(pthis);
 		}
 	}
@@ -1146,6 +1154,191 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 	return exp;
 }
 
+Expression* Parser::BuildMemberInitializer(Expression* vexp)
+{
+	if (vexp->mDecType->mType == DT_TYPE_STRUCT && vexp->mDecType->mConstructor)
+	{
+		Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		cexp->mDecValue = vexp->mDecType->mConstructor;
+		cexp->mDecType = cexp->mDecValue->mBase;
+
+		Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+		fexp->mLeft = cexp;
+
+		mScanner->NextToken();
+		if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
+		{
+			fexp->mRight = ParseListExpression();
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else
+		{
+			fexp->mRight = nullptr;
+			mScanner->NextToken();
+		}
+
+		Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+		texp->mToken = TK_BINARY_AND;
+		texp->mLeft = vexp;
+		texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+		texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+		texp->mDecType->mBase = vexp->mDecType;
+		texp->mDecType->mSize = 2;
+
+		if (fexp->mRight)
+		{
+			Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+			lexp->mLeft = texp;
+			lexp->mRight = fexp->mRight;
+			fexp->mRight = lexp;
+		}
+		else
+			fexp->mRight = texp;
+
+		ResolveOverloadCall(cexp, fexp->mRight);
+
+		return fexp;
+	}
+	else
+	{
+		Expression* nexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+		nexp->mToken = TK_ASSIGN;
+		nexp->mDecType = vexp->mDecType;
+		nexp->mLeft = vexp;
+		ConsumeToken(TK_OPEN_PARENTHESIS);
+		nexp->mRight = ParseRExpression();
+		ConsumeToken(TK_CLOSE_PARENTHESIS);
+
+		return nexp;
+	}
+}
+
+void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
+{
+	Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
+	pthisexp->mDecType = pthis;
+	pthisexp->mDecValue = pthis->mBase->mDestructor->mBase->mParams;
+
+	Expression* thisexp = new Expression(mScanner->mLocation, EX_PREFIX);
+	thisexp->mToken = TK_MUL;
+	thisexp->mDecType = pthis->mBase;
+	thisexp->mLeft = pthisexp;
+
+	Declaration* dec = pthis->mBase->mParams;
+	while (dec)
+	{
+		if (dec->mType == DT_ELEMENT)
+		{
+			Declaration* mfunc = cfunc->mScope ? cfunc->mScope->Lookup(dec->mIdent) : nullptr;
+
+			if (mfunc)
+			{
+				Expression* sexp = new Expression(cfunc->mLocation, EX_SEQUENCE);
+				sexp->mLeft = mfunc->mValue;
+				sexp->mRight = cfunc->mValue;
+				cfunc->mValue = sexp;
+			}
+			else if (dec->mBase->mType == DT_TYPE_STRUCT && dec->mBase->mConstructor)
+			{
+				Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
+				qexp->mLeft = thisexp;
+				qexp->mDecValue = dec;
+				qexp->mDecType = dec->mBase;
+
+				Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
+				pexp->mLeft = qexp;
+				pexp->mToken = TK_BINARY_AND;
+				pexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
+				pexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+				pexp->mDecType->mBase = dec->mBase;
+				pexp->mDecType->mSize = 2;
+
+				Declaration* mdec = dec->mBase->mConstructor;
+				while (mdec && mdec->mBase->mParams->mNext)
+					mdec = mdec->mNext;
+
+				Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
+				if (mdec)
+				{
+					cexp->mDecValue = mdec;
+					cexp->mDecType = cexp->mDecValue->mBase;
+				}
+				else
+					mErrors->Error(dec->mLocation, EERR_NO_DEFAULT_CONSTRUCTOR, "No default constructor");
+
+				Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
+				dexp->mLeft = cexp;
+				dexp->mRight = pexp;
+
+				Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+
+				sexp->mLeft = dexp;
+				sexp->mRight = cfunc->mValue;
+				cfunc->mValue = sexp;
+			}
+		}
+
+		dec = dec->mNext;
+	}
+}
+
+void Parser::BuildMemberConstructor(Declaration* pthis, Declaration* cfunc)
+{
+	Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
+	pthisexp->mDecType = pthis;
+	pthisexp->mDecValue = cfunc->mBase->mParams;
+
+	Expression* thisexp = new Expression(mScanner->mLocation, EX_PREFIX);
+	thisexp->mToken = TK_MUL;
+	thisexp->mDecType = pthis->mBase;
+	thisexp->mLeft = pthisexp;
+
+	cfunc->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
+
+	DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_FUNCTION);
+	mScope = scope;
+
+	Declaration* pdec = cfunc->mBase->mParams;
+	while (pdec)
+	{
+		if (pdec->mIdent)
+			scope->Insert(pdec->mIdent, pdec);
+		pdec = pdec->mNext;
+	}
+	Declaration* othis = mThisPointer;
+	mThisPointer = pthis;
+
+	mScanner->NextToken();
+	do {
+		if (ExpectToken(TK_IDENT))
+		{
+			Declaration* dec = pthis->mBase->mScope->Lookup(mScanner->mTokenIdent);
+			if (dec && dec->mType == DT_ELEMENT)
+			{
+				Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
+				qexp->mLeft = thisexp;
+				qexp->mDecValue = dec;
+				qexp->mDecType = dec->mBase;
+
+				Declaration* dec = new Declaration(mScanner->mLocation, DT_CONST_CONSTRUCTOR);
+				dec->mIdent = mScanner->mTokenIdent;
+
+				mScanner->NextToken();
+
+				dec->mValue = BuildMemberInitializer(qexp);
+
+				cfunc->mScope->Insert(dec->mIdent, dec);
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Base class or member not found", mScanner->mTokenIdent);
+		}
+
+	} while (ConsumeTokenIf(TK_COMMA));
+
+	mScope = mScope->mParent;
+	mThisPointer = othis;
+}
+
 void Parser::AppendMemberDestructor(Declaration* pthis)
 {
 	bool	needDestructor = !pthis->mBase->mDestructor;
@@ -1203,50 +1396,53 @@ void Parser::AppendMemberDestructor(Declaration* pthis)
 			cdec->mNumVars = mLocalIndex;
 		}
 
-		Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
-		pthisexp->mDecType = pthis;
-		pthisexp->mDecValue = pthis->mBase->mDestructor->mBase->mParams;
-
-		Expression* thisexp = new Expression(mScanner->mLocation, EX_PREFIX);
-		thisexp->mToken = TK_MUL;
-		thisexp->mDecType = pthis->mBase;
-		thisexp->mLeft = pthisexp;
-
-		dec = pthis->mBase->mParams;
-		while (dec)
+		if (pthis->mBase->mDestructor->mFlags & DTF_DEFINED)
 		{
-			if (dec->mType == DT_ELEMENT && dec->mBase->mType == DT_TYPE_STRUCT && dec->mBase->mDestructor)
+			Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
+			pthisexp->mDecType = pthis;
+			pthisexp->mDecValue = pthis->mBase->mDestructor->mBase->mParams;
+
+			Expression* thisexp = new Expression(mScanner->mLocation, EX_PREFIX);
+			thisexp->mToken = TK_MUL;
+			thisexp->mDecType = pthis->mBase;
+			thisexp->mLeft = pthisexp;
+
+			dec = pthis->mBase->mParams;
+			while (dec)
 			{
-				Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
-				qexp->mLeft = thisexp;
-				qexp->mDecValue = dec;
-				qexp->mDecType = dec->mBase;
+				if (dec->mType == DT_ELEMENT && dec->mBase->mType == DT_TYPE_STRUCT && dec->mBase->mDestructor)
+				{
+					Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
+					qexp->mLeft = thisexp;
+					qexp->mDecValue = dec;
+					qexp->mDecType = dec->mBase;
 
-				Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
-				pexp->mLeft = qexp;
-				pexp->mToken = TK_BINARY_AND;
-				pexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-				pexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-				pexp->mDecType->mBase = dec->mBase;
-				pexp->mDecType->mSize = 2;
+					Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
+					pexp->mLeft = qexp;
+					pexp->mToken = TK_BINARY_AND;
+					pexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
+					pexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+					pexp->mDecType->mBase = dec->mBase;
+					pexp->mDecType->mSize = 2;
 
-				Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
-				cexp->mDecValue = dec->mBase->mDestructor;
-				cexp->mDecType = cexp->mDecValue->mBase;
+					Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
+					cexp->mDecValue = dec->mBase->mDestructor;
+					cexp->mDecType = cexp->mDecValue->mBase;
 
-				Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
-				dexp->mLeft = cexp;
-				dexp->mRight = pexp;
-	
-				Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+					Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
+					dexp->mLeft = cexp;
+					dexp->mRight = pexp;
 
-				sexp->mLeft = pthis->mBase->mDestructor->mValue;
-				sexp->mRight = dexp;
+					Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
 
-				pthis->mBase->mDestructor->mValue = sexp;
+					sexp->mLeft = pthis->mBase->mDestructor->mValue;
+					sexp->mRight = dexp;
+
+					pthis->mBase->mDestructor->mValue = sexp;
+				}
+
+				dec = dec->mNext;
 			}
-
-			dec = dec->mNext;
 		}
 	}
 }
@@ -1262,7 +1458,7 @@ void Parser::PrependThisArgument(Declaration* fdec, Declaration* pthis)
 	adec->mNext = fdec->mParams;
 	adec->mIdent = adec->mQualIdent = Ident::Unique("this");
 
-	Declaration* p = adec->mBase->mParams;
+	Declaration* p = fdec->mParams;
 	while (p)
 	{
 		p->mVarIndex += 2;
@@ -1399,7 +1595,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			if (mScanner->mToken == TK_IDENT)
 			{
 				if (mScanner->mTokenIdent != pthis->mBase->mIdent)
-					mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Wrong class name for destructor", pthis->mIdent);
+					mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Wrong class name for destructor", pthis->mBase->mIdent);
 				mScanner->NextToken();
 			}
 			else
@@ -1518,6 +1714,12 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			cdec->mIdent = pthis->mBase->mIdent;
 			cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
+			// Initializer list
+			if (mScanner->mToken == TK_COLON)
+			{
+				BuildMemberConstructor(pthis, cdec);
+			}
+
 			if (mScanner->mToken == TK_OPEN_BRACE)
 			{
 				if (cdec->mFlags & DTF_DEFINED)
@@ -1535,6 +1737,105 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			}
 
 			return cdec;
+		}
+
+		if (bdec && bdec->mType == DT_TYPE_STRUCT && ConsumeTokenIf(TK_COLCOLON))
+		{
+			if (mScanner->mToken == TK_IDENT && mScanner->mTokenIdent == bdec->mIdent)
+			{
+				mScanner->NextToken();
+
+				Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
+
+				Declaration * bthis = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+				bthis->mFlags |= DTF_CONST | DTF_DEFINED;
+				bthis->mBase = bdec;
+				bthis->mSize = 2;
+
+				PrependThisArgument(ctdec, bthis);
+
+				Declaration* cdec = bdec->mConstructor;
+				if (cdec)
+				{
+					while (cdec && !cdec->mBase->IsSameParams(ctdec))
+						cdec = cdec->mNext;
+				}
+
+				if (cdec)
+				{
+					// Initializer list
+					if (mScanner->mToken == TK_COLON)
+					{
+						BuildMemberConstructor(bthis, cdec);
+					}
+
+					if (mScanner->mToken == TK_OPEN_BRACE)
+					{
+						if (cdec->mFlags & DTF_DEFINED)
+							mErrors->Error(cdec->mLocation, EERR_DUPLICATE_DEFINITION, "Function already has a body");
+
+						cdec->mCompilerOptions = mCompilerOptions;
+						cdec->mBase->mCompilerOptions = mCompilerOptions;
+
+						cdec->mVarIndex = -1;
+
+						cdec->mValue = ParseFunction(cdec->mBase);
+
+						cdec->mFlags |= DTF_DEFINED;
+						cdec->mNumVars = mLocalIndex;
+
+						PrependMemberConstructor(bthis, cdec);
+					}
+
+					return cdec;
+				}
+				else
+				{
+					mErrors->Error(bdec->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching constructor");
+					return bdec;
+				}
+			}
+
+			if (ConsumeTokenIf(TK_BINARY_NOT))
+			{
+				if (mScanner->mToken == TK_IDENT)
+				{
+					if (mScanner->mTokenIdent != bdec->mIdent)
+						mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Wrong class name for destructor", bdec->mIdent);
+					mScanner->NextToken();
+				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
+
+				Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
+
+				if (ctdec->mParams)
+					mErrors->Error(ctdec->mLocation, EERR_WRONG_PARAMETER, "Destructor can't have parameter");
+
+				if (bdec->mDestructor)
+				{
+					Declaration* bthis = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+					bthis->mFlags |= DTF_CONST | DTF_DEFINED;
+					bthis->mBase = bdec;
+					bthis->mSize = 2;
+
+					bdec->mDestructor->mCompilerOptions = mCompilerOptions;
+					bdec->mDestructor->mBase->mCompilerOptions = mCompilerOptions;
+
+					bdec->mDestructor->mVarIndex = -1;
+
+					bdec->mDestructor->mValue = ParseFunction(bdec->mDestructor->mBase);
+
+					bdec->mDestructor->mFlags |= DTF_DEFINED;
+					bdec->mDestructor->mNumVars = mLocalIndex;
+
+					AppendMemberDestructor(bthis);
+				}
+				else
+					mErrors->Error(ctdec->mLocation, EERR_DUPLICATE_DEFINITION, "Desctructor not declared", bdec->mIdent);
+
+				return bdec->mDestructor;
+			}
 		}
 	}
 
@@ -1840,7 +2141,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					ndec->mValue = nexp;
 				}
 			}
-			else if ((mCompilerOptions & COPT_CPLUSPLUS) && ndec->mBase->mConstructor)
+			else if ((mCompilerOptions & COPT_CPLUSPLUS) && ndec->mBase->mConstructor && ndec->mType == DT_VARIABLE && !pthis)
 			{
 				// Find default constructor
 
@@ -1891,6 +2192,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 					nexp->mRight = vexp;
 					nexp->mDecType = vexp->mDecType;
+
+					ndec->mValue = nexp;
 				}
 				else
 					mErrors->Error(ndec->mLocation, EERR_NO_DEFAULT_CONSTRUCTOR, "No default constructor for class", ndec->mBase->mIdent);
@@ -4286,6 +4589,21 @@ Expression* Parser::ParseAssembler(void)
 	mScanner->SetAssemblerMode(false);
 
 	return ifirst;
+}
+
+bool Parser::ExpectToken(Token token)
+{
+	if (mScanner->mToken == token)
+	{
+		return true;
+	}
+	else
+	{
+		char	buffer[100];
+		sprintf_s(buffer, "%s expected", TokenNames[token]);
+		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, buffer);
+		return false;
+	}
 }
 
 bool Parser::ConsumeToken(Token token)
