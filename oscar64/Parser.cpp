@@ -2412,9 +2412,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		{
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION && pthis)
 			{
-				if (ndec->mIdent == Ident::Unique("operator=="))
+				if (ndec->mIdent == Ident::Unique("operator="))
 				{
-					if (ndec->mBase->mParams && ndec->mBase->mParams->mBase->mType == DT_TYPE_REFERENCE && ndec->mBase->mParams->mBase->mBase->IsSame(pthis->mBase))
+					if (ndec->mBase->mParams && ndec->mBase->mParams->mBase->mType == DT_TYPE_REFERENCE && ndec->mBase->mParams->mBase->mBase->IsConstSame(pthis->mBase))
 					{
 						pthis->mBase->mCopyAssignment = ndec;
 					}
@@ -3308,6 +3308,8 @@ Expression* Parser::ParseQualify(Expression* exp)
 	return exp;
 }
 
+static const int NOOVERLOAD = 0x7fffffff;
+
 int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 {
 	Declaration* pdec = fdec->mParams;
@@ -3352,17 +3354,17 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 				if (ext)
 				{
 					if ((etype->mFlags & DTF_CONST) && !(ptype->mBase->mFlags & DTF_CONST))
-						return INT_MAX;
+						return NOOVERLOAD;
 
 					dist += 16 * ncast;
 				}
 				else
-					return INT_MAX;
+					return NOOVERLOAD;
 			}
 			else if (ptype->IsSubType(ex->mDecType))
 				dist += 256;
 			else
-				return INT_MAX;
+				return NOOVERLOAD;
 
 			pdec = pdec->mNext;
 		}
@@ -3372,11 +3374,11 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 			break;
 		}
 		else
-			return INT_MAX;
+			return NOOVERLOAD;
 	}
 
 	if (pdec)
-		return INT_MAX;
+		return NOOVERLOAD;
 
 	return dist;
 }
@@ -3389,7 +3391,7 @@ void Parser::ResolveOverloadCall(Expression* cexp, Expression* pexp)
 		if (fdec->mType == DT_CONST_FUNCTION && fdec->mNext)
 		{
 			Declaration* dbest = nullptr;
-			int				ibest = INT_MAX, nbest = 0;
+			int				ibest = NOOVERLOAD, nbest = 0;
 
 			while (fdec)
 			{
@@ -3405,7 +3407,7 @@ void Parser::ResolveOverloadCall(Expression* cexp, Expression* pexp)
 				fdec = fdec->mNext;
 			}
 
-			if (ibest == INT_MAX)
+			if (ibest == NOOVERLOAD)
 				mErrors->Error(cexp->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching function call");
 			else if (nbest > 1)
 				mErrors->Error(cexp->mLocation, ERRO_AMBIGUOUS_FUNCTION_CALL, "Ambiguous function call");

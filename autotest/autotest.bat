@@ -6,6 +6,9 @@ rem @echo off
 @call :test copyconstructor.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :test copyassign.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test stdlibtest.c
 @if %errorlevel% neq 0 goto :error
 

@@ -108,7 +108,7 @@ void test_minit_copy(void)
 
 int k;
 
-inline void test_param_fv(C2 c)
+void test_param_fv(C2 c)
 {
 	k += c.a.u;
 }
