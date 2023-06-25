@@ -36463,6 +36463,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && mIns[i + 3].mMode != ASMIM_IMMEDIATE)
 					{
+						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 2].mType = ASMIT_ORA; mIns[i + 2].mLive |= mIns[i + 3].mLive & LIVE_CPU_REG_Z;
 						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
 

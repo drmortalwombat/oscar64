@@ -4329,6 +4329,13 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test_retparam_value"))
 		exp->Dump(0);
 #endif
+#if 0
+	if (proc->mIdent)
+	{
+		printf("TRANS %s\n", proc->mIdent->mString);
+		exp->Dump(0);
+	}
+#endif
 
 	uint64	outerCompilerOptions = mCompilerOptions;
 	mCompilerOptions = dec->mCompilerOptions;

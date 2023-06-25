@@ -20,7 +20,7 @@ The goal was also to implement the C99 standard and not some subset for performa
 
 After extensive optimizations it turns out, that the interpreted code is not significantly smaller than the native code in most scenarios (although there are cases where the difference is significant).  
  
-
+ 
 ## Limits and Errors
 
 There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 94 iterations per second with byte code (11696) and 395 iterations with native code (10425 Bytes).  This clearly shows that Dhrystone is not a valid benchmark for optimizing compilers, because it puts the 6502 on par with a 4MHz 8088 or 68k, which it clearly is not.
@@ -48,6 +48,18 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Native code generation
 
+### C++ support level
+
+The compiler will most likely not support a current C++ standard in the near future, but several C++ features are already implemented.  The compiler can be switched into C++ mode with the command line option -pp or by providing a source file with a .cpp extension.
+
+Supported Features:
+
+* namespaces
+* reference types
+* member functions
+* constructors and destructors
+* operator overloading (assignment)
+
 ## Installation and Usage
 
 ### Installing on windows
@@ -62,7 +74,7 @@ The compiler can also be built using MSVC or GCC.  A visual studio project and a
 
 The compiler is command line driven, and creates an executable .prg file.
 
-    oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=format] [-tm=machine] [-e] [-n] [-dSYMBOL[=value]] {source.c}
+    oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=format] [-tm=machine] [-e] [-n] [-dSYMBOL[=value]] {source.c|source.cpp}
     
 * -v : verbose output for diagnostics
 * -v2 : more verbose output
@@ -90,6 +102,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -fz : add a compressed binary file to the disk image
 * -xz : extended zero page usage, more zero page space, but no return to basic
 * -cid : cartridge type ID, used by vice emulator
+* -pp : compile in C++ mode
 
 A list of source files can be provided.
 

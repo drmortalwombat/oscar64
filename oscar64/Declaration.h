@@ -222,7 +222,10 @@ public:
 	Location			mLocation, mEndLocation;
 	DecType				mType;
 	Token				mToken;
-	Declaration*		mBase, *mParams, * mNext, * mPrev, * mConst, * mConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment;
+	Declaration		*	mBase, * mParams, * mNext, * mPrev, * mConst;
+	Declaration		*	mConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment;
+	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
+
 	Expression*			mValue;
 	DeclarationScope*	mScope;
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;

@@ -9,6 +9,9 @@ rem @echo off
 @call :test copyassign.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :test arrayconstruct.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test stdlibtest.c
 @if %errorlevel% neq 0 goto :error
 

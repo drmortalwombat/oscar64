@@ -16017,7 +16017,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test_retparam_value");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 
 	mEntryBlock = mBlocks[0];
 
