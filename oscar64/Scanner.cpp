@@ -1394,6 +1394,17 @@ void Scanner::NextRawToken(void)
 					mToken = TK_USING;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "this"))
 					mToken = TK_THIS;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
+				{
+					NextRawToken();
+					if (mToken == TK_ASSIGN)
+					{
+						mToken = TK_IDENT;
+						mTokenIdent = Ident::Unique("operator=");
+					}
+					else
+						mErrors->Error(mLocation, EERR_INVALID_OPERATOR, "Invalid operator token");
+				}
 				else
 				{
 					mToken = TK_IDENT;

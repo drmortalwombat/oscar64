@@ -123,7 +123,7 @@ void DeclarationScope::End(const Location& loc)
 }
 
 Expression::Expression(const Location& loc, ExpressionType type)
-	:	mLocation(loc), mEndLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false)
+	:	mLocation(loc), mEndLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false), mDecType(nullptr), mDecValue(nullptr)
 {
 
 }
@@ -131,6 +131,148 @@ Expression::Expression(const Location& loc, ExpressionType type)
 Expression::~Expression(void)
 {
 
+}
+
+void Expression::Dump(int ident) const
+{
+	for (int i = 0; i < ident; i++)
+		printf("|  ");
+
+	switch (mType)
+	{
+	case EX_ERROR:
+		printf("ERROR");
+		break;
+	case EX_VOID:
+		printf("VOID");
+		break;
+	case EX_CONSTANT:
+		printf("CONST");
+		break;
+	case EX_VARIABLE:
+		printf("VAR");
+		break;
+	case EX_ASSIGNMENT:
+		printf("ASSIGN<%s>", TokenNames[mToken]);
+		break;
+	case EX_INITIALIZATION:
+		printf("INIT");
+		break;
+	case EX_BINARY:
+		printf("BINARY<%s>", TokenNames[mToken]);
+		break;
+	case EX_RELATIONAL:
+		printf("RELATIONAL<%s>", TokenNames[mToken]);
+		break;
+	case EX_PREINCDEC:
+		printf("PREOP<%s>", TokenNames[mToken]);
+		break;
+	case EX_PREFIX:
+		printf("PREFIX<%s>", TokenNames[mToken]);
+		break;
+	case EX_POSTFIX:
+		printf("POSTFIX<%s>", TokenNames[mToken]);
+		break;
+	case EX_POSTINCDEC:
+		printf("POSTOP<%s>", TokenNames[mToken]);
+		break;
+	case EX_INDEX:
+		printf("INDEX");
+		break;
+	case EX_QUALIFY:
+		printf("QUALIFY");
+		break;
+	case EX_CALL:
+		printf("CALL");
+		break;
+	case EX_INLINE:
+		printf("INLINE");
+		break;
+	case EX_LIST:
+		printf("LIST");
+		break;
+	case EX_RETURN:
+		printf("RETURN");
+		break;
+	case EX_SEQUENCE:
+		printf("SEQUENCE");
+		break;
+	case EX_WHILE:
+		printf("WHILE");
+		break;
+	case EX_IF:
+		printf("IF");
+		break;
+	case EX_ELSE:
+		printf("ELSE");
+		break;
+	case EX_FOR:
+		printf("FOR");
+		break;
+	case EX_DO:
+		printf("DO");
+		break;
+	case EX_SCOPE:
+		printf("SCOPE");
+		break;
+	case EX_BREAK:
+		printf("BREAK");
+		break;
+	case EX_CONTINUE:
+		printf("CONTINUE");
+		break;
+	case EX_TYPE:
+		printf("TYPE");
+		break;
+	case EX_TYPECAST:
+		printf("TYPECAST");
+		break;
+	case EX_LOGICAL_AND:
+		printf("AND");
+		break;
+	case EX_LOGICAL_OR:
+		printf("OR");
+		break;
+	case EX_LOGICAL_NOT:
+		printf("NOT");
+		break;
+	case EX_ASSEMBLER:
+		printf("ASSEMBLER");
+		break;
+	case EX_UNDEFINED:
+		printf("UNDEFINED");
+		break;
+	case EX_SWITCH:
+		printf("SWITCH");
+		break;
+	case EX_CASE:
+		printf("CASE");
+		break;
+	case EX_DEFAULT:
+		printf("DEFAULT");
+		break;
+	case EX_CONDITIONAL:
+		printf("COND");
+		break;
+	case EX_ASSUME:
+		printf("ASSUME");
+		break;
+	case EX_BANKOF:
+		printf("BANKOF");
+		break;
+	case EX_CONSTRUCT:
+		printf("CONSTRUCT");
+		break;
+	case EX_CLEANUP:
+		printf("CLEANUP");
+		break;
+	}
+	printf("\n");
+
+	if (mLeft)
+		mLeft->Dump(ident + 1);
+	if (mRight)
+		mRight->Dump(ident + 1);
 }
 
 bool Expression::HasSideEffects(void) const
@@ -635,8 +777,8 @@ Expression* Expression::ConstantFold(Errors * errors)
 Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
-	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mConst(nullptr),
-	mConstructor(nullptr), mDestructor(nullptr),
+	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr), mConst(nullptr),
+	mConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0)
@@ -651,6 +793,18 @@ Declaration::~Declaration(void)
 int Declaration::Stride(void) const
 {
 	return mStride > 0 ? mStride : mBase->mSize;
+}
+
+Declaration* Declaration::Last(void)
+{
+	mPrev = nullptr;
+	Declaration* p = this;
+	while (p->mNext)
+	{
+		p->mNext->mPrev = p;
+		p = p->mNext;
+	}
+	return p;
 }
 
 Declaration* Declaration::Clone(void)
@@ -945,6 +1099,8 @@ bool Declaration::IsSame(const Declaration* dec) const
 		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 		return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
+	else if (mType == DT_TYPE_REFERENCE)
+		return mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)
 		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_FUNCTION)

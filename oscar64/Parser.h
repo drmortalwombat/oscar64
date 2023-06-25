@@ -46,6 +46,13 @@ protected:
 	Expression* BuildMemberInitializer(Expression* vexp);
 	void PrependMemberConstructor(Declaration* pthis, Declaration* cfunc);
 
+	void AddDefaultConstructors(Declaration* pthis);
+
+	void ParseVariableInit(Declaration* ndec);
+
+	Expression * AddFunctionCallRefReturned(Expression * exp);
+	Expression* CleanupExpression(Expression* exp);
+
 	Declaration* ParseBaseTypeDeclaration(uint64 flags);
 	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
@@ -64,6 +71,8 @@ protected:
 	Expression* ParseAssemblerMulOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerOperand(Declaration * pcasm, int pcoffset);
+
+	Expression* CheckOperatorOverload(Expression* exp);
 
 	void AddAssemblerRegister(const Ident* ident, int value);
 

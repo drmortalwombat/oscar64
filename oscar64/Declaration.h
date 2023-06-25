@@ -185,7 +185,8 @@ enum ExpressionType
 	EX_CONDITIONAL,
 	EX_ASSUME,
 	EX_BANKOF,
-	EX_CONSTRUCT
+	EX_CONSTRUCT,
+	EX_CLEANUP,
 };
 
 class Expression
@@ -208,6 +209,8 @@ public:
 	bool HasSideEffects(void) const;
 
 	bool IsSame(const Expression* exp) const;
+
+	void Dump(int ident) const;
 };
 
 class Declaration
@@ -219,7 +222,7 @@ public:
 	Location			mLocation, mEndLocation;
 	DecType				mType;
 	Token				mToken;
-	Declaration*		mBase, *mParams, * mNext, * mConst, * mConstructor, * mDestructor;
+	Declaration*		mBase, *mParams, * mNext, * mPrev, * mConst, * mConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment;
 	Expression*			mValue;
 	DeclarationScope*	mScope;
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;
@@ -249,6 +252,7 @@ public:
 	Declaration* ToStriped(int stripe);
 	Declaration* ToStriped(Errors* errors);
 	Declaration* Clone(void);
+	Declaration* Last(void);
 
 	int Stride(void) const;
 };

@@ -429,6 +429,14 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 
 		mFunctions.Push(dec);
 
+		Declaration* pdec = dec->mBase->mParams;
+		while (pdec)
+		{
+			if (pdec->mBase->mType == DT_TYPE_STRUCT && (pdec->mBase->mCopyConstructor || pdec->mBase->mDestructor))
+				dec->mBase->mFlags |= DTF_STACKCALL;
+			pdec = pdec->mNext;
+		}
+
 		dec->mFlags |= DTF_ANALYZED;
 		dec->mFlags |= DTF_FUNC_INTRSAVE;
 
@@ -679,7 +687,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 
 				if (pdec && !(ldec->mBase->mFlags & DTF_VARIADIC) && !(ldec->mFlags & (DTF_INTRINSIC | DTF_FUNC_ASSEMBLER)))
 				{
-#if 1
+#if 0
 					if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
 					{
 						if (!(pdec->mFlags & DTF_FPARAM_NOCONST))
@@ -714,8 +722,14 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 					}
 #endif
 				}
+
+				if (pdec && pdec->mBase->mType == DT_TYPE_STRUCT && pdec->mBase->mCopyConstructor)
+				{
+					AnalyzeProcedure(pdec->mBase->mCopyConstructor->mValue, pdec->mBase->mCopyConstructor);
+					RegisterCall(procDec, pdec->mBase->mCopyConstructor);
+				}
 				
-				if (pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT)
+				if (pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT && !(pdec && pdec->mBase->mType == DT_TYPE_REFERENCE))
 					ldec->mBase->mFlags |= DTF_STACKCALL;
 
 				if (pdec)
@@ -734,7 +748,14 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		return Analyze(exp->mRight, procDec, false);
 	case EX_RETURN:
 		if (exp->mLeft)
+		{
 			RegisterProc(Analyze(exp->mLeft, procDec, false));
+			if (procDec->mBase->mBase && procDec->mBase->mBase->mType == DT_TYPE_STRUCT && procDec->mBase->mBase->mCopyConstructor)
+			{
+				AnalyzeProcedure(procDec->mBase->mBase->mCopyConstructor->mValue, procDec->mBase->mBase->mCopyConstructor);
+				RegisterCall(procDec, procDec->mBase->mBase->mCopyConstructor);
+			}
+		}
 		break;
 	case EX_SEQUENCE:
 		do
@@ -761,6 +782,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		if (exp->mLeft->mRight)
 			Analyze(exp->mLeft->mRight, procDec, false);
 		return Analyze(exp->mRight, procDec, false);
+
+	case EX_CLEANUP:
+		Analyze(exp->mRight, procDec, false);
+		return Analyze(exp->mLeft, procDec, lhs);
 		
 	case EX_WHILE:
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
