@@ -12026,10 +12026,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							block->mInstructions[j++] = ins;
 						}
 					}
-#ifdef _DEBUG
-					if (j != block->mInstructions.Size())
-						printf("Moved %d %d\n", mIndex, block->mInstructions.Size() - j);
-#endif
+
 					block->mInstructions.SetSize(j);
 				}
 #endif

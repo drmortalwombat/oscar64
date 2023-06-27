@@ -1854,7 +1854,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			}
 
-			return vr;
+			return vl;
 
 		case EX_INDEX:
 		{
@@ -2761,6 +2761,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 
 				Declaration	* decResult = nullptr;
+				GrowingArray<InterInstruction*>	defins(nullptr);
 
 				if (ftype->mBase->mType == DT_TYPE_STRUCT)
 				{
@@ -2816,7 +2817,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					wins->mSrc[1].mType = IT_POINTER;
 					wins->mSrc[1].mTemp = ains->mDst.mTemp;
 					wins->mSrc[1].mOperandSize = 2;
-					block->Append(wins);
+					
+					if (ftype->mFlags & DTF_FASTCALL)
+						defins.Push(wins);
+					else
+						block->Append(wins);
 
 					atotal = 2;
 				}
@@ -2825,8 +2830,6 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					proc->AddCalledFunction(proc->mModule->mProcedures[exp->mLeft->mDecValue->mVarIndex]);
 				else
 					proc->CallsFunctionPointer();
-
-				GrowingArray<InterInstruction*>	defins(nullptr);
 
 				Declaration* pdec = ftype->mParams;
 				Expression* pex = exp->mRight;
@@ -4326,7 +4329,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE));
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test_retparam_value"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test_member"))
 		exp->Dump(0);
 #endif
 #if 0

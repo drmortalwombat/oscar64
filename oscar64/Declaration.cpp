@@ -148,9 +148,13 @@ void Expression::Dump(int ident) const
 		break;
 	case EX_CONSTANT:
 		printf("CONST");
+		if (mDecValue->mIdent)
+			printf(" '%s'", mDecValue->mIdent->mString);
 		break;
 	case EX_VARIABLE:
 		printf("VAR");
+		if (mDecValue->mIdent)
+			printf(" '%s'", mDecValue->mIdent->mString);
 		break;
 	case EX_ASSIGNMENT:
 		printf("ASSIGN<%s>", TokenNames[mToken]);
@@ -777,8 +781,8 @@ Expression* Expression::ConstantFold(Errors * errors)
 Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
-	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr), mConst(nullptr),
-	mConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr),
+	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr), mConst(nullptr), 
+	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
@@ -1207,11 +1211,18 @@ bool Declaration::IsNumericType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM;
 }
 
+
 bool Declaration::IsSimpleType(void) const
 {
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM || mType == DT_TYPE_POINTER;
 }
 
+void Declaration::SetDefined(void)
+{
+	mFlags |= DTF_DEFINED;
+	if (mConst)
+		mConst->mFlags |= DTF_DEFINED;
+}
 
 Declaration* TheVoidTypeDeclaration, * TheConstVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
 Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheConstVoidPointerTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;

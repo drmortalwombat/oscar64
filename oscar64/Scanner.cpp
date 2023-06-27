@@ -1397,13 +1397,33 @@ void Scanner::NextRawToken(void)
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();
-					if (mToken == TK_ASSIGN)
+					switch (mToken)
 					{
-						mToken = TK_IDENT;
+					case TK_ASSIGN:
 						mTokenIdent = Ident::Unique("operator=");
-					}
-					else
+						break;
+
+					case TK_ADD:
+						mTokenIdent = Ident::Unique("operator+");
+						break;
+					case TK_SUB:
+						mTokenIdent = Ident::Unique("operator-");
+						break;
+					case TK_MUL:
+						mTokenIdent = Ident::Unique("operator*");
+						break;
+					case TK_DIV:
+						mTokenIdent = Ident::Unique("operator/");
+						break;
+					case TK_MOD:
+						mTokenIdent = Ident::Unique("operator%");
+						break;
+
+					default:
 						mErrors->Error(mLocation, EERR_INVALID_OPERATOR, "Invalid operator token");
+					}
+
+					mToken = TK_IDENT;
 				}
 				else
 				{

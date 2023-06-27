@@ -49,6 +49,7 @@ protected:
 	void AddDefaultConstructors(Declaration* pthis);
 
 	void ParseVariableInit(Declaration* ndec);
+	void AddMemberFunction(Declaration* dec, Declaration* mdec);
 
 	Expression * AddFunctionCallRefReturned(Expression * exp);
 	Expression* CleanupExpression(Expression* exp);

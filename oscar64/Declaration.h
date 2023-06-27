@@ -94,8 +94,6 @@ static const uint64 DTF_FPARAM_CONST = (1ULL << 40);
 static const uint64 DTF_FPARAM_NOCONST = (1ULL << 41);
 
 static const uint64 DTF_FUNC_THIS		= (1ULL << 42);
-static const uint64 DTF_FUNC_CONSTRUCTOR = (1ULL << 43);
-static const uint64 DTF_FUNC_DESTRUCTOR = (1ULL << 44);
 
 static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 
@@ -223,7 +221,7 @@ public:
 	DecType				mType;
 	Token				mToken;
 	Declaration		*	mBase, * mParams, * mNext, * mPrev, * mConst;
-	Declaration		*	mConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment;
+	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment;
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
 
 	Expression*			mValue;
@@ -250,6 +248,8 @@ public:
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;
 	bool IsSimpleType(void) const;
+
+	void SetDefined(void);
 
 	Declaration* ToConstType(void);
 	Declaration* ToStriped(int stripe);
