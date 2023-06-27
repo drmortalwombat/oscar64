@@ -186,7 +186,7 @@ The compressed files can be loaded into memory and decompressed using the oscar_
 
 The windows installer puts the samples into the users documents folder, using the directory "%userprofile%\documents\oscar64\samples".  A batch file *make.bat* is also placed into this directory which invokes the compiler and builds all samples.  It invokes a second batch file in "%userprofile%\documents\oscar64\bin\oscar64.bat" that calls the compiler.
 
-On a linux installation one can build the samples invoking the *build.sh* shell script in the samples directory.
+On a linux installation one can build the samples invoking the *build.sh* shell script in the samples directory, for multithreading use *make -C samples -j*.
 
 ### Debugging
 
