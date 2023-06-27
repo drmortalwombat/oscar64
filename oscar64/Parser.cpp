@@ -128,73 +128,94 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		Declaration* mlast = nullptr;
 		for (;;)
 		{
-			Declaration* mdec = ParseDeclaration(nullptr, false, false, pthis);
-
-			mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
-
-			int	offset = dec->mSize;
-			if (dt == DT_TYPE_UNION)
-				offset = 0;
-
-			if (mdec->mBase->mType == DT_TYPE_FUNCTION)
+			if (ConsumeTokenIf(TK_PUBLIC))
 			{
-				mdec->mType = DT_CONST_FUNCTION;
-				mdec->mSection = mCodeSection;
-				mdec->mFlags |= DTF_GLOBAL;
-				mdec->mBase->mFlags |= DTF_FUNC_THIS;
-
-				if (mCompilerOptions & COPT_NATIVE)
-					mdec->mFlags |= DTF_NATIVE;
-
-				if (!(mdec->mFlags & DTF_DEFINED))
-					ConsumeToken(TK_SEMICOLON);
-
-				AddMemberFunction(dec, mdec);
+				flags &= ~(DTF_PRIVATE | DTF_PROTECTED);
+				ConsumeToken(TK_COLON);
+			}
+			else if (ConsumeTokenIf(TK_PROTECTED))
+			{
+				flags &= ~DTF_PRIVATE;
+				flags |= DTF_PROTECTED;
+				ConsumeToken(TK_COLON);
+			}
+			else if (ConsumeTokenIf(TK_PRIVATE))
+			{
+				flags |= DTF_PRIVATE | DTF_PROTECTED;
+				ConsumeToken(TK_COLON);
 			}
 			else
 			{
-				while (mdec)
+				Declaration* mdec = ParseDeclaration(nullptr, false, false, pthis);
+
+				mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
+
+				mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
+
+				int	offset = dec->mSize;
+				if (dt == DT_TYPE_UNION)
+					offset = 0;
+
+				if (mdec->mBase->mType == DT_TYPE_FUNCTION)
 				{
-					if (!(mdec->mBase->mFlags & DTF_DEFINED))
-						mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+					mdec->mType = DT_CONST_FUNCTION;
+					mdec->mSection = mCodeSection;
+					mdec->mFlags |= DTF_GLOBAL;
+					mdec->mBase->mFlags |= DTF_FUNC_THIS;
 
-					if (mdec->mType != DT_VARIABLE)
-					{
-						mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
-						break;
-					}
+					if (mCompilerOptions & COPT_NATIVE)
+						mdec->mFlags |= DTF_NATIVE;
 
-					mdec->mType = DT_ELEMENT;
-					mdec->mOffset = offset;
+					if (!(mdec->mFlags & DTF_DEFINED))
+						ConsumeToken(TK_SEMICOLON);
 
-					offset += mdec->mBase->mSize;
-					if (offset > dec->mSize)
-						dec->mSize = offset;
-
-					if (dec->mScope->Insert(mdec->mIdent, mdec))
-						mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
-
-					if (mlast)
-						mlast->mNext = mdec;
-					else
-						dec->mParams = mdec;
-					mlast = mdec;
-					mdec = mdec->mNext;
+					AddMemberFunction(dec, mdec);
 				}
-
-				if (mScanner->mToken == TK_SEMICOLON)
-					mScanner->NextToken();
 				else
 				{
-					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+					while (mdec)
+					{
+						if (!(mdec->mBase->mFlags & DTF_DEFINED))
+							mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+
+						if (mdec->mType != DT_VARIABLE)
+						{
+							mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
+							break;
+						}
+
+						mdec->mType = DT_ELEMENT;
+						mdec->mOffset = offset;
+
+						offset += mdec->mBase->mSize;
+						if (offset > dec->mSize)
+							dec->mSize = offset;
+
+						if (dec->mScope->Insert(mdec->mIdent, mdec))
+							mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+
+						if (mlast)
+							mlast->mNext = mdec;
+						else
+							dec->mParams = mdec;
+						mlast = mdec;
+						mdec = mdec->mNext;
+					}
+
+					if (mScanner->mToken == TK_SEMICOLON)
+						mScanner->NextToken();
+					else
+					{
+						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+						break;
+					}
+				}
+
+				if (mScanner->mToken == TK_CLOSE_BRACE)
+				{
+					mScanner->NextToken();
 					break;
 				}
-			}
-
-			if (mScanner->mToken == TK_CLOSE_BRACE)
-			{
-				mScanner->NextToken();
-				break;
 			}
 		}
 
@@ -469,6 +490,9 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 	}
 	case TK_STRUCT:
 		dec = ParseStructDeclaration(flags, DT_TYPE_STRUCT);
+		break;
+	case TK_CLASS:
+		dec = ParseStructDeclaration(flags | DTF_PRIVATE, DT_TYPE_STRUCT);
 		break;
 	case TK_UNION:
 		dec = ParseStructDeclaration(flags, DT_TYPE_UNION);
@@ -3331,6 +3355,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 				ndec->mValue = ParseFunction(ndec->mBase);
 
+				if (pthis)
+					ndec->mFlags |= DTF_REQUEST_INLINE;
+
 				ndec->mFlags |= DTF_DEFINED;
 				ndec->mNumVars = mLocalIndex;
 
@@ -3537,6 +3564,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 	case TK_CONST:
 	case TK_VOLATILE:
 	case TK_STRUCT:
+	case TK_CLASS:
 	case TK_UNION:
 	case TK_TYPEDEF:
 	case TK_STATIC:
@@ -3872,6 +3900,12 @@ Expression* Parser::ParseQualify(Expression* exp)
 
 			if (mdec)
 			{
+				if (mdec->mFlags & DTF_PROTECTED)
+				{ 
+					if (!mThisPointer || mThisPointer->mBase->IsConstSame(dtype))
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not visible", mScanner->mTokenIdent);
+				}
+
 				mScanner->NextToken();
 				if (mdec->mType == DT_ELEMENT)
 				{

@@ -79,6 +79,8 @@ static const uint64 DTF_ZEROPAGE		= (1ULL << 22);
 static const uint64 DTF_PREVENT_INLINE  = (1ULL << 23);
 static const uint64 DTF_STRIPED			= (1ULL << 24);
 static const uint64 DTF_DYNSTACK		= (1ULL << 25);
+static const uint64 DTF_PRIVATE			= (1ULL << 26);
+static const uint64 DTF_PROTECTED		= (1ULL << 27);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);

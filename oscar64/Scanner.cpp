@@ -153,7 +153,11 @@ const char* TokenNames[] =
 	"'namespace'",
 	"'using'",
 	"'this'",
-	"'::'"
+	"'::'",
+	"'class'",
+	"'public'",
+	"'protected'",
+	"'private'",
 };
 
 
@@ -1394,6 +1398,14 @@ void Scanner::NextRawToken(void)
 					mToken = TK_USING;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "this"))
 					mToken = TK_THIS;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "class"))
+					mToken = TK_CLASS;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "public"))
+					mToken = TK_PUBLIC;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "protected"))
+					mToken = TK_PROTECTED;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "private"))
+					mToken = TK_PRIVATE;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();

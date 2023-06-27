@@ -170,7 +170,7 @@ void GlobalAnalyzer::AutoInline(void)
 					doinline = true;
 
 				if (doinline)
-					{
+				{
 #if 0
 					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
 #endif
