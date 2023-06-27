@@ -603,7 +603,7 @@ public:
 	// iins : indexing instruction
 	// at : start position in block
 	// yval: known y immediate value of -1 if not known
-	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
+	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval, int ymax);
 	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 
 	// reg : base register pair to replace LSB with zero

@@ -14196,6 +14196,27 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mNumOperands = 0;
 				changed = true;
 			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_LEA && 
+				mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
+
+				mInstructions[i + 1]->mCode == IC_LOAD && 
+				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_ADD &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && 
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 2]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst &&
+				mInstructions[i + 2]->mSrc[1].mTemp != mInstructions[i + 1]->mDst.mTemp)
+			{
+				InterInstruction* iadd = mInstructions[i + 2];
+				mInstructions[i + 2] = mInstructions[i + 1];
+				mInstructions[i + 1] = mInstructions[i + 0];
+				mInstructions[i + 0] = iadd;
+				mInstructions[i + 2]->mSrc[0].mIntConst = 0;
+				changed = true;
+			}
 
 #if 1
 			if (i + 2 < mInstructions.Size() &&

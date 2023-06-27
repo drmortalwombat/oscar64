@@ -16842,6 +16842,28 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			}
 		}
 
+#if 1
+		if (mIns.Size() >= 4 && mTrueJump && mFalseJump && mTrueJump->mEntryRequiredRegs.Size() > 0 && mFalseJump->mEntryRequiredRegs.Size() > 0)
+		{
+			int	sz = mIns.Size();
+
+			if (mIns[sz - 4].mType == ASMIT_TYA &&
+				mIns[sz - 3].mType == ASMIT_CLC &&
+				mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 1 &&
+				mIns[sz - 1].mType == ASMIT_TAY && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) &&
+				(mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) &&
+				!mTrueJump->mEntryRequiredRegs[CPU_REG_C] && !mFalseJump->mEntryRequiredRegs[CPU_REG_C])
+			{
+				mIns[sz - 4].mType = ASMIT_INY; mIns[sz - 4].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+				if (mBranch == ASMIT_BCC)
+					mBranch = ASMIT_BNE;
+				else
+					mBranch = ASMIT_BEQ;
+				mIns.SetSize(sz - 3);
+				changed = true;
+			}
+		}
+#endif
 		if (mIns.Size() >= 2)
 		{
 			int	sz = mIns.Size();
@@ -21304,7 +21326,7 @@ bool NativeCodeBasicBlock::PatchForwardLowYPointer(const NativeCodeBasicBlock* b
 	return changed;
 }
 
-bool NativeCodeBasicBlock::CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction& iins, int at, int yval)
+bool NativeCodeBasicBlock::CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction& iins, int at, int yval, int ymax)
 {
 	if (!mPatched)
 	{
@@ -21346,10 +21368,11 @@ bool NativeCodeBasicBlock::CheckForwardSumYPointer(const NativeCodeBasicBlock* b
 			{
 				if (iins.mMode == ASMIM_IMMEDIATE && yval + iins.mAddress > 255)
 					return false;
-				if (yval < 0 || yval > 3)
+				if (yval < 0 || yval > ymax)
 					return false;
 				else if (!(ins.mLive & LIVE_MEM))
 					return true;
+				if (yval == 0) ymax = 3;
 			}
 
 			if (ins.mType == ASMIT_LDY && ins.mMode == ASMIM_IMMEDIATE)
@@ -21377,9 +21400,9 @@ bool NativeCodeBasicBlock::CheckForwardSumYPointer(const NativeCodeBasicBlock* b
 			at++;
 		}
 
-		if (mTrueJump && !mTrueJump->CheckForwardSumYPointer(block, reg, base, iins, 0, yval))
+		if (mTrueJump && !mTrueJump->CheckForwardSumYPointer(block, reg, base, iins, 0, yval, ymax))
 			return false;
-		if (mFalseJump && !mFalseJump->CheckForwardSumYPointer(block, reg, base, iins, 0, yval))
+		if (mFalseJump && !mFalseJump->CheckForwardSumYPointer(block, reg, base, iins, 0, yval, ymax))
 			return false;
 	}
 
@@ -38380,7 +38403,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval, 0))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval))
@@ -38411,7 +38434,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 0))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
@@ -38432,15 +38455,30 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					if (mIns[i + 0].mType == ASMIT_CLC &&
 						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 1].mAddress &&
+						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && 
 						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
 						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
 					{
 						int yval = RetrieveYValue(i);
+
+						bool	subs1 = mIns[i + 3].mAddress != mIns[i + 1].mAddress;
+						bool	subs2 = mIns[i + 3].mAddress != mIns[i + 2].mAddress;
+
+						if (subs1 && subs2)
+						{
+							if (mLoopHead)
+							{
+								if (ChangesZeroPage(mIns[i + 1].mAddress))
+									subs2 = false;
+								else if (ChangesZeroPage(mIns[i + 2].mAddress))
+									subs1 = false;
+							}
+						}
+
 						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval))
+						if (subs1 && CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval, 0))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval))
@@ -38456,6 +38494,25 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 							if (mFalseJump)
 								mFalseJump->CheckLive();
 						}
+						else if (subs2)
+						{
+							proc->ResetPatched();
+							if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 0))
+							{
+								proc->ResetPatched();
+								if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+								{
+									mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+									progress = true;
+								}
+
+								if (mTrueJump)
+									mTrueJump->CheckLive();
+								if (mFalseJump)
+									mFalseJump->CheckLive();
+							}
+						}
 					}
 #endif
 #if 1
@@ -38470,7 +38527,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval, 3))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval))
@@ -38504,7 +38561,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 7, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 7, yval, 3))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 7, yval))
@@ -38537,7 +38594,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 3))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
@@ -38566,7 +38623,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
 
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 3))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
@@ -38595,7 +38652,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
 
-						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 7, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 7, yval, 3))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 7, yval))
@@ -38622,7 +38679,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval, 0))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval))
@@ -38650,7 +38707,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						int yval = RetrieveYValue(i);
 						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval))
+						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval, 3))
 						{
 							proc->ResetPatched();
 							if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval))
@@ -38681,7 +38738,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 							NativeCodeInstruction	iins(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, reg);
 
 							proc->ResetPatched();
-							if (CheckForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval))
+							if (CheckForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval, 3))
 							{
 								mIns[i + 0] = iins;
 								for (int j = 1; j < 6; j++)
@@ -40035,7 +40092,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "Y::Y");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "strlen");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
