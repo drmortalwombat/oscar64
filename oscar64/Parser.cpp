@@ -1253,7 +1253,7 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 {
 	Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
 	pthisexp->mDecType = pthis;
-	pthisexp->mDecValue = pthis->mBase->mDestructor->mBase->mParams;
+	pthisexp->mDecValue = cfunc->mBase->mParams;
 
 	Expression* thisexp = new Expression(mScanner->mLocation, EX_PREFIX);
 	thisexp->mToken = TK_MUL;

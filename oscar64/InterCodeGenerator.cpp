@@ -2452,8 +2452,16 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (vl.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_POINTER)
 			{
 				dtype = vl.mType;
-				if (vl.mType->IsIntegerType() || vr.mType->IsIntegerType())
-					;
+				if (vl.mType->IsIntegerType())
+				{
+					if ((mCompilerOptions & COPT_CPLUSPLUS) || exp->mLeft->mType != EX_CONSTANT || exp->mLeft->mDecValue->mInteger != 0)
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot compare integer and pointer");
+				}
+				else if (vr.mType->IsIntegerType())
+				{
+					if ((mCompilerOptions & COPT_CPLUSPLUS) || exp->mRight->mType != EX_CONSTANT || exp->mRight->mDecValue->mInteger != 0)
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot compare integer and pointer");
+				}
 				else if ((vl.mType->mType == DT_TYPE_POINTER || vl.mType->mType == DT_TYPE_ARRAY) && (vr.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_ARRAY))
 				{
 					if (vl.mType->mBase->mType == DT_TYPE_VOID || vr.mType->mBase->mType == DT_TYPE_VOID)

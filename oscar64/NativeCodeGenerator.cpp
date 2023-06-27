@@ -12350,7 +12350,7 @@ void NativeCodeBasicBlock::BuildCollisionTable(NumberSet* collisionSets)
 	}
 }
 
-void NativeCodeBasicBlock::BuildDominatorTree(NativeCodeBasicBlock* from)
+void NativeCodeBasicBlock::BuildDominatorTree(NativeCodeBasicBlock* from, DominatorStacks& stacks)
 {
 	if (from == this)
 		return;
@@ -12360,25 +12360,26 @@ void NativeCodeBasicBlock::BuildDominatorTree(NativeCodeBasicBlock* from)
 		return;
 	else
 	{
-		ExpandingArray< NativeCodeBasicBlock * >	d1, d2;
+		stacks.d1.SetSize(0);
+		stacks.d2.SetSize(0);
 
 		NativeCodeBasicBlock* b = mDominator;
 		while (b)
 		{
-			d1.Push(b);
+			stacks.d1.Push(b);
 			b = b->mDominator;
 		}
 		b = from;
 		while (b)
 		{
-			d2.Push(b);
+			stacks.d2.Push(b);
 			b = b->mDominator;
 		}
 
 		b = nullptr;
-		while (d1.Size() > 0 && d2.Size() > 0 && d1.Last() == d2.Last())
+		while (stacks.d1.Size() > 0 && stacks.d2.Size() > 0 && stacks.d1.Last() == stacks.d2.Last())
 		{
-			b = d1.Pop(); d2.Pop();
+			b = stacks.d1.Pop(); stacks.d2.Pop();
 		}
 
 		if (mDominator == b)
@@ -12388,9 +12389,9 @@ void NativeCodeBasicBlock::BuildDominatorTree(NativeCodeBasicBlock* from)
 	}
 
 	if (mTrueJump)
-		mTrueJump->BuildDominatorTree(this);
+		mTrueJump->BuildDominatorTree(this, stacks);
 	if (mFalseJump)
-		mFalseJump->BuildDominatorTree(this);
+		mFalseJump->BuildDominatorTree(this, stacks);
 }
 
 
@@ -40657,8 +40658,9 @@ void NativeCodeProcedure::RebuildEntry(void)
 	ResetVisited();
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
+	NativeCodeBasicBlock::DominatorStacks	 stacks;
 
-	mEntryBlock->BuildDominatorTree(nullptr);
+	mEntryBlock->BuildDominatorTree(nullptr, stacks);
 }
 
 void NativeCodeProcedure::Optimize(void)
@@ -41523,13 +41525,14 @@ void NativeCodeProcedure::ResetPatched(void)
 {
 	for (int i = 0; i < mBlocks.Size(); i++)
 	{
-		mBlocks[i]->mPatched = false;
-		mBlocks[i]->mPatchFail = false;
-		mBlocks[i]->mPatchChecked = false;
-		mBlocks[i]->mPatchStart = false;
-		mBlocks[i]->mPatchLoop = false;
-		mBlocks[i]->mPatchLoopChanged = false;
-		mBlocks[i]->mPatchExit = false;
+		NativeCodeBasicBlock* b = mBlocks[i];
+		b->mPatched = false;
+		b->mPatchFail = false;
+		b->mPatchChecked = false;
+		b->mPatchStart = false;
+		b->mPatchLoop = false;
+		b->mPatchLoopChanged = false;
+		b->mPatchExit = false;
 	}
 }
 

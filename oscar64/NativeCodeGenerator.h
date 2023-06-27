@@ -370,7 +370,13 @@ public:
 	NativeCodeBasicBlock * ForwardAccuBranch(bool eq, bool ne, bool pl, bool mi, int limit);
 	bool MergeBasicBlocks(void);
 	void MarkLoopHead(void);
-	void BuildDominatorTree(NativeCodeBasicBlock * from);
+
+	struct DominatorStacks
+	{
+		ExpandingArray< NativeCodeBasicBlock* >	d1, d2;
+	};
+
+	void BuildDominatorTree(NativeCodeBasicBlock * from, DominatorStacks & stacks);
 
 	bool MoveLoadStoreUp(int at);
 	bool MoveLoadStoreXUp(int at);
