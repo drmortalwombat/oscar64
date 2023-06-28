@@ -3739,11 +3739,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 		case EX_TYPECAST:
 		{
-			vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);
+			vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 
 			InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_CONVERSION_OPERATOR);
 
-			if (exp->mLeft->mDecType->mType == DT_TYPE_FLOAT && vr.mType->IsIntegerType())
+			if (exp->mDecType->mType == DT_TYPE_FLOAT && vr.mType->IsIntegerType())
 			{
 				vr = Dereference(proc, exp, block, vr);
 
@@ -3778,50 +3778,50 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mOperator = (vr.mType->mFlags & DTF_SIGNED) ? IA_INT2FLOAT : IA_UINT2FLOAT;
 				ins->mSrc[0].mType = IT_INT16;
 				ins->mSrc[0].mTemp = stemp;
-				ins->mDst.mType = InterTypeOf(exp->mLeft->mDecType);
+				ins->mDst.mType = InterTypeOf(exp->mDecType);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 				block->Append(ins);
 			}
-			else if (exp->mLeft->mDecType->IsIntegerType() && vr.mType->mType == DT_TYPE_FLOAT)
+			else if (exp->mDecType->IsIntegerType() && vr.mType->mType == DT_TYPE_FLOAT)
 			{
 				vr = Dereference(proc, exp, block, vr);
-				ins->mOperator = (exp->mLeft->mDecType->mFlags & DTF_SIGNED) ? IA_FLOAT2INT : IA_FLOAT2UINT;
+				ins->mOperator = (exp->mDecType->mFlags & DTF_SIGNED) ? IA_FLOAT2INT : IA_FLOAT2UINT;
 				ins->mSrc[0].mType = InterTypeOf(vr.mType);
 				ins->mSrc[0].mTemp = vr.mTemp;
 				ins->mDst.mType = IT_INT16;
 				ins->mDst.mTemp = proc->AddTemporary(IT_INT16);
 				block->Append(ins);
 
-				if (exp->mLeft->mDecType->mSize == 1)
+				if (exp->mDecType->mSize == 1)
 				{
 					InterInstruction* xins = new InterInstruction(exp->mLocation, IC_TYPECAST);
 					xins->mSrc[0].mType = IT_INT16;
 					xins->mSrc[0].mTemp = ins->mDst.mTemp;
-					xins->mDst.mType = InterTypeOf(exp->mLeft->mDecType);
+					xins->mDst.mType = InterTypeOf(exp->mDecType);
 					xins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 					block->Append(xins);
 					ins = xins;
 				}
 			}
-			else if (exp->mLeft->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_POINTER)
+			else if (exp->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_POINTER)
 			{
 				// no need for actual operation when casting pointer to pointer
-				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference);
+				return ExValue(exp->mDecType, vr.mTemp, vr.mReference);
 			}
-			else if (exp->mLeft->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_ARRAY)
+			else if (exp->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_ARRAY)
 			{
 				// no need for actual operation when casting pointer to pointer
-				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference - 1);
+				return ExValue(exp->mDecType, vr.mTemp, vr.mReference - 1);
 			}
-			else if (exp->mLeft->mDecType->mType != DT_TYPE_VOID && vr.mType->mType == DT_TYPE_VOID)
+			else if (exp->mDecType->mType != DT_TYPE_VOID && vr.mType->mType == DT_TYPE_VOID)
 			{
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Cannot cast void object to non void object");
-				return ExValue(exp->mLeft->mDecType, vr.mTemp, vr.mReference);
+				return ExValue(exp->mDecType, vr.mTemp, vr.mReference);
 			}
-			else if (exp->mLeft->mDecType->IsIntegerType() && vr.mType->IsIntegerType())
+			else if (exp->mDecType->IsIntegerType() && vr.mType->IsIntegerType())
 			{
 				vr = Dereference(proc, exp, block, vr);
-				return CoerceType(proc, exp, block, vr, exp->mLeft->mDecType);
+				return CoerceType(proc, exp, block, vr, exp->mDecType);
 			}
 			else
 			{
@@ -3829,12 +3829,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mCode = IC_TYPECAST;
 				ins->mSrc[0].mType = InterTypeOf(vr.mType);
 				ins->mSrc[0].mTemp = vr.mTemp;
-				ins->mDst.mType = InterTypeOf(exp->mLeft->mDecType);
+				ins->mDst.mType = InterTypeOf(exp->mDecType);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 				block->Append(ins);
 			}
 
-			return ExValue(exp->mLeft->mDecType, ins->mDst.mTemp);
+			return ExValue(exp->mDecType, ins->mDst.mTemp);
 		}
 			break;
 

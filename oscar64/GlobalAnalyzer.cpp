@@ -823,7 +823,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_TYPE:
 		break;
 	case EX_TYPECAST:
-		return Analyze(exp->mRight, procDec, false);
+		return Analyze(exp->mLeft, procDec, false);
 		break;
 	case EX_LOGICAL_AND:
 		ldec = Analyze(exp->mLeft, procDec, false);

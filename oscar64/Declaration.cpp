@@ -447,46 +447,46 @@ Expression* Expression::ConstantFold(Errors * errors)
 		return ex;
 	}
 #endif
-	else if (mType == EX_TYPECAST && mRight->mType == EX_CONSTANT)
+	else if (mType == EX_TYPECAST && mLeft->mType == EX_CONSTANT)
 	{
-		if (mLeft->mDecType->mType == DT_TYPE_POINTER)
+		if (mDecType->mType == DT_TYPE_POINTER)
 		{
-			if (mRight->mDecValue->mType == DT_CONST_ADDRESS || mRight->mDecValue->mType == DT_CONST_INTEGER)
+			if (mLeft->mDecValue->mType == DT_CONST_ADDRESS || mLeft->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_ADDRESS);
-				dec->mBase = mLeft->mDecType;
-				dec->mInteger = mRight->mDecValue->mInteger;
+				dec->mBase = mDecType;
+				dec->mInteger = mLeft->mDecValue->mInteger;
 				ex->mDecValue = dec;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecType = mDecType;
 				return ex;
 			}
-			else if (mRight->mDecValue->mType == DT_CONST_FUNCTION)
+			else if (mLeft->mDecValue->mType == DT_CONST_FUNCTION)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
-				ex->mDecValue = mRight->mDecValue;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecValue = mLeft->mDecValue;
+				ex->mDecType = mDecType;
 				return ex;
 			}
 		}
-		else if (mLeft->mDecType->mType == DT_TYPE_INTEGER)
+		else if (mDecType->mType == DT_TYPE_INTEGER)
 		{
-			if (mRight->mDecValue->mType == DT_CONST_FLOAT)
+			if (mLeft->mDecValue->mType == DT_CONST_FLOAT)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-				dec->mBase = mLeft->mDecType;
-				dec->mInteger = int64(mRight->mDecValue->mNumber);
+				dec->mBase = mDecType;
+				dec->mInteger = int64(mLeft->mDecValue->mNumber);
 				ex->mDecValue = dec;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecType = mDecType;
 				return ex;
 			}
-			else if (mRight->mDecValue->mType == DT_CONST_INTEGER)
+			else if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
 			{
-				int64	sval = 1ULL << (8 * mLeft->mDecType->mSize);
-				int64	v = mRight->mDecValue->mInteger & (sval - 1);
+				int64	sval = 1ULL << (8 * mDecType->mSize);
+				int64	v = mLeft->mDecValue->mInteger & (sval - 1);
 
-				if (mLeft->mDecType->mFlags & DTF_SIGNED)
+				if (mDecType->mFlags & DTF_SIGNED)
 				{
 					if (v & (sval >> 1))
 						v -= sval;
@@ -494,23 +494,23 @@ Expression* Expression::ConstantFold(Errors * errors)
 
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-				dec->mBase = mLeft->mDecType;
+				dec->mBase = mDecType;
 				dec->mInteger = v;
 				ex->mDecValue = dec;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecType = mDecType;
 				return ex;
 			}
 		}
-		else if (mLeft->mDecType->mType == DT_TYPE_FLOAT)
+		else if (mDecType->mType == DT_TYPE_FLOAT)
 		{
-			if (mRight->mDecValue->mType == DT_CONST_INTEGER)
+			if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_FLOAT);
-				dec->mBase = mLeft->mDecType;
-				dec->mNumber = double(mRight->mDecValue->mInteger);
+				dec->mBase = mDecType;
+				dec->mNumber = double(mLeft->mDecValue->mInteger);
 				ex->mDecValue = dec;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecType = mDecType;
 				return ex;
 			}
 		}
@@ -781,7 +781,8 @@ Expression* Expression::ConstantFold(Errors * errors)
 Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
-	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr), mConst(nullptr), 
+	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr), 
+	mConst(nullptr), mMutable(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
@@ -938,11 +939,48 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mParams = mParams;
 		ndec->mIdent = mIdent;
 		ndec->mQualIdent = mQualIdent;
+
+		ndec->mDefaultConstructor = mDefaultConstructor;
+		ndec->mCopyConstructor = mCopyConstructor;
+		ndec->mVectorConstructor = mVectorConstructor;
+		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+
+		ndec->mMutable = this;
 		mConst = ndec;
 	}
 	
 	return mConst;
 }
+
+Declaration* Declaration::ToMutableType(void)
+{
+	if (!(mFlags & DTF_CONST))
+		return this;
+
+	if (!mMutable)
+	{
+		Declaration* ndec = new Declaration(mLocation, mType);
+		ndec->mSize = mSize;
+		ndec->mStride = mStride;
+		ndec->mBase = mBase;
+		ndec->mFlags = mFlags | DTF_CONST;
+		ndec->mScope = mScope;
+		ndec->mParams = mParams;
+		ndec->mIdent = mIdent;
+		ndec->mQualIdent = mQualIdent;
+
+		ndec->mDefaultConstructor = mDefaultConstructor;
+		ndec->mCopyConstructor = mCopyConstructor;
+		ndec->mVectorConstructor = mVectorConstructor;
+		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+
+		ndec->mConst = this;
+		mMutable = ndec;
+	}
+
+	return mMutable;
+}
+
 
 bool Declaration::IsSubType(const Declaration* dec) const
 {
@@ -978,7 +1016,15 @@ bool Declaration::IsSubType(const Declaration* dec) const
 			return true;
 
 		if (dec->mBase)
-			return IsSubType(dec->mBase);
+		{
+			Declaration* bcdec = dec->mBase;
+			while (bcdec)
+			{
+				if (IsSubType(bcdec->mBase))
+					return true;
+				bcdec = bcdec->mNext;
+			}
+		}
 
 		return false;
 	}

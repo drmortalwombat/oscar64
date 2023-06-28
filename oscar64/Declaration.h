@@ -49,6 +49,7 @@ enum DecType
 	DT_FUNCTION_REF,
 	DT_LABEL_REF,
 	DT_NAMESPACE,
+	DT_BASECLASS
 };
 
 // TypeFlags
@@ -222,7 +223,7 @@ public:
 	Location			mLocation, mEndLocation;
 	DecType				mType;
 	Token				mToken;
-	Declaration		*	mBase, * mParams, * mNext, * mPrev, * mConst;
+	Declaration		*	mBase, * mParams, * mNext, * mPrev, * mConst, * mMutable;
 	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment;
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
 
@@ -254,6 +255,8 @@ public:
 	void SetDefined(void);
 
 	Declaration* ToConstType(void);
+	Declaration* ToMutableType(void);
+
 	Declaration* ToStriped(int stripe);
 	Declaration* ToStriped(Errors* errors);
 	Declaration* Clone(void);

@@ -82,6 +82,8 @@ protected:
 	Expression* ParseStatement(void);
 	Expression* ParseSwitchStatement(void);
 
+	Declaration* MemberLookup(Declaration* dtype, const Ident * ident, int& offset);
+
 	Expression* ParseQualify(Expression * exp);
 	
 	int OverloadDistance(Declaration* pdec, Expression* pexp);
