@@ -48,6 +48,8 @@ void Parser::AddMemberFunction(Declaration* dec, Declaration* mdec)
 				pcdec->mNext = mdec;
 
 			dec->mScope->Insert(mdec->mIdent, gdec);
+			if (dec->mConst)
+				dec->mConst->mScope->Insert(mdec->mIdent, gdec);
 		}
 		else
 			mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
@@ -2993,7 +2995,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 				Declaration * bthis = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
 				bthis->mFlags |= DTF_CONST | DTF_DEFINED;
-				bthis->mBase = bdec;
+				if (ConsumeTokenIf(TK_CONST))
+					bthis->mBase = bdec->ToConstType();
+				else
+					bthis->mBase = bdec;
 				bthis->mSize = 2;
 
 				PrependThisArgument(ctdec, bthis);
@@ -3127,10 +3132,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		else
 		{
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION && pthis)
-			{
-					
-				PrependThisArgument(ndec->mBase, pthis);
-
+			{					
+				if (ConsumeTokenIf(TK_CONST))
+					PrependThisArgument(ndec->mBase, pthis->mBase->ToConstType()->BuildPointer(ndec->mLocation));
+				else
+					PrependThisArgument(ndec->mBase, pthis);
 			}
 
 			if (variable)
@@ -3179,6 +3185,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							{
 								Declaration* adec = pdec->mBase->mParams->Clone();
 								adec->mNext = ndec->mBase->mParams;
+
+								if (ConsumeTokenIf(TK_CONST))
+									adec->mBase = adec->mBase->mBase->ToConstType()->BuildPointer(adec->mLocation);
 
 								Declaration* p = adec->mBase->mParams;
 								while (p)
@@ -3229,6 +3238,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 										ppdec = ppdec->mNext;
 									}
 								}
+
+								pdec->mFlags |= ndec->mFlags & DTF_REQUEST_INLINE;
 
 								ndec = pdec;
 							}
@@ -4603,6 +4614,8 @@ Expression* Parser::ParseShiftExpression(bool lhs)
 		nexp->mDecType = exp->mDecType;
 
 		exp = nexp->ConstantFold(mErrors);
+
+		exp = CheckOperatorOverload(exp);
 	}
 
 	return exp;
@@ -4622,6 +4635,8 @@ Expression* Parser::ParseRelationalExpression(bool lhs)
 		nexp->mDecType = TheBoolTypeDeclaration;
 
 		exp = nexp->ConstantFold(mErrors);
+
+		exp = CheckOperatorOverload(exp);
 	}
 
 	return exp;
@@ -4641,6 +4656,8 @@ Expression* Parser::ParseBinaryAndExpression(bool lhs)
 		nexp->mDecType = exp->mDecType;
 
 		exp = nexp->ConstantFold(mErrors);
+
+		exp = CheckOperatorOverload(exp);
 	}
 
 	return exp;
@@ -4659,6 +4676,8 @@ Expression* Parser::ParseBinaryXorExpression(bool lhs)
 		nexp->mRight = ParseBinaryAndExpression(false);
 		nexp->mDecType = exp->mDecType;
 		exp = nexp->ConstantFold(mErrors);
+
+		exp = CheckOperatorOverload(exp);
 	}
 
 	return exp;
@@ -4677,6 +4696,8 @@ Expression* Parser::ParseBinaryOrExpression(bool lhs)
 		nexp->mRight = ParseBinaryXorExpression(false);
 		nexp->mDecType = exp->mDecType;
 		exp = nexp->ConstantFold(mErrors);
+
+		exp = CheckOperatorOverload(exp);
 	}
 
 	return exp;
@@ -4772,9 +4793,47 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 			Declaration* tdec = exp->mLeft->mDecType;
 			if (tdec->mType == DT_TYPE_STRUCT)
 			{
-				if (exp->mToken == TK_ASSIGN)
+				const Ident* opident = nullptr;
+				switch (exp->mToken)
 				{
-					Declaration* mdec = tdec->mScope->Lookup(Ident::Unique("operator="));
+				case TK_ASSIGN:
+					opident = Ident::Unique("operator=");
+					break;
+				case TK_ASSIGN_ADD:
+					opident = Ident::Unique("operator+=");
+					break;
+				case TK_ASSIGN_SUB:
+					opident = Ident::Unique("operator-=");
+					break;
+				case TK_ASSIGN_MUL:
+					opident = Ident::Unique("operator*=");
+					break;
+				case TK_ASSIGN_DIV:
+					opident = Ident::Unique("operator/=");
+					break;
+				case TK_ASSIGN_MOD:
+					opident = Ident::Unique("operator%=");
+					break;
+				case TK_ASSIGN_SHL:
+					opident = Ident::Unique("operator<<=");
+					break;
+				case TK_ASSIGN_SHR:
+					opident = Ident::Unique("operator>>=");
+					break;
+				case TK_ASSIGN_AND:
+					opident = Ident::Unique("operator&=");
+					break;
+				case TK_ASSIGN_XOR:
+					opident = Ident::Unique("operator^=");
+					break;
+				case TK_ASSIGN_OR:
+					opident = Ident::Unique("operator|=");
+					break;
+				}
+
+				if (opident)
+				{
+					Declaration* mdec = tdec->mScope->Lookup(opident);
 					if (mdec)
 					{
 						Expression * nexp = new Expression(mScanner->mLocation, EX_CALL);
@@ -4807,7 +4866,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 				}
 			}
 		}
-		else if (exp->mType == EX_BINARY)
+		else if (exp->mType == EX_BINARY || exp->mType == EX_RELATIONAL)
 		{
 			const Ident* opident = nullptr;
 			switch (exp->mToken)
@@ -4816,16 +4875,49 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 				opident = Ident::Unique("operator+");
 				break;
 			case TK_SUB:
-				opident = Ident::Unique("operator+");
+				opident = Ident::Unique("operator-");
 				break;
 			case TK_MUL:
-				opident = Ident::Unique("operator+");
+				opident = Ident::Unique("operator*");
 				break;
 			case TK_DIV:
-				opident = Ident::Unique("operator+");
+				opident = Ident::Unique("operator/");
 				break;
 			case TK_MOD:
 				opident = Ident::Unique("operator%");
+				break;
+			case TK_BINARY_AND:
+				opident = Ident::Unique("operator&");
+				break;
+			case TK_BINARY_OR:
+				opident = Ident::Unique("operator|");
+				break;
+			case TK_BINARY_XOR:
+				opident = Ident::Unique("operator^");
+				break;
+			case TK_LEFT_SHIFT:
+				opident = Ident::Unique("operator<<");
+				break;
+			case TK_RIGHT_SHIFT:
+				opident = Ident::Unique("operator>>");
+				break;
+			case TK_EQUAL:
+				opident = Ident::Unique("operator==");
+				break;
+			case TK_NOT_EQUAL:
+				opident = Ident::Unique("operator!=");
+				break;
+			case TK_GREATER_THAN:
+				opident = Ident::Unique("operator>");
+				break;
+			case TK_GREATER_EQUAL:
+				opident = Ident::Unique("operator>=");
+				break;
+			case TK_LESS_THAN:
+				opident = Ident::Unique("operator<");
+				break;
+			case TK_LESS_EQUAL:
+				opident = Ident::Unique("operator<=");
 				break;
 			}
 
@@ -4851,7 +4943,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mLeft = exp->mLeft;
 						texp->mDecType = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
 						texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-						texp->mDecType->mBase = exp->mDecType;
+						texp->mDecType->mBase = exp->mLeft->mDecType;
 						texp->mDecType->mSize = 2;
 
 						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);

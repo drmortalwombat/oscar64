@@ -801,6 +801,15 @@ int Declaration::Stride(void) const
 	return mStride > 0 ? mStride : mBase->mSize;
 }
 
+Declaration* Declaration::BuildPointer(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_POINTER);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED;
+	pdec->mSize = 2;
+	return pdec;
+}
+
 Declaration* Declaration::Last(void)
 {
 	mPrev = nullptr;

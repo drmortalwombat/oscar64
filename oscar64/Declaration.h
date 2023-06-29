@@ -262,6 +262,8 @@ public:
 	Declaration* Clone(void);
 	Declaration* Last(void);
 
+	Declaration* BuildPointer(const Location& loc);
+
 	int Stride(void) const;
 };
 

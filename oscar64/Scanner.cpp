@@ -1415,6 +1415,37 @@ void Scanner::NextRawToken(void)
 						mTokenIdent = Ident::Unique("operator=");
 						break;
 
+					case TK_ASSIGN_ADD:
+						mTokenIdent = Ident::Unique("operator+=");
+						break;
+					case TK_ASSIGN_SUB:
+						mTokenIdent = Ident::Unique("operator-=");
+						break;
+					case TK_ASSIGN_MUL:
+						mTokenIdent = Ident::Unique("operator*=");
+						break;
+					case TK_ASSIGN_DIV:
+						mTokenIdent = Ident::Unique("operator/=");
+						break;
+					case TK_ASSIGN_MOD:
+						mTokenIdent = Ident::Unique("operator%=");
+						break;
+					case TK_ASSIGN_SHL:
+						mTokenIdent = Ident::Unique("operator<<=");
+						break;
+					case TK_ASSIGN_SHR:
+						mTokenIdent = Ident::Unique("operator>>=");
+						break;
+					case TK_ASSIGN_AND:
+						mTokenIdent = Ident::Unique("operator&=");
+						break;
+					case TK_ASSIGN_XOR:
+						mTokenIdent = Ident::Unique("operator^=");
+						break;
+					case TK_ASSIGN_OR:
+						mTokenIdent = Ident::Unique("operator|=");
+						break;
+
 					case TK_ADD:
 						mTokenIdent = Ident::Unique("operator+");
 						break;
@@ -1429,6 +1460,42 @@ void Scanner::NextRawToken(void)
 						break;
 					case TK_MOD:
 						mTokenIdent = Ident::Unique("operator%");
+						break;
+
+					case TK_BINARY_AND:
+						mTokenIdent = Ident::Unique("operator&");
+						break;
+					case TK_BINARY_OR:
+						mTokenIdent = Ident::Unique("operator|");
+						break;
+					case TK_BINARY_XOR:
+						mTokenIdent = Ident::Unique("operator^");
+						break;
+
+					case TK_LEFT_SHIFT:
+						mTokenIdent = Ident::Unique("operator<<");
+						break;
+					case TK_RIGHT_SHIFT:
+						mTokenIdent = Ident::Unique("operator>>");
+						break;
+
+					case TK_EQUAL:
+						mTokenIdent = Ident::Unique("operator==");
+						break;
+					case TK_NOT_EQUAL:
+						mTokenIdent = Ident::Unique("operator!=");
+						break;
+					case TK_GREATER_THAN:
+						mTokenIdent = Ident::Unique("operator>");
+						break;
+					case TK_GREATER_EQUAL:
+						mTokenIdent = Ident::Unique("operator>=");
+						break;
+					case TK_LESS_THAN:
+						mTokenIdent = Ident::Unique("operator<");
+						break;
+					case TK_LESS_EQUAL:
+						mTokenIdent = Ident::Unique("operator<=");
 						break;
 
 					default:
