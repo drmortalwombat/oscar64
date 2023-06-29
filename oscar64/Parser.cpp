@@ -99,6 +99,15 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 	if ((mCompilerOptions & COPT_CPLUSPLUS) && mScanner->mToken == TK_COLON)
 	{
 		mScanner->NextToken();
+		uint64	pflags = flags;
+
+		if (ConsumeTokenIf(TK_PUBLIC))
+			pflags &= ~(DTF_PRIVATE | DTF_PROTECTED);
+		else if (ConsumeTokenIf(TK_PROTECTED))
+			pflags = (pflags & ~DTF_PRIVATE) | DTF_PROTECTED;
+		else if (ConsumeTokenIf(TK_PRIVATE))
+			pflags |= DTF_PRIVATE | DTF_PROTECTED;
+
 		Declaration* pdec = ParseQualIdent();
 		if (pdec)
 		{
@@ -106,6 +115,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 			{
 				Declaration* bcdec = new Declaration(mScanner->mLocation, DT_BASECLASS);
 				bcdec->mBase = pdec;
+				bcdec->mFlags = pflags;
 				
 				dec->mSize = pdec->mSize;
 
@@ -496,7 +506,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags)
 		dec = ParseStructDeclaration(flags, DT_TYPE_STRUCT);
 		break;
 	case TK_CLASS:
-		dec = ParseStructDeclaration(flags | DTF_PRIVATE, DT_TYPE_STRUCT);
+		dec = ParseStructDeclaration(flags | DTF_PRIVATE | DTF_PROTECTED, DT_TYPE_STRUCT);
 		break;
 	case TK_UNION:
 		dec = ParseStructDeclaration(flags, DT_TYPE_UNION);
@@ -3969,19 +3979,22 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 	return exp;
 }
 
-Declaration* Parser::MemberLookup(Declaration* dtype, const Ident* ident, int & offset)
+Declaration* Parser::MemberLookup(Declaration* dtype, const Ident* ident, int & offset, uint64& flags)
 {
 	Declaration* mdec = dtype->mScope->Lookup(ident);
 	offset = 0;
+	flags = 0;
 
 	if (!mdec)
 	{
 		Declaration* bcdec = dtype->mBase;
-		
+
 		while (bcdec)
 		{
-			int noffset;
-			Declaration* ndec = MemberLookup(bcdec->mBase, ident, noffset);
+			int		noffset;
+			uint64	nflags;
+
+			Declaration* ndec = MemberLookup(bcdec->mBase, ident, noffset, nflags);
 			if (ndec)
 			{
 				if (mdec)
@@ -3990,11 +4003,14 @@ Declaration* Parser::MemberLookup(Declaration* dtype, const Ident* ident, int & 
 				{
 					mdec = ndec;
 					offset = noffset + bcdec->mOffset;
+					flags = nflags | bcdec->mFlags;
 				}
 			}
 			bcdec = bcdec->mNext;
 		}
 	}
+	else
+		flags = mdec->mFlags;
 
 	return mdec;
 }
@@ -4014,11 +4030,12 @@ Expression* Parser::ParseQualify(Expression* exp)
 		if (mScanner->mToken == TK_IDENT)
 		{
 			int moffset;
-			Declaration* mdec = MemberLookup(dtype, mScanner->mTokenIdent, moffset);
+			uint64	mflags;
+			Declaration* mdec = MemberLookup(dtype, mScanner->mTokenIdent, moffset, mflags);
 
 			if (mdec)
 			{
-				if (mdec->mFlags & DTF_PROTECTED)
+				if (mflags & DTF_PROTECTED)
 				{ 
 					if (!mThisPointer || mThisPointer->mBase->IsConstSame(dtype))
 						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not visible", mScanner->mTokenIdent);

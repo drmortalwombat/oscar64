@@ -82,7 +82,7 @@ protected:
 	Expression* ParseStatement(void);
 	Expression* ParseSwitchStatement(void);
 
-	Declaration* MemberLookup(Declaration* dtype, const Ident * ident, int& offset);
+	Declaration* MemberLookup(Declaration* dtype, const Ident * ident, int& offset, uint64 & flags);
 
 	Expression* ParseQualify(Expression * exp);
 	
