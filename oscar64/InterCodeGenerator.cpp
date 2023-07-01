@@ -1074,6 +1074,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue vl, ExValue vr, InlineMapper* inlineMapper)
 {
+	if (vr.mTemp == vl.mTemp)
+		return;
+
 	if (vl.mType->mCopyConstructor)
 	{
 		Declaration* ccdec = vl.mType->mCopyConstructor;
@@ -3179,10 +3182,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_RETURN);
 			if (exp->mLeft)
 			{
-				vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
-
 				if (procType->mBase->mType == DT_TYPE_REFERENCE)
 				{
+					vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+
 					vr = Dereference(proc, exp, block, vr, 1);
 
 					vr = CoerceType(proc, exp, block, vr, procType->mBase);
@@ -3229,14 +3232,6 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else if (procType->mBase->mType == DT_TYPE_STRUCT)
 				{
-					vr = Dereference(proc, exp, block, vr, 1);
-
-					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
-						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
-					else if (!procType->mBase->CanAssign(vr.mType))
-						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
-					else if (vr.mReference != 1)
-						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Non addressable object");
 
 					InterInstruction* ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
 
@@ -3289,7 +3284,20 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						ins->mCode = IC_RETURN;
 					}
 
-					CopyStruct(proc, exp, block, ExValue(procType->mBase, ains->mDst.mTemp), vr, inlineMapper);
+					ExValue	rvr(procType->mBase, ains->mDst.mTemp, 1);
+
+					vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper, &rvr);
+
+					vr = Dereference(proc, exp, block, vr, 1);
+
+					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
+						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
+					else if (!procType->mBase->CanAssign(vr.mType))
+						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
+					else if (vr.mReference != 1)
+						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Non addressable object");
+
+					CopyStruct(proc, exp, block, rvr, vr, inlineMapper);
 #if 0
 					if (procType->mBase->mCopyConstructor)
 					{
@@ -3388,6 +3396,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else
 				{
+					vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+
 					vr = Dereference(proc, exp, block, vr);
 
 					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
@@ -4336,8 +4346,8 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE));
 
-#if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test_member"))
+#if 1
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test"))
 		exp->Dump(0);
 #endif
 #if 0
