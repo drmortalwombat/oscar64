@@ -58,7 +58,9 @@ Supported Features:
 * reference types
 * member functions
 * constructors and destructors
-* operator overloading (assignment)
+* operator overloading (not complete yet)
+* single inheritance of class and struct
+* const member functions
 
 ## Installation and Usage
 

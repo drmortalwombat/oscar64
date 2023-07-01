@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.20.208");
+		strcpy(strProductVersion, "1.21.209");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -491,7 +491,7 @@ int main2(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
+		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] [-pp] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
 
 		return 0;
 	}
