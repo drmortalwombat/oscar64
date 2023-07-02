@@ -54,7 +54,6 @@ long sieve(long size)
 
 int main(void)
 {	
-
 	testmuli(0, 0, 0);
 	testmuli(1, 0, 0);
 	testmuli(0, 1, 0);
@@ -111,7 +110,6 @@ int main(void)
 
 	assert(sieve(200) == 47);
 	assert(sieve(1000) == 169);
-
 	long	a = 0, b = 0;
 	for(long i=0; i<10000; i++)
 	{

@@ -4115,7 +4115,6 @@ cmpne:
 
 
 void HeapStart, HeapEnd;
-bool HeapInit;
 
 struct Heap {
 	Heap	*	next, * end;
@@ -4138,13 +4137,10 @@ __asm malloc
 
 		// check if heap is initialized
 
-		lda HeapInit
+		lda HeapNode + 2
 		bne hasHeap
 
 		// initialize heap
-
-		lda #$ff
-		sta HeapInit
 
 		// set next pointer to null
 		lda #0
@@ -4152,8 +4148,7 @@ __asm malloc
 		sta HeapStart + 1
 
 		// set size of dummy node to null
-		sta HeapNode + 2
-		sta HeapNode + 3
+		inc HeapNode + 2
 
 		// set next pointer of dummy node to first free heap block
 		lda #<HeapStart

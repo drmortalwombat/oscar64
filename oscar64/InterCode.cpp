@@ -3351,9 +3351,13 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			{
 				InterType	t = mSrc[i].mType;
 				InterInstruction* ains = ctemps[mSrc[i].mTemp];
-				mSrc[i] = ains->mConst;
-				mSrc[i].mType = t;
-				changed = true;
+
+				if (t != IT_POINTER || ains->mConst.mMemory == IM_ABSOLUTE)
+				{
+					mSrc[i] = ains->mConst;
+					mSrc[i].mType = t;
+					changed = true;
+				}
 			}
 		}
 
@@ -14167,6 +14171,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mSrc[1].mTemp;
 				mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[0].mFinal = mInstructions[i + 0]->mSrc[1].mFinal;
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
 				changed = true;
