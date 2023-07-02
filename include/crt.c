@@ -4118,26 +4118,21 @@ void HeapStart, HeapEnd;
 bool HeapInit;
 
 struct Heap {
-	Heap	*	next;
-	unsigned 	size;
+	Heap	*	next, * end;
 }	HeapNode;
 
 #pragma section(heap, 0x0000, HeapStart, HeapEnd)
 
 __asm malloc
 {
-		// round size to be a multiple of four
-		// and make room for two additional bytes
-		// to store size of memory node
+		// make room for two additional bytes
+		// to store pointer to end of used memory
 
 		clc	
 		lda accu + 0
-		sta tmp + 4
-		adc #$05
-		and #$fc
+		adc #2
 		sta tmp
 		lda accu + 1
-		sta tmp + 5
 		adc #$00
 		sta tmp + 1
 
@@ -4166,13 +4161,10 @@ __asm malloc
 		lda #>HeapStart
 		sta HeapNode + 1
 
-		// set size to size of heap
-		sec
+		// set end of memory block to end of heap
 		lda #<HeapEnd
-		sbc #<HeapStart
 		sta HeapStart + 2
 		lda #>HeapEnd
-		sbc #>HeapStart
 		sta HeapStart + 3
 
 hasHeap:
@@ -4181,57 +4173,79 @@ hasHeap:
 		// perfect fit
 
 		lda #<HeapNode
-		sta accu + 2
-		lda #>HeapNode
-		sta accu + 3		
+		ldx #>HeapNode
 
 		// Now loop over free nodes, until we find a match
 loop:
+		sta accu + 2
+		stx accu + 3		
+
 		// next heap block
 
+		// calculate potential end of block
+
+		clc
 		ldy #0
 		lda (accu + 2), y
-		sta accu
+		sta accu + 0
+		adc tmp
+		sta tmp + 2
 		iny
 		lda (accu + 2), y
 		sta accu + 1
 
 		// exit if out of blocks
-
-		beq	done
-		// calculate remaining size of heap block
-
-		ldy #2
-		sec
-		lda (accu), y
-		sbc tmp
-		sta tmp + 2
-		iny
-		lda (accu), y
-		sbc tmp + 1
+		beq done
+		adc tmp + 1
 		sta tmp + 3
 
-		// will fit
+
+		// Check if in range of current free block
+
+		ldy #2
+		lda (accu), y
+		cmp tmp + 2
+		iny
+		lda (accu), y
+		sbc tmp + 3
 		bcs avail
 
-		// prev
+		// move current block pointer to prev pointer
+
 		lda accu
-		sta accu + 2
-		lda accu + 1
-		sta accu + 3
+		ldx accu + 1
 		jmp loop
 
-done:
+done:	
 		// no more heap blocks
 		rts
+
 avail:
-		// is it a perfect fit?
+		// calculate new end of block
+				
+		clc
 		lda tmp + 2
-		ora tmp + 3
+		adc #3
+		and #$fc
+		sta tmp + 4
+		lda tmp + 3
+		adc #0
+		sta tmp + 5
+
+		// compare with end of free block
+
+		ldy #2
+		lda tmp + 4
+		cmp (accu), y
+		bne nofit
+		iny
+		lda tmp + 5
+		cmp (accu), y
 		bne nofit
 
-		// so adjust previous pointer to point to
-		// next heap block
+		// perfect fit, so have previous block point to
+		// next free block
+
 		ldy #0
 		lda (accu), y
 		sta (accu + 2), y
@@ -4241,42 +4255,42 @@ avail:
 		jmp found
 
 nofit:
-		// adjust size of remaining heapblock
-		ldy #2
+		// set next link in new link block
+
+		ldy #0
+		lda (accu), y
+		sta (tmp + 4), y
+		lda tmp + 4
+		sta (accu + 2), y		
+		iny		
+		lda (accu), y
+		sta (tmp + 4), y
+		lda tmp + 5
+		sta (accu + 2), y
+		
+		// set new end of remaining block
+		iny
+		lda (accu), y
+		sta (tmp + 4), y
+		iny
+		lda (accu), y
+		sta (tmp + 4), y
+
+found:
+		// remember end of allocated block
+
+		ldy #0
 		lda tmp + 2
 		sta (accu), y
 		iny
 		lda tmp + 3
 		sta (accu), y
 
-		// advance address to start of next heap block
-
-		clc
-		lda accu
-		adc tmp + 2
-		sta accu
-		lda accu + 1
-		adc tmp + 3
-		sta accu + 1
-
-found:
-		// remember size of heap block for free without size
-
-		ldy #0
-		lda tmp + 4
-		sta (accu), y
-		iny
-		lda tmp + 5
-		sta (accu), y
-
 		// advanve by two bytes to skip size
-		clc
 		lda accu
-		adc #2
+		ora #2
 		sta accu
-		bcc page
-		inc accu + 1
-page:
+
 		rts
 }
 
@@ -4292,91 +4306,68 @@ __asm inp_malloc
 
 __asm free
 {
-		// check nullptr free
+
+		// two bytes back to fix remembered end of block
+
 		lda accu
+		and #$fc
+		sta accu
+
+		// check nullptr free
+
 		ora accu + 1
 		bne notnull
 		rts
 notnull:
-		// two bytes back to fix size
-		sec
-		lda accu
-		sbc #2
-		sta accu
-		bcs page
-		dec accu + 1
-page:
 
-		// cache size and end of block
+		// cache end of block, rounding to next four byte
+		// address
 		
 		clc
 		ldy #0
 		lda (accu), y
-		adc #5
+		adc #3
 		and #$fc
-		sta tmp
+		sta accu + 2
 		iny
 		lda (accu), y
 		adc #0
-		sta tmp + 1
-
-		clc
-		lda tmp + 0
-		adc accu
-		sta accu + 2
-		lda tmp + 1
-		adc accu + 1
 		sta accu + 3
 
 		// pointer to heap block, starting with
 		// dummy block
 
 		lda #<HeapNode
-		sta tmp + 2
-		lda #>HeapNode
-		sta tmp + 3
+		ldx #>HeapNode
 
 loop:
+		sta tmp + 2
+		stx tmp + 3
+
 		// check if end of heap
 
 		ldy #1
 		lda (tmp + 2), y
 		beq	noend
-
-		// Check if behind this block
-
-		cmp accu + 1
-		bcc before
-		bne after
-
-		dey
-		lda (tmp + 2), y
-		cmp accu + 0
-		bcs after
-
-before:
-		ldy # 1
-		lda (tmp + 2), y
 		tax
 		dey
 		lda (tmp + 2), y
-		sta tmp + 2
-		stx tmp + 3
-		jmp loop
-after:
 
-		// Merge with next block
+		// Check if next block is behind the block to free
 
-		ldy #1
-		lda accu + 3
-		cmp (tmp + 2), y
+		cpx accu + 3
+		bcc loop
 		bne noend
-		dey
-		lda accu + 2
-		cmp (tmp + 2), y
+
+		cmp accu + 2
+		bcc loop
 		bne noend
+
+		// The end of the block to free matches the
+		// start of the next free block
 
 		// Pointer to next next block
+
 		ldy #0
 		lda (accu + 2), y
 		sta (accu), y
@@ -4384,18 +4375,16 @@ after:
 		lda (accu + 2), y
 		sta (accu), y
 
-		// Add size of next block to this
-		iny
-		clc
-		lda tmp
-		adc (accu + 2), y
-		sta tmp
-		iny
-		lda tmp + 1
-		adc (accu + 2), y
-		sta tmp + 1
+		// Append free space to new block
 
+		iny
+		lda (accu + 2), y
+		sta (accu), y
+		iny
+		lda (accu + 2), y
+		sta (accu), y
 		jmp start
+
 noend:
 		// Link to next block
 		ldy #0
@@ -4405,24 +4394,27 @@ noend:
 		lda (tmp + 2), y
 		sta (accu), y
 
-start:
-		// Calculate end of free block
-		ldy #2
-		clc
-		lda tmp + 2
-		adc (tmp + 2), y
+		// End of new free block
 		iny
-		tax
-		lda tmp + 3
-		adc (tmp + 2), y
+		lda accu + 2
+		sta (accu), y
+		iny
+		lda accu + 3
+		sta (accu), y
 
-		// Matches start of new block
+start:
+		// Check if new block matches end of previous block
+
+		ldy #2
+		lda (tmp + 2), y
+		cmp accu
+		bne nostart
+		iny
+		lda (tmp + 2), y
 		cmp accu + 1
 		bne nostart
-		cpx accu
-		bne nostart
 
-		// If so, increase the size and link
+		// If so, increase the size of previous block and link
 		// to free block after
 
 		ldy #0
@@ -4433,13 +4425,10 @@ start:
 		sta (tmp + 2), y
 
 		iny
-		clc
-		lda (tmp + 2), y
-		adc tmp
+		lda (accu), y
 		sta (tmp + 2), y
 		iny
-		lda (tmp + 2), y
-		adc tmp + 1
+		lda (accu), y
 		sta (tmp + 2), y
 
 		rts
@@ -4453,14 +4442,7 @@ nostart:
 		iny
 		lda accu + 1
 		sta (tmp + 2), y
-		iny
 
-		// Set size of free block
-		lda tmp
-		sta (accu), y
-		iny
-		lda tmp + 1
-		sta (accu), y
 		rts
 }
 

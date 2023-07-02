@@ -1609,9 +1609,13 @@ void ByteCodeBasicBlock::CallMalloc(InterCodeProcedure* proc, const InterInstruc
 	}
 	ByteCodeInstruction	cins(BC_MALLOC);
 	mIns.Push(cins);
-	ByteCodeInstruction	bins(BC_STORE_REG_16);
-	bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
-	mIns.Push(bins);
+
+	if (ins->mDst.mTemp >= 0)
+	{
+		ByteCodeInstruction	bins(BC_STORE_REG_16);
+		bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(bins);
+	}
 }
 
 void ByteCodeBasicBlock::CallFree(InterCodeProcedure* proc, const InterInstruction* ins)
