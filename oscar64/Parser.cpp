@@ -2660,78 +2660,73 @@ void Parser::ParseVariableInit(Declaration* ndec)
 	else
 		mScanner->NextToken();
 
-	if (pexp && pexp->mType != EX_LIST && ndec->mBase->CanAssign(pexp->mDecType))
+	Declaration* fcons = ndec->mBase->mScope ? ndec->mBase->mScope->Lookup(ndec->mBase->mIdent) : nullptr;
+
+	if (fcons)
+	{
+		Declaration* mtype = ndec->mBase->ToMutableType();
+
+		Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+		vexp->mDecType = mtype;
+		vexp->mDecValue = ndec;
+
+		Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		cexp->mDecValue = fcons;
+		cexp->mDecType = cexp->mDecValue->mBase;
+
+		Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+		fexp->mLeft = cexp;
+		fexp->mRight = pexp;
+
+		Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+		texp->mToken = TK_BINARY_AND;
+		texp->mLeft = vexp;
+		texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+		texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+		texp->mDecType->mBase = mtype;
+		texp->mDecType->mSize = 2;
+
+		if (fexp->mRight)
+		{
+			Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+			lexp->mLeft = texp;
+			lexp->mRight = fexp->mRight;
+			fexp->mRight = lexp;
+		}
+		else
+			fexp->mRight = texp;
+
+		ResolveOverloadCall(cexp, fexp->mRight);
+
+		Expression* dexp = nullptr;
+		if (ndec->mBase->mDestructor)
+		{
+			Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+			cexp->mDecValue = ndec->mBase->mDestructor;
+			cexp->mDecType = cexp->mDecValue->mBase;
+
+			dexp = new Expression(mScanner->mLocation, EX_CALL);
+			dexp->mLeft = cexp;
+			dexp->mRight = texp;
+		}
+
+		Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
+
+		nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
+		nexp->mLeft->mLeft = fexp;
+		nexp->mLeft->mRight = dexp;
+
+		nexp->mRight = vexp;
+		nexp->mDecType = vexp->mDecType;
+
+		ndec->mValue = nexp;
+	}
+	else if (pexp && pexp->mType != EX_LIST && ndec->mBase->CanAssign(pexp->mDecType))
 	{
 		ndec->mValue = pexp;
 	}
 	else
-	{
-		Declaration* fcons = ndec->mBase->mScope ? ndec->mBase->mScope->Lookup(ndec->mBase->mIdent) : nullptr;
-
-		if (fcons)
-		{
-			Declaration* mtype = ndec->mBase->ToMutableType();
-
-			Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
-			vexp->mDecType = mtype;
-			vexp->mDecValue = ndec;
-
-			Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-			cexp->mDecValue = fcons;
-			cexp->mDecType = cexp->mDecValue->mBase;
-
-			Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
-			fexp->mLeft = cexp;
-			fexp->mRight = pexp;
-
-			Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
-			texp->mToken = TK_BINARY_AND;
-			texp->mLeft = vexp;
-			texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
-			texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-			texp->mDecType->mBase = mtype;
-			texp->mDecType->mSize = 2;
-
-			if (fexp->mRight)
-			{
-				Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
-				lexp->mLeft = texp;
-				lexp->mRight = fexp->mRight;
-				fexp->mRight = lexp;
-			}
-			else
-				fexp->mRight = texp;
-
-			ResolveOverloadCall(cexp, fexp->mRight);
-
-			Expression* dexp = nullptr;
-			if (ndec->mBase->mDestructor)
-			{
-				Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-				cexp->mDecValue = ndec->mBase->mDestructor;
-				cexp->mDecType = cexp->mDecValue->mBase;
-
-				dexp = new Expression(mScanner->mLocation, EX_CALL);
-				dexp->mLeft = cexp;
-				dexp->mRight = texp;
-			}
-
-			Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
-
-			nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
-			nexp->mLeft->mLeft = fexp;
-			nexp->mLeft->mRight = dexp;
-
-			nexp->mRight = vexp;
-			nexp->mDecType = vexp->mDecType;
-
-			ndec->mValue = nexp;
-		}
-		else
-		{
-			ndec->mValue = pexp;
-		}
-	}
+		mErrors->Error(pexp->mLocation, EERR_INCOMPATIBLE_TYPES, "Can not initialize variable with expression", ndec->mIdent);
 }
 
 Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, Declaration* pthis)

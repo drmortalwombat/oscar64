@@ -75,6 +75,11 @@ inline const char * string::tocstr(void) const
 	return cstr;
 }
 
+inline unsigned string::size(void) const
+{
+	return strlen(cstr);
+}
+
 string string::operator+(const string & s)
 {
 	return string(cstr, s.cstr);
@@ -144,4 +149,14 @@ inline bool string::operator>=(const string & s) const
 inline bool string::operator>=(const char * s) const
 {
 	return strcmp(cstr, s) >= 0;
+}
+
+inline char & string::operator[](unsigned t)
+{
+	return cstr[t];
+}
+
+inline char string::operator[](unsigned t) const
+{
+	return cstr[t];
 }

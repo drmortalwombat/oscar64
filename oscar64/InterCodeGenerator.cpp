@@ -1073,7 +1073,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 		block->Append(ins);
 
-		return ExValue(rdec->mBase, ins->mDst.mTemp, 1);
+		ExValue rv(rdec->mBase, ins->mDst.mTemp, 1);
+		if (ins->mDst.mType != DT_TYPE_REFERENCE)
+			rv = Dereference(proc, exp, block, rv);
+		return rv;
 	}
 	else if (lrexp)
 	{
@@ -2991,7 +2994,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						pex = nullptr;
 					}
 
-					ExValue	vp(pdec ? pdec->mBase : TheSignedIntTypeDeclaration, ains->mDst.mTemp, 1);
+					Declaration* ptype = pdec ? pdec->mBase : texp->mDecType;
+
+					ExValue	vp(ptype ? ptype : TheSignedIntTypeDeclaration, ains->mDst.mTemp, 1);
 
 					if (pdec && pdec->mBase->mType == DT_TYPE_REFERENCE && texp->mType == EX_CALL)
 					{
@@ -3018,8 +3023,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 #endif
 					}
 
-					vr = TranslateExpression(procType, proc, block, texp, destack, breakBlock, continueBlock, inlineMapper, &vp);
-					
+					if (ptype && (ptype->mType == DT_TYPE_STRUCT || ptype->mType == DT_TYPE_UNION))
+						vr = TranslateExpression(procType, proc, block, texp, destack, breakBlock, continueBlock, inlineMapper, &vp);
+					else
+						vr = TranslateExpression(procType, proc, block, texp, destack, breakBlock, continueBlock, inlineMapper, nullptr);
+
 					if (!(pdec && pdec->mBase->mType == DT_TYPE_REFERENCE) && (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION))
 					{
 						if (pdec && !pdec->mBase->CanAssign(vr.mType))
