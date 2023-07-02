@@ -38,6 +38,17 @@ static inline InterType InterTypeOf(const Declaration* dec)
 	}
 }
 
+InterCodeGenerator::ExValue InterCodeGenerator::ToValue(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v)
+{
+	if (v.mType->mType == DT_TYPE_REFERENCE)
+	{
+		v.mType = v.mType->mBase;
+		v.mReference++;
+	}
+
+	return v;
+}
+
 InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v, int level)
 {
 	while (v.mReference > level)
@@ -1617,6 +1628,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 			}
 
+			if (exp->mType == EX_ASSIGNMENT)
+			{
+				vl = ToValue(proc, exp, block, vl);
+				vr = ToValue(proc, exp, block, vr);
+			}
+
 			if (exp->mToken == TK_ASSIGN || !(vl.mType->mType == DT_TYPE_POINTER && vr.mType->IsIntegerType() && (exp->mToken == TK_ASSIGN_ADD || exp->mToken == TK_ASSIGN_SUB)))
 			{
 				if (!vl.mType->CanAssign(vr.mType))
@@ -1630,6 +1647,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 				exp->mRight->mDecValue->mLinkerObject->mFlags |= LOBJF_CONST;
 			}
+
 
 			if (vl.mType->mType == DT_TYPE_REFERENCE)
 			{
@@ -1661,6 +1679,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (vl.mType->mType == DT_TYPE_STRUCT || vl.mType->mType == DT_TYPE_ARRAY || vl.mType->mType == DT_TYPE_UNION)
 			{
+				vr = ToValue(proc, exp, block, vr);
+
 				vr = Dereference(proc, exp, block, vr, 1);
 				vl = Dereference(proc, exp, block, vl, 1);
 
@@ -1689,6 +1709,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else
 			{
+				vr = ToValue(proc, exp, block, vr);
+
 				if (vl.mType->mType == DT_TYPE_POINTER && (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION))
 				{
 					vr = Dereference(proc, exp, block, vr, 1);
@@ -1864,6 +1886,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 			vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);
 
+			vl = ToValue(proc, exp, block, vl);
+			vr = ToValue(proc, exp, block, vr);
+
 			int stride = vl.mType->Stride();
 
 			if (vl.mType->mType == DT_TYPE_ARRAY && exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecValue->mType == DT_CONST_INTEGER)
@@ -1919,6 +1944,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_QUALIFY:
 		{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+
+			vl = ToValue(proc, exp, block, vl);
+
 			vl = Dereference(proc, exp, block, vl, 1);
 
 			if (vl.mReference != 1)
@@ -1947,6 +1975,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 			vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);
+
+			vl = ToValue(proc, exp, block, vl);
+			vr = ToValue(proc, exp, block, vr);
+
 			vr = Dereference(proc, exp, block, vr);
 
 			InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);
@@ -2243,6 +2275,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_PREINCDEC:
 		{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+			vl = ToValue(proc, exp, block, vl);
 			vl = Dereference(proc, exp, block, vl, 1);
 
 			if (vl.mReference != 1)
@@ -2304,6 +2337,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_POSTINCDEC:
 		{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+			vl = ToValue(proc, exp, block, vl);
 			vl = Dereference(proc, exp, block, vl, 1);
 
 			if (vl.mReference != 1)
@@ -2363,6 +2397,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_PREFIX:
 		{	
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+			vl = ToValue(proc, exp, block, vl);
 
 			InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_UNARY_OPERATOR);
 
@@ -2468,9 +2503,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_RELATIONAL:
 		{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+			vl = ToValue(proc, exp, block, vl);
 			vl = Dereference(proc, exp, block, vl, vl.mType->mType == DT_TYPE_ARRAY ? 1 : 0);
 			vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);
+			vr = ToValue(proc, exp, block, vr);
 			vr = Dereference(proc, exp, block, vr, vr.mType->mType == DT_TYPE_ARRAY ? 1 : 0);
+
 
 			InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_RELATIONAL_OPERATOR);
 

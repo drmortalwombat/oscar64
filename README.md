@@ -61,6 +61,7 @@ Supported Features:
 * operator overloading (not complete yet)
 * single inheritance of class and struct
 * const member functions
+* new, delete, new[] and delete[]
 
 ## Installation and Usage
 

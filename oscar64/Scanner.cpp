@@ -1504,6 +1504,13 @@ void Scanner::NextRawToken(void)
 						mTokenIdent = Ident::Unique("operator<=");
 						break;
 
+					case TK_OPEN_BRACKET:
+						NextRawToken();
+						if (mToken != TK_CLOSE_BRACKET)
+							mErrors->Error(mLocation, EERR_INVALID_OPERATOR, "']' expected");
+						mTokenIdent = Ident::Unique("operator[]");
+						break;
+
 					default:
 						mErrors->Error(mLocation, EERR_INVALID_OPERATOR, "Invalid operator token");
 					}

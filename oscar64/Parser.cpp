@@ -4256,19 +4256,24 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 
 	for (;;)
 	{
-		if (mScanner->mToken == TK_OPEN_BRACKET)
+		if (ConsumeTokenIf(TK_OPEN_BRACKET))
 		{
-			if (exp->mDecType->mType != DT_TYPE_ARRAY && exp->mDecType->mType != DT_TYPE_POINTER)
-				mErrors->Error(mScanner->mLocation, EERR_INVALID_INDEX, "Array expected for indexing");
-			mScanner->NextToken();
 			Expression* nexp = new Expression(mScanner->mLocation, EX_INDEX);
 			nexp->mLeft = exp;
 			nexp->mRight = ParseExpression(false);
-			if (mScanner->mToken == TK_CLOSE_BRACKET)
-				mScanner->NextToken();
+			ConsumeToken(TK_CLOSE_BRACKET);
+
+			if (exp->mDecType->mType == DT_TYPE_STRUCT)
+			{
+				nexp = CheckOperatorOverload(nexp);
+			}
+			else if (exp->mDecType->mType == DT_TYPE_ARRAY || exp->mDecType->mType == DT_TYPE_POINTER)
+			{
+				nexp->mDecType = exp->mDecType->mBase;
+			}
 			else
-				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "']' expected");
-			nexp->mDecType = exp->mDecType->mBase;
+				mErrors->Error(mScanner->mLocation, EERR_INVALID_INDEX, "Array expected for indexing");
+
 			if (!nexp->mDecType)
 				nexp->mDecType = TheVoidTypeDeclaration;
 			exp = nexp;
@@ -5136,6 +5141,43 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 
 						exp = nexp;
 					}
+				}
+			}
+		}
+		else if (exp->mType == EX_INDEX)
+		{
+			Declaration* tdec = exp->mLeft->mDecType;
+			if (tdec->mType == DT_TYPE_STRUCT)
+			{
+				Declaration* mdec = tdec->mScope->Lookup(Ident::Unique("operator[]"));
+				if (mdec)
+				{
+					Expression* nexp = new Expression(mScanner->mLocation, EX_CALL);
+
+					nexp->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+					nexp->mLeft->mDecType = mdec->mBase;
+					nexp->mLeft->mDecValue = mdec;
+
+					nexp->mDecType = mdec->mBase;
+					nexp->mRight = exp->mRight;
+
+					Expression* texp = new Expression(nexp->mLocation, EX_PREFIX);
+					texp->mToken = TK_BINARY_AND;
+					texp->mLeft = exp->mLeft;
+					texp->mDecType = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
+					texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+					texp->mDecType->mBase = exp->mLeft->mDecType;
+					texp->mDecType->mSize = 2;
+
+					Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
+					lexp->mLeft = texp;
+					lexp->mRight = nexp->mRight;
+					nexp->mRight = lexp;
+
+					ResolveOverloadCall(nexp->mLeft, nexp->mRight);
+					nexp->mDecType = nexp->mLeft->mDecType->mBase;
+
+					exp = nexp;
 				}
 			}
 		}
