@@ -51,16 +51,15 @@ void heapcheck(void)
 		for(i=0; i<s; i++)
 		{
 			if (p[i] != n)
-			{
-				printf("MemError %d at %d:%d != %d\n", k, i, n, p[i]);
 				exit(-2);
-			}
 		}
 		free(memp[n]);
 		
 		s = rand() % 100 + 3;
 		mems[n] = s;
 		memp[n] = malloc(s);
+		if (!memp[n])
+			exit(-3);
 		memset(memp[n], n, s);
 	}
 }

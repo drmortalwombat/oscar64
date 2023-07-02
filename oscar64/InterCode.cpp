@@ -634,7 +634,7 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	{
 		if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER ||
 			ins0->mCode == IC_RETURN || ins0->mCode == IC_RETURN_STRUCT || ins0->mCode == IC_RETURN_VALUE ||
-			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME)
+			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME || ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE)
 			return false;
 
 		if (ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
@@ -643,10 +643,27 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER)
 	{
 		if (ins1->mCode == IC_RETURN || ins1->mCode == IC_RETURN_STRUCT || ins1->mCode == IC_RETURN_VALUE ||
-			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME)
+			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME || ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE)
 			return false;
 
 		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+			return false;
+	}
+
+	if (ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE)
+	{
+		if (ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE)
+			return false;
+	}
+
+	if (ins0->mCode == IC_FREE)
+	{
+		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+			return false;
+	}
+	if (ins1->mCode == IC_FREE)
+	{
+		if (ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
 			return false;
 	}
 
@@ -1151,17 +1168,17 @@ void ValueSet::InsertValue(InterInstruction * ins)
 
 static bool HasSideEffect(InterCode code)
 {
-	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER;
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_MALLOC || code == IC_FREE;
 }
 
 static bool IsObservable(InterCode code)
 {
-	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_STORE || code == IC_COPY || code == IC_STRCPY;
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_STORE || code == IC_COPY || code == IC_STRCPY || code == IC_MALLOC || code == IC_FREE;
 }
 
 static bool IsMoveable(InterCode code)
 {
-	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
+	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME || code == IC_MALLOC || code == IC_FREE)
 		return false;
 	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
 		return false;
@@ -2762,12 +2779,43 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 	case IC_BRANCH:
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 		{
-			if (tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst)
-				ins->mCode = IC_JUMP;
-			else
-				ins->mCode = IC_JUMPF;
-			ins->mSrc[0].mTemp = -1;
-			ins->mNumOperands = 0;
+			InterInstruction* tins = tvalue[ins->mSrc[0].mTemp];
+			if (IsIntegerType(tins->mConst.mType) || tins->mConst.mType == IT_BOOL)
+			{
+				if (tins->mConst.mIntConst)
+					ins->mCode = IC_JUMP;
+				else
+					ins->mCode = IC_JUMPF;
+				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
+			}
+			else if (tins->mConst.mType == IT_POINTER)
+			{
+				if (tins->mConst.mMemory == IM_ABSOLUTE)
+				{
+					if (tins->mConst.mIntConst)
+						ins->mCode = IC_JUMP;
+					else
+						ins->mCode = IC_JUMPF;
+					ins->mSrc[0].mTemp = -1;
+					ins->mNumOperands = 0;
+				}
+				else if (tins->mConst.mMemory == IM_GLOBAL || tins->mConst.mMemory == IM_LOCAL || tins->mConst.mMemory == IM_PARAM || tins->mConst.mMemory == IM_FPARAM)
+				{
+					ins->mCode = IC_JUMP;
+					ins->mSrc[0].mTemp = -1;
+					ins->mNumOperands = 0;
+				}
+			}
+			else if (tins->mConst.mType == IT_FLOAT)
+			{
+				if (tins->mConst.mFloatConst)
+					ins->mCode = IC_JUMP;
+				else
+					ins->mCode = IC_JUMPF;
+				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
+			}
 		}
 		break;
 	case IC_PUSH_FRAME:
@@ -4214,6 +4262,16 @@ void InterInstruction::Disassemble(FILE* file)
 			else
 				fprintf(file, "COPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
+
+		case IC_MALLOC:
+			assert(mNumOperands == 1);
+			fprintf(file, "MALLOC");
+			break;
+		case IC_FREE:
+			assert(mNumOperands == 1);
+			fprintf(file, "FREE");
+			break;
+
 		case IC_STRCPY:
 			fprintf(file, "STRCPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
@@ -7696,7 +7754,7 @@ bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigne
 					bool	valid = j == ins->mNumOperands;
 					if (valid)
 					{
-						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_ASSEMBLER)
+						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_ASSEMBLER || ins->mCode == IC_MALLOC || ins->mCode == IC_FREE)
 							valid = false;
 						else if (ins->mCode == IC_LOAD)
 						{
@@ -16035,7 +16093,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 

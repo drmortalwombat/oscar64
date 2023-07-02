@@ -2429,6 +2429,30 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				mErrors->Error(exp->mLocation, ERRR_CANNOT_FIND_BANK_OF_EXPRESSION, "Cannot find bank of expressiohn");
 			}	break;
+
+			case TK_NEW:
+			{
+				ins->mCode = IC_MALLOC;
+				ins->mSrc[0].mType = InterTypeOf(vl.mType);
+				ins->mSrc[0].mTemp = vl.mTemp;
+				ins->mDst.mType = IT_POINTER;
+				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				block->Append(ins);
+				return ExValue(exp->mDecType, ins->mDst.mTemp, 0);
+
+			} break;
+
+			case TK_DELETE:
+			{
+				vl = Dereference(proc, exp, block, vl, 0);
+
+				ins->mCode = IC_FREE;
+				ins->mSrc[0].mType = IT_POINTER;
+				ins->mSrc[0].mTemp = vl.mTemp;
+				block->Append(ins);
+				return ExValue(TheConstVoidTypeDeclaration, -1);
+
+			} break;
 			}
 			
 			ins->mSrc[0].mType = InterTypeOf(vl.mType);
@@ -2610,6 +2634,42 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					block->Append(ins);
 
 					return ExValue(TheFloatTypeDeclaration, ins->mDst.mTemp);
+				}
+				else if (!strcmp(iname->mString, "malloc"))
+				{
+					vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);
+					vr = Dereference(proc, exp, block, vr);
+
+					if (decf->mBase->mParams->CanAssign(vr.mType))
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+					vr = CoerceType(proc, exp, block, vr, decf->mBase->mParams);
+
+					InterInstruction* ins = new InterInstruction(exp->mLocation, IC_MALLOC);
+					ins->mSrc[0].mType = IT_INT16;
+					ins->mSrc[0].mTemp = vr.mTemp;
+					ins->mNumOperands = 1;
+					ins->mDst.mType = IT_POINTER;
+					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+					block->Append(ins);
+
+					return ExValue(TheVoidPointerTypeDeclaration, ins->mDst.mTemp);
+				}
+				else if (!strcmp(iname->mString, "free"))
+				{
+					vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);
+					vr = Dereference(proc, exp, block, vr);
+
+					if (decf->mBase->mParams->CanAssign(vr.mType))
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+					vr = CoerceType(proc, exp, block, vr, decf->mBase->mParams);
+
+					InterInstruction* ins = new InterInstruction(exp->mLocation, IC_FREE);
+					ins->mSrc[0].mType = IT_POINTER;
+					ins->mSrc[0].mTemp = vr.mTemp;
+					ins->mNumOperands = 1;
+					block->Append(ins);
+
+					return ExValue(TheVoidTypeDeclaration, 0);
 				}
 				else if (!strcmp(iname->mString, "strcpy"))
 				{

@@ -669,6 +669,9 @@ bool Compiler::GenerateCode(void)
 		RegisterRuntime(loc, Ident::Unique("mods32"));
 		RegisterRuntime(loc, Ident::Unique("divu32"));
 		RegisterRuntime(loc, Ident::Unique("modu32"));
+
+		RegisterRuntime(loc, Ident::Unique("malloc"));
+		RegisterRuntime(loc, Ident::Unique("free"));
 	}
 
 	// Register extended byte code functions

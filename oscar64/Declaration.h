@@ -187,7 +187,7 @@ enum ExpressionType
 	EX_ASSUME,
 	EX_BANKOF,
 	EX_CONSTRUCT,
-	EX_CLEANUP,
+	EX_CLEANUP
 };
 
 class Expression

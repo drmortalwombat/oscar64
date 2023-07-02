@@ -524,6 +524,7 @@ void exit(int status)
 	}
 }
 
+#if 0
 struct Heap {
 	unsigned int	size;
 	Heap		*	next;
@@ -636,6 +637,7 @@ void free(void * ptr)
 		freeHeap->next = nullptr;
 	}
 }
+#endif
 
 void * calloc(int num, int size)
 {

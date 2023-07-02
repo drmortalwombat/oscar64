@@ -476,6 +476,13 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			fprintf(file, "CNVFS\tACCU");
 			break;
 
+		case BC_MALLOC:
+			fprintf(file, "MALLOC\tACCU");
+			break;
+		case BC_FREE:
+			fprintf(file, "FREE\tACCU");
+			break;
+
 		case BC_JUMPS:
 			fprintf(file, "JUMP\t$%04X", start + i + 1 + int8(memory[start + i + 0]));
 			i++;

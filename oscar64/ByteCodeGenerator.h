@@ -143,8 +143,8 @@ enum ByteCode
 	BC_BRANCHF_LE,
 
 	BC_LOOP_U8,
-	BC_UNUSED_2,
-	BC_UNUSED_3,
+	BC_MALLOC,
+	BC_FREE,
 	BC_UNUSED_4,
 	BC_UNUSED_5,
 	BC_UNUSED_6,
@@ -283,6 +283,8 @@ public:
 	void FloatConstToWork(double val);
 	void CopyValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins);
+	void CallMalloc(InterCodeProcedure* proc, const InterInstruction* ins);
+	void CallFree(InterCodeProcedure* proc, const InterInstruction* ins);
 	void LoadConstant(InterCodeProcedure* proc, const InterInstruction * ins);
 	void StoreDirectValue(InterCodeProcedure* proc, const InterInstruction * ins);
 	void LoadDirectValue(InterCodeProcedure* proc, const InterInstruction * ins);

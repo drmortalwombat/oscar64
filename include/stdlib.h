@@ -47,6 +47,10 @@ unsigned int rand(void);
 
 void srand(unsigned int seed);
 
+#pragma intrinsic(malloc)
+
+#pragma intrinsic(free)
+
 #pragma compile("stdlib.c")
 
 #endif

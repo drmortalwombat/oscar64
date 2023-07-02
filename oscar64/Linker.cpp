@@ -489,8 +489,8 @@ void Linker::Link(void)
 
 				if (lsec->mType == LST_HEAP)
 				{
-					lsec->mStart = lrgn->mStart + lrgn->mUsed;
-					lsec->mEnd = lrgn->mEnd;
+					lsec->mStart = (lrgn->mStart + lrgn->mUsed + 3) & ~3;
+					lsec->mEnd = lrgn->mEnd & ~3;
 
 					if (lsec->mStart + lsec->mSize > lsec->mEnd)
 					{

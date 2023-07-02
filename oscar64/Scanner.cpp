@@ -158,6 +158,8 @@ const char* TokenNames[] =
 	"'public'",
 	"'protected'",
 	"'private'",
+	"'new'",
+	"'delete'",
 };
 
 
@@ -1406,6 +1408,10 @@ void Scanner::NextRawToken(void)
 					mToken = TK_PROTECTED;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "private"))
 					mToken = TK_PRIVATE;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "new"))
+					mToken = TK_NEW;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "delete"))
+					mToken = TK_DELETE;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();

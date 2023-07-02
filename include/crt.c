@@ -4112,3 +4112,472 @@ cmpne:
 }
 
 #pragma bytecode(BC_BINOP_CMP_S32, inp_op_cmp_s32)
+
+
+void HeapStart, HeapEnd;
+bool HeapInit;
+
+struct Heap {
+	Heap	*	next;
+	unsigned 	size;
+}	HeapNode;
+
+#pragma section(heap, 0x0000, HeapStart, HeapEnd)
+
+__asm malloc
+{
+		// round size to be a multiple of four
+		// and make room for two additional bytes
+		// to store size of memory node
+
+		clc	
+		lda accu + 0
+		sta tmp + 4
+		adc #$05
+		and #$fc
+		sta tmp
+		lda accu + 1
+		sta tmp + 5
+		adc #$00
+		sta tmp + 1
+
+		// check if heap is initialized
+
+		lda HeapInit
+		bne hasHeap
+
+		// initialize heap
+
+		lda #$ff
+		sta HeapInit
+
+		// set next pointer to null
+		lda #0
+		sta HeapStart + 0
+		sta HeapStart + 1
+
+		// set size of dummy node to null
+		sta HeapNode + 2
+		sta HeapNode + 3
+
+		// set next pointer of dummy node to first free heap block
+		lda #<HeapStart
+		sta HeapNode + 0
+		lda #>HeapStart
+		sta HeapNode + 1
+
+		// set size to size of heap
+		sec
+		lda #<HeapEnd
+		sbc #<HeapStart
+		sta HeapStart + 2
+		lda #>HeapEnd
+		sbc #>HeapStart
+		sta HeapStart + 3
+
+hasHeap:
+		// remember address of pointer to this
+		// heap block, to correct if block is a
+		// perfect fit
+
+		lda #<HeapNode
+		sta accu + 2
+		lda #>HeapNode
+		sta accu + 3		
+
+		// Now loop over free nodes, until we find a match
+loop:
+		// next heap block
+
+		ldy #0
+		lda (accu + 2), y
+		sta accu
+		iny
+		lda (accu + 2), y
+		sta accu + 1
+
+		// exit if out of blocks
+
+		beq	done
+		// calculate remaining size of heap block
+
+		ldy #2
+		sec
+		lda (accu), y
+		sbc tmp
+		sta tmp + 2
+		iny
+		lda (accu), y
+		sbc tmp + 1
+		sta tmp + 3
+
+		// will fit
+		bcs avail
+
+		// prev
+		lda accu
+		sta accu + 2
+		lda accu + 1
+		sta accu + 3
+		jmp loop
+
+done:
+		// no more heap blocks
+		rts
+avail:
+		// is it a perfect fit?
+		lda tmp + 2
+		ora tmp + 3
+		bne nofit
+
+		// so adjust previous pointer to point to
+		// next heap block
+		ldy #0
+		lda (accu), y
+		sta (accu + 2), y
+		iny
+		lda (accu), y
+		sta (accu + 2), y
+		jmp found
+
+nofit:
+		// adjust size of remaining heapblock
+		ldy #2
+		lda tmp + 2
+		sta (accu), y
+		iny
+		lda tmp + 3
+		sta (accu), y
+
+		// advance address to start of next heap block
+
+		clc
+		lda accu
+		adc tmp + 2
+		sta accu
+		lda accu + 1
+		adc tmp + 3
+		sta accu + 1
+
+found:
+		// remember size of heap block for free without size
+
+		ldy #0
+		lda tmp + 4
+		sta (accu), y
+		iny
+		lda tmp + 5
+		sta (accu), y
+
+		// advanve by two bytes to skip size
+		clc
+		lda accu
+		adc #2
+		sta accu
+		bcc page
+		inc accu + 1
+page:
+		rts
+}
+
+__asm inp_malloc
+{
+		sty tmpy
+		jsr malloc
+		ldy tmpy
+		jmp	startup.exec
+}
+
+#pragma bytecode(BC_MALLOC, inp_malloc)
+
+__asm free
+{
+		// check nullptr free
+		lda accu
+		ora accu + 1
+		bne notnull
+		rts
+notnull:
+		// two bytes back to fix size
+		sec
+		lda accu
+		sbc #2
+		sta accu
+		bcs page
+		dec accu + 1
+page:
+
+		// cache size and end of block
+		
+		clc
+		ldy #0
+		lda (accu), y
+		adc #5
+		and #$fc
+		sta tmp
+		iny
+		lda (accu), y
+		adc #0
+		sta tmp + 1
+
+		clc
+		lda tmp + 0
+		adc accu
+		sta accu + 2
+		lda tmp + 1
+		adc accu + 1
+		sta accu + 3
+
+		// pointer to heap block, starting with
+		// dummy block
+
+		lda #<HeapNode
+		sta tmp + 2
+		lda #>HeapNode
+		sta tmp + 3
+
+loop:
+		// check if end of heap
+
+		ldy #1
+		lda (tmp + 2), y
+		beq	noend
+
+		// Check if behind this block
+
+		cmp accu + 1
+		bcc before
+		bne after
+
+		dey
+		lda (tmp + 2), y
+		cmp accu + 0
+		bcs after
+
+before:
+		ldy # 1
+		lda (tmp + 2), y
+		tax
+		dey
+		lda (tmp + 2), y
+		sta tmp + 2
+		stx tmp + 3
+		jmp loop
+after:
+
+		// Merge with next block
+
+		ldy #1
+		lda accu + 3
+		cmp (tmp + 2), y
+		bne noend
+		dey
+		lda accu + 2
+		cmp (tmp + 2), y
+		bne noend
+
+		// Pointer to next next block
+		ldy #0
+		lda (accu + 2), y
+		sta (accu), y
+		iny
+		lda (accu + 2), y
+		sta (accu), y
+
+		// Add size of next block to this
+		iny
+		clc
+		lda tmp
+		adc (accu + 2), y
+		sta tmp
+		iny
+		lda tmp + 1
+		adc (accu + 2), y
+		sta tmp + 1
+
+		jmp start
+noend:
+		// Link to next block
+		ldy #0
+		lda (tmp + 2), y
+		sta (accu), y
+		iny
+		lda (tmp + 2), y
+		sta (accu), y
+
+start:
+		// Calculate end of free block
+		ldy #2
+		clc
+		lda tmp + 2
+		adc (tmp + 2), y
+		iny
+		tax
+		lda tmp + 3
+		adc (tmp + 2), y
+
+		// Matches start of new block
+		cmp accu + 1
+		bne nostart
+		cpx accu
+		bne nostart
+
+		// If so, increase the size and link
+		// to free block after
+
+		ldy #0
+		lda (accu), y
+		sta (tmp + 2), y
+		iny
+		lda (accu), y
+		sta (tmp + 2), y
+
+		iny
+		clc
+		lda (tmp + 2), y
+		adc tmp
+		sta (tmp + 2), y
+		iny
+		lda (tmp + 2), y
+		adc tmp + 1
+		sta (tmp + 2), y
+
+		rts
+
+nostart:
+		// Link to new free block
+
+		ldy #0
+		lda accu
+		sta (tmp + 2), y
+		iny
+		lda accu + 1
+		sta (tmp + 2), y
+		iny
+
+		// Set size of free block
+		lda tmp
+		sta (accu), y
+		iny
+		lda tmp + 1
+		sta (accu), y
+		rts
+}
+
+__asm inp_free
+{
+		sty tmpy
+		jsr free
+		ldy tmpy
+		jmp	startup.exec
+}
+
+#pragma bytecode(BC_FREE, inp_free)
+
+
+#pragma runtime(malloc, malloc)
+#pragma runtime(free, free)
+
+#if 0
+
+void * malloc(unsigned int size)
+{
+	size = (size + 7) & ~3;
+	if (!freeHeapInit)
+	{
+		freeHeap = (Heap *)&HeapStart;
+		freeHeap->next = nullptr;
+		freeHeap->size = (unsigned int)&HeapEnd - (unsigned int)&HeapStart;
+		freeHeapInit = true;
+	}
+	
+	Heap	*	pheap = nullptr, * heap = freeHeap;
+	while (heap)
+	{
+		if (size <= heap->size)
+		{
+			if (size == heap->size)
+			{
+				if (pheap)
+					pheap->next = heap->next;
+				else
+					freeHeap = heap->next;				
+			}
+			else
+			{
+				Heap	*	nheap = (Heap *)((int)heap + size);
+				nheap->size = heap->size - size;
+				nheap->next = heap->next;
+				if (pheap)
+					pheap->next = nheap;
+				else
+					freeHeap = nheap;
+				heap->size = size;
+			}
+			
+			return (void *)((int)heap + 2);
+		}
+		pheap = heap;
+		heap = heap->next;
+	}
+		
+	return nullptr;	
+}
+
+void free(void * ptr)
+{
+	if (!ptr)
+		return;
+
+	Heap	*	fheap = (Heap *)((int)ptr - 2);
+	Heap	*	eheap = (Heap *)((int)ptr - 2 + fheap->size);
+	
+	if (freeHeap)
+	{
+		if (eheap == freeHeap)
+		{
+			fheap->size += freeHeap->size;
+			fheap->next = freeHeap->next;
+			freeHeap = fheap;
+		}
+		else if (eheap < freeHeap)
+		{
+			fheap->next = freeHeap;
+			freeHeap = fheap;
+		}
+		else
+		{
+			Heap	*	pheap = freeHeap;
+			while (pheap->next && pheap->next < fheap)
+				pheap = pheap->next;
+			Heap	*	nheap = (Heap *)((int)pheap + pheap->size);
+			
+			if (nheap == fheap)
+			{
+				pheap->size += fheap->size;
+				if (pheap->next == eheap)
+				{
+					pheap->size += pheap->next->size;
+					pheap->next = pheap->next->next;
+				}
+			}			
+			else if (pheap->next == eheap)
+			{
+				fheap->next = pheap->next->next;
+				fheap->size += pheap->next->size;
+				pheap->next = fheap;
+			}
+			else
+			{
+				fheap->next = pheap->next;
+				pheap->next = fheap;
+			}
+		}
+	}
+	else		
+	{
+		freeHeap = fheap;
+		freeHeap->next = nullptr;
+	}
+}
+#endif
