@@ -4190,7 +4190,7 @@ loop:
 		sta accu + 1
 
 		// exit if out of blocks
-		beq done
+		beq hempty
 		adc tmp + 1
 		sta tmp + 3
 
@@ -4211,7 +4211,7 @@ loop:
 		ldx accu + 1
 		jmp loop
 
-done:	
+hempty:	
 		// no more heap blocks
 		rts
 
