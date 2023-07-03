@@ -3462,7 +3462,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 			{
 				if (ndec->mFlags & DTF_DEFINED)
-					mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate function definition");
+					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate function definition");
 
 				ndec->mCompilerOptions = mCompilerOptions;
 				ndec->mBase->mCompilerOptions = mCompilerOptions;
