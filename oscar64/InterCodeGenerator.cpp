@@ -1074,7 +1074,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		block->Append(ins);
 
 		ExValue rv(rdec->mBase, ins->mDst.mTemp, 1);
-		if (ins->mDst.mType != DT_TYPE_REFERENCE)
+		if (rdec->mBase->mType != DT_TYPE_REFERENCE)
 			rv = Dereference(proc, exp, block, rv);
 		return rv;
 	}
