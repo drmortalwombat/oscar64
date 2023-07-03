@@ -4,7 +4,7 @@ CFLAGS=-n
 %.prg: %.c
 	$(CC) $(CFLAGS) $<
 
-all: splitscreen.prg func3d.prg lines.prg polygon.prg bitblit.prg fractaltree.prg qsort.prg
+all: splitscreen.prg func3d.prg lines.prg polygon.prg bitblit.prg cube3d.prg fractaltree.prg qsort.prg
 
 splitscreen.prg: splitscreen.c
 	$(CC) $<
