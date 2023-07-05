@@ -13,7 +13,7 @@ public:
 	DeclarationScope	*	mGlobals, * mScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
-	Declaration			*	mThisPointer;
+	Declaration			*	mThisPointer, * mReturnType;
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 

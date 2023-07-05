@@ -6879,6 +6879,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 						vr.LimitMax(ins->mSrc[0].mIntConst - 1);
 					else if (ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
 						vr.LimitMax(ins->mSrc[0].mRange.mMaxValue - 1);
+					else if (ins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND)
+						vr.LimitMax(ins->mSrc[1].mRange.mMaxValue);
+					else
+						vr.mMaxState = IntegerValueRange::S_UNBOUND;
 					break;
 #endif
 				default:
@@ -11883,6 +11887,10 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							{
 								ins->mInvariant = false;
 							}
+							else if (ins->mSrc[0].mMemory == IM_PARAM && hasCall && aliasedParams[ins->mSrc[0].mVarIndex])
+							{
+								ins->mInvariant = false;
+							}
 							else
 							{
 								for (int bj = 0; bj < body.Size(); bj++)
@@ -16098,7 +16106,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "print");
 
 	mEntryBlock = mBlocks[0];
 

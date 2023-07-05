@@ -187,7 +187,8 @@ enum ExpressionType
 	EX_ASSUME,
 	EX_BANKOF,
 	EX_CONSTRUCT,
-	EX_CLEANUP
+	EX_CLEANUP,
+	EX_RESULT
 };
 
 class Expression
@@ -247,6 +248,7 @@ public:
 	bool IsConstSame(const Declaration* dec) const;
 	bool IsSameValue(const Declaration* dec) const;
 	bool IsSameParams(const Declaration* dec) const;
+	bool IsSameMutable(const Declaration* dec) const;
 
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;
@@ -263,6 +265,7 @@ public:
 	Declaration* Last(void);
 
 	Declaration* BuildPointer(const Location& loc);
+	Declaration* BuildReference(const Location& loc);
 
 	int Stride(void) const;
 };

@@ -687,7 +687,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 
 				if (pdec && !(ldec->mBase->mFlags & DTF_VARIADIC) && !(ldec->mFlags & (DTF_INTRINSIC | DTF_FUNC_ASSEMBLER)))
 				{
-#if 0
+#if 1
 					if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
 					{
 						if (!(pdec->mFlags & DTF_FPARAM_NOCONST))

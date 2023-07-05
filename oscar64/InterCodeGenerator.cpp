@@ -1313,7 +1313,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		case EX_CONSTRUCT:
 		{
 			if (exp->mLeft->mLeft)
-				TranslateExpression(procType, proc, block, exp->mLeft->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+				TranslateExpression(procType, proc, block, exp->mLeft->mLeft, destack, breakBlock, continueBlock, inlineMapper, lrexp);
 
 			if (exp->mLeft->mRight)
 			{
@@ -1327,6 +1327,60 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		}
 			break;
 
+		case EX_RESULT:
+		{
+			if (lrexp)
+				return *lrexp;
+
+			InterInstruction* ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
+
+			if (inlineMapper)
+			{
+				if (inlineMapper->mResultExp)
+				{
+					ains->mDst.mTemp = inlineMapper->mResultExp->mTemp;
+				}
+				else
+				{
+					ains->mCode = IC_CONSTANT;
+					ains->mDst.mType = IT_POINTER;
+					ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					ains->mConst.mOperandSize = procType->mBase->mSize;
+					ains->mConst.mIntConst = 0;
+					ains->mConst.mVarIndex = inlineMapper->mResult;
+					ains->mConst.mMemory = IM_LOCAL;
+					block->Append(ains);
+				}
+			}
+			else
+			{
+				InterInstruction* pins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+				pins->mDst.mType = IT_POINTER;
+				pins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+				pins->mConst.mVarIndex = 0;
+				pins->mConst.mIntConst = 0;
+				pins->mConst.mOperandSize = 2;
+				if (procType->mFlags & DTF_FASTCALL)
+				{
+					pins->mConst.mMemory = IM_FPARAM;
+					pins->mConst.mVarIndex += procType->mFastCallBase;
+				}
+				else
+					pins->mConst.mMemory = IM_PARAM;
+				block->Append(pins);
+
+				ains->mCode = IC_LOAD;
+				ains->mSrc[0].mMemory = IM_INDIRECT;
+				ains->mSrc[0].mType = IT_POINTER;
+				ains->mSrc[0].mTemp = pins->mDst.mTemp;
+				ains->mDst.mType = IT_POINTER;
+				ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+				ains->mNumOperands = 1;
+				block->Append(ains);
+			}
+
+			return ExValue(exp->mDecType, ains->mDst.mTemp, 1);
+		}
 		case EX_CLEANUP:
 		{
 			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
@@ -4453,7 +4507,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE));
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "A::func"))
 		exp->Dump(0);
 #endif
 #if 0

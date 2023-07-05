@@ -3172,9 +3172,12 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					{
 						pdec = mCompilationUnits->mScope->Insert(ndec->mQualIdent, ndec);
 
-						Declaration	*	ldec = mScope->Insert(ndec->mIdent, pdec ? pdec : ndec);
-						if (ldec && ldec != pdec)
-							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition");
+						if (ndec->mIdent == ndec->mQualIdent)
+						{
+							Declaration* ldec = mScope->Insert(ndec->mIdent, pdec ? pdec : ndec);
+							if (ldec && ldec != pdec)
+								mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition");
+						}
 					}
 					else
 						pdec = mScope->Insert(ndec->mIdent, ndec);
@@ -4184,7 +4187,7 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 				else
 					return NOOVERLOAD;
 			}
-			else if (ptype->mType == DT_TYPE_POINTER && etype->mType == DT_TYPE_ARRAY && ptype->mBase->IsSame(etype->mBase))
+			else if (ptype->mType == DT_TYPE_POINTER && etype->mType == DT_TYPE_ARRAY && ptype->mBase->IsSameMutable(etype->mBase))
 				dist += 1;
 			else if (ptype->IsSubType(etype))
 				dist += 256;
@@ -4819,7 +4822,9 @@ Expression* Parser::ParseMulExpression(bool lhs)
 		else
 			nexp->mDecType = exp->mDecType;
 
-		exp = nexp->ConstantFold(mErrors);
+		exp = CheckOperatorOverload(nexp);
+
+		exp = exp->ConstantFold(mErrors);
 	}
 
 	return exp;
@@ -5322,6 +5327,7 @@ Expression* Parser::ParseFunction(Declaration * dec)
 	if (dec->mFlags & DTF_FUNC_THIS)
 		mThisPointer = dec->mParams;
 
+	mReturnType = dec->mBase;
 
 	DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_FUNCTION);
 	mScope = scope;
@@ -5713,7 +5719,17 @@ Expression* Parser::ParseStatement(void)
 			mScanner->NextToken();
 			exp = new Expression(mScanner->mLocation, EX_RETURN);
 			if (mScanner->mToken != TK_SEMICOLON)
+			{
 				exp->mLeft = CleanupExpression(ParseRExpression());
+				if (exp->mLeft->mType == EX_CONSTRUCT && mReturnType && mReturnType->mType == DT_TYPE_STRUCT)
+				{
+					Expression* cexp = exp->mLeft->mLeft->mLeft;
+
+					exp->mLeft->mLeft->mRight = nullptr;
+
+					exp->mLeft->mRight->mType = EX_RESULT;
+				}
+			}
 			ConsumeToken(TK_SEMICOLON);
 			break;
 		case TK_BREAK:
