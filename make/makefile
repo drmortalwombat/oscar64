@@ -1,5 +1,3 @@
-
-
 sources = $(wildcard ../oscar64/*.cpp)
 objects = $(patsubst ../oscar64/%.cpp,%.o,$(sources))
 
@@ -36,6 +34,7 @@ endif
 .PHONY : clean
 clean :
 	-rm *.o *.d ../bin/oscar64
+	T=`git describe --tags` && sed -i~ "s,0x0a,`echo $$T | awk -F '[.-]' '{print $$3}'`," ../include/crt.c
 
 ifeq ($(UNAME_S), Darwin)
 
