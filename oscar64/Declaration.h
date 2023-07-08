@@ -49,7 +49,9 @@ enum DecType
 	DT_FUNCTION_REF,
 	DT_LABEL_REF,
 	DT_NAMESPACE,
-	DT_BASECLASS
+	DT_BASECLASS,
+
+	DT_VTABLE
 };
 
 // TypeFlags
@@ -82,6 +84,7 @@ static const uint64 DTF_STRIPED			= (1ULL << 24);
 static const uint64 DTF_DYNSTACK		= (1ULL << 25);
 static const uint64 DTF_PRIVATE			= (1ULL << 26);
 static const uint64 DTF_PROTECTED		= (1ULL << 27);
+static const uint64 DTF_VIRTUAL			= (1ULL << 28);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
@@ -129,6 +132,8 @@ public:
 
 	void UseScope(DeclarationScope* scope);
 
+	template<typename F> void Iterate(F && f);
+
 	ScopeLevel		mLevel;
 	const Ident	*	mName;
 
@@ -143,6 +148,15 @@ protected:
 	int			mHashSize, mHashFill;
 	ExpandingArray<DeclarationScope*>	mUsed;
 };
+
+template<typename F> void DeclarationScope::Iterate(F&& f)
+{
+	for (int i = 0; i < mHashSize; i++)
+	{
+		if (mHash[i].mIdent)
+			f(mHash[i].mIdent, mHash[i].mDec);
+	}
+}
 
 enum ExpressionType
 {
@@ -162,6 +176,8 @@ enum ExpressionType
 	EX_QUALIFY,
 	EX_CALL,
 	EX_INLINE,
+	EX_VCALL,
+	EX_DISPATCH,
 	EX_LIST,
 	EX_RETURN,
 	EX_SEQUENCE,
@@ -227,6 +243,7 @@ public:
 	Declaration		*	mBase, * mParams, * mNext, * mPrev, * mConst, * mMutable;
 	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment;
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
+	Declaration		*	mVTable, * mClass;
 
 	Expression*			mValue;
 	DeclarationScope*	mScope;

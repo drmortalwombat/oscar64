@@ -192,6 +192,12 @@ void Expression::Dump(int ident) const
 	case EX_INLINE:
 		printf("INLINE");
 		break;
+	case EX_VCALL:
+		printf("VCALL");
+		break;
+	case EX_DISPATCH:
+		printf("DISPATCH");
+		break;
 	case EX_LIST:
 		printf("LIST");
 		break;
@@ -788,6 +794,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mConst(nullptr), mMutable(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
+	mVTable(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0)
@@ -852,6 +859,7 @@ Declaration* Declaration::Clone(void)
 	ndec->mLinkerObject = mLinkerObject;
 	ndec->mAlignment = mAlignment;
 	ndec->mSection = mSection;
+	ndec->mVTable = mVTable;
 
 	return ndec;
 }
@@ -930,6 +938,10 @@ Declaration* Declaration::ToStriped(int stripe)
 			p = p->mNext;
 		}		
 	}
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		ndec->mParams = mParams;
+	}
 	else if (mType == DT_TYPE_ARRAY)
 	{
 		ndec->mStride = stripe;
@@ -965,6 +977,7 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mCopyConstructor = mCopyConstructor;
 		ndec->mVectorConstructor = mVectorConstructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+		ndec->mVTable = mVTable;
 
 		ndec->mMutable = this;
 		mConst = ndec;
@@ -994,6 +1007,7 @@ Declaration* Declaration::ToMutableType(void)
 		ndec->mCopyConstructor = mCopyConstructor;
 		ndec->mVectorConstructor = mVectorConstructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+		ndec->mVTable = mVTable;
 
 		ndec->mConst = this;
 		mMutable = ndec;
@@ -1011,7 +1025,7 @@ bool Declaration::IsSubType(const Declaration* dec) const
 	if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 	{
 		if (dec->mType == DT_TYPE_POINTER)
-			return this->Stride() == dec->Stride() && mBase->IsSubType(dec->mBase);
+			return /*this->Stride() == dec->Stride() &&*/ mBase->IsSubType(dec->mBase);
 	}
 
 	if (mType != dec->mType)

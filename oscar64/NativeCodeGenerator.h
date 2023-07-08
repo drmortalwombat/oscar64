@@ -207,6 +207,12 @@ public:
 	uint32 NeedsLive(void) const;
 };
 
+struct NativeCodeLoadStorePair
+{
+	NativeCodeInstruction	mLoad, mStore;
+};
+
+
 class NativeCodeBasicBlock
 {
 public:
@@ -474,7 +480,7 @@ public:
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 	bool ReverseBitfieldForwarding(void);
 	bool OffsetValueForwarding(const ValueNumberingDataSet & data);
-	bool AbsoluteValueForwarding(void);
+	bool AbsoluteValueForwarding(const ExpandingArray<NativeCodeLoadStorePair>& npairs);
 
 	void MarkLocalUsedLinkerObjects(void);
 	bool RemoveLocalUnusedLinkerObjects(void);

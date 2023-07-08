@@ -62,6 +62,7 @@ Supported Features:
 * single inheritance of class and struct
 * const member functions
 * new, delete, new[] and delete[]
+* virtual member functions
 
 ## Installation and Usage
 
@@ -97,6 +98,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Oi : enable auto inline of small functions (part of O2/O3)
 * -Oa : optimize inline assembler (part of O2/O3)
 * -Oz : enable auto placement of global variables in zero page (part of O3)
+* -Op : optimize constant parameters
 * -g : create source level debug info and add source line numbers to asm listing
 * -tf : target format, may be prg, crt or bin
 * -tm : target machine
@@ -328,6 +330,8 @@ Set optimizer options that are active for the functions after it
 * inline : inline if requesed with inline storage attribute
 * autoinline : auto inline of small or only once used functions
 * maxinline : inline any function suitable
+* constparams : enable constant parameter folding into called functions
+* noconstparams : disable constant parameter folding into called functions
 * 0 : no optimization
 * 1 : default optimizations
 * 2 : aggressive optimizations

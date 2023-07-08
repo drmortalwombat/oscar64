@@ -27069,11 +27069,6 @@ bool NativeCodeBasicBlock::ReverseBitfieldForwarding(void)
 	return changed;
 }
 
-struct NativeCodeLoadStorePair
-{
-	NativeCodeInstruction	mLoad, mStore;
-};
-
 bool NativeCodeBasicBlock::RemoveLocalUnusedLinkerObjects(void)
 {
 	bool	changed = false;
@@ -27124,7 +27119,7 @@ void NativeCodeBasicBlock::MarkLocalUsedLinkerObjects(void)
 	}
 }
 
-bool NativeCodeBasicBlock::AbsoluteValueForwarding(void)
+bool NativeCodeBasicBlock::AbsoluteValueForwarding(const ExpandingArray<NativeCodeLoadStorePair> & npairs)
 {
 	bool	changed = false;
 
@@ -27133,6 +27128,8 @@ bool NativeCodeBasicBlock::AbsoluteValueForwarding(void)
 		mVisited = true;
 
 		ExpandingArray<NativeCodeLoadStorePair>	pairs;
+		if (mNumEntries == 1)
+			pairs = npairs;
 
 		int ains = -1;
 
@@ -27205,9 +27202,9 @@ bool NativeCodeBasicBlock::AbsoluteValueForwarding(void)
 			}
 		}
 
-		if (mTrueJump && mTrueJump->AbsoluteValueForwarding())
+		if (mTrueJump && mTrueJump->AbsoluteValueForwarding(pairs))
 			changed = true;
-		if (mFalseJump && mFalseJump->AbsoluteValueForwarding())
+		if (mFalseJump && mFalseJump->AbsoluteValueForwarding(pairs))
 			changed = true;
 	}
 
@@ -28674,6 +28671,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		mIns[1].mType = ASMIT_LDA; mIns[1].mLive |= LIVE_CPU_REG_A;
 		mIns[0].mType = ASMIT_CMP; mIns[0].mLive |= LIVE_CPU_REG_Z;
 		prevBlock->mIns.Push(mIns[1]);
+		prevBlock->mExitRequiredRegs += CPU_REG_A;
+		mEntryRequiredRegs += CPU_REG_A;
 		mIns.Remove(1);
 
 		CheckLive();
@@ -37703,7 +37702,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 1].mType = ASMIT_STX; mIns[i + 1].CopyMode(mIns[i + 3]);
-						mIns[i + 3].mType = mIns[i + 2].mType;
+						mIns[i + 3].mType = mIns[i + 2].mType; mIns[i + 3].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 						progress = true;
@@ -37717,7 +37716,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 1].mType = ASMIT_STY; mIns[i + 1].CopyMode(mIns[i + 3]);
-						mIns[i + 3].mType = mIns[i + 2].mType;
+						mIns[i + 3].mType = mIns[i + 2].mType; mIns[i + 3].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 						progress = true;
@@ -40878,7 +40877,8 @@ void NativeCodeProcedure::Optimize(void)
 		if (step == 9)
 		{
 			ResetVisited();
-			if (mEntryBlock->AbsoluteValueForwarding())
+			ExpandingArray<NativeCodeLoadStorePair>	pairs;
+			if (mEntryBlock->AbsoluteValueForwarding(pairs))
 			{
 				changed = true;
 
@@ -41889,6 +41889,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		case IC_CONSTANT:
 			block->LoadConstant(iproc, ins);
 			break;
+		case IC_DISPATCH:
 		case IC_CALL:
 			block->CallFunction(iproc, this, ins);
 			break;

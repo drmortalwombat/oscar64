@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.21.209");
+		strcpy(strProductVersion, "1.22.210");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -202,6 +202,8 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE;
 					else if (arg[2] == 'z')
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_ZEROPAGE;
+					else if (arg[2] == 'p')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_CONST_PARAMS;
 				}
 				else if (arg[1] == 'e')
 				{

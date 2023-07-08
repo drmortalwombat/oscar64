@@ -894,6 +894,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	Expression* fexp = fdec->mValue;
 	Declaration* ftype = fdec->mBase;
 
+	proc->mCheckUnreachable = false;
+
 	InlineMapper	nmapper;
 	nmapper.mReturn = new InterCodeBasicBlock(proc);
 	nmapper.mVarIndex = proc->mNumLocals;
@@ -1610,6 +1612,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (inlineMapper)
 						ins->mConst.mVarIndex += inlineMapper->mVarIndex;
 					InitLocalVariable(proc, dec, ins->mConst.mVarIndex);
+					proc->mCheckUnreachable = false;
 				}
 				else if (inlineMapper)
 				{
@@ -2665,6 +2668,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			return ExValue(TheBoolTypeDeclaration, ins->mDst.mTemp);
 		}
 
+		case EX_VCALL:
 		case EX_CALL:
 		case EX_INLINE:
 		{
@@ -2854,7 +2858,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			bool	canInline = exp->mLeft->mType == EX_CONSTANT && 
 								exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && 
 								(mCompilerOptions & COPT_OPTIMIZE_INLINE) &&
-								!(inlineMapper && inlineMapper->mDepth > 10);
+								!(inlineMapper && inlineMapper->mDepth > 10) &&
+								exp->mType != EX_VCALL;
 			bool	doInline = false, inlineConstexpr = false;
 
 			if (canInline)
@@ -2902,7 +2907,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else
 			{
-				vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+				Expression	*	funcexp = exp->mLeft;
+			
+				vl = TranslateExpression(procType, proc, block, funcexp, destack, breakBlock, continueBlock, inlineMapper);
+
 				vl = Dereference(proc, exp, block, vl);
 
 				int	atotal = 0;
@@ -2992,8 +3000,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					atotal = 2;
 				}
 
-				if (exp->mLeft->mDecValue && exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION)
-					proc->AddCalledFunction(proc->mModule->mProcedures[exp->mLeft->mDecValue->mVarIndex]);
+				if (funcexp->mDecValue && funcexp->mDecValue->mType == DT_CONST_FUNCTION)
+					proc->AddCalledFunction(proc->mModule->mProcedures[funcexp->mDecValue->mVarIndex]);
 				else
 					proc->CallsFunctionPointer();
 
@@ -3187,15 +3195,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					block->Append(defins[i]);
 
 				InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CALL);
-				if (exp->mLeft->mDecValue && (exp->mLeft->mDecValue->mFlags & DTF_NATIVE))
+				if (funcexp->mDecValue && (funcexp->mDecValue->mFlags & DTF_NATIVE))
 					cins->mCode = IC_CALL_NATIVE;
 				else
 					cins->mCode = IC_CALL;
 
-				if (exp->mLeft->mDecValue && (exp->mLeft->mDecValue->mFlags & DTF_FUNC_PURE))
+				if (funcexp->mDecValue && (funcexp->mDecValue->mFlags & DTF_FUNC_PURE))
 					cins->mNoSideEffects = true;
 
-				if (exp->mLeft->mType == EX_CONSTANT && (exp->mLeft->mDecValue->mFlags & DTF_FUNC_CONSTEXPR))
+				if (funcexp->mType == EX_CONSTANT && (funcexp->mDecValue->mFlags & DTF_FUNC_CONSTEXPR))
 					cins->mConstExpr = true;
 
 				cins->mSrc[0].mType = IT_POINTER;
@@ -4058,6 +4066,30 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			return ExValue(TheVoidTypeDeclaration);
 
 		} break;
+
+		case EX_DISPATCH:
+		{
+			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
+			vl = Dereference(proc, exp, block, vl);
+
+			InterInstruction* ins = new InterInstruction(exp->mLocation, IC_DISPATCH);
+			ins->mSrc[0].mType = IT_POINTER;
+			ins->mSrc[0].mTemp = vl.mTemp;
+
+			block->Append(ins);
+
+			Declaration* dinit = exp->mLeft->mLeft->mDecValue->mValue->mDecValue->mParams;
+			while (dinit)
+			{
+				proc->AddCalledFunction(proc->mModule->mProcedures[dinit->mValue->mDecValue->mVarIndex]);
+				dinit = dinit->mNext;
+			}
+
+
+//			proc->CallsFunctionPointer();
+
+			return ExValue(TheVoidTypeDeclaration);
+		}
 
 		case EX_WHILE:
 		{

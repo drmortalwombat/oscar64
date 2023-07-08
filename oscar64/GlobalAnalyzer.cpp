@@ -656,6 +656,13 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_QUALIFY:
 		Analyze(exp->mLeft, procDec, lhs);
 		return exp->mDecValue->mBase;
+	case EX_DISPATCH:
+		Analyze(exp->mLeft, procDec, lhs);
+		break;
+	case EX_VCALL:
+		exp->mType = EX_CALL;
+		exp->mLeft->mDecValue = exp->mLeft->mDecValue->mVTable;
+		// intentional fall through
 	case EX_CALL:
 	case EX_INLINE:
 		ldec = Analyze(exp->mLeft, procDec, false);
@@ -688,7 +695,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 				if (pdec && !(ldec->mBase->mFlags & DTF_VARIADIC) && !(ldec->mFlags & (DTF_INTRINSIC | DTF_FUNC_ASSEMBLER)))
 				{
 #if 1
-					if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+					if (mCompilerOptions & COPT_OPTIMIZE_CONST_PARAMS)
 					{
 						if (!(pdec->mFlags & DTF_FPARAM_NOCONST))
 						{
@@ -922,6 +929,13 @@ void GlobalAnalyzer::RegisterProc(Declaration* to)
 {
 	if (to->mType == DT_CONST_FUNCTION)
 	{
+#if 0
+		if (to->mBase->mFlags & DTF_VIRTUAL)
+		{
+
+		}
+		else 
+#endif		
 		if (!(to->mFlags & DTF_FUNC_VARIABLE))
 		{
 			to->mFlags |= DTF_FUNC_VARIABLE;

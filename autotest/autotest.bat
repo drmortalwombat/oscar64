@@ -1,5 +1,11 @@
 rem @echo off
 
+@call :test vcalltest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test vcalltree.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test constructortest.cpp
 @if %errorlevel% neq 0 goto :error
 

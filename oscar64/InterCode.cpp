@@ -626,7 +626,7 @@ static bool SameInstruction(const InterInstruction* ins1, const InterInstruction
 bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const
 {
 	// Cannot swap branches
-	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH)
+	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH || ins1->mCode == IC_DISPATCH)
 		return false;
 
 	// Check function call
@@ -1180,7 +1180,7 @@ static bool IsMoveable(InterCode code)
 {
 	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME || code == IC_MALLOC || code == IC_FREE)
 		return false;
-	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
+	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE || code == IC_DISPATCH)
 		return false;
 
 	return true;
@@ -2945,6 +2945,7 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	case IC_RETURN_VALUE:
 	case IC_RETURN_STRUCT:
 	case IC_CONVERSION_OPERATOR:
+	case IC_DISPATCH:
 		mNumOperands = 1;
 		break;
 
@@ -3141,7 +3142,7 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 				requiredVars += mSrc[1].mVarIndex;
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY)
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH)
 	{
 		requiredVars.OrNot(providedVars);
 	}
@@ -3509,7 +3510,7 @@ void InterInstruction::BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSe
 	if (mDst.mTemp >= 0)
 		requiredTemps -= mDst.mTemp;
 
-	if (mCode == IC_CALL || mCode == IC_CALL_NATIVE)
+	if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_DISPATCH)
 		callerSaveTemps |= requiredTemps;
 
 	for (int i = 0; i < mNumOperands; i++)
@@ -3700,7 +3701,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 		requiredVars.Fill();
 		storeIns.SetSize(0);
 	}
-	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE)
+	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_DISPATCH)
 	{
 		requiredVars.Fill();
 		storeIns.SetSize(0);
@@ -4321,6 +4322,9 @@ void InterInstruction::Disassemble(FILE* file)
 			break;
 		case IC_ASSEMBLER:
 			fprintf(file, "JSR");
+			break;
+		case IC_DISPATCH:
+			fprintf(file, "DISPATCH");
 			break;
 		case IC_RETURN_VALUE:
 			assert(mNumOperands == 1);
@@ -9640,6 +9644,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							{
 								ins->mCode = IC_LOAD_TEMPORARY;
 								ins->mSrc[0] = lins->mSrc[0];
+								ins->mDst.mRange.Limit(ins->mSrc[0].mRange);
 								ins->mNumOperands = 1;
 								assert(ins->mSrc[0].mTemp >= 0);
 								changed = true;
@@ -9702,6 +9707,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					assert(lins->mDst.mTemp >= 0);
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0] = lins->mDst;
+					ins->mDst.mRange.Limit(ins->mSrc[0].mRange);
 					ins->mNumOperands = 1;
 					changed = true;
 				}
@@ -10091,7 +10097,7 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 
 #if 1
 	if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
-		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH)
 		return false;
 
 	for (int i = si + 1; i < ti; i++)
@@ -10153,7 +10159,7 @@ bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstr
 
 #if 1
 	if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
-		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH)
 		return false;
 
 	for (int i = 0; i < ii; i++)
@@ -10919,7 +10925,7 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
-			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE)
+			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE || mInstructions[i]->mCode == IC_DISPATCH)
 				return false;
 
 		if (mTrueJump && !mTrueJump->IsLeafProcedure())
@@ -11080,6 +11086,8 @@ bool InterCodeBasicBlock::CheckStaticStack(void)
 				else if (!(mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_STATIC_STACK))
 					return false;
 			}
+			else if (mInstructions[i]->mCode == IC_DISPATCH)
+				return false;
 		}
 
 		if (mTrueJump && !mTrueJump->CheckStaticStack())
@@ -14899,7 +14907,7 @@ void InterCodeBasicBlock::CheckValueReturn(void)
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
 			InterInstruction* ins = mInstructions[i];
-			if (ins->mCode == IC_ASSEMBLER)
+			if (ins->mCode == IC_ASSEMBLER || ins->mCode == IC_DISPATCH)
 				return;
 			else if (ins->mCode == IC_RETURN)
 				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_MISSING_RETURN_STATEMENT, "Missing return statement");
@@ -15242,7 +15250,7 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 
 void InterCodeBasicBlock::WarnUnreachable(void)
 {
-	if (mNumEntries == 0)
+	if (mNumEntries == 0 && mProc->mCheckUnreachable)
 	{
 		int i = 0;
 		while (i < mInstructions.Size() && !IsObservable(mInstructions[i]->mCode))
@@ -15262,6 +15270,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
 	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false),
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
+	mCheckUnreachable(true),
 	mDeclaration(nullptr)
 {
 	mID = mModule->mProcedures.Size();
@@ -16106,7 +16115,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "print");
+	CheckFunc = !strcmp(mIdent->mString, "setspr");
 
 	mEntryBlock = mBlocks[0];
 
@@ -16373,6 +16382,9 @@ void InterCodeProcedure::Close(void)
 
 	BuildDataFlowSets();
 
+	TempForwarding();
+	RemoveUnusedInstructions();
+
 #if 1
 	ResetVisited();
 	mEntryBlock->BuildLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars, mParamVars);
@@ -16383,6 +16395,9 @@ void InterCodeProcedure::Close(void)
 		ResetVisited();
 	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars, mParamVars));
 
+	TempForwarding();
+	RemoveUnusedInstructions();
+
 	do {
 		DisassembleDebug("tq");
 
@@ -16391,6 +16406,7 @@ void InterCodeProcedure::Close(void)
 
 
 	DisassembleDebug("Estimated value range");
+
 
 	GrowingInstructionPtrArray	pipa(nullptr);
 	ResetVisited();

@@ -51,6 +51,7 @@ public:
 	void RegisterRuntime(const Location& loc, const Ident* ident);
 
 	void CompileProcedure(InterCodeProcedure* proc);
+	void BuildVTables(void);
 
 	bool WriteDbjFile(const char* filename);
 };

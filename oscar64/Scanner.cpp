@@ -160,6 +160,7 @@ const char* TokenNames[] =
 	"'private'",
 	"'new'",
 	"'delete'",
+	"'virtual'",
 };
 
 
@@ -1412,6 +1413,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_NEW;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "delete"))
 					mToken = TK_DELETE;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "virtual"))
+					mToken = TK_VIRTUAL;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();

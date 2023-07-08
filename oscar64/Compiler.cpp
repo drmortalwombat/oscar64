@@ -200,6 +200,152 @@ void Compiler::RegisterRuntime(const Location & loc, const Ident* ident)
 	}
 }
 
+static void IndexVTableTree(Declaration* vdec, int & index)
+{
+	vdec->mVarIndex = index;
+	vdec->mDefaultConstructor->mInteger = index;
+	index++;
+	Declaration* cvdec = vdec->mParams;
+	while (cvdec)
+	{
+		IndexVTableTree(cvdec, index);
+		cvdec = cvdec->mNext;
+	}
+	vdec->mSize = index - vdec->mVarIndex;
+}
+
+static void FillVTableTree(Declaration* vdec)
+{
+	Declaration* cdec = vdec->mClass;
+	cdec->mScope->Iterate([=](const Ident* mident, Declaration* mdec)
+		{
+			if (mdec->mType == DT_CONST_FUNCTION)
+			{
+				while (mdec)
+				{
+					if (mdec->mBase->mFlags & DTF_VIRTUAL)
+					{
+						for (int i = 0; i < vdec->mSize; i++)
+							mdec->mVTable->mCalled[vdec->mVarIndex + i - mdec->mVTable->mDefaultConstructor->mVarIndex] = mdec;
+					}
+					mdec = mdec->mNext;
+				}
+			}
+		});
+
+	Declaration* cvdec = vdec->mParams;
+	while (cvdec)
+	{
+		FillVTableTree(cvdec);
+		cvdec = cvdec->mNext;
+	}
+}
+void Compiler::BuildVTables(void)
+{
+	// Connect vdecs with parents
+	mCompilationUnits->mVTableScope->Iterate([=](const Ident* ident, Declaration* vdec)
+		{
+			if (vdec->mBase)
+			{
+				vdec->mNext = vdec->mBase->mParams;
+				vdec->mBase->mParams = vdec;
+			}
+		});
+
+	// Number the child vtables
+	mCompilationUnits->mVTableScope->Iterate([=](const Ident* ident, Declaration* vdec)
+		{
+			if (!vdec->mBase)
+			{
+				int index = 0;
+				IndexVTableTree(vdec, index);
+			}
+		});
+
+	mCompilationUnits->mVTableScope->Iterate([=](const Ident* ident, Declaration* vdec)
+		{
+			if (!vdec->mBase)
+			{
+				FillVTableTree(vdec);
+			}
+		});
+
+	// Build vtables for functions
+	mCompilationUnits->mVTableScope->Iterate([=](const Ident* ident, Declaration* vdec)
+		{
+			vdec->mScope->Iterate([=](const Ident* mident, Declaration* mdec)
+				{					
+					Declaration* vtabt = new Declaration(mdec->mLocation, DT_TYPE_ARRAY);
+					vtabt->mBase = mdec->mBase->ToStriped(vdec->mSize);
+					vtabt->mSize = vdec->mSize * 2;
+					vtabt->mStride = 1;
+					vtabt->mStripe = 1;
+					vtabt->mFlags |= DTF_CONST | DTF_DEFINED;
+
+					Declaration* vtaba = new Declaration(mdec->mLocation, DT_VARIABLE);
+					vtaba->mFlags = DTF_CONST | DTF_GLOBAL | DTF_DEFINED;
+					vtaba->mBase = vtabt;
+					vtaba->mSize = vtabt->mSize;
+					vtaba->mValue = new Expression(mdec->mLocation, EX_CONSTANT);
+					vtaba->mValue->mDecType = vtabt;
+					vtaba->mValue->mDecValue = new Declaration(mdec->mLocation, DT_CONST_STRUCT);
+					vtaba->mIdent = mdec->mIdent;
+					vtaba->mQualIdent = mdec->mQualIdent->Mangle("$vtable");
+					vtaba->mSection = mdec->mSection;
+					vtaba->mOffset = - vdec->mVarIndex;
+
+					Declaration* last = nullptr;
+
+					for (int i = 0; i < vdec->mSize; i++)
+					{
+						Declaration* vmdec = mdec->mCalled[i];
+
+						Expression* texp = new Expression(vmdec->mLocation, EX_CONSTANT);
+						texp->mDecType = vtabt->mBase;
+						texp->mDecValue = vmdec;
+
+						Declaration* cdec = new Declaration(vmdec->mLocation, DT_CONST_POINTER);
+						cdec->mValue = texp;
+						cdec->mBase = vtabt->mBase;
+						cdec->mOffset = i;
+
+						if (last)
+							last->mNext = cdec;
+						else
+							vtaba->mValue->mDecValue->mParams = cdec;
+						last = cdec;
+					}
+
+//					mCompilationUnits->AddReferenced(vtaba);
+
+					Expression* vexp = new Expression(mdec->mLocation, EX_QUALIFY);
+					vexp->mLeft = new Expression(mdec->mLocation, EX_PREFIX);
+					vexp->mLeft->mDecType = mdec->mBase->mParams->mBase->mBase;
+					vexp->mLeft->mToken = TK_MUL;
+					vexp->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+					vexp->mLeft->mLeft->mDecType = mdec->mBase->mParams->mBase;
+					vexp->mLeft->mLeft->mDecValue = mdec->mBase->mParams;
+
+					vexp->mDecValue = new Declaration(mdec->mLocation, DT_ELEMENT);
+					vexp->mDecValue->mBase = TheCharTypeDeclaration;
+					vexp->mDecValue->mOffset = vdec->mOffset;
+					vexp->mDecValue->mSize = 1;
+					vexp->mDecType = TheCharTypeDeclaration;
+
+					Expression* ecall = new Expression(mdec->mLocation, EX_DISPATCH);
+					ecall->mLeft = new Expression(mdec->mLocation, EX_INDEX);
+					ecall->mDecType = vtabt->mBase;
+					ecall->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+					ecall->mLeft->mLeft->mDecType = vtabt;
+					ecall->mLeft->mLeft->mDecValue = vtaba;
+					ecall->mLeft->mRight = vexp;
+
+					mdec->mFlags |= DTF_DEFINED;
+					mdec->mValue = ecall;
+				});
+		});
+}
+
 void Compiler::CompileProcedure(InterCodeProcedure* proc)
 {
 	if (!proc->mCompiled)
@@ -590,6 +736,14 @@ bool Compiler::GenerateCode(void)
 	dcrtstart->mSection = sectionStartup;
 
 	mGlobalAnalyzer->mCompilerOptions = mCompilerOptions;
+
+	if (mCompilerOptions & COPT_CPLUSPLUS)
+	{
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Build VTables\n");
+
+		BuildVTables();
+	}
 
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Global analyzer\n");

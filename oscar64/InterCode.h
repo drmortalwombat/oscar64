@@ -40,6 +40,7 @@ enum InterCode
 	IC_ASSEMBLER,
 	IC_JUMPF,
 	IC_SELECT,
+	IC_DISPATCH,
 	IC_UNREACHABLE
 };
 
@@ -588,6 +589,7 @@ public:
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase;
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
 	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack;
+	bool								mCheckUnreachable;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 
 	InterCodeModule					*	mModule;

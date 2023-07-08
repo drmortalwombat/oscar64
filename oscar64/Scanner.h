@@ -159,6 +159,7 @@ enum Token
 	TK_PRIVATE,
 	TK_NEW,
 	TK_DELETE,
+	TK_VIRTUAL,
 
 	NUM_TOKENS
 };

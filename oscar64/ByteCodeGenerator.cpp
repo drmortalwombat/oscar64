@@ -4384,6 +4384,7 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			LoadConstant(iproc, ins);
 			break;
 		case IC_CALL:
+		case IC_DISPATCH:
 			CallFunction(iproc, ins);
 			break;
 		case IC_CALL_NATIVE:

@@ -19,7 +19,7 @@ public:
 	CompilationUnits(Errors * errors);
 	~CompilationUnits(void);
 
-	DeclarationScope* mScope;
+	DeclarationScope* mScope, * mVTableScope;
 	CompilationUnit* mCompilationUnits, * mPendingUnits;
 
 	Declaration* mStartup;

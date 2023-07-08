@@ -64,6 +64,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 
 	Declaration	*	dec = new Declaration(mScanner->mLocation, dt);
 
+	bool	needVTable = false;
+
 	mScanner->NextToken();
 	if (mScanner->mToken == TK_IDENT)
 	{
@@ -119,6 +121,9 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 				bcdec->mBase = pdec;
 				bcdec->mFlags = pflags;
 				
+				if (pdec->mVTable)
+					needVTable = true;
+
 				dec->mSize = pdec->mSize;
 
 				dec->mBase = bcdec;
@@ -141,109 +146,205 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		}
 
 		mScanner->NextToken();
-		Declaration* mlast = nullptr;
-		for (;;)
+		if (ConsumeTokenIf(TK_CLOSE_BRACE))
 		{
-			if (ConsumeTokenIf(TK_PUBLIC))
+			dec->mParams = nullptr;
+		}
+		else
+		{
+			Declaration* mlast = nullptr;
+			for (;;)
 			{
-				flags &= ~(DTF_PRIVATE | DTF_PROTECTED);
-				ConsumeToken(TK_COLON);
-			}
-			else if (ConsumeTokenIf(TK_PROTECTED))
-			{
-				flags &= ~DTF_PRIVATE;
-				flags |= DTF_PROTECTED;
-				ConsumeToken(TK_COLON);
-			}
-			else if (ConsumeTokenIf(TK_PRIVATE))
-			{
-				flags |= DTF_PRIVATE | DTF_PROTECTED;
-				ConsumeToken(TK_COLON);
-			}
-			else
-			{
-				Declaration* mdec = ParseDeclaration(nullptr, false, false, pthis);
-
-				mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
-
-				mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
-
-				int	offset = dec->mSize;
-				if (dt == DT_TYPE_UNION)
-					offset = 0;
-
-				if (mdec->mBase->mType == DT_TYPE_FUNCTION)
+				if (ConsumeTokenIf(TK_PUBLIC))
 				{
-					mdec->mType = DT_CONST_FUNCTION;
-					mdec->mSection = mCodeSection;
-					mdec->mFlags |= DTF_GLOBAL;
-					mdec->mBase->mFlags |= DTF_FUNC_THIS;
-
-					if (mCompilerOptions & COPT_NATIVE)
-						mdec->mFlags |= DTF_NATIVE;
-
-					if (!(mdec->mFlags & DTF_DEFINED))
-						ConsumeToken(TK_SEMICOLON);
-
-					AddMemberFunction(dec, mdec);
+					flags &= ~(DTF_PRIVATE | DTF_PROTECTED);
+					ConsumeToken(TK_COLON);
+				}
+				else if (ConsumeTokenIf(TK_PROTECTED))
+				{
+					flags &= ~DTF_PRIVATE;
+					flags |= DTF_PROTECTED;
+					ConsumeToken(TK_COLON);
+				}
+				else if (ConsumeTokenIf(TK_PRIVATE))
+				{
+					flags |= DTF_PRIVATE | DTF_PROTECTED;
+					ConsumeToken(TK_COLON);
 				}
 				else
 				{
-					while (mdec)
+					Declaration* mdec = ParseDeclaration(nullptr, false, false, pthis);
+
+					mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
+
+					mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
+
+					int	offset = dec->mSize;
+					if (dt == DT_TYPE_UNION)
+						offset = 0;
+
+					if (mdec->mBase->mType == DT_TYPE_FUNCTION)
 					{
-						if (!(mdec->mBase->mFlags & DTF_DEFINED))
-							mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+						if (mdec->mBase->mFlags & DTF_VIRTUAL)
+							needVTable = true;
 
-						if (mdec->mType != DT_VARIABLE)
-						{
-							mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
-							break;
-						}
+						mdec->mType = DT_CONST_FUNCTION;
+						mdec->mSection = mCodeSection;
+						mdec->mFlags |= DTF_GLOBAL;
+						mdec->mBase->mFlags |= DTF_FUNC_THIS;
 
-						mdec->mType = DT_ELEMENT;
-						mdec->mOffset = offset;
+						if (mCompilerOptions & COPT_NATIVE)
+							mdec->mFlags |= DTF_NATIVE;
 
-						offset += mdec->mBase->mSize;
-						if (offset > dec->mSize)
-							dec->mSize = offset;
+						if (!(mdec->mFlags & DTF_DEFINED))
+							ConsumeToken(TK_SEMICOLON);
 
-						if (dec->mScope->Insert(mdec->mIdent, mdec))
-							mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
-
-						if (mlast)
-							mlast->mNext = mdec;
-						else
-							dec->mParams = mdec;
-						mlast = mdec;
-						mdec = mdec->mNext;
+						AddMemberFunction(dec, mdec);
 					}
-
-					if (mScanner->mToken == TK_SEMICOLON)
-						mScanner->NextToken();
 					else
 					{
-						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+						while (mdec)
+						{
+							if (!(mdec->mBase->mFlags & DTF_DEFINED))
+								mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+
+							if (mdec->mType != DT_VARIABLE)
+							{
+								mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
+								break;
+							}
+
+							mdec->mType = DT_ELEMENT;
+							mdec->mOffset = offset;
+
+							offset += mdec->mBase->mSize;
+							if (offset > dec->mSize)
+								dec->mSize = offset;
+
+							if (dec->mScope->Insert(mdec->mIdent, mdec))
+								mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+
+							if (mlast)
+								mlast->mNext = mdec;
+							else
+								dec->mParams = mdec;
+							mlast = mdec;
+							mdec = mdec->mNext;
+						}
+
+						if (mScanner->mToken == TK_SEMICOLON)
+							mScanner->NextToken();
+						else
+						{
+							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+							break;
+						}
+					}
+
+					if (mScanner->mToken == TK_CLOSE_BRACE)
+					{
+						mScanner->NextToken();
 						break;
 					}
 				}
-
-				if (mScanner->mToken == TK_CLOSE_BRACE)
-				{
-					mScanner->NextToken();
-					break;
-				}
 			}
-		}
 
-		if (mlast)
-			mlast->mNext = nullptr;
-		else
-			dec->mParams = nullptr;
+			if (mlast)
+				mlast->mNext = nullptr;
+			else
+				dec->mParams = nullptr;
+		}
 
 		dec->SetDefined();
 
 		if ((mCompilerOptions & COPT_CPLUSPLUS) && dec->mType == DT_TYPE_STRUCT && dec->mIdent)
 		{
+			if (needVTable)
+			{
+				Declaration* vdec = mCompilationUnits->mVTableScope->Lookup(dec->mQualIdent);
+				if (!vdec)
+				{
+					vdec = new Declaration(dec->mLocation, DT_VTABLE);
+
+					if (dec->mBase)
+					{
+						vdec->mBase = dec->mBase->mBase->mVTable;
+						vdec->mSize = vdec->mBase->mSize;		
+						vdec->mOffset = vdec->mBase->mOffset;
+					}
+					else
+					{
+						Declaration* mdec = dec->mParams;
+						while (mdec)
+						{
+							mdec->mOffset++;
+							mdec = mdec->mNext;
+						}
+						vdec->mOffset = 0;
+						dec->mSize++;
+					}
+
+					vdec->mDefaultConstructor = new Declaration(dec->mLocation, DT_CONST_INTEGER);
+					vdec->mDefaultConstructor->mBase = TheConstCharTypeDeclaration;
+					vdec->mDefaultConstructor->mSize = 1;
+					vdec->mDefaultConstructor->mInteger = -1;
+
+					vdec->mClass = dec;
+					vdec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
+					vdec->mIdent = dec->mIdent;
+					vdec->mQualIdent = dec->mQualIdent;
+					mCompilationUnits->mVTableScope->Insert(vdec->mQualIdent, vdec);
+
+					dec->mVTable = vdec;
+				}
+
+				dec->mScope->Iterate([=](const Ident* ident, Declaration* mdec)
+					{
+						if (mdec->mType == DT_CONST_FUNCTION)
+						{
+							while (mdec)
+							{
+								if (mdec->mBase->mFlags & DTF_VIRTUAL)
+								{
+									Declaration* vpdec = vdec;
+									Declaration* vmdec = vpdec->mScope->Lookup(ident);
+									while (!vmdec && vpdec->mBase)
+									{
+										vpdec = vpdec->mBase;
+										vmdec = vpdec->mScope->Lookup(ident);
+									}
+
+									Declaration* vmpdec = nullptr;
+
+									while (vmdec && vmdec->mBase->IsSame(mdec->mBase))
+									{
+										vmpdec = vmdec;
+										vmdec = vmdec->mNext;
+									}
+
+									if (!vmdec)
+									{
+										vmdec = mdec->Clone();
+										vmdec->mNext = nullptr;
+										vmdec->mDefaultConstructor = dec->mVTable;
+										vmdec->mFlags |= DTF_NATIVE;
+
+										if (vmpdec)
+											vmpdec->mNext = vmdec;
+										else
+											vdec->mScope->Insert(ident, vmdec);
+									}
+
+									mdec->mVTable = vmdec;
+								}
+
+								mdec = mdec->mNext;
+							}
+						}
+					}
+				);				
+			}
+
 			AddDefaultConstructors(pthis);
 
 			// Lookup constructors, have same name as class
@@ -256,6 +357,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 			}
 
 			AppendMemberDestructor(pthis);
+
 		}
 	}
 
@@ -1409,6 +1511,31 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 			dec = dec->mPrev;
 		}
 	}
+
+	if (pthis->mBase->mVTable)
+	{
+		Expression* sexp = new Expression(cfunc->mLocation, EX_SEQUENCE);
+		sexp->mLeft = cfunc->mValue;
+
+		Expression* vexp = new Expression(pthis->mLocation, EX_QUALIFY);
+		vexp->mLeft = thisexp;
+		vexp->mDecValue = new Declaration(pthis->mLocation, DT_ELEMENT);
+		vexp->mDecValue->mBase = TheCharTypeDeclaration;
+		vexp->mDecValue->mOffset = pthis->mBase->mVTable->mOffset;
+		vexp->mDecValue->mSize = 1;
+		vexp->mDecType = TheCharTypeDeclaration;
+
+		Expression* nexp = new Expression(cfunc->mLocation, EX_INITIALIZATION);
+		nexp->mToken = TK_ASSIGN;
+		nexp->mDecType = TheCharTypeDeclaration;
+		nexp->mLeft = vexp;
+		nexp->mRight = new Expression(cfunc->mLocation, EX_CONSTANT);
+		nexp->mRight->mDecType = TheCharTypeDeclaration;
+		nexp->mRight->mDecValue = pthis->mBase->mVTable->mDefaultConstructor;
+
+		sexp->mRight = nexp;
+		cfunc->mValue = sexp;
+	}
 }
 
 void Parser::BuildMemberConstructor(Declaration* pthis, Declaration* cfunc)
@@ -1492,6 +1619,7 @@ void Parser::BuildMemberConstructor(Declaration* pthis, Declaration* cfunc)
 void Parser::AddDefaultConstructors(Declaration* pthis)
 {
 	bool	simpleDestructor = true, simpleAssignment = true, simpleConstructor = true, simpleCopy = true;
+	bool	inlineConstructor = true;
 
 	char	dname[100];
 	strcpy_s(dname, "~");
@@ -1537,13 +1665,20 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		if (bcdec->mBase->mDestructor)
 			simpleDestructor = false;
 		if (bcdec->mBase->mDefaultConstructor)
+		{
 			simpleConstructor = false;
+			if (!(bcdec->mBase->mDefaultConstructor->mBase->mFlags & DTF_REQUEST_INLINE))
+				inlineConstructor = false;
+		}
 		if (bcdec->mBase->mCopyConstructor)
 			simpleCopy = false;
 		if (bcdec->mBase->mCopyAssignment)
 			simpleAssignment = false;
 		bcdec = bcdec->mNext;
 	}
+
+	if (pthis->mBase->mVTable)
+		simpleConstructor = false;
 
 	Declaration* dec = pthis->mBase->mParams;
 	while (dec)
@@ -1561,7 +1696,11 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 				if (bdec->mDestructor)
 					simpleDestructor = false;
 				if (bdec->mDefaultConstructor)
+				{
 					simpleConstructor = false;
+					if (!(bdec->mDefaultConstructor->mBase->mFlags & DTF_REQUEST_INLINE))
+						inlineConstructor = false;
+				}
 				if (bdec->mCopyConstructor)
 					simpleCopy = false;
 				if (bdec->mCopyAssignment)
@@ -1616,6 +1755,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		{
 			Declaration* ctdec = new Declaration(mScanner->mLocation, DT_TYPE_FUNCTION);
 			ctdec->mSize = 0;
+
 			Declaration* pdec = nullptr;
 			ctdec->mBase = TheVoidTypeDeclaration;
 			ctdec->mFlags |= DTF_DEFINED;
@@ -1626,6 +1766,8 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+			if (inlineConstructor)
+				cdec->mFlags |= DTF_REQUEST_INLINE;
 
 			cdec->mSection = mCodeSection;
 
@@ -2782,7 +2924,12 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		{
 			for (;;)
 			{
-				if (mScanner->mToken == TK_STATIC)
+				if (mScanner->mToken == TK_VIRTUAL)
+				{
+					storageFlags |= DTF_VIRTUAL;
+					mScanner->NextToken();
+				}
+				else if (mScanner->mToken == TK_STATIC)
 				{
 					storageFlags |= DTF_STATIC;
 					mScanner->NextToken();
@@ -3120,7 +3267,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		}
 		
 		if (npdec->mBase->mType == DT_TYPE_FUNCTION)
-			npdec->mBase->mFlags |= storageFlags & (DTF_INTERRUPT | DTF_NATIVE | TK_FASTCALL);
+			npdec->mBase->mFlags |= storageFlags & (DTF_INTERRUPT | DTF_NATIVE | DTF_FASTCALL | DTF_VIRTUAL);
 
 		if (definingType)
 		{
@@ -3850,9 +3997,12 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		mScanner->NextToken();
 		break;
 	case TK_IDENT:
-		if (mThisPointer && !mScope->Lookup(mScanner->mTokenIdent, SLEVEL_FUNCTION))
+		if (mThisPointer && mThisPointer->mType == DT_ARGUMENT && !mScope->Lookup(mScanner->mTokenIdent, SLEVEL_FUNCTION))
 		{
-			dec = mThisPointer->mBase->mBase->mScope->Lookup(mScanner->mTokenIdent);
+			int offset;
+			uint64 flags;
+
+			dec = MemberLookup(mThisPointer->mBase->mBase, mScanner->mTokenIdent, offset, flags);
 			if (dec)
 			{
 				Expression * texp = new Expression(mScanner->mLocation, EX_VARIABLE);
@@ -4114,6 +4264,9 @@ Expression* Parser::ParseQualify(Expression* exp)
 
 					ResolveOverloadCall(nexp->mLeft, nexp->mRight);
 					nexp->mDecType = nexp->mLeft->mDecType->mBase;
+
+					if (nexp->mLeft->mDecType->mFlags & DTF_VIRTUAL)
+						nexp->mType = EX_VCALL;
 
 					exp = nexp;
 				}
@@ -4408,6 +4561,9 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				ResolveOverloadCall(exp, nexp->mRight);
 				nexp->mDecType = exp->mDecType->mBase;
 
+				if (nexp->mLeft->mDecType->mFlags & DTF_VIRTUAL)
+					nexp->mType = EX_VCALL;
+
 				exp = nexp;
 			}
 		}
@@ -4593,6 +4749,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 					Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
 					sexp->mLeft = iexp;
 					sexp->mRight = coexp;
+					sexp->mDecType = coexp->mDecType;
 
 					nexp = sexp;
 				}
@@ -4653,6 +4810,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 
 					sexp->mLeft = dexp;
 					sexp->mRight = vexp;
+					sexp->mDecType = vexp->mDecType;
 
 					Expression * coexp = nexp = new Expression(mScanner->mLocation, EX_CONDITIONAL);
 					coexp->mLeft = new Expression(mScanner->mLocation, EX_RELATIONAL);
@@ -4670,6 +4828,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 					nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
 					nexp->mLeft = iexp;
 					nexp->mRight = coexp;
+					nexp->mDecType = coexp->mDecType;
 				}
 			}
 		}
@@ -7337,6 +7496,10 @@ void Parser::ParsePragma(void)
 						mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE;
 					else if (ConsumeIdentIf("maxinline"))
 						mCompilerOptions |= COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE_ALL;
+					else if (ConsumeIdentIf("constparams"))
+						mCompilerOptions |= COPT_OPTIMIZE_CONST_PARAMS;
+					else if (ConsumeIdentIf("noconstparams"))
+						mCompilerOptions &= ~COPT_OPTIMIZE_CONST_PARAMS;
 					else
 						mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid option");
 
