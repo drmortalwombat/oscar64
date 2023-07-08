@@ -307,11 +307,26 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 								if (mdec->mBase->mFlags & DTF_VIRTUAL)
 								{
 									Declaration* vpdec = vdec;
-									Declaration* vmdec = vpdec->mScope->Lookup(ident);
-									while (!vmdec && vpdec->mBase)
+									Declaration* vmdec;
+									if (mdec->mIdent->mString[0] == '~')
 									{
-										vpdec = vpdec->mBase;
+										// this is the destructor, need special search
+
+										vmdec = vpdec->mScope->Lookup(vpdec->mIdent->PreMangle("~"));
+										while (!vmdec && vpdec->mBase)
+										{
+											vpdec = vpdec->mBase;
+											vmdec = vpdec->mScope->Lookup(vpdec->mIdent->PreMangle("~"));
+										}
+									}
+									else
+									{
 										vmdec = vpdec->mScope->Lookup(ident);
+										while (!vmdec && vpdec->mBase)
+										{
+											vpdec = vpdec->mBase;
+											vmdec = vpdec->mScope->Lookup(ident);
+										}
 									}
 
 									Declaration* vmpdec = nullptr;
@@ -2585,6 +2600,31 @@ void Parser::AppendMemberDestructor(Declaration* pthis)
 					dec = dec->mPrev;
 				}
 			}
+
+			Declaration* bcdec = pthis->mBase->mBase;
+			while (bcdec)
+			{
+				if (bcdec->mBase->mDestructor)
+				{
+					Declaration* mdec = bcdec->mBase->mDestructor;
+
+					Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
+					cexp->mDecValue = mdec;
+					cexp->mDecType = cexp->mDecValue->mBase;
+
+					Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
+					dexp->mLeft = cexp;
+					dexp->mRight = pthisexp;
+
+					Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+
+					sexp->mLeft = pthis->mBase->mDestructor->mValue;
+					sexp->mRight = dexp;
+					pthis->mBase->mDestructor->mValue = sexp;
+				}
+
+				bcdec = bcdec->mNext;
+			}
 		}
 	}
 }
@@ -3018,6 +3058,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+			ctdec->mFlags |= storageFlags & DTF_VIRTUAL;
 
 			cdec->mSection = mCodeSection;
 			cdec->mBase->mFlags |= typeFlags;
@@ -4903,6 +4944,9 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 					Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
 					dexp->mLeft = cexp;
 					dexp->mRight = pexp;
+
+					if (cexp->mDecValue->mBase->mFlags & DTF_VIRTUAL)
+						dexp->mType = EX_VCALL;
 
 					Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
 					sexp->mLeft = iexp;

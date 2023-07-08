@@ -10,6 +10,7 @@ public:
 
 	static const Ident* Unique(const char* str);
 	const Ident* Mangle(const char* str) const;
+	const Ident* PreMangle(const char* str) const;
 protected:
 	Ident(const char* str, unsigned int hash);
 };

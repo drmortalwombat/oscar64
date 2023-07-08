@@ -1,5 +1,8 @@
 rem @echo off
 
+@call :test virtualdestruct.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test vcalltest.cpp
 @if %errorlevel% neq 0 goto :error
 
