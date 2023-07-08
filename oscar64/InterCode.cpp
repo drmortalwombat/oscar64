@@ -6376,12 +6376,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					{
 						if (ins->mDst.mType == IT_INT8)
 						{
-							bool	isUnsigned = false;
-							if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
-								mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
-								isUnsigned = true;
+							bool	isUnsigned = false, isSigned = false;
+							if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
+							{
+								if (mInstructions[i + 1]->mOperator == IA_EXT8TO16U)
+									isUnsigned = true;
+								else if (mInstructions[i + 1]->mOperator == IA_EXT8TO16S)
+									isSigned = true;
+							}
 
-							int	mi = 0, ma = 0;
+							int	mi = 255, ma = 0;
 
 							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxState == IntegerValueRange::S_BOUND &&
 								vr.mMinValue >= -128 && vr.mMaxValue <= 127)
@@ -6400,8 +6404,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 								for (int j = 0; j < lo->mSize; j++)
 								{
 									int v = lo->mData[j];
-									if (!isUnsigned && (v & 0x80))
+									if (isUnsigned)
+										;
+									else if (isSigned)
+										v = (int8)v;
+									else if (v & 0x80)
 										mi = -128;
+
+									if (v < mi)
+										mi = v;
 									if (v > ma)
 										ma = v;
 								}
