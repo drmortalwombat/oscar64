@@ -1507,6 +1507,13 @@ void Scanner::NextRawToken(void)
 						mTokenIdent = Ident::Unique("operator<=");
 						break;
 
+					case TK_INC:
+						mTokenIdent = Ident::Unique("operator++");
+						break;
+					case TK_DEC:
+						mTokenIdent = Ident::Unique("operator--");
+						break;
+
 					case TK_OPEN_BRACKET:
 						NextRawToken();
 						if (mToken != TK_CLOSE_BRACKET)

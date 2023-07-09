@@ -1,5 +1,8 @@
 rem @echo off
 
+@call :test operatoroverload.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test virtualdestruct.cpp
 @if %errorlevel% neq 0 goto :error
 
