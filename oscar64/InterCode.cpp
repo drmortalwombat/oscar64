@@ -4428,6 +4428,9 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 		assert(code->mSrc[1].mType != IT_POINTER);
 	}
 
+	for (int i = 0; i < code->mNumOperands; i++)
+		assert(code->mSrc[i].mType != IT_NONE);
+
 	assert(!(code->mInUse));
 	code->mInUse = true;
 	this->mInstructions.Push(code);
@@ -16126,7 +16129,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "setspr");
+	CheckFunc = !strcmp(mIdent->mString, "test_find");
 
 	mEntryBlock = mBlocks[0];
 

@@ -28951,7 +28951,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				i++;
 				while (i < mIns.Size() && !mIns[i].ReferencesZeroPage(mIns[si].mAddress))
 					i++;
-				if (i < mIns.Size() && (mIns[i].mType == ASMIT_DEC || mIns[i].mType == ASMIT_INC))
+				if (i < mIns.Size() && (mIns[i].mType == ASMIT_DEC || mIns[i].mType == ASMIT_INC) && (!(mIns[ei].mLive & LIVE_CPU_REG_Z) || mIns[ei].ChangesAccuAndFlag()))
 				{
 					int j = i + 1;
 					while (j < mIns.Size() && !mIns[j].ReferencesZeroPage(mIns[si].mAddress))
@@ -28961,6 +28961,9 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 						// So we have an LDX from ZP, and exactly one INC/DECof this ZP and X never changes in the loop
 						if (!prevBlock)
 							return OptimizeSimpleLoopInvariant(proc, full);
+
+						bool needRecheck = mIns[ei].mLive & LIVE_CPU_REG_Z;
+
 						prevBlock->mIns.Push(mIns[si]);
 						exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[si].mIns, ASMIT_STX, mIns[si]));
 						mIns[si].mType = ASMIT_NOP;
@@ -28974,6 +28977,12 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 						mIns[i].mType = ASMIT_NOP;
 						mIns[i].mMode = ASMIM_IMPLIED;
+
+						if (needRecheck)
+						{
+							mIns[ei].mLive |= LIVE_CPU_REG_A;
+							mIns.Insert(ei + 1, NativeCodeInstruction(mIns[ei].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+						}
 
 						mIns.Insert(ei + 1, NativeCodeInstruction(mIns[i].mIns, t));
 
@@ -31171,6 +31180,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 					NativeCodeBasicBlock* block = lblocks[i];
 
 					int	yoffset = 0, xoffset = 0, aoffset = 0;
+					int yskew = 0, xskew = 0;
 
 					for (int j = 0; j < block->mIns.Size(); j++)
 					{
@@ -31189,6 +31199,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								zareg[ins.mAddress] = -1;
 							}
 							yoffset = 0;
+							yskew = 0;
 							zareg[CPU_REG_Y] = -1;
 							break;
 						case ASMIT_LDX:
@@ -31202,6 +31213,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 								zareg[ins.mAddress] = -1;
 							}
 							xoffset = 0;
+							xskew = 0;
 							zareg[CPU_REG_X] = -1;
 							break;
 						case ASMIT_STY:
@@ -31235,13 +31247,35 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							zareg[CPU_REG_X] = -1;
 							break;
 						case ASMIT_INC:
+							if (ins.mMode == ASMIM_ZERO_PAGE)
+							{
+								if (zxreg[ins.mAddress] >= 0)
+								{
+									zxreg[ins.mAddress] += 3;
+									xskew++;
+								}
+								if (zyreg[ins.mAddress] >= 0)
+								{
+									zyreg[ins.mAddress] += 3;
+									yskew++;
+								}
+
+								zareg[ins.mAddress] = -1;
+							}
+							break;
 						case ASMIT_DEC:
 							if (ins.mMode == ASMIM_ZERO_PAGE)
 							{
 								if (zxreg[ins.mAddress] >= 0)
+								{
 									zxreg[ins.mAddress] += 3;
+									xskew--;
+								}
 								if (zyreg[ins.mAddress] >= 0)
+								{
 									zyreg[ins.mAddress] += 3;
+									yskew--;
+								}
 
 								zareg[ins.mAddress] = -1;
 							}
@@ -31334,6 +31368,11 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							if (ins.ChangesAccu())
 								areg = -2;
 						}
+
+						if (xreg >= 0 && ins.mMode == ASMIM_ABSOLUTE_X && xskew != xoffset)
+							zxreg[xreg] = -1;
+						if (yreg >= 0 && (ins.mMode == ASMIM_ABSOLUTE_Y || ins.mMode == ASMIM_INDIRECT_Y) && yskew != yoffset)
+							zyreg[yreg] = -1;
 
 						if (!(ins.mLive & LIVE_CPU_REG_Y))
 							yoffset = 0;
@@ -40154,7 +40193,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "heapcheck");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test_find");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

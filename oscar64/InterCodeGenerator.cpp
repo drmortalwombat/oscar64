@@ -1007,8 +1007,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 			InterInstruction* wins = new InterInstruction(texp->mLocation, IC_STORE);
 			wins->mSrc[1].mMemory = IM_INDIRECT;
-			wins->mSrc[0].mType = InterTypeOf(vr.mType);;
+			wins->mSrc[0].mType = vr.mReference > 0 ? IT_POINTER : InterTypeOf(vr.mType);
 			wins->mSrc[0].mTemp = vr.mTemp;
+			assert(wins->mSrc[0].mType != IT_NONE);
 			wins->mSrc[1].mType = IT_POINTER;
 			wins->mSrc[1].mTemp = ains->mDst.mTemp;
 			if (pdec)
@@ -3195,6 +3196,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					block->Append(defins[i]);
 
 				InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CALL);
+				cins->mNumOperands = 1;
 				if (funcexp->mDecValue && (funcexp->mDecValue->mFlags & DTF_NATIVE))
 					cins->mCode = IC_CALL_NATIVE;
 				else

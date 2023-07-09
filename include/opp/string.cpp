@@ -2,26 +2,53 @@
 #include <string.h>
 #include <stdlib.h>
 
+static inline void smemcpy(char * dp, const char * sp, char s)
+{
+	for(char i=0; i<s; i++)
+		dp[i] = sp[i];
+}
+
 string::string(void) : cstr(nullptr)
 {}
 
 string::string(const string & s)
 {
-	cstr = malloc(strlen(s.cstr) + 1);
-	strcpy(cstr, s.cstr);
+	if (s.cstr)
+	{
+		char l = s.cstr[0];
+		cstr = malloc(l + 2);
+		smemcpy(cstr, s.cstr, l + 2);
+	}
+	else
+		cstr = nullptr;
 }
 
 string::string(const char * s)
 {
-	cstr = malloc(strlen(s) + 1);
-	strcpy(cstr, s);
+	char l = strlen(s);
+	if (l)
+	{
+		cstr = malloc(l + 2);
+		cstr[0] = l;
+		smemcpy(cstr + 1, s, l + 1);
+	}
+	else
+		cstr = nullptr;
 }
 
-string::string(const char * s1, const char * s2)
+string::string(char c)
 {
-	cstr = malloc(strlen(s1) + strlen(s2) + 1);
-	strcpy(cstr, s1);
-	strcat(cstr, s2);
+	cstr = malloc(3);
+	cstr[0] = 1;
+	cstr[1] = c;
+	cstr[2] = 0;
+}
+
+string::string(char l, char * b)
+	: cstr(b)
+{
+	b[0] = l;
+	b[l + 1] = 0;
 }
 
 string::~string(void)
@@ -34,8 +61,14 @@ string & string::operator=(const string & s)
 	if (cstr != s.cstr)	
 	{
 		free(cstr);
-		cstr = malloc(strlen(s.cstr) + 1);
-		strcpy(cstr, s.cstr);
+		if (s.cstr)
+		{
+			char l = s.cstr[0];
+			cstr = malloc(l + 2);
+			smemcpy(cstr, s.cstr, l + 2);
+		}
+		else
+			cstr = nullptr;
 	}
 
 	return *this;
@@ -44,119 +77,433 @@ string & string::operator=(const string & s)
 string & string::operator=(const char * s)
 {
 	free(cstr);
-	cstr = malloc(strlen(s) + 1);
-	strcpy(cstr, s);
+	char l = strlen(s);
+	if (l)
+	{
+		cstr = malloc(l + 2);
+		cstr[0] = l;		
+		smemcpy(cstr + 1, s, l + 1);
+	}
+	else
+		cstr = nullptr;
 
 	return *this;	
 }
 
 string & string::operator+=(const string & s)
 {
-	char * nstr = malloc(strlen(cstr) + strlen(s.cstr) + 1);
-	strcpy(nstr, cstr);
-	strcat(nstr, s.cstr);
-	free(cstr);
-	cstr = nstr;
+	if (s.cstr)
+	{
+		if (cstr)
+		{
+			char l = cstr[0] + s.cstr[0];
+			char * c = malloc(l + 2);
+			c[0] = l;
+			smemcpy(c + 1, cstr + 1, cstr[0]);
+			smemcpy(c + 1 + cstr[0], s.cstr + 1, s.cstr[0] + 1);
+			free(cstr);
+			cstr = c;
+		}
+		else
+		{
+			char l = s.cstr[0];
+			cstr = malloc(l + 2);
+			smemcpy(cstr, s.cstr, l + 2);
+		}
+	}
 	return *this;
 }
 
 string & string::operator+=(const char * s)
 {
-	char * nstr = malloc(strlen(cstr) + strlen(s) + 1);
-	strcpy(nstr, cstr);
-	strcat(nstr, s);
-	free(cstr);
-	cstr = nstr;
+	char sl = strlen(s);
+	if (sl)
+	{
+		if (cstr)
+		{
+			char l = sl + cstr[0];
+			char * c = malloc(l + 2);
+			c[0] = l;
+			smemcpy(c + 1, cstr + 1, cstr[0]);
+			smemcpy(c + 1 + cstr[0], s, sl + 1);
+			free(cstr);
+			cstr = c;
+		}
+		else
+		{
+			cstr = malloc(sl + 2);
+			cstr[0] = sl;
+			smemcpy(cstr + 1, s, sl + 1);
+		}
+	}
 	return *this;
 }
 
+string & string::operator+=(char c)
+{
+	if (cstr)
+	{
+		char l = cstr[0] + 1;
+		char * p = malloc(l + 2);
+		p[0] = l;
+		smemcpy(p + 1, cstr + 1, cstr[0]);
+		p[l] = c;
+		p[l + 1] = 0;
+		free(cstr);
+		cstr = c;
+	}
+	else
+	{
+		cstr = malloc(3);
+		cstr[0] = 1;
+		cstr[1] = c;
+		cstr[2] = 0;
+	}	
+}
+
+
 inline const char * string::tocstr(void) const
 {
-	return cstr;
+	if (cstr)
+		return cstr + 1;
+	else
+		return "";
 }
 
 inline unsigned string::size(void) const
 {
-	return strlen(cstr);
+	if (cstr)
+		return cstr[0];
+	else
+		return 0;
 }
 
-string string::operator+(const string & s)
+string string::operator+(const string & s) const
 {
-	return string(cstr, s.cstr);
+	if (cstr)
+	{
+		if (s.cstr)
+		{
+			char l = cstr[0] + s.cstr[0];
+			char * p = malloc(l + 2);
+			smemcpy(p + 1, cstr + 1, cstr[0]);
+			smemcpy(p + 1 + cstr[0], s.cstr + 1, s.cstr[0]);
+			return string(l, p);
+		}
+		else
+			return *this;
+	}
+	else
+		return s;
 }
 
-string string::operator+(const char * s)
+string string::operator+(const char * s) const
 {
-	return string(cstr, s);
+	if (cstr)
+	{
+		char sl = strlen(s);
+		if (sl)
+		{
+			char l = cstr[0] + sl;
+			char * p = malloc(l + 2);
+			smemcpy(p + 1, cstr + 1, cstr[0]);
+			smemcpy(p + 1 + cstr[0], s, sl);
+			return string(l, p);
+		}
+		else
+			return *this;
+	}
+	else
+		return string(s);
 }
 
+string string::operator+(char c) const
+{
+	if (cstr)
+	{
+		char l = cstr[0] + 1;
+		char * p = malloc(l + 2);
+		smemcpy(p + 1, cstr + 1, cstr[0]);
+		p[l] = c;
+		return string(l, p);
+	}
+	else
+		return string(c);
+}
+
+string & string::operator<<=(char n)
+{
+	if (n > 0 && cstr)
+	{
+		if (n >= cstr[0])
+		{
+			free(cstr);
+			cstr = nullptr;
+		}
+		else
+		{
+			char i = 1;
+			n++;
+			while (cstr[n])
+				cstr[i++] = cstr[n++];
+			cstr[i] = 0;
+			cstr[0] = i - 1;
+		}
+	}
+	return *this;
+}
+
+string & string::operator>>=(char n)
+{
+	if (n > 0 && cstr)
+	{
+		if (n >= cstr[0])
+		{
+			free(cstr);
+			cstr = nullptr;
+		}
+		else
+		{
+			cstr[0] -= n;
+			cstr[n + 1] = 0;
+		}
+	}
+	return *this;
+}
+
+string string::operator<<(char n) const
+{
+	if (n > 0 && cstr)
+	{
+		if (n >= cstr[0])
+			return string();
+		else
+		{
+
+		}
+	}
+	else
+		return *this;
+}
+
+string string::operator>>(char n) const
+{
+
+}
+
+static int scmp(const char * s1, const char * s2)
+{
+	char n = 0;
+	while (s1[n])
+	{
+		if (s1[n] != s2[n])
+			return s1[n] - s2[n];
+		n++;
+	}
+	return 0;
+}
 
 inline bool string::operator==(const string & s) const
 {
-	return strcmp(cstr, s.cstr) == 0;
+	if (cstr && s.cstr)
+		return scmp(cstr + 1, s.cstr + 1) == 0;
+	else
+		return !cstr && !s.cstr;
 }
 
 inline bool string::operator==(const char * s) const
 {
-	return strcmp(cstr, s) == 0;
+	if (cstr)
+		return scmp(cstr + 1, s) == 0;
+	else
+		return s[0] == 0;
 }
 
 inline bool string::operator!=(const string & s) const
 {
-	return strcmp(cstr, s.cstr) != 0;
+	if (cstr && s.cstr)
+		return scmp(cstr + 1, s.cstr + 1) != 0;
+	else
+		return cstr || s.cstr;
 }
 
 inline bool string::operator!=(const char * s) const
 {
-	return strcmp(cstr, s) == 0;
+	if (cstr)
+		return scmp(cstr + 1, s) == 0;
+	else
+		return s[0] != 0;
 }
 
 inline bool string::operator<(const string & s) const
 {
-	return strcmp(cstr, s.cstr) < 0;
+	if (cstr && s.cstr)
+		return scmp(cstr + 1, s.cstr + 1) < 0;
+	else
+		return s.cstr;
 }
 
 inline bool string::operator<(const char * s) const
 {
-	return strcmp(cstr, s) < 0;
+	if (cstr)
+		return scmp(cstr + 1, s) < 0;
+	else
+		return s[0] != 0;
 }
 
 inline bool string::operator<=(const string & s) const
 {
-	return strcmp(cstr, s.cstr) <= 0;
+	if (cstr && s.cstr)
+		return scmp(cstr + 1, s.cstr + 1) <= 0;
+	else
+		return !cstr || s.cstr;
 }
 
 inline bool string::operator<=(const char * s) const
 {
-	return strcmp(cstr, s) <= 0;
+	if (cstr)
+		return scmp(cstr + 1, s) <= 0;
+	else
+		return true;
 }
 
 inline bool string::operator>(const string & s) const
 {
-	return strcmp(cstr, s.cstr) > 0;
+	if (cstr && s.cstr)
+		return scmp(cstr + 1, s.cstr + 1) > 0;
+	else
+		return cstr;
 }
 
 inline bool string::operator>(const char * s) const
 {
-	return strcmp(cstr, s) > 0;
+	if (cstr)
+		return scmp(cstr + 1, s) > 0;
+	else
+		return false;
 }
 
 inline bool string::operator>=(const string & s) const
 {
-	return strcmp(cstr, s.cstr) >= 0;
+	if (cstr && s.cstr)
+		return scmp(cstr + 1, s.cstr + 1) >= 0;
+	else
+		return cstr || !s.cstr;
 }
 
 inline bool string::operator>=(const char * s) const
 {
-	return strcmp(cstr, s) >= 0;
+	if (cstr)
+		return scmp(cstr + 1, s) >= 0;
+	else
+		return s[0] == 0;
 }
 
-inline char & string::operator[](unsigned t)
+inline char & string::operator[](char t)
 {
-	return cstr[t];
+	return cstr[t + 1];
 }
 
-inline char string::operator[](unsigned t) const
+inline char string::operator[](char t) const
 {
-	return cstr[t];
+	return cstr[t + 1];
+}
+
+string string::substr(char pos, char len) const
+{
+	if (!cstr || len == 0 || pos >= cstr[0])
+		return string;
+	else
+	{
+		char l = cstr[0];
+		if (pos + len > l)
+			len = l - pos;
+
+		char * p = malloc(len + 2);
+		memcpy(p + 1, cstr + 1 + pos, len);
+		return string(len, p);
+	}
+}
+
+inline int string::find(const string & s) const
+{
+	return find(s, 0);
+}
+
+inline int string::find(const char * s) const
+{
+	return find(s, 0);
+}
+
+inline int string::find(char c) const
+{
+	return find(c, 0);
+}
+
+int string::find(const string & s, char pos) const
+{
+	if (!s.cstr)
+		return pos;
+	if (cstr)
+	{
+		char l = cstr[0];
+		char sl = s.cstr[0];
+		if (sl <= l)
+		{
+			l -= sl;
+
+			while (pos <= l)
+			{
+				char i = 1;
+				while (s.cstr[i] && s.cstr[i] == cstr[pos + i])
+					i++;
+				if (!s.cstr[i])
+					return pos;
+				pos++;
+			}
+		}
+	}
+
+	return -1;
+}
+
+int string::find(const char * s, char pos) const
+{
+	if (cstr)
+	{
+		char l = cstr[0];
+		char sl = strlen(s);
+		if (sl <= l)
+		{
+			l -= sl;
+
+			while (pos <= l)
+			{
+				char i = 0;
+				while (s[i] && s[i] == cstr[pos + i + 1])
+					i++;
+				if (!s[i])
+					return pos;
+				pos++;
+			}
+		}
+	}
+
+	return -1;
+}
+
+int string::find(char c, char pos) const
+{
+	if (cstr)
+	{
+		char l = cstr[0];
+		while (pos < l)
+		{
+			if (cstr[pos + 1] == c)
+				return pos;
+			pos++;
+		}		
+	}
+
+	return -1;
 }

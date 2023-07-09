@@ -524,6 +524,22 @@ void exit(int status)
 	}
 }
 
+extern struct Heap {
+	Heap	*	next, * end;
+}	HeapNode;
+
+unsigned heapfree(void)
+{
+	unsigned	avail = 0;
+	Heap	*	h = HeapNode.next;
+	while (h)
+	{
+		avail += (h->end - h) * sizeof(Heap);
+		h = h->next;
+	}
+	return avail;
+}
+
 #if 0
 struct Heap {
 	unsigned int	size;
