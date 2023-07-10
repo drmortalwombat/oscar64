@@ -105,7 +105,7 @@ protected:
 	Expression* ParseAssignmentExpression(bool lhs);
 	Expression* ParseExpression(bool lhs);
 	Expression* ParseRExpression(void);
-	Expression* ParseListExpression(void);
+	Expression* ParseListExpression(bool lhs);
 
 	Expression* ParseParenthesisExpression(void);
 

@@ -11863,7 +11863,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 				for (int i = 0; i < path.Size(); i++)
 					printf("path %d\n", path[i]->mIndex);
 #endif
-				bool	hasCall = false, hasFrame = false;
+				bool	hasCall = false, hasFrame = false, hasStore = false;
 				for (int bi = 0; bi < body.Size(); bi++)
 				{
 					InterCodeBasicBlock* block = body[bi];
@@ -11877,6 +11877,17 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							hasCall = true;
 						else if (ins->mCode == IC_PUSH_FRAME)
 							hasFrame = true;
+						else if (ins->mCode == IC_STORE)
+						{
+							if (ins->mSrc[1].mTemp >= 0)
+								hasStore = true;
+							else if ((ins->mSrc[1].mMemory == IM_PARAM || ins->mSrc[1].mMemory == IM_FPARAM) && !aliasedParams[ins->mSrc[1].mVarIndex])
+							;
+							else
+								hasStore = true;
+						}
+						else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+							hasStore = true;
 					}
 				}
 
@@ -11897,7 +11908,11 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							ins->mInvariant = false;
 						else if (ins->mCode == IC_LOAD)
 						{
-							if (ins->mSrc[0].mTemp >= 0 || ins->mVolatile)
+							if (ins->mVolatile)
+							{
+								ins->mInvariant = false;
+							}
+							else if (ins->mSrc[0].mTemp >= 0 && (hasStore || hasCall))
 							{
 								ins->mInvariant = false;
 							}
@@ -16129,7 +16144,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test_find");
+	CheckFunc = !strcmp(mIdent->mString, "string::find");
 
 	mEntryBlock = mBlocks[0];
 

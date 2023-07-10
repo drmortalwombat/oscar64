@@ -269,6 +269,7 @@ public:
 	void PrependInstruction(const NativeCodeInstruction& ins);
 
 	void ShortcutTailRecursion();
+	void ShortcutJump(int offset);
 
 	bool ReferencesAccu(int from = 0, int to = 65536) const;
 	bool ReferencesYReg(int from = 0, int to = 65536) const;

@@ -8,6 +8,14 @@ static inline void smemcpy(char * dp, const char * sp, char s)
 		dp[i] = sp[i];
 }
 
+static inline char sstrlen(const char * sp)
+{
+	char n = 0;
+	while (sp[n])
+		n++;
+	return n;
+}
+
 string::string(void) : cstr(nullptr)
 {}
 
@@ -16,7 +24,7 @@ string::string(const string & s)
 	if (s.cstr)
 	{
 		char l = s.cstr[0];
-		cstr = malloc(l + 2);
+		cstr = malloc(char(l + 2));
 		smemcpy(cstr, s.cstr, l + 2);
 	}
 	else
@@ -25,10 +33,10 @@ string::string(const string & s)
 
 string::string(const char * s)
 {
-	char l = strlen(s);
+	char l = sstrlen(s);
 	if (l)
 	{
-		cstr = malloc(l + 2);
+		cstr = malloc(char(l + 2));
 		cstr[0] = l;
 		smemcpy(cstr + 1, s, l + 1);
 	}
@@ -64,7 +72,7 @@ string & string::operator=(const string & s)
 		if (s.cstr)
 		{
 			char l = s.cstr[0];
-			cstr = malloc(l + 2);
+			cstr = malloc(char(l + 2));
 			smemcpy(cstr, s.cstr, l + 2);
 		}
 		else
@@ -77,10 +85,10 @@ string & string::operator=(const string & s)
 string & string::operator=(const char * s)
 {
 	free(cstr);
-	char l = strlen(s);
+	char l = sstrlen(s);
 	if (l)
 	{
-		cstr = malloc(l + 2);
+		cstr = malloc(char(l + 2));
 		cstr[0] = l;		
 		smemcpy(cstr + 1, s, l + 1);
 	}
@@ -97,7 +105,7 @@ string & string::operator+=(const string & s)
 		if (cstr)
 		{
 			char l = cstr[0] + s.cstr[0];
-			char * c = malloc(l + 2);
+			char * c = malloc(char(l + 2));
 			c[0] = l;
 			smemcpy(c + 1, cstr + 1, cstr[0]);
 			smemcpy(c + 1 + cstr[0], s.cstr + 1, s.cstr[0] + 1);
@@ -107,7 +115,7 @@ string & string::operator+=(const string & s)
 		else
 		{
 			char l = s.cstr[0];
-			cstr = malloc(l + 2);
+			cstr = malloc(char(l + 2));
 			smemcpy(cstr, s.cstr, l + 2);
 		}
 	}
@@ -116,13 +124,13 @@ string & string::operator+=(const string & s)
 
 string & string::operator+=(const char * s)
 {
-	char sl = strlen(s);
+	char sl = sstrlen(s);
 	if (sl)
 	{
 		if (cstr)
 		{
 			char l = sl + cstr[0];
-			char * c = malloc(l + 2);
+			char * c = malloc(char(l + 2));
 			c[0] = l;
 			smemcpy(c + 1, cstr + 1, cstr[0]);
 			smemcpy(c + 1 + cstr[0], s, sl + 1);
@@ -131,7 +139,7 @@ string & string::operator+=(const char * s)
 		}
 		else
 		{
-			cstr = malloc(sl + 2);
+			cstr = malloc(char(sl + 2));
 			cstr[0] = sl;
 			smemcpy(cstr + 1, s, sl + 1);
 		}
@@ -144,7 +152,7 @@ string & string::operator+=(char c)
 	if (cstr)
 	{
 		char l = cstr[0] + 1;
-		char * p = malloc(l + 2);
+		char * p = malloc(char(l + 2));
 		p[0] = l;
 		smemcpy(p + 1, cstr + 1, cstr[0]);
 		p[l] = c;
@@ -185,7 +193,7 @@ string string::operator+(const string & s) const
 		if (s.cstr)
 		{
 			char l = cstr[0] + s.cstr[0];
-			char * p = malloc(l + 2);
+			char * p = malloc(char(l + 2));
 			smemcpy(p + 1, cstr + 1, cstr[0]);
 			smemcpy(p + 1 + cstr[0], s.cstr + 1, s.cstr[0]);
 			return string(l, p);
@@ -201,11 +209,11 @@ string string::operator+(const char * s) const
 {
 	if (cstr)
 	{
-		char sl = strlen(s);
+		char sl = sstrlen(s);
 		if (sl)
 		{
 			char l = cstr[0] + sl;
-			char * p = malloc(l + 2);
+			char * p = malloc(char(l + 2));
 			smemcpy(p + 1, cstr + 1, cstr[0]);
 			smemcpy(p + 1 + cstr[0], s, sl);
 			return string(l, p);
@@ -222,7 +230,7 @@ string string::operator+(char c) const
 	if (cstr)
 	{
 		char l = cstr[0] + 1;
-		char * p = malloc(l + 2);
+		char * p = malloc(char(l + 2));
 		smemcpy(p + 1, cstr + 1, cstr[0]);
 		p[l] = c;
 		return string(l, p);
@@ -472,7 +480,7 @@ int string::find(const char * s, char pos) const
 	if (cstr)
 	{
 		char l = cstr[0];
-		char sl = strlen(s);
+		char sl = sstrlen(s);
 		if (sl <= l)
 		{
 			l -= sl;

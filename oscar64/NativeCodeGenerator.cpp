@@ -34974,7 +34974,31 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						progress = true;
 					}
 #endif
-
+					else if (
+						mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_MEM))
+					{
+						if (!(mIns[i + 0].mLive & LIVE_CPU_REG_X))
+						{
+							mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+							mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_INX));
+							mIns[i + 2].mType = ASMIT_TXA; mIns[i + 2].mMode = ASMIM_IMPLIED;
+							progress = true;
+						}
+						else if (!(mIns[i + 0].mLive & LIVE_CPU_REG_Y))
+						{
+							mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+							mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_INY));
+							mIns[i + 2].mType = ASMIT_TYA; mIns[i + 2].mMode = ASMIM_IMPLIED;
+							progress = true;
+						}
+						else if (!(mIns[i + 0].mLive & LIVE_CPU_REG_C))
+						{
+							mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_CLC));
+							mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 1;
+							progress = true;
+						}
+					}
 #if 0
 					else if (
 						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
@@ -39859,6 +39883,45 @@ bool NativeCodeBasicBlock::CalculateOffset(int& total)
 	return changed;
 }
 
+void NativeCodeBasicBlock::ShortcutJump(int offset)
+{
+	if (mCode[offset] == 0x4c)
+	{
+		int i = 0;
+		while (i < mRelocations.Size() && mRelocations[i].mOffset != offset + 1)
+			i++;
+		if (i < mRelocations.Size())
+		{
+			LinkerReference& ref(mRelocations[i]);
+			if (ref.mRefObject && ref.mRefObject->mData)
+			{
+				LinkerObject* lo = ref.mRefObject;
+
+				if (lo->mData[ref.mRefOffset] == 0x4c || lo->mData[ref.mRefOffset] == 0x6c)
+				{
+					int j = 0;
+					while (j < lo->mReferences.Size() && lo->mReferences[j]->mOffset != ref.mRefOffset + 1)
+						j++;
+					if (j < lo->mReferences.Size())
+					{
+						mCode[offset] = lo->mData[ref.mRefOffset];
+						ref.mRefObject = lo->mReferences[j]->mRefObject;
+						ref.mRefOffset = lo->mReferences[j]->mRefOffset;
+						ref.mFlags = lo->mReferences[j]->mFlags;
+					}
+					else
+					{
+						mCode[offset] = lo->mData[ref.mRefOffset];
+						mCode[offset + 1] = lo->mData[ref.mRefOffset + 1];
+						mCode[offset + 2] = lo->mData[ref.mRefOffset + 2];
+						mRelocations.Remove(i);
+					}
+				}
+			}
+		}
+	}
+}
+
 void NativeCodeBasicBlock::ShortcutTailRecursion()
 {
 	if (!mVisited)
@@ -39869,6 +39932,7 @@ void NativeCodeBasicBlock::ShortcutTailRecursion()
 			this->mCode[this->mCode.Size() - 3] = 0x4c;
 			mTrueJump->mNumEntries--;
 			mTrueJump = nullptr;
+			ShortcutJump(this->mCode.Size() - 3);
 		}
 		else if (!mFalseJump && !mTrueJump)
 		{
@@ -39877,6 +39941,7 @@ void NativeCodeBasicBlock::ShortcutTailRecursion()
 			{
 				this->mCode.Remove(this->mCode.Size() - 1);
 				this->mCode[this->mCode.Size() - 3] = 0x4c;
+				ShortcutJump(this->mCode.Size() - 3);
 			}
 		}
 

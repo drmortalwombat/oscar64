@@ -1337,7 +1337,7 @@ Expression* Parser::BuildMemberInitializer(Expression* vexp)
 		mScanner->NextToken();
 		if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 		{
-			fexp->mRight = ParseListExpression();
+			fexp->mRight = ParseListExpression(false);
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
 		else
@@ -2887,7 +2887,7 @@ void Parser::ParseVariableInit(Declaration* ndec)
 	mScanner->NextToken();
 	if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 	{
-		pexp = ParseListExpression();
+		pexp = ParseListExpression(false);
 		ConsumeToken(TK_CLOSE_PARENTHESIS);
 	}
 	else
@@ -4332,7 +4332,7 @@ Expression* Parser::ParseQualify(Expression* exp)
 						nexp->mRight = nullptr;
 					else
 					{
-						nexp->mRight = ParseListExpression();
+						nexp->mRight = ParseListExpression(false);
 						ConsumeToken(TK_CLOSE_PARENTHESIS);
 					}
 
@@ -4530,7 +4530,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				mScanner->NextToken();
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 				{
-					pexp = ParseListExpression();
+					pexp = ParseListExpression(false);
 					ConsumeToken(TK_CLOSE_PARENTHESIS);
 				}
 				else
@@ -4641,7 +4641,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				nexp->mLeft = exp;
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 				{
-					nexp->mRight = ParseListExpression();
+					nexp->mRight = ParseListExpression(false);
 					ConsumeToken(TK_CLOSE_PARENTHESIS);
 				}
 				else
@@ -4876,7 +4876,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 					{
 						if (!ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
 						{
-							pexp = ParseListExpression();
+							pexp = ParseListExpression(false);
 
 							mdec = dec->mScope->Lookup(dec->mIdent);
 
@@ -5717,16 +5717,16 @@ Expression* Parser::ParseExpression(bool lhs)
 	return ParseAssignmentExpression(lhs);
 }
 
-Expression* Parser::ParseListExpression(void)
+Expression* Parser::ParseListExpression(bool lhs)
 {
-	Expression* exp = ParseExpression(true);
+	Expression* exp = ParseExpression(lhs);
 	if (mScanner->mToken == TK_COMMA)
 	{
 		Expression* nexp = new Expression(mScanner->mLocation, EX_LIST);
 		nexp->mToken = mScanner->mToken;
 		nexp->mLeft = exp;
 		mScanner->NextToken();
-		nexp->mRight = ParseListExpression();
+		nexp->mRight = ParseListExpression(false);
 		exp = nexp;
 	}
 	return exp;
@@ -6183,7 +6183,7 @@ Expression* Parser::ParseStatement(void)
 			break;
 
 		default:
-			exp = CleanupExpression(ParseListExpression());
+			exp = CleanupExpression(ParseListExpression(true));
 			ConsumeToken(TK_SEMICOLON);
 		}
 	}
