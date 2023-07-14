@@ -9,7 +9,7 @@ private:
 public:
 	string(void);
 	string(const string & s);
-	__noinline string(const char * s);
+	string(const char * s);
 	string(char c);
 	~string(void);
 

@@ -550,7 +550,7 @@ public:
 	void BuildEntryDataSet(const NativeRegisterDataSet& set);
 	bool ApplyEntryDataSet(void);
 
-	bool CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global);
+	bool CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global, bool ignorefcall);
 	void CollectZeroPageUsage(NumberSet& used, NumberSet& modified, NumberSet& pairs);
 	void FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias, int accu);
 	bool RemapZeroPage(const uint8* remap);

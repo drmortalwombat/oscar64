@@ -293,9 +293,26 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			Declaration* cf = procDec->mCalled[i];
 
 			if (cf->mType == DT_TYPE_FUNCTION)
-				procDec->mFlags |= DTF_DYNSTACK;
+			{
+				for (int i = 0; i < mVariableFunctions.Size(); i++)
+				{
+					Declaration* vf = mVariableFunctions[i];
+					CheckFastcall(vf, false);
 
-			CheckFastcall(cf, false);
+					if (vf->mBase->IsSame(cf))
+					{
+						int n = vf->mBase->mFastCallBase + vf->mBase->mFastCallSize;
+						if (n > nbase)
+							nbase = n;
+					}
+				}
+//				procDec->mFlags |= DTF_DYNSTACK;
+			}
+			else
+				CheckFastcall(cf, false);
+
+			if (cf->mFlags & DTF_DYNSTACK)
+				procDec->mFlags |= DTF_DYNSTACK;
 
 //			if (!(cf->mBase->mFlags & DTF_FASTCALL))
 //				procDec->mBase->mFlags |= DTF_STACKCALL;
@@ -658,6 +675,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		return exp->mDecValue->mBase;
 	case EX_DISPATCH:
 		Analyze(exp->mLeft, procDec, lhs);
+		RegisterCall(procDec, exp->mLeft->mDecType);
 		break;
 	case EX_VCALL:
 		exp->mType = EX_CALL;
@@ -893,6 +911,9 @@ void GlobalAnalyzer::RegisterCall(Declaration* from, Declaration* to)
 {
 	if (from)
 	{
+		if (to->mType == DT_VARIABLE || to->mType == DT_ARGUMENT)
+			to = to->mBase;
+
 		if (to->mType == DT_CONST_FUNCTION)
 		{
 			if (to->mFlags & DTF_DYNSTACK)

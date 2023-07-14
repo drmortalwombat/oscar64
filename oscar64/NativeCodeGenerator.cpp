@@ -12929,7 +12929,7 @@ void NativeCodeBasicBlock::FindZeroPageAlias(const NumberSet& statics, NumberSet
 	}
 }
 
-bool NativeCodeBasicBlock::CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global)
+bool NativeCodeBasicBlock::CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global, bool ignorefcall)
 {
 	if (!mVisited)
 	{
@@ -12946,12 +12946,20 @@ bool NativeCodeBasicBlock::CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& 
 			case ASMIM_ABSOLUTE:
 				if (mIns[i].mType == ASMIT_JSR)
 				{
-					if ((mIns[i].mFlags & NCIF_RUNTIME) && !(mIns[i].mFlags & NCIF_FEXEC))
+					if (mIns[i].mFlags & NCIF_RUNTIME)
 					{
-						for (int j = 0; j < 4; j++)
+						if (mIns[i].mFlags & NCIF_FEXEC)
 						{
-							locals += BC_REG_ACCU + j;
-							locals += BC_REG_WORK + j;
+							if (!ignorefcall)
+								return false;
+						}
+						else
+						{
+							for (int j = 0; j < 4; j++)
+							{
+								locals += BC_REG_ACCU + j;
+								locals += BC_REG_WORK + j;
+							}
 						}
 					}
 
@@ -12996,9 +13004,9 @@ bool NativeCodeBasicBlock::CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& 
 			}
 		}
 
-		if (mTrueJump && !mTrueJump->CollectZeroPageSet(locals, global))
+		if (mTrueJump && !mTrueJump->CollectZeroPageSet(locals, global, ignorefcall))
 			return false;
-		if (mFalseJump && !mFalseJump->CollectZeroPageSet(locals, global))
+		if (mFalseJump && !mFalseJump->CollectZeroPageSet(locals, global, ignorefcall))
 			return false;
 	}
 
@@ -40372,7 +40380,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 		ZeroPageSet	zpLocal, zpGlobal;
 		ResetVisited();
-		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal))
+		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal, true))
 			zpLocal |= zpGlobal;
 		else
 			mGenerator->mErrors->Error(mInterProc->mLocation, ERRR_INTERRUPT_TO_COMPLEX, "No recursive functions in interrupt");
@@ -40660,7 +40668,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 		ZeroPageSet	zpLocal, zpGlobal;
 		ResetVisited();
-		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal))
+		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal, false))
 		{
 			zpLocal |= zpGlobal;
 

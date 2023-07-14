@@ -109,12 +109,13 @@ class Declaration;
 
 enum ScopeLevel
 {
+	SLEVEL_SCOPE,
 	SLEVEL_GLOBAL,
 	SLEVEL_STATIC,
 	SLEVEL_NAMESPACE,
 	SLEVEL_CLASS,
 	SLEVEL_FUNCTION,
-	SLEVEL_LOCAL
+	SLEVEL_LOCAL,
 };
 
 class DeclarationScope
@@ -283,6 +284,8 @@ public:
 
 	Declaration* BuildPointer(const Location& loc);
 	Declaration* BuildReference(const Location& loc);
+	Declaration* BuildConstPointer(const Location& loc);
+	Declaration* BuildConstReference(const Location& loc);
 
 	int Stride(void) const;
 };

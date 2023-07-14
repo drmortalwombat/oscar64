@@ -54,7 +54,7 @@ protected:
 	Expression * AddFunctionCallRefReturned(Expression * exp);
 	Expression* CleanupExpression(Expression* exp);
 
-	Declaration* ParseBaseTypeDeclaration(uint64 flags);
+	Declaration* ParseBaseTypeDeclaration(uint64 flags, bool qualified);
 	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
 
@@ -87,7 +87,7 @@ protected:
 	Expression* ParseQualify(Expression * exp);
 	
 	int OverloadDistance(Declaration* pdec, Expression* pexp);
-	void ResolveOverloadCall(Expression* cexp, Expression* pexp);
+	Expression * ResolveOverloadCall(Expression* exp, Expression * exp2 = nullptr);
 
 	Expression* ParseSimpleExpression(bool lhs);
 	Expression* ParsePrefixExpression(bool lhs);

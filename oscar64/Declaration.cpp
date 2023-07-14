@@ -92,8 +92,8 @@ Declaration* DeclarationScope::Lookup(const Ident* ident, ScopeLevel limit)
 
 	if (mHashSize > 0)
 	{
-		int		hm = mHashSize - 1;
-		int		hi = ident->mHash & hm;
+		unsigned int		hm = mHashSize - 1;
+		unsigned int		hi = ident->mHash & hm;
 
 		while (mHash[hi].mIdent)
 		{
@@ -103,14 +103,17 @@ Declaration* DeclarationScope::Lookup(const Ident* ident, ScopeLevel limit)
 		}
 	}
 
+	if (limit == SLEVEL_SCOPE)
+		return nullptr;
+
 	for (int i = 0; i < mUsed.Size(); i++)
 	{
-		Declaration* dec = mUsed[i]->Lookup(ident);
+		Declaration* dec = mUsed[i]->Lookup(ident, limit);
 		if (dec)
 			return dec;
 	}
 
-	return mParent ? mParent->Lookup(ident) : nullptr;
+	return mParent ? mParent->Lookup(ident, limit) : nullptr;
 }
 
 void DeclarationScope::End(const Location& loc)
@@ -811,6 +814,24 @@ int Declaration::Stride(void) const
 	return mStride > 0 ? mStride : mBase->mSize;
 }
 
+Declaration* Declaration::BuildConstPointer(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_POINTER);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED | DTF_CONST;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+Declaration* Declaration::BuildConstReference(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_REFERENCE);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED | DTF_CONST;
+	pdec->mSize = 2;
+	return pdec;
+}
+
 Declaration* Declaration::BuildPointer(const Location& loc)
 {
 	Declaration* pdec = new Declaration(loc, DT_TYPE_POINTER);
@@ -1021,6 +1042,9 @@ bool Declaration::IsSubType(const Declaration* dec) const
 {
 	if (this == dec)
 		return true;
+
+	if (mType == DT_TYPE_REFERENCE && dec->mType == DT_TYPE_REFERENCE)
+		return mBase->IsSubType(dec->mBase);
 
 	if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 	{

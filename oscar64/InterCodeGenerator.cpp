@@ -1153,8 +1153,9 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			block->Append(ains);
 
 			InterInstruction* wins = new InterInstruction(exp->mLocation, IC_STORE);
+			wins->mNumOperands = 2;
 			wins->mSrc[1].mMemory = IM_INDIRECT;
-			wins->mSrc[0].mType = InterTypeOf(vl.mType);;
+			wins->mSrc[0].mType = vl.mReference > 0 ? IT_POINTER : InterTypeOf(vl.mType);
 			wins->mSrc[0].mTemp = vl.mTemp;
 			wins->mSrc[1].mType = IT_POINTER;
 			wins->mSrc[1].mTemp = ains->mDst.mTemp;
@@ -1168,6 +1169,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			vdec = new Declaration(exp->mLocation, DT_VARIABLE);
 
 			ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
+			ains->mNumOperands = 0;
 			ains->mDst.mType = IT_POINTER;
 			ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 			ains->mConst.mMemory = IM_LOCAL;
@@ -1185,8 +1187,9 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			block->Append(ains);
 
 			wins = new InterInstruction(exp->mLocation, IC_STORE);
+			wins->mNumOperands = 2;
 			wins->mSrc[1].mMemory = IM_INDIRECT;
-			wins->mSrc[0].mType = InterTypeOf(vr.mType);;
+			wins->mSrc[0].mType = vr.mReference > 0 ? IT_POINTER : InterTypeOf(vr.mType);;
 			wins->mSrc[0].mTemp = vr.mTemp;
 			wins->mSrc[1].mType = IT_POINTER;
 			wins->mSrc[1].mTemp = ains->mDst.mTemp;
@@ -3082,7 +3085,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					ExValue	vp(ptype ? ptype : TheSignedIntTypeDeclaration, ains->mDst.mTemp, 1);
 
-					if (pdec && pdec->mBase->mType == DT_TYPE_REFERENCE && texp->mType == EX_CALL)
+					if (pdec && pdec->mBase->mType == DT_TYPE_REFERENCE && texp->mType == EX_CALL && texp->mDecType->mType != DT_TYPE_REFERENCE)
 					{
 						mErrors->Error(texp->mLocation, EERR_MISSING_TEMP, "Missing temporary variable");
 #if 0
@@ -4030,7 +4033,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 				vr = Dereference(proc, exp, block, vr);
 				ins->mCode = IC_TYPECAST;
-				ins->mSrc[0].mType = InterTypeOf(vr.mType);
+				ins->mSrc[0].mType = vr.mReference > 0 ? IT_POINTER : InterTypeOf(vr.mType);
 				ins->mSrc[0].mTemp = vr.mTemp;
 				ins->mDst.mType = InterTypeOf(exp->mDecType);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
@@ -4564,7 +4567,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE));
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "A::func"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
 		exp->Dump(0);
 #endif
 #if 0

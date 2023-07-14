@@ -334,6 +334,7 @@ void Compiler::BuildVTables(void)
 
 					Expression* ecall = new Expression(mdec->mLocation, EX_DISPATCH);
 					ecall->mLeft = new Expression(mdec->mLocation, EX_INDEX);
+					ecall->mLeft->mDecType = mdec->mBase;
 					ecall->mDecType = vtabt->mBase;
 					ecall->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
 					ecall->mLeft->mLeft->mDecType = vtabt;
