@@ -3453,6 +3453,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							if (ldec && ldec != pdec)
 								mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition");
 						}
+						else if (!pdec)
+							mErrors->Error(ndec->mLocation, EERR_OBJECT_NOT_FOUND, "Object not declarared in scope", ndec->mQualIdent);
+
 					}
 					else
 						pdec = mScope->Insert(ndec->mIdent, ndec);

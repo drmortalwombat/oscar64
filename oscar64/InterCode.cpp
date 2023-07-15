@@ -4682,7 +4682,7 @@ bool InterCodeBasicBlock::MergeSameConditionTraces(void)
 					if (mb1 && mb1->mNumEntries == 2 && mb0 != mb1)
 					{
 						int	tc = mInstructions.Last()->mSrc[0].mTemp;
-						if (tc == mb0->mInstructions.Last()->mSrc[0].mTemp)
+						if (tc >= 0 && tc == mb0->mInstructions.Last()->mSrc[0].mTemp)
 						{
 							if (!mTrueJump->mLocalModifiedTemps[tc] && !mFalseJump->mLocalModifiedTemps[tc] && !mb0->mLocalModifiedTemps[tc])
 							{
@@ -6464,6 +6464,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				switch (ins->mOperator)
 				{
 				case IA_EXT8TO16S:
+				case IA_EXT8TO32S:
 					vr = ins->mSrc[0].mRange;
 					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < -128 || vr.mMaxValue > 127)
 					{
@@ -6477,7 +6478,22 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					}
 					break;
 
+				case IA_EXT16TO32S:
+					vr = ins->mSrc[0].mRange;
+					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < -65536 || vr.mMaxValue > 65535)
+					{
+						vr.mMaxState = IntegerValueRange::S_BOUND;
+						vr.mMaxValue = 65535;
+					}
+					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < -65536 || vr.mMinValue > 65535)
+					{
+						vr.mMinState = IntegerValueRange::S_BOUND;
+						vr.mMinValue = -65536;
+					}
+					break;
+
 				case IA_EXT8TO16U:
+				case IA_EXT8TO32U:
 					vr = ins->mSrc[0].mRange;
 					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255 || vr.mMinValue < 0 ||  
 						vr.mMinState != IntegerValueRange::S_BOUND)
@@ -6488,6 +6504,22 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 						vr.mMinValue = 0;
 					}
 					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < 0 || vr.mMinValue > 255)
+					{
+						vr.mMinState = IntegerValueRange::S_BOUND;
+						vr.mMinValue = 0;
+					}
+					break;
+				case IA_EXT16TO32U:
+					vr = ins->mSrc[0].mRange;
+					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 65535 || vr.mMinValue < 0 ||
+						vr.mMinState != IntegerValueRange::S_BOUND)
+					{
+						vr.mMaxState = IntegerValueRange::S_BOUND;
+						vr.mMaxValue = 65535;
+						vr.mMinState = IntegerValueRange::S_BOUND;
+						vr.mMinValue = 0;
+					}
+					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < 0 || vr.mMinValue > 65535)
 					{
 						vr.mMinState = IntegerValueRange::S_BOUND;
 						vr.mMinValue = 0;
@@ -10502,7 +10534,7 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 
 				if (fblock && tblock)
 				{
-					if (tblock->mInstructions[0]->IsEqual(fblock->mInstructions.Last()) && !fblock->mLocalModifiedTemps[tblock->mInstructions[0]->mSrc[0].mTemp])
+					if (tblock->mInstructions[0]->IsEqual(fblock->mInstructions.Last()) && (tblock->mInstructions[0]->mSrc[0].mTemp < 0 || !fblock->mLocalModifiedTemps[tblock->mInstructions[0]->mSrc[0].mTemp]))
 					{
 						fblock->mTrueJump = tblock;
 						fblock->mFalseJump = nullptr;

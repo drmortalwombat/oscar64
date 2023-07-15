@@ -352,6 +352,7 @@ public:
 	void CallAssembler(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 
+	void ShiftRegisterRight( const InterInstruction* ins, int reg, int shift);
 	void ShiftRegisterLeft(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift);
 	void ShiftRegisterLeftByte(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift);
 	void ShiftRegisterLeftFromByte(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift, int max);

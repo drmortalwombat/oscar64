@@ -83,7 +83,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 
 	if (type->mType == DT_TYPE_REFERENCE)
 	{
-		if (!type->mBase->IsSubType(v.mType))
+		if (v.mType->mType == DT_TYPE_REFERENCE)
+		{
+			if (!type->mBase->IsSubType(v.mType->mBase))
+				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Incompatible type for reference");
+		}
+		else if (!type->mBase->IsSubType(v.mType))
 			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Incompatible type for reference");
 
 		return v;
@@ -998,7 +1003,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 			if (pdec)
 			{
 				if (!pdec->mBase->CanAssign(vr.mType))
+				{
+					pdec->mBase->CanAssign(vr.mType);
 					mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+				}
 				vr = CoerceType(proc, texp, block, vr, pdec->mBase);
 			}
 			else if (vr.mType->IsIntegerType() && vr.mType->mSize < 2)
@@ -3221,7 +3229,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CALL);
 				cins->mNumOperands = 1;
-				if (funcexp->mDecValue && (funcexp->mDecValue->mFlags & DTF_NATIVE))
+				if (funcexp->mDecValue && (funcexp->mDecValue->mFlags & DTF_NATIVE) || (mCompilerOptions & COPT_NATIVE))
 					cins->mCode = IC_CALL_NATIVE;
 				else
 					cins->mCode = IC_CALL;
