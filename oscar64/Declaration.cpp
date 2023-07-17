@@ -1238,6 +1238,31 @@ bool Declaration::IsSameParams(const Declaration* dec) const
 		return false;
 }
 
+bool Declaration::IsDerivedFrom(const Declaration* dec) const
+{
+	if (mType != DT_TYPE_FUNCTION || dec->mType != DT_TYPE_FUNCTION)
+		return false;
+
+	if (!(mFlags & DTF_FUNC_THIS) || !(dec->mFlags & DTF_FUNC_THIS))
+		return false;
+
+	if (!mBase->IsSame(dec->mBase))
+		return false;
+	Declaration* dl = mParams->mNext, * dr = dec->mParams->mNext;
+	while (dl && dr)
+	{
+		if (!dl->mBase->IsSame(dr->mBase))
+			return false;
+		dl = dl->mNext;
+		dr = dr->mNext;
+	}
+
+	if (dl || dr)
+		return false;
+
+	return true;
+}
+
 bool Declaration::IsSame(const Declaration* dec) const
 {
 	if (this == dec)

@@ -40370,7 +40370,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test_find");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "getchar");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -40425,7 +40425,25 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	// Place a temporary RTS
 
-	mExitBlock->mIns.Push(NativeCodeInstruction(nullptr, ASMIT_RTS, ASMIM_IMPLIED, 0, nullptr, 0));
+	uint32	rflags = 0;
+	switch (proc->mReturnType)
+	{ 
+	case IT_BOOL:
+	case IT_INT8:
+		rflags = NCIF_LOWER;
+		break;
+	case IT_INT16:
+	case IT_POINTER:
+		rflags = NCIF_LOWER | NCIF_UPPER;
+		break;
+	case IT_INT32:
+	case IT_FLOAT:
+		rflags = NCIF_LOWER | NCIF_UPPER | NCIF_LONG;
+		break;
+
+	}
+
+	mExitBlock->mIns.Push(NativeCodeInstruction(nullptr, ASMIT_RTS, ASMIM_IMPLIED, 0, nullptr, rflags));
 
 	mEntryBlock->mTrueJump = CompileBlock(mInterProc, mInterProc->mBlocks[0]);
 	mEntryBlock->mBranch = ASMIT_JMP;
@@ -40443,7 +40461,6 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		}
 #endif
 #if 1
-		if (mExitBlock->mIns[0].mFlags == NCIF_LOWER)
 		if (mExitBlock->mIns[0].mFlags == NCIF_LOWER)
 		{
 			mExitBlock->mIns[0].mFlags = 0;
@@ -41021,6 +41038,8 @@ void NativeCodeProcedure::Optimize(void)
 			mEntryBlock->ReplaceFinalZeroPageUse(this);
 		}
 #endif
+
+
 		int t = 0;
 #if 1
 		do
@@ -41029,8 +41048,8 @@ void NativeCodeProcedure::Optimize(void)
 
 			BuildDataFlowSets();
 			ResetVisited();
-			changed = mEntryBlock->RemoveUnusedResultInstructions();
 
+			changed = mEntryBlock->RemoveUnusedResultInstructions();
 
 			if (step == 0)
 			{
@@ -41646,7 +41665,9 @@ void NativeCodeProcedure::Optimize(void)
 		else
 			cnt++;
 
+
 	} while (changed);
+
 
 #if 1
 	ResetVisited();

@@ -10,6 +10,7 @@ public:
 	string(void);
 	string(const string & s);
 	string(const char * s);
+	string(const char * s, char size);
 	string(char c);
 	~string(void);
 
@@ -61,6 +62,8 @@ public:
 	int find(const string & s, char pos) const;
 	int find(const char * s, char pos) const;
 	int find(char c, char pos) const;
+
+	void copyseg(char * p, char at, char num) const;
 protected:
 	string(char l, char * b);
 };

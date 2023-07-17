@@ -160,6 +160,7 @@ enum Token
 	TK_NEW,
 	TK_DELETE,
 	TK_VIRTUAL,
+	TK_OPERATOR,
 
 	NUM_TOKENS
 };
@@ -259,6 +260,8 @@ protected:
 	}	*	mMacroExpansion;
 
 	MacroDict* mDefines, * mDefineArguments;
+
+	Token		mUngetToken;
 
 	void StringToken(char terminator, char mode);
 	void CharToken(char mode);

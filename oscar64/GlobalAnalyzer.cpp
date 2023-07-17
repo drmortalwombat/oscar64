@@ -284,7 +284,7 @@ void GlobalAnalyzer::MarkRecursions(void)
 
 void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 {
-	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && !(procDec->mBase->mFlags & DTF_STACKCALL) && (procDec->mType == DT_CONST_FUNCTION) && !(procDec->mFlags & DTF_FUNC_ANALYZING))
+	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && (procDec->mType == DT_CONST_FUNCTION) && !(procDec->mFlags & DTF_FUNC_ANALYZING))
 	{
 		procDec->mFlags |= DTF_FUNC_ANALYZING;
 		int	nbase = 0;

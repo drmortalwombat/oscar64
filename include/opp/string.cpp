@@ -44,6 +44,18 @@ string::string(const char * s)
 		cstr = nullptr;
 }
 
+string::string(const char * s, char size)
+{
+	if (size)
+	{
+		cstr = malloc(char(size + 2));
+		cstr[0] = size;
+		smemcpy(cstr + 1, s, size + 1);
+	}
+	else
+		cstr = nullptr;	
+}
+
 string::string(char c)
 {
 	cstr = malloc(3);
@@ -64,6 +76,11 @@ string::~string(void)
 	free(cstr);
 }
 	
+void string::copyseg(char * p, char at, char num) const
+{
+	smemcpy(p, cstr + 1 + at, num);
+}
+
 string & string::operator=(const string & s)
 {
 	if (cstr != s.cstr)	

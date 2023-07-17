@@ -50,6 +50,7 @@ protected:
 
 	void ParseVariableInit(Declaration* ndec);
 	void AddMemberFunction(Declaration* dec, Declaration* mdec);
+	Declaration* FindBaseMemberFunction(Declaration* dec, Declaration* mdec);
 
 	Expression * AddFunctionCallRefReturned(Expression * exp);
 	Expression* CleanupExpression(Expression* exp);
@@ -88,6 +89,7 @@ protected:
 	
 	int OverloadDistance(Declaration* pdec, Expression* pexp);
 	Expression * ResolveOverloadCall(Expression* exp, Expression * exp2 = nullptr);
+	Expression* CoerceExpression(Expression* exp, Declaration* type);
 
 	Expression* ParseSimpleExpression(bool lhs);
 	Expression* ParsePrefixExpression(bool lhs);

@@ -161,6 +161,7 @@ const char* TokenNames[] =
 	"'new'",
 	"'delete'",
 	"'virtual'",
+	"'operator'",
 };
 
 
@@ -321,6 +322,7 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	mDefines = new MacroDict();
 	mDefineArguments = nullptr;
 	mToken = TK_NONE;
+	mUngetToken = TK_NONE;
 
 	NextChar();
 
@@ -873,7 +875,12 @@ void Scanner::NextToken(void)
 
 void Scanner::NextRawToken(void)
 {
-	if (mToken != TK_EOF)
+	if (mUngetToken)
+	{
+		mToken = mUngetToken;
+		mUngetToken = TK_NONE;
+	}
+	else if (mToken != TK_EOF)
 	{
 		mToken = TK_ERROR;
 
@@ -1480,6 +1487,9 @@ void Scanner::NextRawToken(void)
 					case TK_BINARY_XOR:
 						mTokenIdent = Ident::Unique("operator^");
 						break;
+					case TK_LOGICAL_NOT:
+						mTokenIdent = Ident::Unique("operator!");
+						break;
 
 					case TK_LEFT_SHIFT:
 						mTokenIdent = Ident::Unique("operator<<");
@@ -1522,7 +1532,11 @@ void Scanner::NextRawToken(void)
 						break;
 
 					default:
-						mErrors->Error(mLocation, EERR_INVALID_OPERATOR, "Invalid operator token");
+						// dirty little hack to implement token preview, got to fix
+						// this with an infinit preview sequence at one point
+						mUngetToken = mToken;
+						mToken = TK_OPERATOR;
+						return;
 					}
 
 					mToken = TK_IDENT;

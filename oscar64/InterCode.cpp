@@ -15331,7 +15331,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
 	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false),
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
-	mCheckUnreachable(true),
+	mCheckUnreachable(true), mReturnType(IT_NONE), 
 	mDeclaration(nullptr)
 {
 	mID = mModule->mProcedures.Size();

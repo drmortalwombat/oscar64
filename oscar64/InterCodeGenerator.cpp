@@ -4591,6 +4591,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 	proc->mCompilerOptions = mCompilerOptions;
 
+
 	dec->mVarIndex = proc->mID;
 	dec->mLinkerObject = proc->mLinkerObject;
 	proc->mNumLocals = dec->mNumVars;
@@ -4632,7 +4633,10 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		proc->mFastCallBase = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 
 	if (dec->mBase->mBase->mType != DT_TYPE_VOID && dec->mBase->mBase->mType != DT_TYPE_STRUCT)
+	{
 		proc->mValueReturn = true;
+		proc->mReturnType = InterTypeOf(dec->mBase->mBase);
+	}
 
 	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock(proc);
 

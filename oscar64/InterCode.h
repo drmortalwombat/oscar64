@@ -604,7 +604,7 @@ public:
 
 	LinkerObject					*	mLinkerObject, * mSaveTempsLinkerObject;
 	Declaration						*	mDeclaration;
-
+	InterType							mReturnType;
 	uint64								mCompilerOptions;
 
 	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
