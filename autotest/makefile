@@ -31,7 +31,7 @@ all: $(EXES)
 	$(CXX) -e -O3 -n $<
 
 # testb
-bitshifttes: bitshifttest.c
+bitshifttest: bitshifttest.c
 	$(CC) -e -bc $<
 	$(CC) -e -bc -O2 $<
 	$(CC) -e -bc -O0 $<
@@ -40,7 +40,7 @@ bitshifttes: bitshifttest.c
 	$(CC) -e -n $<
 
 # testn
-stripedarraytes: stripedarraytest.c
+stripedarraytest: stripedarraytest.c
 	$(CC) -e -O2 -n $<
 	$(CC) -e -O0 -n $<
 	$(CC) -e -Os -n $<
