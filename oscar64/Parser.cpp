@@ -207,6 +207,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 			Declaration* mlast = nullptr;
 			for (;;)
 			{
+				do {} while (ConsumeTokenIf(TK_SEMICOLON));
+
 				if (ConsumeTokenIf(TK_PUBLIC))
 				{
 					flags &= ~(DTF_PRIVATE | DTF_PROTECTED);
@@ -251,9 +253,6 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 
 						if (mCompilerOptions & COPT_NATIVE)
 							mdec->mFlags |= DTF_NATIVE;
-
-						if (!(mdec->mFlags & DTF_DEFINED))
-							ConsumeToken(TK_SEMICOLON);
 
 						AddMemberFunction(dec, mdec);
 					}
@@ -329,14 +328,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 					}
 					else
 					{
-						Declaration* mdec = dec->mParams;
-						while (mdec)
-						{
-							mdec->mOffset++;
-							mdec = mdec->mNext;
-						}
 						vdec->mOffset = 0;
-						dec->mSize++;
 					}
 
 					vdec->mDefaultConstructor = new Declaration(dec->mLocation, DT_CONST_INTEGER);
@@ -349,8 +341,19 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 					vdec->mIdent = dec->mIdent;
 					vdec->mQualIdent = dec->mQualIdent;
 					mCompilationUnits->mVTableScope->Insert(vdec->mQualIdent, vdec);
+				}
 
-					dec->mVTable = vdec;
+				dec->mVTable = vdec;
+
+				if (!dec->mBase)
+				{
+					Declaration* mdec = dec->mParams;
+					while (mdec)
+					{
+						mdec->mOffset++;
+						mdec = mdec->mNext;
+					}
+					dec->mSize++;
 				}
 
 				dec->mScope->Iterate([=](const Ident* ident, Declaration* mdec)
@@ -3636,7 +3639,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							if (pdec)
 							{
 								if (!ndec->mBase->IsSame(pdec->mBase))
+								{
+									ndec->mBase->IsSameParams(pdec->mBase);
+									ndec->mBase->IsSame(pdec->mBase);
 									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent);
+								}
 								else if (ndec->mFlags & ~pdec->mFlags & (DTF_HWINTERRUPT | DTF_INTERRUPT | DTF_FASTCALL | DTF_NATIVE))
 									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function call type declaration differs", ndec->mIdent);
 								else

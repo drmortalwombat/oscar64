@@ -1284,7 +1284,18 @@ bool Declaration::IsSame(const Declaration* dec) const
 	else if (mType == DT_TYPE_ENUM)
 		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
-		return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
+	{
+		if (mBase->mType == DT_TYPE_STRUCT && dec->mBase->mType == DT_TYPE_STRUCT)
+		{
+			if (mBase->mQualIdent == dec->mBase->mQualIdent &&
+				(mBase->mFlags & (DTF_CONST | DTF_VOLATILE)) == (dec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE)))
+				return true;
+			else
+				return false;
+		}
+		else
+			return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
+	}
 	else if (mType == DT_TYPE_REFERENCE)
 		return mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)

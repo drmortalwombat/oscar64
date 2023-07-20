@@ -478,6 +478,9 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 	if (mType == ASMIT_RTS)
 	{
 #if 1
+		if (mFlags & NCIF_USE_CPU_REG_A)
+			requiredTemps += CPU_REG_A;
+
 		if (mFlags & NCIF_LOWER)
 		{
 			requiredTemps += BC_REG_ACCU;
@@ -4189,6 +4192,12 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 	if (mType == ASMIT_RTS)
 	{
 #if 1
+		if (mFlags & NCIF_USE_CPU_REG_A)
+		{
+			if (!providedTemps[CPU_REG_A])
+				requiredTemps += CPU_REG_A;
+		}
+
 		if (mFlags & NCIF_LOWER)
 		{
 			if (!providedTemps[BC_REG_ACCU + 0]) requiredTemps += BC_REG_ACCU + 0;
@@ -15800,7 +15809,7 @@ bool NativeCodeBasicBlock::CrossBlockStoreLoadBypass(NativeCodeProcedure* proc)
 	{
 		mVisited = true;
 
-		if (mTrueJump && !mFalseJump && mIns.Size() > 0 && mTrueJump->mIns.Size() > 0)
+		if (mTrueJump && mTrueJump->mTrueJump && !mFalseJump && mIns.Size() > 0 && mTrueJump->mIns.Size() > 0)
 		{
 			int sz = mIns.Size();
 
@@ -40463,7 +40472,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 #if 1
 		if (mExitBlock->mIns[0].mFlags == NCIF_LOWER)
 		{
-			mExitBlock->mIns[0].mFlags = 0;
+			mExitBlock->mIns[0].mFlags = NCIF_USE_CPU_REG_A;
 			mExitBlock->mIns.Insert(0, NativeCodeInstruction(nullptr, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
 			mExitBlock->mExitRegA = true;
 			proc->mLinkerObject->mFlags |= LOBJF_RET_REG_A;
