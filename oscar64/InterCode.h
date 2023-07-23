@@ -150,6 +150,7 @@ public:
 	void Reset(void);
 
 	int64		mMinValue, mMaxValue;
+	int			mMinExpanded, mMaxExpanded;
 	
 	enum State
 	{
@@ -161,6 +162,7 @@ public:
 
 	bool Same(const IntegerValueRange& range) const;
 	bool Merge(const IntegerValueRange& range, bool head, bool initial);
+	void Expand(const IntegerValueRange& range);
 
 	void Limit(const IntegerValueRange& range);
 	void SetLimit(int64 minValue, int64 maxValue);
@@ -341,7 +343,7 @@ public:
 	bool ConstantFolding(void);
 	bool ConstantFoldingRelationRange(void);
 
-	void Disassemble(FILE* file);
+	void Disassemble(FILE* file, InterCodeProcedure * proc);
 };
 
 class InterCodeBasicBlock

@@ -1706,6 +1706,7 @@ void Parser::BuildMemberConstructor(Declaration* pthis, Declaration* cfunc)
 void Parser::AddDefaultConstructors(Declaration* pthis)
 {
 	bool	simpleDestructor = true, simpleAssignment = true, simpleConstructor = true, simpleCopy = true;
+	bool	inlineDestructor = true;
 	bool	inlineConstructor = true;
 
 	char	dname[100];
@@ -1750,7 +1751,11 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 	while (bcdec)
 	{
 		if (bcdec->mBase->mDestructor)
+		{
+			if (!(bcdec->mBase->mDestructor->mBase->mFlags & DTF_REQUEST_INLINE))
+				inlineConstructor = false;
 			simpleDestructor = false;
+		}
 		if (bcdec->mBase->mDefaultConstructor)
 		{
 			simpleConstructor = false;
@@ -1781,7 +1786,11 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			if (bdec->mType == DT_TYPE_STRUCT)
 			{
 				if (bdec->mDestructor)
+				{
 					simpleDestructor = false;
+					if (!(bdec->mDestructor->mBase->mFlags & DTF_REQUEST_INLINE))
+						inlineDestructor = false;
+				}
 				if (bdec->mDefaultConstructor)
 				{
 					simpleConstructor = false;
@@ -1813,6 +1822,8 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+			if (inlineDestructor)
+				cdec->mFlags |= DTF_REQUEST_INLINE;
 
 			cdec->mSection = mCodeSection;
 

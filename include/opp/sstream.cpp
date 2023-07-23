@@ -16,9 +16,9 @@ void ostringstream::bput(char ch)
 {
 	if (!mBuffer)
 	{
-		mBSize = 16;
+		mBSize = 15;
 		mBFill = 0;
-		mBuffer = malloc(16);
+		mBuffer = malloc(15);
 	}
 	else if (mBFill == mBSize)
 	{
@@ -63,6 +63,7 @@ string istringstream::str(void) const
 
 void istringstream::str(const string & str)
 {
+	mState = goodbit;
 	mString = str;
 	mSPos = 0;
 }

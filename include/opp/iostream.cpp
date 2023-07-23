@@ -6,7 +6,7 @@ ios::ios(void)
 	: mFlags(0), mState(0), mWidth(0), mPrecision(6), mFill(' ')
 {}
 
-ios::~ios(void)
+inline ios::~ios(void)
 {
 
 }
@@ -177,7 +177,7 @@ ostream & operator<<(ostream & os, const iosetfill & s)
 	return os;
 }
 
-ostream::ostream(void)
+inline ostream::ostream(void)
 	{}
 
 
@@ -545,7 +545,7 @@ ostream & ostream::operator<<(const string & s)
 	return *this;
 }
 
-ostream & ostream::operator<<(manip m)
+inline ostream & ostream::operator<<(manip m)
 {
 	return m(*this);
 }
@@ -711,6 +711,8 @@ unsigned istream::getnum(void)
 	else if (ch == '+')
 		ch = get();
 
+	bool	digits = false;
+
 	if (ch == '0')
 	{
 		if (bflags == 0)
@@ -722,10 +724,13 @@ unsigned istream::getnum(void)
 				base = 16;
 				ch = get();
 			}
+			else
+				digits = true;				
 		}
+		else
+			digits = true;				
 	}
 
-	bool	digits = false;
 	for(;;)
 	{
 		if (ch >= '0' && ch <= '9')

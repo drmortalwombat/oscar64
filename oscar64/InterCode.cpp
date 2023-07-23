@@ -28,7 +28,10 @@ static bool IsIntegerType(InterType type)
 
 IntegerValueRange::IntegerValueRange(void)
 	: mMinState(S_UNKNOWN), mMaxState(S_UNKNOWN)
-{}
+{
+	mMinExpanded = 0;
+	mMaxExpanded = 0;
+}
 
 IntegerValueRange::~IntegerValueRange(void)
 {}
@@ -37,6 +40,8 @@ void IntegerValueRange::Reset(void)
 {
 	mMinState = S_UNKNOWN;
 	mMaxState = S_UNKNOWN;
+	mMinExpanded = 0;
+	mMaxExpanded = 0;
 }
 
 
@@ -124,6 +129,34 @@ void IntegerValueRange::SetLimit(int64 minValue, int64 maxValue)
 	mMinValue = minValue;
 	mMaxState = S_BOUND;
 	mMaxValue = maxValue;
+}
+
+void IntegerValueRange::Expand(const IntegerValueRange& range)
+{
+	if (range.mMinState == S_BOUND && mMinState == S_BOUND && range.mMinValue < mMinValue)
+	{
+		mMinValue = range.mMinValue;
+		mMinExpanded++;
+		if (mMinExpanded >= 32)
+			mMinState = S_UNBOUND;
+	}
+	else
+	{
+		mMinState = range.mMinState;
+		mMinValue = range.mMinValue;
+	}
+	if (range.mMaxState == S_BOUND && mMaxState == S_BOUND && range.mMaxValue > mMaxValue)
+	{
+		mMaxValue = range.mMaxValue;
+		mMaxExpanded++;
+		if (mMaxExpanded >= 32)
+			mMaxState = S_UNBOUND;
+	}
+	else
+	{
+		mMaxState = range.mMaxState;
+		mMaxValue = range.mMaxValue;
+	}
 }
 
 bool IntegerValueRange::Merge(const IntegerValueRange& range, bool head, bool initial)
@@ -4211,7 +4244,7 @@ void InterOperand::Disassemble(FILE* file)
 	}
 }
 
-void InterInstruction::Disassemble(FILE* file)
+void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 {
 	if (this->mCode != IC_NONE)
 	{
@@ -4352,8 +4385,20 @@ void InterInstruction::Disassemble(FILE* file)
 		if (this->mCode == IC_CONSTANT)
 		{
 			if (mDst.mType == IT_POINTER)
-			{
-				fprintf(file, "C%c%d(%d:%d)", memchars[mConst.mMemory], mConst.mOperandSize, mConst.mVarIndex, int(mConst.mIntConst));
+			{	
+				const char* vname = "";
+
+				if (mConst.mMemory == IM_LOCAL)
+				{
+					if (!proc->mLocalVars[mConst.mVarIndex])
+						vname = "null";
+					else if (!proc->mLocalVars[mConst.mVarIndex]->mIdent)
+						vname = "";
+					else
+						vname = proc->mLocalVars[mConst.mVarIndex]->mIdent->mString;
+				}
+
+				fprintf(file, "C%c%d(%d:%d '%s')", memchars[mConst.mMemory], mConst.mOperandSize, mConst.mVarIndex, int(mConst.mIntConst), vname);
 			}
 			else if (mDst.mType == IT_FLOAT)
 				fprintf(file, "CF:%f", mConst.mFloatConst);
@@ -4566,7 +4611,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 		mInPath = true;
 
 		// Limit number of contractions
-		for (int i=0; i<100; i++)
+		for (int i = 0; i < 100; i++)
 		{
 			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP && !mTrueJump->mLoopHead && mTrueJump->mTraceIndex != mIndex)
 			{
@@ -4609,6 +4654,27 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 				mFalseJump = mFalseJump->mFalseJump;
 				if (mFalseJump)
 					mFalseJump->mNumEntries++;
+			}
+			else if (
+				compact && 
+				mFalseJump &&
+				mInstructions.Size() > 0 &&
+				mInstructions.Last()->mCode == IC_BRANCH &&
+				mInstructions.Last()->mSrc[0].mTemp < 0)
+			{
+				int	ns = mInstructions.Size();
+
+				if (mInstructions.Last()->mSrc[0].mIntConst)
+					mFalseJump->mNumEntries--;
+				else
+				{
+					mTrueJump->mNumEntries--;
+					mTrueJump = mFalseJump;
+				}
+
+				mFalseJump = nullptr;
+				mInstructions[ns - 1]->mCode = IC_JUMP;
+				mInstructions[ns - 1]->mNumOperands = 0;
 			}
 			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1 && !mLoopHead) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
 			{
@@ -5462,6 +5528,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 		{
 			ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+			ins->mSrc[0].mMemory = tvalue[ins->mSrc[0].mTemp]->mConst.mMemory;
 			ins->mSrc[0].mTemp = -1;
 		}
 		break;
@@ -5900,7 +5967,11 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 						constFalse = true;
 					break;
 				case IA_CMPLU:
-					if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
+					if (cins->mSrc[0].mTemp < 0 && cins->mSrc[0].mIntConst == 0)
+					{
+						constFalse = true;
+					}
+					else if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
 					{
 						if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
 							constTrue = true;
@@ -5930,7 +6001,11 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 						constFalse = true;
 					break;
 				case IA_CMPGU:
-					if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
+					if (cins->mSrc[1].mTemp < 0 && cins->mSrc[1].mIntConst == 0)
+					{
+						constFalse = true;
+					}
+					else if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
 					{
 						if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
 							constTrue = true;
@@ -6187,8 +6262,15 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 
 		if (changed)
 		{
-			mEntryValueRange = mLocalValueRange;
-			mEntryParamValueRange = mLocalParamValueRange;
+			for (int i = 0; i < mLocalValueRange.Size(); i++)
+				mEntryValueRange[i].Expand(mLocalValueRange[i]);
+			for (int i = 0; i < mLocalParamValueRange.Size(); i++)
+				mEntryParamValueRange[i].Expand(mLocalParamValueRange[i]);
+			mLocalValueRange = mEntryValueRange;
+			mLocalParamValueRange = mEntryParamValueRange;
+
+//			mEntryValueRange = mLocalValueRange;
+//			mEntryParamValueRange = mLocalParamValueRange;
 
 			UpdateLocalIntegerRangeSets(localVars, paramVars);
 
@@ -15267,7 +15349,11 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 
 		const char* s = mLoopHead ? "Head" : "";
 		
-		fprintf(file, "L%d: <= D%d: (%d) %s P%d\n", mIndex, (mDominator ? mDominator->mIndex : -1), mNumEntries, s, (mLoopPrefix ? mLoopPrefix->mIndex : -1));
+		fprintf(file, "L%d: <= D%d: (%d) %s P%d", mIndex, (mDominator ? mDominator->mIndex : -1), mNumEntries, s, (mLoopPrefix ? mLoopPrefix->mIndex : -1));
+		if (mInstructions.Size())
+			fprintf(file, "%s\n", mInstructions[0]->mLocation.mFileName);
+		else
+			fprintf(file, "\n");
 
 		if (dumpSets)
 		{
@@ -15295,8 +15381,8 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 		{
 			if (mInstructions[i]->mCode != IC_NONE)
 			{
-				fprintf(file, "%04x\t", i);
-				mInstructions[i]->Disassemble(file);
+				fprintf(file, "%04x (%4d)\t", i, mInstructions[i]->mLocation.mLine);
+				mInstructions[i]->Disassemble(file, mProc);
 			}
 		}
 
@@ -16176,7 +16262,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "string::find");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 
@@ -16274,9 +16360,11 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet, mModule->mGlobalVars, fsingleSet);
 
+	DisassembleDebug("machine value forwarding");
+
 	GlobalConstantPropagation();
 
-	DisassembleDebug("machine value forwarding");
+	DisassembleDebug("Global Constant Propagation");
 
 	//
 	// Now remove needless temporary moves, that appear due to

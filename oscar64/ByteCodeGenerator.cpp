@@ -3271,7 +3271,7 @@ ByteCode ByteCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const 
 		cins.mRegisterFinal = ins->mSrc[1].mFinal;
 		mIns.Push(cins);
 	}
-	else if (ins->mSrc[0].mType == IT_INT8)
+	else if (ins->mSrc[0].mType == IT_INT8 || ins->mSrc[0].mType == IT_BOOL)
 	{
 		if (ins->mSrc[1].mTemp < 0)
 		{

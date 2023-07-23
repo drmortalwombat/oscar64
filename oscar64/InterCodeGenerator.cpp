@@ -321,7 +321,13 @@ void InterCodeGenerator::InitLocalVariable(InterCodeProcedure* proc, Declaration
 		proc->mLocalVars[index]->mIdent = dec->mIdent;
 		proc->mLocalVars[index]->mDeclaration = dec;
 	}
+	else
+	{
+		assert(proc->mLocalVars[index]->mIdent == dec->mIdent);
+		assert(proc->mLocalVars[index]->mDeclaration == dec);
+	}
 }
+
 static const Ident* StructIdent(const Ident* base, const Ident* item)
 {
 	if (base)
@@ -1063,7 +1069,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		}
 	}
 
-	vl = TranslateExpression(ftype, proc, block, fexp, destack, BranchTarget(), BranchTarget(), &nmapper);
+	DestructStack* idestack = nullptr;
+
+	vl = TranslateExpression(ftype, proc, block, fexp, idestack, BranchTarget(), BranchTarget(), &nmapper);
 
 	InterInstruction* jins = new InterInstruction(exp->mLocation, IC_JUMP);
 	block->Append(jins);
@@ -1071,7 +1079,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	block->Close(nmapper.mReturn, nullptr);
 	block = nmapper.mReturn;
 
-	UnwindDestructStack(ftype, proc, block, destack, nullptr, &nmapper);
+	// Unwind inner destruct stack
+	UnwindDestructStack(ftype, proc, block, idestack, nullptr, &nmapper);
+
+	// Uwind parameter passing stack
+	UnwindDestructStack(ftype, proc, block, destack, nullptr, inlineMapper);
 
 	if (rdec)
 	{

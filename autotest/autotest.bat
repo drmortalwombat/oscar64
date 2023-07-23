@@ -3,6 +3,9 @@ rem @echo off
 @call :test opp_string.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :test opp_streamtest.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test operatoroverload.cpp
 @if %errorlevel% neq 0 goto :error
 
