@@ -285,7 +285,7 @@ public:
 
 	bool IsNotUByte(void) const;
 
-	void Disassemble(FILE* file);
+	void Disassemble(FILE* file, InterCodeProcedure* proc);
 };
 
 class InterInstruction
@@ -299,7 +299,7 @@ public:
 	InterOperator						mOperator;
 	int									mNumOperands;
 
-	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr;
+	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr, mRemove;
 
 	InterInstruction(const Location& loc, InterCode code);
 
@@ -528,6 +528,8 @@ public:
 
 	InterInstruction* FindTempOrigin(int temp) const;
 
+	bool CheapInlining(int & numTemps);
+
 	void CheckFinalLocal(void);
 	void CheckFinal(void);
 	void CheckBlocks(void);
@@ -593,6 +595,7 @@ public:
 	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack;
 	bool								mCheckUnreachable;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
+	bool								mCheapInline;
 
 	InterCodeModule					*	mModule;
 	int									mID;
