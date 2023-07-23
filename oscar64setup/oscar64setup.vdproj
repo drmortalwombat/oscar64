@@ -52,6 +52,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_071CF34574024DBD95D2203D6E4279D0"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_0819C3D33D0942EF9E319C754E6C43D8"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -125,6 +131,12 @@
         "Entry"
         {
         "MsmKey" = "8:_19321EF0356047C9A6AEE738ECDEB9C3"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_1A605A19ADAD413CB754523D4FE7C32F"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -418,6 +430,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_63A827ECF1BC48CE96DB82B554FC323D"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_64C12019C1114C3282B32CD6B866C20A"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -496,6 +514,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_7789738FE8854CE488C5248434E47211"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_79985361F09A43299E258E1A8E5ED934"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -557,6 +581,12 @@
         "Entry"
         {
         "MsmKey" = "8:_814F6BFC9788449DB259F99386D39AFD"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_85AF458C41734A099F879A01E6CEB35F"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -676,6 +706,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_A14BC161099E420286E6A1595596D0F0"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_A18504BA88CE40128ED44BD1854F0A33"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -707,6 +743,12 @@
         "Entry"
         {
         "MsmKey" = "8:_A566398810C1458E8E063A81FA88D46F"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_A62BFFC051304130B85007261BC97749"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -947,6 +989,12 @@
         "Entry"
         {
         "MsmKey" = "8:_D52B954DFBCE4EB0932433DE7FCE9090"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_D651A6B3342C4D1ABC7FE873E253A1C5"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1343,6 +1391,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_071CF34574024DBD95D2203D6E4279D0"
+            {
+            "SourcePath" = "8:..\\include\\opp\\iostream.h"
+            "TargetName" = "8:iostream.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_0819C3D33D0942EF9E319C754E6C43D8"
             {
             "SourcePath" = "8:..\\include\\gfx\\bitmap.h"
@@ -1589,6 +1657,26 @@
             "TargetName" = "8:sprmux32.c"
             "Tag" = "8:"
             "Folder" = "8:_A891BBCA276B4516852A6BFD884353E3"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_1A605A19ADAD413CB754523D4FE7C32F"
+            {
+            "SourcePath" = "8:..\\include\\opp\\sstream.cpp"
+            "TargetName" = "8:sstream.cpp"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -2563,6 +2651,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_63A827ECF1BC48CE96DB82B554FC323D"
+            {
+            "SourcePath" = "8:..\\include\\opp\\iostream.cpp"
+            "TargetName" = "8:iostream.cpp"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_64C12019C1114C3282B32CD6B866C20A"
             {
             "SourcePath" = "8:..\\include\\c64\\reu.h"
@@ -2823,6 +2931,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_7789738FE8854CE488C5248434E47211"
+            {
+            "SourcePath" = "8:..\\include\\opp\\ifstream.h"
+            "TargetName" = "8:ifstream.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_79985361F09A43299E258E1A8E5ED934"
             {
             "SourcePath" = "8:..\\include\\gfx\\mcbitmap.c"
@@ -3029,6 +3157,26 @@
             "TargetName" = "8:sidfx.c"
             "Tag" = "8:"
             "Folder" = "8:_A4C8078BC7A74CCABB1050E80BC79950"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_85AF458C41734A099F879A01E6CEB35F"
+            {
+            "SourcePath" = "8:..\\include\\opp\\ofstream.cpp"
+            "TargetName" = "8:ofstream.cpp"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3423,6 +3571,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A14BC161099E420286E6A1595596D0F0"
+            {
+            "SourcePath" = "8:..\\include\\opp\\ofstream.h"
+            "TargetName" = "8:ofstream.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A18504BA88CE40128ED44BD1854F0A33"
             {
             "SourcePath" = "8:..\\samples\\memmap\\easyflashreloc.c"
@@ -3529,6 +3697,26 @@
             "TargetName" = "8:stddef.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A62BFFC051304130B85007261BC97749"
+            {
+            "SourcePath" = "8:..\\include\\opp\\sstream.h"
+            "TargetName" = "8:sstream.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -4329,6 +4517,26 @@
             "TargetName" = "8:paint.c"
             "Tag" = "8:"
             "Folder" = "8:_3E74C69B2EF64E938EA60950128C5A74"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D651A6B3342C4D1ABC7FE873E253A1C5"
+            {
+            "SourcePath" = "8:..\\include\\opp\\ifstream.cpp"
+            "TargetName" = "8:ifstream.cpp"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -5296,15 +5504,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{9E7AB7F5-BA83-4377-B177-3D121EF176EB}"
-        "PackageCode" = "8:{2B7BCA1C-B5B7-47D2-8A8A-A8C694463BE0}"
+        "ProductCode" = "8:{E5A90B4B-CA2A-43EC-9597-90010989AF33}"
+        "PackageCode" = "8:{C6265FB3-0498-45EF-827C-27788C57AFAF}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.22.210"
+        "ProductVersion" = "8:1.23.211"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
