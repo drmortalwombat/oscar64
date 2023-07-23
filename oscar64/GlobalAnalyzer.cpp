@@ -306,7 +306,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 							nbase = n;
 					}
 				}
-//				procDec->mFlags |= DTF_DYNSTACK;
+				//				procDec->mFlags |= DTF_DYNSTACK;
 			}
 			else
 				CheckFastcall(cf, false);
@@ -314,13 +314,57 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			if (cf->mFlags & DTF_DYNSTACK)
 				procDec->mFlags |= DTF_DYNSTACK;
 
-//			if (!(cf->mBase->mFlags & DTF_FASTCALL))
-//				procDec->mBase->mFlags |= DTF_STACKCALL;
+			//			if (!(cf->mBase->mFlags & DTF_FASTCALL))
+			//				procDec->mBase->mFlags |= DTF_STACKCALL;
 
 			cf = cf->mBase;
 			int n = cf->mFastCallBase + cf->mFastCallSize;
 			if (n > nbase)
 				nbase = n;
+		}
+
+		if (procDec->mValue && procDec->mValue->mType == EX_DISPATCH)
+		{
+			Declaration* maxf = nullptr;
+
+			for (int i = 0; i < procDec->mCalled.Size(); i++)
+			{
+				Declaration* cf = procDec->mCalled[i];
+
+				if (!maxf)
+					maxf = cf;
+				else if (!(maxf->mBase->mFlags & DTF_STACKCALL))
+				{
+					if (cf->mBase->mFlags & DTF_STACKCALL)
+						maxf = cf;
+					else if (cf->mBase->mFastCallBase > maxf->mBase->mFastCallBase)
+						maxf = cf;
+				}
+			}
+
+			for (int i = 0; i < procDec->mCalled.Size(); i++)
+			{
+				Declaration* cf = procDec->mCalled[i];
+
+				if (cf != maxf)
+				{
+					if (maxf->mBase->mFlags & DTF_STACKCALL)
+					{
+						cf->mBase->mFlags &= ~DTF_FASTCALL;
+						cf->mBase->mFlags |= DTF_STACKCALL;
+					}
+
+					cf->mParams = maxf->mParams;
+					cf->mBase->mFastCallBase = cf->mFastCallBase = maxf->mBase->mFastCallBase;
+					cf->mBase->mFastCallSize = cf->mFastCallSize = maxf->mBase->mFastCallSize;
+				}
+			}
+
+			procDec->mFastCallBase = procDec->mBase->mFastCallBase;
+			procDec->mFastCallSize = procDec->mBase->mFastCallSize;
+			procDec->mFlags &= ~DTF_FUNC_ANALYZING;
+
+			return;
 		}
 
 		procDec->mFastCallBase = nbase;
@@ -336,7 +380,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 		}
 		else if (procDec->mFlags & DTF_FUNC_RECURSIVE)
 		{
-			if (head)
+//			if (head)
 				procDec->mBase->mFlags |= DTF_STACKCALL;
 		}
 		else if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_DYNSTACK))
@@ -675,7 +719,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		return exp->mDecValue->mBase;
 	case EX_DISPATCH:
 		Analyze(exp->mLeft, procDec, lhs);
-		RegisterCall(procDec, exp->mLeft->mDecType);
+//		RegisterCall(procDec, exp->mLeft->mDecType);
 		break;
 	case EX_VCALL:
 		exp->mType = EX_CALL;
@@ -950,7 +994,7 @@ void GlobalAnalyzer::RegisterProc(Declaration* to)
 {
 	if (to->mType == DT_CONST_FUNCTION)
 	{
-#if 0
+#if 1
 		if (to->mBase->mFlags & DTF_VIRTUAL)
 		{
 
