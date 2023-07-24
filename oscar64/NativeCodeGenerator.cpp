@@ -3932,6 +3932,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				{
 					mType = ASMIT_TAY;
 					mMode = ASMIM_IMPLIED;
+					data.mRegs[CPU_REG_Y] = data.mRegs[CPU_REG_A];
 					changed = true;
 				}
 				else
@@ -3995,6 +3996,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				{
 					mType = ASMIT_TAX;
 					mMode = ASMIM_IMPLIED;
+					data.mRegs[CPU_REG_X] = data.mRegs[CPU_REG_A];
 					changed = true;
 				}
 				else
