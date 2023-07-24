@@ -3928,6 +3928,12 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 					mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
+				else if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE_X && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				{
+					mType = ASMIT_TAY;
+					mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
 				else
 				{
 					data.mRegs[CPU_REG_Y].mMode = NRDM_ABSOLUTE_X;
@@ -3982,6 +3988,12 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				if (data.mRegs[CPU_REG_X].mMode == NRDM_ABSOLUTE_Y && data.mRegs[CPU_REG_X].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 				{
 					mType = ASMIT_NOP;
+					mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE_Y && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				{
+					mType = ASMIT_TAX;
 					mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
