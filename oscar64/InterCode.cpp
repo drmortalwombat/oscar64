@@ -5729,6 +5729,8 @@ void  InterCodeBasicBlock::CollectConstTemps(GrowingInstructionPtrArray& ctemps,
 			{
 				if (mInstructions[i]->mCode == IC_CONSTANT)
 					ltemps[ttemp] = mInstructions[i];
+				else
+					ltemps[ttemp] = nullptr;
 
 				if (assignedTemps[ttemp])
 					ctemps[ttemp] = nullptr;
@@ -15522,7 +15524,7 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 		
 		fprintf(file, "L%d: <= D%d: (%d) %s P%d", mIndex, (mDominator ? mDominator->mIndex : -1), mNumEntries, s, (mLoopPrefix ? mLoopPrefix->mIndex : -1));
 		if (mInstructions.Size())
-			fprintf(file, "%s\n", mInstructions[0]->mLocation.mFileName);
+			fprintf(file, " %s\n", mInstructions[0]->mLocation.mFileName);
 		else
 			fprintf(file, "\n");
 
@@ -16433,7 +16435,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test_find");
+	CheckFunc = !strcmp(mIdent->mString, "tile_draw_g");
 
 	mEntryBlock = mBlocks[0];
 
