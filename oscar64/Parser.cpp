@@ -421,7 +421,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 			AddDefaultConstructors(pthis);
 
 			// Lookup constructors, have same name as class
-			Declaration* cdec = dec->mScope->Lookup(dec->mIdent, SLEVEL_SCOPE);
+			Declaration* cdec = dec->mScope->Lookup(dec->mIdent->PreMangle("+"), SLEVEL_SCOPE);
 			while (cdec)
 			{
 				if (cdec->mFlags & DTF_DEFINED)
@@ -1420,7 +1420,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 
 Expression* Parser::BuildMemberInitializer(Expression* vexp)
 {
-	Declaration* fcons = (vexp->mDecType->mType == DT_TYPE_STRUCT && vexp->mDecType->mScope) ? vexp->mDecType->mScope->Lookup(vexp->mDecType->mIdent) : nullptr;
+	Declaration* fcons = (vexp->mDecType->mType == DT_TYPE_STRUCT && vexp->mDecType->mScope) ? vexp->mDecType->mScope->Lookup(vexp->mDecType->mIdent->PreMangle("+")) : nullptr;
 
 	if (fcons)
 	{
@@ -1734,15 +1734,13 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 	bool	inlineDestructor = true;
 	bool	inlineConstructor = true;
 
-	char	dname[100];
-	strcpy_s(dname, "~");
-	strcat_s(dname, pthis->mBase->mIdent->mString);
 
-	const Ident	*	dtorident = Ident::Unique(dname);
+	const Ident* dtorident = pthis->mBase->mIdent->PreMangle("~");;
+	const Ident* ctorident = pthis->mBase->mIdent->PreMangle("+");;
 
 	// Extract constructor and destructor from scope
 
-	Declaration* cdec = pthis->mBase->mScope->Lookup(pthis->mBase->mIdent, SLEVEL_SCOPE);
+	Declaration* cdec = pthis->mBase->mScope->Lookup(ctorident, SLEVEL_SCOPE);
 	while (cdec)
 	{
 		Declaration* ctdec = cdec->mBase;
@@ -1899,7 +1897,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 			pthis->mBase->mDefaultConstructor = cdec;
 
-			cdec->mIdent = pthis->mBase->mIdent;
+			cdec->mIdent = ctorident;
 			cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
 			AddMemberFunction(pthis->mBase, cdec);
@@ -1951,7 +1949,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 			pthis->mBase->mCopyConstructor = cdec;
 
-			cdec->mIdent = pthis->mBase->mIdent;
+			cdec->mIdent = ctorident;
 			cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
 			AddMemberFunction(pthis->mBase, cdec);
@@ -2288,7 +2286,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 		pthis->mBase->mVectorConstructor = cdec;
 
-		cdec->mIdent = pthis->mBase->mIdent;
+		cdec->mIdent = ctorident;
 		cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
 		cdec->mCompilerOptions = mCompilerOptions;
@@ -2364,10 +2362,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 		pthis->mBase->mVectorDestructor = cdec;
 
-		char	dname[100];
-		strcpy_s(dname, "~");
-		strcat_s(dname, pthis->mBase->mIdent->mString);
-		cdec->mIdent = Ident::Unique(dname);
+		cdec->mIdent = dtorident;
 		cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
 		cdec->mCompilerOptions = mCompilerOptions;
@@ -2452,7 +2447,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 		pthis->mBase->mVectorCopyConstructor = cdec;
 
-		cdec->mIdent = pthis->mBase->mIdent;
+		cdec->mIdent = ctorident;
 		cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
 		cdec->mCompilerOptions = mCompilerOptions;
@@ -2553,7 +2548,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 		pthis->mBase->mVectorCopyAssignment = cdec;
 
-		cdec->mIdent = pthis->mBase->mIdent;
+		cdec->mIdent = ctorident;
 		cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
 		cdec->mCompilerOptions = mCompilerOptions;
@@ -3001,7 +2996,7 @@ void Parser::ParseVariableInit(Declaration* ndec)
 	else
 		mScanner->NextToken();
 
-	Declaration* fcons = ndec->mBase->mScope ? ndec->mBase->mScope->Lookup(ndec->mBase->mIdent, SLEVEL_CLASS) : nullptr;
+	Declaration* fcons = ndec->mBase->mScope ? ndec->mBase->mScope->Lookup(ndec->mBase->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
 
 	if (fcons)
 	{
@@ -3225,10 +3220,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			if (mCompilerOptions & COPT_NATIVE)
 				cdec->mFlags |= DTF_NATIVE;
 
-			char	dname[100];
-			strcpy_s(dname, "~");
-			strcat_s(dname, pthis->mBase->mIdent->mString);
-			cdec->mIdent = Ident::Unique(dname);
+			cdec->mIdent = pthis->mBase->mIdent->PreMangle("~");
 			cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
 			if (mScanner->mToken == TK_OPEN_BRACE)
@@ -3314,7 +3306,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			if (mCompilerOptions & COPT_NATIVE)
 				cdec->mFlags |= DTF_NATIVE;
 
-			Declaration* pdec = pthis->mBase->mScope ? pthis->mBase->mScope->Lookup(pthis->mBase->mIdent, SLEVEL_CLASS) : nullptr;
+			Declaration* pdec = pthis->mBase->mScope ? pthis->mBase->mScope->Lookup(pthis->mBase->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
 			if (pdec)
 			{
 				while (pdec && !cdec->mBase->IsSameParams(pdec->mBase))
@@ -3348,7 +3340,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				cdec = pdec;
 			}
 
-			cdec->mIdent = pthis->mBase->mIdent;
+			cdec->mIdent = pthis->mBase->mIdent->PreMangle("+");
 			cdec->mQualIdent = pthis->mBase->mScope->Mangle(cdec->mIdent);
 
 			// Initializer list
@@ -3396,7 +3388,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 					PrependThisArgument(ctdec, bthis);
 
-					Declaration* cdec = bdec->mScope->Lookup(bdec->mIdent, SLEVEL_CLASS);
+					Declaration* cdec = bdec->mScope->Lookup(bdec->mIdent->PreMangle("+"), SLEVEL_CLASS);
 					if (cdec)
 					{
 						while (cdec && !cdec->mBase->IsSameParams(ctdec))
@@ -4855,7 +4847,11 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 
 	for (;;)
 	{
-		if (ConsumeTokenIf(TK_OPEN_BRACKET))
+		if (ConsumeTokenIf(TK_COLCOLON))
+		{
+
+		}
+		else if (ConsumeTokenIf(TK_OPEN_BRACKET))
 		{
 			Expression* nexp = new Expression(mScanner->mLocation, EX_INDEX);
 			nexp->mLeft = exp;
@@ -4899,7 +4895,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				}
 				else
 				{
-					Declaration* fcons = exp->mDecType->mScope ? exp->mDecType->mScope->Lookup(exp->mDecType->mIdent) : nullptr;
+					Declaration* fcons = exp->mDecType->mScope ? exp->mDecType->mScope->Lookup(exp->mDecType->mIdent->PreMangle("+")) : nullptr;
 					if (fcons)
 					{
 						Declaration* tdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
@@ -5253,7 +5249,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 						{
 							pexp = ParseListExpression(false);
 
-							mdec = dec->mScope->Lookup(dec->mIdent);
+							mdec = dec->mScope->Lookup(dec->mIdent->PreMangle("+"));
 
 							ConsumeToken(TK_CLOSE_PARENTHESIS);
 
