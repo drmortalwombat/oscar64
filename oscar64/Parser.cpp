@@ -1215,18 +1215,37 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			}
 			else
 			{
-				Declaration* mdec = dtype->mParams;
-				while (mdec)
+				ExpandingArray<Declaration*>	path;
+
+				Declaration* ttype = dtype;
+				while (ttype->mBase)
+				{
+					path.Push(ttype);
+					ttype = ttype->mBase->mBase;
+				}
+
+				Declaration* mdec = ttype->mParams;
+				for(;;)
 				{
 					if (ConsumeTokenIf(TK_DOT))
 					{
 						if (mScanner->mToken == TK_IDENT)
 						{
-							Declaration* ndec = dtype->mScope->Lookup(mScanner->mTokenIdent);
+							ttype = dtype;
+
+							path.SetSize(0);
+							Declaration* ndec = ttype->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_SCOPE);
+							while (!ndec && ttype->mBase)
+							{
+								path.Push(ttype);
+								ttype = ttype->mBase->mBase;
+								ndec = ttype->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_SCOPE);
+							}
+
 							if (ndec)
 								mdec = ndec;
 							else
-								mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Struct member not found");
+								mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Struct member not found", mScanner->mTokenIdent);
 
 							mScanner->NextToken();
 							ConsumeToken(TK_ASSIGN);
@@ -1234,6 +1253,9 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 						else
 							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Identifier expected");
 					}
+					
+					if (!mdec)
+						break;
 
 					Expression* texp = ParseInitExpression(mdec->mBase);
 
@@ -1247,7 +1269,10 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 
 					if (!ConsumeTokenIf(TK_COMMA))
 						break;
+
 					mdec = mdec->mNext;
+					while (!mdec && path.Size())
+						mdec = path.Pop()->mParams;
 				}
 			}
 
