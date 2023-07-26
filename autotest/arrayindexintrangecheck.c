@@ -16,7 +16,7 @@ int main(void)
 		put(j, j);
 	int s = -45;
 	for(int j=0; j<10; j++)
-		s += get[j];
+		s += get(j);
 	return s;
 }
 

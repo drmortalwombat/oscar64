@@ -87,6 +87,9 @@ rem @echo off
 @call :test arrayinittest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test arrayindexintrangecheck.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test array2stringinittest.c
 @if %errorlevel% neq 0 goto :error
 

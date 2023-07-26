@@ -925,6 +925,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		InterInstruction* ains = new InterInstruction(pex->mLocation, IC_CONSTANT);
 		ains->mDst.mType = IT_POINTER;
 		ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
+		ains->mConst.mType = IT_POINTER;
 		ains->mConst.mMemory = IM_LOCAL;
 		ains->mConst.mVarIndex = nindex;
 
@@ -1090,6 +1091,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		InterInstruction* ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 		ins->mDst.mType = IT_POINTER;
 		ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+		ins->mConst.mType = IT_POINTER;
 		ins->mConst.mOperandSize = rdec->mSize;
 		ins->mConst.mIntConst = rdec->mOffset;
 		ins->mConst.mVarIndex = rdec->mVarIndex;
@@ -1158,6 +1160,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			InterInstruction* ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
 			ains->mDst.mType = IT_POINTER;
 			ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
+			ains->mConst.mType = IT_POINTER;
 			ains->mConst.mMemory = IM_LOCAL;
 			ains->mConst.mVarIndex = nindex;
 
@@ -1192,6 +1195,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			ains->mNumOperands = 0;
 			ains->mDst.mType = IT_POINTER;
 			ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
+			ains->mConst.mType = IT_POINTER;
 			ains->mConst.mMemory = IM_LOCAL;
 			ains->mConst.mVarIndex = nindex;
 
@@ -1230,6 +1234,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			InterInstruction* psins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 			psins->mDst.mType = IT_POINTER;
 			psins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+			psins->mConst.mType = IT_POINTER;
 			psins->mConst.mVarIndex = 0;
 			psins->mConst.mIntConst = 0;
 			psins->mConst.mOperandSize = 2;
@@ -1253,6 +1258,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			InterInstruction* plins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 			plins->mDst.mType = IT_POINTER;
 			plins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+			plins->mConst.mType = IT_POINTER;
 			plins->mConst.mVarIndex = 2;
 			plins->mConst.mIntConst = 0;
 			plins->mConst.mOperandSize = 2;
@@ -1374,6 +1380,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ains->mCode = IC_CONSTANT;
 					ains->mDst.mType = IT_POINTER;
 					ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					ains->mConst.mType = IT_POINTER;
 					ains->mConst.mOperandSize = procType->mBase->mSize;
 					ains->mConst.mIntConst = 0;
 					ains->mConst.mVarIndex = inlineMapper->mResult;
@@ -1386,6 +1393,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction* pins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				pins->mDst.mType = IT_POINTER;
 				pins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+				pins->mConst.mType = IT_POINTER;
 				pins->mConst.mVarIndex = 0;
 				pins->mConst.mIntConst = 0;
 				pins->mConst.mOperandSize = 2;
@@ -1426,6 +1434,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				ins->mDst.mType = InterTypeOf(dec->mBase);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mConst.mType = ins->mDst.mType;
+
 				if (ins->mDst.mType == IT_INT8)
 				{
 					if (dec->mBase->mFlags & DTF_SIGNED)
@@ -1485,6 +1495,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				ins->mDst.mType = InterTypeOf(dec->mBase);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mConst.mType = ins->mDst.mType;
 				ins->mConst.mFloatConst = dec->mNumber;
 				block->Append(ins);
 				return ExValue(dec->mBase, ins->mDst.mTemp);
@@ -1496,6 +1507,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+				ins->mConst.mType = IT_POINTER;
 				ins->mConst.mIntConst = dec->mInteger;
 				ins->mConst.mMemory = IM_ABSOLUTE;
 				block->Append(ins);
@@ -1513,6 +1525,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				ins->mDst.mType = InterTypeOf(dec->mBase);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mConst.mType = ins->mDst.mType;
 				ins->mConst.mVarIndex = dec->mVarIndex;
 				ins->mConst.mLinkerObject = dec->mLinkerObject;
 				ins->mConst.mMemory = IM_PROCEDURE;
@@ -1530,6 +1543,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction* ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mConst.mType = IT_POINTER;
 				ins->mConst.mVarIndex = dec->mVarIndex;
 				ins->mConst.mLinkerObject = dec->mLinkerObject;
 				ins->mConst.mMemory = IM_PROCEDURE;
@@ -1566,6 +1580,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+				ins->mConst.mType = IT_POINTER;
 				ins->mConst.mIntConst = 0;
 				ins->mConst.mVarIndex = dec->mVarIndex;
 				assert(dec->mVarIndex >= 0);
@@ -1599,6 +1614,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+				ins->mConst.mType = IT_POINTER;
 				ins->mConst.mIntConst = 0;
 				ins->mConst.mVarIndex = dec->mVarIndex;
 				assert(dec->mVarIndex >= 0);
@@ -1823,6 +1839,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (vl.mType->mType == DT_TYPE_POINTER)
 					{
 						InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+						cins->mConst.mType = IT_INT16;
 
 						if (exp->mToken == TK_ASSIGN_ADD)
 						{
@@ -2002,6 +2019,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vr = CoerceType(proc, exp, block, vr, TheSignedIntTypeDeclaration);
 
 			InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+			cins->mConst.mType = IT_INT16;
 			cins->mConst.mIntConst = stride;
 			cins->mDst.mType = IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
@@ -2042,6 +2060,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				mErrors->Error(exp->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 			InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+			cins->mConst.mType = IT_INT16;
 			cins->mConst.mIntConst = exp->mDecValue->mOffset;
 			cins->mDst.mType = IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
@@ -2090,6 +2109,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (vr.mType->IsIntegerType())
 				{
 					InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+					cins->mConst.mType = IT_INT16;
 
 					if (exp->mToken == TK_ADD)
 					{
@@ -2160,6 +2180,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						}
 
 						InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+						cins->mConst.mType = IT_INT16;
 						cins->mConst.mIntConst = s;
 						cins->mDst.mType = IT_INT16;
 						cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
@@ -2209,6 +2230,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (vl.mType->IsIntegerType())
 				{
 					InterInstruction* cins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+					cins->mConst.mType = IT_INT16;
 
 					if (exp->mToken == TK_ADD)
 					{
@@ -2394,10 +2416,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			cins->mDst.mType = ftype ? IT_FLOAT : IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
+			cins->mConst.mType = cins->mDst.mType;
+
 			if (vdl.mType->mType == DT_TYPE_POINTER)
 				cins->mConst.mIntConst = exp->mToken == TK_INC ? vdl.mType->Stride() : -(vdl.mType->Stride());
 			else if (vdl.mType->IsNumericType())
+			{
 				cins->mConst.mIntConst = exp->mToken == TK_INC ? 1 : -1;
+				cins->mConst.mFloatConst = double(cins->mConst.mIntConst);
+			}
 			else
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric value or pointer");
 
@@ -2456,10 +2483,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			cins->mDst.mType = ftype ? IT_FLOAT : IT_INT16;
 			cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
+			cins->mConst.mType = cins->mDst.mType;
+
 			if (vdl.mType->mType == DT_TYPE_POINTER)
 				cins->mConst.mIntConst = exp->mToken == TK_INC ? vdl.mType->Stride() : -(vdl.mType->Stride());
 			else if (vdl.mType->IsNumericType())
+			{
 				cins->mConst.mIntConst = exp->mToken == TK_INC ? 1 : -1;
+				cins->mConst.mFloatConst = double(cins->mConst.mIntConst);
+			}
 			else
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric value or pointer");
 			block->Append(cins);
@@ -2838,6 +2870,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 								mErrors->Error(sex->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
 
 							InterInstruction* ins = new InterInstruction(exp->mLocation, IC_STRCPY);
+							ins->mNumOperands = 2;
+
 							ins->mSrc[0].mType = IT_POINTER;
 							ins->mSrc[0].mMemory = IM_INDIRECT;
 							ins->mSrc[0].mTemp = vr.mTemp;
@@ -3006,6 +3040,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						InterInstruction* vins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 						vins->mDst.mType = IT_POINTER;
 						vins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+						vins->mConst.mType = IT_POINTER;
 						vins->mConst.mMemory = IM_LOCAL;
 						vins->mConst.mVarIndex = nindex;
 						vins->mConst.mOperandSize = ftype->mBase->mSize;
@@ -3017,6 +3052,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					InterInstruction* ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
 					ains->mDst.mType = IT_POINTER;
 					ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					ains->mConst.mType = IT_POINTER;
 					ains->mConst.mVarIndex = 0;
 					ains->mConst.mIntConst = 0;
 					ains->mConst.mOperandSize = 2;
@@ -3055,6 +3091,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				while (pex)
 				{
 					InterInstruction	*	ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
+					ains->mConst.mType = IT_POINTER;
+
 					ains->mDst.mType = IT_POINTER;
 					ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 					if (pdec)
@@ -3285,6 +3323,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					InterInstruction* vins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 					vins->mDst.mType = IT_POINTER;
 					vins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					vins->mConst.mType = IT_POINTER;
 					vins->mConst.mMemory = IM_LOCAL;
 					vins->mConst.mVarIndex = decResult->mVarIndex;
 					block->Append(vins);
@@ -3314,6 +3353,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				InterInstruction* ins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mConst.mType = IT_POINTER;
 				ins->mConst.mOperandSize = dec->mSize;
 				ins->mConst.mIntConst = 0;
 				ins->mConst.mMemory = IM_GLOBAL;
@@ -3332,6 +3372,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				for (int i = 0; i < refvars.Size(); i++)
 				{
 					InterInstruction* vins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+					vins->mConst.mType = IT_POINTER;
+
 					vins->mDst.mType = IT_POINTER;
 					vins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 
@@ -3425,6 +3467,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							InterInstruction* ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
 							ains->mDst.mType = IT_POINTER;
 							ains->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+							ains->mConst.mType = IT_POINTER;
 							ains->mConst.mOperandSize = procType->mBase->mSize;
 							ains->mConst.mIntConst = 0;
 							ains->mConst.mVarIndex = inlineMapper->mResult;;
@@ -3461,6 +3504,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							ains->mCode = IC_CONSTANT;
 							ains->mDst.mType = IT_POINTER;
 							ains->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+							ains->mConst.mType = IT_POINTER;
 							ains->mConst.mOperandSize = procType->mBase->mSize;
 							ains->mConst.mIntConst = 0;
 							ains->mConst.mVarIndex = inlineMapper->mResult;
@@ -3475,6 +3519,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						InterInstruction* pins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 						pins->mDst.mType = IT_POINTER;
 						pins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+						pins->mConst.mType = IT_POINTER;
 						pins->mConst.mVarIndex = 0;
 						pins->mConst.mIntConst = 0;
 						pins->mConst.mOperandSize = 2;
@@ -3641,6 +3686,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							InterInstruction* ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
 							ains->mDst.mType = IT_POINTER;
 							ains->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+							ains->mConst.mType = IT_POINTER;
 							ains->mConst.mOperandSize = procType->mBase->mSize;
 							ains->mConst.mIntConst = 0;
 							ains->mConst.mVarIndex = inlineMapper->mResult;;
@@ -3751,6 +3797,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	*	zins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 			zins->mDst.mType = InterTypeOf(vl.mType);
 			zins->mDst.mTemp = proc->AddTemporary(zins->mDst.mType);
+			zins->mConst.mType = zins->mDst.mType;
 			zins->mConst.mIntConst = 0;
 			block->Append(zins);
 
@@ -4079,12 +4126,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			int	ttemp = proc->AddTemporary(IT_BOOL);
 
 			InterInstruction* tins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+			tins->mConst.mType = IT_BOOL;
 			tins->mConst.mIntConst = 1;
 			tins->mDst.mType = IT_BOOL;
 			tins->mDst.mTemp = ttemp;
 			tblock->Append(tins);
 
 			InterInstruction* fins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+			fins->mConst.mType = IT_BOOL;
 			fins->mConst.mIntConst = 0;
 			fins->mDst.mType = IT_BOOL;
 			fins->mDst.mTemp = ttemp;

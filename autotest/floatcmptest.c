@@ -65,7 +65,7 @@ int main(void)
 	cmpflt( 1.0,  0.0, false, false, true);
 	cmpflt(-1.0,  0.0, false, true, false);
 
-#if 1
+
 	cmpflt( 1.0,  1.0, true, false, false);
 	cmpflt( 1.0,  2.0, false, true, false);
 	cmpflt( 2.0,  1.0, false, false, true);
@@ -94,7 +94,6 @@ int main(void)
 	cmpflt( -1.0,  -1.000001,     false, false, true);
 	cmpflt( -1.000001, -1.0,      false, true, false);
 	cmpflt( -1.000001, -1.000001, true, false, false);
-#endif
 	
 	return 0;
 }

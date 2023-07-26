@@ -5002,6 +5002,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 					mScanner->NextToken();
 				}
 
+				bool	parentCall = false;
 				if ((exp->mDecType->mFlags & DTF_FUNC_THIS) && mThisPointer && mThisPointer->mType == DT_ARGUMENT)
 				{
 					Expression* texp = new Expression(mScanner->mLocation, EX_VARIABLE);
@@ -5017,13 +5018,20 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 					}
 					else
 						nexp->mRight = texp;
+
+					parentCall = true;
 				}
 
 				nexp = ResolveOverloadCall(nexp);
 				nexp->mDecType = exp->mDecType->mBase;
 
 				if (nexp->mLeft->mDecType->mFlags & DTF_VIRTUAL)
-					nexp->mType = EX_VCALL;
+				{
+					if (parentCall)
+						exp->mDecType->mFlags |= DTF_STACKCALL;
+					else
+						nexp->mType = EX_VCALL;
+				}
 
 				exp = nexp;
 			}

@@ -25065,6 +25065,8 @@ bool NativeCodeBasicBlock::MoveZeroPageCrossBlockUp(int at, const NativeCodeInst
 					return false;
 				else if (mIns[i].ReferencesZeroPage(sins.mAddress))
 					return false;
+				else if (mIns[i].mType == ASMIT_JSR && mIns[i].ReferencesZeroPage(lins.mAddress))
+					return false;
 			}
 		}
 
@@ -40393,7 +40395,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "getchar");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -41687,7 +41689,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 

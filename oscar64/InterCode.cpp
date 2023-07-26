@@ -1797,6 +1797,7 @@ InterInstruction* InterInstruction::Clone(void) const
 {
 	InterInstruction* ins = new InterInstruction(mLocation, mCode);
 	*ins = *this;
+	ins->mRemove = false;
 	return ins;
 }
 
@@ -3866,6 +3867,8 @@ void InterInstruction::BuildCollisionTable(NumberSet& liveTemps, NumberSet* coll
 {
 	if (mDst.mTemp >= 0)
 	{
+		// Ensure collision with unused destination register
+		UpdateCollisionSet(liveTemps, collisionSets, mDst.mTemp);
 		//		if (!liveTemps[ttemp]) __asm int 3
 		liveTemps -= mDst.mTemp;
 	}
@@ -4499,6 +4502,10 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 	if (code->mCode == IC_BINARY_OPERATOR)
 	{
 		assert(code->mSrc[1].mType != IT_POINTER);
+	}
+	if (code->mCode == IC_CONSTANT)
+	{
+		assert(code->mDst.mType == code->mConst.mType);
 	}
 
 	for (int i = 0; i < code->mNumOperands; i++)
@@ -7928,7 +7935,9 @@ bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigne
 							valid = false;
 						else if (ins->mCode == IC_LOAD)
 						{
-							if (ins->mSrc[0].mMemory == paramMemory)
+							if (ins->mVolatile)
+								valid = false;
+							else if (ins->mSrc[0].mMemory == paramMemory)
 							{
 								if (modifiedParams[ins->mSrc[0].mVarIndex])
 									valid = false;
@@ -12450,6 +12459,8 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 							InterInstruction* pins = nins->Clone();
 							if (pins->mSrc[0].mTemp >= 0)
 								pins->mSrc[0].mTemp = tmap[pins->mSrc[0].mTemp];
+							if (pins->mSrc[1].mTemp >= 0)
+								pins->mSrc[1].mTemp = tmap[pins->mSrc[1].mTemp];
 							mInstructions.Insert(i, pins);
 							i++;
 						}	break;
@@ -12462,19 +12473,42 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 							mInstructions.Insert(i, pins);
 							i++;
 						} break;
+						case IC_RETURN:
+							break;
 						case IC_RETURN_VALUE:
 						{
 							if (ins->mDst.mTemp >= 0)
 							{
 								InterInstruction* pins = nins->Clone();
-								pins->mCode = IC_LOAD_TEMPORARY;
+								if (pins->mSrc[0].mTemp < 0)
+								{
+									pins->mCode = IC_CONSTANT;
+									pins->mConst = pins->mSrc[0];
+									pins->mNumOperands = 0;
+								}
+								else
+								{
+									pins->mCode = IC_LOAD_TEMPORARY;
+									pins->mNumOperands = 1;
+								}
+
 								pins->mDst = ins->mDst;
 								if (pins->mSrc[0].mTemp >= 0)
 									pins->mSrc[0].mTemp = tmap[pins->mSrc[0].mTemp];
-								pins->mNumOperands = 1;
 								mInstructions.Insert(i, pins);
 								i++;
 							}
+						} break;
+						default:
+						{
+							InterInstruction* pins = nins->Clone();
+							for (int k = 0; k < pins->mNumOperands; k++)
+								if (pins->mSrc[k].mTemp >= 0)
+									pins->mSrc[k].mTemp = tmap[pins->mSrc[k].mTemp];
+							if (pins->mDst.mTemp >= 0)
+								pins->mDst.mTemp = ntemps;
+							mInstructions.Insert(i, pins);
+							i++;
 						} break;
 						}
 
@@ -15853,11 +15887,11 @@ void InterCodeProcedure::SingleAssignmentForwarding(void)
 	ResetVisited();
 	mEntryBlock->SingleAssignmentTempForwarding(tunified, tvalues);
 
+	DisassembleDebug("single assignment forwarding");
+
 	BuildDataFlowSets();
 	TempForwarding();
 	RemoveUnusedInstructions();
-
-	DisassembleDebug("single assignment forwarding");
 
 }
 
@@ -16435,7 +16469,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "tile_draw_g");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 
@@ -16542,7 +16576,7 @@ void InterCodeProcedure::Close(void)
 	// Check for cheap inlining
 	// 
 
-	if (mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE)
+	if (mCompilerOptions & COPT_OPTIMIZE_INLINE)
 	{
 		ResetVisited();
 		if (mEntryBlock->CheapInlining(numTemps))
@@ -16551,6 +16585,8 @@ void InterCodeProcedure::Close(void)
 			mTemporaries.SetSize(numTemps, true);
 
 			DisassembleDebug("Cheap Inlining");
+
+			BuildDataFlowSets();
 		}
 	}
 
@@ -17263,7 +17299,7 @@ void InterCodeProcedure::Close(void)
 
 	if (!mEntryBlock->mTrueJump)
 	{
-		int	nconst = 0, nvariables = 0, nparams = 0, ncalls = 0, nret = 0, nother = 0;
+		int	nconst = 0, nvariables = 0, nparams = 0, ncalls = 0, nret = 0, nother = 0, nops = 0;
 		for (int i = 0; i < mEntryBlock->mInstructions.Size(); i++)
 		{
 			InterInstruction* ins = mEntryBlock->mInstructions[i];
@@ -17284,10 +17320,34 @@ void InterCodeProcedure::Close(void)
 				break;
 			case IC_STORE:
 				if (ins->mSrc[1].mTemp >= 0 || (ins->mSrc[1].mMemory != IM_FFRAME && ins->mSrc[1].mMemory != IM_FRAME))
-					nother++;
+					nops++;
 				if (ins->mSrc[0].mTemp < 0)
 					nconst++;
 				break;
+
+#if 1
+			case IC_CONSTANT:
+				if (ins->mConst.mType == IT_POINTER && (ins->mConst.mMemory == IM_FPARAM || ins->mConst.mMemory == IM_PARAM || ins->mConst.mMemory == IM_LOCAL))
+					nother++;
+				else
+					nconst++;
+				break;
+#endif
+#if 1
+			case IC_LEA:
+				if (ins->mSrc[1].mTemp >= 0 || (ins->mSrc[1].mMemory != IM_FPARAM && ins->mSrc[1].mMemory != IM_PARAM && ins->mSrc[1].mMemory != IM_LOCAL))
+					nops++;
+				else
+					nother++;
+				break;
+#endif
+#if 1
+			case IC_BINARY_OPERATOR:
+			case IC_UNARY_OPERATOR:
+			case IC_RELATIONAL_OPERATOR:
+				nops++;
+				break;
+#endif
 			case IC_CALL:
 			case IC_CALL_NATIVE:
 				if (ins->mSrc[0].mTemp < 0)
@@ -17304,7 +17364,7 @@ void InterCodeProcedure::Close(void)
 			}
 		}
 
-		if (nother == 0 && ncalls == 1 && nret == 1 && nconst < 2)
+		if (nother == 0 && ncalls <= 1 && nret == 1 && nconst <= 1 + nparams && nops <= 1 + nparams)
 			mCheapInline = true;
 	}
 }
