@@ -7806,6 +7806,8 @@ static bool SameSingleAssignment(const GrowingInstructionPtrArray& tunified, con
 			{
 				return false;
 			}
+			else if (!tunified[ins->mSrc[i].mTemp])
+				return false;
 			else if (tunified[ins->mSrc[i].mTemp] != tunified[cins->mSrc[i].mTemp])
 				return false;
 		}
