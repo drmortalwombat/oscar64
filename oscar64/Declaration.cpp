@@ -1285,7 +1285,7 @@ bool Declaration::IsSame(const Declaration* dec) const
 		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 	{
-		if (mBase->mType == DT_TYPE_STRUCT && dec->mBase->mType == DT_TYPE_STRUCT)
+		if (mBase->mType == DT_TYPE_STRUCT && dec->mBase->mType == DT_TYPE_STRUCT && mBase->mStripe == dec->mBase->mStripe)
 		{
 			if (mBase->mQualIdent == dec->mBase->mQualIdent &&
 				(mBase->mFlags & (DTF_CONST | DTF_VOLATILE)) == (dec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE)))
@@ -1373,7 +1373,7 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 		{
 			if (mBase->mType == DT_TYPE_VOID || fromType->mBase->mType == DT_TYPE_VOID)
 				return (mBase->mFlags & DTF_CONST) || !(fromType->mBase->mFlags & DTF_CONST);
-			else if (mBase->IsSubType(fromType->mBase))
+			else if (mBase->mStripe == fromType->mBase->mStripe && mBase->IsSubType(fromType->mBase))
 				return true;
 		}
 		else if (mBase->mType == DT_TYPE_FUNCTION && fromType->mType == DT_TYPE_FUNCTION)

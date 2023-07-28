@@ -609,6 +609,12 @@ public:
 
 	bool CheckPatchFailLoop(const NativeCodeBasicBlock* block, const NativeCodeBasicBlock* head, int reg, bool changed);
 
+	// reg : base register pair to replace
+	// index: index register
+	// at : start position in block
+	// yval: known y immediate value of -1 if not known
+	// lobj: linker object addressed
+	// address: offset into linker object
 	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int index, int at, int yval);
 	bool PatchGlobalAddressSumYPointer(const NativeCodeBasicBlock* block, int reg, int index, int at, int yval, LinkerObject * lobj, int address, uint32 flags = NCIF_LOWER | NCIF_UPPER);
 

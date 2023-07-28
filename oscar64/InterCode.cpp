@@ -530,6 +530,18 @@ bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const Inte
 		return false;
 }
 
+bool InterCodeBasicBlock::DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const
+{
+	for (int i = from; i < to; i++)
+	{
+		InterInstruction* ins = block->mInstructions[i];
+		if (DestroyingMem(lins, ins))
+			return true;
+	}
+
+	return false;
+}
+
 static bool SameMem(const InterOperand& op1, const InterOperand& op2)
 {
 	if (op1.mMemory != op2.mMemory || op1.mType != op2.mType || op1.mIntConst != op2.mIntConst)
@@ -8036,7 +8048,7 @@ void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwa
 				{
 					if (mEntryBlocks[i] != mLoopPrefix)
 					{
-						if (!mEntryBlocks[i]->CollectLoopBody(this, body))
+						if (!mEntryBlocks[i]->CollectLoopBodyRecursive(this, body))
 							innerLoop = false;
 					}
 				}
@@ -11578,6 +11590,10 @@ void InterCodeBasicBlock::BuildLoopSuffix(void)
 				if (mFalseJump->mNumEntries > 1)
 				{
 					InterCodeBasicBlock* suffix = new InterCodeBasicBlock(mProc);
+					suffix->mEntryRequiredTemps = mFalseJump->mEntryRequiredTemps;
+					suffix->mExitRequiredTemps = mFalseJump->mEntryRequiredTemps;
+					suffix->mLocalModifiedTemps.Reset(mExitRequiredTemps.Size());
+
 					InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 					suffix->Append(jins);
 					suffix->Close(mFalseJump, nullptr);
@@ -11590,6 +11606,10 @@ void InterCodeBasicBlock::BuildLoopSuffix(void)
 				if (mTrueJump->mNumEntries > 1)
 				{
 					InterCodeBasicBlock* suffix = new InterCodeBasicBlock(mProc);
+					suffix->mEntryRequiredTemps = mTrueJump->mEntryRequiredTemps;
+					suffix->mExitRequiredTemps = mTrueJump->mEntryRequiredTemps;
+					suffix->mLocalModifiedTemps.Reset(mExitRequiredTemps.Size());
+
 					InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 					suffix->Append(jins);
 					suffix->Close(mTrueJump, nullptr);
@@ -11620,6 +11640,10 @@ InterCodeBasicBlock* InterCodeBasicBlock::BuildLoopPrefix(void)
 		if (mLoopHead)
 		{
 			mLoopPrefix = new InterCodeBasicBlock(mProc);
+			mLoopPrefix->mEntryRequiredTemps = mEntryRequiredTemps;
+			mLoopPrefix->mExitRequiredTemps = mEntryRequiredTemps;
+			mLoopPrefix->mLocalModifiedTemps.Reset(mEntryRequiredTemps.Size());
+
 			InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 			mLoopPrefix->Append(jins);
 			mLoopPrefix->Close(this, nullptr);
@@ -11640,6 +11664,22 @@ bool InterCodeBasicBlock::CollectLoopBody(InterCodeBasicBlock* head, GrowingArra
 
 	for (int i = 0; i < mEntryBlocks.Size(); i++)
 		if (!mEntryBlocks[i]->CollectLoopBody(head, body))
+			return false;
+
+	return true;
+}
+
+bool InterCodeBasicBlock::CollectLoopBodyRecursive(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*>& body)
+{
+	if (this == head)
+		return true;
+
+	if (body.IndexOf(this) != -1)
+		return true;
+	body.Push(this);
+
+	for (int i = 0; i < mEntryBlocks.Size(); i++)
+		if (!mEntryBlocks[i]->CollectLoopBodyRecursive(head, body))
 			return false;
 
 	return true;
@@ -11872,6 +11912,17 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 						}
 					}
 #endif
+					bool	hasStore = false;
+					for (int j = 0; j < body.Size(); j++)
+					{
+						int sz = body[j]->mInstructions.Size();
+						for (int i = 0; i < sz; i++)
+						{
+							InterInstruction* ins = body[j]->mInstructions[i];
+							if (IsObservable(ins->mCode))
+								hasStore = true;
+						}
+					}
 
 					int i = 0;
 					while (i < mInstructions.Size())
@@ -11880,7 +11931,8 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 						if (lins->mCode == IC_BINARY_OPERATOR || lins->mCode == IC_CONSTANT || lins->mCode == IC_UNARY_OPERATOR || 
 							lins->mCode == IC_CONVERSION_OPERATOR || lins->mCode == IC_SELECT ||
-							lins->mCode == IC_RELATIONAL_OPERATOR)
+							lins->mCode == IC_LEA ||
+							lins->mCode == IC_RELATIONAL_OPERATOR || (lins->mCode == IC_LOAD && !hasStore && !lins->mVolatile))
 						{
 #if 1
 							if (CanMoveInstructionBeforeBlock(i) && !IsInsModifiedInRange(i + 1, mInstructions.Size(), lins) && !tail->IsInsModified(lins) && !lins->UsesTemp(lins->mDst.mTemp))
@@ -11901,7 +11953,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 							}
 #endif
 						}
-						else if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
+						else if (lins->mCode == IC_LOAD && !lins->mVolatile && lins->mSrc[0].mTemp < 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
 						{
 							if (CanMoveInstructionBeforeBlock(i))
 							{
@@ -11963,8 +12015,36 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 										}
 									}
 								}
+								else
+								{
+									int k = 0;
+									while (k < body.Size() && !DestroyingMem(body[k], lins, 0, body[k]->mInstructions.Size()))
+										k++;
+									if (k == body.Size())
+									{
+#if 1
+										if (!IsInsModifiedInRange(i + 1, mInstructions.Size(), lins) && !tail->IsInsModified(lins))
+										{
+											int j = 1;
+											while (j < body.Size() && !body[j]->IsInsModified(lins))
+												j++;
+											if (j == body.Size())
+											{
+												mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
+												mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
+												mEntryRequiredTemps += lins->mDst.mTemp;
+												mInstructions.Remove(i);
+												i--;
+
+												modified = true;
+											}
+										}
+#endif
+									}
+								}
 							}
 						}
+
 						i++;
 					}
 				}

@@ -160,7 +160,7 @@ wx1:
 		jmp lx2
 
 w0:
-		lda #$3f
+		lda #$2f
 		sta $00
 		lda #$36
 		sta $01

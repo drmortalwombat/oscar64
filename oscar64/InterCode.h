@@ -502,6 +502,7 @@ public:
 	bool IsTempReferencedOnPath(int temp, int at) const;
 
 	bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const;
+	bool DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
 	bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
 	bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
@@ -542,6 +543,7 @@ public:
 	bool SingleBlockLoopPointerSplit(int& spareTemps);
 	bool SingleBlockLoopPointerToByte(int& spareTemps);
 	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
+	bool CollectLoopBodyRecursive(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*>& body);
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void PushMoveOutOfLoop(void);

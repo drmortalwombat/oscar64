@@ -18,9 +18,9 @@
 void mmap_trampoline(void);
 
 // Set the memory map in a way that is compatible with the IRQ
-// trampoline
+// trampoline, returns the previous state
 
-inline void mmap_set(char pla);
+inline char mmap_set(char pla);
 
 #pragma compile("memmap.c")
 

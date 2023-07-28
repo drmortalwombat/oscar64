@@ -1,11 +1,8 @@
 #include "memmap.h"
 
-volatile char PLAShadow;
-
 __asm DoneTrampoline
 {
-	lda PLAShadow
-	sta $01
+	stx $01
 	pla
 	tax
 	pla
@@ -17,8 +14,6 @@ __asm IRQTrampoline
 	pha
 	txa
 	pha
-	lda #$36
-	sta $01
 
 	lda #>DoneTrampoline
 	pha
@@ -27,6 +22,9 @@ __asm IRQTrampoline
 	tsx
 	lda $0105, x
 	pha
+	ldx $01
+	lda #$36
+	sta $01
 	jmp ($fffe)
 }
 
@@ -35,8 +33,6 @@ __asm NMITrampoline
 	pha
 	txa
 	pha
-	lda #$36
-	sta $01
 
 	lda #>DoneTrampoline
 	pha
@@ -45,6 +41,9 @@ __asm NMITrampoline
 	tsx
 	lda $0105, x
 	pha
+	ldx $01
+	lda #$36
+	sta $01
 	jmp ($fffa)
 }
 
@@ -56,8 +55,9 @@ void mmap_trampoline(void)
 
 #pragma native(mmap_trampoline)
 
-void mmap_set(char pla)
+char mmap_set(char pla)
 {
-	PLAShadow = pla;
+	char ppla = *((char *)0x01);
 	*((volatile char *)0x01) = pla;
+	return ppla;
 }
