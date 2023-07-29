@@ -43,11 +43,13 @@ void LinkerObject::AddReference(const LinkerReference& ref)
 	mReferences.Push(nref);
 }
 
-LinkerReference* LinkerObject::FindReference(int offset)
+LinkerReference* LinkerObject::FindReference(int64 offset)
 {
 	for (int i = 0; i < mReferences.Size(); i++)
 	{
 		if (mReferences[i]->mOffset == offset)
+			return mReferences[i];
+		else if ((mReferences[i]->mFlags & LREF_LOWBYTE) && (mReferences[i]->mFlags & LREF_HIGHBYTE) && mReferences[i]->mOffset + 1 == offset)
 			return mReferences[i];
 	}
 

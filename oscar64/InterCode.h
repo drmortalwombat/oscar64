@@ -576,6 +576,8 @@ public:
 	void WarnUsedUndefinedVariables(void);
 	void CheckValueReturn(void);
 
+	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, bool & globalsChecked);
+
 };
 
 class InterCodeProcedure
@@ -614,6 +616,9 @@ public:
 	InterType							mReturnType;
 	uint64								mCompilerOptions;
 
+	bool								mLoadsIndirect, mStoresIndirect, mGlobalsChecked;
+	NumberSet							mReferencedGlobals, mModifiedGlobals;
+
 	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
 	~InterCodeProcedure(void);
 
@@ -630,6 +635,9 @@ public:
 	void RemoveNonRelevantStatics(void);
 
 	void MapCallerSavedTemps(void);
+
+	bool ReferencesGlobal(int varindex);
+	bool ModifiesGlobal(int varindex);
 
 	void MapVariables(void);
 	void ReduceTemporaries(void);

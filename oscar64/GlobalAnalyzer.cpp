@@ -660,6 +660,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_ASSIGNMENT:
 		ldec = Analyze(exp->mLeft, procDec, true);
 		rdec = Analyze(exp->mRight, procDec, false);
+		if (exp->mLeft->mType == EX_VARIABLE && exp->mRight->mType == EX_CALL && exp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
+			exp->mLeft->mDecValue->mFlags |= DTF_VAR_ALIASING;
 		RegisterProc(rdec);
 		return ldec;
 

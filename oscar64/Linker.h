@@ -202,7 +202,7 @@ public:
 
 	GrowingArray<LinkerReference*>	mReferences;
 
-	LinkerReference* FindReference(int offset);
+	LinkerReference* FindReference(int64 offset);
 
 	void AddReference(const LinkerReference& ref);
 

@@ -7133,10 +7133,34 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 
 			if (size <= msize)
 			{
-				for (int i = 0; i < size; i++)
+				LinkerObject* slo = ins->mSrc[0].mLinkerObject;
+				if (slo && (slo->mFlags & LOBJF_CONST))
 				{
-					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + offset + i * sstride, ins->mSrc[0].mLinkerObject, flags));
-					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + offset + i * dstride, ins->mSrc[1].mLinkerObject, flags));
+				
+					for (int i = 0; i < size; i++)
+					{
+						int64 si = ins->mSrc[0].mIntConst + offset + i * sstride;
+
+						LinkerReference* lr = slo->FindReference(si);
+						if (lr)
+						{
+							if ((lr->mFlags & LREF_LOWBYTE) && lr->mOffset == si)
+								block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, lr->mRefOffset, lr->mRefObject, NCIF_LOWER));
+							else
+								block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, lr->mRefOffset, lr->mRefObject, NCIF_UPPER));
+						}
+						else
+							block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, slo->mData[si]));
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + offset + i * dstride, ins->mSrc[1].mLinkerObject, flags));
+					}
+				}
+				else
+				{
+					for (int i = 0; i < size; i++)
+					{
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + offset + i * sstride, ins->mSrc[0].mLinkerObject, flags));
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + offset + i * dstride, ins->mSrc[1].mLinkerObject, flags));
+					}
 				}
 			}
 			else
@@ -7155,6 +7179,40 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 			}
 
 			return block;
+		}
+		else if ((ins->mSrc[0].mMemory == IM_GLOBAL || ins->mSrc[0].mMemory == IM_ABSOLUTE) && (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME))
+		{
+			LinkerObject* slo = ins->mSrc[0].mLinkerObject;
+			if (slo && (slo->mFlags & LOBJF_CONST))
+			{
+
+				for (int i = 0; i < size; i++)
+				{
+					int64 si = ins->mSrc[0].mIntConst + i * sstride;
+
+					LinkerReference* lr = slo->FindReference(si);
+					if (lr)
+					{
+						if ((lr->mFlags & LREF_LOWBYTE) && lr->mOffset == si)
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, lr->mRefOffset, lr->mRefObject, NCIF_LOWER));
+						else
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, lr->mRefOffset, lr->mRefObject, NCIF_UPPER));
+					}
+					else
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, slo->mData[si]));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + i * dstride));
+				}
+			}
+			else
+			{
+				for (int i = 0; i < size; i++)
+				{
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + i * sstride, ins->mSrc[0].mLinkerObject, flags));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + i * dstride));
+				}
+			}
+
+			return this;
 		}
 	}
 #endif

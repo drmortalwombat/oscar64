@@ -3095,6 +3095,11 @@ void InterInstruction::CollectLocalAddressTemps(GrowingIntArray& localTable, Gro
 					nparams = mSrc[1].mVarIndex + 1;
 			}
 		}
+		else if (mSrc[1].mTemp >= 0)
+		{
+			localTable[mDst.mTemp] = localTable[mSrc[1].mTemp];
+			paramTable[mDst.mTemp] = paramTable[mSrc[1].mTemp];
+		}
 	}
 	else if (mCode == IC_LOAD_TEMPORARY)
 	{
@@ -9918,6 +9923,39 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				else
 					nins = ins;
 			}
+			else if (ins->mCode == IC_CALL_NATIVE && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc && ins->mSrc[0].mLinkerObject->mProc->mGlobalsChecked)
+			{
+				InterCodeProcedure* proc = ins->mSrc[0].mLinkerObject->mProc;
+
+				int	j = 0, k = 0;
+				while (j < mLoadStoreInstructions.Size())
+				{
+					InterOperand* op = nullptr;
+
+					if (mLoadStoreInstructions[j]->mCode == IC_LOAD)
+						op = mLoadStoreInstructions[j]->mSrc + 0;
+					else if (mLoadStoreInstructions[j]->mCode == IC_STORE)
+						op = mLoadStoreInstructions[j]->mSrc + 1;
+
+					bool	flush = false;
+					if (op)
+					{
+						if (op->mTemp >= 0)
+							flush = proc->mStoresIndirect;
+						else if (op->mMemory == IM_FFRAME || op->mMemory == IM_FRAME)
+							flush = true;
+						else if (op->mMemory == IM_GLOBAL)
+							flush = proc->ModifiesGlobal(op->mVarIndex);
+						else
+							flush = true;
+					}
+
+					if (!flush)
+						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+					j++;
+				}
+				mLoadStoreInstructions.SetSize(k);
+			}
 			else if (HasSideEffect(ins->mCode))
 				flushMem = true;			
 
@@ -11298,7 +11336,7 @@ void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVa
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
-			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE)
+			if ((mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE) && mInstructions[i]->mSrc[0].mLinkerObject->mStackSection)
 				lobj->mStackSection->mSections.Push(mInstructions[i]->mSrc[0].mLinkerObject->mStackSection);
 
 			if (mInstructions[i]->mCode == IC_LOAD)
@@ -15350,6 +15388,74 @@ void InterCodeBasicBlock::CheckValueReturn(void)
 	}
 }
 
+void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool& storesIndirect, bool& loadsIndirect, bool& globalsChecked)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			switch (ins->mCode)
+			{
+			case IC_LOAD:
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
+					referencedGlobals += ins->mSrc[0].mVarIndex;
+				else if (ins->mSrc[0].mTemp >= 0)
+					loadsIndirect = true;
+				break;
+			case IC_STORE:
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
+				{
+					referencedGlobals += ins->mSrc[1].mVarIndex;
+					modifiedGlobals += ins->mSrc[1].mVarIndex;
+				}
+				else if (ins->mSrc[1].mTemp >= 0)
+					storesIndirect = true;
+				break;
+			case IC_COPY:
+			case IC_STRCPY:
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
+					referencedGlobals += ins->mSrc[0].mVarIndex;
+				else if (ins->mSrc[0].mTemp >= 0)
+					loadsIndirect = true;
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
+				{
+					referencedGlobals += ins->mSrc[1].mVarIndex;
+					modifiedGlobals += ins->mSrc[1].mVarIndex;
+				}
+				else if (ins->mSrc[1].mTemp >= 0)
+					storesIndirect = true;
+				break;
+			case IC_CALL:
+			case IC_CALL_NATIVE:
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc)
+				{
+					InterCodeProcedure* proc = ins->mSrc[0].mLinkerObject->mProc;
+					if (proc->mGlobalsChecked)
+					{
+						if (proc->mStoresIndirect)
+							storesIndirect = true;
+						if (proc->mLoadsIndirect)
+							loadsIndirect = true;
+						referencedGlobals |= proc->mReferencedGlobals;
+						modifiedGlobals |= proc->mModifiedGlobals;
+					}
+					else
+						globalsChecked = false;
+				}
+				else
+					globalsChecked = false;
+				break;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CollectGlobalReferences(referencedGlobals, modifiedGlobals, storesIndirect, loadsIndirect, globalsChecked);
+		if (mFalseJump) mFalseJump->CollectGlobalReferences(referencedGlobals, modifiedGlobals, storesIndirect, loadsIndirect, globalsChecked);
+	}
+}
 
 void InterCodeBasicBlock::WarnUsedUndefinedVariables(void)
 {
@@ -15707,7 +15813,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false),
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
 	mCheckUnreachable(true), mReturnType(IT_NONE), mCheapInline(false), 
-	mDeclaration(nullptr)
+	mDeclaration(nullptr), mGlobalsChecked(false)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
@@ -16551,7 +16657,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "card_color");
 
 	mEntryBlock = mBlocks[0];
 
@@ -17173,6 +17279,7 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 	ResetVisited();
+
 	if (!mInterruptCalled && !mDynamicStack && mNativeProcedure && mEntryBlock->CheckStaticStack())
 	{
 		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
@@ -17379,6 +17486,18 @@ void InterCodeProcedure::Close(void)
 		}
 	}
 
+	if (mTempSize <= BC_REG_TMP_SAVED - BC_REG_TMP && !(mLinkerObject->mFlags & LOBJF_STATIC_STACK) && mLeafProcedure)
+	{
+		bool	hasLocals = false;
+
+		for (int i = 0; i < mLocalVars.Size(); i++)
+			if (mLocalVars[i] && mLocalVars[i]->mUsed)
+				hasLocals = true;
+
+		if (!hasLocals)
+			mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
+	}
+
 	if (!mEntryBlock->mTrueJump)
 	{
 		int	nconst = 0, nvariables = 0, nparams = 0, ncalls = 0, nret = 0, nother = 0, nops = 0;
@@ -17449,6 +17568,15 @@ void InterCodeProcedure::Close(void)
 		if (nother == 0 && ncalls <= 1 && nret == 1 && nconst <= 1 + nparams && nops <= 1 + nparams)
 			mCheapInline = true;
 	}
+
+	mGlobalsChecked = true;
+	mStoresIndirect = false;
+	mLoadsIndirect = false;
+	mReferencedGlobals.Reset(mModule->mGlobalVars.Size());
+	mModifiedGlobals.Reset(mModule->mGlobalVars.Size());
+
+	ResetVisited();
+	mEntryBlock->CollectGlobalReferences(mReferencedGlobals, mModifiedGlobals, mStoresIndirect, mLoadsIndirect, mGlobalsChecked);
 }
 
 void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)
@@ -17776,6 +17904,36 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 	ResetVisited();
 	mEntryBlock->FollowJumps();
 
+}
+
+bool InterCodeProcedure::ReferencesGlobal(int varindex)
+{
+	if (mGlobalsChecked)
+	{
+		if (mModule->mGlobalVars[varindex]->mAliased)
+			return mLoadsIndirect || mStoresIndirect;
+		else if (varindex < mReferencedGlobals.Size())
+			return mReferencedGlobals[varindex];
+		else
+			return false;
+	}
+	else
+		return true;
+}
+
+bool InterCodeProcedure::ModifiesGlobal(int varindex)
+{
+	if (mGlobalsChecked)
+	{
+		if (mModule->mGlobalVars[varindex]->mAliased)
+			return mStoresIndirect;
+		else if (varindex < mModifiedGlobals.Size())
+			return mModifiedGlobals[varindex];
+		else
+			return false;
+	}
+	else
+		return true;
 }
 
 void InterCodeProcedure::BuildLoopPrefix(void)
