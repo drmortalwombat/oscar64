@@ -23912,7 +23912,7 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 				mIns[i].mType = ASMIT_LDX;
 			else if (mIns[i].mType == ASMIT_STA)
 				mIns[i].mType = ASMIT_STX;
-			mIns[i].mLive |= LIVE_CPU_REG_X;
+			mIns[i].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_A;
 		}
 		mIns[from].mType = ASMIT_NOP; mIns[from].mMode = ASMIM_IMPLIED;
 		mIns[to].mType = ASMIT_NOP; mIns[to].mMode = ASMIM_IMPLIED;
@@ -39128,6 +39128,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
 						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
 						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+						mIns[i + 2].mAddress != mIns[i + 3].mAddress &&
 						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
 					{
 						int yval = RetrieveYValue(i);
@@ -40671,7 +40672,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "enemies_find");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "robot_move");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
