@@ -525,6 +525,8 @@ public:
 
 	bool CrossBlockYAliasProgpagation(const int * yalias, int yoffset);
 
+	bool CrossBlockRegisterAlias(bool sameAX, bool sameAY);
+
 	bool BypassRegisterConditionBlock(void);
 	bool FoldLoopEntry(void);
 

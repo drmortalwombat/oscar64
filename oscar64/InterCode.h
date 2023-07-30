@@ -440,6 +440,7 @@ public:
 	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void SimplifyIntegerRangeRelops(void);
+	void MarkIntegerRangeBoundUp(int temp, int64 value, GrowingIntegerValueRangeArray& range);
 
 	bool CombineIndirectAddressing(void);
 

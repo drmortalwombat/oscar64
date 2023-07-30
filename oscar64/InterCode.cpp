@@ -6376,6 +6376,47 @@ static int64 BuildLowerBitsMask(int64 v)
 	return v;
 }
 
+void InterCodeBasicBlock::MarkIntegerRangeBoundUp(int temp, int64 value, GrowingIntegerValueRangeArray& range)
+{
+	range[temp].SetLimit(value, value);
+
+	for (int i = mInstructions.Size() - 1; i >= 0; i--)
+	{
+		InterInstruction* ins(mInstructions[i]);
+
+		if (ins->mDst.mTemp == temp)
+		{
+			if (ins->mCode == IC_BINARY_OPERATOR && ins->mSrc[1].mTemp == temp && ins->mSrc[0].mTemp < 0)
+			{
+				switch (ins->mOperator)
+				{
+				case IA_ADD:
+					value -= ins->mSrc[0].mIntConst;
+					break;
+				case IA_SUB:
+					value += ins->mSrc[0].mIntConst;
+					break;
+				default:
+					return;
+				}
+			}
+			else if (ins->mCode == IC_LOAD_TEMPORARY)
+			{
+				if (!IsTempModifiedInRange(i + 1, mInstructions.Size(), ins->mSrc[0].mTemp))
+					range[ins->mSrc[0].mTemp].SetLimit(value, value);
+				temp = ins->mSrc[0].mTemp;
+			}
+			else
+				return;
+		}
+		else if (ins->mCode == IC_LOAD_TEMPORARY && ins->mSrc[0].mTemp == temp)
+		{
+			if (!IsTempModifiedInRange(i + 1, mInstructions.Size(), ins->mDst.mTemp))
+				range[ins->mDst.mTemp].SetLimit(value, value);
+		}
+	}
+}
+
 void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
 {
 	mLocalValueRange = mEntryValueRange;
@@ -7328,34 +7369,46 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPEQ:
 				if (s0 < 0)
 				{
+					MarkIntegerRangeBoundUp(s1, mInstructions[sz - 2]->mSrc[0].mIntConst, mTrueValueRange);
+#if 0
 					mTrueValueRange[s1].mMinState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s1].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
 					mTrueValueRange[s1].mMaxState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s1].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+#endif
 				}
 				else if (s1 < 0)
 				{
+					MarkIntegerRangeBoundUp(s0, mInstructions[sz - 2]->mSrc[1].mIntConst, mTrueValueRange);
+#if 0
 					mTrueValueRange[s0].mMinState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s0].mMinValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
 					mTrueValueRange[s0].mMaxState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s0].mMaxValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
+#endif
 				}
 				break;
 
 			case IA_CMPNE:
 				if (s0 < 0)
 				{
+					MarkIntegerRangeBoundUp(s1, mInstructions[sz - 2]->mSrc[0].mIntConst, mFalseValueRange);
+#if 0
 					mFalseValueRange[s1].mMinState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s1].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
 					mFalseValueRange[s1].mMaxState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s1].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+#endif
 				}
 				else if (s1 < 0)
 				{
+					MarkIntegerRangeBoundUp(s0, mInstructions[sz - 2]->mSrc[1].mIntConst, mFalseValueRange);
+#if 0
 					mFalseValueRange[s0].mMinState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s0].mMinValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
 					mFalseValueRange[s0].mMaxState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s0].mMaxValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
+#endif
 				}
 				break;
 #endif
