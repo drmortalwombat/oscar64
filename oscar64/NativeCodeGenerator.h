@@ -668,6 +668,7 @@ public:
 
 	void CheckLive(void);
 	void CheckBlocks(bool sequence = false);
+	void CheckAsmCode(void);
 	void CheckVisited(void);
 };
 

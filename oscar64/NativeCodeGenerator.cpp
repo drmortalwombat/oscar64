@@ -16462,7 +16462,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 
 					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 					mIns[i + 1].mType = ASMIT_NOP;
-					mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mLive |= LIVE_CPU_REG_Z | LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Z | LIVE_CPU_REG_X;
 					mIns[i + 3].mType = ASMIT_STX; mIns[i + 3].mLive |= LIVE_CPU_REG_Z;
 
 					fblock->mIns.Push(mIns[i + 4]);
@@ -27126,7 +27126,7 @@ bool NativeCodeBasicBlock::MoveLDSTXOutOfRange(int at)
 		if (mIns[j].mType == ASMIT_JSR)
 			return false;
 
-		if (!(mIns[j].mLive & LIVE_CPU_REG_A))
+		if (!(mIns[j].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 		{
 			mIns.Insert(j + 1, NativeCodeInstruction(mIns[at + 1].mIns, ASMIT_STA, mIns[at + 1]));
 			mIns.Insert(j + 1, NativeCodeInstruction(mIns[at].mIns, ASMIT_LDA, mIns[at]));
@@ -35333,7 +35333,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && (mIns[i + 1].mAddress & 0x01) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
 					{
 						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
 						mIns[i + 0].mAddress = (mIns[i + 0].mAddress >> 1) & 0x7f;
 						mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
@@ -35343,7 +35343,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && (mIns[i + 1].mAddress & 0x80) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
 					{
 						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
 						mIns[i + 0].mAddress = (mIns[i + 0].mAddress << 1) & 0xfe;
 						mIns[i + 1].mType = ASMIT_ROR; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
@@ -39976,6 +39976,23 @@ void NativeCodeBasicBlock::CheckVisited(void)
 #endif
 }
 
+void NativeCodeBasicBlock::CheckAsmCode(void)
+{
+#if _DEBUG
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int j = 0; j < mIns.Size(); j++)
+		{
+			assert(HasAsmInstructionMode(mIns[j].mType, mIns[j].mMode));
+		}
+
+		if (mTrueJump) mTrueJump->CheckAsmCode();
+		if (mFalseJump) mFalseJump->CheckAsmCode();
+	}
+#endif
+}
 
 
 void NativeCodeBasicBlock::CheckBlocks(bool sequence)
@@ -40672,7 +40689,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "robot_move");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "time_draw");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -41405,6 +41422,11 @@ void NativeCodeProcedure::Optimize(void)
 			{
 				changed = true;
 
+#if _DEBUG
+				ResetVisited();
+				mEntryBlock->CheckBlocks();
+#endif
+
 				BuildDataFlowSets();
 				ResetVisited();
 				mEntryBlock->RemoveUnusedResultInstructions();
@@ -41418,6 +41440,10 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->AbsoluteValueForwarding(pairs))
 			{
 				changed = true;
+#if _DEBUG
+				ResetVisited();
+				mEntryBlock->CheckBlocks();
+#endif
 
 				BuildDataFlowSets();
 				ResetVisited();
@@ -41869,6 +41895,11 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
+
 #if 1
 		if (step == 8)
 		{
@@ -41896,6 +41927,10 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 #if 1
 		if (step == 9)
 		{
@@ -41907,6 +41942,10 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		RebuildEntry();
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 #if 1
 		if (step == 2 && !changed)
 		{
@@ -41952,6 +41991,11 @@ void NativeCodeProcedure::Optimize(void)
 				}
 			}
 		}
+#endif
+
+#if _DEBUG
+	ResetVisited();
+	mEntryBlock->CheckAsmCode();
 #endif
 
 #if 1

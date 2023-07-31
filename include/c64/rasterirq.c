@@ -97,6 +97,9 @@ __asm irq2
     tya
     pha
 
+    lda $01
+    pha
+
     lda #$35
     sta $01
 
@@ -136,7 +139,7 @@ ji:
 
 ex:
 
-	lda PLAShadow
+	pla
 	sta $01
 
     pla
