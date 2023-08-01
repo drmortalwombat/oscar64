@@ -3503,7 +3503,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				}
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE)
+			else if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE && (mAddress < BC_REG_FPARAMS || mAddress >= BC_REG_FPARAMS_END))
 			{
 				data.mRegs[CPU_REG_A] = data.mRegs[mAddress];
 				mAddress = data.mRegs[CPU_REG_A].mValue;
@@ -41410,7 +41410,7 @@ void NativeCodeProcedure::Optimize(void)
 
 			t++;
 
-		} while (changed);
+		} while (changed && t < 20);
 #endif
 
 		BuildDataFlowSets();

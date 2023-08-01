@@ -297,14 +297,16 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 				for (int i = 0; i < mVariableFunctions.Size(); i++)
 				{
 					Declaration* vf = mVariableFunctions[i];
-					CheckFastcall(vf, false);
 
 					if (vf->mBase->IsSame(cf))
 					{
+						CheckFastcall(vf, false);
+
 						int n = vf->mBase->mFastCallBase + vf->mBase->mFastCallSize;
 						if (n > nbase)
 							nbase = n;
 					}
+
 				}
 				//				procDec->mFlags |= DTF_DYNSTACK;
 			}
