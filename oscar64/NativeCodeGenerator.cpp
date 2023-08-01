@@ -379,7 +379,7 @@ NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmIns
 	}
 	if (mode == ASMIM_ZERO_PAGE)
 	{
-		assert(address >= 2 && address < 256);
+		assert(address >= 1 && address < 256);
 	}
 }
 

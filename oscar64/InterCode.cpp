@@ -3069,7 +3069,6 @@ void InterInstruction::CollectLocalAddressTemps(GrowingIntArray& localTable, Gro
 			if (mConst.mVarIndex >= nparams)
 				nparams = mConst.mVarIndex + 1;
 		}
-
 	}
 	else if (mCode == IC_LEA)
 	{
@@ -16695,6 +16694,9 @@ void InterCodeProcedure::BuildLocalAliasTable(void)
 	GrowingIntArray		localTable(-1), paramTable(-1);
 	int					nlocals = 0, nparams = 0;
 
+	localTable.SetSize(mTemporaries.Size());
+	paramTable.SetSize(mTemporaries.Size());
+
 	ResetVisited();
 	mEntryBlock->CollectLocalAddressTemps(localTable, paramTable, nlocals, nparams);
 
@@ -16710,7 +16712,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "card_color");
+	CheckFunc = !strcmp(mIdent->mString, "playSong");
 
 	mEntryBlock = mBlocks[0];
 
