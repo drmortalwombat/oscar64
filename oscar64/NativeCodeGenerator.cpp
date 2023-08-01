@@ -36165,7 +36165,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					}
 					else if (
 						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].RequiresYReg() &&
+						!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() &&
 						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_MEM))
 					{
 						mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED;
@@ -39985,7 +39985,10 @@ void NativeCodeBasicBlock::CheckAsmCode(void)
 
 		for (int j = 0; j < mIns.Size(); j++)
 		{
-			assert(HasAsmInstructionMode(mIns[j].mType, mIns[j].mMode));
+			if (mIns[j].mMode == ASMIM_IMMEDIATE_ADDRESS)
+				assert(HasAsmInstructionMode(mIns[j].mType, ASMIM_IMMEDIATE));
+			else
+				assert(HasAsmInstructionMode(mIns[j].mType, mIns[j].mMode));
 		}
 
 		if (mTrueJump) mTrueJump->CheckAsmCode();
