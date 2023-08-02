@@ -2665,6 +2665,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					if (vl.mType->mBase->mType == DT_TYPE_VOID || vr.mType->mBase->mType == DT_TYPE_VOID)
 						;
+					else if ((mCompilerOptions & COPT_CPLUSPLUS) && (vl.mType->mBase->IsSubType(vr.mType->mBase) || vr.mType->mBase->IsSubType(vl.mType->mBase)))
+						;
 					else if (!vl.mType->mBase->IsConstSame(vr.mType->mBase))
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types");
 				}
