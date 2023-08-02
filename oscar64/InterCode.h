@@ -569,6 +569,7 @@ public:
 	bool DropUnreachable(void);
 	
 	bool CheckStaticStack(void);
+	void ApplyStaticStack(InterOperand& iop, const GrowingVariableArray& localVars);
 	void CollectStaticStack(LinkerObject * lobj, const GrowingVariableArray& localVars);
 	void PromoteStaticStackParams(LinkerObject* paramlobj);
 

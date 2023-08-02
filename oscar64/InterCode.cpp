@@ -4523,6 +4523,11 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 	{
 		assert(code->mDst.mType == code->mConst.mType);
 	}
+	if (code->mCode == IC_CONSTANT && code->mConst.mType == IT_POINTER && code->mConst.mMemory == IM_GLOBAL && code->mConst.mVarIndex >= 0)
+	{
+		assert(code->mConst.mVarIndex < mProc->mModule->mGlobalVars.Size());
+		assert(mProc->mModule->mGlobalVars[code->mConst.mVarIndex]);
+	}
 
 	for (int i = 0; i < code->mNumOperands; i++)
 		assert(code->mSrc[i].mType != IT_NONE);
@@ -11370,10 +11375,12 @@ bool InterCodeBasicBlock::CheckStaticStack(void)
 	return true;
 }
 
-void ApplyStaticStack(InterOperand & iop, const GrowingVariableArray& localVars)
+void InterCodeBasicBlock::ApplyStaticStack(InterOperand & iop, const GrowingVariableArray& localVars)
 {
 	if (iop.mMemory == IM_LOCAL)
 	{
+		assert(localVars[iop.mVarIndex]->mIndex < mProc->mModule->mGlobalVars.Size());
+
 		iop.mMemory = IM_GLOBAL;
 		iop.mLinkerObject = localVars[iop.mVarIndex]->mLinkerObject;
 		iop.mVarIndex = localVars[iop.mVarIndex]->mIndex;
@@ -11419,6 +11426,7 @@ void PromoteStaticStackParam(InterOperand& iop, LinkerObject* paramlobj)
 			iop.mMemory = IM_GLOBAL;
 			iop.mIntConst += offset;
 			iop.mLinkerObject = paramlobj;
+			iop.mVarIndex = -1;
 			paramlobj->EnsureSpace(int(iop.mIntConst), iop.mOperandSize);
 		}
 	}

@@ -7,20 +7,20 @@ bool			mouse_lb, mouse_rb;
 static char		mouse_px, mouse_py;
 static char		mouse_port;
 
-inline signed char dpos(char * old, char new)
+inline signed char dpos(char * old, char mnew)
 {
-	new = (new & 0x7f) >> 1;
+	mnew = (mnew & 0x7f) >> 1;
 
-	char	diff = (new - *old) & 0x3f;
+	char	diff = (mnew - *old) & 0x3f;
 
 	if (diff >= 0x20)
 	{
-		*old = new;
+		*old = mnew;
 		return diff | 0xe0;
 	}
 	else if (diff)
 	{
-		*old = new;
+		*old = mnew;
 		return diff;
 	}
 

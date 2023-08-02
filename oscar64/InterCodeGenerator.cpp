@@ -1288,7 +1288,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			pcins->mConst.mVarIndex = ccdec->mVarIndex;
 			pcins->mConst.mIntConst = 0;
 			pcins->mConst.mOperandSize = 2;
-			pcins->mConst.mMemory = IM_GLOBAL;
+			pcins->mConst.mMemory = IM_PROCEDURE;
 			pcins->mConst.mLinkerObject = ccdec->mLinkerObject;
 			block->Append(pcins);
 

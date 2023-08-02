@@ -4717,6 +4717,8 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 				dist += 1;
 			else if (ptype->mType == DT_TYPE_POINTER && etype->mType == DT_TYPE_FUNCTION && ptype->mBase->IsSame(etype))
 				dist += 0;
+			else if (ptype->mType == DT_TYPE_POINTER && etype->mType == DT_TYPE_POINTER && etype->mBase->mType == DT_TYPE_VOID)
+				dist += 0;
 			else if (ptype->IsSubType(etype))
 				dist += 256;
 			else if (ptype->mType == DT_TYPE_REFERENCE && ptype->mBase->IsSame(etype))
@@ -5233,31 +5235,40 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 
 				if (mScanner->mToken == TK_OPEN_PARENTHESIS || dec->mDefaultConstructor)
 				{
-					Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
-					vdec->mVarIndex = mLocalIndex++;
-					vdec->mBase = nexp->mDecType;
-					vdec->mSize = 2;
-
-					Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
-					vexp->mDecType = vdec->mBase;
-					vexp->mDecValue = vdec;
-
-					Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
-					iexp->mToken = TK_ASSIGN;
-					iexp->mLeft = vexp;
-					iexp->mRight = nexp;
-					iexp->mDecType = nexp->mDecType;
-
 					Declaration* mdec = dec->mDefaultConstructor;
-					Expression* pexp = vexp;
 
+					bool	plist = false;
 					if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
 					{
 						if (!ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
 						{
-							pexp = ParseListExpression(false);
-
+							plist = true;
 							mdec = dec->mScope->Lookup(dec->mIdent->PreMangle("+"));
+						}
+					}
+
+					if (mdec)
+					{
+						Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+						vdec->mVarIndex = mLocalIndex++;
+						vdec->mBase = nexp->mDecType;
+						vdec->mSize = 2;
+
+						Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+						vexp->mDecType = vdec->mBase;
+						vexp->mDecValue = vdec;
+
+						Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+						iexp->mToken = TK_ASSIGN;
+						iexp->mLeft = vexp;
+						iexp->mRight = nexp;
+						iexp->mDecType = nexp->mDecType;
+
+						Expression* pexp = vexp;
+
+						if (plist)
+						{
+							pexp = ParseListExpression(false);
 
 							ConsumeToken(TK_CLOSE_PARENTHESIS);
 
@@ -5266,41 +5277,45 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 							lexp->mRight = pexp;
 							pexp = lexp;
 						}
+
+						Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+						cexp->mDecValue = mdec;
+						cexp->mDecType = cexp->mDecValue->mBase;
+
+						Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
+						dexp->mLeft = cexp;
+						dexp->mRight = pexp;
+
+						dexp = ResolveOverloadCall(dexp);
+
+						Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+
+						sexp->mLeft = dexp;
+						sexp->mRight = vexp;
+						sexp->mDecType = vexp->mDecType;
+
+						Expression* coexp = nexp = new Expression(mScanner->mLocation, EX_CONDITIONAL);
+						coexp->mLeft = new Expression(mScanner->mLocation, EX_RELATIONAL);
+						coexp->mLeft->mDecType = TheBoolTypeDeclaration;
+						coexp->mLeft->mToken = TK_EQUAL;
+						coexp->mLeft->mLeft = vexp;
+						coexp->mLeft->mRight = nuexp;
+						coexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
+						coexp->mRight->mLeft = vexp;
+						coexp->mRight->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+						coexp->mRight->mRight->mLeft = dexp;
+						coexp->mRight->mRight->mRight = vexp;
+						coexp->mDecType = vexp->mDecType;
+
+						nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+						nexp->mLeft = iexp;
+						nexp->mRight = coexp;
+						nexp->mDecType = coexp->mDecType;
 					}
-
-					Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-					cexp->mDecValue = mdec;
-					cexp->mDecType = cexp->mDecValue->mBase;
-
-					Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
-					dexp->mLeft = cexp;
-					dexp->mRight = pexp;
-
-					dexp = ResolveOverloadCall(dexp);
-
-					Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
-
-					sexp->mLeft = dexp;
-					sexp->mRight = vexp;
-					sexp->mDecType = vexp->mDecType;
-
-					Expression * coexp = nexp = new Expression(mScanner->mLocation, EX_CONDITIONAL);
-					coexp->mLeft = new Expression(mScanner->mLocation, EX_RELATIONAL);
-					coexp->mLeft->mDecType = TheBoolTypeDeclaration;
-					coexp->mLeft->mToken = TK_EQUAL;
-					coexp->mLeft->mLeft = vexp;
-					coexp->mLeft->mRight = nuexp;
-					coexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
-					coexp->mRight->mLeft = vexp;
-					coexp->mRight->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
-					coexp->mRight->mRight->mLeft = dexp;
-					coexp->mRight->mRight->mRight = vexp;
-					coexp->mDecType = vexp->mDecType;
-
-					nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
-					nexp->mLeft = iexp;
-					nexp->mRight = coexp;
-					nexp->mDecType = coexp->mDecType;
+					else if (plist)
+					{
+						mErrors->Error(mScanner->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching constructor", dec->mIdent);
+					}
 				}
 			}
 		}
