@@ -7322,7 +7322,8 @@ Expression* Parser::ParseAssembler(void)
 					if ((ilast->mLeft->mDecValue->mType == DT_CONST_INTEGER && ilast->mLeft->mDecValue->mInteger < 256) ||
 						(ilast->mLeft->mDecValue->mType == DT_VARIABLE_REF && !(ilast->mLeft->mDecValue->mBase->mFlags & DTF_GLOBAL)) ||
 						(ilast->mLeft->mDecValue->mType == DT_VARIABLE && !(ilast->mLeft->mDecValue->mFlags & DTF_GLOBAL)) ||
-						 ilast->mLeft->mDecValue->mType == DT_ARGUMENT)
+						(ilast->mLeft->mDecValue->mType == DT_VARIABLE && (ilast->mLeft->mDecValue->mFlags & DTF_ZEROPAGE)) ||
+						ilast->mLeft->mDecValue->mType == DT_ARGUMENT)
 					{
 						if (ilast->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_ZERO_PAGE))
 							ilast->mAsmInsMode = ASMIM_ZERO_PAGE;
@@ -8065,6 +8066,19 @@ void Parser::ParsePragma(void)
 					ConsumeToken(TK_COMMA);
 
 					Expression * exp = ParseRExpression();
+					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+					{
+						dec->mAlignment = int(exp->mDecValue->mInteger);
+					}
+					else
+						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for alignment expected");
+				}
+				else if (dec && dec->mType == DT_CONST_FUNCTION)
+				{
+					mScanner->NextToken();
+					ConsumeToken(TK_COMMA);
+
+					Expression* exp = ParseRExpression();
 					if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
 					{
 						dec->mAlignment = int(exp->mDecValue->mInteger);

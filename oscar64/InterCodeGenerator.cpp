@@ -473,7 +473,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 
 	Declaration* dec = exp->mDecValue;
 
-	dec->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_NATIVE_CODE);
+	dec->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_NATIVE_CODE, dec->mAlignment);
 
 	uint8* d = dec->mLinkerObject->AddSpace(osize);
 
@@ -600,7 +600,20 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 			}
 			else if (aexp->mType == DT_ARGUMENT || aexp->mType == DT_VARIABLE)
 			{
-				if (refvars)
+				if (aexp->mFlags & DTF_GLOBAL)
+				{
+					InitGlobalVariable(mod, aexp);
+
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					ref.mFlags = LREF_LOWBYTE;
+					ref.mRefObject = aexp->mLinkerObject;
+					ref.mRefOffset = 0;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+					dec->mLinkerObject->AddReference(ref);
+				}
+				else if (refvars)
 				{
 					int j = 0;
 					while (j < refvars->Size() && (*refvars)[j] != aexp)
@@ -4635,7 +4648,7 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 
 InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod, Expression* exp, Declaration * dec)
 {
-	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE));
+	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
 #if 0
 	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))

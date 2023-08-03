@@ -18,6 +18,10 @@ extern IOCharMap	giocharmap;
 
 void iocharmap(IOCharMap chmap);
 
+#if defined(__C128__)
+void dispmode40col(void);
+void dispmode80col(void);
+#endif
 
 int kbhit(void);
 
