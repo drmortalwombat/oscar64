@@ -1548,7 +1548,7 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 					while (bdec->mType == DT_TYPE_ARRAY)
 						bdec = bdec->mBase;
 
-					if (bdec->mType == DT_TYPE_STRUCT && bdec->mDefaultConstructor)
+					if (bdec->mType == DT_TYPE_STRUCT && bdec->mDefaultConstructor || dec->mValue)
 					{
 						Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
 						qexp->mLeft = thisexp;
@@ -1556,7 +1556,17 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 
 						Expression* dexp;
 
-						if (dec->mSize == bdec->mSize)
+						if (dec->mValue)
+						{
+							qexp->mDecType = bdec;
+
+							dexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+							dexp->mToken = TK_ASSIGN;
+							dexp->mDecType = bdec;
+							dexp->mLeft = qexp;
+							dexp->mRight = dec->mValue;
+						}
+						else if (dec->mSize == bdec->mSize)
 						{
 							qexp->mDecType = bdec;
 
@@ -1825,6 +1835,8 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 				if (bdec->mCopyAssignment)
 					simpleAssignment = false;
 			}
+			if (dec->mValue)
+				simpleConstructor = false;
 		}
 		dec = dec->mNext;
 	}
