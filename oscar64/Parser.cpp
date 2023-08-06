@@ -913,6 +913,11 @@ Declaration * Parser::ParseFunctionDeclaration(Declaration* bdec)
 
 				adec->mSize = adec->mBase->mSize;
 
+				if ((mCompilerOptions & COPT_CPLUSPLUS) && ConsumeTokenIf(TK_ASSIGN))
+				{
+					adec->mValue = ParseExpression(false);
+				}
+
 				vi += adec->mSize;
 				if (pdec)
 					pdec->mNext = adec;
@@ -4754,6 +4759,12 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 			return NOOVERLOAD;
 	}
 
+	while (pdec && pdec->mValue)
+	{
+		dist += 1024;
+		pdec = pdec->mNext;
+	}
+
 	if (pdec)
 		return NOOVERLOAD;
 
@@ -4793,6 +4804,43 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 	}
 	
 	return exp;
+}
+
+void Parser::CompleteFunctionDefaultParams(Expression* exp)
+{
+	Declaration* fdec = exp->mLeft->mDecValue;
+	Expression* lexp = exp;
+
+	Declaration* pdec = fdec->mBase->mParams;
+	Expression* pexp = lexp->mRight;
+	while (pdec)
+	{
+		if (pexp)
+		{
+			if (pexp->mType == EX_LIST)
+			{
+				lexp = pexp;
+				pexp = pexp->mRight;
+			}
+			else
+				pexp = nullptr;
+		}
+		else if (pdec->mValue)
+		{
+			if (lexp->mRight)
+			{
+				Expression* nexp = new Expression(exp->mLocation, EX_LIST);
+				nexp->mLeft = lexp->mRight;
+				nexp->mRight = pdec->mValue;
+				lexp->mRight = nexp;
+				lexp = nexp;
+			}
+			else
+				lexp->mRight = pdec->mValue;
+		}
+
+		pdec = pdec->mNext;
+	}
 }
 
 Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
@@ -4850,6 +4898,8 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 				exp->mRight = pbest;
 			}
 		}
+
+		CompleteFunctionDefaultParams(exp);
 	}
 
 	return exp;
