@@ -318,6 +318,7 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	mAssemblerMode = false;
 	mPreprocessorMode = false;
 	mMacroExpansion = nullptr;
+	mMacroExpansionDepth = 0;
 
 	mDefines = new MacroDict();
 	mDefineArguments = nullptr;
@@ -817,6 +818,9 @@ void Scanner::NextToken(void)
 				ex->mChar = mTokenChar;
 
 				mMacroExpansion = ex;
+				mMacroExpansionDepth++;
+				if (mMacroExpansionDepth > 1024)
+					mErrors->Error(mLocation, EFATAL_MACRO_EXPANSION_DEPTH, "Maximum macro expansion depth exceeded", mTokenIdent);
 				mLine = def->mString;
 				mOffset = 0;
 				NextChar();
@@ -1812,6 +1816,8 @@ bool Scanner::NextChar(void)
 
 			delete mMacroExpansion;
 			mMacroExpansion = mac;
+			mMacroExpansionDepth--;
+
 			return true;
 		}
 		else if (mPreprocessor->NextLine())

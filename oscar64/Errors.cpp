@@ -35,7 +35,7 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char
 	else
 		fprintf(stderr, "%s(%d, %d) : %s %d: %s\n", loc.mFileName, loc.mLine, loc.mColumn, level, eid, msg);
 
-	if (mErrorCount > 10)
+	if (mErrorCount > 10 || eid >= EFATAL_GENERIC)
 		exit(20);
 }
 

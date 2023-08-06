@@ -259,6 +259,8 @@ protected:
 		MacroDict* mDefinedArguments;
 	}	*	mMacroExpansion;
 
+	int			mMacroExpansionDepth;
+
 	MacroDict* mDefines, * mDefineArguments;
 
 	Token		mUngetToken;
