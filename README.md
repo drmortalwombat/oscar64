@@ -65,6 +65,7 @@ Supported Features:
 * new, delete, new[] and delete[]
 * virtual member functions
 * string and iostream classes
+* default parameters for class members and functions
 
 ## Installation and Usage
 
