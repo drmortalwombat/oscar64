@@ -612,6 +612,29 @@ void Linker::Link(void)
 				}
 			}
 		}
+
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* oi = mObjects[i];
+
+			if (oi->mSection->mType == LST_DATA && (oi->mFlags & LOBJF_PLACED) && oi->mRegion)
+			{
+				for (int j = i + 1; j < mObjects.Size(); j++)
+				{
+					LinkerObject* oj = mObjects[j];
+
+					if (oj->mSection->mType == LST_DATA && (oj->mFlags & LOBJF_PLACED) && oj->mRegion)
+					{
+						if (oj->mAddress < oi->mAddress + oi->mSize && oi->mAddress < oj->mAddress + oj->mSize && (oj->mRegion->mCartridgeBanks & oi->mRegion->mCartridgeBanks))
+						{
+							mErrors->Error(oi->mLocation, EERR_OVERLAPPING_DATA_SECTIONS, "Overlapping data section", oi->mIdent);
+							mErrors->Error(oj->mLocation, EERR_OVERLAPPING_DATA_SECTIONS, "Overlapping data section", oj->mIdent);
+						}
+					}
+				}
+			}
+		}
+
 	}
 }
 
