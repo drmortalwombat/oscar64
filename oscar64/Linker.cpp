@@ -241,6 +241,24 @@ LinkerObject* Linker::FindObjectByAddr(int addr)
 	return nullptr;
 }
 
+LinkerObject* Linker::FindObjectByAddr(int bank, int addr)
+{
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* lobj = mObjects[i];
+		if (lobj->mFlags & LOBJF_PLACED)
+		{
+			if (lobj->mRegion && ((1ULL << bank) & lobj->mRegion->mCartridgeBanks))
+			{
+				if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize)
+					return lobj;
+			}
+		}
+	}
+
+	return FindObjectByAddr(addr);
+}
+
 LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment)
 {
 	LinkerObject* obj = new LinkerObject;

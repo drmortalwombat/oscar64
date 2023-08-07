@@ -3170,7 +3170,7 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 		}
 		else if (mSrc[0].mMemory == IM_GLOBAL)
 		{
-			if (!providedVars[mSrc[0].mVarIndex])
+			if (mSrc[0].mVarIndex >= 0 && !providedVars[mSrc[0].mVarIndex])
 				requiredVars += mSrc[0].mVarIndex;
 		}
 	}
@@ -3186,10 +3186,13 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 		}
 		else if (mSrc[1].mMemory == IM_GLOBAL)
 		{
-			if (mSrc[1].mIntConst == 0 && mSrc[1].mOperandSize == staticVars[mSrc[1].mVarIndex]->mSize)
-				providedVars += mSrc[1].mVarIndex;
-			else if (!providedVars[mSrc[1].mVarIndex])
-				requiredVars += mSrc[1].mVarIndex;
+			if (mSrc[1].mVarIndex >= 0)
+			{
+				if (mSrc[1].mIntConst == 0 && mSrc[1].mOperandSize == staticVars[mSrc[1].mVarIndex]->mSize)
+					providedVars += mSrc[1].mVarIndex;
+				else if (!providedVars[mSrc[1].mVarIndex])
+					requiredVars += mSrc[1].mVarIndex;
+			}
 		}
 	}
 	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH)
@@ -3696,7 +3699,8 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 		}
 		else if (mSrc[0].mMemory == IM_GLOBAL)
 		{
-			requiredVars += mSrc[0].mVarIndex;
+			if (mSrc[0].mVarIndex >= 0)
+				requiredVars += mSrc[0].mVarIndex;
 		}
 
 		int k = 0;
@@ -3709,7 +3713,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 	}
 	else if (mCode == IC_STORE)
 	{
-		if (mSrc[1].mMemory == IM_GLOBAL)
+		if (mSrc[1].mMemory == IM_GLOBAL && mSrc[1].mVarIndex >= 0)
 		{
 			if (requiredVars[mSrc[1].mVarIndex])
 			{
@@ -17973,10 +17977,15 @@ bool InterCodeProcedure::ReferencesGlobal(int varindex)
 {
 	if (mGlobalsChecked)
 	{
-		if (mModule->mGlobalVars[varindex]->mAliased)
-			return mLoadsIndirect || mStoresIndirect;
-		else if (varindex < mReferencedGlobals.Size())
-			return mReferencedGlobals[varindex];
+		if (varindex >= 0)
+		{
+			if (mModule->mGlobalVars[varindex]->mAliased)
+				return mLoadsIndirect || mStoresIndirect;
+			else if (varindex < mReferencedGlobals.Size())
+				return mReferencedGlobals[varindex];
+			else
+				return false;
+		}
 		else
 			return false;
 	}
@@ -17988,10 +17997,15 @@ bool InterCodeProcedure::ModifiesGlobal(int varindex)
 {
 	if (mGlobalsChecked)
 	{
-		if (mModule->mGlobalVars[varindex]->mAliased)
-			return mStoresIndirect;
-		else if (varindex < mModifiedGlobals.Size())
-			return mModifiedGlobals[varindex];
+		if (varindex >= 0)
+		{
+			if (mModule->mGlobalVars[varindex]->mAliased)
+				return mStoresIndirect;
+			else if (varindex < mModifiedGlobals.Size())
+				return mModifiedGlobals[varindex];
+			else
+				return false;
+		}
 		else
 			return false;
 	}

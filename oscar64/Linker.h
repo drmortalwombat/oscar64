@@ -237,6 +237,7 @@ public:
 	LinkerRegion* FindRegionOfSection(LinkerSection* section);
 
 	LinkerObject* FindObjectByAddr(int addr);
+	LinkerObject* FindObjectByAddr(int bank, int addr);
 
 	bool IsSectionPlaced(LinkerSection* section);
 
