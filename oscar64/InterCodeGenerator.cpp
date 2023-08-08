@@ -150,6 +150,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 		v.mTemp = cins->mDst.mTemp;
 		v.mType = type;
 	}
+	else if (type->mType == DT_TYPE_POINTER && v.mType->mType == DT_TYPE_ARRAY)
+	{
+		v.mType = type;
+		return v;
+	}
 	else if (v.mType->mSize < type->mSize)
 	{
 		if (v.mType->mSize == 1 && type->mSize == 2)

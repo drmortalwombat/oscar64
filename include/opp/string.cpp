@@ -33,12 +33,17 @@ string::string(const string & s)
 
 string::string(const char * s)
 {
-	char l = sstrlen(s);
-	if (l)
-	{
-		cstr = malloc(char(l + 2));
-		cstr[0] = l;
-		smemcpy(cstr + 1, s, l + 1);
+	if (s)
+	{	
+		char l = sstrlen(s);
+		if (l)
+		{
+			cstr = malloc(char(l + 2));
+			cstr[0] = l;
+			smemcpy(cstr + 1, s, l + 1);
+		}
+		else
+			cstr = nullptr;
 	}
 	else
 		cstr = nullptr;
@@ -102,12 +107,17 @@ string & string::operator=(const string & s)
 string & string::operator=(const char * s)
 {
 	free(cstr);
-	char l = sstrlen(s);
-	if (l)
+	if (s)
 	{
-		cstr = malloc(char(l + 2));
-		cstr[0] = l;		
-		smemcpy(cstr + 1, s, l + 1);
+		char l = sstrlen(s);
+		if (l)
+		{
+			cstr = malloc(char(l + 2));
+			cstr[0] = l;		
+			smemcpy(cstr + 1, s, l + 1);
+		}
+		else
+			cstr = nullptr;
 	}
 	else
 		cstr = nullptr;
@@ -141,24 +151,27 @@ string & string::operator+=(const string & s)
 
 string & string::operator+=(const char * s)
 {
-	char sl = sstrlen(s);
-	if (sl)
+	if (s)
 	{
-		if (cstr)
+		char sl = sstrlen(s);
+		if (sl)
 		{
-			char l = sl + cstr[0];
-			char * c = malloc(char(l + 2));
-			c[0] = l;
-			smemcpy(c + 1, cstr + 1, cstr[0]);
-			smemcpy(c + 1 + cstr[0], s, sl + 1);
-			free(cstr);
-			cstr = c;
-		}
-		else
-		{
-			cstr = malloc(char(sl + 2));
-			cstr[0] = sl;
-			smemcpy(cstr + 1, s, sl + 1);
+			if (cstr)
+			{
+				char l = sl + cstr[0];
+				char * c = malloc(char(l + 2));
+				c[0] = l;
+				smemcpy(c + 1, cstr + 1, cstr[0]);
+				smemcpy(c + 1 + cstr[0], s, sl + 1);
+				free(cstr);
+				cstr = c;
+			}
+			else
+			{
+				cstr = malloc(char(sl + 2));
+				cstr[0] = sl;
+				smemcpy(cstr + 1, s, sl + 1);
+			}
 		}
 	}
 	return *this;
@@ -226,14 +239,19 @@ string string::operator+(const char * s) const
 {
 	if (cstr)
 	{
-		char sl = sstrlen(s);
-		if (sl)
+		if (s)
 		{
-			char l = cstr[0] + sl;
-			char * p = malloc(char(l + 2));
-			smemcpy(p + 1, cstr + 1, cstr[0]);
-			smemcpy(p + 1 + cstr[0], s, sl);
-			return string(l, p);
+			char sl = sstrlen(s);
+			if (sl)
+			{
+				char l = cstr[0] + sl;
+				char * p = malloc(char(l + 2));
+				smemcpy(p + 1, cstr + 1, cstr[0]);
+				smemcpy(p + 1 + cstr[0], s, sl);
+				return string(l, p);
+			}
+			else
+				return *this;
 		}
 		else
 			return *this;
