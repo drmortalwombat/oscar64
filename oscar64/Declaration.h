@@ -51,6 +51,8 @@ enum DecType
 	DT_NAMESPACE,
 	DT_BASECLASS,
 
+	DT_TEMPLATE,
+
 	DT_VTABLE
 };
 

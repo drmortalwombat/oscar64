@@ -4111,6 +4111,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vr = Dereference(proc, exp, block, vr);
 				return CoerceType(proc, exp, block, vr, exp->mDecType);
 			}
+			else if (exp->mDecType->mType == DT_TYPE_VOID)
+			{
+			}
 			else
 			{
 				vr = Dereference(proc, exp, block, vr);

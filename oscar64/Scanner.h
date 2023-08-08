@@ -161,6 +161,7 @@ enum Token
 	TK_DELETE,
 	TK_VIRTUAL,
 	TK_OPERATOR,
+	TK_TEMPLATE,
 
 	NUM_TOKENS
 };
@@ -204,6 +205,24 @@ protected:
 	MacroDict	*	mParent;
 };
 
+class Scanner;
+
+struct TokenSequence
+{
+	TokenSequence	*	mNext;
+	Location			mLocation;
+	Token				mToken;
+
+	const Ident		*	mTokenIdent;
+	char				mTokenChar;
+	const char *		mTokenString;
+	double				mTokenNumber;
+	int64				mTokenInteger;
+
+	TokenSequence(Scanner* scanner);
+	~TokenSequence(void);
+};
+
 class Scanner
 {
 public:
@@ -213,6 +232,9 @@ public:
 	const char* TokenName(Token token) const;
 
 	void NextToken(void);
+
+	TokenSequence* Record(void);
+	const TokenSequence* Replay(const TokenSequence * sequence);
 
 	void Warning(const char * error);
 	void Error(const char * error);
@@ -247,6 +269,7 @@ public:
 	uint64			mCompilerOptions;
 
 	void AddMacro(const Ident* ident, const char* value);
+	void MarkSourceOnce(void);
 protected:
 	void NextRawToken(void);
 
@@ -261,9 +284,11 @@ protected:
 
 	int			mMacroExpansionDepth;
 
-	MacroDict* mDefines, * mDefineArguments;
+	MacroDict* mDefines, * mDefineArguments, * mOnceDict;
 
 	Token		mUngetToken;
+
+	const TokenSequence* mReplay;
 
 	void StringToken(char terminator, char mode);
 	void CharToken(char mode);

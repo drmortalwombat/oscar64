@@ -162,6 +162,7 @@ const char* TokenNames[] =
 	"'delete'",
 	"'virtual'",
 	"'operator'",
+	"'template'",
 };
 
 
@@ -306,6 +307,25 @@ Macro* MacroDict::Lookup(const Ident* ident)
 }
 
 
+TokenSequence::TokenSequence(Scanner* scanner)
+	: mNext(nullptr), mLocation(scanner->mLocation), mToken(scanner->mToken),
+	mTokenIdent(scanner->mTokenIdent), mTokenChar(scanner->mTokenChar),
+	mTokenInteger(scanner->mTokenInteger), mTokenNumber(scanner->mTokenNumber),
+	mTokenString(nullptr)
+{
+	if (mToken == TK_STRING)
+	{
+		int	ssize = strlen(scanner->mTokenString);
+		char * str = new char[ssize + 1];
+		strcpy_s(str, ssize + 1, scanner->mTokenString);
+		mTokenString = str;
+	}
+}
+
+TokenSequence::~TokenSequence(void)
+{
+	delete[] mTokenString;
+}
 
 Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	: mErrors(errors), mPreprocessor(preprocessor)
@@ -324,6 +344,9 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	mDefineArguments = nullptr;
 	mToken = TK_NONE;
 	mUngetToken = TK_NONE;
+	mReplay = nullptr;
+
+	mOnceDict = new MacroDict();
 
 	NextChar();
 
@@ -335,6 +358,18 @@ Scanner::~Scanner(void)
 	delete mDefines;
 }
 
+
+TokenSequence* Scanner::Record(void)
+{
+	return new TokenSequence(this);
+}
+
+const TokenSequence* Scanner::Replay(const TokenSequence* replay)
+{
+	const TokenSequence* seq = mReplay;
+	mReplay = replay;
+	return seq;
+}
 
 const char* Scanner::TokenName(Token token) const
 {
@@ -412,8 +447,32 @@ void Scanner::AddMacro(const Ident* ident, const char* value)
 	mDefines->Insert(macro);
 }
 
+void Scanner::MarkSourceOnce(void)
+{
+	const Ident* fident = Ident::Unique(mPreprocessor->mSource->mFileName);
+
+	Macro* macro = new Macro(fident, nullptr);
+	mOnceDict->Insert(macro);
+}
+
 void Scanner::NextToken(void)
 {
+	if (mReplay)
+	{
+		mLocation = mReplay->mLocation;
+		mToken = mReplay->mToken;
+
+		mTokenIdent = mReplay->mTokenIdent;
+		mTokenChar = mReplay->mTokenChar;
+		mTokenNumber = mReplay->mTokenNumber;
+		mTokenInteger = mReplay->mTokenInteger;
+		if (mReplay->mTokenString)
+			strcpy_s(mTokenString, mReplay->mTokenString);
+
+		mReplay = mReplay->mNext;
+		return;
+	}
+
 	for (;;)
 	{
 		NextRawToken();
@@ -503,6 +562,8 @@ void Scanner::NextToken(void)
 			{
 				if (!mPreprocessor->OpenSource("Including", mTokenString, true))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+				else if (mOnceDict->Lookup(Ident::Unique(mPreprocessor->mSource->mFileName)))
+					mPreprocessor->CloseSource();
 			}
 			else if (mToken == TK_LESS_THAN)
 			{
@@ -510,6 +571,8 @@ void Scanner::NextToken(void)
 				StringToken('>', 'a');
 				if (!mPreprocessor->OpenSource("Including", mTokenString, false))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+				else if (mOnceDict->Lookup(Ident::Unique(mPreprocessor->mSource->mFileName)))
+					mPreprocessor->CloseSource();
 			}
 		}
 		else if (mToken == TK_PREP_DEFINE)
@@ -1426,6 +1489,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_DELETE;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "virtual"))
 					mToken = TK_VIRTUAL;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "template"))
+					mToken = TK_TEMPLATE;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();

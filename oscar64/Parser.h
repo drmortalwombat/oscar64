@@ -90,7 +90,10 @@ protected:
 	int OverloadDistance(Declaration* pdec, Expression* pexp);
 	Expression * ResolveOverloadCall(Expression* exp, Expression * exp2 = nullptr);
 	Expression* CoerceExpression(Expression* exp, Declaration* type);
+	bool CanCoerceExpression(Expression* exp, Declaration* type);
 	void CompleteFunctionDefaultParams(Expression* exp);
+
+	void ParseTemplate(void);
 
 	Expression* ParseSimpleExpression(bool lhs);
 	Expression* ParsePrefixExpression(bool lhs);

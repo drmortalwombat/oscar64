@@ -545,6 +545,12 @@ int Emulator::Emulate(int startIP, int trace)
 			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
 			mRegS += 2;
 		}
+		else if (mIP == 0xff81)
+		{
+			printf("------------------ CLEAR ---------------\n");
+			mIP = mMemory[0x101 + mRegS] + 256 * mMemory[0x102 + mRegS] + 1;
+			mRegS += 2;
+		}
 
 		uint8	opcode = mMemory[mIP];
 		AsmInsData	d = DecInsData[opcode];

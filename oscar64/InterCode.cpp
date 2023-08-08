@@ -13420,6 +13420,18 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 											sins->mSrc[0].mFinal = false;
 											assert(nins->mSrc[0].mTemp >= 0);
 
+											// Propagate all loads to move temps
+
+											for (int t = j + 1; t < mInstructions.Size(); t++)
+											{
+												InterInstruction* ti = mInstructions[t];
+												if (ti->mCode == IC_LOAD && SameMem(ti->mSrc[0], ins->mSrc[0]))
+												{
+													ti->mCode = IC_LOAD_TEMPORARY;
+													ti->mSrc[0].mTemp = ins->mDst.mTemp;
+												}
+											}
+
 											// Move store behind loop
 											tailBlock->mInstructions.Insert(0, sins);
 											mInstructions.Remove(j);
@@ -16724,7 +16736,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "playSong");
+	CheckFunc = !strcmp(mIdent->mString, "MenuItem::+MenuItem");
 
 	mEntryBlock = mBlocks[0];
 
@@ -16898,6 +16910,8 @@ void InterCodeProcedure::Close(void)
 
 	TempForwarding();
 	RemoveUnusedInstructions();
+
+	DisassembleDebug("pre single block loop opt");
 
 	ResetVisited();
 	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet, mModule->mGlobalVars);
