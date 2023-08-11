@@ -3,6 +3,15 @@ rem @echo off
 @call :test opp_string.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :test opp_array.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_vector.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_vector_string.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test opp_streamtest.cpp
 @if %errorlevel% neq 0 goto :error
 

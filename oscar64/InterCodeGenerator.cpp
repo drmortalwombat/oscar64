@@ -40,7 +40,7 @@ static inline InterType InterTypeOf(const Declaration* dec)
 
 InterCodeGenerator::ExValue InterCodeGenerator::ToValue(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v)
 {
-	if (v.mType->mType == DT_TYPE_REFERENCE)
+	if (v.mType && v.mType->mType == DT_TYPE_REFERENCE)
 	{
 		v.mType = v.mType->mBase;
 		v.mReference++;
@@ -1020,7 +1020,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		{
 			if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
 				vr = Dereference(proc, texp, block, vr, 1);
-			else if (pdec && pdec->mBase->mType == DT_TYPE_REFERENCE)
+			else if (pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE && vr.mType->mType != DT_TYPE_REFERENCE))
 				vr = Dereference(proc, texp, block, vr, 1);
 			else
 				vr = Dereference(proc, texp, block, vr);
@@ -2029,7 +2029,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vr = Dereference(proc, exp, block, vr);
 
 			if (vl.mType->mType != DT_TYPE_ARRAY && vl.mType->mType != DT_TYPE_POINTER)
+			{
 				mErrors->Error(exp->mLocation, EERR_INVALID_INDEX, "Invalid type for indexing");
+				return ExValue(TheConstVoidTypeDeclaration, -1);
+			}
 
 			if (!vr.mType->IsIntegerType())
 				mErrors->Error(exp->mLocation, EERR_INVALID_INDEX, "Index operand is not integral number");
@@ -3235,7 +3238,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							mErrors->Error(texp->mLocation, EWARN_NUMERIC_0_USED_AS_NULLPTR, "Numeric 0 used for nullptr");
 							vr = CoerceType(proc, texp, block, vr, pdec->mBase);
 						}
-						else if (pdec && pdec->mBase->mType == DT_TYPE_REFERENCE)
+						else if (pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE && vr.mType->mType != DT_TYPE_REFERENCE))
 							vr = Dereference(proc, texp, block, vr, 1);
 						else
 							vr = Dereference(proc, texp, block, vr);
@@ -4659,7 +4662,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "join"))
 		exp->Dump(0);
 #endif
 #if 0

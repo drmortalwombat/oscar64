@@ -14790,7 +14790,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 0]->mDst.mIntConst >= 0 &&
 				mInstructions[i + 0]->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mIntConst < 32767 &&
-				(IsSignedRelational(mInstructions[i + 1]->mOperator) ||	mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue >= 0) &&
+				(IsSignedRelational(mInstructions[i + 1]->mOperator) || mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue >= 0) &&
 				mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? 0 : -32768) &&
 				mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst <= 32767)
 			{
@@ -14810,6 +14810,18 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 				mInstructions[i + 0]->mSrc[1].mFinal = false;
+				changed = true;
+			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_LEA &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && 
+				mInstructions[i + 2]->mCode == IC_LOAD &&
+				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+				CanSwapInstructions(mInstructions[i + 1], mInstructions[i + 2]))
+			{
+				InterInstruction* ins = mInstructions[i + 2];
+				mInstructions[i + 2] = mInstructions[i + 1];
+				mInstructions[i + 1] = ins;
 				changed = true;
 			}
 			else if (
@@ -16736,7 +16748,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "join");
 
 	mEntryBlock = mBlocks[0];
 

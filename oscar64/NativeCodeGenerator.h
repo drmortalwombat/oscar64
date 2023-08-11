@@ -410,6 +410,7 @@ public:
 	bool MoveLoadAddZPStoreUp(int at);
 	bool MoveLoadShiftRotateUp(int at);
 	bool MoveLoadShiftStoreUp(int at);
+	bool MoveTYADCStoreDown(int at);
 
 	bool MoveLDSTXOutOfRange(int at);
 

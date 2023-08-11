@@ -52,6 +52,7 @@ public:
 
 	void CompileProcedure(InterCodeProcedure* proc);
 	void BuildVTables(void);
+	void CompleteTemplateExpansion(void);
 
 	bool WriteDbjFile(const char* filename);
 };

@@ -8,6 +8,7 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 {
 	mGlobals = new DeclarationScope(compilationUnits->mScope, SLEVEL_STATIC);
 	mScope = mGlobals;
+	mTemplateScope = nullptr;
 
 	mCodeSection = compilationUnits->mSectionCode;
 	mDataSection = compilationUnits->mSectionData;
@@ -26,6 +27,20 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 Parser::~Parser(void)
 {
 
+}
+
+Parser* Parser::Clone(void)
+{
+	Parser* p = new Parser(mErrors, new Scanner(mErrors, mScanner->mPreprocessor), mCompilationUnits);
+
+	p->mGlobals = mGlobals;
+	p->mScope = mScope;
+	p->mCompilerOptions = mCompilerOptions;
+	p->mCodeSection = mCodeSection;
+	p->mDataSection = mDataSection;
+	p->mBSSection = mBSSection;
+
+	return p;
 }
 
 Declaration* Parser::FindBaseMemberFunction(Declaration* dec, Declaration* mdec)
@@ -117,7 +132,15 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		structName = mScanner->mTokenIdent;
 		mScanner->NextToken();
 		Declaration* edec = mScope->Lookup(structName);
-		if (edec && mScanner->mToken != TK_OPEN_BRACE && mScanner->mToken != TK_COLON)
+		if (edec && edec->mType == DT_TEMPLATE)
+		{
+			mTemplateScope->Insert(structName, dec);
+
+			dec->mIdent = structName;
+			dec->mQualIdent = mScope->Mangle(structName->Mangle(mTemplateScope->mName->mString));
+			dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS, dec->mQualIdent);
+		}
+		else if (edec && mScanner->mToken != TK_OPEN_BRACE && mScanner->mToken != TK_COLON)
 		{
 			dec = edec;
 		}
@@ -562,53 +585,65 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified)
 
 	case TK_IDENT:
 		pident = mScanner->mTokenIdent;
-		dec = mScope->Lookup(mScanner->mTokenIdent);
-		if (dec && dec->mType == DT_CONST_FUNCTION && mScope->mLevel == SLEVEL_CLASS)
-			dec = mScope->mParent->Lookup(mScanner->mTokenIdent);
+		if (mTemplateScope)
+			dec = mTemplateScope->Lookup(mScanner->mTokenIdent);
 
-		mScanner->NextToken();
-		while (qualified && dec && dec->mType == DT_TYPE_STRUCT && ConsumeTokenIf(TK_COLCOLON))
+		if (!dec)
 		{
-			if (ExpectToken(TK_IDENT))
-			{
-				pident = mScanner->mTokenIdent;
-				dec = dec->mScope->Lookup(mScanner->mTokenIdent);
-				mScanner->NextToken();
-			}
-		}
+			dec = mScope->Lookup(mScanner->mTokenIdent);
+			if (dec && dec->mType == DT_CONST_FUNCTION && mScope->mLevel == SLEVEL_CLASS)
+				dec = mScope->mParent->Lookup(mScanner->mTokenIdent);
 
-		if (dec && dec->mType <= DT_TYPE_FUNCTION)
-		{
-			if (dec->IsSimpleType() && (flags & ~dec->mFlags))
+			mScanner->NextToken();
+
+			if (dec && dec->mType == DT_TEMPLATE)
+				dec = ParseTemplateExpansion(dec, nullptr);
+
+			while (qualified && dec && dec->mType == DT_TYPE_STRUCT && ConsumeTokenIf(TK_COLCOLON))
 			{
-				Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
-				ndec->mFlags = dec->mFlags | flags;
-				ndec->mSize = dec->mSize;
-				ndec->mBase = dec->mBase;
-				dec = ndec;
+				if (ExpectToken(TK_IDENT))
+				{
+					pident = mScanner->mTokenIdent;
+					dec = dec->mScope->Lookup(mScanner->mTokenIdent);
+					mScanner->NextToken();
+				}
 			}
-			else if (dec->mType == DT_TYPE_STRUCT && (flags & ~dec->mFlags))
+
+			if (dec && dec->mType <= DT_TYPE_FUNCTION)
 			{
-				if ((flags & ~dec->mFlags) == DTF_CONST)
-					dec = dec->ToConstType();
-				else
+				if (dec->IsSimpleType() && (flags & ~dec->mFlags))
 				{
 					Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
 					ndec->mFlags = dec->mFlags | flags;
 					ndec->mSize = dec->mSize;
 					ndec->mBase = dec->mBase;
-					ndec->mScope = dec->mScope;
-					ndec->mParams = dec->mParams;
-					ndec->mIdent = dec->mIdent;
-					ndec->mQualIdent = dec->mQualIdent;
 					dec = ndec;
 				}
+				else if (dec->mType == DT_TYPE_STRUCT && (flags & ~dec->mFlags))
+				{
+					if ((flags & ~dec->mFlags) == DTF_CONST)
+						dec = dec->ToConstType();
+					else
+					{
+						Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
+						ndec->mFlags = dec->mFlags | flags;
+						ndec->mSize = dec->mSize;
+						ndec->mBase = dec->mBase;
+						ndec->mScope = dec->mScope;
+						ndec->mParams = dec->mParams;
+						ndec->mIdent = dec->mIdent;
+						ndec->mQualIdent = dec->mQualIdent;
+						dec = ndec;
+					}
+				}
 			}
+			else if (!dec)
+				mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", pident);
+			else
+				mErrors->Error(mScanner->mLocation, EERR_NOT_A_TYPE, "Identifier is no type", dec->mQualIdent);
 		}
-		else if (!dec)
-			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", pident);
 		else
-			mErrors->Error(mScanner->mLocation, EERR_NOT_A_TYPE, "Identifier is no type", dec->mQualIdent);
+			mScanner->NextToken();
 		break;
 
 	case TK_ENUM:
@@ -804,10 +839,26 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 	{
 		dec = new Declaration(mScanner->mLocation, DT_VARIABLE);
 		dec->mIdent = mScanner->mTokenIdent;
-		dec->mQualIdent = mScope->Mangle(dec->mIdent);
 		dec->mSection = mBSSection;
 		dec->mBase = nullptr;
 		mScanner->NextToken();
+
+		if (mScanner->mToken == TK_LESS_THAN && mTemplateScope)
+		{
+			Declaration* tdec = mScope->Lookup(dec->mIdent);
+			if (tdec && tdec->mType == DT_TEMPLATE)
+			{
+				// for now just skip over template stuff
+				while (!ConsumeTokenIf(TK_GREATER_THAN))
+					mScanner->NextToken();
+
+				if (mTemplateScope->mName)
+					dec->mIdent = dec->mIdent->Mangle(mTemplateScope->mName->mString);
+			}
+		}
+
+		dec->mQualIdent = mScope->Mangle(dec->mIdent);
+
 		if (mScanner->mToken == TK_OPEN_PARENTHESIS && mScope->mLevel >= SLEVEL_FUNCTION)
 		{
 			// Can't be a function declaration in local context, so it must be an object
@@ -2964,6 +3015,7 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 					cexp->mToken = pex->mToken;
 
 					pex->mType = EX_INITIALIZATION;
+					pex->mToken = TK_ASSIGN;
 					pex->mLeft = vexp;
 					pex->mRight = cexp;
 					pex->mDecValue = nullptr;
@@ -2988,6 +3040,38 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 						dexp->mRight = texp;
 
 						rexp = ConcatExpression(rexp, dexp);
+					}
+				}
+				else if (pdec->mBase->mType == DT_TYPE_REFERENCE && pex->mType == EX_CONSTANT)
+				{
+					// A simple constant is passed by const ref
+					if (pex->mDecValue->mType == DT_CONST_INTEGER || pex->mDecValue->mType == DT_CONST_FLOAT || pex->mDecValue->mType == DT_CONST_POINTER)
+					{
+						int	nindex = mLocalIndex++;
+
+						Declaration* vdec = new Declaration(exp->mLocation, DT_VARIABLE);
+
+						vdec->mVarIndex = nindex;
+						vdec->mBase = pdec->mBase->mBase;
+						vdec->mSize = pdec->mBase->mBase->mSize;
+
+						Expression* vexp = new Expression(pex->mLocation, EX_VARIABLE);
+						vexp->mDecType = pdec->mBase->mBase;
+						vexp->mDecValue = vdec;
+
+						Expression* cexp = new Expression(pex->mLocation, pex->mType);
+						cexp->mDecType = pex->mDecType;
+						cexp->mDecValue = pex->mDecValue;
+						cexp->mLeft = pex->mLeft;
+						cexp->mRight = pex->mRight;
+						cexp->mToken = pex->mToken;
+
+						pex->mType = EX_INITIALIZATION;
+						pex->mToken = TK_ASSIGN;
+						pex->mLeft = vexp;
+						pex->mRight = cexp;
+						pex->mDecValue = nullptr;
+						pex->mDecType = vdec->mBase;
 					}
 				}
 
@@ -4108,7 +4192,15 @@ Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 
 Declaration* Parser::ParseQualIdent(void)
 {
-	Declaration* dec = mScope->Lookup(mScanner->mTokenIdent);
+	Declaration* dec = nullptr;
+	if (mTemplateScope)
+	{
+		dec = mTemplateScope->Lookup(mScanner->mTokenIdent);
+	}
+
+	if (!dec)
+		dec = mScope->Lookup(mScanner->mTokenIdent);
+
 	if (dec)
 	{
 		mScanner->NextToken();
@@ -4371,6 +4463,9 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 				dec = ParseQualIdent();
 			if (dec)
 			{
+				if (dec->mType == DT_TEMPLATE)
+					dec = ParseTemplateExpansion(dec, nullptr);
+
 				if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
 				{
 					exp = new Expression(mScanner->mLocation, EX_CONSTANT);
@@ -6980,10 +7075,153 @@ Expression* Parser::ParseSwitchStatement(void)
 	return sexp;
 }
 
-void Parser::ParseTemplate(void)
+Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* expd)
+{
+
+	Declaration	* tdec = new Declaration(mScanner->mLocation, DT_TEMPLATE);
+	tdec->mScope = new DeclarationScope(nullptr, SLEVEL_TEMPLATE);
+
+	if (expd)
+	{
+		tdec->mParams = expd->mParams;
+		Declaration* dec = tdec->mParams;
+		while (dec)
+		{
+			tdec->mScope->Insert(dec->mIdent, dec->mBase);
+			dec = dec->mNext;
+		}
+	}
+	else
+	{
+		ConsumeToken(TK_LESS_THAN);
+
+		Declaration* ppdec = nullptr;
+		Declaration* pdec = tmpld->mParams;
+		while (pdec)
+		{
+			Declaration* epdec = pdec->Clone();
+			Expression* exp = ParseShiftExpression(false);
+
+			if (epdec->mType == DT_TYPE_TEMPLATE)
+			{
+				if (exp->mType == EX_TYPE)
+					epdec->mBase = exp->mDecType;
+				else
+					mErrors->Error(exp->mLocation, EERR_TEMPLATE_PARAMS, "Type parameter expected", pdec->mIdent);
+			}
+			else
+			{
+				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+					epdec->mBase = exp->mDecValue;
+				else
+					mErrors->Error(exp->mLocation, EERR_TEMPLATE_PARAMS, "Const integer parameter expected", pdec->mIdent);
+			}
+
+			tdec->mScope->Insert(epdec->mIdent, epdec->mBase);
+			epdec->mFlags |= DTF_DEFINED;
+
+			if (ppdec)
+				ppdec->mNext = epdec;
+			else
+				tdec->mParams = epdec;
+			ppdec = epdec;
+
+			pdec = pdec->mNext;
+			if (pdec)
+				ConsumeToken(TK_COMMA);
+		}
+
+		ConsumeToken(TK_GREATER_THAN);
+	}
+
+	Declaration* etdec = tmpld->mNext;
+	while (etdec && !etdec->IsSameParams(tdec))
+		etdec = etdec->mNext;
+	if (etdec)
+	{
+		return etdec->mBase;
+	}
+	else
+	{
+		Parser* p = tmpld->mParser;
+
+		p->mScanner->Replay(tmpld->mTokens);
+
+		tdec->mScope->mName = tdec->MangleIdent();
+
+		p->mTemplateScope = tdec->mScope;
+		tdec->mBase = p->ParseDeclaration(nullptr, true, false);
+		p->mTemplateScope = nullptr;
+
+		tdec->mNext = tmpld->mNext;
+		tmpld->mNext = tdec;
+
+		if (tdec->mBase->mType == DT_ANON)
+		{
+			tdec->mBase = tdec->mBase->mBase;
+			mCompilationUnits->mTemplateScope->Insert(tmpld->mQualIdent, tmpld);
+
+			tdec->mBase->mScope->Iterate([=](const Ident* ident, Declaration* mdec)
+				{
+					if (mdec->mType == DT_CONST_FUNCTION)
+					{
+						while (mdec)
+						{
+							if (!(mdec->mFlags & DTF_DEFINED))
+							{
+								Declaration* mpdec = mScope->Lookup(tmpld->mScope->Mangle(mdec->mIdent));
+								if (mpdec && mpdec->mType == DT_TEMPLATE)
+								{
+									p->ParseTemplateExpansion(mpdec, tdec);
+								}
+							}
+
+							mdec = mdec->mNext;
+						}
+					}
+				});
+		}
+
+		return tdec->mBase;
+	}
+}
+
+void Parser::CompleteTemplateExpansion(Declaration* tmpld)
+{
+	tmpld = tmpld->mNext;
+	while (tmpld)
+	{
+		if (tmpld->mBase->mType == DT_TYPE_STRUCT)
+		{
+			// now expand the templated members
+
+			tmpld->mBase->mScope->Iterate([=](const Ident* ident, Declaration* mdec)
+				{
+					if (mdec->mType == DT_CONST_FUNCTION)
+					{
+						while (mdec)
+						{
+							Declaration* mpdec = mScope->Lookup(mdec->mQualIdent);
+							if (mpdec && mpdec->mType == DT_TEMPLATE)
+							{
+								ParseTemplateExpansion(mpdec, tmpld);
+							}
+
+							mdec = mdec->mNext;
+						}
+					}
+				});
+		}
+	}
+}
+
+
+void Parser::ParseTemplateDeclaration(void)
 {
 	ConsumeToken(TK_LESS_THAN);
 	Declaration* tdec = new Declaration(mScanner->mLocation, DT_TEMPLATE);
+	tdec->mParser = this->Clone();
+	tdec->mScope = new DeclarationScope(nullptr, SLEVEL_TEMPLATE);
 	Declaration* ppdec = nullptr;
 
 	for (;;)
@@ -6994,9 +7232,8 @@ void Parser::ParseTemplate(void)
 		{
 			if (mScanner->mToken == TK_IDENT)
 			{
-				Declaration* pdec = new Declaration(mScanner->mLocation, DT_ARGUMENT);
+				pdec = new Declaration(mScanner->mLocation, DT_TYPE_TEMPLATE);
 				pdec->mIdent = mScanner->mTokenIdent;
-				pdec->mBase = TheVoidTypeDeclaration;
 				mScanner->NextToken();
 			}
 			else
@@ -7006,9 +7243,8 @@ void Parser::ParseTemplate(void)
 		{
 			if (mScanner->mToken == TK_IDENT)
 			{
-				Declaration* pdec = new Declaration(mScanner->mLocation, DT_ARGUMENT);
+				pdec = new Declaration(mScanner->mLocation, DT_CONST_TEMPLATE);
 				pdec->mIdent = mScanner->mTokenIdent;
-				pdec->mBase = TheSignedIntTypeDeclaration;
 				mScanner->NextToken();
 			}
 			else
@@ -7019,6 +7255,9 @@ void Parser::ParseTemplate(void)
 
 		if (pdec)
 		{
+			tdec->mScope->Insert(pdec->mIdent, pdec);
+			pdec->mFlags |= DTF_DEFINED;
+
 			if (ppdec)
 				ppdec->mNext = pdec;
 			else
@@ -7032,16 +7271,86 @@ void Parser::ParseTemplate(void)
 
 	ConsumeToken(TK_GREATER_THAN);
 
+	mScanner->BeginRecord();
 	if (mScanner->mToken == TK_CLASS)
 	{
 		// Class template
+		Declaration* bdec = new Declaration(mScanner->mLocation, DT_TYPE_STRUCT);
+		tdec->mBase = bdec;
 
+		mScanner->NextToken();
+		if (mScanner->mToken == TK_IDENT)
+		{
+			bdec->mIdent = mScanner->mTokenIdent;
+			bdec->mQualIdent = mScope->Mangle(bdec->mIdent);
+
+			while (mScanner->mToken != TK_SEMICOLON && mScanner->mToken != TK_OPEN_BRACE)
+				mScanner->NextToken();
+			
+			if (ConsumeTokenIf(TK_OPEN_BRACE))
+			{
+				int	qdepth = 1;
+				while (qdepth)
+				{
+					if (ConsumeTokenIf(TK_OPEN_BRACE))
+						qdepth++;
+					else if (ConsumeTokenIf(TK_CLOSE_BRACE))
+						qdepth--;
+					else
+						mScanner->NextToken();
+				}
+			}
+		}			
+		else
+			mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Class template expected");
 	}
 	else
 	{
 		// Function template
+		mTemplateScope = tdec->mScope;
 
+		Declaration* bdec = ParseBaseTypeDeclaration(0, false);
+		Declaration* adec = ParsePostfixDeclaration();
+
+		adec = ReverseDeclaration(adec, bdec);
+
+		mTemplateScope = nullptr;
+
+		if (adec->mBase->mType == DT_TYPE_FUNCTION)
+		{
+			adec->mType = DT_CONST_FUNCTION;
+			adec->mSection = mCodeSection;
+
+			if (mCompilerOptions & COPT_NATIVE)
+				adec->mFlags |= DTF_NATIVE;
+
+			tdec->mBase = adec;
+
+			if (ConsumeTokenIf(TK_OPEN_BRACE))
+			{
+				int	qdepth = 1;
+				while (qdepth)
+				{
+					if (ConsumeTokenIf(TK_OPEN_BRACE))
+						qdepth++;
+					else if (ConsumeTokenIf(TK_CLOSE_BRACE))
+						qdepth--;
+					else
+						mScanner->NextToken();
+				}
+			}
+		}
+		else
+			mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Function template expected");
 	}
+
+	tdec->mTokens = mScanner->CompleteRecord();
+
+	tdec->mIdent = tdec->mBase->mIdent;
+	tdec->mQualIdent = tdec->mBase->mQualIdent;
+	tdec->mScope->mName = tdec->mQualIdent;
+
+	mScope->Insert(tdec->mQualIdent, tdec);
 }
 
 
@@ -8673,7 +8982,7 @@ void Parser::Parse(void)
 		else if (mScanner->mToken == TK_TEMPLATE)
 		{
 			mScanner->NextToken();
-			ParseTemplate();
+			ParseTemplateDeclaration();
 		}
 		else if (mScanner->mToken == TK_NAMESPACE)
 		{

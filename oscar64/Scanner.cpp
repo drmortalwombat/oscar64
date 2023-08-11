@@ -309,7 +309,7 @@ Macro* MacroDict::Lookup(const Ident* ident)
 
 TokenSequence::TokenSequence(Scanner* scanner)
 	: mNext(nullptr), mLocation(scanner->mLocation), mToken(scanner->mToken),
-	mTokenIdent(scanner->mTokenIdent), mTokenChar(scanner->mTokenChar),
+	mTokenIdent(scanner->mTokenIdent), 
 	mTokenInteger(scanner->mTokenInteger), mTokenNumber(scanner->mTokenNumber),
 	mTokenString(nullptr)
 {
@@ -345,6 +345,7 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	mToken = TK_NONE;
 	mUngetToken = TK_NONE;
 	mReplay = nullptr;
+	mRecord = mRecordLast = nullptr;
 
 	mOnceDict = new MacroDict();
 
@@ -359,15 +360,23 @@ Scanner::~Scanner(void)
 }
 
 
-TokenSequence* Scanner::Record(void)
+void Scanner::BeginRecord(void)
 {
-	return new TokenSequence(this);
+	mRecord = mRecordLast = new TokenSequence(this);
+}
+
+TokenSequence* Scanner::CompleteRecord(void)
+{
+	TokenSequence* seq = mRecord;
+	mRecord = mRecordLast = nullptr;
+	return seq;
 }
 
 const TokenSequence* Scanner::Replay(const TokenSequence* replay)
 {
 	const TokenSequence* seq = mReplay;
 	mReplay = replay;
+	NextToken();
 	return seq;
 }
 
@@ -463,16 +472,27 @@ void Scanner::NextToken(void)
 		mToken = mReplay->mToken;
 
 		mTokenIdent = mReplay->mTokenIdent;
-		mTokenChar = mReplay->mTokenChar;
 		mTokenNumber = mReplay->mTokenNumber;
 		mTokenInteger = mReplay->mTokenInteger;
 		if (mReplay->mTokenString)
 			strcpy_s(mTokenString, mReplay->mTokenString);
 
 		mReplay = mReplay->mNext;
-		return;
 	}
+	else
+	{
+		NextPreToken();
 
+		if (mRecord)
+		{
+			mRecordLast->mNext = new TokenSequence(this);
+			mRecordLast = mRecordLast->mNext;			
+		}
+	}
+}
+
+void Scanner::NextPreToken(void)
+{
 	for (;;)
 	{
 		NextRawToken();

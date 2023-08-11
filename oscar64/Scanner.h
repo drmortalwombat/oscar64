@@ -214,7 +214,6 @@ struct TokenSequence
 	Token				mToken;
 
 	const Ident		*	mTokenIdent;
-	char				mTokenChar;
 	const char *		mTokenString;
 	double				mTokenNumber;
 	int64				mTokenInteger;
@@ -233,7 +232,9 @@ public:
 
 	void NextToken(void);
 
-	TokenSequence* Record(void);
+	void BeginRecord(void);
+	TokenSequence* CompleteRecord(void);
+
 	const TokenSequence* Replay(const TokenSequence * sequence);
 
 	void Warning(const char * error);
@@ -272,6 +273,7 @@ public:
 	void MarkSourceOnce(void);
 protected:
 	void NextRawToken(void);
+	void NextPreToken(void);
 
 	struct MacroExpansion
 	{
@@ -289,6 +291,7 @@ protected:
 	Token		mUngetToken;
 
 	const TokenSequence* mReplay;
+	TokenSequence* mRecord, * mRecordLast;
 
 	void StringToken(char terminator, char mode);
 	void CharToken(char mode);

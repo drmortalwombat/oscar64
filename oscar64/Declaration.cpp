@@ -800,7 +800,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mVTable(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
-	mCompilerOptions(0), mUseCount(0)
+	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr)
 {}
 
 Declaration::~Declaration(void)
@@ -811,7 +811,12 @@ Declaration::~Declaration(void)
 
 int Declaration::Stride(void) const
 {
-	return mStride > 0 ? mStride : mBase->mSize;
+	if (mStride > 0)
+		return mStride;
+	else if (mBase)
+		return mBase->mSize;
+	else
+		return 1;
 }
 
 Declaration* Declaration::BuildConstPointer(const Location& loc)
@@ -860,6 +865,104 @@ Declaration* Declaration::Last(void)
 		p = p->mNext;
 	}
 	return p;
+}
+
+const Ident* Declaration::MangleIdent(void)
+{
+	if (!mMangleIdent)
+	{
+		if (mType == DT_CONST_INTEGER)
+		{
+			char	buffer[20];
+			sprintf_s(buffer, "%d", (int)mInteger);
+			mMangleIdent = Ident::Unique(buffer);
+		}
+		else if (mType == DT_TYPE_INTEGER)
+		{
+			char	buffer[20];
+			sprintf_s(buffer, "%c%d", (mFlags & DTF_SIGNED) ? 'i' : 'u', mSize * 8);
+			mMangleIdent = Ident::Unique(buffer);
+		}
+		else if (mType == DT_TYPE_FLOAT)
+		{
+			mMangleIdent = Ident::Unique("float");
+		}
+		else if (mType == DT_TYPE_REFERENCE)
+		{
+			mMangleIdent = mBase->MangleIdent()->PreMangle("&");
+		}
+		else if (mType == DT_TYPE_POINTER)
+		{
+			mMangleIdent = mBase->MangleIdent()->PreMangle("*");
+		}
+		else if (mType == DT_TYPE_STRUCT)
+		{
+			mMangleIdent = mQualIdent->PreMangle("struct ");
+		}
+		else if (mType == DT_TYPE_ENUM)
+		{
+			mMangleIdent = mQualIdent->PreMangle("enum ");
+		}
+		else if (mType == DT_TEMPLATE)
+		{
+			mMangleIdent = Ident::Unique("<");
+
+			Declaration* dec = mParams;
+			while (dec)
+			{
+				mMangleIdent = mMangleIdent->Mangle(dec->mBase->MangleIdent()->mString);
+				dec = dec->mNext;
+				if (dec)
+					mMangleIdent = mMangleIdent->Mangle(",");
+			}
+			mMangleIdent = mMangleIdent->Mangle(">");
+		}
+		else
+			mMangleIdent = mQualIdent;
+
+		if (mFlags & DTF_CONST)
+			mMangleIdent = mMangleIdent->PreMangle("const ");
+	}
+
+	return mMangleIdent;
+}
+
+Declaration* Declaration::TemplateExpand(Declaration* tdec)
+{
+	if (mType == DT_ARGUMENT)
+	{
+		Declaration* edec = this->Clone();
+		edec->mBase = mBase->TemplateExpand(tdec);
+		if (mNext)
+			edec->mNext = mNext->TemplateExpand(tdec);
+		return edec;
+	}
+	else if (mType == DT_CONST_FUNCTION)
+	{
+		Declaration* edec = this->Clone();
+		edec->mBase = mBase->TemplateExpand(tdec);
+		return edec;
+	}
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		Declaration* edec = this->Clone();
+		edec->mBase = mBase->TemplateExpand(tdec);
+		if (edec->mParams)
+			edec->mParams = mParams->TemplateExpand(tdec);
+		return edec;
+	}
+	else if (mType == DT_TYPE_TEMPLATE || mType == DT_CONST_TEMPLATE)
+	{
+		return tdec->mScope->Lookup(mIdent);
+	}
+	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY || mType == DT_TYPE_REFERENCE)
+	{
+		Declaration* edec = this->Clone();
+		edec->mBase = mBase->TemplateExpand(tdec);
+		return edec;
+	}
+	else
+		return this;
 }
 
 Declaration* Declaration::Clone(void)
@@ -1221,7 +1324,7 @@ bool Declaration::IsConstSame(const Declaration* dec) const
 
 bool Declaration::IsSameParams(const Declaration* dec) const
 {
-	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION)
+	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION || mType == DT_TEMPLATE && dec->mType == DT_TEMPLATE)
 	{
 		Declaration* ld = mParams, * rd = dec->mParams;
 		while (ld && rd)

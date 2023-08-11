@@ -10,7 +10,9 @@ public:
 	Parser(Errors * errors, Scanner* scanner, CompilationUnits * compilationUnits);
 	~Parser(void);
 
-	DeclarationScope	*	mGlobals, * mScope;
+	Parser* Clone(void);
+
+	DeclarationScope	*	mGlobals, * mScope, * mTemplateScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
 	Declaration			*	mThisPointer, * mReturnType;
@@ -93,7 +95,9 @@ protected:
 	bool CanCoerceExpression(Expression* exp, Declaration* type);
 	void CompleteFunctionDefaultParams(Expression* exp);
 
-	void ParseTemplate(void);
+	void ParseTemplateDeclaration(void);
+	Declaration* ParseTemplateExpansion(Declaration* tmpld, Declaration* expd);
+	void CompleteTemplateExpansion(Declaration* tmpld);
 
 	Expression* ParseSimpleExpression(bool lhs);
 	Expression* ParsePrefixExpression(bool lhs);

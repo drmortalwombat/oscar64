@@ -8,6 +8,7 @@
 
 class LinkerObject;
 class LinkerSection;
+class Parser;
 
 enum DecType
 {
@@ -25,6 +26,7 @@ enum DecType
 	DT_TYPE_FUNCTION,
 	DT_TYPE_ASSEMBLER,
 	DT_TYPE_AUTO,
+	DT_TYPE_TEMPLATE,
 
 	DT_TYPE_CONST,
 	DT_TYPE_VOLATILE,
@@ -39,6 +41,7 @@ enum DecType
 	DT_CONST_REFERENCE,
 	DT_CONST_ASSEMBLER,
 	DT_CONST_CONSTRUCTOR,
+	DT_CONST_TEMPLATE,
 
 	DT_VARIABLE,
 	DT_ARGUMENT,
@@ -115,6 +118,7 @@ enum ScopeLevel
 	SLEVEL_GLOBAL,
 	SLEVEL_STATIC,
 	SLEVEL_NAMESPACE,
+	SLEVEL_TEMPLATE,
 	SLEVEL_CLASS,
 	SLEVEL_FUNCTION,
 	SLEVEL_LOCAL,
@@ -254,11 +258,13 @@ public:
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
 	uint64				mFlags, mCompilerOptions;
-	const Ident		*	mIdent, * mQualIdent;
+	const Ident		*	mIdent, * mQualIdent, * mMangleIdent;
 	LinkerSection	*	mSection;
 	const uint8		*	mData;
 	LinkerObject	*	mLinkerObject;
 	int					mUseCount;
+	TokenSequence	*	mTokens;
+	Parser			*	mParser;
 
 	GrowingArray<Declaration*>	mCallers, mCalled;
 
@@ -289,6 +295,10 @@ public:
 	Declaration* BuildReference(const Location& loc);
 	Declaration* BuildConstPointer(const Location& loc);
 	Declaration* BuildConstReference(const Location& loc);
+
+	Declaration* TemplateExpand(Declaration* tdec);
+
+	const Ident* MangleIdent(void);
 
 	int Stride(void) const;
 };

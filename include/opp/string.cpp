@@ -129,22 +129,19 @@ string & string::operator+=(const string & s)
 {
 	if (s.cstr)
 	{
+		char d = 0;
 		if (cstr)
-		{
-			char l = cstr[0] + s.cstr[0];
-			char * c = malloc(char(l + 2));
-			c[0] = l;
-			smemcpy(c + 1, cstr + 1, cstr[0]);
-			smemcpy(c + 1 + cstr[0], s.cstr + 1, s.cstr[0] + 1);
-			free(cstr);
-			cstr = c;
-		}
-		else
-		{
-			char l = s.cstr[0];
-			cstr = malloc(char(l + 2));
-			smemcpy(cstr, s.cstr, l + 2);
-		}
+			d = cstr[0];
+
+		char l = s.cstr[0] + d;
+		char * c = malloc(char(l + 2));
+		c[0] = l;
+
+		if (d)
+			smemcpy(c + 1, cstr + 1, d);
+		smemcpy(c + 1 + d, s.cstr + 1, s.cstr[0] + 1);
+		free(cstr);
+		cstr = c;
 	}
 	return *this;
 }

@@ -240,6 +240,10 @@ static void FillVTableTree(Declaration* vdec)
 		cvdec = cvdec->mNext;
 	}
 }
+void Compiler::CompleteTemplateExpansion(void)
+{
+}
+
 void Compiler::BuildVTables(void)
 {
 	// Connect vdecs with parents
