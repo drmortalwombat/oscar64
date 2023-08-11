@@ -99,6 +99,8 @@ protected:
 	Declaration* ParseTemplateExpansion(Declaration* tmpld, Declaration* expd);
 	void CompleteTemplateExpansion(Declaration* tmpld);
 
+	Expression* ParseNewOperator(void);
+
 	Expression* ParseSimpleExpression(bool lhs);
 	Expression* ParsePrefixExpression(bool lhs);
 	Expression* ParsePostfixExpression(bool lhs);

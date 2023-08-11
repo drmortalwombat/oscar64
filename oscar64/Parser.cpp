@@ -4648,18 +4648,31 @@ Expression* Parser::ParseQualify(Expression* exp)
 	{
 		Expression* nexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 		nexp->mLeft = exp;
-		if (mScanner->mToken == TK_IDENT)
+
+		int moffset = 0;
+		uint64	mflags = 0;
+		Declaration* mdec = nullptr;
+		const Ident* ident = nullptr;
+
+		if ((mCompilerOptions & COPT_CPLUSPLUS) && mScanner->mToken == TK_BINARY_NOT)
 		{
-			int moffset;
-			uint64	mflags;
-			Declaration* mdec = MemberLookup(dtype, mScanner->mTokenIdent, moffset, mflags);
+			mScanner->NextToken();
+			if (mScanner->mToken == TK_IDENT)
+				ident = mScanner->mTokenIdent->PreMangle("~");
+		}
+		else if (mScanner->mToken == TK_IDENT)
+			ident = mScanner->mTokenIdent;
+
+		if (ident)
+		{
+			mdec = MemberLookup(dtype, ident, moffset, mflags);
 
 			if (mdec)
 			{
 				if (mflags & DTF_PROTECTED)
-				{ 
+				{
 					if (!mThisPointer || mThisPointer->mBase->IsConstSame(dtype))
-						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not visible", mScanner->mTokenIdent);
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not visible", ident);
 				}
 
 				mScanner->NextToken();
@@ -4730,10 +4743,10 @@ Expression* Parser::ParseQualify(Expression* exp)
 				mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not found", mScanner->mTokenIdent);
 				mScanner->NextToken();
 			}
-
 		}
 		else
 			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Struct member identifier expected");
+
 	}
 	else
 		mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
@@ -5414,6 +5427,215 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 }
 
 
+Expression* Parser::ParseNewOperator(void)
+{
+	Expression* nexp;
+
+	nexp = new Expression(mScanner->mLocation, EX_PREFIX);
+	nexp->mToken = TK_NEW;
+	mScanner->NextToken();
+
+	bool	placement = false;
+
+	// Check for placement new
+	if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
+	{
+		nexp->mType = EX_TYPECAST;
+		nexp->mLeft = ParseExpression(false);
+
+		ConsumeToken(TK_CLOSE_PARENTHESIS);
+		placement = true;
+	}
+
+	Declaration* dec = ParseBaseTypeDeclaration(0, true);
+
+	Declaration* sconst = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+	sconst->mBase = TheUnsignedIntTypeDeclaration;
+	sconst->mInteger = dec->mSize;
+
+	Expression* sexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+	sexp->mDecValue = sconst;
+	sexp->mDecType = TheUnsignedIntTypeDeclaration;
+
+	Declaration* nudec = new Declaration(mScanner->mLocation, DT_CONST_ADDRESS);
+	nudec->mBase = TheVoidPointerTypeDeclaration;
+	nudec->mInteger = 0;
+	Expression* nuexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+	nuexp->mDecValue = nudec;
+	nuexp->mDecType = nudec->mBase;
+
+	if (ConsumeTokenIf(TK_OPEN_BRACKET))
+	{
+		Expression* mexp = new Expression(mScanner->mLocation, EX_BINARY);
+		mexp->mToken = TK_MUL;
+		mexp->mLeft = sexp;
+		mexp->mRight = ParseExpression(false);
+		mexp->mDecType = TheUnsignedIntTypeDeclaration;
+		ConsumeToken(TK_CLOSE_BRACKET);
+
+		if (!placement)
+			nexp->mLeft = mexp;
+
+		nexp->mDecType = dec->BuildPointer(mScanner->mLocation);
+
+		if (dec->mVectorConstructor)
+		{
+			Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+			vdec->mVarIndex = mLocalIndex++;
+			vdec->mBase = nexp->mDecType;
+			vdec->mSize = 2;
+
+			Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+			vexp->mDecType = vdec->mBase;
+			vexp->mDecValue = vdec;
+
+			Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+			iexp->mToken = TK_ASSIGN;
+			iexp->mLeft = vexp;
+			iexp->mRight = nexp;
+			iexp->mDecType = nexp->mDecType;
+
+			Expression* csexp = new Expression(mScanner->mLocation, EX_TYPECAST);
+			csexp->mLeft = vexp;
+			csexp->mDecType = nexp->mDecType->BuildPointer(mScanner->mLocation);
+
+			Declaration* mdec = dec->mVectorConstructor;
+
+			Expression* pexp = new Expression(mScanner->mLocation, EX_LIST);
+			pexp->mLeft = vexp;
+			pexp->mRight = new Expression(mScanner->mLocation, EX_INDEX);
+			pexp->mRight->mLeft = csexp;
+			pexp->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+			pexp->mRight->mRight->mDecType = TheSignedIntTypeDeclaration;
+			pexp->mRight->mRight->mDecValue = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+			pexp->mRight->mRight->mDecValue->mBase = TheSignedIntTypeDeclaration;
+			pexp->mRight->mRight->mDecValue->mInteger = -1;
+
+			Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+			cexp->mDecValue = mdec;
+			cexp->mDecType = cexp->mDecValue->mBase;
+
+			Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
+			dexp->mLeft = cexp;
+			dexp->mRight = pexp;
+
+			Expression* coexp = nexp = new Expression(mScanner->mLocation, EX_CONDITIONAL);
+			coexp->mLeft = new Expression(mScanner->mLocation, EX_RELATIONAL);
+			coexp->mLeft->mDecType = TheBoolTypeDeclaration;
+			coexp->mLeft->mToken = TK_EQUAL;
+			coexp->mLeft->mLeft = vexp;
+			coexp->mLeft->mRight = nuexp;
+			coexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
+			coexp->mRight->mLeft = vexp;
+			coexp->mRight->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+			coexp->mRight->mRight->mLeft = dexp;
+			coexp->mRight->mRight->mRight = vexp;
+			coexp->mDecType = vexp->mDecType;
+
+			Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+			sexp->mLeft = iexp;
+			sexp->mRight = coexp;
+			sexp->mDecType = coexp->mDecType;
+
+			nexp = sexp;
+		}
+	}
+	else
+	{
+		if (!placement)
+			nexp->mLeft = sexp;
+
+		nexp->mDecType = dec->BuildPointer(mScanner->mLocation);
+
+		if (mScanner->mToken == TK_OPEN_PARENTHESIS || dec->mDefaultConstructor)
+		{
+			Declaration* mdec = dec->mDefaultConstructor;
+
+			bool	plist = false;
+			if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
+			{
+				if (!ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
+				{
+					plist = true;
+					mdec = dec->mScope->Lookup(dec->mIdent->PreMangle("+"));
+				}
+			}
+
+			if (mdec)
+			{
+				Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+				vdec->mVarIndex = mLocalIndex++;
+				vdec->mBase = nexp->mDecType;
+				vdec->mSize = 2;
+
+				Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+				vexp->mDecType = vdec->mBase;
+				vexp->mDecValue = vdec;
+
+				Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+				iexp->mToken = TK_ASSIGN;
+				iexp->mLeft = vexp;
+				iexp->mRight = nexp;
+				iexp->mDecType = nexp->mDecType;
+
+				Expression* pexp = vexp;
+
+				if (plist)
+				{
+					pexp = ParseListExpression(false);
+
+					ConsumeToken(TK_CLOSE_PARENTHESIS);
+
+					Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+					lexp->mLeft = vexp;
+					lexp->mRight = pexp;
+					pexp = lexp;
+				}
+
+				Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+				cexp->mDecValue = mdec;
+				cexp->mDecType = cexp->mDecValue->mBase;
+
+				Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
+				dexp->mLeft = cexp;
+				dexp->mRight = pexp;
+
+				dexp = ResolveOverloadCall(dexp);
+
+				Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+
+				sexp->mLeft = dexp;
+				sexp->mRight = vexp;
+				sexp->mDecType = vexp->mDecType;
+
+				Expression* coexp = nexp = new Expression(mScanner->mLocation, EX_CONDITIONAL);
+				coexp->mLeft = new Expression(mScanner->mLocation, EX_RELATIONAL);
+				coexp->mLeft->mDecType = TheBoolTypeDeclaration;
+				coexp->mLeft->mToken = TK_EQUAL;
+				coexp->mLeft->mLeft = vexp;
+				coexp->mLeft->mRight = nuexp;
+				coexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
+				coexp->mRight->mLeft = vexp;
+				coexp->mRight->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+				coexp->mRight->mRight->mLeft = dexp;
+				coexp->mRight->mRight->mRight = vexp;
+				coexp->mDecType = vexp->mDecType;
+
+				nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+				nexp->mLeft = iexp;
+				nexp->mRight = coexp;
+				nexp->mDecType = coexp->mDecType;
+			}
+			else if (plist)
+			{
+				mErrors->Error(mScanner->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching constructor", dec->mIdent);
+			}
+		}
+	}
+
+	return nexp;
+}
+
 Expression* Parser::ParsePrefixExpression(bool lhs)
 {
 	if (mScanner->mToken == TK_SUB || mScanner->mToken == TK_BINARY_NOT || mScanner->mToken == TK_LOGICAL_NOT || 
@@ -5440,190 +5662,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 		}
 		else if (mScanner->mToken == TK_NEW)
 		{
-			nexp = new Expression(mScanner->mLocation, EX_PREFIX);
-			nexp->mToken = TK_NEW;
-			mScanner->NextToken();
-			Declaration	*	dec = ParseBaseTypeDeclaration(0, true);
-
-			Declaration* sconst = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
-			sconst->mBase = TheUnsignedIntTypeDeclaration;
-			sconst->mInteger = dec->mSize;
-
-			Expression* sexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-			sexp->mDecValue = sconst;
-			sexp->mDecType = TheUnsignedIntTypeDeclaration;
-
-			Declaration* nudec = new Declaration(mScanner->mLocation, DT_CONST_ADDRESS);
-			nudec->mBase = TheVoidPointerTypeDeclaration;
-			nudec->mInteger = 0;
-			Expression* nuexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-			nuexp->mDecValue = nudec;
-			nuexp->mDecType = nudec->mBase;
-
-			if (ConsumeTokenIf(TK_OPEN_BRACKET))
-			{
-				Expression* mexp = new Expression(mScanner->mLocation, EX_BINARY);
-				mexp->mToken = TK_MUL;
-				mexp->mLeft = sexp;
-				mexp->mRight = ParseExpression(false);
-				mexp->mDecType = TheUnsignedIntTypeDeclaration;
-				ConsumeToken(TK_CLOSE_BRACKET);
-
-				nexp->mLeft = mexp;
-				nexp->mDecType = dec->BuildPointer(mScanner->mLocation);
-
-				if (dec->mVectorConstructor)
-				{
-					Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
-					vdec->mVarIndex = mLocalIndex++;
-					vdec->mBase = nexp->mDecType;
-					vdec->mSize = 2;
-
-					Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
-					vexp->mDecType = vdec->mBase;
-					vexp->mDecValue = vdec;
-
-					Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
-					iexp->mToken = TK_ASSIGN;
-					iexp->mLeft = vexp;
-					iexp->mRight = nexp;
-					iexp->mDecType = nexp->mDecType;
-
-					Expression* csexp = new Expression(mScanner->mLocation, EX_TYPECAST);
-					csexp->mLeft = vexp;
-					csexp->mDecType = nexp->mDecType->BuildPointer(mScanner->mLocation);
-
-					Declaration* mdec = dec->mVectorConstructor;
-
-					Expression* pexp = new Expression(mScanner->mLocation, EX_LIST);
-					pexp->mLeft = vexp;
-					pexp->mRight = new Expression(mScanner->mLocation, EX_INDEX);
-					pexp->mRight->mLeft = csexp;
-					pexp->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
-					pexp->mRight->mRight->mDecType = TheSignedIntTypeDeclaration;
-					pexp->mRight->mRight->mDecValue = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
-					pexp->mRight->mRight->mDecValue->mBase = TheSignedIntTypeDeclaration;
-					pexp->mRight->mRight->mDecValue->mInteger = -1;
-
-					Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-					cexp->mDecValue = mdec;
-					cexp->mDecType = cexp->mDecValue->mBase;
-
-					Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
-					dexp->mLeft = cexp;
-					dexp->mRight = pexp;
-
-					Expression* coexp = nexp = new Expression(mScanner->mLocation, EX_CONDITIONAL);
-					coexp->mLeft = new Expression(mScanner->mLocation, EX_RELATIONAL);
-					coexp->mLeft->mDecType = TheBoolTypeDeclaration;
-					coexp->mLeft->mToken = TK_EQUAL;
-					coexp->mLeft->mLeft = vexp;
-					coexp->mLeft->mRight = nuexp;
-					coexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
-					coexp->mRight->mLeft = vexp;
-					coexp->mRight->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
-					coexp->mRight->mRight->mLeft = dexp;
-					coexp->mRight->mRight->mRight = vexp;
-					coexp->mDecType = vexp->mDecType;
-
-					Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
-					sexp->mLeft = iexp;
-					sexp->mRight = coexp;
-					sexp->mDecType = coexp->mDecType;
-
-					nexp = sexp;
-				}
-			}
-			else
-			{
-				nexp->mLeft = sexp;
-				nexp->mDecType = dec->BuildPointer(mScanner->mLocation);
-
-				if (mScanner->mToken == TK_OPEN_PARENTHESIS || dec->mDefaultConstructor)
-				{
-					Declaration* mdec = dec->mDefaultConstructor;
-
-					bool	plist = false;
-					if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
-					{
-						if (!ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
-						{
-							plist = true;
-							mdec = dec->mScope->Lookup(dec->mIdent->PreMangle("+"));
-						}
-					}
-
-					if (mdec)
-					{
-						Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
-						vdec->mVarIndex = mLocalIndex++;
-						vdec->mBase = nexp->mDecType;
-						vdec->mSize = 2;
-
-						Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
-						vexp->mDecType = vdec->mBase;
-						vexp->mDecValue = vdec;
-
-						Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
-						iexp->mToken = TK_ASSIGN;
-						iexp->mLeft = vexp;
-						iexp->mRight = nexp;
-						iexp->mDecType = nexp->mDecType;
-
-						Expression* pexp = vexp;
-
-						if (plist)
-						{
-							pexp = ParseListExpression(false);
-
-							ConsumeToken(TK_CLOSE_PARENTHESIS);
-
-							Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
-							lexp->mLeft = vexp;
-							lexp->mRight = pexp;
-							pexp = lexp;
-						}
-
-						Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-						cexp->mDecValue = mdec;
-						cexp->mDecType = cexp->mDecValue->mBase;
-
-						Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
-						dexp->mLeft = cexp;
-						dexp->mRight = pexp;
-
-						dexp = ResolveOverloadCall(dexp);
-
-						Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
-
-						sexp->mLeft = dexp;
-						sexp->mRight = vexp;
-						sexp->mDecType = vexp->mDecType;
-
-						Expression* coexp = nexp = new Expression(mScanner->mLocation, EX_CONDITIONAL);
-						coexp->mLeft = new Expression(mScanner->mLocation, EX_RELATIONAL);
-						coexp->mLeft->mDecType = TheBoolTypeDeclaration;
-						coexp->mLeft->mToken = TK_EQUAL;
-						coexp->mLeft->mLeft = vexp;
-						coexp->mLeft->mRight = nuexp;
-						coexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
-						coexp->mRight->mLeft = vexp;
-						coexp->mRight->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
-						coexp->mRight->mRight->mLeft = dexp;
-						coexp->mRight->mRight->mRight = vexp;
-						coexp->mDecType = vexp->mDecType;
-
-						nexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
-						nexp->mLeft = iexp;
-						nexp->mRight = coexp;
-						nexp->mDecType = coexp->mDecType;
-					}
-					else if (plist)
-					{
-						mErrors->Error(mScanner->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching constructor", dec->mIdent);
-					}
-				}
-			}
+			nexp = ParseNewOperator();
 		}
 		else if (mScanner->mToken == TK_DELETE)
 		{
