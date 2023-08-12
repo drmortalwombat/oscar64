@@ -132,7 +132,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		structName = mScanner->mTokenIdent;
 		mScanner->NextToken();
 		Declaration* edec = mScope->Lookup(structName);
-		if (edec && edec->mType == DT_TEMPLATE)
+		if (edec && edec->mTemplate)
 		{
 			mTemplateScope->Insert(structName, dec);
 
@@ -596,8 +596,8 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified)
 
 			mScanner->NextToken();
 
-			if (dec && dec->mType == DT_TEMPLATE)
-				dec = ParseTemplateExpansion(dec, nullptr);
+			if (dec && dec->mTemplate)
+				dec = ParseTemplateExpansion(dec->mTemplate, nullptr);
 
 			while (qualified && dec && dec->mType == DT_TYPE_STRUCT && ConsumeTokenIf(TK_COLCOLON))
 			{
@@ -846,7 +846,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		if (mScanner->mToken == TK_LESS_THAN && mTemplateScope)
 		{
 			Declaration* tdec = mScope->Lookup(dec->mIdent);
-			if (tdec && tdec->mType == DT_TEMPLATE)
+			if (tdec && tdec->mTemplate)
 			{
 				// for now just skip over template stuff
 				while (!ConsumeTokenIf(TK_GREATER_THAN))
@@ -3730,7 +3730,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 						if (ndec->mIdent == ndec->mQualIdent)
 						{
 							Declaration* ldec = mScope->Insert(ndec->mIdent, pdec ? pdec : ndec);
-							if (ldec && ldec != pdec)
+							if (ldec && ldec->mTemplate && mTemplateScope)
+							{
+								ndec->mQualIdent = ndec->mQualIdent->Mangle(mTemplateScope->mName->mString);
+							}
+							else if (ldec && ldec != pdec)
 								mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition");
 						}
 						else if (!pdec)
@@ -4463,8 +4467,8 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 				dec = ParseQualIdent();
 			if (dec)
 			{
-				if (dec->mType == DT_TEMPLATE)
-					dec = ParseTemplateExpansion(dec, nullptr);
+				if (dec->mTemplate && mScanner->mToken == TK_LESS_THAN)
+					dec = ParseTemplateExpansion(dec->mTemplate, nullptr);
 
 				if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
 				{
@@ -4758,7 +4762,17 @@ static const int NOOVERLOAD = 0x7fffffff;
 
 int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 {
-	Declaration* pdec = fdec->mParams;
+	if (fdec->mTemplate)
+	{
+		Declaration* tdec = new Declaration(mScanner->mLocation, DT_TEMPLATE);
+		tdec->mScope = new DeclarationScope(nullptr, SLEVEL_TEMPLATE);
+		if (tdec->CanResolveTemplate(pexp, fdec))
+			return 16;
+		else
+			return NOOVERLOAD;
+	}
+
+	Declaration* pdec = fdec->mBase->mParams;
 
 	int dist = 0;
 
@@ -4884,7 +4898,7 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 
 			pdec = pdec->mNext;
 		}
-		else if (fdec->mFlags & DTF_VARIADIC)
+		else if (fdec->mBase->mFlags & DTF_VARIADIC)
 		{
 			dist += 1024;
 			break;
@@ -5052,6 +5066,20 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 	return exp;
 }
 
+void Parser::ExpandFunctionCallTemplate(Expression* exp)
+{
+	if (exp->mLeft->mDecValue->mTemplate)
+	{
+		Declaration* tdec = new Declaration(mScanner->mLocation, DT_TEMPLATE);
+		tdec->mScope = new DeclarationScope(nullptr, SLEVEL_TEMPLATE);
+		if (tdec->ResolveTemplate(exp->mRight, exp->mLeft->mDecValue))
+		{
+			exp->mLeft->mDecValue = ParseTemplateExpansion(exp->mLeft->mDecValue->mTemplate, tdec);
+			exp->mLeft->mDecType = exp->mLeft->mDecValue->mBase;
+		}
+	}
+}
+
 void Parser::CompleteFunctionDefaultParams(Expression* exp)
 {
 	Declaration* fdec = exp->mLeft->mDecValue;
@@ -5110,7 +5138,7 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 
 			while (fdec)
 			{
-				int d = OverloadDistance(fdec->mBase, exp->mRight);
+				int d = OverloadDistance(fdec, exp->mRight);
 				if (d < ibest)
 				{
 					dbest = fdec;
@@ -5125,7 +5153,7 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 
 			while (fdec2)
 			{
-				int d = OverloadDistance(fdec2->mBase, exp2->mRight);
+				int d = OverloadDistance(fdec2, exp2->mRight);
 				if (d < ibest)
 				{
 					dbest = fdec2;
@@ -5156,6 +5184,7 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 			}
 		}
 
+		ExpandFunctionCallTemplate(exp);
 		CompleteFunctionDefaultParams(exp);
 	}
 
@@ -7209,9 +7238,9 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 							if (!(mdec->mFlags & DTF_DEFINED))
 							{
 								Declaration* mpdec = mScope->Lookup(tmpld->mScope->Mangle(mdec->mIdent));
-								if (mpdec && mpdec->mType == DT_TEMPLATE)
+								if (mpdec && mpdec->mTemplate)
 								{
-									p->ParseTemplateExpansion(mpdec, tdec);
+									p->ParseTemplateExpansion(mpdec->mTemplate, tdec);
 								}
 							}
 
@@ -7316,6 +7345,7 @@ void Parser::ParseTemplateDeclaration(void)
 		// Class template
 		Declaration* bdec = new Declaration(mScanner->mLocation, DT_TYPE_STRUCT);
 		tdec->mBase = bdec;
+		bdec->mTemplate = tdec;
 
 		mScanner->NextToken();
 		if (mScanner->mToken == TK_IDENT)
@@ -7364,6 +7394,7 @@ void Parser::ParseTemplateDeclaration(void)
 				adec->mFlags |= DTF_NATIVE;
 
 			tdec->mBase = adec;
+			adec->mTemplate = tdec;
 
 			if (ConsumeTokenIf(TK_OPEN_BRACE))
 			{
@@ -7389,7 +7420,8 @@ void Parser::ParseTemplateDeclaration(void)
 	tdec->mQualIdent = tdec->mBase->mQualIdent;
 	tdec->mScope->mName = tdec->mQualIdent;
 
-	mScope->Insert(tdec->mQualIdent, tdec);
+	mScope->Insert(tdec->mQualIdent, tdec->mBase);
+	mCompilationUnits->mScope->Insert(tdec->mQualIdent, tdec->mBase);
 }
 
 

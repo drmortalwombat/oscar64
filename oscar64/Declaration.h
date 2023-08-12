@@ -136,6 +136,7 @@ public:
 	Declaration* Lookup(const Ident* ident, ScopeLevel limit = SLEVEL_GLOBAL);
 
 	void End(const Location & loc);
+	void Clear(void);
 
 	void UseScope(DeclarationScope* scope);
 
@@ -250,7 +251,7 @@ public:
 	Declaration		*	mBase, * mParams, * mNext, * mPrev, * mConst, * mMutable;
 	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment;
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
-	Declaration		*	mVTable, * mClass;
+	Declaration		*	mVTable, * mClass, * mTemplate;
 
 	Expression*			mValue;
 	DeclarationScope*	mScope;
@@ -296,7 +297,9 @@ public:
 	Declaration* BuildConstPointer(const Location& loc);
 	Declaration* BuildConstReference(const Location& loc);
 
-	Declaration* TemplateExpand(Declaration* tdec);
+	bool CanResolveTemplate(Expression* pexp, Declaration* tdec);
+	bool ResolveTemplate(Declaration* fdec, Declaration * tdec);
+	bool ResolveTemplate(Expression* pexp, Declaration* tdec);
 
 	const Ident* MangleIdent(void);
 

@@ -94,6 +94,7 @@ protected:
 	Expression* CoerceExpression(Expression* exp, Declaration* type);
 	bool CanCoerceExpression(Expression* exp, Declaration* type);
 	void CompleteFunctionDefaultParams(Expression* exp);
+	void ExpandFunctionCallTemplate(Expression* exp);
 
 	void ParseTemplateDeclaration(void);
 	Declaration* ParseTemplateExpansion(Declaration* tmpld, Declaration* expd);

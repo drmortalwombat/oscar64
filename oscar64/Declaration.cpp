@@ -10,6 +10,19 @@ DeclarationScope::DeclarationScope(DeclarationScope* parent, ScopeLevel level, c
 	mHash = nullptr;
 }
 
+void DeclarationScope::Clear(void)
+{
+	mHashFill = 0;
+	if (mHash)
+	{
+		for (int i = 0; i < mHashSize; i++)
+		{
+			mHash[i].mDec = nullptr;
+			mHash[i].mIdent = nullptr;
+		}
+	}
+}
+
 DeclarationScope::~DeclarationScope(void)
 {
 	delete[] mHash;
@@ -797,7 +810,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mConst(nullptr), mMutable(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
-	mVTable(nullptr),
+	mVTable(nullptr), mTemplate(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr)
@@ -920,6 +933,11 @@ const Ident* Declaration::MangleIdent(void)
 		else
 			mMangleIdent = mQualIdent;
 
+		if (mTemplate)
+		{
+
+		}
+
 		if (mFlags & DTF_CONST)
 			mMangleIdent = mMangleIdent->PreMangle("const ");
 	}
@@ -927,43 +945,145 @@ const Ident* Declaration::MangleIdent(void)
 	return mMangleIdent;
 }
 
-Declaration* Declaration::TemplateExpand(Declaration* tdec)
+bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 {
-	if (mType == DT_ARGUMENT)
+	Declaration* pdec = tdec->mBase->mParams;
+
+	while (pexp)
 	{
-		Declaration* edec = this->Clone();
-		edec->mBase = mBase->TemplateExpand(tdec);
-		if (mNext)
-			edec->mNext = mNext->TemplateExpand(tdec);
-		return edec;
+		Expression* ex = pexp;
+		if (pexp->mType == EX_LIST)
+		{
+			ex = pexp->mLeft;
+			pexp = pexp->mRight;
+		}
+		else
+			pexp = nullptr;
+
+		if (pdec)
+		{
+			if (!ResolveTemplate(ex->mDecType, pdec->mBase))
+				return false;
+
+			pdec = pdec->mNext;
+		}
+		else
+			return false;
 	}
-	else if (mType == DT_CONST_FUNCTION)
+
+	Declaration* ppdec = nullptr;
+	Declaration* ptdec = tdec->mTemplate->mParams;
+	while (ptdec)
 	{
-		Declaration* edec = this->Clone();
-		edec->mBase = mBase->TemplateExpand(tdec);
-		return edec;
+		Declaration* pdec = mScope->Lookup(ptdec->mIdent);
+		if (!pdec)
+			return false;
+
+		Declaration * epdec = ptdec->Clone();
+		epdec->mBase = pdec;
+		epdec->mFlags |= DTF_DEFINED;
+
+		if (ppdec)
+			ppdec->mNext = epdec;
+		else
+			mParams = epdec;
+		ppdec = epdec;
+		ptdec = ptdec->mNext;
 	}
-	else if (mType == DT_TYPE_FUNCTION)
+
+	mScope->Clear();
+
+	return true;
+}
+
+bool Declaration::CanResolveTemplate(Expression* pexp, Declaration* tdec)
+{
+	Declaration* pdec = tdec->mBase->mParams;
+
+	while (pexp)
 	{
-		Declaration* edec = this->Clone();
-		edec->mBase = mBase->TemplateExpand(tdec);
-		if (edec->mParams)
-			edec->mParams = mParams->TemplateExpand(tdec);
-		return edec;
+		Expression* ex = pexp;
+		if (pexp->mType == EX_LIST)
+		{
+			ex = pexp->mLeft;
+			pexp = pexp->mRight;
+		}
+		else
+			pexp = nullptr;
+
+		if (pdec)
+		{
+			if (!ResolveTemplate(ex->mDecType, pdec->mBase))
+				return false;
+
+			pdec = pdec->mNext;
+		}
+		else
+			return false;
 	}
-	else if (mType == DT_TYPE_TEMPLATE || mType == DT_CONST_TEMPLATE)
+
+	return true;
+}
+
+bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
+{
+	if (tdec->IsSame(fdec))
+		return true;
+	else if (tdec->mType == DT_TYPE_FUNCTION)
 	{
-		return tdec->mScope->Lookup(mIdent);
+		if (fdec->mType == DT_TYPE_FUNCTION)
+		{
+			if (fdec->mBase)
+			{
+				if (!tdec->mBase || !ResolveTemplate(fdec->mBase, tdec->mBase))
+					return false;
+			}
+			else if (tdec->mBase)
+				return false;
+
+			Declaration* fpdec = fdec->mParams;
+			Declaration* tpdec = tdec->mParams;
+			while (fpdec && tpdec)
+			{
+				if (!ResolveTemplate(fpdec->mBase, tpdec->mBase))
+					return false;
+				fpdec = fpdec->mNext;
+				tpdec = tpdec->mNext;
+			}
+			if (fpdec || tpdec)
+				return false;
+		}
+		else
+			return false;
+
+		return true;
 	}
-	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY || mType == DT_TYPE_REFERENCE)
+	else if (tdec->mType == DT_TYPE_REFERENCE)
 	{
-		Declaration* edec = this->Clone();
-		edec->mBase = mBase->TemplateExpand(tdec);
-		return edec;
+		if (fdec->mType == DT_TYPE_REFERENCE)
+			return ResolveTemplate(fdec->mBase, tdec->mBase);
+		else
+			return ResolveTemplate(fdec, tdec->mBase);
+	}
+	else if (tdec->mType == DT_TYPE_POINTER)
+	{
+		if (fdec->mType == DT_TYPE_POINTER)
+			return ResolveTemplate(fdec->mBase, tdec->mBase);
+		else
+			return false;
+	}
+	else if (tdec->mType == DT_TYPE_TEMPLATE)
+	{
+		Declaration* pdec = mScope->Insert(tdec->mIdent, fdec);
+		if (pdec && !pdec->IsSame(fdec))
+			return false;
+
+		return true;
 	}
 	else
-		return this;
+		return tdec->CanAssign(fdec);
 }
+
 
 Declaration* Declaration::Clone(void)
 {
