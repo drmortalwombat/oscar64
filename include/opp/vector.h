@@ -1,6 +1,8 @@
 #ifndef OPP_VECTOR_H
 #define OPP_VECTOR_H
 
+#include <stdlib.h>
+
 template <class T>
 class vector
 {
@@ -9,10 +11,16 @@ protected:
 	int		_size, _capacity;
 public:
 	vector(void) : _data(nullptr), _size(0), _capacity(0) {}
-	vector(int n) : _data(new T[n]), _size(n), _capacity(n) {}
+	vector(int n) : _data((T*)malloc(n * sizeof(T))), _size(n), _capacity(n) 
+	{
+		for(int i=0; i<n; i++)
+			new (_data + i) T;
+	}
 	~vector(void)
 	{
-		delete[] _data;
+		for(int i=0; i<_size; i++)
+			_data[i].~T();
+		free(_data);
 	}
 
 	int size(void) const
@@ -110,10 +118,13 @@ void vector<T>::reserve(int n)
 	if (n > _capacity)
 	{
 		_capacity = n;
-		T * d = new T[_capacity];
+		T * d = (T *)malloc(_capacity * sizeof(T));
 		for(int i=0; i<_size; i++)
-			d[i] = _data[i];
-		delete[] _data;
+		{
+			new (d + i)T(_data[i]);
+			_data[i].~T();
+		}
+		free(_data);
 		_data = d;
 	}
 }
@@ -122,9 +133,17 @@ template <class T>
 void vector<T>::resize(int n)
 {
 	if (n < _size)
+	{
+		for(int i=n; i<_size; i++)
+			_data[i].~T();			
 		_size = n;
+	}
 	else if (n < _capacity)
+	{
+		for(int i=_size; i<n; i++)
+			new(_data + i)T;
 		_size = n;
+	}
 	else
 	{
 		reserve(n);
@@ -138,10 +157,13 @@ void vector<T>::shrink_to_fit(void)
 	if (_size < _capacity)
 	{
 		_capacity = _size;
-		T * d = new T[_capacity];
+		T * d = (T *)malloc(_capacity * sizeof(T));
 		for(int i=0; i<_size; i++)
-			d[i] = _data[i];
-		delete[] _data;
+		{
+			new (d + i)T(_data[i]);
+			_data[i].~T();
+		}
+		free(_data);
 		_data = d;
 	}
 }
@@ -151,7 +173,7 @@ void vector<T>::push_back(const T & t)
 {
 	if (_size == _capacity)
 		reserve(_size + 1 + (_size >> 1));
-	_data[_size++] = t;
+	new (_data + _size++)T(t);
 }
 
 template <class T>
@@ -159,6 +181,7 @@ void vector<T>::insert(int at, const T & t)
 {
 	if (_size == _capacity)
 		reserve(_size + 1 + (_size >> 1));
+	new (_data + _size)T;
 	for(int i=_size; i>at; i--)
 		_data[i] = _data[i - 1];
 	_data[at] = t;
@@ -170,6 +193,7 @@ void vector<T>::erase(int at, int n)
 	_size -= n;
 	for(int i=at; i<_size; i++)
 		_data[i] = _data[i + n];
+	_data[_size].~T();
 }
 
 #endif

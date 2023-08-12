@@ -3301,7 +3301,15 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			mScanner->NextToken();
 			if (mScanner->mToken == TK_IDENT)
 			{
-				if (mScanner->mTokenIdent != pthis->mBase->mIdent)
+				const Ident* ident = mScanner->mTokenIdent;
+				if (mTemplateScope)
+				{
+					Declaration* dec = mTemplateScope->Lookup(ident);
+					if (dec)
+						ident = dec->mIdent;
+				}
+
+				if (ident != pthis->mBase->mIdent)
 					mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Wrong class name for destructor", pthis->mBase->mIdent);
 				mScanner->NextToken();
 			}
@@ -4662,7 +4670,19 @@ Expression* Parser::ParseQualify(Expression* exp)
 		{
 			mScanner->NextToken();
 			if (mScanner->mToken == TK_IDENT)
-				ident = mScanner->mTokenIdent->PreMangle("~");
+			{
+				ident = mScanner->mTokenIdent;
+				if (mTemplateScope)
+				{
+					Declaration* dec = mTemplateScope->Lookup(ident);
+					if (dec)
+						ident = dec->mIdent;
+				}
+
+				ident = ident->PreMangle("~");
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
 		}
 		else if (mScanner->mToken == TK_IDENT)
 			ident = mScanner->mTokenIdent;
@@ -4751,6 +4771,40 @@ Expression* Parser::ParseQualify(Expression* exp)
 		else
 			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Struct member identifier expected");
 
+	}
+	else if ((mCompilerOptions & COPT_CPLUSPLUS) && mScanner->mToken == TK_BINARY_NOT)
+	{
+		mScanner->NextToken();
+		if (mScanner->mToken == TK_IDENT)
+		{
+			const Ident	*	ident = mScanner->mTokenIdent;
+			if (mTemplateScope)
+			{
+				Declaration* dec = mTemplateScope->Lookup(ident);
+				if (dec == dtype)
+				{
+					mScanner->NextToken();
+					ConsumeToken(TK_OPEN_PARENTHESIS);
+					ConsumeToken(TK_CLOSE_PARENTHESIS);
+
+					exp = new Expression(mScanner->mLocation, EX_VOID);
+					exp->mDecType = TheConstVoidTypeDeclaration;
+				}
+			}
+			else if (ident == dtype->mIdent)
+			{
+				mScanner->NextToken();
+				ConsumeToken(TK_OPEN_PARENTHESIS);
+				ConsumeToken(TK_CLOSE_PARENTHESIS);
+
+				exp = new Expression(mScanner->mLocation, EX_VOID);
+				exp->mDecType = TheConstVoidTypeDeclaration;
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Destructor identifier expected");
+		}
+		else
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
 	}
 	else
 		mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
@@ -5586,7 +5640,10 @@ Expression* Parser::ParseNewOperator(void)
 				if (!ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
 				{
 					plist = true;
-					mdec = dec->mScope->Lookup(dec->mIdent->PreMangle("+"));
+					if (dec->mType == DT_TYPE_STRUCT)
+						mdec = dec->mScope->Lookup(dec->mIdent->PreMangle("+"));
+					else
+						mdec = nullptr;
 				}
 			}
 
@@ -5654,6 +5711,31 @@ Expression* Parser::ParseNewOperator(void)
 				nexp->mLeft = iexp;
 				nexp->mRight = coexp;
 				nexp->mDecType = coexp->mDecType;
+			}
+			else if (plist && !mdec)
+			{
+				Expression * pexp = ParseListExpression(false);
+				ConsumeToken(TK_CLOSE_PARENTHESIS);
+
+				if (pexp && pexp->mType != EX_LIST)
+				{
+					Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
+					dexp->mToken = TK_MUL;
+					dexp->mLeft = nexp;
+					dexp->mDecType = nexp->mDecType->mBase;
+
+					Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+					iexp->mToken = TK_ASSIGN;
+					iexp->mLeft = dexp;
+					iexp->mRight = pexp;
+					iexp->mDecType = nexp->mDecType;
+
+					nexp = iexp;
+				}
+				else
+					mErrors->Error(mScanner->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching constructor", dec->mIdent);
+
+
 			}
 			else if (plist)
 			{
