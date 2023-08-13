@@ -20,6 +20,7 @@ enum DecType
 	DT_TYPE_ENUM,
 	DT_TYPE_POINTER,
 	DT_TYPE_REFERENCE,
+	DT_TYPE_RVALUEREF,
 	DT_TYPE_ARRAY,
 	DT_TYPE_STRUCT,
 	DT_TYPE_UNION,
@@ -90,6 +91,8 @@ static const uint64 DTF_DYNSTACK		= (1ULL << 25);
 static const uint64 DTF_PRIVATE			= (1ULL << 26);
 static const uint64 DTF_PROTECTED		= (1ULL << 27);
 static const uint64 DTF_VIRTUAL			= (1ULL << 28);
+static const uint64 DTF_TEMPORARY		= (1ULL << 29);
+static const uint64	DTF_COMPLETED		= (1ULL << 30);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
@@ -235,6 +238,8 @@ public:
 	bool HasSideEffects(void) const;
 
 	bool IsSame(const Expression* exp) const;
+	bool IsRValue(void) const;
+	bool IsLValue(void) const;
 
 	void Dump(int ident) const;
 };
@@ -296,6 +301,10 @@ public:
 	Declaration* BuildReference(const Location& loc);
 	Declaration* BuildConstPointer(const Location& loc);
 	Declaration* BuildConstReference(const Location& loc);
+	Declaration* BuildRValueRef(const Location& loc);
+	Declaration* BuildConstRValueRef(const Location& loc);
+
+	DecType ValueType(void) const;
 
 	bool CanResolveTemplate(Expression* pexp, Declaration* tdec);
 	bool ResolveTemplate(Declaration* fdec, Declaration * tdec);

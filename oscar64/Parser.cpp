@@ -825,6 +825,34 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		ndec->mBase = dec;
 		return ndec;
 	}
+	else if (mScanner->mToken == TK_LOGICAL_AND && (mCompilerOptions & COPT_CPLUSPLUS))
+	{
+		mScanner->NextToken();
+
+		Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_RVALUEREF);
+		ndec->mSize = 2;
+		ndec->mFlags |= DTF_DEFINED;
+
+		for (;;)
+		{
+			if (mScanner->mToken == TK_CONST)
+			{
+				ndec->mFlags |= DTF_CONST;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_VOLATILE)
+			{
+				ndec->mFlags |= DTF_VOLATILE;
+				mScanner->NextToken();
+			}
+			else
+				break;
+		}
+
+		Declaration* dec = ParsePostfixDeclaration();
+		ndec->mBase = dec;
+		return ndec;
+	}
 	else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 	{
 		mScanner->NextToken();
@@ -1543,6 +1571,11 @@ Expression* Parser::BuildMemberInitializer(Expression* vexp)
 
 void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 {
+	if (cfunc->mFlags & DTF_COMPLETED)
+		return;
+
+	cfunc->mFlags |= DTF_COMPLETED;
+
 	Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
 	pthisexp->mDecType = pthis;
 	pthisexp->mDecValue = cfunc->mBase->mParams;
@@ -2688,6 +2721,10 @@ void Parser::AppendMemberDestructor(Declaration* pthis)
 	{
 		if (pthis->mBase->mDestructor->mFlags & DTF_DEFINED)
 		{
+			if (pthis->mBase->mDestructor->mFlags & DTF_COMPLETED)
+				return;
+			pthis->mBase->mDestructor->mFlags |= DTF_COMPLETED;
+
 			Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
 			pthisexp->mDecType = pthis;
 			pthisexp->mDecValue = pthis->mBase->mDestructor->mBase->mParams;
@@ -2870,7 +2907,7 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 {
 	Expression* lexp = nullptr, * rexp = nullptr;
 
-	if (exp->mType == EX_PREFIX && exp->mToken == TK_BINARY_AND && exp->mLeft->mType == EX_CALL && exp->mLeft->mDecType->mType != DT_TYPE_REFERENCE)
+	if (exp->mType == EX_PREFIX && exp->mToken == TK_BINARY_AND && exp->mLeft->mType == EX_CALL && exp->mLeft->mDecType->mType != DT_TYPE_REFERENCE && exp->mLeft->mDecType->mType != DT_TYPE_RVALUEREF)
 	{
 		lexp = AddFunctionCallRefReturned(exp->mLeft);
 
@@ -2921,7 +2958,7 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 			rexp = ConcatExpression(rexp, dexp);
 		}
 	}
-	else if (exp->mType == EX_QUALIFY && exp->mLeft->mType == EX_CALL && exp->mLeft->mDecType->mType != DT_TYPE_REFERENCE)
+	else if (exp->mType == EX_QUALIFY && exp->mLeft->mType == EX_CALL && exp->mLeft->mDecType->mType != DT_TYPE_REFERENCE && exp->mLeft->mDecType->mType != DT_TYPE_RVALUEREF)
 	{
 		lexp = AddFunctionCallRefReturned(exp->mLeft);
 
@@ -2990,7 +3027,8 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 
 				rexp = ConcatExpression(rexp, AddFunctionCallRefReturned(pex));
 
-				if (pdec->mBase->mType == DT_TYPE_REFERENCE && pex->mDecType->mType != DT_TYPE_REFERENCE && pex->mType == EX_CALL)
+				if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && 
+					(pex->mDecType->mType != DT_TYPE_REFERENCE && pex->mDecType->mType != DT_TYPE_RVALUEREF) && pex->mType == EX_CALL)
 				{
 					// Returning a value object for pass as reference
 					// add a temporary variable
@@ -3042,7 +3080,7 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 						rexp = ConcatExpression(rexp, dexp);
 					}
 				}
-				else if (pdec->mBase->mType == DT_TYPE_REFERENCE && pex->mType == EX_CONSTANT)
+				else if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && pex->mType == EX_CONSTANT)
 				{
 					// A simple constant is passed by const ref
 					if (pex->mDecValue->mType == DT_CONST_INTEGER || pex->mDecValue->mType == DT_CONST_FLOAT || pex->mDecValue->mType == DT_CONST_POINTER)
@@ -4653,7 +4691,7 @@ Expression* Parser::ParseQualify(Expression* exp)
 {
 	Declaration* dtype = exp->mDecType;
 
-	if (dtype->mType == DT_TYPE_REFERENCE)
+	if (dtype->mType == DT_TYPE_REFERENCE || dtype->mType == DT_TYPE_RVALUEREF)
 		dtype = dtype->mBase;
 
 	if (dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
@@ -4940,10 +4978,16 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 				dist += 0;
 			else if (ptype->IsSubType(etype))
 				dist += 256;
-			else if (ptype->mType == DT_TYPE_REFERENCE && ptype->mBase->IsSame(etype))
+			else if (ptype->mType == DT_TYPE_RVALUEREF && ptype->mBase->IsSameMutable(etype) && ex->IsRValue())
 			{
-				if (ex->mType == EX_VARIABLE)
-					dist += 1;
+				dist += 1;
+			}
+			else if (ptype->mType == DT_TYPE_REFERENCE && ptype->mBase->IsSameMutable(etype))
+			{
+				if (ex->IsLValue())
+					dist += 2;
+				else if (ptype->mBase->mFlags & DTF_CONST)
+					dist += 4;
 				else
 					return NOOVERLOAD;
 			}
@@ -4976,9 +5020,9 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 bool Parser::CanCoerceExpression(Expression* exp, Declaration* type)
 {
 	Declaration* tdec = exp->mDecType;
-	while (tdec->mType == DT_TYPE_REFERENCE)
+	while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 		tdec = tdec->mBase;
-	while (type->mType == DT_TYPE_REFERENCE)
+	while (type->mType == DT_TYPE_REFERENCE || type->mType == DT_TYPE_RVALUEREF)
 		type = type->mBase;
 
 	if (tdec->mType == DT_TYPE_STRUCT)
@@ -5015,9 +5059,9 @@ bool Parser::CanCoerceExpression(Expression* exp, Declaration* type)
 Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 {
 	Declaration* tdec = exp->mDecType;
-	while (tdec->mType == DT_TYPE_REFERENCE)
+	while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 		tdec = tdec->mBase;
-	while (type->mType == DT_TYPE_REFERENCE)
+	while (type->mType == DT_TYPE_REFERENCE || type->mType == DT_TYPE_RVALUEREF)
 		type = type->mBase;
 
 	if (tdec->mType == DT_TYPE_STRUCT)
@@ -5223,7 +5267,7 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 			if (ibest == NOOVERLOAD)
 			{
 #if _DEBUG
-				int d = OverloadDistance(exp->mLeft->mDecValue->mBase, exp->mRight);
+				int d = OverloadDistance(exp->mLeft->mDecValue, exp->mRight);
 #endif
 				mErrors->Error(exp->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching function call", exp->mLeft->mDecValue->mQualIdent);
 			}
@@ -5262,7 +5306,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 			nexp->mRight = ParseExpression(false);
 			ConsumeToken(TK_CLOSE_BRACKET);
 
-			if (exp->mDecType->mType == DT_TYPE_STRUCT || exp->mDecType->mType == DT_TYPE_REFERENCE && exp->mDecType->mBase->mType == DT_TYPE_STRUCT)
+			if (exp->mDecType->ValueType() == DT_TYPE_STRUCT)
 			{
 				nexp = CheckOperatorOverload(nexp);
 			}
@@ -5307,7 +5351,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 						tdec->mBase = exp->mDecType;
 						tdec->mVarIndex = mLocalIndex++;
 						tdec->mSize = exp->mDecType->mSize;
-						tdec->mFlags |= DTF_DEFINED;
+						tdec->mFlags |= DTF_DEFINED | DTF_TEMPORARY;
 
 						Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
 						vexp->mDecType = exp->mDecType;
@@ -5365,12 +5409,27 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 
 						exp = nexp;
 					}
-					else
+					else if (pexp)
 					{
 						Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
 						nexp->mDecType = exp->mDecType;
 						nexp->mLeft = pexp;
 						exp = nexp->ConstantFold(mErrors);
+					}
+					else
+					{
+						Declaration* tdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+
+						tdec->mBase = exp->mDecType;
+						tdec->mVarIndex = mLocalIndex++;
+						tdec->mSize = exp->mDecType->mSize;
+						tdec->mFlags |= DTF_DEFINED | DTF_TEMPORARY;
+
+						Expression* nexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+						nexp->mDecType = exp->mDecType;
+						nexp->mDecValue = tdec;
+
+						exp = nexp;
 					}
 				}
 			}
@@ -6270,7 +6329,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 		else if (exp->mType == EX_INDEX)
 		{
 			Declaration* tdec = exp->mLeft->mDecType;
-			while (tdec->mType == DT_TYPE_REFERENCE)
+			while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 				tdec = tdec->mBase;
 
 			if (tdec->mType == DT_TYPE_STRUCT)
@@ -6486,7 +6545,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 				}
 
 				Declaration* tdec = exp->mLeft->mDecType;
-				while (tdec->mType == DT_TYPE_REFERENCE)
+				while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 					tdec = tdec->mBase;
 
 				if (tdec->mType == DT_TYPE_STRUCT)
@@ -6546,7 +6605,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 			if (opident)
 			{
 				Declaration* tdec = exp->mLeft->mDecType;
-				while (tdec->mType == DT_TYPE_REFERENCE)
+				while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 					tdec = tdec->mBase;
 
 				if (tdec->mType == DT_TYPE_STRUCT)
@@ -6585,7 +6644,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 		{
 			const Ident* opident = Ident::Unique("operator!");
 			Declaration* tdec = exp->mLeft->mDecType;
-			while (tdec->mType == DT_TYPE_REFERENCE)
+			while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 				tdec = tdec->mBase;
 
 			if (tdec->mType == DT_TYPE_STRUCT)

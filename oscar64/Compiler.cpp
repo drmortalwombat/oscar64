@@ -1346,6 +1346,9 @@ bool Compiler::WriteDbjFile(const char* filename)
 			case DT_TYPE_REFERENCE:
 				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ref\", eid: %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
+			case DT_TYPE_RVALUEREF:
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"rref\", eid: %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				break;
 			case DT_TYPE_ENUM:
 			{
 				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"enum\",\"members\": [\n", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize);

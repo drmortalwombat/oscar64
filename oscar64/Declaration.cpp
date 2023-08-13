@@ -328,6 +328,37 @@ bool Expression::HasSideEffects(void) const
 	}
 }
 
+bool Expression::IsRValue(void) const
+{
+	if (mDecType->mType == DT_TYPE_RVALUEREF)
+		return true;
+	else if (mDecType->mType == DT_TYPE_REFERENCE)
+		return false;
+	else if (mType == EX_VARIABLE)
+	{
+		if (mDecValue->mFlags & DTF_TEMPORARY)
+			return true;
+		else
+			return false;
+	}
+	else if (mType == EX_QUALIFY || mType == EX_INDEX || mType == EX_ASSIGNMENT || mType == EX_CONSTANT || mType == EX_PREFIX && mToken == TK_MUL)
+		return false;
+	else
+		return true;
+}
+
+bool Expression::IsLValue(void) const
+{
+	if (mDecType->mFlags & DTF_CONST)
+		return false;
+	else if (mDecType->mType == DT_TYPE_RVALUEREF || mDecType->mType == DT_TYPE_REFERENCE)
+		return true;
+	else if (mType == EX_VARIABLE || mType == EX_QUALIFY || mType == EX_INDEX || mType == EX_PREFIX && mToken == TK_MUL)
+		return true;
+	else
+		return false;
+}
+
 bool Expression::IsSame(const Expression* exp) const
 {
 	if (!exp || mType != exp->mType)
@@ -868,6 +899,32 @@ Declaration* Declaration::BuildReference(const Location& loc)
 	return pdec;
 }
 
+Declaration* Declaration::BuildRValueRef(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_RVALUEREF);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+Declaration* Declaration::BuildConstRValueRef(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_RVALUEREF);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED | DTF_CONST;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+DecType  Declaration::ValueType(void) const
+{
+	if (mType == DT_TYPE_REFERENCE || mType == DT_TYPE_RVALUEREF)
+		return mBase->mType;
+	else
+		return mType;
+}
+
 Declaration* Declaration::Last(void)
 {
 	mPrev = nullptr;
@@ -903,6 +960,10 @@ const Ident* Declaration::MangleIdent(void)
 		else if (mType == DT_TYPE_REFERENCE)
 		{
 			mMangleIdent = mBase->MangleIdent()->PreMangle("&");
+		}
+		else if (mType == DT_TYPE_RVALUEREF)
+		{
+			mMangleIdent = mBase->MangleIdent()->PreMangle("&&");
 		}
 		else if (mType == DT_TYPE_POINTER)
 		{
@@ -1061,6 +1122,13 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 	else if (tdec->mType == DT_TYPE_REFERENCE)
 	{
 		if (fdec->mType == DT_TYPE_REFERENCE)
+			return ResolveTemplate(fdec->mBase, tdec->mBase);
+		else
+			return ResolveTemplate(fdec, tdec->mBase);
+	}
+	else if (tdec->mType == DT_TYPE_RVALUEREF)
+	{
+		if (fdec->mType == DT_TYPE_RVALUEREF)
 			return ResolveTemplate(fdec->mBase, tdec->mBase);
 		else
 			return ResolveTemplate(fdec, tdec->mBase);

@@ -802,7 +802,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 					RegisterCall(procDec, pdec->mBase->mCopyConstructor);
 				}
 				
-				if (pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT && !(pdec && pdec->mBase->mType == DT_TYPE_REFERENCE))
+				if (pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT && !(pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)))
 					ldec->mBase->mFlags |= DTF_STACKCALL;
 
 				if (pdec)

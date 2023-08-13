@@ -140,6 +140,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 	}
 	else if (v.mType->mType == DT_TYPE_FLOAT && type->IsIntegerType())
 	{
+		mErrors->Error(exp->mLocation, EWARN_FLOAT_TO_INT, "Float to int conversion, potential loss of precision");
+
 		InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONVERSION_OPERATOR);
 		cins->mOperator = IA_FLOAT2INT;
 		cins->mSrc[0].mType = IT_FLOAT;
@@ -154,6 +156,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 	{
 		v.mType = type;
 		return v;
+	}
+	else if (type->mType == DT_TYPE_POINTER && v.mType->IsNumericType() && (mCompilerOptions & COPT_CPLUSPLUS))
+	{
+		mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign numeric value to pointer");
 	}
 	else if (v.mType->mSize < type->mSize)
 	{
