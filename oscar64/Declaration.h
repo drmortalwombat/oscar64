@@ -283,9 +283,13 @@ public:
 	bool IsSameParams(const Declaration* dec) const;
 	bool IsSameMutable(const Declaration* dec) const;
 
+	bool IsTemplateSame(const Declaration* dec, const Declaration* tdec) const;
+	bool IsTemplateSameParams(const Declaration* dec, const Declaration* tdec) const;
+
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;
 	bool IsSimpleType(void) const;
+	bool IsReference(void) const;
 
 	void SetDefined(void);
 

@@ -2035,7 +2035,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			adec->mOffset = 0;
 			adec->mBase = new Declaration(mScanner->mLocation, DT_TYPE_REFERENCE);
 			adec->mBase->mSize = 2;
-			adec->mBase->mBase = pthis->mBase;
+			adec->mBase->mBase = pthis->mBase->ToConstType();
 			adec->mBase->mFlags |= DTF_CONST | DTF_DEFINED;
 			adec->mSize = adec->mBase->mSize;
 			adec->mIdent = adec->mQualIdent = Ident::Unique("_");
@@ -4733,7 +4733,10 @@ Expression* Parser::ParseQualify(Expression* exp)
 			{
 				if (mflags & DTF_PROTECTED)
 				{
-					if (!mThisPointer || mThisPointer->mBase->IsConstSame(dtype))
+					Declaration* tp = mThisPointer;
+					if (tp && tp->mType == DT_ARGUMENT)
+						tp = tp->mBase;
+					if (!(tp && tp->mBase->IsConstSame(dtype)))
 						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not visible", ident);
 				}
 
@@ -4952,6 +4955,13 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 				dist += 512;
 			else if (ptype->mType == DT_TYPE_REFERENCE && ptype->mBase->mType == DT_TYPE_STRUCT && etype->mType == DT_TYPE_STRUCT)
 			{
+				if (ex->IsLValue())
+					dist += 2;
+				else if (ptype->mBase->mFlags & DTF_CONST)
+					dist += 4;
+				else
+					return NOOVERLOAD;
+
 				int	ncast = 0;
 				Declaration* ext = ex->mDecType;
 				while (ext && !ext->IsConstSame(ptype->mBase))
@@ -7379,6 +7389,8 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 							if (!(mdec->mFlags & DTF_DEFINED))
 							{
 								Declaration* mpdec = mScope->Lookup(tmpld->mScope->Mangle(mdec->mIdent));
+								while (mpdec && !mdec->mBase->IsTemplateSameParams(mpdec->mBase, tdec))
+									mpdec = mpdec->mNext;
 								if (mpdec && mpdec->mTemplate)
 								{
 									p->ParseTemplateExpansion(mpdec->mTemplate, tdec);
@@ -7411,6 +7423,8 @@ void Parser::CompleteTemplateExpansion(Declaration* tmpld)
 						while (mdec)
 						{
 							Declaration* mpdec = mScope->Lookup(mdec->mQualIdent);
+							while (mpdec && !mpdec->IsSameParams(mdec->mParams))
+								mpdec = mpdec->mNext;
 							if (mpdec && mpdec->mType == DT_TEMPLATE)
 							{
 								ParseTemplateExpansion(mpdec, tmpld);
@@ -7561,7 +7575,13 @@ void Parser::ParseTemplateDeclaration(void)
 	tdec->mQualIdent = tdec->mBase->mQualIdent;
 	tdec->mScope->mName = tdec->mQualIdent;
 
-	mScope->Insert(tdec->mQualIdent, tdec->mBase);
+	Declaration * pdec = mScope->Insert(tdec->mQualIdent, tdec->mBase);
+	if (pdec)
+	{
+		tdec->mBase->mNext = pdec->mNext;
+		pdec->mNext = tdec->mBase;
+	}
+		
 	mCompilationUnits->mScope->Insert(tdec->mQualIdent, tdec->mBase);
 }
 

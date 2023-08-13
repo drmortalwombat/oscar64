@@ -1,11 +1,10 @@
 #ifndef OPP_MOVE_H
 #define OPP_MOVE_H
 
-
 template <class T>
-void move(T & dst, T & src)
+T && move(T & m)
 {
-	dst = src;
+	return (T &&)m;
 }
 
 #endif

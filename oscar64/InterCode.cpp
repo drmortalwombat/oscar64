@@ -4532,7 +4532,8 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 		assert(code->mConst.mVarIndex < mProc->mModule->mGlobalVars.Size());
 		assert(mProc->mModule->mGlobalVars[code->mConst.mVarIndex]);
 	}
-
+	if (code->mDst.mTemp >= 0)
+		assert(code->mDst.mType != IT_NONE);
 	for (int i = 0; i < code->mNumOperands; i++)
 		assert(code->mSrc[i].mType != IT_NONE);
 
@@ -16748,7 +16749,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "join");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 

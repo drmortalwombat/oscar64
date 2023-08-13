@@ -34,13 +34,14 @@ static inline InterType InterTypeOf(const Declaration* dec)
 	case DT_TYPE_FUNCTION:
 	case DT_TYPE_ARRAY:
 	case DT_TYPE_REFERENCE:
+	case DT_TYPE_RVALUEREF:
 		return IT_POINTER;
 	}
 }
 
 InterCodeGenerator::ExValue InterCodeGenerator::ToValue(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v)
 {
-	if (v.mType && v.mType->mType == DT_TYPE_REFERENCE)
+	if (v.mType && v.mType->IsReference())
 	{
 		v.mType = v.mType->mBase;
 		v.mReference++;
@@ -81,9 +82,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 {
 	int		stemp = v.mTemp;
 
-	if (type->mType == DT_TYPE_REFERENCE)
+	if (type->IsReference())
 	{
-		if (v.mType->mType == DT_TYPE_REFERENCE)
+		if (v.mType->IsReference())
 		{
 			if (!type->mBase->IsSubType(v.mType->mBase))
 				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Incompatible type for reference");
@@ -960,7 +961,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 			vdec->mVarIndex = nindex;
 			vdec->mBase = pdec->mBase;
-			if (pdec->mBase->mType == DT_TYPE_ARRAY || pdec->mBase->mType == DT_TYPE_REFERENCE)
+			if (pdec->mBase->mType == DT_TYPE_ARRAY || pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)
 				ains->mConst.mOperandSize = 2;
 			else
 				ains->mConst.mOperandSize = pdec->mSize;
@@ -992,7 +993,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 		vr = TranslateExpression(procType, proc, block, texp, destack, breakBlock, continueBlock, inlineMapper, &vp);
 
-		if (!(pdec && pdec->mBase->mType == DT_TYPE_REFERENCE) && (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION))
+		if (!(pdec && pdec->mBase->IsReference()) && (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION))
 		{
 			if (pdec && !pdec->mBase->CanAssign(vr.mType))
 				mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
@@ -1026,7 +1027,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		{
 			if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
 				vr = Dereference(proc, texp, block, vr, 1);
-			else if (pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE && vr.mType->mType != DT_TYPE_REFERENCE))
+			else if (pdec && (pdec->mBase->IsReference() && !vr.mType->IsReference()))
 				vr = Dereference(proc, texp, block, vr, 1);
 			else
 				vr = Dereference(proc, texp, block, vr);
@@ -1054,7 +1055,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 			wins->mSrc[1].mTemp = ains->mDst.mTemp;
 			if (pdec)
 			{
-				if (pdec->mBase->mType == DT_TYPE_ARRAY || pdec->mBase->mType == DT_TYPE_REFERENCE)
+				if (pdec->mBase->mType == DT_TYPE_ARRAY || pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)
 					wins->mSrc[1].mOperandSize = 2;
 				else
 					wins->mSrc[1].mOperandSize = pdec->mSize;
@@ -1124,7 +1125,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		block->Append(ins);
 
 		ExValue rv(rdec->mBase, ins->mDst.mTemp, 1);
-		if (rdec->mBase->mType != DT_TYPE_REFERENCE)
+		if (!rdec->mBase->IsReference())
 			rv = Dereference(proc, exp, block, rv);
 		return rv;
 	}
@@ -1728,7 +1729,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (!(dec->mBase->mFlags & DTF_DEFINED))
 				mErrors->Error(dec->mLocation, EERR_VARIABLE_TYPE, "Undefined variable type");
 
-			if (exp->mDecType->mType == DT_TYPE_REFERENCE)
+			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ins->mDst.mTemp, ref + 1);
 			else
 				return ExValue(exp->mDecType, ins->mDst.mTemp, ref);
@@ -1743,7 +1744,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 				vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper, &vl);
 			}
-			else if (exp->mType == EX_INITIALIZATION && exp->mLeft->mDecType && exp->mLeft->mDecType->mType == DT_TYPE_REFERENCE)
+			else if (exp->mType == EX_INITIALIZATION && exp->mLeft->mDecType && exp->mLeft->mDecType->IsReference())
 			{
 				vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);
 				vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
@@ -1776,7 +1777,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 
 
-			if (vl.mType->mType == DT_TYPE_REFERENCE)
+			if (vl.mType->IsReference())
 			{
 				vr = Dereference(proc, exp, block, vr, 1);
 				vl = Dereference(proc, exp, block, vl, 2);
@@ -3172,7 +3173,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					ExValue	vp(ptype ? ptype : TheSignedIntTypeDeclaration, ains->mDst.mTemp, 1);
 
-					if (pdec && pdec->mBase->mType == DT_TYPE_REFERENCE && texp->mType == EX_CALL && texp->mDecType->mType != DT_TYPE_REFERENCE)
+					if (pdec && pdec->mBase->IsReference() && texp->mType == EX_CALL && !texp->mDecType->IsReference())
 					{
 						mErrors->Error(texp->mLocation, EERR_MISSING_TEMP, "Missing temporary variable");
 #if 0
@@ -3202,7 +3203,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else
 						vr = TranslateExpression(procType, proc, block, texp, destack, breakBlock, continueBlock, inlineMapper, nullptr);
 
-					if (!(pdec && pdec->mBase->mType == DT_TYPE_REFERENCE) && (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION))
+					if (!(pdec && pdec->mBase->IsReference()) && (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION))
 					{
 						if (pdec && !pdec->mBase->CanAssign(vr.mType))
 							mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
@@ -3244,7 +3245,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							mErrors->Error(texp->mLocation, EWARN_NUMERIC_0_USED_AS_NULLPTR, "Numeric 0 used for nullptr");
 							vr = CoerceType(proc, texp, block, vr, pdec->mBase);
 						}
-						else if (pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE && vr.mType->mType != DT_TYPE_REFERENCE))
+						else if (pdec && (pdec->mBase->IsReference() && !vr.mType->IsReference()))
 							vr = Dereference(proc, texp, block, vr, 1);
 						else
 							vr = Dereference(proc, texp, block, vr);
@@ -3272,7 +3273,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						wins->mSrc[1].mTemp = ains->mDst.mTemp;
 						if (pdec)
 						{
-							if (pdec->mBase->mType == DT_TYPE_ARRAY || pdec->mBase->mType == DT_TYPE_REFERENCE)
+							if (pdec->mBase->mType == DT_TYPE_ARRAY || pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)
 							{
 								wins->mSrc[1].mOperandSize = 2;
 								wins->mSrc[0].mType = IT_POINTER;
@@ -3359,7 +3360,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					return ExValue(ftype->mBase, vins->mDst.mTemp, 1);
 				}
-				else if (ftype->mBase->mType == DT_TYPE_REFERENCE)
+				else if (ftype->mBase->IsReference())
 					return ExValue(ftype->mBase->mBase, cins->mDst.mTemp, 1);
 				else
 					return ExValue(ftype->mBase, cins->mDst.mTemp);
@@ -3468,7 +3469,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_RETURN);
 			if (exp->mLeft)
 			{
-				if (procType->mBase->mType == DT_TYPE_REFERENCE)
+				if (procType->mBase->IsReference())
 				{
 					vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 
@@ -4127,6 +4128,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else if (exp->mDecType->mType == DT_TYPE_VOID)
 			{
+			}
+			else if (exp->mDecType->IsReference() && exp->mDecType->mBase->IsConstSame(vr.mType))
+			{
+				if (vr.mReference == 0)
+					mErrors->Error(exp->mLocation, EERR_NOT_AN_LVALUE, "Not an L value");
+
+				vr = Dereference(proc, exp, block, vr, 1);
+				return ExValue(exp->mDecType, vr.mTemp);
 			}
 			else
 			{

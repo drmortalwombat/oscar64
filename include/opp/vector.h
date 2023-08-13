@@ -2,6 +2,7 @@
 #define OPP_VECTOR_H
 
 #include <stdlib.h>
+#include <opp/move.h>
 
 template <class T>
 class vector
@@ -101,6 +102,8 @@ public:
 
 	void push_back(const T & t);
 
+	void push_back(T && t);
+
 	void pop_back(void)
 	{
 		_size--;
@@ -121,7 +124,7 @@ void vector<T>::reserve(int n)
 		T * d = (T *)malloc(_capacity * sizeof(T));
 		for(int i=0; i<_size; i++)
 		{
-			new (d + i)T(_data[i]);
+			new (d + i)T(move(_data[i]));
 			_data[i].~T();
 		}
 		free(_data);
@@ -160,7 +163,7 @@ void vector<T>::shrink_to_fit(void)
 		T * d = (T *)malloc(_capacity * sizeof(T));
 		for(int i=0; i<_size; i++)
 		{
-			new (d + i)T(_data[i]);
+			new (d + i)T(move(_data[i]));
 			_data[i].~T();
 		}
 		free(_data);
@@ -177,13 +180,21 @@ void vector<T>::push_back(const T & t)
 }
 
 template <class T>
+void vector<T>::push_back(T && t)
+{
+	if (_size == _capacity)
+		reserve(_size + 1 + (_size >> 1));
+	new (_data + _size++)T(t);
+}
+
+template <class T>
 void vector<T>::insert(int at, const T & t)
 {
 	if (_size == _capacity)
 		reserve(_size + 1 + (_size >> 1));
 	new (_data + _size)T;
 	for(int i=_size; i>at; i--)
-		_data[i] = _data[i - 1];
+		_data[i] = move(_data[i - 1]);
 	_data[at] = t;
 }
 
@@ -192,7 +203,7 @@ void vector<T>::erase(int at, int n)
 {
 	_size -= n;
 	for(int i=at; i<_size; i++)
-		_data[i] = _data[i + n];
+		_data[i] = move(_data[i + n]);
 	_data[_size].~T();
 }
 

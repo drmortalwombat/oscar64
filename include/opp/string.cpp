@@ -31,6 +31,12 @@ string::string(const string & s)
 		cstr = nullptr;
 }
 
+string::string(string && s)
+	: cstr(s.cstr)
+{
+	s.cstr = nullptr;
+}
+
 string::string(const char * s)
 {
 	if (s)
@@ -99,6 +105,18 @@ string & string::operator=(const string & s)
 		}
 		else
 			cstr = nullptr;
+	}
+
+	return *this;
+}
+
+string & string::operator=(string && s)
+{
+	if (cstr != s.cstr)	
+	{
+		free(cstr);
+		cstr = s.cstr;
+		s.cstr = nullptr;
 	}
 
 	return *this;

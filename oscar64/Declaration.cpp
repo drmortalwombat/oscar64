@@ -919,7 +919,7 @@ Declaration* Declaration::BuildConstRValueRef(const Location& loc)
 
 DecType  Declaration::ValueType(void) const
 {
-	if (mType == DT_TYPE_REFERENCE || mType == DT_TYPE_RVALUEREF)
+	if (IsReference())
 		return mBase->mType;
 	else
 		return mType;
@@ -1334,7 +1334,7 @@ bool Declaration::IsSubType(const Declaration* dec) const
 	if (this == dec)
 		return true;
 
-	if (mType == DT_TYPE_REFERENCE && dec->mType == DT_TYPE_REFERENCE)
+	if (IsReference() && dec->IsReference())
 		return mBase->IsSubType(dec->mBase);
 
 	if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
@@ -1510,6 +1510,26 @@ bool Declaration::IsConstSame(const Declaration* dec) const
 	return false;
 }
 
+bool Declaration::IsTemplateSameParams(const Declaration* dec, const Declaration* tdec) const
+{
+	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION)
+	{
+		// Skip this pointer for now
+		Declaration* ld = mParams->mNext, * rd = dec->mParams;
+		while (ld && rd)
+		{
+			if (!ld->mBase->IsTemplateSame(rd->mBase, tdec))
+				return false;
+			ld = ld->mNext;
+			rd = rd->mNext;
+		}
+
+		return !ld && !rd;
+	}
+	else
+		return false;
+}
+
 bool Declaration::IsSameParams(const Declaration* dec) const
 {
 	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION || mType == DT_TEMPLATE && dec->mType == DT_TEMPLATE)
@@ -1587,7 +1607,7 @@ bool Declaration::IsSame(const Declaration* dec) const
 		else
 			return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
 	}
-	else if (mType == DT_TYPE_REFERENCE)
+	else if (IsReference())
 		return mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)
 		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
@@ -1599,6 +1619,72 @@ bool Declaration::IsSame(const Declaration* dec) const
 		while (dl && dr)
 		{
 			if (!dl->mBase->IsSame(dr->mBase))
+				return false;
+			dl = dl->mNext;
+			dr = dr->mNext;
+		}
+
+		if (dl || dr)
+			return false;
+
+		if ((mFlags & DTF_VARIADIC) != (dec->mFlags & DTF_VARIADIC))
+			return false;
+
+		return true;
+	}
+
+	return false;
+}
+
+bool Declaration::IsTemplateSame(const Declaration* dec, const Declaration * tdec) const
+{
+	if (dec->mType == DT_TYPE_TEMPLATE)
+		dec = tdec->mScope->Lookup(dec->mIdent);
+
+	if (this == dec)
+		return true;
+
+	if (mType != dec->mType)
+		return false;
+	if (mSize != dec->mSize)
+		return false;
+	if (mStripe != dec->mStripe)
+		return false;
+
+	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dec->mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
+		return false;
+
+	if (mType == DT_TYPE_INTEGER)
+		return true;
+	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
+		return true;
+	else if (mType == DT_TYPE_ENUM)
+		return mIdent == dec->mIdent;
+	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
+	{
+		if (mBase->mType == DT_TYPE_STRUCT && dec->mBase->mType == DT_TYPE_STRUCT && mBase->mStripe == dec->mBase->mStripe)
+		{
+			if (mBase->mQualIdent == dec->mBase->mQualIdent &&
+				(mBase->mFlags & (DTF_CONST | DTF_VOLATILE)) == (dec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE)))
+				return true;
+			else
+				return false;
+		}
+		else
+			return this->Stride() == dec->Stride() && mBase->IsTemplateSame(dec->mBase, tdec);
+	}
+	else if (IsReference())
+		return mBase->IsTemplateSame(dec->mBase, tdec);
+	else if (mType == DT_TYPE_STRUCT)
+		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		if (!mBase->IsTemplateSame(dec->mBase, tdec))
+			return false;
+		Declaration* dl = mParams, * dr = dec->mParams;
+		while (dl && dr)
+		{
+			if (!dl->mBase->IsTemplateSame(dr->mBase, tdec))
 				return false;
 			dl = dl->mNext;
 			dr = dr->mNext;
@@ -1638,9 +1724,9 @@ bool Declaration::IsSameValue(const Declaration* dec) const
 
 bool Declaration::CanAssign(const Declaration* fromType) const
 {
-	if (fromType->mType == DT_TYPE_REFERENCE)
+	if (fromType->IsReference())
 		return this->CanAssign(fromType->mBase);
-	if (mType == DT_TYPE_REFERENCE)
+	if (IsReference())
 		return mBase->IsSubType(fromType);
 
 	if (this->IsSame(fromType))
@@ -1694,6 +1780,11 @@ bool Declaration::IsNumericType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM;
 }
 
+
+bool Declaration::IsReference(void) const
+{
+	return mType == DT_TYPE_REFERENCE || mType == DT_TYPE_RVALUEREF;
+}
 
 bool Declaration::IsSimpleType(void) const
 {

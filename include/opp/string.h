@@ -9,6 +9,7 @@ private:
 public:
 	string(void);
 	string(const string & s);
+	string(string && s);
 	string(const char * s);
 	string(const char * s, char size);
 	string(char c);
@@ -17,6 +18,7 @@ public:
 	unsigned size(void) const;
 
 	string & operator=(const string & s);
+	string & operator=(string && s);
 	string & operator=(const char * s);
 
 	string & operator+=(const string & s);
