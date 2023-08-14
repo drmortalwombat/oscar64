@@ -973,3 +973,5 @@ void cistream::refill(void)
 	}
 }
 
+cistream	cin;
+costream 	cout;

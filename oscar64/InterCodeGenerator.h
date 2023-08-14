@@ -74,6 +74,9 @@ protected:
 
 	typedef GrowingArray<SwitchNode>	SwitchNodeArray;
 
+	InterCodeProcedure* mMainInitProc;
+	InterCodeBasicBlock* mMainInitBlock;
+
 	void BuildSwitchTree(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock* block, ExValue v, const SwitchNodeArray& nodes, int left, int right, InterCodeBasicBlock* dblock);
 
 	ExValue ToValue(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v);

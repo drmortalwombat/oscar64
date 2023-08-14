@@ -467,6 +467,11 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 				else
 					mErrors->Error(dec->mLocation, EERR_INCOMPATIBLE_TYPES, "Incompatible constant initializer");
 			}
+			else if (dec->mValue->mType == EX_CONSTRUCT)
+			{
+				DestructStack* destack = nullptr;
+				TranslateExpression(nullptr, mMainInitProc, mMainInitBlock, dec->mValue, destack, BranchTarget(), BranchTarget(), nullptr);
+			}
 			else
 				mErrors->Error(dec->mLocation, EERR_CONSTANT_INITIALIZER, "Non constant initializer");
 		}
@@ -4742,6 +4747,13 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 	InterCodeBasicBlock* entryBlock = new InterCodeBasicBlock(proc);
 
+	if (!strcmp(proc->mIdent->mString, "main"))
+	{
+		mMainInitBlock = entryBlock;
+		mMainInitProc = proc;
+		entryBlock = new InterCodeBasicBlock(proc);
+	}
+
 	InterCodeBasicBlock* exitBlock = entryBlock;
 
 	if (dec->mFlags & DTF_DEFINED)
@@ -4781,6 +4793,13 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		TranslateExpression(dec->mBase, proc, exitBlock, exp, destack, BranchTarget(), BranchTarget(), nullptr);
 
 		UnwindDestructStack(dec->mBase, proc, exitBlock, destack, nullptr, nullptr);
+
+		if (!strcmp(proc->mIdent->mString, "main"))
+		{
+			InterInstruction* ins = new InterInstruction(proc->mLocation, IC_JUMP);
+			mMainInitBlock->Append(ins);
+			mMainInitBlock->Close(entryBlock, nullptr);
+		}
 	}
 	else
 		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent->mString);

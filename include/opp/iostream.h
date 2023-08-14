@@ -202,6 +202,8 @@ iosetfill setfill(char fill);
 ostream & operator<<(ostream & os, const iosetfill & s);
 
 
+extern cistream	cin;
+extern costream cout;
 
 #pragma compile("iostream.cpp");
 
