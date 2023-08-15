@@ -3,6 +3,8 @@
 
 #include "iostream.h"
 
+namespace opp {
+
 class ostringstream : public ostream
 {
 public:
@@ -33,6 +35,7 @@ protected:
 	char		mSPos;
 };
 
+}
 
 #pragma compile("sstream.cpp")
 

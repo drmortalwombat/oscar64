@@ -121,10 +121,13 @@ Declaration* DeclarationScope::Lookup(const Ident* ident, ScopeLevel limit)
 
 	for (int i = 0; i < mUsed.Size(); i++)
 	{
-		Declaration* dec = mUsed[i]->Lookup(ident, limit);
+		Declaration* dec = mUsed[i]->Lookup(ident, SLEVEL_NAMESPACE);
 		if (dec)
 			return dec;
 	}
+
+	if (limit == SLEVEL_USING)
+		return nullptr;
 
 	return mParent ? mParent->Lookup(ident, limit) : nullptr;
 }

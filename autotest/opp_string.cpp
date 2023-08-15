@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <string.h>
 
+using opp::string;
+
 static const char HelloWorld[] = "Hello World";
 static const char AndBeyond[] = "And Beyond";
 static const char And[] = "And";

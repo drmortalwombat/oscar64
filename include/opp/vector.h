@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <opp/move.h>
 
+namespace opp {
+
 template <class T>
 class vector
 {
@@ -237,4 +239,5 @@ void vector<T>::erase(int at, int n)
 	_data[_size].~T();
 }
 
+}
 #endif

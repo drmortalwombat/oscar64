@@ -118,6 +118,7 @@ class Declaration;
 enum ScopeLevel
 {
 	SLEVEL_SCOPE,
+	SLEVEL_USING,
 	SLEVEL_GLOBAL,
 	SLEVEL_STATIC,
 	SLEVEL_NAMESPACE,

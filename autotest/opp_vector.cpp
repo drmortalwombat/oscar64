@@ -3,7 +3,7 @@
 
 int main(void)
 {
-	vector<int>		a;
+	opp::vector<int>		a;
 
 	for(int i=0; i<10; i++)
 		a.push_back(i);

@@ -1,6 +1,7 @@
 #ifndef OPP_ARRAY_H
 #define OPP_ARRAY_H
 
+namespace opp {
 
 template <class T, int n>
 class array
@@ -109,18 +110,8 @@ public:
 			_data[i] = t;
 	}
 };
-	
-#if 0
-	void swap(array<T, n> & a)
-	{
-		for(int i=0; i<n; i++)
-		{
-			T 	t(_data[i]);
-			_data[i] = a._data[i];
-			a._data[i] = t;
-		}
-	}
-#endif
+
+}
 
 
 #endif

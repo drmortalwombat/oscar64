@@ -4,6 +4,10 @@
 #include <opp/sstream.h>
 #include <math.h>
 
+using opp::ostringstream;
+using opp::istringstream;
+using opp::endl;
+
 float fdist(float a, float b)
 {
 	float d = fabs(a - b);
@@ -21,8 +25,6 @@ int main(void)
 		os << i << endl;
 	}
 
-	costream	cout;
-
 	istringstream	is(os.str());
 
 	int j = 0, k = 47;
@@ -35,7 +37,7 @@ int main(void)
 
 	assert(j == 40);
 #endif
-	os.str(string());
+	os.str(opp::string());
 
 #if 0
 	cout << "[" << os.str() << "]" << endl;

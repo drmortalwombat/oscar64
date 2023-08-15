@@ -4,6 +4,7 @@
 #include "iostream.h"
 #include "string.h"
 
+namespace opp {
 
 class ofstream : public ostream
 {
@@ -20,7 +21,7 @@ protected:
 	char fnum;
 };
 
-
+}
 
 #pragma compile("ofstream.cpp")
 

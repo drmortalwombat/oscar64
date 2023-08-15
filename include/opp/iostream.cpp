@@ -2,6 +2,8 @@
 #include <math.h>
 #include <stdio.h>
 
+namespace opp {
+
 ios::ios(void)
 	: mFlags(0), mState(0), mWidth(0), mPrecision(6), mFill(' ')
 {}
@@ -975,3 +977,5 @@ void cistream::refill(void)
 
 cistream	cin;
 costream 	cout;
+
+}

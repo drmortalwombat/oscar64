@@ -1,6 +1,8 @@
 #include "ofstream.h"
 #include <c64/kernalio.h>
 
+namespace opp {
+
 ofstream::ofstream(char fnum, char device, char channel, const string & name)
 {
 	this->fnum = fnum;
@@ -27,3 +29,4 @@ void ofstream::bput(char ch)
 	}
 }
 
+}

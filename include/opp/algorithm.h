@@ -1,6 +1,8 @@
 #ifndef OPP_ALGORITHM_H
 #define OPP_ALGORITHM_H
 
+namespace opp {
+
 template <class T>
 inline void swap(T & x, T & y)
 {
@@ -33,5 +35,6 @@ void sort(T s, T e)
 	}
 }
 
+}
 
 #endif

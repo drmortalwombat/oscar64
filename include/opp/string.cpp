@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+namespace opp {
+
 static inline void smemcpy(char * dp, const char * sp, char s)
 {
 	for(char i=0; i<s; i++)
@@ -569,4 +571,6 @@ int string::find(char c, char pos) const
 	}
 
 	return -1;
+}
+
 }

@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <opp/iostream.h>
 
+using opp::string;
+using opp::vector;
+
 string join(const vector<string> & vs)
 {
 	string	sj;

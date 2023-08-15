@@ -4,6 +4,7 @@
 #include "iostream.h"
 #include "string.h"
 
+namespace opp {
 
 class ifstream : public istream
 {
@@ -17,7 +18,7 @@ protected:
 	char fnum;
 };
 
-
+}
 
 #pragma compile("ifstream.cpp")
 

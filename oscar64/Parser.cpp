@@ -166,7 +166,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 	{
 		dec->mIdent = structName;
 		dec->mQualIdent = mScope->Mangle(structName);
-		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS, structName);
+		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS, dec->mQualIdent);
 	}
 
 	if ((mCompilerOptions & COPT_CPLUSPLUS) && mScanner->mToken == TK_COLON)
@@ -607,7 +607,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified)
 			if (dec && dec->mTemplate)
 				dec = ParseTemplateExpansion(dec->mTemplate, nullptr);
 
-			while (qualified && dec && dec->mType == DT_TYPE_STRUCT && ConsumeTokenIf(TK_COLCOLON))
+			while (qualified && dec && (dec->mType == DT_TYPE_STRUCT || dec->mType == DT_NAMESPACE) && ConsumeTokenIf(TK_COLCOLON))
 			{
 				if (ExpectToken(TK_IDENT))
 				{
@@ -3797,7 +3797,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					{
 						pdec = mCompilationUnits->mScope->Insert(ndec->mQualIdent, ndec);
 
-						if (ndec->mIdent == ndec->mQualIdent)
+						if (mScope->Mangle(ndec->mIdent) == ndec->mQualIdent)
 						{
 							Declaration* ldec = mScope->Insert(ndec->mIdent, pdec ? pdec : ndec);
 #if 0
@@ -4290,7 +4290,7 @@ Declaration* Parser::ParseQualIdent(void)
 			{
 				if (dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_STRUCT)
 				{
-					Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_CLASS);
+					Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_USING);
 
 					if (ndec)
 						dec = ndec;
@@ -7451,7 +7451,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 						{
 							if (!(mdec->mFlags & DTF_DEFINED))
 							{
-								Declaration* mpdec = mScope->Lookup(tmpld->mScope->Mangle(mdec->mIdent));
+								Declaration* mpdec = mCompilationUnits->mScope->Lookup(tmpld->mScope->Mangle(mdec->mIdent));
 								while (mpdec && !mdec->mBase->IsTemplateSameParams(mpdec->mBase, tdec))
 									mpdec = mpdec->mNext;
 								if (mpdec && mpdec->mTemplate)
@@ -7485,7 +7485,7 @@ void Parser::CompleteTemplateExpansion(Declaration* tmpld)
 					{
 						while (mdec)
 						{
-							Declaration* mpdec = mScope->Lookup(mdec->mQualIdent);
+							Declaration* mpdec = mCompilationUnits->mScope->Lookup(mdec->mQualIdent);
 							while (mpdec && !mpdec->IsSameParams(mdec->mParams))
 								mpdec = mpdec->mNext;
 							if (mpdec && mpdec->mType == DT_TEMPLATE)
@@ -7569,7 +7569,7 @@ void Parser::ParseTemplateDeclaration(void)
 		if (mScanner->mToken == TK_IDENT)
 		{
 			bdec->mIdent = mScanner->mTokenIdent;
-			bdec->mQualIdent = mScope->Mangle(bdec->mIdent);
+			bdec->mQualIdent = mScope->Mangle(mScanner->mTokenIdent);
 
 			while (mScanner->mToken != TK_SEMICOLON && mScanner->mToken != TK_OPEN_BRACE)
 				mScanner->NextToken();
@@ -7631,7 +7631,12 @@ void Parser::ParseTemplateDeclaration(void)
 			}
 		}
 		else
+		{
 			mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Function template expected");
+			adec->mType = DT_TYPE_VOID;
+			tdec->mBase = adec;
+			adec->mTemplate = tdec;
+		}
 	}
 
 	tdec->mTokens = mScanner->CompleteRecord();
@@ -7640,14 +7645,15 @@ void Parser::ParseTemplateDeclaration(void)
 	tdec->mQualIdent = tdec->mBase->mQualIdent;
 	tdec->mScope->mName = tdec->mQualIdent;
 
-	Declaration * pdec = mScope->Insert(tdec->mQualIdent, tdec->mBase);
+	if (tdec->mQualIdent == mScope->Mangle(tdec->mIdent))
+		mScope->Insert(tdec->mIdent, tdec->mBase);
+	
+	Declaration* pdec = mCompilationUnits->mScope->Insert(tdec->mQualIdent, tdec->mBase);
 	if (pdec)
 	{
 		tdec->mBase->mNext = pdec->mNext;
 		pdec->mNext = tdec->mBase;
 	}
-		
-	mCompilationUnits->mScope->Insert(tdec->mQualIdent, tdec->mBase);
 }
 
 
@@ -9180,8 +9186,11 @@ void Parser::ParseNamespace(void)
 			if (!ns)
 			{
 				ns = new Declaration(mScanner->mLocation, DT_NAMESPACE);
-				mScope->Insert(ident, ns);
 				ns->mScope = new DeclarationScope(mScope, SLEVEL_NAMESPACE, ident);
+				ns->mIdent = ident;
+				ns->mQualIdent = mScope->Mangle(ident);
+
+				mScope->Insert(ident, ns);
 			}
 
 			mScanner->NextToken();
@@ -9198,6 +9207,11 @@ void Parser::ParseNamespace(void)
 				}
 				else if (mScanner->mToken == TK_SEMICOLON)
 					mScanner->NextToken();
+				else if (mScanner->mToken == TK_TEMPLATE)
+				{
+					mScanner->NextToken();
+					ParseTemplateDeclaration();
+				}
 				else if (mScanner->mToken == TK_NAMESPACE)
 				{
 					mScanner->NextToken();

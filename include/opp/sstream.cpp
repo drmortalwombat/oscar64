@@ -1,6 +1,8 @@
 #include "sstream.h"
 #include <stdlib.h>
 
+namespace opp {
+
 ostringstream::ostringstream(void)
 {
 	mBuffer = nullptr;
@@ -79,4 +81,6 @@ void istringstream::refill(void)
 	{
 		mBuffer[mBufferFill++] = mString[mSPos++];
 	}
+}
+
 }

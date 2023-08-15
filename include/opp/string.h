@@ -1,6 +1,8 @@
 #ifndef OPP_STRING_H
 #define OPP_STRING_H
 
+namespace opp {
+
 class string
 {
 private:
@@ -73,6 +75,8 @@ protected:
 };
 
 void swap(string & u, string & v);
+
+}
 
 #pragma compile("string.cpp")
 

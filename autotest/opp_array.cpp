@@ -3,8 +3,8 @@
 
 int main(void)
 {
-	array<int, 10>	a10;
-	array<int, 20>	a20;
+	opp::array<int, 10>	a10;
+	opp::array<int, 20>	a20;
 
 	for(int i=0; i<10; i++)
 		a10[i] = i;
