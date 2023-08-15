@@ -573,4 +573,521 @@ int string::find(char c, char pos) const
 	return -1;
 }
 
+string to_string(int val)
+{
+	char	buffer[10];
+
+	bool sign = false;
+	if (val < 0)
+	{
+		val = -val;
+		sign = true;
+	}
+
+	char i = 10;
+
+	while (val)
+	{
+		char d = val % 10;
+		val /= 10;
+		buffer[--i] = d + '0';
+	}
+
+	if (i == 10)
+		buffer[--i] = '0';
+	if (sign)
+		buffer[--i] = '-';
+
+	return string(buffer + i, 10 - i);
+}
+
+string to_string(long val)
+{
+	char	buffer[12];
+
+	bool sign = false;
+	if (val < 0)
+	{
+		val = -val;
+		sign = true;
+	}
+
+	char i = 12;
+
+	while (val)
+	{
+		char d = val % 10;
+		val /= 10;
+		buffer[--i] = d + '0';
+	}
+
+	if (i == 12)
+		buffer[--i] = '0';
+	if (sign)
+		buffer[--i] = '-';
+
+	return string(buffer + i, 12 - i);
+}
+
+string to_string(unsigned int val)
+{
+	char	buffer[10];
+
+	char i = 10;
+
+	while (val)
+	{
+		char d = val % 10;
+		val /= 10;
+		buffer[--i] = d + '0';
+	}
+
+	if (i == 10)
+		buffer[--i] = '0';
+
+	return string(buffer + i, 10 - i);
+}
+
+string to_string(unsigned long val)
+{
+	char	buffer[12];
+
+	char i = 12;
+
+	while (val)
+	{
+		char d = val % 10;
+		val /= 10;
+		buffer[--i] = d + '0';
+	}
+
+	if (i == 12)
+		buffer[--i] = '0';
+
+	return string(buffer + i, 12 - i);
+}
+
+static float fround5[] = {
+	0.5e-0, 0.5e-1, 0.5e-2, 0.5e-3, 0.5e-4, 0.5e-5, 0.5e-6
+};
+
+string to_string(float val)
+{
+	char	buffer[20];
+
+	char	d = 0;
+
+	float	f = val;
+
+	if (f < 0.0)
+	{
+		f = -f;
+		buffer[d++] = '-';
+	}
+		
+	char prefix = d;
+
+	if (isinf(f))
+	{
+		buffer[d++] = 'I';
+		buffer[d++] = 'N';
+		buffer[d++] = 'F';
+	}
+	else
+	{
+		int	exp = 0;
+
+		char	fdigits = 6;
+
+		if (f != 0.0)
+		{
+			while (f >= 1000.0)
+			{
+				f /= 1000;
+				exp += 3;
+			}
+
+			while (f < 1.0)
+			{
+				f *= 1000;
+				exp -= 3;
+			}
+
+			while (f >= 10.0)
+			{
+				f /= 10;
+				exp ++;
+			}
+			
+		}
+		
+		char digits = fdigits + 1;
+
+		while (exp < 0)
+		{
+			f /= 10.0;
+			exp++;
+		}
+
+		digits = fdigits + exp + 1;
+
+		if (digits < 7)
+			f += fround5[digits - 1];
+		else
+			f += fround5[6];
+
+		if (f >= 10.0)
+		{
+			f /= 10.0;
+			fdigits--;
+		}			
+
+		char	pdigits = digits - fdigits;
+
+		if (digits > 20)
+			digits = 20;
+
+		if (pdigits == 0)
+			buffer[d++] = '0';
+
+		for(char i=0; i<digits; i++)
+		{
+			if (i == pdigits)
+				buffer[d++] = '.';
+			if (i > 6)
+				buffer[d++] = '0';
+			else
+			{
+				int c = (int)f;
+				f -= (float)c;
+				f *= 10.0;
+				buffer[d++] = c + '0';
+			}
+		}
+	}
+
+	return string(buffer, d);
+}
+
+
+int string::to_int(char * idx, char base) const
+{
+	char i = 1;
+	unsigned n = 0;
+	bool sign = false;
+
+	if (cstr)
+	{
+		const char * cp = cstr;
+
+		char ch = cp[i];
+
+		if (ch == '-')
+		{
+			sign = true;
+			ch = cp[++i];
+		}
+		else if (ch == '+')
+			ch = cp[++i];
+
+		if (ch == '0' && base == 0)
+		{
+			ch = cp[++i];
+			if (ch == 'x' || ch == 'X')	
+			{
+				base = 16;
+				ch = cp[++i];
+			}
+			else if (ch == 'b' || ch == 'B')
+			{
+				base = 2;
+				ch = cp[++i];			
+			}
+		}
+
+		for(;;)
+		{
+			char d;
+			if (ch >= '0' && ch <= '9')
+				d = (ch - '0');
+			else if (base > 10 && ch >= 'A' && ch <= 'F')
+				d = (ch - 'A' + 10);
+			else if (base > 10 && ch >= 'a' && ch <= 'f')
+				d = (ch - 'a' + 10);
+			else
+				break;
+
+			n = n * base + d;
+			ch = cp[++i];
+		}
+	}
+
+	if (idx)
+		*idx = i - 1;
+
+	if (sign)
+		return -(int)n;
+	else
+		return n;
+}
+
+long string::to_long(char * idx, char base) const
+{
+	char i = 1;
+	unsigned long n = 0;
+	bool sign = false;
+
+	if (cstr)
+	{
+		const char * cp = cstr;
+
+		char ch = cp[i++];
+
+		if (ch == '-')
+		{
+			sign = true;
+			ch = cp[i++];
+		}
+		else if (ch == '+')
+			ch = cp[i++];
+
+		if (ch == '0' && base == 0)
+		{
+			ch = cp[i++];
+			if (ch == 'x' || ch == 'X')	
+			{
+				base = 16;
+				ch = cp[i++];
+			}
+			else if (ch == 'b' || ch == 'B')
+			{
+				base = 2;
+				ch = cp[i++];			
+			}
+		}
+
+		for(;;)
+		{
+			char d;
+			if (ch >= '0' && ch <= '9')
+				d = (ch - '0');
+			else if (base > 10 && ch >= 'A' && ch <= 'F')
+				d = (ch - 'A' + 10);
+			else if (base > 10 && ch >= 'a' && ch <= 'f')
+				d = (ch - 'a' + 10);
+			else
+				break;
+
+			n = n * base + d;
+			ch = cp[i++];
+		}
+		i--;
+	}
+
+	if (idx)
+		*idx = i - 1;
+
+	if (sign)
+		return -(long)n;
+	else
+		return n;
+}
+
+unsigned string::to_uint(char * idx, char base) const
+{
+	char i = 1;
+	unsigned n = 0;
+
+	if (cstr)
+	{
+		const char * cp = cstr;
+
+		char ch = cp[i];
+
+		if (ch == '0' && base == 0)
+		{
+			ch = cp[++i];
+			if (ch == 'x' || ch == 'X')	
+			{
+				base = 16;
+				ch = cp[++i];
+			}
+			else if (ch == 'b' || ch == 'B')
+			{
+				base = 2;
+				ch = cp[++i];			
+			}
+		}
+
+		for(;;)
+		{
+			char d;
+			if (ch >= '0' && ch <= '9')
+				d = (ch - '0');
+			else if (base > 10 && ch >= 'A' && ch <= 'F')
+				d = (ch - 'A' + 10);
+			else if (base > 10 && ch >= 'a' && ch <= 'f')
+				d = (ch - 'a' + 10);
+			else
+				break;
+
+			n = n * base + d;
+			ch = cp[++i];
+		}
+	}
+
+	if (idx)
+		*idx = i - 1;
+
+	return n;
+}
+
+unsigned long string::to_ulong(char * idx, char base) const
+{
+	char i = 1;
+	unsigned long n = 0;
+
+	if (cstr)
+	{
+		const char * cp = cstr;
+
+		char ch = cp[i++];
+
+		if (ch == '0' && base == 0)
+		{
+			ch = cp[i++];
+			if (ch == 'x' || ch == 'X')	
+			{
+				base = 16;
+				ch = cp[i++];
+			}
+			else if (ch == 'b' || ch == 'B')
+			{
+				base = 2;
+				ch = cp[i++];			
+			}
+		}
+
+		for(;;)
+		{
+			char d;
+			if (ch >= '0' && ch <= '9')
+				d = (ch - '0');
+			else if (base > 10 && ch >= 'A' && ch <= 'F')
+				d = (ch - 'A' + 10);
+			else if (base > 10 && ch >= 'a' && ch <= 'f')
+				d = (ch - 'a' + 10);
+			else
+				break;
+
+			n = n * base + d;
+			ch = cp[i++];
+		}
+		i--;
+	}
+
+	if (idx)
+		*idx = i - 1;
+
+	return n;
+}
+
+float string::to_float(char * idx) const
+{
+	char 	i = 1;
+	float 	vf = 0;
+	bool	sign = false;
+
+	if (cstr)
+	{
+		const char * cp = cstr;
+
+		char ch = cp[i++];
+		if (ch == '-')
+		{
+			sign = true;
+			ch = cp[i++];
+		}
+		else if (ch == '+')
+			ch = cp[i++];
+			
+		if (ch >= '0' && ch <= '9' || ch == '.')
+		{	
+			while (ch >= '0' && ch <= '9')
+			{
+				vf = vf * 10 + (int)(ch - '0');
+				ch = cp[i++];
+			}
+
+			if (ch == '.')
+			{
+				float	digits = 1.0;
+				ch = cp[i++];
+				while (ch >= '0' && ch <= '9')
+				{
+					vf = vf * 10 + (int)(ch - '0');
+					digits *= 10;
+					ch = cp[i++];
+				}
+				vf /= digits;
+			}
+
+			char	e = 0;
+			bool	eneg = false;								
+			
+			if (ch == 'e' || ch == 'E')
+			{
+				ch = cp[i++];
+				if (ch == '-')
+				{
+					eneg = true;
+					ch = cp[i++];
+				}
+				else if (ch == '+')
+				{
+					ch = cp[i++];
+				}
+					
+				while (ch >= '0' && ch <= '9')
+				{
+					e = e * 10 + ch - '0';
+					ch = cp[i++];
+				}
+				
+			}
+			
+			if (e)
+			{
+				if (eneg)
+				{
+					while (e > 6)
+					{
+						vf /= 1000000.0;
+						e -= 6;
+					}
+					vf /= tpow10[e];
+				}
+				else
+				{
+					while (e > 6)
+					{
+						vf *= 1000000.0;
+						e -= 6;
+					}
+					vf *= tpow10[e];
+				}
+			}
+		}	
+		i--;
+	}
+
+	if (idx)
+		*idx = i - 1;
+
+	if (sign)
+		return -vf;
+	else
+		return vf;	
+}
+
 }

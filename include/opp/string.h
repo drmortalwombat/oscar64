@@ -70,11 +70,27 @@ public:
 	int find(char c, char pos) const;
 
 	void copyseg(char * p, char at, char num) const;
+
+	int to_int(char * idx = nullptr, char base = 10) const;
+	long to_long(char * idx = nullptr, char base = 10) const;
+	unsigned to_uint(char * idx = nullptr, char base = 10) const;
+	unsigned long to_ulong(char * idx = nullptr, char base = 10) const;
+	float to_float(char * idx = nullptr) const;
 protected:
 	string(char l, char * b);
 };
 
 void swap(string & u, string & v);
+
+string to_string(int val);
+
+string to_string(long val);
+
+string to_string(unsigned int val);
+
+string to_string(unsigned long val);
+
+string to_string(float val);
 
 }
 
