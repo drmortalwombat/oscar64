@@ -3256,13 +3256,20 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			}
 			else
 			{
-				Declaration* dec = ParseQualIdent();
-				if (dec)
-				{
-					Declaration* pdec = mScope->Insert(dec->mIdent, dec);
-					if (pdec && pdec != dec)
-						mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate declaration", dec->mIdent);
-				}
+				Declaration* dec;
+
+				do {
+					dec = ParseQualIdent();
+					if (dec)
+					{
+						Declaration* pdec = mScope->Insert(dec->mIdent, dec);
+						if (pdec && pdec != dec)
+							mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate declaration", dec->mIdent);
+					}
+					else
+						break;
+
+				} while (ConsumeTokenIf(TK_COMMA));
 
 				return dec;
 			}
