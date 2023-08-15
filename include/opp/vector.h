@@ -70,6 +70,36 @@ public:
 		return _data[at];
 	}
 
+	T * begin(void)
+	{
+		return _data;
+	}
+
+	const T * begin(void) const
+	{
+		return _data;
+	}
+
+	const T * cbegin(void) const
+	{
+		return _data;
+	}
+
+	T * end(void)
+	{
+		return _data + _size;
+	}
+
+	const T * end(void) const
+	{
+		return _data + _size;
+	}
+
+	const T * cend(void) const
+	{
+		return _data + _size;
+	}
+
 	T & front(void)
 	{
 		return _data[0];

@@ -6,6 +6,8 @@ class string
 private:
 	char	*	cstr;
 
+	friend void swap(string & u, string & v);
+
 public:
 	string(void);
 	string(const string & s);
@@ -69,6 +71,8 @@ public:
 protected:
 	string(char l, char * b);
 };
+
+void swap(string & u, string & v);
 
 #pragma compile("string.cpp")
 

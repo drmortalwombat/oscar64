@@ -842,7 +842,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVTable(nullptr), mTemplate(nullptr),
-	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
+	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), mFriends(nullptr),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr)
 {}
@@ -946,6 +946,10 @@ const Ident* Declaration::MangleIdent(void)
 			char	buffer[20];
 			sprintf_s(buffer, "%d", (int)mInteger);
 			mMangleIdent = Ident::Unique(buffer);
+		}
+		else if (mType == DT_CONST_FUNCTION)
+		{
+			mMangleIdent = mQualIdent;
 		}
 		else if (mType == DT_TYPE_INTEGER)
 		{
@@ -1532,12 +1536,30 @@ bool Declaration::IsTemplateSameParams(const Declaration* dec, const Declaration
 
 bool Declaration::IsSameParams(const Declaration* dec) const
 {
-	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION || mType == DT_TEMPLATE && dec->mType == DT_TEMPLATE)
+	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION)
 	{
 		Declaration* ld = mParams, * rd = dec->mParams;
 		while (ld && rd)
 		{
 			if (!ld->mBase->IsSame(rd->mBase))
+				return false;
+			ld = ld->mNext;
+			rd = rd->mNext;
+		}
+
+		return !ld && !rd;
+	}
+	else if (mType == DT_TEMPLATE && dec->mType == DT_TEMPLATE)
+	{
+		Declaration* ld = mParams, * rd = dec->mParams;
+		while (ld && rd)
+		{
+			if (ld->mType == DT_CONST_FUNCTION && rd->mType == DT_CONST_FUNCTION)
+			{
+				if (ld->mValue != rd->mValue)
+					return false;
+			}
+			else if (!ld->mBase->IsSame(rd->mBase))
 				return false;
 			ld = ld->mNext;
 			rd = rd->mNext;

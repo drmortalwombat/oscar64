@@ -162,6 +162,28 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 	{
 		mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign numeric value to pointer");
 	}
+	else if( type->mType == DT_TYPE_BOOL && v.mType->mType == DT_TYPE_POINTER)
+	{
+		InterInstruction* zins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+		zins->mDst.mType = IT_POINTER;
+		zins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+		zins->mConst.mType = IT_POINTER;
+		zins->mConst.mMemory = IM_ABSOLUTE;
+		zins->mConst.mIntConst = 0;
+		block->Append(zins);
+
+		InterInstruction* cins = new InterInstruction(exp->mLocation, IC_RELATIONAL_OPERATOR);
+		cins->mOperator = IA_CMPNE;
+		cins->mSrc[0].mType = IT_POINTER;
+		cins->mSrc[0].mTemp = v.mTemp;
+		cins->mSrc[1].mType = IT_POINTER;
+		cins->mSrc[1].mTemp = zins->mDst.mTemp;
+		cins->mDst.mType = IT_BOOL;
+		cins->mDst.mTemp = proc->AddTemporary(IT_BOOL);
+		block->Append(cins);
+		v.mTemp = cins->mDst.mTemp;
+		v.mType = type;
+	}
 	else if (v.mType->mSize < type->mSize)
 	{
 		if (v.mType->mSize == 1 && type->mSize == 2)
@@ -3697,6 +3719,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
 						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
+					else if (procType->mBase->mType == DT_TYPE_BOOL && (vr.mType->IsIntegerType() || vr.mType->mType == DT_TYPE_POINTER))
+						;
 					else if (!procType->mBase->CanAssign(vr.mType))
 						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
 

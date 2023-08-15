@@ -15,7 +15,7 @@ public:
 	DeclarationScope	*	mGlobals, * mScope, * mTemplateScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
-	Declaration			*	mThisPointer, * mReturnType;
+	Declaration			*	mThisPointer, * mReturnType, * mFunction;
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 
@@ -58,7 +58,7 @@ protected:
 	Expression* CleanupExpression(Expression* exp);
 
 	Declaration* ParseBaseTypeDeclaration(uint64 flags, bool qualified);
-	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr);
+	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr, Declaration * ptempl = nullptr);
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);

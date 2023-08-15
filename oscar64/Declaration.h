@@ -272,7 +272,7 @@ public:
 	TokenSequence	*	mTokens;
 	Parser			*	mParser;
 
-	GrowingArray<Declaration*>	mCallers, mCalled;
+	GrowingArray<Declaration*>	mCallers, mCalled, mFriends;
 
 	bool CanAssign(const Declaration* fromType) const;
 	bool IsSame(const Declaration* dec) const;

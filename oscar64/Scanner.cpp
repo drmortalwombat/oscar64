@@ -163,6 +163,7 @@ const char* TokenNames[] =
 	"'virtual'",
 	"'operator'",
 	"'template'",
+	"'friend'",
 };
 
 
@@ -1511,6 +1512,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_VIRTUAL;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "template"))
 					mToken = TK_TEMPLATE;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "friend"))
+					mToken = TK_FRIEND;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();

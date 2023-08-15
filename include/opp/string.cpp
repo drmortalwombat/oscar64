@@ -16,6 +16,11 @@ static inline char sstrlen(const char * sp)
 	return n;
 }
 
+inline void swap(string & u, string & v)
+{
+	char * p = u.cstr; u.cstr = v.cstr; v.cstr = p;
+}
+
 string::string(void) : cstr(nullptr)
 {}
 
