@@ -1,6 +1,7 @@
 #include "string.h"
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 namespace opp {
 

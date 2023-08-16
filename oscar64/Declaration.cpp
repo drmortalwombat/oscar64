@@ -203,7 +203,7 @@ void Expression::Dump(int ident) const
 		printf("INDEX");
 		break;
 	case EX_QUALIFY:
-		printf("QUALIFY");
+		printf("QUALIFY<%s>", mDecValue->mIdent->mString);
 		break;
 	case EX_CALL:
 		printf("CALL");
@@ -991,7 +991,9 @@ const Ident* Declaration::MangleIdent(void)
 			Declaration* dec = mParams;
 			while (dec)
 			{
-				mMangleIdent = mMangleIdent->Mangle(dec->mBase->MangleIdent()->mString);
+				const Ident* id = dec->mBase->MangleIdent();
+				if (id)
+					mMangleIdent = mMangleIdent->Mangle(id->mString);
 				dec = dec->mNext;
 				if (dec)
 					mMangleIdent = mMangleIdent->Mangle(",");
@@ -1663,20 +1665,29 @@ bool Declaration::IsSame(const Declaration* dec) const
 
 bool Declaration::IsTemplateSame(const Declaration* dec, const Declaration * tdec) const
 {
+	uint64	dflags = dec->mFlags;
+
 	if (dec->mType == DT_TYPE_TEMPLATE)
+	{
 		dec = tdec->mScope->Lookup(dec->mIdent);
+		dflags |= dec->mFlags;
+	}
 
 	if (this == dec)
 		return true;
 
 	if (mType != dec->mType)
 		return false;
+
+	if (dec->mType == DT_TYPE_STRUCT && dec->mTemplate)
+		return true;
+
 	if (mSize != dec->mSize)
 		return false;
 	if (mStripe != dec->mStripe)
 		return false;
 
-	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dec->mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
+	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dflags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
 		return false;
 
 	if (mType == DT_TYPE_INTEGER)

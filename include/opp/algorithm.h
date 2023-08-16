@@ -35,6 +35,17 @@ void sort(T s, T e)
 	}
 }
 
+template<class II, class OI>
+OI copy(II first, II last, OI result)
+{
+	while (first != last)
+	{
+		*result = *first;
+		++result; ++first;
+	}
+	return result;
+}
+
 }
 
 #endif

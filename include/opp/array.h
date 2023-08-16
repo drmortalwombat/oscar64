@@ -9,6 +9,8 @@ class array
 protected:
 	T	_data[n];
 public:
+	typedef T 	element_type;
+
 	int size(void) const
 	{
 		return n;

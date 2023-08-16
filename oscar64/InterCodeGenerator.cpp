@@ -1152,7 +1152,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		block->Append(ins);
 
 		ExValue rv(rdec->mBase, ins->mDst.mTemp, 1);
-		if (!rdec->mBase->IsReference())
+		if (!rdec->mBase->IsReference() && rdec->mBase->mType != DT_TYPE_STRUCT)
 			rv = Dereference(proc, exp, block, rv);
 		return rv;
 	}
@@ -3274,6 +3274,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						}
 						else if (pdec && (pdec->mBase->IsReference() && !vr.mType->IsReference()))
 							vr = Dereference(proc, texp, block, vr, 1);
+						else if (vr.mType->IsReference() && !(pdec && pdec->mBase->IsReference()))
+						{
+							vr.mReference++;
+							vr = Dereference(proc, texp, block, vr);
+						}
 						else
 							vr = Dereference(proc, texp, block, vr);
 
@@ -4706,7 +4711,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "join"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "opp::insert_iterator<struct opp::list<i16>>::+insert_iterator"))
 		exp->Dump(0);
 #endif
 #if 0

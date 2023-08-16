@@ -263,81 +263,83 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 				else
 				{
 					Declaration* mdec = ParseDeclaration(nullptr, false, false, pthis);
-
-					mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
-
-					mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
-
-					int	offset = dec->mSize;
-					if (dt == DT_TYPE_UNION)
-						offset = 0;
-
-					if (mdec->mBase->mType == DT_TYPE_FUNCTION)
+					if (mdec)
 					{
-						if (mdec->mBase->mFlags & DTF_VIRTUAL)
-							needVTable = true;
+						mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
 
-						mdec->mType = DT_CONST_FUNCTION;
-						mdec->mSection = mCodeSection;
-						mdec->mFlags |= DTF_GLOBAL;
-						mdec->mBase->mFlags |= DTF_FUNC_THIS;
+						mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
 
-						if (mCompilerOptions & COPT_NATIVE)
-							mdec->mFlags |= DTF_NATIVE;
+						int	offset = dec->mSize;
+						if (dt == DT_TYPE_UNION)
+							offset = 0;
 
-						AddMemberFunction(dec, mdec);
-					}
-					else if ((mCompilerOptions & COPT_CPLUSPLUS) && mdec->mType == DT_ANON)
-					{
-						ConsumeToken(TK_SEMICOLON);
-						// anon element
-					}
-					else
-					{
-						while (mdec)
+						if (mdec->mBase->mType == DT_TYPE_FUNCTION)
 						{
-							if (!(mdec->mBase->mFlags & DTF_DEFINED))
-								mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+							if (mdec->mBase->mFlags & DTF_VIRTUAL)
+								needVTable = true;
 
-							if (mdec->mType != DT_VARIABLE)
-							{
-								mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
-								break;
-							}
+							mdec->mType = DT_CONST_FUNCTION;
+							mdec->mSection = mCodeSection;
+							mdec->mFlags |= DTF_GLOBAL;
+							mdec->mBase->mFlags |= DTF_FUNC_THIS;
 
-							mdec->mType = DT_ELEMENT;
-							mdec->mOffset = offset;
+							if (mCompilerOptions & COPT_NATIVE)
+								mdec->mFlags |= DTF_NATIVE;
 
-							offset += mdec->mBase->mSize;
-							if (offset > dec->mSize)
-								dec->mSize = offset;
-
-							if (dec->mScope->Insert(mdec->mIdent, mdec))
-								mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
-
-							if (dec->mConst)
-							{
-								Declaration* cmdec = mdec->Clone();
-								cmdec->mBase = mdec->mBase->ToConstType();
-								
-								dec->mConst->mScope->Insert(cmdec->mIdent, cmdec);
-								dec->mConst->mSize = dec->mSize;
-							}
-
-							if (mlast)
-								mlast->mNext = mdec;
-							else
-								dec->mParams = mdec;
-							mlast = mdec;
-							mdec = mdec->mNext;
+							AddMemberFunction(dec, mdec);
 						}
-
-						if (mScanner->mToken == TK_SEMICOLON)
-							mScanner->NextToken();
+						else if ((mCompilerOptions & COPT_CPLUSPLUS) && mdec->mType == DT_ANON)
+						{
+							ConsumeToken(TK_SEMICOLON);
+							// anon element
+						}
 						else
 						{
-							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
-							break;
+							while (mdec)
+							{
+								if (!(mdec->mBase->mFlags & DTF_DEFINED))
+									mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
+
+								if (mdec->mType != DT_VARIABLE)
+								{
+									mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Named structure element expected");
+									break;
+								}
+
+								mdec->mType = DT_ELEMENT;
+								mdec->mOffset = offset;
+
+								offset += mdec->mBase->mSize;
+								if (offset > dec->mSize)
+									dec->mSize = offset;
+
+								if (dec->mScope->Insert(mdec->mIdent, mdec))
+									mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+
+								if (dec->mConst)
+								{
+									Declaration* cmdec = mdec->Clone();
+									cmdec->mBase = mdec->mBase->ToConstType();
+
+									dec->mConst->mScope->Insert(cmdec->mIdent, cmdec);
+									dec->mConst->mSize = dec->mSize;
+								}
+
+								if (mlast)
+									mlast->mNext = mdec;
+								else
+									dec->mParams = mdec;
+								mlast = mdec;
+								mdec = mdec->mNext;
+							}
+
+							if (mScanner->mToken == TK_SEMICOLON)
+								mScanner->NextToken();
+							else
+							{
+								mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+								break;
+							}
 						}
 					}
 				}
@@ -606,52 +608,55 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified)
 
 			if (dec && dec->mTemplate)
 				dec = ParseTemplateExpansion(dec->mTemplate, nullptr);
+		}
+		else
+			mScanner->NextToken();
 
-			while (qualified && dec && (dec->mType == DT_TYPE_STRUCT || dec->mType == DT_NAMESPACE) && ConsumeTokenIf(TK_COLCOLON))
+		while (qualified && dec && (dec->mType == DT_TYPE_STRUCT || dec->mType == DT_NAMESPACE) && ConsumeTokenIf(TK_COLCOLON))
+		{
+			if (ExpectToken(TK_IDENT))
 			{
-				if (ExpectToken(TK_IDENT))
-				{
-					pident = mScanner->mTokenIdent;
-					dec = dec->mScope->Lookup(mScanner->mTokenIdent);
-					mScanner->NextToken();
-				}
+				pident = mScanner->mTokenIdent;
+				dec = dec->mScope->Lookup(mScanner->mTokenIdent);
+				mScanner->NextToken();
 			}
+		}
 
-			if (dec && dec->mType <= DT_TYPE_FUNCTION)
+		if (dec && dec->mType <= DT_TYPE_FUNCTION)
+		{
+			if ((flags & ~dec->mFlags) == DTF_CONST)
+				dec = dec->ToConstType();
+			else if (dec->IsSimpleType() && (flags & ~dec->mFlags))
 			{
-				if (dec->IsSimpleType() && (flags & ~dec->mFlags))
+				Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
+				ndec->mFlags = dec->mFlags | flags;
+				ndec->mSize = dec->mSize;
+				ndec->mBase = dec->mBase;
+				dec = ndec;
+			}
+			else if (dec->mType == DT_TYPE_STRUCT && (flags & ~dec->mFlags))
+			{
+				if ((flags & ~dec->mFlags) == DTF_CONST)
+					dec = dec->ToConstType();
+				else
 				{
 					Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
 					ndec->mFlags = dec->mFlags | flags;
 					ndec->mSize = dec->mSize;
 					ndec->mBase = dec->mBase;
+					ndec->mScope = dec->mScope;
+					ndec->mParams = dec->mParams;
+					ndec->mIdent = dec->mIdent;
+					ndec->mQualIdent = dec->mQualIdent;
 					dec = ndec;
 				}
-				else if (dec->mType == DT_TYPE_STRUCT && (flags & ~dec->mFlags))
-				{
-					if ((flags & ~dec->mFlags) == DTF_CONST)
-						dec = dec->ToConstType();
-					else
-					{
-						Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
-						ndec->mFlags = dec->mFlags | flags;
-						ndec->mSize = dec->mSize;
-						ndec->mBase = dec->mBase;
-						ndec->mScope = dec->mScope;
-						ndec->mParams = dec->mParams;
-						ndec->mIdent = dec->mIdent;
-						ndec->mQualIdent = dec->mQualIdent;
-						dec = ndec;
-					}
-				}
 			}
-			else if (!dec)
-				mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", pident);
-			else
-				mErrors->Error(mScanner->mLocation, EERR_NOT_A_TYPE, "Identifier is no type", dec->mQualIdent);
 		}
+		else if (!dec)
+			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", pident);
 		else
-			mScanner->NextToken();
+			mErrors->Error(mScanner->mLocation, EERR_NOT_A_TYPE, "Identifier is no type", dec->mQualIdent);
+
 		break;
 
 	case TK_ENUM:
@@ -989,7 +994,7 @@ Declaration * Parser::ParseFunctionDeclaration(Declaration* bdec)
 			}
 			else
 			{
-				if (!(adec->mBase->mFlags & DTF_DEFINED) && adec->mBase->mType != DT_TYPE_ARRAY)
+				if (!(adec->mBase->mFlags & DTF_DEFINED) && adec->mBase->mType != DT_TYPE_ARRAY && !adec->mBase->mTemplate)
 					mErrors->Error(adec->mLocation, EERR_UNDEFINED_OBJECT, "Type of argument not defined");
 
 				adec->mType = DT_ARGUMENT;
@@ -2173,6 +2178,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 					else
 					{
 						mexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+						mexp->mToken = TK_ASSIGN;
 						mexp->mLeft = lexp;
 						mexp->mRight = rexp;
 						mexp->mDecType = lexp->mDecType;
@@ -5397,6 +5403,12 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 			{
 				Expression * pexp = nullptr;
 
+				if (exp->mDecType->mTemplate)
+				{
+					mErrors->Error(mScanner->mLocation, EERR_TEMPLATE_PARAMS, "Missing template parameters", exp->mDecType->mQualIdent);
+					exp->mDecType = TheConstVoidTypeDeclaration;
+				}
+
 				mScanner->NextToken();
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 				{
@@ -6011,6 +6023,10 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 					if (nexp->mLeft->mDecType->mBase->mType == DT_TYPE_FUNCTION)
 						return nexp->mLeft;
 					nexp->mDecType = nexp->mLeft->mDecType->mBase;
+				}
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && nexp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
+				{
+					nexp->mDecType = nexp->mLeft->mDecType;
 				}
 				else
 				{
@@ -7370,10 +7386,16 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 	{
 		tdec->mParams = expd->mParams;
 		Declaration* dec = tdec->mParams;
+		Declaration* xdec = tmpld->mParams;
 		while (dec)
 		{
-			tdec->mScope->Insert(dec->mIdent, dec->mBase);
+			if (dec->mBase->mType == DT_TYPE_TEMPLATE)
+			{
+				printf("oopsi");
+			}
+			tdec->mScope->Insert(xdec->mIdent, dec->mBase);
 			dec = dec->mNext;
+			xdec = xdec->mNext;
 		}
 	}
 	else
@@ -7433,6 +7455,21 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 	}
 	else
 	{
+		Declaration* epdec = tdec->mParams;
+		while (epdec && epdec->mBase->mType != DT_TYPE_TEMPLATE)
+			epdec = epdec->mNext;
+
+		if (epdec)
+		{
+			// Partial template specification
+			Declaration * bdec = new Declaration(mScanner->mLocation, DT_TYPE_STRUCT);
+			tdec->mBase = bdec;
+			bdec->mTemplate = tdec;
+			bdec->mBase = tmpld->mBase;
+
+			return bdec;
+		}
+
 		Parser* p = tmpld->mParser;
 
 		p->mScanner->Replay(tmpld->mTokens);
@@ -7614,6 +7651,9 @@ void Parser::ParseTemplateDeclaration(void)
 
 		if (adec->mBase->mType == DT_TYPE_FUNCTION)
 		{
+			if (ConsumeTokenIf(TK_CONST))
+				adec->mBase->mFlags |= DTF_CONST;
+
 			adec->mType = DT_CONST_FUNCTION;
 			adec->mSection = mCodeSection;
 
@@ -7642,6 +7682,7 @@ void Parser::ParseTemplateDeclaration(void)
 			mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Function template expected");
 			adec->mType = DT_TYPE_VOID;
 			tdec->mBase = adec;
+			adec->mIdent = adec->mQualIdent = Ident::Unique("_");
 			adec->mTemplate = tdec;
 		}
 	}

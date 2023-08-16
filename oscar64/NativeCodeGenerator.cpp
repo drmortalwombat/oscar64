@@ -29989,7 +29989,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 					}
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 				}
-				else if (j > i && !(mIns[i + 0].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[mIns[i + 1].mAddress])
+				else if (j > i && !(mIns[i + 0].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[mIns[i + 1].mAddress] && !ReferencesZeroPage(mIns[i + 0].mAddress, 0, i))
 				{
 					int j = mIns.Size() - 1;
 

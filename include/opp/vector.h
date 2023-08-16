@@ -13,6 +13,8 @@ protected:
 	T	*	_data;
 	int		_size, _capacity;
 public:
+	typedef T 	element_type;
+
 	vector(void) : _data(nullptr), _size(0), _capacity(0) {}
 	vector(int n) : _data((T*)malloc(n * sizeof(T))), _size(n), _capacity(n) 
 	{
