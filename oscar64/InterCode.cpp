@@ -11156,6 +11156,43 @@ void InterCodeBasicBlock::RemoveNonRelevantStatics(void)
 	}
 }
 
+bool InterCodeBasicBlock::RecheckOuterFrame(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_LOAD)
+			{
+				if (ins->mSrc[0].mMemory == IM_FRAME)
+					return true;
+			}
+			else if (ins->mCode == IC_STORE || ins->mCode == IC_LEA)
+			{
+				if (ins->mSrc[1].mMemory == IM_FRAME)
+					return true;
+			}
+			else if (ins->mCode == IC_CONSTANT)
+			{
+				if (ins->mConst.mType == IT_POINTER && ins->mConst.mMemory == IM_FRAME)
+					return true;
+			}
+			else if (ins->mCode == IC_PUSH_FRAME)
+				return true;
+		}
+
+		if (mTrueJump && mTrueJump->RecheckOuterFrame())
+			return true;
+		if (mFalseJump && mFalseJump->RecheckOuterFrame())
+			return true;
+	}
+
+	return false;
+}
+
 void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, bool &inlineAssembler, bool &byteCodeCall)
 {
 	int i;
@@ -11352,6 +11389,44 @@ bool InterCodeBasicBlock::IsEqual(const InterCodeBasicBlock* block) const
 	return false;
 }
 
+bool InterCodeBasicBlock::PreventsCallerStaticStack(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+			{
+				if (ins->mSrc[0].mTemp >= 0 || !ins->mSrc[0].mLinkerObject)
+					return false;
+				else if (ins->mSrc[0].mLinkerObject == mProc->mLinkerObject)
+					; // Simple recursion
+				else if (!(ins->mSrc[0].mLinkerObject->mFlags & LOBJF_STATIC_STACK))
+					return false;
+			}
+			else if (ins->mCode == IC_DISPATCH)
+			{
+				for (int j = 0; j < mProc->mCalledFunctions.Size(); j++)
+				{
+					if (!(mProc->mCalledFunctions[j]->mLinkerObject && (mProc->mCalledFunctions[j]->mLinkerObject->mFlags & LOBJF_STATIC_STACK)))
+						return false;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PreventsCallerStaticStack())
+			return true;
+		if (mFalseJump && mFalseJump->PreventsCallerStaticStack())
+			return true;
+	}
+
+	return false;
+}
+
+
 bool InterCodeBasicBlock::CheckStaticStack(void)
 {
 	if (!mVisited)
@@ -11368,7 +11443,13 @@ bool InterCodeBasicBlock::CheckStaticStack(void)
 					return false;
 			}
 			else if (mInstructions[i]->mCode == IC_DISPATCH)
-				return false;
+			{
+				for (int j = 0; j < mProc->mCalledFunctions.Size(); j++)
+				{
+					if (!(mProc->mCalledFunctions[j]->mLinkerObject && (mProc->mCalledFunctions[j]->mLinkerObject->mFlags & LOBJF_STATIC_STACK)))
+						return false;
+				}
+			}
 		}
 
 		if (mTrueJump && !mTrueJump->CheckStaticStack())
@@ -12571,6 +12652,8 @@ static int FindStore(InterCodeBasicBlock* block, int pos, const InterOperand& op
 				op.mVarIndex == ins->mSrc[1].mVarIndex)
 				return pos;
 		}
+		if (ins->mCode == IC_POP_FRAME && op.mMemory == IM_PARAM)
+			return -1;
 	}
 
 	return -1;
@@ -17592,6 +17675,13 @@ void InterCodeProcedure::Close(void)
 			mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
 	}
 
+	if (!(mLinkerObject->mFlags & LOBJF_STATIC_STACK))
+	{
+		ResetVisited();
+		if (!mEntryBlock->PreventsCallerStaticStack())
+			mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
+	}
+
 	if (!mEntryBlock->mTrueJump)
 	{
 		int	nconst = 0, nvariables = 0, nparams = 0, ncalls = 0, nret = 0, nother = 0, nops = 0;
@@ -17668,7 +17758,14 @@ void InterCodeProcedure::Close(void)
 	mLoadsIndirect = false;
 	mReferencedGlobals.Reset(mModule->mGlobalVars.Size());
 	mModifiedGlobals.Reset(mModule->mGlobalVars.Size());
-
+#if 1
+	if (!mLeafProcedure && mCommonFrameSize > 0)
+	{
+		ResetVisited();
+		if (!mEntryBlock->RecheckOuterFrame())
+			mCommonFrameSize = 0;
+	}
+#endif
 	ResetVisited();
 	mEntryBlock->CollectGlobalReferences(mReferencedGlobals, mModifiedGlobals, mStoresIndirect, mLoadsIndirect, mGlobalsChecked);
 }

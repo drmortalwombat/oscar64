@@ -612,12 +612,22 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified)
 		else
 			mScanner->NextToken();
 
-		while (qualified && dec && (dec->mType == DT_TYPE_STRUCT || dec->mType == DT_NAMESPACE) && ConsumeTokenIf(TK_COLCOLON))
+		while (qualified && dec && (dec->mType == DT_TYPE_STRUCT || dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_TEMPLATE) && ConsumeTokenIf(TK_COLCOLON))
 		{
 			if (ExpectToken(TK_IDENT))
 			{
 				pident = mScanner->mTokenIdent;
-				dec = dec->mScope->Lookup(mScanner->mTokenIdent);
+				if (dec->mType == DT_TYPE_TEMPLATE)
+				{
+					Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_TEMPLATE);
+					ndec->mFlags |= DTF_DEFINED;
+					ndec->mBase = dec;
+					ndec->mIdent = mScanner->mTokenIdent;
+					dec = ndec;
+				}
+				else
+					dec = dec->mScope->Lookup(mScanner->mTokenIdent);
+
 				mScanner->NextToken();
 			}
 		}
@@ -1851,6 +1861,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 	bool	simpleDestructor = true, simpleAssignment = true, simpleConstructor = true, simpleCopy = true;
 	bool	inlineDestructor = true;
 	bool	inlineConstructor = true;
+	bool	inlineCopy = true;
 
 
 	const Ident* dtorident = pthis->mBase->mIdent->PreMangle("~");;
@@ -1904,7 +1915,11 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 				inlineConstructor = false;
 		}
 		if (bcdec->mBase->mCopyConstructor)
+		{
 			simpleCopy = false;
+			if (!(bcdec->mBase->mCopyConstructor->mBase->mFlags & DTF_REQUEST_INLINE))
+				inlineCopy = false;
+		}
 		if (bcdec->mBase->mCopyAssignment)
 			simpleAssignment = false;
 		bcdec = bcdec->mNext;
@@ -2061,6 +2076,8 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+			if (inlineCopy)
+				cdec->mFlags |= DTF_REQUEST_INLINE;
 
 			cdec->mSection = mCodeSection;
 
@@ -2254,7 +2271,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 			Expression* thisexp = new Expression(mScanner->mLocation, EX_PREFIX);
 			thisexp->mToken = TK_MUL;
-			thisexp->mDecType = pthis->mBase;
+			thisexp->mDecType = pthis->mBase->ToMutableType();
 			thisexp->mLeft = pthisexp;
 
 			cdec->mValue = new Expression(mScanner->mLocation, EX_RETURN);
@@ -4547,6 +4564,8 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 					dexp->mDecType = texp->mDecType->mBase;
 					dexp->mLeft = texp;
 
+					dexp = dexp->ConstantFold(mErrors);
+
 					exp = ParseQualify(dexp);
 				}
 				else
@@ -4741,6 +4760,8 @@ Declaration* Parser::MemberLookup(Declaration* dtype, const Ident* ident, int & 
 Expression* Parser::ParseQualify(Expression* exp)
 {
 	Declaration* dtype = exp->mDecType;
+
+	exp = exp->ConstantFold(mErrors);
 
 	if (dtype->mType == DT_TYPE_REFERENCE || dtype->mType == DT_TYPE_RVALUEREF)
 		dtype = dtype->mBase;
@@ -6403,7 +6424,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mSize = 2;
 
 						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-						lexp->mLeft = texp;
+						lexp->mLeft = texp->ConstantFold(mErrors);
 						lexp->mRight = nexp->mRight;
 						nexp->mRight = lexp;
 
@@ -6446,7 +6467,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 					texp->mDecType->mSize = 2;
 
 					Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-					lexp->mLeft = texp;
+					lexp->mLeft = texp->ConstantFold(mErrors);
 					lexp->mRight = nexp->mRight;
 					nexp->mRight = lexp;
 
@@ -6495,7 +6516,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mBase = exp->mLeft->mDecType;
 						texp->mDecType->mSize = 2;
 
-						nexp->mRight = texp;
+						nexp->mRight = texp->ConstantFold(mErrors);
 
 						nexp = ResolveOverloadCall(nexp);
 						nexp->mDecType = nexp->mLeft->mDecType->mBase;
@@ -6544,7 +6565,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mSize = 2;
 
 						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-						lexp->mLeft = texp;
+						lexp->mLeft = texp->ConstantFold(mErrors);
 						lexp->mRight = new Expression(nexp->mLocation, EX_CONSTANT);
 						lexp->mRight->mDecType = TheSignedIntTypeDeclaration;
 						lexp->mRight->mDecValue = new Declaration(nexp->mLocation, DT_CONST_INTEGER);
@@ -6660,7 +6681,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mSize = 2;
 
 						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-						lexp->mLeft = texp;
+						lexp->mLeft = texp->ConstantFold(mErrors);
 						lexp->mRight = nexp->mRight;
 						nexp->mRight = lexp;
 
@@ -6719,7 +6740,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mBase = tdec;
 						texp->mDecType->mSize = 2;
 
-						nexp->mRight = texp;
+						nexp->mRight = texp->ConstantFold(mErrors);
 
 						nexp = ResolveOverloadCall(nexp);
 						nexp->mDecType = nexp->mLeft->mDecType->mBase;
@@ -6758,7 +6779,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 					texp->mDecType->mBase = tdec;
 					texp->mDecType->mSize = 2;
 
-					nexp->mRight = texp;
+					nexp->mRight = texp->ConstantFold(mErrors);
 
 					nexp = ResolveOverloadCall(nexp);
 					nexp->mDecType = nexp->mLeft->mDecType->mBase;
@@ -7614,6 +7635,7 @@ void Parser::ParseTemplateDeclaration(void)
 		{
 			bdec->mIdent = mScanner->mTokenIdent;
 			bdec->mQualIdent = mScope->Mangle(mScanner->mTokenIdent);
+			bdec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS, bdec->mQualIdent);
 
 			while (mScanner->mToken != TK_SEMICOLON && mScanner->mToken != TK_OPEN_BRACE)
 				mScanner->NextToken();

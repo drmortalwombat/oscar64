@@ -1018,7 +1018,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 		ExValue	vp(pdec ? pdec->mBase : TheSignedIntTypeDeclaration, ains->mDst.mTemp, 1);
 
-		vr = TranslateExpression(procType, proc, block, texp, destack, breakBlock, continueBlock, inlineMapper, &vp);
+		if (pdec && (pdec->mBase->mType == DT_TYPE_STRUCT || pdec->mBase->mType == DT_TYPE_UNION))
+			vr = TranslateExpression(procType, proc, block, texp, destack, breakBlock, continueBlock, inlineMapper, &vp);
+		else
+			vr = TranslateExpression(procType, proc, block, texp, destack, breakBlock, continueBlock, inlineMapper, nullptr);
 
 		if (!(pdec && pdec->mBase->IsReference()) && (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION))
 		{
@@ -1056,6 +1059,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 				vr = Dereference(proc, texp, block, vr, 1);
 			else if (pdec && (pdec->mBase->IsReference() && !vr.mType->IsReference()))
 				vr = Dereference(proc, texp, block, vr, 1);
+			else if (vr.mType->IsReference() && !(pdec && pdec->mBase->IsReference()))
+			{
+				vr.mReference++;
+				vr = Dereference(proc, texp, block, vr);
+			}
 			else
 				vr = Dereference(proc, texp, block, vr);
 
@@ -4710,8 +4718,8 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
-#if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "opp::insert_iterator<struct opp::list<i16>>::+insert_iterator"))
+#if 1
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "dividers"))
 		exp->Dump(0);
 #endif
 #if 0

@@ -220,7 +220,7 @@ void GlobalAnalyzer::AutoInline(void)
 			{
 				pdec->mVarIndex = dec->mNumVars++;
 
-				Expression* aexp = new Expression(pdec->mLocation, EX_ASSIGNMENT);
+				Expression* aexp = new Expression(pdec->mLocation, EX_INITIALIZATION);
 				Expression* pexp = new Expression(pdec->mLocation, EX_VARIABLE);
 				Expression* lexp = new Expression(dec->mLocation, EX_SEQUENCE);
 
@@ -476,6 +476,27 @@ void GlobalAnalyzer::CheckInterrupt(void)
 	} while (changed);
 }
 
+bool GlobalAnalyzer::IsStackParam(const Declaration* pdec) const
+{
+	if (pdec->mType == DT_TYPE_STRUCT)
+	{
+		if (pdec->mSize > 4)
+			return true;
+		if (pdec->mCopyConstructor)
+		{
+			if (!((mCompilerOptions & COPT_OPTIMIZE_INLINE) && (pdec->mCopyConstructor->mFlags & DTF_REQUEST_INLINE)))
+				return true;
+		}
+		if (pdec->mDestructor)
+		{
+			if (!((mCompilerOptions & COPT_OPTIMIZE_INLINE) && (pdec->mDestructor->mFlags & DTF_REQUEST_INLINE)))
+				return true;
+		}
+	}
+	
+	return false;
+}
+
 void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 {
 	dec->mUseCount++;
@@ -495,7 +516,7 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 		Declaration* pdec = dec->mBase->mParams;
 		while (pdec)
 		{
-			if (pdec->mBase->mType == DT_TYPE_STRUCT && (pdec->mBase->mCopyConstructor || pdec->mBase->mDestructor))
+			if (IsStackParam(pdec->mBase))
 				dec->mBase->mFlags |= DTF_STACKCALL;
 			pdec = pdec->mNext;
 		}
@@ -802,7 +823,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 					RegisterCall(procDec, pdec->mBase->mCopyConstructor);
 				}
 				
-				if (pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT && !(pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)))
+				if (pex->mType == EX_CALL && IsStackParam(pex->mDecType) && !(pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)))
 					ldec->mBase->mFlags |= DTF_STACKCALL;
 
 				if (pdec)

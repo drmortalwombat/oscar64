@@ -253,10 +253,11 @@ void ostream::numput(unsigned n, char sign)
 	if (mFlags & uppercase)
 		o = 'A' - 10;
 
-	while (n)
+	unsigned	nt = n;
+	while (nt)
 	{
-		char d = n % base;
-		n /= base;
+		char d = nt % base;
+		nt /= base;
 
 		if (d < 10)
 			d += '0';
@@ -289,10 +290,11 @@ void ostream::numput(unsigned long n, char sign)
 	if (mFlags & uppercase)
 		o = 'A' - 10;
 
-	while (n)
+	unsigned long nt = n;
+	while (nt)
 	{
-		char d = n % base;
-		n /= base;
+		char d = nt % base;
+		nt /= base;
 
 		if (d < 10)
 			d += '0';

@@ -16,11 +16,28 @@ public:
 	typedef T 	element_type;
 
 	vector(void) : _data(nullptr), _size(0), _capacity(0) {}
+
 	vector(int n) : _data((T*)malloc(n * sizeof(T))), _size(n), _capacity(n) 
 	{
 		for(int i=0; i<n; i++)
 			new (_data + i) T;
 	}
+
+	vector(const vector & v)
+		: _data((T*)malloc(v._size * sizeof(T))), _size(v._size), _capacity(v._size) 
+	{
+		for(int i=0; i<_size; i++)
+			new (_data + i)T(v._data[i]);
+	}
+
+	vector(vector && v)
+		: _data(v._data), _size(v._size), _capacity(v._capacity)
+	{
+		v._data = nullptr;
+		v._size = 0;
+		v._capacity = 0;
+	}
+
 	~vector(void)
 	{
 		for(int i=0; i<_size; i++)

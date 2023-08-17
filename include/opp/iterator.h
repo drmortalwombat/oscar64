@@ -128,8 +128,8 @@ back_insert_iterator<CT> back_inserter (CT & c)
 	return back_insert_iterator<CT>(c);
 }
 
-template <class CT, class CI>  
-insert_iterator<CT> inserter (CT & c, const CI & i)
+template <class CT>  
+insert_iterator<CT> inserter (CT & c, const CT::iterator_type & i)
 {
 	return insert_iterator<CT>(c, i);
 }

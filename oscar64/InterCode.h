@@ -60,16 +60,16 @@ extern int InterTypeSize[];
 enum InterMemory
 {
 	IM_NONE,
-	IM_PARAM,
+	IM_PARAM,		// Memory used to access parameters on stack
 	IM_LOCAL,
 	IM_GLOBAL,
-	IM_FRAME,
+	IM_FRAME,		// Memory used to pass parameters on stack
 	IM_PROCEDURE,
 	IM_INDIRECT,
 	IM_TEMPORARY,
 	IM_ABSOLUTE,
-	IM_FPARAM,
-	IM_FFRAME,
+	IM_FPARAM,		// Memory used to access parameters in zp
+	IM_FFRAME,		// Memory used to pass parameters in zp
 };
 
 enum InterOperator
@@ -488,8 +488,10 @@ public:
 	void MapVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars);
 	
 	void CollectOuterFrame(int level, int& size, bool& inner, bool& inlineAssembler, bool& byteCodeCall);
+	bool RecheckOuterFrame(void);
 
 	bool IsLeafProcedure(void);
+	bool PreventsCallerStaticStack(void);
 
 	bool ForwardDiamondMovedTemp(void);
 	bool ForwardLoopMovedTemp(void);

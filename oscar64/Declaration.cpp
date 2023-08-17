@@ -984,6 +984,10 @@ const Ident* Declaration::MangleIdent(void)
 		{
 			mMangleIdent = mQualIdent->PreMangle("enum ");
 		}
+		else if (mType == DT_TYPE_VOID)
+		{
+			mMangleIdent = Ident::Unique("void");
+		}
 		else if (mType == DT_TEMPLATE)
 		{
 			mMangleIdent = Ident::Unique("<");
@@ -1151,7 +1155,18 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 	}
 	else if (tdec->mType == DT_TYPE_TEMPLATE)
 	{
-		Declaration* pdec = mScope->Insert(tdec->mIdent, fdec);
+		Declaration* pdec;
+		if (tdec->mBase)
+		{
+			pdec = mScope->Lookup(tdec->mBase->mIdent);
+			if (!pdec)
+				return false;
+			if (pdec->mType == DT_TYPE_STRUCT)
+				pdec = pdec->mScope->Lookup(tdec->mIdent);
+		}
+		else
+			pdec = mScope->Insert(tdec->mIdent, fdec);
+
 		if (pdec && !pdec->IsSame(fdec))
 			return false;
 
