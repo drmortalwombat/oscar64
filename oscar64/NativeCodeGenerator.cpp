@@ -14050,6 +14050,10 @@ bool NativeCodeBasicBlock::CombineSameXtoY(int xpos, int ypos, int end)
 		{
 			ReplaceXRegWithYReg(xpos, ypos);
 			ReplaceXRegWithYReg(ypos + 1, end);
+
+			for (int i = xpos; i < ypos; i++)
+				mIns[i].mLive |= LIVE_CPU_REG_Y;
+
 			if (!(mIns[ypos].mLive & LIVE_CPU_REG_Z))
 			{
 				mIns[ypos].mType = ASMIT_NOP;
@@ -14063,6 +14067,9 @@ bool NativeCodeBasicBlock::CombineSameXtoY(int xpos, int ypos, int end)
 		if (CanCombineSameXtoY(xpos, end))
 		{
 			ReplaceXRegWithYReg(xpos, end);
+			for (int i = ypos; i < xpos; i++)
+				mIns[i].mLive |= LIVE_CPU_REG_Y;
+
 			if (!(mIns[xpos].mLive & LIVE_CPU_REG_Z))
 			{
 				mIns[xpos].mType = ASMIT_NOP;
@@ -14085,6 +14092,10 @@ bool NativeCodeBasicBlock::CombineSameYtoX(int xpos, int ypos, int end)
 		{
 			ReplaceYRegWithXReg(ypos, xpos);
 			ReplaceYRegWithXReg(xpos + 1, end);
+
+			for (int i = ypos; i < xpos; i++)
+				mIns[i].mLive |= LIVE_CPU_REG_X;
+
 			if (!(mIns[xpos].mLive & LIVE_CPU_REG_Z))
 			{
 				mIns[xpos].mType = ASMIT_NOP;
@@ -14098,6 +14109,9 @@ bool NativeCodeBasicBlock::CombineSameYtoX(int xpos, int ypos, int end)
 		if (CanCombineSameYtoX(ypos, end))
 		{
 			ReplaceYRegWithXReg(ypos, end);
+			for (int i = xpos; i < ypos; i++)
+				mIns[i].mLive |= LIVE_CPU_REG_X;
+
 			if (!(mIns[ypos].mLive & LIVE_CPU_REG_Z))
 			{
 				mIns[ypos].mType = ASMIT_NOP;
@@ -14139,6 +14153,7 @@ bool NativeCodeBasicBlock::CombineSameXY(void)
 						changed = true;
 						yreg = -1;
 					}
+					CheckLive();
 				}
 
 				xreg = -1;
@@ -14155,6 +14170,7 @@ bool NativeCodeBasicBlock::CombineSameXY(void)
 						changed = true;
 						xreg = -1;
 					}
+					CheckLive();
 				}
 
 				yreg = -1;
@@ -25067,6 +25083,9 @@ bool NativeCodeBasicBlock::MoveIndirectLoadStoreUp(int at)
 	{
 		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at].mAddress)
 		{
+			if (mIns[j].mLive & LIVE_CPU_REG_Y)
+				return false;
+
 			mIns[at + 1].mLive |= mIns[j].mLive;
 			mIns[at + 2].mLive |= mIns[j].mLive;
 
@@ -25079,8 +25098,18 @@ bool NativeCodeBasicBlock::MoveIndirectLoadStoreUp(int at)
 			return true;
 		}
 
-		if (mIns[j].ReferencesYReg())
+		if (mIns[j].mMode == ASMIM_INDIRECT_Y && mIns[j].mAddress == mIns[at + 2].mAddress)
+		{
+			if (j > 0 && mIns[j - 1].mType == ASMIT_LDY && mIns[j - 1].mMode == ASMIM_IMMEDIATE && mIns[j - 1].mAddress != mIns[at + 1].mAddress)
+				;
+			else
+				return false;
+		}
+		else if (mIns[at + 2].MayBeSameAddress(mIns[j]))
 			return false;
+		else if (mIns[j].mType == ASMIT_JSR)
+			return false;
+
 		if (mIns[j].ChangesZeroPage(mIns[at].mAddress))
 			return false;
 		if (mIns[j].ChangesZeroPage(mIns[at + 2].mAddress))
@@ -33644,6 +33673,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 
 		bool	changed = RemoveNops();
 
+		mIns.Reserve(mIns.Size() * 2 + 32);
+
 		mVisited = true;
 
 		CheckLive();
@@ -33768,7 +33799,6 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			}
 		}
 		CheckLive();
-
 #endif
 
 #if 1
@@ -35822,6 +35852,10 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mType = ASMIT_LDY;
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						if (mIns[i + 1].ChangesYReg())
+						{
+							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						}
 						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
 						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
 						progress = true;
@@ -37951,8 +37985,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						// Flip arguments of ADC if second parameter in accu at entry
 
 						mIns[i + 3].CopyMode(mIns[i + 2]);
-						mIns[i + 2].mMode = ASMIM_ZERO_PAGE;
-						mIns[i + 2].mAddress = mIns[i + 0].mAddress;
+						mIns[i + 2].CopyMode(mIns[i + 0]);
 						progress = true;
 					}
 
@@ -40784,7 +40817,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "dump<struct opp::list<i16>>");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test_pab50");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -42119,7 +42152,6 @@ void NativeCodeProcedure::Optimize(void)
 			cnt++;
 
 	} while (changed);
-
 
 #if 1
 	ResetVisited();

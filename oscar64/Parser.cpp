@@ -1858,10 +1858,11 @@ void Parser::BuildMemberConstructor(Declaration* pthis, Declaration* cfunc)
 
 void Parser::AddDefaultConstructors(Declaration* pthis)
 {
-	bool	simpleDestructor = true, simpleAssignment = true, simpleConstructor = true, simpleCopy = true;
+	bool	simpleDestructor = true, simpleAssignment = true, simpleConstructor = true, simpleCopy = true, simpleMove = true;
 	bool	inlineDestructor = true;
 	bool	inlineConstructor = true;
 	bool	inlineCopy = true;
+	bool	inlineMove = true;
 
 
 	const Ident* dtorident = pthis->mBase->mIdent->PreMangle("~");;
@@ -1879,6 +1880,8 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			pthis->mBase->mDefaultConstructor = cdec;
 		else if (!tparam->mNext && tparam->mBase->mType == DT_TYPE_REFERENCE && pthis->mBase->IsConstSame(tparam->mBase->mBase))
 			pthis->mBase->mCopyConstructor = cdec;
+		else if (!tparam->mNext && tparam->mBase->mType == DT_TYPE_RVALUEREF && pthis->mBase->IsConstSame(tparam->mBase->mBase))
+			pthis->mBase->mMoveConstructor = cdec;
 
 		cdec = cdec->mNext;
 	}

@@ -28,6 +28,21 @@ void LinkerSection::AddObject(LinkerObject* obj)
 	obj->mSection = this;
 }
 
+bool LinkerReference::operator==(const LinkerReference& ref)
+{
+	return
+		mFlags == ref.mFlags &&
+		mOffset == ref.mOffset &&
+		mRefOffset == ref.mRefOffset &&
+		mObject->mMapID == ref.mObject->mMapID &&
+		mRefObject->mMapID == ref.mRefObject->mMapID;
+}
+
+bool LinkerReference::operator!=(const LinkerReference& ref)
+{
+	return !(*this == ref);
+}
+
 LinkerObject::LinkerObject(void)
 	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr)
 {}
@@ -263,7 +278,7 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 {
 	LinkerObject* obj = new LinkerObject;
 	obj->mLocation = location;
-	obj->mID = mObjects.Size();
+	obj->mID = obj->mMapID = mObjects.Size();
 	obj->mType = type;
 	obj->mData = nullptr;
 	obj->mSize = 0;
@@ -276,6 +291,70 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 	section->mObjects.Push(obj);
 	mObjects.Push(obj);
 	return obj;
+}
+
+void Linker::CombineSameConst(void)
+{
+	bool changed = true;
+	while (changed)
+	{
+		changed = false;
+
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* dobj(mObjects[i]);
+			while (dobj->mMapID != mObjects[dobj->mMapID]->mMapID)
+				dobj->mMapID = mObjects[dobj->mMapID]->mMapID;
+
+			if ((dobj->mFlags & LOBJF_REFERENCED) && (dobj->mFlags & LOBJF_CONST) && dobj->mMapID == dobj->mID)
+			{
+				for (int j = i + 1; j < mObjects.Size(); j++)
+				{
+					LinkerObject* sobj(mObjects[j]);
+
+					if ((sobj->mFlags & LOBJF_REFERENCED) && (sobj->mFlags & LOBJF_CONST) && sobj->mMapID == sobj->mID)
+					{
+						if (dobj->mSize == sobj->mSize && dobj->mSection == sobj->mSection && dobj->mReferences.Size() == sobj->mReferences.Size())
+						{
+							int i = 0;
+							while (i < sobj->mSize && sobj->mData[i] == dobj->mData[i])
+								i++;
+							if (i == sobj->mSize)
+							{
+								i = 0;
+								while (i < sobj->mReferences.Size() && sobj->mReferences[i] == dobj->mReferences[i])
+									i++;
+								if (i == sobj->mReferences.Size())
+								{
+									sobj->mMapID = dobj->mMapID;
+									changed = true;
+									if (dobj->mIdent && sobj->mIdent)
+									{
+										printf("Match %s : %s\n", dobj->mIdent->mString, sobj->mIdent->mString);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* lobj(mObjects[i]);
+		if (lobj->mFlags & LOBJF_REFERENCED)
+		{
+			if (lobj->mMapID != lobj->mID)
+				lobj->mFlags &= ~LOBJF_REFERENCED;
+			else
+			{
+				for (int j = 0; j < lobj->mReferences.Size(); j++)
+					lobj->mReferences[j]->mRefObject = mObjects[lobj->mReferences[j]->mRefObject->mMapID];
+			}
+		}
+	}
 }
 
 void Linker::CollectReferences(void) 

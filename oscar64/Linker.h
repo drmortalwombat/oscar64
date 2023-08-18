@@ -110,6 +110,10 @@ public:
 	LinkerObject* mObject, * mRefObject;
 	int		mOffset, mRefOffset;
 	uint32	mFlags;
+
+	bool operator==(const LinkerReference& ref);
+	bool operator!=(const LinkerReference& ref);
+
 };
 
 static const uint32 LSECF_PACKED = 0x00000001;
@@ -175,7 +179,7 @@ public:
 	Location							mLocation;
 	const Ident						*	mIdent;
 	LinkerObjectType					mType;
-	int									mID;
+	int									mID, mMapID;
 	int									mAddress, mRefAddress;
 	int									mSize, mAlignment;
 	LinkerSection					*	mSection;
@@ -281,6 +285,7 @@ public:
 	void ReferenceObject(LinkerObject* obj);
 
 	void CollectReferences(void);
+	void CombineSameConst(void);
 	void Link(void);
 protected:
 	NativeCodeDisassembler	mNativeDisassembler;

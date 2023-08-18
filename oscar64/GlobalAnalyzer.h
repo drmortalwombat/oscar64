@@ -40,5 +40,6 @@ protected:
 	uint64 GetProcFlags(Declaration* to) const;
 	void RegisterCall(Declaration* from, Declaration* to);
 	void RegisterProc(Declaration* to);
+	void UndoParamReference(Expression* ex, Declaration* param);
 };
 

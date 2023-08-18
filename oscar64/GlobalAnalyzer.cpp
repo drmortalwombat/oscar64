@@ -497,6 +497,21 @@ bool GlobalAnalyzer::IsStackParam(const Declaration* pdec) const
 	return false;
 }
 
+void GlobalAnalyzer::UndoParamReference(Expression* exp, Declaration * param)
+{
+	if (exp)
+	{
+		if (exp->mType == EX_VARIABLE)
+		{
+			if (exp->mDecValue == param)
+				exp->mDecType = param->mBase;
+		}
+
+		UndoParamReference(exp->mLeft, param);
+		UndoParamReference(exp->mRight, param);
+	}
+}
+
 void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 {
 	dec->mUseCount++;
@@ -535,6 +550,22 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 				dec->mFlags |= DTF_FUNC_CONSTEXPR;
 			dec->mFlags |= DTF_FUNC_PURE;
 			Analyze(exp, dec, false);
+
+			Declaration* pdec = dec->mBase->mParams;
+			int vi = 0;
+			while (pdec)
+			{
+				pdec->mVarIndex += vi;
+				if (pdec->mBase->mType == DT_TYPE_REFERENCE && pdec->mBase->mBase->IsSimpleType() && !(pdec->mBase->mFlags & DTF_VAR_ADDRESS) && (pdec->mBase->mBase->mFlags & DTF_CONST))
+				{
+					pdec->mBase = pdec->mBase->mBase;
+					pdec->mSize = pdec->mBase->mSize;
+					vi += pdec->mSize - 2;
+
+					UndoParamReference(exp, pdec);
+				}
+				pdec = pdec->mNext;
+			}
 		}
 		else
 			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent);
@@ -672,6 +703,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		}
 		else
 		{
+			if (lhs)
+				exp->mDecValue->mFlags |= DTF_VAR_ADDRESS;
+
 			if (!(exp->mDecValue->mFlags & DTF_ANALYZED))
 			{
 				procDec->mLocalSize += exp->mDecValue->mSize;
@@ -819,6 +853,11 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 
 				if (pdec && pdec->mBase->mType == DT_TYPE_STRUCT && pdec->mBase->mCopyConstructor)
 				{
+					if (pdec->mBase->mMoveConstructor)
+					{
+						AnalyzeProcedure(pdec->mBase->mMoveConstructor->mValue, pdec->mBase->mMoveConstructor);
+						RegisterCall(procDec, pdec->mBase->mMoveConstructor);
+					}
 					AnalyzeProcedure(pdec->mBase->mCopyConstructor->mValue, pdec->mBase->mCopyConstructor);
 					RegisterCall(procDec, pdec->mBase->mCopyConstructor);
 				}
@@ -846,6 +885,11 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			RegisterProc(Analyze(exp->mLeft, procDec, false));
 			if (procDec->mBase->mBase && procDec->mBase->mBase->mType == DT_TYPE_STRUCT && procDec->mBase->mBase->mCopyConstructor)
 			{
+				if (procDec->mBase->mBase->mMoveConstructor)
+				{
+					AnalyzeProcedure(procDec->mBase->mBase->mMoveConstructor->mValue, procDec->mBase->mBase->mMoveConstructor);
+					RegisterCall(procDec, procDec->mBase->mBase->mMoveConstructor);
+				}
 				AnalyzeProcedure(procDec->mBase->mBase->mCopyConstructor->mValue, procDec->mBase->mBase->mCopyConstructor);
 				RegisterCall(procDec, procDec->mBase->mBase->mCopyConstructor);
 			}

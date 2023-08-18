@@ -3422,6 +3422,22 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 		}
 	} break;
 
+	case IC_FREE:
+	{
+		if (mSrc[0].mTemp >= 0 && ctemps[mSrc[0].mTemp])
+		{
+			InterInstruction* ains = ctemps[mSrc[0].mTemp];
+
+			if (ains->mConst.mMemory == IM_ABSOLUTE && ains->mConst.mIntConst == 0)
+			{
+				mCode = IC_NONE;
+				mNumOperands = 0;
+				return true;
+			}
+		}
+
+	}	break;
+
 	case IC_CONVERSION_OPERATOR:
 	case IC_UNARY_OPERATOR:
 	{
@@ -15990,6 +16006,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
 	mLinkerObject->mProc = this;
+	mLinkerObject->mFlags |= LOBJF_CONST;
 	mCallerSavedTemps = BC_REG_TMP_SAVED - BC_REG_TMP;
 }
 

@@ -1172,14 +1172,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		return ExValue(TheVoidTypeDeclaration);
 }
 
-void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue vl, ExValue vr, InlineMapper* inlineMapper)
+void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue vl, ExValue vr, InlineMapper* inlineMapper, bool moving)
 {
 	if (vr.mTemp == vl.mTemp)
 		return;
 
-	if (vl.mType->mCopyConstructor)
+	if (vl.mType->mCopyConstructor || moving && vl.mType->mMoveConstructor)
 	{
 		Declaration* ccdec = vl.mType->mCopyConstructor;
+		if (moving && vl.mType->mMoveConstructor)
+			ccdec = vl.mType->mMoveConstructor;
+
 		if (!ccdec->mLinkerObject)
 			this->TranslateProcedure(proc->mModule, ccdec->mValue, ccdec);
 
@@ -3250,7 +3253,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						if (vp.mTemp != vr.mTemp)
 						{
-							CopyStruct(proc, exp, block, vp, vr, inlineMapper);
+							CopyStruct(proc, exp, block, vp, vr, inlineMapper, false);
 #if 0
 							InterInstruction* cins = new InterInstruction(texp->mLocation, IC_COPY);
 							cins->mSrc[0].mType = IT_POINTER;
@@ -3627,7 +3630,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else if (vr.mReference != 1)
 						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Non addressable object");
 
-					CopyStruct(proc, exp, block, rvr, vr, inlineMapper);
+					bool moving = exp->mLeft->IsRValue() || exp->mLeft->mType == EX_VARIABLE && !(exp->mLeft->mDecValue->mFlags & (DTF_STATIC | DTF_GLOBAL)) && exp->mLeft->mDecType->mType != DT_TYPE_REFERENCE;
+
+					CopyStruct(proc, exp, block, rvr, vr, inlineMapper, moving);
 #if 0
 					if (procType->mBase->mCopyConstructor)
 					{
@@ -4718,7 +4723,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
-#if 1
+#if 0
 	if (proc->mIdent && !strcmp(proc->mIdent->mString, "dividers"))
 		exp->Dump(0);
 #endif

@@ -955,6 +955,9 @@ bool Compiler::GenerateCode(void)
 	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
 		mLinker->ReferenceObject(mCompilationUnits->mReferenced[i]->mLinkerObject);
 
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+		mLinker->CombineSameConst();
+
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Link executable\n");
 

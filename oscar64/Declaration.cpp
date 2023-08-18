@@ -842,7 +842,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
 	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr), 
 	mConst(nullptr), mMutable(nullptr),
-	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr),
+	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVTable(nullptr), mTemplate(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), mFriends(nullptr),
@@ -1311,6 +1311,7 @@ Declaration* Declaration::ToConstType(void)
 
 		ndec->mDefaultConstructor = mDefaultConstructor;
 		ndec->mCopyConstructor = mCopyConstructor;
+		ndec->mMoveConstructor = mMoveConstructor;
 		ndec->mVectorConstructor = mVectorConstructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
 		ndec->mVTable = mVTable;
@@ -1341,6 +1342,7 @@ Declaration* Declaration::ToMutableType(void)
 
 		ndec->mDefaultConstructor = mDefaultConstructor;
 		ndec->mCopyConstructor = mCopyConstructor;
+		ndec->mMoveConstructor = mMoveConstructor;
 		ndec->mVectorConstructor = mVectorConstructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
 		ndec->mVTable = mVTable;
