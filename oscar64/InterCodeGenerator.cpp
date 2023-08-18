@@ -3276,7 +3276,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 					else
 					{
-						if (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION)
+						if (vr.mType->mType == DT_TYPE_ARRAY)// || vr.mType->mType == DT_TYPE_FUNCTION)
 							vr = Dereference(proc, texp, block, vr, 1);
 						else if (pdec && pdec->mBase->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_INTEGER && texp->mType == EX_CONSTANT && texp->mDecValue->mType == DT_CONST_INTEGER && texp->mDecValue->mInteger == 0)
 						{
@@ -3316,7 +3316,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						wins->mSrc[1].mTemp = ains->mDst.mTemp;
 						if (pdec)
 						{
-							if (pdec->mBase->mType == DT_TYPE_ARRAY || pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)
+							if (pdec->mBase->mType == DT_TYPE_ARRAY || pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF || pdec->mBase->mType == DT_TYPE_FUNCTION)
 							{
 								wins->mSrc[1].mOperandSize = 2;
 								wins->mSrc[0].mType = IT_POINTER;

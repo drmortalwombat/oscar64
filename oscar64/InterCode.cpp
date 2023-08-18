@@ -4548,6 +4548,10 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 		assert(code->mConst.mVarIndex < mProc->mModule->mGlobalVars.Size());
 		assert(mProc->mModule->mGlobalVars[code->mConst.mVarIndex]);
 	}
+	if (code->mCode == IC_STORE)
+	{
+		assert(code->mSrc[1].mOperandSize > 0);
+	}
 	if (code->mDst.mTemp >= 0)
 		assert(code->mDst.mType != IT_NONE);
 	for (int i = 0; i < code->mNumOperands; i++)
@@ -7484,7 +7488,28 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				if (s0 < 0)
 				{
 					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+					mTrueValueRange[s1].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
 					mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
+					mFalseValueRange[s1].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
+				}
+				else if (s1 < 0)
+				{
+					mTrueValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst);
+					mTrueValueRange[s0].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
+					mFalseValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst - 1);
+					mFalseValueRange[s0].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
+				}
+				else
+				{
+					if (mLocalValueRange[s0].mMaxState == IntegerValueRange::S_BOUND)
+						mFalseValueRange[s1].LimitMin(mLocalValueRange[s0].mMinValue + 1);
+					if (mLocalValueRange[s0].mMinState == IntegerValueRange::S_BOUND)
+						mTrueValueRange[s1].LimitMax(mLocalValueRange[s0].mMaxValue);
+
+					if (mLocalValueRange[s1].mMaxState == IntegerValueRange::S_BOUND)
+						mFalseValueRange[s0].LimitMax(mLocalValueRange[s1].mMaxValue - 1);
+					if (mLocalValueRange[s1].mMinState == IntegerValueRange::S_BOUND)
+						mTrueValueRange[s0].LimitMin(mLocalValueRange[s1].mMinValue);
 				}
 				break;
 			case IA_CMPGS:
@@ -8245,6 +8270,44 @@ bool InterCodeBasicBlock::RemoveUnusedResultInstructions(void)
 	}
 
 	return changed;
+}
+
+bool InterCodeBasicBlock::RemoveUnusedLocalStoreInstructions(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+		if (mInstructions.Size() > 0 && mInstructions.Last()->mCode == IC_RETURN)
+		{
+			int i = mInstructions.Size();
+			while (i > 0)
+			{
+				i--;
+				InterInstruction* ins = mInstructions[i];
+				if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_LOCAL)
+				{
+					ins->mCode = IC_NONE;
+					ins->mNumOperands = 0;
+					changed = true;
+				}
+				else if (ins->mCode == IC_LOAD)
+					break;
+				else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+					break;
+				else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+					break;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->RemoveUnusedLocalStoreInstructions())
+			changed = true;
+		if (mFalseJump && mFalseJump->RemoveUnusedLocalStoreInstructions())
+			changed = true;
+	}
+
+	return false;
 }
 
 void InterCodeBasicBlock::BuildCallerSaveTempSet(NumberSet& callerSaveTemps)
@@ -16371,6 +16434,15 @@ void InterCodeProcedure::RemoveUnusedInstructions(void)
 	} while (mEntryBlock->RemoveUnusedResultInstructions());
 }
 
+void InterCodeProcedure::RemoveUnusedLocalStoreInstructions(void)
+{
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+	{
+		ResetVisited();
+		mEntryBlock->RemoveUnusedLocalStoreInstructions();
+	}
+}
+
 void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 {
 	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
@@ -16849,7 +16921,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "opp::sort<struct bindexlist<i16,10>::iterator,>");
 
 	mEntryBlock = mBlocks[0];
 
@@ -17470,6 +17542,8 @@ void InterCodeProcedure::Close(void)
 
 	RemoveUnusedInstructions();
 #endif
+
+	RemoveUnusedLocalStoreInstructions();
 
 #if 1
 	ResetVisited();
@@ -18370,7 +18444,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 0
+#if 1
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;

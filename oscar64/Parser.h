@@ -57,9 +57,9 @@ protected:
 	Expression * AddFunctionCallRefReturned(Expression * exp);
 	Expression* CleanupExpression(Expression* exp);
 
-	Declaration* ParseBaseTypeDeclaration(uint64 flags, bool qualified);
+	Declaration* ParseBaseTypeDeclaration(uint64 flags, bool qualified, Declaration* ptempl = nullptr);
 	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr, Declaration * ptempl = nullptr);
-	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
+	Declaration* ParseStructDeclaration(uint64 flags, DecType dt, Declaration* ptempl = nullptr);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
 	Expression* ParseInitExpression(Declaration* dtype);

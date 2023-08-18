@@ -35,6 +35,32 @@ void sort(T s, T e)
 	}
 }
 
+template<class T, class LF>
+void sort(T s, T e, LF lt)
+{
+	while (s != e)
+	{
+		auto p = s;
+		auto q = s;
+
+		q++;
+		while (q != e)
+		{
+			if (lt(*q, *p))
+			{
+				swap(*q, *p);
+				p++;
+				swap(*q, *p);				
+			}
+			q++;
+		}
+
+		sort(s, p, lt);
+		p++;
+		s = p;
+	}
+}
+
 template<class II, class OI>
 OI copy(II first, II last, OI result)
 {

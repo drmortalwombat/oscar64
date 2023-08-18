@@ -954,6 +954,20 @@ const Ident* Declaration::MangleIdent(void)
 		{
 			mMangleIdent = mQualIdent;
 		}
+		else if (mType == DT_TYPE_FUNCTION)
+		{
+			mMangleIdent = mBase->MangleIdent();
+			mMangleIdent = mMangleIdent->Mangle("(*)(");
+			Declaration* dec = mParams;
+			while (dec)
+			{
+				mMangleIdent = mMangleIdent->Mangle(dec->mBase->MangleIdent()->mString);
+				dec = dec->mNext;
+				if (dec)
+					mMangleIdent = mMangleIdent->Mangle(",");
+			}
+			mMangleIdent = mMangleIdent->Mangle(")");
+		}
 		else if (mType == DT_TYPE_INTEGER)
 		{
 			char	buffer[20];
@@ -963,6 +977,10 @@ const Ident* Declaration::MangleIdent(void)
 		else if (mType == DT_TYPE_FLOAT)
 		{
 			mMangleIdent = Ident::Unique("float");
+		}
+		else if (mType == DT_TYPE_BOOL)
+		{
+			mMangleIdent = Ident::Unique("bool");
 		}
 		else if (mType == DT_TYPE_REFERENCE)
 		{
@@ -1171,6 +1189,36 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 			return false;
 
 		return true;
+	}
+	else if (tdec->mType == DT_TYPE_STRUCT && fdec->mType == DT_TYPE_STRUCT && tdec->mTemplate)
+	{
+		Declaration	*ftdec = tdec->mTemplate;
+		while (ftdec)
+		{
+			if (ftdec->mBase == fdec)
+			{
+				Declaration* fpdec = ftdec->mParams;
+				Declaration* tpdec = tdec->mTemplate->mParams;
+
+				while (fpdec)
+				{
+					if (tpdec->mBase->mType == DT_TYPE_TEMPLATE || tpdec->mBase->mType == DT_CONST_TEMPLATE)
+					{
+						Declaration * pdec = mScope->Insert(tpdec->mIdent, fpdec->mBase);
+						if (pdec && !pdec->IsSame(fpdec->mBase))
+							return false;
+					}
+
+					fpdec = fpdec->mNext;
+					tpdec = tpdec->mNext;
+				}
+
+				return true;
+			}
+			
+			ftdec = ftdec->mNext;
+		}
+		return false;
 	}
 	else
 		return tdec->CanAssign(fdec);
@@ -1632,7 +1680,9 @@ bool Declaration::IsSame(const Declaration* dec) const
 	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dec->mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
 		return false;
 
-	if (mType == DT_TYPE_INTEGER)
+	if (mType == DT_CONST_INTEGER)
+		return mInteger == dec->mInteger;
+	else if (mType == DT_TYPE_INTEGER)
 		return true;
 	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
 		return true;

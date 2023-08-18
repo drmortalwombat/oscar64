@@ -119,7 +119,7 @@ void Parser::AddMemberFunction(Declaration* dec, Declaration* mdec)
 		dec->mScope->Insert(mdec->mIdent, mdec);
 }
 
-Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
+Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaration* ptempl)
 {
 	const Ident* structName = nullptr;
 
@@ -169,6 +169,9 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS, dec->mQualIdent);
 	}
 
+	if (ptempl)
+		ptempl->mBase = dec;
+
 	if ((mCompilerOptions & COPT_CPLUSPLUS) && mScanner->mToken == TK_COLON)
 	{
 		mScanner->NextToken();
@@ -181,7 +184,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 		else if (ConsumeTokenIf(TK_PRIVATE))
 			pflags |= DTF_PRIVATE | DTF_PROTECTED;
 
-		Declaration* pdec = ParseQualIdent();
+		Declaration* pdec = ParseBaseTypeDeclaration(0, false);
 		if (pdec)
 		{
 			if (pdec->mType == DT_TYPE_STRUCT)
@@ -481,7 +484,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt)
 	return dec;
 }
 
-Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified)
+Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Declaration* ptempl)
 {
 	Declaration* dec = nullptr;
 	const Ident* pident = nullptr;
@@ -758,13 +761,13 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified)
 		break;
 	}
 	case TK_STRUCT:
-		dec = ParseStructDeclaration(flags, DT_TYPE_STRUCT);
+		dec = ParseStructDeclaration(flags, DT_TYPE_STRUCT, ptempl);
 		break;
 	case TK_CLASS:
-		dec = ParseStructDeclaration(flags | DTF_PRIVATE | DTF_PROTECTED, DT_TYPE_STRUCT);
+		dec = ParseStructDeclaration(flags | DTF_PRIVATE | DTF_PROTECTED, DT_TYPE_STRUCT, ptempl);
 		break;
 	case TK_UNION:
-		dec = ParseStructDeclaration(flags, DT_TYPE_UNION);
+		dec = ParseStructDeclaration(flags, DT_TYPE_UNION, ptempl);
 		break;
 	default:
 		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Declaration starts with invalid token", TokenNames[mScanner->mToken]);
@@ -3475,7 +3478,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			return cdec;
 		}
 
-		bdec = ParseBaseTypeDeclaration(typeFlags, false);
+		bdec = ParseBaseTypeDeclaration(typeFlags, false, ptempl);
 	}
 
 	Declaration* rdec = nullptr, * ldec = nullptr;
@@ -4583,7 +4586,31 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 			if (dec)
 			{
 				if (dec->mTemplate && mScanner->mToken == TK_LESS_THAN)
+				{
 					dec = ParseTemplateExpansion(dec->mTemplate, nullptr);
+					while (ConsumeTokenIf(TK_COLCOLON))
+					{
+						if (mScanner->mToken == TK_IDENT)
+						{
+							if (dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_STRUCT)
+							{
+								Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_USING);
+
+								if (ndec)
+									dec = ndec;
+								else
+									mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent);
+							}
+							else
+								mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a class or namespace");
+
+						}
+						else
+							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
+
+						mScanner->NextToken();
+					}
+				}
 
 				if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
 				{
@@ -4629,6 +4656,12 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 						while (ConsumeTokenIf(TK_BINARY_AND))
 							exp->mDecType = exp->mDecType->BuildReference(mScanner->mLocation);
 					}
+				}
+				else if (dec->mType == DT_CONST_TEMPLATE)
+				{
+					exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					exp->mDecValue = dec;
+					exp->mDecType = TheSignedIntTypeDeclaration;
 				}
 				else if (dec->mType == DT_ELEMENT)
 				{
@@ -5617,6 +5650,19 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 		else if (mScanner->mToken == TK_ARROW)
 		{
 			mScanner->NextToken();
+			while (exp->mDecType->mType != DT_TYPE_POINTER)
+			{
+				Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
+				dexp->mToken = TK_ARROW;
+				dexp->mDecType = TheVoidPointerTypeDeclaration;
+				dexp->mLeft = exp;
+				
+				Expression* oexp = CheckOperatorOverload(dexp);
+				if (oexp == dexp)
+					break;
+				exp = oexp;
+			}
+
 			if (exp->mDecType->mType == DT_TYPE_POINTER)
 			{
 				Expression * dexp = new Expression(mScanner->mLocation, EX_PREFIX);
@@ -6713,6 +6759,9 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 			case TK_BINARY_NOT:
 				opident = Ident::Unique("operator~");
 				break;
+			case TK_ARROW:
+				opident = Ident::Unique("operator->");
+				break;
 			}
 
 			if (opident)
@@ -7447,7 +7496,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 			}
 			else
 			{
-				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+				if (exp->mType == EX_CONSTANT && (exp->mDecValue->mType == DT_CONST_INTEGER || exp->mDecValue->mType == DT_CONST_TEMPLATE))
 					epdec->mBase = exp->mDecValue;
 				else
 					mErrors->Error(exp->mLocation, EERR_TEMPLATE_PARAMS, "Const integer parameter expected", pdec->mIdent);
@@ -7480,7 +7529,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 	else
 	{
 		Declaration* epdec = tdec->mParams;
-		while (epdec && epdec->mBase->mType != DT_TYPE_TEMPLATE)
+		while (epdec && epdec->mBase->mType != DT_TYPE_TEMPLATE && epdec->mBase->mType != DT_CONST_TEMPLATE)
 			epdec = epdec->mNext;
 
 		if (epdec)
@@ -7490,6 +7539,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 			tdec->mBase = bdec;
 			bdec->mTemplate = tdec;
 			bdec->mBase = tmpld->mBase;
+			tdec->mNext = tmpld;
 
 			return bdec;
 		}

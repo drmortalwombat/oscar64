@@ -5,17 +5,23 @@ namespace opp
 {
 
 template <class T>
-class listnode
+class listhead
 {
 public:
-	listnode	*	succ, * pred;
-	T				data;
+	listnode<T>	*	succ, * pred;	
 
-	listnode()
+	listhead()
 	{
-		succ = this;
-		pred = this;
+		succ = (listnode<T>	*)this;
+		pred = (listnode<T>	*)this;
 	}
+};
+
+template <class T>
+class listnode : public listhead<T>
+{
+public:
+	T				data;
 
 	listnode(const T & t) : data(t) {}
 	listnode(T && t) : data(t) {}
@@ -39,6 +45,11 @@ public:
 	T & operator*()
 	{
 		return node->data;
+	}
+
+	T * operator->()
+	{
+		return &(node->data);
 	}
 
 	list_iterator & operator++(void)
@@ -98,7 +109,8 @@ template <class T>
 class list
 {
 private:
-	listnode<T>	node;
+	typedef listnode<T>	ln;
+	listhead<T>	head;
 public:
 	typedef T 					element_type;
 	typedef list_iterator<T>	iterator_type;
@@ -108,8 +120,8 @@ public:
 
 	~list(void)
 	{
-		listnode<T>	*	n = node.succ;
-		while (n != &node)
+		listnode<T>	*	n = head.succ;
+		while (n != &head)
 		{
 			listnode<T>	*	m = n->succ;
 			delete n;
@@ -119,32 +131,32 @@ public:
 
 	list_iterator<T> begin(void)
 	{
-		return list_iterator<T>(node.succ);
+		return list_iterator<T>(head.succ);
 	}
 
 	list_iterator<T> end(void)
 	{
-		return list_iterator<T>(&node);
+		return list_iterator<T>((listnode<T> *)&head);
 	}
 
 	T & front(void)
 	{
-		return node.succ->data;
+		return head.succ->data;
 	}
 
 	const T & front(void) const
 	{
-		return node.succ->data;
+		return head.succ->data;
 	}
 
 	T & back(void)
 	{
-		return node.pred->data;
+		return head.pred->data;
 	}
 
 	const T & back(void) const
 	{
-		return node.pred->data;
+		return head.pred->data;
 	}
 
 	list_iterator<T> erase(list_iterator<T> it);
@@ -171,18 +183,18 @@ public:
 template <class T>
 void list<T>::pop_front(void)
 {
-	listnode<T>	*	n = node.succ;
-	node.succ = n->succ;
-	n->succ->pred = &node;
+	listnode<T>	*	n = head.succ;
+	head.succ = n->succ;
+	n->succ->pred = (listnode<T> *)&head;
 	delete n;
 }
 
 template <class T>
 void list<T>::pop_back(void)
 {
-	listnode<T>	*	n = node.pred;
-	node.pred = n->pred;
-	n->pred->succ = &node;
+	listnode<T>	*	n = head.pred;
+	head.pred = n->pred;
+	n->pred->succ = (listnode<T> *)&head;
 	delete n;
 }
 
@@ -190,40 +202,40 @@ template <class T>
 void list<T>::push_front(const T & t)
 {
 	listnode<T>	*	n = new listnode<T>(t);
-	n->pred = &node;
-	n->succ = node.succ;
-	node.succ->pred = n;
-	node.succ = n;
+	n->pred = (listnode<T> *)&head;
+	n->succ = head.succ;
+	head.succ->pred = n;
+	head.succ = n;
 }
 
 template <class T>
 void list<T>::push_front(T && t)
 {
 	listnode<T>	*	n = new listnode<T>(t);
-	n->pred = &node;
-	n->succ = node.succ;
-	node.succ->pred = n;
-	node.succ = n;
+	n->pred = (listnode<T> *)&head;
+	n->succ = head.succ;
+	head.succ->pred = n;
+	head.succ = n;
 }
 
 template <class T>
 void list<T>::push_back(const T & t)
 {
 	listnode<T>	*	n = new listnode<T>(t);
-	n->succ = &node;
-	n->pred = node.pred;
-	node.pred->succ = n;
-	node.pred = n;
+	n->succ = (listnode<T> *)&head;
+	n->pred = head.pred;
+	head.pred->succ = n;
+	head.pred = n;
 }
 
 template <class T>
 void list<T>::push_back(T && t)
 {
 	listnode<T>	*	n = new listnode<T>(t);
-	n->succ = &node;
-	n->pred = node.pred;
-	node.pred->succ = n;
-	node.pred = n;
+	n->succ = (listnode<T> *)&head;
+	n->pred = head.pred;
+	head.pred->succ = n;
+	head.pred = n;
 }
 
 

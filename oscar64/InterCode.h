@@ -422,6 +422,7 @@ public:
 	void BuildCallerSaveTempSet(NumberSet& callerSaveTemps);
 	void BuildConstTempSets(void);
 	bool PropagateConstOperationsUp(void);
+	bool RemoveUnusedLocalStoreInstructions(void);
 
 	void BuildLocalVariableSets(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory);
 	void BuildGlobalProvidedVariableSet(const GrowingVariableArray& localVars, NumberSet fromProvidedVars, const GrowingVariableArray& params, NumberSet fromProvidedParams, InterMemory paramMemory);
@@ -659,6 +660,7 @@ protected:
 	void BuildLoopPrefix(void);
 	void SingleAssignmentForwarding(void);
 	void RemoveUnusedStoreInstructions(InterMemory	paramMemory);
+	void RemoveUnusedLocalStoreInstructions(void);
 	void MergeCommonPathInstructions(void);
 	void PushSinglePathResultInstructions(void);
 	void CollectVariables(InterMemory paramMemory);

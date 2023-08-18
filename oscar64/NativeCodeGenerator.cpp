@@ -13623,6 +13623,7 @@ bool NativeCodeBasicBlock::ForwardAXYReg(void)
 
 		bool	xisa = false, yisa = false;
 		int		xoffset = -1, yoffset = -1;
+		int		zpx = -1, zpy = -1, zpa = -1;
 
 		for (int i = 0; i < mIns.Size(); i++)
 		{
@@ -13630,32 +13631,102 @@ bool NativeCodeBasicBlock::ForwardAXYReg(void)
 			{
 				xisa = true;
 				xoffset = i;
+				zpx = zpa;
 			}
 			else if (mIns[i].mType == ASMIT_TXA)
 			{
 				xisa = true;
 				yisa = false;
 				xoffset = i;
+				zpa = zpx;
 			}
 			else if (mIns[i].mType == ASMIT_TAY)
 			{
 				yisa = true;
 				yoffset = i;
+				zpy = zpa;
 			}
 			else if (mIns[i].mType == ASMIT_TYA)
 			{
 				yisa = true;
 				xisa = false;
 				yoffset = i;
+				zpa = zpy;
 			}
-			else if (mIns[i].ChangesXReg())
-				xisa = false;
-			else if (mIns[i].ChangesYReg())
-				xisa = false;
-			else if (mIns[i].ChangesAccu())
+			else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				if (zpx == mIns[i].mAddress)
+				{
+					mIns[i].mType = ASMIT_TXA; mIns[i].mMode = ASMIM_IMPLIED;
+					xisa = true;
+					yisa = false;
+					int j = i;
+					while (j > 0 && !(mIns[j - 1].mLive & LIVE_CPU_REG_X))
+					{
+						mIns[j - 1].mLive |= LIVE_CPU_REG_X;
+						j--;
+					}
+				}
+				else if (zpy == mIns[i].mAddress)
+				{
+					mIns[i].mType = ASMIT_TYA; mIns[i].mMode = ASMIM_IMPLIED;
+					yisa = true;
+					xisa = false;
+					int j = i;
+					while (j > 0 && !(mIns[j - 1].mLive & LIVE_CPU_REG_Y))
+					{
+						mIns[j - 1].mLive |= LIVE_CPU_REG_Y;
+						j--;
+					}
+				}
+				else
+				{
+					xisa = false;
+					yisa = false;
+				}
+				zpa = mIns[i].mAddress;
+			}
+			else if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE)
 			{
 				xisa = false;
+				zpx = mIns[i].mAddress;
+			}
+			else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
 				yisa = false;
+				zpy = mIns[i].mAddress;
+			}
+			else if (mIns[i].mType == ASMIT_STA && mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				zpa = mIns[i].mAddress;
+				if (yisa)
+					zpy = mIns[i].mAddress;
+				else if (zpy == mIns[i].mAddress)
+					zpy = -1;
+				if (xisa)
+					zpx = mIns[i].mAddress;
+				else if (zpx == mIns[i].mAddress)
+					zpx = -1;
+			}
+			else if (mIns[i].mType == ASMIT_STX && mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				zpx = mIns[i].mAddress;
+				if (xisa)
+					zpa = mIns[i].mAddress;
+				else if (zpa == mIns[i].mAddress)
+					zpa = -1;
+				if (zpy == mIns[i].mAddress)
+					zpy = -1;
+			}
+			else if (mIns[i].mType == ASMIT_STY && mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				zpy = mIns[i].mAddress;
+				if (yisa)
+					zpa = mIns[i].mAddress;
+				else if (zpa == mIns[i].mAddress)
+					zpa = -1;
+				if (zpx == mIns[i].mAddress)
+					zpx = -1;
 			}
 			else if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_CLC &&
 				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
@@ -13685,6 +13756,33 @@ bool NativeCodeBasicBlock::ForwardAXYReg(void)
 					}
 				}
 			}
+			else
+			{
+				if (mIns[i].ChangesXReg())
+				{
+					xisa = false;
+					zpx = -1;
+				}
+				if (mIns[i].ChangesYReg())
+				{
+					yisa = false;
+					zpy = -1;
+				}
+				if (mIns[i].ChangesAccu())
+				{
+					xisa = false;
+					yisa = false;
+					zpa = -1;
+				}
+
+				if (zpa >= 0 && mIns[i].ChangesZeroPage(zpa))
+					zpa = -1;
+				if (zpx >= 0 && mIns[i].ChangesZeroPage(zpx))
+					zpx = -1;
+				if (zpy >= 0 && mIns[i].ChangesZeroPage(zpy))
+					zpy = -1;
+			}
+
 		}
 
 		if (mTrueJump && mTrueJump->ForwardAXYReg())
@@ -40817,7 +40915,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test_pab50");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
