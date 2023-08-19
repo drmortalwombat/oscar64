@@ -88,6 +88,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_0EE9160CA4D44278A3929B0A4E0789F8"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_1088B8AF518A4841A419B723AEB6C2BA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -233,6 +239,12 @@
         "Entry"
         {
         "MsmKey" = "8:_3277DE1463544F67B7E7390175F8A9CF"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_32B099B0E98B47D0892700BA42D0760E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -581,6 +593,12 @@
         "Entry"
         {
         "MsmKey" = "8:_814F6BFC9788449DB259F99386D39AFD"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_82C11E2A96FE49E399EEEAC2FEE9DCDC"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1030,6 +1048,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_DBCD7B3D63C34E31A882799F3C82F0E9"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_DE1058FFA9E149D1909C819592A12273"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -1043,6 +1067,12 @@
         "Entry"
         {
         "MsmKey" = "8:_E00658F953AC4735A6ED77408A74163D"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_E11BDCFFB9944A1F893FE4EC86ACCD6C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1108,6 +1138,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_EC599856E7AE44F4A2F51AA76A4D044C"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_ED5FED616EA64689AB793E5D8BD3F13D"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -1145,6 +1181,12 @@
         "Entry"
         {
         "MsmKey" = "8:_F35970F9D8FA46B09F36D7E9DE5532CA"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_F472CF5FA6CF43649B4CD8E5F204DA65"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1497,6 +1539,26 @@
             "TargetName" = "8:crt.c"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_0EE9160CA4D44278A3929B0A4E0789F8"
+            {
+            "SourcePath" = "8:..\\include\\opp\\vector.h"
+            "TargetName" = "8:vector.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -1997,6 +2059,26 @@
             "TargetName" = "8:autocrawler.c"
             "Tag" = "8:"
             "Folder" = "8:_E925E579BC89433389A5D5B048CAA36A"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_32B099B0E98B47D0892700BA42D0760E"
+            {
+            "SourcePath" = "8:..\\include\\opp\\move.h"
+            "TargetName" = "8:move.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -3157,6 +3239,26 @@
             "TargetName" = "8:sidfx.c"
             "Tag" = "8:"
             "Folder" = "8:_A4C8078BC7A74CCABB1050E80BC79950"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_82C11E2A96FE49E399EEEAC2FEE9DCDC"
+            {
+            "SourcePath" = "8:..\\include\\opp\\list.h"
+            "TargetName" = "8:list.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -4651,6 +4753,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_DBCD7B3D63C34E31A882799F3C82F0E9"
+            {
+            "SourcePath" = "8:..\\include\\opp\\iterator.h"
+            "TargetName" = "8:iterator.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_DE1058FFA9E149D1909C819592A12273"
             {
             "SourcePath" = "8:..\\samples\\particles\\fireworks_stripe.c"
@@ -4697,6 +4819,26 @@
             "TargetName" = "8:vdc.h"
             "Tag" = "8:"
             "Folder" = "8:_0DAA950D275540D381CEA1427C33C8AA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_E11BDCFFB9944A1F893FE4EC86ACCD6C"
+            {
+            "SourcePath" = "8:..\\include\\opp\\algorithm.h"
+            "TargetName" = "8:algorithm.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -4911,6 +5053,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_EC599856E7AE44F4A2F51AA76A4D044C"
+            {
+            "SourcePath" = "8:..\\include\\opp\\bidxlist.h"
+            "TargetName" = "8:bidxlist.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_ED5FED616EA64689AB793E5D8BD3F13D"
             {
             "SourcePath" = "8:..\\include\\nes\\mmc3.c"
@@ -5037,6 +5199,26 @@
             "TargetName" = "8:charwin.h"
             "Tag" = "8:"
             "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_F472CF5FA6CF43649B4CD8E5F204DA65"
+            {
+            "SourcePath" = "8:..\\include\\opp\\array.h"
+            "TargetName" = "8:array.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -5504,15 +5686,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{98D62EE4-5445-436D-BF7B-4353AD7BFEA3}"
-        "PackageCode" = "8:{90AEC745-AEF0-410C-9324-C5E13121720B}"
+        "ProductCode" = "8:{9FF44D2B-39DB-423A-9E26-A5243460457E}"
+        "PackageCode" = "8:{1F4AB6F6-7717-4470-8CBE-1EB04C68D47F}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.23.215"
+        "ProductVersion" = "8:1.24.216"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

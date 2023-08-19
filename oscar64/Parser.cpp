@@ -7462,10 +7462,6 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 		Declaration* xdec = tmpld->mParams;
 		while (dec)
 		{
-			if (dec->mBase->mType == DT_TYPE_TEMPLATE)
-			{
-				printf("oopsi");
-			}
 			tdec->mScope->Insert(xdec->mIdent, dec->mBase);
 			dec = dec->mNext;
 			xdec = xdec->mNext;
