@@ -66,6 +66,8 @@ Supported Features:
 * virtual member functions
 * string and iostream classes
 * default parameters for class members and functions
+* templates
+* vector, array and list template classes
 
 ## Installation and Usage
 
