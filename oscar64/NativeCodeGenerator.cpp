@@ -40993,7 +40993,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mEntryBlock->mTrueJump = CompileBlock(mInterProc, mInterProc->mBlocks[0]);
 	mEntryBlock->mBranch = ASMIT_JMP;
 
-	if (proc->mLeafProcedure && proc->mFastCallProcedure && !proc->mInterrupt && mNoFrame && mStackExpand == 0 && commonFrameSize == 0 && (mGenerator->mCompilerOptions & COPT_NATIVE))
+	if (proc->mLeafProcedure && proc->mFastCallProcedure && !proc->mInterrupt && !proc->mDispatchedCall && mNoFrame && mStackExpand == 0 && commonFrameSize == 0 && (mGenerator->mCompilerOptions & COPT_NATIVE))
 	{
 #if 1
 		if (proc->mParamVars.Size() == 1 && proc->mParamVars[0]->mSize == 1)

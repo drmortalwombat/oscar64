@@ -602,6 +602,7 @@ public:
 	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase;
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
 	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack;
+	bool								mDispatchedCall;
 	bool								mCheckUnreachable;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 	bool								mCheapInline;

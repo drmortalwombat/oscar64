@@ -4266,6 +4266,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			Declaration* dinit = exp->mLeft->mLeft->mDecValue->mValue->mDecValue->mParams;
 			while (dinit)
 			{
+				proc->mModule->mProcedures[dinit->mValue->mDecValue->mVarIndex]->mDispatchedCall = true;
 				proc->AddCalledFunction(proc->mModule->mProcedures[dinit->mValue->mDecValue->mVarIndex]);
 				dinit = dinit->mNext;
 			}
