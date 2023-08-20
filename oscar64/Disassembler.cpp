@@ -801,7 +801,7 @@ const char* NativeCodeDisassembler::AddrName(int bank, int addr, char* buffer, I
 			int i = 0;
 			while (i < obj->mRanges.Size() && (addr - obj->mAddress < obj->mRanges[i].mOffset || addr - obj->mAddress - obj->mRanges[i].mOffset >= obj->mRanges[i].mSize))
 				i++;
-			if (i < obj->mRanges.Size())
+			if (i < obj->mRanges.Size() && obj->mRanges[i].mIdent)
 				sprintf_s(buffer, 160, "; (%s.%s + %d)", obj->mIdent->mString, obj->mRanges[i].mIdent->mString, addr - obj->mAddress - obj->mRanges[i].mOffset);
 			else
 				sprintf_s(buffer, 160, "; (%s + %d)", obj->mIdent->mString, addr - obj->mAddress);

@@ -244,6 +244,21 @@ void Compiler::CompleteTemplateExpansion(void)
 {
 }
 
+bool IsSimpleConstReturn(Declaration * mdec)
+{
+	if (mdec->mBase->mBase->IsSimpleType() && mdec->mBase->mParams->mNext == nullptr)
+	{
+		Expression* ex = mdec->mValue;
+		if (ex->mType == EX_SCOPE)
+			ex = ex->mLeft;
+
+		if (ex->mType == EX_RETURN && ex->mLeft->mType == EX_CONSTANT)
+			return true;
+	}
+
+	return false;
+}
+
 void Compiler::BuildVTables(void)
 {
 	// Connect vdecs with parents
@@ -279,74 +294,153 @@ void Compiler::BuildVTables(void)
 		{
 			vdec->mScope->Iterate([=](const Ident* mident, Declaration* mdec)
 				{					
-					Declaration* vtabt = new Declaration(mdec->mLocation, DT_TYPE_ARRAY);
-					vtabt->mBase = mdec->mBase->ToStriped(vdec->mSize);
-					vtabt->mSize = vdec->mSize * 2;
-					vtabt->mStride = 1;
-					vtabt->mStripe = 1;
-					vtabt->mFlags |= DTF_CONST | DTF_DEFINED;
-
-					Declaration* vtaba = new Declaration(mdec->mLocation, DT_VARIABLE);
-					vtaba->mFlags = DTF_CONST | DTF_GLOBAL | DTF_DEFINED;
-					vtaba->mBase = vtabt;
-					vtaba->mSize = vtabt->mSize;
-					vtaba->mValue = new Expression(mdec->mLocation, EX_CONSTANT);
-					vtaba->mValue->mDecType = vtabt;
-					vtaba->mValue->mDecValue = new Declaration(mdec->mLocation, DT_CONST_STRUCT);
-					vtaba->mIdent = mdec->mIdent;
-					vtaba->mQualIdent = mdec->mQualIdent->Mangle("$vtable");
-					vtaba->mSection = mdec->mSection;
-					vtaba->mOffset = - vdec->mVarIndex;
-
-					Declaration* last = nullptr;
-
+					bool	simpleConst = vdec->mSize > 0;
 					for (int i = 0; i < vdec->mSize; i++)
+						if (!IsSimpleConstReturn(mdec->mCalled[i]))
+							simpleConst = false;
+
+					if (simpleConst)
 					{
-						Declaration* vmdec = mdec->mCalled[i];
+						Declaration* vtabt = new Declaration(mdec->mLocation, DT_TYPE_ARRAY);
+						vtabt->mBase = mdec->mBase->mBase->ToConstType()->ToStriped(vdec->mSize);
+						vtabt->mSize = vdec->mSize * mdec->mBase->mBase->mSize;
+						vtabt->mStride = 1;
+						vtabt->mStripe = 1;
+						vtabt->mFlags |= DTF_CONST | DTF_DEFINED;
 
-						Expression* texp = new Expression(vmdec->mLocation, EX_CONSTANT);
-						texp->mDecType = vtabt->mBase;
-						texp->mDecValue = vmdec;
+						Declaration* vtaba = new Declaration(mdec->mLocation, DT_VARIABLE);
+						vtaba->mFlags = DTF_CONST | DTF_GLOBAL | DTF_DEFINED;
+						vtaba->mBase = vtabt;
+						vtaba->mSize = vtabt->mSize;
+						vtaba->mValue = new Expression(mdec->mLocation, EX_CONSTANT);
+						vtaba->mValue->mDecType = vtabt;
+						vtaba->mValue->mDecValue = new Declaration(mdec->mLocation, DT_CONST_STRUCT);
+						vtaba->mIdent = mdec->mIdent;
+						vtaba->mQualIdent = mdec->mQualIdent->Mangle("$vltable");
+						vtaba->mSection = mdec->mSection;
+						vtaba->mOffset = -vdec->mVarIndex;
 
-						Declaration* cdec = new Declaration(vmdec->mLocation, DT_CONST_POINTER);
-						cdec->mValue = texp;
-						cdec->mBase = vtabt->mBase;
-						cdec->mOffset = i;
+						Declaration* last = nullptr;
 
-						if (last)
-							last->mNext = cdec;
-						else
-							vtaba->mValue->mDecValue->mParams = cdec;
-						last = cdec;
+						for (int i = 0; i < vdec->mSize; i++)
+						{
+							Declaration* vmdec = mdec->mCalled[i];
+
+							Expression* texp = vmdec->mValue;
+							if (texp->mType == EX_SCOPE)
+								texp = texp->mLeft;
+							texp = texp->mLeft;
+							
+							Declaration* cdec = texp->mDecValue->Clone();
+							cdec->mOffset = i;
+
+							if (last)
+								last->mNext = cdec;
+							else
+								vtaba->mValue->mDecValue->mParams = cdec;
+							last = cdec;
+						}
+
+						Expression* vexp = new Expression(mdec->mLocation, EX_QUALIFY);
+						vexp->mLeft = new Expression(mdec->mLocation, EX_PREFIX);
+						vexp->mLeft->mDecType = mdec->mBase->mParams->mBase->mBase;
+						vexp->mLeft->mToken = TK_MUL;
+						vexp->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+						vexp->mLeft->mLeft->mDecType = mdec->mBase->mParams->mBase;
+						vexp->mLeft->mLeft->mDecValue = mdec->mBase->mParams;
+
+						vexp->mDecValue = new Declaration(mdec->mLocation, DT_ELEMENT);
+						vexp->mDecValue->mBase = TheCharTypeDeclaration;
+						vexp->mDecValue->mOffset = vdec->mOffset;
+						vexp->mDecValue->mSize = 1;
+						vexp->mDecType = TheCharTypeDeclaration;
+
+						Expression* ecall = new Expression(mdec->mLocation, EX_RETURN);
+						ecall->mLeft = new Expression(mdec->mLocation, EX_INDEX);
+						ecall->mLeft->mDecType = mdec->mBase->mBase;
+						ecall->mDecType = mdec->mBase->mBase;
+						ecall->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+						ecall->mLeft->mLeft->mDecType = vtabt;
+						ecall->mLeft->mLeft->mDecValue = vtaba;
+						ecall->mLeft->mRight = vexp;
+
+						mdec->mCalled.SetSize(0);
+
+						mdec->mFlags |= DTF_DEFINED;
+						mdec->mBase->mFlags &= ~DTF_VIRTUAL;
+						mdec->mValue = ecall;
 					}
+					else
+					{
+						Declaration* vtabt = new Declaration(mdec->mLocation, DT_TYPE_ARRAY);
+						vtabt->mBase = mdec->mBase->ToStriped(vdec->mSize);
+						vtabt->mSize = vdec->mSize * 2;
+						vtabt->mStride = 1;
+						vtabt->mStripe = 1;
+						vtabt->mFlags |= DTF_CONST | DTF_DEFINED;
 
-//					mCompilationUnits->AddReferenced(vtaba);
+						Declaration* vtaba = new Declaration(mdec->mLocation, DT_VARIABLE);
+						vtaba->mFlags = DTF_CONST | DTF_GLOBAL | DTF_DEFINED;
+						vtaba->mBase = vtabt;
+						vtaba->mSize = vtabt->mSize;
+						vtaba->mValue = new Expression(mdec->mLocation, EX_CONSTANT);
+						vtaba->mValue->mDecType = vtabt;
+						vtaba->mValue->mDecValue = new Declaration(mdec->mLocation, DT_CONST_STRUCT);
+						vtaba->mIdent = mdec->mIdent;
+						vtaba->mQualIdent = mdec->mQualIdent->Mangle("$vtable");
+						vtaba->mSection = mdec->mSection;
+						vtaba->mOffset = -vdec->mVarIndex;
 
-					Expression* vexp = new Expression(mdec->mLocation, EX_QUALIFY);
-					vexp->mLeft = new Expression(mdec->mLocation, EX_PREFIX);
-					vexp->mLeft->mDecType = mdec->mBase->mParams->mBase->mBase;
-					vexp->mLeft->mToken = TK_MUL;
-					vexp->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
-					vexp->mLeft->mLeft->mDecType = mdec->mBase->mParams->mBase;
-					vexp->mLeft->mLeft->mDecValue = mdec->mBase->mParams;
+						Declaration* last = nullptr;
 
-					vexp->mDecValue = new Declaration(mdec->mLocation, DT_ELEMENT);
-					vexp->mDecValue->mBase = TheCharTypeDeclaration;
-					vexp->mDecValue->mOffset = vdec->mOffset;
-					vexp->mDecValue->mSize = 1;
-					vexp->mDecType = TheCharTypeDeclaration;
+						for (int i = 0; i < vdec->mSize; i++)
+						{
+							Declaration* vmdec = mdec->mCalled[i];
 
-					Expression* ecall = new Expression(mdec->mLocation, EX_DISPATCH);
-					ecall->mLeft = new Expression(mdec->mLocation, EX_INDEX);
-					ecall->mLeft->mDecType = mdec->mBase;
-					ecall->mDecType = vtabt->mBase;
-					ecall->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
-					ecall->mLeft->mLeft->mDecType = vtabt;
-					ecall->mLeft->mLeft->mDecValue = vtaba;
-					ecall->mLeft->mRight = vexp;
+							Expression* texp = new Expression(vmdec->mLocation, EX_CONSTANT);
+							texp->mDecType = vtabt->mBase;
+							texp->mDecValue = vmdec;
 
-					mdec->mFlags |= DTF_DEFINED;
-					mdec->mValue = ecall;
+							Declaration* cdec = new Declaration(vmdec->mLocation, DT_CONST_POINTER);
+							cdec->mValue = texp;
+							cdec->mBase = vtabt->mBase;
+							cdec->mOffset = i;
+
+							if (last)
+								last->mNext = cdec;
+							else
+								vtaba->mValue->mDecValue->mParams = cdec;
+							last = cdec;
+						}
+
+						//					mCompilationUnits->AddReferenced(vtaba);
+
+						Expression* vexp = new Expression(mdec->mLocation, EX_QUALIFY);
+						vexp->mLeft = new Expression(mdec->mLocation, EX_PREFIX);
+						vexp->mLeft->mDecType = mdec->mBase->mParams->mBase->mBase;
+						vexp->mLeft->mToken = TK_MUL;
+						vexp->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+						vexp->mLeft->mLeft->mDecType = mdec->mBase->mParams->mBase;
+						vexp->mLeft->mLeft->mDecValue = mdec->mBase->mParams;
+
+						vexp->mDecValue = new Declaration(mdec->mLocation, DT_ELEMENT);
+						vexp->mDecValue->mBase = TheCharTypeDeclaration;
+						vexp->mDecValue->mOffset = vdec->mOffset;
+						vexp->mDecValue->mSize = 1;
+						vexp->mDecType = TheCharTypeDeclaration;
+
+						Expression* ecall = new Expression(mdec->mLocation, EX_DISPATCH);
+						ecall->mLeft = new Expression(mdec->mLocation, EX_INDEX);
+						ecall->mLeft->mDecType = mdec->mBase;
+						ecall->mDecType = vtabt->mBase;
+						ecall->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+						ecall->mLeft->mLeft->mDecType = vtabt;
+						ecall->mLeft->mLeft->mDecValue = vtaba;
+						ecall->mLeft->mRight = vexp;
+
+						mdec->mFlags |= DTF_DEFINED;
+						mdec->mValue = ecall;
+					}
 				});
 		});
 }

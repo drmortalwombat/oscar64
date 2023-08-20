@@ -1244,6 +1244,11 @@ Declaration* Declaration::Clone(void)
 	ndec->mAlignment = mAlignment;
 	ndec->mSection = mSection;
 	ndec->mVTable = mVTable;
+	ndec->mInteger = mInteger;
+	ndec->mNumber = mNumber;
+	ndec->mMinValue = mMinValue;
+	ndec->mMaxValue = mMaxValue;
+	ndec->mCompilerOptions = mCompilerOptions;
 
 	return ndec;
 }
