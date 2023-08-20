@@ -309,30 +309,48 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 									break;
 								}
 
-								mdec->mType = DT_ELEMENT;
-								mdec->mOffset = offset;
-
-								offset += mdec->mBase->mSize;
-								if (offset > dec->mSize)
-									dec->mSize = offset;
-
-								if (dec->mScope->Insert(mdec->mIdent, mdec))
-									mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
-
-								if (dec->mConst)
+								if (mdec->mFlags & DTF_STATIC)
 								{
-									Declaration* cmdec = mdec->Clone();
-									cmdec->mBase = mdec->mBase->ToConstType();
+									mdec->mFlags |= DTF_GLOBAL;
+									mdec->mVarIndex = -1;
+									mdec->mQualIdent = mScope->Mangle(mdec->mIdent);
 
-									dec->mConst->mScope->Insert(cmdec->mIdent, cmdec);
-									dec->mConst->mSize = dec->mSize;
+									Declaration * pdec = mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec);
+
+									if (pdec)
+										mdec = pdec;
+
+									if (dec->mScope->Insert(mdec->mIdent, mdec))
+										mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+								}
+								else
+								{
+									mdec->mType = DT_ELEMENT;
+									mdec->mOffset = offset;
+
+									offset += mdec->mBase->mSize;
+									if (offset > dec->mSize)
+										dec->mSize = offset;
+
+									if (dec->mScope->Insert(mdec->mIdent, mdec))
+										mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+
+									if (dec->mConst)
+									{
+										Declaration* cmdec = mdec->Clone();
+										cmdec->mBase = mdec->mBase->ToConstType();
+
+										dec->mConst->mScope->Insert(cmdec->mIdent, cmdec);
+										dec->mConst->mSize = dec->mSize;
+									}
+
+									if (mlast)
+										mlast->mNext = mdec;
+									else
+										dec->mParams = mdec;
+									mlast = mdec;
 								}
 
-								if (mlast)
-									mlast->mNext = mdec;
-								else
-									dec->mParams = mdec;
-								mlast = mdec;
 								mdec = mdec->mNext;
 							}
 
@@ -3986,6 +4004,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				else
 					ndec->mVarIndex = mLocalIndex++;
 			}
+			else if (pthis)
+			{
+				ndec->mFlags |= storageFlags & DTF_STATIC;
+			}
 
 			ndec->mOffset = 0;
 
@@ -4861,6 +4883,13 @@ Expression* Parser::ParseQualify(Expression* exp)
 					if (exp->mDecType->mFlags & DTF_CONST)
 						nexp->mDecType = nexp->mDecType->ToConstType();
 
+					exp = nexp->ConstantFold(mErrors);
+				}
+				else if (mdec->mType == DT_VARIABLE)
+				{
+					nexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+					nexp->mDecValue = mdec;
+					nexp->mDecType = mdec->mBase;
 					exp = nexp->ConstantFold(mErrors);
 				}
 				else if (mdec->mType == DT_CONST_FUNCTION)
