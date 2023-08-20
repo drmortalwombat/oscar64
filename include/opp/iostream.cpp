@@ -13,7 +13,7 @@ inline ios::~ios(void)
 
 }
 
-char ios::fill(void)
+char ios::fill(void) const
 {
 	return mFill;
 }

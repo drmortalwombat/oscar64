@@ -256,6 +256,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 				{
 					mScope = oscope;
 					Declaration* fdec = ParseDeclaration(nullptr, true, false);
+					if (fdec->mType == DT_ANON)
+						fdec = fdec->mBase;
 					dec->mFriends.Push(fdec);
 					mScope = dec->mScope;
 				}
@@ -268,8 +270,6 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 					Declaration* mdec = ParseDeclaration(nullptr, false, false, pthis);
 					if (mdec)
 					{
-						mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
-
 						mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
 
 						int	offset = dec->mSize;
@@ -278,6 +278,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 
 						if (mdec->mBase->mType == DT_TYPE_FUNCTION)
 						{
+							mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
+
 							if (mdec->mBase->mFlags & DTF_VIRTUAL)
 								needVTable = true;
 
@@ -293,6 +295,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 						}
 						else if ((mCompilerOptions & COPT_CPLUSPLUS) && mdec->mType == DT_ANON)
 						{
+							mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
+
 							ConsumeToken(TK_SEMICOLON);
 							// anon element
 						}
@@ -300,6 +304,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 						{
 							while (mdec)
 							{
+								mdec->mFlags |= flags & (DTF_PRIVATE | DTF_PROTECTED);
+
 								if (!(mdec->mBase->mFlags & DTF_DEFINED))
 									mErrors->Error(mdec->mLocation, EERR_UNDEFINED_OBJECT, "Undefined type used in struct member declaration");
 
@@ -3915,7 +3921,12 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 								}
 
 								if (!pdec)
+								{
+									if (!pthis && (ndec->mBase->mFlags & DTF_FUNC_THIS))
+										mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Function declaration differs", ndec->mIdent);
+
 									pcdec->mNext = ndec;
+								}
 							}
 
 							if (pdec)
@@ -4869,6 +4880,8 @@ Expression* Parser::ParseQualify(Expression* exp)
 					if (!(tp && tp->mBase->IsConstSame(dtype)))
 					{
 						if (dtype->mFriends.Contains(mFunction))
+							;
+						else if (mThisPointer && mThisPointer->mBase && mThisPointer->mBase->mBase && dtype->mFriends.Contains(mThisPointer->mBase->mBase->ToMutableType()))
 							;
 						else
 							mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member identifier not visible", ident);
