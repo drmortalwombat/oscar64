@@ -8045,6 +8045,53 @@ Expression* Parser::ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset)
 	return exp;
 }
 
+Expression* Parser::ParseAssemblerShiftOperand(Declaration* pcasm, int pcoffset)
+{
+	Expression* exp = ParseAssemblerAddOperand(pcasm, pcoffset);
+	while (mScanner->mToken == TK_LEFT_SHIFT || mScanner->mToken == TK_RIGHT_SHIFT)
+	{
+		Expression* nexp = new Expression(mScanner->mLocation, EX_BINARY);
+		nexp->mToken = mScanner->mToken;
+		nexp->mLeft = exp;
+		mScanner->NextToken();
+		nexp->mRight = ParseAssemblerAddOperand(pcasm, pcoffset);
+		exp = nexp->ConstantFold(mErrors);
+	}
+	return exp;
+}
+
+
+Expression* Parser::ParseAssemblerAndOperand(Declaration* pcasm, int pcoffset)
+{
+	Expression* exp = ParseAssemblerShiftOperand(pcasm, pcoffset);
+	while (mScanner->mToken == TK_BINARY_AND)
+	{
+		Expression* nexp = new Expression(mScanner->mLocation, EX_BINARY);
+		nexp->mToken = mScanner->mToken;
+		nexp->mLeft = exp;
+		mScanner->NextToken();
+		nexp->mRight = ParseAssemblerShiftOperand(pcasm, pcoffset);
+		exp = nexp->ConstantFold(mErrors);
+	}
+	return exp;
+}
+
+Expression* Parser::ParseAssemblerOrOperand(Declaration* pcasm, int pcoffset)
+{
+	Expression* exp = ParseAssemblerAndOperand(pcasm, pcoffset);
+	while (mScanner->mToken == TK_BINARY_OR)
+	{
+		Expression* nexp = new Expression(mScanner->mLocation, EX_BINARY);
+		nexp->mToken = mScanner->mToken;
+		nexp->mLeft = exp;
+		mScanner->NextToken();
+		nexp->mRight = ParseAssemblerAndOperand(pcasm, pcoffset);
+		exp = nexp->ConstantFold(mErrors);
+	}
+	return exp;
+}
+
+
 Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 {
 	if (mScanner->mToken == TK_LESS_THAN)
@@ -8188,7 +8235,7 @@ Expression* Parser::ParseAssemblerOperand(Declaration* pcasm, int pcoffset)
 		return exp;
 	}
 	else
-		return ParseAssemblerAddOperand(pcasm, pcoffset);
+		return ParseAssemblerOrOperand(pcasm, pcoffset);
 }
 
 void Parser::AddAssemblerRegister(const Ident* ident, int value)

@@ -74,6 +74,9 @@ protected:
 	Expression* ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerMulOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerShiftOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerAndOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerOrOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerOperand(Declaration * pcasm, int pcoffset);
 
 	Expression* CheckOperatorOverload(Expression* exp);
