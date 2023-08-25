@@ -184,6 +184,80 @@ Creates vice monitor commands to define all static labels.
 
 One can load the label file in the monitor using the load_labels (ll) command or provide it on the command line for vice with the "-moncommands" command line argument.
 
+#### Complete debug information ".dbj"
+
+This is a JSON file that contains detailed debug information.
+
+it has four top sections:
+
+* memory : complete memory map with lables and source location
+* variables : list of all global/static variables with address and type index
+* functions : list of all functions with local variables, line numbers and addresses
+* types : list of all types
+
+##### Debug memory information
+
+The memory partitioning is described using a list of
+
+* name : name of the memory object
+* start : start address (inclusive)
+* end : end address (exclusive)
+* type : linkage type of memory object
+* source : source file that declared this memory object
+* line : source line that declared this memory object
+
+##### Debug type information
+
+Every defined type has a unique numeric typeid that is used to reference it from the variable sections or from composite types.
+
+Each type has up to five attributes:
+
+* name : a string, present for all named types
+* typeid : the unique numeric ID for this type
+* size : size of a variable of this type in bytes
+* type : base type or composition method for this type
+	* int : signed Integer
+	* unit : unsigned integer
+	* bool : boolean value
+	* enum : enumeration
+	* ptr : pointer to
+	* ref : reference
+	* struct : struct/class
+	* union
+* members : list of members of a composite type or enum
+* eid : typeid for pointer or reference targets
+
+##### Debug variables information
+
+Global variables have a name, a memory range and a typeid
+
+* name : a string, present for named variables
+* start : start address (inclusive)
+* end : end address (exclusive)
+* typeid : the type id for this variable
+
+##### Debug function information
+
+* name : a string, present for named functions
+* start : start address (inclusive)
+* end : end address (exclusive)
+* source : source file that declared this function
+* line : source line that declared this function
+* lines : list of all source lines for this function
+	* start : start address (inclusive)
+	* end : end address (exclusive)
+	* source : source file that declared this function
+	* line : source line that declared this function
+* variables : list of all local variables for this function
+	* name : a string, present for named variables
+	* start : start address (inclusive)
+	* end : end address (exclusive)
+	* enter : first line where the vaiable becomes visible
+	* leave : last line where the variable is visible
+	* typeid : the type id for this variable
+	* base : zero page register pair for (sp/fp) for stack based variables
+
+
 ### Creating a d64 disk file
 
 The compiler can create a .d64 disk file, that includes the compiled .prg file as the first file in the directory and a series of additional resource files.  The name of the disk file is provided with the -d64 command line options, additional files with the -f or -fz option.
