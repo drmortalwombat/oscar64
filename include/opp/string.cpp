@@ -211,7 +211,7 @@ string & string::operator+=(char c)
 		p[l] = c;
 		p[l + 1] = 0;
 		free(cstr);
-		cstr = c;
+		cstr = p;
 	}
 	else
 	{
@@ -220,6 +220,7 @@ string & string::operator+=(char c)
 		cstr[1] = c;
 		cstr[2] = 0;
 	}	
+	return *this;
 }
 
 
