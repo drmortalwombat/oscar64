@@ -7812,8 +7812,18 @@ void Parser::ParseTemplateDeclaration(void)
 	Declaration* pdec = mCompilationUnits->mScope->Insert(tdec->mQualIdent, tdec->mBase);
 	if (pdec)
 	{
-		tdec->mBase->mNext = pdec->mNext;
-		pdec->mNext = tdec->mBase;
+		Declaration* ppdec = pdec;
+		while (pdec && !pdec->IsSameTemplate(tdec->mBase))
+		{
+			ppdec = pdec;
+			pdec = pdec->mNext;
+		}
+
+		if (!pdec)
+		{
+			ppdec->mNext = tdec->mBase;
+			tdec->mBase->mNext = nullptr;
+		}
 	}
 }
 

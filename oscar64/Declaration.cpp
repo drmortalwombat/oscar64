@@ -1407,6 +1407,18 @@ Declaration* Declaration::ToMutableType(void)
 	return mMutable;
 }
 
+bool Declaration::IsSameTemplate(const Declaration* dec) const
+{
+	if (this == dec)
+		return true;
+	if (this->mType != mType)
+		return false;
+
+	if (mType == DT_CONST_FUNCTION)
+		return mBase->IsSame(dec->mBase);
+
+	return false;
+}
 
 bool Declaration::IsSubType(const Declaration* dec) const
 {
@@ -1730,6 +1742,10 @@ bool Declaration::IsSame(const Declaration* dec) const
 			return false;
 
 		return true;
+	}
+	else if (mType == DT_TYPE_TEMPLATE)
+	{
+		return mIdent == dec->mIdent;
 	}
 
 	return false;

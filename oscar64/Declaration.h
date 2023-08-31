@@ -287,6 +287,7 @@ public:
 
 	bool IsTemplateSame(const Declaration* dec, const Declaration* tdec) const;
 	bool IsTemplateSameParams(const Declaration* dec, const Declaration* tdec) const;
+	bool IsSameTemplate(const Declaration* dec) const;
 
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;

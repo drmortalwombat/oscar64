@@ -1297,6 +1297,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			InterInstruction* psins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 			psins->mDst.mType = IT_POINTER;
 			psins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+			psins->mDst.mOperandSize = 2;
 			psins->mConst.mType = IT_POINTER;
 			psins->mConst.mVarIndex = 0;
 			psins->mConst.mIntConst = 0;
@@ -1321,6 +1322,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			InterInstruction* plins = new InterInstruction(exp->mLocation, IC_CONSTANT);
 			plins->mDst.mType = IT_POINTER;
 			plins->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+			plins->mDst.mOperandSize = 2;
 			plins->mConst.mType = IT_POINTER;
 			plins->mConst.mVarIndex = 2;
 			plins->mConst.mIntConst = 0;
