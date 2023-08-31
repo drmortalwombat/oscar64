@@ -3733,7 +3733,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 
-					vr = Dereference(proc, exp, block, vr);
+					if (procType->mBase->mType == DT_TYPE_POINTER && (vr.mType->mType == DT_TYPE_ARRAY || vr.mType->mType == DT_TYPE_FUNCTION))
+					{
+						vr = Dereference(proc, exp, block, vr, 1);
+						vr.mReference = 0;
+						vr.mType = procType->mBase;
+					}
+					else
+						vr = Dereference(proc, exp, block, vr);
 
 					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
 						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
@@ -4725,7 +4732,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "dividers"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test"))
 		exp->Dump(0);
 #endif
 #if 0
