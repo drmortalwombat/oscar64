@@ -542,7 +542,7 @@ Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 			return exp;
 	}
 
-	Eval(exp->mLeft->mDecValue->mValue);
+	Execute(exp->mLeft->mDecValue->mValue);
 
 	return mResult.ToExpression(mDataSection);
 }
@@ -882,7 +882,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 			mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname);
 	}
 	else
-		Eval(exp->mLeft->mDecValue->mValue);
+		Execute(exp->mLeft->mDecValue->mValue);
 
 	return mResult;
 }
@@ -920,9 +920,6 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	{
 	case EX_SCOPE:
 		return Eval(exp->mLeft);
-	case EX_RETURN:
-		mResult = EvalCoerce(exp, Eval(exp->mLeft), mProcType->mBase);
-		return mResult;
 	case EX_CONSTANT:
 		return Value(exp);
 	case EX_VARIABLE:
@@ -998,15 +995,6 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 		return v;
 	}
 
-	case EX_SEQUENCE:
-		if (exp->mRight)
-		{
-			Eval(exp->mLeft);
-			return Eval(exp->mRight);
-		}
-		else
-			return Eval(exp->mLeft);
-
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
 	{
@@ -1017,16 +1005,6 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 			rexp = EvalBinary(exp, lexp.ToRValue(), rexp);
 		lexp.Assign(EvalCoerce(exp, rexp, lexp.mDecType));
 		return lexp;
-	}
-
-	case EX_IF:
-	{
-		Value v = REval(exp->mLeft);
-		if (v.GetInt())
-			Eval(exp->mRight->mLeft);
-		else if (exp->mRight->mRight)
-			Eval(exp->mRight->mRight);
-		return Value();
 	}
 
 	case EX_POSTINCDEC:
@@ -1044,55 +1022,6 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 		return vl;
 	}
 
-	case EX_WHILE:
-	{
-		Value v = REval(exp->mLeft);
-		while (v.GetInt())
-		{
-			Eval(exp->mRight);
-			v = REval(exp->mLeft);
-		}
-		return Value();
-	}
-
-	case EX_DO:
-	{
-		Value	v;
-
-		do {
-			Eval(exp->mRight);
-			v = REval(exp->mLeft);
-		} while (v.GetInt());
-
-		return Value();
-	}
-
-	case EX_FOR:
-	{
-		Value	v;
-
-		if (exp->mLeft->mRight)
-			Eval(exp->mLeft->mRight);
-
-		if (exp->mLeft->mLeft->mLeft)
-			v = REval(exp->mLeft->mLeft->mLeft);
-		else
-			v.PutInt(1);
-
-		while (v.GetInt())
-		{
-			Eval(exp->mRight);
-
-			if (exp->mLeft->mLeft->mRight)
-				Eval(exp->mLeft->mLeft->mRight);
-
-			if (exp->mLeft->mLeft->mLeft)
-				v = REval(exp->mLeft->mLeft->mLeft);
-		}
-
-		return Value();
-	}
-
 	case EX_QUALIFY:
 	{
 		Value	v = Eval(exp->mLeft);
@@ -1108,12 +1037,12 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 		if (v.mDecType->mType == DT_TYPE_ARRAY)
 		{
 			if (v.mBaseValue)
-				return Value(v.mBaseValue, exp->mDecType, v.mOffset + v.mDecType->mBase->mSize * vi.GetInt());
+				return Value(v.mBaseValue, exp->mDecType, v.mOffset + v.mDecType->mBase->mSize * int(vi.GetInt()));
 		}
 		else if (v.mDecType->mType == DT_TYPE_POINTER)
 		{
 			Value	p = v.GetPtr();
-			return Value(p.mBaseValue, exp->mDecType, p.mOffset + v.mDecType->mBase->mSize * vi.GetInt());
+			return Value(p.mBaseValue, exp->mDecType, p.mOffset + v.mDecType->mBase->mSize * int(vi.GetInt()));
 		}
 	}
 
@@ -1125,6 +1054,139 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	mErrors->Error(exp->mLocation, EERR_INVALID_CONSTEXPR, "Invalid constexpr");
 
 	return exp;
+}
+
+ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
+{
+	for (;;)
+	{
+		switch (exp->mType)
+		{
+		case EX_SCOPE:
+			return Execute(exp->mLeft);
+		case EX_RETURN:
+			mResult = EvalCoerce(exp, Eval(exp->mLeft), mProcType->mBase);
+			return FLOW_RETURN;
+		case EX_CONSTANT:
+		case EX_VARIABLE:
+		case EX_BINARY:
+		case EX_RELATIONAL:
+		case EX_PREFIX:
+		case EX_TYPECAST:
+		case EX_CALL:
+		case EX_LIST:
+		case EX_CONDITIONAL:
+		case EX_LOGICAL_AND:
+		case EX_LOGICAL_OR:
+		case EX_LOGICAL_NOT:
+		case EX_INITIALIZATION:
+		case EX_ASSIGNMENT:
+		case EX_POSTINCDEC:
+		case EX_PREINCDEC:
+		case EX_QUALIFY:
+		case EX_INDEX:
+			Eval(exp);
+			return FLOW_NEXT;
+
+		case EX_SEQUENCE:
+			if (exp->mRight)
+			{
+				Flow	f = Execute(exp->mLeft);
+				if (f == FLOW_NEXT)
+					return Execute(exp->mRight);
+				return f;
+			}
+			else
+				return Execute(exp->mLeft);
+
+		case EX_BREAK:
+			return FLOW_BREAK;
+
+		case EX_CONTINUE:
+			return FLOW_CONTINUE;
+
+		case EX_IF:
+			if (REval(exp->mLeft).GetInt())
+				return Execute(exp->mRight->mLeft);
+			else if (exp->mRight->mRight)
+				return Execute(exp->mRight->mRight);
+			else
+				return FLOW_NEXT;
+
+		case EX_SWITCH:
+		{
+			int64	v = REval(exp->mLeft).GetInt();
+
+			bool	found = false;
+			Expression* sexp = exp->mRight;
+			while (sexp)
+			{
+				Expression* cexp = sexp->mLeft;
+				if (found || cexp->mType == EX_DEFAULT || v == REval(cexp->mLeft).GetInt())
+				{
+					found = true;
+					if (cexp->mRight)
+					{
+						Flow	f = Execute(cexp->mRight);
+						if (f == FLOW_BREAK)
+							return FLOW_NEXT;
+						else if (f != FLOW_NEXT)
+							return f;
+					}
+				}
+				sexp = sexp->mRight;
+			}
+
+			return FLOW_NEXT;
+		}
+
+		case EX_WHILE:
+			while (REval(exp->mLeft).GetInt())
+			{
+				Flow	f = Execute(exp->mRight);
+				if (f == FLOW_RETURN)
+					return FLOW_RETURN;
+				else if (f == FLOW_BREAK)
+					break;
+			}
+			return FLOW_NEXT;
+
+		case EX_DO:
+			do {
+				Flow	f = Execute(exp->mRight);
+				if (f == FLOW_RETURN)
+					return FLOW_RETURN;
+				else if (f == FLOW_BREAK)
+					break;
+
+			} while (REval(exp->mLeft).GetInt());
+			return FLOW_NEXT;
+
+		case EX_FOR:
+			if (exp->mLeft->mRight)
+				Eval(exp->mLeft->mRight);
+
+			while (!exp->mLeft->mLeft->mLeft || REval(exp->mLeft->mLeft->mLeft).GetInt())
+			{
+				Flow	f = Execute(exp->mRight);
+				if (f == FLOW_RETURN)
+					return FLOW_RETURN;
+				else if (f == FLOW_BREAK)
+					break;
+
+				if (exp->mLeft->mLeft->mRight)
+					Eval(exp->mLeft->mLeft->mRight);
+			}
+
+			return FLOW_NEXT;
+
+		case EX_VOID:
+			return FLOW_NEXT;
+
+		default:
+			mErrors->Error(exp->mLocation, EERR_INVALID_CONSTEXPR, "Invalid constexpr");
+		}
+	}
 }
 
 ConstexprInterpreter::ValueItem::ValueItem(void)

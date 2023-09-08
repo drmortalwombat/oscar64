@@ -80,6 +80,16 @@ protected:
 	Value REval(Expression* exp);
 	Value Eval(Expression* exp);
 
+	enum Flow
+	{
+		FLOW_NEXT,
+		FLOW_CONTINUE,
+		FLOW_BREAK,
+		FLOW_RETURN
+	};
+
+	Flow Execute(Expression* exp);
+
 	Declaration* mProcType;
 	Location		mLocation;
 	LinkerSection* mDataSection;

@@ -5695,7 +5695,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 						nexp->mType = EX_VCALL;
 				}
 
-				exp = nexp;
+				exp = nexp->ConstantFold(mErrors, mDataSection);
 			}
 		}
 		else if (mScanner->mToken == TK_INC || mScanner->mToken == TK_DEC)
