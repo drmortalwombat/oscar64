@@ -100,6 +100,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 		return v;
 	}
 
+	if (v.mType->IsReference() && type->IsSimpleType())
+	{
+		v.mReference++;
+		v.mType = v.mType->mBase;
+		v = Dereference(proc, exp, block, v);
+	}
+
 	if (v.mType->IsIntegerType() && type->mType == DT_TYPE_FLOAT)
 	{
 		if (v.mType->mSize == 1)
@@ -2878,6 +2885,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					return ExValue(TheFloatTypeDeclaration, ins->mDst.mTemp);
 				}
+				else if (!strcmp(iname->mString, "sin"))
+				{
+				}
+				else if (!strcmp(iname->mString, "cos"))
+				{
+				}
 				else if (!strcmp(iname->mString, "malloc"))
 				{
 					vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);
@@ -4734,7 +4747,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
 		exp->Dump(0);
 #endif
 #if 0

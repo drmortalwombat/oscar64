@@ -164,6 +164,7 @@ const char* TokenNames[] =
 	"'operator'",
 	"'template'",
 	"'friend'",
+	"'constexpr'",
 };
 
 
@@ -1514,6 +1515,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_TEMPLATE;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "friend"))
 					mToken = TK_FRIEND;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "constexpr"))
+					mToken = TK_CONSTEXPR;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();

@@ -158,6 +158,7 @@
     <ClCompile Include="ByteCodeGenerator.cpp" />
     <ClCompile Include="CompilationUnits.cpp" />
     <ClCompile Include="Compiler.cpp" />
+    <ClCompile Include="Constexpr.cpp" />
     <ClCompile Include="Declaration.cpp" />
     <ClCompile Include="Disassembler.cpp" />
     <ClCompile Include="DiskImage.cpp" />
@@ -184,6 +185,7 @@
     <ClInclude Include="CompilationUnits.h" />
     <ClInclude Include="Compiler.h" />
     <ClInclude Include="CompilerTypes.h" />
+    <ClInclude Include="Constexpr.h" />
     <ClInclude Include="Declaration.h" />
     <ClInclude Include="Disassembler.h" />
     <ClInclude Include="DiskImage.h" />

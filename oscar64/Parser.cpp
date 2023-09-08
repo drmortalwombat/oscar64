@@ -508,6 +508,31 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 	return dec;
 }
 
+Declaration* Parser::ParseBaseTypeQualify(bool qualified, Declaration* dec, const Ident*& pident)
+{
+	while (dec && (dec->mType == DT_NAMESPACE || (qualified && (dec->mType == DT_TYPE_STRUCT || dec->mType == DT_TYPE_TEMPLATE))) && ConsumeTokenIf(TK_COLCOLON))
+	{
+		if (ExpectToken(TK_IDENT))
+		{
+			pident = mScanner->mTokenIdent;
+			if (dec->mType == DT_TYPE_TEMPLATE)
+			{
+				Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_TEMPLATE);
+				ndec->mFlags |= DTF_DEFINED;
+				ndec->mBase = dec;
+				ndec->mIdent = pident;
+				dec = ndec;
+			}
+			else
+				dec = dec->mScope->Lookup(pident);
+
+			mScanner->NextToken();
+		}
+	}
+
+	return dec;
+}
+
 Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Declaration* ptempl)
 {
 	Declaration* dec = nullptr;
@@ -633,31 +658,15 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 
 			mScanner->NextToken();
 
+			dec = ParseBaseTypeQualify(qualified, dec, pident);
+
 			if (dec && dec->mTemplate)
 				dec = ParseTemplateExpansion(dec->mTemplate, nullptr);
 		}
 		else
 			mScanner->NextToken();
 
-		while (qualified && dec && (dec->mType == DT_TYPE_STRUCT || dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_TEMPLATE) && ConsumeTokenIf(TK_COLCOLON))
-		{
-			if (ExpectToken(TK_IDENT))
-			{
-				pident = mScanner->mTokenIdent;
-				if (dec->mType == DT_TYPE_TEMPLATE)
-				{
-					Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_TEMPLATE);
-					ndec->mFlags |= DTF_DEFINED;
-					ndec->mBase = dec;
-					ndec->mIdent = mScanner->mTokenIdent;
-					dec = ndec;
-				}
-				else
-					dec = dec->mScope->Lookup(mScanner->mTokenIdent);
-
-				mScanner->NextToken();
-			}
-		}
+		dec = ParseBaseTypeQualify(qualified, dec, pident);
 
 		if (dec && dec->mType <= DT_TYPE_FUNCTION)
 		{
@@ -3341,6 +3350,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					storageFlags |= DTF_STATIC;
 					mScanner->NextToken();
 				}
+				else if (mScanner->mToken == TK_CONSTEXPR)
+				{
+					storageFlags |= DTF_CONSTEXPR;
+					mScanner->NextToken();
+				}
 				else if (mScanner->mToken == TK_EXTERN)
 				{
 					storageFlags |= DTF_EXTERN;
@@ -4035,7 +4049,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				ndec->mValue = ParseInitExpression(ndec->mBase);
 				if (ndec->mBase->mType == DT_TYPE_AUTO)
 				{
-					ndec->mBase = ndec->mValue->mDecType;
+					if (ndec->mBase->mFlags & DTF_CONST)
+						ndec->mBase = ndec->mValue->mDecType->ToConstType();
+					else
+						ndec->mBase = ndec->mValue->mDecType;
+
 					if (ndec->mBase->mType == DT_TYPE_ARRAY)
 					{
 						ndec->mBase = ndec->mBase->Clone();
@@ -4603,7 +4621,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 					dexp->mDecType = texp->mDecType->mBase;
 					dexp->mLeft = texp;
 
-					dexp = dexp->ConstantFold(mErrors);
+					dexp = dexp->ConstantFold(mErrors, mDataSection);
 
 					exp = ParseQualify(dexp);
 				}
@@ -4750,7 +4768,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 				Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
 				nexp->mDecType = exp->mDecType;
 				nexp->mLeft = ParsePrefixExpression(false);
-				exp = nexp->ConstantFold(mErrors);
+				exp = nexp->ConstantFold(mErrors, mDataSection);
 			}
 		}
 		break;
@@ -4830,7 +4848,7 @@ Expression* Parser::ParseQualify(Expression* exp)
 {
 	Declaration* dtype = exp->mDecType;
 
-	exp = exp->ConstantFold(mErrors);
+	exp = exp->ConstantFold(mErrors, mDataSection);
 
 	if (dtype->mType == DT_TYPE_REFERENCE || dtype->mType == DT_TYPE_RVALUEREF)
 		dtype = dtype->mBase;
@@ -4896,14 +4914,14 @@ Expression* Parser::ParseQualify(Expression* exp)
 					if (exp->mDecType->mFlags & DTF_CONST)
 						nexp->mDecType = nexp->mDecType->ToConstType();
 
-					exp = nexp->ConstantFold(mErrors);
+					exp = nexp->ConstantFold(mErrors, mDataSection);
 				}
 				else if (mdec->mType == DT_VARIABLE)
 				{
 					nexp = new Expression(mScanner->mLocation, EX_VARIABLE);
 					nexp->mDecValue = mdec;
 					nexp->mDecType = mdec->mBase;
-					exp = nexp->ConstantFold(mErrors);
+					exp = nexp->ConstantFold(mErrors, mDataSection);
 				}
 				else if (mdec->mType == DT_CONST_FUNCTION)
 				{
@@ -5264,7 +5282,7 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 	{
 		if (!type->IsConstSame(tdec))
 		{
-			Declaration* fcons = type->mScope->Lookup(type->mIdent->PreMangle("+"));
+			Declaration* fcons = type->mScope ? type->mScope->Lookup(type->mIdent->PreMangle("+")) : nullptr;
 			if (fcons)
 			{
 				while (fcons && !(fcons->mBase->mParams && fcons->mBase->mParams->mNext && !fcons->mBase->mParams->mNext->mNext && fcons->mBase->mParams->mNext->mBase->CanAssign(tdec)))
@@ -5595,7 +5613,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 						Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
 						nexp->mDecType = exp->mDecType;
 						nexp->mLeft = pexp;
-						exp = nexp->ConstantFold(mErrors);
+						exp = nexp->ConstantFold(mErrors, mDataSection);
 					}
 					else
 					{
@@ -6162,7 +6180,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 				nexp->mDecType = nexp->mLeft->mDecType;
 		}
 		nexp = CheckOperatorOverload(nexp);
-		return nexp->ConstantFold(mErrors);
+		return nexp->ConstantFold(mErrors, mDataSection);
 	}
 	else
 		return ParsePostfixExpression(lhs);
@@ -6187,7 +6205,7 @@ Expression* Parser::ParseMulExpression(bool lhs)
 
 		exp = CheckOperatorOverload(nexp);
 
-		exp = exp->ConstantFold(mErrors);
+		exp = exp->ConstantFold(mErrors, mDataSection);
 	}
 
 	return exp;
@@ -6235,7 +6253,7 @@ Expression* Parser::ParseAddExpression(bool lhs)
 
 		exp = CheckOperatorOverload(nexp);
 
-		exp = exp->ConstantFold(mErrors);
+		exp = exp->ConstantFold(mErrors, mDataSection);
 	}
 
 	return exp;
@@ -6254,7 +6272,7 @@ Expression* Parser::ParseShiftExpression(bool lhs)
 		nexp->mRight = ParseAddExpression(false);
 		nexp->mDecType = exp->mDecType;
 
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 
 		exp = CheckOperatorOverload(exp);
 	}
@@ -6275,7 +6293,7 @@ Expression* Parser::ParseRelationalExpression(bool lhs)
 		nexp->mRight = ParseShiftExpression(false);
 		nexp->mDecType = TheBoolTypeDeclaration;
 
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 
 		exp = CheckOperatorOverload(exp);
 	}
@@ -6296,7 +6314,7 @@ Expression* Parser::ParseBinaryAndExpression(bool lhs)
 		nexp->mRight = ParseRelationalExpression(false);
 		nexp->mDecType = exp->mDecType;
 
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 
 		exp = CheckOperatorOverload(exp);
 	}
@@ -6316,7 +6334,7 @@ Expression* Parser::ParseBinaryXorExpression(bool lhs)
 		mScanner->NextToken();
 		nexp->mRight = ParseBinaryAndExpression(false);
 		nexp->mDecType = exp->mDecType;
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 
 		exp = CheckOperatorOverload(exp);
 	}
@@ -6336,7 +6354,7 @@ Expression* Parser::ParseBinaryOrExpression(bool lhs)
 		mScanner->NextToken();
 		nexp->mRight = ParseBinaryXorExpression(false);
 		nexp->mDecType = exp->mDecType;
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 
 		exp = CheckOperatorOverload(exp);
 	}
@@ -6356,7 +6374,7 @@ Expression* Parser::ParseLogicAndExpression(bool lhs)
 		mScanner->NextToken();
 		nexp->mRight = CoerceExpression(ParseBinaryOrExpression(false), TheBoolTypeDeclaration);
 		nexp->mDecType = TheBoolTypeDeclaration;
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
 
 	return exp;
@@ -6374,7 +6392,7 @@ Expression* Parser::ParseLogicOrExpression(bool lhs)
 		mScanner->NextToken();
 		nexp->mRight = CoerceExpression(ParseLogicAndExpression(false), TheBoolTypeDeclaration);
 		nexp->mDecType = TheBoolTypeDeclaration;
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
 
 	return exp;
@@ -6397,7 +6415,7 @@ Expression* Parser::ParseConditionalExpression(bool lhs)
 		texp->mRight = ParseConditionalExpression(false);
 		
 		nexp->mDecType = texp->mLeft->mDecType;
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
 
 	return exp;
@@ -6405,7 +6423,7 @@ Expression* Parser::ParseConditionalExpression(bool lhs)
 
 Expression* Parser::ParseRExpression(void)
 {
-	return ParseConditionalExpression(false);
+	return ParseConditionalExpression(false)->ConstantFold(mErrors, mDataSection);
 }
 
 Expression* Parser::ParseParenthesisExpression(void)
@@ -6515,7 +6533,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mSize = 2;
 
 						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-						lexp->mLeft = texp->ConstantFold(mErrors);
+						lexp->mLeft = texp->ConstantFold(mErrors, mDataSection);
 						lexp->mRight = nexp->mRight;
 						nexp->mRight = lexp;
 
@@ -6533,7 +6551,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 			while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 				tdec = tdec->mBase;
 
-			if (tdec->mType == DT_TYPE_STRUCT)
+			if (tdec->mType == DT_TYPE_STRUCT && tdec->mScope)
 			{
 				const Ident* opident = Ident::Unique("operator[]");
 
@@ -6558,7 +6576,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 					texp->mDecType->mSize = 2;
 
 					Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-					lexp->mLeft = texp->ConstantFold(mErrors);
+					lexp->mLeft = texp->ConstantFold(mErrors, mDataSection);
 					lexp->mRight = nexp->mRight;
 					nexp->mRight = lexp;
 
@@ -6585,7 +6603,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 			if (opident)
 			{
 				Declaration* tdec = exp->mLeft->mDecType;
-				if (tdec->mType == DT_TYPE_STRUCT)
+				if (tdec->mType == DT_TYPE_STRUCT && tdec->mScope)
 				{
 					Declaration* mdec = tdec->mScope->Lookup(opident);
 					if (mdec)
@@ -6607,7 +6625,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mBase = exp->mLeft->mDecType;
 						texp->mDecType->mSize = 2;
 
-						nexp->mRight = texp->ConstantFold(mErrors);
+						nexp->mRight = texp->ConstantFold(mErrors, mDataSection);
 
 						nexp = ResolveOverloadCall(nexp);
 						nexp->mDecType = nexp->mLeft->mDecType->mBase;
@@ -6656,7 +6674,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mSize = 2;
 
 						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-						lexp->mLeft = texp->ConstantFold(mErrors);
+						lexp->mLeft = texp->ConstantFold(mErrors, mDataSection);
 						lexp->mRight = new Expression(nexp->mLocation, EX_CONSTANT);
 						lexp->mRight->mDecType = TheSignedIntTypeDeclaration;
 						lexp->mRight->mDecValue = new Declaration(nexp->mLocation, DT_CONST_INTEGER);
@@ -6772,7 +6790,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mSize = 2;
 
 						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-						lexp->mLeft = texp->ConstantFold(mErrors);
+						lexp->mLeft = texp->ConstantFold(mErrors, mDataSection);
 						lexp->mRight = nexp->mRight;
 						nexp->mRight = lexp;
 
@@ -6834,7 +6852,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						texp->mDecType->mBase = tdec;
 						texp->mDecType->mSize = 2;
 
-						nexp->mRight = texp->ConstantFold(mErrors);
+						nexp->mRight = texp->ConstantFold(mErrors, mDataSection);
 
 						nexp = ResolveOverloadCall(nexp);
 						nexp->mDecType = nexp->mLeft->mDecType->mBase;
@@ -6873,7 +6891,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 					texp->mDecType->mBase = tdec;
 					texp->mDecType->mSize = 2;
 
-					nexp->mRight = texp->ConstantFold(mErrors);
+					nexp->mRight = texp->ConstantFold(mErrors, mDataSection);
 
 					nexp = ResolveOverloadCall(nexp);
 					nexp->mDecType = nexp->mLeft->mDecType->mBase;
@@ -7578,6 +7596,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 			bdec->mTemplate = tdec;
 			bdec->mBase = tmpld->mBase;
 			tdec->mNext = tmpld;
+			bdec->mIdent = tdec->MangleIdent();
 
 			return bdec;
 		}
@@ -7754,8 +7773,9 @@ void Parser::ParseTemplateDeclaration(void)
 		mTemplateScope = tdec->mScope;
 
 		ConsumeTokenIf(TK_INLINE);
+		ConsumeTokenIf(TK_CONSTEXPR);
 
-		Declaration* bdec = ParseBaseTypeDeclaration(0, false);
+		Declaration* bdec = ParseBaseTypeDeclaration(0, true);
 		Declaration* adec = ParsePostfixDeclaration();
 
 		adec = ReverseDeclaration(adec, bdec);
@@ -7991,7 +8011,7 @@ Expression* Parser::ParseAssemblerMulOperand(Declaration* pcasm, int pcoffset)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseAssemblerBaseOperand(pcasm, pcoffset);
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
 	return exp;
 }
@@ -8050,7 +8070,7 @@ Expression* Parser::ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset)
 				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Integer offset expected");
 		}
 		else
-			exp = nexp->ConstantFold(mErrors);
+			exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
 	return exp;
 }
@@ -8065,7 +8085,7 @@ Expression* Parser::ParseAssemblerShiftOperand(Declaration* pcasm, int pcoffset)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseAssemblerAddOperand(pcasm, pcoffset);
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
 	return exp;
 }
@@ -8081,7 +8101,7 @@ Expression* Parser::ParseAssemblerAndOperand(Declaration* pcasm, int pcoffset)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseAssemblerShiftOperand(pcasm, pcoffset);
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
 	return exp;
 }
@@ -8096,7 +8116,7 @@ Expression* Parser::ParseAssemblerOrOperand(Declaration* pcasm, int pcoffset)
 		nexp->mLeft = exp;
 		mScanner->NextToken();
 		nexp->mRight = ParseAssemblerAndOperand(pcasm, pcoffset);
-		exp = nexp->ConstantFold(mErrors);
+		exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
 	return exp;
 }

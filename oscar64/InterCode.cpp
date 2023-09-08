@@ -16921,7 +16921,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "opp::sort<struct bindexlist<i16,10>::iterator,>");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 
@@ -18444,7 +18444,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 1
+#if 0
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;

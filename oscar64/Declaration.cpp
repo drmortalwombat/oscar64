@@ -1,4 +1,6 @@
 #include "Declaration.h"
+#include "Constexpr.h"
+#include <math.h>
 
 DeclarationScope::DeclarationScope(DeclarationScope* parent, ScopeLevel level, const Ident* name)
 {
@@ -430,7 +432,7 @@ Expression* Expression::LogicInvertExpression(void)
 	}
 }
 
-Expression* Expression::ConstantFold(Errors * errors)
+Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSection)
 {
 	if (mType == EX_PREFIX && mLeft->mType == EX_CONSTANT)
 	{
@@ -775,9 +777,9 @@ Expression* Expression::ConstantFold(Errors * errors)
 		if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
 		{
 			if (mLeft->mDecValue->mInteger != 0)
-				return mRight->mLeft->ConstantFold(errors);
+				return mRight->mLeft->ConstantFold(errors, dataSection);
 			else
-				return mRight->mRight->ConstantFold(errors);
+				return mRight->mRight->ConstantFold(errors, dataSection);
 		}
 	}
 	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_ARRAY && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
@@ -807,7 +809,7 @@ Expression* Expression::ConstantFold(Errors * errors)
 	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_CONST) && mLeft->mDecType->mType == DT_TYPE_POINTER && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
 	{
 		mLeft = mLeft->mDecValue->mValue;
-		return this->ConstantFold(errors);
+		return this->ConstantFold(errors, dataSection);
 	}
 	else if (mType == EX_QUALIFY && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
 	{
@@ -833,6 +835,44 @@ Expression* Expression::ConstantFold(Errors * errors)
 		ex->mDecType = mDecType;
 		return ex;
 	}
+	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight->mType == EX_CONSTANT)
+	{
+		Declaration* decf = mLeft->mDecValue, * decp = mRight->mDecValue;
+		const Ident* iname = decf->mQualIdent;
+
+		if (decp->mType == DT_TYPE_FLOAT || decp->mType == DT_TYPE_INTEGER)
+		{
+			double d = decp->mType == DT_TYPE_FLOAT ? decp->mNumber : decp->mInteger;
+
+			bool	check = false;
+
+			if (!strcmp(iname->mString, "fabs"))
+				d = fabs(d);
+			else if (!strcmp(iname->mString, "floor"))
+				d = floor(d);
+			else if (!strcmp(iname->mString, "ceil"))
+				d = ceil(d);
+			else if (!strcmp(iname->mString, "sin"))
+				d = sin(d);
+			else if (!strcmp(iname->mString, "cos"))
+				d = cos(d);
+			else
+				return this;
+
+			Expression* ex = new Expression(mLocation, EX_CONSTANT);
+			Declaration* dec = new Declaration(mLocation, DT_CONST_FLOAT);
+			dec->mBase = TheFloatTypeDeclaration;
+			dec->mNumber = d;
+			ex->mDecValue = dec;
+			ex->mDecType = dec->mBase;
+			return ex;
+		}
+	}
+	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_CONSTEXPR))
+	{
+		ConstexprInterpreter	cinter(mLocation, errors, dataSection);
+		return cinter.EvalCall(this);
+	}	
 
 	return this;
 }
@@ -1195,7 +1235,7 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 		Declaration	*ftdec = tdec->mTemplate;
 		while (ftdec)
 		{
-			if (ftdec->mBase == fdec)
+			if (ftdec->mBase->IsConstSame(fdec))
 			{
 				Declaration* fpdec = ftdec->mParams;
 				Declaration* tpdec = tdec->mTemplate->mParams;
@@ -1361,6 +1401,7 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mParams = mParams;
 		ndec->mIdent = mIdent;
 		ndec->mQualIdent = mQualIdent;
+		ndec->mTemplate = mTemplate;
 
 		ndec->mDefaultConstructor = mDefaultConstructor;
 		ndec->mCopyConstructor = mCopyConstructor;
@@ -1392,6 +1433,7 @@ Declaration* Declaration::ToMutableType(void)
 		ndec->mParams = mParams;
 		ndec->mIdent = mIdent;
 		ndec->mQualIdent = mQualIdent;
+		ndec->mTemplate = mTemplate;
 
 		ndec->mDefaultConstructor = mDefaultConstructor;
 		ndec->mCopyConstructor = mCopyConstructor;
@@ -1926,6 +1968,7 @@ Declaration* TheVoidTypeDeclaration, * TheConstVoidTypeDeclaration, * TheSignedI
 Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheConstVoidPointerTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
+Expression* TheVoidExpression;
 
 void InitDeclarations(void)
 {
@@ -2004,4 +2047,8 @@ void InitDeclarations(void)
 	TheConstCharPointerTypeDeclaration->mBase = TheConstCharTypeDeclaration;
 	TheConstCharPointerTypeDeclaration->mSize = 2;
 	TheConstCharPointerTypeDeclaration->mFlags = DTF_DEFINED;
+
+	TheVoidExpression = new Expression(noloc, EX_CONSTANT);
+	TheVoidExpression->mDecType = TheConstVoidTypeDeclaration;
+	TheVoidExpression->mDecValue = TheConstVoidValueDeclaration;
 }

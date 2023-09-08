@@ -78,6 +78,9 @@
     <ClCompile Include="DiskImage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Constexpr.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -150,6 +153,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DiskImage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Constexpr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

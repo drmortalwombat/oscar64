@@ -93,6 +93,7 @@ static const uint64 DTF_PROTECTED		= (1ULL << 27);
 static const uint64 DTF_VIRTUAL			= (1ULL << 28);
 static const uint64 DTF_TEMPORARY		= (1ULL << 29);
 static const uint64	DTF_COMPLETED		= (1ULL << 30);
+static const uint64	DTF_CONSTEXPR		= (1ULL << 31);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
@@ -104,9 +105,9 @@ static const uint64 DTF_FUNC_INTRSAVE   = (1ULL << 37);
 static const uint64 DTF_FUNC_INTRCALLED = (1ULL << 38);
 static const uint64 DTF_FUNC_PURE		= (1ULL << 39);
 
-static const uint64 DTF_FPARAM_CONST = (1ULL << 40);
-static const uint64 DTF_FPARAM_NOCONST = (1ULL << 41);
-static const uint64 DTF_VAR_ADDRESS = (1ULL << 42);
+static const uint64 DTF_FPARAM_CONST	= (1ULL << 40);
+static const uint64 DTF_FPARAM_NOCONST	= (1ULL << 41);
+static const uint64 DTF_VAR_ADDRESS		= (1ULL << 42);
 
 static const uint64 DTF_FUNC_THIS		= (1ULL << 43);
 
@@ -236,7 +237,7 @@ public:
 	bool					mConst;
 
 	Expression* LogicInvertExpression(void);
-	Expression* ConstantFold(Errors * errors);
+	Expression* ConstantFold(Errors * errors, LinkerSection* dataSection);
 	bool HasSideEffects(void) const;
 
 	bool IsSame(const Expression* exp) const;
@@ -328,4 +329,5 @@ extern Declaration* TheVoidTypeDeclaration, * TheConstVoidTypeDeclaration, * The
 extern Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheConstVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 extern Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 extern Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
+extern Expression* TheVoidExpression;
 
