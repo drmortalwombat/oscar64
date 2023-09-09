@@ -61,6 +61,18 @@ ConstexprInterpreter::Value::Value(const Location& location, Declaration* dec)
 		mData = new ValueItem[mDataSize];
 }
 
+ConstexprInterpreter::Value::Value(const Location& location, Declaration* dec, int size)
+	: mLocation(location),
+	mDecType(dec),
+	mBaseValue(nullptr), mOffset(0),
+	mDataSize(size)
+{
+	if (mDataSize <= 4)
+		mData = mShortData;
+	else
+		mData = new ValueItem[mDataSize];
+}
+
 ConstexprInterpreter::Value::Value(const Value& value)
 	: mLocation(value.mLocation),
 	mDecType(value.mDecType),
@@ -403,6 +415,9 @@ void ConstexprInterpreter::Value::Assign(const Value& v)
 	case DT_TYPE_ARRAY:
 		memcpy(GetAddr(), v.GetAddr(), mDecType->mSize);
 		break;
+	case DT_TYPE_POINTER:
+		PutPtr(v.GetPtr());
+		break;
 	}
 }
 
@@ -489,7 +504,7 @@ Expression* ConstexprInterpreter::Value::ToExpression(LinkerSection* dataSection
 
 
 ConstexprInterpreter::ConstexprInterpreter(const Location & location, Errors* err, LinkerSection* dataSection)
-	: mLocation(location), mErrors(err), mDataSection(dataSection), mParams(Value()), mLocals(Value())
+	: mLocation(location), mErrors(err), mDataSection(dataSection), mParams(Value()), mLocals(Value()), mHeap(nullptr)
 {
 
 }
@@ -497,6 +512,25 @@ ConstexprInterpreter::ConstexprInterpreter(const Location & location, Errors* er
 ConstexprInterpreter::~ConstexprInterpreter(void)
 {
 
+}
+
+ConstexprInterpreter::Value* ConstexprInterpreter::NewValue(Expression* exp, Declaration* type, int size)
+{
+	Value* v = new Value(exp->mLocation, type, size);
+	mHeap->Push(v);
+	return v;
+}
+
+void ConstexprInterpreter::DeleteValue(Value* v)
+{
+	int i = mHeap->IndexOf(v);
+	if (i >= 0)
+	{
+		delete v;
+		mHeap->Remove(i);
+	}
+	else
+		mErrors->Error(v->mLocation, EERR_DOUBLE_FREE, "Freeing not allocated memory");
 }
 
 Expression* ConstexprInterpreter::EvalCall(Expression* exp)
@@ -542,7 +576,13 @@ Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 			return exp;
 	}
 
+	mHeap = new ExpandingArray<Value*>();
+
 	Execute(exp->mLeft->mDecValue->mValue);
+
+	if (mHeap->Size() > 0)
+		mErrors->Error(exp->mLocation, EERR_UNBALANCED_HEAP_USE, "Unbalanced heap use in constexpr");
+	delete mHeap;
 
 	return mResult.ToExpression(mDataSection);
 }
@@ -798,6 +838,12 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalUnary(Expression* exp, con
 			break;
 		case TK_MUL:
 			return vl.GetPtr();
+		case TK_NEW:
+			v.PutPtr(Value(NewValue(exp, exp->mDecType->mBase, vl.GetInt())));
+			break;
+		case TK_DELETE:
+			DeleteValue(vl.GetPtr().mBaseValue);
+			break;
 		default:
 			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible operator", TokenNames[exp->mToken]);
 		}
@@ -825,6 +871,8 @@ ConstexprInterpreter::Value ConstexprInterpreter::REval(Expression* exp)
 
 ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, ConstexprInterpreter* caller)
 {
+	mHeap = caller->mHeap;
+
 	mProcType = exp->mLeft->mDecType;
 
 	Expression* pex = exp->mRight;
@@ -882,7 +930,10 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 			mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname);
 	}
 	else
+	{
 		Execute(exp->mLeft->mDecValue->mValue);
+		UnwindDestructStack(0);
+	}
 
 	return mResult;
 }
@@ -1063,7 +1114,14 @@ ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
 		switch (exp->mType)
 		{
 		case EX_SCOPE:
-			return Execute(exp->mLeft);
+		{
+			int ds = mDestructStack.Size();
+			Flow	f = Execute(exp->mLeft);
+			UnwindDestructStack(ds);
+
+			return f;
+		}
+
 		case EX_RETURN:
 			mResult = EvalCoerce(exp, Eval(exp->mLeft), mProcType->mBase);
 			return FLOW_RETURN;
@@ -1141,34 +1199,53 @@ ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
 		}
 
 		case EX_WHILE:
+		{
+			int ds = mDestructStack.Size();
 			while (REval(exp->mLeft).GetInt())
 			{
+				int ls = mDestructStack.Size();
 				Flow	f = Execute(exp->mRight);
+				UnwindDestructStack(ls);
+
 				if (f == FLOW_RETURN)
 					return FLOW_RETURN;
 				else if (f == FLOW_BREAK)
 					break;
 			}
+			UnwindDestructStack(ds);
 			return FLOW_NEXT;
+		}
 
 		case EX_DO:
+		{
+			int ds = mDestructStack.Size();
 			do {
+				int ls = mDestructStack.Size();
 				Flow	f = Execute(exp->mRight);
+				UnwindDestructStack(ls);
+
 				if (f == FLOW_RETURN)
 					return FLOW_RETURN;
 				else if (f == FLOW_BREAK)
 					break;
 
 			} while (REval(exp->mLeft).GetInt());
+			UnwindDestructStack(ds);
 			return FLOW_NEXT;
+		}
 
 		case EX_FOR:
+		{
+			int ds = mDestructStack.Size();
 			if (exp->mLeft->mRight)
 				Eval(exp->mLeft->mRight);
 
 			while (!exp->mLeft->mLeft->mLeft || REval(exp->mLeft->mLeft->mLeft).GetInt())
 			{
+				int ls = mDestructStack.Size();
 				Flow	f = Execute(exp->mRight);
+				UnwindDestructStack(ls);
+
 				if (f == FLOW_RETURN)
 					return FLOW_RETURN;
 				else if (f == FLOW_BREAK)
@@ -1177,8 +1254,19 @@ ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
 				if (exp->mLeft->mLeft->mRight)
 					Eval(exp->mLeft->mLeft->mRight);
 			}
+			UnwindDestructStack(ds);
 
 			return FLOW_NEXT;
+		}
+
+		case EX_CONSTRUCT:
+			if (exp->mLeft->mLeft)
+				Eval(exp->mLeft->mLeft);
+
+			if (exp->mLeft->mRight)
+				mDestructStack.Push(exp->mLeft->mRight);
+
+			return Execute(exp->mRight);
 
 		case EX_VOID:
 			return FLOW_NEXT;
@@ -1187,6 +1275,12 @@ ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
 			mErrors->Error(exp->mLocation, EERR_INVALID_CONSTEXPR, "Invalid constexpr");
 		}
 	}
+}
+
+void ConstexprInterpreter::UnwindDestructStack(int level)
+{
+	while (mDestructStack.Size() > level)
+		Eval(mDestructStack.Pop());
 }
 
 ConstexprInterpreter::ValueItem::ValueItem(void)

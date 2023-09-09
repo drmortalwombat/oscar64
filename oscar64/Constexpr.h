@@ -26,6 +26,7 @@ protected:
 		Value(const Location& location);
 		Value(Expression * exp);
 		Value(const Location& location, Declaration * dec);
+		Value(const Location& location, Declaration* dec, int count);
 		Value(const Value& value);
 		Value(Value&& value);
 		Value(Value * value, Declaration * type, int offset);
@@ -70,6 +71,9 @@ protected:
 		Declaration* GetConst(int offset, Declaration* type, LinkerSection* dataSection) const;
 	};
 
+	Value * NewValue(Expression* exp, Declaration* type, int size);
+	void DeleteValue(Value* v);
+
 	Value EvalCall(Expression* exp, ConstexprInterpreter* caller);
 	Value EvalBinary(Expression* exp, const Value& vl, const Value& vr);
 	Value EvalUnary(Expression* exp, const Value& vl);
@@ -89,11 +93,16 @@ protected:
 	};
 
 	Flow Execute(Expression* exp);
+	void UnwindDestructStack(int level);
 
 	Declaration* mProcType;
 	Location		mLocation;
 	LinkerSection* mDataSection;
 	GrowingArray<Value>	mParams, mLocals;
+	ExpandingArray<Expression*>	mDestructStack;
+	ExpandingArray<Value *>	*	mHeap;
+
 	Errors	* mErrors;
 	Value	  mResult;
+
 };
