@@ -1453,7 +1453,7 @@ bool Declaration::IsSameTemplate(const Declaration* dec) const
 {
 	if (this == dec)
 		return true;
-	if (this->mType != mType)
+	if (this->mType != dec->mType)
 		return false;
 
 	if (mType == DT_CONST_FUNCTION)
