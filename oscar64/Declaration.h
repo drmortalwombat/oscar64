@@ -29,9 +29,6 @@ enum DecType
 	DT_TYPE_ASSEMBLER,
 	DT_TYPE_AUTO,
 
-	DT_TYPE_CONST,
-	DT_TYPE_VOLATILE,
-
 	DT_CONST_INTEGER,
 	DT_CONST_FLOAT,
 	DT_CONST_FUNCTION,
@@ -264,6 +261,7 @@ public:
 	Expression*			mValue;
 	DeclarationScope*	mScope;
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;
+	uint8				mShift, mBits;
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
 	uint64				mFlags, mCompilerOptions;

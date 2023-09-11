@@ -231,6 +231,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 		}
 		else
 		{
+			int	bitsleft = 0;
+
 			Declaration* mlast = nullptr;
 			for (;;)
 			{
@@ -334,7 +336,103 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 									mdec->mType = DT_ELEMENT;
 									mdec->mOffset = offset;
 
-									offset += mdec->mBase->mSize;
+									if (mdec->mBits)
+									{
+										if (mdec->mBits <= 8)
+										{
+											if (bitsleft == 0)
+											{
+												bitsleft = 8 - mdec->mBits;
+												offset++;
+											}
+											else if (bitsleft >= mdec->mBits)
+											{
+												mdec->mOffset--;
+												mdec->mShift = 8 - bitsleft;
+												bitsleft -= mdec->mBits;
+											}
+											else
+											{
+												mdec->mOffset--;
+												mdec->mShift = 8 - bitsleft;
+												bitsleft = 8 + bitsleft - mdec->mBits;
+												offset++;
+											}
+										}
+										else if (mdec->mBits <= 16)
+										{
+											if (bitsleft == 0)
+											{
+												bitsleft = 16 - mdec->mBits;
+												offset += 2;
+											}
+											else if (bitsleft + 8 >= mdec->mBits)
+											{
+												mdec->mOffset--;
+												mdec->mShift = 8 - bitsleft;
+												bitsleft = bitsleft + 8 - mdec->mBits;
+												offset++;
+											}
+											else
+											{
+												mdec->mOffset -= 3;
+												mdec->mShift = 24 - bitsleft;
+												bitsleft = bitsleft + 16 - mdec->mBits;
+												offset += 2;
+											}
+										}
+										else if (mdec->mBits <= 24)
+										{
+											if (bitsleft == 0)
+											{
+												bitsleft = 24 - mdec->mBits;
+												offset += 3;
+											}
+											else if (bitsleft + 16 >= mdec->mBits)
+											{
+												mdec->mOffset -= 2;
+												mdec->mShift = 16 - bitsleft;
+												bitsleft = bitsleft + 16 - mdec->mBits;
+												offset += 2;
+											}
+											else
+											{
+												mdec->mOffset -= 1;
+												mdec->mShift = 8 - bitsleft;
+												bitsleft = bitsleft + 24 - mdec->mBits;
+												offset += 3;
+											}
+										}
+										else
+										{
+											if (bitsleft == 0)
+											{
+												bitsleft = 32 - mdec->mBits;
+												offset += 4;
+											}
+											else if (bitsleft + 24 >= mdec->mBits)
+											{
+												mdec->mOffset--;
+												mdec->mShift = 8 - bitsleft;
+												bitsleft = bitsleft + 24 - mdec->mBits;
+												offset+=2;
+											}
+											else
+											{
+												bitsleft = 32 - mdec->mBits;
+												offset += mdec->mBase->mSize;
+											}
+										}
+
+										if (mdec->mShift == 0 && mdec->mBits == 8 * mdec->mSize)
+											mdec->mBits = 0;
+									}
+									else
+									{
+										bitsleft = 0;
+										offset += mdec->mBase->mSize;
+									}
+
 									if (offset > dec->mSize)
 										dec->mSize = offset;
 
@@ -1409,6 +1507,8 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 					Expression* texp = ParseInitExpression(mdec->mBase);
 
 					Declaration* cdec = CopyConstantInitializer(mdec->mOffset, mdec->mBase, texp);
+					cdec->mBits = mdec->mBits;
+					cdec->mShift = mdec->mShift;
 
 					if (last)
 						last->mNext = cdec;
@@ -4043,9 +4143,19 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			ldec = ndec;
 //			ndec->mNext = nullptr;
 
-			if (mScanner->mToken == TK_ASSIGN)
+			if (ConsumeTokenIf(TK_COLON))
 			{
-				mScanner->NextToken();
+				Expression* exp = ParseRExpression();
+				if (!ndec->mBase->IsIntegerType())
+					mErrors->Error(exp->mLocation, EERR_INVALID_BITFIELD, "Invalid bitfíeld for non integer type");
+				else if (exp->mType == EX_CONSTANT && exp->mDecType->IsIntegerType() && exp->mDecValue->mType == DT_CONST_INTEGER)
+					ndec->mBits = uint8(exp->mDecValue->mInteger);
+				else
+					mErrors->Error(exp->mLocation, EERR_CONSTANT_TYPE, "Constant integer expression expected");
+			}
+
+			if (ConsumeTokenIf(TK_ASSIGN))
+			{
 				ndec->mValue = ParseInitExpression(ndec->mBase);
 				if (ndec->mBase->mType == DT_TYPE_AUTO)
 				{

@@ -819,6 +819,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		dec->mBase = mLeft->mDecValue;
 		dec->mOffset = mDecValue->mOffset;
 		dec->mSize = mDecValue->mSize;
+		dec->mBits = mDecValue->mBits;
+		dec->mShift = mDecValue->mShift;
 		ex->mDecValue = dec;
 		ex->mDecType = mDecType;
 		return ex;
@@ -831,6 +833,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		dec->mBase = mLeft->mDecValue->mBase;
 		dec->mOffset = mLeft->mDecValue->mOffset + mDecValue->mOffset;
 		dec->mSize = mDecValue->mSize;
+		dec->mBits = mDecValue->mBits;
+		dec->mShift = mDecValue->mShift;
 		ex->mDecValue = dec;
 		ex->mDecType = mDecType;
 		return ex;
@@ -880,14 +884,15 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
-	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr), 
+	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr),
 	mConst(nullptr), mMutable(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVTable(nullptr), mTemplate(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), mFriends(nullptr),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
-	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr)
+	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr),
+	mShift(0), mBits(0)
 {}
 
 Declaration::~Declaration(void)

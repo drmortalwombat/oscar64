@@ -4246,8 +4246,8 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 		case IA_SAR:
 		{
 			ByteCode	rbc = ByteCodeBinRegOperator(ins);
-
 			ByteCode	ibc = ByteCodeBinImmOperator(ins);
+
 			if (ins->mSrc[1].mTemp < 0)
 			{
 				IntConstToAccu(ins->mSrc[1].mIntConst);
@@ -4259,10 +4259,17 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 			else if (ins->mSrc[0].mTemp < 0)
 			{
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
 				lins.mRegisterFinal = ins->mSrc[1].mFinal;
 				mIns.Push(lins);
+
+				if (ins->mOperator == IA_SAR && InterTypeSize[ins->mSrc[1].mType] == 1)
+				{
+					ByteCodeInstruction	xins(BC_CONV_I8_I16);
+					xins.mRegister = BC_REG_ACCU;
+					mIns.Push(xins);
+				}
 
 				ByteCodeInstruction	bins(ibc);
 				bins.mValue = int(ins->mSrc[0].mIntConst);
@@ -4270,7 +4277,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 			else
 			{
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
 				lins.mRegisterFinal = ins->mSrc[1].mFinal && (ins->mSrc[1].mTemp != ins->mSrc[0].mTemp);;
 				mIns.Push(lins);

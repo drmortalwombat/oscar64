@@ -68,14 +68,218 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 			ins->mDst.mRange.LimitMin(v.mType->mMinValue);
 			ins->mDst.mRange.LimitMax(v.mType->mMaxValue);
 		}
+
 		if (v.mType->mFlags & DTF_VOLATILE)
 			ins->mVolatile = true;
 		block->Append(ins);
 
-		v = ExValue(v.mType, ins->mDst.mTemp, v.mReference - 1);
+		if (v.mReference == 1 && v.mBits)
+		{
+			if (v.mBits + v.mShift <= 8)
+				ins->mDst.mType = IT_INT8;
+			else if (v.mBits + v.mShift <= 16)
+				ins->mDst.mType = IT_INT16;
+			else
+				ins->mDst.mType = IT_INT32;
+
+			ins->mSrc[0].mOperandSize = InterTypeSize[ins->mDst.mType];
+			int nbits = ins->mSrc[0].mOperandSize * 8;
+
+			InterInstruction* clsins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+			clsins->mDst.mType = IT_INT8;
+			clsins->mDst.mTemp = proc->AddTemporary(clsins->mDst.mType);
+			clsins->mConst.mType = IT_INT8;
+			clsins->mConst.mIntConst = nbits - v.mShift - v.mBits;
+			clsins->mNumOperands = 0;
+			block->Append(clsins);
+
+			InterInstruction* crsins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+			crsins->mDst.mType = IT_INT8;
+			crsins->mDst.mTemp = proc->AddTemporary(crsins->mDst.mType);
+			crsins->mConst.mType = IT_INT8;
+			crsins->mConst.mIntConst = nbits - v.mBits;
+			crsins->mNumOperands = 0;
+			block->Append(crsins);
+
+			InterInstruction* slins = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);
+			slins->mOperator = IA_SHL;
+			slins->mDst.mType = ins->mDst.mType;
+			slins->mDst.mTemp = proc->AddTemporary(slins->mDst.mType);
+			slins->mSrc[1] = ins->mDst;
+			slins->mSrc[0] = clsins->mDst;
+			slins->mNumOperands = 2;
+			block->Append(slins);
+
+			InterInstruction* srins = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);
+			srins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_SAR : IA_SHR;
+			srins->mDst.mType = ins->mDst.mType;
+			srins->mDst.mTemp = proc->AddTemporary(slins->mDst.mType);
+			srins->mSrc[1] = slins->mDst;
+			srins->mSrc[0] = crsins->mDst;
+			srins->mNumOperands = 2;
+			block->Append(srins);
+
+			if (InterTypeSize[ins->mDst.mType] < v.mType->mSize)
+			{
+				InterInstruction* crins = new InterInstruction(exp->mLocation, IC_CONVERSION_OPERATOR);
+				crins->mDst.mType = InterTypeOf(v.mType);
+				crins->mDst.mTemp = proc->AddTemporary(crins->mDst.mType);
+				crins->mSrc[0] = srins->mDst;
+				crins->mNumOperands = 1;
+				if (ins->mDst.mType == IT_INT16)
+					crins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_EXT16TO32S : IA_EXT16TO32U;
+				else if (v.mType->mSize == 2)
+					crins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_EXT8TO16S : IA_EXT8TO16U;
+				else
+					crins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_EXT8TO32S : IA_EXT8TO32U;
+				block->Append(crins);
+				v = ExValue(v.mType, crins->mDst.mTemp, v.mReference - 1);
+			}
+			else
+				v = ExValue(v.mType, srins->mDst.mTemp, v.mReference - 1);
+		}
+		else
+			v = ExValue(v.mType, ins->mDst.mTemp, v.mReference - 1, v.mBits, v.mShift);
 	}
 
 	return v;
+}
+
+void InterCodeGenerator::StoreValue(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue vl, ExValue vr)
+{
+	// Bitfield assignment
+	if (vl.mBits)
+	{
+		InterType	itype;
+
+		if (vl.mBits + vl.mShift <= 8)
+			itype = IT_INT8;
+		else if (vl.mBits + vl.mShift <= 16)
+			itype = IT_INT16;
+		else
+			itype = IT_INT32;
+
+		int nbits = InterTypeSize[itype] * 8;
+
+		InterInstruction* lins = new InterInstruction(exp->mLocation, IC_LOAD);
+		lins->mDst.mType = itype;
+		lins->mDst.mTemp = proc->AddTemporary(lins->mDst.mType);
+		lins->mSrc[0].mMemory = IM_INDIRECT;
+		lins->mSrc[0].mType = IT_POINTER;
+		lins->mSrc[0].mTemp = vl.mTemp;
+		lins->mSrc[0].mOperandSize = InterTypeSize[itype];
+		lins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
+		lins->mNumOperands = 1;
+		block->Append(lins);
+
+		InterInstruction* csins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+		csins->mDst.mType = IT_INT8;
+		csins->mDst.mTemp = proc->AddTemporary(csins->mDst.mType);
+		csins->mConst.mType = IT_INT8;
+		csins->mConst.mIntConst = vl.mShift;
+		csins->mNumOperands = 0;
+		block->Append(csins);
+
+		InterInstruction* cmsins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+		cmsins->mDst.mType = itype;
+		cmsins->mDst.mTemp = proc->AddTemporary(cmsins->mDst.mType);
+		cmsins->mConst.mType = itype;
+		cmsins->mConst.mIntConst = ((1 << vl.mBits) - 1) << vl.mShift;
+		cmsins->mNumOperands = 0;
+		block->Append(cmsins);
+
+		InterInstruction* cmlins = new InterInstruction(exp->mLocation, IC_CONSTANT);
+		cmlins->mDst.mType = itype;
+		cmlins->mDst.mTemp = proc->AddTemporary(cmlins->mDst.mType);
+		cmlins->mConst.mType = itype;
+		cmlins->mConst.mIntConst = ~cmsins->mConst.mIntConst;
+		cmlins->mNumOperands = 0;
+		block->Append(cmlins);
+
+		int	rtemp = vr.mTemp;
+
+		if (InterTypeSize[itype] > vr.mType->mSize)
+		{
+			InterInstruction* cins = new InterInstruction(exp->mLocation, IC_CONVERSION_OPERATOR);
+
+			if (InterTypeSize[itype] == 2)
+				cins->mOperator = IA_EXT8TO16U;
+			else if (vr.mType->mSize == 1)
+				cins->mOperator = IA_EXT8TO32U;
+			else
+				cins->mOperator = IA_EXT8TO16U;
+
+			cins->mDst.mType = itype;
+			cins->mDst.mTemp = proc->AddTemporary(itype);
+			cins->mSrc[0].mTemp = rtemp;
+			cins->mSrc[0].mType = InterTypeOf(vr.mType);
+			block->Append(cins);
+
+			rtemp = cins->mDst.mTemp;
+		}
+
+		InterInstruction* sins = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);
+		sins->mOperator = IA_SHL;
+		sins->mDst.mType = itype;
+		sins->mDst.mTemp = proc->AddTemporary(sins->mDst.mType);
+		sins->mSrc[1].mTemp = rtemp;
+		sins->mSrc[1].mType = itype;
+		sins->mSrc[0] = csins->mDst;
+		sins->mNumOperands = 2;
+		block->Append(sins);
+
+		InterInstruction* msins = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);
+		msins->mOperator = IA_AND;
+		msins->mDst.mType = itype;
+		msins->mDst.mTemp = proc->AddTemporary(msins->mDst.mType);
+		msins->mSrc[0] = sins->mDst;
+		msins->mSrc[1] = cmsins->mDst;
+		msins->mNumOperands = 2;
+		block->Append(msins);
+
+		InterInstruction* mlins = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);
+		mlins->mOperator = IA_AND;
+		mlins->mDst.mType = itype;
+		mlins->mDst.mTemp = proc->AddTemporary(mlins->mDst.mType);
+		mlins->mSrc[0] = lins->mDst;
+		mlins->mSrc[1] = cmlins->mDst;
+		mlins->mNumOperands = 2;
+		block->Append(mlins);
+
+		InterInstruction* oins = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);
+		oins->mOperator = IA_OR;
+		oins->mDst.mType = itype;
+		oins->mDst.mTemp = proc->AddTemporary(oins->mDst.mType);
+		oins->mSrc[0] = msins->mDst;
+		oins->mSrc[1] = mlins->mDst;
+		oins->mNumOperands = 2;
+		block->Append(oins);
+
+		InterInstruction* ins = new InterInstruction(exp->mLocation, IC_STORE);
+		ins->mSrc[1].mMemory = IM_INDIRECT;
+		ins->mSrc[0] = oins->mDst;
+		ins->mSrc[1].mType = IT_POINTER;
+		ins->mSrc[1].mTemp = vl.mTemp;
+		ins->mSrc[1].mOperandSize = InterTypeSize[itype];
+		ins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
+		ins->mNumOperands = 2;
+		block->Append(ins);
+	}
+	else
+	{
+		InterInstruction* ins = new InterInstruction(exp->mLocation, IC_STORE);
+
+		ins->mSrc[1].mMemory = IM_INDIRECT;
+		ins->mSrc[0].mType = InterTypeOf(vr.mType);
+		ins->mSrc[0].mTemp = vr.mTemp;
+		ins->mSrc[1].mType = IT_POINTER;
+		ins->mSrc[1].mTemp = vl.mTemp;
+		ins->mSrc[1].mOperandSize = vl.mType->mSize;
+		ins->mSrc[1].mStride = vl.mType->mStripe;
+		ins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
+		ins->mNumOperands = 2;
+		block->Append(ins);
+	}
 }
 
 InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue v, Declaration* type, bool checkTrunc)
@@ -1713,6 +1917,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ins->mConst.mOperandSize = dec->mSize;
 			ins->mConst.mIntConst = dec->mOffset;
 
+			int	lbits = dec->mBits, lshift = dec->mShift;
+
 			if (dec->mType == DT_VARIABLE_REF)
 				dec = dec->mBase;
 
@@ -1779,13 +1985,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ins->mDst.mTemp, ref + 1);
 			else
-				return ExValue(exp->mDecType, ins->mDst.mTemp, ref);
+				return ExValue(exp->mDecType, ins->mDst.mTemp, ref, lbits, lshift);
 		}
 
 
 		case EX_ASSIGNMENT:
 		case EX_INITIALIZATION:
-			{
+		{
 			if (exp->mLeft->mDecType && exp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
 			{
 				vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
@@ -1901,8 +2107,6 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				if (vl.mReference != 1)
 					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not a left hand expression");
-
-				InterInstruction	*	ins = new InterInstruction(exp->mLocation, IC_STORE);
 
 				if (exp->mToken != TK_ASSIGN)
 				{
@@ -2043,17 +2247,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					vr = CoerceType(proc, exp, block, vr, vl.mType);
 				}
 
-				ins->mCode = IC_STORE;
-				ins->mSrc[1].mMemory = IM_INDIRECT;
-				ins->mSrc[0].mType = InterTypeOf(vr.mType);
-				ins->mSrc[0].mTemp = vr.mTemp;
-				ins->mSrc[1].mType = IT_POINTER;
-				ins->mSrc[1].mTemp = vl.mTemp;
-				ins->mSrc[1].mOperandSize = vl.mType->mSize;
-				ins->mSrc[1].mStride = vl.mType->mStripe;
-				ins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
-				ins->mNumOperands = 2;
-				block->Append(ins);
+				StoreValue(proc, exp, block, vl, vr);
 			}
 			}
 
@@ -2151,7 +2345,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 			block->Append(ains);
 
-			return ExValue(exp->mDecValue->mBase, ains->mDst.mTemp, 1);
+			return ExValue(exp->mDecValue->mBase, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
 		}
 
 		case EX_BINARY:
@@ -2483,7 +2677,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (vl.mType->mFlags & DTF_CONST)
 				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot change const value");
 
-			InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT), *	ains = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR), *	sins = new InterInstruction(exp->mLocation, IC_STORE);
+			InterInstruction* cins = new InterInstruction(exp->mLocation, IC_CONSTANT), * ains = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);// , * sins = new InterInstruction(exp->mLocation, IC_STORE);
 
 			ExValue	vdl = Dereference(proc, exp, block, vl);
 
@@ -2524,6 +2718,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 			block->Append(ains);
 
+			StoreValue(proc, exp, block, vl, ExValue(vl.mType, ains->mDst.mTemp));
+#if 0
 			sins->mSrc[1].mMemory = IM_INDIRECT;
 			sins->mSrc[0].mType = ains->mDst.mType;
 			sins->mSrc[0].mTemp = ains->mDst.mTemp;
@@ -2532,6 +2728,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			sins->mSrc[1].mOperandSize = vl.mType->mSize;
 			sins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
 			block->Append(sins);
+#endif
 
 			// Return reference to value
 			return ExValue(vl.mType, vl.mTemp, 1);
@@ -2550,7 +2747,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (vl.mType->mFlags & DTF_CONST)
 				mErrors->Error(exp->mLocation, EERR_CONST_ASSIGN, "Cannot change const value");
 
-			InterInstruction	*	cins = new InterInstruction(exp->mLocation, IC_CONSTANT), *	ains = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR), *	sins = new InterInstruction(exp->mLocation, IC_STORE);
+			InterInstruction* cins = new InterInstruction(exp->mLocation, IC_CONSTANT), * ains = new InterInstruction(exp->mLocation, IC_BINARY_OPERATOR);// , * sins = new InterInstruction(exp->mLocation, IC_STORE);
 
 			ExValue	vdl = Dereference(proc, exp, block, vl);
 
@@ -2590,6 +2787,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ains->mDst.mTemp = proc->AddTemporary(ttype);
 			block->Append(ains);
 
+			StoreValue(proc, exp, block, vl, ExValue(vl.mType, ains->mDst.mTemp));
+#if 0
 			sins->mSrc[1].mMemory = IM_INDIRECT;
 			sins->mSrc[0].mType = ains->mDst.mType;
 			sins->mSrc[0].mTemp = ains->mDst.mTemp;
@@ -2598,7 +2797,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			sins->mSrc[1].mOperandSize = vl.mType->mSize;
 			sins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
 			block->Append(sins);
-
+#endif
 			return ExValue(vdl.mType, vdl.mTemp);
 		}
 		break;
@@ -2642,7 +2841,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				return ExValue(vl.mType->mBase, vl.mTemp, vl.mReference + 1);
 			case TK_BINARY_AND:
 			{
-				if (vl.mReference < 1)
+				if (vl.mReference < 1 || vl.mBits)
 					mErrors->Error(exp->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable value");
 
 				Declaration* dec = new Declaration(exp->mLocation, DT_TYPE_POINTER);
@@ -4582,10 +4781,38 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	else if (data->mType == DT_CONST_INTEGER)
 	{
 		int64	t = data->mInteger;
-		for (int i = 0; i < data->mBase->mSize; i++)
+		if (data->mBits)
 		{
-			dp[offset + i * data->mBase->mStripe] = uint8(t & 0xff);
-			t >>= 8;
+			if (data->mBits + data->mShift <= 8)
+			{
+				uint8	mask = uint8(((1 << data->mBits) - 1) << data->mShift);
+				dp[offset] = (dp[offset] & ~mask) | (uint8(t << data->mShift) & mask);
+			}
+			else if (data->mBits + data->mShift <= 16)
+			{
+				uint16	mask = uint16(((1 << data->mBits) - 1) << data->mShift);
+
+				dp[offset + 0] = (dp[offset + 0] & ~(mask & 0xff)) | (uint8(t << data->mShift) & (mask & 0xff));
+				dp[offset + 1] = (dp[offset + 1] & ~(mask >> 8)) | (uint8(t >> (8 - data->mShift)) & (mask >> 8));
+			}
+			else
+			{
+				uint32	mask = uint32(((1 << data->mBits) - 1) << data->mShift);
+				t = (t << data->mShift) & mask;
+
+				dp[offset + 0] = (dp[offset + 0] & ~(mask & 0xff)) | (uint8(t      ));
+				dp[offset + 1] = (dp[offset + 1] & ~(mask >> 8))   | (uint8(t >>  8));
+				dp[offset + 2] = (dp[offset + 2] & ~(mask >> 16))  | (uint8(t >> 16));
+				dp[offset + 3] = (dp[offset + 3] & ~(mask >> 24))  | (uint8(t >> 24));
+			}
+		}
+		else
+		{
+			for (int i = 0; i < data->mBase->mSize; i++)
+			{
+				dp[offset + i * data->mBase->mStripe] = uint8(t & 0xff);
+				t >>= 8;
+			}
 		}
 	}
 	else if (data->mType == DT_CONST_ADDRESS)

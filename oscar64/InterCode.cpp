@@ -643,6 +643,16 @@ static bool SameMem(const InterOperand& op, const InterInstruction* ins)
 		return false;
 }
 
+static bool SameMemAndSize(const InterOperand& op, const InterInstruction* ins)
+{
+	if (ins->mCode == IC_LOAD)
+		return SameMemAndSize(op, ins->mSrc[0]);
+	else if (ins->mCode == IC_STORE)
+		return SameMemAndSize(op, ins->mSrc[1]);
+	else
+		return false;
+}
+
 static bool SameInstruction(const InterInstruction* ins1, const InterInstruction* ins2)
 {
 	if (ins1->mCode == ins2->mCode && ins1->mNumOperands == ins2->mNumOperands)
@@ -7252,11 +7262,36 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				case IA_SHL:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
 					{
-						if (vr.mMinState == IntegerValueRange::S_BOUND)
-							ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
-						if (vr.mMaxState == IntegerValueRange::S_BOUND)
-							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
-						mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+						if (ins->mDst.mType == IT_INT16)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= -0x4000 &&
+								vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue < 0x4000)
+							{
+								ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
+								ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
+								mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+							}
+						}
+						else if (ins->mDst.mType == IT_INT8)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= -0x40 &&
+								vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue < 0x40)
+							{
+								ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
+								ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
+								mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+							}
+						}
+						else if (ins->mDst.mType == IT_INT32)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= -0x40000000 &&
+								vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue < 0x40000000)
+							{
+								ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
+								ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
+								mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+							}
+						}
 					}
 					break;
 				case IA_SUB:
@@ -8558,6 +8593,72 @@ bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArr
 	return changed;
 
 }
+
+bool InterCodeBasicBlock::RemoveUnusedIndirectStoreInstructions(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		ExpandingArray<InterInstructionPtr>		stores;
+
+		for (int i = mInstructions.Size() - 1; i >= 0; i--)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			if (ins->mCode == IC_STORE)
+			{
+				int j = 0;
+				while (j < stores.Size() && !SameMemAndSize(ins->mSrc[1], stores[j]->mSrc[1]))
+					j++;
+
+				if (j < stores.Size())
+				{
+					if (ins->mVolatile)
+						stores[j] = ins;
+					else
+					{
+						ins->mCode = IC_NONE;
+						ins->mNumOperands = 0;
+					}
+				}
+				else
+				{
+					j = 0;
+					while (j < stores.Size())
+					{
+						if (CollidingMem(ins, stores[j]))
+							stores.Remove(j);
+						else
+							j++;
+					}
+					stores.Push(ins);
+				}
+			}
+			else
+			{
+				int j = 0;
+				while (j < stores.Size())
+				{
+					if (CollidingMem(ins, stores[j]) || ins->mDst.mTemp >= 0 && ins->mDst.mTemp == stores[j]->mSrc[1].mTemp)
+						stores.Remove(j);
+					else
+						j++;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->RemoveUnusedIndirectStoreInstructions())
+			changed = true;
+		if (mFalseJump && mFalseJump->RemoveUnusedIndirectStoreInstructions())
+			changed = true;
+	}
+
+	return changed;
+}
+
 
 bool InterCodeBasicBlock::EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue)
 {
@@ -9867,7 +9968,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							if (ins->mCode == IC_LOAD)
 							{
 								j = 0;
-								while (j < tvalue.Size() && !SameMem(ins->mSrc[0], tvalue[j]))
+								while (j < tvalue.Size() && !SameMemAndSize(ins->mSrc[0], tvalue[j]))
 									j++;
 								if (j < tvalue.Size())
 								{
@@ -9880,7 +9981,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							else if (ins->mCode == IC_STORE)
 							{
 								j = 0;
-								while (j < tvalue.Size() && !SameMem(ins->mSrc[1], tvalue[j]))
+								while (j < tvalue.Size() && !SameMemAndSize(ins->mSrc[1], tvalue[j]))
 									j++;
 								if (j < tvalue.Size())
 								{
@@ -9945,7 +10046,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				if (!ins->mVolatile)
 				{
 					int	j = 0;
-					while (j < mLoadStoreInstructions.Size() && !SameMem(ins->mSrc[0], mLoadStoreInstructions[j]))
+					while (j < mLoadStoreInstructions.Size() && !SameMemAndSize(ins->mSrc[0], mLoadStoreInstructions[j]))
 						j++;
 					if (j < mLoadStoreInstructions.Size())
 					{
@@ -9986,7 +10087,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 			{
 				int	j = 0, k = 0;
 
-				while (j < mLoadStoreInstructions.Size() && !SameMem(ins->mSrc[1], mLoadStoreInstructions[j]))
+				while (j < mLoadStoreInstructions.Size() && !SameMemAndSize(ins->mSrc[1], mLoadStoreInstructions[j]))
 					j++;
 
 				if (!ins->mVolatile && j < mLoadStoreInstructions.Size() && mLoadStoreInstructions[j]->mCode == IC_LOAD && ins->mSrc[0].mTemp == mLoadStoreInstructions[j]->mDst.mTemp)
@@ -14541,7 +14642,6 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
 
 					mInstructions[i + 0]->mOperator = IA_AND;
-					mInstructions[i + 0]->mSrc[0].mType = IT_INT16;
 					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
 
 					switch (mInstructions[i + 0]->mSrc[1].mType)
@@ -14571,6 +14671,61 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					else if (shift < mshift)
 					{
 						mInstructions[i + 1]->mOperator = IA_SHL;
+						mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
+					}
+					else
+					{
+						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 1]->mNumOperands = 0;
+					}
+
+					changed = true;
+				}
+			}
+#endif
+#if 1
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+			{
+
+				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+				if (shift & 7)
+				{
+					int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+					mInstructions[i + 0]->mOperator = IA_AND;
+					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
+
+					switch (mInstructions[i + 0]->mSrc[1].mType)
+					{
+					case IT_INT8:
+						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffu >> shift;
+						break;
+					case IT_INT16:
+						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffffu >> shift;
+						break;
+					case IT_INT32:
+						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffffffffu >> shift;
+						break;
+					}
+
+					if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
+					{
+						mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
+						mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
+					}
+
+					if (shift > mshift)
+					{
+						mInstructions[i + 1]->mOperator = IA_SHL;
+						mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
+					}
+					else if (shift < mshift)
+					{
+						mInstructions[i + 1]->mOperator = IA_SHR;
 						mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
 					}
 					else
@@ -16507,6 +16662,11 @@ void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 
 			DisassembleDebug("removed unused static stores");
 		}
+
+		// Remove unused indirect stores
+
+		ResetVisited();
+		mEntryBlock->RemoveUnusedIndirectStoreInstructions();
 	}
 }
 
@@ -16921,7 +17081,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 
 	mEntryBlock = mBlocks[0];
 

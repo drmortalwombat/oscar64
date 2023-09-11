@@ -44,7 +44,7 @@ public:
 	bool ParseSource(void);
 	bool GenerateCode(void);
 	bool WriteOutputFile(const char* targetPath, DiskImage * d64);
-	int ExecuteCode(bool profile, bool trace);
+	int ExecuteCode(bool profile, int trace);
 
 	void AddDefine(const Ident* ident, const char* value);
 

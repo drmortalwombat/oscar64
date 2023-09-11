@@ -21,9 +21,10 @@ public:
 	{
 		Declaration* mType;
 		int		mTemp, mReference;
+		int		mBits, mShift;
 
-		ExValue(Declaration* type = nullptr, int temp = -1, int reference = 0)
-			: mType(type), mTemp(temp), mReference(reference)
+		ExValue(Declaration* type = nullptr, int temp = -1, int reference = 0, int bits = 0, int shift = 0)
+			: mType(type), mTemp(temp), mReference(reference), mBits(bits), mShift(shift)
 		{}
 	};
 
@@ -86,6 +87,7 @@ protected:
 	void TranslateLogic(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock* block, InterCodeBasicBlock* tblock, InterCodeBasicBlock* fblock, Expression* exp, DestructStack*& destack, InlineMapper* inlineMapper);
 	ExValue TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, const BranchTarget& breakBlock, const BranchTarget& continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr, ExValue* lrexp);
 	void CopyStruct(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue vl, ExValue vr, InlineMapper* inlineMapper, bool moving);
+	void StoreValue(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue vl, ExValue vr);
 
 	void UnwindDestructStack(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, DestructStack* stack, DestructStack * bottom, InlineMapper* inlineMapper);
 	void BuildInitializer(InterCodeModule* mod, uint8 * dp, int offset, Declaration* data, InterVariable * variable);

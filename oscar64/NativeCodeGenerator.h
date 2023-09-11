@@ -604,6 +604,10 @@ public:
 	bool CheckShortcutPointerAddForward(int at);
 	bool ShortcutPointerAddForward(void);
 
+	bool ShortcutIndirectLoadStore(void);
+	bool MoveIndirectLoadZeroStoreDown(int at);
+	bool MoveLoadZeroStoreIndirectUp(int at);
+
 	bool CommonSubExpressionElimination(void);
 
 	bool CheckPatchFailReg(const NativeCodeBasicBlock* block, int reg);
