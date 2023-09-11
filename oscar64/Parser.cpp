@@ -5744,6 +5744,8 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 			}
 			else
 			{
+				Expression* thisExp = nullptr;
+
 				if (exp->mDecType->mType == DT_TYPE_POINTER && exp->mDecType->mBase->mType == DT_TYPE_FUNCTION)
 				{
 				}
@@ -5752,8 +5754,38 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				}
 				else
 				{
-					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
-					exp->mDecType = TheVoidFunctionTypeDeclaration;
+					Declaration* tdec = exp->mDecType;
+					while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
+						tdec = tdec->mBase;
+
+					if (tdec->mType == DT_TYPE_STRUCT && tdec->mScope)
+					{
+						const Ident* opident = Ident::Unique("operator()");
+
+						Declaration* mdec = tdec->mScope->Lookup(opident);
+						if (mdec)
+						{
+							thisExp = new Expression(exp->mLocation, EX_PREFIX);
+							thisExp->mToken = TK_BINARY_AND;
+							thisExp->mLeft = exp;
+							thisExp->mDecType = exp->mDecType->BuildPointer(exp->mLocation);
+
+							exp = new Expression(exp->mLocation, EX_CONSTANT);
+							exp->mDecValue = mdec;
+							exp->mDecType = mdec->mBase;
+						}
+						else
+						{
+							mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
+							exp->mDecType = TheVoidFunctionTypeDeclaration;
+						}
+					}
+					else
+					{
+						mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
+						exp->mDecType = TheVoidFunctionTypeDeclaration;
+					}
+
 				}
 
 				mScanner->NextToken();
@@ -5775,23 +5807,38 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				}
 
 				bool	parentCall = false;
-				if ((exp->mDecType->mFlags & DTF_FUNC_THIS) && mThisPointer && mThisPointer->mType == DT_ARGUMENT)
+				if (thisExp)
 				{
-					Expression* texp = new Expression(mScanner->mLocation, EX_VARIABLE);
-					texp->mDecType = mThisPointer->mBase;
-					texp->mDecValue = mThisPointer;
-
 					if (nexp->mRight)
 					{
 						Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
-						lexp->mLeft = texp;
+						lexp->mLeft = thisExp;
 						lexp->mRight = nexp->mRight;
 						nexp->mRight = lexp;
 					}
 					else
-						nexp->mRight = texp;
+						nexp->mRight = thisExp;
+				}
+				else
+				{
+					if ((exp->mDecType->mFlags & DTF_FUNC_THIS) && mThisPointer && mThisPointer->mType == DT_ARGUMENT)
+					{
+						Expression* texp = new Expression(mScanner->mLocation, EX_VARIABLE);
+						texp->mDecType = mThisPointer->mBase;
+						texp->mDecValue = mThisPointer;
 
-					parentCall = true;
+						if (nexp->mRight)
+						{
+							Expression* lexp = new Expression(nexp->mLocation, EX_LIST);
+							lexp->mLeft = texp;
+							lexp->mRight = nexp->mRight;
+							nexp->mRight = lexp;
+						}
+						else
+							nexp->mRight = texp;
+
+						parentCall = true;
+					}
 				}
 
 				nexp = ResolveOverloadCall(nexp);
