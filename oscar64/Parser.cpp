@@ -4147,7 +4147,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			{
 				Expression* exp = ParseRExpression();
 				if (!ndec->mBase->IsIntegerType())
-					mErrors->Error(exp->mLocation, EERR_INVALID_BITFIELD, "Invalid bitfíeld for non integer type");
+					mErrors->Error(exp->mLocation, EERR_INVALID_BITFIELD, "Invalid bitfield for non integer type");
 				else if (exp->mType == EX_CONSTANT && exp->mDecType->IsIntegerType() && exp->mDecValue->mType == DT_CONST_INTEGER)
 					ndec->mBits = uint8(exp->mDecValue->mInteger);
 				else
