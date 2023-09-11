@@ -1067,7 +1067,7 @@ bool Compiler::BuildLZO(const char* targetPath)
 
 	CompilationUnit* cunit;
 
-	char	data[65536];
+	char	*	data = new char[65536];
 	int		n = 0;
 
 	while (mErrors->mErrorCount == 0 && (cunit = mCompilationUnits->PendingUnit()))
@@ -1110,14 +1110,20 @@ bool Compiler::BuildLZO(const char* targetPath)
 		{
 			int	done = fwrite(data, 1, n, file);
 			fclose(file);
+			delete[] data;
 			return done == n;
 		}
 		else
+		{
+			delete[] data;
 			return false;
+		}
 	}
 	else
+	{
+		delete[] data;
 		return false;
-
+	}
 }
 
 bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)

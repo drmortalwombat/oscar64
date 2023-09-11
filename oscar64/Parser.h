@@ -15,7 +15,7 @@ public:
 	DeclarationScope	*	mGlobals, * mScope, * mTemplateScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
-	Declaration			*	mThisPointer, * mReturnType, * mFunction;
+	Declaration			*	mThisPointer, * mFunctionType, * mFunction;
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 

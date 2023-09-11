@@ -882,7 +882,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 }
 
 Declaration::Declaration(const Location& loc, DecType type)
-	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr),
+	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr), mMangleIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
 	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr),
 	mConst(nullptr), mMutable(nullptr),

@@ -1277,6 +1277,7 @@ void Scanner::NextRawToken(void)
 			{
 				int		n = 0;
 				char	tkprep[128];
+				tkprep[0] = 0;
 
 				while (NextChar() && IsAlpha(mTokenChar))
 				{
@@ -1371,6 +1372,8 @@ void Scanner::NextRawToken(void)
 			{
 				int		n = 0;
 				char	tkident[256];
+				tkident[0] = 0;
+
 				for (;;)
 				{
 					if (IsIdentChar(mTokenChar))

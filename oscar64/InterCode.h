@@ -245,7 +245,7 @@ class InterVariable
 {
 public:
 	bool							mUsed, mAliased, mTemp;
-	int								mIndex, mSize, mOffset, mAddr, mTempIndex;
+	int								mIndex, mSize, mOffset, mTempIndex;
 	int								mNumReferences;
 	const Ident					*	mIdent;
 	LinkerObject				*	mLinkerObject;

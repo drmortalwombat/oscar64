@@ -22386,8 +22386,8 @@ bool NativeCodeBasicBlock::PatchCrossBlock16BitFlood(const NativeCodeBasicBlock*
 
 		mPatchExit = true;
 
-		mExitRequiredRegs |= sreg;
-		mExitRequiredRegs |= sreg + 1;
+		mExitRequiredRegs += sreg;
+		mExitRequiredRegs += sreg + 1;
 
 		if (mTrueJump && mTrueJump->PatchCrossBlock16BitFlood(block, sreg, dreg, 0))
 			changed = true;

@@ -20,6 +20,7 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 	mCompilerOptionSP = 0;
 	mThisPointer = nullptr;
 	mFunction = nullptr;
+	mFunctionType = nullptr;
 
 	for (int i = 0; i < 256; i++)
 		mCharMap[i] = i;
@@ -7110,7 +7111,7 @@ Expression* Parser::ParseFunction(Declaration * dec)
 	if (dec->mFlags & DTF_FUNC_THIS)
 		mThisPointer = dec->mParams;
 
-	mReturnType = dec->mBase;
+	mFunctionType = dec;
 
 	DeclarationScope* oscope = mScope;
 	while (mScope->mLevel == SLEVEL_CLASS)
@@ -7508,10 +7509,16 @@ Expression* Parser::ParseStatement(void)
 			if (mScanner->mToken != TK_SEMICOLON)
 			{
 				exp->mLeft = ParseRExpression();
-				if (mReturnType)
-					exp->mLeft = CoerceExpression(exp->mLeft, mReturnType);
+				if (mFunctionType && mFunctionType->mBase)
+				{
+					if (mFunctionType->mBase->mType == DT_TYPE_AUTO)
+					{
+						mFunctionType->mBase = exp->mLeft->mDecType;
+					}
+					exp->mLeft = CoerceExpression(exp->mLeft, mFunctionType->mBase);
+				}
 				exp->mLeft = CleanupExpression(exp->mLeft);
-				if (exp->mLeft->mType == EX_CONSTRUCT && mReturnType && mReturnType->mType == DT_TYPE_STRUCT)
+				if (exp->mLeft->mType == EX_CONSTRUCT && mFunctionType && mFunctionType->mBase && mFunctionType->mBase->mType == DT_TYPE_STRUCT)
 				{
 					Expression* cexp = exp->mLeft->mLeft->mLeft;
 

@@ -71,7 +71,7 @@ inline BitVector::BitVector(int size, unsigned char * data)
 	else
 		bits = nullptr;
 
-	if (size)
+	if (size > 0)
 	{
 		memcpy(bits, data, (size + 7) / 8);
 	}
@@ -93,7 +93,7 @@ inline BitVector::BitVector(int size, bool set)
 	else
 		bits = NULL;
 
-	if (size)
+	if (size > 0)
 	{
 		if (set)
 		{

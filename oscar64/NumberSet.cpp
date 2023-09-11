@@ -120,6 +120,8 @@ NumberSet& NumberSet::operator=(const NumberSet& set)
 
 NumberSet& NumberSet::operator&=(const NumberSet& set)
 {
+	assert(dwsize == set.dwsize);
+
 	int	size = dwsize;
 	const uint32* sbits = set.bits;
 	uint32* dbits = bits;
@@ -132,6 +134,8 @@ NumberSet& NumberSet::operator&=(const NumberSet& set)
 
 NumberSet& NumberSet::operator|=(const NumberSet& set)
 {
+	assert(dwsize == set.dwsize);
+
 	int	size = dwsize;
 	const uint32* sbits = set.bits;
 	uint32* dbits = bits;
@@ -144,6 +148,8 @@ NumberSet& NumberSet::operator|=(const NumberSet& set)
 
 NumberSet& NumberSet::operator-=(const NumberSet& set)
 {
+	assert(dwsize == set.dwsize);
+
 	int i;
 
 	for (i = 0; i < dwsize; i++)
@@ -154,6 +160,8 @@ NumberSet& NumberSet::operator-=(const NumberSet& set)
 
 bool NumberSet::operator<=(const NumberSet& set) const
 {
+	assert(dwsize == set.dwsize);
+
 	int i;
 
 	for (i = 0; i < dwsize; i++)
