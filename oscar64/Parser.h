@@ -12,10 +12,11 @@ public:
 
 	Parser* Clone(void);
 
-	DeclarationScope	*	mGlobals, * mScope, * mTemplateScope;
+	DeclarationScope	*	mGlobals, * mScope, * mTemplateScope, * mCaptureScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
-	Declaration			*	mThisPointer, * mFunctionType, * mFunction;
+	Declaration			*	mThisPointer, * mFunctionType, * mFunction, * mLambda;
+	Token					mCaptureToken;
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 
@@ -105,6 +106,7 @@ protected:
 	void CompleteTemplateExpansion(Declaration* tmpld);
 
 	Expression* ParseNewOperator(void);
+	Expression* ParseLambdaExpression(void);
 
 	Expression* ParseSimpleExpression(bool lhs);
 	Expression* ParsePrefixExpression(bool lhs);

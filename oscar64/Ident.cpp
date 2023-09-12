@@ -53,6 +53,13 @@ const Ident* Ident::PreMangle(const char* str) const
 	return Unique(buffer);
 }
 
+const Ident* Ident::Unique(const char* str, int id)
+{
+	char	buffer[200];
+	sprintf_s(buffer, "%s#%d", str, id);
+	return Unique(buffer);
+}
+
 const Ident* Ident::Mangle(const char* str) const
 {
 	char	buffer[200];

@@ -919,7 +919,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			Analyze(exp->mLeft->mLeft, procDec, false);
 		if (exp->mLeft->mRight)
 			Analyze(exp->mLeft->mRight, procDec, false);
-		return Analyze(exp->mRight, procDec, false);
+		if (exp->mRight)
+			return Analyze(exp->mRight, procDec, false);
+		break;
 
 	case EX_CLEANUP:
 		Analyze(exp->mRight, procDec, false);

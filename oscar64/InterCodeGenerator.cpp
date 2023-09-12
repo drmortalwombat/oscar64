@@ -1635,6 +1635,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 
 			exp = exp->mRight;
+			if (!exp)
+				return ExValue(TheVoidTypeDeclaration);
 		}
 			break;
 
@@ -2054,6 +2056,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mSrc[1].mMemory = IM_INDIRECT;
 					ins->mSrc[1].mOperandSize = 2;
 					ins->mSrc[1].mStride = vl.mType->mStripe;
+					ins->mNumOperands = 2;
 
 					block->Append(ins);
 				}
@@ -2345,7 +2348,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 			block->Append(ains);
 
-			return ExValue(exp->mDecValue->mBase, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
+			if (exp->mDecType->IsReference())
+				return ExValue(exp->mDecValue->mBase->mBase, ains->mDst.mTemp, 2);
+			else
+				return ExValue(exp->mDecValue->mBase, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
 		}
 
 		case EX_BINARY:

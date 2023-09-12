@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
-CompilationUnits::CompilationUnits(Errors * errors)
-	: mErrors(errors), mReferenced(nullptr)
+CompilationUnits::CompilationUnits(Errors* errors)
+	: mErrors(errors), mReferenced(nullptr), mUniqueID(0)
 {
 	mCompilationUnits = nullptr; 
 	mPendingUnits = nullptr;
@@ -26,6 +26,12 @@ CompilationUnits::~CompilationUnits(void)
 {
 
 }
+
+int CompilationUnits::UniqueID(void)
+{
+	return mUniqueID++;
+}
+
 
 void CompilationUnits::AddReferenced(Declaration* ref)
 {

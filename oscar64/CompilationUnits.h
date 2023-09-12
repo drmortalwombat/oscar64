@@ -31,6 +31,10 @@ public:
 	LinkerSection* mSectionCode, * mSectionData, * mSectionBSS, * mSectionHeap, * mSectionStack, * mSectionZeroPage, * mSectionLowCode, * mSectionBoot;
 	Linker* mLinker;
 
+	int	mUniqueID;
+
+	int UniqueID(void);
+
 	bool AddUnit(Location & location, const char* name, const char * from);
 	CompilationUnit* PendingUnit(void);
 

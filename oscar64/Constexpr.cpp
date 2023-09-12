@@ -839,7 +839,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalUnary(Expression* exp, con
 		case TK_MUL:
 			return vl.GetPtr();
 		case TK_NEW:
-			v.PutPtr(Value(NewValue(exp, exp->mDecType->mBase, vl.GetInt())));
+			v.PutPtr(Value(NewValue(exp, exp->mDecType->mBase, int(vl.GetInt()))));
 			break;
 		case TK_DELETE:
 			DeleteValue(vl.GetPtr().mBaseValue);
@@ -1266,7 +1266,9 @@ ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
 			if (exp->mLeft->mRight)
 				mDestructStack.Push(exp->mLeft->mRight);
 
-			return Execute(exp->mRight);
+			if (exp->mRight)
+				return Execute(exp->mRight);
+			return FLOW_NEXT;
 
 		case EX_VOID:
 			return FLOW_NEXT;

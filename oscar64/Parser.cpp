@@ -21,6 +21,8 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 	mThisPointer = nullptr;
 	mFunction = nullptr;
 	mFunctionType = nullptr;
+	mLambda = nullptr;
+	mCaptureScope = nullptr;
 
 	for (int i = 0; i < 256; i++)
 		mCharMap[i] = i;
@@ -4514,6 +4516,280 @@ Declaration* Parser::ParseQualIdent(void)
 	return dec;
 }
 
+Expression* Parser::ParseLambdaExpression(void)
+{
+	Declaration* cdec = new Declaration(mScanner->mLocation, DT_TYPE_STRUCT);
+	cdec->mIdent = Ident::Unique("lambda", mCompilationUnits->UniqueID());
+	cdec->mQualIdent = mScope->Mangle(cdec->mIdent);
+	cdec->mFlags |= DTF_DEFINED;
+
+	cdec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS, cdec->mIdent);
+
+	Declaration* olambda = mLambda;
+	mLambda = cdec;
+
+	Token	octoken = mCaptureToken;
+	mCaptureToken = TK_NONE;
+
+	Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+
+	Declaration* cpdec = cdec->BuildConstPointer(mScanner->mLocation);
+
+	Declaration* fdec = new Declaration(mScanner->mLocation, DT_CONST_FUNCTION);
+	fdec->mIdent = Ident::Unique("operator()");
+	fdec->mQualIdent = cdec->mScope->Mangle(fdec->mIdent);
+	cdec->mScope->Insert(fdec->mIdent, fdec);
+
+	Declaration* pdec = new Declaration(mScanner->mLocation, DT_ARGUMENT);
+	pdec->mBase = cpdec;
+	pdec->mSize = 2;
+
+	Expression* einit = nullptr;
+
+	ConsumeToken(TK_OPEN_BRACKET);
+	if (!ConsumeTokenIf(TK_CLOSE_BRACKET))
+	{
+		// Parse capture list list
+		do {
+			bool	reference = false;
+
+			if (ConsumeTokenIf(TK_BINARY_AND))
+			{
+				if (mScanner->mToken == TK_IDENT)
+					reference = true;
+				else
+					mCaptureToken = TK_BINARY_AND;
+			}
+
+			if (ConsumeTokenIf(TK_ASSIGN))
+				mCaptureToken = TK_ASSIGN;
+			else if (ConsumeTokenIf(TK_THIS))
+			{
+				Declaration* mdec = new Declaration(mScanner->mLocation, DT_ELEMENT);
+				mdec->mIdent = Ident::Unique("this");
+				mdec->mQualIdent = cdec->mScope->Mangle(mdec->mIdent);
+				if (cdec->mScope->Insert(mdec->mIdent, mdec))
+					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate lambda capture", mdec->mIdent);
+
+				if (mThisPointer)
+				{
+					Expression* iexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+					iexp->mDecType = mThisPointer->mBase;
+					iexp->mDecValue = mThisPointer;
+
+					mdec->mBase = iexp->mDecType;
+					mdec->mValue = iexp;
+					mdec->mNext = cdec->mParams;
+					cdec->mParams = mdec;
+				}
+				else
+					mErrors->Error(mScanner->mLocation, ERRO_THIS_OUTSIDE_OF_METHOD, "Use of this outside of method");
+
+				mdec->mOffset = cdec->mSize;
+				mdec->mSize = mdec->mBase->mSize;
+				cdec->mSize += mdec->mSize;
+			}
+			else if (mScanner->mToken == TK_IDENT)
+			{
+				Declaration* mdec = new Declaration(mScanner->mLocation, DT_ELEMENT);
+				mdec->mIdent = mScanner->mTokenIdent;
+				mdec->mQualIdent = cdec->mScope->Mangle(mdec->mIdent);
+				if (cdec->mScope->Insert(mdec->mIdent, mdec))
+					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate lambda capture", mdec->mIdent);
+
+				Expression* iexp = nullptr;
+
+				mScanner->NextToken();
+				if (ConsumeTokenIf(TK_ASSIGN))
+					iexp = ParseExpression(false);
+				else
+				{
+					Declaration* mvdec = mScope->Lookup(mdec->mIdent);
+					if (mvdec && mvdec->mType == DT_VARIABLE)
+					{
+						iexp = new Expression(mdec->mLocation, EX_VARIABLE);
+						iexp->mDecType = mvdec->mBase;
+						iexp->mDecValue = mvdec;
+					}
+					else
+						mErrors->Error(mdec->mLocation, EERR_INVALID_CAPTURE, "Invalid variable capture", mdec->mIdent);
+				}
+				
+				if (iexp)
+				{
+					if (reference)
+						mdec->mBase = iexp->mDecType->BuildReference(mdec->mLocation);
+					else
+						mdec->mBase = iexp->mDecType;
+					mdec->mValue = iexp;
+					mdec->mNext = cdec->mParams;
+					cdec->mParams = mdec;
+				}
+
+				mdec->mOffset = cdec->mSize;
+				mdec->mSize = mdec->mBase->mSize;
+				cdec->mSize += mdec->mSize;
+			}
+
+		} while (ConsumeTokenIf(TK_COMMA));
+
+		ConsumeToken(TK_CLOSE_BRACKET);
+	}
+
+	Declaration* rtype = new Declaration(mScanner->mLocation, DT_TYPE_AUTO);
+
+	if (mScanner->mToken == TK_OPEN_PARENTHESIS)
+	{
+		fdec->mBase = ParseFunctionDeclaration(rtype);
+	}
+	else
+	{
+		ConsumeToken(TK_OPEN_PARENTHESIS);
+		fdec->mBase = TheConstVoidTypeDeclaration;
+	}
+
+	PrependThisArgument(fdec->mBase, cpdec);
+
+	fdec->mFlags |= fdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+
+	fdec->mSection = mCodeSection;
+
+	if (mCompilerOptions & COPT_NATIVE)
+		fdec->mFlags |= DTF_NATIVE;
+
+	fdec->mCompilerOptions = mCompilerOptions;
+	fdec->mBase->mCompilerOptions = mCompilerOptions;
+
+	fdec->mVarIndex = -1;
+
+	int	li = mLocalIndex;
+
+	DeclarationScope * oscope = mCaptureScope;
+	mCaptureScope = mScope;
+
+	while (mScope->mLevel >= SLEVEL_NAMESPACE)
+		mScope = mScope->mParent;
+
+	fdec->mValue = ParseFunction(fdec->mBase);
+
+	mScope = mCaptureScope;
+	mLambda = olambda;
+	mCaptureScope = oscope;
+	mCaptureToken = octoken;
+
+	Declaration* pmdec = cdec->mParams;
+	while (pmdec)
+	{
+		Declaration* fcons = pmdec->mBase->mType == DT_TYPE_STRUCT && pmdec->mBase->mScope ? pmdec->mBase->mScope->Lookup(pmdec->mBase->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
+
+		Expression* ciexp;
+
+		if (fcons)
+		{
+			Expression* vexp = new Expression(pmdec->mLocation, EX_QUALIFY);
+			vexp->mLeft = new Expression(pmdec->mLocation, EX_VARIABLE);
+			vexp->mLeft->mDecType = cdec;
+			vexp->mLeft->mDecValue = vdec;
+			vexp->mDecValue = pmdec;
+			vexp->mDecType = pmdec->mBase;
+
+			Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+			cexp->mDecValue = fcons;
+			cexp->mDecType = cexp->mDecValue->mBase;
+
+			Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+			fexp->mLeft = cexp;
+			fexp->mRight = pmdec->mValue;
+
+			Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+			texp->mToken = TK_BINARY_AND;
+			texp->mLeft = vexp;
+			texp->mDecType = pmdec->mBase->BuildPointer(mScanner->mLocation);
+
+			Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+			lexp->mLeft = texp;
+			lexp->mRight = fexp->mRight;
+			fexp->mRight = lexp;
+
+			fexp = ResolveOverloadCall(fexp);
+
+			Expression* dexp = nullptr;
+			if (pmdec->mBase->mDestructor)
+			{
+				Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+				cexp->mDecValue = pmdec->mBase->mDestructor;
+				cexp->mDecType = cexp->mDecValue->mBase;
+
+				dexp = new Expression(mScanner->mLocation, EX_CALL);
+				dexp->mLeft = cexp;
+				dexp->mRight = texp;
+			}
+
+			ciexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
+
+			ciexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
+			ciexp->mLeft->mLeft = fexp;
+			ciexp->mLeft->mRight = dexp;
+		}
+		else
+		{
+			ciexp = new Expression(pmdec->mLocation, EX_INITIALIZATION);
+			ciexp->mToken = TK_ASSIGN;
+			ciexp->mDecType = pmdec->mValue->mDecType;
+			ciexp->mRight = pmdec->mValue;
+			ciexp->mLeft = new Expression(pmdec->mLocation, EX_QUALIFY);
+			ciexp->mLeft->mLeft = new Expression(pmdec->mLocation, EX_VARIABLE);
+			ciexp->mLeft->mLeft->mDecType = cdec;
+			ciexp->mLeft->mLeft->mDecValue = vdec;
+			ciexp->mLeft->mDecValue = pmdec;
+			ciexp->mLeft->mDecType = pmdec->mBase;
+		}
+
+		if (einit)
+		{
+			Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+			lexp->mLeft = einit;
+			lexp->mRight = ciexp;
+			einit = lexp;
+		}
+		else
+			einit = ciexp;
+
+		pmdec = pmdec->mNext;
+	}
+
+	fdec->mFlags |= DTF_DEFINED | DTF_REQUEST_INLINE;
+	fdec->mNumVars = mLocalIndex;
+
+	mLocalIndex = li;
+
+	vdec->mBase = cdec;
+	vdec->mVarIndex = mLocalIndex++;
+	vdec->mSize = cdec->mSize;
+	vdec->mFlags |= DTF_DEFINED;
+	vdec->mIdent = cdec->mIdent;
+
+	Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+	vexp->mDecType = vdec->mBase;
+	vexp->mDecValue = vdec;
+
+
+	if (einit)
+	{
+		Expression* conex = new Expression(mScanner->mLocation, EX_CONSTRUCT);
+		conex->mRight = vexp;
+		conex->mDecType = vexp->mDecType;
+
+		conex->mLeft = new Expression(mScanner->mLocation, EX_LIST);
+		conex->mLeft->mLeft = einit;
+		conex->mLeft->mRight = nullptr;
+
+		return conex;
+	}
+	else
+		return vexp;
+}
+
 Expression* Parser::ParseSimpleExpression(bool lhs)
 {
 	Declaration* dec = nullptr;
@@ -4701,7 +4977,31 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		mScanner->NextToken();
 		break;
 	case TK_THIS:
-		if (mThisPointer)
+		if (mLambda)
+		{
+			dec = mLambda->mScope->Lookup(Ident::Unique("this"), SLEVEL_CLASS);
+			if (dec)
+			{
+				Expression* texp = new Expression(mScanner->mLocation, EX_VARIABLE);
+				texp->mDecType = mThisPointer->mBase;
+				texp->mDecValue = mThisPointer;
+
+				Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
+				dexp->mToken = TK_MUL;
+				dexp->mDecType = texp->mDecType->mBase;
+				dexp->mLeft = texp;
+
+				dexp = dexp->ConstantFold(mErrors, mDataSection);
+
+				exp = new Expression(mScanner->mLocation, EX_QUALIFY);
+				exp->mLeft = dexp;
+				exp->mDecType = dec->mBase;
+				exp->mDecValue = dec;
+			}
+			else
+				mErrors->Error(mScanner->mLocation, ERRO_THIS_OUTSIDE_OF_METHOD, "Use of this outside of method");
+		}
+		else if (mThisPointer)
 		{
 			exp = new Expression(mScanner->mLocation, EX_VARIABLE);
 			exp->mDecType = mThisPointer->mBase;
@@ -4713,6 +5013,35 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		mScanner->NextToken();
 		break;
 	case TK_IDENT:
+		if (mLambda && mCaptureToken != TK_NONE && !mScope->Lookup(mScanner->mTokenIdent, SLEVEL_CLASS) && !mLambda->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_CLASS))
+		{
+			Declaration * mvdec = mCaptureScope->Lookup(mScanner->mTokenIdent, SLEVEL_CLASS);
+			if (mvdec && mvdec->mType == DT_VARIABLE)
+			{
+				Declaration* mdec = new Declaration(mScanner->mLocation, DT_ELEMENT);
+				mdec->mIdent = mScanner->mTokenIdent;
+				mdec->mQualIdent = mLambda->mScope->Mangle(mdec->mIdent);
+				if (mLambda->mScope->Insert(mdec->mIdent, mdec))
+					mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate lambda capture", mdec->mIdent);
+
+				Expression* iexp = new Expression(mdec->mLocation, EX_VARIABLE);
+				iexp->mDecType = mvdec->mBase;
+				iexp->mDecValue = mvdec;
+
+				if (mCaptureToken == TK_BINARY_AND)
+					mdec->mBase = iexp->mDecType->BuildReference(mdec->mLocation);
+				else
+					mdec->mBase = iexp->mDecType;
+				mdec->mValue = iexp;
+				mdec->mNext = mLambda->mParams;
+				mLambda->mParams = mdec;
+
+				mdec->mOffset = mLambda->mSize;
+				mdec->mSize = mdec->mBase->mSize;
+				mLambda->mSize += mdec->mSize;
+			}
+		}
+
 		if (mThisPointer && mThisPointer->mType == DT_ARGUMENT && !mScope->Lookup(mScanner->mTokenIdent, SLEVEL_FUNCTION))
 		{
 			int offset;
@@ -4882,6 +5211,9 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 				exp = nexp->ConstantFold(mErrors, mDataSection);
 			}
 		}
+		break;
+	case TK_OPEN_BRACKET:
+		exp = ParseLambdaExpression();
 		break;
 	case TK_ASM:
 		mScanner->NextToken();
@@ -7108,6 +7440,8 @@ Expression* Parser::ParseListExpression(bool lhs)
 Expression* Parser::ParseFunction(Declaration * dec)
 {
 	Declaration* othis = mThisPointer;
+	Declaration* ofunc = mFunctionType;
+
 	if (dec->mFlags & DTF_FUNC_THIS)
 		mThisPointer = dec->mParams;
 
@@ -7182,6 +7516,7 @@ Expression* Parser::ParseFunction(Declaration * dec)
 	mScope = oscope;
 
 	mThisPointer = othis;
+	mFunctionType = ofunc;
 
 	return exp;
 }
