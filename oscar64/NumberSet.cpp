@@ -134,9 +134,9 @@ NumberSet& NumberSet::operator&=(const NumberSet& set)
 
 NumberSet& NumberSet::operator|=(const NumberSet& set)
 {
-	assert(dwsize == set.dwsize);
+	assert(dwsize >= set.dwsize);
 
-	int	size = dwsize;
+	int	size = dwsize < set.dwsize ? dwsize : set.dwsize;
 	const uint32* sbits = set.bits;
 	uint32* dbits = bits;
 
