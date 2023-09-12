@@ -309,6 +309,7 @@ public:
 	Declaration* BuildConstReference(const Location& loc);
 	Declaration* BuildRValueRef(const Location& loc);
 	Declaration* BuildConstRValueRef(const Location& loc);
+	Declaration* NonRefBase(void);
 
 	DecType ValueType(void) const;
 

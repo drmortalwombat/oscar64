@@ -155,11 +155,13 @@ void GlobalAnalyzer::AutoInline(void)
 				Declaration* dec = f->mBase->mParams;
 				while (dec)
 				{
-					nparams++;
+					nparams += dec->mSize;
 					dec = dec->mNext;
 				}
 
 				int	cost = (f->mComplexity - 20 * nparams);
+
+//				printf("CHEK INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
 
 				bool	doinline = false;
 				if ((f->mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_REQUEST_INLINE))
@@ -171,9 +173,8 @@ void GlobalAnalyzer::AutoInline(void)
 
 				if (doinline)
 				{
-#if 0
-					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
-#endif
+//					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
+
 					f->mFlags |= DTF_INLINE;
 					for (int j = 0; j < f->mCallers.Size(); j++)
 					{
@@ -655,8 +656,6 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 {
 	Declaration* ldec, * rdec;
 
-	procDec->mComplexity += 10;
-
 	switch (exp->mType)
 	{
 	case EX_ERROR:
@@ -715,6 +714,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		return exp->mDecValue;
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		ldec = Analyze(exp->mLeft, procDec, true);
 		rdec = Analyze(exp->mRight, procDec, false);
 		if (exp->mLeft->mType == EX_VARIABLE && exp->mRight->mType == EX_CALL && exp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
@@ -723,16 +724,22 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		return ldec;
 
 	case EX_BINARY:
+		procDec->mComplexity += 10 * exp->mDecType->mSize;
+
 		ldec = Analyze(exp->mLeft, procDec, lhs);
 		rdec = Analyze(exp->mRight, procDec, lhs);
 		return ldec;
 
 	case EX_RELATIONAL:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		rdec = Analyze(exp->mRight, procDec, false);
 		return TheBoolTypeDeclaration;
 
 	case EX_PREINCDEC:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		return Analyze(exp->mLeft, procDec, true);
 	case EX_PREFIX:
 		if (exp->mToken == TK_BINARY_AND)
@@ -751,13 +758,21 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			return exp->mDecType;
 		}
 		else
+		{
+			procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
 			return Analyze(exp->mLeft, procDec, false);
+		}
 		break;
 	case EX_POSTFIX:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
 		break;
 	case EX_POSTINCDEC:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		return Analyze(exp->mLeft, procDec, true);
 	case EX_INDEX:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		ldec = Analyze(exp->mLeft, procDec, lhs);
 		if (ldec->mType == DT_VARIABLE || ldec->mType == DT_ARGUMENT)
 		{
@@ -786,6 +801,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		// intentional fall through
 	case EX_CALL:
 	case EX_INLINE:
+		procDec->mComplexity += 10;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		if ((ldec->mFlags & DTF_INTRINSIC) && !ldec->mValue)
 		{
@@ -812,6 +829,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			while (rex)
 			{
 				Expression* pex = rex->mType == EX_LIST ? rex->mLeft : rex;
+
+				procDec->mComplexity += 5 * pex->mDecType->mSize;
 
 				if (pdec && !(ldec->mBase->mFlags & DTF_VARIADIC) && !(ldec->mFlags & (DTF_INTRINSIC | DTF_FUNC_ASSEMBLER)))
 				{
@@ -930,10 +949,14 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_WHILE:
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 
+		procDec->mComplexity += 20;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		rdec = Analyze(exp->mRight, procDec, false);
 		break;
 	case EX_IF:
+		procDec->mComplexity += 20;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		rdec = Analyze(exp->mRight->mLeft, procDec, false);
 		if (exp->mRight->mRight)
@@ -944,6 +967,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_FOR:
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 
+		procDec->mComplexity += 30;
+
 		if (exp->mLeft->mRight)
 			ldec = Analyze(exp->mLeft->mRight, procDec, false);
 		if (exp->mLeft->mLeft->mLeft)
@@ -953,6 +978,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			ldec = Analyze(exp->mLeft->mLeft->mRight, procDec, false);
 		break;
 	case EX_DO:
+		procDec->mComplexity += 20;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		rdec = Analyze(exp->mRight, procDec, false);
 		break;
@@ -989,6 +1016,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		exp = exp->mRight;
 		while (exp)
 		{
+			procDec->mComplexity += 10;
+
 			if (exp->mLeft->mRight)
 				rdec = Analyze(exp->mLeft->mRight, procDec, false);
 			exp = exp->mRight;
@@ -999,6 +1028,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_DEFAULT:
 		break;
 	case EX_CONDITIONAL:
+		procDec->mComplexity += exp->mDecType->mSize * 10;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		RegisterProc(Analyze(exp->mRight->mLeft, procDec, false));
 		RegisterProc(Analyze(exp->mRight->mRight, procDec, false));

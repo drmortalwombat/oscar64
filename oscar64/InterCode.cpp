@@ -3425,11 +3425,32 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			}
 		}
 
+		if (!changed)
+		{
+			if (mSrc[0].mType == IT_POINTER && mSrc[1].mType == IT_POINTER &&
+				mSrc[0].mTemp >= 0 && mSrc[1].mTemp >= 0 &&
+				ctemps[mSrc[0].mTemp] && ctemps[mSrc[1].mTemp])
+			{
+				InterInstruction* si0 = ctemps[mSrc[0].mTemp];
+				InterInstruction* si1 = ctemps[mSrc[1].mTemp];
+
+				if (si0->mConst.mMemory != IM_INDIRECT && si1->mConst.mMemory != IM_INDIRECT)
+				{
+					mCode = IC_CONSTANT;
+					mConst.mIntConst = ::ConstantRelationalPointerFolding(mOperator, si1->mConst, si0->mConst);
+					mConst.mType = IT_BOOL;
+					mNumOperands = 0;
+					return true;
+				}
+			}
+		}
+
 		if (changed)
 		{
 			this->ConstantFolding();
 			return true;
 		}
+
 	} break;
 
 	case IC_FREE:

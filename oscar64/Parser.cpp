@@ -2588,6 +2588,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		Expression* iexp = new Expression(mScanner->mLocation, EX_POSTINCDEC);
 		iexp->mToken = TK_INC;
 		iexp->mLeft = pexp;
+		iexp->mDecType = pexp->mDecType;
 
 		Expression* fexp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		fexp->mDecValue = pthis->mBase->mDefaultConstructor;
@@ -2664,6 +2665,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		Expression* iexp = new Expression(mScanner->mLocation, EX_POSTINCDEC);
 		iexp->mToken = TK_INC;
 		iexp->mLeft = pexp;
+		iexp->mDecType = pexp->mDecType;
 
 		Expression* fexp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		fexp->mDecValue = pthis->mBase->mDestructor;
@@ -2753,10 +2755,12 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		Expression* iexp = new Expression(mScanner->mLocation, EX_POSTINCDEC);
 		iexp->mToken = TK_INC;
 		iexp->mLeft = pexp;
+		iexp->mDecType = pexp->mDecType;
 
 		Expression* isexp = new Expression(mScanner->mLocation, EX_POSTINCDEC);
 		isexp->mToken = TK_INC;
 		isexp->mLeft = psexp;
+		isexp->mDecType = psexp->mDecType;
 
 		Expression* disexp = new Expression(mScanner->mLocation, EX_PREFIX);
 		disexp->mToken = TK_MUL;
@@ -2766,6 +2770,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		Expression* dexp = new Expression(mScanner->mLocation, EX_POSTINCDEC);
 		dexp->mToken = TK_DEC;
 		dexp->mLeft = aexp;
+		dexp->mDecType = aexp->mDecType;
 
 		Expression* fexp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		fexp->mDecValue = pthis->mBase->mCopyConstructor;
@@ -2854,10 +2859,12 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		Expression* iexp = new Expression(mScanner->mLocation, EX_POSTINCDEC);
 		iexp->mToken = TK_INC;
 		iexp->mLeft = pexp;
+		iexp->mDecType = pexp->mDecType;
 
 		Expression* isexp = new Expression(mScanner->mLocation, EX_POSTINCDEC);
 		isexp->mToken = TK_INC;
 		isexp->mLeft = psexp;
+		isexp->mDecType = psexp->mDecType;
 
 		Expression* disexp = new Expression(mScanner->mLocation, EX_PREFIX);
 		disexp->mToken = TK_MUL;
@@ -2867,6 +2874,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		Expression* dexp = new Expression(mScanner->mLocation, EX_POSTINCDEC);
 		dexp->mToken = TK_DEC;
 		dexp->mLeft = aexp;
+		dexp->mDecValue = aexp->mDecType;
 
 		Expression* fexp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		fexp->mDecValue = pthis->mBase->mCopyAssignment;
@@ -4146,7 +4154,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			ldec = ndec;
 //			ndec->mNext = nullptr;
 
-			if (ConsumeTokenIf(TK_COLON))
+			if (!mFunctionType && ConsumeTokenIf(TK_COLON))
 			{
 				Expression* exp = ParseRExpression();
 				if (!ndec->mBase->IsIntegerType())
@@ -4361,10 +4369,10 @@ Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 	{
 		while (dec)
 		{
+			Expression* nexp;
+
 			if (dec->mValue && !(dec->mFlags & DTF_GLOBAL))
 			{
-				Expression* nexp;
-
 				if ((mCompilerOptions & COPT_CPLUSPLUS) && dec->mValue->mType == EX_CONSTRUCT)
 				{
 					nexp = dec->mValue;
@@ -4446,21 +4454,27 @@ Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 
 					nexp->mRight = dec->mValue;
 				}
+			}
+			else
+			{
+				nexp = new Expression(dec->mLocation, EX_VARIABLE);
+				nexp->mDecValue = dec;
+				nexp->mDecType = dec->mBase;
+			}
 
-				if (!exp)
-					exp = nexp;
-				else
+			if (!exp)
+				exp = nexp;
+			else
+			{
+				if (!rexp)
 				{
-					if (!rexp)
-					{
-						rexp = new Expression(nexp->mLocation, EX_SEQUENCE);
-						rexp->mLeft = exp;
-						exp = rexp;
-					}
-					rexp->mRight = new Expression(nexp->mLocation, EX_SEQUENCE);
-					rexp = rexp->mRight;
-					rexp->mLeft = nexp;
+					rexp = new Expression(nexp->mLocation, EX_SEQUENCE);
+					rexp->mLeft = exp;
+					exp = rexp;
 				}
+				rexp->mRight = new Expression(nexp->mLocation, EX_SEQUENCE);
+				rexp = rexp->mRight;
+				rexp->mLeft = nexp;
 			}
 
 			dec = dec->mNext;
@@ -5213,7 +5227,13 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		}
 		break;
 	case TK_OPEN_BRACKET:
-		exp = ParseLambdaExpression();
+		if (mCompilerOptions & COPT_CPLUSPLUS)
+			exp = ParseLambdaExpression();
+		else
+		{
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Term starts with invalid token", TokenNames[mScanner->mToken]);
+			mScanner->NextToken();
+		}
 		break;
 	case TK_ASM:
 		mScanner->NextToken();
@@ -7646,32 +7666,216 @@ Expression* Parser::ParseStatement(void)
 
 				Expression* initExp = nullptr, * iterateExp = nullptr, * conditionExp = nullptr, * bodyExp = nullptr, * finalExp = nullptr;
 
-
 				// Assignment
 				if (mScanner->mToken != TK_SEMICOLON)
 					initExp = CleanupExpression(ParseExpression(true));
-				if (mScanner->mToken == TK_SEMICOLON)
-					mScanner->NextToken();
-				else
-					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
 
-				// Condition
-				if (mScanner->mToken != TK_SEMICOLON)
-					conditionExp = CoerceExpression(CleanupExpression(ParseExpression(false)), TheBoolTypeDeclaration);
+				if ((mCompilerOptions & COPT_CPLUSPLUS) && ConsumeTokenIf(TK_COLON))
+				{
+					Expression* containerExp = ParseExpression(false);
+					if (initExp->mType == EX_VARIABLE)
+					{
+						if (containerExp->mDecType->mType == DT_TYPE_ARRAY)
+						{
+							Declaration* iterVarDec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+							iterVarDec->mBase = containerExp->mDecType->mBase->BuildPointer(mScanner->mLocation);
+							iterVarDec->mVarIndex = mLocalIndex++;
+							iterVarDec->mSize = iterVarDec->mBase->mSize;
+							iterVarDec->mFlags |= DTF_DEFINED;
 
-				if (mScanner->mToken == TK_SEMICOLON)
-					mScanner->NextToken();
-				else
-					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+							Declaration* endVarDec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+							endVarDec->mBase = iterVarDec->mBase;
+							endVarDec->mVarIndex = mLocalIndex++;
+							endVarDec->mSize = endVarDec->mBase->mSize;
+							endVarDec->mFlags |= DTF_DEFINED;
 
-				// Iteration
-				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
-					iterateExp = CleanupExpression(ParseExpression(false));
-				if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
-					mScanner->NextToken();
+							Declaration* valueVarDec = initExp->mDecValue;
+							if (valueVarDec->mBase->mType == DT_TYPE_AUTO)
+								valueVarDec->mBase = containerExp->mDecType->mBase;
+
+							initExp = new Expression(mScanner->mLocation, EX_LIST);
+							initExp->mLeft = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+							initExp->mLeft->mToken = TK_ASSIGN;
+							initExp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+							initExp->mLeft->mLeft->mDecType = iterVarDec->mBase;
+							initExp->mLeft->mLeft->mDecValue = iterVarDec;
+							initExp->mLeft->mRight = containerExp;
+
+							initExp->mRight = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+							initExp->mRight->mToken = TK_ASSIGN;
+							initExp->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+							initExp->mRight->mLeft->mDecType = endVarDec->mBase;
+							initExp->mRight->mLeft->mDecValue = endVarDec;
+							initExp->mRight->mRight = new Expression(mScanner->mLocation, EX_BINARY);
+							initExp->mRight->mRight->mToken = TK_ADD;
+							initExp->mRight->mRight->mDecType = iterVarDec->mBase;
+							initExp->mRight->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+							initExp->mRight->mRight->mLeft->mDecType = iterVarDec->mBase;
+							initExp->mRight->mRight->mLeft->mDecValue = iterVarDec;
+							initExp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+							initExp->mRight->mRight->mRight->mDecType = TheSignedIntTypeDeclaration;
+							initExp->mRight->mRight->mRight->mDecValue = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+							initExp->mRight->mRight->mRight->mDecValue->mBase = TheSignedIntTypeDeclaration;
+							initExp->mRight->mRight->mRight->mDecValue->mSize = 2;
+							initExp->mRight->mRight->mRight->mDecValue->mInteger = containerExp->mDecType->mSize;
+
+							iterateExp = new Expression(mScanner->mLocation, EX_PREINCDEC);
+							iterateExp->mToken = TK_INC;
+							iterateExp->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+							iterateExp->mLeft->mDecType = iterVarDec->mBase;
+							iterateExp->mLeft->mDecValue = iterVarDec;
+
+							conditionExp = new Expression(mScanner->mLocation, EX_RELATIONAL);
+							conditionExp->mToken = TK_NOT_EQUAL;
+							conditionExp->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+							conditionExp->mLeft->mDecType = iterVarDec->mBase;
+							conditionExp->mLeft->mDecValue = iterVarDec;
+							conditionExp->mRight = new Expression(mScanner->mLocation, EX_VARIABLE);
+							conditionExp->mRight->mDecType = endVarDec->mBase;
+							conditionExp->mRight->mDecValue = endVarDec;
+
+							bodyExp = new Expression(mScanner->mLocation, EX_ASSIGNMENT);
+							bodyExp->mToken = TK_ASSIGN;
+							bodyExp->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+							bodyExp->mLeft->mDecType = valueVarDec->mBase;
+							bodyExp->mLeft->mDecValue = valueVarDec;
+							bodyExp->mRight = new Expression(mScanner->mLocation, EX_PREFIX);
+							bodyExp->mRight->mToken = TK_MUL;
+							bodyExp->mRight->mDecType = containerExp->mDecType->mBase;
+							bodyExp->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+							bodyExp->mRight->mLeft->mDecType = iterVarDec->mBase;
+							bodyExp->mRight->mLeft->mDecValue = iterVarDec;
+						}
+						else if (containerExp->mDecType->mType == DT_TYPE_STRUCT)
+						{
+							Declaration* fbegin = containerExp->mDecType->mScope->Lookup(Ident::Unique("begin"));
+							Declaration* fend = containerExp->mDecType->mScope->Lookup(Ident::Unique("end"));
+
+							if (fbegin && fend)
+							{
+								Expression* cexp = new Expression(mScanner->mLocation, EX_PREFIX);
+								cexp->mToken = TK_BINARY_AND;
+								cexp->mDecType = containerExp->mDecType->BuildPointer(mScanner->mLocation);
+								cexp->mLeft = containerExp;
+
+								Declaration* iterVarDec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+								iterVarDec->mBase = fbegin->mBase->mBase->NonRefBase();
+								iterVarDec->mVarIndex = mLocalIndex++;
+								iterVarDec->mSize = iterVarDec->mBase->mSize;
+								iterVarDec->mFlags |= DTF_DEFINED;
+
+								Declaration* endVarDec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+								endVarDec->mBase = fend->mBase->mBase->NonRefBase();
+								endVarDec->mVarIndex = mLocalIndex++;
+								endVarDec->mSize = endVarDec->mBase->mSize;
+								endVarDec->mFlags |= DTF_DEFINED;
+
+								Declaration* valueVarDec = initExp->mDecValue;
+
+								initExp = new Expression(mScanner->mLocation, EX_LIST);
+								initExp->mLeft = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+								initExp->mLeft->mToken = TK_ASSIGN;
+								initExp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+								initExp->mLeft->mLeft->mDecType = iterVarDec->mBase;
+								initExp->mLeft->mLeft->mDecValue = iterVarDec;
+								initExp->mLeft->mRight = new Expression(mScanner->mLocation, EX_CALL);
+								initExp->mLeft->mRight->mDecType = fbegin->mBase->mBase;
+								initExp->mLeft->mRight->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+								initExp->mLeft->mRight->mLeft->mDecType = fbegin->mBase;
+								initExp->mLeft->mRight->mLeft->mDecValue = fbegin;
+								initExp->mLeft->mRight->mRight = cexp;
+
+								initExp->mRight = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+								initExp->mRight->mToken = TK_ASSIGN;
+								initExp->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+								initExp->mRight->mLeft->mDecType = endVarDec->mBase;
+								initExp->mRight->mLeft->mDecValue = endVarDec;
+								initExp->mRight->mRight = new Expression(mScanner->mLocation, EX_CALL);
+								initExp->mRight->mRight->mDecType = fend->mBase->mBase;
+								initExp->mRight->mRight->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+								initExp->mRight->mRight->mLeft->mDecType = fend->mBase;
+								initExp->mRight->mRight->mLeft->mDecValue = fend;
+								initExp->mRight->mRight->mRight = cexp;
+
+								iterateExp = new Expression(mScanner->mLocation, EX_PREINCDEC);
+								iterateExp->mToken = TK_INC;
+								iterateExp->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+								iterateExp->mLeft->mDecType = iterVarDec->mBase;
+								iterateExp->mLeft->mDecValue = iterVarDec;
+								iterateExp = CheckOperatorOverload(iterateExp);
+
+								conditionExp = new Expression(mScanner->mLocation, EX_RELATIONAL);
+								conditionExp->mToken = TK_NOT_EQUAL;
+								conditionExp->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+								conditionExp->mLeft->mDecType = iterVarDec->mBase;
+								conditionExp->mLeft->mDecValue = iterVarDec;
+								conditionExp->mRight = new Expression(mScanner->mLocation, EX_VARIABLE);
+								conditionExp->mRight->mDecType = endVarDec->mBase;
+								conditionExp->mRight->mDecValue = endVarDec;
+								conditionExp = CheckOperatorOverload(conditionExp);
+
+								bodyExp = new Expression(mScanner->mLocation, EX_ASSIGNMENT);
+								bodyExp->mToken = TK_ASSIGN;
+								bodyExp->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+
+								bodyExp->mRight = new Expression(mScanner->mLocation, EX_PREFIX);
+								bodyExp->mRight->mToken = TK_MUL;
+								bodyExp->mRight->mDecType = valueVarDec->mBase;
+								bodyExp->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+								bodyExp->mRight->mLeft->mDecType = iterVarDec->mBase;
+								bodyExp->mRight->mLeft->mDecValue = iterVarDec;
+								bodyExp->mRight = CheckOperatorOverload(bodyExp->mRight);
+
+								if (valueVarDec->mBase->mType == DT_TYPE_AUTO)
+									valueVarDec->mBase = bodyExp->mRight->mDecType->NonRefBase();
+
+								bodyExp->mLeft->mDecType = valueVarDec->mBase;
+								bodyExp->mLeft->mDecValue = valueVarDec;
+								bodyExp = CheckOperatorOverload(bodyExp);
+							}
+							else
+								mErrors->Error(containerExp->mLocation, EERR_INCOMPATIBLE_TYPES, "Array or container expected");
+						}
+						else
+							mErrors->Error(containerExp->mLocation, EERR_INCOMPATIBLE_TYPES, "Array or container expected");
+					}
+					else
+						mErrors->Error(initExp->mLocation, EERR_INCOMPATIBLE_TYPES, "Variable expected");
+				}
 				else
-					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
-				bodyExp = ParseStatement();
+				{
+					if (mScanner->mToken == TK_SEMICOLON)
+						mScanner->NextToken();
+					else
+						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+
+					// Condition
+					if (mScanner->mToken != TK_SEMICOLON)
+						conditionExp = CoerceExpression(CleanupExpression(ParseExpression(false)), TheBoolTypeDeclaration);
+
+					if (mScanner->mToken == TK_SEMICOLON)
+						mScanner->NextToken();
+					else
+						mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "';' expected");
+
+					// Iteration
+					if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
+						iterateExp = CleanupExpression(ParseExpression(false));
+				}
+
+				ConsumeToken(TK_CLOSE_PARENTHESIS);
+
+				Expression * innerExp = ParseStatement();
+				if (bodyExp)
+				{
+					Expression* exp = new Expression(bodyExp->mLocation, EX_SEQUENCE);
+					exp->mLeft = bodyExp;
+					exp->mRight = innerExp;
+					bodyExp = exp;
+				}
+				else
+					bodyExp = innerExp;
+
 				mScope->End(mScanner->mLocation);
 
 				exp->mLeft = new Expression(mScanner->mLocation, EX_SEQUENCE);

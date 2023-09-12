@@ -956,6 +956,14 @@ Declaration* Declaration::BuildRValueRef(const Location& loc)
 	return pdec;
 }
 
+Declaration* Declaration::NonRefBase(void)
+{
+	if (IsReference())
+		return mBase;
+	else
+		return this;
+}
+
 Declaration* Declaration::BuildConstRValueRef(const Location& loc)
 {
 	Declaration* pdec = new Declaration(loc, DT_TYPE_RVALUEREF);
