@@ -4168,20 +4168,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			if (ConsumeTokenIf(TK_ASSIGN))
 			{
 				ndec->mValue = ParseInitExpression(ndec->mBase);
-				if (ndec->mBase->mType == DT_TYPE_AUTO)
-				{
-					if (ndec->mBase->mFlags & DTF_CONST)
-						ndec->mBase = ndec->mValue->mDecType->ToConstType();
-					else
-						ndec->mBase = ndec->mValue->mDecType;
-
-					if (ndec->mBase->mType == DT_TYPE_ARRAY)
-					{
-						ndec->mBase = ndec->mBase->Clone();
-						ndec->mBase->mType = DT_TYPE_POINTER;
-						ndec->mBase->mSize = 2;
-					}
-				}
+				ndec->mBase = ndec->mBase->DeduceAuto(ndec->mValue->mDecType);
 
 				if (ndec->mFlags & DTF_GLOBAL)
 				{
@@ -7055,6 +7042,71 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 				}
 			}
 		}
+		else if (exp->mType == EX_INITIALIZATION)
+		{
+			Declaration* tdec = exp->mLeft->mDecType;
+			if (tdec->mType == DT_TYPE_STRUCT && exp->mToken == TK_ASSIGN)
+			{
+				Declaration* fcons = tdec->mScope ? tdec->mScope->Lookup(tdec->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
+				if (fcons)
+				{
+					Declaration* mtype = tdec->ToMutableType();
+
+					Expression* vexp = exp->mLeft;
+
+					Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					cexp->mDecValue = fcons;
+					cexp->mDecType = cexp->mDecValue->mBase;
+
+					Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+					fexp->mLeft = cexp;
+					fexp->mRight = exp->mRight;
+
+					Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+					texp->mToken = TK_BINARY_AND;
+					texp->mLeft = vexp;
+					texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+					texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+					texp->mDecType->mBase = mtype;
+					texp->mDecType->mSize = 2;
+
+					if (fexp->mRight)
+					{
+						Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+						lexp->mLeft = texp;
+						lexp->mRight = fexp->mRight;
+						fexp->mRight = lexp;
+					}
+					else
+						fexp->mRight = texp;
+
+					fexp = ResolveOverloadCall(fexp);
+
+					Expression* dexp = nullptr;
+					if (tdec->mDestructor)
+					{
+						Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+						cexp->mDecValue = tdec->mDestructor;
+						cexp->mDecType = cexp->mDecValue->mBase;
+
+						dexp = new Expression(mScanner->mLocation, EX_CALL);
+						dexp->mLeft = cexp;
+						dexp->mRight = texp;
+					}
+
+					Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
+
+					nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
+					nexp->mLeft->mLeft = fexp;
+					nexp->mLeft->mRight = dexp;
+
+					nexp->mRight = vexp;
+					nexp->mDecType = vexp->mDecType;
+
+					exp = nexp;
+				}
+			}
+		}
 		else if (exp->mType == EX_INDEX)
 		{
 			Declaration* tdec = exp->mLeft->mDecType;
@@ -7690,8 +7742,8 @@ Expression* Parser::ParseStatement(void)
 							endVarDec->mFlags |= DTF_DEFINED;
 
 							Declaration* valueVarDec = initExp->mDecValue;
-							if (valueVarDec->mBase->mType == DT_TYPE_AUTO)
-								valueVarDec->mBase = containerExp->mDecType->mBase;
+							valueVarDec->mBase = valueVarDec->mBase->DeduceAuto(containerExp->mDecType->mBase);
+							valueVarDec->mSize = valueVarDec->mBase->mSize;
 
 							initExp = new Expression(mScanner->mLocation, EX_LIST);
 							initExp->mLeft = new Expression(mScanner->mLocation, EX_INITIALIZATION);
@@ -7814,7 +7866,7 @@ Expression* Parser::ParseStatement(void)
 								conditionExp->mRight->mDecValue = endVarDec;
 								conditionExp = CheckOperatorOverload(conditionExp);
 
-								bodyExp = new Expression(mScanner->mLocation, EX_ASSIGNMENT);
+								bodyExp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
 								bodyExp->mToken = TK_ASSIGN;
 								bodyExp->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
 
@@ -7826,8 +7878,8 @@ Expression* Parser::ParseStatement(void)
 								bodyExp->mRight->mLeft->mDecValue = iterVarDec;
 								bodyExp->mRight = CheckOperatorOverload(bodyExp->mRight);
 
-								if (valueVarDec->mBase->mType == DT_TYPE_AUTO)
-									valueVarDec->mBase = bodyExp->mRight->mDecType->NonRefBase();
+								valueVarDec->mBase = valueVarDec->mBase->DeduceAuto(bodyExp->mRight->mDecType);
+								valueVarDec->mSize = valueVarDec->mBase->mSize;
 
 								bodyExp->mLeft->mDecType = valueVarDec->mBase;
 								bodyExp->mLeft->mDecValue = valueVarDec;

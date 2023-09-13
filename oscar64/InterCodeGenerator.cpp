@@ -2034,13 +2034,19 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (vl.mType->IsReference())
 			{
-				vr = Dereference(proc, exp, block, vr, 1);
+				if (vr.mType->IsReference())
+					vr = Dereference(proc, exp, block, vr, 0);
+				else
+				{
+					vr = Dereference(proc, exp, block, vr, 1);
+					if (vr.mReference != 1)
+						mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
+				}
+
 				vl = Dereference(proc, exp, block, vl, 2);
 
 				if (vl.mReference != 2)
 					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not a left hand reference expression");
-				if (vr.mReference != 1)
-					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 				if (vr.mTemp != vl.mTemp)
 				{

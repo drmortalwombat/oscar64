@@ -310,6 +310,7 @@ public:
 	Declaration* BuildRValueRef(const Location& loc);
 	Declaration* BuildConstRValueRef(const Location& loc);
 	Declaration* NonRefBase(void);
+	Declaration* DeduceAuto(Declaration* dec);
 
 	DecType ValueType(void) const;
 

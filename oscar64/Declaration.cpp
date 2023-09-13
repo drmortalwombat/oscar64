@@ -964,6 +964,30 @@ Declaration* Declaration::NonRefBase(void)
 		return this;
 }
 
+Declaration* Declaration::DeduceAuto(Declaration * dec)
+{
+	if (mType == DT_TYPE_AUTO || IsReference() && mBase->mType == DT_TYPE_AUTO)
+	{
+		dec = dec->NonRefBase();
+
+		if (dec->mType == DT_TYPE_ARRAY)
+			dec = dec->mBase->BuildPointer(mLocation);
+
+		if (mFlags & DTF_CONST)
+			dec = dec->ToConstType();
+		else
+			dec = dec->ToMutableType();
+
+		if (IsReference())
+			dec = dec->BuildReference(mLocation);
+
+		return dec;
+	}
+	else
+		return this;
+}
+
+
 Declaration* Declaration::BuildConstRValueRef(const Location& loc)
 {
 	Declaration* pdec = new Declaration(loc, DT_TYPE_RVALUEREF);
