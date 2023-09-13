@@ -15,7 +15,7 @@ public:
 	DeclarationScope	*	mGlobals, * mScope, * mTemplateScope, * mCaptureScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
-	Declaration			*	mThisPointer, * mFunctionType, * mFunction, * mLambda;
+	Declaration			*	mThisPointer, * mFunctionType, * mFunction, * mLambda, * mTempVars;
 	Token					mCaptureToken;
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
@@ -35,6 +35,10 @@ protected:
 	int				mUnrollLoop;
 	bool			mUnrollLoopPage;
 	bool			mInlineCall;
+
+	Declaration* AllocTempVar(Declaration* type);
+	void FreeTempVar(Declaration* var);
+	void FreeTempVarExp(Expression* exp);
 
 	uint8* ParseStringLiteral(int msize);
 

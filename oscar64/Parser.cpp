@@ -23,6 +23,7 @@ Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUn
 	mFunctionType = nullptr;
 	mLambda = nullptr;
 	mCaptureScope = nullptr;
+	mTempVars = nullptr;
 
 	for (int i = 0; i < 256; i++)
 		mCharMap[i] = i;
@@ -3068,6 +3069,57 @@ static Expression* ConcatExpression(Expression* e1, Expression* e2)
 		return e2;
 }
 
+Declaration* Parser::AllocTempVar(Declaration* type)
+{
+	Declaration* ptemp = nullptr, * vtemp = mTempVars;
+	while (vtemp && !vtemp->mBase->IsSame(type))
+	{
+		ptemp = vtemp;
+		vtemp = vtemp->mNext;
+	}
+
+	if (vtemp)
+	{
+		if (ptemp)
+			ptemp->mNext = vtemp->mNext;
+		else
+			mTempVars = vtemp->mNext;
+		vtemp->mNext = nullptr;
+		vtemp->mValue = nullptr;
+	}
+	else
+	{
+		vtemp = new Declaration(mScanner->mLocation, DT_VARIABLE);
+		vtemp->mBase = type;
+		vtemp->mSize = type->mSize;
+		vtemp->mVarIndex = mLocalIndex++;
+		vtemp->mFlags |= DTF_DEFINED;
+	}
+
+	return vtemp;
+}
+
+void Parser::FreeTempVar(Declaration* var)
+{
+	var->mNext = mTempVars;
+	mTempVars = var;
+}
+
+void Parser::FreeTempVarExp(Expression* exp)
+{
+	if (exp->mType == EX_SEQUENCE)
+	{
+		FreeTempVarExp(exp->mLeft);
+		FreeTempVarExp(exp->mRight);
+	}
+	else if (exp->mType == EX_CALL && exp->mLeft->mType == EX_CONSTANT && 
+		exp->mRight->mType == EX_PREFIX && exp->mRight->mToken == TK_BINARY_AND && exp->mRight->mLeft->mType == EX_VARIABLE)
+	{
+		if (exp->mLeft->mDecValue->mIdent->mString[0] == '~' && exp->mRight->mLeft->mDecValue->mIdent == nullptr)
+			FreeTempVar(exp->mRight->mLeft->mDecValue);
+	}
+}
+
 Expression* Parser::CleanupExpression(Expression* exp)
 {
 	if (exp)
@@ -3078,6 +3130,8 @@ Expression* Parser::CleanupExpression(Expression* exp)
 			Expression* cexp = new Expression(exp->mLocation, EX_CLEANUP);
 			cexp->mLeft = exp;
 			cexp->mRight = xexp;
+
+			FreeTempVarExp(xexp);
 			return cexp;
 		}
 	}
@@ -3260,6 +3314,16 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 
 						rexp = ConcatExpression(rexp, dexp);
 					}
+				}
+				else if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && pex->mType == EX_CONSTRUCT && pex->mRight->mType == EX_VARIABLE)
+				{
+					// A constructed object is passed by reference
+
+					if (pex->mLeft->mRight)
+					{
+						rexp = ConcatExpression(rexp, pex->mLeft->mRight);
+						pex->mLeft->mRight = nullptr;
+					}					
 				}
 				else if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && pex->mType == EX_CONSTANT)
 				{
@@ -5740,12 +5804,15 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 
 				if (fcons)
 				{
+					Declaration* vdec = AllocTempVar(type->ToMutableType());
+#if 0
 					Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
 
 					vdec->mBase = type->ToMutableType();
 					vdec->mVarIndex = mLocalIndex++;
 					vdec->mSize = type->mSize;
 					vdec->mFlags |= DTF_DEFINED;
+#endif
 
 					Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
 					vexp->mDecType = vdec->mBase;
@@ -7534,6 +7601,7 @@ Expression* Parser::ParseFunction(Declaration * dec)
 		pdec = pdec->mNext;
 	}
 	mLocalIndex = 0;
+	mTempVars = nullptr;
 
 	Expression * exp = ParseStatement();
 
@@ -7876,7 +7944,10 @@ Expression* Parser::ParseStatement(void)
 								bodyExp->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
 								bodyExp->mRight->mLeft->mDecType = iterVarDec->mBase;
 								bodyExp->mRight->mLeft->mDecValue = iterVarDec;
-								bodyExp->mRight = CheckOperatorOverload(bodyExp->mRight);
+								if (iterVarDec->mBase->mType == DT_TYPE_POINTER)
+									bodyExp->mRight->mDecType = iterVarDec->mBase->mBase;
+								else
+									bodyExp->mRight = CheckOperatorOverload(bodyExp->mRight);
 
 								valueVarDec->mBase = valueVarDec->mBase->DeduceAuto(bodyExp->mRight->mDecType);
 								valueVarDec->mSize = valueVarDec->mBase->mSize;
