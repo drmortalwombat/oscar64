@@ -4836,7 +4836,7 @@ Expression* Parser::ParseLambdaExpression(void)
 	vdec->mBase = cdec;
 	vdec->mVarIndex = mLocalIndex++;
 	vdec->mSize = cdec->mSize;
-	vdec->mFlags |= DTF_DEFINED;
+	vdec->mFlags |= DTF_DEFINED | DTF_CONST;
 	vdec->mIdent = cdec->mIdent;
 
 	Expression* vexp = new Expression(mScanner->mLocation, EX_VARIABLE);
@@ -8365,6 +8365,25 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 
 		Declaration* ppdec = nullptr;
 		Declaration* pdec = tmpld->mParams;
+
+		// Carry over already specialized parameters
+		while (pdec && (pdec->mType != DT_TYPE_TEMPLATE && pdec->mType != DT_CONST_TEMPLATE))
+		{
+			Declaration* epdec = pdec->Clone();
+
+			tdec->mScope->Insert(epdec->mIdent, epdec->mBase);
+			epdec->mFlags |= DTF_DEFINED;
+
+			if (ppdec)
+				ppdec->mNext = epdec;
+			else
+				tdec->mParams = epdec;
+			ppdec = epdec;
+
+			pdec = pdec->mNext;
+		}
+
+		// Now to the new parameters
 		while (pdec)
 		{
 			Declaration* epdec = pdec->Clone();
@@ -8382,7 +8401,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 					epdec->mBase = TheVoidTypeDeclaration;
 				}
 			}
-			else
+			else if (epdec->mType == DT_CONST_TEMPLATE)
 			{
 				if (exp->mType == EX_CONSTANT && (exp->mDecValue->mType == DT_CONST_INTEGER || exp->mDecValue->mType == DT_CONST_TEMPLATE))
 					epdec->mBase = exp->mDecValue;
@@ -8400,12 +8419,24 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 			ppdec = epdec;
 
 			pdec = pdec->mNext;
-			if (pdec)
-				ConsumeToken(TK_COMMA);
+			if (pdec && !ConsumeTokenIf(TK_COMMA))
+				break;
 		}
 
 		ConsumeToken(TK_GREATER_THAN);
+
+		// Partial template arguments given
+		if (pdec)
+		{
+			if (ppdec)
+				ppdec->mNext = pdec;
+			else
+				tdec->mParams = pdec;
+		}
 	}
+
+	while (!tmpld->mTokens)
+		tmpld = tmpld->mNext;
 
 	Declaration* etdec = tmpld->mNext;
 	while (etdec && !etdec->IsSameParams(tdec))
@@ -8417,16 +8448,16 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 	else
 	{
 		Declaration* epdec = tdec->mParams;
-		while (epdec && epdec->mBase->mType != DT_TYPE_TEMPLATE && epdec->mBase->mType != DT_CONST_TEMPLATE)
+		while (epdec && epdec->mBase && epdec->mBase->mType != DT_TYPE_TEMPLATE && epdec->mBase->mType != DT_CONST_TEMPLATE)
 			epdec = epdec->mNext;
 
 		if (epdec)
 		{
 			// Partial template specification
-			Declaration * bdec = new Declaration(mScanner->mLocation, DT_TYPE_STRUCT);
+			Declaration * bdec = new Declaration(mScanner->mLocation, tmpld->mBase->mType);
 			tdec->mBase = bdec;
 			bdec->mTemplate = tdec;
-			bdec->mBase = tmpld->mBase;
+			bdec->mBase = tmpld->mBase->mBase;
 			tdec->mNext = tmpld;
 			bdec->mIdent = tdec->MangleIdent();
 

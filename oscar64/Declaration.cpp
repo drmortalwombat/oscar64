@@ -1095,9 +1095,14 @@ const Ident* Declaration::MangleIdent(void)
 			Declaration* dec = mParams;
 			while (dec)
 			{
-				const Ident* id = dec->mBase->MangleIdent();
+				const Ident* id;
+				if (dec->mBase)
+					id = dec->mBase->MangleIdent();
+				else
+					id = dec->MangleIdent();
 				if (id)
 					mMangleIdent = mMangleIdent->Mangle(id->mString);
+
 				dec = dec->mNext;
 				if (dec)
 					mMangleIdent = mMangleIdent->Mangle(",");
@@ -1178,6 +1183,15 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 {
 	Declaration* pdec = tdec->mBase->mParams;
 
+	// Insert partially resolved templates
+	Declaration* ptdec = tdec->mTemplate->mParams;
+	while (ptdec)
+	{
+		if (ptdec->mBase)
+			mScope->Insert(ptdec->mIdent, ptdec->mBase);
+		ptdec = ptdec->mNext;
+	}
+
 	while (pexp)
 	{
 		Expression* ex = pexp;
@@ -1201,7 +1215,7 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 	}
 
 	Declaration* ppdec = nullptr;
-	Declaration* ptdec = tdec->mTemplate->mParams;
+	ptdec = tdec->mTemplate->mParams;
 	while (ptdec)
 	{
 		Declaration* pdec = mScope->Lookup(ptdec->mIdent);
@@ -1785,6 +1799,8 @@ bool Declaration::IsSameParams(const Declaration* dec) const
 				if (ld->mValue != rd->mValue)
 					return false;
 			}
+			else if (ld->mType == DT_TYPE_TEMPLATE || ld->mType == DT_CONST_TEMPLATE)
+				return false;
 			else if (!ld->mBase->IsSame(rd->mBase))
 				return false;
 			ld = ld->mNext;

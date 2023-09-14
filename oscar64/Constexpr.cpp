@@ -570,7 +570,8 @@ Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 		else if (pex->mType == EX_VARIABLE && (pex->mDecValue->mFlags & DTF_CONST))
 		{
 			mParams[pos] = Value(pex->mLocation, pex->mDecValue->mBase);
-			mParams[pos].PutConst(0, pex->mDecValue->mValue->mDecValue);
+			if (pex->mDecValue->mSize > 0)
+				mParams[pos].PutConst(0, pex->mDecValue->mValue->mDecValue);
 		}
 		else
 			return exp;
