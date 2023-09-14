@@ -106,6 +106,8 @@ protected:
 	void ExpandFunctionCallTemplate(Expression* exp);
 
 	void ParseTemplateDeclaration(void);
+	Declaration* FunctionAutoParamsToTemplate(Declaration* fdec);
+
 	Declaration* ParseTemplateExpansion(Declaration* tmpld, Declaration* expd);
 	void CompleteTemplateExpansion(Declaration* tmpld);
 

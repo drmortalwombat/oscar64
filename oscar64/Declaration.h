@@ -92,24 +92,25 @@ static const uint64 DTF_TEMPORARY		= (1ULL << 29);
 static const uint64	DTF_COMPLETED		= (1ULL << 30);
 static const uint64	DTF_CONSTEXPR		= (1ULL << 31);
 
-static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
-static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
-static const uint64 DTF_FUNC_RECURSIVE  = (1ULL << 34);
-static const uint64 DTF_FUNC_ANALYZING  = (1ULL << 35);
+static const uint64 DTF_AUTO_TEMPLATE	= (1ULL << 32);
 
-static const uint64 DTF_FUNC_CONSTEXPR	= (1ULL << 36);
-static const uint64 DTF_FUNC_INTRSAVE   = (1ULL << 37);
-static const uint64 DTF_FUNC_INTRCALLED = (1ULL << 38);
-static const uint64 DTF_FUNC_PURE		= (1ULL << 39);
+static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 36);
+static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 37);
+static const uint64 DTF_FUNC_RECURSIVE  = (1ULL << 38);
+static const uint64 DTF_FUNC_ANALYZING  = (1ULL << 39);
 
-static const uint64 DTF_FPARAM_CONST	= (1ULL << 40);
-static const uint64 DTF_FPARAM_NOCONST	= (1ULL << 41);
-static const uint64 DTF_VAR_ADDRESS		= (1ULL << 42);
+static const uint64 DTF_FUNC_CONSTEXPR	= (1ULL << 40);
+static const uint64 DTF_FUNC_INTRSAVE   = (1ULL << 41);
+static const uint64 DTF_FUNC_INTRCALLED = (1ULL << 42);
+static const uint64 DTF_FUNC_PURE		= (1ULL << 43);
 
-static const uint64 DTF_FUNC_THIS		= (1ULL << 43);
+static const uint64 DTF_FPARAM_CONST	= (1ULL << 44);
+static const uint64 DTF_FPARAM_NOCONST	= (1ULL << 45);
+static const uint64 DTF_VAR_ADDRESS		= (1ULL << 46);
+
+static const uint64 DTF_FUNC_THIS		= (1ULL << 47);
 
 static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
-
 
 
 class Declaration;
@@ -311,12 +312,15 @@ public:
 	Declaration* BuildConstRValueRef(const Location& loc);
 	Declaration* NonRefBase(void);
 	Declaration* DeduceAuto(Declaration* dec);
+	bool IsAuto(void) const;
 
 	DecType ValueType(void) const;
 
 	bool CanResolveTemplate(Expression* pexp, Declaration* tdec);
 	bool ResolveTemplate(Declaration* fdec, Declaration * tdec);
 	bool ResolveTemplate(Expression* pexp, Declaration* tdec);
+
+	Declaration* ExpandTemplate(DeclarationScope* scope);
 
 	const Ident* MangleIdent(void);
 

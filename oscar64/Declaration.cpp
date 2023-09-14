@@ -883,7 +883,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 
 Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr), mMangleIdent(nullptr),
-	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
+	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), mNumVars(0),
 	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr),
 	mConst(nullptr), mMutable(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
@@ -962,6 +962,11 @@ Declaration* Declaration::NonRefBase(void)
 		return mBase;
 	else
 		return this;
+}
+
+bool Declaration::IsAuto(void) const
+{
+	return (mType == DT_TYPE_AUTO || IsReference() && mBase->mType == DT_TYPE_AUTO);
 }
 
 Declaration* Declaration::DeduceAuto(Declaration * dec)
@@ -1112,6 +1117,61 @@ const Ident* Declaration::MangleIdent(void)
 	}
 
 	return mMangleIdent;
+}
+
+Declaration* Declaration::ExpandTemplate(DeclarationScope* scope)
+{
+	if (mType == DT_CONST_FUNCTION)
+	{
+		Declaration* dec = this->Clone();
+		dec->mBase = dec->mBase->ExpandTemplate(scope);
+		return dec;
+	}
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		Declaration* dec = this->Clone();
+		dec->mParams = mParams ? mParams->ExpandTemplate(scope) : nullptr;
+		dec->mBase = mBase->ExpandTemplate(scope);
+		Declaration* pdec = dec->mParams;
+		if (pdec)
+		{
+			int	vi = pdec->mVarIndex;
+			while (pdec)
+			{
+				pdec->mVarIndex = vi;
+				vi += pdec->mSize;
+				pdec = pdec->mNext;
+			}
+		}
+		return dec;
+	}
+	else if (mType == DT_ARGUMENT)
+	{
+		Declaration* ndec = mNext ? mNext->ExpandTemplate(scope) : nullptr;
+		Declaration* bdec = mBase->ExpandTemplate(scope);
+		if (ndec != mNext || bdec != mBase)
+		{
+			Declaration* dec = this->Clone();
+			dec->mBase = bdec;
+			dec->mSize = bdec->mSize;
+			dec->mNext = ndec;
+			return dec;
+		}
+	}
+	else if (mType == DT_TYPE_REFERENCE || mType == DT_TYPE_POINTER || mType == DT_TYPE_RVALUEREF)
+	{
+		Declaration* bdec = mBase->ExpandTemplate(scope);
+		if (bdec != mBase)
+		{
+			Declaration* dec = this->Clone();
+			dec->mBase = bdec;
+			return dec;
+		}
+	}
+	else if (mType == DT_TYPE_TEMPLATE)
+		return scope->Lookup(mIdent);
+
+	return this;
 }
 
 bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)

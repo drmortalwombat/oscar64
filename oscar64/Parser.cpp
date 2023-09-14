@@ -2142,7 +2142,6 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mVarIndex = -1;
 
 			cdec->mFlags |= DTF_DEFINED;
-			cdec->mNumVars = mLocalIndex;
 
 			cdec->mValue = new Expression(mScanner->mLocation, EX_VOID);
 		}
@@ -2186,7 +2185,6 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mVarIndex = -1;
 
 			cdec->mFlags |= DTF_DEFINED;
-			cdec->mNumVars = mLocalIndex;
 
 			cdec->mValue = new Expression(mScanner->mLocation, EX_VOID);
 		}
@@ -2355,7 +2353,6 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			}
 
 			cdec->mFlags |= DTF_DEFINED;
-			cdec->mNumVars = mLocalIndex;
 		}
 	}
 
@@ -2528,8 +2525,6 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			}
 
 			cdec->mFlags |= DTF_DEFINED;
-			cdec->mNumVars = mLocalIndex;
-
 		}
 	}
 
@@ -2576,7 +2571,6 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		cdec->mVarIndex = -1;
 
 		cdec->mFlags |= DTF_DEFINED;
-		cdec->mNumVars = mLocalIndex;
 
 		Expression* pexp = new Expression(mScanner->mLocation, EX_VARIABLE);
 		pexp->mDecType = vthis;
@@ -2653,7 +2647,6 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		cdec->mVarIndex = -1;
 
 		cdec->mFlags |= DTF_DEFINED;
-		cdec->mNumVars = mLocalIndex;
 
 		Expression* pexp = new Expression(mScanner->mLocation, EX_VARIABLE);
 		pexp->mDecType = vthis;
@@ -2739,7 +2732,6 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		cdec->mVarIndex = -1;
 
 		cdec->mFlags |= DTF_DEFINED;
-		cdec->mNumVars = mLocalIndex;
 
 		Expression* pexp = new Expression(mScanner->mLocation, EX_VARIABLE);
 		pexp->mDecType = vthis;
@@ -2843,7 +2835,6 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 		cdec->mVarIndex = -1;
 
 		cdec->mFlags |= DTF_DEFINED;
-		cdec->mNumVars = mLocalIndex;
 
 		Expression* pexp = new Expression(mScanner->mLocation, EX_VARIABLE);
 		pexp->mDecType = vthis;
@@ -3451,8 +3442,10 @@ void Parser::ParseVariableInit(Declaration* ndec)
 	{
 		ndec->mValue = pexp;
 	}
-	else
+	else if (pexp)
 		mErrors->Error(pexp->mLocation, EERR_INCOMPATIBLE_TYPES, "Can not initialize variable with expression", ndec->mIdent);
+	else
+		mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_TYPES, "Can not initialize variable with expression", ndec->mIdent);
 }
 
 Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, Declaration* pthis, Declaration* ptempl)
@@ -4028,6 +4021,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 					if (mCompilerOptions & COPT_NATIVE)
 						ndec->mFlags |= DTF_NATIVE;
+
+					Declaration* ntdec = FunctionAutoParamsToTemplate(ndec);
+					if (ntdec)
+						return ntdec;
 				}
 
 				if (ndec->mIdent)
@@ -4603,6 +4600,7 @@ Expression* Parser::ParseLambdaExpression(void)
 	Declaration* fdec = new Declaration(mScanner->mLocation, DT_CONST_FUNCTION);
 	fdec->mIdent = Ident::Unique("operator()");
 	fdec->mQualIdent = cdec->mScope->Mangle(fdec->mIdent);
+	fdec->mCompilerOptions = mCompilerOptions;
 	cdec->mScope->Insert(fdec->mIdent, fdec);
 
 	Declaration* pdec = new Declaration(mScanner->mLocation, DT_ARGUMENT);
@@ -4727,6 +4725,7 @@ Expression* Parser::ParseLambdaExpression(void)
 
 	fdec->mVarIndex = -1;
 
+
 	int	li = mLocalIndex;
 
 	DeclarationScope * oscope = mCaptureScope;
@@ -4735,7 +4734,13 @@ Expression* Parser::ParseLambdaExpression(void)
 	while (mScope->mLevel >= SLEVEL_NAMESPACE)
 		mScope = mScope->mParent;
 
-	fdec->mValue = ParseFunction(fdec->mBase);
+	Declaration* tfdec = FunctionAutoParamsToTemplate(fdec);
+	if (tfdec)
+	{
+		fdec = tfdec;
+	}
+	else
+		fdec->mValue = ParseFunction(fdec->mBase);
 
 	mScope = mCaptureScope;
 	mLambda = olambda;
@@ -5548,9 +5553,7 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 	{
 		Declaration* tdec = new Declaration(mScanner->mLocation, DT_TEMPLATE);
 		tdec->mScope = new DeclarationScope(nullptr, SLEVEL_TEMPLATE);
-		if (tdec->CanResolveTemplate(pexp, fdec))
-			return 16;
-		else
+		if (!tdec->CanResolveTemplate(pexp, fdec))
 			return NOOVERLOAD;
 	}
 
@@ -5576,27 +5579,31 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 			if (etype->mType == DT_TYPE_REFERENCE)
 				etype = etype->mBase;
 
-			if (ptype->mType == DT_TYPE_INTEGER && etype->mType == DT_TYPE_INTEGER)
+			if (ptype->mType == DT_TYPE_TEMPLATE)
+			{
+				dist += 1;
+			}
+			else if (ptype->mType == DT_TYPE_INTEGER && etype->mType == DT_TYPE_INTEGER)
 			{
 				if (ptype->mSize == etype->mSize)
 				{
 					if ((ptype->mFlags & DTF_SIGNED) == (etype->mFlags & DTF_SIGNED))
 						dist += 0;
 					else
-						dist += 4;
+						dist += 8;
 				}
 				else if (ptype->mSize > etype->mSize)
 				{
 					if (ptype->mFlags & DTF_SIGNED)
 					{
-						dist += 1;
+						dist += 2;
 					}
 					else if (etype->mFlags & DTF_SIGNED)
 					{
-						dist += 4;
+						dist += 8;
 					}
 					else
-						dist += 1;
+						dist += 2;
 				}
 				else if (ex->mType == EX_CONSTANT && ex->mDecValue->mType == DT_CONST_INTEGER)
 				{
@@ -5605,53 +5612,53 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 					if (ptype->mFlags & DTF_SIGNED)
 					{
 						if (v >= -128 && v <= 127)
-							dist += 1;
+							dist += 2;
 						else if (ptype->mSize >= 2 && v >= -32768 && v <= 32767)
-							dist += 1;
+							dist += 2;
 						else if (ptype->mSize == 4)
-							dist += 1;
+							dist += 2;
 						else
-							dist += 16;
+							dist += 32;
 					}
 					else if (v >= 0)
 					{
 						if (v <= 255)
-							dist += 1;
+							dist += 2;
 						else if (ptype->mSize >= 2 && v <= 65535)
-							dist += 1;
+							dist += 2;
 						else if (ptype->mSize == 4)
-							dist += 1;
+							dist += 2;
 						else
-							dist += 16;
+							dist += 32;
 					}
 					else
-						dist += 16;
+						dist += 32;
 				}
 				else
-					dist += 16;
+					dist += 32;
 			}
 			else if (ptype->mType == DT_TYPE_FLOAT && etype->mType == DT_TYPE_FLOAT)
 				dist += 0;
 			else if (ptype->mType == DT_TYPE_INTEGER && etype->mType == DT_TYPE_FLOAT)
-				dist += 8;
+				dist += 16;
 			else if (ptype->mType == DT_TYPE_FLOAT && etype->mType == DT_TYPE_INTEGER)
-				dist += 4;
+				dist += 8;
 			else if (ptype->IsSame(ex->mDecType))
 				;
 			else if (CanCoerceExpression(ex, ptype))
 			{
 				dist += 512;
 				if (ptype->mType == DT_TYPE_REFERENCE)
-					dist += 4;
+					dist += 8;
 				else if (ptype->mType == DT_TYPE_RVALUEREF)
-					dist += 2;
+					dist += 4;
 			}
 			else if (ptype->mType == DT_TYPE_REFERENCE && ptype->mBase->mType == DT_TYPE_STRUCT && etype->mType == DT_TYPE_STRUCT)
 			{
 				if (ex->IsLValue())
-					dist += 2;
-				else if (ptype->mBase->mFlags & DTF_CONST)
 					dist += 4;
+				else if (ptype->mBase->mFlags & DTF_CONST)
+					dist += 8;
 				else
 					return NOOVERLOAD;
 
@@ -5668,13 +5675,13 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 					if ((etype->mFlags & DTF_CONST) && !(ptype->mBase->mFlags & DTF_CONST))
 						return NOOVERLOAD;
 
-					dist += 16 * ncast;
+					dist += 32 * ncast;
 				}
 				else
 					return NOOVERLOAD;
 			}
 			else if (ptype->mType == DT_TYPE_POINTER && (etype->mType == DT_TYPE_ARRAY || etype->mType == DT_TYPE_POINTER) && ptype->mBase->IsSameMutable(etype->mBase))
-				dist += 1;
+				dist += 2;
 			else if (ptype->mType == DT_TYPE_POINTER && etype->mType == DT_TYPE_FUNCTION && ptype->mBase->IsSame(etype))
 				dist += 0;
 			else if (ptype->mType == DT_TYPE_POINTER && etype->mType == DT_TYPE_POINTER && etype->mBase->mType == DT_TYPE_VOID)
@@ -5683,14 +5690,14 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 				dist += 256;
 			else if (ptype->mType == DT_TYPE_RVALUEREF && ptype->mBase->IsSameMutable(etype) && ex->IsRValue())
 			{
-				dist += 1;
+				dist += 2;
 			}
 			else if (ptype->mType == DT_TYPE_REFERENCE && ptype->mBase->IsSameMutable(etype))
 			{
 				if (ex->IsLValue())
-					dist += 2;
-				else if (ptype->mBase->mFlags & DTF_CONST)
 					dist += 4;
+				else if (ptype->mBase->mFlags & DTF_CONST)
+					dist += 8;
 				else
 					return NOOVERLOAD;
 			}
@@ -8337,7 +8344,6 @@ Expression* Parser::ParseSwitchStatement(void)
 
 Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* expd)
 {
-
 	Declaration	* tdec = new Declaration(mScanner->mLocation, DT_TEMPLATE);
 	tdec->mScope = new DeclarationScope(nullptr, SLEVEL_TEMPLATE);
 
@@ -8436,7 +8442,35 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 		tmpld->mNext = tdec;
 
 		p->mTemplateScope = tdec->mScope;
-		tdec->mBase = p->ParseDeclaration(nullptr, true, false, nullptr, tdec);
+		if (tmpld->mFlags & DTF_AUTO_TEMPLATE)
+		{
+			Declaration	*	ndec = tmpld->mBase->ExpandTemplate(tdec->mScope);
+
+			Declaration* pdec = tmpld->mBase;
+			
+			if (pdec)
+			{
+				Declaration* pcdec = nullptr;
+
+				while (pdec && !ndec->mBase->IsSameParams(pdec->mBase))
+				{
+					pcdec = pdec;
+					pdec = pdec->mNext;
+				}
+
+				if (!pdec)
+					pcdec->mNext = ndec;
+			}
+
+			tdec->mBase = ndec;
+			ndec->mValue = p->ParseFunction(ndec->mBase);
+			ndec->mFlags |= DTF_DEFINED;
+
+			ndec->mIdent = ndec->mIdent->Mangle(tdec->mScope->mName->mString);
+			ndec->mQualIdent = ndec->mQualIdent->Mangle(tdec->mScope->mName->mString);
+		}
+		else
+			tdec->mBase = p->ParseDeclaration(nullptr, true, false, nullptr, tdec);
 		p->mTemplateScope = nullptr;
 
 		if (tdec->mBase->mType == DT_ANON)
@@ -8502,6 +8536,107 @@ void Parser::CompleteTemplateExpansion(Declaration* tmpld)
 	}
 }
 
+
+Declaration* Parser::FunctionAutoParamsToTemplate(Declaration* fdec)
+{
+	Declaration* pdec = fdec->mBase->mParams;
+	while (pdec && !pdec->mBase->IsAuto())
+		pdec = pdec->mNext;
+
+	if (pdec)
+	{
+		Declaration* tdec = new Declaration(fdec->mLocation, DT_TEMPLATE);
+		tdec->mParser = this->Clone();
+		tdec->mScope = new DeclarationScope(nullptr, SLEVEL_TEMPLATE);
+		Declaration* ppdec = nullptr;
+
+		int	ntp = 0;
+		pdec = fdec->mBase->mParams;
+		while (pdec)
+		{
+			Declaration* ptdec = nullptr;
+
+			if (pdec->mBase->mType == DT_TYPE_AUTO)
+			{
+				ptdec = new Declaration(mScanner->mLocation, DT_TYPE_TEMPLATE);
+				pdec->mBase = ptdec;
+			}
+			else if (pdec->mBase->IsReference() && pdec->mBase->mBase->mType == DT_TYPE_AUTO)
+			{
+				ptdec = new Declaration(mScanner->mLocation, DT_TYPE_TEMPLATE);
+				pdec->mBase->mBase = ptdec;
+			}
+
+			if (ptdec)
+			{
+				ptdec->mIdent = Ident::Unique("T" + ntp++);
+				tdec->mScope->Insert(ptdec->mIdent, ptdec);
+				ptdec->mFlags |= DTF_DEFINED;
+
+				if (ppdec)
+					ppdec->mNext = ptdec;
+				else
+					tdec->mParams = ptdec;
+				ppdec = ptdec;
+			}
+
+			pdec = pdec->mNext;
+		}
+
+		fdec->mCompilerOptions = mCompilerOptions;
+		fdec->mBase->mCompilerOptions = mCompilerOptions;
+
+		tdec->mBase = fdec;
+		fdec->mTemplate = tdec;
+
+		mScanner->BeginRecord();
+
+		if (ConsumeTokenIf(TK_OPEN_BRACE))
+		{
+			int	qdepth = 1;
+			while (qdepth)
+			{
+				if (ConsumeTokenIf(TK_OPEN_BRACE))
+					qdepth++;
+				else if (ConsumeTokenIf(TK_CLOSE_BRACE))
+					qdepth--;
+				else
+					mScanner->NextToken();
+			}
+		}
+
+		tdec->mTokens = mScanner->CompleteRecord();
+
+		tdec->mIdent = tdec->mBase->mIdent;
+		tdec->mQualIdent = tdec->mBase->mQualIdent;
+		tdec->mScope->mName = tdec->mQualIdent;
+		tdec->mFlags |= DTF_AUTO_TEMPLATE;
+
+		if (tdec->mQualIdent == mScope->Mangle(tdec->mIdent))
+			mScope->Insert(tdec->mIdent, tdec->mBase);
+
+		Declaration* pdec = mCompilationUnits->mScope->Insert(tdec->mQualIdent, tdec->mBase);
+		if (pdec)
+		{
+			Declaration* ppdec = pdec;
+			while (pdec && !pdec->IsSameTemplate(tdec->mBase))
+			{
+				ppdec = pdec;
+				pdec = pdec->mNext;
+			}
+
+			if (!pdec)
+			{
+				ppdec->mNext = tdec->mBase;
+				tdec->mBase->mNext = nullptr;
+			}
+		}
+
+		return fdec;
+	}
+	else
+		return nullptr;
+}
 
 void Parser::ParseTemplateDeclaration(void)
 {

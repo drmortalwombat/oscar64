@@ -159,7 +159,7 @@ void GlobalAnalyzer::AutoInline(void)
 					dec = dec->mNext;
 				}
 
-				int	cost = (f->mComplexity - 20 * nparams);
+				int	cost = (f->mComplexity - 20 * nparams - 20);
 
 //				printf("CHEK INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
 
