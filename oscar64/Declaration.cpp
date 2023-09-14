@@ -1799,7 +1799,7 @@ bool Declaration::IsSameParams(const Declaration* dec) const
 				if (ld->mValue != rd->mValue)
 					return false;
 			}
-			else if (ld->mType == DT_TYPE_TEMPLATE || ld->mType == DT_CONST_TEMPLATE)
+			else if (!ld->mBase || !rd->mBase)
 				return false;
 			else if (!ld->mBase->IsSame(rd->mBase))
 				return false;

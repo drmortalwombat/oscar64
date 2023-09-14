@@ -68,6 +68,10 @@ Supported Features:
 * default parameters for class members and functions
 * templates
 * vector, array and list template classes
+* lambda functions
+* auto variables, parameters and return types
+* for range loop
+* constexpr compile time evaluation
 
 ## Installation and Usage
 
