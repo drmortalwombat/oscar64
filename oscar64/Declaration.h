@@ -299,6 +299,7 @@ public:
 	bool IsNumericType(void) const;
 	bool IsSimpleType(void) const;
 	bool IsReference(void) const;
+	bool IsIndexed(void) const;
 
 	void SetDefined(void);
 
@@ -311,12 +312,13 @@ public:
 	Declaration* Last(void);
 
 	Declaration* BuildPointer(const Location& loc);
-	Declaration* BuildReference(const Location& loc);
+	Declaration* BuildReference(const Location& loc, DecType type = DT_TYPE_REFERENCE);
 	Declaration* BuildConstPointer(const Location& loc);
-	Declaration* BuildConstReference(const Location& loc);
+	Declaration* BuildConstReference(const Location& loc, DecType type = DT_TYPE_REFERENCE);
 	Declaration* BuildRValueRef(const Location& loc);
 	Declaration* BuildConstRValueRef(const Location& loc);
 	Declaration* NonRefBase(void);
+	Declaration* BuildArrayPointer(void);
 	Declaration* DeduceAuto(Declaration* dec);
 	bool IsAuto(void) const;
 

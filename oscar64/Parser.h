@@ -114,6 +114,12 @@ protected:
 
 	Expression* ParseNewOperator(void);
 	Expression* ParseLambdaExpression(void);
+	
+	Declaration* OperatorResultType(Expression* exp);
+
+	Expression* FindPackExpression(Expression* exp);
+	Expression* ExpandPackExpression(Expression* exp, Expression* pack, Expression* item);
+	Expression* ParseBinaryFoldExpression(Expression * exp);
 
 	Expression* ParseSimpleExpression(bool lhs);
 	Expression* ParsePrefixExpression(bool lhs);

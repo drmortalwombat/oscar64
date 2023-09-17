@@ -923,13 +923,28 @@ Declaration* Declaration::BuildConstPointer(const Location& loc)
 	return pdec;
 }
 
-Declaration* Declaration::BuildConstReference(const Location& loc)
+Declaration* Declaration::BuildConstReference(const Location& loc, DecType type)
 {
-	Declaration* pdec = new Declaration(loc, DT_TYPE_REFERENCE);
+	Declaration* pdec = new Declaration(loc, type);
 	pdec->mBase = this;
 	pdec->mFlags = DTF_DEFINED | DTF_CONST;
 	pdec->mSize = 2;
 	return pdec;
+}
+
+Declaration* Declaration::BuildArrayPointer(void)
+{
+	if (mType == DT_TYPE_ARRAY)
+	{
+		Declaration* pdec = new Declaration(mLocation, DT_TYPE_POINTER);
+		pdec->mBase = mBase;
+		pdec->mFlags = DTF_DEFINED;
+		pdec->mSize = 2;
+		pdec->mStride = mStride;
+		return pdec;
+	}
+	else
+		return this;
 }
 
 Declaration* Declaration::BuildPointer(const Location& loc)
@@ -941,9 +956,9 @@ Declaration* Declaration::BuildPointer(const Location& loc)
 	return pdec;
 }
 
-Declaration* Declaration::BuildReference(const Location& loc)
+Declaration* Declaration::BuildReference(const Location& loc, DecType type)
 {
-	Declaration* pdec = new Declaration(loc, DT_TYPE_REFERENCE);
+	Declaration* pdec = new Declaration(loc, type);
 	pdec->mBase = this;
 	pdec->mFlags = DTF_DEFINED;
 	pdec->mSize = 2;
@@ -987,7 +1002,7 @@ Declaration* Declaration::DeduceAuto(Declaration * dec)
 			dec = dec->ToMutableType();
 
 		if (IsReference())
-			dec = dec->BuildReference(mLocation);
+			dec = dec->BuildReference(mLocation, mType);
 
 		return dec;
 	}
@@ -2166,6 +2181,12 @@ bool Declaration::IsReference(void) const
 {
 	return mType == DT_TYPE_REFERENCE || mType == DT_TYPE_RVALUEREF;
 }
+
+bool Declaration::IsIndexed(void) const
+{
+	return mType == DT_TYPE_ARRAY || mType == DT_TYPE_POINTER;
+}
+
 
 bool Declaration::IsSimpleType(void) const
 {

@@ -91,6 +91,7 @@ public:
 	ostream & write(const char * s, int n);		
 
 	ostream & operator<<(bool val);
+	ostream & operator<<(char val);
 	ostream & operator<<(int val);
 	ostream & operator<<(unsigned val);
 	ostream & operator<<(long val);

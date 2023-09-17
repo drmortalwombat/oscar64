@@ -322,6 +322,12 @@ ostream & ostream::operator<<(bool val)
 	return *this;
 }
 
+ostream & ostream::operator<<(char val)
+{
+	bput(val);
+	return *this;
+}
+
 ostream & ostream::operator<<(int val)
 {
 	if (val < 0)
