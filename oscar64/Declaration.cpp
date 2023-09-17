@@ -1240,7 +1240,11 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 				Declaration* tpdec = ex->mDecType;
 				if (tpdec->IsReference())
 					tpdec = tpdec->mBase;
-				tpdec = tpdec->Clone();
+
+				if (tpdec->mType == DT_TYPE_ARRAY)
+					tpdec = tpdec->mBase->BuildPointer(tpdec->mLocation);
+				else
+					tpdec = tpdec->Clone();
 
 				if (ptail)
 					ptail->mNext = tpdec;
@@ -1338,6 +1342,8 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 {
 	if (tdec->IsSame(fdec))
 		return true;
+	else if (fdec->IsReference())
+		return ResolveTemplate(fdec->mBase, tdec);
 	else if (tdec->mType == DT_TYPE_FUNCTION)
 	{
 		if (fdec->mType == DT_TYPE_FUNCTION)
@@ -1369,17 +1375,11 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 	}
 	else if (tdec->mType == DT_TYPE_REFERENCE)
 	{
-		if (fdec->mType == DT_TYPE_REFERENCE)
-			return ResolveTemplate(fdec->mBase, tdec->mBase);
-		else
-			return ResolveTemplate(fdec, tdec->mBase);
+		return ResolveTemplate(fdec, tdec->mBase);
 	}
 	else if (tdec->mType == DT_TYPE_RVALUEREF)
 	{
-		if (fdec->mType == DT_TYPE_RVALUEREF)
-			return ResolveTemplate(fdec->mBase, tdec->mBase);
-		else
-			return ResolveTemplate(fdec, tdec->mBase);
+		return ResolveTemplate(fdec, tdec->mBase);
 	}
 	else if (tdec->mType == DT_TYPE_POINTER)
 	{
@@ -1390,6 +1390,9 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 	}
 	else if (tdec->mType == DT_TYPE_TEMPLATE)
 	{
+		if (fdec->mType == DT_TYPE_ARRAY)
+			fdec = fdec->mBase->BuildPointer(fdec->mLocation);
+
 		Declaration* pdec;
 		if (tdec->mBase)
 		{
@@ -1871,9 +1874,27 @@ bool Declaration::IsSameParams(const Declaration* dec) const
 				if (ld->mValue != rd->mValue)
 					return false;
 			}
+			else if (ld->mType == DT_PACK_TEMPLATE && rd->mType == DT_PACK_TEMPLATE)
+			{
+				if (!ld->mBase->IsSameParams(rd->mBase))
+					return false;
+			}
 			else if (!ld->mBase || !rd->mBase)
 				return false;
 			else if (!ld->mBase->IsSame(rd->mBase))
+				return false;
+			ld = ld->mNext;
+			rd = rd->mNext;
+		}
+
+		return !ld && !rd;
+	}
+	else if (mType == DT_PACK_TYPE && dec->mType == DT_PACK_TYPE)
+	{
+		Declaration* ld = mBase, * rd = dec->mBase;
+		while (ld && rd)
+		{
+			if (!ld->IsSame(rd))
 				return false;
 			ld = ld->mNext;
 			rd = rd->mNext;
@@ -1983,6 +2004,13 @@ bool Declaration::IsTemplateSame(const Declaration* dec, const Declaration * tde
 	uint64	dflags = dec->mFlags;
 
 	if (dec->mType == DT_TYPE_TEMPLATE)
+	{
+		dec = tdec->mScope->Lookup(dec->mIdent);
+		if (!dec)
+			return true;
+		dflags |= dec->mFlags;
+	}
+	else if (dec->mType == DT_PACK_TEMPLATE)
 	{
 		dec = tdec->mScope->Lookup(dec->mIdent);
 		if (!dec)

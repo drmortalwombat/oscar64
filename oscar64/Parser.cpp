@@ -1201,9 +1201,15 @@ Declaration * Parser::ParseFunctionDeclaration(Declaration* bdec)
 									adec->mParams = apdec;
 
 								if (adec->mBase->IsReference())
-									apdec->mBase = atdec->BuildReference(adec->mLocation);
+								{
+									if (adec->mBase->mBase->mFlags & DTF_CONST)
+										apdec->mBase = atdec->ToConstType()->BuildReference(adec->mLocation);
+									else
+										apdec->mBase = atdec->BuildReference(adec->mLocation);
+								}
 								else
 									apdec->mBase = atdec;
+
 								atdec = atdec->mNext;
 								apdec->mFlags = DTF_DEFINED;
 								apdec->mVarIndex = vi;
@@ -3616,7 +3622,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				}
 				else if (mScanner->mToken == TK_CONSTEXPR)
 				{
-					storageFlags |= DTF_CONSTEXPR;
+					storageFlags |= DTF_CONSTEXPR | DTF_REQUEST_INLINE;
 					mScanner->NextToken();
 				}
 				else if (mScanner->mToken == TK_EXTERN)
@@ -7920,8 +7926,10 @@ Expression* Parser::ParseStatement(void)
 		switch (mScanner->mToken)
 		{
 		case TK_IF:
+		{
 			mScanner->NextToken();
-			exp = new Expression(mScanner->mLocation, EX_IF);		
+			bool constExp = ConsumeTokenIf(TK_CONSTEXPR);
+			exp = new Expression(mScanner->mLocation, EX_IF);
 			exp->mLeft = CoerceExpression(CleanupExpression(ParseParenthesisExpression()), TheBoolTypeDeclaration);
 			exp->mRight = new Expression(mScanner->mLocation, EX_ELSE);
 			exp->mRight->mLeft = ParseStatement();
@@ -7932,7 +7940,23 @@ Expression* Parser::ParseStatement(void)
 			}
 			else
 				exp->mRight->mRight = nullptr;
-			break;
+		
+			if (constExp)
+			{
+				Expression * cexp = exp->mLeft->ConstantFold(mErrors, mDataSection);
+				if (cexp->mType == EX_CONSTANT && cexp->mDecValue->mType == DT_CONST_INTEGER)
+				{
+					if (cexp->mDecValue->mInteger)
+						exp = exp->mRight->mLeft;
+					else if (exp->mRight->mRight)
+						exp = exp->mRight->mRight;
+					else
+						exp = new Expression(mScanner->mLocation, EX_VOID);
+				}
+				else
+					mErrors->Error(exp->mLocation, EERR_INVALID_CONSTEXPR, "Condition is not constant");
+			}
+		}	break;
 		case TK_WHILE:
 		{
 			mScanner->NextToken();

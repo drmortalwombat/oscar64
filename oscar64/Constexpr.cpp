@@ -885,7 +885,11 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 		if (dec)
 			pos = dec->mVarIndex;
 
-		mParams[pos] = caller->REval(pex->mLeft);
+		if (dec)
+			mParams[pos] = caller->EvalCoerce(pex->mLeft, caller->Eval(pex->mLeft), dec->mBase);
+		else
+			mParams[pos] = caller->REval(pex->mLeft);
+
 		pos += dec->mSize;
 		pex = pex->mRight;
 		if (dec)
@@ -895,7 +899,10 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 	{
 		if (dec)
 			pos = dec->mVarIndex;
-		mParams[pos] = caller->REval(pex);
+		if (dec)
+			mParams[pos] = caller->EvalCoerce(pex, caller->Eval(pex), dec->mBase);
+		else
+			mParams[pos] = caller->REval(pex);
 	}
 
 	if (exp->mLeft->mDecValue->mFlags & DTF_INTRINSIC)
@@ -976,14 +983,25 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 		return Value(exp);
 	case EX_VARIABLE:
 		if (exp->mDecValue->mType == DT_ARGUMENT)
-			return Value(&mParams[exp->mDecValue->mVarIndex]);
+		{
+			if (mParams[exp->mDecValue->mVarIndex].mBaseValue)
+				return mParams[exp->mDecValue->mVarIndex];
+			else
+				return Value(&mParams[exp->mDecValue->mVarIndex]);
+		}
 		else if (exp->mDecValue->mType == DT_VARIABLE)
 		{
 			if (!(exp->mDecValue->mFlags & (DTF_STATIC | DTF_GLOBAL)))
 			{
 				if (!mLocals[exp->mDecValue->mVarIndex].mDataSize)
+				{
 					mLocals[exp->mDecValue->mVarIndex] = Value(exp->mDecValue->mLocation, exp->mDecValue->mBase);
-				return Value(&mLocals[exp->mDecValue->mVarIndex]);
+					return Value(&mLocals[exp->mDecValue->mVarIndex]);
+				}
+				else if (mLocals[exp->mDecValue->mVarIndex].mBaseValue)
+					return mLocals[exp->mDecValue->mVarIndex];
+				else
+					return Value(&mLocals[exp->mDecValue->mVarIndex]);
 			}
 		}
 		break;

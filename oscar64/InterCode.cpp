@@ -692,7 +692,19 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME || ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE)
 			return false;
 
-		if (ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
+		if (ins0->mCode == IC_LOAD)
+		{
+			if (ins0->mSrc[0].mTemp >= 0)
+				return false;
+			if (ins0->mSrc[0].mMemory == IM_PARAM || ins0->mSrc[0].mMemory == IM_FPARAM)
+			{
+				if (mProc->mParamAliasedSet[ins0->mSrc[0].mVarIndex])
+					return false;
+			}
+			else
+				return false;
+		}
+		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
 			return false;
 	}
 	if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER)
@@ -13675,6 +13687,31 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			InterCodeBasicBlock* tailBlock = this == mTrueJump ? mFalseJump : mTrueJump;
 			assert(tailBlock->mNumEntries == 1);
 
+			// remove counting loop without body
+			if (mInstructions.Size() == 3)
+			{
+				InterInstruction* ains = mInstructions[0];
+				InterInstruction* cins = mInstructions[1];
+				InterInstruction* bins = mInstructions[2];
+
+				if (ains->mCode == IC_BINARY_OPERATOR && cins->mCode == IC_RELATIONAL_OPERATOR && bins->mCode == IC_BRANCH)
+				{
+					if (ains->mSrc[1].mTemp == ains->mDst.mTemp && ains->mSrc[0].mTemp < 0 &&
+						cins->mSrc[1].mTemp == ains->mDst.mTemp && ains->mSrc[0].mTemp < 0 &&
+						bins->mSrc[0].mTemp == cins->mDst.mTemp && bins->mSrc[0].mFinal)
+					{
+						if (ains->mOperator == IA_ADD && ains->mSrc[0].mIntConst == 1 &&
+							cins->mOperator == IA_CMPLU && mTrueJump == this && !tailBlock->mEntryRequiredTemps[ains->mDst.mTemp])
+						{
+							cins->mCode = IC_CONSTANT;
+							cins->mConst.mType = IT_BOOL;
+							cins->mConst.mIntConst = 0;
+							cins->mNumOperands = 0;
+						}
+					}
+				}
+			}
+
 			if (!hasCall)
 			{
 				// Check forwarding globals
@@ -17142,7 +17179,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "bv");
 
 	mEntryBlock = mBlocks[0];
 

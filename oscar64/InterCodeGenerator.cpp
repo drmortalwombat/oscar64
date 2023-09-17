@@ -4997,7 +4997,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
-#if 1
+#if 0
 	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
 		exp->Dump(0);
 #endif

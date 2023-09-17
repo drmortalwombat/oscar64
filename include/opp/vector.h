@@ -164,6 +164,11 @@ public:
 	void insert(int at, const T & t);
 
 	void erase(int at, int n = 1);
+
+	template <typename ...P>
+	void emplace_back(const P&... p);
+protected:
+	T * add_back(void);
 };
 
 
@@ -224,19 +229,30 @@ void vector<T>::shrink_to_fit(void)
 }
 
 template <class T>
-void vector<T>::push_back(const T & t)
+T * vector<T>::add_back(void)
 {
 	if (_size == _capacity)
 		reserve(_size + 1 + (_size >> 1));
-	new (_data + _size++)T(t);
+	return _data + _size++;
+}
+
+template <class T>
+void vector<T>::push_back(const T & t)
+{
+	new (add_back())T(t);
 }
 
 template <class T>
 void vector<T>::push_back(T && t)
 {
-	if (_size == _capacity)
-		reserve(_size + 1 + (_size >> 1));
-	new (_data + _size++)T(t);
+	new (add_back())T(t);
+}
+
+template <class T>
+template <typename ...P>
+void vector<T>::emplace_back(const P&... p)
+{
+	new (add_back())T(p...);
 }
 
 template <class T>
