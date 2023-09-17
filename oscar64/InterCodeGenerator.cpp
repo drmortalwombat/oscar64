@@ -1640,6 +1640,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		}
 			break;
 
+		case EX_PACK:
+			mErrors->Error(exp->mLocation, EERR_INVALID_PACK_USAGE, "Invalid pack usage");
+			return ExValue(TheVoidTypeDeclaration);
+
 		case EX_RESULT:
 		{
 			if (lrexp)

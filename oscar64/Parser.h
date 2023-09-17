@@ -105,7 +105,8 @@ protected:
 	void CompleteFunctionDefaultParams(Expression* exp);
 	void ExpandFunctionCallTemplate(Expression* exp);
 
-	void ParseTemplateDeclaration(void);
+	Declaration * ParseTemplateDeclaration(Declaration* pthis);
+	void ParseTemplateDeclarationBody(Declaration* tdec, Declaration* pthis);
 	Declaration* FunctionAutoParamsToTemplate(Declaration* fdec);
 
 	Declaration* ParseTemplateExpansion(Declaration* tmpld, Declaration* expd);
@@ -130,6 +131,8 @@ protected:
 	Expression* ParseAssignmentExpression(bool lhs);
 	Expression* ParseExpression(bool lhs);
 	Expression* ParseRExpression(void);
+	
+	Expression* ExpandArgumentPack(Expression * exp, Declaration* dec);
 	Expression* ParseListExpression(bool lhs);
 
 	Expression* ParseParenthesisExpression(void);

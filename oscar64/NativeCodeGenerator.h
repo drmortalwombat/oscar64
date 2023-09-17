@@ -669,6 +669,9 @@ public:
 
 	void PropagateZPAbsolute(void);
 
+	void RegisterFunctionCalls(void);
+	bool MergeFunctionCalls(void);
+
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 
 	void CheckLive(void);
@@ -702,6 +705,7 @@ class NativeCodeProcedure
 
 		void Compile(InterCodeProcedure* proc);
 		void Optimize(void);
+		void Assemble(void);
 
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
 		NativeCodeBasicBlock* AllocateBlock(void);
@@ -756,4 +760,21 @@ public:
 
 	ExpandingArray<Runtime>	mRuntime;
 	ExpandingArray<MulTable>	mMulTables;
+
+	struct FunctionCall
+	{
+		LinkerObject			*	mLinkerObject, * mProxyObject;
+		NativeCodeInstruction		mIns[64];
+		FunctionCall			*	mNext, * mSame;
+		int							mCount;
+
+		bool IsSame(const FunctionCall* fc) const;
+		int Matches(const FunctionCall* fc) const;
+	};
+
+	FunctionCall* mFunctionCalls;
+
+	void RegisterFunctionCall(NativeCodeBasicBlock* block, int at);
+	void BuildFunctionProxies(void);
+	bool MergeFunctionCall(NativeCodeBasicBlock* block, int at);
 };

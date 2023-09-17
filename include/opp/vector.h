@@ -158,6 +158,7 @@ public:
 	void pop_back(void)
 	{
 		_size--;
+		_data[_size].~T();
 	}
 
 	void insert(int at, const T & t);

@@ -41,6 +41,11 @@ enum DecType
 	DT_CONST_CONSTRUCTOR,
 	DT_CONST_TEMPLATE,
 
+	DT_PACK_TEMPLATE,
+	DT_PACK_VARIABLE,
+	DT_PACK_ARGUMENT,
+	DT_PACK_TYPE,
+
 	DT_VARIABLE,
 	DT_ARGUMENT,
 	DT_ELEMENT,
@@ -216,7 +221,8 @@ enum ExpressionType
 	EX_BANKOF,
 	EX_CONSTRUCT,
 	EX_CLEANUP,
-	EX_RESULT
+	EX_RESULT,
+	EX_PACK
 };
 
 class Expression
@@ -254,7 +260,7 @@ public:
 	Location			mLocation, mEndLocation;
 	DecType				mType;
 	Token				mToken;
-	Declaration		*	mBase, * mParams, * mNext, * mPrev, * mConst, * mMutable;
+	Declaration		*	mBase, * mParams, * mParamPack, * mNext, * mPrev, * mConst, * mMutable;
 	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment, * mMoveConstructor, * mMoveAssignment;
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
 	Declaration		*	mVTable, * mClass, * mTemplate;

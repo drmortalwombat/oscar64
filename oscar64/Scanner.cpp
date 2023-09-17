@@ -165,6 +165,7 @@ const char* TokenNames[] =
 	"'template'",
 	"'friend'",
 	"'constexpr'",
+	"'typename'",
 };
 
 
@@ -482,14 +483,12 @@ void Scanner::NextToken(void)
 		mReplay = mReplay->mNext;
 	}
 	else
-	{
 		NextPreToken();
 
-		if (mRecord)
-		{
-			mRecordLast->mNext = new TokenSequence(this);
-			mRecordLast = mRecordLast->mNext;			
-		}
+	if (mRecord)
+	{
+		mRecordLast->mNext = new TokenSequence(this);
+		mRecordLast = mRecordLast->mNext;			
 	}
 }
 
@@ -1520,6 +1519,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_FRIEND;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "constexpr"))
 					mToken = TK_CONSTEXPR;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "typename"))
+					mToken = TK_TYPENAME;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();

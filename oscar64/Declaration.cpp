@@ -300,6 +300,9 @@ void Expression::Dump(int ident) const
 	case EX_RESULT:
 		printf("RESULT");
 		break;
+	case EX_PACK:
+		printf("PACK");
+		break;
 	}
 	printf("\n");
 
@@ -884,7 +887,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr), mMangleIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), mNumVars(0),
-	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr),
+	mBase(nullptr), mParams(nullptr), mParamPack(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr),
 	mConst(nullptr), mMutable(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
@@ -1076,6 +1079,10 @@ const Ident* Declaration::MangleIdent(void)
 		{
 			mMangleIdent = mBase->MangleIdent()->PreMangle("*");
 		}
+		else if (mType == DT_TYPE_ARRAY)
+		{
+			mMangleIdent = mBase->MangleIdent()->Mangle("[]");
+		}
 		else if (mType == DT_TYPE_STRUCT)
 		{
 			mMangleIdent = mQualIdent->PreMangle("struct ");
@@ -1108,6 +1115,30 @@ const Ident* Declaration::MangleIdent(void)
 					mMangleIdent = mMangleIdent->Mangle(",");
 			}
 			mMangleIdent = mMangleIdent->Mangle(">");
+		}
+		else if (mType == DT_PACK_TYPE)
+		{
+			Declaration* dec = mBase;
+			while (dec)
+			{
+				const Ident* id;
+				if (dec->mBase)
+					id = dec->mBase->MangleIdent();
+				else
+					id = dec->MangleIdent();
+
+				if (id)
+				{
+					if (mMangleIdent)
+						mMangleIdent = mMangleIdent->Mangle(id->mString);
+					else
+						mMangleIdent = id;
+				}
+
+				dec = dec->mNext;
+				if (dec)
+					mMangleIdent = mMangleIdent->Mangle(",");
+			}
 		}
 		else
 			mMangleIdent = mQualIdent;
@@ -1192,6 +1223,9 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 		ptdec = ptdec->mNext;
 	}
 
+	Declaration* phead = nullptr, * ptail = nullptr;
+	int	pcnt = 0;
+
 	while (pexp)
 	{
 		Expression* ex = pexp;
@@ -1205,10 +1239,42 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 
 		if (pdec)
 		{
-			if (!ResolveTemplate(ex->mDecType, pdec->mBase))
-				return false;
+			if (pdec->mType == DT_PACK_ARGUMENT)
+			{
+				Declaration* tpdec = ex->mDecType;
+				if (tpdec->IsReference())
+					tpdec = tpdec->mBase;
+				tpdec = tpdec->Clone();
 
-			pdec = pdec->mNext;
+				if (ptail)
+					ptail->mNext = tpdec;
+				else
+					phead = tpdec;
+				ptail = tpdec;
+			}
+			else
+			{
+				if (!ResolveTemplate(ex->mDecType, pdec->mBase))
+					return false;
+
+				pdec = pdec->mNext;
+			}
+		}
+		else
+			return false;
+	}
+
+	if (pdec)
+	{
+		if (pdec->mType == DT_PACK_ARGUMENT)
+		{
+			Declaration* tpdec = new Declaration(pdec->mLocation, DT_PACK_TYPE);
+			if (pdec->mBase->mType == DT_TYPE_REFERENCE)
+				tpdec->mIdent = pdec->mBase->mBase->mIdent;
+			else
+				tpdec->mIdent = pdec->mBase->mIdent;
+			tpdec->mBase = phead;
+			mScope->Insert(tpdec->mIdent, tpdec);
 		}
 		else
 			return false;
@@ -1259,13 +1325,17 @@ bool Declaration::CanResolveTemplate(Expression* pexp, Declaration* tdec)
 			if (!ResolveTemplate(ex->mDecType, pdec->mBase))
 				return false;
 
-			pdec = pdec->mNext;
+			if (pdec->mType != DT_PACK_ARGUMENT)
+				pdec = pdec->mNext;
 		}
 		else
 			return false;
 	}
 
-	return true;
+	if (pdec)
+		return pdec->mType == DT_PACK_ARGUMENT;
+	else
+		return true;
 }
 
 bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
@@ -1341,6 +1411,10 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 
 		return true;
 	}
+	else if (tdec->mType == DT_PACK_TEMPLATE)
+	{
+		return true;
+	}
 	else if (tdec->mType == DT_TYPE_STRUCT && fdec->mType == DT_TYPE_STRUCT && tdec->mTemplate)
 	{
 		Declaration	*ftdec = tdec->mTemplate;
@@ -1387,6 +1461,7 @@ Declaration* Declaration::Clone(void)
 	ndec->mFlags = mFlags;
 	ndec->mScope = mScope;
 	ndec->mParams = mParams;
+	ndec->mParamPack = mParamPack;
 	ndec->mIdent = mIdent;
 	ndec->mQualIdent = mQualIdent;
 	ndec->mValue = mValue;
@@ -1400,6 +1475,7 @@ Declaration* Declaration::Clone(void)
 	ndec->mMinValue = mMinValue;
 	ndec->mMaxValue = mMaxValue;
 	ndec->mCompilerOptions = mCompilerOptions;
+	ndec->mParser = mParser;
 
 	return ndec;
 }
@@ -1913,6 +1989,8 @@ bool Declaration::IsTemplateSame(const Declaration* dec, const Declaration * tde
 	if (dec->mType == DT_TYPE_TEMPLATE)
 	{
 		dec = tdec->mScope->Lookup(dec->mIdent);
+		if (!dec)
+			return true;
 		dflags |= dec->mFlags;
 	}
 

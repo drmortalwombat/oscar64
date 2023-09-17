@@ -4315,10 +4315,12 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 		}
 		else if (mMemory == IM_PROCEDURE)
 		{
-			if (mLinkerObject && mLinkerObject->mIdent)
+			if (proc->mModule->mProcedures[mVarIndex])
+				vname = proc->mModule->mProcedures[mVarIndex]->mIdent->mString;
+			else if (mLinkerObject && mLinkerObject->mIdent)
 				vname = mLinkerObject->mIdent->mString;
 		}
-		else if (mMemory == IM_GLOBAL || mMemory == IM_PROCEDURE)
+		else if (mMemory == IM_GLOBAL)
 		{
 			if (mVarIndex < 0)
 				vname = "";
@@ -4494,6 +4496,24 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 						vname = "";
 					else
 						vname = proc->mLocalVars[mConst.mVarIndex]->mIdent->mString;
+				}
+				else if (mConst.mMemory == IM_PROCEDURE)
+				{
+					if (proc->mModule->mProcedures[mConst.mVarIndex])
+						vname = proc->mModule->mProcedures[mConst.mVarIndex]->mIdent->mString;
+					else if (mConst.mLinkerObject && mConst.mLinkerObject->mIdent)
+						vname = mConst.mLinkerObject->mIdent->mString;
+				}
+				else if (mConst.mMemory == IM_GLOBAL)
+				{
+					if (mConst.mVarIndex < 0)
+						vname = "";
+					else if (!proc->mModule->mGlobalVars[mConst.mVarIndex])
+						vname = "null";
+					else if (!proc->mModule->mGlobalVars[mConst.mVarIndex]->mIdent)
+						vname = "";
+					else
+						vname = proc->mModule->mGlobalVars[mConst.mVarIndex]->mIdent->mString;
 				}
 
 				fprintf(file, "C%c%d(%d:%d '%s')", memchars[mConst.mMemory], mConst.mOperandSize, mConst.mVarIndex, int(mConst.mIntConst), vname);
@@ -15876,6 +15896,26 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 				else
 					globalsChecked = false;
 				break;
+			case IC_DISPATCH:
+				{
+					for (int j = 0; j < mProc->mCalledFunctions.Size(); j++)
+					{
+						InterCodeProcedure* proc = mProc->mCalledFunctions[j];
+
+						if (proc->mGlobalsChecked)
+						{
+							if (proc->mStoresIndirect)
+								storesIndirect = true;
+							if (proc->mLoadsIndirect)
+								loadsIndirect = true;
+							referencedGlobals |= proc->mReferencedGlobals;
+							modifiedGlobals |= proc->mModifiedGlobals;
+						}
+						else
+							globalsChecked = false;
+					}
+				}
+				break;
 			}
 		}
 
@@ -16237,7 +16277,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mValueForwardingTable(nullptr), mLocalVars(nullptr), mParamVars(nullptr), mModule(mod),
 	mIdent(ident), mLinkerObject(linkerObject),
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
-	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false),
+	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false), mAssembled(false),
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
 	mCheckUnreachable(true), mReturnType(IT_NONE), mCheapInline(false), 
 	mDeclaration(nullptr), mGlobalsChecked(false), mDispatchedCall(false)
@@ -17102,7 +17142,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 
@@ -17250,6 +17290,10 @@ void InterCodeProcedure::Close(void)
 		PromoteSimpleLocalsToTemp(paramMemory, mLocalAliasedSet.Size(), mParamAliasedSet.Size());
 	else
 		CollectVariables(paramMemory);
+
+	for (int i = 0; i < mLocalVars.Size(); i++)
+		if (i < mLocalAliasedSet.Size() && mLocalAliasedSet[i])
+			mLocalVars[i]->mAliased = true;
 
 	BuildDataFlowSets();
 
