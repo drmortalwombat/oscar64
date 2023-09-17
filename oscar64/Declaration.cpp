@@ -1069,15 +1069,15 @@ const Ident* Declaration::MangleIdent(void)
 		}
 		else if (mType == DT_TYPE_REFERENCE)
 		{
-			mMangleIdent = mBase->MangleIdent()->PreMangle("&");
+			mMangleIdent = mBase->MangleIdent()->Mangle("&");
 		}
 		else if (mType == DT_TYPE_RVALUEREF)
 		{
-			mMangleIdent = mBase->MangleIdent()->PreMangle("&&");
+			mMangleIdent = mBase->MangleIdent()->Mangle("&&");
 		}
 		else if (mType == DT_TYPE_POINTER)
 		{
-			mMangleIdent = mBase->MangleIdent()->PreMangle("*");
+			mMangleIdent = mBase->MangleIdent()->Mangle("*");
 		}
 		else if (mType == DT_TYPE_ARRAY)
 		{
@@ -1121,11 +1121,7 @@ const Ident* Declaration::MangleIdent(void)
 			Declaration* dec = mBase;
 			while (dec)
 			{
-				const Ident* id;
-				if (dec->mBase)
-					id = dec->mBase->MangleIdent();
-				else
-					id = dec->MangleIdent();
+				const Ident* id = dec->MangleIdent();
 
 				if (id)
 				{

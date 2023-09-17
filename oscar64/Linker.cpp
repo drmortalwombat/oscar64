@@ -274,6 +274,38 @@ LinkerObject* Linker::FindObjectByAddr(int bank, int addr)
 	return FindObjectByAddr(addr);
 }
 
+LinkerObject* Linker::FindSame(LinkerObject* obj)
+{
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* lobj = mObjects[i];
+		if (lobj != obj && obj->IsSameConst(lobj))
+			return lobj;
+	}
+
+	return nullptr;
+}
+
+bool LinkerObject::IsSameConst(const LinkerObject* obj) const
+{
+	if ((mFlags & LOBJF_CONST) && mFlags == obj->mFlags && 
+		mSection == obj->mSection && mSize == obj->mSize && mAlignment == obj->mAlignment &&
+		mReferences.Size() == obj->mReferences.Size())
+	{
+		for (int i = 0; i < mSize; i++)
+			if (mData[i] != obj->mData[i])
+				return false;
+
+		for (int i = 0; i < mReferences.Size(); i++)
+			if (mReferences[i] != obj->mReferences[i])
+				return false;
+
+		return true;
+	}
+
+	return false;
+}
+
 LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment)
 {
 	LinkerObject* obj = new LinkerObject;

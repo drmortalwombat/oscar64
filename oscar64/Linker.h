@@ -213,6 +213,8 @@ public:
 	void MoveToSection(LinkerSection* section);
 
 	void MarkRelevant(void);
+
+	bool IsSameConst(const LinkerObject* obj) const;
 };
 
 class LinkerOverlay
@@ -246,6 +248,7 @@ public:
 	bool IsSectionPlaced(LinkerSection* section);
 
 	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment = 1);
+	LinkerObject* FindSame(LinkerObject* obj);
 
 	LinkerOverlay* AddOverlay(const Location& location, const Ident* ident, int bank);
 

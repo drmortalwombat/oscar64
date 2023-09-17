@@ -1851,11 +1851,19 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					var->mIdent = dec->mQualIdent;
 					var->mOffset = 0;
 					var->mSize = dec->mSize;
-					if ((dec->mFlags & DTF_VAR_ALIASING) || dec->mBase->mType == DT_TYPE_ARRAY)
-						var->mAliased = true;
 					var->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_DATA, dec->mAlignment);
-					dec->mLinkerObject = var->mLinkerObject;
+
+					if (dec->mBase->mFlags & DTF_CONST)
+						var->mLinkerObject->mFlags |= LOBJF_CONST;
+					else if ((dec->mFlags & DTF_VAR_ALIASING) || dec->mBase->mType == DT_TYPE_ARRAY)
+						var->mAliased = true;
 					var->mLinkerObject->AddData(dec->mData, dec->mSize);
+
+					LinkerObject* aobj = mLinker->FindSame(var->mLinkerObject);
+					if (aobj)
+						var->mLinkerObject = aobj;
+
+					dec->mLinkerObject = var->mLinkerObject;
 					proc->mModule->mGlobalVars.Push(var);
 				}
 
@@ -4989,7 +4997,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
 
-#if 0
+#if 1
 	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
 		exp->Dump(0);
 #endif

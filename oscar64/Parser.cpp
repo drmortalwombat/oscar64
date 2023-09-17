@@ -3415,7 +3415,7 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 				else if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && pex->mType == EX_CONSTANT)
 				{
 					// A simple constant is passed by const ref
-					if (pex->mDecValue->mType == DT_CONST_INTEGER || pex->mDecValue->mType == DT_CONST_FLOAT || pex->mDecValue->mType == DT_CONST_POINTER)
+					if (pex->mDecValue->mType == DT_CONST_INTEGER || pex->mDecValue->mType == DT_CONST_FLOAT || pex->mDecValue->mType == DT_CONST_POINTER || pex->mDecValue->mType == DT_CONST_ADDRESS)
 					{
 						int	nindex = mLocalIndex++;
 
@@ -5076,7 +5076,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		dec->mBase = new Declaration(mScanner->mLocation, DT_TYPE_ARRAY);
 		dec->mBase->mSize = dec->mSize;
 		dec->mBase->mBase = TheConstCharTypeDeclaration;
-		dec->mBase->mFlags |= DTF_DEFINED;
+		dec->mBase->mFlags |= DTF_DEFINED | DTF_CONST;
 		uint8* d = new uint8[size + 1];
 		dec->mData = d;
 
@@ -5343,10 +5343,32 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		break;
 	case TK_SIZEOF:
 		mScanner->NextToken();
-		rexp = ParseParenthesisExpression();
+
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 		dec->mBase = TheSignedIntTypeDeclaration;
-		dec->mInteger = rexp->mDecType->mSize;
+
+		if (ConsumeTokenIf(TK_ELLIPSIS))
+		{
+			rexp = ParseParenthesisExpression();
+			if (rexp->mType == EX_PACK)
+			{
+				int n = 0;
+				Declaration* vdec = rexp->mDecValue->mParams;
+				while (vdec)
+				{
+					n++;
+					vdec = vdec->mNext;
+				}
+				dec->mInteger = n;
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_INVALID_PACK_USAGE, "variadic pack expected");
+		}
+		else
+		{
+			rexp = ParseParenthesisExpression();
+			dec->mInteger = rexp->mDecType->mSize;
+		}
 		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		exp->mDecValue = dec;
 		exp->mDecType = dec->mBase;
