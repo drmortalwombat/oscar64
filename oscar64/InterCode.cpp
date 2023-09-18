@@ -4502,7 +4502,7 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 
 				if (mConst.mMemory == IM_LOCAL)
 				{
-					if (!proc->mLocalVars[mConst.mVarIndex])
+					if (mConst.mVarIndex < 0 || !proc->mLocalVars[mConst.mVarIndex])
 						vname = "null";
 					else if (!proc->mLocalVars[mConst.mVarIndex]->mIdent)
 						vname = "";
@@ -4511,7 +4511,7 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 				}
 				else if (mConst.mMemory == IM_PROCEDURE)
 				{
-					if (proc->mModule->mProcedures[mConst.mVarIndex])
+					if (mConst.mVarIndex >= 0 && proc->mModule->mProcedures[mConst.mVarIndex])
 						vname = proc->mModule->mProcedures[mConst.mVarIndex]->mIdent->mString;
 					else if (mConst.mLinkerObject && mConst.mLinkerObject->mIdent)
 						vname = mConst.mLinkerObject->mIdent->mString;
