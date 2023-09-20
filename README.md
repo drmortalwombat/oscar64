@@ -72,6 +72,7 @@ Supported Features:
 * auto variables, parameters and return types
 * for range loop
 * constexpr compile time evaluation
+* parameter packs and templates
 
 ## Installation and Usage
 
@@ -557,6 +558,13 @@ This sample fills a single screen column with a given color, by generating 25 as
 	}
 	
 This sample initially assigns the value 0 to the pre processor macro ry and increments it each time the loop body is replicated.  The loop generates 25 copies of the body, each with a different value for ry.
+
+A simpler loop with only a single line template expansion is provided with the #for(iterator, count) preprocessor command:
+
+	char * const ScreenRows2[] = {
+	#for(i,SCREEN_HEIGHT) Screen + SCREEN_WIDTH * i,
+	};
+
 
 	
 ### Linker control
