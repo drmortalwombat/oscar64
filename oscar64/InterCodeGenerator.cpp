@@ -63,6 +63,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 		ins->mSrc[0].mOperandSize = v.mReference == 1 ? v.mType->mSize : 2;
 		ins->mSrc[0].mStride = v.mReference == 1 ? v.mType->mStripe : 1;
 
+		if (ins->mDst.mType == IT_NONE)
+		{
+			mErrors->Error(exp->mLocation, EERR_INVALID_VALUE, "Not a simple type");
+			return v;
+		}
+
 		if (v.mReference == 1 && v.mType->mType == DT_TYPE_ENUM)
 		{
 			ins->mDst.mRange.LimitMin(v.mType->mMinValue);
@@ -1641,6 +1647,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			break;
 
 		case EX_PACK:
+		case EX_PACK_TYPE:
 			mErrors->Error(exp->mLocation, EERR_INVALID_PACK_USAGE, "Invalid pack usage");
 			return ExValue(TheVoidTypeDeclaration);
 
@@ -2032,7 +2039,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (exp->mToken == TK_ASSIGN || !(vl.mType->mType == DT_TYPE_POINTER && vr.mType->IsIntegerType() && (exp->mToken == TK_ASSIGN_ADD || exp->mToken == TK_ASSIGN_SUB)))
 			{
 				if (!vl.mType->CanAssign(vr.mType))
+				{
+					vl.mType->CanAssign(vr.mType);
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+				}
 			} 
 
 			if (exp->mType != EX_INITIALIZATION && (vl.mType->mFlags & DTF_CONST))
@@ -3754,9 +3764,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 
+					if (vr.mType->IsReference())
+					{
+						vr.mReference++;
+						vr.mType = vr.mType->mBase;
+					}
+
 					vr = Dereference(proc, exp, block, vr, 1);
 
 					vr = CoerceType(proc, exp, block, vr, procType->mBase);
+
+					if (vr.mReference == 0)
+						mErrors->Error(exp->mLocation, EERR_INVALID_VALUE, "Returning value as reference");
 
 					ins->mSrc[0].mType = IT_POINTER;
 					ins->mSrc[0].mTemp = vr.mTemp;
@@ -3766,18 +3785,28 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						if (inlineMapper->mResultExp)
 						{
-							ins->mSrc[1].mType = IT_POINTER;
-							ins->mSrc[1].mTemp = inlineMapper->mResultExp->mTemp;
-							ins->mSrc[1].mMemory = IM_INDIRECT;
-							ins->mCode = IC_STORE;
-							ins->mSrc[1].mOperandSize = 2;
-							ins->mNumOperands = 2;
+							if (inlineMapper->mResultExp->mType->IsReference())
+							{
+								ins->mSrc[1].mType = IT_POINTER;
+								ins->mSrc[1].mTemp = inlineMapper->mResultExp->mTemp;
+								ins->mSrc[1].mMemory = IM_INDIRECT;
+								ins->mCode = IC_STORE;
+								ins->mSrc[1].mOperandSize = 2;
+								ins->mNumOperands = 2;
+							}
+							else
+							{
+								//bool moving = exp->mLeft->IsRValue() || exp->mLeft->mType == EX_VARIABLE && !(exp->mLeft->mDecValue->mFlags & (DTF_STATIC | DTF_GLOBAL)) && exp->mLeft->mDecType->mType != DT_TYPE_REFERENCE;
+
+								CopyStruct(proc, exp, block, *(inlineMapper->mResultExp), vr, inlineMapper, false);
+								ins->mCode = IC_NONE;
+							}
 						}
 						else
 						{
 							InterInstruction* ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
 							ains->mDst.mType = IT_POINTER;
-							ains->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+							ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 							ains->mConst.mType = IT_POINTER;
 							ains->mConst.mOperandSize = procType->mBase->mSize;
 							ains->mConst.mIntConst = 0;
@@ -4007,7 +4036,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						{
 							InterInstruction* ains = new InterInstruction(exp->mLocation, IC_CONSTANT);
 							ains->mDst.mType = IT_POINTER;
-							ains->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+							ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
 							ains->mConst.mType = IT_POINTER;
 							ains->mConst.mOperandSize = procType->mBase->mSize;
 							ains->mConst.mIntConst = 0;
@@ -4148,14 +4177,24 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				vc = Dereference(proc, exp, block, vc);
 
-				int			ttemp;
+				int			ttemp, tref = 0;
 				InterType	ttype, stypel, styper;
 
 				stypel = InterTypeOf(vl.mType);
 				styper = InterTypeOf(vr.mType);
 
-				Declaration* dtype;
-				if (stypel == IT_POINTER || styper == IT_POINTER)
+				Declaration* dtype = exp->mDecType;
+
+				if (dtype->IsReference())
+				{
+					vl = Dereference(proc, exp, block, vl, 1);
+					vr = Dereference(proc, exp, block, vr, 1);
+					tref = 1;
+					
+					dtype = dtype->mBase;
+					ttype = IT_POINTER;
+				}
+				else if (stypel == IT_POINTER || styper == IT_POINTER)
 				{
 					if (vl.mType->mType == DT_TYPE_ARRAY)
 						vl = Dereference(proc, exp, block, vl, 1);
@@ -4224,7 +4263,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				sins->mDst.mTemp = ttemp;
 				block->Append(sins);
 
-				return ExValue(dtype, ttemp);
+				return ExValue(dtype, ttemp, tref);
 			}
 			else
 #endif

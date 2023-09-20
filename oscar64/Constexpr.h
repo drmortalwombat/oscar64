@@ -29,7 +29,7 @@ protected:
 		Value(const Location& location, Declaration* dec, int count);
 		Value(const Value& value);
 		Value(Value&& value);
-		Value(Value * value, Declaration * type, int offset);
+		Value(const Location& location, Value * value, Declaration * type, int offset);
 		Value(Value* value);
 		Value(const Location& location, const uint8 * data, Declaration* type);
 		Value(const Location& location, const ValueItem* data, Declaration* type);
@@ -101,6 +101,7 @@ protected:
 	GrowingArray<Value>	mParams, mLocals;
 	ExpandingArray<Expression*>	mDestructStack;
 	ExpandingArray<Value *>	*	mHeap;
+	ExpandingArray<Value*>		mTemps;
 
 	Errors	* mErrors;
 	Value	  mResult;

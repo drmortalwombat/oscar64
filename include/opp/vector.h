@@ -2,7 +2,7 @@
 #define OPP_VECTOR_H
 
 #include <stdlib.h>
-#include <opp/move.h>
+#include <opp/utility.h>
 
 namespace opp {
 

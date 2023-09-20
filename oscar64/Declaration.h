@@ -222,7 +222,8 @@ enum ExpressionType
 	EX_CONSTRUCT,
 	EX_CLEANUP,
 	EX_RESULT,
-	EX_PACK
+	EX_PACK,
+	EX_PACK_TYPE,
 };
 
 class Expression
@@ -247,6 +248,7 @@ public:
 	bool IsSame(const Expression* exp) const;
 	bool IsRValue(void) const;
 	bool IsLValue(void) const;
+	bool IsConstRef(void) const;
 
 	void Dump(int ident) const;
 };

@@ -146,6 +146,7 @@ enum Token
 	TK_PREP_REPEAT,
 	TK_PREP_UNTIL,
 	TK_PREP_EMBED,
+	TK_PREP_FOR,
 
 	TK_PREP_CONCAT,
 
@@ -284,7 +285,14 @@ protected:
 		const char		*	mLine;
 		int					mOffset;
 		char				mChar;
+		Macro			*	mLoopIndex;
+		int64				mLoopCount, mLoopLimit;
 		MacroDict* mDefinedArguments;
+
+		MacroExpansion(void)
+			: mLink(nullptr), mLine(nullptr), mOffset(0), mChar(0), mLoopIndex(nullptr), mLoopCount(0), mLoopLimit(0), mDefinedArguments(nullptr)
+		{}
+
 	}	*	mMacroExpansion;
 
 	int			mMacroExpansionDepth;

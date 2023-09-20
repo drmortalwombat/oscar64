@@ -37,6 +37,7 @@ void ConstexprInterpreter::Value::PutConst(int offset, Declaration* dec)
 	switch (dec->mType)
 	{
 	case DT_CONST_INTEGER:
+	case DT_CONST_ADDRESS:
 		PutIntAt(dec->mInteger, offset, dec->mBase);
 		break;
 	case DT_CONST_FLOAT:
@@ -45,6 +46,10 @@ void ConstexprInterpreter::Value::PutConst(int offset, Declaration* dec)
 	case DT_CONST_STRUCT:
 		for (Declaration* pdec = dec->mParams; pdec; pdec = pdec->mNext)
 			PutConst(pdec->mOffset, pdec);
+		break;
+	case DT_CONST_DATA:
+		for (int i = 0; i < dec->mBase->mSize; i++)
+			PutIntAt(dec->mData[i], offset + i, TheConstCharTypeDeclaration);
 		break;
 	}
 }
@@ -116,8 +121,8 @@ ConstexprInterpreter::Value::Value(Value* value)
 {
 }
 
-ConstexprInterpreter::Value::Value(Value* value, Declaration* type, int offset)
-	: mLocation(value->mLocation),
+ConstexprInterpreter::Value::Value(const Location& location, Value* value, Declaration* type, int offset)
+	: mLocation(location),
 	mDecType(type),
 	mBaseValue(value), mOffset(offset),
 	mDataSize(0), mData(mShortData)
@@ -331,7 +336,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Value::GetPtrAt(int at, Declar
 {
 	const ValueItem* dp = GetAddr() + at;
 
-	return Value(dp->mBaseValue, type, uint16(dp[0].mByte | ((uint32)(dp[1].mByte) << 8)));
+	return Value(mLocation, dp->mBaseValue, type, uint16(dp[0].mByte | ((uint32)(dp[1].mByte) << 8)));
 }
 
 void ConstexprInterpreter::Value::PutIntAt(int64 v, int at, Declaration* type)
@@ -448,19 +453,27 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 		dec->mSize = type->mSize;
 		dec->mSection = dataSection;
 		dec->mOffset = offset;
+
 		Declaration* ldec = nullptr;
-		for (Declaration* mdec = type->mParams; mdec; mdec = mdec->mNext)
+		while (type)
 		{
-			Declaration	*	cdec = GetConst(offset + mdec->mOffset, mdec->mBase, dataSection);
-			cdec->mOffset = mdec->mOffset;
+			for (Declaration* mdec = type->mParams; mdec; mdec = mdec->mNext)
+			{
+				Declaration* cdec = GetConst(offset + mdec->mOffset, mdec->mBase, dataSection);
+				cdec->mOffset = mdec->mOffset;
 
-			if (ldec)
-				ldec->mNext = cdec;
+				if (ldec)
+					ldec->mNext = cdec;
+				else
+					dec->mParams = cdec;
+
+				ldec = cdec;
+			}
+
+			if (type->mBase)
+				type = type->mBase->mBase;
 			else
-				dec->mParams = cdec;
-
-			ldec = cdec;
-
+				type = nullptr;
 		}
 		break;
 	}
@@ -483,6 +496,46 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 				dec->mParams = cdec;
 
 			ldec = cdec;
+		}
+		break;
+	}
+	case DT_TYPE_POINTER:
+	{
+		Value	vp = GetPtrAt(offset, type);
+		if (vp.mBaseValue)
+		{
+			dec = new Declaration(mLocation, DT_CONST_POINTER);
+			dec->mBase = type;
+			dec->mSize = type->mSize;
+
+			Declaration* target;
+
+			if (vp.mBaseValue->mDecType->mType == DT_TYPE_ARRAY)
+			{
+				target = new Declaration(mLocation, DT_CONST_DATA);
+				target->mSize = vp.mBaseValue->mDataSize;
+				target->mBase = vp.mBaseValue->mDecType;
+				target->mSection = dataSection;
+
+				uint8* buffer = new uint8[target->mSize];
+				for (int i = 0; i < target->mSize; i++)
+					buffer[i] = uint8(vp.mBaseValue->GetIntAt(i, TheUnsignedCharTypeDeclaration));
+				target->mData = buffer;
+			}
+			else
+				target = vp.mBaseValue->GetConst(0, vp.mBaseValue->mDecType, dataSection);
+
+			dec->mValue = new Expression(mLocation, EX_CONSTANT);
+			dec->mValue->mDecType = target->mBase;
+			dec->mValue->mDecValue = target;
+		}
+		else
+		{
+			dec = new Declaration(mLocation, DT_CONST_ADDRESS);
+			dec->mBase = type;
+			dec->mFlags = 0;
+			dec->mSize = type->mSize;
+			dec->mInteger = vp.mOffset;
 		}
 		break;
 	}
@@ -511,7 +564,8 @@ ConstexprInterpreter::ConstexprInterpreter(const Location & location, Errors* er
 
 ConstexprInterpreter::~ConstexprInterpreter(void)
 {
-
+	for (int i = 0; i < mTemps.Size(); i++)
+		delete mTemps[i];
 }
 
 ConstexprInterpreter::Value* ConstexprInterpreter::NewValue(Expression* exp, Declaration* type, int size)
@@ -541,13 +595,30 @@ Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 	Declaration* dec = exp->mLeft->mDecType->mParams;
 
 	int	pos = 0;
+	if (mProcType->mBase && mProcType->mBase->mType == DT_TYPE_STRUCT)
+	{
+		mResult = Value(exp->mLocation, mProcType->mBase);
+		mParams[0] = Value(&mResult);
+		pos = 2;
+	}
+
 	while (pex && pex->mType == EX_LIST)
 	{
 		if (dec)
 			pos = dec->mVarIndex;
 
 		if (pex->mLeft->mType == EX_CONSTANT)
-			mParams[pos] = Value(pex->mLeft);
+		{
+			if (pex->mLeft->mDecType->mType == DT_TYPE_ARRAY)
+			{
+				Value	*	tmp = new Value(pex->mLeft);
+				mTemps.Push(tmp);
+				mParams[pos] = Value(pex->mLeft->mLocation, pex->mLeft->mDecType->BuildArrayPointer());
+				mParams[pos].PutPtr(Value(tmp));
+			}
+			else
+				mParams[pos] = Value(pex->mLeft);
+		}
 		else if (pex->mLeft->mType == EX_VARIABLE && (pex->mLeft->mDecValue->mFlags & DTF_CONST))
 		{
 			mParams[pos] = Value(pex->mLeft->mLocation, pex->mLeft->mDecValue->mBase);
@@ -566,7 +637,17 @@ Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 			pos = dec->mVarIndex;
 
 		if (pex->mType == EX_CONSTANT)
-			mParams[pos] = Value(pex);
+		{
+			if (pex->mDecType->mType == DT_TYPE_ARRAY)
+			{
+				Value* tmp = new Value(pex);
+				mTemps.Push(tmp);
+				mParams[pos] = Value(pex->mLocation, pex->mDecType->BuildArrayPointer());
+				mParams[pos].PutPtr(Value(tmp));
+			}
+			else
+				mParams[pos] = Value(pex);
+		}
 		else if (pex->mType == EX_VARIABLE && (pex->mDecValue->mFlags & DTF_CONST))
 		{
 			mParams[pos] = Value(pex->mLocation, pex->mDecValue->mBase);
@@ -618,6 +699,12 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalBinary(Expression * exp, c
 		default:
 			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible operator", TokenNames[exp->mToken]);
 		}
+	}
+	else if (exp->mDecType->mType == DT_TYPE_POINTER)
+	{
+		Value	vlp = vl.GetPtr();
+		vlp.mOffset += int(vr.GetInt() * vl.mDecType->mBase->mSize);
+		v.PutPtr(vlp);
 	}
 	else
 	{
@@ -880,6 +967,13 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 	Declaration* dec = exp->mLeft->mDecType->mParams;
 
 	int	pos = 0;
+	if (mProcType->mBase && mProcType->mBase->mType == DT_TYPE_STRUCT)
+	{
+		mResult = Value(exp->mLocation, mProcType->mBase);
+		mParams[0] = Value(&mResult);
+		pos = 2;
+	}
+
 	while (pex && pex->mType == EX_LIST)
 	{
 		if (dec)
@@ -1096,7 +1190,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	{
 		Value	v = Eval(exp->mLeft);
 		if (v.mBaseValue)
-			return Value(v.mBaseValue, exp->mDecType, v.mOffset + exp->mDecValue->mOffset);
+			return Value(exp->mLocation, v.mBaseValue, exp->mDecType, v.mOffset + exp->mDecValue->mOffset);
 	}
 
 	case EX_INDEX:
@@ -1107,14 +1201,25 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 		if (v.mDecType->mType == DT_TYPE_ARRAY)
 		{
 			if (v.mBaseValue)
-				return Value(v.mBaseValue, exp->mDecType, v.mOffset + v.mDecType->mBase->mSize * int(vi.GetInt()));
+				return Value(exp->mLocation, v.mBaseValue, exp->mDecType, v.mOffset + v.mDecType->mBase->mSize * int(vi.GetInt()));
 		}
 		else if (v.mDecType->mType == DT_TYPE_POINTER)
 		{
 			Value	p = v.GetPtr();
-			return Value(p.mBaseValue, exp->mDecType, p.mOffset + v.mDecType->mBase->mSize * int(vi.GetInt()));
+			return Value(exp->mLocation, p.mBaseValue, exp->mDecType, p.mOffset + v.mDecType->mBase->mSize * int(vi.GetInt()));
 		}
 	}
+
+	case EX_RESULT:
+		if (mParams[0].mBaseValue)
+			return mParams[0];
+		else
+			return Value(&mParams[0]);
+
+	case EX_CONSTRUCT:
+		if (exp->mLeft->mLeft)
+			Eval(exp->mLeft->mLeft);
+		return Eval(exp->mRight);
 
 	case EX_VOID:
 		return Value(exp->mLocation);
@@ -1162,6 +1267,7 @@ ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
 		case EX_PREINCDEC:
 		case EX_QUALIFY:
 		case EX_INDEX:
+		case EX_RESULT:
 			Eval(exp);
 			return FLOW_NEXT;
 

@@ -557,7 +557,7 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 			while (pdec)
 			{
 				pdec->mVarIndex += vi;
-				if (pdec->mBase->mType == DT_TYPE_REFERENCE && pdec->mBase->mBase->IsSimpleType() && !(pdec->mBase->mFlags & DTF_VAR_ADDRESS) && (pdec->mBase->mBase->mFlags & DTF_CONST))
+				if (pdec->mBase->mType == DT_TYPE_REFERENCE && pdec->mBase->mBase->IsSimpleType() && !(pdec->mFlags & DTF_VAR_ADDRESS) && (pdec->mBase->mBase->mFlags & DTF_CONST))
 				{
 					pdec->mBase = pdec->mBase->mBase;
 					pdec->mSize = pdec->mBase->mSize;
@@ -884,6 +884,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 				if (pex->mType == EX_CALL && IsStackParam(pex->mDecType) && !(pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)))
 					ldec->mBase->mFlags |= DTF_STACKCALL;
 
+				RegisterProc(Analyze(pex, procDec, pdec && pdec->mBase->IsReference()));
+
 				if (pdec)
 					pdec = pdec->mNext;
 
@@ -892,7 +894,6 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 				else
 					rex = nullptr;
 			}
-			RegisterProc(Analyze(exp->mRight, procDec, false));
 		}
 		break;
 	case EX_LIST:
@@ -901,7 +902,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_RETURN:
 		if (exp->mLeft)
 		{
-			RegisterProc(Analyze(exp->mLeft, procDec, false));
+			RegisterProc(Analyze(exp->mLeft, procDec, procDec->mBase->mBase->IsReference()));
 			if (procDec->mBase->mBase && procDec->mBase->mBase->mType == DT_TYPE_STRUCT && procDec->mBase->mBase->mCopyConstructor)
 			{
 				if (procDec->mBase->mBase->mMoveConstructor)
@@ -1031,8 +1032,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		procDec->mComplexity += exp->mDecType->mSize * 10;
 
 		ldec = Analyze(exp->mLeft, procDec, false);
-		RegisterProc(Analyze(exp->mRight->mLeft, procDec, false));
-		RegisterProc(Analyze(exp->mRight->mRight, procDec, false));
+		RegisterProc(Analyze(exp->mRight->mLeft, procDec, lhs));
+		RegisterProc(Analyze(exp->mRight->mRight, procDec, lhs));
 		break;
 	}
 

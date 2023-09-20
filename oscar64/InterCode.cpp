@@ -3679,6 +3679,34 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 			}
 		}
 	}
+	else if (mCode == IC_SELECT)
+	{
+		if (mDst.mType == IT_POINTER)
+		{
+			if (mSrc[1].mTemp < 0)
+			{
+				if (mSrc[1].mMemory == IM_LOCAL)
+				{
+					requiredVars += mSrc[1].mVarIndex;
+				}
+				else if (mSrc[1].mMemory == paramMemory)
+				{
+					requiredParams += mSrc[1].mVarIndex;
+				}
+			}
+			if (mSrc[2].mTemp < 0)
+			{
+				if (mSrc[2].mMemory == IM_LOCAL)
+				{
+					requiredVars += mSrc[2].mVarIndex;
+				}
+				else if (mSrc[2].mMemory == paramMemory)
+				{
+					requiredParams += mSrc[2].mVarIndex;
+				}
+			}
+		}
+	}
 	else if (mCode == IC_CONSTANT)
 	{
 		if (mConst.mType == IT_POINTER)
@@ -3806,6 +3834,22 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 						storeIns[k++] = storeIns[i];
 				}
 				storeIns.SetSize(k);
+			}
+		}
+	}
+	else if (mCode == IC_SELECT)
+	{
+		if (mDst.mType == IT_POINTER)
+		{
+			if (mSrc[1].mTemp < 0)
+			{
+				if (mSrc[1].mMemory == IM_GLOBAL && mSrc[1].mVarIndex >= 0)
+					requiredVars += mSrc[1].mVarIndex;
+			}
+			if (mSrc[2].mTemp < 0)
+			{
+				if (mSrc[2].mMemory == IM_GLOBAL && mSrc[2].mVarIndex >= 0)
+					requiredVars += mSrc[2].mVarIndex;
 			}
 		}
 	}
@@ -5241,12 +5285,11 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		break;
 
 	case IC_SELECT:
-		for(int i=0; i<3; i++)
+		for (int i = 0; i < 3; i++)
 		{
-			if (ins->mSrc[i].mTemp >= 0 && tvalue[ins->mSrc[i].mTemp] && tvalue[ins->mSrc[i].mTemp]->mCode == IC_CONSTANT)
+			if (ins->mSrc[i].mTemp >= 0 && tvalue[ins->mSrc[i].mTemp] && tvalue[ins->mSrc[i].mTemp]->mCode == IC_CONSTANT && ins->mSrc[i].mType != IT_POINTER)
 			{
 				ins->mSrc[i] = tvalue[ins->mSrc[i].mTemp]->mConst;
-				ins->mSrc[i].mType = ins->mDst.mType;
 				ins->mSrc[i].mTemp = -1;
 			}
 		}
@@ -16376,6 +16419,8 @@ void InterCodeProcedure::ResetVisited(void)
 
 int InterCodeProcedure::AddTemporary(InterType type)
 {
+	assert(type != IT_NONE);
+
 	int	temp = mTemporaries.Size();
 	mTemporaries.Push(type);
 	return temp;
@@ -17179,7 +17224,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "bv");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 

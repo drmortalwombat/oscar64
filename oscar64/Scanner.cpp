@@ -148,6 +148,7 @@ const char* TokenNames[] =
 	"'#repeat'",
 	"'#until'",
 	"'#embed'",
+	"'#for'",
 	"'##'",
 
 	"'namespace'",
@@ -595,6 +596,84 @@ void Scanner::NextPreToken(void)
 				else if (mOnceDict->Lookup(Ident::Unique(mPreprocessor->mSource->mFileName)))
 					mPreprocessor->CloseSource();
 			}
+		}
+		else if (mToken == TK_PREP_FOR)
+		{
+			NextRawToken();
+			if (mToken == TK_OPEN_PARENTHESIS)
+			{
+				NextRawToken();
+				Macro* macro = new Macro(Ident::Unique("@for"), nullptr);
+				if (mToken == TK_IDENT)
+				{
+					const Ident* loopindex = mTokenIdent;
+					NextRawToken();
+
+					if (mToken == TK_COMMA)
+					{
+						mPreprocessorMode = true;
+						NextToken();
+						int64 loopCount = PrepParseConditional();
+						mPreprocessorMode = false;
+
+						if (mToken == TK_CLOSE_PARENTHESIS)
+						{
+							int		slen = mOffset;
+							bool	quote = false;
+							while (mLine[slen] && (quote || mLine[slen] != '/' || mLine[slen + 1] != '/'))
+							{
+								if (mLine[slen] == '"')
+									quote = !quote;
+								slen++;
+							}
+
+							macro->SetString(mLine + mOffset, slen - mOffset);
+
+							mOffset = slen;
+							while (mLine[mOffset])
+								mOffset++;
+
+							if (loopCount > 0)
+							{
+								MacroExpansion* ex = new MacroExpansion();
+								MacroDict* scope = mDefineArguments;
+								mDefineArguments = new MacroDict();
+
+								Macro* arg = new Macro(loopindex, scope);
+								mDefineArguments->Insert(arg);
+
+								arg->SetString("0");
+
+								ex->mLine = mLine;
+								ex->mOffset = mOffset;
+								ex->mLink = mMacroExpansion;
+								ex->mChar = mTokenChar;
+								ex->mLoopCount = 0;
+								ex->mLoopIndex = arg;
+								ex->mLoopLimit = loopCount;
+
+								mMacroExpansion = ex;
+								mMacroExpansionDepth++;
+								if (mMacroExpansionDepth > 1024)
+									mErrors->Error(mLocation, EFATAL_MACRO_EXPANSION_DEPTH, "Maximum macro expansion depth exceeded", mTokenIdent);
+								mLine = macro->mString;
+								mOffset = 0;
+								NextChar();
+							}
+						}
+						else
+							mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "')' expected in defined parameter list");
+					}
+					else
+						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "',' expected");
+
+				}
+				else
+					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "'loop index variable expected");
+			}
+			else
+				mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "'('(' expected");
+
 		}
 		else if (mToken == TK_PREP_DEFINE)
 		{
@@ -1313,6 +1392,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_PREP_UNTIL;
 				else if (!strcmp(tkprep, "embed"))
 					mToken = TK_PREP_EMBED;
+				else if (!strcmp(tkprep, "for"))
+					mToken = TK_PREP_FOR;
 				else
 					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", tkprep);
 			}
@@ -1912,6 +1993,19 @@ bool Scanner::NextChar(void)
 	{
 		if (mMacroExpansion)
 		{
+			if (mMacroExpansion->mLoopIndex)
+			{
+				mMacroExpansion->mLoopCount++;
+				if (mMacroExpansion->mLoopCount < mMacroExpansion->mLoopLimit)
+				{
+					char	buffer[20];
+					sprintf_s(buffer, "%d", int(mMacroExpansion->mLoopCount));
+					mMacroExpansion->mLoopIndex->SetString(buffer);
+					mOffset = 0;
+					continue;
+				}
+			}
+
 			MacroExpansion* mac = mMacroExpansion->mLink;
 //			delete mDefineArguments;
 

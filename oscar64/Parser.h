@@ -91,6 +91,7 @@ protected:
 
 	Declaration* ParseQualIdent(void);
 
+	void SkipStatement(void);
 	Expression* ParseStatement(void);
 	Expression* ParseSwitchStatement(void);
 
@@ -109,6 +110,7 @@ protected:
 	void ParseTemplateDeclarationBody(Declaration* tdec, Declaration* pthis);
 	Declaration* FunctionAutoParamsToTemplate(Declaration* fdec);
 
+	int ExpansionDistance(Declaration* tdec, Declaration* spec);
 	Declaration* ParseTemplateExpansion(Declaration* tmpld, Declaration* expd);
 	void CompleteTemplateExpansion(Declaration* tmpld);
 

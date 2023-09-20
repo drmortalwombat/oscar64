@@ -303,6 +303,9 @@ void Expression::Dump(int ident) const
 	case EX_PACK:
 		printf("PACK");
 		break;
+	case EX_PACK_TYPE:
+		printf("PACK_TYPE");
+		break;
 	}
 	printf("\n");
 
@@ -353,6 +356,16 @@ bool Expression::IsRValue(void) const
 		return false;
 	else
 		return true;
+}
+
+bool Expression::IsConstRef(void) const
+{
+	if (mDecType->mType == DT_TYPE_RVALUEREF || mDecType->mType == DT_TYPE_REFERENCE)
+		return true;
+	else if (mType == EX_VARIABLE || mType == EX_QUALIFY || mType == EX_INDEX || mType == EX_PREFIX && mToken == TK_MUL)
+		return true;
+	else
+		return false;
 }
 
 bool Expression::IsLValue(void) const
@@ -996,7 +1009,7 @@ Declaration* Declaration::DeduceAuto(Declaration * dec)
 		if (dec->mType == DT_TYPE_ARRAY)
 			dec = dec->mBase->BuildPointer(mLocation);
 
-		if (mFlags & DTF_CONST)
+		if ((IsReference() ? mBase->mFlags : mFlags) & DTF_CONST)
 			dec = dec->ToConstType();
 		else
 			dec = dec->ToMutableType();
@@ -1133,7 +1146,7 @@ const Ident* Declaration::MangleIdent(void)
 		}
 		else if (mType == DT_PACK_TYPE)
 		{
-			Declaration* dec = mBase;
+			Declaration* dec = mParams;
 			while (dec)
 			{
 				const Ident* id = dec->MangleIdent();
@@ -1288,7 +1301,7 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 				tpdec->mIdent = pdec->mBase->mBase->mIdent;
 			else
 				tpdec->mIdent = pdec->mBase->mIdent;
-			tpdec->mBase = phead;
+			tpdec->mParams = phead;
 			mScope->Insert(tpdec->mIdent, tpdec);
 		}
 		else
@@ -1434,25 +1447,66 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 		Declaration	*ftdec = tdec->mTemplate;
 		while (ftdec)
 		{
-			if (ftdec->mBase->IsConstSame(fdec))
+			if (ftdec->mBase->mQualIdent == fdec->mQualIdent)
 			{
 				Declaration* fpdec = ftdec->mParams;
 				Declaration* tpdec = tdec->mTemplate->mParams;
 
-				while (fpdec)
+				while (fpdec && tpdec)
 				{
 					if (tpdec->mBase->mType == DT_TYPE_TEMPLATE || tpdec->mBase->mType == DT_CONST_TEMPLATE)
 					{
-						Declaration * pdec = mScope->Insert(tpdec->mIdent, fpdec->mBase);
+						Declaration * pdec = mScope->Insert(tpdec->mBase->mIdent, fpdec->mBase);
 						if (pdec && !pdec->IsSame(fpdec->mBase))
 							return false;
+					}
+					else if (tpdec->mBase->mType == DT_PACK_TEMPLATE)
+					{
+						Declaration* tppack;
+						if (fpdec->mType == DT_PACK_TEMPLATE)
+							tppack = fpdec->mBase;
+						else
+						{
+							tppack = new Declaration(fpdec->mLocation, DT_PACK_TYPE);
+
+							Declaration* ppdec = nullptr;
+
+							while (fpdec)
+							{
+								if (fpdec->mType == DT_PACK_TEMPLATE)
+								{
+									if (ppdec)
+										ppdec->mNext = fpdec->mBase->mParams;
+									else
+										tppack->mParams = fpdec->mBase->mParams;
+									break;
+								}
+
+								Declaration* ndec = fpdec->mBase->Clone();
+
+								if (ppdec)
+									ppdec->mNext = ndec;
+								else
+									tppack->mParams = ndec;
+								ppdec = ndec;
+
+								fpdec = fpdec->mNext;
+							}
+
+						}
+
+						Declaration* pdec = mScope->Insert(tpdec->mBase->mIdent, tppack);
+						if (pdec && !pdec->IsSame(fpdec->mBase))
+							return false;
+
+						return true;
 					}
 
 					fpdec = fpdec->mNext;
 					tpdec = tpdec->mNext;
 				}
 
-				return true;
+				return !fpdec && !tpdec;
 			}
 			
 			ftdec = ftdec->mNext;
@@ -1604,6 +1658,7 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mQualIdent = mQualIdent;
 		ndec->mTemplate = mTemplate;
 
+		ndec->mDestructor = mDestructor;
 		ndec->mDefaultConstructor = mDefaultConstructor;
 		ndec->mCopyConstructor = mCopyConstructor;
 		ndec->mMoveConstructor = mMoveConstructor;
@@ -1636,6 +1691,7 @@ Declaration* Declaration::ToMutableType(void)
 		ndec->mQualIdent = mQualIdent;
 		ndec->mTemplate = mTemplate;
 
+		ndec->mDestructor = mDestructor;
 		ndec->mDefaultConstructor = mDefaultConstructor;
 		ndec->mCopyConstructor = mCopyConstructor;
 		ndec->mMoveConstructor = mMoveConstructor;
@@ -1659,6 +1715,8 @@ bool Declaration::IsSameTemplate(const Declaration* dec) const
 
 	if (mType == DT_CONST_FUNCTION)
 		return mBase->IsSame(dec->mBase);
+	else if (mType == DT_TYPE_STRUCT)
+		return true;
 
 	return false;
 }
@@ -1673,7 +1731,7 @@ bool Declaration::IsSubType(const Declaration* dec) const
 
 	if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 	{
-		if (dec->mType == DT_TYPE_POINTER)
+		if (dec->mType == DT_TYPE_POINTER || dec->mType == DT_TYPE_ARRAY)
 			return /*this->Stride() == dec->Stride() &&*/ mBase->IsSubType(dec->mBase);
 	}
 
@@ -1906,7 +1964,7 @@ bool Declaration::IsSameParams(const Declaration* dec) const
 	}
 	else if (mType == DT_PACK_TYPE && dec->mType == DT_PACK_TYPE)
 	{
-		Declaration* ld = mBase, * rd = dec->mBase;
+		Declaration* ld = mParams, * rd = dec->mParams;
 		while (ld && rd)
 		{
 			if (!ld->IsSame(rd))
