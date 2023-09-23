@@ -700,14 +700,14 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 
 				if (pdec)
 				{
-					if ((pdec->mFlags & DTF_FPARAM_UNUSED) && !pex->HasSideEffects() && pex->mType != EX_CONSTANT)
+					if ((pdec->mFlags & DTF_FPARAM_UNUSED) && !pex->HasSideEffects())// && pex->mType != EX_CONSTANT)
 					{
 						if (pdec->mBase->IsSimpleType())
 						{
 							pex->mType = EX_CONSTANT;
 							pex->mLeft = nullptr;
 							pex->mRight = nullptr;
-							switch (pex->mDecType->mType)
+							switch (pdec->mBase->mType)
 							{
 							case DT_TYPE_INTEGER:
 							case DT_TYPE_ENUM:
@@ -718,6 +718,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 								pex->mDecValue = TheZeroFloatConstDeclaration;
 								break;
 							case DT_TYPE_POINTER:
+							case DT_TYPE_FUNCTION:
 								pex->mDecValue = TheNullptrConstDeclaration;
 								break;
 							}
