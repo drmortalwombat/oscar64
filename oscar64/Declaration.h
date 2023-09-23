@@ -325,6 +325,7 @@ public:
 	Declaration* BuildArrayPointer(void);
 	Declaration* DeduceAuto(Declaration* dec);
 	Declaration* ConstCast(Declaration* ntype);
+	bool IsNullConst(void) const;
 	bool IsAuto(void) const;
 
 	DecType ValueType(void) const;

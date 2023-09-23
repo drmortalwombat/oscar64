@@ -967,6 +967,16 @@ Declaration* Declaration::BuildArrayPointer(void)
 		return this;
 }
 
+bool Declaration::IsNullConst(void) const
+{
+	if (mType == DT_CONST_INTEGER || mType == DT_CONST_ADDRESS)
+		return mInteger == 0;
+	else if (mType == DT_CONST_FLOAT)
+		return mNumber == 0;
+	else
+		return false;
+}
+
 Declaration* Declaration::ConstCast(Declaration* ntype)
 {
 	if (ntype == mBase)

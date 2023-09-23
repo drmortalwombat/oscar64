@@ -696,17 +696,15 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			Declaration* pdec = ldec->mBase->mParams;
 			while (rex)
 			{
-				Expression* pex = rex->mType == EX_LIST ? rex->mLeft : rex;
+				Expression	*& pex(rex->mType == EX_LIST ? rex->mLeft : rex);
 
 				if (pdec)
 				{
-					if ((pdec->mFlags & DTF_FPARAM_UNUSED) && !pex->HasSideEffects())// && pex->mType != EX_CONSTANT)
+					if ((pdec->mFlags & DTF_FPARAM_UNUSED) && !pex->HasSideEffects() && (pex->mType != EX_CONSTANT || !pex->mDecValue->IsNullConst()))
 					{
 						if (pdec->mBase->IsSimpleType())
 						{
-							pex->mType = EX_CONSTANT;
-							pex->mLeft = nullptr;
-							pex->mRight = nullptr;
+							pex = new Expression(pex->mLocation, EX_CONSTANT);
 							switch (pdec->mBase->mType)
 							{
 							case DT_TYPE_INTEGER:
@@ -720,8 +718,9 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 							case DT_TYPE_POINTER:
 							case DT_TYPE_FUNCTION:
 								pex->mDecValue = TheNullptrConstDeclaration;
-								break;
+								break;								
 							}
+							pex->mDecType = pdec->mBase;
 						}
 					}
 					if (!(pdec->mFlags & DTF_FPARAM_UNUSED) && !(pdec->mOptFlags & OPTF_VAR_NOCONST))
