@@ -4379,7 +4379,12 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 		else if (mMemory == IM_GLOBAL)
 		{
 			if (mVarIndex < 0)
-				vname = "";
+			{
+				if (mLinkerObject && mLinkerObject->mIdent)
+					vname = mLinkerObject->mIdent->mString;
+				else
+					vname = "";
+			}
 			else if (!proc->mModule->mGlobalVars[mVarIndex])
 				vname = "null";
 			else if (!proc->mModule->mGlobalVars[mVarIndex]->mIdent)
@@ -4563,7 +4568,12 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 				else if (mConst.mMemory == IM_GLOBAL)
 				{
 					if (mConst.mVarIndex < 0)
-						vname = "";
+					{
+						if (mConst.mLinkerObject && mConst.mLinkerObject->mIdent)
+							vname = mConst.mLinkerObject->mIdent->mString;
+						else
+							vname = "";
+					}
 					else if (!proc->mModule->mGlobalVars[mConst.mVarIndex])
 						vname = "null";
 					else if (!proc->mModule->mGlobalVars[mConst.mVarIndex]->mIdent)
@@ -6415,7 +6425,10 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 			else
 			{
 				for (int i = 0; i < mLocalValueRange.Size(); i++)
-					mLocalValueRange[i].Merge(range[i], mLoopHead, initial);
+				{
+					if (this != from || IsTempModified(i))
+						mLocalValueRange[i].Merge(range[i], mLoopHead, initial);
+				}
 				for (int i = 0; i < mLocalParamValueRange.Size(); i++)
 					mLocalParamValueRange[i].Merge(prange[i], mLoopHead, initial);
 			}
@@ -12262,6 +12275,45 @@ static InterInstruction * FindSourceInstruction(InterCodeBasicBlock* block, int 
 	}
 }
 
+bool InterCodeBasicBlock::MoveLoopHeadCheckToTail(void)
+{
+	bool	modified = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2 && mInstructions.Size() == 2)
+		{
+			if (mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[1]->mCode == IC_BRANCH &&
+				mInstructions[1]->mSrc[0].mTemp == mInstructions[0]->mDst.mTemp)
+			{
+				if (mFalseJump != this && mTrueJump->mTrueJump == this && !mTrueJump->mFalseJump)
+				{
+					mTrueJump->mInstructions.SetSize(mTrueJump->mInstructions.Size() - 1);
+					mTrueJump->mInstructions.Push(mInstructions[0]->Clone());
+					mTrueJump->mInstructions.Push(mInstructions[1]->Clone());
+					mTrueJump->mTrueJump = mTrueJump;
+					mTrueJump->mFalseJump = mFalseJump;
+					mTrueJump->mEntryBlocks.Push(mTrueJump);
+					mTrueJump->mNumEntries++;
+					mFalseJump->mEntryBlocks.Push(mTrueJump);
+					mFalseJump->mNumEntries++;
+					mNumEntries--;
+					mEntryBlocks.Remove(mEntryBlocks.IndexOf(mTrueJump));
+					modified = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MoveLoopHeadCheckToTail())
+			modified = true;
+		if (mFalseJump && mFalseJump->MoveLoopHeadCheckToTail())
+			modified = true;
+	}
+
+	return modified;
+}
+
 bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	bool	modified = false;
@@ -17607,6 +17659,12 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
+	ResetVisited();
+	mEntryBlock->MoveLoopHeadCheckToTail();
+
+#endif
+
+#if 1
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
 
@@ -18110,7 +18168,7 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 			case IC_CONSTANT:
-				if (ins->mConst.mType == IT_POINTER && (ins->mConst.mMemory == IM_FPARAM || ins->mConst.mMemory == IM_PARAM || ins->mConst.mMemory == IM_LOCAL))
+				if (ins->mDst.mType == IT_POINTER && (ins->mConst.mMemory == IM_FPARAM || ins->mConst.mMemory == IM_PARAM || ins->mConst.mMemory == IM_LOCAL))
 					nother++;
 				else
 					nconst++;

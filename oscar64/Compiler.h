@@ -7,6 +7,7 @@
 #include "NativeCodeGenerator.h"
 #include "InterCodeGenerator.h"
 #include "GlobalAnalyzer.h"
+#include "GlobalOptimizer.h"
 #include "Linker.h"
 #include "CompilerTypes.h"
 
@@ -25,6 +26,7 @@ public:
 	InterCodeGenerator* mInterCodeGenerator;
 	InterCodeModule* mInterCodeModule;
 	GlobalAnalyzer* mGlobalAnalyzer;
+	GlobalOptimizer* mGlobalOptimizer;
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
 	ExpandingArray<NativeCodeProcedure*>	mNativeProcedures;

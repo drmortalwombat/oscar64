@@ -9,7 +9,7 @@ class ios
 {
 public:
 
-	ios(void);
+	constexpr ios(void);
 	virtual ~ios(void);
 
 	char fill() const;
@@ -85,7 +85,7 @@ typedef ostream & (* manip)(ostream &);
 class ostream : public ios
 {
 public:
-	ostream(void);
+	constexpr ostream(void);
 
 	ostream & put(char c);
 	ostream & write(const char * s, int n);		
@@ -150,7 +150,7 @@ protected:
 class costream : public ostream
 {
 public:
-	costream(void);
+	constexpr costream(void);
 
 protected:
 	void bput(char ch);

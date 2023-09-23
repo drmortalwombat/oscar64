@@ -33,6 +33,7 @@ Compiler::Compiler(void)
 	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker, mCompilationUnits->mSectionCode);
 	mInterCodeModule = new InterCodeModule(mErrors, mLinker);
 	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
+	mGlobalOptimizer = new GlobalOptimizer(mErrors, mLinker);
 
 	mCartridgeID = 0x0000;
 }
@@ -835,8 +836,6 @@ bool Compiler::GenerateCode(void)
 
 	dcrtstart->mSection = sectionStartup;
 
-	mGlobalAnalyzer->mCompilerOptions = mCompilerOptions;
-
 	if (mCompilerOptions & COPT_CPLUSPLUS)
 	{
 		if (mCompilerOptions & COPT_VERBOSE)
@@ -844,6 +843,32 @@ bool Compiler::GenerateCode(void)
 
 		BuildVTables();
 	}
+
+	if (mCompilerOptions & COPT_OPTIMIZE_GLOBAL)
+	{
+		mGlobalOptimizer->mCompilerOptions = mCompilerOptions;
+
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Global optimizer\n");
+
+		do {
+			mGlobalOptimizer->Reset();
+
+			mGlobalOptimizer->AnalyzeAssembler(dcrtstart->mValue, nullptr);
+
+			for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
+			{
+				Declaration* dec = mCompilationUnits->mReferenced[i];
+				if (dec->mType == DT_CONST_FUNCTION)
+					mGlobalOptimizer->AnalyzeProcedure(dec->mValue, dec);
+				else
+					mGlobalOptimizer->AnalyzeGlobalVariable(dec);
+			}
+		} while (mGlobalOptimizer->Optimize());
+
+	}
+
+	mGlobalAnalyzer->mCompilerOptions = mCompilerOptions;
 
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Global analyzer\n");

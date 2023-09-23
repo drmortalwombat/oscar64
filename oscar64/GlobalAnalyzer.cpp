@@ -219,6 +219,8 @@ void GlobalAnalyzer::AutoInline(void)
 		{
 			if (pdec->mFlags & DTF_FPARAM_CONST)
 			{
+				pdec->mFlags |= DTF_FPARAM_UNUSED;
+
 				pdec->mVarIndex = dec->mNumVars++;
 
 				Expression* aexp = new Expression(pdec->mLocation, EX_INITIALIZATION);
@@ -897,6 +899,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		}
 		break;
 	case EX_LIST:
+	case EX_COMMA:
 		RegisterProc(Analyze(exp->mLeft, procDec, false));
 		return Analyze(exp->mRight, procDec, false);
 	case EX_RETURN:

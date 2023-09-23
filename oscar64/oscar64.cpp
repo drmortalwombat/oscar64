@@ -205,6 +205,8 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_ZEROPAGE;
 					else if (arg[2] == 'p')
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_CONST_PARAMS;
+					else if (arg[2] == 'g')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_GLOBAL;
 				}
 				else if (arg[1] == 'e')
 				{
@@ -275,6 +277,11 @@ int main2(int argc, const char** argv)
 		{
 			compiler->AddDefine(Ident::Unique("OSCAR_NATIVE_ALL"), "1");
 		}
+
+
+		// REMOVE ME
+		// compiler->mCompilerOptions |= COPT_OPTIMIZE_GLOBAL;
+		// REMOVE ME
 
 		char	basicStart[10];
 		strcpy_s(basicStart, "0x0801");

@@ -1,4 +1,5 @@
 #include "InterCodeGenerator.h"
+#include "Constexpr.h"
 
 InterCodeGenerator::InterCodeGenerator(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker), mCompilerOptions(COPT_DEFAULT)
@@ -1200,7 +1201,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 		if (pdec)
 		{
-			if (!(pdec->mFlags & DTF_FPARAM_CONST))
+			if (!(pdec->mFlags & DTF_FPARAM_UNUSED))
 				nmapper.mParams[pdec->mVarIndex] = nindex;
 
 			vdec->mVarIndex = nindex;
@@ -1317,7 +1318,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 			else
 				wins->mSrc[1].mOperandSize = 2;
 
-			if (!pdec || !(pdec->mFlags & DTF_FPARAM_CONST))
+			if (!pdec || !(pdec->mFlags & DTF_FPARAM_UNUSED))
 				block->Append(wins);
 		}
 
@@ -1444,7 +1445,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			ains->mConst.mMemory = IM_LOCAL;
 			ains->mConst.mVarIndex = nindex;
 
-			if (!(pdec->mFlags & DTF_FPARAM_CONST))
+			if (!(pdec->mFlags & DTF_FPARAM_UNUSED))
 				nmapper.mParams[pdec->mVarIndex] = nindex;
 
 			vdec->mVarIndex = nindex;
@@ -1463,7 +1464,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			wins->mSrc[1].mType = IT_POINTER;
 			wins->mSrc[1].mTemp = ains->mDst.mTemp;
 			wins->mSrc[1].mOperandSize = 2;
-			if (!(pdec->mFlags & DTF_FPARAM_CONST))
+			if (!(pdec->mFlags & DTF_FPARAM_UNUSED))
 				block->Append(wins);
 
 			pdec = pdec->mNext;
@@ -1479,7 +1480,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			ains->mConst.mMemory = IM_LOCAL;
 			ains->mConst.mVarIndex = nindex;
 
-			if (!(pdec->mFlags & DTF_FPARAM_CONST))
+			if (!(pdec->mFlags & DTF_FPARAM_UNUSED))
 				nmapper.mParams[pdec->mVarIndex] = nindex;
 
 			vdec->mVarIndex = nindex;
@@ -1498,7 +1499,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			wins->mSrc[1].mType = IT_POINTER;
 			wins->mSrc[1].mTemp = ains->mDst.mTemp;
 			wins->mSrc[1].mOperandSize = 2;
-			if (!(pdec->mFlags & DTF_FPARAM_CONST))
+			if (!(pdec->mFlags & DTF_FPARAM_UNUSED))
 				block->Append(wins);
 
 			TranslateExpression(ftype, proc, block, fexp, destack, BranchTarget(), BranchTarget(), &nmapper);
@@ -1620,6 +1621,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 		case EX_SEQUENCE:
 		case EX_LIST:
+		case EX_COMMA:
 			if (exp->mLeft)
 				vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, breakBlock, continueBlock, inlineMapper);
 			exp = exp->mRight;
@@ -1948,7 +1950,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			int ref = 1;
 			if (dec->mType == DT_ARGUMENT)
 			{
-				if (dec->mFlags & DTF_FPARAM_CONST)
+				if (dec->mFlags & DTF_FPARAM_UNUSED)
 				{
 					ins->mConst.mMemory = IM_LOCAL;
 					if (inlineMapper)
@@ -3543,7 +3545,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						if (pdec)
 						{
-							if (!pdec->mBase->CanAssign(vr.mType))
+							if (!(pdec->mFlags & DTF_FPARAM_UNUSED) && !pdec->mBase->CanAssign(vr.mType))
 							{
 								pdec->mBase->CanAssign(vr.mType);
 								mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
@@ -3577,7 +3579,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						else
 							wins->mSrc[1].mOperandSize = 2;
 
-						if (!pdec || !(pdec->mFlags & DTF_FPARAM_CONST))
+						if (!pdec || !(pdec->mFlags & DTF_FPARAM_UNUSED))
 						{
 							if (ftype->mFlags & DTF_FASTCALL)
 								defins.Push(wins);
@@ -3702,7 +3704,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (vdec->mType == DT_ARGUMENT)
 					{
 						vins->mConst.mVarIndex = vdec->mVarIndex;
-						if (vdec->mFlags & DTF_FPARAM_CONST)
+						if (vdec->mFlags & DTF_FPARAM_UNUSED)
 						{
 							vins->mConst.mMemory = IM_LOCAL;
 							if (inlineMapper)
@@ -5016,10 +5018,15 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 	default:
 	{
 		ExValue	vr = TranslateExpression(procType, proc, block, exp, destack, BranchTarget(), BranchTarget(), inlineMapper);
-		vr = Dereference(proc, exp, block, vr);
 
-		if (!vr.mType->IsSimpleType())
-			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Not a valid condition value");
+		if (vr.mType->mType == DT_TYPE_ARRAY)
+			vr = Dereference(proc, exp, block, vr, 1);
+		else
+		{
+			vr = Dereference(proc, exp, block, vr);
+			if (!vr.mType->IsSimpleType())
+				mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Not a valid condition value");
+		}
 				
 		InterInstruction* ins = new InterInstruction(exp->mLocation, IC_BRANCH);
 		ins->mSrc[0].mType = InterTypeOf(vr.mType);

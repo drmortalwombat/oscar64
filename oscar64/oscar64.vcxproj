@@ -165,6 +165,7 @@
     <ClCompile Include="Emulator.cpp" />
     <ClCompile Include="Errors.cpp" />
     <ClCompile Include="GlobalAnalyzer.cpp" />
+    <ClCompile Include="GlobalOptimizer.cpp" />
     <ClCompile Include="Ident.cpp" />
     <ClCompile Include="InterCode.cpp" />
     <ClCompile Include="InterCodeGenerator.cpp" />
@@ -192,6 +193,7 @@
     <ClInclude Include="Emulator.h" />
     <ClInclude Include="Errors.h" />
     <ClInclude Include="GlobalAnalyzer.h" />
+    <ClInclude Include="GlobalOptimizer.h" />
     <ClInclude Include="Ident.h" />
     <ClInclude Include="InterCode.h" />
     <ClInclude Include="InterCodeGenerator.h" />

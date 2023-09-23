@@ -9,6 +9,7 @@ public:
 	~ConstexprInterpreter(void);
 
 	Expression* EvalCall(Expression* exp);
+	Expression* EvalConstructor(Expression* exp);
 protected:
 	struct Value;
 

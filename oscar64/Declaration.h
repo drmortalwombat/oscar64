@@ -116,6 +116,7 @@ static const uint64 DTF_VAR_ADDRESS		= (1ULL << 46);
 static const uint64 DTF_FUNC_THIS		= (1ULL << 47);
 
 static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
+static const uint64 DTF_FPARAM_UNUSED	= (1ULL << 49);
 
 
 class Declaration;
@@ -196,6 +197,7 @@ enum ExpressionType
 	EX_VCALL,
 	EX_DISPATCH,
 	EX_LIST,
+	EX_COMMA,
 	EX_RETURN,
 	EX_SEQUENCE,
 	EX_WHILE,
@@ -267,13 +269,13 @@ public:
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
 	Declaration		*	mVTable, * mClass, * mTemplate;
 
-	Expression*			mValue;
+	Expression*			mValue, * mReturn;
 	DeclarationScope*	mScope;
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;
 	uint8				mShift, mBits;
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
-	uint64				mFlags, mCompilerOptions;
+	uint64				mFlags, mCompilerOptions, mOptFlags;
 	const Ident		*	mIdent, * mQualIdent, * mMangleIdent;
 	LinkerSection	*	mSection;
 	const uint8		*	mData;
@@ -322,6 +324,7 @@ public:
 	Declaration* NonRefBase(void);
 	Declaration* BuildArrayPointer(void);
 	Declaration* DeduceAuto(Declaration* dec);
+	Declaration* ConstCast(Declaration* ntype);
 	bool IsAuto(void) const;
 
 	DecType ValueType(void) const;
@@ -343,5 +346,6 @@ extern Declaration* TheVoidTypeDeclaration, * TheConstVoidTypeDeclaration, * The
 extern Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheConstVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 extern Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 extern Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
+extern Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration;
 extern Expression* TheVoidExpression;
 

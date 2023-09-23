@@ -2,6 +2,7 @@
 #include <string.h>
 #include "Assembler.h"
 #include "MachineTypes.h"
+#include "Constexpr.h"
 
 Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUnits)
 	: mErrors(errors), mScanner(scanner), mCompilationUnits(compilationUnits)
@@ -3455,13 +3456,10 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 					// A simple constant is passed by const ref
 					if (pex->mDecValue->mType == DT_CONST_INTEGER || pex->mDecValue->mType == DT_CONST_FLOAT || pex->mDecValue->mType == DT_CONST_POINTER || pex->mDecValue->mType == DT_CONST_ADDRESS)
 					{
-						int	nindex = mLocalIndex++;
+						if (pdec->mType == DT_TYPE_REFERENCE && !(pdec->mBase->mFlags & DTF_CONST))
+							mErrors->Error(pex->mLocation, EERR_INCOMPATIBLE_TYPES, "Can't pass constant as non constante reference");
 
-						Declaration* vdec = new Declaration(exp->mLocation, DT_VARIABLE);
-
-						vdec->mVarIndex = nindex;
-						vdec->mBase = pdec->mBase->mBase;
-						vdec->mSize = pdec->mBase->mBase->mSize;
+						Declaration* vdec = AllocTempVar(pdec->mBase->mBase);
 
 						Expression* vexp = new Expression(pex->mLocation, EX_VARIABLE);
 						vexp->mDecType = pdec->mBase->mBase;
@@ -3771,7 +3769,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
-			ctdec->mFlags |= storageFlags & DTF_VIRTUAL;
+			ctdec->mFlags |= storageFlags & (DTF_REQUEST_INLINE | DTF_CONSTEXPR | DTF_VIRTUAL);
 
 			cdec->mSection = mCodeSection;
 			cdec->mBase->mFlags |= typeFlags;
@@ -3821,7 +3819,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
-			ctdec->mFlags |= storageFlags & DTF_VIRTUAL;
+			ctdec->mFlags |= storageFlags & (DTF_REQUEST_INLINE | DTF_CONSTEXPR | DTF_VIRTUAL);
 
 			cdec->mSection = mCodeSection;
 			cdec->mBase->mFlags |= typeFlags;
@@ -3866,6 +3864,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+			cdec->mFlags |= storageFlags & (DTF_INLINE | DTF_CONSTEXPR);
 
 			cdec->mSection = mCodeSection;
 			cdec->mBase->mFlags |= typeFlags;
@@ -3964,7 +3963,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 					if (cdec)
 					{
-						cdec->mFlags |= storageFlags & DTF_REQUEST_INLINE;
+						cdec->mFlags |= storageFlags & (DTF_REQUEST_INLINE | DTF_CONSTEXPR);
 
 						// Initializer list
 						if (mScanner->mToken == TK_COLON)
@@ -4042,7 +4041,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 				if (bdec->mDestructor)
 				{
-					bdec->mDestructor->mFlags |= storageFlags & DTF_REQUEST_INLINE;
+					bdec->mDestructor->mFlags |= storageFlags & (DTF_REQUEST_INLINE | DTF_CONSTEXPR);
 
 					Declaration* bthis = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
 					bthis->mFlags |= DTF_CONST | DTF_DEFINED;
@@ -4411,7 +4410,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			{
 				ParseVariableInit(ndec);
 			}
-			else if ((mCompilerOptions & COPT_CPLUSPLUS) &&  ndec->mType == DT_VARIABLE && !pthis)
+			else if ((mCompilerOptions & COPT_CPLUSPLUS) &&  ndec->mType == DT_VARIABLE && !pthis && !(storageFlags & DTF_EXTERN))
 			{
 				// Find default constructor
 
@@ -4444,6 +4443,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 						Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
 						fexp->mLeft = cexp;
 						fexp->mRight = texp;
+
+						if (bdec->mDefaultConstructor->mFlags & DTF_CONSTEXPR)
+							ndec->mSection = mDataSection;
 
 						Expression* dexp = nullptr;
 						if (ndec->mBase->mDestructor)

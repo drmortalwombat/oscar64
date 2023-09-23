@@ -222,6 +222,9 @@ void Expression::Dump(int ident) const
 	case EX_LIST:
 		printf("LIST");
 		break;
+	case EX_COMMA:
+		printf("COMMA");
+		break;
 	case EX_RETURN:
 		printf("RETURN");
 		break;
@@ -522,6 +525,10 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		ex->mDecValue = dec;
 		ex->mDecType = mDecType;
 		return ex;
+	}
+	else if (mType == EX_PREFIX && mToken == TK_BINARY_AND && mLeft->mType == EX_PREFIX && mLeft->mToken == TK_MUL)
+	{
+		return mLeft->mLeft;
 	}
 #endif
 	else if (mType == EX_TYPECAST && mLeft->mType == EX_CONSTANT)
@@ -888,7 +895,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			return ex;
 		}
 	}
-	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_CONSTEXPR))
+	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_CONSTEXPR) && dataSection)
 	{
 		ConstexprInterpreter	cinter(mLocation, errors, dataSection);
 		return cinter.EvalCall(this);
@@ -900,7 +907,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr), mMangleIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), mNumVars(0),
-	mBase(nullptr), mParams(nullptr), mParamPack(nullptr), mValue(nullptr), mNext(nullptr), mPrev(nullptr),
+	mBase(nullptr), mParams(nullptr), mParamPack(nullptr), mValue(nullptr), mReturn(nullptr), mNext(nullptr), mPrev(nullptr),
 	mConst(nullptr), mMutable(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
@@ -908,7 +915,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), mFriends(nullptr),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr),
-	mShift(0), mBits(0)
+	mShift(0), mBits(0), mOptFlags(0)
 {}
 
 Declaration::~Declaration(void)
@@ -955,6 +962,71 @@ Declaration* Declaration::BuildArrayPointer(void)
 		pdec->mSize = 2;
 		pdec->mStride = mStride;
 		return pdec;
+	}
+	else
+		return this;
+}
+
+Declaration* Declaration::ConstCast(Declaration* ntype)
+{
+	if (ntype == mBase)
+		return this;
+	else if (ntype->mType == DT_TYPE_POINTER)
+	{
+		if (mBase->mType == DT_TYPE_POINTER)
+		{
+			if (mBase->mBase->IsSame(ntype->mBase))
+				return this;
+
+			Declaration* pdec = this->Clone();
+			pdec->mBase = ntype;
+			return pdec;
+		}
+		else if (mType == DT_TYPE_INTEGER)
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mType = DT_CONST_ADDRESS;
+			pdec->mBase = ntype;
+			pdec->mSize = 2;
+			return pdec;
+		}
+		else
+			return this;
+	}
+	else if (ntype->mType == DT_TYPE_INTEGER || ntype->mType == DT_TYPE_BOOL || ntype->mType == DT_TYPE_ENUM)
+	{
+		if (mType == DT_TYPE_FLOAT)
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mInteger = int64(mNumber);
+			pdec->mBase = ntype;
+			pdec->mSize = ntype->mSize;
+			return pdec;
+		}
+		else
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mBase = ntype;
+			pdec->mSize = ntype->mSize;
+			return pdec;
+		}
+	}
+	else if (ntype->mType == DT_TYPE_FLOAT)
+	{
+		if (mType == DT_TYPE_FLOAT)
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mBase = ntype;
+			return pdec;
+		}
+		else
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mNumber = float(mInteger);
+			pdec->mBase = ntype;
+			pdec->mSize = ntype->mSize;
+			return pdec;
+		}
 	}
 	else
 		return this;
@@ -2263,6 +2335,7 @@ Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheConstVoidPo
 Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
 Expression* TheVoidExpression;
+Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration;
 
 void InitDeclarations(void)
 {
@@ -2345,4 +2418,16 @@ void InitDeclarations(void)
 	TheVoidExpression = new Expression(noloc, EX_CONSTANT);
 	TheVoidExpression->mDecType = TheConstVoidTypeDeclaration;
 	TheVoidExpression->mDecValue = TheConstVoidValueDeclaration;
+
+
+	TheNullptrConstDeclaration = new Declaration(noloc, DT_CONST_ADDRESS);
+	TheNullptrConstDeclaration->mBase = TheVoidPointerTypeDeclaration;
+	TheNullptrConstDeclaration->mSize = 2;
+	TheZeroIntegerConstDeclaration = new Declaration(noloc, DT_CONST_INTEGER);
+	TheZeroIntegerConstDeclaration->mBase = TheSignedIntTypeDeclaration;
+	TheZeroIntegerConstDeclaration->mSize = 2;
+	TheZeroFloatConstDeclaration = new Declaration(noloc, DT_CONST_FLOAT);
+	TheZeroFloatConstDeclaration->mBase = TheFloatTypeDeclaration;
+	TheZeroFloatConstDeclaration->mSize = 4;
+
 }

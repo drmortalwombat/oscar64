@@ -434,6 +434,7 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 	{
 	case DT_TYPE_INTEGER:
 	case DT_TYPE_BOOL:
+	case DT_TYPE_ENUM:
 		dec = new Declaration(mLocation, DT_CONST_INTEGER);
 		dec->mBase = type;
 		dec->mFlags = type->mFlags & DTF_SIGNED;
@@ -454,20 +455,25 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 		dec->mSection = dataSection;
 		dec->mOffset = offset;
 
-		Declaration* ldec = nullptr;
 		while (type)
 		{
 			for (Declaration* mdec = type->mParams; mdec; mdec = mdec->mNext)
 			{
 				Declaration* cdec = GetConst(offset + mdec->mOffset, mdec->mBase, dataSection);
 				cdec->mOffset = mdec->mOffset;
+				cdec->mNext = dec->mParams;
+				dec->mParams = cdec;
+			}
 
-				if (ldec)
-					ldec->mNext = cdec;
-				else
-					dec->mParams = cdec;
-
-				ldec = cdec;
+			if (type->mVTable)
+			{
+				Declaration * cdec = new Declaration(mLocation, DT_CONST_INTEGER);
+				cdec->mBase = TheConstCharTypeDeclaration;
+				cdec->mSize = 1;
+				cdec->mInteger = type->mVTable->mDefaultConstructor->mInteger;
+				cdec->mOffset = offset + type->mVTable->mOffset;
+				cdec->mNext = dec->mParams;
+				dec->mParams = cdec;
 			}
 
 			if (type->mBase)
@@ -585,6 +591,29 @@ void ConstexprInterpreter::DeleteValue(Value* v)
 	}
 	else
 		mErrors->Error(v->mLocation, EERR_DOUBLE_FREE, "Freeing not allocated memory");
+}
+
+Expression* ConstexprInterpreter::EvalConstructor(Expression* exp)
+{
+	mProcType = exp->mLeft->mDecType;
+
+	Declaration* cdec = exp->mLeft->mDecType->mParams;
+
+	int	pos = 0;
+	mResult = Value(exp->mLocation, cdec->mBase->mBase);
+	mParams[pos] = Value(exp->mLocation, cdec->mBase);
+	mParams[pos].PutPtr(Value(&mResult));
+	pos = 2;
+
+	mHeap = new ExpandingArray<Value*>();
+
+	Execute(exp->mLeft->mDecValue->mValue);
+
+	if (mHeap->Size() > 0)
+		mErrors->Error(exp->mLocation, EERR_UNBALANCED_HEAP_USE, "Unbalanced heap use in constexpr");
+	delete mHeap;
+
+	return mResult.ToExpression(mDataSection);
 }
 
 Expression* ConstexprInterpreter::EvalCall(Expression* exp)
@@ -1118,6 +1147,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	}
 
 	case EX_LIST:
+	case EX_COMMA:
 		Eval(exp->mLeft);
 		return Eval(exp->mRight);
 
@@ -1191,6 +1221,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 		Value	v = Eval(exp->mLeft);
 		if (v.mBaseValue)
 			return Value(exp->mLocation, v.mBaseValue, exp->mDecType, v.mOffset + exp->mDecValue->mOffset);
+		break;
 	}
 
 	case EX_INDEX:
@@ -1208,6 +1239,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 			Value	p = v.GetPtr();
 			return Value(exp->mLocation, p.mBaseValue, exp->mDecType, p.mOffset + v.mDecType->mBase->mSize * int(vi.GetInt()));
 		}
+		break;
 	}
 
 	case EX_RESULT:
@@ -1256,6 +1288,7 @@ ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
 		case EX_PREFIX:
 		case EX_TYPECAST:
 		case EX_CALL:
+		case EX_COMMA:
 		case EX_LIST:
 		case EX_CONDITIONAL:
 		case EX_LOGICAL_AND:
