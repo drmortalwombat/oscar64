@@ -222,7 +222,7 @@ Each type has up to five attributes:
 * size : size of a variable of this type in bytes
 * type : base type or composition method for this type
 	* int : signed Integer
-	* unit : unsigned integer
+	* uint : unsigned integer
 	* bool : boolean value
 	* enum : enumeration
 	* ptr : pointer to

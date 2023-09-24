@@ -1,7 +1,7 @@
 #include "sprites.h"
 #include "rasterirq.h"
 
-static char * vspriteScreen;
+static volatile char * vspriteScreen;
 
 
 void spr_init(char * screen)

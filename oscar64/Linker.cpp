@@ -4,7 +4,7 @@
 #include "CompilerTypes.h"
 
 LinkerRegion::LinkerRegion(void)
-	: mSections(nullptr), mFreeChunks(FreeChunk{ 0, 0 } )
+	: mSections(nullptr), mFreeChunks(FreeChunk{ 0, 0 } ), mLastObject(nullptr)
 {}
 
 LinkerSection::LinkerSection(void)
@@ -413,7 +413,31 @@ void Linker::ReferenceObject(LinkerObject* obj)
 	}
 }
 
-bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
+static bool Forwards(LinkerObject* pobj, LinkerObject* lobj)
+{
+	if (lobj->mAlignment == 1 && pobj && lobj->mType == LOT_NATIVE_CODE && pobj->mType == LOT_NATIVE_CODE)
+	{
+		if (pobj->mSize >= 3 && pobj->mData[pobj->mSize - 3] == 0x4c && pobj->mReferences.Size() > 0)
+		{
+			int i = 0;
+			while (i < pobj->mReferences.Size() && pobj->mReferences[i]->mOffset != pobj->mSize - 2)
+				i++;
+			if (i < pobj->mReferences.Size() && pobj->mReferences[i]->mRefObject == lobj && pobj->mReferences[i]->mRefOffset == 0)
+			{
+				printf("Direct %s -> %s\n", pobj->mIdent->mString, lobj->mIdent->mString);
+
+				pobj->mReferences[i]->mFlags = 0;
+				pobj->mSize -= 3;
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 {
 	int i = 0;
 	while (i < mFreeChunks.Size())
@@ -425,6 +449,13 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 			;
 		else if (end <= mFreeChunks[i].mEnd)
 		{
+			// Check if directly follows an object that jumps to this new object
+			if (merge && Forwards(mFreeChunks[i].mLastObject, lobj))
+			{
+				start -= 3;
+				end -= 3;
+			}
+
 			lobj->mFlags |= LOBJF_PLACED;
 			lobj->mAddress = start;
 			lobj->mRefAddress = start + mReloc;
@@ -435,7 +466,10 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 				if (end == mFreeChunks[i].mEnd)
 					mFreeChunks.Remove(i);
 				else
+				{
 					mFreeChunks[i].mStart = end;
+					mFreeChunks[i].mLastObject = lobj;
+				}
 			}
 			else if (end == mFreeChunks[i].mEnd)
 			{
@@ -443,7 +477,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 			}
 			else
 			{
-				mFreeChunks.Insert(i + 1, FreeChunk{ end, mFreeChunks[i].mEnd } );
+				mFreeChunks.Insert(i + 1, FreeChunk{ end, mFreeChunks[i].mEnd, lobj } );
 				mFreeChunks[i].mEnd = start;
 			}
 
@@ -463,15 +497,26 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 
 	if (end <= mEnd)
 	{
+		// Check if directly follows an object that jumps to this new object
+		if (merge && Forwards(mLastObject, lobj))
+		{
+			start -= 3;
+			end -= 3;
+			mLastObject = nullptr;
+		}
+
 		lobj->mFlags |= LOBJF_PLACED;
 		lobj->mAddress = start;
 		lobj->mRefAddress = start + mReloc;
 		lobj->mRegion = this;
+
 #if 1
 		if (start != mStart + mUsed)
-			mFreeChunks.Push( FreeChunk{ mStart + mUsed, start } );
+			mFreeChunks.Push( FreeChunk{ mStart + mUsed, start, mLastObject } );
 #endif
 		mUsed = end - mStart;
+
+		mLastObject = lobj;
 
 		return true;
 	}
@@ -538,7 +583,7 @@ void Linker::Link(void)
 				for (int k = 0; k < lsec->mObjects.Size(); k++)
 				{
 					LinkerObject* lobj = lsec->mObjects[k];
-					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj))
+					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj, mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS))
 					{
 						if (lobj->mIdent && lobj->mIdent->mString && (mCompilerOptions & COPT_VERBOSE2))
 							printf("Placed object <%s> $%04x - $%04x\n", lobj->mIdent->mString, lobj->mAddress, lobj->mAddress + lobj->mSize);
