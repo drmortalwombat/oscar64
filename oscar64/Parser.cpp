@@ -7010,11 +7010,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 			}
 			else if (nexp->mToken == TK_BINARY_AND)
 			{
-				Declaration* pdec = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
-				pdec->mBase = nexp->mLeft->mDecType;
-				pdec->mSize = 2;
-				pdec->mFlags |= DTF_DEFINED;
-				nexp->mDecType = pdec;
+				nexp->mDecType = nexp->mLeft->mDecType->BuildAddressOfPointer();
 			}
 			else if (nexp->mToken == TK_BANKOF)
 			{

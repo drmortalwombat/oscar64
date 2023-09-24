@@ -967,6 +967,14 @@ Declaration* Declaration::BuildArrayPointer(void)
 		return this;
 }
 
+Declaration* Declaration::BuildAddressOfPointer(void)
+{
+	if (mType == DT_TYPE_ARRAY)
+		return BuildArrayPointer();
+	else
+		return BuildPointer(mLocation);
+}
+
 bool Declaration::IsNullConst(void) const
 {
 	if (mType == DT_CONST_INTEGER || mType == DT_CONST_ADDRESS)

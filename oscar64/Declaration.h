@@ -323,6 +323,7 @@ public:
 	Declaration* BuildConstRValueRef(const Location& loc);
 	Declaration* NonRefBase(void);
 	Declaration* BuildArrayPointer(void);
+	Declaration* BuildAddressOfPointer(void);
 	Declaration* DeduceAuto(Declaration* dec);
 	Declaration* ConstCast(Declaration* ntype);
 	bool IsNullConst(void) const;

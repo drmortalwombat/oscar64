@@ -39,6 +39,10 @@ inline void spr_image(char sp, char image);
 
 inline void spr_color(char sp, char color);
 
+// change the image of a sprite
+
+inline void spr_expand(char sp, bool xexpand, bool yexpand);
+
 // The virtual sprite system works with the rasterirq library to multiplex
 // 16 virtual sprites onto the actual eight hardware sprites.  It uses the slots
 // 0 to 8 of the rasterirq library to switch the sprites mid screen.  The
