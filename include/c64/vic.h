@@ -91,7 +91,7 @@ enum VicMode
 
 // set the display mode and base address. This will also
 // adapt the bank.
-void vic_setmode(VicMode mode, char * text, char * font);
+void vic_setmode(VicMode mode, const char * text, const char * font);
 
 // put a sprite at the given x/y location, taking care of the
 // x MSB

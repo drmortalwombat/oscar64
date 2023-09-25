@@ -21,7 +21,7 @@ int vic_sprgetx(byte s)
 	return vic.spr_pos[s].x | ((vic.spr_msbx & (1 << s)) ? 256 : 0);
 }
 
-void vic_setmode(VicMode mode, char * text, char * font)
+void vic_setmode(VicMode mode, const char * text, const char * font)
 {
 	switch (mode)
 	{
