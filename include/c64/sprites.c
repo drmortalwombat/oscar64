@@ -233,7 +233,7 @@ void vspr_sort(void)
 void vspr_update(void)
 {
 	char	xymask = 0;
-	char	*	vsprs = vspriteScreen;
+	volatile char	*	vsprs = vspriteScreen;
 
 #pragma unroll(full)
 	for(char ui=0; ui<8; ui++)
