@@ -12762,7 +12762,7 @@ bool NativeCodeBasicBlock::FindSameBlocks(NativeCodeProcedure* nproc)
 	{
 		mVisited = true;
 
-		if (!mSameBlock)
+		if (!mSameBlock && this != mProc->mEntryBlock)
 		{
 			for (int i = 0; i < nproc->mBlocks.Size(); i++)
 			{
@@ -40512,6 +40512,9 @@ void NativeCodeBasicBlock::CheckBlocks(bool sequence)
 	if (!mVisited)
 	{
 		mVisited = true;
+
+		assert(this != mProc->mEntryBlock || mNumEntries < 2);
+
 		CheckLive();
 
 		if (sequence)
@@ -41823,6 +41826,7 @@ void NativeCodeProcedure::Optimize(void)
 
 		RebuildEntry();
 
+		assert(mEntryBlock->mNumEntries < 2);
 #if 1
 		if (step > 3)
 		{
@@ -41834,6 +41838,8 @@ void NativeCodeProcedure::Optimize(void)
 			}
 		}
 #endif
+		RebuildEntry();
+		assert(mEntryBlock->mNumEntries < 2);
 
 		if (step == 4)
 		{
@@ -41848,6 +41854,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 		RebuildEntry();
+		assert(mEntryBlock->mNumEntries < 2);
 
 #if 1
 		if (step > 3)
