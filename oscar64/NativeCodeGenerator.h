@@ -575,7 +575,7 @@ public:
 	bool SimplifyLoopEnd(NativeCodeProcedure* proc);
 	bool CrossBlockStoreLoadBypass(NativeCodeProcedure* proc);
 
-	bool CanBytepassLoad(const NativeCodeInstruction& ains) const;
+	bool CanBytepassLoad(const NativeCodeInstruction& ains, int from = 0) const;
 	bool CanHoistStore(const NativeCodeInstruction& ains) const;
 
 	bool MoveAccuTrainUp(int at, int end);
