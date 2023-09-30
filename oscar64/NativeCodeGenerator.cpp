@@ -23597,17 +23597,17 @@ bool NativeCodeBasicBlock::PatchGlobalAddressSumYPointer(const NativeCodeBasicBl
 				int	naddr = address + mIns[at + 2].mAddress + 256 * mIns[at + 5].mAddress;
 
 				mIns[at + 2].mType = ASMIT_ADC;
-				mIns[at + 2].mMode = ASMIM_IMMEDIATE_ADDRESS;
+				mIns[at + 2].mMode = lobj ? ASMIM_IMMEDIATE_ADDRESS : ASMIM_IMMEDIATE;
 				mIns[at + 2].mLinkerObject = lobj;
-				mIns[at + 2].mAddress = naddr;
+				mIns[at + 2].mAddress = lobj ? naddr : naddr & 0xff;
 				mIns[at + 2].mFlags = NCIF_LOWER;
 				
 				mIns[at + 4].mMode = ASMIM_IMMEDIATE;
 				mIns[at + 4].mAddress = 0;
 
-				mIns[at + 5].mMode = ASMIM_IMMEDIATE_ADDRESS;
+				mIns[at + 5].mMode = lobj ? ASMIM_IMMEDIATE_ADDRESS : ASMIM_IMMEDIATE;;
 				mIns[at + 5].mLinkerObject = lobj;
-				mIns[at + 5].mAddress = naddr;
+				mIns[at + 5].mAddress = lobj ? naddr : naddr >> 8;
 				mIns[at + 5].mFlags = NCIF_UPPER;
 
 				at += 6;
@@ -27745,6 +27745,11 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreDown(int at)
 			mIns.Insert(j, mIns[at + 2]);	// ADC
 			mIns.Insert(j, mIns[at + 1]);	// LDA
 			mIns.Insert(j, mIns[at + 0]);	// CLC
+
+			mIns[j + 0].mLive |= mIns[j - 1].mLive;
+			mIns[j + 1].mLive |= mIns[j - 1].mLive;
+			mIns[j + 2].mLive |= mIns[j - 1].mLive;
+			mIns[j + 3].mLive |= mIns[j - 1].mLive;
 
 			mIns[at + 0].mType = ASMIT_NOP; mIns[at + 0].mMode = ASMIM_IMPLIED;
 			mIns[at + 1].mType = ASMIT_NOP; mIns[at + 1].mMode = ASMIM_IMPLIED;
@@ -41269,7 +41274,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "dungeon_rand_path");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -41957,7 +41962,6 @@ void NativeCodeProcedure::Optimize(void)
 			mEntryBlock->ReplaceFinalZeroPageUse(this);
 		}
 #endif
-
 
 		int t = 0;
 #if 1
