@@ -442,6 +442,8 @@ public:
 	bool MoveTXADCDown(int at);
 	bool FoldShiftORAIntoLoadImmUp(int at);
 
+	bool MoveSimpleADCToINCDECDown(int at);
+
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
 	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);
 

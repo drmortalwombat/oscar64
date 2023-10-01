@@ -32,6 +32,11 @@ void iec_open(char dev, char sec, const char * fname);
 
 void iec_close(char dev, char sec);
 
+int iec_write_bytes(const char * data, int num);
+
+int iec_read_bytes(char * data, int num);
+
+
 #pragma compile("iecbus.c")
 
 #endif

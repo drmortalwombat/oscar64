@@ -27091,6 +27091,61 @@ bool NativeCodeBasicBlock::FoldShiftORAIntoLoadImmUp(int at)
 	return false;
 }
 
+// CLC
+// LDA zp0
+// ADC #1, 2, 3
+// STA zp1
+// ...
+// LDX zp1
+//
+// Convert to INX/DEX
+
+bool NativeCodeBasicBlock::MoveSimpleADCToINCDECDown(int at)
+{
+	if (at >= 4)
+	{
+		int si = at - 4;
+
+		while (si >= 0)
+		{
+			if (mIns[si + 3].ReferencesZeroPage(mIns[at].mAddress))
+			{
+				if (mIns[si + 0].mType == ASMIT_CLC &&
+					mIns[si + 1].mType == ASMIT_LDA && mIns[si + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[si + 2].mType == ASMIT_ADC && mIns[si + 2].mMode == ASMIM_IMMEDIATE && (mIns[si + 2].mAddress >= 0 && mIns[si + 2].mAddress <= 4) &&
+					mIns[si + 3].mType == ASMIT_STA && !(mIns[si + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					int i = si + 4;
+					while (i < at && !mIns[i].ChangesZeroPage(mIns[si + 1].mAddress))
+						i++;
+					if (i != at)
+						return false;
+
+					AsmInsType	t = mIns[at].mType == ASMIT_LDX ? ASMIT_INX : ASMIT_INY;
+
+					mIns[at].mAddress = mIns[si + 1].mAddress;
+					for (int i = 0; i < mIns[si + 2].mAddress; i++)
+						mIns.Insert(at + 1, NativeCodeInstruction(mIns[si].mIns, t));
+
+					mIns[si + 0].mType = ASMIT_NOP; mIns[si + 0].mMode = ASMIM_IMPLIED;
+					mIns[si + 1].mType = ASMIT_NOP; mIns[si + 1].mMode = ASMIM_IMPLIED;
+					mIns[si + 2].mType = ASMIT_NOP; mIns[si + 2].mMode = ASMIM_IMPLIED;
+					mIns[si + 3].mType = ASMIT_NOP; mIns[si + 3].mMode = ASMIM_IMPLIED;
+
+					return true;
+				}
+				else
+					return false;
+			}
+
+			si--;
+		}
+
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::CombineImmediateADCUp(int at)
 {
 	int	addr = mIns[at].mAddress;
@@ -34378,6 +34433,18 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			}
 		}
 		CheckLive();
+
+#endif
+
+#if 1
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if ((mIns[i + 0].mType == ASMIT_LDX || mIns[i + 0].mType == ASMIT_LDY) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM))
+			{
+				if (MoveSimpleADCToINCDECDown(i))
+					changed = true;
+			}
+		}
 
 #endif
 

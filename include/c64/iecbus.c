@@ -233,6 +233,28 @@ void iec_close(char dev, char sec)
 	iec_unlisten();
 }
 
+int iec_write_bytes(const char * data, int num)
+{
+	for(int i=0; i<num; i++)
+	{
+		if (!iec_write(data[i]))
+			return i;
+	}
+	return num;
+}
+
+int iec_read_bytes(char * data, int num)
+{
+	for(int i=0; i<num; i++)
+	{
+		char ch = iec_read();
+		if (iec_status != IEC_OK)
+			return i;
+		data[i] = ch;
+	}
+	return num;
+}
+
 
 #pragma optimize(pop)
 
