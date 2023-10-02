@@ -1722,6 +1722,13 @@ void Scanner::NextRawToken(void)
 						mTokenIdent = Ident::Unique("operator->");
 						break;
 
+					case TK_NEW:
+						mTokenIdent = Ident::Unique("operator-new");
+						break;
+					case TK_DELETE:
+						mTokenIdent = Ident::Unique("operator-delete");
+						break;
+
 					default:
 						// dirty little hack to implement token preview, got to fix
 						// this with an infinit preview sequence at one point

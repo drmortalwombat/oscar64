@@ -1,6 +1,7 @@
 #ifndef OPP_VECTOR_H
 #define OPP_VECTOR_H
 
+#include <new>
 #include <stdlib.h>
 #include <opp/utility.h>
 
