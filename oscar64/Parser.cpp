@@ -6301,6 +6301,8 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 			if (exp->mDecType->ValueType() == DT_TYPE_STRUCT)
 			{
 				nexp = CheckOperatorOverload(nexp);
+				if (nexp->mType == EX_INDEX)
+					mErrors->Error(mScanner->mLocation, EERR_INVALID_INDEX, "No indexing operator found");
 			}
 			else if (exp->mDecType->mType == DT_TYPE_ARRAY || exp->mDecType->mType == DT_TYPE_POINTER)
 			{

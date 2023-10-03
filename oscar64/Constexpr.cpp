@@ -418,8 +418,13 @@ void ConstexprInterpreter::Value::Assign(const Value& v)
 	case DT_TYPE_STRUCT:
 	case DT_TYPE_UNION:
 	case DT_TYPE_ARRAY:
-		memcpy(GetAddr(), v.GetAddr(), mDecType->mSize);
-		break;
+	{
+		const ConstexprInterpreter::ValueItem* sp = v.GetAddr();
+		ConstexprInterpreter::ValueItem* dp = GetAddr();
+
+		for (int i = 0; i < mDecType->mSize; i++)
+			dp[i] = sp[i];
+	}	break;
 	case DT_TYPE_POINTER:
 		PutPtr(v.GetPtr());
 		break;
@@ -1260,7 +1265,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 
 	mErrors->Error(exp->mLocation, EERR_INVALID_CONSTEXPR, "Invalid constexpr");
 
-	return exp;
+	return Value();
 }
 
 ConstexprInterpreter::Flow ConstexprInterpreter::Execute(Expression* exp)
