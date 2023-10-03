@@ -499,6 +499,8 @@ public:
 	bool ForwardLoopMovedTemp(void);
 
 	bool MoveTrainCrossBlock(void);
+	bool HoistCommonConditionalPath(void);
+	bool IsDirectDominatorBlock(InterCodeBasicBlock* block);
 
 	void MarkRelevantStatics(void);
 	void RemoveNonRelevantStatics(void);
@@ -679,6 +681,7 @@ protected:
 	void RebuildIntegerRangeSet(void);
 	void CombineIndirectAddressing(void);
 	void SingleTailLoopOptimization(InterMemory paramMemory);
+	void HoistCommonConditionalPath(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);

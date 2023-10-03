@@ -10902,6 +10902,91 @@ static bool CanMoveInstructionBeforePath(const GrowingInterCodeBasicBlockPtrArra
 	return true;
 }
 
+bool InterCodeBasicBlock::IsDirectDominatorBlock(InterCodeBasicBlock* block)
+{
+	if (this == block)
+		return true;
+
+	if (block->mLoopHead)
+		return false;
+
+	if (block->mEntryBlocks.Size() == 0)
+		return false;
+	
+	for (int i = 0; i < block->mEntryBlocks.Size(); i++)
+		if (!IsDirectDominatorBlock(block->mEntryBlocks[i]))
+			return false;
+
+	return true;
+}
+
+bool InterCodeBasicBlock::HoistCommonConditionalPath(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mFalseJump)
+		{
+			InterCodeBasicBlock* cblock = nullptr, * eblock = nullptr;
+
+			if (!mTrueJump->mFalseJump && mTrueJump->mTrueJump && IsDirectDominatorBlock(mTrueJump->mTrueJump))
+			{
+				cblock = mTrueJump;
+				eblock = mTrueJump->mTrueJump;
+			}
+			else if (!mFalseJump->mFalseJump && mFalseJump->mTrueJump && IsDirectDominatorBlock(mFalseJump->mTrueJump))
+			{
+				cblock = mFalseJump;
+				eblock = mFalseJump->mTrueJump;
+			}
+
+			if (cblock && cblock->mNumEntries == 1)
+			{
+				for (int i = 0; i < cblock->mInstructions.Size(); i++)
+				{
+					InterInstruction* ins = cblock->mInstructions[i];
+
+					if (cblock->CanMoveInstructionBeforeBlock(i) && !HasSideEffect(ins->mCode) && ins->mDst.mTemp >= 0 && !cblock->IsTempModifiedInRange(i + 1, cblock->mInstructions.Size(), ins->mDst.mTemp))
+					{
+						int j = 0;
+						while (j < eblock->mInstructions.Size() && !eblock->mInstructions[j]->IsEqualSource(ins))
+							j++;
+
+						if (j < eblock->mInstructions.Size() && !eblock->IsTempModifiedInRange(0, j, ins->mDst.mTemp) && eblock->CanMoveInstructionBeforeBlock(j) && cblock->CanMoveInstructionBeforeBlock(cblock->mInstructions.Size(), eblock->mInstructions[j]))
+						{
+							eblock->mInstructions[j]->mCode = IC_LOAD_TEMPORARY;
+							eblock->mInstructions[j]->mSrc[0] = ins->mDst;
+							eblock->mInstructions[j]->mNumOperands = 1;
+
+							mInstructions.Insert(mInstructions.Size() - 1, ins);
+							cblock->mInstructions.Remove(i);
+
+							mExitRequiredTemps += ins->mDst.mTemp;
+							cblock->mEntryRequiredTemps += ins->mDst.mTemp;
+							cblock->mExitRequiredTemps += ins->mDst.mTemp;
+							eblock->mEntryRequiredTemps += ins->mDst.mTemp;
+							i--;
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->HoistCommonConditionalPath())
+			changed = true;
+		if (mFalseJump && mFalseJump->HoistCommonConditionalPath())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
+
 bool InterCodeBasicBlock::MoveTrainCrossBlock(void)
 {
 	bool	changed = false;
@@ -15116,6 +15201,27 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 #endif
+#if 1
+			else if (
+				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
+				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp >= 0 && 
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && 
+				mInstructions[i + 1]->mSrc[1].mFinal &&
+				mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 1]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 256)
+			{
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+				mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
+				mInstructions[i + 0]->mOperator = IA_ADD;
+				mInstructions[i + 0]->mDst.mType = IT_INT16;
+				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[0].mRange;
+				mInstructions[i + 0]->mDst.mRange.mMaxValue += mInstructions[i + 0]->mSrc[1].mRange.mMaxValue;
+
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+				changed = true;
+			}
+#endif
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT16 &&
 				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
@@ -16128,7 +16234,6 @@ void InterCodeBasicBlock::WarnUsedUndefinedVariables(void)
 		if (mFalseJump) mFalseJump->WarnUsedUndefinedVariables();
 	}
 }
-
 
 void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars, GrowingVariableArray& paramVars, InterMemory	paramMemory)
 {
@@ -17284,7 +17389,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "tile_row");
 
 	mEntryBlock = mBlocks[0];
 
@@ -17665,6 +17770,9 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("MoveTrainCrossBlock");
 
 #endif
+
+	HoistCommonConditionalPath();
+	DisassembleDebug("HoistCommonConditionalPath");
 
 #if 1
 	ResetVisited();
@@ -18639,6 +18747,19 @@ bool InterCodeProcedure::GlobalConstantPropagation(void)
 	ResetVisited();
 	return mEntryBlock->PropagateConstTemps(ctemps);
 }
+
+void InterCodeProcedure::HoistCommonConditionalPath(void)
+{
+	for(;;)
+	{ 
+		ResetVisited();
+		if (!mEntryBlock->HoistCommonConditionalPath())
+			return;
+		TempForwarding();
+		RemoveUnusedInstructions();
+	}
+}
+
 
 void InterCodeProcedure::ReduceTemporaries(void)
 {
