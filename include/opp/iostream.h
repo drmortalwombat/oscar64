@@ -132,6 +132,7 @@ public:
 	istream & operator>>(float & val);
 
 	istream & operator>>(char * p);
+	istream & operator>>(string & s);
 
 	istream(void);
 protected:

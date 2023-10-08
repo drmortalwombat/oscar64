@@ -25968,7 +25968,7 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 	return false;
 }
 
-bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair)
+bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair, bool fchanged)
 {
 	if (at == 0 && mVisited)
 		return false;
@@ -25977,70 +25977,80 @@ bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block,
 	{
 		mPatched = true;
 
-		if (at == 0)
+		if (at != 0 || (mEntryRequiredRegs[from] || mEntryRequiredRegs[to] || (pair && (mEntryRequiredRegs[from + 1] || mEntryRequiredRegs[to + 1]))))
 		{
-			mPatched = true;
+			if (at == 0)
+			{
+				mPatched = true;
 
-			if (mNumEntries > 1)
-			{
-				for (int i = 0; i < mEntryBlocks.Size(); i++)
-					if (!mEntryBlocks[i]->IsDominatedBy(block))
-						return false;
-			}
-		}
-
-		while (at < mIns.Size())
-		{
-			if (mIns[at].mMode == ASMIM_ZERO_PAGE)
-			{
-				if (mIns[at].mAddress == to)
-					return false;
-				if (pair && mIns[at].mAddress == to + 1)
-					return false;
-			}
-			else if (mIns[at].mMode == ASMIM_INDIRECT_Y)
-			{
-				if (mIns[at].mAddress == to)
-					return false;
-				if (mIns[at].mAddress + 1 == to)
-					return false;
-				if (pair && mIns[at].mAddress == to + 1)
-					return false;
-				if (!pair && mIns[at].mAddress == from)
-					return false;
-				if (mIns[at].mAddress + 1 == from)
-					return false;
-				if (pair && mIns[at].mAddress == from + 1)
-					return false;
-			}
-			else if (mIns[at].mType == ASMIT_JSR)
-			{
-				LinkerObject* lo = mIns[at].mLinkerObject;
-				if (lo)
+				if (mNumEntries > 1)
 				{
-					for (int i = 0; i < lo->mNumTemporaries; i++)
+					fchanged = true;
+					for (int i = 0; i < mEntryBlocks.Size(); i++)
+						if (mEntryBlocks[i] != block && !mEntryBlocks[i]->IsDominatedBy(block))
+							return false;
+				}
+			}
+
+			while (at < mIns.Size())
+			{
+				if (mIns[at].mMode == ASMIM_ZERO_PAGE)
+				{
+					if (mIns[at].mAddress == to && (fchanged || mIns[at].ChangesAddress()))
+						return false;
+					if (pair && mIns[at].mAddress == to + 1 && (fchanged || mIns[at].ChangesAddress()))
+						return false;
+					if (mIns[at].mAddress == from && mIns[at].ChangesAddress())
+						fchanged = true;
+					if (pair && mIns[at].mAddress == from + 1 && mIns[at].ChangesAddress())
+						fchanged = true;
+				}
+				else if (mIns[at].mMode == ASMIM_INDIRECT_Y)
+				{
+					if (mIns[at].mAddress == to)
+						return false;
+					if (mIns[at].mAddress + 1 == to)
+						return false;
+					if (pair && mIns[at].mAddress == to + 1)
+						return false;
+					if (!pair && mIns[at].mAddress == from)
+						return false;
+					if (mIns[at].mAddress + 1 == from)
+						return false;
+					if (pair && mIns[at].mAddress == from + 1)
+						return false;
+				}
+				else if (mIns[at].mType == ASMIT_JSR)
+				{
+					fchanged = true;
+
+					LinkerObject* lo = mIns[at].mLinkerObject;
+					if (lo)
 					{
-						if (from >= lo->mTemporaries[i] && from < lo->mTemporaries[i] + lo->mTempSizes[i] ||
-							to   >= lo->mTemporaries[i] && to   < lo->mTemporaries[i] + lo->mTempSizes[i])
+						for (int i = 0; i < lo->mNumTemporaries; i++)
+						{
+							if (from >= lo->mTemporaries[i] && from < lo->mTemporaries[i] + lo->mTempSizes[i] ||
+								to >= lo->mTemporaries[i] && to < lo->mTemporaries[i] + lo->mTempSizes[i])
 								return false;
+						}
+					}
+
+					if (mIns[at].mFlags & NCIF_USE_ZP_32_X)
+					{
+						if (to >= mIns[at].mParam && to < mIns[at].mParam + 4 ||
+							from >= mIns[at].mParam && from < mIns[at].mParam + 4)
+							return false;
 					}
 				}
 
-				if (mIns[at].mFlags & NCIF_USE_ZP_32_X)
-				{
-					if (to >= mIns[at].mParam && to < mIns[at].mParam + 4 ||
-						from >= mIns[at].mParam && from < mIns[at].mParam + 4)
-						return false;
-				}
+				at++;
 			}
 
-			at++;
+			if (mTrueJump && !mTrueJump->IsFinalZeroPageUse(block, 0, from, to, pair, fchanged))
+				return false;
+			if (mFalseJump && !mFalseJump->IsFinalZeroPageUse(block, 0, from, to, pair, fchanged))
+				return false;
 		}
-
-		if (mTrueJump && !mTrueJump->IsFinalZeroPageUse(block, 0, from, to, pair))
-			return false;
-		if (mFalseJump && !mFalseJump->IsFinalZeroPageUse(block, 0, from, to, pair))
-			return false;
 	}
 
 	return true;
@@ -26065,7 +26075,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 1].mAddress >= BC_REG_TMP)
 			{
 				nproc->ResetPatched();
-				if (IsFinalZeroPageUse(this, i + 2, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false))
+				if (IsFinalZeroPageUse(this, i + 2, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false, false))
 				{
 					nproc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 2, mIns[i + 1].mAddress, mIns[i + 0].mAddress))
@@ -26084,7 +26094,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 1].mAddress >= BC_REG_TMP)
 			{
 				nproc->ResetPatched();
-				if (IsFinalZeroPageUse(this, i + 4, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true))
+				if (IsFinalZeroPageUse(this, i + 4, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true, false))
 				{
 					nproc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 4, mIns[i + 1].mAddress, mIns[i + 0].mAddress))
@@ -26110,7 +26120,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 2].mAddress >= BC_REG_TMP)
 			{
 				nproc->ResetPatched();
-				if (IsFinalZeroPageUse(this, i + 6, mIns[i + 2].mAddress, mIns[i + 0].mAddress, true))
+				if (IsFinalZeroPageUse(this, i + 6, mIns[i + 2].mAddress, mIns[i + 0].mAddress, true, false))
 				{
 					nproc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 6, mIns[i + 2].mAddress, mIns[i + 0].mAddress))
@@ -26135,7 +26145,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 1].mAddress >= BC_REG_TMP)
 			{
 				nproc->ResetPatched();
-				if (IsFinalZeroPageUse(this, i + 5, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true))
+				if (IsFinalZeroPageUse(this, i + 5, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true, false))
 				{
 					nproc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 5, mIns[i + 1].mAddress, mIns[i + 0].mAddress))
@@ -41341,7 +41351,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "dungeon_rand_path");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "mod<struct lambda#0>");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -42025,6 +42035,7 @@ void NativeCodeProcedure::Optimize(void)
 #if 1
 		if (step == 2)
 		{
+			BuildDataFlowSets();
 			ResetVisited();
 			mEntryBlock->ReplaceFinalZeroPageUse(this);
 		}

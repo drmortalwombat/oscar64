@@ -1501,7 +1501,7 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 	}
 	else if (tdec->mType == DT_TYPE_POINTER)
 	{
-		if (fdec->mType == DT_TYPE_POINTER)
+		if (fdec->mType == DT_TYPE_POINTER || fdec->mType == DT_TYPE_ARRAY)
 			return ResolveTemplate(fdec->mBase, tdec->mBase);
 		else
 			return false;
@@ -1510,6 +1510,8 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 	{
 		if (fdec->mType == DT_TYPE_ARRAY)
 			fdec = fdec->mBase->BuildPointer(fdec->mLocation);
+		else if (fdec->mType == DT_TYPE_FUNCTION)
+			fdec = fdec->BuildPointer(fdec->mLocation);
 
 		Declaration* pdec;
 		if (tdec->mBase)
@@ -1816,6 +1818,9 @@ bool Declaration::IsSubType(const Declaration* dec) const
 	if (this == dec)
 		return true;
 
+	if (mType == DT_TYPE_VOID)
+		return true;
+
 	if (IsReference() && dec->IsReference())
 		return mBase->IsSubType(dec->mBase);
 
@@ -1996,8 +2001,10 @@ bool Declaration::IsTemplateSameParams(const Declaration* dec, const Declaration
 {
 	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION)
 	{
-		// Skip this pointer for now
-		Declaration* ld = mParams->mNext, * rd = dec->mParams;
+		Declaration* ld = mParams, * rd = dec->mParams;
+		if (mFlags & DTF_FUNC_THIS)
+			ld = ld->mNext;
+
 		while (ld && rd)
 		{
 			if (!ld->mBase->IsTemplateSame(rd->mBase, tdec))
@@ -2112,7 +2119,7 @@ bool Declaration::IsSame(const Declaration* dec) const
 		return mInteger == dec->mInteger;
 	else if (mType == DT_TYPE_INTEGER)
 		return true;
-	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
+	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID || mType == DT_TYPE_AUTO)
 		return true;
 	else if (mType == DT_TYPE_ENUM)
 		return mIdent == dec->mIdent;

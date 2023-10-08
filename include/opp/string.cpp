@@ -94,6 +94,12 @@ string::~string(void)
 {
 	free(cstr);
 }
+
+void string::clear(void)
+{
+	free(cstr);
+	cstr = nullptr;	
+}
 	
 void string::copyseg(char * p, char at, char num) const
 {
@@ -475,6 +481,37 @@ inline char string::operator[](char t) const
 {
 	return cstr[t + 1];
 }
+
+char * string::begin(void)
+{
+	return cstr ? cstr + 1 : nullptr;
+}
+
+const char * string::begin(void) const
+{
+	return cstr ? cstr + 1 : nullptr;
+}
+
+const char * string::cbegin(void) const
+{
+	return cstr ? cstr + 1 : nullptr;
+}
+
+char * string::end(void)
+{
+	return cstr ? cstr + 1 + cstr[0] : nullptr;
+}
+
+const char * string::end(void) const
+{
+	return cstr ? cstr + 1 + cstr[0] : nullptr;
+}
+
+const char * string::cend(void) const
+{
+	return cstr ? cstr + 1 + cstr[0] : nullptr;
+}
+
 
 string string::substr(char pos, char len) const
 {

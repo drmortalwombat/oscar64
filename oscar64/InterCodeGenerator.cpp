@@ -3539,6 +3539,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						{
 							vr.mReference++;
 							vr = Dereference(proc, texp, block, vr);
+							vr.mType = vr.mType->mBase;
 						}
 						else
 							vr = Dereference(proc, texp, block, vr);

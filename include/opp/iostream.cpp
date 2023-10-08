@@ -965,6 +965,19 @@ istream & istream::operator>>(char * p)
 	return *this;
 }
 
+istream & istream::operator>>(string & s)
+{
+	doskipws();
+	s.clear();
+	char c = get();
+	while (c > ' ')
+	{
+		s += c;
+		c = get();
+	}
+	return *this;	
+}
+
 cistream::cistream(void)
 {}
 

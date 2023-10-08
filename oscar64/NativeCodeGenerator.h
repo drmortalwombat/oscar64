@@ -543,7 +543,7 @@ public:
 	bool Check16BitSum(const NativeCodeBasicBlock* block, int origin, int at, int reg);
 	bool EliminateUpper16BitSum(NativeCodeProcedure* nproc);
 
-	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair);
+	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair, bool fchanged);
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
 	bool ForwardReplaceZeroPage(int at, int from, int to);
 

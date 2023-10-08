@@ -21,6 +21,8 @@ public:
 
 	unsigned size(void) const;
 
+	void clear(void);
+
 	string & operator=(const string & s);
 	string & operator=(string && s);
 	string & operator=(const char * s);
@@ -56,6 +58,14 @@ public:
 
 	char & operator[](char t);
 	char operator[](char t) const;
+
+	char * begin(void);
+	const char * begin(void) const;
+	const char * cbegin(void) const;
+
+	char * end(void);
+	const char * end(void) const;
+	const char * cend(void) const;
 
 	const char * tocstr(void) const;
 

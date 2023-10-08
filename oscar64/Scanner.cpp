@@ -541,7 +541,7 @@ void Scanner::NextPreToken(void)
 				mPreprocessorMode = true;
 				mPrepCondFalse = 0;
 
-				NextToken();
+				NextPreToken();
 				int64 v = PrepParseConditional();
 				if (v)
 				{
@@ -612,7 +612,7 @@ void Scanner::NextPreToken(void)
 					if (mToken == TK_COMMA)
 					{
 						mPreprocessorMode = true;
-						NextToken();
+						NextPreToken();
 						int64 loopCount = PrepParseConditional();
 						mPreprocessorMode = false;
 
@@ -771,7 +771,7 @@ void Scanner::NextPreToken(void)
 		else if (mToken == TK_PREP_IF)
 		{
 			mPreprocessorMode = true;
-			NextToken();
+			NextPreToken();
 			int64 v = PrepParseConditional();
 			if (v)
 				mPrepCondDepth++;
@@ -789,7 +789,7 @@ void Scanner::NextPreToken(void)
 			{
 				const Ident* ident = mTokenIdent;
 
-				NextToken();
+				NextPreToken();
 
 				int64 v = PrepParseConditional();
 				Macro* macro = mDefines->Lookup(ident);
@@ -813,7 +813,7 @@ void Scanner::NextPreToken(void)
 		else if (mToken == TK_PREP_UNTIL)
 		{
 			mPreprocessorMode = true;
-			NextToken();
+			NextPreToken();
 			int64 v = PrepParseConditional();
 			if (mToken != TK_EOL)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "End of line expected");
@@ -1136,14 +1136,14 @@ void Scanner::NextRawToken(void)
 					}
 				}
 				NextChar();
-				NextToken();
+				NextPreToken();
 			}
 			else if (mTokenChar == '/')
 			{
 				NextChar();
 				while (!IsLineBreak(mTokenChar) && NextChar())
 					;
-				NextToken();
+				NextPreToken();
 			}
 			else if (mTokenChar == '=')
 			{
@@ -2237,32 +2237,32 @@ int64 Scanner::PrepParseSimple(void)
 	case TK_INTEGERL:
 	case TK_INTEGERUL:
 		v = mTokenInteger;
-		NextToken();
+		NextPreToken();
 		break;
 	case TK_SUB:
-		NextToken();
+		NextPreToken();
 		v = -PrepParseSimple();
 		break;
 	case TK_LOGICAL_NOT:
-		NextToken();
+		NextPreToken();
 		v = !PrepParseSimple();
 		break;
 	case TK_BINARY_NOT:
-		NextToken();
+		NextPreToken();
 		v = ~PrepParseSimple();
 		break;
 	case TK_OPEN_PARENTHESIS:
-		NextToken();
+		NextPreToken();
 		v = PrepParseConditional();
 		if (mToken == TK_CLOSE_PARENTHESIS)
-			NextToken();
+			NextPreToken();
 		else
 			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "')' expected");
 		break;
 	case TK_IDENT:
 		if (strcmp(mTokenIdent->mString, "defined") == 0)
 		{
-			NextToken();
+			NextPreToken();
 			if (mToken == TK_OPEN_PARENTHESIS)
 			{
 				NextRawToken();
@@ -2277,13 +2277,13 @@ int64 Scanner::PrepParseSimple(void)
 						v = 1;
 					else
 						v = 0;
-					NextToken();
+					NextPreToken();
 				}
 				else
 					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Identifier expected");
 
 				if (mToken == TK_CLOSE_PARENTHESIS)
-					NextToken();
+					NextPreToken();
 				else
 					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "')' expected");
 			}
@@ -2296,7 +2296,7 @@ int64 Scanner::PrepParseSimple(void)
 	default:
 		mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor token", TokenName(mToken));
 		if (mToken != TK_EOL)
-			NextToken();
+			NextPreToken();
 	}
 	
 	return v;
@@ -2311,11 +2311,11 @@ int64 Scanner::PrepParseMul(void)
 		switch (mToken)
 		{
 		case TK_MUL:
-			NextToken();
+			NextPreToken();
 			v *= PrepParseSimple();
 			break;
 		case TK_DIV:
-			NextToken();
+			NextPreToken();
 			u = PrepParseSimple();
 			if (u == 0)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Division by zero");
@@ -2343,11 +2343,11 @@ int64 Scanner::PrepParseAdd(void)
 		switch (mToken)
 		{
 		case TK_ADD:
-			NextToken();
+			NextPreToken();
 			v += PrepParseMul();
 			break;
 		case TK_SUB:
-			NextToken();
+			NextPreToken();
 			v -= PrepParseMul();
 			break;
 		default:
@@ -2364,11 +2364,11 @@ int64 Scanner::PrepParseShift(void)
 		switch (mToken)
 		{
 		case TK_LEFT_SHIFT:
-			NextToken();
+			NextPreToken();
 			v <<= PrepParseAdd();
 			break;
 		case TK_RIGHT_SHIFT:
-			NextToken();
+			NextPreToken();
 			v >>= PrepParseAdd();
 			break;
 		default:
@@ -2385,27 +2385,27 @@ int64 Scanner::PrepParseRel(void)
 		switch (mToken)
 		{
 		case TK_LESS_THAN:
-			NextToken();
+			NextPreToken();
 			v = v < PrepParseShift();
 			break;
 		case TK_GREATER_THAN:
-			NextToken();
+			NextPreToken();
 			v = v > PrepParseShift();
 			break;
 		case TK_LESS_EQUAL:
-			NextToken();
+			NextPreToken();
 			v = v <= PrepParseShift();
 			break;
 		case TK_GREATER_EQUAL:
-			NextToken();
+			NextPreToken();
 			v = v >= PrepParseShift();
 			break;
 		case TK_EQUAL:
-			NextToken();
+			NextPreToken();
 			v = v == PrepParseShift();
 			break;
 		case TK_NOT_EQUAL:
-			NextToken();
+			NextPreToken();
 			v = v != PrepParseShift();
 			break;
 		default:
@@ -2420,7 +2420,7 @@ int64 Scanner::PrepParseBinaryAnd(void)
 	int64	v = PrepParseRel();
 	while (mToken == TK_BINARY_AND)
 	{
-		NextToken();
+		NextPreToken();
 		v &= PrepParseRel();
 	}
 	return v;
@@ -2431,7 +2431,7 @@ int64 Scanner::PrepParseBinaryXor(void)
 	int64	v = PrepParseBinaryAnd();
 	while (mToken == TK_BINARY_XOR)
 	{
-		NextToken();
+		NextPreToken();
 		v ^= PrepParseBinaryAnd();
 	}
 	return v;
@@ -2442,7 +2442,7 @@ int64 Scanner::PrepParseBinaryOr(void)
 	int64	v = PrepParseBinaryXor();
 	while (mToken == TK_BINARY_OR)
 	{
-		NextToken();
+		NextPreToken();
 		v |= PrepParseBinaryXor();
 	}
 	return v;
@@ -2453,7 +2453,7 @@ int64 Scanner::PrepParseLogicalAnd(void)
 	int64	v = PrepParseBinaryOr();
 	while (mToken == TK_LOGICAL_AND)
 	{
-		NextToken();
+		NextPreToken();
 		if (!PrepParseBinaryOr())
 			v = 0;
 	}
@@ -2465,7 +2465,7 @@ int64 Scanner::PrepParseLogicalOr(void)
 	int64	v = PrepParseLogicalAnd();
 	while (mToken == TK_LOGICAL_OR)
 	{
-		NextToken();
+		NextPreToken();
 		if (PrepParseLogicalAnd())
 			v = 1;
 	}
@@ -2477,10 +2477,10 @@ int64 Scanner::PrepParseConditional(void)
 	int64	v = PrepParseLogicalOr();
 	if (mToken == TK_QUESTIONMARK)
 	{
-		NextToken();
+		NextPreToken();
 		int64	vt = PrepParseConditional();
 		if (mToken == TK_COLON)
-			NextToken();
+			NextPreToken();
 		else
 			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "':' expected");
 		int64	vf = PrepParseConditional();

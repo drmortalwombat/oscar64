@@ -1,4 +1,5 @@
 #include "ctype.h"
+#include "conio.h"
 
 #define CC_CTRL		0x00
 #define CC_BREAK	0x01
@@ -85,4 +86,20 @@ bool isdigit(char c)
 bool isxdigit(char c)
 {
 	return (c < 128) && (_cinfo[c] & CC_HEX);
+}
+
+char tolower(char c)
+{
+	if (c >= 'A' && c <= 'Z')
+		return c + ('a' - 'A');
+	else
+		return c;
+}
+
+char toupper(char c)
+{
+	if (c >= 'a' && c <= 'z')
+		return c + ('A' - 'a');
+	else
+		return c;
 }
