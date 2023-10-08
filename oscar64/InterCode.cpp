@@ -12837,6 +12837,10 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 					for (int i = 0; i < block->mInstructions.Size(); i++)
 					{
 						InterInstruction* ins = block->mInstructions[i];
+						InterInstruction* nins = nullptr;
+						if (i + 1 < block->mInstructions.Size())
+							nins = block->mInstructions[i + 1];
+
 						int t = ins->mDst.mTemp;
 						if (t >= 0)
 						{
@@ -12865,6 +12869,8 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 								if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0)
 									ins->mExpensive = true;
 								else if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mRange.mMaxValue >= 256)
+									ins->mExpensive = true;
+								else if (nins && nins->mCode == IC_LEA && nins->mSrc[0].mTemp >= 0 && (nins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_UNBOUND || nins->mSrc[0].mRange.mMaxValue >= 255))
 									ins->mExpensive = true;
 								break;
 							case IC_LOAD:
@@ -15631,6 +15637,17 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 	return changed;
 }
 
+static int TempUseDelta(const InterInstruction* ins)
+{
+	int d = 0;
+	if (ins->mDst.mTemp >= 0)
+		d++;
+	for (int i = 0; i < ins->mNumOperands; i++)
+		if (ins->mSrc[i].mTemp >= 0 && ins->mSrc[i].mFinal)
+			d--;
+	return d;
+}
+
 void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& staticVars)
 {
 	int		i;
@@ -15945,25 +15962,26 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 				j--;
 			while (j >= 0)
 			{
+				InterInstruction* jins = mInstructions[j];
+
 				if (j < ti - 1)
 				{
 					if (CanMoveInstructionDown(j, ti))
 					{
-						InterInstruction* jins = mInstructions[j];
 						for (int k = j; k < ti - 1; k++)
 						{
 							SwapInstructions(jins, mInstructions[k + 1]);
 							mInstructions[k] = mInstructions[k + 1];
 						}
 						mInstructions[ti - 1] = jins;
-						if (mInstructions[ti - 1]->NumUsedTemps() <= 1)
-							ti--;
 
+						if (jins->NumUsedTemps() <= 1 && !(jins->mCode == IC_CALL || jins->mCode == IC_CALL_NATIVE))
+							ti--;
 						//					mInstructions.Insert(i, mInstructions[j]);
 						//					mInstructions.Remove(j);
 					}
 				}
-				else if (mInstructions[j]->NumUsedTemps() <= 1)
+				else if (jins->NumUsedTemps() <= 1 && !(jins->mCode == IC_CALL || jins->mCode == IC_CALL_NATIVE))
 					ti--;
 
 				j--;
@@ -15973,6 +15991,33 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		}
 #endif
 		CheckFinalLocal();
+
+		// check move calls our of range to save register spilling
+		i = 0;
+		while (i < mInstructions.Size())
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if ((ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE) && ins->mSrc[0].mTemp < 0)
+			{
+				int j = i;
+				while (j > 0 && CanSwapInstructions(ins, mInstructions[j - 1]) && TempUseDelta(mInstructions[j - 1]) >= 0)
+					j--;
+				while (j < i && TempUseDelta(mInstructions[j]) == 0)
+					j++;
+
+				if (j < i)
+				{
+					while (i > j)
+					{
+						i--;
+						SwapInstructions(mInstructions[i], ins);
+						mInstructions[i + 1] = mInstructions[i];
+					}
+					mInstructions[j] = ins;
+				}
+			}
+			i++;
+		}
 
 		// sort stores up
 

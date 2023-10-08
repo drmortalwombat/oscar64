@@ -983,17 +983,18 @@ cistream::cistream(void)
 
 void cistream::refill(void)
 {
-	mBufferFill = 0;
 	mBufferPos = 0;
 
-	char ch;
-	while (mBufferFill < 32)
+	char fill = 0;
+	while (fill < 32)
 	{
 		char ch = getchar();
-		mBuffer[mBufferFill++] = ch;
+		mBuffer[fill++] = ch;
 		if (ch == '\n')
 			break;
 	}
+
+	mBufferFill = fill;
 }
 
 cistream	cin;
