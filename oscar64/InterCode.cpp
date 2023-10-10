@@ -15997,7 +15997,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		while (i < mInstructions.Size())
 		{
 			InterInstruction* ins(mInstructions[i]);
-			if ((ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE) && ins->mSrc[0].mTemp < 0)
+			if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
 			{
 				int j = i;
 				while (j > 0 && CanSwapInstructions(ins, mInstructions[j - 1]) && TempUseDelta(mInstructions[j - 1]) >= 0)
@@ -17434,7 +17434,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "tile_row");
+	CheckFunc = !strcmp(mIdent->mString, "mod");
 
 	mEntryBlock = mBlocks[0];
 

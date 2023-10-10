@@ -3879,6 +3879,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					pdec = pdec->mNext;
 			}
 
+			Declaration* dec = cdec;
+
 			if (pdec)
 			{
 				if (!cdec->mBase->IsSame(pdec->mBase))
@@ -3903,7 +3905,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					}
 				}
 
-				cdec = pdec;
+				dec = pdec;
+				if (!(pdec->mFlags & DTF_DEFINED))
+					cdec = pdec;
 			}
 
 			cdec->mIdent = pthis->mBase->mIdent->PreMangle("+");
@@ -3931,7 +3935,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				cdec->mNumVars = mLocalIndex;
 			}
 
-			return cdec;
+			return dec;
 		}
 
 		if (bdec && bdec->mType == DT_TYPE_STRUCT && ConsumeTokenIf(TK_COLCOLON))
@@ -6093,6 +6097,19 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 				nexp->mLeft->mDecType = fexp->mBase;
 				nexp->mLeft->mDecValue = fexp;
 				nexp->mRight = aexp;
+
+				return nexp;
+			}
+		}
+
+		if (type->mType == DT_TYPE_POINTER && type->mBase->mType == DT_TYPE_FUNCTION)
+		{
+			Declaration* fr = tdec->mScope->Lookup(Ident::Unique("operator()"));
+			if (fr && !(fr->mBase->mFlags & DTF_FUNC_THIS))
+			{
+				Expression* nexp = new Expression(exp->mLocation, EX_CONSTANT);
+				nexp->mDecType = fr->mBase;
+				nexp->mDecValue = fr;
 
 				return nexp;
 			}
