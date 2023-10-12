@@ -1620,27 +1620,29 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 							mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "Identifier expected");
 					}
 					
-					if (!mdec)
+					if (mdec)
+					{
+						Expression* texp = ParseInitExpression(mdec->mBase);
+
+						Declaration* cdec = CopyConstantInitializer(mdec->mOffset, mdec->mBase, texp);
+						cdec->mBits = mdec->mBits;
+						cdec->mShift = mdec->mShift;
+
+						if (last)
+							last->mNext = cdec;
+						else
+							dec->mParams = cdec;
+						last = cdec;
+
+						if (!ConsumeTokenIf(TK_COMMA))
+							break;
+
+						mdec = mdec->mNext;
+						while (!mdec && path.Size())
+							mdec = path.Pop()->mParams;
+					}
+					else if (!ConsumeTokenIf(TK_COMMA))
 						break;
-
-					Expression* texp = ParseInitExpression(mdec->mBase);
-
-					Declaration* cdec = CopyConstantInitializer(mdec->mOffset, mdec->mBase, texp);
-					cdec->mBits = mdec->mBits;
-					cdec->mShift = mdec->mShift;
-
-					if (last)
-						last->mNext = cdec;
-					else
-						dec->mParams = cdec;
-					last = cdec;
-
-					if (!ConsumeTokenIf(TK_COMMA))
-						break;
-
-					mdec = mdec->mNext;
-					while (!mdec && path.Size())
-						mdec = path.Pop()->mParams;
 				}
 			}
 
@@ -4555,7 +4557,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		{
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 			{
-				if (ndec->mFlags & DTF_DEFINED)
+				if ((ndec->mFlags & DTF_DEFINED) && !(ndec->mFlags & DTF_REQUEST_INLINE))
 					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate function definition", ndec->mQualIdent);
 
 				ndec->mCompilerOptions = mCompilerOptions;

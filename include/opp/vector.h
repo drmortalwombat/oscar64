@@ -12,22 +12,22 @@ class vector
 {
 protected:
 	T	*	_data;
-	int		_size, _capacity;
+	size_t	_size, _capacity;
 public:
 	typedef T 	element_type;
 
 	vector(void) : _data(nullptr), _size(0), _capacity(0) {}
 
-	vector(int n) : _data((T*)malloc(n * sizeof(T))), _size(n), _capacity(n) 
+	vector(size_t n) : _data((T*)malloc(n * sizeof(T))), _size(n), _capacity(n) 
 	{
-		for(int i=0; i<n; i++)
+		for(size_t i=0; i<n; i++)
 			new (_data + i) T;
 	}
 
 	vector(const vector & v)
 		: _data((T*)malloc(v._size * sizeof(T))), _size(v._size), _capacity(v._size) 
 	{
-		for(int i=0; i<_size; i++)
+		for(size_t i=0; i<_size; i++)
 			new (_data + i)T(v._data[i]);
 	}
 
@@ -41,9 +41,37 @@ public:
 
 	~vector(void)
 	{
-		for(int i=0; i<_size; i++)
+		for(size_t i=0; i<_size; i++)
 			_data[i].~T();
 		free(_data);
+	}
+
+	vector & operator=(const vector & v)
+	{
+		if (this != &v)
+		{
+			for(size_t i=0; i<_size; i++)
+				_data[i].~T();
+			free(_data);
+
+			_data = (T*)malloc(v._size * sizeof(T));
+			_size = v._size; 
+			_capacity = v._size; 
+			for(size_t i=0; i<_size; i++)
+				new (_data + i)T(v._data[i]);		
+		}
+		return *this;
+	}
+
+	vector & operator=(vector && v)
+	{
+		if (this != &v)
+		{
+			swap(_data, v._data);
+			swap(_size, v._size);
+			swap(_capacity, v._capacity);
+		}
+		return *this;
 	}
 
 	int size(void) const
@@ -66,28 +94,28 @@ public:
 		return _capacity;
 	}
 
-	void resize(int n);
+	void resize(size_t n);
 
-	void reserve(int n);
+	void reserve(size_t n);
 
 	void shrink_to_fit(void);
 
-	T & at(int at)
+	T & at(size_t at)
 	{
 		return _data[at];
 	}
 
-	const T & at(int at) const
+	const T & at(size_t at) const
 	{
 		return _data[at];
 	}
 
-	T & operator[](int at)
+	T & operator[](size_t at)
 	{
 		return _data[at];
 	}
 
-	const T & operator[](int at) const
+	const T & operator[](size_t at) const
 	{
 		return _data[at];
 	}
@@ -162,9 +190,11 @@ public:
 		_data[_size].~T();
 	}
 
-	void insert(int at, const T & t);
+	void insert(size_t at, const T & t);
 
-	void erase(int at, int n = 1);
+	void erase(size_t at, size_t n = 1);
+
+	T * insert(T * at, const T & t);
 
 	template <typename ...P>
 	void emplace_back(const P&... p);
@@ -174,13 +204,13 @@ protected:
 
 
 template <class T>
-void vector<T>::reserve(int n)
+void vector<T>::reserve(size_t n)
 {
 	if (n > _capacity)
 	{
 		_capacity = n;
 		T * d = (T *)malloc(_capacity * sizeof(T));
-		for(int i=0; i<_size; i++)
+		for(size_t i=0; i<_size; i++)
 		{
 			new (d + i)T(move(_data[i]));
 			_data[i].~T();
@@ -191,17 +221,17 @@ void vector<T>::reserve(int n)
 }
 
 template <class T>
-void vector<T>::resize(int n)
+void vector<T>::resize(size_t n)
 {
 	if (n < _size)
 	{
-		for(int i=n; i<_size; i++)
+		for(size_t i=n; i<_size; i++)
 			_data[i].~T();			
 		_size = n;
 	}
 	else if (n < _capacity)
 	{
-		for(int i=_size; i<n; i++)
+		for(size_t i=_size; i<n; i++)
 			new(_data + i)T;
 		_size = n;
 	}
@@ -219,7 +249,7 @@ void vector<T>::shrink_to_fit(void)
 	{
 		_capacity = _size;
 		T * d = (T *)malloc(_capacity * sizeof(T));
-		for(int i=0; i<_size; i++)
+		for(size_t i=0; i<_size; i++)
 		{
 			new (d + i)T(move(_data[i]));
 			_data[i].~T();
@@ -257,23 +287,46 @@ void vector<T>::emplace_back(const P&... p)
 }
 
 template <class T>
-void vector<T>::insert(int at, const T & t)
+void vector<T>::insert(size_t at, const T & t)
 {
 	if (_size == _capacity)
 		reserve(_size + 1 + (_size >> 1));
 	new (_data + _size)T;
-	for(int i=_size; i>at; i--)
+	for(size_t i=_size; i>at; i--)
 		_data[i] = move(_data[i - 1]);
 	_data[at] = t;
+	_size++;
 }
 
 template <class T>
-void vector<T>::erase(int at, int n)
+void vector<T>::erase(size_t at, size_t n)
 {
 	_size -= n;
-	for(int i=at; i<_size; i++)
+	for(size_t i=at; i<_size; i++)
 		_data[i] = move(_data[i + n]);
-	_data[_size].~T();
+	for(size_t i=0; i<n; i++)
+		_data[_size + i].~T();
+}
+
+template <class T>
+T * vector<T>::insert(T * at, const T & t)
+{
+	if (_size == _capacity)
+	{
+		unsigned f = unsigned(at) - unsigned(_data);
+		reserve(_size + 1 + (_size >> 1));
+		at = (T *)(f + unsigned(_data));
+	}
+	T * dp = _data + _size;
+	new (dp)T;
+	while (dp != at)
+	{
+		dp--;
+		dp[1] = move(dp[0]);
+	}
+	dp[0] = t;
+	_size++;
+	return dp + 1;
 }
 
 }

@@ -4,9 +4,15 @@
 namespace opp {
 
 template <class T>
-T && move(T & m)
+inline T && move(T & m)
 {
 	return (T &&)m;
+}
+
+template <class T>
+inline void swap(T & x, T & y)
+{
+	T t(x); x = y; y = move(t);
 }
 
 

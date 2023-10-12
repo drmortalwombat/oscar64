@@ -7631,9 +7631,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				else
 				{
 					if (mLocalValueRange[s0].mMaxState == IntegerValueRange::S_BOUND)
-						mTrueValueRange[s1].LimitMax(mLocalValueRange[s0].mMaxValue - 1);
+						mTrueValueRange[s1].LimitMaxWeak(mLocalValueRange[s0].mMaxValue - 1);
 					if (mLocalValueRange[s0].mMinState == IntegerValueRange::S_BOUND)
-						mFalseValueRange[s1].LimitMin(mLocalValueRange[s0].mMinValue);
+						mFalseValueRange[s1].LimitMinWeak(mLocalValueRange[s0].mMinValue);
 				}
 				break;
 			case IA_CMPLES:
@@ -17434,7 +17434,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "mod");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	mEntryBlock = mBlocks[0];
 

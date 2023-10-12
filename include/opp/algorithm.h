@@ -1,13 +1,8 @@
 #ifndef OPP_ALGORITHM_H
 #define OPP_ALGORITHM_H
 
+#include "utility.h"
 namespace opp {
-
-template <class T>
-inline void swap(T & x, T & y)
-{
-	T t(x); x = y; y = t;
-}
 
 template<class T, class LT>
 void sort(T s, T e)
@@ -70,6 +65,18 @@ OI copy(II first, II last, OI result)
 		++result; ++first;
 	}
 	return result;
+}
+
+
+template<class II, class T>
+II find (II first, II last, const T& val)
+{
+	while (first != last) 
+	{
+		if (*first == val) return first;
+			++first;
+	}
+	return last;
 }
 
 }

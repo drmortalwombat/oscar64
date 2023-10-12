@@ -2221,6 +2221,8 @@ bool Declaration::IsTemplateSame(const Declaration* dec, const Declaration * tde
 			else
 				return false;
 		}
+		else if (dec->mBase->mType == DT_TYPE_TEMPLATE)
+			return mBase->IsTemplateSame(dec->mBase, tdec);
 		else
 			return this->Stride() == dec->Stride() && mBase->IsTemplateSame(dec->mBase, tdec);
 	}
