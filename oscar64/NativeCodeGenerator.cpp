@@ -32138,7 +32138,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 			ExpandingArray<NativeCodeBasicBlock*>	 lblocks;
 
 			proc->ResetPatched();
-			if (CollectGenericLoop(proc, lblocks))
+			if (CollectSingleEntryGenericLoop(proc, lblocks))
 			{
 				int		yreg = -1, xreg = -1, areg = -1;
 				int		zyreg[NUM_REGS], zxreg[NUM_REGS], zareg[NUM_REGS];
@@ -32775,6 +32775,28 @@ bool NativeCodeBasicBlock::CollectGenericLoop(NativeCodeProcedure* proc, Expandi
 	} while (changed);
 
 	return lblocks.Size() > 0;
+}
+
+bool NativeCodeBasicBlock::CollectSingleEntryGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks)
+{
+	if (CollectGenericLoop(proc, lblocks))
+	{
+		for (int i = 0; i < lblocks.Size(); i++)
+		{
+			NativeCodeBasicBlock* block = lblocks[i];
+
+			if (block != this)
+			{
+				for (int j = 0; j < block->mEntryBlocks.Size(); j++)
+					if (!lblocks.Contains(block->mEntryBlocks[j]))
+						return false;
+			}
+		}
+
+		return true;
+	}
+	else
+		return false;
 }
 
 bool NativeCodeBasicBlock::OptimizeFindLoop(NativeCodeProcedure* proc)
@@ -41426,7 +41448,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "fill_row");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "atoi");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -42276,7 +42298,6 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->RemoveDoubleZPStore())
 				changed = true;
 		}
-
 		if (step == 3 || step == 5 || step == 9)
 		{
 			ResetVisited();

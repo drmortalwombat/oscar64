@@ -10,7 +10,7 @@ static const char AndBeyond[] = "And Beyond";
 static const char And[] = "And";
 static const char HelloWorldAndBeyond[] = "Hello World And Beyond";
 
-void test_create(void)
+__noinline void test_create(void)
 {
 	string	s1();
 	string	s2(HelloWorld);
@@ -22,7 +22,7 @@ void test_create(void)
 	assert(s4.size() == 1 && s4[0] == 'a');
 }
 
-void test_concat(void)
+__noinline void test_concat(void)
 {
 	string	s1();
 	string	s2(HelloWorld);
@@ -51,7 +51,7 @@ __noinline void test_find(void)
 	assert(s1.find(' ', 6) == 11);
 }
 
-void test_assign(void)
+__noinline void test_assign(void)
 {
 	string	s1(HelloWorld);
 	string	s2(AndBeyond);
@@ -77,9 +77,12 @@ void test_assign(void)
 	assert(!strcmp(s3.tocstr(), HelloWorld));
 }
 
+static char * test;
+
 int main(void)
 {
-	char * p = new char;	
+	test = new char;		
+
 	unsigned	avail = heapfree();
 
 	test_create();
@@ -93,6 +96,8 @@ int main(void)
 
 	test_assign();
 	assert(avail == heapfree());
+
+	delete test;
 
 	return 0;
 }

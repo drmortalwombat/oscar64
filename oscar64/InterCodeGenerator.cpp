@@ -2916,6 +2916,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mSrc[0].mTemp = vl.mTemp;
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mDst.mRestricted = proc->AddRestricted();
 				block->Append(ins);
 				return ExValue(exp->mDecType, ins->mDst.mTemp, 0);
 
@@ -3141,6 +3142,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mNumOperands = 1;
 					ins->mDst.mType = IT_POINTER;
 					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+					ins->mDst.mRestricted = proc->AddRestricted();
 					block->Append(ins);
 
 					return ExValue(TheVoidPointerTypeDeclaration, ins->mDst.mTemp);

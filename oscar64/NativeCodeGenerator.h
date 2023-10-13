@@ -307,6 +307,7 @@ public:
 
 	bool OptimizeGenericLoop(NativeCodeProcedure* proc);
 	bool CollectGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks);
+	bool CollectSingleEntryGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks);
 	void CollectReachable(ExpandingArray<NativeCodeBasicBlock*>& lblock);
 
 	bool OptimizeFindLoop(NativeCodeProcedure* proc);

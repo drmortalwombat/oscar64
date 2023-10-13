@@ -265,7 +265,7 @@ public:
 	bool				mFinal;
 	int64				mIntConst;
 	double				mFloatConst;
-	int					mVarIndex, mOperandSize, mStride;
+	int					mVarIndex, mOperandSize, mStride, mRestricted;
 	LinkerObject	*	mLinkerObject;
 	InterMemory			mMemory;
 	IntegerValueRange	mRange;
@@ -457,6 +457,7 @@ public:
 	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num);
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
+	void RenameValueRanges(const GrowingIntArray& renameTable, int numTemps);
 
 	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, FastNumberSet& fsingle);
 	void PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse, bool checkloops);
@@ -555,7 +556,10 @@ public:
 	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void PushMoveOutOfLoop(void);
-		
+
+	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue);
+	void RemoveUnusedMallocs(void);
+
 	bool CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body);
 
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
@@ -603,7 +607,7 @@ public:
 	GrowingInterCodeBasicBlockPtrArray	mBlocks;
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
-	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase;
+	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase, mNumRestricted;
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
 	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack, mAssembled;
 	bool								mDispatchedCall;
@@ -633,6 +637,7 @@ public:
 	~InterCodeProcedure(void);
 
 	int AddTemporary(InterType type);
+	int AddRestricted(void);
 
 	void Close(void);
 
@@ -682,10 +687,12 @@ protected:
 	void CombineIndirectAddressing(void);
 	void SingleTailLoopOptimization(InterMemory paramMemory);
 	void HoistCommonConditionalPath(void);
+	void RemoveUnusedMallocs(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);
 	void WarnUsedUndefinedVariables(void);
+	void PropagateMemoryAliasingInfo(void);
 
 	void PeepholeOptimization(void);
 
