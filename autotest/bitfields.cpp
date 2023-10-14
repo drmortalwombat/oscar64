@@ -232,9 +232,109 @@ void test_word_signed(void)
 	}
 }
 
+void test_inc_char_fit(void)
+{
+	A ai;
+	ai.x = 7;
+	ai.y = 1;
+	ai.z = 2;
 
+	for(int i=0; i<16; i++)
+	{
+		assert(ai.x == ((7 + i) & 15));
+		assert(ai.y == ((1 + i) & 1));
+		assert(ai.z == ((2 + i) & 7));		
+		ai.x++;
+		ai.y++;
+		ai.z++;
+	}
+}
+
+void test_inc_char_cross(void)
+{
+	B bi;
+	bi.x = 11;
+	bi.y = 22;
+	bi.z = 33;
+	bi.w = 44;
+
+	for(int i=0; i<64; i++)
+	{
+		assert(bi.x == ((11 + i) & 0x3f));
+		assert(bi.y == ((22 + i) & 0x3f));
+		assert(bi.z == ((33 + i) & 0x3f));		
+		assert(bi.w == ((44 + i) & 0x3f));		
+		bi.x++;
+		bi.y++;
+		bi.z++;
+		bi.w++;
+	}
+}
+
+void test_add_char_cross(void)
+{
+	B bi= {0};
+	bi.x = 11;
+	bi.y = 22;
+	bi.z = 33;
+	bi.w = 44;
+
+	for(int i=0; i<64; i++)
+	{
+		assert(bi.x == ((11 +  5 * i) & 0x3f));
+		assert(bi.y == ((22 + 21 * i) & 0x3f));
+		assert(bi.z == ((33 -  4 * i) & 0x3f));		
+		assert(bi.w == ((44 - 11 * i) & 0x3f));		
+		bi.x += 5;
+		bi.y += 21;
+		bi.z -= 4;
+		bi.w -= 11;
+	}
+}
+
+void test_add_word_fit(void)
+{
+	C ci = {0};
+
+	ci.x = 7;
+	ci.y = 1;
+	ci.z = 2;
+
+	for(int i=0; i<16; i++)
+	{
+		assert(ci.x == ((7 +  5 * i) & 15));
+		assert(ci.y == ((1 + 21 * i) &  1));
+		assert(ci.z == ((2 -  4 * i) &  7));		
+		ci.x += 5;
+		ci.y += 21;
+		ci.z -= 4;
+	}
+}
+
+void test_add_word_cross(void)
+{
+	D di  = {0};
+
+	di.x = 111;
+	di.y = 222;
+	di.z = 333;
+	di.w = 444;
+
+	for(int i=0; i<1024; i++)
+	{
+		assert(di.x == ((111 +  5 * i) & 0x3ff));
+		assert(di.y == ((222 + 21 * i) & 0x3ff));
+		assert(di.z == ((333 -  4 * i) & 0x3ff));		
+		assert(di.w == ((444 - 11 * i) & 0x3ff));		
+		di.x += 5;
+		di.y += 21;
+		di.z -= 4;
+		di.w -= 11;
+	}
+}
 int main(void)
 {
+#if 0
 	test_char_fit();
 	test_char_cross();
 	test_word_fit();
@@ -243,6 +343,13 @@ int main(void)
 	test_dword_cross();
 	test_char_signed();
 	test_word_signed();
+
+	test_inc_char_fit();
+	test_inc_char_cross();
+	test_add_char_cross();
+#endif
+	test_add_word_fit();
+	test_add_word_cross();
 
 	return 0;
 }

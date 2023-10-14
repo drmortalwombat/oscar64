@@ -7150,16 +7150,21 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					else if (ins->mSrc[1].mTemp < 0)
 					{
 						vr = mLocalValueRange[ins->mSrc[0].mTemp];
+
+						IntegerValueRange::State	s = vr.mMinState;
+						vr.mMinState = vr.mMaxState;
+						vr.mMaxState = s;
+
 						int64	maxv = vr.mMaxValue, minv = vr.mMinValue;
 
-						if (vr.mMaxState == IntegerValueRange::S_WEAK)
-						{
-							if (vr.mMinState == IntegerValueRange::S_WEAK)
-								vr.mMaxState = IntegerValueRange::S_UNBOUND;
-							vr.mMinState = IntegerValueRange::S_UNBOUND;
-						}
 						if (vr.mMinState == IntegerValueRange::S_WEAK)
+						{
+							if (vr.mMaxState == IntegerValueRange::S_WEAK)
+								vr.mMinState = IntegerValueRange::S_UNBOUND;
 							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
+						if (vr.mMaxState == IntegerValueRange::S_WEAK)
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
 
 						vr.mMaxValue = ins->mSrc[1].mIntConst - minv;
 						vr.mMinValue = ins->mSrc[1].mIntConst - maxv;
@@ -9381,7 +9386,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						{
 							InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
 
-							if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0)
+							if (ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_ADD || ains->mOperator == IA_SUB) && ains->mSrc[0].mTemp < 0)
 							{
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
@@ -9404,7 +9409,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mDst.mRange = ins->mDst.mRange;
 								mInstructions.Insert(i + 1, nins);
 
-								ins->mOperator = IA_ADD;
+								ins->mOperator = ains->mOperator;
 								ins->mSrc[0] = ains->mSrc[0];
 								ins->mSrc[0].mIntConst <<= nins->mSrc[0].mIntConst;
 								ins->mSrc[1] = nins->mDst;
@@ -15892,7 +15897,94 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[0].mIntConst = 0;
 				changed = true;
 			}
+#if 1
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+				mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0)
+			{
+				mInstructions[i + 0]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 1]->mSrc[0].mIntConst) - 1);
+				mInstructions[i + 2]->mSrc[0].mIntConst <<= mInstructions[i + 1]->mSrc[0].mIntConst;
+				mInstructions[i + 2]->mSrc[1] = mInstructions[i + 0]->mDst;
+				mInstructions[i + 1]->mCode = IC_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
+				changed = true;
+			}
 
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0)
+			{
+				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+				mInstructions[i + 0]->mOperator = IA_AND;
+				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
+				mInstructions[i + 0]->mDst.mRange.Reset();
+				mInstructions[i + 1]->mSrc[1].mRange.Reset();
+				changed = true;
+			}
+
+			if (i + 3 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_SHL &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+
+				mInstructions[i + 3]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 3]->mOperator == IA_AND &&
+				mInstructions[i + 3]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 3]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[1].mFinal &&
+
+				mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 2]->mSrc[0].mIntConst)
+			{
+				mInstructions[i + 3]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
+				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 1]->mDst = mInstructions[i + 2]->mDst;
+
+				mInstructions[i + 0]->mCode = IC_NONE;
+				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 2]->mCode = IC_NONE;
+				mInstructions[i + 2]->mNumOperands = 0;
+				changed = true;
+			}
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_AND &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+
+				(mInstructions[i + 0]->mSrc[0].mIntConst & (mInstructions[i + 0]->mSrc[0].mIntConst + 1)) == 0 && // Is power of two - 1
+				(~mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 1]->mSrc[0].mIntConst) == 0 && // add is part of initial mask
+				(~mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 2]->mSrc[0].mIntConst) == 0) // final mask is part of initial mask
+			{
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+				mInstructions[i + 0]->mCode = IC_NONE;
+				mInstructions[i + 0]->mNumOperands = 0;
+				changed = true;
+			}
+#endif
 #if 1
 			if (i + 2 < mInstructions.Size() &&
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR &&
@@ -17925,7 +18017,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "ftoa");
+	CheckFunc = !strcmp(mIdent->mString, "test_add_char_cross");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -18281,6 +18373,7 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 	DisassembleDebug("Followed Jumps 2");
+	CheckCase = true;
 
 	RebuildIntegerRangeSet();
 
