@@ -621,6 +621,83 @@ Expression* ConstexprInterpreter::EvalConstructor(Expression* exp)
 	return mResult.ToExpression(mDataSection);
 }
 
+Expression* ConstexprInterpreter::EvalTempConstructor(Expression* exp)
+{
+	Expression* cexp = exp->mLeft->mLeft;
+
+	mProcType = cexp->mLeft->mDecType;
+
+	Expression* pex = cexp->mRight;
+	Declaration* dec = cexp->mLeft->mDecType->mParams;
+
+	Value othis = Value(exp->mLocation, exp->mRight->mDecType);
+
+	mParams[0] = Value(exp->mLocation, dec->mBase);
+	mParams[0].PutPtr(Value(&othis));
+
+	int pos = 2;
+	if (pex->mType == EX_LIST)
+		pex = pex->mRight;
+	else
+		pex = nullptr;
+	dec = dec->mNext;
+
+	while (pex && pex->mType == EX_LIST)
+	{
+		if (!AddParam(pos, pex->mLeft, dec))
+			return exp;
+
+		pex = pex->mRight;
+		if (dec)
+			dec = dec->mNext;
+	}
+
+	if (pex)
+	{
+		if (!AddParam(pos, pex, dec))
+			return exp;
+	}
+
+	mHeap = new ExpandingArray<Value*>();
+
+	Execute(cexp->mLeft->mDecValue->mValue);
+
+	if (mHeap->Size() > 0)
+		mErrors->Error(exp->mLocation, EERR_UNBALANCED_HEAP_USE, "Unbalanced heap use in constexpr");
+	delete mHeap;
+
+	return othis.ToExpression(mDataSection);
+}
+
+bool ConstexprInterpreter::AddParam(int& pos, Expression* pex, Declaration* dec)
+{
+	if (dec)
+		pos = dec->mVarIndex;
+
+	if (pex->mType == EX_CONSTANT)
+	{
+		if (pex->mDecType->mType == DT_TYPE_ARRAY)
+		{
+			Value* tmp = new Value(pex);
+			mTemps.Push(tmp);
+			mParams[pos] = Value(pex->mLocation, pex->mDecType->BuildArrayPointer());
+			mParams[pos].PutPtr(Value(tmp));
+		}
+		else
+			mParams[pos] = Value(pex);
+	}
+	else if (pex->mType == EX_VARIABLE && (pex->mDecValue->mFlags & DTF_CONST))
+	{
+		mParams[pos] = Value(pex->mLocation, pex->mDecValue->mBase);
+		if (pex->mDecValue->mSize > 0)
+			mParams[pos].PutConst(0, pex->mDecValue->mValue->mDecValue);
+	}
+	else
+		return false;
+
+	return true;
+}
+
 Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 {
 	mProcType = exp->mLeft->mDecType;
@@ -638,57 +715,17 @@ Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 
 	while (pex && pex->mType == EX_LIST)
 	{
-		if (dec)
-			pos = dec->mVarIndex;
-
-		if (pex->mLeft->mType == EX_CONSTANT)
-		{
-			if (pex->mLeft->mDecType->mType == DT_TYPE_ARRAY)
-			{
-				Value	*	tmp = new Value(pex->mLeft);
-				mTemps.Push(tmp);
-				mParams[pos] = Value(pex->mLeft->mLocation, pex->mLeft->mDecType->BuildArrayPointer());
-				mParams[pos].PutPtr(Value(tmp));
-			}
-			else
-				mParams[pos] = Value(pex->mLeft);
-		}
-		else if (pex->mLeft->mType == EX_VARIABLE && (pex->mLeft->mDecValue->mFlags & DTF_CONST))
-		{
-			mParams[pos] = Value(pex->mLeft->mLocation, pex->mLeft->mDecValue->mBase);
-			mParams[pos].PutConst(0, pex->mLeft->mDecValue->mValue->mDecValue);
-		}
-		else
+		if (!AddParam(pos, pex->mLeft, dec))
 			return exp;
 
 		pex = pex->mRight;
 		if (dec)
 			dec = dec->mNext;
 	}
-	if (pex)	
-	{
-		if (dec)
-			pos = dec->mVarIndex;
 
-		if (pex->mType == EX_CONSTANT)
-		{
-			if (pex->mDecType->mType == DT_TYPE_ARRAY)
-			{
-				Value* tmp = new Value(pex);
-				mTemps.Push(tmp);
-				mParams[pos] = Value(pex->mLocation, pex->mDecType->BuildArrayPointer());
-				mParams[pos].PutPtr(Value(tmp));
-			}
-			else
-				mParams[pos] = Value(pex);
-		}
-		else if (pex->mType == EX_VARIABLE && (pex->mDecValue->mFlags & DTF_CONST))
-		{
-			mParams[pos] = Value(pex->mLocation, pex->mDecValue->mBase);
-			if (pex->mDecValue->mSize > 0)
-				mParams[pos].PutConst(0, pex->mDecValue->mValue->mDecValue);
-		}
-		else
+	if (pex)
+	{
+		if (!AddParam(pos, pex, dec))
 			return exp;
 	}
 

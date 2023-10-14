@@ -899,7 +899,15 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 	{
 		ConstexprInterpreter	cinter(mLocation, errors, dataSection);
 		return cinter.EvalCall(this);
-	}	
+	}
+	else if (mType == EX_CONSTRUCT && mLeft->mType == EX_LIST && !mLeft->mRight && mLeft->mLeft->mType == EX_CALL && 
+			mLeft->mLeft->mLeft->mType == EX_CONSTANT && (mLeft->mLeft->mLeft->mDecValue->mFlags & DTF_CONSTEXPR) && 
+			(mRight->mDecValue->mFlags & DTF_TEMPORARY) &&
+			dataSection)
+	{
+		ConstexprInterpreter	cinter(mLocation, errors, dataSection);
+		return cinter.EvalTempConstructor(this);
+	}
 
 	return this;
 }

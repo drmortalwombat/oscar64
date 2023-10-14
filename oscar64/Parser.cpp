@@ -1552,6 +1552,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 					}
 
 					Expression* texp = ParseInitExpression(dtype->mBase);
+					texp = texp->ConstantFold(mErrors, mDataSection);
 					for (int i = 0; i < nrep; i++)
 					{
 						Declaration* cdec = CopyConstantInitializer(index, dtype->mBase, texp);

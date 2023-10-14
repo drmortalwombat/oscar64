@@ -8,9 +8,13 @@ public:
 	ConstexprInterpreter(const Location & loc, Errors * err, LinkerSection * dataSection);
 	~ConstexprInterpreter(void);
 
-	Expression* EvalCall(Expression* exp);
 	Expression* EvalConstructor(Expression* exp);
+	Expression* EvalCall(Expression* exp);
+	Expression* EvalTempConstructor(Expression* exp);
 protected:
+
+	bool AddParam(int& pos, Expression* pex, Declaration* dec);
+
 	struct Value;
 
 	struct ValueItem
