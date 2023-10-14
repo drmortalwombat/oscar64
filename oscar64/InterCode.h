@@ -148,6 +148,7 @@ public:
 	~IntegerValueRange(void);
 
 	void Reset(void);
+	void Restart(void);
 
 	int64		mMinValue, mMaxValue;
 	int			mMinExpanded, mMaxExpanded;
@@ -163,8 +164,10 @@ public:
 	bool Same(const IntegerValueRange& range) const;
 	bool Merge(const IntegerValueRange& range, bool head, bool initial);
 	void Expand(const IntegerValueRange& range);
+	void Union(const IntegerValueRange& range);
 
 	void Limit(const IntegerValueRange& range);
+	void MergeUnknown(const IntegerValueRange& range);
 	void SetLimit(int64 minValue, int64 maxValue);
 
 	bool IsConstant(void) const;
@@ -245,7 +248,7 @@ class InterVariable
 {
 public:
 	bool							mUsed, mAliased, mTemp;
-	int								mIndex, mSize, mOffset, mTempIndex;
+	int								mIndex, mSize, mOffset, mTempIndex, mByteIndex;
 	int								mNumReferences;
 	const Ident					*	mIdent;
 	LinkerObject				*	mLinkerObject;
@@ -318,10 +321,12 @@ public:
 	void FilterTempUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	void FilterVarsUsage(const GrowingVariableArray& localVars, NumberSet& requiredVars, NumberSet& providedVars, const GrowingVariableArray& params, NumberSet& requiredParams, NumberSet& providedParams, InterMemory paramMemory);
 	void FilterStaticVarsUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars);
-	
+	void FilterStaticVarsByteUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars);
+
 	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredVars, const GrowingVariableArray& params, NumberSet& requiredParams, InterMemory paramMemory);
 	bool RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock * block, const GrowingVariableArray& staticVars, NumberSet& requiredVars, GrowingInstructionPtrArray& storeIns);
+	bool RemoveUnusedStaticStoreByteInstructions(InterCodeBasicBlock* block, const GrowingVariableArray& staticVars, NumberSet& requiredVars);
 	void PerformValueForwarding(GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	void BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps);
 
@@ -342,6 +347,8 @@ public:
 
 	bool ConstantFolding(void);
 	bool ConstantFoldingRelationRange(void);
+
+	void UnionRanges(InterInstruction* ins);
 
 	void Disassemble(FILE* file, InterCodeProcedure * proc);
 };
@@ -381,7 +388,7 @@ public:
 
 	GrowingArray<int64>				mMemoryValueSize, mEntryMemoryValueSize;
 
-	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
+	ExpandingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
 
 	GrowingInstructionPtrArray		mMergeTValues, mMergeAValues;
 	ValueSet						mMergeValues;
@@ -435,6 +442,9 @@ public:
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
 
+	void BuildStaticVariableByteSet(const GrowingVariableArray& staticVars, int bsize);
+	bool RemoveUnusedStaticStoreByteInstructions(const GrowingVariableArray& staticVars, int bsize);
+
 	bool CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64 & nloop);
 
 	void RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
@@ -443,6 +453,7 @@ public:
 	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void SimplifyIntegerRangeRelops(void);
 	void MarkIntegerRangeBoundUp(int temp, int64 value, GrowingIntegerValueRangeArray& range);
+	void UnionIntegerRanges(const InterCodeBasicBlock* block);
 
 	bool CombineIndirectAddressing(void);
 
@@ -551,9 +562,9 @@ public:
 	void SingleBlockLoopUnrolling(void);
 	bool SingleBlockLoopPointerSplit(int& spareTemps);
 	bool SingleBlockLoopPointerToByte(int& spareTemps);
-	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
-	bool CollectLoopBodyRecursive(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*>& body);
-	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
+	bool CollectLoopBody(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*> & body);
+	bool CollectLoopBodyRecursive(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*>& body);
+	void CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void PushMoveOutOfLoop(void);
 
@@ -670,6 +681,7 @@ protected:
 	void BuildLoopPrefix(void);
 	void SingleAssignmentForwarding(void);
 	void RemoveUnusedStoreInstructions(InterMemory	paramMemory);
+	void RemoveUnusedPartialStoreInstructions(void);
 	void RemoveUnusedLocalStoreInstructions(void);
 	void MergeCommonPathInstructions(void);
 	void PushSinglePathResultInstructions(void);

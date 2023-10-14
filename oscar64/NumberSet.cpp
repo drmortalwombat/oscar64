@@ -73,6 +73,34 @@ void NumberSet::Reset(int size, bool set)
 	}
 }
 
+void NumberSet::AddRange(int elem, int num)
+{
+	for (int i = 0; i < num; i++)
+		*this += elem + i;
+}
+
+void NumberSet::SubRange(int elem, int num)
+{
+	for (int i = 0; i < num; i++)
+		*this -= elem + i;
+}
+
+bool NumberSet::RangeClear(int elem, int num) const
+{
+	for (int i = 0; i < num; i++)
+		if ((*this)[elem + i])
+			return false;
+	return true;
+}
+
+bool NumberSet::RangeFilled(int elem, int num) const
+{
+	for (int i = 0; i < num; i++)
+		if (!(*this)[elem + i])
+			return false;
+	return true;
+}
+
 void NumberSet::Fill(void)
 {
 	int i;

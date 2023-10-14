@@ -34,6 +34,10 @@ public:
 
 	void Clear(void);
 	void Fill(void);
+	void AddRange(int elem, int num);
+	void SubRange(int elem, int num);
+	bool RangeClear(int elem, int num) const;
+	bool RangeFilled(int elem, int num) const;
 
 	int Size(void) { return size; }
 };
