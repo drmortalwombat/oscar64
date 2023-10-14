@@ -569,6 +569,17 @@ This sample generates an array with pointers to screen rows:
 	#for(i,SCREEN_HEIGHT) Screen + SCREEN_WIDTH * i,
 	};
 
+The preprocessor keeps track of the source location while parsing a file to generate error messages and debug symbols.  This is problematic for generated code, where the C source file position does not reflect the actual source position.
+
+The source position can be set with the #line directiv
+
+	#line linenum
+	
+	sets the line number
+	
+	#line linenum "sourcefile"
+	
+	sets the line number and source file name
 
 	
 ### Linker control

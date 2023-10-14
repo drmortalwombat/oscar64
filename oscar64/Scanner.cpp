@@ -143,6 +143,7 @@ const char* TokenNames[] =
 	"'#ifdef'",
 	"'#ifndef'",
 	"'#pragma'",
+	"'#line'",
 
 	"'#assign'",
 	"'#repeat'",
@@ -596,6 +597,18 @@ void Scanner::NextPreToken(void)
 				else if (mOnceDict->Lookup(Ident::Unique(mPreprocessor->mSource->mFileName)))
 					mPreprocessor->CloseSource();
 			}
+		}
+		else if (mToken == TK_PREP_LINE)
+		{
+			NextPreToken();
+			int l = mLocation.mLine;
+			int64 v = PrepParseConditional();
+			if (mLocation.mLine == l && mToken == TK_STRING)
+			{
+				strcpy_s(mPreprocessor->mSource->mLocationFileName, mTokenString);
+				NextRawToken();
+			}
+			mPreprocessor->mLocation.mLine = v - 1;
 		}
 		else if (mToken == TK_PREP_FOR)
 		{
@@ -1384,6 +1397,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_PREP_ENDIF;
 				else if (!strcmp(tkprep, "pragma"))
 					mToken = TK_PREP_PRAGMA;
+				else if (!strcmp(tkprep, "line"))
+					mToken = TK_PREP_LINE;
 				else if (!strcmp(tkprep, "assign"))
 					mToken = TK_PREP_ASSIGN;
 				else if (!strcmp(tkprep, "repeat"))

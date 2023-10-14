@@ -608,6 +608,7 @@ bool SourceFile::Open(const char* name, const char* path, SourceFileMode mode)
 				*p = '/';
 			p++;
 		}
+		strcpy_s(mLocationFileName, mFileName);
 		mMode = mode;
 		mLimit = 0x10000;
 		mFill = 0;
@@ -731,7 +732,7 @@ bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, i
 
 		source->mUp = mSource;
 		mSource = source;
-		mLocation.mFileName = mSource->mFileName;
+		mLocation.mFileName = mSource->mLocationFileName;
 		mLocation.mLine = 0;
 		mLine[0] = 0;
 
@@ -791,7 +792,7 @@ bool Preprocessor::OpenSource(const char * reason, const char* name, bool local)
 
 		source->mUp = mSource;
 		mSource = source;
-		mLocation.mFileName = mSource->mFileName;
+		mLocation.mFileName = mSource->mLocationFileName;
 		mLocation.mLine = 0;
 		mLine[0] = 0;
 
