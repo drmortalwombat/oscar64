@@ -454,6 +454,7 @@ public:
 	void SimplifyIntegerRangeRelops(void);
 	void MarkIntegerRangeBoundUp(int temp, int64 value, GrowingIntegerValueRangeArray& range);
 	void UnionIntegerRanges(const InterCodeBasicBlock* block);
+	void PruneUnusedIntegerRangeSets(void);
 
 	bool CombineIndirectAddressing(void);
 

@@ -608,7 +608,7 @@ void Scanner::NextPreToken(void)
 				strcpy_s(mPreprocessor->mSource->mLocationFileName, mTokenString);
 				NextRawToken();
 			}
-			mPreprocessor->mLocation.mLine = v - 1;
+			mPreprocessor->mLocation.mLine = v + mLocation.mLine - l - 1;
 		}
 		else if (mToken == TK_PREP_FOR)
 		{

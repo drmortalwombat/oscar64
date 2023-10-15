@@ -26593,7 +26593,7 @@ bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to)
 		if (mFalseJump && mFalseJump->ForwardReplaceZeroPage(0, from, to))
 			changed = true;
 
-		if (changed)
+		if (mEntryRequiredRegs[from])
 			mEntryRequiredRegs += to;
 	}
 
@@ -29635,7 +29635,8 @@ bool NativeCodeBasicBlock::OptimizeLoopCarryOver(void)
 							mExitRequiredRegs += CPU_REG_Y;
 							changed = true;
 						}
-						else if (sz > 1 && hblock->mIns[0].mType == ASMIT_LDA && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 2].mType == ASMIT_LDA && hblock->mIns[0].SameEffectiveAddress(mIns[sz - 2]) && !(hblock->mIns[0].mLive & LIVE_CPU_REG_Z))
+						else if (sz > 1 && hblock->mIns[0].mType == ASMIT_LDA && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 2].mType == ASMIT_LDA 
+							&& hblock->mIns[0].SameEffectiveAddress(mIns[sz - 2]) && !(hblock->mIns[0].mLive & LIVE_CPU_REG_Z) && !(hblock->mIns[0].mFlags & NCIF_VOLATILE))
 						{
 							pblock->mIns.Push(hblock->mIns[0]);
 							hblock->mIns.Remove(0);
@@ -41791,7 +41792,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "atoi");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "mat4_mmul");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -43090,7 +43091,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 #if 1
-		if (step == 10)
+		if (step == 10 && (mInterProc->mCompilerOptions & COPT_OPTIMIZE_BASIC))
 		{
 			ResetVisited();
 			mEntryBlock->MarkLocalUsedLinkerObjects();
@@ -43126,7 +43127,6 @@ void NativeCodeProcedure::Optimize(void)
 			}
 		}
 #endif
-
 #if _DEBUG
 	ResetVisited();
 	mEntryBlock->CheckAsmCode();
@@ -43156,7 +43156,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 
@@ -43225,6 +43224,7 @@ void NativeCodeProcedure::Optimize(void)
 			ResetVisited();
 			changed = mEntryBlock->JoinTailCodeSequences(this, true);
 		}
+
 
 	} while (changed);
 #endif

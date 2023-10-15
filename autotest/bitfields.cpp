@@ -334,7 +334,7 @@ void test_add_word_cross(void)
 }
 int main(void)
 {
-#if 0
+
 	test_char_fit();
 	test_char_cross();
 	test_word_fit();
@@ -347,7 +347,7 @@ int main(void)
 	test_inc_char_fit();
 	test_inc_char_cross();
 	test_add_char_cross();
-#endif
+
 	test_add_word_fit();
 	test_add_word_cross();
 

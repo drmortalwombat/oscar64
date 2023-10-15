@@ -8007,6 +8007,26 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 
 
+void InterCodeBasicBlock::PruneUnusedIntegerRangeSets(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mEntryValueRange.Size() > 0 && mEntryRequiredTemps.Size())
+		{
+			for (int i = 0; i < mEntryValueRange.Size(); i++)
+			{
+				if (!mEntryRequiredTemps[i])
+					mEntryValueRange[i].Reset();
+			}
+		}
+
+		if (mTrueJump) mTrueJump->PruneUnusedIntegerRangeSets();
+		if (mFalseJump) mFalseJump->PruneUnusedIntegerRangeSets();
+	}
+}
+
 void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
 {
 	if (!mVisited)
@@ -10731,6 +10751,9 @@ void InterCodeBasicBlock::RenameValueRanges(const GrowingIntArray& renameTable, 
 		{
 			if (renameTable[i] >= 0)
 			{
+				assert(mLocalValueRange[i].mMinState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMinState == IntegerValueRange::S_UNKNOWN);
+				assert(mLocalValueRange[i].mMaxState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMaxState == IntegerValueRange::S_UNKNOWN);
+
 				mEntryValueRange[renameTable[i]].Limit(mLocalValueRange[i]);
 			}				
 		}
@@ -18017,7 +18040,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test_add_char_cross");
+	CheckFunc = !strcmp(mIdent->mString, "qsort");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -18373,7 +18396,6 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 	DisassembleDebug("Followed Jumps 2");
-	CheckCase = true;
 
 	RebuildIntegerRangeSet();
 
@@ -18502,8 +18524,6 @@ void InterCodeProcedure::Close(void)
 	Disassemble("gcp-");
 #endif
 
-	CheckCase = true;
-
 #if 1
 	RebuildIntegerRangeSet();
 #endif
@@ -18564,8 +18584,6 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	LoadStoreForwarding(paramMemory);
-
-	CheckCase = true;
 
 	RebuildIntegerRangeSet();
 
@@ -18777,6 +18795,9 @@ void InterCodeProcedure::Close(void)
 		PeepholeOptimization();
 
 		DisassembleDebug("Peephole Temp Check");
+
+		if (i == 1)
+			CheckCase = true;
 		
 		RemoveUnusedInstructions();
 
@@ -19457,6 +19478,9 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	do {
 		ResetVisited();
 	} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired2));
+
+	ResetVisited();
+	mEntryBlock->PruneUnusedIntegerRangeSets();
 
 	collisionSet = new NumberSet[numTemps];
 
