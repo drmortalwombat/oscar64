@@ -1252,24 +1252,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 				mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 			if (vp.mTemp != vr.mTemp)
-			{
-				InterInstruction* cins = new InterInstruction(exp->mLocation, IC_COPY);
-				cins->mNumOperands = 2;
-
-				cins->mSrc[0].mType = IT_POINTER;
-				cins->mSrc[0].mTemp = vr.mTemp;
-				cins->mSrc[0].mMemory = IM_INDIRECT;
-				cins->mSrc[0].mOperandSize = vp.mType->mSize;
-				cins->mSrc[0].mStride = vr.mType->mStripe;
-
-				cins->mSrc[1].mType = IT_POINTER;
-				cins->mSrc[1].mTemp = ains->mDst.mTemp;
-				cins->mSrc[1].mMemory = IM_INDIRECT;
-				cins->mSrc[1].mOperandSize = vp.mType->mSize;
-
-				cins->mConst.mOperandSize = vp.mType->mSize;
-				block->Append(cins);
-			}
+				CopyStructSimple(proc, exp, block, vp, vr);
 		}
 		else
 		{
@@ -1388,6 +1371,73 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	}
 	else
 		return ExValue(TheVoidTypeDeclaration);
+}
+
+void InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression * exp, InterCodeBasicBlock* block, ExValue vl, ExValue vr)
+{
+	int		ne = 0;
+	Declaration* mdec = nullptr;
+	if (vl.mType->mType == DT_TYPE_STRUCT)
+	{
+		Declaration* dec = vl.mType->mParams;
+		while (dec)
+		{
+			if (dec->mType == DT_ELEMENT && !(dec->mFlags & DTF_STATIC))
+			{
+				mdec = dec->mBase;
+				ne++;
+			}
+			dec = dec->mNext;
+		}
+	}
+
+	// Single element structs are copied as individual value
+	if (ne == 1 && mdec->mSize == vl.mType->mSize)
+	{
+		InterInstruction* lins = new InterInstruction(exp->mLocation, IC_LOAD);
+		lins->mNumOperands = 1;
+
+		lins->mSrc[0].mType = IT_POINTER;
+		lins->mSrc[0].mTemp = vr.mTemp;
+		lins->mSrc[0].mMemory = IM_INDIRECT;
+		lins->mSrc[0].mOperandSize = mdec->mSize;
+		lins->mSrc[0].mStride = mdec->mStripe;
+
+		lins->mDst.mType = InterTypeOf(mdec);
+		lins->mDst.mTemp = proc->AddTemporary(lins->mDst.mType);
+		block->Append(lins);
+
+		InterInstruction* sins = new InterInstruction(exp->mLocation, IC_STORE);
+		sins->mNumOperands = 2;
+
+		sins->mSrc[1].mType = IT_POINTER;
+		sins->mSrc[1].mTemp = vl.mTemp;
+		sins->mSrc[1].mMemory = IM_INDIRECT;
+		sins->mSrc[1].mOperandSize = mdec->mSize;
+		sins->mSrc[1].mStride = mdec->mStripe;
+
+		sins->mSrc[0] = lins->mDst;
+		block->Append(sins);
+	}
+	else
+	{
+		InterInstruction* cins = new InterInstruction(exp->mLocation, IC_COPY);
+		cins->mNumOperands = 2;
+
+		cins->mSrc[0].mType = IT_POINTER;
+		cins->mSrc[0].mTemp = vr.mTemp;
+		cins->mSrc[0].mMemory = IM_INDIRECT;
+		cins->mSrc[0].mOperandSize = vr.mType->mSize;
+		cins->mSrc[0].mStride = vr.mType->mStripe;
+
+		cins->mSrc[1].mOperandSize = vl.mType->mSize;
+		cins->mSrc[1].mType = IT_POINTER;
+		cins->mSrc[1].mTemp = vl.mTemp;
+		cins->mSrc[1].mMemory = IM_INDIRECT;
+
+		cins->mConst.mOperandSize = vl.mType->mSize;
+		block->Append(cins);
+	}
 }
 
 void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, ExValue vl, ExValue vr, InlineMapper* inlineMapper, bool moving)
@@ -1587,24 +1637,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 		}
 	}
 	else
-	{
-		InterInstruction* cins = new InterInstruction(exp->mLocation, IC_COPY);
-		cins->mNumOperands = 2;
-
-		cins->mSrc[0].mType = IT_POINTER;
-		cins->mSrc[0].mTemp = vr.mTemp;
-		cins->mSrc[0].mMemory = IM_INDIRECT;
-		cins->mSrc[0].mOperandSize = vr.mType->mSize;
-		cins->mSrc[0].mStride = vr.mType->mStripe;
-
-		cins->mSrc[1].mOperandSize = vl.mType->mSize;
-		cins->mSrc[1].mType = IT_POINTER;
-		cins->mSrc[1].mTemp = vl.mTemp;
-		cins->mSrc[1].mMemory = IM_INDIRECT;
-
-		cins->mConst.mOperandSize = vl.mType->mSize;
-		block->Append(cins);
-	}
+		CopyStructSimple(proc, exp, block, vl, vr);
 }
 
 InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, DestructStack*& destack, const BranchTarget& breakBlock, const BranchTarget& continueBlock, InlineMapper* inlineMapper, ExValue* lrexp)
@@ -2104,24 +2137,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 				if (vr.mTemp != vl.mTemp)
-				{
-					InterInstruction* ins = new InterInstruction(exp->mLocation, IC_COPY);
-					ins->mNumOperands = 2;
-
-					ins->mSrc[0].mType = IT_POINTER;
-					ins->mSrc[0].mTemp = vr.mTemp;
-					ins->mSrc[0].mMemory = IM_INDIRECT;
-					ins->mSrc[0].mOperandSize = vl.mType->mSize;
-					ins->mSrc[0].mStride = vr.mType->mStripe;
-
-					ins->mSrc[1].mType = IT_POINTER;
-					ins->mSrc[1].mTemp = vl.mTemp;
-					ins->mSrc[1].mMemory = IM_INDIRECT;
-					ins->mSrc[1].mOperandSize = vl.mType->mSize;
-					ins->mSrc[1].mStride = vl.mType->mStripe;
-					ins->mConst.mOperandSize = vl.mType->mSize;
-					block->Append(ins);
-				}
+					CopyStructSimple(proc, exp, block, vl, vr);
 			}
 			else
 			{

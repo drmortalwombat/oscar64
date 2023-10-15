@@ -16174,6 +16174,35 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 		}
 #endif
+#if 1
+		if (i + 1 < mInstructions.Size())
+		{
+			if (mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[0].mMemory == IM_ABSOLUTE && mInstructions[i + 1]->mSrc[0].mIntConst == 0)
+			{
+				if (mInstructions[i + 0]->mSrc[1].mMemory != IM_ABSOLUTE)
+				{
+					if (mInstructions[i + 1]->mOperator == IA_CMPEQ)
+					{
+						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mCode = IC_CONSTANT;
+						mInstructions[i + 1]->mConst.mType = IT_BOOL;
+						mInstructions[i + 1]->mConst.mIntConst = 0;
+						changed = true;
+					}
+					else if (mInstructions[i + 1]->mOperator == IA_CMPNE)
+					{
+						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mCode = IC_CONSTANT;
+						mInstructions[i + 1]->mConst.mType = IT_BOOL;
+						mInstructions[i + 1]->mConst.mIntConst = 1;
+						changed = true;
+					}
+				}
+			}
+		}
+#endif
 	}
 
 	return changed;

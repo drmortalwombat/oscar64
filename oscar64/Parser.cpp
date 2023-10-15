@@ -5334,7 +5334,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 
 			if (dec)
 			{
-				if (dec->mType == DT_ELEMENT || dec->mType == DT_CONST_FUNCTION)
+				if ((dec->mType == DT_ELEMENT || dec->mType == DT_CONST_FUNCTION) && !(dec->mFlags & DTF_STATIC))
 				{
 					Expression* texp = new Expression(mScanner->mLocation, EX_VARIABLE);
 					texp->mDecType = mThisPointer->mBase;
