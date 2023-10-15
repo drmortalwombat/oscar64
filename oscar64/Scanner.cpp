@@ -600,6 +600,7 @@ void Scanner::NextPreToken(void)
 		}
 		else if (mToken == TK_PREP_LINE)
 		{
+			mPreprocessorMode = true;
 			NextPreToken();
 			int l = mLocation.mLine;
 			int64 v = PrepParseConditional();
@@ -608,7 +609,8 @@ void Scanner::NextPreToken(void)
 				strcpy_s(mPreprocessor->mSource->mLocationFileName, mTokenString);
 				NextRawToken();
 			}
-			mPreprocessor->mLocation.mLine = v + mLocation.mLine - l - 1;
+			mPreprocessor->mLocation.mLine = int(v) + mLocation.mLine - l;
+			mPreprocessorMode = false;
 		}
 		else if (mToken == TK_PREP_FOR)
 		{
