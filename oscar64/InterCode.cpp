@@ -18040,7 +18040,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "qsort");
+	CheckFunc = !strcmp(mIdent->mString, "setspr");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -19350,6 +19350,16 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 
 							mblocks[j]->mInstructions.Remove(mblocks[j]->mInstructions.Size() - 2);
 						}
+
+						if (nblock->mEntryValueRange.Size())
+						{
+							for (int j = 0; j < ins->mNumOperands; j++)
+							{
+								if (ins->mSrc[j].mTemp >= 0)
+									nblock->mEntryValueRange[ins->mSrc[j].mTemp] = ins->mSrc[j].mRange;
+							}
+						}
+
 						changed = true;
 					}
 				}
