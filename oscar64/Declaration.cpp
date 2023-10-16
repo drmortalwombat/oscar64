@@ -867,9 +867,9 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		Declaration* decf = mLeft->mDecValue, * decp = mRight->mDecValue;
 		const Ident* iname = decf->mQualIdent;
 
-		if (decp->mType == DT_TYPE_FLOAT || decp->mType == DT_TYPE_INTEGER)
+		if (decp->mType == DT_CONST_FLOAT || decp->mType == DT_CONST_INTEGER)
 		{
-			double d = decp->mType == DT_TYPE_FLOAT ? decp->mNumber : decp->mInteger;
+			double d = decp->mType == DT_CONST_FLOAT ? decp->mNumber : decp->mInteger;
 
 			bool	check = false;
 
