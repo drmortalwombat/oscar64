@@ -3092,6 +3092,17 @@ void Parser::AppendMemberDestructor(Declaration* pthis)
 							}
 							else
 							{
+								qexp->mDecType = dec->mBase->mBase;
+
+								while (qexp->mDecType->mType == DT_TYPE_ARRAY)
+								{
+									Expression* iexp = new Expression(pthis->mLocation, EX_PREFIX);
+									iexp->mToken = TK_MUL;
+									iexp->mLeft = qexp;
+									iexp->mDecType = qexp->mDecType->mBase;
+									qexp = iexp;
+								}
+
 								qexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
 								qexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
 								qexp->mDecType->mBase = bdec;
@@ -4504,6 +4515,19 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					}
 					else
 					{
+						Expression* texp = vexp;
+
+						while (texp->mDecType->mBase->mType == DT_TYPE_ARRAY)
+						{
+							Expression* iexp = new Expression(vexp->mLocation, EX_PREFIX);
+							iexp->mToken = TK_MUL;
+							iexp->mLeft = texp;
+							iexp->mDecType = texp->mDecType->mBase;
+							texp = iexp;
+						}
+
+						//texp->mDecType = bdec->BuildPointer(vexp->mLocation);
+
 						Declaration* ncdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 						ncdec->mBase = TheUnsignedIntTypeDeclaration;
 						ncdec->mInteger = ndec->mSize / bdec->mSize;
@@ -4520,11 +4544,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 						fexp->mLeft = cexp;
 
 						fexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
-						fexp->mRight->mLeft = vexp;
+						fexp->mRight->mLeft = texp;
 						fexp->mRight->mRight = new Expression(mScanner->mLocation, EX_BINARY);
 						fexp->mRight->mRight->mToken = TK_ADD;
-						fexp->mRight->mRight->mLeft = vexp;
-						fexp->mRight->mRight->mDecType = vexp->mDecType;
+						fexp->mRight->mRight->mLeft = texp;
+						fexp->mRight->mRight->mDecType = texp->mDecType;
 						fexp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
 						fexp->mRight->mRight->mRight->mDecType = ncdec->mBase;
 						fexp->mRight->mRight->mRight->mDecValue = ncdec;

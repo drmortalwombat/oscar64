@@ -2890,7 +2890,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a pointer type");
 				else if (vl.mType->mStride != 1)
 					vl = Dereference(proc, exp, block, vl, 0);
-				return ExValue(vl.mType->mBase, vl.mTemp, vl.mReference + 1);
+				return ExValue(vl.mType->mBase, vl.mTemp, 1);
 			case TK_BINARY_AND:
 			{
 				if (vl.mReference < 1 || vl.mBits)
