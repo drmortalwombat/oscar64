@@ -1974,6 +1974,17 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 						}
 						else
 						{
+							qexp->mDecType = dec->mBase->mBase;
+
+							while (qexp->mDecType->mType == DT_TYPE_ARRAY)
+							{
+								Expression* iexp = new Expression(pthis->mLocation, EX_PREFIX);
+								iexp->mToken = TK_MUL;
+								iexp->mLeft = qexp;
+								iexp->mDecType = qexp->mDecType->mBase;
+								qexp = iexp;
+							}
+
 							qexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
 							qexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
 							qexp->mDecType->mBase = bdec;
