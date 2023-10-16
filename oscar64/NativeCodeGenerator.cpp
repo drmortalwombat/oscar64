@@ -16088,6 +16088,60 @@ bool NativeCodeBasicBlock::Split16BitLoopCount(NativeCodeProcedure* proc)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::EliminateDeadLoops(void)
+{
+	bool changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mNumEntries == 2 && mFalseJump)
+		{
+			NativeCodeBasicBlock* eblock = nullptr;
+			if (mTrueJump == this)
+				eblock = mFalseJump;
+			else if (mFalseJump == this)
+				eblock = mTrueJump;
+
+			if (eblock)
+			{
+				if (mIns.Size() == 2 && (mIns[0].mType == ASMIT_INX || mIns[0].mType == ASMIT_DEX) && mIns[1].mType == ASMIT_CPX)
+				{
+					if (!(eblock->mEntryRequiredRegs[CPU_REG_X]))
+					{
+						mLoopHead = false;
+						mTrueJump = eblock;
+						mBranch = ASMIT_JMP;
+						mEntryBlocks.RemoveAll(this);
+						mNumEntries--;
+						changed = true;
+					}
+				}
+				else if (mIns.Size() == 2 && (mIns[0].mType == ASMIT_INY || mIns[0].mType == ASMIT_DEY) && mIns[1].mType == ASMIT_CPY)
+				{
+					if (!(eblock->mEntryRequiredRegs[CPU_REG_Y]))
+					{
+						mLoopHead = false;
+						mTrueJump = eblock;
+						mBranch = ASMIT_JMP;
+						mEntryBlocks.RemoveAll(this);
+						mNumEntries--;
+						changed = true;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->EliminateDeadLoops())
+			changed = true;
+		if (mFalseJump && mFalseJump->EliminateDeadLoops())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
 bool NativeCodeBasicBlock::CrossBlockStoreLoadBypass(NativeCodeProcedure* proc)
 {
 	bool changed = false;
@@ -43112,6 +43166,13 @@ void NativeCodeProcedure::Optimize(void)
 		{
 			ResetVisited();
 			if (mEntryBlock->BypassRegisterConditionBlock())
+				changed = true;
+		}
+
+		if (step >= 9)
+		{
+			ResetVisited();
+			if (mEntryBlock->EliminateDeadLoops())
 				changed = true;
 		}
 

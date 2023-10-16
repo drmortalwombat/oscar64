@@ -584,6 +584,7 @@ public:
 	bool SimplifyDiamond(NativeCodeProcedure* proc);
 	bool SimplifyLoopEnd(NativeCodeProcedure* proc);
 	bool CrossBlockStoreLoadBypass(NativeCodeProcedure* proc);
+	bool EliminateDeadLoops(void);
 
 	bool CanBytepassLoad(const NativeCodeInstruction& ains, int from = 0) const;
 	bool CanHoistStore(const NativeCodeInstruction& ains) const;
