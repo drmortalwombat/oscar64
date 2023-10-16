@@ -255,6 +255,8 @@ public:
 	int JumpByteSize(NativeCodeBasicBlock * target, int offset);
 	int BranchByteSize(NativeCodeBasicBlock* target, int from, int to);
 
+	NativeCodeBasicBlock* SplitAt(int at);
+
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
 
 	int LeadsInto(NativeCodeBasicBlock* block, int dist);
