@@ -42022,7 +42022,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "cursor_joy_exit");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "enemies_move_show");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
