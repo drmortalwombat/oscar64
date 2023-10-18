@@ -515,6 +515,7 @@ public:
 	bool IsExitXRegZP(int addr, int& index) const;
 	bool IsExitARegZP(int addr, int& index) const;
 
+	bool ShortcutBlockExit(void);
 	bool PropagateSinglePath(void);
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;

@@ -18844,6 +18844,63 @@ void NativeCodeBasicBlock::PrependInstruction(const NativeCodeInstruction& ins)
 		mIns[0].mLive |= LIVE_CPU_REG_C;
 }
 
+bool NativeCodeBasicBlock::ShortcutBlockExit(void)
+{
+	bool changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mLoopHead && mTrueJump && mFalseJump && !mTrueJump->mLoopHead && !mFalseJump->mLoopHead)
+		{
+			for (int i = 0; i < mTrueJump->mEntryBlocks.Size(); i++)
+			{
+				NativeCodeBasicBlock* eblock = mTrueJump->mEntryBlocks[i];
+				if (eblock != this)
+				{
+					if (eblock->mTrueJump == mTrueJump && eblock->mFalseJump == mFalseJump && eblock->mBranch == mBranch)
+					{
+						int n = mIns.Size(), m = eblock->mIns.Size();
+						if (m > 0 && n >= m)
+						{
+							while (m > 0 && mIns[n - 1].IsSame(eblock->mIns[m - 1]))
+							{
+								n--;
+								m--;
+							}
+
+							if (m == 0)
+							{
+								mTrueJump->mNumEntries--;
+								mTrueJump->mEntryBlocks.RemoveAll(this);
+								mFalseJump->mNumEntries--;
+								mFalseJump->mEntryBlocks.RemoveAll(this);
+								mFalseJump = nullptr;
+								mTrueJump = eblock;
+								eblock->mNumEntries++;
+								eblock->mEntryBlocks.Push(this);
+
+								mIns.SetSize(n);
+								mBranch = ASMIT_JMP;
+								changed = true;
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ShortcutBlockExit())
+			changed = true;
+		if (mFalseJump && mFalseJump->ShortcutBlockExit())
+			changed = true;
+
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::PropagateSinglePath(void)
 {
 	bool	changed = false;
@@ -41965,7 +42022,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "mat4_mmul");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "cursor_joy_exit");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -42634,7 +42691,7 @@ void NativeCodeProcedure::Optimize(void)
 					ResetPatched();
 					mEntryBlock->CheckVisited();
 				}
-				
+
 
 			} while (bchanged);
 		}
@@ -42892,6 +42949,14 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->PropagateSinglePath())
 				changed = true;
 		}
+
+		if (step > 4)
+		{
+			ResetVisited();
+			if (mEntryBlock->ShortcutBlockExit())
+				changed = true;
+		}
+
 #endif
 
 #if _DEBUG

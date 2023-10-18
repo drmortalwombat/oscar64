@@ -16219,6 +16219,153 @@ static int TempUseDelta(const InterInstruction* ins)
 	return d;
 }
 
+bool InterCodeBasicBlock::IsConstExitTemp(int temp) const
+{
+	int n = mInstructions.Size() - 1;
+	while (n >= 0 && mInstructions[n]->mDst.mTemp != temp)
+		n--;
+	return n >= 0 && mInstructions[n]->mCode == IC_CONSTANT;
+}
+
+bool InterCodeBasicBlock::SplitSingleBranchUseConst(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mLoopHead && mFalseJump)
+		{
+			for (int i = 0; i + 1 < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+
+				if (ins->mCode == IC_CONSTANT)
+				{
+					if (CanMoveInstructionBehindBlock(i))
+					{
+						InterCodeBasicBlock* tblock = nullptr;
+
+						if (mTrueJump->mEntryRequiredTemps[ins->mDst.mTemp] && !mFalseJump->mEntryRequiredTemps[ins->mDst.mTemp])
+							tblock = mTrueJump;
+						else if (!mTrueJump->mEntryRequiredTemps[ins->mDst.mTemp] && mFalseJump->mEntryRequiredTemps[ins->mDst.mTemp])
+							tblock = mFalseJump;
+
+						if (tblock)
+						{
+							if (tblock->mNumEntries > 1)
+							{
+								InterCodeBasicBlock* nblock = new InterCodeBasicBlock(mProc);
+
+								nblock->mEntryRequiredTemps = tblock->mEntryRequiredTemps;
+								nblock->mExitRequiredTemps = tblock->mEntryRequiredTemps;
+
+								mExitRequiredTemps -= ins->mDst.mTemp;
+								nblock->mEntryRequiredTemps -= ins->mDst.mTemp;
+
+								tblock->mEntryBlocks.RemoveAll(this);
+								tblock->mEntryBlocks.Push(nblock);
+
+								if (tblock == mTrueJump)
+									mTrueJump = nblock;
+								else
+									mFalseJump = nblock;
+
+								InterInstruction* jins = new InterInstruction(mInstructions.Last()->mLocation, IC_JUMP);
+								nblock->mInstructions.Push(jins);
+								nblock->Close(tblock, nullptr);
+
+								nblock->mEntryBlocks.Push(this);
+								nblock->mNumEntries = 1;
+
+								tblock = nblock;
+							}
+
+							tblock->mInstructions.Insert(0, ins);
+							mInstructions.Remove(i);
+							i--;
+							changed = true;
+						}						
+					}
+				}
+			}
+		}
+	
+	
+		if (mTrueJump && mTrueJump->SplitSingleBranchUseConst())
+			changed = true;
+		if (mFalseJump && mFalseJump->SplitSingleBranchUseConst())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
+bool InterCodeBasicBlock::CommonTailCodeMerge(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mLoopHead)
+		{
+			for (int i = 0; i + 1 < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+
+				if (CanMoveInstructionBeforeBlock(i))
+				{
+					bool	aconst = true, aany = false;
+					for (int j = 0; j < ins->mNumOperands; j++)
+					{
+						if (ins->mSrc[j].mTemp >= 0)
+						{
+							aany = true;
+							int k = 0;
+							while (k < mEntryBlocks.Size() && mEntryBlocks[k]->IsConstExitTemp(ins->mSrc[j].mTemp) && !mEntryBlocks[k]->mFalseJump)
+								k++;
+							if (k < mEntryBlocks.Size())
+							{
+								aconst = false;
+								break;
+							}
+						}
+					}
+
+					if (aconst && aany)
+					{
+						for (int j = 0; j < mEntryBlocks.Size(); j++)
+						{
+							InterCodeBasicBlock* eblock = mEntryBlocks[j];
+							eblock->mInstructions.Insert(eblock->mInstructions.Size() - 1, ins->Clone());
+							if (ins->mDst.mTemp >= 0)
+								eblock->mExitRequiredTemps += ins->mDst.mTemp;							
+						}
+						if (ins->mDst.mTemp >= 0)
+							mEntryRequiredTemps += ins->mDst.mTemp;
+						ins->mCode = IC_NONE;
+						ins->mNumOperands = 0;
+						ins->mDst.mTemp = -1;
+						changed = true;
+					}
+
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->CommonTailCodeMerge())
+			changed = true;
+		if (mFalseJump && mFalseJump->CommonTailCodeMerge())
+			changed = true;
+	}
+
+	return changed;
+}
+
 void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& staticVars)
 {
 	int		i;
@@ -18022,6 +18169,17 @@ void InterCodeProcedure::PropagateConstOperationsUp(void)
 		changed = false;
 
 		ResetVisited();
+		if (mEntryBlock->SplitSingleBranchUseConst())
+			changed = true;
+		
+		ResetVisited();
+		if (mEntryBlock->CommonTailCodeMerge())
+		{
+			changed = true;
+			BuildDataFlowSets();
+		}
+
+		ResetVisited();
 		mEntryBlock->BuildConstTempSets();
 
 		ResetVisited();
@@ -18069,7 +18227,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "setspr");
+	CheckFunc = !strcmp(mIdent->mString, "dungeon_rand_path");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -18775,15 +18933,11 @@ void InterCodeProcedure::Close(void)
 #if 1
 	do {
 		DisassembleDebug("InConstP");
-		CheckFinal();
 		TempForwarding();
-		CheckFinal();
 	} while (GlobalConstantPropagation());
-	CheckFinal();
 
 	BuildTraces(false);
 	DisassembleDebug("Rebuilt traces");
-	CheckFinal();
 
 
 	PeepholeOptimization();

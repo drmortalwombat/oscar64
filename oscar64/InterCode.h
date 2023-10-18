@@ -555,6 +555,10 @@ public:
 	void CheckFinal(void);
 	void CheckBlocks(void);
 
+	bool IsConstExitTemp(int temp) const;
+	bool CommonTailCodeMerge(void);
+	bool SplitSingleBranchUseConst(void);
+
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);
 	bool PeepholeReplaceOptimization(const GrowingVariableArray& staticVars);
 

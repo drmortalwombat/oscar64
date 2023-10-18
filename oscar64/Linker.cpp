@@ -1283,6 +1283,31 @@ bool Linker::WriteMapFile(const char* filename)
 			}
 		}
 
+		fprintf(file, "\nobjects by size\n");
+		ExpandingArray<const LinkerObject*>	so;
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* obj = mObjects[i];
+
+			if ((obj->mFlags & LOBJF_REFERENCED) && obj->mIdent)
+			{
+				int k = so.Size();
+				so.Push(obj);
+				while (k > 0 && so[k - 1]->mSize < obj->mSize)
+				{
+					so[k] = so[k - 1];
+					k--;
+				}
+				so[k] = obj;
+			}
+		}
+
+		for (int i = 0; i < so.Size(); i++)
+		{
+			const LinkerObject* obj = so[i];
+			fprintf(file, "%04x (%04x) : %s, %s:%s\n", obj->mAddress, obj->mSize, obj->mIdent->mString, LinkerObjectTypeNames[obj->mType], obj->mSection->mIdent->mString);
+		}
+
 		fclose(file);
 
 		return true;
