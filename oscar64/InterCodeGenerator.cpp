@@ -1244,7 +1244,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		if (!(pdec && pdec->mBase->IsReference()) && (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION))
 		{
 			if (pdec && !pdec->mBase->CanAssign(vr.mType))
-				mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+				mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", pdec->mBase->MangleIdent(), vr.mType->MangleIdent());
 
 			vr = Dereference(proc, texp, block, vr, 1);
 
@@ -1273,7 +1273,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 				if (!pdec->mBase->CanAssign(vr.mType))
 				{
 					pdec->mBase->CanAssign(vr.mType);
-					mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+					mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", pdec->mBase->MangleIdent(), vr.mType->MangleIdent());
 				}
 				vr = CoerceType(proc, texp, block, vr, pdec->mBase);
 			}
@@ -2076,7 +2076,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (!vl.mType->CanAssign(vr.mType))
 				{
 					vl.mType->CanAssign(vr.mType);
-					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", vl.mType->MangleIdent(), vr.mType->MangleIdent());
 				}
 			} 
 
@@ -2178,7 +2178,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer assignment");
 
 						if (!vr.mType->IsIntegerType())
-							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Invalid argument for pointer inc/dec");
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Invalid argument for pointer inc/dec", vr.mType->MangleIdent());
 
 						cins->mDst.mType = IT_INT16;
 						cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
@@ -2997,7 +2997,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else if ((mCompilerOptions & COPT_CPLUSPLUS) && (vl.mType->mBase->IsSubType(vr.mType->mBase) || vr.mType->mBase->IsSubType(vl.mType->mBase)))
 						;
 					else if (!vl.mType->mBase->IsConstSame(vr.mType->mBase))
-						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types");
+						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types", vl.mType->mBase->MangleIdent(), vr.mType->mBase->MangleIdent());
 				}
 				else
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types");
@@ -3514,7 +3514,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (!(pdec && pdec->mBase->IsReference()) && (vr.mType->mType == DT_TYPE_STRUCT || vr.mType->mType == DT_TYPE_UNION))
 					{
 						if (pdec && !pdec->mBase->CanAssign(vr.mType))
-							mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+							mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", pdec->mBase->MangleIdent(), vr.mType->MangleIdent());
 
 						vr = Dereference(proc, texp, block, vr, 1);
 
@@ -3569,7 +3569,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							if (!(pdec->mFlags & DTF_FPARAM_UNUSED) && !pdec->mBase->CanAssign(vr.mType))
 							{
 								pdec->mBase->CanAssign(vr.mType);
-								mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types");
+								mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", pdec->mBase->MangleIdent(), vr.mType->MangleIdent());
 							}
 							vr = CoerceType(proc, texp, block, vr, pdec->mBase);
 						}

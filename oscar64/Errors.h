@@ -110,6 +110,6 @@ public:
 
 	int		mErrorCount;
 
-	void Error(const Location& loc, ErrorID eid, const char* msg, const Ident * info);
-	void Error(const Location& loc, ErrorID eid, const char* msg, const char* info = nullptr);
+	void Error(const Location& loc, ErrorID eid, const char* msg, const Ident* info1, const Ident* info2 = nullptr);
+	void Error(const Location& loc, ErrorID eid, const char* msg, const char* info1 = nullptr, const char* info2 = nullptr);
 };

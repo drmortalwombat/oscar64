@@ -1153,6 +1153,9 @@ Declaration* Declaration::Last(void)
 
 const Ident* Declaration::MangleIdent(void)
 {
+	if (!this)
+		return Ident::Unique("null");
+
 	if (!mMangleIdent)
 	{
 		if (mType == DT_CONST_INTEGER)
