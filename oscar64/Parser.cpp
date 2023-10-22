@@ -486,6 +486,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 		}
 
 		dec->SetDefined();
+		if (dec->mConst)
+			dec->mConst->mSize = dec->mSize;
 
 		if ((mCompilerOptions & COPT_CPLUSPLUS) && dec->mType == DT_TYPE_STRUCT && dec->mIdent)
 		{
@@ -530,6 +532,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 						mdec = mdec->mNext;
 					}
 					dec->mSize++;
+					if (dec->mConst)
+						dec->mConst->mSize = dec->mSize;
 				}
 
 				dec->mScope->Iterate([=](const Ident* ident, Declaration* mdec)
