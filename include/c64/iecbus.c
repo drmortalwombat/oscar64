@@ -14,14 +14,14 @@ IEC_STATUS iec_status;
 #pragma optimize(push)
 #pragma optimize(1)
 
+// multiples of 5us
 static void delay(char n)
 {
-	while (n)
-	{
-		__asm {
-			nop
-		}
-		n--;		
+	__asm {
+		ldx n
+	l1:
+		dex
+		bne	l1
 	}
 }
 
@@ -70,7 +70,7 @@ static bool data_check(void)
 		return true;
 	else
 	{
-		iec_status = IEC_TIMEOUT;
+		iec_status = IEC_DATA_CHECK;
 		return false;
 	}	
 }
@@ -81,7 +81,7 @@ bool iec_eoi(void)
 
 	while (!(cia2.pra & CIA2B_DATAIN))
 		;
-	delay(50);
+	delay(40);
 
 	return data_check();
 }
@@ -93,25 +93,21 @@ bool iec_write(char b)
 	while (!(cia2.pra & CIA2B_DATAIN))
 		;
 
+	clock_high();
+
 	for(char i=0; i<8; i++)
 	{
-		clock_high();
 		if (b & 1)
 			data_low();
 		else
 			data_high();		
+		delay(5);
 		clock_low();
 		b >>= 1;
-		__asm
-		{
-			nop
-			nop
-			nop
-			nop
-		}
+		delay(5);
+		clock_high();
+		data_low();
 	}
-	data_low();
-	clock_high();
 
 	return data_check();
 }
@@ -131,13 +127,7 @@ char iec_read(void)
 	{
 		iec_status = IEC_EOF;
  		data_high();
-		__asm
-		{
-			nop
-			nop
-			nop
-			nop
-		}
+		delay(4);
 		data_low();
 
 		cnt = 200;
@@ -172,10 +162,11 @@ char iec_read(void)
 
 void iec_atn(char dev, char sec)
 {
+	cdata_low();
 	atn_high();
  	clock_high();
 
- 	delay(100);
+ 	delay(200);
 
 	iec_write(dev);
 	if (sec != 0xff)
@@ -190,8 +181,10 @@ void iec_talk(char dev, char sec)
 {
 	iec_status = IEC_OK;
 
-	iec_atn(dev | 0x40, sec);
+	iec_atn(dev | 0x40, sec | 0x60);
 	clock_low();	
+
+	delay(10);	
 }
 
 void iec_untalk(void)
@@ -203,7 +196,7 @@ void iec_listen(char dev, char sec)
 {
 	iec_status = IEC_OK;
 
-	iec_atn(dev | 0x20, sec);
+	iec_atn(dev | 0x20, sec | 0x60);
 }
 
 void iec_unlisten(void)
@@ -216,6 +209,7 @@ void iec_open(char dev, char sec, const char * fname)
 	iec_status = IEC_OK;
 
 	iec_atn(dev | 0x20, sec | 0xf0);
+
 	char i = 0;
 	while (fname[i])
 	{
