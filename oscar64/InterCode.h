@@ -368,6 +368,7 @@ public:
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps, mEntryPotentialTemps;
 	NumberSet						mExitRequiredTemps, mExitProvidedTemps, mExitPotentialTemps;
 	NumberSet						mEntryConstTemp, mExitConstTemp;
+	NumberSet						mNewRequiredTemps;
 
 	NumberSet						mLocalRequiredVars, mLocalProvidedVars;
 	NumberSet						mEntryRequiredVars, mEntryProvidedVars;

@@ -8100,8 +8100,8 @@ void InterCodeBasicBlock::BuildConstTempSets(void)
 	{
 		mVisited = true;
 
-		mEntryConstTemp = NumberSet(mEntryRequiredTemps.Size());
-		mExitConstTemp = NumberSet(mEntryRequiredTemps.Size());
+		mEntryConstTemp.Reset(mEntryRequiredTemps.Size());
+		mExitConstTemp.Reset(mEntryRequiredTemps.Size());
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
@@ -8594,18 +8594,20 @@ bool InterCodeBasicBlock::BuildGlobalRequiredTempSet(NumberSet& fromRequiredTemp
 	{
 		mVisited = true;
 
-		NumberSet	newRequiredTemps(mExitRequiredTemps);
+		mNewRequiredTemps = mExitRequiredTemps;
 
-		if (mTrueJump && mTrueJump->BuildGlobalRequiredTempSet(newRequiredTemps)) revisit = true;
-		if (mFalseJump && mFalseJump->BuildGlobalRequiredTempSet(newRequiredTemps)) revisit = true;
+//		NumberSet	newRequiredTemps(mExitRequiredTemps);
 
-		if (!(newRequiredTemps <= mExitRequiredTemps))
+		if (mTrueJump && mTrueJump->BuildGlobalRequiredTempSet(mNewRequiredTemps)) revisit = true;
+		if (mFalseJump && mFalseJump->BuildGlobalRequiredTempSet(mNewRequiredTemps)) revisit = true;
+
+		if (!(mNewRequiredTemps <= mExitRequiredTemps))
 		{
 			revisit = true;
 
-			mExitRequiredTemps = newRequiredTemps;
-			newRequiredTemps -= mLocalProvidedTemps;
-			mEntryRequiredTemps |= newRequiredTemps;
+			mExitRequiredTemps = mNewRequiredTemps;
+			mNewRequiredTemps -= mLocalProvidedTemps;
+			mEntryRequiredTemps |= mNewRequiredTemps;
 		}
 
 	}
@@ -8716,13 +8718,13 @@ void InterCodeBasicBlock::BuildStaticVariableSet(const GrowingVariableArray& sta
 	{
 		mVisited = true;
 
-		mLocalRequiredStatics = NumberSet(staticVars.Size());
-		mLocalProvidedStatics = NumberSet(staticVars.Size());
+		mLocalRequiredStatics.Reset(staticVars.Size());
+		mLocalProvidedStatics.Reset(staticVars.Size());
 
-		mEntryRequiredStatics = NumberSet(staticVars.Size());
-		mEntryProvidedStatics = NumberSet(staticVars.Size());
-		mExitRequiredStatics = NumberSet(staticVars.Size());
-		mExitProvidedStatics = NumberSet(staticVars.Size());
+		mEntryRequiredStatics.Reset(staticVars.Size());
+		mEntryProvidedStatics.Reset(staticVars.Size());
+		mExitRequiredStatics.Reset(staticVars.Size());
+		mExitProvidedStatics.Reset(staticVars.Size());
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 			mInstructions[i]->FilterStaticVarsUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics);
@@ -8819,13 +8821,13 @@ void InterCodeBasicBlock::BuildStaticVariableByteSet(const GrowingVariableArray&
 	{
 		mVisited = true;
 
-		mLocalRequiredStatics = NumberSet(bsize);
-		mLocalProvidedStatics = NumberSet(bsize);
+		mLocalRequiredStatics.Reset(bsize);
+		mLocalProvidedStatics.Reset(bsize);
 
-		mEntryRequiredStatics = NumberSet(bsize);
-		mEntryProvidedStatics = NumberSet(bsize);
-		mExitRequiredStatics = NumberSet(bsize);
-		mExitProvidedStatics = NumberSet(bsize);
+		mEntryRequiredStatics.Reset(bsize);
+		mEntryProvidedStatics.Reset(bsize);
+		mExitRequiredStatics.Reset(bsize);
+		mExitProvidedStatics.Reset(bsize);
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 			mInstructions[i]->FilterStaticVarsByteUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics);
@@ -8881,21 +8883,21 @@ void InterCodeBasicBlock::BuildLocalVariableSets(const GrowingVariableArray& loc
 	{
 		mVisited = true;
 
-		mLocalRequiredVars = NumberSet(localVars.Size());
-		mLocalProvidedVars = NumberSet(localVars.Size());
+		mLocalRequiredVars.Reset(localVars.Size());
+		mLocalProvidedVars.Reset(localVars.Size());
 
-		mEntryRequiredVars = NumberSet(localVars.Size());
-		mEntryProvidedVars = NumberSet(localVars.Size());
-		mExitRequiredVars = NumberSet(localVars.Size());
-		mExitProvidedVars = NumberSet(localVars.Size());
+		mEntryRequiredVars.Reset(localVars.Size());
+		mEntryProvidedVars.Reset(localVars.Size());
+		mExitRequiredVars.Reset(localVars.Size());
+		mExitProvidedVars.Reset(localVars.Size());
 
-		mLocalRequiredParams = NumberSet(params.Size());
-		mLocalProvidedParams = NumberSet(params.Size());
+		mLocalRequiredParams.Reset(params.Size());
+		mLocalProvidedParams.Reset(params.Size());
 
-		mEntryRequiredParams = NumberSet(params.Size());
-		mEntryProvidedParams = NumberSet(params.Size());
-		mExitRequiredParams = NumberSet(params.Size());
-		mExitProvidedParams = NumberSet(params.Size());
+		mEntryRequiredParams.Reset(params.Size());
+		mEntryProvidedParams.Reset(params.Size());
+		mExitRequiredParams.Reset(params.Size());
+		mExitProvidedParams.Reset(params.Size());
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{

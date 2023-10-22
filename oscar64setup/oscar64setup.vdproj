@@ -52,6 +52,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_071415C872DB4A94B28137BD7FE1F669"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_071CF34574024DBD95D2203D6E4279D0"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -1150,6 +1156,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_ED20DE3FDC8A400296E92AE0D37D8665"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_ED5FED616EA64689AB793E5D8BD3F13D"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -1425,6 +1437,26 @@
             "TargetName" = "8:mouse.spd"
             "Tag" = "8:"
             "Folder" = "8:_758C6547998745659548D0656D380FEA"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_071415C872DB4A94B28137BD7FE1F669"
+            {
+            "SourcePath" = "8:..\\include\\opp\\slab.h"
+            "TargetName" = "8:slab.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -5099,6 +5131,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_ED20DE3FDC8A400296E92AE0D37D8665"
+            {
+            "SourcePath" = "8:..\\include\\opp\\static_vector.h"
+            "TargetName" = "8:static_vector.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_ED5FED616EA64689AB793E5D8BD3F13D"
             {
             "SourcePath" = "8:..\\include\\nes\\mmc3.c"
@@ -5712,15 +5764,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{F884314C-DBC1-466B-9A34-1761B921E1BD}"
-        "PackageCode" = "8:{5563B34B-0822-45A3-85A4-8007E3D57051}"
+        "ProductCode" = "8:{50B8F261-E014-4D97-807C-8B181651E0CF}"
+        "PackageCode" = "8:{73E601A2-834D-4280-AFAD-0E275AEDBF01}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.26.224"
+        "ProductVersion" = "8:1.26.225"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

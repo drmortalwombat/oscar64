@@ -45,6 +45,7 @@ struct NativeRegisterDataSet
 	void ResetMask(void);
 
 	void ResetZeroPage(int addr);
+	void ResetZeroPageRange(int addr, int num);
 	void ResetAbsolute(LinkerObject * linkerObject, int addr);
 	int FindAbsolute(LinkerObject* linkerObject, int addr);
 	void ResetIndirect(int reg);
@@ -369,6 +370,7 @@ public:
 	NumberSet		mLocalRequiredRegs, mLocalProvidedRegs;
 	NumberSet		mEntryRequiredRegs, mEntryProvidedRegs;
 	NumberSet		mExitRequiredRegs, mExitProvidedRegs;
+	NumberSet		mNewRequiredRegs;
 	NumberSet		mTempRegs;
 
 	void BuildLocalRegSets(void);

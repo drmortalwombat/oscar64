@@ -95,13 +95,9 @@ void NativeRegisterDataSet::ResetMask(void)
 void NativeRegisterDataSet::ResetWorkRegs(void)
 {
 	ResetZeroPage(BC_REG_WORK_Y);
-	ResetZeroPage(BC_REG_ADDR + 0);
-	ResetZeroPage(BC_REG_ADDR + 1);
-
-	for (int i = 0; i < 4; i++)
-		ResetZeroPage(BC_REG_ACCU + i);
-	for (int i = 0; i < 8; i++)
-		ResetZeroPage(BC_REG_WORK + i);
+	ResetZeroPageRange(BC_REG_ADDR, 2);
+	ResetZeroPageRange(BC_REG_ACCU, 4);
+	ResetZeroPageRange(BC_REG_WORK, 8);
 }
 
 void NativeRegisterDataSet::ResetWorkMasks(void)
@@ -128,6 +124,20 @@ void NativeRegisterDataSet::ResetZeroPage(int addr)
 			mRegs[i].Reset();
 	}
 }
+
+void NativeRegisterDataSet::ResetZeroPageRange(int addr, int num)
+{
+	for(int i=0; i<num; i++)
+		mRegs[addr + i].Reset();
+	for (int i = 0; i < NUM_REGS; i++)
+	{
+		if (mRegs[i].mMode == NRDM_ZERO_PAGE && mRegs[i].mValue >= addr && mRegs[i].mValue < addr + num)
+			mRegs[i].Reset();
+		else if (mRegs[i].mMode == NRDM_INDIRECT_Y && mRegs[i].mValue + 1 >= addr && mRegs[i].mValue < addr + num)
+			mRegs[i].Reset();
+	}
+}
+
 
 int NativeRegisterDataSet::FindAbsolute(LinkerObject* linkerObject, int addr)
 {
@@ -12467,13 +12477,13 @@ void NativeCodeBasicBlock::BuildLocalRegSets(void)
 	{
 		mVisited = true;
 
-		mLocalRequiredRegs = NumberSet(NUM_REGS);
-		mLocalProvidedRegs = NumberSet(NUM_REGS);
+		mLocalRequiredRegs.Reset(NUM_REGS);
+		mLocalProvidedRegs.Reset(NUM_REGS);
 
-		mEntryRequiredRegs = NumberSet(NUM_REGS);
-		mEntryProvidedRegs = NumberSet(NUM_REGS);
-		mExitRequiredRegs = NumberSet(NUM_REGS);
-		mExitProvidedRegs = NumberSet(NUM_REGS);
+		mEntryRequiredRegs.Reset(NUM_REGS);
+		mEntryProvidedRegs.Reset(NUM_REGS);
+		mExitRequiredRegs.Reset(NUM_REGS);
+		mExitProvidedRegs.Reset(NUM_REGS);
 
 		if (mEntryRegA)
 			mLocalProvidedRegs += CPU_REG_A;
@@ -12546,18 +12556,18 @@ bool NativeCodeBasicBlock::BuildGlobalRequiredRegSet(NumberSet& fromRequiredRegs
 	{
 		mVisited = true;
 
-		NumberSet	newRequiredRegs(mExitRequiredRegs);
+		mNewRequiredRegs = mExitRequiredRegs;
 
-		if (mTrueJump && mTrueJump->BuildGlobalRequiredRegSet(newRequiredRegs)) revisit = true;
-		if (mFalseJump && mFalseJump->BuildGlobalRequiredRegSet(newRequiredRegs)) revisit = true;
+		if (mTrueJump && mTrueJump->BuildGlobalRequiredRegSet(mNewRequiredRegs)) revisit = true;
+		if (mFalseJump && mFalseJump->BuildGlobalRequiredRegSet(mNewRequiredRegs)) revisit = true;
 
-		if (!(newRequiredRegs <= mExitRequiredRegs))
+		if (!(mNewRequiredRegs <= mExitRequiredRegs))
 		{
 			revisit = true;
 
-			mExitRequiredRegs = newRequiredRegs;
-			newRequiredRegs -= mLocalProvidedRegs;
-			mEntryRequiredRegs |= newRequiredRegs;
+			mExitRequiredRegs = mNewRequiredRegs;
+			mNewRequiredRegs -= mLocalProvidedRegs;
+			mEntryRequiredRegs |= mNewRequiredRegs;
 		}
 
 	}
