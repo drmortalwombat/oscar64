@@ -1396,7 +1396,7 @@ void InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression *
 		Declaration* dec = vl.mType->mParams;
 		while (dec)
 		{
-			if (dec->mType == DT_ELEMENT && !(dec->mFlags & DTF_STATIC))
+			if (dec->mType == DT_ELEMENT && !(dec->mFlags & DTF_STATIC) && dec->mBase->IsSimpleType())
 			{
 				mdec = dec->mBase;
 				ne++;
