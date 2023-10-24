@@ -73,6 +73,15 @@ void vic_waitFrame(void)
 		;	
 }
 
+void vic_waitFrames(char n)
+{
+	while (n > 0)
+	{
+		vic_waitFrame();
+		n--;
+	}
+}
+
 void vic_waitLine(int line)
 {
 	char	upper = (char)(line >> 1) & VIC_CTRL1_RST8;

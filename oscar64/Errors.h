@@ -3,10 +3,14 @@
 class Location
 {
 public:
-	const char* mFileName;
-	int			mLine, mColumn;
+	const char		*	mFileName;
+	int					mLine, mColumn;
+	const Location	*	mFrom;
 
-	Location() : mFileName(nullptr), mLine(0), mColumn(0) {}
+	Location() : mFileName(nullptr), mLine(0), mColumn(0), mFrom(nullptr) {}
+	Location(const Location& loc, const Location* from)
+		: mFileName(loc.mFileName), mLine(loc.mLine), mColumn(loc.mColumn), mFrom(from)
+	{}
 };
 
 class Ident;
@@ -14,6 +18,7 @@ class Ident;
 enum ErrorID
 {
 	EINFO_GENERIC = 1000,
+	EINFO_EXPANDED = 1001,
 
 	EWARN_GENERIC = 2000,
 	EWARN_CONSTANT_TRUNCATED,

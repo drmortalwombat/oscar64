@@ -16826,6 +16826,26 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 	}
 }
 
+void InterCodeBasicBlock::CheckNullptrDereference(void) 
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_ABSOLUTE && ins->mSrc[0].mIntConst == 0 && !ins->mVolatile)
+				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
+			else if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_ABSOLUTE && ins->mSrc[1].mIntConst == 0 && !ins->mVolatile)
+				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
+		}
+
+		if (mTrueJump) mTrueJump->CheckNullptrDereference();
+		if (mFalseJump) mFalseJump->CheckNullptrDereference();
+	}
+}
+
 void InterCodeBasicBlock::CheckValueReturn(void)
 {
 	if (!mVisited)
@@ -19087,6 +19107,9 @@ void InterCodeProcedure::Close(void)
 		ResetVisited();
 		mEntryBlock->CheckValueReturn();
 	}
+
+	ResetVisited();
+	mEntryBlock->CheckNullptrDereference();
 
 	if (mSaveTempsLinkerObject && mTempSize > BC_REG_TMP_SAVED - BC_REG_TMP)
 		mSaveTempsLinkerObject->AddSpace(mTempSize - (BC_REG_TMP_SAVED - BC_REG_TMP));

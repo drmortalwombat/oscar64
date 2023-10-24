@@ -605,6 +605,7 @@ public:
 
 	void WarnUsedUndefinedVariables(void);
 	void CheckValueReturn(void);
+	void CheckNullptrDereference(void);
 
 	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, bool & globalsChecked);
 

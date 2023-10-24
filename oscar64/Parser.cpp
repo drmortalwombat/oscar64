@@ -3279,6 +3279,7 @@ Expression* Parser::CleanupExpression(Expression* exp)
 			Expression* cexp = new Expression(exp->mLocation, EX_CLEANUP);
 			cexp->mLeft = exp;
 			cexp->mRight = xexp;
+			cexp->mDecType = exp->mDecType;
 
 			FreeTempVarExp(xexp);
 			return cexp;

@@ -516,7 +516,7 @@ const char * string::cend(void) const
 string string::substr(char pos, char len) const
 {
 	if (!cstr || len == 0 || pos >= cstr[0])
-		return string;
+		return string();
 	else
 	{
 		char l = cstr[0];

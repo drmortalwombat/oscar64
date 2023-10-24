@@ -14159,6 +14159,15 @@ bool NativeCodeBasicBlock::ForwardZpYIndex(bool full)
 				yoffset = 0;
 				ypred = i;
 			}
+			else if (mIns[i].mType == ASMIT_INC && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == yreg && yoffset == 1 && !(mIns[i].mLive & LIVE_CPU_REG_Z))
+			{
+				mIns[i].mType = ASMIT_STY;
+				for (int j = ypred; j < i; j++)
+					mIns[j].mLive |= LIVE_CPU_REG_Y;
+				yoffset = 0;
+				ypred = i;
+				changed = true;
+			}
 #if 1
 			else if (mIns[i].mType == ASMIT_INC && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == yreg && yoffset == 0 && mIns[ypred].mType == ASMIT_STY && !(mIns[i].mLive & LIVE_CPU_REG_Y))
 			{

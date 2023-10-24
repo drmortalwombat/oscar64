@@ -109,6 +109,9 @@ inline void vic_waitTop(void);
 // wait for the top of the frame and then for the bottom of the visual area
 inline void vic_waitFrame(void);
 
+// wait for n frames
+void vic_waitFrames(char n);
+
 // wait for a specific raster line
 void vic_waitLine(int line);
 
