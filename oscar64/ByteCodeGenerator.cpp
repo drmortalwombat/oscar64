@@ -142,8 +142,8 @@ static const char* ByteCodeNames[] = {
 	"BRANCHF_LE",
 
 	"LOOP_U8",
-	nullptr,
-	nullptr,
+	"MALLOC",
+	"FREE",
 	nullptr,
 	nullptr,
 	nullptr,
@@ -565,6 +565,11 @@ bool ByteCodeInstruction::CheckAccuSize(uint32 & used)
 		used = 0;
 		break;
 
+	case BC_MALLOC:
+	case BC_FREE:
+		used = 0x0000ffff;
+		break;
+
 	case BC_BINOP_ADDA_16:
 		used |= 0x0000ffff;
 		break;
@@ -779,6 +784,8 @@ bool ByteCodeInstruction::UsesRegister(uint32 reg) const
 			return true;
 		if (mCode == BC_BINOP_ADDA_16)
 			return true;
+		if (mCode == BC_MALLOC || mCode == BC_FREE)
+			return true;
 	}
 
 	if (reg == BC_REG_ADDR)
@@ -851,6 +858,8 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 			return true;
 		if (mCode == BC_LOOP_U8)
 			return true;
+		if (mCode == BC_MALLOC || mCode == BC_FREE)
+			return true;
 	}
 
 	if (reg == BC_REG_ADDR)
@@ -868,6 +877,8 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 	if (reg == BC_REG_WORK)
 	{
 		if (mCode == BC_JSR || mCode == BC_CALL_ADDR || mCode == BC_CALL_ABS)
+			return true;
+		if (mCode == BC_MALLOC || mCode == BC_FREE)
 			return true;
 
 		if (mCode == BC_BINOP_DIVR_I16 || mCode == BC_BINOP_DIVR_U16 || mCode == BC_BINOP_MODR_I16 || mCode == BC_BINOP_MODR_U16 ||
@@ -1149,6 +1160,8 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		assert(false);
 		break;
 
+	case BC_MALLOC:
+	case BC_FREE:
 	case BC_CALL_ADDR:
 		block->PutCode(generator, mCode);
 		break;
@@ -1575,6 +1588,53 @@ void ByteCodeBasicBlock::StrcpyValue(InterCodeProcedure* proc, const InterInstru
 	dins.mRegisterFinal = ins->mSrc[0].mFinal;
 	mIns.Push(dins);
 	ByteCodeInstruction	cins(BC_STRCPY);
+	mIns.Push(cins);
+}
+
+void ByteCodeBasicBlock::CallMalloc(InterCodeProcedure* proc, const InterInstruction* ins)
+{
+	if (ins->mSrc[0].mTemp < 0)
+	{
+		ByteCodeInstruction	dins(BC_CONST_16);
+		dins.mRegister = BC_REG_ACCU;
+		dins.mValue = int(ins->mSrc[0].mIntConst & 0xffff);
+		mIns.Push(dins);
+	}
+	else
+	{
+		ByteCodeInstruction	dins(BC_LOAD_REG_16);
+		dins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		dins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(dins);
+	}
+	ByteCodeInstruction	cins(BC_MALLOC);
+	mIns.Push(cins);
+
+	if (ins->mDst.mTemp >= 0)
+	{
+		ByteCodeInstruction	bins(BC_STORE_REG_16);
+		bins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(bins);
+	}
+}
+
+void ByteCodeBasicBlock::CallFree(InterCodeProcedure* proc, const InterInstruction* ins)
+{
+	if (ins->mSrc[0].mTemp < 0)
+	{
+		ByteCodeInstruction	dins(BC_CONST_16);
+		dins.mRegister = BC_REG_ACCU;
+		dins.mValue = int(ins->mSrc[0].mIntConst & 0xffff);
+		mIns.Push(dins);
+	}
+	else
+	{
+		ByteCodeInstruction	dins(BC_LOAD_REG_16);
+		dins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		dins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(dins);
+	}
+	ByteCodeInstruction	cins(BC_FREE);
 	mIns.Push(cins);
 }
 
@@ -3211,7 +3271,7 @@ ByteCode ByteCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const 
 		cins.mRegisterFinal = ins->mSrc[1].mFinal;
 		mIns.Push(cins);
 	}
-	else if (ins->mSrc[0].mType == IT_INT8)
+	else if (ins->mSrc[0].mType == IT_INT8 || ins->mSrc[0].mType == IT_BOOL)
 	{
 		if (ins->mSrc[1].mTemp < 0)
 		{
@@ -4186,8 +4246,8 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 		case IA_SAR:
 		{
 			ByteCode	rbc = ByteCodeBinRegOperator(ins);
-
 			ByteCode	ibc = ByteCodeBinImmOperator(ins);
+
 			if (ins->mSrc[1].mTemp < 0)
 			{
 				IntConstToAccu(ins->mSrc[1].mIntConst);
@@ -4199,10 +4259,17 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 			else if (ins->mSrc[0].mTemp < 0)
 			{
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
 				lins.mRegisterFinal = ins->mSrc[1].mFinal;
 				mIns.Push(lins);
+
+				if (ins->mOperator == IA_SAR && InterTypeSize[ins->mSrc[1].mType] == 1)
+				{
+					ByteCodeInstruction	xins(BC_CONV_I8_I16);
+					xins.mRegister = BC_REG_ACCU;
+					mIns.Push(xins);
+				}
 
 				ByteCodeInstruction	bins(ibc);
 				bins.mValue = int(ins->mSrc[0].mIntConst);
@@ -4210,7 +4277,7 @@ void ByteCodeBasicBlock::BinaryOperator(InterCodeProcedure* proc, const InterIns
 			}
 			else
 			{
-				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				ByteCodeInstruction	lins(InterTypeSize[ins->mSrc[1].mType] == 1 ? BC_LOAD_REG_8 : BC_LOAD_REG_16);
 				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
 				lins.mRegisterFinal = ins->mSrc[1].mFinal && (ins->mSrc[1].mTemp != ins->mSrc[0].mTemp);;
 				mIns.Push(lins);
@@ -4258,6 +4325,12 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			break;
 		case IC_STRCPY:
 			StrcpyValue(iproc, ins);
+			break;
+		case IC_MALLOC:
+			CallMalloc(iproc, ins);
+			break;
+		case IC_FREE:
+			CallFree(iproc, ins);
 			break;
 		case IC_LOAD_TEMPORARY:
 		{
@@ -4318,6 +4391,7 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			LoadConstant(iproc, ins);
 			break;
 		case IC_CALL:
+		case IC_DISPATCH:
 			CallFunction(iproc, ins);
 			break;
 		case IC_CALL_NATIVE:

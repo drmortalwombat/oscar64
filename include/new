@@ -1,0 +1,11 @@
+#pragma once
+
+#include "stddef.h"
+
+namespace std
+{
+	
+	void * operator new(size_t size);
+	void * operator new(void * ptr, size_t size);
+
+}

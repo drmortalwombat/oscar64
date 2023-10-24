@@ -30,6 +30,9 @@ bool isfinite(float f);
 #pragma intrinsic(floor)
 #pragma intrinsic(ceil)
 
+#pragma intrinsic(sin)
+#pragma intrinsic(cos)
+
 #pragma compile("math.c")
 
 

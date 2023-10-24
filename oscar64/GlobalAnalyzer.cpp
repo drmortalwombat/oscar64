@@ -155,11 +155,13 @@ void GlobalAnalyzer::AutoInline(void)
 				Declaration* dec = f->mBase->mParams;
 				while (dec)
 				{
-					nparams++;
+					nparams += dec->mSize;
 					dec = dec->mNext;
 				}
 
-				int	cost = (f->mComplexity - 20 * nparams);
+				int	cost = (f->mComplexity - 20 * nparams - 20);
+
+//				printf("CHEK INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
 
 				bool	doinline = false;
 				if ((f->mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_REQUEST_INLINE))
@@ -170,10 +172,9 @@ void GlobalAnalyzer::AutoInline(void)
 					doinline = true;
 
 				if (doinline)
-					{
-#if 0
-					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
-#endif
+				{
+//					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
+
 					f->mFlags |= DTF_INLINE;
 					for (int j = 0; j < f->mCallers.Size(); j++)
 					{
@@ -218,9 +219,11 @@ void GlobalAnalyzer::AutoInline(void)
 		{
 			if (pdec->mFlags & DTF_FPARAM_CONST)
 			{
+				pdec->mFlags |= DTF_FPARAM_UNUSED;
+
 				pdec->mVarIndex = dec->mNumVars++;
 
-				Expression* aexp = new Expression(pdec->mLocation, EX_ASSIGNMENT);
+				Expression* aexp = new Expression(pdec->mLocation, EX_INITIALIZATION);
 				Expression* pexp = new Expression(pdec->mLocation, EX_VARIABLE);
 				Expression* lexp = new Expression(dec->mLocation, EX_SEQUENCE);
 
@@ -284,7 +287,7 @@ void GlobalAnalyzer::MarkRecursions(void)
 
 void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 {
-	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && !(procDec->mBase->mFlags & DTF_STACKCALL) && (procDec->mType == DT_CONST_FUNCTION) && !(procDec->mFlags & DTF_FUNC_ANALYZING))
+	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && (procDec->mType == DT_CONST_FUNCTION) && !(procDec->mFlags & DTF_FUNC_ANALYZING))
 	{
 		procDec->mFlags |= DTF_FUNC_ANALYZING;
 		int	nbase = 0;
@@ -293,17 +296,80 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			Declaration* cf = procDec->mCalled[i];
 
 			if (cf->mType == DT_TYPE_FUNCTION)
+			{
+				for (int i = 0; i < mVariableFunctions.Size(); i++)
+				{
+					Declaration* vf = mVariableFunctions[i];
+
+					if (vf->mBase->IsSame(cf))
+					{
+						CheckFastcall(vf, false);
+
+						int n = vf->mBase->mFastCallBase + vf->mBase->mFastCallSize;
+						if (n > nbase)
+							nbase = n;
+					}
+
+				}
+				//				procDec->mFlags |= DTF_DYNSTACK;
+			}
+			else
+				CheckFastcall(cf, false);
+
+			if (cf->mFlags & DTF_DYNSTACK)
 				procDec->mFlags |= DTF_DYNSTACK;
 
-			CheckFastcall(cf, false);
-
-//			if (!(cf->mBase->mFlags & DTF_FASTCALL))
-//				procDec->mBase->mFlags |= DTF_STACKCALL;
+			//			if (!(cf->mBase->mFlags & DTF_FASTCALL))
+			//				procDec->mBase->mFlags |= DTF_STACKCALL;
 
 			cf = cf->mBase;
 			int n = cf->mFastCallBase + cf->mFastCallSize;
 			if (n > nbase)
 				nbase = n;
+		}
+
+		if (procDec->mValue && procDec->mValue->mType == EX_DISPATCH)
+		{
+			Declaration* maxf = nullptr;
+
+			for (int i = 0; i < procDec->mCalled.Size(); i++)
+			{
+				Declaration* cf = procDec->mCalled[i];
+
+				if (!maxf)
+					maxf = cf;
+				else if (!(maxf->mBase->mFlags & DTF_STACKCALL))
+				{
+					if (cf->mBase->mFlags & DTF_STACKCALL)
+						maxf = cf;
+					else if (cf->mBase->mFastCallBase > maxf->mBase->mFastCallBase)
+						maxf = cf;
+				}
+			}
+
+			for (int i = 0; i < procDec->mCalled.Size(); i++)
+			{
+				Declaration* cf = procDec->mCalled[i];
+
+				if (cf != maxf)
+				{
+					if (maxf->mBase->mFlags & DTF_STACKCALL)
+					{
+						cf->mBase->mFlags &= ~DTF_FASTCALL;
+						cf->mBase->mFlags |= DTF_STACKCALL;
+					}
+
+					cf->mParams = maxf->mParams;
+					cf->mBase->mFastCallBase = cf->mFastCallBase = maxf->mBase->mFastCallBase;
+					cf->mBase->mFastCallSize = cf->mFastCallSize = maxf->mBase->mFastCallSize;
+				}
+			}
+
+			procDec->mFastCallBase = procDec->mBase->mFastCallBase;
+			procDec->mFastCallSize = procDec->mBase->mFastCallSize;
+			procDec->mFlags &= ~DTF_FUNC_ANALYZING;
+
+			return;
 		}
 
 		procDec->mFastCallBase = nbase;
@@ -319,7 +385,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 		}
 		else if (procDec->mFlags & DTF_FUNC_RECURSIVE)
 		{
-			if (head)
+//			if (head)
 				procDec->mBase->mFlags |= DTF_STACKCALL;
 		}
 		else if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_DYNSTACK))
@@ -413,6 +479,42 @@ void GlobalAnalyzer::CheckInterrupt(void)
 	} while (changed);
 }
 
+bool GlobalAnalyzer::IsStackParam(const Declaration* pdec) const
+{
+	if (pdec->mType == DT_TYPE_STRUCT)
+	{
+		if (pdec->mSize > 4)
+			return true;
+		if (pdec->mCopyConstructor)
+		{
+			if (!((mCompilerOptions & COPT_OPTIMIZE_INLINE) && (pdec->mCopyConstructor->mFlags & DTF_REQUEST_INLINE)))
+				return true;
+		}
+		if (pdec->mDestructor)
+		{
+			if (!((mCompilerOptions & COPT_OPTIMIZE_INLINE) && (pdec->mDestructor->mFlags & DTF_REQUEST_INLINE)))
+				return true;
+		}
+	}
+	
+	return false;
+}
+
+void GlobalAnalyzer::UndoParamReference(Expression* exp, Declaration * param)
+{
+	if (exp)
+	{
+		if (exp->mType == EX_VARIABLE)
+		{
+			if (exp->mDecValue == param)
+				exp->mDecType = param->mBase;
+		}
+
+		UndoParamReference(exp->mLeft, param);
+		UndoParamReference(exp->mRight, param);
+	}
+}
+
 void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 {
 	dec->mUseCount++;
@@ -429,6 +531,14 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 
 		mFunctions.Push(dec);
 
+		Declaration* pdec = dec->mBase->mParams;
+		while (pdec)
+		{
+			if (IsStackParam(pdec->mBase))
+				dec->mBase->mFlags |= DTF_STACKCALL;
+			pdec = pdec->mNext;
+		}
+
 		dec->mFlags |= DTF_ANALYZED;
 		dec->mFlags |= DTF_FUNC_INTRSAVE;
 
@@ -443,6 +553,22 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 				dec->mFlags |= DTF_FUNC_CONSTEXPR;
 			dec->mFlags |= DTF_FUNC_PURE;
 			Analyze(exp, dec, false);
+
+			Declaration* pdec = dec->mBase->mParams;
+			int vi = 0;
+			while (pdec)
+			{
+				pdec->mVarIndex += vi;
+				if (pdec->mBase->mType == DT_TYPE_REFERENCE && pdec->mBase->mBase->IsSimpleType() && !(pdec->mFlags & DTF_VAR_ADDRESS) && (pdec->mBase->mBase->mFlags & DTF_CONST))
+				{
+					pdec->mBase = pdec->mBase->mBase;
+					pdec->mSize = pdec->mBase->mSize;
+					vi += pdec->mSize - 2;
+
+					UndoParamReference(exp, pdec);
+				}
+				pdec = pdec->mNext;
+			}
 		}
 		else
 			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent);
@@ -532,8 +658,6 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 {
 	Declaration* ldec, * rdec;
 
-	procDec->mComplexity += 10;
-
 	switch (exp->mType)
 	{
 	case EX_ERROR:
@@ -580,6 +704,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		}
 		else
 		{
+			if (lhs)
+				exp->mDecValue->mFlags |= DTF_VAR_ADDRESS;
+
 			if (!(exp->mDecValue->mFlags & DTF_ANALYZED))
 			{
 				procDec->mLocalSize += exp->mDecValue->mSize;
@@ -589,22 +716,32 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		return exp->mDecValue;
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		ldec = Analyze(exp->mLeft, procDec, true);
 		rdec = Analyze(exp->mRight, procDec, false);
+		if (exp->mLeft->mType == EX_VARIABLE && exp->mRight->mType == EX_CALL && exp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
+			exp->mLeft->mDecValue->mFlags |= DTF_VAR_ALIASING;
 		RegisterProc(rdec);
 		return ldec;
 
 	case EX_BINARY:
+		procDec->mComplexity += 10 * exp->mDecType->mSize;
+
 		ldec = Analyze(exp->mLeft, procDec, lhs);
 		rdec = Analyze(exp->mRight, procDec, lhs);
 		return ldec;
 
 	case EX_RELATIONAL:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		rdec = Analyze(exp->mRight, procDec, false);
 		return TheBoolTypeDeclaration;
 
 	case EX_PREINCDEC:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		return Analyze(exp->mLeft, procDec, true);
 	case EX_PREFIX:
 		if (exp->mToken == TK_BINARY_AND)
@@ -623,13 +760,21 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			return exp->mDecType;
 		}
 		else
+		{
+			procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
 			return Analyze(exp->mLeft, procDec, false);
+		}
 		break;
 	case EX_POSTFIX:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
 		break;
 	case EX_POSTINCDEC:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		return Analyze(exp->mLeft, procDec, true);
 	case EX_INDEX:
+		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+
 		ldec = Analyze(exp->mLeft, procDec, lhs);
 		if (ldec->mType == DT_VARIABLE || ldec->mType == DT_ARGUMENT)
 		{
@@ -648,8 +793,18 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_QUALIFY:
 		Analyze(exp->mLeft, procDec, lhs);
 		return exp->mDecValue->mBase;
+	case EX_DISPATCH:
+		Analyze(exp->mLeft, procDec, lhs);
+//		RegisterCall(procDec, exp->mLeft->mDecType);
+		break;
+	case EX_VCALL:
+		exp->mType = EX_CALL;
+		exp->mLeft->mDecValue = exp->mLeft->mDecValue->mVTable;
+		// intentional fall through
 	case EX_CALL:
 	case EX_INLINE:
+		procDec->mComplexity += 10;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		if ((ldec->mFlags & DTF_INTRINSIC) && !ldec->mValue)
 		{
@@ -677,10 +832,12 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			{
 				Expression* pex = rex->mType == EX_LIST ? rex->mLeft : rex;
 
+				procDec->mComplexity += 5 * pex->mDecType->mSize;
+
 				if (pdec && !(ldec->mBase->mFlags & DTF_VARIADIC) && !(ldec->mFlags & (DTF_INTRINSIC | DTF_FUNC_ASSEMBLER)))
 				{
 #if 1
-					if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+					if (mCompilerOptions & COPT_OPTIMIZE_CONST_PARAMS)
 					{
 						if (!(pdec->mFlags & DTF_FPARAM_NOCONST))
 						{
@@ -714,9 +871,22 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 					}
 #endif
 				}
+
+				if (pdec && pdec->mBase->mType == DT_TYPE_STRUCT && pdec->mBase->mCopyConstructor)
+				{
+					if (pdec->mBase->mMoveConstructor)
+					{
+						AnalyzeProcedure(pdec->mBase->mMoveConstructor->mValue, pdec->mBase->mMoveConstructor);
+						RegisterCall(procDec, pdec->mBase->mMoveConstructor);
+					}
+					AnalyzeProcedure(pdec->mBase->mCopyConstructor->mValue, pdec->mBase->mCopyConstructor);
+					RegisterCall(procDec, pdec->mBase->mCopyConstructor);
+				}
 				
-				if (pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT)
+				if (pex->mType == EX_CALL && IsStackParam(pex->mDecType) && !(pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)))
 					ldec->mBase->mFlags |= DTF_STACKCALL;
+
+				RegisterProc(Analyze(pex, procDec, pdec && pdec->mBase->IsReference()));
 
 				if (pdec)
 					pdec = pdec->mNext;
@@ -726,31 +896,71 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 				else
 					rex = nullptr;
 			}
-			RegisterProc(Analyze(exp->mRight, procDec, false));
 		}
 		break;
 	case EX_LIST:
+	case EX_COMMA:
 		RegisterProc(Analyze(exp->mLeft, procDec, false));
 		return Analyze(exp->mRight, procDec, false);
 	case EX_RETURN:
 		if (exp->mLeft)
-			RegisterProc(Analyze(exp->mLeft, procDec, false));
+		{
+			RegisterProc(Analyze(exp->mLeft, procDec, procDec->mBase->mBase->IsReference()));
+			if (procDec->mBase->mBase && procDec->mBase->mBase->mType == DT_TYPE_STRUCT && procDec->mBase->mBase->mCopyConstructor)
+			{
+				if (procDec->mBase->mBase->mMoveConstructor)
+				{
+					AnalyzeProcedure(procDec->mBase->mBase->mMoveConstructor->mValue, procDec->mBase->mBase->mMoveConstructor);
+					RegisterCall(procDec, procDec->mBase->mBase->mMoveConstructor);
+				}
+				AnalyzeProcedure(procDec->mBase->mBase->mCopyConstructor->mValue, procDec->mBase->mBase->mCopyConstructor);
+				RegisterCall(procDec, procDec->mBase->mBase->mCopyConstructor);
+			}
+		}
 		break;
 	case EX_SEQUENCE:
 		do
 		{
-			if (exp->mLeft)
-				ldec = Analyze(exp->mLeft, procDec, false);
-			exp = exp->mRight;
+			if (exp->mType == EX_SEQUENCE)
+			{
+				if (exp->mLeft)
+					ldec = Analyze(exp->mLeft, procDec, false);
+				exp = exp->mRight;
+			}
+			else
+				return Analyze(exp, procDec, false);
+
 		} while (exp);
 		break;
+
+	case EX_SCOPE:
+		Analyze(exp->mLeft, procDec, false);
+		break;
+
+	case EX_CONSTRUCT:
+		if (exp->mLeft->mLeft)
+			Analyze(exp->mLeft->mLeft, procDec, false);
+		if (exp->mLeft->mRight)
+			Analyze(exp->mLeft->mRight, procDec, false);
+		if (exp->mRight)
+			return Analyze(exp->mRight, procDec, false);
+		break;
+
+	case EX_CLEANUP:
+		Analyze(exp->mRight, procDec, false);
+		return Analyze(exp->mLeft, procDec, lhs);
+		
 	case EX_WHILE:
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
+
+		procDec->mComplexity += 20;
 
 		ldec = Analyze(exp->mLeft, procDec, false);
 		rdec = Analyze(exp->mRight, procDec, false);
 		break;
 	case EX_IF:
+		procDec->mComplexity += 20;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		rdec = Analyze(exp->mRight->mLeft, procDec, false);
 		if (exp->mRight->mRight)
@@ -761,6 +971,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_FOR:
 		procDec->mFlags &= ~DTF_FUNC_CONSTEXPR;
 
+		procDec->mComplexity += 30;
+
 		if (exp->mLeft->mRight)
 			ldec = Analyze(exp->mLeft->mRight, procDec, false);
 		if (exp->mLeft->mLeft->mLeft)
@@ -770,6 +982,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			ldec = Analyze(exp->mLeft->mLeft->mRight, procDec, false);
 		break;
 	case EX_DO:
+		procDec->mComplexity += 20;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
 		rdec = Analyze(exp->mRight, procDec, false);
 		break;
@@ -780,7 +994,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_TYPE:
 		break;
 	case EX_TYPECAST:
-		return Analyze(exp->mRight, procDec, false);
+		return Analyze(exp->mLeft, procDec, false);
 		break;
 	case EX_LOGICAL_AND:
 		ldec = Analyze(exp->mLeft, procDec, false);
@@ -806,6 +1020,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		exp = exp->mRight;
 		while (exp)
 		{
+			procDec->mComplexity += 10;
+
 			if (exp->mLeft->mRight)
 				rdec = Analyze(exp->mLeft->mRight, procDec, false);
 			exp = exp->mRight;
@@ -816,9 +1032,11 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_DEFAULT:
 		break;
 	case EX_CONDITIONAL:
+		procDec->mComplexity += exp->mDecType->mSize * 10;
+
 		ldec = Analyze(exp->mLeft, procDec, false);
-		RegisterProc(Analyze(exp->mRight->mLeft, procDec, false));
-		RegisterProc(Analyze(exp->mRight->mRight, procDec, false));
+		RegisterProc(Analyze(exp->mRight->mLeft, procDec, lhs));
+		RegisterProc(Analyze(exp->mRight->mRight, procDec, lhs));
 		break;
 	}
 
@@ -843,6 +1061,9 @@ void GlobalAnalyzer::RegisterCall(Declaration* from, Declaration* to)
 {
 	if (from)
 	{
+		if (to->mType == DT_VARIABLE || to->mType == DT_ARGUMENT)
+			to = to->mBase;
+
 		if (to->mType == DT_CONST_FUNCTION)
 		{
 			if (to->mFlags & DTF_DYNSTACK)
@@ -879,6 +1100,13 @@ void GlobalAnalyzer::RegisterProc(Declaration* to)
 {
 	if (to->mType == DT_CONST_FUNCTION)
 	{
+#if 1
+		if (to->mBase->mFlags & DTF_VIRTUAL)
+		{
+
+		}
+		else 
+#endif		
 		if (!(to->mFlags & DTF_FUNC_VARIABLE))
 		{
 			to->mFlags |= DTF_FUNC_VARIABLE;

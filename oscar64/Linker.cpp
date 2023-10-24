@@ -4,7 +4,7 @@
 #include "CompilerTypes.h"
 
 LinkerRegion::LinkerRegion(void)
-	: mSections(nullptr), mFreeChunks(FreeChunk{ 0, 0 } )
+	: mSections(nullptr), mFreeChunks(FreeChunk{ 0, 0 } ), mLastObject(nullptr)
 {}
 
 LinkerSection::LinkerSection(void)
@@ -28,6 +28,21 @@ void LinkerSection::AddObject(LinkerObject* obj)
 	obj->mSection = this;
 }
 
+bool LinkerReference::operator==(const LinkerReference& ref)
+{
+	return
+		mFlags == ref.mFlags &&
+		mOffset == ref.mOffset &&
+		mRefOffset == ref.mRefOffset &&
+		mObject->mMapID == ref.mObject->mMapID &&
+		mRefObject->mMapID == ref.mRefObject->mMapID;
+}
+
+bool LinkerReference::operator!=(const LinkerReference& ref)
+{
+	return !(*this == ref);
+}
+
 LinkerObject::LinkerObject(void)
 	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr)
 {}
@@ -43,11 +58,13 @@ void LinkerObject::AddReference(const LinkerReference& ref)
 	mReferences.Push(nref);
 }
 
-LinkerReference* LinkerObject::FindReference(int offset)
+LinkerReference* LinkerObject::FindReference(int64 offset)
 {
 	for (int i = 0; i < mReferences.Size(); i++)
 	{
 		if (mReferences[i]->mOffset == offset)
+			return mReferences[i];
+		else if ((mReferences[i]->mFlags & LREF_LOWBYTE) && (mReferences[i]->mFlags & LREF_HIGHBYTE) && mReferences[i]->mOffset + 1 == offset)
 			return mReferences[i];
 	}
 
@@ -239,11 +256,61 @@ LinkerObject* Linker::FindObjectByAddr(int addr)
 	return nullptr;
 }
 
+LinkerObject* Linker::FindObjectByAddr(int bank, int addr)
+{
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* lobj = mObjects[i];
+		if (lobj->mFlags & LOBJF_PLACED)
+		{
+			if (lobj->mRegion && ((1ULL << bank) & lobj->mRegion->mCartridgeBanks))
+			{
+				if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize)
+					return lobj;
+			}
+		}
+	}
+
+	return FindObjectByAddr(addr);
+}
+
+LinkerObject* Linker::FindSame(LinkerObject* obj)
+{
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* lobj = mObjects[i];
+		if (lobj != obj && obj->IsSameConst(lobj))
+			return lobj;
+	}
+
+	return nullptr;
+}
+
+bool LinkerObject::IsSameConst(const LinkerObject* obj) const
+{
+	if ((mFlags & LOBJF_CONST) && mFlags == obj->mFlags && 
+		mSection == obj->mSection && mSize == obj->mSize && mAlignment == obj->mAlignment &&
+		mReferences.Size() == obj->mReferences.Size())
+	{
+		for (int i = 0; i < mSize; i++)
+			if (mData[i] != obj->mData[i])
+				return false;
+
+		for (int i = 0; i < mReferences.Size(); i++)
+			if (mReferences[i] != obj->mReferences[i])
+				return false;
+
+		return true;
+	}
+
+	return false;
+}
+
 LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment)
 {
 	LinkerObject* obj = new LinkerObject;
 	obj->mLocation = location;
-	obj->mID = mObjects.Size();
+	obj->mID = obj->mMapID = mObjects.Size();
 	obj->mType = type;
 	obj->mData = nullptr;
 	obj->mSize = 0;
@@ -256,6 +323,70 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 	section->mObjects.Push(obj);
 	mObjects.Push(obj);
 	return obj;
+}
+
+void Linker::CombineSameConst(void)
+{
+	bool changed = true;
+	while (changed)
+	{
+		changed = false;
+
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* dobj(mObjects[i]);
+			while (dobj->mMapID != mObjects[dobj->mMapID]->mMapID)
+				dobj->mMapID = mObjects[dobj->mMapID]->mMapID;
+
+			if ((dobj->mFlags & LOBJF_REFERENCED) && (dobj->mFlags & LOBJF_CONST) && dobj->mMapID == dobj->mID)
+			{
+				for (int j = i + 1; j < mObjects.Size(); j++)
+				{
+					LinkerObject* sobj(mObjects[j]);
+
+					if ((sobj->mFlags & LOBJF_REFERENCED) && (sobj->mFlags & LOBJF_CONST) && sobj->mMapID == sobj->mID)
+					{
+						if (dobj->mSize == sobj->mSize && dobj->mSection == sobj->mSection && dobj->mReferences.Size() == sobj->mReferences.Size())
+						{
+							int i = 0;
+							while (i < sobj->mSize && sobj->mData[i] == dobj->mData[i])
+								i++;
+							if (i == sobj->mSize)
+							{
+								i = 0;
+								while (i < sobj->mReferences.Size() && sobj->mReferences[i] == dobj->mReferences[i])
+									i++;
+								if (i == sobj->mReferences.Size())
+								{
+									sobj->mMapID = dobj->mMapID;
+									changed = true;
+									if (dobj->mIdent && sobj->mIdent)
+									{
+										printf("Match %s : %s\n", dobj->mIdent->mString, sobj->mIdent->mString);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* lobj(mObjects[i]);
+		if (lobj->mFlags & LOBJF_REFERENCED)
+		{
+			if (lobj->mMapID != lobj->mID)
+				lobj->mFlags &= ~LOBJF_REFERENCED;
+			else
+			{
+				for (int j = 0; j < lobj->mReferences.Size(); j++)
+					lobj->mReferences[j]->mRefObject = mObjects[lobj->mReferences[j]->mRefObject->mMapID];
+			}
+		}
+	}
 }
 
 void Linker::CollectReferences(void) 
@@ -282,7 +413,31 @@ void Linker::ReferenceObject(LinkerObject* obj)
 	}
 }
 
-bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
+static bool Forwards(LinkerObject* pobj, LinkerObject* lobj)
+{
+	if (lobj->mAlignment == 1 && pobj && lobj->mType == LOT_NATIVE_CODE && pobj->mType == LOT_NATIVE_CODE)
+	{
+		if (pobj->mSize >= 3 && pobj->mData[pobj->mSize - 3] == 0x4c && pobj->mReferences.Size() > 0)
+		{
+			int i = 0;
+			while (i < pobj->mReferences.Size() && pobj->mReferences[i]->mOffset != pobj->mSize - 2)
+				i++;
+			if (i < pobj->mReferences.Size() && pobj->mReferences[i]->mRefObject == lobj && pobj->mReferences[i]->mRefOffset == 0)
+			{
+				printf("Direct %s -> %s\n", pobj->mIdent->mString, lobj->mIdent->mString);
+
+				pobj->mReferences[i]->mFlags = 0;
+				pobj->mSize -= 3;
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 {
 	int i = 0;
 	while (i < mFreeChunks.Size())
@@ -294,6 +449,13 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 			;
 		else if (end <= mFreeChunks[i].mEnd)
 		{
+			// Check if directly follows an object that jumps to this new object
+			if (merge && Forwards(mFreeChunks[i].mLastObject, lobj))
+			{
+				start -= 3;
+				end -= 3;
+			}
+
 			lobj->mFlags |= LOBJF_PLACED;
 			lobj->mAddress = start;
 			lobj->mRefAddress = start + mReloc;
@@ -304,7 +466,10 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 				if (end == mFreeChunks[i].mEnd)
 					mFreeChunks.Remove(i);
 				else
+				{
 					mFreeChunks[i].mStart = end;
+					mFreeChunks[i].mLastObject = lobj;
+				}
 			}
 			else if (end == mFreeChunks[i].mEnd)
 			{
@@ -312,7 +477,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 			}
 			else
 			{
-				mFreeChunks.Insert(i + 1, FreeChunk{ end, mFreeChunks[i].mEnd } );
+				mFreeChunks.Insert(i + 1, FreeChunk{ end, mFreeChunks[i].mEnd, lobj } );
 				mFreeChunks[i].mEnd = start;
 			}
 
@@ -332,15 +497,26 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj)
 
 	if (end <= mEnd)
 	{
+		// Check if directly follows an object that jumps to this new object
+		if (merge && Forwards(mLastObject, lobj))
+		{
+			start -= 3;
+			end -= 3;
+			mLastObject = nullptr;
+		}
+
 		lobj->mFlags |= LOBJF_PLACED;
 		lobj->mAddress = start;
 		lobj->mRefAddress = start + mReloc;
 		lobj->mRegion = this;
+
 #if 1
 		if (start != mStart + mUsed)
-			mFreeChunks.Push( FreeChunk{ mStart + mUsed, start } );
+			mFreeChunks.Push( FreeChunk{ mStart + mUsed, start, mLastObject } );
 #endif
 		mUsed = end - mStart;
+
+		mLastObject = lobj;
 
 		return true;
 	}
@@ -407,7 +583,7 @@ void Linker::Link(void)
 				for (int k = 0; k < lsec->mObjects.Size(); k++)
 				{
 					LinkerObject* lobj = lsec->mObjects[k];
-					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj))
+					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj, mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS))
 					{
 						if (lobj->mIdent && lobj->mIdent->mString && (mCompilerOptions & COPT_VERBOSE2))
 							printf("Placed object <%s> $%04x - $%04x\n", lobj->mIdent->mString, lobj->mAddress, lobj->mAddress + lobj->mSize);
@@ -489,8 +665,8 @@ void Linker::Link(void)
 
 				if (lsec->mType == LST_HEAP)
 				{
-					lsec->mStart = lrgn->mStart + lrgn->mUsed;
-					lsec->mEnd = lrgn->mEnd;
+					lsec->mStart = (lrgn->mStart + lrgn->mUsed + 3) & ~3;
+					lsec->mEnd = lrgn->mEnd & ~3;
 
 					if (lsec->mStart + lsec->mSize > lsec->mEnd)
 					{
@@ -592,6 +768,29 @@ void Linker::Link(void)
 				}
 			}
 		}
+
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* oi = mObjects[i];
+
+			if (oi->mSection->mType == LST_DATA && (oi->mFlags & LOBJF_PLACED) && oi->mRegion)
+			{
+				for (int j = i + 1; j < mObjects.Size(); j++)
+				{
+					LinkerObject* oj = mObjects[j];
+
+					if (oj->mSection->mType == LST_DATA && (oj->mFlags & LOBJF_PLACED) && oj->mRegion)
+					{
+						if (oj->mAddress < oi->mAddress + oi->mSize && oi->mAddress < oj->mAddress + oj->mSize && (oj->mRegion->mCartridgeBanks & oi->mRegion->mCartridgeBanks))
+						{
+							mErrors->Error(oi->mLocation, EERR_OVERLAPPING_DATA_SECTIONS, "Overlapping data section", oi->mIdent);
+							mErrors->Error(oj->mLocation, EERR_OVERLAPPING_DATA_SECTIONS, "Overlapping data section", oj->mIdent);
+						}
+					}
+				}
+			}
+		}
+
 	}
 }
 
@@ -1082,6 +1281,31 @@ bool Linker::WriteMapFile(const char* filename)
 				if (mCartridgeBankUsed[i])
 					fprintf(file, "%02d : %04x .. %04x (%04x)\n", i, mCartridgeBankStart[i], mCartridgeBankEnd[i], mCartridgeBankEnd[i] - mCartridgeBankStart[i]);
 			}
+		}
+
+		fprintf(file, "\nobjects by size\n");
+		ExpandingArray<const LinkerObject*>	so;
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* obj = mObjects[i];
+
+			if ((obj->mFlags & LOBJF_REFERENCED) && obj->mIdent)
+			{
+				int k = so.Size();
+				so.Push(obj);
+				while (k > 0 && so[k - 1]->mSize < obj->mSize)
+				{
+					so[k] = so[k - 1];
+					k--;
+				}
+				so[k] = obj;
+			}
+		}
+
+		for (int i = 0; i < so.Size(); i++)
+		{
+			const LinkerObject* obj = so[i];
+			fprintf(file, "%04x (%04x) : %s, %s:%s\n", obj->mAddress, obj->mSize, obj->mIdent->mString, LinkerObjectTypeNames[obj->mType], obj->mSection->mIdent->mString);
 		}
 
 		fclose(file);

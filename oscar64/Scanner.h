@@ -141,11 +141,13 @@ enum Token
 	TK_PREP_IFDEF,
 	TK_PREP_IFNDEF,
 	TK_PREP_PRAGMA,
+	TK_PREP_LINE,
 
 	TK_PREP_ASSIGN,
 	TK_PREP_REPEAT,
 	TK_PREP_UNTIL,
 	TK_PREP_EMBED,
+	TK_PREP_FOR,
 
 	TK_PREP_CONCAT,
 
@@ -153,6 +155,18 @@ enum Token
 	TK_USING,
 	TK_THIS,
 	TK_COLCOLON,
+	TK_CLASS,
+	TK_PUBLIC,
+	TK_PROTECTED,
+	TK_PRIVATE,
+	TK_NEW,
+	TK_DELETE,
+	TK_VIRTUAL,
+	TK_OPERATOR,
+	TK_TEMPLATE,
+	TK_FRIEND,
+	TK_CONSTEXPR,
+	TK_TYPENAME,
 
 	NUM_TOKENS
 };
@@ -196,6 +210,23 @@ protected:
 	MacroDict	*	mParent;
 };
 
+class Scanner;
+
+struct TokenSequence
+{
+	TokenSequence	*	mNext;
+	Location			mLocation;
+	Token				mToken;
+
+	const Ident		*	mTokenIdent;
+	const char *		mTokenString;
+	double				mTokenNumber;
+	int64				mTokenInteger;
+
+	TokenSequence(Scanner* scanner);
+	~TokenSequence(void);
+};
+
 class Scanner
 {
 public:
@@ -205,6 +236,11 @@ public:
 	const char* TokenName(Token token) const;
 
 	void NextToken(void);
+
+	void BeginRecord(void);
+	TokenSequence* CompleteRecord(void);
+
+	const TokenSequence* Replay(const TokenSequence * sequence);
 
 	void Warning(const char * error);
 	void Error(const char * error);
@@ -239,8 +275,10 @@ public:
 	uint64			mCompilerOptions;
 
 	void AddMacro(const Ident* ident, const char* value);
+	void MarkSourceOnce(void);
 protected:
 	void NextRawToken(void);
+	void NextPreToken(void);
 
 	struct MacroExpansion
 	{
@@ -248,10 +286,24 @@ protected:
 		const char		*	mLine;
 		int					mOffset;
 		char				mChar;
+		Macro			*	mLoopIndex;
+		int64				mLoopCount, mLoopLimit;
 		MacroDict* mDefinedArguments;
+
+		MacroExpansion(void)
+			: mLink(nullptr), mLine(nullptr), mOffset(0), mChar(0), mLoopIndex(nullptr), mLoopCount(0), mLoopLimit(0), mDefinedArguments(nullptr)
+		{}
+
 	}	*	mMacroExpansion;
 
-	MacroDict* mDefines, * mDefineArguments;
+	int			mMacroExpansionDepth;
+
+	MacroDict* mDefines, * mDefineArguments, * mOnceDict;
+
+	Token		mUngetToken;
+
+	const TokenSequence* mReplay;
+	TokenSequence* mRecord, * mRecordLast;
 
 	void StringToken(char terminator, char mode);
 	void CharToken(char mode);

@@ -3,10 +3,14 @@
 class Location
 {
 public:
-	const char* mFileName;
-	int			mLine, mColumn;
+	const char		*	mFileName;
+	int					mLine, mColumn;
+	const Location	*	mFrom;
 
-	Location() : mFileName(nullptr), mLine(0), mColumn(0) {}
+	Location() : mFileName(nullptr), mLine(0), mColumn(0), mFrom(nullptr) {}
+	Location(const Location& loc, const Location* from)
+		: mFileName(loc.mFileName), mLine(loc.mLine), mColumn(loc.mColumn), mFrom(from)
+	{}
 };
 
 class Ident;
@@ -14,7 +18,8 @@ class Ident;
 enum ErrorID
 {
 	EINFO_GENERIC = 1000,
-	
+	EINFO_EXPANDED = 1001,
+
 	EWARN_GENERIC = 2000,
 	EWARN_CONSTANT_TRUNCATED,
 	EWARN_UNKNOWN_PRAGMA,
@@ -28,13 +33,15 @@ enum ErrorID
 	EWARN_MISSING_RETURN_STATEMENT,
 	EWARN_UNREACHABLE_CODE,
 	EWARN_NULL_POINTER_DEREFERENCED,
+	EWARN_DESTRUCTOR_MISMATCH,
+	EWARN_NUMERIC_0_USED_AS_NULLPTR,
+	EWARN_FLOAT_TO_INT,
 
 	EERR_GENERIC = 3000,
 	EERR_FILE_NOT_FOUND,
 	EERR_RUNTIME_CODE,
 	EERR_UNIMPLEMENTED,
 	EERR_COMMAND_LINE,
-	EERR_OUT_OF_MEMORY,
 	EERR_OBJECT_NOT_FOUND,
 	EERR_SYNTAX,
 	EERR_EXECUTION_FAILED,
@@ -76,11 +83,29 @@ enum ErrorID
 	ERRO_NO_MATCHING_FUNCTION_CALL,
 	ERRO_AMBIGUOUS_FUNCTION_CALL,
 	EERR_NO_DEFAULT_CONSTRUCTOR,
+	EERR_INVALID_OPERATOR,
+	EERR_MISSING_TEMP,
+	EERR_NON_STATIC_MEMBER,
+	EERR_TEMPLATE_PARAMS,
+	EERR_FUNCTION_TEMPLATE,
+	EERR_INVALID_BITFIELD,
+	EERR_INVALID_CAPTURE,
+	EERR_INVALID_PACK_USAGE,
+	EERR_INVALID_FOLD_EXPRESSION,
+
+	EERR_INVALID_CONSTEXPR,
+	EERR_DOUBLE_FREE,
+	EERR_UNBALANCED_HEAP_USE,
 
 	ERRR_STACK_OVERFLOW,
 	ERRR_INVALID_NUMBER,
+	EERR_OVERLAPPING_DATA_SECTIONS,
 
 	EERR_INVALID_PREPROCESSOR,
+
+	EFATAL_GENERIC = 4000,
+	EFATAL_OUT_OF_MEMORY,
+	EFATAL_MACRO_EXPANSION_DEPTH,
 };
 
 class Errors
@@ -90,6 +115,6 @@ public:
 
 	int		mErrorCount;
 
-	void Error(const Location& loc, ErrorID eid, const char* msg, const Ident * info);
-	void Error(const Location& loc, ErrorID eid, const char* msg, const char* info = nullptr);
+	void Error(const Location& loc, ErrorID eid, const char* msg, const Ident* info1, const Ident* info2 = nullptr);
+	void Error(const Location& loc, ErrorID eid, const char* msg, const char* info1 = nullptr, const char* info2 = nullptr);
 };

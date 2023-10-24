@@ -333,7 +333,7 @@ void InitAssembler(void)
 
 int AsmInsSize(AsmInsType type, AsmInsMode mode)
 {
-	if (type < ASMIT_INV)
+	if (type < ASMIT_INV && mode >= ASMIM_IMPLIED && mode < NUM_ASM_INS_MODES)
 		return AsmInsModeSize[mode];
 	else
 		return 1;

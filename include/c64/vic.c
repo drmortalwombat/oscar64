@@ -21,7 +21,7 @@ int vic_sprgetx(byte s)
 	return vic.spr_pos[s].x | ((vic.spr_msbx & (1 << s)) ? 256 : 0);
 }
 
-void vic_setmode(VicMode mode, char * text, char * font)
+void vic_setmode(VicMode mode, const char * text, const char * font)
 {
 	switch (mode)
 	{
@@ -71,6 +71,15 @@ void vic_waitFrame(void)
 		;
 	while (!(vic.ctrl1 & VIC_CTRL1_RST8))
 		;	
+}
+
+void vic_waitFrames(char n)
+{
+	while (n > 0)
+	{
+		vic_waitFrame();
+		n--;
+	}
 }
 
 void vic_waitLine(int line)

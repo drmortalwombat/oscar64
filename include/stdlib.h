@@ -43,9 +43,15 @@ void free(void * ptr);
 
 void * calloc(int num, int size);
 
+unsigned heapfree(void);
+
 unsigned int rand(void);
 
 void srand(unsigned int seed);
+
+#pragma intrinsic(malloc)
+
+#pragma intrinsic(free)
 
 #pragma compile("stdlib.c")
 

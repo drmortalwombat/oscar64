@@ -32,6 +32,12 @@ __asm bsinit
 		jsr 0xff81
 		sta 0xff01
 }
+__asm dswap
+{	
+		sta 0xff00
+		jsr 0xff5f
+		sta 0xff01
+}
 #pragma code(code)
 #elif defined(__PLUS4__)
 #pragma code(lowcode)
@@ -93,6 +99,31 @@ __asm bsinit
 #define bsplot	0xfff0
 #define bsinit	0xff81
 #endif
+
+#if defined(__C128__)
+void dispmode40col(void)
+{
+	if (*(volatile char *)0xd7 >= 128)
+	{
+		__asm
+		{		
+			jsr dswap
+		}
+	}
+}
+
+void dispmode80col(void)
+{
+	if (*(volatile char *)0xd7 < 128)
+	{
+		__asm
+		{		
+			jsr dswap
+		}
+	}
+}
+#endif
+
 
 void iocharmap(IOCharMap chmap)
 {

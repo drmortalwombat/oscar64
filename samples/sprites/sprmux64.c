@@ -100,7 +100,7 @@ __interrupt void setspr(void)
 	// Wait for end of current sprite, xpos will take effect
 	// at start of line, so we need to patch it after the last
 	// pixel line has started
-	vic_waitLine(yoffset - 4);
+	vic_waitLine(yoffset - 3);
 
 	// Left to right or right to left to get a matching z order
 	if (phase & 0x80)

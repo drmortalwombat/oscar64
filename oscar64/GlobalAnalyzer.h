@@ -34,10 +34,12 @@ protected:
 
 	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs);
 
+	bool IsStackParam(const Declaration* pdec) const;
 	bool MarkCycle(Declaration* rootDec, Declaration* procDec);
 
 	uint64 GetProcFlags(Declaration* to) const;
 	void RegisterCall(Declaration* from, Declaration* to);
 	void RegisterProc(Declaration* to);
+	void UndoParamReference(Expression* ex, Declaration* param);
 };
 

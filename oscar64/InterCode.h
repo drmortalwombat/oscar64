@@ -24,6 +24,8 @@ enum InterCode
 	IC_LEA,
 	IC_COPY,
 	IC_STRCPY,
+	IC_MALLOC,
+	IC_FREE,
 	IC_TYPECAST,
 	IC_CONSTANT,
 	IC_BRANCH,
@@ -38,6 +40,7 @@ enum InterCode
 	IC_ASSEMBLER,
 	IC_JUMPF,
 	IC_SELECT,
+	IC_DISPATCH,
 	IC_UNREACHABLE
 };
 
@@ -57,16 +60,16 @@ extern int InterTypeSize[];
 enum InterMemory
 {
 	IM_NONE,
-	IM_PARAM,
+	IM_PARAM,		// Memory used to access parameters on stack
 	IM_LOCAL,
 	IM_GLOBAL,
-	IM_FRAME,
+	IM_FRAME,		// Memory used to pass parameters on stack
 	IM_PROCEDURE,
 	IM_INDIRECT,
 	IM_TEMPORARY,
 	IM_ABSOLUTE,
-	IM_FPARAM,
-	IM_FFRAME,
+	IM_FPARAM,		// Memory used to access parameters in zp
+	IM_FFRAME,		// Memory used to pass parameters in zp
 };
 
 enum InterOperator
@@ -145,8 +148,10 @@ public:
 	~IntegerValueRange(void);
 
 	void Reset(void);
+	void Restart(void);
 
 	int64		mMinValue, mMaxValue;
+	int			mMinExpanded, mMaxExpanded;
 	
 	enum State
 	{
@@ -158,8 +163,11 @@ public:
 
 	bool Same(const IntegerValueRange& range) const;
 	bool Merge(const IntegerValueRange& range, bool head, bool initial);
+	void Expand(const IntegerValueRange& range);
+	void Union(const IntegerValueRange& range);
 
 	void Limit(const IntegerValueRange& range);
+	void MergeUnknown(const IntegerValueRange& range);
 	void SetLimit(int64 minValue, int64 maxValue);
 
 	bool IsConstant(void) const;
@@ -240,7 +248,7 @@ class InterVariable
 {
 public:
 	bool							mUsed, mAliased, mTemp;
-	int								mIndex, mSize, mOffset, mAddr, mTempIndex;
+	int								mIndex, mSize, mOffset, mTempIndex, mByteIndex;
 	int								mNumReferences;
 	const Ident					*	mIdent;
 	LinkerObject				*	mLinkerObject;
@@ -260,7 +268,7 @@ public:
 	bool				mFinal;
 	int64				mIntConst;
 	double				mFloatConst;
-	int					mVarIndex, mOperandSize, mStride;
+	int					mVarIndex, mOperandSize, mStride, mRestricted;
 	LinkerObject	*	mLinkerObject;
 	InterMemory			mMemory;
 	IntegerValueRange	mRange;
@@ -280,7 +288,7 @@ public:
 
 	bool IsNotUByte(void) const;
 
-	void Disassemble(FILE* file);
+	void Disassemble(FILE* file, InterCodeProcedure* proc);
 };
 
 class InterInstruction
@@ -294,7 +302,7 @@ public:
 	InterOperator						mOperator;
 	int									mNumOperands;
 
-	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr;
+	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr, mRemove;
 
 	InterInstruction(const Location& loc, InterCode code);
 
@@ -313,10 +321,12 @@ public:
 	void FilterTempUsage(NumberSet& requiredTemps, NumberSet& providedTemps);
 	void FilterVarsUsage(const GrowingVariableArray& localVars, NumberSet& requiredVars, NumberSet& providedVars, const GrowingVariableArray& params, NumberSet& requiredParams, NumberSet& providedParams, InterMemory paramMemory);
 	void FilterStaticVarsUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars);
-	
+	void FilterStaticVarsByteUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars);
+
 	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredVars, const GrowingVariableArray& params, NumberSet& requiredParams, InterMemory paramMemory);
 	bool RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock * block, const GrowingVariableArray& staticVars, NumberSet& requiredVars, GrowingInstructionPtrArray& storeIns);
+	bool RemoveUnusedStaticStoreByteInstructions(InterCodeBasicBlock* block, const GrowingVariableArray& staticVars, NumberSet& requiredVars);
 	void PerformValueForwarding(GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	void BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps);
 
@@ -338,7 +348,9 @@ public:
 	bool ConstantFolding(void);
 	bool ConstantFoldingRelationRange(void);
 
-	void Disassemble(FILE* file);
+	void UnionRanges(InterInstruction* ins);
+
+	void Disassemble(FILE* file, InterCodeProcedure * proc);
 };
 
 class InterCodeBasicBlock
@@ -356,6 +368,7 @@ public:
 	NumberSet						mEntryRequiredTemps, mEntryProvidedTemps, mEntryPotentialTemps;
 	NumberSet						mExitRequiredTemps, mExitProvidedTemps, mExitPotentialTemps;
 	NumberSet						mEntryConstTemp, mExitConstTemp;
+	NumberSet						mNewRequiredTemps;
 
 	NumberSet						mLocalRequiredVars, mLocalProvidedVars;
 	NumberSet						mEntryRequiredVars, mEntryProvidedVars;
@@ -376,7 +389,7 @@ public:
 
 	GrowingArray<int64>				mMemoryValueSize, mEntryMemoryValueSize;
 
-	GrowingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
+	ExpandingArray<InterCodeBasicBlock*>	mEntryBlocks, mLoopPathBlocks;
 
 	GrowingInstructionPtrArray		mMergeTValues, mMergeAValues;
 	ValueSet						mMergeValues;
@@ -417,16 +430,21 @@ public:
 	void BuildCallerSaveTempSet(NumberSet& callerSaveTemps);
 	void BuildConstTempSets(void);
 	bool PropagateConstOperationsUp(void);
+	bool RemoveUnusedLocalStoreInstructions(void);
 
 	void BuildLocalVariableSets(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory);
 	void BuildGlobalProvidedVariableSet(const GrowingVariableArray& localVars, NumberSet fromProvidedVars, const GrowingVariableArray& params, NumberSet fromProvidedParams, InterMemory paramMemory);
 	bool BuildGlobalRequiredVariableSet(const GrowingVariableArray& localVars, NumberSet& fromRequiredVars, const GrowingVariableArray& params, NumberSet& fromRequiredParams, InterMemory paramMemory);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory);
+	bool RemoveUnusedIndirectStoreInstructions(void);
 
 	void BuildStaticVariableSet(const GrowingVariableArray& staticVars);
 	void BuildGlobalProvidedStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet fromProvidedVars);
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
+
+	void BuildStaticVariableByteSet(const GrowingVariableArray& staticVars, int bsize);
+	bool RemoveUnusedStaticStoreByteInstructions(const GrowingVariableArray& staticVars, int bsize);
 
 	bool CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64 & nloop);
 
@@ -435,6 +453,9 @@ public:
 	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void SimplifyIntegerRangeRelops(void);
+	void MarkIntegerRangeBoundUp(int temp, int64 value, GrowingIntegerValueRangeArray& range);
+	void UnionIntegerRanges(const InterCodeBasicBlock* block);
+	void PruneUnusedIntegerRangeSets(void);
 
 	bool CombineIndirectAddressing(void);
 
@@ -449,6 +470,7 @@ public:
 	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num);
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
+	void RenameValueRanges(const GrowingIntArray& renameTable, int numTemps);
 
 	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, FastNumberSet& fsingle);
 	void PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse, bool checkloops);
@@ -482,13 +504,17 @@ public:
 	void MapVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars);
 	
 	void CollectOuterFrame(int level, int& size, bool& inner, bool& inlineAssembler, bool& byteCodeCall);
+	bool RecheckOuterFrame(void);
 
 	bool IsLeafProcedure(void);
+	bool PreventsCallerStaticStack(void);
 
 	bool ForwardDiamondMovedTemp(void);
 	bool ForwardLoopMovedTemp(void);
 
 	bool MoveTrainCrossBlock(void);
+	bool HoistCommonConditionalPath(void);
+	bool IsDirectDominatorBlock(InterCodeBasicBlock* block);
 
 	void MarkRelevantStatics(void);
 	void RemoveNonRelevantStatics(void);
@@ -497,6 +523,7 @@ public:
 	bool IsTempReferencedOnPath(int temp, int at) const;
 
 	bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const;
+	bool DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
 	bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
 	bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
@@ -523,22 +550,33 @@ public:
 
 	InterInstruction* FindTempOrigin(int temp) const;
 
+	bool CheapInlining(int & numTemps);
+
 	void CheckFinalLocal(void);
 	void CheckFinal(void);
 	void CheckBlocks(void);
 
+	bool IsConstExitTemp(int temp) const;
+	bool CommonTailCodeMerge(void);
+	bool SplitSingleBranchUseConst(void);
+
 	void PeepholeOptimization(const GrowingVariableArray& staticVars);
 	bool PeepholeReplaceOptimization(const GrowingVariableArray& staticVars);
 
+	bool MoveLoopHeadCheckToTail(void);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	void SingleBlockLoopUnrolling(void);
 	bool SingleBlockLoopPointerSplit(int& spareTemps);
 	bool SingleBlockLoopPointerToByte(int& spareTemps);
-	bool CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body);
-	void CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path);
+	bool CollectLoopBody(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*> & body);
+	bool CollectLoopBodyRecursive(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*>& body);
+	void CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void PushMoveOutOfLoop(void);
-		
+
+	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue);
+	void RemoveUnusedMallocs(void);
+
 	bool CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body);
 
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
@@ -559,6 +597,7 @@ public:
 	bool DropUnreachable(void);
 	
 	bool CheckStaticStack(void);
+	void ApplyStaticStack(InterOperand& iop, const GrowingVariableArray& localVars);
 	void CollectStaticStack(LinkerObject * lobj, const GrowingVariableArray& localVars);
 	void PromoteStaticStackParams(LinkerObject* paramlobj);
 
@@ -566,6 +605,9 @@ public:
 
 	void WarnUsedUndefinedVariables(void);
 	void CheckValueReturn(void);
+	void CheckNullptrDereference(void);
+
+	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, bool & globalsChecked);
 
 };
 
@@ -583,10 +625,13 @@ public:
 	GrowingInterCodeBasicBlockPtrArray	mBlocks;
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
-	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase;
+	int									mTempSize, mCommonFrameSize, mCallerSavedTemps, mFreeCallerSavedTemps, mFastCallBase, mNumRestricted;
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
-	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack;
+	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack, mAssembled;
+	bool								mDispatchedCall;
+	bool								mCheckUnreachable;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
+	bool								mCheapInline;
 
 	InterCodeModule					*	mModule;
 	int									mID;
@@ -600,13 +645,17 @@ public:
 
 	LinkerObject					*	mLinkerObject, * mSaveTempsLinkerObject;
 	Declaration						*	mDeclaration;
-
+	InterType							mReturnType;
 	uint64								mCompilerOptions;
+
+	bool								mLoadsIndirect, mStoresIndirect, mGlobalsChecked;
+	NumberSet							mReferencedGlobals, mModifiedGlobals;
 
 	InterCodeProcedure(InterCodeModule * module, const Location & location, const Ident * ident, LinkerObject* linkerObject);
 	~InterCodeProcedure(void);
 
 	int AddTemporary(InterType type);
+	int AddRestricted(void);
 
 	void Close(void);
 
@@ -619,6 +668,9 @@ public:
 	void RemoveNonRelevantStatics(void);
 
 	void MapCallerSavedTemps(void);
+
+	bool ReferencesGlobal(int varindex);
+	bool ModifiesGlobal(int varindex);
 
 	void MapVariables(void);
 	void ReduceTemporaries(void);
@@ -636,6 +688,8 @@ protected:
 	void BuildLoopPrefix(void);
 	void SingleAssignmentForwarding(void);
 	void RemoveUnusedStoreInstructions(InterMemory	paramMemory);
+	void RemoveUnusedPartialStoreInstructions(void);
+	void RemoveUnusedLocalStoreInstructions(void);
 	void MergeCommonPathInstructions(void);
 	void PushSinglePathResultInstructions(void);
 	void CollectVariables(InterMemory paramMemory);
@@ -651,10 +705,13 @@ protected:
 	void RebuildIntegerRangeSet(void);
 	void CombineIndirectAddressing(void);
 	void SingleTailLoopOptimization(InterMemory paramMemory);
+	void HoistCommonConditionalPath(void);
+	void RemoveUnusedMallocs(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);
 	void WarnUsedUndefinedVariables(void);
+	void PropagateMemoryAliasingInfo(void);
 
 	void PeepholeOptimization(void);
 

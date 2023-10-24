@@ -10,10 +10,13 @@ public:
 	Parser(Errors * errors, Scanner* scanner, CompilationUnits * compilationUnits);
 	~Parser(void);
 
-	DeclarationScope	*	mGlobals, * mScope;
+	Parser* Clone(void);
+
+	DeclarationScope	*	mGlobals, * mScope, * mTemplateScope, * mCaptureScope;
 	int						mLocalIndex;
 	CompilationUnits	*	mCompilationUnits;
-	Declaration			*	mThisPointer;
+	Declaration			*	mThisPointer, * mFunctionType, * mFunction, * mLambda, * mTempVars;
+	Token					mCaptureToken;
 	
 	LinkerSection	* mCodeSection, * mDataSection, * mBSSection;
 
@@ -23,6 +26,7 @@ public:
 
 	void Parse(void);
 protected:
+	bool ExpectToken(Token token);
 	bool ConsumeToken(Token token);
 	bool ConsumeTokenIf(Token token);
 	bool ConsumeIdentIf(const char* ident);
@@ -32,6 +36,10 @@ protected:
 	bool			mUnrollLoopPage;
 	bool			mInlineCall;
 
+	Declaration* AllocTempVar(Declaration* type);
+	void FreeTempVar(Declaration* var);
+	void FreeTempVarExp(Expression* exp);
+
 	uint8* ParseStringLiteral(int msize);
 
 	void ParseNamespace(void);
@@ -40,10 +48,24 @@ protected:
 
 	Declaration * ParseFunctionDeclaration(Declaration* bdec);
 	void PrependThisArgument(Declaration* fdec, Declaration * pthis);
+	void AppendMemberDestructor(Declaration* pthis);
+	void BuildMemberConstructor(Declaration* pthis, Declaration* cfunc);
+	Expression* BuildMemberInitializer(Expression* vexp);
+	void PrependMemberConstructor(Declaration* pthis, Declaration* cfunc);
 
-	Declaration* ParseBaseTypeDeclaration(uint64 flags);
-	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr);
-	Declaration* ParseStructDeclaration(uint64 flags, DecType dt);
+	void AddDefaultConstructors(Declaration* pthis);
+
+	void ParseVariableInit(Declaration* ndec);
+	void AddMemberFunction(Declaration* dec, Declaration* mdec);
+	Declaration* FindBaseMemberFunction(Declaration* dec, Declaration* mdec);
+
+	Expression * AddFunctionCallRefReturned(Expression * exp);
+	Expression* CleanupExpression(Expression* exp);
+
+	Declaration* ParseBaseTypeQualify(bool qualified, Declaration* dec, const Ident *& pident);
+	Declaration* ParseBaseTypeDeclaration(uint64 flags, bool qualified, Declaration* ptempl = nullptr);
+	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, Declaration * pthis = nullptr, Declaration * ptempl = nullptr);
+	Declaration* ParseStructDeclaration(uint64 flags, DecType dt, Declaration* ptempl = nullptr);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
 	Expression* ParseInitExpression(Declaration* dtype);
@@ -58,19 +80,48 @@ protected:
 	Expression* ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerMulOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerShiftOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerAndOperand(Declaration* pcasm, int pcoffset);
+	Expression* ParseAssemblerOrOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerOperand(Declaration * pcasm, int pcoffset);
+
+	Expression* CheckOperatorOverload(Expression* exp);
 
 	void AddAssemblerRegister(const Ident* ident, int value);
 
 	Declaration* ParseQualIdent(void);
 
+	void SkipStatement(void);
 	Expression* ParseStatement(void);
 	Expression* ParseSwitchStatement(void);
+
+	Declaration* MemberLookup(Declaration* dtype, const Ident * ident, int& offset, uint64 & flags);
 
 	Expression* ParseQualify(Expression * exp);
 	
 	int OverloadDistance(Declaration* pdec, Expression* pexp);
-	void ResolveOverloadCall(Expression* cexp, Expression* pexp);
+	Expression * ResolveOverloadCall(Expression* exp, Expression * exp2 = nullptr);
+	Expression* CoerceExpression(Expression* exp, Declaration* type);
+	bool CanCoerceExpression(Expression* exp, Declaration* type);
+	void CompleteFunctionDefaultParams(Expression* exp);
+	void ExpandFunctionCallTemplate(Expression* exp);
+
+	Declaration * ParseTemplateDeclaration(Declaration* pthis);
+	void ParseTemplateDeclarationBody(Declaration* tdec, Declaration* pthis);
+	Declaration* FunctionAutoParamsToTemplate(Declaration* fdec);
+
+	int ExpansionDistance(Declaration* tdec, Declaration* spec);
+	Declaration* ParseTemplateExpansion(Declaration* tmpld, Declaration* expd);
+	void CompleteTemplateExpansion(Declaration* tmpld);
+
+	Expression* ParseNewOperator(void);
+	Expression* ParseLambdaExpression(void);
+	
+	Declaration* OperatorResultType(Expression* exp);
+
+	Expression* FindPackExpression(Expression* exp);
+	Expression* ExpandPackExpression(Expression* exp, Expression* pack, Expression* item);
+	Expression* ParseBinaryFoldExpression(Expression * exp);
 
 	Expression* ParseSimpleExpression(bool lhs);
 	Expression* ParsePrefixExpression(bool lhs);
@@ -88,7 +139,9 @@ protected:
 	Expression* ParseAssignmentExpression(bool lhs);
 	Expression* ParseExpression(bool lhs);
 	Expression* ParseRExpression(void);
-	Expression* ParseListExpression(void);
+	
+	Expression* ExpandArgumentPack(Expression * exp, Declaration* dec);
+	Expression* ParseListExpression(bool lhs);
 
 	Expression* ParseParenthesisExpression(void);
 

@@ -5,6 +5,7 @@
 #include <math.h>
 
 static bool CheckFunc;
+static bool CheckCase;
 
 int InterTypeSize[] = {
 	0,
@@ -28,7 +29,10 @@ static bool IsIntegerType(InterType type)
 
 IntegerValueRange::IntegerValueRange(void)
 	: mMinState(S_UNKNOWN), mMaxState(S_UNKNOWN)
-{}
+{
+	mMinExpanded = 0;
+	mMaxExpanded = 0;
+}
 
 IntegerValueRange::~IntegerValueRange(void)
 {}
@@ -37,6 +41,16 @@ void IntegerValueRange::Reset(void)
 {
 	mMinState = S_UNKNOWN;
 	mMaxState = S_UNKNOWN;
+	mMinExpanded = 0;
+	mMaxExpanded = 0;
+}
+
+void IntegerValueRange::Restart(void)
+{
+	if (mMinState == IntegerValueRange::S_UNBOUND)
+		mMinState = IntegerValueRange::S_UNKNOWN;
+	if (mMaxState == IntegerValueRange::S_UNBOUND)
+		mMaxState = IntegerValueRange::S_UNKNOWN;
 }
 
 
@@ -109,6 +123,26 @@ bool IntegerValueRange::IsConstant(void) const
 	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue == mMaxValue;
 }
 
+void IntegerValueRange::MergeUnknown(const IntegerValueRange& range)
+{
+	if (mMinState != S_BOUND)
+	{
+		mMinState = range.mMinState;
+		mMinValue = range.mMinValue;
+	}
+	else if (range.mMinState == S_BOUND && mMinValue < range.mMinValue)
+		mMinValue = range.mMinValue;
+
+	if (mMaxState != S_BOUND)
+	{
+		mMaxState = range.mMaxState;
+		mMaxValue = range.mMaxValue;
+	}
+	else if (range.mMaxState == S_BOUND && mMaxValue > range.mMaxValue)
+		mMaxValue = range.mMaxValue;
+}
+
+
 void IntegerValueRange::Limit(const IntegerValueRange& range)
 {
 	if (range.mMinState == S_BOUND)
@@ -124,6 +158,58 @@ void IntegerValueRange::SetLimit(int64 minValue, int64 maxValue)
 	mMinValue = minValue;
 	mMaxState = S_BOUND;
 	mMaxValue = maxValue;
+}
+
+void IntegerValueRange::Expand(const IntegerValueRange& range)
+{
+	if (range.mMinState == S_BOUND && mMinState == S_BOUND && range.mMinValue < mMinValue)
+	{
+		mMinValue = range.mMinValue;
+		mMinExpanded++;
+		if (mMinExpanded >= 32)
+			mMinState = S_UNBOUND;
+	}
+	else
+	{
+		mMinState = range.mMinState;
+		mMinValue = range.mMinValue;
+	}
+	if (range.mMaxState == S_BOUND && mMaxState == S_BOUND && range.mMaxValue > mMaxValue)
+	{
+		mMaxValue = range.mMaxValue;
+		mMaxExpanded++;
+		if (mMaxExpanded >= 32)
+			mMaxState = S_UNBOUND;
+	}
+	else
+	{
+		mMaxState = range.mMaxState;
+		mMaxValue = range.mMaxValue;
+	}
+}
+
+void IntegerValueRange::Union(const IntegerValueRange& range)
+{
+	if (range.mMinState == S_UNBOUND || mMinState == S_UNBOUND)
+		mMinState = S_UNBOUND;
+	else if (range.mMinState == S_UNKNOWN || mMinState == S_UNKNOWN)
+		mMinState = S_UNKNOWN;
+	else
+	{
+		mMinValue = int64min(mMinValue, range.mMinValue);
+		if (range.mMinState == S_WEAK)
+			mMinState = S_WEAK;
+	}
+	if (range.mMaxState == S_UNBOUND || mMaxState == S_UNBOUND)
+		mMaxState = S_UNBOUND;
+	else if (range.mMaxState == S_UNKNOWN || mMaxState == S_UNKNOWN)
+		mMaxState = S_UNKNOWN;
+	else
+	{
+		mMaxValue = int64max(mMaxValue, range.mMaxValue);
+		if (range.mMaxState == S_WEAK)
+			mMaxState = S_WEAK;
+	}
 }
 
 bool IntegerValueRange::Merge(const IntegerValueRange& range, bool head, bool initial)
@@ -412,7 +498,9 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 	{
 		if (op1.mMemory == IM_INDIRECT)
 		{
-			if (op2.mMemory == IM_GLOBAL)
+			if (op1.mRestricted)
+				return false;
+			else if (op2.mMemory == IM_GLOBAL)
 				return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
 			else if (op2.mMemory == IM_FPARAM || op2.mMemory == IM_FFRAME)
 				return false;
@@ -423,7 +511,9 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 		}
 		else if (op2.mMemory == IM_INDIRECT)
 		{
-			if (op1.mMemory == IM_GLOBAL)
+			if (op2.mRestricted)
+				return false;
+			else if (op1.mMemory == IM_GLOBAL)
 				return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
 			else if (op1.mMemory == IM_FPARAM || op1.mMemory == IM_FFRAME)
 				return false;
@@ -453,6 +543,8 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 		if (op1.mTemp == op2.mTemp)
 			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
 		else if (op1.mLinkerObject && op2.mLinkerObject && op1.mLinkerObject != op2.mLinkerObject)
+			return false;
+		else if (op1.mRestricted && op2.mRestricted && op1.mRestricted != op2.mRestricted)
 			return false;
 		else
 			return CollidingMemType(type1, type2);
@@ -495,6 +587,18 @@ bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const Inte
 		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
 	else
 		return false;
+}
+
+bool InterCodeBasicBlock::DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const
+{
+	for (int i = from; i < to; i++)
+	{
+		InterInstruction* ins = block->mInstructions[i];
+		if (DestroyingMem(lins, ins))
+			return true;
+	}
+
+	return false;
 }
 
 static bool SameMem(const InterOperand& op1, const InterOperand& op2)
@@ -598,6 +702,16 @@ static bool SameMem(const InterOperand& op, const InterInstruction* ins)
 		return false;
 }
 
+static bool SameMemAndSize(const InterOperand& op, const InterInstruction* ins)
+{
+	if (ins->mCode == IC_LOAD)
+		return SameMemAndSize(op, ins->mSrc[0]);
+	else if (ins->mCode == IC_STORE)
+		return SameMemAndSize(op, ins->mSrc[1]);
+	else
+		return false;
+}
+
 static bool SameInstruction(const InterInstruction* ins1, const InterInstruction* ins2)
 {
 	if (ins1->mCode == ins2->mCode && ins1->mNumOperands == ins2->mNumOperands)
@@ -626,7 +740,7 @@ static bool SameInstruction(const InterInstruction* ins1, const InterInstruction
 bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const
 {
 	// Cannot swap branches
-	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH)
+	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH || ins1->mCode == IC_DISPATCH)
 		return false;
 
 	// Check function call
@@ -634,19 +748,48 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	{
 		if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER ||
 			ins0->mCode == IC_RETURN || ins0->mCode == IC_RETURN_STRUCT || ins0->mCode == IC_RETURN_VALUE ||
-			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME)
+			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME || ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE)
 			return false;
 
-		if (ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
+		if (ins0->mCode == IC_LOAD)
+		{
+			if (ins0->mSrc[0].mTemp >= 0)
+				return false;
+			if (ins0->mSrc[0].mMemory == IM_PARAM || ins0->mSrc[0].mMemory == IM_FPARAM)
+			{
+				if (mProc->mParamAliasedSet[ins0->mSrc[0].mVarIndex])
+					return false;
+			}
+			else
+				return false;
+		}
+		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
 			return false;
 	}
 	if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER)
 	{
 		if (ins1->mCode == IC_RETURN || ins1->mCode == IC_RETURN_STRUCT || ins1->mCode == IC_RETURN_VALUE ||
-			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME)
+			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME || ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE)
 			return false;
 
 		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+			return false;
+	}
+
+	if (ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE)
+	{
+		if (ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE)
+			return false;
+	}
+
+	if (ins0->mCode == IC_FREE)
+	{
+		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+			return false;
+	}
+	if (ins1->mCode == IC_FREE)
+	{
+		if (ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
 			return false;
 	}
 
@@ -1151,19 +1294,19 @@ void ValueSet::InsertValue(InterInstruction * ins)
 
 static bool HasSideEffect(InterCode code)
 {
-	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER;
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_DISPATCH /* || code == IC_MALLOC || code == IC_FREE */;
 }
 
 static bool IsObservable(InterCode code)
 {
-	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_STORE || code == IC_COPY || code == IC_STRCPY;
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_DISPATCH || code == IC_STORE || code == IC_COPY || code == IC_STRCPY || code == IC_MALLOC || code == IC_FREE;
 }
 
 static bool IsMoveable(InterCode code)
 {
-	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME)
+	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME || code == IC_MALLOC || code == IC_FREE)
 		return false;
-	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE)
+	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE || code == IC_DISPATCH)
 		return false;
 
 	return true;
@@ -1747,6 +1890,7 @@ InterInstruction* InterInstruction::Clone(void) const
 {
 	InterInstruction* ins = new InterInstruction(mLocation, mCode);
 	*ins = *this;
+	ins->mRemove = false;
 	return ins;
 }
 
@@ -2762,12 +2906,43 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 	case IC_BRANCH:
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 		{
-			if (tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst)
-				ins->mCode = IC_JUMP;
-			else
-				ins->mCode = IC_JUMPF;
-			ins->mSrc[0].mTemp = -1;
-			ins->mNumOperands = 0;
+			InterInstruction* tins = tvalue[ins->mSrc[0].mTemp];
+			if (IsIntegerType(tins->mConst.mType) || tins->mConst.mType == IT_BOOL)
+			{
+				if (tins->mConst.mIntConst)
+					ins->mCode = IC_JUMP;
+				else
+					ins->mCode = IC_JUMPF;
+				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
+			}
+			else if (tins->mConst.mType == IT_POINTER)
+			{
+				if (tins->mConst.mMemory == IM_ABSOLUTE)
+				{
+					if (tins->mConst.mIntConst)
+						ins->mCode = IC_JUMP;
+					else
+						ins->mCode = IC_JUMPF;
+					ins->mSrc[0].mTemp = -1;
+					ins->mNumOperands = 0;
+				}
+				else if (tins->mConst.mMemory == IM_GLOBAL || tins->mConst.mMemory == IM_LOCAL || tins->mConst.mMemory == IM_PARAM || tins->mConst.mMemory == IM_FPARAM)
+				{
+					ins->mCode = IC_JUMP;
+					ins->mSrc[0].mTemp = -1;
+					ins->mNumOperands = 0;
+				}
+			}
+			else if (tins->mConst.mType == IT_FLOAT)
+			{
+				if (tins->mConst.mFloatConst)
+					ins->mCode = IC_JUMP;
+				else
+					ins->mCode = IC_JUMPF;
+				ins->mSrc[0].mTemp = -1;
+				ins->mNumOperands = 0;
+			}
 		}
 		break;
 	case IC_PUSH_FRAME:
@@ -2784,7 +2959,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 
 
 InterOperand::InterOperand(void)
-	: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0), mVarIndex(-1), mOperandSize(0), mLinkerObject(nullptr), mMemory(IM_NONE), mStride(1)
+	: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0), mVarIndex(-1), mOperandSize(0), mLinkerObject(nullptr), mMemory(IM_NONE), mStride(1), mRestricted(0)
 {}
 
 bool InterOperand::IsNotUByte(void) const
@@ -2851,6 +3026,7 @@ void InterOperand::ForwardMem(const InterOperand& op)
 	mType = op.mType;
 	mRange = op.mRange;
 	mStride = op.mStride;
+	mRestricted = op.mRestricted;
 	mFinal = false;
 }
 
@@ -2897,6 +3073,7 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	case IC_RETURN_VALUE:
 	case IC_RETURN_STRUCT:
 	case IC_CONVERSION_OPERATOR:
+	case IC_DISPATCH:
 		mNumOperands = 1;
 		break;
 
@@ -2974,7 +3151,6 @@ void InterInstruction::CollectLocalAddressTemps(GrowingIntArray& localTable, Gro
 			if (mConst.mVarIndex >= nparams)
 				nparams = mConst.mVarIndex + 1;
 		}
-
 	}
 	else if (mCode == IC_LEA)
 	{
@@ -2999,6 +3175,11 @@ void InterInstruction::CollectLocalAddressTemps(GrowingIntArray& localTable, Gro
 				if (mSrc[1].mVarIndex >= nparams)
 					nparams = mSrc[1].mVarIndex + 1;
 			}
+		}
+		else if (mSrc[1].mTemp >= 0)
+		{
+			localTable[mDst.mTemp] = localTable[mSrc[1].mTemp];
+			paramTable[mDst.mTemp] = paramTable[mSrc[1].mTemp];
 		}
 	}
 	else if (mCode == IC_LOAD_TEMPORARY)
@@ -3071,7 +3252,7 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 		}
 		else if (mSrc[0].mMemory == IM_GLOBAL)
 		{
-			if (!providedVars[mSrc[0].mVarIndex])
+			if (mSrc[0].mVarIndex >= 0 && !providedVars[mSrc[0].mVarIndex])
 				requiredVars += mSrc[0].mVarIndex;
 		}
 	}
@@ -3087,13 +3268,54 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 		}
 		else if (mSrc[1].mMemory == IM_GLOBAL)
 		{
-			if (mSrc[1].mIntConst == 0 && mSrc[1].mOperandSize == staticVars[mSrc[1].mVarIndex]->mSize)
-				providedVars += mSrc[1].mVarIndex;
-			else if (!providedVars[mSrc[1].mVarIndex])
-				requiredVars += mSrc[1].mVarIndex;
+			if (mSrc[1].mVarIndex >= 0)
+			{
+				if (mSrc[1].mIntConst == 0 && mSrc[1].mOperandSize == staticVars[mSrc[1].mVarIndex]->mSize)
+					providedVars += mSrc[1].mVarIndex;
+				else if (!providedVars[mSrc[1].mVarIndex])
+					requiredVars += mSrc[1].mVarIndex;
+			}
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY)
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH)
+	{
+		requiredVars.OrNot(providedVars);
+	}
+}
+
+void InterInstruction::FilterStaticVarsByteUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars)
+{
+	if (mCode == IC_LOAD)
+	{
+		if (mSrc[0].mMemory == IM_INDIRECT)
+		{
+			if (!mSrc[0].mRestricted)
+			{
+				for (int i = 0; i < staticVars.Size(); i++)
+				{
+					if (staticVars[i]->mAliased && !providedVars[i])
+						requiredVars.AddRange(staticVars[i]->mByteIndex, staticVars[i]->mSize);
+				}
+			}
+		}
+		else if (mSrc[0].mMemory == IM_GLOBAL)
+		{
+			if (mSrc[0].mVarIndex >= 0 && !providedVars.RangeFilled(staticVars[mSrc[0].mVarIndex]->mByteIndex + int(mSrc[0].mIntConst), InterTypeSize[mDst.mType]))
+				requiredVars.AddRange(staticVars[mSrc[0].mVarIndex]->mByteIndex + int(mSrc[0].mIntConst), InterTypeSize[mDst.mType]);
+		}
+	}
+	else if (mCode == IC_STORE)
+	{
+		if (mSrc[1].mMemory == IM_INDIRECT)
+		{
+		}
+		else if (mSrc[1].mMemory == IM_GLOBAL)
+		{
+			if (mSrc[1].mVarIndex >= 0)
+				providedVars.AddRange(staticVars[mSrc[1].mVarIndex]->mByteIndex + int(mSrc[1].mIntConst), InterTypeSize[mSrc[0].mType]);
+		}
+	}
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH)
 	{
 		requiredVars.OrNot(providedVars);
 	}
@@ -3303,9 +3525,33 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			{
 				InterType	t = mSrc[i].mType;
 				InterInstruction* ains = ctemps[mSrc[i].mTemp];
-				mSrc[i] = ains->mConst;
-				mSrc[i].mType = t;
-				changed = true;
+
+				if (t != IT_POINTER || ains->mConst.mMemory == IM_ABSOLUTE)
+				{
+					mSrc[i] = ains->mConst;
+					mSrc[i].mType = t;
+					changed = true;
+				}
+			}
+		}
+
+		if (!changed)
+		{
+			if (mSrc[0].mType == IT_POINTER && mSrc[1].mType == IT_POINTER &&
+				mSrc[0].mTemp >= 0 && mSrc[1].mTemp >= 0 &&
+				ctemps[mSrc[0].mTemp] && ctemps[mSrc[1].mTemp])
+			{
+				InterInstruction* si0 = ctemps[mSrc[0].mTemp];
+				InterInstruction* si1 = ctemps[mSrc[1].mTemp];
+
+				if (si0->mConst.mMemory != IM_INDIRECT && si1->mConst.mMemory != IM_INDIRECT)
+				{
+					mCode = IC_CONSTANT;
+					mConst.mIntConst = ::ConstantRelationalPointerFolding(mOperator, si1->mConst, si0->mConst);
+					mConst.mType = IT_BOOL;
+					mNumOperands = 0;
+					return true;
+				}
 			}
 		}
 
@@ -3314,7 +3560,24 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			this->ConstantFolding();
 			return true;
 		}
+
 	} break;
+
+	case IC_FREE:
+	{
+		if (mSrc[0].mTemp >= 0 && ctemps[mSrc[0].mTemp])
+		{
+			InterInstruction* ains = ctemps[mSrc[0].mTemp];
+
+			if (ains->mConst.mMemory == IM_ABSOLUTE && ains->mConst.mIntConst == 0)
+			{
+				mCode = IC_NONE;
+				mNumOperands = 0;
+				return true;
+			}
+		}
+
+	}	break;
 
 	case IC_CONVERSION_OPERATOR:
 	case IC_UNARY_OPERATOR:
@@ -3457,7 +3720,7 @@ void InterInstruction::BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSe
 	if (mDst.mTemp >= 0)
 		requiredTemps -= mDst.mTemp;
 
-	if (mCode == IC_CALL || mCode == IC_CALL_NATIVE)
+	if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_DISPATCH)
 		callerSaveTemps |= requiredTemps;
 
 	for (int i = 0; i < mNumOperands; i++)
@@ -3511,6 +3774,34 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
+			}
+		}
+	}
+	else if (mCode == IC_SELECT)
+	{
+		if (mDst.mType == IT_POINTER)
+		{
+			if (mSrc[1].mTemp < 0)
+			{
+				if (mSrc[1].mMemory == IM_LOCAL)
+				{
+					requiredVars += mSrc[1].mVarIndex;
+				}
+				else if (mSrc[1].mMemory == paramMemory)
+				{
+					requiredParams += mSrc[1].mVarIndex;
+				}
+			}
+			if (mSrc[2].mTemp < 0)
+			{
+				if (mSrc[2].mMemory == IM_LOCAL)
+				{
+					requiredVars += mSrc[2].mVarIndex;
+				}
+				else if (mSrc[2].mMemory == paramMemory)
+				{
+					requiredParams += mSrc[2].mVarIndex;
+				}
 			}
 		}
 	}
@@ -3593,7 +3884,8 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 		}
 		else if (mSrc[0].mMemory == IM_GLOBAL)
 		{
-			requiredVars += mSrc[0].mVarIndex;
+			if (mSrc[0].mVarIndex >= 0)
+				requiredVars += mSrc[0].mVarIndex;
 		}
 
 		int k = 0;
@@ -3606,7 +3898,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 	}
 	else if (mCode == IC_STORE)
 	{
-		if (mSrc[1].mMemory == IM_GLOBAL)
+		if (mSrc[1].mMemory == IM_GLOBAL && mSrc[1].mVarIndex >= 0)
 		{
 			if (requiredVars[mSrc[1].mVarIndex])
 			{
@@ -3643,12 +3935,28 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 			}
 		}
 	}
+	else if (mCode == IC_SELECT)
+	{
+		if (mDst.mType == IT_POINTER)
+		{
+			if (mSrc[1].mTemp < 0)
+			{
+				if (mSrc[1].mMemory == IM_GLOBAL && mSrc[1].mVarIndex >= 0)
+					requiredVars += mSrc[1].mVarIndex;
+			}
+			if (mSrc[2].mTemp < 0)
+			{
+				if (mSrc[2].mMemory == IM_GLOBAL && mSrc[2].mVarIndex >= 0)
+					requiredVars += mSrc[2].mVarIndex;
+			}
+		}
+	}
 	else if (mCode == IC_COPY || mCode == IC_STRCPY)
 	{
 		requiredVars.Fill();
 		storeIns.SetSize(0);
 	}
-	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE)
+	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_DISPATCH)
 	{
 		requiredVars.Fill();
 		storeIns.SetSize(0);
@@ -3656,6 +3964,57 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 
 	if (mCode == IC_STORE)
 		storeIns.Push(this);
+
+	return changed;
+}
+
+bool InterInstruction::RemoveUnusedStaticStoreByteInstructions(InterCodeBasicBlock* block, const GrowingVariableArray& staticVars, NumberSet& requiredVars)
+{
+	bool	changed = false;
+
+	if (mCode == IC_LOAD)
+	{
+		if (mSrc[0].mMemory == IM_INDIRECT)
+		{
+			if (!mSrc[0].mRestricted)
+			{
+				for (int i = 0; i < staticVars.Size(); i++)
+				{
+					if (staticVars[i]->mAliased)
+						requiredVars.AddRange(staticVars[i]->mByteIndex, staticVars[i]->mSize);
+				}
+			}
+		}
+		else if (mSrc[0].mMemory == IM_GLOBAL)
+		{
+			if (mSrc[0].mVarIndex >= 0)
+				requiredVars.AddRange(staticVars[mSrc[0].mVarIndex]->mByteIndex + int(mSrc[0].mIntConst), InterTypeSize[mDst.mType]);
+		}
+	}
+	else if (mCode == IC_STORE)
+	{
+		if (mSrc[1].mMemory == IM_GLOBAL && mSrc[1].mVarIndex >= 0)
+		{
+			if (!requiredVars.RangeClear(staticVars[mSrc[1].mVarIndex]->mByteIndex + int(mSrc[1].mIntConst), InterTypeSize[mSrc[0].mType]))
+			{
+				requiredVars.SubRange(staticVars[mSrc[1].mVarIndex]->mByteIndex + int(mSrc[1].mIntConst), InterTypeSize[mSrc[0].mType]);
+			}
+			else if (!mVolatile)
+			{
+				mSrc[0].mTemp = -1;
+				mCode = IC_NONE;
+				changed = true;
+			}
+		}
+	}
+	else if (mCode == IC_COPY || mCode == IC_STRCPY)
+	{
+		requiredVars.Fill();
+	}
+	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_DISPATCH)
+	{
+		requiredVars.Fill();
+	}
 
 	return changed;
 }
@@ -3780,6 +4139,8 @@ void InterInstruction::BuildCollisionTable(NumberSet& liveTemps, NumberSet* coll
 {
 	if (mDst.mTemp >= 0)
 	{
+		// Ensure collision with unused destination register
+		UpdateCollisionSet(liveTemps, collisionSets, mDst.mTemp);
 		//		if (!liveTemps[ttemp]) __asm int 3
 		liveTemps -= mDst.mTemp;
 	}
@@ -3890,6 +4251,13 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 			complexParams += mConst.mVarIndex;
 		break;
 	}
+}
+
+void InterInstruction::UnionRanges(InterInstruction* ins)
+{
+	mDst.mRange.Union(ins->mDst.mRange);
+	for(int i=0; i<mNumOperands; i++)
+		mSrc[i].mRange.Union(ins->mSrc[i].mRange);
 }
 
 void InterInstruction::SimpleLocalToTemp(int vindex, int temp)
@@ -4111,7 +4479,7 @@ bool InterInstruction::ConstantFolding(void)
 }
 
 
-void InterOperand::Disassemble(FILE* file)
+void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 {
 	static char typechars[] = "NBCILFP";
 
@@ -4123,7 +4491,12 @@ void InterOperand::Disassemble(FILE* file)
 			fprintf(file, "R%d(%c)", mTemp, typechars[mType]);
 
 		if (mType == IT_POINTER && mMemory == IM_INDIRECT)
+		{
 			fprintf(file, "+%d", int(mIntConst));
+		}
+
+		if (mRestricted)
+			fprintf(file, "{%d}", mRestricted);
 
 		if (mRange.mMinState >= IntegerValueRange::S_WEAK || mRange.mMaxState >= IntegerValueRange::S_WEAK)
 		{
@@ -4146,7 +4519,42 @@ void InterOperand::Disassemble(FILE* file)
 	}
 	else if (mType == IT_POINTER)
 	{
-		fprintf(file, "V%d+%d", mVarIndex, int(mIntConst));
+		const char* vname = "";
+
+		if (mMemory == IM_LOCAL)
+		{
+			if (!proc->mLocalVars[mVarIndex])
+				vname = "null";
+			else if (!proc->mLocalVars[mVarIndex]->mIdent)
+				vname = "";
+			else
+				vname = proc->mLocalVars[mVarIndex]->mIdent->mString;
+		}
+		else if (mMemory == IM_PROCEDURE)
+		{
+			if (proc->mModule->mProcedures[mVarIndex])
+				vname = proc->mModule->mProcedures[mVarIndex]->mIdent->mString;
+			else if (mLinkerObject && mLinkerObject->mIdent)
+				vname = mLinkerObject->mIdent->mString;
+		}
+		else if (mMemory == IM_GLOBAL)
+		{
+			if (mVarIndex < 0)
+			{
+				if (mLinkerObject && mLinkerObject->mIdent)
+					vname = mLinkerObject->mIdent->mString;
+				else
+					vname = "";
+			}
+			else if (!proc->mModule->mGlobalVars[mVarIndex])
+				vname = "null";
+			else if (!proc->mModule->mGlobalVars[mVarIndex]->mIdent)
+				vname = "";
+			else
+				vname = proc->mModule->mGlobalVars[mVarIndex]->mIdent->mString;
+		}
+
+		fprintf(file, "V(%d '%s')+%d ", mVarIndex, vname, int(mIntConst));
 	}
 	else if (IsIntegerType(mType) || mType == IT_BOOL)
 	{
@@ -4158,7 +4566,7 @@ void InterOperand::Disassemble(FILE* file)
 	}
 }
 
-void InterInstruction::Disassemble(FILE* file)
+void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 {
 	if (this->mCode != IC_NONE)
 	{
@@ -4214,6 +4622,16 @@ void InterInstruction::Disassemble(FILE* file)
 			else
 				fprintf(file, "COPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
+
+		case IC_MALLOC:
+			assert(mNumOperands == 1);
+			fprintf(file, "MALLOC");
+			break;
+		case IC_FREE:
+			assert(mNumOperands == 1);
+			fprintf(file, "FREE");
+			break;
+
 		case IC_STRCPY:
 			fprintf(file, "STRCPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
@@ -4260,6 +4678,9 @@ void InterInstruction::Disassemble(FILE* file)
 		case IC_ASSEMBLER:
 			fprintf(file, "JSR");
 			break;
+		case IC_DISPATCH:
+			fprintf(file, "DISPATCH");
+			break;
 		case IC_RETURN_VALUE:
 			assert(mNumOperands == 1);
 			fprintf(file, "RETV");
@@ -4279,15 +4700,50 @@ void InterInstruction::Disassemble(FILE* file)
 
 		fprintf(file, "\t");
 		if (mDst.mTemp >= 0)
-			mDst.Disassemble(file);
+			mDst.Disassemble(file, proc);
 		fprintf(file, "\t<-\t");
 
 
 		if (this->mCode == IC_CONSTANT)
 		{
 			if (mDst.mType == IT_POINTER)
-			{
-				fprintf(file, "C%c%d(%d:%d)", memchars[mConst.mMemory], mConst.mOperandSize, mConst.mVarIndex, int(mConst.mIntConst));
+			{	
+				const char* vname = "";
+
+				if (mConst.mMemory == IM_LOCAL)
+				{
+					if (mConst.mVarIndex < 0 || !proc->mLocalVars[mConst.mVarIndex])
+						vname = "null";
+					else if (!proc->mLocalVars[mConst.mVarIndex]->mIdent)
+						vname = "";
+					else
+						vname = proc->mLocalVars[mConst.mVarIndex]->mIdent->mString;
+				}
+				else if (mConst.mMemory == IM_PROCEDURE)
+				{
+					if (mConst.mVarIndex >= 0 && proc->mModule->mProcedures[mConst.mVarIndex])
+						vname = proc->mModule->mProcedures[mConst.mVarIndex]->mIdent->mString;
+					else if (mConst.mLinkerObject && mConst.mLinkerObject->mIdent)
+						vname = mConst.mLinkerObject->mIdent->mString;
+				}
+				else if (mConst.mMemory == IM_GLOBAL)
+				{
+					if (mConst.mVarIndex < 0)
+					{
+						if (mConst.mLinkerObject && mConst.mLinkerObject->mIdent)
+							vname = mConst.mLinkerObject->mIdent->mString;
+						else
+							vname = "";
+					}
+					else if (!proc->mModule->mGlobalVars[mConst.mVarIndex])
+						vname = "null";
+					else if (!proc->mModule->mGlobalVars[mConst.mVarIndex]->mIdent)
+						vname = "";
+					else
+						vname = proc->mModule->mGlobalVars[mConst.mVarIndex]->mIdent->mString;
+				}
+
+				fprintf(file, "C%c%d(%d:%d '%s')", memchars[mConst.mMemory], mConst.mOperandSize, mConst.mVarIndex, int(mConst.mIntConst), vname);
 			}
 			else if (mDst.mType == IT_FLOAT)
 				fprintf(file, "CF:%f", mConst.mFloatConst);
@@ -4310,7 +4766,7 @@ void InterInstruction::Disassemble(FILE* file)
 					fprintf(file, ", ");
 				if (mSrc[j].mType != IT_NONE)
 				{
-					mSrc[j].Disassemble(file);
+					mSrc[j].Disassemble(file, proc);
 					first = false;
 				}
 			}
@@ -4336,7 +4792,7 @@ InterCodeBasicBlock::InterCodeBasicBlock(InterCodeProcedure * proc)
 	mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mMergeAValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
 	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange()), 
 	mEntryParamValueRange(IntegerValueRange()), mTrueParamValueRange(IntegerValueRange()), mFalseParamValueRange(IntegerValueRange()), mLocalParamValueRange(IntegerValueRange()),
-	mReverseValueRange(IntegerValueRange()), mEntryBlocks(nullptr), mLoadStoreInstructions(nullptr), mLoopPathBlocks(nullptr), mMemoryValueSize(0), mEntryMemoryValueSize(0)
+	mReverseValueRange(IntegerValueRange()), mLoadStoreInstructions(nullptr), mMemoryValueSize(0), mEntryMemoryValueSize(0)
 {
 	mVisited = false;
 	mInPath = false;
@@ -4361,6 +4817,23 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 	{
 		assert(code->mSrc[1].mType != IT_POINTER);
 	}
+	if (code->mCode == IC_CONSTANT)
+	{
+		assert(code->mDst.mType == code->mConst.mType);
+	}
+	if (code->mCode == IC_CONSTANT && code->mConst.mType == IT_POINTER && code->mConst.mMemory == IM_GLOBAL && code->mConst.mVarIndex >= 0)
+	{
+		assert(code->mConst.mVarIndex < mProc->mModule->mGlobalVars.Size());
+		assert(mProc->mModule->mGlobalVars[code->mConst.mVarIndex]);
+	}
+	if (code->mCode == IC_STORE)
+	{
+		assert(code->mSrc[1].mOperandSize > 0);
+	}
+	if (code->mDst.mTemp >= 0)
+		assert(code->mDst.mType != IT_NONE);
+	for (int i = 0; i < code->mNumOperands; i++)
+		assert(code->mSrc[i].mType != IT_NONE);
 
 	assert(!(code->mInUse));
 	code->mInUse = true;
@@ -4491,14 +4964,32 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 	if (mInPath)
 		mLoopHead = true;
 
+	assert(mIndex != 0 || !mLoopHead);
+
 	if (!mVisited)
 	{
 		mVisited = true;
 		mInPath = true;
 
 		// Limit number of contractions
-		for (int i=0; i<100; i++)
+		for (int i = 0; i < 100; i++)
 		{
+			int sz = mInstructions.Size();
+
+			if (mFalseJump && sz > 0 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 1]->mSrc[0].mType == IT_BOOL && mInstructions[sz - 1]->mSrc[0].mTemp < 0)
+			{
+				mInstructions[sz - 1]->mCode = IC_JUMP;
+				mInstructions[sz - 1]->mNumOperands = 0;
+				if (!mInstructions[sz - 1]->mSrc[0].mIntConst)
+				{
+					mTrueJump->mNumEntries--;
+					mTrueJump = mFalseJump;
+				}
+				else
+					mFalseJump->mNumEntries--;
+				mFalseJump = nullptr;
+			}
+
 			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP && !mTrueJump->mLoopHead && mTrueJump->mTraceIndex != mIndex)
 			{
 				mTrueJump->mTraceIndex = mIndex;
@@ -4540,6 +5031,27 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 				mFalseJump = mFalseJump->mFalseJump;
 				if (mFalseJump)
 					mFalseJump->mNumEntries++;
+			}
+			else if (
+				compact && 
+				mFalseJump &&
+				mInstructions.Size() > 0 &&
+				mInstructions.Last()->mCode == IC_BRANCH &&
+				mInstructions.Last()->mSrc[0].mTemp < 0)
+			{
+				int	ns = mInstructions.Size();
+
+				if (mInstructions.Last()->mSrc[0].mIntConst)
+					mFalseJump->mNumEntries--;
+				else
+				{
+					mTrueJump->mNumEntries--;
+					mTrueJump = mFalseJump;
+				}
+
+				mFalseJump = nullptr;
+				mInstructions[ns - 1]->mCode = IC_JUMP;
+				mInstructions[ns - 1]->mNumOperands = 0;
 			}
 			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1 && !mLoopHead) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
 			{
@@ -4613,7 +5125,7 @@ bool InterCodeBasicBlock::MergeSameConditionTraces(void)
 					if (mb1 && mb1->mNumEntries == 2 && mb0 != mb1)
 					{
 						int	tc = mInstructions.Last()->mSrc[0].mTemp;
-						if (tc == mb0->mInstructions.Last()->mSrc[0].mTemp)
+						if (tc >= 0 && tc == mb0->mInstructions.Last()->mSrc[0].mTemp)
 						{
 							if (!mTrueJump->mLocalModifiedTemps[tc] && !mFalseJump->mLocalModifiedTemps[tc] && !mb0->mLocalModifiedTemps[tc])
 							{
@@ -4790,6 +5302,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				break;
 			}
 		}
+
 		break;
 
 	case IC_LOAD:
@@ -4816,6 +5329,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				break;
 			}
 		}
+		
 		OptimizeAddress(ins, tvalue, 1);
 		break;
 	case IC_COPY:
@@ -4962,12 +5476,11 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		break;
 
 	case IC_SELECT:
-		for(int i=0; i<3; i++)
+		for (int i = 0; i < 3; i++)
 		{
-			if (ins->mSrc[i].mTemp >= 0 && tvalue[ins->mSrc[i].mTemp] && tvalue[ins->mSrc[i].mTemp]->mCode == IC_CONSTANT)
+			if (ins->mSrc[i].mTemp >= 0 && tvalue[ins->mSrc[i].mTemp] && tvalue[ins->mSrc[i].mTemp]->mCode == IC_CONSTANT && ins->mSrc[i].mType != IT_POINTER)
 			{
 				ins->mSrc[i] = tvalue[ins->mSrc[i].mTemp]->mConst;
-				ins->mSrc[i].mType = ins->mDst.mType;
 				ins->mSrc[i].mTemp = -1;
 			}
 		}
@@ -5393,6 +5906,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 		{
 			ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+			ins->mSrc[0].mMemory = tvalue[ins->mSrc[0].mTemp]->mConst.mMemory;
 			ins->mSrc[0].mTemp = -1;
 		}
 		break;
@@ -5565,6 +6079,8 @@ void  InterCodeBasicBlock::CollectConstTemps(GrowingInstructionPtrArray& ctemps,
 			{
 				if (mInstructions[i]->mCode == IC_CONSTANT)
 					ltemps[ttemp] = mInstructions[i];
+				else
+					ltemps[ttemp] = nullptr;
 
 				if (assignedTemps[ttemp])
 					ctemps[ttemp] = nullptr;
@@ -5831,7 +6347,11 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 						constFalse = true;
 					break;
 				case IA_CMPLU:
-					if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
+					if (cins->mSrc[0].mTemp < 0 && cins->mSrc[0].mIntConst == 0)
+					{
+						constFalse = true;
+					}
+					else if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
 					{
 						if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
 							constTrue = true;
@@ -5861,7 +6381,15 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 						constFalse = true;
 					break;
 				case IA_CMPGU:
-					if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
+					if (cins->mSrc[1].mTemp < 0 && cins->mSrc[1].mIntConst == 0)
+					{
+						constFalse = true;
+					}
+					else if (cins->mSrc[1].IsUnsigned() && cins->mSrc[1].mRange.mMaxValue == 0)
+					{
+						constFalse = true;
+					}
+					else if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
 					{
 						if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
 							constTrue = true;
@@ -6082,7 +6610,10 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 			else
 			{
 				for (int i = 0; i < mLocalValueRange.Size(); i++)
-					mLocalValueRange[i].Merge(range[i], mLoopHead, initial);
+				{
+					if (this != from || IsTempModified(i))
+						mLocalValueRange[i].Merge(range[i], mLoopHead, initial);
+				}
 				for (int i = 0; i < mLocalParamValueRange.Size(); i++)
 					mLocalParamValueRange[i].Merge(prange[i], mLoopHead, initial);
 			}
@@ -6118,8 +6649,15 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 
 		if (changed)
 		{
-			mEntryValueRange = mLocalValueRange;
-			mEntryParamValueRange = mLocalParamValueRange;
+			for (int i = 0; i < mLocalValueRange.Size(); i++)
+				mEntryValueRange[i].Expand(mLocalValueRange[i]);
+			for (int i = 0; i < mLocalParamValueRange.Size(); i++)
+				mEntryParamValueRange[i].Expand(mLocalParamValueRange[i]);
+			mLocalValueRange = mEntryValueRange;
+			mLocalParamValueRange = mEntryParamValueRange;
+
+//			mEntryValueRange = mLocalValueRange;
+//			mEntryParamValueRange = mLocalParamValueRange;
 
 			UpdateLocalIntegerRangeSets(localVars, paramVars);
 
@@ -6169,6 +6707,70 @@ static int64 BuildLowerBitsMask(int64 v)
 	v |= v >> 2;
 	v |= v >> 1;
 	return v;
+}
+
+void InterCodeBasicBlock::UnionIntegerRanges(const InterCodeBasicBlock* block)
+{
+	if (mEntryValueRange.Size() > 0)
+	{
+		if (block->mEntryValueRange.Size())
+		{
+			assert(mEntryValueRange.Size() == block->mEntryValueRange.Size());
+
+			for (int i = 0; i < mEntryValueRange.Size(); i++)
+				mEntryValueRange[i].Union(block->mEntryValueRange[i]);
+		}
+		else
+			mEntryValueRange.SetSize(0);
+	}
+		
+	for (int i = 0; i < mInstructions.Size(); i++)
+	{
+		assert(mInstructions[i]->IsEqual(block->mInstructions[i]));
+		mInstructions[i]->UnionRanges(block->mInstructions[i]);
+	}
+
+}
+
+void InterCodeBasicBlock::MarkIntegerRangeBoundUp(int temp, int64 value, GrowingIntegerValueRangeArray& range)
+{
+	range[temp].SetLimit(value, value);
+
+	for (int i = mInstructions.Size() - 1; i >= 0; i--)
+	{
+		InterInstruction* ins(mInstructions[i]);
+
+		if (ins->mDst.mTemp == temp)
+		{
+			if (ins->mCode == IC_BINARY_OPERATOR && ins->mSrc[1].mTemp == temp && ins->mSrc[0].mTemp < 0)
+			{
+				switch (ins->mOperator)
+				{
+				case IA_ADD:
+					value -= ins->mSrc[0].mIntConst;
+					break;
+				case IA_SUB:
+					value += ins->mSrc[0].mIntConst;
+					break;
+				default:
+					return;
+				}
+			}
+			else if (ins->mCode == IC_LOAD_TEMPORARY)
+			{
+				if (!IsTempModifiedInRange(i + 1, mInstructions.Size(), ins->mSrc[0].mTemp))
+					range[ins->mSrc[0].mTemp].SetLimit(value, value);
+				temp = ins->mSrc[0].mTemp;
+			}
+			else
+				return;
+		}
+		else if (ins->mCode == IC_LOAD_TEMPORARY && ins->mSrc[0].mTemp == temp)
+		{
+			if (!IsTempModifiedInRange(i + 1, mInstructions.Size(), ins->mDst.mTemp))
+				range[ins->mDst.mTemp].SetLimit(value, value);
+		}
+	}
 }
 
 void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
@@ -6246,7 +6848,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			{
 				if (ins->mSrc[i].mTemp >= 0)
 				{
-					ins->mSrc[i].mRange = mLocalValueRange[ins->mSrc[i].mTemp];
+					ins->mSrc[i].mRange.MergeUnknown(mLocalValueRange[ins->mSrc[i].mTemp]);
 #if 1
 					if (ins->mCode != IC_ASSEMBLER&& ins->mSrc[i].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMinValue == ins->mSrc[i].mRange.mMaxValue)
 					{
@@ -6310,12 +6912,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					{
 						if (ins->mDst.mType == IT_INT8)
 						{
-							bool	isUnsigned = false;
-							if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
-								mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
-								isUnsigned = true;
+							bool	isUnsigned = false, isSigned = false;
+							if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
+							{
+								if (mInstructions[i + 1]->mOperator == IA_EXT8TO16U)
+									isUnsigned = true;
+								else if (mInstructions[i + 1]->mOperator == IA_EXT8TO16S)
+									isSigned = true;
+							}
 
-							int	mi = 0, ma = 0;
+							int	mi = 255, ma = 0;
 
 							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxState == IntegerValueRange::S_BOUND &&
 								vr.mMinValue >= -128 && vr.mMaxValue <= 127)
@@ -6334,8 +6940,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 								for (int j = 0; j < lo->mSize; j++)
 								{
 									int v = lo->mData[j];
-									if (!isUnsigned && (v & 0x80))
+									if (isUnsigned)
+										;
+									else if (isSigned)
+										v = (int8)v;
+									else if (v & 0x80)
 										mi = -128;
+
+									if (v < mi)
+										mi = v;
 									if (v > ma)
 										ma = v;
 								}
@@ -6384,6 +6997,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				switch (ins->mOperator)
 				{
 				case IA_EXT8TO16S:
+				case IA_EXT8TO32S:
 					vr = ins->mSrc[0].mRange;
 					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < -128 || vr.mMaxValue > 127)
 					{
@@ -6397,17 +7011,56 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					}
 					break;
 
-				case IA_EXT8TO16U:
+				case IA_EXT16TO32S:
 					vr = ins->mSrc[0].mRange;
-					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255 || vr.mMinValue < 0 ||  
-						vr.mMinState != IntegerValueRange::S_BOUND)
+					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < -65536 || vr.mMaxValue > 65535)
+					{
+						vr.mMaxState = IntegerValueRange::S_BOUND;
+						vr.mMaxValue = 65535;
+					}
+					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < -65536 || vr.mMinValue > 65535)
+					{
+						vr.mMinState = IntegerValueRange::S_BOUND;
+						vr.mMinValue = -65536;
+					}
+					break;
+
+				case IA_EXT8TO16U:
+				case IA_EXT8TO32U:
+					vr = ins->mSrc[0].mRange;
+					if (vr.mMaxState != IntegerValueRange::S_UNKNOWN && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue > 0)
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
 						vr.mMaxValue = 255;
+					}
+					else
+					{
+						if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 255 || vr.mMinValue < 0 ||
+							vr.mMinState != IntegerValueRange::S_BOUND)
+						{
+							vr.mMaxState = IntegerValueRange::S_BOUND;
+							vr.mMaxValue = 255;
+							vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMinValue = 0;
+						}
+						if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < 0 || vr.mMinValue > 255)
+						{
+							vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMinValue = 0;
+						}
+					}
+					break;
+				case IA_EXT16TO32U:
+					vr = ins->mSrc[0].mRange;
+					if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMaxValue < 0 || vr.mMaxValue > 65535 || vr.mMinValue < 0 ||
+						vr.mMinState != IntegerValueRange::S_BOUND)
+					{
+						vr.mMaxState = IntegerValueRange::S_BOUND;
+						vr.mMaxValue = 65535;
 						vr.mMinState = IntegerValueRange::S_BOUND;
 						vr.mMinValue = 0;
 					}
-					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < 0 || vr.mMinValue > 255)
+					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < 0 || vr.mMinValue > 65535)
 					{
 						vr.mMinState = IntegerValueRange::S_BOUND;
 						vr.mMinValue = 0;
@@ -6497,16 +7150,21 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					else if (ins->mSrc[1].mTemp < 0)
 					{
 						vr = mLocalValueRange[ins->mSrc[0].mTemp];
+
+						IntegerValueRange::State	s = vr.mMinState;
+						vr.mMinState = vr.mMaxState;
+						vr.mMaxState = s;
+
 						int64	maxv = vr.mMaxValue, minv = vr.mMinValue;
 
-						if (vr.mMaxState == IntegerValueRange::S_WEAK)
-						{
-							if (vr.mMinState == IntegerValueRange::S_WEAK)
-								vr.mMaxState = IntegerValueRange::S_UNBOUND;
-							vr.mMinState = IntegerValueRange::S_UNBOUND;
-						}
 						if (vr.mMinState == IntegerValueRange::S_WEAK)
+						{
+							if (vr.mMaxState == IntegerValueRange::S_WEAK)
+								vr.mMinState = IntegerValueRange::S_UNBOUND;
 							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
+						if (vr.mMaxState == IntegerValueRange::S_WEAK)
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
 
 						vr.mMaxValue = ins->mSrc[1].mIntConst - minv;
 						vr.mMinValue = ins->mSrc[1].mIntConst - maxv;
@@ -6817,6 +7475,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 						vr.LimitMax(ins->mSrc[0].mIntConst - 1);
 					else if (ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
 						vr.LimitMax(ins->mSrc[0].mRange.mMaxValue - 1);
+					else if (ins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND)
+						vr.LimitMax(ins->mSrc[1].mRange.mMaxValue);
+					else
+						vr.mMaxState = IntegerValueRange::S_UNBOUND;
 					break;
 #endif
 				default:
@@ -6840,7 +7502,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				vr.LimitMaxBound(65535);
 			}
 #endif
-			ins->mDst.mRange = vr;
+			ins->mDst.mRange.MergeUnknown(vr);
 #if 1
 			if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxValue == vr.mMinValue)
 			{
@@ -6930,11 +7592,36 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				case IA_SHL:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
 					{
-						if (vr.mMinState == IntegerValueRange::S_BOUND)
-							ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
-						if (vr.mMaxState == IntegerValueRange::S_BOUND)
-							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
-						mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+						if (ins->mDst.mType == IT_INT16)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= -0x4000 &&
+								vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue < 0x4000)
+							{
+								ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
+								ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
+								mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+							}
+						}
+						else if (ins->mDst.mType == IT_INT8)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= -0x40 &&
+								vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue < 0x40)
+							{
+								ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
+								ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
+								mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+							}
+						}
+						else if (ins->mDst.mType == IT_INT32)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= -0x40000000 &&
+								vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue < 0x40000000)
+							{
+								ins->mSrc[1].mRange.LimitMin(vr.mMinValue >> ins->mSrc[0].mIntConst);
+								ins->mSrc[1].mRange.LimitMax(vr.mMaxValue >> ins->mSrc[0].mIntConst);
+								mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
+							}
+						}
 					}
 					break;
 				case IA_SUB:
@@ -7076,34 +7763,46 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPEQ:
 				if (s0 < 0)
 				{
+					MarkIntegerRangeBoundUp(s1, mInstructions[sz - 2]->mSrc[0].mIntConst, mTrueValueRange);
+#if 0
 					mTrueValueRange[s1].mMinState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s1].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
 					mTrueValueRange[s1].mMaxState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s1].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+#endif
 				}
 				else if (s1 < 0)
 				{
+					MarkIntegerRangeBoundUp(s0, mInstructions[sz - 2]->mSrc[1].mIntConst, mTrueValueRange);
+#if 0
 					mTrueValueRange[s0].mMinState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s0].mMinValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
 					mTrueValueRange[s0].mMaxState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s0].mMaxValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
+#endif
 				}
 				break;
 
 			case IA_CMPNE:
 				if (s0 < 0)
 				{
+					MarkIntegerRangeBoundUp(s1, mInstructions[sz - 2]->mSrc[0].mIntConst, mFalseValueRange);
+#if 0
 					mFalseValueRange[s1].mMinState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s1].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
 					mFalseValueRange[s1].mMaxState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s1].mMaxValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
+#endif
 				}
 				else if (s1 < 0)
 				{
+					MarkIntegerRangeBoundUp(s0, mInstructions[sz - 2]->mSrc[1].mIntConst, mFalseValueRange);
+#if 0
 					mFalseValueRange[s0].mMinState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s0].mMinValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
 					mFalseValueRange[s0].mMaxState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s0].mMaxValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
+#endif
 				}
 				break;
 #endif
@@ -7145,16 +7844,37 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				else
 				{
 					if (mLocalValueRange[s0].mMaxState == IntegerValueRange::S_BOUND)
-						mTrueValueRange[s1].LimitMax(mLocalValueRange[s0].mMaxValue - 1);
+						mTrueValueRange[s1].LimitMaxWeak(mLocalValueRange[s0].mMaxValue - 1);
 					if (mLocalValueRange[s0].mMinState == IntegerValueRange::S_BOUND)
-						mFalseValueRange[s1].LimitMin(mLocalValueRange[s0].mMinValue);
+						mFalseValueRange[s1].LimitMinWeak(mLocalValueRange[s0].mMinValue);
 				}
 				break;
 			case IA_CMPLES:
 				if (s0 < 0)
 				{
 					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+					mTrueValueRange[s1].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
 					mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
+					mFalseValueRange[s1].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
+				}
+				else if (s1 < 0)
+				{
+					mTrueValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst);
+					mTrueValueRange[s0].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
+					mFalseValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst - 1);
+					mFalseValueRange[s0].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
+				}
+				else
+				{
+					if (mLocalValueRange[s0].mMaxState == IntegerValueRange::S_BOUND)
+						mFalseValueRange[s1].LimitMin(mLocalValueRange[s0].mMinValue + 1);
+					if (mLocalValueRange[s0].mMinState == IntegerValueRange::S_BOUND)
+						mTrueValueRange[s1].LimitMax(mLocalValueRange[s0].mMaxValue);
+
+					if (mLocalValueRange[s1].mMaxState == IntegerValueRange::S_BOUND)
+						mFalseValueRange[s0].LimitMax(mLocalValueRange[s1].mMaxValue - 1);
+					if (mLocalValueRange[s1].mMinState == IntegerValueRange::S_BOUND)
+						mTrueValueRange[s0].LimitMin(mLocalValueRange[s1].mMinValue);
 				}
 				break;
 			case IA_CMPGS:
@@ -7201,7 +7921,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					if (s0 < 0)
 					{
 						mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
-						mTrueValueRange[s1].LimitMin(0);
+						mTrueValueRange[s1].LimitMinWeak(0);
 
 						if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
 						{
@@ -7211,7 +7931,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					else if (mInstructions[sz - 2]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
 					{
 						mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue - 1);
-						mTrueValueRange[s1].LimitMin(0);
+						mTrueValueRange[s1].LimitMinWeak(0);
 
 						if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
 						{
@@ -7287,6 +8007,26 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 
 
+void InterCodeBasicBlock::PruneUnusedIntegerRangeSets(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mEntryValueRange.Size() > 0 && mEntryRequiredTemps.Size())
+		{
+			for (int i = 0; i < mEntryValueRange.Size(); i++)
+			{
+				if (!mEntryRequiredTemps[i])
+					mEntryValueRange[i].Reset();
+			}
+		}
+
+		if (mTrueJump) mTrueJump->PruneUnusedIntegerRangeSets();
+		if (mFalseJump) mFalseJump->PruneUnusedIntegerRangeSets();
+	}
+}
+
 void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
 {
 	if (!mVisited)
@@ -7308,21 +8048,16 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVar
 		mLocalParamValueRange.SetSize(paramVars.Size(), false);
 
 		for (int i = 0; i < mEntryValueRange.Size(); i++)
-		{
-			IntegerValueRange& vr(mEntryValueRange[i]);
-			if (vr.mMinState == IntegerValueRange::S_UNBOUND)
-				vr.mMinState = IntegerValueRange::S_UNKNOWN;
-			if (vr.mMaxState == IntegerValueRange::S_UNBOUND)
-				vr.mMaxState = IntegerValueRange::S_UNKNOWN;
-		}
+			mEntryValueRange[i].Restart();
 
 		for (int i = 0; i < mEntryParamValueRange.Size(); i++)
+			mEntryParamValueRange[i].Restart();
+
+		for (int i = 0; i < mInstructions.Size(); i++)
 		{
-			IntegerValueRange& vr(mEntryParamValueRange[i]);
-			if (vr.mMinState == IntegerValueRange::S_UNBOUND)
-				vr.mMinState = IntegerValueRange::S_UNKNOWN;
-			if (vr.mMaxState == IntegerValueRange::S_UNBOUND)
-				vr.mMaxState = IntegerValueRange::S_UNKNOWN;
+			mInstructions[i]->mDst.mRange.Restart();
+			for (int j = 0; j < mInstructions[i]->mNumOperands; j++)
+				mInstructions[i]->mSrc[j].mRange.Restart();
 		}
 
 		UpdateLocalIntegerRangeSets(localVars, paramVars);
@@ -7365,8 +8100,8 @@ void InterCodeBasicBlock::BuildConstTempSets(void)
 	{
 		mVisited = true;
 
-		mEntryConstTemp = NumberSet(mEntryRequiredTemps.Size());
-		mExitConstTemp = NumberSet(mEntryRequiredTemps.Size());
+		mEntryConstTemp.Reset(mEntryRequiredTemps.Size());
+		mExitConstTemp.Reset(mEntryRequiredTemps.Size());
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
@@ -7571,6 +8306,8 @@ static bool SameSingleAssignment(const GrowingInstructionPtrArray& tunified, con
 			{
 				return false;
 			}
+			else if (!tunified[ins->mSrc[i].mTemp])
+				return false;
 			else if (tunified[ins->mSrc[i].mTemp] != tunified[cins->mSrc[i].mTemp])
 				return false;
 		}
@@ -7696,11 +8433,13 @@ bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigne
 					bool	valid = j == ins->mNumOperands;
 					if (valid)
 					{
-						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_ASSEMBLER)
+						if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_ASSEMBLER || ins->mCode == IC_MALLOC || ins->mCode == IC_FREE)
 							valid = false;
 						else if (ins->mCode == IC_LOAD)
 						{
-							if (ins->mSrc[0].mMemory == paramMemory)
+							if (ins->mVolatile)
+								valid = false;
+							else if (ins->mSrc[0].mMemory == paramMemory)
 							{
 								if (modifiedParams[ins->mSrc[0].mVarIndex])
 									valid = false;
@@ -7789,7 +8528,7 @@ void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwa
 			}
 			else if (mLoopPrefix && checkloops)
 			{
-				GrowingArray<InterCodeBasicBlock*> body(nullptr);
+				ExpandingArray<InterCodeBasicBlock*> body;
 				body.Push(this);
 				bool	innerLoop = true;
 
@@ -7797,7 +8536,7 @@ void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwa
 				{
 					if (mEntryBlocks[i] != mLoopPrefix)
 					{
-						if (!mEntryBlocks[i]->CollectLoopBody(this, body))
+						if (!mEntryBlocks[i]->CollectLoopBodyRecursive(this, body))
 							innerLoop = false;
 					}
 				}
@@ -7855,18 +8594,20 @@ bool InterCodeBasicBlock::BuildGlobalRequiredTempSet(NumberSet& fromRequiredTemp
 	{
 		mVisited = true;
 
-		NumberSet	newRequiredTemps(mExitRequiredTemps);
+		mNewRequiredTemps = mExitRequiredTemps;
 
-		if (mTrueJump && mTrueJump->BuildGlobalRequiredTempSet(newRequiredTemps)) revisit = true;
-		if (mFalseJump && mFalseJump->BuildGlobalRequiredTempSet(newRequiredTemps)) revisit = true;
+//		NumberSet	newRequiredTemps(mExitRequiredTemps);
 
-		if (!(newRequiredTemps <= mExitRequiredTemps))
+		if (mTrueJump && mTrueJump->BuildGlobalRequiredTempSet(mNewRequiredTemps)) revisit = true;
+		if (mFalseJump && mFalseJump->BuildGlobalRequiredTempSet(mNewRequiredTemps)) revisit = true;
+
+		if (!(mNewRequiredTemps <= mExitRequiredTemps))
 		{
 			revisit = true;
 
-			mExitRequiredTemps = newRequiredTemps;
-			newRequiredTemps -= mLocalProvidedTemps;
-			mEntryRequiredTemps |= newRequiredTemps;
+			mExitRequiredTemps = mNewRequiredTemps;
+			mNewRequiredTemps -= mLocalProvidedTemps;
+			mEntryRequiredTemps |= mNewRequiredTemps;
 		}
 
 	}
@@ -7913,6 +8654,44 @@ bool InterCodeBasicBlock::RemoveUnusedResultInstructions(void)
 	return changed;
 }
 
+bool InterCodeBasicBlock::RemoveUnusedLocalStoreInstructions(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+		if (mInstructions.Size() > 0 && mInstructions.Last()->mCode == IC_RETURN)
+		{
+			int i = mInstructions.Size();
+			while (i > 0)
+			{
+				i--;
+				InterInstruction* ins = mInstructions[i];
+				if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_LOCAL)
+				{
+					ins->mCode = IC_NONE;
+					ins->mNumOperands = 0;
+					changed = true;
+				}
+				else if (ins->mCode == IC_LOAD)
+					break;
+				else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+					break;
+				else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+					break;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->RemoveUnusedLocalStoreInstructions())
+			changed = true;
+		if (mFalseJump && mFalseJump->RemoveUnusedLocalStoreInstructions())
+			changed = true;
+	}
+
+	return false;
+}
+
 void InterCodeBasicBlock::BuildCallerSaveTempSet(NumberSet& callerSaveTemps)
 {
 	if (!mVisited)
@@ -7939,13 +8718,13 @@ void InterCodeBasicBlock::BuildStaticVariableSet(const GrowingVariableArray& sta
 	{
 		mVisited = true;
 
-		mLocalRequiredStatics = NumberSet(staticVars.Size());
-		mLocalProvidedStatics = NumberSet(staticVars.Size());
+		mLocalRequiredStatics.Reset(staticVars.Size());
+		mLocalProvidedStatics.Reset(staticVars.Size());
 
-		mEntryRequiredStatics = NumberSet(staticVars.Size());
-		mEntryProvidedStatics = NumberSet(staticVars.Size());
-		mExitRequiredStatics = NumberSet(staticVars.Size());
-		mExitProvidedStatics = NumberSet(staticVars.Size());
+		mEntryRequiredStatics.Reset(staticVars.Size());
+		mEntryProvidedStatics.Reset(staticVars.Size());
+		mExitRequiredStatics.Reset(staticVars.Size());
+		mExitProvidedStatics.Reset(staticVars.Size());
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 			mInstructions[i]->FilterStaticVarsUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics);
@@ -8035,6 +8814,67 @@ bool InterCodeBasicBlock::RemoveUnusedStaticStoreInstructions(const GrowingVaria
 	return changed;
 }
 
+
+void InterCodeBasicBlock::BuildStaticVariableByteSet(const GrowingVariableArray& staticVars, int bsize)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		mLocalRequiredStatics.Reset(bsize);
+		mLocalProvidedStatics.Reset(bsize);
+
+		mEntryRequiredStatics.Reset(bsize);
+		mEntryProvidedStatics.Reset(bsize);
+		mExitRequiredStatics.Reset(bsize);
+		mExitProvidedStatics.Reset(bsize);
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+			mInstructions[i]->FilterStaticVarsByteUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics);
+
+		mEntryRequiredStatics = mLocalRequiredStatics;
+		mExitProvidedStatics = mLocalProvidedStatics;
+
+		if (mTrueJump) mTrueJump->BuildStaticVariableByteSet(staticVars, bsize);
+		if (mFalseJump) mFalseJump->BuildStaticVariableByteSet(staticVars, bsize);
+	}
+}
+
+bool InterCodeBasicBlock::RemoveUnusedStaticStoreByteInstructions(const GrowingVariableArray& staticVars, int bsize)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		NumberSet						requiredVars(mExitRequiredStatics);
+
+		int i;
+
+		for (i = mInstructions.Size() - 1; i >= 0; i--)
+		{
+			if (mInstructions[i]->RemoveUnusedStaticStoreByteInstructions(this, staticVars, requiredVars))
+				changed = true;
+		}
+
+		if (mTrueJump)
+		{
+			if (mTrueJump->RemoveUnusedStaticStoreByteInstructions(staticVars, bsize))
+				changed = true;
+		}
+		if (mFalseJump)
+		{
+			if (mFalseJump->RemoveUnusedStaticStoreByteInstructions(staticVars, bsize))
+				changed = true;
+		}
+	}
+
+	return changed;
+}
+
+
+
 void InterCodeBasicBlock::BuildLocalVariableSets(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory)
 {
 	int i;
@@ -8043,21 +8883,21 @@ void InterCodeBasicBlock::BuildLocalVariableSets(const GrowingVariableArray& loc
 	{
 		mVisited = true;
 
-		mLocalRequiredVars = NumberSet(localVars.Size());
-		mLocalProvidedVars = NumberSet(localVars.Size());
+		mLocalRequiredVars.Reset(localVars.Size());
+		mLocalProvidedVars.Reset(localVars.Size());
 
-		mEntryRequiredVars = NumberSet(localVars.Size());
-		mEntryProvidedVars = NumberSet(localVars.Size());
-		mExitRequiredVars = NumberSet(localVars.Size());
-		mExitProvidedVars = NumberSet(localVars.Size());
+		mEntryRequiredVars.Reset(localVars.Size());
+		mEntryProvidedVars.Reset(localVars.Size());
+		mExitRequiredVars.Reset(localVars.Size());
+		mExitProvidedVars.Reset(localVars.Size());
 
-		mLocalRequiredParams = NumberSet(params.Size());
-		mLocalProvidedParams = NumberSet(params.Size());
+		mLocalRequiredParams.Reset(params.Size());
+		mLocalProvidedParams.Reset(params.Size());
 
-		mEntryRequiredParams = NumberSet(params.Size());
-		mEntryProvidedParams = NumberSet(params.Size());
-		mExitRequiredParams = NumberSet(params.Size());
-		mExitProvidedParams = NumberSet(params.Size());
+		mEntryRequiredParams.Reset(params.Size());
+		mEntryProvidedParams.Reset(params.Size());
+		mExitRequiredParams.Reset(params.Size());
+		mExitProvidedParams.Reset(params.Size());
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
@@ -8161,6 +9001,72 @@ bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArr
 	return changed;
 
 }
+
+bool InterCodeBasicBlock::RemoveUnusedIndirectStoreInstructions(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		ExpandingArray<InterInstructionPtr>		stores;
+
+		for (int i = mInstructions.Size() - 1; i >= 0; i--)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			if (ins->mCode == IC_STORE)
+			{
+				int j = 0;
+				while (j < stores.Size() && !SameMemAndSize(ins->mSrc[1], stores[j]->mSrc[1]))
+					j++;
+
+				if (j < stores.Size())
+				{
+					if (ins->mVolatile)
+						stores[j] = ins;
+					else
+					{
+						ins->mCode = IC_NONE;
+						ins->mNumOperands = 0;
+					}
+				}
+				else
+				{
+					j = 0;
+					while (j < stores.Size())
+					{
+						if (CollidingMem(ins, stores[j]))
+							stores.Remove(j);
+						else
+							j++;
+					}
+					stores.Push(ins);
+				}
+			}
+			else
+			{
+				int j = 0;
+				while (j < stores.Size())
+				{
+					if (CollidingMem(ins, stores[j]) || ins->mDst.mTemp >= 0 && ins->mDst.mTemp == stores[j]->mSrc[1].mTemp)
+						stores.Remove(j);
+					else
+						j++;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->RemoveUnusedIndirectStoreInstructions())
+			changed = true;
+		if (mFalseJump && mFalseJump->RemoveUnusedIndirectStoreInstructions())
+			changed = true;
+	}
+
+	return changed;
+}
+
 
 bool InterCodeBasicBlock::EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue)
 {
@@ -8502,7 +9408,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						{
 							InterInstruction* ains = ltvalue[pins->mSrc[0].mTemp];
 
-							if (ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_ADD && ains->mSrc[0].mTemp < 0)
+							if (ains->mCode == IC_BINARY_OPERATOR && (ains->mOperator == IA_ADD || ains->mOperator == IA_SUB) && ains->mSrc[0].mTemp < 0)
 							{
 								if (spareTemps + 2 >= ltvalue.Size())
 									return true;
@@ -8525,7 +9431,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mDst.mRange = ins->mDst.mRange;
 								mInstructions.Insert(i + 1, nins);
 
-								ins->mOperator = IA_ADD;
+								ins->mOperator = ains->mOperator;
 								ins->mSrc[0] = ains->mSrc[0];
 								ins->mSrc[0].mIntConst <<= nins->mSrc[0].mIntConst;
 								ins->mSrc[1] = nins->mDst;
@@ -9470,7 +10376,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							if (ins->mCode == IC_LOAD)
 							{
 								j = 0;
-								while (j < tvalue.Size() && !SameMem(ins->mSrc[0], tvalue[j]))
+								while (j < tvalue.Size() && !SameMemAndSize(ins->mSrc[0], tvalue[j]))
 									j++;
 								if (j < tvalue.Size())
 								{
@@ -9483,7 +10389,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							else if (ins->mCode == IC_STORE)
 							{
 								j = 0;
-								while (j < tvalue.Size() && !SameMem(ins->mSrc[1], tvalue[j]))
+								while (j < tvalue.Size() && !SameMemAndSize(ins->mSrc[1], tvalue[j]))
 									j++;
 								if (j < tvalue.Size())
 								{
@@ -9548,7 +10454,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				if (!ins->mVolatile)
 				{
 					int	j = 0;
-					while (j < mLoadStoreInstructions.Size() && !SameMem(ins->mSrc[0], mLoadStoreInstructions[j]))
+					while (j < mLoadStoreInstructions.Size() && !SameMemAndSize(ins->mSrc[0], mLoadStoreInstructions[j]))
 						j++;
 					if (j < mLoadStoreInstructions.Size())
 					{
@@ -9557,6 +10463,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 						{
 							ins->mCode = IC_LOAD_TEMPORARY;
 							ins->mSrc[0] = lins->mDst;
+							ins->mSrc[0].mRestricted = ins->mDst.mRestricted = lins->mDst.mRestricted;							
 							ins->mNumOperands = 1;
 							assert(ins->mSrc[0].mTemp >= 0);
 							changed = true;
@@ -9574,6 +10481,8 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							{
 								ins->mCode = IC_LOAD_TEMPORARY;
 								ins->mSrc[0] = lins->mSrc[0];
+								ins->mSrc[0].mRestricted = ins->mDst.mRestricted = lins->mSrc[0].mRestricted;
+								ins->mDst.mRange.Limit(ins->mSrc[0].mRange);
 								ins->mNumOperands = 1;
 								assert(ins->mSrc[0].mTemp >= 0);
 								changed = true;
@@ -9588,7 +10497,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 			{
 				int	j = 0, k = 0;
 
-				while (j < mLoadStoreInstructions.Size() && !SameMem(ins->mSrc[1], mLoadStoreInstructions[j]))
+				while (j < mLoadStoreInstructions.Size() && !SameMemAndSize(ins->mSrc[1], mLoadStoreInstructions[j]))
 					j++;
 
 				if (!ins->mVolatile && j < mLoadStoreInstructions.Size() && mLoadStoreInstructions[j]->mCode == IC_LOAD && ins->mSrc[0].mTemp == mLoadStoreInstructions[j]->mDst.mTemp)
@@ -9636,6 +10545,8 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					assert(lins->mDst.mTemp >= 0);
 					ins->mCode = IC_LOAD_TEMPORARY;
 					ins->mSrc[0] = lins->mDst;
+					ins->mSrc[0].mRestricted = ins->mDst.mRestricted = lins->mDst.mRestricted;
+					ins->mDst.mRange.Limit(ins->mSrc[0].mRange);
 					ins->mNumOperands = 1;
 					changed = true;
 				}
@@ -9664,6 +10575,39 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				}
 				else
 					nins = ins;
+			}
+			else if (ins->mCode == IC_CALL_NATIVE && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc && ins->mSrc[0].mLinkerObject->mProc->mGlobalsChecked)
+			{
+				InterCodeProcedure* proc = ins->mSrc[0].mLinkerObject->mProc;
+
+				int	j = 0, k = 0;
+				while (j < mLoadStoreInstructions.Size())
+				{
+					InterOperand* op = nullptr;
+
+					if (mLoadStoreInstructions[j]->mCode == IC_LOAD)
+						op = mLoadStoreInstructions[j]->mSrc + 0;
+					else if (mLoadStoreInstructions[j]->mCode == IC_STORE)
+						op = mLoadStoreInstructions[j]->mSrc + 1;
+
+					bool	flush = false;
+					if (op)
+					{
+						if (op->mTemp >= 0)
+							flush = proc->mStoresIndirect;
+						else if (op->mMemory == IM_FFRAME || op->mMemory == IM_FRAME)
+							flush = true;
+						else if (op->mMemory == IM_GLOBAL)
+							flush = proc->ModifiesGlobal(op->mVarIndex);
+						else
+							flush = true;
+					}
+
+					if (!flush)
+						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+					j++;
+				}
+				mLoadStoreInstructions.SetSize(k);
 			}
 			else if (HasSideEffect(ins->mCode))
 				flushMem = true;			
@@ -9746,6 +10690,8 @@ void InterCodeBasicBlock::LocalRenameRegister(const GrowingIntArray& renameTable
 			}
 		}
 
+		RenameValueRanges(mEntryRenameTable, num);
+
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
 			mInstructions[i]->LocalRenameRegister(mExitRenameTable, num);
@@ -9790,8 +10736,29 @@ void InterCodeBasicBlock::GlobalRenameRegister(const GrowingIntArray& renameTabl
 			mInstructions[i]->GlobalRenameRegister(renameTable, temporaries);
 		}
 
+		RenameValueRanges(renameTable, temporaries.Size());
+
 		if (mTrueJump) mTrueJump->GlobalRenameRegister(renameTable, temporaries);
 		if (mFalseJump) mFalseJump->GlobalRenameRegister(renameTable, temporaries);
+	}
+}
+
+void InterCodeBasicBlock::RenameValueRanges(const GrowingIntArray& renameTable, int numTemps)
+{
+	if (mEntryValueRange.Size() > 0)
+	{
+		mLocalValueRange = mEntryValueRange;
+		mEntryValueRange.SetSize(numTemps, true);
+		for (int i = 0; i < mLocalValueRange.Size(); i++)
+		{
+			if (renameTable[i] >= 0)
+			{
+				assert(mLocalValueRange[i].mMinState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMinState == IntegerValueRange::S_UNKNOWN);
+				assert(mLocalValueRange[i].mMaxState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMaxState == IntegerValueRange::S_UNKNOWN);
+
+				mEntryValueRange[renameTable[i]].Limit(mLocalValueRange[i]);
+			}				
+		}
 	}
 }
 
@@ -10025,7 +10992,7 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 
 #if 1
 	if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
-		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH)
 		return false;
 
 	for (int i = si + 1; i < ti; i++)
@@ -10087,7 +11054,7 @@ bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstr
 
 #if 1
 	if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
-		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE)
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH)
 		return false;
 
 	for (int i = 0; i < ii; i++)
@@ -10252,6 +11219,91 @@ static bool CanMoveInstructionBeforePath(const GrowingInterCodeBasicBlockPtrArra
 	return true;
 }
 
+bool InterCodeBasicBlock::IsDirectDominatorBlock(InterCodeBasicBlock* block)
+{
+	if (this == block)
+		return true;
+
+	if (block->mLoopHead)
+		return false;
+
+	if (block->mEntryBlocks.Size() == 0)
+		return false;
+	
+	for (int i = 0; i < block->mEntryBlocks.Size(); i++)
+		if (!IsDirectDominatorBlock(block->mEntryBlocks[i]))
+			return false;
+
+	return true;
+}
+
+bool InterCodeBasicBlock::HoistCommonConditionalPath(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mFalseJump)
+		{
+			InterCodeBasicBlock* cblock = nullptr, * eblock = nullptr;
+
+			if (!mTrueJump->mFalseJump && mTrueJump->mTrueJump && IsDirectDominatorBlock(mTrueJump->mTrueJump))
+			{
+				cblock = mTrueJump;
+				eblock = mTrueJump->mTrueJump;
+			}
+			else if (!mFalseJump->mFalseJump && mFalseJump->mTrueJump && IsDirectDominatorBlock(mFalseJump->mTrueJump))
+			{
+				cblock = mFalseJump;
+				eblock = mFalseJump->mTrueJump;
+			}
+
+			if (cblock && cblock->mNumEntries == 1)
+			{
+				for (int i = 0; i < cblock->mInstructions.Size(); i++)
+				{
+					InterInstruction* ins = cblock->mInstructions[i];
+
+					if (cblock->CanMoveInstructionBeforeBlock(i) && !HasSideEffect(ins->mCode) && ins->mDst.mTemp >= 0 && !cblock->IsTempModifiedInRange(i + 1, cblock->mInstructions.Size(), ins->mDst.mTemp))
+					{
+						int j = 0;
+						while (j < eblock->mInstructions.Size() && !eblock->mInstructions[j]->IsEqualSource(ins))
+							j++;
+
+						if (j < eblock->mInstructions.Size() && !eblock->IsTempModifiedInRange(0, j, ins->mDst.mTemp) && eblock->CanMoveInstructionBeforeBlock(j) && cblock->CanMoveInstructionBeforeBlock(cblock->mInstructions.Size(), eblock->mInstructions[j]))
+						{
+							eblock->mInstructions[j]->mCode = IC_LOAD_TEMPORARY;
+							eblock->mInstructions[j]->mSrc[0] = ins->mDst;
+							eblock->mInstructions[j]->mNumOperands = 1;
+
+							mInstructions.Insert(mInstructions.Size() - 1, ins);
+							cblock->mInstructions.Remove(i);
+
+							mExitRequiredTemps += ins->mDst.mTemp;
+							cblock->mEntryRequiredTemps += ins->mDst.mTemp;
+							cblock->mExitRequiredTemps += ins->mDst.mTemp;
+							eblock->mEntryRequiredTemps += ins->mDst.mTemp;
+							i--;
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->HoistCommonConditionalPath())
+			changed = true;
+		if (mFalseJump && mFalseJump->HoistCommonConditionalPath())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
+
 bool InterCodeBasicBlock::MoveTrainCrossBlock(void)
 {
 	bool	changed = false;
@@ -10352,7 +11404,7 @@ bool InterCodeBasicBlock::ForwardLoopMovedTemp(void)
 			else if (mTrueJump->mFalseJump == mTrueJump)
 				eblock = mTrueJump->mTrueJump;
 
-			if (eblock)
+			if (eblock && eblock->mNumEntries == 1)
 			{
 				int i = mInstructions.Size() - 1;
 				while (i >= 0)
@@ -10416,7 +11468,7 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 
 				if (fblock && tblock)
 				{
-					if (tblock->mInstructions[0]->IsEqual(fblock->mInstructions.Last()) && !fblock->mLocalModifiedTemps[tblock->mInstructions[0]->mSrc[0].mTemp])
+					if (tblock->mInstructions[0]->IsEqual(fblock->mInstructions.Last()) && (tblock->mInstructions[0]->mSrc[0].mTemp < 0 || !fblock->mLocalModifiedTemps[tblock->mInstructions[0]->mSrc[0].mTemp]))
 					{
 						fblock->mTrueJump = tblock;
 						fblock->mFalseJump = nullptr;
@@ -10803,6 +11855,43 @@ void InterCodeBasicBlock::RemoveNonRelevantStatics(void)
 	}
 }
 
+bool InterCodeBasicBlock::RecheckOuterFrame(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_LOAD)
+			{
+				if (ins->mSrc[0].mMemory == IM_FRAME)
+					return true;
+			}
+			else if (ins->mCode == IC_STORE || ins->mCode == IC_LEA)
+			{
+				if (ins->mSrc[1].mMemory == IM_FRAME)
+					return true;
+			}
+			else if (ins->mCode == IC_CONSTANT)
+			{
+				if (ins->mConst.mType == IT_POINTER && ins->mConst.mMemory == IM_FRAME)
+					return true;
+			}
+			else if (ins->mCode == IC_PUSH_FRAME)
+				return true;
+		}
+
+		if (mTrueJump && mTrueJump->RecheckOuterFrame())
+			return true;
+		if (mFalseJump && mFalseJump->RecheckOuterFrame())
+			return true;
+	}
+
+	return false;
+}
+
 void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, bool &inlineAssembler, bool &byteCodeCall)
 {
 	int i;
@@ -10853,7 +11942,7 @@ bool InterCodeBasicBlock::IsLeafProcedure(void)
 		mVisited = true;
 
 		for (i = 0; i < mInstructions.Size(); i++)
-			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE)
+			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE || mInstructions[i]->mCode == IC_DISPATCH)
 				return false;
 
 		if (mTrueJump && !mTrueJump->IsLeafProcedure())
@@ -10999,6 +12088,44 @@ bool InterCodeBasicBlock::IsEqual(const InterCodeBasicBlock* block) const
 	return false;
 }
 
+bool InterCodeBasicBlock::PreventsCallerStaticStack(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+			{
+				if (ins->mSrc[0].mTemp >= 0 || !ins->mSrc[0].mLinkerObject)
+					return false;
+				else if (ins->mSrc[0].mLinkerObject == mProc->mLinkerObject)
+					; // Simple recursion
+				else if (!(ins->mSrc[0].mLinkerObject->mFlags & LOBJF_STATIC_STACK))
+					return false;
+			}
+			else if (ins->mCode == IC_DISPATCH)
+			{
+				for (int j = 0; j < mProc->mCalledFunctions.Size(); j++)
+				{
+					if (!(mProc->mCalledFunctions[j]->mLinkerObject && (mProc->mCalledFunctions[j]->mLinkerObject->mFlags & LOBJF_STATIC_STACK)))
+						return false;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PreventsCallerStaticStack())
+			return true;
+		if (mFalseJump && mFalseJump->PreventsCallerStaticStack())
+			return true;
+	}
+
+	return false;
+}
+
+
 bool InterCodeBasicBlock::CheckStaticStack(void)
 {
 	if (!mVisited)
@@ -11014,6 +12141,14 @@ bool InterCodeBasicBlock::CheckStaticStack(void)
 				else if (!(mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_STATIC_STACK))
 					return false;
 			}
+			else if (mInstructions[i]->mCode == IC_DISPATCH)
+			{
+				for (int j = 0; j < mProc->mCalledFunctions.Size(); j++)
+				{
+					if (!(mProc->mCalledFunctions[j]->mLinkerObject && (mProc->mCalledFunctions[j]->mLinkerObject->mFlags & LOBJF_STATIC_STACK)))
+						return false;
+				}
+			}
 		}
 
 		if (mTrueJump && !mTrueJump->CheckStaticStack())
@@ -11025,10 +12160,12 @@ bool InterCodeBasicBlock::CheckStaticStack(void)
 	return true;
 }
 
-void ApplyStaticStack(InterOperand & iop, const GrowingVariableArray& localVars)
+void InterCodeBasicBlock::ApplyStaticStack(InterOperand & iop, const GrowingVariableArray& localVars)
 {
 	if (iop.mMemory == IM_LOCAL)
 	{
+		assert(localVars[iop.mVarIndex]->mIndex < mProc->mModule->mGlobalVars.Size());
+
 		iop.mMemory = IM_GLOBAL;
 		iop.mLinkerObject = localVars[iop.mVarIndex]->mLinkerObject;
 		iop.mVarIndex = localVars[iop.mVarIndex]->mIndex;
@@ -11043,7 +12180,7 @@ void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVa
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
-			if (mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE)
+			if ((mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE) && mInstructions[i]->mSrc[0].mLinkerObject->mStackSection)
 				lobj->mStackSection->mSections.Push(mInstructions[i]->mSrc[0].mLinkerObject->mStackSection);
 
 			if (mInstructions[i]->mCode == IC_LOAD)
@@ -11074,6 +12211,7 @@ void PromoteStaticStackParam(InterOperand& iop, LinkerObject* paramlobj)
 			iop.mMemory = IM_GLOBAL;
 			iop.mIntConst += offset;
 			iop.mLinkerObject = paramlobj;
+			iop.mVarIndex = -1;
 			paramlobj->EnsureSpace(int(iop.mIntConst), iop.mOperandSize);
 		}
 	}
@@ -11335,6 +12473,10 @@ void InterCodeBasicBlock::BuildLoopSuffix(void)
 				if (mFalseJump->mNumEntries > 1)
 				{
 					InterCodeBasicBlock* suffix = new InterCodeBasicBlock(mProc);
+					suffix->mEntryRequiredTemps = mFalseJump->mEntryRequiredTemps;
+					suffix->mExitRequiredTemps = mFalseJump->mEntryRequiredTemps;
+					suffix->mLocalModifiedTemps.Reset(mExitRequiredTemps.Size());
+
 					InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 					suffix->Append(jins);
 					suffix->Close(mFalseJump, nullptr);
@@ -11347,6 +12489,10 @@ void InterCodeBasicBlock::BuildLoopSuffix(void)
 				if (mTrueJump->mNumEntries > 1)
 				{
 					InterCodeBasicBlock* suffix = new InterCodeBasicBlock(mProc);
+					suffix->mEntryRequiredTemps = mTrueJump->mEntryRequiredTemps;
+					suffix->mExitRequiredTemps = mTrueJump->mEntryRequiredTemps;
+					suffix->mLocalModifiedTemps.Reset(mExitRequiredTemps.Size());
+
 					InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 					suffix->Append(jins);
 					suffix->Close(mTrueJump, nullptr);
@@ -11377,6 +12523,10 @@ InterCodeBasicBlock* InterCodeBasicBlock::BuildLoopPrefix(void)
 		if (mLoopHead)
 		{
 			mLoopPrefix = new InterCodeBasicBlock(mProc);
+			mLoopPrefix->mEntryRequiredTemps = mEntryRequiredTemps;
+			mLoopPrefix->mExitRequiredTemps = mEntryRequiredTemps;
+			mLoopPrefix->mLocalModifiedTemps.Reset(mEntryRequiredTemps.Size());
+
 			InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
 			mLoopPrefix->Append(jins);
 			mLoopPrefix->Close(this, nullptr);
@@ -11386,7 +12536,7 @@ InterCodeBasicBlock* InterCodeBasicBlock::BuildLoopPrefix(void)
 	return mLoopPrefix ? mLoopPrefix : this;
 }
 
-bool InterCodeBasicBlock::CollectLoopBody(InterCodeBasicBlock* head, GrowingArray<InterCodeBasicBlock*> & body)
+bool InterCodeBasicBlock::CollectLoopBody(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*> & body)
 {
 	if (mLoopHead)
 		return this == head;
@@ -11402,7 +12552,23 @@ bool InterCodeBasicBlock::CollectLoopBody(InterCodeBasicBlock* head, GrowingArra
 	return true;
 }
 
-void InterCodeBasicBlock::CollectLoopPath(const GrowingArray<InterCodeBasicBlock*>& body, GrowingArray<InterCodeBasicBlock*>& path)
+bool InterCodeBasicBlock::CollectLoopBodyRecursive(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*>& body)
+{
+	if (this == head)
+		return true;
+
+	if (body.IndexOf(this) != -1)
+		return true;
+	body.Push(this);
+
+	for (int i = 0; i < mEntryBlocks.Size(); i++)
+		if (!mEntryBlocks[i]->CollectLoopBodyRecursive(head, body))
+			return false;
+
+	return true;
+}
+
+void InterCodeBasicBlock::CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path)
 {
 	if (body.IndexOf(this) >= 0)
 	{
@@ -11413,7 +12579,7 @@ void InterCodeBasicBlock::CollectLoopPath(const GrowingArray<InterCodeBasicBlock
 				mTrueJump->CollectLoopPath(body, mLoopPathBlocks);
 				if (mFalseJump)
 				{
-					GrowingArray<InterCodeBasicBlock*>	fpath(nullptr);
+					ExpandingArray<InterCodeBasicBlock*>	fpath;
 
 					if (!mFalseJump->mLoopHead)
 						mFalseJump->CollectLoopPath(body, fpath);
@@ -11519,6 +12685,45 @@ static InterInstruction * FindSourceInstruction(InterCodeBasicBlock* block, int 
 	}
 }
 
+bool InterCodeBasicBlock::MoveLoopHeadCheckToTail(void)
+{
+	bool	modified = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2 && mInstructions.Size() == 2)
+		{
+			if (mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[1]->mCode == IC_BRANCH &&
+				mInstructions[1]->mSrc[0].mTemp == mInstructions[0]->mDst.mTemp)
+			{
+				if (mFalseJump != this && mTrueJump->mTrueJump == this && !mTrueJump->mFalseJump)
+				{
+					mTrueJump->mInstructions.SetSize(mTrueJump->mInstructions.Size() - 1);
+					mTrueJump->mInstructions.Push(mInstructions[0]->Clone());
+					mTrueJump->mInstructions.Push(mInstructions[1]->Clone());
+					mTrueJump->mTrueJump = mTrueJump;
+					mTrueJump->mFalseJump = mFalseJump;
+					mTrueJump->mEntryBlocks.Push(mTrueJump);
+					mTrueJump->mNumEntries++;
+					mFalseJump->mEntryBlocks.Push(mTrueJump);
+					mFalseJump->mNumEntries++;
+					mNumEntries--;
+					mEntryBlocks.Remove(mEntryBlocks.IndexOf(mTrueJump));
+					modified = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MoveLoopHeadCheckToTail())
+			modified = true;
+		if (mFalseJump && mFalseJump->MoveLoopHeadCheckToTail())
+			modified = true;
+	}
+
+	return modified;
+}
+
 bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	bool	modified = false;
@@ -11580,7 +12785,11 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 										mins->mConst.mType = ai->mDst.mType;
 										mins->mConst.mIntConst = num;
 										mins->mDst = ai->mDst;
+										mins->mDst.mRange.SetLimit(num, num);
 										mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, mins);
+
+										if (mEntryValueRange.Size())
+											mEntryValueRange[ai->mSrc[1].mTemp].SetLimit(1, num);
 
 										ai->mSrc[1].mRange.SetLimit(1, num);
 										ai->mDst.mRange.SetLimit(0, num - 1);
@@ -11629,6 +12838,17 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 						}
 					}
 #endif
+					bool	hasStore = false;
+					for (int j = 0; j < body.Size(); j++)
+					{
+						int sz = body[j]->mInstructions.Size();
+						for (int i = 0; i < sz; i++)
+						{
+							InterInstruction* ins = body[j]->mInstructions[i];
+							if (IsObservable(ins->mCode))
+								hasStore = true;
+						}
+					}
 
 					int i = 0;
 					while (i < mInstructions.Size())
@@ -11637,7 +12857,8 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 						if (lins->mCode == IC_BINARY_OPERATOR || lins->mCode == IC_CONSTANT || lins->mCode == IC_UNARY_OPERATOR || 
 							lins->mCode == IC_CONVERSION_OPERATOR || lins->mCode == IC_SELECT ||
-							lins->mCode == IC_RELATIONAL_OPERATOR)
+							lins->mCode == IC_LEA ||
+							lins->mCode == IC_RELATIONAL_OPERATOR || (lins->mCode == IC_LOAD && !hasStore && !lins->mVolatile))
 						{
 #if 1
 							if (CanMoveInstructionBeforeBlock(i) && !IsInsModifiedInRange(i + 1, mInstructions.Size(), lins) && !tail->IsInsModified(lins) && !lins->UsesTemp(lins->mDst.mTemp))
@@ -11658,7 +12879,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 							}
 #endif
 						}
-						else if (lins->mCode == IC_LOAD && lins->mSrc[0].mTemp < 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
+						else if (lins->mCode == IC_LOAD && !lins->mVolatile && lins->mSrc[0].mTemp < 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
 						{
 							if (CanMoveInstructionBeforeBlock(i))
 							{
@@ -11720,8 +12941,36 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 										}
 									}
 								}
+								else
+								{
+									int k = 0;
+									while (k < body.Size() && !DestroyingMem(body[k], lins, 0, body[k]->mInstructions.Size()))
+										k++;
+									if (k == body.Size())
+									{
+#if 1
+										if (!IsInsModifiedInRange(i + 1, mInstructions.Size(), lins) && !tail->IsInsModified(lins))
+										{
+											int j = 1;
+											while (j < body.Size() && !body[j]->IsInsModified(lins))
+												j++;
+											if (j == body.Size())
+											{
+												mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
+												mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
+												mEntryRequiredTemps += lins->mDst.mTemp;
+												mInstructions.Remove(i);
+												i--;
+
+												modified = true;
+											}
+										}
+#endif
+									}
+								}
 							}
 						}
+
 						i++;
 					}
 				}
@@ -11745,7 +12994,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 
 		if (mLoopHead)
 		{
-			GrowingArray<InterCodeBasicBlock*> body(nullptr), path(nullptr);
+			ExpandingArray<InterCodeBasicBlock*> body, path;
 			body.Push(this);
 			bool	innerLoop = true;
 			
@@ -11775,7 +13024,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 				for (int i = 0; i < path.Size(); i++)
 					printf("path %d\n", path[i]->mIndex);
 #endif
-				bool	hasCall = false, hasFrame = false;
+				bool	hasCall = false, hasFrame = false, hasStore = false;
 				for (int bi = 0; bi < body.Size(); bi++)
 				{
 					InterCodeBasicBlock* block = body[bi];
@@ -11789,6 +13038,17 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							hasCall = true;
 						else if (ins->mCode == IC_PUSH_FRAME)
 							hasFrame = true;
+						else if (ins->mCode == IC_STORE)
+						{
+							if (ins->mSrc[1].mTemp >= 0)
+								hasStore = true;
+							else if ((ins->mSrc[1].mMemory == IM_PARAM || ins->mSrc[1].mMemory == IM_FPARAM) && !aliasedParams[ins->mSrc[1].mVarIndex])
+							;
+							else
+								hasStore = true;
+						}
+						else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+							hasStore = true;
 					}
 				}
 
@@ -11809,7 +13069,11 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							ins->mInvariant = false;
 						else if (ins->mCode == IC_LOAD)
 						{
-							if (ins->mSrc[0].mTemp >= 0 || ins->mVolatile)
+							if (ins->mVolatile)
+							{
+								ins->mInvariant = false;
+							}
+							else if (ins->mSrc[0].mTemp >= 0 && (hasStore || hasCall))
 							{
 								ins->mInvariant = false;
 							}
@@ -11818,6 +13082,10 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 								ins->mInvariant = false;
 							}
 							else if (ins->mSrc[0].mMemory == IM_LOCAL && hasCall)
+							{
+								ins->mInvariant = false;
+							}
+							else if (ins->mSrc[0].mMemory == IM_PARAM && hasCall && aliasedParams[ins->mSrc[0].mVarIndex])
 							{
 								ins->mInvariant = false;
 							}
@@ -11890,6 +13158,10 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 					for (int i = 0; i < block->mInstructions.Size(); i++)
 					{
 						InterInstruction* ins = block->mInstructions[i];
+						InterInstruction* nins = nullptr;
+						if (i + 1 < block->mInstructions.Size())
+							nins = block->mInstructions[i + 1];
+
 						int t = ins->mDst.mTemp;
 						if (t >= 0)
 						{
@@ -11918,6 +13190,8 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 								if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0)
 									ins->mExpensive = true;
 								else if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mRange.mMaxValue >= 256)
+									ins->mExpensive = true;
+								else if (nins && nins->mCode == IC_LEA && nins->mSrc[0].mTemp >= 0 && (nins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_UNBOUND || nins->mSrc[0].mRange.mMaxValue >= 255))
 									ins->mExpensive = true;
 								break;
 							case IC_LOAD:
@@ -12026,10 +13300,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							block->mInstructions[j++] = ins;
 						}
 					}
-#ifdef _DEBUG
-					if (j != block->mInstructions.Size())
-						printf("Moved %d %d\n", mIndex, block->mInstructions.Size() - j);
-#endif
+
 					block->mInstructions.SetSize(j);
 				}
 #endif
@@ -12115,6 +13386,309 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 			mFalseJump->SingleBlockLoopUnrolling();
 	}
 }
+
+static int FindStore(InterCodeBasicBlock* block, int pos, const InterOperand& op)
+{
+	while (pos > 0)
+	{
+		pos--;
+		InterInstruction* ins(block->mInstructions[pos]);
+		if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp < 0)
+		{
+			if ((op.mMemory == IM_PARAM && ins->mSrc[1].mMemory == IM_FRAME ||
+				op.mMemory == IM_FPARAM && ins->mSrc[1].mMemory == IM_FFRAME) &&
+				op.mVarIndex == ins->mSrc[1].mVarIndex)
+				return pos;
+		}
+		if (ins->mCode == IC_POP_FRAME && op.mMemory == IM_PARAM)
+			return -1;
+	}
+
+	return -1;
+}
+
+bool InterCodeBasicBlock::CheapInlining(int & numTemps)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+
+			if (ins->mCode == IC_CALL_NATIVE && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc && ins->mSrc[0].mLinkerObject->mProc->mCheapInline)
+			{
+				InterCodeBasicBlock* block = ins->mSrc[0].mLinkerObject->mProc->mEntryBlock;
+
+				int	ntemps = numTemps;
+				GrowingArray<int>	tmap(-1);
+
+				bool	fail = false;
+				for (int j = 0; j < block->mInstructions.Size(); j++)
+				{
+					InterInstruction* nins(block->mInstructions[j]);
+					if (nins->mCode == IC_LOAD && FindStore(this, i, nins->mSrc[0]) < 0)
+						fail = true;
+				}
+
+				if (!fail)
+				{
+					for (int j = 0; j < i; j++)
+						mInstructions[j]->mRemove = false;
+
+					mInstructions.Remove(i);
+					changed = true;
+
+					for (int j = 0; j < block->mInstructions.Size(); j++)
+					{
+						InterInstruction* nins(block->mInstructions[j]);
+						switch (nins->mCode)
+						{
+						case IC_LOAD:
+						{
+							int k = FindStore(this, i, nins->mSrc[0]);
+							InterInstruction* pins = mInstructions[k]->Clone();
+							mInstructions[k]->mRemove = true;
+
+							if (pins->mSrc[0].mTemp < 0)
+							{
+								pins->mCode = IC_CONSTANT;
+								pins->mConst = pins->mSrc[0];
+								pins->mNumOperands = 0;
+							}
+							else
+							{
+								pins->mCode = IC_LOAD_TEMPORARY;
+								pins->mNumOperands = 1;
+							}
+
+							pins->mDst = nins->mDst;
+							pins->mDst.mTemp = ntemps;
+							mInstructions.Insert(k + 1, pins);
+							i++;
+						}	break;
+						case IC_STORE:
+						{
+							InterInstruction* pins = nins->Clone();
+							if (pins->mSrc[0].mTemp >= 0)
+								pins->mSrc[0].mTemp = tmap[pins->mSrc[0].mTemp];
+							if (pins->mSrc[1].mTemp >= 0)
+								pins->mSrc[1].mTemp = tmap[pins->mSrc[1].mTemp];
+							mInstructions.Insert(i, pins);
+							i++;
+						}	break;
+						case IC_CALL:
+						case IC_CALL_NATIVE:
+						{
+							InterInstruction* pins = nins->Clone();
+							if (pins->mDst.mTemp >= 0)
+								pins->mDst.mTemp = ntemps;
+							mInstructions.Insert(i, pins);
+							i++;
+						} break;
+						case IC_RETURN:
+							break;
+						case IC_RETURN_VALUE:
+						{
+							if (ins->mDst.mTemp >= 0)
+							{
+								InterInstruction* pins = nins->Clone();
+								if (pins->mSrc[0].mTemp < 0)
+								{
+									pins->mCode = IC_CONSTANT;
+									pins->mConst = pins->mSrc[0];
+									pins->mNumOperands = 0;
+								}
+								else
+								{
+									pins->mCode = IC_LOAD_TEMPORARY;
+									pins->mNumOperands = 1;
+								}
+
+								pins->mDst = ins->mDst;
+								if (pins->mSrc[0].mTemp >= 0)
+									pins->mSrc[0].mTemp = tmap[pins->mSrc[0].mTemp];
+								mInstructions.Insert(i, pins);
+								i++;
+							}
+						} break;
+						default:
+						{
+							InterInstruction* pins = nins->Clone();
+							for (int k = 0; k < pins->mNumOperands; k++)
+								if (pins->mSrc[k].mTemp >= 0)
+									pins->mSrc[k].mTemp = tmap[pins->mSrc[k].mTemp];
+							if (pins->mDst.mTemp >= 0)
+								pins->mDst.mTemp = ntemps;
+							mInstructions.Insert(i, pins);
+							i++;
+						} break;
+						}
+
+						if (nins->mDst.mTemp >= 0)
+							tmap[nins->mDst.mTemp] = ntemps++;
+					}
+
+					numTemps = ntemps;
+
+					for (int j = 0; j < i; j++)
+					{
+						if (mInstructions[j]->mRemove)
+						{
+							mInstructions[j]->mCode = IC_NONE;
+							mInstructions[j]->mDst.mTemp = -1;
+							mInstructions[j]->mNumOperands = 0;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->CheapInlining(numTemps))
+			changed = true;
+		if (mFalseJump && mFalseJump->CheapInlining(numTemps))
+			changed = true;
+	}
+
+	return changed;
+}
+
+void InterCodeBasicBlock::RemoveUnusedMallocs(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* mins = mInstructions[i];
+			if (mins->mCode == IC_MALLOC)
+			{
+				int	mtemp = mins->mDst.mTemp;
+				bool	used = false;
+				int j = i + 1;
+				while (j < mInstructions.Size() && !used)
+				{
+					InterInstruction* fins = mInstructions[j];
+					if (fins->mCode == IC_FREE && fins->mSrc[0].mTemp == mtemp)
+						break;
+					if (fins->ReferencesTemp(mtemp))
+					{
+						if (fins->mCode != IC_STORE || fins->mSrc[1].mTemp != mtemp)
+							used = true;
+					}
+					j++;
+				}
+
+				if (j < mInstructions.Size() && !used)
+				{
+					mins->mCode = IC_NONE; mins->mNumOperands = 0;
+					for (int k = i + 1; k <= j; k++)
+					{
+						InterInstruction* lins = mInstructions[k];
+						if (lins->UsesTemp(mtemp))
+						{
+							lins->mCode = IC_NONE;
+							lins->mNumOperands = 0;
+						}
+					}
+				}
+			}		
+		}
+
+		if (mTrueJump) mTrueJump->RemoveUnusedMallocs();
+		if (mFalseJump) mFalseJump->RemoveUnusedMallocs();
+	}
+}
+
+void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue)
+{
+	if (!mVisited)
+	{
+		GrowingInstructionPtrArray	ltvalue(tvalue);
+
+		if (mLoopHead)
+		{
+			if (mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
+			{
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (ltvalue[i])
+					{
+						for (int j = 0; j < mInstructions.Size(); j++)
+						{
+							if (mInstructions[j]->mDst.mTemp == i)
+							{
+								if (mInstructions[j]->mCode == IC_LEA && mInstructions[j]->mSrc[1].mTemp == i)
+									;
+								else
+								{
+									ltvalue[i] = nullptr;
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+			else
+				ltvalue.Clear();
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (mMergeTValues[i] != ltvalue[i])
+						ltvalue[i] = nullptr;
+				}
+			}
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mMergeTValues = ltvalue;
+				return;
+			}
+		}
+
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			for (int j = 0; j < ins->mNumOperands; j++)
+			{
+				if (ins->mSrc[j].mTemp > 0 && ltvalue[ins->mSrc[j].mTemp] && ins->mSrc[j].mType == IT_POINTER)
+					ins->mSrc[j].mRestricted = ltvalue[ins->mSrc[j].mTemp]->mDst.mRestricted;
+			}
+
+			if (ins->mDst.mTemp >= 0)
+			{
+				if (ins->mDst.mRestricted)
+					ltvalue[ins->mDst.mTemp] = ins;
+				else
+					ltvalue[ins->mDst.mTemp] = nullptr;
+			}
+
+			if (ins->mCode == IC_LEA)
+				ins->mDst.mRestricted = ins->mSrc[1].mRestricted;
+			else if (ins->mCode == IC_LOAD_TEMPORARY)
+				ins->mDst.mRestricted = ins->mSrc[0].mRestricted;
+		}
+
+
+		if (mTrueJump) mTrueJump->PropagateMemoryAliasingInfo(ltvalue);
+		if (mFalseJump) mFalseJump->PropagateMemoryAliasingInfo(ltvalue);
+	}
+}
+
 
 void InterCodeBasicBlock::PushMoveOutOfLoop(void)
 {
@@ -12230,7 +13804,7 @@ void InterCodeBasicBlock::PushMoveOutOfLoop(void)
 
 bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64& nloop)
 {
-	if (mLoopHead && mNumEntries == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
+	if (mLoopHead && mEntryBlocks.Size() == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
 	{
 		int	nins = mInstructions.Size();
 
@@ -12761,6 +14335,31 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			InterCodeBasicBlock* tailBlock = this == mTrueJump ? mFalseJump : mTrueJump;
 			assert(tailBlock->mNumEntries == 1);
 
+			// remove counting loop without body
+			if (mInstructions.Size() == 3)
+			{
+				InterInstruction* ains = mInstructions[0];
+				InterInstruction* cins = mInstructions[1];
+				InterInstruction* bins = mInstructions[2];
+
+				if (ains->mCode == IC_BINARY_OPERATOR && cins->mCode == IC_RELATIONAL_OPERATOR && bins->mCode == IC_BRANCH)
+				{
+					if (ains->mSrc[1].mTemp == ains->mDst.mTemp && ains->mSrc[0].mTemp < 0 &&
+						cins->mSrc[1].mTemp == ains->mDst.mTemp && ains->mSrc[0].mTemp < 0 &&
+						bins->mSrc[0].mTemp == cins->mDst.mTemp && bins->mSrc[0].mFinal)
+					{
+						if (ains->mOperator == IA_ADD && ains->mSrc[0].mIntConst == 1 &&
+							cins->mOperator == IA_CMPLU && mTrueJump == this && !tailBlock->mEntryRequiredTemps[ains->mDst.mTemp])
+						{
+							cins->mCode = IC_CONSTANT;
+							cins->mConst.mType = IT_BOOL;
+							cins->mConst.mIntConst = 0;
+							cins->mNumOperands = 0;
+						}
+					}
+				}
+			}
+
 			if (!hasCall)
 			{
 				// Check forwarding globals
@@ -12810,6 +14409,18 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 											ins->mDst.Forward(sins->mSrc[0]);
 											sins->mSrc[0].mFinal = false;
 											assert(nins->mSrc[0].mTemp >= 0);
+
+											// Propagate all loads to move temps
+
+											for (int t = j + 1; t < mInstructions.Size(); t++)
+											{
+												InterInstruction* ti = mInstructions[t];
+												if (ti->mCode == IC_LOAD && SameMem(ti->mSrc[0], ins->mSrc[0]))
+												{
+													ti->mCode = IC_LOAD_TEMPORARY;
+													ti->mSrc[0].mTemp = ins->mDst.mTemp;
+												}
+											}
 
 											// Move store behind loop
 											tailBlock->mInstructions.Insert(0, sins);
@@ -13509,7 +15120,10 @@ void InterCodeBasicBlock::CheckBlocks(void)
 
 		for (int i = 0; i < mInstructions.Size(); i++)
 			assert(mInstructions[i] != nullptr);
-		
+
+		assert(!mTrueJump || mTrueJump->mIndex > 0);
+		assert(!mFalseJump || mFalseJump->mIndex > 0);
+
 		if (mTrueJump) mTrueJump->CheckBlocks();
 		if (mFalseJump) mFalseJump->CheckBlocks();
 	}
@@ -13757,7 +15371,6 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
 
 					mInstructions[i + 0]->mOperator = IA_AND;
-					mInstructions[i + 0]->mSrc[0].mType = IT_INT16;
 					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
 
 					switch (mInstructions[i + 0]->mSrc[1].mType)
@@ -13787,6 +15400,61 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					else if (shift < mshift)
 					{
 						mInstructions[i + 1]->mOperator = IA_SHL;
+						mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
+					}
+					else
+					{
+						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 1]->mNumOperands = 0;
+					}
+
+					changed = true;
+				}
+			}
+#endif
+#if 1
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+			{
+
+				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+				if (shift & 7)
+				{
+					int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+					mInstructions[i + 0]->mOperator = IA_AND;
+					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
+
+					switch (mInstructions[i + 0]->mSrc[1].mType)
+					{
+					case IT_INT8:
+						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffu >> shift;
+						break;
+					case IT_INT16:
+						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffffu >> shift;
+						break;
+					case IT_INT32:
+						mInstructions[i + 0]->mSrc[0].mIntConst = 0xffffffffu >> shift;
+						break;
+					}
+
+					if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
+					{
+						mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
+						mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
+					}
+
+					if (shift > mshift)
+					{
+						mInstructions[i + 1]->mOperator = IA_SHL;
+						mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
+					}
+					else if (shift < mshift)
+					{
+						mInstructions[i + 1]->mOperator = IA_SHR;
 						mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
 					}
 					else
@@ -13996,6 +15664,27 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 #endif
+#if 1
+			else if (
+				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
+				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp >= 0 && 
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && 
+				mInstructions[i + 1]->mSrc[1].mFinal &&
+				mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 1]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[0].mRange.mMaxValue + mInstructions[i + 1]->mSrc[0].mRange.mMaxValue < 256)
+			{
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+				mInstructions[i + 0]->mCode = IC_BINARY_OPERATOR;
+				mInstructions[i + 0]->mOperator = IA_ADD;
+				mInstructions[i + 0]->mDst.mType = IT_INT16;
+				mInstructions[i + 0]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
+				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[0].mRange;
+				mInstructions[i + 0]->mDst.mRange.mMaxValue += mInstructions[i + 0]->mSrc[1].mRange.mMaxValue;
+
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mDst;
+				changed = true;
+			}
+#endif
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT16 &&
 				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
@@ -14112,6 +15801,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mSrc[1].mTemp;
 				mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[0].mFinal = mInstructions[i + 0]->mSrc[1].mFinal;
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
 				changed = true;
@@ -14168,7 +15858,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 0]->mDst.mIntConst >= 0 &&
 				mInstructions[i + 0]->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + mInstructions[i + 0]->mSrc[0].mIntConst < 32767 &&
-				(IsSignedRelational(mInstructions[i + 1]->mOperator) ||	mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue >= 0) &&
+				(IsSignedRelational(mInstructions[i + 1]->mOperator) || mInstructions[i + 0]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[i + 0]->mSrc[1].mRange.mMinValue >= 0) &&
 				mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst >= (IsSignedRelational(mInstructions[i + 1]->mOperator) ? 0 : -32768) &&
 				mInstructions[i + 1]->mSrc[0].mIntConst - mInstructions[i + 0]->mSrc[0].mIntConst <= 32767)
 			{
@@ -14191,6 +15881,18 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 			else if (
+				mInstructions[i + 0]->mCode == IC_LEA &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && 
+				mInstructions[i + 2]->mCode == IC_LOAD &&
+				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+				CanSwapInstructions(mInstructions[i + 1], mInstructions[i + 2]))
+			{
+				InterInstruction* ins = mInstructions[i + 2];
+				mInstructions[i + 2] = mInstructions[i + 1];
+				mInstructions[i + 1] = ins;
+				changed = true;
+			}
+			else if (
 				mInstructions[i + 0]->mCode == IC_STORE && mInstructions[i + 1]->mCode == IC_STORE &&
 				SameMemSegment(mInstructions[i + 1]->mSrc[1], mInstructions[i + 0]->mSrc[1]) &&
 				!mInstructions[i + 0]->mVolatile && !mInstructions[i + 1]->mVolatile)
@@ -14199,7 +15901,115 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mNumOperands = 0;
 				changed = true;
 			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_LEA && 
+				mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 &&
 
+				mInstructions[i + 1]->mCode == IC_LOAD && 
+				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_ADD &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && 
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 2]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst &&
+				mInstructions[i + 2]->mSrc[1].mTemp != mInstructions[i + 1]->mDst.mTemp)
+			{
+				InterInstruction* iadd = mInstructions[i + 2];
+				mInstructions[i + 2] = mInstructions[i + 1];
+				mInstructions[i + 1] = mInstructions[i + 0];
+				mInstructions[i + 0] = iadd;
+				mInstructions[i + 2]->mSrc[0].mIntConst = 0;
+				changed = true;
+			}
+#if 1
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+				mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0)
+			{
+				mInstructions[i + 0]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 1]->mSrc[0].mIntConst) - 1);
+				mInstructions[i + 2]->mSrc[0].mIntConst <<= mInstructions[i + 1]->mSrc[0].mIntConst;
+				mInstructions[i + 2]->mSrc[1] = mInstructions[i + 0]->mDst;
+				mInstructions[i + 1]->mCode = IC_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
+				changed = true;
+			}
+
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0)
+			{
+				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+				mInstructions[i + 0]->mOperator = IA_AND;
+				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
+				mInstructions[i + 0]->mDst.mRange.Reset();
+				mInstructions[i + 1]->mSrc[1].mRange.Reset();
+				changed = true;
+			}
+
+			if (i + 3 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_SHL &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+
+				mInstructions[i + 3]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 3]->mOperator == IA_AND &&
+				mInstructions[i + 3]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 3]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[1].mFinal &&
+
+				mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 2]->mSrc[0].mIntConst)
+			{
+				mInstructions[i + 3]->mSrc[0].mIntConst &= ~((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1);
+				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 1]->mDst = mInstructions[i + 2]->mDst;
+
+				mInstructions[i + 0]->mCode = IC_NONE;
+				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 2]->mCode = IC_NONE;
+				mInstructions[i + 2]->mNumOperands = 0;
+				changed = true;
+			}
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_AND &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal &&
+
+				(mInstructions[i + 0]->mSrc[0].mIntConst & (mInstructions[i + 0]->mSrc[0].mIntConst + 1)) == 0 && // Is power of two - 1
+				(~mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 1]->mSrc[0].mIntConst) == 0 && // add is part of initial mask
+				(~mInstructions[i + 0]->mSrc[0].mIntConst & mInstructions[i + 2]->mSrc[0].mIntConst) == 0) // final mask is part of initial mask
+			{
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+
+				mInstructions[i + 0]->mCode = IC_NONE;
+				mInstructions[i + 0]->mNumOperands = 0;
+				changed = true;
+			}
+#endif
 #if 1
 			if (i + 2 < mInstructions.Size() &&
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR &&
@@ -14366,6 +16176,193 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 		}
 #endif
+#if 1
+		if (i + 1 < mInstructions.Size())
+		{
+			if (mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[0].mMemory == IM_ABSOLUTE && mInstructions[i + 1]->mSrc[0].mIntConst == 0)
+			{
+				if (mInstructions[i + 0]->mSrc[1].mMemory != IM_ABSOLUTE)
+				{
+					if (mInstructions[i + 1]->mOperator == IA_CMPEQ)
+					{
+						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mCode = IC_CONSTANT;
+						mInstructions[i + 1]->mConst.mType = IT_BOOL;
+						mInstructions[i + 1]->mConst.mIntConst = 0;
+						changed = true;
+					}
+					else if (mInstructions[i + 1]->mOperator == IA_CMPNE)
+					{
+						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mCode = IC_CONSTANT;
+						mInstructions[i + 1]->mConst.mType = IT_BOOL;
+						mInstructions[i + 1]->mConst.mIntConst = 1;
+						changed = true;
+					}
+				}
+			}
+		}
+#endif
+	}
+
+	return changed;
+}
+
+static int TempUseDelta(const InterInstruction* ins)
+{
+	int d = 0;
+	if (ins->mDst.mTemp >= 0)
+		d++;
+	for (int i = 0; i < ins->mNumOperands; i++)
+		if (ins->mSrc[i].mTemp >= 0 && ins->mSrc[i].mFinal)
+			d--;
+	return d;
+}
+
+bool InterCodeBasicBlock::IsConstExitTemp(int temp) const
+{
+	int n = mInstructions.Size() - 1;
+	while (n >= 0 && mInstructions[n]->mDst.mTemp != temp)
+		n--;
+	return n >= 0 && mInstructions[n]->mCode == IC_CONSTANT;
+}
+
+bool InterCodeBasicBlock::SplitSingleBranchUseConst(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mLoopHead && mFalseJump)
+		{
+			for (int i = 0; i + 1 < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+
+				if (ins->mCode == IC_CONSTANT)
+				{
+					if (CanMoveInstructionBehindBlock(i))
+					{
+						InterCodeBasicBlock* tblock = nullptr;
+
+						if (mTrueJump->mEntryRequiredTemps[ins->mDst.mTemp] && !mFalseJump->mEntryRequiredTemps[ins->mDst.mTemp])
+							tblock = mTrueJump;
+						else if (!mTrueJump->mEntryRequiredTemps[ins->mDst.mTemp] && mFalseJump->mEntryRequiredTemps[ins->mDst.mTemp])
+							tblock = mFalseJump;
+
+						if (tblock)
+						{
+							if (tblock->mNumEntries > 1)
+							{
+								InterCodeBasicBlock* nblock = new InterCodeBasicBlock(mProc);
+
+								nblock->mEntryRequiredTemps = tblock->mEntryRequiredTemps;
+								nblock->mExitRequiredTemps = tblock->mEntryRequiredTemps;
+
+								mExitRequiredTemps -= ins->mDst.mTemp;
+								nblock->mEntryRequiredTemps -= ins->mDst.mTemp;
+
+								tblock->mEntryBlocks.RemoveAll(this);
+								tblock->mEntryBlocks.Push(nblock);
+
+								if (tblock == mTrueJump)
+									mTrueJump = nblock;
+								else
+									mFalseJump = nblock;
+
+								InterInstruction* jins = new InterInstruction(mInstructions.Last()->mLocation, IC_JUMP);
+								nblock->mInstructions.Push(jins);
+								nblock->Close(tblock, nullptr);
+
+								nblock->mEntryBlocks.Push(this);
+								nblock->mNumEntries = 1;
+
+								tblock = nblock;
+							}
+
+							tblock->mInstructions.Insert(0, ins);
+							mInstructions.Remove(i);
+							i--;
+							changed = true;
+						}						
+					}
+				}
+			}
+		}
+	
+	
+		if (mTrueJump && mTrueJump->SplitSingleBranchUseConst())
+			changed = true;
+		if (mFalseJump && mFalseJump->SplitSingleBranchUseConst())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
+bool InterCodeBasicBlock::CommonTailCodeMerge(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mLoopHead)
+		{
+			for (int i = 0; i + 1 < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+
+				if (CanMoveInstructionBeforeBlock(i))
+				{
+					bool	aconst = true, aany = false;
+					for (int j = 0; j < ins->mNumOperands; j++)
+					{
+						if (ins->mSrc[j].mTemp >= 0)
+						{
+							aany = true;
+							int k = 0;
+							while (k < mEntryBlocks.Size() && mEntryBlocks[k]->IsConstExitTemp(ins->mSrc[j].mTemp) && !mEntryBlocks[k]->mFalseJump)
+								k++;
+							if (k < mEntryBlocks.Size())
+							{
+								aconst = false;
+								break;
+							}
+						}
+					}
+
+					if (aconst && aany)
+					{
+						for (int j = 0; j < mEntryBlocks.Size(); j++)
+						{
+							InterCodeBasicBlock* eblock = mEntryBlocks[j];
+							eblock->mInstructions.Insert(eblock->mInstructions.Size() - 1, ins->Clone());
+							if (ins->mDst.mTemp >= 0)
+								eblock->mExitRequiredTemps += ins->mDst.mTemp;							
+						}
+						if (ins->mDst.mTemp >= 0)
+							mEntryRequiredTemps += ins->mDst.mTemp;
+						ins->mCode = IC_NONE;
+						ins->mNumOperands = 0;
+						ins->mDst.mTemp = -1;
+						changed = true;
+					}
+
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->CommonTailCodeMerge())
+			changed = true;
+		if (mFalseJump && mFalseJump->CommonTailCodeMerge())
+			changed = true;
 	}
 
 	return changed;
@@ -14685,25 +16682,26 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 				j--;
 			while (j >= 0)
 			{
+				InterInstruction* jins = mInstructions[j];
+
 				if (j < ti - 1)
 				{
 					if (CanMoveInstructionDown(j, ti))
 					{
-						InterInstruction* jins = mInstructions[j];
 						for (int k = j; k < ti - 1; k++)
 						{
 							SwapInstructions(jins, mInstructions[k + 1]);
 							mInstructions[k] = mInstructions[k + 1];
 						}
 						mInstructions[ti - 1] = jins;
-						if (mInstructions[ti - 1]->NumUsedTemps() <= 1)
-							ti--;
 
+						if (jins->NumUsedTemps() <= 1 && !(jins->mCode == IC_CALL || jins->mCode == IC_CALL_NATIVE))
+							ti--;
 						//					mInstructions.Insert(i, mInstructions[j]);
 						//					mInstructions.Remove(j);
 					}
 				}
-				else if (mInstructions[j]->NumUsedTemps() <= 1)
+				else if (jins->NumUsedTemps() <= 1 && !(jins->mCode == IC_CALL || jins->mCode == IC_CALL_NATIVE))
 					ti--;
 
 				j--;
@@ -14713,6 +16711,33 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		}
 #endif
 		CheckFinalLocal();
+
+		// check move calls our of range to save register spilling
+		i = 0;
+		while (i < mInstructions.Size())
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+			{
+				int j = i;
+				while (j > 0 && CanSwapInstructions(ins, mInstructions[j - 1]) && TempUseDelta(mInstructions[j - 1]) >= 0)
+					j--;
+				while (j < i && TempUseDelta(mInstructions[j]) == 0)
+					j++;
+
+				if (j < i)
+				{
+					while (i > j)
+					{
+						i--;
+						SwapInstructions(mInstructions[i], ins);
+						mInstructions[i + 1] = mInstructions[i];
+					}
+					mInstructions[j] = ins;
+				}
+			}
+			i++;
+		}
 
 		// sort stores up
 
@@ -14801,6 +16826,26 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 	}
 }
 
+void InterCodeBasicBlock::CheckNullptrDereference(void) 
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_ABSOLUTE && ins->mSrc[0].mIntConst == 0 && !ins->mVolatile)
+				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
+			else if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_ABSOLUTE && ins->mSrc[1].mIntConst == 0 && !ins->mVolatile)
+				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
+		}
+
+		if (mTrueJump) mTrueJump->CheckNullptrDereference();
+		if (mFalseJump) mFalseJump->CheckNullptrDereference();
+	}
+}
+
 void InterCodeBasicBlock::CheckValueReturn(void)
 {
 	if (!mVisited)
@@ -14810,7 +16855,7 @@ void InterCodeBasicBlock::CheckValueReturn(void)
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
 			InterInstruction* ins = mInstructions[i];
-			if (ins->mCode == IC_ASSEMBLER)
+			if (ins->mCode == IC_ASSEMBLER || ins->mCode == IC_DISPATCH)
 				return;
 			else if (ins->mCode == IC_RETURN)
 				mProc->mModule->mErrors->Error(ins->mLocation, EWARN_MISSING_RETURN_STATEMENT, "Missing return statement");
@@ -14821,6 +16866,94 @@ void InterCodeBasicBlock::CheckValueReturn(void)
 	}
 }
 
+void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool& storesIndirect, bool& loadsIndirect, bool& globalsChecked)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			switch (ins->mCode)
+			{
+			case IC_LOAD:
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
+					referencedGlobals += ins->mSrc[0].mVarIndex;
+				else if (ins->mSrc[0].mTemp >= 0)
+					loadsIndirect = true;
+				break;
+			case IC_STORE:
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
+				{
+					referencedGlobals += ins->mSrc[1].mVarIndex;
+					modifiedGlobals += ins->mSrc[1].mVarIndex;
+				}
+				else if (ins->mSrc[1].mTemp >= 0)
+					storesIndirect = true;
+				break;
+			case IC_COPY:
+			case IC_STRCPY:
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
+					referencedGlobals += ins->mSrc[0].mVarIndex;
+				else if (ins->mSrc[0].mTemp >= 0)
+					loadsIndirect = true;
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
+				{
+					referencedGlobals += ins->mSrc[1].mVarIndex;
+					modifiedGlobals += ins->mSrc[1].mVarIndex;
+				}
+				else if (ins->mSrc[1].mTemp >= 0)
+					storesIndirect = true;
+				break;
+			case IC_CALL:
+			case IC_CALL_NATIVE:
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc)
+				{
+					InterCodeProcedure* proc = ins->mSrc[0].mLinkerObject->mProc;
+					if (proc->mGlobalsChecked)
+					{
+						if (proc->mStoresIndirect)
+							storesIndirect = true;
+						if (proc->mLoadsIndirect)
+							loadsIndirect = true;
+						referencedGlobals |= proc->mReferencedGlobals;
+						modifiedGlobals |= proc->mModifiedGlobals;
+					}
+					else
+						globalsChecked = false;
+				}
+				else
+					globalsChecked = false;
+				break;
+			case IC_DISPATCH:
+				{
+					for (int j = 0; j < mProc->mCalledFunctions.Size(); j++)
+					{
+						InterCodeProcedure* proc = mProc->mCalledFunctions[j];
+
+						if (proc->mGlobalsChecked)
+						{
+							if (proc->mStoresIndirect)
+								storesIndirect = true;
+							if (proc->mLoadsIndirect)
+								loadsIndirect = true;
+							referencedGlobals |= proc->mReferencedGlobals;
+							modifiedGlobals |= proc->mModifiedGlobals;
+						}
+						else
+							globalsChecked = false;
+					}
+				}
+				break;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CollectGlobalReferences(referencedGlobals, modifiedGlobals, storesIndirect, loadsIndirect, globalsChecked);
+		if (mFalseJump) mFalseJump->CollectGlobalReferences(referencedGlobals, modifiedGlobals, storesIndirect, loadsIndirect, globalsChecked);
+	}
+}
 
 void InterCodeBasicBlock::WarnUsedUndefinedVariables(void)
 {
@@ -14886,7 +17019,6 @@ void InterCodeBasicBlock::WarnUsedUndefinedVariables(void)
 		if (mFalseJump) mFalseJump->WarnUsedUndefinedVariables();
 	}
 }
-
 
 void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, GrowingVariableArray& localVars, GrowingVariableArray& paramVars, InterMemory	paramMemory)
 {
@@ -15109,7 +17241,11 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 
 		const char* s = mLoopHead ? "Head" : "";
 		
-		fprintf(file, "L%d: <= D%d: (%d) %s P%d\n", mIndex, (mDominator ? mDominator->mIndex : -1), mNumEntries, s, (mLoopPrefix ? mLoopPrefix->mIndex : -1));
+		fprintf(file, "L%d: <= D%d: (%d) %s P%d", mIndex, (mDominator ? mDominator->mIndex : -1), mNumEntries, s, (mLoopPrefix ? mLoopPrefix->mIndex : -1));
+		if (mInstructions.Size())
+			fprintf(file, " %s\n", mInstructions[0]->mLocation.mFileName);
+		else
+			fprintf(file, "\n");
 
 		if (dumpSets)
 		{
@@ -15137,8 +17273,8 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 		{
 			if (mInstructions[i]->mCode != IC_NONE)
 			{
-				fprintf(file, "%04x\t", i);
-				mInstructions[i]->Disassemble(file);
+				fprintf(file, "%04x (%4d)\t", i, mInstructions[i]->mLocation.mLine);
+				mInstructions[i]->Disassemble(file, mProc);
 			}
 		}
 
@@ -15153,7 +17289,7 @@ void InterCodeBasicBlock::Disassemble(FILE* file, bool dumpSets)
 
 void InterCodeBasicBlock::WarnUnreachable(void)
 {
-	if (mNumEntries == 0)
+	if (mNumEntries == 0 && mProc->mCheckUnreachable)
 	{
 		int i = 0;
 		while (i < mInstructions.Size() && !IsObservable(mInstructions[i]->mCode))
@@ -15171,13 +17307,16 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mValueForwardingTable(nullptr), mLocalVars(nullptr), mParamVars(nullptr), mModule(mod),
 	mIdent(ident), mLinkerObject(linkerObject),
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
-	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false),
+	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false), mAssembled(false),
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
-	mDeclaration(nullptr)
+	mCheckUnreachable(true), mReturnType(IT_NONE), mCheapInline(false), 
+	mDeclaration(nullptr), mGlobalsChecked(false), mDispatchedCall(false),
+	mNumRestricted(1)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);
 	mLinkerObject->mProc = this;
+	mLinkerObject->mFlags |= LOBJF_CONST;
 	mCallerSavedTemps = BC_REG_TMP_SAVED - BC_REG_TMP;
 }
 
@@ -15231,9 +17370,16 @@ void InterCodeProcedure::ResetVisited(void)
 
 int InterCodeProcedure::AddTemporary(InterType type)
 {
+	assert(type != IT_NONE);
+
 	int	temp = mTemporaries.Size();
 	mTemporaries.Push(type);
 	return temp;
+}
+
+int InterCodeProcedure::AddRestricted(void)
+{
+	return mNumRestricted++;
 }
 
 void InterCodeProcedure::CheckBlocks(void)
@@ -15298,6 +17444,10 @@ void InterCodeProcedure::BuildTraces(bool expand, bool dominators, bool compact)
 	for (int i = 0; i < mBlocks.Size(); i++)
 		mBlocks[i]->mNumEntries = 0;
 	mEntryBlock->CollectEntries();
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	ResetVisited();
 	for (int i = 0; i < mBlocks.Size(); i++)
@@ -15435,11 +17585,11 @@ void InterCodeProcedure::SingleAssignmentForwarding(void)
 	ResetVisited();
 	mEntryBlock->SingleAssignmentTempForwarding(tunified, tvalues);
 
+	DisassembleDebug("single assignment forwarding");
+
 	BuildDataFlowSets();
 	TempForwarding();
 	RemoveUnusedInstructions();
-
-	DisassembleDebug("single assignment forwarding");
 
 }
 
@@ -15474,6 +17624,17 @@ void InterCodeProcedure::CheckUsedDefinedTemps(void)
 
 #endif
 }
+
+void InterCodeProcedure::PropagateMemoryAliasingInfo(void)
+{
+	GrowingInstructionPtrArray	tvalue(nullptr);
+
+	ResetVisited();
+	mEntryBlock->PropagateMemoryAliasingInfo(tvalue);
+
+	Disassemble("PropagateMemoryAliasingInfo");
+}
+
 
 void InterCodeProcedure::WarnUsedUndefinedVariables(void)
 {
@@ -15542,6 +17703,52 @@ void InterCodeProcedure::RemoveUnusedInstructions(void)
 	} while (mEntryBlock->RemoveUnusedResultInstructions());
 }
 
+void InterCodeProcedure::RemoveUnusedLocalStoreInstructions(void)
+{
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+	{
+		ResetVisited();
+		mEntryBlock->RemoveUnusedLocalStoreInstructions();
+	}
+}
+
+void InterCodeProcedure::RemoveUnusedPartialStoreInstructions(void)
+{
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+	{
+		if (mModule->mGlobalVars.Size())
+		{
+			int	byteIndex = 0;
+			for (int i = 0; i < mModule->mGlobalVars.Size(); i++)
+			{
+				if (mModule->mGlobalVars[i])
+				{
+					mModule->mGlobalVars[i]->mByteIndex = byteIndex;
+					byteIndex += mModule->mGlobalVars[i]->mSize;
+				}
+			}
+
+			do {
+				ResetVisited();
+				mEntryBlock->BuildStaticVariableByteSet(mModule->mGlobalVars, byteIndex);
+
+				ResetVisited();
+				mEntryBlock->BuildGlobalProvidedStaticVariableSet(mModule->mGlobalVars, NumberSet(byteIndex));
+
+				NumberSet	totalRequired2(byteIndex);
+
+				do {
+					ResetVisited();
+				} while (mEntryBlock->BuildGlobalRequiredStaticVariableSet(mModule->mGlobalVars, totalRequired2));
+
+				ResetVisited();
+			} while (mEntryBlock->RemoveUnusedStaticStoreByteInstructions(mModule->mGlobalVars, byteIndex));
+
+			DisassembleDebug("removed unused static byte stores");
+		}
+	}
+}
+
 void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 {
 	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
@@ -15606,6 +17813,11 @@ void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 
 			DisassembleDebug("removed unused static stores");
 		}
+
+		// Remove unused indirect stores
+
+		ResetVisited();
+		mEntryBlock->RemoveUnusedIndirectStoreInstructions();
 	}
 }
 
@@ -15936,6 +18148,8 @@ void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
 
 	bool changed;
 	do {
+		PropagateMemoryAliasingInfo();
+
 		GrowingInstructionPtrArray	gipa(nullptr);
 		ResetVisited();
 		changed = mEntryBlock->LoadStoreForwarding(gipa, mModule->mGlobalVars);
@@ -15944,11 +18158,15 @@ void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
 
 		RemoveUnusedStoreInstructions(paramMemory);
 
+		GlobalConstantPropagation();
+		RemoveUnusedMallocs();
+
 		TempForwarding();
 		RemoveUnusedInstructions();
 
 		DisassembleDebug("Load/Store forwarding");
 	} while (changed);
+
 }
 
 void InterCodeProcedure::CombineIndirectAddressing(void)
@@ -15971,6 +18189,17 @@ void InterCodeProcedure::PropagateConstOperationsUp(void)
 	bool	changed;
 	do {
 		changed = false;
+
+		ResetVisited();
+		if (mEntryBlock->SplitSingleBranchUseConst())
+			changed = true;
+		
+		ResetVisited();
+		if (mEntryBlock->CommonTailCodeMerge())
+		{
+			changed = true;
+			BuildDataFlowSets();
+		}
 
 		ResetVisited();
 		mEntryBlock->BuildConstTempSets();
@@ -16002,6 +18231,9 @@ void InterCodeProcedure::BuildLocalAliasTable(void)
 	GrowingIntArray		localTable(-1), paramTable(-1);
 	int					nlocals = 0, nparams = 0;
 
+	localTable.SetSize(mTemporaries.Size());
+	paramTable.SetSize(mTemporaries.Size());
+
 	ResetVisited();
 	mEntryBlock->CollectLocalAddressTemps(localTable, paramTable, nlocals, nparams);
 
@@ -16017,7 +18249,8 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "dungeon_rand_path");
+	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
 
@@ -16115,10 +18348,30 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet, mModule->mGlobalVars, fsingleSet);
 
-	GlobalConstantPropagation();
-
 	DisassembleDebug("machine value forwarding");
 
+	GlobalConstantPropagation();
+
+	DisassembleDebug("Global Constant Propagation");
+
+	// Check for cheap inlining
+	// 
+
+	if (mCompilerOptions & COPT_OPTIMIZE_INLINE)
+	{
+		ResetVisited();
+		if (mEntryBlock->CheapInlining(numTemps))
+		{
+			mValueForwardingTable.SetSize(numTemps, true);
+			mTemporaries.SetSize(numTemps, true);
+
+			DisassembleDebug("Cheap Inlining");
+
+			BuildDataFlowSets();
+		}
+	}
+
+	// 
 	//
 	// Now remove needless temporary moves, that appear due to
 	// stack evaluation
@@ -16146,7 +18399,13 @@ void InterCodeProcedure::Close(void)
 	else
 		CollectVariables(paramMemory);
 
+	for (int i = 0; i < mLocalVars.Size(); i++)
+		if (i < mLocalAliasedSet.Size() && mLocalAliasedSet[i])
+			mLocalVars[i]->mAliased = true;
+
 	BuildDataFlowSets();
+
+	LoadStoreForwarding(paramMemory);
 
 	ResetVisited();
 	mEntryBlock->OptimizeIntervalCompare();
@@ -16171,6 +18430,8 @@ void InterCodeProcedure::Close(void)
 
 	TempForwarding();
 	RemoveUnusedInstructions();
+
+	DisassembleDebug("pre single block loop opt");
 
 	ResetVisited();
 	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet, mModule->mGlobalVars);
@@ -16282,7 +18543,13 @@ void InterCodeProcedure::Close(void)
 	Disassemble("gcp-");
 #endif
 
+	BuildTraces(false);
+	DisassembleDebug("Rebuilt traces");
+
 	BuildDataFlowSets();
+
+	TempForwarding();
+	RemoveUnusedInstructions();
 
 #if 1
 	ResetVisited();
@@ -16294,6 +18561,9 @@ void InterCodeProcedure::Close(void)
 		ResetVisited();
 	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars, mParamVars));
 
+	TempForwarding();
+	RemoveUnusedInstructions();
+
 	do {
 		DisassembleDebug("tq");
 
@@ -16302,6 +18572,7 @@ void InterCodeProcedure::Close(void)
 
 
 	DisassembleDebug("Estimated value range");
+
 
 	GrowingInstructionPtrArray	pipa(nullptr);
 	ResetVisited();
@@ -16312,15 +18583,11 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->SimplifyIntegerRangeRelops();
 
-	DisassembleDebug("Simplified range limited relational ops");
+	DisassembleDebug("Simplified range limited relational ops 1");
 #endif
 
 	BuildTraces(false);
 	DisassembleDebug("Rebuilt traces");
-
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 #if 1
 	SimplifyIntegerNumeric(activeSet);
@@ -16366,6 +18633,15 @@ void InterCodeProcedure::Close(void)
 
 #endif
 
+	HoistCommonConditionalPath();
+	DisassembleDebug("HoistCommonConditionalPath");
+
+#if 1
+	ResetVisited();
+	mEntryBlock->MoveLoopHeadCheckToTail();
+
+#endif
+
 #if 1
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
@@ -16385,9 +18661,6 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	BuildTraces(false);
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 #if 1
 	SingleBlockLoopPointerSplit(activeSet);
@@ -16468,7 +18741,7 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->SimplifyIntegerRangeRelops();
 
-	DisassembleDebug("Simplified range limited relational ops");
+	DisassembleDebug("Simplified range limited relational ops 2");
 #endif
 
 #if 1
@@ -16520,6 +18793,8 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	LoadStoreForwarding(paramMemory);
+
+	RebuildIntegerRangeSet();
 
 #if 1
 	BuildLoopPrefix();
@@ -16587,6 +18862,8 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	BuildTraces(false);
+	BuildDataFlowSets();
+	BuildTraces(false);
 #endif
 
 	PropagateConstOperationsUp();
@@ -16597,6 +18874,11 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 #endif
+
+	ResetVisited();
+	mEntryBlock->SimplifyIntegerRangeRelops();
+
+	DisassembleDebug("Simplified range limited relational ops 3");
 
 #if 1
 	BuildDataFlowSets();
@@ -16610,8 +18892,11 @@ void InterCodeProcedure::Close(void)
 	RemoveUnusedInstructions();
 #endif
 
+	RemoveUnusedLocalStoreInstructions();
+
 #if 1
 	ResetVisited();
+
 	if (!mInterruptCalled && !mDynamicStack && mNativeProcedure && mEntryBlock->CheckStaticStack())
 	{
 		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
@@ -16649,7 +18934,7 @@ void InterCodeProcedure::Close(void)
 		ResetVisited();
 		mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet, mModule->mGlobalVars);
 
-		DisassembleDebug("single block loop opt 3");
+		DisassembleDebug("single block loop opt 4");
 
 		BuildDataFlowSets();
 
@@ -16659,14 +18944,22 @@ void InterCodeProcedure::Close(void)
 	}
 #endif
 
+	DisassembleDebug("PreLoopTemp");
 	BuildDataFlowSets();
 	ResetVisited();
 	mEntryBlock->ForwardLoopMovedTemp();
+	DisassembleDebug("PostLoopTemp");
 
+	CheckFinal();
+	DisassembleDebug("PreConstP");
 #if 1
 	do {
+		DisassembleDebug("InConstP");
 		TempForwarding();
 	} while (GlobalConstantPropagation());
+
+	BuildTraces(false);
+	DisassembleDebug("Rebuilt traces");
 
 
 	PeepholeOptimization();
@@ -16696,17 +18989,30 @@ void InterCodeProcedure::Close(void)
 	CombineIndirectAddressing();
 
 #if 1
-	for (int i = 0; i < 4; i++)
+	for (int i = 0; i < 8; i++)
 	{
+		BuildTraces(false);
+
+		LoadStoreForwarding(paramMemory);
+
+		RebuildIntegerRangeSet();
+
 		PeepholeOptimization();
 
 		DisassembleDebug("Peephole Temp Check");
+
+		if (i == 1)
+			CheckCase = true;
 		
 		RemoveUnusedInstructions();
 
 		ReduceTemporaries();
 
+		CheckBlocks();
+
 		MergeBasicBlocks();
+
+		CheckBlocks();
 
 		DisassembleDebug("TempForward Rev 1");
 
@@ -16716,6 +19022,8 @@ void InterCodeProcedure::Close(void)
 
 		RemoveUnusedInstructions();
 
+		CheckBlocks();
+
 		BuildDataFlowSets();
 
 		DisassembleDebug("TempForward Rev 2");
@@ -16723,6 +19031,8 @@ void InterCodeProcedure::Close(void)
 		TempForwarding();
 
 		DisassembleDebug("TempForward Rev 3");
+
+		CheckBlocks();
 
 		BuildLoopPrefix();
 
@@ -16769,6 +19079,8 @@ void InterCodeProcedure::Close(void)
 	}
 #endif
 
+	RemoveUnusedPartialStoreInstructions();
+
 	MapVariables();
 
 	DisassembleDebug("mapped variabled");
@@ -16796,6 +19108,9 @@ void InterCodeProcedure::Close(void)
 		mEntryBlock->CheckValueReturn();
 	}
 
+	ResetVisited();
+	mEntryBlock->CheckNullptrDereference();
+
 	if (mSaveTempsLinkerObject && mTempSize > BC_REG_TMP_SAVED - BC_REG_TMP)
 		mSaveTempsLinkerObject->AddSpace(mTempSize - (BC_REG_TMP_SAVED - BC_REG_TMP));
 
@@ -16817,6 +19132,112 @@ void InterCodeProcedure::Close(void)
 			}
 		}
 	}
+
+	if (mTempSize <= BC_REG_TMP_SAVED - BC_REG_TMP && !(mLinkerObject->mFlags & LOBJF_STATIC_STACK) && mLeafProcedure)
+	{
+		bool	hasLocals = false;
+
+		for (int i = 0; i < mLocalVars.Size(); i++)
+			if (mLocalVars[i] && mLocalVars[i]->mUsed)
+				hasLocals = true;
+
+		if (!hasLocals)
+			mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
+	}
+
+	if (!(mLinkerObject->mFlags & LOBJF_STATIC_STACK))
+	{
+		ResetVisited();
+		if (!mEntryBlock->PreventsCallerStaticStack())
+			mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
+	}
+
+	if (!mEntryBlock->mTrueJump)
+	{
+		int	nconst = 0, nvariables = 0, nparams = 0, ncalls = 0, nret = 0, nother = 0, nops = 0;
+		for (int i = 0; i < mEntryBlock->mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mEntryBlock->mInstructions[i];
+			switch (ins->mCode)
+			{
+			case IC_LOAD:
+				if (ins->mSrc[0].mTemp < 0)
+				{
+					if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_PARAM)
+						nparams++;
+					else if (ins->mSrc[0].mMemory == IM_GLOBAL || ins->mSrc[0].mMemory == IM_ABSOLUTE)
+						nvariables++;
+					else
+						nother++;
+				}
+				else
+					nother++;
+				break;
+			case IC_STORE:
+				if (ins->mSrc[1].mTemp >= 0 || (ins->mSrc[1].mMemory != IM_FFRAME && ins->mSrc[1].mMemory != IM_FRAME))
+					nops++;
+				if (ins->mSrc[0].mTemp < 0)
+					nconst++;
+				break;
+
+#if 1
+			case IC_CONSTANT:
+				if (ins->mDst.mType == IT_POINTER && (ins->mConst.mMemory == IM_FPARAM || ins->mConst.mMemory == IM_PARAM || ins->mConst.mMemory == IM_LOCAL))
+					nother++;
+				else
+					nconst++;
+				break;
+#endif
+#if 1
+			case IC_LEA:
+				if (ins->mSrc[1].mTemp >= 0 || (ins->mSrc[1].mMemory != IM_FPARAM && ins->mSrc[1].mMemory != IM_PARAM && ins->mSrc[1].mMemory != IM_LOCAL))
+					nops++;
+				else
+					nother++;
+				break;
+#endif
+#if 1
+			case IC_BINARY_OPERATOR:
+			case IC_UNARY_OPERATOR:
+			case IC_RELATIONAL_OPERATOR:
+				nops++;
+				break;
+#endif
+			case IC_CALL:
+			case IC_CALL_NATIVE:
+				if (ins->mSrc[0].mTemp < 0)
+					ncalls++;
+				else
+					nother++;
+				break;
+			case IC_RETURN:
+			case IC_RETURN_VALUE:
+				nret++;
+				break;
+			default:
+				nother++;
+			}
+		}
+
+		if (nother == 0 && ncalls <= 1 && nret == 1 && nconst <= 1 + nparams && nops <= 1 + nparams)
+			mCheapInline = true;
+	}
+
+	mGlobalsChecked = true;
+	mStoresIndirect = false;
+	mLoadsIndirect = false;
+	mReferencedGlobals.Reset(mModule->mGlobalVars.Size());
+	mModifiedGlobals.Reset(mModule->mGlobalVars.Size());
+#if 1
+	if (!mLeafProcedure && mCommonFrameSize > 0)
+	{
+		ResetVisited();
+		if (!mEntryBlock->RecheckOuterFrame())
+			mCommonFrameSize = 0;
+	}
+#endif
+	ResetVisited();
+	mEntryBlock->CollectGlobalReferences(mReferencedGlobals, mModifiedGlobals, mStoresIndirect, mLoadsIndirect, mGlobalsChecked);
 }
 
 void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)
@@ -16883,7 +19304,6 @@ void InterCodeProcedure::SingleTailLoopOptimization(InterMemory paramMemory)
 
 	} while (changed);
 }
-
 
 void InterCodeProcedure::MapVariables(void)
 {
@@ -17021,9 +19441,11 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 			if (block->mNumEntries)
 			{
 				int j = 0;
-				while (j < i && !(mBlocks[j]->mNumEntries && mBlocks[j]->IsEqual(block)))
+				while (j < i && !(mBlocks[j]->mNumEntries && mBlocks[j]->IsEqual(block) && mBlocks[j]->mIndex != 0))
 					j++;
 				blockMap[i] = mBlocks[j];
+				if (i != j)
+					mBlocks[j]->UnionIntegerRanges(block);
 			}
 		}
 
@@ -17131,9 +19553,21 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 						{
 							assert(mblocks[j]->mInstructions[mblocks[j]->mInstructions.Size() - 1]->mCode == IC_JUMP);
 							assert(mblocks[j]->mInstructions[mblocks[j]->mInstructions.Size() - 2]->IsEqual(ins));
+							
+							ins->UnionRanges(mblocks[j]->mInstructions[mblocks[j]->mInstructions.Size() - 2]);
 
 							mblocks[j]->mInstructions.Remove(mblocks[j]->mInstructions.Size() - 2);
 						}
+
+						if (nblock->mEntryValueRange.Size())
+						{
+							for (int j = 0; j < ins->mNumOperands; j++)
+							{
+								if (ins->mSrc[j].mTemp >= 0)
+									nblock->mEntryValueRange[ins->mSrc[j].mTemp] = ins->mSrc[j].mRange;
+							}
+						}
+
 						changed = true;
 					}
 				}
@@ -17145,6 +19579,46 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 	ResetVisited();
 	mEntryBlock->FollowJumps();
 
+}
+
+bool InterCodeProcedure::ReferencesGlobal(int varindex)
+{
+	if (mGlobalsChecked)
+	{
+		if (varindex >= 0)
+		{
+			if (mModule->mGlobalVars[varindex]->mAliased)
+				return mLoadsIndirect || mStoresIndirect;
+			else if (varindex < mReferencedGlobals.Size())
+				return mReferencedGlobals[varindex];
+			else
+				return false;
+		}
+		else
+			return false;
+	}
+	else
+		return true;
+}
+
+bool InterCodeProcedure::ModifiesGlobal(int varindex)
+{
+	if (mGlobalsChecked)
+	{
+		if (varindex >= 0)
+		{
+			if (mModule->mGlobalVars[varindex]->mAliased)
+				return mStoresIndirect;
+			else if (varindex < mModifiedGlobals.Size())
+				return mModifiedGlobals[varindex];
+			else
+				return false;
+		}
+		else
+			return false;
+	}
+	else
+		return true;
 }
 
 void InterCodeProcedure::BuildLoopPrefix(void)
@@ -17186,6 +19660,25 @@ bool InterCodeProcedure::GlobalConstantPropagation(void)
 	return mEntryBlock->PropagateConstTemps(ctemps);
 }
 
+void InterCodeProcedure::RemoveUnusedMallocs(void)
+{
+	ResetVisited();
+	mEntryBlock->RemoveUnusedMallocs();
+}
+
+void InterCodeProcedure::HoistCommonConditionalPath(void)
+{
+	for(;;)
+	{ 
+		ResetVisited();
+		if (!mEntryBlock->HoistCommonConditionalPath())
+			return;
+		TempForwarding();
+		RemoveUnusedInstructions();
+	}
+}
+
+
 void InterCodeProcedure::ReduceTemporaries(void)
 {
 	NumberSet* collisionSet;
@@ -17203,6 +19696,9 @@ void InterCodeProcedure::ReduceTemporaries(void)
 	do {
 		ResetVisited();
 	} while (mEntryBlock->BuildGlobalRequiredTempSet(totalRequired2));
+
+	ResetVisited();
+	mEntryBlock->PruneUnusedIntegerRangeSets();
 
 	collisionSet = new NumberSet[numTemps];
 

@@ -16,10 +16,10 @@ typedef __int64				int64;
 typedef unsigned __int64	uint64;
 #define MAXPATHLEN	_MAX_PATH
 #else
-#if __APPLE__
-#include "limits.h"
-#else /* __linux__ */
+#if __linux__
 #include "linux/limits.h"
+#else /* __APPLE__ */
+#include "limits.h"
 #endif
 
 typedef long long			int64;

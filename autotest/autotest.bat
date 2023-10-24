@@ -1,5 +1,53 @@
 rem @echo off
 
+@call :test bitfields.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_string.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_array.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_vector.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_vector_string.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_streamtest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_pairtest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test opp_parts.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test operatoroverload.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test virtualdestruct.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test vcalltest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test vcalltree.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test constructortest.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test copyconstructor.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test copyassign.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :test arrayconstruct.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test stdlibtest.c
 @if %errorlevel% neq 0 goto :error
 
@@ -55,6 +103,9 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :test arrayinittest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test arrayindexintrangecheck.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test array2stringinittest.c
@@ -165,6 +216,9 @@ rem @echo off
 @call :testn stripedarraytest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testn mmultest.c
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error
@@ -172,31 +226,31 @@ echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
 
 :test
-..\release\oscar64 -e %~1
+..\release\oscar64 -e -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -n %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O2 %~1
+..\release\oscar64 -e -O2 -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -O2 -n %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O0 %~1
+..\release\oscar64 -e -O0 -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -O0 -n %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -Os %~1
+..\release\oscar64 -e -Os -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -Os -n %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O3 %~1
+..\release\oscar64 -e -O3 -bc %~1
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -O3 -n %~1
@@ -205,19 +259,19 @@ exit /b %errorlevel%
 @exit /b 0
 
 :testb
-..\release\oscar64 -e %~1
+..\release\oscar64 -e -bc %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O2 %~1
+..\release\oscar64 -e -bc -O2 %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O0 %~1
+..\release\oscar64 -e -bc -O0 %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -Os %~1
+..\release\oscar64 -e -bc -Os %~1
 @if %errorlevel% neq 0 goto :error
 
-..\release\oscar64 -e -O3 %~1
+..\release\oscar64 -e -bc -O3 %~1
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

@@ -45,6 +45,7 @@ struct NativeRegisterDataSet
 	void ResetMask(void);
 
 	void ResetZeroPage(int addr);
+	void ResetZeroPageRange(int addr, int num);
 	void ResetAbsolute(LinkerObject * linkerObject, int addr);
 	int FindAbsolute(LinkerObject* linkerObject, int addr);
 	void ResetIndirect(int reg);
@@ -207,6 +208,12 @@ public:
 	uint32 NeedsLive(void) const;
 };
 
+struct NativeCodeLoadStorePair
+{
+	NativeCodeInstruction	mLoad, mStore;
+};
+
+
 class NativeCodeBasicBlock
 {
 public:
@@ -249,6 +256,8 @@ public:
 	int JumpByteSize(NativeCodeBasicBlock * target, int offset);
 	int BranchByteSize(NativeCodeBasicBlock* target, int from, int to);
 
+	NativeCodeBasicBlock* SplitAt(int at);
+
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
 
 	int LeadsInto(NativeCodeBasicBlock* block, int dist);
@@ -263,6 +272,7 @@ public:
 	void PrependInstruction(const NativeCodeInstruction& ins);
 
 	void ShortcutTailRecursion();
+	void ShortcutJump(int offset);
 
 	bool ReferencesAccu(int from = 0, int to = 65536) const;
 	bool ReferencesYReg(int from = 0, int to = 65536) const;
@@ -300,6 +310,7 @@ public:
 
 	bool OptimizeGenericLoop(NativeCodeProcedure* proc);
 	bool CollectGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks);
+	bool CollectSingleEntryGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks);
 	void CollectReachable(ExpandingArray<NativeCodeBasicBlock*>& lblock);
 
 	bool OptimizeFindLoop(NativeCodeProcedure* proc);
@@ -324,6 +335,8 @@ public:
 	bool LoadUnopStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, const InterInstruction* wins);
 	bool LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins1, const InterInstruction* rins0, const InterInstruction* oins, const InterInstruction* wins);
 	void LoadStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* wins);
+	void StoreByteOffsetIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* sins);
+
 	NativeCodeBasicBlock* BinaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void UnaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
@@ -336,12 +349,16 @@ public:
 	NativeCodeBasicBlock * StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
 	void AddAsrSignedByte(InterCodeProcedure* proc, const InterInstruction* ains, const InterInstruction* sins);
 
+	void CallMalloc(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
+	void CallFree(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
+
 	void LoadByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* rins);
 	void StoreByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* rins);
 
 	void CallAssembler(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 
+	void ShiftRegisterRight( const InterInstruction* ins, int reg, int shift);
 	void ShiftRegisterLeft(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift);
 	void ShiftRegisterLeftByte(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift);
 	void ShiftRegisterLeftFromByte(InterCodeProcedure* proc, const InterInstruction* ins, int reg, int shift, int max);
@@ -353,6 +370,7 @@ public:
 	NumberSet		mLocalRequiredRegs, mLocalProvidedRegs;
 	NumberSet		mEntryRequiredRegs, mEntryProvidedRegs;
 	NumberSet		mExitRequiredRegs, mExitProvidedRegs;
+	NumberSet		mNewRequiredRegs;
 	NumberSet		mTempRegs;
 
 	void BuildLocalRegSets(void);
@@ -370,7 +388,13 @@ public:
 	NativeCodeBasicBlock * ForwardAccuBranch(bool eq, bool ne, bool pl, bool mi, int limit);
 	bool MergeBasicBlocks(void);
 	void MarkLoopHead(void);
-	void BuildDominatorTree(NativeCodeBasicBlock * from);
+
+	struct DominatorStacks
+	{
+		ExpandingArray< NativeCodeBasicBlock* >	d1, d2;
+	};
+
+	void BuildDominatorTree(NativeCodeBasicBlock * from, DominatorStacks & stacks);
 
 	bool MoveLoadStoreUp(int at);
 	bool MoveLoadStoreXUp(int at);
@@ -393,6 +417,7 @@ public:
 	bool MoveLoadAddZPStoreUp(int at);
 	bool MoveLoadShiftRotateUp(int at);
 	bool MoveLoadShiftStoreUp(int at);
+	bool MoveTYADCStoreDown(int at);
 
 	bool MoveLDSTXOutOfRange(int at);
 
@@ -423,6 +448,10 @@ public:
 	bool CombineImmediateADCUpX(int at);
 	bool MoveTXADCDown(int at);
 	bool FoldShiftORAIntoLoadImmUp(int at);
+
+	bool MoveSimpleADCToINCDECDown(int at);
+	bool MoveTAXADCSTADown(int at);
+
 
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
 	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);
@@ -465,7 +494,7 @@ public:
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);
 	bool ReverseBitfieldForwarding(void);
 	bool OffsetValueForwarding(const ValueNumberingDataSet & data);
-	bool AbsoluteValueForwarding(void);
+	bool AbsoluteValueForwarding(const ExpandingArray<NativeCodeLoadStorePair>& npairs);
 
 	void MarkLocalUsedLinkerObjects(void);
 	bool RemoveLocalUnusedLinkerObjects(void);
@@ -488,6 +517,7 @@ public:
 	bool IsExitXRegZP(int addr, int& index) const;
 	bool IsExitARegZP(int addr, int& index) const;
 
+	bool ShortcutBlockExit(void);
 	bool PropagateSinglePath(void);
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;
@@ -508,6 +538,8 @@ public:
 
 	bool CrossBlockYAliasProgpagation(const int * yalias, int yoffset);
 
+	bool CrossBlockRegisterAlias(bool sameAX, bool sameAY);
+
 	bool BypassRegisterConditionBlock(void);
 	bool FoldLoopEntry(void);
 
@@ -521,7 +553,7 @@ public:
 	bool Check16BitSum(const NativeCodeBasicBlock* block, int origin, int at, int reg);
 	bool EliminateUpper16BitSum(NativeCodeProcedure* nproc);
 
-	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair);
+	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair, bool fchanged);
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
 	bool ForwardReplaceZeroPage(int at, int from, int to);
 
@@ -534,7 +566,7 @@ public:
 	void BuildEntryDataSet(const NativeRegisterDataSet& set);
 	bool ApplyEntryDataSet(void);
 
-	bool CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global);
+	bool CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global, bool ignorefcall);
 	void CollectZeroPageUsage(NumberSet& used, NumberSet& modified, NumberSet& pairs);
 	void FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias, int accu);
 	bool RemapZeroPage(const uint8* remap);
@@ -545,6 +577,7 @@ public:
 	bool LocalRegisterXYMap(void);
 	bool ReduceLocalYPressure(void);
 	bool ReduceLocalXPressure(void);
+	bool LocalZeroPageValueNumbering(void);
 
 	bool CombineZPPair(int at, int r0, int r1, bool use0, bool use1, bool & swap);
 	bool RemoveDoubleZPStore(void);
@@ -554,8 +587,9 @@ public:
 	bool SimplifyDiamond(NativeCodeProcedure* proc);
 	bool SimplifyLoopEnd(NativeCodeProcedure* proc);
 	bool CrossBlockStoreLoadBypass(NativeCodeProcedure* proc);
+	bool EliminateDeadLoops(void);
 
-	bool CanBytepassLoad(const NativeCodeInstruction& ains) const;
+	bool CanBytepassLoad(const NativeCodeInstruction& ains, int from = 0) const;
 	bool CanHoistStore(const NativeCodeInstruction& ains) const;
 
 	bool MoveAccuTrainUp(int at, int end);
@@ -584,6 +618,10 @@ public:
 	bool CheckShortcutPointerAddForward(int at);
 	bool ShortcutPointerAddForward(void);
 
+	bool ShortcutIndirectLoadStore(void);
+	bool MoveIndirectLoadZeroStoreDown(int at);
+	bool MoveLoadZeroStoreIndirectUp(int at);
+
 	bool CommonSubExpressionElimination(void);
 
 	bool CheckPatchFailReg(const NativeCodeBasicBlock* block, int reg);
@@ -592,6 +630,12 @@ public:
 
 	bool CheckPatchFailLoop(const NativeCodeBasicBlock* block, const NativeCodeBasicBlock* head, int reg, bool changed);
 
+	// reg : base register pair to replace
+	// index: index register
+	// at : start position in block
+	// yval: known y immediate value of -1 if not known
+	// lobj: linker object addressed
+	// address: offset into linker object
 	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int index, int at, int yval);
 	bool PatchGlobalAddressSumYPointer(const NativeCodeBasicBlock* block, int reg, int index, int at, int yval, LinkerObject * lobj, int address, uint32 flags = NCIF_LOWER | NCIF_UPPER);
 
@@ -603,7 +647,7 @@ public:
 	// iins : indexing instruction
 	// at : start position in block
 	// yval: known y immediate value of -1 if not known
-	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
+	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval, int ymax);
 	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 
 	// reg : base register pair to replace LSB with zero
@@ -639,10 +683,14 @@ public:
 
 	void PropagateZPAbsolute(void);
 
+	void RegisterFunctionCalls(void);
+	bool MergeFunctionCalls(void);
+
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 
 	void CheckLive(void);
 	void CheckBlocks(bool sequence = false);
+	void CheckAsmCode(void);
 	void CheckVisited(void);
 };
 
@@ -671,6 +719,7 @@ class NativeCodeProcedure
 
 		void Compile(InterCodeProcedure* proc);
 		void Optimize(void);
+		void Assemble(void);
 
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
 		NativeCodeBasicBlock* AllocateBlock(void);
@@ -725,4 +774,21 @@ public:
 
 	ExpandingArray<Runtime>	mRuntime;
 	ExpandingArray<MulTable>	mMulTables;
+
+	struct FunctionCall
+	{
+		LinkerObject			*	mLinkerObject, * mProxyObject;
+		NativeCodeInstruction		mIns[64];
+		FunctionCall			*	mNext, * mSame;
+		int							mCount;
+
+		bool IsSame(const FunctionCall* fc) const;
+		int Matches(const FunctionCall* fc) const;
+	};
+
+	FunctionCall* mFunctionCalls;
+
+	void RegisterFunctionCall(NativeCodeBasicBlock* block, int at);
+	void BuildFunctionProxies(void);
+	bool MergeFunctionCall(NativeCodeBasicBlock* block, int at);
 };

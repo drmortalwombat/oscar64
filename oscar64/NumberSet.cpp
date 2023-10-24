@@ -73,6 +73,34 @@ void NumberSet::Reset(int size, bool set)
 	}
 }
 
+void NumberSet::AddRange(int elem, int num)
+{
+	for (int i = 0; i < num; i++)
+		*this += elem + i;
+}
+
+void NumberSet::SubRange(int elem, int num)
+{
+	for (int i = 0; i < num; i++)
+		*this -= elem + i;
+}
+
+bool NumberSet::RangeClear(int elem, int num) const
+{
+	for (int i = 0; i < num; i++)
+		if ((*this)[elem + i])
+			return false;
+	return true;
+}
+
+bool NumberSet::RangeFilled(int elem, int num) const
+{
+	for (int i = 0; i < num; i++)
+		if (!(*this)[elem + i])
+			return false;
+	return true;
+}
+
 void NumberSet::Fill(void)
 {
 	int i;
@@ -120,6 +148,8 @@ NumberSet& NumberSet::operator=(const NumberSet& set)
 
 NumberSet& NumberSet::operator&=(const NumberSet& set)
 {
+	assert(dwsize == set.dwsize);
+
 	int	size = dwsize;
 	const uint32* sbits = set.bits;
 	uint32* dbits = bits;
@@ -132,7 +162,9 @@ NumberSet& NumberSet::operator&=(const NumberSet& set)
 
 NumberSet& NumberSet::operator|=(const NumberSet& set)
 {
-	int	size = dwsize;
+	assert(dwsize >= set.dwsize);
+
+	int	size = dwsize < set.dwsize ? dwsize : set.dwsize;
 	const uint32* sbits = set.bits;
 	uint32* dbits = bits;
 
@@ -144,6 +176,8 @@ NumberSet& NumberSet::operator|=(const NumberSet& set)
 
 NumberSet& NumberSet::operator-=(const NumberSet& set)
 {
+	assert(dwsize == set.dwsize);
+
 	int i;
 
 	for (i = 0; i < dwsize; i++)
@@ -154,6 +188,8 @@ NumberSet& NumberSet::operator-=(const NumberSet& set)
 
 bool NumberSet::operator<=(const NumberSet& set) const
 {
+	assert(dwsize == set.dwsize);
+
 	int i;
 
 	for (i = 0; i < dwsize; i++)

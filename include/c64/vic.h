@@ -91,7 +91,7 @@ enum VicMode
 
 // set the display mode and base address. This will also
 // adapt the bank.
-void vic_setmode(VicMode mode, char * text, char * font);
+void vic_setmode(VicMode mode, const char * text, const char * font);
 
 // put a sprite at the given x/y location, taking care of the
 // x MSB
@@ -108,6 +108,9 @@ inline void vic_waitTop(void);
 
 // wait for the top of the frame and then for the bottom of the visual area
 inline void vic_waitFrame(void);
+
+// wait for n frames
+void vic_waitFrames(char n);
 
 // wait for a specific raster line
 void vic_waitLine(int line);

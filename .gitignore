@@ -343,12 +343,9 @@ make/oscar64
 *.int
 *.bcs
 *.crt
-*.crt
-*.d64
+**/*.d64
 *.tlog
 *.res
 *.recipe
 *.exe
-*.d64
-*.d64
 *.dbj

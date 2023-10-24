@@ -143,17 +143,31 @@ const char* TokenNames[] =
 	"'#ifdef'",
 	"'#ifndef'",
 	"'#pragma'",
+	"'#line'",
 
 	"'#assign'",
 	"'#repeat'",
 	"'#until'",
 	"'#embed'",
+	"'#for'",
 	"'##'",
 
 	"'namespace'",
 	"'using'",
 	"'this'",
-	"'::'"
+	"'::'",
+	"'class'",
+	"'public'",
+	"'protected'",
+	"'private'",
+	"'new'",
+	"'delete'",
+	"'virtual'",
+	"'operator'",
+	"'template'",
+	"'friend'",
+	"'constexpr'",
+	"'typename'",
 };
 
 
@@ -298,6 +312,25 @@ Macro* MacroDict::Lookup(const Ident* ident)
 }
 
 
+TokenSequence::TokenSequence(Scanner* scanner)
+	: mNext(nullptr), mLocation(scanner->mLocation), mToken(scanner->mToken),
+	mTokenIdent(scanner->mTokenIdent), 
+	mTokenInteger(scanner->mTokenInteger), mTokenNumber(scanner->mTokenNumber),
+	mTokenString(nullptr)
+{
+	if (mToken == TK_STRING)
+	{
+		int	ssize = strlen(scanner->mTokenString);
+		char * str = new char[ssize + 1];
+		strcpy_s(str, ssize + 1, scanner->mTokenString);
+		mTokenString = str;
+	}
+}
+
+TokenSequence::~TokenSequence(void)
+{
+	delete[] mTokenString;
+}
 
 Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	: mErrors(errors), mPreprocessor(preprocessor)
@@ -310,10 +343,16 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	mAssemblerMode = false;
 	mPreprocessorMode = false;
 	mMacroExpansion = nullptr;
+	mMacroExpansionDepth = 0;
 
 	mDefines = new MacroDict();
 	mDefineArguments = nullptr;
 	mToken = TK_NONE;
+	mUngetToken = TK_NONE;
+	mReplay = nullptr;
+	mRecord = mRecordLast = nullptr;
+
+	mOnceDict = new MacroDict();
 
 	NextChar();
 
@@ -325,6 +364,26 @@ Scanner::~Scanner(void)
 	delete mDefines;
 }
 
+
+void Scanner::BeginRecord(void)
+{
+	mRecord = mRecordLast = new TokenSequence(this);
+}
+
+TokenSequence* Scanner::CompleteRecord(void)
+{
+	TokenSequence* seq = mRecord;
+	mRecord = mRecordLast = nullptr;
+	return seq;
+}
+
+const TokenSequence* Scanner::Replay(const TokenSequence* replay)
+{
+	const TokenSequence* seq = mReplay;
+	mReplay = replay;
+	NextToken();
+	return seq;
+}
 
 const char* Scanner::TokenName(Token token) const
 {
@@ -402,7 +461,40 @@ void Scanner::AddMacro(const Ident* ident, const char* value)
 	mDefines->Insert(macro);
 }
 
+void Scanner::MarkSourceOnce(void)
+{
+	const Ident* fident = Ident::Unique(mPreprocessor->mSource->mFileName);
+
+	Macro* macro = new Macro(fident, nullptr);
+	mOnceDict->Insert(macro);
+}
+
 void Scanner::NextToken(void)
+{
+	if (mReplay)
+	{
+		mLocation = mReplay->mLocation;
+		mToken = mReplay->mToken;
+
+		mTokenIdent = mReplay->mTokenIdent;
+		mTokenNumber = mReplay->mTokenNumber;
+		mTokenInteger = mReplay->mTokenInteger;
+		if (mReplay->mTokenString)
+			strcpy_s(mTokenString, mReplay->mTokenString);
+
+		mReplay = mReplay->mNext;
+	}
+	else
+		NextPreToken();
+
+	if (mRecord)
+	{
+		mRecordLast->mNext = new TokenSequence(this);
+		mRecordLast = mRecordLast->mNext;			
+	}
+}
+
+void Scanner::NextPreToken(void)
 {
 	for (;;)
 	{
@@ -450,7 +542,7 @@ void Scanner::NextToken(void)
 				mPreprocessorMode = true;
 				mPrepCondFalse = 0;
 
-				NextToken();
+				NextPreToken();
 				int64 v = PrepParseConditional();
 				if (v)
 				{
@@ -493,6 +585,8 @@ void Scanner::NextToken(void)
 			{
 				if (!mPreprocessor->OpenSource("Including", mTokenString, true))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+				else if (mOnceDict->Lookup(Ident::Unique(mPreprocessor->mSource->mFileName)))
+					mPreprocessor->CloseSource();
 			}
 			else if (mToken == TK_LESS_THAN)
 			{
@@ -500,7 +594,101 @@ void Scanner::NextToken(void)
 				StringToken('>', 'a');
 				if (!mPreprocessor->OpenSource("Including", mTokenString, false))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+				else if (mOnceDict->Lookup(Ident::Unique(mPreprocessor->mSource->mFileName)))
+					mPreprocessor->CloseSource();
 			}
+		}
+		else if (mToken == TK_PREP_LINE)
+		{
+			mPreprocessorMode = true;
+			NextPreToken();
+			int l = mLocation.mLine;
+			int64 v = PrepParseConditional();
+			if (mLocation.mLine == l && mToken == TK_STRING)
+			{
+				strcpy_s(mPreprocessor->mSource->mLocationFileName, mTokenString);
+				NextRawToken();
+			}
+			mPreprocessor->mLocation.mLine = int(v) + mLocation.mLine - l;
+			mPreprocessorMode = false;
+		}
+		else if (mToken == TK_PREP_FOR)
+		{
+			NextRawToken();
+			if (mToken == TK_OPEN_PARENTHESIS)
+			{
+				NextRawToken();
+				Macro* macro = new Macro(Ident::Unique("@for"), nullptr);
+				if (mToken == TK_IDENT)
+				{
+					const Ident* loopindex = mTokenIdent;
+					NextRawToken();
+
+					if (mToken == TK_COMMA)
+					{
+						mPreprocessorMode = true;
+						NextPreToken();
+						int64 loopCount = PrepParseConditional();
+						mPreprocessorMode = false;
+
+						if (mToken == TK_CLOSE_PARENTHESIS)
+						{
+							int		slen = mOffset;
+							bool	quote = false;
+							while (mLine[slen] && (quote || mLine[slen] != '/' || mLine[slen + 1] != '/'))
+							{
+								if (mLine[slen] == '"')
+									quote = !quote;
+								slen++;
+							}
+
+							macro->SetString(mLine + mOffset, slen - mOffset);
+
+							mOffset = slen;
+							while (mLine[mOffset])
+								mOffset++;
+
+							if (loopCount > 0)
+							{
+								MacroExpansion* ex = new MacroExpansion();
+								MacroDict* scope = mDefineArguments;
+								mDefineArguments = new MacroDict();
+
+								Macro* arg = new Macro(loopindex, scope);
+								mDefineArguments->Insert(arg);
+
+								arg->SetString("0");
+
+								ex->mLine = mLine;
+								ex->mOffset = mOffset;
+								ex->mLink = mMacroExpansion;
+								ex->mChar = mTokenChar;
+								ex->mLoopCount = 0;
+								ex->mLoopIndex = arg;
+								ex->mLoopLimit = loopCount;
+
+								mMacroExpansion = ex;
+								mMacroExpansionDepth++;
+								if (mMacroExpansionDepth > 1024)
+									mErrors->Error(mLocation, EFATAL_MACRO_EXPANSION_DEPTH, "Maximum macro expansion depth exceeded", mTokenIdent);
+								mLine = macro->mString;
+								mOffset = 0;
+								NextChar();
+							}
+						}
+						else
+							mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "')' expected in defined parameter list");
+					}
+					else
+						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "',' expected");
+
+				}
+				else
+					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "'loop index variable expected");
+			}
+			else
+				mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "'('(' expected");
+
 		}
 		else if (mToken == TK_PREP_DEFINE)
 		{
@@ -598,7 +786,7 @@ void Scanner::NextToken(void)
 		else if (mToken == TK_PREP_IF)
 		{
 			mPreprocessorMode = true;
-			NextToken();
+			NextPreToken();
 			int64 v = PrepParseConditional();
 			if (v)
 				mPrepCondDepth++;
@@ -616,7 +804,7 @@ void Scanner::NextToken(void)
 			{
 				const Ident* ident = mTokenIdent;
 
-				NextToken();
+				NextPreToken();
 
 				int64 v = PrepParseConditional();
 				Macro* macro = mDefines->Lookup(ident);
@@ -640,7 +828,7 @@ void Scanner::NextToken(void)
 		else if (mToken == TK_PREP_UNTIL)
 		{
 			mPreprocessorMode = true;
-			NextToken();
+			NextPreToken();
 			int64 v = PrepParseConditional();
 			if (mToken != TK_EOL)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "End of line expected");
@@ -808,6 +996,9 @@ void Scanner::NextToken(void)
 				ex->mChar = mTokenChar;
 
 				mMacroExpansion = ex;
+				mMacroExpansionDepth++;
+				if (mMacroExpansionDepth > 1024)
+					mErrors->Error(mLocation, EFATAL_MACRO_EXPANSION_DEPTH, "Maximum macro expansion depth exceeded", mTokenIdent);
 				mLine = def->mString;
 				mOffset = 0;
 				NextChar();
@@ -866,7 +1057,12 @@ void Scanner::NextToken(void)
 
 void Scanner::NextRawToken(void)
 {
-	if (mToken != TK_EOF)
+	if (mUngetToken)
+	{
+		mToken = mUngetToken;
+		mUngetToken = TK_NONE;
+	}
+	else if (mToken != TK_EOF)
 	{
 		mToken = TK_ERROR;
 
@@ -955,14 +1151,14 @@ void Scanner::NextRawToken(void)
 					}
 				}
 				NextChar();
-				NextToken();
+				NextPreToken();
 			}
 			else if (mTokenChar == '/')
 			{
 				NextChar();
 				while (!IsLineBreak(mTokenChar) && NextChar())
 					;
-				NextToken();
+				NextPreToken();
 			}
 			else if (mTokenChar == '=')
 			{
@@ -1174,6 +1370,7 @@ void Scanner::NextRawToken(void)
 			{
 				int		n = 0;
 				char	tkprep[128];
+				tkprep[0] = 0;
 
 				while (NextChar() && IsAlpha(mTokenChar))
 				{
@@ -1202,6 +1399,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_PREP_ENDIF;
 				else if (!strcmp(tkprep, "pragma"))
 					mToken = TK_PREP_PRAGMA;
+				else if (!strcmp(tkprep, "line"))
+					mToken = TK_PREP_LINE;
 				else if (!strcmp(tkprep, "assign"))
 					mToken = TK_PREP_ASSIGN;
 				else if (!strcmp(tkprep, "repeat"))
@@ -1210,6 +1409,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_PREP_UNTIL;
 				else if (!strcmp(tkprep, "embed"))
 					mToken = TK_PREP_EMBED;
+				else if (!strcmp(tkprep, "for"))
+					mToken = TK_PREP_FOR;
 				else
 					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", tkprep);
 			}
@@ -1268,6 +1469,8 @@ void Scanner::NextRawToken(void)
 			{
 				int		n = 0;
 				char	tkident[256];
+				tkident[0] = 0;
+
 				for (;;)
 				{
 					if (IsIdentChar(mTokenChar))
@@ -1394,6 +1597,165 @@ void Scanner::NextRawToken(void)
 					mToken = TK_USING;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "this"))
 					mToken = TK_THIS;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "class"))
+					mToken = TK_CLASS;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "public"))
+					mToken = TK_PUBLIC;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "protected"))
+					mToken = TK_PROTECTED;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "private"))
+					mToken = TK_PRIVATE;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "new"))
+					mToken = TK_NEW;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "delete"))
+					mToken = TK_DELETE;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "virtual"))
+					mToken = TK_VIRTUAL;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "template"))
+					mToken = TK_TEMPLATE;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "friend"))
+					mToken = TK_FRIEND;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "constexpr"))
+					mToken = TK_CONSTEXPR;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "typename"))
+					mToken = TK_TYPENAME;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
+				{
+					NextRawToken();
+					switch (mToken)
+					{
+					case TK_ASSIGN:
+						mTokenIdent = Ident::Unique("operator=");
+						break;
+
+					case TK_ASSIGN_ADD:
+						mTokenIdent = Ident::Unique("operator+=");
+						break;
+					case TK_ASSIGN_SUB:
+						mTokenIdent = Ident::Unique("operator-=");
+						break;
+					case TK_ASSIGN_MUL:
+						mTokenIdent = Ident::Unique("operator*=");
+						break;
+					case TK_ASSIGN_DIV:
+						mTokenIdent = Ident::Unique("operator/=");
+						break;
+					case TK_ASSIGN_MOD:
+						mTokenIdent = Ident::Unique("operator%=");
+						break;
+					case TK_ASSIGN_SHL:
+						mTokenIdent = Ident::Unique("operator<<=");
+						break;
+					case TK_ASSIGN_SHR:
+						mTokenIdent = Ident::Unique("operator>>=");
+						break;
+					case TK_ASSIGN_AND:
+						mTokenIdent = Ident::Unique("operator&=");
+						break;
+					case TK_ASSIGN_XOR:
+						mTokenIdent = Ident::Unique("operator^=");
+						break;
+					case TK_ASSIGN_OR:
+						mTokenIdent = Ident::Unique("operator|=");
+						break;
+
+					case TK_ADD:
+						mTokenIdent = Ident::Unique("operator+");
+						break;
+					case TK_SUB:
+						mTokenIdent = Ident::Unique("operator-");
+						break;
+					case TK_MUL:
+						mTokenIdent = Ident::Unique("operator*");
+						break;
+					case TK_DIV:
+						mTokenIdent = Ident::Unique("operator/");
+						break;
+					case TK_MOD:
+						mTokenIdent = Ident::Unique("operator%");
+						break;
+
+					case TK_BINARY_AND:
+						mTokenIdent = Ident::Unique("operator&");
+						break;
+					case TK_BINARY_OR:
+						mTokenIdent = Ident::Unique("operator|");
+						break;
+					case TK_BINARY_XOR:
+						mTokenIdent = Ident::Unique("operator^");
+						break;
+					case TK_LOGICAL_NOT:
+						mTokenIdent = Ident::Unique("operator!");
+						break;
+
+					case TK_LEFT_SHIFT:
+						mTokenIdent = Ident::Unique("operator<<");
+						break;
+					case TK_RIGHT_SHIFT:
+						mTokenIdent = Ident::Unique("operator>>");
+						break;
+
+					case TK_EQUAL:
+						mTokenIdent = Ident::Unique("operator==");
+						break;
+					case TK_NOT_EQUAL:
+						mTokenIdent = Ident::Unique("operator!=");
+						break;
+					case TK_GREATER_THAN:
+						mTokenIdent = Ident::Unique("operator>");
+						break;
+					case TK_GREATER_EQUAL:
+						mTokenIdent = Ident::Unique("operator>=");
+						break;
+					case TK_LESS_THAN:
+						mTokenIdent = Ident::Unique("operator<");
+						break;
+					case TK_LESS_EQUAL:
+						mTokenIdent = Ident::Unique("operator<=");
+						break;
+
+					case TK_INC:
+						mTokenIdent = Ident::Unique("operator++");
+						break;
+					case TK_DEC:
+						mTokenIdent = Ident::Unique("operator--");
+						break;
+
+					case TK_OPEN_BRACKET:
+						NextRawToken();
+						if (mToken != TK_CLOSE_BRACKET)
+							mErrors->Error(mLocation, EERR_INVALID_OPERATOR, "']' expected");
+						mTokenIdent = Ident::Unique("operator[]");
+						break;
+
+					case TK_OPEN_PARENTHESIS:
+						NextRawToken();
+						if (mToken != TK_CLOSE_PARENTHESIS)
+							mErrors->Error(mLocation, EERR_INVALID_OPERATOR, "')' expected");
+						mTokenIdent = Ident::Unique("operator()");
+						break;
+
+					case TK_ARROW:
+						mTokenIdent = Ident::Unique("operator->");
+						break;
+
+					case TK_NEW:
+						mTokenIdent = Ident::Unique("operator-new");
+						break;
+					case TK_DELETE:
+						mTokenIdent = Ident::Unique("operator-delete");
+						break;
+
+					default:
+						// dirty little hack to implement token preview, got to fix
+						// this with an infinit preview sequence at one point
+						mUngetToken = mToken;
+						mToken = TK_OPERATOR;
+						return;
+					}
+
+					mToken = TK_IDENT;
+				}
 				else
 				{
 					mToken = TK_IDENT;
@@ -1655,6 +2017,19 @@ bool Scanner::NextChar(void)
 	{
 		if (mMacroExpansion)
 		{
+			if (mMacroExpansion->mLoopIndex)
+			{
+				mMacroExpansion->mLoopCount++;
+				if (mMacroExpansion->mLoopCount < mMacroExpansion->mLoopLimit)
+				{
+					char	buffer[20];
+					sprintf_s(buffer, "%d", int(mMacroExpansion->mLoopCount));
+					mMacroExpansion->mLoopIndex->SetString(buffer);
+					mOffset = 0;
+					continue;
+				}
+			}
+
 			MacroExpansion* mac = mMacroExpansion->mLink;
 //			delete mDefineArguments;
 
@@ -1665,6 +2040,8 @@ bool Scanner::NextChar(void)
 
 			delete mMacroExpansion;
 			mMacroExpansion = mac;
+			mMacroExpansionDepth--;
+
 			return true;
 		}
 		else if (mPreprocessor->NextLine())
@@ -1877,32 +2254,32 @@ int64 Scanner::PrepParseSimple(void)
 	case TK_INTEGERL:
 	case TK_INTEGERUL:
 		v = mTokenInteger;
-		NextToken();
+		NextPreToken();
 		break;
 	case TK_SUB:
-		NextToken();
+		NextPreToken();
 		v = -PrepParseSimple();
 		break;
 	case TK_LOGICAL_NOT:
-		NextToken();
+		NextPreToken();
 		v = !PrepParseSimple();
 		break;
 	case TK_BINARY_NOT:
-		NextToken();
+		NextPreToken();
 		v = ~PrepParseSimple();
 		break;
 	case TK_OPEN_PARENTHESIS:
-		NextToken();
+		NextPreToken();
 		v = PrepParseConditional();
 		if (mToken == TK_CLOSE_PARENTHESIS)
-			NextToken();
+			NextPreToken();
 		else
 			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "')' expected");
 		break;
 	case TK_IDENT:
 		if (strcmp(mTokenIdent->mString, "defined") == 0)
 		{
-			NextToken();
+			NextPreToken();
 			if (mToken == TK_OPEN_PARENTHESIS)
 			{
 				NextRawToken();
@@ -1917,13 +2294,13 @@ int64 Scanner::PrepParseSimple(void)
 						v = 1;
 					else
 						v = 0;
-					NextToken();
+					NextPreToken();
 				}
 				else
 					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Identifier expected");
 
 				if (mToken == TK_CLOSE_PARENTHESIS)
-					NextToken();
+					NextPreToken();
 				else
 					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "')' expected");
 			}
@@ -1936,7 +2313,7 @@ int64 Scanner::PrepParseSimple(void)
 	default:
 		mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor token", TokenName(mToken));
 		if (mToken != TK_EOL)
-			NextToken();
+			NextPreToken();
 	}
 	
 	return v;
@@ -1951,11 +2328,11 @@ int64 Scanner::PrepParseMul(void)
 		switch (mToken)
 		{
 		case TK_MUL:
-			NextToken();
+			NextPreToken();
 			v *= PrepParseSimple();
 			break;
 		case TK_DIV:
-			NextToken();
+			NextPreToken();
 			u = PrepParseSimple();
 			if (u == 0)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Division by zero");
@@ -1983,11 +2360,11 @@ int64 Scanner::PrepParseAdd(void)
 		switch (mToken)
 		{
 		case TK_ADD:
-			NextToken();
+			NextPreToken();
 			v += PrepParseMul();
 			break;
 		case TK_SUB:
-			NextToken();
+			NextPreToken();
 			v -= PrepParseMul();
 			break;
 		default:
@@ -2004,11 +2381,11 @@ int64 Scanner::PrepParseShift(void)
 		switch (mToken)
 		{
 		case TK_LEFT_SHIFT:
-			NextToken();
+			NextPreToken();
 			v <<= PrepParseAdd();
 			break;
 		case TK_RIGHT_SHIFT:
-			NextToken();
+			NextPreToken();
 			v >>= PrepParseAdd();
 			break;
 		default:
@@ -2025,27 +2402,27 @@ int64 Scanner::PrepParseRel(void)
 		switch (mToken)
 		{
 		case TK_LESS_THAN:
-			NextToken();
+			NextPreToken();
 			v = v < PrepParseShift();
 			break;
 		case TK_GREATER_THAN:
-			NextToken();
+			NextPreToken();
 			v = v > PrepParseShift();
 			break;
 		case TK_LESS_EQUAL:
-			NextToken();
+			NextPreToken();
 			v = v <= PrepParseShift();
 			break;
 		case TK_GREATER_EQUAL:
-			NextToken();
+			NextPreToken();
 			v = v >= PrepParseShift();
 			break;
 		case TK_EQUAL:
-			NextToken();
+			NextPreToken();
 			v = v == PrepParseShift();
 			break;
 		case TK_NOT_EQUAL:
-			NextToken();
+			NextPreToken();
 			v = v != PrepParseShift();
 			break;
 		default:
@@ -2060,7 +2437,7 @@ int64 Scanner::PrepParseBinaryAnd(void)
 	int64	v = PrepParseRel();
 	while (mToken == TK_BINARY_AND)
 	{
-		NextToken();
+		NextPreToken();
 		v &= PrepParseRel();
 	}
 	return v;
@@ -2071,7 +2448,7 @@ int64 Scanner::PrepParseBinaryXor(void)
 	int64	v = PrepParseBinaryAnd();
 	while (mToken == TK_BINARY_XOR)
 	{
-		NextToken();
+		NextPreToken();
 		v ^= PrepParseBinaryAnd();
 	}
 	return v;
@@ -2082,7 +2459,7 @@ int64 Scanner::PrepParseBinaryOr(void)
 	int64	v = PrepParseBinaryXor();
 	while (mToken == TK_BINARY_OR)
 	{
-		NextToken();
+		NextPreToken();
 		v |= PrepParseBinaryXor();
 	}
 	return v;
@@ -2093,7 +2470,7 @@ int64 Scanner::PrepParseLogicalAnd(void)
 	int64	v = PrepParseBinaryOr();
 	while (mToken == TK_LOGICAL_AND)
 	{
-		NextToken();
+		NextPreToken();
 		if (!PrepParseBinaryOr())
 			v = 0;
 	}
@@ -2105,7 +2482,7 @@ int64 Scanner::PrepParseLogicalOr(void)
 	int64	v = PrepParseLogicalAnd();
 	while (mToken == TK_LOGICAL_OR)
 	{
-		NextToken();
+		NextPreToken();
 		if (PrepParseLogicalAnd())
 			v = 1;
 	}
@@ -2117,10 +2494,10 @@ int64 Scanner::PrepParseConditional(void)
 	int64	v = PrepParseLogicalOr();
 	if (mToken == TK_QUESTIONMARK)
 	{
-		NextToken();
+		NextPreToken();
 		int64	vt = PrepParseConditional();
 		if (mToken == TK_COLON)
-			NextToken();
+			NextPreToken();
 		else
 			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "':' expected");
 		int64	vf = PrepParseConditional();

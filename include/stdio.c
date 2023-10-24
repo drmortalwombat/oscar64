@@ -183,7 +183,7 @@ void putchar(char c)
 {
 	__asm {
 		lda c
-		jmp	putpch
+		jsr	putpch
 	}
 }
 

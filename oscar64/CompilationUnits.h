@@ -19,7 +19,7 @@ public:
 	CompilationUnits(Errors * errors);
 	~CompilationUnits(void);
 
-	DeclarationScope* mScope;
+	DeclarationScope* mScope, * mVTableScope, * mTemplateScope;
 	CompilationUnit* mCompilationUnits, * mPendingUnits;
 
 	Declaration* mStartup;
@@ -30,6 +30,10 @@ public:
 
 	LinkerSection* mSectionCode, * mSectionData, * mSectionBSS, * mSectionHeap, * mSectionStack, * mSectionZeroPage, * mSectionLowCode, * mSectionBoot;
 	Linker* mLinker;
+
+	int	mUniqueID;
+
+	int UniqueID(void);
 
 	bool AddUnit(Location & location, const char* name, const char * from);
 	CompilationUnit* PendingUnit(void);

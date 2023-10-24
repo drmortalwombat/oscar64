@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.20.208");
+		strcpy(strProductVersion, "1.26.225");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -102,6 +102,8 @@ int main2(int argc, const char** argv)
 
 		Compiler* compiler = new Compiler();
 
+		compiler->mCompilerOptions |= COPT_NATIVE;
+
 		Location	loc;
 
 		GrowingArray<const char*>	dataFiles(nullptr);
@@ -114,7 +116,8 @@ int main2(int argc, const char** argv)
 		strcpy_s(crtPath, includePath);
 		strcat_s(crtPath, "crt.c");
 
-		bool		emulate = false, profile = false, trace = false;
+		bool		emulate = false, profile = false;
+		int			trace = 0;
 
 		targetPath[0] = 0;
 		diskPath[0] = 0;
@@ -177,7 +180,10 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 'n')
 				{
 					compiler->mCompilerOptions |= COPT_NATIVE;
-					compiler->AddDefine(Ident::Unique("OSCAR_NATIVE_ALL"), "1");
+				}
+				else if (arg[1] == 'b' && arg[2] == 'c')
+				{
+					compiler->mCompilerOptions &= ~COPT_NATIVE;
 				}
 				else if (arg[1] == 'O')
 				{
@@ -197,6 +203,10 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE;
 					else if (arg[2] == 'z')
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_ZEROPAGE;
+					else if (arg[2] == 'p')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_CONST_PARAMS;
+					else if (arg[2] == 'g')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_GLOBAL;
 				}
 				else if (arg[1] == 'e')
 				{
@@ -204,7 +214,9 @@ int main2(int argc, const char** argv)
 					if (arg[2] == 'p')
 						profile = true;
 					else if (arg[2] == 't')
-						trace = true;
+						trace = 2;
+					else if (arg[2] == 'b')
+						trace = 1;
 				}
 				else if (arg[1] == 'd')
 				{
@@ -260,6 +272,16 @@ int main2(int argc, const char** argv)
 				compiler->mCompilationUnits->AddUnit(loc, argv[i], nullptr);
 			}
 		}
+
+		if (compiler->mCompilerOptions & COPT_NATIVE)
+		{
+			compiler->AddDefine(Ident::Unique("OSCAR_NATIVE_ALL"), "1");
+		}
+
+
+		// REMOVE ME
+		// compiler->mCompilerOptions |= COPT_OPTIMIZE_GLOBAL;
+		// REMOVE ME
 
 		char	basicStart[10];
 		strcpy_s(basicStart, "0x0801");
@@ -481,7 +503,7 @@ int main2(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
+		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] [-pp] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
 
 		return 0;
 	}

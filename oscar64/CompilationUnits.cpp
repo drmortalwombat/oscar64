@@ -7,13 +7,15 @@
 #include <stdio.h>
 #include <string.h>
 
-CompilationUnits::CompilationUnits(Errors * errors)
-	: mErrors(errors), mReferenced(nullptr)
+CompilationUnits::CompilationUnits(Errors* errors)
+	: mErrors(errors), mReferenced(nullptr), mUniqueID(0)
 {
 	mCompilationUnits = nullptr; 
 	mPendingUnits = nullptr;
 	mScope = new DeclarationScope(nullptr, SLEVEL_GLOBAL);
 	mRuntimeScope = new DeclarationScope(nullptr, SLEVEL_GLOBAL);
+	mVTableScope = new DeclarationScope(nullptr, SLEVEL_GLOBAL);
+	mTemplateScope = new DeclarationScope(nullptr, SLEVEL_GLOBAL);
 	mStartup = nullptr;
 
 	for (int i = 0; i < 256; i++)
@@ -24,6 +26,12 @@ CompilationUnits::~CompilationUnits(void)
 {
 
 }
+
+int CompilationUnits::UniqueID(void)
+{
+	return mUniqueID++;
+}
+
 
 void CompilationUnits::AddReferenced(Declaration* ref)
 {

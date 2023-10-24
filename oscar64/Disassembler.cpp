@@ -476,6 +476,13 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			fprintf(file, "CNVFS\tACCU");
 			break;
 
+		case BC_MALLOC:
+			fprintf(file, "MALLOC\tACCU");
+			break;
+		case BC_FREE:
+			fprintf(file, "FREE\tACCU");
+			break;
+
 		case BC_JUMPS:
 			fprintf(file, "JUMP\t$%04X", start + i + 1 + int8(memory[start + i + 0]));
 			i++;
@@ -711,29 +718,29 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 			break;
 		case ASMIM_ZERO_PAGE:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s %s %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(bank, addr, abuffer, proc, linker));
 			break;
 		case ASMIM_ZERO_PAGE_X:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s,x %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s %s,x %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(bank, addr, abuffer, proc, linker));
 			break;
 		case ASMIM_ZERO_PAGE_Y:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s %s,y %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s %s,y %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(bank, addr, abuffer, proc, linker));
 			break;
 		case ASMIM_ABSOLUTE:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s $%04x %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x %02x %s $%04x %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(bank, addr, abuffer, proc, linker));
 			ip += 2;
 			break;
 		case ASMIM_ABSOLUTE_X:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s $%04x,x %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x %02x %s $%04x,x %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(bank, addr, abuffer, proc, linker));
 			ip += 2;
 			break;
 		case ASMIM_ABSOLUTE_Y:
 			addr = memory[ip] + 256 * memory[ip + 1];
-			fprintf(file, "%04x : %02x %02x %02x %s $%04x,y %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x %02x %s $%04x,y %s\n", iip, memory[iip], memory[iip + 1], memory[iip + 2], AsmInstructionNames[d.mType], addr, AddrName(bank, addr, abuffer, proc, linker));
 			ip += 2;
 			break;
 		case ASMIM_INDIRECT:
@@ -743,11 +750,11 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 			break;
 		case ASMIM_INDIRECT_X:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s (%s,x) %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s (%s,x) %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(bank, addr, abuffer, proc, linker));
 			break;
 		case ASMIM_INDIRECT_Y:
 			addr = memory[ip++];
-			fprintf(file, "%04x : %02x %02x __ %s (%s),y %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s (%s),y %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], TempName(addr, tbuffer, proc, linker), AddrName(bank, addr, abuffer, proc, linker));
 			break;
 		case ASMIM_RELATIVE:
 			addr = memory[ip++];
@@ -755,14 +762,14 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 				addr = addr + ip - 256;
 			else
 				addr = addr + ip;
-			fprintf(file, "%04x : %02x %02x __ %s $%04x %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], addr, AddrName(addr, abuffer, proc, linker));
+			fprintf(file, "%04x : %02x %02x __ %s $%04x %s\n", iip, memory[iip], memory[iip + 1], AsmInstructionNames[d.mType], addr, AddrName(bank, addr, abuffer, proc, linker));
 			break;
 		}
 	}
 
 }
 
-const char* NativeCodeDisassembler::AddrName(int addr, char* buffer, InterCodeProcedure* proc, Linker* linker)
+const char* NativeCodeDisassembler::AddrName(int bank, int addr, char* buffer, InterCodeProcedure* proc, Linker* linker)
 {
 	if (linker)
 	{
@@ -787,14 +794,14 @@ const char* NativeCodeDisassembler::AddrName(int addr, char* buffer, InterCodePr
 		if (proc && proc->mLinkerObject && addr >= proc->mLinkerObject->mAddress && addr < proc->mLinkerObject->mAddress + proc->mLinkerObject->mSize)
 			obj = proc->mLinkerObject;
 		else
-			obj = linker->FindObjectByAddr(addr);
+			obj = linker->FindObjectByAddr(bank, addr);
 
 		if (obj && obj->mIdent)
 		{
 			int i = 0;
 			while (i < obj->mRanges.Size() && (addr - obj->mAddress < obj->mRanges[i].mOffset || addr - obj->mAddress - obj->mRanges[i].mOffset >= obj->mRanges[i].mSize))
 				i++;
-			if (i < obj->mRanges.Size())
+			if (i < obj->mRanges.Size() && obj->mRanges[i].mIdent)
 				sprintf_s(buffer, 160, "; (%s.%s + %d)", obj->mIdent->mString, obj->mRanges[i].mIdent->mString, addr - obj->mAddress - obj->mRanges[i].mOffset);
 			else
 				sprintf_s(buffer, 160, "; (%s + %d)", obj->mIdent->mString, addr - obj->mAddress);

@@ -90,11 +90,13 @@ public:
 	struct FreeChunk
 	{
 		int	mStart, mEnd;
+		LinkerObject* mLastObject;
 	};
 
 	GrowingArray<FreeChunk>		mFreeChunks;
+	LinkerObject			*	mLastObject;
 	
-	bool Allocate(Linker * linker, LinkerObject* obj);
+	bool Allocate(Linker * linker, LinkerObject* obj, bool merge);
 	void PlaceStackSection(LinkerSection* stackSection, LinkerSection* section);
 };
 
@@ -110,6 +112,10 @@ public:
 	LinkerObject* mObject, * mRefObject;
 	int		mOffset, mRefOffset;
 	uint32	mFlags;
+
+	bool operator==(const LinkerReference& ref);
+	bool operator!=(const LinkerReference& ref);
+
 };
 
 static const uint32 LSECF_PACKED = 0x00000001;
@@ -175,7 +181,7 @@ public:
 	Location							mLocation;
 	const Ident						*	mIdent;
 	LinkerObjectType					mType;
-	int									mID;
+	int									mID, mMapID;
 	int									mAddress, mRefAddress;
 	int									mSize, mAlignment;
 	LinkerSection					*	mSection;
@@ -202,13 +208,15 @@ public:
 
 	GrowingArray<LinkerReference*>	mReferences;
 
-	LinkerReference* FindReference(int offset);
+	LinkerReference* FindReference(int64 offset);
 
 	void AddReference(const LinkerReference& ref);
 
 	void MoveToSection(LinkerSection* section);
 
 	void MarkRelevant(void);
+
+	bool IsSameConst(const LinkerObject* obj) const;
 };
 
 class LinkerOverlay
@@ -237,10 +245,12 @@ public:
 	LinkerRegion* FindRegionOfSection(LinkerSection* section);
 
 	LinkerObject* FindObjectByAddr(int addr);
+	LinkerObject* FindObjectByAddr(int bank, int addr);
 
 	bool IsSectionPlaced(LinkerSection* section);
 
 	LinkerObject * AddObject(const Location & location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment = 1);
+	LinkerObject* FindSame(LinkerObject* obj);
 
 	LinkerOverlay* AddOverlay(const Location& location, const Ident* ident, int bank);
 
@@ -280,6 +290,7 @@ public:
 	void ReferenceObject(LinkerObject* obj);
 
 	void CollectReferences(void);
+	void CombineSameConst(void);
 	void Link(void);
 protected:
 	NativeCodeDisassembler	mNativeDisassembler;

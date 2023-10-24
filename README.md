@@ -20,10 +20,11 @@ The goal was also to implement the C99 standard and not some subset for performa
 
 After extensive optimizations it turns out, that the interpreted code is not significantly smaller than the native code in most scenarios (although there are cases where the difference is significant).  
  
-
+ 
 ## Limits and Errors
 
-There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 94 iterations per second with byte code (11696) and 395 iterations with native code (10425 Bytes).  This clearly shows that Dhrystone is not a valid benchmark for optimizing compilers, because it puts the 6502 on par with a 4MHz 8088 or 68k, which it clearly is not.
+There are still several open areas, but most targets have been reached.  The current 
+stone performance is 94 iterations per second with byte code (11696) and 395 iterations with native code (10425 Bytes).  This clearly shows that Dhrystone is not a valid benchmark for optimizing compilers, because it puts the 6502 on par with a 4MHz 8088 or 68k, which it clearly is not.
 
 ### Language
 
@@ -48,6 +49,31 @@ There are still several open areas, but most targets have been reached.  The cur
 
 ### Native code generation
 
+### C++ support level
+
+The compiler will most likely not support a current C++ standard in the near future, but several C++ features are already implemented.  The compiler can be switched into C++ mode with the command line option -pp or by providing a source file with a .cpp extension.
+
+Supported Features:
+
+* namespaces
+* reference types
+* member functions
+* constructors and destructors
+* operator overloading
+* single inheritance of class and struct
+* const member functions
+* new, delete, new[] and delete[]
+* virtual member functions
+* string and iostream classes
+* default parameters for class members and functions
+* templates
+* vector, array and list template classes
+* lambda functions
+* auto variables, parameters and return types
+* for range loop
+* constexpr compile time evaluation
+* parameter packs and templates
+
 ## Installation and Usage
 
 ### Installing on windows
@@ -67,7 +93,7 @@ You should build from a subdirectory of Oscar64 so that references in the makefi
 
 The compiler is command line driven, and creates an executable .prg file.
 
-    oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=format] [-tm=machine] [-e] [-n] [-dSYMBOL[=value]] {source.c}
+    oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=format] [-tm=machine] [-e] [-n] [-dSYMBOL[=value]] {source.c|source.cpp}
     
 * -v : verbose output for diagnostics
 * -v2 : more verbose output
@@ -76,7 +102,8 @@ The compiler is command line driven, and creates an executable .prg file.
 * -rt : alternative runtime library, replaces the crt.c (or empty for none)
 * -e : execute the result in the integrated emulator
 * -ep : execute and profile the result in the integrated emulator
-* -n : create pure native code for all functions
+* -bc : create byte code for all functions
+* -n : create pure native code for all functions (now default)
 * -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)
 * -O1 or -O : default optimizations
 * -O0 : disable optimizations
@@ -86,6 +113,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Oi : enable auto inline of small functions (part of O2/O3)
 * -Oa : optimize inline assembler (part of O2/O3)
 * -Oz : enable auto placement of global variables in zero page (part of O3)
+* -Op : optimize constant parameters
 * -g : create source level debug info and add source line numbers to asm listing
 * -tf : target format, may be prg, crt or bin
 * -tm : target machine
@@ -94,6 +122,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -fz : add a compressed binary file to the disk image
 * -xz : extended zero page usage, more zero page space, but no return to basic
 * -cid : cartridge type ID, used by vice emulator
+* -pp : compile in C++ mode
 
 A list of source files can be provided.
 
@@ -165,6 +194,80 @@ Creates vice monitor commands to define all static labels.
 
 One can load the label file in the monitor using the load_labels (ll) command or provide it on the command line for vice with the "-moncommands" command line argument.
 
+#### Complete debug information ".dbj"
+
+This is a JSON file that contains detailed debug information.
+
+it has four top sections:
+
+* memory : complete memory map with lables and source location
+* variables : list of all global/static variables with address and type index
+* functions : list of all functions with local variables, line numbers and addresses
+* types : list of all types
+
+##### Debug memory information
+
+The memory partitioning is described using a list of
+
+* name : name of the memory object
+* start : start address (inclusive)
+* end : end address (exclusive)
+* type : linkage type of memory object
+* source : source file that declared this memory object
+* line : source line that declared this memory object
+
+##### Debug type information
+
+Every defined type has a unique numeric typeid that is used to reference it from the variable sections or from composite types.
+
+Each type has up to five attributes:
+
+* name : a string, present for all named types
+* typeid : the unique numeric ID for this type
+* size : size of a variable of this type in bytes
+* type : base type or composition method for this type
+	* int : signed Integer
+	* uint : unsigned integer
+	* bool : boolean value
+	* enum : enumeration
+	* ptr : pointer to
+	* ref : reference
+	* struct : struct/class
+	* union
+* members : list of members of a composite type or enum
+* eid : typeid for pointer or reference targets
+
+##### Debug variables information
+
+Global variables have a name, a memory range and a typeid
+
+* name : a string, present for named variables
+* start : start address (inclusive)
+* end : end address (exclusive)
+* typeid : the type id for this variable
+
+##### Debug function information
+
+* name : a string, present for named functions
+* start : start address (inclusive)
+* end : end address (exclusive)
+* source : source file that declared this function
+* line : source line that declared this function
+* lines : list of all source lines for this function
+	* start : start address (inclusive)
+	* end : end address (exclusive)
+	* source : source file that declared this function
+	* line : source line that declared this function
+* variables : list of all local variables for this function
+	* name : a string, present for named variables
+	* start : start address (inclusive)
+	* end : end address (exclusive)
+	* enter : first line where the vaiable becomes visible
+	* leave : last line where the variable is visible
+	* typeid : the type id for this variable
+	* base : zero page register pair for (sp/fp) for stack based variables
+
+
 ### Creating a d64 disk file
 
 The compiler can create a .d64 disk file, that includes the compiled .prg file as the first file in the directory and a series of additional resource files.  The name of the disk file is provided with the -d64 command line options, additional files with the -f or -fz option.
@@ -177,7 +280,7 @@ The compressed files can be loaded into memory and decompressed using the oscar_
 
 The windows installer puts the samples into the users documents folder, using the directory "%userprofile%\documents\oscar64\samples".  A batch file *make.bat* is also placed into this directory which invokes the compiler and builds all samples.  It invokes a second batch file in "%userprofile%\documents\oscar64\bin\oscar64.bat" that calls the compiler.
 
-On a linux installation one can build the samples invoking the *build.sh* shell script in the samples directory.
+On a linux installation one can build the samples invoking the *build.sh* shell script in the samples directory, for multithreading use *make -C samples -j*.
 
 ### Debugging
 
@@ -316,6 +419,8 @@ Set optimizer options that are active for the functions after it
 * inline : inline if requesed with inline storage attribute
 * autoinline : auto inline of small or only once used functions
 * maxinline : inline any function suitable
+* constparams : enable constant parameter folding into called functions
+* noconstparams : disable constant parameter folding into called functions
 * 0 : no optimization
 * 1 : default optimizations
 * 2 : aggressive optimizations
@@ -458,6 +563,28 @@ This sample fills a single screen column with a given color, by generating 25 as
 	}
 	
 This sample initially assigns the value 0 to the pre processor macro ry and increments it each time the loop body is replicated.  The loop generates 25 copies of the body, each with a different value for ry.
+
+A simpler loop with only a single line template expansion is provided with the for preprocessor command:
+
+	#for(<iterator>, <count>) <text>
+
+This sample generates an array with pointers to screen rows:
+
+	char * const ScreenRows2[] = {
+	#for(i,SCREEN_HEIGHT) Screen + SCREEN_WIDTH * i,
+	};
+
+The preprocessor keeps track of the source location while parsing a file to generate error messages and debug symbols.  This is problematic for generated code, where the C source file position does not reflect the actual source position.
+
+The source position can be set with the #line directiv
+
+	#line linenum
+	
+	sets the line number
+	
+	#line linenum "sourcefile"
+	
+	sets the line number and source file name
 
 	
 ### Linker control

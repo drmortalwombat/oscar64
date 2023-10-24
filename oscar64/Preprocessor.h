@@ -39,7 +39,7 @@ enum SourceFileDecoder
 class SourceFile
 {
 public:
-	char			mFileName[MAXPATHLEN];
+	char			mFileName[MAXPATHLEN], mLocationFileName[MAXPATHLEN];
 
 	SourceFile	*	mUp, * mNext;
 	Location		mLocation;

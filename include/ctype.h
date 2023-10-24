@@ -25,6 +25,9 @@ inline bool isdigit(char c);
 
 inline bool isxdigit(char c);
 
+char tolower(char c);
+
+char toupper(char c);
 
 #pragma compile("ctype.c")
 

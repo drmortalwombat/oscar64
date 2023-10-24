@@ -33,6 +33,7 @@ Compiler::Compiler(void)
 	mNativeCodeGenerator = new NativeCodeGenerator(mErrors, mLinker, mCompilationUnits->mSectionCode);
 	mInterCodeModule = new InterCodeModule(mErrors, mLinker);
 	mGlobalAnalyzer = new GlobalAnalyzer(mErrors, mLinker);
+	mGlobalOptimizer = new GlobalOptimizer(mErrors, mLinker);
 
 	mCartridgeID = 0x0000;
 }
@@ -200,6 +201,251 @@ void Compiler::RegisterRuntime(const Location & loc, const Ident* ident)
 	}
 }
 
+static void IndexVTableTree(Declaration* vdec, int & index)
+{
+	vdec->mVarIndex = index;
+	vdec->mDefaultConstructor->mInteger = index;
+	index++;
+	Declaration* cvdec = vdec->mParams;
+	while (cvdec)
+	{
+		IndexVTableTree(cvdec, index);
+		cvdec = cvdec->mNext;
+	}
+	vdec->mSize = index - vdec->mVarIndex;
+}
+
+static void FillVTableTree(Declaration* vdec)
+{
+	Declaration* cdec = vdec->mClass;
+	cdec->mScope->Iterate([=](const Ident* mident, Declaration* mdec)
+		{
+			if (mdec->mType == DT_CONST_FUNCTION)
+			{
+				while (mdec)
+				{
+					if (mdec->mBase->mFlags & DTF_VIRTUAL)
+					{
+						for (int i = 0; i < vdec->mSize; i++)
+							mdec->mVTable->mCalled[vdec->mVarIndex + i - mdec->mVTable->mDefaultConstructor->mVarIndex] = mdec;
+					}
+					mdec = mdec->mNext;
+				}
+			}
+		});
+
+	Declaration* cvdec = vdec->mParams;
+	while (cvdec)
+	{
+		FillVTableTree(cvdec);
+		cvdec = cvdec->mNext;
+	}
+}
+void Compiler::CompleteTemplateExpansion(void)
+{
+}
+
+bool IsSimpleConstReturn(Declaration * mdec)
+{
+	if (mdec->mBase->mBase->IsSimpleType() && mdec->mBase->mParams->mNext == nullptr)
+	{
+		Expression* ex = mdec->mValue;
+		if (ex->mType == EX_SCOPE)
+			ex = ex->mLeft;
+
+		if (ex->mType == EX_RETURN && ex->mLeft->mType == EX_CONSTANT)
+			return true;
+	}
+
+	return false;
+}
+
+void Compiler::BuildVTables(void)
+{
+	// Connect vdecs with parents
+	mCompilationUnits->mVTableScope->Iterate([=](const Ident* ident, Declaration* vdec)
+		{
+			if (vdec->mBase)
+			{
+				vdec->mNext = vdec->mBase->mParams;
+				vdec->mBase->mParams = vdec;
+			}
+		});
+
+	// Number the child vtables
+	mCompilationUnits->mVTableScope->Iterate([=](const Ident* ident, Declaration* vdec)
+		{
+			if (!vdec->mBase)
+			{
+				int index = 0;
+				IndexVTableTree(vdec, index);
+			}
+		});
+
+	mCompilationUnits->mVTableScope->Iterate([=](const Ident* ident, Declaration* vdec)
+		{
+			if (!vdec->mBase)
+			{
+				FillVTableTree(vdec);
+			}
+		});
+
+	// Build vtables for functions
+	mCompilationUnits->mVTableScope->Iterate([=](const Ident* ident, Declaration* vdec)
+		{
+			vdec->mScope->Iterate([=](const Ident* mident, Declaration* mdec)
+				{					
+					bool	simpleConst = vdec->mSize > 0;
+					for (int i = 0; i < vdec->mSize; i++)
+						if (!IsSimpleConstReturn(mdec->mCalled[i]))
+							simpleConst = false;
+
+					if (simpleConst)
+					{
+						Declaration* vtabt = new Declaration(mdec->mLocation, DT_TYPE_ARRAY);
+						vtabt->mBase = mdec->mBase->mBase->ToConstType()->ToStriped(vdec->mSize);
+						vtabt->mSize = vdec->mSize * mdec->mBase->mBase->mSize;
+						vtabt->mStride = 1;
+						vtabt->mStripe = 1;
+						vtabt->mFlags |= DTF_CONST | DTF_DEFINED;
+
+						Declaration* vtaba = new Declaration(mdec->mLocation, DT_VARIABLE);
+						vtaba->mFlags = DTF_CONST | DTF_GLOBAL | DTF_DEFINED;
+						vtaba->mBase = vtabt;
+						vtaba->mSize = vtabt->mSize;
+						vtaba->mValue = new Expression(mdec->mLocation, EX_CONSTANT);
+						vtaba->mValue->mDecType = vtabt;
+						vtaba->mValue->mDecValue = new Declaration(mdec->mLocation, DT_CONST_STRUCT);
+						vtaba->mIdent = mdec->mIdent;
+						vtaba->mQualIdent = mdec->mQualIdent->Mangle("$vltable");
+						vtaba->mSection = mdec->mSection;
+						vtaba->mOffset = -vdec->mVarIndex;
+
+						Declaration* last = nullptr;
+
+						for (int i = 0; i < vdec->mSize; i++)
+						{
+							Declaration* vmdec = mdec->mCalled[i];
+
+							Expression* texp = vmdec->mValue;
+							if (texp->mType == EX_SCOPE)
+								texp = texp->mLeft;
+							texp = texp->mLeft;
+							
+							Declaration* cdec = texp->mDecValue->Clone();
+							cdec->mOffset = i;
+
+							if (last)
+								last->mNext = cdec;
+							else
+								vtaba->mValue->mDecValue->mParams = cdec;
+							last = cdec;
+						}
+
+						Expression* vexp = new Expression(mdec->mLocation, EX_QUALIFY);
+						vexp->mLeft = new Expression(mdec->mLocation, EX_PREFIX);
+						vexp->mLeft->mDecType = mdec->mBase->mParams->mBase->mBase;
+						vexp->mLeft->mToken = TK_MUL;
+						vexp->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+						vexp->mLeft->mLeft->mDecType = mdec->mBase->mParams->mBase;
+						vexp->mLeft->mLeft->mDecValue = mdec->mBase->mParams;
+
+						vexp->mDecValue = new Declaration(mdec->mLocation, DT_ELEMENT);
+						vexp->mDecValue->mBase = TheCharTypeDeclaration;
+						vexp->mDecValue->mOffset = vdec->mOffset;
+						vexp->mDecValue->mSize = 1;
+						vexp->mDecType = TheCharTypeDeclaration;
+
+						Expression* ecall = new Expression(mdec->mLocation, EX_RETURN);
+						ecall->mLeft = new Expression(mdec->mLocation, EX_INDEX);
+						ecall->mLeft->mDecType = mdec->mBase->mBase;
+						ecall->mDecType = mdec->mBase->mBase;
+						ecall->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+						ecall->mLeft->mLeft->mDecType = vtabt;
+						ecall->mLeft->mLeft->mDecValue = vtaba;
+						ecall->mLeft->mRight = vexp;
+
+						mdec->mCalled.SetSize(0);
+
+						mdec->mFlags |= DTF_DEFINED;
+						mdec->mBase->mFlags &= ~DTF_VIRTUAL;
+						mdec->mValue = ecall;
+					}
+					else
+					{
+						Declaration* vtabt = new Declaration(mdec->mLocation, DT_TYPE_ARRAY);
+						vtabt->mBase = mdec->mBase->ToStriped(vdec->mSize);
+						vtabt->mSize = vdec->mSize * 2;
+						vtabt->mStride = 1;
+						vtabt->mStripe = 1;
+						vtabt->mFlags |= DTF_CONST | DTF_DEFINED;
+
+						Declaration* vtaba = new Declaration(mdec->mLocation, DT_VARIABLE);
+						vtaba->mFlags = DTF_CONST | DTF_GLOBAL | DTF_DEFINED;
+						vtaba->mBase = vtabt;
+						vtaba->mSize = vtabt->mSize;
+						vtaba->mValue = new Expression(mdec->mLocation, EX_CONSTANT);
+						vtaba->mValue->mDecType = vtabt;
+						vtaba->mValue->mDecValue = new Declaration(mdec->mLocation, DT_CONST_STRUCT);
+						vtaba->mIdent = mdec->mIdent;
+						vtaba->mQualIdent = mdec->mQualIdent->Mangle("$vtable");
+						vtaba->mSection = mdec->mSection;
+						vtaba->mOffset = -vdec->mVarIndex;
+
+						Declaration* last = nullptr;
+
+						for (int i = 0; i < vdec->mSize; i++)
+						{
+							Declaration* vmdec = mdec->mCalled[i];
+
+							Expression* texp = new Expression(vmdec->mLocation, EX_CONSTANT);
+							texp->mDecType = vtabt->mBase;
+							texp->mDecValue = vmdec;
+
+							Declaration* cdec = new Declaration(vmdec->mLocation, DT_CONST_POINTER);
+							cdec->mValue = texp;
+							cdec->mBase = vtabt->mBase;
+							cdec->mOffset = i;
+
+							if (last)
+								last->mNext = cdec;
+							else
+								vtaba->mValue->mDecValue->mParams = cdec;
+							last = cdec;
+						}
+
+						//					mCompilationUnits->AddReferenced(vtaba);
+
+						Expression* vexp = new Expression(mdec->mLocation, EX_QUALIFY);
+						vexp->mLeft = new Expression(mdec->mLocation, EX_PREFIX);
+						vexp->mLeft->mDecType = mdec->mBase->mParams->mBase->mBase;
+						vexp->mLeft->mToken = TK_MUL;
+						vexp->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+						vexp->mLeft->mLeft->mDecType = mdec->mBase->mParams->mBase;
+						vexp->mLeft->mLeft->mDecValue = mdec->mBase->mParams;
+
+						vexp->mDecValue = new Declaration(mdec->mLocation, DT_ELEMENT);
+						vexp->mDecValue->mBase = TheCharTypeDeclaration;
+						vexp->mDecValue->mOffset = vdec->mOffset;
+						vexp->mDecValue->mSize = 1;
+						vexp->mDecType = TheCharTypeDeclaration;
+
+						Expression* ecall = new Expression(mdec->mLocation, EX_DISPATCH);
+						ecall->mLeft = new Expression(mdec->mLocation, EX_INDEX);
+						ecall->mLeft->mDecType = mdec->mBase;
+						ecall->mDecType = vtabt->mBase;
+						ecall->mLeft->mLeft = new Expression(mdec->mLocation, EX_VARIABLE);
+						ecall->mLeft->mLeft->mDecType = vtabt;
+						ecall->mLeft->mLeft->mDecValue = vtaba;
+						ecall->mLeft->mRight = vexp;
+
+						mdec->mFlags |= DTF_DEFINED;
+						mdec->mValue = ecall;
+					}
+				});
+		});
+}
+
 void Compiler::CompileProcedure(InterCodeProcedure* proc)
 {
 	if (!proc->mCompiled)
@@ -218,6 +464,7 @@ void Compiler::CompileProcedure(InterCodeProcedure* proc)
 				printf("Generate native code <%s>\n", proc->mIdent->mString);
 
 			ncproc->Compile(proc);
+			mNativeProcedures.Push(ncproc);
 		}
 		else
 		{
@@ -589,6 +836,38 @@ bool Compiler::GenerateCode(void)
 
 	dcrtstart->mSection = sectionStartup;
 
+	if (mCompilerOptions & COPT_CPLUSPLUS)
+	{
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Build VTables\n");
+
+		BuildVTables();
+	}
+
+	if (mCompilerOptions & COPT_OPTIMIZE_GLOBAL)
+	{
+		mGlobalOptimizer->mCompilerOptions = mCompilerOptions;
+
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Global optimizer\n");
+
+		do {
+			mGlobalOptimizer->Reset();
+
+			mGlobalOptimizer->AnalyzeAssembler(dcrtstart->mValue, nullptr);
+
+			for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
+			{
+				Declaration* dec = mCompilationUnits->mReferenced[i];
+				if (dec->mType == DT_CONST_FUNCTION)
+					mGlobalOptimizer->AnalyzeProcedure(dec->mValue, dec);
+				else
+					mGlobalOptimizer->AnalyzeGlobalVariable(dec);
+			}
+		} while (mGlobalOptimizer->Optimize());
+
+	}
+
 	mGlobalAnalyzer->mCompilerOptions = mCompilerOptions;
 
 	if (mCompilerOptions & COPT_VERBOSE)
@@ -669,6 +948,9 @@ bool Compiler::GenerateCode(void)
 		RegisterRuntime(loc, Ident::Unique("mods32"));
 		RegisterRuntime(loc, Ident::Unique("divu32"));
 		RegisterRuntime(loc, Ident::Unique("modu32"));
+
+		RegisterRuntime(loc, Ident::Unique("malloc"));
+		RegisterRuntime(loc, Ident::Unique("free"));
 	}
 
 	// Register extended byte code functions
@@ -725,6 +1007,15 @@ bool Compiler::GenerateCode(void)
 
 		if (proc->mLinkerObject->mStackSection)
 			mCompilationUnits->mSectionStack->mSections.Push(proc->mLinkerObject->mStackSection);
+	}
+
+	mNativeCodeGenerator->BuildFunctionProxies();
+
+	for (int i = 0; i < mNativeProcedures.Size(); i++)
+	{
+		if (mCompilerOptions & COPT_VERBOSE2)
+			printf("Assemble native code <%s>\n", mNativeProcedures[i]->mInterProc->mIdent->mString);
+		mNativeProcedures[i]->Assemble();
 	}
 
 	LinkerObject* byteCodeObject = nullptr;
@@ -793,6 +1084,9 @@ bool Compiler::GenerateCode(void)
 	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
 		mLinker->ReferenceObject(mCompilationUnits->mReferenced[i]->mLinkerObject);
 
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+		mLinker->CombineSameConst();
+
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Link executable\n");
 
@@ -808,7 +1102,7 @@ bool Compiler::BuildLZO(const char* targetPath)
 
 	CompilationUnit* cunit;
 
-	char	data[65536];
+	char	*	data = new char[65536];
 	int		n = 0;
 
 	while (mErrors->mErrorCount == 0 && (cunit = mCompilationUnits->PendingUnit()))
@@ -851,14 +1145,20 @@ bool Compiler::BuildLZO(const char* targetPath)
 		{
 			int	done = fwrite(data, 1, n, file);
 			fclose(file);
+			delete[] data;
 			return done == n;
 		}
 		else
+		{
+			delete[] data;
 			return false;
+		}
 	}
 	else
+	{
+		delete[] data;
 		return false;
-
+	}
 }
 
 bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
@@ -977,7 +1277,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	return true;
 }
 
-int Compiler::ExecuteCode(bool profile, bool trace)
+int Compiler::ExecuteCode(bool profile, int trace)
 {
 	Location	loc;
 
@@ -990,12 +1290,12 @@ int Compiler::ExecuteCode(bool profile, bool trace)
 		memcpy(emu->mMemory + mLinker->mProgramStart, mLinker->mMemory + mLinker->mProgramStart, mLinker->mProgramEnd - mLinker->mProgramStart);
 		emu->mMemory[0x2d] = mLinker->mProgramEnd & 0xff;
 		emu->mMemory[0x2e] = mLinker->mProgramEnd >> 8;
-		ecode = emu->Emulate(2061, trace ? 2 : 0);
+		ecode = emu->Emulate(2061, trace);
 	}
 	else if (mCompilerOptions & COPT_TARGET_CRT)
 	{
 		memcpy(emu->mMemory + 0x8000, mLinker->mMemory + 0x0800, 0x4000);
-		ecode = emu->Emulate(0x8009, trace ? 2 : 0);
+		ecode = emu->Emulate(0x8009, trace);
 	}
 
 	printf("Emulation result %d\n", ecode);
@@ -1183,6 +1483,9 @@ bool Compiler::WriteDbjFile(const char* filename)
 				break;
 			case DT_TYPE_REFERENCE:
 				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ref\", eid: %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				break;
+			case DT_TYPE_RVALUEREF:
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"rref\", eid: %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_ENUM:
 			{

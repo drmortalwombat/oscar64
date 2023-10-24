@@ -250,7 +250,7 @@ bool DiskImage::WriteFile(const char* fname, bool compressed)
 
 		if (OpenFile(dname))
 		{
-			uint8	buffer[65536], cbuffer[65536];
+			uint8	* buffer = new uint8[65536], * cbuffer = new uint8[65536];
 			int		size = fread(buffer, 1, 65536, file);
 			int		csize = 0;
 
@@ -311,6 +311,9 @@ bool DiskImage::WriteFile(const char* fname, bool compressed)
 			else
 				WriteBytes(buffer, size);
 			CloseFile();
+
+			delete[] buffer;
+			delete[] cbuffer;
 		}
 
 		fclose(file);

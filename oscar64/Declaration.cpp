@@ -1,4 +1,6 @@
 #include "Declaration.h"
+#include "Constexpr.h"
+#include <math.h>
 
 DeclarationScope::DeclarationScope(DeclarationScope* parent, ScopeLevel level, const Ident* name)
 {
@@ -10,6 +12,19 @@ DeclarationScope::DeclarationScope(DeclarationScope* parent, ScopeLevel level, c
 	mHash = nullptr;
 }
 
+void DeclarationScope::Clear(void)
+{
+	mHashFill = 0;
+	if (mHash)
+	{
+		for (int i = 0; i < mHashSize; i++)
+		{
+			mHash[i].mDec = nullptr;
+			mHash[i].mIdent = nullptr;
+		}
+	}
+}
+
 DeclarationScope::~DeclarationScope(void)
 {
 	delete[] mHash;
@@ -17,7 +32,7 @@ DeclarationScope::~DeclarationScope(void)
 
 const Ident* DeclarationScope::Mangle(const Ident* ident) const
 {
-	if (mName)
+	if (mName && ident)
 	{
 		char	buffer[200];
 		strcpy_s(buffer, mName->mString);
@@ -92,8 +107,8 @@ Declaration* DeclarationScope::Lookup(const Ident* ident, ScopeLevel limit)
 
 	if (mHashSize > 0)
 	{
-		int		hm = mHashSize - 1;
-		int		hi = ident->mHash & hm;
+		unsigned int		hm = mHashSize - 1;
+		unsigned int		hi = ident->mHash & hm;
 
 		while (mHash[hi].mIdent)
 		{
@@ -103,14 +118,20 @@ Declaration* DeclarationScope::Lookup(const Ident* ident, ScopeLevel limit)
 		}
 	}
 
+	if (limit == SLEVEL_SCOPE)
+		return nullptr;
+
 	for (int i = 0; i < mUsed.Size(); i++)
 	{
-		Declaration* dec = mUsed[i]->Lookup(ident);
+		Declaration* dec = mUsed[i]->Lookup(ident, SLEVEL_NAMESPACE);
 		if (dec)
 			return dec;
 	}
 
-	return mParent ? mParent->Lookup(ident) : nullptr;
+	if (limit == SLEVEL_USING)
+		return nullptr;
+
+	return mParent ? mParent->Lookup(ident, limit) : nullptr;
 }
 
 void DeclarationScope::End(const Location& loc)
@@ -123,7 +144,7 @@ void DeclarationScope::End(const Location& loc)
 }
 
 Expression::Expression(const Location& loc, ExpressionType type)
-	:	mLocation(loc), mEndLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false)
+	:	mLocation(loc), mEndLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false), mDecType(nullptr), mDecValue(nullptr), mToken(TK_NONE)
 {
 
 }
@@ -131,6 +152,170 @@ Expression::Expression(const Location& loc, ExpressionType type)
 Expression::~Expression(void)
 {
 
+}
+
+void Expression::Dump(int ident) const
+{
+	for (int i = 0; i < ident; i++)
+		printf("|  ");
+
+	switch (mType)
+	{
+	case EX_ERROR:
+		printf("ERROR");
+		break;
+	case EX_VOID:
+		printf("VOID");
+		break;
+	case EX_CONSTANT:
+		printf("CONST");
+		if (mDecValue->mIdent)
+			printf(" '%s'", mDecValue->mIdent->mString);
+		break;
+	case EX_VARIABLE:
+		printf("VAR");
+		if (mDecValue->mIdent)
+			printf(" '%s'", mDecValue->mIdent->mString);
+		break;
+	case EX_ASSIGNMENT:
+		printf("ASSIGN<%s>", TokenNames[mToken]);
+		break;
+	case EX_INITIALIZATION:
+		printf("INIT");
+		break;
+	case EX_BINARY:
+		printf("BINARY<%s>", TokenNames[mToken]);
+		break;
+	case EX_RELATIONAL:
+		printf("RELATIONAL<%s>", TokenNames[mToken]);
+		break;
+	case EX_PREINCDEC:
+		printf("PREOP<%s>", TokenNames[mToken]);
+		break;
+	case EX_PREFIX:
+		printf("PREFIX<%s>", TokenNames[mToken]);
+		break;
+	case EX_POSTFIX:
+		printf("POSTFIX<%s>", TokenNames[mToken]);
+		break;
+	case EX_POSTINCDEC:
+		printf("POSTOP<%s>", TokenNames[mToken]);
+		break;
+	case EX_INDEX:
+		printf("INDEX");
+		break;
+	case EX_QUALIFY:
+		printf("QUALIFY<%s>", mDecValue->mIdent->mString);
+		break;
+	case EX_CALL:
+		printf("CALL");
+		break;
+	case EX_INLINE:
+		printf("INLINE");
+		break;
+	case EX_VCALL:
+		printf("VCALL");
+		break;
+	case EX_DISPATCH:
+		printf("DISPATCH");
+		break;
+	case EX_LIST:
+		printf("LIST");
+		break;
+	case EX_COMMA:
+		printf("COMMA");
+		break;
+	case EX_RETURN:
+		printf("RETURN");
+		break;
+	case EX_SEQUENCE:
+		printf("SEQUENCE");
+		break;
+	case EX_WHILE:
+		printf("WHILE");
+		break;
+	case EX_IF:
+		printf("IF");
+		break;
+	case EX_ELSE:
+		printf("ELSE");
+		break;
+	case EX_FOR:
+		printf("FOR");
+		break;
+	case EX_DO:
+		printf("DO");
+		break;
+	case EX_SCOPE:
+		printf("SCOPE");
+		break;
+	case EX_BREAK:
+		printf("BREAK");
+		break;
+	case EX_CONTINUE:
+		printf("CONTINUE");
+		break;
+	case EX_TYPE:
+		printf("TYPE");
+		break;
+	case EX_TYPECAST:
+		printf("TYPECAST");
+		break;
+	case EX_LOGICAL_AND:
+		printf("AND");
+		break;
+	case EX_LOGICAL_OR:
+		printf("OR");
+		break;
+	case EX_LOGICAL_NOT:
+		printf("NOT");
+		break;
+	case EX_ASSEMBLER:
+		printf("ASSEMBLER");
+		break;
+	case EX_UNDEFINED:
+		printf("UNDEFINED");
+		break;
+	case EX_SWITCH:
+		printf("SWITCH");
+		break;
+	case EX_CASE:
+		printf("CASE");
+		break;
+	case EX_DEFAULT:
+		printf("DEFAULT");
+		break;
+	case EX_CONDITIONAL:
+		printf("COND");
+		break;
+	case EX_ASSUME:
+		printf("ASSUME");
+		break;
+	case EX_BANKOF:
+		printf("BANKOF");
+		break;
+	case EX_CONSTRUCT:
+		printf("CONSTRUCT");
+		break;
+	case EX_CLEANUP:
+		printf("CLEANUP");
+		break;
+	case EX_RESULT:
+		printf("RESULT");
+		break;
+	case EX_PACK:
+		printf("PACK");
+		break;
+	case EX_PACK_TYPE:
+		printf("PACK_TYPE");
+		break;
+	}
+	printf("\n");
+
+	if (mLeft)
+		mLeft->Dump(ident + 1);
+	if (mRight)
+		mRight->Dump(ident + 1);
 }
 
 bool Expression::HasSideEffects(void) const
@@ -155,6 +340,47 @@ bool Expression::HasSideEffects(void) const
 	default:
 		return true;
 	}
+}
+
+bool Expression::IsRValue(void) const
+{
+	if (mDecType->mType == DT_TYPE_RVALUEREF)
+		return true;
+	else if (mDecType->mType == DT_TYPE_REFERENCE)
+		return false;
+	else if (mType == EX_VARIABLE)
+	{
+		if (mDecValue->mFlags & DTF_TEMPORARY)
+			return true;
+		else
+			return false;
+	}
+	else if (mType == EX_QUALIFY || mType == EX_INDEX || mType == EX_ASSIGNMENT || mType == EX_CONSTANT || mType == EX_PREFIX && mToken == TK_MUL)
+		return false;
+	else
+		return true;
+}
+
+bool Expression::IsConstRef(void) const
+{
+	if (mDecType->mType == DT_TYPE_RVALUEREF || mDecType->mType == DT_TYPE_REFERENCE)
+		return true;
+	else if (mType == EX_VARIABLE || mType == EX_QUALIFY || mType == EX_INDEX || mType == EX_PREFIX && mToken == TK_MUL)
+		return true;
+	else
+		return false;
+}
+
+bool Expression::IsLValue(void) const
+{
+	if (mDecType->mFlags & DTF_CONST)
+		return false;
+	else if (mDecType->mType == DT_TYPE_RVALUEREF || mDecType->mType == DT_TYPE_REFERENCE)
+		return true;
+	else if (mType == EX_VARIABLE || mType == EX_QUALIFY || mType == EX_INDEX || mType == EX_PREFIX && mToken == TK_MUL)
+		return true;
+	else
+		return false;
 }
 
 bool Expression::IsSame(const Expression* exp) const
@@ -225,7 +451,7 @@ Expression* Expression::LogicInvertExpression(void)
 	}
 }
 
-Expression* Expression::ConstantFold(Errors * errors)
+Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSection)
 {
 	if (mType == EX_PREFIX && mLeft->mType == EX_CONSTANT)
 	{
@@ -300,47 +526,51 @@ Expression* Expression::ConstantFold(Errors * errors)
 		ex->mDecType = mDecType;
 		return ex;
 	}
-#endif
-	else if (mType == EX_TYPECAST && mRight->mType == EX_CONSTANT)
+	else if (mType == EX_PREFIX && mToken == TK_BINARY_AND && mLeft->mType == EX_PREFIX && mLeft->mToken == TK_MUL)
 	{
-		if (mLeft->mDecType->mType == DT_TYPE_POINTER)
+		return mLeft->mLeft;
+	}
+#endif
+	else if (mType == EX_TYPECAST && mLeft->mType == EX_CONSTANT)
+	{
+		if (mDecType->mType == DT_TYPE_POINTER)
 		{
-			if (mRight->mDecValue->mType == DT_CONST_ADDRESS || mRight->mDecValue->mType == DT_CONST_INTEGER)
+			if (mLeft->mDecValue->mType == DT_CONST_ADDRESS || mLeft->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_ADDRESS);
-				dec->mBase = mLeft->mDecType;
-				dec->mInteger = mRight->mDecValue->mInteger;
+				dec->mBase = mDecType;
+				dec->mInteger = mLeft->mDecValue->mInteger;
 				ex->mDecValue = dec;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecType = mDecType;
 				return ex;
 			}
-			else if (mRight->mDecValue->mType == DT_CONST_FUNCTION)
+			else if (mLeft->mDecValue->mType == DT_CONST_FUNCTION)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
-				ex->mDecValue = mRight->mDecValue;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecValue = mLeft->mDecValue;
+				ex->mDecType = mDecType;
 				return ex;
 			}
 		}
-		else if (mLeft->mDecType->mType == DT_TYPE_INTEGER)
+		else if (mDecType->mType == DT_TYPE_INTEGER)
 		{
-			if (mRight->mDecValue->mType == DT_CONST_FLOAT)
+			if (mLeft->mDecValue->mType == DT_CONST_FLOAT)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-				dec->mBase = mLeft->mDecType;
-				dec->mInteger = int64(mRight->mDecValue->mNumber);
+				dec->mBase = mDecType;
+				dec->mInteger = int64(mLeft->mDecValue->mNumber);
 				ex->mDecValue = dec;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecType = mDecType;
 				return ex;
 			}
-			else if (mRight->mDecValue->mType == DT_CONST_INTEGER)
+			else if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
 			{
-				int64	sval = 1ULL << (8 * mLeft->mDecType->mSize);
-				int64	v = mRight->mDecValue->mInteger & (sval - 1);
+				int64	sval = 1ULL << (8 * mDecType->mSize);
+				int64	v = mLeft->mDecValue->mInteger & (sval - 1);
 
-				if (mLeft->mDecType->mFlags & DTF_SIGNED)
+				if (mDecType->mFlags & DTF_SIGNED)
 				{
 					if (v & (sval >> 1))
 						v -= sval;
@@ -348,23 +578,23 @@ Expression* Expression::ConstantFold(Errors * errors)
 
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-				dec->mBase = mLeft->mDecType;
+				dec->mBase = mDecType;
 				dec->mInteger = v;
 				ex->mDecValue = dec;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecType = mDecType;
 				return ex;
 			}
 		}
-		else if (mLeft->mDecType->mType == DT_TYPE_FLOAT)
+		else if (mDecType->mType == DT_TYPE_FLOAT)
 		{
-			if (mRight->mDecValue->mType == DT_CONST_INTEGER)
+			if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_FLOAT);
-				dec->mBase = mLeft->mDecType;
-				dec->mNumber = double(mRight->mDecValue->mInteger);
+				dec->mBase = mDecType;
+				dec->mNumber = double(mLeft->mDecValue->mInteger);
 				ex->mDecValue = dec;
-				ex->mDecType = mLeft->mDecType;
+				ex->mDecType = mDecType;
 				return ex;
 			}
 		}
@@ -570,9 +800,9 @@ Expression* Expression::ConstantFold(Errors * errors)
 		if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
 		{
 			if (mLeft->mDecValue->mInteger != 0)
-				return mRight->mLeft->ConstantFold(errors);
+				return mRight->mLeft->ConstantFold(errors, dataSection);
 			else
-				return mRight->mRight->ConstantFold(errors);
+				return mRight->mRight->ConstantFold(errors, dataSection);
 		}
 	}
 	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_ARRAY && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
@@ -602,7 +832,7 @@ Expression* Expression::ConstantFold(Errors * errors)
 	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_CONST) && mLeft->mDecType->mType == DT_TYPE_POINTER && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
 	{
 		mLeft = mLeft->mDecValue->mValue;
-		return this->ConstantFold(errors);
+		return this->ConstantFold(errors, dataSection);
 	}
 	else if (mType == EX_QUALIFY && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
 	{
@@ -612,6 +842,8 @@ Expression* Expression::ConstantFold(Errors * errors)
 		dec->mBase = mLeft->mDecValue;
 		dec->mOffset = mDecValue->mOffset;
 		dec->mSize = mDecValue->mSize;
+		dec->mBits = mDecValue->mBits;
+		dec->mShift = mDecValue->mShift;
 		ex->mDecValue = dec;
 		ex->mDecType = mDecType;
 		return ex;
@@ -624,22 +856,74 @@ Expression* Expression::ConstantFold(Errors * errors)
 		dec->mBase = mLeft->mDecValue->mBase;
 		dec->mOffset = mLeft->mDecValue->mOffset + mDecValue->mOffset;
 		dec->mSize = mDecValue->mSize;
+		dec->mBits = mDecValue->mBits;
+		dec->mShift = mDecValue->mShift;
 		ex->mDecValue = dec;
 		ex->mDecType = mDecType;
 		return ex;
+	}
+	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight->mType == EX_CONSTANT)
+	{
+		Declaration* decf = mLeft->mDecValue, * decp = mRight->mDecValue;
+		const Ident* iname = decf->mQualIdent;
+
+		if (decp->mType == DT_CONST_FLOAT || decp->mType == DT_CONST_INTEGER)
+		{
+			double d = decp->mType == DT_CONST_FLOAT ? decp->mNumber : decp->mInteger;
+
+			bool	check = false;
+
+			if (!strcmp(iname->mString, "fabs"))
+				d = fabs(d);
+			else if (!strcmp(iname->mString, "floor"))
+				d = floor(d);
+			else if (!strcmp(iname->mString, "ceil"))
+				d = ceil(d);
+			else if (!strcmp(iname->mString, "sin"))
+				d = sin(d);
+			else if (!strcmp(iname->mString, "cos"))
+				d = cos(d);
+			else
+				return this;
+
+			Expression* ex = new Expression(mLocation, EX_CONSTANT);
+			Declaration* dec = new Declaration(mLocation, DT_CONST_FLOAT);
+			dec->mBase = TheFloatTypeDeclaration;
+			dec->mNumber = d;
+			ex->mDecValue = dec;
+			ex->mDecType = dec->mBase;
+			return ex;
+		}
+	}
+	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_CONSTEXPR) && dataSection)
+	{
+		ConstexprInterpreter	cinter(mLocation, errors, dataSection);
+		return cinter.EvalCall(this);
+	}
+	else if (mType == EX_CONSTRUCT && mLeft->mType == EX_LIST && !mLeft->mRight && mLeft->mLeft->mType == EX_CALL && 
+			mLeft->mLeft->mLeft->mType == EX_CONSTANT && (mLeft->mLeft->mLeft->mDecValue->mFlags & DTF_CONSTEXPR) && 
+			(mRight->mDecValue->mFlags & DTF_TEMPORARY) &&
+			dataSection)
+	{
+		ConstexprInterpreter	cinter(mLocation, errors, dataSection);
+		return cinter.EvalTempConstructor(this);
 	}
 
 	return this;
 }
 
 Declaration::Declaration(const Location& loc, DecType type)
-	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr),
-	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0),
-	mBase(nullptr), mParams(nullptr), mValue(nullptr), mNext(nullptr), mConst(nullptr),
-	mConstructor(nullptr), mDestructor(nullptr),
-	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1),
+	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr), mMangleIdent(nullptr),
+	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), mNumVars(0),
+	mBase(nullptr), mParams(nullptr), mParamPack(nullptr), mValue(nullptr), mReturn(nullptr), mNext(nullptr), mPrev(nullptr),
+	mConst(nullptr), mMutable(nullptr),
+	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
+	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
+	mVTable(nullptr), mTemplate(nullptr),
+	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), mFriends(nullptr),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
-	mCompilerOptions(0), mUseCount(0)
+	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr),
+	mShift(0), mBits(0), mOptFlags(0)
 {}
 
 Declaration::~Declaration(void)
@@ -650,8 +934,692 @@ Declaration::~Declaration(void)
 
 int Declaration::Stride(void) const
 {
-	return mStride > 0 ? mStride : mBase->mSize;
+	if (mStride > 0)
+		return mStride;
+	else if (mBase)
+		return mBase->mSize;
+	else
+		return 1;
 }
+
+Declaration* Declaration::BuildConstPointer(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_POINTER);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED | DTF_CONST;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+Declaration* Declaration::BuildConstReference(const Location& loc, DecType type)
+{
+	Declaration* pdec = new Declaration(loc, type);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED | DTF_CONST;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+Declaration* Declaration::BuildArrayPointer(void)
+{
+	if (mType == DT_TYPE_ARRAY)
+	{
+		Declaration* pdec = new Declaration(mLocation, DT_TYPE_POINTER);
+		pdec->mBase = mBase;
+		pdec->mFlags = DTF_DEFINED;
+		pdec->mSize = 2;
+		pdec->mStride = mStride;
+		return pdec;
+	}
+	else
+		return this;
+}
+
+Declaration* Declaration::BuildAddressOfPointer(void)
+{
+	if (mType == DT_TYPE_ARRAY)
+		return BuildArrayPointer();
+	else
+		return BuildPointer(mLocation);
+}
+
+bool Declaration::IsNullConst(void) const
+{
+	if (mType == DT_CONST_INTEGER || mType == DT_CONST_ADDRESS)
+		return mInteger == 0;
+	else if (mType == DT_CONST_FLOAT)
+		return mNumber == 0;
+	else
+		return false;
+}
+
+Declaration* Declaration::ConstCast(Declaration* ntype)
+{
+	if (ntype == mBase)
+		return this;
+	else if (ntype->mType == DT_TYPE_POINTER)
+	{
+		if (mBase->mType == DT_TYPE_POINTER)
+		{
+			if (mBase->mBase->IsSame(ntype->mBase))
+				return this;
+
+			Declaration* pdec = this->Clone();
+			pdec->mBase = ntype;
+			return pdec;
+		}
+		else if (mType == DT_TYPE_INTEGER)
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mType = DT_CONST_ADDRESS;
+			pdec->mBase = ntype;
+			pdec->mSize = 2;
+			return pdec;
+		}
+		else
+			return this;
+	}
+	else if (ntype->mType == DT_TYPE_INTEGER || ntype->mType == DT_TYPE_BOOL || ntype->mType == DT_TYPE_ENUM)
+	{
+		if (mType == DT_TYPE_FLOAT)
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mInteger = int64(mNumber);
+			pdec->mBase = ntype;
+			pdec->mSize = ntype->mSize;
+			return pdec;
+		}
+		else
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mBase = ntype;
+			pdec->mSize = ntype->mSize;
+			return pdec;
+		}
+	}
+	else if (ntype->mType == DT_TYPE_FLOAT)
+	{
+		if (mType == DT_TYPE_FLOAT)
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mBase = ntype;
+			return pdec;
+		}
+		else
+		{
+			Declaration* pdec = this->Clone();
+			pdec->mNumber = float(mInteger);
+			pdec->mBase = ntype;
+			pdec->mSize = ntype->mSize;
+			return pdec;
+		}
+	}
+	else
+		return this;
+}
+
+Declaration* Declaration::BuildPointer(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_POINTER);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+Declaration* Declaration::BuildReference(const Location& loc, DecType type)
+{
+	Declaration* pdec = new Declaration(loc, type);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+Declaration* Declaration::BuildRValueRef(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_RVALUEREF);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+Declaration* Declaration::NonRefBase(void)
+{
+	if (IsReference())
+		return mBase;
+	else
+		return this;
+}
+
+bool Declaration::IsAuto(void) const
+{
+	return (mType == DT_TYPE_AUTO || IsReference() && mBase->mType == DT_TYPE_AUTO);
+}
+
+Declaration* Declaration::DeduceAuto(Declaration * dec)
+{
+	if (mType == DT_TYPE_AUTO || IsReference() && mBase->mType == DT_TYPE_AUTO)
+	{
+		dec = dec->NonRefBase();
+
+		if (dec->mType == DT_TYPE_ARRAY)
+			dec = dec->mBase->BuildPointer(mLocation);
+
+		if ((IsReference() ? mBase->mFlags : mFlags) & DTF_CONST)
+			dec = dec->ToConstType();
+		else
+			dec = dec->ToMutableType();
+
+		if (IsReference())
+			dec = dec->BuildReference(mLocation, mType);
+
+		return dec;
+	}
+	else
+		return this;
+}
+
+
+Declaration* Declaration::BuildConstRValueRef(const Location& loc)
+{
+	Declaration* pdec = new Declaration(loc, DT_TYPE_RVALUEREF);
+	pdec->mBase = this;
+	pdec->mFlags = DTF_DEFINED | DTF_CONST;
+	pdec->mSize = 2;
+	return pdec;
+}
+
+DecType  Declaration::ValueType(void) const
+{
+	if (IsReference())
+		return mBase->mType;
+	else
+		return mType;
+}
+
+Declaration* Declaration::Last(void)
+{
+	mPrev = nullptr;
+	Declaration* p = this;
+	while (p->mNext)
+	{
+		p->mNext->mPrev = p;
+		p = p->mNext;
+	}
+	return p;
+}
+
+const Ident* Declaration::MangleIdent(void)
+{
+	if (!this)
+		return Ident::Unique("null");
+
+	if (!mMangleIdent)
+	{
+		if (mType == DT_CONST_INTEGER)
+		{
+			char	buffer[20];
+			sprintf_s(buffer, "%d", (int)mInteger);
+			mMangleIdent = Ident::Unique(buffer);
+		}
+		else if (mType == DT_CONST_FUNCTION)
+		{
+			mMangleIdent = mQualIdent;
+		}
+		else if (mType == DT_TYPE_FUNCTION)
+		{
+			mMangleIdent = mBase->MangleIdent();
+			mMangleIdent = mMangleIdent->Mangle("(*)(");
+			Declaration* dec = mParams;
+			while (dec)
+			{
+				mMangleIdent = mMangleIdent->Mangle(dec->mBase->MangleIdent()->mString);
+				dec = dec->mNext;
+				if (dec)
+					mMangleIdent = mMangleIdent->Mangle(",");
+			}
+			mMangleIdent = mMangleIdent->Mangle(")");
+		}
+		else if (mType == DT_TYPE_INTEGER)
+		{
+			char	buffer[20];
+			sprintf_s(buffer, "%c%d", (mFlags & DTF_SIGNED) ? 'i' : 'u', mSize * 8);
+			mMangleIdent = Ident::Unique(buffer);
+		}
+		else if (mType == DT_TYPE_FLOAT)
+		{
+			mMangleIdent = Ident::Unique("float");
+		}
+		else if (mType == DT_TYPE_BOOL)
+		{
+			mMangleIdent = Ident::Unique("bool");
+		}
+		else if (mType == DT_TYPE_REFERENCE)
+		{
+			mMangleIdent = mBase->MangleIdent()->Mangle("&");
+		}
+		else if (mType == DT_TYPE_RVALUEREF)
+		{
+			mMangleIdent = mBase->MangleIdent()->Mangle("&&");
+		}
+		else if (mType == DT_TYPE_POINTER)
+		{
+			mMangleIdent = mBase->MangleIdent()->Mangle("*");
+		}
+		else if (mType == DT_TYPE_ARRAY)
+		{
+			mMangleIdent = mBase->MangleIdent()->Mangle("[]");
+		}
+		else if (mType == DT_TYPE_STRUCT)
+		{
+			mMangleIdent = mQualIdent->PreMangle("struct ");
+		}
+		else if (mType == DT_TYPE_ENUM)
+		{
+			mMangleIdent = mQualIdent->PreMangle("enum ");
+		}
+		else if (mType == DT_TYPE_VOID)
+		{
+			mMangleIdent = Ident::Unique("void");
+		}
+		else if (mType == DT_TEMPLATE)
+		{
+			mMangleIdent = Ident::Unique("<");
+
+			Declaration* dec = mParams;
+			while (dec)
+			{
+				const Ident* id;
+				if (dec->mBase)
+					id = dec->mBase->MangleIdent();
+				else
+					id = dec->MangleIdent();
+				if (id)
+					mMangleIdent = mMangleIdent->Mangle(id->mString);
+
+				dec = dec->mNext;
+				if (dec)
+					mMangleIdent = mMangleIdent->Mangle(",");
+			}
+			mMangleIdent = mMangleIdent->Mangle(">");
+		}
+		else if (mType == DT_PACK_TYPE)
+		{
+			Declaration* dec = mParams;
+			while (dec)
+			{
+				const Ident* id = dec->MangleIdent();
+
+				if (id)
+				{
+					if (mMangleIdent)
+						mMangleIdent = mMangleIdent->Mangle(id->mString);
+					else
+						mMangleIdent = id;
+				}
+
+				dec = dec->mNext;
+				if (dec)
+					mMangleIdent = mMangleIdent->Mangle(",");
+			}
+		}
+		else
+			mMangleIdent = mQualIdent;
+
+		if (mTemplate)
+		{
+
+		}
+
+		if (mFlags & DTF_CONST)
+			mMangleIdent = mMangleIdent->PreMangle("const ");
+	}
+
+	return mMangleIdent;
+}
+
+Declaration* Declaration::ExpandTemplate(DeclarationScope* scope)
+{
+	if (mType == DT_CONST_FUNCTION)
+	{
+		Declaration* dec = this->Clone();
+		dec->mBase = dec->mBase->ExpandTemplate(scope);
+		return dec;
+	}
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		Declaration* dec = this->Clone();
+		dec->mParams = mParams ? mParams->ExpandTemplate(scope) : nullptr;
+		dec->mBase = mBase->ExpandTemplate(scope);
+		Declaration* pdec = dec->mParams;
+		if (pdec)
+		{
+			int	vi = pdec->mVarIndex;
+			while (pdec)
+			{
+				pdec->mVarIndex = vi;
+				vi += pdec->mSize;
+				pdec = pdec->mNext;
+			}
+		}
+		return dec;
+	}
+	else if (mType == DT_ARGUMENT)
+	{
+		Declaration* ndec = mNext ? mNext->ExpandTemplate(scope) : nullptr;
+		Declaration* bdec = mBase->ExpandTemplate(scope);
+		if (ndec != mNext || bdec != mBase)
+		{
+			Declaration* dec = this->Clone();
+			dec->mBase = bdec;
+			dec->mSize = bdec->mSize;
+			dec->mNext = ndec;
+			return dec;
+		}
+	}
+	else if (mType == DT_TYPE_REFERENCE || mType == DT_TYPE_POINTER || mType == DT_TYPE_RVALUEREF)
+	{
+		Declaration* bdec = mBase->ExpandTemplate(scope);
+		if (bdec != mBase)
+		{
+			Declaration* dec = this->Clone();
+			dec->mBase = bdec;
+			return dec;
+		}
+	}
+	else if (mType == DT_TYPE_TEMPLATE)
+		return scope->Lookup(mIdent);
+
+	return this;
+}
+
+bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
+{
+	Declaration* pdec = tdec->mBase->mParams;
+
+	// Insert partially resolved templates
+	Declaration* ptdec = tdec->mTemplate->mParams;
+	while (ptdec)
+	{
+		if (ptdec->mBase)
+			mScope->Insert(ptdec->mIdent, ptdec->mBase);
+		ptdec = ptdec->mNext;
+	}
+
+	Declaration* phead = nullptr, * ptail = nullptr;
+	int	pcnt = 0;
+
+	while (pexp)
+	{
+		Expression* ex = pexp;
+		if (pexp->mType == EX_LIST)
+		{
+			ex = pexp->mLeft;
+			pexp = pexp->mRight;
+		}
+		else
+			pexp = nullptr;
+
+		if (pdec)
+		{
+			if (pdec->mType == DT_PACK_ARGUMENT)
+			{
+				Declaration* tpdec = ex->mDecType;
+				if (tpdec->IsReference())
+					tpdec = tpdec->mBase;
+
+				if (tpdec->mType == DT_TYPE_ARRAY)
+					tpdec = tpdec->mBase->BuildPointer(tpdec->mLocation);
+				else
+					tpdec = tpdec->Clone();
+
+				if (ptail)
+					ptail->mNext = tpdec;
+				else
+					phead = tpdec;
+				ptail = tpdec;
+			}
+			else
+			{
+				if (!ResolveTemplate(ex->mDecType, pdec->mBase))
+					return false;
+
+				pdec = pdec->mNext;
+			}
+		}
+		else
+			return false;
+	}
+
+	if (pdec)
+	{
+		if (pdec->mType == DT_PACK_ARGUMENT)
+		{
+			Declaration* tpdec = new Declaration(pdec->mLocation, DT_PACK_TYPE);
+			if (pdec->mBase->mType == DT_TYPE_REFERENCE)
+				tpdec->mIdent = pdec->mBase->mBase->mIdent;
+			else
+				tpdec->mIdent = pdec->mBase->mIdent;
+			tpdec->mParams = phead;
+			mScope->Insert(tpdec->mIdent, tpdec);
+		}
+		else
+			return false;
+	}
+
+	Declaration* ppdec = nullptr;
+	ptdec = tdec->mTemplate->mParams;
+	while (ptdec)
+	{
+		Declaration* pdec = mScope->Lookup(ptdec->mIdent);
+		if (!pdec)
+			return false;
+
+		Declaration * epdec = ptdec->Clone();
+		epdec->mBase = pdec;
+		epdec->mFlags |= DTF_DEFINED;
+
+		if (ppdec)
+			ppdec->mNext = epdec;
+		else
+			mParams = epdec;
+		ppdec = epdec;
+		ptdec = ptdec->mNext;
+	}
+
+	mScope->Clear();
+
+	return true;
+}
+
+bool Declaration::CanResolveTemplate(Expression* pexp, Declaration* tdec)
+{
+	Declaration* pdec = tdec->mBase->mParams;
+
+	while (pexp)
+	{
+		Expression* ex = pexp;
+		if (pexp->mType == EX_LIST)
+		{
+			ex = pexp->mLeft;
+			pexp = pexp->mRight;
+		}
+		else
+			pexp = nullptr;
+
+		if (pdec)
+		{
+			if (!ResolveTemplate(ex->mDecType, pdec->mBase))
+				return false;
+
+			if (pdec->mType != DT_PACK_ARGUMENT)
+				pdec = pdec->mNext;
+		}
+		else
+			return false;
+	}
+
+	if (pdec)
+		return pdec->mType == DT_PACK_ARGUMENT;
+	else
+		return true;
+}
+
+bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
+{
+	if (tdec->IsSame(fdec))
+		return true;
+	else if (fdec->IsReference())
+		return ResolveTemplate(fdec->mBase, tdec);
+	else if (tdec->mType == DT_TYPE_FUNCTION)
+	{
+		if (fdec->mType == DT_TYPE_FUNCTION)
+		{
+			if (fdec->mBase)
+			{
+				if (!tdec->mBase || !ResolveTemplate(fdec->mBase, tdec->mBase))
+					return false;
+			}
+			else if (tdec->mBase)
+				return false;
+
+			Declaration* fpdec = fdec->mParams;
+			Declaration* tpdec = tdec->mParams;
+			while (fpdec && tpdec)
+			{
+				if (!ResolveTemplate(fpdec->mBase, tpdec->mBase))
+					return false;
+				fpdec = fpdec->mNext;
+				tpdec = tpdec->mNext;
+			}
+			if (fpdec || tpdec)
+				return false;
+		}
+		else
+			return false;
+
+		return true;
+	}
+	else if (tdec->mType == DT_TYPE_REFERENCE)
+	{
+		return ResolveTemplate(fdec, tdec->mBase);
+	}
+	else if (tdec->mType == DT_TYPE_RVALUEREF)
+	{
+		return ResolveTemplate(fdec, tdec->mBase);
+	}
+	else if (tdec->mType == DT_TYPE_POINTER)
+	{
+		if (fdec->mType == DT_TYPE_POINTER || fdec->mType == DT_TYPE_ARRAY)
+			return ResolveTemplate(fdec->mBase, tdec->mBase);
+		else
+			return false;
+	}
+	else if (tdec->mType == DT_TYPE_TEMPLATE)
+	{
+		if (fdec->mType == DT_TYPE_ARRAY)
+			fdec = fdec->mBase->BuildPointer(fdec->mLocation);
+		else if (fdec->mType == DT_TYPE_FUNCTION)
+			fdec = fdec->BuildPointer(fdec->mLocation);
+
+		Declaration* pdec;
+		if (tdec->mBase)
+		{
+			pdec = mScope->Lookup(tdec->mBase->mIdent);
+			if (!pdec)
+				return false;
+			if (pdec->mType == DT_TYPE_STRUCT)
+				pdec = pdec->mScope->Lookup(tdec->mIdent);
+		}
+		else
+			pdec = mScope->Insert(tdec->mIdent, fdec);
+
+		if (pdec && !pdec->IsSame(fdec))
+			return false;
+
+		return true;
+	}
+	else if (tdec->mType == DT_PACK_TEMPLATE)
+	{
+		return true;
+	}
+	else if (tdec->mType == DT_TYPE_STRUCT && fdec->mType == DT_TYPE_STRUCT && tdec->mTemplate)
+	{
+		Declaration	*ftdec = tdec->mTemplate;
+		while (ftdec)
+		{
+			if (ftdec->mBase->mQualIdent == fdec->mQualIdent)
+			{
+				Declaration* fpdec = ftdec->mParams;
+				Declaration* tpdec = tdec->mTemplate->mParams;
+
+				while (fpdec && tpdec)
+				{
+					if (tpdec->mBase->mType == DT_TYPE_TEMPLATE || tpdec->mBase->mType == DT_CONST_TEMPLATE)
+					{
+						Declaration * pdec = mScope->Insert(tpdec->mBase->mIdent, fpdec->mBase);
+						if (pdec && !pdec->IsSame(fpdec->mBase))
+							return false;
+					}
+					else if (tpdec->mBase->mType == DT_PACK_TEMPLATE)
+					{
+						Declaration* tppack;
+						if (fpdec->mType == DT_PACK_TEMPLATE)
+							tppack = fpdec->mBase;
+						else
+						{
+							tppack = new Declaration(fpdec->mLocation, DT_PACK_TYPE);
+
+							Declaration* ppdec = nullptr;
+
+							while (fpdec)
+							{
+								if (fpdec->mType == DT_PACK_TEMPLATE)
+								{
+									if (ppdec)
+										ppdec->mNext = fpdec->mBase->mParams;
+									else
+										tppack->mParams = fpdec->mBase->mParams;
+									break;
+								}
+
+								Declaration* ndec = fpdec->mBase->Clone();
+
+								if (ppdec)
+									ppdec->mNext = ndec;
+								else
+									tppack->mParams = ndec;
+								ppdec = ndec;
+
+								fpdec = fpdec->mNext;
+							}
+
+						}
+
+						Declaration* pdec = mScope->Insert(tpdec->mBase->mIdent, tppack);
+						if (pdec && !pdec->IsSame(fpdec->mBase))
+							return false;
+
+						return true;
+					}
+
+					fpdec = fpdec->mNext;
+					tpdec = tpdec->mNext;
+				}
+
+				return !fpdec && !tpdec;
+			}
+			
+			ftdec = ftdec->mNext;
+		}
+		return false;
+	}
+	else
+		return tdec->CanAssign(fdec);
+}
+
 
 Declaration* Declaration::Clone(void)
 {
@@ -664,6 +1632,7 @@ Declaration* Declaration::Clone(void)
 	ndec->mFlags = mFlags;
 	ndec->mScope = mScope;
 	ndec->mParams = mParams;
+	ndec->mParamPack = mParamPack;
 	ndec->mIdent = mIdent;
 	ndec->mQualIdent = mQualIdent;
 	ndec->mValue = mValue;
@@ -671,6 +1640,13 @@ Declaration* Declaration::Clone(void)
 	ndec->mLinkerObject = mLinkerObject;
 	ndec->mAlignment = mAlignment;
 	ndec->mSection = mSection;
+	ndec->mVTable = mVTable;
+	ndec->mInteger = mInteger;
+	ndec->mNumber = mNumber;
+	ndec->mMinValue = mMinValue;
+	ndec->mMaxValue = mMaxValue;
+	ndec->mCompilerOptions = mCompilerOptions;
+	ndec->mParser = mParser;
 
 	return ndec;
 }
@@ -749,6 +1725,10 @@ Declaration* Declaration::ToStriped(int stripe)
 			p = p->mNext;
 		}		
 	}
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		ndec->mParams = mParams;
+	}
 	else if (mType == DT_TYPE_ARRAY)
 	{
 		ndec->mStride = stripe;
@@ -779,10 +1759,69 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mParams = mParams;
 		ndec->mIdent = mIdent;
 		ndec->mQualIdent = mQualIdent;
+		ndec->mTemplate = mTemplate;
+
+		ndec->mDestructor = mDestructor;
+		ndec->mDefaultConstructor = mDefaultConstructor;
+		ndec->mCopyConstructor = mCopyConstructor;
+		ndec->mMoveConstructor = mMoveConstructor;
+		ndec->mVectorConstructor = mVectorConstructor;
+		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+		ndec->mVTable = mVTable;
+
+		ndec->mMutable = this;
 		mConst = ndec;
 	}
 	
 	return mConst;
+}
+
+Declaration* Declaration::ToMutableType(void)
+{
+	if (!(mFlags & DTF_CONST))
+		return this;
+
+	if (!mMutable)
+	{
+		Declaration* ndec = new Declaration(mLocation, mType);
+		ndec->mSize = mSize;
+		ndec->mStride = mStride;
+		ndec->mBase = mBase;
+		ndec->mFlags = mFlags | DTF_CONST;
+		ndec->mScope = mScope;
+		ndec->mParams = mParams;
+		ndec->mIdent = mIdent;
+		ndec->mQualIdent = mQualIdent;
+		ndec->mTemplate = mTemplate;
+
+		ndec->mDestructor = mDestructor;
+		ndec->mDefaultConstructor = mDefaultConstructor;
+		ndec->mCopyConstructor = mCopyConstructor;
+		ndec->mMoveConstructor = mMoveConstructor;
+		ndec->mVectorConstructor = mVectorConstructor;
+		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+		ndec->mVTable = mVTable;
+
+		ndec->mConst = this;
+		mMutable = ndec;
+	}
+
+	return mMutable;
+}
+
+bool Declaration::IsSameTemplate(const Declaration* dec) const
+{
+	if (this == dec)
+		return true;
+	if (this->mType != dec->mType)
+		return false;
+
+	if (mType == DT_CONST_FUNCTION)
+		return mBase->IsSame(dec->mBase);
+	else if (mType == DT_TYPE_STRUCT)
+		return true;
+
+	return false;
 }
 
 bool Declaration::IsSubType(const Declaration* dec) const
@@ -790,10 +1829,16 @@ bool Declaration::IsSubType(const Declaration* dec) const
 	if (this == dec)
 		return true;
 
+	if (mType == DT_TYPE_VOID)
+		return true;
+
+	if (IsReference() && dec->IsReference())
+		return mBase->IsSubType(dec->mBase);
+
 	if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
 	{
-		if (dec->mType == DT_TYPE_POINTER)
-			return this->Stride() == dec->Stride() && mBase->IsSubType(dec->mBase);
+		if (dec->mType == DT_TYPE_POINTER || dec->mType == DT_TYPE_ARRAY)
+			return /*this->Stride() == dec->Stride() &&*/ mBase->IsSubType(dec->mBase);
 	}
 
 	if (mType != dec->mType)
@@ -819,7 +1864,15 @@ bool Declaration::IsSubType(const Declaration* dec) const
 			return true;
 
 		if (dec->mBase)
-			return IsSubType(dec->mBase);
+		{
+			Declaration* bcdec = dec->mBase;
+			while (bcdec)
+			{
+				if (IsSubType(bcdec->mBase))
+					return true;
+				bcdec = bcdec->mNext;
+			}
+		}
 
 		return false;
 	}
@@ -844,6 +1897,57 @@ bool Declaration::IsSubType(const Declaration* dec) const
 			return false;
 
 		if ((mFlags & DTF_INTERRUPT) && !(dec->mFlags & DTF_INTERRUPT))
+			return false;
+
+		if ((mFlags & DTF_VARIADIC) != (dec->mFlags & DTF_VARIADIC))
+			return false;
+
+		return true;
+	}
+
+	return false;
+}
+
+bool Declaration::IsSameMutable(const Declaration* dec) const
+{
+	if (this == dec)
+		return true;
+	if (mType != dec->mType)
+		return false;
+	if (mSize != dec->mSize)
+		return false;
+	if (mStripe != dec->mStripe)
+		return false;
+
+	if ((mFlags & DTF_SIGNED) != (dec->mFlags & DTF_SIGNED))
+		return false;
+	if ((dec->mFlags & DTF_CONST) && !(mFlags & DTF_CONST))
+		return false;
+
+	if (mType == DT_TYPE_INTEGER)
+		return true;
+	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
+		return true;
+	else if (mType == DT_TYPE_ENUM)
+		return mIdent == dec->mIdent;
+	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
+		return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
+	else if (mType == DT_TYPE_STRUCT)
+		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		if (!mBase->IsSame(dec->mBase))
+			return false;
+		Declaration* dl = mParams, * dr = dec->mParams;
+		while (dl && dr)
+		{
+			if (!dl->mBase->IsSame(dr->mBase))
+				return false;
+			dl = dl->mNext;
+			dr = dr->mNext;
+		}
+
+		if (dl || dr)
 			return false;
 
 		if ((mFlags & DTF_VARIADIC) != (dec->mFlags & DTF_VARIADIC))
@@ -904,6 +2008,28 @@ bool Declaration::IsConstSame(const Declaration* dec) const
 	return false;
 }
 
+bool Declaration::IsTemplateSameParams(const Declaration* dec, const Declaration* tdec) const
+{
+	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION)
+	{
+		Declaration* ld = mParams, * rd = dec->mParams;
+		if (mFlags & DTF_FUNC_THIS)
+			ld = ld->mNext;
+
+		while (ld && rd)
+		{
+			if (!ld->mBase->IsTemplateSame(rd->mBase, tdec))
+				return false;
+			ld = ld->mNext;
+			rd = rd->mNext;
+		}
+
+		return !ld && !rd;
+	}
+	else
+		return false;
+}
+
 bool Declaration::IsSameParams(const Declaration* dec) const
 {
 	if (mType == DT_TYPE_FUNCTION && dec->mType == DT_TYPE_FUNCTION)
@@ -919,8 +2045,71 @@ bool Declaration::IsSameParams(const Declaration* dec) const
 
 		return !ld && !rd;
 	}
+	else if (mType == DT_TEMPLATE && dec->mType == DT_TEMPLATE)
+	{
+		Declaration* ld = mParams, * rd = dec->mParams;
+		while (ld && rd)
+		{
+			if (ld->mType == DT_CONST_FUNCTION && rd->mType == DT_CONST_FUNCTION)
+			{
+				if (ld->mValue != rd->mValue)
+					return false;
+			}
+			else if (ld->mType == DT_PACK_TEMPLATE && rd->mType == DT_PACK_TEMPLATE)
+			{
+				if (!ld->mBase->IsSameParams(rd->mBase))
+					return false;
+			}
+			else if (!ld->mBase || !rd->mBase)
+				return false;
+			else if (!ld->mBase->IsSame(rd->mBase))
+				return false;
+			ld = ld->mNext;
+			rd = rd->mNext;
+		}
+
+		return !ld && !rd;
+	}
+	else if (mType == DT_PACK_TYPE && dec->mType == DT_PACK_TYPE)
+	{
+		Declaration* ld = mParams, * rd = dec->mParams;
+		while (ld && rd)
+		{
+			if (!ld->IsSame(rd))
+				return false;
+			ld = ld->mNext;
+			rd = rd->mNext;
+		}
+
+		return !ld && !rd;
+	}
 	else
 		return false;
+}
+
+bool Declaration::IsDerivedFrom(const Declaration* dec) const
+{
+	if (mType != DT_TYPE_FUNCTION || dec->mType != DT_TYPE_FUNCTION)
+		return false;
+
+	if (!(mFlags & DTF_FUNC_THIS) || !(dec->mFlags & DTF_FUNC_THIS))
+		return false;
+
+	if (!mBase->IsSame(dec->mBase))
+		return false;
+	Declaration* dl = mParams->mNext, * dr = dec->mParams->mNext;
+	while (dl && dr)
+	{
+		if (!dl->mBase->IsSame(dr->mBase))
+			return false;
+		dl = dl->mNext;
+		dr = dr->mNext;
+	}
+
+	if (dl || dr)
+		return false;
+
+	return true;
 }
 
 bool Declaration::IsSame(const Declaration* dec) const
@@ -937,14 +2126,29 @@ bool Declaration::IsSame(const Declaration* dec) const
 	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dec->mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
 		return false;
 
-	if (mType == DT_TYPE_INTEGER)
+	if (mType == DT_CONST_INTEGER)
+		return mInteger == dec->mInteger;
+	else if (mType == DT_TYPE_INTEGER)
 		return true;
-	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
+	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID || mType == DT_TYPE_AUTO)
 		return true;
 	else if (mType == DT_TYPE_ENUM)
 		return mIdent == dec->mIdent;
 	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
-		return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
+	{
+		if (mBase->mType == DT_TYPE_STRUCT && dec->mBase->mType == DT_TYPE_STRUCT && mBase->mStripe == dec->mBase->mStripe)
+		{
+			if (mBase->mQualIdent == dec->mBase->mQualIdent &&
+				(mBase->mFlags & (DTF_CONST | DTF_VOLATILE)) == (dec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE)))
+				return true;
+			else
+				return false;
+		}
+		else
+			return this->Stride() == dec->Stride() && mBase->IsSame(dec->mBase);
+	}
+	else if (IsReference())
+		return mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)
 		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_FUNCTION)
@@ -955,6 +2159,96 @@ bool Declaration::IsSame(const Declaration* dec) const
 		while (dl && dr)
 		{
 			if (!dl->mBase->IsSame(dr->mBase))
+				return false;
+			dl = dl->mNext;
+			dr = dr->mNext;
+		}
+
+		if (dl || dr)
+			return false;
+
+		if ((mFlags & DTF_VARIADIC) != (dec->mFlags & DTF_VARIADIC))
+			return false;
+
+		return true;
+	}
+	else if (mType == DT_TYPE_TEMPLATE)
+	{
+		return mIdent == dec->mIdent;
+	}
+
+	return false;
+}
+
+bool Declaration::IsTemplateSame(const Declaration* dec, const Declaration * tdec) const
+{
+	uint64	dflags = dec->mFlags;
+
+	if (dec->mType == DT_TYPE_TEMPLATE)
+	{
+		dec = tdec->mScope->Lookup(dec->mIdent);
+		if (!dec)
+			return true;
+		dflags |= dec->mFlags;
+	}
+	else if (dec->mType == DT_PACK_TEMPLATE)
+	{
+		dec = tdec->mScope->Lookup(dec->mIdent);
+		if (!dec)
+			return true;
+		dflags |= dec->mFlags;
+	}
+
+	if (this == dec)
+		return true;
+
+	if (mType != dec->mType)
+		return false;
+
+	if (dec->mType == DT_TYPE_STRUCT && dec->mTemplate)
+		return true;
+
+	if (mSize != dec->mSize)
+		return false;
+	if (mStripe != dec->mStripe)
+		return false;
+
+	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dflags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
+		return false;
+
+	if (mType == DT_TYPE_INTEGER)
+		return true;
+	else if (mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_VOID)
+		return true;
+	else if (mType == DT_TYPE_ENUM)
+		return mIdent == dec->mIdent;
+	else if (mType == DT_TYPE_POINTER || mType == DT_TYPE_ARRAY)
+	{
+		if (mBase->mType == DT_TYPE_STRUCT && dec->mBase->mType == DT_TYPE_STRUCT && mBase->mStripe == dec->mBase->mStripe)
+		{
+			if (mBase->mQualIdent == dec->mBase->mQualIdent &&
+				(mBase->mFlags & (DTF_CONST | DTF_VOLATILE)) == (dec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE)))
+				return true;
+			else
+				return false;
+		}
+		else if (dec->mBase->mType == DT_TYPE_TEMPLATE)
+			return mBase->IsTemplateSame(dec->mBase, tdec);
+		else
+			return this->Stride() == dec->Stride() && mBase->IsTemplateSame(dec->mBase, tdec);
+	}
+	else if (IsReference())
+		return mBase->IsTemplateSame(dec->mBase, tdec);
+	else if (mType == DT_TYPE_STRUCT)
+		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
+	else if (mType == DT_TYPE_FUNCTION)
+	{
+		if (!mBase->IsTemplateSame(dec->mBase, tdec))
+			return false;
+		Declaration* dl = mParams, * dr = dec->mParams;
+		while (dl && dr)
+		{
+			if (!dl->mBase->IsTemplateSame(dr->mBase, tdec))
 				return false;
 			dl = dl->mNext;
 			dr = dr->mNext;
@@ -994,10 +2288,10 @@ bool Declaration::IsSameValue(const Declaration* dec) const
 
 bool Declaration::CanAssign(const Declaration* fromType) const
 {
-	if (mType == DT_TYPE_REFERENCE)
-		return mBase->IsSubType(fromType);
-	else if (fromType->mType == DT_TYPE_REFERENCE)
+	if (fromType->IsReference())
 		return this->CanAssign(fromType->mBase);
+	if (IsReference())
+		return mBase->IsSubType(fromType);
 
 	if (this->IsSame(fromType))
 		return true;
@@ -1020,7 +2314,7 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 		{
 			if (mBase->mType == DT_TYPE_VOID || fromType->mBase->mType == DT_TYPE_VOID)
 				return (mBase->mFlags & DTF_CONST) || !(fromType->mBase->mFlags & DTF_CONST);
-			else if (mBase->IsSubType(fromType->mBase))
+			else if (mBase->mStripe == fromType->mBase->mStripe && mBase->IsSubType(fromType->mBase))
 				return true;
 		}
 		else if (mBase->mType == DT_TYPE_FUNCTION && fromType->mType == DT_TYPE_FUNCTION)
@@ -1050,16 +2344,36 @@ bool Declaration::IsNumericType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM;
 }
 
+
+bool Declaration::IsReference(void) const
+{
+	return mType == DT_TYPE_REFERENCE || mType == DT_TYPE_RVALUEREF;
+}
+
+bool Declaration::IsIndexed(void) const
+{
+	return mType == DT_TYPE_ARRAY || mType == DT_TYPE_POINTER;
+}
+
+
 bool Declaration::IsSimpleType(void) const
 {
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM || mType == DT_TYPE_POINTER;
 }
 
+void Declaration::SetDefined(void)
+{
+	mFlags |= DTF_DEFINED;
+	if (mConst)
+		mConst->mFlags |= DTF_DEFINED;
+}
 
 Declaration* TheVoidTypeDeclaration, * TheConstVoidTypeDeclaration, * TheSignedIntTypeDeclaration, * TheUnsignedIntTypeDeclaration, * TheConstCharTypeDeclaration, * TheCharTypeDeclaration, * TheSignedCharTypeDeclaration, * TheUnsignedCharTypeDeclaration;
 Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheConstVoidPointerTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
+Expression* TheVoidExpression;
+Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration;
 
 void InitDeclarations(void)
 {
@@ -1138,4 +2452,20 @@ void InitDeclarations(void)
 	TheConstCharPointerTypeDeclaration->mBase = TheConstCharTypeDeclaration;
 	TheConstCharPointerTypeDeclaration->mSize = 2;
 	TheConstCharPointerTypeDeclaration->mFlags = DTF_DEFINED;
+
+	TheVoidExpression = new Expression(noloc, EX_CONSTANT);
+	TheVoidExpression->mDecType = TheConstVoidTypeDeclaration;
+	TheVoidExpression->mDecValue = TheConstVoidValueDeclaration;
+
+
+	TheNullptrConstDeclaration = new Declaration(noloc, DT_CONST_ADDRESS);
+	TheNullptrConstDeclaration->mBase = TheVoidPointerTypeDeclaration;
+	TheNullptrConstDeclaration->mSize = 2;
+	TheZeroIntegerConstDeclaration = new Declaration(noloc, DT_CONST_INTEGER);
+	TheZeroIntegerConstDeclaration->mBase = TheSignedIntTypeDeclaration;
+	TheZeroIntegerConstDeclaration->mSize = 2;
+	TheZeroFloatConstDeclaration = new Declaration(noloc, DT_CONST_FLOAT);
+	TheZeroFloatConstDeclaration->mBase = TheFloatTypeDeclaration;
+	TheZeroFloatConstDeclaration->mSize = 4;
+
 }

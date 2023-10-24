@@ -8,6 +8,7 @@
 
 class LinkerObject;
 class LinkerSection;
+class Parser;
 
 enum DecType
 {
@@ -19,15 +20,14 @@ enum DecType
 	DT_TYPE_ENUM,
 	DT_TYPE_POINTER,
 	DT_TYPE_REFERENCE,
+	DT_TYPE_RVALUEREF,
 	DT_TYPE_ARRAY,
 	DT_TYPE_STRUCT,
 	DT_TYPE_UNION,
+	DT_TYPE_TEMPLATE,
 	DT_TYPE_FUNCTION,
 	DT_TYPE_ASSEMBLER,
 	DT_TYPE_AUTO,
-
-	DT_TYPE_CONST,
-	DT_TYPE_VOLATILE,
 
 	DT_CONST_INTEGER,
 	DT_CONST_FLOAT,
@@ -38,6 +38,13 @@ enum DecType
 	DT_CONST_POINTER,
 	DT_CONST_REFERENCE,
 	DT_CONST_ASSEMBLER,
+	DT_CONST_CONSTRUCTOR,
+	DT_CONST_TEMPLATE,
+
+	DT_PACK_TEMPLATE,
+	DT_PACK_VARIABLE,
+	DT_PACK_ARGUMENT,
+	DT_PACK_TYPE,
 
 	DT_VARIABLE,
 	DT_ARGUMENT,
@@ -48,6 +55,11 @@ enum DecType
 	DT_FUNCTION_REF,
 	DT_LABEL_REF,
 	DT_NAMESPACE,
+	DT_BASECLASS,
+
+	DT_TEMPLATE,
+
+	DT_VTABLE
 };
 
 // TypeFlags
@@ -78,37 +90,48 @@ static const uint64 DTF_ZEROPAGE		= (1ULL << 22);
 static const uint64 DTF_PREVENT_INLINE  = (1ULL << 23);
 static const uint64 DTF_STRIPED			= (1ULL << 24);
 static const uint64 DTF_DYNSTACK		= (1ULL << 25);
+static const uint64 DTF_PRIVATE			= (1ULL << 26);
+static const uint64 DTF_PROTECTED		= (1ULL << 27);
+static const uint64 DTF_VIRTUAL			= (1ULL << 28);
+static const uint64 DTF_TEMPORARY		= (1ULL << 29);
+static const uint64	DTF_COMPLETED		= (1ULL << 30);
+static const uint64	DTF_CONSTEXPR		= (1ULL << 31);
 
-static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 32);
-static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 33);
-static const uint64 DTF_FUNC_RECURSIVE  = (1ULL << 34);
-static const uint64 DTF_FUNC_ANALYZING  = (1ULL << 35);
+static const uint64 DTF_AUTO_TEMPLATE	= (1ULL << 32);
 
-static const uint64 DTF_FUNC_CONSTEXPR	= (1ULL << 36);
-static const uint64 DTF_FUNC_INTRSAVE   = (1ULL << 37);
-static const uint64 DTF_FUNC_INTRCALLED = (1ULL << 38);
-static const uint64 DTF_FUNC_PURE		= (1ULL << 39);
+static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 36);
+static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 37);
+static const uint64 DTF_FUNC_RECURSIVE  = (1ULL << 38);
+static const uint64 DTF_FUNC_ANALYZING  = (1ULL << 39);
 
-static const uint64 DTF_FPARAM_CONST = (1ULL << 40);
-static const uint64 DTF_FPARAM_NOCONST = (1ULL << 41);
+static const uint64 DTF_FUNC_CONSTEXPR	= (1ULL << 40);
+static const uint64 DTF_FUNC_INTRSAVE   = (1ULL << 41);
+static const uint64 DTF_FUNC_INTRCALLED = (1ULL << 42);
+static const uint64 DTF_FUNC_PURE		= (1ULL << 43);
 
-static const uint64 DTF_FUNC_THIS		= (1ULL << 42);
-static const uint64 DTF_FUNC_CONSTRUCTOR = (1ULL << 43);
+static const uint64 DTF_FPARAM_CONST	= (1ULL << 44);
+static const uint64 DTF_FPARAM_NOCONST	= (1ULL << 45);
+static const uint64 DTF_VAR_ADDRESS		= (1ULL << 46);
+
+static const uint64 DTF_FUNC_THIS		= (1ULL << 47);
 
 static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
-
+static const uint64 DTF_FPARAM_UNUSED	= (1ULL << 49);
 
 
 class Declaration;
 
 enum ScopeLevel
 {
+	SLEVEL_SCOPE,
+	SLEVEL_USING,
 	SLEVEL_GLOBAL,
 	SLEVEL_STATIC,
 	SLEVEL_NAMESPACE,
+	SLEVEL_TEMPLATE,
 	SLEVEL_CLASS,
 	SLEVEL_FUNCTION,
-	SLEVEL_LOCAL
+	SLEVEL_LOCAL,
 };
 
 class DeclarationScope
@@ -123,8 +146,11 @@ public:
 	Declaration* Lookup(const Ident* ident, ScopeLevel limit = SLEVEL_GLOBAL);
 
 	void End(const Location & loc);
+	void Clear(void);
 
 	void UseScope(DeclarationScope* scope);
+
+	template<typename F> void Iterate(F && f);
 
 	ScopeLevel		mLevel;
 	const Ident	*	mName;
@@ -140,6 +166,15 @@ protected:
 	int			mHashSize, mHashFill;
 	ExpandingArray<DeclarationScope*>	mUsed;
 };
+
+template<typename F> void DeclarationScope::Iterate(F&& f)
+{
+	for (int i = 0; i < mHashSize; i++)
+	{
+		if (mHash[i].mIdent)
+			f(mHash[i].mIdent, mHash[i].mDec);
+	}
+}
 
 enum ExpressionType
 {
@@ -159,7 +194,10 @@ enum ExpressionType
 	EX_QUALIFY,
 	EX_CALL,
 	EX_INLINE,
+	EX_VCALL,
+	EX_DISPATCH,
 	EX_LIST,
+	EX_COMMA,
 	EX_RETURN,
 	EX_SEQUENCE,
 	EX_WHILE,
@@ -167,6 +205,7 @@ enum ExpressionType
 	EX_ELSE,
 	EX_FOR,
 	EX_DO,
+	EX_SCOPE,
 	EX_BREAK,
 	EX_CONTINUE,
 	EX_TYPE,
@@ -181,7 +220,12 @@ enum ExpressionType
 	EX_DEFAULT,
 	EX_CONDITIONAL,
 	EX_ASSUME,
-	EX_BANKOF
+	EX_BANKOF,
+	EX_CONSTRUCT,
+	EX_CLEANUP,
+	EX_RESULT,
+	EX_PACK,
+	EX_PACK_TYPE,
 };
 
 class Expression
@@ -200,10 +244,15 @@ public:
 	bool					mConst;
 
 	Expression* LogicInvertExpression(void);
-	Expression* ConstantFold(Errors * errors);
+	Expression* ConstantFold(Errors * errors, LinkerSection* dataSection);
 	bool HasSideEffects(void) const;
 
 	bool IsSame(const Expression* exp) const;
+	bool IsRValue(void) const;
+	bool IsLValue(void) const;
+	bool IsConstRef(void) const;
+
+	void Dump(int ident) const;
 };
 
 class Declaration
@@ -215,36 +264,80 @@ public:
 	Location			mLocation, mEndLocation;
 	DecType				mType;
 	Token				mToken;
-	Declaration*		mBase, *mParams, * mNext, * mConst, * mConstructor, * mDestructor;
-	Expression*			mValue;
+	Declaration		*	mBase, * mParams, * mParamPack, * mNext, * mPrev, * mConst, * mMutable;
+	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment, * mMoveConstructor, * mMoveAssignment;
+	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
+	Declaration		*	mVTable, * mClass, * mTemplate;
+
+	Expression*			mValue, * mReturn;
 	DeclarationScope*	mScope;
 	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;
+	uint8				mShift, mBits;
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;
-	uint64				mFlags, mCompilerOptions;
-	const Ident		*	mIdent, * mQualIdent;
+	uint64				mFlags, mCompilerOptions, mOptFlags;
+	const Ident		*	mIdent, * mQualIdent, * mMangleIdent;
 	LinkerSection	*	mSection;
 	const uint8		*	mData;
 	LinkerObject	*	mLinkerObject;
 	int					mUseCount;
+	TokenSequence	*	mTokens;
+	Parser			*	mParser;
 
-	GrowingArray<Declaration*>	mCallers, mCalled;
+	GrowingArray<Declaration*>	mCallers, mCalled, mFriends;
 
 	bool CanAssign(const Declaration* fromType) const;
 	bool IsSame(const Declaration* dec) const;
+	bool IsDerivedFrom(const Declaration* dec) const;
 	bool IsSubType(const Declaration* dec) const;
 	bool IsConstSame(const Declaration* dec) const;
 	bool IsSameValue(const Declaration* dec) const;
 	bool IsSameParams(const Declaration* dec) const;
+	bool IsSameMutable(const Declaration* dec) const;
+
+	bool IsTemplateSame(const Declaration* dec, const Declaration* tdec) const;
+	bool IsTemplateSameParams(const Declaration* dec, const Declaration* tdec) const;
+	bool IsSameTemplate(const Declaration* dec) const;
 
 	bool IsIntegerType(void) const;
 	bool IsNumericType(void) const;
 	bool IsSimpleType(void) const;
+	bool IsReference(void) const;
+	bool IsIndexed(void) const;
+
+	void SetDefined(void);
 
 	Declaration* ToConstType(void);
+	Declaration* ToMutableType(void);
+
 	Declaration* ToStriped(int stripe);
 	Declaration* ToStriped(Errors* errors);
 	Declaration* Clone(void);
+	Declaration* Last(void);
+
+	Declaration* BuildPointer(const Location& loc);
+	Declaration* BuildReference(const Location& loc, DecType type = DT_TYPE_REFERENCE);
+	Declaration* BuildConstPointer(const Location& loc);
+	Declaration* BuildConstReference(const Location& loc, DecType type = DT_TYPE_REFERENCE);
+	Declaration* BuildRValueRef(const Location& loc);
+	Declaration* BuildConstRValueRef(const Location& loc);
+	Declaration* NonRefBase(void);
+	Declaration* BuildArrayPointer(void);
+	Declaration* BuildAddressOfPointer(void);
+	Declaration* DeduceAuto(Declaration* dec);
+	Declaration* ConstCast(Declaration* ntype);
+	bool IsNullConst(void) const;
+	bool IsAuto(void) const;
+
+	DecType ValueType(void) const;
+
+	bool CanResolveTemplate(Expression* pexp, Declaration* tdec);
+	bool ResolveTemplate(Declaration* fdec, Declaration * tdec);
+	bool ResolveTemplate(Expression* pexp, Declaration* tdec);
+
+	Declaration* ExpandTemplate(DeclarationScope* scope);
+
+	const Ident* MangleIdent(void);
 
 	int Stride(void) const;
 };
@@ -255,4 +348,6 @@ extern Declaration* TheVoidTypeDeclaration, * TheConstVoidTypeDeclaration, * The
 extern Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheConstVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 extern Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 extern Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
+extern Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration;
+extern Expression* TheVoidExpression;
 

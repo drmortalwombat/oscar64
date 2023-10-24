@@ -1,7 +1,7 @@
 #include "sprites.h"
 #include "rasterirq.h"
 
-static char * vspriteScreen;
+static volatile char * vspriteScreen;
 
 
 void spr_init(char * screen)
@@ -108,6 +108,22 @@ void spr_color(char sp, char color)
 	vic.spr_color[sp] = color;
 }
 
+void spr_expand(char sp, bool xexpand, bool yexpand)
+{
+	__assume (sp < 8);
+
+	char	m = 1 << sp;
+
+	if (xexpand)
+		vic.spr_expand_x |= m;
+	else
+		vic.spr_expand_x &= ~m;
+
+	if (yexpand)
+		vic.spr_expand_y |= m;
+	else
+		vic.spr_expand_y &= ~m;
+}
 
 static char	vspriteYLow[VSPRITES_MAX], vspriteXLow[VSPRITES_MAX], vspriteXHigh[VSPRITES_MAX];
 static char	vspriteImage[VSPRITES_MAX], vspriteColor[VSPRITES_MAX];
@@ -217,7 +233,7 @@ void vspr_sort(void)
 void vspr_update(void)
 {
 	char	xymask = 0;
-	char	*	vsprs = vspriteScreen;
+	volatile char	*	vsprs = vspriteScreen;
 
 #pragma unroll(full)
 	for(char ui=0; ui<8; ui++)

@@ -7,6 +7,7 @@
 #include "NativeCodeGenerator.h"
 #include "InterCodeGenerator.h"
 #include "GlobalAnalyzer.h"
+#include "GlobalOptimizer.h"
 #include "Linker.h"
 #include "CompilerTypes.h"
 
@@ -25,8 +26,10 @@ public:
 	InterCodeGenerator* mInterCodeGenerator;
 	InterCodeModule* mInterCodeModule;
 	GlobalAnalyzer* mGlobalAnalyzer;
+	GlobalOptimizer* mGlobalOptimizer;
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
+	ExpandingArray<NativeCodeProcedure*>	mNativeProcedures;
 
 	TargetMachine	mTargetMachine;
 	uint64			mCompilerOptions;
@@ -44,13 +47,15 @@ public:
 	bool ParseSource(void);
 	bool GenerateCode(void);
 	bool WriteOutputFile(const char* targetPath, DiskImage * d64);
-	int ExecuteCode(bool profile, bool trace);
+	int ExecuteCode(bool profile, int trace);
 
 	void AddDefine(const Ident* ident, const char* value);
 
 	void RegisterRuntime(const Location& loc, const Ident* ident);
 
 	void CompileProcedure(InterCodeProcedure* proc);
+	void BuildVTables(void);
+	void CompleteTemplateExpansion(void);
 
 	bool WriteDbjFile(const char* filename);
 };
