@@ -4990,6 +4990,14 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 				mFalseJump = nullptr;
 			}
 
+			if (mFalseJump && sz > 0 && mInstructions[sz - 1]->mCode == IC_BRANCH && mTrueJump && mTrueJump == mFalseJump)
+			{
+				mInstructions[sz - 1]->mCode = IC_JUMP;
+				mInstructions[sz - 1]->mNumOperands = 0;
+				mFalseJump->mNumEntries--;
+				mFalseJump = nullptr;
+			}
+
 			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP && !mTrueJump->mLoopHead && mTrueJump->mTraceIndex != mIndex)
 			{
 				mTrueJump->mTraceIndex = mIndex;
@@ -18249,7 +18257,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "Camera::GetTileAtPixelPos");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
