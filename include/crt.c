@@ -3926,8 +3926,7 @@ __asm inp_binop_div_s32
 		bit	tmp + 3
 		bpl	L2
 		jsr	negtmp32
-L3:		jsr	divmod32
-		rts
+L3:		jmp	divmod32
 L1:		bit	tmp + 3
 		bpl	L3
 		jsr	negtmp32
