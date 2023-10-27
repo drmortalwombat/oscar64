@@ -5740,6 +5740,9 @@ Expression* Parser::ParseQualify(Expression* exp)
 				}
 				else if (mdec->mType == DT_CONST_FUNCTION)
 				{
+					if (mdec->mTemplate)
+						mdec = ParseTemplateExpansion(mdec->mTemplate, nullptr);
+
 					if (mdec->mBase->mFlags & DTF_FUNC_THIS)
 					{
 						ConsumeToken(TK_OPEN_PARENTHESIS);

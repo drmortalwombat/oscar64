@@ -4989,7 +4989,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 					mFalseJump->mNumEntries--;
 				mFalseJump = nullptr;
 			}
-
+#if 1
 			if (mFalseJump && sz > 0 && mInstructions[sz - 1]->mCode == IC_BRANCH && mTrueJump && mTrueJump == mFalseJump)
 			{
 				mInstructions[sz - 1]->mCode = IC_JUMP;
@@ -4997,7 +4997,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 				mFalseJump->mNumEntries--;
 				mFalseJump = nullptr;
 			}
-
+#endif
 			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_JUMP && !mTrueJump->mLoopHead && mTrueJump->mTraceIndex != mIndex)
 			{
 				mTrueJump->mTraceIndex = mIndex;
@@ -12788,6 +12788,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 										ai->mSrc[0].mIntConst = 1;
 										ci->mOperator = IA_CMPGU;
 										ci->mSrc[0].mIntConst = 0;
+										ci->mSrc[0].mRange.SetLimit(0, 0);
 
 										InterInstruction* mins = new InterInstruction(si->mLocation, IC_CONSTANT);
 										mins->mConst.mType = ai->mDst.mType;
@@ -12835,6 +12836,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									ci->mOperator = IA_CMPGU;
 									ci->mSrc[0].mTemp = -1;
 									ci->mSrc[0].mIntConst = 0;
+									ci->mSrc[0].mRange.SetLimit(0, 0);
 
 									ai->mSrc[1].mRange.SetLimit(1, num);
 									ai->mDst.mRange.SetLimit(0, num - 1);
@@ -18257,7 +18259,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "drawCube");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
