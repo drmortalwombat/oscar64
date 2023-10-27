@@ -462,38 +462,55 @@ void SourceFile::ReadCharPad(SourceFileDecoder decoder)
 		else
 			fseek(mFile, 2 * numTiles * tileWidth * tileHeight, SEEK_CUR);
 
-		fread(&ctmMarker, 2, 1, mFile);
-
-		if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2)
+		if (ctmHeader.mColorMethod == 1)
 		{
-			mMemSize = numTiles;
-			mLimit = mMemSize;
-			mMemPos = 0;
-			mMemData = new uint8[mMemSize];
-
-			for (int i = 0; i < mMemSize; i++)
-			{
-				uint8	fd[3];
-				fread(&fd, 1, 1, mFile);
-				mMemData[i] = fd[0];
-			}
-
 			fread(&ctmMarker, 2, 1, mFile);
-
-			for (int i = 0; i < mMemSize; i++)
+			if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2)
 			{
-				uint8	fd[3];
-				fread(&fd, 1, 1, mFile);
-				mMemData[i] |= fd[0] << 4;
-			}
+				mMemSize = numTiles;
+				mLimit = mMemSize;
+				mMemPos = 0;
+				mMemData = new uint8[mMemSize];
 
-			return;
+				if (ctmHeader.mDispMode == 4)
+				{
+					for (int i = 0; i < mMemSize; i++)
+					{
+						uint8	fd[3];
+						fread(fd, 1, 3, mFile);
+						if (decoder == SFD_CTM_CHAR_ATTRIB_1)
+							mMemData[i] = fd[0];
+						else
+							mMemData[i] = (fd[2] << 4) | fd[1];
+					}
+				}
+				else
+				{
+					for (int i = 0; i < mMemSize; i++)
+					{
+						uint8	fd[3];
+						fread(fd, 1, 1, mFile);
+						mMemData[i] = fd[0];
+					}
+				}
+
+				return;
+			}
+			else
+			{
+				// Skip colors
+				if (ctmHeader.mDispMode == 3)
+					fseek(mFile, 2 * numTiles, SEEK_CUR);
+				else if (ctmHeader.mDispMode == 4)
+					fseek(mFile, 3 * numTiles, SEEK_CUR);
+				else
+					fseek(mFile, numTiles, SEEK_CUR);
+			}
 		}
-		else
-		{
-			// Skip material
-			fseek(mFile, 1 * numTiles, SEEK_CUR);
-		}
+
+		// Skip tags
+		fread(&ctmMarker, 2, 1, mFile);
+		fseek(mFile, 1 * numTiles, SEEK_CUR);
 
 		// Skip tile names
 		fread(&ctmMarker, 2, 1, mFile);
