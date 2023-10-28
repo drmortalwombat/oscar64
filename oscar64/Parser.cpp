@@ -6806,6 +6806,7 @@ Expression* Parser::ParseNewOperator(void)
 			Expression* pexp = new Expression(mScanner->mLocation, EX_LIST);
 			pexp->mLeft = vexp;
 			pexp->mRight = new Expression(mScanner->mLocation, EX_INDEX);
+			pexp->mRight->mDecType = pexp->mLeft->mDecType;
 			pexp->mRight->mLeft = csexp;
 			pexp->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
 			pexp->mRight->mRight->mDecType = TheSignedIntTypeDeclaration;
