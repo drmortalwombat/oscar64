@@ -599,6 +599,19 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			}
 		}
 	}
+	else if (mType == EX_TYPECAST && mLeft->mType == EX_VARIABLE)
+	{
+		if (mDecType->mType == DT_TYPE_POINTER && (mLeft->mDecValue->mFlags & (DTF_STATIC | DTF_GLOBAL)) && mLeft->mDecType->mType == DT_TYPE_ARRAY)
+		{
+			Expression* ex = new Expression(mLocation, EX_CONSTANT);
+			Declaration* dec = new Declaration(mLocation, DT_CONST_POINTER);
+			dec->mValue = mLeft;
+			dec->mBase = mDecType;
+			ex->mDecValue = dec;
+			ex->mDecType = mDecType;
+			return ex;
+		}
+	}
 	else if (mType == EX_BINARY && mLeft->mType == EX_CONSTANT && mRight->mType == EX_CONSTANT)
 	{
 		if (mLeft->mDecValue->mType == DT_CONST_INTEGER && mRight->mDecValue->mType == DT_CONST_INTEGER)
