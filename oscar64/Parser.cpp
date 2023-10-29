@@ -118,7 +118,10 @@ void Parser::AddMemberFunction(Declaration* dec, Declaration* mdec)
 
 		}
 		else
+		{
 			mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+			mErrors->Error(gdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+		}
 	}
 	else
 		dec->mScope->Insert(mdec->mIdent, mdec);
@@ -162,6 +165,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 				else
 				{
 					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Error duplicate struct declaration", structName);
+					mErrors->Error(pdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
 				}
 			}
 		}
@@ -337,8 +341,12 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 									if (pdec)
 										mdec = pdec;
 
-									if (dec->mScope->Insert(mdec->mIdent, mdec))
+									Declaration* odec = dec->mScope->Insert(mdec->mIdent, mdec);
+									if (odec)
+									{
 										mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+										mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+									}
 								}
 								else
 								{
@@ -445,8 +453,12 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 									if (offset > dec->mSize)
 										dec->mSize = offset;
 
-									if (dec->mScope->Insert(mdec->mIdent, mdec))
+									Declaration* odec = dec->mScope->Insert(mdec->mIdent, mdec);
+									if (odec)
+									{
 										mErrors->Error(mdec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate struct member declaration", mdec->mIdent);
+										mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+									}
 
 									if (dec->mConst)
 									{
@@ -849,8 +861,12 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 			dec->mIdent = mScanner->mTokenIdent;
 			dec->mQualIdent = mScope->Mangle(dec->mIdent);
 			
-			if (mScope->Insert(dec->mIdent, dec))
+			Declaration* odec = mScope->Insert(dec->mIdent, dec);
+			if (odec)
+			{
 				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name", dec->mIdent);
+				mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+			}
 			mScanner->NextToken();
 		}
 
@@ -871,8 +887,12 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 					{
 						cdec->mIdent = mScanner->mTokenIdent;
 						cdec->mQualIdent = mScope->Mangle(cdec->mIdent);
-						if (mScope->Insert(cdec->mIdent, cdec) != nullptr)
+						Declaration* odec = mScope->Insert(cdec->mIdent, cdec);
+						if (odec)
+						{
 							mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate declaration", mScanner->mTokenIdent->mString);
+							mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+						}
 						mScanner->NextToken();
 					}
 					if (mScanner->mToken == TK_ASSIGN)
@@ -3663,7 +3683,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 						mScope->UseScope(dec->mScope);
 					}
 					else
+					{
 						mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a class or namespace");
+						mErrors->Error(dec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+					}
 				}
 
 				return dec;
@@ -3952,7 +3975,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			if (mScanner->mToken == TK_OPEN_BRACE)
 			{
 				if (cdec->mFlags & DTF_DEFINED)
-					mErrors->Error(cdec->mLocation, EERR_DUPLICATE_DEFINITION, "Function already has a body");
+				{
+					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Function already has a body");
+					mErrors->Error(cdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+				}
 
 				cdec->mCompilerOptions = mCompilerOptions;
 				cdec->mBase->mCompilerOptions = mCompilerOptions;
@@ -4023,7 +4049,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							}
 
 							if (cdec->mFlags & DTF_DEFINED)
-								mErrors->Error(cdec->mLocation, EERR_DUPLICATE_DEFINITION, "Function already has a body");
+							{
+								mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Function already has a body");
+								mErrors->Error(cdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+							}
 
 							cdec->mCompilerOptions = mCompilerOptions;
 							cdec->mBase->mCompilerOptions = mCompilerOptions;
@@ -4255,7 +4284,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 #endif
 								
 							if (ldec && ldec != pdec)
+							{
 								mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition");
+								mErrors->Error(ldec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+							}
 						}
 						else if (ptempl && mTemplateScope && pthis)
 						{
@@ -4371,7 +4403,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 								else if (ndec->mBase->mType == DT_TYPE_POINTER && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase))
 									;
 								else
+								{
 									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent);
+									mErrors->Error(pdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+								}
 							}
 
 							pdec->mFlags |= ndec->mFlags & DTF_ZEROPAGE;
@@ -4599,7 +4634,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 			{
 				if ((ndec->mFlags & DTF_DEFINED) && !(ndec->mFlags & DTF_REQUEST_INLINE))
+				{
 					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate function definition", ndec->mQualIdent);
+					mErrors->Error(ndec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+				}
 
 				ndec->mCompilerOptions = mCompilerOptions;
 				ndec->mBase->mCompilerOptions = mCompilerOptions;
@@ -11690,7 +11728,10 @@ void Parser::ParseNamespace(void)
 				{
 					Declaration* ns = mScope->Insert(ident, dec);
 					if (ns)
+					{
 						mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition", ident);
+						mErrors->Error(ns->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+					}
 				}
 				else
 					mErrors->Error(mScanner->mLocation, ERRO_NOT_A_NAMESPACE, "Not a namespace", ident);

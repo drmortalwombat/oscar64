@@ -19,10 +19,10 @@ enum InterCode
 	IC_UNARY_OPERATOR,
 	IC_RELATIONAL_OPERATOR,
 	IC_CONVERSION_OPERATOR,
-	IC_STORE,
-	IC_LOAD,
+	IC_STORE,			// store src[0] into src[1]
+	IC_LOAD,			// load from src[0]
 	IC_LEA,
-	IC_COPY,
+	IC_COPY,			// Copy from src[0] to src[1]
 	IC_STRCPY,
 	IC_MALLOC,
 	IC_FREE,
@@ -247,7 +247,7 @@ public:
 class InterVariable
 {
 public:
-	bool							mUsed, mAliased, mTemp;
+	bool							mUsed, mAliased, mTemp, mNotAliased;
 	int								mIndex, mSize, mOffset, mTempIndex, mByteIndex;
 	int								mNumReferences;
 	const Ident					*	mIdent;
@@ -255,7 +255,7 @@ public:
 	Declaration					*	mDeclaration;
 
 	InterVariable(void)
-		: mUsed(false), mAliased(false), mTemp(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1), mDeclaration(nullptr)
+		: mUsed(false), mAliased(false), mTemp(false), mNotAliased(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1), mDeclaration(nullptr)
 	{
 	}
 };
@@ -415,6 +415,7 @@ public:
 
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable, int & nlocals, int & nparams);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
+	void RecheckLocalAliased(void);
 
 	void CollectLocalUsedTemps(int numTemps);
 	bool PropagateNonLocalUsedConstTemps(void);
@@ -707,6 +708,7 @@ protected:
 	void SingleTailLoopOptimization(InterMemory paramMemory);
 	void HoistCommonConditionalPath(void);
 	void RemoveUnusedMallocs(void);
+	void RecheckLocalAliased(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);

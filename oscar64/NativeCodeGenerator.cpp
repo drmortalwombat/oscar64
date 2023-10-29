@@ -6200,7 +6200,7 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 	{
 		int size = InterTypeSize[wins->mSrc[0].mType];
 
-		if (wins->mSrc[0].mFinal) 
+		if (!wins->mSrc[0].mFinal) 
 		{
 			if (wins->mSrc[0].mTemp == rins1->mSrc[0].mTemp || wins->mSrc[0].mTemp == rins0->mSrc[0].mTemp)
 				return false;
@@ -36323,6 +36323,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 0].mType = ASMIT_AND;
 						mIns[i + 0].mMode = ASMIM_IMMEDIATE;
 						mIns[i + 0].mAddress = 0xfe;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
@@ -42041,7 +42042,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "enemies_move_show");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "particle_move");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

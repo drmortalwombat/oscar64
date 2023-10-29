@@ -642,6 +642,12 @@ void Linker::Link(void)
 					for(int i=0; i<lsec->mSections.Size(); i++)
 						lrgn->PlaceStackSection(lsec, lsec->mSections[i]);
 
+					if (lsec->mStart < lrgn->mEnd)
+					{
+						Location	loc;
+						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Static stack usage exceeds stack segment");
+					}
+
 					lsec->mEnd = lsec->mStart;
 					lsec->mStart = lrgn->mEnd;
 

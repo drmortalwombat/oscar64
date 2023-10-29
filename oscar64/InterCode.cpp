@@ -737,6 +737,24 @@ static bool SameInstruction(const InterInstruction* ins1, const InterInstruction
 	return false;
 }
 
+static void SwapInstructions(InterInstruction* it, InterInstruction* ib)
+{
+	for (int i = 0; i < ib->mNumOperands; i++)
+	{
+		if (ib->mSrc[i].mTemp >= 0 && ib->mSrc[i].mFinal)
+		{
+			for (int j = 0; j < it->mNumOperands; j++)
+			{
+				if (it->mSrc[j].mTemp == ib->mSrc[i].mTemp)
+				{
+					it->mSrc[j].mFinal = true;
+					ib->mSrc[i].mFinal = false;
+				}
+			}
+		}
+	}
+}
+
 bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const
 {
 	// Cannot swap branches
@@ -4520,15 +4538,22 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 	else if (mType == IT_POINTER)
 	{
 		const char* vname = "";
+		bool	aliased = false;
 
 		if (mMemory == IM_LOCAL)
 		{
 			if (!proc->mLocalVars[mVarIndex])
 				vname = "null";
 			else if (!proc->mLocalVars[mVarIndex]->mIdent)
+			{
 				vname = "";
+				aliased = proc->mLocalVars[mVarIndex]->mAliased;
+			}
 			else
+			{
 				vname = proc->mLocalVars[mVarIndex]->mIdent->mString;
+				aliased = proc->mLocalVars[mVarIndex]->mAliased;
+			}
 		}
 		else if (mMemory == IM_PROCEDURE)
 		{
@@ -4549,12 +4574,21 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 			else if (!proc->mModule->mGlobalVars[mVarIndex])
 				vname = "null";
 			else if (!proc->mModule->mGlobalVars[mVarIndex]->mIdent)
+			{
 				vname = "";
+				aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
+			}
 			else
+			{
 				vname = proc->mModule->mGlobalVars[mVarIndex]->mIdent->mString;
+				aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
+			}
 		}
-
-		fprintf(file, "V(%d '%s')+%d ", mVarIndex, vname, int(mIntConst));
+		
+		if (aliased)
+			fprintf(file, "V(%d '%s' A)+%d ", mVarIndex, vname, int(mIntConst));
+		else
+			fprintf(file, "V(%d '%s')+%d ", mVarIndex, vname, int(mIntConst));
 	}
 	else if (IsIntegerType(mType) || mType == IT_BOOL)
 	{
@@ -5935,6 +5969,47 @@ void InterCodeBasicBlock::CollectLocalAddressTemps(GrowingIntArray& localTable, 
 
 		if (mTrueJump) mTrueJump->CollectLocalAddressTemps(localTable, paramTable, nlocals, nparams);
 		if (mFalseJump) mFalseJump->CollectLocalAddressTemps(localTable, paramTable, nlocals, nparams);
+	}
+}
+
+void InterCodeBasicBlock::RecheckLocalAliased(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterVariable* v = nullptr;
+
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mCode == IC_LEA)
+			{
+				if (ins->mSrc[1].mTemp < 0)
+				{
+					if (ins->mSrc[1].mMemory == IM_LOCAL)
+						v = mProc->mLocalVars[ins->mSrc[1].mVarIndex];
+					else if (ins->mSrc[1].mMemory == IM_PARAM || ins->mSrc[1].mMemory == IM_FPARAM)
+						v = mProc->mParamVars[ins->mSrc[1].mVarIndex];
+				}
+			}
+			else if (ins->mCode == IC_CONSTANT && ins->mDst.mType == IT_POINTER)
+			{
+				if (ins->mConst.mMemory == IM_LOCAL)
+					v = mProc->mLocalVars[ins->mConst.mVarIndex];
+				else if (ins->mConst.mMemory == IM_PARAM || ins->mConst.mMemory == IM_FPARAM)
+					v = mProc->mParamVars[ins->mConst.mVarIndex];
+			}
+
+			if (v)
+			{
+				if (!v->mNotAliased)
+					v->mAliased = true;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->RecheckLocalAliased();
+		if (mFalseJump) mFalseJump->RecheckLocalAliased();
 	}
 }
 
@@ -10450,6 +10525,26 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 
 		mVisited = true;
 
+#if 1
+		// move loads up as far as possible to avoid false aliasing
+		for (int i = 1; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_LOAD)
+			{
+				int j = i;
+				while (j > 0 && CanSwapInstructions(mInstructions[j - 1], ins))
+				{
+					SwapInstructions(mInstructions[j - 1], ins);
+					mInstructions[j] = mInstructions[j - 1];
+					j--;
+				}
+				if (i != j)
+					mInstructions[j] = ins;
+			}
+		}
+#endif
+
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
 			InterInstruction* ins(mInstructions[i]);
@@ -10498,7 +10593,22 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 						}
 					}
 					else
-						nins = ins;
+					{
+						j = 0;
+						while (j < mLoadStoreInstructions.Size() && !(mLoadStoreInstructions[j]->mCode == IC_COPY && SameMemSegment(mLoadStoreInstructions[j]->mSrc[1], ins->mSrc[0])))
+							j++;
+						if (j < mLoadStoreInstructions.Size())
+						{
+							InterInstruction* cins = mLoadStoreInstructions[j];
+
+							int64	offset = ins->mSrc->mIntConst - cins->mSrc[1].mIntConst;
+							ins->mSrc[0] = cins->mSrc[0];
+							ins->mSrc[0].mIntConst += offset;
+							changed = true;
+						}
+						else
+							nins = ins;
+					}
 				}
 			}
 			else if (ins->mCode == IC_STORE)
@@ -10539,6 +10649,52 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					j++;
 				}
 				mLoadStoreInstructions.SetSize(k);
+#if 1
+				uint64	fillmask = 0;
+				if (ins->mSrc[0].mOperandSize < 64 && ins->mSrc[0].mStride == 1 && ins->mSrc[1].mStride == 1)
+				{
+					for (int j = 0; j < mLoadStoreInstructions.Size(); j++)
+					{
+						InterInstruction* sins = mLoadStoreInstructions[j];
+						if (sins->mCode == IC_STORE && SameMemSegment(ins->mSrc[0], sins->mSrc[1]))
+						{
+							int64	offset = sins->mSrc[1].mIntConst - ins->mSrc[0].mIntConst;
+							if (offset >= 0 && offset < ins->mSrc[0].mOperandSize)
+							{
+								for (int k = 0; k < InterTypeSize[sins->mSrc[0].mType]; k++)
+									fillmask |= 1ULL << (k + offset);
+							}
+						}
+					}
+
+					if (fillmask + 1 == (1ULL << ins->mSrc[0].mOperandSize))
+					{
+						int n = 0;
+						for (int j = 0; j < mLoadStoreInstructions.Size(); j++)
+						{
+							InterInstruction* sins = mLoadStoreInstructions[j];
+							if (sins->mCode == IC_STORE && SameMemSegment(ins->mSrc[0], sins->mSrc[1]))
+							{
+								int64	offset = sins->mSrc->mIntConst - ins->mSrc[0].mIntConst;
+								if (offset >= 0 && offset < ins->mSrc[0].mOperandSize)
+								{
+									InterInstruction* tins = sins->Clone();
+									tins->mSrc[1] = ins->mSrc[1];
+									tins->mSrc[1].mIntConst = sins->mSrc[1].mIntConst - ins->mSrc[0].mIntConst + ins->mSrc[1].mIntConst;
+									n++;
+									mInstructions.Insert(i + n, tins);
+								}
+							}
+						}
+						ins->mCode = IC_NONE;
+						ins->mNumOperands = 0;
+					}
+					else if (!ins->mVolatile && ins->mSrc[0].mStride == 1 && ins->mSrc[1].mStride == 1)
+						nins = ins;
+				}
+				else if (!ins->mVolatile && ins->mSrc[0].mStride == 1 && ins->mSrc[1].mStride == 1)
+					nins = ins;
+#endif
 			}
 			else if (ins->mCode == IC_STRCPY)
 				flushMem = true;
@@ -10591,24 +10747,38 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 				int	j = 0, k = 0;
 				while (j < mLoadStoreInstructions.Size())
 				{
-					InterOperand* op = nullptr;
 
-					if (mLoadStoreInstructions[j]->mCode == IC_LOAD)
-						op = mLoadStoreInstructions[j]->mSrc + 0;
-					else if (mLoadStoreInstructions[j]->mCode == IC_STORE)
-						op = mLoadStoreInstructions[j]->mSrc + 1;
+					int		opmask = 0;
+
+					InterInstruction* lins = mLoadStoreInstructions[j];
+
+					if (lins->mCode == IC_LOAD)
+						opmask = 1;
+					else if (lins->mCode == IC_STORE)
+						opmask = 2;
+					else if (lins->mCode == IC_COPY)
+						opmask = 3;
 
 					bool	flush = false;
-					if (op)
+					for(int k=0; k<lins->mNumOperands; k++)
 					{
-						if (op->mTemp >= 0)
-							flush = proc->mStoresIndirect;
-						else if (op->mMemory == IM_FFRAME || op->mMemory == IM_FRAME)
-							flush = true;
-						else if (op->mMemory == IM_GLOBAL)
-							flush = proc->ModifiesGlobal(op->mVarIndex);
-						else
-							flush = true;
+						if ((1 << k) & opmask)
+						{
+							InterOperand& op(lins->mSrc[k]);
+
+							if (op.mTemp >= 0)
+								flush = proc->mStoresIndirect;
+							else if (op.mMemory == IM_FFRAME || op.mMemory == IM_FRAME)
+								flush = true;
+							else if (op.mMemory == IM_GLOBAL)
+								flush = proc->ModifiesGlobal(op.mVarIndex);
+							else if (op.mMemory == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
+								flush = false;
+							else if ((op.mMemory == IM_PARAM || op.mMemory == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
+								flush = false;
+							else
+								flush = true;
+						}
 					}
 
 					if (!flush)
@@ -10625,7 +10795,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 
 				while (j < mLoadStoreInstructions.Size())
 				{
-					if (flushMem && (mLoadStoreInstructions[j]->mCode == IC_LOAD || mLoadStoreInstructions[j]->mCode == IC_STORE))
+					if (flushMem && (mLoadStoreInstructions[j]->mCode == IC_LOAD || mLoadStoreInstructions[j]->mCode == IC_STORE || mLoadStoreInstructions[j]->mCode == IC_COPY))
 						;
 					else if (t < 0)
 						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
@@ -10655,6 +10825,26 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 			if (nins)
 				mLoadStoreInstructions.Push(nins);
 		}
+
+#if 1
+		// move loads down as far as possible to avoid false aliasing
+		for (int i = mInstructions.Size() - 2; i >= 0; i--)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_LOAD)
+			{
+				int j = i;
+				while (j + 1 < mInstructions.Size() && CanSwapInstructions(ins, mInstructions[j + 1]))
+				{
+					SwapInstructions(ins, mInstructions[j + 1]);
+					mInstructions[j] = mInstructions[j + 1];
+					j++;
+				}
+				if (i != j)
+					mInstructions[j] = ins;
+			}
+		}
+#endif
 
 		if (mTrueJump && mTrueJump->LoadStoreForwarding(mLoadStoreInstructions, staticVars))
 			changed = true;
@@ -15048,24 +15238,6 @@ void InterCodeBasicBlock::CompactInstructions(void)
 	}
 }
 
-static void SwapInstructions(InterInstruction* it, InterInstruction* ib)
-{
-	for (int i = 0; i < ib->mNumOperands; i++)
-	{
-		if (ib->mSrc[i].mTemp >= 0 && ib->mSrc[i].mFinal)
-		{
-			for (int j = 0; j < it->mNumOperands; j++)
-			{
-				if (it->mSrc[j].mTemp == ib->mSrc[i].mTemp)
-				{
-					it->mSrc[j].mFinal = true;
-					ib->mSrc[i].mFinal = false;
-				}
-			}
-		}
-	}
-}
-
 void InterCodeBasicBlock::CheckFinalLocal(void) 
 {
 #if _DEBUG
@@ -18259,7 +18431,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "drawCube");
+	CheckFunc = !strcmp(mIdent->mString, "fill");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -18413,9 +18585,13 @@ void InterCodeProcedure::Close(void)
 		if (i < mLocalAliasedSet.Size() && mLocalAliasedSet[i])
 			mLocalVars[i]->mAliased = true;
 
+	RecheckLocalAliased();
+
 	BuildDataFlowSets();
 
 	LoadStoreForwarding(paramMemory);
+
+	RecheckLocalAliased();
 
 	ResetVisited();
 	mEntryBlock->OptimizeIntervalCompare();
@@ -18519,6 +18695,8 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Copy forwarding");
 
 	LoadStoreForwarding(paramMemory);
+
+	RecheckLocalAliased();
 
 	ResetVisited();
 	mEntryBlock->FollowJumps();
@@ -19675,6 +19853,37 @@ void InterCodeProcedure::RemoveUnusedMallocs(void)
 	ResetVisited();
 	mEntryBlock->RemoveUnusedMallocs();
 }
+
+void InterCodeProcedure::RecheckLocalAliased(void)
+{
+	for (int i = 0; i < mLocalVars.Size(); i++)
+	{
+		InterVariable* v = mLocalVars[i];
+		if (v)
+		{
+			if (v->mAliased)
+				v->mAliased = false;
+			else
+				v->mNotAliased = true;
+		}
+	}
+	for (int i = 0; i < mParamVars.Size(); i++)
+	{
+		InterVariable* v = mParamVars[i];
+		if (v)
+		{
+			if (v->mAliased)
+				v->mAliased = false;
+			else
+				v->mNotAliased = true;
+		}
+	}
+	ResetVisited();
+	mEntryBlock->RecheckLocalAliased();
+
+	DisassembleDebug("RecheckLocalAliased");
+}
+
 
 void InterCodeProcedure::HoistCommonConditionalPath(void)
 {
