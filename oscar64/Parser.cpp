@@ -9780,7 +9780,7 @@ Declaration* Parser::FunctionAutoParamsToTemplate(Declaration* fdec)
 
 			if (ptdec)
 			{
-				ptdec->mIdent = Ident::Unique("T" + ntp++);
+				ptdec->mIdent = Ident::Unique("T", ntp++);
 				tdec->mScope->Insert(ptdec->mIdent, ptdec);
 				ptdec->mFlags |= DTF_DEFINED;
 
