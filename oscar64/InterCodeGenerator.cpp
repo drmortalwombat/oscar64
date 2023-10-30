@@ -712,6 +712,14 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 				DestructStack* destack = nullptr;
 				TranslateExpression(nullptr, mMainInitProc, mMainInitBlock, dec->mValue, destack, BranchTarget(), BranchTarget(), nullptr);
 			}
+			else if (dec->mValue->mType == EX_VARIABLE && dec->mValue->mDecType->mType == DT_TYPE_ARRAY && dec->mBase->mType == DT_TYPE_POINTER && dec->mBase->CanAssign(dec->mValue->mDecType))
+			{
+				Declaration* ndec = new Declaration(dec->mValue->mLocation, DT_CONST_POINTER);
+				ndec->mValue = dec->mValue;
+				ndec->mBase = dec->mValue->mDecType;
+
+				BuildInitializer(mod, d, 0, ndec, var);
+			}
 			else
 				mErrors->Error(dec->mLocation, EERR_CONSTANT_INITIALIZER, "Non constant initializer");
 		}
@@ -2060,7 +2068,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(ins);
 
 			if (!(dec->mBase->mFlags & DTF_DEFINED))
-				mErrors->Error(dec->mLocation, EERR_VARIABLE_TYPE, "Undefined variable type");
+				mErrors->Error(dec->mLocation, EERR_VARIABLE_TYPE, "Undefined variable type for", dec->mQualIdent);
 
 			if (exp->mDecType->IsReference())
 				return ExValue(exp->mDecType->mBase, ins->mDst.mTemp, ref + 1);
@@ -4517,7 +4525,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else
 			{
-				vr = Dereference(proc, exp, block, inlineMapper, vr);
+				if (vr.mType->mType == DT_TYPE_ARRAY)
+					vr = Dereference(proc, exp, block, inlineMapper, vr, 1);
+				else
+					vr = Dereference(proc, exp, block, inlineMapper, vr);
 				ins->mCode = IC_TYPECAST;
 				ins->mSrc[0].mType = vr.mReference > 0 ? IT_POINTER : InterTypeOf(vr.mType);
 				ins->mSrc[0].mTemp = vr.mTemp;

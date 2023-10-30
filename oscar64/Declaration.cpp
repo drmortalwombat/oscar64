@@ -526,6 +526,18 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		ex->mDecType = mDecType;
 		return ex;
 	}
+	else if (mType == EX_PREFIX && mToken == TK_BINARY_AND && mLeft->mType == EX_INDEX && mLeft->mLeft->mType == EX_VARIABLE && (mLeft->mLeft->mDecValue->mFlags & (DTF_STATIC | DTF_GLOBAL)) && mLeft->mRight->mType == EX_CONSTANT)
+	{
+		Expression* ex = new Expression(mLocation, EX_VARIABLE);
+		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
+		dec->mFlags = mLeft->mLeft->mDecValue->mFlags;
+		dec->mBase = mLeft->mLeft->mDecValue;
+		dec->mSize = mLeft->mLeft->mDecType->mBase->mSize - int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
+		dec->mOffset = int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
+		ex->mDecValue = dec;
+		ex->mDecType = mLeft->mLeft->mDecType;
+		return ex;
+	}
 	else if (mType == EX_PREFIX && mToken == TK_BINARY_AND && mLeft->mType == EX_PREFIX && mLeft->mToken == TK_MUL)
 	{
 		return mLeft->mLeft;

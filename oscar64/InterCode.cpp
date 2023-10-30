@@ -17586,12 +17586,15 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 	ResetVisited();
 	mEntryBlock->RestartLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars, mParamVars);
 
+	// No need to re-init the loop specific parts, we are restarting.
+	// Would lead to inifinte pumping weak - bound in some cases
+#if 0
 	do {
 		DisassembleDebug("tr");
 
 		ResetVisited();
 	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars, mParamVars));
-
+#endif
 	do {
 		DisassembleDebug("tr");
 
@@ -18431,7 +18434,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "fill");
+	CheckFunc = !strcmp(mIdent->mString, "getReady");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
