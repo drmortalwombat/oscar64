@@ -17588,15 +17588,17 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 
 	// No need to re-init the loop specific parts, we are restarting.
 	// Would lead to inifinte pumping weak - bound in some cases
-#if 0
+#if 1
+	int limit = 10;
 	do {
-		DisassembleDebug("tr");
+		DisassembleDebug("tr0");
 
+		limit--;
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars, mParamVars));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars, mParamVars) && limit > 0);
 #endif
 	do {
-		DisassembleDebug("tr");
+		DisassembleDebug("tr1");
 
 		ResetVisited();
 	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars, mParamVars));
@@ -18434,7 +18436,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "getReady");
+	CheckFunc = !strcmp(mIdent->mString, "game_menu");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
