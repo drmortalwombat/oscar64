@@ -794,6 +794,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		Analyze(exp->mLeft, procDec, lhs);
 		return exp->mDecValue->mBase;
 	case EX_DISPATCH:
+		procDec->mFlags |= DTF_PREVENT_INLINE;
 		Analyze(exp->mLeft, procDec, lhs);
 //		RegisterCall(procDec, exp->mLeft->mDecType);
 		break;
