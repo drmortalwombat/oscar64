@@ -8022,6 +8022,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 						}
 					}
 				}
+				else if (s0 >= 0)
+				{
+					mTrueValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst + 1);
+					mFalseValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst);
+				}
 				break;
 			case IA_CMPLEU:
 				if (s0 < 0)
@@ -10827,6 +10832,10 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 		}
 
 #if 1
+		int sz = mInstructions.Size() - 1;
+		if (sz > 2 && mInstructions[sz]->mCode == IC_BRANCH && mInstructions[sz - 1]->mCode == IC_RELATIONAL_OPERATOR)
+			sz--;
+
 		// move loads down as far as possible to avoid false aliasing
 		for (int i = mInstructions.Size() - 2; i >= 0; i--)
 		{
@@ -10834,7 +10843,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 			if (ins->mCode == IC_LOAD)
 			{
 				int j = i;
-				while (j + 1 < mInstructions.Size() && CanSwapInstructions(ins, mInstructions[j + 1]))
+				while (j + 1 < sz && CanSwapInstructions(ins, mInstructions[j + 1]))
 				{
 					SwapInstructions(ins, mInstructions[j + 1]);
 					mInstructions[j] = mInstructions[j + 1];
@@ -11904,9 +11913,30 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 				InterInstruction* ins(mInstructions[i]);
 
 				int		dtemp = ins->mDst.mTemp;
-				bool	moved = false;
+				bool	moved = false, pair = false;
 
-				if (dtemp >= 0 && !providedTemps[dtemp] && !requiredTemps[dtemp])
+				if (i > 0 && ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_DIVU && i > 0 &&
+					mInstructions[i - 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i - 1]->mOperator == IA_MODU &&
+					ins->mSrc[0].IsEqual(mInstructions[i - 1]->mSrc[0]) &&
+					ins->mSrc[1].IsEqual(mInstructions[i - 1]->mSrc[1]))
+					pair = true;
+				else if (i > 0 && ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MODU && i > 0 &&
+					mInstructions[i - 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i - 1]->mOperator == IA_DIVU &&
+					ins->mSrc[0].IsEqual(mInstructions[i - 1]->mSrc[0]) &&
+					ins->mSrc[1].IsEqual(mInstructions[i - 1]->mSrc[1]))
+					pair = true;
+				else if (i + 1 < mInstructions.Size() && ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_DIVU &&
+					mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MODU &&
+					ins->mSrc[0].IsEqual(mInstructions[i + 1]->mSrc[0]) &&
+					ins->mSrc[1].IsEqual(mInstructions[i + 1]->mSrc[1]))
+					pair = true;
+				else if (i + 1 < mInstructions.Size() && ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MODU &&
+					mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_DIVU &&
+					ins->mSrc[0].IsEqual(mInstructions[i + 1]->mSrc[0]) &&
+					ins->mSrc[1].IsEqual(mInstructions[i + 1]->mSrc[1]))
+					pair = true;
+
+				if (!pair && dtemp >= 0 && !providedTemps[dtemp] && !requiredTemps[dtemp])
 				{
 					int j = 0;
 					while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || !(providedTemps[ins->mSrc[j].mTemp] || IsTempModifiedOnPath(ins->mSrc[j].mTemp, i + 1))))
@@ -13000,7 +13030,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 							}
 						}
 						else if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst == 1 && IsIntegerType(ai->mDst.mType) &&
-							ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[0].mTemp >= 0 && ci->mSrc[0].IsUnsigned() && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
+							ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[0].mTemp >= 0 && ci->mSrc[0].IsPositive() && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
 							bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp && !post->mEntryRequiredTemps[ai->mDst.mTemp] &&
 							!tail->IsTempReferencedInRange(0, tz - 3, ai->mDst.mTemp) && !tail->IsTempModifiedInRange(0, tz - 3, ci->mSrc[0].mTemp))
 						{
@@ -16950,6 +16980,48 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 		} while (changed);
 
+		// move div up to mod
+		int imod = -1, idiv = -1;
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MODU)
+			{
+				imod = -1;
+				if (idiv >= 0 && ins->mSrc[0].IsEqual(mInstructions[idiv]->mSrc[0]) && ins->mSrc[1].IsEqual(mInstructions[idiv]->mSrc[1]))
+				{
+					int j = i - 1;
+					while (j > idiv && CanSwapInstructions(mInstructions[j], ins))
+					{
+						SwapInstructions(mInstructions[j], ins);
+						mInstructions[j + 1] = mInstructions[j];
+						j--;
+					}
+					mInstructions[j + 1] = ins;
+				}
+				else
+					imod = i;
+			}
+			else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_DIVU)
+			{
+				idiv = -1;
+
+				if (imod >= 0 && ins->mSrc[0].IsEqual(mInstructions[imod]->mSrc[0]) && ins->mSrc[1].IsEqual(mInstructions[imod]->mSrc[1]))
+				{
+					int j = i - 1;
+					while (j > imod && CanSwapInstructions(mInstructions[j], ins))
+					{
+						SwapInstructions(mInstructions[j + 0], ins);
+						mInstructions[j + 1] = mInstructions[j];
+						j--;
+					}
+					mInstructions[j + 1] = ins;
+				}
+				else
+					idiv = i;
+			}
+		}
+
 		// Check case of cmp signed immediate
 		if (mFalseJump && mInstructions.Size() > 3)
 		{
@@ -18436,7 +18508,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "game_menu");
+	CheckFunc = !strcmp(mIdent->mString, "nformi");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

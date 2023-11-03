@@ -343,6 +343,7 @@ public:
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0, bool addrvalid);
 	void LoadStoreOpAbsolute2D(InterCodeProcedure* proc, const InterInstruction* lins1, const InterInstruction* lins2, const InterInstruction* mins);
 	void SignExtendAddImmediate(InterCodeProcedure* proc, const InterInstruction* xins, const InterInstruction* ains);
+	void BinaryDivModPair(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins1, const InterInstruction* ins2);
 
 	void NumericConversion(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	NativeCodeBasicBlock * CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc);
@@ -429,6 +430,7 @@ public:
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags, int & addr);
 	bool FindExternAddressSumY(int at, int reg, int& breg, int& ireg);
+	bool FindSharedGlobalAddressSumY(int at, int reg, const NativeCodeInstruction*& ains, const NativeCodeInstruction*& iins);
 	bool FindPageStartAddress(int at, int reg, int& addr);
 	bool FindBypassAddressSumY(int at, int reg, int& apos, int& breg);
 	bool PatchBypassAddressSumY(int at, int reg, int apos, int breg);
@@ -588,6 +590,7 @@ public:
 	bool SimplifyLoopEnd(NativeCodeProcedure* proc);
 	bool CrossBlockStoreLoadBypass(NativeCodeProcedure* proc);
 	bool EliminateDeadLoops(void);
+	bool LoopRegisterWrapAround(void);
 
 	bool CanBytepassLoad(const NativeCodeInstruction& ains, int from = 0) const;
 	bool CanHoistStore(const NativeCodeInstruction& ains) const;

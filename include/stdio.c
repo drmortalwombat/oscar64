@@ -279,10 +279,7 @@ int nformi(const sinfo * si, char * str, int v, bool s)
 	while (u > 0)
 	{
 		int	c = u % si->base;
-		if (c >= 10)
-			c += 'A' - 10;
-		else
-			c += '0';
+		c += c >= 10 ? 'A' - 10 : '0';
 		buffer[--i] = c;
 		u /= si->base;
 	}
@@ -340,10 +337,7 @@ int nforml(const sinfo * si, char * str, long v, bool s)
 	while (u > 0)
 	{
 		int	c = u % si->base;
-		if (c >= 10)
-			c += 'A' - 10;
-		else
-			c += '0';
+		c += c >= 10 ? 'A' - 10 : '0';
 		buffer[--i] = c;
 		u /= si->base;
 	}
