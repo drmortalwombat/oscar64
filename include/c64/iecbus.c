@@ -239,12 +239,14 @@ int iec_write_bytes(const char * data, int num)
 
 int iec_read_bytes(char * data, int num)
 {
-	for(int i=0; i<num; i++)
+	char i = 0;
+	while (i < num)
 	{
 		char ch = iec_read();
+		if (iec_status < IEC_ERROR)
+			data[i++] = ch;
 		if (iec_status != IEC_OK)
 			return i;
-		data[i] = ch;
 	}
 	return num;
 }

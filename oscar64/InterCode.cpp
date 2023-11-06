@@ -6220,8 +6220,9 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 						ins->mSrc[0].mMemory = ltemps[k]->mSrc[0].mMemory;
 						ins->mSrc[0].mTemp = ltemps[k]->mSrc[0].mTemp;
 						ins->mSrc[0].mVarIndex = ltemps[k]->mSrc[0].mVarIndex;
-						ins->mSrc[0].mIntConst += ltemps[k]->mSrc[0].mIntConst;
+						ins->mSrc[0].mIntConst = ins->mSrc[0].mIntConst * ltemps[k]->mSrc[0].mStride + ltemps[k]->mSrc[0].mIntConst;
 						ins->mSrc[0].mLinkerObject = ltemps[k]->mSrc[0].mLinkerObject;
+						ins->mSrc[0].mStride = ltemps[k]->mSrc[0].mStride;
 						changed = true;
 					}
 				}
@@ -10608,6 +10609,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 
 							int64	offset = ins->mSrc->mIntConst - cins->mSrc[1].mIntConst;
 							ins->mSrc[0] = cins->mSrc[0];
+							ins->mSrc[0].mOperandSize = InterTypeSize[ins->mDst.mType];
 							ins->mSrc[0].mIntConst += offset;
 							changed = true;
 						}
@@ -11318,7 +11320,7 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 				if (tins->mCode != IC_BRANCH && tins->mCode != IC_JUMP && !(nins && nins->mCode == IC_BRANCH && tins->mDst.mTemp == nins->mSrc[0].mTemp))
 				{
 					int	fi = 0;
-					while (fi < mFalseJump->mInstructions.Size() && !tins->IsEqualSource(mFalseJump->mInstructions[fi]))
+					while (fi < mFalseJump->mInstructions.Size() && !(tins->mCode == mFalseJump->mInstructions[fi]->mCode && tins->mDst.mType == mFalseJump->mInstructions[fi]->mDst.mType && tins->IsEqualSource(mFalseJump->mInstructions[fi])))
 						fi++;
 
 					if (fi < mFalseJump->mInstructions.Size())
@@ -15810,11 +15812,12 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[0] = io;
 				changed = true;
 			}
-
+#if 1
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
 				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 0]->mSrc[0].IsUByte())
+				mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 0]->mSrc[0].IsUByte() &&
+				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp)
 			{
 				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
 
@@ -15831,7 +15834,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
 				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
-				mInstructions[i + 0]->mSrc[0].IsUByte() && !mInstructions[i + 0]->mSrc[1].IsUByte())
+				mInstructions[i + 0]->mSrc[0].IsUByte() && !mInstructions[i + 0]->mSrc[1].IsUByte() &&
+				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp)
 			{
 				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
 
@@ -15845,6 +15849,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1].mMemory = IM_INDIRECT;
 				changed = true;
 			}
+#endif
 #if 1
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 && mInstructions[i + 0]->mSrc[0].mIntConst <= 16 &&
@@ -17863,6 +17868,9 @@ void InterCodeProcedure::PeepholeOptimization(void)
 
 	ResetVisited();
 	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
+
+	Disassemble("PeepholeOptimization");
+	CheckFinal();
 }
 
 
@@ -18508,7 +18516,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "nformi");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

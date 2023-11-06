@@ -6198,7 +6198,7 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 {
 	if (rins1->mSrc[0].mMemory == IM_INDIRECT && rins0->mSrc[0].mMemory == IM_INDIRECT && wins->mSrc[1].mMemory == IM_INDIRECT)
 	{
-		int size = InterTypeSize[wins->mSrc[0].mType];
+		int size = InterTypeSize[oins->mDst.mType];
 
 		if (!wins->mSrc[0].mFinal) 
 		{
@@ -6362,7 +6362,7 @@ bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, 
 
 bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, int oindex, const InterInstruction* wins)
 {
-	int size = InterTypeSize[wins->mSrc[0].mType];
+	int size = InterTypeSize[oins->mDst.mType];
 
 	AsmInsType	at = ASMIT_ADC, an = ASMIT_ADC;
 	AsmInsMode  am = oins->mSrc[oindex].mTemp < 0 ? ASMIM_IMMEDIATE : ASMIM_ZERO_PAGE, ram = ASMIM_INDIRECT_Y, wam = ASMIM_INDIRECT_Y;
@@ -42373,7 +42373,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "particle_move");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -44030,8 +44030,8 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			else if (i + 1 < iblock->mInstructions.Size() &&
 				InterTypeSize[ins->mDst.mType] >= 2 &&
 				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
-				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
-				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal)
+				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mType == ins->mDst.mType && iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
+				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mType == ins->mDst.mType && iblock->mInstructions[i + 1]->mSrc[1].mFinal)
 			{
 				block = block->BinaryOperator(iproc, this, iblock->mInstructions[i + 1], ins, ins);
 				i++;
@@ -44040,7 +44040,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				InterTypeSize[ins->mDst.mType] >= 2 &&
 				InterTypeSize[ins->mDst.mType] * ins->mSrc[0].mStride <= 256 &&
 				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
-				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal)
+				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mType == ins->mDst.mType && iblock->mInstructions[i + 1]->mSrc[0].mFinal)
 			{
 				block = block->BinaryOperator(iproc, this, iblock->mInstructions[i + 1], nullptr, ins);
 				i++;
@@ -44049,7 +44049,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				InterTypeSize[ins->mDst.mType] >= 2 &&
 				InterTypeSize[ins->mDst.mType] * ins->mSrc[0].mStride < 256 &&
 				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
-				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal)
+				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mType == ins->mDst.mType && iblock->mInstructions[i + 1]->mSrc[1].mFinal)
 			{
 				block = block->BinaryOperator(iproc, this, iblock->mInstructions[i + 1], ins, nullptr);
 				i++;
@@ -44061,8 +44061,8 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] * iblock->mInstructions[i + 1]->mSrc[0].mStride <= 256 &&
 				iblock->mInstructions[i + 1]->mDst.mTemp != ins->mDst.mTemp &&
 				iblock->mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR &&
-				iblock->mInstructions[i + 2]->mSrc[0].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[0].mFinal &&
-				iblock->mInstructions[i + 2]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[1].mFinal)
+				iblock->mInstructions[i + 2]->mSrc[0].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[0].mType == iblock->mInstructions[i + 1]->mDst.mType && iblock->mInstructions[i + 2]->mSrc[0].mFinal &&
+				iblock->mInstructions[i + 2]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[1].mType == ins->mDst.mType && iblock->mInstructions[i + 2]->mSrc[1].mFinal)
 			{
 				block = block->BinaryOperator(iproc, this, iblock->mInstructions[i + 2], ins, iblock->mInstructions[i + 1]);
 				i += 2;
@@ -44074,8 +44074,8 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] * iblock->mInstructions[i + 1]->mSrc[0].mStride <= 256 &&
 				iblock->mInstructions[i + 1]->mDst.mTemp != ins->mDst.mTemp &&
 				iblock->mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR &&
-				iblock->mInstructions[i + 2]->mSrc[1].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[1].mFinal &&
-				iblock->mInstructions[i + 2]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[0].mFinal)
+				iblock->mInstructions[i + 2]->mSrc[1].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[1].mType == iblock->mInstructions[i + 1]->mDst.mType && iblock->mInstructions[i + 2]->mSrc[1].mFinal &&
+				iblock->mInstructions[i + 2]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[0].mType == ins->mDst.mType && iblock->mInstructions[i + 2]->mSrc[0].mFinal)
 			{
 				block = block->BinaryOperator(iproc, this, iblock->mInstructions[i + 2], iblock->mInstructions[i + 1], ins);
 				i += 2;
@@ -44083,7 +44083,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			else if (i + 1 < iblock->mInstructions.Size() &&
 				InterTypeSize[ins->mDst.mType] >= 2 &&
 				iblock->mInstructions[i + 1]->mCode == IC_LEA &&
-				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal &&
+				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mType == ins->mDst.mType && iblock->mInstructions[i + 1]->mSrc[1].mFinal &&
 				!(iblock->mInstructions[i + 1]->mSrc[0].IsUByte() && 
 				 iblock->mInstructions[i + 1]->mSrc[0].mTemp >= 0 &&
 				 i + 2 < iblock->mInstructions.Size() &&

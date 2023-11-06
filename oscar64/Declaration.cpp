@@ -1731,7 +1731,7 @@ Declaration* Declaration::ToStriped(int stripe)
 	else
 		ndec->mBase = mBase;
 
-	if (mType == DT_TYPE_STRUCT)
+	if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_UNION)
 	{
 		ndec->mScope = new DeclarationScope(nullptr, mScope->mLevel);
 		Declaration	* p = mParams;

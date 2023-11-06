@@ -130,7 +130,8 @@ char * strcat(char * dst, const char * src)
 
 char * cpycat(char * dst, const char * src)
 {
-	do {} while (*dst++ = *src++);
+	while (*dst = *src++)
+		dst++;
 	
 	return dst;	
 }
