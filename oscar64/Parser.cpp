@@ -6007,6 +6007,8 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 				dist += 0;
 			else if (ptype->mType == DT_TYPE_INTEGER && etype->mType == DT_TYPE_FLOAT)
 				dist += 16;
+			else if (ptype->mType == DT_TYPE_INTEGER && etype->mType == DT_TYPE_ENUM)
+				dist += 32;
 			else if (ptype->mType == DT_TYPE_FLOAT && etype->mType == DT_TYPE_INTEGER)
 				dist += 8;
 			else if (ptype->IsSame(ex->mDecType))
