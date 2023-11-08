@@ -332,33 +332,33 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 		{
 			Declaration* maxf = nullptr;
 
+			bool	stackCall = false;
+
 			for (int i = 0; i < procDec->mCalled.Size(); i++)
 			{
 				Declaration* cf = procDec->mCalled[i];
 
+				if (cf->mBase->mFlags & DTF_STACKCALL)
+					stackCall = true;
+
 				if (!maxf)
 					maxf = cf;
-				else if (!(maxf->mBase->mFlags & DTF_STACKCALL))
-				{
-					if (cf->mBase->mFlags & DTF_STACKCALL)
-						maxf = cf;
-					else if (cf->mBase->mFastCallBase > maxf->mBase->mFastCallBase)
-						maxf = cf;
-				}
+				else if (cf->mBase->mFastCallBase > maxf->mBase->mFastCallBase)
+					maxf = cf;
 			}
 
 			for (int i = 0; i < procDec->mCalled.Size(); i++)
 			{
 				Declaration* cf = procDec->mCalled[i];
 
+				if (stackCall)
+				{
+					cf->mBase->mFlags &= ~DTF_FASTCALL;
+					cf->mBase->mFlags |= DTF_STACKCALL;
+				}
+
 				if (cf != maxf)
 				{
-					if (maxf->mBase->mFlags & DTF_STACKCALL)
-					{
-						cf->mBase->mFlags &= ~DTF_FASTCALL;
-						cf->mBase->mFlags |= DTF_STACKCALL;
-					}
-
 					cf->mParams = maxf->mParams;
 					cf->mBase->mFastCallBase = cf->mFastCallBase = maxf->mBase->mFastCallBase;
 					cf->mBase->mFastCallSize = cf->mFastCallSize = maxf->mBase->mFastCallSize;
