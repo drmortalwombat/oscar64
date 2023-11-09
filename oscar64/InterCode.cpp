@@ -13419,13 +13419,18 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 								ins->mExpensive = true;
 								break;
 							case IC_LEA:
+							{
+								int offset = 0;
+								if (ins->mSrc[0].mTemp < 0)
+									offset = ins->mSrc[0].mIntConst;
+
 								if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0)
 									ins->mExpensive = true;
 								else if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mRange.mMaxValue >= 256)
 									ins->mExpensive = true;
-								else if (nins && nins->mCode == IC_LEA && nins->mSrc[0].mTemp >= 0 && (nins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_UNBOUND || nins->mSrc[0].mRange.mMaxValue >= 255))
+								else if (nins && nins->mCode == IC_LEA && nins->mSrc[0].mTemp >= 0 && (nins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_UNBOUND || nins->mSrc[0].mRange.mMaxValue + offset >= 255))
 									ins->mExpensive = true;
-								break;
+							}	break;
 							case IC_LOAD:
 							case IC_STORE:
 								ins->mExpensive = true;

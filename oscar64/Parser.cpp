@@ -855,7 +855,16 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		dec->mSize = 1;
 		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
 
+		bool	classTemplate = false;
+
 		mScanner->NextToken();
+
+		if (mCompilerOptions & COPT_CPLUSPLUS)
+		{
+			if (ConsumeTokenIf(TK_CLASS) || ConsumeTokenIf(TK_STRUCT))
+				classTemplate = true;
+		}
+		
 		if (mScanner->mToken == TK_IDENT)
 		{
 			dec->mIdent = mScanner->mTokenIdent;
@@ -868,6 +877,21 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 				mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
 			}
 			mScanner->NextToken();
+		}
+
+		if (mCompilerOptions & COPT_CPLUSPLUS)
+		{
+			if (ConsumeTokenIf(TK_COLON))
+			{
+				Declaration* pdec = ParseBaseTypeDeclaration(0, false);
+				if (pdec->mType == DT_TYPE_INTEGER)
+				{
+					dec->mSize = pdec->mSize;
+					dec->mFlags |= pdec->mFlags & DTF_SIGNED;
+				}
+				else
+					mErrors->Error(pdec->mLocation, EERR_INCOMPATIBLE_TYPES, "Integer base type expected");
+			}
 		}
 
 		int	nitem = 0;
@@ -887,7 +911,12 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 					{
 						cdec->mIdent = mScanner->mTokenIdent;
 						cdec->mQualIdent = mScope->Mangle(cdec->mIdent);
-						Declaration* odec = mScope->Insert(cdec->mIdent, cdec);
+						Declaration* odec;
+						if (classTemplate)
+							odec = dec->mScope->Insert(cdec->mIdent, cdec);
+						else
+							odec = mScope->Insert(cdec->mIdent, cdec);
+
 						if (odec)
 						{
 							mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate declaration", mScanner->mTokenIdent->mString);
@@ -3684,12 +3713,30 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					}
 					else
 					{
-						mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a class or namespace");
+						mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a namespace");
 						mErrors->Error(dec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
 					}
 				}
 
-				return dec;
+				return nullptr;
+			}
+			else if (ConsumeTokenIf(TK_ENUM))
+			{
+				Declaration* dec = ParseQualIdent();
+				if (dec)
+				{
+					if (dec->mType == DT_TYPE_ENUM)
+					{
+						mScope->UseScope(dec->mScope);
+					}
+					else
+					{
+						mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not an enum");
+						mErrors->Error(dec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+					}
+				}
+
+				return nullptr;
 			}
 			else
 			{
@@ -4818,7 +4865,7 @@ Declaration* Parser::ParseQualIdent(void)
 		{
 			if (mScanner->mToken == TK_IDENT)
 			{
-				if (dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_STRUCT)
+				if (dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_STRUCT || dec->mType == DT_TYPE_ENUM)
 				{
 					Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_USING);
 
@@ -5189,6 +5236,10 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		exp = ParseDeclarationExpression(nullptr);
 		break;
 
+	case TK_USING:
+		ParseDeclaration(nullptr, true, true);
+		break;
+
 	case TK_CHARACTER:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 		dec->mInteger = mCharMap[(unsigned char)mScanner->mTokenInteger];
@@ -5445,7 +5496,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 					{
 						if (mScanner->mToken == TK_IDENT)
 						{
-							if (dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_STRUCT)
+							if (dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_STRUCT || dec->mType == DT_TYPE_ENUM)
 							{
 								Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_USING);
 

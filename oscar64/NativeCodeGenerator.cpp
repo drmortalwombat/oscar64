@@ -12138,9 +12138,18 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 			else
 			{
 				NativeCodeInstruction	ainsl(ins, iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]);
-				NativeCodeInstruction	ainsh(ins, iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1);
+				if (ins->mSrc[0].IsUByte())
+				{
+					NativeCodeInstruction	ainsh(ins, iop, ASMIM_IMMEDIATE, 0);
 
-				LoadValueToReg(proc, sins1, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp], &ainsl, &ainsh);
+					LoadValueToReg(proc, sins1, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp], &ainsl, &ainsh);
+				}
+				else
+				{
+					NativeCodeInstruction	ainsh(ins, iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1);
+
+					LoadValueToReg(proc, sins1, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp], &ainsl, &ainsh);
+				}
 			}
 		}
 	}
@@ -20063,6 +20072,153 @@ bool NativeCodeBasicBlock::IsExitARegZP(int addr, int& index) const
 	return false;
 }
 
+bool NativeCodeBasicBlock::CanJoinEntryLoadStoreZP(int saddr, int daddr)
+{
+	int at = mIns.Size() - 1;
+	while (at >= 0)
+	{
+		NativeCodeInstruction	& ins = mIns[at];
+		if (ins.ReferencesZeroPage(daddr))
+			return false;
+		if (ins.ChangesZeroPage(saddr))
+		{
+			if (ins.mType == ASMIT_STA || ins.mType == ASMIT_STX || ins.mType == ASMIT_STY)
+				return true;
+			else
+				return false;
+		}
+		at--;
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::DoJoinEntryLoadStoreZP(int saddr, int daddr)
+{
+	int at = mIns.Size() - 1;
+	while (at >= 0)
+	{
+		NativeCodeInstruction& ins = mIns[at];
+		if (ins.ChangesZeroPage(saddr))
+		{
+			if (ins.mType == ASMIT_STA)
+			{
+				ins.mLive |= LIVE_CPU_REG_A;
+				mIns.Insert(at + 1, NativeCodeInstruction(ins.mIns, ASMIT_STA, ASMIM_ZERO_PAGE, daddr));
+				return true;
+			}
+			else if (ins.mType == ASMIT_STX)
+			{
+				ins.mLive |= LIVE_CPU_REG_X;
+				mIns.Insert(at + 1, NativeCodeInstruction(ins.mIns, ASMIT_STX, ASMIM_ZERO_PAGE, daddr));
+				return true;
+			}
+			else if (ins.mType == ASMIT_STY)
+			{
+				ins.mLive |= LIVE_CPU_REG_Y;
+				mIns.Insert(at + 1, NativeCodeInstruction(ins.mIns, ASMIT_STY, ASMIM_ZERO_PAGE, daddr));
+				return true;
+			}
+		}
+		at--;
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::JoinEntryLoadStoreZP(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		CheckLive();
+
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) ||
+			    mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+			{
+				int saddr = mIns[i].mAddress, daddr = mIns[i + 1].mAddress;
+				if (!ReferencesZeroPage(saddr, 0, i) && !ReferencesZeroPage(daddr, 0, i))
+				{
+					int n = 0;
+					for (int j = 0; j < mEntryBlocks.Size(); j++)
+					{
+						if (mEntryBlocks[j]->CanJoinEntryLoadStoreZP(saddr, daddr))
+							n++;
+					}
+
+					if (n == mEntryBlocks.Size())
+					{
+						for (int j = 0; j < mEntryBlocks.Size(); j++)
+						{
+							mEntryBlocks[j]->DoJoinEntryLoadStoreZP(saddr, daddr);
+							mEntryBlocks[j]->mExitRequiredRegs += daddr;
+						}
+						mEntryRequiredRegs += daddr;
+						changed = true;
+						mIns.Remove(i, 2);
+						i--;
+					}
+					else if (n >= 2)
+					{
+						NativeCodeBasicBlock* xblock = mProc->AllocateBlock();
+
+						int j = 0;
+						while (j < mEntryBlocks.Size())
+						{
+							NativeCodeBasicBlock* eb = mEntryBlocks[j];
+
+							if (eb->CanJoinEntryLoadStoreZP(saddr, daddr))
+							{
+								eb->DoJoinEntryLoadStoreZP(saddr, daddr);
+								eb->mExitRequiredRegs += daddr;
+								j++;
+							}
+							else
+							{
+								if (eb->mTrueJump == this)
+									eb->mTrueJump = xblock;
+								if (eb->mFalseJump == this)
+									eb->mFalseJump = xblock;
+								mEntryBlocks.Remove(i);
+								xblock->mEntryBlocks.Push(eb);
+								xblock->mNumEntries++;
+							}
+						}
+
+						xblock->mEntryRequiredRegs = mEntryRequiredRegs;
+						xblock->mExitRequiredRegs = mEntryRequiredRegs;
+						xblock->mExitRequiredRegs += daddr;
+
+						xblock->mIns.Push(mIns[i + 0]);
+						xblock->mIns.Push(mIns[i + 1]);
+
+						xblock->Close(mIns[i].mIns, this, nullptr, ASMIT_JMP);
+						mEntryBlocks.Push(xblock);
+						mNumEntries++;
+
+						mEntryRequiredRegs += daddr;
+						changed = true;
+						mIns.Remove(i, 2);
+						i--;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->JoinEntryLoadStoreZP())
+			changed = true;
+		if (mFalseJump && mFalseJump->JoinEntryLoadStoreZP())
+			changed = true;
+	}
+
+	return changed;
+}
+
 
 bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool loops)
 {
@@ -25944,6 +26100,9 @@ bool NativeCodeBasicBlock::MoveLoadIndirectTempStoreUp(int at)
 					mIns[j - 0].mAddress == mIns[at + 1].mAddress + 1 && 
 					mIns[j - 1].mAddress == mIns[j - 3].mAddress + 1)
 				{
+					for (int k = j + 1; k < at; k++)
+						mIns[k].mLive |= mIns[at + 2].mLive & LIVE_CPU_REG_Y;
+
 					mIns[at + 0].mLive |= mIns[j].mLive;
 					mIns[at + 1].mLive |= mIns[j].mLive;
 					mIns[at + 2].mLive |= mIns[j].mLive;
@@ -25984,6 +26143,9 @@ bool NativeCodeBasicBlock::MoveLoadIndirectTempStoreUp(int at)
 						if (mIns[j].ReferencesZeroPage(addr) || mIns[j].ReferencesZeroPage(addr + 1))
 							return false;
 					}
+
+					for (int k = j + 1; k < at; k++)
+						mIns[k].mLive |= mIns[at + 2].mLive & LIVE_CPU_REG_Y;
 
 					mIns[at + 0].mLive |= mIns[j].mLive;
 					mIns[at + 1].mLive |= mIns[j].mLive;
@@ -42373,7 +42535,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "A::draw");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -43308,6 +43470,13 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+
+		if (step > 6)
+		{
+			ResetVisited();
+			if (mEntryBlock->JoinEntryLoadStoreZP())
+				changed = true;			
+		}
 #endif
 
 #if _DEBUG

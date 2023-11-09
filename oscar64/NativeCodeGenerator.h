@@ -515,6 +515,10 @@ public:
 	bool HasTailSTX(int& addr, int& index) const;
 	bool HasTailSTY(int& addr, int& index) const;
 
+	bool CanJoinEntryLoadStoreZP(int saddr, int daddr);
+	bool DoJoinEntryLoadStoreZP(int saddr, int daddr);
+	bool JoinEntryLoadStoreZP(void);
+
 	bool IsExitYRegZP(int addr, int& index) const;
 	bool IsExitXRegZP(int addr, int& index) const;
 	bool IsExitARegZP(int addr, int& index) const;
