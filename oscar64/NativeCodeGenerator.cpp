@@ -20184,7 +20184,7 @@ bool NativeCodeBasicBlock::JoinEntryLoadStoreZP(void)
 									eb->mTrueJump = xblock;
 								if (eb->mFalseJump == this)
 									eb->mFalseJump = xblock;
-								mEntryBlocks.Remove(i);
+								mEntryBlocks.Remove(j);
 								xblock->mEntryBlocks.Push(eb);
 								xblock->mNumEntries++;
 							}
