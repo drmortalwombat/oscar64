@@ -19228,6 +19228,9 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->ForwardLoopMovedTemp();
 	DisassembleDebug("PostLoopTemp");
 
+	BuildDataFlowSets();
+	RemoveUnusedInstructions();
+
 	CheckFinal();
 	DisassembleDebug("PreConstP");
 #if 1

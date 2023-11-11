@@ -17776,7 +17776,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			}
 		}
 
-		if (mIns.Size() >= 2 && !mFalseJump && mTrueJump && mTrueJump->mIns.Size() > 0)
+		if (mIns.Size() >= 2 && !mFalseJump && mTrueJump && mTrueJump->mTrueJump && mTrueJump->mIns.Size() > 0)
 		{
 			int	sz = mIns.Size();
 			if (mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE &&
@@ -26815,6 +26815,67 @@ bool NativeCodeBasicBlock::Check16BitSum(int at, NativeRegisterSum16Info& info)
 	return false;
 }
 
+bool NativeCodeBasicBlock::IsFinalZeroPageUseTail(const NativeCodeBasicBlock* block, int from, int to, bool pair)
+{
+	if (!mPatched)
+	{
+		mPatched = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				if (mIns[i].mAddress == to)
+					return false;
+				if (pair && mIns[i].mAddress == to + 1)
+					return false;
+			}
+			else if (mIns[i].mMode == ASMIM_INDIRECT_Y)
+			{
+				if (mIns[i].mAddress == to || mIns[i].mAddress + 1 == to)
+					return false;
+				if (pair && mIns[i].mAddress == to + 1)
+					return false;
+				if (!pair && (mIns[i].mAddress == from || mIns[i].mAddress + 1 == from))
+					return false;
+			}
+			else if (mIns[i].ReferencesZeroPage(to) || (pair && mIns[i].ReferencesZeroPage(to + 1)))
+				return false;
+		}
+
+		if (mTrueJump && !mTrueJump->IsFinalZeroPageUseTail(block, from, to, pair))
+			return false;
+		if (mFalseJump && !mFalseJump->IsFinalZeroPageUseTail(block, from, to, pair))
+			return false;
+	}
+
+	return true;
+}
+
+static bool ZeroPageMayBeChangedOnBlockPathUp(const NativeCodeBasicBlock* block, const NativeCodeBasicBlock* head, int reg)
+{
+	ExpandingArray<const NativeCodeBasicBlock*> blocks;
+	blocks.Push(block);
+	int i = 0;
+	while (i < blocks.Size())
+	{
+		block = blocks[i++];
+		if (block != head)
+		{
+			if (block->ChangesZeroPage(reg))
+				return true;
+
+			for (int j = 0; j < block->mEntryBlocks.Size(); j++)
+			{
+				if (!blocks.Contains(block->mEntryBlocks[j]))
+					blocks.Push(block->mEntryBlocks[j]);
+			}
+		}
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair, bool fchanged)
 {
 	if (at == 0 && mVisited)
@@ -26822,20 +26883,21 @@ bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block,
 
 	if (!mPatched)
 	{
-		mPatched = true;
-
 		if (at != 0 || (mEntryRequiredRegs[from] || mEntryRequiredRegs[to] || (pair && (mEntryRequiredRegs[from + 1] || mEntryRequiredRegs[to + 1]))))
 		{
+			mPatched = true;
+
 			if (at == 0)
 			{
-				mPatched = true;
-
 				if (mNumEntries > 1)
 				{
-					fchanged = true;
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
+					{
 						if (mEntryBlocks[i] != block && !mEntryBlocks[i]->IsDominatedBy(block))
 							return false;
+						if (!fchanged && (ZeroPageMayBeChangedOnBlockPathUp(mEntryBlocks[i], block, from) || pair && ZeroPageMayBeChangedOnBlockPathUp(mEntryBlocks[i], block, from + 1)))
+							fchanged = true;
+					}
 				}
 			}
 
@@ -26854,7 +26916,9 @@ bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block,
 				}
 				else if (mIns[at].mMode == ASMIM_INDIRECT_Y)
 				{
-					if (mIns[at].mAddress == to)
+					if (!pair && mIns[at].mAddress == to)
+						return false;
+					if (mIns[at].mAddress == to && (fchanged || mIns[at].ChangesAddress()))
 						return false;
 					if (mIns[at].mAddress + 1 == to)
 						return false;
@@ -26898,6 +26962,8 @@ bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block,
 			if (mFalseJump && !mFalseJump->IsFinalZeroPageUse(block, 0, from, to, pair, fchanged))
 				return false;
 		}
+		else
+			return IsFinalZeroPageUseTail(block, from, to, pair);
 	}
 
 	return true;
@@ -26925,7 +26991,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				if (IsFinalZeroPageUse(this, i + 2, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false, false))
 				{
 					nproc->ResetPatched();
-					if (ForwardReplaceZeroPage(i + 2, mIns[i + 1].mAddress, mIns[i + 0].mAddress))
+					if (ForwardReplaceZeroPage(i + 2, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false))
 						changed = true;
 
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
@@ -26944,10 +27010,10 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				if (IsFinalZeroPageUse(this, i + 4, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true, false))
 				{
 					nproc->ResetPatched();
-					if (ForwardReplaceZeroPage(i + 4, mIns[i + 1].mAddress, mIns[i + 0].mAddress))
+					if (ForwardReplaceZeroPage(i + 4, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true))
 						changed = true;
 					nproc->ResetPatched();
-					if (ForwardReplaceZeroPage(i + 4, mIns[i + 3].mAddress, mIns[i + 2].mAddress))
+					if (ForwardReplaceZeroPage(i + 4, mIns[i + 3].mAddress, mIns[i + 2].mAddress, false))
 						changed = true;
 
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
@@ -26970,10 +27036,10 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				if (IsFinalZeroPageUse(this, i + 6, mIns[i + 2].mAddress, mIns[i + 0].mAddress, true, false))
 				{
 					nproc->ResetPatched();
-					if (ForwardReplaceZeroPage(i + 6, mIns[i + 2].mAddress, mIns[i + 0].mAddress))
+					if (ForwardReplaceZeroPage(i + 6, mIns[i + 2].mAddress, mIns[i + 0].mAddress, true))
 						changed = true;
 					nproc->ResetPatched();
-					if (ForwardReplaceZeroPage(i + 6, mIns[i + 5].mAddress, mIns[i + 3].mAddress))
+					if (ForwardReplaceZeroPage(i + 6, mIns[i + 5].mAddress, mIns[i + 3].mAddress, false))
 						changed = true;
 
 					mIns[i + 2].mAddress = mIns[i + 0].mAddress;
@@ -26982,6 +27048,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 					changed = true;
 				}
 			}
+
 			if (i + 4 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_ADC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
@@ -26995,10 +27062,10 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				if (IsFinalZeroPageUse(this, i + 5, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true, false))
 				{
 					nproc->ResetPatched();
-					if (ForwardReplaceZeroPage(i + 5, mIns[i + 1].mAddress, mIns[i + 0].mAddress))
+					if (ForwardReplaceZeroPage(i + 5, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true))
 						changed = true;
 					nproc->ResetPatched();
-					if (ForwardReplaceZeroPage(i + 5, mIns[i + 4].mAddress, mIns[i + 2].mAddress))
+					if (ForwardReplaceZeroPage(i + 5, mIns[i + 4].mAddress, mIns[i + 2].mAddress, false))
 						changed = true;
 
 					mIns[i + 1].mAddress = mIns[i + 0].mAddress;
@@ -27007,6 +27074,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 					changed = true;
 				}
 			}
+
 		}
 
 		if (mTrueJump && mTrueJump->ReplaceFinalZeroPageUse(nproc))
@@ -27166,7 +27234,7 @@ bool NativeCodeBasicBlock::Propagate16BitHighSum(void)
 
 
 
-bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to)
+bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to, bool pair)
 {
 	bool	changed = false;
 
@@ -27186,9 +27254,9 @@ bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to)
 			}
 		}
 
-		if (mTrueJump && mTrueJump->ForwardReplaceZeroPage(0, from, to))
+		if (mTrueJump && mTrueJump->ForwardReplaceZeroPage(0, from, to, pair))
 			changed = true;
-		if (mFalseJump && mFalseJump->ForwardReplaceZeroPage(0, from, to))
+		if (mFalseJump && mFalseJump->ForwardReplaceZeroPage(0, from, to, pair))
 			changed = true;
 
 		if (mEntryRequiredRegs[from])
@@ -42535,7 +42603,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "A::draw");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "nformi");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

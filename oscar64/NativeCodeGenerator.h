@@ -560,8 +560,9 @@ public:
 	bool EliminateUpper16BitSum(NativeCodeProcedure* nproc);
 
 	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair, bool fchanged);
+	bool IsFinalZeroPageUseTail(const NativeCodeBasicBlock* block, int from, int to, bool pair);
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
-	bool ForwardReplaceZeroPage(int at, int from, int to);
+	bool ForwardReplaceZeroPage(int at, int from, int to, bool pair);
 
 	bool CanZeroPageCopyUp(int at, int from, int to, bool diamond);
 	bool ShortcutZeroPageCopyUp(NativeCodeProcedure* nproc);
