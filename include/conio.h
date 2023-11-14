@@ -23,6 +23,25 @@ void dispmode40col(void);
 void dispmode80col(void);
 #endif
 
+#define PETSCII_CURSOR_LEFT		0x9d
+#define PETSCII_CURSOR_RIGHT	0x1d
+#define PETSCII_CURSOR_UP		0x91
+#define PETSCII_CURSOR_DOWN		0x11
+#define PETSCII_HOME			0x13
+#define PETSCII_CLEAR			0x94
+#define PETSCII_DEL				0x14
+#define PETSCII_INSERT			0x94
+
+#define PETSCII_F1				0x85
+#define PETSCII_F2				0x89
+#define PETSCII_F3				0x86
+#define PETSCII_F4				0x8a
+#define PETSCII_F5				0x87
+#define PETSCII_F6				0x8b
+#define PETSCII_F7				0x88
+#define PETSCII_F8				0x8c
+
+
 int kbhit(void);
 
 int getche(void);

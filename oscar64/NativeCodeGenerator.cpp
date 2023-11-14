@@ -7303,6 +7303,14 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
 		sreg = BC_REG_ACCU;
 	}
+	else if (size * sstride > 256)
+	{
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+		sreg = BC_REG_ACCU;
+	}
 	else
 	{
 		sreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
@@ -7371,6 +7379,14 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
 		dreg = BC_REG_ADDR;
 	}
+	else if (size * dstride > 256)
+	{
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
+		dreg = BC_REG_ADDR;
+	}
 	else
 	{
 		dreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
@@ -7378,12 +7394,27 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 
 	if (size <= msize)
 	{
+		int si = 0;
+		int di = 0;
 		for (int i = 0; i < size; i++)
 		{
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, i * sstride));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, si));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_INDIRECT_Y, sreg));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, i* dstride));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, di));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_INDIRECT_Y, dreg));
+
+			si += sstride;
+			di += dstride;
+			if (si >= 256)
+			{
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_INC, ASMIM_ZERO_PAGE, sreg + 1));
+				si &= 0xff;
+			}
+			if (di >= 256)
+			{
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_INC, ASMIM_ZERO_PAGE, dreg + 1));
+				di &= 0xff;
+			}
 		}
 
 		return this;
@@ -18847,6 +18878,27 @@ bool NativeCodeBasicBlock::SameTail(const NativeCodeInstruction& ins) const
 		return false;
 }
 
+bool NativeCodeBasicBlock::HasTailSTAX16(int& addr, int& index) const
+{
+	int sz = mIns.Size();
+	if (sz >= 4)
+	{
+		sz -= 4;
+		if (mIns[sz + 0].mType == ASMIT_LDA &&
+			mIns[sz + 1].mType == ASMIT_STA && mIns[sz + 1].mMode == ASMIM_ZERO_PAGE &&
+			mIns[sz + 2].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[sz + 2].mMode) &&
+			mIns[sz + 3].mType == ASMIT_STA && mIns[sz + 3].mMode == ASMIM_ZERO_PAGE && mIns[sz + 3].mAddress == mIns[sz + 1].mAddress + 1 &&
+			!mIns[sz + 1].SameEffectiveAddress(mIns[sz + 2]))
+		{
+			addr = mIns[sz + 1].mAddress;
+			index = sz;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::HasTailSTA(int& addr, int& index) const
 {
 	int i = mIns.Size();
@@ -20277,6 +20329,42 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 				while (eb->mIns.Size() > 0)
 				{
+					int	addr, index, taddr, tindex;
+					if (!mEntryRequiredRegs[CPU_REG_X] && eb->HasTailSTAX16(addr, index))
+					{
+						i = 1;
+						while (i < mEntryBlocks.Size() && mEntryBlocks[i]->HasTailSTAX16(taddr, tindex) && taddr == addr)
+							i++;
+						if (i == mEntryBlocks.Size())
+						{
+							mEntryRequiredRegs += CPU_REG_A;
+							mEntryRequiredRegs += CPU_REG_X;
+
+							mIns.Insert(0, eb->mIns[index + 3]);
+							mIns.Insert(0, eb->mIns[index + 1]);
+
+							mIns[0].mType = ASMIT_STX;
+							mIns[0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
+							mIns[1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
+							for (int i = 0; i < mEntryBlocks.Size(); i++)
+							{
+								NativeCodeBasicBlock* b = mEntryBlocks[i];
+								b->HasTailSTAX16(taddr, tindex);
+
+								b->mExitRequiredRegs += CPU_REG_A;
+								b->mExitRequiredRegs += CPU_REG_X;
+
+								b->mIns[tindex + 0].mType = ASMIT_LDX;
+								for (int j = tindex; j < b->mIns.Size(); j++)
+									b->mIns[j].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_X;
+
+								b->mIns.Remove(tindex + 3);
+								b->mIns.Remove(tindex + 1);
+							}
+							changed = true;
+						}
+					}
+
 					NativeCodeInstruction& ins(eb->mIns[eb->mIns.Size() - 1]);
 					i = 1;
 					while (i < mEntryBlocks.Size() && mEntryBlocks[i]->SameTail(ins))
@@ -20309,7 +20397,6 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					}
 					else
 					{
-						int	addr, index, taddr, tindex;
 						if (eb->HasTailSTA(addr, index))
 						{
 							i = 1;
@@ -20325,6 +20412,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 								{
 									NativeCodeBasicBlock* b = mEntryBlocks[i];
 									b->HasTailSTA(taddr, tindex);
+									b->mExitRequiredRegs += CPU_REG_A;
+
 									for (int j = tindex + 1; j < b->mIns.Size(); j++)
 										b->mIns[j].mLive |= LIVE_CPU_REG_A;
 									b->mIns.Remove(tindex);
@@ -20348,6 +20437,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 								{
 									NativeCodeBasicBlock* b = mEntryBlocks[i];
 									b->HasTailSTX(taddr, tindex);
+									b->mExitRequiredRegs += CPU_REG_X;
 									for (int j = tindex + 1; j < b->mIns.Size(); j++)
 										b->mIns[j].mLive |= LIVE_CPU_REG_X;
 									b->mIns.Remove(tindex);
@@ -20371,6 +20461,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 								{
 									NativeCodeBasicBlock* b = mEntryBlocks[i];
 									b->HasTailSTY(taddr, tindex);
+									b->mExitRequiredRegs += CPU_REG_Y;
 									for (int j = tindex + 1; j < b->mIns.Size(); j++)
 										b->mIns[j].mLive |= LIVE_CPU_REG_Y;
 									b->mIns.Remove(tindex);

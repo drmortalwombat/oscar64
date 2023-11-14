@@ -320,9 +320,9 @@ TokenSequence::TokenSequence(Scanner* scanner)
 {
 	if (mToken == TK_STRING)
 	{
-		int	ssize = strlen(scanner->mTokenString);
-		char * str = new char[ssize + 1];
-		strcpy_s(str, ssize + 1, scanner->mTokenString);
+		int	ssize = ustrlen(scanner->mTokenString);
+		uint8 * str = new uint8[ssize + 1];
+		ustrcpy(str, scanner->mTokenString);
 		mTokenString = str;
 	}
 }
@@ -480,7 +480,7 @@ void Scanner::NextToken(void)
 		mTokenNumber = mReplay->mTokenNumber;
 		mTokenInteger = mReplay->mTokenInteger;
 		if (mReplay->mTokenString)
-			strcpy_s(mTokenString, mReplay->mTokenString);
+			ustrcpy(mTokenString, mReplay->mTokenString);
 
 		mReplay = mReplay->mNext;
 	}
@@ -583,8 +583,8 @@ void Scanner::NextPreToken(void)
 			NextRawToken();
 			if (mToken == TK_STRING)
 			{
-				if (!mPreprocessor->OpenSource("Including", mTokenString, true))
-					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+				if (!mPreprocessor->OpenSource("Including", (const char *)mTokenString, true))
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", (const char*)mTokenString);
 				else if (mOnceDict->Lookup(Ident::Unique(mPreprocessor->mSource->mFileName)))
 					mPreprocessor->CloseSource();
 			}
@@ -592,8 +592,8 @@ void Scanner::NextPreToken(void)
 			{
 				mOffset--;
 				StringToken('>', 'a');
-				if (!mPreprocessor->OpenSource("Including", mTokenString, false))
-					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+				if (!mPreprocessor->OpenSource("Including", (const char*)mTokenString, false))
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", (const char*)mTokenString);
 				else if (mOnceDict->Lookup(Ident::Unique(mPreprocessor->mSource->mFileName)))
 					mPreprocessor->CloseSource();
 			}
@@ -606,7 +606,7 @@ void Scanner::NextPreToken(void)
 			int64 v = PrepParseConditional();
 			if (mLocation.mLine == l && mToken == TK_STRING)
 			{
-				strcpy_s(mPreprocessor->mSource->mLocationFileName, mTokenString);
+				strcpy_s(mPreprocessor->mSource->mLocationFileName, (const char*)mTokenString);
 				NextRawToken();
 			}
 			mPreprocessor->mLocation.mLine = int(v) + mLocation.mLine - l;
@@ -896,15 +896,15 @@ void Scanner::NextPreToken(void)
 
 			if (mToken == TK_STRING)
 			{
-				if (!mPreprocessor->EmbedData("Embedding", mTokenString, true, skip, limit, mode, decoder))
-					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+				if (!mPreprocessor->EmbedData("Embedding", (const char*)mTokenString, true, skip, limit, mode, decoder))
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", (const char*)mTokenString);
 			}
 			else if (mToken == TK_LESS_THAN)
 			{
 				mOffset--;
 				StringToken('>', 'a');
-				if (!mPreprocessor->EmbedData("Embedding", mTokenString, false, skip, limit, mode, decoder))
-					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", mTokenString);
+				if (!mPreprocessor->EmbedData("Embedding", (const char*)mTokenString, false, skip, limit, mode, decoder))
+					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", (const char*)mTokenString);
 			}
 		}
 		else if (mToken == TK_IDENT)
@@ -1785,14 +1785,14 @@ void Scanner::Error(const char* error)
 {
 	mErrors->Error(mLocation, EERR_SYNTAX, error);
 }
-static char p2smap[] = { 0x00, 0x20, 0x00, 0x40, 0x00, 0x60, 0x40, 0x60 };
+static uint8 p2smap[] = { 0x00, 0x20, 0x00, 0x40, 0x00, 0x60, 0x40, 0x60 };
 
-static inline char p2s(char ch)
+static inline uint8 p2s(uint8 ch)
 {
 	return (ch & 0x1f) | p2smap[ch >> 5];
 }
 
-static inline char transchar(char mode, char ch)
+static inline uint8 transchar(char mode, uint8 ch)
 {
 	switch (mode)
 	{
@@ -1800,8 +1800,10 @@ static inline char transchar(char mode, char ch)
 	case 'a':
 		return ch;
 	case 'p':
-		if (ch >= 'A' && ch <= 'Z' || ch >= 'a' && ch <= 'z')
+		if (ch >= 'a' && ch <= 'z')
 			return ch ^ 0x20;
+		else if (ch >= 'A' && ch <= 'Z')
+			return ch ^ 0x80;
 		else
 			return ch;
 		break;
@@ -1938,7 +1940,7 @@ void Scanner::CharToken(char mode)
 
 	int	n = 0;
 
-	char ch = mLine[mOffset++];
+	uint8 ch = mLine[mOffset++];
 
 	if (ch == '\\' && mLine[mOffset])
 	{
@@ -1996,6 +1998,7 @@ void Scanner::CharToken(char mode)
 		mTokenChar = transchar(mode, ch);
 
 	mTokenInteger = mTokenChar;
+	assert(mTokenInteger >= 0);
 
 	if (mLine[mOffset] && mLine[mOffset] == '\'')
 	{

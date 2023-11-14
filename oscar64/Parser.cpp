@@ -1476,7 +1476,7 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 
 uint8* Parser::ParseStringLiteral(int msize)
 {
-	int	size = strlen(mScanner->mTokenString);
+	int	size = ustrlen(mScanner->mTokenString);
 	if (size + 1 > msize)
 		msize = size + 1;
 	uint8* d = new uint8[msize];
@@ -1484,7 +1484,7 @@ uint8* Parser::ParseStringLiteral(int msize)
 	int i = 0;
 	while (i < size)
 	{
-		d[i] = mCharMap[(uint8)mScanner->mTokenString[i]];
+		d[i] = mCharMap[mScanner->mTokenString[i]];
 		i++;
 	}
 
@@ -1499,7 +1499,7 @@ uint8* Parser::ParseStringLiteral(int msize)
 	// automatic string concatenation
 	while (mScanner->mToken == TK_STRING)
 	{
-		int	s = strlen(mScanner->mTokenString);
+		int	s = ustrlen(mScanner->mTokenString);
 
 		if (size + s + 1 > msize)
 			msize = size + s + 1;
@@ -1509,7 +1509,7 @@ uint8* Parser::ParseStringLiteral(int msize)
 		int i = 0;
 		while (i < s)
 		{
-			nd[i + size] = mCharMap[(uint8)mScanner->mTokenString[i]];
+			nd[i + size] = mCharMap[mScanner->mTokenString[i]];
 			i++;
 		}
 		size += s;
@@ -5309,7 +5309,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 	case TK_STRING:
 	{
 		dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);
-		int	size = strlen(mScanner->mTokenString);
+		int	size = ustrlen(mScanner->mTokenString);
 		dec->mSize = size + 1;
 		dec->mVarIndex = -1;
 		dec->mSection = mCodeSection;
@@ -5337,7 +5337,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		// automatic string concatenation
 		while (mScanner->mToken == TK_STRING)
 		{
-			int	s = strlen(mScanner->mTokenString);
+			int	s = ustrlen(mScanner->mTokenString);
 			uint8* d = new uint8[size + s + 1];
 			memcpy(d, dec->mData, size);
 			int i = 0;
@@ -10922,7 +10922,7 @@ void Parser::ParsePragma(void)
 			ConsumeToken(TK_OPEN_PARENTHESIS);
 			if (mScanner->mToken == TK_STRING)
 			{
-				mCompilationUnits->AddUnit(mScanner->mLocation, mScanner->mTokenString, mScanner->mLocation.mFileName);
+				mCompilationUnits->AddUnit(mScanner->mLocation, (const char *)mScanner->mTokenString, mScanner->mLocation.mFileName);
 				mScanner->NextToken();
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);

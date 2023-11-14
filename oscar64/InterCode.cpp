@@ -11350,7 +11350,8 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 										nins->mSrc[0].mTemp = tins->mDst.mTemp;
 										nins->mSrc[0].mType = tins->mDst.mType;
 										assert(nins->mSrc[0].mTemp >= 0);
-										mInstructions.Insert(tindex, nins);
+										mFalseJump->mInstructions.Insert(0, nins);
+										fi++;
 									}
 								}
 								mTrueJump->mInstructions.Remove(ti);
@@ -13422,7 +13423,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							{
 								int offset = 0;
 								if (ins->mSrc[0].mTemp < 0)
-									offset = ins->mSrc[0].mIntConst;
+									offset = int(ins->mSrc[0].mIntConst);
 
 								if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0)
 									ins->mExpensive = true;
@@ -18521,7 +18522,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "restore_expression");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

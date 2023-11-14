@@ -219,7 +219,7 @@ struct TokenSequence
 	Token				mToken;
 
 	const Ident		*	mTokenIdent;
-	const char *		mTokenString;
+	const uint8 *		mTokenString;
 	double				mTokenNumber;
 	int64				mTokenInteger;
 
@@ -256,7 +256,7 @@ public:
 	bool			mStartOfLine;
 
 	const Ident	*	mTokenIdent;
-	char			mTokenString[1024], mTokenChar;
+	uint8			mTokenString[1024], mTokenChar;
 
 	uint8		*	mTokenEmbed;
 	int				mTokenEmbedSize;

@@ -514,6 +514,7 @@ public:
 	bool HasTailSTA(int& addr, int& index) const;
 	bool HasTailSTX(int& addr, int& index) const;
 	bool HasTailSTY(int& addr, int& index) const;
+	bool HasTailSTAX16(int& addr, int& index0) const;
 
 	bool CanJoinEntryLoadStoreZP(int saddr, int daddr);
 	bool DoJoinEntryLoadStoreZP(int saddr, int daddr);

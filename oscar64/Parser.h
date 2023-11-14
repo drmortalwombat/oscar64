@@ -31,7 +31,7 @@ protected:
 	bool ConsumeTokenIf(Token token);
 	bool ConsumeIdentIf(const char* ident);
 
-	char			mCharMap[256];
+	uint8			mCharMap[256];
 	int				mUnrollLoop;
 	bool			mUnrollLoopPage;
 	bool			mInlineCall;

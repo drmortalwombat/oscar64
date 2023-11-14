@@ -97,6 +97,25 @@ extern uint8 BC_REG_LOCALS;
 extern uint8 BC_REG_TMP;
 extern uint8 BC_REG_TMP_SAVED;
 
+inline int ustrlen(const uint8* s)
+{
+	int i = 0;
+	while (s[i])
+		i++;
+	return i;
+}
+
+inline void ustrcpy(uint8* dp, const uint8* sp)
+{
+	int i = 0;
+	while (sp[i])
+	{
+		dp[i] = sp[i];
+		i++;
+	}
+	dp[i] = 0;
+}
+
 inline int64 int64max(int64 a, int64 b) 
 {
 	return a > b ? a : b;

@@ -2440,8 +2440,6 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			vl = ToValue(proc, exp, block, inlineMapper, vl);
 			vr = ToValue(proc, exp, block, inlineMapper, vr);
 
-			vr = Dereference(proc, exp, block, inlineMapper, vr);
-
 			InterInstruction	*	ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BINARY_OPERATOR);
 
 			if (vl.mType->mType == DT_TYPE_POINTER || vl.mType->mType == DT_TYPE_ARRAY)
@@ -2456,8 +2454,25 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ptype->mBase = vl.mType->mBase;
 					ptype->mSize = 2;
 					ptype->mStride = vl.mType->mStride;
+					vl.mReference = 0;
 					vl.mType = ptype;
 				}
+
+				if (vr.mType->mType == DT_TYPE_POINTER)
+					vr = Dereference(proc, exp, block, inlineMapper, vr);
+				else if (vr.mType->mType == DT_TYPE_ARRAY)
+				{
+					vr = Dereference(proc, exp, block, inlineMapper, vr, 1);
+
+					Declaration* ptype = new Declaration(exp->mLocation, DT_TYPE_POINTER);
+					ptype->mBase = vr.mType->mBase;
+					ptype->mSize = 2;
+					ptype->mStride = vr.mType->mStride;
+					vr.mReference = 0;
+					vr.mType = ptype;
+				}
+				else
+					vr = Dereference(proc, exp, block, inlineMapper, vr);
 
 				if (vr.mType->IsIntegerType())
 				{
@@ -2502,7 +2517,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 					block->Append(ins);
 				}
-				else if (vr.mType->IsSame(vl.mType))
+				else if (vr.mType->mType == DT_TYPE_POINTER && vr.mType->mBase->IsConstSame(vl.mType->mBase))
 				{
 					if (exp->mToken == TK_SUB)
 					{
@@ -2626,6 +2641,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else
 			{
 				vl = Dereference(proc, exp, block, inlineMapper, vl);
+				vr = Dereference(proc, exp, block, inlineMapper, vr);
 
 				if (!vl.mType->IsNumericType())
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Left hand operand type is not numeric");
