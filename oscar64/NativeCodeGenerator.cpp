@@ -20235,75 +20235,86 @@ bool NativeCodeBasicBlock::JoinEntryLoadStoreZP(void)
 
 		CheckLive();
 
-		for (int i = 0; i + 1 < mIns.Size(); i++)
+		if (!mEntryRequiredRegs[CPU_REG_A] || !mEntryRequiredRegs[CPU_REG_X])
 		{
-			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) ||
-			    mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+			for (int i = 0; i + 1 < mIns.Size(); i++)
 			{
-				int saddr = mIns[i].mAddress, daddr = mIns[i + 1].mAddress;
-				if (!ReferencesZeroPage(saddr, 0, i) && !ReferencesZeroPage(daddr, 0, i))
+				if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) ||
+					mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) && !(mIns[i + 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
 				{
-					int n = 0;
-					for (int j = 0; j < mEntryBlocks.Size(); j++)
+					int saddr = mIns[i].mAddress, daddr = mIns[i + 1].mAddress;
+					if (!ReferencesZeroPage(saddr, 0, i) && !ReferencesZeroPage(daddr, 0, i))
 					{
-						if (mEntryBlocks[j]->CanJoinEntryLoadStoreZP(saddr, daddr))
-							n++;
-					}
-
-					if (n == mEntryBlocks.Size())
-					{
+						int n = 0;
 						for (int j = 0; j < mEntryBlocks.Size(); j++)
 						{
-							mEntryBlocks[j]->DoJoinEntryLoadStoreZP(saddr, daddr);
-							mEntryBlocks[j]->mExitRequiredRegs += daddr;
+							if (mEntryBlocks[j]->CanJoinEntryLoadStoreZP(saddr, daddr))
+								n++;
 						}
-						mEntryRequiredRegs += daddr;
-						changed = true;
-						mIns.Remove(i, 2);
-						i--;
-					}
-					else if (n >= 2)
-					{
-						NativeCodeBasicBlock* xblock = mProc->AllocateBlock();
 
-						int j = 0;
-						while (j < mEntryBlocks.Size())
+						if (n == mEntryBlocks.Size())
 						{
-							NativeCodeBasicBlock* eb = mEntryBlocks[j];
-
-							if (eb->CanJoinEntryLoadStoreZP(saddr, daddr))
+							for (int j = 0; j < mEntryBlocks.Size(); j++)
 							{
-								eb->DoJoinEntryLoadStoreZP(saddr, daddr);
-								eb->mExitRequiredRegs += daddr;
-								j++;
+								mEntryBlocks[j]->DoJoinEntryLoadStoreZP(saddr, daddr);
+								mEntryBlocks[j]->mExitRequiredRegs += daddr;
+							}
+							mEntryRequiredRegs += daddr;
+							changed = true;
+							mIns.Remove(i, 2);
+							i--;
+						}
+						else if (n >= 2)
+						{
+							NativeCodeBasicBlock* xblock = mProc->AllocateBlock();
+
+							int j = 0;
+							while (j < mEntryBlocks.Size())
+							{
+								NativeCodeBasicBlock* eb = mEntryBlocks[j];
+
+								if (eb->CanJoinEntryLoadStoreZP(saddr, daddr))
+								{
+									eb->DoJoinEntryLoadStoreZP(saddr, daddr);
+									eb->mExitRequiredRegs += daddr;
+									j++;
+								}
+								else
+								{
+									if (eb->mTrueJump == this)
+										eb->mTrueJump = xblock;
+									if (eb->mFalseJump == this)
+										eb->mFalseJump = xblock;
+									mEntryBlocks.Remove(j);
+									xblock->mEntryBlocks.Push(eb);
+									xblock->mNumEntries++;
+								}
+							}
+
+							xblock->mEntryRequiredRegs = mEntryRequiredRegs;
+							xblock->mExitRequiredRegs = mEntryRequiredRegs;
+							xblock->mExitRequiredRegs += daddr;
+
+							if (!mEntryRequiredRegs[CPU_REG_A])
+							{
+								xblock->mIns.Push(NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, mIns[i + 0].mAddress));
+								xblock->mIns.Push(NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, mIns[i + 1].mAddress));
 							}
 							else
 							{
-								if (eb->mTrueJump == this)
-									eb->mTrueJump = xblock;
-								if (eb->mFalseJump == this)
-									eb->mFalseJump = xblock;
-								mEntryBlocks.Remove(j);
-								xblock->mEntryBlocks.Push(eb);
-								xblock->mNumEntries++;
+								xblock->mIns.Push(NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mIns[i + 0].mAddress));
+								xblock->mIns.Push(NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_STX, ASMIM_ZERO_PAGE, mIns[i + 1].mAddress));
 							}
+
+							xblock->Close(mIns[i].mIns, this, nullptr, ASMIT_JMP);
+							mEntryBlocks.Push(xblock);
+							mNumEntries++;
+
+							mEntryRequiredRegs += daddr;
+							changed = true;
+							mIns.Remove(i, 2);
+							i--;
 						}
-
-						xblock->mEntryRequiredRegs = mEntryRequiredRegs;
-						xblock->mExitRequiredRegs = mEntryRequiredRegs;
-						xblock->mExitRequiredRegs += daddr;
-
-						xblock->mIns.Push(mIns[i + 0]);
-						xblock->mIns.Push(mIns[i + 1]);
-
-						xblock->Close(mIns[i].mIns, this, nullptr, ASMIT_JMP);
-						mEntryBlocks.Push(xblock);
-						mNumEntries++;
-
-						mEntryRequiredRegs += daddr;
-						changed = true;
-						mIns.Remove(i, 2);
-						i--;
 					}
 				}
 			}
@@ -42715,7 +42726,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "parse_statement");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "interpret_builtin");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -43623,7 +43634,6 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
-
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckBlocks(true);
@@ -43651,19 +43661,20 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
-
 		if (step > 6)
 		{
 			ResetVisited();
 			if (mEntryBlock->JoinEntryLoadStoreZP())
 				changed = true;			
 		}
+
 #endif
 
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckBlocks(true);
 #endif
+
 #if 1
 		if (step == 3 || step == 4)
 		{
@@ -43730,6 +43741,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->EliminateUpper16BitSum(this))
 				changed = true;
 		}
+
 
 #if 1
 		if (step == 5 || step == 6)
