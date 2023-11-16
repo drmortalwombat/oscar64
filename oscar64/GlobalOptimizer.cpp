@@ -872,8 +872,8 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			ldec = Analyze(exp->mLeft->mLeft->mRight, procDec, 0);
 		break;
 	case EX_DO:
-		ldec = Analyze(exp->mLeft, procDec, 0);
-		rdec = Analyze(exp->mRight, procDec, ANAFL_RHS);
+		ldec = Analyze(exp->mRight, procDec, 0);
+		rdec = Analyze(exp->mLeft, procDec, ANAFL_RHS);
 		break;
 	case EX_BREAK:
 	case EX_CONTINUE:

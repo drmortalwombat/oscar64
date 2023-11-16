@@ -50,6 +50,15 @@ __native unsigned lmuldiv8by8(char a, char b, char c);
 
 __native unsigned usqrt(unsigned n);
 
+__native unsigned long lmul16f16(unsigned long x, unsigned long y);
+
+__native long lmul16f16s(long x, long y);
+
+__native unsigned long ldiv16f16(unsigned long x, unsigned long y);
+
+__native long ldiv16f16s(long x, long y);
+
+
 #pragma compile("fixmath.c")
 
 #endif

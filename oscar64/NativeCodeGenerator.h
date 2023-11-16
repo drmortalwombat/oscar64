@@ -336,6 +336,8 @@ public:
 	bool LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins1, const InterInstruction* rins0, const InterInstruction* oins, const InterInstruction* wins);
 	void LoadStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* wins);
 	void StoreByteOffsetIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* sins);
+	void StoreAbsoluteByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* wins);
+	void LoadAbsoluteByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* rins);
 
 	NativeCodeBasicBlock* BinaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void UnaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
@@ -482,7 +484,7 @@ public:
 	bool JoinTAYARange(int from, int to);
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
 	bool MergeXYSameValue(int from);
-	void InsertLoadYImmediate(const InterInstruction * iins, int at, int val);
+	void RepairLoadYImmediate(int at, int val);
 	int RetrieveAValue(int at) const;
 	int RetrieveXValue(int at) const;
 	int RetrieveYValue(int at) const;

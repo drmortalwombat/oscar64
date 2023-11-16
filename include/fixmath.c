@@ -610,3 +610,75 @@ unsigned usqrt(unsigned n)
 
     return p;
 }
+
+unsigned long lmul16f16(unsigned long x, unsigned long y)
+{
+	unsigned long hh = lmul16u(x >> 16, y >> 16);
+	unsigned long lh = lmul16u(x, y >> 16);
+	unsigned long hl = lmul16u(x >> 16, y);
+	unsigned long ll = lmul16u(x, y);
+
+	if (ll & 0x8000)
+		lh++;
+	ll >>= 16;
+	ll |= hh << 16;
+	ll += lh;
+	ll += hl;
+
+	return ll;
+}
+
+__native long lmul16f16s(long x, long y)
+{
+	if (x < 0)
+	{
+		if (y < 0)
+			return lmul16f16(-x, -y);
+		else
+			return -lmul16f16(-x, y);
+	}
+	else if (y < 0)
+	{
+		return -lmul16f16(x, -y);
+	}
+	else
+		return lmul16f16(x, y);
+}
+
+__native unsigned long ldiv16f16(unsigned long x, unsigned long y)
+{
+	unsigned long k = x >> 16, d = 0;	
+	x <<= 16;
+
+	for(char i=0; i<32; i++)
+	{
+		d <<= 1;
+		k <<= 1;
+		k |= (x >> 31);
+		x <<= 1;
+		if (k >= y)
+		{
+			k -= y;
+			d |= 1;
+		}
+	}
+
+	return d;
+}
+
+__native long ldiv16f16s(long x, long y)
+{
+	if (x < 0)
+	{
+		if (y < 0)
+			return ldiv16f16(-x, -y);
+		else
+			return -ldiv16f16(-x, y);
+	}
+	else if (y < 0)
+	{
+		return -ldiv16f16(x, -y);
+	}
+	else
+		return ldiv16f16(x, y);
+}

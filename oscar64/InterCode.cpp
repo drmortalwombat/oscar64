@@ -672,7 +672,7 @@ static bool SameMemSegment(const InterOperand& op1, const InterOperand& op2)
 
 static bool SameMemAndSize(const InterOperand& op1, const InterOperand& op2)
 {
-	if (op1.mMemory != op2.mMemory || op1.mType != op2.mType || op1.mIntConst != op2.mIntConst || op1.mOperandSize != op2.mOperandSize)
+	if (op1.mMemory != op2.mMemory || op1.mType != op2.mType || op1.mIntConst != op2.mIntConst || op1.mOperandSize != op2.mOperandSize || op1.mStride != op2.mStride)
 		return false;
 
 	switch (op1.mMemory)
@@ -3065,6 +3065,9 @@ bool InterOperand::IsEqual(const InterOperand& op) const
 		return false;
 
 	if (mIntConst != op.mIntConst || mFloatConst != op.mFloatConst)
+		return false;
+
+	if (mStride != op.mStride)
 		return false;
 
 	if (mMemory != IM_NONE && mMemory != IM_INDIRECT)
@@ -16168,7 +16171,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR &&
-				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
 				mInstructions[i + 1]->mSrc[0].mTemp < 0)
 			{
 				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
@@ -18522,7 +18525,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "restore_expression");
+	CheckFunc = !strcmp(mIdent->mString, "interpret_builtin");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
