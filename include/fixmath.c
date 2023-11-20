@@ -630,19 +630,31 @@ unsigned long lmul16f16(unsigned long x, unsigned long y)
 
 __native long lmul16f16s(long x, long y)
 {
-	if (x < 0)
+	unsigned lox = x;
+	int hix = x >> 16;
+	unsigned loy = y;
+	int hiy = y >> 16;
+
+	long	r = (long)(hix * hiy) << 16;
+
+	if (lox)
 	{
-		if (y < 0)
-			return lmul16f16(-x, -y);
-		else
-			return -lmul16f16(-x, y);
+		r += lmul16u(lox, hiy);
+		if (hiy < 0)
+			r -= (unsigned long)lox << 16;
 	}
-	else if (y < 0)
+	if (loy)
 	{
-		return -lmul16f16(x, -y);
+		r += lmul16u(loy, hix);
+		if (hix < 0)
+			r -= (unsigned long)loy << 16;
 	}
-	else
-		return lmul16f16(x, y);
+	if (lox && loy)
+	{
+		r += lmul16u(lox, loy) >> 16;
+	}
+
+	return r;
 }
 
 __native unsigned long ldiv16f16(unsigned long x, unsigned long y)

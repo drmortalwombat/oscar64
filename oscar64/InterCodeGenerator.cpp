@@ -686,7 +686,7 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		var->mDeclaration = dec;
 		mod->mGlobalVars.Push(var);
 
-		if (dec->mFlags & DTF_VAR_ALIASING)
+		if ((dec->mFlags & DTF_VAR_ALIASING) || (dec->mBase->mType == DT_TYPE_ARRAY && !(type->mFlags & DTF_CONST)))
 			var->mAliased = true;
 
 		dec->mVarIndex = var->mIndex;

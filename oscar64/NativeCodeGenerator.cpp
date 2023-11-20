@@ -40433,6 +40433,20 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 
 						progress = true;
 					}
+					else if (
+						mIns[i + 0].mType == ASMIT_LDA &&
+						mIns[i + 1].mType == ASMIT_STA &&
+						mIns[i + 2].mType == ASMIT_CLC &&
+						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 &&
+						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
+						HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode))
+					{
+						mIns[i + 4].mType = ASMIT_INC;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+						progress = true;
+					}
 #endif
 #if 0
 					else if (
