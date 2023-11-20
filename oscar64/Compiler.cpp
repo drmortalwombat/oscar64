@@ -442,6 +442,8 @@ void Compiler::BuildVTables(void)
 						mdec->mFlags |= DTF_DEFINED;
 						mdec->mValue = ecall;
 					}
+
+					mdec->mQualIdent = mdec->mQualIdent->Mangle("$vcall");
 				});
 		});
 }
