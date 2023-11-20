@@ -1176,6 +1176,30 @@ Declaration* Declaration::Last(void)
 	return p;
 }
 
+const Ident* Declaration::FullIdent(void)
+{
+	if (!this)
+		return Ident::Unique("null");
+	if (mType == DT_CONST_FUNCTION)
+	{
+		const Ident* tident = MangleIdent()->Mangle("(");
+		Declaration* dec = mBase->mParams;
+		while (dec)
+		{
+			tident = tident->Mangle(dec->mBase->MangleIdent()->mString);
+			dec = dec->mNext;
+			if (dec)
+				tident = tident->Mangle(",");
+		}
+		tident = tident->Mangle(")->");
+		tident = tident->Mangle(mBase->mBase->MangleIdent()->mString);
+		return tident;
+	}
+	else
+		return MangleIdent();
+
+}
+
 const Ident* Declaration::MangleIdent(void)
 {
 	if (!this)

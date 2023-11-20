@@ -671,13 +671,13 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int ban
 	}
 }
 
-void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident * ident, Linker* linker)
+void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident * ident, Linker* linker, const Ident * fident)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");
 	if (proc && proc->mIdent)
-		fprintf(file, "%s:\n", proc->mIdent->mString);
+		fprintf(file, "%s: ; %s\n", proc->mIdent->mString, fident->mString);
 	else if (ident)
-		fprintf(file, "%s:\n", ident->mString);
+		fprintf(file, "%s: ; %s\n", ident->mString, fident->mString);
 
 	char	tbuffer[160], abuffer[160];
 

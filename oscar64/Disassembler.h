@@ -27,7 +27,7 @@ public:
 	NativeCodeDisassembler(void);
 	~NativeCodeDisassembler(void);
 
-	void Disassemble(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker);
+	void Disassemble(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker, const Ident* fident);
 	void DumpMemory(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident* ident, Linker* linker, LinkerObject * lobj);
 protected:
 	const char* TempName(uint8 tmp, char* buffer, InterCodeProcedure* proc, Linker* linker);

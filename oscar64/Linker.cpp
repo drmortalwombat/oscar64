@@ -44,7 +44,7 @@ bool LinkerReference::operator!=(const LinkerReference& ref)
 }
 
 LinkerObject::LinkerObject(void)
-	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr)
+	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr), mIdent(nullptr), mFullIdent(nullptr)
 {}
 
 LinkerObject::~LinkerObject(void)
@@ -315,6 +315,7 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 	obj->mData = nullptr;
 	obj->mSize = 0;
 	obj->mIdent = ident;
+	obj->mFullIdent = ident;
 	obj->mSection = section;
 	obj->mRegion = nullptr;
 	obj->mProc = nullptr;
@@ -1435,8 +1436,8 @@ bool Linker::WriteDbjFile(FILE* file)
 					fprintf(file, ",\n");
 				first = false;
 
-				fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"type\": \"%s\", \"source\": \"%s\", \"line\": %d }", 
-					obj->mIdent->mString, obj->mAddress, obj->mAddress + obj->mSize, LinkerObjectTypeNames[obj->mType],
+				fprintf(file, "\t\t{\"name\": \"%s\", \"xname\": \"%s\", \"start\": %d, \"end\": %d, \"type\": \"%s\", \"source\": \"%s\", \"line\": %d }",
+					obj->mIdent->mString, obj->mFullIdent->mString, obj->mAddress, obj->mAddress + obj->mSize, LinkerObjectTypeNames[obj->mType],
 					obj->mLocation.mFileName, obj->mLocation.mLine);
 			}
 		}
@@ -1496,10 +1497,10 @@ bool Linker::WriteAsmFile(const char* filename)
 						int i = 0;
 						while (!(obj->mRegion->mCartridgeBanks & (1ULL << i)))
 							i++;
-						mNativeDisassembler.Disassemble(file, mCartridge[i], i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+						mNativeDisassembler.Disassemble(file, mCartridge[i], i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj->mFullIdent);
 					}
 					else
-						mNativeDisassembler.Disassemble(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
+						mNativeDisassembler.Disassemble(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj->mFullIdent);
 					break;
 				case LOT_DATA:
 					if (obj->mRegion->mCartridgeBanks)

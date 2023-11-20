@@ -179,7 +179,7 @@ class LinkerObject
 {
 public:
 	Location							mLocation;
-	const Ident						*	mIdent;
+	const Ident						*	mIdent, * mFullIdent;
 	LinkerObjectType					mType;
 	int									mID, mMapID;
 	int									mAddress, mRefAddress;

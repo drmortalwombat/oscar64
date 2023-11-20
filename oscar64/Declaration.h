@@ -338,6 +338,7 @@ public:
 	Declaration* ExpandTemplate(DeclarationScope* scope);
 
 	const Ident* MangleIdent(void);
+	const Ident* FullIdent(void);
 
 	int Stride(void) const;
 };

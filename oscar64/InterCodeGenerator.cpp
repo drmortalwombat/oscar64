@@ -5134,6 +5134,7 @@ void InterCodeGenerator::TranslateLogic(Declaration* procType, InterCodeProcedur
 InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod, Expression* exp, Declaration * dec)
 {
 	InterCodeProcedure* proc = new InterCodeProcedure(mod, dec->mLocation, dec->mQualIdent, mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_BYTE_CODE, dec->mAlignment));
+	proc->mLinkerObject->mFullIdent = dec->FullIdent();
 
 #if 0
 	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))

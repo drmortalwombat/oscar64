@@ -1357,8 +1357,8 @@ bool Compiler::WriteDbjFile(const char* filename)
 					fprintf(file, ",\n");
 				first = false;
 
-				fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d, \"source\": \"%s\", \"line\": %d, \"lines\": [\n", 
-					p->mIdent->mString, p->mLinkerObject->mAddress, p->mLinkerObject->mAddress + p->mLinkerObject->mSize, types.IndexOrPush(p->mDeclaration->mBase),
+				fprintf(file, "\t\t{\"name\": \"%s\", \"xname\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d, \"source\": \"%s\", \"line\": %d, \"lines\": [\n", 
+					p->mIdent->mString, p->mLinkerObject->mFullIdent->mString, p->mLinkerObject->mAddress, p->mLinkerObject->mAddress + p->mLinkerObject->mSize, types.IndexOrPush(p->mDeclaration->mBase),
 					p->mLocation.mFileName, p->mLocation.mLine);
 
 				bool lfirst = true;
