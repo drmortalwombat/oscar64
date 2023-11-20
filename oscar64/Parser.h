@@ -56,7 +56,7 @@ protected:
 	void AddDefaultConstructors(Declaration* pthis);
 
 	void ParseVariableInit(Declaration* ndec);
-	void AddMemberFunction(Declaration* dec, Declaration* mdec);
+	Declaration* AddMemberFunction(Declaration* dec, Declaration* mdec);
 	Declaration* FindBaseMemberFunction(Declaration* dec, Declaration* mdec);
 
 	Expression * AddFunctionCallRefReturned(Expression * exp);

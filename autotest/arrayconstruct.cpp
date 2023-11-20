@@ -136,19 +136,17 @@ void test_member_assign(void)
 
 int main(void)
 {
-#if 0
 	test_local_init();
 	test_member_init();
-#endif
+
 	test_member_array_init();
-#if 0
 
 	test_local_copy();
 	test_member_copy();
 
 	test_local_assign();
 	test_member_assign();
-#endif	
+
 	return 0;
 }
 
