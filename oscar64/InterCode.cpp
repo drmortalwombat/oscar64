@@ -9446,6 +9446,76 @@ static bool IsValidSignedIntRange(InterType t, int64 value)
 	}
 }
 
+bool InterCodeBasicBlock::ForwardShortLoadStoreOffsets(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* lins = mInstructions[i];
+			if (lins->mCode == IC_LEA && lins->mSrc[1].mTemp >= 0 && lins->mSrc[0].mTemp < 0 && lins->mSrc[0].IsUByte())
+			{
+				for (int j = i + 1; j < mInstructions.Size(); j++)
+				{
+					InterInstruction* lins2 = mInstructions[j];
+					if (lins2->mCode == IC_LEA && lins2->mSrc[1].mTemp == lins->mDst.mTemp && lins2->mSrc[0].mTemp >= 0)
+					{
+						int k = j + 1;
+						while (k < mInstructions.Size() && !mInstructions[k]->ReferencesTemp(lins2->mDst.mTemp) && !mInstructions[k]->ReferencesTemp(lins->mSrc[1].mTemp))
+							k++;
+						if (k < mInstructions.Size())
+						{
+							InterInstruction* mins = mInstructions[k];
+							if (mins->mCode == IC_LOAD && mins->mSrc[0].mTemp == lins2->mDst.mTemp && mins->mSrc[0].mFinal)
+							{
+								lins2->mSrc[1].mTemp = lins->mSrc[1].mTemp;
+								lins->mSrc[1].mFinal = false;
+								mins->mSrc[0].mIntConst += lins->mSrc[0].mIntConst;
+								changed = true;
+							}
+							else if (mins->mCode == IC_STORE && mins->mSrc[1].mTemp == lins2->mDst.mTemp && mins->mSrc[1].mFinal)
+							{
+								lins2->mSrc[1].mTemp = lins->mSrc[1].mTemp;
+								lins->mSrc[1].mFinal = false;
+								mins->mSrc[1].mIntConst += lins->mSrc[0].mIntConst;
+								changed = true;
+							}
+							else if (mins->mCode == IC_COPY && mins->mSrc[0].mTemp == lins2->mDst.mTemp && mins->mSrc[0].mFinal)
+							{
+								lins2->mSrc[1].mTemp = lins->mSrc[1].mTemp;
+								lins->mSrc[1].mFinal = false;
+								mins->mSrc[0].mIntConst += lins->mSrc[0].mIntConst;
+								changed = true;
+							}
+							else if (mins->mCode == IC_COPY && mins->mSrc[1].mTemp == lins2->mDst.mTemp && mins->mSrc[1].mFinal)
+							{
+								lins2->mSrc[1].mTemp = lins->mSrc[1].mTemp;
+								lins->mSrc[1].mFinal = false;
+								mins->mSrc[1].mIntConst += lins->mSrc[0].mIntConst;
+								changed = true;
+							}
+						}
+					}
+
+					if (lins2->mDst.mTemp == lins->mDst.mTemp)
+						break;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ForwardShortLoadStoreOffsets())
+			changed = true;
+		if (mFalseJump && mFalseJump->ForwardShortLoadStoreOffsets())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps)
 {
 	bool	changed = false;
@@ -16375,7 +16445,6 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
 				changed = true;
 			}
-
 		}
 
 
@@ -18525,7 +18594,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "interpret_builtin");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -19273,6 +19342,12 @@ void InterCodeProcedure::Close(void)
 
 	CombineIndirectAddressing();
 
+	BuildDataFlowSets();
+	ResetVisited();
+	mEntryBlock->ForwardShortLoadStoreOffsets();
+
+	DisassembleDebug("ForwardShortLoadStoreOffsets");
+
 #if 1
 	for (int i = 0; i < 8; i++)
 	{
@@ -19613,21 +19688,47 @@ void InterCodeProcedure::MapVariables(void)
 	}
 }
 
+static bool IsReadModifyWrite(const InterCodeBasicBlock* block, int at)
+{
+	if (block->mInstructions[at]->mCode == IC_LOAD &&
+		block->mInstructions[at + 2]->mCode == IC_STORE &&
+		block->mInstructions[at + 1]->mDst.mTemp == block->mInstructions[at + 2]->mSrc[0].mTemp &&
+		block->mInstructions[at]->mSrc[0].IsEqual(block->mInstructions[at + 2]->mSrc[1]))
+	{
+		if (block->mInstructions[at + 1]->mCode == IC_BINARY_OPERATOR)
+		{
+			return
+				block->mInstructions[at + 1]->mSrc[0].mTemp == block->mInstructions[at]->mDst.mTemp ||
+				block->mInstructions[at + 1]->mSrc[1].mTemp == block->mInstructions[at]->mDst.mTemp;
+		}
+		else if (block->mInstructions[at + 1]->mCode == IC_UNARY_OPERATOR)
+		{
+			return
+				block->mInstructions[at + 1]->mSrc[0].mTemp == block->mInstructions[at]->mDst.mTemp;
+		}
+	}
+	
+	return false;
+}
+
 bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
 {
-	if (mInstructions.Size() > 1 && block->mInstructions.Size() > 1)
+	int sz0 = mInstructions.Size();
+	int	sz1 = block->mInstructions.Size();
+
+	if (sz0 > 1 && sz1 > 1)
 	{
-		InterInstruction* ins0 = mInstructions[mInstructions.Size() - 2];
-		InterInstruction* ins1 = block->mInstructions[block->mInstructions.Size() - 2];
+		InterInstruction* ins0 = mInstructions[sz0 - 2];
+		InterInstruction* ins1 = block->mInstructions[sz1 - 2];
 
 		if (ins0->IsEqual(ins1))
 		{
 			if (ins0->mCode == IC_STORE && ins0->mSrc[1].mTemp >= 0)
 			{
-				int	j0 = mInstructions.Size() - 3;
+				int	j0 = sz0 - 3;
 				while (j0 >= 0 && mInstructions[j0]->mDst.mTemp != ins0->mSrc[1].mTemp)
 					j0--;
-				int	j1 = block->mInstructions.Size() - 3;
+				int	j1 = sz1 - 3;
 				while (j1 >= 0 && block->mInstructions[j1]->mDst.mTemp != ins0->mSrc[1].mTemp)
 					j1--;
 
@@ -19640,6 +19741,20 @@ bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
 						if (block->mInstructions[j1]->mCode == IC_LEA && mInstructions[j1]->mSrc[1].mTemp < 0)
 							return false;
 					}
+				}
+
+				if (InterTypeSize[ins0->mSrc[0].mType] == 4)
+				{
+					bool	rm0 = sz0 >= 4 && IsReadModifyWrite(this, sz0 - 4);
+					bool	rm1 = sz1 >= 4 && IsReadModifyWrite(block, sz1 - 4);
+
+					if (rm0 && rm1)
+					{
+						if (!(mInstructions[sz0 - 3]->IsEqual(block->mInstructions[sz1 - 3])))
+							return false;
+					}
+					else if (rm0 || rm1)
+						return false;
 				}
 			}
 			else if (ins0->mCode == IC_LOAD && ins0->mSrc[0].mTemp >= 0)

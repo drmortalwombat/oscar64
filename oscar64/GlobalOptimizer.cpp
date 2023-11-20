@@ -604,8 +604,16 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		return exp->mDecValue;
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
-		ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | flags);
-		rdec = Analyze(exp->mRight, procDec, ANAFL_RHS);
+		if (exp->mToken == TK_ASSIGN)
+			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | flags);
+		else
+			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS | flags);
+
+		if (exp->mLeft->mDecType->IsReference())
+			rdec = Analyze(exp->mRight, procDec, ANAFL_LHS | ANAFL_RHS);
+		else
+			rdec = Analyze(exp->mRight, procDec, ANAFL_RHS);
+
 		RegisterProc(rdec);
 		return ldec;
 

@@ -41,7 +41,6 @@ void dispmode80col(void);
 #define PETSCII_F7				0x88
 #define PETSCII_F8				0x8c
 
-
 int kbhit(void);
 
 int getche(void);

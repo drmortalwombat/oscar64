@@ -484,6 +484,8 @@ public:
 	bool SimplifyPointerOffsets(void);
 	bool EliminateAliasValues(const GrowingInstructionPtrArray& tvalue, const GrowingInstructionPtrArray& avalue);
 
+	bool ForwardShortLoadStoreOffsets(void);
+
 	void CalculateSingleUsedTemps(FastNumberSet& fused, FastNumberSet& fsingle);
 
 	bool CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory);
