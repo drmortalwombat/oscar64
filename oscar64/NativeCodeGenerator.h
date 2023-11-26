@@ -459,6 +459,7 @@ public:
 
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
 	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);
+	bool ShortcutCrossBlockCondition(void);
 
 	bool CanReplaceYRegWithXReg(int start, int end);
 	bool CanReplaceXRegWithYReg(int start, int end);
@@ -517,6 +518,11 @@ public:
 	bool HasTailSTX(int& addr, int& index) const;
 	bool HasTailSTY(int& addr, int& index) const;
 	bool HasTailSTAX16(int& addr, int& index0) const;
+
+	bool MayBeMovedBeforeBlock(int at);
+	bool MayBeMovedBeforeBlock(int start, int end);
+	bool SafeInjectSequenceFromBack(NativeCodeBasicBlock* block, int start, int end);
+	bool JoinCommonBranchCodeSequences(void);
 
 	bool CanJoinEntryLoadStoreZP(int saddr, int daddr);
 	bool DoJoinEntryLoadStoreZP(int saddr, int daddr);
@@ -621,8 +627,8 @@ public:
 	bool IsSimpleSubExpression(int at, NativeSimpleSubExpression & ex);
 	bool PropagateCommonSubExpression(void);
 
-	bool ForwardAbsoluteLoadStores(void);
 	bool CanForwardZPMove(int saddr, int daddr, int & index) const;
+	bool CanForwardLoadStore(const NativeCodeInstruction & lins, const NativeCodeInstruction & sins, int& index) const;
 	bool Is16BitAddSubImmediate(int at, int& sreg, int &dreg, int& offset) const;
 	bool CanForward16BitAddSubImmediate(int sreg, int dreg, int offset, int & index) const;
 

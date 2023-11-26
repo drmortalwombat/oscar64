@@ -680,17 +680,21 @@ __native unsigned long ldiv16f16(unsigned long x, unsigned long y)
 
 __native long ldiv16f16s(long x, long y)
 {
+	bool	sign = false;	
 	if (x < 0)
 	{
-		if (y < 0)
-			return ldiv16f16(-x, -y);
-		else
-			return -ldiv16f16(-x, y);
+		x = -x;
+		sign = true;
 	}
-	else if (y < 0)
+	if (y < 0)
 	{
-		return -ldiv16f16(x, -y);
+		y = -y;
+		sign = !sign;
 	}
+
+	x = ldiv16f16(x, y);
+	if (sign)
+		return -x;
 	else
-		return ldiv16f16(x, y);
+		return x;
 }

@@ -9137,6 +9137,10 @@ bool InterCodeBasicBlock::RemoveUnusedIndirectStoreInstructions(void)
 					stores.Push(ins);
 				}
 			}
+			else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+			{
+				stores.SetSize(0);
+			}
 			else
 			{
 				int j = 0;
@@ -11406,30 +11410,33 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 							if (mTrueJump->CanMoveInstructionBeforeBlock(ti) && mFalseJump->CanMoveInstructionBeforeBlock(fi))
 							{
 								int	tindex = mInstructions.Size() - 1;
-								if (mInstructions.Size() >= 2 && mInstructions[tindex - 1]->mDst.mTemp == mInstructions[tindex]->mSrc[0].mTemp && 
-									CanSwapInstructions(mInstructions[tindex - 1], tins))
-//									CanBypassUp(tins, mInstructions[tindex - 1]))
-									tindex--;
-
-								mInstructions.Insert(tindex, tins);
-								tindex++;
-								if (tins->mDst.mTemp != -1)
+								if (mInstructions[tindex]->mCode != IC_BRANCH || tins->mDst.mTemp != mInstructions[tindex]->mSrc[0].mTemp)
 								{
-									if (fins->mDst.mTemp != tins->mDst.mTemp)
+									if (mInstructions.Size() >= 2 && mInstructions[tindex - 1]->mDst.mTemp == mInstructions[tindex]->mSrc[0].mTemp &&
+										CanSwapInstructions(mInstructions[tindex - 1], tins))
+										//									CanBypassUp(tins, mInstructions[tindex - 1]))
+										tindex--;
+
+									mInstructions.Insert(tindex, tins);
+									tindex++;
+									if (tins->mDst.mTemp != -1)
 									{
-										InterInstruction* nins = new InterInstruction(tins->mLocation, IC_LOAD_TEMPORARY);
-										nins->mDst.mTemp = fins->mDst.mTemp;
-										nins->mDst.mType = fins->mDst.mType;
-										nins->mSrc[0].mTemp = tins->mDst.mTemp;
-										nins->mSrc[0].mType = tins->mDst.mType;
-										assert(nins->mSrc[0].mTemp >= 0);
-										mFalseJump->mInstructions.Insert(0, nins);
-										fi++;
+										if (fins->mDst.mTemp != tins->mDst.mTemp)
+										{
+											InterInstruction* nins = new InterInstruction(tins->mLocation, IC_LOAD_TEMPORARY);
+											nins->mDst.mTemp = fins->mDst.mTemp;
+											nins->mDst.mType = fins->mDst.mType;
+											nins->mSrc[0].mTemp = tins->mDst.mTemp;
+											nins->mSrc[0].mType = tins->mDst.mType;
+											assert(nins->mSrc[0].mTemp >= 0);
+											mFalseJump->mInstructions.Insert(0, nins);
+											fi++;
+										}
 									}
+									mTrueJump->mInstructions.Remove(ti);
+									mFalseJump->mInstructions.Remove(fi);
+									changed = true;
 								}
-								mTrueJump->mInstructions.Remove(ti);
-								mFalseJump->mInstructions.Remove(fi);
-								changed = true;
 							}
 						}
 					}
@@ -18163,6 +18170,8 @@ void InterCodeProcedure::RemoveUnusedStoreInstructions(InterMemory	paramMemory)
 
 		ResetVisited();
 		mEntryBlock->RemoveUnusedIndirectStoreInstructions();
+
+		DisassembleDebug("RemoveUnusedIndirectStoreInstructions");
 	}
 }
 
@@ -18538,13 +18547,17 @@ void InterCodeProcedure::PropagateConstOperationsUp(void)
 		ResetVisited();
 		if (mEntryBlock->SplitSingleBranchUseConst())
 			changed = true;
-		
+
+		DisassembleDebug("SplitSingleBranchUseConst");
+
 		ResetVisited();
 		if (mEntryBlock->CommonTailCodeMerge())
 		{
 			changed = true;
 			BuildDataFlowSets();
 		}
+
+		DisassembleDebug("CommonTailCodeMerge");
 
 		ResetVisited();
 		mEntryBlock->BuildConstTempSets();
@@ -18594,7 +18607,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "interpret_expression");
+	CheckFunc = !strcmp(mIdent->mString, "parse_expression");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
