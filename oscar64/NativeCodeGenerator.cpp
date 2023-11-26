@@ -1602,6 +1602,62 @@ bool NativeCodeInstruction::MayBeSameAddress(const NativeCodeInstruction& ins, b
 		return false;
 }
 
+bool NativeCodeInstruction::MayReference(const NativeCodeInstruction& ins, bool sameXY) const
+{
+	if (!ins.ChangesAddress())
+		return false;
+
+	if (mMode == ASMIM_IMMEDIATE || mMode == ASMIM_IMMEDIATE_ADDRESS || mMode == ASMIM_IMPLIED)
+		return false;
+
+	if (mType == ASMIT_JSR)
+	{
+		if (ins.mMode == ASMIM_ZERO_PAGE)
+			return ReferencesZeroPage(ins.mAddress);
+		else
+			return true;
+	}
+
+	if (ins.mMode == ASMIM_ZERO_PAGE)
+		return ReferencesZeroPage(ins.mAddress);
+	else if (mMode == ASMIM_ZERO_PAGE)
+		return false;
+	else if (mMode == ASMIM_ABSOLUTE)
+	{
+		if (ins.mMode == ASMIM_ABSOLUTE)
+			return mLinkerObject == ins.mLinkerObject && mAddress == ins.mAddress;
+		else if (ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y)
+			return mLinkerObject == ins.mLinkerObject;
+		else if (ins.mMode == ASMIM_INDIRECT_Y || ins.mMode == ASMIM_INDIRECT_X)
+			return ins.mAddress != BC_REG_STACK;
+		else
+			return false;
+	}
+	else if (mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y)
+	{
+		if (ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y)
+		{
+			if (mLinkerObject != ins.mLinkerObject)
+				return false;
+			else
+				return mMode != ins.mMode || !sameXY || mAddress == ins.mAddress;
+		}
+		else if (ins.mMode == ASMIM_INDIRECT_Y || ins.mMode == ASMIM_INDIRECT_X)
+			return ins.mAddress != BC_REG_STACK;
+		else
+			return false;
+	}
+	else if (mMode == ASMIM_INDIRECT_Y || mMode == ASMIM_INDIRECT_X)
+	{
+		if (ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y)
+			return mAddress != BC_REG_STACK;
+		else
+			return ins.mMode == ASMIM_INDIRECT_Y || ins.mMode == ASMIM_INDIRECT_X;
+	}
+	else
+		return false;
+}
+
 bool NativeCodeInstruction::MayBeChangedOnAddress(const NativeCodeInstruction& ins, bool sameXY) const
 {
 	if (mMode == ASMIM_IMMEDIATE || mMode == ASMIM_IMMEDIATE_ADDRESS)
@@ -3716,6 +3772,20 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+			else if (final && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE &&
+				data.mRegs[mAddress].mValue == ((data.mRegs[CPU_REG_A].mValue - 1) & 255))
+			{
+				mType = ASMIT_INC;
+				data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_A].mValue;
+				changed = true;
+			}
+			else if (final && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE &&
+				data.mRegs[mAddress].mValue == ((data.mRegs[CPU_REG_A].mValue + 1) & 255))
+			{
+				mType = ASMIT_DEC;
+				data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_A].mValue;
 				changed = true;
 			}
 			else
@@ -22149,7 +22219,8 @@ bool NativeCodeBasicBlock::MayBeMovedBeforeBlock(int start, int end)
 
 		for (int j = start; j < end; j++)
 		{
-			if (mIns[i].MayBeChangedOnAddress(mIns[j]) || mIns[j].MayBeChangedOnAddress(mIns[i]))
+			if (mIns[i].MayBeChangedOnAddress(mIns[j]) || mIns[j].MayBeChangedOnAddress(mIns[i]) || 
+				mIns[i].MayReference(mIns[j]) || mIns[j].MayReference(mIns[i]))
 				return false;
 		}
 	}
@@ -43193,7 +43264,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "format_expression");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "board_draw_item");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -44612,6 +44683,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 

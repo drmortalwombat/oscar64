@@ -188,6 +188,7 @@ public:
 	bool UsesMemoryOf(const NativeCodeInstruction& ins) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool MayBeChangedOnAddress(const NativeCodeInstruction& ins, bool sameXY = false) const;
+	bool MayReference(const NativeCodeInstruction& ins, bool sameXY = false) const;
 	bool MayBeSameAddress(const NativeCodeInstruction& ins, bool sameXY = false) const;
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsSameLS(const NativeCodeInstruction& ins) const;
