@@ -31,6 +31,8 @@ void dispmode80col(void);
 #define PETSCII_CLEAR			0x94
 #define PETSCII_DEL				0x14
 #define PETSCII_INSERT			0x94
+#define PETSCII_STOP			0x0c
+#define PETSCII_RETURN			0x0d
 
 #define PETSCII_F1				0x85
 #define PETSCII_F2				0x89

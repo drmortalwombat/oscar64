@@ -22178,10 +22178,12 @@ bool NativeCodeBasicBlock::JoinCommonBranchCodeSequences(void)
 				if (j < mFalseJump->mIns.Size())
 				{
 					int n = 0;
-					while (i + n < mTrueJump->mIns.Size() && j + n < mFalseJump->mIns.Size() && ((mTrueJump->mIns[i + n].mLive & LIVE_CPU_REG) || (mFalseJump->mIns[j + n].mLive & LIVE_CPU_REG)))
+					while (i + n < mTrueJump->mIns.Size() && j + n < mFalseJump->mIns.Size() && 
+						mTrueJump->mIns[i + n].IsSame(mFalseJump->mIns[j + n]) &&
+						((mTrueJump->mIns[i + n].mLive & LIVE_CPU_REG) || (mFalseJump->mIns[j + n].mLive & LIVE_CPU_REG)))
 						n++;
 
-					if (i + n < mTrueJump->mIns.Size() && j + n < mFalseJump->mIns.Size())
+					if (i + n < mTrueJump->mIns.Size() && j + n < mFalseJump->mIns.Size() && mTrueJump->mIns[i + n].IsSame(mFalseJump->mIns[j + n]))
 					{
 						if (mTrueJump->MayBeMovedBeforeBlock(i, i + n + 1) && mFalseJump->MayBeMovedBeforeBlock(j, j + n + 1))
 						{
@@ -43191,7 +43193,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "dungeon_init");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "format_expression");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
