@@ -398,6 +398,8 @@ public:
 	InterCodeBasicBlock(InterCodeProcedure * proc);
 	~InterCodeBasicBlock(void);
 
+	InterCodeBasicBlock* Clone(void);
+
 	void Append(InterInstruction * code);
 	const InterInstruction* FindByDst(int dst) const;
 	void Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump);
@@ -576,6 +578,7 @@ public:
 	void CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void PushMoveOutOfLoop(void);
+	bool MoveConditionOutOfLoop(void);
 
 	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue);
 	void RemoveUnusedMallocs(void);
@@ -716,6 +719,7 @@ protected:
 	void CheckUsedDefinedTemps(void);
 	void WarnUsedUndefinedVariables(void);
 	void PropagateMemoryAliasingInfo(void);
+	void MoveConditionsOutOfLoop(void);
 
 	void PeepholeOptimization(void);
 

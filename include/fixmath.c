@@ -628,6 +628,178 @@ unsigned long lmul16f16(unsigned long x, unsigned long y)
 	return ll;
 }
 
+#if 1
+long lmul16f16s(long x, long y)
+{
+	__asm
+	{
+		lda	#0
+		// fractional
+		sta	__tmp + 0
+		sta	__tmp + 1
+
+		// result
+		sta __accu + 0
+		sta __accu + 1
+		sta __accu + 2
+		sta __accu + 3
+
+		lda	x + 0
+		ora x + 1
+		ora y + 0
+		ora y + 1
+		bne	w0b
+
+	l2:
+
+		lsr x + 2
+		bcc ws1
+
+		clc
+		lda y + 2
+		adc __accu + 2
+		sta __accu + 2
+		lda y + 3
+		adc __accu + 3
+		sta __accu + 3
+	ws1:
+
+		lsr x + 3
+		bcc ws2
+
+		clc
+		lda y + 2
+		adc __accu + 3
+		sta __accu + 3
+	ws2:
+
+		asl y + 2
+		rol y + 3
+
+		lda x + 2
+		ora x + 3
+		bne l2 
+		rts
+
+	w0b:
+
+		lda y + 3
+		and #$80
+		beq w0
+		lda #$ff
+	w0:		
+		// overflow
+		sta __tmp + 2
+		sta __tmp + 3
+
+		lda	x + 3
+		bpl w0a
+
+		sec
+		lda #0
+		sbc y + 0
+		sta __accu + 2
+		lda #0
+		sbc y + 1
+		sta __accu + 3
+	w0a:
+
+		ldx	#8
+
+	l1:
+		lsr x + 0
+		bcc w1
+
+		clc
+		lda y + 0
+		adc __tmp + 0
+		sta __tmp + 0
+		lda y + 1
+		adc __tmp + 1
+		sta __tmp + 1
+		lda y + 2
+		adc __accu + 0
+		sta __accu + 0
+		lda y + 3
+		adc __accu + 1
+		sta __accu + 1
+		lda __tmp + 2
+		adc __accu + 2
+		sta __accu + 2
+		lda __tmp + 3
+		adc __accu + 3
+		sta __accu + 3
+	w1:
+
+		lsr x + 1
+		bcc w2
+
+		clc
+		lda y + 0
+		adc __tmp + 1
+		sta __tmp + 1
+		lda y + 1
+		adc __accu + 0
+		sta __accu + 0
+		lda y + 2
+		adc __accu + 1
+		sta __accu + 1
+		lda y + 3
+		adc __accu + 2
+		sta __accu + 2
+		lda __tmp + 2
+		adc __accu + 3
+		sta __accu + 3
+	w2:
+
+		lsr x + 2
+		bcc w3
+
+		clc
+		lda y + 0
+		adc __accu + 0
+		sta __accu + 0
+		lda y + 1
+		adc __accu + 1
+		sta __accu + 1
+		lda y + 2
+		adc __accu + 2
+		sta __accu + 2
+		lda y + 3
+		adc __accu + 3
+		sta __accu + 3
+	w3:
+
+		lsr x + 3
+		bcc w4
+
+		clc
+		lda y + 0
+		adc __accu + 1
+		sta __accu + 1
+		lda y + 1
+		adc __accu + 2
+		sta __accu + 2
+		lda y + 2
+		adc __accu + 3
+		sta __accu + 3
+	w4:
+
+		asl y + 0
+		rol y + 1
+		rol y + 2
+		rol y + 3
+		rol __tmp + 2
+		rol __tmp + 3
+
+		dex
+		beq	w5
+		jmp l1
+	w5:
+	}
+}
+
+#else
 __native long lmul16f16s(long x, long y)
 {
 	unsigned lox = x;
@@ -656,6 +828,7 @@ __native long lmul16f16s(long x, long y)
 
 	return r;
 }
+#endif
 
 __native unsigned long ldiv16f16(unsigned long x, unsigned long y)
 {

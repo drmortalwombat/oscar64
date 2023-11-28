@@ -47,6 +47,7 @@ struct NativeRegisterDataSet
 	void ResetZeroPage(int addr);
 	void ResetZeroPageRange(int addr, int num);
 	void ResetAbsolute(LinkerObject * linkerObject, int addr);
+	void ResetAbsoluteXY(LinkerObject* linkerObject, int addr);
 	int FindAbsolute(LinkerObject* linkerObject, int addr);
 	void ResetIndirect(int reg);
 	void ResetX(void);
@@ -407,6 +408,10 @@ public:
 	bool MoveIndirectLoadStoreDown(int at);
 	bool MoveIndirectLoadStoreDownY(int at);
 
+	bool MoveLDXUp(int at);
+	bool MoveLDYUp(int at);
+
+
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
 	bool MoveLoadStoreOutOfXYRangeUp(int at);
@@ -624,6 +629,8 @@ public:
 	bool OptimizeXYPairUsage(void);
 	bool CanGlobalSwapXY(void);
 	bool GlobalSwapXY(void);
+	bool LocalSwapXY(void);
+	bool UntangleXYUsage(void);
 
 	bool IsSimpleSubExpression(int at, NativeSimpleSubExpression & ex);
 	bool PropagateCommonSubExpression(void);

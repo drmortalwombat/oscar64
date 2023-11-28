@@ -4847,6 +4847,14 @@ InterCodeBasicBlock::~InterCodeBasicBlock(void)
 {
 }
 
+InterCodeBasicBlock* InterCodeBasicBlock::Clone(void)
+{
+	InterCodeBasicBlock* nblock = new InterCodeBasicBlock(mProc);
+	for (int i = 0; i < mInstructions.Size(); i++)
+		nblock->mInstructions.Push(mInstructions[i]->Clone());
+	return nblock;
+}
+
 
 void InterCodeBasicBlock::Append(InterInstruction * code)
 {
@@ -14007,6 +14015,143 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 	}
 }
 
+static bool IsTempModifiedInBlocks(const ExpandingArray<InterCodeBasicBlock*>& body, int temp)
+{
+	for (int j = 0; j < body.Size(); j++)
+		if (body[j]->IsTempModified(temp))
+			return true;
+	return false;
+}
+
+static bool IsInsSrcModifiedInBlocks(const ExpandingArray<InterCodeBasicBlock*>& body, const InterInstruction * ins)
+{
+	for (int i = 0; i < ins->mNumOperands; i++)
+	{
+		if (ins->mSrc[i].mTemp >= 0 && IsTempModifiedInBlocks(body, ins->mSrc[i].mTemp))
+			return true;
+	}
+	return false;
+}
+
+bool InterCodeBasicBlock::MoveConditionOutOfLoop(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead)
+		{
+			ExpandingArray<InterCodeBasicBlock*> body, path;
+			body.Push(this);
+			bool	innerLoop = true;
+
+			for (int i = 0; i < mEntryBlocks.Size(); i++)
+			{
+				if (mEntryBlocks[i] != mLoopPrefix)
+				{
+					if (!mEntryBlocks[i]->CollectLoopBody(this, body))
+						innerLoop = false;
+				}
+			}
+
+			if (innerLoop)
+			{
+				// Find all conditions based on invariants
+				for (int i = 0; i < body.Size(); i++)
+				{
+					InterCodeBasicBlock* block = body[i];
+					int nins = block->mInstructions.Size();
+					if (block->mFalseJump && block->mInstructions[nins-1]->mCode == IC_BRANCH && body.Contains(block->mFalseJump) && body.Contains(block->mTrueJump))
+					{
+						int	ncins = 0;
+						if (!IsInsSrcModifiedInBlocks(body, block->mInstructions[nins - 1]))
+							ncins = 1;
+						else if (nins > 1 && block->mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+							block->mInstructions[nins - 1]->mSrc[0].mTemp == block->mInstructions[nins - 2]->mDst.mTemp && block->mInstructions[nins - 1]->mSrc[0].mFinal &&
+							!IsInsSrcModifiedInBlocks(body, block->mInstructions[nins - 2]))
+							ncins = 2;
+
+						if (ncins > 0)
+						{
+							// The condition is not modified on the path
+							// Now check the number of instructions in the conditional section
+							
+							int ninside = 0, noutside = 0;
+							for (int i = 0; i < body.Size(); i++)
+							{
+								bool	tdom = block->mTrueJump->IsDirectDominatorBlock(body[i]);
+								bool	fdom = block->mFalseJump->IsDirectDominatorBlock(body[i]);
+								if (tdom != fdom)
+									ninside += body[i]->mInstructions.Size();
+								else
+									noutside += body[i]->mInstructions.Size();
+							}
+							
+							// Less than four instructions outside of condition, or twice as many
+							// inside as outside is the trigger
+							if (noutside - ncins < 4 || ninside > 2 * (noutside - ncins))
+							{
+								// Now clone the loop into a true and a false branch
+
+								GrowingArray<InterCodeBasicBlock*>	copies(nullptr);
+								for (int i = 0; i < body.Size(); i++)
+								{
+									InterCodeBasicBlock* nblock = body[i]->Clone();
+									copies[body[i]->mIndex] = nblock;
+								}
+
+								for (int i = 0; i < body.Size(); i++)
+								{
+									InterCodeBasicBlock* rblock = body[i];
+									InterCodeBasicBlock* nblock = copies[rblock->mIndex];
+									if (rblock->mTrueJump)
+									{
+										InterCodeBasicBlock* tblock = copies[rblock->mTrueJump->mIndex];
+										if (tblock)
+											nblock->mTrueJump = tblock;
+										else
+											nblock->mTrueJump = rblock->mTrueJump;
+									}
+									if (rblock->mFalseJump)
+									{
+										InterCodeBasicBlock* tblock = copies[rblock->mFalseJump->mIndex];
+										if (tblock)
+											nblock->mFalseJump = tblock;
+										else
+											nblock->mFalseJump = rblock->mFalseJump;
+									}
+								}
+								mLoopPrefix->mInstructions.Pop();
+								for (int i = 0; i < ncins; i++)
+									mLoopPrefix->mInstructions.Push(block->mInstructions[nins - ncins + i]->Clone());
+
+								block->mInstructions[nins - 1]->mSrc[0].mTemp = -1;
+								block->mInstructions[nins - 1]->mSrc[0].mIntConst = 1;
+
+								mLoopPrefix->mFalseJump = copies[mLoopPrefix->mTrueJump->mIndex];
+
+								InterCodeBasicBlock* nblock = copies[block->mIndex];
+								nblock->mInstructions[nins - 1]->mSrc[0].mTemp = -1;
+								nblock->mInstructions[nins - 1]->mSrc[0].mIntConst = 0;
+
+								return true;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MoveConditionOutOfLoop())
+			return true;
+		if (mFalseJump && mFalseJump->MoveConditionOutOfLoop())
+			return true;
+	}
+
+	return false;
+}
+
+
 
 void InterCodeBasicBlock::PushMoveOutOfLoop(void)
 {
@@ -17977,6 +18122,38 @@ void InterCodeProcedure::CheckUsedDefinedTemps(void)
 #endif
 }
 
+void InterCodeProcedure::MoveConditionsOutOfLoop(void)
+{
+	BuildTraces(false);
+	BuildLoopPrefix();
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	Disassemble("PreMoveConditionOutOfLoop");
+
+	ResetVisited();
+	while (mEntryBlock->MoveConditionOutOfLoop())
+	{
+		Disassemble("MoveConditionOutOfLoop");
+
+		BuildDataFlowSets();
+		TempForwarding();
+		RemoveUnusedInstructions();
+
+		BuildTraces(false);
+		BuildLoopPrefix();
+		ResetEntryBlocks();
+		ResetVisited();
+		mEntryBlock->CollectEntryBlocks(nullptr);
+
+		Disassemble("PostMoveConditionOutOfLoop");
+
+		ResetVisited();
+	}
+}
+
+
 void InterCodeProcedure::PropagateMemoryAliasingInfo(void)
 {
 	GrowingInstructionPtrArray	tvalue(nullptr);
@@ -18607,7 +18784,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "parse_expression");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -19257,6 +19434,11 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	RemoveUnusedLocalStoreInstructions();
+
+	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+	{
+		MoveConditionsOutOfLoop();
+	}
 
 #if 1
 	ResetVisited();
