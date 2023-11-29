@@ -219,8 +219,10 @@ w0:
 		sta $ff3f
 #endif
 
+#if !defined(OSCAR_TARGET_CRT8) && !defined(OSCAR_TARGET_CRT16)
 		tsx
 		stx spentry
+#endif
 
 #endif
 

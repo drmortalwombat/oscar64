@@ -17798,7 +17798,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mNativeProcedure(false), mLeafProcedure(false), mCallsFunctionPointer(false), mCalledFunctions(nullptr), mFastCallProcedure(false), 
 	mInterrupt(false), mHardwareInterrupt(false), mCompiled(false), mInterruptCalled(false), mDynamicStack(false), mAssembled(false),
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
-	mCheckUnreachable(true), mReturnType(IT_NONE), mCheapInline(false), 
+	mCheckUnreachable(true), mReturnType(IT_NONE), mCheapInline(false), mNoInline(false),
 	mDeclaration(nullptr), mGlobalsChecked(false), mDispatchedCall(false),
 	mNumRestricted(1)
 {
@@ -19707,7 +19707,7 @@ void InterCodeProcedure::Close(void)
 			mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
 	}
 
-	if (!mEntryBlock->mTrueJump)
+	if (!mNoInline && !mEntryBlock->mTrueJump)
 	{
 		int	nconst = 0, nvariables = 0, nparams = 0, ncalls = 0, nret = 0, nother = 0, nops = 0;
 		for (int i = 0; i < mEntryBlock->mInstructions.Size(); i++)

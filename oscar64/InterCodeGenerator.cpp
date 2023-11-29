@@ -5174,6 +5174,9 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	if (dec->mFlags & DTF_DYNSTACK)
 		proc->mDynamicStack = true;
 
+	if (dec->mFlags & DTF_PREVENT_INLINE)
+		proc->mNoInline = true;
+
 	if (dec->mBase->mFlags & DTF_FASTCALL)
 	{
 		proc->mFastCallProcedure = true;

@@ -1117,6 +1117,9 @@ bool Linker::WriteCrtFile(const char* filename, uint16 id)
 
 			memset(bootmem, 0, 0x4000);
 
+			if (mCartridgeBankUsed[0])
+				memcpy(bootmem, mCartridge[0] + 0x8000, 0x4000);
+
 			LinkerRegion* mainRegion = FindRegion(Ident::Unique("main"));
 			LinkerRegion* startupRegion = FindRegion(Ident::Unique("startup"));
 

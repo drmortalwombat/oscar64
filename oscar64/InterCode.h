@@ -638,6 +638,7 @@ public:
 	bool								mCheckUnreachable;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 	bool								mCheapInline;
+	bool								mNoInline;
 
 	InterCodeModule					*	mModule;
 	int									mID;

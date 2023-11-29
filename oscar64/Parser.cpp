@@ -4698,6 +4698,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		{
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 			{
+				ndec->mSection = mCodeSection;
+
 				if ((ndec->mFlags & DTF_DEFINED) && !(ndec->mFlags & DTF_REQUEST_INLINE))
 				{
 					mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate function definition", ndec->mQualIdent);
@@ -10046,6 +10048,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 		mTemplateScope = tdec->mScope;
 
 		ConsumeTokenIf(TK_INLINE);
+		ConsumeTokenIf(TK_NOINLINE);
 		ConsumeTokenIf(TK_CONSTEXPR);
 
 		Declaration* bdec = ParseBaseTypeDeclaration(0, true);
