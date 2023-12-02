@@ -7233,7 +7233,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 				nexp->mDecType = nexp->mLeft->mDecType;
 		}
 		nexp = CheckOperatorOverload(nexp);
-		return nexp->ConstantFold(mErrors, mDataSection);
+		return nexp->ConstantFold(mErrors, mDataSection, mCompilationUnits->mLinker);
 	}
 	else
 		return ParsePostfixExpression(lhs);

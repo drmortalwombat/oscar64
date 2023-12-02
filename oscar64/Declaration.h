@@ -8,6 +8,7 @@
 
 class LinkerObject;
 class LinkerSection;
+class Linker;
 class Parser;
 
 enum DecType
@@ -244,7 +245,7 @@ public:
 	bool					mConst;
 
 	Expression* LogicInvertExpression(void);
-	Expression* ConstantFold(Errors * errors, LinkerSection* dataSection);
+	Expression* ConstantFold(Errors * errors, LinkerSection* dataSection, Linker * linker = nullptr);
 	bool HasSideEffects(void) const;
 
 	bool IsSame(const Expression* exp) const;
@@ -268,6 +269,7 @@ public:
 	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment, * mMoveConstructor, * mMoveAssignment;
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
 	Declaration		*	mVTable, * mClass, * mTemplate;
+	Declaration		*	mForwardParam, * mForwardCall;
 
 	Expression*			mValue, * mReturn;
 	DeclarationScope*	mScope;

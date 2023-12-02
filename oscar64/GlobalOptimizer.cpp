@@ -18,7 +18,9 @@ static const uint64 OPTF_VAR_CONST = (1ULL << 9);
 static const uint64 OPTF_VAR_NOCONST = (1ULL << 10);
 static const uint64 OPTF_SINGLE_RETURN = (1ULL << 11);
 static const uint64 OPTF_MULTI_RETURN = (1ULL << 12);
-
+static const uint64 OPTF_VAR_NO_FORWARD = (1UL << 13);
+static const uint64 OPTF_SINGLE_CALL = (1ULL << 14);
+static const uint64 OPTF_MULTI_CALL = (1ULL << 15);
 
 GlobalOptimizer::GlobalOptimizer(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker)
@@ -45,6 +47,7 @@ void GlobalOptimizer::Reset(void)
 		while (pdec)
 		{
 			pdec->mOptFlags = 0;
+			pdec->mForwardParam = nullptr;
 			pdec = pdec->mNext;
 		}
 	}
@@ -277,6 +280,17 @@ bool GlobalOptimizer::Optimize(void)
 
 			if (CheckConstReturns(func->mValue))
 				changed = true;
+
+			if (func->mOptFlags & OPTF_MULTI_CALL)
+			{
+				Declaration* pdata = ftype->mParams;
+				while (pdata)
+				{
+					pdata->mForwardCall = nullptr;
+					pdata->mForwardParam = nullptr;
+					pdata = pdata->mNext;
+				}
+			}
 
 			if (!(func->mOptFlags & OPTF_FUNC_VARIABLE) && !(func->mBase->mFlags & DTF_VIRTUAL))
 			{
@@ -601,6 +615,12 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			if (flags & ANAFL_LHS)
 				exp->mDecValue->mOptFlags |= OPTF_VAR_ADDRESS;
 		}
+		if (exp->mDecValue->mType == DT_ARGUMENT)
+		{
+			exp->mDecValue->mOptFlags |= OPTF_VAR_NO_FORWARD;
+			exp->mDecValue->mForwardParam = nullptr;
+			exp->mDecValue->mForwardCall = nullptr;
+		}
 		return exp->mDecValue;
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
@@ -679,6 +699,10 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		}
 		else
 		{
+			if (procDec->mOptFlags & OPTF_SINGLE_CALL)
+				procDec->mOptFlags |= OPTF_MULTI_CALL;
+			else
+				procDec->mOptFlags |= OPTF_SINGLE_CALL;
 			RegisterCall(procDec, ldec);
 		}
 
@@ -771,7 +795,22 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 				if (pdec && (pdec->mFlags & DTF_FPARAM_UNUSED))
 					RegisterProc(Analyze(pex, procDec, 0));
 				else if (pdec && pdec->mBase->IsReference())
-					RegisterProc(Analyze(pex, procDec, ANAFL_LHS | ANAFL_RHS));
+				{
+					if (!(procDec->mBase->mFlags & DTF_VIRTUAL) && pdec && pex && pex->mType == EX_VARIABLE && pex->mDecValue->mType == DT_ARGUMENT && pex->mDecValue->mBase->IsReference() && !pex->mDecValue->mForwardParam && !(pex->mDecValue->mOptFlags & OPTF_VAR_NO_FORWARD))
+					{
+						pex->mDecValue->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
+						pex->mDecValue->mForwardParam = pdec;
+						pex->mDecValue->mForwardCall = ldec;
+					}
+					else
+						RegisterProc(Analyze(pex, procDec, ANAFL_LHS | ANAFL_RHS));
+				}
+				else if (!(procDec->mBase->mFlags & DTF_VIRTUAL) && pdec && pex && pex->mType == EX_VARIABLE && pex->mDecValue->mType == DT_ARGUMENT && !pex->mDecValue->mForwardParam && !(pex->mDecValue->mOptFlags & OPTF_VAR_NO_FORWARD))
+				{
+					pex->mDecValue->mOptFlags |= OPTF_VAR_USED;
+					pex->mDecValue->mForwardParam = pdec;
+					pex->mDecValue->mForwardCall = ldec;
+				}
 				else
 					RegisterProc(Analyze(pex, procDec, ANAFL_RHS));
 

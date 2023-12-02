@@ -305,7 +305,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 					{
 						CheckFastcall(vf, false);
 
-						int n = vf->mBase->mFastCallBase + vf->mBase->mFastCallSize;
+						int n = vf->mBase->mFastCallSize;
 						if (n > nbase)
 							nbase = n;
 					}
@@ -323,7 +323,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			//				procDec->mBase->mFlags |= DTF_STACKCALL;
 
 			cf = cf->mBase;
-			int n = cf->mFastCallBase + cf->mFastCallSize;
+			int n = cf->mFastCallSize;
 			if (n > nbase)
 				nbase = n;
 		}
@@ -359,7 +359,16 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 
 				if (cf != maxf)
 				{
-					cf->mParams = maxf->mParams;
+					Declaration* fp = cf->mBase->mParams, * mp = maxf->mBase->mParams;
+					while (fp)
+					{
+						fp->mVarIndex = mp->mVarIndex;
+						fp = fp->mNext;
+						mp = mp->mNext;
+					}
+
+					assert(!mp);
+
 					cf->mBase->mFastCallBase = cf->mFastCallBase = maxf->mBase->mFastCallBase;
 					cf->mBase->mFastCallSize = cf->mFastCallSize = maxf->mBase->mFastCallSize;
 				}
@@ -373,9 +382,9 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 		}
 
 		procDec->mFastCallBase = nbase;
-		procDec->mFastCallSize = 0;
+		procDec->mFastCallSize = nbase;
 		procDec->mBase->mFastCallBase = nbase;
-		procDec->mBase->mFastCallSize = 0;
+		procDec->mBase->mFastCallSize = nbase;
 
 		procDec->mFlags &= ~DTF_FUNC_ANALYZING;
 
@@ -390,7 +399,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 		}
 		else if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_DYNSTACK))
 		{
-			int		nparams = 0, npalign = 0;
+			int		nparams = nbase, npalign = 0;
 			int		numfpzero = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 			int		fplimit = numfpzero;
 
@@ -407,48 +416,66 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 				nparams += 2;
 			}
 
+			int		cnparams = nparams;
 			Declaration* dec = procDec->mBase->mParams;
 			while (dec)
 			{
 				// Check for parameter crossing boundary
-				if (nbase + nparams < numfpzero && nbase + nparams + dec->mBase->mSize > numfpzero)
+				if (cnparams < numfpzero && cnparams + dec->mBase->mSize > numfpzero)
 				{
-					npalign = numfpzero - (nbase + nparams);
-					nparams += npalign;
+					npalign = numfpzero - nparams;
+					cnparams += npalign;
 				}
-				nparams += dec->mBase->mSize;
+				cnparams += dec->mBase->mSize;
 				dec = dec->mNext;
 			}
 
-			if (nbase + nparams <= fplimit)
+			if (cnparams <= fplimit)
 			{
+				npalign = 0;
+				dec = procDec->mBase->mParams;
+				while (dec)
+				{
+					if (dec->mForwardParam && (dec->mForwardCall->mBase->mFlags & DTF_FASTCALL) && !(dec->mForwardCall->mFlags & DTF_INLINE))
+					{
+						dec->mVarIndex = dec->mForwardParam->mVarIndex;
+					}
+					else
+					{
+						dec->mForwardParam = nullptr;
+						// Check for parameter crossing boundary
+						if (nparams < numfpzero && nparams + dec->mBase->mSize > numfpzero)
+						{
+							npalign = numfpzero - nparams;
+							nparams += npalign;
+						}
+						dec->mVarIndex = nparams;
+						nparams += dec->mBase->mSize;
+					}
+					dec = dec->mNext;
+				}
+
 				procDec->mFastCallBase = nbase;
 				procDec->mFastCallSize = nparams;
 				procDec->mBase->mFastCallBase = nbase;
 				procDec->mBase->mFastCallSize = nparams;
 
-				// Align fast call parameters to avoid crossing the zero page boundary
-				if (npalign)
-				{
-					Declaration* dec = procDec->mBase->mParams;
-					while (dec)
-					{	
-						if (nbase + dec->mVarIndex + dec->mBase->mSize > numfpzero)
-							dec->mVarIndex += npalign;
-						dec = dec->mNext;
-					}
-				}
-
 				procDec->mBase->mFlags |= DTF_FASTCALL;
 #if 0
-				printf("FASTCALL %s\n", f->mIdent->mString);
+						printf("FASTCALL %s\n", f->mIdent->mString);
 #endif
 			}
 			else
+			{
+//				printf("STACKCALL %s, %d %d\n", procDec->mIdent->mString, cnparams, fplimit);
 				procDec->mBase->mFlags |= DTF_STACKCALL;
+			}
 		}
 		else
+		{
+//			printf("STACKCALL %s, F%d\n", procDec->mIdent->mString, !!(procDec->mFlags& DTF_FUNC_VARIABLE));
 			procDec->mBase->mFlags |= DTF_STACKCALL;
+		}
 	}
 }
 
@@ -758,6 +785,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 				procDec->mFlags &= ~DTF_FUNC_PURE;
 
 			return exp->mDecType;
+		}
+		else if (exp->mToken == TK_BANKOF)
+		{
+			return TheUnsignedCharTypeDeclaration;
 		}
 		else
 		{

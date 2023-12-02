@@ -1,5 +1,6 @@
 #include "Declaration.h"
 #include "Constexpr.h"
+#include "Linker.h"
 #include <math.h>
 
 DeclarationScope::DeclarationScope(DeclarationScope* parent, ScopeLevel level, const Ident* name)
@@ -451,10 +452,33 @@ Expression* Expression::LogicInvertExpression(void)
 	}
 }
 
-Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSection)
+Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSection, Linker* linker)
 {
-	if (mType == EX_PREFIX && mLeft->mType == EX_CONSTANT)
+	if (mType == EX_PREFIX && mToken == TK_BANKOF && linker)
 	{
+		LinkerRegion* rgn;
+		if (mLeft->mDecValue->mSection && (rgn = linker->FindRegionOfSection(mLeft->mDecValue->mSection)))
+		{
+			uint64	i = 0;
+			while (i < 64 && rgn->mCartridgeBanks != (1ULL << i))
+				i++;
+			if (i < 64)
+			{
+				Expression* ex = new Expression(mLocation, EX_CONSTANT);
+				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
+				dec->mBase = TheUnsignedCharTypeDeclaration;
+				dec->mInteger = i;
+				ex->mDecValue = dec;
+				ex->mDecType = dec->mBase;
+				return ex;
+			}
+		}
+
+		return this;
+	}
+	else if (mType == EX_PREFIX && mLeft->mType == EX_CONSTANT)
+	{
+
 		if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
 		{
 			switch (mToken)
@@ -944,7 +968,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mConst(nullptr), mMutable(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
-	mVTable(nullptr), mTemplate(nullptr),
+	mVTable(nullptr), mTemplate(nullptr), mForwardParam(nullptr), mForwardCall(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), mFriends(nullptr),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
 	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr),

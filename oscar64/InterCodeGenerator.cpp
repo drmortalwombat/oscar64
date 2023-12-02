@@ -2032,7 +2032,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				else if (procType->mFlags & DTF_FASTCALL)
 				{
 					ins->mConst.mMemory = IM_FPARAM;
-					ins->mConst.mVarIndex += procType->mFastCallBase;
+//					ins->mConst.mVarIndex += procType->mFastCallBase;
 					InitParameter(proc, dec, ins->mConst.mVarIndex);
 				}
 				else
@@ -3505,7 +3505,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					{
 						ains->mConst.mMemory = IM_FFRAME;
 						ains->mConst.mIntConst = 0;
-						ains->mConst.mVarIndex += ftype->mFastCallBase;
+//						ains->mConst.mVarIndex += ftype->mFastCallBase;
 					}
 					else
 						ains->mConst.mMemory = IM_FRAME;
@@ -3787,7 +3787,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						else if (procType->mFlags & DTF_FASTCALL)
 						{
 							vins->mConst.mMemory = IM_FPARAM;
-							vins->mConst.mVarIndex += procType->mFastCallBase;
+//							vins->mConst.mVarIndex += procType->mFastCallBase;
 						}
 						else
 							vins->mConst.mMemory = IM_PARAM;
@@ -5181,15 +5181,48 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	{
 		proc->mFastCallProcedure = true;
 
-		if (dec->mFastCallSize > 0 && dec->mFastCallBase < BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+		if (dec->mFastCallSize > 0)
 		{
 			proc->mFastCallBase = dec->mFastCallBase;
-			dec->mLinkerObject->mNumTemporaries = 1;
-			dec->mLinkerObject->mTemporaries[0] = BC_REG_FPARAMS + dec->mFastCallBase;
-			if (dec->mFastCallBase + dec->mFastCallBase < BC_REG_FPARAMS_END - BC_REG_FPARAMS)
-				dec->mLinkerObject->mTempSizes[0] = dec->mFastCallSize;
-			else
-				dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - BC_REG_FPARAMS - dec->mFastCallBase;
+			
+			if (dec->mFastCallBase < BC_REG_FPARAMS_END - BC_REG_FPARAMS && dec->mFastCallSize > dec->mFastCallBase)
+			{
+				dec->mLinkerObject->mNumTemporaries = 1;
+				dec->mLinkerObject->mTemporaries[0] = BC_REG_FPARAMS + dec->mFastCallBase;
+				if (dec->mFastCallSize < BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+					dec->mLinkerObject->mTempSizes[0] = dec->mFastCallSize - dec->mFastCallBase;
+				else
+					dec->mLinkerObject->mTempSizes[0] = BC_REG_FPARAMS_END - dec->mFastCallBase;
+			}
+
+			Declaration* pdec = dec->mBase->mParams;
+			while (pdec)
+			{
+				int	start = pdec->mVarIndex + BC_REG_FPARAMS, end = start + pdec->mSize;
+				if (start < BC_REG_FPARAMS_END)
+				{
+					if (end > BC_REG_FPARAMS_END)
+						end = BC_REG_FPARAMS_END;
+
+					int i = 0;
+					while (i < dec->mLinkerObject->mNumTemporaries && (dec->mLinkerObject->mTemporaries[i] > end || dec->mLinkerObject->mTemporaries[i] + dec->mLinkerObject->mTempSizes[i] < start))
+						i++;
+					if (i < dec->mLinkerObject->mNumTemporaries)
+					{
+						if (dec->mLinkerObject->mTemporaries[i] > start)
+							dec->mLinkerObject->mTemporaries[i] = start;
+						if (dec->mLinkerObject->mTemporaries[i] + dec->mLinkerObject->mTempSizes[i] < end)
+							dec->mLinkerObject->mTempSizes[i] = end - dec->mLinkerObject->mTemporaries[i];
+					}
+					else
+					{
+						dec->mLinkerObject->mTemporaries[i] = start;
+						dec->mLinkerObject->mTempSizes[i] = end - start;
+						dec->mLinkerObject->mNumTemporaries++;
+					}
+				}
+				pdec = pdec->mNext;
+			}
 		}
 		else
 			proc->mFastCallBase = BC_REG_FPARAMS_END - BC_REG_FPARAMS;

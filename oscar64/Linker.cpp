@@ -34,7 +34,7 @@ bool LinkerReference::operator==(const LinkerReference& ref)
 		mFlags == ref.mFlags &&
 		mOffset == ref.mOffset &&
 		mRefOffset == ref.mRefOffset &&
-		mObject->mMapID == ref.mObject->mMapID &&
+//		mObject->mMapID == ref.mObject->mMapID &&
 		mRefObject->mMapID == ref.mRefObject->mMapID;
 }
 
@@ -355,7 +355,7 @@ void Linker::CombineSameConst(void)
 							if (i == sobj->mSize)
 							{
 								i = 0;
-								while (i < sobj->mReferences.Size() && sobj->mReferences[i] == dobj->mReferences[i])
+								while (i < sobj->mReferences.Size() && *sobj->mReferences[i] == *dobj->mReferences[i])
 									i++;
 								if (i == sobj->mReferences.Size())
 								{
@@ -1246,6 +1246,8 @@ bool Linker::WriteCrtFile(const char* filename, uint16 id)
 
 bool Linker::WriteMapFile(const char* filename)
 {
+	bool	banked = mCartridgeBankUsed[0];
+
 	FILE* file;
 	fopen_s(&file, filename, "wb");
 	if (file)
@@ -1275,6 +1277,17 @@ bool Linker::WriteMapFile(const char* filename)
 
 			if (obj->mFlags & LOBJF_REFERENCED)
 			{
+				if (banked)
+				{
+					int k = 0;
+					while (k < 64 && !(obj->mRegion->mCartridgeBanks & (1ull << k)))
+						k++;
+					if (k < 64)
+						fprintf(file, "%02x:", k);
+					else
+						fprintf(file, "--:");
+				}
+
 				if (obj->mIdent)
 					fprintf(file, "%04x - %04x : %s, %s:%s\n", obj->mAddress, obj->mAddress + obj->mSize, obj->mIdent->mString, LinkerObjectTypeNames[obj->mType], obj->mSection->mIdent->mString);
 				else
@@ -1282,7 +1295,7 @@ bool Linker::WriteMapFile(const char* filename)
 			}
 		}
 
-		if (mCartridgeBankUsed[0])
+		if (banked)
 		{
 			fprintf(file, "\nbanks\n");
 
@@ -1315,6 +1328,18 @@ bool Linker::WriteMapFile(const char* filename)
 		for (int i = 0; i < so.Size(); i++)
 		{
 			const LinkerObject* obj = so[i];
+
+			if (banked)
+			{
+				int k = 0;
+				while (k < 64 && !(obj->mRegion->mCartridgeBanks & (1ull << k)))
+					k++;
+				if (k < 64)
+					fprintf(file, "%02x:", k);
+				else
+					fprintf(file, "--:");
+			}
+
 			fprintf(file, "%04x (%04x) : %s, %s:%s\n", obj->mAddress, obj->mSize, obj->mIdent->mString, LinkerObjectTypeNames[obj->mType], obj->mSection->mIdent->mString);
 		}
 

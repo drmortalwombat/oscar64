@@ -3314,7 +3314,7 @@ void InterInstruction::FilterStaticVarsByteUsage(const GrowingVariableArray& sta
 			{
 				for (int i = 0; i < staticVars.Size(); i++)
 				{
-					if (staticVars[i]->mAliased && !providedVars[i])
+					if (staticVars[i]->mAliased && !providedVars.RangeFilled(staticVars[i]->mByteIndex, staticVars[i]->mSize))
 						requiredVars.AddRange(staticVars[i]->mByteIndex, staticVars[i]->mSize);
 				}
 			}
