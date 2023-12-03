@@ -126,6 +126,12 @@ The compiler is command line driven, and creates an executable .prg file.
 
 A list of source files can be provided.
 
+### Run time library defines
+
+* -dNOLONG : no support for long in printf
+* -dNOFLOAT : no float in printf
+* -dHEAPCHECK : check heap allocate and free and jam if heap full or free out of range
+
 #### Supported target machines
 
 * c64 : Commodore C64, (0x0800..0xa000)

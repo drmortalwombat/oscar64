@@ -4214,6 +4214,9 @@ loop:
 
 hempty:	
 		// no more heap blocks
+#ifdef HEAPCHECK
+		byt $02
+#endif
 		rts
 
 avail:
@@ -4316,6 +4319,25 @@ __asm free
 		rts
 notnull:
 
+#ifdef HEAPCHECK
+		lda accu + 1
+		ldx accu
+
+		cmp #>HeapStart
+		bcc	hfail
+		bne hchk1
+		cpx #<HeapStart
+		bcs hchk1
+hfail:
+		byt $02
+hchk1:
+		cmp #>HeapEnd
+		bcc hchk2
+		bne hfail
+		cpx #<HeapEnd
+		bcs hfail
+hckh2:
+#endif
 		// cache end of block, rounding to next four byte
 		// address
 		
