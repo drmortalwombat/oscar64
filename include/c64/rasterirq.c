@@ -328,6 +328,12 @@ void rirq_addr(RIRQCode * ic, byte n, void * addr)
 	ic->code[p + 1] = (unsigned)addr >> 8;
 }
 
+void rirq_addrhi(RIRQCode * ic, byte n, byte hi)
+{
+	byte p = irqai[n];
+	ic->code[p + 1] = hi;	
+}
+
 void rirq_data(RIRQCode * ic, byte n, byte data)
 {
 	byte p = irqdi[n];

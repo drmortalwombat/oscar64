@@ -164,6 +164,15 @@ void vspr_init(char * screen)
 	}
 }
 
+void vspr_screen(char * screen)
+{	
+	vspriteScreen = screen + 0x3f8;	
+	char hi = (unsigned)vspriteScreen >> 8;
+	#pragma unroll(8)
+	for(int i=0; i<VSPRITES_MAX - 8; i++)
+		rirq_addrhi(spirq + i, 3, hi);
+}
+
 #pragma native(vspr_init)
 
 void vspr_set(char sp, int xpos, int ypos, char image, char color)

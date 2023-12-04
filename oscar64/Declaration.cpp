@@ -911,6 +911,20 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		ex->mDecType = mDecType;
 		return ex;
 	}
+	else if (mType == EX_INDEX && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && 
+			mLeft->mDecType->mType == DT_TYPE_ARRAY && mLeft->mDecType->mStride == 0 &&
+			mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
+	{
+		Expression* ex = new Expression(mLocation, EX_VARIABLE);
+		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
+		dec->mFlags = mLeft->mDecValue->mFlags;
+		dec->mBase = mLeft->mDecValue;
+		dec->mOffset = mDecType->mSize * mRight->mDecValue->mInteger;
+		dec->mSize = mDecType->mSize;
+		ex->mDecValue = dec;
+		ex->mDecType = mDecType;
+		return ex;
+	}
 	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight->mType == EX_CONSTANT)
 	{
 		Declaration* decf = mLeft->mDecValue, * decp = mRight->mDecValue;

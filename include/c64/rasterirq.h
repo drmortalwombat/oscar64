@@ -123,6 +123,9 @@ inline void rirq_call(RIRQCode * ic, byte n, void * addr);
 // Change the address of a raster IRQ write command
 inline void rirq_addr(RIRQCode * ic, byte n, void * addr);
 
+// Change the high byte of the address of a raster IRQ write command
+inline void rirq_addrhi(RIRQCode * ic, byte n, byte hi);
+
 // Change the data of a raster IRQ write command
 inline void rirq_data(RIRQCode * ic, byte n, byte data);
 

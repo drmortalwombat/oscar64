@@ -364,7 +364,7 @@ void SourceFile::ReadCharPad(SourceFileDecoder decoder)
 
 	fread(&ctmMarker, 2, 1, mFile);
 
-	if (ctmHeader.mColorMethod == 2 && (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2))
+	if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2)
 	{
 		mMemSize = numChars;
 		mLimit = mMemSize;
@@ -372,7 +372,7 @@ void SourceFile::ReadCharPad(SourceFileDecoder decoder)
 		mMemData = new uint8[mMemSize];
 	}
 
-	if (ctmHeader.mColorMethod == 2 && decoder == SFD_CTM_CHAR_ATTRIB_1)
+	if (decoder == SFD_CTM_CHAR_ATTRIB_1)
 	{
 		for (int i = 0; i < mMemSize; i++)
 		{
@@ -428,6 +428,10 @@ void SourceFile::ReadCharPad(SourceFileDecoder decoder)
 			else
 				fseek(mFile, numChars, SEEK_CUR);
 		}
+	}
+	else if (decoder == SFD_CTM_CHAR_ATTRIB_1)
+	{
+		return;
 	}
 
 	if (ctmHeader.mFlags & 1)

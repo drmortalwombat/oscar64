@@ -68,6 +68,8 @@ inline void spr_expand(char sp, bool xexpand, bool yexpand);
 
 void vspr_init(char * screen);
 
+void vspr_screen(char * screen);
+
 // set one sprite with the given attribute
 
 void vspr_set(char sp, int xpos, int ypos, char image, char color);
