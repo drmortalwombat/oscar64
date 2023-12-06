@@ -471,7 +471,7 @@ void rirq_sort(void)
 		rasterIRQIndex[j] = ri;
 	}
 
-	for(byte i=0; i<NUM_IRQS; i++)
+	for(sbyte i=NUM_IRQS-1; i>=0; i--)
 		rasterIRQNext[i] = rasterIRQRows[rasterIRQIndex[i]];
 
 	npos++;

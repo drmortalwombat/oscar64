@@ -804,6 +804,59 @@ The compiler provides two levels of interrupt safe functions.  The specifier __i
 		return 0
 	}
 	
+## Helping the compiler optimizing
+
+The compiler does various optimization when compiling the code, but there are some rules to follow, things to avoid and hints to place to help the compiler to generate optimal code.
+
+### Avoid Recursion
+
+C is a stack style language.  All parameters and local variables are per default placed on a call stack.  The 6502 on the other hand is not a stack friendly architecture.  The built in stack is too small for parameters or variables, and an additional software stack relies on the rather expensive zeropage indirect addressing mode.  The compiler therefore tries to avoid the dynamic stack by analysing the call graph and creates a static stack.  This fails in the presence of recursion - various incarnations of the parameters and local variables of a function can be on the stack at the same time.
+
+### Avoid Function Pointers
+
+A similar problem to recursion happens with function pointers, which also complicate or prevent call graph analysis.  The compiler must therefore fall back on stack variables. In many cases switch statements are faster than function pointers.
+
+### Be aware of aliasing
+
+Aliasing in memory terms happens, when the same memory location could be accessed through more than one pointer.  Aliasing can create false memory dependency, requiring the compiler to create load and store instructions that would not realy be needed. The compiler performs aliasing analysis to detect potential aliasing but has to be very conservative and avoid any optimization that would fail if the potential alias would be an actual alias.
+
+Most important thing to look at are loop conditions or values in a loop, that could be aliased to a store inside the loop, which will prevent many loop optimizations.
+
+### Prefer unsigned arithmetic
+
+Signed arithmetic such as shift, compare or multiply are more expensive than their unsigned counterpart.  So if you know that the value cannot be negative, stick with unsigned variables types.
+
+### Stick to eight bits if possible
+
+The 6502 is an eight bit processor, all 16 bit operations are much more expensive.  The compiler therefore tries to reduce arithmetic to eight bit whenever it can proof that the actual numbers involved would fit into eight bit.  This fails for variables addressed through pointers or global variables, that may be changed in a non predictable way.  So whenever you know that the number in question would fit into eight bit, use an eight bit type.
+
+### Prefer enums over defines
+
+An enum type has a limited value range, thus allowing various optimizations, which would not be possible with constants created by defines.
+
+### Give the compiler hints
+
+The __assume keyword gives the programmer the ability to tell the compiler things that cannot be easily expressed in terms of the language. Examples are:
+
+* Unreachable default cases in switch statements with __assume(false)
+* Limited value ranges with __assume(x < 10)
+* Non null pointers __assume(p != nullptr)
+
+### Mark global constants as const
+
+Marking a global value as const helps the compiler determine, that the value will not change, and may not have to be loaded from memory at all.  Knowing the value range of array members also improves the integer range estimation by the compiler.
+
+In this case the compiler knows, that all values read from the array, will be in the range 1 to 4
+
+	const char vals[] = {1, 2, 3, 4}
+
+Using a constant pointer will allow absolute addressing
+
+	char * const Color = (char *)0xd800;
+	
+
+
+
 ## Samples
 
 ### Character input and output "stdio"

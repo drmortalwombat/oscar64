@@ -38574,6 +38574,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 								mIns[i + 0].mAddress = ireg;
 								mIns[i + 0].mLive |= LIVE_MEM;
 								mIns[i + 1].mAddress = breg;
+								mIns[i + 1].mFlags &= ~NCIF_YZERO;
 
 								for(int j=0; j<yoffset; j++)
 								{
@@ -43849,7 +43850,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "vspr_update");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -44306,8 +44307,6 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 void NativeCodeProcedure::Assemble(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "vspr_update");
-
 	if (mInterProc->mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS)
 	{
 		ResetVisited();
