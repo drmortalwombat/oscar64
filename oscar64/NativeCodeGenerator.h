@@ -611,6 +611,10 @@ public:
 	bool CrossBlockStoreLoadBypass(NativeCodeProcedure* proc);
 	bool EliminateDeadLoops(void);
 	bool LoopRegisterWrapAround(void);
+	bool CrossBlockFlagsForwarding(void);
+
+	bool SinglePathRegisterForwardY(NativeCodeBasicBlock* path, int yreg);
+	bool SinglePathRegisterForward(void);
 
 	bool CanBytepassLoad(const NativeCodeInstruction& ains, int from = 0) const;
 	bool CanHoistStore(const NativeCodeInstruction& ains) const;
@@ -620,8 +624,15 @@ public:
 	bool MoveAccuTrainsDown(void);
 	bool MoveAccuTrainDown(int end, int start);
 
+	bool MoveImmediateStoreUp(int at);
+	bool MoveImmediateStoreDown(int at);
+	bool RecycleImmediates(void);
+	bool MoveLoadStoreDown(int at);
+	bool RecycleLoadStore(void);
+
 	void BuildUseChangeSets(int start, int end, unsigned & used, unsigned & changed, uint32 & flags);
 	bool CanExchangeSegments(int start, int mid, int end);
+	bool CanSwapInstructions(int at);
 
 	bool CrossBlockXYPreservation(void);
 

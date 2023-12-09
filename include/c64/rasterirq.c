@@ -8,12 +8,18 @@
 volatile char npos = 1, tpos = 0;
 volatile byte rirq_count;
 
-byte		rasterIRQRows[NUM_IRQS];
-byte		rasterIRQIndex[NUM_IRQS];
+byte		rasterIRQRows[NUM_IRQS + 1];
+byte		rasterIRQIndex[NUM_IRQS + 1];
+#ifdef ZPAGE_IRQS
+__zeropage
+#endif
 byte		rasterIRQNext[NUM_IRQS + 1];
 byte		rasterIRQLow[NUM_IRQS];
 byte		rasterIRQHigh[NUM_IRQS];
 
+#ifdef ZPAGE_IRQS
+__zeropage
+#endif
 byte		nextIRQ;
 
 __asm irq0
@@ -32,7 +38,7 @@ l1:
 	cmp	#$ff
 	beq	e1
 
-	ldy rasterIRQIndex, x
+	ldy rasterIRQIndex + 1, x
 	tax
 	lda	rasterIRQLow, y
 	sta ji + 1
@@ -59,7 +65,6 @@ ji:
 	sty	$d012
 
 ex:
-
     pla
     tay
     pla
@@ -111,7 +116,7 @@ l1:
 	cmp	#$ff
 	beq	e1
 
-	ldy rasterIRQIndex, x
+	ldy rasterIRQIndex + 1, x
 	tax
 	lda	rasterIRQLow, y
 	sta ji + 1
@@ -182,7 +187,7 @@ l1:
 	cmp	#$ff
 	beq	e1
 
-	ldy rasterIRQIndex, x
+	ldy rasterIRQIndex + 1, x
 	tax
 	lda	rasterIRQLow, y
 	sta ji + 1
@@ -376,14 +381,21 @@ void rirq_clear(byte n)
 	rasterIRQRows[n] = 255;
 }
 
-void rirq_init_kernal(void)
+void rirq_init_tables(void)
 {
 	for(byte i=0; i<NUM_IRQS; i++)
 	{
 		rasterIRQRows[i] = 255;
-		rasterIRQIndex[i] = i;
+		rasterIRQIndex[i + 1] = i;
 	}
+	rasterIRQIndex[0] = NUM_IRQS;
+	rasterIRQRows[NUM_IRQS] = 0;
 	rasterIRQNext[NUM_IRQS] = 255;
+}
+
+void rirq_init_kernal(void)
+{
+	rirq_init_tables();
 
     __asm 
     {
@@ -400,12 +412,7 @@ void rirq_init_kernal(void)
 
 void rirq_init_io(void)
 {
-	for(byte i=0; i<NUM_IRQS; i++)
-	{
-		rasterIRQRows[i] = 255;
-		rasterIRQIndex[i] = i;
-	}
-	rasterIRQNext[NUM_IRQS] = 255;
+	rirq_init_tables();
 
     __asm 
     {
@@ -422,12 +429,7 @@ void rirq_init_io(void)
 
 void rirq_init_memmap(void)
 {
-	for(byte i=0; i<NUM_IRQS; i++)
-	{
-		rasterIRQRows[i] = 255;
-		rasterIRQIndex[i] = i;
-	}
-	rasterIRQNext[NUM_IRQS] = 255;
+	rirq_init_tables();
 
     __asm 
     {
@@ -458,6 +460,27 @@ void rirq_wait(void)
 
 void rirq_sort(void)
 {
+#if 1
+	byte maxr = rasterIRQRows[rasterIRQIndex[1]];
+	for(byte i = 2; i<NUM_IRQS + 1; i++)
+	{
+		byte ri = rasterIRQIndex[i];
+		byte rr = rasterIRQRows[ri];
+		if (rr < maxr)
+		{
+			rasterIRQIndex[i] = rasterIRQIndex[i - 1];
+			byte j = i, rj;
+			while (rr < rasterIRQRows[(rj = rasterIRQIndex[j - 2])])
+			{
+				rasterIRQIndex[j - 1] = rj;
+				j--;
+			}
+			rasterIRQIndex[j - 1] = ri;
+		}
+		else
+			maxr = rr;
+	}
+#else
 	for(byte i = 1; i<NUM_IRQS; i++)
 	{
 		byte ri = rasterIRQIndex[i];
@@ -470,9 +493,9 @@ void rirq_sort(void)
 		}
 		rasterIRQIndex[j] = ri;
 	}
-
+#endif
 	for(sbyte i=NUM_IRQS-1; i>=0; i--)
-		rasterIRQNext[i] = rasterIRQRows[rasterIRQIndex[i]];
+		rasterIRQNext[i] = rasterIRQRows[rasterIRQIndex[i + 1]];
 
 	npos++;
 	byte	yp = rasterIRQNext[nextIRQ];
