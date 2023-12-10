@@ -118,6 +118,31 @@ public:
 	list(void) 
 	{}
 
+	list(const list & l);
+
+	list(list && l)
+	{
+		head.succ = l.head.succ;
+		head.pred = l.head.pred;
+		head.succ->pred = head;
+		head.pred->succ = head;
+		l.head.succ = (listnode<T>	*)&(l.head);
+		l.head.pred = (listnode<T>	*)&(l.head);
+	}
+
+	list & operator=(const list & l);
+
+	list & operator=(list && l)
+	{
+		head.succ = l.head.succ;
+		head.pred = l.head.pred;
+		head.succ->pred = head;
+		head.pred->succ = head;
+		l.head.succ = (listnode<T>	*)&(l.head);
+		l.head.pred = (listnode<T>	*)&(l.head);
+		return *this;
+	}
+
 	~list(void)
 	{
 		listnode<T>	*	n = head.succ;
@@ -175,10 +200,31 @@ public:
 
 	void push_back(T && t);
 
+	void clear(void);
+
+	void append(const list & l);
+
 	list_iterator<T> insert(list_iterator<T> it, const T & t);
 
 	list_iterator<T> insert(list_iterator<T> it, T && t);
 };
+
+template <class T>
+list<T>::list(const list<T> & l)
+{
+	append(l);
+}
+
+template <class T>
+list<T> & list<T>::operator=(const list<T> & l)
+{
+	if (&l != this)
+	{
+		clear();
+		append(l);
+	}
+	return *this;
+}
 
 template <class T>
 void list<T>::pop_front(void)
@@ -291,6 +337,32 @@ list_iterator<T> list<T>::insert(list_iterator<T> it, T && t)
 	it.node->pred->succ = n;
 	it.node->pred = n;
 	return list_iterator<T>(n);
+}
+
+
+template <class T>
+void list<T>::clear(void)
+{
+	listnode<T>	*	n = head.succ;
+	while (n != &head)
+	{
+		listnode<T>	*	m = n->succ;
+		delete n;
+		n = m;
+	}
+	head.succ = (listnode<T> *)&head;
+	head.pred = (listnode<T> *)&head;
+}
+
+template <class T>
+void list<T>::append(const list<T> & l)
+{
+	listnode<T>	*	n = l.head.succ;
+	while (n != &(l.head))
+	{
+		push_back(n->data);
+		n = n->succ;
+	}
 }
 
 }

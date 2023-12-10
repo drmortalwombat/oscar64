@@ -4127,10 +4127,16 @@ __asm malloc
 {
 		// make room for two additional bytes
 		// to store pointer to end of used memory
+		// in case of heap check we add six bytes to
+		// add some guards
 
 		clc	
 		lda accu + 0
+#ifdef HEAPCHECK
+		adc #6
+#else
 		adc #2
+#endif
 		sta tmp
 		lda accu + 1
 		adc #$00
@@ -4224,8 +4230,13 @@ avail:
 				
 		clc
 		lda tmp + 2
+#ifdef HEAPCHECK
+		adc #7
+		and #$f8
+#else
 		adc #3
 		and #$fc
+#endif
 		sta tmp + 4
 		lda tmp + 3
 		adc #0
@@ -4285,11 +4296,38 @@ found:
 		lda tmp + 3
 		sta (accu), y
 
+#ifdef HEAPCHECK
+
+		// add guard range to memory segment
+
+		ldy #2
+		lda #$bd
+		sta (accu), y
+		iny
+		sta (accu), y
+
+		sec
+		lda tmp + 2
+		sbc #2
+		sta tmp + 2
+		bcs hc1
+		dec tmp + 3
+hc1:
+		lda #$be
+		ldy #0
+		sta (tmp + 2), y
+		iny
+		sta (tmp + 2), y
+
+		lda accu
+		ora #4
+		sta accu
+#else
 		// advanve by two bytes to skip size
 		lda accu
 		ora #2
 		sta accu
-
+#endif
 		rts
 }
 
@@ -4309,8 +4347,53 @@ __asm free
 		// two bytes back to fix remembered end of block
 
 		lda accu
+#ifdef HEAPCHECK
+		ora accu + 1
+		bne hcnn
+		rts
+hcnn:
+		lda accu
+		and #$07
+		cmp #$04		
+		bne hfail
+		lda accu
+		and #$f8		
+#else
 		and #$fc
+#endif
 		sta accu
+
+#ifdef HEAPCHECK
+		ldy #2
+		lda (accu), y
+		cmp #$bd
+		bne hfail
+		iny
+		lda (accu), y
+		cmp #$bd
+		bne hfail
+
+		ldy #0
+		sec
+		lda (accu), y
+		sbc #2
+		sta tmp + 0
+		iny
+		lda (accu), y
+		sbc #0
+		sta tmp + 1
+
+		ldy #0
+		lda (tmp), y
+		cmp #$be
+		bne hfail
+		iny
+		lda (tmp), y
+		cmp #$be
+		bne hfail
+
+		lda accu
+#endif
 
 		// check nullptr free
 
@@ -4336,7 +4419,12 @@ hchk1:
 		bne hfail
 		cpx #<HeapEnd
 		bcs hfail
-hckh2:
+hchk2:
+		ldy #2
+		lda #$bf
+		sta (accu), y
+		iny
+		sta (accu), y
 #endif
 		// cache end of block, rounding to next four byte
 		// address
@@ -4344,8 +4432,13 @@ hckh2:
 		clc
 		ldy #0
 		lda (accu), y
+#ifdef HEAPCHECK
+		adc #7
+		and #$f8
+#else
 		adc #3
 		and #$fc
+#endif
 		sta accu + 2
 		iny
 		lda (accu), y

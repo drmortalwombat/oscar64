@@ -3,52 +3,55 @@ rem @echo off
 @call :test bitfields.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test opp_string.cpp
+@call :testh opp_string.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test opp_array.cpp
+@call :testh opp_array.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test opp_vector.cpp
+@call :testh opp_vector.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test opp_vector_string.cpp
+@call :testh opp_vector_string.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test opp_streamtest.cpp
+@call :testh opp_streamtest.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test opp_pairtest.cpp
+@call :testh opp_pairtest.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test opp_parts.cpp
+@call :testh opp_parts.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test operatoroverload.cpp
+@call :testh opp_list.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test virtualdestruct.cpp
+@call :testh operatoroverload.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test vcalltest.cpp
+@call :testh virtualdestruct.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test vcalltree.cpp
+@call :testh vcalltest.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test constructortest.cpp
+@call :testh vcalltree.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test copyconstructor.cpp
+@call :testh constructortest.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test copyassign.cpp
+@call :testh copyconstructor.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test arrayconstruct.cpp
+@call :testh copyassign.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :test stdlibtest.c
+@call :testh arrayconstruct.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :testh stdlibtest.c
 @if %errorlevel% neq 0 goto :error
 
 @call :test testint16.c
@@ -224,6 +227,45 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testh
+..\release\oscar64 -e -bc %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O2 -bc %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O2 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O2 -n -dHEAPCHECK %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O0 -bc %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O0 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -Os -bc %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -Os -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O3 -bc %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O3 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O3 -n -dHEAPCHECK %~1
+@if %errorlevel% neq 0 goto :error
+
+@exit /b 0
 
 :test
 ..\release\oscar64 -e -bc %~1
