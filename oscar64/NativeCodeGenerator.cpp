@@ -15835,6 +15835,8 @@ bool NativeCodeBasicBlock::MoveImmediateStoreUp(int at)
 			return false;
 		else if (usey && mIns[i].ChangesYReg())
 			return false;
+		else if (mIns[at + 1].mMode == ASMIM_INDIRECT_Y && (mIns[i].ChangesZeroPage(mIns[at + 1].mAddress) || mIns[i].ChangesZeroPage(mIns[at + 1].mAddress + 1)))
+			return false;
 	}
 	return false;
 }
@@ -15896,6 +15898,8 @@ bool NativeCodeBasicBlock::MoveImmediateStoreDown(int at)
 		else if (usex && mIns[i].ChangesXReg())
 			return false;
 		else if (usey && mIns[i].ChangesYReg())
+			return false;
+		else if (mIns[at + 1].mMode == ASMIM_INDIRECT_Y && (mIns[i].ChangesZeroPage(mIns[at + 1].mAddress) || mIns[i].ChangesZeroPage(mIns[at + 1].mAddress + 1)))
 			return false;
 
 		i++;
@@ -15982,6 +15986,10 @@ bool NativeCodeBasicBlock::MoveLoadStoreDown(int at)
 		else if (usex && mIns[i].ChangesXReg())
 			return false;
 		else if (usey && mIns[i].ChangesYReg())
+			return false;
+		else if (mIns[at].mMode == ASMIM_INDIRECT_Y && (mIns[i].ChangesZeroPage(mIns[at].mAddress) || mIns[i].ChangesZeroPage(mIns[at].mAddress + 1)))
+			return false;
+		else if (mIns[at + 1].mMode == ASMIM_INDIRECT_Y && (mIns[i].ChangesZeroPage(mIns[at + 1].mAddress) || mIns[i].ChangesZeroPage(mIns[at + 1].mAddress + 1)))
 			return false;
 
 		i++;
@@ -44463,7 +44471,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "PlayingState::InitMaps");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
