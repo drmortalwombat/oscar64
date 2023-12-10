@@ -10,22 +10,22 @@ void bnk1_init(void);
 
 #pragma code(bnk1code)
 
-char bnk1_readb(volatile char * p);
+__noinline char bnk1_readb(volatile char * p);
 
-unsigned bnk1_readw(volatile unsigned * p);
+__noinline unsigned bnk1_readw(volatile unsigned * p);
 
-unsigned long bnk1_readl(volatile unsigned long * p);
+__noinline unsigned long bnk1_readl(volatile unsigned long * p);
 
-void bnk1_readm(char * dp, volatile char * sp, unsigned size);
+__noinline void bnk1_readm(char * dp, volatile char * sp, unsigned size);
 
 
-void bnk1_writeb(volatile char * p, char b);
+__noinline void bnk1_writeb(volatile char * p, char b);
 
-void bnk1_writew(volatile unsigned * p, unsigned w);
+__noinline void bnk1_writew(volatile unsigned * p, unsigned w);
 
-void bnk1_writel(volatile unsigned long * p, unsigned long l);
+__noinline void bnk1_writel(volatile unsigned long * p, unsigned long l);
 
-void bnk1_writem(volatile char * dp, const char * sp, unsigned size);
+__noinline void bnk1_writem(volatile char * dp, const char * sp, unsigned size);
 
 #pragma code(code)
 
