@@ -4,16 +4,17 @@
 inline void vdc_reg(VDCRegister reg)
 {
 	vdc.addr = reg;
-	do {} while (vdc.addr < 128);
 }
 
 inline void vdc_write(byte data)
 {
+	do {} while (vdc.addr < 128);
 	vdc.data = data;
 }
 
 inline byte vdc_read(void)
 {
+	do {} while (vdc.addr < 128);
 	return vdc.data;
 }
 
