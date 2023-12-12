@@ -20537,7 +20537,7 @@ bool NativeCodeBasicBlock::CanForwardLoadStore(const NativeCodeInstruction& lins
 		}
 		if (mIns[i].mType == ASMIT_JSR)
 			return false;
-		if (sins.MayBeChangedOnAddress(mIns[i]))
+		if (sins.MayBeChangedOnAddress(mIns[i]) || mIns[i].MayBeChangedOnAddress(sins))
 			return false;
 		i--;
 	}
@@ -44528,7 +44528,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "Enemy::StepTurn");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -45489,6 +45489,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 #endif
+
 
 #if _DEBUG
 		ResetVisited();
