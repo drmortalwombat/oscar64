@@ -684,6 +684,19 @@ The overlay file can then be loaded in memory during program execution:
 
 	krnio_setnam(P"OVL1");
 	krnio_load(1, 8, 1);
+	
+#### Inlays
+
+Inlays are sections that are compressed into constant arrays by the linker and can then be expanded by the program on demand.  The array has to be declared with unknown size.
+
+	const char Inlay1[];
+	#pragma section( icode1, 0 )
+	#pragma region( isec1, 0xc000, 0xd000, , Inlay1, { icode1 } )
+
+The size of the array is not known at compile time, so a sizeof() will return 0.  The oscar_expand_lzo can be used to expand the code and does not need the size:
+
+	oscar_expand_lzo((char *)0xc000, Inlay1);
+
 
 #### NES ROM Banks
 

@@ -22,6 +22,7 @@ enum LinkerObjectType
 	LOT_BSS,
 	LOT_HEAP,
 	LOT_STACK,
+	LOT_INLAY,
 	LOT_SECTION_START,
 	LOT_SECTION_END
 };
@@ -79,9 +80,10 @@ class LinkerRegion
 public:
 	const Ident* mIdent;
 
-	uint32	mFlags;
-	int		mStart, mEnd, mUsed, mNonzero, mReloc;
-	uint64	mCartridgeBanks;
+	uint32				mFlags;
+	int					mStart, mEnd, mUsed, mNonzero, mReloc;
+	uint64				mCartridgeBanks;
+	LinkerObject	*	mInlayObject;
 
 	GrowingArray<LinkerSection*>	mSections;
 
@@ -183,10 +185,10 @@ public:
 	LinkerObjectType					mType;
 	int									mID, mMapID;
 	int									mAddress, mRefAddress;
-	int									mSize, mAlignment;
+	int									mSize, mAlignment, mStartUsed, mEndUsed;
 	LinkerSection					*	mSection;
 	LinkerRegion					*	mRegion;
-	uint8							*	mData;
+	uint8							*	mData, * mMemory;
 	InterCodeProcedure				*	mProc;
 	uint32								mFlags;
 	uint8								mTemporaries[16], mTempSizes[16];
@@ -278,7 +280,7 @@ public:
 	GrowingArray<LinkerObject*>		mObjects;
 	GrowingArray<LinkerOverlay*>	mOverlays;
 
-	uint8	mMemory[0x10000];
+	uint8	mMemory[0x10000], mWorkspace[0x10000];
 	uint8	mCartridge[64][0x10000];
 
 	bool	mCartridgeBankUsed[64];
@@ -291,6 +293,9 @@ public:
 
 	void CollectReferences(void);
 	void CombineSameConst(void);
+	void PatchReferences(bool inlays);
+	void CopyObjects(bool inlays);
+	void PlaceObjects(void);
 	void Link(void);
 protected:
 	NativeCodeDisassembler	mNativeDisassembler;

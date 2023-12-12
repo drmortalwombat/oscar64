@@ -11227,7 +11227,7 @@ void Parser::ParsePragma(void)
 				ConsumeToken(TK_COMMA);
 				
 				exp = ParseRExpression();
-				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+				if (exp->mType == EX_CONSTANT && (exp->mDecValue->mType == DT_CONST_INTEGER || exp->mDecValue->mType == DT_CONST_ADDRESS))
 					start = int(exp->mDecValue->mInteger);
 				else
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for start expected");
@@ -11235,7 +11235,7 @@ void Parser::ParsePragma(void)
 				ConsumeToken(TK_COMMA);
 				
 				exp = ParseRExpression();
-				if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+				if (exp->mType == EX_CONSTANT && (exp->mDecValue->mType == DT_CONST_INTEGER || exp->mDecValue->mType == DT_CONST_ADDRESS))
 					end = int(exp->mDecValue->mInteger);
 				else
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for end expected");
@@ -11252,6 +11252,8 @@ void Parser::ParsePragma(void)
 				}
 
 				ConsumeToken(TK_COMMA);
+
+				Declaration* inlay = nullptr;
 
 				if (mScanner->mToken != TK_COMMA)
 				{
@@ -11273,11 +11275,23 @@ void Parser::ParsePragma(void)
 					}
 					else
 					{
-						exp = ParseRExpression();
-						if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
-							bank = 1ULL << exp->mDecValue->mInteger;
+						exp = ParseExpression(true);
+						if (exp->mType == EX_VARIABLE && exp->mDecType->mType == DT_TYPE_ARRAY && exp->mDecType->mSize == 0 &&
+							exp->mDecType->mBase->mType == DT_TYPE_INTEGER && exp->mDecType->mBase->mSize == 1)
+						{
+							exp->mDecValue->mFlags |= DTF_DEFINED | DTF_BANK_INLAY;
+							exp->mDecValue->mSection = mCodeSection;
+							exp->mDecType->mFlags |= DTF_DEFINED;
+							inlay = exp->mDecValue;
+						}
 						else
-							mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
+						{
+							exp = exp->ConstantFold(mErrors, mDataSection, mCompilationUnits->mLinker);
+							if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+								bank = 1ULL << exp->mDecValue->mInteger;
+							else
+								mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
+						}
 					}
 				}
 
@@ -11291,6 +11305,10 @@ void Parser::ParsePragma(void)
 				else if (rgn->mStart != start || rgn->mEnd != end || rgn->mFlags != flags || rgn->mCartridgeBanks != bank)
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Conflicting linker region definition");
 
+				if (inlay)
+				{
+					inlay->mInlayRegion = rgn;
+				}
 
 				ConsumeToken(TK_COMMA);
 				ConsumeToken(TK_OPEN_BRACE);

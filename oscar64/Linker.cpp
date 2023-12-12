@@ -2,9 +2,10 @@
 #include <string.h>
 #include <stdio.h>
 #include "CompilerTypes.h"
+#include "Compression.h"
 
 LinkerRegion::LinkerRegion(void)
-	: mSections(nullptr), mFreeChunks(FreeChunk{ 0, 0 } ), mLastObject(nullptr)
+	: mSections(nullptr), mFreeChunks(FreeChunk{ 0, 0 } ), mLastObject(nullptr), mInlayObject(nullptr), mCartridgeBanks(0)
 {}
 
 LinkerSection::LinkerSection(void)
@@ -44,7 +45,7 @@ bool LinkerReference::operator!=(const LinkerReference& ref)
 }
 
 LinkerObject::LinkerObject(void)
-	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr), mIdent(nullptr), mFullIdent(nullptr)
+	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr), mIdent(nullptr), mFullIdent(nullptr), mStartUsed(0x10000), mEndUsed(0x00000), mMemory(nullptr)
 {}
 
 LinkerObject::~LinkerObject(void)
@@ -339,13 +340,13 @@ void Linker::CombineSameConst(void)
 			while (dobj->mMapID != mObjects[dobj->mMapID]->mMapID)
 				dobj->mMapID = mObjects[dobj->mMapID]->mMapID;
 
-			if ((dobj->mFlags & LOBJF_REFERENCED) && (dobj->mFlags & LOBJF_CONST) && dobj->mMapID == dobj->mID)
+			if ((dobj->mFlags & LOBJF_REFERENCED) && (dobj->mFlags & LOBJF_CONST) && dobj->mMapID == dobj->mID && dobj->mType != LOT_INLAY)
 			{
 				for (int j = i + 1; j < mObjects.Size(); j++)
 				{
 					LinkerObject* sobj(mObjects[j]);
 
-					if ((sobj->mFlags & LOBJF_REFERENCED) && (sobj->mFlags & LOBJF_CONST) && sobj->mMapID == sobj->mID)
+					if ((sobj->mFlags & LOBJF_REFERENCED) && (sobj->mFlags & LOBJF_CONST) && sobj->mMapID == sobj->mID && sobj->mType != LOT_INLAY)
 					{
 						if (dobj->mSize == sobj->mSize && dobj->mSection == sobj->mSection && dobj->mReferences.Size() == sobj->mReferences.Size())
 						{
@@ -531,7 +532,7 @@ void LinkerRegion::PlaceStackSection(LinkerSection* stackSection, LinkerSection*
 	{
 		int	start = stackSection->mEnd;
 
-		for(int i=0; i<section->mSections.Size(); i++)
+		for (int i = 0; i < section->mSections.Size(); i++)
 		{
 			PlaceStackSection(stackSection, section->mSections[i]);
 			if (section->mSections[i]->mStart < start)
@@ -540,7 +541,7 @@ void LinkerRegion::PlaceStackSection(LinkerSection* stackSection, LinkerSection*
 
 		section->mStart = start;
 		section->mEnd = start;
-		
+
 		for (int i = 0; i < section->mObjects.Size(); i++)
 		{
 			LinkerObject* lobj = section->mObjects[i];
@@ -561,147 +562,48 @@ void LinkerRegion::PlaceStackSection(LinkerSection* stackSection, LinkerSection*
 	}
 }
 
-void Linker::Link(void)
+void Linker::CopyObjects(bool inlays)
 {
-	if (mErrors->mErrorCount == 0)
+	for (int i = 0; i < mObjects.Size(); i++)
 	{
-
-		for (int i = 0; i < mSections.Size(); i++)
+		LinkerObject* obj = mObjects[i];
+		if (obj->mType == LOT_SECTION_START)
 		{
-			LinkerSection* lsec = mSections[i];
-			lsec->mStart = 0x10000;
-			lsec->mEnd = 0x0000;
+			obj->mAddress = obj->mSection->mStart;
+			obj->mRefAddress = obj->mAddress + (obj->mRegion ? obj->mRegion->mReloc : 0);
 		}
-
-		// Move objects into regions
-
-		for (int i = 0; i < mRegions.Size(); i++)
+		else if (obj->mType == LOT_SECTION_END)
 		{
-			LinkerRegion* lrgn = mRegions[i];
-			for (int j = 0; j < lrgn->mSections.Size(); j++)
+			obj->mAddress = obj->mSection->mEnd;
+			obj->mRefAddress = obj->mAddress + (obj->mRegion ? obj->mRegion->mReloc : 0);
+		}
+		else if (obj->mFlags & LOBJF_REFERENCED)
+		{
+			if (inlays)
 			{
-				LinkerSection* lsec = lrgn->mSections[j];
-				for (int k = 0; k < lsec->mObjects.Size(); k++)
+				if (obj->mRegion && obj->mRegion->mInlayObject)
 				{
-					LinkerObject* lobj = lsec->mObjects[k];
-					if ((lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj, mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS))
+					LinkerObject* iobj = obj->mRegion->mInlayObject;
+					if (!iobj->mMemory)
 					{
-						if (lobj->mIdent && lobj->mIdent->mString && (mCompilerOptions & COPT_VERBOSE2))
-							printf("Placed object <%s> $%04x - $%04x\n", lobj->mIdent->mString, lobj->mAddress, lobj->mAddress + lobj->mSize);
-
-						if (lobj->mAddress < lsec->mStart)
-							lsec->mStart = lobj->mAddress;
-						if (lobj->mAddress + lobj->mSize > lsec->mEnd)
-							lsec->mEnd = lobj->mAddress + lobj->mSize;
-
-						if (lsec->mType == LST_DATA && lsec->mEnd > lrgn->mNonzero)
-							lrgn->mNonzero = lsec->mEnd;
+						iobj->mMemory = new uint8[0x10000];
+						memset(iobj->mMemory, 0, 0x10000);
 					}
+
+					memcpy(iobj->mMemory + obj->mAddress, obj->mData, obj->mSize);
+					if (obj->mAddress < iobj->mStartUsed)
+						iobj->mStartUsed = obj->mAddress;
+					if (obj->mAddress + obj->mSize > iobj->mEndUsed)
+						iobj->mEndUsed = obj->mAddress + obj->mSize;
 				}
 			}
-
-			for (int j = 0; j < lrgn->mSections.Size(); j++)
-			{
-				LinkerSection* lsec = lrgn->mSections[j];
-				if (lsec->mType == LST_BSS && lsec->mStart < lrgn->mNonzero)
-					lsec->mStart = lrgn->mNonzero;
-				if (lsec->mEnd < lsec->mStart)
-					lsec->mEnd = lsec->mStart;
-			}
-		}
-
-		mProgramStart = 0xffff;
-		mProgramEnd = 0x0000;
-
-		for (int i = 0; i < mRegions.Size(); i++)
-		{
-			LinkerRegion* lrgn = mRegions[i];
-
-			if (lrgn->mNonzero && lrgn->mCartridgeBanks == 0)
-			{
-				if (lrgn->mStart < mProgramStart)
-					mProgramStart = lrgn->mStart;
-				if (lrgn->mNonzero > mProgramEnd)
-					mProgramEnd = lrgn->mNonzero;
-			}
-		}
-
-		// Place stack segment
-		
-		for (int i = 0; i < mRegions.Size(); i++)
-		{
-			LinkerRegion* lrgn = mRegions[i];
-			for (int j = 0; j < lrgn->mSections.Size(); j++)
-			{
-				LinkerSection* lsec = lrgn->mSections[j];
-
-				if (lsec->mType == LST_STACK)
-				{					
-					lsec->mStart = lsec->mEnd = lrgn->mEnd;
-					lrgn->mEnd = lsec->mStart - lsec->mSize;
-
-					for(int i=0; i<lsec->mSections.Size(); i++)
-						lrgn->PlaceStackSection(lsec, lsec->mSections[i]);
-
-					if (lsec->mStart < lrgn->mEnd)
-					{
-						Location	loc;
-						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Static stack usage exceeds stack segment");
-					}
-
-					lsec->mEnd = lsec->mStart;
-					lsec->mStart = lrgn->mEnd;
-
-					if (lsec->mStart < lrgn->mStart + lrgn->mUsed)
-					{
-						Location	loc;
-						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Cannot place stack section");
-					}
-				}
-			}
-		}
-
-		// Now expand the heap section to cover the remainder of the region
-
-		for (int i = 0; i < mRegions.Size(); i++)
-		{
-			LinkerRegion* lrgn = mRegions[i];
-			for (int j = 0; j < lrgn->mSections.Size(); j++)
-			{
-				LinkerSection* lsec = lrgn->mSections[j];
-
-				if (lsec->mType == LST_HEAP)
-				{
-					lsec->mStart = (lrgn->mStart + lrgn->mUsed + 7) & ~7;
-					lsec->mEnd = lrgn->mEnd & ~7;
-
-					if (lsec->mStart + lsec->mSize > lsec->mEnd)
-					{
-						Location	loc;
-						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Cannot place heap section");
-					}
-				}
-			}
-		}
-
-		for (int i = 0; i < mObjects.Size(); i++)
-		{
-			LinkerObject* obj = mObjects[i];
-			if (obj->mType == LOT_SECTION_START)
-			{
-				obj->mAddress = obj->mSection->mStart;
-				obj->mRefAddress = obj->mAddress + (obj->mRegion ? obj->mRegion->mReloc : 0);
-			}
-			else if (obj->mType == LOT_SECTION_END)
-			{
-				obj->mAddress = obj->mSection->mEnd;
-				obj->mRefAddress = obj->mAddress + (obj->mRegion ? obj->mRegion->mReloc : 0);
-			}
-			else if (obj->mFlags & LOBJF_REFERENCED)
+			else
 			{
 				if (!obj->mRegion)
 					mErrors->Error(obj->mLocation, ERRR_INSUFFICIENT_MEMORY, "Could not place object", obj->mIdent);
-				else if (obj->mRegion->mCartridgeBanks != 0)
+				else if (obj->mRegion->mInlayObject)
+					;
+				else if (obj->mRegion && obj->mRegion->mCartridgeBanks != 0)
 				{
 					for (int i = 0; i < 64; i++)
 					{
@@ -722,20 +624,46 @@ void Linker::Link(void)
 				}
 			}
 		}
+	}
+}
 
-		for (int i = 0; i < mReferences.Size(); i++)
+void Linker::PatchReferences(bool inlays)
+{
+	for (int i = 0; i < mReferences.Size(); i++)
+	{
+		LinkerReference* ref = mReferences[i];
+		LinkerObject* obj = ref->mObject;
+		if (obj->mFlags & LOBJF_REFERENCED)
 		{
-			LinkerReference* ref = mReferences[i];
-			LinkerObject* obj = ref->mObject;
-			if (obj->mFlags & LOBJF_REFERENCED)
+			if (obj->mRegion)
 			{
-				if (obj->mRegion)
+				LinkerObject* robj = ref->mRefObject;
+
+				int			raddr = robj->mRefAddress + ref->mRefOffset;
+				uint8* dp;
+
+				if (inlays)
 				{
-					LinkerObject* robj = ref->mRefObject;
+					if (obj->mRegion->mInlayObject)
+					{
+						LinkerObject* iobj = obj->mRegion->mInlayObject;
 
-					int			raddr = robj->mRefAddress + ref->mRefOffset;
-					uint8* dp;
+						dp = iobj->mMemory + obj->mAddress + ref->mOffset;
 
+						if (ref->mFlags & LREF_LOWBYTE)
+						{
+							*dp++ = raddr & 0xff;
+						}
+						if (ref->mFlags & LREF_HIGHBYTE)
+						{
+							*dp++ = (raddr >> 8) & 0xff;
+						}
+						if (ref->mFlags & LREF_TEMPORARY)
+							*dp += obj->mTemporaries[ref->mRefOffset];
+					}
+				}
+				else if (!obj->mRegion->mInlayObject)
+				{
 					if (obj->mRegion->mCartridgeBanks)
 					{
 						for (int i = 0; i < 64; i++)
@@ -775,6 +703,166 @@ void Linker::Link(void)
 				}
 			}
 		}
+	}
+}
+
+void Linker::PlaceObjects(void)
+{
+	for (int i = 0; i < mRegions.Size(); i++)
+	{
+		LinkerRegion* lrgn = mRegions[i];
+		for (int j = 0; j < lrgn->mSections.Size(); j++)
+		{
+			LinkerSection* lsec = lrgn->mSections[j];
+			for (int k = 0; k < lsec->mObjects.Size(); k++)
+			{
+				LinkerObject* lobj = lsec->mObjects[k];
+				if (lobj->mType != LOT_INLAY && (lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj, mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS))
+				{
+					if (lobj->mIdent && lobj->mIdent->mString && (mCompilerOptions & COPT_VERBOSE2))
+						printf("Placed object <%s> $%04x - $%04x\n", lobj->mIdent->mString, lobj->mAddress, lobj->mAddress + lobj->mSize);
+
+					if (lobj->mAddress < lsec->mStart)
+						lsec->mStart = lobj->mAddress;
+					if (lobj->mAddress + lobj->mSize > lsec->mEnd)
+						lsec->mEnd = lobj->mAddress + lobj->mSize;
+
+					if (lsec->mType == LST_DATA && lsec->mEnd > lrgn->mNonzero)
+						lrgn->mNonzero = lsec->mEnd;
+				}
+			}
+		}
+	}
+}
+
+void Linker::Link(void)
+{
+	if (mErrors->mErrorCount == 0)
+	{
+
+		for (int i = 0; i < mSections.Size(); i++)
+		{
+			LinkerSection* lsec = mSections[i];
+			lsec->mStart = 0x10000;
+			lsec->mEnd = 0x0000;
+		}
+
+		// Move objects into regions
+		PlaceObjects();
+
+		// Place stack segment
+
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion* lrgn = mRegions[i];
+			for (int j = 0; j < lrgn->mSections.Size(); j++)
+			{
+				LinkerSection* lsec = lrgn->mSections[j];
+
+				if (lsec->mType == LST_STACK)
+				{
+					lsec->mStart = lsec->mEnd = lrgn->mEnd;
+					lrgn->mEnd = lsec->mStart - lsec->mSize;
+
+					for (int i = 0; i < lsec->mSections.Size(); i++)
+						lrgn->PlaceStackSection(lsec, lsec->mSections[i]);
+
+					if (lsec->mStart < lrgn->mEnd)
+					{
+						Location	loc;
+						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Static stack usage exceeds stack segment");
+					}
+
+					lsec->mEnd = lsec->mStart;
+					lsec->mStart = lrgn->mEnd;
+
+					if (lsec->mStart < lrgn->mStart + lrgn->mUsed)
+					{
+						Location	loc;
+						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Cannot place stack section");
+					}
+				}
+			}
+		}
+
+		CopyObjects(true);
+		PatchReferences(true);
+
+		// Move inlays into regions
+
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion* lrgn = mRegions[i];
+			if (lrgn->mInlayObject)
+			{
+				LinkerObject* iobj = lrgn->mInlayObject;
+				
+				int size = CompressLZO(mWorkspace, iobj->mMemory + iobj->mStartUsed, iobj->mEndUsed - iobj->mStartUsed);
+				iobj->AddData(mWorkspace, size);
+				iobj->mType = LOT_DATA;
+			}
+		}
+
+		PlaceObjects();
+
+		// Calculate BSS storage
+
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion* lrgn = mRegions[i];
+			for (int j = 0; j < lrgn->mSections.Size(); j++)
+			{
+				LinkerSection* lsec = lrgn->mSections[j];
+				if (lsec->mType == LST_BSS && lsec->mStart < lrgn->mNonzero)
+					lsec->mStart = lrgn->mNonzero;
+				if (lsec->mEnd < lsec->mStart)
+					lsec->mEnd = lsec->mStart;
+			}
+		}
+
+		mProgramStart = 0xffff;
+		mProgramEnd = 0x0000;
+
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion* lrgn = mRegions[i];
+
+			if (lrgn->mNonzero && lrgn->mCartridgeBanks == 0 && !lrgn->mInlayObject)
+			{
+				if (lrgn->mStart < mProgramStart)
+					mProgramStart = lrgn->mStart;
+				if (lrgn->mNonzero > mProgramEnd)
+					mProgramEnd = lrgn->mNonzero;
+			}
+		}
+
+		// Now expand the heap section to cover the remainder of the region
+
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion* lrgn = mRegions[i];
+			for (int j = 0; j < lrgn->mSections.Size(); j++)
+			{
+				LinkerSection* lsec = lrgn->mSections[j];
+
+				if (lsec->mType == LST_HEAP)
+				{
+					lsec->mStart = (lrgn->mStart + lrgn->mUsed + 7) & ~7;
+					lsec->mEnd = lrgn->mEnd & ~7;
+
+					if (lsec->mStart + lsec->mSize > lsec->mEnd)
+					{
+						Location	loc;
+						mErrors->Error(loc, ERRR_INSUFFICIENT_MEMORY, "Cannot place heap section");
+					}
+				}
+			}
+		}
+
+		// Second patch of references
+
+		CopyObjects(false);
+		PatchReferences(false);
 
 		for (int i = 0; i < mObjects.Size(); i++)
 		{
@@ -1527,6 +1615,8 @@ bool Linker::WriteAsmFile(const char* filename)
 							i++;
 						mNativeDisassembler.Disassemble(file, mCartridge[i], i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj->mFullIdent);
 					}
+					else if (obj->mRegion->mInlayObject)
+						mNativeDisassembler.Disassemble(file, obj->mRegion->mInlayObject->mMemory, 0xa0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj->mFullIdent);
 					else
 						mNativeDisassembler.Disassemble(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj->mFullIdent);
 					break;
@@ -1538,6 +1628,8 @@ bool Linker::WriteAsmFile(const char* filename)
 							i++;
 						mNativeDisassembler.DumpMemory(file, mCartridge[i], i, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
 					}
+					else if (obj->mRegion->mInlayObject)
+						mNativeDisassembler.DumpMemory(file, obj->mRegion->mInlayObject->mMemory, 0xa0, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
 					else
 						mNativeDisassembler.DumpMemory(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj);
 					break;

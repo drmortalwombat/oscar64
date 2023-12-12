@@ -8,6 +8,7 @@
 
 class LinkerObject;
 class LinkerSection;
+class LinkerRegion;
 class Linker;
 class Parser;
 
@@ -99,6 +100,7 @@ static const uint64	DTF_COMPLETED		= (1ULL << 30);
 static const uint64	DTF_CONSTEXPR		= (1ULL << 31);
 
 static const uint64 DTF_AUTO_TEMPLATE	= (1ULL << 32);
+static const uint64 DTF_BANK_INLAY		= (1ULL << 33);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 36);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 37);
@@ -280,6 +282,7 @@ public:
 	uint64				mFlags, mCompilerOptions, mOptFlags;
 	const Ident		*	mIdent, * mQualIdent, * mMangleIdent;
 	LinkerSection	*	mSection;
+	LinkerRegion	*	mInlayRegion;
 	const uint8		*	mData;
 	LinkerObject	*	mLinkerObject;
 	int					mUseCount;

@@ -696,6 +696,11 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 			dec->mLinkerObject->mType = LOT_SECTION_START;
 		else if (dec->mFlags & DTF_SECTION_END)
 			dec->mLinkerObject->mType = LOT_SECTION_END;
+		else if (dec->mFlags & DTF_BANK_INLAY)
+		{
+			dec->mLinkerObject->mType = LOT_INLAY;
+			dec->mInlayRegion->mInlayObject = dec->mLinkerObject;
+		}
 
 		uint8* d = var->mLinkerObject->AddSpace(var->mSize);
 		if (dec->mValue)

@@ -8,7 +8,7 @@ enum IEC_STATUS
 
 	IEC_ERROR = 0x80,
 	IEC_TIMEOUT,
-	IEC_DATA_CHECK
+	IEC_DATA_CHECK,
 };
 
 extern IEC_STATUS iec_status;
