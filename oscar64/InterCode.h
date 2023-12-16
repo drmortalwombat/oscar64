@@ -586,6 +586,7 @@ public:
 	bool CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body);
 
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
+	bool MergeLoopTails(void);
 
 	InterCodeBasicBlock* BuildLoopPrefix(void);
 	void BuildLoopSuffix(void);

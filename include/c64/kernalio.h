@@ -23,6 +23,8 @@ extern krnioerr krnio_pstatus[16];
 
 void krnio_setnam(const char * name);
 
+void krnio_setnam_n(const char * name, char len);
+
 // open a kernal file/stream/io channel, returns true on success
 
 bool krnio_open(char fnum, char device, char channel);

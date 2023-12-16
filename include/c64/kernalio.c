@@ -23,6 +23,19 @@ void krnio_setnam(const char * name)
 
 #pragma native(krnio_setnam)
 
+void krnio_setnam_n(const char * name, char len)
+{
+	__asm
+	{
+		lda len
+		ldx name
+		ldy	name + 1
+		jsr	$ffbd			// setnam
+	}	
+}
+
+#pragma native(krnio_setnam_n)
+
 bool krnio_open(char fnum, char device, char channel)
 {
 	krnio_pstatus[fnum] = KRNIO_OK;

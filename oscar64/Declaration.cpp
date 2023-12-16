@@ -457,7 +457,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 	if (mType == EX_PREFIX && mToken == TK_BANKOF && linker)
 	{
 		LinkerRegion* rgn;
-		if (mLeft->mDecValue->mSection && (rgn = linker->FindRegionOfSection(mLeft->mDecValue->mSection)))
+		if (mLeft->mDecValue && mLeft->mDecValue->mSection && (rgn = linker->FindRegionOfSection(mLeft->mDecValue->mSection)))
 		{
 			uint64	i = 0;
 			while (i < 64 && rgn->mCartridgeBanks != (1ULL << i))

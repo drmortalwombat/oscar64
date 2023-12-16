@@ -585,6 +585,54 @@ bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const Inte
 		return CollidingMem(sins->mSrc[1], sins->mSrc[0].mType, lins);
 	else if (sins->mCode == IC_COPY || sins->mCode == IC_STRCPY)
 		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
+	else if (sins->mCode == IC_CALL || sins->mCode == IC_CALL_NATIVE)
+	{
+		if (sins->mSrc[0].mTemp < 0 && sins->mSrc[0].mLinkerObject)
+		{
+			InterCodeProcedure* proc = sins->mSrc[0].mLinkerObject->mProc;
+			if (proc)
+			{
+				int	opmask = 0;
+				if (lins->mCode == IC_LOAD)
+					opmask = 1;
+				else if (lins->mCode == IC_STORE)
+					opmask = 2;
+				else if (lins->mCode == IC_COPY)
+					opmask = 3;
+
+				for (int k = 0; k < lins->mNumOperands; k++)
+				{
+					if ((1 << k) & opmask)
+					{
+						const InterOperand& op(lins->mSrc[k]);
+
+						if (op.mTemp >= 0)
+						{
+							if (proc->mStoresIndirect)
+								return true;
+						}
+						else if (op.mMemory == IM_FFRAME || op.mMemory == IM_FRAME)
+							return true;
+						else if (op.mMemory == IM_GLOBAL)
+						{
+							if (proc->ModifiesGlobal(op.mVarIndex))
+								return true;
+						}
+						else if (op.mMemory == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
+							;
+						else if ((op.mMemory == IM_PARAM || op.mMemory == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
+							;
+						else
+							return true;
+					}
+				}
+
+				return false;
+			}
+		}
+
+		return true;
+	}
 	else
 		return false;
 }
@@ -12785,6 +12833,37 @@ void InterCodeBasicBlock::BuildLoopSuffix(void)
 	{
 		mVisited = true;
 
+		if (mFalseJump)
+		{
+			if (mTrueJump->mLoopHead && mTrueJump->mNumEntries == 2 && mFalseJump->mNumEntries > 1)
+			{
+				InterCodeBasicBlock* suffix = new InterCodeBasicBlock(mProc);
+
+				suffix->mEntryRequiredTemps = mFalseJump->mEntryRequiredTemps;
+				suffix->mExitRequiredTemps = mFalseJump->mEntryRequiredTemps;
+				suffix->mLocalModifiedTemps.Reset(mExitRequiredTemps.Size());
+
+				InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
+				suffix->Append(jins);
+				suffix->Close(mFalseJump, nullptr);
+				mFalseJump = suffix;
+				suffix->mNumEntries = 1;
+			}
+			else if (mFalseJump->mLoopHead && mFalseJump->mNumEntries == 2 && mTrueJump->mNumEntries > 1)
+			{
+				InterCodeBasicBlock* suffix = new InterCodeBasicBlock(mProc);
+				suffix->mEntryRequiredTemps = mTrueJump->mEntryRequiredTemps;
+				suffix->mExitRequiredTemps = mTrueJump->mEntryRequiredTemps;
+				suffix->mLocalModifiedTemps.Reset(mExitRequiredTemps.Size());
+
+				InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
+				suffix->Append(jins);
+				suffix->Close(mTrueJump, nullptr);
+				mTrueJump = suffix;
+				suffix->mNumEntries = 1;
+			}
+		}
+#if 0
 		if (mLoopHead && mNumEntries == 2 && mFalseJump)
 		{
 			if (mTrueJump == this && mFalseJump != this)
@@ -12820,6 +12899,7 @@ void InterCodeBasicBlock::BuildLoopSuffix(void)
 				}
 			}
 		}
+#endif
 
 		if (mTrueJump)
 			mTrueJump->BuildLoopSuffix();
@@ -13043,6 +13123,136 @@ bool InterCodeBasicBlock::MoveLoopHeadCheckToTail(void)
 	return modified;
 }
 
+bool SameExitCondition(InterCodeBasicBlock* b1, InterCodeBasicBlock* b2)
+{
+	if (b1->mTrueJump == b2->mTrueJump && b1->mFalseJump == b2->mFalseJump)
+	{
+		int n1 = b1->mInstructions.Size(), n2 = b2->mInstructions.Size();
+		if (n1 > 1 && n2 > 1)
+		{
+			if (b1->mInstructions[n1 - 1]->mCode == IC_BRANCH && b2->mInstructions[n2 - 1]->mCode == IC_BRANCH && 
+				b1->mInstructions[n1 - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+				b1->mInstructions[n1 - 1]->mSrc[0].mTemp == b1->mInstructions[n1 - 2]->mDst.mTemp &&
+				b1->mInstructions[n1 - 1]->mSrc[0].mFinal &&
+				b2->mInstructions[n2 - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+				b2->mInstructions[n2 - 1]->mSrc[0].mTemp == b2->mInstructions[n2 - 2]->mDst.mTemp &&
+				b2->mInstructions[n2 - 1]->mSrc[0].mFinal &&
+				b1->mInstructions[n1 - 2]->IsEqualSource(b2->mInstructions[n2 - 2]))
+			{
+				return true;
+			}
+		}
+	}
+	
+	return false;
+}
+
+bool InterCodeBasicBlock::MergeLoopTails(void)
+{
+	bool	modified = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() > 2)
+		{
+			int fi = 0;
+			while (fi < mEntryBlocks.Size() && mEntryBlocks[fi] == mLoopPrefix)
+				fi++;
+
+			int i = fi + 1;
+			while (i < mEntryBlocks.Size() && (mEntryBlocks[i] == mLoopPrefix || SameExitCondition(mEntryBlocks[i], mEntryBlocks[fi])))
+				i++;
+			if (i == mEntryBlocks.Size())
+			{
+				int n = 2;
+				bool match = true;
+				while (i == mEntryBlocks.Size() && n < mEntryBlocks[fi]->mInstructions.Size())
+				{
+					i = fi + 1;
+					while (i < mEntryBlocks.Size() && (mEntryBlocks[i] == mLoopPrefix || 
+						n < mEntryBlocks[i]->mInstructions.Size() &&
+						mEntryBlocks[i]->mInstructions[mEntryBlocks[i]->mInstructions.Size() - n - 1]->IsEqual(mEntryBlocks[fi]->mInstructions[mEntryBlocks[fi]->mInstructions.Size() - n - 1])))
+						i++;
+
+					if (i == mEntryBlocks.Size())
+						n++;
+				}
+
+				InterCodeBasicBlock* block = new InterCodeBasicBlock(mProc);
+				block->mTrueJump = mEntryBlocks[fi]->mTrueJump;
+				block->mFalseJump = mEntryBlocks[fi]->mFalseJump;
+				for (int i = 0; i < n; i++)
+					block->mInstructions.Push(mEntryBlocks[fi]->mInstructions[mEntryBlocks[fi]->mInstructions.Size() - n + i]);
+				
+				InterInstruction* bins = mEntryBlocks[fi]->mInstructions.Last();
+
+				i = 0;
+				while (i < mEntryBlocks.Size())
+				{
+					if (mEntryBlocks[i] == mLoopPrefix)
+						i++;
+					else
+					{
+						mEntryBlocks[i]->mInstructions.SetSize(mEntryBlocks[i]->mInstructions.Size() - n);
+						mEntryBlocks[i]->mFalseJump = nullptr;
+						mEntryBlocks[i]->mTrueJump = block;
+						InterInstruction* jins = new InterInstruction(bins->mLocation, IC_JUMP);
+						mEntryBlocks[i]->mInstructions.Push(jins);
+						block->mEntryBlocks.Push(mEntryBlocks[i]);
+						block->mNumEntries++;
+						mEntryBlocks.Remove(i);
+					}
+				}
+
+				mNumEntries = 2;
+				mEntryBlocks.Push(block);
+
+				modified = true;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MergeLoopTails())
+			modified = true;
+		if (mFalseJump && mFalseJump->MergeLoopTails())
+			modified = true;
+	}
+
+	return modified;
+}
+
+bool IsSingleLoopAssign(int at, InterCodeBasicBlock* block, const GrowingArray<InterCodeBasicBlock*>& body)
+{
+	InterInstruction* ai = block->mInstructions[at];
+	if (ai->mDst.mTemp < 0)
+		return true;
+	if (block->IsTempReferencedInRange(0, at, ai->mDst.mTemp))
+		return false;
+	if (block->IsTempModifiedInRange(at + 1, block->mInstructions.Size(), ai->mDst.mTemp))
+		return false;
+	for (int i = 1; i < body.Size(); i++)
+		if (body[i]->IsTempModified(ai->mDst.mTemp))
+			return false;
+	return true;
+}
+
+bool IsLoopInvariantTemp(int tmp, const GrowingArray<InterCodeBasicBlock*>& body)
+{
+	if (tmp < 0)
+		return true;
+
+	for (int i = 0; i < body.Size(); i++)
+		if (body[i]->IsTempModified(tmp))
+			return false;
+	return true;
+}
+
+static bool IsSimpleFactor(int64 val)
+{
+	return (val == 1 || val == 2 || val == 4 || val == 8);
+}
+
 bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	bool	modified = false;
@@ -13072,6 +13282,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 				if (tail->CollectSingleHeadLoopBody(this, tail, body))
 				{
 					int tz = tail->mInstructions.Size();
+
 #if 1
 					if (tz > 2)
 					{
@@ -13159,6 +13370,29 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 						}
 					}
 #endif
+
+					GrowingIntArray		indexScale(0);
+
+					if (!modified)
+					{
+						int tz = tail->mInstructions.Size();
+						if (tz > 2)
+						{
+							InterInstruction* ai = tail->mInstructions[tz - 3];
+							if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst > 0 && IsIntegerType(ai->mDst.mType) &&
+								!tail->IsTempModifiedInRange(tz - 1, tz, ai->mDst.mTemp) && !tail->IsTempModifiedInRange(0, tz - 3, ai->mDst.mTemp))
+							{
+								int i = 0;
+								while (i + 1 < body.Size() && !body[i]->IsTempModified(ai->mDst.mTemp))
+									i++;
+								if (i + 1 == body.Size())
+								{
+									indexScale[ai->mDst.mTemp] = (int)ai->mSrc[0].mIntConst;
+								}
+							}
+						}
+					}
+
 					bool	hasStore = false;
 					for (int j = 0; j < body.Size(); j++)
 					{
@@ -13175,6 +13409,87 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 					while (i < mInstructions.Size())
 					{
 						InterInstruction* lins = mInstructions[i];
+
+						if (lins->mCode == IC_BINARY_OPERATOR)
+						{
+							if (lins->mOperator == IA_MUL && lins->mSrc[0].mTemp < 0 && (lins->mDst.IsNotUByte() || !IsSimpleFactor(lins->mSrc[0].mIntConst)) && lins->mSrc[1].mTemp >= 0 && indexScale[lins->mSrc[1].mTemp] != 0 && IsSingleLoopAssign(i, this, body))
+							{
+								mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
+								mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
+								mEntryRequiredTemps += lins->mDst.mTemp;
+								tail->mExitRequiredTemps += lins->mDst.mTemp;
+								tail->mEntryRequiredTemps += lins->mDst.mTemp;
+								mInstructions.Remove(i);
+
+								InterInstruction* ains = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
+								ains->mOperator = IA_ADD;
+								ains->mDst = lins->mDst;
+								ains->mSrc[1] = lins->mDst;
+								ains->mSrc[0] = lins->mSrc[0];
+								ains->mSrc[0].mIntConst *= indexScale[lins->mSrc[1].mTemp];
+								tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+
+								indexScale[ains->mDst.mTemp] = (int)ains->mSrc[0].mIntConst;
+
+								modified = true;
+								continue;
+							}
+						}
+						else if (lins->mCode == IC_CONVERSION_OPERATOR && lins->mOperator == IA_EXT8TO16U && i + 1 < mInstructions.Size() && indexScale[lins->mSrc[0].mTemp] != 0 && IsSingleLoopAssign(i, this, body))
+						{
+							InterInstruction* nins = mInstructions[i + 1];
+
+							if (nins->mCode == IC_BINARY_OPERATOR)
+							{
+								if (nins->mOperator == IA_MUL && nins->mSrc[0].mTemp < 0 && (nins->mDst.IsNotUByte() || !IsSimpleFactor(nins->mSrc[0].mIntConst)) && nins->mSrc[1].mTemp >= 0 && nins->mSrc[1].mFinal && nins->mDst.mTemp && IsSingleLoopAssign(i + 1, this, body))
+								{
+									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
+									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, nins);
+									mLoopPrefix->mExitRequiredTemps += nins->mDst.mTemp;
+									mEntryRequiredTemps += nins->mDst.mTemp;
+									tail->mExitRequiredTemps += nins->mDst.mTemp;
+									tail->mEntryRequiredTemps += nins->mDst.mTemp;
+									mInstructions.Remove(i);
+									mInstructions.Remove(i);
+
+									InterInstruction* ains = new InterInstruction(nins->mLocation, IC_BINARY_OPERATOR);
+									ains->mOperator = IA_ADD;
+									ains->mDst = nins->mDst;
+									ains->mSrc[1] = nins->mDst;
+									ains->mSrc[0] = nins->mSrc[0];
+									ains->mSrc[0].mIntConst *= indexScale[lins->mSrc[0].mTemp];
+									tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+
+									indexScale[ains->mDst.mTemp] = (int)ains->mSrc[0].mIntConst;
+
+									modified = true;
+									continue;
+								}
+							}
+						}
+						else if (lins->mCode == IC_LEA)
+						{
+							if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].IsNotUByte() && indexScale[lins->mSrc[0].mTemp] != 0 && IsSingleLoopAssign(i, this, body) && IsLoopInvariantTemp(lins->mSrc[1].mTemp, body))
+							{
+								mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
+								mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
+								mEntryRequiredTemps += lins->mDst.mTemp;
+								tail->mExitRequiredTemps += lins->mDst.mTemp;
+								tail->mEntryRequiredTemps += lins->mDst.mTemp;
+								mInstructions.Remove(i);
+
+								InterInstruction* ains = new InterInstruction(lins->mLocation, IC_LEA);
+								ains->mDst = lins->mDst;
+								ains->mSrc[1] = lins->mDst;
+								ains->mSrc[0].mTemp = -1;
+								ains->mSrc[0].mType = IT_INT16;
+								ains->mSrc[0].mIntConst = indexScale[lins->mSrc[0].mTemp];
+								tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+
+								modified = true;
+								continue;
+							}
+						}
 
 						if (lins->mCode == IC_BINARY_OPERATOR || lins->mCode == IC_CONSTANT || lins->mCode == IC_UNARY_OPERATOR || 
 							lins->mCode == IC_CONVERSION_OPERATOR || lins->mCode == IC_SELECT ||
@@ -16458,6 +16773,46 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 #endif
+
+#if 1
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 0]->mOperator == IA_EXT8TO16U &&
+				mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
+				mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
+
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+
+				mInstructions[i + 2]->mCode == IC_STORE && 
+				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+				mInstructions[i + 2]->mSrc[0].mType == IT_INT8)
+			{
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[0];
+				mInstructions[i + 1]->mDst.mType = IT_INT8;
+
+				changed = true;
+			}
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 0]->mOperator == IA_EXT8TO16U &&
+				mInstructions[i + 0]->mSrc[0].mTemp >= 0 &&
+				mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
+
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_SUB) &&
+				mInstructions[i + 1]->mSrc[1].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+
+				mInstructions[i + 2]->mCode == IC_STORE &&
+				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+				mInstructions[i + 2]->mSrc[0].mType == IT_INT8)
+			{
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+				mInstructions[i + 1]->mDst.mType = IT_INT8;
+
+				changed = true;
+			}
+#endif
+
 #if 1
 			if (i + 2 < mInstructions.Size() &&
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR &&
@@ -19410,6 +19765,21 @@ void InterCodeProcedure::Close(void)
 	PropagateConstOperationsUp();
 
 #if 1
+	BuildLoopPrefix();
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	DisassembleDebug("Pre MergeLoopTails");
+
+	ResetVisited();
+	if (mEntryBlock->MergeLoopTails())
+	{
+		BuildTraces(false);
+		BuildDataFlowSets();
+	}
+
+	DisassembleDebug("Post MergeLoopTails");
 
 	SingleTailLoopOptimization(paramMemory);
 	BuildDataFlowSets();
