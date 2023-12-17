@@ -16789,6 +16789,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[0].mType == IT_INT8)
 			{
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[0];
+				mInstructions[i + 0]->mSrc[0].mFinal = false;
 				mInstructions[i + 1]->mDst.mType = IT_INT8;
 
 				changed = true;
@@ -16807,6 +16808,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[0].mType == IT_INT8)
 			{
 				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+				mInstructions[i + 0]->mSrc[0].mFinal = false;
 				mInstructions[i + 1]->mDst.mType = IT_INT8;
 
 				changed = true;
@@ -19139,7 +19141,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "interpret_statement");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -20303,7 +20305,7 @@ bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
 					{
 						if (mInstructions[j0]->mCode == IC_LEA && mInstructions[j0]->mSrc[1].mTemp < 0)
 							return false;
-						if (block->mInstructions[j1]->mCode == IC_LEA && mInstructions[j1]->mSrc[1].mTemp < 0)
+						if (block->mInstructions[j1]->mCode == IC_LEA && block->mInstructions[j1]->mSrc[1].mTemp < 0)
 							return false;
 					}
 				}

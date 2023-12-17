@@ -21816,8 +21816,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 			{
 				if (!mTrueJump->mIns[0].ChangesCarry() && mTrueJump->mIns[0].IsSame(mFalseJump->mIns[0]))
 				{
-					int live = mTrueJump->mIns[0].mLive;
-					mTrueJump->mIns[0].mLive |= LIVE_CPU_REG_C;
+					int live = mTrueJump->mIns[0].mLive | mFalseJump->mIns[0].mLive;
+					mTrueJump->mIns[0].mLive |= LIVE_CPU_REG_C | live;
 					mIns.Push(mTrueJump->mIns[0]);
 					mTrueJump->mIns.Remove(0);
 					mFalseJump->mIns.Remove(0);
@@ -44723,7 +44723,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "mh_size");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "interpret_builtin");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -45663,6 +45663,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->PropagateSinglePath())
 				changed = true;
 		}
+
 
 		if (step > 2 && !changed)
 		{
