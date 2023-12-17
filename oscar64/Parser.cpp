@@ -174,6 +174,8 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 			}
 		}
 	}
+	else
+		mErrors->Error(mScanner->mLocation, EERR_UNIMPLEMENTED, "Unnamed structs are not implemented");
 
 	if (!dec->mIdent || !dec->mScope)
 	{

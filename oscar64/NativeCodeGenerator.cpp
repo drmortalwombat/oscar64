@@ -8306,6 +8306,11 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
 		}
+		else if (ins->mDst.IsSByte())
+		{
+			// Upper byte will retain sign
+			ShiftRegisterLeftByte(proc, ins, dreg, lshift);
+		}
 		else if (ins->mSrc[index].IsUByte())
 			ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, int(ins->mSrc[index].mRange.mMaxValue));
 		else
@@ -8344,6 +8349,11 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
 		}
+		else if (ins->mDst.IsSByte())
+		{
+			// Upper byte will retain sign
+			ShiftRegisterLeftByte(proc, ins, dreg, lshift);
+		}
 		else if (ins->mSrc[index].IsUByte())
 			ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, int(ins->mSrc[index].mRange.mMaxValue));
 		else
@@ -8354,6 +8364,15 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 		{
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, dreg + 0));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_ASL, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 0));
+		}
+		else if (ins->mSrc[index].IsSByte() && ins->mSrc[index].mRange.mMinValue >= -42 && ins->mSrc[index].mRange.mMaxValue <= 42)
+		{
+			// Will retain sign
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_ASL, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_ZERO_PAGE, dreg + 0));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 0));
 		}
@@ -8379,6 +8398,11 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 1));
 		}
+		else if (ins->mDst.IsSByte())
+		{
+			// Upper byte will retain sign
+			ShiftRegisterLeftByte(proc, ins, dreg, lshift);
+		}
 		else
 			ShiftRegisterLeft(proc, ins, dreg, lshift);
 		return dreg;
@@ -8399,6 +8423,24 @@ int NativeCodeBasicBlock::ShortMultiply(InterCodeProcedure* proc, NativeCodeProc
 			}
 			else
 				ShiftRegisterLeftFromByte(proc, ins, dreg, lshift, int(ins->mSrc[index].mRange.mMaxValue) * 5);
+		}
+		else if (ins->mSrc[index].IsSByte() && ins->mSrc[index].mRange.mMinValue >= -25 && ins->mSrc[index].mRange.mMaxValue <= 25)
+		{
+			// Will retain sign
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_ASL, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_ASL, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_ZERO_PAGE, dreg + 0));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, dreg + 0));
+
+			if (ins->mDst.IsSByte())
+			{
+				// Upper byte will retain sign
+				ShiftRegisterLeftByte(proc, ins, dreg, lshift);
+			}
+			else
+				ShiftRegisterLeft(proc, ins, dreg, lshift);
 		}
 		else
 		{
@@ -11424,6 +11466,9 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 {
 	InterOperator	op = ins->mOperator;
 
+	bool	scmp = (op == IA_CMPGES) || (op == IA_CMPLES) || (op == IA_CMPGS) || (op == IA_CMPLS) || (op == IA_CMPEQ) || (op == IA_CMPNE);
+	bool	ucmp = (op == IA_CMPGEU) || (op == IA_CMPLEU) || (op == IA_CMPGU) || (op == IA_CMPLU) || (op == IA_CMPEQ) || (op == IA_CMPNE);
+
 	if (ins->mSrc[0].mType == IT_FLOAT)
 	{
 		if (ins->mSrc[0].mTemp < 0 || ins->mSrc[1].mTemp < 0)
@@ -11881,7 +11926,9 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 
 		}
 	}
-	else if (InterTypeSize[ins->mSrc[0].mType] == 1)
+	else if (InterTypeSize[ins->mSrc[0].mType] == 1 || 
+			scmp && ins->mSrc[0].IsSByte() && ins->mSrc[1].IsSByte() || 
+			ucmp && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte())
 	{
 		NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
 		NativeCodeBasicBlock* nblock = nproc->AllocateBlock();
