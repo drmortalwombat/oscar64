@@ -125,7 +125,7 @@ float exp(float f)
 	
 	int	fi = (int)ff;
 	
-	union {
+	union xx {
 		float	f;
 		int		i[2];
 	}	x;
@@ -155,7 +155,7 @@ float log(float f)
 	if (f == 0.0)
 		return 1.0;
 
-	union {
+	union xx {
 		float	f;
 		int		i[2];
 	}	x;
@@ -193,7 +193,7 @@ float sqrt(float f)
 {
 	if (f >= 0)
 	{
-		union {
+		union xx {
 			float	f;
 			int		i[2];
 		}	x;
@@ -216,7 +216,7 @@ float sqrt(float f)
 
 bool isinf(float f)
 {
-	union {
+	union xx {
 		float		f;
 		unsigned	i[2];
 	}	x;
@@ -228,7 +228,7 @@ bool isinf(float f)
 
 bool isfinite(float f)
 {
-	union {
+	union xx {
 		float		f;
 		unsigned	i[2];
 	}	x;
