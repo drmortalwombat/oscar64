@@ -174,8 +174,10 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 			}
 		}
 	}
-	else
-		mErrors->Error(mScanner->mLocation, EERR_UNIMPLEMENTED, "Unnamed structs are not implemented");
+	else if ((mCompilerOptions & COPT_CPLUSPLUS) && mScope->mLevel < SLEVEL_CLASS)
+	{
+		mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid unnamed struct on global level");
+	}
 
 	if (!dec->mIdent || !dec->mScope)
 	{
