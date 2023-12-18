@@ -61,11 +61,12 @@ inline char* _fullpath(char* absPath, const char* relPath, size_t maxLength)
 	return realpath(relPath, absPath);
 }
 
-inline int sprintf_s(char* buffer, const char* format, ...)
+template <size_t size>
+inline int sprintf_s(char(&buffer)[size], const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	int n = vsprintf(buffer, format, args);
+	int n = vsnprintf(buffer, size, format, args);
 	va_end(args);
 	return n;
 }
@@ -74,7 +75,7 @@ inline int sprintf_s(char* buffer, int size, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	int n = vsprintf(buffer, format, args);
+	int n = vsnprintf(buffer, size, format, args);
 	va_end(args);
 	return n;
 }
