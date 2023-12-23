@@ -298,6 +298,9 @@ exit /b %errorlevel%
 ..\release\oscar64 -e -O3 -n %~1
 @if %errorlevel% neq 0 goto :error
 
+..\release\oscar64 -e -O2 -xz -Oz -n %~1
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :testb
@@ -332,6 +335,9 @@ exit /b %errorlevel%
 @if %errorlevel% neq 0 goto :error
 
 ..\release\oscar64 -e -O3 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\release\oscar64 -e -O2 -xz -Oz -n %~1
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

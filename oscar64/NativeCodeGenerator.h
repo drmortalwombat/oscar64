@@ -615,6 +615,7 @@ public:
 
 	bool SinglePathRegisterForwardY(NativeCodeBasicBlock* path, int yreg);
 	bool SinglePathRegisterForward(void);
+	bool SinglePathStoreForward(void);
 
 	bool CanBytepassLoad(const NativeCodeInstruction& ains, int from = 0) const;
 	bool CanHoistStore(const NativeCodeInstruction& ains) const;
@@ -717,7 +718,7 @@ public:
 	bool PatchCrossBlockY2XFlood(const NativeCodeBasicBlock* block, int at);
 	bool PatchCrossBlockY2XFloodExit(const NativeCodeBasicBlock* block);
 
-	void PropagateZPAbsolute(void);
+	void PropagateZPAbsolute(const NativeRegisterDataSet& data);
 
 	void RegisterFunctionCalls(void);
 	bool MergeFunctionCalls(void);
@@ -770,6 +771,7 @@ class NativeCodeProcedure
 		void ResetVisited(void);
 		void ResetPatched(void);
 		void RebuildEntry(void);
+		void ResetIndexFlipped(void);
 
 		void SaveTempsToStack(int tempSave);
 		void LoadTempsFromStack(int tempSave);
@@ -801,6 +803,7 @@ public:
 	};
 
 	LinkerObject* AllocateShortMulTable(InterOperator op, int factor, int size, bool msb);
+	void PopulateShortMulTables(void);
 
 	Runtime& ResolveRuntime(const Ident* ident);
 
@@ -820,6 +823,7 @@ public:
 
 		bool IsSame(const FunctionCall* fc) const;
 		int Matches(const FunctionCall* fc) const;
+		int PotentialMatches(const FunctionCall* fc) const;
 	};
 
 	FunctionCall* mFunctionCalls;

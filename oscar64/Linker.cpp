@@ -46,6 +46,7 @@ bool LinkerReference::operator!=(const LinkerReference& ref)
 
 LinkerObject::LinkerObject(void)
 	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr), mIdent(nullptr), mFullIdent(nullptr), mStartUsed(0x10000), mEndUsed(0x00000), mMemory(nullptr)
+	, mPrefix(nullptr), mSuffix(nullptr)
 {}
 
 LinkerObject::~LinkerObject(void)
@@ -307,6 +308,44 @@ bool LinkerObject::IsSameConst(const LinkerObject* obj) const
 	return false;
 }
 
+int LinkerObject::FirstBank(void) const
+{
+	if (mRegion->mCartridgeBanks)
+	{
+		uint64	m = mRegion->mCartridgeBanks;
+		int i = 1;
+		while (!(m & 1))
+		{
+			i++;
+			m >>= 1;
+		}
+		return i;
+	}
+	else
+		return 0;
+}
+
+bool LinkerObject::IsBefore(const LinkerObject* obj) const
+{
+	if (mFlags & LOBJF_PLACED)
+	{
+		if (obj->mFlags & LOBJF_PLACED)
+		{
+			int	b0 = FirstBank(), b1 = obj->FirstBank();
+			if (b0 < b1)
+				return true;
+			else if (b0 == b1)
+				return mAddress < obj->mAddress;
+			else
+				return false;
+		}
+		else
+			return true;
+	}
+	else
+		return false;
+}
+
 LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, LinkerSection * section, LinkerObjectType type, int alignment)
 {
 	LinkerObject* obj = new LinkerObject;
@@ -325,6 +364,47 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 	section->mObjects.Push(obj);
 	mObjects.Push(obj);
 	return obj;
+}
+
+static bool Forwards(LinkerObject* pobj, LinkerObject* lobj)
+{
+	if (lobj->mAlignment == 1 && pobj && lobj->mType == LOT_NATIVE_CODE && pobj->mType == LOT_NATIVE_CODE && lobj->mSection == pobj->mSection)
+	{
+		if (pobj->mSize >= 3 && pobj->mData[pobj->mSize - 3] == 0x4c && pobj->mReferences.Size() > 0)
+		{
+			int i = 0;
+			while (i < pobj->mReferences.Size() && pobj->mReferences[i]->mOffset != pobj->mSize - 2)
+				i++;
+			if (i < pobj->mReferences.Size() && pobj->mReferences[i]->mRefObject == lobj && pobj->mReferences[i]->mRefOffset == 0)
+			{
+				printf("Direct %s -> %s\n", pobj->mIdent->mString, lobj->mIdent->mString);
+
+				pobj->mSuffixReference = i;
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+
+
+void Linker::CheckDirectJumps(void)
+{
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		for (int j = 0; j < mObjects.Size(); j++)
+		{
+			if (i != j && !mObjects[j]->mPrefix && Forwards(mObjects[i], mObjects[j]))
+			{
+				mObjects[i]->mSuffix = mObjects[j];
+				mObjects[j]->mPrefix = mObjects[i];
+				break;
+			}
+		}
+	}
 }
 
 void Linker::CombineSameConst(void)
@@ -415,32 +495,17 @@ void Linker::ReferenceObject(LinkerObject* obj)
 	}
 }
 
-static bool Forwards(LinkerObject* pobj, LinkerObject* lobj)
-{
-	if (lobj->mAlignment == 1 && pobj && lobj->mType == LOT_NATIVE_CODE && pobj->mType == LOT_NATIVE_CODE)
-	{
-		if (pobj->mSize >= 3 && pobj->mData[pobj->mSize - 3] == 0x4c && pobj->mReferences.Size() > 0)
-		{
-			int i = 0;
-			while (i < pobj->mReferences.Size() && pobj->mReferences[i]->mOffset != pobj->mSize - 2)
-				i++;
-			if (i < pobj->mReferences.Size() && pobj->mReferences[i]->mRefObject == lobj && pobj->mReferences[i]->mRefOffset == 0)
-			{
-				printf("Direct %s -> %s\n", pobj->mIdent->mString, lobj->mIdent->mString);
-
-				pobj->mReferences[i]->mFlags = 0;
-				pobj->mSize -= 3;
-
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
 bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 {
+	if (merge && lobj->mPrefix && !(lobj->mPrefix->mFlags & LOBJF_PLACED))
+	{
+		if (!Allocate(linker, lobj->mPrefix, true))
+			return false;
+
+		if (lobj->mFlags & LOBJF_PLACED)
+			return true;
+	}
+		
 	int i = 0;
 	while (i < mFreeChunks.Size())
 	{
@@ -451,9 +516,11 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 			;
 		else if (end <= mFreeChunks[i].mEnd)
 		{
-			// Check if directly follows an object that jumps to this new object
-			if (merge && Forwards(mFreeChunks[i].mLastObject, lobj))
+			if (merge && lobj->mPrefix && lobj->mPrefix == mFreeChunks[i].mLastObject)
 			{
+				lobj->mPrefix->mReferences[lobj->mPrefix->mSuffixReference]->mFlags = 0;
+				lobj->mPrefix->mSize -= 3;
+
 				start -= 3;
 				end -= 3;
 			}
@@ -483,6 +550,12 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 				mFreeChunks[i].mEnd = start;
 			}
 
+			if (merge && lobj->mSuffix && !(lobj->mSuffix->mFlags & LOBJF_PLACED))
+			{
+				if (!Allocate(linker, lobj->mSuffix, true))
+					return false;
+			}
+
 			return true;
 		}
 		i++;
@@ -500,8 +573,11 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 	if (end <= mEnd)
 	{
 		// Check if directly follows an object that jumps to this new object
-		if (merge && Forwards(mLastObject, lobj))
+		if (merge && lobj->mPrefix && lobj->mPrefix == mLastObject)
 		{
+			lobj->mPrefix->mReferences[lobj->mPrefix->mSuffixReference]->mFlags = 0;
+			lobj->mPrefix->mSize -= 3;
+
 			start -= 3;
 			end -= 3;
 			mLastObject = nullptr;
@@ -519,6 +595,12 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 		mUsed = end - mStart;
 
 		mLastObject = lobj;
+
+		if (merge && lobj->mSuffix && !(lobj->mSuffix->mFlags & LOBJF_PLACED))
+		{
+			if (!Allocate(linker, lobj->mSuffix, true))
+				return false;
+		}
 
 		return true;
 	}
@@ -735,6 +817,36 @@ void Linker::PlaceObjects(void)
 	}
 }
 
+void Linker::SortObjectsPartition(int l, int r)
+{
+	while (l < r)
+	{
+		int pi = (l + r) >> 1;
+
+		LinkerObject* po = mObjects[pi];
+		mObjects[pi] = mObjects[l];
+
+		pi = l;
+		for (int i = l + 1; i < r; i++)
+		{
+			if (mObjects[i]->IsBefore(po))
+			{
+				mObjects[pi++] = mObjects[i];
+				mObjects[i] = mObjects[pi];
+			}
+		}
+		mObjects[pi] = po;
+
+		SortObjectsPartition(l, pi);
+		l = pi + 1;
+	}
+}
+
+void Linker::SortObjects(void)
+{
+	SortObjectsPartition(0, mObjects.Size());
+}
+
 void Linker::Link(void)
 {
 	if (mErrors->mErrorCount == 0)
@@ -885,8 +997,9 @@ void Linker::Link(void)
 				}
 			}
 		}
-
 	}
+
+	SortObjects();
 }
 
 static const char * LinkerObjectTypeNames[] = 

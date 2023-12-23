@@ -698,7 +698,7 @@ static bool SameMemRegion(const InterOperand& op1, const InterOperand& op2)
 // returns true if op2 is part of op1
 static bool SameMemSegment(const InterOperand& op1, const InterOperand& op2)
 {
-	if (op1.mMemory != op2.mMemory || op1.mIntConst > op2.mIntConst || op1.mIntConst + op1.mOperandSize < op2.mIntConst + op2.mOperandSize)
+	if (op1.mMemory != op2.mMemory || op1.mIntConst > op2.mIntConst || op1.mIntConst + op1.mOperandSize < op2.mIntConst + op2.mOperandSize || op1.mStride != op2.mStride)
 		return false;
 
 	switch (op1.mMemory)
@@ -4698,14 +4698,14 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 			if (mSrc[1].mStride != 1)
 			{
 				if (mSrc[0].mStride != 1)
-					fprintf(file, "COPY%c%d%c%d", memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory], mSrc[1].mStride);
+					fprintf(file, "COPY%d:%c%d%c%d", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory], mSrc[1].mStride);
 				else
-					fprintf(file, "COPY%c%c%d", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory], mSrc[1].mStride);
+					fprintf(file, "COPY%d:%c%c%d", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory], mSrc[1].mStride);
 			}
 			else if (mSrc[0].mStride != 1)
-				fprintf(file, "COPY%c%d%c", memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory]);
+				fprintf(file, "COPY%d:%c%d%c", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory]);
 			else
-				fprintf(file, "COPY%c%c", memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
+				fprintf(file, "COPY%d:%c%c", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
 
 		case IC_MALLOC:
@@ -6279,7 +6279,10 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 						ins->mSrc[0].mMemory = ltemps[k]->mSrc[0].mMemory;
 						ins->mSrc[0].mTemp = ltemps[k]->mSrc[0].mTemp;
 						ins->mSrc[0].mVarIndex = ltemps[k]->mSrc[0].mVarIndex;
-						ins->mSrc[0].mIntConst = ins->mSrc[0].mIntConst * ltemps[k]->mSrc[0].mStride + ltemps[k]->mSrc[0].mIntConst;
+						if (ltemps[k]->mSrc[0].mStride != ltemps[k]->mSrc[1].mStride)
+							ins->mSrc[0].mIntConst = (ins->mSrc[0].mIntConst - ltemps[k]->mSrc[1].mIntConst) / ltemps[k]->mSrc[1].mStride * ltemps[k]->mSrc[0].mStride + ltemps[k]->mSrc[0].mIntConst;
+						else 
+							ins->mSrc[0].mIntConst = ins->mSrc[0].mIntConst - ltemps[k]->mSrc[1].mIntConst + ltemps[k]->mSrc[0].mIntConst;
 						ins->mSrc[0].mLinkerObject = ltemps[k]->mSrc[0].mLinkerObject;
 						ins->mSrc[0].mStride = ltemps[k]->mSrc[0].mStride;
 						changed = true;
@@ -6330,14 +6333,14 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 					j = 0;
 					for (int k = 0; k < ltemps.Size(); k++)
 					{
-						if (ltemps[k]->mSrc[0].mTemp < 0 && ltemps[k]->mSrc[0].mMemory == IM_LOCAL && aliasedLocals[ltemps[k]->mSrc[0].mVarIndex] ||
-							ltemps[k]->mSrc[1].mTemp < 0 && ltemps[k]->mSrc[1].mMemory == IM_LOCAL && aliasedLocals[ltemps[k]->mSrc[1].mVarIndex] ||
-							ltemps[k]->mSrc[0].mTemp < 0 && (ltemps[k]->mSrc[0].mMemory == IM_PARAM || ltemps[k]->mSrc[0].mMemory == IM_FPARAM) && aliasedParams[ltemps[k]->mSrc[0].mVarIndex] ||
-							ltemps[k]->mSrc[1].mTemp < 0 && (ltemps[k]->mSrc[1].mMemory == IM_PARAM || ltemps[k]->mSrc[1].mMemory == IM_FPARAM) && aliasedParams[ltemps[k]->mSrc[1].mVarIndex])
+						if (ltemps[k]->mSrc[0].mTemp < 0 && ltemps[k]->mSrc[1].mTemp < 0 &&
+							(ltemps[k]->mSrc[0].mMemory == IM_LOCAL && !aliasedLocals[ltemps[k]->mSrc[0].mVarIndex] ||
+							 (ltemps[k]->mSrc[0].mMemory == IM_PARAM || ltemps[k]->mSrc[0].mMemory == IM_FPARAM) && !aliasedParams[ltemps[k]->mSrc[0].mVarIndex]) &&
+							(ltemps[k]->mSrc[1].mMemory == IM_LOCAL && !aliasedLocals[ltemps[k]->mSrc[1].mVarIndex] ||
+							 (ltemps[k]->mSrc[1].mMemory == IM_PARAM || ltemps[k]->mSrc[1].mMemory == IM_FPARAM) && !aliasedParams[ltemps[k]->mSrc[1].mVarIndex]))
 						{
-						}
-						else
 							ltemps[j++] = ltemps[k];
+						}
 					}
 					ltemps.SetSize(j);
 				}

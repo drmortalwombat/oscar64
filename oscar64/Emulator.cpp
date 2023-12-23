@@ -7,6 +7,7 @@ Emulator::Emulator(Linker* linker)
 {
 	for (int i = 0; i < 0x10000; i++)
 		mMemory[i] = 0;
+	mJiffies = true;
 }
 
 
@@ -514,19 +515,22 @@ int Emulator::Emulate(int startIP, int trace)
 	int		ticks = 0;
 	while (mIP != 0)
 	{
-		ticks++;
-		if (ticks > 4500)
+		if (mJiffies)
 		{
-			mMemory[0xa2]++;
-			if (!mMemory[0xa2])
+			ticks++;
+			if (ticks > 4500)
 			{
-				mMemory[0xa1]++;
-				if (!mMemory[0xa1])
+				mMemory[0xa2]++;
+				if (!mMemory[0xa2])
 				{
-					mMemory[0xa0]++;
+					mMemory[0xa1]++;
+					if (!mMemory[0xa1])
+					{
+						mMemory[0xa0]++;
+					}
 				}
+				ticks = 0;
 			}
-			ticks = 0;
 		}
 
 		if (mIP == 0xffd2)

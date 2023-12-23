@@ -1087,7 +1087,10 @@ bool Compiler::GenerateCode(void)
 		mLinker->ReferenceObject(mCompilationUnits->mReferenced[i]->mLinkerObject);
 
 	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
+	{
 		mLinker->CombineSameConst();
+		mLinker->CheckDirectJumps();
+	}
 
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Link executable\n");
@@ -1285,6 +1288,9 @@ int Compiler::ExecuteCode(bool profile, int trace)
 
 	printf("Running emulation...\n");
 	Emulator* emu = new Emulator(mLinker);
+
+	if (mCompilerOptions & COPT_EXTENDED_ZERO_PAGE)
+		emu->mJiffies = false;
 
 	int ecode = 20;
 	if (mCompilerOptions & COPT_TARGET_PRG)

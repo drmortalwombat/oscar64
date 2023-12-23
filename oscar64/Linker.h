@@ -195,6 +195,8 @@ public:
 	int									mNumTemporaries;
 	ZeroPageSet							mZeroPageSet;
 	LinkerSection					*	mStackSection;
+	LinkerObject					*	mPrefix, * mSuffix;
+	int									mSuffixReference;
 
 	ExpandingArray<LinkerObjectRange>	mRanges;
 	ExpandingArray<CodeLocation>		mCodeLocations;
@@ -219,6 +221,9 @@ public:
 	void MarkRelevant(void);
 
 	bool IsSameConst(const LinkerObject* obj) const;
+
+	bool IsBefore(const LinkerObject* obj) const;
+	int FirstBank(void) const;
 };
 
 class LinkerOverlay
@@ -256,6 +261,8 @@ public:
 
 	LinkerOverlay* AddOverlay(const Location& location, const Ident* ident, int bank);
 
+	void SortObjects(void);
+
 //	void AddReference(const LinkerReference& ref);
 
 	bool WritePrgFile(DiskImage * image, const char* filename);
@@ -290,7 +297,8 @@ public:
 	int	mProgramStart, mProgramEnd;
 
 	void ReferenceObject(LinkerObject* obj);
-
+	
+	void CheckDirectJumps(void);
 	void CollectReferences(void);
 	void CombineSameConst(void);
 	void PatchReferences(bool inlays);
@@ -300,6 +308,8 @@ public:
 protected:
 	NativeCodeDisassembler	mNativeDisassembler;
 	ByteCodeDisassembler	mByteCodeDisassembler;
+
+	void SortObjectsPartition(int l, int r);
 
 	Errors* mErrors;
 };

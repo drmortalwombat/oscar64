@@ -919,7 +919,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
 		dec->mBase = mLeft->mDecValue;
-		dec->mOffset = mDecType->mSize * mRight->mDecValue->mInteger;
+		dec->mOffset = int(mDecType->mSize * mRight->mDecValue->mInteger);
 		dec->mSize = mDecType->mSize;
 		ex->mDecValue = dec;
 		ex->mDecType = mDecType;
@@ -1770,7 +1770,8 @@ Declaration* Declaration::ToStriped(Errors * errors)
 		else
 		{
 			ndec->mStride = 1;
-			ndec->mBase = mBase->ToStriped(mSize / mBase->mSize);
+			if (mBase->mSize > 0)
+				ndec->mBase = mBase->ToStriped(mSize / mBase->mSize);
 		}
 	}
 	else if (ndec->mBase)

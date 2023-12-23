@@ -16,6 +16,7 @@ public:
 
 	int		mIP;
 	uint8	mRegA, mRegX, mRegY, mRegS, mRegP;
+	bool	mJiffies;
 
 	Linker* mLinker;
 
