@@ -218,22 +218,30 @@ void vspr_hide(char sp)
 
 void vspr_sort(void)
 {
-	spriteYPos[1] = vspriteYLow[spriteOrder[0]];
+	byte rm = vspriteYLow[spriteOrder[0]];
+	spriteYPos[1] = rm;
 
 	for(char i = 1; i<VSPRITES_MAX; i++)
 	{
 		byte ri = spriteOrder[i];
 		byte rr = vspriteYLow[ri];
-		byte j = i, rj = spriteYPos[j];
-		while (rr < rj)
+		if (rr < rm)
 		{
-			spriteYPos[j + 1] = rj;
-			spriteOrder[j] = spriteOrder[j - 1];
-			rj = spriteYPos[j - 1];
-			j--;
+			byte j = i, rj = rm;
+			do 	{
+				spriteYPos[j + 1] = rj;
+				spriteOrder[j] = spriteOrder[j - 1];
+				rj = spriteYPos[j - 1];
+				j--;
+			} while (rr < rj);
+			spriteOrder[j] = ri;
+			spriteYPos[j + 1] = rr;
 		}
-		spriteOrder[j] = ri;
-		spriteYPos[j + 1] = rr;
+		else
+		{
+			spriteYPos[i + 1] = rr;
+			rm = rr;
+		}
 	}
 }
 

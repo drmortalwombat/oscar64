@@ -880,6 +880,8 @@ void Scanner::NextPreToken(void)
 					decoder = SFD_CTM_CHAR_ATTRIB_2;
 				else if (!strcmp(mTokenIdent->mString, "ctm_tiles8"))
 					decoder = SFD_CTM_TILES_8;
+				else if (!strcmp(mTokenIdent->mString, "ctm_tiles8sw"))
+					decoder = SFD_CTM_TILES_8_SW;
 				else if (!strcmp(mTokenIdent->mString, "ctm_tiles16"))
 					decoder = SFD_CTM_TILES_16;
 				else if (!strcmp(mTokenIdent->mString, "ctm_map8"))

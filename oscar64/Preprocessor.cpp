@@ -463,6 +463,23 @@ void SourceFile::ReadCharPad(SourceFileDecoder decoder)
 			}
 			return;
 		}
+		else if (decoder == SFD_CTM_TILES_8_SW)
+		{
+			mMemSize = numTiles * tileWidth * tileHeight;
+			mLimit = mMemSize;
+			mMemPos = 0;
+			mMemData = new uint8[mMemSize];
+			for (int j = 0; j < numTiles; j++)
+			{
+				for (int i = 0; i < tileWidth * tileHeight; i++)
+				{
+					int16	d;
+					fread(&d, 2, 1, mFile);
+					mMemData[j + i * numTiles] = uint8(d);
+				}
+			}
+			return;
+		}
 		else
 			fseek(mFile, 2 * numTiles * tileWidth * tileHeight, SEEK_CUR);
 
@@ -564,6 +581,7 @@ void SourceFile::Limit(SourceFileDecoder decoder, int skip, int limit)
 	case SFD_CTM_CHAR_ATTRIB_1:
 	case SFD_CTM_CHAR_ATTRIB_2:
 	case SFD_CTM_TILES_8:
+	case SFD_CTM_TILES_8_SW:
 	case SFD_CTM_TILES_16:
 	case SFD_CTM_MAP_8:
 	case SFD_CTM_MAP_16:

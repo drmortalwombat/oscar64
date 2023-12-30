@@ -3099,7 +3099,8 @@ void InterOperand::ForwardMem(const InterOperand& op)
 void InterOperand::Forward(const InterOperand& op)
 {
 	mTemp = op.mTemp;
-	mType = op.mType;
+	if (mType != IT_INT8 || op.mType != IT_INT16 && op.mType != IT_INT32)
+		mType = op.mType;
 	mRange = op.mRange;
 	mFinal = false;
 }
@@ -19144,7 +19145,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "interpret_statement");
+	CheckFunc = !strcmp(mIdent->mString, "tile_collide");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

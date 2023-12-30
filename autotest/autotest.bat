@@ -54,6 +54,9 @@ rem @echo off
 @call :testh stdlibtest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test mathtest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test testint16.c
 @if %errorlevel% neq 0 goto :error
 

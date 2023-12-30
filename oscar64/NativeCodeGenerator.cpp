@@ -28686,6 +28686,15 @@ bool NativeCodeBasicBlock::IsFinalZeroPageUseTail(const NativeCodeBasicBlock* bl
 			}
 			else if (mIns[i].ReferencesZeroPage(to) || (pair && mIns[i].ReferencesZeroPage(to + 1)))
 				return false;
+			else if (mIns[i].mType == ASMIT_JSR)
+			{
+				if (mIns[i].mFlags & NCIF_USE_ZP_32_X)
+				{
+					if (to >= mIns[i].mParam && to < mIns[i].mParam + 4 ||
+						from >= mIns[i].mParam && from < mIns[i].mParam + 4)
+						return false;
+				}
+			}
 		}
 
 		if (mTrueJump && !mTrueJump->IsFinalZeroPageUseTail(block, from, to, pair))
@@ -42657,7 +42666,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				if (mFalseJump)
 					mFalseJump->CheckLive();
 #if 1
-				if (pass < 7 && i + 1 < mIns.Size())
+				if (pass < 10 && i + 1 < mIns.Size())
 				{
 					if (
 						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_X || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 0].mMode == ASMIM_INDIRECT_Y) &&
@@ -45130,7 +45139,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "atan2");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -45936,6 +45945,7 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 
 #endif
+
 		if (step == 2)
 		{
 			ResetVisited();
@@ -46613,6 +46623,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 
