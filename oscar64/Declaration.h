@@ -290,6 +290,7 @@ public:
 	Parser			*	mParser;
 
 	GrowingArray<Declaration*>	mCallers, mCalled, mFriends;
+	GrowingArray<Expression*>	mReferences;
 
 	bool CanAssign(const Declaration* fromType) const;
 	bool IsSame(const Declaration* dec) const;

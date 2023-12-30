@@ -1321,6 +1321,23 @@ int Compiler::ExecuteCode(bool profile, int trace)
 	return ecode;
 }
 
+static void DumpReferences(FILE* file, Declaration* dec)
+{
+	if (dec->mReferences.Size())
+	{
+		fprintf(file, ", \"references\": [");
+		for (int i = 0; i < dec->mReferences.Size(); i++)
+		{
+			if (i > 0)
+				fprintf(file, ",");
+			Expression* exp = dec->mReferences[i];
+			fprintf(file, "\n\t\t\t{\"source\": \"%s\", \"line\": %d, \"column\": %d}", exp->mLocation.mFileName, exp->mLocation.mLine, exp->mLocation.mColumn);
+		}
+		fprintf(file, "]");
+	}
+
+}
+
 bool Compiler::WriteDbjFile(const char* filename)
 {
 	FILE* file;
@@ -1346,7 +1363,9 @@ bool Compiler::WriteDbjFile(const char* filename)
 						fprintf(file, ",\n");
 					first = false;
 
-					fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d}", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+					fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"typeid\": %d", v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, types.IndexOrPush(v->mDeclaration->mBase));
+					DumpReferences(file, v->mDeclaration);
+					fprintf(file, "}");
 				}
 			}
 		}
@@ -1416,7 +1435,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 									fprintf(file, ",\n");
 								vfirst = false;
 
-								fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d}", 
+								fprintf(file, "\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d", 
 									v->mIdent->mString, v->mLinkerObject->mAddress, v->mLinkerObject->mAddress + v->mLinkerObject->mSize, 
 									v->mDeclaration->mLocation.mLine, v->mDeclaration->mEndLocation.mLine,
 									types.IndexOrPush(v->mDeclaration->mBase));
@@ -1436,7 +1455,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 								fprintf(file, ",\n");
 							vfirst = false;
 
-							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d}", 
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d", 
 								v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_LOCALS, 
 								v->mDeclaration->mLocation.mLine, v->mDeclaration->mEndLocation.mLine,
 								types.IndexOrPush(v->mDeclaration->mBase));
@@ -1447,15 +1466,21 @@ bool Compiler::WriteDbjFile(const char* filename)
 								fprintf(file, ",\n");
 							vfirst = false;
 
-							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d}", 
+							fprintf(file, "\t\t\t{\"name\": \"%s\", \"start\": %d, \"end\": %d, \"base\": %d, \"enter\": %d, \"leave\": %d, \"typeid\": %d", 
 								v->mIdent->mString, v->mOffset, v->mOffset + v->mSize, BC_REG_STACK, 
 								v->mDeclaration->mLocation.mLine, v->mDeclaration->mEndLocation.mLine,
 								types.IndexOrPush(v->mDeclaration->mBase));
 						}
+
+						if (v->mDeclaration)
+							DumpReferences(file, v->mDeclaration);
+						fprintf(file, "}");
 					}
 				}
 
-				fprintf(file, "]}\n");
+				fprintf(file, "]");
+				DumpReferences(file, p->mDeclaration);
+				fprintf(file, "}\n");
 			}
 		}
 		fprintf(file, "\t],\n");

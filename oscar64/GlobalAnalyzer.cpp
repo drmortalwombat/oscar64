@@ -691,6 +691,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 	case EX_VOID:
 		break;
 	case EX_CONSTANT:
+		if (mCompilerOptions & COPT_DEBUGINFO)
+			exp->mDecValue->mReferences.Push(exp);
+
 		if (exp->mDecValue->mType == DT_CONST_FUNCTION)
 			AnalyzeProcedure(exp->mDecValue->mValue, exp->mDecValue);
 		else if (exp->mDecValue->mType == DT_CONST_STRUCT)
@@ -715,6 +718,9 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 
 		return exp->mDecValue;
 	case EX_VARIABLE:
+		if (mCompilerOptions & COPT_DEBUGINFO)
+			exp->mDecValue->mReferences.Push(exp);
+
 		if ((exp->mDecValue->mFlags & DTF_STATIC) || (exp->mDecValue->mFlags & DTF_GLOBAL))
 		{
 			Declaration* type = exp->mDecValue->mBase;

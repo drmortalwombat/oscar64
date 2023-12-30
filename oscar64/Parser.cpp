@@ -5209,6 +5209,8 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 	Declaration* dec = nullptr;
 	Expression* exp = nullptr, * rexp = nullptr;
 
+	Location	eloc(mScanner->mLocation);
+
 	switch (mScanner->mToken)
 	{
 	case TK_INT:
@@ -5542,7 +5544,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 
 				if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
 				{
-					exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					exp = new Expression(eloc, EX_CONSTANT);
 					exp->mDecValue = dec;
 					exp->mDecType = dec->mBase;
 					exp->mConst = true;
@@ -5565,7 +5567,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 
 					if (!exp)
 					{
-						exp = new Expression(mScanner->mLocation, EX_VARIABLE);
+						exp = new Expression(eloc, EX_VARIABLE);
 						exp->mDecValue = dec;
 						exp->mDecType = dec->mBase;
 					}

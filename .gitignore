@@ -349,3 +349,5 @@ make/oscar64
 *.recipe
 *.exe
 *.dbj
+*.json
+*.mapd
