@@ -1,6 +1,6 @@
 CC=../bin/oscar64
 CXX=$(CC)
-SRCS=$(wildcard *.c *.cpp)
+SRCS=$(filter-out opp_part1.cpp opp_part2.cpp, $(wildcard *.c *.cpp))
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
