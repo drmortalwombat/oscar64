@@ -16725,6 +16725,16 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 					{
 						if (this->CanBytepassLoad(mIns[sz], sz + 1) && mTrueJump->CanBytepassLoad(mIns[sz]) && mFalseJump->CanBytepassLoad(mIns[sz]))
 						{
+							if (mIns[sz].mMode == ASMIM_ZERO_PAGE)
+							{
+								mExitRequiredRegs += mIns[sz].mAddress;
+								mTrueJump->mTrueJump->mEntryRequiredRegs += mIns[sz].mAddress;
+								mTrueJump->mEntryRequiredRegs += mIns[sz].mAddress;
+								mTrueJump->mExitRequiredRegs += mIns[sz].mAddress;
+								mFalseJump->mEntryRequiredRegs += mIns[sz].mAddress;
+								mFalseJump->mExitRequiredRegs += mIns[sz].mAddress;
+							}
+
 							mTrueJump->mTrueJump->mIns.Insert(0, NativeCodeInstruction(mIns[sz].mIns, ASMIT_LDY, mIns[sz]));
 							changed = true;
 						}
@@ -16740,6 +16750,15 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 					{
 						if (this->CanBytepassLoad(mIns[sz], sz + 1) && mTrueJump->CanBytepassLoad(mIns[sz]) && mFalseJump->CanBytepassLoad(mIns[sz]))
 						{
+							if (mIns[sz].mMode == ASMIM_ZERO_PAGE)
+							{
+								mExitRequiredRegs += mIns[sz].mAddress;
+								mTrueJump->mTrueJump->mEntryRequiredRegs += mIns[sz].mAddress;
+								mTrueJump->mEntryRequiredRegs += mIns[sz].mAddress;
+								mTrueJump->mExitRequiredRegs += mIns[sz].mAddress;
+								mFalseJump->mEntryRequiredRegs += mIns[sz].mAddress;
+								mFalseJump->mExitRequiredRegs += mIns[sz].mAddress;
+							}
 							mTrueJump->mTrueJump->mIns.Insert(0, NativeCodeInstruction(mIns[sz].mIns, ASMIT_LDX, mIns[sz]));
 							changed = true;
 						}
@@ -16779,6 +16798,11 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 					if (i == mIns.Size())
 					{
 						mIns[sz].mLive |= mIns[mIns.Size() - 1].mLive;
+						if (mIns[sz].mMode == ASMIM_ZERO_PAGE)
+						{
+							mExitRequiredRegs += mIns[sz].mAddress;
+							mTrueJump->mEntryRequiredRegs += mIns[sz].mAddress;
+						}
 						mTrueJump->mIns.Insert(0, mIns[sz]);
 						mIns.Remove(sz);
 						changed = true;
@@ -16798,6 +16822,11 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 					if (i == mIns.Size())
 					{
 						mIns[sz].mLive |= mIns[mIns.Size() - 1].mLive;
+						if (mIns[sz].mMode == ASMIM_ZERO_PAGE)
+						{
+							mExitRequiredRegs += mIns[sz].mAddress;
+							mTrueJump->mEntryRequiredRegs += mIns[sz].mAddress;
+						}
 						mTrueJump->mIns.Insert(0, mIns[sz]);
 						mIns.Remove(sz);
 						changed = true;
@@ -45139,7 +45168,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "atan2");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "enemies_check");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -46102,6 +46131,7 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+
 		if (step > 6)
 		{
 			ResetVisited();
@@ -46474,6 +46504,7 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->CheckBlocks();
 #endif
 
+
 #if 1
 		if (step == 8)
 		{
@@ -46623,7 +46654,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 
