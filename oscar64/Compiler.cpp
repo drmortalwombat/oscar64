@@ -1323,13 +1323,13 @@ int Compiler::ExecuteCode(bool profile, int trace)
 
 static void DumpReferences(FILE* file, Declaration* dec)
 {
-	if (dec->mReferences.Size())
+	if (dec)
 	{
 		fprintf(file, ", \"references\": [");
+		fprintf(file, "\n\t\t\t{\"source\": \"%s\", \"line\": %d, \"column\": %d}", dec->mLocation.mFileName, dec->mLocation.mLine, dec->mLocation.mColumn);
 		for (int i = 0; i < dec->mReferences.Size(); i++)
 		{
-			if (i > 0)
-				fprintf(file, ",");
+			fprintf(file, ",");
 			Expression* exp = dec->mReferences[i];
 			fprintf(file, "\n\t\t\t{\"source\": \"%s\", \"line\": %d, \"column\": %d}", exp->mLocation.mFileName, exp->mLocation.mLine, exp->mLocation.mColumn);
 		}
