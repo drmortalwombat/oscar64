@@ -1014,6 +1014,7 @@ static const char * LinkerObjectTypeNames[] =
 	"BSS",
 	"HEAP",
 	"STACK",
+	"INLAY",
 	"START",
 	"END"
 };
