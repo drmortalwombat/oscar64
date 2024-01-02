@@ -6964,6 +6964,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[1].mTemp].mBaseTemp;
 				tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[1].mTemp].mOffset + ins->mSrc[0].mIntConst;
 			}
+			else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+				ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst > 0 &&
+				tempChain[ins->mSrc[0].mTemp].mBaseTemp >= 0)
+			{
+				tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[0].mTemp].mBaseTemp;
+				tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[0].mTemp].mOffset + ins->mSrc[1].mIntConst;
+			}
 			else if (ins->mCode == IC_CONVERSION_OPERATOR && ins->mOperator == IA_EXT8TO16U && ins->mSrc[0].mTemp >= 0)
 				tempChain[ins->mDst.mTemp] = tempChain[ins->mSrc[0].mTemp];
 			else if (ins->mDst.mTemp >= 0)
@@ -9654,7 +9661,16 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mSrc[1] = cins->mDst;
 								nins->mDst.mTemp = spareTemps++;
 								nins->mDst.mType = IT_INT16;
-								nins->mDst.mRange = ins->mDst.mRange;
+								if (cins->mDst.mRange.mMinState == IntegerValueRange::S_BOUND)
+								{
+									nins->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+									nins->mDst.mRange.mMinValue = cins->mDst.mRange.mMinValue << nins->mSrc[0].mIntConst;
+								}
+								if (cins->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
+								{
+									nins->mDst.mRange.mMaxState = IntegerValueRange::S_BOUND;
+									nins->mDst.mRange.mMaxValue = cins->mDst.mRange.mMaxValue << nins->mSrc[0].mIntConst;
+								}
 								mInstructions.Insert(i + 1, nins);
 
 								ins->mOperator = ains->mOperator;
@@ -15560,6 +15576,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ins->mOperator = IA_ADD;
 						ins->mSrc[0].mIntConst = indexStep[ins->mSrc[1].mTemp] << ins->mSrc[0].mIntConst;
 						ins->mSrc[1] = ins->mDst;
+						if (ins->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
+							ins->mDst.mRange.mMaxValue += ins->mSrc[0].mIntConst;
 
 						indexins.Push(ins);
 					}
@@ -15577,6 +15595,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ains->mSrc[1] = ins->mDst;
 						ains->mSrc[1].mTemp = -1;
 						ains->mSrc[1].mIntConst = indexStep[ins->mSrc[1].mTemp];
+						if (ains->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
+							ains->mDst.mRange.mMaxValue += ains->mSrc[1].mIntConst;
 
 						indexins.Push(ains);
 					}
@@ -15595,7 +15615,13 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ains->mSrc[0].mTemp = -1;
 						ains->mSrc[0].mIntConst = indexStep[ins->mSrc[0].mTemp];
 
+						if (ains->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
+							ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
 						indexins.Push(ains);
+					}
+					else if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp < 0 && ins->mSrc[0].IsUByte() && (ins->mSrc[1].mMemory == IM_ABSOLUTE || ins->mSrc[1].mMemory == IM_GLOBAL))
+					{
+						mInstructions[j++] = ins;
 					}
 					else if (ins->mCode == IC_LEA && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED)
 					{
@@ -19145,7 +19171,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "tile_collide");
+	CheckFunc = !strcmp(mIdent->mString, "_menuShowSprites");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -19542,6 +19568,12 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->MoveLoopHeadCheckToTail();
 
+#endif
+
+#if 1
+	LoadStoreForwarding(paramMemory);
+
+	RebuildIntegerRangeSet();
 #endif
 
 #if 1

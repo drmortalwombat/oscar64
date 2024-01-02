@@ -289,6 +289,8 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 {
 	if (!(procDec->mBase->mFlags & DTF_FASTCALL) && (procDec->mType == DT_CONST_FUNCTION) && !(procDec->mFlags & DTF_FUNC_ANALYZING))
 	{
+//		printf("CheckFastcall1 %s %08llx %08llx\n", procDec->mQualIdent->mString, procDec->mFlags, procDec->mBase->mFlags);
+
 		procDec->mFlags |= DTF_FUNC_ANALYZING;
 		int	nbase = 0;
 		for (int i = 0; i < procDec->mCalled.Size(); i++)
@@ -327,6 +329,8 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			if (n > nbase)
 				nbase = n;
 		}
+
+//		printf("CheckFastcall2 %s %08llx %08llx\n", procDec->mQualIdent->mString, procDec->mFlags, procDec->mBase->mFlags);
 
 		if (procDec->mValue && procDec->mValue->mType == EX_DISPATCH)
 		{
@@ -387,6 +391,8 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 		procDec->mBase->mFastCallSize = nbase;
 
 		procDec->mFlags &= ~DTF_FUNC_ANALYZING;
+
+//		printf("CheckFastcall3 %s %08llx %08llx\n", procDec->mQualIdent->mString, procDec->mFlags, procDec->mBase->mFlags);
 
 		if (procDec->mBase->mFlags & DTF_STACKCALL)
 		{
@@ -461,19 +467,17 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 				procDec->mBase->mFastCallSize = nparams;
 
 				procDec->mBase->mFlags |= DTF_FASTCALL;
-#if 0
-						printf("FASTCALL %s\n", f->mIdent->mString);
-#endif
+//				printf("FASTCALL %s\n", procDec->mQualIdent->mString);
 			}
 			else
 			{
-//				printf("STACKCALL %s, %d %d\n", procDec->mIdent->mString, cnparams, fplimit);
+//				printf("STACKCALL %s, %d %d\n", procDec->mQualIdent->mString, cnparams, fplimit);
 				procDec->mBase->mFlags |= DTF_STACKCALL;
 			}
 		}
 		else
 		{
-//			printf("STACKCALL %s, F%d\n", procDec->mIdent->mString, !!(procDec->mFlags& DTF_FUNC_VARIABLE));
+//			printf("STACKCALL %s, F%d\n", procDec->mQualIdent->mString, !!(procDec->mFlags& DTF_FUNC_VARIABLE));
 			procDec->mBase->mFlags |= DTF_STACKCALL;
 		}
 	}
