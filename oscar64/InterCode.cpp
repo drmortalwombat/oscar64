@@ -501,11 +501,33 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 			if (op1.mRestricted)
 				return false;
 			else if (op2.mMemory == IM_GLOBAL)
-				return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
+			{
+				if (op1.mMemoryBase == IM_GLOBAL)
+					return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
+				else
+					return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
+			}
 			else if (op2.mMemory == IM_FPARAM || op2.mMemory == IM_FFRAME)
 				return false;
 			else if (op2.mMemory == IM_LOCAL)
-				return mProc->mLocalVars[op2.mVarIndex]->mAliased && CollidingMemType(type1, type2);
+			{
+				if (op1.mMemoryBase == IM_LOCAL)
+					return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
+				else
+					return mProc->mLocalVars[op2.mVarIndex]->mAliased && CollidingMemType(type1, type2);
+			}
+			else if (op2.mMemory == IM_INDIRECT && (op1.mMemoryBase != IM_NONE && op2.mMemoryBase != IM_NONE && op1.mMemoryBase != IM_INDIRECT && op2.mMemoryBase != IM_INDIRECT))
+			{
+				if (op1.mMemoryBase == op2.mMemoryBase)
+				{
+					if (op1.mMemoryBase == IM_LOCAL || op1.mMemoryBase == IM_GLOBAL)
+						return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
+					else
+						return CollidingMemType(type1, type2);
+				}
+				else
+					return false;
+			}
 			else
 				return CollidingMemType(type1, type2);
 		}
@@ -514,11 +536,21 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 			if (op2.mRestricted)
 				return false;
 			else if (op1.mMemory == IM_GLOBAL)
-				return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
+			{
+				if (op2.mMemoryBase == IM_GLOBAL)
+					return op1.mVarIndex == op2.mVarIndex;
+				else
+					return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
+			}
 			else if (op1.mMemory == IM_FPARAM || op1.mMemory == IM_FFRAME)
 				return false;
 			else if (op1.mMemory == IM_LOCAL)
-				return mProc->mLocalVars[op1.mVarIndex]->mAliased && CollidingMemType(type1, type2);
+			{
+				if (op1.mMemoryBase == IM_LOCAL)
+					return op1.mVarIndex == op2.mVarIndex;
+				else
+					return mProc->mLocalVars[op1.mVarIndex]->mAliased && CollidingMemType(type1, type2);
+			}
 			else
 				return CollidingMemType(type1, type2);
 		}
@@ -3025,7 +3057,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 
 
 InterOperand::InterOperand(void)
-	: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0), mVarIndex(-1), mOperandSize(0), mLinkerObject(nullptr), mMemory(IM_NONE), mStride(1), mRestricted(0)
+	: mTemp(INVALID_TEMPORARY), mType(IT_NONE), mFinal(false), mIntConst(0), mFloatConst(0), mVarIndex(-1), mOperandSize(0), mLinkerObject(nullptr), mMemory(IM_NONE), mStride(1), mRestricted(0), mMemoryBase(IM_NONE)
 {}
 
 bool InterOperand::IsNotUByte(void) const
@@ -3088,6 +3120,7 @@ void InterOperand::ForwardMem(const InterOperand& op)
 	mOperandSize = op.mOperandSize;
 	mLinkerObject = op.mLinkerObject;
 	mMemory = op.mMemory;
+	mMemoryBase = op.mMemoryBase;
 	mTemp = op.mTemp;
 	mType = op.mType;
 	mRange = op.mRange;
@@ -4566,7 +4599,62 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 		}
 
 		if (mRestricted)
-			fprintf(file, "{%d}", mRestricted);
+			fprintf(file, "{R%d}", mRestricted);
+		else if (mMemory == IM_INDIRECT && mMemoryBase != IM_INDIRECT && mMemoryBase != IM_NONE)
+		{
+			const char* vname = "";
+			bool	aliased = false;
+
+			if (mMemoryBase == IM_LOCAL)
+			{
+				if (!proc->mLocalVars[mVarIndex])
+					vname = "null";
+				else if (!proc->mLocalVars[mVarIndex]->mIdent)
+				{
+					vname = "";
+					aliased = proc->mLocalVars[mVarIndex]->mAliased;
+				}
+				else
+				{
+					vname = proc->mLocalVars[mVarIndex]->mIdent->mString;
+					aliased = proc->mLocalVars[mVarIndex]->mAliased;
+				}
+			}
+			else if (mMemoryBase == IM_PROCEDURE)
+			{
+				if (proc->mModule->mProcedures[mVarIndex])
+					vname = proc->mModule->mProcedures[mVarIndex]->mIdent->mString;
+				else if (mLinkerObject && mLinkerObject->mIdent)
+					vname = mLinkerObject->mIdent->mString;
+			}
+			else if (mMemoryBase == IM_GLOBAL)
+			{
+				if (mVarIndex < 0)
+				{
+					if (mLinkerObject && mLinkerObject->mIdent)
+						vname = mLinkerObject->mIdent->mString;
+					else
+						vname = "";
+				}
+				else if (!proc->mModule->mGlobalVars[mVarIndex])
+					vname = "null";
+				else if (!proc->mModule->mGlobalVars[mVarIndex]->mIdent)
+				{
+					vname = "";
+					aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
+				}
+				else
+				{
+					vname = proc->mModule->mGlobalVars[mVarIndex]->mIdent->mString;
+					aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
+				}
+			}
+
+			if (aliased)
+				fprintf(file, " {V(%d '%s' A)} ", mVarIndex, vname);
+			else
+				fprintf(file, " {V(%d '%s')} ", mVarIndex, vname);
+		}
 
 		if (mRange.mMinState >= IntegerValueRange::S_WEAK || mRange.mMaxState >= IntegerValueRange::S_WEAK)
 		{
@@ -10927,7 +11015,16 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							InterOperand& op(lins->mSrc[k]);
 
 							if (op.mTemp >= 0)
-								flush = proc->mStoresIndirect;
+							{
+								if (op.mMemoryBase == IM_GLOBAL)
+									flush = proc->ModifiesGlobal(op.mVarIndex);
+								else if (op.mMemoryBase == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
+									flush = false;
+								else if ((op.mMemoryBase == IM_PARAM || op.mMemoryBase == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
+									flush = false;
+								else
+									flush = proc->mStoresIndirect;
+							}
 							else if (op.mMemory == IM_FFRAME || op.mMemory == IM_FRAME)
 								flush = true;
 							else if (op.mMemory == IM_GLOBAL)
@@ -14327,21 +14424,45 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 			for (int j = 0; j < ins->mNumOperands; j++)
 			{
 				if (ins->mSrc[j].mTemp > 0 && ltvalue[ins->mSrc[j].mTemp] && ins->mSrc[j].mType == IT_POINTER)
+				{
 					ins->mSrc[j].mRestricted = ltvalue[ins->mSrc[j].mTemp]->mDst.mRestricted;
+					ins->mSrc[j].mMemoryBase = ltvalue[ins->mSrc[j].mTemp]->mDst.mMemoryBase;
+					ins->mSrc[j].mVarIndex = ltvalue[ins->mSrc[j].mTemp]->mDst.mVarIndex;
+					ins->mSrc[j].mLinkerObject = ltvalue[ins->mSrc[j].mTemp]->mDst.mLinkerObject;
+				}
+			}
+
+			if (ins->mCode == IC_LEA)
+			{
+				ins->mDst.mRestricted = ins->mSrc[1].mRestricted;
+				if (ins->mSrc[1].mMemory != IM_INDIRECT)
+					ins->mSrc[1].mMemoryBase = ins->mSrc[1].mMemory;
+				ins->mDst.mMemoryBase = ins->mSrc[1].mMemoryBase;
+				ins->mDst.mVarIndex = ins->mSrc[1].mVarIndex;
+				ins->mDst.mLinkerObject = ins->mSrc[1].mLinkerObject;
+			}
+			else if (ins->mCode == IC_LOAD_TEMPORARY)
+			{
+				ins->mDst.mRestricted = ins->mSrc[0].mRestricted;
+				ins->mDst.mMemoryBase = ins->mSrc[0].mMemoryBase;
+				ins->mDst.mVarIndex = ins->mSrc[0].mVarIndex;
+				ins->mDst.mLinkerObject = ins->mSrc[0].mLinkerObject;
+			}
+			else if (ins->mCode == IC_CONSTANT)
+			{
+				ins->mDst.mRestricted = ins->mConst.mRestricted;
+				ins->mDst.mMemoryBase = ins->mConst.mMemory;
+				ins->mDst.mVarIndex = ins->mConst.mVarIndex;
+				ins->mDst.mLinkerObject = ins->mConst.mLinkerObject;
 			}
 
 			if (ins->mDst.mTemp >= 0)
 			{
-				if (ins->mDst.mRestricted)
+				if (ins->mDst.mRestricted || ins->mDst.mMemoryBase != IM_NONE)
 					ltvalue[ins->mDst.mTemp] = ins;
 				else
 					ltvalue[ins->mDst.mTemp] = nullptr;
 			}
-
-			if (ins->mCode == IC_LEA)
-				ins->mDst.mRestricted = ins->mSrc[1].mRestricted;
-			else if (ins->mCode == IC_LOAD_TEMPORARY)
-				ins->mDst.mRestricted = ins->mSrc[0].mRestricted;
 		}
 
 
@@ -17757,7 +17878,7 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 			case IC_LOAD:
 				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
 					referencedGlobals += ins->mSrc[0].mVarIndex;
-				else if (ins->mSrc[0].mTemp >= 0)
+				else if (ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
 					loadsIndirect = true;
 				break;
 			case IC_STORE:
@@ -17766,21 +17887,21 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
 				}
-				else if (ins->mSrc[1].mTemp >= 0)
+				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
 			case IC_COPY:
 			case IC_STRCPY:
 				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
 					referencedGlobals += ins->mSrc[0].mVarIndex;
-				else if (ins->mSrc[0].mTemp >= 0)
+				else if (ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
 					loadsIndirect = true;
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
 				{
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
 				}
-				else if (ins->mSrc[1].mTemp >= 0)
+				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
 			case IC_CALL:
@@ -19171,7 +19292,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "_menuShowSprites");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

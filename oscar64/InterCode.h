@@ -270,7 +270,7 @@ public:
 	double				mFloatConst;
 	int					mVarIndex, mOperandSize, mStride, mRestricted;
 	LinkerObject	*	mLinkerObject;
-	InterMemory			mMemory;
+	InterMemory			mMemory, mMemoryBase;
 	IntegerValueRange	mRange;
 
 	void Forward(const InterOperand& op);
