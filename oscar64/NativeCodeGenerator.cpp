@@ -21368,6 +21368,9 @@ bool NativeCodeBasicBlock::IsExitARegZP(int addr, int& index) const
 
 bool NativeCodeBasicBlock::CanJoinEntryLoadStoreZP(int saddr, int daddr)
 {
+	if (mFalseJump && mExitRequiredRegs[daddr])
+		return false;
+
 	int at = mIns.Size() - 1;
 	while (at >= 0)
 	{
@@ -45168,7 +45171,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "enemies_check");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "player_move");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
