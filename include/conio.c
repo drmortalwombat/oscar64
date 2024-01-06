@@ -40,7 +40,11 @@ __asm dswap
 }
 #pragma code(code)
 #elif defined(__C128B__) || defined(__C128E__)
-#define dswap 0xff5f
+#define dswap 	0xff5f
+#define bsout	0xffd2
+#define bsin	0xffe4
+#define bsplot	0xfff0
+#define bsinit	0xff81
 #elif defined(__PLUS4__)
 #pragma code(lowcode)
 __asm bsout
