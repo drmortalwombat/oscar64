@@ -39,6 +39,8 @@ __asm dswap
 		sta 0xff01
 }
 #pragma code(code)
+#elif defined(__C128B__) || defined(__C128E__)
+#define dswap 0xff5f
 #elif defined(__PLUS4__)
 #pragma code(lowcode)
 __asm bsout
@@ -100,7 +102,7 @@ __asm bsinit
 #define bsinit	0xff81
 #endif
 
-#if defined(__C128__)
+#if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
 void dispmode40col(void)
 {
 	if (*(volatile char *)0xd7 >= 128)

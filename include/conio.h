@@ -18,7 +18,7 @@ extern IOCharMap	giocharmap;
 
 void iocharmap(IOCharMap chmap);
 
-#if defined(__C128__)
+#if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
 void dispmode40col(void);
 void dispmode80col(void);
 #endif

@@ -604,36 +604,36 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 				si.precision = i;		
 			}
 
-			if (c == 'd')
+			if (c == 'd' || c == p'd')
 			{
 				bi = nformi(&si, bp, *fps++, true);
 			}
-			else if (c == 'u')
+			else if (c == 'u' || c == p'u')
 			{
 				bi = nformi(&si, bp, *fps++, false);
 			}
-			else if (c == 'x')
+			else if (c == 'x' || c == p'x')
 			{
 				si.base = 16;
 				bi = nformi(&si, bp, *fps++, false);
 			}
 #ifndef NOLONG
-			else if (c == 'l')
+			else if (c == 'l' || c == p'l')
 			{
 				long l = *(long *)fps;
 				fps ++;
 				fps ++;
 
 				c = *p++;
-				if (c == 'd')
+				if (c == 'd' || c == p'd')
 				{
 					bi = nforml(&si, bp, l, true);
 				}
-				else if (c == 'u')
+				else if (c == 'u' || c == p'u')
 				{
 					bi = nforml(&si, bp, l, false);
 				}
-				else if (c == 'x')
+				else if (c == 'x' || c == p'x')
 				{
 					si.base = 16;
 					bi = nforml(&si, bp, l, false);
@@ -641,14 +641,14 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 			}
 #endif
 #ifndef NOFLOAT
-			else if (c == 'f' || c == 'g' || c == 'e')
+			else if (c == 'f' || c == 'g' || c == 'e' || c == p'f' || c == p'g' || c == p'e')
 			{
 				bi = nformf(&si, bp, *(float *)fps, c);
 				fps ++;
 				fps ++;
 			}
 #endif			
-			else if (c == 's')
+			else if (c == 's' || c == p's')
 			{
 				char * sp = (char *)*fps++;
 
@@ -694,7 +694,7 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 					}						
 				}
 			}
-			else if (c == 'c')
+			else if (c == 'c' || c == p'c')
 			{
 				bp[bi++] = *fps++;
 			}
@@ -856,7 +856,7 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					}
 				}
 				
-				if (fc == 'l')
+				if (fc == 'l' || fc == p'l')
 				{
 					islong = true;
 					fc = *fmt++;
@@ -871,11 +871,15 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 						break;
 
 					case 'x':
+					case p'x':
 						base = 16;
 					case 'u':
+					case p'u':
 						issigned = false;
 					case 'i':
 					case 'd':
+					case p'i':
+					case p'd':
 					{
 						bool	sign = false;
 						if (cs == '-')
@@ -956,6 +960,9 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					case 'f':
 					case 'e':
 					case 'g':
+					case p'f':
+					case p'e':
+					case p'g':
 					{
 						bool	sign = false;
 						if (cs == '-')
@@ -1062,6 +1069,7 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					} break;
 #endif
 					case 's':
+					case p's':
 					{
 						char	*	pch = (char *)*params;
 						while (width > 0 && cs > 0 && !isspace(cs))
@@ -1104,6 +1112,7 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					}	break;
 
 					case 'c':
+					case p'c':
 					{
 						char	*	pch = (char *)*params;
 						if (!ignore)

@@ -211,6 +211,9 @@ w0:
 
 #if defined(__C128__)
 		sta 0xff01
+#elif defined(__C128E__)
+		lda #$0e
+		sta 0xff00
 #elif defined(__PLUS4__)
 		lda #<p4irq
 		sta $fffe

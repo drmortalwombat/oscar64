@@ -303,6 +303,12 @@ int main2(int argc, const char** argv)
 			compiler->mTargetMachine = TMACH_C128B;
 			compiler->AddDefine(Ident::Unique("__C128B__"), "1");
 		}
+		else if (!strcmp(targetMachine, "c128e"))
+		{
+			strcpy_s(basicStart, "0x1c01");
+			compiler->mTargetMachine = TMACH_C128E;
+			compiler->AddDefine(Ident::Unique("__C128E__"), "1");
+		}
 		else if (!strcmp(targetMachine, "vic20"))
 		{
 			strcpy_s(basicStart, "0x1001");
