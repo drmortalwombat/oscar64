@@ -8579,6 +8579,7 @@ Expression* Parser::ParseStatement(void)
 				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
 
 			exp->mEndLocation = mScanner->mLocation;
+			sexp->mEndLocation = mScanner->mLocation;
 			mScope->End(mScanner->mLocation);
 			mScanner->NextToken();
 
