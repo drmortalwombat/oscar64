@@ -1435,6 +1435,7 @@ bool Compiler::WriteDbjFile(const char* filename)
 					InterVariable* v(p->mLocalVars[i]);
 					if (v && v->mIdent)
 					{
+						bool	skipped = false;
 						if (v->mLinkerObject)
 						{
 							if (v->mLinkerObject->mFlags & LOBJF_PLACED)
@@ -1450,11 +1451,13 @@ bool Compiler::WriteDbjFile(const char* filename)
 							}
 							else
 							{
+								skipped = true;
 								// Prepared space on the stack but not used
 							}
 						}
 						else if (v->mTemp)
 						{
+							skipped = true;
 							// Promoted to local variable
 						}
 						else if (p->mFramePointer)
@@ -1480,9 +1483,12 @@ bool Compiler::WriteDbjFile(const char* filename)
 								types.IndexOrPush(v->mDeclaration->mBase));
 						}
 
-						if (v->mDeclaration)
-							DumpReferences(file, v->mDeclaration);
-						fprintf(file, "}");
+						if (!skipped)
+						{
+							if (v->mDeclaration)
+								DumpReferences(file, v->mDeclaration);
+							fprintf(file, "}");
+						}
 					}
 				}
 
