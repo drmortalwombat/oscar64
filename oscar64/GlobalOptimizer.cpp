@@ -328,6 +328,8 @@ bool GlobalOptimizer::Optimize(void)
 							vi -= pdec->mSize;
 
 							pdec->mFlags |= DTF_FPARAM_UNUSED;
+							pdec->mVarIndex = func->mNumVars++;
+
 							changed = true;
 						}
 					}

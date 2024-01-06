@@ -426,13 +426,16 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			Declaration* dec = procDec->mBase->mParams;
 			while (dec)
 			{
-				// Check for parameter crossing boundary
-				if (cnparams < numfpzero && cnparams + dec->mBase->mSize > numfpzero)
+				if (!(dec->mFlags & DTF_FPARAM_UNUSED))
 				{
-					npalign = numfpzero - nparams;
-					cnparams += npalign;
+					// Check for parameter crossing boundary
+					if (cnparams < numfpzero && cnparams + dec->mBase->mSize > numfpzero)
+					{
+						npalign = numfpzero - nparams;
+						cnparams += npalign;
+					}
+					cnparams += dec->mBase->mSize;
 				}
-				cnparams += dec->mBase->mSize;
 				dec = dec->mNext;
 			}
 
@@ -442,7 +445,11 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 				dec = procDec->mBase->mParams;
 				while (dec)
 				{
-					if (dec->mForwardParam && (dec->mForwardCall->mBase->mFlags & DTF_FASTCALL) && !(dec->mForwardCall->mFlags & DTF_INLINE))
+					if (dec->mFlags & DTF_FPARAM_UNUSED)
+					{
+
+					}
+					else if (dec->mForwardParam && (dec->mForwardCall->mBase->mFlags & DTF_FASTCALL) && !(dec->mForwardCall->mFlags & DTF_INLINE))
 					{
 						dec->mVarIndex = dec->mForwardParam->mVarIndex;
 					}
