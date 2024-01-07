@@ -4513,6 +4513,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 				if (mScope->mLevel < SLEVEL_FUNCTION || (ndec->mFlags & DTF_STATIC))
 				{
+					if (ndec->mSize >= 256)
+						ndec->mAlignment = ndec->mBase->Alignment();
+
 					ndec->mFlags |= DTF_GLOBAL;
 					ndec->mVarIndex = -1;
 				}

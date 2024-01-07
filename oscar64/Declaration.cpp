@@ -1006,6 +1006,27 @@ int Declaration::Stride(void) const
 		return 1;
 }
 
+int Declaration::Alignment(void) const
+{
+	if (mType == DT_TYPE_ARRAY)
+		return mBase->Alignment();
+	else if (mType == DT_TYPE_STRUCT)
+	{
+		int alignment = 0;
+		Declaration* dec = mParams;
+		while (dec)
+		{
+			alignment |= dec->mBase->Alignment() - 1;
+			dec = dec->mNext;
+		}
+		return alignment + 1;
+	}
+	else if (mType == DT_TYPE_INTEGER || mType == DT_TYPE_FLOAT || mType == DT_TYPE_POINTER)
+		return mSize;
+	else
+		return 1;
+}
+
 Declaration* Declaration::BuildConstPointer(const Location& loc)
 {
 	Declaration* pdec = new Declaration(loc, DT_TYPE_POINTER);

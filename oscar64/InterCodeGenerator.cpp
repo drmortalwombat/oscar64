@@ -5203,27 +5203,30 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 			Declaration* pdec = dec->mBase->mParams;
 			while (pdec)
 			{
-				int	start = pdec->mVarIndex + BC_REG_FPARAMS, end = start + pdec->mSize;
-				if (start < BC_REG_FPARAMS_END)
+				if (!(pdec->mFlags & DTF_FPARAM_UNUSED))
 				{
-					if (end > BC_REG_FPARAMS_END)
-						end = BC_REG_FPARAMS_END;
+					int	start = pdec->mVarIndex + BC_REG_FPARAMS, end = start + pdec->mSize;
+					if (start < BC_REG_FPARAMS_END)
+					{
+						if (end > BC_REG_FPARAMS_END)
+							end = BC_REG_FPARAMS_END;
 
-					int i = 0;
-					while (i < dec->mLinkerObject->mNumTemporaries && (dec->mLinkerObject->mTemporaries[i] > end || dec->mLinkerObject->mTemporaries[i] + dec->mLinkerObject->mTempSizes[i] < start))
-						i++;
-					if (i < dec->mLinkerObject->mNumTemporaries)
-					{
-						if (dec->mLinkerObject->mTemporaries[i] > start)
+						int i = 0;
+						while (i < dec->mLinkerObject->mNumTemporaries && (dec->mLinkerObject->mTemporaries[i] > end || dec->mLinkerObject->mTemporaries[i] + dec->mLinkerObject->mTempSizes[i] < start))
+							i++;
+						if (i < dec->mLinkerObject->mNumTemporaries)
+						{
+							if (dec->mLinkerObject->mTemporaries[i] > start)
+								dec->mLinkerObject->mTemporaries[i] = start;
+							if (dec->mLinkerObject->mTemporaries[i] + dec->mLinkerObject->mTempSizes[i] < end)
+								dec->mLinkerObject->mTempSizes[i] = end - dec->mLinkerObject->mTemporaries[i];
+						}
+						else
+						{
 							dec->mLinkerObject->mTemporaries[i] = start;
-						if (dec->mLinkerObject->mTemporaries[i] + dec->mLinkerObject->mTempSizes[i] < end)
-							dec->mLinkerObject->mTempSizes[i] = end - dec->mLinkerObject->mTemporaries[i];
-					}
-					else
-					{
-						dec->mLinkerObject->mTemporaries[i] = start;
-						dec->mLinkerObject->mTempSizes[i] = end - start;
-						dec->mLinkerObject->mNumTemporaries++;
+							dec->mLinkerObject->mTempSizes[i] = end - start;
+							dec->mLinkerObject->mNumTemporaries++;
+						}
 					}
 				}
 				pdec = pdec->mNext;

@@ -347,6 +347,7 @@ public:
 	const Ident* FullIdent(void);
 
 	int Stride(void) const;
+	int Alignment(void) const;
 };
 
 void InitDeclarations(void);

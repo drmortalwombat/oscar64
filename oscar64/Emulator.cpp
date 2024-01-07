@@ -579,27 +579,27 @@ int Emulator::Emulate(int startIP, int trace)
 			case ASMIM_ZERO_PAGE:
 				addr = mMemory[mIP++];
 				if (trace & 2)
-					printf("%04x : %04x %02x %02x __ %s $%02x     (A:%02x X:%02x Y:%02x P:%02x S:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr, mRegA, mRegX, mRegY, mRegP, mRegS);
+					printf("%04x : %04x %02x %02x __ %s $%02x     (A:%02x X:%02x Y:%02x P:%02x S:%02x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr, mRegA, mRegX, mRegY, mRegP, mRegS, mMemory[addr]);
 				mCycles[ip] += 3;
 				break;
 			case ASMIM_ZERO_PAGE_X:
 				taddr = mMemory[mIP++];
 				addr = (taddr + mRegX) & 0xff;
 				if (trace & 2)
-					printf("%04x : %04x %02x %02x __ %s $%02x,x   (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr);
+					printf("%04x : %04x %02x %02x __ %s $%02x,x   (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
 				mCycles[ip] += 3;
 				break;
 			case ASMIM_ZERO_PAGE_Y:
 				taddr = mMemory[mIP++];
 				addr = (taddr + mRegY) & 0xff;
 				if (trace & 2)
-					printf("%04x : %04x %02x %02x __ %s $%02x,y   (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr);
+					printf("%04x : %04x %02x %02x __ %s $%02x,y   (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
 				mCycles[ip] += 3;
 				break;
 			case ASMIM_ABSOLUTE:
 				addr = mMemory[mIP] + 256 * mMemory[mIP + 1];
 				if (trace & 2)
-					printf("%04x : %04x %02x %02x %02x %s $%04x   (A:%02x X:%02x Y:%02x P:%02x S:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr, mRegA, mRegX, mRegY, mRegP, mRegS);
+					printf("%04x : %04x %02x %02x %02x %s $%04x   (A:%02x X:%02x Y:%02x P:%02x S:%02x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr, mRegA, mRegX, mRegY, mRegP, mRegS, mMemory[addr]);
 				mIP += 2;
 				mCycles[ip] += 4;
 				break;
@@ -607,7 +607,7 @@ int Emulator::Emulate(int startIP, int trace)
 				taddr = mMemory[mIP] + 256 * mMemory[mIP + 1];
 				addr = (taddr + mRegX) & 0xffff;
 				if (trace & 2)
-					printf("%04x : %04x %02x %02x %02x %s $%04x,x (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr);
+					printf("%04x : %04x %02x %02x %02x %s $%04x,x (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
 				mIP += 2;
 				mCycles[ip] += 5;
 				break;
@@ -615,7 +615,7 @@ int Emulator::Emulate(int startIP, int trace)
 				taddr = mMemory[mIP] + 256 * mMemory[mIP + 1];
 				addr = (taddr + mRegY) & 0xffff;
 				if (trace & 2)
-					printf("%04x : %04x %02x %02x %02x %s $%04x,y (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr);
+					printf("%04x : %04x %02x %02x %02x %s $%04x,y (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
 				mIP += 2;
 				mCycles[ip] += 5;
 				break;
@@ -631,14 +631,14 @@ int Emulator::Emulate(int startIP, int trace)
 				taddr = (mMemory[mIP++] + mRegX) & 0xff;
 				addr = mMemory[taddr] + 256 * mMemory[taddr + 1];
 				if (trace & 2)
-					printf("%04x : %04x %02x %02x __ %s ($%02x,x) (A:%02x X:%02x Y:%02x P:%02x S:%02x %02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], mMemory[ip + 1], mRegA, mRegX, mRegY, mRegP, mRegS, taddr, addr);
+					printf("%04x : %04x %02x %02x __ %s ($%02x,x) (A:%02x X:%02x Y:%02x P:%02x S:%02x %02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], mMemory[ip + 1], mRegA, mRegX, mRegY, mRegP, mRegS, taddr, addr, mMemory[addr]);
 				mCycles[ip] += 6;
 				break;
 			case ASMIM_INDIRECT_Y:
 				taddr = mMemory[mIP++];
 				addr = (mMemory[taddr] + 256 * mMemory[taddr + 1] + mRegY) & 0xffff;
 				if (trace & 2)
-					printf("%04x : %04x %02x %02x __ %s ($%02x),y (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr);
+					printf("%04x : %04x %02x %02x __ %s ($%02x),y (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
 				mCycles[ip] += 6;
 				break;
 			case ASMIM_RELATIVE:
