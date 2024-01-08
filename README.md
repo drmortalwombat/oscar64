@@ -206,7 +206,7 @@ This is a JSON file that contains detailed debug information.
 
 it has four top sections:
 
-* memory : complete memory map with lables and source location
+* memory : complete memory map with labels and source location
 * variables : list of all global/static variables with address and type index
 * functions : list of all functions with local variables, line numbers and addresses
 * types : list of all types
@@ -268,7 +268,7 @@ Global variables have a name, a memory range and a typeid
 	* name : a string, present for named variables
 	* start : start address (inclusive)
 	* end : end address (exclusive)
-	* enter : first line where the vaiable becomes visible
+	* enter : first line where the variable becomes visible
 	* leave : last line where the variable is visible
 	* typeid : the type id for this variable
 	* base : zero page register pair for (sp/fp) for stack based variables
@@ -422,7 +422,7 @@ Set optimizer options that are active for the functions after it
 * size : optimize for size
 * speed : optimize for speed
 * noinline : no inlinening in any case
-* inline : inline if requesed with inline storage attribute
+* inline : inline if requested with inline storage attribute
 * autoinline : auto inline of small or only once used functions
 * maxinline : inline any function suitable
 * constparams : enable constant parameter folding into called functions
@@ -779,7 +779,7 @@ Labels are defined with a colon after the name.  Pure assembler functions can be
 
 ### Interrupt routines
 
-The compiler provides two levels of interrupt safe functions.  The specifier __interrupt caues all zero page registers used by the function to be saved, the __hwinterrupt also saves the CPU registers and exits the function with rti
+The compiler provides two levels of interrupt safe functions.  The specifier __interrupt causes all zero page registers used by the function to be saved, the __hwinterrupt also saves the CPU registers and exits the function with rti
 
 
 	#include <c64/memmap.h>
@@ -831,7 +831,7 @@ A similar problem to recursion happens with function pointers, which also compli
 
 ### Be aware of aliasing
 
-Aliasing in memory terms happens, when the same memory location could be accessed through more than one pointer.  Aliasing can create false memory dependency, requiring the compiler to create load and store instructions that would not realy be needed. The compiler performs aliasing analysis to detect potential aliasing but has to be very conservative and avoid any optimization that would fail if the potential alias would be an actual alias.
+Aliasing in memory terms happens, when the same memory location could be accessed through more than one pointer.  Aliasing can create false memory dependency, requiring the compiler to create load and store instructions that would not really be needed. The compiler performs aliasing analysis to detect potential aliasing but has to be very conservative and avoid any optimization that would fail if the potential alias would be an actual alias.
 
 Most important thing to look at are loop conditions or values in a loop, that could be aliased to a store inside the loop, which will prevent many loop optimizations.
 
@@ -1298,7 +1298,7 @@ The symbolic assembler code is then further optimized using a specialized optimi
 
 #### Native/Bytecode Assembler
 
-This stage translates the symbolic assembler / bytecode into binary and makes it available for the linker.  It also claculates the optimal placement of the basic block to take advantage of the single byte branch offsets.
+This stage translates the symbolic assembler / bytecode into binary and makes it available for the linker.  It also calculates the optimal placement of the basic block to take advantage of the single byte branch offsets.
 
 #### Linker
 
