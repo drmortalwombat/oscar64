@@ -759,7 +759,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 					}
 					if (!(pdec->mFlags & DTF_FPARAM_UNUSED) && !(pdec->mOptFlags & OPTF_VAR_NOCONST))
 					{
-						if (pex->mType == EX_CONSTANT && pdec->mBase->IsSimpleType())
+						if (pex->mType == EX_CONSTANT && pdec->mBase->IsSimpleType() && pdec->mBase->CanAssign(pex->mDecType))
 						{
 							if (pdec->mOptFlags & OPTF_VAR_CONST)
 							{
