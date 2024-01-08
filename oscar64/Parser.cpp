@@ -648,6 +648,13 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 
 		mScope = oscope;
 	}
+	else
+	{
+		if ((flags & ~dec->mFlags) == DTF_CONST)
+			dec = dec->ToConstType();
+		else if ((flags & ~dec->mFlags) == DTF_VOLATILE)
+			dec = dec->ToVolatileType();
+	}
 
 	return dec;
 }
@@ -820,6 +827,8 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 			{
 				if ((flags & ~dec->mFlags) == DTF_CONST)
 					dec = dec->ToConstType();
+				else if ((flags & ~dec->mFlags) == DTF_VOLATILE)
+					dec = dec->ToVolatileType();
 				else if (dec->IsSimpleType() && (flags & ~dec->mFlags))
 				{
 					Declaration* ndec = new Declaration(dec->mLocation, dec->mType);
@@ -832,6 +841,8 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 				{
 					if ((flags & ~dec->mFlags) == DTF_CONST)
 						dec = dec->ToConstType();
+					else if ((flags & ~dec->mFlags) == DTF_VOLATILE)
+						dec = dec->ToVolatileType();
 					else
 					{
 						Declaration* ndec = new Declaration(dec->mLocation, dec->mType);

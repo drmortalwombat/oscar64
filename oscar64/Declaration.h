@@ -267,7 +267,7 @@ public:
 	Location			mLocation, mEndLocation;
 	DecType				mType;
 	Token				mToken;
-	Declaration		*	mBase, * mParams, * mParamPack, * mNext, * mPrev, * mConst, * mMutable;
+	Declaration		*	mBase, * mParams, * mParamPack, * mNext, * mPrev, * mConst, * mMutable, * mVolatile;
 	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment, * mMoveConstructor, * mMoveAssignment;
 	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
 	Declaration		*	mVTable, * mClass, * mTemplate;
@@ -315,6 +315,7 @@ public:
 
 	Declaration* ToConstType(void);
 	Declaration* ToMutableType(void);
+	Declaration* ToVolatileType(void);
 
 	Declaration* ToStriped(int stripe);
 	Declaration* ToStriped(Errors* errors);

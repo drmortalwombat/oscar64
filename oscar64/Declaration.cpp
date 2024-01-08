@@ -979,7 +979,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr), mMangleIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), mNumVars(0),
 	mBase(nullptr), mParams(nullptr), mParamPack(nullptr), mValue(nullptr), mReturn(nullptr), mNext(nullptr), mPrev(nullptr),
-	mConst(nullptr), mMutable(nullptr),
+	mConst(nullptr), mMutable(nullptr), mVolatile(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVTable(nullptr), mTemplate(nullptr), mForwardParam(nullptr), mForwardCall(nullptr),
@@ -1857,6 +1857,59 @@ Declaration* Declaration::ToStriped(int stripe)
 	}
 
 	return ndec;
+}
+
+Declaration* Declaration::ToVolatileType(void)
+{
+	if (mFlags & DTF_VOLATILE)
+		return this;
+
+	if (!mVolatile)
+	{
+		Declaration* ndec = new Declaration(mLocation, mType);
+		ndec->mSize = mSize;
+		ndec->mStride = mStride;
+		ndec->mBase = mBase;
+		ndec->mFlags = mFlags | DTF_VOLATILE;
+		ndec->mScope = mScope;
+		ndec->mParams = mParams;
+		ndec->mIdent = mIdent;
+		ndec->mQualIdent = mQualIdent;
+		ndec->mTemplate = mTemplate;
+
+		if (mType == DT_TYPE_STRUCT)
+		{
+			ndec->mScope = new DeclarationScope(nullptr, mScope->mLevel);
+			Declaration* p = mParams;
+			Declaration* prev = nullptr;
+			while (p)
+			{
+				Declaration* pnec = p->Clone();
+				pnec->mBase = pnec->mBase->ToVolatileType();
+
+				ndec->mScope->Insert(pnec->mIdent, pnec);
+
+				if (prev)
+					prev->mNext = pnec;
+				else
+					ndec->mParams = pnec;
+				prev = pnec;
+				p = p->mNext;
+			}
+		}
+
+		ndec->mDestructor = mDestructor;
+		ndec->mDefaultConstructor = mDefaultConstructor;
+		ndec->mCopyConstructor = mCopyConstructor;
+		ndec->mMoveConstructor = mMoveConstructor;
+		ndec->mVectorConstructor = mVectorConstructor;
+		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+		ndec->mVTable = mVTable;
+
+		mVolatile = ndec;
+	}
+
+	return mVolatile;
 }
 
 Declaration* Declaration::ToConstType(void)
