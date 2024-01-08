@@ -341,11 +341,6 @@ spexit:
 #elif defined(__PLUS4__)
 		sta $ff3e
 #endif	
-#if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
-		lda #0
-		sta $1b
-#endif
-
 #endif
 		rts
 }
