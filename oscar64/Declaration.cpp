@@ -1238,8 +1238,6 @@ Declaration* Declaration::Last(void)
 
 const Ident* Declaration::FullIdent(void)
 {
-	if (!this)
-		return Ident::Unique("null");
 	if (mType == DT_CONST_FUNCTION)
 	{
 		const Ident* tident = MangleIdent()->Mangle("(");
@@ -1252,7 +1250,7 @@ const Ident* Declaration::FullIdent(void)
 				tident = tident->Mangle(",");
 		}
 		tident = tident->Mangle(")->");
-		tident = tident->Mangle(mBase->mBase->MangleIdent()->mString);
+		tident = tident->Mangle(mBase->mBase ? mBase->mBase->MangleIdent()->mString : "null");
 		return tident;
 	}
 	else
@@ -1262,9 +1260,6 @@ const Ident* Declaration::FullIdent(void)
 
 const Ident* Declaration::MangleIdent(void)
 {
-	if (!this)
-		return Ident::Unique("null");
-
 	if (!mMangleIdent)
 	{
 		if (mType == DT_CONST_INTEGER)
@@ -1284,7 +1279,7 @@ const Ident* Declaration::MangleIdent(void)
 			Declaration* dec = mParams;
 			while (dec)
 			{
-				mMangleIdent = mMangleIdent->Mangle(dec->mBase->MangleIdent()->mString);
+				mMangleIdent = mMangleIdent->Mangle(dec->mBase ? dec->mBase->MangleIdent()->mString : "null");
 				dec = dec->mNext;
 				if (dec)
 					mMangleIdent = mMangleIdent->Mangle(",");
