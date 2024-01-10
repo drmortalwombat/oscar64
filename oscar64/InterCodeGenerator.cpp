@@ -814,6 +814,43 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				else
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Invalid immediate operand");
 			}
+			else if (aexp->mType == DT_ARGUMENT || aexp->mType == DT_VARIABLE)
+			{
+				if (aexp->mFlags & DTF_GLOBAL)
+				{
+					InitGlobalVariable(mod, aexp);
+
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					ref.mFlags = LREF_LOWBYTE;
+					ref.mRefObject = aexp->mLinkerObject;
+					ref.mRefOffset = 0;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+					dec->mLinkerObject->AddReference(ref);
+				}
+				else if (refvars)
+				{
+					int j = 0;
+					while (j < refvars->Size() && (*refvars)[j] != aexp)
+						j++;
+					if (j == refvars->Size())
+						refvars->Push(aexp);
+
+					LinkerReference	ref;
+					ref.mObject = dec->mLinkerObject;
+					ref.mOffset = offset;
+					ref.mFlags = LREF_TEMPORARY;
+					ref.mRefObject = dec->mLinkerObject;
+					ref.mRefOffset = j;
+					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
+					dec->mLinkerObject->AddReference(ref);
+
+					d[offset] = 0;
+				}
+				else
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Local variable outside scope");
+			}
 			else if (aexp->mType == DT_FUNCTION_REF)
 			{
 				if (!aexp->mBase->mLinkerObject)

@@ -110,10 +110,6 @@ bool krnio_load(char fnum, char device, char channel)
 {
 	__asm
 	{
-		lda	#0
-		sta accu
-		sta	accu + 1
-
 		lda	fnum
 		ldx	device
 		ldy channel		
@@ -122,15 +118,12 @@ bool krnio_load(char fnum, char device, char channel)
 		lda #0
 		ldx #0
 		ldy #0
-		jsr	$FFD5			// open
-		bcc	W1
+		jsr	$FFD5			// load
 
 		lda #0
-		jmp	E2
-	W1:
-		lda	#1
-		sta	accu
-	E2:
+		bcs W1
+		lda #1
+	W1: sta accu
 	}
 }
 
@@ -140,37 +133,24 @@ bool krnio_save(char device, const char* start, const char* end)
 {
 	__asm
 	{
-		lda	start
-		sta accu
-		lda start + 1
-		sta	accu + 1
-
 		lda	#0
 		ldx	device
 		ldy #0		
 		jsr	$ffba			// setlfs
 		
-		lda #accu
+		lda #start
 		ldx end
 		ldy end+1
 		jsr	$FFD8			// save
 
-		lda	#0
-		sta accu
-		sta	accu + 1
-
-		bcc	W1
-
 		lda #0
-		jmp	E2
-	W1:
-		lda	#1
-		sta	accu
-	E2:
+		bcs W1
+		lda #1
+	W1: sta accu
 	}
 }
 
-#pragma native(krnio_load)
+#pragma native(krnio_save)
 
 bool krnio_chkout(char fnum)
 {
@@ -179,7 +159,6 @@ bool krnio_chkout(char fnum)
 		ldx fnum
 		jsr	$ffc9			// chkout
 		lda #0
-		sta accu + 1
 		bcs W1
 		lda #1
 	W1: sta accu
