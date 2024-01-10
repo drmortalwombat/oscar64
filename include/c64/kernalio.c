@@ -2,6 +2,20 @@
 
 krnioerr krnio_pstatus[16];
 
+#if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
+void krnio_setbnk(char filebank, char namebank)
+{
+	__asm
+	{
+		lda filebank
+		ldx namebank
+		jsr $ff68			// setbnk
+	}
+}
+
+#pragma native(krnio_setbnk)
+#endif
+
 void krnio_setnam(const char * name)
 {
 	__asm
@@ -109,6 +123,42 @@ bool krnio_load(char fnum, char device, char channel)
 		ldx #0
 		ldy #0
 		jsr	$FFD5			// open
+		bcc	W1
+
+		lda #0
+		jmp	E2
+	W1:
+		lda	#1
+		sta	accu
+	E2:
+	}
+}
+
+#pragma native(krnio_load)
+
+bool krnio_save(char device, const char* start, const char* end)
+{
+	__asm
+	{
+		lda	start
+		sta accu
+		lda start + 1
+		sta	accu + 1
+
+		lda	#0
+		ldx	device
+		ldy #0		
+		jsr	$ffba			// setlfs
+		
+		lda #accu
+		ldx end
+		ldy end+1
+		jsr	$FFD8			// save
+
+		lda	#0
+		sta accu
+		sta	accu + 1
+
 		bcc	W1
 
 		lda #0

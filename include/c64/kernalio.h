@@ -18,6 +18,11 @@ enum krnioerr
 
 extern krnioerr krnio_pstatus[16];
 
+#if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
+// C128: Set bank for load/save and filename for next file operations
+void krnio_setbnk(char filebank, char namebank);
+#endif
+
 // Set filename for next krnio_open operation, make sure
 // that the string is still valid when calling krnio_open
 
@@ -38,6 +43,8 @@ void krnio_close(char fnum);
 krnioerr krnio_status(void);
 
 bool krnio_load(char fnum, char device, char channel);
+
+bool krnio_save(char device, const char* start, const char* end);
 
 // select the given file for stream output
 
