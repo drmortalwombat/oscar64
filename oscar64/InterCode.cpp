@@ -8287,7 +8287,12 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVar
 		mFalseValueRange.SetSize(num, false);
 		mLocalValueRange.SetSize(num, false);
 		mMemoryValueSize.SetSize(num, false);
-		mEntryMemoryValueSize.SetSize(num, false);
+		mEntryMemoryValueSize.SetSize(num, true);
+
+		if (mTrueJump && !mTrueJump->mVisited)
+			mTrueJump->mMemoryValueSize.SetSize(num, true);
+		if (mFalseJump && !mFalseJump->mVisited)
+			mFalseJump->mMemoryValueSize.SetSize(num, true);
 
 		mEntryParamValueRange.SetSize(paramVars.Size(), false);
 		mTrueParamValueRange.SetSize(paramVars.Size(), false);
@@ -19292,7 +19297,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "rebuild_screen");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
