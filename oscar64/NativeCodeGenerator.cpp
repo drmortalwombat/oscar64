@@ -32727,6 +32727,39 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		}
 	}
 
+	if (si + 2 < mIns.Size() && mIns[si].mType == ASMIT_LDX && mIns[si + 2].mType == ASMIT_STX && mIns[si].mMode == ASMIM_ZERO_PAGE && mIns[si + 2].mMode == ASMIM_ZERO_PAGE && mIns[si].mAddress == mIns[si + 2].mAddress && mIns[si + 1].mType == ASMIT_INX)
+	{
+		int	i = 0;
+		while (i < si && !mIns[i].ChangesZeroPage(mIns[si].mAddress))
+			i++;
+
+		if (i == si)
+		{
+			i = si + 3;
+			while (i < mIns.Size() && !mIns[i].ChangesZeroPage(mIns[si].mAddress) && !mIns[i].ChangesXReg())
+				i++;
+
+			if (i == mIns.Size())
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc, full);
+
+				for(int i=0; i<mIns.Size(); i++)
+					mIns[i].mLive |= LIVE_CPU_REG_X;
+
+				prevBlock->mIns.Push(mIns[si]);
+				mIns.Remove(si);
+
+				mEntryRequiredRegs += CPU_REG_X;
+				mExitRequiredRegs += CPU_REG_X;
+
+				CheckLive();
+
+				return true;
+			}
+		}
+	}
+
 	if (si < ei && mIns[si].mType == ASMIT_LDX && mIns[si].mMode == ASMIM_ZERO_PAGE)
 	{
 		// Loads X once from zero page and never changes it again
@@ -44143,6 +44176,28 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
 				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
 				mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mMode = ASMIM_IMMEDIATE;  mIns[sz - 1].mAddress = 0; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
+
+				CheckLive();
+			}
+		}
+
+		else if (sz >= 4 &&
+			mIns[sz - 4].mType == ASMIT_TXA &&
+			mIns[sz - 3].mType == ASMIT_CLC &&
+			mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0xff &&
+			mIns[sz - 1].mType == ASMIT_TAX && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[CPU_REG_C])
+		{
+			if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
+			{
+				mIns[sz - 4].mType = ASMIT_DEX; mIns[sz - 4].mLive |= LIVE_CPU_REG_X;
+				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+				mIns[sz - 2].mType = ASMIT_CPX; mIns[sz - 2].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+				mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+
+				if (mBranch == ASMIT_BCC)
+					mBranch = ASMIT_BEQ;
+				else
+					mBranch = ASMIT_BNE;
 
 				CheckLive();
 			}

@@ -6733,6 +6733,40 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			}
 		}
 		
+#if 1
+		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp &&
+			mInstructions[sz - 2]->mSrc[0].mTemp >= 0 && mInstructions[sz - 2]->mSrc[1].mTemp >= 0)
+		{
+			if (mFalseJump->mNumEntries == 1 && mFalseJump->mInstructions.Size() == 2 && mFalseJump->mInstructions[1]->mCode == IC_BRANCH &&
+				mFalseJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mFalseJump->mInstructions[0]->mDst.mTemp == mFalseJump->mInstructions[1]->mSrc[0].mTemp)
+			{
+				if (mInstructions[sz - 2]->mOperator == IA_CMPLS && mFalseJump->mInstructions[0]->mOperator == IA_CMPGS &&
+					mInstructions[sz - 2]->mSrc[0].mTemp == mFalseJump->mInstructions[0]->mSrc[0].mTemp &&
+					mInstructions[sz - 2]->mSrc[1].mTemp == mFalseJump->mInstructions[0]->mSrc[1].mTemp)
+				{
+					mFalseJump->mInstructions[0]->mOperator = IA_CMPNE;
+				}
+				else if (mInstructions[sz - 2]->mOperator == IA_CMPGS && mFalseJump->mInstructions[0]->mOperator == IA_CMPLS &&
+					mInstructions[sz - 2]->mSrc[0].mTemp == mFalseJump->mInstructions[0]->mSrc[0].mTemp &&
+					mInstructions[sz - 2]->mSrc[1].mTemp == mFalseJump->mInstructions[0]->mSrc[1].mTemp)
+				{
+					mFalseJump->mInstructions[0]->mOperator = IA_CMPNE;
+				}
+				else if (mInstructions[sz - 2]->mOperator == IA_CMPLS && mFalseJump->mInstructions[0]->mOperator == IA_CMPLS &&
+					mInstructions[sz - 2]->mSrc[0].mTemp == mFalseJump->mInstructions[0]->mSrc[1].mTemp &&
+					mInstructions[sz - 2]->mSrc[1].mTemp == mFalseJump->mInstructions[0]->mSrc[0].mTemp)
+				{
+					mFalseJump->mInstructions[0]->mOperator = IA_CMPNE;
+				}
+				else if (mInstructions[sz - 2]->mOperator == IA_CMPGS && mFalseJump->mInstructions[0]->mOperator == IA_CMPGS &&
+					mInstructions[sz - 2]->mSrc[0].mTemp == mFalseJump->mInstructions[0]->mSrc[1].mTemp &&
+					mInstructions[sz - 2]->mSrc[1].mTemp == mFalseJump->mInstructions[0]->mSrc[0].mTemp)
+				{
+					mFalseJump->mInstructions[0]->mOperator = IA_CMPNE;
+				}
+			}
+		}
+#endif
 
 #if 1
 		for (int i = 0; i < sz; i++)
@@ -8287,13 +8321,13 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVar
 		mFalseValueRange.SetSize(num, false);
 		mLocalValueRange.SetSize(num, false);
 		mMemoryValueSize.SetSize(num, false);
-		mEntryMemoryValueSize.SetSize(num, true);
-
+		mEntryMemoryValueSize.SetSize(num, false);
+#if 0
 		if (mTrueJump && !mTrueJump->mVisited)
 			mTrueJump->mMemoryValueSize.SetSize(num, true);
 		if (mFalseJump && !mFalseJump->mVisited)
 			mFalseJump->mMemoryValueSize.SetSize(num, true);
-
+#endif
 		mEntryParamValueRange.SetSize(paramVars.Size(), false);
 		mTrueParamValueRange.SetSize(paramVars.Size(), false);
 		mFalseParamValueRange.SetSize(paramVars.Size(), false);
@@ -18193,12 +18227,14 @@ void InterCodeBasicBlock::RemapActiveTemporaries(const FastNumberSet& set)
 		GrowingIntegerValueRangeArray	falseValueRange(mFalseValueRange);
 		GrowingIntegerValueRangeArray	localValueRange(mLocalValueRange);
 		GrowingIntegerValueRangeArray	reverseValueRange(mReverseValueRange);
+		GrowingArray<int64>				memoryValueSize(mMemoryValueSize);
 
 		mEntryValueRange.SetSize(set.Num(), true);
 		mTrueValueRange.SetSize(set.Num(), true);
 		mFalseValueRange.SetSize(set.Num(), true);
 		mLocalValueRange.SetSize(set.Num(), true);
 		mReverseValueRange.SetSize(set.Num(), true);
+		mMemoryValueSize.SetSize(set.Num(), true);
 
 		for (int i = 0; i < set.Num(); i++)
 		{
@@ -18208,6 +18244,7 @@ void InterCodeBasicBlock::RemapActiveTemporaries(const FastNumberSet& set)
 			mFalseValueRange[i] = falseValueRange[j];
 			mLocalValueRange[i] = localValueRange[j];
 			mReverseValueRange[i] = reverseValueRange[j];
+			mMemoryValueSize[i] = memoryValueSize[j];
 		}
 
 		if (mTrueJump) mTrueJump->RemapActiveTemporaries(set);

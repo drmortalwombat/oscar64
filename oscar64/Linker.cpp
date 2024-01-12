@@ -366,7 +366,7 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 	return obj;
 }
 
-static bool Forwards(LinkerObject* pobj, LinkerObject* lobj)
+bool Linker::Forwards(LinkerObject* pobj, LinkerObject* lobj)
 {
 	if (lobj->mAlignment == 1 && pobj && lobj->mType == LOT_NATIVE_CODE && pobj->mType == LOT_NATIVE_CODE && lobj->mSection == pobj->mSection)
 	{
@@ -377,7 +377,8 @@ static bool Forwards(LinkerObject* pobj, LinkerObject* lobj)
 				i++;
 			if (i < pobj->mReferences.Size() && pobj->mReferences[i]->mRefObject == lobj && pobj->mReferences[i]->mRefOffset == 0)
 			{
-				printf("Direct %s -> %s\n", pobj->mIdent->mString, lobj->mIdent->mString);
+				if (mCompilerOptions & COPT_VERBOSE2)
+					printf("Direct %s -> %s\n", pobj->mIdent->mString, lobj->mIdent->mString);
 
 				pobj->mSuffixReference = i;
 
@@ -442,7 +443,8 @@ void Linker::CombineSameConst(void)
 								{
 									sobj->mMapID = dobj->mMapID;
 									changed = true;
-									if (dobj->mIdent && sobj->mIdent)
+
+									if (dobj->mIdent && sobj->mIdent && (mCompilerOptions & COPT_VERBOSE2))
 									{
 										printf("Match %s : %s\n", dobj->mIdent->mString, sobj->mIdent->mString);
 									}

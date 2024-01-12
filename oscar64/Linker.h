@@ -309,6 +309,7 @@ protected:
 	NativeCodeDisassembler	mNativeDisassembler;
 	ByteCodeDisassembler	mByteCodeDisassembler;
 
+	bool Forwards(LinkerObject* pobj, LinkerObject* lobj);
 	void SortObjectsPartition(int l, int r);
 
 	Errors* mErrors;
