@@ -7348,6 +7348,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				}
 				break;
 
+			case IC_RELATIONAL_OPERATOR:
+				vr.SetLimit(0, 1);
+				break;
 			case IC_BINARY_OPERATOR:
 				switch (ins->mOperator)
 				{
@@ -19334,7 +19337,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "rebuild_screen");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
