@@ -579,6 +579,7 @@ public:
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void PushMoveOutOfLoop(void);
 	bool MoveConditionOutOfLoop(void);
+	void SingleLoopCountZeroCheck(void);
 
 	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue);
 	void RemoveUnusedMallocs(void);

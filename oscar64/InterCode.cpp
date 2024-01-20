@@ -14531,6 +14531,67 @@ static bool IsInsSrcModifiedInBlocks(const ExpandingArray<InterCodeBasicBlock*>&
 	return false;
 }
 
+void InterCodeBasicBlock::SingleLoopCountZeroCheck(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
+		{
+			int	nins = mInstructions.Size();
+
+			InterCodeBasicBlock * pblock = mEntryBlocks[0];
+			if (pblock == this)
+				pblock = mEntryBlocks[1];
+			while (pblock->mInstructions.Size() == 1 && pblock->mInstructions[0]->mCode == IC_JUMP && pblock->mEntryBlocks.Size() == 1)
+				pblock = pblock->mEntryBlocks[0];
+
+			if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
+				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD)
+			{
+				InterInstruction* ains = mInstructions[nins - 3];
+				InterInstruction* cins = mInstructions[nins - 2];
+				InterInstruction* bins = mInstructions[nins - 1];
+
+				if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+					cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+					cins->mSrc[0].mTemp < 0 &&
+					ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+					ains->mSrc[0].mTemp < 0 &&
+					cins->mOperator == IA_CMPGS &&
+					ains->mSrc[0].mIntConst < -1 &&
+					cins->mSrc[0].mIntConst > 0 &&
+					cins->mSrc[0].mIntConst < - ains->mSrc[0].mIntConst &&
+					!IsTempModifiedInRange(0, nins - 3, ains->mDst.mTemp))
+				{
+					int pi = pblock->mInstructions.Size() - 1;
+					while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ains->mDst.mTemp)
+						pi--;
+					if (pi >= 0 && pblock->mInstructions[pi]->mCode == IC_CONSTANT)
+					{
+						int64	istart = pblock->mInstructions[pi]->mConst.mIntConst;
+						if (istart > 0)
+						{
+							int64	iend = istart % -ains->mSrc[0].mIntConst;
+
+							if (cins->mSrc[0].mIntConst < iend)
+							{
+								cins->mSrc[0].mIntConst = 0;
+								cins->mOperator = IA_CMPGES;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->SingleLoopCountZeroCheck();
+		if (mFalseJump) mFalseJump->SingleLoopCountZeroCheck();
+	}
+}
+
 bool InterCodeBasicBlock::MoveConditionOutOfLoop(void)
 {
 	if (!mVisited)
@@ -20207,6 +20268,9 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("Global Constant Prop 2");
 	}
 #endif
+
+	ResetVisited();
+	mEntryBlock->SingleLoopCountZeroCheck();
 
 	RemoveUnusedPartialStoreInstructions();
 

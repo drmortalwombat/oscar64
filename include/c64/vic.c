@@ -94,4 +94,24 @@ void vic_waitLine(int line)
 	} while ((vic.ctrl1 & VIC_CTRL1_RST8) != upper);
 }
 
+void vic_waitBelow(int line)
+{
+	char	upper = (char)(line >> 1) & VIC_CTRL1_RST8;
+	char	lower = (char)line;
+
+	if (upper)
+	{
+		do
+		{
+			while (vic.raster <= lower)
+				;
+		} while (!(vic.ctrl1 & VIC_CTRL1_RST8));
+	}
+	else
+	{
+		while (vic.raster <= lower)
+			;
+	}
+}
+
 #pragma native(vic_waitLine)

@@ -115,6 +115,9 @@ void vic_waitFrames(char n);
 // wait for a specific raster line
 void vic_waitLine(int line);
 
+// wait for beam to be below a line
+void vic_waitBelow(int line);
+
 // reference to the VIC chip
 #define vic	(*((struct VIC *)0xd000))
 
