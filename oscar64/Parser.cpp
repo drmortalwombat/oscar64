@@ -9219,6 +9219,14 @@ Expression* Parser::ParseSwitchStatement(void)
 					pexp = cexp;
 					cexp->mLeft = ParseRExpression();
 
+					if (ConsumeTokenIf(TK_ELLIPSIS))
+					{
+						Expression* rexp = new Expression(mScanner->mLocation, EX_LIST);
+						rexp->mLeft = cexp->mLeft;
+						rexp->mRight = ParseRExpression();
+						cexp->mLeft = rexp;
+					}
+
 					if (mScanner->mToken == TK_COLON)
 						mScanner->NextToken();
 					else

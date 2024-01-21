@@ -19398,7 +19398,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "JSONParser::Next");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -20268,6 +20268,9 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("Global Constant Prop 2");
 	}
 #endif
+
+	BuildDataFlowSets();
+	TempForwarding(false, true);
 
 	ResetVisited();
 	mEntryBlock->SingleLoopCountZeroCheck();

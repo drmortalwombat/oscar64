@@ -70,8 +70,8 @@ protected:
 
 	struct SwitchNode
 	{
-		int						mValue;
-		InterCodeBasicBlock* mBlock;
+		int						mLower, mUpper;
+		InterCodeBasicBlock	*	mBlock;
 	};
 
 	typedef GrowingArray<SwitchNode>	SwitchNodeArray;
