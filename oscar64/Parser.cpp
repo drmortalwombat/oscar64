@@ -1719,6 +1719,9 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 					}
 					else if (!ConsumeTokenIf(TK_COMMA))
 						break;
+
+					if (mScanner->mToken == TK_CLOSE_BRACE)
+						break;
 				}
 			}
 

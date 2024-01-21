@@ -553,7 +553,7 @@ void GlobalAnalyzer::UndoParamReference(Expression* exp, Declaration * param)
 	}
 }
 
-void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
+void GlobalAnalyzer::AnalyzeProcedure(Expression* cexp, Expression* exp, Declaration* dec)
 {
 	dec->mUseCount++;
 
@@ -609,7 +609,12 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* exp, Declaration* dec)
 			}
 		}
 		else
+		{
 			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent);
+			if (cexp)
+				mErrors->Error(cexp->mLocation, EINFO_CALLED_FROM, "Called from here");
+
+		}
 
 		dec->mFlags &= ~DTF_FUNC_ANALYZING;
 	}
@@ -646,12 +651,12 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			}
 			else if (adec->mType == DT_FUNCTION_REF)
 			{
-				AnalyzeProcedure(adec->mBase->mValue, adec->mBase);
+				AnalyzeProcedure(exp, adec->mBase->mValue, adec->mBase);
 				RegisterProc(adec->mBase);
 			}
 			else if (adec->mType == DT_CONST_FUNCTION)
 			{
-				AnalyzeProcedure(adec->mValue, adec);
+				AnalyzeProcedure(exp, adec->mValue, adec);
 				RegisterCall(procDec, adec);
 			}
 		}
@@ -706,7 +711,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			exp->mDecValue->mReferences.Push(exp);
 
 		if (exp->mDecValue->mType == DT_CONST_FUNCTION)
-			AnalyzeProcedure(exp->mDecValue->mValue, exp->mDecValue);
+			AnalyzeProcedure(exp, exp->mDecValue->mValue, exp->mDecValue);
 		else if (exp->mDecValue->mType == DT_CONST_STRUCT)
 		{
 			AnalyzeInit(exp->mDecValue->mParams);
@@ -925,10 +930,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 				{
 					if (pdec->mBase->mMoveConstructor)
 					{
-						AnalyzeProcedure(pdec->mBase->mMoveConstructor->mValue, pdec->mBase->mMoveConstructor);
+						AnalyzeProcedure(exp, pdec->mBase->mMoveConstructor->mValue, pdec->mBase->mMoveConstructor);
 						RegisterCall(procDec, pdec->mBase->mMoveConstructor);
 					}
-					AnalyzeProcedure(pdec->mBase->mCopyConstructor->mValue, pdec->mBase->mCopyConstructor);
+					AnalyzeProcedure(exp, pdec->mBase->mCopyConstructor->mValue, pdec->mBase->mCopyConstructor);
 					RegisterCall(procDec, pdec->mBase->mCopyConstructor);
 				}
 				
@@ -959,10 +964,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 			{
 				if (procDec->mBase->mBase->mMoveConstructor)
 				{
-					AnalyzeProcedure(procDec->mBase->mBase->mMoveConstructor->mValue, procDec->mBase->mBase->mMoveConstructor);
+					AnalyzeProcedure(exp, procDec->mBase->mBase->mMoveConstructor->mValue, procDec->mBase->mBase->mMoveConstructor);
 					RegisterCall(procDec, procDec->mBase->mBase->mMoveConstructor);
 				}
-				AnalyzeProcedure(procDec->mBase->mBase->mCopyConstructor->mValue, procDec->mBase->mBase->mCopyConstructor);
+				AnalyzeProcedure(exp, procDec->mBase->mBase->mCopyConstructor->mValue, procDec->mBase->mBase->mCopyConstructor);
 				RegisterCall(procDec, procDec->mBase->mBase->mCopyConstructor);
 			}
 		}

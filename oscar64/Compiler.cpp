@@ -889,7 +889,7 @@ bool Compiler::GenerateCode(void)
 	{
 		Declaration* dec = mCompilationUnits->mReferenced[i];
 		if (dec->mType == DT_CONST_FUNCTION)
-			mGlobalAnalyzer->AnalyzeProcedure(dec->mValue, dec);
+			mGlobalAnalyzer->AnalyzeProcedure(nullptr, dec->mValue, dec);
 		else
 			mGlobalAnalyzer->AnalyzeGlobalVariable(dec);
 	}

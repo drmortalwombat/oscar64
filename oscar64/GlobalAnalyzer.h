@@ -17,7 +17,7 @@ public:
 	void AutoZeroPage(LinkerSection * lszp, int zpsize);
 	void MarkRecursions(void);
 
-	void AnalyzeProcedure(Expression* exp, Declaration* procDec);
+	void AnalyzeProcedure(Expression* cexp, Expression* exp, Declaration* procDec);
 	void AnalyzeAssembler(Expression* exp, Declaration* procDec);
 	void AnalyzeGlobalVariable(Declaration* dec);
 
