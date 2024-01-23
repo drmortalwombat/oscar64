@@ -17826,6 +17826,23 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 		} while (changed);
 
+		// Move conversion from float to int upwards
+		for (int i = 1; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_CONVERSION_OPERATOR && (ins->mOperator == IA_FLOAT2INT || ins->mOperator == IA_FLOAT2UINT)  && ins->mSrc[0].mFinal)
+			{
+				int j = i - 1;
+				while (j > 0 && CanSwapInstructions(ins, mInstructions[j]))
+				{
+					SwapInstructions(mInstructions[j], ins);
+					mInstructions[j + 1] = mInstructions[j];
+					j--;
+				}
+				mInstructions[j + 1] = ins;
+			}
+		}
+
 		// move div up to mod
 		int imod = -1, idiv = -1;
 		for (int i = 0; i < mInstructions.Size(); i++)
@@ -18751,6 +18768,8 @@ void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 	{
 		Disassemble("MoveConditionOutOfLoop");
 
+		BuildTraces(false);
+
 		BuildDataFlowSets();
 		TempForwarding();
 		RemoveUnusedInstructions();
@@ -19398,7 +19417,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "JSONParser::Next");
+	CheckFunc = !strcmp(mIdent->mString, "_menuShowSprites");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

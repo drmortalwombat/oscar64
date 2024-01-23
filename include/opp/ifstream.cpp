@@ -6,7 +6,7 @@ namespace opp {
 ifstream::ifstream(char fnum, char device, char channel, const string & name)
 {
 	this->fnum = fnum;
-	krnio_setnam(name);
+	krnio_setnam(name.tocstr());
 	krnio_open(fnum, device, channel);
 }
 

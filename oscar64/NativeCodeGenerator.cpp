@@ -26915,12 +26915,13 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 		}
 		else if (mIns[start].mType == ASMIT_LDA && mIns[start].mMode == ASMIM_ABSOLUTE_X && mIns[start + 1].ChangesAccu() && !mIns[start + 1].ChangesAddress() && !mIns[start + 1].RequiresYReg())
 		{
-
 			for (int i = from + 1; i < to; i++)
 			{
 				if (mIns[start].MayBeChangedOnAddress(mIns[i]) || mIns[start + 1].MayBeChangedOnAddress(mIns[i]))
 					return false;
 				if (mIns[start + 1].RequiresCarry() && mIns[i].ChangesCarry())
+					return false;
+				if ((mIns[start + 1].mLive & LIVE_CPU_REG_C) && mIns[i].RequiresCarry())
 					return false;
 			}
 
@@ -45426,7 +45427,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "_menuShowSprites");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
