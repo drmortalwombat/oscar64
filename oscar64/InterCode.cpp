@@ -4995,6 +4995,7 @@ InterCodeBasicBlock* InterCodeBasicBlock::Clone(void)
 
 void InterCodeBasicBlock::Append(InterInstruction * code)
 {
+#if _DEBUG
 	if (code->mCode == IC_BINARY_OPERATOR)
 	{
 		assert(code->mSrc[1].mType != IT_POINTER);
@@ -5018,6 +5019,7 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 		assert(code->mSrc[i].mType != IT_NONE);
 
 	assert(!(code->mInUse));
+#endif
 	code->mInUse = true;
 	this->mInstructions.Push(code);
 }

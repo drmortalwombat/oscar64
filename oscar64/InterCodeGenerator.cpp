@@ -1467,7 +1467,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 			wins->mSrc[1].mMemory = IM_INDIRECT;
 			wins->mSrc[0].mType = vr.mReference > 0 ? IT_POINTER : InterTypeOf(vr.mType);
 			wins->mSrc[0].mTemp = vr.mTemp;
-			assert(wins->mSrc[0].mType != IT_NONE);
+//			assert(wins->mSrc[0].mType != IT_NONE);
 			wins->mSrc[1].mType = IT_POINTER;
 			wins->mSrc[1].mTemp = ains->mDst.mTemp;
 			if (pdec)
