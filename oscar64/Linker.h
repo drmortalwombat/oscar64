@@ -269,7 +269,7 @@ public:
 	bool WritePrgFile(const char* filename);
 	bool WriteXexFile(const char* filename);
 	bool WriteMapFile(const char* filename);
-	bool WriteAsmFile(const char* filename);
+	bool WriteAsmFile(const char* filename, const char * version);
 	bool WriteLblFile(const char* filename);
 	bool WriteCrtFile(const char* filename, uint16 id);
 	bool WriteBinFile(const char* filename);

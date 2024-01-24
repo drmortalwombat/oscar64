@@ -74,7 +74,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.26.231");
+		strcpy(strProductVersion, "1.26.232");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -459,6 +459,8 @@ int main2(int argc, const char** argv)
 
 		if (compiler->mErrors->mErrorCount == 0)
 		{
+			strcpy_s(compiler->mVersion, strProductVersion);
+
 			if (compiler->mCompilerOptions & COPT_VERBOSE)
 			{
 				printf("Starting %s %s\n", strProductName, strProductVersion);

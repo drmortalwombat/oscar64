@@ -3386,7 +3386,7 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 	}
 }
 
-void InterInstruction::FilterStaticVarsByteUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars)
+void InterInstruction::FilterStaticVarsByteUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars, Errors* errors)
 {
 	if (mCode == IC_LOAD)
 	{
@@ -3403,8 +3403,13 @@ void InterInstruction::FilterStaticVarsByteUsage(const GrowingVariableArray& sta
 		}
 		else if (mSrc[0].mMemory == IM_GLOBAL)
 		{
-			if (mSrc[0].mVarIndex >= 0 && !providedVars.RangeFilled(staticVars[mSrc[0].mVarIndex]->mByteIndex + int(mSrc[0].mIntConst), InterTypeSize[mDst.mType]))
-				requiredVars.AddRange(staticVars[mSrc[0].mVarIndex]->mByteIndex + int(mSrc[0].mIntConst), InterTypeSize[mDst.mType]);
+			if (mSrc[0].mVarIndex >= 0)
+			{
+				if (int(mSrc[0].mIntConst) < 0 || int(mSrc[0].mIntConst) + InterTypeSize[mDst.mType] > staticVars[mSrc[0].mVarIndex]->mSize)
+					errors->Error(mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Index out of bounds");
+				else if (!providedVars.RangeFilled(staticVars[mSrc[0].mVarIndex]->mByteIndex + int(mSrc[0].mIntConst), InterTypeSize[mDst.mType]))
+					requiredVars.AddRange(staticVars[mSrc[0].mVarIndex]->mByteIndex + int(mSrc[0].mIntConst), InterTypeSize[mDst.mType]);
+			}
 		}
 	}
 	else if (mCode == IC_STORE)
@@ -3415,7 +3420,12 @@ void InterInstruction::FilterStaticVarsByteUsage(const GrowingVariableArray& sta
 		else if (mSrc[1].mMemory == IM_GLOBAL)
 		{
 			if (mSrc[1].mVarIndex >= 0)
-				providedVars.AddRange(staticVars[mSrc[1].mVarIndex]->mByteIndex + int(mSrc[1].mIntConst), InterTypeSize[mSrc[0].mType]);
+			{
+				if (int(mSrc[1].mIntConst) < 0 || int(mSrc[1].mIntConst) + InterTypeSize[mSrc[0].mType] > staticVars[mSrc[1].mVarIndex]->mSize)
+					errors->Error(mLocation, EWARN_INDEX_OUT_OF_BOUNDS, "Index out of bounds");
+				else 
+					providedVars.AddRange(staticVars[mSrc[1].mVarIndex]->mByteIndex + int(mSrc[1].mIntConst), InterTypeSize[mSrc[0].mType]);
+			}
 		}
 	}
 	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH)
@@ -9121,7 +9131,7 @@ void InterCodeBasicBlock::BuildStaticVariableByteSet(const GrowingVariableArray&
 		mExitProvidedStatics.Reset(bsize);
 
 		for (int i = 0; i < mInstructions.Size(); i++)
-			mInstructions[i]->FilterStaticVarsByteUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics);
+			mInstructions[i]->FilterStaticVarsByteUsage(staticVars, mLocalRequiredStatics, mLocalProvidedStatics, mProc->mModule->mErrors);
 
 		mEntryRequiredStatics = mLocalRequiredStatics;
 		mExitProvidedStatics = mLocalProvidedStatics;

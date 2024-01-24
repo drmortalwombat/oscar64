@@ -1706,12 +1706,14 @@ bool Linker::WriteLblFile(const char* filename)
 		return false;
 }
 
-bool Linker::WriteAsmFile(const char* filename)
+bool Linker::WriteAsmFile(const char* filename, const char* version)
 {
 	FILE* file;
 	fopen_s(&file, filename, "wb");
 	if (file)
 	{
+		fprintf(file, "; Compiled with %s\n", version);
+
 		for (int i = 0; i < mObjects.Size(); i++)
 		{
 			LinkerObject* obj = mObjects[i];

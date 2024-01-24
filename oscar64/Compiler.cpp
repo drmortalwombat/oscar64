@@ -1263,7 +1263,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Writing <%s>\n", asmPath);
-	mLinker->WriteAsmFile(asmPath);
+	mLinker->WriteAsmFile(asmPath, mVersion);
 
 	if (mCompilerOptions & COPT_VERBOSE)
 		printf("Writing <%s>\n", lblPath);
