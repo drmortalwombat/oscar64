@@ -9969,7 +9969,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			NativeCodeInstruction	insl, insh;
 
 			if (InterTypeSize[ins->mDst.mType] == 1 &&
-				ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst == 1 && !sins0 && ins->mSrc[0].mTemp == ins->mDst.mTemp)
+				ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 1 && !sins1 && ins->mSrc[1].mTemp == ins->mDst.mTemp)
 			{
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_DEC, ASMIM_ZERO_PAGE, treg));
 			}
@@ -44514,6 +44514,56 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 #endif
 #endif
 
+#if 1
+		if (sz > 0 && mFalseJump && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE)
+		{
+			if (mBranch == ASMIT_BCC)
+			{
+				if (mTrueJump->mIns.Size() == 1 && mTrueJump->mIns[0].mType == ASMIT_CMP && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+				{
+					if (mTrueJump->mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+						!mTrueJump->mExitRequiredRegs[CPU_REG_Z] && !mTrueJump->mExitRequiredRegs[CPU_REG_C])
+					{
+						mTrueJump->RemEntryBlock(this);
+						mTrueJump = mTrueJump->mTrueJump;
+						mTrueJump->AddEntryBlock(this);
+						changed = true;
+					}
+					else if (mTrueJump->mBranch == ASMIT_BCS && mTrueJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+						!mTrueJump->mExitRequiredRegs[CPU_REG_Z] && !mTrueJump->mExitRequiredRegs[CPU_REG_C])
+					{
+						mTrueJump->RemEntryBlock(this);
+						mTrueJump = mTrueJump->mFalseJump;
+						mTrueJump->AddEntryBlock(this);
+						changed = true;
+					}
+				}
+			}
+			else if (mBranch == ASMIT_BCS)
+			{
+				if (mTrueJump->mIns.Size() == 1 && mTrueJump->mIns[0].mType == ASMIT_CMP && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+				{
+					if (mFalseJump->mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+						!mFalseJump->mExitRequiredRegs[CPU_REG_Z] && !mFalseJump->mExitRequiredRegs[CPU_REG_C])
+					{
+						mFalseJump->RemEntryBlock(this);
+						mFalseJump = mFalseJump->mTrueJump;
+						mFalseJump->AddEntryBlock(this);
+						changed = true;
+					}
+					else if (mFalseJump->mBranch == ASMIT_BCS && mFalseJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+						!mFalseJump->mExitRequiredRegs[CPU_REG_Z] && !mFalseJump->mExitRequiredRegs[CPU_REG_C])
+					{
+						mFalseJump->RemEntryBlock(this);
+						mFalseJump = mFalseJump->mFalseJump;
+						mFalseJump->AddEntryBlock(this);
+						changed = true;
+					}
+				}
+			}
+		}
+#endif
+
 		CheckLive();
 		if (mTrueJump)
 			mTrueJump->CheckLive();
@@ -45427,7 +45477,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "_menuShowSprites");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -47020,6 +47070,9 @@ void NativeCodeProcedure::Optimize(void)
 #if 1
 	ResetVisited();
 	mEntryBlock->BlockSizeReduction(this, -1, -1);
+
+	ResetVisited();
+	mEntryBlock->MergeBasicBlocks();
 #endif
 
 #endif
