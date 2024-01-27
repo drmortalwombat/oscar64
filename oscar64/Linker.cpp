@@ -400,7 +400,9 @@ void Linker::InlineSimpleJumps(void)
 			for (int j = 0; j < cobj->mReferences.Size(); j++)
 			{
 				LinkerReference* cref = cobj->mReferences[j];
-				if (cref->mOffset > 0 && cref->mOffset < cobj->mSize + 2 && (cref->mFlags & (LREF_HIGHBYTE | LREF_LOWBYTE)) == (LREF_HIGHBYTE | LREF_LOWBYTE))
+				if (cref->mOffset > 0 && cref->mOffset < cobj->mSize + 2 && 
+					cobj->mData[cref->mOffset - 1] == 0x20 &&
+					(cref->mFlags & (LREF_HIGHBYTE | LREF_LOWBYTE)) == (LREF_HIGHBYTE | LREF_LOWBYTE))
 				{
 					if (cref->mRefObject->mType == LOT_NATIVE_CODE && cref->mRefObject->mSize == 3 && 
 						cobj->mSection == cref->mRefObject->mSection && cref->mRefOffset == 0 &&
