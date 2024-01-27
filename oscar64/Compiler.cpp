@@ -1177,9 +1177,17 @@ bool Compiler::BuildLZO(const char* targetPath)
 bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 {
 	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200], dbjPath[200];
+	char	basePath[200];
+
+	strcpy_s(basePath, targetPath);
+	int		i = strlen(basePath);
+	while (i > 0 && basePath[i - 1] != '/' && basePath[i - 1] != '\\' && basePath[i - 1] != ':')
+		i--;
+	if (i > 0)
+		basePath[i] = 0;
 
 	strcpy_s(prgPath, targetPath);
-	int		i = strlen(prgPath);
+	i = strlen(prgPath);
 	while (i > 0 && prgPath[i - 1] != '.')
 		i--;
 	if (i > 0)
@@ -1213,7 +1221,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 			strcat_s(prgPath, "prg");
 			if (mCompilerOptions & COPT_VERBOSE)
 				printf("Writing <%s>\n", prgPath);
-			mLinker->WritePrgFile(prgPath);
+			mLinker->WritePrgFile(prgPath, basePath);
 		}
 	}
 	else if (mCompilerOptions & COPT_TARGET_CRT)

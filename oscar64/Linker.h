@@ -266,7 +266,7 @@ public:
 //	void AddReference(const LinkerReference& ref);
 
 	bool WritePrgFile(DiskImage * image, const char* filename);
-	bool WritePrgFile(const char* filename);
+	bool WritePrgFile(const char* filename, const char * pathname);
 	bool WriteXexFile(const char* filename);
 	bool WriteMapFile(const char* filename);
 	bool WriteAsmFile(const char* filename, const char * version);

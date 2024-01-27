@@ -1174,7 +1174,7 @@ bool Linker::WriteXexFile(const char* filename)
 		return false;
 }
 
-bool Linker::WritePrgFile(const char* filename)
+bool Linker::WritePrgFile(const char* filename, const char* pathname)
 {
 	FILE* file;
 	fopen_s(&file, filename, "wb");
@@ -1185,10 +1185,36 @@ bool Linker::WritePrgFile(const char* filename)
 
 		int	done = fwrite(mMemory + mProgramStart - 2, 1, mProgramEnd - mProgramStart + 2, file);
 		fclose(file);
-		return done == mProgramEnd - mProgramStart + 2;
+		if (done == mProgramEnd - mProgramStart + 2)
+		{
+			for (int i = 0; i < mOverlays.Size(); i++)
+			{
+				char	ofname[200];
+				strcpy_s(ofname, pathname);
+				strcat_s(ofname, mOverlays[i]->mIdent->mString);
+				strcat_s(ofname, ".prg");
+
+				fopen_s(&file, ofname, "wb");
+				if (file)
+				{
+					int	b = mOverlays[i]->mBank;
+					int	s = mCartridgeBankStart[b];
+
+					mCartridge[b][s - 2] = s & 0xff;
+					mCartridge[b][s - 1] = s >> 8;
+
+					fwrite(mCartridge[b] + s - 22, 1, mCartridgeBankEnd[b] - s + 2, file);
+					fclose(file);
+				}
+				else
+					return false;
+			}
+
+			return true;
+		}
 	}
-	else
-		return false;
+
+	return false;
 }
 
 static int memlzcomp(uint8 * dp, const uint8 * sp, int size)
