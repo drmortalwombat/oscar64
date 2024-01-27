@@ -43,27 +43,27 @@ void dispmode80col(void);
 #define PETSCII_F7				0x88
 #define PETSCII_F8				0x8c
 
-int kbhit(void);
+char kbhit(void);
 
-int getche(void);
+char getche(void);
 
-int getch(void);
+char getch(void);
 
 // like getch but does not wait, returns zero if no
 // key is pressed
-int getchx(void);
+char getchx(void);
 
-void putch(int c);
+void putch(char c);
 
 void clrscr(void);
 
-void gotoxy(int x, int y);
+void gotoxy(char x, char y);
 
-void textcolor(int c);
+void textcolor(char c);
 
-int wherex(void);
+char wherex(void);
 
-int wherey(void);
+char wherey(void);
 
 // show or hide the text cursor
 

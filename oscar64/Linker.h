@@ -301,6 +301,7 @@ public:
 	void CheckDirectJumps(void);
 	void CollectReferences(void);
 	void CombineSameConst(void);
+	void InlineSimpleJumps(void);
 	void PatchReferences(bool inlays);
 	void CopyObjects(bool inlays);
 	void PlaceObjects(void);

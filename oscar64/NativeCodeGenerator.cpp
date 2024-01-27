@@ -12733,7 +12733,7 @@ NativeCodeInstruction NativeCodeBasicBlock::DecodeNative(const InterInstruction*
 			linkerObject = lref->mRefObject;
 			address = lref->mRefOffset;
 		}
-		else
+		else if (d.mType != ASMIT_JSR)
 			flags |= NCIF_VOLATILE;
 		break;
 	case ASMIM_ZERO_PAGE:

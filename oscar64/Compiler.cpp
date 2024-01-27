@@ -1097,6 +1097,7 @@ bool Compiler::GenerateCode(void)
 	if (mCompilerOptions & COPT_OPTIMIZE_BASIC)
 	{
 		mLinker->CombineSameConst();
+		mLinker->InlineSimpleJumps();
 		mLinker->CheckDirectJumps();
 	}
 

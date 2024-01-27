@@ -221,18 +221,16 @@ __asm getpch
 }
 
 
-int kbhit(void)
+char kbhit(void)
 {
 	__asm
 	{
 		lda $c6
 		sta	accu
-		lda	#0
-		sta	accu + 1		
 	}
 }
 
-int getche(void)
+char getche(void)
 {
 	__asm
 	{
@@ -243,13 +241,11 @@ int getche(void)
 
 		sta	accu
 		jsr putpch
-		lda	#0
-		sta	accu + 1		
 	}
 
 }
 
-int getch(void)
+char getch(void)
 {
 	__asm
 	{
@@ -259,23 +255,19 @@ int getch(void)
 		beq	L1
 
 		sta	accu
-		lda	#0
-		sta	accu + 1		
 	}
 }
 
-int getchx(void)
+char getchx(void)
 {
 	__asm
 	{
 		jsr	getpch
 		sta	accu
-		lda	#0
-		sta	accu + 1		
 	}
 }
 
-void putch(int c)
+void putch(char c)
 {
 	__asm {
 		lda	c
@@ -296,7 +288,7 @@ void textcursor(bool show)
 	*(char *)0xcc = show ? 0 : 1;
 }
 
-void gotoxy(int cx, int cy)
+void gotoxy(char cx, char cy)
 {
 	__asm
 	{
@@ -307,7 +299,7 @@ void gotoxy(int cx, int cy)
 	}	
 }
 
-void textcolor(int c)
+void textcolor(char c)
 {
 	__asm
 	{
@@ -316,24 +308,20 @@ void textcolor(int c)
 	}
 }
 
-int wherex(void)
+char wherex(void)
 {
 	__asm
 	{
 		lda $d3
 		sta	accu
-		lda	#0
-		sta	accu + 1		
 	}
 }
 
-int wherey(void)
+char wherey(void)
 {
 	__asm
 	{
 		lda $d6
 		sta	accu
-		lda	#0
-		sta	accu + 1		
 	}
 }

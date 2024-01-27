@@ -390,6 +390,43 @@ bool Linker::Forwards(LinkerObject* pobj, LinkerObject* lobj)
 	return false;
 }
 
+void Linker::InlineSimpleJumps(void)
+{
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* cobj(mObjects[i]);
+		if (cobj->mType == LOT_NATIVE_CODE)
+		{
+			for (int j = 0; j < cobj->mReferences.Size(); j++)
+			{
+				LinkerReference* cref = cobj->mReferences[j];
+				if (cref->mOffset > 0 && cref->mOffset < cobj->mSize + 2 && (cref->mFlags & (LREF_HIGHBYTE | LREF_LOWBYTE)) == (LREF_HIGHBYTE | LREF_LOWBYTE))
+				{
+					if (cref->mRefObject->mType == LOT_NATIVE_CODE && cref->mRefObject->mSize == 3 && 
+						cobj->mSection == cref->mRefObject->mSection && cref->mRefOffset == 0 &&
+						cref->mRefObject->mData[0] == 0x4c)
+					{
+						LinkerObject* tobj(cref->mRefObject);
+						if (tobj->mReferences.Size())
+						{
+							cref->mRefObject = tobj->mReferences[0]->mRefObject;
+							cref->mRefOffset = tobj->mReferences[0]->mRefOffset;
+						}
+						else
+						{
+							cobj->mData[cref->mOffset + 0] = tobj->mData[1];
+							cobj->mData[cref->mOffset + 1] = tobj->mData[2];
+							cref->mFlags = 0;
+							cref->mRefObject = cobj;
+						}
+					}
+				}
+			}
+		}
+
+	}
+
+}
 
 
 void Linker::CheckDirectJumps(void)
@@ -1203,7 +1240,7 @@ bool Linker::WritePrgFile(const char* filename, const char* pathname)
 					mCartridge[b][s - 2] = s & 0xff;
 					mCartridge[b][s - 1] = s >> 8;
 
-					fwrite(mCartridge[b] + s - 22, 1, mCartridgeBankEnd[b] - s + 2, file);
+					fwrite(mCartridge[b] + s - 2, 1, mCartridgeBankEnd[b] - s + 2, file);
 					fclose(file);
 				}
 				else
