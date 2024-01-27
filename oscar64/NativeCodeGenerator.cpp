@@ -997,6 +997,8 @@ bool NativeCodeInstruction::CanSwapXYReg(void)
 		return HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y);
 	else if (mMode == ASMIM_ABSOLUTE_Y)
 		return HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X);
+	else if (mType == ASMIT_JSR && (mFlags & (NCIF_USE_CPU_REG_X | NCIF_USE_CPU_REG_Y)))
+		return false;
 	else
 		return true;
 }
@@ -45477,7 +45479,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "krnio_setbnk");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
