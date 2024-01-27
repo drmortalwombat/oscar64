@@ -12807,7 +12807,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 
 		assert(ins->mSrc[0].mLinkerObject);
 
-		if (ins->mCode == IC_ASSEMBLER && (proc->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER))
+		if (ins->mCode == IC_ASSEMBLER && (proc->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER) && ins->mSrc[0].mLinkerObject->mSection == proc->mLinkerObject->mSection)
 		{
 			ExpandingArray<NativeCodeInstruction>	tains;
 
