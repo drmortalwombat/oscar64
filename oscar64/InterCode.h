@@ -423,6 +423,7 @@ public:
 	bool PropagateNonLocalUsedConstTemps(void);
 	void CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps);
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
+	bool ForwardConstTemps(const GrowingInstructionPtrArray& ctemps);
 
 	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps, const GrowingVariableArray& staticVars, const NumberSet & aliasedLocals, const NumberSet & aliasedParams);
 
@@ -577,6 +578,7 @@ public:
 	bool CollectLoopBodyRecursive(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*>& body);
 	void CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
+	void ConstLoopOptimization(void);
 	void PushMoveOutOfLoop(void);
 	bool MoveConditionOutOfLoop(void);
 	void SingleLoopCountZeroCheck(void);
@@ -717,6 +719,7 @@ protected:
 	void HoistCommonConditionalPath(void);
 	void RemoveUnusedMallocs(void);
 	void RecheckLocalAliased(void);
+	void ConstLoopOptimization(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);

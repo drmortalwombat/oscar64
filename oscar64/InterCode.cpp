@@ -1295,6 +1295,244 @@ static void ConversionConstantFold(InterInstruction * ins, const InterOperand & 
 	}
 }
 
+static int64 ToTypedSigned(int64 val, InterType type)
+{
+	switch (InterTypeSize[type])
+	{
+	case 1:
+		return int64(int8(val));
+	case 4:
+		return int64(int32(val));
+	default:
+		return int64(int16(val));
+	}
+}
+
+static int64 ToTypedUnsigned(int64 val, InterType type)
+{
+	switch (InterTypeSize[type])
+	{
+	case 1:
+		return int64(uint8(val));
+	case 4:
+		return int64(uint32(val));
+	default:
+		return int64(uint16(val));
+	}
+}
+
+static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1, InterOperand op2)
+{
+	InterOperand	dop;
+
+	switch (oper)
+	{
+	case IA_INT2FLOAT:
+		dop.mFloatConst = (double)(op1.mIntConst);
+		dop.mType = IT_FLOAT;
+		break;
+	case IA_FLOAT2INT:
+		dop.mIntConst = (int)(op1.mFloatConst);
+		dop.mType = IT_INT16;
+		break;
+	case IA_UINT2FLOAT:
+		dop.mFloatConst = (double)((uint16)op1.mIntConst);
+		dop.mType = IT_FLOAT;
+		break;
+	case IA_FLOAT2UINT:
+		dop.mIntConst = (int)(op1.mFloatConst);
+		dop.mType = IT_INT16;
+		break;
+	case IA_EXT8TO16S:
+		dop.mIntConst = (int8)(op1.mIntConst);
+		dop.mType = IT_INT16;
+		break;
+	case IA_EXT8TO16U:
+		dop.mIntConst = (uint8)(op1.mIntConst);
+		dop.mType = IT_INT16;
+		break;
+	case IA_EXT16TO32S:
+		dop.mIntConst = (int16)(op1.mIntConst);
+		dop.mType = IT_INT32;
+		break;
+	case IA_EXT16TO32U:
+		dop.mIntConst = (uint16)(op1.mIntConst);
+		dop.mType = IT_INT32;
+		break;
+	case IA_EXT8TO32S:
+		dop.mIntConst = (int8)(op1.mIntConst);
+		dop.mType = IT_INT32;
+		break;
+	case IA_EXT8TO32U:
+		dop.mIntConst = (uint8)(op1.mIntConst);
+		dop.mType = IT_INT32;
+		break;
+	case IA_CMPEQ:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst == op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = op1.mIntConst == op2.mIntConst ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPNE:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst != op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = op1.mIntConst != op2.mIntConst ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPGES:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst >= op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) >= ToTypedSigned(op2.mIntConst, op2.mType) ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPGEU:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst >= op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) >= ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPLES:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst <= op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) <= ToTypedSigned(op2.mIntConst, op2.mType) ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPLEU:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst <= op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) <= ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPGS:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst > op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) > ToTypedSigned(op2.mIntConst, op2.mType) ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPGU:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst > op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) > ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPLS:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst < op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) < ToTypedSigned(op2.mIntConst, op2.mType) ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+	case IA_CMPLU:
+		if (op1.mType == IT_FLOAT)
+			dop.mIntConst = op1.mFloatConst < op2.mFloatConst ? 1 : 0;
+		else
+			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) < ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
+		dop.mType = IT_BOOL;
+		break;
+
+	case IA_ADD:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = op1.mFloatConst + op2.mFloatConst;
+		else
+			dop.mIntConst = op1.mIntConst + op2.mIntConst;
+		break;
+	case IA_SUB:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = op1.mFloatConst - op2.mFloatConst;
+		else
+			dop.mIntConst = op1.mIntConst - op2.mIntConst;
+		break;
+	case IA_MUL:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = op1.mFloatConst * op2.mFloatConst;
+		else
+			dop.mIntConst = op1.mIntConst * op2.mIntConst;
+		break;
+	case IA_DIVU:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = op1.mFloatConst / op2.mFloatConst;
+		else
+			dop.mIntConst = op1.mIntConst / op2.mIntConst;
+		break;
+	case IA_DIVS:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = op1.mFloatConst / op2.mFloatConst;
+		else
+			dop.mIntConst = op1.mIntConst / op2.mIntConst;
+		break;
+	case IA_MODU:
+		dop.mType = op1.mType;
+		dop.mIntConst = op1.mIntConst % op2.mIntConst;
+		break;
+	case IA_MODS:
+		dop.mType = op1.mType;
+		dop.mIntConst = op1.mIntConst % op2.mIntConst;
+		break;
+	case IA_OR:
+		dop.mType = op1.mType;
+		dop.mIntConst = op1.mIntConst | op2.mIntConst;
+		break;
+	case IA_AND:
+		dop.mType = op1.mType;
+		dop.mIntConst = op1.mIntConst & op2.mIntConst;
+		break;
+	case IA_XOR:
+		dop.mType = op1.mType;
+		dop.mIntConst = op1.mIntConst ^ op2.mIntConst;
+		break;
+	case IA_NEG:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = -op1.mFloatConst;
+		else
+			dop.mIntConst = -op1.mIntConst;
+		break;
+	case IA_NOT:
+		dop.mType = op1.mType;
+		switch (op1.mType)
+		{
+		case IT_INT8:
+			dop.mIntConst = uint8(~op1.mIntConst);
+		case IT_INT16:
+			dop.mIntConst = uint16(~op1.mIntConst);
+		case IT_INT32:
+			dop.mIntConst = uint32(~op1.mIntConst);
+		default:
+			dop.mIntConst = ~op1.mIntConst;
+		}
+		break;
+	case IA_SHL:
+		dop.mType = op1.mType;
+		dop.mIntConst = op1.mIntConst << op2.mIntConst;
+		break;
+	case IA_SHR:
+		dop.mType = op1.mType;
+		dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) >> op2.mIntConst;
+		break;
+	case IA_SAR:
+		dop.mType = op1.mType;
+		dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) >> op2.mIntConst;
+		break;
+	}
+
+	assert(dop.mType != IT_NONE);
+
+	return dop;
+}
+
 static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, const GrowingVariableArray& staticVars)
 {
 	const uint8* data;
@@ -3601,6 +3839,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			mConst.mLinkerObject = ains->mConst.mLinkerObject;
 			mConst.mVarIndex = ains->mConst.mVarIndex;
 			mConst.mMemory = ains->mConst.mMemory;
+			mConst.mType = ains->mConst.mType;
 			mSrc[0].mTemp = -1;
 			mNumOperands = 0;
 			return true;
@@ -6453,6 +6692,42 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 		if (mTrueJump && mTrueJump->PropagateVariableCopy(ltemps, staticVars, aliasedLocals, aliasedParams))
 			changed = true;
 		if (mFalseJump && mFalseJump->PropagateVariableCopy(ltemps, staticVars, aliasedLocals, aliasedParams))
+			changed = true;
+	}
+
+	return changed;
+}
+
+bool InterCodeBasicBlock::ForwardConstTemps(const GrowingInstructionPtrArray& ctemps)
+{
+	bool	changed = false;
+
+	int i;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		GrowingInstructionPtrArray	temps(ctemps);
+		if (mEntryBlocks.Size() > 1)
+			temps.Clear();
+
+		for (i = 0; i < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i]->PropagateConstTemps(temps))
+				changed = true;
+			if (mInstructions[i]->mDst.mTemp >= 0)
+			{
+				if (mInstructions[i]->mCode == IC_CONSTANT)
+					temps[mInstructions[i]->mDst.mTemp] = mInstructions[i];
+				else
+					temps[mInstructions[i]->mDst.mTemp] = nullptr;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ForwardConstTemps(temps))
+			changed = true;
+		if (mFalseJump && mFalseJump->ForwardConstTemps(temps))
 			changed = true;
 	}
 
@@ -13793,6 +14068,156 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 	return modified;
 }
 
+void InterCodeBasicBlock::ConstLoopOptimization(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
+		{
+			NumberSet	cset(mEntryRequiredTemps.Size()), mset(mEntryRequiredTemps.Size());
+			
+			InterCodeBasicBlock* pblock = mLoopPrefix;
+			while (pblock)
+			{
+				for (int i = pblock->mInstructions.Size() - 1; i >= 0; i--)
+				{
+					const InterInstruction* ins(pblock->mInstructions[i]);
+					if (ins->mDst.mTemp >= 0)
+					{
+						if (ins->mCode == IC_CONSTANT && !mset[ins->mDst.mTemp])
+							cset += ins->mDst.mTemp;
+						mset += ins->mDst.mTemp;
+					}
+				}
+				if (pblock->mEntryBlocks.Size() == 1)
+					pblock = pblock->mEntryBlocks[0];
+				else
+					pblock = nullptr;
+			}
+
+			bool	isconst = true;
+			for (int i = 0; isconst && i < mInstructions.Size(); i++)
+			{
+				const InterInstruction* ins(mInstructions[i]);
+
+				if (ins->mCode == IC_CONSTANT || ins->mCode == IC_BRANCH ||
+					ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR)
+				{
+					int j = 0;
+					while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || cset[ins->mSrc[j].mTemp]))
+						j++;
+					if (j == ins->mNumOperands)
+					{
+						if (ins->mDst.mTemp >= 0)
+							cset += ins->mDst.mTemp;
+					}
+					else
+						isconst = false;
+				}
+				else
+					isconst = false;
+			}
+
+			if (isconst)
+			{
+				ExpandingArray<InterOperand>	vars;
+				vars.SetSize(cset.Size());
+				mset.Clear();
+
+				InterCodeBasicBlock* pblock = mLoopPrefix;
+				while (pblock)
+				{
+					for (int i = pblock->mInstructions.Size() - 1; i >= 0; i--)
+					{
+						const InterInstruction* ins(pblock->mInstructions[i]);
+						if (ins->mDst.mTemp >= 0)
+						{
+							if (ins->mCode == IC_CONSTANT && !mset[ins->mDst.mTemp])
+							{
+								assert(ins->mConst.mType != IT_NONE);
+								vars[ins->mDst.mTemp] = ins->mConst;
+							}
+							mset += ins->mDst.mTemp;
+						}
+					}
+					if (pblock->mEntryBlocks.Size() == 1)
+						pblock = pblock->mEntryBlocks[0];
+					else
+						pblock = nullptr;
+				}
+
+				bool	done = false;
+				int n = 0;
+
+				mset.Clear();
+				while (n < 1000 && !done)
+				{
+					for (int i = 0; i < mInstructions.Size(); i++)
+					{
+						n++;
+
+						const InterInstruction* ins(mInstructions[i]);
+						switch (ins->mCode)
+						{
+						case IC_CONSTANT:
+							assert(ins->mConst.mType != IT_NONE);
+							vars[ins->mDst.mTemp] = ins->mConst;
+							mset += ins->mDst.mTemp;
+							break;
+						case IC_BINARY_OPERATOR:
+						case IC_UNARY_OPERATOR:
+						case IC_RELATIONAL_OPERATOR:
+							vars[ins->mDst.mTemp] =
+								OperandConstantFolding(ins->mOperator,
+									ins->mSrc[1].mTemp < 0 ? ins->mSrc[1] : vars[ins->mSrc[1].mTemp],
+									ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp]);
+							mset += ins->mDst.mTemp;
+							break;
+						case IC_BRANCH:
+							if ((vars[ins->mSrc[0].mTemp].mIntConst ? mTrueJump : mFalseJump) != this)
+								done = true;
+							break;
+						}
+					}
+				}
+
+				InterInstruction* last = mInstructions.Last();
+				mInstructions.SetSize(0);
+				if (mFalseJump != this)
+					mTrueJump = mFalseJump;
+				mFalseJump = nullptr;
+				mLoopHead = false;
+				mNumEntries = 1;
+				mEntryBlocks.SetSize(0);
+				mEntryBlocks.Push(mLoopPrefix);
+
+				for (int i = 0; i < mset.Size(); i++)
+				{
+					if (mset[i])
+					{
+						InterInstruction* ins = new InterInstruction(last->mLocation, IC_CONSTANT);
+						ins->mCode = IC_CONSTANT;
+						ins->mDst.mTemp = i;
+						ins->mConst = vars[i];
+						ins->mDst.mType = ins->mConst.mType;
+						mInstructions.Push(ins);
+					}
+				}
+
+				InterInstruction* ins = new InterInstruction(last->mLocation, IC_JUMP);
+				mInstructions.Push(ins);
+			}
+		}
+
+		if (mTrueJump)
+			mTrueJump->ConstLoopOptimization();
+		if (mFalseJump)
+			mFalseJump->ConstLoopOptimization();
+	}
+}
+
 void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 {
 	if (!mVisited)
@@ -14627,6 +15052,14 @@ bool InterCodeBasicBlock::MoveConditionOutOfLoop(void)
 
 			if (innerLoop)
 			{
+				int nscale = 4, nlimit = 4, nmaxlimit = 8;
+				if (mProc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
+				{
+					nscale = 1;
+					nlimit = 10;
+					nmaxlimit = 16;
+				}
+
 				// Find all conditions based on invariants
 				for (int i = 0; i < body.Size(); i++)
 				{
@@ -14660,7 +15093,7 @@ bool InterCodeBasicBlock::MoveConditionOutOfLoop(void)
 							
 							// Less than four instructions outside of condition, or twice as many
 							// inside as outside is the trigger
-							if (noutside - ncins < 4 || ninside > 2 * (noutside - ncins))
+							if (noutside - ncins < nmaxlimit && (noutside - ncins < nlimit || 2 * ninside > nscale * (noutside - ncins)))
 							{
 								// Now clone the loop into a true and a false branch
 
@@ -15729,6 +16162,14 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{
 				InterInstruction* ins = mInstructions[i];
+
+				if (ins->mInvariant)
+				{
+					for (int j = 0; j < ins->mNumOperands; j++)
+						if (ins->mSrc[j].mTemp >= 0 && dep[ins->mSrc[j].mTemp] == DEP_VARIABLE)
+							ins->mInvariant = false;
+				}
+
 				if (ins->mInvariant)
 				{
 					mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
@@ -18792,6 +19233,9 @@ void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 		ResetVisited();
 		mEntryBlock->CollectEntryBlocks(nullptr);
 
+		ResetVisited();
+		mEntryBlock->InnerLoopOptimization(mParamAliasedSet);
+
 		Disassemble("PostMoveConditionOutOfLoop");
 
 		ResetVisited();
@@ -19429,7 +19873,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "_menuShowSprites");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -20143,6 +20587,8 @@ void InterCodeProcedure::Close(void)
 
 		BuildDataFlowSets();
 
+		CheckCase = true;
+
 		ResetVisited();
 		mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet, mModule->mGlobalVars);
 
@@ -20299,6 +20745,8 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("Global Constant Prop 2");
 	}
 #endif
+
+	ConstLoopOptimization();
 
 	BuildDataFlowSets();
 	TempForwarding(false, true);
@@ -20963,6 +21411,26 @@ void InterCodeProcedure::RecheckLocalAliased(void)
 	DisassembleDebug("RecheckLocalAliased");
 }
 
+
+void InterCodeProcedure::ConstLoopOptimization(void)
+{
+	BuildTraces(false);
+	BuildLoopPrefix();
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	GrowingInstructionPtrArray	ptemps(nullptr);
+	ptemps.SetSize(mTemporaries.Size());
+
+	ResetVisited();
+	mEntryBlock->ForwardConstTemps(ptemps);
+
+	Disassemble("PreConstLoopOptimization");
+	ResetVisited();
+	mEntryBlock->ConstLoopOptimization();
+	Disassemble("PostConstLoopOptimization");
+}
 
 void InterCodeProcedure::HoistCommonConditionalPath(void)
 {
