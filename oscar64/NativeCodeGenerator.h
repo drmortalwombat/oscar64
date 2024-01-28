@@ -305,6 +305,8 @@ public:
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeXYSimpleLoop(void);
 
+	bool OptimizeXYSpilling(void);
+
 	bool OptimizeSelect(NativeCodeProcedure* proc);
 
 	bool OptimizeInnerLoops(NativeCodeProcedure* proc);

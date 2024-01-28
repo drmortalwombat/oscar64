@@ -98,6 +98,7 @@ public:
 	GrowingArray<FreeChunk>		mFreeChunks;
 	LinkerObject			*	mLastObject;
 	
+	bool AllocateAppend(Linker* linker, LinkerObject* obj);
 	bool Allocate(Linker * linker, LinkerObject* obj, bool merge);
 	void PlaceStackSection(LinkerSection* stackSection, LinkerSection* section);
 };

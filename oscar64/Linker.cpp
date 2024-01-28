@@ -536,16 +536,95 @@ void Linker::ReferenceObject(LinkerObject* obj)
 	}
 }
 
+bool LinkerRegion::AllocateAppend(Linker* linker, LinkerObject* lobj)
+{
+	if (lobj->mPrefix && (lobj->mPrefix->mFlags & LOBJF_PLACED))
+	{
+		if (lobj->mPrefix == mLastObject)
+		{
+			int start = mStart + mUsed - 3;
+			int end = start + lobj->mSize;
+
+			if (end <= mEnd)
+			{
+				lobj->mPrefix->mReferences[lobj->mPrefix->mSuffixReference]->mFlags = 0;
+				lobj->mPrefix->mSize -= 3;
+
+				lobj->mFlags |= LOBJF_PLACED;
+				lobj->mAddress = start;
+				lobj->mRefAddress = start + mReloc;
+				lobj->mRegion = this;
+				mUsed = end - mStart;
+
+				mLastObject = lobj;
+
+				if (lobj->mSuffix && !(lobj->mSuffix->mFlags & LOBJF_PLACED))
+				{
+					if (!Allocate(linker, lobj->mSuffix, true))
+						return false;
+				}
+
+				return true;
+			}
+		}
+		else
+		{
+			int i = 0;
+			while (i < mFreeChunks.Size() && lobj->mPrefix != mFreeChunks[i].mLastObject)
+				i++;
+			if (i < mFreeChunks.Size())
+			{
+				int start = mFreeChunks[i].mStart - 3;
+				int end = start + lobj->mSize;
+
+				if (end <= mFreeChunks[i].mEnd)
+				{
+					lobj->mPrefix->mReferences[lobj->mPrefix->mSuffixReference]->mFlags = 0;
+					lobj->mPrefix->mSize -= 3;
+
+					lobj->mFlags |= LOBJF_PLACED;
+					lobj->mAddress = start;
+					lobj->mRefAddress = start + mReloc;
+					lobj->mRegion = this;
+
+					if (end == mFreeChunks[i].mEnd)
+						mFreeChunks.Remove(i);
+					else
+					{
+						mFreeChunks[i].mStart = end;
+						mFreeChunks[i].mLastObject = lobj;
+					}
+
+					if (lobj->mSuffix && !(lobj->mSuffix->mFlags & LOBJF_PLACED))
+					{
+						if (!Allocate(linker, lobj->mSuffix, true))
+							return false;
+					}
+
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 {
-	if (merge && lobj->mPrefix && !(lobj->mPrefix->mFlags & LOBJF_PLACED))
+	if (merge && lobj->mPrefix)
 	{
-		if (!Allocate(linker, lobj->mPrefix, true))
-			return false;
+		if (!(lobj->mPrefix->mFlags & LOBJF_PLACED))
+		{
+			if (!Allocate(linker, lobj->mPrefix, true))
+				return false;
 
-		if (lobj->mFlags & LOBJF_PLACED)
+			if (lobj->mFlags & LOBJF_PLACED)
+				return true;
+		}
+
+		if (AllocateAppend(linker, lobj))
 			return true;
-	}
+	}	
 		
 	int i = 0;
 	while (i < mFreeChunks.Size())
@@ -587,7 +666,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 			}
 			else
 			{
-				mFreeChunks.Insert(i + 1, FreeChunk{ end, mFreeChunks[i].mEnd, lobj } );
+				mFreeChunks.Insert(i + 1, FreeChunk{ end, mFreeChunks[i].mEnd, lobj });
 				mFreeChunks[i].mEnd = start;
 			}
 

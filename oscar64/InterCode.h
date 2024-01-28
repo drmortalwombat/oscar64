@@ -274,6 +274,7 @@ public:
 	IntegerValueRange	mRange;
 
 	void Forward(const InterOperand& op);
+	void ForwardTemp(const InterOperand& op);
 	void ForwardMem(const InterOperand& op);
 
 	InterOperand(void);
