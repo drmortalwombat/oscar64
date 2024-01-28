@@ -10738,7 +10738,61 @@ Expression* Parser::ParseAssembler(void)
 
 				ilast->mAsmInsType = ins;
 				mScanner->NextToken();
-				if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_CLOSE_BRACE)
+				if (ins == ASMIT_BYTE)
+				{
+					for (;;)
+					{
+						ilast->mAsmInsMode = ASMIM_IMMEDIATE;
+						if (mScanner->mToken == TK_STRING)
+						{
+							if (mScanner->mTokenString[0])
+							{
+								int i = 0;
+								while (mScanner->mTokenString[i])
+								{
+									Declaration* dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+									dec->mInteger = mCharMap[mScanner->mTokenString[i]];
+									dec->mBase = TheUnsignedCharTypeDeclaration;
+									Expression* exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+									exp->mDecValue = dec;
+									exp->mDecType = dec->mBase;
+									ilast->mLeft = exp;
+
+									i++;
+									if (mScanner->mTokenString[i])
+									{
+										offset += AsmInsSize(ilast->mAsmInsType, ilast->mAsmInsMode);
+
+										ifinal = ilast;
+
+										ilast->mRight = new Expression(mScanner->mLocation, EX_ASSEMBLER);
+										ilast = ilast->mRight;
+										ilast->mAsmInsType = ASMIT_BYTE;
+										ilast->mAsmInsMode = ASMIM_IMMEDIATE;
+									}
+								}
+							}
+							else
+								mErrors->Error(mScanner->mLocation, EERR_ASM_INVALID_INSTRUCTION, "Invalid assembler token");
+							mScanner->NextToken();
+						}
+						else
+							ilast->mLeft = ParseAssemblerOperand(vdasm, offset);
+						if (ConsumeTokenIf(TK_COMMA))
+						{
+							offset += AsmInsSize(ilast->mAsmInsType, ilast->mAsmInsMode);
+
+							ifinal = ilast;
+
+							ilast->mRight = new Expression(mScanner->mLocation, EX_ASSEMBLER);
+							ilast = ilast->mRight;
+							ilast->mAsmInsType = ASMIT_BYTE;
+						}
+						else
+							break;
+					}
+				}
+				else if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_CLOSE_BRACE)
 					ilast->mAsmInsMode = ASMIM_IMPLIED;
 				else if (mScanner->mToken == TK_HASH)
 				{
@@ -10831,9 +10885,6 @@ Expression* Parser::ParseAssembler(void)
 							ilast->mAsmInsMode = ASMIM_ZERO_PAGE_Y;
 					}
 				}
-
-				if (ilast->mAsmInsType == ASMIT_BYTE)
-					ilast->mAsmInsMode = ASMIM_IMMEDIATE;
 
 				if (mScanner->mToken != TK_EOL && mScanner->mToken != TK_CLOSE_BRACE)
 				{
