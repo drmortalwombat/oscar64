@@ -34,8 +34,8 @@ byte vdc_reg_read(VDCRegister reg)
 
 void vdc_mem_addr(unsigned addr)
 {
-	vdc_reg_write(VDCR_ADDRL, addr);
 	vdc_reg_write(VDCR_ADDRH, addr >> 8);
+	vdc_reg_write(VDCR_ADDRL, addr);
 	vdc_reg(VDCR_DATA);
 }
 
