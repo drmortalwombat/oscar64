@@ -34193,37 +34193,40 @@ bool NativeCodeBasicBlock::OptimizeXYSpilling(void)
 			if (nblock == this)
 				nblock = mFalseJump;
 
-			int ps = pblock->mIns.Size();
-			if (nblock->mEntryBlocks.Size() == 1 && !pblock->mFalseJump && ps > 0)
+			if (nblock)
 			{
-				if (!ReferencesAccu())
+				int ps = pblock->mIns.Size();
+				if (nblock->mEntryBlocks.Size() == 1 && !pblock->mFalseJump && ps > 0)
 				{
-					if (!ReferencesXReg() && pblock->mIns.Size() > 0 && pblock->mIns[ps - 1].mType == ASMIT_TAX)
+					if (!ReferencesAccu())
 					{
-						nblock->mIns.Insert(0, NativeCodeInstruction(pblock->mIns[ps - 1].mIns, ASMIT_TAX));
-						pblock->mIns.Remove(ps - 1);
-						ps--;
-						pblock->mExitRequiredRegs += CPU_REG_A;
-						nblock->mEntryRequiredRegs += CPU_REG_A;
-						mEntryRequiredRegs += CPU_REG_A;
-						mExitRequiredRegs += CPU_REG_A;
-						for (int i = 0; i < mIns.Size(); i++)
-							mIns[i].mLive |= LIVE_CPU_REG_A;
-						changed = true;
-					}
+						if (!ReferencesXReg() && pblock->mIns.Size() > 0 && pblock->mIns[ps - 1].mType == ASMIT_TAX)
+						{
+							nblock->mIns.Insert(0, NativeCodeInstruction(pblock->mIns[ps - 1].mIns, ASMIT_TAX));
+							pblock->mIns.Remove(ps - 1);
+							ps--;
+							pblock->mExitRequiredRegs += CPU_REG_A;
+							nblock->mEntryRequiredRegs += CPU_REG_A;
+							mEntryRequiredRegs += CPU_REG_A;
+							mExitRequiredRegs += CPU_REG_A;
+							for (int i = 0; i < mIns.Size(); i++)
+								mIns[i].mLive |= LIVE_CPU_REG_A;
+							changed = true;
+						}
 
-					if (!ReferencesYReg() && pblock->mIns.Size() > 0 && pblock->mIns[ps - 1].mType == ASMIT_TAY)
-					{
-						nblock->mIns.Insert(0, NativeCodeInstruction(pblock->mIns[ps - 1].mIns, ASMIT_TAY));
-						pblock->mIns.Remove(ps - 1);
-						ps--;
-						pblock->mExitRequiredRegs += CPU_REG_A;
-						nblock->mEntryRequiredRegs += CPU_REG_A;
-						mEntryRequiredRegs += CPU_REG_A;
-						mExitRequiredRegs += CPU_REG_A;
-						for (int i = 0; i < mIns.Size(); i++)
-							mIns[i].mLive |= LIVE_CPU_REG_A;
-						changed = true;
+						if (!ReferencesYReg() && pblock->mIns.Size() > 0 && pblock->mIns[ps - 1].mType == ASMIT_TAY)
+						{
+							nblock->mIns.Insert(0, NativeCodeInstruction(pblock->mIns[ps - 1].mIns, ASMIT_TAY));
+							pblock->mIns.Remove(ps - 1);
+							ps--;
+							pblock->mExitRequiredRegs += CPU_REG_A;
+							nblock->mEntryRequiredRegs += CPU_REG_A;
+							mEntryRequiredRegs += CPU_REG_A;
+							mExitRequiredRegs += CPU_REG_A;
+							for (int i = 0; i < mIns.Size(); i++)
+								mIns[i].mLive |= LIVE_CPU_REG_A;
+							changed = true;
+						}
 					}
 				}
 			}
