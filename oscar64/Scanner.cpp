@@ -151,6 +151,7 @@ const char* TokenNames[] =
 	"'#embed'",
 	"'#for'",
 	"'##'",
+	"'#string'",
 
 	"'namespace'",
 	"'using'",
@@ -749,6 +750,30 @@ void Scanner::NextPreToken(void)
 				while (mLine[mOffset])
 					mOffset++;
 			}
+		}
+		else if (mToken == TK_PREP_IDENT)
+		{
+			Macro* def = nullptr;
+			if (mDefineArguments)
+				def = mDefineArguments->Lookup(mTokenIdent);
+			if (!def)
+				def = mDefines->Lookup(mTokenIdent);
+
+			if (def)
+			{
+				if (def->mNumArguments == -1)
+				{
+					mToken = TK_STRING;
+					int i = 0;
+					while (mTokenString[i] = def->mString[i])
+						i++;
+					return;
+				}
+				else
+					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", mTokenIdent);
+			}
+			else
+				mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", mTokenIdent);
 		}
 		else if (mToken == TK_PREP_UNDEF)
 		{
@@ -1414,7 +1439,10 @@ void Scanner::NextRawToken(void)
 				else if (!strcmp(tkprep, "for"))
 					mToken = TK_PREP_FOR;
 				else
-					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", tkprep);
+				{
+					mToken = TK_PREP_IDENT;
+					mTokenIdent = Ident::Unique(tkprep);
+				}
 			}
 			else
 			{

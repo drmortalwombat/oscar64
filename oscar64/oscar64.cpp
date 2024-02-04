@@ -9,6 +9,7 @@
 #endif
 #include "Compiler.h"
 #include "DiskImage.h"
+#include <time.h>
 
 #ifdef _WIN32
 bool GetProductAndVersion(char* strProductName, char* strProductVersion)
@@ -464,6 +465,19 @@ int main2(int argc, const char** argv)
 			if (compiler->mCompilerOptions & COPT_VERBOSE)
 			{
 				printf("Starting %s %s\n", strProductName, strProductVersion);
+			}
+
+			{
+				char dstring[100], tstring[100];
+				time_t now = time(NULL);
+				struct tm t;
+				localtime_s(&t, &now);
+
+				strftime(dstring, sizeof(tstring) - 1, "\"%b %d %Y\"", &t);
+				strftime(tstring, sizeof(dstring) - 1, "\"%H:%M:%S\"", &t);
+
+				compiler->AddDefine(Ident::Unique("__DATE__"), dstring);
+				compiler->AddDefine(Ident::Unique("__TIME__"), tstring);
 			}
 
 			// Add runtime module
