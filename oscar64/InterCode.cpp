@@ -11188,7 +11188,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 						{
 							InterInstruction* cins = mLoadStoreInstructions[j];
 
-							int64	offset = ins->mSrc->mIntConst - cins->mSrc[1].mIntConst;
+							int64	offset = ins->mSrc[0].mIntConst - cins->mSrc[1].mIntConst;
 							ins->mSrc[0] = cins->mSrc[0];
 							ins->mSrc[0].mOperandSize = InterTypeSize[ins->mDst.mType];
 							ins->mSrc[0].mIntConst += offset;
@@ -11263,7 +11263,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 							InterInstruction* sins = mLoadStoreInstructions[j];
 							if (sins->mCode == IC_STORE && SameMemSegment(ins->mSrc[0], sins->mSrc[1]))
 							{
-								int64	offset = sins->mSrc->mIntConst - ins->mSrc[0].mIntConst;
+								int64	offset = sins->mSrc[1].mIntConst - ins->mSrc[0].mIntConst;
 								if (offset >= 0 && offset < ins->mSrc[0].mOperandSize)
 								{
 									InterInstruction* tins = sins->Clone();
@@ -13144,7 +13144,7 @@ bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
 			if (mInstructions[sz - 2]->mOperator == IA_CMPGES && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
 			{
 				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
-					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc->mTemp)
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp)
 				{
 					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
 					{
@@ -13172,7 +13172,7 @@ bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPLS && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
 			{
 				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
-					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc->mTemp)
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp)
 				{
 					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
 					{
@@ -13190,7 +13190,7 @@ bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPLES && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
 			{
 				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
-					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc->mTemp)
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp)
 				{
 					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
 					{
@@ -16643,13 +16643,13 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 	for (int i = 0; i < mInstructions.Size(); i++)
 	{
-		if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY && mInstructions[i]->mDst.mTemp == mInstructions[i]->mSrc->mTemp)
+		if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY && mInstructions[i]->mDst.mTemp == mInstructions[i]->mSrc[0].mTemp)
 		{
 			mInstructions[i]->mCode = IC_NONE;
 			mInstructions[i]->mNumOperands = 0;
 			changed = true;
 		}
-		if (mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory == IM_GLOBAL && (mInstructions[i]->mSrc->mLinkerObject->mFlags & LOBJF_CONST))
+		if (mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory == IM_GLOBAL && (mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
 		{
 			LoadConstantFold(mInstructions[i], nullptr, staticVars);
 			changed = true;
@@ -19902,7 +19902,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "strcat");
+	CheckFunc = !strcmp(mIdent->mString, "_initFish");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
