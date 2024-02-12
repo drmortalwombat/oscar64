@@ -802,7 +802,22 @@ void Linker::CopyObjects(bool inlays)
 			else
 			{
 				if (!obj->mRegion)
+				{
 					mErrors->Error(obj->mLocation, ERRR_INSUFFICIENT_MEMORY, "Could not place object", obj->mIdent);
+
+					int avail = 0;
+					for (int i = 0; i < mRegions.Size(); i++)
+					{
+						if (mRegions[i]->mSections.Contains(obj->mSection))
+						{
+							if (mRegions[i]->mEnd - mRegions[i]->mStart - mRegions[i]->mUsed > avail)
+								avail = mRegions[i]->mEnd - mRegions[i]->mStart - mRegions[i]->mUsed;
+						}
+					}
+					char buffer[200];
+					sprintf_s(buffer, "Size %d Available %d in section", obj->mSize, avail);
+					mErrors->Error(obj->mLocation, EINFO_SIZE, buffer, obj->mSection->mIdent);
+				}
 				else if (obj->mRegion->mInlayObject)
 					;
 				else if (obj->mRegion && obj->mRegion->mCartridgeBanks != 0)
