@@ -23,19 +23,20 @@ void scrollLeft0(void)
 {
 	for(char x=0; x<39; x++)
 	{
-#assign y 0		
-#repeat
-		sline(0, y)[x] = sline(1, y)[x];
-		cline(0, y)[x] = cline(1, y)[x];
-#assign y y + 1
-#until y == SPLIT1
+		#pragma unroll(full)
+		for(char y=0; y<SPLIT1; y++)
+		{
+			sline(0, y)[x] = sline(1, y)[x];
+			cline(0, y)[x] = cline(1, y)[x];
+		}
 	}
-#assign y 0		
-#repeat
-	sline(0, y)[39] = rbuff[y];
-	cline(0, y)[39] = cbuff[y];
-#assign y y + 1
-#until y == SPLIT1
+
+	#pragma unroll(full)
+	for(char y=0; y<SPLIT1; y++)
+	{
+		sline(0, y)[39] = rbuff[y];
+		cline(0, y)[39] = cbuff[y];
+	}
 }
 
 // Scroll bottom two sections
@@ -43,34 +44,35 @@ void scrollLeft1(void)
 {
 	for(char x=0; x<39; x++)
 	{
-#assign y SPLIT1
-#repeat
-		sline(0, y)[x] = sline(1, y)[x];
-		cline(0, y)[x] = cline(1, y)[x];
-#assign y y + 1
-#until y == SPLIT2
+		#pragma unroll(full)
+		for(char y=SPLIT1; y<SPLIT2; y++)
+		{
+			sline(0, y)[x] = sline(1, y)[x];
+			cline(0, y)[x] = cline(1, y)[x];
+		}
 	}
-#assign y SPLIT1	
-#repeat
-	sline(0, y)[39] = rbuff[y];
-	cline(0, y)[39] = cbuff[y];
-#assign y y + 1
-#until y == SPLIT2
+	#pragma unroll(full)
+	for(char y=SPLIT1; y<SPLIT2; y++)
+	{
+		sline(0, y)[39] = rbuff[y];
+		cline(0, y)[39] = cbuff[y];
+	}
+
 	for(char x=0; x<39; x++)
 	{
-#assign y SPLIT2
-#repeat
-		sline(0, y)[x] = sline(1, y)[x];
-		cline(0, y)[x] = cline(1, y)[x];
-#assign y y + 1
-#until y == 25
+		#pragma unroll(full)
+		for(char y=SPLIT2; y<25; y++)
+		{
+			sline(0, y)[x] = sline(1, y)[x];
+			cline(0, y)[x] = cline(1, y)[x];
+		}
 	}
-#assign y SPLIT2	
-#repeat
-	sline(0, y)[39] = rbuff[y];
-	cline(0, y)[39] = cbuff[y];
-#assign y y + 1
-#until y == 25
+	#pragma unroll(full)
+	for(char y=SPLIT2; y<25; y++)
+	{
+		sline(0, y)[39] = rbuff[y];
+		cline(0, y)[39] = cbuff[y];
+	}
 }
 
 

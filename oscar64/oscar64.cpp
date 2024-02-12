@@ -471,7 +471,11 @@ int main2(int argc, const char** argv)
 				char dstring[100], tstring[100];
 				time_t now = time(NULL);
 				struct tm t;
+#ifdef _WIN32
 				localtime_s(&t, &now);
+#else
+				localtime_r(&now, &t);
+#endif
 
 				strftime(dstring, sizeof(tstring) - 1, "\"%b %d %Y\"", &t);
 				strftime(tstring, sizeof(dstring) - 1, "\"%H:%M:%S\"", &t);

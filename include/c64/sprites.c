@@ -143,7 +143,11 @@ void vspr_init(char * screen)
 
 	for(int i=0; i<VSPRITES_MAX - 8; i++)
 	{
+#ifdef VSPRITE_REVERSE
+		int j = (i & 7) ^ 7;
+#else
 		int j = i & 7;
+#endif
 
 		rirq_build(spirq + i, 5);
 		rirq_write(spirq + i, 0, &vic.spr_color[j], 0);
@@ -254,15 +258,26 @@ void vspr_update(void)
 	char	sypos[VSPRITES_MAX];
 
 #pragma unroll(full)
+
 	for(char ui=0; ui<8; ui++)
 	{
-		byte ri = spriteOrder[ui];
+		byte ri = spriteOrder[ui];		
+#ifdef VSPRITE_REVERSE
+		char uj = ui ^ 7;
+#else
+		char uj = ui;
+#endif
 
-		vic.spr_color[ui] = vspriteColor[ri];
-		vsprs[ui] = vspriteImage[ri];
+		vic.spr_color[uj] = vspriteColor[ri];
+		vsprs[uj] = vspriteImage[ri];
+#ifdef VSPRITE_REVERSE
+		xymask = (xymask << 1) | (vspriteXHigh[ri] & 1);
+#else
 		xymask = ((unsigned)xymask | (vspriteXHigh[ri] << 8)) >> 1;
-		vic.spr_pos[ui].x = vspriteXLow[ri];
-		vic.spr_pos[ui].y = vspriteYLow[ri];
+#endif
+		vic.spr_pos[uj].x = vspriteXLow[ri];
+		vic.spr_pos[uj].y = vspriteYLow[ri];
+
 		sypos[ui] = vspriteYLow[ri];
 	}
 
@@ -276,7 +291,11 @@ void vspr_update(void)
 		byte ri = spriteOrder[ti + 8];
 		if (!done && vspriteYLow[ri] < 250)
 		{
+#ifdef VSPRITE_REVERSE
+			char	m = 0x80 >> (ti & 7);
+#else
 			char	m = 1 << (ti & 7);
+#endif
 
 			xymask |= m;
 			if (!(vspriteXHigh[ri] & 1))
