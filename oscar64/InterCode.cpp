@@ -10409,9 +10409,10 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst >= 0)
 						{
+							int64 offset = ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst;
 							ins->mSrc[0].Forward(pins->mSrc[1]);
 							pins->mSrc[1].mFinal = false;
-							ins->mSrc[0].mIntConst += pins->mSrc[0].mIntConst;
+							ins->mSrc[0].mIntConst += offset;
 							changed = true;
 						}
 						else if (pins->mSrc[1].mTemp < 0 && pins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mIntConst && (ins->mSrc[0].mIntConst >= 256 || pins->mSrc[0].IsUByte()))

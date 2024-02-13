@@ -946,6 +946,8 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 				d = sin(d);
 			else if (!strcmp(iname->mString, "cos"))
 				d = cos(d);
+			else if (!strcmp(iname->mString, "tan"))
+				d = tan(d);
 			else
 				return this;
 

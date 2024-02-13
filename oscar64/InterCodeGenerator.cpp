@@ -3343,6 +3343,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				else if (!strcmp(iname->mString, "cos"))
 				{
 				}
+				else if (!strcmp(iname->mString, "tan"))
+				{
+				}
 				else if (!strcmp(iname->mString, "malloc"))
 				{
 					vr = TranslateExpression(procType, proc, block, exp->mRight, destack, breakBlock, continueBlock, inlineMapper);

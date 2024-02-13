@@ -1099,6 +1099,11 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
 			mResult.PutFloat(cos(mParams[0].GetFloat()));
 		}
+		else if (!strcmp(iname->mString, "tan"))
+		{
+			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
+			mResult.PutFloat(tan(mParams[0].GetFloat()));
+		}
 		else
 			mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname);
 	}
