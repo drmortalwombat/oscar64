@@ -765,7 +765,7 @@ void Scanner::NextPreToken(void)
 				{
 					mToken = TK_STRING;
 					int i = 0;
-					while (mTokenString[i] = def->mString[i])
+					while ((mTokenString[i] = def->mString[i]))
 						i++;
 					return;
 				}
