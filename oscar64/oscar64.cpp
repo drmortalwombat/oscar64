@@ -75,7 +75,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.26.234");
+		strcpy(strProductVersion, "1.27.235");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
@@ -263,7 +263,7 @@ int main2(int argc, const char** argv)
 				if (!targetPath[0])
 					strcpy_s(targetPath, argv[i]);
 
-				int n = strlen(argv[i]);
+				ptrdiff_t n = strlen(argv[i]);
 				if (n > 4 && argv[i][n - 4] == '.' && argv[i][n - 3] == 'c' && argv[i][n - 2] == 'p' && argv[i][n - 1] == 'p')
 				{
 					compiler->mCompilerOptions |= COPT_CPLUSPLUS;
@@ -542,7 +542,11 @@ int main2(int argc, const char** argv)
 #ifndef _DEBUG
 int seh_filter(unsigned int code, struct _EXCEPTION_POINTERS* info)
 {
+#ifdef _WIN64
+	printf("oscar64 crashed. %08x %08llx", info->ExceptionRecord->ExceptionCode, (uint64)(info->ExceptionRecord->ExceptionAddress));
+#else
 	printf("oscar64 crashed. %08x %08x", info->ExceptionRecord->ExceptionCode, (uint32)(info->ExceptionRecord->ExceptionAddress));
+#endif
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 #endif

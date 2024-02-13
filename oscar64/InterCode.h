@@ -236,6 +236,7 @@ public:
 	void SetSize(int size);
 
 	void Reset(void);
+	void Shrink(void);
 
 	int operator[](int n);
 

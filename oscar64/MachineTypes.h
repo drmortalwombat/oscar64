@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <cstddef>
+
+using std::ptrdiff_t;
 
 typedef	unsigned char		uint8;
 typedef unsigned short		uint16;

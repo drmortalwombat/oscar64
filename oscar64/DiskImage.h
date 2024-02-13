@@ -13,7 +13,7 @@ public:
 	bool OpenFile(const char* fname);
 	void CloseFile(void);
 
-	int WriteBytes(const uint8* data, int size);
+	int WriteBytes(const uint8* data, ptrdiff_t size);
 	bool WriteFile(const char* fname, bool compressed);
 
 protected:

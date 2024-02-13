@@ -627,7 +627,7 @@ bool SourceFile::Open(const char* name, const char* path, SourceFileMode mode)
 		return false;
 
 	strcpy_s(fname, path);
-	int	n = strlen(fname);
+	ptrdiff_t	n = strlen(fname);
 
 	if (n > 0 && fname[n - 1] != '/')
 	{
@@ -706,7 +706,7 @@ bool SourceFile::DropSource(void)
 
 bool Preprocessor::NextLine(void)
 {
-	int	s = 0;
+	ptrdiff_t	s = 0;
 	while (mSource->ReadLine(mLine + s))
 	{
 		mLocation.mLine++;
@@ -744,7 +744,7 @@ bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, i
 	{
 		char	lpath[220];
 		strcpy_s(lpath, mSource->mFileName);
-		int	i = strlen(lpath);
+		ptrdiff_t	i = strlen(lpath);
 		while (i > 0 && lpath[i - 1] != '/')
 			i--;
 		lpath[i] = 0;
@@ -806,7 +806,7 @@ bool Preprocessor::OpenSource(const char * reason, const char* name, bool local)
 	{
 		char	lpath[220];
 		strcpy_s(lpath, mSource->mFileName);
-		int	i = strlen(lpath);
+		ptrdiff_t	i = strlen(lpath);
 		while (i > 0 && lpath[i - 1] != '/')
 			i--;
 		lpath[i] = 0;

@@ -183,7 +183,7 @@ public:
 	~Macro(void);
 
 	void SetString(const char* str);
-	void SetString(const char* str, int length);
+	void SetString(const char* str, ptrdiff_t length);
 	void AddArgument(const Ident * ident);
 
 	const Ident* mIdent;

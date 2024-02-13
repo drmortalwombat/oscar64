@@ -351,3 +351,5 @@ make/oscar64
 *.dbj
 *.json
 *.mapd
+*.idb
+oscar64/Releasex64/oscar64.vcxproj.FileListAbsolute.txt

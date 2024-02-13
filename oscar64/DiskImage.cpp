@@ -53,7 +53,7 @@ DiskImage::DiskImage(const char* fname)
 	for (int i = 0x90; i < 0xab; i++)
 		bam[i] = 0xa0;
 
-	int		i = strlen(fname);
+	ptrdiff_t	i = strlen(fname);
 
 	while (i > 0 && fname[i - 1] != '/' && fname[i - 1] != '\\')
 		i--;
@@ -235,7 +235,7 @@ bool DiskImage::WriteFile(const char* fname, bool compressed)
 	if (file)
 	{
 		char	dname[200];
-		int		i = strlen(fname);
+		ptrdiff_t	i = strlen(fname);
 
 		while (i > 0 && fname[i - 1] != '/' && fname[i - 1] != '\\')
 			i--;
@@ -251,7 +251,7 @@ bool DiskImage::WriteFile(const char* fname, bool compressed)
 		if (OpenFile(dname))
 		{
 			uint8	* buffer = new uint8[65536], * cbuffer = new uint8[65536];
-			int		size = fread(buffer, 1, 65536, file);
+			ptrdiff_t	size = fread(buffer, 1, 65536, file);
 			int		csize = 0;
 
 			if (compressed)
@@ -323,10 +323,10 @@ bool DiskImage::WriteFile(const char* fname, bool compressed)
 		return false;
 }
 
-int DiskImage::WriteBytes(const uint8* data, int size)
+int DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
 {
 	uint8* dp = mSectors[mTrack][mSector];
-	for (int i = 0; i < size; i++)
+	for (ptrdiff_t i = 0; i < size; i++)
 	{
 		if (mBytes >= 256)
 		{

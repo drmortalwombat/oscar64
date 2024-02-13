@@ -968,16 +968,28 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 		return val1 * val2;
 		break;
 	case IA_DIVU:
-		return (uint64)val1 / (uint64)val2;
+		if (val2)
+			return (uint64)val1 / (uint64)val2;
+		else
+			return 0;
 		break;
 	case IA_DIVS:
-		return val1 / val2;
+		if (val2)
+			return val1 / val2;
+		else
+			return 0;
 		break;
 	case IA_MODU:
-		return (uint64)val1 % (uint64)val2;
+		if (val2)
+			return (uint64)val1 % (uint64)val2;
+		else
+			return 0;
 		break;
 	case IA_MODS:
-		return val1 % val2;
+		if (val2)
+			return val1 % val2;
+		else
+			return 0;
 		break;
 	case IA_OR:
 		return val1 | val2;
@@ -2154,6 +2166,12 @@ void TempForwardingTable::Reset(void)
 	for (i = 0; i < mAssoc.Size(); i++)
 		mAssoc[i] = Assoc(i, i, i);
 }
+
+void TempForwardingTable::Shrink(void)
+{
+	mAssoc.shrink();
+}
+
 
 int TempForwardingTable::operator[](int n)
 {
@@ -9170,6 +9188,8 @@ void InterCodeBasicBlock::PerformTempForwarding(const TempForwardingTable& forwa
 
 		if (mTrueJump) mTrueJump->PerformTempForwarding(mMergeForwardingTable, reverse, checkloops);
 		if (mFalseJump) mFalseJump->PerformTempForwarding(mMergeForwardingTable, reverse, checkloops);
+
+		mMergeForwardingTable.Shrink();
 	}
 }
 
@@ -19902,7 +19922,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "_initFish");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

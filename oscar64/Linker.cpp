@@ -1170,7 +1170,7 @@ bool Linker::WriteBinFile(const char* filename)
 	fopen_s(&file, filename, "wb");
 	if (file)
 	{
-		int	done = fwrite(mMemory + mProgramStart, 1, mProgramEnd - mProgramStart, file);
+		ptrdiff_t	done = fwrite(mMemory + mProgramStart, 1, mProgramEnd - mProgramStart, file);
 		fclose(file);
 		return done == mProgramEnd - mProgramStart;
 	}
@@ -1209,7 +1209,7 @@ bool Linker::WriteNesFile(const char* filename, TargetMachine machine)
 			break;
 		}
 
-		int done = fwrite(header, 1, 16, file);
+		ptrdiff_t done = fwrite(header, 1, 16, file);
 
 		switch (machine)
 		{
@@ -1291,7 +1291,7 @@ bool Linker::WriteXexFile(const char* filename)
 		fputc((mProgramEnd - 1) & 0xff, file);
 		fputc((mProgramEnd - 1) >> 8, file);
 
-		int	done = fwrite(mMemory + mProgramStart, 1, mProgramEnd - mProgramStart, file);
+		ptrdiff_t	done = fwrite(mMemory + mProgramStart, 1, mProgramEnd - mProgramStart, file);
 
 		fputc(0xe0, file);
 		fputc(0x02, file);
@@ -1316,7 +1316,7 @@ bool Linker::WritePrgFile(const char* filename, const char* pathname)
 		mMemory[mProgramStart - 2] = mProgramStart & 0xff;
 		mMemory[mProgramStart - 1] = mProgramStart >> 8;
 
-		int	done = fwrite(mMemory + mProgramStart - 2, 1, mProgramEnd - mProgramStart + 2, file);
+		ptrdiff_t	done = fwrite(mMemory + mProgramStart - 2, 1, mProgramEnd - mProgramStart + 2, file);
 		fclose(file);
 		if (done == mProgramEnd - mProgramStart + 2)
 		{

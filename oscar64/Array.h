@@ -153,8 +153,8 @@ template <class T>
 class GrowingArray
 {
 protected:
-	int		size, range;
-	T* array;
+	int			size, range;
+	T		*	array;
 	T			empty;
 
 	void Grow(int to, bool clear)
@@ -166,10 +166,15 @@ protected:
 
 		if (to > range)
 		{
-			if (to > range * 2)
+			int trange = range * sizeof(T) < 65536 ? range * 2 : range + (range >> 2);
+
+			if (trange < 4)
+				trange = 4;
+
+			if (to > trange)
 				range = to;
 			else
-				range = range * 2;
+				range = trange;
 
 			a2 = new T[range];
 			if (to > size)
@@ -191,8 +196,8 @@ public:
 		: empty(empty_)
 	{
 		size = 0;
-		range = 4;
-		array = new T[range];
+		range = 0;
+		array = nullptr;
 	}
 
 	GrowingArray(const GrowingArray& a)
@@ -226,14 +231,22 @@ public:
 		delete[] array;
 	}
 
-	T& operator[](int n)
+	void shrink(void)
+	{
+		size = 0;
+		range = 0;
+		delete[] array;
+		array = nullptr;
+	}
+
+	__forceinline T& operator[](int n)
 	{
 		assert(n >= 0);
 		if (n >= size) Grow(n + 1, false);
 		return array[n];
 	}
 
-	const T & operator[](int n) const
+	__forceinline const T & operator[](int n) const
 	{
 		assert(n >= 0);
 		if (n >= size) return empty;
@@ -251,7 +264,7 @@ public:
 		if (n < size)
 			array[n] = empty;
 	}
-
+	
 	void Push(T t)
 	{
 		(*this)[size] = t;
@@ -322,7 +335,7 @@ public:
 
 	bool IsEmpty(void) const { return size == 0; }
 
-	int Size(void) const { return size; }
+	__forceinline int Size(void) const { return size; }
 
 	T Last() const
 	{

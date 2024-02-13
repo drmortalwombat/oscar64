@@ -49,7 +49,7 @@ bool CompilationUnits::AddUnit(Location& location, const char* name, const char*
 	else
 	{
 		strcpy_s(filename, from);
-		int	i = strlen(filename);
+		ptrdiff_t i = strlen(filename);
 		while (i > 0 && (filename[i - 1] != '/' && filename[i - 1] != '\\'))
 			i--;
 		while (name[0] == '.' && name[1] == '.' && name[2] == '/')

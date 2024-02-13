@@ -22,7 +22,7 @@ unsigned int IHash(const char* str)
 
 Ident::Ident(const char* str, unsigned int hash)
 {
-	int	ssize = strlen(str);
+	ptrdiff_t	ssize = strlen(str);
 	mString = new char[ssize + 1];
 	strcpy_s(mString, ssize + 1, str);
 
@@ -82,7 +82,7 @@ IdentDict::~IdentDict(void)
 
 void IdentDict::Insert(const Ident* ident, const char* str)
 {
-	int	s = strlen(str);
+	ptrdiff_t	s = strlen(str);
 	char* nstr = new char[s + 1];
 	strcpy_s(nstr, s + 1, str);
 	InsertCopy(ident, nstr);

@@ -185,11 +185,11 @@ Macro::~Macro(void)
 
 void Macro::SetString(const char* str)
 {
-	int	s = strlen(str);
+	ptrdiff_t	s = strlen(str);
 	SetString(str, s);
 }
 
-void Macro::SetString(const char* str, int length)
+void Macro::SetString(const char* str, ptrdiff_t length)
 {
 	char* nstr = new char[length + 2];
 
@@ -1043,8 +1043,8 @@ void Scanner::NextPreToken(void)
 					char	tkbase[256];
 					strcpy_s(tkbase, mTokenIdent->mString);
 
-					int		n = 0;
-					char	tkident[256];
+					ptrdiff_t	n = 0;
+					char		tkident[256];
 					while (IsIdentChar(mTokenChar))
 					{
 						if (n < 255)

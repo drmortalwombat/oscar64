@@ -1735,12 +1735,12 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 		else if (mScanner->mToken == TK_STRING && dtype->mType == DT_TYPE_ARRAY && dtype->mBase->mType == DT_TYPE_INTEGER && dtype->mBase->mSize == 1)
 		{
 			uint8* d = ParseStringLiteral(dtype->mSize);
-			int		ds = strlen((char *)d);
+			ptrdiff_t	ds = strlen((char *)d);
 
 			if (!(dtype->mFlags & DTF_DEFINED))
 			{
 				dtype->mFlags |= DTF_DEFINED;
-				dtype->mSize = ds + 1;
+				dtype->mSize = int(ds + 1);
 			}
 
 			dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);

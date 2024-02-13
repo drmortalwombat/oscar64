@@ -1143,7 +1143,7 @@ bool Compiler::BuildLZO(const char* targetPath)
 		char	prgPath[200];
 
 		strcpy_s(prgPath, targetPath);
-		int		i = strlen(prgPath);
+		ptrdiff_t		i = strlen(prgPath);
 		while (i > 0 && prgPath[i - 1] != '.')
 			i--;
 		if (i > 0)
@@ -1157,7 +1157,7 @@ bool Compiler::BuildLZO(const char* targetPath)
 		fopen_s(&file, prgPath, "wb");
 		if (file)
 		{
-			int	done = fwrite(data, 1, n, file);
+			ptrdiff_t	done = fwrite(data, 1, n, file);
 			fclose(file);
 			delete[] data;
 			return done == n;
@@ -1181,7 +1181,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	char	basePath[200];
 
 	strcpy_s(basePath, targetPath);
-	int		i = strlen(basePath);
+	ptrdiff_t	i = strlen(basePath);
 	while (i > 0 && basePath[i - 1] != '/' && basePath[i - 1] != '\\' && basePath[i - 1] != ':')
 		i--;
 	if (i > 0)
@@ -1254,7 +1254,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 
 	if (d64)
 	{
-		int		i = strlen(prgPath);
+		ptrdiff_t	i = strlen(prgPath);
 		while (i > 0 && prgPath[i - 1] != '.')
 			i--;
 		if (i > 0)
