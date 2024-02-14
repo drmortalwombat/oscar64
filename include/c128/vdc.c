@@ -34,8 +34,11 @@ byte vdc_reg_read(VDCRegister reg)
 
 void vdc_mem_addr(unsigned addr)
 {
+	#pragma callinline()
 	vdc_reg_write(VDCR_ADDRH, addr >> 8);
+	#pragma callinline()
 	vdc_reg_write(VDCR_ADDRL, addr);
+	#pragma callinline()
 	vdc_reg(VDCR_DATA);
 }
 
@@ -52,12 +55,14 @@ inline char vdc_mem_read(void)
 
 void vdc_mem_write_at(unsigned addr, char data)
 {
+	#pragma callinline()
 	vdc_mem_addr(addr);
 	vdc_write(data);
 }
 
 char vdc_mem_read_at(unsigned addr)
 {
+	#pragma callinline()
 	vdc_mem_addr(addr);
 	return vdc_read();
 }

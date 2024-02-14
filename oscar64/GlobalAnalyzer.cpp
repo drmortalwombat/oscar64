@@ -866,7 +866,13 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		}
 		else
 		{
-			RegisterCall(procDec, ldec);
+			if (exp->mType == EX_INLINE)
+			{
+				for (int i = 0; i < ldec->mCalled.Size(); i++)
+					RegisterCall(procDec, ldec->mCalled[i]);
+			}
+			else
+				RegisterCall(procDec, ldec);
 			if (!(GetProcFlags(ldec) & (DTF_FUNC_INTRSAVE | DTF_INTERRUPT)))
 			{
 				procDec->mFlags &= ~DTF_FUNC_INTRSAVE;

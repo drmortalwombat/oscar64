@@ -21442,7 +21442,7 @@ void NativeCodeBasicBlock::ChangeTailZPStoreToY(int addr)
 	assert(false);
 }
 
-bool NativeCodeBasicBlock::IsExitYRegZP(int addr, int& index) const
+bool NativeCodeBasicBlock::IsExitYRegZP(int addr, int& index, NativeCodeBasicBlock*& block)
 {
 	int i = mIns.Size() - 1;
 	while (i >= 0)
@@ -21451,6 +21451,7 @@ bool NativeCodeBasicBlock::IsExitYRegZP(int addr, int& index) const
 		{
 			if (addr == mIns[i].mAddress)
 			{
+				block = this;
 				index = i;
 				return true;
 			}
@@ -21463,11 +21464,14 @@ bool NativeCodeBasicBlock::IsExitYRegZP(int addr, int& index) const
 
 		i--;
 	}
-	
+
+	if (mEntryBlocks.Size() == 1)
+		return mEntryBlocks[0]->IsExitYRegZP(addr, index, block);
+
 	return false;
 }
 
-bool NativeCodeBasicBlock::IsExitXRegZP(int addr, int& index) const
+bool NativeCodeBasicBlock::IsExitXRegZP(int addr, int& index, NativeCodeBasicBlock*& block)
 {
 	int i = mIns.Size() - 1;
 	while (i >= 0)
@@ -21476,6 +21480,7 @@ bool NativeCodeBasicBlock::IsExitXRegZP(int addr, int& index) const
 		{
 			if (addr == mIns[i].mAddress)
 			{
+				block = this;
 				index = i;
 				return true;
 			}
@@ -21489,10 +21494,13 @@ bool NativeCodeBasicBlock::IsExitXRegZP(int addr, int& index) const
 		i--;
 	}
 
+	if (mEntryBlocks.Size() == 1)
+		return mEntryBlocks[0]->IsExitXRegZP(addr, index, block);
+
 	return false;
 }
 
-bool NativeCodeBasicBlock::IsExitARegZP(int addr, int& index) const
+bool NativeCodeBasicBlock::IsExitARegZP(int addr, int& index, NativeCodeBasicBlock*& block)
 {
 	int i = mIns.Size() - 1;
 	while (i >= 0)
@@ -21501,6 +21509,7 @@ bool NativeCodeBasicBlock::IsExitARegZP(int addr, int& index) const
 		{
 			if (addr == mIns[i].mAddress)
 			{
+				block = this;
 				index = i;
 				return true;
 			}
@@ -21514,7 +21523,27 @@ bool NativeCodeBasicBlock::IsExitARegZP(int addr, int& index) const
 		i--;
 	}
 
+	if (mEntryBlocks.Size() == 1)
+		return mEntryBlocks[0]->IsExitARegZP(addr, index, block);
+
 	return false;
+}
+
+void NativeCodeBasicBlock::MarkLiveBlockChain(int index, NativeCodeBasicBlock* block, uint32 live, uint32 reg)
+{
+	mExitRequiredRegs += reg;
+	if (this == block)
+	{
+		for (int i = index; i < mIns.Size(); i++)
+			mIns[i].mLive |= live;
+	}
+	else
+	{
+		for (int i = 0; i < mIns.Size(); i++)
+			mIns[i].mLive |= live;
+		mEntryRequiredRegs += reg;
+		mEntryBlocks[0]->MarkLiveBlockChain(index, block, live, reg);
+	}
 }
 
 bool NativeCodeBasicBlock::CanJoinEntryLoadStoreZP(int saddr, int daddr)
@@ -23072,10 +23101,11 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				int		ei = 0;
 				int		index;
 				bool	found = false, fail = false;
+				NativeCodeBasicBlock* block;
 
 				for (int i = 0; i < mEntryBlocks.Size(); i++)
 				{
-					if (mEntryBlocks[i]->IsExitYRegZP(mIns[0].mAddress, index))
+					if (mEntryBlocks[i]->IsExitYRegZP(mIns[0].mAddress, index, block))
 						found = true;
 					else if (mEntryBlocks[i]->mFalseJump)
 						fail = true;
@@ -23085,15 +23115,14 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				{
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
 					{
-						if (mEntryBlocks[i]->IsExitYRegZP(mIns[0].mAddress, index))
+						if (mEntryBlocks[i]->IsExitYRegZP(mIns[0].mAddress, index, block))
 						{
-							while (index < mEntryBlocks[i]->mIns.Size())
-								mEntryBlocks[i]->mIns[index++].mLive |= LIVE_CPU_REG_Y;
-							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_Y;
+							mEntryBlocks[i]->MarkLiveBlockChain(index, block, LIVE_CPU_REG_Y, CPU_REG_Y);
 						}
 						else
 						{
 							mEntryBlocks[i]->mIns.Push(mIns[0]);
+							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_Y;
 						}
 					}
 
@@ -23107,10 +23136,11 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				int		ei = 0;
 				int		index;
 				bool	found = false, fail = false;
+				NativeCodeBasicBlock* block;
 
 				for (int i = 0; i < mEntryBlocks.Size(); i++)
 				{
-					if (mEntryBlocks[i]->IsExitXRegZP(mIns[0].mAddress, index))
+					if (mEntryBlocks[i]->IsExitXRegZP(mIns[0].mAddress, index, block))
 						found = true;
 					else if (mEntryBlocks[i]->mFalseJump)
 						fail = true;
@@ -23120,15 +23150,14 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				{
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
 					{
-						if (mEntryBlocks[i]->IsExitXRegZP(mIns[0].mAddress, index))
+						if (mEntryBlocks[i]->IsExitXRegZP(mIns[0].mAddress, index, block))
 						{
-							while (index < mEntryBlocks[i]->mIns.Size())
-								mEntryBlocks[i]->mIns[index++].mLive |= LIVE_CPU_REG_X;
-							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_X;
+							mEntryBlocks[i]->MarkLiveBlockChain(index, block, LIVE_CPU_REG_X, CPU_REG_X);
 						}
 						else
 						{
 							mEntryBlocks[i]->mIns.Push(mIns[0]);
+							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_X;
 						}
 					}
 
@@ -23142,10 +23171,11 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				int		ei = 0;
 				int		index;
 				bool	found = false, fail = false;
+				NativeCodeBasicBlock* block;
 
 				for (int i = 0; i < mEntryBlocks.Size(); i++)
 				{
-					if (mEntryBlocks[i]->IsExitARegZP(mIns[0].mAddress, index))
+					if (mEntryBlocks[i]->IsExitARegZP(mIns[0].mAddress, index, block))
 						found = true;
 					else if (mEntryBlocks[i]->mFalseJump)
 						fail = true;
@@ -23155,15 +23185,14 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				{
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
 					{
-						if (mEntryBlocks[i]->IsExitARegZP(mIns[0].mAddress, index))
+						if (mEntryBlocks[i]->IsExitARegZP(mIns[0].mAddress, index, block))
 						{
-							while (index < mEntryBlocks[i]->mIns.Size())
-								mEntryBlocks[i]->mIns[index++].mLive |= LIVE_CPU_REG_A;
-							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_A;
+							mEntryBlocks[i]->MarkLiveBlockChain(index, block, LIVE_CPU_REG_A, CPU_REG_A);
 						}
 						else
 						{
 							mEntryBlocks[i]->mIns.Push(mIns[0]);
+							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_A;
 						}
 					}
 
@@ -23703,7 +23732,7 @@ bool NativeCodeBasicBlock::CrossBlockRegisterAlias(bool sameAX, bool sameAY)
 	return changed;
 }
 
-bool NativeCodeBasicBlock::CrossBlockYAliasProgpagation(const int* yalias, int yoffset)
+bool NativeCodeBasicBlock::CrossBlockYAliasProgpagation(const int* yalias)
 {
 	bool changed = false;
 
@@ -23718,21 +23747,14 @@ bool NativeCodeBasicBlock::CrossBlockYAliasProgpagation(const int* yalias, int y
 		{
 			if (mNumEntered == 0)
 			{
-				mYOffset = yoffset;
 				for (int i = 0; i < 256; i++)
 					mYAlias[i] = yalias[i];
-			}
-			else if (mYOffset == yoffset)
-			{
-				for (int i = 0; i < 256; i++)
-					if (mYAlias[i] != yalias[i])
-						mYAlias[i] = -1;
 			}
 			else
 			{
 				for (int i = 0; i < 256; i++)
-					mYAlias[i] = -1;
-				yoffset = -1;
+					if (mYAlias[i] != yalias[i])
+						mYAlias[i] = -1;
 			}
 
 			mNumEntered++;
@@ -23742,6 +23764,7 @@ bool NativeCodeBasicBlock::CrossBlockYAliasProgpagation(const int* yalias, int y
 
 		mVisited = true;
 
+		int yoffset = 0;
 		for (int i = 0; i < mIns.Size(); i++)
 		{
 			NativeCodeInstruction& ins(mIns[i]);
@@ -23788,6 +23811,23 @@ bool NativeCodeBasicBlock::CrossBlockYAliasProgpagation(const int* yalias, int y
 					mYAlias[ins.mAddress] = yoffset;
 				}
 			}
+			else if (ins.mType == ASMIT_TAY && i > 0 && (mIns[i - 1].mType == ASMIT_STA || mIns[i - 1].mType == ASMIT_LDA) && mIns[i - 1].mMode == ASMIM_ZERO_PAGE)
+			{
+				for (int i = 0; i < 256; i++)
+					mYAlias[i] = -1;
+				yoffset = 0;
+				mYAlias[mIns[i - 1].mAddress] = yoffset;
+			}
+			else if (ins.mType == ASMIT_LDA && ins.mMode == ASMIM_ZERO_PAGE && mYAlias[ins.mAddress] != -1 && i + 1 < mIns.Size())
+			{
+				if (mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE)
+				{
+					ins.mType = ASMIT_TYA;
+					ins.mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mAddress = (mIns[i + 1].mAddress + mYAlias[ins.mAddress] - yoffset) & 0xff;
+					changed = true;
+				}
+			}
 			else if (ins.ChangesYReg())
 			{
 				for (int i = 0; i < 256; i++)
@@ -23796,9 +23836,19 @@ bool NativeCodeBasicBlock::CrossBlockYAliasProgpagation(const int* yalias, int y
 			}
 		}
 
-		if (mTrueJump && mTrueJump->CrossBlockYAliasProgpagation(mYAlias, yoffset))
+		if (yoffset > 0)
+		{
+			for (int i = 0; i < 256; i++)
+			{
+				if (mYAlias[i] >= 0)
+					mYAlias[i] = (mYAlias[i] - yoffset) & 0xff;
+					
+			}
+		}
+
+		if (mTrueJump && mTrueJump->CrossBlockYAliasProgpagation(mYAlias))
 			changed = true;
-		if (mFalseJump && mFalseJump->CrossBlockYAliasProgpagation(mYAlias, yoffset))
+		if (mFalseJump && mFalseJump->CrossBlockYAliasProgpagation(mYAlias))
 			changed = true;
 	}
 
@@ -46297,7 +46347,7 @@ void NativeCodeProcedure::Optimize(void)
 		if (step >= 6)
 		{
 			ResetVisited();
-			mEntryBlock->CrossBlockYAliasProgpagation(nullptr, -1);
+			mEntryBlock->CrossBlockYAliasProgpagation(nullptr);
 		}
 
 		RebuildEntry();

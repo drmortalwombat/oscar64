@@ -247,7 +247,7 @@ public:
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
 	ValueNumberingDataSet	mNumDataSet, mNNumDataSet, mFNumDataSet;
 
-	int						mYAlias[256], mYOffset;
+	int						mYAlias[256];
 
 	ExpandingArray<NativeRegisterSum16Info>	mRSumInfos;
 
@@ -536,9 +536,11 @@ public:
 	bool DoJoinEntryLoadStoreZP(int saddr, int daddr);
 	bool JoinEntryLoadStoreZP(void);
 
-	bool IsExitYRegZP(int addr, int& index) const;
-	bool IsExitXRegZP(int addr, int& index) const;
-	bool IsExitARegZP(int addr, int& index) const;
+	bool IsExitYRegZP(int addr, int& index, NativeCodeBasicBlock * & block);
+	bool IsExitXRegZP(int addr, int& index, NativeCodeBasicBlock * & block);
+	bool IsExitARegZP(int addr, int& index, NativeCodeBasicBlock * & block);
+
+	void MarkLiveBlockChain(int index, NativeCodeBasicBlock* block, uint32 live, uint32 reg);
 
 	bool ShortcutBlockExit(void);
 	bool PropagateSinglePath(void);
@@ -559,7 +561,7 @@ public:
 
 	bool CrossBlockXYShortcut(void);
 
-	bool CrossBlockYAliasProgpagation(const int * yalias, int yoffset);
+	bool CrossBlockYAliasProgpagation(const int * yalias);
 
 	bool CrossBlockRegisterAlias(bool sameAX, bool sameAY);
 
