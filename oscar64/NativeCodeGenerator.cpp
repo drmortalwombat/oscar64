@@ -44759,9 +44759,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 			}
 			else if (mBranch == ASMIT_BCS)
 			{
-				if (mTrueJump->mIns.Size() == 1 && mTrueJump->mIns[0].mType == ASMIT_CMP && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+				if (mFalseJump->mIns.Size() == 1 && mFalseJump->mIns[0].mType == ASMIT_CMP && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
 				{
-					if (mFalseJump->mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+					if (mFalseJump->mBranch == ASMIT_BCC && mFalseJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
 						!mFalseJump->mExitRequiredRegs[CPU_REG_Z] && !mFalseJump->mExitRequiredRegs[CPU_REG_C])
 					{
 						mFalseJump->RemEntryBlock(this);
@@ -45695,7 +45695,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "vdc_hchar");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "edit_line");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
