@@ -7207,7 +7207,7 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 		}
 	}
 
-	assert(mLocalValueRange.Size() == mExitRequiredTemps.Size());
+	assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
 	assert(mLocalParamValueRange.Size() == paramVars.Size());
 
 	for (int i = 0; i < mProc->mLocalValueRange.Size(); i++)
@@ -7366,7 +7366,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 	int sz = mInstructions.Size();
 
-	assert(mLocalValueRange.Size() == mExitRequiredTemps.Size());
+	assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
 
 	InterCodeBasicBlock	*	pblock;
 	int64					nloop;
@@ -8116,7 +8116,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				mLocalParamValueRange[ins->mSrc[1].mVarIndex] = ins->mSrc[0].mRange;
 		}
 
-		assert(mLocalValueRange.Size() == mExitRequiredTemps.Size());
+		assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
 	}
 
 #if 1
@@ -11577,8 +11577,8 @@ void InterCodeBasicBlock::RenameValueRanges(const GrowingIntArray& renameTable, 
 		{
 			if (renameTable[i] >= 0)
 			{
-				assert(mLocalValueRange[i].mMinState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMinState == IntegerValueRange::S_UNKNOWN);
-				assert(mLocalValueRange[i].mMaxState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMaxState == IntegerValueRange::S_UNKNOWN);
+				assert(mProc->mLocalValueRange[i].mMinState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMinState == IntegerValueRange::S_UNKNOWN);
+				assert(mProc->mLocalValueRange[i].mMaxState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMaxState == IntegerValueRange::S_UNKNOWN);
 
 				mEntryValueRange[renameTable[i]].Limit(mProc->mLocalValueRange[i]);
 			}				
@@ -19050,7 +19050,7 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 		ResetVisited();
 	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars, mParamVars));
 
-	assert(mTemporaries.Size() == mEntryBlock->mLocalValueRange.Size());
+	assert(mTemporaries.Size() == mLocalValueRange.Size());
 
 	DisassembleDebug("Estimated value range 2");
 }
