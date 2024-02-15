@@ -151,9 +151,9 @@ public:
 	void Restart(void);
 
 	int64		mMinValue, mMaxValue;
-	int			mMinExpanded, mMaxExpanded;
+	uint8		mMinExpanded, mMaxExpanded;
 	
-	enum State
+	enum State : uint8
 	{
 		S_UNKNOWN,
 		S_UNBOUND,
@@ -386,7 +386,7 @@ public:
 
 	GrowingInstructionArray			mLoadStoreInstructions;
 
-	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange, mLocalValueRange, mReverseValueRange;
+	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange;
 	GrowingIntegerValueRangeArray	mEntryParamValueRange, mTrueParamValueRange, mFalseParamValueRange, mLocalParamValueRange;
 
 	GrowingArray<int64>				mMemoryValueSize, mEntryMemoryValueSize;
@@ -625,10 +625,12 @@ public:
 
 class InterCodeProcedure
 {
+friend class InterCodeBasicBlock;
 protected:
 	GrowingIntArray						mRenameTable, mRenameUnionTable, mGlobalRenameTable;
 	TempForwardingTable					mTempForwardingTable;
 	GrowingInstructionPtrArray			mValueForwardingTable;
+	GrowingIntegerValueRangeArray		mLocalValueRange, mReverseValueRange;
 
 	void ResetVisited(void);
 	void ResetEntryBlocks(void);
