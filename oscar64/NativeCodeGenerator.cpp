@@ -401,6 +401,7 @@ NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmIns
 {
 	if (mode == ASMIM_IMMEDIATE_ADDRESS)
 	{
+		assert(address >= 0);
 		assert((mFlags & (NCIF_LOWER | NCIF_UPPER)) != (NCIF_LOWER | NCIF_UPPER));
 		assert(HasAsmInstructionMode(mType, ASMIM_IMMEDIATE));
 	}
@@ -12505,11 +12506,11 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 			}
 			else
 			{
-				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst & 0xffff, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
 				mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
 				// if the global variable is smaller than 256 bytes, we can safely ignore the upper byte?
-				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst & 0xffff, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
 #if 1
 				if (ins->mSrc[0].IsUByte())
 					mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_IMMEDIATE, 0));
@@ -30223,7 +30224,7 @@ bool NativeCodeBasicBlock::CombineImmediateADCUp(int at)
 				{
 					int val = mIns[at + 1].mAddress;
 					mIns[at + 1].CopyMode(mIns[i - 1]);
-					if (mIns[at + 1].mFlags & NCIF_UPPER)
+					if (mIns[at + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[at + 1].mFlags & NCIF_UPPER))
 						mIns[at + 1].mAddress += val * 256;
 					else
 						mIns[at + 1].mAddress += val;
@@ -30236,7 +30237,7 @@ bool NativeCodeBasicBlock::CombineImmediateADCUp(int at)
 				{
 					int val = mIns[at + 1].mAddress;
 					mIns[at + 1].CopyMode(mIns[i - 2]);
-					if (mIns[at + 1].mFlags & NCIF_UPPER)
+					if (mIns[at + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[at + 1].mFlags & NCIF_UPPER))
 						mIns[at + 1].mAddress += val * 256;
 					else
 						mIns[at + 1].mAddress += val;
@@ -30249,7 +30250,7 @@ bool NativeCodeBasicBlock::CombineImmediateADCUp(int at)
 				{
 					int val = mIns[at + 1].mAddress;
 					mIns[at + 1].CopyMode(mIns[i - 1]);
-					if (mIns[at + 1].mFlags & NCIF_UPPER)
+					if (mIns[at + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[at + 1].mFlags & NCIF_UPPER))
 						mIns[at + 1].mAddress += val * 256;
 					else
 						mIns[at + 1].mAddress += val;
@@ -45695,7 +45696,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "edit_line");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "manager_print_at");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -46448,7 +46449,6 @@ void NativeCodeProcedure::Optimize(void)
 		} while (changed && t < 20);
 #endif
 
-
 		BuildDataFlowSets();
 		ResetVisited();
 		mEntryBlock->RemoveUnusedResultInstructions();
@@ -46496,7 +46496,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 #if 1
-
 
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(this, step))
