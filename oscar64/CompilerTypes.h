@@ -38,6 +38,7 @@ static const uint64 COPT_VERBOSE3 = 1ULL << 50;
 static const uint64 COPT_DEBUGINFO = 1ULL << 51;
 
 static const uint64 COPT_CPLUSPLUS = 1ULL << 52;
+static const uint64 COPT_PETSCII = 1ULL << 53;
 
 
 

@@ -19931,7 +19931,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "clear");
+	CheckFunc = !strcmp(mIdent->mString, "KeyExpansion");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

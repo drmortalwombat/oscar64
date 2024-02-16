@@ -123,6 +123,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -xz : extended zero page usage, more zero page space, but no return to basic
 * -cid : cartridge type ID, used by vice emulator
 * -pp : compile in C++ mode
+* -psci : use PETSCII encoding for all strings without prefix
 
 A list of source files can be provided.
 

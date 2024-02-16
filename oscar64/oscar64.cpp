@@ -186,6 +186,10 @@ int main2(int argc, const char** argv)
 				{
 					compiler->mCompilerOptions &= ~COPT_NATIVE;
 				}
+				else if (arg[1] == 'p' && arg[2] == 's' && arg[3] == 'c' && arg[4] == 'i')
+				{
+					compiler->mCompilerOptions |= COPT_PETSCII;
+				}
 				else if (arg[1] == 'O')
 				{
 					if (arg[2] == '0')

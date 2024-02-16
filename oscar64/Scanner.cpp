@@ -1385,10 +1385,16 @@ void Scanner::NextRawToken(void)
 			break;
 
 		case '\'':
-			CharToken('a');
+			if (mCompilerOptions & COPT_PETSCII)
+				CharToken('p');
+			else
+				CharToken('a');
 			break;
 		case '"':
-			StringToken(mTokenChar, 'a');
+			if (mCompilerOptions & COPT_PETSCII)
+				StringToken(mTokenChar, 'p');
+			else
+				StringToken(mTokenChar, 'a');
 			break;
 
 		case '#':
@@ -2136,8 +2142,14 @@ void Scanner::ParseNumberToken(void)
 				NextChar();
 				mToken = TK_INTEGERL;
 			}
+			else if (mant < 65536)
+			{
+				mToken = TK_INTEGERU;
+			}
 			else
-				mToken = TK_INTEGER;
+			{
+				mToken = TK_INTEGERUL;
+			}
 		}
 
 		mTokenInteger = mant;
@@ -2175,8 +2187,14 @@ void Scanner::ParseNumberToken(void)
 				NextChar();
 				mToken = TK_INTEGERL;
 			}
-			else
+			else if (mant < 32768)
 				mToken = TK_INTEGER;
+			else if (mant < 65536)
+				mToken = TK_INTEGERU;
+			else if (mant < 0x80000000)
+				mToken = TK_INTEGERL;
+			else
+				mToken = TK_INTEGERUL;
 		}
 		mTokenInteger = mant;
 	}
@@ -2216,8 +2234,10 @@ void Scanner::ParseNumberToken(void)
 					NextChar();
 					mToken = TK_INTEGERL;
 				}
-				else
+				else if (mant < 32768)
 					mToken = TK_INTEGER;
+				else
+					mToken = TK_INTEGERL;
 			}
 			mTokenInteger = mant;
 		}
@@ -2275,7 +2295,7 @@ void Scanner::ParseNumberToken(void)
 }
 
 
-int64 Scanner::PrepParseSimple(void)
+int64 Scanner::PrepParseSimple(bool skip)
 {
 	int64	v = 0;
 	
@@ -2291,19 +2311,19 @@ int64 Scanner::PrepParseSimple(void)
 		break;
 	case TK_SUB:
 		NextPreToken();
-		v = -PrepParseSimple();
+		v = -PrepParseSimple(skip);
 		break;
 	case TK_LOGICAL_NOT:
 		NextPreToken();
-		v = !PrepParseSimple();
+		v = !PrepParseSimple(skip);
 		break;
 	case TK_BINARY_NOT:
 		NextPreToken();
-		v = ~PrepParseSimple();
+		v = ~PrepParseSimple(skip);
 		break;
 	case TK_OPEN_PARENTHESIS:
 		NextPreToken();
-		v = PrepParseConditional();
+		v = PrepParseConditional(skip);
 		if (mToken == TK_CLOSE_PARENTHESIS)
 			NextPreToken();
 		else
@@ -2312,33 +2332,43 @@ int64 Scanner::PrepParseSimple(void)
 	case TK_IDENT:
 		if (strcmp(mTokenIdent->mString, "defined") == 0)
 		{
-			NextPreToken();
+			bool	parenthesis = false;
+
+			NextRawToken();
 			if (mToken == TK_OPEN_PARENTHESIS)
 			{
 				NextRawToken();
-				if (mToken == TK_IDENT)
-				{
-					Macro* def = nullptr;
-					if (mDefineArguments)
-						def = mDefineArguments->Lookup(mTokenIdent);
-					if (!def)
-						def = mDefines->Lookup(mTokenIdent);
-					if (def)
-						v = 1;
-					else
-						v = 0;
-					NextPreToken();
-				}
-				else
-					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Identifier expected");
+				parenthesis = true;
+			}
 
+			if (mToken == TK_IDENT)
+			{
+				Macro* def = nullptr;
+				if (mDefineArguments)
+					def = mDefineArguments->Lookup(mTokenIdent);
+				if (!def)
+					def = mDefines->Lookup(mTokenIdent);
+				if (def)
+					v = 1;
+				else
+					v = 0;
+				NextPreToken();
+			}
+			else
+				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Identifier expected");
+
+			if (parenthesis)
+			{
 				if (mToken == TK_CLOSE_PARENTHESIS)
 					NextPreToken();
 				else
 					mErrors->Error(mLocation, ERRR_PREPROCESSOR, "')' expected");
 			}
-			else
-				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "'(' expected");
+		}
+		else if (skip)
+		{
+			NextPreToken();
+			v = 0;
 		}
 		else
 			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor symbol", mTokenIdent);
@@ -2352,9 +2382,9 @@ int64 Scanner::PrepParseSimple(void)
 	return v;
 }
 
-int64 Scanner::PrepParseMul(void)
+int64 Scanner::PrepParseMul(bool skip)
 {
-	int64	v = PrepParseSimple();
+	int64	v = PrepParseSimple(skip);
 	int64	u;
 	for (;;)
 	{
@@ -2362,19 +2392,23 @@ int64 Scanner::PrepParseMul(void)
 		{
 		case TK_MUL:
 			NextPreToken();
-			v *= PrepParseSimple();
+			v *= PrepParseSimple(skip);
 			break;
 		case TK_DIV:
 			NextPreToken();
-			u = PrepParseSimple();
-			if (u == 0)
+			u = PrepParseSimple(skip);
+			if (skip)
+				;
+			else if (u == 0)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Division by zero");
 			else
 				v /= u;
 			break;
 		case TK_MOD:
-			u = PrepParseSimple();
-			if (u == 0)
+			u = PrepParseSimple(skip);
+			if (skip)
+				;
+			else if (u == 0)
 				mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Division by zero");
 			else
 				v %= u;
@@ -2385,20 +2419,20 @@ int64 Scanner::PrepParseMul(void)
 	}
 }
 
-int64 Scanner::PrepParseAdd(void)
+int64 Scanner::PrepParseAdd(bool skip)
 {
-	int64	v = PrepParseMul();
+	int64	v = PrepParseMul(skip);
 	for (;;)
 	{
 		switch (mToken)
 		{
 		case TK_ADD:
 			NextPreToken();
-			v += PrepParseMul();
+			v += PrepParseMul(skip);
 			break;
 		case TK_SUB:
 			NextPreToken();
-			v -= PrepParseMul();
+			v -= PrepParseMul(skip);
 			break;
 		default:
 			return v;
@@ -2406,20 +2440,20 @@ int64 Scanner::PrepParseAdd(void)
 	}
 }
 
-int64 Scanner::PrepParseShift(void)
+int64 Scanner::PrepParseShift(bool skip)
 {
-	int64	v = PrepParseAdd();
+	int64	v = PrepParseAdd(skip);
 	for (;;)
 	{
 		switch (mToken)
 		{
 		case TK_LEFT_SHIFT:
 			NextPreToken();
-			v <<= PrepParseAdd();
+			v <<= PrepParseAdd(skip);
 			break;
 		case TK_RIGHT_SHIFT:
 			NextPreToken();
-			v >>= PrepParseAdd();
+			v >>= PrepParseAdd(skip);
 			break;
 		default:
 			return v;
@@ -2427,36 +2461,36 @@ int64 Scanner::PrepParseShift(void)
 	}
 }
 
-int64 Scanner::PrepParseRel(void)
+int64 Scanner::PrepParseRel(bool skip)
 {
-	int64	v = PrepParseShift();
+	int64	v = PrepParseShift(skip);
 	for (;;)
 	{
 		switch (mToken)
 		{
 		case TK_LESS_THAN:
 			NextPreToken();
-			v = v < PrepParseShift();
+			v = v < PrepParseShift(skip);
 			break;
 		case TK_GREATER_THAN:
 			NextPreToken();
-			v = v > PrepParseShift();
+			v = v > PrepParseShift(skip);
 			break;
 		case TK_LESS_EQUAL:
 			NextPreToken();
-			v = v <= PrepParseShift();
+			v = v <= PrepParseShift(skip);
 			break;
 		case TK_GREATER_EQUAL:
 			NextPreToken();
-			v = v >= PrepParseShift();
+			v = v >= PrepParseShift(skip);
 			break;
 		case TK_EQUAL:
 			NextPreToken();
-			v = v == PrepParseShift();
+			v = v == PrepParseShift(skip);
 			break;
 		case TK_NOT_EQUAL:
 			NextPreToken();
-			v = v != PrepParseShift();
+			v = v != PrepParseShift(skip);
 			break;
 		default:
 			return v;
@@ -2465,75 +2499,75 @@ int64 Scanner::PrepParseRel(void)
 
 }
 
-int64 Scanner::PrepParseBinaryAnd(void)
+int64 Scanner::PrepParseBinaryAnd(bool skip)
 {
-	int64	v = PrepParseRel();
+	int64	v = PrepParseRel(skip);
 	while (mToken == TK_BINARY_AND)
 	{
 		NextPreToken();
-		v &= PrepParseRel();
+		v &= PrepParseRel(skip);
 	}
 	return v;
 }
 
-int64 Scanner::PrepParseBinaryXor(void)
+int64 Scanner::PrepParseBinaryXor(bool skip)
 {
-	int64	v = PrepParseBinaryAnd();
+	int64	v = PrepParseBinaryAnd(skip);
 	while (mToken == TK_BINARY_XOR)
 	{
 		NextPreToken();
-		v ^= PrepParseBinaryAnd();
+		v ^= PrepParseBinaryAnd(skip);
 	}
 	return v;
 }
 
-int64 Scanner::PrepParseBinaryOr(void)
+int64 Scanner::PrepParseBinaryOr(bool skip)
 {
-	int64	v = PrepParseBinaryXor();
+	int64	v = PrepParseBinaryXor(skip);
 	while (mToken == TK_BINARY_OR)
 	{
 		NextPreToken();
-		v |= PrepParseBinaryXor();
+		v |= PrepParseBinaryXor(skip);
 	}
 	return v;
 }
 
-int64 Scanner::PrepParseLogicalAnd(void) 
+int64 Scanner::PrepParseLogicalAnd(bool skip)
 {
-	int64	v = PrepParseBinaryOr();
+	int64	v = PrepParseBinaryOr(skip);
 	while (mToken == TK_LOGICAL_AND)
 	{
 		NextPreToken();
-		if (!PrepParseBinaryOr())
+		if (!PrepParseBinaryOr(skip || !v))
 			v = 0;
 	}
 	return v;
 }
 
-int64 Scanner::PrepParseLogicalOr(void)
+int64 Scanner::PrepParseLogicalOr(bool skip)
 {
-	int64	v = PrepParseLogicalAnd();
+	int64	v = PrepParseLogicalAnd(skip);
 	while (mToken == TK_LOGICAL_OR)
 	{
 		NextPreToken();
-		if (PrepParseLogicalAnd())
+		if (PrepParseLogicalAnd(skip || v))
 			v = 1;
 	}
 	return v;
 }
 
-int64 Scanner::PrepParseConditional(void)
+int64 Scanner::PrepParseConditional(bool skip)
 {
-	int64	v = PrepParseLogicalOr();
+	int64	v = PrepParseLogicalOr(skip);
 	if (mToken == TK_QUESTIONMARK)
 	{
 		NextPreToken();
-		int64	vt = PrepParseConditional();
+		int64	vt = PrepParseConditional(skip || v);
 		if (mToken == TK_COLON)
 			NextPreToken();
 		else
 			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "':' expected");
-		int64	vf = PrepParseConditional();
+		int64	vf = PrepParseConditional(skip || !v);
 		if (v)
 			v = vt;
 		else

@@ -12515,7 +12515,7 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 				if (ins->mSrc[0].IsUByte())
 					mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_IMMEDIATE, 0));
 				else if ((ins->mSrc[1].mIntConst == 0 || ins->mSrc[0].IsUnsigned()) &&
-					(ins->mSrc[1].mLinkerObject->mSize < 256 || (addrvalid && ins->mSrc[1].mLinkerObject->mSize <= 256)))
+					(ins->mSrc[1].mLinkerObject->mSize - ins->mSrc[1].mIntConst < 256 || (addrvalid && ins->mSrc[1].mLinkerObject->mSize - ins->mSrc[1].mIntConst <= 256)))
 					mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_IMMEDIATE, 0));
 				else
 #endif
@@ -21117,7 +21117,7 @@ bool NativeCodeBasicBlock::MoveLoadZeroStoreIndirectUp(int at)
 
 			if (mIns[j].mMode == ASMIM_INDIRECT_Y && mIns[j].mAddress == mIns[at + 2].mAddress)
 			{
-				if (yval == -1 || yval == mIns[at].mAddress)
+				if (yval == -1 || yval == mIns[at + 1].mAddress)
 					return false;
 			}
 			else if (mIns[j].MayBeSameAddress(mIns[at + 2]))
@@ -45696,7 +45696,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "manager_print_at");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "KeyExpansion");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -47205,6 +47205,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 

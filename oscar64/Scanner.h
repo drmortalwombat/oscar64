@@ -311,16 +311,16 @@ protected:
 	bool NextChar(void);
 	void ParseNumberToken(void);
 
-	int64 PrepParseSimple(void);
-	int64 PrepParseMul(void);
-	int64 PrepParseAdd(void);
-	int64 PrepParseShift(void);
-	int64 PrepParseRel(void);
-	int64 PrepParseBinaryAnd(void);
-	int64 PrepParseBinaryXor(void);
-	int64 PrepParseBinaryOr(void);
-	int64 PrepParseLogicalAnd(void);
-	int64 PrepParseLogicalOr(void);
-	int64 PrepParseConditional(void);
+	int64 PrepParseSimple(bool skip);
+	int64 PrepParseMul(bool skip);
+	int64 PrepParseAdd(bool skip);
+	int64 PrepParseShift(bool skip);
+	int64 PrepParseRel(bool skip);
+	int64 PrepParseBinaryAnd(bool skip);
+	int64 PrepParseBinaryXor(bool skip);
+	int64 PrepParseBinaryOr(bool skip);
+	int64 PrepParseLogicalAnd(bool skip);
+	int64 PrepParseLogicalOr(bool skip);
+	int64 PrepParseConditional(bool skip = false);
 
 };

@@ -4520,8 +4520,32 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 							ndec = pdec;
 						}
-						else
+						else if ((mCompilerOptions & COPT_CPLUSPLUS) || mScope->mLevel >= SLEVEL_FUNCTION)
 							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate variable declaration", ndec->mIdent);
+						else
+						{
+							if (!ndec->mBase->IsSame(pdec->mBase))
+							{
+								if (ndec->mBase->mType == DT_TYPE_ARRAY && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase) && pdec->mBase->mSize == 0)
+									pdec->mBase->mSize = ndec->mBase->mSize;
+								else if (pdec->mBase->mType == DT_TYPE_POINTER && ndec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase))
+								{
+									pdec->mBase = ndec->mBase;
+								}
+								else
+									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent);
+							}
+
+							pdec->mSection = ndec->mSection;
+
+							pdec->mFlags |= ndec->mFlags & DTF_ZEROPAGE;
+
+							if (pdec->mValue)
+								mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate variable declaration", ndec->mIdent);
+
+							ndec = pdec;
+
+						}
 					}
 				}
 
@@ -5571,7 +5595,12 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 					if (/*(dec->mFlags & DTF_STATIC) &&*/ (dec->mFlags & DTF_CONST) && dec->mValue)
 					{
 						if (dec->mBase->IsNumericType())
-							exp = dec->mValue;
+						{
+							if (dec->mValue->mType == EX_CONSTANT)
+							{
+								exp = dec->mValue;
+							}
+						}
 						else if (dec->mBase->mType == DT_TYPE_POINTER)
 						{
 							if (dec->mValue->mType == EX_CONSTANT)
