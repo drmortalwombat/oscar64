@@ -11041,6 +11041,10 @@ bool Parser::ConsumeIdentIf(const char* ident)
 		return false;
 }
 
+bool Parser::IsIntegerToken(void)
+{
+	return (mScanner->mToken == TK_INTEGER || mScanner->mToken == TK_INTEGERL || mScanner->mToken == TK_INTEGERU || mScanner->mToken == TK_INTEGERUL);
+}
 
 void Parser::ParsePragma(void)
 {
@@ -11270,7 +11274,7 @@ void Parser::ParsePragma(void)
 		{
 			mScanner->NextToken();
 			ConsumeToken(TK_OPEN_PARENTHESIS);
-			if (mScanner->mToken == TK_INTEGER)
+			if (IsIntegerToken())
 			{
 				mCompilationUnits->mSectionStack->mSize = int(mScanner->mTokenInteger);
 				mScanner->NextToken();
@@ -11284,7 +11288,7 @@ void Parser::ParsePragma(void)
 		{
 			mScanner->NextToken();
 			ConsumeToken(TK_OPEN_PARENTHESIS);
-			if (mScanner->mToken == TK_INTEGER)
+			if (IsIntegerToken())
 			{
 				mCompilationUnits->mSectionHeap->mSize = int(mScanner->mTokenInteger);
 				mScanner->NextToken();
@@ -11298,20 +11302,20 @@ void Parser::ParsePragma(void)
 		{
 			mScanner->NextToken();
 			ConsumeToken(TK_OPEN_PARENTHESIS);
-			if (mScanner->mToken == TK_INTEGER)
+			if (IsIntegerToken())
 			{
 				int	cindex = int(mScanner->mTokenInteger);
 				mScanner->NextToken();
 				ConsumeToken(TK_COMMA);
 
-				if (mScanner->mToken == TK_INTEGER)
+				if (IsIntegerToken())
 				{
 					int	ccode = int(mScanner->mTokenInteger);
 					int	ccount = 1;
 					mScanner->NextToken();
 					if (ConsumeTokenIf(TK_COMMA))
 					{
-						if (mScanner->mToken == TK_INTEGER)
+						if (IsIntegerToken())
 						{
 							ccount = int(mScanner->mTokenInteger);
 							mScanner->NextToken();
@@ -11760,7 +11764,7 @@ void Parser::ParsePragma(void)
 
 			mUnrollLoopPage = false;
 
-			if (mScanner->mToken == TK_INTEGER)
+			if (IsIntegerToken())
 			{
 				mUnrollLoop = int(mScanner->mTokenInteger);
 				mScanner->NextToken();
@@ -11808,7 +11812,7 @@ void Parser::ParsePragma(void)
 						else
 							mErrors->Error(mScanner->mLocation, ERRR_STACK_OVERFLOW, "Stack underflow");
 					}
-					else if (mScanner->mToken == TK_INTEGER)
+					else if (IsIntegerToken())
 					{
 						mCompilerOptions &= ~(COPT_OPTIMIZE_ALL);
 						switch (mScanner->mTokenInteger)

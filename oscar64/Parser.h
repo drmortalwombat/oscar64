@@ -30,6 +30,7 @@ protected:
 	bool ConsumeToken(Token token);
 	bool ConsumeTokenIf(Token token);
 	bool ConsumeIdentIf(const char* ident);
+	bool IsIntegerToken(void);
 
 	uint8			mCharMap[256];
 	int				mUnrollLoop;
