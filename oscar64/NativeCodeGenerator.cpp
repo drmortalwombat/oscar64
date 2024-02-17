@@ -28385,6 +28385,8 @@ bool NativeCodeBasicBlock::MoveLoadStoreOutOfXYRangeUp(int at)
 			return false;
 		if (mIns[at + 2].mMode == ASMIM_ZERO_PAGE && mIns[j].ChangesZeroPage(mIns[at + 2].mAddress))
 			return false;
+		if (mIns[j].mType == ASMIT_JSR)
+			return false;
 
 		if (mIns[j].mType == ASMIT_LDA)
 		{
@@ -45696,7 +45698,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "KeyExpansion");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "vdcwin_get_rect");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -46518,6 +46520,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
+
 		if (step == 5)
 		{
 			ResetVisited();
@@ -47205,7 +47208,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 
