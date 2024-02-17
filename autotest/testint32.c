@@ -5,6 +5,11 @@ void testmuli(long a, long b, long ab)
 	assert (a * b == ab);
 }
 
+void testmulu(unsigned long a, unsigned long b, unsigned long ab)
+{
+	assert (a * b == ab);
+}
+
 void testdivi(long a, long b, long ab)
 {
 	assert (a / b == ab);
@@ -79,6 +84,26 @@ int main(void)
 	testmuli(  1024,-1237, -1266688l);
 	testmuli( -1024, 1237, -1266688l);
 	testmuli( -1024,-1237, 1266688l);
+
+	testmulu(0x00000001, 0x0000003c, 0x0000003c);
+	testmulu(0x00000100, 0x0000003c, 0x00003c00);
+	testmulu(0x00010000, 0x0000003c, 0x003c0000);
+	testmulu(0x01000000, 0x0000003c, 0x3c000000);
+
+	testmulu(0x0000003c, 0x00000001, 0x0000003c);
+	testmulu(0x0000003c, 0x00000100, 0x00003c00);
+	testmulu(0x0000003c, 0x00010000, 0x003c0000);
+	testmulu(0x0000003c, 0x01000000, 0x3c000000);
+
+	testmulu(0x0000004b, 0x0000003c, 0x00001194);
+	testmulu(0x00004b00, 0x0000003c, 0x00119400);
+	testmulu(0x004b0000, 0x0000003c, 0x11940000);
+	testmulu(0x4b000000, 0x0000003c, 0x94000000);
+
+	testmulu(0x0000003c, 0x0000004b, 0x00001194);
+	testmulu(0x0000003c, 0x00004b00, 0x00119400);
+	testmulu(0x0000003c, 0x004b0000, 0x11940000);
+	testmulu(0x0000003c, 0x4b000000, 0x94000000);
 
 	testdivi( 1,  1,  1);
 	testdivi(-1,  1, -1);

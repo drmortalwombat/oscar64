@@ -967,8 +967,11 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 		return val1 - val2;
 		break;
 	case IA_MUL:
-		return val1 * val2;
-		break;
+		if (type == IT_INT32 && val1 >= 0 && val2 >= 0)
+			return val1 * val2 & 0xffffffff;
+		else
+			return val1 * val2;
+
 	case IA_DIVU:
 		if (val2)
 			return (uint64)val1 / (uint64)val2;
@@ -11042,6 +11045,123 @@ void InterCodeBasicBlock::LinkerObjectForwarding(const GrowingInstructionPtrArra
 	}
 }
 
+void InterCodeBasicBlock::ReduceRecursionTempSpilling(InterMemory paramMemory, const GrowingInstructionPtrArray& tvalue)
+{
+	if (!mVisited)
+	{
+		if (!mLoopHead)
+		{
+			if (mNumEntries > 0)
+			{
+				if (mNumEntered == 0)
+					mLoadStoreInstructions = tvalue;
+				else
+				{
+					int i = 0;
+					while (i < mLoadStoreInstructions.Size())
+					{
+						InterInstruction* ins(mLoadStoreInstructions[i]);
+						InterInstruction* nins = nullptr;
+
+						int j = tvalue.IndexOf(ins);
+						if (j != -1)
+							nins = ins;
+
+						if (nins)
+							mLoadStoreInstructions[i++] = nins;
+						else
+							mLoadStoreInstructions.Remove(i);
+					}
+				}
+
+				mNumEntered++;
+
+				if (mNumEntered < mNumEntries)
+					return;
+			}
+		}
+#if 1
+		else if (mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
+		{
+			mLoadStoreInstructions = tvalue;
+			for (int i = 0; i < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins(mInstructions[i]);
+				if (ins->mDst.mTemp >= 0)
+				{
+					int j = 0;
+					while (j < mLoadStoreInstructions.Size())
+					{
+						if (mLoadStoreInstructions[j]->ReferencesTemp(ins->mDst.mTemp) || CollidingMem(ins, mLoadStoreInstructions[j]))
+							mLoadStoreInstructions.Remove(j);
+						else
+							j++;
+					}
+				}
+			}
+		}
+#endif
+		else
+			mLoadStoreInstructions.SetSize(0);
+
+		mVisited = true;
+
+		NumberSet	rtemps(mEntryRequiredTemps);
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			InterInstruction* lins = nullptr;
+			bool			flushMem = false;
+
+			if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+			{
+				if (ins->mSrc[0].mLinkerObject == mProc->mLinkerObject)
+				{
+					for (int j = 0; j < mLoadStoreInstructions.Size(); j++)
+					{
+						if (rtemps[mLoadStoreInstructions[j]->mDst.mTemp])
+							mInstructions.Insert(i + 1, mLoadStoreInstructions[j]->Clone());
+					}
+				}
+			}
+			else if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == paramMemory)
+			{
+				if (InterTypeSize[ins->mDst.mType] == ins->mSrc[0].mOperandSize)
+					lins = ins;
+			}
+
+			for (int j = 0; j < ins->mNumOperands; j++)
+			{
+				if (ins->mSrc[j].mTemp >= 0 && ins->mSrc[j].mFinal)
+					rtemps -= ins->mSrc[j].mTemp;
+			}
+
+			int	j = 0, k = 0, t = ins->mDst.mTemp;
+			if (t >= 0 || IsObservable(ins->mCode))
+			{
+				while (j < mLoadStoreInstructions.Size())
+				{
+					if (DestroyingMem(mLoadStoreInstructions[j], ins))
+						;
+					else if (t != mLoadStoreInstructions[j]->mDst.mTemp)
+						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+
+					j++;
+				}
+				mLoadStoreInstructions.SetSize(k);
+			}
+
+			if (lins)
+				mLoadStoreInstructions.Push(lins);
+		}
+
+		if (mTrueJump) mTrueJump->ReduceRecursionTempSpilling(paramMemory, mLoadStoreInstructions);
+		if (mFalseJump) mFalseJump->ReduceRecursionTempSpilling(paramMemory, mLoadStoreInstructions);
+	}
+}
+
+
 bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars)
 {
 	bool	changed = false;
@@ -19820,6 +19940,15 @@ void InterCodeProcedure::EliminateAliasValues()
 	DisassembleDebug("EliminateAliasValues");
 }
 
+void InterCodeProcedure::ReduceRecursionTempSpilling(InterMemory paramMemory)
+{
+	GrowingInstructionPtrArray	gipa(nullptr);
+	ResetVisited();
+	mEntryBlock->ReduceRecursionTempSpilling(paramMemory, gipa);
+
+	DisassembleDebug("ReduceRecursionTempSpilling");
+}
+
 void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
 {
 	DisassembleDebug("Load/Store forwardingY");
@@ -19931,7 +20060,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "KeyExpansion");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -20821,6 +20950,9 @@ void InterCodeProcedure::Close(void)
 	ReduceTemporaries();
 
 	DisassembleDebug("Reduced Temporaries");
+
+	if (!mFastCallProcedure)
+		ReduceRecursionTempSpilling(paramMemory);
 
 	// Optimize for size
 

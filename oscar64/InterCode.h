@@ -472,6 +472,7 @@ public:
 
 	void LinkerObjectForwarding(const GrowingInstructionPtrArray& tvalue);
 	bool LoadStoreForwarding(const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars);
+	void ReduceRecursionTempSpilling(InterMemory paramMemory, const GrowingInstructionPtrArray& tvalue);
 
 	void LocalRenameRegister(const GrowingIntArray& renameTable, int& num);
 	void BuildGlobalRenameRegisterTable(const GrowingIntArray& renameTable, GrowingIntArray& globalRenameTable);
@@ -620,7 +621,7 @@ public:
 	void CheckNullptrDereference(void);
 
 	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, bool & globalsChecked);
-
+	
 };
 
 class InterCodeProcedure
@@ -715,6 +716,7 @@ protected:
 	void MergeIndexedLoadStore(void);
 	void EliminateAliasValues();
 	void LoadStoreForwarding(InterMemory paramMemory);
+	void ReduceRecursionTempSpilling(InterMemory paramMemory);
 	void ExpandSelect(void);
 	void PropagateConstOperationsUp(void);
 	void RebuildIntegerRangeSet(void);
@@ -730,6 +732,7 @@ protected:
 	void WarnUsedUndefinedVariables(void);
 	void PropagateMemoryAliasingInfo(void);
 	void MoveConditionsOutOfLoop(void);
+
 
 	void PeepholeOptimization(void);
 

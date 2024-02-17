@@ -695,6 +695,11 @@ L4:
 		sty tmp + 2
 }
 
+__asm mul32by8
+{
+
+}
+
 __asm mul32
 {
 		lda	#0
@@ -703,6 +708,52 @@ __asm mul32
 		sta	tmp + 6
 		sta	tmp + 7
 
+		lda	tmp + 0
+		jsr WM
+		lda	tmp + 1
+		jsr WM
+		lda	tmp + 2
+		jsr WM
+		lda	tmp + 3
+WM:
+		bne W0
+		ldx accu + 2
+		stx accu + 3
+		ldx accu + 1
+		stx accu + 2
+		ldx accu
+		stx accu + 1
+		sta accu
+		rts
+W0:
+		sec
+		ror
+		bcc W1
+L1:		tax
+		clc
+		lda	tmp + 4
+		adc	accu
+		sta	tmp + 4
+		lda	tmp + 5
+		adc	accu + 1
+		sta	tmp + 5
+		lda	tmp + 6
+		adc	accu + 2
+		sta	tmp + 6
+		lda	tmp + 7
+		adc	accu + 3
+		sta	tmp + 7
+		txa
+W1:		asl	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+		lsr
+		bcc W1
+		bne L1
+		rts
+
+#if 0
 		ldx	#32
 L1:		lsr	tmp + 3
 		ror	tmp + 2
@@ -729,6 +780,7 @@ W1:		asl	accu
 		dex
 		bne	L1
 		rts
+#endif
 }
 
 __asm mul16by8
