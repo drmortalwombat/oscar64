@@ -581,7 +581,12 @@ void Scanner::NextPreToken(void)
 		}
 		else if (mToken == TK_PREP_INCLUDE)
 		{
+			// Make sure include file names are not petsciid
+			uint64 op = mCompilerOptions;
+			mCompilerOptions &= ~COPT_PETSCII;
 			NextRawToken();
+			mCompilerOptions = op;
+
 			if (mToken == TK_STRING)
 			{
 				if (!mPreprocessor->OpenSource("Including", (const char *)mTokenString, true))
@@ -876,6 +881,10 @@ void Scanner::NextPreToken(void)
 			SourceFileMode	mode = SFM_BINARY;
 			SourceFileDecoder decoder = SFD_NONE;
 
+			uint64 op = mCompilerOptions;
+			mCompilerOptions &= ~COPT_PETSCII;
+			NextRawToken();
+
 			NextRawToken();
 			if (mToken == TK_INTEGER)
 			{
@@ -933,6 +942,8 @@ void Scanner::NextPreToken(void)
 				if (!mPreprocessor->EmbedData("Embedding", (const char*)mTokenString, false, skip, limit, mode, decoder))
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Could not open source file", (const char*)mTokenString);
 			}
+
+			mCompilerOptions = op;
 		}
 		else if (mToken == TK_IDENT)
 		{
