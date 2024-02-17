@@ -7281,6 +7281,18 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 			{
 				nexp->mDecType = TheUnsignedCharTypeDeclaration;
 			}
+			else if (nexp->mToken == TK_BINARY_AND)
+			{
+				if (nexp->mDecType->mFlags & DTF_SIGNED)
+				{
+					if (nexp->mDecType->mSize == 4)
+						nexp->mDecType = TheUnsignedLongTypeDeclaration;
+					else
+						nexp->mDecType = TheUnsignedIntTypeDeclaration;
+				}
+				else
+					nexp->mDecType = nexp->mLeft->mDecType;
+			}
 			else
 				nexp->mDecType = nexp->mLeft->mDecType;
 		}

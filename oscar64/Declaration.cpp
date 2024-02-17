@@ -502,8 +502,16 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-				dec->mBase = mLeft->mDecValue->mBase;
+
 				dec->mInteger = ~mLeft->mDecValue->mInteger;
+				if (mLeft->mDecValue->mBase->mSize <= 2)
+				{
+					dec->mInteger &= 0xffff;
+					dec->mBase = TheUnsignedIntTypeDeclaration;
+				}
+				else
+					dec->mBase = TheUnsignedLongTypeDeclaration;
+
 				ex->mDecValue = dec;
 				ex->mDecType = dec->mBase;
 				return ex;
