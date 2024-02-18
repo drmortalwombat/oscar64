@@ -3078,6 +3078,70 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 						}
 					}
 				}
+				else if (tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT16TO32U)
+				{
+					int64	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					if (ivalue < 0)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else if (ivalue > 65535)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else
+					{
+						switch (ins->mOperator)
+						{
+						case IA_CMPGES:
+							ins->mOperator = IA_CMPGEU;
+							break;
+						case IA_CMPLES:
+							ins->mOperator = IA_CMPLEU;
+							break;
+						case IA_CMPGS:
+							ins->mOperator = IA_CMPGU;
+							break;
+						case IA_CMPLS:
+							ins->mOperator = IA_CMPLU;
+							break;
+						}
+					}
+				}
 
 				if (toconst)
 				{
@@ -3154,6 +3218,70 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				{
 					int64	ivalue = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
 					if (ivalue > 255)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else if (ivalue < 0)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else
+					{
+						switch (ins->mOperator)
+						{
+						case IA_CMPGES:
+							ins->mOperator = IA_CMPGEU;
+							break;
+						case IA_CMPLES:
+							ins->mOperator = IA_CMPLEU;
+							break;
+						case IA_CMPGS:
+							ins->mOperator = IA_CMPGU;
+							break;
+						case IA_CMPLS:
+							ins->mOperator = IA_CMPLU;
+							break;
+						}
+					}
+				}
+				else if (tvalue[ins->mSrc[0].mTemp]->mOperator == IA_EXT16TO32U)
+				{
+					int64	ivalue = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
+					if (ivalue > 65535)
 					{
 						toconst = true;
 						switch (ins->mOperator)
@@ -20060,7 +20188,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
