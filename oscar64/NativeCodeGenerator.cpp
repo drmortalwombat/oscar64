@@ -48076,12 +48076,21 @@ void NativeCodeGenerator::RegisterFunctionCall(NativeCodeBasicBlock* block, int 
 	LinkerObject* lo = block->mIns[at].mLinkerObject;
 	if (lo->mIdent && !(block->mIns[at].mFlags & NCIF_USE_ZP_32_X))
 	{
+		uint64	fpmask = 0;
+
 		int i = at;
 		while (i >= 2 &&
 			block->mIns[i - 1].mType == ASMIT_STA && block->mIns[i - 1].mMode == ASMIM_ZERO_PAGE &&
 			block->mIns[i - 1].mAddress >= BC_REG_FPARAMS && block->mIns[i - 1].mAddress < BC_REG_FPARAMS_END &&
 			block->mIns[i - 2].mType == ASMIT_LDA && (block->mIns[i - 2].mMode == ASMIM_IMMEDIATE || block->mIns[i - 2].mMode == ASMIM_IMMEDIATE_ADDRESS || block->mIns[i - 2].mMode == ASMIM_ZERO_PAGE || block->mIns[i - 2].mMode == ASMIM_ABSOLUTE))
 		{
+			if (block->mIns[i - 2].mMode == ASMIM_ZERO_PAGE && block->mIns[i - 2].mAddress >= BC_REG_FPARAMS && block->mIns[i - 2].mAddress < BC_REG_FPARAMS_END)
+			{
+				if (fpmask & (1ull << (block->mIns[i - 2].mAddress - BC_REG_FPARAMS)))
+					break;
+			}
+			fpmask |= 1ull << (block->mIns[i - 1].mAddress - BC_REG_FPARAMS);
+
 			i -= 2;
 		}
 
@@ -48132,12 +48141,21 @@ bool NativeCodeGenerator::MergeFunctionCall(NativeCodeBasicBlock* block, int at)
 	LinkerObject* lo = block->mIns[at].mLinkerObject;
 	if (lo->mIdent)
 	{
+		uint64	fpmask = 0;
+
 		int i = at;
 		while (i >= 2 &&
 			block->mIns[i - 1].mType == ASMIT_STA && block->mIns[i - 1].mMode == ASMIM_ZERO_PAGE &&
 			block->mIns[i - 1].mAddress >= BC_REG_FPARAMS && block->mIns[i - 1].mAddress < BC_REG_FPARAMS_END &&
 			block->mIns[i - 2].mType == ASMIT_LDA && (block->mIns[i - 2].mMode == ASMIM_IMMEDIATE || block->mIns[i - 2].mMode == ASMIM_IMMEDIATE_ADDRESS || block->mIns[i - 2].mMode == ASMIM_ZERO_PAGE || block->mIns[i - 2].mMode == ASMIM_ABSOLUTE))
 		{
+			if (block->mIns[i - 2].mMode == ASMIM_ZERO_PAGE && block->mIns[i - 2].mAddress >= BC_REG_FPARAMS && block->mIns[i - 2].mAddress < BC_REG_FPARAMS_END)
+			{
+				if (fpmask & (1ull << (block->mIns[i - 2].mAddress - BC_REG_FPARAMS)))
+					break;
+			}
+			fpmask |= 1ull << (block->mIns[i - 1].mAddress - BC_REG_FPARAMS);
+
 			i -= 2;
 		}
 
