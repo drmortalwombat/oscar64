@@ -883,7 +883,6 @@ void Scanner::NextPreToken(void)
 
 			uint64 op = mCompilerOptions;
 			mCompilerOptions &= ~COPT_PETSCII;
-			NextRawToken();
 
 			NextRawToken();
 			if (mToken == TK_INTEGER)
