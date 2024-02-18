@@ -32344,6 +32344,19 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoop(NativeCodeProcedure* proc)
 							aimm = true;
 							ains = mIns[i];
 						}
+						else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && !this->ChangesZeroPage(mIns[i].mAddress))
+						{
+							int j = 0;
+							while (j < lblocks.Size() && !lblocks[j]->ChangesZeroPage(mIns[i].mAddress))
+								j++;
+							if (j == lblocks.Size())
+							{
+								aimm = true;
+								ains = mIns[i];
+							}
+							else
+								aimm = false;
+						}
 						else if (mIns[i].mType == ASMIT_STA && mIns[i].mMode == ASMIM_ZERO_PAGE && aimm)
 						{
 							int reg = mIns[i].mAddress;

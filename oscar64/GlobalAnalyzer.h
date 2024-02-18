@@ -11,6 +11,7 @@ public:
 	~GlobalAnalyzer(void);
 
 	void DumpCallGraph(void);
+	void TopoSort(Declaration * procDec);
 	void AutoInline(void);
 	void CheckFastcall(Declaration* procDec, bool head);
 	void CheckInterrupt(void);
@@ -27,7 +28,7 @@ protected:
 	Errors* mErrors;
 	Linker* mLinker;
 
-	GrowingArray<Declaration*>		mCalledFunctions, mCallingFunctions, mVariableFunctions, mFunctions;
+	GrowingArray<Declaration*>		mCalledFunctions, mCallingFunctions, mVariableFunctions, mFunctions, mTopoFunctions;
 	GrowingArray<Declaration*>		mGlobalVariables;
 
 	void AnalyzeInit(Declaration* mdec);

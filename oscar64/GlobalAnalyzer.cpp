@@ -1,7 +1,7 @@
 #include "GlobalAnalyzer.h"
 
 GlobalAnalyzer::GlobalAnalyzer(Errors* errors, Linker* linker)
-	: mErrors(errors), mLinker(linker), mCalledFunctions(nullptr), mCallingFunctions(nullptr), mVariableFunctions(nullptr), mFunctions(nullptr), mGlobalVariables(nullptr), mCompilerOptions(COPT_DEFAULT)
+	: mErrors(errors), mLinker(linker), mCalledFunctions(nullptr), mCallingFunctions(nullptr), mVariableFunctions(nullptr), mFunctions(nullptr), mGlobalVariables(nullptr), mTopoFunctions(nullptr), mCompilerOptions(COPT_DEFAULT)
 {
 
 }
@@ -132,16 +132,36 @@ void GlobalAnalyzer::AutoZeroPage(LinkerSection* lszp, int zpsize)
 	}
 }
 
+void GlobalAnalyzer::TopoSort(Declaration* procDec)
+{
+	if (!(procDec->mFlags & DTF_FUNC_ANALYZING))
+	{
+		procDec->mFlags |= DTF_FUNC_ANALYZING;
+		if (!mTopoFunctions.Contains(procDec))
+		{
+			for (int i = 0; i < procDec->mCalled.Size(); i++)
+				TopoSort(procDec->mCalled[i]);
+			mTopoFunctions.Push(procDec);
+		}
+		procDec->mFlags &= ~DTF_FUNC_ANALYZING;
+	}
+}
+
 void GlobalAnalyzer::AutoInline(void)
 {
+	for (int i = 0; i < mFunctions.Size(); i++)
+		TopoSort(mFunctions[i]);
+	
 	bool	changed = false;
 	do
 	{
 		changed = false;
 
-		for (int i = 0; i < mFunctions.Size(); i++)
+		// Reverse order, to check inline from bottom to top of call graph
+		for (int i = 0; i< mTopoFunctions.Size(); i++)
 		{
-			Declaration* f = mFunctions[i];
+			Declaration* f = mTopoFunctions[i];
+
 			if (!(f->mFlags & DTF_INLINE) && 
 				!(f->mFlags & DTF_EXPORT) && 
 				!(f->mFlags & DTF_PREVENT_INLINE) &&
@@ -159,15 +179,23 @@ void GlobalAnalyzer::AutoInline(void)
 					dec = dec->mNext;
 				}
 
-				int	cost = (f->mComplexity - 20 * nparams - 20);
+				int	cost = (f->mComplexity - 20 * nparams - 10);
 
-//				printf("CHEK INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
+//				printf("CHECK INLINING %s (%d) %d * (%d - 1)\n", f->mIdent->mString, f->mComplexity, cost, f->mCallers.Size());
 
 				bool	doinline = false;
 				if ((f->mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_REQUEST_INLINE))
 					doinline = true;
-				if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE) && (cost * (f->mCallers.Size() - 1) <= 0))
-					doinline = true;
+				if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE) && ((cost - 20) * (f->mCallers.Size() - 1) <= 20))
+				{
+					if (f->mCallers.Size() == 1 && f->mComplexity > 100)
+					{
+						if (f->mCallers[0]->mCalled.Size() == 1)
+							doinline = true;
+					}
+					else
+						doinline = true;
+				}
 				if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE_ALL) && (cost * (f->mCallers.Size() - 1) <= 10000))
 					doinline = true;
 
@@ -734,6 +762,11 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 
 		return exp->mDecValue;
 	case EX_VARIABLE:
+		if (exp->mDecType->IsSimpleType())
+			procDec->mComplexity += 5 * exp->mDecType->mSize;
+		else
+			procDec->mComplexity += 10;
+
 		if (mCompilerOptions & COPT_DEBUGINFO)
 			exp->mDecValue->mReferences.Push(exp);
 
@@ -765,7 +798,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		return exp->mDecValue;
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
-		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+		procDec->mComplexity += 5 * exp->mLeft->mDecType->mSize;
 
 		ldec = Analyze(exp->mLeft, procDec, true);
 		rdec = Analyze(exp->mRight, procDec, false);
@@ -826,7 +859,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 
 		return Analyze(exp->mLeft, procDec, true);
 	case EX_INDEX:
-		procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;
+		procDec->mComplexity += 10 * exp->mRight->mDecType->mSize;
 
 		ldec = Analyze(exp->mLeft, procDec, lhs);
 		if (ldec->mType == DT_VARIABLE || ldec->mType == DT_ARGUMENT)
