@@ -11060,8 +11060,8 @@ bool Parser::IsIntegerToken(void)
 
 void Parser::ParsePragma(void)
 {
-	uint64 op = mCompilerOptions;
-	mCompilerOptions &= ~COPT_PETSCII;
+	uint64 op = mScanner->mCompilerOptions;
+	mScanner->mCompilerOptions &= ~COPT_PETSCII;
 
 	if (mScanner->mToken == TK_IDENT)
 	{
@@ -11891,7 +11891,7 @@ void Parser::ParsePragma(void)
 	else
 		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Invalid pragma directive");
 
-	mCompilerOptions = op;
+	mScanner->mCompilerOptions = op;
 }
 
 void Parser::ParseNamespace(void)
