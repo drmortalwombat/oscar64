@@ -470,6 +470,11 @@ void Scanner::MarkSourceOnce(void)
 	mOnceDict->Insert(macro);
 }
 
+bool Scanner::IsIntegerToken(void) const
+{
+	return mToken == TK_INTEGER || mToken == TK_INTEGERU || mToken == TK_INTEGERL || mToken == TK_INTEGERUL;
+}
+
 void Scanner::NextToken(void)
 {
 	if (mReplay)
@@ -885,12 +890,12 @@ void Scanner::NextPreToken(void)
 			mCompilerOptions &= ~COPT_PETSCII;
 
 			NextRawToken();
-			if (mToken == TK_INTEGER)
+			if (IsIntegerToken())
 			{
 				limit = int(mTokenInteger);
 				NextRawToken();
 
-				if (mToken == TK_INTEGER)
+				if (IsIntegerToken())
 				{
 					skip = int(mTokenInteger);
 					NextRawToken();

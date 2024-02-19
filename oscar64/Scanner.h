@@ -275,6 +275,8 @@ public:
 
 	uint64			mCompilerOptions;
 
+	bool IsIntegerToken(void) const;
+
 	void AddMacro(const Ident* ident, const char* value);
 	void MarkSourceOnce(void);
 protected:
