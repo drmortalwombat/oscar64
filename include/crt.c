@@ -562,6 +562,49 @@ __asm divmod32
 
 // divide 32 by 16 bit
 
+		lda	tmp + 1
+		bne W16
+
+// a is zero
+		clc
+LB1:	rol	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+		rol
+		bcc LB1a
+		
+		sbc	tmp
+		sec
+		bcs LB1b
+LB1a:
+		cmp tmp
+		bcc	LB1b
+		sbc tmp
+LB1b:
+WB1:	dey
+		bne	LB1
+		sta tmp + 4
+		rol	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+		ldy	tmpy
+		rts	
+
+W16:
+// 0x0000bb?? number in range 256..65535
+		lda accu + 3
+		bne LS0
+		ldx accu + 2
+		stx accu + 3
+		ldx accu + 1
+		stx accu + 2
+		ldx accu + 0
+		stx accu + 1
+		sta accu + 0
+		ldy #24
+LS0:
 		clc
 LS1:	rol	accu
 		rol	accu + 1
@@ -599,11 +642,20 @@ WS1:	dey
 		rts	
 
 W32:
+// upper 16 bit are not zero, so ignore first 16 div steps
+
+		ldy #16
+		lda accu + 3
+		sta tmp + 5
+		lda accu + 2
+		sta tmp + 4
+		lda #0
+		sta accu + 2
+		sta accu + 3
+
 		clc
 L1:		rol	accu
 		rol	accu + 1
-		rol	accu + 2
-		rol	accu + 3
 		rol	tmp + 4
 		rol	tmp + 5
 		rol	tmp + 6
@@ -634,8 +686,6 @@ W1:		dey
 		bne	L1
 		rol	accu
 		rol	accu + 1
-		rol	accu + 2
-		rol	accu + 3
 		ldy	tmpy
 		rts	
 }

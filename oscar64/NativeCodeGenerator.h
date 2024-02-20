@@ -298,6 +298,8 @@ public:
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock, bool full);
 	bool RemoveSimpleLoopUnusedIndex(void);
 	bool OptimizeLoopCarryOver(void);
+
+	bool OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeSingleEntryLoop(NativeCodeProcedure* proc);
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);
@@ -413,6 +415,7 @@ public:
 	bool MoveLDXUp(int at);
 	bool MoveLDYUp(int at);
 
+	bool MoveLDXBeforeZ(int at);
 
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
@@ -424,6 +427,7 @@ public:
 	bool MoveStaTaxLdaStaDown(int at);
 
 	bool MoveLoadAddImmStoreUp(int at);
+	bool MoveLoadEorImmStoreUp(int at);
 	bool MoveCLCLoadAddZPStoreUp(int at);
 	bool MoveLoadAddZPStoreUp(int at);
 	bool MoveLoadShiftRotateUp(int at);
