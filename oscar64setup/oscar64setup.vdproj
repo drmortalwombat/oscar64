@@ -220,6 +220,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_28CED61D2559486D87F70EC821B89525"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_29ED5D9B606D45DA80CFF329A7643DC8"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -832,6 +838,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_A7796DF7A31E4292ADF6BECCF2604081"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_A8820F3446B9408E88692E85817C1B07"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -977,6 +989,12 @@
         "Entry"
         {
         "MsmKey" = "8:_C6B8A6C354494A50BBFD7EE6B2FB39B6"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_C6CAE25C0BCA43E58CF2062C2700F12F"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -2067,6 +2085,26 @@
             {
             "SourcePath" = "8:..\\include\\new"
             "TargetName" = "8:new"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_28CED61D2559486D87F70EC821B89525"
+            {
+            "SourcePath" = "8:..\\include\\iso646.h"
+            "TargetName" = "8:iso646.h"
             "Tag" = "8:"
             "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
             "Condition" = "8:"
@@ -4123,6 +4161,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A7796DF7A31E4292ADF6BECCF2604081"
+            {
+            "SourcePath" = "8:..\\include\\inttypes.c"
+            "TargetName" = "8:inttypes.c"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A8820F3446B9408E88692E85817C1B07"
             {
             "SourcePath" = "8:..\\samples\\make.bat"
@@ -4609,6 +4667,26 @@
             "TargetName" = "8:bigfont.c"
             "Tag" = "8:"
             "Folder" = "8:_AB905F99C1D249A080D01FB8FC118C9E"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_C6CAE25C0BCA43E58CF2062C2700F12F"
+            {
+            "SourcePath" = "8:..\\include\\inttypes.h"
+            "TargetName" = "8:inttypes.h"
+            "Tag" = "8:"
+            "Folder" = "8:_7C0D28C244F14A21B5F72213BBE59B6F"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -6077,7 +6155,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
         "ProductCode" = "8:{48CA0A06-57AB-4F70-8BE8-4FA70116E175}"
-        "PackageCode" = "8:{8D1D153B-0A1B-4DC9-A05E-AB40E1BD5AD2}"
+        "PackageCode" = "8:{F0372634-9B36-46D2-95AF-3DD2B414BF99}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
@@ -6598,7 +6676,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_FB2E467BC172457785F4279BB0BFE8B6"
             {
-            "SourcePath" = "8:..\\Releasex64\\oscar64.exe"
+            "SourcePath" = "8:..\\Debugx64\\oscar64.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_607E75AF0E2A4CB9908C4C39DF8FE6E4"

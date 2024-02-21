@@ -36413,31 +36413,101 @@ bool NativeCodeBasicBlock::OptimizeFindLoop(NativeCodeProcedure* proc)
 				if (succ)
 				{
 					NativeCodeBasicBlock* pred = mEntryBlocks[0];
-					if (pred == mFalseJump)
-						pred = mEntryBlocks[0];
+					if (pred == body)
+						pred = mEntryBlocks[1];
 
-					if (mIns.Size() > 0 && body->mIns.Size() > 0)
+					if (!pred->mFalseJump)
 					{
-						int	fsz = body->mIns.Size();
-
-						if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE &&
-							body->mIns[fsz - 1].mType == ASMIT_INC && body->mIns[fsz - 1].SameEffectiveAddress(mIns[0]))
+						if (mIns.Size() > 0 && body->mIns.Size() > 0)
 						{
-							int i = 1;
-							while (i < mIns.Size() && !mIns[i].ChangesYReg() && !mIns[i].ReferencesZeroPage(mIns[0].mAddress))
-								i++;
-							if (i == mIns.Size())
+							int	fsz = body->mIns.Size();
+
+							if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE &&
+								body->mIns[fsz - 1].mType == ASMIT_INC && body->mIns[fsz - 1].SameEffectiveAddress(mIns[0]))
 							{
-								i = 0;
-								while (i + 1 < fsz && !body->mIns[i].ChangesYReg() && !body->mIns[i].ReferencesZeroPage(mIns[0].mAddress))
+								int i = 1;
+								while (i < mIns.Size() && !mIns[i].ChangesYReg() && !mIns[i].ReferencesZeroPage(mIns[0].mAddress))
 									i++;
-								if (i + 1 == fsz)
+								if (i == mIns.Size())
 								{
-									pred->mIns.Push(mIns[0]);
-									succ->mIns.Insert(0, NativeCodeInstruction(mIns[0].mIns, ASMIT_STY, mIns[0]));
-									body->mIns[fsz - 1].mType = ASMIT_INY;
-									body->mIns[fsz - 1].mMode = ASMIM_IMPLIED;
-									mIns.Remove(0);
+									i = 0;
+									while (i + 1 < fsz && !body->mIns[i].ChangesYReg() && !body->mIns[i].ReferencesZeroPage(mIns[0].mAddress))
+										i++;
+									if (i + 1 == fsz)
+									{
+										pred->mIns.Push(mIns[0]);
+										succ->mIns.Insert(0, NativeCodeInstruction(mIns[0].mIns, ASMIT_STY, mIns[0]));
+										body->mIns[fsz - 1].mType = ASMIT_INY;
+										body->mIns[fsz - 1].mMode = ASMIM_IMPLIED;
+										mIns.Remove(0);
+
+										body->mEntryRequiredRegs += CPU_REG_Y;
+										body->mExitRequiredRegs += CPU_REG_Y;
+										mEntryRequiredRegs += CPU_REG_Y;
+										mExitRequiredRegs += CPU_REG_Y;
+										succ->mEntryRequiredRegs += CPU_REG_Y;
+
+										for (int i = 0; i < mIns.Size(); i++)
+											mIns[i].mLive |= LIVE_CPU_REG_Y;
+										for (int i = 0; i < fsz; i++)
+											body->mIns[i].mLive |= LIVE_CPU_REG_Y;
+
+										changed = true;
+									}
+								}
+							}
+						}
+
+						if (!ReferencesYReg() && body->mIns.Size() > 0 && body->mIns[0].mType == ASMIT_LDY && body->mIns[0].mMode == ASMIM_ZERO_PAGE && !mExitRequiredRegs[CPU_REG_Y])
+						{
+							int		incdec = 0;
+							bool	fail = false;
+							int		addr = body->mIns[0].mAddress;
+							if (!ReferencesZeroPage(addr))
+							{
+								for (int i = 1; i < body->mIns.Size(); i++)
+								{
+									const NativeCodeInstruction& bins(body->mIns[i]);
+									if (bins.mMode == ASMIM_ZERO_PAGE && bins.mAddress == addr)
+									{
+										if (bins.mType == ASMIT_INC)
+											incdec++;
+										else if (bins.mType == ASMIT_DEC)
+											incdec--;
+										else
+										{
+											fail = true;
+											break;
+										}
+									}
+									else if (bins.ReferencesZeroPage(addr))
+										fail = true;
+									else if (bins.ChangesYReg())
+										fail = true;
+								}
+
+								if (!fail)
+								{
+									pred->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, addr));
+									body->mIns.Remove(0);
+									while (incdec > 0)
+									{
+										body->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_INY));
+										incdec--;
+									}
+									while (incdec < 0)
+									{
+										body->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_DEY));
+										incdec++;
+									}
+									for (int i = 0; i < body->mIns.Size(); i++)
+									{
+										if (body->mIns[i].mMode == ASMIM_ZERO_PAGE && body->mIns[i].mAddress == addr)
+										{
+											body->mIns[i].mType = ASMIT_NOP; body->mIns[i].mMode = ASMIM_IMPLIED;
+										}
+									}
+									succ->mIns.Insert(0, NativeCodeInstruction(body->mIns[0].mIns, ASMIT_STY, ASMIM_ZERO_PAGE, addr));
 
 									body->mEntryRequiredRegs += CPU_REG_Y;
 									body->mExitRequiredRegs += CPU_REG_Y;
@@ -36447,148 +36517,80 @@ bool NativeCodeBasicBlock::OptimizeFindLoop(NativeCodeProcedure* proc)
 
 									for (int i = 0; i < mIns.Size(); i++)
 										mIns[i].mLive |= LIVE_CPU_REG_Y;
-									for (int i = 0; i < fsz; i++)
+									for (int i = 0; i < body->mIns.Size(); i++)
 										body->mIns[i].mLive |= LIVE_CPU_REG_Y;
 
 									changed = true;
 								}
 							}
 						}
-					}
-
-					if (!ReferencesYReg() && body->mIns.Size() > 0 && body->mIns[0].mType == ASMIT_LDY && body->mIns[0].mMode == ASMIM_ZERO_PAGE && !mExitRequiredRegs[CPU_REG_Y])
-					{
-						int		incdec = 0;
-						bool	fail = false;
-						int		addr = body->mIns[0].mAddress;
-						if (!ReferencesZeroPage(addr))
+						else if (!ReferencesXReg() && body->mIns.Size() > 0 && body->mIns[0].mType == ASMIT_LDX && body->mIns[0].mMode == ASMIM_ZERO_PAGE && !mExitRequiredRegs[CPU_REG_X])
 						{
-							for (int i = 1; i < body->mIns.Size(); i++)
+							int		incdec = 0;
+							bool	fail = false;
+							int		addr = body->mIns[0].mAddress;
+							if (!ReferencesZeroPage(addr))
 							{
-								const NativeCodeInstruction& bins(body->mIns[i]);
-								if (bins.mMode == ASMIM_ZERO_PAGE && bins.mAddress == addr)
+								for (int i = 1; i < body->mIns.Size(); i++)
 								{
-									if (bins.mType == ASMIT_INC)
-										incdec++;
-									else if (bins.mType == ASMIT_DEC)
-										incdec--;
-									else
+									const NativeCodeInstruction& bins(body->mIns[i]);
+									if (bins.mMode == ASMIM_ZERO_PAGE && bins.mAddress == addr)
 									{
+										if (bins.mType == ASMIT_INC)
+											incdec++;
+										else if (bins.mType == ASMIT_DEC)
+											incdec--;
+										else
+										{
+											fail = true;
+											break;
+										}
+									}
+									else if (bins.ReferencesZeroPage(addr))
 										fail = true;
-										break;
-									}
+									else if (bins.ChangesXReg())
+										fail = true;
 								}
-								else if (bins.ReferencesZeroPage(addr))
-									fail = true;
-								else if (bins.ChangesYReg())
-									fail = true;
-							}
 
-							if (!fail)
-							{
-								pred->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, addr));
-								body->mIns.Remove(0);
-								while (incdec > 0)
+								if (!fail)
 								{
-									body->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_INY));
-									incdec--;
-								}
-								while (incdec < 0)
-								{
-									body->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_DEY));
-									incdec++;
-								}
-								for (int i = 0; i < body->mIns.Size(); i++)
-								{
-									if (body->mIns[i].mMode == ASMIM_ZERO_PAGE && body->mIns[i].mAddress == addr)
+									pred->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, addr));
+									body->mIns.Remove(0);
+									while (incdec > 0)
 									{
-										body->mIns[i].mType = ASMIT_NOP; body->mIns[i].mMode = ASMIM_IMPLIED;
+										body->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_INX));
+										incdec--;
 									}
+									while (incdec < 0)
+									{
+										body->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_DEX));
+										incdec++;
+									}
+									for (int i = 0; i < body->mIns.Size(); i++)
+									{
+										if (body->mIns[i].mMode == ASMIM_ZERO_PAGE && body->mIns[i].mAddress == addr)
+										{
+											body->mIns[i].mType = ASMIT_NOP; body->mIns[i].mMode = ASMIM_IMPLIED;
+										}
+									}
+									succ->mIns.Insert(0, NativeCodeInstruction(body->mIns[0].mIns, ASMIT_STX, ASMIM_ZERO_PAGE, addr));
+
+									body->mEntryRequiredRegs += CPU_REG_X;
+									body->mExitRequiredRegs += CPU_REG_X;
+									mEntryRequiredRegs += CPU_REG_X;
+									mExitRequiredRegs += CPU_REG_X;
+									succ->mEntryRequiredRegs += CPU_REG_X;
+
+									for (int i = 0; i < mIns.Size(); i++)
+										mIns[i].mLive |= LIVE_CPU_REG_X;
+									for (int i = 0; i < body->mIns.Size(); i++)
+										body->mIns[i].mLive |= LIVE_CPU_REG_X;
+
+									changed = true;
 								}
-								succ->mIns.Insert(0, NativeCodeInstruction(body->mIns[0].mIns, ASMIT_STY, ASMIM_ZERO_PAGE, addr));
-
-								body->mEntryRequiredRegs += CPU_REG_Y;
-								body->mExitRequiredRegs += CPU_REG_Y;
-								mEntryRequiredRegs += CPU_REG_Y;
-								mExitRequiredRegs += CPU_REG_Y;
-								succ->mEntryRequiredRegs += CPU_REG_Y;
-
-								for (int i = 0; i < mIns.Size(); i++)
-									mIns[i].mLive |= LIVE_CPU_REG_Y;
-								for (int i = 0; i < body->mIns.Size(); i++)
-									body->mIns[i].mLive |= LIVE_CPU_REG_Y;
-
-								changed = true;
 							}
 						}
 					}
-					else if (!ReferencesXReg() && body->mIns.Size() > 0 && body->mIns[0].mType == ASMIT_LDX && body->mIns[0].mMode == ASMIM_ZERO_PAGE && !mExitRequiredRegs[CPU_REG_X])
-					{
-						int		incdec = 0;
-						bool	fail = false;
-						int		addr = body->mIns[0].mAddress;
-						if (!ReferencesZeroPage(addr))
-						{
-							for (int i = 1; i < body->mIns.Size(); i++)
-							{
-								const NativeCodeInstruction& bins(body->mIns[i]);
-								if (bins.mMode == ASMIM_ZERO_PAGE && bins.mAddress == addr)
-								{
-									if (bins.mType == ASMIT_INC)
-										incdec++;
-									else if (bins.mType == ASMIT_DEC)
-										incdec--;
-									else
-									{
-										fail = true;
-										break;
-									}
-								}
-								else if (bins.ReferencesZeroPage(addr))
-									fail = true;
-								else if (bins.ChangesXReg())
-									fail = true;
-							}
-
-							if (!fail)
-							{
-								pred->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, addr));
-								body->mIns.Remove(0);
-								while (incdec > 0)
-								{
-									body->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_INX));
-									incdec--;
-								}
-								while (incdec < 0)
-								{
-									body->mIns.Push(NativeCodeInstruction(body->mIns[0].mIns, ASMIT_DEX));
-									incdec++;
-								}
-								for (int i = 0; i < body->mIns.Size(); i++)
-								{
-									if (body->mIns[i].mMode == ASMIM_ZERO_PAGE && body->mIns[i].mAddress == addr)
-									{
-										body->mIns[i].mType = ASMIT_NOP; body->mIns[i].mMode = ASMIM_IMPLIED;
-									}
-								}
-								succ->mIns.Insert(0, NativeCodeInstruction(body->mIns[0].mIns, ASMIT_STX, ASMIM_ZERO_PAGE, addr));
-
-								body->mEntryRequiredRegs += CPU_REG_X;
-								body->mExitRequiredRegs += CPU_REG_X;
-								mEntryRequiredRegs += CPU_REG_X;
-								mExitRequiredRegs += CPU_REG_X;
-								succ->mEntryRequiredRegs += CPU_REG_X;
-
-								for (int i = 0; i < mIns.Size(); i++)
-									mIns[i].mLive |= LIVE_CPU_REG_X;
-								for (int i = 0; i < body->mIns.Size(); i++)
-									body->mIns[i].mLive |= LIVE_CPU_REG_X;
-
-								changed = true;
-							}
-						}
-					}
-
 				}
 			}
 		}
@@ -45948,7 +45950,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sieve");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "manager_show_status");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -46946,6 +46948,12 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->OptimizeFindLoop(this))
 				changed = true;
 #endif
+
+#if _DEBUG
+			ResetVisited();
+			mEntryBlock->CheckBlocks(true);
+#endif
+
 #if 1
 			ResetVisited();
 			if (mEntryBlock->ReduceLocalYPressure())

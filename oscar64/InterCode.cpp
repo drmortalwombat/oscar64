@@ -5033,7 +5033,7 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 			}
 			else if (mMemoryBase == IM_PROCEDURE)
 			{
-				if (proc->mModule->mProcedures[mVarIndex])
+				if (mVarIndex >= 0 && proc->mModule->mProcedures[mVarIndex])
 					vname = proc->mModule->mProcedures[mVarIndex]->mIdent->mString;
 				else if (mLinkerObject && mLinkerObject->mIdent)
 					vname = mLinkerObject->mIdent->mString;
@@ -5108,7 +5108,7 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 		}
 		else if (mMemory == IM_PROCEDURE)
 		{
-			if (proc->mModule->mProcedures[mVarIndex])
+			if (mVarIndex >= 0 && proc->mModule->mProcedures[mVarIndex])
 				vname = proc->mModule->mProcedures[mVarIndex]->mIdent->mString;
 			else if (mLinkerObject && mLinkerObject->mIdent)
 				vname = mLinkerObject->mIdent->mString;
