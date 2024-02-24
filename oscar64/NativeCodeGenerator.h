@@ -506,6 +506,8 @@ public:
 
 	bool ReverseReplaceTAX(int at);
 
+	void ResetModifiedDataSet(NativeRegisterDataSet& data);
+
 	bool ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final);
 	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final);
 	bool BitFieldForwarding(const NativeRegisterDataSet& data);

@@ -13548,6 +13548,44 @@ void InterCodeBasicBlock::FollowJumps(void)
 				target->mEntryBlocks.Push(this);
 				mFalseJump = target;
 			}
+#if 1
+			else if (mTrueJump && mTrueJump->mInstructions.Size() == 2 &&
+				mTrueJump->mInstructions[0]->mDst.mTemp != mInstructions[sz - 2]->mDst.mTemp &&
+				mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mInstructions[1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp)
+			{
+				InterCodeBasicBlock* block = mTrueJump->Clone();
+				block->mInstructions[1]->mCode = IC_JUMP;
+				block->mInstructions[1]->mNumOperands = 1;
+				block->Close(mTrueJump->mTrueJump, nullptr);
+
+				block->mTrueJump->mNumEntries++;
+				block->mTrueJump->mEntryBlocks.Push(block);
+
+				mTrueJump->mNumEntries--;
+				mTrueJump->mEntryBlocks.RemoveAll(this);
+				block->mNumEntries++;
+				block->mEntryBlocks.Push(this);
+				mTrueJump = block;
+			}
+			else if (mFalseJump && mFalseJump->mInstructions.Size() == 2 &&
+				mFalseJump->mInstructions[0]->mDst.mTemp != mInstructions[sz - 2]->mDst.mTemp &&
+				mFalseJump->mInstructions[1]->mCode == IC_BRANCH && mFalseJump->mInstructions[1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp)
+			{
+				InterCodeBasicBlock* block = mFalseJump->Clone();
+				block->mInstructions[1]->mCode = IC_JUMP;
+				block->mInstructions[1]->mNumOperands = 1;
+				block->Close(mFalseJump->mFalseJump, nullptr);
+
+				block->mTrueJump->mNumEntries++;
+				block->mTrueJump->mEntryBlocks.Push(block);
+
+				mFalseJump->mNumEntries--;
+				mFalseJump->mEntryBlocks.RemoveAll(this);
+				block->mNumEntries++;
+				block->mEntryBlocks.Push(this);
+				mFalseJump = block;
+			}
+#endif
 		}
 
 		if (mTrueJump)
