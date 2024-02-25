@@ -34155,6 +34155,49 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		}
 	}
 
+	sz = mIns.Size();
+	if (sz >= 3 && 
+		mIns[0].mType == ASMIT_STA && mIns[0].mMode == ASMIM_ZERO_PAGE &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE &&
+		!mIns[0].SameEffectiveAddress(mIns[sz - 2]) && mIns[sz - 1].mType == ASMIT_CMP && 
+		!exitBlock->mEntryRequiredRegs[mIns[0].mAddress] && !exitBlock->mEntryRequiredRegs[mIns[sz - 2].mAddress] &&
+		!ChangesZeroPage(mIns[0].mAddress, 1))
+	{
+		int ai = mIns[sz - 2].mAddress;
+		int aj = mIns[0].mAddress;
+
+		int i = 1;
+		while (i < sz - 2 && mIns[i].mMode == ASMIM_ZERO_PAGE || !mIns[i].ReferencesZeroPage(ai))
+			i++;
+		if (i == sz - 2)
+		{
+			int index;
+			NativeCodeBasicBlock* block = this;
+
+			if (IsExitARegZP(ai, index, block))
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc, full);
+
+				for (int i = 1; i < sz; i++)
+				{
+					if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == ai)
+						mIns[i].mAddress = aj;
+				}
+
+				prevBlock->mIns.Push(mIns[0]);
+				mIns.Remove(0);
+
+				mExitRequiredRegs += aj;
+				mEntryRequiredRegs += aj;
+
+				CheckLive();
+
+				return true;
+			}
+		}
+
+	}
 
 	CheckLive();
 
@@ -45989,7 +46032,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "manager_show_status");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test2");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
