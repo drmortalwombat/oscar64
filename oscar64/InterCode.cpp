@@ -11719,7 +11719,6 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 			}
 		}
 #endif
-
 		if (mTrueJump && mTrueJump->LoadStoreForwarding(mLoadStoreInstructions, staticVars))
 			changed = true;
 		if (mFalseJump && mFalseJump->LoadStoreForwarding(mLoadStoreInstructions, staticVars))
@@ -18790,11 +18789,18 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 			case IC_LOAD:
 				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
 					referencedGlobals += ins->mSrc[0].mVarIndex;
+				else if (ins->mSrc[0].mMemoryBase == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
+					referencedGlobals += ins->mSrc[0].mVarIndex;
 				else if (ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
 					loadsIndirect = true;
 				break;
 			case IC_STORE:
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
+				{
+					referencedGlobals += ins->mSrc[1].mVarIndex;
+					modifiedGlobals += ins->mSrc[1].mVarIndex;
+				}
+				else if (ins->mSrc[1].mMemoryBase == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
 				{
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
@@ -18806,9 +18812,16 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 			case IC_STRCPY:
 				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
 					referencedGlobals += ins->mSrc[0].mVarIndex;
+				else if (ins->mSrc[0].mMemoryBase == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
+					referencedGlobals += ins->mSrc[0].mVarIndex;
 				else if (ins->mSrc[0].mTemp >= 0 && (ins->mSrc[0].mMemoryBase == IM_NONE || ins->mSrc[0].mMemoryBase == IM_INDIRECT))
 					loadsIndirect = true;
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
+				{
+					referencedGlobals += ins->mSrc[1].mVarIndex;
+					modifiedGlobals += ins->mSrc[1].mVarIndex;
+				}
+				else if (ins->mSrc[1].mMemoryBase == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
 				{
 					referencedGlobals += ins->mSrc[1].mVarIndex;
 					modifiedGlobals += ins->mSrc[1].mVarIndex;
@@ -20226,7 +20239,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "interpret_expression");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -21678,9 +21691,10 @@ bool InterCodeProcedure::ModifiesGlobal(int varindex)
 	{
 		if (varindex >= 0)
 		{
-			if (mModule->mGlobalVars[varindex]->mAliased)
-				return mStoresIndirect;
-			else if (varindex < mModifiedGlobals.Size())
+			if (mModule->mGlobalVars[varindex]->mAliased && mStoresIndirect)
+				return true;
+
+			if (varindex < mModifiedGlobals.Size())
 				return mModifiedGlobals[varindex];
 			else
 				return false;

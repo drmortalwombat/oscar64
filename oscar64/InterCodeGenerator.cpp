@@ -1081,15 +1081,21 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 				mErrors->Error(cexp->mLocation, EERR_ASM_INVALD_OPERAND, "Missing assembler operand");
 			else
 			{
+				int64 disp = 0;
 				if (aexp->mType == DT_LABEL_REF)
 				{
 					if (aexp->mBase->mBase)
-						d[offset] = uint8(aexp->mOffset + aexp->mBase->mInteger - offset - 1);
+						disp = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
 					else
 						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mQualIdent);
 				}
 				else
-					d[offset] = uint8(aexp->mInteger - offset - 1);
+					disp = aexp->mInteger - offset - 1;
+
+				if (disp < -128 || disp > 127)
+					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range");
+
+				d[offset] = uint8(disp);
 			}
 			offset++;
 			break;
