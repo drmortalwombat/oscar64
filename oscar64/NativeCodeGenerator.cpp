@@ -6487,6 +6487,11 @@ bool NativeCodeBasicBlock::LoadLoadOpStoreIndirectValue(InterCodeProcedure* proc
 bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, const InterInstruction* wins)
 {
 	int size = InterTypeSize[wins->mSrc[0].mType];
+	int rstride = rins->mSrc[0].mStride;
+	int wstride = wins->mSrc[1].mStride;
+
+	if (size > 1 && rstride != wstride)
+		return false;
 
 	AsmInsMode  ram = ASMIM_INDIRECT_Y, wam = ASMIM_INDIRECT_Y;
 	bool		sfinal = wins->mSrc[0].mFinal;
@@ -6562,19 +6567,20 @@ bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, 
 	if (wins->mVolatile)
 		wflags |= NCIF_VOLATILE;
 
-	if (ram == ASMIM_INDIRECT_Y)
-		CheckFrameIndex(rins, rareg, rindex, size, BC_REG_ADDR);
-	if (wam == ASMIM_INDIRECT_Y)
-		CheckFrameIndex(wins, wareg, windex, size, BC_REG_ACCU);
-
 
 	for (int i = 0; i < size; i++)
 	{
+		if (ram == ASMIM_INDIRECT_Y)
+			CheckFrameIndex(rins, rareg, rindex, 1, BC_REG_ADDR);
+		if (wam == ASMIM_INDIRECT_Y)
+			CheckFrameIndex(wins, wareg, windex, 1, BC_REG_ACCU);
+
+
 		mIns.Push(NativeCodeInstruction(rins, ASMIT_LDA, ASMIM_IMMEDIATE, imm));
 
 		if (ram == ASMIM_INDIRECT_Y)
 		{
-			mIns.Push(NativeCodeInstruction(rins, ASMIT_LDY, ASMIM_IMMEDIATE, rindex + i));
+			mIns.Push(NativeCodeInstruction(rins, ASMIT_LDY, ASMIM_IMMEDIATE, rindex));
 			mIns.Push(NativeCodeInstruction(oins, at, ram, rareg));
 		}
 		else
@@ -6586,11 +6592,14 @@ bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, 
 		if (wam == ASMIM_INDIRECT_Y)
 		{
 			if (ram != ASMIM_INDIRECT_Y || rindex != windex)
-				mIns.Push(NativeCodeInstruction(wins, ASMIT_LDY, ASMIM_IMMEDIATE, windex + i));
+				mIns.Push(NativeCodeInstruction(wins, ASMIT_LDY, ASMIM_IMMEDIATE, windex));
 			mIns.Push(NativeCodeInstruction(wins, ASMIT_STA, wam, wareg));
 		}
 		else
 			mIns.Push(NativeCodeInstruction(wins, ASMIT_STA, wam, wareg + i));
+
+		rindex += rstride;
+		windex += wstride;
 	}
 
 	return true;
