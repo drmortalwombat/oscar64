@@ -952,6 +952,13 @@ istream & istream::operator>>(float & val)
 	return *this;
 }
 
+istream & istream::operator>>(char & val)
+{
+	doskipws();
+	val = get();
+	return *this;
+}
+
 istream & istream::operator>>(char * p)
 {
 	doskipws();

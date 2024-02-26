@@ -124,6 +124,7 @@ public:
 	istream & putback(char c);
 	istream & unget(void);
 
+	istream & operator>>(char & val);
 	istream & operator>>(bool & val);
 	istream & operator>>(int & val);
 	istream & operator>>(unsigned & val);
