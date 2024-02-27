@@ -732,8 +732,21 @@ static bool SameMemRegion(const InterOperand& op1, const InterOperand& op2)
 // returns true if op2 is part of op1
 static bool SameMemSegment(const InterOperand& op1, const InterOperand& op2)
 {
-	if (op1.mMemory != op2.mMemory || op1.mIntConst > op2.mIntConst || op1.mIntConst + op1.mOperandSize < op2.mIntConst + op2.mOperandSize || op1.mStride != op2.mStride)
+	if (op1.mMemory != op2.mMemory || op1.mStride != op2.mStride)
 		return false;
+
+	if (op1.mStride == 1)
+	{
+		if (op1.mIntConst > op2.mIntConst || op1.mIntConst + op1.mOperandSize < op2.mIntConst + op2.mOperandSize)
+			return false;
+	}
+	else
+	{
+		if (op1.mIntConst % op1.mStride != op2.mIntConst % op2.mStride)
+			return false;
+		if (op1.mIntConst > op2.mIntConst || op1.mIntConst + op1.mOperandSize * op1.mStride < op2.mIntConst + op2.mOperandSize * op2.mStride)
+			return false;
+	}
 
 	switch (op1.mMemory)
 	{
@@ -20239,7 +20252,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "interpret_expression");
+	CheckFunc = !strcmp(mIdent->mString, "interpret_statement");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
