@@ -423,7 +423,10 @@ NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmIns
 NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmInsType type, const NativeCodeInstruction& addr)
 	: mIns(ins), mType(type), mMode(addr.mMode), mAddress(addr.mAddress), mLinkerObject(addr.mLinkerObject), mFlags(addr.mFlags), mParam(addr.mParam), mLive(LIVE_ALL)
 {
-	assert(mIns->mLocation.mFileName);
+	if (mIns)
+	{
+		assert(mIns->mLocation.mFileName);
+	}
 }
 
 

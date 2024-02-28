@@ -162,14 +162,15 @@ void GlobalAnalyzer::AutoInline(void)
 		{
 			Declaration* f = mTopoFunctions[i];
 
-			if (!(f->mFlags & DTF_INLINE) && 
+			if (f->mType == DT_CONST_FUNCTION &&
+				!(f->mFlags & DTF_INLINE) && 
 				!(f->mFlags & DTF_EXPORT) && 
 				!(f->mFlags & DTF_PREVENT_INLINE) &&
 				!(f->mBase->mFlags & DTF_VARIADIC) &&
 				!(f->mFlags & DTF_FUNC_VARIABLE) && 
 				!((f->mFlags & DTF_FUNC_ASSEMBLER) && !(f->mFlags & DTF_REQUEST_INLINE)) && 
 				!(f->mFlags & DTF_INTRINSIC) && 
-				!(f->mFlags & DTF_FUNC_RECURSIVE) && f->mLocalSize < 100)
+				!(f->mFlags & DTF_FUNC_RECURSIVE))
 			{
 				int		nparams = 0;
 				Declaration* dec = f->mBase->mParams;
@@ -186,18 +187,21 @@ void GlobalAnalyzer::AutoInline(void)
 				bool	doinline = false;
 				if ((f->mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_REQUEST_INLINE))
 					doinline = true;
-				if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE) && ((cost - 20) * (f->mCallers.Size() - 1) <= 20))
+				if (f->mLocalSize < 100)
 				{
-					if (f->mCallers.Size() == 1 && f->mComplexity > 100)
+					if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE) && ((cost - 20) * (f->mCallers.Size() - 1) <= 20))
 					{
-						if (f->mCallers[0]->mCalled.Size() == 1)
+						if (f->mCallers.Size() == 1 && f->mComplexity > 100)
+						{
+							if (f->mCallers[0]->mCalled.Size() == 1)
+								doinline = true;
+						}
+						else
 							doinline = true;
 					}
-					else
+					if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE_ALL) && (cost * (f->mCallers.Size() - 1) <= 10000))
 						doinline = true;
 				}
-				if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE_ALL) && (cost * (f->mCallers.Size() - 1) <= 10000))
-					doinline = true;
 
 				if (doinline)
 				{
