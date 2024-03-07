@@ -13599,6 +13599,39 @@ void InterCodeBasicBlock::FollowJumps(void)
 			}
 #endif
 		}
+		else if (sz > 1 && mInstructions[sz - 1]->mCode == IC_JUMP && mInstructions[sz - 2]->mCode == IC_CONSTANT)
+		{
+			if (mTrueJump->mInstructions.Size() == 2 && !mTrueJump->mLoopHead &&
+				mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR &&
+				mTrueJump->mInstructions[1]->mCode == IC_BRANCH && 
+				mTrueJump->mInstructions[1]->mSrc[0].mTemp == mTrueJump->mInstructions[0]->mDst.mTemp &&
+				mTrueJump->mInstructions[1]->mSrc[0].mFinal)
+			{
+				InterCodeBasicBlock* target = nullptr;
+
+				if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp &&
+					mTrueJump->mInstructions[0]->mSrc[1].mTemp < 0)
+				{
+					InterOperand op = OperandConstantFolding(mTrueJump->mInstructions[0]->mOperator, mTrueJump->mInstructions[0]->mSrc[1], mInstructions[sz - 2]->mConst);
+					target = op.mIntConst ? mTrueJump->mTrueJump : mTrueJump->mFalseJump;
+				}
+				else if (mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mDst.mTemp &&
+					mTrueJump->mInstructions[0]->mSrc[0].mTemp < 0)
+				{
+					InterOperand op = OperandConstantFolding(mTrueJump->mInstructions[0]->mOperator, mInstructions[sz - 2]->mConst, mTrueJump->mInstructions[0]->mSrc[0]);
+					target = op.mIntConst ? mTrueJump->mTrueJump : mTrueJump->mFalseJump;
+				}
+
+				if (target)
+				{
+					mTrueJump->mNumEntries--;
+					mTrueJump->mEntryBlocks.RemoveAll(this);
+					target->mNumEntries++;
+					target->mEntryBlocks.Push(this);
+					mTrueJump = target;
+				}
+			}
+		}
 
 		if (mTrueJump)
 			mTrueJump->FollowJumps();

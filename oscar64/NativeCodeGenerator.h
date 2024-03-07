@@ -493,6 +493,12 @@ public:
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
 
+	bool JoinXYCrossBlock(void);
+	bool CanCombineSameXtoYCrossBlock(int from);
+	bool CanCombineSameYtoXCrossBlock(int from);
+	bool CombineSameXtoYCrossBlock(int from);
+	bool CombineSameYtoXCrossBlock(int from);
+
 	bool JoinTAXARange(int from, int to);
 	bool JoinTAYARange(int from, int to);
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
