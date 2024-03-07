@@ -4514,6 +4514,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							{
 								pdec->mFlags &= ~DTF_EXTERN;
 								pdec->mSection = ndec->mSection;
+								pdec->mSize = ndec->mSize;
 							}
 
 							pdec->mFlags |= ndec->mFlags & DTF_ZEROPAGE;
