@@ -67,6 +67,7 @@ public:
 	const char * end(void) const;
 	const char * cend(void) const;
 
+	const char * c_str(void) const;
 	const char * tocstr(void) const;
 
 	string substr(char pos, char len) const;
