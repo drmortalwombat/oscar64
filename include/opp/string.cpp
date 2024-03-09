@@ -229,6 +229,10 @@ string & string::operator+=(char c)
 	return *this;
 }
 
+inline const char * string::c_str(void) const
+{
+	return this->tocstr();
+}
 
 inline const char * string::tocstr(void) const
 {
