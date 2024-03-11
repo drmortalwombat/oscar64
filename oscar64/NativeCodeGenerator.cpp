@@ -40384,6 +40384,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
 					{
 						mIns[i + 0].mType = mIns[i + 1].mType; mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_Z;
+						mIns[i + 0].mLive &= ~LIVE_CPU_REG_A;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 						progress = true;
 					}
@@ -40969,6 +40970,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
 					{
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 						progress = true;
 					}
@@ -46394,7 +46396,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "interpret_statement");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "player_check");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

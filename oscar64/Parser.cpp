@@ -1388,7 +1388,10 @@ Declaration* Parser::ReverseDeclaration(Declaration* odec, Declaration* bdec)
 	if (bdec)
 	{
 		if (odec->mType == DT_TYPE_ARRAY)
+		{
 			odec->mSize *= bdec->mSize;
+			odec->mFlags |= bdec->mFlags & DTF_CONST;
+		}
 		else if (odec->mType == DT_VARIABLE || odec->mType == DT_ARGUMENT || odec->mType == DT_ANON)
 			odec->mSize = bdec->mSize;
 		odec->mBase = bdec;
