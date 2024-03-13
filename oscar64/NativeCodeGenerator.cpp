@@ -30258,6 +30258,7 @@ bool NativeCodeBasicBlock::MoveStoreYUp(int at)
 
 		if (ins.RequiresXReg()) mIns[at].mLive |= LIVE_CPU_REG_X;
 		if (ins.RequiresAccu()) mIns[at].mLive |= LIVE_CPU_REG_A;
+		if (ins.RequiresCarry()) mIns[at].mLive |= LIVE_CPU_REG_C;
 
 		mIns[at - 1] = mIns[at];
 		mIns[at] = ins;

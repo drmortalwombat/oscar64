@@ -5584,7 +5584,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 		{
 			int sz = mInstructions.Size();
 
-			if (mFalseJump && sz > 0 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 1]->mSrc[0].mType == IT_BOOL && mInstructions[sz - 1]->mSrc[0].mTemp < 0)
+			if (mFalseJump && sz > 0 && mInstructions[sz - 1]->mCode == IC_BRANCH && (mInstructions[sz - 1]->mSrc[0].mType == IT_BOOL || IsIntegerType(mInstructions[sz - 1]->mSrc[0].mType)) && mInstructions[sz - 1]->mSrc[0].mTemp < 0)
 			{
 				mInstructions[sz - 1]->mCode = IC_JUMP;
 				mInstructions[sz - 1]->mNumOperands = 0;
@@ -20285,7 +20285,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "interpret_statement");
+	CheckFunc = !strcmp(mIdent->mString, "palette_draw");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
