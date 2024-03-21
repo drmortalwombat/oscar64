@@ -585,6 +585,7 @@ public:
 	void PushMoveOutOfLoop(void);
 	bool MoveConditionOutOfLoop(void);
 	void SingleLoopCountZeroCheck(void);
+	bool PostDecLoopOptimization(void);
 
 	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue);
 	void RemoveUnusedMallocs(void);

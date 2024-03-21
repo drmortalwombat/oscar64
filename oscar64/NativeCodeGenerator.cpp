@@ -17075,8 +17075,14 @@ bool NativeCodeBasicBlock::SimplifyLoopEnd(NativeCodeProcedure* proc)
 			{
 				mIns.Push(mTrueJump->mIns[0]);
 				mBranch = mTrueJump->mBranch;
+
+				mTrueJump->RemEntryBlock(this);
+
 				mFalseJump = mTrueJump->mFalseJump;
 				mTrueJump = mTrueJump->mTrueJump;
+
+				mTrueJump->AddEntryBlock(this);
+				mFalseJump->AddEntryBlock(this);
 
 				changed = true;
 			}
@@ -46397,7 +46403,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "player_check");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test3");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -47714,8 +47720,8 @@ void NativeCodeProcedure::Optimize(void)
 			mEntryBlock->CheckBlocks();
 #endif
 		}
-#endif
 
+#endif
 		if (step >= 6)
 		{
 			ResetVisited();
@@ -47920,6 +47926,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 

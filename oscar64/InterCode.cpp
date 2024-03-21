@@ -16166,6 +16166,97 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 	return changed;
 }
 
+bool InterCodeBasicBlock::PostDecLoopOptimization(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mNumEntries == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
+		{
+			int	nins = mInstructions.Size();
+
+			InterCodeBasicBlock* pblock = mEntryBlocks[0], * eblock = mFalseJump;
+			if (pblock == this)
+				pblock = mEntryBlocks[1];
+			if (eblock == this)
+				eblock = mTrueJump;
+
+			InterInstruction* movins = nullptr, * decins = nullptr;
+			int		ctemp = -1;
+
+			if (mInstructions[nins - 1]->mCode == IC_BRANCH && !pblock->mFalseJump)
+			{
+				ctemp = mInstructions[nins - 1]->mSrc->mTemp;
+				if (mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[nins - 2]->mDst.mTemp == ctemp)
+				{
+					if (mInstructions[nins - 2]->mSrc[0].mTemp < 0)
+						ctemp = mInstructions[nins - 2]->mSrc[1].mTemp;
+					else
+						ctemp = mInstructions[nins - 2]->mSrc[0].mTemp;
+				}
+
+				if (ctemp >= 0)
+				{
+					int movi = nins - 1;
+					while (movi >= 0 && mInstructions[movi]->mDst.mTemp != ctemp)
+						movi--;
+
+					if (movi >= 0)
+					{
+						int ltemp = mInstructions[movi]->mSrc->mTemp;
+						int inci = movi;
+						while (inci < nins && mInstructions[inci]->mDst.mTemp != ltemp)
+							inci++;
+						if (inci < nins)
+						{
+							if (mInstructions[inci]->mCode == IC_BINARY_OPERATOR && mInstructions[inci]->mOperator == IA_ADD)
+							{
+								int inco = -1;
+								if (mInstructions[inci]->mSrc[0].mTemp == ltemp && mInstructions[inci]->mSrc[1].mTemp < 0)
+									inco = 1;
+								else if (mInstructions[inci]->mSrc[1].mTemp == ltemp && mInstructions[inci]->mSrc[0].mTemp < 0)
+									inco = 0;
+
+								if (inco >= 0 && !IsTempReferencedInRange(0, movi, ltemp) && !IsTempReferencedInRange(movi + 1, inci, ltemp) && !IsTempReferencedInRange(inci + 1, nins, ltemp))
+								{
+									if (!eblock->mEntryRequiredTemps[ltemp])
+									{
+										InterInstruction* ins = mInstructions[inci];
+
+										int v = ins->mSrc[inco].mIntConst;
+
+										if (ins->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
+											ins->mDst.mRange.mMaxValue -= v;
+										if (ins->mSrc[1 - inco].mRange.mMinState == IntegerValueRange::S_BOUND)
+											ins->mSrc[1 - inco].mRange.mMinValue -= v;
+
+										mInstructions.Remove(inci);
+										mInstructions.Insert(movi, ins);
+										InterInstruction* pins = ins->Clone();
+										pins->mSrc[inco].mIntConst = -v;
+										pblock->mInstructions.Insert(pblock->mInstructions.Size() - 1, pins);
+										changed = true;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PostDecLoopOptimization())
+			changed = true;
+		if (mFalseJump && mFalseJump->PostDecLoopOptimization())
+			changed = true;
+	}
+
+	return changed;
+}
+
 void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	if (!mVisited)
@@ -20285,7 +20376,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "palette_draw");
+	CheckFunc = !strcmp(mIdent->mString, "test3");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -20695,6 +20786,11 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("added dominators");
 
 	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->PostDecLoopOptimization();
+
+	DisassembleDebug("PostDecLoopOptimization");
 
 	ResetVisited();
 	mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet, mModule->mGlobalVars);
