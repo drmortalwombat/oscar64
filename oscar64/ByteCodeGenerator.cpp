@@ -144,8 +144,8 @@ static const char* ByteCodeNames[] = {
 	"LOOP_U8",
 	"MALLOC",
 	"FREE",
-	nullptr,
-	nullptr,
+	"FILL",
+	"FILL_LONG",
 	nullptr,
 
 	"JSR",		//114
@@ -680,6 +680,8 @@ bool ByteCodeInstruction::CheckAccuSize(uint32 & used)
 		used = 0xffffffff;
 		break;
 
+	case BC_FILL:
+	case BC_FILL_LONG:
 	case BC_COPY:
 	case BC_COPY_LONG:
 	case BC_STRCPY:
@@ -780,7 +782,7 @@ bool ByteCodeInstruction::UsesRegister(uint32 reg) const
 			return true;
 		if (mCode == BC_LEA_ACCU_INDEX)
 			return true;
-		if (mCode == BC_COPY || mCode == BC_STRCPY)
+		if (mCode == BC_COPY || mCode == BC_STRCPY || mCode == BC_FILL)
 			return true;
 		if (mCode == BC_BINOP_ADDA_16)
 			return true;
@@ -793,7 +795,7 @@ bool ByteCodeInstruction::UsesRegister(uint32 reg) const
 		if (mCode >= BC_LOAD_ADDR_8 && mCode <= BC_STORE_ADDR_32)
 			return true;
 
-		if (mCode == BC_COPY || mCode == BC_STRCPY)
+		if (mCode == BC_COPY || mCode == BC_STRCPY || mCode == BC_FILL)
 			return true;
 
 		if (mCode == BC_JSR || mCode == BC_CALL_ADDR || mCode == BC_CALL_ABS)
@@ -1212,6 +1214,20 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 		block->PutByte(mValue);
 		break;
 
+	case BC_FILL:
+	case BC_FILL_LONG:
+		if (mValue < 256)
+		{
+			block->PutCode(generator, BC_FILL);
+			block->PutByte(uint8(mValue));
+		}
+		else
+		{
+			block->PutCode(generator, BC_FILL_LONG);
+			block->PutWord(uint16(mValue));
+		}
+		break;
+
 	case BC_COPY:
 	case BC_COPY_LONG:
 		if (mValue < 256)
@@ -1565,6 +1581,30 @@ void ByteCodeBasicBlock::LoadConstant(InterCodeProcedure* proc, const InterInstr
 		mIns.Push(bins);
 	}
 
+}
+
+void ByteCodeBasicBlock::FillValue(InterCodeProcedure* proc, const InterInstruction* ins)
+{
+	LoadOperandAddress(proc, ins->mSrc[1], BC_REG_ADDR);
+
+	if (ins->mSrc[0].mTemp < 0)
+	{
+		ByteCodeInstruction	cins(BC_CONST_8);
+		cins.mRegister = BC_REG_ACCU;
+		cins.mValue = int(ins->mSrc[0].mIntConst);
+		mIns.Push(cins);
+	}
+	else
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_8);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+	}
+
+	ByteCodeInstruction	cins(BC_FILL);
+	cins.mValue = ins->mConst.mOperandSize;
+	mIns.Push(cins);
 }
 
 void ByteCodeBasicBlock::CopyValue(InterCodeProcedure* proc, const InterInstruction * ins)
@@ -4319,6 +4359,9 @@ void ByteCodeBasicBlock::Compile(InterCodeProcedure* iproc, ByteCodeProcedure* p
 			}
 			else
 				LoadDirectValue(iproc, ins);
+			break;
+		case IC_FILL:
+			FillValue(iproc, ins);
 			break;
 		case IC_COPY:
 			CopyValue(iproc, ins);

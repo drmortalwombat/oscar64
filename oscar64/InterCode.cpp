@@ -418,7 +418,7 @@ static bool MemRange(const InterInstruction* ins, const GrowingInstructionPtrArr
 	}
 	else if (ins->mSrc[1].mMemory == IM_INDIRECT)
 	{
-		if (ins->mCode == IC_COPY)
+		if (ins->mCode == IC_COPY ||ins->mCode == IC_FILL)
 			size = ins->mConst.mOperandSize;
 		else
 			size = ins->mSrc[1].mOperandSize;
@@ -593,6 +593,8 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op, InterType type, c
 		return CollidingMem(op, type, ins->mSrc[0], ins->mDst.mType);
 	else if (ins->mCode == IC_STORE)
 		return CollidingMem(op, type, ins->mSrc[1], ins->mSrc[0].mType);
+	else if (ins->mCode == IC_FILL)
+		return CollidingMem(op, type, ins->mSrc[1], IT_NONE);
 	else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
 		return CollidingMem(op, type, ins->mSrc[0], IT_NONE) || CollidingMem(op, type, ins->mSrc[1], IT_NONE);
 	else
@@ -605,6 +607,8 @@ bool InterCodeBasicBlock::CollidingMem(const InterInstruction* ins1, const Inter
 		return CollidingMem(ins1->mSrc[0], ins1->mDst.mType, ins2);
 	else if (ins1->mCode == IC_STORE)
 		return CollidingMem(ins1->mSrc[1], ins1->mSrc[0].mType, ins2);
+	else if (ins1->mCode == IC_FILL)
+		return CollidingMem(ins1->mSrc[1], IT_NONE, ins2);
 	else if (ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
 		return CollidingMem(ins1->mSrc[0], IT_NONE, ins2) || CollidingMem(ins1->mSrc[1], IT_NONE, ins2);
 	else
@@ -617,6 +621,8 @@ bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const Inte
 		return false;
 	else if (sins->mCode == IC_STORE)
 		return CollidingMem(sins->mSrc[1], sins->mSrc[0].mType, lins);
+	else if (sins->mCode == IC_FILL)
+		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
 	else if (sins->mCode == IC_COPY || sins->mCode == IC_STRCPY)
 		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
 	else if (sins->mCode == IC_CALL || sins->mCode == IC_CALL_NATIVE)
@@ -630,6 +636,8 @@ bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const Inte
 				if (lins->mCode == IC_LOAD)
 					opmask = 1;
 				else if (lins->mCode == IC_STORE)
+					opmask = 2;
+				else if (lins->mCode == IC_FILL)
 					opmask = 2;
 				else if (lins->mCode == IC_COPY)
 					opmask = 3;
@@ -876,7 +884,7 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 			else
 				return false;
 		}
-		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
+		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY || ins0->mCode == IC_FILL)
 			return false;
 	}
 	if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER)
@@ -885,7 +893,7 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME || ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE)
 			return false;
 
-		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
 			return false;
 	}
 
@@ -897,12 +905,12 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 
 	if (ins0->mCode == IC_FREE)
 	{
-		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
 			return false;
 	}
 	if (ins1->mCode == IC_FREE)
 	{
-		if (ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
+		if (ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY || ins0->mCode == IC_FILL)
 			return false;
 	}
 
@@ -943,8 +951,8 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 				return false;
 	}
 
-	if ((ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY) &&
-		(ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY))
+	if ((ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY || ins0->mCode == IC_FILL) &&
+		(ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL))
 	{
 		if (ins0->mVolatile || ins1->mVolatile)
 			return false;
@@ -959,7 +967,7 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 			if (DestroyingMem(ins1, ins0))
 				return false;
 		}
-		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY)
+		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY || ins0->mCode == IC_FILL)
 		{
 			if (CollidingMem(ins0, ins1))
 				return false;
@@ -1665,12 +1673,12 @@ static bool HasSideEffect(InterCode code)
 
 static bool IsObservable(InterCode code)
 {
-	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_DISPATCH || code == IC_STORE || code == IC_COPY || code == IC_STRCPY || code == IC_MALLOC || code == IC_FREE;
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_DISPATCH || code == IC_STORE || code == IC_COPY || code == IC_STRCPY || code == IC_FILL || code == IC_MALLOC || code == IC_FREE;
 }
 
 static bool IsMoveable(InterCode code)
 {
-	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME || code == IC_MALLOC || code == IC_FREE)
+	if (HasSideEffect(code) || code == IC_COPY || code == IC_STRCPY || code == IC_STORE || code == IC_FILL || code == IC_BRANCH || code == IC_POP_FRAME || code == IC_PUSH_FRAME || code == IC_MALLOC || code == IC_FREE)
 		return false;
 	if (code == IC_RETURN || code == IC_RETURN_STRUCT || code == IC_RETURN_VALUE || code == IC_DISPATCH)
 		return false;
@@ -1682,7 +1690,7 @@ static bool IsMoveable(InterCode code)
 static bool CanBypassLoad(const InterInstruction* lins, const InterInstruction* bins)
 {
 	// Check ambiguity
-	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_FILL)
 		return false;
 
 	// Side effects
@@ -1737,7 +1745,7 @@ static bool CanBypassLoad(const InterInstruction* lins, const InterInstruction* 
 static bool CanBypassStoreDown(const InterInstruction* sins, const InterInstruction* bins)
 {
 	// Check ambiguity
-	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_FILL)
 		return false;
 
 	// Side effects
@@ -1830,7 +1838,7 @@ static bool CanBypass(const InterInstruction* lins, const InterInstruction* bins
 			bins->mCode == IC_RETURN || bins->mCode == IC_RETURN_STRUCT || bins->mCode == IC_RETURN_VALUE ||
 			bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_POP_FRAME)
 			return false;
-		if (bins->mCode == IC_LOAD || bins->mCode == IC_STORE || bins->mCode == IC_COPY)
+		if (bins->mCode == IC_LOAD || bins->mCode == IC_STORE || bins->mCode == IC_COPY || bins->mCode == IC_FILL)
 			return false;
 	}
 
@@ -1878,9 +1886,9 @@ static bool CanBypassUp(const InterInstruction* lins, const InterInstruction* bi
 			if (bins->mDst.mTemp == lins->mSrc[i].mTemp)
 				return false;
 	}
-	if (lins->mCode == IC_STORE || lins->mCode == IC_COPY)
+	if (lins->mCode == IC_STORE || lins->mCode == IC_COPY || lins->mCode == IC_FILL)
 	{
-		if (bins->mCode == IC_STORE || bins->mCode == IC_LOAD || bins->mCode == IC_COPY || bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE)
+		if (bins->mCode == IC_STORE || bins->mCode == IC_LOAD || bins->mCode == IC_COPY || bins->mCode == IC_FILL || bins->mCode == IC_CALL || bins->mCode == IC_CALL_NATIVE)
 			return false;
 	}
 
@@ -1896,7 +1904,7 @@ static bool CanBypassUp(const InterInstruction* lins, const InterInstruction* bi
 static bool CanBypassLoadUp(const InterInstruction* lins, const InterInstruction* bins)
 {
 	// Check ambiguity
-	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY)
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_FILL)
 		return false;
 
 	// Side effects
@@ -1965,7 +1973,7 @@ static bool IsChained(const InterInstruction* ins, const InterInstruction* nins)
 
 static bool CanBypassStore(const InterInstruction* sins, const InterInstruction* bins)
 {
-	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_PUSH_FRAME)
+	if (bins->mCode == IC_COPY || bins->mCode == IC_STRCPY || bins->mCode == IC_PUSH_FRAME || bins->mCode == IC_FILL)
 		return false;
 
 	// True data dependency
@@ -2424,6 +2432,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 		if (!ins->mVolatile)
 			InsertValue(ins);
 		break;
+	case IC_FILL:
 	case IC_COPY:
 	case IC_STRCPY:
 		i = 0;
@@ -3793,7 +3802,7 @@ void InterInstruction::FilterStaticVarsUsage(const GrowingVariableArray& staticV
 			}
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH)
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH || mCode == IC_FILL)
 	{
 		requiredVars.OrNot(providedVars);
 	}
@@ -3841,7 +3850,7 @@ void InterInstruction::FilterStaticVarsByteUsage(const GrowingVariableArray& sta
 			}
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH)
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH || mCode == IC_FILL)
 	{
 		requiredVars.OrNot(providedVars);
 	}
@@ -3896,6 +3905,23 @@ void InterInstruction::FilterVarsUsage(const GrowingVariableArray& localVars, Nu
 	}
 #endif
 	else if (mCode == IC_STORE)
+	{
+		if (mSrc[1].mMemory == IM_LOCAL)
+		{
+			assert(mSrc[1].mTemp < 0);
+			if (!providedVars[mSrc[1].mVarIndex] && (mSrc[1].mIntConst != 0 || mSrc[1].mOperandSize != localVars[mSrc[1].mVarIndex]->mSize))
+				requiredVars += mSrc[1].mVarIndex;
+			providedVars += mSrc[1].mVarIndex;
+		}
+		else if (mSrc[1].mMemory == paramMemory)
+		{
+			assert(mSrc[1].mTemp < 0);
+			if (!providedParams[mSrc[1].mVarIndex] && (mSrc[1].mIntConst != 0 || mSrc[1].mOperandSize != params[mSrc[1].mVarIndex]->mSize))
+				requiredParams += mSrc[1].mVarIndex;
+			providedParams += mSrc[1].mVarIndex;
+		}
+	}
+	else if (mCode == IC_FILL)
 	{
 		if (mSrc[1].mMemory == IM_LOCAL)
 		{
@@ -4478,7 +4504,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 			}
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_STRCPY)
+	else if (mCode == IC_COPY || mCode == IC_STRCPY || mCode == IC_FILL)
 	{
 		requiredVars.Fill();
 		storeIns.SetSize(0);
@@ -4534,7 +4560,7 @@ bool InterInstruction::RemoveUnusedStaticStoreByteInstructions(InterCodeBasicBlo
 			}
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_STRCPY)
+	else if (mCode == IC_COPY || mCode == IC_STRCPY || mCode == IC_FILL)
 	{
 		requiredVars.Fill();
 	}
@@ -4770,6 +4796,12 @@ void InterInstruction::CollectSimpleLocals(FastNumberSet& complexLocals, FastNum
 			complexLocals += mSrc[0].mVarIndex;
 		else if ((mSrc[0].mMemory == IM_PARAM || mSrc[0].mMemory == IM_FPARAM) && mSrc[0].mTemp < 0)
 			complexParams += mSrc[0].mVarIndex;
+		break;
+	case IC_FILL:
+		if (mSrc[1].mMemory == IM_LOCAL && mSrc[1].mTemp < 0)
+			complexLocals += mSrc[1].mVarIndex;
+		else if ((mSrc[1].mMemory == IM_PARAM || mSrc[1].mMemory == IM_FPARAM) && mSrc[1].mTemp < 0)
+			complexParams += mSrc[1].mVarIndex;
 		break;
 	case IC_CONSTANT:
 		if (mDst.mType == IT_POINTER && mConst.mMemory == IM_LOCAL)
@@ -5219,6 +5251,13 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 				fprintf(file, "COPY%d:%c%d%c", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory]);
 			else
 				fprintf(file, "COPY%d:%c%c", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
+			break;
+		case IC_FILL:
+			assert(mNumOperands == 2);
+			if (mSrc[1].mStride != 1)
+				fprintf(file, "FILL%c%d:%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize, mSrc[1].mStride);
+			else
+				fprintf(file, "FILL%c%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize);
 			break;
 
 		case IC_MALLOC:
@@ -5948,6 +5987,16 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		
 		OptimizeAddress(ins, tvalue, 1);
 		break;
+	case IC_FILL:
+		if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
+		{
+			ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+			ins->mSrc[0].mTemp = -1;
+		}
+
+		OptimizeAddress(ins, tvalue, 1);
+		break;
+
 	case IC_COPY:
 		OptimizeAddress(ins, tvalue, 0);
 		OptimizeAddress(ins, tvalue, 1);
@@ -6818,6 +6867,19 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 				}
 				ltemps.SetSize(j);
 				break;
+
+			case IC_FILL:
+				j = 0;
+				for (int k = 0; k < ltemps.Size(); k++)
+				{
+					if (!CollidingMem(ltemps[k], ins))
+					{
+						ltemps[j++] = ltemps[k];
+					}
+				}
+				ltemps.SetSize(j);
+				break;
+
 
 			case IC_COPY:
 				for (int k = 0; k < ltemps.Size(); k++)
@@ -8285,6 +8347,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			mMemoryValueSize[ins->mSrc[0].mTemp] = int64max(mMemoryValueSize[ins->mSrc[0].mTemp], ins->mSrc[0].mIntConst + InterTypeSize[ins->mDst.mType]);
 		else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0)
 			mMemoryValueSize[ins->mSrc[1].mTemp] = int64max(mMemoryValueSize[ins->mSrc[1].mTemp], ins->mSrc[1].mIntConst + InterTypeSize[ins->mSrc[0].mType]);
+		else if (ins->mCode == IC_FILL)
+		{
+			if (ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0)
+				mMemoryValueSize[ins->mSrc[1].mTemp] = ins->mConst.mOperandSize;
+		}
 		else if (ins->mCode == IC_COPY)
 		{
 			if (ins->mSrc[0].mMemory == IM_INDIRECT && ins->mSrc[0].mTemp >= 0)
@@ -8901,7 +8968,7 @@ bool InterCodeBasicBlock::PropagateConstOperationsUp(void)
 			{
 				const InterInstruction* ins = mInstructions[i];
 			
-				if (!HasSideEffect(ins->mCode) && ins->mCode != IC_CONSTANT && ins->mCode != IC_STORE && ins->mCode != IC_COPY)
+				if (!HasSideEffect(ins->mCode) && ins->mCode != IC_CONSTANT && ins->mCode != IC_STORE && ins->mCode != IC_COPY && ins->mCode != IC_FILL)
 				{
 					bool	isProvided = false;
 					if (ins->mDst.mTemp >= 0)
@@ -9432,7 +9499,7 @@ bool InterCodeBasicBlock::RemoveUnusedLocalStoreInstructions(void)
 					break;
 				else if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
 					break;
-				else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+				else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY || ins->mCode == IC_FILL)
 					break;
 			}
 		}
@@ -10158,6 +10225,13 @@ bool InterCodeBasicBlock::ForwardShortLoadStoreOffsets(void)
 								changed = true;
 							}
 							else if (mins->mCode == IC_COPY && mins->mSrc[1].mTemp == lins2->mDst.mTemp && mins->mSrc[1].mFinal)
+							{
+								lins2->mSrc[1].mTemp = lins->mSrc[1].mTemp;
+								lins->mSrc[1].mFinal = false;
+								mins->mSrc[1].mIntConst += lins->mSrc[0].mIntConst;
+								changed = true;
+							}
+							else if (mins->mCode == IC_FILL && mins->mSrc[1].mTemp == lins2->mDst.mTemp && mins->mSrc[1].mFinal)
 							{
 								lins2->mSrc[1].mTemp = lins->mSrc[1].mTemp;
 								lins->mSrc[1].mFinal = false;
@@ -11569,7 +11643,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					nins = ins;
 #endif
 			}
-			else if (ins->mCode == IC_STRCPY)
+			else if (ins->mCode == IC_STRCPY || ins->mCode == IC_FILL)
 				flushMem = true;
 			else if (ins->mCode == IC_LEA || ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR || ins->mCode == IC_CONVERSION_OPERATOR)
 			{
@@ -11628,7 +11702,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 
 					if (lins->mCode == IC_LOAD)
 						opmask = 1;
-					else if (lins->mCode == IC_STORE)
+					else if (lins->mCode == IC_STORE || lins->mCode == IC_FILL)
 						opmask = 2;
 					else if (lins->mCode == IC_COPY)
 						opmask = 3;
@@ -11678,7 +11752,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 
 				while (j < mLoadStoreInstructions.Size())
 				{
-					if (flushMem && (mLoadStoreInstructions[j]->mCode == IC_LOAD || mLoadStoreInstructions[j]->mCode == IC_STORE || mLoadStoreInstructions[j]->mCode == IC_COPY))
+					if (flushMem && (mLoadStoreInstructions[j]->mCode == IC_LOAD || mLoadStoreInstructions[j]->mCode == IC_STORE || mLoadStoreInstructions[j]->mCode == IC_COPY || mLoadStoreInstructions[j]->mCode == IC_FILL))
 						;
 					else if (t < 0)
 						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
@@ -11923,6 +11997,7 @@ void InterCodeBasicBlock::MapVariables(GrowingVariableArray& globalVars, Growing
 
 			case IC_STORE:
 			case IC_LEA:
+			case IC_FILL:
 				if (mInstructions[i]->mSrc[1].mTemp < 0 && mInstructions[i]->mSrc[1].mMemory == IM_LOCAL)
 				{
 					localVars[mInstructions[i]->mSrc[1].mVarIndex]->mUsed = true;
@@ -12075,7 +12150,7 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 	InterInstruction* ins = mInstructions[si];
 
 #if 1
-	if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
+	if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME || ins->mCode == IC_FILL ||
 		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH)
 		return false;
 
@@ -12137,7 +12212,7 @@ bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstr
 {
 
 #if 1
-	if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME ||
+	if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME || ins->mCode == IC_FILL ||
 		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH)
 		return false;
 
@@ -12946,7 +13021,7 @@ void InterCodeBasicBlock::RemoveNonRelevantStatics(void)
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
 			InterInstruction* ins(mInstructions[i]);
-			if (ins->mCode == IC_STORE || ins->mCode == IC_COPY)
+			if (ins->mCode == IC_STORE || ins->mCode == IC_COPY || ins->mCode == IC_FILL)
 			{
 				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && !ins->mVolatile)
 				{
@@ -13294,7 +13369,7 @@ void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVa
 
 			if (mInstructions[i]->mCode == IC_LOAD)
 				ApplyStaticStack(mInstructions[i]->mSrc[0],localVars);
-			else if (mInstructions[i]->mCode == IC_STORE || mInstructions[i]->mCode == IC_LEA)
+			else if (mInstructions[i]->mCode == IC_STORE || mInstructions[i]->mCode == IC_LEA || mInstructions[i]->mCode == IC_FILL)
 				ApplyStaticStack(mInstructions[i]->mSrc[1], localVars);
 			else if (mInstructions[i]->mCode == IC_CONSTANT && mInstructions[i]->mDst.mType == IT_POINTER)
 				ApplyStaticStack(mInstructions[i]->mConst, localVars);
@@ -13336,7 +13411,7 @@ void InterCodeBasicBlock::PromoteStaticStackParams(LinkerObject* paramlobj)
 		{
 			if (mInstructions[i]->mCode == IC_LOAD)
 				PromoteStaticStackParam(mInstructions[i]->mSrc[0], paramlobj);
-			else if (mInstructions[i]->mCode == IC_STORE || mInstructions[i]->mCode == IC_LEA)
+			else if (mInstructions[i]->mCode == IC_STORE || mInstructions[i]->mCode == IC_LEA || mInstructions[i]->mCode == IC_FILL)
 				PromoteStaticStackParam(mInstructions[i]->mSrc[1], paramlobj);
 			else if (mInstructions[i]->mCode == IC_CONSTANT && mInstructions[i]->mDst.mType == IT_POINTER)
 				PromoteStaticStackParam(mInstructions[i]->mConst, paramlobj);
@@ -14663,7 +14738,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							else
 								hasStore = true;
 						}
-						else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+						else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY || ins->mCode == IC_FILL)
 							hasStore = true;
 					}
 				}
@@ -14726,7 +14801,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 												ins->mInvariant = false;
 											}
 										}
-										else if (sins->mCode == IC_COPY)
+										else if (sins->mCode == IC_COPY || sins->mCode == IC_FILL)
 										{
 											ins->mInvariant = false;
 										}
@@ -16445,7 +16520,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 									ins->mInvariant = false;
 								}
 							}
-							else if (sins->mCode == IC_COPY)
+							else if (sins->mCode == IC_COPY || sins->mCode == IC_FILL)
 							{
 								ins->mInvariant = false;
 							}
@@ -18945,6 +19020,20 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
 				break;
+			case IC_FILL:
+				if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
+				{
+					referencedGlobals += ins->mSrc[1].mVarIndex;
+					modifiedGlobals += ins->mSrc[1].mVarIndex;
+				}
+				else if (ins->mSrc[1].mMemoryBase == IM_GLOBAL && ins->mSrc[1].mVarIndex >= 0)
+				{
+					referencedGlobals += ins->mSrc[1].mVarIndex;
+					modifiedGlobals += ins->mSrc[1].mVarIndex;
+				}
+				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
+					storesIndirect = true;
+				break;
 			case IC_COPY:
 			case IC_STRCPY:
 				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && ins->mSrc[0].mVarIndex >= 0)
@@ -19148,6 +19237,7 @@ void InterCodeBasicBlock::CollectVariables(GrowingVariableArray& globalVars, Gro
 			case IC_STORE:
 			case IC_LOAD:		
 			case IC_COPY:
+			case IC_FILL:
 			case IC_STRCPY:
 			case IC_CALL_NATIVE:
 			case IC_ASSEMBLER:

@@ -239,7 +239,7 @@ public:
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset, mTemp;
 	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked, mPatchStart, mPatchLoop, mPatchLoopChanged, mPatchExit;
-	bool						mEntryRegA, mEntryRegX, mEntryRegY, mExitRegA, mExitRegX;
+	bool						mEntryRegA, mEntryRegX, mEntryRegY, mExitRegA, mExitRegX, mChecked;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
 	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
@@ -354,6 +354,7 @@ public:
 	void BinaryDivModPair(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins1, const InterInstruction* ins2);
 
 	void NumericConversion(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
+	NativeCodeBasicBlock * FillValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
 	NativeCodeBasicBlock * CopyValue(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc);
 	NativeCodeBasicBlock * StrcpyValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
 	void AddAsrSignedByte(InterCodeProcedure* proc, const InterInstruction* ains, const InterInstruction* sins);
@@ -784,10 +785,12 @@ class NativeCodeProcedure
 
 		void BuildDataFlowSets(void);
 		void ResetEntryBlocks(void);
+		void ResetChecked(void);
 		void ResetVisited(void);
 		void ResetPatched(void);
 		void RebuildEntry(void);
 		void ResetIndexFlipped(void);
+		void CheckBlocks(bool sequence = false);
 
 		void SaveTempsToStack(int tempSave);
 		void LoadTempsFromStack(int tempSave);

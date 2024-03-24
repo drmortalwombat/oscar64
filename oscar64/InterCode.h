@@ -24,6 +24,7 @@ enum InterCode
 	IC_LEA,
 	IC_COPY,			// Copy from src[0] to src[1]
 	IC_STRCPY,
+	IC_FILL,			// Fill src[1] with src[0]
 	IC_MALLOC,
 	IC_FREE,
 	IC_TYPECAST,

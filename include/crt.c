@@ -2666,6 +2666,23 @@ inp_call_addr:
 #pragma	bytecode(BC_CALL_ADDR, inp_call.inp_call_addr)
 #pragma	bytecode(BC_CALL_ABS, inp_call)
 
+__asm inp_fill
+{
+		lda	(ip), y
+		sty	tmpy
+		tay
+
+		lda	accu
+L1:		dey
+		sta	(addr), y
+		bne	L1
+
+		ldy	tmpy
+		jmp	startup.yexec
+}
+
+#pragma	bytecode(BC_FILL, inp_fill)
+
 __asm inp_copy
 {
 		lda	(ip), y
@@ -2699,6 +2716,46 @@ L1:		iny
 }
 
 #pragma	bytecode(BC_STRCPY, inp_strcpy)
+
+__asm inp_filll
+{
+		lda	(ip), y
+		sta tmp
+		iny
+		lda (ip), y
+		tax
+		sty tmpy
+
+		beq	W1
+		ldy	#0
+
+		lda	accu
+Loop1:
+		sta (addr), y
+		iny
+		bne	Loop1
+		inc accu + 1
+		inc addr + 1
+		dex
+		bne	Loop1
+W1:
+		lda	accu
+		ldy	tmp
+		beq	W2
+		dey
+		beq	W3
+Loop2:
+		sta (addr), y
+		dey
+		bne Loop2
+W3:
+		sta (addr), y
+W2:
+		ldy	tmpy
+		jmp	startup.yexec
+}
+
+#pragma	bytecode(BC_FILL_LONG, inp_filll)
 
 __asm inp_copyl
 {

@@ -429,6 +429,10 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			i += 1;
 			break;
 
+		case BC_FILL:
+			fprintf(file, "FILL\t#%d", memory[start + i + 0]);
+			i++;
+			break;
 		case BC_COPY:
 			fprintf(file, "COPY\t#%d", memory[start + i + 0]);
 			i++;
@@ -439,6 +443,10 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 
 		case BC_COPY_LONG:
 			fprintf(file, "COPYL\t#%d", uint16(memory[start + i + 0] + 256 * memory[start + i + 1]));
+			i += 2;
+			break;
+		case BC_FILL_LONG:
+			fprintf(file, "FILLL\t#%d", uint16(memory[start + i + 0] + 256 * memory[start + i + 1]));
 			i += 2;
 			break;
 

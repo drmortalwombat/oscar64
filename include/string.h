@@ -25,6 +25,10 @@ void * memmove(void * dst, const void * src, int size);
 
 #pragma intrinsic(memcpy)
 
+#pragma intrinsic(memset)
+
+#pragma intrinsic(memclr)
+
 #pragma compile("string.c")
 
 #endif
