@@ -1,4 +1,4 @@
-#ifndef C64_KERNALIO_H
+
 #ifndef C64_KERNALIO_H
 
 // Error and status codes returned by krnio_status
