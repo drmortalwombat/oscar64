@@ -40591,6 +40591,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mAddress = (mIns[i + 0].mAddress - 1) & 255; 
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 					else if (
@@ -40599,6 +40600,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mAddress = (mIns[i + 0].mAddress + 1) & 255; 
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 					else if (
@@ -40607,6 +40609,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mAddress = (mIns[i + 0].mAddress - 1) & 255; 
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 					else if (
@@ -40615,6 +40618,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mAddress = (mIns[i + 0].mAddress + 1) & 255; 
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 
@@ -40624,6 +40628,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 					else if (
@@ -40632,6 +40637,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 					else if (
@@ -40640,6 +40646,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 					else if (
@@ -40648,6 +40655,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					{
 						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mLive |= mIns[i + 1].mLive;
 						progress = true;
 					}
 					else if (

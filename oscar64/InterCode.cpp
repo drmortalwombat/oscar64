@@ -13642,7 +13642,7 @@ void InterCodeBasicBlock::FollowJumps(void)
 			{
 				InterCodeBasicBlock* block = mTrueJump->Clone();
 				block->mInstructions[1]->mCode = IC_JUMP;
-				block->mInstructions[1]->mNumOperands = 1;
+				block->mInstructions[1]->mNumOperands = 0;
 				block->Close(mTrueJump->mTrueJump, nullptr);
 
 				block->mTrueJump->mNumEntries++;
@@ -13660,7 +13660,7 @@ void InterCodeBasicBlock::FollowJumps(void)
 			{
 				InterCodeBasicBlock* block = mFalseJump->Clone();
 				block->mInstructions[1]->mCode = IC_JUMP;
-				block->mInstructions[1]->mNumOperands = 1;
+				block->mInstructions[1]->mNumOperands = 0;
 				block->Close(mFalseJump->mFalseJump, nullptr);
 
 				block->mTrueJump->mNumEntries++;
@@ -16301,7 +16301,7 @@ bool InterCodeBasicBlock::PostDecLoopOptimization(void)
 									{
 										InterInstruction* ins = mInstructions[inci];
 
-										int v = ins->mSrc[inco].mIntConst;
+										int64 v = ins->mSrc[inco].mIntConst;
 
 										if (ins->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
 											ins->mDst.mRange.mMaxValue -= v;
