@@ -4518,6 +4518,17 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 	if (mCode == IC_STORE)
 		storeIns.Push(this);
 
+	if (mDst.mTemp >= 0)
+	{
+		int k = 0;
+		for (int i = 0; i < storeIns.Size(); i++)
+		{
+			if (storeIns[i]->mSrc[1].mTemp != mDst.mTemp)
+				storeIns[k++] = storeIns[i];
+		}
+		storeIns.SetSize(k);
+	}
+
 	return changed;
 }
 
@@ -20466,7 +20477,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test3");
+	CheckFunc = !strcmp(mIdent->mString, "display_game_frame");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
