@@ -41124,9 +41124,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 #if 1
 				if (i + 2 < mIns.Size())
 				{
-					NativeCodeInstruction	i0 = mIns[i];
-					NativeCodeInstruction	i1 = mIns[i + 1];
-					NativeCodeInstruction	i2 = mIns[i + 2];
+//					NativeCodeInstruction	i0 = mIns[i];
+//					NativeCodeInstruction	i1 = mIns[i + 1];
+//					NativeCodeInstruction	i2 = mIns[i + 2];
 
 					if (mIns[i].mType == ASMIT_LDA && mIns[i + 2].mType == ASMIT_LDA && (mIns[i + 1].mType == ASMIT_CLC || mIns[i + 1].mType == ASMIT_SEC))
 					{
