@@ -653,6 +653,7 @@ public:
 	bool CanSwapInstructions(int at);
 
 	bool CrossBlockXYPreservation(void);
+	bool CrossBlockIncToZeroShortcut(void);
 
 	bool AlternateXYUsage(void);
 	bool OptimizeXYPairUsage(void);

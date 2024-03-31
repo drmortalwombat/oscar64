@@ -14220,7 +14220,32 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								if (si && si->mCode == IC_CONSTANT)
 								{
 									int64	num = (ci->mSrc[0].mIntConst - si->mSrc[0].mIntConst) / ai->mSrc[0].mIntConst;
-									if (num > 0)
+									if (num > 255 && num < 32768)
+									{
+										ai->mSrc[0].mIntConst = 1;
+
+										ci->mOperator = IA_CMPNE;
+										ci->mSrc[0].mIntConst = 0;
+										ci->mSrc[0].mRange.SetLimit(0, 0);
+
+										InterInstruction* mins = new InterInstruction(si->mLocation, IC_CONSTANT);
+										mins->mConst.mType = ai->mDst.mType;
+										mins->mConst.mIntConst = -num;
+										mins->mDst = ai->mDst;
+										mins->mDst.mRange.SetLimit(-num, -num);
+										mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, mins);
+
+										for (int k = 0; k < body.Size(); k++)
+										{
+											if (body[k]->mEntryValueRange.Size())
+												body[k]->mEntryValueRange[ai->mSrc[1].mTemp].SetLimit(-num, -1);
+										}
+
+										ai->mSrc[1].mRange.SetLimit(-num, -1);
+										ai->mDst.mRange.SetLimit(-num + 1, 0);
+										ci->mSrc[1].mRange.SetLimit(- num + 1, 0);
+									}
+									else if (num > 0)
 									{
 										ai->mOperator = IA_SUB;
 										ai->mSrc[0].mIntConst = 1;
@@ -20477,7 +20502,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "display_game_frame");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
