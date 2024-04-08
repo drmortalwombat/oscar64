@@ -359,6 +359,7 @@ LinkerObject * Linker::AddObject(const Location& location, const Ident* ident, L
 	obj->mSection = section;
 	obj->mRegion = nullptr;
 	obj->mProc = nullptr;
+	obj->mVariable = nullptr;
 	obj->mFlags = 0;
 	obj->mAlignment = alignment;
 	section->mObjects.Push(obj);

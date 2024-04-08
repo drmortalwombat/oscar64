@@ -9,6 +9,7 @@
 #include "CompilerTypes.h"
 
 class InterCodeProcedure;
+class InterVariable;
 
 enum LinkerObjectType
 {
@@ -191,6 +192,7 @@ public:
 	LinkerRegion					*	mRegion;
 	uint8							*	mData, * mMemory;
 	InterCodeProcedure				*	mProc;
+	InterVariable					*	mVariable;
 	uint32								mFlags;
 	uint8								mTemporaries[16], mTempSizes[16];
 	int									mNumTemporaries;

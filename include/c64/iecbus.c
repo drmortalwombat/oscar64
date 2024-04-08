@@ -239,7 +239,7 @@ int iec_write_bytes(const char * data, int num)
 
 int iec_read_bytes(char * data, int num)
 {
-	char i = 0;
+	int i = 0;
 	while (i < num)
 	{
 		char ch = iec_read();
