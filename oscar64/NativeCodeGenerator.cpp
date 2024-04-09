@@ -23378,6 +23378,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						mTrueJump->mIns.Insert(0, ins);
 						mTrueJump->mIns[0].mLive |= LIVE_CPU_REG_C | mIns[ns - 1].mLive;
 						mIns.Remove(ns - 2);
+						mExitRequiredRegs += CPU_REG_A;
 						mTrueJump->mEntryRequiredRegs += CPU_REG_A;
 						mTrueJump->CheckLive();
 						changed = true;
@@ -23387,6 +23388,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						mFalseJump->mIns.Insert(0, ins);
 						mFalseJump->mIns[0].mLive |= LIVE_CPU_REG_C | mIns[ns - 1].mLive;
 						mIns.Remove(ns - 2);
+						mExitRequiredRegs += CPU_REG_A;
 						mFalseJump->mEntryRequiredRegs += CPU_REG_A;
 						mFalseJump->CheckLive();
 						changed = true;
@@ -23403,6 +23405,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						if (mTrueJump->mEntryRequiredRegs[CPU_REG_A])
 							mTrueJump->mIns[0].mLive |= LIVE_CPU_REG_A;
 						mIns.Remove(ns - 2);
+						mExitRequiredRegs += CPU_REG_X;
 						mTrueJump->mEntryRequiredRegs += CPU_REG_X;
 						mTrueJump->CheckLive();
 						changed = true;
@@ -23416,6 +23419,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						if (mFalseJump->mEntryRequiredRegs[CPU_REG_A])
 							mFalseJump->mIns[0].mLive |= LIVE_CPU_REG_A;
 						mIns.Remove(ns - 2);
+						mExitRequiredRegs += CPU_REG_X;
 						mFalseJump->mEntryRequiredRegs += CPU_REG_X;
 						mFalseJump->CheckLive();
 						changed = true;
@@ -36396,7 +36400,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 				int si = 0;
 				while (si < mIns.Size() && !mIns[si].ChangesXReg())
 					si++;
-				if (si >= 0 && mIns[si].mType == ASMIT_LDX && mIns[si].SameEffectiveAddress(tail->mIns[ei]))
+				if (si < mIns.Size() && mIns[si].mType == ASMIT_LDX && mIns[si].SameEffectiveAddress(tail->mIns[ei]))
 				{
 					prev->mIns.Push(mIns[si]);
 					mIns.Remove(si);
