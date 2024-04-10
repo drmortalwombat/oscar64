@@ -16708,6 +16708,7 @@ bool NativeCodeBasicBlock::MoveImmediateStoreUp(int at)
 {
 	bool	usex = mIns[at + 1].mMode == ASMIM_ABSOLUTE_X || mIns[at + 1].mMode == ASMIM_INDIRECT_X || mIns[at + 1].mMode == ASMIM_ZERO_PAGE_X;
 	bool	usey = mIns[at + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[at + 1].mMode == ASMIM_INDIRECT_Y || mIns[at + 1].mMode == ASMIM_ZERO_PAGE_Y;
+	bool	vol = mIns[at + 1].mFlags & NCIF_VOLATILE;
 
 	int val = mIns[at].mAddress;
 	int i = at;
@@ -16744,6 +16745,8 @@ bool NativeCodeBasicBlock::MoveImmediateStoreUp(int at)
 			return false;
 		else if (mIns[at + 1].mMode == ASMIM_INDIRECT_Y && (mIns[i].ChangesZeroPage(mIns[at + 1].mAddress) || mIns[i].ChangesZeroPage(mIns[at + 1].mAddress + 1)))
 			return false;
+		else if (vol && (mIns[i].mFlags & NCIF_VOLATILE))
+			return false;
 	}
 	return false;
 }
@@ -16752,6 +16755,7 @@ bool NativeCodeBasicBlock::MoveImmediateStoreDown(int at)
 {
 	bool	usex = mIns[at + 1].mMode == ASMIM_ABSOLUTE_X || mIns[at + 1].mMode == ASMIM_INDIRECT_X || mIns[at + 1].mMode == ASMIM_ZERO_PAGE_X;
 	bool	usey = mIns[at + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[at + 1].mMode == ASMIM_INDIRECT_Y || mIns[at + 1].mMode == ASMIM_ZERO_PAGE_Y;
+	bool	vol = mIns[at + 1].mFlags & NCIF_VOLATILE;
 
 	int val = mIns[at].mAddress;
 	int i = at + 2;
@@ -16807,6 +16811,8 @@ bool NativeCodeBasicBlock::MoveImmediateStoreDown(int at)
 		else if (usey && mIns[i].ChangesYReg())
 			return false;
 		else if (mIns[at + 1].mMode == ASMIM_INDIRECT_Y && (mIns[i].ChangesZeroPage(mIns[at + 1].mAddress) || mIns[i].ChangesZeroPage(mIns[at + 1].mAddress + 1)))
+			return false;
+		else if (vol && (mIns[i].mFlags & NCIF_VOLATILE))
 			return false;
 
 		i++;
@@ -47133,7 +47139,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "memmove");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "reu_count_pages");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -48617,7 +48623,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
-
 
 	} while (changed);
 
