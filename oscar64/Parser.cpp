@@ -1405,7 +1405,7 @@ Declaration* Parser::ReverseDeclaration(Declaration* odec, Declaration* bdec)
 
 Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp)
 {
-	exp = exp->ConstantDereference();
+	exp = exp->ConstantDereference(mErrors, mDataSection);
 
 	Declaration* dec = exp->mDecValue;
 

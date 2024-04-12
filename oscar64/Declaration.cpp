@@ -452,38 +452,55 @@ Expression* Expression::LogicInvertExpression(void)
 	}
 }
 
-Expression* Expression::ConstantDereference(void)
+Expression* Expression::ConstantDereference(Errors* errors, LinkerSection* dataSection)
 {
 	if (mType == EX_VARIABLE)
 	{
-		if (mDecValue->mType == DT_VARIABLE && (mDecValue->mFlags & DTF_CONST) && mDecValue->mValue)
-			return mDecValue->mValue;
-		else if (mDecValue->mType == DT_VARIABLE_REF && (mDecValue->mFlags & DTF_CONST) && mDecValue->mBase->mValue && mDecValue->mBase->mValue->mType == EX_CONSTANT && mDecValue->mBase->mValue->mDecValue->mType == DT_CONST_STRUCT)
+		if (mDecType->IsSimpleType())
 		{
-			Declaration* mdec = mDecValue->mBase->mValue->mDecValue->mParams;
-			int	coffset = mDecValue->mOffset;
-			while (mdec)
+			if (mDecValue->mType == DT_VARIABLE && (mDecValue->mFlags & DTF_CONST) && mDecValue->mValue)
+				return mDecValue->mValue;
+			else if (mDecValue->mType == DT_VARIABLE_REF && (mDecValue->mFlags & DTF_CONST) && mDecValue->mBase->mValue && mDecValue->mBase->mValue->mType == EX_CONSTANT && mDecValue->mBase->mValue->mDecValue->mType == DT_CONST_STRUCT)
 			{
-				if (mdec->mType == DT_CONST_STRUCT)
+				Declaration* mdec = mDecValue->mBase->mValue->mDecValue->mParams;
+				int	coffset = mDecValue->mOffset;
+				while (mdec)
 				{
-					if (mdec->mOffset > coffset || mdec->mOffset + mdec->mSize <= coffset)
+					if (mdec->mType == DT_CONST_STRUCT)
+					{
+						if (mdec->mOffset > coffset || mdec->mOffset + mdec->mSize <= coffset)
+							mdec = mdec->mNext;
+						else
+						{
+							coffset -= mdec->mOffset;
+							mdec = mdec->mParams;
+						}
+					}
+					else if (mdec->mOffset != coffset)
 						mdec = mdec->mNext;
 					else
 					{
-						coffset -= mdec->mOffset;
-						mdec = mdec->mParams;
+						Expression* ex = new Expression(mLocation, EX_CONSTANT);
+						ex->mDecValue = mdec;
+						ex->mDecType = mDecType;
+						return ex;
 					}
 				}
-				else if (mdec->mOffset != coffset)
-					mdec = mdec->mNext;
-				else
-				{
-					Expression* ex = new Expression(mLocation, EX_CONSTANT);
-					ex->mDecValue = mdec;
-					ex->mDecType = mDecType;
-					return ex;
-				}
 			}
+		}
+	}
+	else if (mType == EX_BINARY)
+	{
+		Expression* lexp = mLeft->ConstantDereference(errors, dataSection);
+		Expression* rexp = mRight->ConstantDereference(errors, dataSection);
+		if (lexp != mLeft || rexp != mRight)
+		{
+			Expression* nexp = new Expression(mLocation, EX_BINARY);
+			nexp->mToken = mToken;
+			nexp->mDecType = mDecType;
+			nexp->mLeft = lexp;
+			nexp->mRight = rexp;
+			return nexp->ConstantFold(errors, dataSection)->ConstantDereference(errors, dataSection);
 		}
 	}
 
