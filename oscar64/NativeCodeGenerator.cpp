@@ -42727,7 +42727,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 							else
 							{
 								mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
-								mIns[i + 2].mLive = mIns[i + 3].mLive | LIVE_CPU_REG_Y | LIVE_MEM;
+								mIns[i + 2].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_Y | LIVE_MEM;
 								ypos = i + 2;
 								mIns[i + 3].mAddress = breg;
 							}
@@ -42753,7 +42753,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 						if (FindImmediateStore(i, mIns[i + 2].mAddress + 1, ains))
 						{
 							mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mIns[i + 2].mAddress));
-							mIns[i + 2].mLive = mIns[i + 3].mLive | LIVE_CPU_REG_X;
+							mIns[i + 2].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_X;
 							mIns[i + 3].mMode = ASMIM_ABSOLUTE_X;
 
 							if (ains->mMode == ASMIM_IMMEDIATE)

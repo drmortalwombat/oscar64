@@ -6576,7 +6576,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 
 			if (!nexp->mDecType)
 				nexp->mDecType = TheVoidTypeDeclaration;
-			exp = nexp;
+			exp = nexp->ConstantFold(mErrors, mDataSection, mCompilationUnits->mLinker);
 		}
 		else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 		{

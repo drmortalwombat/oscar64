@@ -11638,6 +11638,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 								{
 									InterInstruction* tins = sins->Clone();
 									tins->mSrc[1] = ins->mSrc[1];
+									tins->mSrc[1].mOperandSize = sins->mSrc[1].mOperandSize;
 									tins->mSrc[1].mIntConst = sins->mSrc[1].mIntConst - ins->mSrc[0].mIntConst + ins->mSrc[1].mIntConst;
 									n++;
 									mInstructions.Insert(i + n, tins);
@@ -20502,7 +20503,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "addGameObjectCannon");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

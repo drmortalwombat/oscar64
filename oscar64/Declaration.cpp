@@ -923,16 +923,78 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			mLeft->mDecType->mType == DT_TYPE_ARRAY && mLeft->mDecType->mStride == 0 &&
 			mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
 	{
+		int offset = int(mDecType->mSize * mRight->mDecValue->mInteger);
+
+		if (mDecType->IsSimpleType() && (mLeft->mDecValue->mFlags & DTF_CONST) && mLeft->mDecValue->mValue && mLeft->mDecValue->mValue->mType == EX_CONSTANT && mLeft->mDecValue->mValue->mDecValue->mType == DT_CONST_STRUCT)
+		{
+			Declaration* mdec = mLeft->mDecValue->mValue->mDecValue->mParams;
+			while (mdec && mdec->mOffset != offset)
+				mdec = mdec->mNext;
+
+			if (mdec)
+			{
+				Expression* ex = new Expression(mLocation, EX_CONSTANT);
+				ex->mDecValue = mdec;
+				ex->mDecType = mDecType;
+				return ex;
+			}
+		}
+
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
 		dec->mBase = mLeft->mDecValue;
-		dec->mOffset = int(mDecType->mSize * mRight->mDecValue->mInteger);
+		dec->mOffset = offset;
 		dec->mSize = mDecType->mSize;
 		ex->mDecValue = dec;
 		ex->mDecType = mDecType;
 		return ex;
 	}
+	else if (mType == EX_INDEX && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE_REF && (mLeft->mDecValue->mFlags & DTF_GLOBAL) &&
+		mLeft->mDecType->mType == DT_TYPE_ARRAY && mLeft->mDecType->mStride == 0 &&
+		mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
+		{
+			int offset = mLeft->mDecValue->mOffset + int(mDecType->mSize * mRight->mDecValue->mInteger);
+
+			if (mDecType->IsSimpleType() && (mLeft->mDecValue->mFlags & DTF_CONST) && mLeft->mDecValue->mBase->mValue && mLeft->mDecValue->mBase->mValue->mType == EX_CONSTANT && mLeft->mDecValue->mBase->mValue->mDecValue->mType == DT_CONST_STRUCT)
+			{
+				Declaration* mdec = mLeft->mDecValue->mBase->mValue->mDecValue->mParams;
+
+				int	coffset = offset;
+				while (mdec)
+				{
+					if (mdec->mType == DT_CONST_STRUCT)
+					{
+						if (mdec->mOffset > coffset || mdec->mOffset + mdec->mSize <= coffset)
+							mdec = mdec->mNext;
+						else
+						{
+							coffset -= mdec->mOffset;
+							mdec = mdec->mParams;
+						}
+					}
+					else if (mdec->mOffset != coffset)
+						mdec = mdec->mNext;
+					else
+					{
+						Expression* ex = new Expression(mLocation, EX_CONSTANT);
+						ex->mDecValue = mdec;
+						ex->mDecType = mDecType;
+						return ex;
+					}
+				}
+			}
+
+			Expression* ex = new Expression(mLocation, EX_VARIABLE);
+			Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
+			dec->mFlags = mLeft->mDecValue->mFlags;
+			dec->mBase = mLeft->mDecValue->mBase;
+			dec->mOffset = offset;
+			dec->mSize = mDecType->mSize;
+			ex->mDecValue = dec;
+			ex->mDecType = mDecType;
+			return ex;
+			}
 	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight->mType == EX_CONSTANT)
 	{
 		Declaration* decf = mLeft->mDecValue, * decp = mRight->mDecValue;
@@ -1116,9 +1178,10 @@ Declaration* Declaration::ConstCast(Declaration* ntype)
 	}
 	else if (ntype->mType == DT_TYPE_INTEGER || ntype->mType == DT_TYPE_BOOL || ntype->mType == DT_TYPE_ENUM)
 	{
-		if (mType == DT_TYPE_FLOAT)
+		if (mType == DT_CONST_FLOAT)
 		{
 			Declaration* pdec = this->Clone();
+			pdec->mType = DT_CONST_INTEGER;
 			pdec->mInteger = int64(mNumber);
 			pdec->mBase = ntype;
 			pdec->mSize = ntype->mSize;
@@ -1134,7 +1197,7 @@ Declaration* Declaration::ConstCast(Declaration* ntype)
 	}
 	else if (ntype->mType == DT_TYPE_FLOAT)
 	{
-		if (mType == DT_TYPE_FLOAT)
+		if (mType == DT_CONST_FLOAT)
 		{
 			Declaration* pdec = this->Clone();
 			pdec->mBase = ntype;
@@ -1143,6 +1206,7 @@ Declaration* Declaration::ConstCast(Declaration* ntype)
 		else
 		{
 			Declaration* pdec = this->Clone();
+			pdec->mType = DT_CONST_FLOAT;
 			pdec->mNumber = float(mInteger);
 			pdec->mBase = ntype;
 			pdec->mSize = ntype->mSize;
