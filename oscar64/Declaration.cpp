@@ -452,6 +452,44 @@ Expression* Expression::LogicInvertExpression(void)
 	}
 }
 
+Expression* Expression::ConstantDereference(void)
+{
+	if (mType == EX_VARIABLE)
+	{
+		if (mDecValue->mType == DT_VARIABLE && (mDecValue->mFlags & DTF_CONST) && mDecValue->mValue)
+			return mDecValue->mValue;
+		else if (mDecValue->mType == DT_VARIABLE_REF && (mDecValue->mFlags & DTF_CONST) && mDecValue->mBase->mValue && mDecValue->mBase->mValue->mType == EX_CONSTANT && mDecValue->mBase->mValue->mDecValue->mType == DT_CONST_STRUCT)
+		{
+			Declaration* mdec = mDecValue->mBase->mValue->mDecValue->mParams;
+			int	coffset = mDecValue->mOffset;
+			while (mdec)
+			{
+				if (mdec->mType == DT_CONST_STRUCT)
+				{
+					if (mdec->mOffset > coffset || mdec->mOffset + mdec->mSize <= coffset)
+						mdec = mdec->mNext;
+					else
+					{
+						coffset -= mdec->mOffset;
+						mdec = mdec->mParams;
+					}
+				}
+				else if (mdec->mOffset != coffset)
+					mdec = mdec->mNext;
+				else
+				{
+					Expression* ex = new Expression(mLocation, EX_CONSTANT);
+					ex->mDecValue = mdec;
+					ex->mDecType = mDecType;
+					return ex;
+				}
+			}
+		}
+	}
+
+	return this;
+}
+
 Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSection, Linker* linker)
 {
 	if (mType == EX_PREFIX && mToken == TK_BANKOF && linker)
@@ -925,21 +963,6 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 	{
 		int offset = int(mDecType->mSize * mRight->mDecValue->mInteger);
 
-		if (mDecType->IsSimpleType() && (mLeft->mDecValue->mFlags & DTF_CONST) && mLeft->mDecValue->mValue && mLeft->mDecValue->mValue->mType == EX_CONSTANT && mLeft->mDecValue->mValue->mDecValue->mType == DT_CONST_STRUCT)
-		{
-			Declaration* mdec = mLeft->mDecValue->mValue->mDecValue->mParams;
-			while (mdec && mdec->mOffset != offset)
-				mdec = mdec->mNext;
-
-			if (mdec)
-			{
-				Expression* ex = new Expression(mLocation, EX_CONSTANT);
-				ex->mDecValue = mdec;
-				ex->mDecType = mDecType;
-				return ex;
-			}
-		}
-
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
 		dec->mFlags = mLeft->mDecValue->mFlags;
@@ -955,35 +978,6 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
 		{
 			int offset = mLeft->mDecValue->mOffset + int(mDecType->mSize * mRight->mDecValue->mInteger);
-
-			if (mDecType->IsSimpleType() && (mLeft->mDecValue->mFlags & DTF_CONST) && mLeft->mDecValue->mBase->mValue && mLeft->mDecValue->mBase->mValue->mType == EX_CONSTANT && mLeft->mDecValue->mBase->mValue->mDecValue->mType == DT_CONST_STRUCT)
-			{
-				Declaration* mdec = mLeft->mDecValue->mBase->mValue->mDecValue->mParams;
-
-				int	coffset = offset;
-				while (mdec)
-				{
-					if (mdec->mType == DT_CONST_STRUCT)
-					{
-						if (mdec->mOffset > coffset || mdec->mOffset + mdec->mSize <= coffset)
-							mdec = mdec->mNext;
-						else
-						{
-							coffset -= mdec->mOffset;
-							mdec = mdec->mParams;
-						}
-					}
-					else if (mdec->mOffset != coffset)
-						mdec = mdec->mNext;
-					else
-					{
-						Expression* ex = new Expression(mLocation, EX_CONSTANT);
-						ex->mDecValue = mdec;
-						ex->mDecType = mDecType;
-						return ex;
-					}
-				}
-			}
 
 			Expression* ex = new Expression(mLocation, EX_VARIABLE);
 			Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);

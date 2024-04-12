@@ -248,6 +248,7 @@ public:
 
 	Expression* LogicInvertExpression(void);
 	Expression* ConstantFold(Errors * errors, LinkerSection* dataSection, Linker * linker = nullptr);
+	Expression* ConstantDereference(void);
 	bool HasSideEffects(void) const;
 
 	bool IsSame(const Expression* exp) const;
