@@ -332,13 +332,12 @@ spexit:
 		sta $13
 #if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
 		sta $1a
+		lda #$1b
+		sta $18
 #endif
 		lda #$19
 		sta $16
-#if defined(__C128__)
-		lda #0
-		sta 0xff00
-#elif defined(__PLUS4__)
+#if defined(__PLUS4__)
 		sta $ff3e
 #endif	
 #endif
