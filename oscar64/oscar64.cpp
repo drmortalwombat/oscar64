@@ -212,6 +212,8 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_CONST_PARAMS;
 					else if (arg[2] == 'g')
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_GLOBAL;
+					else if (arg[2] == 'm')
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_MERGE_CALLS;
 				}
 				else if (arg[1] == 'e')
 				{

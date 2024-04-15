@@ -840,7 +840,7 @@ public:
 		LinkerObject			*	mLinkerObject, * mProxyObject;
 		NativeCodeInstruction		mIns[64];
 		FunctionCall			*	mNext, * mSame;
-		int							mCount;
+		int							mCount, mOffset;
 
 		bool IsSame(const FunctionCall* fc) const;
 		int Matches(const FunctionCall* fc) const;

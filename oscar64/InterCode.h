@@ -172,6 +172,7 @@ public:
 	void SetLimit(int64 minValue, int64 maxValue);
 
 	bool IsConstant(void) const;
+	bool IsInvalid(void) const;
 
 	void LimitMin(int64 value);
 	void LimitMax(int64 value);
@@ -619,6 +620,7 @@ public:
 	bool SameExitCode(const InterCodeBasicBlock* block) const;
 
 	void WarnUsedUndefinedVariables(void);
+	void WarnInvalidValueRanges(void);
 	void CheckValueReturn(void);
 	void CheckNullptrDereference(void);
 
@@ -732,6 +734,7 @@ protected:
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);
 	void WarnUsedUndefinedVariables(void);
+	void WarnInvalidValueRanges(void);
 	void PropagateMemoryAliasingInfo(void);
 	void MoveConditionsOutOfLoop(void);
 

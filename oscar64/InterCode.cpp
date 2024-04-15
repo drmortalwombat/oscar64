@@ -118,6 +118,11 @@ void IntegerValueRange::LimitMaxWeak(int64 value)
 	}
 }
 
+bool IntegerValueRange::IsInvalid(void) const
+{
+	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue > mMaxValue;
+}
+
 bool IntegerValueRange::IsConstant(void) const
 {
 	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue == mMaxValue;
@@ -8077,6 +8082,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 						vr.mMaxValue <<= ins->mSrc[0].mIntConst;
 						vr.mMinValue <<= ins->mSrc[0].mIntConst;
+
+						if (ins->mDst.mType == IT_INT8 && vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > 255)
+						{
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
 					}
 					else if (ins->mSrc[0].IsUByte() && ins->mSrc[0].mRange.mMaxValue < 16)
 					{
@@ -10519,7 +10530,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mSrc[0] = ains->mSrc[1];
 								nins->mDst.mTemp = spareTemps++;
 								nins->mDst.mType = IT_INT16;
-								nins->mDst.mRange = pins->mDst.mRange;
+								nins->mDst.mRange = ains->mSrc[1].mRange;
 								mInstructions.Insert(i, nins);
 
 								ins->mSrc[0] = nins->mDst;
@@ -19140,6 +19151,31 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 	}
 }
 
+void InterCodeBasicBlock::WarnInvalidValueRanges(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			for (int j = 0; j < ins->mNumOperands; j++)
+			{
+				if (ins->mSrc[j].mTemp >= 0 && ins->mSrc[j].mRange.IsInvalid())
+				{
+					mProc->mModule->mErrors->Error(ins->mLocation, EWARN_INVALID_VALUE_RANGE, "Invalid value range");
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->WarnInvalidValueRanges();
+		if (mFalseJump) mFalseJump->WarnInvalidValueRanges();
+	}
+}
+
+
 void InterCodeBasicBlock::WarnUsedUndefinedVariables(void)
 {
 	if (!mVisited)
@@ -19883,6 +19919,16 @@ void InterCodeProcedure::WarnUsedUndefinedVariables(void)
 	mEntryBlock->WarnUsedUndefinedVariables();
 }
 
+void InterCodeProcedure::WarnInvalidValueRanges(void)
+{
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	ResetVisited();
+	mEntryBlock->WarnInvalidValueRanges();
+}
+
 
 void InterCodeProcedure::TempForwarding(bool reverse, bool checkloops)
 {
@@ -20503,7 +20549,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "addGameObjectCannon");
+	CheckFunc = !strcmp(mIdent->mString, "opp::ostream::operator<<");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -21408,6 +21454,8 @@ void InterCodeProcedure::Close(void)
 	MergeBasicBlocks();
 	BuildTraces(false, false, true);
 	DisassembleDebug("Final Merged basic blocks");
+
+	WarnInvalidValueRanges();
 
 	BuildDataFlowSets();
 

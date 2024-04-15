@@ -9245,97 +9245,96 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 		int	sreg0 = ins->mSrc[sop0].mTemp < 0 ? -1 : BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop0].mTemp];
 
-		if (ins->mSrc[sop1].mTemp < 0)
-		{
-			union { float f; unsigned int v; } cc;
-
-			if (ins->mOperator == IA_SUB && flipop)
-			{
-				changedSign = true;
-				cc.f = float(-ins->mSrc[sop1].mFloatConst);
-			}
-			else
-				cc.f = float(ins->mSrc[sop1].mFloatConst);
-
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 8) & 0xff));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 16) & 0xff));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 2));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 24) & 0xff));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
-		}
-		else if (sins1)
+		if (ins->mSrc[sop1].mTemp >= 0 && ins->mSrc[sop0].mTemp >= 0 && sins1 && sins1 == sins0)
 		{
 			LoadValueToReg(proc, sins1, BC_REG_ACCU, nullptr, nullptr);
-		}
-		else if (CheckPredAccuStore(BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp]))
-		{
-			if (ins->mSrc[sop1].mFinal)
-			{
-				// cull previous store from accu to temp using direcrt forwarding
-				mIns.SetSize(mIns.Size() - 8);
-			}
-			if (sreg0 == BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp])
-				sreg0 = BC_REG_ACCU;
+			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitx")));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER | NCIF_USE_ZP_32_X, BC_REG_ACCU));
 		}
 		else
 		{
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 0));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 1));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 2));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 2));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 3));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
-		}
-
-		if (ins->mSrc[sop0].mTemp < 0)
-		{
-			union { float f; unsigned int v; } cc;
-
-			if (ins->mOperator == IA_SUB && !flipop)
+			if (ins->mSrc[sop1].mTemp < 0)
 			{
-				changedSign = true;
-				cc.f = float(-ins->mSrc[sop0].mFloatConst);
+				union { float f; unsigned int v; } cc;
+
+				if (ins->mOperator == IA_SUB && flipop)
+				{
+					changedSign = true;
+					cc.f = float(-ins->mSrc[sop1].mFloatConst);
+				}
+				else
+					cc.f = float(ins->mSrc[sop1].mFloatConst);
+
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 8) & 0xff));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 16) & 0xff));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 2));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 24) & 0xff));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+			}
+			else if (sins1)
+			{
+				LoadValueToReg(proc, sins1, BC_REG_ACCU, nullptr, nullptr);
+			}
+			else if (CheckPredAccuStore(BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp]))
+			{
+				if (ins->mSrc[sop1].mFinal)
+				{
+					// cull previous store from accu to temp using direcrt forwarding
+					mIns.SetSize(mIns.Size() - 8);
+				}
+				if (sreg0 == BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp])
+					sreg0 = BC_REG_ACCU;
 			}
 			else
-				cc.f = float(ins->mSrc[sop0].mFloatConst);
+			{
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 0));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 1));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 2));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 2));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp] + 3));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 3));
+			}
 
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 8) & 0xff));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 1));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 16) & 0xff));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 2));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 24) & 0xff));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+			if (ins->mSrc[sop0].mTemp < 0)
+			{
+				union { float f; unsigned int v; } cc;
 
-			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitt")));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
-		}
-		else if (sins0)
-		{
-			LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
-			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitt")));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
-		}
-		else
-		{
-			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitx")));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER | NCIF_USE_ZP_32_X, sreg0));
-#if 0
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 0));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 1));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 1));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 2));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 2));
-			mIns.Push(NativeCodeInstruction(ASMIT_LDA, ASMIM_ZERO_PAGE, sreg0 + 3));
-			mIns.Push(NativeCodeInstruction(ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
-#endif
+				if (ins->mOperator == IA_SUB && !flipop)
+				{
+					changedSign = true;
+					cc.f = float(-ins->mSrc[sop0].mFloatConst);
+				}
+				else
+					cc.f = float(ins->mSrc[sop0].mFloatConst);
+
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, cc.v & 0xff));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 8) & 0xff));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 1));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 16) & 0xff));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 2));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (cc.v >> 24) & 0xff));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_WORK + 3));
+
+				NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitt")));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+			}
+			else if (sins0)
+			{
+				LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
+				NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitt")));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+			}
+			else
+			{
+				NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("fsplitx")));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER | NCIF_USE_ZP_32_X, sreg0));
+			}
 		}
 
 
@@ -49481,25 +49480,42 @@ NativeCodeGenerator::Runtime& NativeCodeGenerator::ResolveRuntime(const Ident* i
 	return mRuntime[i];
 }
 
+static inline bool isfparam(const NativeCodeInstruction & cins, const NativeCodeInstruction & ins)
+{
+	if (cins.mFlags & NCIF_RUNTIME)
+	{
+		if (ins.mAddress >= BC_REG_WORK && ins.mAddress < BC_REG_WORK + 8)
+			return true;
+		if (ins.mAddress >= BC_REG_ACCU && ins.mAddress < BC_REG_ACCU + 4)
+			return true;
+	}
+	else
+	{
+		if (ins.mAddress >= BC_REG_FPARAMS && ins.mAddress < BC_REG_FPARAMS_END)
+			return true;
+	}
+	return false;
+}
+
 void NativeCodeGenerator::RegisterFunctionCall(NativeCodeBasicBlock* block, int at)
 {
 	LinkerObject* lo = block->mIns[at].mLinkerObject;
-	if (lo->mIdent && !(block->mIns[at].mFlags & NCIF_USE_ZP_32_X))
+	if (lo->mIdent)// && !(block->mIns[at].mFlags & NCIF_USE_ZP_32_X))
 	{
 		uint64	fpmask = 0;
 
 		int i = at;
 		while (i >= 2 &&
 			block->mIns[i - 1].mType == ASMIT_STA && block->mIns[i - 1].mMode == ASMIM_ZERO_PAGE &&
-			block->mIns[i - 1].mAddress >= BC_REG_FPARAMS && block->mIns[i - 1].mAddress < BC_REG_FPARAMS_END &&
+			isfparam(block->mIns[at], block->mIns[i - 1]) &&
 			block->mIns[i - 2].mType == ASMIT_LDA && (block->mIns[i - 2].mMode == ASMIM_IMMEDIATE || block->mIns[i - 2].mMode == ASMIM_IMMEDIATE_ADDRESS || block->mIns[i - 2].mMode == ASMIM_ZERO_PAGE || block->mIns[i - 2].mMode == ASMIM_ABSOLUTE))
 		{
 			if (block->mIns[i - 2].mMode == ASMIM_ZERO_PAGE && block->mIns[i - 2].mAddress >= BC_REG_FPARAMS && block->mIns[i - 2].mAddress < BC_REG_FPARAMS_END)
 			{
-				if (fpmask & (1ull << (block->mIns[i - 2].mAddress - BC_REG_FPARAMS)))
+				if (fpmask & (1ull << (block->mIns[i - 2].mAddress - BC_REG_WORK)))
 					break;
 			}
-			fpmask |= 1ull << (block->mIns[i - 1].mAddress - BC_REG_FPARAMS);
+			fpmask |= 1ull << (block->mIns[i - 1].mAddress - BC_REG_WORK);
 
 			i -= 2;
 		}
@@ -49508,16 +49524,18 @@ void NativeCodeGenerator::RegisterFunctionCall(NativeCodeBasicBlock* block, int 
 		{
 			FunctionCall* ncp = new FunctionCall();
 			ncp->mLinkerObject = lo;
+			ncp->mOffset = block->mIns[at].mAddress;
+
 			ncp->mProxyObject = nullptr;
 			ncp->mCount = 1;
 			while (i < at)
 			{
-				ncp->mIns[block->mIns[i + 1].mAddress - BC_REG_FPARAMS] = block->mIns[i];
+				ncp->mIns[block->mIns[i + 1].mAddress - BC_REG_WORK] = block->mIns[i];
 				i += 2;
 			}
 
 			FunctionCall* cp = mFunctionCalls;
-			while (cp && cp->mLinkerObject != ncp->mLinkerObject)
+			while (cp && (cp->mLinkerObject != ncp->mLinkerObject || cp->mOffset != ncp->mOffset))
 				cp = cp->mNext;
 			if (!cp)
 			{
@@ -49556,15 +49574,15 @@ bool NativeCodeGenerator::MergeFunctionCall(NativeCodeBasicBlock* block, int at)
 		int i = at;
 		while (i >= 2 &&
 			block->mIns[i - 1].mType == ASMIT_STA && block->mIns[i - 1].mMode == ASMIM_ZERO_PAGE &&
-			block->mIns[i - 1].mAddress >= BC_REG_FPARAMS && block->mIns[i - 1].mAddress < BC_REG_FPARAMS_END &&
+			isfparam(block->mIns[at], block->mIns[i - 1]) &&
 			block->mIns[i - 2].mType == ASMIT_LDA && (block->mIns[i - 2].mMode == ASMIM_IMMEDIATE || block->mIns[i - 2].mMode == ASMIM_IMMEDIATE_ADDRESS || block->mIns[i - 2].mMode == ASMIM_ZERO_PAGE || block->mIns[i - 2].mMode == ASMIM_ABSOLUTE))
 		{
 			if (block->mIns[i - 2].mMode == ASMIM_ZERO_PAGE && block->mIns[i - 2].mAddress >= BC_REG_FPARAMS && block->mIns[i - 2].mAddress < BC_REG_FPARAMS_END)
 			{
-				if (fpmask & (1ull << (block->mIns[i - 2].mAddress - BC_REG_FPARAMS)))
+				if (fpmask & (1ull << (block->mIns[i - 2].mAddress - BC_REG_WORK)))
 					break;
 			}
-			fpmask |= 1ull << (block->mIns[i - 1].mAddress - BC_REG_FPARAMS);
+			fpmask |= 1ull << (block->mIns[i - 1].mAddress - BC_REG_WORK);
 
 			i -= 2;
 		}
@@ -49573,15 +49591,16 @@ bool NativeCodeGenerator::MergeFunctionCall(NativeCodeBasicBlock* block, int at)
 		{
 			FunctionCall	ncp;
 			ncp.mLinkerObject = lo;
+			ncp.mOffset = block->mIns[at].mAddress;
 			int j = i;
 			while (i < at)
 			{
-				ncp.mIns[block->mIns[i + 1].mAddress - BC_REG_FPARAMS] = block->mIns[i];
+				ncp.mIns[block->mIns[i + 1].mAddress - BC_REG_WORK] = block->mIns[i];
 				i += 2;
 			}
 
 			FunctionCall* cp = mFunctionCalls;
-			while (cp && cp->mLinkerObject != ncp.mLinkerObject)
+			while (cp && (cp->mLinkerObject != ncp.mLinkerObject || cp->mOffset != ncp.mOffset))
 				cp = cp->mNext;
 			if (cp)
 			{
@@ -49607,7 +49626,7 @@ bool NativeCodeGenerator::MergeFunctionCall(NativeCodeBasicBlock* block, int at)
 				{
 					while (j < at)
 					{
-						if (bcp->mIns[block->mIns[j + 1].mAddress - BC_REG_FPARAMS].mType != ASMIT_INV)
+						if (bcp->mIns[block->mIns[j + 1].mAddress - BC_REG_WORK].mType != ASMIT_INV)
 						{
 							block->mIns[j + 0].mType = ASMIT_NOP; block->mIns[j + 0].mMode = ASMIM_IMPLIED;
 							block->mIns[j + 1].mType = ASMIT_NOP; block->mIns[j + 1].mMode = ASMIM_IMPLIED;
@@ -49615,6 +49634,7 @@ bool NativeCodeGenerator::MergeFunctionCall(NativeCodeBasicBlock* block, int at)
 						j += 2;
 					}
 					block->mIns[j].mLinkerObject = bcp->mProxyObject;
+					block->mIns[j].mAddress = 0;
 					return true;
 				}
 			}
@@ -49675,13 +49695,13 @@ void NativeCodeGenerator::BuildFunctionProxies(void)
 
 				ocalls.Remove(besti);
 
-				for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
+				for (int i = BC_REG_WORK; i < BC_REG_ACCU + 4; i++)
 				{
-					if (fi->mIns[i - BC_REG_FPARAMS].mType != ASMIT_INV)
+					if (fi->mIns[i - BC_REG_WORK].mType != ASMIT_INV)
 					{
-						if (!fi->mIns[i - BC_REG_FPARAMS].IsSame(fj->mIns[i - BC_REG_FPARAMS]))
+						if (!fi->mIns[i - BC_REG_WORK].IsSame(fj->mIns[i - BC_REG_WORK]))
 						{
-							fi->mIns[i - BC_REG_FPARAMS].mType = ASMIT_INV;
+							fi->mIns[i - BC_REG_WORK].mType = ASMIT_INV;
 						}
 					}
 				}
@@ -49709,9 +49729,9 @@ void NativeCodeGenerator::BuildFunctionProxies(void)
 				ncp->mProxyObject = mLinker->AddObject(ncp->mLinkerObject->mLocation, ncp->mLinkerObject->mIdent->Mangle("@proxy"), ncp->mLinkerObject->mSection, ncp->mLinkerObject->mType);
 
 				ExpandingArray<uint8>				code;
-				for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
+				for (int i = BC_REG_WORK; i < BC_REG_ACCU + 4; i++)
 				{
-					NativeCodeInstruction& ins(ncp->mIns[i - BC_REG_FPARAMS]);
+					NativeCodeInstruction& ins(ncp->mIns[i - BC_REG_WORK]);
 					if (ins.mType == ASMIT_LDA)
 					{
 						switch (ins.mMode)
@@ -49792,7 +49812,7 @@ void NativeCodeGenerator::BuildFunctionProxies(void)
 				rl.mObject = ncp->mProxyObject;
 				rl.mOffset = code.Size();
 				rl.mRefObject = ncp->mLinkerObject;
-				rl.mRefOffset = 0;
+				rl.mRefOffset = ncp->mOffset;
 				rl.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 				ncp->mProxyObject->AddReference(rl);
 				code.Push(0);
@@ -49818,8 +49838,8 @@ void NativeCodeGenerator::RegisterRuntime(const Ident* ident, LinkerObject* obje
 
 bool NativeCodeGenerator::FunctionCall::IsSame(const FunctionCall* fc) const
 {
-	for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
-		if (!mIns[i - BC_REG_FPARAMS].IsSame(fc->mIns[i - BC_REG_FPARAMS]))
+	for (int i = BC_REG_WORK; i < BC_REG_ACCU + 4; i++)
+		if (!mIns[i - BC_REG_WORK].IsSame(fc->mIns[i - BC_REG_WORK]))
 			return false;
 	return true;
 }
@@ -49828,11 +49848,11 @@ int NativeCodeGenerator::FunctionCall::Matches(const FunctionCall* fc) const
 {
 	int	match = 0;
 
-	for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
+	for (int i = BC_REG_WORK; i < BC_REG_ACCU + 4; i++)
 	{
-		if (fc->mIns[i - BC_REG_FPARAMS].mType != ASMIT_INV)
+		if (fc->mIns[i - BC_REG_WORK].mType != ASMIT_INV)
 		{
-			if (!mIns[i - BC_REG_FPARAMS].IsSame(fc->mIns[i - BC_REG_FPARAMS]))
+			if (!mIns[i - BC_REG_WORK].IsSame(fc->mIns[i - BC_REG_WORK]))
 				return -1;
 			match++;
 		}
@@ -49845,11 +49865,11 @@ int  NativeCodeGenerator::FunctionCall::PotentialMatches(const FunctionCall* fc)
 {
 	int	match = 0;
 
-	for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
+	for (int i = BC_REG_WORK; i < BC_REG_ACCU + 4; i++)
 	{
-		if (fc->mIns[i - BC_REG_FPARAMS].mType != ASMIT_INV)
+		if (fc->mIns[i - BC_REG_WORK].mType != ASMIT_INV)
 		{
-			if (mIns[i - BC_REG_FPARAMS].IsSame(fc->mIns[i - BC_REG_FPARAMS]))
+			if (mIns[i - BC_REG_WORK].IsSame(fc->mIns[i - BC_REG_WORK]))
 				match++;
 		}
 	}
