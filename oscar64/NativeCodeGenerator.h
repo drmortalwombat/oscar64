@@ -558,6 +558,7 @@ public:
 
 	bool ShortcutBlockExit(void);
 	bool PropagateSinglePath(void);
+	bool ShortcutORACascade(void);
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;
 	void ChangeTailZPStoreToX(int addr);

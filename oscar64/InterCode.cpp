@@ -14659,7 +14659,7 @@ void InterCodeBasicBlock::ConstLoopOptimization(void)
 				int n = 0;
 
 				mset.Clear();
-				while (n < 1000 && !done)
+				while (n < 10000 && !done)
 				{
 					for (int i = 0; i < mInstructions.Size(); i++)
 					{
@@ -14690,31 +14690,34 @@ void InterCodeBasicBlock::ConstLoopOptimization(void)
 					}
 				}
 
-				InterInstruction* last = mInstructions.Last();
-				mInstructions.SetSize(0);
-				if (mFalseJump != this)
-					mTrueJump = mFalseJump;
-				mFalseJump = nullptr;
-				mLoopHead = false;
-				mNumEntries = 1;
-				mEntryBlocks.SetSize(0);
-				mEntryBlocks.Push(mLoopPrefix);
-
-				for (int i = 0; i < mset.Size(); i++)
+				if (done)
 				{
-					if (mset[i])
-					{
-						InterInstruction* ins = new InterInstruction(last->mLocation, IC_CONSTANT);
-						ins->mCode = IC_CONSTANT;
-						ins->mDst.mTemp = i;
-						ins->mConst = vars[i];
-						ins->mDst.mType = ins->mConst.mType;
-						mInstructions.Push(ins);
-					}
-				}
+					InterInstruction* last = mInstructions.Last();
+					mInstructions.SetSize(0);
+					if (mFalseJump != this)
+						mTrueJump = mFalseJump;
+					mFalseJump = nullptr;
+					mLoopHead = false;
+					mNumEntries = 1;
+					mEntryBlocks.SetSize(0);
+					mEntryBlocks.Push(mLoopPrefix);
 
-				InterInstruction* ins = new InterInstruction(last->mLocation, IC_JUMP);
-				mInstructions.Push(ins);
+					for (int i = 0; i < mset.Size(); i++)
+					{
+						if (mset[i])
+						{
+							InterInstruction* ins = new InterInstruction(last->mLocation, IC_CONSTANT);
+							ins->mCode = IC_CONSTANT;
+							ins->mDst.mTemp = i;
+							ins->mConst = vars[i];
+							ins->mDst.mType = ins->mConst.mType;
+							mInstructions.Push(ins);
+						}
+					}
+
+					InterInstruction* ins = new InterInstruction(last->mLocation, IC_JUMP);
+					mInstructions.Push(ins);
+				}
 			}
 		}
 
@@ -20549,7 +20552,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "opp::ostream::operator<<");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
