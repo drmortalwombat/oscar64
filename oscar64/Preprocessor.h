@@ -63,7 +63,7 @@ public:
 	bool Open(const char* name, const char * path, SourceFileMode mode = SFM_TEXT);
 	void Close(void);
 
-	void Limit(SourceFileDecoder decoder, int skip, int limit);
+	void Limit(Errors * errors, const Location & location, SourceFileDecoder decoder, int skip, int limit);
 
 	bool PushSource(void);
 	bool PopSource(void);
@@ -72,8 +72,8 @@ public:
 protected:
 	FILE* mFile;
 
-	void ReadCharPad(SourceFileDecoder decoder);
-	void ReadSpritePad(SourceFileDecoder decoder);
+	void ReadCharPad(Errors* errors, const Location& location, SourceFileDecoder decoder);
+	void ReadSpritePad(Errors* errors, const Location& location, SourceFileDecoder decoder);
 	int ReadChar(void);
 };
 

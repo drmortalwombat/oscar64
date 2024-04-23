@@ -313,6 +313,7 @@ struct CTMHeader8
 	uint8	mColors[7];
 };
 
+#if 0
 #pragma pack(push, 1)
 struct SPDHeader5
 {
@@ -327,7 +328,7 @@ struct SPDHeader5
 };
 #pragma pack(pop)
 
-void SourceFile::ReadSpritePad(SourceFileDecoder decoder)
+void SourceFile::ReadSpritePad(Errors* errors, SourceFileDecoder decoder)
 {
 	SPDHeader5	spdHeader;
 
@@ -341,8 +342,96 @@ void SourceFile::ReadSpritePad(SourceFileDecoder decoder)
 
 	mLimit = 0;
 }
+#endif
 
-void SourceFile::ReadCharPad(SourceFileDecoder decoder)
+#pragma pack(push, 1)
+// 0.0   1.0  5.0         SPD file format information
+// -     SPD  SPD         3 bytes "SPD"
+// -     01   04          version number of spritepad (1 = 2.0)
+// -     -    byte        flags
+// -     byte word        number of sprites
+// -     byte word        number of animations
+// -     -    byte        number of sprite animations
+// -     -    byte        number of tile animations
+// -     -    byte        tile width
+// -     -    byte        tile height
+// byte  byte byte        color transparent
+// byte  byte byte        color multicolor 1
+// byte  byte byte        color multicolor 2
+// list of [
+// [63]  [63] [63]        63 bytes of sprite data
+// byte  byte byte        color byte. Bits: 0-3 color, 4 overlay, 7 multicolor/singlecolor
+//         ]
+// -     [4]  -      bytes xx = "00", "00", "01", "00" added at the end of file (SpritePad animation info)
+
+struct SPDHeader 
+{
+	uint8   mID[3];
+	uint8   mVersion[1]; // 1=1.0 5=5.0
+};
+
+struct SPDHeader1 
+{
+	uint8	mNumSprites; // -1
+	uint8	mNumSpriteAnmis; // -1
+	uint8   mColors[3];
+};
+
+struct SPDHeader5 
+{
+	uint8   mFlags;
+	uint16  mNumSprites, mNumTiles;
+	uint8   mNumSpriteAnmis, mNumTileAnims;
+	uint8   mTileWidth, mTileHeight;
+	uint8   mColors[3];
+	int16   mSpriteOverlayDist, mTileOverlayDist;
+};
+
+#pragma pack(pop)
+
+void SourceFile::ReadSpritePad(Errors* errors, const Location& location, SourceFileDecoder decoder)
+{
+	SPDHeader   spdHeader;
+	fread(&spdHeader, sizeof(SPDHeader), 1, mFile);
+
+	if (spdHeader.mID[0] == 'S' && spdHeader.mID[1] == 'P' && spdHeader.mID[2] == 'D')
+	{
+		int numSprites = 0;
+
+		switch (spdHeader.mVersion[0])
+		{
+		case 5:
+		{
+			SPDHeader5 spdHeader5;
+			fread(&spdHeader5, sizeof(SPDHeader5), 1, mFile);
+			numSprites = spdHeader5.mNumSprites;
+			break;
+		}
+		case 1:
+		{
+			SPDHeader1 spdHeader1;
+			fread(&spdHeader1, sizeof(SPDHeader1), 1, mFile);
+			numSprites = spdHeader1.mNumSprites + 1;
+			break;
+		}
+		default:
+			errors->Error(location, EERR_UNIMPLEMENTED, "SPD file version not recognized");
+		}
+
+
+		if (decoder == SFD_SPD_SPRITES)
+		{
+			mLimit = 64 * numSprites;
+			return;
+		}
+	}
+	else
+		errors->Error(location, EERR_UNIMPLEMENTED, "SPD file format not recognized");
+
+	mLimit = 0;
+}
+
+void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFileDecoder decoder)
 {
 	CTMHeader8	ctmHeader;
 	uint16		ctmMarker, numChars, numTiles;
@@ -573,7 +662,7 @@ void SourceFile::ReadCharPad(SourceFileDecoder decoder)
 	mLimit = 0;
 }
 
-void SourceFile::Limit(SourceFileDecoder decoder, int skip, int limit)
+void SourceFile::Limit(Errors* errors, const Location& location, SourceFileDecoder decoder, int skip, int limit)
 {
 	switch (decoder)
 	{
@@ -585,11 +674,11 @@ void SourceFile::Limit(SourceFileDecoder decoder, int skip, int limit)
 	case SFD_CTM_TILES_16:
 	case SFD_CTM_MAP_8:
 	case SFD_CTM_MAP_16:
-		ReadCharPad(decoder);
+		ReadCharPad(errors, location, decoder);
 		break;
 
 	case SFD_SPD_SPRITES:
-		ReadSpritePad(decoder);
+		ReadSpritePad(errors, location, decoder);
 		break;
 
 	default:
@@ -767,7 +856,7 @@ bool Preprocessor::EmbedData(const char* reason, const char* name, bool local, i
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("%s \"%s\"\n", reason, source->mFileName);
 
-		source->Limit(decoder, skip, limit);
+		source->Limit(mErrors, mLocation, decoder, skip, limit);
 
 		source->mUp = mSource;
 		mSource = source;
