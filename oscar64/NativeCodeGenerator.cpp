@@ -45788,6 +45788,25 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					progress = true;
 				}
 
+				if (i + 6 < mIns.Size() &&
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_TXA &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_INDIRECT_Y &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 4].mLive & LIVE_MEM) &&
+					mIns[i + 5].mType == ASMIT_LDY && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress != mIns[i + 5].mAddress &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_INDIRECT_Y && mIns[i + 3].mAddress == mIns[i + 6].mAddress && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				{
+					int t = mIns[i + 5].mAddress;
+					mIns[i + 5].mAddress = mIns[i + 2].mAddress;
+					mIns[i + 2].mAddress = t;
+					mIns[i + 4] = mIns[i + 1];
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 3].mLive |= LIVE_CPU_REG_X;
+					progress = true;
+				}
 #if 1
 				if (i + 1 < mIns.Size() && mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
 				{
