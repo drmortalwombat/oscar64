@@ -898,7 +898,17 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME || ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE)
 			return false;
 
-		if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
+		if (ins0->mSrc[0].mMemory == IM_PROCEDURE && ins0->mSrc[0].mLinkerObject && ins0->mSrc[0].mLinkerObject->mProc && ins0->mSrc[0].mLinkerObject->mProc->mParamVars.Size() == 0)
+		{
+			if (ins1->mCode == IC_STORE)
+			{
+				if (ins1->mSrc[1].mMemory != IM_FRAME && ins1->mSrc[1].mMemory != IM_FFRAME)
+					return false;
+			}
+			else if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
+				return false;
+		}
+		else if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
 			return false;
 	}
 

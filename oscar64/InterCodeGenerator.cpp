@@ -5428,6 +5428,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	dec->mVarIndex = proc->mID;
 	dec->mLinkerObject = proc->mLinkerObject;
 	proc->mNumLocals = dec->mNumVars;
+	proc->mNumParams = dec->mBase->mSize;
 	proc->mDeclaration = dec;
 
 	if (dec->mFlags & DTF_NATIVE)

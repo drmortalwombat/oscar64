@@ -656,7 +656,7 @@ public:
 	InterCodeModule					*	mModule;
 	int									mID;
 
-	int									mLocalSize, mNumLocals;
+	int									mLocalSize, mNumLocals, mNumParams;
 	GrowingVariableArray				mLocalVars, mParamVars;
 	NumberSet							mLocalAliasedSet, mParamAliasedSet;
 

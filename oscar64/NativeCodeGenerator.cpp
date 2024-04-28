@@ -10439,7 +10439,39 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			}
 			else if (ins->mSrc[1].mTemp < 0)
 			{
-				if (sins0)
+				if ((ins->mSrc[1].mIntConst & (ins->mSrc[1].mIntConst + 1)) == 0 && ins->mSrc[0].IsUnsigned() && ins->mSrc[0].mRange.mMaxValue <= ins->mSrc[1].mIntConst)
+				{
+					NativeCodeInstruction	insl = NativeCodeInstruction(ins, ASMIT_EOR, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst & 0xff);
+					NativeCodeInstruction	insh = NativeCodeInstruction(ins, ASMIT_EOR, ASMIM_IMMEDIATE, (ins->mSrc[1].mIntConst >> 8) & 0xff);
+					if (sins0)
+					{
+						if (ins->mDst.IsUByte())
+							insh = NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0);
+
+						LoadValueToReg(proc, sins0, treg, &insl, &insh);
+					}
+					else
+					{
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+						mIns.Push(insl);
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
+						if (InterTypeSize[ins->mDst.mType] > 1)
+						{
+							if (ins->mDst.IsUByte())
+							{
+								mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+								mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
+							}
+							else
+							{
+								mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+								mIns.Push(insh);
+								mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
+							}
+						}
+					}
+				}
+				else if (sins0)
 				{
 					LoadValueToReg(proc, sins0, treg, nullptr, nullptr);
 
@@ -31502,6 +31534,9 @@ bool NativeCodeBasicBlock::MoveLoadAddImmStoreUp(int at)
 	{
 		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at + 1].mAddress)
 		{
+			while (j + 1 < mIns.Size() && mIns[j + 1].mType == ASMIT_STA)
+				j++;
+
 			if (mIns[j].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C))
 				return false;
 
