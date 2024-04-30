@@ -43245,7 +43245,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					else if (
 						mIns[i + 0].mType == ASMIT_LDA &&
 						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress && mIns[i + 3].mAddress &&
+						mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
 						mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 3].mLive & LIVE_MEM) &&
 						(mIns[i + 2].mType == ASMIT_ASL || mIns[i + 2].mType == ASMIT_LSR || mIns[i + 2].mType == ASMIT_ROL || mIns[i + 2].mType == ASMIT_ROR) &&
 						(mIns[i + 3].mType == ASMIT_ORA || mIns[i + 3].mType == ASMIT_AND || mIns[i + 3].mType == ASMIT_EOR || mIns[i + 3].mType == ASMIT_ADC || mIns[i + 3].mType == ASMIT_SBC))
@@ -47391,7 +47391,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "disp_put_price");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plant_draw_field");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -48252,6 +48252,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->RemoveDoubleZPStore())
 				changed = true;
 		}
+
 		if (step == 3 || step == 5 || step == 9)
 		{
 			ResetVisited();
