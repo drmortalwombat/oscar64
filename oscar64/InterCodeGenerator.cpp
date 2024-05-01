@@ -5408,7 +5408,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	proc->mLinkerObject->mFullIdent = dec->FullIdent();
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "addGameObjectCircle"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "zombies_splash"))
 		exp->Dump(0);
 #endif
 #if 0
@@ -5484,7 +5484,10 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 						if (i < dec->mLinkerObject->mNumTemporaries)
 						{
 							if (dec->mLinkerObject->mTemporaries[i] > start)
+							{
+								dec->mLinkerObject->mTempSizes[i] += dec->mLinkerObject->mTemporaries[i] - start;
 								dec->mLinkerObject->mTemporaries[i] = start;
+							}
 							if (dec->mLinkerObject->mTemporaries[i] + dec->mLinkerObject->mTempSizes[i] < end)
 								dec->mLinkerObject->mTempSizes[i] = end - dec->mLinkerObject->mTemporaries[i];
 						}
