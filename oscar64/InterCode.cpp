@@ -898,7 +898,9 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME || ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE)
 			return false;
 
-		if (ins0->mSrc[0].mMemory == IM_PROCEDURE && ins0->mSrc[0].mLinkerObject && ins0->mSrc[0].mLinkerObject->mProc && ins0->mSrc[0].mLinkerObject->mProc->mParamVars.Size() == 0)
+		if (ins0->mSrc[0].mMemory == IM_PROCEDURE && ins0->mSrc[0].mLinkerObject && ins0->mSrc[0].mLinkerObject->mProc && 
+			ins0->mSrc[0].mLinkerObject->mProc->mLeafProcedure &&
+			ins0->mSrc[0].mLinkerObject->mProc->mParamVars.Size() == 0)
 		{
 			if (ins1->mCode == IC_STORE)
 			{
