@@ -23,8 +23,7 @@ After extensive optimizations it turns out, that the interpreted code is not sig
  
 ## Limits and Errors
 
-There are still several open areas, but most targets have been reached.  The current 
-stone performance is 94 iterations per second with byte code (11696) and 395 iterations with native code (10425 Bytes).  This clearly shows that Dhrystone is not a valid benchmark for optimizing compilers, because it puts the 6502 on par with a 4MHz 8088 or 68k, which it clearly is not.
+There are still several open areas, but most targets have been reached.  The current Dhrystone performance is 94 iterations per second with byte code (10993) and 405 iterations with native code (9173 Bytes).  This clearly shows that Dhrystone is not a valid benchmark for optimizing compilers, because it puts the 6502 on par with a 4MHz 8088 or 68k, which it clearly is not.
 
 ### Language
 
