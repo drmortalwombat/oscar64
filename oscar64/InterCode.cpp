@@ -11941,7 +11941,10 @@ void InterCodeBasicBlock::RenameValueRanges(const GrowingIntArray& renameTable, 
 	if (mEntryValueRange.Size() > 0)
 	{
 		mProc->mLocalValueRange = mEntryValueRange;
+		GrowingArray<int64>			memoryValueSize(mMemoryValueSize);
+
 		mEntryValueRange.SetSize(numTemps, true);
+		mMemoryValueSize.SetSize(numTemps, true);
 		for (int i = 0; i < mProc->mLocalValueRange.Size(); i++)
 		{
 			if (renameTable[i] >= 0)
@@ -11950,6 +11953,7 @@ void InterCodeBasicBlock::RenameValueRanges(const GrowingIntArray& renameTable, 
 				assert(mProc->mLocalValueRange[i].mMaxState == IntegerValueRange::S_UNKNOWN || mEntryValueRange[renameTable[i]].mMaxState == IntegerValueRange::S_UNKNOWN);
 
 				mEntryValueRange[renameTable[i]].Limit(mProc->mLocalValueRange[i]);
+				mMemoryValueSize[renameTable[i]] = int64min(mMemoryValueSize[renameTable[i]], memoryValueSize[i]);
 			}				
 		}
 	}
@@ -19644,6 +19648,8 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 {
 	mLocalValueRange.SetSize(mTemporaries.Size(), false);
 
+	DisassembleDebug("BeforeRebuildIntegerRangeSet");
+
 	ResetVisited();
 	mEntryBlock->RestartLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars, mParamVars);
 
@@ -20564,7 +20570,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "interpret_program");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

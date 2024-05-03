@@ -22655,6 +22655,12 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 							mEntryRequiredRegs += CPU_REG_Y;
 						if (ins.RequiresXReg())
 							mEntryRequiredRegs += CPU_REG_X;
+						if (ins.ChangesZFlag())
+							mEntryRequiredRegs -= CPU_REG_Z;
+						if (ins.ChangesCarry())
+							mEntryRequiredRegs -= CPU_REG_C;
+						if (ins.RequiresCarry())
+							mEntryRequiredRegs += CPU_REG_C;
 
 						mIns.Insert(0, ins);
 
@@ -22668,6 +22674,12 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 								b->mExitRequiredRegs += CPU_REG_Y;
 							if (ins.RequiresXReg())
 								b->mExitRequiredRegs += CPU_REG_X;
+							if (ins.ChangesZFlag())
+								b->mExitRequiredRegs -= CPU_REG_Z;
+							if (ins.ChangesCarry())
+								b->mExitRequiredRegs -= CPU_REG_C;
+							if (ins.RequiresCarry())
+								b->mExitRequiredRegs += CPU_REG_C;
 
 							b->mIns.SetSize(b->mIns.Size() - 1);
 						}
@@ -34166,6 +34178,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				prevBlock->mIns.Push(mIns[si]);
 				mIns.Remove(si);
 
+				prevBlock->mExitRequiredRegs += CPU_REG_X;
+
 				mEntryRequiredRegs += CPU_REG_X;
 				mExitRequiredRegs += CPU_REG_X;
 
@@ -34198,6 +34212,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 				prevBlock->mIns.Push(mIns[si]);
 				mIns.Remove(si);
+
+				prevBlock->mExitRequiredRegs += CPU_REG_X;
 
 				mEntryRequiredRegs += CPU_REG_X;
 				mExitRequiredRegs += CPU_REG_X;
@@ -46146,6 +46162,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
 				mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
 
+				mExitRequiredRegs -= CPU_REG_C;
+
 				CheckLive();
 			}
 		}
@@ -46661,9 +46679,9 @@ void NativeCodeBasicBlock::CheckLive(void)
 		assert(mEntryRequiredRegs[CPU_REG_Y]);
 	}
 
-	if (mExitRequiredRegs.Size() > 0 && mExitRequiredRegs[CPU_REG_Z])
+	if (mExitRequiredRegs.Size() > 0 && mExitRequiredRegs[CPU_REG_Z] && (mFalseJump || mTrueJump->mEntryRequiredRegs[CPU_REG_Z]))
 		live |= LIVE_CPU_REG_Z;
-	if (mExitRequiredRegs.Size() > 0 && mExitRequiredRegs[CPU_REG_C])
+	if (mExitRequiredRegs.Size() > 0 && mExitRequiredRegs[CPU_REG_C] && (mFalseJump || mTrueJump->mEntryRequiredRegs[CPU_REG_C]))
 		live |= LIVE_CPU_REG_C;
 
 	for (int j = mIns.Size() - 1; j >= 0; j--)
@@ -47391,7 +47409,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "plants_iterate");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "edit_text");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
