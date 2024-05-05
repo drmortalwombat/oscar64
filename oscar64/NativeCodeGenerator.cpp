@@ -29049,8 +29049,8 @@ bool NativeCodeBasicBlock::MoveLDXBeforeZ(int at)
 				mIns.Insert(i, mIns[at]);
 				mIns.Remove(at + 1);
 				mIns.Remove(at + 1);
-				for (int i = 0; i < at; i++)
-					mIns[i].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+				for (int j = i; j < at + 1; j++)
+					mIns[j].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
 				return true;
 			}
 			else
@@ -35383,7 +35383,7 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 							lb->mIns[lbs - 2].mType = ASMIT_DEX; lb->mIns[lbs - 2].mLive |= LIVE_CPU_REG_Z;
 							lb->mIns[lbs - 1].mType = ASMIT_NOP; lb->mIns[lbs - 1].mMode = ASMIM_IMPLIED;
 							lb->mBranch = ASMIT_BNE;
-							eb->mIns.Insert(0, NativeCodeInstruction(mIns[lbs - 1].mIns, ASMIT_LDX, mIns[li]));
+							eb->mIns.Insert(0, NativeCodeInstruction(lb->mIns[lbs - 1].mIns, ASMIT_LDX, mIns[li]));
 							changed = true;
 
 							CheckLive();
@@ -35402,7 +35402,7 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 							lb->mIns[1].mType = ASMIT_DEX; lb->mIns[1].mLive |= LIVE_CPU_REG_Z;
 							lb->mIns[2].mType = ASMIT_NOP; lb->mIns[2].mMode = ASMIM_IMPLIED;
 							lb->mBranch = ASMIT_BPL;
-							eb->mIns.Insert(0, NativeCodeInstruction(mIns[lbs - 1].mIns, ASMIT_LDX, ASMIM_IMMEDIATE, finalx));
+							eb->mIns.Insert(0, NativeCodeInstruction(lb->mIns[lbs - 1].mIns, ASMIT_LDX, ASMIM_IMMEDIATE, finalx));
 							changed = true;
 						}
 						else
@@ -35416,7 +35416,7 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 								lb->mIns[lbs - 2].mType = ASMIT_DEX; lb->mIns[lbs - 2].mLive |= LIVE_CPU_REG_Z;
 								lb->mIns[lbs - 1].mType = ASMIT_NOP; lb->mIns[lbs - 1].mMode = ASMIM_IMPLIED;
 								lb->mBranch = ASMIT_BNE;
-								eb->mIns.Insert(0, NativeCodeInstruction(mIns[lbs - 1].mIns, ASMIT_LDX, ASMIM_IMMEDIATE, finalx));
+								eb->mIns.Insert(0, NativeCodeInstruction(lb->mIns[lbs - 1].mIns, ASMIT_LDX, ASMIM_IMMEDIATE, finalx));
 								changed = true;
 
 								CheckLive();
@@ -35449,7 +35449,7 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 							lb->mIns[lbs - 2].mType = ASMIT_DEY; lb->mIns[lbs - 2].mLive |= LIVE_CPU_REG_Z;
 							lb->mIns[lbs - 1].mType = ASMIT_NOP; lb->mIns[lbs - 1].mMode = ASMIM_IMPLIED;
 							lb->mBranch = ASMIT_BNE;
-							eb->mIns.Insert(0, NativeCodeInstruction(mIns[lbs - 1].mIns, ASMIT_LDY, mIns[li]));
+							eb->mIns.Insert(0, NativeCodeInstruction(lb->mIns[lbs - 1].mIns, ASMIT_LDY, mIns[li]));
 							changed = true;
 
 							CheckLive();
@@ -35468,7 +35468,7 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 							lb->mIns[1].mType = ASMIT_DEY; lb->mIns[1].mLive |= LIVE_CPU_REG_Z;
 							lb->mIns[2].mType = ASMIT_NOP; lb->mIns[2].mMode = ASMIM_IMPLIED;
 							lb->mBranch = ASMIT_BPL;
-							eb->mIns.Insert(0, NativeCodeInstruction(mIns[lbs - 1].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, finaly));
+							eb->mIns.Insert(0, NativeCodeInstruction(lb->mIns[lbs - 1].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, finaly));
 							changed = true;
 
 							CheckLive();
@@ -35485,7 +35485,7 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 								lb->mIns[lbs - 2].mType = ASMIT_DEY; lb->mIns[lbs - 2].mLive |= LIVE_CPU_REG_Z;
 								lb->mIns[lbs - 1].mType = ASMIT_NOP; lb->mIns[lbs - 1].mMode = ASMIM_IMPLIED;
 								lb->mBranch = ASMIT_BNE;
-								eb->mIns.Insert(0, NativeCodeInstruction(mIns[lbs - 1].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, finaly));
+								eb->mIns.Insert(0, NativeCodeInstruction(lb->mIns[lbs - 1].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, finaly));
 								changed = true;
 
 								CheckLive();
@@ -47506,7 +47506,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "edit_text");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "story_messages");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
