@@ -15670,6 +15670,70 @@ bool InterCodeBasicBlock::MoveConditionOutOfLoop(void)
 					}
 				}
 			}
+			else if (mEntryBlocks.Size() == 2 && mInstructions.Size() == 1 && mInstructions[0]->mCode == IC_BRANCH && mInstructions[0]->mSrc[0].mTemp >= 0)
+			{
+				InterCodeBasicBlock* tail, * post;
+
+				if (mEntryBlocks[0] == mLoopPrefix)
+					tail = mEntryBlocks[1];
+				else
+					tail = mEntryBlocks[0];
+
+				if (mTrueJump == tail || mFalseJump == tail)
+				{
+					if (tail->mTrueJump == this)
+						post = tail->mFalseJump;
+					else
+						post = tail->mTrueJump;
+
+					if (post && post->mNumEntries == 1)
+					{
+						GrowingArray<InterCodeBasicBlock*> lbody(nullptr);
+
+						if (tail->CollectSingleHeadLoopBody(this, tail, lbody))
+						{
+							int tz = tail->mInstructions.Size();
+							int ct = mInstructions[0]->mSrc[0].mTemp;
+
+							int i = 0;
+							while (i < lbody.Size() && !lbody[i]->IsTempModified(ct))
+								i++;
+
+							if (i == lbody.Size())
+							{
+								i = 0;
+								while (i < tz && !IsObservable(tail->mInstructions[i]->mCode) && (tail->mInstructions[i]->mDst.mTemp < 0 || !post->mEntryRequiredTemps[tail->mInstructions[i]->mDst.mTemp]))
+									i++;
+
+								if (i == tz)
+								{
+									InterInstruction * ins = mLoopPrefix->mInstructions.Pop();
+									mLoopPrefix->mInstructions.Push(mInstructions.Pop());
+									mInstructions.Push(ins);
+
+									tail->mEntryBlocks.RemoveAll(this);
+									tail->mNumEntries--;
+
+									post->mEntryBlocks.Push(mLoopPrefix);
+									post->mNumEntries++;
+									
+									if (mTrueJump == tail)
+									{
+										mTrueJump = mFalseJump;
+										mLoopPrefix->mTrueJump = post;
+										mLoopPrefix->mFalseJump = this;
+									}
+									else
+										mLoopPrefix->mFalseJump = post;
+									mFalseJump = nullptr;
+
+									return true;
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 
 		if (mTrueJump && mTrueJump->MoveConditionOutOfLoop())
@@ -20570,7 +20634,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "interpret_program");
+	CheckFunc = !strcmp(mIdent->mString, "ffill");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -22334,7 +22398,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 0
+#if 1
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;

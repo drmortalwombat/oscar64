@@ -575,6 +575,7 @@ public:
 	void DoCrossBlockYShortcut(int addr);
 
 	bool CrossBlockXYShortcut(void);
+	void BypassAccuLoadStoreXY(void);
 
 	bool CrossBlockYAliasProgpagation(const int * yalias);
 
