@@ -7097,7 +7097,6 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 	if (!mVisited)
 	{
 		mVisited = true;
-
 #if 1
 		int sz = mInstructions.Size();
 		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp)
@@ -7138,7 +7137,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					{
 						constFalse = true;
 					}
-					else if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
+					else if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
 					{
 						if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
 							constTrue = true;
@@ -7153,7 +7152,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 						constFalse = true;
 					break;
 				case IA_CMPLEU:
-					if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
+					if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
 					{
 						if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
 							constTrue = true;
@@ -7172,11 +7171,11 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					{
 						constFalse = true;
 					}
-					else if (cins->mSrc[1].IsUnsigned() && cins->mSrc[1].mRange.mMaxValue == 0)
+					else if (cins->mSrc[1].IsPositive() && cins->mSrc[1].mRange.mMaxValue == 0)
 					{
 						constFalse = true;
 					}
-					else if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
+					else if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
 					{
 						if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
 							constTrue = true;
@@ -7191,7 +7190,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 						constFalse = true;
 					break;
 				case IA_CMPGEU:
-					if (cins->mSrc[1].IsUnsigned() && cins->mSrc[0].IsUnsigned())
+					if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
 					{
 						if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
 							constTrue = true;
@@ -20634,7 +20633,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "ffill");
+	CheckFunc = !strcmp(mIdent->mString, "window_mask3");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -22398,7 +22397,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 1
+#if 0
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
