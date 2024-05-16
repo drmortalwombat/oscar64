@@ -1060,7 +1060,6 @@ bool NativeCodeInstruction::ReplaceYRegWithXReg(void)
 		break;
 	}
 
-
 	if (mMode == ASMIM_ABSOLUTE_Y)
 	{
 		assert(HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X));
@@ -4284,6 +4283,31 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			else
 				data.mRegs[CPU_REG_A].Reset();
 			break;
+#if 1
+		case ASMIT_STA:
+			if (!(mFlags & NCIF_VOLATILE) && mLinkerObject)
+			{
+				if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				{
+					mType = ASMIT_NOP;
+					mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else if (data.mRegs[CPU_REG_A].mMode == NRDM_UNKNOWN)
+				{
+					data.ResetAbsolute(mLinkerObject, mAddress);
+					data.mRegs[CPU_REG_A].mMode = NRDM_ABSOLUTE;
+					data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
+					data.mRegs[CPU_REG_A].mValue = mAddress;
+					data.mRegs[CPU_REG_A].mFlags = mFlags;
+				}
+				else
+					data.ResetAbsolute(mLinkerObject, mAddress);
+			}
+			else
+				data.ResetAbsolute(mLinkerObject, mAddress);
+			break;
+#endif
 		case ASMIT_LDY:
 			if (!(mFlags & NCIF_VOLATILE))
 			{
@@ -4315,6 +4339,31 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			else
 				data.mRegs[CPU_REG_Y].Reset();
 			break;
+
+		case ASMIT_STY:
+			if (!(mFlags & NCIF_VOLATILE) && mLinkerObject)
+			{
+				if (data.mRegs[CPU_REG_Y].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_Y].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_Y].mValue == mAddress)
+				{
+					mType = ASMIT_NOP;
+					mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else if (data.mRegs[CPU_REG_Y].mMode == NRDM_UNKNOWN)
+				{
+					data.ResetAbsolute(mLinkerObject, mAddress);
+					data.mRegs[CPU_REG_Y].mMode = NRDM_ABSOLUTE;
+					data.mRegs[CPU_REG_Y].mLinkerObject = mLinkerObject;
+					data.mRegs[CPU_REG_Y].mValue = mAddress;
+					data.mRegs[CPU_REG_Y].mFlags = mFlags;
+				}
+				else
+					data.ResetAbsolute(mLinkerObject, mAddress);
+			}
+			else
+				data.ResetAbsolute(mLinkerObject, mAddress);
+			break;
+
 		case ASMIT_LDX:
 			if (!(mFlags & NCIF_VOLATILE))
 			{
@@ -4346,6 +4395,31 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			else
 				data.mRegs[CPU_REG_X].Reset();
 			break;
+
+		case ASMIT_STX:
+			if (!(mFlags & NCIF_VOLATILE) && mLinkerObject)
+			{
+				if (data.mRegs[CPU_REG_X].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_X].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_X].mValue == mAddress)
+				{
+					mType = ASMIT_NOP;
+					mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else if (data.mRegs[CPU_REG_X].mMode == NRDM_UNKNOWN)
+				{
+					data.ResetAbsolute(mLinkerObject, mAddress);
+					data.mRegs[CPU_REG_X].mMode = NRDM_ABSOLUTE;
+					data.mRegs[CPU_REG_X].mLinkerObject = mLinkerObject;
+					data.mRegs[CPU_REG_X].mValue = mAddress;
+					data.mRegs[CPU_REG_X].mFlags = mFlags;
+				}
+				else
+					data.ResetAbsolute(mLinkerObject, mAddress);
+			}
+			else
+				data.ResetAbsolute(mLinkerObject, mAddress);
+			break;
+
 		default:
 			if (ChangesAddress())
 				data.ResetAbsolute(mLinkerObject, mAddress);
@@ -16127,7 +16201,10 @@ bool NativeCodeBasicBlock::CanReplaceYRegWithXReg(int start, int end)
 
 		if ((ins.mLive & LIVE_CPU_REG_X) && (ins.mLive & LIVE_CPU_REG_Y))
 			return false;
-		
+
+		if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ABSOLUTE_X)
+			return false;
+
 		if (ins.mMode == ASMIM_INDIRECT_Y)
 			return false;
 
@@ -16145,6 +16222,9 @@ bool NativeCodeBasicBlock::CanReplaceXRegWithYReg(int start, int end)
 		NativeCodeInstruction& ins(mIns[i]);
 
 		if ((ins.mLive & LIVE_CPU_REG_X) && (ins.mLive & LIVE_CPU_REG_Y))
+			return false;
+
+		if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ABSOLUTE_Y)
 			return false;
 
 		if (ins.mMode == ASMIM_INDIRECT_X)
@@ -24144,6 +24224,25 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					mFalseJump->mExitRequiredRegs += CPU_REG_Y;
 					for (int i = 0; i < mFalseJump->mIns.Size(); i++)
 						mFalseJump->mIns[i].mLive |= LIVE_CPU_REG_Y;
+					changed = true;
+				}
+			}
+		}
+
+		if (mEntryBlocks.Size() == 1 && mIns.Size() > 0 && mIns[0].mType == ASMIT_TAX && !(mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			NativeCodeBasicBlock* pblock = mEntryBlocks[0];
+			NativeCodeBasicBlock* nblock = pblock->mTrueJump == this ? pblock->mFalseJump : pblock->mTrueJump;
+			if (!nblock || (!nblock->mEntryRequiredRegs[CPU_REG_A] && !nblock->mEntryRequiredRegs[CPU_REG_X]))
+			{
+				int ps = pblock->mIns.Size();
+				if (ps > 0 && pblock->mIns[ps - 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, pblock->mIns[ps - 1].mMode))
+				{
+					pblock->mIns[ps - 1].mType = ASMIT_LDX;
+					pblock->mIns[ps - 1].mLive |= LIVE_CPU_REG_X;
+					pblock->mExitRequiredRegs += CPU_REG_X;
+					mEntryRequiredRegs += CPU_REG_X;
+					mIns[0].mType = ASMIT_NOP;
 					changed = true;
 				}
 			}
@@ -44047,6 +44146,20 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 #endif
 #if 1
 					else if (
+						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+						mIns[i + 1].mType == ASMIT_STA && 
+						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !mIns[i + 1].SameEffectiveAddress(mIns[i + 2]) &&
+						mIns[i + 3].mType == ASMIT_CMP && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+					{
+						mIns[i + 3].mAddress = mIns[i + 2].mAddress;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+						progress = true;
+					}
+#endif
+#if 1
+					else if (
 						mIns[i + 0].mType == ASMIT_LDA && 
 						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 						mIns[i + 2].mType == ASMIT_ROL && mIns[i + 2].mMode == ASMIM_IMPLIED && HasAsmInstructionMode(ASMIT_ROL, mIns[i + 0].mMode) &&
@@ -48865,6 +48978,11 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
+
 #if 1
 		if (step == 6)
 		{
@@ -48881,6 +48999,11 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 		CheckBlocks();
+
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 
 #if 1
 		ResetVisited();
@@ -48919,6 +49042,12 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 #endif
+
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
+
 		if (step >= 6)
 		{
 			ResetVisited();
