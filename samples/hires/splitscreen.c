@@ -86,7 +86,7 @@ int main(void)
 		n = sscanf(str, "%d %d %d", &x, &y, &r);
 
 		cwin_putat_string(&twin, 0, 1, str, 0x0e);
-		sprintf(str, p"N: %D X: %3D Y: %3D R: %2D", n, x, y, r);
+		sprintf(str, p"N: %d X: %3d Y: %3d R: %2d", n, x, y, r);
 		cwin_putat_string(&twin, 0, 2, str, 0x07);
 
 		if (n == 3)
