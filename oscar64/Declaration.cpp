@@ -647,7 +647,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			ex->mDecType = mDecType;
 			return ex;
 		}
-		return mLeft;
+		return this;
 	}
 #endif
 	else if (mType == EX_TYPECAST && mLeft->mType == EX_CONSTANT)
