@@ -280,6 +280,7 @@ public:
 	void AddMacro(const Ident* ident, const char* value);
 	void MarkSourceOnce(void);
 protected:
+	void NextSkipRawToken(void);
 	void NextRawToken(void);
 	void NextPreToken(void);
 

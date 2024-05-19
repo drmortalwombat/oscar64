@@ -504,7 +504,11 @@ void Scanner::NextPreToken(void)
 {
 	for (;;)
 	{
-		NextRawToken();
+		if (mPrepCondFalse > 0 || mPrepCondExit)
+			NextSkipRawToken();
+		else
+			NextRawToken();
+
 		if (mToken == TK_PREP_ENDIF)
 		{
 			if (mPrepCondFalse > 0)
@@ -1094,6 +1098,106 @@ void Scanner::NextPreToken(void)
 		}
 		else
 			return;		
+	}
+}
+
+void Scanner::NextSkipRawToken(void)
+{
+	while (mToken != TK_EOF)
+	{
+		mToken = TK_ERROR;
+
+		if (mOffset > 1 || !IsWhitespace(mTokenChar))
+			mStartOfLine = false;
+
+		while (IsWhitespace(mTokenChar))
+		{
+			if (mTokenChar == '\n')
+			{
+				mToken = TK_EOL;
+				NextChar();
+				return;
+			}
+			if (!NextChar())
+			{
+				mToken = TK_EOF;
+				return;
+			}
+		}
+
+		mLocation = mPreprocessor->mLocation;
+		mLocation.mColumn = mOffset;
+
+		if (mTokenChar == '#')
+		{
+			if (mOffset == 1 || mStartOfLine)
+			{
+				int		n = 0;
+				char	tkprep[128];
+				tkprep[0] = 0;
+
+				while (NextChar() && IsAlpha(mTokenChar))
+				{
+					if (n < 127)
+						tkprep[n++] = mTokenChar;
+				}
+				tkprep[n] = 0;
+
+				if (!strcmp(tkprep, "define"))
+					mToken = TK_PREP_DEFINE;
+				else if (!strcmp(tkprep, "undef"))
+					mToken = TK_PREP_UNDEF;
+				else if (!strcmp(tkprep, "include"))
+					mToken = TK_PREP_INCLUDE;
+				else if (!strcmp(tkprep, "if"))
+					mToken = TK_PREP_IF;
+				else if (!strcmp(tkprep, "ifdef"))
+					mToken = TK_PREP_IFDEF;
+				else if (!strcmp(tkprep, "ifndef"))
+					mToken = TK_PREP_IFNDEF;
+				else if (!strcmp(tkprep, "elif"))
+					mToken = TK_PREP_ELIF;
+				else if (!strcmp(tkprep, "else"))
+					mToken = TK_PREP_ELSE;
+				else if (!strcmp(tkprep, "endif"))
+					mToken = TK_PREP_ENDIF;
+				else if (!strcmp(tkprep, "pragma"))
+					mToken = TK_PREP_PRAGMA;
+				else if (!strcmp(tkprep, "line"))
+					mToken = TK_PREP_LINE;
+				else if (!strcmp(tkprep, "assign"))
+					mToken = TK_PREP_ASSIGN;
+				else if (!strcmp(tkprep, "repeat"))
+					mToken = TK_PREP_REPEAT;
+				else if (!strcmp(tkprep, "until"))
+					mToken = TK_PREP_UNTIL;
+				else if (!strcmp(tkprep, "embed"))
+					mToken = TK_PREP_EMBED;
+				else if (!strcmp(tkprep, "for"))
+					mToken = TK_PREP_FOR;
+				else
+				{
+					mToken = TK_PREP_IDENT;
+					mTokenIdent = Ident::Unique(tkprep);
+				}
+			}
+			else
+			{
+				NextChar();
+				mToken = TK_HASH;
+			}
+
+			return;
+		}
+
+		while (mTokenChar != '\n')
+		{
+			if (!NextChar())
+			{
+				mToken = TK_EOF;
+				return;
+			}
+		}
 	}
 }
 
