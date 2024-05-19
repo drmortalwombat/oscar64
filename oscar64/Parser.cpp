@@ -10363,6 +10363,29 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 			{
 				exp->mDecType = TheUnsignedIntTypeDeclaration;
 			}
+			else if (dec->mType == DT_VARIABLE && (dec->mFlags & DTF_CONSTEXPR) && dec->mValue && dec->mValue->mType == EX_CONSTANT)
+			{
+				Declaration* dt = dec->mValue->mDecValue;
+				if (dt->mType == DT_CONST_INTEGER)
+				{
+					exp->mDecValue = dt;
+					exp->mDecType = dt->mBase;
+					mScanner->NextToken();
+					return exp;
+				}
+				else if (dt->mType == DT_CONST_ADDRESS)
+				{
+					dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+					dec->mInteger = dt->mInteger;
+					dec->mBase = TheUnsignedIntTypeDeclaration;
+
+					exp->mDecValue = dec;
+					exp->mDecType = TheUnsignedIntTypeDeclaration;
+					mScanner->NextToken();
+					return exp;
+				}
+				exp->mDecType = TheUnsignedIntTypeDeclaration;
+			}
 			else if (dec->mType == DT_CONST_ASSEMBLER)
 			{
 				exp->mDecType = dec->mBase;
