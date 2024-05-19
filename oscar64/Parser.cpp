@@ -10944,6 +10944,20 @@ Expression* Parser::ParseAssembler(void)
 					{
 						if (HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_RELATIVE))
 							ilast->mAsmInsMode = ASMIM_RELATIVE;
+						else if (
+							HasAsmInstructionMode(ilast->mAsmInsType, ASMIM_IMMEDIATE) &&
+							ilast->mLeft &&
+							ilast->mLeft->mType == EX_CONSTANT && 
+							ilast->mLeft->mDecValue->mType == DT_VARIABLE &&
+							(ilast->mLeft->mDecValue->mFlags & DTF_CONST) && 
+							(ilast->mLeft->mDecValue->mFlags & DTF_STATIC) &&
+							ilast->mLeft->mDecType->IsIntegerType() && 
+							ilast->mLeft->mDecValue->mValue &&
+							ilast->mLeft->mDecValue->mValue->mType == EX_CONSTANT)
+						{
+							ilast->mAsmInsMode = ASMIM_IMMEDIATE;
+							ilast->mLeft = ilast->mLeft->mDecValue->mValue;
+						}
 						else
 							ilast->mAsmInsMode = ASMIM_ABSOLUTE;
 					}
