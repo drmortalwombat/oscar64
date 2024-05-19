@@ -630,6 +630,26 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		return mLeft->mLeft;
 	}
 #endif
+#if 1
+	else if (mType == EX_PREFIX && mToken == TK_BINARY_AND && 
+			 mLeft->mType == EX_QUALIFY &&
+			 mLeft->mLeft->mType == EX_PREFIX && mLeft->mLeft->mToken == TK_MUL &&
+			 mLeft->mLeft->mLeft->mType == EX_CONSTANT)
+	{
+		Expression* bex = mLeft->mLeft->mLeft;
+		if (bex->mDecValue->mType == DT_CONST_ADDRESS)
+		{
+			Expression* ex = new Expression(mLocation, EX_CONSTANT);
+			Declaration* dec = new Declaration(mLocation, DT_CONST_ADDRESS);
+			dec->mBase = mDecType;
+			dec->mInteger = bex->mDecValue->mInteger + mLeft->mDecValue->mOffset;
+			ex->mDecValue = dec;
+			ex->mDecType = mDecType;
+			return ex;
+		}
+		return mLeft;
+	}
+#endif
 	else if (mType == EX_TYPECAST && mLeft->mType == EX_CONSTANT)
 	{
 		if (mDecType->mType == DT_TYPE_POINTER)
@@ -664,7 +684,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 				ex->mDecType = mDecType;
 				return ex;
 			}
-			else if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
+			else if (mLeft->mDecValue->mType == DT_CONST_INTEGER || mLeft->mDecValue->mType == DT_CONST_ADDRESS)
 			{
 				int64	sval = 1ULL << (8 * mDecType->mSize);
 				int64	v = mLeft->mDecValue->mInteger & (sval - 1);

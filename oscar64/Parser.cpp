@@ -10367,6 +10367,39 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 			{
 				exp->mDecType = dec->mBase;
 			}
+			else if (dec->mType == DT_TYPE_STRUCT)
+			{				
+				mScanner->NextToken();
+
+				int offset = 0;
+				while (dec->mType == DT_TYPE_STRUCT && ConsumeTokenIf(TK_COLCOLON))
+				{
+					if (mScanner->mToken == TK_IDENT)
+					{
+						Declaration* edec = dec->mScope->Lookup(mScanner->mTokenIdent);
+						if (edec)
+						{
+							offset += edec->mOffset;
+							dec = edec->mBase;
+						}
+						else
+							mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Struct member not found", mScanner->mTokenIdent);
+
+						mScanner->NextToken();
+					}
+					else
+						mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Identifier for qualification expected");
+				}
+
+				dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+				dec->mInteger = offset;
+				dec->mBase = TheUnsignedIntTypeDeclaration;
+				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+				exp->mDecValue = dec;
+				exp->mDecType = dec->mBase;
+
+				return exp;
+			}
 			else
 				exp->mDecType = TheUnsignedIntTypeDeclaration;
 		}

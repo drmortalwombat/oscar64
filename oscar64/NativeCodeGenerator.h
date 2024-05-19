@@ -443,6 +443,10 @@ public:
 	bool PatchDirectAddressSumY(int at, int reg, int apos, int breg);
 	bool FindAddressSumY(int at, int reg, int & apos, int& breg, int& ireg);
 	bool PatchAddressSumY(int at, int reg, int apos, int breg, int ireg);
+
+	bool FindLoadAddressSumY(int at, int reg, int& apos, int& ireg);
+	bool PatchLoadAddressSumY(int at, int reg, int apos, int ireg);
+
 	bool FindGlobalAddress(int at, int reg, int& apos);
 	bool FindGlobalAddressSumY(int at, int reg, bool direct, int& apos, const NativeCodeInstruction * & ains, const NativeCodeInstruction*& iins, uint32 & flags, int & addr);
 	bool FindExternAddressSumY(int at, int reg, int& breg, int& ireg);

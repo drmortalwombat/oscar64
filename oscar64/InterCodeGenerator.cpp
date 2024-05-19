@@ -4040,6 +4040,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vins->mConst.mVarIndex = vdec->mVarIndex;
 						vins->mConst.mOperandSize = vdec->mSize;
 						vins->mConst.mIntConst = vdec->mOffset;
+						if (inlineMapper)
+							vins->mConst.mVarIndex += inlineMapper->mVarIndex;
 					}
 
 					block->Append(vins);
