@@ -775,7 +775,28 @@ A function return value can be provided in the zero page addresses ACCU (+0..+3)
             }
     }
 
-Labels are defined with a colon after the name.  Pure assembler functions can be defined outside of the scope of a function and accessed using their name inside of other assembler function.  One can e.g. set up an interrupt
+Struct member offsets can be generated with the Type::Member syntax:
+
+	struct P
+	{
+		unsigned char np;
+		unsigned char ns;
+		
+		void test()
+		{
+			auto that = this;
+
+			__asm {
+				lda #1
+				ldy #P::ns
+				sta (that),y
+			}
+		}
+	};
+
+
+Labels are defined with a colon after the name.  Pure assembler functions can be defined outside of the scope of a function and accessed using their name inside of other assembler function.  One can e.g. set up an interrupt.
+
 
 ### Interrupt routines
 
