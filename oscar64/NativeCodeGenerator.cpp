@@ -18135,6 +18135,27 @@ bool NativeCodeBasicBlock::LoopRegisterWrapAround(void)
 						}
 					}
 				}
+#if 0
+				int esz = eblock->mIns.Size();
+				if (mIns.Size() > 0 && esz >= 2 &&
+					mIns[0].mType == ASMIT_LDX &&
+					eblock->mIns[esz - 2].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(eblock->mIns[esz - 2]) &&
+					eblock->mIns[esz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, eblock->mIns[esz - 1].mMode) &&
+					!(eblock->mIns[esz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
+				{
+					printf("Doopsie\n");
+
+					bblock->mIns.Push(mIns[0]);
+					bblock->mExitRequiredRegs += CPU_REG_X;
+					mEntryRequiredRegs += CPU_REG_X;
+					mIns.Remove(0);
+
+					eblock->mExitRequiredRegs += CPU_REG_X;
+					eblock->mIns[esz - 2].mType = ASMIT_LDX; eblock->mIns[esz - 2].mLive |= LIVE_CPU_REG_X;
+					eblock->mIns[esz - 1].mType = ASMIT_CPX; eblock->mIns[esz - 1].mLive |= LIVE_CPU_REG_X;
+					changed = true;
+				}
+#endif
 			}
 		}
 
