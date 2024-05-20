@@ -301,7 +301,7 @@ class InterInstruction
 public:
 	Location							mLocation;
 	InterCode							mCode;
-	InterOperand						mSrc[8];
+	InterOperand						mSrc[12];
 	InterOperand						mDst;
 	InterOperand						mConst;
 	InterOperator						mOperator;

@@ -4055,9 +4055,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					lins->mSrc[0].mOperandSize = vdec->mSize;
 					block->Append(lins);
 
-					jins->mSrc[jins->mNumOperands].mType = InterTypeOf(vdec->mBase);
-					jins->mSrc[jins->mNumOperands].mTemp = lins->mDst.mTemp;
-					jins->mNumOperands++;
+					if (jins->mNumOperands >= 12)
+						mErrors->Error(exp->mLocation, EERR_ASSEMBLER_LIMIT, "Maximum number of variables in assembler block exceeded", vdec->mIdent);
+					else
+					{
+						jins->mSrc[jins->mNumOperands].mType = InterTypeOf(vdec->mBase);
+						jins->mSrc[jins->mNumOperands].mTemp = lins->mDst.mTemp;
+						jins->mNumOperands++;
+					}
 				}
 
 				block->Append(jins);
