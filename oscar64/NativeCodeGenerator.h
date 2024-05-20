@@ -249,6 +249,7 @@ public:
 	ValueNumberingDataSet	mNumDataSet, mNNumDataSet, mFNumDataSet;
 
 	int						mYAlias[256];
+	int						mYReg, mYOffset, mYValue, mXReg, mXOffset, mXValue;
 
 	ExpandingArray<NativeRegisterSum16Info>	mRSumInfos;
 
@@ -526,6 +527,7 @@ public:
 	bool ReverseBitfieldForwarding(void);
 	bool OffsetValueForwarding(const ValueNumberingDataSet & data);
 	bool AbsoluteValueForwarding(const ExpandingArray<NativeCodeLoadStorePair>& npairs);
+	bool IndexXYValueForwarding(int xreg, int xoffset, int xvalue, int yreg, int yoffset, int yvalue);
 
 	void MarkLocalUsedLinkerObjects(void);
 	bool RemoveLocalUnusedLinkerObjects(void);
