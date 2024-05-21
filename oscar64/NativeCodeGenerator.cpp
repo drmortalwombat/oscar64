@@ -44599,7 +44599,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					}
 					else if (
 						mIns[i + 0].ChangesAccuAndFlag() &&
-						(mIns[i + 1].mType == ASMIT_LDY || mIns[i + 1].mType == ASMIT_LDX) &&
+						(mIns[i + 1].mType == ASMIT_LDY && !mIns[i + 0].RequiresYReg() || 
+						 mIns[i + 1].mType == ASMIT_LDX && !mIns[i + 0].RequiresXReg()) &&
 						mIns[i + 2].mType == ASMIT_STA &&
 						mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0)
 					{
@@ -48061,7 +48062,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "enemies_move");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "Actor::setupFrame");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -48871,6 +48872,7 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 
 #endif
+
 
 		if (step == 2)
 		{
