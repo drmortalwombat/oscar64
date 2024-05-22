@@ -4077,6 +4077,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 				cdec->mFlags |= DTF_DEFINED | DTF_REQUEST_INLINE;
 				cdec->mNumVars = mLocalIndex;
+
+				if (ptempl)
+					PrependMemberConstructor(pthis, cdec);
 			}
 
 			return dec;
@@ -10168,8 +10171,28 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 		}
 		else
 		{
-			adec = ParsePostfixDeclaration();
-			adec = ReverseDeclaration(adec, bdec);
+			if (bdec && pthis && bdec == pthis->mBase && mScanner->mToken == TK_OPEN_PARENTHESIS)
+			{
+				Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
+
+				adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+
+				adec->mBase = ctdec;
+				adec->mIdent = pthis->mBase->mIdent->PreMangle("+");
+				adec->mQualIdent = pthis->mBase->mScope->Mangle(adec->mIdent);
+
+				if (ConsumeTokenIf(TK_COLON))
+				{
+					while (mScanner->mToken != TK_OPEN_BRACE)
+						mScanner->NextToken();
+				}
+
+			}
+			else
+			{
+				adec = ParsePostfixDeclaration();
+				adec = ReverseDeclaration(adec, bdec);
+			}
 		}
 
 		mTemplateScope = tdec->mScope->mParent;
