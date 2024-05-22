@@ -14333,6 +14333,12 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 										mins->mDst.mRange.SetLimit(num, num);
 										mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, mins);
 
+										for (int k = 0; k < body.Size(); k++)
+										{
+											if (body[k]->mEntryValueRange.Size())
+												body[k]->mEntryValueRange[ai->mSrc[1].mTemp].SetLimit(1, num);
+										}
+
 										if (mEntryValueRange.Size())
 											mEntryValueRange[ai->mSrc[1].mTemp].SetLimit(1, num);
 
@@ -20679,7 +20685,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "RenderLogo");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -21399,8 +21405,6 @@ void InterCodeProcedure::Close(void)
 
 		BuildDataFlowSets();
 
-		CheckCase = true;
-
 		ResetVisited();
 		mEntryBlock->SingleBlockLoopOptimisation(mParamAliasedSet, mModule->mGlobalVars);
 
@@ -21479,9 +21483,6 @@ void InterCodeProcedure::Close(void)
 		PeepholeOptimization();
 
 		DisassembleDebug("Peephole Temp Check");
-
-		if (i == 1)
-			CheckCase = true;
 		
 		RemoveUnusedInstructions();
 
