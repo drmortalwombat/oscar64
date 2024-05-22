@@ -5700,7 +5700,10 @@ Expression* Parser::ParseSimpleExpression(bool lhs)
 		else
 		{
 			rexp = ParseParenthesisExpression();
-			dec->mInteger = rexp->mDecType->mSize;
+			if (rexp->mDecType->IsReference())
+				dec->mInteger = rexp->mDecType->mBase->mSize;
+			else
+				dec->mInteger = rexp->mDecType->mSize;
 		}
 		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		exp->mDecValue = dec;
@@ -5907,7 +5910,7 @@ Expression* Parser::ParseQualify(Expression* exp)
 				}
 				else if (mdec->mType == DT_CONST_FUNCTION)
 				{
-					if (mdec->mTemplate)
+					if (mdec->mTemplate && mScanner->mToken == TK_LESS_THAN)
 						mdec = ParseTemplateExpansion(mdec->mTemplate, nullptr);
 
 					if (mdec->mBase->mFlags & DTF_FUNC_THIS)
