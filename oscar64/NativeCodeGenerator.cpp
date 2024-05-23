@@ -24180,9 +24180,11 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						{
 							mEntryBlocks[i]->mIns.Push(mIns[0]);
 							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_X;
+							mEntryBlocks[i]->mExitRequiredRegs -= CPU_REG_Z;
 						}
 					}
 
+					mEntryRequiredRegs -= CPU_REG_Z;
 					mEntryRequiredRegs += CPU_REG_X;
 					mIns.Remove(0);
 					changed = true;
@@ -42746,7 +42748,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 					else if (
 						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 						!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_MEM))
+						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_MEM) &&
+						(!mIns[i + 1].ChangesZFlag() || !(mIns[i + 2].mLive & LIVE_CPU_REG_Z)))
 					{
 						mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
@@ -48062,7 +48065,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "Actor::setupFrame");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "buildRamTiles");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

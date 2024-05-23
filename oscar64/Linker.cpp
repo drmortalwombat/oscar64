@@ -561,7 +561,7 @@ bool LinkerRegion::AllocateAppend(Linker* linker, LinkerObject* lobj)
 
 				if (lobj->mSuffix && !(lobj->mSuffix->mFlags & LOBJF_PLACED))
 				{
-					if (!Allocate(linker, lobj->mSuffix, true))
+					if (!Allocate(linker, lobj->mSuffix, true, false))
 						return false;
 				}
 
@@ -598,7 +598,7 @@ bool LinkerRegion::AllocateAppend(Linker* linker, LinkerObject* lobj)
 
 					if (lobj->mSuffix && !(lobj->mSuffix->mFlags & LOBJF_PLACED))
 					{
-						if (!Allocate(linker, lobj->mSuffix, true))
+						if (!Allocate(linker, lobj->mSuffix, true, false))
 							return false;
 					}
 
@@ -610,13 +610,13 @@ bool LinkerRegion::AllocateAppend(Linker* linker, LinkerObject* lobj)
 	return false;
 }
 
-bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
+bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge, bool retry)
 {
 	if (merge && lobj->mPrefix)
 	{
 		if (!(lobj->mPrefix->mFlags & LOBJF_PLACED))
 		{
-			if (!Allocate(linker, lobj->mPrefix, true))
+			if (!Allocate(linker, lobj->mPrefix, true, false))
 				return false;
 
 			if (lobj->mFlags & LOBJF_PLACED)
@@ -673,7 +673,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 
 			if (merge && lobj->mSuffix && !(lobj->mSuffix->mFlags & LOBJF_PLACED))
 			{
-				if (!Allocate(linker, lobj->mSuffix, true))
+				if (!Allocate(linker, lobj->mSuffix, true, false))
 					return false;
 			}
 
@@ -685,7 +685,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 	int start = (mStart + mUsed + lobj->mAlignment - 1) & ~(lobj->mAlignment - 1);
 	int end = start + lobj->mSize;
 
-	if (!(linker->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE) && (lobj->mFlags & LOBJF_NO_CROSS) && !(lobj->mFlags & LOBJF_FORCE_ALIGN) && lobj->mSize <= 256 && (start & 0xff00) != ((end - 1) & 0xff00) && !(lobj->mSection->mFlags & LSECF_PACKED))
+	if (!(linker->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE) && !retry && (lobj->mFlags & LOBJF_NO_CROSS) && !(lobj->mFlags & LOBJF_FORCE_ALIGN) && lobj->mSize <= 256 && (start & 0xff00) != ((end - 1) & 0xff00) && !(lobj->mSection->mFlags & LSECF_PACKED))
 	{
 		start = (start + 0x00ff) & 0xff00;
 		end = start + lobj->mSize;
@@ -719,7 +719,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge)
 
 		if (merge && lobj->mSuffix && !(lobj->mSuffix->mFlags & LOBJF_PLACED))
 		{
-			if (!Allocate(linker, lobj->mSuffix, true))
+			if (!Allocate(linker, lobj->mSuffix, true, false))
 				return false;
 		}
 
@@ -924,7 +924,7 @@ void Linker::PatchReferences(bool inlays)
 	}
 }
 
-void Linker::PlaceObjects(void)
+void Linker::PlaceObjects(bool retry)
 {
 	for (int i = 0; i < mRegions.Size(); i++)
 	{
@@ -935,7 +935,7 @@ void Linker::PlaceObjects(void)
 			for (int k = 0; k < lsec->mObjects.Size(); k++)
 			{
 				LinkerObject* lobj = lsec->mObjects[k];
-				if (lobj->mType != LOT_INLAY && (lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj, mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS))
+				if (lobj->mType != LOT_INLAY && (lobj->mFlags & LOBJF_REFERENCED) && !(lobj->mFlags & LOBJF_PLACED) && lrgn->Allocate(this, lobj, mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS, retry))
 				{
 					if (lobj->mIdent && lobj->mIdent->mString && (mCompilerOptions & COPT_VERBOSE2))
 						printf("Placed object <%s> $%04x - $%04x\n", lobj->mIdent->mString, lobj->mAddress, lobj->mAddress + lobj->mSize);
@@ -996,7 +996,10 @@ void Linker::Link(void)
 		}
 
 		// Move objects into regions
-		PlaceObjects();
+		PlaceObjects(false);
+
+		// Retry for alignment
+		PlaceObjects(true);
 
 		// Place stack segment
 
@@ -1051,7 +1054,7 @@ void Linker::Link(void)
 			}
 		}
 
-		PlaceObjects();
+		PlaceObjects(false);
 
 		// Calculate BSS storage
 

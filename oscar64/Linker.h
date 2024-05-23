@@ -100,7 +100,7 @@ public:
 	LinkerObject			*	mLastObject;
 	
 	bool AllocateAppend(Linker* linker, LinkerObject* obj);
-	bool Allocate(Linker * linker, LinkerObject* obj, bool merge);
+	bool Allocate(Linker * linker, LinkerObject* obj, bool merge, bool retry);
 	void PlaceStackSection(LinkerSection* stackSection, LinkerSection* section);
 };
 
@@ -307,7 +307,7 @@ public:
 	void InlineSimpleJumps(void);
 	void PatchReferences(bool inlays);
 	void CopyObjects(bool inlays);
-	void PlaceObjects(void);
+	void PlaceObjects(bool retry);
 	void Link(void);
 protected:
 	NativeCodeDisassembler	mNativeDisassembler;
