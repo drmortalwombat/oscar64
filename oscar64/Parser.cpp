@@ -567,6 +567,9 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 							{
 								if (mdec->mBase->mFlags & DTF_VIRTUAL)
 								{
+									if (mdec->mFlags & DTF_PURE_VIRTUAL)
+										dec->mFlags |= DTF_PURE_VIRTUAL;
+
 									Declaration* vpdec = vdec;
 									Declaration* vmdec;
 									if (mdec->mIdent->mString[0] == '~')
@@ -2010,6 +2013,9 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 					while (bdec->mType == DT_TYPE_ARRAY)
 						bdec = bdec->mBase;
 
+					if (bdec->mFlags & DTF_PURE_VIRTUAL)
+						mErrors->Error(dec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", dec->mIdent);
+
 					if (bdec->mType == DT_TYPE_STRUCT && bdec->mDefaultConstructor || dec->mValue)
 					{
 						Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
@@ -2309,6 +2315,9 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 			while (bdec->mType == DT_TYPE_ARRAY)
 				bdec = bdec->mBase;
+
+			if (bdec->mFlags & DTF_PURE_VIRTUAL)
+				mErrors->Error(dec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", dec->mIdent);
 
 			if (bdec->mType == DT_TYPE_STRUCT)
 			{
@@ -3653,6 +3662,9 @@ void Parser::ParseVariableInit(Declaration* ndec)
 
 	Declaration* fcons = ndec->mBase->mScope ? ndec->mBase->mScope->Lookup(ndec->mBase->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
 
+	if (ndec->mBase->mFlags & DTF_PURE_VIRTUAL)
+		mErrors->Error(ndec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", ndec->mIdent);
+
 	if (fcons)
 	{
 		Declaration* mtype = ndec->mBase->ToMutableType();
@@ -4596,17 +4608,32 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 			if (ConsumeTokenIf(TK_ASSIGN))
 			{
-				ndec->mValue = ParseInitExpression(ndec->mBase);
-				ndec->mBase = ndec->mBase->DeduceAuto(ndec->mValue->mDecType);
-
-				if (ndec->mFlags & DTF_GLOBAL)
+				if (pthis && ndec->mBase->mType == DT_TYPE_FUNCTION && mScanner->mToken == TK_INTEGER && mScanner->mTokenInteger == 0)
 				{
-					if (ndec->mFlags & DTF_ZEROPAGE)
-						;
-					else
-						ndec->mSection = mDataSection;
+					mScanner->NextToken();
+					ndec->mValue = new Expression(mScanner->mLocation, EX_ASSUME);
+					Declaration	*	fdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+					fdec->mBase = TheBoolTypeDeclaration;
+					fdec->mInteger = 0;
+					ndec->mValue->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+					ndec->mValue->mLeft->mDecValue = fdec;
+					ndec->mValue->mLeft->mDecType = fdec->mBase;
+					ndec->mFlags |= DTF_DEFINED | DTF_PURE_VIRTUAL;
 				}
-				ndec->mSize = ndec->mBase->mSize;
+				else
+				{
+					ndec->mValue = ParseInitExpression(ndec->mBase);
+					ndec->mBase = ndec->mBase->DeduceAuto(ndec->mValue->mDecType);
+
+					if (ndec->mFlags & DTF_GLOBAL)
+					{
+						if (ndec->mFlags & DTF_ZEROPAGE)
+							;
+						else
+							ndec->mSection = mDataSection;
+					}
+					ndec->mSize = ndec->mBase->mSize;
+				}
 			}
 			else if (mScanner->mToken == TK_OPEN_PARENTHESIS && (mCompilerOptions & COPT_CPLUSPLUS))
 			{
@@ -4619,6 +4646,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				Declaration* bdec = ndec->mBase;
 				while (bdec && bdec->mType == DT_TYPE_ARRAY)
 					bdec = bdec->mBase;
+
+				if (bdec->mFlags & DTF_PURE_VIRTUAL)
+					mErrors->Error(ndec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", ndec->mIdent);
 
 				if (bdec && bdec->mDefaultConstructor)
 				{
@@ -6925,6 +6955,9 @@ Expression* Parser::ParseNewOperator(void)
 	}
 
 	Declaration* dec = ParseBaseTypeDeclaration(0, true);
+
+	if (dec->mFlags & DTF_PURE_VIRTUAL)
+		mErrors->Error(dec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", dec->mIdent);
 
 	Declaration* sconst = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 	sconst->mBase = TheUnsignedIntTypeDeclaration;
