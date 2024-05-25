@@ -1715,7 +1715,7 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 			{
 				if (tpdec->mBase->mType == DT_PACK_TEMPLATE)
 				{
-					if (fpdec->mBase->mType == DT_PACK_TEMPLATE)
+					if (fpdec && fpdec->mBase->mType == DT_PACK_TEMPLATE)
 						mScope->Insert(tdec->mIdent, fpdec);
 					else
 					{

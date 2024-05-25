@@ -51,6 +51,11 @@ public:
 		f.c = nullptr;
 	}
 
+	function(void)
+	{
+		c = nullptr;
+	}
+
 	function & operator=(const function & f)
 	{
 		if (c != f.c)

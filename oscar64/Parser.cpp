@@ -6104,7 +6104,6 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 			{
 				if (pexp->mRight && pexp->mRight->mDecType->IsConstSame(fdec->mBase->mParams->mBase->mBase))
 					return NOOVERLOAD;
-				printf("oopsie");
 			}
 		}
 
