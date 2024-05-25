@@ -44,7 +44,7 @@ public:
 	{
 		c = f.c->clone();
 	}
-#if 0
+
 	function(function && f)
 	{
 		c = f.c;
@@ -70,7 +70,7 @@ public:
 		}
 		return *this;
 	}
-#endif
+
 	~function(void)
 	{
 		delete c;
