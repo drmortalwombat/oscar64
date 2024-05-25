@@ -8651,6 +8651,9 @@ Expression* Parser::ParseFunction(Declaration * dec)
 		}
 	}
 
+	if (dec->mBase->mType == DT_TYPE_AUTO)
+		dec->mBase->mType = DT_TYPE_VOID;
+
 	mScope->End(mScanner->mLocation);
 	mScope = oscope;
 

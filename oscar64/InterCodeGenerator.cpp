@@ -4328,54 +4328,66 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vr = Dereference(proc, exp, block, inlineMapper, vr);
 
 					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
-						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
+					{
+						if (vr.mType->mType != DT_TYPE_VOID)
+							mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Function has void return type");
+					}
 					else if (procType->mBase->mType == DT_TYPE_BOOL && (vr.mType->IsIntegerType() || vr.mType->mType == DT_TYPE_POINTER))
 						;
 					else if (!procType->mBase->CanAssign(vr.mType))
 						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
 
-					vr = CoerceType(proc, exp, block, inlineMapper, vr, procType->mBase);
-
-					ins->mSrc[0].mType = InterTypeOf(vr.mType);
-					ins->mSrc[0].mTemp = vr.mTemp;
-
-					if (inlineMapper)
+					if (vr.mType->mType == DT_TYPE_VOID)
 					{
-						if (inlineMapper->mResultExp)
-						{
-							ins->mSrc[1].mType = IT_POINTER;
-							ins->mSrc[1].mTemp = inlineMapper->mResultExp->mTemp;
-							ins->mSrc[1].mMemory = IM_INDIRECT;
-							ins->mCode = IC_STORE;
-							ins->mSrc[1].mOperandSize = procType->mBase->mSize;
-							ins->mNumOperands = 2;
-						}
+						if (inlineMapper)
+							ins->mCode = IC_NONE;
 						else
-						{
-							InterInstruction* ains = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
-							ains->mDst.mType = IT_POINTER;
-							ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
-							ains->mConst.mType = IT_POINTER;
-							ains->mConst.mOperandSize = procType->mBase->mSize;
-							ains->mConst.mIntConst = 0;
-							ains->mConst.mVarIndex = inlineMapper->mResult;;
-							ains->mConst.mMemory = IM_LOCAL;
-							block->Append(ains);
-
-							ins->mSrc[1].mType = ains->mDst.mType;
-							ins->mSrc[1].mTemp = ains->mDst.mTemp;
-							ins->mSrc[1].mMemory = IM_INDIRECT;
-							ins->mCode = IC_STORE;
-							ins->mSrc[1].mOperandSize = ains->mConst.mOperandSize;
-							ins->mNumOperands = 2;
-						}
+							ins->mCode = IC_RETURN;
 					}
 					else
 					{
-						ins->mCode = IC_RETURN_VALUE;
-						ins->mNumOperands = 1;
-					}
+						vr = CoerceType(proc, exp, block, inlineMapper, vr, procType->mBase);
 
+						ins->mSrc[0].mType = InterTypeOf(vr.mType);
+						ins->mSrc[0].mTemp = vr.mTemp;
+
+						if (inlineMapper)
+						{
+							if (inlineMapper->mResultExp)
+							{
+								ins->mSrc[1].mType = IT_POINTER;
+								ins->mSrc[1].mTemp = inlineMapper->mResultExp->mTemp;
+								ins->mSrc[1].mMemory = IM_INDIRECT;
+								ins->mCode = IC_STORE;
+								ins->mSrc[1].mOperandSize = procType->mBase->mSize;
+								ins->mNumOperands = 2;
+							}
+							else
+							{
+								InterInstruction* ains = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+								ains->mDst.mType = IT_POINTER;
+								ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
+								ains->mConst.mType = IT_POINTER;
+								ains->mConst.mOperandSize = procType->mBase->mSize;
+								ains->mConst.mIntConst = 0;
+								ains->mConst.mVarIndex = inlineMapper->mResult;;
+								ains->mConst.mMemory = IM_LOCAL;
+								block->Append(ains);
+
+								ins->mSrc[1].mType = ains->mDst.mType;
+								ins->mSrc[1].mTemp = ains->mDst.mTemp;
+								ins->mSrc[1].mMemory = IM_INDIRECT;
+								ins->mCode = IC_STORE;
+								ins->mSrc[1].mOperandSize = ains->mConst.mOperandSize;
+								ins->mNumOperands = 2;
+							}
+						}
+						else
+						{
+							ins->mCode = IC_RETURN_VALUE;
+							ins->mNumOperands = 1;
+						}
+					}
 				}
 			}
 			else
