@@ -305,7 +305,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 
 		return v;
 	}
-	else if (type->mType == DT_TYPE_STRUCT && type->mBase->IsSubType(v.mType))
+	else if (type->mType == DT_TYPE_STRUCT && type->mBase && type->mBase->IsSubType(v.mType))
 	{
 		v.mType = type;
 		return v;

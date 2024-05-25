@@ -49030,7 +49030,7 @@ void NativeCodeProcedure::Optimize(void)
 			}
 		}
 
-		if (step > 4)
+		if (step > 4 && step != 6)
 		{
 			ResetVisited();
 			if (mEntryBlock->ShortcutBlockExit())

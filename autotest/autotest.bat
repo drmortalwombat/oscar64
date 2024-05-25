@@ -27,6 +27,9 @@ rem @echo off
 @call :testh opp_list.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :testh opp_functional.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :testh operatoroverload.cpp
 @if %errorlevel% neq 0 goto :error
 

@@ -111,7 +111,8 @@ protected:
 	void ParseTemplateDeclarationBody(Declaration* tdec, Declaration* pthis);
 	Declaration* FunctionAutoParamsToTemplate(Declaration* fdec);
 
-	int ExpansionDistance(Declaration* tdec, Declaration* spec);
+	int ExpansionDistance(Declaration* tdec, Declaration* spec, Declaration* xtdec);
+	void ParseTemplateArguments(Declaration* tmpld, Declaration* tdec);
 	Declaration* ParseTemplateExpansion(Declaration* tmpld, Declaration* expd);
 	void CompleteTemplateExpansion(Declaration* tmpld);
 
@@ -124,7 +125,9 @@ protected:
 	Expression* ExpandPackExpression(Expression* exp, Expression* pack, Expression* item);
 	Expression* ParseBinaryFoldExpression(Expression * exp);
 
-	Expression* ParseSimpleExpression(bool lhs);
+	Declaration* ParseTypeID(bool tid, Declaration * bdec = nullptr);
+
+	Expression* ParseSimpleExpression(bool lhs, bool tid = false);
 	Expression* ParsePrefixExpression(bool lhs);
 	Expression* ParsePostfixExpression(bool lhs);
 	Expression* ParseMulExpression(bool lhs);

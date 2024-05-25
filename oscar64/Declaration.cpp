@@ -206,7 +206,10 @@ void Expression::Dump(int ident) const
 		printf("INDEX");
 		break;
 	case EX_QUALIFY:
-		printf("QUALIFY<%s>", mDecValue->mIdent->mString);
+		if (mDecValue->mIdent)
+			printf("QUALIFY<%s>", mDecValue->mIdent->mString);
+		else
+			printf("QUALIFY<%d>", mDecValue->mOffset);
 		break;
 	case EX_CALL:
 		printf("CALL");
@@ -1463,22 +1466,27 @@ const Ident* Declaration::MangleIdent(void)
 		else if (mType == DT_PACK_TYPE)
 		{
 			Declaration* dec = mParams;
-			while (dec)
+			if (dec)
 			{
-				const Ident* id = dec->MangleIdent();
-
-				if (id)
+				while (dec)
 				{
-					if (mMangleIdent)
-						mMangleIdent = mMangleIdent->Mangle(id->mString);
-					else
-						mMangleIdent = id;
-				}
+					const Ident* id = dec->MangleIdent();
 
-				dec = dec->mNext;
-				if (dec)
-					mMangleIdent = mMangleIdent->Mangle(",");
+					if (id)
+					{
+						if (mMangleIdent)
+							mMangleIdent = mMangleIdent->Mangle(id->mString);
+						else
+							mMangleIdent = id;
+					}
+
+					dec = dec->mNext;
+					if (dec)
+						mMangleIdent = mMangleIdent->Mangle(",");
+				}
 			}
+			else
+				mMangleIdent = Ident::Unique("void");
 		}
 		else
 			mMangleIdent = mQualIdent;
@@ -1618,6 +1626,7 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 			else
 				tpdec->mIdent = pdec->mBase->mIdent;
 			tpdec->mParams = phead;
+			tpdec->mFlags |= DTF_DEFINED;
 			mScope->Insert(tpdec->mIdent, tpdec);
 		}
 		else
@@ -1702,14 +1711,44 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 
 			Declaration* fpdec = fdec->mParams;
 			Declaration* tpdec = tdec->mParams;
-			while (fpdec && tpdec)
+			while (tpdec)
 			{
+				if (tpdec->mBase->mType == DT_PACK_TEMPLATE)
+				{
+					if (fpdec->mBase->mType == DT_PACK_TEMPLATE)
+						mScope->Insert(tdec->mIdent, fpdec);
+					else
+					{
+						Declaration* ptdec = new Declaration(fdec->mLocation, DT_PACK_TYPE);
+						Declaration* ppdec = nullptr;
+						while (fpdec)
+						{
+							Declaration* pdec = fpdec->mBase->Clone();
+							if (ppdec)
+								ppdec->mNext = pdec;
+							else
+								ptdec->mParams = pdec;
+							ppdec = pdec;
+							fpdec = fpdec->mNext;
+						}
+
+						ptdec->mFlags |= DTF_DEFINED;
+						mScope->Insert(tpdec->mBase->mIdent, ptdec);
+					}
+
+					return true;
+				}
+
+				if (!fpdec)
+					return false;
+
 				if (!ResolveTemplate(fpdec->mBase, tpdec->mBase))
 					return false;
+
 				fpdec = fpdec->mNext;
 				tpdec = tpdec->mNext;
 			}
-			if (fpdec || tpdec)
+			if (fpdec)
 				return false;
 		}
 		else
@@ -1758,6 +1797,39 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 	}
 	else if (tdec->mType == DT_PACK_TEMPLATE)
 	{
+		Declaration* pdec;
+		if (tdec->mBase)
+		{
+			pdec = mScope->Lookup(tdec->mBase->mIdent);
+			if (!pdec)
+				return false;
+		}
+		else if (fdec->mType == DT_PACK_TYPE)
+		{
+			mScope->Insert(tdec->mIdent, fdec);
+		}
+		else
+		{
+			pdec = mScope->Lookup(tdec->mIdent);
+			if (!pdec)
+			{
+				pdec = new Declaration(fdec->mLocation, DT_PACK_TYPE);
+				mScope->Insert(tdec->mIdent, pdec);
+			}
+
+			if (!pdec->mParams)
+			{
+				pdec->mParams = fdec->Clone();
+			}
+			else
+			{
+				Declaration* ppdec = pdec->mParams;
+				while (ppdec->mNext)
+					ppdec = ppdec->mNext;
+				ppdec->mNext = fdec->Clone();
+			}
+		}
+
 		return true;
 	}
 	else if (tdec->mType == DT_TYPE_STRUCT && fdec->mType == DT_TYPE_STRUCT && tdec->mTemplate)
@@ -1832,7 +1904,7 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 		return false;
 	}
 	else
-		return tdec->CanAssign(fdec);
+		return tdec->IsSame(fdec);
 }
 
 
