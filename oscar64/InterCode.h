@@ -567,6 +567,8 @@ public:
 	InterInstruction* FindTempOrigin(int temp) const;
 
 	bool CheapInlining(int & numTemps);
+	bool CollapseDispatch();
+
 
 	void CheckFinalLocal(void);
 	void CheckFinal(void);
@@ -743,6 +745,7 @@ protected:
 	void PropagateMemoryAliasingInfo(void);
 	void MoveConditionsOutOfLoop(void);
 
+	void CollapseDispatch(void);
 
 	void PeepholeOptimization(void);
 

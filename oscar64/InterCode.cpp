@@ -14390,7 +14390,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 						}
 					}
 #endif
-
+#if 1
 					GrowingIntArray		indexScale(0);
 
 					if (!modified)
@@ -14694,7 +14694,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 						i++;
 					}
-
+#if 1
 					if (modified)
 					{
 						for (int j = 0; j < indexScale.Size(); j++)
@@ -14706,7 +14706,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								while (k < tz && tail->mInstructions[k]->mDst.mTemp != j)
 									k++;
 
-								if (k < tz && !tail->IsTempReferencedInRange(0, k - 1, j) && !tail->IsTempReferencedInRange(k + 1, tz, j))
+								if (k < tz && !tail->IsTempReferencedInRange(0, k, j) && !tail->IsTempReferencedInRange(k + 1, tz, j))
 								{
 									int bi = 0;
 									while (bi + 1 < body.Size() && !body[bi]->IsTempReferenced(j))
@@ -14719,6 +14719,8 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 							}
 						}
 					}
+#endif
+#endif
 				}
 			}
 		}
@@ -15309,6 +15311,49 @@ static int FindStore(InterCodeBasicBlock* block, int pos, const InterOperand& op
 	}
 
 	return -1;
+}
+
+bool InterCodeBasicBlock::CollapseDispatch()
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i + 2 < mInstructions.Size(); i++)
+		{
+			if (mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_LOAD && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mStride == 2 &&
+				mInstructions[i + 2]->mCode == IC_DISPATCH)
+			{
+				LinkerObject* lo = mInstructions[i + 0]->mSrc[1].mLinkerObject;
+				if (lo && lo->mReferences.Size() > 0)
+				{
+					int j = 1;
+					while (2 * j < lo->mReferences.Size() && lo->mReferences[0]->mRefObject == lo->mReferences[2 * j]->mRefObject)
+						j++;
+					if (2 * j == lo->mReferences.Size())
+					{
+						mInstructions[i + 1]->mCode = IC_CONSTANT;
+						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mConst.mType = IT_POINTER;
+						mInstructions[i + 1]->mConst.mMemory = IM_GLOBAL;
+						mInstructions[i + 1]->mConst.mLinkerObject = lo->mReferences[0]->mRefObject;
+						changed = true;
+						printf("dispatch");
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->CollapseDispatch())
+			changed = true;
+		if (mFalseJump && mFalseJump->CollapseDispatch())
+			changed = true;
+	}
+
+	return changed;
 }
 
 bool InterCodeBasicBlock::CheapInlining(int & numTemps)
@@ -19843,6 +19888,12 @@ void InterCodeProcedure::CheckBlocks(void)
 	mEntryBlock->CheckBlocks();
 }
 
+void InterCodeProcedure::CollapseDispatch(void)
+{
+	ResetVisited();
+	mEntryBlock->CollapseDispatch();
+}
+
 void InterCodeProcedure::CheckFinal(void)
 {
 	ResetVisited();
@@ -20780,7 +20831,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "VerifyLogo");
+	CheckFunc = !strcmp(mIdent->mString, "bmmc_circle_fill");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -21563,8 +21614,11 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 	ResetVisited();
 	mEntryBlock->ForwardShortLoadStoreOffsets();
-
 	DisassembleDebug("ForwardShortLoadStoreOffsets");
+
+//	CollapseDispatch();
+//	DisassembleDebug("CollapseDispatch");
+
 
 #if 1
 	for (int i = 0; i < 8; i++)
