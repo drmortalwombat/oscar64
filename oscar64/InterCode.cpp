@@ -16694,7 +16694,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 				}
 			}
 
-			if (!hasCall)
+			if (!hasCall && (mProc->mCompilerOptions & COPT_OPTIMIZE_BASIC))
 			{
 				// Check forwarding globals
 
@@ -20831,7 +20831,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "bmmc_circle_fill");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
