@@ -10,6 +10,7 @@
 
 class InterCodeProcedure;
 class InterVariable;
+class NativeCodeProcedure;
 
 enum LinkerObjectType
 {
@@ -192,6 +193,7 @@ public:
 	LinkerRegion					*	mRegion;
 	uint8							*	mData, * mMemory;
 	InterCodeProcedure				*	mProc;
+	NativeCodeProcedure				*	mNativeProc;
 	InterVariable					*	mVariable;
 	uint32								mFlags;
 	uint8								mTemporaries[16], mTempSizes[16];

@@ -631,6 +631,8 @@ public:
 	bool RemoveDoubleZPStore(void);
 
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);
+	bool SimpleInlineCalls(void);
+
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);
 	bool SimplifyDiamond(NativeCodeProcedure* proc);
 	bool SimplifyLoopEnd(NativeCodeProcedure* proc);
@@ -663,6 +665,7 @@ public:
 
 	bool CrossBlockXYPreservation(void);
 	bool CrossBlockIncToZeroShortcut(void);
+	bool EliminateMicroBlocks(void);
 
 	bool AlternateXYUsage(void);
 	bool OptimizeXYPairUsage(void);
@@ -773,7 +776,7 @@ class NativeCodeProcedure
 
 		int		mProgStart, mProgSize, mIndex, mFrameOffset, mStackExpand;
 		int		mFastCallBase;
-		bool	mNoFrame;
+		bool	mNoFrame, mSimpleInline;
 		int		mTempBlocks;
 
 		ExpandingArray<LinkerReference>	mRelocations;

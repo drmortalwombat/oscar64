@@ -121,9 +121,9 @@ bool krnio_load(char fnum, char device, char channel)
 		jsr	$FFD5			// load
 
 		lda #0
-		bcs W1
-		lda #1
-	W1: sta accu
+		rol
+		eor #1
+		sta accu
 	}
 }
 
@@ -144,9 +144,9 @@ bool krnio_save(char device, const char* start, const char* end)
 		jsr	$FFD8			// save
 
 		lda #0
-		bcs W1
-		lda #1
-	W1: sta accu
+		rol
+		eor #1
+		sta accu
 	}
 }
 
@@ -158,10 +158,11 @@ bool krnio_chkout(char fnum)
 	{
 		ldx fnum
 		jsr	$ffc9			// chkout
+
 		lda #0
-		bcs W1
-		lda #1
-	W1: sta accu
+		rol
+		eor #1
+		sta accu
 	}
 }
 
@@ -173,11 +174,11 @@ bool krnio_chkin(char fnum)
 	{
 		ldx fnum
 		jsr	$ffc6			// chkin
+
 		lda #0
-		sta accu + 1
-		bcs W1
-		lda #1
-	W1: sta accu
+		rol
+		eor #1
+		sta accu
 	}
 }
 
@@ -200,21 +201,17 @@ bool krnio_chrout(char ch)
 		lda ch
 		jsr $ffd2		// chrout
 		sta accu
-		lda #0
-		sta accu + 1
 	}
 }
 
 #pragma native(krnio_chrout)
 
-int krnio_chrin(void)
+char krnio_chrin(void)
 {
 	__asm
 	{
 		jsr $ffcf		// chrin
 		sta accu
-		lda #0
-		sta accu + 1
 	}
 }
 

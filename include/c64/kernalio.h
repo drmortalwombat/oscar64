@@ -64,7 +64,7 @@ bool krnio_chrout(char ch);
 
 // read a single byte from the current input channel
 
-int krnio_chrin(void);
+char krnio_chrin(void);
 
 // read a single byte from the given file/channel, returns
 // a negative result on failure.  If this was the last byte
