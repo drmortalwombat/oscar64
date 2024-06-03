@@ -970,7 +970,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					ref.mOffset = offset;
 					ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 					ref.mRefObject = aexp->mBase->mLinkerObject;
-					ref.mRefOffset = uint8(aexp->mInteger);
+					ref.mRefOffset = int(aexp->mInteger);
 					ref.mRefObject->mFlags |= LOBJF_RELEVANT;
 					dec->mLinkerObject->AddReference(ref);
 				}
