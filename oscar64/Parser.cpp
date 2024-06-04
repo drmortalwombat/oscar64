@@ -10467,6 +10467,22 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Cannot negate expression");
 		break;
 
+	case TK_BINARY_NOT:
+		mScanner->NextToken();
+		exp = ParseAssemblerBaseOperand(pcasm, pcoffset);
+		if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+		{
+			dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+			dec->mInteger = ~exp->mDecValue->mInteger;
+			dec->mBase = TheUnsignedIntTypeDeclaration;
+			exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+			exp->mDecValue = dec;
+			exp->mDecType = dec->mBase;
+		}
+		else
+			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Cannot negate expression");
+		break;
+
 	case TK_MUL:
 		mScanner->NextToken();
 		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
