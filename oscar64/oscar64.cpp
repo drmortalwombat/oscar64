@@ -67,6 +67,7 @@ int main2(int argc, const char** argv)
 	{
 		char	basePath[200], crtPath[200], includePath[200], targetPath[200], diskPath[200];
 		char	strProductName[100], strProductVersion[200];
+		int		dataFileInterleave = 10;
 
 #ifdef _WIN32
 			GetProductAndVersion(strProductName, strProductVersion);
@@ -151,6 +152,10 @@ int main2(int argc, const char** argv)
 				{
 					dataFiles.Push(arg + 4);
 					dataFileCompressed.Push(true);
+				}
+				else if (arg[1] == 'f' && arg[2] == 'i' && arg[3] == '=')
+				{
+					dataFileInterleave = atoi(arg + 4);
 				}
 				else if (arg[1] == 'o' && arg[2] == '=')
 				{
@@ -512,7 +517,7 @@ int main2(int argc, const char** argv)
 				{
 					for (int i = 0; i < dataFiles.Size(); i++)
 					{
-						if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i]))
+						if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i], dataFileInterleave))
 						{
 							printf("Could not embed disk file %s\n", dataFiles[i]);
 							return 20;

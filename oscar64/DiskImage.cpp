@@ -31,6 +31,8 @@ static char A2P(char ch)
 
 DiskImage::DiskImage(const char* fname)
 {
+	mInterleave = 10;
+
 	for (int i = 0; i < 41; i++)
 		for (int j = 0; j < 21; j++)
 			memset(mSectors[i][j], 0, 256);
@@ -104,7 +106,7 @@ int DiskImage::AllocBAMSector(int track, int sector)
 
 	if (dp[0] > 0)
 	{
-		sector += 4;
+		sector += mInterleave;
 		if (sector >= SectorsPerTrack[track])
 			sector -= SectorsPerTrack[track];
 
@@ -228,8 +230,10 @@ void DiskImage::CloseFile(void)
 }
 
 
-bool DiskImage::WriteFile(const char* fname, bool compressed)
+bool DiskImage::WriteFile(const char* fname, bool compressed, int interleave)
 {
+	mInterleave = interleave;
+
 	FILE* file;
 	fopen_s(&file, fname, "rb");
 	if (file)

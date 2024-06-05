@@ -14,7 +14,7 @@ public:
 	void CloseFile(void);
 
 	int WriteBytes(const uint8* data, ptrdiff_t size);
-	bool WriteFile(const char* fname, bool compressed);
+	bool WriteFile(const char* fname, bool compressed, int interleave);
 
 protected:
 	uint8		mSectors[41][21][256];
@@ -24,6 +24,6 @@ protected:
 	int AllocBAMTrack(int track);
 
 	uint8	*	mDirEntry;
-	int			mTrack, mSector, mBytes;
+	int			mTrack, mSector, mBytes, mInterleave;
 
 };
