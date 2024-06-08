@@ -5125,7 +5125,7 @@ Expression* Parser::ParseLambdaExpression(void)
 				else
 				{
 					Declaration* mvdec = mScope->Lookup(mdec->mIdent);
-					if (mvdec && mvdec->mType == DT_VARIABLE)
+					if (mvdec && (mvdec->mType == DT_VARIABLE || mvdec->mType == DT_ARGUMENT))
 					{
 						iexp = new Expression(mdec->mLocation, EX_VARIABLE);
 						iexp->mDecType = mvdec->mBase;
