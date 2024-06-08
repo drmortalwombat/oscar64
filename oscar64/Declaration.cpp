@@ -1170,6 +1170,8 @@ Declaration* Declaration::BuildAddressOfPointer(void)
 {
 	if (mType == DT_TYPE_ARRAY)
 		return BuildArrayPointer();
+	else if (mType == DT_TYPE_REFERENCE)
+		return mBase->BuildAddressOfPointer();
 	else
 		return BuildPointer(mLocation);
 }
