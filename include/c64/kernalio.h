@@ -44,7 +44,7 @@ krnioerr krnio_status(void);
 
 bool krnio_load(char fnum, char device, char channel);
 
-bool krnio_save(char device, const char* start, const char* end);
+__noinline bool krnio_save(char device, const char* start, const char* end);
 
 // select the given file for stream output
 
