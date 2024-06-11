@@ -14661,6 +14661,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									ains->mSrc[0] = nins->mSrc[0];
 									ains->mSrc[0].mIntConst *= indexScale[lins->mSrc[0].mTemp];
 									tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+									ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
 
 									indexScale[ains->mDst.mTemp] = (int)ains->mSrc[0].mIntConst;
 
@@ -14695,6 +14696,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								ains->mSrc[0].mTemp = -1;
 								ains->mSrc[0].mIntConst = s;
 								tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+								ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
 
 								indexScale[ains->mDst.mTemp] = s;
 
@@ -20998,7 +21000,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "read_decompress");
+	CheckFunc = !strcmp(mIdent->mString, "_menuShowSprites");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

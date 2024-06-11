@@ -1500,6 +1500,8 @@ const Ident* Declaration::MangleIdent(void)
 
 		if (mFlags & DTF_CONST)
 			mMangleIdent = mMangleIdent->PreMangle("const ");
+		if (mFlags & DTF_VOLATILE)
+			mMangleIdent = mMangleIdent->PreMangle("volatile ");
 	}
 
 	return mMangleIdent;

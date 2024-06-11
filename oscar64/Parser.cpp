@@ -9098,7 +9098,7 @@ Expression* Parser::ParseStatement(void)
 							{
 								int numLoops = (endValue - startValue + 255) / 256;
 								int	numIterations = (endValue - startValue) / numLoops;
-								int	stride = (endValue - startValue + numLoops - 1) / numLoops;
+								int	stride = (endValue - startValue) / numLoops;
 								int	remain = (endValue - startValue) - numIterations * numLoops;
 
 								Expression* unrollBody = new Expression(mScanner->mLocation, EX_SEQUENCE);
