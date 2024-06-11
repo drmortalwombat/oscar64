@@ -54,7 +54,7 @@ bool krnio_open(char fnum, char device, char channel)
 {
 	krnio_pstatus[fnum] = KRNIO_OK;
 
-	__asm
+	return __asm
 	{
 		lda	#0
 		sta accu
@@ -75,7 +75,7 @@ bool krnio_open(char fnum, char device, char channel)
 		lda	#1
 		sta	accu
 	E2:
-	}
+	};
 
 }
 
@@ -94,13 +94,13 @@ void krnio_close(char fnum)
 
 krnioerr krnio_status(void)
 {
-	__asm
+	return __asm
 	{
 		jsr $ffb7			// readst
 		sta accu
 		lda #0
 		sta accu + 1
-	}
+	};
 }
 
 #pragma native(krnio_status)
@@ -108,7 +108,7 @@ krnioerr krnio_status(void)
 
 bool krnio_load(char fnum, char device, char channel)
 {
-	__asm
+	return __asm
 	{
 		lda	fnum
 		ldx	device
@@ -124,14 +124,14 @@ bool krnio_load(char fnum, char device, char channel)
 		rol
 		eor #1
 		sta accu
-	}
+	};
 }
 
 #pragma native(krnio_load)
 
 bool krnio_save(char device, const char* start, const char* end)
 {
-	__asm
+	return __asm
 	{
 		lda	#0
 		ldx	device
@@ -147,14 +147,14 @@ bool krnio_save(char device, const char* start, const char* end)
 		rol
 		eor #1
 		sta accu
-	}
+	};
 }
 
 #pragma native(krnio_save)
 
 bool krnio_chkout(char fnum)
 {
-	__asm
+	return __asm
 	{
 		ldx fnum
 		jsr	$ffc9			// chkout
@@ -163,14 +163,14 @@ bool krnio_chkout(char fnum)
 		rol
 		eor #1
 		sta accu
-	}
+	};
 }
 
 #pragma native(krnio_chkout)
 
 bool krnio_chkin(char fnum)
 {
-	__asm
+	return __asm
 	{
 		ldx fnum
 		jsr	$ffc6			// chkin
@@ -179,7 +179,7 @@ bool krnio_chkin(char fnum)
 		rol
 		eor #1
 		sta accu
-	}
+	};
 }
 
 #pragma native(krnio_chkin)
@@ -196,23 +196,23 @@ void krnio_clrchn(void)
 
 bool krnio_chrout(char ch)
 {
-		__asm
+	return __asm
 	{
 		lda ch
 		jsr $ffd2		// chrout
 		sta accu
-	}
+	};
 }
 
 #pragma native(krnio_chrout)
 
 char krnio_chrin(void)
 {
-	__asm
+	return __asm
 	{
 		jsr $ffcf		// chrin
 		sta accu
-	}
+	};
 }
 
 #pragma native(krnio_chrin)

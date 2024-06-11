@@ -802,6 +802,16 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 			requiredTemps += mAddress;
 			requiredTemps += mAddress + 1;
 			break;
+
+		case ASMIM_IMMEDIATE:
+			if (mFlags & NICF_TMPREF)
+			{
+				if (mFlags & NCIF_LOWER)
+					requiredTemps += mAddress;
+				if (mFlags & NCIF_UPPER)
+					requiredTemps += mAddress + 1;
+			}
+			break;
 		}
 
 		// check carry flags
@@ -13330,13 +13340,23 @@ NativeCodeInstruction NativeCodeBasicBlock::DecodeNative(const InterInstruction*
 		address = lobj->mData[offset++];
 		if (lref)
 		{
-			d.mMode = ASMIM_IMMEDIATE_ADDRESS;
-			linkerObject = lref->mRefObject;
-			address = lref->mRefOffset;
-			if (lref->mFlags & LREF_LOWBYTE)
-				flags = NCIF_LOWER;
+			if (lref->mFlags & LREF_TEMPORARY)
+			{
+				address = lobj->mTemporaries[lref->mRefOffset];
+				flags |= NICF_TMPREF | NCIF_LOWER;
+				if (lobj->mTempSizes[lref->mRefOffset] > 1)
+					flags |= NCIF_UPPER;
+			}
 			else
-				flags = NCIF_UPPER;
+			{
+				d.mMode = ASMIM_IMMEDIATE_ADDRESS;
+				linkerObject = lref->mRefObject;
+				address = lref->mRefOffset;
+				if (lref->mFlags & LREF_LOWBYTE)
+					flags = NCIF_LOWER;
+				else
+					flags = NCIF_UPPER;
+			}
 		}
 		break;
 	}
