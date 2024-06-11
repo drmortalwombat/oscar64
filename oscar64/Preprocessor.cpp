@@ -303,13 +303,27 @@ bool SourceFile::ReadLine(char* line)
 	return false;
 }
 
-struct CTMHeader8
+struct CTMHeader
 {
 	uint8	mID[3];
-	uint8	mVersion[1];
+	uint8	mVersion;
+};
+
+struct CTMHeader8
+{
 	uint8	mDispMode;
 	uint8	mColorMethod;
 	uint8	mFlags;
+	uint8	mColors[7];
+};
+
+struct CTMHeader9
+{
+	uint8	mDispMode;
+	uint8	mColorMethod;
+	uint8	mFlags;
+	uint8	mFgridWidth[2], mFGridHeight[2];
+	char	mFGridConfig;
 	uint8	mColors[7];
 };
 
@@ -433,11 +447,28 @@ void SourceFile::ReadSpritePad(Errors* errors, const Location& location, SourceF
 
 void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFileDecoder decoder)
 {
-	CTMHeader8	ctmHeader;
+	CTMHeader	ctmHeader;
+	CTMHeader8	ctmHeader8;
+	CTMHeader9	ctmHeader9;
 	uint16		ctmMarker, numChars, numTiles;
 	char		tileWidth, tileHeight;
 
-	fread(&ctmHeader, sizeof(CTMHeader8), 1, mFile);
+	fread(&ctmHeader, sizeof(CTMHeader), 1, mFile);
+	switch (ctmHeader.mVersion)
+	{
+	case 8:
+		fread(&ctmHeader8, sizeof(CTMHeader8), 1, mFile);
+		break;
+	case 9:
+		fread(&ctmHeader9, sizeof(CTMHeader9), 1, mFile);
+		ctmHeader8.mDispMode = ctmHeader9.mDispMode;
+		ctmHeader8.mColorMethod = ctmHeader9.mColorMethod;
+		ctmHeader8.mFlags = ctmHeader9.mFlags;
+
+		break;
+	}
+
+
 	fread(&ctmMarker, 2, 1, mFile);
 	fread(&numChars, 2, 1, mFile);
 	numChars++;
@@ -476,13 +507,13 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 		fseek(mFile, 1 * numChars, SEEK_CUR);
 	}
 
-	if (ctmHeader.mColorMethod == 2)
+	if (ctmHeader8.mColorMethod == 2)
 	{
 		fread(&ctmMarker, 2, 1, mFile);
 
 		if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2)
 		{
-			if (ctmHeader.mDispMode == 4)
+			if (ctmHeader8.mDispMode == 4)
 			{
 				for (int i = 0; i < mMemSize; i++)
 				{
@@ -510,9 +541,9 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 		else
 		{
 			// Skip colors
-			if (ctmHeader.mDispMode == 3)
+			if (ctmHeader8.mDispMode == 3)
 				fseek(mFile, 2 * numChars, SEEK_CUR);
-			else if (ctmHeader.mDispMode == 4)
+			else if (ctmHeader8.mDispMode == 4)
 				fseek(mFile, 3 * numChars, SEEK_CUR);
 			else
 				fseek(mFile, numChars, SEEK_CUR);
@@ -523,7 +554,7 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 		return;
 	}
 
-	if (ctmHeader.mFlags & 1)
+	if (ctmHeader8.mFlags & 1)
 	{
 		fread(&ctmMarker, 2, 1, mFile);
 
@@ -572,7 +603,7 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 		else
 			fseek(mFile, 2 * numTiles * tileWidth * tileHeight, SEEK_CUR);
 
-		if (ctmHeader.mColorMethod == 1)
+		if (ctmHeader8.mColorMethod == 1)
 		{
 			fread(&ctmMarker, 2, 1, mFile);
 			if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2)
@@ -582,7 +613,7 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 				mMemPos = 0;
 				mMemData = new uint8[mMemSize];
 
-				if (ctmHeader.mDispMode == 4)
+				if (ctmHeader8.mDispMode == 4)
 				{
 					for (int i = 0; i < mMemSize; i++)
 					{
@@ -609,9 +640,9 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 			else
 			{
 				// Skip colors
-				if (ctmHeader.mDispMode == 3)
+				if (ctmHeader8.mDispMode == 3)
 					fseek(mFile, 2 * numTiles, SEEK_CUR);
-				else if (ctmHeader.mDispMode == 4)
+				else if (ctmHeader8.mDispMode == 4)
 					fseek(mFile, 3 * numTiles, SEEK_CUR);
 				else
 					fseek(mFile, numTiles, SEEK_CUR);
