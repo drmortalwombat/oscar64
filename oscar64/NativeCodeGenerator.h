@@ -673,6 +673,7 @@ public:
 	bool GlobalSwapXY(void);
 	bool LocalSwapXY(void);
 	bool UntangleXYUsage(void);
+	bool AlternateXXUsage(void);
 
 	bool IsSimpleSubExpression(int at, NativeSimpleSubExpression & ex);
 	bool PropagateCommonSubExpression(void);

@@ -604,6 +604,9 @@ public:
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	bool MergeLoopTails(void);
 
+	InterCodeBasicBlock* CheckIsConstBranch(const GrowingInstructionPtrArray& cins);
+	bool ShortcutConstBranches(const GrowingInstructionPtrArray& cins);
+
 	InterCodeBasicBlock* BuildLoopPrefix(void);
 	void BuildLoopSuffix(void);
 
@@ -744,6 +747,7 @@ protected:
 	void WarnInvalidValueRanges(void);
 	void PropagateMemoryAliasingInfo(void);
 	void MoveConditionsOutOfLoop(void);
+	void ShortcutConstBranches(void);
 
 	void CollapseDispatch(void);
 

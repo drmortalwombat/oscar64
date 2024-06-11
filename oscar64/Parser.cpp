@@ -3307,7 +3307,7 @@ void Parser::PrependThisArgument(Declaration* fdec, Declaration* pthis)
 {
 	Declaration* adec = new Declaration(fdec->mLocation, DT_ARGUMENT);
 
-	if (fdec->mBase->mType == DT_TYPE_STRUCT)
+	if (fdec->mBase && fdec->mBase->mType == DT_TYPE_STRUCT)
 		adec->mVarIndex = 2;
 	else
 		adec->mVarIndex = 0;
@@ -5103,7 +5103,10 @@ Expression* Parser::ParseLambdaExpression(void)
 					cdec->mParams = mdec;
 				}
 				else
+				{
 					mErrors->Error(mScanner->mLocation, ERRO_THIS_OUTSIDE_OF_METHOD, "Use of this outside of method");
+					mdec->mBase = TheVoidTypeDeclaration;
+				}
 
 				mdec->mOffset = cdec->mSize;
 				mdec->mSize = mdec->mBase->mSize;
@@ -8651,7 +8654,9 @@ Expression* Parser::ParseFunction(Declaration * dec)
 		}
 	}
 
-	if (dec->mBase->mType == DT_TYPE_AUTO)
+	if (!dec->mBase)
+		dec->mBase = TheVoidTypeDeclaration;
+	else if (dec->mBase->mType == DT_TYPE_AUTO)
 		dec->mBase->mType = DT_TYPE_VOID;
 
 	mScope->End(mScanner->mLocation);

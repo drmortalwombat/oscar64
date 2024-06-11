@@ -2,7 +2,8 @@
 #include <c64/cia.h>
 #include <c64/vic.h>
 
-IEC_STATUS iec_status;
+IEC_STATUS 	iec_status;
+char		iec_queue;
 
 #define CIA2B_ATNOUT	0x08
 #define CIA2B_CLKOUT	0x10
@@ -25,45 +26,55 @@ static void delay(char n)
 	}
 }
 
-static inline void data_low(void)
+static inline void data_true(void)
 {
 	cia2.pra &= ~CIA2B_DATAOUT;
 }
 
-static inline void data_high(void)
+static inline void data_false(void)
 {
 	cia2.pra |= CIA2B_DATAOUT;
 }
 
-static inline void clock_low(void)
+static inline void clock_true(void)
 {
 	cia2.pra &= ~CIA2B_CLKOUT;
 }
 
-static inline void cdata_low(void)
+static inline void cdata_true(void)
 {
 	cia2.pra &= ~(CIA2B_CLKOUT | CIA2B_DATAOUT);
 }
 
-static inline void clock_high(void)
+static inline void clock_false(void)
 {
 	cia2.pra |= CIA2B_CLKOUT;
 }
 
-static inline void atn_low(void)
+static inline void atn_true(void)
 {
 	cia2.pra &= ~CIA2B_ATNOUT;
 }
 
-static inline void atn_high(void)
+static inline void atn_false(void)
 {
 	cia2.pra |= CIA2B_ATNOUT;
+}
+
+static inline bool data_in(void)
+{
+	return (cia2.pra & CIA2B_DATAIN) != 0;
+}
+
+static inline bool clock_in(void)
+{
+	return (cia2.pra & CIA2B_CLKIN) != 0;
 }
 
 static bool data_check(void)
 {
  	char cnt = 100;
-	while (cnt > 0 && (cia2.pra & CIA2B_DATAIN))
+	while (cnt > 0 && data_in())
 		cnt--;
 
 	if (cnt)
@@ -75,68 +86,106 @@ static bool data_check(void)
 	}	
 }
 
-bool iec_eoi(void)
+static bool iec_eoib(void)
 {
-	cdata_low();
+	clock_true();
 
-	while (!(cia2.pra & CIA2B_DATAIN))
-		;
+	while (!data_in());
+
 	delay(40);
+
+	return data_check();
+}
+
+static bool iec_writeb(char b)
+{
+	clock_true();
+
+	while (!data_in());
+
+	for(char i=0; i<8; i++)
+	{
+		delay(8);
+		clock_false();
+		delay(8);
+		if (b & 1)
+			data_true();
+		else
+			data_false();		
+		clock_true();
+		b >>= 1;
+	}
+	delay(8);
+	clock_false();
+	data_true();
 
 	return data_check();
 }
 
 bool iec_write(char b)
 {
-	cdata_low();
-
-	while (!(cia2.pra & CIA2B_DATAIN))
-		;
-
-	clock_high();
-
-	for(char i=0; i<8; i++)
+	if (iec_status == IEC_QUEUED)
 	{
-		if (b & 1)
-			data_low();
-		else
-			data_high();		
-		delay(5);
-		clock_low();
-		b >>= 1;
-		delay(5);
-		clock_high();
-		data_low();
+		__asm
+		{
+			php
+			sei
+		}
+
+		iec_status = IEC_OK;
+		iec_writeb(iec_queue);
+
+	 	__asm
+		{
+			plp
+		}
+	}
+	if (iec_status < IEC_ERROR)
+	{
+		iec_queue = b;
+		iec_status = IEC_QUEUED;
+		return true;
 	}
 
-	return data_check();
+	return false;
 }
 
 char iec_read(void)
 {
-	while (!(cia2.pra & CIA2B_CLKIN))
-		;
+	while (!clock_in());
 
- 	data_low();
+	__asm
+	{
+		php
+		sei
+	}
+
+ 	data_true();
 
  	char cnt = 100;
-	while (cnt > 0 && (cia2.pra & CIA2B_CLKIN))
+	while (cnt > 0 && clock_in())
 		cnt--;
 
 	if (cnt == 0)
 	{
 		iec_status = IEC_EOF;
- 		data_high();
+ 		data_false();
 		delay(4);
-		data_low();
+		data_true();
 
 		cnt = 200;
-		while (cnt > 0 && (cia2.pra & CIA2B_CLKIN))
+		while (cnt > 0 && clock_in())
 			cnt--;
 
 		if (cnt == 0)
 		{
 			iec_status = IEC_TIMEOUT;
+
+		 	__asm
+			{
+				plp
+			}
+			
 			return 0;
 		}
  	}
@@ -155,25 +204,32 @@ char iec_read(void)
 			;
  	}
 
- 	data_high();
+ 	data_false();
  	
+ 	__asm
+	{
+		plp
+	}
+
  	return b;
 }
 
 void iec_atn(char dev, char sec)
-{
-	cdata_low();
-	atn_high();
- 	clock_high();
+{	
+	clock_true();
+	data_true();
+	atn_false();
+	clock_false();
 
  	delay(200);
 
-	iec_write(dev);
-	if (sec != 0xff)
-		iec_write(sec);
+ 	while (data_in());
 
-	data_high();
-	atn_low();	
+	iec_writeb(dev);
+	if (sec != 0xff)
+		iec_writeb(sec);
+
+	atn_true();	
 }
 
 
@@ -182,7 +238,7 @@ void iec_talk(char dev, char sec)
 	iec_status = IEC_OK;
 
 	iec_atn(dev | 0x40, sec | 0x60);
-	clock_low();	
+	clock_true();
 
 	delay(10);	
 }
@@ -201,7 +257,25 @@ void iec_listen(char dev, char sec)
 
 void iec_unlisten(void)
 {
+	__asm
+	{
+		php
+		sei
+	}
+
+	if (iec_status == IEC_QUEUED)
+	{
+		iec_eoib();
+		iec_writeb(iec_queue);
+	}
+
 	iec_atn(0x3f, 0xff);
+	clock_true();
+
+ 	__asm
+	{
+		plp
+	}
 }
 
 void iec_open(char dev, char sec, const char * fname)
@@ -213,8 +287,6 @@ void iec_open(char dev, char sec, const char * fname)
 	char i = 0;
 	while (fname[i])
 	{
-		if (!fname[i + 1])
-			iec_eoi();
 		iec_write(fname[i]);
 		i++;
 	}

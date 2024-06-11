@@ -5,6 +5,7 @@ enum IEC_STATUS
 {
 	IEC_OK = 0x00,
 	IEC_EOF = 0x01,
+	IEC_QUEUED = 0x02,
 
 	IEC_ERROR = 0x80,
 	IEC_TIMEOUT,
@@ -12,8 +13,6 @@ enum IEC_STATUS
 };
 
 extern IEC_STATUS iec_status;
-
-bool iec_eoi(void);
 
 bool iec_write(char b);
 
