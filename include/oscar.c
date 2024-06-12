@@ -86,3 +86,46 @@ const char * oscar_expand_rle(char * dp, const char * sp)
 
 	return sp + 1;
 }
+
+__native const char * oscar_expand_lzo_buf(char * dp, const char * sp)
+{
+	char	buf[256];
+	char	b = 0;
+
+	char	cmd = sp[0];
+	do
+	{
+		if (cmd & 0x80)
+		{
+			char i = b - sp[1];
+			cmd &= 0x7f;
+			sp += 2;
+
+			char n = 0;
+			do 	{
+				buf[b] = dp[n] = buf[i];
+				b++;
+				i++;
+				n++;
+			} while (n != cmd);
+		}
+		else
+		{
+			sp += 1;
+
+			char n = 0;
+			do 	{
+				buf[b] = dp[n] = sp[n];
+				b++;
+				n++;
+			} while (n != cmd);
+
+			sp += cmd;
+		}
+		dp += cmd;
+
+		cmd = sp[0];
+	} while (cmd);
+
+	return sp + 1;
+}
