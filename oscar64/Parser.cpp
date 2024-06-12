@@ -12127,8 +12127,8 @@ void Parser::ParsePragma(void)
 						mCompilerOptions &= ~COPT_OPTIMIZE_SIZE;
 					else if (ConsumeIdentIf("noinline"))
 						mCompilerOptions &= ~(COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE_ALL);
-					else if (ConsumeIdentIf("inline"))
-						mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE;
+					else if (ConsumeTokenIf(TK_INLINE))
+						mCompilerOptions |= COPT_OPTIMIZE_INLINE;
 					else if (ConsumeIdentIf("autoinline"))
 						mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE;
 					else if (ConsumeIdentIf("maxinline"))
