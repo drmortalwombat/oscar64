@@ -119,6 +119,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -d64 : create a d64 disk image
 * -f : add a binary file to the disk image
 * -fz : add a compressed binary file to the disk image
+* -fi : sector skip for data files on disk image
 * -xz : extended zero page usage, more zero page space, but no return to basic
 * -cid : cartridge type ID, used by vice emulator
 * -pp : compile in C++ mode
@@ -929,6 +930,10 @@ Renders a hires image into a buffer at 0xe000..0xff40 and saves it to disk.  The
 #### Reading image data "hiresread.c"
 
 Reads a hires image from disk into a buffer at 0xe000..0xff40 and displays it.  The read can be performed without a secondary buffer, because writes to the ROM end up in the RAM underneath.
+
+#### Fasload image data "hiresfload.c"
+
+Use the oscar flossiec fast loader to load a compressed multicolor image to 0xe000..0xff40 and 0xcc00..0xcfff.
 
 ### Remapping memory "memmap"
 

@@ -82,6 +82,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_0CAC2197F4C34B33AFF5A3D0A7C78454"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_0CC2E11595B34DF0A003DF534A5AADF5"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -250,6 +256,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_2CE4E742BFAC456C99ECA1DF0BFC5F34"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_2D828D0247F144CDB0112B2AD4004C2C"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -359,6 +371,12 @@
         "Entry"
         {
         "MsmKey" = "8:_438F2450C997431898912DA2D4DFCEAE"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_43B55A11B25F4F13A9AE7E36B1AD2897"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -965,6 +983,12 @@
         "Entry"
         {
         "MsmKey" = "8:_C239EFB1C3A646809AD2740ABDE747B0"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_C30DFFA5DE3D4FEC982E5EB08F63C55E"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -1647,6 +1671,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_0CAC2197F4C34B33AFF5A3D0A7C78454"
+            {
+            "SourcePath" = "8:..\\samples\\kernalio\\hiresfload.c"
+            "TargetName" = "8:hiresfload.c"
+            "Tag" = "8:"
+            "Folder" = "8:_35EAA89057B0488590EC66D0D27D657A"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_0CC2E11595B34DF0A003DF534A5AADF5"
             {
             "SourcePath" = "8:..\\include\\audio\\sidfx.h"
@@ -2207,6 +2251,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_2CE4E742BFAC456C99ECA1DF0BFC5F34"
+            {
+            "SourcePath" = "8:..\\include\\c64\\flossiec.c"
+            "TargetName" = "8:flossiec.c"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_2D828D0247F144CDB0112B2AD4004C2C"
             {
             "SourcePath" = "8:..\\samples\\scrolling\\tunnel.c"
@@ -2573,6 +2637,26 @@
             "TargetName" = "8:movingbars.c"
             "Tag" = "8:"
             "Folder" = "8:_E925E579BC89433389A5D5B048CAA36A"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_43B55A11B25F4F13A9AE7E36B1AD2897"
+            {
+            "SourcePath" = "8:..\\samples\\resources\\blumba2.bin"
+            "TargetName" = "8:blumba2.bin"
+            "Tag" = "8:"
+            "Folder" = "8:_758C6547998745659548D0656D380FEA"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -4607,6 +4691,26 @@
             "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_C30DFFA5DE3D4FEC982E5EB08F63C55E"
+            {
+            "SourcePath" = "8:..\\include\\c64\\flossiec.h"
+            "TargetName" = "8:flossiec.h"
+            "Tag" = "8:"
+            "Folder" = "8:_247D4CAD3CB843B3A8A4DC2D90F47C28"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_C3C6C74DFAB942AA8BFC15885A2D9BD0"
             {
             "SourcePath" = "8:..\\include\\c64\\asm6502.h"
@@ -6180,15 +6284,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:oscar64"
-        "ProductCode" = "8:{38B34FC3-58A4-4E08-B94D-6212BEA3A690}"
-        "PackageCode" = "8:{F3E7D60F-0382-4607-A1BA-0DE937C730BC}"
+        "ProductCode" = "8:{5133698F-A751-4705-B7AA-5414727D9B4B}"
+        "PackageCode" = "8:{2BA82A38-8FC6-418B-ABC1-24C5475B58D2}"
         "UpgradeCode" = "8:{9AB61EFF-ACAC-4079-9950-8D96615CD4EF}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.28.246"
+        "ProductVersion" = "8:1.29.247"
         "Manufacturer" = "8:oscar64"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
