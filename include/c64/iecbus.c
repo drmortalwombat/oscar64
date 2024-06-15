@@ -103,19 +103,19 @@ static bool iec_writeb(char b)
 
 	while (!data_in());
 
+	delay(5);
 	for(char i=0; i<8; i++)
 	{
-		delay(8);
 		clock_false();
-		delay(8);
+		delay(4);
 		if (b & 1)
 			data_true();
 		else
 			data_false();		
 		clock_true();
 		b >>= 1;
+		delay(4);
 	}
-	delay(8);
 	clock_false();
 	data_true();
 

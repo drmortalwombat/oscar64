@@ -5020,6 +5020,22 @@ bool InterInstruction::ConstantFolding(void)
 			return true;
 		}
 		break;
+	case IC_TYPECAST:
+		if (mSrc[0].mTemp < 0)
+		{
+			if (mDst.mType == IT_POINTER && IsIntegerType(mSrc[0].mType))
+			{
+				mCode = IC_CONSTANT;
+				mConst.mType = IT_POINTER;
+				mConst.mMemory = IM_ABSOLUTE;
+				mConst.mIntConst = mSrc[0].mIntConst;
+				mConst.mLinkerObject = nullptr;
+				mConst.mOperandSize = 2;
+				mNumOperands = 0;
+				return true;
+			}
+		}
+		break;
 	case IC_LOAD_TEMPORARY:
 		if (mDst.mTemp == mSrc[0].mTemp)
 		{
@@ -21000,7 +21016,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "_menuShowSprites");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
