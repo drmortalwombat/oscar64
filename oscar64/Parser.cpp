@@ -4554,8 +4554,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
 							{
-								if (ndec->mBase->mType == DT_TYPE_ARRAY && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase) && pdec->mBase->mSize == 0)
-									pdec->mBase->mSize = ndec->mBase->mSize;
+								if (ndec->mBase->mType == DT_TYPE_ARRAY && pdec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase))
+								{
+									pdec->mBase = ndec->mBase;
+								}
 								else if (pdec->mBase->mType == DT_TYPE_POINTER && ndec->mBase->mType == DT_TYPE_ARRAY && ndec->mBase->mBase->IsSame(pdec->mBase->mBase))
 								{
 									pdec->mBase = ndec->mBase;
@@ -4563,6 +4565,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 								else
 									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent);
 							}
+							else
+								pdec->mBase = ndec->mBase;
 
 							if (!(ndec->mFlags & DTF_EXTERN))
 							{

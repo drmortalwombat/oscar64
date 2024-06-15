@@ -2463,6 +2463,10 @@ bool Declaration::IsSame(const Declaration* dec) const
 		return true;
 	if (mType != dec->mType)
 		return false;
+
+	if (!(mFlags & dec->mFlags & DTF_DEFINED) && mType == DT_TYPE_STRUCT)
+		return mIdent == dec->mIdent;
+
 	if (mSize != dec->mSize)
 		return false;
 	if (mStripe != dec->mStripe)

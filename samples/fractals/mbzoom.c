@@ -8,6 +8,9 @@
 // Lookup table for squares from 0..255
 __striped unsigned sqb[256];
 
+// Shift byte right and left by 4
+char shlb4[256], shrb4[256];
+
 #pragma align(sqb, 256);
 
 // Square an unsigned int into an unsigned long
@@ -103,6 +106,16 @@ static const char colors[32] = {
 	VCOL_DARK_GREY,
 };
 
+inline int shr12(long l)
+{
+	char b3 = (l >> 24) & 0xff;
+	char b2 = (l >> 16) & 0xff;
+	char b1 = (l >>  8) & 0xff;
+	char a0 = shrb4[b1] | shlb4[b2];
+	char a1 = shrb4[b2] | shlb4[b3];
+	return a0 | (a1 << 8);
+}
+
 // Return color for a given coordinate in the complex plane using
 // 12.4bit fixed numbers using m'=m²+b
 
@@ -119,15 +132,17 @@ inline char fcolor(int xz, int yz)
 		// Build squares of real and imaginary component
 		long xx = sq(x), yy = sq(y), xxyy = sq(x + y);
 
-		// Use squares to check for exit condition of sure
-		// to proress towards infinity
-		if (xx + yy >= 4L * 4096 * 4096) return colors[i];
+		long xxpyy = xx + yy;
 		
-		// Next iteration values using complex artithmetic
+		// Use squares to check for exit condition of sure
+		// to progress towards infinity
+		if (xxpyy >= 4L * 4096 * 4096) return colors[i];
+		
+		// Next iteration values using complex arithmetic
 		// Mx' = Mx² - My² + Bx
 		// My' = 2 * Mx * My + By = (Mx + My)² - Mx² - My² + By		
-		x = ((xx - yy + 2048) >> 12) + xz;
-		y = ((xxyy - xx - yy + 2048) >> 12) + yz;
+		x = shr12(xx - yy + 2048) + xz;
+		y = shr12(xxyy - xxpyy + 2048) + yz;
 	}
 	
 	// More than maximum number of iterations, so assume progress
@@ -225,7 +240,11 @@ int main(void)
 {
 	// Initialize square table
 	for(unsigned i=0; i<256; i++)
+	{
 		sqb[i] = i * i;
+		shlb4[i] = i << 4;
+		shrb4[i] = i >> 4;
+	}
 
 	// Clear screen
 	memset(Screen, 160, 1024);
