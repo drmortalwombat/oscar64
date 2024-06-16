@@ -964,7 +964,9 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		ex->mDecType = mLeft->mDecType;
 		return ex;
 	}
-	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_CONST) && mLeft->mDecType->mType == DT_TYPE_POINTER && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
+	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_CONST) && 
+		mLeft->mDecValue->mValue->mType == EX_CONSTANT &&
+		mLeft->mDecType->mType == DT_TYPE_POINTER && mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
 	{
 		mLeft = mLeft->mDecValue->mValue;
 		return this->ConstantFold(errors, dataSection);

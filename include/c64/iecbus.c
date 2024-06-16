@@ -239,6 +239,7 @@ void iec_talk(char dev, char sec)
 
 	iec_atn(dev | 0x40, sec | 0x60);
 	clock_true();
+	data_false();
 
 	delay(10);	
 }
