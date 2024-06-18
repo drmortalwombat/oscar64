@@ -149,6 +149,8 @@ inline void rirq_init(bool kernalIRQ);
 
 void rirq_init_kernal(void);
 
+void rirq_init_kernal_io(void);
+
 void rirq_init_io(void);
 
 void rirq_init_memmap(void);

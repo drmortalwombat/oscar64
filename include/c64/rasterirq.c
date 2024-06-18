@@ -248,6 +248,88 @@ ex2:
 	jmp $ea31
 }
 
+__asm irq3
+{	
+	lda $01
+	pha
+	lda #$36
+	sta $01
+
+	lda $d019
+	bpl ex2
+	
+	ldx	nextIRQ
+l1:
+	lda	rasterIRQNext, x
+	cmp	#$ff
+	beq	e1
+
+	ldy rasterIRQIndex + 1, x
+	tax
+	lda	rasterIRQLow, y
+	sta ji + 1
+	lda	rasterIRQHigh, y
+	sta ji + 2
+
+ji:	
+	jsr $0000
+jx:
+
+	inc	nextIRQ
+	ldx nextIRQ
+
+	lda	rasterIRQNext, x
+	cmp #$ff
+	beq e2
+
+	tay
+
+	sec
+	sbc	#4
+	cmp	$d012
+	bcc l1
+
+	dey
+	sty	$d012
+w1:
+	jmp ex
+
+e2:
+	ldx npos
+	stx tpos
+	inc rirq_count
+
+	bit	$d011
+	bmi e1
+
+	sta $d012
+
+	jmp ex
+
+e1:
+	ldx	#0
+	stx nextIRQ
+	lda	rasterIRQNext, x
+	sec
+	sbc	#1
+	sta $d012
+	
+ex:
+	asl $d019
+	pla
+	sta $01
+
+	jmp $ea81
+
+ex2:
+	LDA $DC0D
+	cli
+	pla
+	sta $01
+
+	jmp $ea31
+}
+
 //  0 lda #data0
 //  2 ldy #data1
 //  4 cpx $d012
@@ -403,6 +485,23 @@ void rirq_init_kernal(void)
     }
 
    	*(void **)0x0314 = irq1;
+
+	vic.intr_enable = 1;
+	vic.ctrl1 &= 0x7f;
+	vic.raster = 255;
+
+}
+
+void rirq_init_kernal_io(void)
+{
+	rirq_init_tables();
+
+    __asm 
+    {
+        sei
+    }
+
+   	*(void **)0x0314 = irq3;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;

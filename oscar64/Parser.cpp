@@ -1739,14 +1739,17 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 						Expression* texp = ParseInitExpression(mdec->mBase);
 
 						Declaration* cdec = CopyConstantInitializer(mdec->mOffset, mdec->mBase, texp);
-						cdec->mBits = mdec->mBits;
-						cdec->mShift = mdec->mShift;
+						if (cdec)
+						{
+							cdec->mBits = mdec->mBits;
+							cdec->mShift = mdec->mShift;
 
-						if (last)
-							last->mNext = cdec;
-						else
-							dec->mParams = cdec;
-						last = cdec;
+							if (last)
+								last->mNext = cdec;
+							else
+								dec->mParams = cdec;
+							last = cdec;
+						}
 
 						if (!ConsumeTokenIf(TK_COMMA))
 							break;
