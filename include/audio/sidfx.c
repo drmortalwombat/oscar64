@@ -29,6 +29,11 @@ void sidfx_init(void)
 	}
 }
 
+bool sidfx_idle(byte chn)
+{
+	return channels[chn].state == SIDFX_IDLE;
+}
+
 void sidfx_play(byte chn, const SIDFX * fx, byte cnt)
 {
 	SIDFXState		ns = channels[chn].state;

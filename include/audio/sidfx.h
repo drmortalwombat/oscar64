@@ -14,6 +14,8 @@ struct SIDFX
 
 void sidfx_init(void);
 
+inline bool sidfx_idle(byte chn);
+
 inline void sidfx_play(byte chn, const SIDFX * fx, byte cnt);
 
 void sidfx_stop(byte chn);

@@ -48519,7 +48519,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "flossiec_read_lzo");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -49772,6 +49772,13 @@ void NativeCodeProcedure::Optimize(void)
 		if (mEntryBlock->ApplyEntryDataSet())
 			changed = true;
 #endif
+
+		if (step == 2 && !changed)
+		{
+			ResetVisited();
+			if (mEntryBlock->CombineSameXY())
+				changed = true;
+		}
 
 #if 1
 		if (step >= 5)
