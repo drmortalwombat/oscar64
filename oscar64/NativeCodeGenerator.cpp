@@ -27813,7 +27813,14 @@ bool NativeCodeBasicBlock::PatchGlobalAddressSumYPointer(const NativeCodeBasicBl
 				ins.mAddress = address + yval;
 				ins.mFlags = (ins.mFlags & ~(NCIF_LOWER | NCIF_UPPER)) | flags;
 				if (ins.mLive & LIVE_CPU_REG_Y)
+				{
 					mIns.Insert(at + 1, NativeCodeInstruction(iins, ASMIT_LDY, ASMIM_IMMEDIATE, yval));
+					if (ins.mLive & LIVE_CPU_REG_Z)
+					{
+						mIns.Insert(at + 2, NativeCodeInstruction(iins, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+						ins.mLive |= LIVE_CPU_REG_A;
+					}
+				}
 				mIns.Insert(at, NativeCodeInstruction(iins, ASMIT_LDY, ASMIM_ZERO_PAGE, index));
 				at++;
 				
@@ -34914,6 +34921,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				prevBlock->mIns.Push(mIns[si]);
 				mIns.Remove(si);
 
+				prevBlock->mExitRequiredRegs += CPU_REG_X;
 				mEntryRequiredRegs += CPU_REG_X;
 				mExitRequiredRegs += CPU_REG_X;
 
@@ -48519,7 +48527,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "enemies_move");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -50268,7 +50276,6 @@ void NativeCodeProcedure::Optimize(void)
 	data.Reset();
 	mEntryBlock->BuildEntryDataSet(data);
 
-	CheckCase = true;
 	ResetVisited();
 	if (mEntryBlock->ApplyEntryDataSet())
 		changed = true;
