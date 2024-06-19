@@ -254,6 +254,8 @@ public:
 
 	ExpandingArray<NativeRegisterSum16Info>	mRSumInfos;
 
+	NativeCodeInstruction		mALSIns, mXLSIns, mYLSIns;
+
 	NativeCodeInstruction DecodeNative(const InterInstruction* ins, LinkerObject * lobj, int& offset) const;
 
 	int PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int offset);
@@ -491,6 +493,8 @@ public:
 
 	// Join sequences of TXA, CLC, ADC #xx into INX, TXA sequences if possible
 	bool JoinXYCascade(void);
+
+	bool GlobalLoadStoreForwarding(const NativeCodeInstruction & als, const NativeCodeInstruction & xls, const NativeCodeInstruction & yls);
 
 	bool RegisterValueForwarding(void);
 	bool CanCombineSameXtoY(int start, int end);

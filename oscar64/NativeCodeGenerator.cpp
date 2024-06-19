@@ -371,10 +371,27 @@ void NativeRegisterDataSet::Intersect(const NativeRegisterDataSet& set)
 					}
 				}
 			}
-			else if (mRegs[i].mMode == NRDM_ABSOLUTE_X || mRegs[i].mMode == NRDM_ABSOLUTE_Y)
+			else if (mRegs[i].mMode == NRDM_ABSOLUTE_X)
 			{
-				mRegs[i].Reset();
-				changed = true;
+				if (set.mRegs[i].mMode != NRDM_ABSOLUTE_X || 
+					mRegs[i].mLinkerObject != set.mRegs[i].mLinkerObject ||
+					mRegs[i].mValue != set.mRegs[i].mValue ||
+					!mRegs[CPU_REG_X].SameData(set.mRegs[CPU_REG_X]))
+				{
+					mRegs[i].Reset();
+					changed = true;
+				}
+			}
+			else if (mRegs[i].mMode == NRDM_ABSOLUTE_Y)
+			{
+				if (set.mRegs[i].mMode != NRDM_ABSOLUTE_Y ||
+					mRegs[i].mLinkerObject != set.mRegs[i].mLinkerObject ||
+					mRegs[i].mValue != set.mRegs[i].mValue ||
+					!mRegs[CPU_REG_Y].SameData(set.mRegs[CPU_REG_Y]))
+				{
+					mRegs[i].Reset();
+					changed = true;
+				}
 			}
 		}
 
@@ -15933,6 +15950,192 @@ bool NativeCodeBasicBlock::JoinXYCascade(void)
 		if (mTrueJump && mTrueJump->JoinXYCascade())
 			changed = true;
 		if (mFalseJump && mFalseJump->JoinXYCascade())
+			changed = true;
+	}
+
+	return changed;
+}
+
+bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction & als, const NativeCodeInstruction & xls, const NativeCodeInstruction & yls)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mNumEntered++;
+
+		if (mLoopHead)
+		{
+			mALSIns.mType = ASMIT_INV;
+			mXLSIns.mType = ASMIT_INV;
+			mYLSIns.mType = ASMIT_INV;
+		}
+		else if (mNumEntered == 1)
+		{
+			mALSIns = als;
+			mXLSIns = xls;
+			mYLSIns = yls;
+		}
+		else
+		{
+			if (als.mType == ASMIT_INV || (mALSIns.mType != ASMIT_INV && !mALSIns.SameEffectiveAddress(als))) mALSIns.mType = ASMIT_INV;
+			if (xls.mType == ASMIT_INV || (mXLSIns.mType != ASMIT_INV && !mXLSIns.SameEffectiveAddress(xls))) mXLSIns.mType = ASMIT_INV;
+			if (yls.mType == ASMIT_INV || (mYLSIns.mType != ASMIT_INV && !mYLSIns.SameEffectiveAddress(yls))) mYLSIns.mType = ASMIT_INV;
+		}
+
+		if (!mLoopHead && mNumEntered != mNumEntries)
+			return false;
+
+		mVisited = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+			if (ins.mType == ASMIT_STA)
+			{
+				if (mALSIns.mType != ASMIT_INV && ins.SameEffectiveAddress(mALSIns) && !(ins.mFlags & NCIF_VOLATILE))
+				{
+					ins.mType = ASMIT_NOP;
+					ins.mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else
+				{
+					if ((ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
+						mALSIns = ins;
+					if (mXLSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mXLSIns))
+						mXLSIns.mType = ASMIT_INV;
+					if (mYLSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mYLSIns))
+						mYLSIns.mType = ASMIT_INV;
+				}
+			}
+			else if (ins.mType == ASMIT_LDA)
+			{
+				if (mALSIns.mType != ASMIT_INV && ins.SameEffectiveAddress(mALSIns) && !(ins.mFlags & NCIF_VOLATILE))
+				{
+					ins.mType = ASMIT_ORA;
+					ins.mMode = ASMIM_IMMEDIATE;
+					ins.mAddress = 0;
+					changed = true;
+				}
+				else if ((ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
+					mALSIns = ins;
+				else
+					mALSIns.mType = ASMIT_INV;
+			}
+			else if (ins.mType == ASMIT_STX)
+			{
+				if (mXLSIns.mType != ASMIT_INV && ins.SameEffectiveAddress(mXLSIns) && !(ins.mFlags & NCIF_VOLATILE))
+				{
+					ins.mType = ASMIT_NOP;
+					ins.mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else
+				{
+					if ((ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
+						mXLSIns = ins;
+					if (mALSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mALSIns))
+						mALSIns.mType = ASMIT_INV;
+					if (mYLSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mYLSIns))
+						mYLSIns.mType = ASMIT_INV;
+				}
+			}
+			else if (ins.mType == ASMIT_LDX)
+			{
+				if (mXLSIns.mType != ASMIT_INV && ins.SameEffectiveAddress(mXLSIns) && !(ins.mLive & LIVE_CPU_REG_Z) && !(ins.mFlags & NCIF_VOLATILE))
+				{
+					ins.mType = ASMIT_NOP;
+					ins.mMode = ASMIM_IMPLIED;
+					ins.mAddress = 0;
+					changed = true;
+				}
+				else
+				{
+					if ((ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
+						mXLSIns = ins;
+					else
+						mXLSIns.mType = ASMIT_INV;
+					if (mALSIns.mType != ASMIT_INV && mALSIns.mMode == ASMIM_ABSOLUTE_X)
+						mALSIns.mType = ASMIT_INV;
+					if (mYLSIns.mType != ASMIT_INV && mYLSIns.mMode == ASMIM_ABSOLUTE_X)
+						mYLSIns.mType = ASMIT_INV;
+				}
+			}
+			else if (ins.mType == ASMIT_STY)
+			{
+				if (mYLSIns.mType != ASMIT_INV && ins.SameEffectiveAddress(mYLSIns) && !(ins.mFlags & NCIF_VOLATILE))
+				{
+					ins.mType = ASMIT_NOP;
+					ins.mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else
+				{
+					if ((ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X) && !(ins.mFlags & NCIF_VOLATILE))
+						mYLSIns = ins;
+					if (mALSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mALSIns))
+						mALSIns.mType = ASMIT_INV;
+					if (mXLSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mXLSIns))
+						mXLSIns.mType = ASMIT_INV;
+				}
+			}
+			else if (ins.mType == ASMIT_LDY)
+			{
+				if (mYLSIns.mType != ASMIT_INV && ins.SameEffectiveAddress(mYLSIns) && !(ins.mLive & LIVE_CPU_REG_Z) && !(ins.mFlags & NCIF_VOLATILE))
+				{
+					ins.mType = ASMIT_NOP;
+					ins.mMode = ASMIM_IMPLIED;
+					ins.mAddress = 0;
+					changed = true;
+				}
+				else
+				{
+					if ((ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X) && !(ins.mFlags & NCIF_VOLATILE))
+						mYLSIns = ins;
+					else
+						mYLSIns.mType = ASMIT_INV;
+					if (mALSIns.mType != ASMIT_INV && mALSIns.mMode == ASMIM_ABSOLUTE_Y)
+						mALSIns.mType = ASMIT_INV;
+					if (mXLSIns.mType != ASMIT_INV && mYLSIns.mMode == ASMIM_ABSOLUTE_Y)
+						mXLSIns.mType = ASMIT_INV;
+				}
+			}
+			else
+			{
+				if (ins.ChangesAccu())
+					mALSIns.mType = ASMIT_INV;
+				if (ins.ChangesXReg())
+				{
+					mXLSIns.mType = ASMIT_INV;
+					if (mALSIns.mMode == ASMIM_ABSOLUTE_X)
+						mALSIns.mType = ASMIT_INV;
+					if (mYLSIns.mMode == ASMIM_ABSOLUTE_X)
+						mYLSIns.mType = ASMIT_INV;
+				}
+				if (ins.ChangesYReg())
+				{
+					mYLSIns.mType = ASMIT_INV;
+					if (mALSIns.mMode == ASMIM_ABSOLUTE_Y)
+						mALSIns.mType = ASMIT_INV;
+					if (mXLSIns.mMode == ASMIM_ABSOLUTE_Y)
+						mXLSIns.mType = ASMIT_INV;
+				}
+				if (ins.ChangesAddress())
+				{
+					if (mALSIns.mType != ASMIT_INV && mALSIns.MayBeSameAddress(ins))
+						mALSIns.mType = ASMIT_INV;
+					if (mXLSIns.mType != ASMIT_INV && mXLSIns.MayBeSameAddress(ins))
+						mXLSIns.mType = ASMIT_INV;
+					if (mYLSIns.mType != ASMIT_INV && mYLSIns.MayBeSameAddress(ins))
+						mYLSIns.mType = ASMIT_INV;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->GlobalLoadStoreForwarding(mALSIns, mXLSIns, mYLSIns))
+			changed = true;
+		if (mFalseJump && mFalseJump->GlobalLoadStoreForwarding(mALSIns, mXLSIns, mYLSIns))
 			changed = true;
 	}
 
@@ -49343,6 +49546,7 @@ void NativeCodeProcedure::Optimize(void)
 			{
 				ResetVisited();
 				NativeRegisterDataSet	data;
+
 				if (mEntryBlock->ValueForwarding(this, data, step > 0, step == 8))
 				{
 					changed = true;
@@ -50103,6 +50307,19 @@ void NativeCodeProcedure::Optimize(void)
 				ResetVisited();
 				changed = mEntryBlock->LocalSwapXY();
 				swappedXY = true;
+			}
+		}
+#endif
+#if 1
+		if (step == 12)
+		{
+			ResetVisited();
+			if (mEntryBlock->GlobalLoadStoreForwarding(NativeCodeInstruction(), NativeCodeInstruction(), NativeCodeInstruction()))
+			{
+				ResetVisited();
+				NativeRegisterDataSet	data;
+				mEntryBlock->BuildEntryDataSet(data);
+				changed = true;
 			}
 		}
 #endif
