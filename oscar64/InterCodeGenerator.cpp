@@ -3919,7 +3919,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (funcexp->mDecValue && (funcexp->mDecValue->mFlags & DTF_FUNC_PURE))
 					cins->mNoSideEffects = true;
 
-				if (funcexp->mType == EX_CONSTANT && (funcexp->mDecValue->mFlags & DTF_FUNC_CONSTEXPR))
+				if (funcexp->mType == EX_CONSTANT && (funcexp->mDecValue->mFlags & DTF_FUNC_CONSTEXPR) && funcexp->mDecType->mBase->mType != DT_TYPE_STRUCT)
 					cins->mConstExpr = true;
 
 				cins->mSrc[0].mType = IT_POINTER;

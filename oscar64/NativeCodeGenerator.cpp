@@ -47659,6 +47659,26 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		}
 
 #endif
+#if 1
+		if (sz >= 3 && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_A])
+		{
+			if (mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
+				mIns[sz - 2].mType == ASMIT_ROL && mIns[sz - 2].mMode == ASMIM_IMPLIED &&
+				mIns[sz - 1].mType == ASMIT_EOR && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 1)
+			{
+				if (mBranch == ASMIT_BEQ)
+					mBranch = ASMIT_BCS;
+				else
+					mBranch = ASMIT_BCC;
+
+				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+				mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+		}
+
+#endif
 
 		if (sz >= 4 && (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) && !mExitRequiredRegs[CPU_REG_C])
 		{
@@ -49177,6 +49197,21 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	else
 		mExitBlock->mIns.Push(NativeCodeInstruction(mExitBlock->mBranchIns, ASMIT_RTS, ASMIM_IMPLIED));
 
+
+	if (mExitBlock->mIns.Size() == 1 && rflags == NCIF_LOWER && !mExitBlock->mExitRegA && (mGenerator->mCompilerOptions & COPT_NATIVE))
+	{
+		if (mExitBlock->mEntryBlocks.Size() == 1)
+		{
+			NativeCodeBasicBlock* eblock = mExitBlock->mEntryBlocks[0];
+			int sz = eblock->mIns.Size();
+			if (sz >= 0 && eblock->mIns[sz - 1].mType == ASMIT_STA && eblock->mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && eblock->mIns[sz - 1].mAddress == BC_REG_ACCU)
+			{
+				mExitBlock->mExitRegA = true;
+				eblock->mIns.Remove(sz - 1);
+				proc->mLinkerObject->mFlags |= LOBJF_RET_REG_A;
+			}
+		}
+	}
 
 	proc->mLinkerObject->mType = LOT_NATIVE_CODE;
 
