@@ -531,6 +531,7 @@ public:
 	bool MoveTrainCrossBlock(void);
 	bool HoistCommonConditionalPath(void);
 	bool IsDirectDominatorBlock(InterCodeBasicBlock* block);
+	bool IsDirectLoopPathBlock(InterCodeBasicBlock* block);
 
 	void MarkRelevantStatics(void);
 	void RemoveNonRelevantStatics(void);

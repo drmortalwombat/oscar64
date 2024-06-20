@@ -12482,6 +12482,24 @@ static bool CanMoveInstructionBeforePath(const GrowingInterCodeBasicBlockPtrArra
 	return true;
 }
 
+bool InterCodeBasicBlock::IsDirectLoopPathBlock(InterCodeBasicBlock* block)
+{
+	if (this == block)
+		return true;
+
+	if (block->mLoopHead)
+		return false;
+
+	if (block->mEntryBlocks.Size() == 0)
+		return false;
+
+	for (int i = 0; i < block->mEntryBlocks.Size(); i++)
+		if (IsDirectLoopPathBlock(block->mEntryBlocks[i]))
+			return true;
+
+	return false;
+}
+
 bool InterCodeBasicBlock::IsDirectDominatorBlock(InterCodeBasicBlock* block)
 {
 	if (this == block)
@@ -15964,14 +15982,14 @@ bool InterCodeBasicBlock::MoveConditionOutOfLoop(void)
 							int ninside = 0, noutside = 0;
 							for (int i = 0; i < body.Size(); i++)
 							{
-								bool	tdom = block->mTrueJump->IsDirectDominatorBlock(body[i]);
-								bool	fdom = block->mFalseJump->IsDirectDominatorBlock(body[i]);
+								bool	tdom = block->mTrueJump->IsDirectLoopPathBlock(body[i]);
+								bool	fdom = block->mFalseJump->IsDirectLoopPathBlock(body[i]);
 								if (tdom != fdom)
-									ninside += body[i]->mInstructions.Size();
+									ninside += body[i]->mInstructions.Size() + 1;
 								else
-									noutside += body[i]->mInstructions.Size();
+									noutside += body[i]->mInstructions.Size() + 1;
 							}
-							
+
 							// Less than four instructions outside of condition, or twice as many
 							// inside as outside is the trigger
 							if (noutside - ncins < nmaxlimit && (noutside - ncins < nlimit || 2 * ninside > nscale * (noutside - ncins)))
@@ -21016,7 +21034,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "__drawScreen__");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
