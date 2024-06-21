@@ -17,8 +17,11 @@ else
 
 		linklibs = -lpthread
   	else
+		# MSVC
 		linklibs = -lrt -lpthread
-	endif
+		# MinGW
+		#linklibs = -lversion -lpthread
+      endif
 endif
  
 %.o: ../oscar64/%.cpp
@@ -31,7 +34,7 @@ endif
 	rm -f $@.$$$$
 
 ../bin/oscar64 : $(objects)
-	$(CXX) $(CPPFLAGS) $(linklibs) $(objects) -o ../bin/oscar64
+	$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o ../bin/oscar64
 
 .PHONY : clean
 clean :
