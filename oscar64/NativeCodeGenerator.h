@@ -295,7 +295,12 @@ public:
 
 
 	bool RemoveNops(void);
-	bool PeepHoleOptimizer(NativeCodeProcedure* proc, int pass);
+	bool PeepHoleOptimizer(int pass);
+
+	bool PeepHoleOptimizerShuffle(int pass);
+	bool PeepHoleOptimizerIterate(int pass);
+	bool PeepHoleOptimizerExits(int pass);
+
 	void BlockSizeReduction(NativeCodeProcedure* proc, int xenter, int yenter);
 	bool BlockSizeCopyReduction(NativeCodeProcedure* proc, int & si, int & di);
 
