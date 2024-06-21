@@ -40361,7 +40361,7582 @@ bool NativeCodeBasicBlock::RemoveNops(void)
 	return changed;
 }
 
-bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass)
+bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
+{
+	bool	changed = false;
+
+#if 1
+#if 1
+	// move load store pairs up to initial store
+
+	for (int i = 2; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+		{
+			if (MoveLoadStoreUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	// replace zero page up
+
+	for (int i = 1; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !(mIns[i + 0].mLive & LIVE_MEM))
+		{
+			if (ReplaceZeroPageUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+	// Move LDX/LDY up to STA of same address
+#if 1
+	if (pass >= 9)
+	{
+		for (int i = 2; i < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_LDX && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE) && !(mIns[i].mLive & LIVE_CPU_REG_Z))
+			{
+				if (MoveLDXUp(i))
+					changed = true;
+			}
+			else if (mIns[i].mType == ASMIT_LDY && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE) && !(mIns[i].mLive & LIVE_CPU_REG_Z))
+			{
+				if (MoveLDYUp(i))
+					changed = true;
+			}
+		}
+		CheckLive();
+	}
+#endif
+
+#if 1
+	// move ORA #imm up a shift chain to an LDA #imm
+
+	for (int i = 1; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].IsShift() && mIns[i].mMode == ASMIM_IMPLIED && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+		{
+			if (FoldShiftORAIntoLoadImmUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	// move ORA #imm up a shift chain to an LDA #imm
+
+	for (int i = 1; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0)
+		{
+			if (MoveLDXBeforeZ(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+
+#if 1
+	// Combine ADC with immediate
+
+	for (int i = 4; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) &&
+			mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+		{
+			if (CombineImmediateADCUp(i))
+				changed = true;
+		}
+		else if (mIns[i].mType == ASMIT_TXA && !(mIns[i].mLive & LIVE_CPU_REG_X) &&
+			mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+		{
+			if (CombineImmediateADCUpX(i))
+				changed = true;
+		}
+	}
+
+	CheckLive();
+#endif
+
+#if 1
+	// move load store pairs up to initial store
+
+	for (int i = 2; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+		{
+			if (MoveLoadStoreXUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+	// move sta zp, tax, lda abs,x , sta zp down to use
+#if 1
+	for (int i = 0; i + 4 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 1].mType == ASMIT_TAX &&
+			mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_X &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+			!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+		{
+			if (MoveStaTaxLdaStaDown(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+
+#endif
+
+#if 1
+	// move load - store (),y up to initial store
+	// 
+
+	for (int i = 2; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y)
+		{
+			if (MoveIndirectLoadStoreUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+#endif
+
+#if 1
+	// move load (),y store zp down to potential user
+	for (int i = 0; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 1].mFlags & NICT_ZPFLIPPED) &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			if (MoveLoadIndirectTempStoreUp(i))
+				changed = true;
+		}
+		else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			if (MoveIndirectLoadStoreDown(i))
+				changed = true;
+		}
+#if 1
+		if (pass > 0 &&
+			mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			if (MoveIndirectLoadStoreDownY(i))
+				changed = true;
+		}
+#endif
+	}
+	CheckLive();
+
+
+#endif
+
+#if 1
+	// move load (),y store zp up to potential user
+	for (int i = 4; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_Y)))
+		{
+			if (MoveLoadIndirectBypassYUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	for (int i = 0; i + 4 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_CLC &&
+			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+		{
+			if (MoveTYADCStoreDown(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+#endif
+
+#if 1
+	// move load - store abs up to initial store
+	// 
+
+	for (int i = 2; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA &&
+			(mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_INDIRECT_Y))
+		{
+			if (MoveAbsoluteLoadStoreUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	// move ldx/stx down and convert to accu
+	// 
+
+	for (int i = mIns.Size() - 2; i >= 0; i--)
+	{
+		if (mIns[i].mType == ASMIT_LDX && (mIns[i].mMode == ASMIM_IMMEDIATE || mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS) && mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+		{
+			if (MoveLDSTXOutOfRange(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+
+#if 1
+	// move load - add # - store up to initial store
+	// 
+
+	for (int i = 2; i + 3 < mIns.Size(); i++)
+	{
+		if (
+			mIns[i + 0].mType == ASMIT_CLC &&
+			mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+			(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+		{
+			if (MoveLoadAddImmStoreUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	// move load - ora/and/eor # - store up to initial store
+	// 
+
+	for (int i = 2; i + 2 < mIns.Size(); i++)
+	{
+		if (
+			mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+			(mIns[i + 1].mType == ASMIT_ORA || mIns[i + 1].mType == ASMIT_AND || mIns[i + 1].mType == ASMIT_EOR) && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+			(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+		{
+			if (MoveLoadEorImmStoreUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+
+#if 1
+	// move load - add # - store with absolute,x up as far possible
+	// 
+
+	for (int i = 2; i + 3 < mIns.Size(); i++)
+	{
+		if (
+			mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ABSOLUTE_X &&
+			mIns[i + 1].mType == ASMIT_CLC &&
+			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+		{
+			if (MoveLoadAddImmStoreAbsXUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	// move load - add ZP - store up to initial store
+	// 
+
+	for (int i = 2; i + 3 < mIns.Size(); i++)
+	{
+		if (
+			mIns[i + 0].mType == ASMIT_CLC &&
+			mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && (mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+		{
+			if (MoveCLCLoadAddZPStoreUp(i))
+				changed = true;
+		}
+#if 1
+		else if (
+			mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && (mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+		{
+			if (MoveLoadAddZPStoreUp(i))
+				changed = true;
+		}
+#endif
+#if 1
+		else if (
+			mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && (mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+		{
+			if (MoveLoadShiftStoreUp(i))
+				changed = true;
+		}
+#endif
+#if 1
+		else if (
+			mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+			(mIns[i + 1].mType == ASMIT_LSR || mIns[i + 1].mType == ASMIT_ASL) && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+			(mIns[i + 2].mType == ASMIT_ROL || mIns[i + 2].mType == ASMIT_ROR) && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+		{
+			if (MoveLoadShiftRotateUp(i))
+				changed = true;
+		}
+#endif
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	// move simple add down to consumer
+
+	if (!changed)
+	{
+		for (int i = 0; i + 4 < mIns.Size(); i++)
+		{
+			if (
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && (mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)) == 0)
+			{
+				if (MoveCLCLoadAddZPStoreDown(i))
+					changed = true;
+			}
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	for (int i = 0; i + 3 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_CLC &&
+			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+
+		{
+			if (MoveTAXADCSTADown(i))
+				changed = true;
+		}
+	}
+
+	CheckLive();
+#endif
+
+#if 1
+	for (int i = 0; i < mIns.Size(); i++)
+	{
+		if ((mIns[i + 0].mType == ASMIT_LDX || mIns[i + 0].mType == ASMIT_LDY) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM))
+		{
+			if (MoveSimpleADCToINCDECDown(i))
+				changed = true;
+		}
+	}
+
+#endif
+
+	// 
+	// shorten x/y register lifetime
+
+#if 1
+		//
+		// move ldx/y down
+
+	for (int i = 0; i + 1 < mIns.Size(); i++)
+	{
+#if 1
+		if (mIns[i].mType == ASMIT_LDY)
+		{
+			if (!mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z) && !(mIns[i].mFlags & mIns[i + 1].mFlags & NCIF_VOLATILE))
+			{
+				if (mIns[i].mMode != ASMIM_ABSOLUTE_X || !mIns[i + 1].ChangesXReg())
+				{
+					if (!mIns[i].MayBeChangedOnAddress(mIns[i + 1]))
+					{
+						if (mIns[i + 1].SameEffectiveAddress(mIns[i]))
+							mIns[i + 1].mLive |= LIVE_MEM;
+
+						NativeCodeInstruction	ins = mIns[i];
+						mIns[i] = mIns[i + 1];
+						mIns[i].mLive &= ~LIVE_CPU_REG_Y;
+						mIns[i + 1] = ins;
+						mIns[i + 1].mLive |= mIns[i].mLive;
+						if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_X)
+							mIns[i].mLive |= LIVE_CPU_REG_X;
+					}
+				}
+			}
+		}
+		else if (mIns[i].mType == ASMIT_LDX)
+		{
+			if (!mIns[i + 1].RequiresXReg() && !mIns[i + 1].ChangesXReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z) && !(mIns[i].mFlags & mIns[i + 1].mFlags & NCIF_VOLATILE))
+			{
+				if (mIns[i].mMode != ASMIM_ABSOLUTE_Y || !mIns[i + 1].ChangesYReg())
+				{
+					if (!mIns[i].MayBeChangedOnAddress(mIns[i + 1]))
+					{
+						if (mIns[i + 1].SameEffectiveAddress(mIns[i]))
+							mIns[i + 1].mLive |= LIVE_MEM;
+
+						NativeCodeInstruction	ins = mIns[i];
+						mIns[i] = mIns[i + 1];
+						mIns[i].mLive &= ~LIVE_CPU_REG_X;
+						mIns[i + 1] = ins;
+						mIns[i + 1].mLive |= mIns[i].mLive;
+						if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y)
+							mIns[i].mLive |= LIVE_CPU_REG_Y;
+					}
+				}
+			}
+		}
+#endif			
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	// move stx up
+
+	for (int i = 1; i < mIns.Size(); i++)
+	{
+		if (!(mIns[i].mFlags & NCIF_VOLATILE))
+		{
+			if (mIns[i].mType == ASMIT_STX && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE))
+			{
+				if (MoveStoreXUp(i))
+					changed = true;
+			}
+			else if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
+			{
+				if (MoveLoadXUp(i))
+					changed = true;
+			}
+			else if (mIns[i].mType == ASMIT_STY && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE))
+			{
+				if (i > 1 || mIns[0].mType != ASMIT_STX)
+				{
+					if (MoveStoreYUp(i))
+						changed = true;
+				}
+			}
+			else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
+			{
+				if (MoveLoadYUp(i))
+					changed = true;
+			}
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	// move ldy, sty down if live
+
+	for (int i = 0; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+			mIns[i + 1].mType == ASMIT_STY && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
+			(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+		{
+			int j = i;
+			while (j + 2 < mIns.Size() &&
+				!mIns[j + 2].ReferencesYReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]) && !(mIns[j + 2].mLive & LIVE_CPU_REG_Z))
+			{
+				mIns[j + 0].mLive |= mIns[j + 2].mLive;
+				mIns[j + 1].mLive |= mIns[j + 2].mLive;
+				mIns[j + 2].mLive &= ~LIVE_CPU_REG_Y;
+				mIns.Insert(j, mIns[j + 2]);
+				mIns.Remove(j + 3);
+				j++;
+			}
+		}
+		else if (mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+			mIns[i + 1].mType == ASMIT_STX && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
+			(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+		{
+			int j = i;
+			while (j + 2 < mIns.Size() &&
+				!mIns[j + 2].ReferencesXReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]) && !(mIns[j + 2].mLive & LIVE_CPU_REG_Z))
+			{
+				mIns[j + 0].mLive |= mIns[j + 2].mLive;
+				mIns[j + 1].mLive |= mIns[j + 2].mLive;
+				mIns[j + 2].mLive &= ~LIVE_CPU_REG_X;
+				mIns.Insert(j, mIns[j + 2]);
+				mIns.Remove(j + 3);
+				j++;
+			}
+		}
+	}
+#endif
+
+#if 1
+	// move clc and sec down
+	for (int i = 0; i + 1 < mIns.Size(); i++)
+	{
+		if ((mIns[i].mType == ASMIT_CLC || mIns[i].mType == ASMIT_SEC) && !mIns[i + 1].RequiresCarry() && !mIns[i + 1].ChangesCarry())
+		{
+			if (i + 2 < mIns.Size() && mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) && mIns[i + 2].RequiresCarry())
+				;
+			else if (i + 2 < mIns.Size() && mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mMode == ASMIM_INDIRECT_Y)
+				;
+			else
+			{
+				NativeCodeInstruction	pins = mIns[i];
+				mIns[i] = mIns[i + 1];
+				mIns[i + 1] = pins;
+				mIns[i + 1].mLive |= mIns[i].mLive;
+				//					changed = true;
+			}
+		}
+	}
+	CheckLive();
+
+
+#endif
+
+#if 1
+	// move iny/dey/inx/dex down
+
+	for (int i = 0; i + 1 < mIns.Size(); i++)
+	{
+		if ((mIns[i].mType == ASMIT_INY || mIns[i].mType == ASMIT_DEY) && !mIns[i + 1].ChangesYReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+		{
+			if (i + 3 == mIns.Size() && mIns[i + 1].mType == ASMIT_INX && mIns[i + 2].mType == ASMIT_CPX)
+				;	// Avoid bypassing loop iterator
+			else if (!mIns[i + 1].RequiresYReg())
+			{
+				NativeCodeInstruction	pins = mIns[i];
+				mIns[i] = mIns[i + 1];
+				mIns[i].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 1] = pins;
+				mIns[i + 1].mLive |= mIns[i].mLive;
+			}
+			else if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y)
+			{
+				if (mIns[i].mType == ASMIT_INY)
+					mIns[i + 1].mAddress++;
+				else
+					mIns[i + 1].mAddress--;
+				NativeCodeInstruction	pins = mIns[i];
+				mIns[i] = mIns[i + 1];
+				mIns[i].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 1] = pins;
+				mIns[i + 1].mLive |= mIns[i].mLive;
+			}
+		}
+		else if ((mIns[i].mType == ASMIT_INX || mIns[i].mType == ASMIT_DEX) && !mIns[i + 1].ChangesXReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+		{
+			if (i + 3 == mIns.Size() && mIns[i + 1].mType == ASMIT_INY && mIns[i + 2].mType == ASMIT_CPY)
+				;	// Avoid bypassing loop iterator
+			else if (!mIns[i + 1].RequiresXReg())
+			{
+				NativeCodeInstruction	pins = mIns[i];
+				mIns[i] = mIns[i + 1];
+				mIns[i].mLive |= LIVE_CPU_REG_X;
+				mIns[i + 1] = pins;
+				mIns[i + 1].mLive |= mIns[i].mLive;
+			}
+			else if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_X)
+			{
+				if (mIns[i].mType == ASMIT_INX)
+					mIns[i + 1].mAddress++;
+				else
+					mIns[i + 1].mAddress--;
+				NativeCodeInstruction	pins = mIns[i];
+				mIns[i] = mIns[i + 1];
+				mIns[i].mLive |= LIVE_CPU_REG_X;
+				mIns[i + 1] = pins;
+				mIns[i + 1].mLive |= mIns[i].mLive;
+			}
+		}
+	}
+	CheckLive();
+
+#endif
+#if 1
+	// move tya/clc/adc/tay down
+	for (int i = 0; i + 5 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+		{
+			if (mIns[i + 4].mType == ASMIT_LDA && (mIns[i + 4].mMode == ASMIM_IMMEDIATE || mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 4].mMode == ASMIM_ZERO_PAGE) &&
+				mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode != ASMIM_INDIRECT_Y && !(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
+				if (mIns[i + 5].mMode == ASMIM_ABSOLUTE_Y)
+					mIns[i + 5].mAddress += mIns[i + 2].mAddress;
+
+				mIns.Insert(i + 0, mIns[i + 4]); mIns.Remove(i + 5);
+				mIns.Insert(i + 1, mIns[i + 5]); mIns.Remove(i + 6);
+			}
+#if 1
+			else if (i + 6 < mIns.Size() &&
+				mIns[i + 4].mType == ASMIT_LDA && (mIns[i + 4].mMode == ASMIM_IMMEDIATE || mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 4].mMode == ASMIM_ZERO_PAGE) &&
+				mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode != ASMIM_INDIRECT_Y &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode != ASMIM_INDIRECT_Y && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 6].mLive |= LIVE_CPU_REG_Y;
+				if (mIns[i + 5].mMode == ASMIM_ABSOLUTE_Y)
+					mIns[i + 5].mAddress += mIns[i + 2].mAddress;
+				if (mIns[i + 6].mMode == ASMIM_ABSOLUTE_Y)
+					mIns[i + 6].mAddress += mIns[i + 2].mAddress;
+
+				mIns.Insert(i + 0, mIns[i + 4]); mIns.Remove(i + 5);
+				mIns.Insert(i + 1, mIns[i + 5]); mIns.Remove(i + 6);
+				mIns.Insert(i + 2, mIns[i + 6]); mIns.Remove(i + 7);
+			}
+#endif
+		}
+	}
+	CheckLive();
+
+
+#endif
+
+#if 1
+
+	// reverse "sta t,lda abs,clc,adc t" to "sta t,clc,adc abs,nop"
+
+	for (int i = 1; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i + 2].IsCommutative() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && (mIns[i + 1].mType == ASMIT_CLC || mIns[i + 1].mType == ASMIT_SEC) && mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE)
+		{
+			if (ReverseLoadCommutativeOpUp(i, i + 2))
+				changed = true;
+		}
+		else if (mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE)
+		{
+			if (ReverseLoadCommutativeOpUp(i, i + 1))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+	// shortcut index
+#if 1
+	for (int i = 0; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_TAY)
+		{
+			int j = i + 2, k = i, n = i;
+			while (j < mIns.Size() && !mIns[j].ChangesXReg() && !mIns[j].ChangesYReg())
+			{
+				if (mIns[j].mMode == ASMIM_ABSOLUTE_Y)
+				{
+					assert(HasAsmInstructionMode(mIns[j].mType, ASMIM_ABSOLUTE_X));
+					mIns[j].mMode = ASMIM_ABSOLUTE_X;
+					mIns[j].mFlags |= NICT_INDEXFLIPPED;
+					n = j;
+					changed = true;
+				}
+				j++;
+			}
+
+			while (k < n)
+			{
+				mIns[k].mLive |= LIVE_CPU_REG_X;
+				k++;
+			}
+		}
+		else if (mIns[i].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_TAX)
+		{
+			int j = i + 2, k = i, n = i;
+
+			while (j < mIns.Size() && !mIns[j].ChangesXReg() && !mIns[j].ChangesYReg())
+			{
+				if (mIns[j].mMode == ASMIM_ABSOLUTE_X)
+				{
+					assert(HasAsmInstructionMode(mIns[j].mType, ASMIM_ABSOLUTE_Y));
+					mIns[j].mMode = ASMIM_ABSOLUTE_Y;
+					mIns[j].mFlags |= NICT_INDEXFLIPPED;
+					n = j;
+					changed = true;
+				}
+				j++;
+			}
+
+			while (k < n)
+			{
+				mIns[k].mLive |= LIVE_CPU_REG_Y;
+				k++;
+			}
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	for (int i = 0; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_TAX &&
+			mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_A)))
+		{
+			if (MoveLoadStoreOutOfXYRangeUp(i))
+				changed = true;
+		}
+		else if (
+			mIns[i + 0].mType == ASMIT_TAY &&
+			mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_A)))
+		{
+			if (MoveLoadStoreOutOfXYRangeUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	for (int i = 0; i < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_TAX && !(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+		{
+			if (ReverseReplaceTAX(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+#endif
+
+#if 1
+	// Move TAX and TAY down
+
+	for (int i = 0; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_TAX)
+		{
+			int j = i + 1;
+			while (j < mIns.Size() && !mIns[j].ReferencesXReg() && !mIns[j].ChangesAccu())
+				j++;
+			if (j < mIns.Size() && mIns[j].mType == ASMIT_CPX && !(mIns[j].mLive & LIVE_CPU_REG_X))
+			{
+				mIns[j].mType = ASMIT_CMP;
+				while (j > i)
+				{
+					j--;
+					mIns[j].mLive |= LIVE_CPU_REG_A;
+				}
+				changed = true;
+			}
+		}
+		else if (mIns[i].mType == ASMIT_TAY)
+		{
+			int j = i + 1;
+			while (j < mIns.Size() && !mIns[j].ReferencesYReg() && !mIns[j].ChangesAccu())
+				j++;
+			if (j < mIns.Size() && mIns[j].mType == ASMIT_CPY && !(mIns[j].mLive & LIVE_CPU_REG_Y))
+			{
+				mIns[j].mType = ASMIT_CMP;
+				while (j > i)
+				{
+					j--;
+					mIns[j].mLive |= LIVE_CPU_REG_A;
+				}
+				changed = true;
+			}
+		}
+	}
+	CheckLive();
+#endif
+#if 1
+	int		taxPos = -1, tayPos = -1;
+	for (int i = 0; i < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_TAX)
+		{
+			if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				taxPos = i;
+			else
+				taxPos = -1;
+		}
+		else if (mIns[i].mType == ASMIT_TAY)
+		{
+			if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				tayPos = i;
+			else
+				tayPos = -1;
+		}
+		else if (mIns[i].ChangesXReg())
+			taxPos = -1;
+		else if (mIns[i].ChangesYReg())
+			tayPos = -1;
+		else if (mIns[i].mType == ASMIT_TXA)
+		{
+			if (taxPos >= 0 && !(mIns[i].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+			{
+				if (JoinTAXARange(taxPos, i))
+					changed = true;
+				taxPos = -1; tayPos = -1;
+			}
+			else
+				taxPos = -1;
+		}
+		else if (mIns[i].mType == ASMIT_TYA)
+		{
+			if (tayPos >= 0 && !(mIns[i].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+			{
+				if (JoinTAYARange(tayPos, i))
+					changed = true;
+				taxPos = -1; tayPos = -1;
+			}
+			else
+				tayPos = -1;
+		}
+		else if (mIns[i].RequiresXReg())
+			taxPos = -1;
+		else if (mIns[i].RequiresYReg())
+			tayPos = -1;
+	}
+	CheckLive();
+
+#endif
+
+#if 1
+	for (int i = 0; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_TAY ||
+			mIns[i].mType == ASMIT_TAY && mIns[i + 1].mType == ASMIT_TAX)
+		{
+			if (MergeXYSameValue(i + 2))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
+
+#if 1
+	if (pass > 1)
+	{
+		// move high byte load down, if low byte is immediatedly needed afterwards
+
+		for (int i = 0; i + 4 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && mIns[i + 2].mAddress != mIns[i + 3].mAddress && mIns[i + 2].mAddress + 1 != mIns[i + 3].mAddress &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 4].mLive & LIVE_CPU_REG_Z))
+			{
+				if (MoveStoreHighByteDown(i))
+					changed = true;
+			}
+		}
+		CheckLive();
+
+		for (int i = 0; i + 4 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 4].mLive & LIVE_CPU_REG_Z))
+			{
+				if (MoveAddHighByteDown(i))
+					changed = true;
+			}
+		}
+
+		CheckLive();
+	}
+#endif
+
+#if 1
+	for (int i = 2; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
+			mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
+		{
+			if (MoveLoadImmStoreAbsoluteUp(i + 0))
+				changed = true;
+		}
+	}
+	CheckLive();
+#endif
+
+#if 1
+	for (int i = 2; i < mIns.Size(); i++)
+	{
+		if ((mIns[i].mType == ASMIT_ASL || mIns[i].mType == ASMIT_LSR) && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_CPU_REG_Z))
+		{
+			if (MoveASLMemUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+#endif
+
+	if (pass > 1)
+	{
+#if 1
+		// replace zero page down
+
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && (mIns[i + 0].mLive & LIVE_MEM))
+			{
+				if (ReplaceZeroPageDown(i))
+					changed = true;
+			}
+		}
+		CheckLive();
+
+#endif
+	}
+#endif
+
+	CheckLive();
+
+#if 1
+	for (int i = 0; i + 4 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+			mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 2].mAddress &&
+			mIns[i + 3].mType == ASMIT_ROR && mIns[i + 3].mMode == ASMIM_IMPLIED)
+		{
+			int j = 2;
+			while (i + 3 + j < mIns.Size() &&
+				mIns[i + 2 + j].mType == ASMIT_LSR && mIns[i + 2 + j].mMode == ASMIM_ZERO_PAGE && mIns[i + 2 + j].mAddress == mIns[i + 1].mAddress &&
+				mIns[i + 3 + j].mType == ASMIT_ROR && mIns[i + 3 + j].mMode == ASMIM_IMPLIED)
+			{
+				j += 2;
+			}
+
+			if (i + 2 + j < mIns.Size() && mIns[i + 2 + j].mType == ASMIT_STA && mIns[i + 2 + j].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2 + j].mAddress == mIns[i + 2].mAddress && !(mIns[i + 2 + j].mLive & LIVE_CPU_REG_A))
+			{
+				int	addrl = mIns[i + 2].mAddress, addrh = mIns[i + 1].mAddress;
+				const InterInstruction* iins(mIns[i + 1].mIns);
+
+				for (int k = 0; k < j; k += 2)
+				{
+					mIns[i + k + 0] = NativeCodeInstruction(iins, ASMIT_LSR, ASMIM_IMPLIED);
+					mIns[i + k + 1] = NativeCodeInstruction(iins, ASMIT_ROR, ASMIM_ZERO_PAGE, addrl);
+				}
+				mIns[i + j] = NativeCodeInstruction(iins, ASMIT_STA, ASMIM_ZERO_PAGE, addrh);
+				mIns[i + j + 1].mType = ASMIT_NOP; mIns[i + j + 1].mMode = ASMIM_IMPLIED;
+				mIns[i + j + 2].mType = ASMIT_NOP; mIns[i + j + 2].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+		}
+	}
+
+	CheckLive();
+#endif
+
+
+#if 1
+	for (int i = 0; i + 4 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_TXA &&
+			mIns[i + 1].mType == ASMIT_CLC &&
+			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress >= -2 && mIns[i + 2].mAddress <= 2 || mIns[i + 2].mAddress >= 254 && mIns[i + 2].mAddress < 256) &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+		{
+			if (MoveTXADCDown(i))
+				changed = true;
+		}
+	}
+
+	CheckLive();
+
+#endif
+
+#if 1
+	for (int i = 0; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+			mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+		{
+			int j = 1;
+			while (i >= j && i + j + 1 < mIns.Size() &&
+				mIns[i - j].mType == ASMIT_ASL && mIns[i - j].mMode == ASMIM_IMPLIED &&
+				mIns[i + 1 + j].mType == ASMIT_LSR && mIns[i + 1 + j].mMode == ASMIM_IMPLIED && !(mIns[i + 1 + j].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				j++;
+			mIns[i + 1 - j].mType = ASMIT_AND;
+			mIns[i + 1 - j].mMode = ASMIM_IMMEDIATE;
+			mIns[i + 1 - j].mAddress = 0xff >> j;
+
+			while (j > 1)
+			{
+				mIns[i + j].mType = ASMIT_NOP;
+				mIns[i + j].mMode = ASMIM_IMPLIED;
+				j--;
+				mIns[i + 1 - j].mType = ASMIT_NOP;
+				mIns[i + 1 - j].mMode = ASMIM_IMPLIED;
+			}
+			mIns[i + 1].mType = ASMIT_NOP;
+			mIns[i + 1].mMode = ASMIM_IMPLIED;
+			changed = true;
+		}
+	}
+
+	CheckLive();
+
+#endif
+
+	return changed;
+}
+
+bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
+{
+	bool	changed = false;
+
+#if 1
+	bool	progress = false;
+	do {
+		progress = false;
+
+		mIns.Reserve(mIns.Size() * 2 + 32);
+
+		if (RemoveNops())
+			changed = true;
+
+		CheckLive();
+
+		// Replace (a & 0x80) != 0 with bpl/bmi
+		int	sz = mIns.Size();
+
+#if 1
+		if (sz > 1 &&
+			mIns[sz - 2].ChangesAccuAndFlag() &&
+			mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
+		{
+			if (mBranch == ASMIT_BEQ)
+			{
+				mBranch = ASMIT_BPL;
+				mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
+				mIns[sz - 1].mType = ASMIT_NOP;	mIns[sz - 1].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+			else if (mBranch == ASMIT_BNE)
+			{
+				mBranch = ASMIT_BMI;
+				mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
+				mIns[sz - 1].mType = ASMIT_NOP;	mIns[sz - 1].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+		}
+#endif
+		if (sz > 4 &&
+			mIns[sz - 4].mType == ASMIT_ASL && mIns[sz - 4].mMode == ASMIM_IMPLIED &&
+			mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
+			mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0xff &&
+			mIns[sz - 1].mType == ASMIT_EOR && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0xff && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
+		{
+			if (mBranch == ASMIT_BEQ)
+			{
+				mBranch = ASMIT_BPL;
+				mIns[sz - 4].mType = ASMIT_NOP; mIns[sz - 4].mMode = ASMIM_IMPLIED;
+				mIns[sz - 3].mType = ASMIT_NOP;	mIns[sz - 3].mMode = ASMIM_IMPLIED;
+				mIns[sz - 2].mType = ASMIT_NOP;	mIns[sz - 2].mMode = ASMIM_IMPLIED;
+				mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0;
+				changed = true;
+			}
+			else if (mBranch == ASMIT_BNE)
+			{
+				mBranch = ASMIT_BMI;
+				mIns[sz - 4].mType = ASMIT_NOP; mIns[sz - 4].mMode = ASMIM_IMPLIED;
+				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+				mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0;
+				changed = true;
+			}
+		}
+#if 1
+		if (sz > 2 &&
+			mIns[sz - 3].mType == ASMIT_STA &&
+			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE &&
+			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].SameEffectiveAddress(mIns[sz - 3]) && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_A)))
+		{
+			if (mBranch == ASMIT_BCC && mIns[sz - 2].mAddress < 0xff)
+			{
+				mIns[sz - 3].mLive |= LIVE_CPU_REG_A;
+				mIns[sz - 1].mMode = ASMIM_IMMEDIATE;
+				mIns[sz - 1].mAddress = mIns[sz - 2].mAddress + 1;
+				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+				mBranch = ASMIT_BCS;
+				changed = true;
+			}
+			else if (mBranch == ASMIT_BCS && mIns[sz - 2].mAddress < 0xff)
+			{
+				mIns[sz - 3].mLive |= LIVE_CPU_REG_A;
+				mIns[sz - 1].mMode = ASMIM_IMMEDIATE;
+				mIns[sz - 1].mAddress = mIns[sz - 2].mAddress + 1;
+				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+				mBranch = ASMIT_BCC;
+				changed = true;
+			}
+		}
+#endif
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+#if 1
+#if 1
+			if (mIns[i].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0)
+			{
+				mIns[i].mType = ASMIT_LDA;
+				progress = true;
+			}
+			else if (mIns[i].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0xff && (mIns[i].mLive & LIVE_CPU_REG_Z) == 0)
+			{
+				mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
+				progress = true;
+			}
+			else if (mIns[i].mType == ASMIT_ORA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0xff)
+			{
+				mIns[i].mType = ASMIT_LDA;
+				progress = true;
+			}
+			else if (mIns[i].mType == ASMIT_ORA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0x00 && (mIns[i].mLive & LIVE_CPU_REG_Z) == 0)
+			{
+				mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
+				progress = true;
+			}
+			else if (mIns[i].mType == ASMIT_EOR && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0x00 && (mIns[i].mLive & LIVE_CPU_REG_Z) == 0)
+			{
+				mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
+				progress = true;
+			}
+			else if (mIns[i].mType == ASMIT_ROR && mIns[i].mMode == ASMIM_IMPLIED && (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+			{
+				mIns[i].mType = ASMIT_LSR;
+				progress = true;
+			}
+			else if (mIns[i].mType == ASMIT_ROL && mIns[i].mMode == ASMIM_IMPLIED && (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+			{
+				mIns[i].mType = ASMIT_ASL;
+				progress = true;
+			}
+#endif
+#if 1
+			int	apos;
+			if (mIns[i].mMode == ASMIM_INDIRECT_Y && FindGlobalAddress(i, mIns[i].mAddress, apos))
+			{
+				mIns[i].mMode = ASMIM_ABSOLUTE_Y;
+				mIns[i].mAddress = mIns[apos].mAddress;
+				mIns[i].mLinkerObject = mIns[apos].mLinkerObject;
+				progress = true;
+			}
+#endif
+
+#if 1
+			if (mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO))
+			{
+				const NativeCodeInstruction* ains, * iins;
+
+				int	sreg = mIns[i + 0].mAddress;
+
+				int	apos, breg, ireg, addr;
+				uint32	flags;
+
+				if (FindAddressSumY(i, sreg, apos, breg, ireg))
+				{
+#if 1
+					if (!(breg == sreg || ireg == sreg) || !(mIns[i + 0].mLive & LIVE_MEM))
+					{
+						if (breg == sreg || ireg == sreg)
+						{
+							mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
+							mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
+						}
+
+						RepairLoadYImmediate(i, 0);
+
+						mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
+						mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
+
+						mIns[i + 1].mAddress = breg;
+						mIns[i + 1].mFlags &= ~NCIF_YZERO;
+						progress = true;
+
+						CheckLive();
+
+					}
+#endif
+
+				}
+#if 1
+				else if (FindGlobalAddressSumY(i, sreg, true, apos, ains, iins, flags, addr))
+				{
+					if (iins || (flags & LIVE_CPU_REG_Y) || (flags & LIVE_CPU_REG_X)) //!(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+					{
+						RepairLoadYImmediate(i, 0);
+
+						if (flags & LIVE_CPU_REG_Y)
+						{
+							mIns[i + 0].mMode = ASMIM_ABSOLUTE_Y;
+						}
+						else if (flags & LIVE_CPU_REG_X)
+						{
+							mIns[i + 0].mMode = ASMIM_ABSOLUTE_X;
+						}
+						else
+						{
+							mIns[i + 0].mMode = ASMIM_ABSOLUTE_Y;
+						}
+
+
+						if (ains->mMode == ASMIM_IMMEDIATE)
+						{
+							mIns[i + 0].mLinkerObject = nullptr;
+							mIns[i + 0].mAddress = addr;
+						}
+						else
+						{
+							mIns[i + 0].mLinkerObject = ains->mLinkerObject;
+							mIns[i + 0].mAddress = ains->mAddress;
+						}
+
+						mIns[i + 0].mFlags &= ~NCIF_YZERO;
+
+						if (!iins)
+						{
+							if (flags & LIVE_CPU_REG_Y)
+							{
+								mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY, ASMIM_IMPLIED));
+								for (int j = apos; j < i + 1; j++)
+									mIns[j].mLive |= LIVE_CPU_REG_Y;
+							}
+							else
+							{
+								PatchGlobalAdressSumYByX(i + 1, sreg, *ains, addr);
+								mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAX, ASMIM_IMPLIED));
+								for (int j = apos; j < i + 2; j++)
+									mIns[j].mLive |= LIVE_CPU_REG_X;
+							}
+						}
+						else
+						{
+							if (iins->mMode != ASMIM_ZERO_PAGE)
+								mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, iins->mMode, iins->mAddress, iins->mLinkerObject, iins->mFlags));
+							else if (iins->mAddress == sreg)
+							{
+								if (flags & LIVE_CPU_REG_Y)
+								{
+									mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, iins->mAddress));
+									mIns[apos].mLive |= LIVE_MEM;
+									for (int j = apos; j < i + 2; j++)
+										mIns[j].mLive |= LIVE_CPU_REG_Y;
+								}
+								else
+								{
+									PatchGlobalAdressSumYByX(i + 1, sreg, *ains, addr);
+									mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, iins->mAddress));
+									mIns[apos].mLive |= LIVE_MEM;
+									for (int j = apos; j < i + 2; j++)
+										mIns[j].mLive |= LIVE_CPU_REG_X;
+								}
+								i++;
+							}
+							else
+								mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, iins->mAddress));
+							if (i > 0)
+								mIns[i + 0].mLive |= mIns[i - 1].mLive | LIVE_CPU_REG_Y | LIVE_MEM;
+						}
+
+						progress = true;
+
+						CheckLive();
+
+					}
+				}
+#endif
+				else if (FindExternAddressSumY(i, sreg, breg, ireg))
+				{
+#if 1
+					RepairLoadYImmediate(i, 0);
+
+					mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
+
+					mIns[i + 1].mAddress = breg;
+					mIns[i + 1].mFlags &= ~NCIF_YZERO;
+					progress = true;
+
+					CheckLive();
+#endif
+
+				}
+				else if (FindSharedGlobalAddressSumY(i, sreg, ains, iins))
+				{
+#if 1
+					RepairLoadYImmediate(i, 0);
+
+					mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, *iins));
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
+
+					mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
+					mIns[i + 1].mLinkerObject = ains->mLinkerObject;
+					mIns[i + 1].mAddress = ains->mAddress;
+					mIns[i + 1].mFlags &= ~NCIF_YZERO;
+					progress = true;
+
+					CheckLive();
+#endif
+				}
+				else if (!(mIns[i + 0].mLive & LIVE_MEM) && FindLoadAddressSumY(i, sreg, apos, ireg))
+				{
+#if 1
+					RepairLoadYImmediate(i, 0);
+					PatchLoadAddressSumY(i, sreg, apos, ireg);
+
+					mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
+
+					mIns[i + 1].mFlags &= ~NCIF_YZERO;
+					progress = true;
+
+					CheckLive();
+#endif
+				}
+
+
+#if 1
+				if (mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO) && !(mIns[i + 0].mLive & LIVE_CPU_REG_X))
+				{
+					const NativeCodeInstruction* ains;
+					if (FindImmediateStore(i, mIns[i].mAddress + 1, ains))
+					{
+						mIns.Insert(i, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mIns[i].mAddress));
+						mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;
+
+						if (ains->mMode == ASMIM_IMMEDIATE)
+							mIns[i + 1].mAddress = ains->mAddress << 8;
+						else
+						{
+							mIns[i + 1].mLinkerObject = ains->mLinkerObject;
+							mIns[i + 1].mAddress = ains->mAddress;
+							mIns[i + 1].mFlags |= NCIF_UPPER;
+							mIns[i + 1].mFlags &= ~NCIF_LOWER;
+						}
+						progress = true;
+
+						CheckLive();
+					}
+				}
+#endif
+
+			}
+#endif
+			CheckLive();
+#if 1
+			if (i + 1 < mIns.Size() && mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
+			{
+				const NativeCodeInstruction* ains, * iins;
+
+				int	sreg = mIns[i + 1].mAddress;
+
+				int	yimm = mIns[i + 0].mAddress;
+
+
+				if (FindSharedGlobalAddressSumY(i, sreg, ains, iins))
+				{
+#if 1
+					RepairLoadYImmediate(i + 1, yimm);
+
+					mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_LDY, *iins));
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
+
+					mIns[i + 2].mMode = ASMIM_ABSOLUTE_Y;
+					mIns[i + 2].mLinkerObject = ains->mLinkerObject;
+					mIns[i + 2].mAddress = ains->mAddress + yimm;
+					mIns[i + 2].mFlags &= ~NCIF_YZERO;
+					progress = true;
+
+					CheckLive();
+#endif
+				}
+			}
+#endif
+
+#if 1
+			if (i + 1 < mIns.Size())
+			{
+				if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_LDA)
+				{
+					mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_STA && mIns[i].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_STA && mIns[i + 1].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[i + 1].mAddress && (mIns[i + 1].mLive & LIVE_CPU_REG_Z) == 0)
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_STA && mIns[i + 1].mType == ASMIT_LDA && mIns[i].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) && (mIns[i + 1].mLive & LIVE_CPU_REG_Z) == 0)
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_AND && mIns[i + 1].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_IMMEDIATE)
+				{
+					mIns[i].mAddress &= mIns[i + 1].mAddress;
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_ORA && mIns[i + 1].mType == ASMIT_ORA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_IMMEDIATE)
+				{
+					mIns[i].mAddress |= mIns[i + 1].mAddress;
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_EOR && mIns[i + 1].mType == ASMIT_EOR && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_IMMEDIATE)
+				{
+					mIns[i].mAddress ^= mIns[i + 1].mAddress;
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0)
+				{
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_EOR && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0)
+				{
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff)
+				{
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_CLC && mIns[i + 1].mType == ASMIT_ROR)
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LSR;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0 && mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED)
+				{
+					mIns[i + 1].mType = ASMIT_CLC;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_CLC && mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_SEC && mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i].mType == ASMIT_SEC && mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_CLC;
+					mIns[i + 1].mAddress++;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]))
+				{
+					mIns[i + 1].mType = ASMIT_ROL;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && mIns[i].ChangesAccuAndFlag())
+				{
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && mIns[i].ChangesAccuAndFlag() && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_CMP && !(mIns[i + 1].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_A)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LDA;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED)
+				{
+					int	aval = mIns[i + 0].mAddress << 1;
+					mIns[i + 0].mAddress = aval & 0xff;
+					if (aval & 0x100)
+						mIns[i + 1].mType = ASMIT_SEC;
+					else
+						mIns[i + 1].mType = ASMIT_CLC;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#if 1
+				else if (pass >= 3 &&
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					NativeCodeInstruction	ins(mIns[i + 1]);
+					mIns[i + 1].CopyMode(mIns[i + 0]);
+					mIns[i + 0].CopyMode(ins);
+					if (mIns[i + 1].RequiresXReg())
+						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					if (mIns[i + 1].RequiresYReg())
+						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					progress = true;
+				}
+#endif
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[i + 1].mAddress &&
+					(mIns[i + 1].mType == ASMIT_LSR || mIns[i + 1].mType == ASMIT_ASL || mIns[i + 1].mType == ASMIT_ROL || mIns[i + 1].mType == ASMIT_ROR) && !(mIns[i + 0].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = mIns[i + 1].mType;
+					mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_A)))
+				{
+					mIns[i + 0].mType = ASMIT_LDA;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_ASL;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY, ASMIM_IMPLIED));
+					mIns[i + 2].mLive = mIns[i + 1].mLive;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA &&
+					mIns[i + 1].mType == ASMIT_LDY && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]))
+				{
+					mIns[i + 1].mType = ASMIT_TAY;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA &&
+					mIns[i + 1].mType == ASMIT_LDX && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]))
+				{
+					mIns[i + 1].mType = ASMIT_TAX;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_STX;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_STY;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_STX && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					mIns[i + 1].mType == ASMIT_STY && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA;
+					progress = true;
+				}
+#if 1
+				else if (mIns[i + 0].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_STX)
+				{
+					NativeCodeInstruction	ins(mIns[i + 0]);
+					mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1] = ins;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_STY)
+				{
+					NativeCodeInstruction	ins(mIns[i + 0]);
+					mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1] = ins;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_STA && !mIns[i + 1].RequiresXReg())
+				{
+					NativeCodeInstruction	ins(mIns[i + 0]);
+					mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1] = ins;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_TAY && mIns[i + 1].mType == ASMIT_STA && !mIns[i + 1].RequiresYReg())
+				{
+					NativeCodeInstruction	ins(mIns[i + 0]);
+					mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1] = ins;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_CPX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_CMP;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_TAY && mIns[i + 1].mType == ASMIT_CPY && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_CMP;
+					progress = true;
+				}
+#endif
+				else if (
+					mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_AND;
+					mIns[i + 0].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 0].mAddress = 0xfe;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED)
+				{
+					mIns[i + 0].mType = ASMIT_AND;
+					mIns[i + 0].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 0].mAddress = 0xfe;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (
+					(mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
+					mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					(mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
+					mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_TAX)
+				{
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_TAY)
+				{
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_TXA)
+				{
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					mIns[i + 1].mType == ASMIT_TYA)
+				{
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INY &&
+					mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INX &&
+					mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_INX &&
+					mIns[i + 1].mType == ASMIT_DEX && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_DEX &&
+					mIns[i + 1].mType == ASMIT_INX && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INY &&
+					mIns[i + 1].mType == ASMIT_DEY && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_DEY &&
+					mIns[i + 1].mType == ASMIT_INY && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_DEX)
+				{
+					mIns[i + 0].mAddress = (mIns[i + 0].mAddress - 1) & 255;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_INX)
+				{
+					mIns[i + 0].mAddress = (mIns[i + 0].mAddress + 1) & 255;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_DEY)
+				{
+					mIns[i + 0].mAddress = (mIns[i + 0].mAddress - 1) & 255;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_INY)
+				{
+					mIns[i + 0].mAddress = (mIns[i + 0].mAddress + 1) & 255;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_X || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) &&
+					mIns[i + 1].mType == ASMIT_TAY && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) &&
+					mIns[i + 1].mType == ASMIT_TAX && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_X) &&
+					mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y) &&
+					mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y) &&
+					mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
+				{
+					mIns[i + 1].mType = ASMIT_CPX;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
+				{
+					mIns[i + 1].mType = ASMIT_CPY;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX &&
+					mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY &&
+					mIns[i + 1].mType == ASMIT_STY && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (
+					(mIns[i + 0].mType == ASMIT_LDX || mIns[i + 0].mType == ASMIT_LDY) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !mIns[i + 1].SameEffectiveAddress(mIns[i + 0]))
+				{
+					NativeCodeInstruction	ins = mIns[i + 0];
+					mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= ins.mLive;
+					mIns[i + 1] = ins;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INY &&
+					mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mAddress++;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INX &&
+					mIns[i + 1].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mAddress++;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mAddress & 0x01) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_ASL;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mAddress & 0x80) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_LSR;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && (mIns[i + 1].mAddress & 0x01) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0] = mIns[i + 1];
+					mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+					mIns[i + 0].mAddress = (mIns[i + 0].mAddress >> 1) & 0x7f;
+					mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && (mIns[i + 1].mAddress & 0x80) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0] = mIns[i + 1];
+					mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+					mIns[i + 0].mAddress = (mIns[i + 0].mAddress << 1) & 0xfe;
+					mIns[i + 1].mType = ASMIT_ROR; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM) &&
+					mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = mIns[i + 1].mType; mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_Z;
+					mIns[i + 0].mLive &= ~LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].IsShift() && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress && !(mIns[i + 1].mLive & LIVE_MEM))
+				{
+					mIns[i + 1].mType = mIns[i + 0].mType;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
+					mIns[i + 0].mType = ASMIT_LDA;
+					progress = true;
+				}
+				else if (
+					(mIns[i + 0].mType == ASMIT_INC || mIns[i + 0].mType == ASMIT_DEC) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS &&
+					mIns[i + 1].mType == ASMIT_INX)
+				{
+					if (mIns[i + 0].mFlags & NCIF_UPPER)
+						mIns[i + 0].mAddress += 0x100;
+					else
+						mIns[i + 0].mAddress++;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
+				{
+					mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED;  mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (mIns[i + 0].ChangesAccuAndFlag() && mIns[i + 1].mType == ASMIT_TAX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP;  mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i + 0].ChangesAccuAndFlag() && mIns[i + 1].mType == ASMIT_TAY && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 1].mType = ASMIT_NOP;  mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 1].mType == ASMIT_CPX && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_CMP;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 1].mType == ASMIT_CPY && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_CMP;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 1].mType == ASMIT_STY && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_STX && mIns[i + 1].mType == ASMIT_INC && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) && !(mIns[i + 0].mFlags & NCIF_VOLATILE))
+				{
+					mIns[i + 0].mType = ASMIT_INX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_STX;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_STX && mIns[i + 1].mType == ASMIT_DEC && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) && !(mIns[i + 0].mFlags & NCIF_VOLATILE))
+				{
+					mIns[i + 0].mType = ASMIT_DEX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_STX;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_STY && mIns[i + 1].mType == ASMIT_INC && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y) && !(mIns[i + 0].mFlags & NCIF_VOLATILE))
+				{
+					mIns[i + 0].mType = ASMIT_INY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_STY;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_STY && mIns[i + 1].mType == ASMIT_DEC && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y) && !(mIns[i + 0].mFlags & NCIF_VOLATILE))
+				{
+					mIns[i + 0].mType = ASMIT_DEY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_STY;
+					progress = true;
+				}
+				else if (pass > 10 &&
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_INX; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (pass > 10 &&
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x01 && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (pass > 10 &&
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (pass > 10 &&
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x01 && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+#endif
+				else if (
+					mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_MEM))
+				{
+					if (!(mIns[i + 0].mLive & LIVE_CPU_REG_X))
+					{
+						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_INX));
+						mIns[i + 2].mType = ASMIT_TXA; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (!(mIns[i + 0].mLive & LIVE_CPU_REG_Y))
+					{
+						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_INY));
+						mIns[i + 2].mType = ASMIT_TYA; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (!(mIns[i + 0].mLive & LIVE_CPU_REG_C))
+					{
+						mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_CLC));
+						mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 1;
+						progress = true;
+					}
+				}
+#if 0
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+				{
+					int val = mIns[i + 0].mAddress;
+					mIns[i + 0].CopyMode(mIns[i + 1]);
+					mIns[i + 1].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 1].mAddress = val;
+					progress = true;
+				}
+#endif
+				else if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
+				{
+					const NativeCodeInstruction* ains, * iins;
+
+					int sreg = mIns[i + 1].mAddress;
+					int	apos, addr;
+					uint32	flags;
+
+					if (FindGlobalAddressSumY(i, sreg, true, apos, ains, iins, flags, addr))
+					{
+						if (iins || (flags & LIVE_CPU_REG_Y) || (flags & LIVE_CPU_REG_X)) //!(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+						{
+							RepairLoadYImmediate(i + 1, mIns[i + 0].mAddress);
+
+							if (flags & LIVE_CPU_REG_Y)
+							{
+								mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
+							}
+							else if (flags & LIVE_CPU_REG_X)
+							{
+								mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;
+							}
+							else
+							{
+								mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
+							}
+
+							if (ains->mMode == ASMIM_IMMEDIATE)
+							{
+								mIns[i + 1].mLinkerObject = 0;
+								mIns[i + 1].mAddress = addr + mIns[i + 0].mAddress;
+							}
+							else
+							{
+								mIns[i + 1].mLinkerObject = ains->mLinkerObject;
+								mIns[i + 1].mAddress = ains->mAddress + mIns[i + 0].mAddress;
+							}
+
+							if (!iins)
+							{
+								mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+								if (flags & LIVE_CPU_REG_Y)
+								{
+									mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY, ASMIM_IMPLIED));
+									for (int j = apos; j < i + 2; j++)
+										mIns[j].mLive |= LIVE_CPU_REG_Y;
+								}
+								else
+								{
+									PatchGlobalAdressSumYByX(i + 1, sreg, *ains, addr);
+									mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAX, ASMIM_IMPLIED));
+									for (int j = apos; j < i + 2; j++)
+										mIns[j].mLive |= LIVE_CPU_REG_X;
+								}
+							}
+							else if (iins->mMode != ASMIM_ZERO_PAGE)
+							{
+								mIns[i + 0].mMode = iins->mMode;
+								mIns[i + 0].mAddress = iins->mAddress;
+								mIns[i + 0].mLinkerObject = iins->mLinkerObject;
+								mIns[i + 0].mFlags = iins->mFlags;
+
+								if (!(flags & LIVE_CPU_REG_Y) && (flags & LIVE_CPU_REG_X))
+									mIns[i + 0].mType = ASMIT_LDX;
+							}
+							else if (iins->mAddress == sreg)
+							{
+								mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+								if (flags & LIVE_CPU_REG_Y)
+								{
+									mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, iins->mAddress));
+									mIns[apos].mLive |= LIVE_MEM;
+									for (int j = apos; j < i + 2; j++)
+										mIns[j].mLive |= LIVE_CPU_REG_Y;
+								}
+								else
+								{
+									PatchGlobalAdressSumYByX(i + 1, sreg, *ains, addr);
+									mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, iins->mAddress));
+									mIns[apos].mLive |= LIVE_MEM;
+									for (int j = apos; j < i + 2; j++)
+										mIns[j].mLive |= LIVE_CPU_REG_X;
+								}
+							}
+							else
+							{
+								mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
+								mIns[i + 0].mAddress = iins->mAddress;
+
+								if (!(flags & LIVE_CPU_REG_Y) && (flags & LIVE_CPU_REG_X))
+									mIns[i + 0].mType = ASMIT_LDX;
+							}
+
+							CheckLive();
+
+							progress = true;
+						}
+					}
+				}
+
+				CheckLive();
+
+#if 1
+				if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
+				{
+					int	addr;
+					if (FindPageStartAddress(i, mIns[i + 1].mAddress, addr))
+					{
+						if (mIns[i + 1].mLive & LIVE_CPU_REG_Y)
+						{
+							mIns.Insert(i + 2, mIns[i + 0]);
+							mIns[i + 2].mLive |= mIns[i + 1].mLive;
+						}
+
+						int	absaddr = addr + mIns[i + 0].mAddress;
+
+						mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
+						mIns[i + 0].mLive |= LIVE_MEM;
+						mIns[i + 0].mAddress = mIns[i + 1].mAddress;
+
+						mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
+						mIns[i + 1].mAddress = absaddr;
+						mIns[i + 1].mLinkerObject = nullptr;
+
+						progress = true;
+
+						CheckLive();
+					}
+				}
+#endif
+
+#if 1
+				if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
+				{
+					int	sreg = mIns[i + 1].mAddress;
+
+					int	apos, breg, ireg;
+
+					if (FindAddressSumY(i, sreg, apos, breg, ireg))
+					{
+						if (PatchAddressSumY(i, sreg, apos, breg, ireg))
+						{
+							progress = true;
+
+							CheckLive();
+						}
+					}
+				}
+#endif
+
+#if 1
+				if (
+					mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO) &&
+					mIns[i + 1].mMode == ASMIM_INDIRECT_Y && mIns[i + 0].mAddress == mIns[i + 1].mAddress)
+				{
+					int	sreg = mIns[i + 0].mAddress;
+
+					int	apos, breg, ireg;
+
+					if (FindAddressSumY(i, sreg, apos, breg, ireg))
+					{
+						if (!(breg == sreg || ireg == sreg) || !(mIns[i + 1].mLive & LIVE_MEM))
+						{
+							if (breg == sreg || ireg == sreg)
+							{
+								mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
+								mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
+							}
+
+							RepairLoadYImmediate(i + 1, 0);
+
+							mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
+							mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
+							mIns[i + 1].mAddress = breg; mIns[i + 1].mFlags &= ~NCIF_YZERO;
+							mIns[i + 2].mAddress = breg; mIns[i + 2].mFlags &= ~NCIF_YZERO;
+							progress = true;
+
+							CheckLive();
+
+						}
+					}
+				}
+#endif
+
+#if 1
+				if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress <= 3 &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
+				{
+					int	apos, breg, ireg;
+					if (FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
+					{
+						if (breg != mIns[i + 1].mAddress && ireg != mIns[i + 1].mAddress)// || !(mIns[i + 1].mLive & LIVE_MEM))
+						{
+							int yoffset = mIns[i + 0].mAddress;
+
+							if (breg == mIns[i + 1].mAddress)
+							{
+								mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
+								mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
+							}
+
+							RepairLoadYImmediate(i + 1, 0);
+
+							mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
+							mIns[i + 0].mAddress = ireg;
+							mIns[i + 0].mLive |= LIVE_MEM;
+							mIns[i + 1].mAddress = breg;
+							mIns[i + 1].mFlags &= ~NCIF_YZERO;
+
+							for (int j = 0; j < yoffset; j++)
+							{
+								mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_INY, ASMIM_IMPLIED));
+								mIns[i + 1].mLive = mIns[i + 0].mLive;
+							}
+
+							CheckLive();
+
+							progress = true;
+						}
+					}
+				}
+
+#endif
+
+			}
+
+#endif
+			CheckLive();
+
+
+#if 1
+			if (i + 2 < mIns.Size())
+			{
+#if _DEBUG
+				NativeCodeInstruction	i0 = mIns[i];
+				NativeCodeInstruction	i1 = mIns[i + 1];
+				NativeCodeInstruction	i2 = mIns[i + 2];
+#endif
+
+				if (mIns[i].mType == ASMIT_LDA && mIns[i + 2].mType == ASMIT_LDA && (mIns[i + 1].mType == ASMIT_CLC || mIns[i + 1].mType == ASMIT_SEC))
+				{
+					mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 2].mAddress &&
+					mIns[i + 1].mType == ASMIT_INC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && (mIns[i + 2].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_CLC;
+					mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_ADC;
+					mIns[i + 1].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 1].mAddress = 1;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA &&
+					mIns[i + 1].IsShiftOrInc() &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) &&
+					!mIns[i + 2].SameEffectiveAddress(mIns[i + 1]) &&
+					!(mIns[i + 2].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && (mIns[i + 1].mAddress == mIns[i + 2].mAddress || mIns[i + 1].mAddress == mIns[i + 2].mAddress + 1)) &&
+					!(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode != ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 2].mAddress &&
+					mIns[i + 2].IsCommutative() && HasAsmInstructionMode(mIns[i + 2].mType, mIns[i + 1].mMode) &&
+					(mIns[i + 2].mLive & LIVE_MEM) == 0)
+				{
+					mIns[i + 1].mType = mIns[i + 2].mType;
+					mIns[i + 1].mLive |= mIns[i + 2].mLive;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].ChangesAccuAndFlag() &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 2].mType == ASMIT_LDA && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 1].SameEffectiveAddress(mIns[i + 2]))
+				{
+					mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
+					mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].mType == ASMIT_LDA && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 0].SameEffectiveAddress(mIns[i + 2]))
+				{
+					mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
+					mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
+					!mIns[i + 1].SameEffectiveAddress(mIns[i + 0]) && !mIns[i + 1].ChangesAccu())
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+
+					mIns[i + 2].mType = ASMIT_TAY;
+					mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) &&
+					!mIns[i + 1].ChangesAccu() && !mIns[i + 1].RequiresAccu() && !mIns[i + 1].RequiresYReg())
+				{
+					mIns[i + 0].mType = ASMIT_LDY;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					if (mIns[i + 1].ChangesYReg())
+					{
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					}
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
+					mIns[i + 1].mType == ASMIT_DEC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
+					!(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_SEC; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_SBC; mIns[i + 1].mMode = ASMIM_IMMEDIATE; mIns[i + 1].mAddress = 1; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					if (mIns[i + 2].mLive & LIVE_CPU_REG_Z)
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_ROR && mIns[i + 2].mMode == ASMIM_IMPLIED)
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_CLC; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].ChangesAccuAndFlag() &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
+				{
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
+					mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].ChangesAccuAndFlag() && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
+					mIns[i + 1].mType == ASMIT_LDY &&
+					mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
+				{
+					mIns[i + 2] = mIns[i + 0];
+					mIns[i + 2].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+					if (mIns[i + 0].RequiresCarry())
+						mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].ChangesAccuAndFlag() &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].mType == ASMIT_CMP && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
+					mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 1].IsShift() &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 2].mType = mIns[i + 1].mType;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].UsesAccu() &&
+					mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 2];
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_STA;
+					mIns[i + 2].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress)
+				{
+					mIns[i + 0] = mIns[i + 2];
+					mIns[i + 2] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 0];
+					mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA;
+					mIns[i + 2].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mMode != ASMIM_RELATIVE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
+					mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 2].mAddress &&
+					(mIns[i + 1].mType == ASMIT_DEC || mIns[i + 1].mType == ASMIT_INC))
+				{
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
+				{
+					mIns[i + 0].mType = ASMIT_CMP; mIns[i + 0].mMode = ASMIM_IMMEDIATE; mIns[i + 0].mAddress = 0x80;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_INX &&
+					mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_CLC;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 1;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_DEX &&
+					mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_SEC;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_SBC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 1;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
+					mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					!mIns[i + 1].ChangesXReg() && !mIns[i + 1].UsesAccu() &&
+					mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_STA;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					!mIns[i + 1].ChangesYReg() && !mIns[i + 1].UsesAccu() &&
+					mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_STA;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_TXA &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_X)))
+				{
+					mIns[i + 0].mType = ASMIT_DEX;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_TYA &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Y)))
+				{
+					mIns[i + 0].mType = ASMIT_DEY;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
+				{
+					int	t = (mIns[i + 2].mAddress ^ 0xff) + mIns[i + 1].mAddress + 1;
+
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_LDA; mIns[i + 2].mAddress = t & 0xff;
+					if (t < 256)
+						mIns[i + 0].mType = ASMIT_CLC;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
+				{
+					int	t = mIns[i + 2].mAddress + mIns[i + 1].mAddress;
+
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_LDA; mIns[i + 2].mAddress = t & 0xff;
+					if (t >= 256)
+						mIns[i + 0].mType = ASMIT_SEC;
+					progress = true;
+				}
+				else if (pass > 0 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
+					mIns[i + 2].mType == ASMIT_ADC)
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_LDA;
+					progress = true;
+				}
+				else if (pass > 0 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
+				{
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC)
+				{
+					mIns[i + 1] = mIns[i + 0];
+					mIns[i + 0].mType = ASMIT_CLC;
+					mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					if (mIns[i + 1].mFlags & NCIF_UPPER)
+						mIns[i + 1].mAddress += 0x0100 * mIns[i + 2].mAddress;
+					else
+						mIns[i + 1].mAddress += mIns[i + 2].mAddress;
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
+					mIns[i + 2].mType == ASMIT_LSR && mIns[i + 2].mMode == ASMIM_IMPLIED)
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
+					mIns[i + 2].mType == ASMIT_SBC)
+				{
+					mIns[i + 2].mType = ASMIT_EOR;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_EOR && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x80 &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x80 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_TYA &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Y)))
+				{
+					int t = mIns[i + 2].mAddress;
+					mIns[i + 0].mType = ASMIT_INY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					if (t > 1)
+					{
+						mIns[i + 1].mType = ASMIT_INY;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					}
+					else
+					{
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					}
+					mIns[i + 2].mType = ASMIT_TYA; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Y)))
+				{
+					int t = mIns[i + 2].mAddress;
+					mIns[i + 0].mType = ASMIT_INY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					if (t > 1)
+					{
+						mIns[i + 1].mType = ASMIT_INY;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					}
+					else
+					{
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					}
+					mIns[i + 2].mType = ASMIT_TYA; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ADC && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mAddress += mIns[i + 2].mAddress;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SBC && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mAddress += mIns[i + 2].mAddress;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ADC && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC)
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_EOR && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x80 &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 2].mAddress ^= 0x80;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1)
+				{
+					mIns[i + 0].mType = ASMIT_SEC; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#endif
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) &&
+					!mIns[i + 1].ChangesAddress() && !mIns[i + 1].ChangesGlobalMemory() &&
+					!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesXReg() &&
+					!(mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_LDX &&
+					mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+				{
+					NativeCodeInstruction	ins = mIns[i + 0];
+					mIns[i + 0] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 2];
+					mIns[i + 2] = ins;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_LDY &&
+					mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				{
+					NativeCodeInstruction	ins = mIns[i + 0];
+					mIns[i + 0] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 2];
+					mIns[i + 2] = ins;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDX &&
+					mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)) && !mIns[i + 2].SameEffectiveAddress(mIns[i + 0]))
+				{
+					NativeCodeInstruction	ins = mIns[i + 0];
+					mIns[i + 0] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 2];
+					mIns[i + 2] = ins;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDY &&
+					mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)) && !mIns[i + 2].SameEffectiveAddress(mIns[i + 0]))
+				{
+					NativeCodeInstruction	ins = mIns[i + 0];
+					mIns[i + 0] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 2];
+					mIns[i + 2] = ins;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].RequiresYReg() &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_MEM))
+				{
+					mIns[i + 0] = mIns[i + 2];
+					mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_MEM) &&
+					(!mIns[i + 1].ChangesZFlag() || !(mIns[i + 2].mLive & LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_ROL; mIns[i + 2].mAddress = mIns[i + 1].mAddress; mIns[i + 2].mLive |= LIVE_MEM;
+					mIns[i + 1].mType = ASMIT_ASL; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_ROR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x80 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mMode = ASMIM_IMMEDIATE; mIns[i + 0].mAddress = 0;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
+					mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
+					!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					int addr = mIns[i + 0].mAddress;
+
+					mIns.Insert(i, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, addr));
+					mIns.Insert(i + 4, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, addr));
+
+					mIns[i + 0].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_A;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 4].mLive = mIns[i + 3].mLive;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
+					mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
+					mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
+					mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
+					mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
+					mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_STA;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() && mIns[i + 1].ChangesZFlag() &&
+					mIns[i + 2].mType == ASMIT_TXA && (mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+				{
+					mIns[i + 2] = mIns[i + 0]; mIns[i + 2].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_TAY &&
+					mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && (mIns[i + 2].mLive & LIVE_CPU_REG_X) && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y) && HasAsmInstructionMode(mIns[i + 2].mType, ASMIM_ABSOLUTE_X))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mMode = ASMIM_ABSOLUTE_X;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					mIns[i + 1].mType == ASMIT_TAX &&
+					mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && (mIns[i + 2].mLive & LIVE_CPU_REG_X) && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y) && HasAsmInstructionMode(mIns[i + 2].mType, ASMIM_ABSOLUTE_X))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mMode = ASMIM_ABSOLUTE_X;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE_X &&
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;  mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y &&
+					mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;  mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+
+				else if (
+					(mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
+					mIns[i + 1].mType == ASMIT_STX &&
+					mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
+					mIns[i + 1].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+				}
+				else if (
+					(mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
+					mIns[i + 1].mType == ASMIT_STY &&
+					mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
+					mIns[i + 1].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 1].mType == ASMIT_STA && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1], true) &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mFlags & NCIF_VOLATILE))
+				{
+					mIns[i + 0].mLive |= mIns[i + 2].mLive;
+					mIns[i + 1].mLive |= mIns[i + 2].mLive;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_STX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_STY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_IMMEDIATE) &&
+					mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_STY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_IMMEDIATE) &&
+					mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 2].mType == ASMIT_LDX && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_STX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y) &&
+					!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) && !(mIns[i + 1].ChangesYReg()) &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_CPU_REG_X) &&
+					!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) && !(mIns[i + 1].ChangesXReg()) &&
+					mIns[i + 2].mType == ASMIT_LDX && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_MEM) &&
+					mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
+				{
+					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_STY;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && !mIns[i + 1].SameEffectiveAddress(mIns[i + 0]) &&
+					mIns[i + 2].IsShift() && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]))
+				{
+					AsmInsType	type = mIns[i + 2].mType;
+					uint32		live = mIns[i + 2].mLive;
+
+					mIns[i + 2] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 0];
+
+					mIns[i + 0].mType = type;
+					mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 0].mLive |= live;
+					mIns[i + 1].mLive |= live;
+					mIns[i + 2].mLive |= live;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & LIVE_CPU_REG_A) &&
+					mIns[i + 2].mType == ASMIT_CPX && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 2].mAddress && !(mIns[i + 2].mLive & LIVE_MEM))
+				{
+					mIns[i + 1] = mIns[i + 0];
+					mIns[i + 1].mType = ASMIT_CMP;
+					mIns[i + 1].mLive |= mIns[i + 2].mLive;
+					mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && !mIns[i + 0].RequiresXReg() &&
+					mIns[i + 1].mType == ASMIT_LDX &&
+					mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X) && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]))
+				{
+					NativeCodeInstruction	ins = mIns[i + 0];
+					mIns[i + 0] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 2];
+					mIns[i + 2] = ins;
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A | mIns[i + 2].mLive;
+					mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= mIns[i + 2].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX &&
+					mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 2].mType == ASMIT_STA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+					!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]) &&
+					!mIns[i + 1].MayBeChangedOnAddress(mIns[i + 2]))
+				{
+					NativeCodeInstruction	ins = mIns[i + 2];
+					mIns[i + 2] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 0];
+					mIns[i + 0] = ins;
+					mIns[i + 1].mType = ASMIT_LDA; mIns[i + 1].mLive |= LIVE_CPU_REG_A | mIns[i + 0].mLive;
+					mIns[i + 2].mType = ASMIT_STA; mIns[i + 2].mLive |= mIns[i + 0].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX &&
+					mIns[i + 1].mType == ASMIT_STX &&
+					mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY &&
+					mIns[i + 1].mType == ASMIT_STY &&
+					mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
+					(mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
+					!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesZFlag())
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
+					(mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
+					!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesZFlag())
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_CMP && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 2].mAddress &&
+					!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_MEM)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_CMP; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mAddress & 0x03) && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_ASL;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mAddress & 0xc0) && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_LSR;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
+				{
+					mIns[i + 0].mAddress &= (mIns[i + 2].mAddress << 1) | 1;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
+				{
+					mIns[i + 0].mAddress &= (mIns[i + 2].mAddress >> 1) | 0x80;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
+					mIns[i + 2].mType == ASMIT_ROL && mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 1].mType = ASMIT_AND; mIns[i + 1].mAddress = 1;
+					mIns[i + 0].mAddress &= (mIns[i + 2].mAddress << 1) | 1;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#endif
+				else if (
+					mIns[i + 0].IsShift() && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					!mIns[i + 1].ReferencesAccu() && (mIns[i + 1].mMode != ASMIM_ZERO_PAGE || mIns[i + 1].mAddress != mIns[i + 0].mAddress) &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
+				{
+					NativeCodeInstruction	ins = mIns[i + 2];
+					mIns.Remove(i + 2);
+
+					mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns.Insert(i, ins);
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && (mIns[i + 0].mAddress & 0x3f) == 0x3f &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_NOP;  mIns[i + 0].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_NOP;  mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mAddress = (mIns[i + 1].mAddress << 1) & 0xff;
+					mIns[i + 2].mType = ASMIT_NOP;  mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INY &&
+					mIns[i + 1].mType == ASMIT_INY &&
+					mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mAddress += 2;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INX &&
+					mIns[i + 1].mType == ASMIT_INX &&
+					mIns[i + 2].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mAddress += 2;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA && !(mIns[i + 0].mLive & LIVE_CPU_REG_X) &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_INX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_TXA; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA && !(mIns[i + 0].mLive & LIVE_CPU_REG_X) &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_DEX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_TXA; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y) &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_INY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_TYA; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y) &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_DEY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_TYA; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#endif
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1 &&
+					mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1 &&
+					mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1 &&
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1 &&
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_DEX; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 1].mType == ASMIT_TAX &&
+					mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+					!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_STX;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 1].mType == ASMIT_TAY &&
+					mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+					!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_STY;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					(mIns[i + 1].mType == ASMIT_INX || mIns[i + 1].mType == ASMIT_DEX) &&
+					mIns[i + 2].mType == ASMIT_STX && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 2].mType = mIns[i + 1].mType == ASMIT_INX ? ASMIT_INC : ASMIT_DEC;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					(mIns[i + 1].mType == ASMIT_INY || mIns[i + 1].mType == ASMIT_DEY) &&
+					mIns[i + 2].mType == ASMIT_STY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 2].mType = mIns[i + 1].mType == ASMIT_INY ? ASMIT_INC : ASMIT_DEC;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					(mIns[i + 0].mType == ASMIT_INC || mIns[i + 0].mType == ASMIT_DEC) &&
+					mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 1].mLive & LIVE_MEM) &&
+					mIns[i + 2].mType == ASMIT_STA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
+					(mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+					(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)) != (LIVE_CPU_REG_X | LIVE_CPU_REG_Y))
+				{
+					if (mIns[i + 2].mLive & LIVE_CPU_REG_X)
+					{
+						if (mIns[i + 0].mType == ASMIT_INC)
+							mIns[i + 1].mType = ASMIT_INY;
+						else
+							mIns[i + 1].mType = ASMIT_DEY;
+
+						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 2].mType = ASMIT_STY;
+					}
+					else
+					{
+						if (mIns[i + 0].mType == ASMIT_INC)
+							mIns[i + 1].mType = ASMIT_INX;
+						else
+							mIns[i + 1].mType = ASMIT_DEX;
+
+						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 2].mType = ASMIT_STX;
+					}
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX &&
+					mIns[i + 1].mType == ASMIT_TXA &&
+					mIns[i + 2].mType == ASMIT_CPX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_CMP;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY &&
+					mIns[i + 1].mType == ASMIT_TYA &&
+					mIns[i + 2].mType == ASMIT_CPY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
+				{
+					mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_CMP;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_A)))
+				{
+					mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_DEX;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_CPY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 1].mAddress &&
+					!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
+				{
+					mIns[i + 1].mType = ASMIT_CMP; mIns[i + 1].CopyMode(mIns[i + 0]); mIns[i + 1].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_Z;
+					mIns[i + 0].mType = ASMIT_TYA; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_ADC && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mAddress = (mIns[i + 0].mAddress - mIns[i + 2].mAddress) & 0xff;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 1].mType == ASMIT_STX && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+					!mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) && !mIns[i + 1].SameEffectiveAddress(mIns[i + 2]))
+				{
+					NativeCodeInstruction	ins(mIns[i + 2]);
+					mIns.Remove(i + 2);
+					mIns.Insert(i, ins);
+					mIns[i + 1].mLive |= ins.mLive & LIVE_CPU_REG_A;
+					mIns[i + 2].mLive |= ins.mLive & LIVE_CPU_REG_A;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 1].mType == ASMIT_STY && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+					!mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) && !mIns[i + 1].SameEffectiveAddress(mIns[i + 2]))
+				{
+					NativeCodeInstruction	ins(mIns[i + 2]);
+					mIns.Remove(i + 2);
+					mIns.Insert(i, ins);
+					mIns[i + 1].mLive |= ins.mLive & LIVE_CPU_REG_A;
+					mIns[i + 2].mLive |= ins.mLive & LIVE_CPU_REG_A;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].ChangesAccuAndFlag() &&
+					(mIns[i + 1].mType == ASMIT_INC || mIns[i + 1].mType == ASMIT_DEC) &&
+					mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 &&
+					mIns[i + 1].MayBeMovedBefore(mIns[i + 0]))
+				{
+					mIns.Insert(i, mIns[i + 1]);
+					mIns[i].mLive |= LIVE_CPU_REG_A;
+					if (mIns[i + 1].RequiresYReg())
+						mIns[i].mLive |= LIVE_CPU_REG_Y;
+					if (mIns[i + 1].RequiresXReg())
+						mIns[i].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
+					mIns.Remove(i + 2);
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) &&
+					!(mIns[i + 0].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && (mIns[i + 1].mAddress == mIns[i + 0].mAddress || mIns[i + 1].mAddress + 1 == mIns[i + 0].mAddress)))
+				{
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_CPX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_CPY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && !(mIns[i + 1].ReferencesYReg()) &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_MEM))
+				{
+					mIns[i + 2] = mIns[i + 1];
+					mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_TAY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					if (mIns[i + 2].ReferencesXReg())
+						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					progress = true;
+				}
+
+				if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress <= 1 &&
+					mIns[i + 1].mType == ASMIT_LDA &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mLive & LIVE_MEM))
+				{
+					int	apos, breg, ireg;
+					if (FindAddressSumY(i, mIns[i + 2].mAddress, apos, breg, ireg))
+					{
+						int yoffset = mIns[i + 0].mAddress;
+
+						if (breg == mIns[i + 2].mAddress || ireg == mIns[i + 2].mAddress)
+						{
+							mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
+							mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
+						}
+
+						RepairLoadYImmediate(i + 2, yoffset);
+
+						int ypos = i;
+						if (mIns[i + 1].mMode != ASMIM_INDIRECT_Y && mIns[i + 1].mMode != ASMIM_ABSOLUTE_Y)
+						{
+							mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
+							mIns[i + 0].mAddress = ireg;
+							mIns[i + 0].mLive |= LIVE_MEM;
+							mIns[i + 2].mAddress = breg;
+						}
+						else
+						{
+							mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
+							mIns[i + 2].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_Y | LIVE_MEM;
+							ypos = i + 2;
+							mIns[i + 3].mAddress = breg;
+						}
+
+						if (yoffset == 1)
+						{
+							mIns.Insert(ypos + 1, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_INY, ASMIM_IMPLIED));
+							mIns[ypos + 1].mLive = mIns[ypos].mLive;
+						}
+
+						progress = true;
+					}
+				}
+
+				CheckLive();
+
+				if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_LDA &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					const NativeCodeInstruction* ains;
+					if (FindImmediateStore(i, mIns[i + 2].mAddress + 1, ains))
+					{
+						mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mIns[i + 2].mAddress));
+						mIns[i + 2].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_X;
+						mIns[i + 3].mMode = ASMIM_ABSOLUTE_X;
+
+						if (ains->mMode == ASMIM_IMMEDIATE)
+							mIns[i + 3].mAddress = (ains->mAddress << 8) + mIns[i + 0].mAddress;
+						else
+						{
+							mIns[i + 3].mLinkerObject = ains->mLinkerObject;
+							mIns[i + 3].mAddress = mIns[i + 0].mAddress + ains->mAddress;
+							mIns[i + 3].mFlags |= NCIF_UPPER;
+							mIns[i + 3].mFlags &= ~NCIF_LOWER;
+						}
+						progress = true;
+					}
+				}
+
+				CheckLive();
+			}
+#endif
+#if 1
+			if (i + 3 < mIns.Size())
+			{
+				if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
+					mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+					HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode) &&
+					(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_INC; mIns[i + 0].mLive |= LIVE_MEM;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
+					mIns[i + 1].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+					HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
+					(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_DEC; mIns[i + 0].mLive |= LIVE_MEM;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					progress = true;
+				}
+				else if (mIns[i + 1].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 3]) &&
+					mIns[i + 0].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+					HasAsmInstructionMode(ASMIT_INC, mIns[i + 1].mMode) &&
+					(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_INC; mIns[i + 1].mLive |= LIVE_MEM;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					progress = true;
+				}
+				else if (mIns[i + 1].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 3]) &&
+					mIns[i + 0].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+					HasAsmInstructionMode(ASMIT_DEC, mIns[i + 1].mMode) &&
+					(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEC; mIns[i + 1].mLive |= LIVE_MEM;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					progress = true;
+				}
+
+				else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
+					mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) == 0xff &&
+					HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
+					(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_DEC; mIns[i + 0].mLive |= LIVE_MEM;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					progress = true;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
+					mIns[i + 1].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) == 0xff &&
+					HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode) &&
+					(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_INC; mIns[i + 0].mLive |= LIVE_MEM;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					progress = true;
+				}
+				else if (mIns[i + 1].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 3]) &&
+					mIns[i + 0].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) == 0xff &&
+					HasAsmInstructionMode(ASMIT_DEC, mIns[i + 1].mMode) &&
+					(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEC; mIns[i + 1].mLive |= LIVE_MEM;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					progress = true;
+				}
+				else if (mIns[i + 1].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 3]) &&
+					mIns[i + 0].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) == 0xff &&
+					HasAsmInstructionMode(ASMIT_INC, mIns[i + 1].mMode) &&
+					(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_INC; mIns[i + 1].mLive |= LIVE_MEM;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC)
+				{
+					mIns[i + 1].mType = ASMIT_NOP;
+					mIns[i + 2].mType = ASMIT_NOP;
+
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
+					mIns[i + 3].mType == ASMIT_CMP && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
+				{
+					mIns[i + 3].CopyMode(mIns[i + 0]);
+					if (mIns[i + 3].RequiresYReg())
+					{
+						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					}
+					else if (mIns[i + 3].RequiresXReg())
+					{
+						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					}
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == mIns[i + 1].mType && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+				{
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDX && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
+					mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].UsesZeroPage(mIns[i + 3].mAddress))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+
+					mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, mIns[i + 3].mAddress));
+
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y &&
+					mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress)
+				{
+					mIns[i + 2].mType = mIns[i + 3].mType;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1]) &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && mIns[i + 3].mMode != ASMIM_IMMEDIATE)
+				{
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_ORA; mIns[i + 2].mLive |= mIns[i + 3].mLive & LIVE_CPU_REG_Z;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_EOR && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
+					(mIns[i + 2].mType == ASMIT_SEC || mIns[i + 2].mType == ASMIT_CLC) &&
+					mIns[i + 3].mType == ASMIT_ADC)
+				{
+					mIns.Insert(i + 4, mIns[i + 0]);
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 4].mType = ASMIT_SBC; mIns[i + 4].mLive |= LIVE_CPU_REG_C;
+
+					if (mIns[i + 4].RequiresYReg())
+					{
+						mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+					}
+					if (mIns[i + 4].RequiresXReg())
+					{
+						mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 3].mLive |= LIVE_CPU_REG_X;
+					}
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 1].mAddress &&
+					mIns[i + 2].mType == ASMIT_SEC &&
+					mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
+				{
+					mIns[i + 0].mType = ASMIT_EOR;
+					mIns[i + 0].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 0].mAddress = 0xff;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+
+					mIns[i + 3].mType = ASMIT_ADC;
+					mIns[i + 3].mAddress = mIns[i + 1].mAddress;
+
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 2].mAddress &&
+					mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
+				{
+					mIns[i + 0].mType = ASMIT_EOR;
+					mIns[i + 0].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 0].mAddress = 0xff;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+
+					mIns[i + 3].mType = ASMIT_ADC;
+					mIns[i + 3].mAddress = mIns[i + 2].mAddress;
+
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 2].mAddress || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
+				{
+					mIns[i + 3].CopyMode(mIns[i + 1]);
+					mIns[i + 3].mType = ASMIT_ADC;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_ADC &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mAddress += mIns[i + 3].mAddress;
+					mIns[i + 1].mLive |= (mIns[i + 3].mLive & LIVE_CPU_REG_Z);
+
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x00 &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
+					mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x01 &&
+					mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0x01)
+				{
+					mIns[i + 1].mAddress = 0x00;
+					mIns[i + 1].mLive |= (mIns[i + 3].mLive & LIVE_CPU_REG_Z);
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
+					(mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
+
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_SEC;
+					mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 3].mType = ASMIT_ROL;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
+					mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 3].mLive & LIVE_MEM) &&
+					(mIns[i + 2].mType == ASMIT_ASL || mIns[i + 2].mType == ASMIT_LSR || mIns[i + 2].mType == ASMIT_ROL || mIns[i + 2].mType == ASMIT_ROR) &&
+					(mIns[i + 3].mType == ASMIT_ORA || mIns[i + 3].mType == ASMIT_AND || mIns[i + 3].mType == ASMIT_EOR || mIns[i + 3].mType == ASMIT_ADC || mIns[i + 3].mType == ASMIT_SBC))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mMode = mIns[i + 0].mMode;
+					mIns[i + 3].mAddress = mIns[i + 0].mAddress;
+					mIns[i + 3].mLinkerObject = mIns[i + 0].mLinkerObject;
+					mIns[i + 3].mFlags = mIns[i + 0].mFlags;
+
+					if (mIns[i + 3].RequiresYReg())
+					{
+						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					}
+					if (mIns[i + 3].RequiresXReg())
+					{
+						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					}
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
+					mIns[i + 2].mType == ASMIT_EOR && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
+					mIns[i + 3].mType == ASMIT_LSR && mIns[i + 3].mMode == ASMIM_IMPLIED && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 3].mType = ASMIT_INY;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 3].mType = ASMIT_DEY;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 3].mType = ASMIT_INX;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_DEX; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 3].mType = ASMIT_DEX;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_INX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 2].mType = ASMIT_INX;
+					else
+						mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
+						mIns[i + 3].mType = ASMIT_TXA;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress >= 0xfe &&
+					mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 0xfe)
+						mIns[i + 2].mType = ASMIT_DEX;
+					else
+						mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
+						mIns[i + 3].mType = ASMIT_TXA;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					progress = true;
+				}
+#endif
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 2].mType = ASMIT_DEX;
+					else
+						mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
+						mIns[i + 3].mType = ASMIT_TXA;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 3].mType = ASMIT_INY;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress >= 0xfe &&
+					mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 0xfe)
+						mIns[i + 2].mType = ASMIT_DEY;
+					else
+						mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
+						mIns[i + 3].mType = ASMIT_TYA;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 3].mType = ASMIT_DEY;
+					else
+						mIns[i + 3].mType = ASMIT_NOP;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_INX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 2].mType = ASMIT_INX;
+					else
+						mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 3].mType = ASMIT_STX;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 2].mType = ASMIT_DEX;
+					else
+						mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 3].mType = ASMIT_STX;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 2)
+					{
+						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					}
+					else
+						mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_STY;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
+					mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+					if (mIns[i + 2].mAddress == 2)
+						mIns[i + 2].mType = ASMIT_DEY;
+					else
+						mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 3].mType = ASMIT_STY;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
+					mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_STY;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
+					mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_STX;
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 2].mMode) &&
+					mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LDX;
+					mIns[i + 2].mType = ASMIT_STX; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 2].mMode) &&
+					mIns[i + 3].mType == ASMIT_TYA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LDY;
+					mIns[i + 2].mType = ASMIT_STY; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#endif
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_LDX && HasAsmInstructionMode(ASMIT_LDA, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 2].mMode) &&
+					mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_STX; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
+					mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0x00 && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = mIns[i + 1].mType;
+					mIns[i + 0].mLive |= LIVE_MEM | LIVE_CPU_REG_C | LIVE_CPU_REG_Z;
+
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX &&
+					mIns[i + 1].mType == ASMIT_INX && mIns[i + 2].mType == ASMIT_INX &&
+					mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_INC;
+					mIns[i + 3].mType = ASMIT_INC;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX &&
+					mIns[i + 1].mType == ASMIT_DEX && mIns[i + 2].mType == ASMIT_DEX &&
+					mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_DEC;
+					mIns[i + 3].mType = ASMIT_DEC;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (pass > 10 &&
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_INC;
+					mIns[i + 3].mType = ASMIT_INC;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (pass > 10 &&
+					mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_DEC;
+					mIns[i + 3].mType = ASMIT_DEC;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					!(mIns[i + 1].ChangesYReg() || mIns[i + 1].mMode == ASMIM_INDIRECT_Y || mIns[i + 1].RequiresXReg()) &&
+					mIns[i + 2].mType == ASMIT_TYA &&
+					mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_Y)))
+				{
+					mIns[i + 0].mType = ASMIT_LDX;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].ReplaceYRegWithXReg();
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].IsShift() && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_LDA && (mIns[i + 2].mMode == ASMIM_IMMEDIATE || mIns[i + 2].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 0].mAddress) &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress &&
+					!(mIns[i + 3].mLive & LIVE_MEM))
+				{
+					mIns[i + 3] = mIns[i + 2];
+					mIns[i + 2] = mIns[i + 1];
+					mIns[i + 1].mType = mIns[i + 0].mType;
+					mIns[i + 0].mType = ASMIT_LDA;
+					mIns[i + 3].mType = ASMIT_ADC;
+
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_SEC &&
+					mIns[i + 2].mType == ASMIT_LDA && !mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) &&
+					mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_MEM))
+				{
+					mIns[i + 0].mType = ASMIT_EOR;
+					mIns[i + 0].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 0].mAddress = 0xff;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_ADC;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress < 4 &&
+					mIns[i + 2].mType == ASMIT_TAX &&
+					mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C | LIVE_CPU_REG_A)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mAddress += mIns[i + 1].mAddress;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_SEC;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_SBC &&
+					mIns[i + 2].mType == ASMIT_SEC &&
+					mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_CLC;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+					mIns[i + 3].mAddress = (mIns[i + 3].mAddress - mIns[i + 1].mAddress) & 0xff;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0xff && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					int	val = mIns[i + 2].mAddress;
+
+					mIns[i + 0].mType = ASMIT_SEC;
+					mIns[i + 2].CopyMode(mIns[i + 1]);
+					mIns[i + 2].mType = ASMIT_SBC;
+					mIns[i + 1].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 1].mAddress = -(1 + val) & 255;
+
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+					mIns[i + 1].mType == ASMIT_EOR && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x40 &&
+					mIns[i + 2].mType == ASMIT_SEC &&
+					mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0x40 && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 0].mType = ASMIT_CMP;
+					mIns[i + 0].mMode = ASMIM_IMMEDIATE;
+					mIns[i + 0].mAddress = 0x80;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_ROR;
+					mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC)
+				{
+					mIns[i + 0].mAddress = 0xff;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y &&
+					mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && mIns[i + 0].mLinkerObject != mIns[i + 2].mLinkerObject &&
+					mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				{
+					int	val = mIns[i + 2].mAddress;
+
+					mIns[i + 3].mType = ASMIT_LDA;
+					mIns[i + 3].CopyMode(mIns[i + 0]);
+
+					mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
+					mIns[i + 2].mMode = ASMIM_ABSOLUTE_X; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
+					mIns[i + 3].mType == ASMIT_LDX && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress)
+				{
+					int	addr = mIns[i + 0].mAddress;
+					mIns[i + 0].mAddress = mIns[i + 2].mAddress;
+					mIns[i + 3].mAddress = mIns[i + 1].mAddress;
+					mIns[i + 2].mAddress = addr;
+
+					mIns[i + 2].mType = ASMIT_LDX; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 3].mType = ASMIT_STX;
+
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !mIns[i + 1].SameEffectiveAddress(mIns[i + 2]) &&
+					mIns[i + 3].mType == ASMIT_CMP && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 3].mAddress = mIns[i + 2].mAddress;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ROL && mIns[i + 2].mMode == ASMIM_IMPLIED && HasAsmInstructionMode(ASMIT_ROL, mIns[i + 0].mMode) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
+				{
+
+					mIns[i + 2].CopyMode(mIns[i + 0]);
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mLive & LIVE_CPU_REG_A) &&
+					!mIns[i + 1].ReferencesAccu() && !mIns[i + 0].MayBeSameAddress(mIns[i + 1]) &&
+					!mIns[i + 2].ReferencesAccu() && !mIns[i + 0].MayBeSameAddress(mIns[i + 2]) &&
+					mIns[i + 3].IsShift() && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+				{
+					NativeCodeInstruction	ins = mIns[i + 0];
+					mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1] = mIns[i + 2]; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2] = mIns[i + 3]; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3] = ins; mIns[i + 3].mLive |= mIns[i + 2].mLive;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].IsShift() && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_MEM) &&
+					!mIns[i + 1].ChangesCarry() && !mIns[i + 2].ChangesCarry() &&
+					!mIns[i + 1].RequiresCarry() && !mIns[i + 2].RequiresCarry() &&
+					!mIns[i + 1].MayBeSameAddress(mIns[i + 0]) && !mIns[i + 2].MayBeSameAddress(mIns[i + 0]))
+				{
+					mIns.Insert(i + 4, NativeCodeInstruction(mIns[i + 0].mIns, mIns[i + 0].mType, ASMIM_IMPLIED));
+					mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 3].mLive |= LIVE_CPU_REG_C;
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_X &&
+					mIns[i + 3].mType == ASMIT_LDX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mMode = ASMIM_ABSOLUTE_Y; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+
+					if (!(mIns[i + 3].mLive & LIVE_MEM))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					}
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y &&
+					mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mMode = ASMIM_ABSOLUTE_X; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+
+					if (!(mIns[i + 3].mLive & LIVE_MEM))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					}
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STY &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_LDA &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+				{
+					mIns[i + 3].CopyMode(mIns[i + 2]);
+					mIns[i + 2].mType = ASMIT_TYA;
+					mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STX &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_LDA &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+				{
+					mIns[i + 3].CopyMode(mIns[i + 2]);
+					mIns[i + 2].mType = ASMIT_TXA;
+					mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_EOR && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0xff &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC &&
+					mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0xff && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 1].mType = ASMIT_SEC;
+					mIns[i + 2].mType = ASMIT_SBC;
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX &&
+					mIns[i + 1].mType == ASMIT_DEX &&
+					mIns[i + 2].mType == ASMIT_STX && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
+					mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 0].mType = ASMIT_DEC;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_LDA; mIns[i + 2].mLive = mIns[i + 3].mLive;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].mType == ASMIT_LDA &&
+					mIns[i + 3].mType == ASMIT_CMP && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == mIns[i + 0].mAddress && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_CMP; mIns[i + 2].mLive |= LIVE_CPU_REG_Z;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_CPU_REG_A) &&
+					!mIns[i + 1].ReferencesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].ChangesCarry() &&
+					!mIns[i + 2].ReferencesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 2].ChangesCarry() &&
+					mIns[i + 3].IsShift() && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+				{
+					AsmInsType	type = mIns[i + 3].mType;
+					mIns[i + 3] = mIns[i + 2];
+					mIns[i + 2] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 0];
+					mIns[i + 0] = NativeCodeInstruction(mIns[i + 0].mIns, type);
+					mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 3].mLive |= LIVE_CPU_REG_C;
+
+					progress = true;
+				}
+#endif
+				else if (
+					mIns[i + 0].ChangesAccuAndFlag() &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].MayBeMovedBefore(mIns[i + 1]) && mIns[i + 2].MayBeMovedBefore(mIns[i + 0]) &&
+					mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0)
+				{
+					NativeCodeInstruction	ins(mIns[i + 2]);
+					mIns.Remove(i + 2);
+					mIns.Insert(i, ins);
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
+					mIns[i + 1].mLive |= mIns[i + 3].mLive;
+					mIns[i + 2].mLive |= mIns[i + 3].mLive;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].ChangesAccuAndFlag() &&
+					(mIns[i + 1].mType == ASMIT_LDY && !mIns[i + 0].RequiresYReg() ||
+						mIns[i + 1].mType == ASMIT_LDX && !mIns[i + 0].RequiresXReg()) &&
+					mIns[i + 2].mType == ASMIT_STA &&
+					mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0)
+				{
+					NativeCodeInstruction	ins(mIns[i + 1]);
+					mIns.Remove(i + 1);
+					mIns.Insert(i, ins);
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
+					mIns[i + 1].mLive |= mIns[i + 3].mLive | mIns[i + 0].mLive;
+					mIns[i + 2].mLive |= mIns[i + 3].mLive;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 2].mType == ASMIT_TXA &&
+					mIns[i + 3].IsCommutative() && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress)
+				{
+					mIns[i + 2].mType = ASMIT_NOP;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mAddress = mIns[i + 0].mAddress;
+					progress = true;
+				}
+
+				if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 2].mType == ASMIT_LDX && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) &&
+					!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1]) && !mIns[i + 1].ChangesYReg() &&
+					mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y && mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
+				{
+					if (!(mIns[i + 3].mLive & LIVE_CPU_REG_Y) && HasAsmInstructionMode(mIns[i + 1].mType, ASMIM_ABSOLUTE_X))
+					{
+						mIns[i + 0].mType = ASMIT_LDX;
+						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						progress = true;
+					}
+					else if (!(mIns[i + 3].mLive & LIVE_CPU_REG_X) && HasAsmInstructionMode(mIns[i + 3].mType, ASMIM_ABSOLUTE_Y))
+					{
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						mIns[i + 3].mMode = ASMIM_ABSOLUTE_Y;
+						progress = true;
+					}
+				}
+
+				if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
+					!mIns[i + 2].ChangesYReg() && (mIns[i + 2].mMode == ASMIM_IMMEDIATE || mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mAddress == mIns[i + 3].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
+				{
+					int	apos, breg, ireg;
+					if (FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
+					{
+						if (breg == mIns[i + 1].mAddress || ireg == mIns[i + 1].mAddress)
+						{
+							mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
+							mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
+						}
+
+						RepairLoadYImmediate(i + 3, 0);
+
+						mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
+						mIns[i + 0].mAddress = ireg;
+						mIns[i + 0].mLive |= LIVE_MEM;
+						mIns[i + 1].mAddress = breg;
+						mIns[i + 3].mAddress = breg;
+						progress = true;
+					}
+				}
+			}
+
+#endif
+			CheckLive();
+
+#if 1
+			if (i + 4 < mIns.Size())
+			{
+				if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
+					mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_LDA)
+				{
+					// Flip arguments of ADC if second parameter in accu at entry
+
+					mIns[i + 3].CopyMode(mIns[i + 2]);
+					mIns[i + 2].CopyMode(mIns[i + 0]);
+					progress = true;
+				}
+
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
+					mIns[i + 1].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_LDA)
+				{
+					// change sbc to adc to reverse order
+
+					mIns[i + 3].CopyMode(mIns[i + 2]);
+					mIns[i + 2].mType = ASMIT_EOR; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 0xff;
+					mIns[i + 3].mType = ASMIT_ADC;
+
+					if (mIns[i + 3].ReferencesYReg())
+						mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					if (mIns[i + 3].ReferencesXReg())
+						mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
+					mIns[i + 2].mType == ASMIT_SEC && mIns[i + 1].mType == ASMIT_LDA)
+				{
+					// change sbc to adc to reverse order
+
+					mIns[i + 3].CopyMode(mIns[i + 1]);
+					mIns[i + 1].mType = ASMIT_EOR; mIns[i + 1].mMode = ASMIM_IMMEDIATE; mIns[i + 1].mAddress = 0xff;
+					mIns[i + 3].mType = ASMIT_ADC;
+
+					if (mIns[i + 3].ReferencesYReg())
+					{
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					}
+					if (mIns[i + 3].ReferencesXReg())
+					{
+						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					}
+
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP;
+					mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 4].mType = ASMIT_NOP;
+					if (mIns[i + 2].mAddress == 2)
+					{
+						mIns.Insert(i + 3, mIns[i + 2]);
+					}
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_SEC &&
+					mIns[i + 3].mType == ASMIT_LDA && !mIns[i + 3].UsesZeroPage(mIns[i + 1].mAddress) &&
+					mIns[i + 4].mType == ASMIT_SBC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress && !(mIns[i + 4].mLive & LIVE_MEM))
+				{
+					mIns[i + 4].CopyMode(mIns[i + 0]);
+
+					if (mIns[i + 4].RequiresYReg())
+					{
+						mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+					}
+					if (mIns[i + 4].RequiresXReg())
+					{
+						mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 3].mLive |= LIVE_CPU_REG_X;
+					}
+
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					!mIns[i + 1].ChangesAccu() &&
+					mIns[i + 2].mType == ASMIT_LDA &&
+					mIns[i + 3].mType == ASMIT_CLC &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress)
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+
+					mIns[i + 3].mType = ASMIT_ADC;
+					mIns[i + 3].CopyMode(mIns[i + 2]);
+					mIns[i + 2].mType = ASMIT_CLC; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mLive |= mIns[i + 1].mLive;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 &&
+					mIns[i + 3].mType == ASMIT_LSR && mIns[i + 3].mMode == ASMIM_IMPLIED &&
+					mIns[i + 4].mType == ASMIT_ROR && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress &&
+					!(mIns[i + 4].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[i + 0].mType = ASMIT_ROR; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_EOR; mIns[i + 1].mAddress = 0x80; mIns[i + 1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_STA;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_SBC &&
+					mIns[i + 3].mType == ASMIT_CLC &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+					!(mIns[i + 4].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 1].mAddress = (mIns[i + 1].mAddress + mIns[i + 4].mAddress) & 255;
+
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 3].IsCommutative() && mIns[i + 3].mMode == ASMIM_INDIRECT_Y &&
+					mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == mIns[i + 0].mAddress)
+				{
+					int	addr = mIns[i + 1].mAddress;
+					mIns[i + 1].mAddress = mIns[i + 3].mAddress;
+					mIns[i + 3].mAddress = addr;
+					mIns[i + 0].mAddress = mIns[i + 2].mAddress;
+					mIns[i + 2].mAddress = mIns[i + 4].mAddress;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
+					!mIns[i + 2].ChangesYReg() && (mIns[i + 2].mMode == ASMIM_IMMEDIATE || mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress) &&
+					!mIns[i + 3].ChangesYReg() && (mIns[i + 3].mMode == ASMIM_IMMEDIATE || mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 1].mAddress) &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mAddress == mIns[i + 4].mAddress && !(mIns[i + 4].mLive & LIVE_MEM))
+				{
+					int	apos, breg, ireg;
+					if (FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
+					{
+						if (breg == mIns[i + 1].mAddress)
+						{
+							mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
+							mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
+						}
+
+						RepairLoadYImmediate(i + 4, 0);
+
+						mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
+						mIns[i + 0].mAddress = ireg;
+						mIns[i + 0].mLive |= LIVE_MEM;
+						mIns[i + 1].mAddress = breg;
+						mIns[i + 4].mAddress = breg;
+						progress = true;
+					}
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					if (!(mIns[i + 4].mLive & LIVE_CPU_REG_X))
+					{
+						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].CopyMode(mIns[i + 1]); mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mType = ASMIT_INX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+						if (mIns[i + 2].mAddress == 2)
+							mIns[i + 2].mType = ASMIT_INX;
+						else
+							mIns[i + 2].mType = ASMIT_NOP;
+						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 3].mType = ASMIT_STX; mIns[i + 3].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 4].mType = ASMIT_STX;
+						progress = true;
+					}
+					else if (!(mIns[i + 4].mLive & LIVE_CPU_REG_Y))
+					{
+						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].CopyMode(mIns[i + 1]); mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						if (mIns[i + 2].mAddress == 2)
+							mIns[i + 2].mType = ASMIT_INY;
+						else
+							mIns[i + 2].mType = ASMIT_NOP;
+						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 4].mType = ASMIT_STY;
+						progress = true;
+					}
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_SEC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					if (!(mIns[i + 4].mLive & LIVE_CPU_REG_X))
+					{
+						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].CopyMode(mIns[i + 1]); mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+						if (mIns[i + 2].mAddress == 2)
+							mIns[i + 2].mType = ASMIT_DEX;
+						else
+							mIns[i + 2].mType = ASMIT_NOP;
+						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 3].mType = ASMIT_STX; mIns[i + 3].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 4].mType = ASMIT_STX;
+						progress = true;
+					}
+					else if (!(mIns[i + 4].mLive & LIVE_CPU_REG_Y))
+					{
+						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].CopyMode(mIns[i + 1]); mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						if (mIns[i + 2].mAddress == 2)
+							mIns[i + 2].mType = ASMIT_DEY;
+						else
+							mIns[i + 2].mType = ASMIT_NOP;
+						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 4].mType = ASMIT_STY;
+						progress = true;
+					}
+				}
+				else if (
+					pass > 2 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+					mIns[i + 3].mType == ASMIT_STA && !mIns[i + 3].MayBeSameAddress(mIns[i + 1]) && !mIns[i + 3].RequiresYReg() &&
+					mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP;
+					mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED;  mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 4].mType = ASMIT_DEY; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 1].mAddress &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress &&
+
+					!mIns[i + 0].ReferencesZeroPage(mIns[i + 3].mAddress) &&
+					!mIns[i + 2].ReferencesZeroPage(mIns[i + 1].mAddress) &&
+					!(mIns[i + 0].mFlags & NCIF_VOLATILE) && !(mIns[i + 2].mFlags & NCIF_VOLATILE))
+				{
+					NativeCodeInstruction	ins(mIns[i + 0]);
+					mIns[i + 0] = mIns[i + 2];
+					mIns[i + 2] = ins;
+					mIns[i + 1].mAddress = mIns[i + 3].mAddress;
+					mIns[i + 3].mAddress = mIns[i + 4].mAddress;
+
+					if (mIns[i + 2].RequiresYReg())
+					{
+						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					}
+					if (mIns[i + 2].RequiresXReg())
+					{
+						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					}
+
+					mIns[i + 0].mLive |= mIns[i + 2].mLive;
+					mIns[i + 2].mLive |= mIns[i + 4].mLive;
+					mIns[i + 3].mLive |= mIns[i + 4].mLive;
+
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAY &&
+					mIns[i + 1].mType == ASMIT_TXA &&
+					mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_TYA && !(mIns[i + 4].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_STX; mIns[i + 1].CopyMode(mIns[i + 3]);
+					mIns[i + 3].mType = mIns[i + 2].mType; mIns[i + 3].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_TYA &&
+					mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_TXA && !(mIns[i + 4].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_STY; mIns[i + 1].CopyMode(mIns[i + 3]);
+					mIns[i + 3].mType = mIns[i + 2].mType; mIns[i + 3].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					(mIns[i + 1].mType == ASMIT_TAY || mIns[i + 1].mType == ASMIT_TAX) &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && (mIns[i + 3].mAddress == 0xff || mIns[i + 3].mAddress == 0x01) &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					if (mIns[i + 1].mType == ASMIT_TAY)
+					{
+						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					}
+					else
+					{
+						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					}
+
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					if (mIns[i + 3].mAddress == 0x01)
+						mIns[i + 4].mType = ASMIT_INC;
+					else
+						mIns[i + 4].mType = ASMIT_DEC;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 1].mType == ASMIT_TYA &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && (mIns[i + 3].mAddress == 0xff || mIns[i + 3].mAddress == 0x01) &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					if (mIns[i + 3].mAddress == 0x01)
+						mIns[i + 4].mType = ASMIT_INC;
+					else
+						mIns[i + 4].mType = ASMIT_DEC;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 1].mType == ASMIT_TXA &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && (mIns[i + 3].mAddress == 0xff || mIns[i + 3].mAddress == 0x01) &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					if (mIns[i + 3].mAddress == 0x01)
+						mIns[i + 4].mType = ASMIT_INC;
+					else
+						mIns[i + 4].mType = ASMIT_DEC;
+					progress = true;
+				}
+#endif
+#endif
+			}
+#endif
+			CheckLive();
+
+#if 1
+			if (i + 3 < mIns.Size())
+			{
+				if (
+					mIns[i + 0].mType == ASMIT_INY &&
+					mIns[i + 1].mType == ASMIT_TYA &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP;
+					mIns[i + 3].mAddress++;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_TAY &&
+					mIns[i + 3].mType == ASMIT_INY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 1].mAddress++;
+					mIns[i + 3].mType = ASMIT_NOP;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INX &&
+					mIns[i + 1].mType == ASMIT_TXA &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP;
+					mIns[i + 3].mAddress++;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_TAX &&
+					mIns[i + 3].mType == ASMIT_INX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 1].mAddress++;
+					mIns[i + 3].mType = ASMIT_NOP;
+					progress = true;
+				}
+				else if (pass > 8 &&
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) < 4 &&
+					mIns[i + 3].mType == ASMIT_TAY &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					int n = mIns[i + 2].mAddress & 0xff;
+					for (int k = 0; k < n; k++)
+					{
+						mIns[i + k].mType = ASMIT_INY; mIns[i + k].mMode = ASMIM_IMPLIED; mIns[i + k].mLive |= LIVE_CPU_REG_Y;
+					}
+					for (int k = n; k < 4; k++)
+					{
+						mIns[i + k].mType = ASMIT_NOP; mIns[i + k].mMode = ASMIM_IMPLIED;
+					}
+					progress = true;
+				}
+				else if (pass > 8 &&
+					mIns[i + 0].mType == ASMIT_TXA &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) < 4 &&
+					mIns[i + 3].mType == ASMIT_TAX &&
+					!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					int n = mIns[i + 2].mAddress & 0xff;
+					for (int k = 0; k < n; k++)
+					{
+						mIns[i + k].mType = ASMIT_INX; mIns[i + k].mMode = ASMIM_IMPLIED; mIns[i + k].mLive |= LIVE_CPU_REG_X;
+					}
+					for (int k = n; k < 4; k++)
+					{
+						mIns[i + k].mType = ASMIT_NOP; mIns[i + k].mMode = ASMIM_IMPLIED;
+					}
+					progress = true;
+				}
+			}
+			CheckLive();
+
+			if (i + 4 < mIns.Size())
+			{
+				if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode != ASMIM_ABSOLUTE_X &&
+					mIns[i + 3].mType == ASMIT_TXA &&
+					mIns[i + 4].mType == ASMIT_STA && !mIns[i + 2].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
+				{
+					mIns[i + 0] = mIns[i + 4];
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 1].mType == ASMIT_TAX &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_INC;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 1].mType == ASMIT_TAX &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0xff &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_DEC;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_TAX &&
+					mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 &&
+					mIns[i + 4].mType == ASMIT_STA && (mIns[i + 4].mMode == ASMIM_ZERO_PAGE || mIns[i + 4].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_STX; mIns[i + 4].mLive |= LIVE_CPU_REG_A;
+					mIns.Insert(i + 5, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAX));
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
+					mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
+					mIns[i + 3].mType == ASMIT_ROL && mIns[i + 3].mMode == ASMIM_IMPLIED &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress != mIns[i + 0].mAddress &&
+					!(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				{
+					int	a0 = mIns[i + 0].mAddress;
+					int a1 = mIns[i + 4].mAddress;
+
+					mIns.Insert(i, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, a1));
+					mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, a0));
+
+					mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mMode = ASMIM_IMPLIED;
+					mIns[i + 5].mMode = ASMIM_ZERO_PAGE; mIns[i + 5].mAddress = a1;
+					mIns[i + 6].mAddress = a0;
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x80 &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
+					mIns[i + 3].mType == ASMIT_LSR && mIns[i + 3].mMode == ASMIM_IMPLIED &&
+					mIns[i + 4].mType == ASMIT_ORA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress && !(mIns[i + 4].mLive & (LIVE_CPU_REG_C | LIVE_MEM)))
+				{
+					mIns[i + 0].mType = ASMIT_ASL; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 3].mType = ASMIT_ROR;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#endif
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_TYA &&
+					mIns[i + 1].mType == ASMIT_TAX &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress <= 2 &&
+					mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					if (mIns[i + 3].mAddress > 1)
+						mIns[i + 4].mType = ASMIT_INY;
+					else
+						mIns[i + 4].mType = ASMIT_NOP;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
+					HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode))
+				{
+					mIns[i + 4].mType = ASMIT_INC;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA &&
+					mIns[i + 1].mType == ASMIT_STA &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 255 &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
+					HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode))
+				{
+					mIns[i + 4].mType = ASMIT_DEC;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+#endif
+				else if (
+					pass > 8 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+					mIns[i + 3].mType == ASMIT_CLC &&
+					mIns[i + 4].mType == ASMIT_ADC &&
+					!(mIns[i + 4].mLive & LIVE_CPU_REG_C))
+				{
+					mIns[i + 3].mType = ASMIT_SEC;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 2].mType == ASMIT_ROL && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 3].mType == ASMIT_ROL && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 4].mType == ASMIT_ROL && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress &&
+					!(mIns[i + 4].mLive & LIVE_CPU_REG_A))
+				{
+					mIns.Insert(i + 5, mIns[i + 0]);
+					mIns.Remove(i);
+					mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mLive |= mIns[i + 3].mLive;
+
+					progress = true;
+				}
+
+#if 0
+				else if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE_Y &&
+					mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
+				{
+					mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 2].mType = ASMIT_LDX; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+					mIns[i + 3].mMode = ASMIM_ABSOLUTE_X; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#endif
+			}
+			CheckLive();
+
+#if 1
+			if (pass > 2 && i + 4 < mIns.Size())
+			{
+				if (
+					mIns[i + 0].mType == ASMIT_INY &&
+					mIns[i + 1].mType == ASMIT_INY &&
+					mIns[i + 2].mType == ASMIT_INY &&
+					mIns[i + 3].mType == ASMIT_INY &&
+					mIns[i + 4].mType == ASMIT_INY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_TYA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_CLC; mIns[i + 1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
+					mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 5; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mType = ASMIT_TAY;
+					mIns[i + 4].mType = ASMIT_NOP;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_INX &&
+					mIns[i + 1].mType == ASMIT_INX &&
+					mIns[i + 2].mType == ASMIT_INX &&
+					mIns[i + 3].mType == ASMIT_INX &&
+					mIns[i + 4].mType == ASMIT_INX && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_CLC; mIns[i + 1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
+					mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 5; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+					mIns[i + 3].mType = ASMIT_TAX;
+					mIns[i + 4].mType = ASMIT_NOP;
+					progress = true;
+				}
+			}
+#endif
+			CheckLive();
+			if (mTrueJump)
+				mTrueJump->CheckLive();
+			if (mFalseJump)
+				mFalseJump->CheckLive();
+#if 1
+			if (pass < 10 && i + 1 < mIns.Size())
+			{
+				if (
+					mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_X || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 0].mMode == ASMIM_INDIRECT_Y) &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+				{
+					int	n = 3;
+					if (mIns[i + 0].mLinkerObject && (mIns[i + 0].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+						n = 100;
+					if (mIns[i + 0].mFlags & NCIF_VOLATILE)
+						n = 1;
+					if (mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z))
+						n--;
+
+					if (n > 0 && (mIns[i + 0].mMode != ASMIM_INDIRECT_Y || (mIns[i + 1].mAddress != mIns[i + 0].mAddress && mIns[i + 1].mAddress != mIns[i + 0].mAddress + 1)))
+					{
+						mProc->ResetPatched();
+						if (CheckSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i], n))
+						{
+							mProc->ResetPatched();
+							if (PatchSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i]))
+							{
+								if (mIns[i + 0].mMode == ASMIM_ABSOLUTE_X)
+								{
+									mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+									mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+								}
+								else if (mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 0].mMode == ASMIM_INDIRECT_Y)
+								{
+									mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+									mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+								}
+								progress = true;
+							}
+							CheckLive();
+							if (mTrueJump)
+								mTrueJump->CheckLive();
+							if (mFalseJump)
+								mFalseJump->CheckLive();
+						}
+					}
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_ABSOLUTE &&
+					mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+				{
+					int	n = 3;
+					if (mIns[i + 0].mLinkerObject && (mIns[i + 0].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+						n = 100;
+					if (mIns[i + 0].mFlags & NCIF_VOLATILE)
+						n = 1;
+					if (mIns[i + 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z))
+						n--;
+
+					if (n > 0)
+					{
+						mProc->ResetPatched();
+						if (CheckSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i], n))
+						{
+							mProc->ResetPatched();
+							if (PatchSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i]))
+								progress = true;
+							CheckLive();
+							if (mTrueJump)
+								mTrueJump->CheckLive();
+							if (mFalseJump)
+								mFalseJump->CheckLive();
+						}
+					}
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ABSOLUTE && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
+				{
+					int	n = 2;
+					if (mIns[i + 1].mLinkerObject && (mIns[i + 1].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+						n = 100;
+
+					mProc->ResetPatched();
+					if (CheckSingleUseGlobalLoad(this, mIns[i + 0].mAddress, i + 2, mIns[i + 1], n))
+					{
+						mProc->ResetPatched();
+						if (PatchSingleUseGlobalLoad(this, mIns[i + 0].mAddress, i + 2, mIns[i + 1]))
+							progress = true;
+						CheckLive();
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+			}
+#endif
+			CheckLive();
+			if (mTrueJump)
+				mTrueJump->CheckLive();
+			if (mFalseJump)
+				mFalseJump->CheckLive();
+
+			if (i + 5 < mIns.Size())
+			{
+				if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+					mIns[i + 3].mType == ASMIT_TXA &&
+					mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_INDIRECT_Y && mIns[i + 2].mAddress == mIns[i + 5].mAddress &&
+					!(mIns[i + 5].mFlags & NCIF_VOLATILE) && !(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 3] = mIns[i + 0];
+					mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					int a = mIns[i + 1].mAddress; mIns[i + 1].mAddress = mIns[i + 4].mAddress; mIns[i + 4].mAddress = a;
+					progress = true;
+				}
+#if 1
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && !mIns[i + 0].RequiresYReg() &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && !mIns[i + 2].SameEffectiveAddress(mIns[i + 1]) &&
+					mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_INDIRECT_Y && mIns[i + 4].mAddress != mIns[i + 1].mAddress && mIns[i + 4].mAddress != mIns[i + 1].mAddress + 1 &&
+					mIns[i + 5].mType == ASMIT_LDA && mIns[i + 5].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 5].mLive & LIVE_MEM) &&
+					!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 4]))
+				{
+					mIns[i + 5] = mIns[i + 0];
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 1 &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_ASL && mIns[i + 3].mMode == ASMIM_IMPLIED &&
+					mIns[i + 4].mType == ASMIT_CLC &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 1].mAddress && !(mIns[i + 5].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
+				{
+					mIns[i + 0].mType = ASMIT_LSR; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 3].mType = ASMIT_ROL;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#endif
+				else if (pass > 0 &&
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+					mIns[i + 3].IsShift() && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].IsShift() && mIns[i + 4].mMode == ASMIM_IMPLIED &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 5].mAddress == mIns[i + 0].mAddress && !(mIns[i + 5].mLive & LIVE_CPU_REG_A) &&
+					mIns[i + 5].mAddress != mIns[i + 1].mAddress && mIns[i + 5].mAddress != mIns[i + 3].mAddress)
+				{
+					mIns[i + 2].CopyMode(mIns[i + 0]); mIns[i + 2].mLive |= LIVE_MEM;
+					mIns[i + 4].CopyMode(mIns[i + 0]); mIns[i + 4].mLive |= LIVE_MEM;
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+					mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+
+#if 1
+				if (pass == 0 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 3].mFlags & NCIF_UPPER) && (mIns[i + 3].mLinkerObject == mIns[i + 1].mLinkerObject) &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+					!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1))
+					{
+						assert(mIns[i + 3].mAddress == mIns[i + 1].mAddress);
+
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1, mIns[i + 3].mLinkerObject, mIns[i + 3].mAddress + mIns[i + 4].mAddress * 256))
+							progress = true;
+					}
+				}
+#endif
+#if 1
+				if (pass == 0 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+					!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1, nullptr, mIns[i + 1].mAddress + (mIns[i + 3].mAddress + mIns[i + 4].mAddress) * 256))
+							progress = true;
+					}
+				}
+#endif
+#if 1
+				else if (pass == 0 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+					!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1))
+					{
+						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1, nullptr, 256 * mIns[i + 3].mAddress))
+							progress = true;
+					}
+				}
+
+#endif
+#if 1
+				else if (pass == 0 &&
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress + 1 &&
+					!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 0].mAddress, mIns[i + 0].mAddress, i + 3, -1))
+					{
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 0].mAddress, mIns[i + 0].mAddress, i + 3, -1, nullptr, 256 * mIns[i + 1].mAddress))
+							progress = true;
+					}
+				}
+
+#endif
+			}
+
+#if 1
+			if (i + 1 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 0].mFlags & NCIF_UPPER) &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+			{
+				mProc->ResetPatched();
+				if (CheckGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1))
+				{
+					mProc->ResetPatched();
+					if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1, mIns[i + 0].mLinkerObject, mIns[i + 0].mAddress, NCIF_UPPER))
+						progress = true;
+				}
+			}
+#endif
+
+			if (i + 5 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_INY && mIns[i + 3].mType == ASMIT_DEY &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_INDIRECT_Y &&
+				!(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				if (mIns[i + 5].mType == ASMIT_TAX)
+				{
+					if (mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 4].mAddress && mIns[i + 2].mAddress != mIns[i + 4].mAddress + 1)
+					{
+						mIns[i + 5] = mIns[i + 2];
+						mIns[i + 2].mType = ASMIT_TAX; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 3].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 4].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 5].mLive |= LIVE_CPU_REG_X;
+						mIns[i + 3].mType = ASMIT_INY;
+						mIns.Insert(i + 6, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_DEY));
+						progress = true;
+					}
+				}
+			}
+
+			if (i + 7 < mIns.Size() && pass > 3 &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 3].mType == ASMIT_LDA &&
+				mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+				mIns[i + 6].mType == ASMIT_LDY && mIns[i + 6].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 7].mMode == ASMIM_INDIRECT_Y && mIns[i + 7].mAddress == mIns[i + 2].mAddress && !(mIns[i + 7].mLive & LIVE_MEM))
+			{
+				int total = mIns[i + 1].mAddress + mIns[i + 6].mAddress + 256 * mIns[i + 4].mAddress;
+				if (!(mIns[i + 7].mLive & LIVE_CPU_REG_Y) || !(mIns[i + 7].mLive & LIVE_CPU_REG_Z))
+				{
+					if (mIns[i + 7].mLive & LIVE_CPU_REG_Y)
+						mIns.Insert(i + 8, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, mIns[i + 6].mAddress));
+					mIns[i + 6].mAddress = total & 255;
+					mIns[i + 4].mAddress = total >> 8;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+			}
+
+			if (i + 6 < mIns.Size())
+			{
+				if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 4].mFlags & NCIF_UPPER) && mIns[i + 4].mLinkerObject == mIns[i + 1].mLinkerObject && mIns[i + 4].mAddress == mIns[i + 1].mAddress &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+				{
+					mIns[i + 1].mAddress = mIns[i + 4].mAddress = mIns[i + 1].mAddress + mIns[i + 2].mAddress + 256 * mIns[i + 5].mAddress;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+				else if (
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_AND && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 1 &&
+					mIns[i + 5].mType == ASMIT_CLC &&
+					mIns[i + 6].mType == ASMIT_ADC && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 2].mAddress && !(mIns[i + 6].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
+				{
+					int	addr = mIns[i + 0].mAddress;
+					mIns[i + 0].mAddress = mIns[i + 3].mAddress;
+					mIns[i + 3].mAddress = addr;
+					mIns[i + 1].mType = ASMIT_LSR; mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 3].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 5].mType = ASMIT_ROL;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+					progress = true;
+				}
+#if 1
+				if (pass == 0 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
+					mIns[i + 2].mType == ASMIT_ADC &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 4].mFlags & NCIF_UPPER) && mIns[i + 4].mLinkerObject == mIns[i + 1].mLinkerObject && mIns[i + 4].mAddress == mIns[i + 1].mAddress &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mType = ASMIT_LDA;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+						mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1, mIns[i + 1].mLinkerObject, mIns[i + 1].mAddress + mIns[i + 5].mAddress * 256))
+							progress = true;
+					}
+					else if (mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 3].mAddress)
+					{
+						mProc->ResetPatched();
+						if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, i + 7, -1))
+						{
+							mProc->ResetPatched();
+							if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, i + 7, -1, mIns[i + 1].mLinkerObject, mIns[i + 1].mAddress + mIns[i + 5].mAddress * 256))
+								progress = true;
+						}
+					}
+				}
+
+#endif
+#if 1
+				if (pass == 0 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 2].mFlags & NCIF_LOWER) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 5].mFlags & NCIF_UPPER) && mIns[i + 5].mLinkerObject == mIns[i + 2].mLinkerObject && mIns[i + 5].mAddress == mIns[i + 2].mAddress &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+						mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 4].mAddress * 256))
+							progress = true;
+					}
+					else if (mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 3].mAddress)
+					{
+						mProc->ResetPatched();
+						if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, i + 7, -1))
+						{
+							mProc->ResetPatched();
+							if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, i + 7, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 4].mAddress * 256))
+								progress = true;
+						}
+					}
+				}
+
+#endif
+#if 1
+				if (pass == 0 && i + 7 < mIns.Size() &&
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 0].mFlags & NCIF_LOWER) &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_INDIRECT_Y &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 5].mType == ASMIT_LDA && mIns[i + 5].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 5].mFlags & NCIF_UPPER) && mIns[i + 5].mLinkerObject == mIns[i + 0].mLinkerObject && mIns[i + 5].mAddress == mIns[i + 0].mAddress &&
+					mIns[i + 6].mType == ASMIT_ADC && mIns[i + 6].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 7].mType == ASMIT_STA && mIns[i + 7].mMode == ASMIM_ZERO_PAGE && mIns[i + 7].mAddress == mIns[i + 4].mAddress + 1 &&
+					!(mIns[i + 7].mLive & LIVE_CPU_REG_A))
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 4].mAddress, mIns[i + 4].mAddress, i + 8, mIns[i + 2].mAddress))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 3].mType = ASMIT_LDA;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+						mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+						mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 4].mAddress, mIns[i + 4].mAddress, i + 8, mIns[i + 2].mAddress, mIns[i + 0].mLinkerObject, mIns[i + 0].mAddress + mIns[i + 6].mAddress * 256))
+							progress = true;
+					}
+				}
+
+#endif
+#if 1
+				if (pass == 0 &&
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_ADC &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 2].mType = ASMIT_LDA;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+						mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1, nullptr, mIns[i + 1].mAddress + 256 * mIns[i + 4].mAddress + mIns[i + 5].mAddress * 25))
+							progress = true;
+					}
+				}
+
+#endif
+
+#if 1
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 2].mAddress &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 5].mAddress &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval, 0))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval))
+						{
+							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+							mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+							progress = true;
+
+							if (mTrueJump)
+								mTrueJump->CheckLive();
+							if (mFalseJump)
+								mFalseJump->CheckLive();
+						}
+					}
+				}
+#endif
+#if 1
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 3].mAddress &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS && mIns[i + 4].mLinkerObject == mIns[i + 1].mLinkerObject && mIns[i + 4].mAddress == mIns[i + 1].mAddress &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 0))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+						{
+							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+							progress = true;
+
+							if (mTrueJump)
+								mTrueJump->CheckLive();
+							if (mFalseJump)
+								mFalseJump->CheckLive();
+						}
+					}
+				}
+#endif
+#if 1
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+
+					bool	subs1 = mIns[i + 3].mAddress != mIns[i + 1].mAddress;
+					bool	subs2 = mIns[i + 3].mAddress != mIns[i + 2].mAddress;
+
+					if (subs1 && subs2)
+					{
+						if (mLoopHead)
+						{
+							if (ChangesZeroPage(mIns[i + 1].mAddress))
+								subs2 = false;
+							else if (ChangesZeroPage(mIns[i + 2].mAddress))
+								subs1 = false;
+						}
+					}
+
+					mProc->ResetPatched();
+					if (subs1 && CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval, 0))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval))
+						{
+							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+							mIns[i + 2].mType = ASMIT_LDA;
+
+							progress = true;
+						}
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+					else if (subs2)
+					{
+						mProc->ResetPatched();
+						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 0))
+						{
+							mProc->ResetPatched();
+							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+							{
+								mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+								progress = true;
+							}
+
+							if (mTrueJump)
+								mTrueJump->CheckLive();
+							if (mFalseJump)
+								mFalseJump->CheckLive();
+						}
+					}
+				}
+#endif
+#if 1
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && /*mIns[i + 3].mAddress != mIns[i + 1].mAddress && mIns[i + 3].mAddress != mIns[i + 2].mAddress && */
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval, 3))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval))
+							progress = true;
+
+						if (mIns[i + 3].mAddress == mIns[i + 1].mAddress || mIns[i + 3].mAddress == mIns[i + 2].mAddress)
+						{
+							for (int j = 0; j < 7; j++)
+							{
+								mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
+							}
+						}
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+#if 1
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 2].mAddress &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval, 3))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+							progress = true;
+
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+#if 1
+				if (
+					mIns[i + 0].mType == ASMIT_STA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 1].mType == ASMIT_CLC &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 2].mAddress + 1 &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 7, yval, 3))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 7, yval))
+							progress = true;
+
+						if (mIns[i + 3].mAddress == mIns[i + 2].mAddress)
+						{
+							for (int j = 1; j < 7; j++)
+							{
+								mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
+							}
+						}
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+#if 1
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					mIns[i + 2].mAddress != mIns[i + 3].mAddress &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 3))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+							progress = true;
+
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+#if 1
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+					mIns[i + 3].mAddress != BC_REG_STACK &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+
+					if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 3))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
+							progress = true;
+
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+#if 1
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 3].mType == ASMIT_LDA &&
+					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 2].mAddress + 1 &&
+					mIns[i + 2].mAddress != BC_REG_STACK &&
+					!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+
+					if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 7, yval, 3))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 7, yval))
+							progress = true;
+
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+#if 1
+				if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
+					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1 && !(mIns[i + 3].mLive & LIVE_MEM) &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+					!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval, 0))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval))
+							progress = true;
+
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mAddress = mIns[i + 3].mAddress;
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+#if 1
+				if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
+					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1 &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+					!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval, 3))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval))
+							progress = true;
+
+						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+#if 1
+				if (
+					mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 1].mAddress &&
+					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1 &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1)
+				{
+					int yval = RetrieveYValue(i);
+					int reg = FindFreeAccu(i);
+					if (reg >= 0)
+					{
+						NativeCodeInstruction	iins(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, reg);
+
+						mProc->ResetPatched();
+						if (CheckForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval, 3))
+						{
+							mIns[i + 0] = iins;
+							for (int j = 1; j < 6; j++)
+							{
+								mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
+							}
+
+							mProc->ResetPatched();
+							if (PatchForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval))
+								progress = true;
+
+							if (mTrueJump)
+								mTrueJump->CheckLive();
+							if (mFalseJump)
+								mFalseJump->CheckLive();
+						}
+					}
+				}
+#endif
+#if 1
+				if (
+					mLoopHead &&
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_LDA &&
+					mIns[i + 4].mType == ASMIT_ADC &&
+					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 1].mAddress + 1)
+				{
+					int yval = RetrieveYValue(i);
+					mProc->ResetPatched();
+					if (CheckForwardLowYPointer(this, mIns[i + 1].mAddress, mIns[i + 0].mAddress, i + 6, yval))
+					{
+						mProc->ResetPatched();
+						if (PatchForwardLowYPointer(this, mIns[i + 1].mAddress, mIns[i + 0].mAddress, i + 6, yval))
+							progress = true;
+
+						mIns[i + 0].mMode = ASMIM_IMMEDIATE;
+						mIns[i + 0].mAddress = 0;
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+					}
+				}
+#endif
+
+#if 1
+				if (
+					mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
+					mIns[i + 2].mType == ASMIT_CLC &&
+					mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
+					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 4].mLive & LIVE_CPU_REG_Y))
+				{
+					int j = i + 5;
+					while (j < mIns.Size() && !mIns[j].ChangesYReg())
+						j++;
+					if (j < mIns.Size() && mIns[j].mType == ASMIT_LDY && mIns[j].mMode == ASMIM_IMMEDIATE && mIns[j].mAddress == mIns[i + 0].mAddress)
+					{
+						int	reg = mIns[i + 1].mAddress; mIns[i + 1].mAddress = mIns[i + 4].mAddress; mIns[i + 4].mAddress = reg;
+						int yr = mIns[i + 0].mAddress; mIns[i + 0].mAddress = mIns[i + 3].mAddress; mIns[i + 3].mAddress = yr;
+						mIns[i + 1].mLive |= LIVE_MEM;
+						mIns[i + 4].mLive |= LIVE_MEM;
+						mIns[j].mType = ASMIT_NOP; mIns[j].mMode = ASMIM_IMPLIED;
+						while (j > i)
+						{
+							j--;
+							mIns[j].mLive |= LIVE_CPU_REG_Y;
+						}
+						progress = true;
+					}
+				}
+#endif
+			}
+
+#if 1
+			if (pass == 0 &&
+				i + 7 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
+				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 4].mFlags & NCIF_UPPER) && (mIns[i + 4].mLinkerObject == mIns[i + 1].mLinkerObject) &&
+				mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 2].mAddress + 1 &&
+				mIns[i + 7].mType == ASMIT_STA && mIns[i + 7].mMode == ASMIM_ZERO_PAGE && mIns[i + 7].mAddress == mIns[i + 3].mAddress + 1 &&
+				!(mIns[i + 7].mLive & LIVE_CPU_REG_A))
+			{
+				mProc->ResetPatched();
+				if (CheckGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 8, -1))
+				{
+					NativeCodeInstruction	ins(mIns[i + 2]);
+					mIns[i + 2] = mIns[i + 1];
+					mIns[i + 1] = ins;
+
+					mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+
+					mProc->ResetPatched();
+					if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, i + 8, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 5].mAddress * 256))
+						progress = true;
+				}
+				else
+				{
+					mProc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 8, -1))
+					{
+						NativeCodeInstruction	ins(mIns[i + 3]);
+						mIns[i + 3] = mIns[i + 2];
+						mIns[i + 2] = mIns[i + 1];
+						mIns[i + 1] = ins;
+
+						mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, i + 8, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 5].mAddress * 256))
+							progress = true;
+					}
+				}
+			}
+			if (pass == 0 &&
+				i + 8 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
+				mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+
+				mIns[i + 5].mType == ASMIT_LDA && mIns[i + 5].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 5].mFlags & NCIF_UPPER) && (mIns[i + 5].mLinkerObject == mIns[i + 1].mLinkerObject) &&
+				mIns[i + 6].mType == ASMIT_ADC && mIns[i + 6].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 7].mType == ASMIT_STA && mIns[i + 7].mMode == ASMIM_ZERO_PAGE && mIns[i + 7].mAddress == mIns[i + 3].mAddress + 1 &&
+				mIns[i + 8].mType == ASMIT_STA && mIns[i + 8].mMode == ASMIM_ZERO_PAGE && mIns[i + 8].mAddress == mIns[i + 4].mAddress + 1 &&
+				!(mIns[i + 8].mLive & LIVE_CPU_REG_A))
+			{
+				mProc->ResetPatched();
+				if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 9, -1))
+				{
+					NativeCodeInstruction	ins(mIns[i + 3]);
+					mIns[i + 3] = mIns[i + 1];
+					mIns[i + 1] = mIns[i + 2];
+					mIns[i + 2] = ins;
+
+					mIns[i + 1].mType = ASMIT_LDA;
+					mIns[i + 3].mType = ASMIT_ADC;
+
+					mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
+
+					mProc->ResetPatched();
+					if (PatchGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 9, -1, mIns[i + 3].mLinkerObject, mIns[i + 3].mAddress + mIns[i + 6].mAddress * 256))
+						progress = true;
+				}
+#if 0
+				else
+				{
+					proc->ResetPatched();
+					if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 8, -1))
+					{
+						NativeCodeInstruction	ins(mIns[i + 3]);
+						mIns[i + 3] = mIns[i + 2];
+						mIns[i + 2] = mIns[i + 1];
+						mIns[i + 1] = ins;
+
+						mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
+
+						proc->ResetPatched();
+						if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, i + 8, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 5].mAddress * 256))
+							progress = true;
+					}
+				}
+#endif
+			}
+#endif
+
+
+			if (i + 5 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+				mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+				mIns[i + 2].mType == ASMIT_LSR && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+				mIns[i + 3].mType == ASMIT_LSR && mIns[i + 3].mMode == ASMIM_IMPLIED &&
+				mIns[i + 4].mType == ASMIT_LSR && mIns[i + 4].mMode == ASMIM_IMPLIED &&
+				mIns[i + 5].mType == ASMIT_LSR && mIns[i + 5].mMode == ASMIM_IMPLIED && !(mIns[i + 5].mLive & LIVE_CPU_REG_C))
+			{
+				mIns[i + 0].mType = ASMIT_ASL; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+				mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+				mIns[i + 2].mType = ASMIT_ROL;
+				mIns[i + 3].mType = ASMIT_NOP;
+				mIns[i + 4].mType = ASMIT_NOP;
+				mIns[i + 5].mType = ASMIT_AND; mIns[i + 5].mMode = ASMIM_IMMEDIATE; mIns[i + 5].mAddress = 3;
+				progress = true;
+			}
+
+			if (i + 6 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_TXA &&
+				mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_INDIRECT_Y &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 4].mLive & LIVE_MEM) &&
+				mIns[i + 5].mType == ASMIT_LDY && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress != mIns[i + 5].mAddress &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_INDIRECT_Y && mIns[i + 3].mAddress == mIns[i + 6].mAddress && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+			{
+				int t = mIns[i + 5].mAddress;
+				mIns[i + 5].mAddress = mIns[i + 2].mAddress;
+				mIns[i + 2].mAddress = t;
+				mIns[i + 4] = mIns[i + 1];
+				mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+				mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+				mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+				mIns[i + 3].mLive |= LIVE_CPU_REG_X;
+				progress = true;
+			}
+#if 1
+			if (i + 1 < mIns.Size() && mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
+			{
+				int	apos, breg;
+				if (FindDirectAddressSumY(i, mIns[i + 1].mAddress, apos, breg))
+				{
+					if (PatchDirectAddressSumY(i, mIns[i + 1].mAddress, apos, breg))
+						progress = true;
+				}
+			}
+#if 1
+			if (i + 1 < mIns.Size() && mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && mIns[i + 1].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_Y)))
+			{
+				int	apos, breg;
+				if (FindBypassAddressSumY(i, mIns[i + 1].mAddress, apos, breg))
+				{
+					if (PatchBypassAddressSumY(i, mIns[i + 1].mAddress, apos, breg))
+						progress = true;
+				}
+			}
+#endif
+#if 1
+			if (mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO))
+			{
+				int	apos, breg;
+				if (FindDirectAddressSumY(i, mIns[i].mAddress, apos, breg))
+				{
+					if (PatchDirectAddressSumY(i, mIns[i].mAddress, apos, breg))
+						progress = true;
+				}
+			}
+#endif
+
+#endif
+
+
+#if 0
+			if (i + 13 < mIns.Size())
+			{
+				if (mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1)
+				{
+					printf("CHECK\n");
+				}
+
+				if (mIns[i + 0].mType == ASMIT_CLC &&
+					mIns[i + 1].mType == ASMIT_LDA &&
+					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 4].mType == ASMIT_LDA &&
+					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
+					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE &&
+
+					mIns[i + 7].mType == ASMIT_CLC &&
+					mIns[i + 8].mType == ASMIT_LDA && mIns[i + 8].mMode == ASMIM_ZERO_PAGE && mIns[i + 8].mAddress == mIns[i + 3].mAddress && !(mIns[i + 8].mLive & LIVE_MEM) &&
+					mIns[i + 9].mType == ASMIT_ADC &&
+					mIns[i + 10].mType == ASMIT_STA &&
+					mIns[i + 11].mType == ASMIT_LDA && mIns[i + 11].mMode == ASMIM_ZERO_PAGE && mIns[i + 11].mAddress == mIns[i + 6].mAddress && !(mIns[i + 11].mLive & LIVE_MEM) &&
+					mIns[i + 12].mType == ASMIT_ADC &&
+					mIns[i + 12].mType == ASMIT_STA)
+				{
+					mIns[i + 7].CopyMode(mIns[i + 0]);
+					mIns[i + 11].CopyMode(mIns[i + 4]);
+					mIns[i + 8].mType = ASMIT_SEC;
+
+					for (int j = 0; j < 7; j++)
+					{
+						mIns[i + j].mType = ASMIT_NOP;
+						mIns[i + j].mMode = ASMIM_IMPLIED;
+						mIns[i + j + 7].mLive |= mIns[i + 0].mLive;
+					}
+
+					progress = true;
+				}
+
+			}
+#endif
+
+
+#if 1
+			if (i + 7 < mIns.Size() && pass > 0 &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 2].mAddress &&
+				mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+				mIns[i + 6].mType == ASMIT_LDY && mIns[i + 6].mMode == ASMIM_IMMEDIATE && mIns[i + 6].mAddress == 0 &&
+				mIns[i + 7].mMode == ASMIM_INDIRECT_Y && mIns[i + 7].mAddress == mIns[i + 2].mAddress &&
+				!(mIns[i + 7].mLive & LIVE_MEM))
+			{
+				if (mIns[i + 7].mLive & LIVE_CPU_REG_Y)
+					mIns.Insert(i + 8, mIns[i + 6]);
+
+				mIns[i + 1] = NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY);
+				mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+				mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+				progress = true;
+			}
+#endif
+
+#if 1
+			if (i + 8 < mIns.Size() && pass > 0 &&
+				mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 3].mAddress &&
+				mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
+				mIns[i + 7].mType == ASMIT_LDY && mIns[i + 7].mMode == ASMIM_IMMEDIATE && mIns[i + 7].mAddress == 0 &&
+				mIns[i + 8].mMode == ASMIM_INDIRECT_Y && mIns[i + 8].mAddress == mIns[i + 3].mAddress &&
+				!(mIns[i + 8].mLive & LIVE_MEM))
+			{
+				if (mIns[i + 8].mLive & LIVE_CPU_REG_Y)
+					mIns.Insert(i + 9, mIns[i + 7]);
+
+				mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+				mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+				mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 6].mLive |= LIVE_CPU_REG_Y;
+				mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
+				progress = true;
+			}
+#endif
+			CheckLive();
+
+#endif
+#if 1
+			if (pass > 1 && mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS && mIns[i].mLinkerObject && (mIns[i].mFlags & NCIF_LOWER) && !(mIns[i].mAddress & 0xff) && !(mIns[i].mLinkerObject->mAlignment & 0xff))
+			{
+				mIns[i].mMode = ASMIM_IMMEDIATE;
+				mIns[i].mAddress = 0;
+				mIns[i].mLinkerObject = nullptr;
+				mIns[i].mFlags &= ~NCIF_LOWER;
+				progress = true;
+			}
+#endif
+#endif
+			CheckLive();
+			if (mTrueJump)
+				mTrueJump->CheckLive();
+			if (mFalseJump)
+				mFalseJump->CheckLive();
+		}
+
+		if (progress)
+			changed = true;
+
+	} while (progress);
+
+	CheckLive();
+	if (mTrueJump)
+		mTrueJump->CheckLive();
+	if (mFalseJump)
+		mFalseJump->CheckLive();
+
+	return changed;
+}
+
+bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
+{
+	bool	changed = false;
+
+#if 1
+	int	sz = mIns.Size();
+
+	if (sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
+		mIns[sz - 1].mType == ASMIT_CMP)
+	{
+		if (mBranch == ASMIT_BNE)
+		{
+			if (mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCC)
+			{
+				mTrueJump = mTrueJump->mTrueJump;
+				changed = true;
+			}
+			else if (mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCS)
+			{
+				mTrueJump = mTrueJump->mFalseJump;
+				changed = true;
+			}
+		}
+		else if (mBranch == ASMIT_BEQ)
+		{
+			if (mFalseJump->mIns.Size() == 0 && mFalseJump->mBranch == ASMIT_BCS)
+			{
+				mFalseJump = mFalseJump->mTrueJump;
+				changed = true;
+			}
+			else if (mFalseJump->mIns.Size() == 0 && mFalseJump->mBranch == ASMIT_BCC)
+			{
+				mFalseJump = mFalseJump->mFalseJump;
+				changed = true;
+			}
+		}
+	}
+	else if (sz >= 2 &&
+		mIns[sz - 2].ChangesAccuAndFlag() &&
+		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 1 &&
+		(mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C])
+	{
+		if (mBranch == ASMIT_BCC)
+			mBranch = ASMIT_BEQ;
+		else
+			mBranch = ASMIT_BNE;
+
+		mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+		mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
+		changed = true;
+	}
+#if 1
+	else if (sz >= 2 &&
+		mIns[sz - 2].ChangesAccuAndFlag() &&
+		mIns[sz - 1].mType == ASMIT_ASL && mIns[sz - 1].mMode == ASMIM_IMPLIED && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C])
+
+	{
+		if (mBranch == ASMIT_BCC)
+		{
+			mBranch = ASMIT_BPL;
+			mIns.SetSize(sz - 1);
+			sz -= 1;
+			mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BCS)
+		{
+			mBranch = ASMIT_BMI;
+			mIns.SetSize(sz - 1);
+			sz -= 1;
+			mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
+			changed = true;
+		}
+	}
+	else if (sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
+		mIns[sz - 1].mType == ASMIT_ROL && mIns[sz - 1].mMode == ASMIM_IMPLIED && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mBranch == ASMIT_BNE)
+		{
+			mBranch = ASMIT_BCS;
+			mIns.SetSize(sz - 2);
+			sz -= 2;
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BEQ)
+		{
+			mBranch = ASMIT_BCC;
+			mIns.SetSize(sz - 2);
+			sz -= 2;
+			changed = true;
+		}
+	}
+	else if (sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
+		mIns[sz - 1].mType == ASMIT_ROL && mIns[sz - 1].mMode == ASMIM_IMPLIED && !(mIns[sz - 1].mLive & LIVE_CPU_REG_C) && !mExitRequiredRegs[CPU_REG_Z] &&
+		mBranch == ASMIT_BNE && !mTrueJump->mEntryRequiredRegs[CPU_REG_A])
+	{
+		mBranch = ASMIT_BCS;
+		mIns.SetSize(sz - 1);
+		sz -= 1;
+		changed = true;
+	}
+	else if (sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
+		mIns[sz - 1].mType == ASMIT_ROL && mIns[sz - 1].mMode == ASMIM_IMPLIED && !(mIns[sz - 1].mLive & LIVE_CPU_REG_C) && !mExitRequiredRegs[CPU_REG_Z] &&
+		mBranch == ASMIT_BEQ && !mFalseJump->mEntryRequiredRegs[CPU_REG_A])
+	{
+		mBranch = ASMIT_BCC;
+		mIns.SetSize(sz - 1);
+		sz -= 1;
+		changed = true;
+	}
+	else if (sz >= 3 &&
+		mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
+		mIns[sz - 2].mType == ASMIT_ROL && mIns[sz - 2].mMode == ASMIM_IMPLIED &&
+		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x0 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mBranch == ASMIT_BNE)
+		{
+			mBranch = ASMIT_BCS;
+			mIns.SetSize(sz - 3);
+			sz -= 3;
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BEQ)
+		{
+			mBranch = ASMIT_BCC;
+			mIns.SetSize(sz - 3);
+			sz -= 3;
+			changed = true;
+		}
+	}
+
+	else if (sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_EOR && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
+		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mBranch == ASMIT_BNE && mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCC)
+		{
+			NativeCodeBasicBlock* tblock = mProc->AllocateBlock();
+
+			tblock->mTrueJump = mTrueJump->mTrueJump;
+			tblock->mFalseJump = mTrueJump->mFalseJump;
+			tblock->mBranch = ASMIT_BMI;
+			tblock->mTrueJump->mNumEntries++;
+			tblock->mTrueJump->mEntryBlocks.Push(tblock);
+			tblock->mFalseJump->mNumEntries++;
+			tblock->mFalseJump->mEntryBlocks.Push(tblock);
+
+			mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
+			mTrueJump->mNumEntries--;
+			mTrueJump = tblock;
+			tblock->mNumEntries++;
+			tblock->mEntryBlocks.Push(this);
+
+			mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+			mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
+
+			mExitRequiredRegs -= CPU_REG_C;
+
+			CheckLive();
+		}
+	}
+	else if (sz >= 2 &&
+		mIns[sz - 2].ChangesAccuAndFlag() &&
+		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C])
+	{
+		if (mBranch == ASMIT_BCC)
+		{
+			mBranch = ASMIT_BPL;
+			mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
+			mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+
+			CheckLive();
+		}
+		else if (mBranch == ASMIT_BCS)
+		{
+			mBranch = ASMIT_BMI;
+			mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
+			mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+
+			CheckLive();
+		}
+	}
+
+	else if (sz >= 4 &&
+		mIns[sz - 4].mType == ASMIT_EOR && mIns[sz - 4].mMode == ASMIM_IMMEDIATE && mIns[sz - 4].mAddress == 0x80 &&
+		mIns[sz - 3].mType == ASMIT_STA && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
+		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && mIns[sz - 1].mAddress == mIns[sz - 3].mAddress && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_MEM)) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mBranch == ASMIT_BNE && mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCC)
+		{
+			NativeCodeBasicBlock* tblock = mProc->AllocateBlock();
+
+			tblock->mTrueJump = mTrueJump->mFalseJump;
+			tblock->mFalseJump = mTrueJump->mTrueJump;
+			tblock->mBranch = ASMIT_BMI;
+			tblock->mTrueJump->mNumEntries++;
+			tblock->mTrueJump->mEntryBlocks.Push(tblock);
+			tblock->mFalseJump->mNumEntries++;
+			tblock->mFalseJump->mEntryBlocks.Push(tblock);
+
+			mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
+			mTrueJump->mNumEntries--;
+			mTrueJump = tblock;
+			tblock->mNumEntries++;
+			tblock->mEntryBlocks.Push(this);
+
+			mIns[sz - 4].mType = ASMIT_NOP; mIns[sz - 4].mMode = ASMIM_IMPLIED;
+			mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+			mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+			mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mMode = ASMIM_IMMEDIATE;  mIns[sz - 1].mAddress = 0; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
+
+			CheckLive();
+		}
+	}
+
+	else if (sz >= 4 &&
+		mIns[sz - 4].mType == ASMIT_TXA &&
+		mIns[sz - 3].mType == ASMIT_CLC &&
+		mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0xff &&
+		mIns[sz - 1].mType == ASMIT_TAX && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[CPU_REG_C])
+	{
+		if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
+		{
+			mIns[sz - 4].mType = ASMIT_DEX; mIns[sz - 4].mLive |= LIVE_CPU_REG_X;
+			mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+			mIns[sz - 2].mType = ASMIT_CPX; mIns[sz - 2].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+			mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+
+			if (mBranch == ASMIT_BCC)
+				mBranch = ASMIT_BEQ;
+			else
+				mBranch = ASMIT_BNE;
+
+			CheckLive();
+		}
+	}
+
+	else if (sz >= 3 &&
+		mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0x00 &&
+		mIns[sz - 2].mType == ASMIT_ROL && mIns[sz - 2].mMode == ASMIM_IMPLIED &&
+		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x01 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[CPU_REG_C])
+	{
+		if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
+		{
+			mIns.SetSize(sz - 3);
+			sz -= 3;
+			changed = true;
+		}
+	}
+
+	else if (sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
+		mIns[sz - 1].mType == ASMIT_SBC && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mBranch == ASMIT_BNE)
+		{
+			mBranch = ASMIT_BCC;
+			mIns.SetSize(sz - 2);
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BEQ)
+		{
+			mBranch = ASMIT_BCS;
+			mIns.SetSize(sz - 2);
+			changed = true;
+		}
+
+		sz -= 2;
+		CheckLive();
+	}
+	else if (pass >= 7 && sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && !(mIns[sz - 2].mLive & LIVE_MEM) &&
+		mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 1 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mBranch == ASMIT_BNE)
+		{
+			mIns[sz - 2].mType = ASMIT_LSR; mIns[sz - 2].mLive |= LIVE_CPU_REG_C;
+			mBranch = ASMIT_BCS;
+			mIns.SetSize(sz - 1);
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BEQ)
+		{
+			mIns[sz - 2].mType = ASMIT_LSR; mIns[sz - 2].mLive |= LIVE_CPU_REG_C;
+			mBranch = ASMIT_BCC;
+			mIns.SetSize(sz - 1);
+			changed = true;
+		}
+
+		sz -= 1;
+		CheckLive();
+	}
+
+	if (sz >= 1 &&
+		mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) &&
+		(mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE))
+	{
+		mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0x00; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
+
+		if (mBranch == ASMIT_BEQ)
+			mBranch = ASMIT_BPL;
+		else
+			mBranch = ASMIT_BMI;
+
+		changed = true;
+	}
+	else if (pass >= 7 && sz >= 1 &&
+		mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x01 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
+		(mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		mIns[sz - 1].mType = ASMIT_LSR; mIns[sz - 1].mLive |= LIVE_CPU_REG_C; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+
+		if (mBranch == ASMIT_BEQ)
+			mBranch = ASMIT_BCC;
+		else
+			mBranch = ASMIT_BCS;
+
+		changed = true;
+	}
+#if 1
+	else if (pass >= 7 && sz >= 1 &&
+		mIns[sz - 1].mType == ASMIT_LDA && (mIns[sz - 1].mMode == ASMIM_ABSOLUTE || mIns[sz - 1].mMode == ASMIM_ZERO_PAGE) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) &&
+		(mBranch == ASMIT_BPL || mBranch == ASMIT_BMI) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		mIns[sz - 1].mType = ASMIT_BIT;
+
+		changed = true;
+	}
+#endif
+	else if (pass >= 7 && sz >= 1 &&
+		mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x40 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
+		(mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		mIns[sz - 1].mType = ASMIT_ASL; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+
+		if (mBranch == ASMIT_BEQ)
+			mBranch = ASMIT_BPL;
+		else
+			mBranch = ASMIT_BMI;
+
+		changed = true;
+	}
+
+	if (sz == 1 && mBranch == ASMIT_BNE && mTrueJump == this)
+	{
+		if (mIns[0].mType == ASMIT_DEX || mIns[0].mType == ASMIT_INX)
+		{
+			mIns[0] = NativeCodeInstruction(mIns[0].mIns, ASMIT_LDX, ASMIM_IMMEDIATE, 0);
+			changed = true;
+		}
+		else if (mIns[0].mType == ASMIT_DEY || mIns[0].mType == ASMIT_INY)
+		{
+			mIns[0] = NativeCodeInstruction(mIns[0].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, 0);
+			changed = true;
+		}
+	}
+
+#endif
+#endif
+
+#if 1
+	if (sz >= 4 && (mBranch == ASMIT_BMI || mBranch == ASMIT_BPL) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mIns[sz - 4].mType == ASMIT_LDA &&
+			(mIns[sz - 3].mType == ASMIT_ASL || mIns[sz - 3].mType == ASMIT_ROL) && mIns[sz - 3].mMode == ASMIM_IMPLIED &&
+			mIns[sz - 2].mType == ASMIT_STA && !mIns[sz - 2].SameEffectiveAddress(mIns[sz - 4]) &&
+			mIns[sz - 1].mType == ASMIT_LDA && mIns[sz - 1].SameEffectiveAddress(mIns[sz - 4]))
+		{
+			if (mBranch == ASMIT_BMI)
+				mBranch = ASMIT_BCS;
+			else
+				mBranch = ASMIT_BCC;
+			mIns[sz - 3].mLive |= LIVE_CPU_REG_C;
+			mIns[sz - 2].mLive |= LIVE_CPU_REG_C;
+			mIns[sz - 1].mLive |= LIVE_CPU_REG_C;
+			changed = true;
+		}
+	}
+
+#endif
+#if 1
+	if (sz >= 3 && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_A])
+	{
+		if (mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
+			mIns[sz - 2].mType == ASMIT_ROL && mIns[sz - 2].mMode == ASMIM_IMPLIED &&
+			mIns[sz - 1].mType == ASMIT_EOR && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 1)
+		{
+			if (mBranch == ASMIT_BEQ)
+				mBranch = ASMIT_BCS;
+			else
+				mBranch = ASMIT_BCC;
+
+			mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+			mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+			mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+			changed = true;
+		}
+	}
+
+#endif
+
+	if (sz >= 4 && (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) && !mExitRequiredRegs[CPU_REG_C])
+	{
+		if (mIns[sz - 4].mType == ASMIT_TYA &&
+			mIns[sz - 3].mType == ASMIT_CLC &&
+			mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 1 &&
+			mIns[sz - 1].mType == ASMIT_TAY)
+		{
+			if (mBranch == ASMIT_BCC)
+				mBranch = ASMIT_BNE;
+			else
+				mBranch = ASMIT_BEQ;
+			mIns[sz - 4].mType = ASMIT_INY; mIns[sz - 4].mLive |= LIVE_CPU_REG_Y;
+			mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+			mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+			mIns[sz - 1].mType = ASMIT_TYA; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
+			changed = true;
+		}
+		else if (mIns[sz - 4].mType == ASMIT_TXA &&
+			mIns[sz - 3].mType == ASMIT_CLC &&
+			mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 1 &&
+			mIns[sz - 1].mType == ASMIT_TAX)
+		{
+			if (mBranch == ASMIT_BCC)
+				mBranch = ASMIT_BNE;
+			else
+				mBranch = ASMIT_BEQ;
+			mIns[sz - 4].mType = ASMIT_INX; mIns[sz - 4].mLive |= LIVE_CPU_REG_X;
+			mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+			mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+			mIns[sz - 1].mType = ASMIT_TXA; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
+			changed = true;
+		}
+	}
+
+#if 1
+	if (sz >= 3 && (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) &&
+		mIns[sz - 1].mType == ASMIT_INY && mIns[sz - 2].mType == ASMIT_CPX && mIns[sz - 3].mType == ASMIT_INX &&
+		!(mIns[sz - 1].mLive & LIVE_CPU_REG_Z))
+	{
+		mIns[sz - 1] = mIns[sz - 2];
+		mIns[sz - 2] = mIns[sz - 3];
+		mIns[sz - 3].mType = ASMIT_INY;
+		changed = true;
+	}
+#endif
+
+#if 1
+	if (sz > 1 && mFalseJump &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0xff &&
+		mIns[sz - 1].mType == ASMIT_CMP &&
+		!mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mBranch == ASMIT_BCC)
+		{
+			mTrueJump->RemEntryBlock(this);
+			mTrueJump = mFalseJump;
+			mFalseJump = nullptr;
+			mBranch = ASMIT_JMP;
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BCS)
+		{
+			mFalseJump->RemEntryBlock(this);
+			mFalseJump = nullptr;
+			mBranch = ASMIT_JMP;
+			changed = true;
+		}
+	}
+#endif
+
+#if 1
+	if (sz > 0 && mFalseJump && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE)
+	{
+		if (mBranch == ASMIT_BCC)
+		{
+			if (mTrueJump->mIns.Size() == 1 && mTrueJump->mIns[0].mType == ASMIT_CMP && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+			{
+				if (mTrueJump->mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+					!mTrueJump->mExitRequiredRegs[CPU_REG_Z] && !mTrueJump->mExitRequiredRegs[CPU_REG_C])
+				{
+					mTrueJump->RemEntryBlock(this);
+					mTrueJump = mTrueJump->mTrueJump;
+					mTrueJump->AddEntryBlock(this);
+					changed = true;
+				}
+				else if (mTrueJump->mBranch == ASMIT_BCS && mTrueJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+					!mTrueJump->mExitRequiredRegs[CPU_REG_Z] && !mTrueJump->mExitRequiredRegs[CPU_REG_C])
+				{
+					mTrueJump->RemEntryBlock(this);
+					mTrueJump = mTrueJump->mFalseJump;
+					mTrueJump->AddEntryBlock(this);
+					changed = true;
+				}
+			}
+		}
+		else if (mBranch == ASMIT_BCS)
+		{
+			if (mFalseJump->mIns.Size() == 1 && mFalseJump->mIns[0].mType == ASMIT_CMP && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+			{
+				if (mFalseJump->mBranch == ASMIT_BCC && mFalseJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+					!mFalseJump->mExitRequiredRegs[CPU_REG_Z] && !mFalseJump->mExitRequiredRegs[CPU_REG_C])
+				{
+					mFalseJump->RemEntryBlock(this);
+					mFalseJump = mFalseJump->mTrueJump;
+					mFalseJump->AddEntryBlock(this);
+					changed = true;
+				}
+				else if (mFalseJump->mBranch == ASMIT_BCS && mFalseJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
+					!mFalseJump->mExitRequiredRegs[CPU_REG_Z] && !mFalseJump->mExitRequiredRegs[CPU_REG_C])
+				{
+					mFalseJump->RemEntryBlock(this);
+					mFalseJump = mFalseJump->mFalseJump;
+					mFalseJump->AddEntryBlock(this);
+					changed = true;
+				}
+			}
+		}
+	}
+#endif
+
+	CheckLive();
+	if (mTrueJump)
+		mTrueJump->CheckLive();
+	if (mFalseJump)
+		mFalseJump->CheckLive();
+
+#if 1
+	if (mTrueJump && mFalseJump && !mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump &&
+		mTrueJump->mIns.Size() == 1 && mFalseJump->mIns.Size() == 1 &&
+		mTrueJump->mIns[0].mType == ASMIT_LDA && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE &&
+		mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+	{
+		if (mBranch == ASMIT_BCS && mTrueJump->mIns[0].mAddress == 1 && mFalseJump->mIns[0].mAddress == 0 && !(mExitRequiredRegs[CPU_REG_C]))
+		{
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
+			mExitProvidedRegs += CPU_REG_A;
+			mBranch = ASMIT_JMP;
+			mTrueJump = mTrueJump->mTrueJump;
+			mFalseJump = nullptr;
+			changed = true;
+
+			CheckLive();
+		}
+		else if (mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress == 0 && mFalseJump->mIns[0].mAddress == 1 && !(mExitRequiredRegs[CPU_REG_C]))
+		{
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
+			mExitProvidedRegs += CPU_REG_A;
+			mBranch = ASMIT_JMP;
+			mTrueJump = mTrueJump->mTrueJump;
+			mFalseJump = nullptr;
+			changed = true;
+
+			CheckLive();
+		}
+		else if (mBranch == ASMIT_BCS && mTrueJump->mIns[0].mAddress == 0 && mFalseJump->mIns[0].mAddress == 1 && !(mExitRequiredRegs[CPU_REG_C]))
+		{
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_EOR, ASMIM_IMMEDIATE, 1));
+			mExitProvidedRegs += CPU_REG_A;
+			mBranch = ASMIT_JMP;
+			mTrueJump = mTrueJump->mTrueJump;
+			mFalseJump = nullptr;
+			changed = true;
+
+			CheckLive();
+		}
+		else if (mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress == 1 && mFalseJump->mIns[0].mAddress == 0 && !(mExitRequiredRegs[CPU_REG_C]))
+		{
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_EOR, ASMIM_IMMEDIATE, 1));
+			mExitProvidedRegs += CPU_REG_A;
+			mBranch = ASMIT_JMP;
+			mTrueJump = mTrueJump->mTrueJump;
+			mFalseJump = nullptr;
+			changed = true;
+
+			CheckLive();
+		}
+		else if (mIns.Size() > 0 && mIns.Last().mType == ASMIT_LDA)
+		{
+			if (mBranch == ASMIT_BEQ && mTrueJump->mIns[0].mAddress == 1 && mFalseJump->mIns[0].mAddress == 0)
+			{
+				mIns.Insert(mIns.Size() - 1, NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+				mIns[mIns.Size() - 1].mType = ASMIT_CMP; mIns[mIns.Size() - 1].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
+				mExitProvidedRegs += CPU_REG_A;
+				mBranch = ASMIT_JMP;
+				mTrueJump = mTrueJump->mTrueJump;
+				mFalseJump = nullptr;
+				changed = true;
+
+				CheckLive();
+			}
+			else if (mBranch == ASMIT_BNE && mTrueJump->mIns[0].mAddress == 0 && mFalseJump->mIns[0].mAddress == 1)
+			{
+				mIns.Insert(mIns.Size() - 1, NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+				mIns[mIns.Size() - 1].mType = ASMIT_CMP; mIns[mIns.Size() - 1].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
+				mExitProvidedRegs += CPU_REG_A;
+				mBranch = ASMIT_JMP;
+				mTrueJump = mTrueJump->mTrueJump;
+				mFalseJump = nullptr;
+				changed = true;
+
+				CheckLive();
+			}
+		}
+	}
+#endif
+	CheckLive();
+
+	if (mTrueJump)
+		mTrueJump->CheckLive();
+	if (mFalseJump)
+		mFalseJump->CheckLive();
+
+#endif
+	assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
+
+	return changed;
+}
+
+bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 {
 	if (!mVisited)
 	{
@@ -40382,7530 +47957,18 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(NativeCodeProcedure* proc, int pass
 		if (mFalseJump)
 			mFalseJump->CheckLive();
 
-#if 1
-#if 1
-		// move load store pairs up to initial store
-
-		for (int i = 2; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
-			{
-				if (MoveLoadStoreUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		// replace zero page up
-
-		for (int i = 1; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !(mIns[i + 0].mLive & LIVE_MEM))
-			{
-				if (ReplaceZeroPageUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-		// Move LDX/LDY up to STA of same address
-#if 1
-		if (pass >= 9)
-		{
-			for (int i = 2; i < mIns.Size(); i++)
-			{
-				if (mIns[i].mType == ASMIT_LDX && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE) && !(mIns[i].mLive & LIVE_CPU_REG_Z))
-				{
-					if (MoveLDXUp(i))
-						changed = true;
-				}
-				else if (mIns[i].mType == ASMIT_LDY && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE) && !(mIns[i].mLive & LIVE_CPU_REG_Z))
-				{
-					if (MoveLDYUp(i))
-						changed = true;
-				}
-			}
-			CheckLive();
-		}
-#endif
-
-#if 1
-		// move ORA #imm up a shift chain to an LDA #imm
-
-		for (int i = 1; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].IsShift() && mIns[i].mMode == ASMIM_IMPLIED && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-			{
-				if (FoldShiftORAIntoLoadImmUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		// move ORA #imm up a shift chain to an LDA #imm
-
-		for (int i = 1; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_IMMEDIATE &&
-				mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0)
-			{
-				if (MoveLDXBeforeZ(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-
-#if 1
-		// Combine ADC with immediate
-
-		for (int i = 4; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) &&
-				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
-			{
-				if (CombineImmediateADCUp(i))
-					changed = true;
-			}
-			else if (mIns[i].mType == ASMIT_TXA && !(mIns[i].mLive & LIVE_CPU_REG_X) &&
-				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
-			{
-				if (CombineImmediateADCUpX(i))
-					changed = true;
-			}
-		}
-
-		CheckLive();
-#endif
-
-#if 1
-		// move load store pairs up to initial store
-
-		for (int i = 2; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-			{
-				if (MoveLoadStoreXUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-		// move sta zp, tax, lda abs,x , sta zp down to use
-#if 1
-		for (int i = 0; i + 4 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-				mIns[i + 1].mType == ASMIT_TAX &&
-				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_X && 
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-				!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-			{
-				if (MoveStaTaxLdaStaDown(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-
-#endif
-
-#if 1
-		// move load - store (),y up to initial store
-		// 
-
-		for (int i = 2; i + 2 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y)
-			{
-				if (MoveIndirectLoadStoreUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-#endif
-
-#if 1
-		// move load (),y store zp down to potential user
-		for (int i = 0; i + 2 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 1].mFlags & NICT_ZPFLIPPED) &&
-				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-			{
-				if (MoveLoadIndirectTempStoreUp(i))
-					changed = true;
-			}				
-			else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-			{
-				if (MoveIndirectLoadStoreDown(i))
-					changed = true;
-			}
-#if 1
-			if (pass > 0 &&
-				mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y && 
-				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-			{
-				if (MoveIndirectLoadStoreDownY(i))
-					changed = true;
-			}
-#endif
-		}
-		CheckLive();
-
-
-#endif
-
-#if 1
-		// move load (),y store zp up to potential user
-		for (int i = 4; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_Y)))
-			{
-				if (MoveLoadIndirectBypassYUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		for (int i = 0; i + 4 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_CLC &&
-				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
-			{
-				if (MoveTYADCStoreDown(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-#endif
-
-#if 1
-		// move load - store abs up to initial store
-		// 
-
-		for (int i = 2; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && 
-				(mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_INDIRECT_Y))
-			{
-				if (MoveAbsoluteLoadStoreUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		// move ldx/stx down and convert to accu
-		// 
-
-		for (int i = mIns.Size() - 2 ; i >= 0; i--)
-		{
-			if (mIns[i].mType == ASMIT_LDX && (mIns[i].mMode == ASMIM_IMMEDIATE|| mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS) && mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
-			{
-				if (MoveLDSTXOutOfRange(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-
-#if 1
-		// move load - add # - store up to initial store
-		// 
-
-		for (int i = 2; i + 3 < mIns.Size(); i++)
-		{
-			if (
-				mIns[i + 0].mType == ASMIT_CLC &&
-				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-				mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) && 
-				(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
-			{
-				if (MoveLoadAddImmStoreUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		// move load - ora/and/eor # - store up to initial store
-		// 
-
-		for (int i = 2; i + 2 < mIns.Size(); i++)
-		{
-			if (
-				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-				(mIns[i + 1].mType == ASMIT_ORA || mIns[i + 1].mType == ASMIT_AND || mIns[i + 1].mType == ASMIT_EOR) && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-				mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
-				(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
-			{
-				if (MoveLoadEorImmStoreUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-
-#if 1
-		// move load - add # - store with absolute,x up as far possible
-		// 
-
-		for (int i = 2; i + 3 < mIns.Size(); i++)
-		{
-			if (
-				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ABSOLUTE_X &&
-				mIns[i + 1].mType == ASMIT_CLC &&
-				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-			{
-				if (MoveLoadAddImmStoreAbsXUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		// move load - add ZP - store up to initial store
-		// 
-
-		for (int i = 2; i + 3 < mIns.Size(); i++)
-		{
-			if (
-				mIns[i + 0].mType == ASMIT_CLC &&
-				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && (mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
-			{
-				if (MoveCLCLoadAddZPStoreUp(i))
-					changed = true;
-			}
-#if 1
-			else if (
-				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && (mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
-			{
-				if (MoveLoadAddZPStoreUp(i))
-					changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-				mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && (mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
-			{
-				if (MoveLoadShiftStoreUp(i))
-					changed = true;
-			}
-#endif
-#if 1
-			else if (
-				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-				(mIns[i + 1].mType == ASMIT_LSR || mIns[i + 1].mType == ASMIT_ASL) && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-				(mIns[i + 2].mType == ASMIT_ROL || mIns[i + 2].mType == ASMIT_ROR) && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-			{
-				if (MoveLoadShiftRotateUp(i))
-					changed = true;
-			}
-#endif
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		// move simple add down to consumer
-
-		if (!changed)
-		{
-			for (int i = 0; i + 4 < mIns.Size(); i++)
-			{
-				if (
-					mIns[i + 0].mType == ASMIT_CLC &&
-					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && (mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)) == 0)
-				{
-					if (MoveCLCLoadAddZPStoreDown(i))
-						changed = true;
-				}
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		for (int i = 0; i + 3 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_CLC && 
-				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
-
-			{
-				if (MoveTAXADCSTADown(i))
-					changed = true;
-			}
-		}
-
-		CheckLive();
-#endif
-
-#if 1
-		for (int i = 0; i < mIns.Size(); i++)
-		{
-			if ((mIns[i + 0].mType == ASMIT_LDX || mIns[i + 0].mType == ASMIT_LDY) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM))
-			{
-				if (MoveSimpleADCToINCDECDown(i))
-					changed = true;
-			}
-		}
-
-#endif
-
-		// 
-		// shorten x/y register lifetime
-
-#if 1
-		//
-		// move ldx/y down
-
-		for (int i = 0; i + 1 < mIns.Size(); i++)
-		{
-#if 1
-			if (mIns[i].mType == ASMIT_LDY)
-			{
-				if (!mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z) && !(mIns[i].mFlags & mIns[i + 1].mFlags & NCIF_VOLATILE))
-				{
-					if (mIns[i].mMode != ASMIM_ABSOLUTE_X || !mIns[i + 1].ChangesXReg())
-					{
-						if (!mIns[i].MayBeChangedOnAddress(mIns[i + 1]))
-						{
-							if (mIns[i + 1].SameEffectiveAddress(mIns[i]))
-								mIns[i + 1].mLive |= LIVE_MEM;
-
-							NativeCodeInstruction	ins = mIns[i];
-							mIns[i] = mIns[i + 1];
-							mIns[i].mLive &= ~LIVE_CPU_REG_Y;
-							mIns[i + 1] = ins;
-							mIns[i + 1].mLive |= mIns[i].mLive;
-							if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_X)
-								mIns[i].mLive |= LIVE_CPU_REG_X;
-						}
-					}
-				}
-			}
-			else if (mIns[i].mType == ASMIT_LDX)
-			{
-				if (!mIns[i + 1].RequiresXReg() && !mIns[i + 1].ChangesXReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z) && !(mIns[i].mFlags & mIns[i + 1].mFlags & NCIF_VOLATILE))
-				{
-					if (mIns[i].mMode != ASMIM_ABSOLUTE_Y || !mIns[i + 1].ChangesYReg())
-					{
-						if (!mIns[i].MayBeChangedOnAddress(mIns[i + 1]))
-						{
-							if (mIns[i + 1].SameEffectiveAddress(mIns[i]))
-								mIns[i + 1].mLive |= LIVE_MEM;
-
-							NativeCodeInstruction	ins = mIns[i];
-							mIns[i] = mIns[i + 1];
-							mIns[i].mLive &= ~LIVE_CPU_REG_X;
-							mIns[i + 1] = ins;
-							mIns[i + 1].mLive |= mIns[i].mLive;
-							if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y)
-								mIns[i].mLive |= LIVE_CPU_REG_Y;
-						}
-					}
-				}
-			}
-#endif			
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		// move stx up
-
-		for (int i = 1; i < mIns.Size(); i++)
-		{
-			if (!(mIns[i].mFlags & NCIF_VOLATILE))
-			{
-				if (mIns[i].mType == ASMIT_STX && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE))
-				{
-					if (MoveStoreXUp(i))
-						changed = true;
-				}
-				else if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
-				{
-					if (MoveLoadXUp(i))
-						changed = true;
-				}
-				else if (mIns[i].mType == ASMIT_STY && (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_ABSOLUTE))
-				{
-					if (i > 1 || mIns[0].mType != ASMIT_STX)
-					{
-						if (MoveStoreYUp(i))
-							changed = true;
-					}
-				}
-				else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
-				{
-					if (MoveLoadYUp(i))
-						changed = true;
-				}
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		// move ldy, sty down if live
-
-		for (int i = 0; i + 2 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-				mIns[i + 1].mType == ASMIT_STY && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
-				(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
-			{
-				int j = i;
-				while (j + 2 < mIns.Size() &&
-					!mIns[j + 2].ReferencesYReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]) && !(mIns[j + 2].mLive & LIVE_CPU_REG_Z))
-				{
-					mIns[j + 0].mLive |= mIns[j + 2].mLive;
-					mIns[j + 1].mLive |= mIns[j + 2].mLive;
-					mIns[j + 2].mLive &= ~LIVE_CPU_REG_Y;
-					mIns.Insert(j, mIns[j + 2]);
-					mIns.Remove(j + 3);
-					j++;
-				}
-			}
-			else if (mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-				mIns[i + 1].mType == ASMIT_STX && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
-				(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-			{
-				int j = i;
-				while (j + 2 < mIns.Size() &&
-					!mIns[j + 2].ReferencesXReg() && !(mIns[j + 2].SameEffectiveAddress(mIns[j + 0]) && mIns[j + 2].ChangesAddress()) && !mIns[j + 2].MayBeChangedOnAddress(mIns[j + 1]) && !(mIns[j + 2].mLive & LIVE_CPU_REG_Z))
-				{
-					mIns[j + 0].mLive |= mIns[j + 2].mLive;
-					mIns[j + 1].mLive |= mIns[j + 2].mLive;
-					mIns[j + 2].mLive &= ~LIVE_CPU_REG_X;
-					mIns.Insert(j, mIns[j + 2]);
-					mIns.Remove(j + 3);
-					j++;
-				}
-			}
-		}
-#endif
-
-#if 1
-		// move clc and sec down
-		for (int i = 0; i + 1 < mIns.Size(); i++)
-		{
-			if ((mIns[i].mType == ASMIT_CLC || mIns[i].mType == ASMIT_SEC) && !mIns[i + 1].RequiresCarry() && !mIns[i + 1].ChangesCarry())
-			{
-				if (i + 2 < mIns.Size() && mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) && mIns[i + 2].RequiresCarry())
-					;
-				else if (i + 2 < mIns.Size() && mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mMode == ASMIM_INDIRECT_Y)
-					;
-				else
-				{
-					NativeCodeInstruction	pins = mIns[i];
-					mIns[i] = mIns[i + 1];
-					mIns[i + 1] = pins;
-					mIns[i + 1].mLive |= mIns[i].mLive;
-					//					changed = true;
-				}
-			}
-		}
-		CheckLive();
-
-
-#endif
-
-#if 1
-		// move iny/dey/inx/dex down
-
-		for (int i = 0; i + 1 < mIns.Size(); i++)
-		{
-			if ((mIns[i].mType == ASMIT_INY || mIns[i].mType == ASMIT_DEY) && !mIns[i + 1].ChangesYReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-			{
-				if (i + 3 == mIns.Size() && mIns[i + 1].mType == ASMIT_INX && mIns[i + 2].mType == ASMIT_CPX)
-					;	// Avoid bypassing loop iterator
-				else if (!mIns[i + 1].RequiresYReg())
-				{
-					NativeCodeInstruction	pins = mIns[i];
-					mIns[i] = mIns[i + 1];
-					mIns[i].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 1] = pins;
-					mIns[i + 1].mLive |= mIns[i].mLive;
-				}
-				else if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y)
-				{
-					if (mIns[i].mType == ASMIT_INY)
-						mIns[i + 1].mAddress++;
-					else
-						mIns[i + 1].mAddress--;
-					NativeCodeInstruction	pins = mIns[i];
-					mIns[i] = mIns[i + 1];
-					mIns[i].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 1] = pins;
-					mIns[i + 1].mLive |= mIns[i].mLive;
-				}
-			}
-			else if ((mIns[i].mType == ASMIT_INX || mIns[i].mType == ASMIT_DEX) && !mIns[i + 1].ChangesXReg() && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-			{
-				if (i + 3 == mIns.Size() && mIns[i + 1].mType == ASMIT_INY && mIns[i + 2].mType == ASMIT_CPY)
-					;	// Avoid bypassing loop iterator
-				else if (!mIns[i + 1].RequiresXReg())
-				{
-					NativeCodeInstruction	pins = mIns[i];
-					mIns[i] = mIns[i + 1];
-					mIns[i].mLive |= LIVE_CPU_REG_X;
-					mIns[i + 1] = pins;
-					mIns[i + 1].mLive |= mIns[i].mLive;
-				}
-				else if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_X)
-				{
-					if (mIns[i].mType == ASMIT_INX)
-						mIns[i + 1].mAddress++;
-					else
-						mIns[i + 1].mAddress--;
-					NativeCodeInstruction	pins = mIns[i];
-					mIns[i] = mIns[i + 1];
-					mIns[i].mLive |= LIVE_CPU_REG_X;
-					mIns[i + 1] = pins;
-					mIns[i + 1].mLive |= mIns[i].mLive;
-				}
-			}
-		}
-		CheckLive();
-
-#endif
-#if 1
-		// move tya/clc/adc/tay down
-		for (int i = 0; i + 5 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-			{
-				if (mIns[i + 4].mType == ASMIT_LDA && (mIns[i + 4].mMode == ASMIM_IMMEDIATE || mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 4].mMode == ASMIM_ZERO_PAGE) &&
-					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode != ASMIM_INDIRECT_Y && !(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-				{
-					mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
-					if (mIns[i + 5].mMode == ASMIM_ABSOLUTE_Y)
-						mIns[i + 5].mAddress += mIns[i + 2].mAddress;
-
-					mIns.Insert(i + 0, mIns[i + 4]); mIns.Remove(i + 5);
-					mIns.Insert(i + 1, mIns[i + 5]); mIns.Remove(i + 6);
-				}
-#if 1
-				else if (i + 6 < mIns.Size() &&
-					mIns[i + 4].mType == ASMIT_LDA && (mIns[i + 4].mMode == ASMIM_IMMEDIATE || mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 4].mMode == ASMIM_ZERO_PAGE) &&
-					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode != ASMIM_INDIRECT_Y &&
-					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode != ASMIM_INDIRECT_Y && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-				{
-					mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 6].mLive |= LIVE_CPU_REG_Y;
-					if (mIns[i + 5].mMode == ASMIM_ABSOLUTE_Y)
-						mIns[i + 5].mAddress += mIns[i + 2].mAddress;
-					if (mIns[i + 6].mMode == ASMIM_ABSOLUTE_Y)
-						mIns[i + 6].mAddress += mIns[i + 2].mAddress;
-
-					mIns.Insert(i + 0, mIns[i + 4]); mIns.Remove(i + 5);
-					mIns.Insert(i + 1, mIns[i + 5]); mIns.Remove(i + 6);
-					mIns.Insert(i + 2, mIns[i + 6]); mIns.Remove(i + 7);
-				}
-#endif
-			}
-		}
-		CheckLive();
-
-
-#endif
-
-#if 1
-
-		// reverse "sta t,lda abs,clc,adc t" to "sta t,clc,adc abs,nop"
-
-		for (int i = 1; i + 2 < mIns.Size(); i++)
-		{
-			if (mIns[i + 2].IsCommutative() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && (mIns[i + 1].mType == ASMIT_CLC || mIns[i + 1].mType == ASMIT_SEC) && mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE)
-			{
-				if (ReverseLoadCommutativeOpUp(i, i + 2))
-					changed = true;
-			}
-			else if (mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE)
-			{
-				if (ReverseLoadCommutativeOpUp(i, i + 1))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-		// shortcut index
-#if 1
-		for (int i = 0; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_TAY)
-			{
-				int j = i + 2, k = i, n = i;
-				while (j < mIns.Size() && !mIns[j].ChangesXReg() && !mIns[j].ChangesYReg())
-				{
-					if (mIns[j].mMode == ASMIM_ABSOLUTE_Y)
-					{
-						assert(HasAsmInstructionMode(mIns[j].mType, ASMIM_ABSOLUTE_X));
-						mIns[j].mMode = ASMIM_ABSOLUTE_X;
-						mIns[j].mFlags |= NICT_INDEXFLIPPED;
-						n = j;
-						changed = true;
-					}
-					j++;
-				}
-
-				while (k < n)
-				{
-					mIns[k].mLive |= LIVE_CPU_REG_X;
-					k++;
-				}
-			}
-			else if (mIns[i].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_TAX)
-			{
-				int j = i + 2, k = i, n = i;
-
-				while (j < mIns.Size() && !mIns[j].ChangesXReg() && !mIns[j].ChangesYReg())
-				{
-					if (mIns[j].mMode == ASMIM_ABSOLUTE_X)
-					{
-						assert(HasAsmInstructionMode(mIns[j].mType, ASMIM_ABSOLUTE_Y));
-						mIns[j].mMode = ASMIM_ABSOLUTE_Y;
-						mIns[j].mFlags |= NICT_INDEXFLIPPED;
-						n = j;
-						changed = true;
-					}
-					j++;
-				}
-
-				while (k < n)
-				{
-					mIns[k].mLive |= LIVE_CPU_REG_Y;
-					k++;
-				}
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		for (int i = 0; i + 2 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_TAX &&
-				mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) &&
-				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_A)))
-			{
-				if (MoveLoadStoreOutOfXYRangeUp(i))
-					changed = true;
-			}
-			else if (
-				mIns[i + 0].mType == ASMIT_TAY &&
-				mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) &&
-				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_A)))
-			{
-				if (MoveLoadStoreOutOfXYRangeUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		for (int i = 0; i < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_TAX && !(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
-			{
-				if (ReverseReplaceTAX(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-#endif
-
-#if 1
-		// Move TAX and TAY down
-
-		for (int i = 0; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_TAX)
-			{
-				int j = i + 1;
-				while (j < mIns.Size() && !mIns[j].ReferencesXReg() && !mIns[j].ChangesAccu())
-					j++;
-				if (j < mIns.Size() && mIns[j].mType == ASMIT_CPX && !(mIns[j].mLive & LIVE_CPU_REG_X))
-				{
-					mIns[j].mType = ASMIT_CMP;
-					while (j > i)
-					{
-						j--;
-						mIns[j].mLive |= LIVE_CPU_REG_A;
-					}
-					changed = true;
-				}
-			}
-			else if (mIns[i].mType == ASMIT_TAY)
-			{
-				int j = i + 1;
-				while (j < mIns.Size() && !mIns[j].ReferencesYReg() && !mIns[j].ChangesAccu())
-					j++;
-				if (j < mIns.Size() && mIns[j].mType == ASMIT_CPY && !(mIns[j].mLive & LIVE_CPU_REG_Y))
-				{
-					mIns[j].mType = ASMIT_CMP;
-					while (j > i)
-					{
-						j--;
-						mIns[j].mLive |= LIVE_CPU_REG_A;
-					}
-					changed = true;
-				}
-			}
-		}
-		CheckLive();
-#endif
-#if 1
-		int		taxPos = -1, tayPos = -1;
-		for (int i = 0; i < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_TAX)
-			{
-				if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-					taxPos = i;
-				else
-					taxPos = -1;
-			}
-			else if (mIns[i].mType == ASMIT_TAY)
-			{
-				if (!(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-					tayPos = i;
-				else
-					tayPos = -1;
-			}
-			else if (mIns[i].ChangesXReg())
-				taxPos = -1;
-			else if (mIns[i].ChangesYReg())
-				tayPos = -1;
-			else if (mIns[i].mType == ASMIT_TXA)
-			{
-				if (taxPos >= 0 && !(mIns[i].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-				{
-					if (JoinTAXARange(taxPos, i))
-						changed = true;
-					taxPos = -1; tayPos = -1;
-				}
-				else
-					taxPos = -1;
-			}
-			else if (mIns[i].mType == ASMIT_TYA)
-			{
-				if (tayPos >= 0 && !(mIns[i].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-				{
-					if (JoinTAYARange(tayPos, i))
-						changed = true;
-					taxPos = -1; tayPos = -1;
-				}
-				else
-					tayPos = -1;
-			}
-			else if (mIns[i].RequiresXReg())
-				taxPos = -1;
-			else if (mIns[i].RequiresYReg())
-				tayPos = -1;
-		}
-		CheckLive();
-
-#endif
-
-#if 1
-		for (int i = 0; i + 2 < mIns.Size(); i++)
-		{
-			if (mIns[i].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_TAY ||
-				mIns[i].mType == ASMIT_TAY && mIns[i + 1].mType == ASMIT_TAX)
-			{
-				if (MergeXYSameValue(i + 2))
-					changed = true;
-			}
-		}
-		CheckLive();
-
-#endif
-
-
-#if 1
-		if (pass > 1)
-		{
-			// move high byte load down, if low byte is immediatedly needed afterwards
-
-			for (int i = 0; i + 4 < mIns.Size(); i++)
-			{
-				if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && mIns[i + 2].mAddress != mIns[i + 3].mAddress && mIns[i + 2].mAddress + 1 != mIns[i + 3].mAddress &&
-					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
-					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 4].mLive & LIVE_CPU_REG_Z))
-				{
-					if (MoveStoreHighByteDown(i))
-						changed = true;
-				}
-			}
-			CheckLive();
-
-			for (int i = 0; i + 4 < mIns.Size(); i++)
-			{
-				if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
-					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
-					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 4].mLive & LIVE_CPU_REG_Z))
-				{
-					if (MoveAddHighByteDown(i))
-						changed = true;
-				}
-			}
-
-			CheckLive();
-		}
-#endif
-
-#if 1
-		for (int i = 2; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
-				mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
-			{
-				if (MoveLoadImmStoreAbsoluteUp(i + 0))
-					changed = true;
-			}
-		}
-		CheckLive();
-#endif
-
-#if 1
-		for (int i = 2; i < mIns.Size(); i++)
-		{
-			if ((mIns[i].mType == ASMIT_ASL || mIns[i].mType == ASMIT_LSR) && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_CPU_REG_Z))
-			{
-				if (MoveASLMemUp(i))
-					changed = true;
-			}
-		}
-		CheckLive();
-#endif
-
-		if (pass > 1)
-		{
-#if 1
-			// replace zero page down
-
-			for (int i = 0; i + 1 < mIns.Size(); i++)
-			{
-				if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && (mIns[i + 0].mLive & LIVE_MEM))
-				{
-					if (ReplaceZeroPageDown(i))
-						changed = true;
-				}
-			}
-			CheckLive();
-
-#endif
-		}
-#endif
-
-		CheckLive();
-
-#if 1
-		for (int i = 0; i + 4 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 2].mAddress &&
-				mIns[i + 3].mType == ASMIT_ROR && mIns[i + 3].mMode == ASMIM_IMPLIED)
-			{
-				int j = 2;
-				while (i + 3 + j < mIns.Size() &&
-					mIns[i + 2 + j].mType == ASMIT_LSR && mIns[i + 2 + j].mMode == ASMIM_ZERO_PAGE && mIns[i + 2 + j].mAddress == mIns[i + 1].mAddress &&
-					mIns[i + 3 + j].mType == ASMIT_ROR && mIns[i + 3 + j].mMode == ASMIM_IMPLIED)
-				{
-					j += 2;
-				}
-
-				if (i + 2 + j < mIns.Size() && mIns[i + 2 + j].mType == ASMIT_STA && mIns[i + 2 + j].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 2 + j].mAddress == mIns[i + 2].mAddress && !(mIns[i + 2 + j].mLive & LIVE_CPU_REG_A))
-				{
-					int	addrl = mIns[i + 2].mAddress, addrh = mIns[i + 1].mAddress;
-					const InterInstruction* iins(mIns[i + 1].mIns);
-
-					for (int k = 0; k < j; k += 2)
-					{
-						mIns[i + k + 0] = NativeCodeInstruction(iins, ASMIT_LSR, ASMIM_IMPLIED);
-						mIns[i + k + 1] = NativeCodeInstruction(iins, ASMIT_ROR, ASMIM_ZERO_PAGE, addrl);
-					}
-					mIns[i + j] = NativeCodeInstruction(iins, ASMIT_STA, ASMIM_ZERO_PAGE, addrh);
-					mIns[i + j + 1].mType = ASMIT_NOP; mIns[i + j + 1].mMode = ASMIM_IMPLIED;
-					mIns[i + j + 2].mType = ASMIT_NOP; mIns[i + j + 2].mMode = ASMIM_IMPLIED;
-					changed = true;
-				}
-			}
-		}
-
-		CheckLive();
-#endif
-
-
-#if 1
-		for (int i = 0; i + 4 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_TXA &&
-				mIns[i + 1].mType == ASMIT_CLC &&
-				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress >= -2 && mIns[i + 2].mAddress <= 2 || mIns[i + 2].mAddress >= 254 && mIns[i + 2].mAddress < 256) &&
-				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-			{
-				if (MoveTXADCDown(i))
-					changed = true;
-			}
-		}
-
-		CheckLive();
-
-#endif
-
-#if 1
-		for (int i = 0; i + 1 < mIns.Size(); i++)
-		{
-			if (mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-				mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-			{
-				int j = 1;
-				while (i >= j && i + j + 1 < mIns.Size() &&
-					mIns[i - j].mType == ASMIT_ASL && mIns[i - j].mMode == ASMIM_IMPLIED &&
-					mIns[i + 1 + j].mType == ASMIT_LSR && mIns[i + 1 + j].mMode == ASMIM_IMPLIED && !(mIns[i + 1 + j].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-					j++;
-				mIns[i + 1 - j].mType = ASMIT_AND;
-				mIns[i + 1 - j].mMode = ASMIM_IMMEDIATE;
-				mIns[i + 1 - j].mAddress = 0xff >> j;
-
-				while (j > 1)
-				{
-					mIns[i + j].mType = ASMIT_NOP;
-					mIns[i + j].mMode = ASMIM_IMPLIED;
-					j--;
-					mIns[i + 1 - j].mType = ASMIT_NOP;
-					mIns[i + 1 - j].mMode = ASMIM_IMPLIED;
-				}
-				mIns[i + 1].mType = ASMIT_NOP;
-				mIns[i + 1].mMode = ASMIM_IMPLIED;
-				changed = true;
-			}
-		}
-
-		CheckLive();
-
-#endif
-
-#if 1
-		bool	progress = false;
-		do {
-			progress = false;
-
-			mIns.Reserve(mIns.Size() * 2 + 32);
-
-			if (RemoveNops())
-				changed = true;
-
-			CheckLive();
-
-			// Replace (a & 0x80) != 0 with bpl/bmi
-			int	sz = mIns.Size();
-
-#if 1
-			if (sz > 1 &&
-				mIns[sz - 2].ChangesAccuAndFlag() &&
-				mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
-			{
-				if (mBranch == ASMIT_BEQ)
-				{
-					mBranch = ASMIT_BPL;
-					mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
-					mIns[sz - 1].mType = ASMIT_NOP;	mIns[sz - 1].mMode = ASMIM_IMPLIED;
-					changed = true;
-				}
-				else if (mBranch == ASMIT_BNE)
-				{
-					mBranch = ASMIT_BMI;
-					mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
-					mIns[sz - 1].mType = ASMIT_NOP;	mIns[sz - 1].mMode = ASMIM_IMPLIED;
-					changed = true;
-				}
-			}
-#endif
-			if (sz > 4 &&
-				mIns[sz - 4].mType == ASMIT_ASL && mIns[sz - 4].mMode == ASMIM_IMPLIED &&
-				mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
-				mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0xff &&
-				mIns[sz - 1].mType == ASMIT_EOR && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0xff && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
-			{
-				if (mBranch == ASMIT_BEQ)
-				{
-					mBranch = ASMIT_BPL;
-					mIns[sz - 4].mType = ASMIT_NOP; mIns[sz - 4].mMode = ASMIM_IMPLIED;
-					mIns[sz - 3].mType = ASMIT_NOP;	mIns[sz - 3].mMode = ASMIM_IMPLIED;
-					mIns[sz - 2].mType = ASMIT_NOP;	mIns[sz - 2].mMode = ASMIM_IMPLIED;
-					mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0;
-					changed = true;
-				}
-				else if (mBranch == ASMIT_BNE)
-				{
-					mBranch = ASMIT_BMI;
-					mIns[sz - 4].mType = ASMIT_NOP; mIns[sz - 4].mMode = ASMIM_IMPLIED;
-					mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
-					mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
-					mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0;
-					changed = true;
-				}
-			}
-#if 1
-			if (sz > 2 &&
-				mIns[sz - 3].mType == ASMIT_STA &&
-				mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE &&
-				mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].SameEffectiveAddress(mIns[sz - 3]) && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_A)))
-			{
-				if (mBranch == ASMIT_BCC && mIns[sz - 2].mAddress < 0xff)
-				{
-					mIns[sz - 3].mLive |= LIVE_CPU_REG_A;
-					mIns[sz - 1].mMode = ASMIM_IMMEDIATE;
-					mIns[sz - 1].mAddress = mIns[sz - 2].mAddress + 1;
-					mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
-					mBranch = ASMIT_BCS;
-					changed = true;
-				}
-				else if (mBranch == ASMIT_BCS && mIns[sz - 2].mAddress < 0xff)
-				{
-					mIns[sz - 3].mLive |= LIVE_CPU_REG_A;
-					mIns[sz - 1].mMode = ASMIM_IMMEDIATE;
-					mIns[sz - 1].mAddress = mIns[sz - 2].mAddress + 1;
-					mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
-					mBranch = ASMIT_BCC;
-					changed = true;
-				}
-			}
-#endif
-			for (int i = 0; i < mIns.Size(); i++)
-		{
-#if 1
-#if 1
-				if (mIns[i].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0)
-				{
-					mIns[i].mType = ASMIT_LDA;
-					progress = true;
-				}
-				else if (mIns[i].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0xff && (mIns[i].mLive & LIVE_CPU_REG_Z) == 0)
-				{
-					mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
-					progress = true;
-				}
-				else if (mIns[i].mType == ASMIT_ORA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0xff)
-				{
-					mIns[i].mType = ASMIT_LDA;
-					progress = true;
-				}
-				else if (mIns[i].mType == ASMIT_ORA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0x00 && (mIns[i].mLive & LIVE_CPU_REG_Z) == 0)
-				{
-					mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
-					progress = true;
-				}
-				else if (mIns[i].mType == ASMIT_EOR && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0x00 && (mIns[i].mLive & LIVE_CPU_REG_Z) == 0)
-				{
-					mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
-					progress = true;
-				}
-				else if (mIns[i].mType == ASMIT_ROR && mIns[i].mMode == ASMIM_IMPLIED && (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
-				{
-					mIns[i].mType = ASMIT_LSR;
-					progress = true;
-				}
-				else if (mIns[i].mType == ASMIT_ROL && mIns[i].mMode == ASMIM_IMPLIED && (mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
-				{
-					mIns[i].mType = ASMIT_ASL;
-					progress = true;
-				}
-#endif
-#if 1
-				int	apos;
-				if (mIns[i].mMode == ASMIM_INDIRECT_Y && FindGlobalAddress(i, mIns[i].mAddress, apos))
-				{
-					mIns[i].mMode = ASMIM_ABSOLUTE_Y;
-					mIns[i].mAddress = mIns[apos].mAddress;
-					mIns[i].mLinkerObject = mIns[apos].mLinkerObject;
-					progress = true;
-				}
-#endif
-
-#if 1
-				if (mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO))
-				{
-					const NativeCodeInstruction* ains, * iins;
-
-					int	sreg = mIns[i + 0].mAddress;
-
-					int	apos, breg, ireg, addr;
-					uint32	flags;
-
-					if (FindAddressSumY(i, sreg, apos, breg, ireg))
-					{
-#if 1
-						if (!(breg == sreg || ireg == sreg) || !(mIns[i + 0].mLive & LIVE_MEM))
-						{
-							if (breg == sreg || ireg == sreg)
-							{
-								mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
-								mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
-							}
-
-							RepairLoadYImmediate(i, 0);
-
-							mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
-							mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
-
-							mIns[i + 1].mAddress = breg;
-							mIns[i + 1].mFlags &= ~NCIF_YZERO;
-							progress = true;
-
-							CheckLive();
-
-						}
-#endif
-
-					}
-#if 1
-					else if (FindGlobalAddressSumY(i, sreg, true, apos, ains, iins, flags, addr))
-					{
-						if (iins || (flags & LIVE_CPU_REG_Y) || (flags & LIVE_CPU_REG_X)) //!(mIns[i + 1].mLive & LIVE_CPU_REG_X))
-						{
-							RepairLoadYImmediate(i, 0);
-
-							if (flags & LIVE_CPU_REG_Y)
-							{
-								mIns[i + 0].mMode = ASMIM_ABSOLUTE_Y;
-							}
-							else if (flags & LIVE_CPU_REG_X)
-							{
-								mIns[i + 0].mMode = ASMIM_ABSOLUTE_X;
-							}
-							else
-							{
-								mIns[i + 0].mMode = ASMIM_ABSOLUTE_Y;
-							}
-
-
-							if (ains->mMode == ASMIM_IMMEDIATE)
-							{
-								mIns[i + 0].mLinkerObject = nullptr;
-								mIns[i + 0].mAddress = addr;
-							}
-							else
-							{
-								mIns[i + 0].mLinkerObject = ains->mLinkerObject;
-								mIns[i + 0].mAddress = ains->mAddress;
-							}
-
-							mIns[i + 0].mFlags &= ~NCIF_YZERO;
-
-							if (!iins)
-							{
-								if (flags & LIVE_CPU_REG_Y)
-								{
-									mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY, ASMIM_IMPLIED));
-									for (int j = apos; j < i + 1; j++)
-										mIns[j].mLive |= LIVE_CPU_REG_Y;
-								}
-								else
-								{
-									PatchGlobalAdressSumYByX(i + 1, sreg, *ains, addr);
-									mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAX, ASMIM_IMPLIED));
-									for (int j = apos; j < i + 2; j++)
-										mIns[j].mLive |= LIVE_CPU_REG_X;
-								}
-							}
-							else
-							{
-								if (iins->mMode != ASMIM_ZERO_PAGE)
-									mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, iins->mMode, iins->mAddress, iins->mLinkerObject, iins->mFlags));
-								else if (iins->mAddress == sreg)
-								{
-									if (flags & LIVE_CPU_REG_Y)
-									{
-										mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, iins->mAddress));
-										mIns[apos].mLive |= LIVE_MEM;
-										for (int j = apos; j < i + 2; j++)
-											mIns[j].mLive |= LIVE_CPU_REG_Y;
-									}
-									else
-									{
-										PatchGlobalAdressSumYByX(i + 1, sreg, *ains, addr);
-										mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, iins->mAddress));
-										mIns[apos].mLive |= LIVE_MEM;
-										for (int j = apos; j < i + 2; j++)
-											mIns[j].mLive |= LIVE_CPU_REG_X;
-									}
-									i++;
-								}
-								else
-									mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, iins->mAddress));
-								if (i > 0)
-									mIns[i + 0].mLive |= mIns[i - 1].mLive | LIVE_CPU_REG_Y | LIVE_MEM;
-							}
-
-							progress = true;
-
-							CheckLive();
-
-						}
-					}
-#endif
-					else if (FindExternAddressSumY(i, sreg, breg, ireg))
-					{
-#if 1
-						RepairLoadYImmediate(i, 0);
-
-						mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
-
-						mIns[i + 1].mAddress = breg;
-						mIns[i + 1].mFlags &= ~NCIF_YZERO;
-						progress = true;
-
-						CheckLive();
-#endif
-
-					}
-					else if (FindSharedGlobalAddressSumY(i, sreg, ains, iins))
-					{
-#if 1
-						RepairLoadYImmediate(i, 0);
-
-						mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, *iins));
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
-
-						mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
-						mIns[i + 1].mLinkerObject = ains->mLinkerObject;
-						mIns[i + 1].mAddress = ains->mAddress;
-						mIns[i + 1].mFlags &= ~NCIF_YZERO;
-						progress = true;
-
-						CheckLive();
-#endif
-					}
-					else if (!(mIns[i + 0].mLive & LIVE_MEM) && FindLoadAddressSumY(i, sreg, apos, ireg))
-					{
-#if 1
-						RepairLoadYImmediate(i, 0);
-						PatchLoadAddressSumY(i, sreg, apos, ireg);
-
-						mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
-
-						mIns[i + 1].mFlags &= ~NCIF_YZERO;
-						progress = true;
-
-						CheckLive();
-#endif
-					}
-
-
-#if 1
-					if (mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO) && !(mIns[i + 0].mLive & LIVE_CPU_REG_X))
-					{
-						const NativeCodeInstruction* ains;
-						if (FindImmediateStore(i, mIns[i].mAddress + 1, ains))
-						{
-							mIns.Insert(i, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mIns[i].mAddress));
-							mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;
-
-							if (ains->mMode == ASMIM_IMMEDIATE)
-								mIns[i + 1].mAddress = ains->mAddress << 8;
-							else
-							{
-								mIns[i + 1].mLinkerObject = ains->mLinkerObject;
-								mIns[i + 1].mAddress = ains->mAddress;
-								mIns[i + 1].mFlags |= NCIF_UPPER;
-								mIns[i + 1].mFlags &= ~NCIF_LOWER;
-							}
-							progress = true;
-
-							CheckLive();
-						}
-					}
-#endif
-
-				}
-#endif
-				CheckLive();
-#if 1
-				if (i + 1 < mIns.Size() && mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
-				{
-					const NativeCodeInstruction* ains, * iins;
-
-					int	sreg = mIns[i + 1].mAddress;
-
-					int	yimm = mIns[i + 0].mAddress;
-
-
-					if (FindSharedGlobalAddressSumY(i, sreg, ains, iins))
-					{
-#if 1
-						RepairLoadYImmediate(i + 1, yimm);
-
-						mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_LDY, *iins));
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
-
-						mIns[i + 2].mMode = ASMIM_ABSOLUTE_Y;
-						mIns[i + 2].mLinkerObject = ains->mLinkerObject;
-						mIns[i + 2].mAddress = ains->mAddress + yimm;
-						mIns[i + 2].mFlags &= ~NCIF_YZERO;
-						progress = true;
-
-						CheckLive();
-#endif
-					}
-				}
-#endif
-
-#if 1
-				if (i + 1 < mIns.Size())
-				{
-					if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_LDA)
-					{
-						mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_STA && mIns[i].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_STA && mIns[i + 1].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[i + 1].mAddress && (mIns[i + 1].mLive & LIVE_CPU_REG_Z) == 0)
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_STA && mIns[i + 1].mType == ASMIT_LDA && mIns[i].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) && (mIns[i + 1].mLive & LIVE_CPU_REG_Z) == 0)
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_AND && mIns[i + 1].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_IMMEDIATE)
-					{
-						mIns[i].mAddress &= mIns[i + 1].mAddress;
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_ORA && mIns[i + 1].mType == ASMIT_ORA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_IMMEDIATE)
-					{
-						mIns[i].mAddress |= mIns[i + 1].mAddress;
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_EOR && mIns[i + 1].mType == ASMIT_EOR && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_IMMEDIATE)
-					{
-						mIns[i].mAddress ^= mIns[i + 1].mAddress;
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0)
-					{
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_EOR && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0)
-					{
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff)
-					{
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_CLC && mIns[i + 1].mType == ASMIT_ROR)
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LSR;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0 && mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED)
-					{
-						mIns[i + 1].mType = ASMIT_CLC;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_CLC && mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_SEC && mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i].mType == ASMIT_SEC && mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_CLC;
-						mIns[i + 1].mAddress++;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]))
-					{
-						mIns[i + 1].mType = ASMIT_ROL;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && mIns[i].ChangesAccuAndFlag())
-					{
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && mIns[i].ChangesAccuAndFlag() && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_CMP && !(mIns[i + 1].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_A)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LDA;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED)
-					{
-						int	aval = mIns[i + 0].mAddress << 1;
-						mIns[i + 0].mAddress = aval & 0xff;
-						if (aval & 0x100)
-							mIns[i + 1].mType = ASMIT_SEC;
-						else
-							mIns[i + 1].mType = ASMIT_CLC;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#if 1
-					else if (pass >= 3 && 
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						NativeCodeInstruction	ins(mIns[i + 1]);
-						mIns[i + 1].CopyMode(mIns[i + 0]);
-						mIns[i + 0].CopyMode(ins);
-						if (mIns[i + 1].RequiresXReg())
-							mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						if (mIns[i + 1].RequiresYReg())
-							mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == mIns[i + 1].mAddress &&
-						(mIns[i + 1].mType == ASMIT_LSR || mIns[i + 1].mType == ASMIT_ASL || mIns[i + 1].mType == ASMIT_ROL || mIns[i + 1].mType == ASMIT_ROR) && !(mIns[i + 0].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = mIns[i + 1].mType;
-						mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_A)))
-					{
-						mIns[i + 0].mType = ASMIT_LDA;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_ASL;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY, ASMIM_IMPLIED));
-						mIns[i + 2].mLive = mIns[i + 1].mLive;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA &&
-						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]))
-					{
-						mIns[i + 1].mType = ASMIT_TAY;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA &&
-						mIns[i + 1].mType == ASMIT_LDX && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]))
-					{
-						mIns[i + 1].mType = ASMIT_TAX;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_STX;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_STY;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_STX && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						mIns[i + 1].mType == ASMIT_STY && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA;
-						progress = true;
-					}
-#if 1
-					else if (mIns[i + 0].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_STX)
-					{
-						NativeCodeInstruction	ins(mIns[i + 0]);
-						mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1] = ins;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_TYA && mIns[i + 1].mType == ASMIT_STY)
-					{
-						NativeCodeInstruction	ins(mIns[i + 0]);
-						mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1] = ins;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_STA && !mIns[i + 1].RequiresXReg())
-					{
-						NativeCodeInstruction	ins(mIns[i + 0]);
-						mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1] = ins;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_TAY && mIns[i + 1].mType == ASMIT_STA && !mIns[i + 1].RequiresYReg())
-					{
-						NativeCodeInstruction	ins(mIns[i + 0]);
-						mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1] = ins;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_TAX && mIns[i + 1].mType == ASMIT_CPX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_CMP;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_TAY && mIns[i + 1].mType == ASMIT_CPY && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_CMP;
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_AND; 
-						mIns[i + 0].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 0].mAddress = 0xfe;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED &&  !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED)
-					{
-						mIns[i + 0].mType = ASMIT_AND;
-						mIns[i + 0].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 0].mAddress = 0xfe;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (
-						(mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
-						mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						(mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
-						mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_TAX)
-					{
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_TAY)
-					{
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_TXA)
-					{
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						mIns[i + 1].mType == ASMIT_TYA)
-					{
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INY &&
-						mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INX &&
-						mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_INX &&
-						mIns[i + 1].mType == ASMIT_DEX && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_DEX &&
-						mIns[i + 1].mType == ASMIT_INX && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INY &&
-						mIns[i + 1].mType == ASMIT_DEY && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_DEY &&
-						mIns[i + 1].mType == ASMIT_INY && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_DEX)
-					{
-						mIns[i + 0].mAddress = (mIns[i + 0].mAddress - 1) & 255; 
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_INX)
-					{
-						mIns[i + 0].mAddress = (mIns[i + 0].mAddress + 1) & 255; 
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_DEY)
-					{
-						mIns[i + 0].mAddress = (mIns[i + 0].mAddress - 1) & 255; 
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_INY)
-					{
-						mIns[i + 0].mAddress = (mIns[i + 0].mAddress + 1) & 255; 
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_X || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) &&
-						mIns[i + 1].mType == ASMIT_TAY && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) &&
-						mIns[i + 1].mType == ASMIT_TAX && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_X) &&
-						mIns[i + 1].mType == ASMIT_TYA && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y) &&
-						mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y) &&
-						mIns[i + 1].mType == ASMIT_TXA && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
-					{
-						mIns[i + 1].mType = ASMIT_CPX;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
-					{
-						mIns[i + 1].mType = ASMIT_CPY;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX &&
-						mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY &&
-						mIns[i + 1].mType == ASMIT_STY && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						(mIns[i + 0].mType == ASMIT_LDX || mIns[i + 0].mType == ASMIT_LDY) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !mIns[i + 1].SameEffectiveAddress(mIns[i + 0]))
-					{
-						NativeCodeInstruction	ins = mIns[i + 0];
-						mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= ins.mLive;
-						mIns[i + 1] = ins;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INY &&
-						mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mAddress++;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INX &&
-						mIns[i + 1].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mAddress++;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mAddress & 0x01) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_ASL;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mAddress & 0x80) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_LSR;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && (mIns[i + 1].mAddress & 0x01) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
-						mIns[i + 0].mAddress = (mIns[i + 0].mAddress >> 1) & 0x7f;
-						mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && (mIns[i + 1].mAddress & 0x80) && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
-						mIns[i + 0].mAddress = (mIns[i + 0].mAddress << 1) & 0xfe;
-						mIns[i + 1].mType = ASMIT_ROR; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM) &&
-						mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = mIns[i + 1].mType; mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_Z;
-						mIns[i + 0].mLive &= ~LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].IsShift() && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress && !(mIns[i + 1].mLive & LIVE_MEM))
-					{
-						mIns[i + 1].mType = mIns[i + 0].mType;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
-						mIns[i + 0].mType = ASMIT_LDA;
-						progress = true;
-					}
-					else if (
-						(mIns[i + 0].mType == ASMIT_INC || mIns[i + 0].mType == ASMIT_DEC) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && 
-							 mIns[i + 1].mType == ASMIT_INX)
-					{
-						if (mIns[i + 0].mFlags & NCIF_UPPER)
-							mIns[i + 0].mAddress += 0x100;
-						else
-							mIns[i + 0].mAddress++;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
-					{
-						mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED;  mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (mIns[i + 0].ChangesAccuAndFlag() && mIns[i + 1].mType == ASMIT_TAX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP;  mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i + 0].ChangesAccuAndFlag() && mIns[i + 1].mType == ASMIT_TAY && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 1].mType = ASMIT_NOP;  mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 1].mType == ASMIT_CPX && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_CMP;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 1].mType == ASMIT_CPY && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_CMP;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 1].mType == ASMIT_STY && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_STX && mIns[i + 1].mType == ASMIT_INC && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) && !(mIns[i + 0].mFlags & NCIF_VOLATILE))
-					{
-						mIns[i + 0].mType = ASMIT_INX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_STX;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_STX && mIns[i + 1].mType == ASMIT_DEC && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) && !(mIns[i + 0].mFlags & NCIF_VOLATILE))
-					{
-						mIns[i + 0].mType = ASMIT_DEX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_STX;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_STY && mIns[i + 1].mType == ASMIT_INC && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y) && !(mIns[i + 0].mFlags & NCIF_VOLATILE))
-					{
-						mIns[i + 0].mType = ASMIT_INY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_STY;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_STY && mIns[i + 1].mType == ASMIT_DEC && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y) && !(mIns[i + 0].mFlags & NCIF_VOLATILE))
-					{
-						mIns[i + 0].mType = ASMIT_DEY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_STY;
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_MEM))
-					{
-						if (!(mIns[i + 0].mLive & LIVE_CPU_REG_X))
-						{
-							mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-							mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_INX));
-							mIns[i + 2].mType = ASMIT_TXA; mIns[i + 2].mMode = ASMIM_IMPLIED;
-							progress = true;
-						}
-						else if (!(mIns[i + 0].mLive & LIVE_CPU_REG_Y))
-						{
-							mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-							mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_INY));
-							mIns[i + 2].mType = ASMIT_TYA; mIns[i + 2].mMode = ASMIM_IMPLIED;
-							progress = true;
-						}
-						else if (!(mIns[i + 0].mLive & LIVE_CPU_REG_C))
-						{
-							mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_CLC));
-							mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 1;
-							progress = true;
-						}
-					}
-#if 0
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
-					{
-						int val = mIns[i + 0].mAddress;
-						mIns[i + 0].CopyMode(mIns[i + 1]);
-						mIns[i + 1].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 1].mAddress = val;
-						progress = true;
-					}
-#endif
-					else if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
-					{
-						const NativeCodeInstruction* ains, *iins;
-
-						int sreg = mIns[i + 1].mAddress;
-						int	apos, addr;
-						uint32	flags;
-
-						if (FindGlobalAddressSumY(i, sreg, true, apos, ains, iins, flags, addr))
-						{
-							if (iins || (flags & LIVE_CPU_REG_Y) || (flags & LIVE_CPU_REG_X)) //!(mIns[i + 1].mLive & LIVE_CPU_REG_X))
-							{
-								RepairLoadYImmediate(i + 1, mIns[i + 0].mAddress);
-
-								if (flags & LIVE_CPU_REG_Y)
-								{
-									mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
-								}
-								else if (flags & LIVE_CPU_REG_X)
-								{
-									mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;
-								}
-								else
-								{
-									mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
-								}
-
-								if (ains->mMode == ASMIM_IMMEDIATE)
-								{
-									mIns[i + 1].mLinkerObject = 0;
-									mIns[i + 1].mAddress = addr + mIns[i + 0].mAddress;
-								}
-								else
-								{
-									mIns[i + 1].mLinkerObject = ains->mLinkerObject;
-									mIns[i + 1].mAddress = ains->mAddress + mIns[i + 0].mAddress;
-								}
-
-								if (!iins)
-								{
-									mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-									if (flags & LIVE_CPU_REG_Y)
-									{
-										mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY, ASMIM_IMPLIED));
-										for (int j = apos; j < i + 2; j++)
-											mIns[j].mLive |= LIVE_CPU_REG_Y;
-									}
-									else
-									{
-										PatchGlobalAdressSumYByX(i + 1, sreg, *ains, addr);
-										mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAX, ASMIM_IMPLIED));
-										for (int j = apos; j < i + 2; j++)
-											mIns[j].mLive |= LIVE_CPU_REG_X;
-									}
-								}
-								else if (iins->mMode != ASMIM_ZERO_PAGE)
-								{
-									mIns[i + 0].mMode = iins->mMode;
-									mIns[i + 0].mAddress = iins->mAddress;
-									mIns[i + 0].mLinkerObject = iins->mLinkerObject;
-									mIns[i + 0].mFlags = iins->mFlags;
-
-									if (!(flags & LIVE_CPU_REG_Y) && (flags & LIVE_CPU_REG_X))
-										mIns[i + 0].mType = ASMIT_LDX;
-								}
-								else if (iins->mAddress == sreg)
-								{
-									mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-									if (flags & LIVE_CPU_REG_Y)
-									{
-										mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, iins->mAddress));
-										mIns[apos].mLive |= LIVE_MEM;
-										for (int j = apos; j < i + 2; j++)
-											mIns[j].mLive |= LIVE_CPU_REG_Y;
-									}
-									else
-									{
-										PatchGlobalAdressSumYByX(i + 1, sreg, *ains, addr);
-										mIns.Insert(apos, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, iins->mAddress));
-										mIns[apos].mLive |= LIVE_MEM;
-										for (int j = apos; j < i + 2; j++)
-											mIns[j].mLive |= LIVE_CPU_REG_X;
-									}
-								}
-								else
-								{
-									mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
-									mIns[i + 0].mAddress = iins->mAddress;
-
-									if (!(flags & LIVE_CPU_REG_Y) && (flags & LIVE_CPU_REG_X))
-										mIns[i + 0].mType = ASMIT_LDX;
-								}
-
-								CheckLive();
-
-								progress = true;
-							}
-						}
-					}
-
-					CheckLive();
-
-#if 1
-					if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
-					{
-						int	addr;
-						if (FindPageStartAddress(i, mIns[i + 1].mAddress, addr))
-						{
-							if (mIns[i + 1].mLive & LIVE_CPU_REG_Y)
-							{
-								mIns.Insert(i + 2, mIns[i + 0]);
-								mIns[i + 2].mLive |= mIns[i + 1].mLive;
-							}
-
-							int	absaddr = addr + mIns[i + 0].mAddress;
-
-							mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
-							mIns[i + 0].mLive |= LIVE_MEM;
-							mIns[i + 0].mAddress = mIns[i + 1].mAddress;
-
-							mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
-							mIns[i + 1].mAddress = absaddr;
-							mIns[i + 1].mLinkerObject = nullptr;
-
-							progress = true;
-
-							CheckLive();
-						}
-					}
-#endif
-
-#if 1
-					if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
-					{
-						int	sreg = mIns[i + 1].mAddress;
-
-						int	apos, breg, ireg;
-
-						if (FindAddressSumY(i, sreg, apos, breg, ireg))
-						{
-							if (PatchAddressSumY(i, sreg, apos, breg, ireg))
-							{
-								progress = true;
-
-								CheckLive();
-							}
-						}
-					}
-#endif
-
-#if 1
-					if (
-						mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO) &&
-						mIns[i + 1].mMode == ASMIM_INDIRECT_Y && mIns[i + 0].mAddress == mIns[i + 1].mAddress)
-					{
-						int	sreg = mIns[i + 0].mAddress;
-
-						int	apos, breg, ireg;
-
-						if (FindAddressSumY(i, sreg, apos, breg, ireg))
-						{
-							if (!(breg == sreg || ireg == sreg) || !(mIns[i + 1].mLive & LIVE_MEM))
-							{
-								if (breg == sreg || ireg == sreg)
-								{
-									mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
-									mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
-								}
-
-								RepairLoadYImmediate(i + 1, 0);
-
-								mIns.Insert(i + 0, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
-								mIns[i + 0].mLive |= LIVE_CPU_REG_Y | LIVE_MEM;
-								mIns[i + 1].mAddress = breg; mIns[i + 1].mFlags &= ~NCIF_YZERO;
-								mIns[i + 2].mAddress = breg; mIns[i + 2].mFlags &= ~NCIF_YZERO;
-								progress = true;
-
-								CheckLive();
-
-							}
-						}
-					}
-#endif
-
-#if 1
-					if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress <= 3 &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
-					{
-						int	apos, breg, ireg;
-						if (FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
-						{
-							if (breg != mIns[i + 1].mAddress && ireg != mIns[i + 1].mAddress)// || !(mIns[i + 1].mLive & LIVE_MEM))
-							{
-								int yoffset = mIns[i + 0].mAddress;
-
-								if (breg == mIns[i + 1].mAddress)
-								{
-									mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
-									mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
-								}
-
-								RepairLoadYImmediate(i + 1, 0);
-
-								mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
-								mIns[i + 0].mAddress = ireg;
-								mIns[i + 0].mLive |= LIVE_MEM;
-								mIns[i + 1].mAddress = breg;
-								mIns[i + 1].mFlags &= ~NCIF_YZERO;
-
-								for(int j=0; j<yoffset; j++)
-								{
-									mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_INY, ASMIM_IMPLIED));
-									mIns[i + 1].mLive = mIns[i + 0].mLive;
-								}
-
-								CheckLive();
-
-								progress = true;
-							}
-						}
-					}
-
-#endif
-
-				}
-
-#endif
-				CheckLive();
-
-				
-#if 1
-				if (i + 2 < mIns.Size())
-				{
-#if _DEBUG
-					NativeCodeInstruction	i0 = mIns[i];
-					NativeCodeInstruction	i1 = mIns[i + 1];
-					NativeCodeInstruction	i2 = mIns[i + 2];
-#endif
-
-					if (mIns[i].mType == ASMIT_LDA && mIns[i + 2].mType == ASMIT_LDA && (mIns[i + 1].mType == ASMIT_CLC || mIns[i + 1].mType == ASMIT_SEC))
-					{
-						mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 2].mAddress &&
-						mIns[i + 1].mType == ASMIT_INC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && (mIns[i + 2].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_CLC;
-						mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_ADC;
-						mIns[i + 1].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 1].mAddress = 1;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA &&
-						mIns[i + 1].IsShiftOrInc() &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) &&
-						!mIns[i + 2].SameEffectiveAddress(mIns[i + 1]) &&
-						!(mIns[i + 2].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && (mIns[i + 1].mAddress == mIns[i + 2].mAddress || mIns[i + 1].mAddress == mIns[i + 2].mAddress + 1)) &&
-						!(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode != ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 2].mAddress &&
-						mIns[i + 2].IsCommutative() && HasAsmInstructionMode(mIns[i + 2].mType, mIns[i + 1].mMode) &&
-						(mIns[i + 2].mLive & LIVE_MEM) == 0)
-					{
-						mIns[i + 1].mType = mIns[i + 2].mType;
-						mIns[i + 1].mLive |= mIns[i + 2].mLive;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].ChangesAccuAndFlag() &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 2].mType == ASMIT_LDA && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 1].SameEffectiveAddress(mIns[i + 2]))
-					{
-						mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
-						mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA &&
-						mIns[i + 2].mType == ASMIT_LDA && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 0].SameEffectiveAddress(mIns[i + 2]))
-					{
-						mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
-						mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
-						!mIns[i + 1].SameEffectiveAddress(mIns[i + 0]) && !mIns[i + 1].ChangesAccu())
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-
-						mIns[i + 2].mType = ASMIT_TAY;
-						mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) &&
-						!mIns[i + 1].ChangesAccu() && !mIns[i + 1].RequiresAccu() && !mIns[i + 1].RequiresYReg())
-					{
-						mIns[i + 0].mType = ASMIT_LDY;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						if (mIns[i + 1].ChangesYReg())
-						{
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						}
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
-						mIns[i + 1].mType == ASMIT_DEC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
-						!(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_SEC; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_SBC; mIns[i + 1].mMode = ASMIM_IMMEDIATE; mIns[i + 1].mAddress = 1; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						if (mIns[i + 2].mLive & LIVE_CPU_REG_Z)
-							mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_CMP && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_ROR && mIns[i + 2].mMode == ASMIM_IMPLIED)
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_CLC; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].ChangesAccuAndFlag() &&
-						mIns[i + 1].mType == ASMIT_STA &&
-						mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
-					{
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
-						mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].ChangesAccuAndFlag() && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
-						mIns[i + 1].mType == ASMIT_LDY &&
-						mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
-					{
-						mIns[i + 2] = mIns[i + 0];
-						mIns[i + 2].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
-						if (mIns[i + 0].RequiresCarry())
-							mIns[i + 1].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].ChangesAccuAndFlag() &&
-						mIns[i + 1].mType == ASMIT_STA &&
-						mIns[i + 2].mType == ASMIT_CMP && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
-						mIns[i + 1].mLive |= mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z);
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 1].IsShift() &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 2].mType = mIns[i + 1].mType;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].UsesAccu() &&
-						mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 2];
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_STA;
-						mIns[i + 2].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress)
-					{
-						mIns[i + 0] = mIns[i + 2];
-						mIns[i + 2] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 0];
-						mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA;
-						mIns[i + 2].mLive |= mIns[i + 1].mLive & LIVE_CPU_REG_C;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mMode != ASMIM_RELATIVE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
-						mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 2].mAddress &&
-						(mIns[i + 1].mType == ASMIT_DEC || mIns[i + 1].mType == ASMIT_INC))
-					{
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
-					{
-						mIns[i + 0].mType = ASMIT_CMP; mIns[i + 0].mMode = ASMIM_IMMEDIATE; mIns[i + 0].mAddress = 0x80;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_INX &&
-						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_CLC;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 1;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_DEX &&
-						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_SEC;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_SBC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 1;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].UsesAccu() &&
-						mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_STA;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].UsesAccu() &&
-						mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_STA;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_TXA &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_X)))
-					{
-						mIns[i + 0].mType = ASMIT_DEX;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_TYA &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Y)))
-					{
-						mIns[i + 0].mType = ASMIT_DEY;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
-					{
-						int	t = (mIns[i + 2].mAddress ^ 0xff) + mIns[i + 1].mAddress + 1;
-
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_LDA; mIns[i + 2].mAddress = t & 0xff;
-						if (t < 256)
-							mIns[i + 0].mType = ASMIT_CLC;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
-					{
-						int	t = mIns[i + 2].mAddress + mIns[i + 1].mAddress;
-
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_LDA; mIns[i + 2].mAddress = t & 0xff;
-						if (t >= 256)
-							mIns[i + 0].mType = ASMIT_SEC;
-						progress = true;
-					}
-					else if (pass > 0 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
-						mIns[i + 2].mType == ASMIT_ADC)
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_LDA;
-						progress = true;
-					}
-					else if (pass > 0 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
-					{
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC)
-					{
-						mIns[i + 1] = mIns[i + 0];
-						mIns[i + 0].mType = ASMIT_CLC;
-						mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_C;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						if (mIns[i + 1].mFlags & NCIF_UPPER)
-							mIns[i + 1].mAddress += 0x0100 * mIns[i + 2].mAddress;
-						else
-							mIns[i + 1].mAddress += mIns[i + 2].mAddress;
-
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
-						mIns[i + 2].mType == ASMIT_LSR && mIns[i + 2].mMode == ASMIM_IMPLIED)
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
-						mIns[i + 2].mType == ASMIT_SBC)
-					{
-						mIns[i + 2].mType = ASMIT_EOR;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_EOR && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x80 &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x80 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_TYA &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Y)))
-					{
-						int t = mIns[i + 2].mAddress;
-						mIns[i + 0].mType = ASMIT_INY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						if (t > 1)
-						{
-							mIns[i + 1].mType = ASMIT_INY;
-							mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						}
-						else
-						{
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						}
-						mIns[i + 2].mType = ASMIT_TYA; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Y)))
-					{
-						int t = mIns[i + 2].mAddress;
-						mIns[i + 0].mType = ASMIT_INY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						if (t > 1)
-						{
-							mIns[i + 1].mType = ASMIT_INY;
-							mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						}
-						else
-						{
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						}
-						mIns[i + 2].mType = ASMIT_TYA; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ADC && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mAddress += mIns[i + 2].mAddress;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SBC && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mAddress += mIns[i + 2].mAddress;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ADC && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC)
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_EOR && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x80 &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 2].mAddress ^= 0x80;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1)
-					{
-						mIns[i + 0].mType = ASMIT_SEC; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) &&
-						!mIns[i + 1].ChangesAddress() && !mIns[i + 1].ChangesGlobalMemory() &&
-						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesXReg() &&
-						!(mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_LDX &&
-						mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-					{
-						NativeCodeInstruction	ins = mIns[i + 0];
-						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 2];
-						mIns[i + 2] = ins;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_LDY &&
-						mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-					{
-						NativeCodeInstruction	ins = mIns[i + 0];
-						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 2];
-						mIns[i + 2] = ins;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDX &&
-						mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)) && !mIns[i + 2].SameEffectiveAddress(mIns[i + 0]))
-					{
-						NativeCodeInstruction	ins = mIns[i + 0];
-						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 2];
-						mIns[i + 2] = ins;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDY &&
-						mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)) && !mIns[i + 2].SameEffectiveAddress(mIns[i + 0]))
-					{
-						NativeCodeInstruction	ins = mIns[i + 0];
-						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 2];
-						mIns[i + 2] = ins;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].RequiresYReg() &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_MEM))
-					{
-						mIns[i + 0] = mIns[i + 2];
-						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].RequiresYReg() && !mIns[i + 1].ChangesYReg() &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_MEM) &&
-						(!mIns[i + 1].ChangesZFlag() || !(mIns[i + 2].mLive & LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_ROL; mIns[i + 2].mAddress = mIns[i + 1].mAddress; mIns[i + 2].mLive |= LIVE_MEM;
-						mIns[i + 1].mType = ASMIT_ASL; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_ROR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x80 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mMode = ASMIM_IMMEDIATE; mIns[i + 0].mAddress = 0;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
-						mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
-						!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						int addr = mIns[i + 0].mAddress;
-
-						mIns.Insert(i, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, addr));
-						mIns.Insert(i + 4, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, addr));
-
-						mIns[i + 0].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_A;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 4].mLive = mIns[i + 3].mLive;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_STA;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesAccu() && mIns[i + 1].ChangesZFlag() &&
-						mIns[i + 2].mType == ASMIT_TXA && (mIns[i + 2].mLive & LIVE_CPU_REG_Z))
-					{
-						mIns[i + 2] = mIns[i + 0]; mIns[i + 2].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_TAY &&
-						mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && (mIns[i + 2].mLive & LIVE_CPU_REG_X) && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y) && HasAsmInstructionMode(mIns[i + 2].mType, ASMIM_ABSOLUTE_X))
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mMode = ASMIM_ABSOLUTE_X;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						mIns[i + 1].mType == ASMIT_TAX &&
-						mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && (mIns[i + 2].mLive & LIVE_CPU_REG_X) && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y) && HasAsmInstructionMode(mIns[i + 2].mType, ASMIM_ABSOLUTE_X))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mMode = ASMIM_ABSOLUTE_X;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE_X &&
-						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;  mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y &&
-						mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;  mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-
-					else if (
-						(mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
-						mIns[i + 1].mType == ASMIT_STX &&
-						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
-						mIns[i + 1].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-					}
-					else if (
-						(mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
-						mIns[i + 1].mType == ASMIT_STY &&
-						mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
-						mIns[i + 1].mLive |= mIns[i + 2].mLive & LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 1].mType == ASMIT_STA && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1], true) &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mFlags & NCIF_VOLATILE))
-					{
-						mIns[i + 0].mLive |= mIns[i + 2].mLive;
-						mIns[i + 1].mLive |= mIns[i + 2].mLive;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
-						mIns[i + 1].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_STX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 0].mMode) &&
-						mIns[i + 1].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_STY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_IMMEDIATE) &&
-						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_STY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_IMMEDIATE) &&
-						mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 2].mType == ASMIT_LDX && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_STX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y) &&
-						!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) && !(mIns[i + 1].ChangesYReg()) &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_CPU_REG_X) &&
-						!mIns[i + 1].UsesZeroPage(mIns[i + 0].mAddress) && !(mIns[i + 1].ChangesXReg()) &&
-						mIns[i + 2].mType == ASMIT_LDX && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_MEM) &&
-						mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
-					{
-						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_STY;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && !mIns[i + 1].SameEffectiveAddress(mIns[i + 0]) &&
-						mIns[i + 2].IsShift() && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]))
-					{
-						AsmInsType	type = mIns[i + 2].mType;
-						uint32		live = mIns[i + 2].mLive;
-
-						mIns[i + 2] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 0];
-
-						mIns[i + 0].mType = type;
-						mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 0].mLive |= live;
-						mIns[i + 1].mLive |= live;
-						mIns[i + 2].mLive |= live;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & LIVE_CPU_REG_A) &&
-						mIns[i + 2].mType == ASMIT_CPX && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 2].mAddress && !(mIns[i + 2].mLive & LIVE_MEM))
-					{
-						mIns[i + 1] = mIns[i + 0];
-						mIns[i + 1].mType = ASMIT_CMP;
-						mIns[i + 1].mLive |= mIns[i + 2].mLive;
-						mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && !mIns[i + 0].RequiresXReg() &&
-						mIns[i + 1].mType == ASMIT_LDX &&
-						mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X) && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]))
-					{
-						NativeCodeInstruction	ins = mIns[i + 0];
-						mIns[i + 0] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 2];
-						mIns[i + 2] = ins;
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A | mIns[i + 2].mLive;
-						mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= mIns[i + 2].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX &&
-						mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 2].mType == ASMIT_STA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
-						!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]) &&
-						!mIns[i + 1].MayBeChangedOnAddress(mIns[i + 2]))
-					{
-						NativeCodeInstruction	ins = mIns[i + 2];
-						mIns[i + 2] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 0];
-						mIns[i + 0] = ins;
-						mIns[i + 1].mType = ASMIT_LDA; mIns[i + 1].mLive |= LIVE_CPU_REG_A | mIns[i + 0].mLive;
-						mIns[i + 2].mType = ASMIT_STA; mIns[i + 2].mLive |= mIns[i + 0].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX &&
-						mIns[i + 1].mType == ASMIT_STX &&
-						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY &&
-						mIns[i + 1].mType == ASMIT_STY &&
-						mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 2].mType == ASMIT_TXA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
-						(mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
-						!mIns[i + 1].ChangesXReg() && !mIns[i + 1].ChangesZFlag())
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 2].mType == ASMIT_TYA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
-						(mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
-						!mIns[i + 1].ChangesYReg() && !mIns[i + 1].ChangesZFlag())
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_CMP && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 2].mAddress &&
-						!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_MEM)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_CMP; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mAddress & 0x03) && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_ASL;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mAddress & 0xc0) && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_LSR;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
-					{
-						mIns[i + 0].mAddress &= (mIns[i + 2].mAddress << 1) | 1;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE)
-					{
-						mIns[i + 0].mAddress &= (mIns[i + 2].mAddress >> 1) | 0x80;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
-						mIns[i + 2].mType == ASMIT_ROL && mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 1].mType = ASMIT_AND; mIns[i + 1].mAddress = 1;
-						mIns[i + 0].mAddress &= (mIns[i + 2].mAddress << 1) | 1;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].IsShift() && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						!mIns[i + 1].ReferencesAccu() && (mIns[i + 1].mMode != ASMIM_ZERO_PAGE || mIns[i + 1].mAddress != mIns[i + 0].mAddress) &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & (LIVE_MEM | LIVE_CPU_REG_Z)))
-					{
-						NativeCodeInstruction	ins = mIns[i + 2];
-						mIns.Remove(i + 2);
-
-						mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns.Insert(i, ins);
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && (mIns[i + 0].mAddress & 0x3f) == 0x3f &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_NOP;  mIns[i + 0].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_NOP;  mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mAddress = (mIns[i + 1].mAddress << 1) & 0xff;
-						mIns[i + 2].mType = ASMIT_NOP;  mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INY &&
-						mIns[i + 1].mType == ASMIT_INY &&
-						mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mAddress += 2;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INX &&
-						mIns[i + 1].mType == ASMIT_INX &&
-						mIns[i + 2].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mAddress += 2;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA && !(mIns[i + 0].mLive & LIVE_CPU_REG_X) &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_INX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_TXA; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA && !(mIns[i + 0].mLive & LIVE_CPU_REG_X) &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_DEX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_TXA; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y) &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_INY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_TYA; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y) &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_DEY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_TYA; mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1 &&
-						mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1 &&
-						mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_TAY; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1 &&
-						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1 &&
-						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_DEX; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 1].mType == ASMIT_TAX &&
-						mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
-						!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_STX;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 1].mType == ASMIT_TAY &&
-						mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
-						!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_STY;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						(mIns[i + 1].mType == ASMIT_INX || mIns[i + 1].mType == ASMIT_DEX) &&
-						mIns[i + 2].mType == ASMIT_STX && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 2].mType = mIns[i + 1].mType == ASMIT_INX ? ASMIT_INC : ASMIT_DEC;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						(mIns[i + 1].mType == ASMIT_INY || mIns[i + 1].mType == ASMIT_DEY) &&
-						mIns[i + 2].mType == ASMIT_STY && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 2].mType = mIns[i + 1].mType == ASMIT_INY ? ASMIT_INC : ASMIT_DEC;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						(mIns[i + 0].mType == ASMIT_INC || mIns[i + 0].mType == ASMIT_DEC) &&
-						mIns[i + 0].mMode == ASMIM_ZERO_PAGE && 
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 1].mLive & LIVE_MEM) &&
-						mIns[i + 2].mType == ASMIT_STA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) && 
-						(mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) && 
-						(mIns[i + 2].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)) != (LIVE_CPU_REG_X | LIVE_CPU_REG_Y))
-					{
-						if (mIns[i + 2].mLive & LIVE_CPU_REG_X)
-						{
-							if (mIns[i + 0].mType == ASMIT_INC)
-								mIns[i + 1].mType = ASMIT_INY;
-							else
-								mIns[i + 1].mType = ASMIT_DEY;
-
-							mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 2].mType = ASMIT_STY;
-						}
-						else
-						{
-							if (mIns[i + 0].mType == ASMIT_INC)
-								mIns[i + 1].mType = ASMIT_INX;
-							else
-								mIns[i + 1].mType = ASMIT_DEX;
-
-							mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 2].mType = ASMIT_STX;
-						}
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX &&
-						mIns[i + 1].mType == ASMIT_TXA &&
-						mIns[i + 2].mType == ASMIT_CPX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_CMP;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY &&
-						mIns[i + 1].mType == ASMIT_TYA &&
-						mIns[i + 2].mType == ASMIT_CPY && !(mIns[i + 2].mLive & LIVE_CPU_REG_Y))
-					{
-						mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_CMP;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
-						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_A)))
-					{
-						mIns[i + 0].mType = ASMIT_TAX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_DEX;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_CPY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 1].mAddress &&
-						!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
-					{
-						mIns[i + 1].mType = ASMIT_CMP; mIns[i + 1].CopyMode(mIns[i + 0]); mIns[i + 1].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_Z;
-						mIns[i + 0].mType = ASMIT_TYA; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_ADC && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mAddress = (mIns[i + 0].mAddress - mIns[i + 2].mAddress) & 0xff;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 1].mType == ASMIT_STX && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
-						!mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) && !mIns[i + 1].SameEffectiveAddress(mIns[i + 2]))
-					{
-						NativeCodeInstruction	ins(mIns[i + 2]);
-						mIns.Remove(i + 2);
-						mIns.Insert(i, ins);
-						mIns[i + 1].mLive |= ins.mLive & LIVE_CPU_REG_A;
-						mIns[i + 2].mLive |= ins.mLive & LIVE_CPU_REG_A;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS) && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 1].mType == ASMIT_STY && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
-						!mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) && !mIns[i + 1].SameEffectiveAddress(mIns[i + 2]))
-					{
-						NativeCodeInstruction	ins(mIns[i + 2]);
-						mIns.Remove(i + 2);
-						mIns.Insert(i, ins);
-						mIns[i + 1].mLive |= ins.mLive & LIVE_CPU_REG_A;
-						mIns[i + 2].mLive |= ins.mLive & LIVE_CPU_REG_A;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].ChangesAccuAndFlag() &&
-						(mIns[i + 1].mType == ASMIT_INC || mIns[i + 1].mType == ASMIT_DEC) &&
-						mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 &&
-						mIns[i + 1].MayBeMovedBefore(mIns[i + 0]))
-					{
-						mIns.Insert(i, mIns[i + 1]);
-						mIns[i].mLive |= LIVE_CPU_REG_A;
-						if (mIns[i + 1].RequiresYReg())
-							mIns[i].mLive |= LIVE_CPU_REG_Y;
-						if (mIns[i + 1].RequiresXReg())
-							mIns[i].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Z;
-						mIns.Remove(i + 2);
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) &&
-						!(mIns[i + 0].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && (mIns[i + 1].mAddress == mIns[i + 0].mAddress || mIns[i + 1].mAddress + 1 == mIns[i + 0].mAddress)))
-					{
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
-						mIns[i + 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_CPX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 0].mMode) &&
-						mIns[i + 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_CPY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && !(mIns[i + 1].ReferencesYReg()) &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_MEM))
-					{
-						mIns[i + 2] = mIns[i + 1];
-						mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_TAY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						if (mIns[i + 2].ReferencesXReg())
-							mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						progress = true;
-					}
-
-					if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress <= 1 &&
-						mIns[i + 1].mType == ASMIT_LDA &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mLive & LIVE_MEM))
-					{
-						int	apos, breg, ireg;
-						if (FindAddressSumY(i, mIns[i + 2].mAddress, apos, breg, ireg))
-						{
-							int yoffset = mIns[i + 0].mAddress;
-
-							if (breg == mIns[i + 2].mAddress || ireg == mIns[i + 2].mAddress)
-							{
-								mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
-								mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
-							}
-
-							RepairLoadYImmediate(i + 2, yoffset);
-							
-							int ypos = i;
-							if (mIns[i + 1].mMode != ASMIM_INDIRECT_Y && mIns[i + 1].mMode != ASMIM_ABSOLUTE_Y)
-							{
-								mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
-								mIns[i + 0].mAddress = ireg;
-								mIns[i + 0].mLive |= LIVE_MEM;
-								mIns[i + 2].mAddress = breg;
-							}
-							else
-							{
-								mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, ireg));
-								mIns[i + 2].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_Y | LIVE_MEM;
-								ypos = i + 2;
-								mIns[i + 3].mAddress = breg;
-							}
-
-							if (yoffset == 1)
-							{
-								mIns.Insert(ypos + 1, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_INY, ASMIM_IMPLIED));
-								mIns[ypos + 1].mLive = mIns[ypos].mLive;
-							}
-
-							progress = true;
-						}
-					}
-
-					CheckLive();
-
-					if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_LDA &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						const NativeCodeInstruction* ains;
-						if (FindImmediateStore(i, mIns[i + 2].mAddress + 1, ains))
-						{
-							mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mIns[i + 2].mAddress));
-							mIns[i + 2].mLive = mIns[i + 1].mLive | LIVE_CPU_REG_X;
-							mIns[i + 3].mMode = ASMIM_ABSOLUTE_X;
-
-							if (ains->mMode == ASMIM_IMMEDIATE)
-								mIns[i + 3].mAddress = (ains->mAddress << 8) + mIns[i + 0].mAddress;
-							else
-							{
-								mIns[i + 3].mLinkerObject = ains->mLinkerObject;
-								mIns[i + 3].mAddress = mIns[i + 0].mAddress + ains->mAddress;
-								mIns[i + 3].mFlags |= NCIF_UPPER;
-								mIns[i + 3].mFlags &= ~NCIF_LOWER;
-							}
-							progress = true;
-						}
-					}
-
-					CheckLive();
-				}
-#endif
-#if 1
-				if (i + 3 < mIns.Size())
-				{
-					if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
-						mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-						HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode) &&
-						(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_INC; mIns[i + 0].mLive |= LIVE_MEM;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
-						mIns[i + 1].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-						HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
-						(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_DEC; mIns[i + 0].mLive |= LIVE_MEM;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						progress = true;
-					}
-					else if (mIns[i + 1].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 3]) &&
-						mIns[i + 0].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-						HasAsmInstructionMode(ASMIT_INC, mIns[i + 1].mMode) &&
-						(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_INC; mIns[i + 1].mLive |= LIVE_MEM;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						progress = true;
-					}
-					else if (mIns[i + 1].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 3]) &&
-						mIns[i + 0].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-						HasAsmInstructionMode(ASMIT_DEC, mIns[i + 1].mMode) &&
-						(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEC; mIns[i + 1].mLive |= LIVE_MEM;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						progress = true;
-					}
-
-					else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
-						mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) == 0xff &&
-						HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
-						(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_DEC; mIns[i + 0].mLive |= LIVE_MEM;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						progress = true;
-					}
-					else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
-						mIns[i + 1].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) == 0xff &&
-						HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode) &&
-						(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_INC; mIns[i + 0].mLive |= LIVE_MEM;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						progress = true;
-					}
-					else if (mIns[i + 1].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 3]) &&
-						mIns[i + 0].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) == 0xff &&
-						HasAsmInstructionMode(ASMIT_DEC, mIns[i + 1].mMode) &&
-						(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEC; mIns[i + 1].mLive |= LIVE_MEM;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						progress = true;
-					}
-					else if (mIns[i + 1].mType == ASMIT_LDA && mIns[i + 3].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 3]) &&
-						mIns[i + 0].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) == 0xff &&
-						HasAsmInstructionMode(ASMIT_INC, mIns[i + 1].mMode) &&
-						(mIns[i + 3].mLive & LIVE_CPU_REG_C) == 0)
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_INC; mIns[i + 1].mLive |= LIVE_MEM;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC)
-					{
-						mIns[i + 1].mType = ASMIT_NOP;
-						mIns[i + 2].mType = ASMIT_NOP;
-
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
-						mIns[i + 3].mType == ASMIT_CMP && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
-					{
-						mIns[i + 3].CopyMode(mIns[i + 0]);
-						if (mIns[i + 3].RequiresYReg())
-						{
-							mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						}
-						else if (mIns[i + 3].RequiresXReg())
-						{
-							mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						}
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == mIns[i + 1].mType && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
-					{
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_C;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDX && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
-						mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].UsesZeroPage(mIns[i + 3].mAddress))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-
-						mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, mIns[i + 3].mAddress));
-
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y &&
-						mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress)
-					{
-						mIns[i + 2].mType = mIns[i + 3].mType;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1]) &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && mIns[i + 3].mMode != ASMIM_IMMEDIATE)
-					{
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_ORA; mIns[i + 2].mLive |= mIns[i + 3].mLive & LIVE_CPU_REG_Z;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_EOR && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
-						(mIns[i + 2].mType == ASMIT_SEC || mIns[i + 2].mType == ASMIT_CLC) &&
-						mIns[i + 3].mType == ASMIT_ADC)
-					{
-						mIns.Insert(i + 4, mIns[i + 0]);
-
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_LDA; mIns[i + 3].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 4].mType = ASMIT_SBC; mIns[i + 4].mLive |= LIVE_CPU_REG_C;
-
-						if (mIns[i + 4].RequiresYReg())
-						{
-							mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-						}
-						if (mIns[i + 4].RequiresXReg())
-						{
-							mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 3].mLive |= LIVE_CPU_REG_X;
-						}
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 1].mAddress &&
-						mIns[i + 2].mType == ASMIT_SEC &&
-						mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
-					{
-						mIns[i + 0].mType = ASMIT_EOR;
-						mIns[i + 0].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 0].mAddress = 0xff;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-
-						mIns[i + 3].mType = ASMIT_ADC;
-						mIns[i + 3].mAddress = mIns[i + 1].mAddress;
-
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 2].mAddress &&
-						mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
-					{
-						mIns[i + 0].mType = ASMIT_EOR;
-						mIns[i + 0].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 0].mAddress = 0xff;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-
-						mIns[i + 3].mType = ASMIT_ADC;
-						mIns[i + 3].mAddress = mIns[i + 2].mAddress;
-
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress != mIns[i + 2].mAddress || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
-					{
-						mIns[i + 3].CopyMode(mIns[i + 1]);
-						mIns[i + 3].mType = ASMIT_ADC;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_ADC && 
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mAddress += mIns[i + 3].mAddress;
-						mIns[i + 1].mLive |= (mIns[i + 3].mLive & LIVE_CPU_REG_Z);
-
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x00 &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
-						mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x01 &&
-						mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0x01)
-					{
-						mIns[i + 1].mAddress = 0x00;
-						mIns[i + 1].mLive |= (mIns[i + 3].mLive & LIVE_CPU_REG_Z);
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 3]) &&
-						(mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
-
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_SEC;
-						mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 3].mType = ASMIT_ROL;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 3].mAddress &&
-						mIns[i + 2].mMode == ASMIM_IMPLIED && !(mIns[i + 3].mLive & LIVE_MEM) &&
-						(mIns[i + 2].mType == ASMIT_ASL || mIns[i + 2].mType == ASMIT_LSR || mIns[i + 2].mType == ASMIT_ROL || mIns[i + 2].mType == ASMIT_ROR) &&
-						(mIns[i + 3].mType == ASMIT_ORA || mIns[i + 3].mType == ASMIT_AND || mIns[i + 3].mType == ASMIT_EOR || mIns[i + 3].mType == ASMIT_ADC || mIns[i + 3].mType == ASMIT_SBC))
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mMode = mIns[i + 0].mMode;
-						mIns[i + 3].mAddress = mIns[i + 0].mAddress;
-						mIns[i + 3].mLinkerObject = mIns[i + 0].mLinkerObject;
-						mIns[i + 3].mFlags = mIns[i + 0].mFlags;
-
-						if (mIns[i + 3].RequiresYReg())
-						{
-							mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						}
-						if (mIns[i + 3].RequiresXReg())
-						{
-							mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						}
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
-						mIns[i + 2].mType == ASMIT_EOR && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
-						mIns[i + 3].mType == ASMIT_LSR && mIns[i + 3].mMode == ASMIM_IMPLIED && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 3].mType = ASMIT_INY;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 3].mType = ASMIT_DEY;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 3].mType = ASMIT_INX;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_DEX; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 3].mType = ASMIT_DEX;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_INX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 2].mType = ASMIT_INX;
-						else
-							mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
-							mIns[i + 3].mType = ASMIT_TXA;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress >= 0xfe &&
-						mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 0xfe)
-							mIns[i + 2].mType = ASMIT_DEX;
-						else
-							mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
-							mIns[i + 3].mType = ASMIT_TXA;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 2].mType = ASMIT_DEX;
-						else
-							mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
-							mIns[i + 3].mType = ASMIT_TXA;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 3].mType = ASMIT_INY;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress >= 0xfe &&
-						mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 0xfe)
-							mIns[i + 2].mType = ASMIT_DEY;
-						else
-							mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						if (mIns[i + 3].mLive & LIVE_CPU_REG_A)
-							mIns[i + 3].mType = ASMIT_TYA;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 3].mType = ASMIT_DEY;
-						else
-							mIns[i + 3].mType = ASMIT_NOP;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
-						!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_INX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 2].mType = ASMIT_INX;
-						else
-							mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 3].mType = ASMIT_STX;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
-						!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 2].mType = ASMIT_DEX;
-						else
-							mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 3].mType = ASMIT_STX;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
-						!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
-					{						
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 2)
-						{
-							mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						}
-						else
-							mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_STY;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
-						mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
-						!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
-						if (mIns[i + 2].mAddress == 2)
-							mIns[i + 2].mType = ASMIT_DEY;
-						else
-							mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 3].mType = ASMIT_STY;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
-						mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
-						!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_STY;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
-						mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
-						!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_STX;
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 2].mMode) &&
-						mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LDX; 
-						mIns[i + 2].mType = ASMIT_STX; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 2].mMode) &&
-						mIns[i + 3].mType == ASMIT_TYA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LDY; 
-						mIns[i + 2].mType = ASMIT_STY; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 0].mMode) &&
-						mIns[i + 1].mType == ASMIT_LDX && HasAsmInstructionMode(ASMIT_LDA, mIns[i + 1].mMode) &&
-						mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 2].mMode) &&
-						mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_STX; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
-						mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0x00 && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = mIns[i + 1].mType;
-						mIns[i + 0].mLive |= LIVE_MEM | LIVE_CPU_REG_C | LIVE_CPU_REG_Z;
-
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX &&
-						mIns[i + 1].mType == ASMIT_INX && mIns[i + 2].mType == ASMIT_INX &&
-						mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_INC;
-						mIns[i + 3].mType = ASMIT_INC;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX &&
-						mIns[i + 1].mType == ASMIT_DEX && mIns[i + 2].mType == ASMIT_DEX &&
-						mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_DEC;
-						mIns[i + 3].mType = ASMIT_DEC;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (pass > 10 &&
-						mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode) &&
-						mIns[i + 1].mType == ASMIT_CLC && 
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_INC;
-						mIns[i + 3].mType = ASMIT_INC;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (pass > 10 &&
-						mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
-						mIns[i + 1].mType == ASMIT_SEC && 
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 2 &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_DEC;
-						mIns[i + 3].mType = ASMIT_DEC;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						!(mIns[i + 1].ChangesYReg() || mIns[i + 1].mMode == ASMIM_INDIRECT_Y || mIns[i + 1].RequiresXReg()) &&
-						mIns[i + 2].mType == ASMIT_TYA &&
-						mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_Y)))
-					{
-						mIns[i + 0].mType = ASMIT_LDX;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].ReplaceYRegWithXReg();
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].IsShift() && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_LDA && (mIns[i + 2].mMode == ASMIM_IMMEDIATE || mIns[i + 2].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 0].mAddress) &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress &&
-						!(mIns[i + 3].mLive & LIVE_MEM))
-					{
-						mIns[i + 3] = mIns[i + 2];
-						mIns[i + 2] = mIns[i + 1];
-						mIns[i + 1].mType = mIns[i + 0].mType;
-						mIns[i + 0].mType = ASMIT_LDA;
-						mIns[i + 3].mType = ASMIT_ADC;
-
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_SEC &&
-						mIns[i + 2].mType == ASMIT_LDA && !mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) &&
-						mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_MEM))
-					{
-						mIns[i + 0].mType = ASMIT_EOR;
-						mIns[i + 0].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 0].mAddress = 0xff;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_ADC;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress < 4 &&
-						mIns[i + 2].mType == ASMIT_TAX &&
-						mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C | LIVE_CPU_REG_A)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mAddress += mIns[i + 1].mAddress;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_SEC; 
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_SBC &&
-						mIns[i + 2].mType == ASMIT_SEC &&
-						mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_CLC; 
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-
-						mIns[i + 3].mAddress = (mIns[i + 3].mAddress - mIns[i + 1].mAddress) & 0xff;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC && 
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0xff && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						int	val = mIns[i + 2].mAddress;
-
-						mIns[i + 0].mType = ASMIT_SEC;
-						mIns[i + 2].CopyMode(mIns[i + 1]);
-						mIns[i + 2].mType = ASMIT_SBC;
-						mIns[i + 1].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 1].mAddress = - (1 + val) & 255;
-
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-						mIns[i + 1].mType == ASMIT_EOR && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x40 &&
-						mIns[i + 2].mType == ASMIT_SEC &&
-						mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0x40 && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 0].mType = ASMIT_CMP;
-						mIns[i + 0].mMode = ASMIM_IMMEDIATE;
-						mIns[i + 0].mAddress = 0x80;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_ROR;
-						mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
-						mIns[i + 2].mType == ASMIT_CLC && 
-						mIns[i + 3].mType == ASMIT_ADC)
-					{
-						mIns[i + 0].mAddress = 0xff;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y &&
-						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y && mIns[i + 0].mLinkerObject != mIns[i + 2].mLinkerObject &&
-						mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-					{
-						int	val = mIns[i + 2].mAddress;
-
-						mIns[i + 3].mType = ASMIT_LDA;
-						mIns[i + 3].CopyMode(mIns[i + 0]);
-
-						mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
-						mIns[i + 2].mMode = ASMIM_ABSOLUTE_X; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
-						mIns[i + 3].mType == ASMIT_LDX && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress)
-					{
-						int	addr = mIns[i + 0].mAddress;
-						mIns[i + 0].mAddress = mIns[i + 2].mAddress;
-						mIns[i + 3].mAddress = mIns[i + 1].mAddress;
-						mIns[i + 2].mAddress = addr;
-
-						mIns[i + 2].mType = ASMIT_LDX; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 3].mType = ASMIT_STX;
-
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_STA && 
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !mIns[i + 1].SameEffectiveAddress(mIns[i + 2]) &&
-						mIns[i + 3].mType == ASMIT_CMP && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 3].mAddress = mIns[i + 2].mAddress;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && 
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ROL && mIns[i + 2].mMode == ASMIM_IMPLIED && HasAsmInstructionMode(ASMIT_ROL, mIns[i + 0].mMode) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
-					{
-
-						mIns[i + 2].CopyMode(mIns[i + 0]);
-
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mLive & LIVE_CPU_REG_A) &&
-						!mIns[i + 1].ReferencesAccu() && !mIns[i + 0].MayBeSameAddress(mIns[i + 1]) &&
-						!mIns[i + 2].ReferencesAccu() && !mIns[i + 0].MayBeSameAddress(mIns[i + 2]) &&
-						mIns[i + 3].IsShift() && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
-					{
-						NativeCodeInstruction	ins = mIns[i + 0];
-						mIns[i + 0] = mIns[i + 1]; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1] = mIns[i + 2]; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2] = mIns[i + 3]; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3] = ins; mIns[i + 3].mLive |= mIns[i + 2].mLive;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].IsShift() && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_MEM) &&
-						!mIns[i + 1].ChangesCarry() && !mIns[i + 2].ChangesCarry() &&
-						!mIns[i + 1].RequiresCarry() && !mIns[i + 2].RequiresCarry() &&
-						!mIns[i + 1].MayBeSameAddress(mIns[i + 0]) && !mIns[i + 2].MayBeSameAddress(mIns[i + 0]))
-					{
-						mIns.Insert(i + 4, NativeCodeInstruction(mIns[i + 0].mIns, mIns[i + 0].mType, ASMIM_IMPLIED));
-						mIns[i + 1].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 3].mLive |= LIVE_CPU_REG_C;
-
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_X &&
-						mIns[i + 3].mType == ASMIT_LDX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mMode = ASMIM_ABSOLUTE_Y; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-
-						if (!(mIns[i + 3].mLive & LIVE_MEM))
-						{
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						}
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y &&
-						mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mMode = ASMIM_ABSOLUTE_X; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-
-						if (!(mIns[i + 3].mLive & LIVE_MEM))
-						{
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						}
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STY &&
-						mIns[i + 1].mType == ASMIT_CLC && 
-						mIns[i + 2].mType == ASMIT_LDA && 
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
-					{
-						mIns[i + 3].CopyMode(mIns[i + 2]);
-						mIns[i + 2].mType = ASMIT_TYA;
-						mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STX &&
-						mIns[i + 1].mType == ASMIT_CLC && 
-						mIns[i + 2].mType == ASMIT_LDA && 
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
-					{
-						mIns[i + 3].CopyMode(mIns[i + 2]);
-						mIns[i + 2].mType = ASMIT_TXA;
-						mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_EOR && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0xff &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC &&
-						mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0xff && !(mIns[i + 3].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 1].mType = ASMIT_SEC;
-						mIns[i + 2].mType = ASMIT_SBC;
-
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && 
-						mIns[i + 1].mType == ASMIT_DEX &&
-						mIns[i + 2].mType == ASMIT_STX && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode) &&
-						mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 0].mType = ASMIT_DEC;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_LDA; mIns[i + 2].mLive = mIns[i + 3].mLive;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_STA && 
-						mIns[i + 2].mType == ASMIT_LDA && 
-						mIns[i + 3].mType == ASMIT_CMP && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == mIns[i + 0].mAddress && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_CMP; mIns[i + 2].mLive |= LIVE_CPU_REG_Z;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_CPU_REG_A) &&
-						!mIns[i + 1].ReferencesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].ChangesCarry() &&
-						!mIns[i + 2].ReferencesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 2].ChangesCarry() &&
-						mIns[i + 3].IsShift() && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
-					{
-						AsmInsType	type = mIns[i + 3].mType;
-						mIns[i + 3] = mIns[i + 2];
-						mIns[i + 2] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 0];
-						mIns[i + 0] = NativeCodeInstruction(mIns[i + 0].mIns, type);
-						mIns[i + 1].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 3].mLive |= LIVE_CPU_REG_C;
-
-						progress = true;
-					}
-#endif
-					else if (
-						mIns[i + 0].ChangesAccuAndFlag() &&
-						mIns[i + 1].mType == ASMIT_STA &&
-						mIns[i + 2].MayBeMovedBefore(mIns[i + 1]) && mIns[i + 2].MayBeMovedBefore(mIns[i + 0]) &&
-						mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0)
-					{
-						NativeCodeInstruction	ins(mIns[i + 2]);
-						mIns.Remove(i + 2);
-						mIns.Insert(i, ins);
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
-						mIns[i + 1].mLive |= mIns[i + 3].mLive;
-						mIns[i + 2].mLive |= mIns[i + 3].mLive;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].ChangesAccuAndFlag() &&
-						(mIns[i + 1].mType == ASMIT_LDY && !mIns[i + 0].RequiresYReg() || 
-						 mIns[i + 1].mType == ASMIT_LDX && !mIns[i + 0].RequiresXReg()) &&
-						mIns[i + 2].mType == ASMIT_STA &&
-						mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0)
-					{
-						NativeCodeInstruction	ins(mIns[i + 1]);
-						mIns.Remove(i + 1);
-						mIns.Insert(i, ins);
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
-						mIns[i + 1].mLive |= mIns[i + 3].mLive | mIns[i + 0].mLive;
-						mIns[i + 2].mLive |= mIns[i + 3].mLive;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 2].mType == ASMIT_TXA &&
-						mIns[i + 3].IsCommutative() && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress)
-					{
-						mIns[i + 2].mType = ASMIT_NOP;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mAddress = mIns[i + 0].mAddress;
-						progress = true;
-					}
-					
-					if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 2].mType == ASMIT_LDX && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) && 
-						!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1]) && !mIns[i + 1].ChangesYReg() &&
-						mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y && mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
-					{
-						if (!(mIns[i + 3].mLive & LIVE_CPU_REG_Y) && HasAsmInstructionMode(mIns[i + 1].mType, ASMIM_ABSOLUTE_X))
-						{
-							mIns[i + 0].mType = ASMIT_LDX;
-							mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;
-							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-							progress = true;
-						}
-						else if (!(mIns[i + 3].mLive & LIVE_CPU_REG_X) && HasAsmInstructionMode(mIns[i + 3].mType, ASMIM_ABSOLUTE_Y))
-						{
-							mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-							mIns[i + 3].mMode = ASMIM_ABSOLUTE_Y;
-							progress = true;
-						}
-					}
-
-					if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
-						!mIns[i + 2].ChangesYReg() && (mIns[i + 2].mMode == ASMIM_IMMEDIATE || mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mAddress == mIns[i + 3].mAddress && !(mIns[i + 3].mLive & LIVE_MEM))
-					{
-						int	apos, breg, ireg;
-						if (FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
-						{
-							if (breg == mIns[i + 1].mAddress || ireg == mIns[i + 1].mAddress)
-							{
-								mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
-								mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
-							}
-
-							RepairLoadYImmediate(i + 3, 0);
-
-							mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
-							mIns[i + 0].mAddress = ireg;
-							mIns[i + 0].mLive |= LIVE_MEM;
-							mIns[i + 1].mAddress = breg;
-							mIns[i + 3].mAddress = breg;
-							progress = true;
-						}
-					}
-				}
-
-#endif
-				CheckLive();
-
-#if 1
-				if (i + 4 < mIns.Size())
-				{
-					if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
-						mIns[i + 1].mType == ASMIT_CLC && mIns[i + 2].mType == ASMIT_LDA)
-					{
-						// Flip arguments of ADC if second parameter in accu at entry
-
-						mIns[i + 3].CopyMode(mIns[i + 2]);
-						mIns[i + 2].CopyMode(mIns[i + 0]);
-						progress = true;
-					}
-
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
-						mIns[i + 1].mType == ASMIT_SEC && mIns[i + 2].mType == ASMIT_LDA)
-					{
-						// change sbc to adc to reverse order
-
-						mIns[i + 3].CopyMode(mIns[i + 2]);
-						mIns[i + 2].mType = ASMIT_EOR; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 0xff;
-						mIns[i + 3].mType = ASMIT_ADC;
-
-						if (mIns[i + 3].ReferencesYReg())
-							mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						if (mIns[i + 3].ReferencesXReg())
-							mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_SBC && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 3].mAddress &&
-						mIns[i + 2].mType == ASMIT_SEC && mIns[i + 1].mType == ASMIT_LDA)
-					{
-						// change sbc to adc to reverse order
-
-						mIns[i + 3].CopyMode(mIns[i + 1]);
-						mIns[i + 1].mType = ASMIT_EOR; mIns[i + 1].mMode = ASMIM_IMMEDIATE; mIns[i + 1].mAddress = 0xff;
-						mIns[i + 3].mType = ASMIT_ADC;
-
-						if (mIns[i + 3].ReferencesYReg())
-						{
-							mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						}
-						if (mIns[i + 3].ReferencesXReg())
-						{
-							mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						}
-
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && 
-						mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP;
-						mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 4].mType = ASMIT_NOP;
-						if (mIns[i + 2].mAddress == 2)
-						{
-							mIns.Insert(i + 3, mIns[i + 2]);
-						}
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode != ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_SEC &&
-						mIns[i + 3].mType == ASMIT_LDA && !mIns[i + 3].UsesZeroPage(mIns[i + 1].mAddress) &&
-						mIns[i + 4].mType == ASMIT_SBC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress && !(mIns[i + 4].mLive & LIVE_MEM))
-					{
-						mIns[i + 4].CopyMode(mIns[i + 0]);
-
-						if (mIns[i + 4].RequiresYReg())
-						{
-							mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-						}
-						if (mIns[i + 4].RequiresXReg())
-						{
-							mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 3].mLive |= LIVE_CPU_REG_X;
-						}
-
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						!mIns[i + 1].ChangesAccu() &&
-						mIns[i + 2].mType == ASMIT_LDA &&
-						mIns[i + 3].mType == ASMIT_CLC &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress)
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-
-						mIns[i + 3].mType = ASMIT_ADC;
-						mIns[i + 3].CopyMode(mIns[i + 2]);
-						mIns[i + 2].mType = ASMIT_CLC; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mLive |= mIns[i + 1].mLive;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 &&
-						mIns[i + 3].mType == ASMIT_LSR && mIns[i + 3].mMode == ASMIM_IMPLIED &&
-						mIns[i + 4].mType == ASMIT_ROR && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress &&
-						!(mIns[i + 4].mLive & LIVE_CPU_REG_A))
-					{
-						mIns[i + 0].mType = ASMIT_ROR; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_EOR; mIns[i + 1].mAddress = 0x80; mIns[i + 1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_Z;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_STA;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC && 
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && 
-						mIns[i + 2].mType == ASMIT_SBC && 
-						mIns[i + 3].mType == ASMIT_CLC && 
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && 
-						!(mIns[i + 4].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 1].mAddress = (mIns[i + 1].mAddress + mIns[i + 4].mAddress) & 255;
-
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y && 
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 3].IsCommutative() && mIns[i + 3].mMode == ASMIM_INDIRECT_Y &&
-						mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == mIns[i + 0].mAddress)
-					{
-						int	addr = mIns[i + 1].mAddress;
-						mIns[i + 1].mAddress = mIns[i + 3].mAddress;
-						mIns[i + 3].mAddress = addr;
-						mIns[i + 0].mAddress = mIns[i + 2].mAddress;
-						mIns[i + 2].mAddress = mIns[i + 4].mAddress;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
-						!mIns[i + 2].ChangesYReg() && (mIns[i + 2].mMode == ASMIM_IMMEDIATE || mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress) &&
-						!mIns[i + 3].ChangesYReg() && (mIns[i + 3].mMode == ASMIM_IMMEDIATE || mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 1].mAddress) &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_INDIRECT_Y && mIns[i + 1].mAddress == mIns[i + 4].mAddress && !(mIns[i + 4].mLive & LIVE_MEM))
-					{
-						int	apos, breg, ireg;
-						if (FindAddressSumY(i, mIns[i + 1].mAddress, apos, breg, ireg))
-						{
-							if (breg == mIns[i + 1].mAddress)
-							{
-								mIns[apos + 3].mType = ASMIT_NOP; mIns[apos + 3].mMode = ASMIM_IMPLIED;
-								mIns[apos + 6].mType = ASMIT_NOP; mIns[apos + 6].mMode = ASMIM_IMPLIED;
-							}
-
-							RepairLoadYImmediate(i + 4, 0);
-
-							mIns[i + 0].mMode = ASMIM_ZERO_PAGE;
-							mIns[i + 0].mAddress = ireg;
-							mIns[i + 0].mLive |= LIVE_MEM;
-							mIns[i + 1].mAddress = breg;
-							mIns[i + 4].mAddress = breg;
-							progress = true;
-						}
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && 
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						if (!(mIns[i + 4].mLive & LIVE_CPU_REG_X))
-						{
-							mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].CopyMode(mIns[i + 1]); mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 1].mType = ASMIT_INX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-							if (mIns[i + 2].mAddress == 2)
-								mIns[i + 2].mType = ASMIT_INX;
-							else
-								mIns[i + 2].mType = ASMIT_NOP;
-							mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 3].mType = ASMIT_STX; mIns[i + 3].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 4].mType = ASMIT_STX;
-							progress = true;
-						}
-						else if (!(mIns[i + 4].mLive & LIVE_CPU_REG_Y))
-						{
-							mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].CopyMode(mIns[i + 1]); mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 1].mType = ASMIT_INY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-							if (mIns[i + 2].mAddress == 2)
-								mIns[i + 2].mType = ASMIT_INY; 
-							else
-								mIns[i + 2].mType = ASMIT_NOP;
-							mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 4].mType = ASMIT_STY;
-							progress = true;
-						}
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_SEC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && 
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						if (!(mIns[i + 4].mLive & LIVE_CPU_REG_X))
-						{
-							mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].CopyMode(mIns[i + 1]); mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-							if (mIns[i + 2].mAddress == 2)
-								mIns[i + 2].mType = ASMIT_DEX;
-							else
-								mIns[i + 2].mType = ASMIT_NOP;
-							mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 3].mType = ASMIT_STX; mIns[i + 3].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 4].mType = ASMIT_STX;
-							progress = true;
-						}
-						else if (!(mIns[i + 4].mLive & LIVE_CPU_REG_Y))
-						{
-							mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].CopyMode(mIns[i + 1]); mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-							if (mIns[i + 2].mAddress == 2)
-								mIns[i + 2].mType = ASMIT_DEY; 
-							else
-								mIns[i + 2].mType = ASMIT_NOP;
-							mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 4].mType = ASMIT_STY;
-							progress = true;
-						}
-					}
-					else if (
-						pass > 2 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-						mIns[i + 3].mType == ASMIT_STA && !mIns[i + 3].MayBeSameAddress(mIns[i + 1]) && !mIns[i + 3].RequiresYReg() &&
-						mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP;
-						mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED;  mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 4].mType = ASMIT_DEY; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && 
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && 
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 1].mAddress &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress &&
-
-						!mIns[i + 0].ReferencesZeroPage(mIns[i + 3].mAddress) &&
-						!mIns[i + 2].ReferencesZeroPage(mIns[i + 1].mAddress) &&
-						!(mIns[i + 0].mFlags & NCIF_VOLATILE) && !(mIns[i + 2].mFlags & NCIF_VOLATILE))
-					{
-						NativeCodeInstruction	ins(mIns[i + 0]);
-						mIns[i + 0] = mIns[i + 2];
-						mIns[i + 2] = ins;
-						mIns[i + 1].mAddress = mIns[i + 3].mAddress;
-						mIns[i + 3].mAddress = mIns[i + 4].mAddress;
-
-						if (mIns[i + 2].RequiresYReg())
-						{
-							mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-							mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						}
-						if (mIns[i + 2].RequiresXReg())
-						{
-							mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						}
-
-						mIns[i + 0].mLive |= mIns[i + 2].mLive;
-						mIns[i + 2].mLive |= mIns[i + 4].mLive;
-						mIns[i + 3].mLive |= mIns[i + 4].mLive;
-
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAY &&
-						mIns[i + 1].mType == ASMIT_TXA &&
-						mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_TYA && !(mIns[i + 4].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_STX; mIns[i + 1].CopyMode(mIns[i + 3]);
-						mIns[i + 3].mType = mIns[i + 2].mType; mIns[i + 3].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_TYA &&
-						mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_TXA && !(mIns[i + 4].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_STY; mIns[i + 1].CopyMode(mIns[i + 3]);
-						mIns[i + 3].mType = mIns[i + 2].mType; mIns[i + 3].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						(mIns[i + 1].mType == ASMIT_TAY || mIns[i + 1].mType == ASMIT_TAX) &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && (mIns[i + 3].mAddress == 0xff || mIns[i + 3].mAddress == 0x01) &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						if (mIns[i + 1].mType == ASMIT_TAY)
-						{
-							mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						}
-						else
-						{
-							mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						}
-
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						if (mIns[i + 3].mAddress == 0x01)
-							mIns[i + 4].mType = ASMIT_INC;
-						else
-							mIns[i + 4].mType = ASMIT_DEC;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 1].mType == ASMIT_TYA &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && (mIns[i + 3].mAddress == 0xff || mIns[i + 3].mAddress == 0x01) &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						if (mIns[i + 3].mAddress == 0x01)
-							mIns[i + 4].mType = ASMIT_INC;
-						else
-							mIns[i + 4].mType = ASMIT_DEC;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 1].mType == ASMIT_TXA &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && (mIns[i + 3].mAddress == 0xff || mIns[i + 3].mAddress == 0x01) &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						if (mIns[i + 3].mAddress == 0x01)
-							mIns[i + 4].mType = ASMIT_INC;
-						else
-							mIns[i + 4].mType = ASMIT_DEC;
-						progress = true;
-					}
-#endif
-#endif
-				}
-#endif
-				CheckLive();
-
-#if 1
-				if (i + 3 < mIns.Size())
-				{
-					if (
-						mIns[i + 0].mType == ASMIT_INY &&
-						mIns[i + 1].mType == ASMIT_TYA &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP;
-						mIns[i + 3].mAddress++;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_TAY &&
-						mIns[i + 3].mType == ASMIT_INY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 1].mAddress++;
-						mIns[i + 3].mType = ASMIT_NOP;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INX &&
-						mIns[i + 1].mType == ASMIT_TXA &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP;
-						mIns[i + 3].mAddress++;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_TAX &&
-						mIns[i + 3].mType == ASMIT_INX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 1].mAddress++;
-						mIns[i + 3].mType = ASMIT_NOP;
-						progress = true;
-					}
-					else if (pass > 8 &&
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) < 4 &&
-						mIns[i + 3].mType == ASMIT_TAY &&
-						!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						int n = mIns[i + 2].mAddress & 0xff;
-						for (int k = 0; k < n; k++)
-						{
-							mIns[i + k].mType = ASMIT_INY; mIns[i + k].mMode = ASMIM_IMPLIED; mIns[i + k].mLive |= LIVE_CPU_REG_Y;
-						}
-						for (int k = n; k < 4; k++)
-						{
-							mIns[i + k].mType = ASMIT_NOP; mIns[i + k].mMode = ASMIM_IMPLIED;
-						}
-						progress = true;
-					}
-					else if (pass > 8 &&
-						mIns[i + 0].mType == ASMIT_TXA &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress & 0xff) < 4 &&
-						mIns[i + 3].mType == ASMIT_TAX &&
-						!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						int n = mIns[i + 2].mAddress & 0xff;
-						for (int k = 0; k < n; k++)
-						{
-							mIns[i + k].mType = ASMIT_INX; mIns[i + k].mMode = ASMIM_IMPLIED; mIns[i + k].mLive |= LIVE_CPU_REG_X;
-						}
-						for (int k = n; k < 4; k++)
-						{
-							mIns[i + k].mType = ASMIT_NOP; mIns[i + k].mMode = ASMIM_IMPLIED;
-						}
-						progress = true;
-					}
-				}
-				CheckLive();
-
-				if (i + 4 < mIns.Size())
-				{
-					if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode != ASMIM_ABSOLUTE_X &&
-						mIns[i + 3].mType == ASMIT_TXA &&
-						mIns[i + 4].mType == ASMIT_STA && !mIns[i + 2].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_X)))
-					{
-						mIns[i + 0] = mIns[i + 4];
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 1].mType == ASMIT_TAX &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_INC;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 1].mType == ASMIT_TAX &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0xff &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 4]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_DEC;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_TAX &&
-						mIns[i + 1].mType == ASMIT_LDA && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 &&
-						mIns[i + 4].mType == ASMIT_STA && (mIns[i + 4].mMode == ASMIM_ZERO_PAGE || mIns[i + 4].mMode == ASMIM_ABSOLUTE) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_STX; mIns[i + 4].mLive |= LIVE_CPU_REG_A;
-						mIns.Insert(i + 5, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAX));
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 0].mAddress &&
-						mIns[i + 2].mType == ASMIT_ASL && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
-						mIns[i + 3].mType == ASMIT_ROL && mIns[i + 3].mMode == ASMIM_IMPLIED &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress != mIns[i + 0].mAddress &&
-						!(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-					{
-						int	a0 = mIns[i + 0].mAddress;
-						int a1 = mIns[i + 4].mAddress;
-
-						mIns.Insert(i, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, a1));
-						mIns.Insert(i + 1, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, a0));
-
-						mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mMode = ASMIM_IMPLIED;
-						mIns[i + 5].mMode = ASMIM_ZERO_PAGE; mIns[i + 5].mAddress = a1;
-						mIns[i + 6].mAddress = a0;
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x80 &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
-						mIns[i + 3].mType == ASMIT_LSR && mIns[i + 3].mMode == ASMIM_IMPLIED &&
-						mIns[i + 4].mType == ASMIT_ORA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress && !(mIns[i + 4].mLive & (LIVE_CPU_REG_C | LIVE_MEM)))
-					{
-						mIns[i + 0].mType = ASMIT_ASL; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 3].mType = ASMIT_ROR;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#endif
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_TYA &&
-						mIns[i + 1].mType == ASMIT_TAX &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress <= 2 &&
-						mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-						if (mIns[i + 3].mAddress > 1)
-							mIns[i + 4].mType = ASMIT_INY;
-						else
-							mIns[i + 4].mType = ASMIT_NOP;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 1 &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
-						HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode))
-					{
-						mIns[i + 4].mType = ASMIT_INC;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA &&
-						mIns[i + 1].mType == ASMIT_STA &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 255 &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
-						HasAsmInstructionMode(ASMIT_DEC, mIns[i + 0].mMode))
-					{
-						mIns[i + 4].mType = ASMIT_DEC;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-#endif
-					else if (
-						pass > 8 &&						
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-						mIns[i + 3].mType == ASMIT_CLC &&
-						mIns[i + 4].mType == ASMIT_ADC && 
-						!(mIns[i + 4].mLive & LIVE_CPU_REG_C))
-					{
-						mIns[i + 3].mType = ASMIT_SEC;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 2].mType == ASMIT_ROL && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 3].mType == ASMIT_ROL && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 4].mType == ASMIT_ROL && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress &&
-						!(mIns[i + 4].mLive & LIVE_CPU_REG_A))
-					{
-						mIns.Insert(i + 5, mIns[i + 0]);
-						mIns.Remove(i);
-						mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mLive |= mIns[i + 3].mLive;
-
-						progress = true;
-					}
-
-#if 0
-					else if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE_Y &&
-						mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 2].mLive & LIVE_CPU_REG_X))
-					{
-						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 2].mType = ASMIT_LDX; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-						mIns[i + 3].mMode = ASMIM_ABSOLUTE_X; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#endif
-				}
-				CheckLive();
-
-#if 1
-				if (pass > 2 && i + 4 < mIns.Size())
-				{
-					if (
-						mIns[i + 0].mType == ASMIT_INY &&
-						mIns[i + 1].mType == ASMIT_INY &&
-						mIns[i + 2].mType == ASMIT_INY &&
-						mIns[i + 3].mType == ASMIT_INY &&
-						mIns[i + 4].mType == ASMIT_INY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_TYA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_CLC; mIns[i + 1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
-						mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 5; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mType = ASMIT_TAY;
-						mIns[i + 4].mType = ASMIT_NOP;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_INX &&
-						mIns[i + 1].mType == ASMIT_INX &&
-						mIns[i + 2].mType == ASMIT_INX &&
-						mIns[i + 3].mType == ASMIT_INX &&
-						mIns[i + 4].mType == ASMIT_INX && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 1].mType = ASMIT_CLC; mIns[i + 1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_C;
-						mIns[i + 2].mType = ASMIT_ADC; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 5; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
-						mIns[i + 3].mType = ASMIT_TAX;
-						mIns[i + 4].mType = ASMIT_NOP;
-						progress = true;
-					}
-				}
-#endif
-				CheckLive();
-				if (mTrueJump)
-					mTrueJump->CheckLive();
-				if (mFalseJump)
-					mFalseJump->CheckLive();
-#if 1
-				if (pass < 10 && i + 1 < mIns.Size())
-				{
-					if (
-						mIns[i + 0].mType == ASMIT_LDA && (mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_X || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 0].mMode == ASMIM_INDIRECT_Y) &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
-					{
-						int	n = 3;
-						if (mIns[i + 0].mLinkerObject && (mIns[i + 0].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
-							n = 100;
-						if (mIns[i + 0].mFlags & NCIF_VOLATILE)
-							n = 1;
-						if (mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z))
-							n--;
-
-						if (n > 0 && (mIns[i + 0].mMode != ASMIM_INDIRECT_Y || (mIns[i + 1].mAddress != mIns[i + 0].mAddress && mIns[i + 1].mAddress != mIns[i + 0].mAddress + 1)))
-						{
-							proc->ResetPatched();
-							if (CheckSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i], n))
-							{
-								proc->ResetPatched();
-								if (PatchSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i]))
-								{
-									if (mIns[i + 0].mMode == ASMIM_ABSOLUTE_X)
-									{
-										mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-										mIns[i + 1].mLive |= LIVE_CPU_REG_X;
-									}
-									else if (mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 0].mMode == ASMIM_INDIRECT_Y)
-									{
-										mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
-										mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-									}
-									progress = true;
-								}
-								CheckLive();
-								if (mTrueJump)
-									mTrueJump->CheckLive();
-								if (mFalseJump)
-									mFalseJump->CheckLive();
-							}
-						}
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_ABSOLUTE &&
-						mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
-					{
-						int	n = 3;
-						if (mIns[i + 0].mLinkerObject && (mIns[i + 0].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
-							n = 100;
-						if (mIns[i + 0].mFlags & NCIF_VOLATILE)
-							n = 1;
-						if (mIns[i + 1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z))
-							n--;
-
-						if (n > 0)
-						{
-							proc->ResetPatched();
-							if (CheckSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i], n))
-							{
-								proc->ResetPatched();
-								if (PatchSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i]))
-									progress = true;
-								CheckLive();
-								if (mTrueJump)
-									mTrueJump->CheckLive();
-								if (mFalseJump)
-									mFalseJump->CheckLive();
-							}
-						}
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ABSOLUTE && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
-					{
-						int	n = 2;
-						if (mIns[i + 1].mLinkerObject && (mIns[i + 1].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
-							n = 100;
-
-						proc->ResetPatched();
-						if (CheckSingleUseGlobalLoad(this, mIns[i + 0].mAddress, i + 2, mIns[i + 1], n))
-						{
-							proc->ResetPatched();
-							if (PatchSingleUseGlobalLoad(this, mIns[i + 0].mAddress, i + 2, mIns[i + 1]))
-								progress = true;
-							CheckLive();
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-				}
-#endif
-				CheckLive();
-				if (mTrueJump)
-					mTrueJump->CheckLive();
-				if (mFalseJump)
-					mFalseJump->CheckLive();
-
-				if (i + 5 < mIns.Size())
-				{
-					if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
-						mIns[i + 3].mType == ASMIT_TXA &&
-						mIns[i + 4].mType == ASMIT_LDY && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_INDIRECT_Y && mIns[i + 2].mAddress == mIns[i + 5].mAddress &&
-						!(mIns[i + 5].mFlags & NCIF_VOLATILE) && !(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 3] = mIns[i + 0];
-						mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						int a = mIns[i + 1].mAddress; mIns[i + 1].mAddress = mIns[i + 4].mAddress; mIns[i + 4].mAddress = a;
-						progress = true;
-					}
-#if 1
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && !mIns[i + 0].RequiresYReg() &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && !mIns[i + 2].SameEffectiveAddress(mIns[i + 1]) &&
-						mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_INDIRECT_Y && mIns[i + 4].mAddress != mIns[i + 1].mAddress && mIns[i + 4].mAddress != mIns[i + 1].mAddress + 1 &&
-						mIns[i + 5].mType == ASMIT_LDA && mIns[i + 5].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 5].mLive & LIVE_MEM) &&
-						!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 4]))
-					{
-						mIns[i + 5] = mIns[i + 0];
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 1 &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_ASL && mIns[i + 3].mMode == ASMIM_IMPLIED &&
-						mIns[i + 4].mType == ASMIT_CLC &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 1].mAddress && !(mIns[i + 5].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
-					{
-						mIns[i + 0].mType = ASMIT_LSR; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						mIns[i + 2].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 3].mType = ASMIT_ROL;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#endif
-					else if (pass > 0 &&
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
-						mIns[i + 3].IsShift() && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].IsShift() && mIns[i + 4].mMode == ASMIM_IMPLIED &&
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 5].mAddress == mIns[i + 0].mAddress && !(mIns[i + 5].mLive & LIVE_CPU_REG_A) &&
-						mIns[i + 5].mAddress != mIns[i + 1].mAddress && mIns[i + 5].mAddress != mIns[i + 3].mAddress)
-					{
-						mIns[i + 2].CopyMode(mIns[i + 0]); mIns[i + 2].mLive |= LIVE_MEM;
-						mIns[i + 4].CopyMode(mIns[i + 0]); mIns[i + 4].mLive |= LIVE_MEM;
-						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-
-#if 1
-					if (pass == 0 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 3].mFlags & NCIF_UPPER) && (mIns[i + 3].mLinkerObject == mIns[i + 1].mLinkerObject) &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-						!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1))
-						{
-							assert(mIns[i + 3].mAddress == mIns[i + 1].mAddress);
-
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-							mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1, mIns[i + 3].mLinkerObject, mIns[i + 3].mAddress + mIns[i + 4].mAddress * 256))
-								progress = true;
-						}
-					}
-#endif
-#if 1
-					if (pass == 0 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && 
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-						!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1))
-						{
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-							mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1, nullptr, mIns[i + 1].mAddress + (mIns[i + 3].mAddress + mIns[i + 4].mAddress) * 256))
-								progress = true;
-						}
-					}
-#endif
-#if 1
-					else if (pass == 0 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-						!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1))
-						{
-							mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-							mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 6, -1, nullptr, 256 * mIns[i + 3].mAddress))
-								progress = true;
-						}
-					}
-
-#endif
-#if 1
-					else if (pass == 0 &&
-						mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress + 1 &&
-						!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 0].mAddress, mIns[i + 0].mAddress, i + 3, -1))
-						{
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 0].mAddress, mIns[i + 0].mAddress, i + 3, -1, nullptr, 256 * mIns[i + 1].mAddress))
-								progress = true;
-						}
-					}
-
-#endif
-				}
-
-#if 1
-				if (i + 1 < mIns.Size() &&
-					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 0].mFlags & NCIF_UPPER) &&
-					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
-				{
-					proc->ResetPatched();
-					if (CheckGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1))
-					{
-						proc->ResetPatched();
-						if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress - 1, mIns[i + 1].mAddress - 1, i + 2, -1, mIns[i + 0].mLinkerObject, mIns[i + 0].mAddress, NCIF_UPPER))
-							progress = true;
-					}
-				}
-#endif
-
-				if (i + 5 < mIns.Size() &&
-					mIns[i + 0].mType == ASMIT_INY && mIns[i + 3].mType == ASMIT_DEY &&
-					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
-					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_INDIRECT_Y &&
-					!(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
-				{
-					if (mIns[i + 5].mType == ASMIT_TAX)
-					{
-						if (mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 4].mAddress && mIns[i + 2].mAddress != mIns[i + 4].mAddress + 1)
-						{
-							mIns[i + 5] = mIns[i + 2];
-							mIns[i + 2].mType = ASMIT_TAX; mIns[i + 2].mMode = ASMIM_IMPLIED;
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-							mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 3].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 4].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 5].mLive |= LIVE_CPU_REG_X;
-							mIns[i + 3].mType = ASMIT_INY;
-							mIns.Insert(i + 6, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_DEY));
-							progress = true;
-						}
-					}
-				}
-
-				if (i + 7 < mIns.Size() && pass > 3 &&
-					mIns[i + 0].mType == ASMIT_CLC &&
-					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 3].mType == ASMIT_LDA &&
-					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
-					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-					mIns[i + 6].mType == ASMIT_LDY && mIns[i + 6].mMode == ASMIM_IMMEDIATE &&
-					mIns[i + 7].mMode == ASMIM_INDIRECT_Y && mIns[i + 7].mAddress == mIns[i + 2].mAddress && !(mIns[i + 7].mLive & LIVE_MEM))
-				{
-					int total = mIns[i + 1].mAddress + mIns[i + 6].mAddress + 256 * mIns[i + 4].mAddress;
-					if (!(mIns[i + 7].mLive & LIVE_CPU_REG_Y) || !(mIns[i + 7].mLive & LIVE_CPU_REG_Z))
-					{
-						if (mIns[i + 7].mLive & LIVE_CPU_REG_Y)
-							mIns.Insert(i + 8, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, mIns[i + 6].mAddress));
-						mIns[i + 6].mAddress = total & 255;
-						mIns[i + 4].mAddress = total >> 8;
-						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-						changed = true;
-					}
-				}
-
-				if (i + 6 < mIns.Size())
-				{
-					if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 4].mFlags & NCIF_UPPER) && mIns[i + 4].mLinkerObject == mIns[i + 1].mLinkerObject && mIns[i + 4].mAddress == mIns[i + 1].mAddress &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-					{
-						mIns[i + 1].mAddress = mIns[i + 4].mAddress = mIns[i + 1].mAddress + mIns[i + 2].mAddress + 256 * mIns[i + 5].mAddress;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-					else if (
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_AND && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 1 &&
-						mIns[i + 5].mType == ASMIT_CLC &&
-						mIns[i + 6].mType == ASMIT_ADC && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 2].mAddress && !(mIns[i + 6].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
-					{
-						int	addr = mIns[i + 0].mAddress;
-						mIns[i + 0].mAddress = mIns[i + 3].mAddress;
-						mIns[i + 3].mAddress = addr;
-						mIns[i + 1].mType = ASMIT_LSR; mIns[i + 1].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 3].mLive |= LIVE_CPU_REG_C;
-						mIns[i + 5].mType = ASMIT_ROL;
-						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-						mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-						progress = true;
-					}
-#if 1
-					if (pass == 0 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
-						mIns[i + 2].mType == ASMIT_ADC && 
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 4].mFlags & NCIF_UPPER) && mIns[i + 4].mLinkerObject == mIns[i + 1].mLinkerObject && mIns[i + 4].mAddress == mIns[i + 1].mAddress &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1))
-						{
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 2].mType = ASMIT_LDA; 
-							mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-							mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1, mIns[i + 1].mLinkerObject, mIns[i + 1].mAddress + mIns[i + 5].mAddress * 256))
-								progress = true;
-						} 
-						else if (mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 3].mAddress)
-						{
-							proc->ResetPatched();
-							if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, i + 7, -1))
-							{
-								proc->ResetPatched();
-								if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, i + 7, -1, mIns[i + 1].mLinkerObject, mIns[i + 1].mAddress + mIns[i + 5].mAddress * 256))
-									progress = true;
-							}
-						}
-					}
-
-#endif
-#if 1
-					if (pass == 0 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && 
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 2].mFlags & NCIF_LOWER) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 5].mFlags & NCIF_UPPER) && mIns[i + 5].mLinkerObject == mIns[i + 2].mLinkerObject && mIns[i + 5].mAddress == mIns[i + 2].mAddress && 
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1))
-						{
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;							
-							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-							mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-							mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 4].mAddress * 256))
-								progress = true;
-						}
-						else if (mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 3].mAddress)
-						{
-							proc->ResetPatched();
-							if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, i + 7, -1))
-							{
-								proc->ResetPatched();
-								if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, i + 7, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 4].mAddress * 256))
-									progress = true;
-							}
-						}
-					}
-
-#endif
-#if 1
-					if (pass == 0 && i + 7 < mIns.Size() &&
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 0].mFlags & NCIF_LOWER) &&
-						mIns[i + 1].mType == ASMIT_CLC &&
-						mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_INDIRECT_Y &&
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 5].mType == ASMIT_LDA && mIns[i + 5].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 5].mFlags & NCIF_UPPER) && mIns[i + 5].mLinkerObject == mIns[i + 0].mLinkerObject && mIns[i + 5].mAddress == mIns[i + 0].mAddress &&
-						mIns[i + 6].mType == ASMIT_ADC && mIns[i + 6].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 7].mType == ASMIT_STA && mIns[i + 7].mMode == ASMIM_ZERO_PAGE && mIns[i + 7].mAddress == mIns[i + 4].mAddress + 1 &&
-						!(mIns[i + 7].mLive & LIVE_CPU_REG_A))
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 4].mAddress, mIns[i + 4].mAddress, i + 8, mIns[i + 2].mAddress))
-						{
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 3].mType = ASMIT_LDA;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-							mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-							mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 4].mAddress, mIns[i + 4].mAddress, i + 8, mIns[i + 2].mAddress, mIns[i + 0].mLinkerObject, mIns[i + 0].mAddress + mIns[i + 6].mAddress * 256))
-								progress = true;
-						}
-					}
-
-#endif
-#if 1
-					if (pass == 0 &&
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_ADC &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1))
-						{
-							mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 2].mType = ASMIT_LDA;
-							mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-							mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 7, -1, nullptr, mIns[i + 1].mAddress + 256 * mIns[i + 4].mAddress + mIns[i + 5].mAddress * 25))
-								progress = true;
-						}
-					}
-
-#endif
-
-#if 1
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 2].mAddress &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && 
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 5].mAddress &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval, 0))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval))
-							{
-								mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-								mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-								mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-
-								progress = true;
-
-								if (mTrueJump)
-									mTrueJump->CheckLive();
-								if (mFalseJump)
-									mFalseJump->CheckLive();
-							}
-						}
-					}
-#endif
-#if 1
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 3].mAddress &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS && mIns[i + 4].mLinkerObject == mIns[i + 1].mLinkerObject && mIns[i + 4].mAddress == mIns[i + 1].mAddress &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 0))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
-							{
-								mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-								progress = true;
-
-								if (mTrueJump)
-									mTrueJump->CheckLive();
-								if (mFalseJump)
-									mFalseJump->CheckLive();
-							}
-						}
-					}
-#endif
-#if 1
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && 
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-
-						bool	subs1 = mIns[i + 3].mAddress != mIns[i + 1].mAddress;
-						bool	subs2 = mIns[i + 3].mAddress != mIns[i + 2].mAddress;
-
-						if (subs1 && subs2)
-						{
-							if (mLoopHead)
-							{
-								if (ChangesZeroPage(mIns[i + 1].mAddress))
-									subs2 = false;
-								else if (ChangesZeroPage(mIns[i + 2].mAddress))
-									subs1 = false;
-							}
-						}
-
-						proc->ResetPatched();
-						if (subs1 && CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval, 0))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 1], i + 7, yval))
-							{
-								mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-								mIns[i + 2].mType = ASMIT_LDA;
-
-								progress = true;
-							}
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-						else if (subs2)
-						{
-							proc->ResetPatched();
-							if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 0))
-							{
-								proc->ResetPatched();
-								if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
-								{
-									mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-									progress = true;
-								}
-
-								if (mTrueJump)
-									mTrueJump->CheckLive();
-								if (mFalseJump)
-									mFalseJump->CheckLive();
-							}
-						}
-					}
-#endif
-#if 1
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && /*mIns[i + 3].mAddress != mIns[i + 1].mAddress && mIns[i + 3].mAddress != mIns[i + 2].mAddress && */
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval, 3))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval))
-								progress = true;
-
-							if (mIns[i + 3].mAddress == mIns[i + 1].mAddress || mIns[i + 3].mAddress == mIns[i + 2].mAddress)
-							{
-								for (int j = 0; j < 7; j++)
-								{
-									mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
-								}
-							}
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-#if 1
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 2].mAddress &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 7, yval, 3))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
-								progress = true;
-
-							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-#if 1
-					if (
-						mIns[i + 0].mType == ASMIT_STA && (mIns[i + 0].mMode == ASMIM_ZERO_PAGE || mIns[i + 0].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 1].mType == ASMIT_CLC && 
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 2].mAddress + 1 &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 7, yval, 3))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 7, yval))
-								progress = true;
-
-							if (mIns[i + 3].mAddress == mIns[i + 2].mAddress)
-							{
-								for (int j = 1; j < 7; j++)
-								{
-									mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
-								}
-							}
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-#if 1
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						mIns[i + 2].mAddress != mIns[i + 3].mAddress &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 3))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
-								progress = true;
-
-							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-#if 1
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 1].mAddress + 1 &&
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-						mIns[i + 3].mAddress != BC_REG_STACK &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-
-						if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval, 3))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, mIns[i + 2], i + 7, yval))
-								progress = true;
-
-							mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-#if 1
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 3].mType == ASMIT_LDA && 
-						mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && 
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 2].mAddress + 1 &&
-						mIns[i + 2].mAddress != BC_REG_STACK &&
-						!(mIns[i + 6].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-
-						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 7, yval, 3))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 7, yval))
-								progress = true;
-
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-#if 1
-					if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
-						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1 && !(mIns[i + 3].mLive & LIVE_MEM) &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && 
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-						!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval, 0))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval))
-								progress = true;
-
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-							mIns[i + 5].mAddress = mIns[i + 3].mAddress;
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-#if 1
-					if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress != mIns[i + 1].mAddress &&
-						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1 &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-						!(mIns[i + 5].mLive & LIVE_CPU_REG_A))
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval, 3))
-						{
-							proc->ResetPatched();
-							if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 1].mAddress, mIns[i + 2], i + 6, yval))
-								progress = true;
-
-							mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-#if 1
-					if (
-						mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 1].mAddress &&
-						mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1 &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1)
-					{
-						int yval = RetrieveYValue(i);
-						int reg = FindFreeAccu(i);
-						if (reg >= 0)
-						{
-							NativeCodeInstruction	iins(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, reg);
-
-							proc->ResetPatched();
-							if (CheckForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval, 3))
-							{
-								mIns[i + 0] = iins;
-								for (int j = 1; j < 6; j++)
-								{
-									mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
-								}
-
-								proc->ResetPatched();
-								if (PatchForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval))
-									progress = true;
-
-								if (mTrueJump)
-									mTrueJump->CheckLive();
-								if (mFalseJump)
-									mFalseJump->CheckLive();
-							}
-						}
-					}
-#endif
-#if 1
-					if (
-						mLoopHead &&
-						mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_LDA && 
-						mIns[i + 4].mType == ASMIT_ADC && 
-						mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 1].mAddress + 1)
-					{
-						int yval = RetrieveYValue(i);
-						proc->ResetPatched();
-						if (CheckForwardLowYPointer(this, mIns[i + 1].mAddress, mIns[i + 0].mAddress, i + 6, yval))
-						{
-							proc->ResetPatched();
-							if (PatchForwardLowYPointer(this, mIns[i + 1].mAddress, mIns[i + 0].mAddress, i + 6, yval))
-								progress = true;
-
-							mIns[i + 0].mMode = ASMIM_IMMEDIATE;
-							mIns[i + 0].mAddress = 0;
-
-							if (mTrueJump)
-								mTrueJump->CheckLive();
-							if (mFalseJump)
-								mFalseJump->CheckLive();
-						}
-					}
-#endif
-
-#if 1
-					if (
-						mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
-						mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
-						mIns[i + 2].mType == ASMIT_CLC &&
-						mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress != mIns[i + 0].mAddress &&
-						mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 4].mLive & LIVE_CPU_REG_Y))
-					{
-						int j = i + 5;
-						while (j < mIns.Size() && !mIns[j].ChangesYReg())
-							j++;
-						if (j < mIns.Size() && mIns[j].mType == ASMIT_LDY && mIns[j].mMode == ASMIM_IMMEDIATE && mIns[j].mAddress == mIns[i + 0].mAddress)
-						{
-							int	reg = mIns[i + 1].mAddress; mIns[i + 1].mAddress = mIns[i + 4].mAddress; mIns[i + 4].mAddress = reg;
-							int yr = mIns[i + 0].mAddress; mIns[i + 0].mAddress = mIns[i + 3].mAddress; mIns[i + 3].mAddress = yr;
-							mIns[i + 1].mLive |= LIVE_MEM;
-							mIns[i + 4].mLive |= LIVE_MEM;
-							mIns[j].mType = ASMIT_NOP; mIns[j].mMode = ASMIM_IMPLIED;
-							while (j > i)
-							{
-								j--;
-								mIns[j].mLive |= LIVE_CPU_REG_Y;
-							}
-							progress = true;
-						}
-					}
-#endif
-				}
-
-#if 1
-				if (pass == 0 &&
-					i + 7 < mIns.Size() &&
-					mIns[i + 0].mType == ASMIT_CLC &&
-					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
-					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-
-					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 4].mFlags & NCIF_UPPER) && (mIns[i +4].mLinkerObject == mIns[i + 1].mLinkerObject) &&
-					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
-					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 2].mAddress + 1 &&
-					mIns[i + 7].mType == ASMIT_STA && mIns[i + 7].mMode == ASMIM_ZERO_PAGE && mIns[i + 7].mAddress == mIns[i + 3].mAddress + 1 &&
-					!(mIns[i + 7].mLive & LIVE_CPU_REG_A))
-				{
-					proc->ResetPatched();
-					if (CheckGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 8, -1))
-					{
-						NativeCodeInstruction	ins(mIns[i + 2]);
-						mIns[i + 2] = mIns[i + 1];
-						mIns[i + 1] = ins;
-
-						mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-
-						proc->ResetPatched();
-						if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, i + 8, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 5].mAddress * 256))
-							progress = true;
-					}
-					else
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 8, -1))
-						{
-							NativeCodeInstruction	ins(mIns[i + 3]);
-							mIns[i + 3] = mIns[i + 2];
-							mIns[i + 2] = mIns[i + 1];
-							mIns[i + 1] = ins;
-
-							mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, i + 8, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 5].mAddress * 256))
-								progress = true;
-						}
-					}
-				}
-				if (pass == 0 &&
-					i + 8 < mIns.Size() &&
-					mIns[i + 0].mType == ASMIT_CLC &&
-					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
-					mIns[i + 2].mType == ASMIT_ADC && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE) &&
-					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
-
-					mIns[i + 5].mType == ASMIT_LDA && mIns[i + 5].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 5].mFlags & NCIF_UPPER) && (mIns[i + 5].mLinkerObject == mIns[i + 1].mLinkerObject) &&
-					mIns[i + 6].mType == ASMIT_ADC && mIns[i + 6].mMode == ASMIM_IMMEDIATE &&
-					mIns[i + 7].mType == ASMIT_STA && mIns[i + 7].mMode == ASMIM_ZERO_PAGE && mIns[i + 7].mAddress == mIns[i + 3].mAddress + 1 &&
-					mIns[i + 8].mType == ASMIT_STA && mIns[i + 8].mMode == ASMIM_ZERO_PAGE && mIns[i + 8].mAddress == mIns[i + 4].mAddress + 1 &&
-					!(mIns[i + 8].mLive & LIVE_CPU_REG_A))
-				{
-					proc->ResetPatched();
-					if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 9, -1))
-					{
-						NativeCodeInstruction	ins(mIns[i + 3]);
-						mIns[i + 3] = mIns[i + 1];
-						mIns[i + 1] = mIns[i + 2];
-						mIns[i + 2] = ins;
-
-						mIns[i + 1].mType = ASMIT_LDA;
-						mIns[i + 3].mType = ASMIT_ADC;
-
-						mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
-
-						proc->ResetPatched();
-						if (PatchGlobalAddressSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, i + 9, -1, mIns[i + 3].mLinkerObject, mIns[i + 3].mAddress + mIns[i + 6].mAddress * 256))
-							progress = true;
-					}
-#if 0
-					else
-					{
-						proc->ResetPatched();
-						if (CheckGlobalAddressSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 3].mAddress, i + 8, -1))
-						{
-							NativeCodeInstruction	ins(mIns[i + 3]);
-							mIns[i + 3] = mIns[i + 2];
-							mIns[i + 2] = mIns[i + 1];
-							mIns[i + 1] = ins;
-
-							mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
-
-							proc->ResetPatched();
-							if (PatchGlobalAddressSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, i + 8, -1, mIns[i + 2].mLinkerObject, mIns[i + 2].mAddress + mIns[i + 5].mAddress * 256))
-								progress = true;
-						}
-					}
-#endif
-				}
-#endif
-
-
-				if (i + 5 < mIns.Size() &&
-					mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
-					mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
-					mIns[i + 2].mType == ASMIT_LSR && mIns[i + 2].mMode == ASMIM_IMPLIED &&
-					mIns[i + 3].mType == ASMIT_LSR && mIns[i + 3].mMode == ASMIM_IMPLIED &&
-					mIns[i + 4].mType == ASMIT_LSR && mIns[i + 4].mMode == ASMIM_IMPLIED &&
-					mIns[i + 5].mType == ASMIT_LSR && mIns[i + 5].mMode == ASMIM_IMPLIED && !(mIns[i + 5].mLive & LIVE_CPU_REG_C))
-				{
-					mIns[i + 0].mType = ASMIT_ASL; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
-					mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mLive |= LIVE_CPU_REG_C;
-					mIns[i + 2].mType = ASMIT_ROL; 
-					mIns[i + 3].mType = ASMIT_NOP;
-					mIns[i + 4].mType = ASMIT_NOP;
-					mIns[i + 5].mType = ASMIT_AND; mIns[i + 5].mMode = ASMIM_IMMEDIATE; mIns[i + 5].mAddress = 3;
-					progress = true;
-				}
-
-				if (i + 6 < mIns.Size() &&
-					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 1].mType == ASMIT_TXA &&
-					mIns[i + 2].mType == ASMIT_LDY && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
-					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_INDIRECT_Y &&
-					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress && !(mIns[i + 4].mLive & LIVE_MEM) &&
-					mIns[i + 5].mType == ASMIT_LDY && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress != mIns[i + 5].mAddress &&
-					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_INDIRECT_Y && mIns[i + 3].mAddress == mIns[i + 6].mAddress && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
-				{
-					int t = mIns[i + 5].mAddress;
-					mIns[i + 5].mAddress = mIns[i + 2].mAddress;
-					mIns[i + 2].mAddress = t;
-					mIns[i + 4] = mIns[i + 1];
-					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
-					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
-					mIns[i + 2].mLive |= LIVE_CPU_REG_X;
-					mIns[i + 3].mLive |= LIVE_CPU_REG_X;
-					progress = true;
-				}
-#if 1
-				if (i + 1 < mIns.Size() && mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && mIns[i + 1].mMode == ASMIM_INDIRECT_Y)
-				{
-					int	apos, breg;
-					if (FindDirectAddressSumY(i, mIns[i + 1].mAddress, apos, breg))
-					{
-						if (PatchDirectAddressSumY(i, mIns[i + 1].mAddress, apos, breg))
-							progress = true;
-					}
-				}
-#if 1
-				if (i + 1 < mIns.Size() && mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && mIns[i + 1].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_Y)))
-				{
-					int	apos, breg;
-					if (FindBypassAddressSumY(i, mIns[i + 1].mAddress, apos, breg))
-					{
-						if (PatchBypassAddressSumY(i, mIns[i + 1].mAddress, apos, breg))
-							progress = true;
-					}
-				}
-#endif
-#if 1
-				if (mIns[i + 0].mMode == ASMIM_INDIRECT_Y && (mIns[i + 0].mFlags & NCIF_YZERO))
-				{
-					int	apos, breg;
-					if (FindDirectAddressSumY(i, mIns[i].mAddress, apos, breg))
-					{
-						if (PatchDirectAddressSumY(i, mIns[i].mAddress, apos, breg))
-							progress = true;
-					}
-				}
-#endif
-
-#endif
-
-
-#if 0
-				if (i + 13 < mIns.Size())
-				{
-					if (mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1)
-					{
-						printf("CHECK\n");
-					}
-
-					if (mIns[i + 0].mType == ASMIT_CLC &&
-						mIns[i + 1].mType == ASMIT_LDA &&
-						mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 1 &&
-						mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-						mIns[i + 4].mType == ASMIT_LDA && 
-						mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0 &&
-						mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE &&
-
-						mIns[i + 7].mType == ASMIT_CLC &&
-						mIns[i + 8].mType == ASMIT_LDA && mIns[i + 8].mMode == ASMIM_ZERO_PAGE && mIns[i + 8].mAddress == mIns[i + 3].mAddress && !(mIns[i + 8].mLive & LIVE_MEM) &&
-						mIns[i + 9].mType == ASMIT_ADC &&
-						mIns[i + 10].mType == ASMIT_STA &&
-						mIns[i + 11].mType == ASMIT_LDA && mIns[i + 11].mMode == ASMIM_ZERO_PAGE && mIns[i + 11].mAddress == mIns[i + 6].mAddress && !(mIns[i + 11].mLive & LIVE_MEM) &&
-						mIns[i + 12].mType == ASMIT_ADC &&
-						mIns[i + 12].mType == ASMIT_STA)
-					{
-						mIns[i + 7].CopyMode(mIns[i + 0]);
-						mIns[i + 11].CopyMode(mIns[i + 4]);
-						mIns[i + 8].mType = ASMIT_SEC;
-
-						for (int j = 0; j < 7; j++)
-						{
-							mIns[i + j].mType = ASMIT_NOP;
-							mIns[i + j].mMode = ASMIM_IMPLIED;
-							mIns[i + j + 7].mLive |= mIns[i + 0].mLive;
-						}
-
-						progress = true;
-					}
-
-				}
-#endif
-
-
-#if 1
-				if (i + 7 < mIns.Size() && pass > 0 &&
-					mIns[i + 0].mType == ASMIT_CLC &&
-					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 2].mAddress &&
-					mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && 
-					mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && 
-					mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
-					mIns[i + 6].mType == ASMIT_LDY && mIns[i + 6].mMode == ASMIM_IMMEDIATE && mIns[i + 6].mAddress == 0 &&
-					mIns[i + 7].mMode == ASMIM_INDIRECT_Y && mIns[i + 7].mAddress == mIns[i + 2].mAddress &&
-					!(mIns[i + 7].mLive & LIVE_MEM))
-				{
-					if (mIns[i + 7].mLive & LIVE_CPU_REG_Y)
-						mIns.Insert(i + 8, mIns[i + 6]);
-
-					mIns[i + 1] = NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY);
-					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-					mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
-					progress = true;
-				}
-#endif
-
-#if 1
-				if (i + 8 < mIns.Size() && pass > 0 &&
-					mIns[i + 0].mType == ASMIT_CLC &&
-					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 3].mAddress &&
-					mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 3].mAddress + 1 &&
-					mIns[i + 7].mType == ASMIT_LDY && mIns[i + 7].mMode == ASMIM_IMMEDIATE && mIns[i + 7].mAddress == 0 &&
-					mIns[i + 8].mMode == ASMIM_INDIRECT_Y && mIns[i + 8].mAddress == mIns[i + 3].mAddress &&
-					!(mIns[i + 8].mLive & LIVE_MEM))
-				{
-					if (mIns[i + 8].mLive & LIVE_CPU_REG_Y)
-						mIns.Insert(i + 9, mIns[i + 7]);
-
-					mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
-					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
-					mIns[i + 4].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 5].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 6].mLive |= LIVE_CPU_REG_Y;
-					mIns[i + 7].mType = ASMIT_NOP; mIns[i + 7].mMode = ASMIM_IMPLIED;
-					progress = true;
-				}
-#endif
-				CheckLive();
-
-#endif
-#if 1
-				if (pass > 1 && mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS && mIns[i].mLinkerObject && (mIns[i].mFlags & NCIF_LOWER) && !(mIns[i].mAddress & 0xff) && !(mIns[i].mLinkerObject->mAlignment & 0xff))
-				{
-					mIns[i].mMode = ASMIM_IMMEDIATE;
-					mIns[i].mAddress = 0;
-					mIns[i].mLinkerObject = nullptr;
-					mIns[i].mFlags &= ~NCIF_LOWER;
-					progress = true;
-				}
-#endif
-#endif
-				CheckLive();
-				if (mTrueJump)
-					mTrueJump->CheckLive();
-				if (mFalseJump)
-					mFalseJump->CheckLive();
-			}
-
-			if (progress)
-				changed = true;
-
-		} while (progress);
-
-		CheckLive();
-		if (mTrueJump)
-			mTrueJump->CheckLive();
-		if (mFalseJump)
-			mFalseJump->CheckLive();
-
-#if 1
-		int	sz = mIns.Size();
-
-		if (sz >= 2 &&
-			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
-			mIns[sz - 1].mType == ASMIT_CMP)
-		{
-			if (mBranch == ASMIT_BNE)
-			{
-				if (mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCC)
-				{
-					mTrueJump = mTrueJump->mTrueJump;
-					changed = true;
-				}
-				else if (mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCS)
-				{
-					mTrueJump = mTrueJump->mFalseJump;
-					changed = true;
-				}
-			}
-			else if (mBranch == ASMIT_BEQ)
-			{
-				if (mFalseJump->mIns.Size() == 0 && mFalseJump->mBranch == ASMIT_BCS)
-				{
-					mFalseJump = mFalseJump->mTrueJump;
-					changed = true;
-				}
-				else if (mFalseJump->mIns.Size() == 0 && mFalseJump->mBranch == ASMIT_BCC)
-				{
-					mFalseJump = mFalseJump->mFalseJump;
-					changed = true;
-				}
-			}
-		}
-		else if (sz >= 2 &&
-			mIns[sz - 2].ChangesAccuAndFlag() &&
-			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 1 &&
-			(mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C])
-		{
-			if (mBranch == ASMIT_BCC)
-				mBranch = ASMIT_BEQ;
-			else
-				mBranch = ASMIT_BNE;
-			
-			mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
-			mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
+		if (PeepHoleOptimizerShuffle(pass))
 			changed = true;
-		}
-#if 1
-		else if (sz >= 2 &&
-			mIns[sz - 2].ChangesAccuAndFlag() &&
-			mIns[sz - 1].mType == ASMIT_ASL && mIns[sz - 1].mMode == ASMIM_IMPLIED && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C])
-
-		{
-			if (mBranch == ASMIT_BCC)
-			{
-				mBranch = ASMIT_BPL;
-				mIns.SetSize(sz - 1);
-				sz -= 1;
-				mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
-				changed = true;
-			}
-			else if (mBranch == ASMIT_BCS)
-			{
-				mBranch = ASMIT_BMI;
-				mIns.SetSize(sz - 1);
-				sz -= 1;
-				mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
-				changed = true;
-			}
-		}
-		else if (sz >= 2 &&
-			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
-			mIns[sz - 1].mType == ASMIT_ROL && mIns[sz - 1].mMode == ASMIM_IMPLIED && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			if (mBranch == ASMIT_BNE)
-			{
-				mBranch = ASMIT_BCS;
-				mIns.SetSize(sz - 2);
-				sz -= 2;
-				changed = true;
-			}
-			else if (mBranch == ASMIT_BEQ)
-			{
-				mBranch = ASMIT_BCC;
-				mIns.SetSize(sz - 2);
-				sz -= 2;
-				changed = true;
-			}
-		}
-		else if (sz >= 2 &&
-			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
-			mIns[sz - 1].mType == ASMIT_ROL && mIns[sz - 1].mMode == ASMIM_IMPLIED && !(mIns[sz - 1].mLive & LIVE_CPU_REG_C) && !mExitRequiredRegs[CPU_REG_Z] &&
-			mBranch == ASMIT_BNE && !mTrueJump->mEntryRequiredRegs[CPU_REG_A])
-		{
-			mBranch = ASMIT_BCS;
-			mIns.SetSize(sz - 1);
-			sz -= 1;
+		if (PeepHoleOptimizerIterate(pass))
 			changed = true;
-		}
-		else if (sz >= 2 &&
-			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
-			mIns[sz - 1].mType == ASMIT_ROL && mIns[sz - 1].mMode == ASMIM_IMPLIED && !(mIns[sz - 1].mLive & LIVE_CPU_REG_C) && !mExitRequiredRegs[CPU_REG_Z] &&
-			mBranch == ASMIT_BEQ && !mFalseJump->mEntryRequiredRegs[CPU_REG_A])
-		{
-			mBranch = ASMIT_BCC;
-			mIns.SetSize(sz - 1);
-			sz -= 1;
+		if (PeepHoleOptimizerExits(pass))
 			changed = true;
-		}
-		else if (sz >= 3 &&
-			mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
-			mIns[sz - 2].mType == ASMIT_ROL && mIns[sz - 2].mMode == ASMIM_IMPLIED && 
-			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x0 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			if (mBranch == ASMIT_BNE)
-			{
-				mBranch = ASMIT_BCS;
-				mIns.SetSize(sz - 3);
-				sz -= 3;
-				changed = true;
-			}
-			else if (mBranch == ASMIT_BEQ)
-			{
-				mBranch = ASMIT_BCC;
-				mIns.SetSize(sz - 3);
-				sz -= 3;
-				changed = true;
-			}
-		}
 
-		else if (sz >= 2 &&
-			mIns[sz - 2].mType == ASMIT_EOR && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
-			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			if (mBranch == ASMIT_BNE && mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCC)
-			{
-				NativeCodeBasicBlock* tblock = proc->AllocateBlock();
 
-				tblock->mTrueJump = mTrueJump->mTrueJump;
-				tblock->mFalseJump = mTrueJump->mFalseJump;
-				tblock->mBranch = ASMIT_BMI;
-				tblock->mTrueJump->mNumEntries++;
-				tblock->mTrueJump->mEntryBlocks.Push(tblock);
-				tblock->mFalseJump->mNumEntries++;
-				tblock->mFalseJump->mEntryBlocks.Push(tblock);
 
-				mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
-				mTrueJump->mNumEntries--;
-				mTrueJump = tblock;
-				tblock->mNumEntries++;
-				tblock->mEntryBlocks.Push(this);
-
-				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
-				mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
-
-				mExitRequiredRegs -= CPU_REG_C;
-
-				CheckLive();
-			}
-		}
-		else if (sz >= 2 &&
-			mIns[sz - 2].ChangesAccuAndFlag() &&
-			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C])
-		{
-			if (mBranch == ASMIT_BCC)
-			{
-				mBranch = ASMIT_BPL;
-				mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
-				mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
-
-				CheckLive();
-			}
-			else if (mBranch == ASMIT_BCS)
-			{
-				mBranch = ASMIT_BMI;
-				mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
-				mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
-
-				CheckLive();
-			}
-		}
-
-		else if (sz >= 4 &&
-			mIns[sz - 4].mType == ASMIT_EOR && mIns[sz - 4].mMode == ASMIM_IMMEDIATE && mIns[sz - 4].mAddress == 0x80 &&
-			mIns[sz - 3].mType == ASMIT_STA && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
-			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
-			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && mIns[sz - 1].mAddress == mIns[sz - 3].mAddress && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_MEM)) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			if (mBranch == ASMIT_BNE && mTrueJump->mIns.Size() == 0 && mTrueJump->mBranch == ASMIT_BCC)
-			{
-				NativeCodeBasicBlock* tblock = proc->AllocateBlock();
-
-				tblock->mTrueJump = mTrueJump->mFalseJump;
-				tblock->mFalseJump = mTrueJump->mTrueJump;
-				tblock->mBranch = ASMIT_BMI;
-				tblock->mTrueJump->mNumEntries++;
-				tblock->mTrueJump->mEntryBlocks.Push(tblock);
-				tblock->mFalseJump->mNumEntries++;
-				tblock->mFalseJump->mEntryBlocks.Push(tblock);
-
-				mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
-				mTrueJump->mNumEntries--;
-				mTrueJump = tblock;
-				tblock->mNumEntries++;
-				tblock->mEntryBlocks.Push(this);
-
-				mIns[sz - 4].mType = ASMIT_NOP; mIns[sz - 4].mMode = ASMIM_IMPLIED;
-				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
-				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
-				mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mMode = ASMIM_IMMEDIATE;  mIns[sz - 1].mAddress = 0; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
-
-				CheckLive();
-			}
-		}
-
-		else if (sz >= 4 &&
-			mIns[sz - 4].mType == ASMIT_TXA &&
-			mIns[sz - 3].mType == ASMIT_CLC &&
-			mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0xff &&
-			mIns[sz - 1].mType == ASMIT_TAX && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[CPU_REG_C])
-		{
-			if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
-			{
-				mIns[sz - 4].mType = ASMIT_DEX; mIns[sz - 4].mLive |= LIVE_CPU_REG_X;
-				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
-				mIns[sz - 2].mType = ASMIT_CPX; mIns[sz - 2].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
-				mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
-
-				if (mBranch == ASMIT_BCC)
-					mBranch = ASMIT_BEQ;
-				else
-					mBranch = ASMIT_BNE;
-
-				CheckLive();
-			}
-		}
-
-		else if (sz >= 3 &&
-			mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0x00 &&
-			mIns[sz - 2].mType == ASMIT_ROL && mIns[sz - 2].mMode == ASMIM_IMPLIED &&
-			mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x01 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mExitRequiredRegs[CPU_REG_C])
-		{
-			if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
-			{
-				mIns.SetSize(sz - 3);
-				sz -= 3;
-				changed = true;
-			}
-		}
-
-		else if (sz >= 2 &&
-			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
-			mIns[sz - 1].mType == ASMIT_SBC && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			if (mBranch == ASMIT_BNE)
-			{
-				mBranch = ASMIT_BCC;
-				mIns.SetSize(sz - 2);
-				changed = true;
-			}
-			else if (mBranch == ASMIT_BEQ)
-			{
-				mBranch = ASMIT_BCS;
-				mIns.SetSize(sz - 2);
-				changed = true;
-			}
-
-			sz -= 2;
-			CheckLive();
-		}
-		else if (pass >= 7 && sz >= 2 &&
-			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && !(mIns[sz - 2].mLive & LIVE_MEM) &&
-			mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 1 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			if (mBranch == ASMIT_BNE)
-			{
-				mIns[sz - 2].mType = ASMIT_LSR; mIns[sz - 2].mLive |= LIVE_CPU_REG_C;
-				mBranch = ASMIT_BCS;
-				mIns.SetSize(sz - 1);
-				changed = true;
-			}
-			else if (mBranch == ASMIT_BEQ)
-			{
-				mIns[sz - 2].mType = ASMIT_LSR; mIns[sz - 2].mLive |= LIVE_CPU_REG_C;
-				mBranch = ASMIT_BCC;
-				mIns.SetSize(sz - 1);
-				changed = true;
-			}
-
-			sz -= 1;
-			CheckLive();
-		}
-
-		if (sz >= 1 && 
-			mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) &&
-			(mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE))
-		{
-			mIns[sz - 1].mType = ASMIT_ORA; mIns[sz - 1].mAddress = 0x00; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
-
-			if (mBranch == ASMIT_BEQ)
-				mBranch = ASMIT_BPL;
-			else
-				mBranch = ASMIT_BMI;
-
+		if (this->mTrueJump && this->mTrueJump->PeepHoleOptimizer(pass))
 			changed = true;
-		}
-		else if (pass >= 7 && sz >= 1 &&
-			mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x01 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
-			(mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			mIns[sz - 1].mType = ASMIT_LSR; mIns[sz - 1].mLive |= LIVE_CPU_REG_C; mIns[sz - 1].mMode = ASMIM_IMPLIED;
-
-			if (mBranch == ASMIT_BEQ)
-				mBranch = ASMIT_BCC;
-			else
-				mBranch = ASMIT_BCS;
-
-			changed = true;
-		}
-#if 1
-		else if (pass >= 7 && sz >= 1 &&
-			mIns[sz - 1].mType == ASMIT_LDA && (mIns[sz - 1].mMode == ASMIM_ABSOLUTE || mIns[sz - 1].mMode == ASMIM_ZERO_PAGE) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) &&
-			(mBranch == ASMIT_BPL || mBranch == ASMIT_BMI) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			mIns[sz - 1].mType = ASMIT_BIT; 
-
-			changed = true;
-		}
-#endif
-		else if (pass >= 7 && sz >= 1 &&
-			mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x40 && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
-			(mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			mIns[sz - 1].mType = ASMIT_ASL; mIns[sz - 1].mMode = ASMIM_IMPLIED;
-
-			if (mBranch == ASMIT_BEQ)
-				mBranch = ASMIT_BPL;
-			else
-				mBranch = ASMIT_BMI;
-
-			changed = true;
-		}
-
-		if (sz == 1 && mBranch == ASMIT_BNE && mTrueJump == this)
-		{
-			if (mIns[0].mType == ASMIT_DEX || mIns[0].mType == ASMIT_INX)
-			{
-				mIns[0] = NativeCodeInstruction(mIns[0].mIns, ASMIT_LDX, ASMIM_IMMEDIATE, 0);
-				changed = true;
-			}
-			else if (mIns[0].mType == ASMIT_DEY || mIns[0].mType == ASMIT_INY)
-			{
-				mIns[0] = NativeCodeInstruction(mIns[0].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, 0);
-				changed = true;
-			}
-		}
-
-#endif
-#endif
-
-#if 1
-		if (sz >= 4 && (mBranch == ASMIT_BMI || mBranch == ASMIT_BPL) && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			if (mIns[sz - 4].mType == ASMIT_LDA &&
-				(mIns[sz - 3].mType == ASMIT_ASL || mIns[sz - 3].mType == ASMIT_ROL) && mIns[sz - 3].mMode == ASMIM_IMPLIED &&
-				mIns[sz - 2].mType == ASMIT_STA && !mIns[sz - 2].SameEffectiveAddress(mIns[sz - 4]) &&
-				mIns[sz - 1].mType == ASMIT_LDA && mIns[sz - 1].SameEffectiveAddress(mIns[sz - 4]))
-			{
-				if (mBranch == ASMIT_BMI)
-					mBranch = ASMIT_BCS;
-				else
-					mBranch = ASMIT_BCC;
-				mIns[sz - 3].mLive |= LIVE_CPU_REG_C;
-				mIns[sz - 2].mLive |= LIVE_CPU_REG_C;
-				mIns[sz - 1].mLive |= LIVE_CPU_REG_C;
-				changed = true;
-			}
-		}
-
-#endif
-#if 1
-		if (sz >= 3 && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && !mExitRequiredRegs[CPU_REG_Z] && !mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_A])
-		{
-			if (mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
-				mIns[sz - 2].mType == ASMIT_ROL && mIns[sz - 2].mMode == ASMIM_IMPLIED &&
-				mIns[sz - 1].mType == ASMIT_EOR && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 1)
-			{
-				if (mBranch == ASMIT_BEQ)
-					mBranch = ASMIT_BCS;
-				else
-					mBranch = ASMIT_BCC;
-
-				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
-				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
-				mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
-				changed = true;
-			}
-		}
-
-#endif
-
-		if (sz >= 4 && (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) && !mExitRequiredRegs[CPU_REG_C])
-		{
-			if (mIns[sz - 4].mType == ASMIT_TYA &&
-				mIns[sz - 3].mType == ASMIT_CLC &&
-				mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 1 &&
-				mIns[sz - 1].mType == ASMIT_TAY)
-			{
-				if (mBranch == ASMIT_BCC)
-					mBranch = ASMIT_BNE;
-				else
-					mBranch = ASMIT_BEQ;
-				mIns[sz - 4].mType = ASMIT_INY; mIns[sz - 4].mLive |= LIVE_CPU_REG_Y;
-				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
-				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
-				mIns[sz - 1].mType = ASMIT_TYA; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
-				changed = true;
-			}
-			else if (mIns[sz - 4].mType == ASMIT_TXA &&
-				mIns[sz - 3].mType == ASMIT_CLC &&
-				mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 1 &&
-				mIns[sz - 1].mType == ASMIT_TAX)
-			{
-				if (mBranch == ASMIT_BCC)
-					mBranch = ASMIT_BNE;
-				else
-					mBranch = ASMIT_BEQ;
-				mIns[sz - 4].mType = ASMIT_INX; mIns[sz - 4].mLive |= LIVE_CPU_REG_X;
-				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
-				mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
-				mIns[sz - 1].mType = ASMIT_TXA; mIns[sz - 1].mLive |= LIVE_CPU_REG_Z;
-				changed = true;
-			}
-		}
-
-#if 1
-		if (sz >= 3 && (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) &&
-			mIns[sz - 1].mType == ASMIT_INY && mIns[sz - 2].mType == ASMIT_CPX && mIns[sz - 3].mType == ASMIT_INX &&
-			!(mIns[sz - 1].mLive & LIVE_CPU_REG_Z))
-		{
-			mIns[sz - 1] = mIns[sz - 2];
-			mIns[sz - 2] = mIns[sz - 3];
-			mIns[sz - 3].mType = ASMIT_INY;
-			changed = true;
-		}
-#endif
-
-#if 1
-		if (sz > 1 && mFalseJump &&
-			mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0xff &&
-			mIns[sz - 1].mType == ASMIT_CMP && 
-			!mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_Z])
-		{
-			if (mBranch == ASMIT_BCC)
-			{
-				mTrueJump->RemEntryBlock(this);
-				mTrueJump = mFalseJump;
-				mFalseJump = nullptr;
-				mBranch = ASMIT_JMP;
-				changed = true;
-			}
-			else if (mBranch == ASMIT_BCS)
-			{
-				mFalseJump->RemEntryBlock(this);
-				mFalseJump = nullptr;
-				mBranch = ASMIT_JMP;
-				changed = true;
-			}
-		}
-#endif
-
-#if 1
-		if (sz > 0 && mFalseJump && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE)
-		{
-			if (mBranch == ASMIT_BCC)
-			{
-				if (mTrueJump->mIns.Size() == 1 && mTrueJump->mIns[0].mType == ASMIT_CMP && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE)
-				{
-					if (mTrueJump->mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
-						!mTrueJump->mExitRequiredRegs[CPU_REG_Z] && !mTrueJump->mExitRequiredRegs[CPU_REG_C])
-					{
-						mTrueJump->RemEntryBlock(this);
-						mTrueJump = mTrueJump->mTrueJump;
-						mTrueJump->AddEntryBlock(this);
-						changed = true;
-					}
-					else if (mTrueJump->mBranch == ASMIT_BCS && mTrueJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
-						!mTrueJump->mExitRequiredRegs[CPU_REG_Z] && !mTrueJump->mExitRequiredRegs[CPU_REG_C])
-					{
-						mTrueJump->RemEntryBlock(this);
-						mTrueJump = mTrueJump->mFalseJump;
-						mTrueJump->AddEntryBlock(this);
-						changed = true;
-					}
-				}
-			}
-			else if (mBranch == ASMIT_BCS)
-			{
-				if (mFalseJump->mIns.Size() == 1 && mFalseJump->mIns[0].mType == ASMIT_CMP && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
-				{
-					if (mFalseJump->mBranch == ASMIT_BCC && mFalseJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
-						!mFalseJump->mExitRequiredRegs[CPU_REG_Z] && !mFalseJump->mExitRequiredRegs[CPU_REG_C])
-					{
-						mFalseJump->RemEntryBlock(this);
-						mFalseJump = mFalseJump->mTrueJump;
-						mFalseJump->AddEntryBlock(this);
-						changed = true;
-					}
-					else if (mFalseJump->mBranch == ASMIT_BCS && mFalseJump->mIns[0].mAddress >= mIns[sz - 1].mAddress &&
-						!mFalseJump->mExitRequiredRegs[CPU_REG_Z] && !mFalseJump->mExitRequiredRegs[CPU_REG_C])
-					{
-						mFalseJump->RemEntryBlock(this);
-						mFalseJump = mFalseJump->mFalseJump;
-						mFalseJump->AddEntryBlock(this);
-						changed = true;
-					}
-				}
-			}
-		}
-#endif
-
-		CheckLive();
-		if (mTrueJump)
-			mTrueJump->CheckLive();
-		if (mFalseJump)
-			mFalseJump->CheckLive();
-
-#if 1
-		if (mTrueJump && mFalseJump && !mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump &&
-			mTrueJump->mIns.Size() == 1 && mFalseJump->mIns.Size() == 1 && 
-			mTrueJump->mIns[0].mType == ASMIT_LDA && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE &&
-			mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
-		{
-			if (mBranch == ASMIT_BCS && mTrueJump->mIns[0].mAddress == 1 && mFalseJump->mIns[0].mAddress == 0 && !(mExitRequiredRegs[CPU_REG_C]))
-			{
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
-				mExitProvidedRegs += CPU_REG_A;
-				mBranch = ASMIT_JMP;
-				mTrueJump = mTrueJump->mTrueJump;
-				mFalseJump = nullptr;
-				changed = true;
-
-				CheckLive();
-			}
-			else if (mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress == 0 && mFalseJump->mIns[0].mAddress == 1 && !(mExitRequiredRegs[CPU_REG_C]))
-			{
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
-				mExitProvidedRegs += CPU_REG_A;
-				mBranch = ASMIT_JMP;
-				mTrueJump = mTrueJump->mTrueJump;
-				mFalseJump = nullptr;
-				changed = true;
-
-				CheckLive();
-			}
-			else if (mBranch == ASMIT_BCS && mTrueJump->mIns[0].mAddress == 0 && mFalseJump->mIns[0].mAddress == 1 && !(mExitRequiredRegs[CPU_REG_C]))
-			{
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_EOR, ASMIM_IMMEDIATE, 1));
-				mExitProvidedRegs += CPU_REG_A;
-				mBranch = ASMIT_JMP;
-				mTrueJump = mTrueJump->mTrueJump;
-				mFalseJump = nullptr;
-				changed = true;
-
-				CheckLive();
-			}
-			else if (mBranch == ASMIT_BCC && mTrueJump->mIns[0].mAddress == 1 && mFalseJump->mIns[0].mAddress == 0 && !(mExitRequiredRegs[CPU_REG_C]))
-			{
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
-				mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_EOR, ASMIM_IMMEDIATE, 1));
-				mExitProvidedRegs += CPU_REG_A;
-				mBranch = ASMIT_JMP;
-				mTrueJump = mTrueJump->mTrueJump;
-				mFalseJump = nullptr;
-				changed = true;
-
-				CheckLive();
-			}
-			else if (mIns.Size() > 0 && mIns.Last().mType == ASMIT_LDA)
-			{
-				if (mBranch == ASMIT_BEQ && mTrueJump->mIns[0].mAddress == 1 && mFalseJump->mIns[0].mAddress == 0)
-				{
-					mIns.Insert(mIns.Size() - 1, NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
-					mIns[mIns.Size() - 1].mType = ASMIT_CMP; mIns[mIns.Size() - 1].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
-					mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
-					mExitProvidedRegs += CPU_REG_A;
-					mBranch = ASMIT_JMP;
-					mTrueJump = mTrueJump->mTrueJump;
-					mFalseJump = nullptr;
-					changed = true;
-
-					CheckLive();
-				}
-				else if (mBranch == ASMIT_BNE && mTrueJump->mIns[0].mAddress == 0 && mFalseJump->mIns[0].mAddress == 1)
-				{
-					mIns.Insert(mIns.Size() - 1, NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
-					mIns[mIns.Size() - 1].mType = ASMIT_CMP; mIns[mIns.Size() - 1].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
-					mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_ROL, ASMIM_IMPLIED));
-					mExitProvidedRegs += CPU_REG_A;
-					mBranch = ASMIT_JMP;
-					mTrueJump = mTrueJump->mTrueJump;
-					mFalseJump = nullptr;
-					changed = true;
-
-					CheckLive();
-				}
-			}
-		}
-#endif
-		CheckLive();
-
-		if (mTrueJump)
-			mTrueJump->CheckLive();
-		if (mFalseJump)
-			mFalseJump->CheckLive();
-
-#endif
-		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
-
-		if (this->mTrueJump && this->mTrueJump->PeepHoleOptimizer(proc, pass))
-			changed = true;
-		if (this->mFalseJump && this->mFalseJump->PeepHoleOptimizer(proc, pass))
+		if (this->mFalseJump && this->mFalseJump->PeepHoleOptimizer(pass))
 			changed = true;
 
 		assert(mIns.Size() == 0 || mIns[0].mType != ASMIT_INV);
@@ -49649,7 +49712,7 @@ void NativeCodeProcedure::Optimize(void)
 #if 1
 
 		ResetVisited();
-		if (mEntryBlock->PeepHoleOptimizer(this, step))
+		if (mEntryBlock->PeepHoleOptimizer(step))
 			changed = true;
 
 #endif
@@ -50492,7 +50555,7 @@ void NativeCodeProcedure::Optimize(void)
 		if (!changed)
 		{
 			ResetVisited();
-			changed = mEntryBlock->PeepHoleOptimizer(this, 20);
+			changed = mEntryBlock->PeepHoleOptimizer(20);
 		}
 
 		if (!changed)
