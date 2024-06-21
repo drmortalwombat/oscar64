@@ -16,12 +16,12 @@ else
 	ifeq ($(UNAME_S), Darwin)
 
 		linklibs = -lpthread
-  	else
+	else
 		# MSVC
 		linklibs = -lrt -lpthread
 		# MinGW
 		#linklibs = -lversion -lpthread
-      endif
+	endif
 endif
  
 %.o: ../oscar64/%.cpp
