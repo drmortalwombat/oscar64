@@ -60,15 +60,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 		ins->mSrc[0].mType = IT_POINTER;
 		ins->mSrc[0].mTemp = v.mTemp;
 		ins->mDst.mType = v.mReference == 1 ? InterTypeOf(v.mType) : IT_POINTER;
-		ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-		ins->mSrc[0].mOperandSize = v.mReference == 1 ? v.mType->mSize : 2;
-		ins->mSrc[0].mStride = v.mReference == 1 ? v.mType->mStripe : 1;
 
 		if (ins->mDst.mType == IT_NONE)
 		{
 			mErrors->Error(exp->mLocation, EERR_INVALID_VALUE, "Not a simple type");
 			return v;
 		}
+
+		ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+		ins->mSrc[0].mOperandSize = v.mReference == 1 ? v.mType->mSize : 2;
+		ins->mSrc[0].mStride = v.mReference == 1 ? v.mType->mStripe : 1;
+
 
 		if (v.mReference == 1 && v.mType->mType == DT_TYPE_ENUM)
 		{
@@ -4536,10 +4538,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else
 						vr = Dereference(proc, exp, block, inlineMapper, vr);
 
-					if (vl.mType->mBase->IsSubType(vr.mType->mBase))
-						dtype = vr.mType;
-					else if (vr.mType->mBase->IsSubType(vl.mType->mBase))
-						dtype = vl.mType;
+					if (vl.mType->mBase && vr.mType->mBase)
+					{
+						if (vl.mType->mBase->IsSubType(vr.mType->mBase))
+							dtype = vr.mType;
+						else if (vr.mType->mBase->IsSubType(vl.mType->mBase))
+							dtype = vl.mType;
+						else
+						{
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible conditional types");
+							dtype = vl.mType;
+						}
+					}
 					else
 					{
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible conditional types");

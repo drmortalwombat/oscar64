@@ -4905,7 +4905,7 @@ bool InterInstruction::ConstantFolding(void)
 			mCode = IC_CONSTANT;
 			if (mSrc[0].mType == IT_POINTER)
 				mConst.mIntConst = ::ConstantRelationalPointerFolding(mOperator, mSrc[1], mSrc[0]);
-			else if (IsIntegerType(mSrc[0].mType))
+			else if (IsIntegerType(mSrc[0].mType) || mSrc[0].mType == IT_BOOL)
 				mConst.mIntConst = ::ConstantFolding(mOperator, mSrc[0].mType, mSrc[1].mIntConst, mSrc[0].mIntConst);
 			else
 				mConst.mIntConst = ConstantRelationalFolding(mOperator, mSrc[1].mFloatConst, mSrc[0].mFloatConst);
@@ -21034,7 +21034,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "draw_face");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
