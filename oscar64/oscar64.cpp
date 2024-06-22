@@ -567,9 +567,11 @@ int main(int argc, const char** argv)
 {
 #if 1
 #ifdef _WIN32
+#ifndef __GNUC__
 #ifndef _DEBUG
 	__try 
 	{
+#endif
 #endif
 #endif
 #endif
@@ -577,12 +579,14 @@ int main(int argc, const char** argv)
 
 #if 1
 #ifdef _WIN32
+#ifndef __GNUC__
 #ifndef _DEBUG
 }
 	__except (seh_filter(GetExceptionCode(), GetExceptionInformation()))
 	{
 		return 30;
 	}
+#endif
 #endif
 #endif
 #endif

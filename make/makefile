@@ -16,8 +16,11 @@ else
 	ifeq ($(UNAME_S), Darwin)
 
 		linklibs = -lpthread
-  	else
+	else
+		# MSVC
 		linklibs = -lrt -lpthread
+		# MinGW
+		#linklibs = -lversion -lpthread
 	endif
 endif
  
@@ -31,7 +34,7 @@ endif
 	rm -f $@.$$$$
 
 ../bin/oscar64 : $(objects)
-	$(CXX) $(CPPFLAGS) $(linklibs) $(objects) -o ../bin/oscar64
+	$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o ../bin/oscar64
 
 .PHONY : clean
 clean :
