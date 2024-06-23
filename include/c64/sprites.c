@@ -205,6 +205,21 @@ void vspr_move(char sp, int xpos, int ypos)
 	vspriteXHigh[sp] = (char)(xpos >> 8);
 }
 
+void vspr_movex(char sp, int xpos)
+{
+	vspriteXLow[sp] = (char)xpos;
+	vspriteXHigh[sp] = (char)(xpos >> 8);
+}
+
+void vspr_movey(char sp, int ypos)
+{
+	char	yp = (char)ypos;
+	if (ypos & 0xff00)
+		yp = 0xff;
+
+	vspriteYLow[sp] = yp;
+}
+
 void vspr_image(char sp, char image)
 {
 	vspriteImage[sp] = image;

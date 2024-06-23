@@ -78,6 +78,11 @@ void vspr_set(char sp, int xpos, int ypos, char image, char color);
 
 inline void vspr_move(char sp, int xpos, int ypos);
 
+inline void vspr_movex(char sp, int xpos);
+
+inline void vspr_movey(char sp, int ypos);
+
+
 // change the image of a virtual sprite
 
 inline void vspr_image(char sp, char image);
