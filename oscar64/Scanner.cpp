@@ -29,6 +29,7 @@ const char* TokenNames[] =
 	"'default'",
 	"'break'",
 	"'return'",
+	"'goto'",
 	"'short'",
 	"'long'",
 	"'continue'",
@@ -1702,6 +1703,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_CONTINUE;
 				else if (!strcmp(tkident, "return"))
 					mToken = TK_RETURN;
+				else if (!strcmp(tkident, "goto"))
+					mToken = TK_GOTO;
 				else if (!strcmp(tkident, "void"))
 					mToken = TK_VOID;
 				else if (!strcmp(tkident, "struct"))

@@ -134,10 +134,29 @@ int main2(int argc, const char** argv)
 		compiler->AddDefine(Ident::Unique("__STDC__"), "1");
 		compiler->AddDefine(Ident::Unique("__STDC_VERSION__"), "199901L");
 
+		bool	defining = false;
+
 		for (int i = 1; i < argc; i++)
 		{
 			const char* arg = argv[i];
-			if (arg[0] == '-')
+			if (defining)
+			{
+				defining = false;
+
+				char	def[100];
+				int i = 0;
+				while (arg[i] && arg[i] != '=')
+				{
+					def[i] = arg[i];
+					i++;
+				}
+				def[i] = 0;
+				if (arg[i] == '=')
+					compiler->AddDefine(Ident::Unique(def), _strdup(arg + i + 1));
+				else
+					compiler->AddDefine(Ident::Unique(def), "");
+			}
+			else if (arg[0] == '-')
 			{
 				if (arg[1] == 'i' && arg[2] == '=')
 				{
@@ -229,6 +248,10 @@ int main2(int argc, const char** argv)
 						trace = 2;
 					else if (arg[2] == 'b')
 						trace = 1;
+				}
+				else if (arg[1] == 'D' && !arg[2])
+				{
+					defining = true;
 				}
 				else if (arg[1] == 'd')
 				{

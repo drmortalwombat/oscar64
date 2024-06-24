@@ -9320,6 +9320,11 @@ Expression* Parser::ParseStatement(void)
 			exp->mLeft = ParseParenthesisExpression();
 			ConsumeToken(TK_SEMICOLON);
 			break;
+		case TK_GOTO:
+			mErrors->Error(mScanner->mLocation, EERR_UNIMPLEMENTED, "'goto' not implemented");
+			mScanner->NextToken();
+			exp = new Expression(mScanner->mLocation, EX_VOID);
+			break;
 
 		default:
 			exp = CleanupExpression(ParseListExpression(true));

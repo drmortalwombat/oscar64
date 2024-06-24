@@ -28,6 +28,7 @@ There are still several open areas, but most targets have been reached.  The cur
 ### Language
 
 * Missing warnings for all kind of abuses
+* no goto or C label support, but keyword protected
 
 ### Linker
 
@@ -104,6 +105,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -bc : create byte code for all functions
 * -n : create pure native code for all functions (now default)
 * -d : define a symbol (e.g. NOFLOAT or NOLONG to avoid float/long code in printf)
+* -D : define a symbol in a gcc compliant way (e.g. -D NAME=VALUE)
 * -O1 or -O : default optimizations
 * -O0 : disable optimizations
 * -O2 : more aggressive speed optimizations including auto inline of small functions
