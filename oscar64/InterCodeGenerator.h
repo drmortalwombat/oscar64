@@ -101,6 +101,7 @@ protected:
 	void CopyStructSimple(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock * block, InlineMapper* inlineMapper, ExValue vl, ExValue vr);
 	void StoreValue(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, InlineMapper* inlineMapper, ExValue vl, ExValue vr);
 
+	void ConnectGotos(Declaration* procType, InterCodeProcedure* proc, GotoNode* gotos, InlineMapper* inlineMapper);
 	void UnwindDestructStack(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, DestructStack* stack, DestructStack * bottom, InlineMapper* inlineMapper);
 	void BuildInitializer(InterCodeModule* mod, uint8 * dp, int offset, Declaration* data, InterVariable * variable);
 };

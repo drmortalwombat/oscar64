@@ -1348,6 +1348,45 @@ void InterCodeGenerator::UnwindDestructStack(Declaration* procType, InterCodePro
 		mErrors->Error(proc->mLocation, EWARN_DESTRUCTOR_MISMATCH, "Destructor sequence mismatch");
 }
 
+void InterCodeGenerator::ConnectGotos(Declaration* procType, InterCodeProcedure* proc, GotoNode* gotos, InlineMapper* inlineMapper)
+{
+	GotoNode* gl = gotos;
+	while (gl)
+	{
+		GotoNode* g = gotos;
+		while (g && !(g != gl && g->mExpr->mType == EX_LABEL && g->mExpr->mDecValue->mIdent == gl->mExpr->mDecValue->mIdent))
+			g = g->mNext;
+
+		if (gl->mExpr->mType == EX_LABEL)
+		{
+			if (g)
+				mErrors->Error(gl->mExpr->mLocation, EERR_DUPLICATE_DEFINITION, "Label defined twice", gl->mExpr->mDecValue->mIdent);
+		}
+		else
+		{
+			if (g)
+			{
+				if (gl->mDestruct)
+				{
+					DestructStack* s = gl->mDestruct;
+					while (s && s != g->mDestruct)
+						s = s->mNext;
+					if (s == g->mDestruct)
+						UnwindDestructStack(procType, proc, gl->mBlock, gl->mDestruct, s, inlineMapper);
+					else
+						mErrors->Error(gl->mExpr->mLocation, ERRR_INVALID_GOTO, "Invalid got bypass constructor");
+				}
+
+				gl->mBlock->Close(g->mBlock, nullptr);
+			}
+			else
+				mErrors->Error(gl->mExpr->mLocation, EERR_UNDEFINED_OBJECT, "Undefined label", gl->mExpr->mDecValue->mIdent);
+		}
+		gl = gl->mNext;
+	}
+
+}
+
 Location InterCodeGenerator::MapLocation(Expression* exp, InlineMapper* inlineMapper)
 {
 	if (inlineMapper)
@@ -1534,6 +1573,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 	block->Close(nmapper.mReturn, nullptr);
 	block = nmapper.mReturn;
+
+	ConnectGotos(ftype, proc, igotos, &nmapper);
 
 	// Unwind inner destruct stack
 	UnwindDestructStack(ftype, proc, block, idestack, nullptr, &nmapper);
@@ -5644,40 +5685,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 		TranslateExpression(dec->mBase, proc, exitBlock, exp, destack, gotos, BranchTarget(), BranchTarget(), nullptr);
 
-		GotoNode* gl = gotos;
-		while (gl)
-		{
-			GotoNode* g = gotos;
-			while (g && !(g != gl && g->mExpr->mType == EX_LABEL && g->mExpr->mDecValue->mIdent == gl->mExpr->mDecValue->mIdent))
-				g = g->mNext;
-
-			if (gl->mExpr->mType == EX_LABEL)
-			{
-				if (g)
-					mErrors->Error(gl->mExpr->mLocation, EERR_DUPLICATE_DEFINITION, "Label defined twice", gl->mExpr->mDecValue->mIdent);
-			}
-			else
-			{
-				if (g)
-				{
-					if (gl->mDestruct)
-					{
-						DestructStack* s = gl->mDestruct;
-						while (s && s != g->mDestruct)
-							s = s->mNext;
-						if (s == g->mDestruct)
-							UnwindDestructStack(dec->mBase, proc, gl->mBlock, gl->mDestruct, s, nullptr);
-						else
-							mErrors->Error(gl->mExpr->mLocation, ERRR_INVALID_GOTO, "Invalid got bypass constructor");
-					}
-
-					gl->mBlock->Close(g->mBlock, nullptr);
-				}
-				else
-					mErrors->Error(gl->mExpr->mLocation, EERR_UNDEFINED_OBJECT, "Undefined label", gl->mExpr->mDecValue->mIdent);
-			}
-			gl = gl->mNext;
-		}
+		ConnectGotos(dec->mBase, proc, gotos, nullptr);
 
 		UnwindDestructStack(dec->mBase, proc, exitBlock, destack, nullptr, nullptr);
 
