@@ -59,6 +59,7 @@ enum DecType
 	DT_LABEL_REF,
 	DT_NAMESPACE,
 	DT_BASECLASS,
+	DT_CLABEL,
 
 	DT_TEMPLATE,
 
@@ -231,6 +232,8 @@ enum ExpressionType
 	EX_RESULT,
 	EX_PACK,
 	EX_PACK_TYPE,
+	EX_LABEL,
+	EX_GOTO
 };
 
 class Expression

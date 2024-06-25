@@ -73,9 +73,12 @@ static inline bool clock_in(void)
 
 static bool data_check(void)
 {
- 	char cnt = 100;
+ 	char cnt = 200;
 	while (cnt > 0 && data_in())
+	{
+		delay(5);
 		cnt--;
+	}
 
 	if (cnt)
 		return true;
@@ -97,7 +100,7 @@ static bool iec_eoib(void)
 	return data_check();
 }
 
-static bool iec_writeb(char b)
+static void iec_writeb(char b)
 {
 	clock_true();
 
@@ -107,19 +110,17 @@ static bool iec_writeb(char b)
 	for(char i=0; i<8; i++)
 	{
 		clock_false();
-		delay(4);
+		delay(5);
 		if (b & 1)
 			data_true();
 		else
 			data_false();		
 		clock_true();
 		b >>= 1;
-		delay(4);
+		delay(5);
 	}
 	clock_false();
 	data_true();
-
-	return data_check();
 }
 
 bool iec_write(char b)
@@ -139,6 +140,8 @@ bool iec_write(char b)
 		{
 			plp
 		}
+
+		data_check();
 	}
 	if (iec_status < IEC_ERROR)
 	{
@@ -170,7 +173,7 @@ char iec_read(void)
 	{
 		iec_status = IEC_EOF;
  		data_false();
-		delay(4);
+		delay(10);
 		data_true();
 
 		cnt = 200;
@@ -226,8 +229,12 @@ void iec_atn(char dev, char sec)
  	while (data_in());
 
 	iec_writeb(dev);
+	data_check();
 	if (sec != 0xff)
+	{
 		iec_writeb(sec);
+		data_check();
+	}
 
 	atn_true();	
 }
@@ -238,8 +245,23 @@ void iec_talk(char dev, char sec)
 	iec_status = IEC_OK;
 
 	iec_atn(dev | 0x40, sec | 0x60);
-	clock_true();
 	data_false();
+
+	__asm
+	{
+		php
+		sei
+	}
+
+	clock_true();
+	char cnt = 200;
+	while (cnt > 0 && clock_in())
+		cnt--;
+
+ 	__asm
+	{
+		plp
+	}
 
 	delay(10);	
 }
@@ -266,8 +288,10 @@ void iec_unlisten(void)
 
 	if (iec_status == IEC_QUEUED)
 	{
+		iec_status = IEC_OK;
 		iec_eoib();
 		iec_writeb(iec_queue);
+		data_check();
 	}
 
 	iec_atn(0x3f, 0xff);

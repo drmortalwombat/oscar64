@@ -28,7 +28,6 @@ There are still several open areas, but most targets have been reached.  The cur
 ### Language
 
 * Missing warnings for all kind of abuses
-* no goto or C label support, but keyword protected
 
 ### Linker
 
@@ -78,7 +77,7 @@ Supported Features:
 
 ### Installing on windows
 
-A windows installer is provided with the release, the compiler is installed into "%programfiles(x86)%\oscar64\bin\oscar64".  When not using batch or make files, it might be a good idea to add the folder to the path environment variable.
+A windows installer is provided with the release, the compiler is installed into "%programfiles(x86)%\oscar64\bin\oscar64".  When not using batch or make files, it might be a good idea to add the folder to the path environment variable.  Windows 10 is the minimum release required for the installer version.
 
 ### Building
 

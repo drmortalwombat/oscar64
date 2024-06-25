@@ -313,6 +313,12 @@ void Expression::Dump(int ident) const
 	case EX_PACK_TYPE:
 		printf("PACK_TYPE");
 		break;
+	case EX_GOTO:
+		printf("GOTO %s", mDecValue->mIdent->mString);
+		break;
+	case EX_LABEL:
+		printf("LABEL %s", mDecValue->mIdent->mString);
+		break;
 	}
 	printf("\n");
 

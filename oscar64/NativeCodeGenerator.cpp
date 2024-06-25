@@ -48363,6 +48363,15 @@ void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>&
 						placement.Push(mTrueJump->mTrueJump);
 					}
 				}
+				if (mTrueJump->mEntryBlocks.Size() == 2 && this == mTrueJump->mEntryBlocks[0] && !mTrueJump->mEntryBlocks[1]->mFalseJump)
+				{
+					if (!mTrueJump->mEntryBlocks[1]->mPlaced && mTrueJump->mEntryBlocks[1]->mCode.Size() + mTrueJump->mCode.Size() < 40)
+					{
+						mTrueJump->mEntryBlocks[1]->mPlaced = true;
+						mTrueJump->mEntryBlocks[1]->mPlace = placement.Size();
+						placement.Push(mTrueJump->mEntryBlocks[1]);
+					}
+				}
 			}
 
 			mTrueJump->BuildPlacement(placement);

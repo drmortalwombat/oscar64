@@ -5031,8 +5031,16 @@ Declaration* Parser::ParseQualIdent(void)
 	}
 	else
 	{
-		mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent);
+		const Ident* ident = mScanner->mTokenIdent;
+		Location	loc = mScanner->mLocation;
 		mScanner->NextToken();
+		if (ConsumeTokenIf(TK_COLON))
+		{
+			dec = new Declaration(loc, DT_CLABEL);
+			dec->mIdent = ident;
+		}
+		else
+			mErrors->Error(loc, EERR_OBJECT_NOT_FOUND, "Unknown identifier", ident);
 	}
 
 	return dec;
@@ -5733,6 +5741,11 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 				else if (dec->mType == DT_ELEMENT)
 				{
 					mErrors->Error(mScanner->mLocation, EERR_NON_STATIC_MEMBER, "Non static member access", mScanner->mTokenIdent);
+				}
+				else if (dec->mType == DT_CLABEL)
+				{
+					exp = new Expression(dec->mLocation, EX_LABEL);
+					exp->mDecValue = dec;
 				}
 				else
 				{
@@ -9321,14 +9334,30 @@ Expression* Parser::ParseStatement(void)
 			ConsumeToken(TK_SEMICOLON);
 			break;
 		case TK_GOTO:
+#if 1
+			exp = new Expression(mScanner->mLocation, EX_GOTO);
+			mScanner->NextToken();
+			if (mScanner->mToken == TK_IDENT)
+			{
+				Declaration* dl = new Declaration(mScanner->mLocation, DT_CLABEL);
+				dl->mIdent = mScanner->mTokenIdent;
+				exp->mDecValue = dl;
+				mScanner->NextToken();
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
+#else
 			mErrors->Error(mScanner->mLocation, EERR_UNIMPLEMENTED, "'goto' not implemented");
 			mScanner->NextToken();
 			exp = new Expression(mScanner->mLocation, EX_VOID);
+#endif
 			break;
 
 		default:
 			exp = CleanupExpression(ParseListExpression(true));
-			ConsumeToken(TK_SEMICOLON);
+			if (exp->mType != EX_LABEL)
+				ConsumeToken(TK_SEMICOLON);
+			break;
 		}
 	}
 
