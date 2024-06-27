@@ -298,6 +298,16 @@ public:
 	bool PeepHoleOptimizer(int pass);
 
 	bool PeepHoleOptimizerShuffle(int pass);
+	bool PeepHoleOptimizerIterate1(int i, int pass);
+	bool PeepHoleOptimizerIterate2(int i, int pass);
+	bool PeepHoleOptimizerIterate3(int i, int pass);
+	bool PeepHoleOptimizerIterate4(int i, int pass);
+	bool PeepHoleOptimizerIterate5(int i, int pass);
+	bool PeepHoleOptimizerIterate4b(int i, int pass);
+	bool PeepHoleOptimizerIterate5b(int i, int pass);
+	bool PeepHoleOptimizerIterate6(int i, int pass);
+	bool PeepHoleOptimizerIterateN(int i, int pass);
+
 	bool PeepHoleOptimizerIterate(int pass);
 	bool PeepHoleOptimizerExits(int pass);
 
