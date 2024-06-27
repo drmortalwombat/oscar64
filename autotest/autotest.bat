@@ -3,6 +3,9 @@ rem @echo off
 @call :test bitfields.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :testn autorefreturn.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :testh opp_string.cpp
 @if %errorlevel% neq 0 goto :error
 

@@ -3894,8 +3894,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						else if (vr.mType->IsReference() && !(pdec && pdec->mBase->IsReference()))
 						{
 							vr.mReference++;
-							vr = Dereference(proc, texp, block, inlineMapper, vr);
 							vr.mType = vr.mType->mBase;
+							vr = Dereference(proc, texp, block, inlineMapper, vr);
 						}
 						else
 							vr = Dereference(proc, texp, block, inlineMapper, vr);

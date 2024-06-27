@@ -15956,7 +15956,7 @@ bool NativeCodeBasicBlock::JoinXYCascade(void)
 	return changed;
 }
 
-bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction & als, const NativeCodeInstruction & xls, const NativeCodeInstruction & yls)
+bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(bool zpage, const NativeCodeInstruction & als, const NativeCodeInstruction & xls, const NativeCodeInstruction & yls)
 {
 	bool	changed = false;
 
@@ -16010,7 +16010,7 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction
 				}
 				else
 				{
-					if ((ins.mMode == ASMIM_ZERO_PAGE || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
+					if (((zpage && ins.mMode == ASMIM_ZERO_PAGE) || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
 						mALSIns = ins;
 					if (mXLSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mXLSIns))
 						mXLSIns.mType = ASMIT_INV;
@@ -16027,7 +16027,7 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction
 					ins.mAddress = 0;
 					changed = true;
 				}
-				else if ((ins.mMode == ASMIM_ZERO_PAGE || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
+				else if (((zpage && ins.mMode == ASMIM_ZERO_PAGE) || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
 					mALSIns = ins;
 				else
 					mALSIns.mType = ASMIT_INV;
@@ -16042,7 +16042,7 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction
 				}
 				else
 				{
-					if ((ins.mMode == ASMIM_ZERO_PAGE || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
+					if (((zpage && ins.mMode == ASMIM_ZERO_PAGE) || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
 						mXLSIns = ins;
 					if (mALSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mALSIns))
 						mALSIns.mType = ASMIT_INV;
@@ -16061,7 +16061,7 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction
 				}
 				else
 				{
-					if ((ins.mMode == ASMIM_ZERO_PAGE || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
+					if (((zpage && ins.mMode == ASMIM_ZERO_PAGE) || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_Y) && !(ins.mFlags & NCIF_VOLATILE))
 						mXLSIns = ins;
 					else
 						mXLSIns.mType = ASMIT_INV;
@@ -16081,7 +16081,7 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction
 				}
 				else
 				{
-					if ((ins.mMode == ASMIM_ZERO_PAGE || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X) && !(ins.mFlags & NCIF_VOLATILE))
+					if (((zpage && ins.mMode == ASMIM_ZERO_PAGE) || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X) && !(ins.mFlags & NCIF_VOLATILE))
 						mYLSIns = ins;
 					if (mALSIns.mType != ASMIT_INV && ins.MayBeSameAddress(mALSIns))
 						mALSIns.mType = ASMIT_INV;
@@ -16100,7 +16100,7 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction
 				}
 				else
 				{
-					if ((ins.mMode == ASMIM_ZERO_PAGE || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X) && !(ins.mFlags & NCIF_VOLATILE))
+					if (((zpage && ins.mMode == ASMIM_ZERO_PAGE) || ins.mMode == ASMIM_ABSOLUTE || ins.mMode == ASMIM_ABSOLUTE_X) && !(ins.mFlags & NCIF_VOLATILE))
 						mYLSIns = ins;
 					else
 						mYLSIns.mType = ASMIT_INV;
@@ -16142,9 +16142,9 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(const NativeCodeInstruction
 			}
 		}
 
-		if (mTrueJump && mTrueJump->GlobalLoadStoreForwarding(mALSIns, mXLSIns, mYLSIns))
+		if (mTrueJump && mTrueJump->GlobalLoadStoreForwarding(zpage, mALSIns, mXLSIns, mYLSIns))
 			changed = true;
-		if (mFalseJump && mFalseJump->GlobalLoadStoreForwarding(mALSIns, mXLSIns, mYLSIns))
+		if (mFalseJump && mFalseJump->GlobalLoadStoreForwarding(zpage, mALSIns, mXLSIns, mYLSIns))
 			changed = true;
 	}
 
@@ -50355,7 +50355,8 @@ void NativeCodeProcedure::Optimize(void)
 		if (step == 12)
 		{
 			ResetVisited();
-			if (mEntryBlock->GlobalLoadStoreForwarding(NativeCodeInstruction(), NativeCodeInstruction(), NativeCodeInstruction()))
+			if (mEntryBlock->GlobalLoadStoreForwarding(false, NativeCodeInstruction(), NativeCodeInstruction(), NativeCodeInstruction()) ||
+				mEntryBlock->GlobalLoadStoreForwarding(true, NativeCodeInstruction(), NativeCodeInstruction(), NativeCodeInstruction()))
 			{
 				ResetVisited();
 				NativeRegisterDataSet	data;
