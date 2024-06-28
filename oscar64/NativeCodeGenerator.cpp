@@ -23835,7 +23835,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					mTrueJump->mIns.Remove(0);
 					mTrueJump->mEntryRequiredRegs += CPU_REG_A;
 
-					if (mTrueJump->mIns[0].mLive & LIVE_CPU_REG_Z)
+					if (mTrueJump->mIns.Size() > 0 && (mTrueJump->mIns[0].mLive & LIVE_CPU_REG_Z))
 						mTrueJump->mEntryRequiredRegs += CPU_REG_Z;
 
 					changed = true;

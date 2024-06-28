@@ -253,7 +253,7 @@ int main2(int argc, const char** argv)
 				{
 					defining = true;
 				}
-				else if (arg[1] == 'd')
+				else if (arg[1] == 'd' || arg[1] == 'D')
 				{
 					char	def[100];
 					int i = 2;
