@@ -651,6 +651,7 @@ public:
 	bool RemoveDoubleZPStore(void);
 
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);
+	bool Expand16BitLoopBranch(void);
 	bool SimpleInlineCalls(void);
 
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);
