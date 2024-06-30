@@ -8129,6 +8129,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 									vr.mMinValue = 0;
 									break;
 								}
+								vr.mMinState = IntegerValueRange::S_BOUND;
+								vr.mMaxState = IntegerValueRange::S_BOUND;
 							}
 						}
 					}
@@ -8148,20 +8150,43 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 
 						if (ins->mSrc[0].mIntConst > 0)
 						{
-							switch (ins->mSrc[1].mType)
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxState == IntegerValueRange::S_BOUND)
 							{
-							case IT_INT16:
-								vr.mMaxValue = (short)(int64min(32767, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
-								vr.mMinValue = (short)(int64max(-32768, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
-								break;
-							case IT_INT8:
-								vr.mMaxValue = (char)(int64min(127, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
-								vr.mMinValue = (char)(int64max(-128, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
-								break;
-							case IT_INT32:
-								vr.mMaxValue = (int)(vr.mMaxValue) >> ins->mSrc[0].mIntConst;
-								vr.mMinValue = (int)(vr.mMinValue) >> ins->mSrc[0].mIntConst;
-								break;
+								switch (ins->mSrc[1].mType)
+								{
+								case IT_INT16:
+									vr.mMaxValue = (short)(int64min(32767, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (short)(int64max(-32768, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
+									break;
+								case IT_INT8:
+									vr.mMaxValue = (char)(int64min(127, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (char)(int64max(-128, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
+									break;
+								case IT_INT32:
+									vr.mMaxValue = (int)(int64min(2147483647, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (int)(int64max(-2147483648, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
+									break;
+								}
+							}
+							else
+							{
+								switch (ins->mSrc[1].mType)
+								{
+								case IT_INT16:
+									vr.mMaxValue = (short) 32767 >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (short)-32768 >> ins->mSrc[0].mIntConst;
+									break;
+								case IT_INT8:
+									vr.mMaxValue = (char) 127 >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (char)-128 >> ins->mSrc[0].mIntConst;
+									break;
+								case IT_INT32:
+									vr.mMaxValue = (int) 2147483647 >> ins->mSrc[0].mIntConst;
+									vr.mMinValue = (int)-2147483648 >> ins->mSrc[0].mIntConst;
+									break;
+								}
+								vr.mMinState = IntegerValueRange::S_BOUND;
+								vr.mMaxState = IntegerValueRange::S_BOUND;
 							}
 						}
 					}
@@ -8711,7 +8736,6 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				break;
 #endif
 			case IA_CMPLS:
-				// Why limit weak, makes no sense
 				if (s0 < 0)
 				{
 					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
@@ -21191,7 +21215,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "getch");
+	CheckFunc = !strcmp(mIdent->mString, "interpret_builtin");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
