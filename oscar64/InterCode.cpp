@@ -15502,6 +15502,57 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 						}
 					}
 				}					
+				else if (
+					mInstructions[nins - 1]->mCode == IC_BRANCH &&
+					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[nins - 2]->mOperator == IA_CMPNE && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+					mInstructions[nins - 3]->mCode == IC_LEA &&
+					mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp &&
+					mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 3]->mSrc[1].mTemp &&
+					mInstructions[nins - 3]->mSrc[0].mTemp < 0)
+				{
+					InterCodeBasicBlock* prefix = this == mEntryBlocks[0] ? mEntryBlocks[1] : mEntryBlocks[0];
+
+					int64	step = mInstructions[nins - 3]->mSrc[0].mIntConst;
+
+					if (step > 0)
+					{
+						InterInstruction* i1 = FindSourceInstruction(prefix, mInstructions[nins - 2]->mSrc[0].mTemp);
+						InterInstruction* i2 = FindSourceInstruction(prefix, mInstructions[nins - 2]->mSrc[1].mTemp);
+
+						if (i1 && i2 && i1->mCode == IC_CONSTANT && i2->mCode == IC_CONSTANT && i1->mConst.mMemory == i2->mConst.mMemory)
+						{
+							if (i1->mConst.mMemory == IM_GLOBAL && i1->mConst.mLinkerObject == i2->mConst.mLinkerObject)
+							{
+								int64 count = (i1->mConst.mIntConst - i2->mConst.mIntConst) / step;
+								if (count * step + i2->mConst.mIntConst == i1->mConst.mIntConst)
+								{
+									if (count < 5 && (nins - 3) * count < 20)
+									{
+										mInstructions.SetSize(nins - 2);
+										nins -= 2;
+										for (int i = 1; i < count; i++)
+										{
+											for (int j = 0; j < nins; j++)
+											{
+												mInstructions.Push(mInstructions[j]->Clone());
+											}
+										}
+
+										mNumEntries--;
+										mLoopHead = false;
+										mTrueJump = mFalseJump;
+										mFalseJump = nullptr;
+
+										InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
+										mInstructions.Push(jins);
+									}
+								}
+							}
+						}
+					}
+
+				}
+
 			}
 		}
 
@@ -21215,7 +21266,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "interpret_builtin");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
