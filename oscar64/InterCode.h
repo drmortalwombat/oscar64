@@ -367,6 +367,7 @@ public:
 	GrowingInstructionArray			mInstructions;
 
 	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable, mLoopPath, mValueRangeValid;
+	mutable int						mMark;
 
 	NumberSet						mLocalUsedTemps, mLocalModifiedTemps;
 	NumberSet						mLocalRequiredTemps, mLocalProvidedTemps;
@@ -616,6 +617,8 @@ public:
 	void SplitBranches(void);
 	void FollowJumps(void);
 
+	bool ShortLeaMerge(void);
+
 	bool IsEqual(const InterCodeBasicBlock* block) const;
 
 	void CompactInstructions(void);
@@ -741,6 +744,8 @@ protected:
 	void RemoveUnusedMallocs(void);
 	void RecheckLocalAliased(void);
 	void ConstLoopOptimization(void);
+
+	void ShortLeaMerge(void);
 
 	void MergeBasicBlocks(void);
 	void CheckUsedDefinedTemps(void);

@@ -22,7 +22,7 @@ public:
 
 	int Emulate(int startIP, int trace);
 	void DumpProfile(void);
-	bool EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, int & cycles);
+	bool EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, int & cycles, bool cross, bool indexed);
 protected:
 	void UpdateStatus(uint8 result);
 	void UpdateStatusCarry(uint8 result, bool carry);

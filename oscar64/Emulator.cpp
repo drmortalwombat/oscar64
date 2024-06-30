@@ -115,7 +115,7 @@ void Emulator::DumpCycles(void)
 	}
 }
 
-bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, int & cycles)
+bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, int & cycles, bool cross, bool indexed)
 {
 	int	t;
 
@@ -134,12 +134,14 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 
 		mRegA = (t & 255);
 		UpdateStatusCarry(mRegA, t >= 256);
+		if (cross) cycles++;
 		break;
 	case ASMIT_AND:
 		if (mode != ASMIM_IMMEDIATE)
 			addr = mMemory[addr];
 		mRegA &= addr;
 		UpdateStatus(mRegA);
+		if (cross) cycles++;
 		break;
 	case ASMIT_ASL:
 		if (mode == ASMIM_IMPLIED)
@@ -154,19 +156,29 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			mMemory[addr] = t & 255;
 			UpdateStatusCarry(t & 255, t >= 256);
 			cycles += 2;
+			if (indexed) cycles++;
 		}
 		break;
 	case ASMIT_BCC:
 		if (!(mRegP & STATUS_CARRY))
+		{
 			mIP = addr;
+			cycles++;
+		}
 		break;
 	case ASMIT_BCS:
 		if ((mRegP & STATUS_CARRY))
+		{
 			mIP = addr;
+			cycles++;
+		}
 		break;
 	case ASMIT_BEQ:
 		if ((mRegP & STATUS_ZERO))
+		{
 			mIP = addr;
+			cycles++;
+		}
 		break;
 	case ASMIT_BIT:
 		t = mMemory[addr];
@@ -235,6 +247,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			mRegP |= STATUS_OVERFLOW;
 
 		UpdateStatusCarry(t & 255, t >= 256);
+		if (cross) cycles++;
 		break;
 	case ASMIT_CPX:
 		if (mode != ASMIM_IMMEDIATE)
@@ -275,6 +288,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			mMemory[addr] = t & 255;
 			UpdateStatus(t & 255);
 			cycles += 2;
+			if (indexed) cycles++;
 		}
 		break;
 	case ASMIT_DEX:
@@ -292,6 +306,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			addr = mMemory[addr];
 		mRegA ^= addr;
 		UpdateStatus(mRegA);
+		if (cross) cycles++;
 		break;
 	case ASMIT_INC:
 		if (mode == ASMIM_IMPLIED)
@@ -306,6 +321,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			mMemory[addr] = t & 255;
 			UpdateStatus(t & 255);
 			cycles += 2;
+			if (indexed) cycles++;
 		}
 		break;
 	case ASMIT_INX:
@@ -334,18 +350,21 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			addr = mMemory[addr];
 		mRegA = addr;
 		UpdateStatus(mRegA);
+		if (cross) cycles++;
 		break;
 	case ASMIT_LDX:
 		if (mode != ASMIM_IMMEDIATE)
 			addr = mMemory[addr];
 		mRegX = addr;
 		UpdateStatus(mRegX);
+		if (cross) cycles++;
 		break;
 	case ASMIT_LDY:
 		if (mode != ASMIM_IMMEDIATE)
 			addr = mMemory[addr];
 		mRegY = addr;
 		UpdateStatus(mRegY);
+		if (cross) cycles++;
 		break;
 	case ASMIT_LSR:
 		if (mode == ASMIM_IMPLIED)
@@ -362,6 +381,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			mMemory[addr] = t & 255;
 			UpdateStatusCarry(t & 255, c != 0);
 			cycles += 2;
+			if (indexed) cycles++;
 		}
 		break;
 	case ASMIT_NOP:
@@ -371,6 +391,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			addr = mMemory[addr];
 		mRegA |= addr;
 		UpdateStatus(mRegA);
+		if (cross) cycles++;
 		break;
 	case ASMIT_PHA:
 		mMemory[0x100 + mRegS] = mRegA;
@@ -405,6 +426,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			mMemory[addr] = t & 255;
 			UpdateStatusCarry(t & 255, t >= 256);
 			cycles+=2;
+			if (indexed) cycles++;
 		}
 		break;
 	case ASMIT_ROR:
@@ -422,6 +444,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 			mMemory[addr] = t & 255;
 			UpdateStatusCarry(t & 255, c != 0);
 			cycles += 2;
+			if (indexed) cycles++;
 		}
 		break;
 	case ASMIT_RTI:
@@ -444,6 +467,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 
 		mRegA = (t & 255);
 		UpdateStatusCarry(t & 255, t >= 256);
+		if (cross) cycles++;
 		break;
 	case ASMIT_SEC:
 		mRegP |= STATUS_CARRY;
@@ -454,6 +478,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_STA:
 		mMemory[addr] = mRegA;
+		if (indexed) cycles++;
 		break;
 	case ASMIT_STX:
 		mMemory[addr] = mRegX;
@@ -512,13 +537,12 @@ int Emulator::Emulate(int startIP, int trace)
 	mMemory[0x1fe] = 0xff;
 	mMemory[0x1ff] = 0xff;
 
-	int		ticks = 0;
+	int		tcycles = 0, cycles = 0;
 	while (mIP != 0)
 	{
 		if (mJiffies)
 		{
-			ticks++;
-			if (ticks > 4500)
+			if (cycles >= tcycles + 16667)
 			{
 				mMemory[0xa2]++;
 				if (!mMemory[0xa2])
@@ -529,7 +553,7 @@ int Emulator::Emulate(int startIP, int trace)
 						mMemory[0xa0]++;
 					}
 				}
-				ticks = 0;
+				tcycles += 16667;
 			}
 		}
 
@@ -556,11 +580,13 @@ int Emulator::Emulate(int startIP, int trace)
 			mRegS += 2;
 		}
 
-		uint8	opcode = mMemory[mIP];
+		uint8		opcode = mMemory[mIP];
 		AsmInsData	d = DecInsData[opcode];
-		int	addr = 0, taddr;
-		int	ip = mIP;
-		int	iip = mMemory[BC_REG_IP] + 256 * mMemory[BC_REG_IP + 1];
+		int			addr = 0, taddr;
+		int			ip = mIP;
+		int			iip = mMemory[BC_REG_IP] + 256 * mMemory[BC_REG_IP + 1];
+		bool		cross = false, indexed = false;
+		int			icycles = 0;
 
 		mIP++;
 		switch (d.mMode)
@@ -568,56 +594,60 @@ int Emulator::Emulate(int startIP, int trace)
 			case ASMIM_IMPLIED:
 				if (trace & 2)
 					printf("%04x : %04x %02x __ __ %s         (A:%02x X:%02x Y:%02x P:%02x S:%02x)\n", iip, ip, mMemory[ip], AsmInstructionNames[d.mType], mRegA, mRegX, mRegY, mRegP, mRegS);
-				mCycles[ip] += 2;
+				icycles = 2;
 				break;
 			case ASMIM_IMMEDIATE:
 				addr = mMemory[mIP++];
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s #$%02x    (A:%02x X:%02x Y:%02x P:%02x S:%02x)\n", iip, ip, mMemory[ip], mMemory[ip+1], AsmInstructionNames[d.mType], addr, mRegA, mRegX, mRegY, mRegP, mRegS);
-				mCycles[ip] += 2;
+				icycles = 2;
 				break;
 			case ASMIM_ZERO_PAGE:
 				addr = mMemory[mIP++];
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s $%02x     (A:%02x X:%02x Y:%02x P:%02x S:%02x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], addr, mRegA, mRegX, mRegY, mRegP, mRegS, mMemory[addr]);
-				mCycles[ip] += 3;
+				icycles = 3;
 				break;
 			case ASMIM_ZERO_PAGE_X:
 				taddr = mMemory[mIP++];
 				addr = (taddr + mRegX) & 0xff;
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s $%02x,x   (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
-				mCycles[ip] += 3;
+				icycles = 4;
 				break;
 			case ASMIM_ZERO_PAGE_Y:
 				taddr = mMemory[mIP++];
 				addr = (taddr + mRegY) & 0xff;
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s $%02x,y   (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
-				mCycles[ip] += 3;
+				icycles = 4;
 				break;
 			case ASMIM_ABSOLUTE:
 				addr = mMemory[mIP] + 256 * mMemory[mIP + 1];
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x %02x %s $%04x   (A:%02x X:%02x Y:%02x P:%02x S:%02x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], addr, mRegA, mRegX, mRegY, mRegP, mRegS, mMemory[addr]);
 				mIP += 2;
-				mCycles[ip] += 4;
+				icycles = 4;
 				break;
 			case ASMIM_ABSOLUTE_X:
 				taddr = mMemory[mIP] + 256 * mMemory[mIP + 1];
 				addr = (taddr + mRegX) & 0xffff;
+				cross = mMemory[mIP] + mRegX >= 256;
+				indexed = true;
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x %02x %s $%04x,x (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
 				mIP += 2;
-				mCycles[ip] += 5;
+				icycles = 4;
 				break;
 			case ASMIM_ABSOLUTE_Y:
 				taddr = mMemory[mIP] + 256 * mMemory[mIP + 1];
 				addr = (taddr + mRegY) & 0xffff;
+				cross = mMemory[mIP] + mRegY >= 256;
+				indexed = true;
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x %02x %s $%04x,y (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
 				mIP += 2;
-				mCycles[ip] += 5;
+				icycles = 4;
 				break;
 			case ASMIM_INDIRECT:
 				taddr = mMemory[mIP] + 256 * mMemory[mIP + 1];
@@ -625,21 +655,23 @@ int Emulator::Emulate(int startIP, int trace)
 				addr = mMemory[taddr] + 256 * mMemory[taddr + 1];
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x %02x %s ($%04x) (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], mMemory[ip + 2], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr);
-				mCycles[ip] += 6;
+				icycles = 6;
 				break;
 			case ASMIM_INDIRECT_X:
 				taddr = (mMemory[mIP++] + mRegX) & 0xff;
 				addr = mMemory[taddr] + 256 * mMemory[taddr + 1];
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s ($%02x,x) (A:%02x X:%02x Y:%02x P:%02x S:%02x %02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], mMemory[ip + 1], mRegA, mRegX, mRegY, mRegP, mRegS, taddr, addr, mMemory[addr]);
-				mCycles[ip] += 6;
+				icycles = 6;
 				break;
 			case ASMIM_INDIRECT_Y:
 				taddr = mMemory[mIP++];
 				addr = (mMemory[taddr] + 256 * mMemory[taddr + 1] + mRegY) & 0xffff;
+				cross = mMemory[taddr] + mRegY >= 256;
+				indexed = true;
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s ($%02x),y (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x M:%02x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr, mMemory[addr]);
-				mCycles[ip] += 6;
+				icycles = 5;
 				break;
 			case ASMIM_RELATIVE:
 				taddr = mMemory[mIP++];
@@ -649,7 +681,7 @@ int Emulator::Emulate(int startIP, int trace)
 					addr = taddr + mIP;
 				if (trace & 2)
 					printf("%04x : %04x %02x %02x __ %s $%02x     (A:%02x X:%02x Y:%02x P:%02x S:%02x %04x)\n", iip, ip, mMemory[ip], mMemory[ip + 1], AsmInstructionNames[d.mType], taddr, mRegA, mRegX, mRegY, mRegP, mRegS, addr);
-				mCycles[ip] += 2;
+				icycles = 2;
 				break;
 		}
 
@@ -685,8 +717,11 @@ int Emulator::Emulate(int startIP, int trace)
 			);
 		}
 
-		if (!EmulateInstruction(d.mType, d.mMode, addr, mCycles[ip]))
+		if (!EmulateInstruction(d.mType, d.mMode, addr, icycles, cross, indexed))
 			return -1;
+
+		mCycles[ip] += icycles;
+		cycles += icycles;
 	}
 
 	if (mRegS == 0xff)

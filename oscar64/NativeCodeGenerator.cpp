@@ -50355,8 +50355,13 @@ void NativeCodeProcedure::Optimize(void)
 		if (step == 12)
 		{
 			ResetVisited();
-			if (mEntryBlock->GlobalLoadStoreForwarding(false, NativeCodeInstruction(), NativeCodeInstruction(), NativeCodeInstruction()) ||
-				mEntryBlock->GlobalLoadStoreForwarding(true, NativeCodeInstruction(), NativeCodeInstruction(), NativeCodeInstruction()))
+			bool cc = mEntryBlock->GlobalLoadStoreForwarding(false, NativeCodeInstruction(), NativeCodeInstruction(), NativeCodeInstruction());
+			if (!cc)
+			{
+				ResetVisited();
+				cc = mEntryBlock->GlobalLoadStoreForwarding(true, NativeCodeInstruction(), NativeCodeInstruction(), NativeCodeInstruction());
+			}
+			if (cc)
 			{
 				ResetVisited();
 				NativeRegisterDataSet	data;

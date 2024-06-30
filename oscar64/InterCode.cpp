@@ -8333,9 +8333,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(const GrowingVaria
 	{
 		InterInstruction* ins(mInstructions[i]);
 		if (ins->mCode == IC_LOAD && ins->mSrc[0].mMemory == IM_INDIRECT && ins->mSrc[0].mTemp >= 0)
-			mMemoryValueSize[ins->mSrc[0].mTemp] = int64max(mMemoryValueSize[ins->mSrc[0].mTemp], ins->mSrc[0].mIntConst + InterTypeSize[ins->mDst.mType]);
+			mMemoryValueSize[ins->mSrc[0].mTemp] = int64max(mMemoryValueSize[ins->mSrc[0].mTemp], ins->mSrc[0].mIntConst + (InterTypeSize[ins->mDst.mType] - 1) * ins->mSrc[0].mStride + 1);
 		else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0)
-			mMemoryValueSize[ins->mSrc[1].mTemp] = int64max(mMemoryValueSize[ins->mSrc[1].mTemp], ins->mSrc[1].mIntConst + InterTypeSize[ins->mSrc[0].mType]);
+			mMemoryValueSize[ins->mSrc[1].mTemp] = int64max(mMemoryValueSize[ins->mSrc[1].mTemp], ins->mSrc[1].mIntConst + (InterTypeSize[ins->mSrc[0].mType] - 1) * ins->mSrc[1].mStride + 1);
 		else if (ins->mCode == IC_FILL)
 		{
 			if (ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0)
@@ -8711,6 +8711,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				break;
 #endif
 			case IA_CMPLS:
+				// Why limit weak, makes no sense
 				if (s0 < 0)
 				{
 					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
@@ -8825,7 +8826,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					if (s0 < 0)
 					{
 						mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
-						mTrueValueRange[s1].LimitMinWeak(0);
+
+						if (mInstructions[sz - 2]->mSrc[0].mIntConst > 0 && mInstructions[sz - 2]->mSrc[0].mIntConst < SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType))
+							mTrueValueRange[s1].LimitMin(0);
+						else
+							mTrueValueRange[s1].LimitMinWeak(0);
 
 						if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
 						{
@@ -12240,7 +12245,10 @@ InterInstruction* InterCodeBasicBlock::FindTempOrigin(int temp) const
 	for (int i = mInstructions.Size() - 1; i >= 0; i--)
 	{
 		if (mInstructions[i]->mDst.mTemp == temp)
+		{
+			mMark = i;
 			return mInstructions[i];
+		}
 	}
 	return nullptr;	
 }
@@ -17554,6 +17562,133 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 	}
 }
 
+static bool IsSimilarLea(InterInstruction* ins0, InterInstruction* ins1)
+{
+	if (ins0->mCode == IC_LEA && ins1->mCode == IC_LEA &&
+		ins0->mSrc[0].mTemp == ins1->mSrc[0].mTemp &&
+		ins0->mSrc[1].mTemp == ins1->mSrc[1].mTemp &&
+		ins0->mSrc[0].IsUByte() && ins1->mSrc[0].IsUByte())
+	{
+		if (ins0->mSrc[1].mTemp >= 0 && ins0->mSrc[1].mFinal && ins1->mSrc[1].mFinal ||
+			ins0->mSrc[1].mMemory == ins1->mSrc[1].mMemory &&
+			ins0->mSrc[1].mVarIndex == ins1->mSrc[1].mVarIndex &&
+			ins0->mSrc[1].mLinkerObject == ins1->mSrc[1].mLinkerObject)
+		{
+			if (ins0->mSrc[1].mIntConst < ins1->mSrc[1].mIntConst)
+			{
+				if (ins1->mSrc[0].mRange.mMaxValue + ins1->mSrc[1].mIntConst - ins0->mSrc[1].mIntConst < 128)
+					return true;
+			}
+			else if (ins0->mSrc[1].mIntConst > ins1->mSrc[1].mIntConst)
+			{
+				if (ins0->mSrc[0].mRange.mMaxValue + ins0->mSrc[1].mIntConst - ins1->mSrc[1].mIntConst < 128)
+					return true;
+			}
+			else
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool InterCodeBasicBlock::ShortLeaMerge(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mLoopHead && mEntryBlocks.Size() > 1)
+		{
+			int k = 0;
+			while (k < mEntryBlocks.Size() && !mEntryBlocks[k]->mFalseJump)
+				k++;
+
+			if (k == mEntryBlocks.Size())
+			{
+				GrowingInstructionArray	iins(nullptr);
+
+				for (int i = 0; i < mInstructions.Size(); i++)
+				{
+					InterInstruction* ins = mInstructions[i];
+
+					int	ttemp = -1;
+					if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp >= 0)
+						ttemp = ins->mSrc[1].mTemp;
+					else if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp >= 0)
+						ttemp = ins->mSrc[0].mTemp;
+
+					if (ttemp >= 0 && !IsTempModifiedInRange(0, i, ttemp))
+					{
+						bool	found = true;
+
+						iins.SetSize(0);
+						for (int k = 0; k < mEntryBlocks.Size(); k++)
+						{
+							InterInstruction* sins = mEntryBlocks[k]->FindTempOrigin(ttemp);
+							if (sins && sins->mCode == IC_LEA && mEntryBlocks[k]->CanMoveInstructionBehindBlock(mEntryBlocks[k]->mMark))
+								iins.Push(sins);
+							else
+							{
+								found = false;
+								break;
+							}
+						}
+
+						if (found)
+						{
+							int64	minint = iins[0]->mSrc[1].mIntConst;
+
+							for (int k = 1; k < mEntryBlocks.Size(); k++)
+							{
+								if (IsSimilarLea(iins[0], iins[k]))
+								{
+									if (iins[k]->mSrc[1].mIntConst < minint)
+										minint = iins[k]->mSrc[1].mIntConst;
+								}
+								else
+								{
+									found = false;
+									break;
+								}
+							}
+
+							if (found)
+							{
+								mInstructions.Insert(0, iins[0]->Clone());
+								iins[0]->mSrc[1].mIntConst = minint;
+
+								for (int k = 0; k < mEntryBlocks.Size(); k++)
+								{
+									InterInstruction* sins = iins[k];
+									sins->mCode = IC_BINARY_OPERATOR;
+									sins->mOperator = IA_ADD;
+									sins->mDst = sins->mSrc[0];
+									sins->mSrc[1].mTemp = -1;
+									sins->mSrc[1].mType = sins->mSrc[0].mType;
+									sins->mSrc[1].mIntConst -= minint;
+									sins->mDst.mRange.mMaxValue += sins->mSrc[1].mIntConst;
+									mEntryBlocks[k]->mExitRequiredTemps += sins->mDst.mTemp;
+								}
+
+								changed = true;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ShortLeaMerge()) changed = true;
+		if (mFalseJump && mFalseJump->ShortLeaMerge()) changed = true;
+	}
+
+	return changed;
+}
+
+
 void InterCodeBasicBlock::CompactInstructions(void)
 {
 	if (!mVisited)
@@ -17733,6 +17868,28 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mNumOperands = 0;
 				mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
 				mInstructions[i + 2]->mSrc[1].mFinal = false;
+				changed = true;
+			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && 
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst >= 0 &&
+				mInstructions[i + 1]->mCode == IC_TYPECAST && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+				mInstructions[i + 1]->mDst.mType == IT_POINTER && mInstructions[i + 1]->mSrc[0].mType == IT_INT16)
+			{
+				int64	addr = mInstructions[i + 0]->mSrc[0].mIntConst;
+
+				mInstructions[i + 0]->mCode = IC_LEA;
+				mInstructions[i + 0]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 0]->mSrc[1].mTemp = -1;
+				mInstructions[i + 0]->mSrc[1].mType = IT_POINTER;
+				mInstructions[i + 0]->mSrc[1].mMemory = IM_ABSOLUTE;
+				mInstructions[i + 0]->mSrc[1].mIntConst = addr;
+				mInstructions[i + 0]->mSrc[1].mLinkerObject = nullptr;
+				mInstructions[i + 0]->mSrc[1].mVarIndex = -1;
+				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+		
+				mInstructions[i + 1]->mCode = IC_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
 				changed = true;
 			}
 			else if (
@@ -21034,7 +21191,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "getch");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -22223,10 +22380,12 @@ bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
 				{
 					if (!(mInstructions[j0]->IsEqual(block->mInstructions[j1])))
 					{
-						if (mInstructions[j0]->mCode == IC_LEA && mInstructions[j0]->mSrc[1].mTemp < 0)
-							return false;
-						if (block->mInstructions[j1]->mCode == IC_LEA && block->mInstructions[j1]->mSrc[1].mTemp < 0)
-							return false;
+						if (mInstructions[j0]->mCode == IC_LEA && mInstructions[j0]->mSrc[1].mTemp < 0 ||
+							block->mInstructions[j1]->mCode == IC_LEA && block->mInstructions[j1]->mSrc[1].mTemp < 0)
+						{
+							if (!IsSimilarLea(mInstructions[j0], block->mInstructions[j1]))
+								return false;
+						}
 					}
 				}
 
@@ -22257,10 +22416,12 @@ bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
 				{
 					if (!(mInstructions[j0]->IsEqual(block->mInstructions[j1])))
 					{
-						if (mInstructions[j0]->mCode == IC_LEA && mInstructions[j0]->mSrc[1].mTemp < 0)
-							return false;
-						if (block->mInstructions[j1]->mCode == IC_LEA && mInstructions[j1]->mSrc[1].mTemp < 0)
-							return false;
+						if (mInstructions[j0]->mCode == IC_LEA && mInstructions[j0]->mSrc[1].mTemp < 0 ||
+							block->mInstructions[j1]->mCode == IC_LEA && block->mInstructions[j1]->mSrc[1].mTemp < 0)
+						{
+							if (!IsSimilarLea(mInstructions[j0], block->mInstructions[j1]))
+								return false;
+						}
 					}
 				}
 			}
@@ -22303,6 +22464,14 @@ bool PartitionSameExitCode(GrowingArray<InterCodeBasicBlock* > & eblocks, Growin
 	}
 
 	return false;
+}
+
+void InterCodeProcedure::ShortLeaMerge(void)
+{
+	ResetVisited();
+	mEntryBlock->ShortLeaMerge();
+
+	DisassembleDebug("ShortLeaMerge");
 }
 
 void InterCodeProcedure::MergeBasicBlocks(void)
@@ -22459,6 +22628,12 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 					}
 				}
 			}
+		}
+
+		if (!changed)
+		{
+			ResetVisited();
+			changed = mEntryBlock->ShortLeaMerge();
 		}
 
 	} while (changed);
