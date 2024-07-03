@@ -639,6 +639,7 @@ public:
 	void FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias, int accu);
 	bool RemapZeroPage(const uint8* remap);
 
+	bool LoopRegisterXYMap(void);
 	void GlobalRegisterXYCheck(int* xregs, int * yregs);
 	void GlobalRegisterXMap(int reg);
 	void GlobalRegisterYMap(int reg);
@@ -771,6 +772,8 @@ public:
 	bool PatchCrossBlockY2XFloodExit(const NativeCodeBasicBlock* block);
 
 	void PropagateZPAbsolute(const NativeRegisterDataSet& data);
+
+	void PropagateAddGlobalCarry(void);
 
 	void RegisterFunctionCalls(void);
 	bool MergeFunctionCalls(void);

@@ -17667,7 +17667,7 @@ static bool IsSimilarLea(InterInstruction* ins0, InterInstruction* ins1)
 	return false;
 }
 
-bool InterCodeBasicBlock::ShortLeaMerge(void)
+bool InterCodeBasicBlock::ShortLeaMerge(int& spareTemps)
 {
 	bool	changed = false;
 
@@ -17735,17 +17735,38 @@ bool InterCodeBasicBlock::ShortLeaMerge(void)
 								mInstructions.Insert(0, iins[0]->Clone());
 								iins[0]->mSrc[1].mIntConst = minint;
 
-								for (int k = 0; k < mEntryBlocks.Size(); k++)
+								if (iins[0]->mSrc[0].mTemp < 0)
 								{
-									InterInstruction* sins = iins[k];
-									sins->mCode = IC_BINARY_OPERATOR;
-									sins->mOperator = IA_ADD;
-									sins->mDst = sins->mSrc[0];
-									sins->mSrc[1].mTemp = -1;
-									sins->mSrc[1].mType = sins->mSrc[0].mType;
-									sins->mSrc[1].mIntConst -= minint;
-									sins->mDst.mRange.mMaxValue += sins->mSrc[1].mIntConst;
-									mEntryBlocks[k]->mExitRequiredTemps += sins->mDst.mTemp;
+									if (spareTemps + 2 >= mEntryRequiredTemps.Size() + 16)
+										return true;
+									int ttemp = spareTemps++;
+									mInstructions[0]->mSrc[0].mTemp = ttemp;
+									mInstructions[0]->mSrc[0].mType = IT_INT16;
+
+									for (int k = 0; k < mEntryBlocks.Size(); k++)
+									{
+										InterInstruction* sins = iins[k];
+										sins->mCode = IC_CONSTANT;
+										sins->mDst = mInstructions[0]->mSrc[0];
+										sins->mConst = sins->mSrc[0];
+										sins->mConst.mIntConst -= minint;
+										sins->mNumOperands = 0;
+									}
+								}
+								else
+								{
+									for (int k = 0; k < mEntryBlocks.Size(); k++)
+									{
+										InterInstruction* sins = iins[k];
+										sins->mCode = IC_BINARY_OPERATOR;
+										sins->mOperator = IA_ADD;
+										sins->mDst = sins->mSrc[0];
+										sins->mSrc[1].mTemp = -1;
+										sins->mSrc[1].mType = sins->mSrc[0].mType;
+										sins->mSrc[1].mIntConst -= minint;
+										sins->mDst.mRange.mMaxValue += sins->mSrc[1].mIntConst;
+										mEntryBlocks[k]->mExitRequiredTemps += sins->mDst.mTemp;
+									}
 								}
 
 								changed = true;
@@ -17756,8 +17777,8 @@ bool InterCodeBasicBlock::ShortLeaMerge(void)
 			}
 		}
 
-		if (mTrueJump && mTrueJump->ShortLeaMerge()) changed = true;
-		if (mFalseJump && mFalseJump->ShortLeaMerge()) changed = true;
+		if (mTrueJump && mTrueJump->ShortLeaMerge(spareTemps)) changed = true;
+		if (mFalseJump && mFalseJump->ShortLeaMerge(spareTemps)) changed = true;
 	}
 
 	return changed;
@@ -22076,7 +22097,7 @@ void InterCodeProcedure::Close(void)
 
 		CheckBlocks();
 
-		MergeBasicBlocks();
+		MergeBasicBlocks(activeSet);
 
 		CheckBlocks();
 
@@ -22168,7 +22189,7 @@ void InterCodeProcedure::Close(void)
 
 	// Optimize for size
 
-	MergeBasicBlocks();
+	MergeBasicBlocks(activeSet);
 	BuildTraces(false, false, true);
 	DisassembleDebug("Final Merged basic blocks");
 
@@ -22541,15 +22562,44 @@ bool PartitionSameExitCode(GrowingArray<InterCodeBasicBlock* > & eblocks, Growin
 	return false;
 }
 
-void InterCodeProcedure::ShortLeaMerge(void)
+bool InterCodeProcedure::ShortLeaMerge(FastNumberSet& activeSet)
 {
-	ResetVisited();
-	mEntryBlock->ShortLeaMerge();
+	int		silvused = mTemporaries.Size();
+
+	int		n = 0;
+	do
+	{
+		ResetEntryBlocks();
+		ResetVisited();
+		mEntryBlock->CollectEntryBlocks(nullptr);
+
+		n++;
+		if (silvused != mTemporaries.Size())
+		{
+			mTemporaries.SetSize(activeSet.Num(), true);
+
+			ResetVisited();
+			mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
+
+			mLocalValueRange.SetSize(activeSet.Num(), true);
+
+			ResetVisited();
+			mEntryBlock->RemapActiveTemporaries(activeSet);
+
+			silvused = mTemporaries.Size();
+		}
+
+		ResetVisited();
+	} while (mEntryBlock->ShortLeaMerge(silvused));
+
+	assert(silvused == mTemporaries.Size());
 
 	DisassembleDebug("ShortLeaMerge");
+
+	return n > 1;
 }
 
-void InterCodeProcedure::MergeBasicBlocks(void)
+void InterCodeProcedure::MergeBasicBlocks(FastNumberSet& activeSet)
 {
 	ResetVisited();
 	mEntryBlock->FollowJumps();
@@ -22708,13 +22758,13 @@ void InterCodeProcedure::MergeBasicBlocks(void)
 		if (!changed)
 		{
 			ResetVisited();
-			changed = mEntryBlock->ShortLeaMerge();
+			mEntryBlock->FollowJumps();
+
+			changed = ShortLeaMerge(activeSet);
 		}
 
 	} while (changed);
 
-	ResetVisited();
-	mEntryBlock->FollowJumps();
 
 }
 

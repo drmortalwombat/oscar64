@@ -567,6 +567,7 @@ public:
 	bool IsInsModifiedInRange(int from, int to, const InterInstruction* ins);
 
 	InterInstruction* FindTempOrigin(int temp) const;
+	InterInstruction* FindTempOriginSinglePath(int temp) const;
 
 	bool CheapInlining(int & numTemps);
 	bool CollapseDispatch();
@@ -617,7 +618,7 @@ public:
 	void SplitBranches(void);
 	void FollowJumps(void);
 
-	bool ShortLeaMerge(void);
+	bool ShortLeaMerge(int& spareTemps);
 
 	bool IsEqual(const InterCodeBasicBlock* block) const;
 
@@ -745,9 +746,9 @@ protected:
 	void RecheckLocalAliased(void);
 	void ConstLoopOptimization(void);
 
-	void ShortLeaMerge(void);
+	bool ShortLeaMerge(FastNumberSet& activeSet);
 
-	void MergeBasicBlocks(void);
+	void MergeBasicBlocks(FastNumberSet& activeSet);
 	void CheckUsedDefinedTemps(void);
 	void WarnUsedUndefinedVariables(void);
 	void WarnInvalidValueRanges(void);
