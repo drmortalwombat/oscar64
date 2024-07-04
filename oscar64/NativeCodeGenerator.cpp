@@ -21352,7 +21352,7 @@ bool NativeCodeBasicBlock::LoopRegisterXYMap(void)
 				{
 					pblock = mProc->AllocateBlock();
 					pblock->mEntryRequiredRegs = mEntryRequiredRegs;
-					pblock->mExitRequiredRegs = mExitRequiredRegs;
+					pblock->mExitRequiredRegs = mEntryRequiredRegs;
 					pblock->Close(pblocks[0]->mBranchIns, this, nullptr, ASMIT_JMP);
 					AddEntryBlock(pblock);
 					for (int i = 0; i < pblocks.Size(); i++)
@@ -34761,7 +34761,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoop(NativeCodeProcedure* proc)
 				{
 					pblock = mProc->AllocateBlock();
 					pblock->mEntryRequiredRegs = mEntryRequiredRegs;
-					pblock->mExitRequiredRegs = mExitRequiredRegs;
+					pblock->mExitRequiredRegs = mEntryRequiredRegs;
 					pblock->Close(pblocks[0]->mBranchIns, this, nullptr, ASMIT_JMP);
 					AddEntryBlock(pblock);
 					for (int i = 0; i < pblocks.Size(); i++)
@@ -49225,7 +49225,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "vspr_sort");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "enemies_check");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -50654,6 +50654,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 #endif
+
 
 #if _DEBUG
 		ResetVisited();
