@@ -16084,6 +16084,22 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(bool zpage, const NativeCod
 				mIns[i + 1].mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
+			else if (mXLSIns.mType != ASMIT_INV && ins.mType == ASMIT_LDA && i + 1 < mIns.Size() &&
+				mIns[i + 1].SameEffectiveAddress(mXLSIns) && mIns[i + 1].IsCommutative())
+			{
+				mIns[i + 1].CopyMode(ins);
+				ins.mType = ASMIT_TXA;
+				ins.mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+			else if (mYLSIns.mType != ASMIT_INV && ins.mType == ASMIT_LDA && i + 1 < mIns.Size() &&
+				mIns[i + 1].SameEffectiveAddress(mYLSIns) && mIns[i + 1].IsCommutative())
+			{
+				mIns[i + 1].CopyMode(ins);
+				ins.mType = ASMIT_TYA;
+				ins.mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
 
 			if (ins.mType == ASMIT_STA)
 			{
@@ -16194,6 +16210,22 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(bool zpage, const NativeCod
 					if (mXLSIns.mType != ASMIT_INV && mYLSIns.mMode == ASMIM_ABSOLUTE_Y)
 						mXLSIns.mType = ASMIT_INV;
 				}
+			}
+			else if (ins.mType == ASMIT_TAY)
+			{
+				mYLSIns = mALSIns;
+			}
+			else if (ins.mType == ASMIT_TAX)
+			{
+				mXLSIns = mALSIns;
+			}
+			else if (ins.mType == ASMIT_TYA)
+			{
+				mALSIns = mYLSIns;
+			}
+			else if (ins.mType == ASMIT_TXA)
+			{
+				mALSIns = mXLSIns;
 			}
 			else
 			{
@@ -32879,13 +32911,33 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreUp(int at)
 	int	j = at - 1;
 	while (j > 0)
 	{
-		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at + 1].mAddress)
+		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && (mIns[j].mAddress == mIns[at + 1].mAddress || mIns[j].mAddress == mIns[at + 2].mAddress))
 		{
-			if (mIns[j].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C))
-				return false;
+			bool	flip = mIns[j].mAddress != mIns[at + 1].mAddress;
 
-			for (int i = j + 1; i < at; i++)
-				mIns[i].mLive |= LIVE_CPU_REG_C;
+			if (mIns[j].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C))
+			{					
+				int k = j;
+				j++;
+				while (j < mIns.Size() && (mIns[j].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+				{
+					if (mIns[j].ChangesAccu())
+						return false;
+					j++;
+				}
+
+				while (k < j)
+					mIns[k++].mLive |= LIVE_CPU_REG_A;
+			}
+
+			if (mIns[at + 2].mLive & LIVE_CPU_REG_C)
+			{
+				for (int i = j + 1; i < at; i++)
+					mIns[i].mLive |= LIVE_CPU_REG_C;
+			}
+
+			if (flip)
+				mIns[at + 2].mAddress = mIns[at + 1].mAddress;
 
 			mIns[at + 0].mLive |= mIns[j].mLive | LIVE_CPU_REG_A;
 			mIns[at + 2].mLive |= mIns[j].mLive;
@@ -32900,7 +32952,7 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreUp(int at)
 			mIns[at + 3].mType = ASMIT_NOP; mIns[at + 3].mMode = ASMIM_IMPLIED;
 			mIns[at + 4].mType = ASMIT_NOP; mIns[at + 4].mMode = ASMIM_IMPLIED;
 			mIns[at + 5].mType = ASMIT_NOP; mIns[at + 5].mMode = ASMIM_IMPLIED;
-			mIns[at + 6].mType = ASMIT_NOP; mIns[at + 6].mMode = ASMIM_IMPLIED;
+			mIns[at + 6].mType = ASMIT_LDA; 
 			return true;
 		}
 
@@ -32910,7 +32962,7 @@ bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreUp(int at)
 			return false;
 		if (mIns[j].UsesZeroPage(mIns[at + 3].mAddress))
 			return false;
-		if (mIns[j].ChangesCarry())
+		if ((mIns[at + 2].mLive & LIVE_CPU_REG_C) && mIns[j].ChangesCarry())
 			return false;
 
 		j--;
@@ -41341,7 +41393,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 			mIns[i + 0].mType == ASMIT_CLC &&
 			mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
-			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && (mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE)
 		{
 			if (MoveCLCLoadAddZPStoreUp(i))
 				changed = true;

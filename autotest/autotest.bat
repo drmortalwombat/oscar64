@@ -150,6 +150,9 @@ rem @echo off
 @call :test qsorttest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testn plasma.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test loopdomtest.c
 @if %errorlevel% neq 0 goto :error
 
