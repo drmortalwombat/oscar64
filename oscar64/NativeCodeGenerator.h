@@ -351,7 +351,8 @@ public:
 
 	void CheckFrameIndex(const InterInstruction * ins, int & reg, int & index, int size, int treg = 0);
 	void LoadValueToReg(InterCodeProcedure* proc, const InterInstruction * ins, int reg, const NativeCodeInstruction * ainsl, const NativeCodeInstruction* ainsh);
-	void LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction * ins, InterType type, int reg);
+	void LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction* ins, InterType type, int reg);
+	void LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction* ins, const InterOperand & op, InterType type, int reg);
 
 	void LoadConstant(InterCodeProcedure* proc, const InterInstruction * ins);
 	void StoreValue(InterCodeProcedure* proc, const InterInstruction * ins);

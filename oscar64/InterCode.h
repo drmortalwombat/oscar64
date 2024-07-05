@@ -594,6 +594,7 @@ public:
 	void CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void ConstLoopOptimization(void);
+	void EliminateDoubleLoopCounter(void);
 	void PushMoveOutOfLoop(void);
 	bool MoveConditionOutOfLoop(void);
 	void SingleLoopCountZeroCheck(void);
@@ -755,6 +756,7 @@ protected:
 	void PropagateMemoryAliasingInfo(void);
 	void MoveConditionsOutOfLoop(void);
 	void ShortcutConstBranches(void);
+	void EliminateDoubleLoopCounter(void);
 
 	void CollapseDispatch(void);
 

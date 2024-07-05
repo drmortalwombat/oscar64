@@ -15106,6 +15106,189 @@ void InterCodeBasicBlock::ConstLoopOptimization(void)
 	}
 }
 
+void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2 && mLoopPrefix->mEntryBlocks.Size() == 1)
+		{
+			ExpandingArray<InterCodeBasicBlock*> body, path;
+			body.Push(this);
+			bool	innerLoop = true;
+
+			for (int i = 0; i < mEntryBlocks.Size(); i++)
+			{
+				if (mEntryBlocks[i] != mLoopPrefix)
+				{
+					if (!mEntryBlocks[i]->CollectLoopBody(this, body))
+						innerLoop = false;
+				}
+			}
+
+			if (innerLoop)
+			{
+				InterCodeBasicBlock* eblock;
+				if (mEntryBlocks[0] == mLoopPrefix)
+					eblock = mEntryBlocks[1];
+				else
+					eblock = mEntryBlocks[0];
+
+				struct LoopCounter
+				{
+					InterInstruction	*	mInit, * mInc, * mCmp;
+					int64					mStart, mEnd, mStep;
+					bool					mReferenced;
+				};
+
+				ExpandingArray<LoopCounter>	lcs;
+
+				for (int i = 0; i < eblock->mInstructions.Size(); i++)
+				{
+					InterInstruction* ins(eblock->mInstructions[i]);
+
+					LoopCounter	lc;
+					lc.mInc = nullptr;
+					lc.mInit = nullptr;
+					lc.mCmp = nullptr;
+					lc.mReferenced = false;
+
+					if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD)
+					{
+						if (ins->mDst.mTemp == ins->mSrc[0].mTemp && ins->mSrc[1].mTemp < 0 ||
+							ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
+						{
+							lc.mInc = ins;
+						}
+					}
+					else if (ins->mCode == IC_LEA && ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
+					{
+						lc.mInc = ins;
+					}
+
+					if (lc.mInc)
+					{
+						int temp = lc.mInc->mDst.mTemp;
+
+						if (!eblock->IsTempModifiedInRange(0, i, temp))
+						{
+							int sz = eblock->mInstructions.Size();
+							int rz = sz - 1;
+							if (eblock->mInstructions[sz - 1]->mCode == IC_BRANCH &&
+								eblock->mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && eblock->mInstructions[sz - 1]->mSrc[0].mTemp == eblock->mInstructions[sz - 2]->mDst.mTemp &&
+								((eblock->mInstructions[sz - 2]->mSrc[0].mTemp == temp && eblock->mInstructions[sz - 2]->mSrc[1].mTemp < 0) ||
+								 (eblock->mInstructions[sz - 2]->mSrc[1].mTemp == temp && eblock->mInstructions[sz - 2]->mSrc[0].mTemp < 0)))
+							{
+								InterInstruction* ci = eblock->mInstructions[sz - 2];
+
+								if (ci->mOperator == IA_CMPEQ && eblock->mFalseJump == this ||
+									ci->mOperator == IA_CMPNE && eblock->mTrueJump == this)
+								{
+									if (ci->mSrc[0].mTemp < 0)
+										lc.mEnd = ci->mSrc[0].mIntConst;
+									else
+										lc.mEnd = ci->mSrc[1].mIntConst;
+									lc.mCmp = eblock->mInstructions[sz - 2];
+									rz--;
+								}
+							}
+
+							if (!eblock->IsTempModifiedInRange(i + 1, sz, temp))
+							{
+								if (eblock->IsTempReferencedInRange(0, i, temp) || eblock->IsTempReferencedInRange(i + 1, rz, temp))
+									lc.mReferenced = true;
+
+								for (int k = 0; k < body.Size(); k++)
+								{
+									if (body[k] != eblock && body[k]->IsTempReferenced(temp))
+										lc.mReferenced = true;
+								}
+
+								int k = 0;
+								while (k < body.Size() && (body[k] == eblock || !body[k]->IsTempModified(lc.mInc->mDst.mTemp)))
+									k++;
+
+								if (k == body.Size())
+								{
+									lc.mInit = mLoopPrefix->mEntryBlocks[0]->FindTempOrigin(lc.mInc->mDst.mTemp);
+									if (lc.mInit && lc.mInit->mCode == IC_CONSTANT)
+									{
+										lc.mStart = lc.mInit->mConst.mIntConst;
+										if (lc.mInc->mSrc[0].mTemp < 0)
+											lc.mStep = lc.mInc->mSrc[0].mIntConst;
+										else
+											lc.mStep = lc.mInc->mSrc[1].mIntConst;
+										lcs.Push(lc);
+									}
+								}
+							}
+						}
+					}
+				}
+
+				if (lcs.Size() >= 2)
+				{
+					int	loop = -1;
+					int k = 0;
+					while (k < lcs.Size() && !lcs[k].mCmp)
+						k++;
+					if (k < lcs.Size())
+					{
+						int64	start = lcs[k].mStart;
+						int64	end = lcs[k].mEnd;
+						int64	step = lcs[k].mStep;
+
+						if (step > 0 && end > start || step < 0 && end < start)
+							loop = (end - start) / step;
+					}
+
+					if (loop > 0)
+					{
+						if (!lcs[k].mReferenced)
+						{
+							int j = 0;
+							while (j < lcs.Size() && !(lcs[j].mReferenced && lcs[j].mInc->mCode == IC_BINARY_OPERATOR && lcs[j].mStart + lcs[j].mStep * loop < 65536))
+								j++;
+
+							// Pointer compare with constants only in native code path
+							if (j == lcs.Size() && mProc->mNativeProcedure)
+							{
+								j = 0;
+								while (j < lcs.Size() && !(lcs[j].mReferenced && lcs[j].mInc->mCode == IC_LEA && (lcs[j].mInit->mConst.mMemory == IM_GLOBAL || lcs[j].mInit->mConst.mMemory == IM_ABSOLUTE) && 
+									lcs[j].mStart + lcs[j].mStep * loop < 65536))
+									j++;
+							}
+
+							if (j < lcs.Size())
+							{
+								int ci = 0, ti = 1;
+								if (lcs[k].mCmp->mSrc[1].mTemp < 0)
+								{
+									ci = 1;
+									ti = 0;
+								}
+
+								lcs[k].mCmp->mSrc[ti] = lcs[j].mInc->mDst;
+								lcs[k].mCmp->mSrc[ci] = lcs[j].mInit->mConst;
+								lcs[k].mCmp->mSrc[ci].mIntConst += loop * lcs[j].mStep;
+
+								lcs[k].mInc->mCode = IC_NONE;
+								lcs[k].mInc->mNumOperands = 0;
+								lcs[k].mInit->mConst.mIntConst += loop * lcs[k].mStep;
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		if (mTrueJump)
+			mTrueJump->EliminateDoubleLoopCounter();
+		if (mFalseJump)
+			mFalseJump->EliminateDoubleLoopCounter();
+	}
+}
 void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 {
 	if (!mVisited)
@@ -20635,6 +20818,18 @@ void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 	}
 }
 
+void InterCodeProcedure::EliminateDoubleLoopCounter(void)
+{
+	BuildTraces(false);
+	BuildLoopPrefix();
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	ResetVisited();
+	mEntryBlock->EliminateDoubleLoopCounter();
+}
+
 
 void InterCodeProcedure::PropagateMemoryAliasingInfo(void)
 {
@@ -22170,6 +22365,8 @@ void InterCodeProcedure::Close(void)
 
 	BuildDataFlowSets();
 	TempForwarding(false, true);
+
+	EliminateDoubleLoopCounter();
 
 	ResetVisited();
 	mEntryBlock->SingleLoopCountZeroCheck();
