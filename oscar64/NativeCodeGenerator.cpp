@@ -42908,6 +42908,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 			return true;
 		}
 	}
+	else if ((mIns[i + 0].mType == ASMIT_LDX || mIns[i + 0].mType == ASMIT_TAX || mIns[i + 0].mType == ASMIT_INX || mIns[i + 0].mType == ASMIT_DEX) &&
+		mIns[i + 1].mType == ASMIT_CPX && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+	{
+		mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
+		mIns[i + 1].mType = ASMIT_NOP;  mIns[i + 1].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+	else if ((mIns[i + 0].mType == ASMIT_LDY || mIns[i + 0].mType == ASMIT_TAY || mIns[i + 0].mType == ASMIT_INY || mIns[i + 0].mType == ASMIT_DEY) &&
+		mIns[i + 1].mType == ASMIT_CPY && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 && !(mIns[i + 1].mLive & LIVE_CPU_REG_C))
+	{
+		mIns[i + 0].mLive |= LIVE_CPU_REG_Z;
+		mIns[i + 1].mType = ASMIT_NOP;  mIns[i + 1].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+
 #if 0
 	else if (
 		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
