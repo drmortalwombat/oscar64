@@ -322,9 +322,9 @@ TokenSequence::TokenSequence(Scanner* scanner)
 {
 	if (mToken == TK_STRING)
 	{
-		int	ssize = ustrlen(scanner->mTokenString);
-		uint8 * str = new uint8[ssize + 1];
-		ustrcpy(str, scanner->mTokenString);
+		uint8 * str = new uint8[scanner->mTokenStringSize + 1];
+		memcpy(str, scanner->mTokenString, scanner->mTokenStringSize + 1);
+		mTokenInteger = scanner->mTokenStringSize;
 		mTokenString = str;
 	}
 }
@@ -487,7 +487,10 @@ void Scanner::NextToken(void)
 		mTokenNumber = mReplay->mTokenNumber;
 		mTokenInteger = mReplay->mTokenInteger;
 		if (mReplay->mTokenString)
-			ustrcpy(mTokenString, mReplay->mTokenString);
+		{
+			mTokenStringSize = (int)mReplay->mTokenInteger;
+			memcpy(mTokenString, mReplay->mTokenString, mTokenStringSize + 1);
+		}
 
 		mReplay = mReplay->mNext;
 	}
@@ -2064,7 +2067,7 @@ void Scanner::StringToken(char terminator, char mode)
 
 		mTokenString[n++] = mTokenChar;
 	}
-
+	mTokenStringSize = n;
 	mTokenString[n] = 0;
 
 	if (mLine[mOffset] && mLine[mOffset] == terminator)

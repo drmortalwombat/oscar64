@@ -259,6 +259,7 @@ public:
 
 	const Ident	*	mTokenIdent;
 	uint8			mTokenString[1024], mTokenChar;
+	int				mTokenStringSize;
 
 	uint8		*	mTokenEmbed;
 	int				mTokenEmbedSize;

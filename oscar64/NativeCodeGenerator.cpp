@@ -46899,6 +46899,28 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 					return true;
 				}
 			}
+			else
+			{
+				mProc->ResetPatched();
+				if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 3], i + 7, yval, 3))
+				{
+					mProc->ResetPatched();
+					if (PatchForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 3], i + 7, yval))
+					{
+						mIns[i + 1].CopyMode(mIns[i + 2]);
+						mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+						mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+						mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+						mIns[i + 6].mType = ASMIT_NOP; mIns[i + 6].mMode = ASMIM_IMPLIED;
+
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+						return true;
+					}
+				}
+			}
 		}
 #endif
 #if 1
@@ -50367,7 +50389,6 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 
 #endif
-
 
 		if (step == 2)
 		{

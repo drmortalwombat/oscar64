@@ -1536,7 +1536,7 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 
 uint8* Parser::ParseStringLiteral(int msize)
 {
-	int	size = ustrlen(mScanner->mTokenString);
+	int	size = mScanner->mTokenStringSize;
 	if (size + 1 > msize)
 		msize = size + 1;
 	uint8* d = new uint8[msize];
@@ -1559,7 +1559,7 @@ uint8* Parser::ParseStringLiteral(int msize)
 	// automatic string concatenation
 	while (mScanner->mToken == TK_STRING)
 	{
-		int	s = ustrlen(mScanner->mTokenString);
+		int	s = mScanner->mTokenStringSize;
 
 		if (size + s + 1 > msize)
 			msize = size + s + 1;
@@ -5462,7 +5462,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 	case TK_STRING:
 	{
 		dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);
-		int	size = ustrlen(mScanner->mTokenString);
+		int	size = mScanner->mTokenStringSize;
 		dec->mSize = size + 1;
 		dec->mVarIndex = -1;
 		dec->mSection = mCodeSection;
@@ -5490,7 +5490,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		// automatic string concatenation
 		while (mScanner->mToken == TK_STRING)
 		{
-			int	s = ustrlen(mScanner->mTokenString);
+			int	s = mScanner->mTokenStringSize;
 			uint8* d = new uint8[size + s + 1];
 			memcpy(d, dec->mData, size);
 			int i = 0;
