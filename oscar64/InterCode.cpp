@@ -8284,6 +8284,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					break;
 #if 1
+				case IA_DIVU:
+					vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
+					vr.LimitMin(0);
+					vr.mMinValue = 0;
+					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 1)
+						vr.mMaxValue /= ins->mSrc[0].mIntConst;
+					break;
+
 				case IA_MODU:
 					vr.LimitMin(0);
 					if (ins->mSrc[0].mTemp < 0)
@@ -15229,7 +15237,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 
 				if (lcs.Size() >= 2)
 				{
-					int	loop = -1;
+					int64	loop = -1;
 					int k = 0;
 					while (k < lcs.Size() && !lcs[k].mCmp)
 						k++;
