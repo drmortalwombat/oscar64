@@ -46923,7 +46923,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 					return true;
 				}
 			}
-			else
+			else if (mIns[i + 3].mAddress != mIns[i + 1].mAddress)
 			{
 				mProc->ResetPatched();
 				if (CheckForwardSumYPointer(this, mIns[i + 3].mAddress, mIns[i + 1].mAddress, mIns[i + 3], i + 7, yval, 3))
@@ -49510,7 +49510,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "clz");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "format_insert2");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
