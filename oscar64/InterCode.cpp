@@ -22965,6 +22965,8 @@ void InterCodeProcedure::MergeBasicBlocks(FastNumberSet& activeSet)
 			ResetVisited();
 			mEntryBlock->FollowJumps();
 
+			BuildDataFlowSets();
+
 			changed = ShortLeaMerge(activeSet);
 		}
 
