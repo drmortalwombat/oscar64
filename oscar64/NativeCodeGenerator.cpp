@@ -12014,18 +12014,29 @@ void NativeCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, NativeCod
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
 		break;
 	case IA_EXT16TO32S:
-		if (ins->mSrc[0].mTemp != ins->mDst.mTemp)
+		if (ins->mSrc[0].IsUnsigned())
 		{
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
-		}
-		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
-		if (ins->mSrc[0].mTemp != ins->mDst.mTemp)
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
-		mIns.Push(NativeCodeInstruction(ins, ASMIT_ASL, ASMIM_IMPLIED));
-		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0x00));
-		mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_IMMEDIATE, 0xff));
-		mIns.Push(NativeCodeInstruction(ins, ASMIT_EOR, ASMIM_IMMEDIATE, 0xff));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+		}
+		else
+		{
+			if (ins->mSrc[0].mTemp != ins->mDst.mTemp)
+			{
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp]));
+			}
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+			if (ins->mSrc[0].mTemp != ins->mDst.mTemp)
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_ASL, ASMIM_IMPLIED));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0x00));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_IMMEDIATE, 0xff));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_EOR, ASMIM_IMMEDIATE, 0xff));
+		}
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 2));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 3));
 		break;
@@ -20419,6 +20430,26 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 
 				tblock->mBranch = ASMIT_BNE;
 				tblock->mIns[0].mType = ASMIT_INC;
+				tblock->mIns.SetSize(1);
+
+				mBranch = ASMIT_BCC;
+				mFalseJump = tblock;
+				mTrueJump = tblock->mTrueJump;
+				mTrueJump->mNumEntries++;
+				mTrueJump->mEntryBlocks.Push(this);
+				changed = true;
+			}
+			else if (mIns[sz - 3].mType == ASMIT_TXA &&
+				mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
+				mIns[sz - 1].mType == ASMIT_TAX &&
+				!(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_C])
+			{
+				NativeCodeBasicBlock* tblock = this->SplitAt(sz - 3);
+
+				tblock->mBranch = ASMIT_BNE;
+				tblock->mIns[0].mType = ASMIT_INX;
+				tblock->mIns[0].mMode = ASMIM_IMPLIED;
+				tblock->mIns[0].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
 				tblock->mIns.SetSize(1);
 
 				mBranch = ASMIT_BCC;
