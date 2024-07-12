@@ -26795,6 +26795,11 @@ bool NativeCodeBasicBlock::PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 				mEntryRequiredRegs += CPU_REG_X;
 			if (ains.RequiresYReg())
 				mEntryRequiredRegs += CPU_REG_Y;
+			if (ains.mMode == ASMIM_INDIRECT_Y)
+			{
+				mEntryRequiredRegs += ains.mAddress;
+				mEntryRequiredRegs += ains.mAddress + 1;
+			}
 		}
 
 		while (at < mIns.Size())
@@ -26832,6 +26837,11 @@ bool NativeCodeBasicBlock::PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* 
 			mExitRequiredRegs += CPU_REG_X;
 		if (ains.RequiresYReg())
 			mExitRequiredRegs += CPU_REG_Y;
+		if (ains.mMode == ASMIM_INDIRECT_Y)
+		{
+			mExitRequiredRegs += ains.mAddress;
+			mExitRequiredRegs += ains.mAddress + 1;
+		}
 
 		if (mTrueJump && mTrueJump->PatchSingleUseGlobalLoad(block, reg, 0, ains))
 			changed = true;
@@ -47729,7 +47739,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 					if (mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z))
 						n--;
 
-					if (n > 0 && (mIns[i + 0].mMode != ASMIM_INDIRECT_Y || (mIns[i + 1].mAddress != mIns[i + 0].mAddress && mIns[i + 1].mAddress != mIns[i + 0].mAddress + 1)))
+					if (n > 0 && (mIns[i + 0].mMode != ASMIM_INDIRECT_Y || (mIns[i + 1].mAddress != mIns[i + 0].mAddress && mIns[i + 1].mAddress != mIns[i + 0].mAddress + 1 && pass > 1)))
 					{
 						mProc->ResetPatched();
 						if (CheckSingleUseGlobalLoad(this, mIns[i + 1].mAddress, i + 2, mIns[i], n))
@@ -49541,7 +49551,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "format_insert2");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "diggers_move");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
