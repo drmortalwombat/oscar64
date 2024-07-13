@@ -630,6 +630,14 @@ public:
 	bool ShortcutZeroPageCopyUp(NativeCodeProcedure* nproc);
 	bool BackwardReplaceZeroPage(int at, int from, int to, bool diamond);
 
+	bool IsSameRegisterSource(const NativeCodeInstruction& rins) const;
+	bool PartialBackwardValuePropagation(void);
+	bool HoistCommonLoads(void);
+
+	bool FindInitialLoadA(NativeCodeInstruction *& ins);
+	bool FindInitialLoadX(NativeCodeInstruction *& ins);
+	bool FindInitialLoadY(NativeCodeInstruction *& ins);
+
 	NativeRegisterDataSet	mEntryRegisterDataSet;
 
 	void BuildEntryDataSet(const NativeRegisterDataSet& set);
