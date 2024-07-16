@@ -531,6 +531,7 @@ public:
 
 	bool MoveTrainCrossBlock(void);
 	bool HoistCommonConditionalPath(void);
+	bool IsDominator(InterCodeBasicBlock* block);
 	bool IsDirectDominatorBlock(InterCodeBasicBlock* block);
 	bool IsDirectLoopPathBlock(InterCodeBasicBlock* block);
 
@@ -546,6 +547,7 @@ public:
 	bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
 	bool CollidingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+	bool InvalidatedBy(const InterInstruction* ins, const InterInstruction* by) const;
 
 	bool PushSinglePathResultInstructions(void);
 

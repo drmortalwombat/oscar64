@@ -5626,6 +5626,17 @@ void InterCodeBasicBlock::BuildDominatorTree(InterCodeBasicBlock* from)
 		mFalseJump->BuildDominatorTree(this);
 }
 
+bool InterCodeBasicBlock::IsDominator(InterCodeBasicBlock* block)
+{
+	while (block)
+	{
+		if (block == this)
+			return true;
+		block = block->mDominator;
+	}
+	return false;
+}
+
 void InterCodeBasicBlock::CollectEntries(void)
 {
 	mNumEntries++;
@@ -11584,24 +11595,73 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{
 				InterInstruction* ins(mInstructions[i]);
-				if (ins->mDst.mTemp >= 0)
+				int j = 0;
+				while (j < mLoadStoreInstructions.Size())
 				{
-					int j = 0;
-					while (j < mLoadStoreInstructions.Size())
+					if (InvalidatedBy(mLoadStoreInstructions[j], ins))
+						mLoadStoreInstructions.Remove(j);
+					else
+						j++;
+				}
+			}
+		} 
+#if 1
+		else if (tvalue.Size() > 0)
+		{
+			ExpandingArray<InterCodeBasicBlock*> body;
+			body.Push(this);
+			bool	innerLoop = true;
+			int		n = 1;
+
+			for (int i = 0; i < mEntryBlocks.Size(); i++)
+			{
+				if (IsDominator( mEntryBlocks[i] ))
+				{
+					n++;
+					if (!mEntryBlocks[i]->CollectLoopBodyRecursive(this, body))
+						innerLoop = false;
+				}
+			}
+
+			if (innerLoop && n == mEntryBlocks.Size() )
+			{
+				mLoadStoreInstructions = tvalue;
+				for (int j = 0; j < body.Size(); j++)
+				{
+					for (int i = 0; i < body[j]->mInstructions.Size(); i++)
 					{
-						if (mLoadStoreInstructions[j]->ReferencesTemp(ins->mDst.mTemp) || CollidingMem(ins, mLoadStoreInstructions[j]))
-							mLoadStoreInstructions.Remove(j);
-						else
-							j++;
+						InterInstruction* ins(body[j]->mInstructions[i]);
+						int j = 0;
+						while (j < mLoadStoreInstructions.Size())
+						{
+							if (InvalidatedBy(mLoadStoreInstructions[j], ins))
+								mLoadStoreInstructions.Remove(j);
+							else
+								j++;
+						}
 					}
 				}
 			}
+			else
+				mLoadStoreInstructions.SetSize(0);
 		}
+#endif
 #endif
 		else
 			mLoadStoreInstructions.SetSize(0);
 
 		mVisited = true;
+
+#if 0
+		for (int i = 0; i < mLoadStoreInstructions.Size(); i++)
+		{
+			if (mLoadStoreInstructions[i]->mCode == IC_STORE && 
+				mLoadStoreInstructions[i]->mSrc[1].mTemp < 0 && 
+				mLoadStoreInstructions[i]->mSrc[1].mMemory == IM_GLOBAL &&
+				mLoadStoreInstructions[i]->mSrc[1].mVarIndex == 68)
+				printf("I:%d\n", mIndex);
+		}
+#endif
 
 #if 1
 		// move loads up as far as possible to avoid false aliasing
@@ -11673,17 +11733,34 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					else
 					{
 						j = 0;
-						while (j < mLoadStoreInstructions.Size() && !(mLoadStoreInstructions[j]->mCode == IC_COPY && SameMemSegment(mLoadStoreInstructions[j]->mSrc[1], ins->mSrc[0])))
+						while (j < mLoadStoreInstructions.Size() && !(
+							mLoadStoreInstructions[j]->mCode == IC_COPY && SameMemSegment(mLoadStoreInstructions[j]->mSrc[1], ins->mSrc[0]) ||
+							mLoadStoreInstructions[j]->mCode == IC_FILL && SameMemSegment(mLoadStoreInstructions[j]->mSrc[1], ins->mSrc[0])))
 							j++;
 						if (j < mLoadStoreInstructions.Size())
 						{
 							InterInstruction* cins = mLoadStoreInstructions[j];
 
-							int64	offset = ins->mSrc[0].mIntConst - cins->mSrc[1].mIntConst;
-							ins->mSrc[0] = cins->mSrc[0];
-							ins->mSrc[0].mOperandSize = InterTypeSize[ins->mDst.mType];
-							ins->mSrc[0].mIntConst += offset;
-							changed = true;
+							if (cins->mCode == IC_FILL)
+							{
+								int64	v = 0;
+								for (int j = 0; j < InterTypeSize[ins->mDst.mType]; j++)
+									v = (v << 8) | (cins->mSrc[0].mIntConst & 0xff);
+
+								ins->mCode = IC_CONSTANT;
+								ins->mConst.mType = ins->mDst.mType;
+								ins->mConst.mIntConst = v;
+								ins->mNumOperands = 0;
+								changed = true;
+							}
+							else
+							{
+								int64	offset = ins->mSrc[0].mIntConst - cins->mSrc[1].mIntConst;
+								ins->mSrc[0] = cins->mSrc[0];
+								ins->mSrc[0].mOperandSize = InterTypeSize[ins->mDst.mType];
+								ins->mSrc[0].mIntConst += offset;
+								changed = true;
+							}
 						}
 						else
 							nins = ins;
@@ -11776,8 +11853,31 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					nins = ins;
 #endif
 			}
-			else if (ins->mCode == IC_STRCPY || ins->mCode == IC_FILL)
-				flushMem = true;
+			else if (ins->mCode == IC_FILL)
+			{
+				int	j = 0, k = 0;
+				while (j < mLoadStoreInstructions.Size())
+				{
+					if (!DestroyingMem(mLoadStoreInstructions[j], ins))
+						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+					j++;
+				}
+				mLoadStoreInstructions.SetSize(k);
+
+				if (!ins->mVolatile && ins->mSrc[1].mStride == 1 && ins->mSrc[0].mTemp < 0)
+					nins = ins;
+			}
+			else if (ins->mCode == IC_STRCPY)
+			{
+				int	j = 0, k = 0;
+				while (j < mLoadStoreInstructions.Size())
+				{
+					if (!DestroyingMem(mLoadStoreInstructions[j], ins))
+						mLoadStoreInstructions[k++] = mLoadStoreInstructions[j];
+					j++;
+				}
+				mLoadStoreInstructions.SetSize(k);
+			}
 			else if (ins->mCode == IC_LEA || ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR || ins->mCode == IC_CONVERSION_OPERATOR)
 			{
 			//
@@ -14092,6 +14192,17 @@ bool InterCodeBasicBlock::CollidingMem(InterCodeBasicBlock* block, InterInstruct
 
 	return false;
 }
+
+bool InterCodeBasicBlock::InvalidatedBy(const InterInstruction* ins, const InterInstruction* by) const
+{
+	if (by->mDst.mTemp >= 0 && ins->ReferencesTemp(by->mDst.mTemp))
+		return true;
+	else if (ins->mCode == IC_STORE || ins->mCode == IC_LOAD)
+		return DestroyingMem(ins, by);
+	else
+		return CollidingMem(by, ins);
+}
+
 
 bool InterCodeBasicBlock::CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body)
 {
@@ -21381,6 +21492,8 @@ void InterCodeProcedure::ReduceRecursionTempSpilling(InterMemory paramMemory)
 
 void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
 {
+	BuildTraces(false);
+
 	DisassembleDebug("Load/Store forwardingY");
 
 	bool changed;
