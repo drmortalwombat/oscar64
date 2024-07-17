@@ -34,6 +34,9 @@ bool isfinite(float f);
 #pragma intrinsic(cos)
 #pragma intrinsic(tan)
 
+#pragma intrinsic(log)
+#pragma intrinsic(exp)
+
 #pragma compile("math.c")
 
 

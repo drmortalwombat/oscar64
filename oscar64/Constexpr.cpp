@@ -1104,6 +1104,16 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
 			mResult.PutFloat(tan(mParams[0].GetFloat()));
 		}
+		else if (!strcmp(iname->mString, "log"))
+		{
+			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
+			mResult.PutFloat(log(mParams[0].GetFloat()));
+		}
+		else if (!strcmp(iname->mString, "exp"))
+		{
+			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
+			mResult.PutFloat(::exp(mParams[0].GetFloat()));
+		}
 		else
 			mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname);
 	}

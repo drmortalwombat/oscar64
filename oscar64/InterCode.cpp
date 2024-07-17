@@ -6945,12 +6945,15 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 
 
 			case IC_COPY:
-				for (int k = 0; k < ltemps.Size(); k++)
+				if (!ins->mVolatile)
 				{
-					if (SameMemAndSize(ltemps[k]->mSrc[1], ins->mSrc[0]))
+					for (int k = 0; k < ltemps.Size(); k++)
 					{
-						ins->mSrc[0] = ltemps[k]->mSrc[0];
-						changed = true;
+						if (SameMemAndSize(ltemps[k]->mSrc[1], ins->mSrc[0]))
+						{
+							ins->mSrc[0] = ltemps[k]->mSrc[0];
+							changed = true;
+						}
 					}
 				}
 
@@ -6962,8 +6965,11 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 						ltemps[j++] = ltemps[k];
 					}
 				}
-				ltemps.SetSize(j);
-				ltemps.Push(ins);
+				if (!ins->mVolatile)
+				{
+					ltemps.SetSize(j);
+					ltemps.Push(ins);
+				}
 				break;
 
 			case IC_CALL:

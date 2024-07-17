@@ -1626,6 +1626,27 @@ void InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression *
 		}
 	}
 
+	bool	cvol = false;
+	if ((vl.mType->mFlags & DTF_VOLATILE) || (vr.mType->mFlags & DTF_VOLATILE))
+		cvol = true;
+	else
+	{
+		Declaration* dec = vl.mType->mParams;
+		while (!cvol && dec)
+		{
+			if (dec->mType == DT_ELEMENT && (dec->mBase->mFlags & DTF_VOLATILE))
+				cvol = true;
+			dec = dec->mNext;
+		}
+		dec = vr.mType->mParams;
+		while (!cvol && dec)
+		{
+			if (dec->mType == DT_ELEMENT && (dec->mBase->mFlags & DTF_VOLATILE))
+				cvol = true;
+			dec = dec->mNext;
+		}
+	}
+
 	// Single element structs are copied as individual value
 	if (ne == 1 && mdec->mSize == vl.mType->mSize)
 	{
@@ -1672,6 +1693,7 @@ void InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression *
 		cins->mSrc[1].mStride = vl.mType->mStripe;
 
 		cins->mConst.mOperandSize = vl.mType->mSize;
+		cins->mVolatile = cvol;
 		block->Append(cins);
 	}
 }
@@ -3403,6 +3425,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				else if (!strcmp(iname->mString, "tan"))
 				{
 				}
+				else if (!strcmp(iname->mString, "log"))
+				{
+				}
+				else if (!strcmp(iname->mString, "exp"))
+				{
+				}
 				else if (!strcmp(iname->mString, "malloc"))
 				{
 					vr = TranslateExpression(procType, proc, block, exp->mRight, destack, gotos, breakBlock, continueBlock, inlineMapper);
@@ -3516,6 +3544,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							ins->mSrc[0].mOperandSize = int(nex->mDecValue->mInteger);
 							ins->mSrc[1].mOperandSize = int(nex->mDecValue->mInteger);
 							ins->mConst.mOperandSize = int(nex->mDecValue->mInteger);
+							if ((vl.mType->mBase->mFlags & DTF_VOLATILE) || (vr.mType->mBase->mFlags & DTF_VOLATILE))
+								ins->mVolatile = true;
 							block->Append(ins);
 
 							return vl;

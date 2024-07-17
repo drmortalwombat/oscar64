@@ -1060,6 +1060,10 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 				d = cos(d);
 			else if (!strcmp(iname->mString, "tan"))
 				d = tan(d);
+			else if (!strcmp(iname->mString, "log"))
+				d = log(d);
+			else if (!strcmp(iname->mString, "exp"))
+				d = exp(d);
 			else
 				return this;
 
