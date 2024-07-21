@@ -15247,7 +15247,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 			{
 				if (mEntryBlocks[i] != mLoopPrefix)
 				{
-					if (!mEntryBlocks[i]->CollectLoopBody(this, body))
+					if (!mEntryBlocks[i]->CollectLoopBodyRecursive(this, body))
 						innerLoop = false;
 				}
 			}

@@ -9823,6 +9823,39 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					return eblock;
 				}
 			}
+			else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst == 1)
+			{
+				NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
+				NativeCodeBasicBlock* hblock = nproc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_AND, ASMIM_IMMEDIATE, 0x1f));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_TAX, ASMIM_IMPLIED));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_AND, ASMIM_IMMEDIATE, 0x10));
+				this->Close(ins, lblock, hblock, ASMIT_BEQ);
+
+				NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("bitshift")));
+
+				lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 2));
+				lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 3));
+				lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, frt.mOffset + 8, frt.mLinkerObject));
+				lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
+				lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, frt.mOffset, frt.mLinkerObject));
+				lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
+				lblock->Close(ins, eblock, nullptr, ASMIT_JMP);
+
+				hblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+				hblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 0));
+				hblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 1));
+				hblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, frt.mOffset - 16, frt.mLinkerObject));
+				hblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 2));
+				hblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, frt.mOffset - 8, frt.mLinkerObject));
+				hblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg + 3));
+				hblock->Close(ins, eblock, nullptr, ASMIT_JMP);
+
+				return eblock;
+			}
 			else
 			{
 				NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
@@ -44929,6 +44962,15 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		if (mIns[i + 2].ReferencesXReg())
 			mIns[i + 1].mLive |= LIVE_CPU_REG_X;
 		mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+		return true;
+	}
+	else if (
+		mIns[i + 0].mType == ASMIT_STA &&
+		mIns[i + 1].mType == ASMIT_STA &&
+		mIns[i + 2].IsShift() && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
+	{
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 2].mMode = ASMIM_IMPLIED;
 		return true;
 	}
 
