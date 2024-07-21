@@ -28577,10 +28577,15 @@ bool NativeCodeBasicBlock::PatchGlobalAddressSumYPointer(const NativeCodeBasicBl
 				int	naddr = address + mIns[at + 2].mAddress + 256 * mIns[at + 5].mAddress;
 
 				mIns[at + 2].mType = ASMIT_ADC;
-				mIns[at + 2].mMode = lobj ? ASMIM_IMMEDIATE_ADDRESS : ASMIM_IMMEDIATE;
-				mIns[at + 2].mLinkerObject = lobj;
-				mIns[at + 2].mAddress = lobj ? naddr : naddr & 0xff;
-				mIns[at + 2].mFlags = NCIF_LOWER;
+				if (flags & NCIF_LOWER)
+				{
+					mIns[at + 2].mMode = lobj ? ASMIM_IMMEDIATE_ADDRESS : ASMIM_IMMEDIATE;
+					mIns[at + 2].mLinkerObject = lobj;
+					mIns[at + 2].mAddress = lobj ? naddr : naddr & 0xff;
+					mIns[at + 2].mFlags = NCIF_LOWER;
+				}
+				else
+					naddr &= 0xff00;
 				
 				mIns[at + 4].mMode = ASMIM_IMMEDIATE;
 				mIns[at + 4].mAddress = 0;
@@ -36676,7 +36681,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 					exitBlock->mEntryRequiredRegs += CPU_REG_Y;
 
 					prevBlock->mIns.Push(NativeCodeInstruction(mIns[ai].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, addr));
-					exitBlock->mIns.Push(NativeCodeInstruction(mIns[ai].mIns, ASMIT_STY, ASMIM_ZERO_PAGE, addr));
+					if (changey)
+						exitBlock->mIns.Push(NativeCodeInstruction(mIns[ai].mIns, ASMIT_STY, ASMIM_ZERO_PAGE, addr));
 					for (int i = 0; i < mIns.Size(); i++)
 					{
 						mIns[i].mLive |= LIVE_CPU_REG_Y;
@@ -47045,6 +47051,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 			return true;
 		}
 		else if (
+			mIns[i + 0].mType == ASMIT_CLC &&
+			mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
+			mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 4].mType == ASMIT_LDA && mIns[i + 4].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 5].mType == ASMIT_ADC && mIns[i + 5].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 5].mFlags & NCIF_UPPER) && mIns[i + 5].mLinkerObject == mIns[i + 1].mLinkerObject && mIns[i + 5].mAddress == mIns[i + 1].mAddress &&
+			mIns[i + 6].mType == ASMIT_STA && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 6].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+		{
+			mIns[i + 1].mAddress = mIns[i + 5].mAddress = mIns[i + 1].mAddress + mIns[i + 2].mAddress + 256 * mIns[i + 4].mAddress;
+			mIns[i + 5].mType = ASMIT_LDA;
+			mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+			mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+			return true;
+		}
+		else if (
 			mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 			mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
 			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
@@ -50018,7 +50039,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "benchmark");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
