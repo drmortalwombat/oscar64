@@ -897,16 +897,16 @@ void Scanner::NextPreToken(void)
 			uint64 op = mCompilerOptions;
 			mCompilerOptions &= ~COPT_PETSCII;
 
-			NextRawToken();
+			NextPreToken();
 			if (IsIntegerToken())
 			{
 				limit = int(mTokenInteger);
-				NextRawToken();
+				NextPreToken();
 
 				if (IsIntegerToken())
 				{
 					skip = int(mTokenInteger);
-					NextRawToken();
+					NextPreToken();
 				}
 			}
 
@@ -939,7 +939,7 @@ void Scanner::NextPreToken(void)
 				else
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Invalid embed compression mode", mTokenIdent);
 
-				NextRawToken();
+				NextPreToken();
 			}
 
 			if (mToken == TK_STRING)
