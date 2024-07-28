@@ -12402,6 +12402,21 @@ InterInstruction* InterCodeBasicBlock::FindTempOrigin(int temp) const
 	return nullptr;	
 }
 
+InterInstruction* InterCodeBasicBlock::FindTempOriginSinglePath(int temp) const
+{
+	for (int i = mInstructions.Size() - 1; i >= 0; i--)
+	{
+		if (mInstructions[i]->mDst.mTemp == temp)
+		{
+			mMark = i;
+			return mInstructions[i];
+		}
+	}
+	if (mEntryBlocks.Size() == 1)
+		return mEntryBlocks[0]->FindTempOriginSinglePath(temp);
+	return nullptr;
+}
+
 bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 {
 	InterInstruction* ins = mInstructions[si];
@@ -16178,7 +16193,7 @@ bool InterCodeBasicBlock::PullStoreUpToConstAddress(void)
 			if (ins->mCode == IC_STORE && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0 && CanMoveInstructionBeforeBlock(i))
 			{
 				int j = 0;
-				while (j < mEntryBlocks.Size() && (cins = mEntryBlocks[j]->FindTempOrigin(ins->mSrc[1].mTemp)) && cins->mCode == IC_CONSTANT)
+				while (j < mEntryBlocks.Size() && (cins = mEntryBlocks[j]->FindTempOriginSinglePath(ins->mSrc[1].mTemp)) && cins->mCode == IC_CONSTANT)
 					j++;
 
 				if (j == mEntryBlocks.Size())
@@ -22608,6 +22623,12 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	BuildDataFlowSets();
+
+	GrowingInstructionPtrArray	ptemps(nullptr);
+	ptemps.SetSize(mTemporaries.Size());
+	ResetVisited();
+	mEntryBlock->ForwardConstTemps(ptemps);
+
 	ResetVisited();
 	mEntryBlock->PullStoreUpToConstAddress();
 	DisassembleDebug("PullStoreUpToConstAddress");
