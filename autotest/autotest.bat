@@ -183,6 +183,9 @@ rem @echo off
 @call :test divmod32test.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test fixmathtest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test enumswitch.c
 @if %errorlevel% neq 0 goto :error
 

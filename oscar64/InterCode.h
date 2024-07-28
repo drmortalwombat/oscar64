@@ -172,6 +172,7 @@ public:
 	void MergeUnknown(const IntegerValueRange& range);
 	void SetLimit(int64 minValue, int64 maxValue);
 
+	bool IsBound(void) const;
 	bool IsConstant(void) const;
 	bool IsInvalid(void) const;
 
@@ -407,6 +408,7 @@ public:
 	InterCodeBasicBlock* Clone(void);
 
 	void Append(InterInstruction * code);
+	void AppendBeforeBranch(InterInstruction* code);
 	const InterInstruction* FindByDst(int dst) const;
 	void Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump);
 
@@ -604,6 +606,8 @@ public:
 
 	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue);
 	void RemoveUnusedMallocs(void);
+
+	bool PullStoreUpToConstAddress(void);
 
 	bool CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body);
 

@@ -373,6 +373,7 @@ public:
 	void LoadStoreOpAbsolute2D(InterCodeProcedure* proc, const InterInstruction* lins1, const InterInstruction* lins2, const InterInstruction* mins);
 	void SignExtendAddImmediate(InterCodeProcedure* proc, const InterInstruction* xins, const InterInstruction* ains);
 	void BinaryDivModPair(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins1, const InterInstruction* ins2);
+	void BinaryFloatOperatorLookup(InterCodeProcedure* proc, const InterInstruction* cins, const InterInstruction* ins);
 
 	void NumericConversion(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	NativeCodeBasicBlock * FillValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
@@ -868,7 +869,17 @@ public:
 		InterOperator		mOperator;
 	};
 
+	struct FloatTable
+	{
+		LinkerObject	*	mLinker[4];
+		float				mConst;
+		int					mMinValue, mMaxValue;
+		InterOperator		mOperator;
+		bool				mReverse;
+	};
+
 	LinkerObject* AllocateShortMulTable(InterOperator op, int factor, int size, bool msb);
+	LinkerObject* AllocateFloatTable(InterOperator op, bool reverse, int minval, int maxval, float fval, int index);
 	void PopulateShortMulTables(void);
 
 	Runtime& ResolveRuntime(const Ident* ident);
@@ -877,8 +888,9 @@ public:
 	Linker* mLinker;
 	LinkerSection* mRuntimeSection;
 
-	ExpandingArray<Runtime>	mRuntime;
+	ExpandingArray<Runtime>		mRuntime;
 	ExpandingArray<MulTable>	mMulTables;
+	ExpandingArray<FloatTable>	mFloatTables;
 
 	struct FunctionCall
 	{

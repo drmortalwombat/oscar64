@@ -116,31 +116,37 @@ int lmul4f12s(int x, int y)
 {
 	__asm
 	{
-		bit y + 1
-		bpl W0
-
 		sec
-		lda #0
-		sbc y
-		sta y
-		lda #0
-		sbc y + 1
-		sta y + 1
+		lda x
+		ror
+		sta accu
 
-		sec
-		lda #0
-		sbc x
-		sta x
-		lda #0
-		sbc x + 1
-		sta x + 1
-W0:
-		ldx	#15
 		lda #0
 		sta	accu + 1
+L2:		
+		bcc	W4
+		tay
+		clc
+		lda	accu + 1
+		adc	y
+		sta accu + 1
+		tya
+		adc y + 1
+W4:
+		ror
+		ror accu + 1
+		
+		lsr accu
+		bcc W4
+		bne	L2
 
-L1:		lsr	x + 1
-		ror	x
+		ldx x + 1
+		stx accu
+
+		ldx	#7
+		lsr	accu
+
+L1:		
 		bcc	W1
 		tay
 		clc
@@ -156,7 +162,6 @@ W1:
 		dex
 		bne	L1
 
-		lsr x
 		bcc W2
 
 		tay
@@ -166,13 +171,22 @@ W1:
 		sta accu + 1
 		tya
 		sbc y + 1
-
-		sec
 W2:
 		ror
 		ror accu + 1
 		ror accu
 
+		bit y + 1
+		bpl W3
+
+		tax
+		sec
+		lda accu + 1
+		sbc x
+		sta accu + 1
+		txa
+		sbc x + 1
+W3:
 		lsr
 		ror accu + 1
 		ror accu
@@ -270,15 +284,17 @@ unsigned lmuldiv16u(unsigned a, unsigned b, unsigned c)
 	__asm
 	{
 			lda	#0
-			sta	__tmp + 0
-			sta	__tmp + 1
 			sta	__tmp + 2
 			sta	__tmp + 3
 
-			ldx	#16
-	L1:		lsr	a + 1
-			ror	a
+			lda a
+			sec
+	T1:
+			ldy #8
+	L1:		
+			ror
 			bcc	W1
+			tax
 			clc
 			lda	__tmp + 2
 			adc	b
@@ -286,20 +302,38 @@ unsigned lmuldiv16u(unsigned a, unsigned b, unsigned c)
 			lda	__tmp + 3
 			adc b + 1
 			sta	__tmp + 3
+			txa
 	W1:
 			ror __tmp + 3
 			ror __tmp + 2
-			ror __tmp + 1
-			ror __tmp
-			dex
+			dey
 			bne	L1
+			ror
+			bcc T2
 
-			lda	#0
-			sta accu
-			sta accu + 1
+			sta __tmp + 0
+			lda a + 1
+			clc
+			bcc T1
 
-			ldx #17
+	T2:
+			sec
+	L3:
+			sta __tmp + 1
+			ldx #8
 	L2:
+			rol __tmp + 1
+			rol __tmp + 2
+			rol __tmp + 3
+			bcc W3
+			lda __tmp + 2
+			sbc c
+			tay
+			lda __tmp + 3
+			sbc c + 1			
+			sec
+			bcs W4
+	W3:
 			sec
 			lda __tmp + 2
 			sbc c
@@ -307,33 +341,23 @@ unsigned lmuldiv16u(unsigned a, unsigned b, unsigned c)
 			lda __tmp + 3
 			sbc c + 1
 			bcc	W2
+	W4:
 			sta __tmp + 3
 			sty __tmp + 2
 	W2:
-			rol accu
-			rol accu + 1
-
-			asl __tmp
-			rol __tmp + 1
-			rol __tmp + 2
-			rol __tmp + 3
-
 			dex
-			beq E2
-			bcc L2
+			bne L2
+			lda __tmp + 1
+			rol
+			bcc T3
 
-			lda __tmp + 2
-			sbc c
-			sta __tmp + 2
-			lda __tmp + 3
-			sbc c + 1
-			sta __tmp + 3
-			sec
-			bcs W2
-	E2:
-
+			sta accu + 1
+			lda __tmp + 0
+			clc
+			bcc L3
+	T3:
+			sta accu
 	}
-
 }
 
 int lmuldiv16s(int a, int b, int c)
@@ -358,15 +382,17 @@ int lmuldiv16s(int a, int b, int c)
 	__asm
 	{
 			lda	#0
-			sta	__tmp + 0
-			sta	__tmp + 1
 			sta	__tmp + 2
 			sta	__tmp + 3
 
-			ldx	#16
-	L1:		lsr	a + 1
-			ror	a
+			lda a
+			sec
+	T1:
+			ldy #8
+	L1:		
+			ror
 			bcc	W1
+			tax
 			clc
 			lda	__tmp + 2
 			adc	b
@@ -374,20 +400,38 @@ int lmuldiv16s(int a, int b, int c)
 			lda	__tmp + 3
 			adc b + 1
 			sta	__tmp + 3
+			txa
 	W1:
 			ror __tmp + 3
 			ror __tmp + 2
-			ror __tmp + 1
-			ror __tmp
-			dex
+			dey
 			bne	L1
+			ror
+			bcc T2
 
-			lda	#0
-			sta accu
-			sta accu + 1
+			sta __tmp + 0
+			lda a + 1
+			clc
+			bcc T1
 
-			ldx #17
+	T2:
+			sec
+	L3:
+			sta __tmp + 1
+			ldx #8
 	L2:
+			rol __tmp + 1
+			rol __tmp + 2
+			rol __tmp + 3
+			bcc W3
+			lda __tmp + 2
+			sbc c
+			tay
+			lda __tmp + 3
+			sbc c + 1			
+			sec
+			bcs W4
+	W3:
 			sec
 			lda __tmp + 2
 			sbc c
@@ -395,30 +439,23 @@ int lmuldiv16s(int a, int b, int c)
 			lda __tmp + 3
 			sbc c + 1
 			bcc	W2
+	W4:
 			sta __tmp + 3
 			sty __tmp + 2
 	W2:
-			rol accu
-			rol accu + 1
-
-			asl __tmp
-			rol __tmp + 1
-			rol __tmp + 2
-			rol __tmp + 3
-
 			dex
-			beq E2
-			bcc L2
+			bne L2
+			lda __tmp + 1
+			rol
+			bcc T3
 
-			lda __tmp + 2
-			sbc c
-			sta __tmp + 2
-			lda __tmp + 3
-			sbc c + 1
-			sta __tmp + 3
-			sec
-			bcs W2
-	E2:
+			sta accu + 1
+			lda __tmp + 0
+			clc
+			bcc L3
+	T3:
+			sta accu
+
 			lda	sign
 			beq	E1
 

@@ -123,6 +123,11 @@ bool IntegerValueRange::IsInvalid(void) const
 	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue > mMaxValue;
 }
 
+bool IntegerValueRange::IsBound(void) const
+{
+	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue <= mMaxValue;
+}
+
 bool IntegerValueRange::IsConstant(void) const
 {
 	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue == mMaxValue;
@@ -5537,6 +5542,12 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 #endif
 	code->mInUse = true;
 	this->mInstructions.Push(code);
+}
+
+
+void InterCodeBasicBlock::AppendBeforeBranch(InterInstruction* code)
+{
+	mInstructions.Insert(mInstructions.Size() - 1, code);
 }
 
 const InterInstruction* InterCodeBasicBlock::FindByDst(int dst) const
@@ -14355,6 +14366,55 @@ InterCodeBasicBlock* InterCodeBasicBlock::CheckIsConstBranch(const GrowingInstru
 					nins->mConst = tins[k]->mSrc[0];
 				}
 			}
+			else if (ins->mCode == IC_RELATIONAL_OPERATOR && IsIntegerType(ins->mSrc[0].mType))
+			{
+				IntegerValueRange	v0, v1;
+
+				if (ins->mSrc[0].mTemp < 0)
+					v0.SetLimit(ins->mSrc[0].mIntConst, ins->mSrc[0].mIntConst);
+				else
+				{
+					int k = 0;
+					while (k < tins.Size() && tins[k]->mDst.mTemp != ins->mSrc[0].mTemp)
+						k++;
+					if (k < tins.Size())
+						v0 = tins[k]->mDst.mRange;
+				}
+
+				if (ins->mSrc[1].mTemp < 0)
+					v1.SetLimit(ins->mSrc[1].mIntConst, ins->mSrc[1].mIntConst);
+				else
+				{
+					int k = 0;
+					while (k < tins.Size() && tins[k]->mDst.mTemp != ins->mSrc[1].mTemp)
+						k++;
+					if (k < tins.Size())
+						v1 = tins[k]->mDst.mRange;
+				}
+
+				if (v0.IsBound() && v1.IsBound())
+				{
+					if (ins->mOperator == IA_CMPEQ)
+					{
+						if (v0.IsConstant() && v1.IsConstant() && v1.mMinValue == v0.mMinValue)
+						{
+							nins = new InterInstruction(ins->mLocation, IC_CONSTANT);
+							nins->mDst = ins->mDst;
+							nins->mConst.mType = IT_BOOL;
+							nins->mConst.mIntConst = 1;
+						}
+						else if (v0.mMinValue > v1.mMaxValue || v1.mMinValue > v0.mMaxValue)
+						{
+							nins = new InterInstruction(ins->mLocation, IC_CONSTANT);
+							nins->mDst = ins->mDst;
+							nins->mConst.mType = IT_BOOL;
+							nins->mConst.mIntConst = 0;
+						}
+					}
+				}
+			}
+			else if (ins->mDst.mTemp >= 0 && ins->mDst.mRange.IsBound())
+				nins = ins;
 
 			if (ins->mDst.mTemp >= 0)
 			{
@@ -14425,6 +14485,8 @@ bool InterCodeBasicBlock::ShortcutConstBranches(const GrowingInstructionPtrArray
 							k++;
 					}
 				}
+				else if (ins->mDst.mTemp >= 0 && ins->mDst.mRange.IsBound())
+					nins = ins;
 
 				if (ins->mCode == IC_STORE && !ins->mVolatile && ins->mSrc[0].mTemp < 0)
 					nins = ins;
@@ -16100,6 +16162,43 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 	}
 
 	return changed;
+}
+
+bool InterCodeBasicBlock::PullStoreUpToConstAddress(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i], * cins;
+			if (ins->mCode == IC_STORE && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0 && CanMoveInstructionBeforeBlock(i))
+			{
+				int j = 0;
+				while (j < mEntryBlocks.Size() && (cins = mEntryBlocks[j]->FindTempOrigin(ins->mSrc[1].mTemp)) && cins->mCode == IC_CONSTANT)
+					j++;
+
+				if (j == mEntryBlocks.Size())
+				{
+					for (int j = 0; j < mEntryBlocks.Size(); j++)
+						mEntryBlocks[j]->AppendBeforeBranch(ins->Clone());
+					changed = true;
+					mInstructions.Remove(i);
+					i--;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PullStoreUpToConstAddress())
+			changed = true;
+		if (mFalseJump && mFalseJump->PullStoreUpToConstAddress())
+			changed = true;
+	}
+
+	return false;
 }
 
 void InterCodeBasicBlock::RemoveUnusedMallocs(void)
@@ -21628,7 +21727,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "bmu_line");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -22415,6 +22514,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->ForwardShortLoadStoreOffsets();
 	DisassembleDebug("ForwardShortLoadStoreOffsets");
 
+
 //	CollapseDispatch();
 //	DisassembleDebug("CollapseDispatch");
 
@@ -22506,6 +22606,11 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("Global Constant Prop 2");
 	}
 #endif
+
+	BuildDataFlowSets();
+	ResetVisited();
+	mEntryBlock->PullStoreUpToConstAddress();
+	DisassembleDebug("PullStoreUpToConstAddress");
 
 	ConstLoopOptimization();
 

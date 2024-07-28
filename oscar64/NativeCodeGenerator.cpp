@@ -9447,6 +9447,11 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				sop0 = 1; sop1 = 0;
 				const InterInstruction* sins = sins0; sins0 = sins1; sins1 = sins;
 			}
+			else if (!sins0 && !sins1 && ins->mSrc[sop0].mTemp >= 0 && ins->mSrc[sop1].mTemp >= 0 && ins->mDst.mTemp == ins->mSrc[sop0].mTemp)
+			{
+				flipop = true;
+				sop0 = 1; sop1 = 0;
+			}
 		}
 
 		int	sreg0 = ins->mSrc[sop0].mTemp < 0 ? -1 : BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop0].mTemp];
@@ -11913,6 +11918,35 @@ void NativeCodeBasicBlock::SignExtendAddImmediate(InterCodeProcedure* proc, cons
 	mIns.Push(NativeCodeInstruction(ains, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
 	mIns.Push(NativeCodeInstruction(ains, ASMIT_ADC, ASMIM_IMMEDIATE, (val >> 8) & 0xff));
 	mIns.Push(NativeCodeInstruction(ains, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ains->mDst.mTemp] + 1));
+}
+
+void NativeCodeBasicBlock::BinaryFloatOperatorLookup(InterCodeProcedure* proc, const InterInstruction* cins, const InterInstruction* ins)
+{
+	mIns.Push(NativeCodeInstruction(cins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[cins->mSrc[0].mTemp] + 0));
+	mIns.Push(NativeCodeInstruction(cins, ASMIT_SEC));
+	mIns.Push(NativeCodeInstruction(cins, ASMIT_SBC, ASMIM_IMMEDIATE, cins->mSrc[0].mRange.mMinValue));
+	mIns.Push(NativeCodeInstruction(cins, ASMIT_TAX));
+
+	bool	reverse = false;
+	double	fconst;
+
+	if (ins->mSrc[0].mTemp < 0)
+	{
+		fconst = ins->mSrc[0].mFloatConst;
+	}
+	else
+	{
+		fconst = ins->mSrc[1].mFloatConst;
+		if (ins->mOperator == IA_SUB || ins->mOperator == IA_DIVS)
+			reverse = true;
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE_X, 0, mProc->mGenerator->AllocateFloatTable(ins->mOperator, reverse,
+			int(cins->mSrc[0].mRange.mMinValue), int(cins->mSrc[0].mRange.mMaxValue), float(fconst), i)));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + i));
+	}
 }
 
 void NativeCodeBasicBlock::UnaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins)
@@ -50174,7 +50208,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "benchmark");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "testpow");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52353,6 +52387,17 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				block->SignExtendAddImmediate(iproc, ins, iblock->mInstructions[i + 1]);
 				i++;
 			}
+			else if (i + 1 < iblock->mInstructions.Size() &&
+				(iproc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL) &&
+				(ins->mOperator == IA_INT2FLOAT || ins->mOperator == IA_UINT2FLOAT) &&
+				ins->mSrc[0].IsSByte() && ins->mSrc[0].mRange.mMaxValue - ins->mSrc[0].mRange.mMinValue < 16 &&
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+				(iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal && iblock->mInstructions[i + 1]->mSrc[1].mTemp < 0 ||
+					iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal && iblock->mInstructions[i + 1]->mSrc[0].mTemp < 0))
+			{
+				block->BinaryFloatOperatorLookup(iproc, ins, iblock->mInstructions[i + 1]);
+				i++;
+			}
 			else
 				block->NumericConversion(iproc, this, ins);
 			break;
@@ -52687,6 +52732,115 @@ void NativeCodeGenerator::PopulateShortMulTables(void)
 				m.mLinkerMSB->mData[j] = (uint8)(val >> 8);
 			}
 		}
+	}
+
+	for (int i = 0; i < mFloatTables.Size(); i++)
+	{
+		const FloatTable& f(mFloatTables[i]);
+		if (f.mLinker[0]->mSize != f.mMaxValue + 1 - f.mMinValue)
+		{
+			for (int j = 0; j < 4; j++)
+				f.mLinker[j]->AddSpace(f.mMaxValue + 1 - f.mMinValue);
+		}
+
+		for (int j = f.mMinValue; j <= f.mMaxValue; j++)
+		{
+			union {
+				float	f;
+				uint8	u[4];
+			}	fu;
+
+			switch (f.mOperator)
+			{
+			case IA_MUL:
+				fu.f = f.mConst * float(j);
+				break;
+			case IA_ADD:
+				fu.f = f.mConst * float(j);
+				break;
+			case IA_SUB:
+				if (f.mReverse)
+					fu.f = f.mConst - float(j);
+				else
+					fu.f = float(j) - f.mConst;
+				break;
+			case IA_DIVS:
+				if (f.mReverse)
+					fu.f = f.mConst / float(j);
+				else
+					fu.f = float(j) / f.mConst;
+				break;
+			}
+
+			for (int k = 0; k < 4; k++)
+				f.mLinker[k]->mData[j - f.mMinValue] = fu.u[k];
+		}
+	}
+}
+
+LinkerObject* NativeCodeGenerator::AllocateFloatTable(InterOperator op, bool reverse, int minval, int maxval, float fval, int index)
+{
+	int	i = 0;
+	while (i < mFloatTables.Size() && 
+		(mFloatTables[i].mOperator != op || 
+		 mFloatTables[i].mReverse != reverse ||
+		 mFloatTables[i].mConst != fval ||
+		 mFloatTables[i].mMinValue != minval))
+		i++;
+
+	if (i == mFloatTables.Size())
+	{
+		Location	loc;
+		FloatTable	ft;
+
+		char	name[60];
+		const char* base = "";
+
+		switch (op)
+		{
+		case IA_MUL:
+			base = "fmul";
+			break;
+		case IA_ADD:
+			base = "fadd";
+			break;
+		case IA_SUB:
+			if (reverse)
+				base = "frsub";
+			else
+				base = "fsub";
+			break;
+		case IA_DIVS:
+			if (reverse)
+				base = "frdiv";
+			else
+				base = "fdiv";
+			break;
+		}
+
+		for (int i = 0; i < 4; i++)
+		{
+			sprintf_s(name, "__%stab%d_%d_%f", base, i, minval, fval);
+			ft.mLinker[i] = mLinker->AddObject(loc, Ident::Unique(name), mRuntimeSection, LOT_DATA);
+			ft.mLinker[i]->mFlags |= LOBJF_CONST;
+		}
+
+		ft.mOperator = op;
+		ft.mReverse = reverse;
+		ft.mConst = fval;
+		ft.mMinValue = minval;
+		ft.mMaxValue = maxval;
+
+		mFloatTables.Push(ft);
+
+		return ft.mLinker[index];
+	}
+	else
+	{
+		if (maxval > mFloatTables[i].mMaxValue)
+			mFloatTables[i].mMaxValue = maxval;
+
+		return mFloatTables[i].mLinker[index];
 	}
 }
 
