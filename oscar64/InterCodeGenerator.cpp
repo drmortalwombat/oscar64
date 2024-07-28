@@ -1091,10 +1091,15 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Expression* ex
 					if (aexp->mBase->mBase)
 						disp = aexp->mOffset + aexp->mBase->mInteger - offset - 1;
 					else
-						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined immediate operand", aexp->mBase->mQualIdent);
+						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mBase->mQualIdent);
 				}
-				else
-					disp = aexp->mInteger - offset - 1;
+				else if (aexp->mType == DT_LABEL)
+				{
+					if (aexp->mBase)
+						disp = aexp->mInteger - offset - 1;
+					else
+						mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Undefined label", aexp->mQualIdent);
+				}
 
 				if (disp < -128 || disp > 127)
 					mErrors->Error(aexp->mLocation, EERR_ASM_INVALD_OPERAND, "Branch target out of range");
