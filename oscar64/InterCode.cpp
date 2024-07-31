@@ -18964,6 +18964,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 1]->mDst.mRange.Reset();
 				mInstructions[i + 0]->mSrc[1].mFinal = false;
 				mInstructions[i + 1]->mSrc[0].mFinal = false;
 				changed = true;
@@ -18987,11 +18988,14 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
 					mInstructions[i + 1]->mSrc[1].mFinal = false;
 					mInstructions[i + 2]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
+					mInstructions[i + 0]->mDst.mRange.Reset();
+					mInstructions[i + 1]->mDst.mRange.Reset();
 				}
 				else
 				{
 					mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
 					mInstructions[i + 0]->mSrc[1].mFinal = false;
+					mInstructions[i + 1]->mDst.mRange.Reset();
 					mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
 				}
 
@@ -21742,7 +21746,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "bmu_line");
+	CheckFunc = !strcmp(mIdent->mString, "copy_left");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
