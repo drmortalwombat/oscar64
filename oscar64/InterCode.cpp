@@ -5547,7 +5547,18 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 
 void InterCodeBasicBlock::AppendBeforeBranch(InterInstruction* code)
 {
-	mInstructions.Insert(mInstructions.Size() - 1, code);
+	int ti = mInstructions.Size() - 1;
+	if (mInstructions[ti]->mCode == IC_BRANCH)
+	{
+		if (ti > 0 && mInstructions[ti - 1]->mDst.mTemp == mInstructions[ti]->mSrc[0].mTemp && CanBypassUp(code, mInstructions[ti - 1]))
+		{
+			ti--;
+			if (ti > 0 && mInstructions[ti]->UsesTemp(mInstructions[ti - 1]->mDst.mTemp) && CanBypassUp(code, mInstructions[ti - 1]))
+				ti--;
+		}
+	}
+
+	mInstructions.Insert(ti, code);
 }
 
 const InterInstruction* InterCodeBasicBlock::FindByDst(int dst) const
@@ -14867,7 +14878,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								ains->mSrc[1] = lins->mDst;
 								ains->mSrc[0] = lins->mSrc[0];
 								ains->mSrc[0].mIntConst *= indexScale[lins->mSrc[1].mTemp];
-								tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+								tail->AppendBeforeBranch(ains);
 
 								indexScale[ains->mDst.mTemp] = (int)ains->mSrc[0].mIntConst;
 
@@ -14896,7 +14907,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									ains->mSrc[0].mType = lins->mDst.mType;
 									ains->mSrc[0].mTemp = -1;
 									ains->mSrc[0].mIntConst = s;
-									tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+									tail->AppendBeforeBranch(ains);
 
 									indexScale[ains->mDst.mTemp] = s;
 
@@ -14928,7 +14939,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									ains->mSrc[1] = nins->mDst;
 									ains->mSrc[0] = nins->mSrc[0];
 									ains->mSrc[0].mIntConst *= indexScale[lins->mSrc[0].mTemp];
-									tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+									tail->AppendBeforeBranch(ains);
 									ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
 
 									indexScale[ains->mDst.mTemp] = (int)ains->mSrc[0].mIntConst;
@@ -14963,7 +14974,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								ains->mSrc[0].mType = lins->mDst.mType;
 								ains->mSrc[0].mTemp = -1;
 								ains->mSrc[0].mIntConst = s;
-								tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+								tail->AppendBeforeBranch(ains);
 								ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
 
 								indexScale[ains->mDst.mTemp] = s;
@@ -14975,7 +14986,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 						}
 						else if (lins->mCode == IC_LEA)
 						{
-							if (lins->mSrc[0].mTemp >= 0 && lins->mSrc[0].IsNotUByte() && indexScale[lins->mSrc[0].mTemp] != 0 && IsSingleLoopAssign(i, this, body) && IsLoopInvariantTemp(lins->mSrc[1].mTemp, body))
+							if (lins->mSrc[0].mTemp >= 0 && !lins->mSrc[0].IsUByte() && indexScale[lins->mSrc[0].mTemp] != 0 && IsSingleLoopAssign(i, this, body) && IsLoopInvariantTemp(lins->mSrc[1].mTemp, body))
 							{
 								mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
 								mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
@@ -14990,7 +15001,11 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								ains->mSrc[0].mTemp = -1;
 								ains->mSrc[0].mType = IT_INT16;
 								ains->mSrc[0].mIntConst = indexScale[lins->mSrc[0].mTemp];
-								tail->mInstructions.Insert(tail->mInstructions.Size() - 3, ains);
+
+								if (IsTempModifiedInRange(0, i, lins->mSrc[0].mTemp))
+									mInstructions.Insert(i, ains);
+								else
+									tail->AppendBeforeBranch(ains);
 
 								modified = true;
 								continue;
@@ -21746,7 +21761,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "copy_left");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

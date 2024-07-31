@@ -87,6 +87,9 @@ rem @echo off
 @call :test fastcalltest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test strlen.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test strcmptest.c
 @if %errorlevel% neq 0 goto :error
 

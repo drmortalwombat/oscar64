@@ -36780,7 +36780,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			if (i == mIns.Size())
 			{
 				int addr = mIns[ai].mAddress;
-				bool	fail = false, changey = false;
+				bool	fail = false, changey = false, changev = false;
 				
 				for (int i = 0; i < mIns.Size(); i++)
 				{
@@ -36794,7 +36794,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 					else if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == addr)
 					{
 						if (mIns[i].mType == ASMIT_STA || mIns[i].mType == ASMIT_INC || mIns[i].mType == ASMIT_DEC)
+						{
 							changey = true;
+							changev = true;
+						}
 						else if (mIns[i].mType != ASMIT_LDA)
 						{
 							fail = true;
@@ -36816,7 +36819,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 					exitBlock->mEntryRequiredRegs += CPU_REG_Y;
 
 					prevBlock->mIns.Push(NativeCodeInstruction(mIns[ai].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, addr));
-					if (changey)
+					if (changev)
 						exitBlock->mIns.Push(NativeCodeInstruction(mIns[ai].mIns, ASMIT_STY, ASMIM_ZERO_PAGE, addr));
 					for (int i = 0; i < mIns.Size(); i++)
 					{
@@ -50208,7 +50211,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "copy_left");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "strlen");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -51997,7 +52000,6 @@ void NativeCodeProcedure::Optimize(void)
 			ResetVisited();
 			changed = mEntryBlock->JoinTailCodeSequences(this, true);
 		}
-
 
 	} while (changed);
 #endif
