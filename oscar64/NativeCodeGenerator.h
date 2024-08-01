@@ -456,6 +456,7 @@ public:
 	bool MoveLoadShiftRotateUp(int at);
 	bool MoveLoadShiftStoreUp(int at);
 	bool MoveTYADCStoreDown(int at);
+	bool MoveShiftZeroPageUp(int at);
 
 	bool MoveLDSTXOutOfRange(int at);
 
