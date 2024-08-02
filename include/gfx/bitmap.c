@@ -579,59 +579,82 @@ static inline void buildline(char ly, char lx, int dx, int dy, int stride, bool 
 		break;
 	}
 
-	// m >= 0
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + delta16);
-	ip += asm_rl(BLIT_CODE + ip, ASM_BMI, delta16 ? 5 + 15 + 13 + 2 : 5 + 15 + 7 + 2);
-
-	ip += asm_np(BLIT_CODE + ip, up ? ASM_DEY : ASM_INY);
-	ip += asm_im(BLIT_CODE + ip, ASM_CPY, up ? 0xff : 0x08);
-	ip += asm_rl(BLIT_CODE + ip, ASM_BNE, 15);
-
-	ip += asm_np(BLIT_CODE + ip, ASM_CLC);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
-	ip += asm_im(BLIT_CODE + ip, ASM_ADC, stride & 0xff);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP + 1);
-	ip += asm_im(BLIT_CODE + ip, ASM_ADC, stride >> 8);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP + 1);
-	ip += asm_im(BLIT_CODE + ip, ASM_LDY, up ? 0x07 : 0x00);
-
-	ip += asm_np(BLIT_CODE + ip, ASM_SEC);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
-	ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx & 0xff);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
-
-	if (delta16)
+	if (dx && dy)
 	{
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
-		ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx >> 8);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+		// m >= 0
+		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + delta16);
+		ip += asm_rl(BLIT_CODE + ip, ASM_BMI, delta16 ? 5 + 15 + 13 + 2 : 5 + 15 + 7 + 2);
 	}
 
-	// m < 0
-	ip += asm_rl(BLIT_CODE + ip, ASM_BPL, delta16 ? 4 + 15 + 13 : 4 + 15 + 7);
-
-	ip += asm_zp(BLIT_CODE + ip, left ? ASM_ASL : ASM_LSR, REG_D0);
-	ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 15);
-
-	ip += asm_zp(BLIT_CODE + ip, left ? ASM_ROL : ASM_ROR, REG_D0);
-	ip += asm_np(BLIT_CODE + ip, ASM_CLC);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
-	ip += asm_im(BLIT_CODE + ip, ASM_ADC, left ? 0xf8 : 0x08);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP + 1);
-	ip += asm_im(BLIT_CODE + ip, ASM_ADC, left ? 0xff : 0x00);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP + 1);
-
-	ip += asm_np(BLIT_CODE + ip, ASM_CLC);
-	ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
-	ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy & 0xff);
-	ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
-	if (delta16)
+	if (dy)
 	{
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
-		ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy >> 8);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+		ip += asm_np(BLIT_CODE + ip, up ? ASM_DEY : ASM_INY);
+		ip += asm_im(BLIT_CODE + ip, ASM_CPY, up ? 0xff : 0x08);
+		ip += asm_rl(BLIT_CODE + ip, ASM_BNE, 15);
+
+		ip += asm_np(BLIT_CODE + ip, ASM_CLC);
+		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
+		ip += asm_im(BLIT_CODE + ip, ASM_ADC, stride & 0xff);
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
+		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP + 1);
+		ip += asm_im(BLIT_CODE + ip, ASM_ADC, stride >> 8);
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP + 1);
+		ip += asm_im(BLIT_CODE + ip, ASM_LDY, up ? 0x07 : 0x00);
+	}
+
+	if (dx && dy)
+	{
+		ip += asm_np(BLIT_CODE + ip, ASM_SEC);
+		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
+		ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx & 0xff);
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
+
+		if (delta16)
+		{
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
+			ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx >> 8);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+		}
+
+		// m < 0
+		ip += asm_rl(BLIT_CODE + ip, ASM_BPL, delta16 ? 4 + 13 + 13 : 4 + 13 + 7);
+	}
+
+	if (dx)
+	{
+		ip += asm_zp(BLIT_CODE + ip, left ? ASM_ASL : ASM_LSR, REG_D0);
+		ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 13);
+
+		ip += asm_zp(BLIT_CODE + ip, left ? ASM_ROL : ASM_ROR, REG_D0);
+		ip += asm_np(BLIT_CODE + ip, ASM_CLC);
+		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
+		ip += asm_im(BLIT_CODE + ip, ASM_ADC, left ? 0xf8 : 0x08);
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
+
+		if (left)
+		{
+			ip += asm_rl(BLIT_CODE + ip, ASM_BCS, 2);
+			ip += asm_zp(BLIT_CODE + ip, ASM_DEC, REG_SP + 1);
+		}
+		else
+		{
+			ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 2);
+			ip += asm_zp(BLIT_CODE + ip, ASM_INC, REG_SP + 1);
+		}
+	}
+
+	if (dx && dy)
+	{
+		ip += asm_np(BLIT_CODE + ip, ASM_CLC);
+		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
+		ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy & 0xff);
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
+		if (delta16)
+		{
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
+			ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy >> 8);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+		}
 	}
 
 	// l --
@@ -649,6 +672,7 @@ static inline void callline(byte * dst, byte bit, int m, char lh, char pattern)
 {
 	__asm
 	{
+
 		lda	dst
 		sta REG_SP
 		lda	dst + 1

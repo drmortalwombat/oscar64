@@ -3880,7 +3880,7 @@ void InterInstruction::FilterStaticVarsByteUsage(const GrowingVariableArray& sta
 			}
 		}
 	}
-	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH || mCode == IC_FILL)
+	else if (mCode == IC_COPY || mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_ASSEMBLER || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_STRCPY || mCode == IC_DISPATCH || mCode == IC_FILL)
 	{
 		requiredVars.OrNot(providedVars);
 	}
@@ -4539,7 +4539,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 		requiredVars.Fill();
 		storeIns.SetSize(0);
 	}
-	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_DISPATCH)
+	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_ASSEMBLER || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_DISPATCH)
 	{
 		requiredVars.Fill();
 		storeIns.SetSize(0);
@@ -4605,7 +4605,7 @@ bool InterInstruction::RemoveUnusedStaticStoreByteInstructions(InterCodeBasicBlo
 	{
 		requiredVars.Fill();
 	}
-	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_DISPATCH)
+	else if (mCode == IC_CALL || mCode == IC_CALL_NATIVE || mCode == IC_ASSEMBLER || mCode == IC_RETURN || mCode == IC_RETURN_STRUCT || mCode == IC_RETURN_VALUE || mCode == IC_DISPATCH)
 	{
 		requiredVars.Fill();
 	}
@@ -21761,7 +21761,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "draw");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

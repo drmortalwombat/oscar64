@@ -671,7 +671,10 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			else if (adec->mType == DT_VARIABLE_REF)
 			{
 				if (adec->mBase->mFlags & DTF_GLOBAL)
+				{
 					AnalyzeGlobalVariable(adec->mBase);
+					adec->mBase->mFlags |= DTF_VAR_ALIASING;
+				}
 			}
 			else if (adec->mType == DT_LABEL)
 			{
@@ -680,7 +683,10 @@ void GlobalAnalyzer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			else if (adec->mType == DT_VARIABLE)
 			{
 				if (adec->mFlags & DTF_GLOBAL)
+				{
 					AnalyzeGlobalVariable(adec);
+					adec->mFlags |= DTF_VAR_ALIASING;
+				}
 			}
 			else if (adec->mType == DT_FUNCTION_REF)
 			{
