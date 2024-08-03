@@ -303,6 +303,18 @@ void shr32n(unsigned long xu, long xi)
 	}
 }
 
+void shl1_32n(void)
+{
+	static const unsigned long m[] = {
+		#for(i, 32) 1ul << i,
+	};
+
+	for(int i=0; i<32; i++)
+	{
+		assert(1ul << i == m[i]);
+	}
+}
+
 #pragma native(shl32n)
 #pragma native(shr32n)
 
@@ -395,6 +407,8 @@ int main(void)
 	shr32n(0xffffffffUL, 0xffffffffL);
 	shr32n(0x12345678UL, 0x12345678L);
 	shr32n(0xfedcba98UL, 0xfedcba98L);
+
+	shl1_32n();
 
 	return 0;
 }
