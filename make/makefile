@@ -1,6 +1,7 @@
 project_dir := $(abspath $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))/../)
 sources = $(wildcard $(project_dir)/oscar64/*.cpp)
 objects = $(patsubst $(project_dir)/oscar64/%.cpp,%.o,$(sources))
+srcdir := $(if $(srcdir),$(srcdir),$(project_dir)/build)
 
 CXX = c++
 CPPFLAGS = -g -O2 -std=c++11 -Wno-switch
@@ -24,16 +25,18 @@ else
 endif
  
 %.o: $(project_dir)/oscar64/%.cpp
-	$(CXX) -c $(CPPFLAGS) $< -o $@
+	@echo "Compiling compiler file" $@ "..."
+	@$(CXX) -c $(CPPFLAGS) $< -o $(srcdir)/$@
 
 %.d: $(project_dir)/oscar64/%.cpp
-	@set -e; rm -f $@; \
-	$(CC) -MM $(CPPFLAGS) $< > $@.$$$$; \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
+	@set -e; rm -f $(srcdir)/$@; \
+	$(CC) -MM $(CPPFLAGS) $< > $(srcdir)/$@.$$$$; \
+	sed 's,\($*\)\.o[ :]*,\1.o $(srcdir)/$@ : ,g' < $(srcdir)/$@.$$$$ > $(srcdir)/$@; \
+	rm -f $(srcdir)/$@.$$$$
 
 $(project_dir)/bin/oscar64 : $(objects)
-	$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
+	@echo "Linking compiler" $@ "..."
+	@$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
 
 .PHONY : clean
 clean :
