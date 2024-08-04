@@ -5,7 +5,8 @@ srcdir := $(if $(srcdir),$(srcdir),$(project_dir)/build)
 
 CXX = c++
 CPPFLAGS = -g -O2 -std=c++11 -Wno-switch
- 
+SED = /usr/bin/sed
+
  $(shell mkdir -p $(project_dir)/bin)
  
 ifdef WINDIR
@@ -29,10 +30,11 @@ endif
 	@$(CXX) -c $(CPPFLAGS) $< -o $(srcdir)/$@
 
 %.d: $(project_dir)/oscar64/%.cpp
-	@set -e; rm -f $(srcdir)/$@; \
+	@echo "Transforming file" $@ "..."
+	@set -e; $(RM) $(srcdir)/$@; \
 	$(CC) -MM $(CPPFLAGS) $< > $(srcdir)/$@.$$$$; \
-	sed 's,\($*\)\.o[ :]*,\1.o $(srcdir)/$@ : ,g' < $(srcdir)/$@.$$$$ > $(srcdir)/$@; \
-	rm -f $(srcdir)/$@.$$$$
+	$(SED) 's,\($*\)\.o[ :]*,\1.o $(srcdir)/$@ : ,g' < $(srcdir)/$@.$$$$ > $(srcdir)/$@; \
+	$(RM) $(srcdir)/$@.$$$$
 
 $(project_dir)/bin/oscar64 : $(objects)
 	@echo "Linking compiler" $@ "..."
@@ -40,7 +42,9 @@ $(project_dir)/bin/oscar64 : $(objects)
 
 .PHONY : clean
 clean :
-	-rm *.o *.d $(project_dir)/bin/oscar64
+	@$(RM) $(srcdir)/*.o
+	@$(RM) $(srcdir)/*.d
+	@$(RM) $(project_dir)/bin/oscar64
 
 ifeq ($(UNAME_S), Darwin)
 
