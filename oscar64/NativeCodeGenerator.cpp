@@ -14204,6 +14204,29 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::ForwardAccuBranch(bool eq, bool ne, 
 }
 
 
+void NativeCodeBasicBlock::RemoveJumpToBranch(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump) mTrueJump->RemoveJumpToBranch();
+		if (mFalseJump) mFalseJump->RemoveJumpToBranch();
+
+		if (mTrueJump && !mFalseJump && mTrueJump != this && mTrueJump->mIns.Size() == 0)
+		{
+			mTrueJump->mNumEntries--;
+			mBranch = mTrueJump->mBranch;
+			mFalseJump = mTrueJump->mFalseJump;
+			mTrueJump = mTrueJump->mTrueJump;
+			if (mTrueJump)
+				mTrueJump->mNumEntries++;
+			if (mFalseJump)
+				mFalseJump->mNumEntries++;
+		}
+	}
+}
+
 bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 {
 	bool	changed = false;
@@ -49904,6 +49927,12 @@ bool NativeCodeBasicBlock::CalculateOffset(int& total)
 			total += BranchByteSize(mTrueJump, total, mTrueJump->mOffset);
 		else if (mTrueJump->mPlace == mPlace + 1)
 			total += BranchByteSize(mFalseJump, total, mFalseJump->mOffset);
+		else if (mFalseJump->mPlace < mPlace && mTrueJump->mPlace < mPlace && mPlace - mTrueJump->mPlace < 126 &&
+			mFalseJump->mIns.Size() == 1 && mFalseJump->mIns[0].mType == ASMIT_RTS)
+		{
+			total += BranchByteSize(mTrueJump, total, mTrueJump->mOffset);
+			total += JumpByteSize(mFalseJump, mFalseJump->mOffset - total);
+		}
 		else if (
 			mFalseJump->mPlace > mTrueJump->mPlace && mFalseJump->mPlace < mPlace ||
 			mFalseJump->mPlace < mTrueJump->mPlace && mFalseJump->mPlace > mPlace)
@@ -50036,6 +50065,12 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 			end += PutBranch(proc, mTrueJump, mBranch, mTrueJump->mOffset - end);
 		else if (mTrueJump->mPlace == mPlace + 1)
 			end += PutBranch(proc, mFalseJump, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
+		else if (mFalseJump->mPlace < mPlace && mTrueJump->mPlace < mPlace && mPlace - mTrueJump->mPlace < 126 &&
+			mFalseJump->mIns.Size() == 1 && mFalseJump->mIns[0].mType == ASMIT_RTS)
+		{
+			end += PutBranch(proc, mTrueJump, mBranch, mTrueJump->mOffset - end);
+			end += PutJump(proc, mFalseJump, mFalseJump->mOffset - end);
+		}
 		else if (
 			mFalseJump->mPlace > mTrueJump->mPlace && mFalseJump->mPlace < mPlace ||
 			mFalseJump->mPlace < mTrueJump->mPlace && mFalseJump->mPlace > mPlace)
@@ -50338,7 +50373,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "shots_clear");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "opp::vector<struct opp::pair<i16,i16>>::reserve");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52151,6 +52186,9 @@ void NativeCodeProcedure::Optimize(void)
 	BuildDataFlowSets();
 	ResetVisited();
 	mEntryBlock->RemoveUnusedResultInstructions();
+
+	ResetVisited();
+	mEntryBlock->RemoveJumpToBranch();
 
 #if 1
 	ResetVisited();

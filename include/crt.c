@@ -4293,17 +4293,20 @@ __asm malloc
 		// to store pointer to end of used memory
 		// in case of heap check we add six bytes to
 		// add some guards
+		// round up to multiple of four bytes to
+		// keep heap aligned
 
 		clc	
 		lda accu + 0
 #ifdef HEAPCHECK
-		adc #6
+		adc #2 + 4 + 4 + 3
 #else
-		adc #2
+		adc #2 + 3
 #endif
+		and #$fc
 		sta tmp
 		lda accu + 1
-		adc #$00
+		adc #0
 		sta tmp + 1
 
 		// check if heap is initialized
@@ -4315,23 +4318,27 @@ __asm malloc
 
 		// set next pointer to null
 		lda #0
-		sta HeapStart + 0
-		sta HeapStart + 1
+		sta HeapStart + 2
+		sta HeapStart + 3
 
 		// set size of dummy node to null
 		inc HeapNode + 2
 
 		// set next pointer of dummy node to first free heap block
 		lda #<HeapStart
+		ora #2
 		sta HeapNode + 0
 		lda #>HeapStart
 		sta HeapNode + 1
 
 		// set end of memory block to end of heap
+		sec
 		lda #<HeapEnd
-		sta HeapStart + 2
+		sbc #2
+		sta HeapStart + 4
 		lda #>HeapEnd
-		sta HeapStart + 3
+		sbc #0
+		sta HeapStart + 5
 
 hasHeap:
 		// remember address of pointer to this
@@ -4392,18 +4399,9 @@ hempty:
 avail:
 		// calculate new end of block
 				
-		clc
 		lda tmp + 2
-#ifdef HEAPCHECK
-		adc #7
-		and #$f8
-#else
-		adc #3
-		and #$fc
-#endif
 		sta tmp + 4
 		lda tmp + 3
-		adc #0
 		sta tmp + 5
 
 		// compare with end of free block
@@ -4469,10 +4467,14 @@ found:
 		sta (accu), y
 		iny
 		sta (accu), y
+		iny
+		sta (accu), y
+		iny
+		sta (accu), y
 
 		sec
 		lda tmp + 2
-		sbc #2
+		sbc #4
 		sta tmp + 2
 		bcs hc1
 		dec tmp + 3
@@ -4482,16 +4484,24 @@ hc1:
 		sta (tmp + 2), y
 		iny
 		sta (tmp + 2), y
+		iny
+		sta (tmp + 2), y
+		iny
+		sta (tmp + 2), y
 
+		clc
 		lda accu
-		ora #4
-		sta accu
+		adc #6
 #else
-		// advanve by two bytes to skip size
+		// advance by two bytes to skip size
+		clc
 		lda accu
-		ora #2
-		sta accu
+		adc #2
 #endif
+		sta accu
+		bcc hc2
+		inc accu + 1		
+hc2:
 		rts
 }
 
@@ -4508,39 +4518,50 @@ __asm inp_malloc
 __asm free
 {
 
-		// two bytes back to fix remembered end of block
+		// check nullptr free
 
 		lda accu
-#ifdef HEAPCHECK
 		ora accu + 1
-		bne hcnn
+		bne notnull
 		rts
-hcnn:
+notnull:
+
+		// two bytes back to fix remembered end of block
+
+		sec
 		lda accu
-		and #$07
-		cmp #$04		
+#ifdef HEAPCHECK
+		and #3
 		bne hfail
 		lda accu
-		and #$f8		
+		sbc #6
 #else
-		and #$fc
+		sbc #2
 #endif
 		sta accu
+		bcs fc1
+		dec accu + 1
+fc1:
 
 #ifdef HEAPCHECK
 		ldy #2
-		lda (accu), y
-		cmp #$bd
+		lda #$bd
+		cmp (accu), y
 		bne hfail
 		iny
-		lda (accu), y
-		cmp #$bd
+		cmp (accu), y
+		bne hfail
+		iny
+		cmp (accu), y
+		bne hfail
+		iny
+		cmp (accu), y
 		bne hfail
 
 		ldy #0
 		sec
 		lda (accu), y
-		sbc #2
+		sbc #4
 		sta tmp + 0
 		iny
 		lda (accu), y
@@ -4548,23 +4569,19 @@ hcnn:
 		sta tmp + 1
 
 		ldy #0
-		lda (tmp), y
-		cmp #$be
+		lda #$be
+		cmp (tmp), y
 		bne hfail
 		iny
-		lda (tmp), y
-		cmp #$be
+		cmp (tmp), y
 		bne hfail
-
-		lda accu
+		iny
+		cmp (tmp), y
+		bne hfail
+		iny
+		cmp (tmp), y
+		bne hfail
 #endif
-
-		// check nullptr free
-
-		ora accu + 1
-		bne notnull
-		rts
-notnull:
 
 #ifdef HEAPCHECK
 		lda accu + 1
@@ -4593,20 +4610,11 @@ hchk2:
 		// cache end of block, rounding to next four byte
 		// address
 		
-		clc
 		ldy #0
 		lda (accu), y
-#ifdef HEAPCHECK
-		adc #7
-		and #$f8
-#else
-		adc #3
-		and #$fc
-#endif
 		sta accu + 2
 		iny
 		lda (accu), y
-		adc #0
 		sta accu + 3
 
 		// pointer to heap block, starting with

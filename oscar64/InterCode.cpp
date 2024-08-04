@@ -21761,7 +21761,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "draw");
+	CheckFunc = !strcmp(mIdent->mString, "shots_move");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -22663,6 +22663,8 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->SingleLoopCountZeroCheck();
 
 	RemoveUnusedPartialStoreInstructions();
+
+	PeepholeOptimization();
 
 	MapVariables();
 

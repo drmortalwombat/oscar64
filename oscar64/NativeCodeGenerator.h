@@ -419,6 +419,8 @@ public:
 	void CountEntries(NativeCodeBasicBlock* fromJump);
 	NativeCodeBasicBlock * ForwardAccuBranch(bool eq, bool ne, bool pl, bool mi, int limit);
 	bool MergeBasicBlocks(void);
+	void RemoveJumpToBranch(void);
+
 	void MarkLoopHead(void);
 
 	struct DominatorStacks
