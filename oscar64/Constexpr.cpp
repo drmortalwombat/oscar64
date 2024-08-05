@@ -2,7 +2,7 @@
 #include <math.h>
 
 ConstexprInterpreter::Value::Value(void)
-	: mDecType(TheVoidTypeDeclaration),
+	: mDecType(TheVoidTypeDeclaration), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
 	mData(mShortData), mDataSize(0)
 {
@@ -10,7 +10,7 @@ ConstexprInterpreter::Value::Value(void)
 
 ConstexprInterpreter::Value::Value(const Location & location)
 	: mLocation(location), 
-	mDecType(TheVoidTypeDeclaration),
+	mDecType(TheVoidTypeDeclaration), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
 	mData(mShortData), mDataSize(0)
 {
@@ -18,7 +18,7 @@ ConstexprInterpreter::Value::Value(const Location & location)
 
 ConstexprInterpreter::Value::Value(Expression* exp)
 	: mLocation(exp->mLocation), 
-	mDecType(exp->mDecType), 
+	mDecType(exp->mDecType), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
 	mDataSize(exp->mDecType->mSize)
 {
@@ -51,12 +51,15 @@ void ConstexprInterpreter::Value::PutConst(int offset, Declaration* dec)
 		for (int i = 0; i < dec->mBase->mSize; i++)
 			PutIntAt(dec->mData[i], offset + i, TheConstCharTypeDeclaration);
 		break;
+	case DT_CONST_POINTER:
+		PutPtrAt(new Value(mLocation, dec->mValue->mDecValue, dec->mBase, 0), offset, dec);
+		break;
 	}
 }
 
 ConstexprInterpreter::Value::Value(const Location& location, Declaration* dec)
 	: mLocation(location),
-	mDecType(dec),
+	mDecType(dec), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
 	mDataSize(dec->mSize)
 {
@@ -68,7 +71,7 @@ ConstexprInterpreter::Value::Value(const Location& location, Declaration* dec)
 
 ConstexprInterpreter::Value::Value(const Location& location, Declaration* dec, int size)
 	: mLocation(location),
-	mDecType(dec),
+	mDecType(dec), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
 	mDataSize(size)
 {
@@ -80,7 +83,7 @@ ConstexprInterpreter::Value::Value(const Location& location, Declaration* dec, i
 
 ConstexprInterpreter::Value::Value(const Value& value)
 	: mLocation(value.mLocation),
-	mDecType(value.mDecType),
+	mDecType(value.mDecType), mDecValue(nullptr),
 	mBaseValue(value.mBaseValue), mOffset(value.mOffset),
 	mDataSize(value.mDataSize)
 	  
@@ -96,7 +99,7 @@ ConstexprInterpreter::Value::Value(const Value& value)
 
 ConstexprInterpreter::Value::Value(Value&& value)
 	: mLocation(value.mLocation),
-	mDecType(value.mDecType),
+	mDecType(value.mDecType), mDecValue(nullptr),
 	mBaseValue(value.mBaseValue), mOffset(value.mOffset),
 	mDataSize(value.mDataSize)
 {
@@ -115,7 +118,7 @@ ConstexprInterpreter::Value::Value(Value&& value)
 
 ConstexprInterpreter::Value::Value(Value* value)
 	: mLocation(value->mLocation),
-	mDecType(value->mDecType),
+	mDecType(value->mDecType), mDecValue(value->mDecValue),
 	mBaseValue(value), mOffset(0),
 	mDataSize(0), mData(mShortData)
 {
@@ -123,15 +126,23 @@ ConstexprInterpreter::Value::Value(Value* value)
 
 ConstexprInterpreter::Value::Value(const Location& location, Value* value, Declaration* type, int offset)
 	: mLocation(location),
-	mDecType(type),
+	mDecType(type), mDecValue(nullptr),
 	mBaseValue(value), mOffset(offset),
+	mDataSize(0), mData(mShortData)
+{
+}
+
+ConstexprInterpreter::Value::Value(const Location& location, Declaration* value, Declaration* type, int offset)
+	: mLocation(location),
+	mDecType(type), mDecValue(value),
+	mBaseValue(nullptr), mOffset(offset),
 	mDataSize(0), mData(mShortData)
 {
 }
 
 ConstexprInterpreter::Value::Value(const Location& location, const uint8* data, Declaration* type)
 	: mLocation(location),
-	mDecType(type),
+	mDecType(type), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
 	mDataSize(type->mSize)
 {
@@ -146,7 +157,7 @@ ConstexprInterpreter::Value::Value(const Location& location, const uint8* data, 
 
 ConstexprInterpreter::Value::Value(const Location& location, const ValueItem* data, Declaration* type)
 	: mLocation(location),
-	mDecType(type),
+	mDecType(type), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
 	mDataSize(type->mSize)
 {
@@ -339,6 +350,14 @@ ConstexprInterpreter::Value ConstexprInterpreter::Value::GetPtrAt(int at, Declar
 	return Value(mLocation, dp->mBaseValue, type, uint16(dp[0].mByte | ((uint32)(dp[1].mByte) << 8)));
 }
 
+void ConstexprInterpreter::Value::PutVarAt(Declaration* var, int64 v, int at, Declaration* type)
+{
+	ValueItem* dp = GetAddr() + at;
+	dp[0].mByte = uint8(v & 0xff);
+	dp[1].mByte = uint8((v >> 8) & 0xff);
+	mDecValue = var;
+}
+
 void ConstexprInterpreter::Value::PutIntAt(int64 v, int at, Declaration* type)
 {
 	if (type->mType == DT_TYPE_FLOAT)
@@ -521,7 +540,26 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 
 			Declaration* target;
 
-			if (vp.mBaseValue->mDecType->mType == DT_TYPE_ARRAY)
+			if (vp.mBaseValue->mDecValue)
+			{
+				target = new Declaration(mLocation, DT_VARIABLE_REF);
+
+				if (vp.mBaseValue->mDecValue->mType == DT_VARIABLE_REF)
+				{
+					target->mBase = vp.mBaseValue->mDecValue->mBase;
+					target->mOffset = vp.mBaseValue->mDecValue->mOffset;
+				}
+				else
+					target->mBase = vp.mBaseValue->mDecValue;
+
+				target->mOffset += vp.mOffset;
+
+				dec->mValue = new Expression(mLocation, EX_CONSTANT);
+				dec->mValue->mDecType = type;
+				dec->mValue->mDecValue = target;
+				return dec;
+			}
+			else if (vp.mBaseValue->mDecType->mType == DT_TYPE_ARRAY)
 			{
 				target = new Declaration(mLocation, DT_CONST_DATA);
 				target->mSize = vp.mBaseValue->mDataSize;
@@ -539,6 +577,14 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 			dec->mValue = new Expression(mLocation, EX_CONSTANT);
 			dec->mValue->mDecType = target->mBase;
 			dec->mValue->mDecValue = target;
+		}
+		else if (vp.mDecValue)
+		{
+			dec = new Declaration(mLocation, DT_VARIABLE_REF);
+			dec->mBase = vp.mDecValue;
+			dec->mFlags = 0;
+			dec->mSize = type->mSize;
+			dec->mOffset = vp.mOffset;
 		}
 		else
 		{
@@ -690,7 +736,12 @@ bool ConstexprInterpreter::AddParam(int& pos, Expression* pex, Declaration* dec)
 	{
 		mParams[pos] = Value(pex->mLocation, pex->mDecValue->mBase);
 		if (pex->mDecValue->mSize > 0)
-			mParams[pos].PutConst(0, pex->mDecValue->mValue->mDecValue);
+		{
+			if (pex->mDecValue->mValue)
+				mParams[pos].PutConst(0, pex->mDecValue->mValue->mDecValue);
+			else
+				return false;
+		}
 	}
 	else
 		return false;

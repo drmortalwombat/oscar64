@@ -21840,6 +21840,9 @@ bool NativeCodeBasicBlock::LoopRegisterXYMap(void)
 									if (xfree)
 									{
 										pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mini));
+										if (pblock->mExitRequiredRegs[CPU_REG_Z])
+											pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+
 										pblock->mExitRequiredRegs += CPU_REG_X;
 										for (int i = 0; i < eblocks.Size(); i++)
 										{
@@ -21850,6 +21853,9 @@ bool NativeCodeBasicBlock::LoopRegisterXYMap(void)
 									else
 									{
 										pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_LDY, ASMIM_ZERO_PAGE, mini));
+										if (pblock->mExitRequiredRegs[CPU_REG_Z])
+											pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+
 										pblock->mExitRequiredRegs += CPU_REG_Y;
 										for (int i = 0; i < eblocks.Size(); i++)
 										{
@@ -50373,7 +50379,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "opp::vector<struct opp::pair<i16,i16>>::reserve");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "screen_flip");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -51524,7 +51530,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 		CheckBlocks();
-
 
 		if (step > 4 && !changed)
 		{

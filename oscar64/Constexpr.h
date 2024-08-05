@@ -19,8 +19,8 @@ protected:
 
 	struct ValueItem
 	{
-		uint8		mByte;
-		Value* mBaseValue;
+		uint8			mByte;
+		Value		*	mBaseValue;
 
 		ValueItem(void);
 	};
@@ -35,6 +35,7 @@ protected:
 		Value(const Value& value);
 		Value(Value&& value);
 		Value(const Location& location, Value * value, Declaration * type, int offset);
+		Value(const Location& location, Declaration * value, Declaration* type, int offset);
 		Value(Value* value);
 		Value(const Location& location, const uint8 * data, Declaration* type);
 		Value(const Location& location, const ValueItem* data, Declaration* type);
@@ -48,7 +49,7 @@ protected:
 		void Assign(const Value& v);
 
 		Location		mLocation;
-		Declaration	*	mDecType;
+		Declaration	*	mDecType, * mDecValue;
 		Value		*	mBaseValue;
 		int				mOffset;
 		ValueItem	*	mData;
@@ -71,6 +72,7 @@ protected:
 		void PutIntAt(int64 v, int at, Declaration* type);
 		void PutFloatAt(double v, int at, Declaration* type);
 		void PutPtrAt(const Value& v, int at, Declaration* type);
+		void PutVarAt(Declaration* var, int64 v, int at, Declaration* type);
 
 		void PutConst(int offset, Declaration * dec);
 		Declaration* GetConst(int offset, Declaration* type, LinkerSection* dataSection) const;
