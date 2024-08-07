@@ -26,4 +26,4 @@ overlay.prg: overlay.c
 	$(CC) $(CFLAGS) $< -n -d64=overlay.d64
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg *.bcs *.d64 *.crt
+	@$(RM) *.asm *.int *.lbl *.map *.prg *.bcs *.d64 *.crt

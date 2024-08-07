@@ -7,4 +7,4 @@ CFLAGS=
 all: helloworld.prg
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg *.bcs
+	@$(RM) *.asm *.int *.lbl *.map *.prg *.bcs

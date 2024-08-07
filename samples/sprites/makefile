@@ -13,4 +13,4 @@ sprmux32.prg: sprmux32.c
 	$(CC) $(CFLAGS) $< -O2 -dVSPRITES_MAX=32 -dNUM_IRQS=28
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg *.bcs
+	@$(RM) *.asm *.int *.lbl *.map *.prg *.bcs

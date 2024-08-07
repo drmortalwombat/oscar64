@@ -47,4 +47,4 @@ stripedarraytest: stripedarraytest.c
 	$(CC) -e -O3 -n $<
 
 clean:
-	$(RM) *.asm *.bcs *.int *.lbl *.map *.prg
+	@$(RM) *.asm *.bcs *.int *.lbl *.map *.prg

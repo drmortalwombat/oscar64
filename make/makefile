@@ -26,7 +26,7 @@ else
 endif
 
 
-all: --prep-build-dir compiler samples
+all: --prep-build-dir compiler samples tests
 
 
 %.o: $(project_dir)/oscar64/%.cpp
@@ -53,18 +53,24 @@ clean :
 	@$(RM) $(srcdir)/*.o
 	@$(RM) $(srcdir)/*.d
 	@$(RM) $(project_dir)/bin/oscar64
-	$(MAKE) -C $(project_dir)/samples clean
+	@$(MAKE) -C $(project_dir)/samples clean
+	@$(MAKE) -C $(project_dir)/autotest clean
 
 
 .PHONY : distclean
 distclean :
 	@$(REMOVE_FORCE_ALL) $(srcdir)
 	@$(REMOVE_FORCE_ALL) $(project_dir)/bin
-	$(MAKE) -C $(project_dir)/samples clean
+	@$(MAKE) -C $(project_dir)/samples clean
+	@$(MAKE) -C $(project_dir)/autotest clean
 
 
 samples: compiler
-	$(MAKE) -C $(project_dir)/samples all
+	@$(MAKE) -C $(project_dir)/samples all
+
+
+tests: compiler
+	@$(MAKE) -C $(project_dir)/autotest all
 
 
 ifeq ($(UNAME_S), Darwin)

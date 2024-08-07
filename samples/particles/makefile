@@ -7,4 +7,4 @@ CFLAGS=-n
 all: fireworks_ptr.prg fireworks_hires.prg fireworks_stripe.prg
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg
+	@$(RM) *.asm *.int *.lbl *.map *.prg

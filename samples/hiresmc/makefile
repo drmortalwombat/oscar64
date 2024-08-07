@@ -7,4 +7,4 @@ CFLAGS=-n
 all: func3d.prg polygon.prg floodfill.prg paint.prg
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg
+	@$(RM) *.asm *.int *.lbl *.map *.prg

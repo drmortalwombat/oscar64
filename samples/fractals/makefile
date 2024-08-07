@@ -13,4 +13,4 @@ mbzoom.prg: mbzoom.c
 	$(CC) $(CFLAGS) -O3 $<
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg
+	@$(RM) *.asm *.int *.lbl *.map *.prg

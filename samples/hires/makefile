@@ -10,4 +10,4 @@ splitscreen.prg: splitscreen.c
 	$(CC) $<
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg *.bcs
+	@$(RM) *.asm *.int *.lbl *.map *.prg *.bcs

@@ -10,4 +10,4 @@ movingbars.prg: movingbars.c
 	$(CC) $(CFLAGS) $< -n
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg *.bcs
+	@$(RM) *.asm *.int *.lbl *.map *.prg *.bcs

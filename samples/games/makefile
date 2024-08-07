@@ -16,4 +16,4 @@ hscrollshmup.prg: hscrollshmup.c
 	$(CC) $(CFLAGS) -O2 $<
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg *.bcs
+	@$(RM) *.asm *.int *.lbl *.map *.prg *.bcs

@@ -7,4 +7,4 @@ CFLAGS=-n
 all: bigfont.prg tunnel.prg grid2d.prg colorram.prg cgrid8way.prg
 
 clean:
-	$(RM) *.asm *.int *.lbl *.map *.prg
+	@$(RM) *.asm *.int *.lbl *.map *.prg
