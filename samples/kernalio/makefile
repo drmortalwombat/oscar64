@@ -1,8 +1,6 @@
-CC=../../bin/oscar64
-CFLAGS=
-
 %.prg: %.c
-	$(CC) $(CFLAGS) $<
+	@echo "Compiling sample file" $<
+	@$(OSCAR64_CC) $(OSCAR64_CFLAGS) $<
 
 all: diskdir.prg filewrite.prg fileread.prg charwrite.prg charread.prg hireswrite.prg hiresread.prg
 

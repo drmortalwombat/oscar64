@@ -1,8 +1,6 @@
-CC=../../bin/oscar64
-CFLAGS=-n
-
 %.prg: %.c
-	$(CC) $(CFLAGS) $<
+	@echo "Compiling sample file" $<
+	@$(OSCAR64_CC) $(OSCAR64_CFLAGS) $<
 
 all: func3d.prg polygon.prg floodfill.prg paint.prg
 

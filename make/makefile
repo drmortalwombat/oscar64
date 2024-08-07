@@ -7,6 +7,9 @@ CXX = c++
 CPPFLAGS = -g -O2 -std=c++11 -Wno-switch
 SED = /usr/bin/sed
 REMOVE_FORCE_ALL = $(RM) --recursive --dir
+export OSCAR64_CC = $(project_dir)/bin/oscar64
+export OSCAR64_CFLAGS =
+export OSCAR64_CXX = $(project_dir)/bin/oscar64
 
  
 ifdef WINDIR
@@ -38,14 +41,14 @@ all: --prep-build-dir compiler samples tests
 	@echo "Transforming file" $@ "..."
 	@set -e; \
 	$(RM) $(srcdir)/$@; \
-	$(CC) -MM $(CPPFLAGS) $< > $(srcdir)/$@.$$$$; \
+	@$(CC) -MM $(CPPFLAGS) $< > $(srcdir)/$@.$$$$; \
 	$(SED) 's,\($*\)\.o[ :]*,\1.o $(srcdir)/$@ : ,g' < $(srcdir)/$@.$$$$ > $(srcdir)/$@; \
 	$(RM) $(srcdir)/$@.$$$$
 
 
 compiler: $(objects)
 	@echo "Linking compiler..."
-	$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
+	@$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
 
 
 .PHONY : clean
