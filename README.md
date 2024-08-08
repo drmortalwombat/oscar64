@@ -86,7 +86,18 @@ You should build from a subdirectory of Oscar64 so that references in the makefi
 
 * mkdir build
 * cd build
-* make -f ../make/makefile
+
+To build just the compiler:
+
+* make -f ../make/makefile compiler
+
+To build just game demonstrations:
+
+* make -f ../make/makefile samples
+
+To build everything:
+
+* make -f ../make/makefile all
 
 ### Compiler arguments
 

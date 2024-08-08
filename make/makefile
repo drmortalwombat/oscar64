@@ -119,5 +119,5 @@ endif
 
 
 --prep-build-dir:
-	@if [[ ! -d $(srcdir) ]]; then mkdir --parents $(srcdir); fi
-	@if [[ ! -d $(project_dir)/bin ]]; then mkdir --parents $(project_dir)/bin; fi
+	@if [[ ! -d $(srcdir) ]]; then $(MKDIR_PARENT) $(srcdir); fi
+	@if [[ ! -d $(project_dir)/bin ]]; then $(MKDIR_PARENT)  $(project_dir)/bin; fi
