@@ -1,12 +1,25 @@
-
-
-sources = $(wildcard ../oscar64/*.cpp)
-objects = $(patsubst ../oscar64/%.cpp,%.o,$(sources))
+project_dir := $(abspath $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))/../)
+sources = $(wildcard $(project_dir)/oscar64/*.cpp)
+objects = $(patsubst $(project_dir)/oscar64/%.cpp,%.o,$(sources))
+srcdir := $(if $(srcdir),$(srcdir),$(project_dir)/build)
 
 CXX = c++
 CPPFLAGS = -g -O2 -std=c++11 -Wno-switch
- 
- $(shell mkdir -p ../bin)
+SED = /usr/bin/sed
+REMOVE_FORCE_ALL = $(RM) --recursive --dir
+export OSCAR64_CC = $(project_dir)/bin/oscar64
+export OSCAR64_CFLAGS =
+export OSCAR64_CXX = $(project_dir)/bin/oscar64
+MKDIR_PARENT = /usr/bin/mkdir --parents --mode=755
+INSTALL = /usr/bin/install
+INSTALL_PROGRAM = $(INSTALL) --mode=755
+INSTALL_DATA = $(INSTALL) --mode=644
+DESTDIR =
+prefix = /usr/local
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+includedir = $(prefix)/include
+
  
 ifdef WINDIR
 	linklibs = -lpthread
@@ -23,27 +36,88 @@ else
 		#linklibs = -lversion -lpthread
 	endif
 endif
- 
-%.o: ../oscar64/%.cpp
-	$(CXX) -c $(CPPFLAGS) $< -o $@
 
-%.d: ../oscar64/%.cpp
-	@set -e; rm -f $@; \
-	$(CC) -MM $(CPPFLAGS) $< > $@.$$$$; \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
 
-../bin/oscar64 : $(objects)
-	$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o ../bin/oscar64
+all: --prep-build-dir compiler samples tests
+
+
+%.o: $(project_dir)/oscar64/%.cpp
+	@echo "Compiling compiler file" $@ "..."
+	@$(CXX) -c $(CPPFLAGS) $< -o $(srcdir)/$@
+
+
+%.d: $(project_dir)/oscar64/%.cpp
+	@echo "Transforming file" $@ "..."
+	@set -e; \
+	$(RM) $(srcdir)/$@; \
+	@$(CC) -MM $(CPPFLAGS) $< > $(srcdir)/$@.$$$$; \
+	$(SED) 's,\($*\)\.o[ :]*,\1.o $(srcdir)/$@ : ,g' < $(srcdir)/$@.$$$$ > $(srcdir)/$@; \
+	$(RM) $(srcdir)/$@.$$$$
+
+
+compiler: $(objects)
+	@echo "Linking compiler..."
+	@$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
+
 
 .PHONY : clean
 clean :
-	-rm *.o *.d ../bin/oscar64
+	@echo "Cleaning compiler..."
+	@$(RM) $(srcdir)/*.o
+	@$(RM) $(srcdir)/*.d
+	@$(RM) $(project_dir)/bin/oscar64
+	@$(MAKE) -C $(project_dir)/samples clean
+	@$(MAKE) -C $(project_dir)/autotest clean
+
+
+.PHONY : distclean
+distclean :
+	@echo "Distribution cleaning compiler..."
+	@$(REMOVE_FORCE_ALL) $(srcdir)
+	@$(REMOVE_FORCE_ALL) $(project_dir)/bin
+	@$(MAKE) -C $(project_dir)/samples clean
+	@$(MAKE) -C $(project_dir)/autotest clean
+
+
+samples: compiler
+	@$(MAKE) -C $(project_dir)/samples all
+
+
+tests: compiler
+	@$(MAKE) -C $(project_dir)/autotest all
+
+install: compiler
+	@echo "Installing to" $(DESTDIR)$(prefix)
+	@$(MKDIR_PARENT) $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) $(project_dir)/bin/oscar64 $(DESTDIR)$(bindir)
+	@$(MKDIR_PARENT) $(DESTDIR)$(includedir)/oscar64/{audio,c64,c128,cx16,gfx,nes,opp,plus4,vic20}
+	$(INSTALL_DATA) $(project_dir)/include/*.h $(DESTDIR)$(includedir)/oscar64
+	$(INSTALL_DATA) $(project_dir)/include/audio/*.h $(DESTDIR)$(includedir)/oscar64/audio
+	$(INSTALL_DATA) $(project_dir)/include/c64/*.h $(DESTDIR)$(includedir)/oscar64/c64
+	$(INSTALL_DATA) $(project_dir)/include/c128/*.h $(DESTDIR)$(includedir)/oscar64/c128
+	$(INSTALL_DATA) $(project_dir)/include/cx16/*.h $(DESTDIR)$(includedir)/oscar64/cx16
+	$(INSTALL_DATA) $(project_dir)/include/gfx/*.h $(DESTDIR)$(includedir)/oscar64/gfx
+	$(INSTALL_DATA) $(project_dir)/include/nes/*.h $(DESTDIR)$(includedir)/oscar64/nes
+	$(INSTALL_DATA) $(project_dir)/include/opp/*.h $(DESTDIR)$(includedir)/oscar64/opp
+	$(INSTALL_DATA) $(project_dir)/include/plus4/*.h $(DESTDIR)$(includedir)/oscar64/plus4
+	$(INSTALL_DATA) $(project_dir)/include/vic20/*.h $(DESTDIR)$(includedir)/oscar64/vic20
+
+
+uninstall:
+	@echo "Uninstalling..."
+	@$(RM) $(DESTDIR)$(bindir)/oscar64
+	@$(REMOVE_FORCE_ALL) $(DESTDIR)$(includedir)/oscar64/
+
 
 ifeq ($(UNAME_S), Darwin)
 
 else
 
-include $(objects:.o=.d)
+include $($(srcdir)/objects:.o=.d)
 
 endif
+
+
+--prep-build-dir:
+	@if [[ ! -d $(srcdir) ]]; then $(MKDIR_PARENT) $(srcdir); fi
+	@if [[ ! -d $(project_dir)/bin ]]; then $(MKDIR_PARENT)  $(project_dir)/bin; fi
