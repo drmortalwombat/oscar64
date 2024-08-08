@@ -8324,9 +8324,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 					break;
 #if 1
 				case IA_DIVU:
-					vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
+
+					if (ins->mSrc[1].mTemp >= 0)
+						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
+					else
+						vr.LimitMax(ins->mSrc[1].mIntConst);
+
 					vr.LimitMin(0);
 					vr.mMinValue = 0;
+
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 1)
 						vr.mMaxValue /= ins->mSrc[0].mIntConst;
 					break;
