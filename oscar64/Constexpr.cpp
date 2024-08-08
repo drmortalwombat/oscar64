@@ -518,7 +518,10 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 		for (int i=0; i<type->mSize; i += type->mBase->mSize)
 		{
 			Declaration* cdec = GetConst(offset + i, type->mBase, dataSection);
-			cdec->mOffset = i;
+			if (type->mStride)
+				cdec->mOffset = i / type->mBase->mSize;
+			else
+				cdec->mOffset = i;
 
 			if (ldec)
 				ldec->mNext = cdec;

@@ -6407,6 +6407,34 @@ void NativeCodeBasicBlock::StoreByteOffsetIndexedValue(InterCodeProcedure* proc,
 	}
 }
 
+void NativeCodeBasicBlock::LoadStoreIndirectPair(InterCodeProcedure* proc, const InterInstruction* wins0, const InterInstruction* wins1)
+{
+	int sreg = BC_REG_TMP + proc->mTempOffset[wins0->mSrc[0].mTemp];
+
+	int	ireg0 = BC_REG_TMP + proc->mTempOffset[wins0->mSrc[1].mTemp];
+	int index0 = int(wins0->mSrc[1].mIntConst);
+	uint32	wflags0 = NCIF_LOWER | NCIF_UPPER;
+	if (wins0->mVolatile)
+		wflags0 |= NCIF_VOLATILE;
+
+	int	ireg1 = BC_REG_TMP + proc->mTempOffset[wins1->mSrc[1].mTemp];
+	int index1 = int(wins1->mSrc[1].mIntConst);
+	uint32	wflags1 = NCIF_LOWER | NCIF_UPPER;
+	if (wins1->mVolatile)
+		wflags1 |= NCIF_VOLATILE;
+
+	CheckFrameIndex(wins0, ireg0, index0, 1, BC_REG_ADDR);
+	CheckFrameIndex(wins1, ireg1, index1, 1, BC_REG_ACCU);
+
+	mIns.Push(NativeCodeInstruction(wins0, ASMIT_LDA, ASMIM_ZERO_PAGE, sreg));
+
+	mIns.Push(NativeCodeInstruction(wins0, ASMIT_LDY, ASMIM_IMMEDIATE, index0));
+	mIns.Push(NativeCodeInstruction(wins0, ASMIT_STA, ASMIM_INDIRECT_Y, ireg0, nullptr, wflags0));
+
+	mIns.Push(NativeCodeInstruction(wins1, ASMIT_LDY, ASMIM_IMMEDIATE, index1));
+	mIns.Push(NativeCodeInstruction(wins1, ASMIT_STA, ASMIM_INDIRECT_Y, ireg1, nullptr, wflags1));
+}
+
 void NativeCodeBasicBlock::LoadStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* wins)
 {
 	int size = InterTypeSize[wins->mSrc[0].mType];
@@ -33560,7 +33588,7 @@ bool NativeCodeBasicBlock::MoveLDSTXOutOfRange(int at)
 		else if (mIns[j].ReferencesXReg())
 			return false;
 
-		if (mIns[j].mType == ASMIT_JSR)
+		if (mIns[j].mType == ASMIT_JSR || mIns[j].mType == ASMIT_RTS)
 			return false;
 
 		if (!(mIns[j].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
@@ -47970,6 +47998,39 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 	}
 
 #if 1
+	if (i + 7 < mIns.Size() &&
+		mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 1].mType == ASMIT_CLC &&
+		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 3].mAddress &&
+		mIns[i + 4].mType == ASMIT_LDA && 
+		mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress != mIns[i + 0].mAddress &&
+		mIns[i + 6].mType == ASMIT_ADC && mIns[i + 6].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 2].mAddress + 1 &&
+		mIns[i + 7].mType == ASMIT_STA && mIns[i + 7].mMode == ASMIM_ZERO_PAGE && mIns[i + 6].mAddress == mIns[i + 7].mAddress &&
+		!(mIns[i + 7].mLive & LIVE_CPU_REG_A))
+	{
+		int yval = RetrieveYValue(i);
+		mProc->ResetPatched();
+		if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 8, yval, 0))
+		{
+			mProc->ResetPatched();
+			if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 0], i + 8, yval))
+			{
+				mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+				mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+				if (mTrueJump)
+					mTrueJump->CheckLive();
+				if (mFalseJump)
+					mFalseJump->CheckLive();
+
+				return true;
+			}
+		}
+	}
+#endif
+
+#if 1
 	if (pass == 0 &&
 		i + 7 < mIns.Size() &&
 		mIns[i + 0].mType == ASMIT_CLC &&
@@ -50379,7 +50440,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "screen_flip");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "shot_add");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -51238,6 +51299,7 @@ void NativeCodeProcedure::Optimize(void)
 		} while (changed && t < 20);
 #endif
 
+
 		BuildDataFlowSets();
 		ResetVisited();
 		mEntryBlock->RemoveUnusedResultInstructions();
@@ -51282,6 +51344,7 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 
 #endif
+
 
 		if (step == 2)
 		{
@@ -52334,7 +52397,21 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		switch (ins->mCode)
 		{
 		case IC_STORE:
-			block->StoreValue(iproc, ins);
+			if (i + 1 < iblock->mInstructions.Size() &&
+				ins->mSrc[0].mType == IT_INT8 &&
+				ins->mSrc[0].mTemp >= 0 &&
+				ins->mSrc[1].mTemp >= 0 &&
+				iblock->mInstructions[i + 1]->mCode == IC_STORE &&
+				iblock->mInstructions[i + 1]->mSrc[0].mType == IT_INT8 &&
+				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mSrc[0].mTemp &&
+				iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
+				iblock->mInstructions[i + 1]->mSrc[1].mTemp >= 0)
+			{
+				block->LoadStoreIndirectPair(iproc, ins, iblock->mInstructions[i + 1]);
+				i++;
+			}
+			else
+				block->StoreValue(iproc, ins);
 			break;
 		case IC_LOAD:
 			if (i + 1 < iblock->mInstructions.Size() &&

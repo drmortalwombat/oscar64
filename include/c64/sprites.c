@@ -270,7 +270,7 @@ void vspr_update(void)
 {
 	char	xymask = 0;
 	volatile char	*	vsprs = vspriteScreen;
-	char	sypos[VSPRITES_MAX];
+//	char	sypos[VSPRITES_MAX];
 
 #pragma unroll(full)
 
@@ -291,9 +291,9 @@ void vspr_update(void)
 		xymask = ((unsigned)xymask | (vspriteXHigh[ri] << 8)) >> 1;
 #endif
 		vic.spr_pos[uj].x = vspriteXLow[ri];
-		vic.spr_pos[uj].y = vspriteYLow[ri];
+		vic.spr_pos[uj].y = spriteYPos[ui + 1];
 
-		sypos[ui] = vspriteYLow[ri];
+//		sypos[ui] = vspriteYLow[ri];
 	}
 
 	vic.spr_msbx = xymask;
@@ -303,9 +303,9 @@ void vspr_update(void)
 
 	for(char ti=0; ti<VSPRITES_MAX - 8; ti++)
 	{
-		byte ri = spriteOrder[ti + 8];
-		if (!done && vspriteYLow[ri] < 250)
+		if (!done && spriteYPos[ti + 9] < 250)
 		{
+			byte ri = spriteOrder[ti + 8];
 #ifdef VSPRITE_REVERSE
 			char	m = 0x80 >> (ti & 7);
 #else
@@ -316,14 +316,14 @@ void vspr_update(void)
 			if (!(vspriteXHigh[ri] & 1))
 				xymask ^= m;
 
-			rirq_data(spirq + ti, 2, vspriteYLow[ri]);
+			rirq_data(spirq + ti, 2, spriteYPos[ti + 9]);
 			rirq_data(spirq + ti, 0, vspriteColor[ri]);
 			rirq_data(spirq + ti, 1, vspriteXLow[ri]);
 			rirq_data(spirq + ti, 3, vspriteImage[ri]);
 
 			rirq_data(spirq + ti, 4, xymask);
-			rirq_move(ti, sypos[ti] + 23);
-			sypos[ti + 8] = vspriteYLow[ri];
+			rirq_move(ti, spriteYPos[ti + 1] + 23);
+//			spriteYPos[ti + 9] = vspriteYLow[ri];
 		}
 		else
 		{
