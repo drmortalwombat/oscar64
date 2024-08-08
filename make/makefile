@@ -10,6 +10,15 @@ REMOVE_FORCE_ALL = $(RM) --recursive --dir
 export OSCAR64_CC = $(project_dir)/bin/oscar64
 export OSCAR64_CFLAGS =
 export OSCAR64_CXX = $(project_dir)/bin/oscar64
+MKDIR_PARENT = /usr/bin/mkdir --parents --mode=755
+INSTALL = /usr/bin/install
+INSTALL_PROGRAM = $(INSTALL) --mode=755
+INSTALL_DATA = $(INSTALL) --mode=644
+DESTDIR =
+prefix = /usr/local
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+includedir = $(prefix)/include
 
  
 ifdef WINDIR
@@ -53,6 +62,7 @@ compiler: $(objects)
 
 .PHONY : clean
 clean :
+	@echo "Cleaning compiler..."
 	@$(RM) $(srcdir)/*.o
 	@$(RM) $(srcdir)/*.d
 	@$(RM) $(project_dir)/bin/oscar64
@@ -62,6 +72,7 @@ clean :
 
 .PHONY : distclean
 distclean :
+	@echo "Distribution cleaning compiler..."
 	@$(REMOVE_FORCE_ALL) $(srcdir)
 	@$(REMOVE_FORCE_ALL) $(project_dir)/bin
 	@$(MAKE) -C $(project_dir)/samples clean
@@ -74,6 +85,28 @@ samples: compiler
 
 tests: compiler
 	@$(MAKE) -C $(project_dir)/autotest all
+
+install: compiler
+	@echo "Installing to" $(DESTDIR)$(prefix)
+	@$(MKDIR_PARENT) $(DESTDIR)$(bindir)
+	$(INSTALL_PROGRAM) $(project_dir)/bin/oscar64 $(DESTDIR)$(bindir)
+	@$(MKDIR_PARENT) $(DESTDIR)$(includedir)/oscar64/{audio,c64,c128,cx16,gfx,nes,opp,plus4,vic20}
+	$(INSTALL_DATA) $(project_dir)/include/*.h $(DESTDIR)$(includedir)/oscar64
+	$(INSTALL_DATA) $(project_dir)/include/audio/*.h $(DESTDIR)$(includedir)/oscar64/audio
+	$(INSTALL_DATA) $(project_dir)/include/c64/*.h $(DESTDIR)$(includedir)/oscar64/c64
+	$(INSTALL_DATA) $(project_dir)/include/c128/*.h $(DESTDIR)$(includedir)/oscar64/c128
+	$(INSTALL_DATA) $(project_dir)/include/cx16/*.h $(DESTDIR)$(includedir)/oscar64/cx16
+	$(INSTALL_DATA) $(project_dir)/include/gfx/*.h $(DESTDIR)$(includedir)/oscar64/gfx
+	$(INSTALL_DATA) $(project_dir)/include/nes/*.h $(DESTDIR)$(includedir)/oscar64/nes
+	$(INSTALL_DATA) $(project_dir)/include/opp/*.h $(DESTDIR)$(includedir)/oscar64/opp
+	$(INSTALL_DATA) $(project_dir)/include/plus4/*.h $(DESTDIR)$(includedir)/oscar64/plus4
+	$(INSTALL_DATA) $(project_dir)/include/vic20/*.h $(DESTDIR)$(includedir)/oscar64/vic20
+
+
+uninstall:
+	@echo "Uninstalling..."
+	@$(RM) $(DESTDIR)$(bindir)/oscar64
+	@$(REMOVE_FORCE_ALL) $(DESTDIR)$(includedir)/oscar64/
 
 
 ifeq ($(UNAME_S), Darwin)
