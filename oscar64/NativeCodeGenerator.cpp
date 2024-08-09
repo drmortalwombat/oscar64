@@ -1605,7 +1605,7 @@ bool NativeCodeInstruction::ChangesAddress(void) const
 
 bool NativeCodeInstruction::IsSimpleJSR(void) const
 {
-	return mType == ASMIT_JSR && mMode == ASMIM_ABSOLUTE && !(mLinkerObject && (mLinkerObject->mFlags & LOBJF_INLINE));
+	return mType == ASMIT_JSR && mMode == ASMIM_ABSOLUTE && !(mLinkerObject && (mLinkerObject->mFlags & LOBJF_INLINE)) && !(mFlags & NCIF_BREAKPOINT);
 }
 
 bool NativeCodeInstruction::IsShift(void) const

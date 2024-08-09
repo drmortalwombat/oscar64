@@ -887,7 +887,7 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	{
 		if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER ||
 			ins0->mCode == IC_RETURN || ins0->mCode == IC_RETURN_STRUCT || ins0->mCode == IC_RETURN_VALUE ||
-			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME || ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE)
+			ins0->mCode == IC_PUSH_FRAME || ins0->mCode == IC_POP_FRAME || ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE || ins0->mCode == IC_BREAKPOINT)
 			return false;
 
 		if (ins0->mCode == IC_LOAD)
@@ -908,7 +908,7 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER)
 	{
 		if (ins1->mCode == IC_RETURN || ins1->mCode == IC_RETURN_STRUCT || ins1->mCode == IC_RETURN_VALUE ||
-			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME || ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE)
+			ins1->mCode == IC_PUSH_FRAME || ins1->mCode == IC_POP_FRAME || ins1->mCode == IC_MALLOC || ins1->mCode == IC_FREE || ins1->mCode == IC_BREAKPOINT)
 			return false;
 
 		if (ins0->mSrc[0].mMemory == IM_PROCEDURE && ins0->mSrc[0].mLinkerObject && ins0->mSrc[0].mLinkerObject->mProc && 
@@ -926,6 +926,11 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 		else if (ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL)
 			return false;
 	}
+
+	if (ins0->mCode == IC_BREAKPOINT && ins1->mCode == IC_STORE)
+		return false;
+	if (ins1->mCode == IC_BREAKPOINT && ins0->mCode == IC_STORE)
+		return false;
 
 	if (ins0->mCode == IC_MALLOC || ins0->mCode == IC_FREE)
 	{
@@ -12443,7 +12448,8 @@ bool InterCodeBasicBlock::CanMoveInstructionDown(int si, int ti) const
 
 #if 1
 	if (ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME || ins->mCode == IC_FILL ||
-		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH)
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH ||
+		ins->mCode == IC_BREAKPOINT)
 		return false;
 
 	for (int i = si + 1; i < ti; i++)
@@ -12505,7 +12511,7 @@ bool InterCodeBasicBlock::CanMoveInstructionBeforeBlock(int ii, const InterInstr
 
 #if 1
 	if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE || ins->mCode == IC_COPY || ins->mCode == IC_PUSH_FRAME || ins->mCode == IC_POP_FRAME || ins->mCode == IC_FILL ||
-		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH)
+		ins->mCode == IC_RETURN || ins->mCode == IC_RETURN_STRUCT || ins->mCode == IC_RETURN_VALUE || ins->mCode == IC_DISPATCH || ins->mCode == IC_BREAKPOINT)
 		return false;
 
 	for (int i = 0; i < ii; i++)
