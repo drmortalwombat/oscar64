@@ -124,6 +124,7 @@ public:
 };
 
 static const uint32 LSECF_PACKED = 0x00000001;
+static const uint32 LSECF_PLACED = 0x00000002;
 
 class LinkerSection
 {

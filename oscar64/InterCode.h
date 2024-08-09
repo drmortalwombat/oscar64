@@ -637,6 +637,7 @@ public:
 	bool CheckStaticStack(void);
 	void ApplyStaticStack(InterOperand& iop, const GrowingVariableArray& localVars);
 	void CollectStaticStack(LinkerObject * lobj, const GrowingVariableArray& localVars);
+	void CollectStaticStackDependencies(LinkerObject* lobj);
 	void PromoteStaticStackParams(LinkerObject* paramlobj);
 
 	bool SameExitCode(const InterCodeBasicBlock* block) const;

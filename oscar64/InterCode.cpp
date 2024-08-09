@@ -13663,6 +13663,23 @@ void InterCodeBasicBlock::ApplyStaticStack(InterOperand & iop, const GrowingVari
 	}	
 }
 
+void InterCodeBasicBlock::CollectStaticStackDependencies(LinkerObject* lobj)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			if ((mInstructions[i]->mCode == IC_CALL || mInstructions[i]->mCode == IC_CALL_NATIVE) && mInstructions[i]->mSrc[0].mLinkerObject && mInstructions[i]->mSrc[0].mLinkerObject->mStackSection)
+				lobj->mStackSection->mSections.Push(mInstructions[i]->mSrc[0].mLinkerObject->mStackSection);
+		}
+
+		if (mTrueJump) mTrueJump->CollectStaticStackDependencies(lobj);
+		if (mFalseJump) mFalseJump->CollectStaticStackDependencies(lobj);
+	}
+}
+
 void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVariableArray& localVars)
 {
 	if (!mVisited)
@@ -22498,6 +22515,15 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("Rebuilt traces");
 #endif
 	}
+	else if (!mInterruptCalled && mNativeProcedure)
+	{
+//		mLinkerObject->mFlags |= LOBJF_STATIC_STACK;
+		mLinkerObject->mStackSection = mModule->mLinker->AddSection(mIdent->Mangle("@stack"), LST_STATIC_STACK);
+		mLinkerObject->mStackSection->mSections.Push(mModule->mParamLinkerSection);
+		ResetVisited();
+		mEntryBlock->CollectStaticStackDependencies(mLinkerObject);
+	}
+
 #endif
 
 	DisassembleDebug("PreLoopTemp");

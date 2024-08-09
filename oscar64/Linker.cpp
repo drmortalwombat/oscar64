@@ -731,15 +731,20 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge, boo
 
 void LinkerRegion::PlaceStackSection(LinkerSection* stackSection, LinkerSection* section)
 {
-	if (!section->mEnd)
+	if (!section->mEnd && !(section->mFlags & LSECF_PLACED))
 	{
+		section->mFlags |= LSECF_PLACED;
+
 		int	start = stackSection->mEnd;
 
 		for (int i = 0; i < section->mSections.Size(); i++)
 		{
 			PlaceStackSection(stackSection, section->mSections[i]);
 			if (section->mSections[i]->mStart < start)
+			{
 				start = section->mSections[i]->mStart;
+				section->mStart = start;
+			}
 		}
 
 		section->mStart = start;
