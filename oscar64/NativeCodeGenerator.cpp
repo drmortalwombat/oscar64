@@ -4884,6 +4884,17 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 
 	if (mType == ASMIT_BYTE)
 		block->PutByte(mAddress);
+	else if (mType == ASMIT_JSR && (mFlags & NCIF_BREAKPOINT))
+	{
+		LinkerReference		rl;
+		rl.mOffset = block->mCode.Size();
+
+		rl.mRefObject = nullptr;
+		rl.mRefOffset = 0;
+		rl.mFlags = LREF_BREAKPOINT;
+
+		block->mRelocations.Push(rl);
+	}
 	else if (mType == ASMIT_JSR && mLinkerObject && (mLinkerObject->mFlags & LOBJF_INLINE))
 	{
 		int	pos = block->mCode.Size();
@@ -52564,6 +52575,11 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 		case IC_FREE:
 			block->CallFree(iproc, ins, this);
 			break;
+		case IC_BREAKPOINT:
+		{
+			NativeCodeGenerator::Runtime& frt(mGenerator->ResolveRuntime(Ident::Unique("breakpoint")));
+			block->mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_LOWER | NCIF_UPPER | NCIF_VOLATILE | NCIF_BREAKPOINT));
+		}	break;
 
 		case IC_LOAD_TEMPORARY:
 		{

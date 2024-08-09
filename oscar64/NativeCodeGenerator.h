@@ -133,6 +133,8 @@ static const uint32 NCIF_USE_ZP_32_X = 0x00008000;
 static const uint32 NICF_USE_ZP_ADDR = 0x00010000;
 static const uint32 NICF_USE_WORKREGS = 0x00020000;
 
+static const uint32 NCIF_BREAKPOINT = 0x00040000;
+
 class NativeCodeInstruction
 {
 public:

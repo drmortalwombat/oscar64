@@ -42,7 +42,8 @@ enum InterCode
 	IC_JUMPF,
 	IC_SELECT,
 	IC_DISPATCH,
-	IC_UNREACHABLE
+	IC_UNREACHABLE,
+	IC_BREAKPOINT
 };
 
 enum InterType

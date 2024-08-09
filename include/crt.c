@@ -4739,9 +4739,14 @@ __asm inp_free
 
 #pragma bytecode(BC_FREE, inp_free)
 
+__asm breakpoint
+{
+		rts
+}
 
 #pragma runtime(malloc, malloc)
 #pragma runtime(free, free)
+#pragma runtime(breakpoint, breakpoint)
 
 #if 0
 

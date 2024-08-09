@@ -3436,6 +3436,14 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				else if (!strcmp(iname->mString, "exp"))
 				{
 				}
+				else if (!strcmp(iname->mString, "breakpoint"))
+				{
+					InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BREAKPOINT);
+					ins->mNumOperands = 0;
+					block->Append(ins);
+
+					return ExValue(TheVoidTypeDeclaration, 0);
+				}
 				else if (!strcmp(iname->mString, "malloc"))
 				{
 					vr = TranslateExpression(procType, proc, block, exp->mRight, destack, gotos, breakBlock, continueBlock, inlineMapper);

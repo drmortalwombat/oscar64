@@ -1037,7 +1037,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			ex->mDecType = mDecType;
 			return ex;
 			}
-	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight->mType == EX_CONSTANT)
+	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight && mRight->mType == EX_CONSTANT)
 	{
 		Declaration* decf = mLeft->mDecValue, * decp = mRight->mDecValue;
 		const Ident* iname = decf->mQualIdent;

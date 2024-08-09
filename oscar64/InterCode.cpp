@@ -1698,12 +1698,12 @@ void ValueSet::InsertValue(InterInstruction * ins)
 
 static bool HasSideEffect(InterCode code)
 {
-	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_DISPATCH /* || code == IC_MALLOC || code == IC_FREE */;
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_DISPATCH || code == IC_BREAKPOINT;/* || code == IC_MALLOC || code == IC_FREE */;
 }
 
 static bool IsObservable(InterCode code)
 {
-	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_DISPATCH || code == IC_STORE || code == IC_COPY || code == IC_STRCPY || code == IC_FILL || code == IC_MALLOC || code == IC_FREE;
+	return code == IC_CALL || code == IC_CALL_NATIVE || code == IC_ASSEMBLER || code == IC_DISPATCH || code == IC_STORE || code == IC_COPY || code == IC_STRCPY || code == IC_FILL || code == IC_MALLOC || code == IC_FREE || code == IC_BREAKPOINT;
 }
 
 static bool IsMoveable(InterCode code)
@@ -5388,6 +5388,9 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 			break;
 		case IC_UNREACHABLE:
 			fprintf(file, "UNREACHABLE");
+			break;
+		case IC_BREAKPOINT:
+			fprintf(file, "BREAKPOINT");
 			break;
 		}
 		static char typechars[] = "NBCILFP";

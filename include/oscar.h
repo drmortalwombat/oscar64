@@ -11,6 +11,13 @@ __native const char * oscar_expand_rle(char * dp, const char * sp);
 // memory as buffer
 __native const char * oscar_expand_lzo_buf(char * dp, const char * sp);
 
+// Write a breakpoint instruction into the .lbl file for vice.  This
+// intrinsic function will change the behaviour of the optimizer to ensure 
+// that the breakpoint is not move around into wild places.
+void breakpoint(void);
+
+#pragma intrinsic(breakpoint)
+
 #pragma compile("oscar.c")
 
 #endif

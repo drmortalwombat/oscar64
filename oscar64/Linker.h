@@ -110,6 +110,7 @@ static const uint32	LREF_HIGHBYTE		=	0x00000002;
 static const uint32 LREF_TEMPORARY		=	0x00000004;
 static const uint32 LREF_INBLOCK		=	0x00000008;
 static const uint32	LREF_LOWBYTE_OFFSET	=	0x00000010;
+static const uint32 LREF_BREAKPOINT		=	0x00000020;
 
 class LinkerReference
 {
@@ -292,6 +293,7 @@ public:
 	GrowingArray<LinkerSection*>	mSections;
 	GrowingArray<LinkerObject*>		mObjects;
 	GrowingArray<LinkerOverlay*>	mOverlays;
+	GrowingArray<uint32>			mBreakpoints;
 
 	uint8	mMemory[0x10000], mWorkspace[0x10000];
 	uint8	mCartridge[64][0x10000];
@@ -312,6 +314,7 @@ public:
 	void CopyObjects(bool inlays);
 	void PlaceObjects(bool retry);
 	void Link(void);
+	void CollectBreakpoints(void);
 protected:
 	NativeCodeDisassembler	mNativeDisassembler;
 	ByteCodeDisassembler	mByteCodeDisassembler;

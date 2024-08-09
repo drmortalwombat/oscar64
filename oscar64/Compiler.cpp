@@ -961,6 +961,7 @@ bool Compiler::GenerateCode(void)
 
 		RegisterRuntime(loc, Ident::Unique("malloc"));
 		RegisterRuntime(loc, Ident::Unique("free"));
+		RegisterRuntime(loc, Ident::Unique("breakpoint"));
 	}
 
 	// Register extended byte code functions

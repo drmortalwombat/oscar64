@@ -137,7 +137,7 @@ LinkerOverlay::~LinkerOverlay(void)
 }
 
 Linker::Linker(Errors* errors)
-	: mErrors(errors), mSections(nullptr), mReferences(nullptr), mObjects(nullptr), mRegions(nullptr), mOverlays(nullptr), mCompilerOptions(COPT_DEFAULT)
+	: mErrors(errors), mSections(nullptr), mReferences(nullptr), mObjects(nullptr), mRegions(nullptr), mOverlays(nullptr), mBreakpoints(0), mCompilerOptions(COPT_DEFAULT)
 {
 	for (int i = 0; i < 64; i++)
 	{
@@ -850,6 +850,32 @@ void Linker::CopyObjects(bool inlays)
 	}
 }
 
+void Linker::CollectBreakpoints(void)
+{
+	for (int i = 0; i < mReferences.Size(); i++)
+	{
+		LinkerReference* ref = mReferences[i];
+		if (ref->mFlags & LREF_BREAKPOINT)
+		{
+			LinkerObject* obj = ref->mObject;
+			if (obj->mFlags & LOBJF_REFERENCED)
+			{
+				if (obj->mRegion)
+				{
+					if (obj->mRegion->mCartridgeBanks)
+					{
+					}
+					else
+					{
+						mBreakpoints.Push(obj->mAddress + ref->mOffset);
+					}
+				}
+			}
+		}
+	}
+
+}
+
 void Linker::PatchReferences(bool inlays)
 {
 	for (int i = 0; i < mReferences.Size(); i++)
@@ -1119,6 +1145,7 @@ void Linker::Link(void)
 
 		CopyObjects(false);
 		PatchReferences(false);
+		CollectBreakpoints();
 
 		for (int i = 0; i < mObjects.Size(); i++)
 		{
@@ -1864,6 +1891,11 @@ bool Linker::WriteLblFile(const char* filename)
 				if (obj->mIdent)
 					fprintf(file, "al %04x .%s\n", obj->mAddress, obj->mIdent->mString);
 			}
+		}
+
+		for (int i = 0; i < mBreakpoints.Size(); i++)
+		{
+			fprintf(file, "break %04x\n", mBreakpoints[i]);
 		}
 
 		fclose(file);
