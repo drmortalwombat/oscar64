@@ -113,7 +113,30 @@ int main2(int argc, const char** argv)
 
 		compiler->mPreprocessor->AddPath(basePath);
 		strcpy_s(includePath, basePath);
-		strcat_s(includePath, "include/");
+		{
+			FILE* crtFile;
+			char crtFileNamePath[FILENAME_MAX];
+			crtFileNamePath[FILENAME_MAX - 1] = '\0';
+			strcpy_s(crtFileNamePath, basePath);
+			strcat_s(crtFileNamePath, "include/crt.h");
+
+			if ((crtFile = fopen(crtFileNamePath, "r")))
+				strcat_s(includePath, "include/");
+			else
+			{
+				strcpy_s(crtFileNamePath, basePath);
+				strcat_s(crtFileNamePath, "include/oscar64/crt.h");
+
+				if ((crtFile = fopen(crtFileNamePath, "r")))
+					strcat_s(includePath, "include/oscar64/");
+				else
+				{
+					printf("Could not locate Oscar64 includes under %s\n", basePath);
+					return 20;
+				}
+			}
+			fclose(crtFile);
+		}
 		compiler->mPreprocessor->AddPath(includePath);
 		strcpy_s(crtPath, includePath);
 		strcat_s(crtPath, "crt.c");
