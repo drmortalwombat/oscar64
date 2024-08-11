@@ -82,22 +82,19 @@ A windows installer is provided with the release, the compiler is installed into
 ### Building
 
 The compiler can also be built using MSVC or GCC.  A visual studio project and a makefile are part of the source repository. The makefile is in the make folder.
-You should build from a subdirectory of Oscar64 so that references in the makefile work out correctly.
-
-* mkdir build
-* cd build
+You should build from the top-level directory of Oscar64:
 
 To build just the compiler:
 
-* make -f ../make/makefile compiler
+* make -f make/makefile compiler
 
 To build just game demonstrations:
 
-* make -f ../make/makefile samples
+* make -f make/makefile samples
 
 To build everything:
 
-* make -f ../make/makefile all
+* make -f make/makefile all
 
 ### Compiler arguments
 

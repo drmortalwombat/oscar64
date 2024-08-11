@@ -57,7 +57,8 @@ all: --prep-build-dir compiler samples tests
 
 compiler: $(objects)
 	@echo "Linking compiler..."
-	@$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
+	@cd $(srcdir); \
+	$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
 
 
 .PHONY : clean
