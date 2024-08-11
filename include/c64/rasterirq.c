@@ -593,8 +593,18 @@ void rirq_sort(void)
 		rasterIRQIndex[j] = ri;
 	}
 #endif
+
+#if NUM_IRQS & 3
 	for(sbyte i=NUM_IRQS-1; i>=0; i--)
 		rasterIRQNext[i] = rasterIRQRows[rasterIRQIndex[i + 1]];
+#else
+	for(sbyte i=NUM_IRQS/4-1; i>=0; i--)
+	{
+		#pragma unroll(full)
+		for(int j=0; j<4; j++)
+			rasterIRQNext[i + j * NUM_IRQS / 4] = rasterIRQRows[rasterIRQIndex[i + j * NUM_IRQS / 4 + 1]];
+	}
+#endif
 
 	npos++;
 	byte	yp = rasterIRQNext[nextIRQ];

@@ -120,14 +120,14 @@ int main2(int argc, const char** argv)
 			strcpy_s(crtFileNamePath, basePath);
 			strcat_s(crtFileNamePath, "include/crt.h");
 
-			if ((crtFile = fopen(crtFileNamePath, "r")))
+			if (!fopen_s(&crtFile, crtFileNamePath, "r"))
 				strcat_s(includePath, "include/");
 			else
 			{
 				strcpy_s(crtFileNamePath, basePath);
 				strcat_s(crtFileNamePath, "include/oscar64/crt.h");
 
-				if ((crtFile = fopen(crtFileNamePath, "r")))
+				if (!fopen_s(&crtFile, crtFileNamePath, "r"))
 					strcat_s(includePath, "include/oscar64/");
 				else
 				{

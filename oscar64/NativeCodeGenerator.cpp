@@ -11414,6 +11414,10 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					}
 					else
 					{
+						uint32	mask = 0xffff;
+						if (ins->mSrc[1].IsPositive() && ins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND)
+							mask = uint32(ins->mSrc[1].mRange.mMaxValue);
+
 						if (ins->mSrc[1].mTemp != ins->mDst.mTemp)
 						{
 							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
@@ -11429,8 +11433,14 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_ROR, ASMIM_IMPLIED));
 						for (int i = 1; i < shift; i++)
 						{
-							mIns.Push(NativeCodeInstruction(ins, ASMIT_LSR, ASMIM_ZERO_PAGE, treg + 1));
-							mIns.Push(NativeCodeInstruction(ins, ASMIT_ROR, ASMIM_IMPLIED));
+							mask >>= 1;
+							if (mask > 0xff)
+							{
+								mIns.Push(NativeCodeInstruction(ins, ASMIT_LSR, ASMIM_ZERO_PAGE, treg + 1));
+								mIns.Push(NativeCodeInstruction(ins, ASMIT_ROR, ASMIM_IMPLIED));
+							}
+							else
+								mIns.Push(NativeCodeInstruction(ins, ASMIT_LSR, ASMIM_IMPLIED));
 						}
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
 					}
