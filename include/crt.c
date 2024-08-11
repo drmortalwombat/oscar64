@@ -1,6 +1,10 @@
 // crt.c
 #include <crt.h>
 
+#ifndef OSCAR_BASIC_LINE
+#define OSCAR_BASIC_LINE	10
+#endif
+
 #define	tmpy		__tmpy
 #define	tmp			__tmp
 	
@@ -198,8 +202,8 @@ w0:
 #else		
 		byt	0x0b
 		byt 0x08
-		byt	0x0a
-		byt	0x00
+		byt	<OSCAR_BASIC_LINE
+		byt	>OSCAR_BASIC_LINE
 		byt	0x9e
 		byt	[OSCAR_BASIC_START + 12] / 1000 % 10 + 0x30
 		byt	[OSCAR_BASIC_START + 12] / 100 % 10 + 0x30
