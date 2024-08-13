@@ -583,7 +583,7 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 
 			if (c >= '0' && c <='9')
 			{
-				int i = 0;
+				char i = 0;
 				while (c >= '0' && c <='9')
 				{
 					i = i * 10 + c - '0';
@@ -594,7 +594,7 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 
 			if (c == '.')
 			{
-				int	i = 0;
+				char	i = 0;
 				c = *p++;
 				while (c >= '0' && c <='9')
 				{

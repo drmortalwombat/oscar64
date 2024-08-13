@@ -99,6 +99,15 @@ __asm bsinit
 {
 
 }
+#elif defined(__VIC20__)
+#define bsout	0xffd2
+#define bsin	0xffe4
+#define bsplot	0xfff0
+__asm bsinit
+{
+	lda #147
+	jmp $ffd2	
+}
 #else
 #define bsout	0xffd2
 #define bsin	0xffe4

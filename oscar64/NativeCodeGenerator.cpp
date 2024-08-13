@@ -25397,6 +25397,49 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 		}
 #endif
 
+#if 1
+		if (mEntryBlocks.Size() > 1 && mIns.Size() > 0)
+		{
+			if (mIns[0].mType == ASMIT_STA)
+			{
+				int ts;
+				if ((ts = mEntryBlocks[0]->mIns.Size()) >= 2 &&
+					mEntryBlocks[0]->mIns[ts - 2].mType == ASMIT_LDA && 
+					mEntryBlocks[0]->mIns[ts - 2].mMode == ASMIM_ZERO_PAGE &&
+					mEntryBlocks[0]->mIns[ts - 1].mType == ASMIT_ADC)
+				{
+					int addr = mEntryBlocks[0]->mIns[ts - 2].mAddress;
+
+					int i = 1;
+					while (i < mEntryBlocks.Size() &&
+						(ts = mEntryBlocks[i]->mIns.Size()) >= 2 &&
+						mEntryBlocks[i]->mIns[ts - 2].mType == ASMIT_LDA &&
+						mEntryBlocks[i]->mIns[ts - 2].mMode == ASMIM_ZERO_PAGE &&
+						mEntryBlocks[i]->mIns[ts - 2].mAddress == addr &&
+						mEntryBlocks[i]->mIns[ts - 1].mType == ASMIT_ADC)
+						i++;
+					if (i == mEntryBlocks.Size())
+					{
+						ts = mEntryBlocks[0]->mIns.Size();
+						mIns.Insert(0, NativeCodeInstruction(mEntryBlocks[0]->mIns[ts - 2].mIns, ASMIT_ADC, mEntryBlocks[0]->mIns[ts - 2]));
+
+						for (int i = 0; i < mEntryBlocks.Size(); i++)
+						{
+							ts = mEntryBlocks[i]->mIns.Size();
+							mEntryBlocks[i]->mIns[ts - 1].mType = ASMIT_LDA;
+							mEntryBlocks[i]->mIns[ts - 2].mType = ASMIT_NOP;
+							mEntryBlocks[i]->mIns[ts - 2].mMode = ASMIM_IMPLIED;
+							mEntryBlocks[i]->mExitRequiredRegs += addr;
+							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_C;
+						}
+						mEntryRequiredRegs += addr;
+						mEntryRequiredRegs += CPU_REG_C;
+						changed = true;
+					}
+				}
+			}
+		}
+#endif
 #if 0
 		if (mFalseJump && mIns.Size() > 1)
 		{
