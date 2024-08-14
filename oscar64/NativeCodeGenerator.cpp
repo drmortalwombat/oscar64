@@ -22202,9 +22202,9 @@ bool NativeCodeBasicBlock::HasTailSTAX16(int& addr, int& index) const
 	if (sz >= 4)
 	{
 		sz -= 4;
-		if (mIns[sz + 0].mType == ASMIT_LDA &&
+		if (mIns[sz + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[sz + 0].mMode) &&
 			mIns[sz + 1].mType == ASMIT_STA && mIns[sz + 1].mMode == ASMIM_ZERO_PAGE &&
-			mIns[sz + 2].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[sz + 2].mMode) &&
+			mIns[sz + 2].mType == ASMIT_LDA && 
 			mIns[sz + 3].mType == ASMIT_STA && mIns[sz + 3].mMode == ASMIM_ZERO_PAGE && mIns[sz + 3].mAddress == mIns[sz + 1].mAddress + 1 &&
 			!mIns[sz + 1].SameEffectiveAddress(mIns[sz + 2]))
 		{
@@ -23920,6 +23920,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 								b->mExitRequiredRegs += CPU_REG_A;
 								b->mExitRequiredRegs += CPU_REG_X;
 
+								assert(b->mIns[tindex].mMode != ASMIM_ABSOLUTE_X);
 								b->mIns[tindex + 0].mType = ASMIT_LDX;
 								for (int j = tindex; j < b->mIns.Size(); j++)
 									b->mIns[j].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_X;
@@ -49750,6 +49751,11 @@ void NativeCodeBasicBlock::CheckLive(void)
 	{
 		assert(mIns[j].mType != ASMIT_INV);
 
+		if (mIns[j].mMode == ASMIM_IMMEDIATE_ADDRESS)
+			assert(HasAsmInstructionMode(mIns[j].mType, ASMIM_IMMEDIATE));
+		else
+			assert(HasAsmInstructionMode(mIns[j].mType, mIns[j].mMode));
+
 		if (mIns[j].mMode == ASMIM_ABSOLUTE || mIns[j].mMode == ASMIM_ZERO_PAGE)
 			assert(mIns[j].mLinkerObject != nullptr || mIns[j].mAddress > 0);
 
@@ -51535,6 +51541,10 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 		CheckBlocks();
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 
 
 #if 1
@@ -51553,6 +51563,11 @@ void NativeCodeProcedure::Optimize(void)
 
 		}
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
+
 		if (step > 2 && !changed)
 		{
 			ResetVisited();
@@ -51570,6 +51585,11 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
+
 		if (step > 4)
 		{
 			ResetVisited();
@@ -51586,6 +51606,10 @@ void NativeCodeProcedure::Optimize(void)
 
 #endif
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 
 		CheckBlocks();
 
@@ -51657,6 +51681,10 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 		CheckBlocks();
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 
 		if (step > 4 && !changed)
 		{
@@ -51789,6 +51817,11 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
+
 #if 1
 		if (step >= 5)
 		{
@@ -51818,6 +51851,11 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->RecycleLoadStore())
 				changed = true;
 		}
+#endif
+
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
 #endif
 
 		if (step == 7)
