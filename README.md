@@ -777,7 +777,7 @@ A function return value can be provided in the zero page addresses ACCU (+0..+3)
 
     char getchar(void)
     {
-        __asm {
+        return __asm {
             jsr 0xffcf
             sta accu
             lda #0
