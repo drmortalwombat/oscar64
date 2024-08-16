@@ -4529,7 +4529,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 									}
 								}
 
-								pdec->mFlags |= ndec->mFlags & DTF_REQUEST_INLINE;
+								pdec->mFlags |= ndec->mFlags & (DTF_REQUEST_INLINE | DTF_PREVENT_INLINE);
 
 								ndec = pdec;
 							}
@@ -10344,22 +10344,44 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 		Declaration* bdec = ParseBaseTypeDeclaration(0, true);
 		Declaration* adec = nullptr;
 
-		if (ConsumeTokenIf(TK_COLCOLON) && ExpectToken(TK_IDENT) && mScanner->mTokenIdent == bdec->mTemplate->mIdent)
+		if (ConsumeTokenIf(TK_COLCOLON))
 		{
-			mScanner->NextToken();
+			if (mScanner->mToken == TK_IDENT && mScanner->mTokenIdent == bdec->mTemplate->mIdent)
+			{
+				mScanner->NextToken();
 
-			Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
+				Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
 
-			adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+				adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
 
-			adec->mBase = ctdec;
-			adec->mIdent = bdec->mTemplate->mIdent->PreMangle("+");
+				adec->mBase = ctdec;
+				adec->mIdent = bdec->mTemplate->mIdent->PreMangle("+");
 
-			char	buffer[200];
-			strcpy_s(buffer, bdec->mTemplate->mQualIdent->mString);
-			strcat_s(buffer, "::");
-			strcat_s(buffer, adec->mIdent->mString);
-			adec->mQualIdent = Ident::Unique(buffer);
+				char	buffer[200];
+				strcpy_s(buffer, bdec->mTemplate->mQualIdent->mString);
+				strcat_s(buffer, "::");
+				strcat_s(buffer, adec->mIdent->mString);
+				adec->mQualIdent = Ident::Unique(buffer);
+			}
+			else if (ConsumeToken(TK_BINARY_NOT) && mScanner->mToken == TK_IDENT && mScanner->mTokenIdent == bdec->mTemplate->mIdent)
+			{
+				mScanner->NextToken();
+
+				Declaration* ctdec = ParseFunctionDeclaration(TheVoidTypeDeclaration);
+
+				adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+
+				adec->mBase = ctdec;
+				adec->mIdent = bdec->mTemplate->mIdent->PreMangle("~");
+
+				char	buffer[200];
+				strcpy_s(buffer, bdec->mTemplate->mQualIdent->mString);
+				strcat_s(buffer, "::");
+				strcat_s(buffer, adec->mIdent->mString);
+				adec->mQualIdent = Ident::Unique(buffer);
+			}
+			else
+				mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Constructor or destructor expected");
 		}
 		else
 		{
@@ -10405,6 +10427,29 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 
 			tdec->mBase = adec;
 			adec->mTemplate = tdec;
+
+			if (ConsumeTokenIf(TK_COLON))
+			{
+				if (adec->mIdent->mString[0] != '+')
+					mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Function template body for non constructor expected");
+
+				do {
+					ConsumeToken(TK_IDENT);
+					if (ConsumeToken(TK_OPEN_PARENTHESIS))
+					{
+						int	qdepth = 1;
+						while (qdepth)
+						{
+							if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
+								qdepth++;
+							else if (ConsumeTokenIf(TK_CLOSE_PARENTHESIS))
+								qdepth--;
+							else
+								mScanner->NextToken();
+						}
+					}
+				} while (ConsumeTokenIf(TK_COMMA));
+			}
 
 			if (ConsumeTokenIf(TK_OPEN_BRACE))
 			{
