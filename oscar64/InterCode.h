@@ -390,6 +390,8 @@ public:
 	NumberSet						mEntryRequiredParams, mEntryProvidedParams;
 	NumberSet						mExitRequiredParams, mExitProvidedParams;
 
+	NumberSet						mEntryRequiredArgs;
+
 	GrowingInstructionArray			mLoadStoreInstructions;
 
 	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange;
@@ -450,6 +452,8 @@ public:
 	bool BuildGlobalRequiredVariableSet(const GrowingVariableArray& localVars, NumberSet& fromRequiredVars, const GrowingVariableArray& params, NumberSet& fromRequiredParams, InterMemory paramMemory);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory);
 	bool RemoveUnusedIndirectStoreInstructions(void);
+
+	bool RemoveUnusedArgumentStoreInstructions(void);
 
 	void BuildStaticVariableSet(const GrowingVariableArray& staticVars);
 	void BuildGlobalProvidedStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet fromProvidedVars);

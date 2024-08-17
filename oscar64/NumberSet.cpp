@@ -47,6 +47,26 @@ NumberSet::~NumberSet(void)
 	delete[] bits;
 }
 
+void NumberSet::Expand(int size, bool set)
+{
+	if (size > this->size)
+	{
+		int ndwsize = (size + 31) >> 5;
+		if (dwsize != ndwsize)
+		{
+			uint32	*	nbits = new uint32[ndwsize];
+			for (int i = 0; i < dwsize; i++)
+				nbits[i] = bits[i];
+			for (int i = dwsize; i < ndwsize; i++)
+				nbits[i] = 0;
+			delete[] bits;
+			dwsize = ndwsize;
+			bits = nbits;
+		}
+		this->size = size;
+	}
+}
+
 void NumberSet::Reset(int size, bool set)
 {
 	int i;

@@ -16,6 +16,7 @@ public:
 	~NumberSet(void);
 
 	void Reset(int size, bool set = false);
+	void Expand(int size, bool set = false);
 
 	NumberSet& operator+=(int elem);
 	NumberSet& operator-=(int elem);

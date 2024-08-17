@@ -5262,7 +5262,7 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 {
 	if (this->mCode != IC_NONE)
 	{
-		static char memchars[] = "NPLGFPITAZZ";
+		static char memchars[] = "NPLGFPITAZC";
 
 		fprintf(file, "\t");
 		switch (this->mCode)
@@ -9973,6 +9973,10 @@ bool InterCodeBasicBlock::BuildGlobalRequiredVariableSet(const GrowingVariableAr
 	return revisit;
 }
 
+
+
+
+
 bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, const GrowingVariableArray& params, InterMemory paramMemory)
 {
 	bool	changed = false;
@@ -10006,6 +10010,76 @@ bool InterCodeBasicBlock::RemoveUnusedStoreInstructions(const GrowingVariableArr
 
 	return changed;
 
+}
+
+bool InterCodeBasicBlock::RemoveUnusedArgumentStoreInstructions(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		mEntryRequiredArgs.Reset(64, true);
+
+		if (mTrueJump && mTrueJump == this)
+		{
+			if (mFalseJump)
+			{
+				if (mFalseJump->RemoveUnusedArgumentStoreInstructions())
+					changed = true;
+				mEntryRequiredArgs = mFalseJump->mEntryRequiredArgs;
+			}
+			else
+				mEntryRequiredArgs.Reset(64, false);
+		}
+		else if (mFalseJump && mFalseJump == this)
+		{
+			if (mTrueJump->RemoveUnusedArgumentStoreInstructions())
+				changed = true;
+			mEntryRequiredArgs = mTrueJump->mEntryRequiredArgs;
+		}
+		else
+		{
+			if (mTrueJump && mTrueJump->RemoveUnusedArgumentStoreInstructions())
+				changed = true;
+			if (mFalseJump && mFalseJump->RemoveUnusedArgumentStoreInstructions())
+				changed = true;
+
+			if (mTrueJump)
+			{
+				mEntryRequiredArgs = mTrueJump->mEntryRequiredArgs;
+				if (mFalseJump)
+					mEntryRequiredArgs |= mTrueJump->mEntryRequiredArgs;
+			}
+			else
+				mEntryRequiredArgs.Reset(64, false);
+		}
+
+		int i = mInstructions.Size() - 1;
+		while (i >= 0)
+		{
+			InterInstruction* ins(mInstructions[i]);
+
+			if (ins->mCode == IC_CALL || ins->mCode == IC_CALL_NATIVE)
+			{
+				mEntryRequiredArgs.Fill();
+			}
+			else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_FFRAME)
+			{
+				if (mEntryRequiredArgs.RangeClear(ins->mSrc[1].mVarIndex, InterTypeSize[ins->mSrc[0].mType]))
+				{
+					mInstructions.Remove(i);
+					changed = true;
+				}
+				else
+					mEntryRequiredArgs.SubRange(ins->mSrc[1].mVarIndex, InterTypeSize[ins->mSrc[0].mType]);
+			}
+			i--;
+		}
+	}
+
+	return changed;
 }
 
 bool InterCodeBasicBlock::RemoveUnusedIndirectStoreInstructions(void)
@@ -15237,7 +15311,7 @@ void InterCodeBasicBlock::ConstLoopOptimization(void)
 				const InterInstruction* ins(mInstructions[i]);
 
 				if (ins->mCode == IC_CONSTANT || ins->mCode == IC_BRANCH ||
-					ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR)
+					ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR || ins->mCode == IC_LEA)
 				{
 					int j = 0;
 					while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || cset[ins->mSrc[j].mTemp]))
@@ -17442,6 +17516,21 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					{
 						if (ains->mOperator == IA_ADD && ains->mSrc[0].mIntConst == 1 &&
 							cins->mOperator == IA_CMPLU && mTrueJump == this && !tailBlock->mEntryRequiredTemps[ains->mDst.mTemp])
+						{
+							cins->mCode = IC_CONSTANT;
+							cins->mConst.mType = IT_BOOL;
+							cins->mConst.mIntConst = 0;
+							cins->mNumOperands = 0;
+						}
+					}
+				}
+				else if (ains->mCode == IC_LEA && cins->mCode == IC_RELATIONAL_OPERATOR && bins->mCode == IC_BRANCH)
+				{
+					if (ains->mSrc[1].mTemp == ains->mDst.mTemp && ains->mSrc[0].mTemp < 0 &&
+						(cins->mSrc[1].mTemp == ains->mDst.mTemp || cins->mSrc[0].mTemp == ains->mDst.mTemp) &&
+						bins->mSrc[0].mTemp == cins->mDst.mTemp && bins->mSrc[0].mFinal)
+					{
+						if (cins->mOperator == IA_CMPNE && mTrueJump == this && !tailBlock->mEntryRequiredTemps[ains->mDst.mTemp])
 						{
 							cins->mCode = IC_CONSTANT;
 							cins->mConst.mType = IT_BOOL;
@@ -21793,7 +21882,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "shots_move");
+	CheckFunc = !strcmp(mIdent->mString, "REUArray<struct Point>::CacheNode::*CacheNode");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -21914,6 +22003,11 @@ void InterCodeProcedure::Close(void)
 			BuildDataFlowSets();
 		}
 	}
+
+	ResetVisited();
+	mEntryBlock->RemoveUnusedArgumentStoreInstructions();
+
+	DisassembleDebug("RemoveUnusedArgumentStoreInstructions");
 
 	// 
 	//
@@ -22589,6 +22683,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->ForwardShortLoadStoreOffsets();
 	DisassembleDebug("ForwardShortLoadStoreOffsets");
 
+	ConstLoopOptimization();
 
 //	CollapseDispatch();
 //	DisassembleDebug("CollapseDispatch");
