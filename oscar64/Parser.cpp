@@ -11098,7 +11098,7 @@ Expression* Parser::ParseAssembler(void)
 
 				exitLabel = true;
 
-				Declaration* dec = mScope->Lookup(label);
+				Declaration* dec = mScope->Lookup(label, SLEVEL_STATIC);
 				if (dec)
 				{
 					if (dec->mType != DT_LABEL || dec->mBase)
