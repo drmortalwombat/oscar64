@@ -13746,7 +13746,8 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 
 				if (dins.mType == ASMIT_BRK || dins.mMode == ASMIM_INDIRECT_X || dins.mMode == ASMIM_INDIRECT || 
 					dins.mType == ASMIT_SEI || dins.mType == ASMIT_CLI || dins.mType == ASMIT_SED || dins.mType == ASMIT_CLD ||
-					dins.mType == ASMIT_RTI || dins.mType == ASMIT_TXS || dins.mType == ASMIT_TSX)
+					dins.mType == ASMIT_RTI || dins.mType == ASMIT_TXS || dins.mType == ASMIT_TSX ||
+					dins.mType == ASMIT_PHP || dins.mType == ASMIT_PLP || dins.mType == ASMIT_PHA || dins.mType == ASMIT_PLA)
 					simple = false;
 				if (dins.mFlags & NCIF_VOLATILE)
 					simple = false;
