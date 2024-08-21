@@ -25429,6 +25429,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						{
 							ts = mEntryBlocks[i]->mIns.Size();
 							mEntryBlocks[i]->mIns[ts - 1].mType = ASMIT_LDA;
+							mEntryBlocks[i]->mIns[ts - 1].mLive |= LIVE_CPU_REG_C;
 							mEntryBlocks[i]->mIns[ts - 2].mType = ASMIT_NOP;
 							mEntryBlocks[i]->mIns[ts - 2].mMode = ASMIM_IMPLIED;
 							mEntryBlocks[i]->mExitRequiredRegs += addr;
@@ -31050,7 +31051,7 @@ bool NativeCodeBasicBlock::MoveLoadStoreOutOfXYRangeUp(int at)
 bool NativeCodeBasicBlock::MoveAbsoluteLoadStoreUp(int at)
 {
 	int	j = at - 1;
-	while (j > 0)
+	while (j >= 0)
 	{
 		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at].mAddress)
 		{
@@ -50513,7 +50514,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "shot_add");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sformat");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -51182,6 +51183,52 @@ bool NativeCodeProcedure::MapFastParamsToTemps(void)
 			alias[i] = i;
 		}
 	}
+
+	NativeCodeBasicBlock* block = mEntryBlock;
+	while (block && block->mIns.Size() == 0 && !block->mFalseJump)
+		block = block->mTrueJump;
+
+	if (block && block->mNumEntries == 1)
+	{
+		used.Clear();
+		modified.Clear();
+
+		NumberSet	tpairs(256), aliased(256);
+
+		for (int i = 1; i < 256; i++)
+		{
+			if (alias[i] != i)
+				aliased += alias[i];
+		}
+
+		ResetVisited();
+		if (block->mTrueJump)
+			block->mTrueJump->CollectZeroPageUsage(used, modified, tpairs);
+		if (block->mFalseJump)
+			block->mFalseJump->CollectZeroPageUsage(used, modified, tpairs);
+
+		for (int i = 0; i + 1 < block->mIns.Size(); i++)
+		{
+			if (block->mIns[i + 0].mType == ASMIT_LDA && block->mIns[i + 0].mMode == ASMIM_ZERO_PAGE && block->mIns[i + 0].mAddress >= BC_REG_FPARAMS && block->mIns[i + 0].mAddress < BC_REG_FPARAMS_END &&
+				block->mIns[i + 1].mType == ASMIT_STA && block->mIns[i + 1].mMode == ASMIM_ZERO_PAGE && block->mIns[i + 1].mAddress > BC_REG_TMP && !used[block->mIns[i + 0].mAddress] &&
+				!aliased[block->mIns[i + 0].mAddress])
+			{
+				if (!block->ReferencesZeroPage(block->mIns[i + 0].mAddress, i + 1) && !block->ReferencesZeroPage(block->mIns[i + 1].mAddress, 0, i))
+				{
+					alias[block->mIns[i + 1].mAddress] = block->mIns[i + 0].mAddress;
+					aliased += block->mIns[i + 0].mAddress;
+				}
+			}
+		}
+
+		for (int i = 1; i < 255; i++)
+		{
+			if ((pairs[i    ] && alias[i + 1]     != alias[i] + 1) ||
+				(pairs[i - 1] && alias[i - 1] + 1 != alias[i]    ))
+				alias[i] = i;
+		}
+	}
+
 
 	ResetVisited();
 	return mEntryBlock->RemapZeroPage(alias);

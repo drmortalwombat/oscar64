@@ -69,7 +69,8 @@ string::string(const char * s, char size)
 	{
 		cstr = malloc(char(size + 2));
 		cstr[0] = size;
-		smemcpy(cstr + 1, s, size + 1);
+		smemcpy(cstr + 1, s, size);
+		cstr[size + 1] = 0;
 	}
 	else
 		cstr = nullptr;	

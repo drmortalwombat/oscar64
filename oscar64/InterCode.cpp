@@ -14997,7 +14997,42 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									;
 								else if (lins->mSrc[1].mTemp < 0 || IsLoopInvariantTemp(lins->mSrc[1].mTemp, body))
 								{
+									assert(IsIntegerType(lins->mDst.mType));
+
 									int s = indexScale[lins->mSrc[0].mTemp];
+
+									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
+									mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
+									mEntryRequiredTemps += lins->mDst.mTemp;
+									tail->mExitRequiredTemps += lins->mDst.mTemp;
+									tail->mEntryRequiredTemps += lins->mDst.mTemp;
+									mInstructions.Remove(i);
+
+									InterInstruction* ains = new InterInstruction(lins->mLocation, IC_BINARY_OPERATOR);
+									ains->mOperator = IA_ADD;
+									ains->mDst = lins->mDst;
+									ains->mSrc[1] = lins->mDst;
+									ains->mSrc[0].mType = lins->mDst.mType;
+									ains->mSrc[0].mTemp = -1;
+									ains->mSrc[0].mIntConst = s;
+									tail->AppendBeforeBranch(ains);
+
+									indexScale[ains->mDst.mTemp] = s;
+
+									modified = true;
+									continue;
+								}
+							}
+							else if ((lins->mOperator == IA_ADD || lins->mOperator == IA_SUB) && lins->mSrc[1].mTemp >= 0 && lins->mSrc[1].mTemp != lins->mDst.mTemp && 
+								      indexScale[lins->mSrc[1].mTemp] != 0 && IsSingleLoopAssign(i, this, body))
+							{
+								if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp == lins->mDst.mTemp)
+									;
+								else if (lins->mSrc[0].mTemp < 0 || IsLoopInvariantTemp(lins->mSrc[0].mTemp, body))
+								{
+									assert(IsIntegerType(lins->mDst.mType));
+
+									int s = indexScale[lins->mSrc[1].mTemp];
 
 									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, lins);
 									mLoopPrefix->mExitRequiredTemps += lins->mDst.mTemp;
@@ -21882,7 +21917,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "REUArray<struct Point>::CacheNode::*CacheNode");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
