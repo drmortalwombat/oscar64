@@ -141,6 +141,8 @@ A list of source files can be provided.
 * -dNOLONG : no support for long in printf
 * -dNOFLOAT : no float in printf
 * -dHEAPCHECK : check heap allocate and free and jam if heap full or free out of range
+* -dNOBSSCLEAR : don't clear BSS segment on startup
+* -dNOZPCLEAR : don't clear zeropage BSS segment on startup
 
 #### Supported target machines
 

@@ -235,6 +235,7 @@ w0:
 
 // Clear BSS Segment
 
+#ifndef NOBSSCLEAR
 		lda #<BSSStart
 		sta ip
 		lda #>BSSStart
@@ -264,7 +265,8 @@ l2:		dey
 		sta (ip), y
 		bne l2
 w2:
-
+#endif
+#ifndef NOZPCLEAR
 		ldx #<ZeroStart
 		cpx #<ZeroEnd
 		beq	w3
@@ -273,6 +275,7 @@ l3:		sta $00, x
 		cpx #<ZeroEnd
 		bne l3
 w3:
+#endif
 		lda	#<StackEnd - 2
 		sta	sp
 		lda	#>StackEnd - 2
