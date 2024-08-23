@@ -52,10 +52,10 @@ public:
 	int				mFill, mPos, mMemPos, mMemSize;
 	uint8		*	mMemData;
 
-	bool ReadLine(char* line);
+	bool ReadLine(char* line, ptrdiff_t limit);
 
-	bool ReadLineRLE(char* line);
-	bool ReadLineLZO(char* line);
+	bool ReadLineRLE(char* line, ptrdiff_t limit);
+	bool ReadLineLZO(char* line, ptrdiff_t limit);
 
 	SourceFile(void);
 	~SourceFile(void);

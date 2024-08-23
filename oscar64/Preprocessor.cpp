@@ -20,7 +20,7 @@ SourcePath::~SourcePath(void)
 
 }
 
-bool SourceFile::ReadLineLZO(char* line)
+bool SourceFile::ReadLineLZO(char* line, ptrdiff_t limit)
 {
 	if (mPos > 256)
 	{
@@ -61,25 +61,25 @@ bool SourceFile::ReadLineLZO(char* line)
 			{
 				if (pi > 0)
 				{
-					sprintf_s(line, 1024, "0x%02x, ", pi);
+					sprintf_s(line, limit, "0x%02x, ", pi);
 
 					for (int i = 0; i < pi; i++)
 					{
 						char	buffer[16];
 						sprintf_s(buffer, 16, "0x%02x, ", (unsigned char)mBuffer[mPos - pi + i]);
 
-						strcat_s(line, 1024, buffer);
+						strcat_s(line, limit, buffer);
 					}
 
 					return true;
 				}
 				else
 				{
-					sprintf_s(line, 1024, "0x%02x, 0x%02x, ", 128 + bj, bi);
+					sprintf_s(line, limit, "0x%02x, 0x%02x, ", 128 + bj, bi);
 					mPos += bj;
 
 					if (mFill == mPos)
-						strcat_s(line, 1024, "0x00, ");
+						strcat_s(line, limit, "0x00, ");
 
 					return true;
 				}
@@ -91,18 +91,18 @@ bool SourceFile::ReadLineLZO(char* line)
 			}
 		}
 
-		sprintf_s(line, 1024, "0x%02x, ", pi);
+		sprintf_s(line, limit, "0x%02x, ", pi);
 
 		for (int i = 0; i < pi; i++)
 		{
 			char	buffer[16];
 			sprintf_s(buffer, 16, "0x%02x, ", (unsigned char)mBuffer[mPos - pi + i]);
 
-			strcat_s(line, 1024, buffer);
+			strcat_s(line, limit, buffer);
 		}
 
 		if (mFill == mPos)
-			strcat_s(line, 1024, "0x00, ");
+			strcat_s(line, limit, "0x00, ");
 
 		return true;
 	}
@@ -110,7 +110,7 @@ bool SourceFile::ReadLineLZO(char* line)
 	return false;
 }
 
-bool SourceFile::ReadLineRLE(char* line)
+bool SourceFile::ReadLineRLE(char* line, ptrdiff_t limit)
 {
 	assert(mFill >= 0 && mFill < 256);
 
@@ -148,7 +148,7 @@ bool SourceFile::ReadLineRLE(char* line)
 
 				if (rcnt > 0)
 				{
-					sprintf_s(line, 1024, "0x%02x, 0x%02x, ", 0x80 + ((cnt - 1) << 4) + (rcnt - 1), (unsigned char)mBuffer[0]);
+					sprintf_s(line, limit, "0x%02x, 0x%02x, ", 0x80 + ((cnt - 1) << 4) + (rcnt - 1), (unsigned char)mBuffer[0]);
 
 					assert(mFill >= 0 && mFill <= 256);
 
@@ -159,7 +159,7 @@ bool SourceFile::ReadLineRLE(char* line)
 
 						assert(mFill >= 0 && mFill <= 256);
 
-						strcat_s(line, 1024, buffer);
+						strcat_s(line, limit, buffer);
 
 						assert(mFill >= 0 && mFill <= 256);
 					}
@@ -174,7 +174,7 @@ bool SourceFile::ReadLineRLE(char* line)
 				}
 				else
 				{
-					sprintf_s(line, 1024, "0x%02x, 0x%02x, ", 0x00 + (cnt - 1), (unsigned char)mBuffer[0]);
+					sprintf_s(line, limit, "0x%02x, 0x%02x, ", 0x00 + (cnt - 1), (unsigned char)mBuffer[0]);
 					memmove(mBuffer, mBuffer + cnt, mFill - cnt);
 					mFill -= cnt;
 
@@ -183,7 +183,7 @@ bool SourceFile::ReadLineRLE(char* line)
 			}
 			else
 			{
-				sprintf_s(line, 1024, "0x%02x, 0x%02x, ", 0x00 + (cnt - 1), (unsigned char)mBuffer[0]);
+				sprintf_s(line, limit, "0x%02x, 0x%02x, ", 0x00 + (cnt - 1), (unsigned char)mBuffer[0]);
 				memmove(mBuffer, mBuffer + cnt, mFill - cnt);
 				mFill -= cnt;
 
@@ -191,7 +191,7 @@ bool SourceFile::ReadLineRLE(char* line)
 			}
 
 			if (mFill == 0)
-				strcat_s(line, 1024, "0x00, ");
+				strcat_s(line, limit, "0x00, ");
 
 			return true;
 		}
@@ -210,13 +210,13 @@ bool SourceFile::ReadLineRLE(char* line)
 			if (cnt < mFill && rep >= 3)
 				cnt -= rep;
 
-			sprintf_s(line, 1024, "0x%02x, ", 0x40 + (cnt - 1));
+			sprintf_s(line, limit, "0x%02x, ", 0x40 + (cnt - 1));
 
 			for (int i = 0; i < cnt; i++)
 			{
 				char	buffer[16];
 				sprintf_s(buffer, 16, "0x%02x, ", (unsigned char)mBuffer[i]);
-				strcat_s(line, 1024, buffer);
+				strcat_s(line, limit, buffer);
 			}
 
 			memmove(mBuffer, mBuffer + cnt, mFill - cnt);
@@ -225,7 +225,7 @@ bool SourceFile::ReadLineRLE(char* line)
 			assert(mFill >= 0 && mFill < 256);
 
 			if (mFill == 0)
-				strcat_s(line, 1024, "0x00, ");
+				strcat_s(line, limit, "0x00, ");
 
 			return true;
 		}
@@ -247,14 +247,14 @@ int SourceFile::ReadChar(void)
 		return fgetc(mFile);
 }
 
-bool SourceFile::ReadLine(char* line)
+bool SourceFile::ReadLine(char* line, ptrdiff_t limit)
 {
 	if (mFile)
 	{
 		switch (mMode)
 		{
 		case SFM_TEXT:
-			if (fgets(line, 1024, mFile))
+			if (fgets(line, int(limit), mFile))
 				return true;
 			break;
 		case SFM_BINARY:
@@ -265,7 +265,7 @@ bool SourceFile::ReadLine(char* line)
 				int c = ReadChar();
 				if (c >= 0)
 				{
-					sprintf_s(line, 1024, "0x%02x, ", c);
+					sprintf_s(line, limit, "0x%02x, ", c);
 					return true;
 				}
 			}
@@ -280,18 +280,18 @@ bool SourceFile::ReadLine(char* line)
 				{
 					int d = ReadChar();
 					if (d >= 0)
-						sprintf_s(line, 1024, "0x%04x, ", c + 256 * d);
+						sprintf_s(line, limit, "0x%04x, ", c + 256 * d);
 					return true;
 				}
 			}
 			break;
 
 		case SFM_BINARY_RLE:
-			if (ReadLineRLE(line))
+			if (ReadLineRLE(line, limit))
 				return true;
 			break;
 		case SFM_BINARY_LZO:
-			if (ReadLineLZO(line))
+			if (ReadLineLZO(line, limit))
 				return true;
 			break;
 		}
@@ -827,7 +827,7 @@ bool SourceFile::DropSource(void)
 bool Preprocessor::NextLine(void)
 {
 	ptrdiff_t	s = 0;
-	while (mSource->ReadLine(mLine + s))
+	while (s < 32768 && mSource->ReadLine(mLine + s, 32768 - s))
 	{
 		mLocation.mLine++;
 
