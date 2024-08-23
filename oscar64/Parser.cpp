@@ -5014,6 +5014,9 @@ Declaration* Parser::ParseQualIdent(void)
 				{
 					Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_USING);
 
+					if (!ndec && dec->mType == DT_TYPE_STRUCT && dec->mIdent == mScanner->mTokenIdent)
+						ndec = dec->mScope->Lookup(mScanner->mTokenIdent->PreMangle("+"));
+
 					if (ndec)
 						dec = ndec;
 					else
@@ -5821,7 +5824,13 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 			{
 				Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
 				nexp->mDecType = exp->mDecType;
-				nexp->mLeft = ParsePrefixExpression(false);
+				if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
+				{
+					nexp->mLeft = ParseListExpression(false);
+					ConsumeToken(TK_CLOSE_PARENTHESIS);
+				}
+				else
+					nexp->mLeft = ParsePrefixExpression(false);
 				nexp = CheckOperatorOverload(nexp);
 				exp = nexp->ConstantFold(mErrors, mDataSection);
 			}
@@ -6685,6 +6694,14 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 		}
 		else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 		{
+			// Explicit constructor invocation
+			if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_FUNCTION && exp->mDecValue->mIdent && exp->mDecValue->mIdent->mString[0] == '+')
+			{
+				exp->mType = EX_TYPE;
+				exp->mDecType = exp->mDecType->mParams->mBase->mBase;
+				exp->mDecValue = nullptr;
+			}
+
 			if (exp->mType == EX_TYPE)
 			{
 				Expression * pexp = nullptr;
