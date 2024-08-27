@@ -90,7 +90,7 @@ protected:
 
 	void AddAssemblerRegister(const Ident* ident, int value);
 
-	Declaration* ParseQualIdent(void);
+	Declaration* ParseQualIdent(bool lhs);
 
 	void SkipStatement(void);
 	Expression* ParseStatement(void);

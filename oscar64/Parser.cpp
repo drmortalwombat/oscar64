@@ -3794,7 +3794,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			mScanner->NextToken();
 			if (ConsumeTokenIf(TK_NAMESPACE))
 			{
-				Declaration* dec = ParseQualIdent();
+				Declaration* dec = ParseQualIdent(true);
 				if (dec)
 				{
 					if (dec->mType == DT_NAMESPACE)
@@ -3812,7 +3812,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			}
 			else if (ConsumeTokenIf(TK_ENUM))
 			{
-				Declaration* dec = ParseQualIdent();
+				Declaration* dec = ParseQualIdent(false);
 				if (dec)
 				{
 					if (dec->mType == DT_TYPE_ENUM)
@@ -3833,7 +3833,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				Declaration* dec;
 
 				do {
-					dec = ParseQualIdent();
+					dec = ParseQualIdent(false);
 					if (dec)
 					{
 						Declaration* pdec = mScope->Insert(dec->mIdent, dec);
@@ -4992,7 +4992,7 @@ Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 	return exp;
 }
 
-Declaration* Parser::ParseQualIdent(void)
+Declaration* Parser::ParseQualIdent(bool lhs)
 {
 	Declaration* dec = nullptr;
 	if (mTemplateScope)
@@ -5037,7 +5037,7 @@ Declaration* Parser::ParseQualIdent(void)
 		const Ident* ident = mScanner->mTokenIdent;
 		Location	loc = mScanner->mLocation;
 		mScanner->NextToken();
-		if (ConsumeTokenIf(TK_COLON))
+		if (lhs && ConsumeTokenIf(TK_COLON))
 		{
 			dec = new Declaration(loc, DT_CLABEL);
 			dec->mIdent = ident;
@@ -5642,7 +5642,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		if (!exp)
 		{
 			if (!dec)
-				dec = ParseQualIdent();
+				dec = ParseQualIdent(lhs);
 			if (dec)
 			{
 				if (dec->mTemplate && mScanner->mToken == TK_LESS_THAN)
@@ -12331,7 +12331,7 @@ void Parser::ParseNamespace(void)
 		else
 		{
 			ConsumeToken(TK_ASSIGN);
-			Declaration* dec = ParseQualIdent();
+			Declaration* dec = ParseQualIdent(false);
 			if (dec)
 			{
 				if (dec->mType == DT_NAMESPACE)
