@@ -127,6 +127,7 @@ protected:
 
 	Declaration* ParseTypeID(bool tid, Declaration * bdec = nullptr);
 
+	Expression* ParseCastExpression(Expression* exp);
 	Expression* ParseSimpleExpression(bool lhs, bool tid = false);
 	Expression* ParsePrefixExpression(bool lhs);
 	Expression* ParsePostfixExpression(bool lhs);

@@ -5352,6 +5352,47 @@ Declaration* Parser::ParseTypeID(bool tid, Declaration* bdec)
 	return dec;
 }
 
+Expression* Parser::ParseCastExpression(Expression* exp)
+{
+	if (exp->mType == EX_TYPE)
+	{
+		if (mScanner->mToken == TK_OPEN_BRACE)
+		{
+			Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+			vdec->mBase = exp->mDecType;
+			vdec->mFlags |= DTF_CONST | DTF_STATIC | DTF_GLOBAL;
+
+			Expression* nexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+			nexp->mDecValue = vdec;
+			nexp->mDecType = vdec->mBase;
+
+			vdec->mValue = ParseInitExpression(vdec->mBase);
+			vdec->mSection = mDataSection;
+			vdec->mSize = vdec->mBase->mSize;
+
+			exp = nexp;
+		}
+		else
+		{
+			Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
+			nexp->mDecType = exp->mDecType;
+			if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
+			{
+				nexp->mLeft = ParseListExpression(false);
+				ConsumeToken(TK_CLOSE_PARENTHESIS);
+
+				nexp->mLeft = ParseCastExpression(nexp->mLeft);
+			}
+			else
+				nexp->mLeft = ParsePrefixExpression(false);
+			nexp = CheckOperatorOverload(nexp);
+			exp = nexp->ConstantFold(mErrors, mDataSection);
+		}
+	}
+
+	return exp;
+}
+
 Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 {
 	Declaration* dec = nullptr;
@@ -5797,44 +5838,9 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 	case TK_OPEN_PARENTHESIS:
 		mScanner->NextToken();
 		exp = ParseListExpression(true);
-		if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
-			mScanner->NextToken();
-		else
-			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "')' expected");
+		ConsumeToken(TK_CLOSE_PARENTHESIS);
 
-		if (exp->mType == EX_TYPE)
-		{
-			if (mScanner->mToken == TK_OPEN_BRACE)
-			{
-				Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
-				vdec->mBase = exp->mDecType;
-				vdec->mFlags |= DTF_CONST | DTF_STATIC | DTF_GLOBAL;
-
-				Expression* nexp = new Expression(mScanner->mLocation, EX_VARIABLE);
-				nexp->mDecValue = vdec;
-				nexp->mDecType = vdec->mBase;
-
-				vdec->mValue = ParseInitExpression(vdec->mBase);
-				vdec->mSection = mDataSection;
-				vdec->mSize = vdec->mBase->mSize;
-
-				exp = nexp;
-			}
-			else
-			{
-				Expression* nexp = new Expression(mScanner->mLocation, EX_TYPECAST);
-				nexp->mDecType = exp->mDecType;
-				if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
-				{
-					nexp->mLeft = ParseListExpression(false);
-					ConsumeToken(TK_CLOSE_PARENTHESIS);
-				}
-				else
-					nexp->mLeft = ParsePrefixExpression(false);
-				nexp = CheckOperatorOverload(nexp);
-				exp = nexp->ConstantFold(mErrors, mDataSection);
-			}
-		}
+		exp = ParseCastExpression(exp);
 		break;
 	case TK_OPEN_BRACKET:
 		if (mCompilerOptions & COPT_CPLUSPLUS)
