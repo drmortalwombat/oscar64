@@ -10065,7 +10065,7 @@ bool InterCodeBasicBlock::RemoveUnusedArgumentStoreInstructions(void)
 			{
 				mEntryRequiredArgs.Fill();
 			}
-			else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_FFRAME)
+			else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_FFRAME && ins->mSrc[1].mVarIndex + InterTypeSize[ins->mSrc[0].mType] < 64)
 			{
 				if (mEntryRequiredArgs.RangeClear(ins->mSrc[1].mVarIndex, InterTypeSize[ins->mSrc[0].mType]))
 				{
@@ -21917,7 +21917,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
