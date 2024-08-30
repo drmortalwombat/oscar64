@@ -552,12 +552,12 @@ bool Compiler::GenerateCode(void)
 				if (mCompilerOptions & COPT_NATIVE)
 				{
 					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1080);
-					regionLowcode = mLinker->AddRegion(identLowcode, 0x1080, 0x1100);
+					regionLowcode = mLinker->AddRegion(identLowcode, 0x1080, 0x1180);
 				}
 				else
 				{
 					regionStartup = mLinker->AddRegion(identStartup, 0x1001, 0x1080);
-					regionLowcode = mLinker->AddRegion(identLowcode, 0x1080, 0x1000);
+					regionLowcode = mLinker->AddRegion(identLowcode, 0x1080, 0x1180);
 				}
 				regionLowcode->mSections.Push(mCompilationUnits->mSectionLowCode);
 				break;
@@ -633,6 +633,8 @@ bool Compiler::GenerateCode(void)
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x1d00, 0x1e00);
 				break;
 			case TMACH_PLUS4:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x1200, 0x1300);
+				break;
 			case TMACH_VIC20:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x1100, 0x1200);
 				break;
@@ -698,7 +700,7 @@ bool Compiler::GenerateCode(void)
 					regionMain = mLinker->AddRegion(identMain, 0x1e00, 0xc000);
 					break;
 				case TMACH_PLUS4:
-					regionMain = mLinker->AddRegion(identMain, 0x1200, 0xfc00);
+					regionMain = mLinker->AddRegion(identMain, 0x1300, 0xfc00);
 					break;
 				case TMACH_VIC20:
 					regionMain = mLinker->AddRegion(identMain, 0x1200, 0x1e00);
@@ -753,7 +755,7 @@ bool Compiler::GenerateCode(void)
 					regionMain = mLinker->AddRegion(identMain, 0x1c80, 0xc000);
 					break;
 				case TMACH_PLUS4:
-					regionMain = mLinker->AddRegion(identMain, 0x1100, 0xfc00);
+					regionMain = mLinker->AddRegion(identMain, 0x1180, 0xfc00);
 					break;
 				case TMACH_VIC20:
 					regionMain = mLinker->AddRegion(identMain, 0x1080, 0x1e00);

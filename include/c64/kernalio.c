@@ -16,7 +16,18 @@ void krnio_setbnk(char filebank, char namebank)
 #pragma native(krnio_setbnk)
 #endif
 
-void krnio_setnam(const char * name)
+#if defined(__PLUS4__)
+#pragma code(lowcode)
+#define BANKIN	sta 0xff3e
+#define BANKOUT	sta 0xff3f
+#define BANKINLINE	__noinline
+#else
+#define BANKIN
+#define BANKOUT
+#define BANKINLINE
+#endif
+
+BANKINLINE void krnio_setnam(const char * name)
 {
 	__asm
 	{
@@ -31,26 +42,30 @@ void krnio_setnam(const char * name)
 		tya
 	W1: ldx name
 		ldy	name + 1
+		BANKIN
 		jsr	$ffbd			// setnam
+		BANKOUT
 	}
 }
 
 #pragma native(krnio_setnam)
 
-void krnio_setnam_n(const char * name, char len)
+BANKINLINE void krnio_setnam_n(const char * name, char len)
 {
 	__asm
 	{
 		lda len
 		ldx name
 		ldy	name + 1
+		BANKIN
 		jsr	$ffbd			// setnam
+		BANKOUT
 	}	
 }
 
 #pragma native(krnio_setnam_n)
 
-bool krnio_open(char fnum, char device, char channel)
+BANKINLINE bool krnio_open(char fnum, char device, char channel)
 {
 	krnio_pstatus[fnum] = KRNIO_OK;
 
@@ -59,6 +74,8 @@ bool krnio_open(char fnum, char device, char channel)
 		lda	#0
 		sta accu
 		sta	accu + 1
+
+		BANKIN
 
 		lda	fnum
 		ldx	device
@@ -74,6 +91,8 @@ bool krnio_open(char fnum, char device, char channel)
 	W1:
 		lda	#1
 		sta	accu
+
+		BANKOUT
 	E2:
 	};
 
@@ -81,22 +100,26 @@ bool krnio_open(char fnum, char device, char channel)
 
 #pragma native(krnio_open)
 
-void krnio_close(char fnum)
+BANKINLINE void krnio_close(char fnum)
 {
 	__asm
 	{
+		BANKIN
 		lda	fnum
 		jsr	$ffc3			// close
+		BANKOUT
 	}	
 }
 
 #pragma native(krnio_close)
 
-krnioerr krnio_status(void)
+BANKINLINE krnioerr krnio_status(void)
 {
 	return __asm
 	{
+		BANKIN
 		jsr $ffb7			// readst
+		BANKOUT
 		sta accu
 		lda #0
 		sta accu + 1
@@ -106,10 +129,11 @@ krnioerr krnio_status(void)
 #pragma native(krnio_status)
 
 
-bool krnio_load(char fnum, char device, char channel)
+BANKINLINE bool krnio_load(char fnum, char device, char channel)
 {
 	return __asm
 	{
+		BANKIN
 		lda	fnum
 		ldx	device
 		ldy channel		
@@ -119,6 +143,7 @@ bool krnio_load(char fnum, char device, char channel)
 		ldx #0
 		ldy #0
 		jsr	$FFD5			// load
+		BANKOUT
 
 		lda #0
 		rol
@@ -129,10 +154,11 @@ bool krnio_load(char fnum, char device, char channel)
 
 #pragma native(krnio_load)
 
-bool krnio_save(char device, const char* start, const char* end)
+BANKINLINE bool krnio_save(char device, const char* start, const char* end)
 {
 	return __asm
 	{
+		BANKIN
 		lda	#0
 		ldx	device
 		ldy #0		
@@ -143,6 +169,8 @@ bool krnio_save(char device, const char* start, const char* end)
 		ldy end+1
 		jsr	$FFD8			// save
 
+		BANKOUT
+
 		lda #0
 		rol
 		eor #1
@@ -152,12 +180,14 @@ bool krnio_save(char device, const char* start, const char* end)
 
 #pragma native(krnio_save)
 
-bool krnio_chkout(char fnum)
+BANKINLINE bool krnio_chkout(char fnum)
 {
 	return __asm
 	{
+		BANKIN
 		ldx fnum
 		jsr	$ffc9			// chkout
+		BANKOUT
 
 		lda #0
 		rol
@@ -168,12 +198,14 @@ bool krnio_chkout(char fnum)
 
 #pragma native(krnio_chkout)
 
-bool krnio_chkin(char fnum)
+BANKINLINE bool krnio_chkin(char fnum)
 {
 	return __asm
 	{
+		BANKIN
 		ldx fnum
 		jsr	$ffc6			// chkin
+		BANKOUT
 
 		lda #0
 		rol
@@ -184,38 +216,48 @@ bool krnio_chkin(char fnum)
 
 #pragma native(krnio_chkin)
 
-void krnio_clrchn(void)
+BANKINLINE void krnio_clrchn(void)
 {
 	__asm
 	{
+		BANKIN
 		jsr $ffcc		// clrchn
+		BANKOUT
 	}
 }
 
 #pragma native(krnio_clrchn)
 
-bool krnio_chrout(char ch)
+BANKINLINE bool krnio_chrout(char ch)
 {
 	return __asm
 	{
+		BANKIN
 		lda ch
 		jsr $ffd2		// chrout
 		sta accu
+		BANKOUT
 	};
 }
 
 #pragma native(krnio_chrout)
 
-char krnio_chrin(void)
+BANKINLINE char krnio_chrin(void)
 {
 	return __asm
 	{
+		BANKIN
 		jsr $ffcf		// chrin
 		sta accu
+		BANKOUT
 	};
 }
 
 #pragma native(krnio_chrin)
+
+#if defined(__PLUS4__)
+#pragma code(code)
+#endif
 
 int krnio_getch(char fnum)
 {
