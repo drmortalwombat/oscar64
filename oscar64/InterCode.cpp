@@ -18982,7 +18982,9 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 #endif
 			else if (
 				mInstructions[i + 0]->mDst.mTemp >= 0 &&
-				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && IsCommutative(mInstructions[i + 1]->mOperator) && mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp)
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && IsCommutative(mInstructions[i + 1]->mOperator) && 
+				mInstructions[i + 0]->mDst.mTemp == mInstructions[i + 1]->mSrc[0].mTemp && 
+				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp)
 			{
 				InterOperand	io = mInstructions[i + 1]->mSrc[1];
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 1]->mSrc[0];
@@ -19450,6 +19452,21 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 #endif
 
+#if 0
+			if (i + 2 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mDst.mType == IT_FLOAT &&
+
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && (mInstructions[i + 1]->mOperator == IA_ADD || mInstructions[i + 1]->mOperator == IA_MUL) &&
+				mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
+			{
+				InterOperand	op = mInstructions[i + 1]->mSrc[0];
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 1]->mSrc[1];
+				mInstructions[i + 1]->mSrc[1] = op;
+
+				changed = true;
+			}
+#endif
 #if 1
 			if (i + 2 < mInstructions.Size() &&
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR &&

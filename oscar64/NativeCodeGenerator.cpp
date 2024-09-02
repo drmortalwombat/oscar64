@@ -9486,6 +9486,10 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				sop0 = 1; sop1 = 0;
 				const InterInstruction* sins = sins0; sins0 = sins1; sins1 = sins;
 			}
+			else if (!sins1 && !sins0 && ins->mSrc[sop1].mTemp >= 0 && CheckPredAccuStore(BC_REG_TMP + proc->mTempOffset[ins->mSrc[sop1].mTemp]) && ins->mSrc[sop1].mFinal)
+			{
+				// no flip in this case
+			}
 			else if (!sins0 && !sins1 && ins->mSrc[sop0].mTemp >= 0 && ins->mSrc[sop1].mTemp >= 0 && ins->mDst.mTemp == ins->mSrc[sop0].mTemp)
 			{
 				flipop = true;
@@ -14593,6 +14597,15 @@ void NativeCodeBasicBlock::FindZeroPageAlias(const NumberSet& statics, NumberSet
 				else if (mIns[i].ChangesAddress())
 					invalid += mIns[i].mAddress;
 			}
+			else if (mIns[i].mType == ASMIT_JSR && (mIns[i].mFlags & NCIF_USE_ZP_32_X))
+			{
+				int j = mIns[i].mParam;
+				invalid += j;
+				invalid += j + 1;
+				invalid += j + 2;
+				invalid += j + 3;
+				accu = -1;
+			}
 			else if (mIns[i].ChangesAccu())
 				accu = -1;
 		}
@@ -14719,6 +14732,14 @@ void NativeCodeBasicBlock::CollectZeroPageUsage(NumberSet& used, NumberSet &modi
 							used += BC_REG_WORK + j;
 							modified += BC_REG_ACCU + j;
 							modified += BC_REG_WORK + j;
+						}
+
+						if (mIns[i].mFlags & NCIF_USE_ZP_32_X)
+						{
+							for (int j = 0; j < 4; j++)
+								used += mIns[i].mParam + j;
+							for (int j = 0; j < 3; j++)
+								pairs += mIns[i].mParam + j;
 						}
 					}
 
@@ -50514,7 +50535,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sformat");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sqrt");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -51352,7 +51373,6 @@ void NativeCodeProcedure::Optimize(void)
 			mEntryBlock->ReplaceFinalZeroPageUse(this);
 		}
 #endif
-
 		if (step > 1)
 		{
 			ResetVisited();
@@ -51376,7 +51396,6 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
 #endif
-
 
 		int t = 0;
 #if 1
@@ -51477,7 +51496,6 @@ void NativeCodeProcedure::Optimize(void)
 			changed = true;
 
 #endif
-
 
 		if (step == 2)
 		{
