@@ -86,15 +86,15 @@ You should build from the top-level directory of Oscar64:
 
 To build just the compiler:
 
-* make -f make/makefile compiler
+* make -C make compiler
 
 To build just game demonstrations:
 
-* make -f make/makefile samples
+* make -C make samples
 
 To build everything:
 
-* make -f make/makefile all
+* make -C make all
 
 ### Compiler arguments
 
