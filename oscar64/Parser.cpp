@@ -2067,7 +2067,7 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 							dexp->mLeft = qexp;
 							dexp->mRight = dec->mValue;
 						}
-						else if (dec->mSize == bdec->mSize)
+						else if (dec->mBase->mType == DT_TYPE_STRUCT)
 						{
 							qexp->mDecType = bdec;
 
@@ -2549,7 +2549,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 						if (bdec->mType == DT_TYPE_STRUCT && bdec->mCopyConstructor)
 						{
-							if (dec->mSize == bdec->mSize)
+							if (dec->mBase->mType == DT_TYPE_STRUCT)
 							{
 								Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
 								pexp->mLeft = lexp;
@@ -2722,7 +2722,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 							if (bdec->mType == DT_TYPE_STRUCT && bdec->mCopyAssignment)
 							{
-								if (dec->mSize == bdec->mSize)
+								if (dec->mBase->mType == DT_TYPE_STRUCT)
 								{
 									Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
 									pexp->mLeft = lexp;
@@ -3206,7 +3206,7 @@ void Parser::AppendMemberDestructor(Declaration* pthis)
 
 							Expression* dexp;
 
-							if (dec->mSize == bdec->mSize)
+							if (dec->mBase->mType == DT_TYPE_STRUCT)
 							{
 								qexp->mDecType = bdec;
 
@@ -4707,7 +4707,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					texp->mDecType->mBase = bdec;
 					texp->mDecType->mSize = 2;
 
-					if (bdec->mSize == ndec->mBase->mSize)
+					if (ndec->mBase->mType == DT_TYPE_STRUCT)
 					{
 						Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
 						cexp->mDecValue = bdec->mDefaultConstructor;
@@ -11978,6 +11978,49 @@ void Parser::ParsePragma(void)
 					dend->mSection = lsec;
 					dend->mFlags |= DTF_SECTION_END;
 				}
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "place"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				const Ident* sectionIdent = mScanner->mTokenIdent;
+				mScanner->NextToken();
+				LinkerSection* lsec = mCompilationUnits->mLinker->FindSection(sectionIdent);
+				if (lsec)
+				{
+					while (ConsumeTokenIf(TK_COMMA))
+					{
+						if (mScanner->mToken == TK_IDENT)
+						{
+							Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
+							if (dec && dec->mType == DT_VARIABLE && (dec->mFlags & DTF_GLOBAL))
+							{
+								mScanner->NextToken();
+
+								dec->mSection = lsec;
+								if (dec->mLinkerObject)
+									dec->mLinkerObject->MoveToSection(lsec);
+							}
+							else
+							{
+								mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Variable not found");
+								mScanner->NextToken();
+							}
+						}
+						else
+							mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Variable name expected");
+					}
+				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section not defined");
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Section name expected");

@@ -3,6 +3,9 @@
 
 static volatile char * vspriteScreen;
 
+#ifdef VSPRITE_BSS
+#pragma bss(VSPRITE_BSS)
+#endif
 
 void spr_init(char * screen)
 {
