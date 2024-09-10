@@ -11034,6 +11034,12 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && ins->mDst.mType == IT_INT16 && spareTemps + 1 < tvalid.Size())
 			{
 				InterInstruction* mi0 = ltvalue[ins->mSrc[0].mTemp], * mi1 = ltvalue[ins->mSrc[1].mTemp];
+				InterInstruction* mci0 = nullptr;
+				InterInstruction* mci1 = nullptr;
+				if (mi0 && mi0->mCode == IC_CONVERSION_OPERATOR)
+					mci0 = ltvalue[mi0->mSrc[0].mTemp];
+				if (mi1 && mi1->mCode == IC_CONVERSION_OPERATOR)
+					mci1 = ltvalue[mi1->mSrc[0].mTemp];
 
 				if (mi0 && mi1 && mi1->mCode == IC_CONSTANT && mi0->mCode == IC_BINARY_OPERATOR && mi0->mOperator == IA_ADD)
 				{
@@ -11177,6 +11183,41 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 						ins->mSrc[1].mTemp = nai->mDst.mTemp;
 						ins->mSrc[0].mTemp = cai->mDst.mTemp;
 					}
+				}
+#endif
+#if 1
+				else if (mi0 && mci1 && mci1->mCode == IC_RELATIONAL_OPERATOR)
+				{
+					InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
+					cai->mDst.mTemp = spareTemps++;
+					cai->mDst.mType = ins->mDst.mType;
+					cai->mConst.mIntConst = 0;
+					cai->mConst.mFloatConst = 0;
+					mInstructions.Insert(i, cai);
+
+					ins->mCode = IC_SELECT;
+					ins->mNumOperands = 3;
+					ins->mSrc[2] = mci1->mDst;
+					ins->mSrc[1] = ins->mSrc[0];
+					ins->mSrc[0].mTemp = cai->mDst.mTemp;
+
+					ltvalue[cai->mDst.mTemp] = nullptr;
+				}
+				else if (mci0 && mi1 && mci0->mCode == IC_RELATIONAL_OPERATOR)
+				{
+					InterInstruction* cai = new InterInstruction(ins->mLocation, IC_CONSTANT);
+					cai->mDst.mTemp = spareTemps++;
+					cai->mDst.mType = ins->mDst.mType;
+					cai->mConst.mIntConst = 0;
+					cai->mConst.mFloatConst = 0;
+					mInstructions.Insert(i, cai);
+
+					ins->mCode = IC_SELECT;
+					ins->mNumOperands = 3;
+					ins->mSrc[2] = mci0->mDst;
+					ins->mSrc[0].mTemp = cai->mDst.mTemp;
+
+					ltvalue[cai->mDst.mTemp] = nullptr;
 				}
 #endif
 			}

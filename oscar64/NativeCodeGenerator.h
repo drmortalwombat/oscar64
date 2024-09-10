@@ -198,6 +198,7 @@ public:
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsSameLS(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
+	bool IsLogic(void) const;
 	bool IsShift(void) const;
 	bool IsShiftOrInc(void) const;
 	bool IsSimpleJSR(void) const;
@@ -463,6 +464,8 @@ public:
 	bool MoveTYADCStoreDown(int at);
 	bool MoveShiftZeroPageUp(int at);
 
+	bool MoveLoadLogicStoreAbsUp(int at);
+
 	bool MoveLDSTXOutOfRange(int at);
 
 	bool MoveCLCLoadAddZPStoreDown(int at);
@@ -617,6 +620,7 @@ public:
 
 	bool BypassRegisterConditionBlock(void);
 	bool FoldLoopEntry(void);
+	bool CombineAlternateLoads(void);
 
 	bool Is16BitImmSum(int at, int & val, int& reg) const;
 

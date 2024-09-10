@@ -1624,6 +1624,12 @@ bool NativeCodeInstruction::IsCommutative(void) const
 	return mType == ASMIT_ADC || mType == ASMIT_AND || mType == ASMIT_ORA || mType == ASMIT_EOR;
 }
 
+bool NativeCodeInstruction::IsLogic(void) const
+{
+	return mType == ASMIT_AND || mType == ASMIT_ORA || mType == ASMIT_EOR;
+}
+
+
 
 bool NativeCodeInstruction::IsSame(const NativeCodeInstruction& ins) const
 {
@@ -26516,6 +26522,60 @@ bool NativeCodeBasicBlock::EliminateMicroBlocks(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::CombineAlternateLoads(void)
+{
+	bool	changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mTrueJump && mFalseJump && (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) && 
+			mTrueJump->mIns.Size() == 1 && mFalseJump->mIns.Size() == 1 &&
+			mTrueJump->mTrueJump == mFalseJump->mTrueJump &&
+			!mTrueJump->mFalseJump && !mFalseJump->mFalseJump &&
+			mTrueJump->mNumEntries == 1 && mFalseJump->mNumEntries == 1)
+		{
+			if (mTrueJump->mIns[0].mType == ASMIT_LDA && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE &&
+				mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+			{
+				mFalseJump->mIns[0].mLive |= LIVE_CPU_REG_C;
+				mIns.Push(mFalseJump->mIns[0]);
+				mFalseJump->mIns.Remove(0);
+				mExitRequiredRegs += CPU_REG_A;
+				mFalseJump->mEntryRequiredRegs += CPU_REG_A;
+				changed = true;
+			}
+			else if (mTrueJump->mIns[0].mType == ASMIT_LDX && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE &&
+				mFalseJump->mIns[0].mType == ASMIT_LDX && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+			{
+				mFalseJump->mIns[0].mLive |= LIVE_CPU_REG_C;
+				mIns.Push(mFalseJump->mIns[0]);
+				mFalseJump->mIns.Remove(0);
+				mExitRequiredRegs += CPU_REG_X;
+				mFalseJump->mEntryRequiredRegs += CPU_REG_X;
+				changed = true;
+			}
+			else if (mTrueJump->mIns[0].mType == ASMIT_LDY && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE &&
+				mFalseJump->mIns[0].mType == ASMIT_LDY && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+			{
+				mFalseJump->mIns[0].mLive |= LIVE_CPU_REG_C;
+				mIns.Push(mFalseJump->mIns[0]);
+				mFalseJump->mIns.Remove(0);
+				mExitRequiredRegs += CPU_REG_Y;
+				mFalseJump->mEntryRequiredRegs += CPU_REG_Y;
+				changed = true;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->CombineAlternateLoads())
+			changed = true;
+		if (mFalseJump && mFalseJump->CombineAlternateLoads())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::FoldLoopEntry(void)
 {
 	bool	changed = false;
@@ -33392,6 +33452,58 @@ bool NativeCodeBasicBlock::MoveLoadAddImmStoreAbsXUp(int at)
 	}
 	else
 		return false;
+}
+
+bool NativeCodeBasicBlock::MoveLoadLogicStoreAbsUp(int at)
+{
+	// at + 0 : LDA zp
+	// at + 1 : ORA zp / imm
+	// at + 2 : STA abs / abs,x / abs,y
+
+	int	j = at - 1;
+	while (j >= 0)
+	{
+		if (mIns[j].mType == ASMIT_STA && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[at].mAddress)
+		{
+			while (j + 1 < mIns.Size() && mIns[j + 1].mType == ASMIT_STA)
+				j++;
+
+			if (mIns[j].mLive & LIVE_CPU_REG_A)
+				return false;
+
+			mIns[j].mLive |= LIVE_CPU_REG_A;
+			for (int i = j + 1; i < at; i++)
+				mIns[i].mLive |= LIVE_CPU_REG_C;
+
+			mIns[at + 1].mLive |= mIns[j].mLive;
+			mIns[at + 2].mLive |= mIns[j].mLive;
+
+			mIns.Insert(j + 1, mIns[at + 2]);	// STA
+			mIns.Insert(j + 1, mIns[at + 2]);	// ORA
+
+			mIns[at + 2].mType = ASMIT_NOP; mIns[at + 2].mMode = ASMIM_IMPLIED;
+			mIns[at + 3].mType = ASMIT_NOP; mIns[at + 3].mMode = ASMIM_IMPLIED;
+			mIns[at + 4].mType = ASMIT_NOP; mIns[at + 4].mMode = ASMIM_IMPLIED;
+
+			return true;
+		}
+
+		if (mIns[j].ChangesZeroPage(mIns[at + 0].mAddress))
+			return false;
+		if (mIns[at + 1].mType == ASMIM_ZERO_PAGE && mIns[j].ChangesZeroPage(mIns[at + 1].mAddress))
+			return false;
+
+		if (mIns[j].UsesMemoryOf(mIns[at + 2]))
+			return false;
+		if (mIns[at + 2].mMode == ASMIM_ABSOLUTE_X && mIns[j].ChangesXReg())
+			return false;
+		if (mIns[at + 2].mMode == ASMIM_ABSOLUTE_Y && mIns[j].ChangesYReg())
+			return false;
+
+		j--;
+	}
+
+	return false;
 }
 
 
@@ -42101,6 +42213,27 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 
 #endif
 
+
+#if 1
+	// move load - add # - store up to initial store
+	// 
+
+	for (int i = 1; i + 2 < mIns.Size(); i++)
+	{
+		if (
+			mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 1].IsLogic() && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) &&
+			mIns[i + 2].mType == ASMIT_STA && (mIns[i + 2].mMode == ASMIM_ZERO_PAGE || mIns[i + 2].mMode == ASMIM_ABSOLUTE || mIns[i + 2].mMode == ASMIM_ABSOLUTE_X || mIns[i + 2].mMode == ASMIM_ABSOLUTE_Y) &&
+			(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) == 0)
+		{
+			if (MoveLoadLogicStoreAbsUp(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+#endif
+
 #if 1
 	// move load - ora/and/eor # - store up to initial store
 	// 
@@ -47266,6 +47399,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate6(int i, int pass)
 		mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
 		return true;
 	}
+	else if (
+		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+		mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+		mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 3].mType == ASMIT_LDA && !mIns[i + 3].MayBeSameAddress(mIns[i + 2]) &&
+		mIns[i + 4].mType == ASMIT_ASL && mIns[i + 4].mMode == ASMIM_IMPLIED &&
+		mIns[i + 5].mType == ASMIT_ORA && mIns[i + 5].SameEffectiveAddress(mIns[i + 2]) && !(mIns[i + 5].mLive & LIVE_MEM))
+	{
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+		mIns[i + 4].mType = ASMIT_ROL;
+		mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+		return true;
+	}
 
 	if (pass == 0 &&
 		mIns[i + 0].mType == ASMIT_CLC &&
@@ -52349,6 +52497,10 @@ void NativeCodeProcedure::Optimize(void)
 
 	} while (changed);
 
+#if 1
+	ResetVisited();
+	mEntryBlock->CombineAlternateLoads();
+#endif
 #if 1
 	ResetVisited();
 	mEntryBlock->ReduceLocalYPressure();
