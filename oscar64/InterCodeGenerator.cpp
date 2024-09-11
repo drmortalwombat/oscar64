@@ -5302,16 +5302,19 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				sexp = sexp->mRight;
 			}
 
-			int i = 1, j = 1;
-			while (i < switchNodes.Size())
+			if (switchNodes.Size() > 0)
 			{
-				if (switchNodes[i].mBlock == switchNodes[j - 1].mBlock && switchNodes[i].mLower == switchNodes[j - 1].mUpper + 1)
-					switchNodes[j - 1].mUpper = switchNodes[i].mUpper;
-				else
-					switchNodes[j++] = switchNodes[i];
-				i++;
+				int i = 1, j = 1;
+				while (i < switchNodes.Size())
+				{
+					if (switchNodes[i].mBlock == switchNodes[j - 1].mBlock && switchNodes[i].mLower == switchNodes[j - 1].mUpper + 1)
+						switchNodes[j - 1].mUpper = switchNodes[i].mUpper;
+					else
+						switchNodes[j++] = switchNodes[i];
+					i++;
+				}
+				switchNodes.SetSize(j);
 			}
-			switchNodes.SetSize(j);
 
 			BuildSwitchTree(proc, exp, sblock, inlineMapper, vl, switchNodes, 0, switchNodes.Size(), vleft, vright,  dblock ? dblock : eblock);
 
