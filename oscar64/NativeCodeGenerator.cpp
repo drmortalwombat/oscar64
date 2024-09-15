@@ -33490,7 +33490,7 @@ bool NativeCodeBasicBlock::MoveLoadLogicStoreAbsUp(int at)
 
 		if (mIns[j].ChangesZeroPage(mIns[at + 0].mAddress))
 			return false;
-		if (mIns[at + 1].mType == ASMIM_ZERO_PAGE && mIns[j].ChangesZeroPage(mIns[at + 1].mAddress))
+		if (mIns[at + 1].mMode == ASMIM_ZERO_PAGE && mIns[j].ChangesZeroPage(mIns[at + 1].mAddress))
 			return false;
 
 		if (mIns[j].UsesMemoryOf(mIns[at + 2]))
