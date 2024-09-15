@@ -767,8 +767,13 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 	case TK_LONG:
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
 		dec->mSize = 4;
-		dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
 		mScanner->NextToken();
+		if (ConsumeTokenIf(TK_UNSIGNED))
+			dec->mFlags = flags | DTF_DEFINED;
+		else if (ConsumeTokenIf(TK_SIGNED))
+			dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
+		else
+			dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
 		break;
 
 	case TK_SHORT:
