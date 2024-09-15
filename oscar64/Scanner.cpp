@@ -144,6 +144,7 @@ const char* TokenNames[] =
 	"'#ifdef'",
 	"'#ifndef'",
 	"'#error'",
+	"'#warning'",
 	"'#pragma'",
 	"'#line'",
 
@@ -784,6 +785,19 @@ void Scanner::NextPreToken(void)
 			}
 			exit(EXIT_FAILURE);
 		}
+		else if (mToken == TK_PREP_WARN)
+		{
+			NextRawToken();
+
+			if (mToken == TK_STRING)
+			{
+				this->Warning((const char*)mTokenString);
+			}
+			else
+			{
+				this->Warning("Missing or invalid warning message");
+			}
+		}
 		else if (mToken == TK_PREP_IDENT)
 		{
 			Macro* def = nullptr;
@@ -1166,6 +1180,8 @@ void Scanner::NextSkipRawToken(void)
 					mToken = TK_PREP_DEFINE;
 				else if (!strcmp(tkprep, "error"))
 					mToken = TK_PREP_ERROR;
+				else if (!strcmp(tkprep, "warning"))
+					mToken = TK_PREP_WARN;
 				else if (!strcmp(tkprep, "undef"))
 					mToken = TK_PREP_UNDEF;
 				else if (!strcmp(tkprep, "include"))
@@ -1556,6 +1572,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_PREP_DEFINE;
 				else if (!strcmp(tkprep, "error"))
 					mToken = TK_PREP_ERROR;
+				else if (!strcmp(tkprep, "warning"))
+					mToken = TK_PREP_WARN;
 				else if (!strcmp(tkprep, "undef"))
 					mToken = TK_PREP_UNDEF;
 				else if (!strcmp(tkprep, "include"))
