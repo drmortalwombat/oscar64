@@ -5633,7 +5633,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	if (dec->mFlags & DTF_DYNSTACK)
 		proc->mDynamicStack = true;
 
-	if (dec->mFlags & DTF_PREVENT_INLINE)
+	if ((dec->mFlags & DTF_PREVENT_INLINE) || (dec->mBase->mFlags & DTF_VARIADIC))
 		proc->mNoInline = true;
 
 	if (dec->mBase->mFlags & DTF_FASTCALL)

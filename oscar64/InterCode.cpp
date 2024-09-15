@@ -21975,7 +21975,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -23819,7 +23819,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 1
+#if 0
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
