@@ -8978,6 +8978,7 @@ Expression* Parser::ParseListExpression(bool lhs)
 			return ParseBinaryFoldExpression(nexp);
 
 		nexp->mRight = ParseListExpression(false);
+		nexp->mDecType = nexp->mRight->mDecType;
 		exp = nexp;
 	}
 	return exp;
@@ -9259,7 +9260,7 @@ Expression* Parser::ParseStatement(void)
 
 				// Assignment
 				if (mScanner->mToken != TK_SEMICOLON)
-					initExp = CleanupExpression(ParseExpression(true));
+					initExp = CleanupExpression(ParseListExpression(true));
 
 				if ((mCompilerOptions & COPT_CPLUSPLUS) && ConsumeTokenIf(TK_COLON))
 				{
@@ -9445,7 +9446,7 @@ Expression* Parser::ParseStatement(void)
 
 					// Condition
 					if (mScanner->mToken != TK_SEMICOLON)
-						conditionExp = CoerceExpression(CleanupExpression(ParseExpression(false)), TheBoolTypeDeclaration);
+						conditionExp = CoerceExpression(CleanupExpression(ParseListExpression(false)), TheBoolTypeDeclaration);
 
 					if (mScanner->mToken == TK_SEMICOLON)
 						mScanner->NextToken();
@@ -9454,7 +9455,7 @@ Expression* Parser::ParseStatement(void)
 
 					// Iteration
 					if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
-						iterateExp = CleanupExpression(ParseExpression(false));
+						iterateExp = CleanupExpression(ParseListExpression(false));
 				}
 
 				ConsumeToken(TK_CLOSE_PARENTHESIS);
