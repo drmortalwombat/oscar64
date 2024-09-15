@@ -45632,7 +45632,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 		mIns[i + 2].mType == ASMIT_LDX && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress &&
 		mIns[i + 3].mType == ASMIT_STX && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-		!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && !mIns[i + 1].UsesZeroPage(mIns[i + 3].mAddress))
+		!mIns[i + 1].ChangesZeroPage(mIns[i + 0].mAddress) && 
+		!mIns[i + 1].UsesZeroPage(mIns[i + 3].mAddress) &&
+		!mIns[i + 1].ChangesZeroPage(mIns[i + 3].mAddress))
 	{
 		mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 
@@ -50683,7 +50685,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "sqrt");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "test");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -51597,7 +51599,6 @@ void NativeCodeProcedure::Optimize(void)
 		} while (changed && t < 20);
 #endif
 
-
 		BuildDataFlowSets();
 		ResetVisited();
 		mEntryBlock->RemoveUnusedResultInstructions();
@@ -52494,6 +52495,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 		else
 			cnt++;
+
 
 	} while (changed);
 

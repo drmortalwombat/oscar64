@@ -538,6 +538,7 @@ int Emulator::Emulate(int startIP, int trace)
 	mMemory[0x1ff] = 0xff;
 
 	int		tcycles = 0, cycles = 0;
+	int		iip = 0;
 	while (mIP != 0)
 	{
 		if (mJiffies)
@@ -584,7 +585,10 @@ int Emulator::Emulate(int startIP, int trace)
 		AsmInsData	d = DecInsData[opcode];
 		int			addr = 0, taddr;
 		int			ip = mIP;
-		int			iip = mMemory[BC_REG_IP] + 256 * mMemory[BC_REG_IP + 1];
+		
+		if (ip == 0x0862)
+			iip = mMemory[BC_REG_IP] + 256 * mMemory[BC_REG_IP + 1] + mRegY;
+
 		bool		cross = false, indexed = false;
 		int			icycles = 0;
 

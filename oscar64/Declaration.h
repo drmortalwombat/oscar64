@@ -242,6 +242,8 @@ public:
 	Expression(const Location& loc, ExpressionType type);
 	~Expression(void);
 
+	uint32					mUID;
+
 	Location				mLocation, mEndLocation;
 	ExpressionType			mType;
 	Expression			*	mLeft, * mRight;
@@ -269,6 +271,8 @@ class Declaration
 public:
 	Declaration(const Location & loc, DecType type);
 	~Declaration(void);
+
+	uint32				mUID;
 
 	Location			mLocation, mEndLocation;
 	DecType				mType;

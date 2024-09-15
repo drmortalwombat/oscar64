@@ -647,6 +647,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 				pthis->mBase->mConst->mCopyConstructor = pthis->mBase->mCopyConstructor;
 				pthis->mBase->mConst->mMoveConstructor = pthis->mBase->mMoveConstructor;
 				pthis->mBase->mConst->mVectorConstructor = pthis->mBase->mVectorConstructor;
+				pthis->mBase->mConst->mVectorDestructor = pthis->mBase->mVectorConstructor;
 				pthis->mBase->mConst->mVectorCopyConstructor = pthis->mBase->mVectorCopyConstructor;
 			}
 
@@ -1440,12 +1441,16 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 {
 	exp = exp->ConstantDereference(mErrors, mDataSection);
 
+	exp = CoerceExpression(exp, dtype);
+
 	Declaration* dec = exp->mDecValue;
 
 	if (exp->mType == EX_CONSTANT)
 	{
 		if (!dtype->CanAssign(exp->mDecType))
+		{
 			mErrors->Error(exp->mLocation, EERR_CONSTANT_INITIALIZER, "Incompatible constant initializer");
+		}
 		else
 		{
 			if (dec->mType == DT_CONST_FLOAT)
@@ -1511,6 +1516,13 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 
 			dec->mOffset = offset;
 		}
+	}
+	else if (!dec && exp->mType == EX_CONSTRUCT)
+	{
+		dec = new Declaration(exp->mLocation, DT_CONST_CONSTRUCTOR);
+		dec->mValue = exp;
+		dec->mBase = exp->mDecType;
+		dec->mOffset = offset;
 	}
 	else if (dec && dtype->mType == DT_TYPE_POINTER && (dec->mType == DT_VARIABLE || dec->mType == DT_VARIABLE_REF) && exp->mDecType->mType == DT_TYPE_ARRAY && (dec->mFlags & DTF_GLOBAL))
 	{
@@ -1936,10 +1948,7 @@ Expression* Parser::BuildMemberInitializer(Expression* vexp)
 		Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
 		texp->mToken = TK_BINARY_AND;
 		texp->mLeft = vexp;
-		texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
-		texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-		texp->mDecType->mBase = vexp->mDecType;
-		texp->mDecType->mSize = 2;
+		texp->mDecType = vexp->mDecType->BuildPointer(mScanner->mLocation);
 
 		if (fexp->mRight)
 		{
@@ -2051,13 +2060,154 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 
 					if (bdec->mType == DT_TYPE_STRUCT && bdec->mDefaultConstructor || dec->mValue)
 					{
+						bdec = bdec->ToMutableType();
+
+						Declaration* bpdec = bdec->BuildPointer(mScanner->mLocation);
+
 						Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
 						qexp->mLeft = thisexp;
 						qexp->mDecValue = dec;
 
 						Expression* dexp;
 
-						if (dec->mValue)
+						if (bdec->mDefaultConstructor)
+						{
+							if (dec->mBase->mType == DT_TYPE_STRUCT)
+							{
+								qexp->mDecType = bdec;
+
+								if (dec->mValue)
+									dexp = BuildVariableInit(qexp, dec->mValue);
+								else
+								{
+									Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
+									pexp->mLeft = qexp;
+									pexp->mToken = TK_BINARY_AND;
+									pexp->mDecType = bpdec;
+
+									Declaration* mdec = bdec->mDefaultConstructor;
+
+									Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
+									if (mdec)
+									{
+										cexp->mDecValue = mdec;
+										cexp->mDecType = cexp->mDecValue->mBase;
+									}
+									else
+										mErrors->Error(dec->mLocation, EERR_NO_DEFAULT_CONSTRUCTOR, "No default constructor");
+
+									dexp = new Expression(mScanner->mLocation, EX_CALL);
+									dexp->mLeft = cexp;
+									dexp->mRight = pexp;
+								}
+							}
+							else
+							{								
+								qexp->mDecType = dec->mBase->mBase;
+
+								Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
+								pexp->mLeft = qexp;
+								pexp->mToken = TK_BINARY_AND;
+								pexp->mDecType = bpdec;
+
+								qexp = pexp;
+
+								if (dec->mValue)
+								{
+									int offset = 0;
+									dexp = BuildVariableArrayInit(qexp, bpdec, dec->mValue->mDecValue, 0, offset);
+#if 0
+									int offset = 0;
+									dexp = nullptr;
+
+									Declaration* pdec = dec->mValue->mDecValue->mParams;
+									while (pdec)
+									{
+										if (pdec->mType == DT_CONST_CONSTRUCTOR)
+										{
+											if (offset != pdec->mOffset)
+												mErrors->Error(pdec->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Incomplete class initializer list");
+
+											Declaration* icdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+											icdec->mBase = TheUnsignedIntTypeDeclaration;
+											icdec->mInteger = pdec->mOffset / bdec->mSize;
+
+											Expression* icexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+											icexp->mDecType = icdec->mBase;
+											icexp->mDecValue = icdec;
+
+											Expression* mexp = new Expression(mScanner->mLocation, EX_BINARY);
+											mexp->mToken = TK_ADD;
+											mexp->mLeft = qexp;
+											mexp->mRight = icexp;
+											mexp->mDecType = bpdec;
+											
+											Expression* pv = new Expression(pdec->mValue->mLocation, EX_CONSTRUCT);
+											pv->mLeft = new Expression(pdec->mValue->mLeft->mLocation, EX_LIST);
+											pv->mLeft->mLeft = new Expression(pdec->mValue->mLeft->mLeft->mLocation, EX_CALL);
+											pv->mLeft->mLeft->mLeft = pdec->mValue->mLeft->mLeft->mLeft;
+											pv->mLeft->mLeft->mDecType = pdec->mValue->mLeft->mLeft->mDecType;
+											pv->mLeft->mLeft->mRight = new Expression(pdec->mValue->mLeft->mLeft->mRight->mLocation, EX_LIST);
+											pv->mLeft->mLeft->mRight->mRight = pdec->mValue->mLeft->mLeft->mRight->mRight;
+											pv->mLeft->mLeft->mRight->mLeft = mexp;
+
+											if (dexp)
+											{
+												Expression* nexp = new Expression(mScanner->mLocation, EX_LIST);
+												nexp->mLeft = dexp;
+												nexp->mRight = pv;
+												dexp = nexp;
+											}
+											else
+												dexp = pv;
+
+											offset += bdec->mSize;
+										}
+										else
+											mErrors->Error(pdec->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Invalid class initializer");
+
+										pdec = pdec->mNext;
+									}
+#endif
+									if (offset != dec->mSize)
+										mErrors->Error(dec->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Incomplete class initializer list");
+								}
+								else
+								{
+									while (qexp->mDecType->mType == DT_TYPE_ARRAY)
+									{
+										Expression* iexp = new Expression(pthis->mLocation, EX_PREFIX);
+										iexp->mToken = TK_MUL;
+										iexp->mLeft = qexp;
+										iexp->mDecType = qexp->mDecType->mBase;
+										qexp = iexp;
+									}
+
+									qexp->mDecType = bpdec;
+
+									Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
+									cexp->mDecValue = bdec->mVectorConstructor;
+									cexp->mDecType = cexp->mDecValue->mBase;
+
+									Declaration* ncdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+									ncdec->mBase = TheUnsignedIntTypeDeclaration;
+									ncdec->mInteger = dec->mSize / bdec->mSize;
+
+									dexp = new Expression(mScanner->mLocation, EX_CALL);
+									dexp->mLeft = cexp;
+									dexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
+									dexp->mRight->mLeft = qexp;
+									dexp->mRight->mRight = new Expression(mScanner->mLocation, EX_BINARY);
+									dexp->mRight->mRight->mToken = TK_ADD;
+									dexp->mRight->mRight->mLeft = qexp;
+									dexp->mRight->mRight->mDecType = qexp->mDecType;
+									dexp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+									dexp->mRight->mRight->mRight->mDecType = ncdec->mBase;
+									dexp->mRight->mRight->mRight->mDecValue = ncdec;
+								}
+							}
+						}
+						else
 						{
 							qexp->mDecType = bdec;
 
@@ -2066,71 +2216,6 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 							dexp->mDecType = bdec;
 							dexp->mLeft = qexp;
 							dexp->mRight = dec->mValue;
-						}
-						else if (dec->mBase->mType == DT_TYPE_STRUCT)
-						{
-							qexp->mDecType = bdec;
-
-							Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
-							pexp->mLeft = qexp;
-							pexp->mToken = TK_BINARY_AND;
-							pexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-							pexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-							pexp->mDecType->mBase = bdec;
-							pexp->mDecType->mSize = 2;
-
-							Declaration* mdec = bdec->mDefaultConstructor;
-
-							Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
-							if (mdec)
-							{
-								cexp->mDecValue = mdec;
-								cexp->mDecType = cexp->mDecValue->mBase;
-							}
-							else
-								mErrors->Error(dec->mLocation, EERR_NO_DEFAULT_CONSTRUCTOR, "No default constructor");
-
-							dexp = new Expression(mScanner->mLocation, EX_CALL);
-							dexp->mLeft = cexp;
-							dexp->mRight = pexp;
-						}
-						else
-						{
-							qexp->mDecType = dec->mBase->mBase;
-
-							while (qexp->mDecType->mType == DT_TYPE_ARRAY)
-							{
-								Expression* iexp = new Expression(pthis->mLocation, EX_PREFIX);
-								iexp->mToken = TK_MUL;
-								iexp->mLeft = qexp;
-								iexp->mDecType = qexp->mDecType->mBase;
-								qexp = iexp;
-							}
-
-							qexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-							qexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-							qexp->mDecType->mBase = bdec;
-							qexp->mDecType->mSize = 2;
-
-							Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
-							cexp->mDecValue = bdec->mVectorConstructor;
-							cexp->mDecType = cexp->mDecValue->mBase;
-
-							Declaration* ncdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
-							ncdec->mBase = TheUnsignedIntTypeDeclaration;
-							ncdec->mInteger = dec->mSize / bdec->mSize;
-
-							dexp = new Expression(mScanner->mLocation, EX_CALL);
-							dexp->mLeft = cexp;
-							dexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
-							dexp->mRight->mLeft = qexp;
-							dexp->mRight->mRight = new Expression(mScanner->mLocation, EX_BINARY);
-							dexp->mRight->mRight->mToken = TK_ADD;
-							dexp->mRight->mRight->mLeft = qexp;
-							dexp->mRight->mRight->mDecType = qexp->mDecType;
-							dexp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
-							dexp->mRight->mRight->mRight->mDecType = ncdec->mBase;
-							dexp->mRight->mRight->mRight->mDecValue = ncdec;
 						}
 
 						Expression* sexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
@@ -2215,7 +2300,7 @@ void Parser::BuildMemberConstructor(Declaration* pthis, Declaration* cfunc)
 			{
 				Expression* qexp = new Expression(mScanner->mLocation, EX_PREFIX);
 				qexp->mToken = TK_MUL;
-				qexp->mDecType = pcdec->mBase;
+				qexp->mDecType = pcdec->mBase->ToMutableType();
 				qexp->mLeft = pthisexp;
 
 				Declaration* dec = new Declaration(mScanner->mLocation, DT_CONST_CONSTRUCTOR);
@@ -2232,7 +2317,7 @@ void Parser::BuildMemberConstructor(Declaration* pthis, Declaration* cfunc)
 				Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
 				qexp->mLeft = thisexp;
 				qexp->mDecValue = dec;
-				qexp->mDecType = dec->mBase;
+				qexp->mDecType = dec->mBase->ToMutableType();
 
 				Declaration* dec = new Declaration(mScanner->mLocation, DT_CONST_CONSTRUCTOR);
 				dec->mIdent = mScanner->mTokenIdent;
@@ -2547,17 +2632,18 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 						while (bdec->mType == DT_TYPE_ARRAY)
 							bdec = bdec->mBase;
 
+						bdec = bdec->ToMutableType();
+
 						if (bdec->mType == DT_TYPE_STRUCT && bdec->mCopyConstructor)
 						{
+							Declaration* bpdec = bdec->BuildPointer(bdec->mLocation);
+
 							if (dec->mBase->mType == DT_TYPE_STRUCT)
 							{
 								Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
 								pexp->mLeft = lexp;
 								pexp->mToken = TK_BINARY_AND;
-								pexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-								pexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-								pexp->mDecType->mBase = dec->mBase;
-								pexp->mDecType->mSize = 2;
+								pexp->mDecType = bpdec;
 
 								Declaration* mdec = dec->mBase->mCopyConstructor;
 
@@ -2573,15 +2659,15 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 							}
 							else
 							{
-								lexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-								lexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-								lexp->mDecType->mBase = bdec;
-								lexp->mDecType->mSize = 2;
+								Expression* lpexp = new Expression(pthis->mLocation, EX_PREFIX);
+								lpexp->mLeft = lexp;
+								lpexp->mToken = TK_BINARY_AND;
+								lpexp->mDecType = bpdec;
 
-								rexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-								rexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-								rexp->mDecType->mBase = bdec;
-								rexp->mDecType->mSize = 2;
+								Expression* rpexp = new Expression(pthis->mLocation, EX_PREFIX);
+								rpexp->mLeft = rexp;
+								rpexp->mToken = TK_BINARY_AND;
+								rpexp->mDecType = bpdec;
 
 								Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
 								cexp->mDecValue = bdec->mVectorCopyConstructor;
@@ -2594,9 +2680,9 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 								mexp = new Expression(mScanner->mLocation, EX_CALL);
 								mexp->mLeft = cexp;
 								mexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
-								mexp->mRight->mLeft = lexp;
+								mexp->mRight->mLeft = lpexp;
 								mexp->mRight->mRight = new Expression(mScanner->mLocation, EX_LIST);
-								mexp->mRight->mRight->mLeft = rexp;
+								mexp->mRight->mRight->mLeft = rpexp;
 								mexp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
 								mexp->mRight->mRight->mRight->mDecType = ncdec->mBase;
 								mexp->mRight->mRight->mRight->mDecValue = ncdec;
@@ -2722,15 +2808,14 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 							if (bdec->mType == DT_TYPE_STRUCT && bdec->mCopyAssignment)
 							{
+								Declaration* bpdec = bdec->BuildPointer(bdec->mLocation);
+
 								if (dec->mBase->mType == DT_TYPE_STRUCT)
 								{
 									Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
 									pexp->mLeft = lexp;
 									pexp->mToken = TK_BINARY_AND;
-									pexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-									pexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-									pexp->mDecType->mBase = dec->mBase;
-									pexp->mDecType->mSize = 2;
+									pexp->mDecType = bpdec;
 
 									Declaration* mdec = bdec->mCopyAssignment;
 
@@ -2746,15 +2831,15 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 								}
 								else
 								{
-									lexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-									lexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-									lexp->mDecType->mBase = bdec;
-									lexp->mDecType->mSize = 2;
+									Expression* lpexp = new Expression(pthis->mLocation, EX_PREFIX);
+									lpexp->mLeft = lexp;
+									lpexp->mToken = TK_BINARY_AND;
+									lpexp->mDecType = bpdec;
 
-									rexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-									rexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-									rexp->mDecType->mBase = bdec;
-									rexp->mDecType->mSize = 2;
+									Expression* rpexp = new Expression(pthis->mLocation, EX_PREFIX);
+									rpexp->mLeft = rexp;
+									rpexp->mToken = TK_BINARY_AND;
+									rpexp->mDecType = bpdec;
 
 									Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
 									cexp->mDecValue = bdec->mVectorCopyAssignment;
@@ -2767,9 +2852,9 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 									mexp = new Expression(mScanner->mLocation, EX_CALL);
 									mexp->mLeft = cexp;
 									mexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
-									mexp->mRight->mLeft = lexp;
+									mexp->mRight->mLeft = lpexp;
 									mexp->mRight->mRight = new Expression(mScanner->mLocation, EX_LIST);
-									mexp->mRight->mRight->mLeft = rexp;
+									mexp->mRight->mRight->mLeft = rpexp;
 									mexp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
 									mexp->mRight->mRight->mRight->mDecType = ncdec->mBase;
 									mexp->mRight->mRight->mRight->mDecValue = ncdec;
@@ -3200,6 +3285,10 @@ void Parser::AppendMemberDestructor(Declaration* pthis)
 
 						if (bdec->mType == DT_TYPE_STRUCT && bdec->mDestructor)
 						{
+							bdec = bdec->ToMutableType();
+
+							Declaration* bpdec = bdec->BuildPointer(pthis->mLocation);
+
 							Expression* qexp = new Expression(pthis->mLocation, EX_QUALIFY);
 							qexp->mLeft = thisexp;
 							qexp->mDecValue = dec;
@@ -3213,10 +3302,7 @@ void Parser::AppendMemberDestructor(Declaration* pthis)
 								Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
 								pexp->mLeft = qexp;
 								pexp->mToken = TK_BINARY_AND;
-								pexp->mDecType = new Declaration(pthis->mLocation, DT_TYPE_POINTER);
-								pexp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-								pexp->mDecType->mBase = bdec;
-								pexp->mDecType->mSize = 2;
+								pexp->mDecType = bpdec;
 
 								Expression* cexp = new Expression(pthis->mLocation, EX_CONSTANT);
 								cexp->mDecValue = bdec->mDestructor;
@@ -3229,6 +3315,13 @@ void Parser::AppendMemberDestructor(Declaration* pthis)
 							else
 							{
 								qexp->mDecType = dec->mBase->mBase;
+
+								Expression* pexp = new Expression(pthis->mLocation, EX_PREFIX);
+								pexp->mLeft = qexp;
+								pexp->mToken = TK_BINARY_AND;
+								pexp->mDecType = bpdec;
+
+								qexp = pexp;
 
 								while (qexp->mDecType->mType == DT_TYPE_ARRAY)
 								{
@@ -3684,18 +3777,150 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 	return ConcatExpression(lexp, rexp);
 }
 
-void Parser::ParseVariableInit(Declaration* ndec)
+Expression* Parser::BuildVariableArrayInit(Expression * texp, Declaration* bpdec, Declaration* pdec, int boffset, int & offset)
 {
-	Expression* pexp = nullptr;
+	Expression* lexp = nullptr;
 
-	mScanner->NextToken();
-	if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
+	if (boffset + pdec->mOffset != offset)
+		mErrors->Error(pdec->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Incomplete class initializer list");
+
+	if (pdec->mType == DT_CONST_STRUCT)
 	{
-		pexp = ParseListExpression(false);
-		ConsumeToken(TK_CLOSE_PARENTHESIS);
+		boffset += offset;
+
+		Declaration* edec = pdec->mParams;
+		while (edec)
+		{
+			Expression * iexp = BuildVariableArrayInit(texp, bpdec, edec, boffset, offset);
+
+			if (lexp)
+			{
+				Expression* nexp = new Expression(mScanner->mLocation, EX_LIST);
+				nexp->mLeft = lexp;
+				nexp->mRight = iexp;
+				lexp = nexp;
+			}
+			else
+				lexp = iexp;
+
+			edec = edec->mNext;
+		}
+	}
+	else if (pdec->mType == DT_CONST_CONSTRUCTOR)
+	{
+		Declaration* icdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+		icdec->mBase = TheUnsignedIntTypeDeclaration;
+		icdec->mInteger = offset / bpdec->mBase->mSize;
+
+		Expression* icexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		icexp->mDecType = icdec->mBase;
+		icexp->mDecValue = icdec;
+
+		Expression* mexp = new Expression(mScanner->mLocation, EX_BINARY);
+		mexp->mToken = TK_ADD;
+		mexp->mLeft = texp;
+		mexp->mRight = icexp;
+		mexp->mDecType = bpdec;
+
+		Expression* iexp = new Expression(pdec->mValue->mLocation, EX_CONSTRUCT);
+		iexp->mLeft = new Expression(pdec->mValue->mLeft->mLocation, EX_LIST);
+		iexp->mLeft->mLeft = new Expression(pdec->mValue->mLeft->mLeft->mLocation, EX_CALL);
+		iexp->mLeft->mLeft->mLeft = pdec->mValue->mLeft->mLeft->mLeft;
+		iexp->mLeft->mLeft->mDecType = pdec->mValue->mLeft->mLeft->mDecType;
+		iexp->mLeft->mLeft->mRight = new Expression(pdec->mValue->mLeft->mLeft->mRight->mLocation, EX_LIST);
+		iexp->mLeft->mLeft->mRight->mRight = pdec->mValue->mLeft->mLeft->mRight->mRight;
+		iexp->mLeft->mLeft->mRight->mLeft = mexp;
+
+		lexp = iexp;
+		
+		offset += bpdec->mBase->mSize;
 	}
 	else
+		mErrors->Error(pdec->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Invalid class initializer");
+
+	return lexp;
+}
+
+Expression * Parser::BuildVariableInit(Expression* vexp, Expression* pexp)
+{
+	Declaration* mtype = vexp->mDecType;
+
+	Declaration* fcons = mtype->mScope ? mtype->mScope->Lookup(mtype->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
+
+	if (mtype->mFlags & DTF_PURE_VIRTUAL)
+		mErrors->Error(vexp->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", mtype->mIdent);
+
+	if (fcons)
+	{
+		Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		cexp->mDecValue = fcons;
+		cexp->mDecType = cexp->mDecValue->mBase;
+
+		Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+		fexp->mLeft = cexp;
+		fexp->mRight = pexp;
+
+		Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+		texp->mToken = TK_BINARY_AND;
+		texp->mLeft = vexp;
+		texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+		texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+		texp->mDecType->mBase = mtype;
+		texp->mDecType->mSize = 2;
+
+		if (fexp->mRight)
+		{
+			Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+			lexp->mLeft = texp;
+			lexp->mRight = fexp->mRight;
+			fexp->mRight = lexp;
+		}
+		else
+			fexp->mRight = texp;
+
+		fexp = ResolveOverloadCall(fexp);
+
+		Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
+
+		nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
+		nexp->mLeft->mLeft = fexp;
+
+		nexp->mRight = vexp;
+		nexp->mDecType = vexp->mDecType;
+
+		return nexp;
+	}
+	else if (mtype->CanAssign(pexp->mDecType))
+	{
+		Expression * nexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+		nexp->mToken = TK_ASSIGN;
+		nexp->mDecType = mtype;
+		nexp->mLeft = vexp;
+		nexp->mRight = pexp;
+
+		return nexp;
+	}
+	else if (pexp)
+		mErrors->Error(pexp->mLocation, EERR_INCOMPATIBLE_TYPES, "Can not initialize variable with expression", mtype->mIdent);
+
+	return pexp;
+}
+
+void Parser::ParseVariableInit(Declaration* ndec, Expression* pexp)
+{
+	if (!pexp)
+	{
+		Token	ctoken = mScanner->mToken == TK_OPEN_BRACE ? TK_CLOSE_BRACE : TK_CLOSE_PARENTHESIS;
+
 		mScanner->NextToken();
+		if (mScanner->mToken != ctoken)
+		{
+			pexp = ParseListExpression(false);
+			ConsumeToken(ctoken);
+		}
+		else
+			mScanner->NextToken();
+	}
 
 	Declaration* fcons = ndec->mBase->mScope ? ndec->mBase->mScope->Lookup(ndec->mBase->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
 
@@ -4647,168 +4872,294 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					mErrors->Error(exp->mLocation, EERR_CONSTANT_TYPE, "Constant integer expression expected");
 			}
 
-			if (ConsumeTokenIf(TK_ASSIGN))
-			{
-				if (pthis && ndec->mBase->mType == DT_TYPE_FUNCTION && mScanner->mToken == TK_INTEGER && mScanner->mTokenInteger == 0)
-				{
-					mScanner->NextToken();
-					ndec->mValue = new Expression(mScanner->mLocation, EX_ASSUME);
-					Declaration	*	fdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
-					fdec->mBase = TheBoolTypeDeclaration;
-					fdec->mInteger = 0;
-					ndec->mValue->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
-					ndec->mValue->mLeft->mDecValue = fdec;
-					ndec->mValue->mLeft->mDecType = fdec->mBase;
-					ndec->mFlags |= DTF_DEFINED | DTF_PURE_VIRTUAL;
-				}
-				else
-				{
-					ndec->mValue = ParseInitExpression(ndec->mBase);
-					ndec->mBase = ndec->mBase->DeduceAuto(ndec->mValue->mDecType);
-
-					if (ndec->mFlags & DTF_GLOBAL)
-					{
-						if (ndec->mFlags & DTF_ZEROPAGE)
-							;
-						else
-							ndec->mSection = mDataSection;
-					}
-					ndec->mSize = ndec->mBase->mSize;
-				}
-			}
 			else if (mScanner->mToken == TK_OPEN_PARENTHESIS && (mCompilerOptions & COPT_CPLUSPLUS))
 			{
 				ParseVariableInit(ndec);
 			}
-			else if ((mCompilerOptions & COPT_CPLUSPLUS) &&  ndec->mType == DT_VARIABLE && !pthis && !(storageFlags & DTF_EXTERN))
+			else if (mScanner->mToken == TK_OPEN_BRACE && (mCompilerOptions & COPT_CPLUSPLUS) && ndec->mType == DT_VARIABLE && !pthis && !(storageFlags & DTF_EXTERN))
 			{
-				// Find default constructor
-
-				Declaration* bdec = ndec->mBase;
-				while (bdec && bdec->mType == DT_TYPE_ARRAY)
-					bdec = bdec->mBase;
-
-				if (bdec->mFlags & DTF_PURE_VIRTUAL)
-					mErrors->Error(ndec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", ndec->mIdent);
-
-				if (bdec && bdec->mDefaultConstructor)
+				ParseVariableInit(ndec);
+			}
+			else
+			{
+				if (ConsumeTokenIf(TK_ASSIGN))
 				{
-					bdec = bdec->ToMutableType();
-
-					Expression* vexp = new Expression(ndec->mLocation, EX_VARIABLE);
-					vexp->mDecType = ndec->mBase;
-					vexp->mDecValue = ndec;
-
-					Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
-					texp->mToken = TK_BINARY_AND;
-					texp->mLeft = vexp;
-					texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
-					texp->mDecType->mFlags |= DTF_DEFINED;
-					texp->mDecType->mBase = bdec;
-					texp->mDecType->mSize = 2;
-
-					if (ndec->mBase->mType == DT_TYPE_STRUCT)
+					if (pthis && ndec->mBase->mType == DT_TYPE_FUNCTION && mScanner->mToken == TK_INTEGER && mScanner->mTokenInteger == 0)
 					{
-						Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-						cexp->mDecValue = bdec->mDefaultConstructor;
-						cexp->mDecType = cexp->mDecValue->mBase;
-
-						Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
-						fexp->mLeft = cexp;
-						fexp->mRight = texp;
-
-						if (bdec->mDefaultConstructor->mFlags & DTF_CONSTEXPR)
-							ndec->mSection = mDataSection;
-
-						Expression* dexp = nullptr;
-						if (ndec->mBase->mDestructor)
-						{
-							Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-							cexp->mDecValue = ndec->mBase->mDestructor;
-							cexp->mDecType = cexp->mDecValue->mBase;
-
-							dexp = new Expression(mScanner->mLocation, EX_CALL);
-							dexp->mLeft = cexp;
-							dexp->mRight = texp;
-						}
-
-						Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
-
-						nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
-						nexp->mLeft->mLeft = fexp;
-						nexp->mLeft->mRight = dexp;
-
-						nexp->mRight = vexp;
-						nexp->mDecType = vexp->mDecType;
-
-						ndec->mValue = nexp;
+						mScanner->NextToken();
+						ndec->mValue = new Expression(mScanner->mLocation, EX_ASSUME);
+						Declaration	*	fdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+						fdec->mBase = TheBoolTypeDeclaration;
+						fdec->mInteger = 0;
+						ndec->mValue->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+						ndec->mValue->mLeft->mDecValue = fdec;
+						ndec->mValue->mLeft->mDecType = fdec->mBase;
+						ndec->mFlags |= DTF_DEFINED | DTF_PURE_VIRTUAL;
 					}
 					else
 					{
-						Expression* texp = vexp;
+						ndec->mValue = ParseInitExpression(ndec->mBase);
+						ndec->mBase = ndec->mBase->DeduceAuto(ndec->mValue->mDecType);
 
-						while (texp->mDecType->mBase->mType == DT_TYPE_ARRAY)
+						if (ndec->mFlags & DTF_GLOBAL)
 						{
-							Expression* iexp = new Expression(vexp->mLocation, EX_PREFIX);
-							iexp->mToken = TK_MUL;
-							iexp->mLeft = texp;
-							iexp->mDecType = texp->mDecType->mBase;
-							texp = iexp;
+							if (ndec->mFlags & DTF_ZEROPAGE)
+								;
+							else
+								ndec->mSection = mDataSection;
 						}
-
-						//texp->mDecType = bdec->BuildPointer(vexp->mLocation);
-
-						Declaration* ncdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
-						ncdec->mBase = TheUnsignedIntTypeDeclaration;
-						ncdec->mInteger = ndec->mSize / bdec->mSize;
-
-						Expression * ncexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-						ncexp->mDecType = ncdec->mBase;
-						ncexp->mDecValue = ncdec;
-
-						Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-						cexp->mDecValue = bdec->mVectorConstructor;
-						cexp->mDecType = cexp->mDecValue->mBase;
-
-						Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
-						fexp->mLeft = cexp;
-
-						fexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
-						fexp->mRight->mLeft = texp;
-						fexp->mRight->mRight = new Expression(mScanner->mLocation, EX_BINARY);
-						fexp->mRight->mRight->mToken = TK_ADD;
-						fexp->mRight->mRight->mLeft = texp;
-						fexp->mRight->mRight->mDecType = texp->mDecType;
-						fexp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
-						fexp->mRight->mRight->mRight->mDecType = ncdec->mBase;
-						fexp->mRight->mRight->mRight->mDecValue = ncdec;
-
-						Expression* dexp = nullptr;
-						if (bdec->mDestructor)
-						{
-							Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-							cexp->mDecValue = bdec->mVectorDestructor;
-							cexp->mDecType = cexp->mDecValue->mBase;
-
-							dexp = new Expression(mScanner->mLocation, EX_CALL);
-							dexp->mLeft = cexp;
-							dexp->mRight = fexp->mRight;
-						}
-
-						Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
-
-						nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
-						nexp->mLeft->mLeft = fexp;
-						nexp->mLeft->mRight = dexp;
-
-						nexp->mRight = vexp;
-						nexp->mDecType = vexp->mDecType;
-
-						ndec->mValue = nexp;
+						ndec->mSize = ndec->mBase->mSize;
 					}
 				}
-				else if (bdec && bdec->mDestructor)
-					mErrors->Error(ndec->mLocation, EERR_NO_DEFAULT_CONSTRUCTOR, "No default constructor for class", ndec->mBase->mIdent);
+
+				if ((mCompilerOptions & COPT_CPLUSPLUS) && ndec->mType == DT_VARIABLE && !pthis && !(storageFlags & DTF_EXTERN))
+				{
+					// Find default constructor
+
+					Declaration* bdec = ndec->mBase;
+					while (bdec && bdec->mType == DT_TYPE_ARRAY)
+						bdec = bdec->mBase;
+
+					if (bdec->mFlags & DTF_PURE_VIRTUAL)
+						mErrors->Error(ndec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", ndec->mIdent);
+
+					if (bdec && bdec->mDefaultConstructor)
+					{
+						bdec = bdec->ToMutableType();
+
+						Expression* vexp = new Expression(ndec->mLocation, EX_VARIABLE);
+						vexp->mDecType = ndec->mBase;
+						vexp->mDecValue = ndec;
+
+						Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+						texp->mToken = TK_BINARY_AND;
+						texp->mLeft = vexp;
+						texp->mDecType = bdec->BuildPointer(mScanner->mLocation); 
+
+						if (ndec->mBase->mType == DT_TYPE_STRUCT)
+						{
+							if (ndec->mValue)
+							{
+								ParseVariableInit(ndec, ndec->mValue);
+							}
+							else
+							{
+								Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+								cexp->mDecValue = bdec->mDefaultConstructor;
+								cexp->mDecType = cexp->mDecValue->mBase;
+
+								Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+								fexp->mLeft = cexp;
+								fexp->mRight = texp;
+
+								if (bdec->mDefaultConstructor->mFlags & DTF_CONSTEXPR)
+									ndec->mSection = mDataSection;
+
+								Expression* dexp = nullptr;
+								if (ndec->mBase->mDestructor)
+								{
+									Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+									cexp->mDecValue = ndec->mBase->mDestructor;
+									cexp->mDecType = cexp->mDecValue->mBase;
+
+									dexp = new Expression(mScanner->mLocation, EX_CALL);
+									dexp->mLeft = cexp;
+									dexp->mRight = texp;
+								}
+
+								Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
+
+								nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
+								nexp->mLeft->mLeft = fexp;
+								nexp->mLeft->mRight = dexp;
+
+								nexp->mRight = vexp;
+								nexp->mDecType = vexp->mDecType;
+
+								ndec->mValue = nexp;
+							}
+						}
+						else if (ndec->mValue)
+						{
+							Expression* lexp = nullptr;
+
+							Declaration* bpdec = bdec->BuildPointer(mScanner->mLocation);
+
+							if (ndec->mValue->mType == EX_CONSTANT)
+							{
+								int offset = 0;
+								lexp = BuildVariableArrayInit(texp, bpdec, ndec->mValue->mDecValue, 0, offset);
+
+#if 0
+
+								Declaration * pdec = ndec->mValue->mDecValue->mParams;
+								while (pdec)
+								{
+									if (pdec->mType == DT_CONST_CONSTRUCTOR)
+									{
+										if (offset != pdec->mOffset)
+											mErrors->Error(pdec->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Incomplete class initializer list");
+
+										Declaration* icdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+										icdec->mBase = TheUnsignedIntTypeDeclaration;
+										icdec->mInteger = pdec->mOffset / ndec->mBase->mBase->mSize;
+
+										Expression* icexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+										icexp->mDecType = icdec->mBase;
+										icexp->mDecValue = icdec;
+
+										Expression* mexp = new Expression(mScanner->mLocation, EX_BINARY);
+										mexp->mToken = TK_ADD;
+										mexp->mLeft = texp;
+										mexp->mRight = icexp;
+										mexp->mDecType = bpdec;
+
+										pdec->mValue->mLeft->mLeft->mRight->mLeft = mexp;
+										pdec->mValue->mLeft->mRight = nullptr;
+										pdec->mValue->mRight = nullptr;
+
+										if (lexp)
+										{
+											Expression* nexp = new Expression(mScanner->mLocation, EX_LIST);
+											nexp->mLeft = lexp;
+											nexp->mRight = pdec->mValue;
+											lexp = nexp;
+										}
+										else
+											lexp = pdec->mValue;
+
+										offset += ndec->mBase->mBase->mSize;
+									}
+									else
+										mErrors->Error(pdec->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Invalid class initializer");
+
+									pdec = pdec->mNext;
+								}
+#endif
+
+
+								if (offset != ndec->mSize)
+									mErrors->Error(pdec->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Incomplete class initializer list");
+
+								while (texp->mDecType->mBase->mType == DT_TYPE_ARRAY)
+								{
+									Expression* iexp = new Expression(vexp->mLocation, EX_PREFIX);
+									iexp->mToken = TK_MUL;
+									iexp->mLeft = texp;
+									iexp->mDecType = texp->mDecType->mBase;
+									texp = iexp;
+								}
+
+								texp->mDecType = bpdec;
+
+								//texp->mDecType = bdec->BuildPointer(vexp->mLocation);
+
+								Declaration* ncdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+								ncdec->mBase = TheUnsignedIntTypeDeclaration;
+								ncdec->mInteger = ndec->mSize / bdec->mSize;
+
+								Expression* ncexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+								ncexp->mDecType = ncdec->mBase;
+								ncexp->mDecValue = ncdec;
+
+								Expression* dexp = nullptr;
+								if (bdec->mDestructor)
+								{
+									Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+									cexp->mDecValue = bdec->mVectorDestructor;
+									cexp->mDecType = cexp->mDecValue->mBase;
+
+									dexp = new Expression(mScanner->mLocation, EX_CALL);
+									dexp->mLeft = cexp;
+									dexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
+									dexp->mRight->mLeft = texp;
+									dexp->mRight->mRight = new Expression(mScanner->mLocation, EX_BINARY);
+									dexp->mRight->mRight->mToken = TK_ADD;
+									dexp->mRight->mRight->mLeft = texp;
+									dexp->mRight->mRight->mDecType = texp->mDecType;
+									dexp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+									dexp->mRight->mRight->mRight->mDecType = ncdec->mBase;
+									dexp->mRight->mRight->mRight->mDecValue = ncdec;
+								}
+
+								Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
+
+								nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
+								nexp->mLeft->mLeft = lexp;
+								nexp->mLeft->mRight = dexp;
+
+								nexp->mRight = vexp;
+								nexp->mDecType = vexp->mDecType;
+
+								ndec->mValue = nexp;
+								ndec->mFlags |= DTF_VAR_ALIASING;
+							}
+							else
+								mErrors->Error(ndec->mValue->mLocation, EERR_INVALID_CLASS_INITIALIZER, "Invalid class initializer list");
+						}
+						else
+						{
+							Declaration* bpdec = bdec->BuildPointer(mScanner->mLocation);
+
+							while (texp->mDecType->mBase->mType == DT_TYPE_ARRAY)
+							{
+								Expression* iexp = new Expression(vexp->mLocation, EX_PREFIX);
+								iexp->mToken = TK_MUL;
+								iexp->mLeft = texp;
+								iexp->mDecType = texp->mDecType->mBase;
+								texp = iexp;
+							}
+
+							texp->mDecType = bpdec;
+
+							Declaration* ncdec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+							ncdec->mBase = TheUnsignedIntTypeDeclaration;
+							ncdec->mInteger = ndec->mSize / bdec->mSize;
+
+							Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+							cexp->mDecValue = bdec->mVectorConstructor;
+							cexp->mDecType = cexp->mDecValue->mBase;
+
+							Expression* fexp = new Expression(mScanner->mLocation, EX_CALL);
+							fexp->mLeft = cexp;
+
+							fexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
+							fexp->mRight->mLeft = texp;
+							fexp->mRight->mRight = new Expression(mScanner->mLocation, EX_BINARY);
+							fexp->mRight->mRight->mToken = TK_ADD;
+							fexp->mRight->mRight->mLeft = texp;
+							fexp->mRight->mRight->mDecType = texp->mDecType;
+							fexp->mRight->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+							fexp->mRight->mRight->mRight->mDecType = ncdec->mBase;
+							fexp->mRight->mRight->mRight->mDecValue = ncdec;
+
+							Expression* dexp = nullptr;
+							if (bdec->mDestructor)
+							{
+								Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+								cexp->mDecValue = bdec->mVectorDestructor;
+								cexp->mDecType = cexp->mDecValue->mBase;
+
+								dexp = new Expression(mScanner->mLocation, EX_CALL);
+								dexp->mLeft = cexp;
+								dexp->mRight = fexp->mRight;
+							}
+
+							Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
+
+							nexp->mLeft = new Expression(mScanner->mLocation, EX_LIST);
+							nexp->mLeft->mLeft = fexp;
+							nexp->mLeft->mRight = dexp;
+
+							nexp->mRight = vexp;
+							nexp->mDecType = vexp->mDecType;
+
+							ndec->mValue = nexp;
+						}
+					}
+					else if (bdec && bdec->mDestructor)
+						mErrors->Error(ndec->mLocation, EERR_NO_DEFAULT_CONSTRUCTOR, "No default constructor for class", ndec->mBase->mIdent);
+				}
 			}
 
 			if (storageFlags & DTF_EXPORT)

@@ -147,7 +147,8 @@ void DeclarationScope::End(const Location& loc)
 Expression::Expression(const Location& loc, ExpressionType type)
 	:	mLocation(loc), mEndLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false), mDecType(nullptr), mDecValue(nullptr), mToken(TK_NONE)
 {
-
+	static uint32	gUID = 0;
+	mUID = gUID++;
 }
 
 Expression::~Expression(void)
@@ -1106,7 +1107,10 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mCompilerOptions(0), mUseCount(0), mTokens(nullptr), mParser(nullptr),
 	mShift(0), mBits(0), mOptFlags(0), mInlayRegion(nullptr),
 	mReferences(nullptr)
-{}
+{
+	static uint32 gUID = 0;
+	mUID = gUID++;
+}
 
 Declaration::~Declaration(void)
 {
@@ -2091,6 +2095,7 @@ Declaration* Declaration::ToVolatileType(void)
 		ndec->mCopyConstructor = mCopyConstructor;
 		ndec->mMoveConstructor = mMoveConstructor;
 		ndec->mVectorConstructor = mVectorConstructor;
+		ndec->mVectorDestructor = mVectorDestructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
 		ndec->mVTable = mVTable;
 
@@ -2123,6 +2128,7 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mCopyConstructor = mCopyConstructor;
 		ndec->mMoveConstructor = mMoveConstructor;
 		ndec->mVectorConstructor = mVectorConstructor;
+		ndec->mVectorDestructor = mVectorDestructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
 		ndec->mVTable = mVTable;
 
@@ -2156,6 +2162,7 @@ Declaration* Declaration::ToMutableType(void)
 		ndec->mCopyConstructor = mCopyConstructor;
 		ndec->mMoveConstructor = mMoveConstructor;
 		ndec->mVectorConstructor = mVectorConstructor;
+		ndec->mVectorDestructor = mVectorDestructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
 		ndec->mVTable = mVTable;
 

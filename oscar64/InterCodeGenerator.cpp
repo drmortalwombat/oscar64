@@ -719,6 +719,8 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 			{
 				DestructStack* destack = nullptr;
 				GotoNode* gotos = nullptr;
+				dec->mValue->mRight->mDecValue = dec;
+				dec->mLinkerObject->mFlags &= ~LOBJF_CONST;
 				TranslateExpression(nullptr, mMainInitProc, mMainInitBlock, dec->mValue, destack, gotos, BranchTarget(), BranchTarget(), nullptr);
 			}
 			else if (dec->mValue->mType == EX_VARIABLE && dec->mValue->mDecType->mType == DT_TYPE_ARRAY && dec->mBase->mType == DT_TYPE_POINTER && dec->mBase->CanAssign(dec->mValue->mDecType))
@@ -2200,6 +2202,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					var->mLinkerObject->mVariable = var;
 					dec->mLinkerObject = var->mLinkerObject;
 					var->mIdent = dec->mQualIdent;
+					var->mDeclaration = dec;
 					dec->mVarIndex = proc->mModule->mGlobalVars.Size();
 					var->mIndex = dec->mVarIndex;
 					proc->mModule->mGlobalVars.Push(var);
@@ -2281,7 +2284,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mConst.mOperandSize = 2;
 				}
 			}
-			else if (dec->mFlags & DTF_GLOBAL)
+			else if (dec->mType == DT_CONST_STRUCT || (dec->mFlags & DTF_GLOBAL))
 			{
 				InitGlobalVariable(proc->mModule, dec);
 				ins->mConst.mMemory = IM_GLOBAL;
@@ -2351,7 +2354,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (exp->mType == EX_INITIALIZATION && exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecValue && exp->mRight->mDecValue->mLinkerObject)
 			{
-				exp->mRight->mDecValue->mLinkerObject->mFlags |= LOBJF_CONST;
+				if (!(exp->mRight->mDecValue->mFlags & DTF_VAR_ALIASING))
+					exp->mRight->mDecValue->mLinkerObject->mFlags |= LOBJF_CONST;
 			}
 
 
@@ -2661,9 +2665,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			block->Append(ains);
 
 			if (exp->mDecType->IsReference())
-				return ExValue(exp->mDecValue->mBase->mBase, ains->mDst.mTemp, 2);
+				return ExValue(exp->mDecType->mBase, ains->mDst.mTemp, 2);
 			else
-				return ExValue(exp->mDecValue->mBase, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
+				return ExValue(exp->mDecType, ains->mDst.mTemp, 1, exp->mDecValue->mBits, exp->mDecValue->mShift);
 		}
 
 		case EX_BINARY:
@@ -2689,7 +2693,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ptype->mSize = 2;
 					ptype->mStride = vl.mType->mStride;
 					vl.mReference = 0;
-					vl.mType = ptype;
+					vl.mType = exp->mDecType; // ptype;
 				}
 
 				if (vr.mType->mType == DT_TYPE_POINTER)
@@ -3184,7 +3188,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				dec->mBase = vl.mType;
 				dec->mSize = 2;
 				dec->mFlags = DTF_DEFINED;
-				return ExValue(dec, vl.mTemp, vl.mReference - 1);
+				return ExValue(exp->mDecType, vl.mTemp, vl.mReference - 1);
 			}
 			case TK_BANKOF:
 			{
@@ -5426,6 +5430,17 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 	else if (data->mType == DT_CONST_FUNCTION)
 	{
 		assert(false);
+	}
+	else if (data->mType == DT_CONST_CONSTRUCTOR)
+	{
+		Declaration* dec = new Declaration(data->mLocation, DT_VARIABLE_REF);
+		dec->mBase = variable->mDeclaration;
+		dec->mOffset = offset;
+		DestructStack* destack = nullptr;
+		GotoNode* gotos = nullptr;
+		data->mValue->mRight->mDecValue = dec;
+		dec->mBase->mFlags |= DTF_VAR_ALIASING;
+		TranslateExpression(nullptr, mMainInitProc, mMainInitBlock, data->mValue, destack, gotos, BranchTarget(), BranchTarget(), nullptr);
 	}
 	else if (data->mType == DT_CONST_POINTER)
 	{
