@@ -2323,6 +2323,16 @@ bool Declaration::IsSameMutable(const Declaration* dec) const
 	return false;
 }
 
+bool Declaration::IsConstRefSame(const Declaration* dec) const
+{
+	if (IsReference())
+		return mBase->IsConstRefSame(dec);
+	else if (dec->IsReference())
+		return IsConstRefSame(dec->mBase);
+	else
+		return IsConstSame(dec);
+}
+
 bool Declaration::IsConstSame(const Declaration* dec) const
 {
 	if (this == dec)

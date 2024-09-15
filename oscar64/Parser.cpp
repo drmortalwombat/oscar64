@@ -2345,6 +2345,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 	bool	inlineConstructor = true;
 	bool	inlineCopy = true;
 	bool	inlineMove = true;
+	bool	explicitDestructor = false;
 
 
 	const Ident* dtorident = pthis->mBase->mIdent->PreMangle("~");;
@@ -2374,7 +2375,10 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 	Declaration* ddec = pthis->mBase->mScope->Lookup(dtorident, SLEVEL_SCOPE);
 	if (ddec)
+	{
 		pthis->mBase->mDestructor = ddec;
+		explicitDestructor = true;
+	}
 
 	Declaration* adec = pthis->mBase->mScope->Lookup(Ident::Unique("operator="), SLEVEL_SCOPE);
 	while (adec)
@@ -2422,6 +2426,12 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 
 	if (pthis->mBase->mVTable)
 		simpleConstructor = false;
+
+	if (explicitDestructor)
+	{
+		simpleCopy = false;
+		simpleAssignment = false;
+	}
 
 	Declaration* dec = pthis->mBase->mParams;
 	while (dec)
@@ -2588,6 +2598,9 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mBase->mCompilerOptions = mCompilerOptions;
 
 			cdec->mVarIndex = -1;
+
+			if (explicitDestructor)
+				mErrors->Error(pthis->mBase->mLocation, EWARN_DEFAULT_COPY_DEPRECATED, "Default copy constructor deprecated due to explicit destructor");
 
 			cdec->mValue = new Expression(mScanner->mLocation, EX_VOID);
 
@@ -2757,6 +2770,9 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mBase->mCompilerOptions = mCompilerOptions;
 
 			cdec->mVarIndex = -1;
+
+			if (explicitDestructor)
+				mErrors->Error(pthis->mBase->mLocation, EWARN_DEFAULT_COPY_DEPRECATED, "Default copy constructor deprecated due to explicit destructor");
 
 			Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
 			pthisexp->mDecType = pthis;
@@ -10168,6 +10184,8 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 				packd->mBase = new Declaration(dec->mLocation, DT_PACK_TYPE);
 				if (ppdec)
 					ppdec->mNext = packd;
+				else if (tdec->mParams && !tdec->mParams->mNext && tdec->mParams->mType == DT_TYPE_TEMPLATE)
+					;
 				else
 					tdec->mParams = packd;
 

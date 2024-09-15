@@ -306,6 +306,7 @@ public:
 	bool IsSame(const Declaration* dec) const;
 	bool IsDerivedFrom(const Declaration* dec) const;
 	bool IsSubType(const Declaration* dec) const;
+	bool IsConstRefSame(const Declaration* dec) const;
 	bool IsConstSame(const Declaration* dec) const;
 	bool IsSameValue(const Declaration* dec) const;
 	bool IsSameParams(const Declaration* dec) const;

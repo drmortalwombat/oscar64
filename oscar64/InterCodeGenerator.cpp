@@ -1818,7 +1818,10 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			if (!(pdec->mFlags & DTF_FPARAM_UNUSED))
 				block->Append(wins);
 
-			TranslateExpression(ftype, proc, block, fexp, destack, gotos, BranchTarget(), BranchTarget(), &nmapper);
+			if (!fexp)
+				mErrors->Error(exp->mLocation, EERR_CALL_OF_DELETED_FUNCTION, "Call of deleted copy constructor");
+			else
+				TranslateExpression(ftype, proc, block, fexp, destack, gotos, BranchTarget(), BranchTarget(), &nmapper);
 
 			InterInstruction* jins = new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP);
 			block->Append(jins);
@@ -3282,7 +3285,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						;
 					else if ((mCompilerOptions & COPT_CPLUSPLUS) && (vl.mType->mBase->IsSubType(vr.mType->mBase) || vr.mType->mBase->IsSubType(vl.mType->mBase)))
 						;
-					else if (!vl.mType->mBase->IsConstSame(vr.mType->mBase))
+					else if (!vl.mType->mBase->IsConstRefSame(vr.mType->mBase))
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible pointer types", vl.mType->mBase->MangleIdent(), vr.mType->mBase->MangleIdent());
 				}
 				else
