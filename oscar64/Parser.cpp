@@ -2209,11 +2209,11 @@ void Parser::PrependMemberConstructor(Declaration* pthis, Declaration* cfunc)
 						}
 						else
 						{
-							qexp->mDecType = bdec;
+							qexp->mDecType = dec->mBase;
 
 							dexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
 							dexp->mToken = TK_ASSIGN;
-							dexp->mDecType = bdec;
+							dexp->mDecType = dec->mBase;
 							dexp->mLeft = qexp;
 							dexp->mRight = dec->mValue;
 						}

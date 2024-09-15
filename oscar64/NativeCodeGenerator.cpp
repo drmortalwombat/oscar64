@@ -51356,7 +51356,7 @@ bool NativeCodeProcedure::MapFastParamsToTemps(void)
 	}
 
 	NativeCodeBasicBlock* block = mEntryBlock;
-	while (block && block->mIns.Size() == 0 && !block->mFalseJump)
+	while (block && block->mIns.Size() == 0 && !block->mFalseJump && block->mTrueJump != block)
 		block = block->mTrueJump;
 
 	if (block && block->mNumEntries == 1)
