@@ -575,7 +575,10 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 					dec->mBase = TheUnsignedIntTypeDeclaration;
 				}
 				else
+				{
+					dec->mInteger &= 0xffffffff;
 					dec->mBase = TheUnsignedLongTypeDeclaration;
+				}
 
 				ex->mDecValue = dec;
 				ex->mDecType = dec->mBase;
