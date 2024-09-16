@@ -1030,7 +1030,14 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 
 	case IA_DIVU:
 		if (val2)
-			return (uint64)val1 / (uint64)val2;
+		{
+			if (type == IT_INT32)
+				return (uint32)val1 / (uint32)val2;
+			else if (type == IT_INT16)
+				return (uint16)val1 / (uint16)val2;
+			else
+				return (uint8)val1 / (uint8)val2;
+		}
 		else
 			return 0;
 		break;
@@ -1042,7 +1049,14 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 		break;
 	case IA_MODU:
 		if (val2)
-			return (uint64)val1 % (uint64)val2;
+		{
+			if (type == IT_INT32)
+				return (uint32)val1 % (uint32)val2;
+			else if (type == IT_INT16)
+				return (uint16)val1 % (uint16)val2;
+			else
+				return (uint8)val1 % (uint8)val2;
+		}
 		else
 			return 0;
 		break;
@@ -7732,7 +7746,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 				vr = ins->mDst.mRange;
 
 				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_FPARAM)
-					vr.Limit(mLocalParamValueRange[ins->mSrc[0].mVarIndex + ins->mSrc[0].mIntConst]);
+					vr.Limit(mLocalParamValueRange[ins->mSrc[0].mVarIndex + int(ins->mSrc[0].mIntConst)]);
 #if 1
 				if (ins->mDst.mType == IT_INT8)
 				{
@@ -8409,7 +8423,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 		else if (ins->mCode == IC_STORE)
 		{
 			if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_FPARAM)
-				mLocalParamValueRange[ins->mSrc[1].mVarIndex + ins->mSrc[0].mIntConst] = ins->mSrc[0].mRange;
+				mLocalParamValueRange[ins->mSrc[1].mVarIndex + int(ins->mSrc[0].mIntConst)] = ins->mSrc[0].mRange;
 		}
 
 		assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
@@ -21992,7 +22006,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "f");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
