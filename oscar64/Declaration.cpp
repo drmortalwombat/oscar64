@@ -1450,14 +1450,21 @@ const Ident* Declaration::MangleIdent(void)
 			if (mQualIdent)
 				mMangleIdent = mQualIdent->PreMangle("struct ");
 			else
-				mMangleIdent = Ident::Unique("struct");
+				mMangleIdent = Ident::Unique("struct S", mUID);
+		}
+		else if (mType == DT_TYPE_UNION)
+		{
+			if (mQualIdent)
+				mMangleIdent = mQualIdent->PreMangle("union ");
+			else
+				mMangleIdent = Ident::Unique("union U", mUID);
 		}
 		else if (mType == DT_TYPE_ENUM)
 		{
 			if (mQualIdent)
 				mMangleIdent = mQualIdent->PreMangle("enum ");
 			else
-				mMangleIdent = Ident::Unique("enum");
+				mMangleIdent = Ident::Unique("enum E", mUID);
 		}
 		else if (mType == DT_TYPE_VOID)
 		{
