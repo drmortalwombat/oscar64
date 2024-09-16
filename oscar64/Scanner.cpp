@@ -2052,8 +2052,25 @@ void Scanner::StringToken(char terminator, char mode)
 			switch (ch)
 			{
 			case '0':
-				mTokenChar = '\0';
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			{
+				mTokenChar = ch - '0';
+				if (mLine[mOffset] >= '0' && mLine[mOffset] <= '7')
+				{
+					mTokenChar = mTokenChar * 8 + mLine[mOffset ++ ] - '0';
+					if (mLine[mOffset] >= '0' && mLine[mOffset] <= '7')
+					{
+						mTokenChar = mTokenChar * 8 + mLine[mOffset++] - '0';
+					}
+				}
 				break;
+			}
 			case 'n':
 				mTokenChar = '\n';
 				break;
@@ -2146,8 +2163,25 @@ void Scanner::CharToken(char mode)
 		switch (ch)
 		{
 		case '0':
-			mTokenChar = '\0';
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		{
+			mTokenChar = ch - '0';
+			if (mLine[mOffset] >= '0' && mLine[mOffset] <= '7')
+			{
+				mTokenChar = mTokenChar * 8 + mLine[mOffset++] - '0';
+				if (mLine[mOffset] >= '0' && mLine[mOffset] <= '7')
+				{
+					mTokenChar = mTokenChar * 8 + mLine[mOffset++] - '0';
+				}
+			}
 			break;
+		}
 		case 'n':
 			mTokenChar = '\n';
 			break;
