@@ -2605,7 +2605,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mVarIndex = -1;
 
 			if (explicitDestructor)
-				mErrors->Error(pthis->mBase->mLocation, EWARN_DEFAULT_COPY_DEPRECATED, "Default copy constructor deprecated due to explicit destructor");
+				cdec->mFlags |= DTF_DEPRECATED;
 
 			cdec->mValue = new Expression(mScanner->mLocation, EX_VOID);
 
@@ -2777,7 +2777,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			cdec->mVarIndex = -1;
 
 			if (explicitDestructor)
-				mErrors->Error(pthis->mBase->mLocation, EWARN_DEFAULT_COPY_DEPRECATED, "Default copy constructor deprecated due to explicit destructor");
+				cdec->mFlags |= DTF_DEPRECATED;
 
 			Expression* pthisexp = new Expression(pthis->mLocation, EX_VARIABLE);
 			pthisexp->mDecType = pthis;

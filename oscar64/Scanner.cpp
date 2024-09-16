@@ -2362,14 +2362,21 @@ void Scanner::ParseNumberToken(void)
 	}
 	else
 	{
+		int64	moctal = 0;
+		bool	zerostart = mant == 0;
+
 		int	n = 0;
 		if (mTokenChar >= '0' && mTokenChar <= '9')
 		{
 			mant = mant * 10 + (int)mTokenChar - (int)'0';
+			moctal = moctal * 8 + (int)mTokenChar - (int)'0';
 			while (NextChar())
 			{
 				if (mTokenChar >= '0' && mTokenChar <= '9')
+				{
 					mant = mant * 10 + (int)mTokenChar - (int)'0';
+					moctal = moctal * 8 + (int)mTokenChar - (int)'0';
+				}
 				else
 					break;
 				n++;
@@ -2378,6 +2385,9 @@ void Scanner::ParseNumberToken(void)
 
 		if (mTokenChar != '.')
 		{
+			if (zerostart)
+				mant = moctal;
+
 			if (mTokenChar == 'U' || mTokenChar == 'u')
 			{
 				NextChar();

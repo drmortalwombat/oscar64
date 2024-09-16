@@ -123,6 +123,7 @@ static const uint64 DTF_FUNC_THIS		= (1ULL << 47);
 
 static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 static const uint64 DTF_FPARAM_UNUSED	= (1ULL << 49);
+static const uint64 DTF_DEPRECATED		= (1ULL << 50);
 
 
 class Declaration;

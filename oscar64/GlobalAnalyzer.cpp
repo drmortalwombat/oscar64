@@ -600,6 +600,13 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* cexp, Expression* exp, Declara
 	{
 		dec->mFlags |= DTF_FUNC_ANALYZING;
 
+		if (dec->mFlags & DTF_DEPRECATED)
+		{
+			mErrors->Error(dec->mLocation, EWARN_DEFAULT_COPY_DEPRECATED, "Using deprecated function", dec->mQualIdent->mString);
+			if (cexp)
+				mErrors->Error(cexp->mLocation, EINFO_CALLED_FROM, "Called from here");
+		}
+
 		mFunctions.Push(dec);
 
 		Declaration* pdec = dec->mBase->mParams;
