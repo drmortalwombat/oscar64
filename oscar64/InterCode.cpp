@@ -1606,7 +1606,7 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	return dop;
 }
 
-static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, const GrowingVariableArray& staticVars)
+static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray&staticProcs)
 {
 	const uint8* data;
 
@@ -1649,15 +1649,32 @@ static void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, cons
 			int j = 0;
 			while (j < staticVars.Size() && !(staticVars[j] && staticVars[j]->mLinkerObject == lobj->mReferences[i]->mRefObject))
 				j++;
+			if (j < staticVars.Size())
+			{
+				ins->mConst.mMemory = IM_GLOBAL;
+				ins->mConst.mVarIndex = staticVars[j]->mIndex;
+			}
+			else
+			{
+				j = 0;
+				while (j < staticProcs.Size() && !(staticProcs[j] && staticProcs[j]->mLinkerObject == lobj->mReferences[i]->mRefObject))
+					j++;
+
+				if (j < staticProcs.Size())
+				{
+					ins->mConst.mMemory = IM_PROCEDURE;
+					ins->mConst.mVarIndex = staticProcs[j]->mID;
+				}
+				else
+				{
+					ins->mConst.mMemory = IM_GLOBAL;
+					ins->mConst.mVarIndex = -1;
+				}
+			}
 
 			ins->mConst.mLinkerObject = lobj->mReferences[i]->mRefObject;
 			ins->mConst.mIntConst = lobj->mReferences[i]->mRefOffset;
-			ins->mConst.mMemory = IM_GLOBAL;
 			ins->mConst.mOperandSize = ins->mConst.mLinkerObject->mSize;
-			if (j < staticVars.Size())
-				ins->mConst.mVarIndex = staticVars[j]->mIndex;
-			else
-				ins->mConst.mVarIndex = -1;
 		}
 		else
 		{
@@ -2356,7 +2373,7 @@ bool InterInstruction::IsEqualSource(const InterInstruction* ins) const
 
 
 
-void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
+void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
 {
 	int	i, temp;
 
@@ -2439,7 +2456,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			}
 			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT && tvalue[ins->mSrc[0].mTemp]->mConst.mMemory == IM_GLOBAL && (tvalue[ins->mSrc[0].mTemp]->mConst.mLinkerObject->mFlags & LOBJF_CONST))
 			{
-				LoadConstantFold(ins, tvalue[ins->mSrc[0].mTemp], staticVars);
+				LoadConstantFold(ins, tvalue[ins->mSrc[0].mTemp], staticVars, staticProcs);
 				InsertValue(ins);
 			}
 			else
@@ -2639,7 +2656,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 				return;
 			}
@@ -2659,7 +2676,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2671,7 +2688,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 0;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2684,7 +2701,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mType = IT_NONE;
 					ins->mNumOperands = 1;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2700,7 +2717,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2713,7 +2730,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 0;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2725,7 +2742,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mType = IT_NONE;
 					ins->mNumOperands = 1;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2736,7 +2753,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 1;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2751,7 +2768,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 0;
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2762,7 +2779,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mNumOperands = 1;
 					assert(ins->mSrc[0].mTemp >= 0);
 
-					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+					UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 
 					return;
 				}
@@ -2987,7 +3004,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 			}
 			break;
 		case IT_POINTER:
@@ -3002,7 +3019,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 			}
 			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
 			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONVERSION_OPERATOR && 
@@ -3015,7 +3032,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[1].mType = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mType;
 				ins->mSrc[1].mTemp = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mTemp;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 			}
 			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
 			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT &&
@@ -3215,7 +3232,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[1].mTemp = tvalue[ins->mSrc[1].mTemp]->mSrc[0].mTemp;
 				}
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 			}
 			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
 			 	     ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT &&
@@ -3415,7 +3432,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 					ins->mSrc[0].mTemp = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mTemp;
 				}
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 			}
 			else if (ins->mSrc[1].mTemp == ins->mSrc[0].mTemp)
 			{
@@ -3442,7 +3459,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
 
-				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars);
+				UpdateValue(ins, tvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 			}
 			break;
 		}
@@ -5976,7 +5993,7 @@ static bool ispow2(int64 v)
 	return 0;
 }
 
-void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, FastNumberSet& fsingle)
+void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs, FastNumberSet& fsingle)
 {
 	switch (ins->mCode)
 	{
@@ -6057,7 +6074,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 		OptimizeAddress(ins, tvalue, 0);
 
 		if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_GLOBAL && (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
-			LoadConstantFold(ins, nullptr, staticVars);
+			LoadConstantFold(ins, nullptr, staticVars, staticProcs);
 
 		break;
 	case IC_STORE:
@@ -10960,7 +10977,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 	return changed;
 }
 
-void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int& spareTemps, const GrowingVariableArray& staticVars)
+void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int& spareTemps, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
 {
 	int i;
 
@@ -11349,16 +11366,16 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 			}
 
 #endif
-			lvalues.UpdateValue(mInstructions[i], ltvalue, aliasedLocals, aliasedParams, staticVars);
+			lvalues.UpdateValue(mInstructions[i], ltvalue, aliasedLocals, aliasedParams, staticVars, staticProcs);
 			mInstructions[i]->PerformValueForwarding(ltvalue, tvalid);
 		}
 
-		if (mTrueJump) mTrueJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps, staticVars);
-		if (mFalseJump) mFalseJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps, staticVars);
+		if (mTrueJump) mTrueJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps, staticVars, staticProcs);
+		if (mFalseJump) mFalseJump->PerformValueForwarding(ltvalue, lvalues, tvalid, aliasedLocals, aliasedParams, spareTemps, staticVars, staticProcs);
 	}
 }
 
-void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, FastNumberSet &fsingle)
+void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs, FastNumberSet &fsingle)
 {
 	int i;
 
@@ -11408,12 +11425,12 @@ void InterCodeBasicBlock::PerformMachineSpecificValueUsageCheck(const GrowingIns
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			CheckValueUsage(mInstructions[i], ltvalue, staticVars, fsingle);
+			CheckValueUsage(mInstructions[i], ltvalue, staticVars, staticProcs, fsingle);
 			mInstructions[i]->PerformValueForwarding(ltvalue, tvalid);
 		}
 
-		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars, fsingle);
-		if (mFalseJump) mFalseJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars, fsingle);
+		if (mTrueJump) mTrueJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars, staticProcs, fsingle);
+		if (mFalseJump) mFalseJump->PerformMachineSpecificValueUsageCheck(ltvalue, tvalid, staticVars, staticProcs, fsingle);
 	}
 }
 
@@ -18536,7 +18553,7 @@ void InterCodeBasicBlock::CheckBlocks(void)
 }
 
 
-bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray& staticVars)
+bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
 {
 	int	j = 0;
 	for (int i = 0; i < mInstructions.Size(); i++)
@@ -18560,7 +18577,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 		}
 		if (mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory == IM_GLOBAL && (mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
 		{
-			LoadConstantFold(mInstructions[i], nullptr, staticVars);
+			LoadConstantFold(mInstructions[i], nullptr, staticVars, staticProcs);
 			changed = true;
 		}
 
@@ -19865,7 +19882,7 @@ bool InterCodeBasicBlock::CommonTailCodeMerge(void)
 	return changed;
 }
 
-void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& staticVars)
+void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
 {
 	int		i;
 	
@@ -20164,7 +20181,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 		CheckFinalLocal();
 
-		do	{} while (PeepholeReplaceOptimization(staticVars));
+		do	{} while (PeepholeReplaceOptimization(staticVars, staticProcs));
 
 		// build trains
 #if 1
@@ -20373,12 +20390,12 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 
 		CheckFinalLocal();
 
-		do {} while (PeepholeReplaceOptimization(staticVars));
+		do {} while (PeepholeReplaceOptimization(staticVars, staticProcs));
 
 		CheckFinalLocal();
 
-		if (mTrueJump) mTrueJump->PeepholeOptimization(staticVars);
-		if (mFalseJump) mFalseJump->PeepholeOptimization(staticVars);
+		if (mTrueJump) mTrueJump->PeepholeOptimization(staticVars, staticProcs);
+		if (mFalseJump) mFalseJump->PeepholeOptimization(staticVars, staticProcs);
 	}
 }
 
@@ -21232,7 +21249,7 @@ void InterCodeProcedure::PeepholeOptimization(void)
 	CheckFinal();
 
 	ResetVisited();
-	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars);
+	mEntryBlock->PeepholeOptimization(mModule->mGlobalVars, mModule->mProcedures);
 
 	Disassemble("PeepholeOptimization");
 	CheckFinal();
@@ -22031,7 +22048,7 @@ void InterCodeProcedure::Close(void)
 		tvalidSet.Reset(numTemps + 64);
 
 		ResetVisited();
-		mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet, numTemps, mModule->mGlobalVars);
+		mEntryBlock->PerformValueForwarding(mValueForwardingTable, valueSet, tvalidSet, mLocalAliasedSet, mParamAliasedSet, numTemps, mModule->mGlobalVars, mModule->mProcedures);
 
 		assert(numTemps <= tvalidSet.Size());
 
@@ -22072,7 +22089,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->CalculateSingleUsedTemps(fusedSet, fsingleSet);
 
 	ResetVisited();
-	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet, mModule->mGlobalVars, fsingleSet);
+	mEntryBlock->PerformMachineSpecificValueUsageCheck(mValueForwardingTable, tvalidSet, mModule->mGlobalVars, mModule->mProcedures, fsingleSet);
 
 	DisassembleDebug("machine value forwarding");
 

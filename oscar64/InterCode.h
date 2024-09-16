@@ -211,7 +211,7 @@ public:
 	void RemoveValue(int index);
 	void InsertValue(InterInstruction * ins);
 
-	void UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
+	void UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 	void Intersect(ValueSet& set);
 };
 
@@ -494,10 +494,10 @@ public:
 	void GlobalRenameRegister(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 	void RenameValueRanges(const GrowingIntArray& renameTable, int numTemps);
 
-	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, FastNumberSet& fsingle);
+	void CheckValueUsage(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs, FastNumberSet& fsingle);
 	void PerformTempForwarding(const TempForwardingTable& forwardingTable, bool reverse, bool checkloops);
-	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars);
-	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, FastNumberSet& fsingle);
+	void PerformValueForwarding(const GrowingInstructionPtrArray& tvalue, const ValueSet& values, FastNumberSet& tvalid, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, int & spareTemps, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
+	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs, FastNumberSet& fsingle);
 	bool EliminateDeadBranches(void);
 
 	bool MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue);
@@ -590,8 +590,8 @@ public:
 	bool CommonTailCodeMerge(void);
 	bool SplitSingleBranchUseConst(void);
 
-	void PeepholeOptimization(const GrowingVariableArray& staticVars);
-	bool PeepholeReplaceOptimization(const GrowingVariableArray& staticVars);
+	void PeepholeOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
+	bool PeepholeReplaceOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 
 	bool MoveLoopHeadCheckToTail(void);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
