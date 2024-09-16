@@ -288,7 +288,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 				else if (ConsumeTokenIf(TK_FRIEND))
 				{
 					mScope = oscope;
-					Declaration* fdec = ParseDeclaration(nullptr, true, false);
+					Declaration* fdec = ParseDeclaration(nullptr, true, false, false);
 					if (fdec->mType == DT_ANON)
 						fdec = fdec->mBase;
 					dec->mFriends.Push(fdec);
@@ -304,7 +304,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 				}
 				else
 				{
-					Declaration* mdec = ParseDeclaration(nullptr, false, false, pthis);
+					Declaration* mdec = ParseDeclaration(nullptr, false, false, true, pthis);
 					if (mdec)
 					{
 						mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
@@ -713,15 +713,22 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
 		dec->mFlags = flags | DTF_DEFINED;
 		mScanner->NextToken();
-		if (mScanner->mToken == TK_INT || mScanner->mToken == TK_SHORT)
+		if (mScanner->mToken == TK_INT)
 		{
 			dec->mSize = 2;
 			mScanner->NextToken();
+		}
+		else if (mScanner->mToken == TK_SHORT)
+		{
+			dec->mSize = 2;
+			mScanner->NextToken();
+			ConsumeTokenIf(TK_INT);
 		}
 		else if (mScanner->mToken == TK_LONG)
 		{
 			dec->mSize = 4;
 			mScanner->NextToken();
+			ConsumeTokenIf(TK_INT);
 		}
 		else if (mScanner->mToken == TK_CHAR)
 		{
@@ -737,15 +744,22 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
 		dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
 		mScanner->NextToken();
-		if (mScanner->mToken == TK_INT || mScanner->mToken == TK_SHORT)
+		if (mScanner->mToken == TK_INT)
 		{
 			dec->mSize = 2;
 			mScanner->NextToken();
+		}
+		else if (mScanner->mToken == TK_SHORT)
+		{
+			dec->mSize = 2;
+			mScanner->NextToken();
+			ConsumeTokenIf(TK_INT);
 		}
 		else if (mScanner->mToken == TK_LONG)
 		{
 			dec->mSize = 4;
 			mScanner->NextToken();
+			ConsumeTokenIf(TK_INT);
 		}
 		else if (mScanner->mToken == TK_CHAR)
 		{
@@ -774,9 +788,22 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 			dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
 		else
 			dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
+		ConsumeTokenIf(TK_INT);
 		break;
 
 	case TK_SHORT:
+		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
+		dec->mSize = 2;
+		mScanner->NextToken();
+		if (ConsumeTokenIf(TK_UNSIGNED))
+			dec->mFlags = flags | DTF_DEFINED;
+		else if (ConsumeTokenIf(TK_SIGNED))
+			dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
+		else
+			dec->mFlags = flags | DTF_DEFINED | DTF_SIGNED;
+		ConsumeTokenIf(TK_INT);
+		break;
+
 	case TK_INT:
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
 		dec->mSize = 2;
@@ -4017,7 +4044,7 @@ void Parser::ParseVariableInit(Declaration* ndec, Expression* pexp)
 		mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_TYPES, "Can not initialize variable with expression", ndec->mIdent);
 }
 
-Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, Declaration* pthis, Declaration* ptempl)
+Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, bool member, Declaration* pthis, Declaration* ptempl)
 {
 	bool	definingType = false, destructor = false;
 	uint64	storageFlags = 0, typeFlags = 0;
@@ -4882,7 +4909,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			ldec = ndec;
 //			ndec->mNext = nullptr;
 
-			if (!mFunctionType && ConsumeTokenIf(TK_COLON))
+			if (member && ConsumeTokenIf(TK_COLON))
 			{
 				Expression* exp = ParseRExpression();
 				if (!ndec->mBase->IsIntegerType())
@@ -5238,7 +5265,7 @@ Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 	Declaration* dec;
 	Expression* exp = nullptr, * rexp = nullptr;
 
-	dec = ParseDeclaration(pdec, true, true);
+	dec = ParseDeclaration(pdec, true, true, false);
 	if (dec->mType == DT_ANON && dec->mNext == 0)
 	{
 		exp = new Expression(dec->mLocation, EX_TYPE);
@@ -5806,7 +5833,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		break;
 
 	case TK_USING:
-		ParseDeclaration(nullptr, true, true);
+		ParseDeclaration(nullptr, true, true, false);
 		break;
 
 	case TK_CHARACTER:
@@ -10415,7 +10442,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 		}
 		else
 #endif
-		tdec->mBase = p->ParseDeclaration(nullptr, true, false, tpthis, tdec);
+		tdec->mBase = p->ParseDeclaration(nullptr, true, false, false, tpthis, tdec);
 	}
 
 	p->mTemplateScope = nullptr;
@@ -12745,7 +12772,7 @@ void Parser::ParseNamespace(void)
 					ParseNamespace();
 				}
 				else
-					ParseDeclaration(nullptr, true, false);
+					ParseDeclaration(nullptr, true, false, false);
 			}
 
 			ConsumeToken(TK_CLOSE_BRACE);
@@ -12831,6 +12858,6 @@ void Parser::Parse(void)
 			ParseNamespace();
 		}
 		else
-			ParseDeclaration(nullptr, true, false);
+			ParseDeclaration(nullptr, true, false, false);
 	}
 }
