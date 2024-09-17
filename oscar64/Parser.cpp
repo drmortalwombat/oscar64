@@ -9820,7 +9820,7 @@ Expression* Parser::ParseSwitchStatement(void)
 	if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 	{
 		mScanner->NextToken();
-		sexp->mLeft = CleanupExpression(ParseRExpression());
+		sexp->mLeft = CleanupExpression(ParseExpression(true));
 		if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 			mScanner->NextToken();
 		else
