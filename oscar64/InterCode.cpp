@@ -1012,6 +1012,34 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	return true;
 }
 
+
+static int64 ToTypedSigned(int64 val, InterType type)
+{
+	switch (InterTypeSize[type])
+	{
+	case 1:
+		return int64(int8(val));
+	case 4:
+		return int64(int32(val));
+	default:
+		return int64(int16(val));
+	}
+}
+
+static int64 ToTypedUnsigned(int64 val, InterType type)
+{
+	switch (InterTypeSize[type])
+	{
+	case 1:
+		return int64(uint8(val));
+	case 4:
+		return int64(uint32(val));
+	default:
+		return int64(uint16(val));
+	}
+}
+
+
 static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int64 val2 = 0)
 {
 	switch (oper)
@@ -1112,34 +1140,34 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 		}
 		break;
 	case IA_CMPEQ:
-		return val1 == val2 ? 1 : 0;
+		return ToTypedUnsigned(val1, type) == ToTypedUnsigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPNE:
-		return val1 != val2 ? 1 : 0;
+		return ToTypedUnsigned(val1, type) != ToTypedUnsigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPGES:
-		return val1 >= val2 ? 1 : 0;
+		return ToTypedSigned(val1, type) >= ToTypedSigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPLES:
-		return val1 <= val2 ? 1 : 0;
+		return ToTypedSigned(val1, type) <= ToTypedSigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPGS:
-		return val1 > val2 ? 1 : 0;
+		return ToTypedSigned(val1, type) > ToTypedSigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPLS:
-		return val1 < val2 ? 1 : 0;
+		return ToTypedSigned(val1, type) < ToTypedSigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPGEU:
-		return (uint64)val1 >= (uint64)val2 ? 1 : 0;
+		return ToTypedUnsigned(val1, type) >= ToTypedUnsigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPLEU:
-		return (uint64)val1 <= (uint64)val2 ? 1 : 0;
+		return ToTypedUnsigned(val1, type) <= ToTypedUnsigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPGU:
-		return (uint64)val1 > (uint64)val2 ? 1 : 0;
+		return ToTypedUnsigned(val1, type) > ToTypedUnsigned(val2, type) ? 1 : 0;
 		break;
 	case IA_CMPLU:
-		return (uint64)val1 < (uint64)val2 ? 1 : 0;
+		return ToTypedUnsigned(val1, type) < ToTypedUnsigned(val2, type) ? 1 : 0;
 		break;
 	default:
 		return 0;
@@ -1382,32 +1410,6 @@ static void ConversionConstantFold(InterInstruction * ins, const InterOperand & 
 	}
 }
 
-static int64 ToTypedSigned(int64 val, InterType type)
-{
-	switch (InterTypeSize[type])
-	{
-	case 1:
-		return int64(int8(val));
-	case 4:
-		return int64(int32(val));
-	default:
-		return int64(int16(val));
-	}
-}
-
-static int64 ToTypedUnsigned(int64 val, InterType type)
-{
-	switch (InterTypeSize[type])
-	{
-	case 1:
-		return int64(uint8(val));
-	case 4:
-		return int64(uint32(val));
-	default:
-		return int64(uint16(val));
-	}
-}
-
 static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1, InterOperand op2)
 {
 	InterOperand	dop;
@@ -1458,14 +1460,14 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst == op2.mFloatConst ? 1 : 0;
 		else
-			dop.mIntConst = op1.mIntConst == op2.mIntConst ? 1 : 0;
+			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) == ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
 		break;
 	case IA_CMPNE:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst != op2.mFloatConst ? 1 : 0;
 		else
-			dop.mIntConst = op1.mIntConst != op2.mIntConst ? 1 : 0;
+			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) != ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
 		break;
 	case IA_CMPGES:
@@ -3013,6 +3015,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
+				ins->mConst.mType = IT_INT8;
 				ins->mConst.mIntConst = ConstantRelationalFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
@@ -3028,7 +3031,8 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mType = IT_INT8;
+				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mSrc[0].mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
@@ -3234,6 +3238,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				if (toconst)
 				{
 					ins->mCode = IC_CONSTANT;
+					ins->mConst.mType = IT_INT8;
 					ins->mConst.mIntConst = cvalue;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
@@ -3434,6 +3439,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				if (toconst)
 				{
 					ins->mCode = IC_CONSTANT;
+					ins->mConst.mType = IT_INT8;
 					ins->mConst.mIntConst = cvalue;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
@@ -3451,6 +3457,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			else if (ins->mSrc[1].mTemp == ins->mSrc[0].mTemp)
 			{
 				ins->mCode = IC_CONSTANT;
+				ins->mConst.mType = IT_INT8;
 
 				switch (ins->mOperator)
 				{
