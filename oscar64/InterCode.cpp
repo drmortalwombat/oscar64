@@ -4918,6 +4918,7 @@ void InterInstruction::SimpleLocalToTemp(int vindex, int temp)
 			if (mSrc[0].mTemp < 0)
 			{
 				mCode = IC_CONSTANT;
+				mConst.mType = mSrc[0].mType;
 				mConst.mIntConst = mSrc[0].mIntConst;
 				mConst.mFloatConst = mSrc[0].mFloatConst;
 				mNumOperands = 0;
@@ -5439,6 +5440,9 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 
 		if (this->mCode == IC_CONSTANT)
 		{
+			if (mConst.mType == IT_NONE)
+				fprintf(file, "?");
+
 			if (mDst.mType == IT_POINTER)
 			{	
 				const char* vname = "";
@@ -22009,7 +22013,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "e1");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
