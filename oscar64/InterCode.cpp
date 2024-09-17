@@ -8354,6 +8354,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 
 						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mIntConst >= 0)
 							vr.mMaxValue = BuildLowerBitsMask(vr.mMaxValue) | ins->mSrc[0].mIntConst;
+						else if (ins->mSrc[0].mIntConst < 0)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND)
+								vr.mMinValue = int64min(vr.mMinValue, ins->mSrc[0].mIntConst);
+							else
+							{
+								vr.mMinState = IntegerValueRange::S_BOUND;
+								vr.mMinValue = ins->mSrc[0].mIntConst;
+							}
+						}
 					}
 					else if (ins->mSrc[1].mTemp < 0)
 					{
@@ -8361,6 +8371,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 
 						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mIntConst >= 0)
 							vr.mMaxValue = BuildLowerBitsMask(vr.mMaxValue) | ins->mSrc[0].mIntConst;
+						else if (ins->mSrc[1].mIntConst < 0)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND)
+								vr.mMinValue = int64min(vr.mMinValue, ins->mSrc[1].mIntConst);
+							else
+							{
+								vr.mMinState = IntegerValueRange::S_BOUND;
+								vr.mMinValue = ins->mSrc[0].mIntConst;
+							}
+						}
 					}
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
