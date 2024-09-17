@@ -412,10 +412,17 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 												bitsleft = bitsleft + 8 - mdec->mBits;
 												offset++;
 											}
+											else if (mdec->mOffset >= 2)
+											{
+												mdec->mOffset -= 2;
+												mdec->mShift = 16 - bitsleft;
+												bitsleft = bitsleft + 16 - mdec->mBits;
+												offset += 2;
+											}
 											else
 											{
-												mdec->mOffset -= 3;
-												mdec->mShift = 24 - bitsleft;
+												mdec->mOffset--;
+												mdec->mShift = 8 - bitsleft;
 												bitsleft = bitsleft + 16 - mdec->mBits;
 												offset += 2;
 											}
@@ -429,14 +436,31 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 											}
 											else if (bitsleft + 16 >= mdec->mBits)
 											{
+												if (mdec->mOffset >= 2)
+												{
+													mdec->mOffset -= 2;
+													mdec->mShift = 16 - bitsleft;
+													bitsleft = bitsleft + 16 - mdec->mBits;
+													offset += 2;
+												}
+												else
+												{
+													mdec->mOffset--;
+													mdec->mShift = 8 - bitsleft;
+													bitsleft = bitsleft + 16 - mdec->mBits;
+													offset += 2;
+												}
+											}
+											else if (mdec->mOffset >= 2)
+											{
 												mdec->mOffset -= 2;
 												mdec->mShift = 16 - bitsleft;
-												bitsleft = bitsleft + 16 - mdec->mBits;
-												offset += 2;
+												bitsleft = bitsleft + 24 - mdec->mBits;
+												offset += 3;
 											}
 											else
 											{
-												mdec->mOffset -= 1;
+												mdec->mOffset--;
 												mdec->mShift = 8 - bitsleft;
 												bitsleft = bitsleft + 24 - mdec->mBits;
 												offset += 3;
@@ -6284,7 +6308,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 
 Declaration* Parser::MemberLookup(Declaration* dtype, const Ident* ident, int & offset, uint64& flags)
 {
-	if (ident == dtype->mIdent)
+	if ((mCompilerOptions & COPT_CPLUSPLUS) && ident == dtype->mIdent)
 		return nullptr;
 
 	Declaration* mdec = dtype->mScope->Lookup(ident, SLEVEL_CLASS);

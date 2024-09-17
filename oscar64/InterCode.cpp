@@ -8985,6 +8985,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPGU:
 				if (s1 >= 0)
 				{
+					if (mInstructions[sz - 2]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[sz - 2]->mSrc[1].mRange.mMinValue < 0)
+						mTrueValueRange[s1].mMaxState = IntegerValueRange::S_UNBOUND;
+
 					mTrueValueRange[s1].LimitMin(1);
 					if (s0 < 0)
 					{
@@ -22006,7 +22009,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "e1");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
