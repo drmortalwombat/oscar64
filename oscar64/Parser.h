@@ -41,7 +41,7 @@ protected:
 	void FreeTempVar(Declaration* var);
 	void FreeTempVarExp(Expression* exp);
 
-	uint8* ParseStringLiteral(int msize);
+	uint8* ParseStringLiteral(int & msize);
 
 	void ParseNamespace(void);
 

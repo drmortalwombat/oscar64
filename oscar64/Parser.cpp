@@ -1602,7 +1602,7 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 	return dec;
 }
 
-uint8* Parser::ParseStringLiteral(int msize)
+uint8* Parser::ParseStringLiteral(int & msize)
 {
 	int	size = mScanner->mTokenStringSize;
 	if (size + 1 > msize)
@@ -1843,13 +1843,13 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 		}
 		else if (mScanner->mToken == TK_STRING && dtype->mType == DT_TYPE_ARRAY && dtype->mBase->mType == DT_TYPE_INTEGER && dtype->mBase->mSize == 1)
 		{
-			uint8* d = ParseStringLiteral(dtype->mSize);
-			ptrdiff_t	ds = strlen((char *)d);
+			int ds = dtype->mSize;
+			uint8* d = ParseStringLiteral(ds);
 
 			if (!(dtype->mFlags & DTF_DEFINED))
 			{
 				dtype->mFlags |= DTF_DEFINED;
-				dtype->mSize = int(ds + 1);
+				dtype->mSize = int(ds);
 			}
 
 			dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);
@@ -1859,7 +1859,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 
 			dec->mData = d;
 
-			if (ds > dtype->mSize)
+			if (ds > dtype->mSize + 1)
 				mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "String constant is too large for char array");
 		}
 		else
