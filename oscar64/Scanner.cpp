@@ -2336,7 +2336,13 @@ void Scanner::ParseNumberToken(void)
 			if (mTokenChar == 'L' || mTokenChar == 'l')
 			{
 				NextChar();
-				mToken = TK_INTEGERL;
+				if (mTokenChar == 'U' || mTokenChar == 'u')
+				{
+					NextChar();
+					mToken = TK_INTEGERUL;
+				}
+				else
+					mToken = TK_INTEGERL;
 			}
 			else if (mant < 65536)
 			{
@@ -2381,7 +2387,13 @@ void Scanner::ParseNumberToken(void)
 			if (mTokenChar == 'L' || mTokenChar == 'l')
 			{
 				NextChar();
-				mToken = TK_INTEGERL;
+				if (mTokenChar == 'U' || mTokenChar == 'u')
+				{
+					NextChar();
+					mToken = TK_INTEGERUL;
+				}
+				else
+					mToken = TK_INTEGERL;
 			}
 			else if (mant < 32768)
 				mToken = TK_INTEGER;
@@ -2438,7 +2450,13 @@ void Scanner::ParseNumberToken(void)
 				if (mTokenChar == 'L' || mTokenChar == 'l')
 				{
 					NextChar();
-					mToken = TK_INTEGERL;
+					if (mTokenChar == 'U' || mTokenChar == 'u')
+					{
+						NextChar();
+						mToken = TK_INTEGERUL;
+					}
+					else
+						mToken = TK_INTEGERL;
 				}
 				else if (mant < 32768)
 					mToken = TK_INTEGER;
