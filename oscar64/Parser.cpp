@@ -7380,20 +7380,23 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 		else if (mScanner->mToken == TK_ARROW)
 		{
 			mScanner->NextToken();
-			while (exp->mDecType->mType != DT_TYPE_POINTER)
+			if (exp->mDecType->mType != DT_TYPE_ARRAY)
 			{
-				Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
-				dexp->mToken = TK_ARROW;
-				dexp->mDecType = TheVoidPointerTypeDeclaration;
-				dexp->mLeft = exp;
-				
-				Expression* oexp = CheckOperatorOverload(dexp);
-				if (oexp == dexp)
-					break;
-				exp = oexp;
+				while (exp->mDecType->mType != DT_TYPE_POINTER)
+				{
+					Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
+					dexp->mToken = TK_ARROW;
+					dexp->mDecType = TheVoidPointerTypeDeclaration;
+					dexp->mLeft = exp;
+
+					Expression* oexp = CheckOperatorOverload(dexp);
+					if (oexp == dexp)
+						break;
+					exp = oexp;
+				}
 			}
 
-			if (exp->mDecType->mType == DT_TYPE_POINTER)
+			if (exp->mDecType->mType == DT_TYPE_POINTER || exp->mDecType->mType == DT_TYPE_ARRAY)
 			{
 				Expression * dexp = new Expression(mScanner->mLocation, EX_PREFIX);
 				dexp->mToken = TK_MUL;
