@@ -13579,6 +13579,13 @@ bool InterCodeBasicBlock::RecheckOuterFrame(void)
 				if (ins->mSrc[1].mMemory == IM_FRAME)
 					return true;
 			}
+			else if (ins->mCode == IC_COPY)
+			{
+				if (ins->mSrc[0].mMemory == IM_FRAME)
+					return true;
+				if (ins->mSrc[1].mMemory == IM_FRAME)
+					return true;
+			}
 			else if (ins->mCode == IC_CONSTANT)
 			{
 				if (ins->mConst.mType == IT_POINTER && ins->mConst.mMemory == IM_FRAME)
@@ -22067,7 +22074,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "f");
+	CheckFunc = !strcmp(mIdent->mString, "bar2");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

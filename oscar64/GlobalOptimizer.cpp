@@ -160,6 +160,7 @@ bool GlobalOptimizer::CheckConstReturns(Expression*& exp)
 							lexp->mRight->mToken = TK_MUL;
 							lexp->mRight->mLeft = pex;
 							lexp->mRight->mDecType = pcall->mBase->mBase;
+							lexp->mDecType = lexp->mRight->mDecType;
 							exp->mDecType = TheVoidTypeDeclaration;
 							exp = lexp;
 							return true;
