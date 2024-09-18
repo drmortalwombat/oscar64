@@ -2457,7 +2457,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mSrc[0].mTemp = -1;
-					ins->mSrc[0].mType = mInstructions[i]->mSrc[0].mType;
+					ins->mConst.mType = mInstructions[i]->mSrc[0].mType;
 					ins->mConst.mIntConst = mInstructions[i]->mSrc[0].mIntConst;
 					ins->mNumOperands = 0;
 				}
@@ -2605,6 +2605,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mFloatConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
+				ins->mConst.mType = IT_FLOAT;
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
@@ -2668,6 +2669,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mType = ins->mDst.mType;
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
@@ -2700,6 +2702,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mIntConst = 0;
+					ins->mConst.mType = ins->mDst.mType;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 0;
@@ -2742,6 +2745,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mIntConst = 0;
+					ins->mConst.mType = ins->mDst.mType;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 0;
@@ -2780,6 +2784,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mIntConst = 0;
+					ins->mConst.mType = ins->mDst.mType;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 0;
@@ -2896,6 +2901,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mFloatConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
+				ins->mConst.mType = IT_FLOAT;
 				ins->mSrc[0].mTemp = -1;
 				ins->mNumOperands = 0;
 
@@ -2954,6 +2960,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mType = ins->mDst.mType;
 				ins->mSrc[0].mTemp = -1;
 				ins->mNumOperands = 0;
 
@@ -3015,7 +3022,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mType = IT_INT8;
+				ins->mConst.mType = IT_BOOL;
 				ins->mConst.mIntConst = ConstantRelationalFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
@@ -3031,7 +3038,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mType = IT_INT8;
+				ins->mConst.mType = IT_BOOL;
 				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mSrc[0].mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
@@ -3238,7 +3245,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				if (toconst)
 				{
 					ins->mCode = IC_CONSTANT;
-					ins->mConst.mType = IT_INT8;
+					ins->mConst.mType = IT_BOOL;
 					ins->mConst.mIntConst = cvalue;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
@@ -3439,7 +3446,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				if (toconst)
 				{
 					ins->mCode = IC_CONSTANT;
-					ins->mConst.mType = IT_INT8;
+					ins->mConst.mType = IT_BOOL;
 					ins->mConst.mIntConst = cvalue;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
@@ -3457,7 +3464,7 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			else if (ins->mSrc[1].mTemp == ins->mSrc[0].mTemp)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mType = IT_INT8;
+				ins->mConst.mType = IT_BOOL;
 
 				switch (ins->mOperator)
 				{
@@ -4981,6 +4988,7 @@ bool InterInstruction::ConstantFolding(void)
 				mConst.mFloatConst = ::ConstantFolding(mOperator, mSrc[1].mFloatConst, mSrc[0].mFloatConst);
 			else
 				mConst.mIntConst = ::ConstantFolding(mOperator, mDst.mType, mSrc[1].mIntConst, mSrc[0].mIntConst);
+			mConst.mType = mDst.mType;
 			mNumOperands = 0;
 			return true;
 		}
@@ -5043,6 +5051,7 @@ bool InterInstruction::ConstantFolding(void)
 				{
 					mCode = IC_CONSTANT;
 					mConst.mIntConst = 0;
+					mConst.mType = mDst.mType;
 					mNumOperands = 0;
 					return true;
 				}
@@ -5058,6 +5067,7 @@ bool InterInstruction::ConstantFolding(void)
 				mConst.mFloatConst = ::ConstantFolding(mOperator, mSrc[0].mFloatConst);
 			else
 				mConst.mIntConst = ::ConstantFolding(mOperator, mDst.mType, mSrc[0].mIntConst);
+			mConst.mType = mDst.mType;
 			mNumOperands = 0;
 			return true;
 		}
@@ -6091,6 +6101,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mNumOperands = 0;
 				break;
 			}
+			ins->mConst.mType = ins->mDst.mType;
 		}
 
 		break;
@@ -6148,6 +6159,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				ins->mConst.mVarIndex = tvalue[ins->mSrc[1].mTemp]->mConst.mVarIndex;
 				ins->mConst.mIntConst = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst + tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 				ins->mConst.mOperandSize = tvalue[ins->mSrc[1].mTemp]->mConst.mOperandSize;
+				ins->mConst.mType = IT_POINTER;
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
@@ -6244,6 +6256,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mDst.mType = IT_POINTER;
+				ins->mConst.mType = IT_POINTER;
 				ins->mConst.mMemory = IM_ABSOLUTE;
 				ins->mConst.mVarIndex = 0;
 				ins->mConst.mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
@@ -6260,6 +6273,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mDst.mType = IT_INT16;
+					ins->mConst.mType = IT_INT16;
 					ins->mConst.mIntConst = cins->mConst.mIntConst;
 					ins->mSrc[0].mTemp = -1;
 					ins->mNumOperands = 0;
@@ -6311,6 +6325,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mFloatConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
+					ins->mConst.mType = IT_FLOAT;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 0;
@@ -6338,6 +6353,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 						{
 							ins->mCode = IC_CONSTANT;
 							ins->mConst.mFloatConst = 0.0;
+							ins->mConst.mType = IT_FLOAT;
 							ins->mSrc[0].mTemp = -1;
 							ins->mSrc[1].mTemp = -1;
 							ins->mNumOperands = 0;
@@ -6378,6 +6394,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					{
 						ins->mCode = IC_CONSTANT;
 						ins->mConst.mFloatConst = 0.0;
+						ins->mConst.mType = IT_FLOAT;
 						ins->mSrc[0].mTemp = -1;
 						ins->mSrc[1].mTemp = -1;
 						ins->mNumOperands = 0;
@@ -6400,6 +6417,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				{
 					ins->mCode = IC_CONSTANT;
 					ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+					ins->mConst.mType = ins->mDst.mType;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
 					ins->mNumOperands = 0;
@@ -6621,6 +6639,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mFloatConst = ConstantFolding(ins->mOperator, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
+				ins->mConst.mType = IT_FLOAT;
 				ins->mSrc[0].mTemp = -1;
 				ins->mNumOperands = 0;
 			}
@@ -6640,6 +6659,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mIntConst = ConstantRelationalFolding(ins->mOperator, tvalue[ins->mSrc[1].mTemp]->mConst.mFloatConst, tvalue[ins->mSrc[0].mTemp]->mConst.mFloatConst);
+				ins->mConst.mType = IT_BOOL;
 				ins->mDst.mType = IT_BOOL;
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
@@ -6682,6 +6702,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			{
 				ins->mCode = IC_CONSTANT;
 				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mType = ins->mDst.mType;
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
 				ins->mNumOperands = 0;
@@ -11402,6 +11423,7 @@ void InterCodeBasicBlock::PerformValueForwarding(const GrowingInstructionPtrArra
 							cai->mDst.mTemp = spareTemps++;
 							cai->mDst.mType = IT_INT16;
 							cai->mConst.mIntConst = ai0->mConst.mIntConst + li0->mConst.mIntConst;
+							cai->mConst.mType = IT_INT16;
 							mInstructions.Insert(i, cai);
 
 							ins->mSrc[0].mTemp = cai->mDst.mTemp;
