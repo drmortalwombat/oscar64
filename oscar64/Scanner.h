@@ -240,6 +240,7 @@ public:
 	const char* TokenName(Token token) const;
 
 	void NextToken(void);
+	void UngetToken(Token token);
 
 	void BeginRecord(void);
 	TokenSequence* CompleteRecord(void);
@@ -266,6 +267,7 @@ public:
 	uint8		*	mTokenEmbed;
 	int				mTokenEmbedSize;
 
+	Token			mUndoToken;
 	Token			mToken;
 	double			mTokenNumber;
 	int64			mTokenInteger;

@@ -1658,7 +1658,7 @@ uint8* Parser::ParseStringLiteral(int & msize)
 	return d;
 }
 
-Expression* Parser::ParseInitExpression(Declaration* dtype)
+Expression* Parser::ParseInitExpression(Declaration* dtype, bool inner)
 {
 	Expression* exp = nullptr;
 	Declaration* dec;
@@ -1676,8 +1676,33 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 			else
 				mErrors->Error(mScanner->mLocation, EERR_UNDEFINED_OBJECT, "Constant for undefined anonymous type");
 		}
-		if (ConsumeTokenIf(TK_OPEN_BRACE))
+
+		if (mScanner->mToken == TK_STRING && dtype->mType == DT_TYPE_ARRAY && dtype->mBase->mType == DT_TYPE_INTEGER && dtype->mBase->mSize == 1)
 		{
+			int ds = dtype->mSize;
+			uint8* d = ParseStringLiteral(ds);
+
+			if (!(dtype->mFlags & DTF_DEFINED))
+			{
+				dtype->mFlags |= DTF_DEFINED;
+				dtype->mSize = int(ds);
+			}
+
+			dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);
+			dec->mBase = dtype;
+			dec->mSize = dtype->mSize;
+			dec->mSection = mDataSection;
+
+			dec->mData = d;
+
+			if (ds > dtype->mSize + 1)
+				mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "String constant is too large for char array");
+		}
+		else if ((inner && !dtype->mDefaultConstructor) || ConsumeTokenIf(TK_OPEN_BRACE))
+		{
+			if (inner && ConsumeTokenIf(TK_OPEN_BRACE))
+				inner = false;
+
 			dec = new Declaration(mScanner->mLocation, DT_CONST_STRUCT);
 			dec->mBase = dtype;
 			dec->mSize = dtype->mSize;
@@ -1732,7 +1757,7 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 						ConsumeToken(TK_ASSIGN);
 					}
 
-					Expression* texp = ParseInitExpression(dtype->mBase);
+					Expression* texp = ParseInitExpression(dtype->mBase, true);
 					texp = texp->ConstantFold(mErrors, mDataSection);
 					for (int i = 0; i < nrep; i++)
 					{
@@ -1748,8 +1773,15 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 						size += dtype->mBase->mSize;
 					}
 
+					if (inner && (dtype->mFlags & DTF_DEFINED) && size >= dtype->mSize)
+						break;
 					if (!ConsumeTokenIf(TK_COMMA))
 						break;
+					if (inner && mScanner->mToken == TK_OPEN_BRACKET)
+					{
+						mScanner->UngetToken(TK_COMMA);
+						break;
+					}
 					if (mScanner->mToken == TK_CLOSE_BRACE)
 						break;
 				}
@@ -1826,6 +1858,8 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 						while (!mdec && path.Size())
 							mdec = path.Pop()->mParams;
 					}
+					else if (inner)
+						break;
 					else if (!ConsumeTokenIf(TK_COMMA))
 						break;
 
@@ -1834,35 +1868,18 @@ Expression* Parser::ParseInitExpression(Declaration* dtype)
 				}
 			}
 
-			ConsumeToken(TK_CLOSE_BRACE);
+			if (!inner)
+			{
+				ConsumeTokenIf(TK_COMMA);
+				ConsumeToken(TK_CLOSE_BRACE);
+			}
 
 			if (last)
 				last->mNext = nullptr;
 			else
 				dec->mParams = nullptr;
 		}
-		else if (mScanner->mToken == TK_STRING && dtype->mType == DT_TYPE_ARRAY && dtype->mBase->mType == DT_TYPE_INTEGER && dtype->mBase->mSize == 1)
-		{
-			int ds = dtype->mSize;
-			uint8* d = ParseStringLiteral(ds);
-
-			if (!(dtype->mFlags & DTF_DEFINED))
-			{
-				dtype->mFlags |= DTF_DEFINED;
-				dtype->mSize = int(ds);
-			}
-
-			dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);
-			dec->mBase = dtype;
-			dec->mSize = dtype->mSize;
-			dec->mSection = mDataSection;
-
-			dec->mData = d;
-
-			if (ds > dtype->mSize + 1)
-				mErrors->Error(mScanner->mLocation, EERR_CONSTANT_INITIALIZER, "String constant is too large for char array");
-		}
-		else
+		else 
 		{
 			exp = ParseRExpression();
 			return exp;

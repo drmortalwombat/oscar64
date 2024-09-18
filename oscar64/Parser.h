@@ -71,7 +71,7 @@ protected:
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt, Declaration* ptempl = nullptr);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
-	Expression* ParseInitExpression(Declaration* dtype);
+	Expression* ParseInitExpression(Declaration* dtype, bool inner = false);
 	Expression* ParseDeclarationExpression(Declaration* pdec);
 
 	Declaration* ParsePostfixDeclaration(void);

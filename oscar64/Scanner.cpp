@@ -478,6 +478,12 @@ bool Scanner::IsIntegerToken(void) const
 	return mToken == TK_INTEGER || mToken == TK_INTEGERU || mToken == TK_INTEGERL || mToken == TK_INTEGERUL;
 }
 
+void Scanner::UngetToken(Token token)
+{
+	mUngetToken = mToken;
+	mToken = token;
+}
+
 void Scanner::NextToken(void)
 {
 	if (mReplay)
