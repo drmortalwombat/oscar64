@@ -2701,7 +2701,16 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 		if (fromType->mType == DT_TYPE_POINTER || fromType->mType == DT_TYPE_ARRAY)
 		{
 			if (mBase->mType == DT_TYPE_VOID || fromType->mBase->mType == DT_TYPE_VOID)
-				return (mBase->mFlags & DTF_CONST) || !(fromType->mBase->mFlags & DTF_CONST);
+			{
+				if (mCompilerOptions & COPT_CPLUSPLUS)
+				{
+					if (fromType == TheNullPointerTypeDeclaration)
+						return true;
+					return mBase->mType == DT_TYPE_VOID && ((mBase->mFlags & DTF_CONST) || !(fromType->mBase->mFlags & DTF_CONST));
+				}
+				else
+					return true;
+			}
 			else if (mBase->mStripe == fromType->mBase->mStripe && mBase->IsSubType(fromType->mBase))
 				return true;
 		}
@@ -2761,7 +2770,7 @@ Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheConstVoidPo
 Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
 Expression* TheVoidExpression;
-Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration;
+Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration, * TheNullPointerTypeDeclaration;
 
 void InitDeclarations(void)
 {
@@ -2781,6 +2790,11 @@ void InitDeclarations(void)
 	TheConstVoidPointerTypeDeclaration->mBase = TheConstVoidTypeDeclaration;
 	TheConstVoidPointerTypeDeclaration->mSize = 2;
 	TheConstVoidPointerTypeDeclaration->mFlags = DTF_DEFINED;
+
+	TheNullPointerTypeDeclaration = new Declaration(noloc, DT_TYPE_POINTER);
+	TheNullPointerTypeDeclaration->mBase = TheVoidTypeDeclaration;
+	TheNullPointerTypeDeclaration->mSize = 2;
+	TheNullPointerTypeDeclaration->mFlags = DTF_DEFINED;
 
 	TheVoidFunctionTypeDeclaration = new Declaration(noloc, DT_TYPE_FUNCTION);
 	TheVoidFunctionTypeDeclaration->mBase = TheVoidTypeDeclaration;
@@ -2847,7 +2861,7 @@ void InitDeclarations(void)
 
 
 	TheNullptrConstDeclaration = new Declaration(noloc, DT_CONST_ADDRESS);
-	TheNullptrConstDeclaration->mBase = TheVoidPointerTypeDeclaration;
+	TheNullptrConstDeclaration->mBase = TheNullPointerTypeDeclaration;
 	TheNullptrConstDeclaration->mSize = 2;
 	TheZeroIntegerConstDeclaration = new Declaration(noloc, DT_CONST_INTEGER);
 	TheZeroIntegerConstDeclaration->mBase = TheSignedIntTypeDeclaration;

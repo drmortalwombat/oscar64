@@ -20,12 +20,12 @@ void ostringstream::bput(char ch)
 	{
 		mBSize = 15;
 		mBFill = 0;
-		mBuffer = malloc(15);
+		mBuffer = (char *)malloc(15);
 	}
 	else if (mBFill == mBSize)
 	{
 		mBSize *= 2;
-		char * b = malloc(mBSize);
+		char * b = (char *)malloc(mBSize);
 		for(char i=0; i<mBFill; i++)
 			b[i] = mBuffer[i];
 		free(mBuffer);
@@ -46,7 +46,7 @@ void ostringstream::str(const string & str)
 	{
 		free(mBuffer);
 		mBSize = mBFill;
-		mBuffer = malloc(mBSize);
+		mBuffer = (char *)malloc(mBSize);
 	}
 	str.copyseg(mBuffer, 0, mBFill);
 }

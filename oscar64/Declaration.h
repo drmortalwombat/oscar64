@@ -369,6 +369,6 @@ extern Declaration* TheVoidTypeDeclaration, * TheConstVoidTypeDeclaration, * The
 extern Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoidPointerTypeDeclaration, * TheConstVoidPointerTypeDeclaration, * TheSignedLongTypeDeclaration, * TheUnsignedLongTypeDeclaration;
 extern Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 extern Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
-extern Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration;
+extern Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration, * TheNullPointerTypeDeclaration;
 extern Expression* TheVoidExpression;
 

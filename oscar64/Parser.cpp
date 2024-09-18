@@ -1125,6 +1125,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 		Declaration* ndec = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
 		ndec->mSize = 2;
 		ndec->mFlags |= DTF_DEFINED;
+		ndec->mCompilerOptions = mCompilerOptions;
 
 		for (;;)
 		{
@@ -6014,7 +6015,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		break;
 	case TK_NULL:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_ADDRESS);
-		dec->mBase = TheVoidPointerTypeDeclaration;
+		dec->mBase = TheNullPointerTypeDeclaration;
 		dec->mInteger = 0;
 		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
 		exp->mDecValue = dec;
