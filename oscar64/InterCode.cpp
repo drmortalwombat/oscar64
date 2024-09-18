@@ -7986,6 +7986,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 								vr.mMaxState = IntegerValueRange::S_UNBOUND;
 							else if (ins->mSrc[0].mIntConst < 0 && vr.mMinState == IntegerValueRange::S_WEAK)
 								vr.mMinState = IntegerValueRange::S_UNBOUND;
+							if (ins->mDst.mType == IT_INT8 && ins->mSrc[0].mIntConst >= 128 && vr.mMaxState != IntegerValueRange::S_BOUND)
+								vr.mMinState = IntegerValueRange::S_UNBOUND;
+
 							vr.mMaxValue += ins->mSrc[0].mIntConst;
 							vr.mMinValue += ins->mSrc[0].mIntConst;
 						}
@@ -10635,7 +10638,6 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 		mVisited = true;
 
-
 		for (int i = 0; i < mInstructions.Size(); i++)
 		{
 			InterInstruction* ins = mInstructions[i];
@@ -10690,6 +10692,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								ins->mOperator = ains->mOperator;
 								ins->mSrc[0] = ains->mSrc[0];
 								ins->mSrc[0].mIntConst <<= nins->mSrc[0].mIntConst;
+								ins->mSrc[0].mType = IT_INT16;
 								ins->mSrc[1] = nins->mDst;
 
 								changed = true;
@@ -15712,7 +15715,12 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 									{
 										lc.mStart = lc.mInit->mConst.mIntConst;
 										if (lc.mInc->mSrc[0].mTemp < 0)
-											lc.mStep = lc.mInc->mSrc[0].mIntConst;
+										{
+											if (lc.mInc->mOperator == IA_SUB)
+												lc.mStep = -lc.mInc->mSrc[0].mIntConst;
+											else
+												lc.mStep = lc.mInc->mSrc[0].mIntConst;
+										}
 										else
 											lc.mStep = lc.mInc->mSrc[1].mIntConst;
 										lcs.Push(lc);
@@ -15734,9 +15742,6 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 						int64	start = lcs[k].mStart;
 						int64	end = lcs[k].mEnd;
 						int64	step = lcs[k].mStep;
-
-						if (lcs[k].mInc->mCode == IC_BINARY_OPERATOR && lcs[k].mInc->mOperator == IA_SUB)
-							step = -step;
 
 						if (step > 0 && end > start || step < 0 && end < start)
 							loop = (end - start) / step;
@@ -22062,7 +22067,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "f");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
