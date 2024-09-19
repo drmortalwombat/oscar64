@@ -259,6 +259,30 @@ bool GlobalOptimizer::ReplaceParamConst(Expression* exp, Declaration* param)
 	return changed;
 }
 
+bool GlobalOptimizer::ReplaceGlobalConst(Expression* exp)
+{
+	bool	changed = false;
+	if (exp)
+	{
+		if (exp->mType == EX_VARIABLE && (exp->mDecValue->mFlags & (DTF_GLOBAL | DTF_STATIC)) && !(exp->mDecValue->mOptFlags & (OPTF_VAR_MODIFIED | OPTF_VAR_ADDRESS)) && exp->mDecValue->mValue)
+		{
+			Expression* cexp = exp->mDecValue->mValue;
+			if (cexp->mType == EX_CONSTANT)
+			{
+				exp->mType = EX_CONSTANT;
+				exp->mDecValue = cexp->mDecValue;
+			}
+			changed = true;
+		}
+
+		if (ReplaceGlobalConst(exp->mLeft))
+			changed = true;
+		if (ReplaceGlobalConst(exp->mRight))
+			changed = true;
+	}
+	return changed;
+}
+
 bool GlobalOptimizer::Optimize(void)
 {
 	bool	changed = false;
@@ -280,6 +304,9 @@ bool GlobalOptimizer::Optimize(void)
 				changed = true;
 
 			if (CheckConstReturns(func->mValue))
+				changed = true;
+
+			if (ReplaceGlobalConst(func->mValue))
 				changed = true;
 
 			if (func->mOptFlags & OPTF_MULTI_CALL)
@@ -434,8 +461,7 @@ void GlobalOptimizer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			{
 				if (adec->mBase->mFlags & DTF_GLOBAL)
 					AnalyzeGlobalVariable(adec->mBase);
-				else
-					adec->mBase->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
+				adec->mBase->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
 			}
 			else if (adec->mType == DT_LABEL)
 			{
@@ -445,8 +471,7 @@ void GlobalOptimizer::AnalyzeAssembler(Expression* exp, Declaration* procDec)
 			{
 				if (adec->mFlags & DTF_GLOBAL)
 					AnalyzeGlobalVariable(adec);
-				else
-					adec->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
+				adec->mOptFlags |= OPTF_VAR_USED | OPTF_VAR_ADDRESS;
 			}
 			else if (adec->mType == DT_ARGUMENT)
 			{
@@ -611,13 +636,11 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 
 			AnalyzeGlobalVariable(exp->mDecValue);
 		}
-		else
-		{
-			if (flags & ANAFL_RHS)
-				exp->mDecValue->mOptFlags |= OPTF_VAR_USED;
-			if (flags & ANAFL_LHS)
-				exp->mDecValue->mOptFlags |= OPTF_VAR_ADDRESS;
-		}
+		if (flags & ANAFL_RHS)
+			exp->mDecValue->mOptFlags |= OPTF_VAR_USED;
+		if (flags & ANAFL_LHS)
+			exp->mDecValue->mOptFlags |= OPTF_VAR_ADDRESS;
+
 		if (exp->mDecValue->mType == DT_ARGUMENT)
 		{
 			exp->mDecValue->mOptFlags |= OPTF_VAR_NO_FORWARD;

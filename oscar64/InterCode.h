@@ -556,13 +556,22 @@ public:
 	bool IsTempModifiedOnPath(int temp, int at) const;
 	bool IsTempReferencedOnPath(int temp, int at) const;
 
+	// The memory referenced by lins may be writtne by sind
 	bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const;
 	bool DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+
+	// The two memory operations may have overlapping reads/writs and writes
 	bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
 	bool CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
 	bool CollidingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
 	bool InvalidatedBy(const InterInstruction* ins, const InterInstruction* by) const;
+
+	// The two memory regions may be aliased but not just the same
+	bool AliasingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;
+	bool AliasingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
+	bool AliasingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
+	bool AliasingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
 
 	bool PushSinglePathResultInstructions(void);
 

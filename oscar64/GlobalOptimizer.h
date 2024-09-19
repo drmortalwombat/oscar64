@@ -39,5 +39,6 @@ protected:
 	bool ReplaceParamConst(Expression* exp, Declaration* param);
 	void PropagateCommas(Expression*& exp);
 	void PropagateParamCommas(Expression *& fexp, Expression*& exp);
+	bool ReplaceGlobalConst(Expression* exp);
 
 };

@@ -544,203 +544,6 @@ static bool CollidingMemType(InterType type1, InterType type2)
 
 }
 
-bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const
-{
-	if (op1.mMemory != op2.mMemory)
-	{
-		if (op1.mMemory == IM_INDIRECT)
-		{
-			if (op1.mRestricted)
-				return false;
-			else if (op2.mMemory == IM_GLOBAL)
-			{
-				if (op1.mMemoryBase == IM_GLOBAL)
-					return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
-				else
-					return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
-			}
-			else if (op2.mMemory == IM_FPARAM || op2.mMemory == IM_FFRAME)
-				return false;
-			else if (op2.mMemory == IM_LOCAL)
-			{
-				if (op1.mMemoryBase == IM_LOCAL)
-					return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
-				else
-					return mProc->mLocalVars[op2.mVarIndex]->mAliased && CollidingMemType(type1, type2);
-			}
-			else if (op2.mMemory == IM_INDIRECT && (op1.mMemoryBase != IM_NONE && op2.mMemoryBase != IM_NONE && op1.mMemoryBase != IM_INDIRECT && op2.mMemoryBase != IM_INDIRECT))
-			{
-				if (op1.mMemoryBase == op2.mMemoryBase)
-				{
-					if (op1.mMemoryBase == IM_LOCAL || op1.mMemoryBase == IM_GLOBAL)
-						return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
-					else
-						return CollidingMemType(type1, type2);
-				}
-				else
-					return false;
-			}
-			else
-				return CollidingMemType(type1, type2);
-		}
-		else if (op2.mMemory == IM_INDIRECT)
-		{
-			if (op2.mRestricted)
-				return false;
-			else if (op1.mMemory == IM_GLOBAL)
-			{
-				if (op2.mMemoryBase == IM_GLOBAL)
-					return op1.mVarIndex == op2.mVarIndex;
-				else
-					return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
-			}
-			else if (op1.mMemory == IM_FPARAM || op1.mMemory == IM_FFRAME)
-				return false;
-			else if (op1.mMemory == IM_LOCAL)
-			{
-				if (op1.mMemoryBase == IM_LOCAL)
-					return op1.mVarIndex == op2.mVarIndex;
-				else
-					return mProc->mLocalVars[op1.mVarIndex]->mAliased && CollidingMemType(type1, type2);
-			}
-			else
-				return CollidingMemType(type1, type2);
-		}
-		else
-			return false;
-	}
-
-	switch (op1.mMemory)
-	{
-	case IM_LOCAL:
-	case IM_FPARAM:
-	case IM_PARAM:
-		return op1.mVarIndex == op2.mVarIndex && op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
-	case IM_ABSOLUTE:
-		return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
-	case IM_GLOBAL:
-		if (op1.mLinkerObject == op2.mLinkerObject)
-			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
-		else
-			return false;
-	case IM_INDIRECT:
-		if (op1.mTemp == op2.mTemp)
-			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
-		else if (op1.mLinkerObject && op2.mLinkerObject && op1.mLinkerObject != op2.mLinkerObject)
-			return false;
-		else if (op1.mRestricted && op2.mRestricted && op1.mRestricted != op2.mRestricted)
-			return false;
-		else
-			return CollidingMemType(type1, type2);
-	default:
-		return false;
-	}
-}
-
-bool InterCodeBasicBlock::CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const
-{
-	if (ins->mCode == IC_LOAD)
-		return CollidingMem(op, type, ins->mSrc[0], ins->mDst.mType);
-	else if (ins->mCode == IC_STORE)
-		return CollidingMem(op, type, ins->mSrc[1], ins->mSrc[0].mType);
-	else if (ins->mCode == IC_FILL)
-		return CollidingMem(op, type, ins->mSrc[1], IT_NONE);
-	else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
-		return CollidingMem(op, type, ins->mSrc[0], IT_NONE) || CollidingMem(op, type, ins->mSrc[1], IT_NONE);
-	else
-		return false;
-}
-
-bool InterCodeBasicBlock::CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const
-{
-	if (ins1->mCode == IC_LOAD)
-		return CollidingMem(ins1->mSrc[0], ins1->mDst.mType, ins2);
-	else if (ins1->mCode == IC_STORE)
-		return CollidingMem(ins1->mSrc[1], ins1->mSrc[0].mType, ins2);
-	else if (ins1->mCode == IC_FILL)
-		return CollidingMem(ins1->mSrc[1], IT_NONE, ins2);
-	else if (ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
-		return CollidingMem(ins1->mSrc[0], IT_NONE, ins2) || CollidingMem(ins1->mSrc[1], IT_NONE, ins2);
-	else
-		return false;
-}
-
-bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const
-{
-	if (sins->mCode == IC_LOAD)
-		return false;
-	else if (sins->mCode == IC_STORE)
-		return CollidingMem(sins->mSrc[1], sins->mSrc[0].mType, lins);
-	else if (sins->mCode == IC_FILL)
-		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
-	else if (sins->mCode == IC_COPY || sins->mCode == IC_STRCPY)
-		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
-	else if (sins->mCode == IC_CALL || sins->mCode == IC_CALL_NATIVE)
-	{
-		if (sins->mSrc[0].mTemp < 0 && sins->mSrc[0].mLinkerObject)
-		{
-			InterCodeProcedure* proc = sins->mSrc[0].mLinkerObject->mProc;
-			if (proc)
-			{
-				int	opmask = 0;
-				if (lins->mCode == IC_LOAD)
-					opmask = 1;
-				else if (lins->mCode == IC_STORE)
-					opmask = 2;
-				else if (lins->mCode == IC_FILL)
-					opmask = 2;
-				else if (lins->mCode == IC_COPY)
-					opmask = 3;
-
-				for (int k = 0; k < lins->mNumOperands; k++)
-				{
-					if ((1 << k) & opmask)
-					{
-						const InterOperand& op(lins->mSrc[k]);
-
-						if (op.mTemp >= 0)
-						{
-							if (proc->mStoresIndirect)
-								return true;
-						}
-						else if (op.mMemory == IM_FFRAME || op.mMemory == IM_FRAME)
-							return true;
-						else if (op.mMemory == IM_GLOBAL)
-						{
-							if (proc->ModifiesGlobal(op.mVarIndex))
-								return true;
-						}
-						else if (op.mMemory == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
-							;
-						else if ((op.mMemory == IM_PARAM || op.mMemory == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
-							;
-						else
-							return true;
-					}
-				}
-
-				return false;
-			}
-		}
-
-		return true;
-	}
-	else
-		return false;
-}
-
-bool InterCodeBasicBlock::DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const
-{
-	for (int i = from; i < to; i++)
-	{
-		InterInstruction* ins = block->mInstructions[i];
-		if (DestroyingMem(lins, ins))
-			return true;
-	}
-
-	return false;
-}
-
 static bool SameMem(const InterOperand& op1, const InterOperand& op2)
 {
 	if (op1.mMemory != op2.mMemory || op1.mType != op2.mType || op1.mIntConst != op2.mIntConst)
@@ -906,6 +709,252 @@ static void SwapInstructions(InterInstruction* it, InterInstruction* ib)
 			}
 		}
 	}
+}
+
+
+bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const
+{
+	if (op1.mMemory != op2.mMemory)
+	{
+		if (op1.mMemory == IM_INDIRECT)
+		{
+			if (op1.mRestricted)
+				return false;
+			else if (op2.mMemory == IM_GLOBAL)
+			{
+				if (op1.mMemoryBase == IM_GLOBAL)
+					return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
+				else
+					return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
+			}
+			else if (op2.mMemory == IM_FPARAM || op2.mMemory == IM_FFRAME)
+				return false;
+			else if (op2.mMemory == IM_LOCAL)
+			{
+				if (op1.mMemoryBase == IM_LOCAL)
+					return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
+				else
+					return mProc->mLocalVars[op2.mVarIndex]->mAliased && CollidingMemType(type1, type2);
+			}
+			else if (op2.mMemory == IM_INDIRECT && (op1.mMemoryBase != IM_NONE && op2.mMemoryBase != IM_NONE && op1.mMemoryBase != IM_INDIRECT && op2.mMemoryBase != IM_INDIRECT))
+			{
+				if (op1.mMemoryBase == op2.mMemoryBase)
+				{
+					if (op1.mMemoryBase == IM_LOCAL || op1.mMemoryBase == IM_GLOBAL)
+						return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
+					else
+						return CollidingMemType(type1, type2);
+				}
+				else
+					return false;
+			}
+			else
+				return CollidingMemType(type1, type2);
+		}
+		else if (op2.mMemory == IM_INDIRECT)
+		{
+			if (op2.mRestricted)
+				return false;
+			else if (op1.mMemory == IM_GLOBAL)
+			{
+				if (op2.mMemoryBase == IM_GLOBAL)
+					return op1.mVarIndex == op2.mVarIndex;
+				else
+					return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
+			}
+			else if (op1.mMemory == IM_FPARAM || op1.mMemory == IM_FFRAME)
+				return false;
+			else if (op1.mMemory == IM_LOCAL)
+			{
+				if (op1.mMemoryBase == IM_LOCAL)
+					return op1.mVarIndex == op2.mVarIndex;
+				else
+					return mProc->mLocalVars[op1.mVarIndex]->mAliased && CollidingMemType(type1, type2);
+			}
+			else
+				return CollidingMemType(type1, type2);
+		}
+		else
+			return false;
+	}
+
+	switch (op1.mMemory)
+	{
+	case IM_LOCAL:
+	case IM_FPARAM:
+	case IM_PARAM:
+		return op1.mVarIndex == op2.mVarIndex && op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+	case IM_ABSOLUTE:
+		return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+	case IM_GLOBAL:
+		if (op1.mLinkerObject == op2.mLinkerObject)
+			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+		else
+			return false;
+	case IM_INDIRECT:
+		if (op1.mTemp == op2.mTemp)
+			return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+		else if (op1.mLinkerObject && op2.mLinkerObject && op1.mLinkerObject != op2.mLinkerObject)
+			return false;
+		else if (op1.mRestricted && op2.mRestricted && op1.mRestricted != op2.mRestricted)
+			return false;
+		else
+			return CollidingMemType(type1, type2);
+	default:
+		return false;
+	}
+}
+
+bool InterCodeBasicBlock::CollidingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const
+{
+	if (ins->mCode == IC_LOAD)
+		return CollidingMem(op, type, ins->mSrc[0], ins->mDst.mType);
+	else if (ins->mCode == IC_STORE)
+		return CollidingMem(op, type, ins->mSrc[1], ins->mSrc[0].mType);
+	else if (ins->mCode == IC_FILL)
+		return CollidingMem(op, type, ins->mSrc[1], IT_NONE);
+	else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+		return CollidingMem(op, type, ins->mSrc[0], IT_NONE) || CollidingMem(op, type, ins->mSrc[1], IT_NONE);
+	else
+		return false;
+}
+
+bool InterCodeBasicBlock::CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const
+{
+	if (ins1->mCode == IC_LOAD)
+		return CollidingMem(ins1->mSrc[0], ins1->mDst.mType, ins2);
+	else if (ins1->mCode == IC_STORE)
+		return CollidingMem(ins1->mSrc[1], ins1->mSrc[0].mType, ins2);
+	else if (ins1->mCode == IC_FILL)
+		return CollidingMem(ins1->mSrc[1], IT_NONE, ins2);
+	else if (ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+		return CollidingMem(ins1->mSrc[0], IT_NONE, ins2) || CollidingMem(ins1->mSrc[1], IT_NONE, ins2);
+	else
+		return false;
+}
+
+
+bool InterCodeBasicBlock::AliasingMem(const InterInstruction* ins1, const InterInstruction* ins2) const
+{
+	if (ins1->mCode == IC_LOAD)
+		return AliasingMem(ins1->mSrc[0], ins1->mDst.mType, ins2);
+	else if (ins1->mCode == IC_STORE)
+		return AliasingMem(ins1->mSrc[1], ins1->mSrc[0].mType, ins2);
+	else if (ins1->mCode == IC_FILL)
+		return AliasingMem(ins1->mSrc[1], IT_NONE, ins2);
+	else if (ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY)
+		return AliasingMem(ins1->mSrc[0], IT_NONE, ins2) || AliasingMem(ins1->mSrc[1], IT_NONE, ins2);
+	else
+		return false;
+}
+
+bool InterCodeBasicBlock::AliasingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const
+{
+	if (ins->mCode == IC_LOAD)
+		return AliasingMem(op, type, ins->mSrc[0], ins->mDst.mType);
+	else if (ins->mCode == IC_STORE)
+		return AliasingMem(op, type, ins->mSrc[1], ins->mSrc[0].mType);
+	else if (ins->mCode == IC_FILL)
+		return AliasingMem(op, type, ins->mSrc[1], IT_NONE);
+	else if (ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+		return AliasingMem(op, type, ins->mSrc[0], IT_NONE) || AliasingMem(op, type, ins->mSrc[1], IT_NONE);
+	else
+		return false;
+}
+
+bool InterCodeBasicBlock::AliasingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const
+{
+	if (type1 != IT_NONE && type1 == type2 && SameMem(op1, op2))
+		return false;
+	else
+		return CollidingMem(op1, type1, op2, type2);
+}
+
+bool InterCodeBasicBlock::AliasingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const
+{
+	if (to > block->mInstructions.Size())
+		to = block->mInstructions.Size();
+	for (int i = from; i < to; i++)
+		if (AliasingMem(block->mInstructions[i], lins))
+			return true;
+	return false;
+}
+
+
+bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const
+{
+	if (sins->mCode == IC_LOAD)
+		return false;
+	else if (sins->mCode == IC_STORE)
+		return CollidingMem(sins->mSrc[1], sins->mSrc[0].mType, lins);
+	else if (sins->mCode == IC_FILL)
+		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
+	else if (sins->mCode == IC_COPY || sins->mCode == IC_STRCPY)
+		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
+	else if (sins->mCode == IC_CALL || sins->mCode == IC_CALL_NATIVE)
+	{
+		if (sins->mSrc[0].mTemp < 0 && sins->mSrc[0].mLinkerObject)
+		{
+			InterCodeProcedure* proc = sins->mSrc[0].mLinkerObject->mProc;
+			if (proc)
+			{
+				int	opmask = 0;
+				if (lins->mCode == IC_LOAD)
+					opmask = 1;
+				else if (lins->mCode == IC_STORE)
+					opmask = 2;
+				else if (lins->mCode == IC_FILL)
+					opmask = 2;
+				else if (lins->mCode == IC_COPY)
+					opmask = 3;
+
+				for (int k = 0; k < lins->mNumOperands; k++)
+				{
+					if ((1 << k) & opmask)
+					{
+						const InterOperand& op(lins->mSrc[k]);
+
+						if (op.mTemp >= 0)
+						{
+							if (proc->mStoresIndirect)
+								return true;
+						}
+						else if (op.mMemory == IM_FFRAME || op.mMemory == IM_FRAME)
+							return true;
+						else if (op.mMemory == IM_GLOBAL)
+						{
+							if (proc->ModifiesGlobal(op.mVarIndex))
+								return true;
+						}
+						else if (op.mMemory == IM_LOCAL && !mProc->mLocalVars[op.mVarIndex]->mAliased)
+							;
+						else if ((op.mMemory == IM_PARAM || op.mMemory == IM_FPARAM) && !mProc->mParamVars[op.mVarIndex]->mAliased)
+							;
+						else
+							return true;
+					}
+				}
+
+				return false;
+			}
+		}
+
+		return true;
+	}
+	else
+		return false;
+}
+
+bool InterCodeBasicBlock::DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const
+{
+	for (int i = from; i < to; i++)
+	{
+		InterInstruction* ins = block->mInstructions[i];
+		if (DestroyingMem(lins, ins))
+			return true;
+	}
+
+	return false;
 }
 
 bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const
@@ -14556,6 +14605,8 @@ bool InterCodeBasicBlock::CollidingMem(InterCodeBasicBlock* block, InterInstruct
 	return false;
 }
 
+
+
 bool InterCodeBasicBlock::InvalidatedBy(const InterInstruction* ins, const InterInstruction* by) const
 {
 	if (by->mDst.mTemp >= 0 && ins->ReferencesTemp(by->mDst.mTemp))
@@ -17815,7 +17866,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							InterInstruction* sins = mInstructions[j];
 
 							// Does a full store
-							if (SameMem(ins->mSrc[0], sins->mSrc[1]))
+							if (SameMem(ins->mSrc[0], sins->mSrc[1]) && !AliasingMem(this, ins, 0, mInstructions.Size()))
 							{
 								if (sins->mSrc[0].mTemp >= 0)
 								{
@@ -17845,7 +17896,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 											// Propagate all loads to move temps
 
-											for (int t = j + 1; t < mInstructions.Size(); t++)
+											for (int t = i + 1; t < mInstructions.Size(); t++)
 											{
 												InterInstruction* ti = mInstructions[t];
 												if (ti->mCode == IC_LOAD && SameMem(ti->mSrc[0], ins->mSrc[0]))
