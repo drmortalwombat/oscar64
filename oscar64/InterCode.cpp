@@ -109,6 +109,30 @@ void IntegerValueRange::LimitMinWeak(int64 value)
 
 }
 
+void IntegerValueRange::AddConstValue(InterType type, int64 value)
+{
+	if (value > 0 && IntegerValueRange::S_WEAK)
+		mMaxState = S_UNBOUND;
+	else if (value < 0 && mMinState == S_WEAK)
+		mMinState = S_UNBOUND;
+
+	if (type == IT_INT8 && value >= 128 && mMaxState != S_BOUND)
+		mMinState = S_UNBOUND;
+
+	mMinValue += value;
+	mMaxValue += value;
+
+	if (type == IT_INT8)
+	{
+		if (mMinState == S_BOUND && mMinValue < -255 || mMaxState == S_BOUND && mMaxValue > 255)
+		{
+			LimitMax(255);
+			LimitMin(-128);
+		}
+	}
+}
+
+
 void IntegerValueRange::LimitMaxWeak(int64 value)
 {
 	if (mMaxState == S_UNBOUND || mMaxState != S_UNKNOWN && mMaxValue > value)
@@ -15187,6 +15211,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									ains->mSrc[0].mTemp = -1;
 									ains->mSrc[0].mIntConst = s;
 									tail->AppendBeforeBranch(ains);
+									ains->mDst.mRange.AddConstValue(ains->mDst.mType, s);
 
 									indexScale[ains->mDst.mTemp] = s;
 
@@ -15219,7 +15244,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									ains->mSrc[0] = nins->mSrc[0];
 									ains->mSrc[0].mIntConst *= indexScale[lins->mSrc[0].mTemp];
 									tail->AppendBeforeBranch(ains);
-									ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
+									ains->mDst.mRange.AddConstValue(ains->mDst.mType, ains->mSrc[0].mIntConst);
 
 									indexScale[ains->mDst.mTemp] = (int)ains->mSrc[0].mIntConst;
 
@@ -15254,7 +15279,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								ains->mSrc[0].mTemp = -1;
 								ains->mSrc[0].mIntConst = s;
 								tail->AppendBeforeBranch(ains);
-								ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
+								ains->mDst.mRange.AddConstValue(ains->mDst.mType, s);
 
 								indexScale[ains->mDst.mTemp] = s;
 
@@ -22074,7 +22099,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "bar2");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

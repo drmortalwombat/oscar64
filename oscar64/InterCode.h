@@ -185,6 +185,8 @@ public:
 	
 	void LimitMinWeak(int64 value);
 	void LimitMaxWeak(int64 value);
+
+	void AddConstValue(InterType type, int64 value);
 };
 
 
