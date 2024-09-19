@@ -3367,9 +3367,9 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			{
 				int	t;
 				if (mFlags & NCIF_LOWER)
-					t = (mAddress ^ 0xffff) + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
+					t = ((mAddress ^ 0xffff) & 0xff) + (data.mRegs[CPU_REG_A].mValue & 0xff) + data.mRegs[CPU_REG_C].mValue;
 				else
-					t = ((mAddress ^ 0xffff) >> 8) + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
+					t = ((mAddress ^ 0xffff) >> 8) + (data.mRegs[CPU_REG_A].mValue >> 8) + data.mRegs[CPU_REG_C].mValue;
 
 				mType = ASMIT_LDA;
 				mMode = ASMIM_IMMEDIATE;
@@ -50782,7 +50782,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "intro_display");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
