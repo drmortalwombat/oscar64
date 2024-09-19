@@ -484,6 +484,19 @@ void ByteCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank
 			fprintf(file, "CNVFS\tACCU");
 			break;
 
+		case BC_CONV_U32_F32:
+			fprintf(file, "CNVLUF\tACCU");
+			break;
+		case BC_CONV_I32_F32:
+			fprintf(file, "CNVLSF\tACCU");
+			break;
+		case BC_CONV_F32_U32:
+			fprintf(file, "CNVFLU\tACCU");
+			break;
+		case BC_CONV_F32_I32:
+			fprintf(file, "CNVFLS\tACCU");
+			break;
+
 		case BC_MALLOC:
 			fprintf(file, "MALLOC\tACCU");
 			break;

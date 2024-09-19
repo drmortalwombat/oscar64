@@ -3518,6 +3518,102 @@ __asm inp_conv_i16_f32
 
 #pragma	bytecode(BC_CONV_I16_F32, inp_conv_i16_f32)
 
+__asm uint32_to_float
+{
+		lda	accu
+		ora	accu + 1
+		ora	accu + 2
+		ora	accu + 3
+		bne	W1
+		rts
+W1:
+		ldx	#$9e
+		lda	accu + 3
+		bmi	W2
+L1:
+		dex
+		asl	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol
+		bpl	L1
+W2:
+		bit	accu
+		bpl W3
+		// check rounding
+		inc accu + 1
+		bne W3
+		inc accu + 2
+		bne W3
+		clc
+		adc #1
+		bcc W3
+		lsr
+		ror accu + 2
+		ror accu + 1
+		inx
+W3:
+		asl
+		ldy accu + 1
+		sty accu
+		ldy accu + 2
+		sty accu + 1
+		sta	accu + 2
+
+		txa
+		lsr
+		sta	accu + 3
+		ror	accu + 2
+		rts
+}
+
+__asm sint32_to_float
+{
+		bit	accu + 3
+		bmi	W1
+		jmp	uint32_to_float
+W1:		
+		sec
+		lda	#0
+		sbc	accu
+		sta	accu
+		lda	#0
+		sbc	accu + 1
+		sta	accu + 1	
+		lda	#0
+		sbc	accu + 2
+		sta	accu + 2
+		lda	#0
+		sbc	accu + 3
+		sta	accu + 3	
+		jsr	uint32_to_float
+		lda	accu + 3
+		ora	#$80
+		sta	accu + 3
+		rts
+}
+
+
+__asm inp_conv_u32_f32	
+{
+		sty tmpy
+		jsr	uint32_to_float
+		ldy tmpy
+		rts
+}
+
+#pragma	bytecode(BC_CONV_U32_F32, inp_conv_u32_f32)
+
+__asm inp_conv_i32_f32		
+{
+		sty	tmpy
+		jsr	sint32_to_float
+		ldy tmpy
+		rts
+}
+
+#pragma	bytecode(BC_CONV_I32_F32, inp_conv_i32_f32)
+
 __asm f32_to_i16
 {
 		jsr	freg.split_aexp
@@ -3614,6 +3710,90 @@ __asm inp_conv_f32_u16
 }
 
 #pragma	bytecode(BC_CONV_F32_U16, inp_conv_f32_u16)
+
+__asm f32_to_u32
+{
+		jsr	freg.split_aexp
+		lda	tmp + 4
+		cmp	#$7f
+		bcs	W1
+		lda	#0
+F0:
+		sta	accu
+		sta	accu + 1
+		sta	accu + 2
+		sta	accu + 3
+		rts
+W1:
+		sec
+		sbc	#$9e
+		beq	W2
+		bcc	W3
+		lda	#$ff
+		bne F0
+
+W3:
+		tax
+		
+		lda #0
+L1:
+		lsr	accu + 2
+		ror	accu + 1
+		ror accu + 0
+		ror
+		inx
+		bne	L1
+
+W2:
+		ldx accu + 2
+		stx accu + 3
+		ldx accu + 1
+		stx accu + 2
+		ldx accu
+		stx accu + 1
+		sta accu
+
+		rts
+}
+
+__asm f32_to_i32
+{
+		lda accu + 3
+		bmi	W1
+		jmp f32_to_u32
+W1:
+		jsr f32_to_u32
+		
+		sec
+		lda	#0
+		sbc	accu
+		sta	accu
+		lda	#0
+		sbc	accu + 1
+		sta	accu + 1
+		lda	#0
+		sbc	accu + 2
+		sta	accu + 2
+		lda	#0
+		sbc	accu + 3
+		sta	accu + 3
+
+		rts
+}
+
+__asm inp_conv_f32_i32
+{
+		jmp	f32_to_i32
+}
+
+#pragma	bytecode(BC_CONV_F32_I32, inp_conv_f32_i32)
+
+__asm inp_conv_f32_u32
+{
+		jmp f32_to_u32
+}
+
+#pragma	bytecode(BC_CONV_F32_U32, inp_conv_f32_u32)
 
 __asm inp_op_abs_f32	
 {
@@ -3809,6 +3989,10 @@ fru3:
 #pragma runtime(ftou, f32_to_u16)
 #pragma runtime(ffloor, fround.ffloor)
 #pragma runtime(fceil, fround.fceil)
+#pragma runtime(ffromli, sint32_to_float)
+#pragma runtime(ffromlu, uint32_to_float)
+#pragma runtime(ftoli, f32_to_i32)
+#pragma runtime(ftolu, f32_to_u32)
 
 __asm inp_op_floor_f32
 {

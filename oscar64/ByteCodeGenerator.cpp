@@ -623,6 +623,10 @@ bool ByteCodeInstruction::CheckAccuSize(uint32 & used)
 	case BC_OP_CEIL_F32:
 	case BC_CONV_F32_U16:
 	case BC_CONV_F32_I16:
+	case BC_CONV_U32_F32:
+	case BC_CONV_I32_F32:
+	case BC_CONV_F32_U32:
+	case BC_CONV_F32_I32:
 		used = 0xffffffff;
 		break;
 
@@ -1266,6 +1270,23 @@ void ByteCodeInstruction::Assemble(ByteCodeGenerator* generator, ByteCodeBasicBl
 	case BC_BINOP_CMP_U32:
 	case BC_BINOP_CMP_S32:
 		{
+		block->PutCode(generator, BC_EXTRT);
+
+		LinkerReference	rl;
+		rl.mOffset = block->mCode.Size();
+		rl.mFlags = LREF_HIGHBYTE | LREF_LOWBYTE;
+		rl.mRefObject = generator->mExtByteCodes[mCode - 128];
+		rl.mRefOffset = 0;
+		block->mRelocations.Push(rl);
+		block->PutWord(0);
+		block->PutByte(mRegister);
+		break;
+	}
+	case BC_CONV_U32_F32:
+	case BC_CONV_I32_F32:
+	case BC_CONV_F32_U32:
+	case BC_CONV_F32_I32:
+	{
 		block->PutCode(generator, BC_EXTRT);
 
 		LinkerReference	rl;
@@ -3713,6 +3734,67 @@ void ByteCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, const Inter
 		mIns.Push(lins);
 
 		ByteCodeInstruction	bins(BC_CONV_U16_F32);
+		mIns.Push(bins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(sins);
+
+	} break;
+
+	case IA_FLOAT2LINT:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_32);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+
+		ByteCodeInstruction	bins(BC_CONV_F32_I32);
+		mIns.Push(bins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(sins);
+
+	}	break;
+	case IA_LINT2FLOAT:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_32);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+
+		ByteCodeInstruction	bins(BC_CONV_I32_F32);
+		mIns.Push(bins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(sins);
+
+	} break;
+	case IA_FLOAT2LUINT:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_32);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+
+		ByteCodeInstruction	bins(BC_CONV_F32_U32);
+		mIns.Push(bins);
+
+		ByteCodeInstruction	sins(BC_STORE_REG_32);
+		sins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp];
+		mIns.Push(sins);
+
+	}	break;
+	case IA_LUINT2FLOAT:
+	{
+		ByteCodeInstruction	lins(BC_LOAD_REG_32);
+		lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+		lins.mRegisterFinal = ins->mSrc[0].mFinal;
+		mIns.Push(lins);
+
+		ByteCodeInstruction	bins(BC_CONV_U32_F32);
 		mIns.Push(bins);
 
 		ByteCodeInstruction	sins(BC_STORE_REG_32);

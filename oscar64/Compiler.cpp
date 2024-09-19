@@ -950,8 +950,12 @@ bool Compiler::GenerateCode(void)
 		RegisterRuntime(loc, Ident::Unique("fceil"));
 		RegisterRuntime(loc, Ident::Unique("ftoi"));
 		RegisterRuntime(loc, Ident::Unique("ftou"));
+		RegisterRuntime(loc, Ident::Unique("ftoli"));
+		RegisterRuntime(loc, Ident::Unique("ftolu"));
 		RegisterRuntime(loc, Ident::Unique("ffromi"));
 		RegisterRuntime(loc, Ident::Unique("ffromu"));
+		RegisterRuntime(loc, Ident::Unique("ffromli"));
+		RegisterRuntime(loc, Ident::Unique("ffromlu"));
 		RegisterRuntime(loc, Ident::Unique("fcmp"));
 		RegisterRuntime(loc, Ident::Unique("bcexec"));
 		RegisterRuntime(loc, Ident::Unique("jmpaddr"));

@@ -117,6 +117,9 @@ rem @echo off
 @call :test floatmultest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test floatinttest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test staticconsttest.c
 @if %errorlevel% neq 0 goto :error
 

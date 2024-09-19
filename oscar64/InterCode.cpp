@@ -3074,6 +3074,8 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONVERSION_OPERATOR && 
 					 tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_INT2FLOAT &&
 					 tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2UINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_UINT2FLOAT &&
+					 tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2LINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_LINT2FLOAT &&
+					 tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2LUINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_LUINT2FLOAT &&
 					 tvalue[ins->mSrc[0].mTemp]->mOperator == tvalue[ins->mSrc[1].mTemp]->mOperator)
 			{
 				ins->mSrc[0].mType = tvalue[ins->mSrc[0].mTemp]->mSrc[0].mType;
@@ -3086,7 +3088,9 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			else if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
 			 	     ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT &&
 					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_INT2FLOAT &&
-					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2UINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_UINT2FLOAT)
+					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2UINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_UINT2FLOAT &&
+					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2LINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_LINT2FLOAT &&
+					tvalue[ins->mSrc[1].mTemp]->mOperator != IA_FLOAT2LUINT && tvalue[ins->mSrc[1].mTemp]->mOperator != IA_LUINT2FLOAT)
 			{
 				bool	toconst = false;
 				int		cvalue = 0;
@@ -3287,8 +3291,10 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONVERSION_OPERATOR &&
 			 	     ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT &&
 					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2INT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_INT2FLOAT &&
-					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2UINT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_UINT2FLOAT)
-			{
+					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2UINT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_UINT2FLOAT &&
+					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2LINT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_LINT2FLOAT &&
+					tvalue[ins->mSrc[0].mTemp]->mOperator != IA_FLOAT2LUINT && tvalue[ins->mSrc[0].mTemp]->mOperator != IA_LUINT2FLOAT)
+					{
 				bool	toconst = false;
 				int		cvalue = 0;
 
@@ -20393,7 +20399,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		for (int i = 1; i < mInstructions.Size(); i++)
 		{
 			InterInstruction* ins(mInstructions[i]);
-			if (ins->mCode == IC_CONVERSION_OPERATOR && (ins->mOperator == IA_FLOAT2INT || ins->mOperator == IA_FLOAT2UINT)  && ins->mSrc[0].mFinal)
+			if (ins->mCode == IC_CONVERSION_OPERATOR && (ins->mOperator == IA_FLOAT2INT || ins->mOperator == IA_FLOAT2UINT || ins->mOperator == IA_FLOAT2LINT || ins->mOperator == IA_FLOAT2LUINT)  && ins->mSrc[0].mFinal)
 			{
 				int j = i - 1;
 				while (j > 0 && CanSwapInstructions(ins, mInstructions[j]))

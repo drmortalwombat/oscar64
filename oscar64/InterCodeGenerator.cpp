@@ -349,8 +349,16 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 		}
 
 		InterInstruction	*	cins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONVERSION_OPERATOR);
-		cins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_INT2FLOAT : IA_UINT2FLOAT;
-		cins->mSrc[0].mType = IT_INT16;
+		if (v.mType->mSize <= 2)
+		{
+			cins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_INT2FLOAT : IA_UINT2FLOAT;
+			cins->mSrc[0].mType = IT_INT16;
+		}
+		else
+		{
+			cins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_LINT2FLOAT : IA_LUINT2FLOAT;
+			cins->mSrc[0].mType = IT_INT32;
+		}
 		cins->mSrc[0].mTemp = stemp;
 		cins->mDst.mType = IT_FLOAT;
 		cins->mDst.mTemp = proc->AddTemporary(IT_FLOAT);
@@ -364,11 +372,28 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 		mErrors->Error(exp->mLocation, EWARN_FLOAT_TO_INT, "Float to int conversion, potential loss of precision");
 
 		InterInstruction	*	cins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONVERSION_OPERATOR);
-		cins->mOperator = IA_FLOAT2INT;
+
+		if (type->mSize <= 2)
+		{
+			cins->mDst.mType = IT_INT16;
+			if (type->mFlags & DTF_SIGNED)
+				cins->mOperator = IA_FLOAT2INT;
+			else
+				cins->mOperator = IA_FLOAT2UINT;
+		}
+		else
+		{
+			cins->mDst.mType = IT_INT32;
+			if (type->mFlags & DTF_SIGNED)
+				cins->mOperator = IA_FLOAT2LINT;
+			else
+				cins->mOperator = IA_FLOAT2LUINT;
+		}
+
 		cins->mSrc[0].mType = IT_FLOAT;
 		cins->mSrc[0].mTemp = v.mTemp;
-		cins->mDst.mType = IT_INT16;
-		cins->mDst.mTemp = proc->AddTemporary(IT_INT16);
+
+		cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
 		block->Append(cins);
 		v.mTemp = cins->mDst.mTemp;
 		v.mType = type;
@@ -4845,8 +4870,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 				}
 
-				ins->mOperator = (vr.mType->mFlags & DTF_SIGNED) ? IA_INT2FLOAT : IA_UINT2FLOAT;
-				ins->mSrc[0].mType = IT_INT16;
+				if (vr.mType->mSize <= 2)
+				{
+					ins->mOperator = (vr.mType->mFlags & DTF_SIGNED) ? IA_INT2FLOAT : IA_UINT2FLOAT;
+					ins->mSrc[0].mType = IT_INT16;
+				}
+				else
+				{
+					ins->mOperator = (vr.mType->mFlags & DTF_SIGNED) ? IA_LINT2FLOAT : IA_LUINT2FLOAT;
+					ins->mSrc[0].mType = IT_INT32;
+				}
+
 				ins->mSrc[0].mTemp = stemp;
 				ins->mDst.mType = InterTypeOf(exp->mDecType);
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
@@ -4855,11 +4889,20 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			else if (exp->mDecType->IsIntegerType() && vr.mType->mType == DT_TYPE_FLOAT)
 			{
 				vr = Dereference(proc, exp, block, inlineMapper, vr);
-				ins->mOperator = (exp->mDecType->mFlags & DTF_SIGNED) ? IA_FLOAT2INT : IA_FLOAT2UINT;
+				if (exp->mDecType->mSize <= 2)
+				{
+					ins->mOperator = (exp->mDecType->mFlags & DTF_SIGNED) ? IA_FLOAT2INT : IA_FLOAT2UINT;
+					ins->mDst.mType = IT_INT16;
+				}
+				else
+				{
+					ins->mOperator = (exp->mDecType->mFlags & DTF_SIGNED) ? IA_FLOAT2LINT : IA_FLOAT2LUINT;
+					ins->mDst.mType = IT_INT32;
+				}
+
 				ins->mSrc[0].mType = InterTypeOf(vr.mType);
 				ins->mSrc[0].mTemp = vr.mTemp;
-				ins->mDst.mType = IT_INT16;
-				ins->mDst.mTemp = proc->AddTemporary(IT_INT16);
+				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 				block->Append(ins);
 
 				if (exp->mDecType->mSize == 1)
