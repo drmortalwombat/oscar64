@@ -4457,6 +4457,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 					else if (procType->mBase->mType == DT_TYPE_BOOL && (vr.mType->IsIntegerType() || vr.mType->mType == DT_TYPE_POINTER))
 						;
+					else if (procType->mBase->mType == DT_TYPE_POINTER && exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_INTEGER && exp->mLeft->mDecValue->mInteger == 0)
+						mErrors->Error(exp->mLocation, EWARN_NUMERIC_0_USED_AS_NULLPTR, "Numeric 0 used for nullptr");
 					else if (!procType->mBase->CanAssign(vr.mType))
 						mErrors->Error(exp->mLocation, EERR_INVALID_RETURN, "Cannot return incompatible type");
 
