@@ -8538,11 +8538,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(const GrowingVaria
 		}
 	}
 
+	NumberSet	requiredTemps(mExitRequiredTemps);
+
 	int sz = mInstructions.Size();
 	for (int i = sz - 1; i >= 0; i--)
 	{
 		InterInstruction* ins(mInstructions[i]);
-		if (ins->mCode == IC_LOAD && ins->mSrc[0].mMemory == IM_INDIRECT && ins->mSrc[0].mTemp >= 0)
+		if (ins->mCode == IC_LOAD && ins->mSrc[0].mMemory == IM_INDIRECT && ins->mSrc[0].mTemp >= 0 && requiredTemps[ins->mDst.mTemp])
 			mMemoryValueSize[ins->mSrc[0].mTemp] = int64max(mMemoryValueSize[ins->mSrc[0].mTemp], ins->mSrc[0].mIntConst + (InterTypeSize[ins->mDst.mType] - 1) * ins->mSrc[0].mStride + 1);
 		else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_INDIRECT && ins->mSrc[1].mTemp >= 0)
 			mMemoryValueSize[ins->mSrc[1].mTemp] = int64max(mMemoryValueSize[ins->mSrc[1].mTemp], ins->mSrc[1].mIntConst + (InterTypeSize[ins->mSrc[0].mType] - 1) * ins->mSrc[1].mStride + 1);
@@ -8570,6 +8572,24 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(const GrowingVaria
 			{
 				mProc->mReverseValueRange[ins->mSrc[0].mTemp].LimitMin(-ins->mSrc[1].mIntConst);
 				mProc->mReverseValueRange[ins->mSrc[0].mTemp].LimitMax(asize - ins->mSrc[1].mIntConst - mMemoryValueSize[ins->mDst.mTemp]);
+			}
+		}
+
+		if (ins->mDst.mTemp < 0 || requiredTemps[ins->mDst.mTemp] || IsObservable(ins->mCode))
+		{
+			if (ins->mDst.mTemp >= 0)
+				requiredTemps -= ins->mDst.mTemp;
+
+			if (ins->mCode == IC_SELECT)
+			{
+				if (ins->mSrc[0].mTemp >= 0)
+					requiredTemps += ins->mSrc[0].mTemp;
+			}
+			else
+			{
+				for (int i = 0; i < ins->mNumOperands; i++)
+					if (ins->mSrc[i].mTemp >= 0)
+						requiredTemps += ins->mSrc[i].mTemp;
 			}
 		}
 
