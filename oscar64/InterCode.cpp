@@ -4202,12 +4202,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 		{
 			InterInstruction* ains = ctemps[mSrc[0].mTemp];
 			mCode = IC_CONSTANT;
-			mConst.mIntConst = ains->mConst.mIntConst;
-			mConst.mFloatConst = ains->mConst.mFloatConst;
-			mConst.mLinkerObject = ains->mConst.mLinkerObject;
-			mConst.mVarIndex = ains->mConst.mVarIndex;
-			mConst.mMemory = ains->mConst.mMemory;
-			mConst.mType = ains->mConst.mType;
+			mConst = ains->mConst;
 			mSrc[0].mTemp = -1;
 			mNumOperands = 0;
 			return true;
@@ -22243,7 +22238,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "intro_display");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

@@ -267,12 +267,14 @@ bool GlobalOptimizer::ReplaceGlobalConst(Expression* exp)
 		if (exp->mType == EX_VARIABLE && (exp->mDecValue->mFlags & (DTF_GLOBAL | DTF_STATIC)) && !(exp->mDecValue->mOptFlags & (OPTF_VAR_MODIFIED | OPTF_VAR_ADDRESS)) && exp->mDecValue->mValue)
 		{
 			Expression* cexp = exp->mDecValue->mValue;
-			if (cexp->mType == EX_CONSTANT)
+			if (cexp->mType == EX_CONSTANT && 
+				(cexp->mDecValue->mType == DT_CONST_ADDRESS || cexp->mDecValue->mType == DT_CONST_INTEGER || 
+				 cexp->mDecValue->mType == DT_CONST_POINTER || cexp->mDecValue->mType == DT_CONST_FLOAT))
 			{
 				exp->mType = EX_CONSTANT;
 				exp->mDecValue = cexp->mDecValue;
+				changed = true;
 			}
-			changed = true;
 		}
 
 		if (ReplaceGlobalConst(exp->mLeft))
