@@ -1534,6 +1534,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 
 			if (pdec)
 			{
+				if (pdec->mBase->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_INTEGER)
+				{
+					Expression* er = texp;
+					while (er && er->mType == EX_COMMA)
+						er = er->mRight;
+					if (er && er->mType == EX_CONSTANT && er->mDecValue->mType == DT_CONST_INTEGER && er->mDecValue->mInteger == 0)
+					{
+						mErrors->Error(exp->mLocation, EWARN_NUMERIC_0_USED_AS_NULLPTR, "Numeric 0 used for nullptr");
+						vr = CoerceType(proc, texp, block, inlineMapper, vr, pdec->mBase);
+					}
+				}
+
 				if (!pdec->mBase->CanAssign(vr.mType))
 				{
 					pdec->mBase->CanAssign(vr.mType);

@@ -170,7 +170,8 @@ void GlobalAnalyzer::AutoInline(void)
 				!(f->mFlags & DTF_FUNC_VARIABLE) && 
 				!((f->mFlags & DTF_FUNC_ASSEMBLER) && !(f->mFlags & DTF_REQUEST_INLINE)) && 
 				!(f->mFlags & DTF_INTRINSIC) && 
-				!(f->mFlags & DTF_FUNC_RECURSIVE))
+				!(f->mFlags & DTF_FUNC_RECURSIVE) &&
+				!(f->mFlags & DTF_FUNC_NO_RETURN))
 			{
 				int		nparams = 0;
 				Declaration* dec = f->mBase->mParams;
@@ -619,6 +620,8 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* cexp, Expression* exp, Declara
 
 		dec->mFlags |= DTF_ANALYZED;
 		dec->mFlags |= DTF_FUNC_INTRSAVE;
+		if (dec->mBase->mBase && dec->mBase->mBase->mType != DT_TYPE_VOID)
+			dec->mFlags |= DTF_FUNC_NO_RETURN;
 
 		if (dec->mFlags & DTF_INTERRUPT)
 			dec->mFlags |= DTF_FUNC_INTRCALLED;
@@ -1027,6 +1030,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 				AnalyzeProcedure(exp, procDec->mBase->mBase->mCopyConstructor->mValue, procDec->mBase->mBase->mCopyConstructor);
 				RegisterCall(procDec, procDec->mBase->mBase->mCopyConstructor);
 			}
+
+			procDec->mFlags &= ~DTF_FUNC_NO_RETURN;
 		}
 		break;
 	case EX_SEQUENCE:
