@@ -177,6 +177,7 @@ public:
 	void LimitWeak(const IntegerValueRange& range);
 	void MergeUnknown(const IntegerValueRange& range);
 	void SetLimit(int64 minValue, int64 maxValue);
+	void SetConstant(int64 value);
 
 	bool IsBound(void) const;
 	bool IsConstant(void) const;

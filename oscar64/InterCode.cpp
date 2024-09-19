@@ -194,6 +194,14 @@ void IntegerValueRange::Limit(const IntegerValueRange& range)
 }
 
 
+void IntegerValueRange::SetConstant(int64 value)
+{
+	mMinState = S_BOUND;
+	mMaxState = S_BOUND;
+	mMinValue = value;
+	mMaxValue = value;
+}
+
 void IntegerValueRange::SetLimit(int64 minValue, int64 maxValue)
 {
 	mMinState = S_BOUND;
@@ -8828,6 +8836,24 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 	mFalseValueRange = mProc->mLocalValueRange;
 	mTrueParamValueRange = mLocalParamValueRange;
 	mFalseParamValueRange = mLocalParamValueRange;
+
+	if (singleLoop)
+	{
+		for (int i = 0; i < tempChain.Size(); i++)
+		{
+			if (tempChain[i].mBaseTemp == i)
+			{
+				IntegerValueRange& r(pblock->mTrueValueRange[i]);
+				if (r.IsConstant())
+				{
+					if (mTrueJump == this)
+						mFalseValueRange[i].SetConstant(r.mMinValue + nloop * tempChain[i].mOffset);
+					else
+						mTrueValueRange[i].SetConstant(r.mMinValue + nloop * tempChain[i].mOffset);
+				}
+			}
+		}
+	}
 
 	if (sz >= 1)
 	{
@@ -18022,52 +18048,63 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					{
 						if (dep[t] < DEP_VARIABLE && dep[t] != DEP_INDEX)
 						{
-							int j = 0;
-							while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && dep[ins->mSrc[j].mTemp] >= DEP_INDEX))
-								j++;
-							if (j < ins->mNumOperands)
+#if 0
+							if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp])
 							{
-								if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[1].mTemp < 0 && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED) ||
-									ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
-									ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SHL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
-									ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED ||
-									ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED ||
-									ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && 
-																		IsIntegerType(ins->mDst.mType) &&
-																		(ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].IsNotUByte() && (dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED)) && 
-																		(dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
-									ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && 
-																		IsIntegerType(ins->mDst.mType) && 
-																		(ins->mSrc[1].mTemp >= 0 && ins->mSrc[1].IsNotUByte() && (dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED)) && 
-																		(dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED) ||
-									ins->mCode == IC_LEA && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED )
+								dep[t] = DEP_VARIABLE;
+								ins->mInvariant = false;
+								changed = true;
+							}
+							else
+#endif
+							{
+								int j = 0;
+								while (j < ins->mNumOperands && !(ins->mSrc[j].mTemp >= 0 && dep[ins->mSrc[j].mTemp] >= DEP_INDEX))
+									j++;
+								if (j < ins->mNumOperands)
 								{
-									if (dep[ins->mDst.mTemp] != DEP_INDEX_DERIVED)
+									if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[1].mTemp < 0 && (dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED) ||
+										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
+										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SHL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
+										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED ||
+										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED ||
+										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+										IsIntegerType(ins->mDst.mType) &&
+										(ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].IsNotUByte() && (dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED)) &&
+										(dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
+										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+										IsIntegerType(ins->mDst.mType) &&
+										(ins->mSrc[1].mTemp >= 0 && ins->mSrc[1].IsNotUByte() && (dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED)) &&
+										(dep[ins->mSrc[0].mTemp] == DEP_INDEX || dep[ins->mSrc[0].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED) ||
+										ins->mCode == IC_LEA && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED)
 									{
-										dep[ins->mDst.mTemp] = DEP_INDEX_DERIVED;
-										ins->mInvariant = false;
-										changed = true;
+										if (dep[ins->mDst.mTemp] != DEP_INDEX_DERIVED)
+										{
+											dep[ins->mDst.mTemp] = DEP_INDEX_DERIVED;
+											ins->mInvariant = false;
+											changed = true;
+										}
 									}
-								}
-								else if (ins->mCode == IC_CONVERSION_OPERATOR && (ins->mOperator == IA_EXT8TO16S || ins->mOperator == IA_EXT8TO16U) && dep[ins->mSrc[0].mTemp] == DEP_INDEX)
-								{
-									if (dep[ins->mDst.mTemp] != DEP_INDEX_EXTENDED)
+									else if (ins->mCode == IC_CONVERSION_OPERATOR && (ins->mOperator == IA_EXT8TO16S || ins->mOperator == IA_EXT8TO16U) && dep[ins->mSrc[0].mTemp] == DEP_INDEX)
 									{
-										dep[ins->mDst.mTemp] = DEP_INDEX_EXTENDED;
+										if (dep[ins->mDst.mTemp] != DEP_INDEX_EXTENDED)
+										{
+											dep[ins->mDst.mTemp] = DEP_INDEX_EXTENDED;
+											ins->mInvariant = false;
+											changed = true;
+										}
+									}
+									else
+									{
+										dep[t] = DEP_VARIABLE;
 										ins->mInvariant = false;
 										changed = true;
 									}
 								}
 								else
 								{
-									dep[t] = DEP_VARIABLE;
-									ins->mInvariant = false;
-									changed = true;
+									dep[t] = DEP_DEFINED;
 								}
-							}
-							else
-							{
-								dep[t] = DEP_DEFINED;
 							}
 						}
 					}
@@ -18124,6 +18161,16 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ins->mSrc[1].mIntConst = ins->mSrc[1].mIntConst * indexStep[ins->mSrc[0].mTemp];
 						ins->mSrc[0] = ins->mDst;
 
+						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp])
+						{
+							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							rins->mOperator = IA_SUB;
+							rins->mDst = ins->mDst;
+							rins->mSrc[1] = ins->mDst;
+							rins->mSrc[0] = ins->mSrc[1];
+							tailBlock->mInstructions.Insert(0, rins);
+						}
+
 						indexins.Push(ins);
 					}
 					else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MUL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED))
@@ -18148,6 +18195,16 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ins->mOperator = IA_ADD;
 						ins->mSrc[0].mIntConst = ins->mSrc[0].mIntConst * indexStep[ins->mSrc[1].mTemp];
 						ins->mSrc[1] = ins->mDst;
+
+						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp])
+						{
+							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							rins->mOperator = IA_SUB;
+							rins->mDst = ins->mDst;
+							rins->mSrc[1] = ins->mDst;
+							rins->mSrc[0] = ins->mSrc[0];
+							tailBlock->mInstructions.Insert(0, rins);
+						}
 
 						indexins.Push(ins);
 					}
@@ -18175,6 +18232,16 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ins->mSrc[1] = ins->mDst;
 						if (ins->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
 							ins->mDst.mRange.mMaxValue += ins->mSrc[0].mIntConst;
+
+						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp])
+						{
+							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							rins->mOperator = IA_SUB;
+							rins->mDst = ins->mDst;
+							rins->mSrc[1] = ins->mDst;
+							rins->mSrc[0] = ins->mSrc[0];
+							tailBlock->mInstructions.Insert(0, rins);
+						}
 
 						indexins.Push(ins);
 					}
