@@ -2368,6 +2368,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vr = ToValue(proc, exp, block, inlineMapper, vr);
 			}
 
+			if (exp->mLeft->mDecType->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_INTEGER)
+			{
+				Expression* er = exp->mRight;
+				while (er && er->mType == EX_COMMA)
+					er = er->mRight;
+				if (er && er->mType == EX_CONSTANT && er->mDecValue->mType == DT_CONST_INTEGER && er->mDecValue->mInteger == 0)
+				{
+					mErrors->Error(exp->mLocation, EWARN_NUMERIC_0_USED_AS_NULLPTR, "Numeric 0 used for nullptr");
+					vr = CoerceType(proc, exp, block, inlineMapper, vr, exp->mLeft->mDecType);
+				}
+			}
+
 			if (exp->mToken == TK_ASSIGN || !(vl.mType->mType == DT_TYPE_POINTER && vr.mType->IsIntegerType() && (exp->mToken == TK_ASSIGN_ADD || exp->mToken == TK_ASSIGN_SUB)))
 			{
 				if (!vl.mType->CanAssign(vr.mType))
