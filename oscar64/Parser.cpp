@@ -3865,6 +3865,11 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 			}
 		}
 	}
+	else if (exp->mType == EX_LOGICAL_AND || exp->mType == EX_LOGICAL_OR)
+	{
+		lexp = AddFunctionCallRefReturned(exp->mLeft);
+		exp->mRight = CleanupExpression(exp->mRight);
+	}
 	else
 	{
 		if (exp->mLeft)
