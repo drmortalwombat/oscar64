@@ -8560,7 +8560,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 		else if (ins->mCode == IC_STORE)
 		{
 			if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_FPARAM)
-				mLocalParamValueRange[ins->mSrc[1].mVarIndex + int(ins->mSrc[0].mIntConst)] = ins->mSrc[0].mRange;
+				mLocalParamValueRange[ins->mSrc[1].mVarIndex + int(ins->mSrc[1].mIntConst)] = ins->mSrc[0].mRange;
 		}
 
 		assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
@@ -22238,7 +22238,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "VLine");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
