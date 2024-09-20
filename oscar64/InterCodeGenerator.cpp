@@ -4828,31 +4828,46 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 				}
 
-				ttemp = proc->AddTemporary(ttype);
+				if (ttype != IT_NONE)
+				{
+					ttemp = proc->AddTemporary(ttype);
 
-				InterInstruction* rins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD_TEMPORARY);
-				rins->mSrc[0].mType = ttype;
-				rins->mSrc[0].mTemp = vr.mTemp;
-				rins->mDst.mType = ttype;
-				rins->mDst.mTemp = ttemp;
-				fblock->Append(rins);
+					InterInstruction* rins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD_TEMPORARY);
+					rins->mSrc[0].mType = ttype;
+					rins->mSrc[0].mTemp = vr.mTemp;
+					rins->mDst.mType = ttype;
+					rins->mDst.mTemp = ttemp;
+					fblock->Append(rins);
 
-				InterInstruction* lins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD_TEMPORARY);
-				lins->mSrc[0].mType = ttype;
-				lins->mSrc[0].mTemp = vl.mTemp;
-				lins->mDst.mType = ttype;
-				lins->mDst.mTemp = ttemp;
-				tblock->Append(lins);
+					InterInstruction* lins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD_TEMPORARY);
+					lins->mSrc[0].mType = ttype;
+					lins->mSrc[0].mTemp = vl.mTemp;
+					lins->mDst.mType = ttype;
+					lins->mDst.mTemp = ttemp;
+					tblock->Append(lins);
 
-				tblock->Append(jins0);
-				tblock->Close(eblock, nullptr);
+					tblock->Append(jins0);
+					tblock->Close(eblock, nullptr);
 
-				fblock->Append(jins1);
-				fblock->Close(eblock, nullptr);
+					fblock->Append(jins1);
+					fblock->Close(eblock, nullptr);
 
-				block = eblock;
+					block = eblock;
 
-				return ExValue(dtype, ttemp);
+					return ExValue(dtype, ttemp);
+				}
+				else
+				{
+					tblock->Append(jins0);
+					tblock->Close(eblock, nullptr);
+
+					fblock->Append(jins1);
+					fblock->Close(eblock, nullptr);
+
+					block = eblock;
+
+					return ExValue();
+				}
 			}
 
 			break;
