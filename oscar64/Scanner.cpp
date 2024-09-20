@@ -486,6 +486,13 @@ void Scanner::UngetToken(Token token)
 
 void Scanner::NextToken(void)
 {
+	if (mUngetToken)
+	{
+		mToken = mUngetToken;
+		mUngetToken = TK_NONE;
+		return;
+	}
+
 	if (mReplay)
 	{
 		mLocation = mReplay->mLocation;

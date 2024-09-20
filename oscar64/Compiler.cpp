@@ -919,12 +919,18 @@ bool Compiler::GenerateCode(void)
 			if (!dec->mLinkerObject)
 				mInterCodeGenerator->TranslateProcedure(mInterCodeModule, dec->mValue, dec);
 		}
-		else
+	}
+	for (int i = 0; i < mCompilationUnits->mReferenced.Size(); i++)
+	{
+		Declaration* dec = mCompilationUnits->mReferenced[i];
+		if (dec->mType != DT_CONST_FUNCTION)
 		{
 			if (!dec->mLinkerObject)
 				mInterCodeGenerator->InitGlobalVariable(mInterCodeModule, dec);
 		}
 	}
+
+	mInterCodeGenerator->CompleteMainInit();
 
 	if (mErrors->mErrorCount != 0)
 		return false;

@@ -49,6 +49,8 @@ public:
 	void InitGlobalVariable(InterCodeModule* mod, Declaration* dec);
 	void InitLocalVariable(InterCodeProcedure* proc, Declaration* dec, int index);
 	void InitParameter(InterCodeProcedure* proc, Declaration* dec, int index);
+
+	void CompleteMainInit(void);
 protected:
 
 	Errors* mErrors;
@@ -85,7 +87,7 @@ protected:
 	};
 
 	InterCodeProcedure* mMainInitProc;
-	InterCodeBasicBlock* mMainInitBlock;
+	InterCodeBasicBlock* mMainInitBlock, *mMainStartupBlock;
 
 	Location MapLocation(Expression * exp, InlineMapper* inlineMapper);
 

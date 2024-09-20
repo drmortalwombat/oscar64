@@ -1312,9 +1312,18 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 			ndec->mBase = dec;
 			dec = ndec;
 		}
-		else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
+		else if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
 		{
-			dec = ParseFunctionDeclaration(dec);
+			if (mScanner->mToken == TK_CLOSE_PARENTHESIS || mScanner->mToken == TK_ELLIPSIS || IsTypeToken())
+			{
+				mScanner->UngetToken(TK_OPEN_PARENTHESIS);
+				dec = ParseFunctionDeclaration(dec);
+			}
+			else
+			{
+				mScanner->UngetToken(TK_OPEN_PARENTHESIS);
+				return dec;
+			}
 		}
 		else
 			return dec;
@@ -11876,6 +11885,67 @@ bool Parser::ConsumeIdentIf(const char* ident)
 	}
 	else
 		return false;
+}
+
+bool Parser::IsTypeToken(void)
+{
+	switch (mScanner->mToken)
+	{
+	case TK_INT:
+	case TK_SHORT:
+	case TK_LONG:
+	case TK_FLOAT:
+	case TK_CHAR:
+	case TK_BOOL:
+	case TK_VOID:
+	case TK_UNSIGNED:
+	case TK_SIGNED:
+	case TK_CONST:
+	case TK_VOLATILE:
+	case TK_STRUCT:
+	case TK_CLASS:
+	case TK_UNION:
+	case TK_ENUM:
+	case TK_TYPEDEF:
+	case TK_STATIC:
+	case TK_AUTO:
+	case TK_STRIPED:
+		return true;
+	case TK_IDENT:
+	{
+		const Ident* pident = mScanner->mTokenIdent;
+
+		if (mTemplateScope && mTemplateScope->Lookup(pident))
+			return true;
+
+		Declaration* dec = nullptr;
+
+		if (mThisPointer && !mScope->Lookup(pident, SLEVEL_FUNCTION))
+		{
+			int offset;
+			uint64 flags;
+
+			if (mThisPointer->mType == DT_ARGUMENT)
+				dec = MemberLookup(mThisPointer->mBase->mBase, mScanner->mTokenIdent, offset, flags);
+			else if (mThisPointer->mType == DT_TYPE_POINTER)
+				dec = MemberLookup(mThisPointer->mBase, mScanner->mTokenIdent, offset, flags);
+		}
+
+		if (!dec)
+			dec = mScope->Lookup(pident);
+
+		if (!dec)
+			return true;
+
+		if (dec->mType <= DT_TYPE_AUTO)
+			return true;
+
+	
+	}	break;
+
+	}
+
+	return false;
 }
 
 bool Parser::IsIntegerToken(void)

@@ -5839,9 +5839,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 		if (!strcmp(proc->mIdent->mString, "main"))
 		{
-			InterInstruction* ins = new InterInstruction(proc->mLocation, IC_JUMP);
-			mMainInitBlock->Append(ins);
-			mMainInitBlock->Close(entryBlock, nullptr);
+			mMainStartupBlock = entryBlock;
 		}
 	}
 	else
@@ -5851,7 +5849,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	exitBlock->Append(ins);
 	exitBlock->Close(nullptr, nullptr);
 
-	if (mErrors->mErrorCount == 0)
+	if (mErrors->mErrorCount == 0 && proc != mMainInitProc)
 	{
 		if (mCompilerOptions & COPT_VERBOSE2)
 			printf("Optimize intermediate code <%s>\n", proc->mIdent->mString);
@@ -5862,4 +5860,19 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	mCompilerOptions = outerCompilerOptions;
 
 	return proc;
+}
+
+void InterCodeGenerator::CompleteMainInit(void)
+{
+	if (mErrors->mErrorCount == 0)
+	{
+		InterInstruction* ins = new InterInstruction(mMainInitProc->mLocation, IC_JUMP);
+		mMainInitBlock->Append(ins);
+		mMainInitBlock->Close(mMainStartupBlock, nullptr);
+
+		if (mCompilerOptions & COPT_VERBOSE2)
+			printf("Optimize intermediate code <%s>\n", mMainInitProc->mIdent->mString);
+
+		mMainInitProc->Close();
+	}
 }
