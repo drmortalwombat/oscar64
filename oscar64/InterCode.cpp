@@ -9084,9 +9084,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				else if (s1 < 0)
 				{
 					mTrueValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst - 1);
-					mTrueValueRange[s0].LimitMinWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
+					mTrueValueRange[s0].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
 					mFalseValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst);
-					mFalseValueRange[s0].LimitMaxWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
+					mFalseValueRange[s0].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
 				}
 				else
 				{
@@ -22238,7 +22238,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "intro_display");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
