@@ -134,7 +134,7 @@ bool GlobalOptimizer::CheckConstReturns(Expression*& exp)
 					Expression* lexp = new Expression(exp->mLocation, EX_COMMA);
 					lexp->mLeft = exp;
 					lexp->mRight = new Expression(pcall->mReturn->mLocation, EX_CONSTANT);
-					lexp->mRight->mDecValue = pcall->mReturn->mLeft->mDecValue;
+					lexp->mRight->mDecValue = pcall->mReturn->mLeft->mDecValue->ConstCast(exp->mDecType);
 					lexp->mRight->mDecType = exp->mDecType;
 					lexp->mDecType = exp->mDecType;
 					exp->mDecType = TheVoidTypeDeclaration;
