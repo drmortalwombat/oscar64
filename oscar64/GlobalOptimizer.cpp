@@ -342,54 +342,56 @@ bool GlobalOptimizer::Optimize(void)
 					changed = true;
 				}
 
-
-				Declaration* pdec = ftype->mParams;
-				int vi = 0;
-				while (pdec)
+				if (!(ftype->mFlags & DTF_VARIADIC))
 				{
-					pdec->mVarIndex += vi;
-					if (!(pdec->mOptFlags & OPTF_VAR_USED) && !(pdec->mFlags & DTF_FPARAM_UNUSED))
+					Declaration* pdec = ftype->mParams;
+					int vi = 0;
+					while (pdec)
 					{
-						if (!pdec->mBase->IsReference() || !(pdec->mOptFlags & OPTF_VAR_ADDRESS))
+						pdec->mVarIndex += vi;
+						if (!(pdec->mOptFlags & OPTF_VAR_USED) && !(pdec->mFlags & DTF_FPARAM_UNUSED))
+						{
+							if (!pdec->mBase->IsReference() || !(pdec->mOptFlags & OPTF_VAR_ADDRESS))
+							{
+#if DUMP_OPTS
+								printf("Unused parameter %s\n", pdec->mIdent ? pdec->mIdent->mString : "_");
+#endif
+								vi -= pdec->mSize;
+
+								pdec->mFlags |= DTF_FPARAM_UNUSED;
+								pdec->mVarIndex = func->mNumVars++;
+
+								changed = true;
+							}
+						}
+						else if (!(pdec->mOptFlags & OPTF_VAR_ADDRESS) && pdec->mBase->IsReference() && pdec->mBase->mBase->IsSimpleType())
 						{
 #if DUMP_OPTS
-							printf("Unused parameter %s\n", pdec->mIdent ? pdec->mIdent->mString : "_");
+							printf("Reference parameter %s to value\n", pdec->mIdent ? pdec->mIdent->mString : "_");
 #endif
-							vi -= pdec->mSize;
+							vi += pdec->mSize - 2;
 
-							pdec->mFlags |= DTF_FPARAM_UNUSED;
-							pdec->mVarIndex = func->mNumVars++;
+							pdec->mBase = pdec->mBase->mBase;
+							pdec->mSize = pdec->mBase->mSize;
+
+							UndoParamReference(func->mValue, pdec);
 
 							changed = true;
 						}
-					}
-					else if (!(pdec->mOptFlags & OPTF_VAR_ADDRESS) && pdec->mBase->IsReference() && pdec->mBase->mBase->IsSimpleType())
-					{
-#if DUMP_OPTS
-						printf("Reference parameter %s to value\n", pdec->mIdent ? pdec->mIdent->mString : "_");
-#endif
-						vi += pdec->mSize - 2;
-
-						pdec->mBase = pdec->mBase->mBase;
-						pdec->mSize = pdec->mBase->mSize;
-
-						UndoParamReference(func->mValue, pdec);
-
-						changed = true;
-					}
-					else if ((pdec->mOptFlags & OPTF_VAR_CONST) && !(pdec->mOptFlags & OPTF_VAR_ADDRESS))
-					{
-						if (ReplaceParamConst(func->mValue, pdec))
+						else if ((pdec->mOptFlags & OPTF_VAR_CONST) && !(pdec->mOptFlags & OPTF_VAR_ADDRESS))
 						{
+							if (ReplaceParamConst(func->mValue, pdec))
+							{
 #if DUMP_OPTS
-							printf("Const parameter %s\n", pdec->mIdent ? pdec->mIdent->mString : "_");
+								printf("Const parameter %s\n", pdec->mIdent ? pdec->mIdent->mString : "_");
 #endif
-							changed = true;
+								changed = true;
+							}
 						}
-					}
 
-					pdec->mOptFlags = 0;
-					pdec = pdec->mNext;
+						pdec->mOptFlags = 0;
+						pdec = pdec->mNext;
+					}
 				}
 			}
 
