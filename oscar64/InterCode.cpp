@@ -17748,15 +17748,18 @@ bool InterCodeBasicBlock::PostDecLoopOptimization(void)
 
 										int64 v = ins->mSrc[inco].mIntConst;
 
-										if (ins->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
-											ins->mDst.mRange.mMaxValue -= v;
-										if (ins->mSrc[1 - inco].mRange.mMinState == IntegerValueRange::S_BOUND)
-											ins->mSrc[1 - inco].mRange.mMinValue -= v;
+										ins->mDst.mRange.AddConstValue(ins->mDst.mType, -v);
+										ins->mSrc[1 - inco].mRange.AddConstValue(ins->mDst.mType, -v);
+										mEntryValueRange[ltemp].AddConstValue(ins->mDst.mType, -v);
 
 										mInstructions.Remove(inci);
 										mInstructions.Insert(movi, ins);
 										InterInstruction* pins = ins->Clone();
 										pins->mSrc[inco].mIntConst = -v;
+
+										pins->mDst.mRange.AddConstValue(ins->mDst.mType, -v);
+										ins->mSrc[1 - inco].mRange.AddConstValue(ins->mDst.mType, -v);
+
 										pblock->mInstructions.Insert(pblock->mInstructions.Size() - 1, pins);
 										changed = true;
 									}
@@ -22241,7 +22244,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "foo");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
