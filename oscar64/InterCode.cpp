@@ -8098,7 +8098,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 								vr.mMaxState = IntegerValueRange::S_UNBOUND;
 							else if (ins->mSrc[0].mIntConst < 0 && vr.mMinState == IntegerValueRange::S_WEAK)
 								vr.mMinState = IntegerValueRange::S_UNBOUND;
-							if (ins->mDst.mType == IT_INT8 && ins->mSrc[0].mIntConst >= 128 && vr.mMaxState != IntegerValueRange::S_BOUND)
+							if (ins->mDst.mType == IT_INT8 && (
+								ins->mSrc[0].mIntConst >= 128 && vr.mMaxState != IntegerValueRange::S_BOUND ||
+								vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue + ins->mSrc[0].mIntConst >= 256))
 								vr.mMinState = IntegerValueRange::S_UNBOUND;
 
 							vr.mMaxValue += ins->mSrc[0].mIntConst;
@@ -8740,14 +8742,30 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(const GrowingVaria
 				case IA_ADD:
 					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp >= 0)
 					{
-						if (vr.mMinState == IntegerValueRange::S_BOUND)
-							ins->mSrc[1].mRange.LimitMin(vr.mMinValue - ins->mSrc[0].mIntConst);
-						if (vr.mMaxState == IntegerValueRange::S_BOUND)
-							ins->mSrc[1].mRange.LimitMax(vr.mMaxValue - ins->mSrc[0].mIntConst);
+						if (ins->mDst.mType == IT_INT8)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= 0 && vr.mMinValue - ins->mSrc[0].mIntConst < 0)
+								vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
+
+						if (ins->mDst.mType != IT_INT8 || vr.mMinValue > -128 || vr.mMaxValue < 255)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND)
+								ins->mSrc[1].mRange.LimitMin(vr.mMinValue - ins->mSrc[0].mIntConst);
+							if (vr.mMaxState == IntegerValueRange::S_BOUND)
+								ins->mSrc[1].mRange.LimitMax(vr.mMaxValue - ins->mSrc[0].mIntConst);
+						}
+						
 						mProc->mReverseValueRange[ins->mSrc[1].mTemp].Limit(ins->mSrc[1].mRange);
 					}
 					else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mTemp >= 0)
 					{
+						if (ins->mDst.mType == IT_INT8)
+						{
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= 0 && vr.mMinValue - ins->mSrc[1].mIntConst < 0)
+								vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
+
 						if (vr.mMinState == IntegerValueRange::S_BOUND)
 							ins->mSrc[0].mRange.LimitMin(vr.mMinValue - ins->mSrc[1].mIntConst);
 						if (vr.mMaxState == IntegerValueRange::S_BOUND)
@@ -22288,7 +22306,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "foo");
+	CheckFunc = !strcmp(mIdent->mString, "f");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
