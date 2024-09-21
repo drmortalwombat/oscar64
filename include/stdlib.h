@@ -37,6 +37,8 @@ long labs(long n);
 
 void exit(int status);
 
+void abort(void);
+
 void * malloc(unsigned int size);
 
 void free(void * ptr);

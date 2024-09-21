@@ -524,6 +524,12 @@ void exit(int status)
 	}
 }
 
+void abort(void)
+{
+	exit(-1);
+}
+
+
 extern struct Heap {
 	Heap	*	next, * end;
 }	HeapNode;
