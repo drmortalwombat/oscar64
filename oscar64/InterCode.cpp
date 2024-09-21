@@ -783,6 +783,8 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 	case IM_LOCAL:
 	case IM_FPARAM:
 	case IM_PARAM:
+	case IM_FRAME:
+	case IM_FFRAME:
 		return op1.mVarIndex == op2.mVarIndex && op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
 	case IM_ABSOLUTE:
 		return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
@@ -22306,7 +22308,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "f");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

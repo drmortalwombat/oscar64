@@ -5813,19 +5813,34 @@ Expression* Parser::ParseCastExpression(Expression* exp)
 	{
 		if (mScanner->mToken == TK_OPEN_BRACE)
 		{
+			Declaration* cdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+			cdec->mBase = exp->mDecType->ToConstType();
+			cdec->mFlags |= DTF_CONST | DTF_STATIC | DTF_GLOBAL | DTF_DEFINED;
+
+			Expression* cexp = new Expression(mScanner->mLocation, EX_VARIABLE);
+			cexp->mDecValue = cdec;
+			cexp->mDecType = cdec->mBase;
+
+			cdec->mValue = ParseInitExpression(cdec->mBase);
+			cdec->mSection = mDataSection;
+			cdec->mSize = cdec->mBase->mSize;
+
 			Declaration* vdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
 			vdec->mBase = exp->mDecType;
-			vdec->mFlags |= DTF_CONST | DTF_STATIC | DTF_GLOBAL;
+			vdec->mVarIndex = mLocalIndex++;
+			vdec->mFlags |= DTF_DEFINED;
+			vdec->mSize = vdec->mBase->mSize;
 
 			Expression* nexp = new Expression(mScanner->mLocation, EX_VARIABLE);
 			nexp->mDecValue = vdec;
 			nexp->mDecType = vdec->mBase;
 
-			vdec->mValue = ParseInitExpression(vdec->mBase);
-			vdec->mSection = mDataSection;
-			vdec->mSize = vdec->mBase->mSize;
+			Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+			iexp->mLeft = nexp;
+			iexp->mRight = cexp;
+			iexp->mDecType = exp->mDecType;
 
-			exp = nexp;
+			exp = iexp;
 		}
 		else
 		{
