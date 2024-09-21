@@ -1201,25 +1201,11 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 		}
 		break;
 	case IA_SHL:
-		return val1 << val2;
-		break;
+		return ToTypedUnsigned(val1 << val2, type);
 	case IA_SHR:
-		return (uint64)val1 >> (uint64)val2;
-		break;
+		return ToTypedUnsigned(val1, type) >> val2;
 	case IA_SAR:
-
-		switch (type)
-		{
-		case IT_INT8:
-			return int8(val1) >> val2;
-		case IT_INT16:
-			return int16(val1) >> val2;
-		case IT_INT32:
-			return int32(val1) >> val2;
-		default:
-			return val1 >> val2;
-		}
-		break;
+		return ToTypedSigned(val1, type) >> val2;
 	case IA_CMPEQ:
 		return ToTypedUnsigned(val1, type) == ToTypedUnsigned(val2, type) ? 1 : 0;
 		break;
@@ -1686,7 +1672,7 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 		break;
 	case IA_SHL:
 		dop.mType = op1.mType;
-		dop.mIntConst = op1.mIntConst << op2.mIntConst;
+		dop.mIntConst = ToTypedUnsigned(op1.mIntConst << op2.mIntConst, op1.mType);
 		break;
 	case IA_SHR:
 		dop.mType = op1.mType;
@@ -22238,7 +22224,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "VLine");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
