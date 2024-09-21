@@ -18174,9 +18174,14 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 				if (ins->mInvariant)
 				{
-					for (int j = 0; j < ins->mNumOperands; j++)
-						if (ins->mSrc[j].mTemp >= 0 && dep[ins->mSrc[j].mTemp] == DEP_VARIABLE)
-							ins->mInvariant = false;
+					if (ins->mDst.mTemp >= 0 && IsTempReferencedInRange(0, i, ins->mDst.mTemp))
+						ins->mInvariant = false;
+					else
+					{
+						for (int j = 0; j < ins->mNumOperands; j++)
+							if (ins->mSrc[j].mTemp >= 0 && dep[ins->mSrc[j].mTemp] == DEP_VARIABLE)
+								ins->mInvariant = false;
+					}
 				}
 
 				if (ins->mInvariant)
