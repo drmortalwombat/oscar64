@@ -2696,6 +2696,10 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 			return this->CanAssign(fromType->mBase);
 		return false;
 	}
+	else if (mType == DT_TYPE_ARRAY && fromType->mType == DT_TYPE_ARRAY)
+	{
+		return mSize == fromType->mSize && mStride == fromType->mStride && mBase->CanAssign(fromType->mBase);
+	}
 	else if (mType == DT_TYPE_POINTER)
 	{
 		if (fromType->mType == DT_TYPE_POINTER || fromType->mType == DT_TYPE_ARRAY)
