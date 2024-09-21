@@ -14816,7 +14816,19 @@ InterCodeBasicBlock* InterCodeBasicBlock::CheckIsConstBranch(const GrowingInstru
 
 	if (k < tins.Size() && tins[k]->mCode == IC_CONSTANT)
 	{
-		InterCodeBasicBlock* tblock = tins[k]->mConst.mIntConst ? mTrueJump : mFalseJump;
+		InterInstruction* cins = tins[k];
+
+		bool	istrue = false;
+		InterType	it = cins->mDst.mType;
+
+		if (it == IT_FLOAT)
+			istrue = cins->mConst.mFloatConst != 0;
+		else if (it == IT_POINTER)
+			istrue = cins->mConst.mMemory != IM_ABSOLUTE || cins->mConst.mIntConst != 0;
+		else
+			istrue = cins->mConst.mIntConst != 0;
+
+		InterCodeBasicBlock* tblock = istrue ? mTrueJump : mFalseJump;
 
 		InterCodeBasicBlock* xblock = this->Clone();
 		InterInstruction* bins = xblock->mInstructions.Pop();
