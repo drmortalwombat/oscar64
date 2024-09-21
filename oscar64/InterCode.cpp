@@ -19243,11 +19243,11 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal && mInstructions[i + 1]->mSrc[0].mTemp < 0)
 				)
 			{
-				int64 v = mInstructions[i + 1]->mSrc[1].mIntConst;
+				int64 v = mInstructions[i + 1]->mSrc[0].mIntConst;
 				InterOperator	op = mInstructions[i + 1]->mOperator;
-				if (mInstructions[i + 1]->mSrc[1].mTemp >= 0)
+				if (mInstructions[i + 1]->mSrc[0].mTemp >= 0)
 				{
-					v = mInstructions[i + 1]->mSrc[0].mIntConst;
+					v = mInstructions[i + 1]->mSrc[1].mIntConst;
 					op = MirrorRelational(op);
 				}
 
