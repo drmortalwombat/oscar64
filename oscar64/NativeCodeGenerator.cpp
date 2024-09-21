@@ -33059,7 +33059,7 @@ bool NativeCodeBasicBlock::MoveLoadImmStoreAbsoluteUp(int at)
 
 				NativeCodeInstruction	sins = mIns[at + 1];
 				mIns.Remove(at + 1);
-				if (!(sins.mLive & LIVE_CPU_REG_A))
+				if (!(sins.mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 					mIns.Remove(at);
 
 				if (sins.ReferencesXReg())
