@@ -1432,6 +1432,34 @@ static void ConversionConstantFold(InterInstruction * ins, const InterOperand & 
 		ins->mSrc[0].mTemp = -1;
 		ins->mNumOperands = 0;
 		break;
+	case IA_LINT2FLOAT:
+		ins->mCode = IC_CONSTANT;
+		ins->mConst.mFloatConst = (double)(cop.mIntConst);
+		ins->mConst.mType = IT_FLOAT;
+		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
+		break;
+	case IA_FLOAT2LINT:
+		ins->mCode = IC_CONSTANT;
+		ins->mConst.mIntConst = (int)(cop.mFloatConst);
+		ins->mConst.mType = IT_INT32;
+		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
+		break;
+	case IA_LUINT2FLOAT:
+		ins->mCode = IC_CONSTANT;
+		ins->mConst.mFloatConst = (double)((uint32)cop.mIntConst);
+		ins->mConst.mType = IT_FLOAT;
+		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
+		break;
+	case IA_FLOAT2LUINT:
+		ins->mCode = IC_CONSTANT;
+		ins->mConst.mIntConst = (uint32)(cop.mFloatConst);
+		ins->mConst.mType = IT_INT32;
+		ins->mSrc[0].mTemp = -1;
+		ins->mNumOperands = 0;
+		break;
 	case IA_EXT8TO16S:
 		ins->mCode = IC_CONSTANT;
 		ins->mConst.mIntConst = (int8)(cop.mIntConst);
@@ -1497,6 +1525,22 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 		break;
 	case IA_FLOAT2UINT:
 		dop.mIntConst = (int)(op1.mFloatConst);
+		dop.mType = IT_INT16;
+		break;
+	case IA_LINT2FLOAT:
+		dop.mFloatConst = (double)(op1.mIntConst);
+		dop.mType = IT_FLOAT;
+		break;
+	case IA_FLOAT2LINT:
+		dop.mIntConst = (int)(op1.mFloatConst);
+		dop.mType = IT_INT16;
+		break;
+	case IA_LUINT2FLOAT:
+		dop.mFloatConst = (double)((uint32)op1.mIntConst);
+		dop.mType = IT_FLOAT;
+		break;
+	case IA_FLOAT2LUINT:
+		dop.mIntConst = (uint32)(op1.mFloatConst);
 		dop.mType = IT_INT16;
 		break;
 	case IA_EXT8TO16S:
