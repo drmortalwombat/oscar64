@@ -6856,8 +6856,13 @@ bool Parser::CanCoerceExpression(Expression* exp, Declaration* type)
 Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 {
 	Declaration* tdec = exp->mDecType;
+
 	while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 		tdec = tdec->mBase;
+
+	if (type->mType == DT_TYPE_REFERENCE && type->mBase->mType == DT_TYPE_STRUCT && tdec->mType == DT_TYPE_STRUCT && type->mBase->IsSubType(tdec))
+		return exp;
+
 	while (type->mType == DT_TYPE_REFERENCE || type->mType == DT_TYPE_RVALUEREF)
 		type = type->mBase;
 
