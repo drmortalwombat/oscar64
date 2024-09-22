@@ -127,6 +127,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 			srins->mSrc[0] = crsins->mDst;
 			srins->mNumOperands = 2;
 			block->Append(srins);
+			
+			// Promote unsigned bitfields that fit into a signed int to signed int
+			Declaration* vtype = v.mType;
+			if (vtype->mSize == 2 && v.mBits < 16 && !(vtype->mFlags & DTF_SIGNED))
+				vtype = TheSignedIntTypeDeclaration;
 
 			if (InterTypeSize[ins->mDst.mType] < v.mType->mSize)
 			{
@@ -142,10 +147,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 				else
 					crins->mOperator = (v.mType->mFlags & DTF_SIGNED) ? IA_EXT8TO32S : IA_EXT8TO32U;
 				block->Append(crins);
-				v = ExValue(v.mType, crins->mDst.mTemp, v.mReference - 1);
+				v = ExValue(vtype, crins->mDst.mTemp, v.mReference - 1);
 			}
 			else
-				v = ExValue(v.mType, srins->mDst.mTemp, v.mReference - 1);
+				v = ExValue(vtype, srins->mDst.mTemp, v.mReference - 1);
 		}
 		else
 			v = ExValue(v.mType, ins->mDst.mTemp, v.mReference - 1, v.mBits, v.mShift);
@@ -3218,7 +3223,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (!(vl.mType->mType == DT_TYPE_POINTER || vl.mType->IsNumericType()))
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric or pointer type");
 				else if (vl.mType->mType == DT_TYPE_INTEGER && vl.mType->mSize < 2)
-					vl = CoerceType(proc, exp, block, inlineMapper, vl, TheUnsignedIntTypeDeclaration);
+					vl = CoerceType(proc, exp, block, inlineMapper, vl, TheSignedIntTypeDeclaration);
 				ins->mOperator = IA_NOT;
 				break;
 			case TK_MUL:
@@ -5839,14 +5844,30 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 
 		if (!strcmp(proc->mIdent->mString, "main"))
 		{
+			InterInstruction* zins = new InterInstruction(dec->mLocation, IC_CONSTANT);
+			zins->mDst.mType = IT_INT16;
+			zins->mDst.mTemp = proc->AddTemporary(IT_INT16);
+			zins->mConst.mType = IT_INT16;
+			zins->mConst.mIntConst = 0;
+			exitBlock->Append(zins);
+
+			InterInstruction* rins = new InterInstruction(dec->mLocation, IC_RETURN_VALUE);
+			rins->mSrc[0].mType = IT_INT16;
+			rins->mSrc[0].mTemp = zins->mDst.mTemp;
+			exitBlock->Append(rins);
+
 			mMainStartupBlock = entryBlock;
 		}
 	}
 	else
 		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent->mString);
 
-	InterInstruction	*	ins = new InterInstruction(exp ? exp->mEndLocation : dec->mLocation, IC_RETURN);
-	exitBlock->Append(ins);
+	if (strcmp(proc->mIdent->mString, "main"))
+	{
+		InterInstruction* ins = new InterInstruction(exp ? exp->mEndLocation : dec->mLocation, IC_RETURN);
+		exitBlock->Append(ins);
+	}
+
 	exitBlock->Close(nullptr, nullptr);
 
 	if (mErrors->mErrorCount == 0 && proc != mMainInitProc)

@@ -27,6 +27,7 @@ struct XMMU
 
 #define xmmu	(*((struct XMMU *)0xd500))
 
+inline char mmu_set(char cr);
 
 #pragma compile("mmu.c")
 
