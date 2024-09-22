@@ -33,7 +33,7 @@ protected:
 
 	void AnalyzeInit(Declaration* mdec);
 
-	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs);
+	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs, bool aliasing);
 
 	bool IsStackParam(const Declaration* pdec) const;
 	bool MarkCycle(Declaration* rootDec, Declaration* procDec);
