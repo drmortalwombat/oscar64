@@ -2354,8 +2354,10 @@ void Scanner::ParseNumberToken(void)
 					NextChar();
 					mToken = TK_INTEGERUL;
 				}
-				else
+				else if (mant <= 0x7fffffff)
 					mToken = TK_INTEGERL;
+				else
+					mToken = TK_INTEGERUL;
 			}
 			else if (mant < 65536)
 			{

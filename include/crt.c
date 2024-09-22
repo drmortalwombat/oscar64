@@ -3628,11 +3628,19 @@ W1:
 		sec
 		sbc	#$8e
 		bcc	W2
+		bit	accu + 3
+		bmi	W5
 		lda	#$ff
 		sta	accu
 		lda	#$7f
 		sta	accu + 1
-		bne	W3
+		rts
+W5:
+		lda #$00
+		sta accu
+		lda #$80
+		sta accu + 1
+		rts
 W2:
 		tax
 L1:

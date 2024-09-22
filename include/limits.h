@@ -11,7 +11,7 @@
 #define	CHAR_MIN	SCHAR_MIN
 #define	CHAR_MAX	SCHAR_MAX
 
-#define INT_MIN		-32767
+#define INT_MIN		(-32767-1)
 #define	INT_MAX		32767
 #define	UINT_MAX	65535
 

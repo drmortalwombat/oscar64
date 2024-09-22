@@ -517,6 +517,41 @@ Expression* Expression::ConstantDereference(Errors* errors, LinkerSection* dataS
 	return this;
 }
 
+static int64 signextend(int64 v, Declaration* type)
+{
+	if (type->mFlags & DTF_SIGNED)
+	{
+		switch (type->mSize)
+		{
+		case 1:
+			if (v & 0x80)
+				return (v & 0xff) - 0x100;
+			else
+				return v;
+		case 2:
+			if (v & 0x8000)
+				return (v & 0xffff) - 0x10000;
+			else
+				return v;
+		default:
+			return v;
+		}
+
+	}
+	else
+	{
+		switch (type->mSize)
+		{
+		case 1:
+			return v & 0xff;
+		case 2:
+			return v & 0xffff;
+		default:
+			return v & 0xffffffff;
+		}
+	}
+}
+
 Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSection, Linker* linker)
 {
 	if (mType == EX_PREFIX && mToken == TK_BANKOF && linker)
@@ -554,11 +589,14 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			{
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration	*	dec = new Declaration(mLocation, DT_CONST_INTEGER);
-				if (mLeft->mDecValue->mBase->mSize <= 2)
+
+				if (mLeft->mDecValue->mBase->mSize < 2)
 					dec->mBase = TheSignedIntTypeDeclaration;
 				else
-					dec->mBase = TheSignedLongTypeDeclaration;
-				dec->mInteger = - mLeft->mDecValue->mInteger;
+					dec->mBase = mLeft->mDecValue->mBase;
+
+				dec->mInteger = signextend ( - mLeft->mDecValue->mInteger, dec->mBase );
+
 				ex->mDecValue = dec;
 				ex->mDecType = dec->mBase;
 				return ex;
@@ -568,17 +606,12 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 				Expression* ex = new Expression(mLocation, EX_CONSTANT);
 				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
 
-				dec->mInteger = ~mLeft->mDecValue->mInteger;
-				if (mLeft->mDecValue->mBase->mSize <= 2)
-				{
-					dec->mInteger &= 0xffff;
-					dec->mBase = TheUnsignedIntTypeDeclaration;
-				}
+				if (mLeft->mDecValue->mBase->mSize < 2)
+					dec->mBase = TheSignedIntTypeDeclaration;
 				else
-				{
-					dec->mInteger &= 0xffffffff;
-					dec->mBase = TheUnsignedLongTypeDeclaration;
-				}
+					dec->mBase = mLeft->mDecValue->mBase;
+
+				dec->mInteger = signextend( ~mLeft->mDecValue->mInteger, dec->mBase );
 
 				ex->mDecValue = dec;
 				ex->mDecType = dec->mBase;
@@ -750,6 +783,11 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		{
 			int64	ival = 0, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
 
+			bool	signop =
+				(mLeft->mDecValue->mBase->mSize < 2 || (mLeft->mDecValue->mBase->mFlags & DTF_SIGNED)) &&
+				(mRight->mDecValue->mBase->mSize < 2 || (mRight->mDecValue->mBase->mFlags & DTF_SIGNED));
+
+			bool	promote = true;
 			switch (mToken)
 			{
 			case TK_ADD:
@@ -764,20 +802,26 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			case TK_DIV:
 				if (iright == 0)
 					errors->Error(mLocation, EERR_INVALID_VALUE, "Constant division by zero");
-				else
+				else if (signop)
 					ival = ileft / iright;
+				else
+					ival = (uint64)ileft / (uint64)iright;
 				break;
 			case TK_MOD:
 				if (iright == 0)
 					errors->Error(mLocation, EERR_INVALID_VALUE, "Constant division by zero");
-				else
+				else if (signop)
 					ival = ileft % iright;
+				else
+					ival = (uint64)ileft % (uint64)iright;
 				break;
 			case TK_LEFT_SHIFT:
 				ival = ileft << iright;
+				promote = false;
 				break;
 			case TK_RIGHT_SHIFT:
 				ival = ileft >> iright;
+				promote = false;
 				break;
 			case TK_BINARY_AND:
 				ival = ileft & iright;
@@ -794,10 +838,21 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 
 			Expression* ex = new Expression(mLocation, EX_CONSTANT);
 			Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-			if (mLeft->mDecValue->mBase->mSize <= 2 && mRight->mDecValue->mBase->mSize <= 2)
-				dec->mBase = ival < 32768 ? TheSignedIntTypeDeclaration : TheUnsignedIntTypeDeclaration;
+			if (promote)
+			{
+				if (mLeft->mDecValue->mBase->mSize <= 2 && mRight->mDecValue->mBase->mSize <= 2)
+					dec->mBase = ival < 32768 ? TheSignedIntTypeDeclaration : TheUnsignedIntTypeDeclaration;
+				else
+					dec->mBase = ival < 2147483648 ? TheSignedLongTypeDeclaration : TheUnsignedLongTypeDeclaration;
+			}
 			else
-				dec->mBase = ival < 2147483648 ? TheSignedLongTypeDeclaration : TheUnsignedLongTypeDeclaration;
+			{
+				if (mLeft->mDecValue->mBase->mSize < 2)
+					dec->mBase = TheSignedIntTypeDeclaration;
+				else
+					dec->mBase = mLeft->mDecValue->mBase;
+			}
+
 			dec->mInteger = ival;
 			ex->mDecValue = dec;
 			ex->mDecType = dec->mBase;

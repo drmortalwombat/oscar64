@@ -2154,7 +2154,7 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 		{
 			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[reg].mValue = (data.mRegs[reg].mValue + 1) & 255;
+				data.mRegs[reg].mValue = (data.mRegs[reg].mValue - 1) & 255;
 				data.mRegs[CPU_REG_Z].mValue = data.mRegs[reg].mValue;
 				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
 			}
@@ -16989,7 +16989,7 @@ bool NativeCodeBasicBlock::CanGlobalSwapXY(void)
 				return false;
 			if (ins.mMode == ASMIM_ABSOLUTE_X && (ins.mType != ASMIT_LDY && !HasAsmInstructionMode(ins.mType, ASMIM_ABSOLUTE_Y)))
 				return false;
-			if (ins.mType == ASMIT_JSR && (ins.mFlags & (NCIF_USE_CPU_REG_X | NCIF_USE_ZP_32_X)))
+			if (ins.mType == ASMIT_JSR && (ins.mFlags & (NCIF_USE_CPU_REG_X | NCIF_USE_CPU_REG_Y | NCIF_USE_ZP_32_X)))
 				return false;
 		}
 
@@ -51643,7 +51643,6 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
 #endif
-
 		int t = 0;
 #if 1
 		do
