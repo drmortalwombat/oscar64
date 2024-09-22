@@ -1,6 +1,7 @@
 #include "stdio.h"
 #include "conio.h"
 #include "stdlib.h"
+#include "stdbool.h"
 
 #if defined(__C128__)
 #pragma code(lowcode)
@@ -233,6 +234,53 @@ char * gets(char * str)
 		sta	(str), y
 	}
 	
+	return str;
+}
+
+char* gets_s(char* str, size_t n)
+{
+	if (str == NULL)
+		return NULL;
+
+	if (n == 0 || n == 1)
+		return NULL;
+	str[0] = '\0';
+	size_t leftToStore = n - 1;
+	bool isTruncated = false;
+
+	__asm {
+		ldy #0
+
+	read_loop:
+		jsr getpch
+
+		// Check if the read in character is the line feed.
+		cmp #10
+		beq read_done
+
+		// Check to see if the maximum characters is reached.
+		ldx leftToStore
+		cpx #0
+		beq read_max
+
+		// Store the read in character & prepare for the next read.
+		sta (str), Y
+		iny
+		dec leftToStore
+		jmp read_loop
+
+	read_max:
+		ldx #1
+		stx isTruncated
+
+	read_done:
+		// Place a null character at the end of the C-string.
+		lda #0
+		sta (str), Y
+	}
+
+	if (isTruncated)
+		return NULL;
 	return str;
 }
 

@@ -1,6 +1,7 @@
 #ifndef STDIO_H
 #define STDIO_H
 
+#include <stddef.h>
 #include <stdlib.h>
 
 
@@ -11,6 +12,7 @@ char getchar(void);
 void puts(const char * str);
 
 char * gets(char * str);
+char* gets_s(char* str, size_t n);
 
 void printf(const char * fmt, ...);
 
