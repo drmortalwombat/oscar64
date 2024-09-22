@@ -723,7 +723,10 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 			else if (op2.mMemory == IM_GLOBAL)
 			{
 				if (op1.mMemoryBase == IM_GLOBAL)
-					return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
+					return op1.mVarIndex == op2.mVarIndex && (
+						mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type1] ||
+						mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type2] ||
+						CollidingMemType(type1, type2));
 				else
 					return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
 			}
@@ -732,7 +735,10 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 			else if (op2.mMemory == IM_LOCAL)
 			{
 				if (op1.mMemoryBase == IM_LOCAL)
-					return op1.mVarIndex == op2.mVarIndex && CollidingMemType(type1, type2);
+					return op1.mVarIndex == op2.mVarIndex && (
+						mProc->mLocalVars[op2.mVarIndex]->mSize == InterTypeSize[type1] || 
+						mProc->mLocalVars[op2.mVarIndex]->mSize == InterTypeSize[type2] ||
+						CollidingMemType(type1, type2));
 				else
 					return mProc->mLocalVars[op2.mVarIndex]->mAliased && CollidingMemType(type1, type2);
 			}
@@ -758,7 +764,10 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 			else if (op1.mMemory == IM_GLOBAL)
 			{
 				if (op2.mMemoryBase == IM_GLOBAL)
-					return op1.mVarIndex == op2.mVarIndex;
+					return op1.mVarIndex == op2.mVarIndex && (
+						mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type1] ||
+						mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type2] ||
+						CollidingMemType(type1, type2));
 				else
 					return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
 			}
@@ -766,8 +775,11 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 				return false;
 			else if (op1.mMemory == IM_LOCAL)
 			{
-				if (op1.mMemoryBase == IM_LOCAL)
-					return op1.mVarIndex == op2.mVarIndex;
+				if (op2.mMemoryBase == IM_LOCAL)
+					return op1.mVarIndex == op2.mVarIndex && (
+						mProc->mLocalVars[op1.mVarIndex]->mSize == InterTypeSize[type1] ||
+						mProc->mLocalVars[op1.mVarIndex]->mSize == InterTypeSize[type2] ||
+						CollidingMemType(type1, type2));
 				else
 					return mProc->mLocalVars[op1.mVarIndex]->mAliased && CollidingMemType(type1, type2);
 			}
@@ -3188,7 +3200,11 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 				if (tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO16S || tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT8TO32S)
 				{
 					int64	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
-					if (ivalue < -128)
+					if (ins->mSrc[1].mType == IT_INT16 && (ivalue < -32768 || ivalue > 32767))
+					{
+
+					}
+					else if (ivalue < -128)
 					{
 						toconst = true;
 						switch (ins->mOperator)
@@ -3355,6 +3371,52 @@ void ValueSet::UpdateValue(InterInstruction * ins, const GrowingInstructionPtrAr
 							break;
 						case IA_CMPLS:
 							ins->mOperator = IA_CMPLU;
+							break;
+						}
+					}
+				}
+				else if (tvalue[ins->mSrc[1].mTemp]->mOperator == IA_EXT16TO32S)
+				{
+					int64	ivalue = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					if (ivalue < -32768)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 1;
+							break;
+						}
+					}
+					else if (ivalue > 32767)
+					{
+						toconst = true;
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPGES:
+						case IA_CMPGS:
+						case IA_CMPGEU:
+						case IA_CMPGU:
+							cvalue = 0;
+							break;
+						case IA_CMPNE:
+						case IA_CMPLES:
+						case IA_CMPLS:
+						case IA_CMPLEU:
+						case IA_CMPLU:
+							cvalue = 1;
 							break;
 						}
 					}
@@ -5610,6 +5672,7 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 			if (mDst.mType == IT_POINTER)
 			{	
 				const char* vname = "";
+				bool		aliased = false;
 
 				if (mConst.mMemory == IM_LOCAL)
 				{
@@ -5639,12 +5702,21 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 					else if (!proc->mModule->mGlobalVars[mConst.mVarIndex])
 						vname = "null";
 					else if (!proc->mModule->mGlobalVars[mConst.mVarIndex]->mIdent)
+					{
 						vname = "";
+						aliased = proc->mModule->mGlobalVars[mConst.mVarIndex]->mAliased;
+					}
 					else
+					{
 						vname = proc->mModule->mGlobalVars[mConst.mVarIndex]->mIdent->mString;
+						aliased = proc->mModule->mGlobalVars[mConst.mVarIndex]->mAliased;
+					}
 				}
 
-				fprintf(file, "C%c%d(%d:%d '%s')", memchars[mConst.mMemory], mConst.mOperandSize, mConst.mVarIndex, int(mConst.mIntConst), vname);
+				if (aliased)
+					fprintf(file, "C%c%d(%d:%d '%s' A)", memchars[mConst.mMemory], mConst.mOperandSize, mConst.mVarIndex, int(mConst.mIntConst), vname);
+				else
+					fprintf(file, "C%c%d(%d:%d '%s')", memchars[mConst.mMemory], mConst.mOperandSize, mConst.mVarIndex, int(mConst.mIntConst), vname);
 			}
 			else if (mDst.mType == IT_FLOAT)
 				fprintf(file, "CF:%f", mConst.mFloatConst);
@@ -8057,8 +8129,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
 						vr.mMaxValue = 127;
+						vr.mMinState = IntegerValueRange::S_BOUND;
+						vr.mMinValue = -128;
 					}
-					if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < -128 || vr.mMinValue > 127)
+					else if (vr.mMinState != IntegerValueRange::S_BOUND || vr.mMinValue < -128 || vr.mMinValue > 127)
 					{
 						vr.mMinState = IntegerValueRange::S_BOUND;
 						vr.mMinValue = -128;
@@ -8372,7 +8446,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 
 						if (ins->mSrc[0].mIntConst > 0)
 						{
-							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinState >= 0)
+							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue >= 0)
 							{
 								switch (ins->mSrc[1].mType)
 								{
@@ -9779,6 +9853,17 @@ bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigne
 								if (!modifiedParams[ins->mSrc[1].mVarIndex])
 								{
 									modifiedParams += ins->mSrc[1].mVarIndex;
+									changed = true;
+								}
+							}
+						}
+						else if (ins->mCode == IC_CONSTANT)
+						{
+							if (ins->mConst.mType == IT_POINTER && ins->mConst.mMemory == paramMemory)
+							{
+								if (!modifiedParams[ins->mConst.mVarIndex])
+								{
+									modifiedParams += ins->mConst.mVarIndex;
 									changed = true;
 								}
 							}
@@ -22365,7 +22450,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "bad");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

@@ -7,20 +7,17 @@
 void itoa(int n, char * s, unsigned radix)
 {
 	bool neg = n < 0;
-	if (neg)
-	{
-		n = - n;
-	}
+	unsigned un = neg ? -n : n;
 	
 	char	i = 0;
     do {
-		int	d = n % radix;
+		unsigned	d = un % radix;
 		if (d < 10)
 			d += '0';
 		else
 			d += 'A' - 10;
 		s[i++] = d;
-    } while ((n /= radix) > 0);
+    } while ((un /= radix) > 0);
 
 	if (neg)
 	{
