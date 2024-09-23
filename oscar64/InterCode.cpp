@@ -3889,6 +3889,7 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	mSingleAssignment = false;
 	mNoSideEffects = false;
 	mConstExpr = false;
+	mAliasing = false;
 }
 
 static bool TypeInteger(InterType t)
@@ -5756,6 +5757,8 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 			fprintf(file, "C");
 		if (mSingleAssignment)
 			fprintf(file, "S");
+		if (mAliasing)
+			fprintf(file, "A");
 		fprintf(file, "}\n");
 	}
 }
@@ -20901,6 +20904,34 @@ void InterCodeBasicBlock::CheckValueReturn(void)
 	}
 }
 
+void InterCodeBasicBlock::MarkAliasing(const NumberSet& aliasedParams)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			if (ins->mCode == IC_LOAD || ins->mCode == IC_COPY)
+			{
+				if ((ins->mSrc[0].mMemory == IM_PARAM || ins->mSrc[0].mMemory == IM_FPARAM) && aliasedParams[ins->mSrc[0].mVarIndex])
+					ins->mAliasing = true;
+			}
+
+			if (ins->mCode == IC_STORE || ins->mCode == IC_FILL || ins->mCode == IC_COPY)
+			{
+				if ((ins->mSrc[1].mMemory == IM_PARAM || ins->mSrc[1].mMemory == IM_FPARAM) && aliasedParams[ins->mSrc[1].mVarIndex])
+					ins->mAliasing = true;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->MarkAliasing(aliasedParams);
+		if (mFalseJump) mFalseJump->MarkAliasing(aliasedParams);
+	}
+}
+
 void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool& storesIndirect, bool& loadsIndirect, bool& globalsChecked)
 {
 	if (!mVisited)
@@ -22454,7 +22485,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "testD");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -23537,6 +23568,11 @@ void InterCodeProcedure::Close(void)
 #endif
 	ResetVisited();
 	mEntryBlock->CollectGlobalReferences(mReferencedGlobals, mModifiedGlobals, mStoresIndirect, mLoadsIndirect, mGlobalsChecked);
+
+	ResetVisited();
+	mEntryBlock->MarkAliasing(mParamAliasedSet);
+
+	DisassembleDebug("Marked Aliasing");
 }
 
 void InterCodeProcedure::AddCalledFunction(InterCodeProcedure* proc)

@@ -32,6 +32,7 @@ struct NativeRegisterData
 
 	void Reset(void);
 	void ResetMask(void);
+	void ResetAliasing(void);
 
 	bool SameData(const NativeRegisterData& d) const;
 	bool SameData(const NativeCodeInstruction& ins) const;
@@ -57,6 +58,7 @@ struct NativeRegisterDataSet
 	void ResetWorkMasks(void);
 	void Intersect(const NativeRegisterDataSet& set);
 	void IntersectMask(const NativeRegisterDataSet& set);
+	void ResetAliasing(void);
 };
 
 struct ValueNumberingData
@@ -123,6 +125,7 @@ static const uint32 NCIF_JSRFLAGS = 0x00000080;
 static const uint32 NICT_INDEXFLIPPED = 0x00000100;
 static const uint32 NICT_ZPFLIPPED = 0x00000200;
 static const uint32 NICF_TMPREF = 0x00000400;
+static const uint32 NCIF_ALIASING = 0x00000800;
 
 static const uint32 NCIF_USE_CPU_REG_A = 0x00001000;
 static const uint32 NCIF_USE_CPU_REG_X = 0x00002000;
