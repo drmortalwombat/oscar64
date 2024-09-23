@@ -16016,7 +16016,8 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 
 								if (ci->mOperator == IA_CMPEQ && eblock->mFalseJump == this ||
 									ci->mOperator == IA_CMPNE && eblock->mTrueJump == this ||
-									ci->mOperator == IA_CMPGU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 && ci->mSrc[0].mIntConst == 0)
+									ci->mOperator == IA_CMPGU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 && ci->mSrc[0].mIntConst == 0 ||
+									ci->mOperator == IA_CMPLEU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0)
 								{
 									if (ci->mSrc[0].mTemp < 0)
 										lc.mEnd = ci->mSrc[0].mIntConst;
@@ -16077,6 +16078,9 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 						int64	end = lcs[k].mEnd;
 						int64	step = lcs[k].mStep;
 
+						if (lcs[k].mCmp->mOperator == IA_CMPLEU)
+							end += step;
+
 						if (step > 0 && end > start || step < 0 && end < start)
 							loop = (end - start) / step;
 					}
@@ -16110,7 +16114,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 								lcs[k].mCmp->mSrc[ti] = lcs[j].mInc->mDst;
 								lcs[k].mCmp->mSrc[ci] = lcs[j].mInit->mConst;
 								lcs[k].mCmp->mSrc[ci].mIntConst += loop * lcs[j].mStep;
-								if (lcs[k].mCmp->mOperator == IA_CMPGU)
+								if (lcs[k].mCmp->mOperator == IA_CMPGU || lcs[k].mCmp->mOperator == IA_CMPLEU)
 									lcs[k].mCmp->mOperator = IA_CMPNE;
 
 								InterInstruction* iins = lcs[k].mInit->Clone();
@@ -22450,7 +22454,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "bad");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -23362,6 +23366,7 @@ void InterCodeProcedure::Close(void)
 	TempForwarding(false, true);
 
 	EliminateDoubleLoopCounter();
+	DisassembleDebug("EliminateDoubleLoopCounter");
 
 	ResetVisited();
 	mEntryBlock->SingleLoopCountZeroCheck();
