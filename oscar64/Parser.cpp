@@ -478,7 +478,7 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 												mdec->mOffset--;
 												mdec->mShift = 8 - bitsleft;
 												bitsleft = bitsleft + 24 - mdec->mBits;
-												offset+=2;
+												offset+=3;
 											}
 											else
 											{

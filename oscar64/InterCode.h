@@ -317,7 +317,7 @@ public:
 	InterOperator						mOperator;
 	int									mNumOperands;
 
-	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr, mRemove;
+	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr, mRemove, mAliasing;
 
 	InterInstruction(const Location& loc, InterCode code);
 
@@ -671,6 +671,7 @@ public:
 
 	void CollectGlobalReferences(NumberSet& referencedGlobals, NumberSet& modifiedGlobals, bool & storesIndirect, bool & loadsIndirect, bool & globalsChecked);
 	
+	void MarkAliasing(const NumberSet& aliasedParams);
 };
 
 class InterCodeProcedure
