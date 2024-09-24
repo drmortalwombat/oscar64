@@ -17417,17 +17417,20 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 				while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ains->mDst.mTemp)
 					pi--;
 
-				int i = 0;
-				while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
-					i++;
-				if (i == nins - 3)
+				if (pi >= 0 && pblock->mInstructions[pi]->mCode == IC_CONSTANT)
 				{
-					nloop = cins->mSrc[0].mIntConst;
-					if (cins->mOperator == IA_CMPLEU)
-						nloop++;
-					nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
+					int i = 0;
+					while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+						i++;
+					if (i == nins - 3)
+					{
+						nloop = cins->mSrc[0].mIntConst - pblock->mInstructions[pi]->mConst.mIntConst;
+						if (cins->mOperator == IA_CMPLEU)
+							nloop++;
+						nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
 
-					return true;
+						return true;
+					}
 				}
 			}
 			else if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
@@ -17443,17 +17446,20 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 				while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ains->mDst.mTemp)
 					pi--;
 
-				int i = 0;
-				while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
-					i++;
-				if (i == nins - 3)
+				if (pi >= 0 && pblock->mInstructions[pi]->mCode == IC_CONSTANT)
 				{
-					nloop = cins->mSrc[0].mRange.mMaxValue;
-					if (cins->mOperator == IA_CMPLEU)
-						nloop++;
-					nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
+					int i = 0;
+					while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ains->mDst.mTemp)
+						i++;
+					if (i == nins - 3)
+					{
+						nloop = cins->mSrc[0].mRange.mMaxValue - pblock->mInstructions[pi]->mConst.mIntConst;
+						if (cins->mOperator == IA_CMPLEU)
+							nloop++;
+						nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
 
-					return true;
+						return true;
+					}
 				}
 			}
 		}
@@ -22485,7 +22491,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "testD");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
