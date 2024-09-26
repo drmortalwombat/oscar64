@@ -120,6 +120,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Os : optimize for size
 * -Oi : enable auto inline of small functions (part of O2/O3)
 * -Oa : optimize inline assembler (part of O2/O3)
+* -Oa : optimize inline assembler (part of O2/O3)
 * -Oz : enable auto placement of global variables in zero page (part of O3)
 * -Op : optimize constant parameters
 * -g : create source level debug info and add source line numbers to asm listing
@@ -133,6 +134,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -cid : cartridge type ID, used by vice emulator
 * -pp : compile in C++ mode
 * -psci : use PETSCII encoding for all strings without prefix
+* -rpt : generate error files .error.map, .error.asm when linker fails
 
 A list of source files can be provided.
 

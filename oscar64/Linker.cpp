@@ -1676,15 +1676,18 @@ bool Linker::WriteMapFile(const char* filename)
 
 			if (obj->mFlags & LOBJF_REFERENCED)
 			{
-				if (banked)
+				if (obj->mRegion)
 				{
-					int k = 0;
-					while (k < 64 && !(obj->mRegion->mCartridgeBanks & (1ull << k)))
-						k++;
-					if (k < 64)
-						fprintf(file, "%02x:", k);
-					else
-						fprintf(file, "--:");
+					if (banked)
+					{
+						int k = 0;
+						while (k < 64 && !(obj->mRegion->mCartridgeBanks & (1ull << k)))
+							k++;
+						if (k < 64)
+							fprintf(file, "%02x:", k);
+						else
+							fprintf(file, "--:");
+					}
 				}
 
 				if (obj->mIdent)
@@ -1728,15 +1731,18 @@ bool Linker::WriteMapFile(const char* filename)
 		{
 			const LinkerObject* obj = so[i];
 
-			if (banked)
+			if (obj->mRegion)
 			{
-				int k = 0;
-				while (k < 64 && !(obj->mRegion->mCartridgeBanks & (1ull << k)))
-					k++;
-				if (k < 64)
-					fprintf(file, "%02x:", k);
-				else
-					fprintf(file, "--:");
+				if (banked)
+				{
+					int k = 0;
+					while (k < 64 && !(obj->mRegion->mCartridgeBanks & (1ull << k)))
+						k++;
+					if (k < 64)
+						fprintf(file, "%02x:", k);
+					else
+						fprintf(file, "--:");
+				}
 			}
 
 			fprintf(file, "%04x (%04x) : %s, %s:%s\n", obj->mAddress, obj->mSize, obj->mIdent->mString, LinkerObjectTypeNames[obj->mType], obj->mSection->mIdent->mString);
@@ -1926,7 +1932,9 @@ bool Linker::WriteAsmFile(const char* filename, const char* version)
 					mByteCodeDisassembler.Disassemble(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this);
 					break;
 				case LOT_NATIVE_CODE:
-					if (obj->mRegion->mCartridgeBanks)
+					if (!obj->mRegion)
+						mNativeDisassembler.Disassemble(file, obj->mData, -1, 0, obj->mSize, obj->mProc, obj->mIdent, this, obj->mFullIdent);
+					else if (obj->mRegion->mCartridgeBanks)
 					{
 						int i = 0;
 						while (!(obj->mRegion->mCartridgeBanks & (1ULL << i)))
@@ -1939,7 +1947,9 @@ bool Linker::WriteAsmFile(const char* filename, const char* version)
 						mNativeDisassembler.Disassemble(file, mMemory, -1, obj->mAddress, obj->mSize, obj->mProc, obj->mIdent, this, obj->mFullIdent);
 					break;
 				case LOT_DATA:
-					if (obj->mRegion->mCartridgeBanks)
+					if (!obj->mRegion)
+						mNativeDisassembler.DumpMemory(file, obj->mData, -1, 0, obj->mSize, obj->mProc, obj->mIdent, this, obj);
+					else if (obj->mRegion->mCartridgeBanks)
 					{
 						int i = 0;
 						while (!(obj->mRegion->mCartridgeBanks & (1ULL << i)))

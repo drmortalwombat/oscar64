@@ -1188,6 +1188,82 @@ bool Compiler::BuildLZO(const char* targetPath)
 	}
 }
 
+bool Compiler::RemoveErrorFile(const char* targetPath)
+{
+	char	prgPath[200], mapPath[200], asmPath[200], intPath[200];
+	char	basePath[200];
+
+	strcpy_s(basePath, targetPath);
+	ptrdiff_t	i = strlen(basePath);
+	while (i > 0 && basePath[i - 1] != '/' && basePath[i - 1] != '\\' && basePath[i - 1] != ':')
+		i--;
+	if (i > 0)
+		basePath[i] = 0;
+
+	strcpy_s(prgPath, targetPath);
+	i = strlen(prgPath);
+	while (i > 0 && prgPath[i - 1] != '.')
+		i--;
+	if (i > 0)
+		prgPath[i] = 0;
+
+	strcpy_s(mapPath, prgPath);
+	strcpy_s(asmPath, prgPath);
+	strcpy_s(intPath, prgPath);
+
+	strcat_s(mapPath, "error.map");
+	strcat_s(asmPath, "error.asm");
+	strcat_s(intPath, "error.int");
+
+	remove(mapPath);
+	remove(asmPath);
+	remove(intPath);
+
+	return true;
+}
+
+bool Compiler::WriteErrorFile(const char* targetPath)
+{
+	char	prgPath[200], mapPath[200], asmPath[200], intPath[200];
+	char	basePath[200];
+
+	strcpy_s(basePath, targetPath);
+	ptrdiff_t	i = strlen(basePath);
+	while (i > 0 && basePath[i - 1] != '/' && basePath[i - 1] != '\\' && basePath[i - 1] != ':')
+		i--;
+	if (i > 0)
+		basePath[i] = 0;
+
+	strcpy_s(prgPath, targetPath);
+	i = strlen(prgPath);
+	while (i > 0 && prgPath[i - 1] != '.')
+		i--;
+	if (i > 0)
+		prgPath[i] = 0;
+
+	strcpy_s(mapPath, prgPath);
+	strcpy_s(asmPath, prgPath);
+	strcpy_s(intPath, prgPath);
+
+	strcat_s(mapPath, "error.map");
+	strcat_s(asmPath, "error.asm");
+	strcat_s(intPath, "error.int");
+
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Writing <%s>\n", mapPath);
+	mLinker->WriteMapFile(mapPath);
+
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Writing <%s>\n", asmPath);
+	mLinker->WriteAsmFile(asmPath, mVersion);
+
+	if (mCompilerOptions & COPT_VERBOSE)
+		printf("Writing <%s>\n", intPath);
+	mInterCodeModule->Disassemble(intPath);
+
+	return true;
+}
+
 bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 {
 	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200], dbjPath[200];
