@@ -504,6 +504,9 @@ public:
 	bool MoveTXADCDown(int at);
 	bool FoldShiftORAIntoLoadImmUp(int at);
 
+	bool FindAccuExitValue(int& at);
+	bool MoveLoadXAbsUpCrossBlock(int at);
+
 	bool MoveSimpleADCToINCDECDown(int at);
 	bool MoveTAXADCSTADown(int at);
 

@@ -1974,14 +1974,9 @@ Expression* Parser::ParseInitExpression(Declaration* dtype, bool inner)
 				}
 				else if (exp->mDecValue->mType == DT_CONST_INTEGER && exp->mDecValue->mInteger == 0)
 				{
-					Declaration	*	ndec = new Declaration(exp->mDecValue->mLocation, DT_CONST_ADDRESS);
-					ndec->mBase = TheVoidPointerTypeDeclaration;
-					ndec->mInteger = 0;
-					dec = ndec;
-
 					Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTANT);
-					nexp->mDecValue = ndec;
-					nexp->mDecType = ndec->mBase;
+					nexp->mDecValue = TheNullptrConstDeclaration;
+					nexp->mDecType = TheNullPointerTypeDeclaration;
 					exp = nexp;
 				}
 				else
