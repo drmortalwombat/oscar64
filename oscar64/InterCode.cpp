@@ -11082,6 +11082,47 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							}
 						}
 					}
+					else if (ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0 && 
+						ltvalue[ins->mSrc[0].mTemp] && ltvalue[ins->mSrc[1].mTemp] &&
+						ins->mSrc[0].mFinal && ins->mSrc[1].mFinal)
+					{
+						InterInstruction* ai0 = ltvalue[ins->mSrc[0].mTemp], * ai1 = ltvalue[ins->mSrc[1].mTemp];
+						if (ai0->mCode == IC_BINARY_OPERATOR && ai0->mOperator == IA_SUB && ai0->mSrc[0].mTemp < 0 && ai0->mSrc[1].mFinal &&
+							ai1->mCode == IC_BINARY_OPERATOR && ai1->mOperator == IA_SUB && ai1->mSrc[0].mTemp < 0 && ai1->mSrc[1].mFinal)
+						{
+							if (spareTemps + 2 >= ltvalue.Size())
+								return true;
+
+							InterInstruction* sins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							sins->mOperator = IA_SUB;
+							sins->mDst = ins->mDst;
+							sins->mSrc[1].mType = IT_INT16;
+							sins->mSrc[1].mTemp = spareTemps++;
+							sins->mSrc[1].mFinal = true;
+							sins->mSrc[0] = ai0->mSrc[0];
+							sins->mSrc[0].mIntConst += ai1->mSrc[0].mIntConst;
+							sins->mSrc[0].mRange.AddConstValue(IT_INT16, -ai1->mSrc[0].mIntConst);
+							mInstructions.Insert(i + 1, sins);
+
+							ins->mDst = sins->mSrc[1];
+
+							ai0->mCode = IC_LOAD_TEMPORARY;
+							ai0->mSrc[0] = ai0->mSrc[1];
+							ai0->mDst.mRange = ai0->mSrc[0].mRange;
+							ai0->mNumOperands = 1;
+
+							ai1->mCode = IC_LOAD_TEMPORARY;
+							ai1->mSrc[0] = ai1->mSrc[1];
+							ai1->mDst.mRange = ai1->mSrc[0].mRange;
+							ai1->mNumOperands = 1;
+
+							ins->mSrc[0].mRange = ai0->mDst.mRange;
+							ins->mSrc[1].mRange = ai1->mDst.mRange;
+
+							changed = true;
+						}
+					}
+
 
 					break;
 #endif
@@ -20749,6 +20790,28 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 					mInstructions[i + 0] = ins;
 					changed = true;
 				}
+#if 1
+				else if (i + 2 < mInstructions.Size() && mInstructions[i + 0]->mCode == IC_STORE && mInstructions[i + 2]->mCode == IC_STORE &&
+					mInstructions[i + 1]->mCode == IC_LOAD &&
+					CanSwapInstructions(mInstructions[i + 0], mInstructions[i + 1]) &&
+					mInstructions[i + 1]->mDst.mTemp == mInstructions[i + 2]->mSrc[0].mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+					!mInstructions[i + 0]->mVolatile && !mInstructions[i + 2]->mVolatile &&
+					SameMemRegion(mInstructions[i + 0]->mSrc[1], mInstructions[i + 2]->mSrc[1]) &&
+
+					(mInstructions[i + 0]->mSrc[1].mVarIndex > mInstructions[i + 2]->mSrc[1].mVarIndex ||
+						mInstructions[i + 0]->mSrc[1].mVarIndex == mInstructions[i + 2]->mSrc[1].mVarIndex &&
+						mInstructions[i + 0]->mSrc[1].mIntConst > mInstructions[i + 2]->mSrc[1].mIntConst))
+				{
+					InterInstruction* ins = mInstructions[i + 0];
+					SwapInstructions(ins, mInstructions[i + 1]);
+					mInstructions[i + 0] = mInstructions[i + 1];
+					SwapInstructions(ins, mInstructions[i + 2]);
+					mInstructions[i + 1] = mInstructions[i + 2];
+					mInstructions[i + 2] = ins;
+
+					changed = true;
+				}
+#endif
 			}
 
 		} while (changed);
@@ -22491,7 +22554,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "bm_init");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
