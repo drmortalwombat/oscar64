@@ -1123,9 +1123,9 @@ bool NativeCodeInstruction::CanSwapXYReg(void)
 	if (mMode == ASMIM_INDIRECT_X || mMode == ASMIM_INDIRECT_Y || mMode == ASMIM_ZERO_PAGE_X || mMode == ASMIM_ZERO_PAGE_Y)
 		return false;
 	else if (mMode == ASMIM_ABSOLUTE_X)
-		return HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y);
+		return mType == ASMIT_LDY || HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y);
 	else if (mMode == ASMIM_ABSOLUTE_Y)
-		return HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X);
+		return mType == ASMIT_LDX || HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X);
 	else if (mType == ASMIT_JSR && (mFlags & (NCIF_USE_CPU_REG_X | NCIF_USE_CPU_REG_Y)))
 		return false;
 	else
@@ -34857,7 +34857,7 @@ bool NativeCodeBasicBlock::IndexXYValueForwarding(int xreg, int xoffset, int xva
 							xoffset = 0;
 					}
 					else if (i + 1 < mIns.Size() && mIns[i].mAddress == yreg && yoffset == 0 &&
-						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ABSOLUTE_X && !(mIns[i].mLive & LIVE_CPU_REG_A))
+						mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ABSOLUTE_X && !(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
 					{
 						mIns[i] = NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_LDA, mIns[i + 1]);
 						mIns[i].mMode = ASMIM_ABSOLUTE_Y;
@@ -38582,6 +38582,33 @@ bool NativeCodeBasicBlock::OptimizeXYSimpleLoop(void)
 								mExitRequiredRegs += CPU_REG_X;
 								pblock->mExitRequiredRegs += CPU_REG_X;
 							}
+						}
+					}
+				}
+				else if (sz > 5 &&
+					mIns[0].mType == ASMIT_STY && mIns[0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[sz - 3].mType == ASMIT_LDY && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE && mIns[0].mAddress == mIns[sz - 3].mAddress &&
+					!ChangesZeroPage(mIns[0].mAddress, 1, sz - 3) && !(mIns[sz - 3].mLive & LIVE_CPU_REG_X))
+				{
+					int j = 0;
+					while (j < sz - 3 && !(mIns[j].ChangesYReg() || mIns[j].mType == ASMIT_LDX && mIns[j].mMode == ASMIM_ZERO_PAGE && mIns[j].mAddress == mIns[0].mAddress))
+						j++;
+					if (mIns[j].mType == ASMIT_LDX && !ChangesXReg(j + 1, sz - 3))
+					{
+						int k = j + 1;
+						while (k < sz - 3 && mIns[k].CanSwapXYReg())
+							k++;
+						if (k == sz - 3)
+						{
+							for (k = j + 1; k < sz - 3; k++)
+								mIns[k].SwapXYReg();
+
+							for (k = 0; k < sz; k++)
+								mIns[k].mLive |= LIVE_CPU_REG_Y;
+
+							mIns[j].mType = ASMIT_NOP; mIns[j].mMode = ASMIM_IMPLIED;
+							mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+							changed = true;
 						}
 					}
 				}
@@ -51174,7 +51201,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "_showFrame1");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52957,6 +52984,7 @@ void NativeCodeProcedure::Optimize(void)
 	ResetVisited();
 	mEntryBlock->CheckAsmCode();
 #endif
+
 
 #if 1
 		if (cnt > 190)
