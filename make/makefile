@@ -1,7 +1,7 @@
 project_dir := $(abspath $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))/../)
 sources = $(wildcard $(project_dir)/oscar64/*.cpp)
-objects = $(patsubst $(project_dir)/oscar64/%.cpp,%.o,$(sources))
 srcdir := $(if $(srcdir),$(srcdir),$(project_dir)/build)
+objects = $(patsubst $(project_dir)/oscar64/%.cpp,$(srcdir)/%.o,$(sources))
 
 CXX = c++
 CPPFLAGS = -g -O2 -std=c++11 -Wno-switch
@@ -41,23 +41,24 @@ endif
 all: --prep-build-dir compiler samples tests
 
 
-%.o: $(project_dir)/oscar64/%.cpp
-	@echo "Compiling compiler file" $@ "..."
-	@$(CXX) -c $(CPPFLAGS) $< -o $(srcdir)/$@
+$(srcdir)/%.o: $(project_dir)/oscar64/%.cpp
+	@echo "Compiling compiler file" $@ "..." $<
+	@$(CXX) -c $(CPPFLAGS) $< -o $@
 
 
-%.d: $(project_dir)/oscar64/%.cpp
-	@echo "Transforming file" $@ "..."
+$(srcdir)/%.d: $(project_dir)/oscar64/%.cpp
+	@$(MKDIR_PARENT) $(srcdir)
+	@echo "Transforming file" $@ "..." $<
 	@set -e; \
-	$(RM) $(srcdir)/$@; \
-	@$(CC) -MM $(CPPFLAGS) $< > $(srcdir)/$@.$$$$; \
-	$(SED) 's,\($*\)\.o[ :]*,\1.o $(srcdir)/$@ : ,g' < $(srcdir)/$@.$$$$ > $(srcdir)/$@; \
-	$(RM) $(srcdir)/$@.$$$$
+	$(RM) $@; \
+	$(CC) -MM -MT $(patsubst %.d,%.o,$@) $(CPPFLAGS) $< > $@.$$$$; \
+	$(SED) 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	$(RM) $@.$$$$
 
 
 compiler: $(objects)
+	@$(MKDIR_PARENT) $(srcdir)
 	@echo "Linking compiler..."
-	@cd $(srcdir); \
 	$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
 
 
@@ -114,11 +115,12 @@ ifeq ($(UNAME_S), Darwin)
 
 else
 
-include $($(srcdir)/objects:.o=.d)
+include $(objects:.o=.d)
 
 endif
 
 
 --prep-build-dir:
+	echo "makedir"
 	@if [ ! -d $(srcdir) ]; then $(MKDIR_PARENT) $(srcdir); fi
 	@if [ ! -d $(project_dir)/bin ]; then $(MKDIR_PARENT)  $(project_dir)/bin; fi
