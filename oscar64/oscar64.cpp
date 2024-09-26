@@ -312,6 +312,10 @@ int main2(int argc, const char** argv)
 					compiler->mCompilerOptions |= COPT_CPLUSPLUS;
 					compiler->AddDefine(Ident::Unique("__cplusplus"), "1");
 				}
+				else if (arg[1] == 'r' && arg[2] == 'm' && arg[3] == 'p')
+				{
+					compiler->mCompilerOptions |= COPT_ERROR_FILES;
+				}
 				else
 					compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
 			}
@@ -524,6 +528,8 @@ int main2(int argc, const char** argv)
 				printf("Starting %s %s\n", strProductName, strProductVersion);
 			}
 
+			compiler->WriteErrorFile(targetPath);
+
 			{
 				char dstring[100], tstring[100];
 				time_t now = time(NULL);
@@ -578,6 +584,10 @@ int main2(int argc, const char** argv)
 
 				if (emulate)
 					compiler->ExecuteCode(profile, trace);
+			}
+			else if (compiler->mCompilerOptions & COPT_ERROR_FILES)
+			{
+				compiler->WriteErrorFile(targetPath);
 			}
 		}
 

@@ -48,6 +48,8 @@ public:
 	bool ParseSource(void);
 	bool GenerateCode(void);
 	bool WriteOutputFile(const char* targetPath, DiskImage * d64);
+	bool WriteErrorFile(const char* targetPath);
+	bool RemoveErrorFile(const char* targetPath);
 	int ExecuteCode(bool profile, int trace);
 
 	void AddDefine(const Ident* ident, const char* value);
