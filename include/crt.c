@@ -2858,6 +2858,11 @@ W1:
 		
 __asm faddsub
 {
+fsub:
+		lda tmp + 3
+		eor #$80
+		sta tmp + 3
+fadd:
 		lda #$ff
 		cmp tmp + 4
 		beq INF
@@ -3008,7 +3013,7 @@ fas_zero:
 __asm inp_binop_add_f32
 {
 		jsr	freg.split_exp
-		jsr faddsub
+		jsr faddsub.fadd
 		jmp	startup.exec
 }
 
@@ -3017,10 +3022,7 @@ __asm inp_binop_add_f32
 __asm inp_binop_sub_f32
 {
 		jsr	freg.split_exp
-		lda	tmp + 3
-		eor	#$80
-		sta	tmp + 3
-		jsr	faddsub
+		jsr	faddsub.fsub
 		jmp	startup.exec
 }
 
@@ -3983,11 +3985,38 @@ fru3:
 		jmp	freg.merge_aexp
 }
 
+__asm store32
+{
+		lda	accu + 0
+		sta $00, x
+		lda	accu + 1
+		sta $01, x
+		lda	accu + 2
+		sta $02, x
+		lda	accu + 3
+		sta $03, x
+		rts
+}
+
+__asm load32
+{
+		lda	$00, x
+		sta accu + 0
+		lda	$01, x
+		sta accu + 1
+		lda	$02, x
+		sta accu + 2
+		lda	$03, x
+		sta accu + 3
+		rts
+}
+
 #pragma runtime(fsplita, freg.split_aexp)
 #pragma runtime(fsplitt, freg.split_texp)
 #pragma runtime(fsplitx, freg.split_xexp)
 #pragma runtime(fmergea, freg.merge_aexp)
-#pragma runtime(faddsub, faddsub)
+#pragma runtime(fadd, faddsub.fadd)
+#pragma runtime(fsub, faddsub.fsub)
 #pragma runtime(fmul, fmul)
 #pragma runtime(fdiv, fdiv)
 #pragma runtime(fcmp, fcmp)
@@ -4001,6 +4030,8 @@ fru3:
 #pragma runtime(ffromlu, uint32_to_float)
 #pragma runtime(ftoli, f32_to_i32)
 #pragma runtime(ftolu, f32_to_u32)
+#pragma runtime(store32, store32)
+#pragma runtime(load32, load32)
 
 __asm inp_op_floor_f32
 {

@@ -225,19 +225,19 @@ int main2(int argc, const char** argv)
 					strcpy_s(cid, arg + 5);
 					compiler->mCartridgeID = atoi(cid);
 				}
-				else if (arg[1] == 'n')
+				else if (arg[1] == 'n' && arg[2] == 0)
 				{
 					compiler->mCompilerOptions |= COPT_NATIVE;
 				}
-				else if (arg[1] == 'b' && arg[2] == 'c')
+				else if (arg[1] == 'b' && arg[2] == 'c' && arg[3] == 0)
 				{
 					compiler->mCompilerOptions &= ~COPT_NATIVE;
 				}
-				else if (arg[1] == 'p' && arg[2] == 's' && arg[3] == 'c' && arg[4] == 'i')
+				else if (arg[1] == 'p' && arg[2] == 's' && arg[3] == 'c' && arg[4] == 'i' && arg[5] == 0)
 				{
 					compiler->mCompilerOptions |= COPT_PETSCII;
 				}
-				else if (arg[1] == 'O')
+				else if (arg[1] == 'O' && arg[2] != 0 && arg[3] == 0)
 				{
 					if (arg[2] == '0')
 						compiler->mCompilerOptions &= ~(COPT_OPTIMIZE_ALL);
@@ -261,6 +261,8 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_GLOBAL;
 					else if (arg[2] == 'm')
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_MERGE_CALLS;
+					else
+						compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
 				}
 				else if (arg[1] == 'e')
 				{
@@ -291,7 +293,7 @@ int main2(int argc, const char** argv)
 					else
 						compiler->AddDefine(Ident::Unique(def), "");
 				}
-				else if (arg[1] == 'g')
+				else if (arg[1] == 'g' && !arg[2])
 				{
 					compiler->mCompilerOptions |= COPT_DEBUGINFO;
 				}
@@ -302,17 +304,19 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_VERBOSE2;
 					else if (arg[2] == '3')
 						compiler->mCompilerOptions |= COPT_VERBOSE2 | COPT_VERBOSE3;
+					else if (!arg[2])
+						compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
 				}
-				else if (arg[1] == 'x' && arg[2] == 'z')
+				else if (arg[1] == 'x' && arg[2] == 'z' && !arg[3])
 				{
 					compiler->mCompilerOptions |= COPT_EXTENDED_ZERO_PAGE;
 				}
-				else if (arg[1] == 'p' && arg[2] == 'p')
+				else if (arg[1] == 'p' && arg[2] == 'p' && !arg[3])
 				{
 					compiler->mCompilerOptions |= COPT_CPLUSPLUS;
 					compiler->AddDefine(Ident::Unique("__cplusplus"), "1");
 				}
-				else if (arg[1] == 'r' && arg[2] == 'm' && arg[3] == 'p')
+				else if (arg[1] == 'r' && arg[2] == 'm' && arg[3] == 'p' && !arg[4])
 				{
 					compiler->mCompilerOptions |= COPT_ERROR_FILES;
 				}
@@ -562,6 +566,8 @@ int main2(int argc, const char** argv)
 
 				if (diskPath[0])
 					d64 = new DiskImage(diskPath);
+
+				compiler->RemoveErrorFile(targetPath);
 
 				compiler->WriteOutputFile(targetPath, d64);
 

@@ -32,6 +32,8 @@ protected:
 	GrowingArray<Declaration*>		mGlobalVariables;
 
 	void AnalyzeInit(Declaration* mdec);
+	int CallerInvokes(Declaration* called);
+	int CallerInvokes(Declaration* caller, Declaration* called);
 
 	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs, bool aliasing);
 

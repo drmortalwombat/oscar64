@@ -943,7 +943,8 @@ bool Compiler::GenerateCode(void)
 		RegisterRuntime(loc, Ident::Unique("fsplitt"));
 		RegisterRuntime(loc, Ident::Unique("fsplitx"));
 		RegisterRuntime(loc, Ident::Unique("fsplita"));
-		RegisterRuntime(loc, Ident::Unique("faddsub"));
+		RegisterRuntime(loc, Ident::Unique("fadd"));
+		RegisterRuntime(loc, Ident::Unique("fsub"));
 		RegisterRuntime(loc, Ident::Unique("fmul"));
 		RegisterRuntime(loc, Ident::Unique("fdiv"));
 		RegisterRuntime(loc, Ident::Unique("mul16"));
@@ -970,6 +971,9 @@ bool Compiler::GenerateCode(void)
 		RegisterRuntime(loc, Ident::Unique("mods32"));
 		RegisterRuntime(loc, Ident::Unique("divu32"));
 		RegisterRuntime(loc, Ident::Unique("modu32"));
+
+		RegisterRuntime(loc, Ident::Unique("store32"));
+		RegisterRuntime(loc, Ident::Unique("load32"));
 
 		RegisterRuntime(loc, Ident::Unique("malloc"));
 		RegisterRuntime(loc, Ident::Unique("free"));
