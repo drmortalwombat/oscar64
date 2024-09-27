@@ -265,8 +265,8 @@ public:
 	NativeCodeInstruction DecodeNative(const InterInstruction* ins, LinkerObject * lobj, int& offset) const;
 
 	int PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int offset);
-	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset);
-	int JumpByteSize(NativeCodeBasicBlock * target, int offset);
+	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset, AsmInsType code = ASMIT_INV);
+	int JumpByteSize(NativeCodeBasicBlock * target, int offset, bool second);
 	int BranchByteSize(NativeCodeBasicBlock* target, int from, int to);
 
 	NativeCodeBasicBlock* SplitAt(int at);
@@ -745,6 +745,9 @@ public:
 	bool CheckPatchFailUse(void);
 
 	bool CheckPatchFailLoop(const NativeCodeBasicBlock* block, const NativeCodeBasicBlock* head, int reg, bool changed);
+
+	bool JoinSameBranch(NativeCodeBasicBlock* block);
+	bool MergeSameBranch(void);
 
 	// reg : base register pair to replace
 	// index: index register

@@ -23479,7 +23479,7 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("mapped variabled");
 
-	ReduceTemporaries();
+	ReduceTemporaries(true);
 
 	DisassembleDebug("Reduced Temporaries");
 
@@ -24224,11 +24224,19 @@ void InterCodeProcedure::HoistCommonConditionalPath(void)
 }
 
 
-void InterCodeProcedure::ReduceTemporaries(void)
+void InterCodeProcedure::ReduceTemporaries(bool final)
 {
 	NumberSet* collisionSet;
 	int i, j, numRenamedTemps;
 	int numTemps = mTemporaries.Size();
+
+	NumberSet	callerSaved(numTemps);
+
+	if (final)
+	{
+		ResetVisited();
+		mEntryBlock->BuildCallerSaveTempSet(callerSaved);
+	}
 
 	ResetVisited();
 	mEntryBlock->BuildLocalTempSets(numTemps);
@@ -24261,24 +24269,73 @@ void InterCodeProcedure::ReduceTemporaries(void)
 
 	NumberSet	usedTemps(numTemps);
 
-	for (i = 0; i < numTemps; i++)
+	if (final)
 	{
-		usedTemps.Clear();
-
-		for (j = 0; j < numTemps; j++)
+		for (int sz = 4; sz > 0; sz >>= 1)
 		{
-			if (mRenameTable[j] >= 0 && (collisionSet[i][j] || InterTypeSize[mTemporaries[j]] != InterTypeSize[mTemporaries[i]]))
+			for (i = 0; i < numTemps; i++)
 			{
-				usedTemps += mRenameTable[j];
+				if (InterTypeSize[mTemporaries[i]] == sz && !callerSaved[i])
+				{
+					usedTemps.Clear();
+
+					for (j = 0; j < numTemps; j++)
+					{
+						if (mRenameTable[j] >= 0 && collisionSet[i][j])
+							usedTemps += mRenameTable[j];
+					}
+
+					j = 0;
+					while (usedTemps[j])
+						j++;
+
+					mRenameTable[i] = j;
+					if (j >= numRenamedTemps) numRenamedTemps = j + 1;
+				}
+			}
+			for (i = 0; i < numTemps; i++)
+			{
+				if (InterTypeSize[mTemporaries[i]] == sz && callerSaved[i])
+				{
+					usedTemps.Clear();
+
+					for (j = 0; j < numTemps; j++)
+					{
+						if (mRenameTable[j] >= 0 && collisionSet[i][j])
+							usedTemps += mRenameTable[j];
+					}
+
+					j = 0;
+					while (usedTemps[j])
+						j++;
+
+					mRenameTable[i] = j;
+					if (j >= numRenamedTemps) numRenamedTemps = j + 1;
+				}
 			}
 		}
+	}
+	else
+	{
+		for (i = 0; i < numTemps; i++)
+		{
+			usedTemps.Clear();
 
-		j = 0;
-		while (usedTemps[j])
-			j++;
+			for (j = 0; j < numTemps; j++)
+			{
+				if (mRenameTable[j] >= 0 && (collisionSet[i][j] || InterTypeSize[mTemporaries[j]] != InterTypeSize[mTemporaries[i]]))
+				{
+					usedTemps += mRenameTable[j];
+				}
+			}
 
-		mRenameTable[i] = j;
-		if (j >= numRenamedTemps) numRenamedTemps = j + 1;
+			j = 0;
+			while (usedTemps[j])
+				j++;
+
+			mRenameTable[i] = j;
+			if (j >= numRenamedTemps) numRenamedTemps = j + 1;
+		}
 	}
 
 	mTemporaries.SetSize(numRenamedTemps, true);

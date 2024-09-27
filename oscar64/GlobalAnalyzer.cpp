@@ -147,6 +147,25 @@ void GlobalAnalyzer::TopoSort(Declaration* procDec)
 	}
 }
 
+int GlobalAnalyzer::CallerInvokes(Declaration* called)
+{
+	int n = 0;
+	for (int i = 0; i < called->mCallers.Size(); i++)
+	{
+		Declaration* f = called->mCallers[i];
+		n += CallerInvokes(f, called);
+	}
+	return n;
+}
+
+int GlobalAnalyzer::CallerInvokes(Declaration* caller, Declaration* called)
+{
+	int n = 1;
+	if (caller->mType == DT_CONST_FUNCTION && (caller->mFlags & (DTF_INLINE | DTF_REQUEST_INLINE)) && !(caller->mFlags & DTF_PREVENT_INLINE) && !(caller->mFlags & DTF_FUNC_RECURSIVE) && !(caller->mFlags & DTF_FUNC_VARIABLE) && !(caller->mFlags & DTF_EXPORT))
+		n = CallerInvokes(caller);
+	return n > 1 ? n : 1;
+}
+
 void GlobalAnalyzer::AutoInline(void)
 {
 	for (int i = 0; i < mFunctions.Size(); i++)
@@ -181,33 +200,39 @@ void GlobalAnalyzer::AutoInline(void)
 					dec = dec->mNext;
 				}
 
+				int invokes = CallerInvokes(f);
 				int	cost = (f->mComplexity - 20 * nparams - 10);
 
-//				printf("CHECK INLINING %s (%d) %d * (%d - 1)\n", f->mIdent->mString, f->mComplexity, cost, f->mCallers.Size());
+//				printf("CHECK INLINING %s (%d) %d * (%d - 1)\n", f->mIdent->mString, f->mComplexity, cost, invokes);
 
 				bool	doinline = false;
 				if ((f->mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_REQUEST_INLINE))
 					doinline = true;
 				if (f->mLocalSize < 100)
 				{
-					if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE) && ((cost - 20) * (f->mCallers.Size() - 1) <= 20))
+					if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE) && ((cost - 20) * (invokes - 1) <= 20))
 					{
-						if (f->mCallers.Size() == 1 && f->mComplexity > 100)
+						if (f->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
+						{
+							if (invokes == 1 && f->mSection == f->mCallers[0]->mSection || cost < 0)
+								doinline = true;
+						}
+						else if (invokes == 1 && f->mComplexity > 100)
 						{
 //							printf("CHECK INLINING2 %s <- %s %d\n", f->mIdent->mString, f->mCallers[0]->mIdent->mString, f->mCallers[0]->mCalled.Size());
 							if (cost < 0 || f->mCallers[0]->mComplexity + cost  < 1000 || f->mCallers[0]->mCalled.Size() == 1)
 								doinline = true;
 						}
-						else
+						else 
 							doinline = true;
 					}
-					if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE_ALL) && (cost * (f->mCallers.Size() - 1) <= 10000))
+					if ((f->mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE_ALL) && (cost * (invokes - 1) <= 10000))
 						doinline = true;
 				}
 
 				if (doinline)
 				{
-//					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, f->mCallers.Size());
+//					printf("INLINING %s %d * (%d - 1)\n", f->mIdent->mString, cost, invokes);
 
 					f->mFlags |= DTF_INLINE;
 					for (int j = 0; j < f->mCallers.Size(); j++)

@@ -772,6 +772,8 @@ void LinkerRegion::PlaceStackSection(LinkerSection* stackSection, LinkerSection*
 
 void Linker::CopyObjects(bool inlays)
 {
+	bool	errors = false;
+
 	for (int i = 0; i < mObjects.Size(); i++)
 	{
 		LinkerObject* obj = mObjects[i];
@@ -809,7 +811,9 @@ void Linker::CopyObjects(bool inlays)
 			{
 				if (!obj->mRegion)
 				{
-					mErrors->Error(obj->mLocation, ERRR_INSUFFICIENT_MEMORY, "Could not place object", obj->mIdent);
+					mErrors->Error(obj->mLocation, errors ? EWARN_INSUFFICIENT_MEMORY : ERRR_INSUFFICIENT_MEMORY, "Could not place object", obj->mIdent);
+					if (mCompilerOptions & COPT_ERROR_FILES)
+						errors = true;
 
 					int avail = 0;
 					for (int i = 0; i < mRegions.Size(); i++)
@@ -1645,7 +1649,7 @@ bool Linker::WriteCrtFile(const char* filename, uint16 id)
 
 bool Linker::WriteMapFile(const char* filename)
 {
-	bool	banked = mCartridgeBankUsed[0];
+	bool	banked = mCartridgeBankUsed[0] || mCartridgeBankUsed[1];
 
 	FILE* file;
 	fopen_s(&file, filename, "wb");

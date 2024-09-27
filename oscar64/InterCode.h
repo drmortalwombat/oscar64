@@ -739,7 +739,7 @@ public:
 	bool ModifiesGlobal(int varindex);
 
 	void MapVariables(void);
-	void ReduceTemporaries(void);
+	void ReduceTemporaries(bool final = false);
 	void Disassemble(FILE* file);
 	void Disassemble(const char* name, bool dumpSets = false);
 protected:
