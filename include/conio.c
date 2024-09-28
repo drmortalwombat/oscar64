@@ -18,6 +18,13 @@ __asm bsin
 		jsr 0xffe4
 		sta 0xff01	
 }
+__asm bsget
+{
+		lda #0
+		sta 0xff00
+		jsr 0xffcf
+		sta 0xff01		
+}
 __asm bsplot
 {	
 		lda #0
@@ -43,6 +50,7 @@ __asm dswap
 #define dswap 	0xff5f
 #define bsout	0xffd2
 #define bsin	0xffe4
+#define bsget	0xffcf
 #define bsplot	0xfff0
 #define bsinit	0xff81
 #elif defined(__PLUS4__)
@@ -57,6 +65,12 @@ __asm bsin
 {
 		sta 0xff3e
 		jsr 0xffe4
+		sta 0xff3f
+}
+__asm bsget
+{
+		sta 0xff3e
+		jsr 0xffcf
 		sta 0xff3f
 }
 __asm bsplot
@@ -91,6 +105,14 @@ __asm bsin
 		pha
 }
 
+__asm bsget
+{
+		lda	0xe405
+		pha
+		lda 0xe404
+		pha
+}
+
 __asm bsplot
 {
 
@@ -103,6 +125,7 @@ __asm bsinit
 #define bsout	0xffd2
 #define bsin	0xffe4
 #define bsplot	0xfff0
+#define bsget	0xffcf
 __asm bsinit
 {
 	lda #147
@@ -113,6 +136,7 @@ __asm bsinit
 #define bsin	0xffe4
 #define bsplot	0xfff0
 #define bsinit	0xff81
+#define bsget	0xffcf
 #endif
 
 #if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
@@ -145,143 +169,156 @@ void iocharmap(IOCharMap chmap)
 	giocharmap = chmap;	
 #if !defined(__ATARI__)
 	if (chmap == IOCHM_PETSCII_1)
-		putch(128 + 14);
+		putrch(128 + 14);
 	else if (chmap == IOCHM_PETSCII_2)
-		putch(14);
+		putrch(14);
 #endif
 }
 
-__asm putpch
+void putrch(char c)
 {
-		ldx	giocharmap
-		cpx	#IOCHM_ASCII
-		bcc	w3
+	__asm {
+		lda 	c
+		jsr		bsout
+	}
+}
 
-		cmp #10
-		bne	w1
-		lda #13
-	w1:
-		cpx	#IOCHM_PETSCII_1
-		bcc	w3
-
-		cmp #65
-		bcc w3
-		cmp	#123
-		bcs	w3
-
-#if defined(__CBMPET__)
-		cmp	#97
-		bcs	w4
-		cmp #91
-		bcs	w3
-	w2:
-		eor	#$a0
-	w4:
-		eor #$20
-
+void putpch(char c)
+{
+#if defined(__ATARI__)
+	if (c == 10)
+		c = 0x9b;
 #else
-		cmp	#97
-		bcs	w2
-		cmp #91
-		bcs	w3
-	w2:
-		eor	#$20
+	if (giocharmap >= IOCHM_ASCII)
+	{
+		if (c == '\n')
+			c = 13;
+		else if (c == '\t')
+		{
+			char n = wherex() & 3;
+			do {
+				putrch(' ');
+			} while (++n < 4);
+			return;
+		}
+		else if (giocharmap >= IOCHM_PETSCII_1)
+		{
+			if (c >= 65 && c < 123)
+			{
+				if (c >= 97 || c < 91)
+				{
+#if defined(__CBMPET__)
+					if (c >= 97)
+						c ^= 0xa0;
+					c ^= 0x20;
+#else
+					if (c >= 97)
+						c ^= 0x20;
+#endif				
+
+					if (giocharmap == IOCHM_PETSCII_2)
+						c &= 0xdf;
+				}
+			}
+		}
+	}
+
 #endif
-		cpx #IOCHM_PETSCII_2
-		beq	w3
-		and #$df
-	w3:
-		jmp	bsout	
+
+	putrch(c);
 }
 
-__asm getpch
+static char convch(char ch)
 {
-		jsr	bsin
+#if !defined(__ATARI__)
 
-		ldx	giocharmap
-		cpx	#IOCHM_ASCII
-		bcc	w3
+	if (giocharmap >= IOCHM_ASCII)
+	{
+		if (ch == 13)
+			ch = 10;
+		else if (giocharmap >= IOCHM_PETSCII_1)
+		{
+			if (ch >= 65 && ch < 219)
+			{
+				if (ch >= 193)
+					ch ^= 0xa0;
+				if (ch < 123 && (ch >= 97 || ch < 91))
+					ch ^= 0x20;
+			}
+		}
+	}
 
-		cmp	#13
-		bne	w1
-		lda #10
-	w1:
-		cpx	#IOCHM_PETSCII_1
-		bcc	w3
+#endif
+	return ch;	
+}
 
-		cmp #219
-		bcs w3
-		cmp #65
-		bcc w3
+char getrch(void)
+{
+	return __asm {
+		jsr bsget
+		sta accu
+	};
+}
 
-		cmp #193
-		bcc w4
-		eor #$a0
-	w4:
-		cmp	#123
-		bcs	w3
-		cmp	#97
-		bcs	w2
-		cmp #91
-		bcs	w3
-	w2:
-		eor	#$20
-	w3:
+char getpch(void)
+{
+	return convch(getrch());
 }
 
 
 char kbhit(void)
 {
-	__asm
+	return __asm
 	{
 		lda $c6
 		sta	accu
-	}
+	};
 }
 
 char getche(void)
 {
-	__asm
-	{
-	L1:
-		jsr	getpch
-		cmp	#0
-		beq	L1
+	char ch;
+	do {
+		ch = __asm {
+			jsr	bsin
+			sta accu
+		};		
+	} while (!ch);
 
-		sta	accu
-		jsr putpch
+	__asm {
+		lda ch
+		jsr	bsout
 	}
 
+	return convch(ch);
 }
 
 char getch(void)
 {
-	__asm
-	{
-	L1:
-		jsr	getpch
-		cmp	#0
-		beq	L1
+	char ch;
+	do {
+		ch = __asm {
+			jsr	bsin
+			sta accu
+		};
+	} while (!ch);
 
-		sta	accu
-	}
+	return convch(ch);
 }
 
 char getchx(void)
 {
-	__asm
-	{
-		jsr	getpch
-		sta	accu
-	}
+	char ch = __asm {
+		jsr	bsin
+		sta accu
+	};
+
+	return convch(ch);
 }
 
 void putch(char c)
 {
-	__asm {
-		lda	c
-		jsr	bsout
-	}
+	putpch(c);
 }
 
 void clrscr(void)
@@ -294,7 +331,7 @@ void clrscr(void)
 
 void textcursor(bool show)
 {
-	*(char *)0xcc = show ? 0 : 1;
+	*(volatile char *)0xcc = show ? 0 : 1;
 }
 
 void gotoxy(char cx, char cy)
@@ -310,27 +347,27 @@ void gotoxy(char cx, char cy)
 
 void textcolor(char c)
 {
-	__asm
-	{
-		lda	c
-		sta $0286
-	}
+	*(volatile char *)0x0286 = c;
 }
 
 char wherex(void)
 {
-	__asm
-	{
-		lda $d3
-		sta	accu
-	}
+#if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
+	return *(volatile char *)0xec;
+#elif defined(__PLUS4__)
+	return *(volatile char *)0xca;	
+#else
+	return *(volatile char *)0xd3;
+#endif
 }
 
 char wherey(void)
 {
-	__asm
-	{
-		lda $d6
-		sta	accu
-	}
+#if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
+	return *(volatile char *)0xeb;
+#elif defined(__PLUS4__)
+	return *(volatile char *)0xcd;	
+#else
+	return *(volatile char *)0xd6;
+#endif
 }

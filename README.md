@@ -134,7 +134,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -cid : cartridge type ID, used by vice emulator
 * -pp : compile in C++ mode
 * -psci : use PETSCII encoding for all strings without prefix
-* -rpt : generate error files .error.map, .error.asm when linker fails
+* -rmp : generate error files .error.map, .error.asm when linker fails
 
 A list of source files can be provided.
 
