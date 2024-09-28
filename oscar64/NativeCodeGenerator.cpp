@@ -1419,6 +1419,10 @@ bool NativeCodeInstruction::ChangesZeroPage(int address) const
 				if (address >= BC_REG_TMP && address < BC_REG_TMP + mLinkerObject->mProc->mCallerSavedTemps)
 					return true;
 			}
+			else if (!mLinkerObject)
+			{
+				return false;
+			}
 			else
 			{
 				if (address >= BC_REG_TMP && address < BC_REG_TMP_SAVED)

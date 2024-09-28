@@ -43,6 +43,19 @@ void dispmode80col(void);
 #define PETSCII_F7				0x88
 #define PETSCII_F8				0x8c
 
+// Lowlevel console in/out
+
+// using petscii translation
+void putpch(char c);
+char getpch(void);
+
+// using no translation
+inline void putrch(char c);
+inline char getrch(void);
+
+
+// Standard console in/out
+
 char kbhit(void);
 
 char getche(void);
@@ -59,15 +72,15 @@ void clrscr(void);
 
 void gotoxy(char x, char y);
 
-void textcolor(char c);
+inline void textcolor(char c);
 
-char wherex(void);
+inline char wherex(void);
 
-char wherey(void);
+inline char wherey(void);
 
 // show or hide the text cursor
 
-void textcursor(bool show);
+inline void textcursor(bool show);
 
 #pragma compile("conio.c")
 

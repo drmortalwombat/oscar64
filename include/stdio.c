@@ -2,237 +2,40 @@
 #include "conio.h"
 #include "stdlib.h"
 
-#if defined(__C128__)
-#pragma code(lowcode)
-__asm bsout
-{	
-		ldx #0
-		stx 0xff00
-		jsr 0xffd2
-		sta 0xff01
-}
-__asm bsplot
-{	
-		lda #0
-		sta 0xff00
-		jsr 0xfff0
-		sta 0xff01
-}
-__asm bsin
-{
-		lda #0
-		sta 0xff00
-		jsr 0xffcf
-		sta 0xff01	
-}
-
-#pragma code(code)
-#elif defined(__PLUS4__)
-#pragma code(lowcode)
-__asm bsout
-{	
-		sta 0xff3e
-		jsr 0xffd2
-		sta 0xff3f
-}
-__asm bsin
-{
-		sta 0xff3e
-		jsr 0xffe4
-		sta 0xff3f
-}
-__asm bsplot
-{	
-		sta 0xff3e
-		jsr 0xfff0
-		sta 0xff3f
-}
-#pragma code(code)
-#elif defined(__ATARI__)
-__asm bsout
-{
-		tax
-		lda	0xe407
-		pha
-		lda 0xe406
-		pha
-		txa
-}
-
-__asm bsin
-{
-		lda	0xe405
-		pha
-		lda 0xe404
-		pha
-}
-
-__asm bsplot
-{
-
-}
-
-#else
-#define bsout	0xffd2
-#define bsplot	0xfff0
-#define bsin	0xffcf
-#endif
-
-__asm putpch
-{
-#if defined(__ATARI__)
-		cmp #10
-		bne	w1
-		lda #0x9b
-	w1:
-		jmp	bsout
-#else
-		ldx	giocharmap
-		cpx	#IOCHM_ASCII
-		bcc	w3
-
-		cmp #10
-		bne	w1
-		lda #13
-	w1:
-		cmp #9
-		beq t1
-
-		cpx	#IOCHM_PETSCII_1
-		bcc	w3
-
-		cmp #65
-		bcc w3
-		cmp	#123
-		bcs	w3
-#if defined(__CBMPET__)
-		cmp	#97
-		bcs	w4
-		cmp #91
-		bcs	w3
-	w2:
-		eor	#$a0
-	w4:
-		eor #$20
-
-#else
-		cmp	#97
-		bcs	w2
-		cmp #91
-		bcs	w3
-	w2:
-		eor	#$20
-#endif
-		cpx #IOCHM_PETSCII_2
-		beq	w3
-		and #$df
-	w3:
-		jmp	bsout
-	t1:
-		sec
-		jsr bsplot
-		tya
-		and	#3
-		eor #3
-		tax
-		lda #$20
-	l1:
-		jsr bsout
-		dex
-		bpl l1
-#endif		
-}
-
-__asm getpch
-{
-		jsr	bsin
-#if !defined(__ATARI__)
-		ldx	giocharmap
-		cpx	#IOCHM_ASCII
-		bcc	w3
-
-		cmp	#13
-		bne	w1
-		lda #10
-	w1:
-		cpx	#IOCHM_PETSCII_1
-		bcc	w3
-
-		cmp #219
-		bcs w3
-		cmp #65
-		bcc w3
-
-		cmp #193
-		bcc w4
-		eor #$a0
-	w4:
-		cmp	#123
-		bcs	w3
-		cmp	#97
-		bcs	w2
-		cmp #91
-		bcs	w3
-	w2:
-		eor	#$20
-	w3:
-#endif	
-}
-
 void putchar(char c)
 {
-	__asm {
-		lda c
-		jsr	putpch
-	}
+	putpch(c);
 }
 
 char getchar(void)
 {
-	__asm {
-		jsr	getpch
-		sta	accu
-		lda	#0
-		sta	accu + 1
-	}
+	return getpch();
 }
 
 void puts(const char * str)
 {
-	__asm {
-	ploop:
-		ldy	#0
-		lda	(str), y
-		beq	pdone
-	
-		jsr	putpch
-
-		inc	str
-		bne	ploop
-		inc	str + 1
-		bne	ploop
-	pdone:
-	}
+	while (char ch = *str++)
+		putpch(ch);
 }
 
 char * gets(char * str)
 {
-	__asm {
-	gloop:
-		jsr	getpch
-		ldy	#0
-		cmp	#10
-		beq	gdone
-		sta	(str), y
-		inc	str
-		bne	gloop
-		inc	str + 1
-		bne	gloop
-	gdone:		
-		lda	#0
-		sta	(str), y
+	char i = 0;
+	while ((char ch = getpch()) != '\n')
+		str[i++] = ch;
+	str[i] = 0;
+	return str;
+}
+
+char * gets_s(char * str, size_t n)
+{
+	char i = 0, t = n - 1;
+	while ((char ch = getpch()) != '\n')
+	{
+		if (i < t)
+			str[i++] = ch;
 	}
-	
+	str[i] = 0;
 	return str;
 }
 

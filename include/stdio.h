@@ -2,7 +2,7 @@
 #define STDIO_H
 
 #include <stdlib.h>
-
+#include <stddef.h>
 
 void putchar(char c);
 
@@ -11,6 +11,8 @@ char getchar(void);
 void puts(const char * str);
 
 char * gets(char * str);
+
+char * gets_s(char * str, size_t n);
 
 void printf(const char * fmt, ...);
 
