@@ -237,29 +237,29 @@ int main2(int argc, const char** argv)
 				{
 					compiler->mCompilerOptions |= COPT_PETSCII;
 				}
-				else if (arg[1] == 'O' && arg[2] != 0 && arg[3] == 0)
+				else if (arg[1] == 'O')
 				{
-					if (arg[2] == '0')
+					if (arg[2] == '0' && !arg[3])
 						compiler->mCompilerOptions &= ~(COPT_OPTIMIZE_ALL);
-					else if (arg[1] == '1' || arg[1] == 0)
+					else if (arg[2] == '1' && !arg[3] || arg[2] == 0)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_DEFAULT;
-					else if (arg[2] == '2')
+					else if (arg[2] == '2' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_SPEED;
-					else if (arg[2] == '3')
+					else if (arg[2] == '3' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_ALL;
-					else if (arg[2] == 's')
+					else if (arg[2] == 's' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_SIZE;
-					else if (arg[2] == 'a')
+					else if (arg[2] == 'a' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_ASSEMBLER;
-					else if (arg[2] == 'i')
+					else if (arg[2] == 'i' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE;
-					else if (arg[2] == 'z')
+					else if (arg[2] == 'z' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_ZEROPAGE;
-					else if (arg[2] == 'p')
+					else if (arg[2] == 'p' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_CONST_PARAMS;
-					else if (arg[2] == 'g')
+					else if (arg[2] == 'g' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_GLOBAL;
-					else if (arg[2] == 'm')
+					else if (arg[2] == 'm' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_MERGE_CALLS;
 					else
 						compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
