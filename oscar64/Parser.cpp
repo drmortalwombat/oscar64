@@ -1510,6 +1510,8 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 
 	exp = CoerceExpression(exp, dtype);
 
+	exp = exp->ConstantFold(mErrors, mDataSection);
+
 	Declaration* dec = exp->mDecValue;
 
 	if (exp->mType == EX_CONSTANT)
