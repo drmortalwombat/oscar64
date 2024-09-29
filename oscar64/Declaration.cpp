@@ -156,6 +156,21 @@ Expression::~Expression(void)
 
 }
 
+Expression* Expression::ListAppend(Expression* lexp)
+{
+	if (lexp)
+	{
+		Expression* nexp = new Expression(mLocation, EX_LIST);
+		nexp->mLeft = lexp;
+		nexp->mRight = this;
+		nexp->mDecType = mDecType;
+
+		return nexp;
+	}
+	else
+		return this;
+}
+
 void Expression::Dump(int ident) const
 {
 	for (int i = 0; i < ident; i++)

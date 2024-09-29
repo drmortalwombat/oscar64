@@ -72,8 +72,11 @@ protected:
 	Declaration* ParseStructDeclaration(uint64 flags, DecType dt, Declaration* ptempl = nullptr);
 
 	Declaration* CopyConstantInitializer(int offset, Declaration* dtype, Expression* exp);
-	Expression* ParseInitExpression(Declaration* dtype, bool inner = false);
+	Expression* ParseConstInitExpression(Declaration* dtype, bool inner = false);
 	Expression* ParseDeclarationExpression(Declaration* pdec);
+	Expression* DefaultInitExpression(Expression* vexp);
+	Expression* ParseVarInitExpression(Expression* lexp, bool inner = false);
+	Expression* CloneVarInitExpression(Expression* vexp, Expression* iexp, Expression * qexp);
 
 	Declaration* ParsePostfixDeclaration(void);
 	Declaration* ReverseDeclaration(Declaration* odec, Declaration* bdec);

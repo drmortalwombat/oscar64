@@ -259,6 +259,7 @@ public:
 	Expression* ConstantFold(Errors * errors, LinkerSection* dataSection, Linker * linker = nullptr);
 	Expression* ConstantDereference(Errors* errors, LinkerSection* dataSection);
 	bool HasSideEffects(void) const;
+	Expression* ListAppend(Expression* lexp);
 
 	bool IsSame(const Expression* exp) const;
 	bool IsRValue(void) const;

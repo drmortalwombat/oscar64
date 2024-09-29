@@ -558,7 +558,43 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 
 				if (ins->mConst.mIntConst < min || ins->mConst.mIntConst > max)
 				{
-					mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+					int64 min = 0, max = 0;
+
+					if (type->mFlags & DTF_SIGNED)
+					{
+						switch (type->mSize)
+						{
+						case 1:
+							min = -128; max = 127;
+							break;
+						case 2:
+							min = -32768; max = 32767;
+							break;
+						case 4:
+							min = -2147483648LL; max = 2147483647LL;
+							break;
+						}
+					}
+					else
+					{
+						switch (type->mSize)
+						{
+						case 1:
+							max = 255;
+							break;
+						case 2:
+							max = 65535;
+							break;
+						case 4:
+							max = 429467295LL;
+							break;
+						}
+					}
+
+					if (ins->mConst.mIntConst < min || ins->mConst.mIntConst > max)
+					{
+						mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+					}
 				}
 			}
 		}

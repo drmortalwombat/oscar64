@@ -124,8 +124,8 @@ public:
 	{
 		head.succ = l.head.succ;
 		head.pred = l.head.pred;
-		head.succ->pred = head;
-		head.pred->succ = head;
+		head.succ->pred = (listnode<T>	*)&head;
+		head.pred->succ = (listnode<T>	*)&head;
 		l.head.succ = (listnode<T>	*)&(l.head);
 		l.head.pred = (listnode<T>	*)&(l.head);
 	}
@@ -136,8 +136,8 @@ public:
 	{
 		head.succ = l.head.succ;
 		head.pred = l.head.pred;
-		head.succ->pred = head;
-		head.pred->succ = head;
+		head.succ->pred = (listnode<T>	*)&head;
+		head.pred->succ = (listnode<T>	*)&head;
 		l.head.succ = (listnode<T>	*)&(l.head);
 		l.head.pred = (listnode<T>	*)&(l.head);
 		return *this;

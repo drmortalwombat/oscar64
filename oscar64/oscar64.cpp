@@ -534,7 +534,7 @@ int main2(int argc, const char** argv)
 				printf("Starting %s %s\n", strProductName, strProductVersion);
 			}
 
-			compiler->WriteErrorFile(targetPath);
+			compiler->RemoveErrorFile(targetPath);
 
 			{
 				char dstring[100], tstring[100];
@@ -568,8 +568,6 @@ int main2(int argc, const char** argv)
 
 				if (diskPath[0])
 					d64 = new DiskImage(diskPath);
-
-				compiler->RemoveErrorFile(targetPath);
 
 				compiler->WriteOutputFile(targetPath, d64);
 

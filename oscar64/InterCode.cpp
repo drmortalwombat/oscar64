@@ -4486,6 +4486,13 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 
 		changed = true;
 	}
+	else if (mCode == IC_COPY && !mVolatile && mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0 && mSrc[0].mMemory == mSrc[1].mMemory &&
+		mSrc[0].mVarIndex == mSrc[1].mVarIndex && mSrc[0].mLinkerObject == mSrc[1].mLinkerObject && mSrc[0].mIntConst == mSrc[1].mIntConst)
+	{
+		mNumOperands = 0;
+		mCode = IC_NONE;
+		changed = true;
+	}
 	else if (mDst.mTemp != -1)
 	{
 		if (!requiredTemps[mDst.mTemp] && mDst.mTemp >= 0)
@@ -4632,7 +4639,14 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 	}
 	else if (mCode == IC_COPY)
 	{
-		if (mSrc[1].mMemory == IM_LOCAL)
+		if (!mVolatile && mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0 && mSrc[0].mMemory == mSrc[1].mMemory &&
+			mSrc[0].mVarIndex == mSrc[1].mVarIndex && mSrc[0].mLinkerObject == mSrc[1].mLinkerObject && mSrc[0].mIntConst == mSrc[1].mIntConst)
+		{
+			mSrc[0].mTemp = -1;
+			mCode = IC_NONE;
+			changed = true;
+		}
+		else if (mSrc[1].mMemory == IM_LOCAL)
 		{
 			if (localVars[mSrc[1].mVarIndex]->mAliased)
 				;
@@ -8015,8 +8029,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 			case IC_LOAD:
 				vr = ins->mDst.mRange;
 
-				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_FPARAM)
-					vr.Limit(mLocalParamValueRange[ins->mSrc[0].mVarIndex + int(ins->mSrc[0].mIntConst)]);
+				if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_FPARAM && ins->mSrc[0].mIntConst == 0)
+					vr.Limit(mLocalParamValueRange[ins->mSrc[0].mVarIndex]);
 #if 1
 				if (ins->mDst.mType == IT_INT8)
 				{
@@ -8721,8 +8735,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 		}
 		else if (ins->mCode == IC_STORE)
 		{
-			if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_FPARAM)
-				mLocalParamValueRange[ins->mSrc[1].mVarIndex + int(ins->mSrc[1].mIntConst)] = ins->mSrc[0].mRange;
+			if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_FPARAM && ins->mSrc[0].mIntConst == 0)
+				mLocalParamValueRange[ins->mSrc[1].mVarIndex] = ins->mSrc[0].mRange;
 		}
 
 		assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
@@ -22554,7 +22568,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "bm_init");
+	CheckFunc = !strcmp(mIdent->mString, "foo");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
