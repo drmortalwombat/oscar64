@@ -1,6 +1,7 @@
 #include "stdio.h"
 #include "conio.h"
 #include "stdlib.h"
+#include "stdbool.h"
 
 void putchar(char c)
 {
@@ -29,13 +30,29 @@ char * gets(char * str)
 
 char * gets_s(char * str, size_t n)
 {
+	if (str == NULL)
+		return NULL;
+
+	if (n == 0 || n == 1)
+		return NULL;
+	str[0] = '\0';
 	char i = 0, t = n - 1;
+	bool isTruncated = false;
+
 	while ((char ch = getpch()) != '\n')
 	{
 		if (i < t)
 			str[i++] = ch;
+		else
+		{
+			isTruncated = true;
+			break;
+		}
 	}
 	str[i] = 0;
+
+	if (isTruncated)
+		return NULL;
 	return str;
 }
 
