@@ -14,8 +14,6 @@ void puts(const char * str);
 char * gets(char * str);
 char* gets_s(char* str, size_t n);
 
-char * gets_s(char * str, size_t n);
-
 void printf(const char * fmt, ...);
 
 int sprintf(char * str, const char * fmt, ...);
