@@ -3286,14 +3286,28 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			case TK_BANKOF:
 			{
-				LinkerRegion* rgn;
-				if (exp->mLeft->mDecValue->mSection && (rgn = mLinker->FindRegionOfSection(exp->mLeft->mDecValue->mSection)))
+				if (exp->mLeft->mDecValue)
 				{
-					uint64	i = 0;
-					while (i < 64 && rgn->mCartridgeBanks != (1ULL << i))
-						i++;
-					if (i < 64)
+					LinkerSection* section = nullptr;
+
+					if (exp->mLeft->mDecValue->mSection)
 					{
+						section = exp->mLeft->mDecValue->mSection;
+					}
+					else if (exp->mLeft->mDecValue->mType == DT_CONST_INTEGER)
+					{
+						section = proc->mLinkerObject->mSection;
+					}
+
+					if (section)
+					{
+						LinkerRegion* rgn = mLinker->FindRegionOfSection(section);
+						uint64	i = 0;
+						while (i < 64 && rgn->mCartridgeBanks != (1ULL << i))
+							i++;
+						if (i == 64)
+							i = 255;
+
 						ins->mCode = IC_CONSTANT;
 						ins->mNumOperands = 0;
 						ins->mConst.mType = IT_INT8;
