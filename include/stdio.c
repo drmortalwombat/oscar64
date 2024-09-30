@@ -33,25 +33,19 @@ char * gets_s(char * str, size_t n)
 	if (str == NULL)
 		return NULL;
 
-	if (n == 0 || n == 1)
+	if (n < 2)
 		return NULL;
-	str[0] = '\0';
 	char i = 0, t = n - 1;
-	bool isTruncated = false;
 
 	while ((char ch = getpch()) != '\n')
 	{
 		if (i < t)
-			str[i++] = ch;
-		else
-		{
-			isTruncated = true;
-			break;
-		}
+			str[i] = ch;
+		++i;
 	}
-	str[i] = 0;
+	str[(i < t) ? i : t] = '\0';
 
-	if (isTruncated)
+	if (i > t)
 		return NULL;
 	return str;
 }
