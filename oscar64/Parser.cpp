@@ -1364,7 +1364,7 @@ Declaration * Parser::ParseFunctionDeclaration(Declaration* bdec)
 			}
 			else
 			{
-				if (!(adec->mBase->mFlags & DTF_DEFINED) && adec->mBase->mType != DT_TYPE_ARRAY && !adec->mBase->mTemplate)
+				if (adec->mType != DT_PACK_VARIABLE && !(adec->mBase->mFlags & DTF_DEFINED) && adec->mBase->mType != DT_TYPE_ARRAY && !adec->mBase->mTemplate)
 					mErrors->Error(adec->mLocation, EERR_UNDEFINED_OBJECT, "Type of argument not defined");
 
 				if (adec->mType == DT_PACK_VARIABLE || adec->mType == DT_PACK_ANON)
@@ -2073,7 +2073,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 
 		exp->mDecType = dtype;
 	}
-	else if (dtype->mType == DT_TYPE_AUTO)
+	else if (dtype->mType == DT_TYPE_AUTO || dtype->mType == DT_TYPE_REFERENCE)
 	{
 		exp = ParseRExpression();
 	}

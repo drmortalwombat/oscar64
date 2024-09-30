@@ -2659,7 +2659,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					vr = CoerceType(proc, exp, block, inlineMapper, vr, vl.mType);
 				}
 
-				StoreValue(proc, exp, block, inlineMapper, vl, vr);
+				if (vl.mType->mType != DT_TYPE_VOID)
+					StoreValue(proc, exp, block, inlineMapper, vl, vr);
 			}
 			}
 
@@ -4512,7 +4513,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vr.mReference = 0;
 						vr.mType = procType->mBase;
 					}
-					else
+					else if (vr.mType->mType != DT_TYPE_VOID)
 						vr = Dereference(proc, exp, block, inlineMapper, vr);
 
 					if (!procType->mBase || procType->mBase->mType == DT_TYPE_VOID)
