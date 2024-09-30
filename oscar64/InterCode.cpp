@@ -13291,6 +13291,26 @@ bool InterCodeBasicBlock::IsDirectDominatorBlock(InterCodeBasicBlock* block)
 	return true;
 }
 
+bool InterCodeBasicBlock::CollectBlocksToDominator(InterCodeBasicBlock* dblock, ExpandingArray<InterCodeBasicBlock*>& body)
+{
+	if (this == dblock)
+		return true;
+
+	if (mLoopHead)
+		return false;
+
+	if (mEntryBlocks.Size() == 0)
+		return false;
+
+	body.Push(this);
+
+	for (int i = 0; i < mEntryBlocks.Size(); i++)
+		if (!mEntryBlocks[i]->CollectBlocksToDominator(dblock, body))
+			return false;
+
+	return true;
+}
+
 bool InterCodeBasicBlock::HoistCommonConditionalPath(void)
 {
 	bool	changed = false;
@@ -13316,6 +13336,11 @@ bool InterCodeBasicBlock::HoistCommonConditionalPath(void)
 
 			if (cblock && cblock->mNumEntries == 1)
 			{
+				ExpandingArray<InterCodeBasicBlock*>	pblocks;
+				eblock->CollectBlocksToDominator(this, pblocks);
+				pblocks.RemoveAll(cblock);
+				pblocks.RemoveAll(eblock);
+
 				for (int i = 0; i < cblock->mInstructions.Size(); i++)
 				{
 					InterInstruction* ins = cblock->mInstructions[i];
@@ -13328,19 +13353,25 @@ bool InterCodeBasicBlock::HoistCommonConditionalPath(void)
 
 						if (j < eblock->mInstructions.Size() && !eblock->IsTempModifiedInRange(0, j, ins->mDst.mTemp) && eblock->CanMoveInstructionBeforeBlock(j) && cblock->CanMoveInstructionBeforeBlock(cblock->mInstructions.Size(), eblock->mInstructions[j]))
 						{
-							eblock->mInstructions[j]->mCode = IC_LOAD_TEMPORARY;
-							eblock->mInstructions[j]->mSrc[0] = ins->mDst;
-							eblock->mInstructions[j]->mNumOperands = 1;
+							int k = 0;
+							while (k < pblocks.Size() && !pblocks[k]->IsTempModified(ins->mDst.mTemp))
+								k++;
+							if (k == pblocks.Size())
+							{
+								eblock->mInstructions[j]->mCode = IC_LOAD_TEMPORARY;
+								eblock->mInstructions[j]->mSrc[0] = ins->mDst;
+								eblock->mInstructions[j]->mNumOperands = 1;
 
-							mInstructions.Insert(mInstructions.Size() - 1, ins);
-							cblock->mInstructions.Remove(i);
+								mInstructions.Insert(mInstructions.Size() - 1, ins);
+								cblock->mInstructions.Remove(i);
 
-							mExitRequiredTemps += ins->mDst.mTemp;
-							cblock->mEntryRequiredTemps += ins->mDst.mTemp;
-							cblock->mExitRequiredTemps += ins->mDst.mTemp;
-							eblock->mEntryRequiredTemps += ins->mDst.mTemp;
-							i--;
-							changed = true;
+								mExitRequiredTemps += ins->mDst.mTemp;
+								cblock->mEntryRequiredTemps += ins->mDst.mTemp;
+								cblock->mExitRequiredTemps += ins->mDst.mTemp;
+								eblock->mEntryRequiredTemps += ins->mDst.mTemp;
+								i--;
+								changed = true;
+							}
 						}
 					}
 				}
@@ -22568,7 +22599,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "foo");
+	CheckFunc = !strcmp(mIdent->mString, "Test::move");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -22963,6 +22994,7 @@ void InterCodeProcedure::Close(void)
 
 #endif
 
+	DisassembleDebug("PreHoistCommonConditionalPath");
 	HoistCommonConditionalPath();
 	DisassembleDebug("HoistCommonConditionalPath");
 
@@ -24232,6 +24264,7 @@ void InterCodeProcedure::HoistCommonConditionalPath(void)
 		ResetVisited();
 		if (!mEntryBlock->HoistCommonConditionalPath())
 			return;
+		Disassemble("InnerHoist");
 		TempForwarding();
 		RemoveUnusedInstructions();
 	}

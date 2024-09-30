@@ -1735,7 +1735,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 		Declaration * dec = new Declaration(mScanner->mLocation, DT_CONST_DATA);
 		dec->mBase = dtype;
 		dec->mSize = dtype->mSize;
-		dec->mSection = mDataSection;
+		dec->mSection = mCodeSection;
 
 		dec->mData = d;
 
@@ -1816,7 +1816,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			Declaration * csdec = new Declaration(mScanner->mLocation, DT_CONST_STRUCT);
 			csdec->mBase = dtype;
 			csdec->mSize = dtype->mSize;
-			csdec->mSection = mDataSection;
+			csdec->mSection = mCodeSection;
 
 			Declaration* last = nullptr;
 
@@ -5436,7 +5436,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			}
 			else if (pthis)
 			{
-				ndec->mFlags |= storageFlags & DTF_STATIC;
+				ndec->mFlags |= storageFlags & (DTF_STATIC | DTF_PREVENT_INLINE);
 			}
 
 			ndec->mOffset = 0;
@@ -5746,7 +5746,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				ndec->mValue = ParseFunction(ndec->mBase);
 				mFunction = nullptr;
 
-				if (pthis)
+				if (pthis && !(storageFlags & DTF_PREVENT_INLINE))
 					ndec->mFlags |= DTF_REQUEST_INLINE;
 
 				ndec->mFlags |= DTF_DEFINED;
