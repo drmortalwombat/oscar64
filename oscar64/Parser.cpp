@@ -5498,7 +5498,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 						ndec->mBase = ndec->mBase->DeduceAuto(ndec->mValue->mDecType);
 
-						if (ndec->mFlags & DTF_GLOBAL)
+						if (ndec->mFlags & (DTF_GLOBAL | DTF_STATIC))
 						{
 							if (ndec->mFlags & DTF_ZEROPAGE)
 								;
