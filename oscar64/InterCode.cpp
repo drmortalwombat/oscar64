@@ -16066,7 +16066,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 					lc.mCmp = nullptr;
 					lc.mReferenced = false;
 
-					if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD)
+					if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType))
 					{
 						if (ins->mDst.mTemp == ins->mSrc[0].mTemp && ins->mSrc[1].mTemp < 0 ||
 							ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
@@ -16075,7 +16075,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 						}
 					}
 #if 1
-					else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB)
+					else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB && IsIntegerType(ins->mDst.mType))
 					{
 						if (ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
 						{
