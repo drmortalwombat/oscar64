@@ -29,13 +29,23 @@ char * gets(char * str)
 
 char * gets_s(char * str, size_t n)
 {
+	if (str == NULL)
+		return NULL;
+
+	if (n < 2)
+		return NULL;
 	char i = 0, t = n - 1;
+
 	while ((char ch = getpch()) != '\n')
 	{
 		if (i < t)
-			str[i++] = ch;
+			str[i] = ch;
+		++i;
 	}
-	str[i] = 0;
+	str[(i < t) ? i : t] = '\0';
+
+	if (i > t)
+		return NULL;
 	return str;
 }
 
