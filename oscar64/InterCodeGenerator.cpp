@@ -2223,6 +2223,23 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				return ExValue(TheVoidPointerTypeDeclaration, ins->mDst.mTemp);
 			}
 
+			case DT_LABEL:
+			{
+				if (!dec->mBase->mLinkerObject)
+					TranslateAssembler(proc->mModule, dec->mBase->mValue, nullptr);
+
+				InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+				ins->mDst.mType = IT_POINTER;
+				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mConst.mType = IT_POINTER;
+				ins->mConst.mVarIndex = dec->mBase->mVarIndex;
+				ins->mConst.mLinkerObject = dec->mBase->mLinkerObject;
+				ins->mConst.mMemory = IM_PROCEDURE;
+				ins->mConst.mIntConst = dec->mInteger;
+				block->Append(ins);
+				return ExValue(TheVoidPointerTypeDeclaration, ins->mDst.mTemp);
+			}
+
 			case DT_CONST_POINTER:
 			{
 				vl = TranslateExpression(procType, proc, block, dec->mValue, destack, gotos, breakBlock, continueBlock, inlineMapper);

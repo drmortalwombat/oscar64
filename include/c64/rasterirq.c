@@ -29,7 +29,7 @@ __asm irq0
     pha
     tya
     pha
-
+kentry:
 	asl $d019
 
 	ldx	nextIRQ
@@ -57,14 +57,15 @@ ji:
 	// carry is cleared at this point
 
 	tay
-	dey
 	sbc #2
 	cmp $d012
 	bcc	l1
 
+exd:
+	dey
+ex:
 	sty	$d012
 
-ex:
     pla
     tay
     pla
@@ -77,20 +78,16 @@ e2:
 	ldx npos
 	stx tpos
 	inc rirq_count
+	tay
 
 	bit	$d011
-	bmi e1
-
-	sta	$d012
-	jmp ex
+	bpl ex
 
 e1:
 	ldx	#0
 	stx nextIRQ
 	ldy	rasterIRQNext
-	dey
-	sty	$d012
-	jmp	ex
+	jmp	exd
 
 }
 
@@ -101,7 +98,7 @@ __asm irq2
     pha
     tya
     pha
-
+kentry:
     lda $01
     pha
 
@@ -502,6 +499,42 @@ void rirq_init_kernal_io(void)
     }
 
    	*(void **)0x0314 = irq3;
+
+	vic.intr_enable = 1;
+	vic.ctrl1 &= 0x7f;
+	vic.raster = 255;
+
+}
+
+void rirq_init_crt(void)
+{
+	rirq_init_tables();
+
+    __asm 
+    {
+        sei
+    }
+
+   	*(void **)0x0314 = irq0.kentry;
+   	*(void **)0xfffe = irq0;
+
+	vic.intr_enable = 1;
+	vic.ctrl1 &= 0x7f;
+	vic.raster = 255;
+
+}
+
+void rirq_init_crt_io(void)
+{
+	rirq_init_tables();
+
+    __asm 
+    {
+        sei
+    }
+
+   	*(void **)0x0314 = irq2.kentry;
+   	*(void **)0xfffe = irq2;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;

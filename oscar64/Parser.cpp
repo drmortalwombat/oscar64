@@ -7064,6 +7064,23 @@ Expression* Parser::ParseQualify(Expression* exp)
 		else
 			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
 	}
+	else if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_ASSEMBLER)
+	{
+		if (mScanner->mToken == TK_IDENT)
+		{
+			Declaration* ldec = exp->mDecValue->mBase->mScope->Lookup(mScanner->mTokenIdent);
+			if (ldec)
+			{
+				exp->mDecValue = ldec;
+				exp->mDecType = TheUnsignedIntTypeDeclaration;
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Assembler label not found", mScanner->mTokenIdent);
+			mScanner->NextToken();
+		}
+		else
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
+	}
 	else
 		mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Struct expected");
 

@@ -132,7 +132,8 @@ inline void rirq_data(RIRQCode * ic, byte n, byte data);
 // Add a delay of 5 * cycles to a raster IRQ
 inline void rirq_delay(RIRQCode * ic, byte cycles);
 
-// Place a raster IRQ into one of the 16 slots
+// Place a raster IRQ into one of the 16 slots, the interrupt will fire
+// one line below the given row
 inline void rirq_set(byte n, byte row, RIRQCode * write);
 
 // Remove a raster IRQ from one of the 16 slots
@@ -147,12 +148,28 @@ inline void rirq_move(byte n, byte row);
 // the less resource hungry option)
 inline void rirq_init(bool kernalIRQ);
 
+// Raster IRQ through kernal, with IO range always enabled
+// calls kernal continuation
 void rirq_init_kernal(void);
 
+// Raster IRQ through kernal, with IO range not always enabled
+// calls kernal continuation
 void rirq_init_kernal_io(void);
 
+// Raster IRQ through RAM and ROM vector, with ROM disabled or not and IO range always enabled
+// does not call kernal continuation
+void rirq_init_crt(void);
+
+// Raster IRQ through RAM and ROM vector, with ROM disabled or not and IO range not always enabled
+// does not call kernal continuation
+void rirq_init_crt_io(void);
+
+// Raster IRQ through RAM vector, with ROM disabled and IO range always enabled
+// does not call kernal continuation
 void rirq_init_io(void);
 
+// Raster IRQ through RAM vector, with ROM disabled and IO range not always enabled
+// does not call kernal continuation
 void rirq_init_memmap(void);
 
 // Start raster IRQ
