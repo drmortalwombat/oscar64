@@ -579,14 +579,17 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 				i++;
 			if (i >= 64)
 				i = 0xff;
-
-			Expression* ex = new Expression(mLocation, EX_CONSTANT);
-			Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-			dec->mBase = TheUnsignedCharTypeDeclaration;
-			dec->mInteger = i;
-			ex->mDecValue = dec;
-			ex->mDecType = dec->mBase;
-			return ex;
+			
+			if (i < 64 || (mLeft->mDecValue->mFlags & DTF_DEFINED))
+			{
+				Expression* ex = new Expression(mLocation, EX_CONSTANT);
+				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
+				dec->mBase = TheSignedIntTypeDeclaration;
+				dec->mInteger = i;
+				ex->mDecValue = dec;
+				ex->mDecType = dec->mBase;
+				return ex;
+			}
 		}
 
 		return this;

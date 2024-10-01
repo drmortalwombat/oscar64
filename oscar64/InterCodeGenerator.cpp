@@ -3327,12 +3327,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						ins->mCode = IC_CONSTANT;
 						ins->mNumOperands = 0;
-						ins->mConst.mType = IT_INT8;
+						ins->mConst.mType = IT_INT16;
 						ins->mConst.mIntConst = i;
-						ins->mDst.mType = IT_INT8;
+						ins->mDst.mType = IT_INT16;
 						ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 						block->Append(ins);
-						return ExValue(TheUnsignedCharTypeDeclaration, ins->mDst.mTemp, vl.mReference - 1);
+						return ExValue(TheSignedIntTypeDeclaration, ins->mDst.mTemp, vl.mReference - 1);
 					}
 				}
 				mErrors->Error(exp->mLocation, ERRR_CANNOT_FIND_BANK_OF_EXPRESSION, "Cannot find bank of expressiohn");

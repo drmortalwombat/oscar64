@@ -1584,6 +1584,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPEQ:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst == op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mIntConst == op2.mIntConst && op1.mLinkerObject == op2.mLinkerObject;
 		else
 			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) == ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1591,6 +1593,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPNE:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst != op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory != op2.mMemory || op1.mVarIndex != op2.mVarIndex || op1.mIntConst != op2.mIntConst || op1.mLinkerObject != op2.mLinkerObject;
 		else
 			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) != ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1598,6 +1602,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPGES:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst >= op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mLinkerObject == op2.mLinkerObject && op1.mIntConst >= op2.mIntConst;
 		else
 			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) >= ToTypedSigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1605,6 +1611,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPGEU:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst >= op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mLinkerObject == op2.mLinkerObject && op1.mIntConst >= op2.mIntConst;
 		else
 			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) >= ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1612,6 +1620,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPLES:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst <= op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mLinkerObject == op2.mLinkerObject && op1.mIntConst <= op2.mIntConst;
 		else
 			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) <= ToTypedSigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1619,6 +1629,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPLEU:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst <= op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mLinkerObject == op2.mLinkerObject && op1.mIntConst <= op2.mIntConst;
 		else
 			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) <= ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1626,6 +1638,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPGS:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst > op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mLinkerObject == op2.mLinkerObject && op1.mIntConst > op2.mIntConst;
 		else
 			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) > ToTypedSigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1633,6 +1647,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPGU:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst > op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mLinkerObject == op2.mLinkerObject && op1.mIntConst > op2.mIntConst;
 		else
 			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) > ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1640,6 +1656,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPLS:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst < op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mLinkerObject == op2.mLinkerObject && op1.mIntConst < op2.mIntConst;
 		else
 			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) < ToTypedSigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1647,6 +1665,8 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 	case IA_CMPLU:
 		if (op1.mType == IT_FLOAT)
 			dop.mIntConst = op1.mFloatConst < op2.mFloatConst ? 1 : 0;
+		else if (op1.mType == IT_POINTER)
+			dop.mIntConst = op1.mMemory == op2.mMemory && op1.mVarIndex == op2.mVarIndex && op1.mLinkerObject == op2.mLinkerObject && op1.mIntConst < op2.mIntConst;
 		else
 			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) < ToTypedUnsigned(op2.mIntConst, op2.mType) ? 1 : 0;
 		dop.mType = IT_BOOL;
@@ -1714,6 +1734,38 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 			dop.mFloatConst = -op1.mFloatConst;
 		else
 			dop.mIntConst = -op1.mIntConst;
+		break;
+	case IA_ABS:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+		{
+			if (op1.mFloatConst < 0)
+				dop.mFloatConst = -op1.mFloatConst;
+			else
+				dop.mFloatConst = op1.mFloatConst;
+		}
+		else
+		{
+			if (op1.mIntConst < 0)
+				dop.mIntConst = -op1.mIntConst;
+			else
+				dop.mIntConst = op1.mIntConst;
+		}
+		break;
+		break;
+	case IA_FLOOR:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = floor(op1.mFloatConst);
+		else
+			dop.mIntConst = op1.mIntConst;
+		break;
+	case IA_CEIL:
+		dop.mType = op1.mType;
+		if (op1.mType == IT_FLOAT)
+			dop.mFloatConst = ceil(op1.mFloatConst);
+		else
+			dop.mIntConst = op1.mIntConst;
 		break;
 	case IA_NOT:
 		dop.mType = op1.mType;
@@ -7327,6 +7379,83 @@ bool InterCodeBasicBlock::PropagateVariableCopy(const GrowingInstructionPtrArray
 		if (mTrueJump && mTrueJump->PropagateVariableCopy(ltemps, staticVars, aliasedLocals, aliasedParams))
 			changed = true;
 		if (mFalseJump && mFalseJump->PropagateVariableCopy(ltemps, staticVars, aliasedLocals, aliasedParams))
+			changed = true;
+	}
+
+	return changed;
+}
+
+bool InterCodeBasicBlock::EarlyBranchElimination(const GrowingInstructionPtrArray& ctemps)
+{
+	bool	changed = false;
+
+	int i;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		GrowingInstructionPtrArray	temps(ctemps);
+		if (mNumEntries > 1)
+			temps.Clear();
+
+		int sz = mInstructions.Size();
+		for (i = 0; i < sz; i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mDst.mTemp >= 0)
+			{
+				if (ins->mCode == IC_UNARY_OPERATOR && temps[ins->mSrc[0].mTemp])
+				{
+					ins->mConst = OperandConstantFolding(ins->mOperator, temps[ins->mSrc[0].mTemp]->mConst, temps[ins->mSrc[0].mTemp]->mConst);
+					ins->mCode = IC_CONSTANT;
+					ins->mNumOperands = 0;
+					ins->mSrc[0].mTemp = -1;
+				}
+				else if (ins->mCode == IC_BINARY_OPERATOR && temps[ins->mSrc[0].mTemp] && temps[ins->mSrc[1].mTemp])
+				{
+					ins->mConst = OperandConstantFolding(ins->mOperator, temps[ins->mSrc[1].mTemp]->mConst, temps[ins->mSrc[0].mTemp]->mConst);
+					ins->mCode = IC_CONSTANT;
+					ins->mNumOperands = 0;
+					ins->mSrc[0].mTemp = -1;
+				}
+				else if (ins->mCode == IC_RELATIONAL_OPERATOR && temps[ins->mSrc[0].mTemp] && temps[ins->mSrc[1].mTemp])
+				{
+					ins->mConst = OperandConstantFolding(ins->mOperator, temps[ins->mSrc[1].mTemp]->mConst, temps[ins->mSrc[0].mTemp]->mConst);
+					ins->mCode = IC_CONSTANT;
+					ins->mNumOperands = 0;
+					ins->mSrc[0].mTemp = -1;
+				}
+
+				if (ins->mCode == IC_CONSTANT)
+					temps[mInstructions[i]->mDst.mTemp] = ins;
+				else
+					temps[mInstructions[i]->mDst.mTemp] = nullptr;
+			}
+		}
+
+		if (sz > 0 && mInstructions[sz - 1]->mCode == IC_BRANCH && temps[mInstructions[sz - 1]->mSrc[0].mTemp])
+		{
+			InterInstruction* cins = temps[mInstructions[sz - 1]->mSrc[0].mTemp];
+
+			if (cins->mConst.mType == IT_BOOL)
+			{
+				mInstructions[sz - 1]->mCode = IC_JUMP;
+				if (cins->mConst.mIntConst)
+					mFalseJump->mNumEntries--;
+				else
+				{
+					mTrueJump->mNumEntries--;
+					mTrueJump = mFalseJump;
+				}
+				mFalseJump = nullptr;
+				changed = true;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->EarlyBranchElimination(temps))
+			changed = true;
+		if (mFalseJump && mFalseJump->EarlyBranchElimination(temps))
 			changed = true;
 	}
 
@@ -21674,6 +21803,15 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 	DisassembleDebug("Estimated value range 2");
 }
 
+void InterCodeProcedure::EarlyBranchElimination(void)
+{
+	GrowingInstructionPtrArray	 ctemps(nullptr);
+
+	ResetVisited();
+	while (mEntryBlock->EarlyBranchElimination(ctemps))
+	{}
+}
+
 void InterCodeProcedure::BuildTraces(bool expand, bool dominators, bool compact)
 {
 	// Count number of entries
@@ -22599,7 +22737,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "Test::move");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -22607,6 +22745,10 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("start");
 
 	BuildTraces(true);
+
+	EarlyBranchElimination();
+
+	DisassembleDebug("branch elimination");
 
 	ResetVisited();
 	mLeafProcedure = mEntryBlock->IsLeafProcedure();

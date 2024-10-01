@@ -444,6 +444,8 @@ public:
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 	bool ForwardConstTemps(const GrowingInstructionPtrArray& ctemps);
 
+	bool EarlyBranchElimination(const GrowingInstructionPtrArray& ctemps);
+
 	bool PropagateVariableCopy(const GrowingInstructionPtrArray& ctemps, const GrowingVariableArray& staticVars, const NumberSet & aliasedLocals, const NumberSet & aliasedParams);
 
 	void BuildLocalTempSets(int num);
@@ -746,6 +748,7 @@ public:
 protected:
 	void BuildLocalAliasTable(void);
 	void BuildTraces(bool expand, bool dominators = true, bool compact = false);
+	void EarlyBranchElimination(void);
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);
 	void TempForwarding(bool reverse = false, bool checkloops = false);

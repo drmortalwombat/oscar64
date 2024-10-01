@@ -8425,7 +8425,7 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 			}
 			else if (nexp->mToken == TK_BANKOF)
 			{
-				nexp->mDecType = TheUnsignedCharTypeDeclaration;
+				nexp->mDecType = TheSignedIntTypeDeclaration;
 			}
 			else if (nexp->mToken == TK_BINARY_AND)
 			{
