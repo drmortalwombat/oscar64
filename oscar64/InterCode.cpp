@@ -5844,7 +5844,7 @@ InterCodeBasicBlock::InterCodeBasicBlock(InterCodeProcedure * proc)
 	mUnreachable = false;
 	mValueRangeValid = false;
 
-	mIndex = proc->mBlocks.Size();
+	mIndex = proc->mNumBlocks++;
 	proc->mBlocks.Push(this);
 }
 
@@ -7441,6 +7441,8 @@ bool InterCodeBasicBlock::EarlyBranchElimination(const GrowingInstructionPtrArra
 			if (cins->mConst.mType == IT_BOOL)
 			{
 				mInstructions[sz - 1]->mCode = IC_JUMP;
+				mInstructions[sz - 1]->mNumOperands = 0;
+
 				if (cins->mConst.mIntConst)
 					mFalseJump->mNumEntries--;
 				else
@@ -21668,7 +21670,7 @@ void InterCodeBasicBlock::WarnUnreachable(void)
 
 
 InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & location, const Ident* ident, LinkerObject * linkerObject)
-	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), mTempSizes(0), 
+	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), mTempSizes(0), mNumBlocks(0),
 	mRenameTable(-1), mRenameUnionTable(-1), mGlobalRenameTable(-1),
 	mValueForwardingTable(nullptr), mLocalVars(nullptr), mParamVars(nullptr), mModule(mod),
 	mIdent(ident), mLinkerObject(linkerObject),
@@ -21809,7 +21811,10 @@ void InterCodeProcedure::EarlyBranchElimination(void)
 
 	ResetVisited();
 	while (mEntryBlock->EarlyBranchElimination(ctemps))
-	{}
+	{
+		BuildTraces(true);
+		TrimBlocks();
+	}
 }
 
 void InterCodeProcedure::BuildTraces(bool expand, bool dominators, bool compact)
@@ -21845,6 +21850,24 @@ void InterCodeProcedure::BuildTraces(bool expand, bool dominators, bool compact)
 		mBlocks[i]->mDominator = nullptr;
 	if (dominators)
 		mEntryBlock->BuildDominatorTree(nullptr);
+}
+
+void InterCodeProcedure::TrimBlocks(void)
+{
+	int j = 1;
+	for (int i = 1; i < mBlocks.Size(); i++)
+	{
+		InterCodeBasicBlock* block = mBlocks[i];
+		if (block->mNumEntries > 0)
+		{
+			block->mIndex = j;
+			mBlocks[j++] = block;
+		}
+		else
+			delete block;
+	}
+	mBlocks.SetSize(j, false);
+	mNumBlocks = j;
 }
 
 void InterCodeProcedure::BuildDataFlowSets(void)

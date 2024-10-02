@@ -104,6 +104,7 @@ static const uint64	DTF_CONSTEXPR		= (1ULL << 31);
 static const uint64 DTF_AUTO_TEMPLATE	= (1ULL << 32);
 static const uint64 DTF_BANK_INLAY		= (1ULL << 33);
 static const uint64 DTF_PURE_VIRTUAL	= (1ULL << 34);
+static const uint64 DTF_FORCE_INLINE	= (1ULL << 35);
 
 static const uint64 DTF_FUNC_VARIABLE	= (1ULL << 36);
 static const uint64 DTF_FUNC_ASSEMBLER	= (1ULL << 37);
@@ -125,6 +126,7 @@ static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 static const uint64 DTF_FPARAM_UNUSED	= (1ULL << 49);
 static const uint64 DTF_DEPRECATED		= (1ULL << 50);
 static const uint64 DTF_FUNC_NO_RETURN	= (1ULL << 51);
+
 
 
 class Declaration;

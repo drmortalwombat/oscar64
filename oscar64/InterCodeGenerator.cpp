@@ -1797,7 +1797,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 		if (!ccdec->mLinkerObject)
 			this->TranslateProcedure(proc->mModule, ccdec->mValue, ccdec);
 
-		bool	canInline = (mCompilerOptions & COPT_OPTIMIZE_INLINE) && !(inlineMapper && inlineMapper->mDepth > 10);
+		bool	canInline = ((mCompilerOptions & COPT_OPTIMIZE_INLINE) || (ccdec->mFlags & DTF_FORCE_INLINE)) && !(inlineMapper && inlineMapper->mDepth > 10);
 		bool	doInline = false;
 
 		if (canInline)
@@ -1811,6 +1811,9 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 				}
 			}
 		}
+
+		if ((ccdec->mFlags & DTF_FORCE_INLINE) && !doInline)
+			mErrors->Error(exp->mLocation, EWARN_FUNCTION_NOT_INLINED, "Function with __forceinline not inlined", ccdec->mQualIdent);
 
 		if (doInline)
 		{
@@ -3781,7 +3784,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			bool	canInline = exp->mLeft->mType == EX_CONSTANT && 
 								exp->mLeft->mDecValue->mType == DT_CONST_FUNCTION && 
-								(mCompilerOptions & COPT_OPTIMIZE_INLINE) &&
+								((mCompilerOptions & COPT_OPTIMIZE_INLINE) || (exp->mLeft->mDecValue->mFlags & DTF_FORCE_INLINE)) &&
 								!(inlineMapper && inlineMapper->mDepth > 10) &&
 								exp->mType != EX_VCALL;
 			bool	doInline = false, inlineConstexpr = false;
@@ -3831,8 +3834,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 			else
 			{
-				Expression	*	funcexp = exp->mLeft;
-			
+				Expression* funcexp = exp->mLeft;
+
+				if (funcexp->mType == EX_CONSTANT && (funcexp->mDecValue->mFlags & DTF_FORCE_INLINE))
+					mErrors->Error(exp->mLocation, EWARN_FUNCTION_NOT_INLINED, "Function with __forceinline not inlined", funcexp->mDecValue->mQualIdent);
+
 				vl = TranslateExpression(procType, proc, block, funcexp, destack, gotos, breakBlock, continueBlock, inlineMapper);
 
 				vl = Dereference(proc, exp, block, inlineMapper, vl);

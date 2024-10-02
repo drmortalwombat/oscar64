@@ -4699,6 +4699,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					storageFlags |= DTF_PREVENT_INLINE;
 					mScanner->NextToken();
 				}
+				else if (mScanner->mToken == TK_FORCEINLINE)
+				{
+					storageFlags |= DTF_FORCE_INLINE | DTF_REQUEST_INLINE;
+					mScanner->NextToken();
+				}
 				else if (mScanner->mToken == TK_INLINE)
 				{
 					storageFlags |= DTF_REQUEST_INLINE;
@@ -5341,7 +5346,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 									}
 								}
 
-								pdec->mFlags |= ndec->mFlags & (DTF_REQUEST_INLINE | DTF_PREVENT_INLINE);
+								pdec->mFlags |= ndec->mFlags & (DTF_REQUEST_INLINE | DTF_PREVENT_INLINE | DTF_FORCE_INLINE);
 
 								ndec = pdec;
 							}
@@ -5436,7 +5441,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			}
 			else if (pthis)
 			{
-				ndec->mFlags |= storageFlags & (DTF_STATIC | DTF_PREVENT_INLINE);
+				ndec->mFlags |= storageFlags & (DTF_STATIC | DTF_PREVENT_INLINE | DTF_FORCE_INLINE);
 			}
 
 			ndec->mOffset = 0;
@@ -11372,6 +11377,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 
 		ConsumeTokenIf(TK_INLINE);
 		ConsumeTokenIf(TK_NOINLINE);
+		ConsumeTokenIf(TK_FORCEINLINE);
 		ConsumeTokenIf(TK_CONSTEXPR);
 
 		Declaration* bdec = ParseBaseTypeDeclaration(0, true);

@@ -690,6 +690,7 @@ protected:
 	void ResetEntryBlocks(void);
 public:
 	InterCodeBasicBlock				*	mEntryBlock;
+	int									mNumBlocks;
 	GrowingInterCodeBasicBlockPtrArray	mBlocks;
 	GrowingTypeArray					mTemporaries;
 	GrowingIntArray						mTempOffset, mTempSizes;
@@ -748,6 +749,7 @@ public:
 protected:
 	void BuildLocalAliasTable(void);
 	void BuildTraces(bool expand, bool dominators = true, bool compact = false);
+	void TrimBlocks(void);
 	void EarlyBranchElimination(void);
 	void BuildDataFlowSets(void);
 	void RenameTemporaries(void);

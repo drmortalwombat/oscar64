@@ -6548,7 +6548,7 @@ void ByteCodeProcedure::Compile(ByteCodeGenerator* generator, InterCodeProcedure
 {
 	mID = proc->mID;
 
-	mNumBlocks = proc->mBlocks.Size();
+	mNumBlocks = proc->mNumBlocks;
 
 	tblocks = new ByteCodeBasicBlock * [mNumBlocks];
 	for (int i = 0; i < mNumBlocks; i++)

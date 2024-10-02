@@ -161,7 +161,7 @@ int GlobalAnalyzer::CallerInvokes(Declaration* called)
 int GlobalAnalyzer::CallerInvokes(Declaration* caller, Declaration* called)
 {
 	int n = 1;
-	if (caller->mType == DT_CONST_FUNCTION && (caller->mFlags & (DTF_INLINE | DTF_REQUEST_INLINE)) && !(caller->mFlags & DTF_PREVENT_INLINE) && !(caller->mFlags & DTF_FUNC_RECURSIVE) && !(caller->mFlags & DTF_FUNC_VARIABLE) && !(caller->mFlags & DTF_EXPORT))
+	if (caller->mType == DT_CONST_FUNCTION && (caller->mFlags & (DTF_INLINE | DTF_FORCE_INLINE | DTF_REQUEST_INLINE)) && !(caller->mFlags & DTF_PREVENT_INLINE) && !(caller->mFlags & DTF_FUNC_RECURSIVE) && !(caller->mFlags & DTF_FUNC_VARIABLE) && !(caller->mFlags & DTF_EXPORT))
 		n = CallerInvokes(caller);
 	return n > 1 ? n : 1;
 }
@@ -206,7 +206,7 @@ void GlobalAnalyzer::AutoInline(void)
 //				printf("CHECK INLINING %s (%d) %d * (%d - 1)\n", f->mIdent->mString, f->mComplexity, cost, invokes);
 
 				bool	doinline = false;
-				if ((f->mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_REQUEST_INLINE))
+				if ((f->mCompilerOptions & COPT_OPTIMIZE_INLINE) && (f->mFlags & DTF_REQUEST_INLINE) || (f->mFlags & DTF_FORCE_INLINE))
 					doinline = true;
 				if (f->mLocalSize < 100)
 				{
