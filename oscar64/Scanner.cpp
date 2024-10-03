@@ -177,7 +177,7 @@ const char* TokenNames[] =
 
 
 Macro::Macro(const Ident* ident, MacroDict * scope)
-	: mIdent(ident), mString(nullptr), mNumArguments(-1), mScope(scope)
+	: mIdent(ident), mString(nullptr), mNumArguments(-1), mScope(scope), mVariadic(false)
 {
 
 }
@@ -754,6 +754,12 @@ void Scanner::NextPreToken(void)
 							{
 								macro->AddArgument(mTokenIdent);
 								NextRawToken();
+								if (mToken == TK_ELLIPSIS)
+								{
+									macro->mVariadic = true;
+									NextRawToken();
+									break;
+								}
 							}
 							else
 								mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define argument");
@@ -828,6 +834,7 @@ void Scanner::NextPreToken(void)
 					int i = 0;
 					while ((mTokenString[i] = def->mString[i]))
 						i++;
+					mTokenStringSize = i;
 					return;
 				}
 				else
@@ -1040,7 +1047,8 @@ void Scanner::NextPreToken(void)
 							int		offset = mOffset;
 							int		level = 0;
 							bool	quote = false;
-							while (mLine[offset] && (quote || level > 0 || (mLine[offset] != ',' && mLine[offset] != ')')))
+
+							while (mLine[offset] && (quote || level > 0 || (!(!(def->mVariadic && i + 1 == def->mNumArguments) && mLine[offset] == ',') && mLine[offset] != ')')))
 							{
 								if (mLine[offset] == '"')
 								{
@@ -1060,10 +1068,13 @@ void Scanner::NextPreToken(void)
 							arg->SetString(mLine + mOffset, offset - mOffset);
 							mDefineArguments->Insert(arg);
 							mOffset = offset;
+
 							if (i + 1 != def->mNumArguments)
 							{
 								if (mLine[mOffset] == ',')
 									mOffset++;
+								else if (def->mVariadic && i + 2 == def->mNumArguments && mLine[mOffset] == ')')
+									;
 								else
 									mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define expansion argument");
 							}
@@ -1177,7 +1188,7 @@ void Scanner::NextSkipRawToken(void)
 
 		if (mTokenChar == '#')
 		{
-			if (mOffset == 1 || mStartOfLine)
+			if (!(mAssemblerMode || mPrepCondFalse) || mOffset == 1 || mStartOfLine)
 			{
 				int		n = 0;
 				char	tkprep[128];

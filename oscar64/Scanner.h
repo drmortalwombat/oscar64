@@ -190,11 +190,12 @@ public:
 	void SetString(const char* str, ptrdiff_t length);
 	void AddArgument(const Ident * ident);
 
-	const Ident* mIdent;
-	const char* mString;
-	int		mNumArguments;
-	const Ident	* mArguments[32];
-	MacroDict* mScope;
+	const Ident	*	mIdent;
+	const char	*	mString;
+	int				mNumArguments;
+	const Ident	*	mArguments[32];
+	MacroDict	*	mScope;
+	bool			mVariadic;
 };
 
 typedef Macro* MacroPtr;
