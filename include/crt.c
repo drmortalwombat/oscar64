@@ -3067,9 +3067,7 @@ __asm fmul
 		lda	accu
 		ora	accu + 1
 		ora	accu + 2
-		bne	W1
-		sta	accu + 3
-		rts
+		beq	E3
 W1:
 		lda	tmp
 		ora	tmp + 1
@@ -3078,6 +3076,7 @@ W1:
 		sta	accu
 		sta	accu + 1
 		sta	accu + 2
+E3:
 		sta	accu + 3
 		rts
 W2:	
@@ -3135,6 +3134,7 @@ INF:
 		ora #$7f
 		sta	accu + 3
 		lda #$80
+E2:
 		sta accu + 2
 		lda #$00
 		sta accu + 0
@@ -3158,11 +3158,8 @@ W8:
 		rts
 ZERO:
 		lda #0
-		sta accu
-		sta accu + 1
-		sta accu + 2
 		sta accu + 3
-		rts
+		beq E2
 }
 
 __asm inp_binop_mul_f32
@@ -4602,6 +4599,9 @@ loop:
 		adc tmp + 1
 		sta tmp + 3
 
+		// exit if overflowing memory
+		bcs hzempty
+
 
 		// Check if in range of current free block
 
@@ -4618,7 +4618,10 @@ loop:
 		lda accu
 		ldx accu + 1
 		jmp loop
-
+hzempty:
+		lda #0
+		sta accu
+		sta accu + 1
 hempty:	
 		// no more heap blocks
 #ifdef HEAPCHECK

@@ -846,7 +846,7 @@ const char* NativeCodeDisassembler::TempName(uint8 tmp, char* buffer, InterCodeP
 		sprintf_s(buffer, 10, "ACCU + %d", tmp - BC_REG_ACCU);
 		return buffer;
 	}
-	else if (tmp >= BC_REG_WORK && tmp <= BC_REG_WORK + 7)
+	else if (tmp >= BC_REG_WORK && tmp <= BC_REG_WORK + 8)
 	{
 		sprintf_s(buffer, 10, "WORK + %d", tmp - BC_REG_WORK);
 		return buffer;
