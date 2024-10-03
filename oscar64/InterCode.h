@@ -600,7 +600,7 @@ public:
 
 	bool CheapInlining(int & numTemps);
 	bool CollapseDispatch();
-
+	bool StructReturnPropagation(void);
 
 	void CheckFinalLocal(void);
 	void CheckFinal(void);
@@ -793,6 +793,7 @@ protected:
 	void MoveConditionsOutOfLoop(void);
 	void ShortcutConstBranches(void);
 	void EliminateDoubleLoopCounter(void);
+	void StructReturnPropagation(void);
 
 	void CollapseDispatch(void);
 

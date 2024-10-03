@@ -16834,6 +16834,63 @@ static int FindStore(InterCodeBasicBlock* block, int pos, const InterOperand& op
 	return -1;
 }
 
+bool InterCodeBasicBlock::StructReturnPropagation(void)
+{
+	if (mInstructions.Size() >= 6)
+	{
+		int sz = mInstructions.Size();
+		if (mInstructions[sz - 1]->mCode == IC_RETURN &&
+			mInstructions[sz - 2]->mCode == IC_COPY && mInstructions[sz - 2]->mSrc[0].mTemp < 0 && mInstructions[sz - 2]->mSrc[1].mTemp == mInstructions[sz - 3]->mDst.mTemp &&
+			mInstructions[sz - 2]->mSrc[0].mMemory == IM_GLOBAL && mInstructions[sz - 2]->mSrc[0].mLinkerObject && (mInstructions[sz - 2]->mSrc[0].mLinkerObject->mFlags & LOBJF_LOCAL_VAR) &&
+			mInstructions[sz - 3]->mCode == IC_LOAD && mInstructions[sz - 3]->mSrc[0].mTemp < 0 && (mInstructions[sz - 3]->mSrc[0].mMemory == IM_FPARAM || mInstructions[sz - 3]->mSrc[0].mMemory == IM_PARAM))
+		{
+			LinkerObject* lo = mInstructions[sz - 2]->mSrc[0].mLinkerObject;
+
+			int match = -1;
+			for (int i = 0; i < sz - 3; i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+				if (ins->mCode == IC_STORE || ins->mCode == IC_COPY || ins->mCode == IC_STRCPY || ins->mCode == IC_FILL || ins->mCode == IC_LEA)
+				{
+					if (ins->mSrc[1].mLinkerObject == lo)
+						return false;
+				}
+				else if (ins->mCode == IC_LOAD || ins->mCode == IC_COPY || ins->mCode == IC_STRCPY)
+				{
+					if (ins->mSrc[0].mLinkerObject == lo)
+						return false;
+				}
+				else if (ins->mCode == IC_CONSTANT && ins->mDst.mType == IT_POINTER && ins->mConst.mLinkerObject == lo)
+				{
+					if (match == -1)
+						match = i;
+					else
+						return false;
+				}
+			}
+
+			if (match >= 0)
+			{
+				if (mInstructions[match + 1]->mCode == IC_STORE && mInstructions[match + 1]->mSrc[0].mTemp == mInstructions[match + 0]->mDst.mTemp && mInstructions[match + 1]->mSrc[0].mFinal)
+				{
+					mInstructions[match]->mCode = IC_LOAD;
+					mInstructions[match]->mSrc[0] = mInstructions[sz - 3]->mSrc[0];
+					mInstructions[match]->mNumOperands = 1;
+
+					mInstructions[sz - 3]->mCode = IC_NONE; mInstructions[sz - 3]->mNumOperands = 0;
+					mInstructions[sz - 2]->mCode = IC_NONE; mInstructions[sz - 2]->mNumOperands = 0;
+
+					return true;
+				}
+			}
+			else
+				return false;
+		}
+	}
+
+	return false;
+}
+
 bool InterCodeBasicBlock::CollapseDispatch()
 {
 	bool	changed = false;
@@ -21757,6 +21814,14 @@ void InterCodeProcedure::CheckBlocks(void)
 	mEntryBlock->CheckBlocks();
 }
 
+void InterCodeProcedure::StructReturnPropagation(void)
+{
+	if (!mEntryBlock->mTrueJump)
+	{
+		mEntryBlock->StructReturnPropagation();
+	}
+}
+
 void InterCodeProcedure::CollapseDispatch(void)
 {
 	ResetVisited();
@@ -23720,6 +23785,8 @@ void InterCodeProcedure::Close(void)
 
 	ResetVisited();
 	mEntryBlock->CheckNullptrDereference();
+
+	StructReturnPropagation();
 
 	if (mSaveTempsLinkerObject && mTempSize > BC_REG_TMP_SAVED - BC_REG_TMP)
 		mSaveTempsLinkerObject->AddSpace(mTempSize - (BC_REG_TMP_SAVED - BC_REG_TMP));
