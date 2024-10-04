@@ -839,6 +839,55 @@ W1:		asl	accu
 #endif
 }
 
+#if 1
+__asm mul16by8
+{
+		lsr
+		beq	zero
+	more:
+		ldx #0
+		ldy #0
+		bcc	skip
+	odd:
+		ldy accu
+		ldx accu + 1
+		bcs skip
+		
+	loop:
+		sta tmpy
+		
+		clc
+		tya
+		adc	accu
+		tay
+		txa
+		adc	accu + 1		
+		tax
+		
+		lda tmpy
+	skip:	
+		asl accu
+		rol accu + 1
+		lsr
+		bcc skip
+		bne loop
+	done:
+		clc
+		tya
+		adc accu
+		sta accu
+		txa
+		adc accu + 1
+		sta accu + 1
+		rts
+	zero:
+		bcs one
+		sta accu
+		sta accu + 1
+	one:
+		rts		
+}
+#else
 __asm mul16by8
 {
 		ldy	#0
@@ -866,6 +915,7 @@ L2:
 		sty tmp + 2
 		rts
 }
+#endif
 
 __asm divs16
 {
