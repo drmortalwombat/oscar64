@@ -210,6 +210,15 @@ void IntegerValueRange::SetLimit(int64 minValue, int64 maxValue)
 	mMaxValue = maxValue;
 }
 
+void IntegerValueRange::SetBounds(State minState, int64 minValue, State maxState, int64 maxValue)
+{
+	mMinState = minState;
+	mMinValue = minValue;
+	mMaxState = maxState;
+	mMaxValue = maxValue;
+}
+
+
 void IntegerValueRange::Expand(const IntegerValueRange& range)
 {
 	if (range.mMinState == S_BOUND && mMinState == S_BOUND && range.mMinValue < mMinValue)
@@ -2515,8 +2524,22 @@ bool InterInstruction::ReferencesTemp(int temp) const
 InterInstruction* InterInstruction::Clone(void) const
 {
 	InterInstruction* ins = new InterInstruction(mLocation, mCode);
-	*ins = *this;
+	ins->mDst = mDst;
+	ins->mConst = mConst;
+	ins->mOperator = mOperator;
+	ins->mNumOperands = mNumOperands;
+	for (int i = 0; i < mNumOperands; i++)
+		ins->mSrc[i] = mSrc[i];
+	ins->mInUse = mInUse;
+	ins->mInvariant = mInvariant;
+	ins->mVolatile = mVolatile;
+	ins->mExpensive = mExpensive;
+	ins->mSingleAssignment = mSingleAssignment;
+	ins->mNoSideEffects = mNoSideEffects;
+	ins->mConstExpr = mConstExpr;
 	ins->mRemove = false;
+	ins->mAliasing = mAliasing;
+
 	return ins;
 }
 
@@ -3898,7 +3921,7 @@ bool InterOperand::IsEqual(const InterOperand& op) const
 }
 
 InterInstruction::InterInstruction(const Location& loc, InterCode code)
-	: mLocation(loc), mCode(code)
+	: mLocation(loc), mCode(code), mSrc(mOps)
 {
 	mOperator = IA_NONE;
 
@@ -3929,7 +3952,10 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	case IC_RETURN:
 		mNumOperands = 0;
 		break;
-
+	case IC_ASSEMBLER:
+		mSrc = new InterOperand[32];
+		mNumOperands = 1;
+		break;
 	default:
 		mNumOperands = 3;
 		break;
@@ -6148,7 +6174,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 
 				mInstructions.Pop();
 				for (i = 0; i < mTrueJump->mInstructions.Size(); i++)
-					mInstructions.Push(new InterInstruction(* (mTrueJump->mInstructions[i]) ));
+					mInstructions.Push(mTrueJump->mInstructions[i]->Clone());
 
 				mFalseJump = mTrueJump->mFalseJump;
 				mTrueJump = mTrueJump->mTrueJump;
@@ -15512,7 +15538,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								InterInstruction* si = FindSourceInstruction(mLoopPrefix, ai->mDst.mTemp);
 								if (si && si->mCode == IC_CONSTANT)
 								{
-									int64	num = (ci->mSrc[0].mIntConst - si->mSrc[0].mIntConst) / ai->mSrc[0].mIntConst;
+									int64	num = (ci->mSrc[0].mIntConst - si->mConst.mIntConst) / ai->mSrc[0].mIntConst;
 									if (num > 255 && num < 32768)
 									{
 										ai->mSrc[0].mIntConst = 1;
@@ -15583,14 +15609,19 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								i++;
 							if (i + 1 == body.Size())
 							{
-								int64 num = ci->mSrc[0].mRange.mMaxValue;
-
 								InterInstruction* si = FindSourceInstruction(mLoopPrefix, ai->mDst.mTemp);
-								if (si && si->mCode == IC_CONSTANT && si->mSrc[0].mIntConst == 0)
+								if (si && si->mCode == IC_CONSTANT && si->mConst.mIntConst >= 0)
 								{
-									InterInstruction* mins = new InterInstruction(si->mLocation, IC_LOAD_TEMPORARY);
-									mins->mSrc[0] = ci->mSrc[0];
+									int64 num = ci->mSrc[0].mRange.mMaxValue - si->mConst.mIntConst;
+									IntegerValueRange::State	bound = ci->mSrc[0].mRange.mMaxState;
+
+									InterInstruction* mins = new InterInstruction(si->mLocation, IC_BINARY_OPERATOR);
+									mins->mOperator = IA_SUB;
+									mins->mSrc[0] = si->mConst;
+									mins->mSrc[1] = ci->mSrc[0];
 									mins->mDst = ai->mDst;
+									mins->mDst.mRange.SetBounds(IntegerValueRange::S_BOUND, 1, bound, num);
+
 									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, mins);
 
 									ai->mOperator = IA_SUB;
@@ -15600,9 +15631,18 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									ci->mSrc[0].mIntConst = 0;
 									ci->mSrc[0].mRange.SetLimit(0, 0);
 
-									ai->mSrc[1].mRange.SetLimit(1, num);
-									ai->mDst.mRange.SetLimit(0, num - 1);
-									ci->mSrc[1].mRange.SetLimit(0, num - 1);
+									for (int k = 0; k < body.Size(); k++)
+									{
+										if (body[k]->mEntryValueRange.Size())
+											body[k]->mEntryValueRange[ai->mSrc[1].mTemp].SetBounds(IntegerValueRange::S_BOUND, 1, bound, num);
+									}
+
+									if (mEntryValueRange.Size())
+										mEntryValueRange[ai->mSrc[1].mTemp].SetBounds(IntegerValueRange::S_BOUND, 1, bound, num);
+
+									ai->mSrc[1].mRange.SetBounds(IntegerValueRange::S_BOUND, 1, bound, num);
+									ai->mDst.mRange.SetBounds(IntegerValueRange::S_BOUND, 0, bound, num - 1);
+									ci->mSrc[1].mRange.SetBounds(IntegerValueRange::S_BOUND, 0, bound, num - 1);
 
 									modified = true;
 								}
@@ -22825,7 +22865,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "bar");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

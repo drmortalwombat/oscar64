@@ -4281,7 +4281,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					lins->mSrc[0].mOperandSize = vdec->mSize;
 					block->Append(lins);
 
-					if (jins->mNumOperands >= 12)
+					if (jins->mNumOperands >= 32)
 						mErrors->Error(exp->mLocation, EERR_ASSEMBLER_LIMIT, "Maximum number of variables in assembler block exceeded", vdec->mIdent);
 					else
 					{

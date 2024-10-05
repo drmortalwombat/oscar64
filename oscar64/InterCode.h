@@ -177,6 +177,7 @@ public:
 	void LimitWeak(const IntegerValueRange& range);
 	void MergeUnknown(const IntegerValueRange& range);
 	void SetLimit(int64 minValue, int64 maxValue);
+	void SetBounds(State minState, int64 minValue, State maxState, int64 maxValue);
 	void SetConstant(int64 value);
 
 	bool IsBound(void) const;
@@ -311,15 +312,18 @@ class InterInstruction
 public:
 	Location							mLocation;
 	InterCode							mCode;
-	InterOperand						mSrc[12];
+	InterOperand					*	mSrc;
 	InterOperand						mDst;
 	InterOperand						mConst;
 	InterOperator						mOperator;
+	InterOperand						mOps[4];
 	int									mNumOperands;
 
 	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr, mRemove, mAliasing;
 
 	InterInstruction(const Location& loc, InterCode code);
+	InterInstruction(const InterInstruction&) = delete;
+	InterInstruction& operator=(const InterInstruction&) = delete;
 
 	bool IsEqual(const InterInstruction* ins) const;
 	bool IsEqualSource(const InterInstruction* ins) const;
