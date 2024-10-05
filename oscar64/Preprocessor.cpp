@@ -391,6 +391,15 @@ struct SPDHeader1
 	uint8   mColors[3];
 };
 
+struct SPDHeader3
+{
+	uint8   mFlags;
+	uint16  mNumSprites, mNumTiles;
+	uint8   mNumSpriteAnmis, mNumTileAnims;
+	uint8   mTileWidth, mTileHeight;
+	uint8   mColors[3];
+};
+
 struct SPDHeader5 
 {
 	uint8   mFlags;
@@ -419,6 +428,13 @@ void SourceFile::ReadSpritePad(Errors* errors, const Location& location, SourceF
 			SPDHeader5 spdHeader5;
 			fread(&spdHeader5, sizeof(SPDHeader5), 1, mFile);
 			numSprites = spdHeader5.mNumSprites;
+			break;
+		}
+		case 3:
+		{
+			SPDHeader3 spdHeader3;
+			fread(&spdHeader3, sizeof(SPDHeader3), 1, mFile);
+			numSprites = spdHeader3.mNumSprites;
 			break;
 		}
 		case 1:
