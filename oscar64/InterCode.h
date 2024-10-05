@@ -220,7 +220,7 @@ public:
 	void RemoveValue(int index);
 	void InsertValue(InterInstruction * ins);
 
-	void UpdateValue(InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
+	void UpdateValue(InterCodeBasicBlock* block, InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 	void Intersect(ValueSet& set);
 };
 
@@ -435,6 +435,7 @@ public:
 	bool MergeSameConditionTraces(void);
 
 	void LocalToTemp(int vindex, int temp);
+	void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 
 	void CollectAllUsedDefinedTemps(NumberSet& defined, NumberSet& used);
 
