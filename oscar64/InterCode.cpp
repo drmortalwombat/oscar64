@@ -1830,7 +1830,7 @@ void InterCodeBasicBlock::LoadConstantFold(InterInstruction* ins, InterInstructi
 	}
 
 	
-	if (offset >= 0 && offset * stride * (InterTypeSize[ins->mDst.mType] - 1) < lobj->mSize)
+	if (offset >= 0 && offset + stride * (InterTypeSize[ins->mDst.mType] - 1) < lobj->mSize)
 	{
 		data = lobj->mData + offset;
 
