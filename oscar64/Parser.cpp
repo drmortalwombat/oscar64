@@ -6293,7 +6293,10 @@ Expression* Parser::ParseCastExpression(Expression* exp)
 					else
 					{
 						Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTRUCT);
-						cexp->mLeft = iexp;
+						Expression* lexp = new Expression(mScanner->mLocation, EX_LIST);
+						lexp->mLeft = iexp;
+						lexp->mRight = nullptr;
+						cexp->mLeft = lexp;
 						cexp->mRight = nexp;
 						cexp->mDecType = vdec->mBase;
 
