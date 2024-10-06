@@ -45941,12 +45941,40 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 	}
 	else if (
 		mIns[i + 0].ChangesAccuAndFlag() && mIns[i + 0].mMode == ASMIM_IMPLIED && mIns[i + 0].mType != ASMIT_TXA &&
-		(mIns[i + 1].mType == ASMIT_INX || mIns[i + 1].mType == ASMIT_DEX || mIns[i + 1].mType == ASMIT_INY || mIns[i + 1].mType == ASMIT_DEY) &&
+		(mIns[i + 1].mType == ASMIT_INX || mIns[i + 1].mType == ASMIT_DEX) &&
 		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
 	{
 		mIns[i + 2] = mIns[i + 0];
 		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 		mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+		return true;
+	}
+	if (
+		mIns[i + 0].mType == ASMIT_TXA &&
+		mIns[i + 1].mType == ASMIT_DEX &&
+		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+	{		
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 2].mType = ASMIT_CPX; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 0xff;
+		return true;
+	}
+	else if (
+		mIns[i + 0].ChangesAccuAndFlag() && mIns[i + 0].mMode == ASMIM_IMPLIED && mIns[i + 0].mType != ASMIT_TYA &&
+		(mIns[i + 1].mType == ASMIT_INY || mIns[i + 1].mType == ASMIT_DEY) &&
+		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
+	{
+		mIns[i + 2] = mIns[i + 0];
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+		return true;
+	}
+	else if (
+		mIns[i + 0].mType == ASMIT_TYA &&
+		mIns[i + 1].mType == ASMIT_DEY &&
+		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0 && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+	{		
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 2].mType = ASMIT_CPY; mIns[i + 2].mMode = ASMIM_IMMEDIATE; mIns[i + 2].mAddress = 0xff;
 		return true;
 	}
 	else if (
