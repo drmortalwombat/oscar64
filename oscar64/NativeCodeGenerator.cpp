@@ -45940,7 +45940,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		return true;
 	}
 	else if (
-		mIns[i + 0].ChangesAccuAndFlag() && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+		mIns[i + 0].ChangesAccuAndFlag() && mIns[i + 0].mMode == ASMIM_IMPLIED && mIns[i + 0].mType != ASMIT_TXA &&
 		(mIns[i + 1].mType == ASMIT_INX || mIns[i + 1].mType == ASMIT_DEX || mIns[i + 1].mType == ASMIT_INY || mIns[i + 1].mType == ASMIT_DEY) &&
 		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
 	{
