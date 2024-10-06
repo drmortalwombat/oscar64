@@ -5919,6 +5919,10 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 	{
 		assert(code->mSrc[1].mOperandSize > 0);
 	}
+	if (code->mCode == IC_LOAD_TEMPORARY)
+	{
+		assert(code->mSrc[0].mTemp >= 0);
+	}
 	if (code->mDst.mTemp >= 0)
 		assert(code->mDst.mType != IT_NONE);
 	for (int i = 0; i < code->mNumOperands; i++)
@@ -18727,6 +18731,11 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 			GrowingArray<InterInstructionPtr>	indexins(nullptr);
 			GrowingArray<InterInstructionPtr>	pindexins(nullptr);
 
+
+			InterInstruction* cins = nullptr;
+			if (mInstructions.Size() > 2 && mInstructions[mInstructions.Size() - 2]->mCode == IC_RELATIONAL_OPERATOR)
+				cins = mInstructions[mInstructions.Size() - 2];
+
 			int	j = 0;
 			for (int i = 0; i < mInstructions.Size(); i++)
 			{
@@ -18778,7 +18787,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ins->mSrc[1].mIntConst = ins->mSrc[1].mIntConst * indexStep[ins->mSrc[0].mTemp];
 						ins->mSrc[0] = ins->mDst;
 
-						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp])
+						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp] && !(cins && (cins->mSrc[0].mTemp == ins->mDst.mTemp || cins->mSrc[1].mTemp == ins->mDst.mTemp)))
 						{
 							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 							rins->mOperator = IA_SUB;
@@ -18813,7 +18822,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						ins->mSrc[0].mIntConst = ins->mSrc[0].mIntConst * indexStep[ins->mSrc[1].mTemp];
 						ins->mSrc[1] = ins->mDst;
 
-						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp])
+						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp] && !(cins && (cins->mSrc[0].mTemp == ins->mDst.mTemp || cins->mSrc[1].mTemp == ins->mDst.mTemp)))
 						{
 							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 							rins->mOperator = IA_SUB;
@@ -18850,7 +18859,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						if (ins->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
 							ins->mDst.mRange.mMaxValue += ins->mSrc[0].mIntConst;
 
-						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp])
+						if (tailBlock->mEntryRequiredTemps[ins->mDst.mTemp] && !(cins && (cins->mSrc[0].mTemp == ins->mDst.mTemp || cins->mSrc[1].mTemp == ins->mDst.mTemp)))
 						{
 							InterInstruction* rins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 							rins->mOperator = IA_SUB;
@@ -20011,20 +20020,22 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				//						!mInstructions[i + 1]->ReferencesTemp(mInstructions[i + 0]->mDst.mTemp) &&
 				(mInstructions[i + 2]->mSrc[0].mFinal || mInstructions[i + 2]->mSrc[1].mFinal))
 			{
-				if (mInstructions[i + 2]->mSrc[0].mFinal)
+				if (mInstructions[i + 2]->mSrc[1].mFinal)
 				{
 					mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
 					mInstructions[i + 1]->mSrc[1].mFinal = false;
-					mInstructions[i + 2]->mSrc[1] = mInstructions[i + 1]->mSrc[1];
+					mInstructions[i + 2]->mSrc[0] = mInstructions[i + 1]->mSrc[1];
 					mInstructions[i + 0]->mDst.mRange.Reset();
-					mInstructions[i + 1]->mDst.mRange.Reset();
+					mInstructions[i + 2]->mDst.mRange.Reset();
 				}
 				else
 				{
-					mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+					mInstructions[i + 1]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
 					mInstructions[i + 0]->mSrc[1].mFinal = false;
-					mInstructions[i + 1]->mDst.mRange.Reset();
 					mInstructions[i + 2]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+
+					mInstructions[i + 1]->mDst.mRange.Reset();
+					mInstructions[i + 2]->mDst.mRange.Reset();
 				}
 
 				changed = true;
@@ -21354,6 +21365,16 @@ void InterCodeBasicBlock::CollectGlobalReferences(NumberSet& referencedGlobals, 
 				}
 				else if (ins->mSrc[1].mTemp >= 0 && (ins->mSrc[1].mMemoryBase == IM_NONE || ins->mSrc[1].mMemoryBase == IM_INDIRECT))
 					storesIndirect = true;
+				break;
+			case IC_ASSEMBLER:
+				for (int i = 1; i < ins->mNumOperands; i++)
+				{
+					if (ins->mSrc[i].mType == IT_POINTER && ins->mSrc[i].mTemp < 0)
+					{
+						storesIndirect = true;
+						loadsIndirect = true;
+					}
+				}
 				break;
 			case IC_CALL:
 			case IC_CALL_NATIVE:
@@ -22877,7 +22898,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "foo");
+	CheckFunc = !strcmp(mIdent->mString, "f");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -23285,6 +23306,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->MoveLoopHeadCheckToTail();
 
 #endif
+	DisassembleDebug("MoveLoopHeadCheckToTail");
 
 #if 1
 	LoadStoreForwarding(paramMemory);
@@ -23756,6 +23778,8 @@ void InterCodeProcedure::Close(void)
 		do {
 			TempForwarding();
 		} while (GlobalConstantPropagation());
+
+		DisassembleDebug("GlobalConstantPropagation");
 
 		LoadStoreForwarding(paramMemory);
 

@@ -4911,19 +4911,41 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				{
 					ttemp = proc->AddTemporary(ttype);
 
-					InterInstruction* rins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD_TEMPORARY);
-					rins->mSrc[0].mType = ttype;
-					rins->mSrc[0].mTemp = vr.mTemp;
-					rins->mDst.mType = ttype;
-					rins->mDst.mTemp = ttemp;
-					fblock->Append(rins);
+					if (vr.mTemp >= 0)
+					{
+						InterInstruction* rins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD_TEMPORARY);
+						rins->mSrc[0].mType = ttype;
+						rins->mSrc[0].mTemp = vr.mTemp;
+						rins->mDst.mType = ttype;
+						rins->mDst.mTemp = ttemp;
+						fblock->Append(rins);
+					}
+					else
+					{
+						InterInstruction* rins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+						rins->mConst.mType = ttype;
+						rins->mDst.mType = ttype;
+						rins->mDst.mTemp = ttemp;
+						tblock->Append(rins);
+					}
 
-					InterInstruction* lins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD_TEMPORARY);
-					lins->mSrc[0].mType = ttype;
-					lins->mSrc[0].mTemp = vl.mTemp;
-					lins->mDst.mType = ttype;
-					lins->mDst.mTemp = ttemp;
-					tblock->Append(lins);
+					if (vl.mTemp >= 0)
+					{
+						InterInstruction* lins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD_TEMPORARY);
+						lins->mSrc[0].mType = ttype;
+						lins->mSrc[0].mTemp = vl.mTemp;
+						lins->mDst.mType = ttype;
+						lins->mDst.mTemp = ttemp;
+						tblock->Append(lins);
+					}
+					else
+					{
+						InterInstruction* lins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+						lins->mConst.mType = ttype;
+						lins->mDst.mType = ttype;
+						lins->mDst.mTemp = ttemp;
+						tblock->Append(lins);
+					}
 
 					tblock->Append(jins0);
 					tblock->Close(eblock, nullptr);
