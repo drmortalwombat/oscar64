@@ -34,7 +34,8 @@ enum SourceFileDecoder
 	SFD_CTM_TILES_16,
 	SFD_CTM_MAP_8,
 	SFD_CTM_MAP_16,
-	SFD_SPD_SPRITES
+	SFD_SPD_SPRITES,
+	SFD_SPD_TILES,
 };
 
 class SourceFile

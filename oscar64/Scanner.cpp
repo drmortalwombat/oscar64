@@ -986,6 +986,8 @@ void Scanner::NextPreToken(void)
 					decoder = SFD_CTM_MAP_16;
 				else if (!strcmp(mTokenIdent->mString, "spd_sprites"))
 					decoder = SFD_SPD_SPRITES;
+				else if (!strcmp(mTokenIdent->mString, "spd_tiles"))
+					decoder = SFD_SPD_TILES;
 				else
 					mErrors->Error(mLocation, EERR_FILE_NOT_FOUND, "Invalid embed compression mode", mTokenIdent);
 

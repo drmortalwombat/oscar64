@@ -3899,7 +3899,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			break;
 
 		case ASMIT_LDX:
-			if (data.mRegs[CPU_REG_X].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_X].mValue == mAddress)
+			if (data.mRegs[CPU_REG_X].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
@@ -3961,7 +3961,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			break;
 
 		case ASMIT_LDY:
-			if (data.mRegs[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_Y].mValue == mAddress)
+			if (data.mRegs[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
@@ -34958,7 +34958,20 @@ bool NativeCodeBasicBlock::IndexXYValueForwarding(int xreg, int xoffset, int xva
 				{
 					if (mIns[i].mAddress == xreg)
 					{
-						if (xoffset <= 3)
+						if (xoffset == 0)
+						{
+							if (!(mIns[i].mLive & LIVE_CPU_REG_Z))
+							{
+								mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
+								changed = true;
+							}
+							else if (!(mIns[i].mLive & LIVE_CPU_REG_A))
+							{
+								mIns[i].mType = ASMIT_TXA; mIns[i].mMode = ASMIM_IMPLIED;
+								changed = true;
+							}
+						}
+						else if (xoffset <= 3)
 						{
 							mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
 							for (int j = 0; j < xoffset; j++)
@@ -34999,7 +35012,20 @@ bool NativeCodeBasicBlock::IndexXYValueForwarding(int xreg, int xoffset, int xva
 				{
 					if (mIns[i].mAddress == yreg)
 					{
-						if (yoffset <= 3)
+						if (yoffset == 0)
+						{
+							if (!(mIns[i].mLive & LIVE_CPU_REG_Z))
+							{
+								mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
+								changed = true;
+							}
+							else if (!(mIns[i].mLive & LIVE_CPU_REG_A))
+							{
+								mIns[i].mType = ASMIT_TYA; mIns[i].mMode = ASMIM_IMPLIED;
+								changed = true;
+							}
+						}
+						else if (yoffset <= 3)
 						{
 							mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
 							for (int j = 0; j < yoffset; j++)
@@ -51463,7 +51489,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "fighter_status");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

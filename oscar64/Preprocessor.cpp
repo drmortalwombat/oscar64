@@ -420,6 +420,7 @@ void SourceFile::ReadSpritePad(Errors* errors, const Location& location, SourceF
 	if (spdHeader.mID[0] == 'S' && spdHeader.mID[1] == 'P' && spdHeader.mID[2] == 'D')
 	{
 		int numSprites = 0;
+		int numTiles = 0, tileSize = 0;
 
 		switch (spdHeader.mVersion[0])
 		{
@@ -428,6 +429,8 @@ void SourceFile::ReadSpritePad(Errors* errors, const Location& location, SourceF
 			SPDHeader5 spdHeader5;
 			fread(&spdHeader5, sizeof(SPDHeader5), 1, mFile);
 			numSprites = spdHeader5.mNumSprites;
+			numTiles = spdHeader5.mNumTiles;
+			tileSize = spdHeader5.mTileHeight * spdHeader5.mTileWidth;
 			break;
 		}
 		case 3:
@@ -435,6 +438,8 @@ void SourceFile::ReadSpritePad(Errors* errors, const Location& location, SourceF
 			SPDHeader3 spdHeader3;
 			fread(&spdHeader3, sizeof(SPDHeader3), 1, mFile);
 			numSprites = spdHeader3.mNumSprites;
+			numTiles = spdHeader3.mNumTiles;
+			tileSize = spdHeader3.mTileHeight * spdHeader3.mTileWidth;
 			break;
 		}
 		case 1:
@@ -452,6 +457,21 @@ void SourceFile::ReadSpritePad(Errors* errors, const Location& location, SourceF
 		if (decoder == SFD_SPD_SPRITES)
 		{
 			mLimit = 64 * numSprites;
+			return;
+		}
+		else if (decoder == SFD_SPD_TILES)
+		{
+			fseek(mFile, 64 * numSprites, SEEK_CUR);
+			mMemSize = numTiles * tileSize;
+			mLimit = mMemSize;
+			mMemPos = 0;
+			mMemData = new uint8[mMemSize];
+			for (int i = 0; i < mMemSize; i++)
+			{
+				int16	d;
+				fread(&d, 2, 1, mFile);
+				mMemData[i] = uint8(d);
+			}
 			return;
 		}
 	}
@@ -725,6 +745,7 @@ void SourceFile::Limit(Errors* errors, const Location& location, SourceFileDecod
 		break;
 
 	case SFD_SPD_SPRITES:
+	case SFD_SPD_TILES:
 		ReadSpritePad(errors, location, decoder);
 		break;
 

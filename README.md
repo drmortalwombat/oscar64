@@ -395,6 +395,12 @@ Imports the attribute data
 
 Imports the sprite data and compresses it using lzo compression
 
+	const char SpriteTiles[] = {
+		#embed spd_tiles "sprites.spd"
+	};
+
+Imports the sprite tile index table in byte form
+
 
 ### Console input and output
 
