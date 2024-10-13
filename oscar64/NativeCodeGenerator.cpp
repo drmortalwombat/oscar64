@@ -18684,6 +18684,7 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 								mFalseJump->mEntryRequiredRegs += mIns[sz].mAddress;
 								mFalseJump->mExitRequiredRegs += mIns[sz].mAddress;
 							}
+							mIns[sz].mLive |= LIVE_MEM;
 
 							mTrueJump->mTrueJump->mIns.Insert(0, NativeCodeInstruction(mIns[sz].mIns, ASMIT_LDY, mIns[sz]));
 							changed = true;
@@ -18709,6 +18710,8 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 								mFalseJump->mEntryRequiredRegs += mIns[sz].mAddress;
 								mFalseJump->mExitRequiredRegs += mIns[sz].mAddress;
 							}
+							mIns[sz].mLive |= LIVE_MEM;
+
 							mTrueJump->mTrueJump->mIns.Insert(0, NativeCodeInstruction(mIns[sz].mIns, ASMIT_LDX, mIns[sz]));
 							changed = true;
 						}
@@ -51489,7 +51492,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "fighter_status");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "fighter_input");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52923,6 +52926,8 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->JoinXYCascade())
 				changed = true;
 		}
+
+
 #if 1
 		if (step == 9 && cnt < 10)
 		{
@@ -53050,7 +53055,6 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->Propagate16BitHighSum())
 				changed = true;
 		}		
-
 
 		if (step == 8)
 		{
