@@ -274,6 +274,7 @@ public:
 	NativeCodeBasicBlock* BypassEmptyBlocks(void);
 
 	int LeadsInto(NativeCodeBasicBlock* block, int dist);
+	NativeCodeBasicBlock* PlaceSequence(ExpandingArray<NativeCodeBasicBlock*>& placement, NativeCodeBasicBlock* block);
 	void BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>& placement);
 	void InitialOffset(int& total);
 	bool CalculateOffset(int& total);

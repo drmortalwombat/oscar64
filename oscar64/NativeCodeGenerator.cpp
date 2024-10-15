@@ -631,8 +631,7 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 #if 1
 		if (mFlags & NCIF_USE_CPU_REG_A)
 			requiredTemps += CPU_REG_A;
-
-		if (mFlags & NCIF_LOWER)
+		else if (mFlags & NCIF_LOWER)
 		{
 			requiredTemps += BC_REG_ACCU;
 			if (mFlags & NCIF_UPPER)
@@ -40318,7 +40317,10 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							break;
 						case ASMIT_TYA:
 							if (yoffset)
+							{
 								yreg = -2;
+								areg = -2;
+							}
 							else if ((areg == -1 || areg == CPU_REG_Y) && !(ins.mLive & LIVE_CPU_REG_Z))
 								areg = CPU_REG_Y;
 							else
@@ -40326,7 +40328,10 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 							break;
 						case ASMIT_TXA:
 							if (xoffset)
+							{
 								xreg = -2;
+								areg = -2;
+							}
 							else if ((areg == -1 || areg == CPU_REG_X) && !(ins.mLive & LIVE_CPU_REG_Z))
 								areg = CPU_REG_X;
 							else
@@ -50764,7 +50769,7 @@ void NativeCodeBasicBlock::CheckLive(void)
 void NativeCodeBasicBlock::Assemble(void)
 {
 	if (!mAssembled)
-	{
+	{	
 		mAssembled = true;
 
 		for (int i = 0; i < mIns.Size(); i++)
@@ -50846,6 +50851,19 @@ int NativeCodeBasicBlock::LeadsInto(NativeCodeBasicBlock* block, int dist)
 	return 1000;
 }
 
+NativeCodeBasicBlock * NativeCodeBasicBlock::PlaceSequence(ExpandingArray<NativeCodeBasicBlock*>& placement, NativeCodeBasicBlock* block)
+{
+	int size = 0;
+	do {
+		block->mPlaced = true;
+		block->mPlace = placement.Size();
+		placement.Push(block);
+		size += block->mCode.Size();
+		block = block->mTrueJump;
+	} while (block && !block->mFalseJump && !block->mPlaced && size + block->mCode.Size() < 32);
+	return block;
+}
+
 void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>& placement)
 {
 	if (!mPlaced)
@@ -50924,19 +50942,15 @@ void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>&
 			}
 			else if (!mTrueJump->mFalseJump && mTrueJump->mTrueJump && mTrueJump->mCode.Size() < 100 && mFalseJump->LeadsInto(mTrueJump->mTrueJump, 0) < 100)
 			{
-				mTrueJump->mPlaced = true;
-				mTrueJump->mPlace = placement.Size();
-				placement.Push(mTrueJump);
-
+				NativeCodeBasicBlock	*	xblock = PlaceSequence(placement, mTrueJump);
 				mFalseJump->BuildPlacement(placement);
+				if (xblock) xblock->BuildPlacement(placement);
 			}
 			else if (!mFalseJump->mFalseJump && mFalseJump->mTrueJump && mFalseJump->mCode.Size() < 100 && mTrueJump->LeadsInto(mFalseJump->mTrueJump, 0) < 100)
 			{
-				mFalseJump->mPlaced = true;
-				mFalseJump->mPlace = placement.Size();
-				placement.Push(mFalseJump);
-
+				NativeCodeBasicBlock	*	xblock = PlaceSequence(placement, mFalseJump);
 				mTrueJump->BuildPlacement(placement);
+				if (xblock) xblock->BuildPlacement(placement);
 			}
 			else if (mTrueJump->mIns.Size() == 0 && mTrueJump->mFalseJump == mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump)
 			{
@@ -51492,7 +51506,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "fighter_input");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "room_check_wall");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52684,7 +52698,6 @@ void NativeCodeProcedure::Optimize(void)
 				if (!changed && mEntryBlock->LoopRegisterXYMap())
 					changed = true;
 #endif
-
 				ResetVisited();
 				if (!changed && mEntryBlock->OptimizeGenericLoop(this))
 					changed = true;
