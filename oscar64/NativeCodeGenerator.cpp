@@ -1565,6 +1565,10 @@ bool NativeCodeInstruction::RequiresAccu(void) const
 			mType == ASMIT_TAX || mType == ASMIT_TAY ||
 			mType == ASMIT_ASL || mType == ASMIT_LSR || mType == ASMIT_ROL || mType == ASMIT_ROR;
 	}
+	else if (mType == ASMIT_JSR)
+	{
+		return (mFlags & NCIF_USE_CPU_REG_A);
+	}
 	else
 	{
 		return
@@ -5354,7 +5358,7 @@ int NativeCodeBasicBlock::PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBl
 	}
 }
 
-void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction* ins, const InterOperand& op, InterType type, int reg)
+void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure* proc, const InterInstruction* ins, const InterOperand& op, InterType type, int reg, bool checkRange)
 {
 
 	if (type == IT_FLOAT)
@@ -5375,7 +5379,7 @@ void NativeCodeBasicBlock::LoadConstantToReg(InterCodeProcedure* proc, const Int
 	{
 		if (op.mMemory == IM_GLOBAL)
 		{
-			if (op.mIntConst < 0 || op.mIntConst > op.mLinkerObject->mSize)
+			if (checkRange && (op.mIntConst < 0 || op.mIntConst > op.mLinkerObject->mSize))
 				proc->mModule->mErrors->Error(ins->mLocation, EWARN_UNDEFINED_POINTER_ARITHMETIC, "Undefined constant pointer arithmetic");
 
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, op.mIntConst, op.mLinkerObject, NCIF_LOWER));
@@ -12770,7 +12774,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		if (lreg < 0)
 		{
 			lreg = BC_REG_ACCU;
-			LoadConstantToReg(proc, ins, ins->mSrc[li], IT_POINTER, lreg);
+			LoadConstantToReg(proc, ins, ins->mSrc[li], IT_POINTER, lreg, false);
 		}
 		else
 			lreg = BC_REG_TMP + proc->mTempOffset[lreg];
@@ -12778,7 +12782,7 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		if (rreg < 0)
 		{
 			rreg = BC_REG_ACCU;
-			LoadConstantToReg(proc, ins, ins->mSrc[ri], IT_POINTER, rreg);
+			LoadConstantToReg(proc, ins, ins->mSrc[ri], IT_POINTER, rreg, false);
 		}
 		else
 			rreg = BC_REG_TMP + proc->mTempOffset[rreg];
@@ -25122,6 +25126,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				}
 			}
 		}
+
 #if 1
 		if (mIns.Size() >= 2 && mFalseJump)
 		{
@@ -25222,6 +25227,8 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 			int ns = mIns.Size();
 			const NativeCodeInstruction& ins(mIns[ns - 2]);
 
+			CheckLive();
+
 			if (ins.mType == ASMIT_STA && ins.mMode == ASMIM_ZERO_PAGE && mTrueJump && mFalseJump && !mIns[ns-1].UsesZeroPage(ins.mAddress) && mTrueJump->mEntryRequiredRegs.Size() && mFalseJump->mEntryRequiredRegs.Size())
 			{
 				if (!mIns[ns - 1].ChangesAccu())
@@ -25255,6 +25262,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					{
 						mIns[ns - 3].mType = ASMIT_LDX; mIns[ns - 3].mLive |= LIVE_CPU_REG_X;
 						mIns[ns - 2].mType = ASMIT_STX;
+						mIns[ns - 1].mLive |= LIVE_CPU_REG_X;
 						mTrueJump->mIns.Insert(0, ins);
 						mTrueJump->mIns[0].mLive |= LIVE_CPU_REG_C;
 						if (mTrueJump->mEntryRequiredRegs[CPU_REG_A])
@@ -25269,6 +25277,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					{
 						mIns[ns - 3].mType = ASMIT_LDX; mIns[ns - 3].mLive |= LIVE_CPU_REG_X;
 						mIns[ns - 2].mType = ASMIT_STX;
+						mIns[ns - 1].mLive |= LIVE_CPU_REG_X;
 						mFalseJump->mIns.Insert(0, ins);
 						mFalseJump->mIns[0].mLive |= LIVE_CPU_REG_C;
 						if (mFalseJump->mEntryRequiredRegs[CPU_REG_A])
@@ -42661,25 +42670,6 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 
 #endif
 
-	// move sta zp, tax, lda abs,x , sta zp down to use
-#if 1
-	for (int i = 0; i + 4 < mIns.Size(); i++)
-	{
-		if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-			mIns[i + 1].mType == ASMIT_TAX &&
-			mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_X &&
-			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
-			!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
-		{
-			if (MoveStaTaxLdaStaDown(i))
-				changed = true;
-		}
-	}
-	CheckLive();
-
-
-#endif
-
 #if 1
 	// move load - store (),y up to initial store
 	// 
@@ -43603,6 +43593,25 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 	}
 
 	CheckLive();
+#endif
+
+	// move sta zp, tax, lda abs,x , sta zp down to use
+#if 1
+	for (int i = 0; i + 4 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 1].mType == ASMIT_TAX &&
+			mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ABSOLUTE_X &&
+			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+			!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+		{
+			if (MoveStaTaxLdaStaDown(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+
+
 #endif
 
 
@@ -51506,7 +51515,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "room_check_wall");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "vspr_update");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52461,13 +52470,11 @@ void NativeCodeProcedure::Optimize(void)
 		CheckBlocks();
 
 #if 1
-
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(step))
 			changed = true;
 
 #endif
-
 		if (step == 2)
 		{
 			ResetVisited();

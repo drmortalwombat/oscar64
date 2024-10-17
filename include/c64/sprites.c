@@ -309,6 +309,8 @@ void vspr_update(void)
 		if (!done && spriteYPos[ti + 9] < 250)
 		{
 			byte ri = spriteOrder[ti + 8];
+			rirq_move(ti, spriteYPos[ti + 1] + 23);
+
 #ifdef VSPRITE_REVERSE
 			char	m = 0x80 >> (ti & 7);
 #else
@@ -325,7 +327,6 @@ void vspr_update(void)
 			rirq_data(spirq + ti, 3, vspriteImage[ri]);
 
 			rirq_data(spirq + ti, 4, xymask);
-			rirq_move(ti, spriteYPos[ti + 1] + 23);
 //			spriteYPos[ti + 9] = vspriteYLow[ri];
 		}
 		else

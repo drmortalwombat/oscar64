@@ -421,7 +421,8 @@ void rirq_addrhi(RIRQCode * ic, byte n, byte hi)
 void rirq_data(RIRQCode * ic, byte n, byte data)
 {
 	byte p = irqdi[n];
-	ic->code[p] = data;
+//	ic->code[p] = data;	
+	(volatile char *)(ic->code)[p] = data;
 }
 
 void rirq_write(RIRQCode * ic, byte n, void * addr, byte data)
@@ -640,6 +641,7 @@ void rirq_sort(void)
 #endif
 
 	npos++;
+	nextIRQ = 0;
 	byte	yp = rasterIRQNext[nextIRQ];
 	if (yp != 0xff)
 		vic.raster = yp - 1;

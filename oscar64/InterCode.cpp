@@ -13518,7 +13518,9 @@ bool InterCodeBasicBlock::HoistCommonConditionalPath(void)
 				{
 					InterInstruction* ins = cblock->mInstructions[i];
 
-					if (cblock->CanMoveInstructionBeforeBlock(i) && !HasSideEffect(ins->mCode) && ins->mDst.mTemp >= 0 && !cblock->IsTempModifiedInRange(i + 1, cblock->mInstructions.Size(), ins->mDst.mTemp))
+					if (cblock->CanMoveInstructionBeforeBlock(i) && !HasSideEffect(ins->mCode) && ins->mDst.mTemp >= 0 && 
+						!cblock->IsTempModifiedInRange(i + 1, cblock->mInstructions.Size(), ins->mDst.mTemp) &&
+						!cblock->mExitRequiredTemps[ins->mDst.mTemp])
 					{
 						int j = 0;
 						while (j < eblock->mInstructions.Size() && !eblock->mInstructions[j]->IsEqualSource(ins))
@@ -22898,7 +22900,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "f");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
