@@ -5779,7 +5779,7 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 				const char* vname = "";
 				bool		aliased = false;
 
-				if (mConst.mMemory == IM_LOCAL)
+				if (mConst.mMemory == IM_LOCAL || mConst.mMemoryBase == IM_LOCAL)
 				{
 					if (mConst.mVarIndex < 0 || !proc->mLocalVars[mConst.mVarIndex])
 						vname = "null";
@@ -17293,6 +17293,7 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 					ins->mSrc[j].mMemoryBase = ltvalue[ins->mSrc[j].mTemp]->mDst.mMemoryBase;
 					ins->mSrc[j].mVarIndex = ltvalue[ins->mSrc[j].mTemp]->mDst.mVarIndex;
 					ins->mSrc[j].mLinkerObject = ltvalue[ins->mSrc[j].mTemp]->mDst.mLinkerObject;
+					assert(ins->mSrc[j].mMemoryBase != IM_LOCAL || ins->mSrc[j].mVarIndex >= 0);
 				}
 			}
 
@@ -18644,6 +18645,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 									ins0->mCode = IC_LEA;
 									ins0->mDst.mType = IT_POINTER;
+									ins0->mDst.mMemory = ins1->mSrc[1].mMemory;
 
 									ins0->mSrc[1] = pop;
 
@@ -19083,6 +19085,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 								ins->mCode = IC_LEA;
 								ins->mNumOperands = 2;
 								ins->mSrc[1] = ins->mSrc[0];
+								ins->mSrc[1].mMemory = IM_INDIRECT;
+								ins->mDst.mMemory = IM_INDIRECT;
 								ins->mSrc[0].mTemp = -1;
 								ins->mSrc[0].mType = IT_INT16;
 								ins->mSrc[0].mIntConst = -toffset;
@@ -22900,7 +22904,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "room_prepare_castle");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
