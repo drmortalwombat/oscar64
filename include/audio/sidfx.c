@@ -75,7 +75,7 @@ inline void sidfx_loop_ch(byte ch)
 			channels[ch].state = SIDFX_READY;
 			break;
 		case SIDFX_RESET_1:
-//			sid.voices[ch].ctrl = SID_CTRL_TEST;
+			sid.voices[ch].ctrl = SID_CTRL_TEST;
 			channels[ch].state = SIDFX_READY;
 			break;
 		case SIDFX_READY:

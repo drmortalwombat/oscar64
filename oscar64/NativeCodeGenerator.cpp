@@ -36853,6 +36853,38 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		return true;
 	}
 
+	if (sz >= 4 && mIns[0].mType == ASMIT_TAY && mIns[sz - 3].mType == ASMIT_INX && mIns[sz - 2].mType == ASMIT_TXA && mIns[sz - 1].mType == ASMIT_CPX && !ChangesYReg(1) && !ReferencesXReg(0, sz - 3))
+	{
+		if (!prevBlock)
+			return OptimizeSimpleLoopInvariant(proc, full);
+
+		for (int i = 0; i < sz; i++)
+			mIns[i].mLive = LIVE_CPU_REG_Y;
+
+		mIns[sz - 3].mType = ASMIT_INY; 
+		mIns[sz - 2].mType = ASMIT_TYA;
+		mIns[sz - 1].mType = ASMIT_CPY;
+
+		if (exitBlock->mEntryRequiredRegs[CPU_REG_X])
+		{
+			exitBlock->mEntryRequiredRegs += CPU_REG_A;
+			exitBlock->mIns.Insert(0, NativeCodeInstruction(mIns[sz - 2].mIns, ASMIT_TAX));
+		}
+
+		prevBlock->mIns.Push(mIns[0]);
+		mIns.Remove(0);
+
+		mExitRequiredRegs += CPU_REG_Y;
+		mEntryRequiredRegs += CPU_REG_Y;
+		prevBlock->mExitRequiredRegs += CPU_REG_Y;
+
+		prevBlock->CheckLive();
+		CheckLive();
+
+		return true;
+	}
+
+
 	if (sz >= 3 && mIns[0].mType == ASMIT_LDX && mIns[sz - 2].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 2]) &&
 		mIns[sz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, mIns[sz - 1].mMode) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
 	{
