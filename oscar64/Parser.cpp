@@ -691,13 +691,11 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 
 		mScope = oscope;
 	}
-	else
-	{
-		if ((flags & ~dec->mFlags) == DTF_CONST)
-			dec = dec->ToConstType();
-		else if ((flags & ~dec->mFlags) == DTF_VOLATILE)
-			dec = dec->ToVolatileType();
-	}
+
+	if ((flags & ~dec->mFlags) == DTF_CONST)
+		dec = dec->ToConstType();
+	else if ((flags & ~dec->mFlags) == DTF_VOLATILE)
+		dec = dec->ToVolatileType();
 
 	return dec;
 }
