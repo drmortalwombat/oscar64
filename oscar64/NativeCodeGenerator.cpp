@@ -36859,7 +36859,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			return OptimizeSimpleLoopInvariant(proc, full);
 
 		for (int i = 0; i < sz; i++)
-			mIns[i].mLive = LIVE_CPU_REG_Y;
+			mIns[i].mLive |= LIVE_CPU_REG_Y;
 
 		mIns[sz - 3].mType = ASMIT_INY; 
 		mIns[sz - 2].mType = ASMIT_TYA;
@@ -46504,6 +46504,11 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 3].mLinkerObject = mIns[i + 0].mLinkerObject;
 		mIns[i + 3].mFlags = mIns[i + 0].mFlags;
 
+		if (mIns[i + 3].mMode == ASMIM_INDIRECT_Y)
+		{
+			mIns[i + 0].mLive |= LIVE_MEM;
+			mIns[i + 3].mLive |= LIVE_MEM;
+		}
 		if (mIns[i + 3].RequiresYReg())
 		{
 			mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
@@ -51547,7 +51552,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "vspr_update");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "walker_draw_right");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
