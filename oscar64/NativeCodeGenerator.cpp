@@ -33026,7 +33026,9 @@ bool NativeCodeBasicBlock::Propagate16BitSum(const ExpandingArray<NativeRegister
 							if (info.mAddress == mRSumInfos[j].mAddress)
 							{
 								info.mSrcL->mAddress = mRSumInfos[j].mDstL->mAddress;
+								info.mSrcL->mMode = mRSumInfos[j].mDstL->mMode;
 								info.mSrcH->mAddress = mRSumInfos[j].mDstH->mAddress;
+								info.mSrcH->mMode = mRSumInfos[j].mDstH->mMode;
 								info.mAddL->mType = ASMIT_NOP; info.mAddL->mMode = ASMIM_IMPLIED;
 								info.mAddH->mType = ASMIT_NOP; info.mAddH->mMode = ASMIM_IMPLIED;
 								changed = true;
@@ -46122,6 +46124,15 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		return true;
 	}
 
+	if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && !(mIns[i + 0].mAddress & 1) &&
+		mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&  mIns[i + 1].mAddress == 0  &&
+		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && !(mIns[i + 2].mAddress & 1))
+	{
+		mIns[i + 0].mAddress |= mIns[i + 2].mAddress;
+		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+
 	if (
 		mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress <= 1 &&
 		mIns[i + 1].mType == ASMIT_LDA &&
@@ -51552,7 +51563,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "walker_draw_right");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "room_prep_chest");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52414,7 +52425,6 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->CheckAsmCode();
 #endif
 
-
 		int t = 0;
 #if 1
 		do
@@ -52510,6 +52520,7 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(step))
 			changed = true;
+
 
 #endif
 		if (step == 2)
