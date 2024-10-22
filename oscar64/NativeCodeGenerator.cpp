@@ -47303,6 +47303,18 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		return true;
 	}
 
+	if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y &&
+		mIns[i + 1].mType == ASMIT_TAY &&
+		mIns[i + 2].mType == ASMIT_TXA &&
+		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ABSOLUTE_Y && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)))
+	{
+		mIns[i + 2] = mIns[i + 0]; mIns[i + 2].mType = ASMIT_LDA; mIns[i + 2].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_X;
+		mIns[i + 1].mType = ASMIT_TAX;
+		mIns[i + 3].mMode = ASMIM_ABSOLUTE_X;
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+
 	if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 2].mType == ASMIT_LDX && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) &&
 		!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 1]) && !mIns[i + 1].ChangesYReg() &&
 		mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y && mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 2].mLive & LIVE_CPU_REG_Z))
