@@ -124,6 +124,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Oz : enable auto placement of global variables in zero page (part of O3)
 * -Op : optimize constant parameters
 * -g : create source level debug info and add source line numbers to asm listing
+* -gp : create source level debug info and add source line numbers to asm listing and static profile data
 * -tf : target format, may be prg, crt or bin
 * -tm : target machine
 * -d64 : create a d64 disk image

@@ -61,4 +61,5 @@ public:
 	void CompleteTemplateExpansion(void);
 
 	bool WriteDbjFile(const char* filename);
+	bool WriteCszFile(const char* filename);
 };

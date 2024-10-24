@@ -9917,6 +9917,7 @@ Expression* Parser::ParseStatement(void)
 						{
 							Declaration* iterVarDec = new Declaration(mScanner->mLocation, DT_VARIABLE);
 							iterVarDec->mBase = containerExp->mDecType->mBase->BuildPointer(mScanner->mLocation);
+							iterVarDec->mBase = containerExp->mDecType->mBase->BuildPointer(mScanner->mLocation);
 							iterVarDec->mVarIndex = mLocalIndex++;
 							iterVarDec->mSize = iterVarDec->mBase->mSize;
 							iterVarDec->mFlags |= DTF_DEFINED;
@@ -10157,6 +10158,15 @@ Expression* Parser::ParseStatement(void)
 								int	numIterations = (endValue - startValue) / numLoops;
 								int	stride = (endValue - startValue) / numLoops;
 								int	remain = (endValue - startValue) - numIterations * numLoops;
+
+								// Switch from 3 to 4 to avoid cost of two remains
+								if (numLoops == 3 && remain == 2 && !((endValue - startValue) & 3))
+								{
+									numLoops = 4;
+									numIterations = (endValue - startValue) / numLoops;
+									stride = (endValue - startValue) / numLoops;
+									remain = (endValue - startValue) - numIterations * numLoops;
+								}
 
 								Expression* unrollBody = new Expression(mScanner->mLocation, EX_SEQUENCE);
 								unrollBody->mLeft = bodyExp;

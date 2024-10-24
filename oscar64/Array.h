@@ -424,6 +424,28 @@ protected:
 		size = to;
 	}
 
+	template<typename F>
+	void Parition(const F & f, int l, int r)
+	{
+		if (r > l + 1)
+		{
+			int pi = l;
+			T	p(array[pi]);
+
+			for (int i = l + 1; i < r; i++)
+			{
+				if (f(array[i], p))
+				{
+					array[pi++] = array[i];
+					array[i] = array[pi];
+				}
+			}
+			array[pi] = p;
+
+			Parition(f, l, pi);
+			Parition(f, pi + 1, r);
+		}
+	}
 public:
 	ExpandingArray(void)
 	{
@@ -594,6 +616,12 @@ public:
 			if (array[i] == t)
 				return true;
 		return false;
+	}
+
+	template<typename F>
+	void Sort(const F & f)
+	{
+		Parition(f, 0, size);
 	}
 
 	__forceinline T& operator[](int n)

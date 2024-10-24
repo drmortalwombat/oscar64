@@ -11472,9 +11472,10 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[1].mIntConst + pins->mSrc[0].mIntConst >= 0)
 						{
+							ins->mSrc[1].mMemory = pins->mSrc[1].mMemory;
 							ins->mSrc[1].ForwardTemp(pins->mSrc[1]);
 							pins->mSrc[1].mFinal = false;
-							ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst;
+							ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst + pins->mSrc[1].mIntConst;
 							changed = true;
 						}
 #if 1
@@ -17036,6 +17037,7 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 						{
 							int k = FindStore(this, i, nins->mSrc[0]);
 							InterInstruction* pins = mInstructions[k]->Clone();
+							pins->mLocation.mFrom = &(ins->mLocation);
 							mInstructions[k]->mRemove = true;
 
 							if (pins->mSrc[0].mTemp < 0)
@@ -17058,6 +17060,7 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 						case IC_STORE:
 						{
 							InterInstruction* pins = nins->Clone();
+							pins->mLocation.mFrom = &(ins->mLocation);
 							if (pins->mSrc[0].mTemp >= 0)
 								pins->mSrc[0].mTemp = tmap[pins->mSrc[0].mTemp];
 							if (pins->mSrc[1].mTemp >= 0)
@@ -17069,6 +17072,7 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 						case IC_CALL_NATIVE:
 						{
 							InterInstruction* pins = nins->Clone();
+							pins->mLocation.mFrom = &(ins->mLocation);
 							if (pins->mDst.mTemp >= 0)
 								pins->mDst.mTemp = ntemps;
 							mInstructions.Insert(i, pins);
@@ -17081,6 +17085,7 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 							if (ins->mDst.mTemp >= 0)
 							{
 								InterInstruction* pins = nins->Clone();
+								pins->mLocation.mFrom = &(ins->mLocation);
 								if (pins->mSrc[0].mTemp < 0)
 								{
 									pins->mCode = IC_CONSTANT;
@@ -17103,6 +17108,7 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 						default:
 						{
 							InterInstruction* pins = nins->Clone();
+							pins->mLocation.mFrom = &(ins->mLocation);
 							for (int k = 0; k < pins->mNumOperands; k++)
 								if (pins->mSrc[k].mTemp >= 0)
 									pins->mSrc[k].mTemp = tmap[pins->mSrc[k].mTemp];
@@ -22737,7 +22743,10 @@ void InterCodeProcedure::SimplifyIntegerNumeric(FastNumberSet& activeSet)
 			mEntryBlock->RemapActiveTemporaries(activeSet);
 		}
 
+		DisassembleDebug("PreSimplifyIntegerNumeric");
+
 		ResetVisited();
+
 	} while (mEntryBlock->SimplifyIntegerNumeric(silvalues, silvused));
 
 	assert(silvused == mTemporaries.Size());
@@ -22904,7 +22913,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "room_prepare_castle");
+	CheckFunc = !strcmp(mIdent->mString, "room_show");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

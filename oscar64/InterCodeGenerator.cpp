@@ -4093,7 +4093,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						}
 
 
-						InterInstruction* wins = new InterInstruction(texp->mLocation, IC_STORE);
+						InterInstruction* wins = new InterInstruction(MapLocation(exp, inlineMapper), IC_STORE);
 						wins->mSrc[1].mMemory = IM_INDIRECT;
 						wins->mSrc[0].mType = InterTypeOf(vr.mType);;
 						wins->mSrc[0].mTemp = vr.mTemp;

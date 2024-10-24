@@ -297,6 +297,10 @@ int main2(int argc, const char** argv)
 				{
 					compiler->mCompilerOptions |= COPT_DEBUGINFO;
 				}
+				else if (arg[1] == 'g' && arg[2] == 'p' && !arg[3])
+				{
+					compiler->mCompilerOptions |= COPT_DEBUGINFO | COPT_PROFILEINFO;
+				}
 				else if (arg[1] == 'v')
 				{
 					compiler->mCompilerOptions |= COPT_VERBOSE;

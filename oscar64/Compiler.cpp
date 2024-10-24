@@ -1270,7 +1270,7 @@ bool Compiler::WriteErrorFile(const char* targetPath)
 
 bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 {
-	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200], dbjPath[200];
+	char	prgPath[200], mapPath[200], asmPath[200], lblPath[200], intPath[200], bcsPath[200], dbjPath[200], cszPath[200];
 	char	basePath[200];
 
 	strcpy_s(basePath, targetPath);
@@ -1293,6 +1293,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	strcpy_s(intPath, prgPath);
 	strcpy_s(bcsPath, prgPath);
 	strcpy_s(dbjPath, prgPath);
+	strcpy_s(cszPath, prgPath);
 
 	strcat_s(mapPath, "map");
 	strcat_s(asmPath, "asm");
@@ -1300,6 +1301,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	strcat_s(intPath, "int");
 	strcat_s(bcsPath, "bcs");
 	strcat_s(dbjPath, "dbj");
+	strcat_s(cszPath, "csz");
 
 	if (mCompilerOptions & COPT_TARGET_PRG)
 	{
@@ -1382,6 +1384,9 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	if (mCompilerOptions & COPT_DEBUGINFO)
 		WriteDbjFile(dbjPath);
 
+	if (mCompilerOptions & COPT_PROFILEINFO)
+		WriteCszFile(cszPath);
+
 	if (!(mCompilerOptions & COPT_NATIVE))
 	{
 		if (mCompilerOptions & COPT_VERBOSE)
@@ -1446,6 +1451,111 @@ static void DumpReferences(FILE* file, Declaration* dec)
 		fprintf(file, "]");
 	}
 
+}
+
+bool Compiler::WriteCszFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		for (int i = 0; i < mInterCodeModule->mProcedures.Size(); i++)
+		{
+			InterCodeProcedure* p(mInterCodeModule->mProcedures[i]);
+			if (p->mLinkerObject && p->mIdent && p->mDeclaration)
+			{
+				LinkerObject* lo = p->mLinkerObject;
+
+				struct SourceCount
+				{
+					const char* mFileName;
+					int			mLine, mAddress;
+					int			mBytes;
+				};
+
+				ExpandingArray<SourceCount>	ea;
+
+				for (int j = 0; j < lo->mCodeLocations.Size(); j++)
+				{
+					const CodeLocation& co(lo->mCodeLocations[j]);
+					const Location* ls = &(co.mLocation);
+					while (ls->mFrom)
+						ls = ls->mFrom;
+
+					int k = 0;
+					while (k < ea.Size() && (ea[k].mFileName != ls->mFileName || ea[k].mLine != ls->mLine))
+						k++;
+					if (k == ea.Size())
+					{
+						SourceCount	sc;
+						sc.mFileName = ls->mFileName;
+						sc.mLine = ls->mLine;
+						sc.mBytes = 0;
+						sc.mAddress = co.mStart + lo->mAddress;
+						ea.Push(sc);
+					}
+
+					ea[k].mBytes += co.mEnd - co.mStart;
+				}
+
+				if (ea.Size())
+				{
+					ea.Sort([](const SourceCount& l, const SourceCount& r)->bool {
+						return l.mFileName == r.mFileName ? l.mLine < r.mLine : l.mAddress < r.mAddress; 
+					});
+
+					FILE* fsrc;
+					fopen_s(&fsrc, ea[0].mFileName, "r");
+					if (fsrc)
+					{
+						fprintf(file, "<%s, %s>\n", p->mDeclaration->mQualIdent->mString, ea[0].mFileName);
+#if 0
+						for (int i = 0; i < ea.Size(); i++)
+						{
+							fprintf(file, "%s:%d : %d\n", ea[i].mFileName, ea[i].mLine, ea[i].mBytes);
+						}
+#endif
+						int		k = 0, l = 1;
+						char	line[1024];
+						while (k < ea.Size() && fgets(line, 1024, fsrc))
+						{
+							size_t ll = strlen(line);
+							while (ll > 0 && (line[ll - 1] == '\r' || line[ll - 1] == '\n'))
+								ll--;
+							line[ll] = 0;
+
+							if (l < ea[k].mLine)
+							{
+								if (k > 0)
+									fprintf(file, "%5d,---- (   ) : %s\n", l, line);
+							}
+							else
+							{
+								int ks = k, sum = 0;
+								do {
+									sum += ea[ks].mBytes;
+									ks++;
+								} while (ks < ea.Size() && ea[ks].mFileName != ea[0].mFileName);
+
+								fprintf(file, "%5d,%04x (%3d) : %s\n", l, ea[k].mAddress, ea[k].mBytes, line);
+
+								k = ks;
+							}
+							l++;
+						}	
+
+						fclose(fsrc);
+						fprintf(file, "\n");
+					}
+				}
+			}
+		}
+
+		fclose(file);
+		return true;
+	}
+	else
+		return false;
 }
 
 bool Compiler::WriteDbjFile(const char* filename)

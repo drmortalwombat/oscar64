@@ -41,6 +41,8 @@ static const uint64 COPT_CPLUSPLUS = 1ULL << 52;
 static const uint64 COPT_PETSCII = 1ULL << 53;
 static const uint64 COPT_ERROR_FILES = 1ULL << 54;
 
+static const uint64 COPT_PROFILEINFO = 1ULL << 55;
+
 
 
 static const uint64 COPT_DEFAULT = COPT_OPTIMIZE_BASIC | COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_CONST_EXPRESSIONS;

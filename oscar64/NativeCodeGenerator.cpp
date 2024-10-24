@@ -5131,9 +5131,8 @@ void NativeCodeBasicBlock::PutLocation(const Location& location, bool weak)
 {
 	int sz = mCodeLocations.Size();
 	if (sz > 0 && 
-		(weak ||
-		 (mCodeLocations[sz - 1].mLocation.mFileName == location.mFileName &&
-		 mCodeLocations[sz - 1].mLocation.mLine == location.mLine)))
+		mCodeLocations[sz - 1].mLocation.mFileName == location.mFileName &&
+		mCodeLocations[sz - 1].mLocation.mLine == location.mLine)
 	{
 		mCodeLocations[sz - 1].mEnd = this->mCode.Size();
 		if (mCodeLocations[sz - 1].mWeak)
@@ -19930,6 +19929,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					mIns[i + 0].mType = ASMIT_NOP;
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
@@ -19951,6 +19951,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BNE;
+					mBranchIns = mIns[i + 3].mIns;
 					break;
 				}
 
@@ -19973,6 +19974,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 					mIns[i + 1].mType = ASMIT_NOP;
@@ -19990,6 +19992,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BNE;
+					mBranchIns = mIns[i + 3].mIns;
 					break;
 				}
 
@@ -20012,6 +20015,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
@@ -20028,6 +20032,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BNE;
+					mBranchIns = mIns[i + 2].mIns;
 					break;
 				}
 
@@ -20051,6 +20056,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					fblock->mIns.Push(mIns[i + 1]);
 					fblock->mIns[0].mType = ASMIT_DEC;
@@ -20071,6 +20077,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BNE;
+					mBranchIns = mIns[i + 3].mIns;
 					break;
 				}
 
@@ -20092,6 +20099,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 					mIns[i + 1].mType = ASMIT_NOP;
@@ -20114,6 +20122,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BNE;
+					mBranchIns = mIns[i + 3].mIns;
 					break;
 				}
 
@@ -20135,6 +20144,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 					mIns[i + 1].mType = ASMIT_NOP;
@@ -20157,6 +20167,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BNE;
+					mBranchIns = mIns[i + 3].mIns;
 					break;
 				}
 
@@ -20177,6 +20188,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					mIns[i + 0].mType = ASMIT_NOP; 
 					mIns[i + 1].mType = ASMIT_NOP;
@@ -20197,6 +20209,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BNE;
+					mBranchIns = mIns[i + 3].mIns;
 					break;
 				}
 
@@ -20218,6 +20231,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 					mIns[i + 1].mType = ASMIT_NOP;
@@ -20240,6 +20254,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BNE;
+					mBranchIns = mIns[i + 3].mIns;
 					break;
 				}
 
@@ -20266,6 +20281,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
 				rblock->mBranch = mBranch;
+				rblock->mBranchIns = mBranchIns;
 
 				for (int j = i + 6; j < mIns.Size(); j++)
 					rblock->mIns.Push(mIns[j]);
@@ -20275,6 +20291,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				mTrueJump = neblock;
 				mFalseJump = eblock;
 				mBranch = ASMIT_BNE;
+				mBranchIns = mIns[i + 0].mIns;
 
 				if (veq != 0)
 					eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, veq));
@@ -20301,6 +20318,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
 				rblock->mBranch = mBranch;
+				rblock->mBranchIns = mBranchIns;
 
 				const InterInstruction* iins = mIns[i].mIns;
 
@@ -20312,6 +20330,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				mTrueJump = iblock;
 				mFalseJump = rblock;
 				mBranch = ASMIT_BCS;
+				mBranchIns = iins;
 
 				iblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_INY));
 
@@ -20336,6 +20355,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
 				rblock->mBranch = mBranch;
+				rblock->mBranchIns = mBranchIns;
 
 				for (int j = i + 4; j < mIns.Size(); j++)
 					rblock->mIns.Push(mIns[j]);
@@ -20345,6 +20365,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				mTrueJump = neblock;
 				mFalseJump = eblock;
 				mBranch = ASMIT_BNE;
+				mBranchIns = mIns[i + 0].mIns;
 
 				neblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 1));
 
@@ -20372,6 +20393,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
 				rblock->mBranch = mBranch;
+				rblock->mBranchIns = mBranchIns;
 
 				for (int j = i + 5; j < mIns.Size(); j++)
 					rblock->mIns.Push(mIns[j]);
@@ -20386,6 +20408,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				mTrueJump = neblock;
 				mFalseJump = eblock;
 				mBranch = ASMIT_BNE;
+				mBranchIns = mIns[i + 0].mIns;
 
 				if (veq != 0)
 					eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, veq));
@@ -20415,6 +20438,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
 				rblock->mBranch = mBranch;
+				rblock->mBranchIns = mBranchIns;
 
 				for (int j = i + 5; j < mIns.Size(); j++)
 					rblock->mIns.Push(mIns[j]);
@@ -20424,6 +20448,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				mTrueJump = neblock;
 				mFalseJump = eblock;
 				mBranch = ASMIT_BNE;
+				mBranchIns = mIns[i + 0].mIns;
 
 				if (veq != 0)
 					eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, veq));
@@ -20451,6 +20476,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
 				rblock->mBranch = mBranch;
+				rblock->mBranchIns = mBranchIns;
 
 				for (int j = i + 5; j < mIns.Size(); j++)
 					rblock->mIns.Push(mIns[j]);
@@ -20460,6 +20486,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				mTrueJump = neblock;
 				mFalseJump = eblock;
 				mBranch = ASMIT_BNE;
+				mBranchIns = mIns[i + 0].mIns;
 
 				neblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0xff));
 
@@ -20610,6 +20637,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
+
+					const InterInstruction* iins = mIns[0].mIns;
 
 					for (int j = i + 3; j < mIns.Size(); j++)
 						fblock->mIns.Push(mIns[j]);
@@ -20622,6 +20652,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BCC;
+					mBranchIns = iins;
 					break;
 				}
 				else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
@@ -20638,6 +20669,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
+
+					const InterInstruction* iins = mIns[0].mIns;
 
 					for (int j = i + 3; j < mIns.Size(); j++)
 						fblock->mIns.Push(mIns[j]);
@@ -20650,6 +20684,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BCC;
+					mBranchIns = iins;
 					break;
 				}
 				else if (mIns[i + 0].mType == ASMIT_LDA &&
@@ -20666,6 +20701,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
+
+					const InterInstruction* iins = mIns[0].mIns;
 
 					for (int j = i + 3; j < mIns.Size(); j++)
 						fblock->mIns.Push(mIns[j]);
@@ -20678,6 +20716,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BCS;
+					mBranchIns = iins;
 					break;
 				}
 				else if (mIns[i + 0].mType == ASMIT_TXA &&
@@ -20693,6 +20732,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					const InterInstruction* iins(mIns[i].mIns);
 
@@ -20707,6 +20747,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BCC;
+					mBranchIns = iins;
 					break;
 				}
 				else if (mIns[i + 0].mType == ASMIT_TYA &&
@@ -20722,6 +20763,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					const InterInstruction* iins(mIns[i].mIns);
 
@@ -20738,6 +20780,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BCC;
+					mBranchIns = iins;
 					break;
 				}
 				else if (mIns[i + 0].mType == ASMIT_TXA &&
@@ -20753,6 +20796,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					const InterInstruction* iins(mIns[i].mIns);
 
@@ -20769,6 +20813,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BCC;
+					mBranchIns = iins;
 					break;
 				}
 				else if (mIns[i + 0].mType == ASMIT_TYA &&
@@ -20784,6 +20829,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
 
 					const InterInstruction* iins(mIns[i].mIns);
 
@@ -20798,6 +20844,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BCC;
+					mBranchIns = iins;
 					break;
 				}
 				else if (mIns[i + 0].mType == ASMIT_LDA &&
@@ -20814,6 +20861,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
 					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
+
+					const InterInstruction* iins(mIns[i].mIns);
 
 					for (int j = i + 3; j < mIns.Size(); j++)
 						fblock->mIns.Push(mIns[j]);
@@ -20826,6 +20876,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mTrueJump = fblock;
 					mFalseJump = iblock;
 					mBranch = ASMIT_BCS;
+					mBranchIns = iins;
 					break;
 				}
 
@@ -51575,7 +51626,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "room_prep_chest");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "floor_prepare");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52126,7 +52177,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 void NativeCodeProcedure::Assemble(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "a");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "floor_prepare");
 
 	if (mInterProc->mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS)
 	{
@@ -52189,7 +52240,7 @@ void NativeCodeProcedure::Assemble(void)
 		mInterProc->mLinkerObject->AddReference(rl);
 	}
 
-	if (mGenerator->mCompilerOptions & COPT_DEBUGINFO)
+	if (mGenerator->mCompilerOptions & (COPT_DEBUGINFO | COPT_PROFILEINFO))
 	{
 		if (mCodeLocations.Size() > 0)
 		{
