@@ -37,7 +37,7 @@ public:
 		showpos		=	0x0800,
 		skipws		=	0x1000,
 		unitbuf		=	0x2000,
-		uppercase	=	0x3000,
+		uppercase	=	0x4000,
 
 		adjustfield	=	0x00b0,
 		basefield	=	0x004a,
