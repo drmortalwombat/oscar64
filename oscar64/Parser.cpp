@@ -2332,7 +2332,7 @@ Expression* Parser::ParseConstInitExpression(Declaration* dtype, bool inner)
 					
 					if (mdec)
 					{
-						Expression* texp = ParseConstInitExpression(mdec->mBase);
+						Expression* texp = ParseConstInitExpression(mdec->mBase, true);
 
 						Declaration* cdec = CopyConstantInitializer(mdec->mOffset, mdec->mBase, texp);
 						if (cdec)

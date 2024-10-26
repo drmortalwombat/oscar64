@@ -2205,6 +2205,7 @@ Declaration* Declaration::ToConstType(void)
 		Declaration* ndec = new Declaration(mLocation, mType);
 		ndec->mSize = mSize;
 		ndec->mStride = mStride;
+		ndec->mStripe = mStripe;
 		ndec->mBase = mBase;
 		ndec->mFlags = mFlags | DTF_CONST;
 		ndec->mScope = mScope;
@@ -2239,6 +2240,7 @@ Declaration* Declaration::ToMutableType(void)
 		Declaration* ndec = new Declaration(mLocation, mType);
 		ndec->mSize = mSize;
 		ndec->mStride = mStride;
+		ndec->mStripe = mStripe;
 		ndec->mBase = mBase;
 		ndec->mFlags = mFlags | DTF_CONST;
 		ndec->mScope = mScope;
