@@ -2347,12 +2347,15 @@ Expression* Parser::ParseConstInitExpression(Declaration* dtype, bool inner)
 							last = cdec;
 						}
 
-						if (!ConsumeTokenIf(TK_COMMA))
-							break;
-
 						mdec = mdec->mNext;
 						while (!mdec && path.Size())
 							mdec = path.Pop()->mParams;
+
+						if (inner && !mdec)
+							break;
+
+						if (!ConsumeTokenIf(TK_COMMA))
+							break;
 					}
 					else if (inner)
 						break;
