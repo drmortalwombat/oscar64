@@ -3,6 +3,7 @@
 
 #define JUMP_TO_BRANCH	1
 #define CHECK_NULLPTR	0
+#define REYCLE_JUMPS	1
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -5202,7 +5203,7 @@ static AsmInsType TransposeBranchCondition(AsmInsType code)
 }
 
 
-int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset, AsmInsType code)
+int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int from, int to, AsmInsType code)
 {
 	if (target->mIns.Size() == 1 && target->mIns[0].mType == ASMIT_RTS)
 	{
@@ -5232,12 +5233,12 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 		PutWord(0);
 		return 3;
 	}
-	else if (offset >= -126 && offset <= 129)
+	else if (to - from >= -126 && to - from <= 129)
 	{
 		if (code != ASMIT_INV)
 		{
 			PutOpcode(AsmInsOpcodes[InvertBranchCondition(code)][ASMIM_RELATIVE]);
-			PutByte(offset - 2);
+			PutByte(to - from - 2);
 			return 2;
 		}
 #if JUMP_TO_BRANCH
@@ -5248,7 +5249,7 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 			else
 				PutOpcode(AsmInsOpcodes[ASMIT_BCC][ASMIM_RELATIVE]);
 
-			PutByte(offset - 2);
+			PutByte(to - from - 2);
 			return 2;
 		}
 		else if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
@@ -5258,11 +5259,14 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 			else
 				PutOpcode(AsmInsOpcodes[ASMIT_BEQ][ASMIM_RELATIVE]);
 
-			PutByte(offset - 2);
+			PutByte(to - from - 2);
 			return 2;
 		}
 #endif
 	}
+
+	target->mAsmFromJump = from;
+
 	PutByte(0x4c);
 
 	LinkerReference		rl;
@@ -5277,7 +5281,7 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 	return 3;
 }
 
-int NativeCodeBasicBlock::BranchByteSize(NativeCodeBasicBlock* target, int from, int to)
+int NativeCodeBasicBlock::BranchByteSize(NativeCodeBasicBlock* target, int from, int to, bool final)
 {
 	if (to - from >= -126 && to - from <= 129)
 		return 2;
@@ -5285,11 +5289,23 @@ int NativeCodeBasicBlock::BranchByteSize(NativeCodeBasicBlock* target, int from,
 	{
 		if (target->mIns.Size() == 1 && target->mIns[0].mType == ASMIT_RTS)
 			return 3;
-		return 5;
+		if (final)
+		{
+#if REYCLE_JUMPS
+			if (target->mAsmFromJump >= 0 && target->mAsmFromJump - from >= -126)
+				return 2;
+#endif
+			target->mAsmFromJump = from + 2;
+			return 5;
+		}
+		else
+		{
+			return 5;
+		}
 	}
 }
 
-int NativeCodeBasicBlock::JumpByteSize(NativeCodeBasicBlock* target, int offset, bool second)
+int NativeCodeBasicBlock::JumpByteSize(NativeCodeBasicBlock* target, int from, int to, bool second, bool final)
 {
 	if (target->mIns.Size() == 1 && target->mIns[0].mType == ASMIT_RTS)
 	{
@@ -5302,7 +5318,7 @@ int NativeCodeBasicBlock::JumpByteSize(NativeCodeBasicBlock* target, int offset,
 	{
 		return 3;
 	}
-	else if (offset >= -126 && offset <= 129)
+	else if (to - from >= -126 && to - from <= 129)
 	{
 		if (second)
 			return 2;
@@ -5313,21 +5329,38 @@ int NativeCodeBasicBlock::JumpByteSize(NativeCodeBasicBlock* target, int offset,
 			return 2;
 #endif
 		else
+		{
+			if (final)
+				target->mAsmFromJump = from;
 			return 3;
+		}
 	}
 	else
+	{
+		if (final)
+			target->mAsmFromJump = from;
+
 		return 3;
+	}
 }
 
 
-int NativeCodeBasicBlock::PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int offset)
+int NativeCodeBasicBlock::PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int from, int to)
 {
-	if (offset >= -126 && offset <= 129)
+	if (to - from >= -126 && to - from <= 129)
 	{
 		PutOpcode(AsmInsOpcodes[code][ASMIM_RELATIVE]);
-		PutByte(offset - 2);
+		PutByte(to - from - 2);
 		return 2;
 	}
+#if REYCLE_JUMPS
+	else if (target->mAsmFromJump >= 0 && target->mAsmFromJump - from >= -126)
+	{
+		PutOpcode(AsmInsOpcodes[code][ASMIM_RELATIVE]);
+		PutByte(target->mAsmFromJump - from - 2);
+		return 2;
+	}
+#endif
 	else
 	{
 		PutOpcode(AsmInsOpcodes[InvertBranchCondition(code)][ASMIM_RELATIVE]);
@@ -5341,6 +5374,9 @@ int NativeCodeBasicBlock::PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBl
 		else
 		{
 			PutByte(3);
+
+			target->mAsmFromJump = from + 2;
+
 			PutByte(0x4c);
 
 			LinkerReference		rl;
@@ -5348,7 +5384,7 @@ int NativeCodeBasicBlock::PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBl
 			rl.mOffset = mCode.Size();
 			rl.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 			rl.mRefObject = nullptr;
-			rl.mRefOffset = mOffset + mCode.Size() + offset - 3;
+			rl.mRefOffset = to;
 			mRelocations.Push(rl);
 
 			PutWord(0);
@@ -42018,6 +42054,18 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				i += 5;
 			}
 #endif
+			else if (mIns[i + 0].mType == ASMIT_ORA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && !(mIns[i + 0].mLive & LIVE_CPU_REG_X))
+			{
+				mIns[j + 0] = NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAX);
+				i++;
+				j++;
+			}
+			else if (mIns[i + 0].mType == ASMIT_ORA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y))
+			{
+				mIns[j + 0] = NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAY);
+				i++;
+				j++;
+			}
 			else if (i + 1 < mIns.Size() &&
 				mIns[i + 0].ChangesZFlag() && mIns[i + 1].mType == ASMIT_LDA && mIns[i + 0].SameEffectiveAddress(mIns[i + 1]) && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
 			{
@@ -51059,6 +51107,8 @@ void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>&
 				placement.Push(mTrueJump->mTrueJump);
 
 				mFalseJump->BuildPlacement(placement);
+				mTrueJump->mTrueJump->mTrueJump->BuildPlacement(placement);
+				mTrueJump->mTrueJump->mFalseJump->BuildPlacement(placement);
 			}
 			else if (!mTrueJump->mFalseJump && mTrueJump->mTrueJump && mTrueJump->mCode.Size() < 100 && mFalseJump->LeadsInto(mTrueJump->mTrueJump, 0) < 100)
 			{
@@ -51150,6 +51200,8 @@ void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>&
 
 void NativeCodeBasicBlock::InitialOffset(int& total)
 {
+	mAsmFromJump = -1;
+
 	mOffset = total;
 	total += mCode.Size();
 	if (mFalseJump)
@@ -51167,7 +51219,7 @@ void NativeCodeBasicBlock::InitialOffset(int& total)
 	mSize = total - mOffset;
 }
 
-bool NativeCodeBasicBlock::CalculateOffset(int& total)
+bool NativeCodeBasicBlock::CalculateOffset(int& total, bool final)
 {
 	bool	changed = total != mOffset;
 	mOffset = total;
@@ -51177,26 +51229,26 @@ bool NativeCodeBasicBlock::CalculateOffset(int& total)
 	if (mFalseJump)
 	{
 		if (mFalseJump->mPlace == mPlace + 1)
-			total += BranchByteSize(mTrueJump, total, mTrueJump->mOffset);
+			total += BranchByteSize(mTrueJump, total, mTrueJump->mOffset, final);
 		else if (mTrueJump->mPlace == mPlace + 1)
-			total += BranchByteSize(mFalseJump, total, mFalseJump->mOffset);
+			total += BranchByteSize(mFalseJump, total, mFalseJump->mOffset, final);
 		else if (mFalseJump->mPlace < mPlace && mTrueJump->mPlace < mPlace && mPlace - mTrueJump->mPlace < 126 &&
 			mFalseJump->mIns.Size() == 1 && mFalseJump->mIns[0].mType == ASMIT_RTS)
 		{
-			total += BranchByteSize(mTrueJump, total, mTrueJump->mOffset);
-			total += JumpByteSize(mFalseJump, mFalseJump->mOffset - total, true);
+			total += BranchByteSize(mTrueJump, total, mTrueJump->mOffset, final);
+			total += JumpByteSize(mFalseJump, total, mFalseJump->mOffset, true, final);
 		}
 		else if (
 			mFalseJump->mPlace > mTrueJump->mPlace && mFalseJump->mPlace < mPlace ||
 			mFalseJump->mPlace < mTrueJump->mPlace && mFalseJump->mPlace > mPlace)
 		{
-			total += BranchByteSize(mFalseJump, total, mFalseJump->mOffset);
-			total += JumpByteSize(mTrueJump, mTrueJump->mOffset - total, true);
+			total += BranchByteSize(mFalseJump, total, mFalseJump->mOffset, final);
+			total += JumpByteSize(mTrueJump, total, mTrueJump->mOffset, true, final);
 		}
 		else
 		{
-			total += BranchByteSize(mTrueJump, total, mTrueJump->mOffset);
-			total += JumpByteSize(mFalseJump, mFalseJump->mOffset - total, true);
+			total += BranchByteSize(mTrueJump, total, mTrueJump->mOffset, final);
+			total += JumpByteSize(mFalseJump, total, mFalseJump->mOffset, true, final);
 		}
 	}
 	else if (mTrueJump)
@@ -51211,7 +51263,7 @@ bool NativeCodeBasicBlock::CalculateOffset(int& total)
 				mTrueJump = nullptr;
 			}
 			else
-				total += JumpByteSize(mTrueJump, mTrueJump->mOffset - total, false);
+				total += JumpByteSize(mTrueJump, total, mTrueJump->mOffset, false, final);
 		}
 	}
 
@@ -51315,26 +51367,26 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 			PutLocation(mBranchIns->mLocation, false);
 
 		if (mFalseJump->mPlace == mPlace + 1)
-			end += PutBranch(proc, mTrueJump, mBranch, mTrueJump->mOffset - end);
+			end += PutBranch(proc, mTrueJump, mBranch, end, mTrueJump->mOffset);
 		else if (mTrueJump->mPlace == mPlace + 1)
-			end += PutBranch(proc, mFalseJump, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
+			end += PutBranch(proc, mFalseJump, InvertBranchCondition(mBranch), end, mFalseJump->mOffset);
 		else if (mFalseJump->mPlace < mPlace && mTrueJump->mPlace < mPlace && mPlace - mTrueJump->mPlace < 126 &&
 			mFalseJump->mIns.Size() == 1 && mFalseJump->mIns[0].mType == ASMIT_RTS)
 		{
-			end += PutBranch(proc, mTrueJump, mBranch, mTrueJump->mOffset - end);
-			end += PutJump(proc, mFalseJump, mFalseJump->mOffset - end, mBranch);
+			end += PutBranch(proc, mTrueJump, mBranch, end, mTrueJump->mOffset);
+			end += PutJump(proc, mFalseJump, end, mFalseJump->mOffset, mBranch);
 		}
 		else if (
 			mFalseJump->mPlace > mTrueJump->mPlace && mFalseJump->mPlace < mPlace ||
 			mFalseJump->mPlace < mTrueJump->mPlace && mFalseJump->mPlace > mPlace)
 		{
-			end += PutBranch(proc, mFalseJump, InvertBranchCondition(mBranch), mFalseJump->mOffset - end);
-			end += PutJump(proc, mTrueJump, mTrueJump->mOffset - end, InvertBranchCondition(mBranch));
+			end += PutBranch(proc, mFalseJump, InvertBranchCondition(mBranch), end, mFalseJump->mOffset);
+			end += PutJump(proc, mTrueJump, end, mTrueJump->mOffset, InvertBranchCondition(mBranch));
 		}
 		else
 		{
-			end += PutBranch(proc, mTrueJump, mBranch, mTrueJump->mOffset - end);
-			end += PutJump(proc, mFalseJump, mFalseJump->mOffset - end, mBranch);
+			end += PutBranch(proc, mTrueJump, mBranch, end, mTrueJump->mOffset);
+			end += PutJump(proc, mFalseJump, end, mFalseJump->mOffset, mBranch);
 		}
 
 		if (mBranchIns)
@@ -51347,7 +51399,7 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 			if (mBranchIns)
 				PutLocation(mBranchIns->mLocation, false);
 
-			end += PutJump(proc, mTrueJump, mTrueJump->mOffset - end);
+			end += PutJump(proc, mTrueJump, end, mTrueJump->mOffset);
 
 			if (mBranchIns)
 				PutLocation(mBranchIns->mLocation, false);
@@ -52177,7 +52229,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 void NativeCodeProcedure::Assemble(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "floor_prepare");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "fighter_ai");
 
 	if (mInterProc->mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS)
 	{
@@ -52208,9 +52260,26 @@ void NativeCodeProcedure::Assemble(void)
 		progress = false;
 		total = 0;
 		for (int i = 0; i < placement.Size(); i++)
-			if (placement[i]->CalculateOffset(total))
+			if (placement[i]->CalculateOffset(total, false))
 				progress = true;
 	} while (progress);
+
+	// final run to recycle jumps
+	do {
+		progress = false;
+
+		for (int i = 0; i < placement.Size(); i++)
+			placement[i]->mAsmFromJump = -1;
+
+		total = 0;
+
+		for (int i = 0; i < placement.Size(); i++)
+			if (placement[i]->CalculateOffset(total, true))
+				progress = true;
+	} while (progress);
+
+	for (int i = 0; i < placement.Size(); i++)
+		placement[i]->mAsmFromJump = -1;
 
 	uint8* data = mInterProc->mLinkerObject->AddSpace(total);
 

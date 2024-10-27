@@ -250,6 +250,8 @@ public:
 	bool						mEntryRegA, mEntryRegX, mEntryRegY, mExitRegA, mExitRegX, mChecked;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
+	int							mAsmFromJump;
+
 	NativeCodeBasicBlock* mLoopHeadBlock, * mLoopTailBlock;
 
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
@@ -264,10 +266,10 @@ public:
 
 	NativeCodeInstruction DecodeNative(const InterInstruction* ins, LinkerObject * lobj, int& offset) const;
 
-	int PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int offset);
-	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int offset, AsmInsType code = ASMIT_INV);
-	int JumpByteSize(NativeCodeBasicBlock * target, int offset, bool second);
-	int BranchByteSize(NativeCodeBasicBlock* target, int from, int to);
+	int PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int from, int to);
+	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int from, int to, AsmInsType code = ASMIT_INV);
+	int JumpByteSize(NativeCodeBasicBlock * target, int from, int to, bool second, bool final);
+	int BranchByteSize(NativeCodeBasicBlock* target, int from, int to, bool final);
 
 	NativeCodeBasicBlock* SplitAt(int at);
 
@@ -277,7 +279,7 @@ public:
 	NativeCodeBasicBlock* PlaceSequence(ExpandingArray<NativeCodeBasicBlock*>& placement, NativeCodeBasicBlock* block);
 	void BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>& placement);
 	void InitialOffset(int& total);
-	bool CalculateOffset(int& total);
+	bool CalculateOffset(int& total, bool final);
 
 	void CopyCode(NativeCodeProcedure* proc, uint8* target);
 	void Assemble(void);
