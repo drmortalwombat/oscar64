@@ -6507,7 +6507,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			else if (ins->mSrc[1].mTemp >= 0 && fsingle[ins->mSrc[1].mTemp])
 			{
 				InterInstruction* lins = tvalue[ins->mSrc[1].mTemp];
-				while (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp >= 0 && fsingle[ins->mSrc[1].mTemp])
+				while (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp >= 0 && fsingle[lins->mSrc[1].mTemp])
 					lins = tvalue[lins->mSrc[1].mTemp];
 				if (lins && lins->mSrc[1].mTemp < 0 && (lins->mSrc[1].mMemory == IM_ABSOLUTE || lins->mSrc[1].mMemory == IM_GLOBAL))
 				{
@@ -22913,7 +22913,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "__computeCharsetSrc__");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
