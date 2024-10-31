@@ -29333,8 +29333,12 @@ bool NativeCodeBasicBlock::CheckGlobalAddressSumYPointer(const NativeCodeBasicBl
 					return false;
 				else if (!(ins.mLive & LIVE_MEM))
 				{
+					if (mPatchFail)
+						return false;
 					mPatchChecked = true;
-					return !mPatchFail;
+					if (mTrueJump && !mTrueJump->CheckPatchFailUse() || mFalseJump && !mFalseJump->CheckPatchFailUse())
+						return false;
+					return true;
 				}
 			}
 
@@ -48276,6 +48280,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate6(int i, int pass)
 		return true;
 	}
 
+#if 1
 	if (pass == 0 &&
 		mIns[i + 0].mType == ASMIT_CLC &&
 		mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 1].mFlags & NCIF_LOWER) &&
@@ -48301,7 +48306,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate6(int i, int pass)
 				return true;
 		}
 	}
-
+#endif
 	if (pass == 0 &&
 		mIns[i + 0].mType == ASMIT_CLC &&
 		mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
@@ -49634,6 +49639,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 				mTrueJump->CheckLive();
 			if (mFalseJump)
 				mFalseJump->CheckLive();
+
 #if 1
 			if (pass < 10 && i + 1 < mIns.Size())
 			{
@@ -49734,8 +49740,10 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 			if (mFalseJump)
 				mFalseJump->CheckLive();
 
+#if 1
 			if (i + 5 < mIns.Size() && PeepHoleOptimizerIterate6(i, pass)) progress = true;
 			CheckLive();
+#endif
 
 #if 1
 			if (i + 3 < mIns.Size() && pass == 0 &&
@@ -49754,6 +49762,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 				}
 			}
 #endif
+#if 1
 			if (i + 2 < mIns.Size() && pass == 0 &&
 					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
@@ -49771,7 +49780,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 						progress = true;
 				}
 			}
-
+#endif
 #if 1
 			if (i + 1 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE_ADDRESS && (mIns[i + 0].mFlags & NCIF_UPPER) &&
@@ -49935,6 +49944,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 				mTrueJump->CheckLive();
 			if (mFalseJump)
 				mFalseJump->CheckLive();
+
 		}
 
 		if (progress)
@@ -51678,7 +51688,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "floor_prepare");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "__prepareScreen__");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52647,6 +52657,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 		CheckBlocks();
+
 
 #if 1
 		ResetVisited();
