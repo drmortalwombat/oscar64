@@ -553,8 +553,8 @@ int main2(int argc, const char** argv)
 				strftime(dstring, sizeof(tstring) - 1, "\"%b %d %Y\"", &t);
 				strftime(tstring, sizeof(dstring) - 1, "\"%H:%M:%S\"", &t);
 
-				compiler->AddDefine(Ident::Unique("__DATE__"), dstring);
-				compiler->AddDefine(Ident::Unique("__TIME__"), tstring);
+				compiler->AddDefine(Ident::Unique("__DATE__"), _strdup(dstring));
+				compiler->AddDefine(Ident::Unique("__TIME__"), _strdup(tstring));
 			}
 
 			// Add runtime module
