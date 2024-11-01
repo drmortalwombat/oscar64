@@ -667,6 +667,12 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 
 	// check side effects
 
+	if (mFlags & NCIF_VOLATILE)
+	{
+		if (mMode != ASMIM_IMPLIED && mMode != ASMIM_ZERO_PAGE)
+			used = true;
+	}
+
 	switch (mType)
 	{
 	case ASMIT_STA:
@@ -43871,7 +43877,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate1(int i, int pass)
 
 bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 {
-	if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_LDA)
+	if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_LDA && !(mIns[i].mFlags & NCIF_VOLATILE))
 	{
 		mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;;
 		return true;
@@ -51688,7 +51694,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "__prepareScreen__");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "cia_init");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52663,7 +52669,6 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(step))
 			changed = true;
-
 
 #endif
 		if (step == 2)

@@ -189,7 +189,7 @@ bool GlobalOptimizer::CheckUnusedLocals(Expression*& exp)
 		if (vexp->mType == EX_VARIABLE)
 		{
 			Declaration* vdec = vexp->mDecValue;
-			if (vdec->mType == DT_VARIABLE && !(vdec->mFlags & (DTF_GLOBAL | DTF_STATIC)) && !(vdec->mOptFlags & OPTF_VAR_USED))
+			if (vdec->mType == DT_VARIABLE && !(vdec->mFlags & (DTF_GLOBAL | DTF_STATIC)) && !(vdec->mOptFlags & OPTF_VAR_USED) && !exp->mRight->IsVolatile())
 			{
 				exp = exp->mRight;
 				return true;

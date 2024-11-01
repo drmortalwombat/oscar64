@@ -769,6 +769,7 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 		{
 			dec->mLinkerObject->mType = LOT_INLAY;
 			dec->mInlayRegion->mInlayObject = dec->mLinkerObject;
+			dec->mLinkerObject->mFlags &= ~LOBJF_CONST;
 		}
 
 		uint8* d = var->mLinkerObject->AddSpace(var->mSize);

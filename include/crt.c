@@ -236,46 +236,40 @@ w0:
 // Clear BSS Segment
 
 #ifndef NOBSSCLEAR
-		lda #<BSSStart
-		sta ip
-		lda #>BSSStart
-		sta ip + 1
+		ldx #>BSSStart
+		ldy #<BSSStart
 
-		sec
-		lda #>BSSEnd
-		sbc #>BSSStart
-		beq w1
-		tax
 		lda #0
-		ldy #0
-l1:		sta (ip), y
+		sta ip
+l3:
+		stx ip + 1
+		cpx #>BSSEnd
+		beq w2
+l1:
+		sta (ip), y
 		iny
 		bne l1
-		inc ip + 1
-		dex
-		bne l1
-w1:
-		sec
-		lda #<BSSEnd
-		sbc #<BSSStart
-		beq w2
-		tay
-		lda #0
-l2:		dey
-		sta (ip), y
-		bne l2
-w2:
-#endif
-#ifndef NOZPCLEAR
-		ldx #<ZeroStart
-		cpx #<ZeroEnd
-		beq	w3
-l3:		sta $00, x
 		inx
-		cpx #<ZeroEnd
-		bne l3
-w3:
+		bne	l3
+l2:
+		sta (ip), y
+		iny
+w2:
+		cpy #<BSSEnd
+		bne l2
 #endif
+
+#ifndef NOZPCLEAR
+		lda #0
+		ldx #<ZeroStart
+		bne	w3
+l4:		sta $00, x
+		inx
+w3:		
+		cpx #<ZeroEnd
+		bne l4
+#endif
+
 		lda	#<StackEnd - 2
 		sta	sp
 		lda	#>StackEnd - 2

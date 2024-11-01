@@ -387,6 +387,17 @@ bool Expression::IsRValue(void) const
 		return true;
 }
 
+bool Expression::IsVolatile(void) const
+{
+	if (mDecType->mFlags & DTF_VOLATILE)
+		return true;
+	if (mLeft && mLeft->IsVolatile())
+		return true;
+	if (mRight && mRight->IsVolatile())
+		return true;
+	return false;
+}
+
 bool Expression::IsConstRef(void) const
 {
 	if (mDecType->mType == DT_TYPE_RVALUEREF || mDecType->mType == DT_TYPE_REFERENCE)

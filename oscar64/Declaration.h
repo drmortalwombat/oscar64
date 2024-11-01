@@ -126,6 +126,7 @@ static const uint64 DTF_VAR_ALIASING	= (1ULL << 48);
 static const uint64 DTF_FPARAM_UNUSED	= (1ULL << 49);
 static const uint64 DTF_DEPRECATED		= (1ULL << 50);
 static const uint64 DTF_FUNC_NO_RETURN	= (1ULL << 51);
+static const uint64 DTF_PLACED			= (1ULL << 52);
 
 
 
@@ -267,6 +268,7 @@ public:
 	bool IsRValue(void) const;
 	bool IsLValue(void) const;
 	bool IsConstRef(void) const;
+	bool IsVolatile(void) const;
 
 	void Dump(int ident) const;
 };

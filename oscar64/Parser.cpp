@@ -5735,7 +5735,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 		{
 			if (ndec->mBase->mType == DT_TYPE_FUNCTION)
 			{
-				ndec->mSection = mCodeSection;
+				if (!(ndec->mFlags & DTF_PLACED))
+					ndec->mSection = mCodeSection;
 
 				if ((ndec->mFlags & DTF_DEFINED) && !(ndec->mFlags & DTF_REQUEST_INLINE))
 				{
@@ -13092,10 +13093,11 @@ void Parser::ParsePragma(void)
 						if (mScanner->mToken == TK_IDENT)
 						{
 							Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
-							if (dec && dec->mType == DT_VARIABLE && (dec->mFlags & DTF_GLOBAL))
+							if (dec && (dec->mType == DT_VARIABLE && (dec->mFlags & DTF_GLOBAL) || dec->mType == DT_CONST_FUNCTION))
 							{
 								mScanner->NextToken();
 
+								dec->mFlags |= DTF_PLACED;
 								dec->mSection = lsec;
 								if (dec->mLinkerObject)
 									dec->mLinkerObject->MoveToSection(lsec);
