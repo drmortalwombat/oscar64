@@ -17,6 +17,7 @@ This is a list of the games written with Oscar64, have a look if you are not con
 
 [Balls like a Frog](https://drmortalwombat.itch.io/balls-like-a-frog)
 
+![cores4](https://github.com/user-attachments/assets/15c2bcc7-eafb-44fb-aec2-e5cb101c687b)
 [Corescape](https://drmortalwombat.itch.io/corescape)
 
 [MetalMayhem](https://drmortalwombat.itch.io/metal-mayhem)
@@ -27,6 +28,7 @@ This is a list of the games written with Oscar64, have a look if you are not con
 
 [Missile Defence](https://drmortalwombat.itch.io/missile-defence)
 
+![cl1b](https://github.com/user-attachments/assets/0d249274-6dab-4284-89e5-ada07fac1986)
 [Portal Buster](https://drmortalwombat.itch.io/portal-buster)
 
 [Roguebot](https://drmortalwombat.itch.io/roguebot)
