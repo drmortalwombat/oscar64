@@ -982,6 +982,358 @@ Using a constant pointer will allow absolute addressing
 	char * const Color = (char *)0xd800;
 	
 
+
+# Samples
+
+## Character input and output "stdio"
+
+### helloworld.c
+
+## Disk file access "kernalio"
+
+The C64 uses various kernal routines to read and write files on disk.  These routines are available with a library <c64/kernalio.h>  All samples in this directory use drive 9, but can easily be changed to drive 8.
+
+### Reading the directory "diskdir.c"
+
+Reads the directory from the current disk in drive 9 and displays it on screen.
+
+
+### Writing characters "charwrite.c"
+
+Opens a ".prg" file on drive 9 for writing and writes 128 characters into the file.
+
+### Reading characters "charread.c"
+
+Opens a ".prg" file on drive 9 for reading, reads all characters from the file and prints there character code on screen.
+
+### Writing binary data "filewrite.c"
+
+Opens a ".prg" file on drive 9 for writing and writes an array of structs as binary data into the file.
+
+### Reading binary data "fileread.c"
+
+Opens a ".prg" file on drive 9 for reading and reads an array of structs as binary data into the file.
+
+### Writing image data "hireswrite.c"
+
+Renders a hires image into a buffer at 0xe000..0xff40 and saves it to disk.  The added complexity is, that the kernal itself cannot access the memory in this region because it is covered by the kernal ROM itself.  The operation is therefore implemented using a 200 byte RAM buffer.
+
+### Reading image data "hiresread.c"
+
+Reads a hires image from disk into a buffer at 0xe000..0xff40 and displays it.  The read can be performed without a secondary buffer, because writes to the ROM end up in the RAM underneath.
+
+### Fasload image data "hiresfload.c"
+
+Use the oscar flossiec fast loader to load a compressed multicolor image to 0xe000..0xff40 and 0xcc00..0xcfff.
+
+## Remapping memory "memmap"
+
+The C64 memory map is very flexible.  These samples show how to manipulate the memory map and use easyflash ROMs to execute larger programs.
+
+### Using more memory "largemem.c"
+
+Moves the BASIC ROM out of the way and allows the use of memory from 0x0800..0xcfff for the compiled C program.
+
+### Using all memory "allmem.c"
+
+Moves the BASIC ROM, Kernal ROM and the IO area out of the way and allows the use of memory from 0x0800 to 0xfff0 for the compiled C code.  An interrupt trampoline is installed to keep the kernal going.
+
+### Custom character set "charsetlo.c"
+
+Embeds a custom character set into the prg file at 0x2000..0x27ff and switches the character set base address in the VIC to this address.  The code and data portion of the compiled program is split into two areas to make room for this fixed location data.
+
+### Himem character set "charsethi.c"
+
+Embeds a custom character set into the prg file at 0xc800..0xcfff and switches the character set base address in the VIC to this address.
+  
+### Copy character set "charsetcopy.c"
+
+Embeds a custom character set into the prg file at 0xc000..0xc7ff and copies it to 0xd000 on startup.  This frees this area for stack and heap usage.
+
+### Copy character set "charsetexpand.c"
+
+Embeds a custom character set into the prg file at 0xc000..0xc7ff using lz compression and expands it to 0xd000 on startup.  This frees this area for stack and heap usage.
+
+### Custom character set "charsetload.c"
+
+Builds a .d64 image containing the compiled .prg and the compressed character set.  The program reads the character set at runtime from disk.
+
+### Easyflash banking "easyflash.c"
+
+When compiling for easyflash, the linker will place the code and data section into bank 0 and copy it to 0x0900..0x7fff at startup.  The remaining banks are free to be used for data or additional codes and can be banked in as needed.  This sample uses banks one to six for additional functions.
+
+### Easyflash common area "easyflashshared.c"
+
+This sample reserves a fixed area of several banks for a common code segment.  A multiplexer function is placed into this common segment to select a different bank and call a function in that bank.
+
+### Easyflash relocated area "easyflashreloc.c"
+
+An alternative to calling the function in the cartridge ROM itself is to copy it to a different location in RAM and execute it there.  This sample creates functions in different ROM banks that are linked for a memory area in RAM at 0x7000.  The code is copied from the ROM to RAM and then executed.
+
+### Easyflash low memory usage "easyflash.c"
+
+This sample will use the memory area starting from 0x0400 for the main code section when copying the code, using the stack page 0x100 for the startup itself, thus wasting small amount of RAM space.
+
+### Dynamic overlays "overlay.c"
+
+When compiling for .d64 format, the linker will place code and data sections from virtual cartridge banks into overlay files.  These files can be loaded when needed and called using normal function calls.
+
+
+### Terminate stay resident "tsr.c"
+
+A common usage for the RAM area in 0xc000..0xcfff which is visible but not usable from BASIC is to install a terminate stay resident BASIC extension, which can then be called using sys 49152.
+
+It would be a waste of disk space and load time to load this directly into 0xc000 together with a BASIC start code at 0x0800.  This sample uses the linker to link the code for the TSR at 0xc000 but place it into the prg at 0x0900.  The startup then copies this code to 0xc000.
+
+## Hires graphics "hires"
+
+The C64 has a hires graphics mode with 320x200 pixels.  Oscar provides a library <gfx/bitmap.h> for rendering in on screen and off screen bitmaps.
+
+### Draw lines "lines.c"
+
+Draws and clears lines with various patterns.
+
+### Draw lines "fractaltree.c"
+
+Draws a recursive fractal tree.
+
+![Fractal recursive tree](samples/hires/fractaltree.png)
+
+### Draw 3D wireframe "cube3d.c"
+
+Draws a rotating 3D wireframe cube using draw (OR) and clear (AND) operations.  The 3D operations are performed using 12.4 bit fixpoint math.
+
+### Software bit blit engine "bitblit.c"
+
+![Various bitblit modes](samples/hires/bitblit.png)
+
+Demonstrates the various bit blit modes of the software blit engine, including mask and pattern.
+
+### Draw polygons "polygon.c"
+
+Draws a series of pattern filled stars with changing orientation and size.
+
+### Mixed text and hires screen "splitscreen.c"
+
+Uses the <c64/rasterirq.h> library to split the screen into an upper hires and lower text mode screen.  The text area is used to query the user for x, y and radius of circles to draw.
+
+### 3D Function plotter "func3d.c"
+
+![3D Function plotter](samples/hires/func3d.png)
+
+Draws a 3D function using flat shading and the painters algorithm.  All 3D operations are performed with floating point numbers using the vector library <gfx/vector3d.h>.
+
+## Multicolor bitmaps "hiresmc"
+
+The C64 bitmap graphics mode can also use 2bit per pixel, resulting in an image of 160x200 with four colors.  The oscar library <gfx/bitmapmc.h> implements various drawing operations in this mode.  All x coordinates still range from 0 to 320 to keep a quasi square pixel layout.
+
+### Draw polygons "polygon.c"
+
+![Colored stars](samples/hiresmc/polygon.png)
+
+Similar to its hires counterpart but using different colors and patterns.
+
+### Fill similar colored areas "floodfill.c"
+
+Draws filled random circles and fills the space using flood fill.
+
+### Painting with mouse or joystick "paint.c"
+
+Paint on the screen with mouse or joystick.  Keyboard 0..9 for color selection, HOME to clear the screen.
+
+
+### 3D Function plotter "func3d.c"
+
+Similar to its hires counterpart but using four shades of grey.
+
+
+## Particle systems "particles"
+
+Active hires graphics using particle system
+
+### Hires fireworks "fireworks_hires.c"
+
+Simple hires particle system using velocity and gravity integration.
+
+### Multicolor fireworks "fireworks_ptr.c"
+
+Simple multi color hires particle system using velocity and gravity integration.
+
+### Fireworks with striped memory layout "fireworks_stripe.c"
+
+Simple multi color hires particle system using velocity and gravity integration.  This version uses striped memory layout for the particles to simplify addressing for the CPU.
+
+
+## Mandelbrot renderer "fractals"
+
+Various versions of the mandelbrot set using float arithmetic.
+
+### Text mode fractal "mbtext.c"
+
+Simple mandelbrot renderer using text cells and colors to generate a 40x25 pixel image.
+
+### Hires fractal "mbhires.c"
+
+Hires version using black and white to show the mandelbrot set.
+
+### Multi color fractal "mbmulti.c"
+
+Multi color version using pure and mixed colors.
+
+### 3D shaded fractal "mbmulti3d.c"
+
+![Mandelbrot fractal in 3D](samples/fractals/mbmulti3d.png)
+
+Mandelbrot rendered in 3D with shading.  The image is drawn in columns from back to front, using two adjacent columns to calculate slope and brightness.
+
+### Interactive Navigate a fractal "mbzoom.c"
+
+Navigate using WASD and zoom using + and -.
+
+
+## Raster beam interrupts "rasterirq"
+
+Interrupts based on the raster beam are an important part of the C64 programmers toolbox.  Switching VIC registers on specific lines opens up many additional features, such a more sprites using multiplexing, combining modes or changing colors or scroll offsets.  The <c64/rasterirq.h> library provides easy access to this feature using on the fly code generation.
+
+### Static color changes "colorbars.c"
+
+![Color bars](samples/rasterirq/colorbars.png)
+
+Changes the background and border colors several times per frame, creating horizontal color bars.
+
+### Crawling text at bottom "textcrawler.c"
+
+Draws a scrolling line of text at the bottom of the screen.
+
+### Crawling text at bottom in IRQ "autocrawler.c"
+
+Draws a scrolling line of text at the bottom of the screen, using an interrupt to update the text.
+
+### Chasing bars "movingbars.c"
+
+Changing the background and border color at varying vertical positions giving the impression of two chasing colored bars.
+
+### Freedom for sprites "openborders.c"
+
+Open the vertical screen borders by switching the vertical size bit at the appropriate raster lines.  The opened area is available for sprites only.
+
+
+
+## Expand the screen "scrolling"
+
+Scrolling is an important component of many games and editors, it extends the limited real estate of the screen to provide a small view to a larger world or document.  Pixel accurate scrolling is an important feature of the C64's VIC chip.
+
+
+### Large scrolling text "bigfont.c"
+
+![Large text](samples/scrolling/bigfont.png)
+
+Expands a text to gigantic size, each pixel covering 2x2 character cells and scrolling from right to left.
+
+### Fly through tunnel "tunnel.c"
+
+Scroll a dynamic generated tunnel with variable speed.
+
+### Scroll text and color "colorram.c"
+
+Scrolls the screen text buffer and color buffer horizontally at the same time with one pixel per frame and no double buffering, relying on exact raster timing.
+
+
+### X/Y colored tile scrolling "cgrid8way.c"
+
+Expands coloured 4x4 character tiles and scrolls vertically and horizontally at two pixel per frame without double buffering.
+
+### Free full speed tile expansion "grid2d.c"
+
+Expands a 2D 4x4 tile grid at any scroll speed.  Uses a raster IRQ to limit the scrolled area.
+
+
+## Moving image blocks "sprites"
+
+Sprites are independent image blocks, such as players, missiles or enemies that can be shown on top of the background.
+
+### Control a sprite with a joystick "joycontrol.c"
+
+Combines reading the joystick with the <c64/joystick.h> library and sprite movement with the <c64/sprites.h> library.
+
+### Use raster IRQ to show 16 sprites "multiplexer.c"
+
+![Large text](samples/sprites/multiplexer.png)
+
+Shows 16 virtual sprites multiplexed from the physical eight sprites with raster interrupts, using the oscar sprite multiplexer library.
+
+### Use raster IRQ to show 32 sprites "sprmux32.c"
+
+![Large text](samples/sprites/sprmux32.png)
+
+Shows 32 virtual sprites multiplexed from the physical eight sprites with raster interrupts, using the oscar sprite multiplexer library. This sample requires command line defines to increase the default number of multiplexed sprites and raster interrupt slots:
+
+	oscar64 -n sprmux32.c -O2 -dVSPRITES_MAX=32 -dNUM_IRQS=28
+
+### Use raster IRQ to show 64 sprites "sprmux64.c"
+
+![Large text](samples/sprites/sprmux64.png)
+
+Shows 64 moving sprites using raster interrupts to update the position of the eight physical sprites every 25 screen lines.
+
+
+### Fill the screen with sprites "creditroll.c"
+
+![Many sprites](samples/sprites/creditroll.png)
+
+Uses sprite multiplexing and dynamic character to sprite copying to create a vertical scrolling text on top of any image or potentially moving background.
+
+## What you came for "games"
+
+The C64 games define much of the 8 bit area and oscar64 is intended as a of a proof that one can write great 8 bit games using C.
+
+
+### Don't bite your end "snake.c"
+
+One of the least complex computer game and more iconic for the smartphone area.  Does not need sprites, scrolling or custom graphics.
+
+### The eagle has landed "lander.c"
+
+![Landing the eagle](samples/games/lander.png)
+
+Controlling a sprite using floating point physics and checking for collision with the background.
+
+### No way out "maze3d.c"
+
+![Move through the maze](samples/games/maze3d.png)
+
+A double buffered 3D maze rendering using intermediate positions for forward movement, and simulated rotation using scrolling.
+
+### This one has balls "breakout.c"
+
+![Breakout](samples/games/breakout.png)
+
+Simplified ball physics using fixed point math. More complex collision checks with the blocks to determine the edge and thus reflection.
+
+### Too smart for me "connectfour.c"
+
+![Connect Four](samples/games/connectfour.png)
+
+Simple turn based strategy game using tree search with alpha-beta pruning and an opening library to determine the computer moves.
+
+### Defend your city "missile.c"
+
+![Defend your city](samples/games/missile.png)
+
+Classic computer game using the multicolor hires mode for circles and lines.  The user sprite is controlled in an interrupt routine to cover up the multi frame variable rendering.
+
+### Fast scroller "hscrollshmup.c"
+
+![Scroll and Shoot](samples/games/hscrollshmup.png)
+
+Fast horizontal scrolling shoot 'em up.  The scroll code expands a 4x4 tile grid of chars in less than a frame time, so the scroll speed is "unlimited".  A parallax level of stars in the background is implemented using an adapted star character.
+
+The shots usd dynamic created characters to overlay on the background.
+
+
+
+
+
 # Implementation Details
 
 ## The bytecode interpreter
