@@ -6423,6 +6423,8 @@ void NativeCodeBasicBlock::LoadByteIndexedValue(InterCodeProcedure* proc, const 
 {
 	mIns.Push(NativeCodeInstruction(rins, ASMIT_LDY, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[iins->mSrc[0].mTemp]));
 
+	int stride = rins->mSrc[0].mStride;
+
 	uint32	flags = NCIF_LOWER | NCIF_UPPER;
 	if (rins->mVolatile)
 		flags |= NCIF_VOLATILE;
@@ -6432,7 +6434,17 @@ void NativeCodeBasicBlock::LoadByteIndexedValue(InterCodeProcedure* proc, const 
 	for (int i = 0; i < InterTypeSize[rins->mDst.mType]; i++)
 	{
 		if (i != 0)
-			mIns.Push(NativeCodeInstruction(rins, ASMIT_INY, ASMIM_IMPLIED));
+		{
+			if (stride == 1)
+				mIns.Push(NativeCodeInstruction(rins, ASMIT_INY, ASMIM_IMPLIED));
+			else
+			{
+				mIns.Push(NativeCodeInstruction(rins, ASMIT_TYA, ASMIM_IMPLIED));
+				mIns.Push(NativeCodeInstruction(rins, ASMIT_CLC, ASMIM_IMPLIED));
+				mIns.Push(NativeCodeInstruction(rins, ASMIT_ADC, ASMIM_IMMEDIATE, stride));
+				mIns.Push(NativeCodeInstruction(rins, ASMIT_TAY, ASMIM_IMPLIED));
+			}
+		}
 		mIns.Push(NativeCodeInstruction(rins, ASMIT_LDA, ASMIM_INDIRECT_Y, BC_REG_TMP + proc->mTempOffset[iins->mSrc[1].mTemp], nullptr, flags));
 		if (rins->mDst.mTemp == iins->mSrc[1].mTemp)
 			mIns.Push(NativeCodeInstruction(rins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + i));
@@ -6454,6 +6466,8 @@ void NativeCodeBasicBlock::StoreByteIndexedValue(InterCodeProcedure* proc, const
 {
 	mIns.Push(NativeCodeInstruction(wins, ASMIT_LDY, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[iins->mSrc[0].mTemp]));
 
+	int stride = wins->mSrc[1].mStride;
+
 	uint32	flags = NCIF_LOWER | NCIF_UPPER;
 	if (wins->mVolatile)
 		flags |= NCIF_VOLATILE;
@@ -6463,7 +6477,17 @@ void NativeCodeBasicBlock::StoreByteIndexedValue(InterCodeProcedure* proc, const
 	for (int i = 0; i < InterTypeSize[wins->mSrc[0].mType]; i++)
 	{
 		if (i != 0)
-			mIns.Push(NativeCodeInstruction(wins, ASMIT_INY, ASMIM_IMPLIED));
+		{
+			if (stride == 1)
+				mIns.Push(NativeCodeInstruction(wins, ASMIT_INY, ASMIM_IMPLIED));
+			else
+			{
+				mIns.Push(NativeCodeInstruction(wins, ASMIT_TYA, ASMIM_IMPLIED));
+				mIns.Push(NativeCodeInstruction(wins, ASMIT_CLC, ASMIM_IMPLIED));
+				mIns.Push(NativeCodeInstruction(wins, ASMIT_ADC, ASMIM_IMMEDIATE, stride));
+				mIns.Push(NativeCodeInstruction(wins, ASMIT_TAY, ASMIM_IMPLIED));
+			}
+		}
 		if (wins->mSrc[0].mTemp < 0)
 			mIns.Push(NativeCodeInstruction(wins, ASMIT_LDA, ASMIM_IMMEDIATE, (wins->mSrc[0].mIntConst >> (8 * i)) & 0xff));
 		else
@@ -51694,7 +51718,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "cia_init");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "Level::method");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -54050,7 +54074,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				iblock->mInstructions[i + 1]->mCode == IC_LOAD && iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
 				ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].IsUByte() && ins->mSrc[0].mTemp >= 0 &&
 				iblock->mInstructions[i + 1]->mSrc[0].mIntConst == 0 && 
-				(ins->mSrc[0].mRange.mMaxValue + InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] <= 256 || iblock->mInstructions[i + 1]->mSrc[0].mStride == 1))
+				ins->mSrc[0].mRange.mMaxValue + (InterTypeSize[iblock->mInstructions[i + 1]->mDst.mType] - 1) * iblock->mInstructions[i + 1]->mSrc[0].mStride < 256)
 			{
 				block->LoadByteIndexedValue(iproc, ins, iblock->mInstructions[i + 1]);
 				i++;
@@ -54059,7 +54083,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				iblock->mInstructions[i + 1]->mCode == IC_STORE && iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal &&
 				ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].IsUByte() && ins->mSrc[0].mTemp >= 0 &&
 				iblock->mInstructions[i + 1]->mSrc[1].mIntConst == 0 && (iblock->mInstructions[i + 1]->mSrc[0].mTemp >= 0 || iblock->mInstructions[i + 1]->mSrc[0].mType <= IT_INT32) &&
-				(InterTypeSize[iblock->mInstructions[i + 1]->mSrc[0].mType] == 1 || iblock->mInstructions[i + 1]->mSrc[1].mStride == 1))
+				ins->mSrc[0].mRange.mMaxValue + (InterTypeSize[iblock->mInstructions[i + 1]->mSrc[0].mType] - 1) * iblock->mInstructions[i + 1]->mSrc[1].mStride < 256)
 			{
 				block->StoreByteIndexedValue(iproc, ins, iblock->mInstructions[i + 1]);
 				i++;
