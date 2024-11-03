@@ -28,6 +28,8 @@ void init(void)
 	// Install IRQ trampoline
 	mmap_trampoline();
 
+	cia_init();
+
 	// All RAM
 	mmap_set(MMAP_RAM);	
 
@@ -60,7 +62,6 @@ void init(void)
 	spr_move(1, 24, 50);
 
 	// Disable system interrupt and init mouse
-	cia_init();
 	mouse_init();
 
 	bm_init(&sbm, Hires, 40, 25);
