@@ -19220,8 +19220,10 @@ bool InterCodeBasicBlock::ShortLeaMerge(int& spareTemps)
 
 							if (found)
 							{
-								mInstructions.Insert(0, iins[0]->Clone());
-								iins[0]->mSrc[1].mIntConst = minint;
+								InterInstruction* lins = iins[0]->Clone();
+								lins->mSrc[0].mRange.Reset();
+								lins->mSrc[1].mIntConst = minint;
+								mInstructions.Insert(0, lins);
 
 								if (iins[0]->mSrc[0].mTemp < 0)
 								{
@@ -22913,7 +22915,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "game_walking");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
