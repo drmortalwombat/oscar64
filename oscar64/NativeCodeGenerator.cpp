@@ -54607,8 +54607,13 @@ void NativeCodeGenerator::RegisterFunctionCall(NativeCodeBasicBlock* block, int 
 			i -= 2;
 		}
 
+
 		if (i < at)
 		{
+			// Check conflicting local branch
+			if (i > 0 && block->mIns[i - 1].mMode == ASMIM_RELATIVE && block->mIns[i - 1].mAddress > 0)
+				return;
+
 			FunctionCall* ncp = new FunctionCall();
 			ncp->mLinkerObject = lo;
 			ncp->mOffset = block->mIns[at].mAddress;
@@ -54676,6 +54681,10 @@ bool NativeCodeGenerator::MergeFunctionCall(NativeCodeBasicBlock* block, int at)
 
 		if (i < at)
 		{
+			// Check conflicting local branch
+			if (i > 0 && block->mIns[i - 1].mMode == ASMIM_RELATIVE && block->mIns[i - 1].mAddress > 0)
+				return false;
+
 			FunctionCall	ncp;
 			ncp.mLinkerObject = lo;
 			ncp.mOffset = block->mIns[at].mAddress;
