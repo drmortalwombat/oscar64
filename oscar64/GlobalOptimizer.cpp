@@ -645,7 +645,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		if (flags & ANAFL_LHS)
 			exp->mDecValue->mOptFlags |= OPTF_VAR_ADDRESS;
 
-		if (exp->mDecValue->mType == DT_ARGUMENT)
+		if (exp->mDecValue->mType == DT_ARGUMENT && (flags & ANAFL_LHS))
 		{
 			exp->mDecValue->mOptFlags |= OPTF_VAR_NO_FORWARD;
 			exp->mDecValue->mForwardParam = nullptr;
