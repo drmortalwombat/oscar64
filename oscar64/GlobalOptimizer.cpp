@@ -271,8 +271,8 @@ bool GlobalOptimizer::ReplaceGlobalConst(Expression* exp)
 				(cexp->mDecValue->mType == DT_CONST_ADDRESS || cexp->mDecValue->mType == DT_CONST_INTEGER || 
 				 cexp->mDecValue->mType == DT_CONST_POINTER || cexp->mDecValue->mType == DT_CONST_FLOAT))
 			{
-				exp->mType = EX_CONSTANT;
-				exp->mDecValue = cexp->mDecValue;
+				exp->mType = EX_CONSTANT;				
+				exp->mDecValue = cexp->mDecValue->ConstCast(exp->mDecType);
 				changed = true;
 			}
 		}
