@@ -39811,6 +39811,34 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 
 		if (!changed)
 		{
+			if (mIns.Size() > 0 && mIns[0].mType == ASMIT_TXA)
+			{
+				if (!ChangesAccu(1) && !ChangesXReg(1))
+				{
+					int i = 0;
+					while (i < lblocks.Size() && (lblocks[i] == this || (!lblocks[i]->ChangesXReg() && !lblocks[i]->ChangesAccu())))
+						i++;
+					if (i == lblocks.Size())
+					{
+						prev->mIns.Push(mIns[0]);
+						mIns.Remove(0);
+						prev->mExitRequiredRegs += CPU_REG_A;
+						mEntryRequiredRegs += CPU_REG_A;
+						mExitRequiredRegs += CPU_REG_A;
+
+						for (int i = 0; i < lblocks.Size(); i++)
+						{
+							lblocks[i]->mEntryRequiredRegs += CPU_REG_A;
+							lblocks[i]->mExitRequiredRegs += CPU_REG_A;
+						}
+						changed = true;
+					}
+				}
+			}
+		}
+
+		if (!changed)
+		{
 			if (mIns.Size() > 0 && mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE)
 			{
 				int k = 1;
@@ -51718,7 +51746,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "status_draw_map");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52892,7 +52920,7 @@ void NativeCodeProcedure::Optimize(void)
 		CheckBlocks();
 
 #if 1
-		if (step == 3 || step == 4 || (step == 15 && cnt > 0))
+		if (step == 3 || step == 4 || step == 8 || (step == 15 && cnt > 0))
 		{
 #if 1
 			ResetVisited();
@@ -53548,7 +53576,6 @@ void NativeCodeProcedure::Optimize(void)
 			cnt++;
 
 	} while (changed);
-
 
 #if 1
 	ResetVisited();
