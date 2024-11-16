@@ -8193,7 +8193,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 
 		ins->ConstantFolding();
 
-		if (ins->mDst.mTemp >= 0 && IsIntegerType(ins->mDst.mType))
+		if (ins->mDst.mTemp >= 0 && (IsIntegerType(ins->mDst.mType) || ins->mDst.mType == IT_BOOL))
 		{
 			IntegerValueRange& vr(mProc->mLocalValueRange[ins->mDst.mTemp]);
 
@@ -22927,7 +22927,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "game_walking");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
