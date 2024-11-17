@@ -33827,6 +33827,33 @@ bool NativeCodeBasicBlock::CombineImmediateADCUp(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::MoveTXALogicTAXDown(int at)
+{
+	int	i = at + 3;
+	while (i < mIns.Size())
+	{
+		if (mIns[i].ChangesXReg())
+			return false;
+
+		if (mIns[i].mType == ASMIT_TXA)
+		{
+			if (mIns[i].mLive & LIVE_CPU_REG_X)
+				return false;
+			mIns[at + 1].mLive |= mIns[i].mLive;
+			mIns.Insert(i + 1, mIns[at + 1]);
+			mIns.Remove(at, 3);
+			return true;
+		}
+
+		if (mIns[i].RequiresXReg())
+			return false;
+
+		i++;
+	}
+
+	return false;
+}
+
 bool NativeCodeBasicBlock::MoveTXADCDown(int at)
 {
 	int	i = at + 4;
@@ -43819,6 +43846,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 			mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
 		{
 			if (MoveTXADCDown(i))
+				changed = true;
+		}
+	}
+
+	CheckLive();
+
+#endif
+
+#if 1
+	for (int i = 0; i + 3 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_TXA &&
+			mIns[i + 1].IsLogic() && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			if (MoveTXALogicTAXDown(i))
 				changed = true;
 		}
 	}

@@ -505,6 +505,7 @@ public:
 	bool CombineImmediateADCUp(int at);
 	bool CombineImmediateADCUpX(int at);
 	bool MoveTXADCDown(int at);
+	bool MoveTXALogicTAXDown(int at);
 	bool FoldShiftORAIntoLoadImmUp(int at);
 
 	bool FindAccuExitValue(int& at);
