@@ -138,6 +138,20 @@ char * cpycat(char * dst, const char * src)
 
 #pragma native(cpycat)
 
+char* strchr( const char* str, int ch )
+{
+	char * p = (char *)str;
+
+	while (*p != (char)ch)
+	{
+		if (!*p)
+			return nullptr;
+		p++;
+	}
+	return p;
+}
+
+
 void * memset(void * dst, int value, int size)
 {
 	__asm

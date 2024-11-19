@@ -21,6 +21,8 @@ int memcmp(const void * ptr1, const void * ptr2, int size);
 
 void * memmove(void * dst, const void * src, int size);
 
+char* strchr( const char* str, int ch );
+
 #pragma intrinsic(strcpy)
 
 #pragma intrinsic(memcpy)

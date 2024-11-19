@@ -323,10 +323,7 @@ void putch(char c)
 
 void clrscr(void)
 {
-	__asm
-	{
-		jsr	bsinit
-	}
+	putrch(147);
 }
 
 void textcursor(bool show)
@@ -348,6 +345,24 @@ void gotoxy(char cx, char cy)
 void textcolor(char c)
 {
 	*(volatile char *)0x0286 = c;
+}
+
+void bgcolor(char c)
+{
+	*(volatile char *)0xd021 = c;
+}
+
+void bordercolor(char c)
+{
+	*(volatile char *)0xd020 = c;
+}
+
+void revers(char r)
+{
+	if (r) 
+		putrch(18);
+	else
+		putrch(18 + 128);
 }
 
 char wherex(void)

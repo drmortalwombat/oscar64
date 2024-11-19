@@ -43,6 +43,26 @@ void dispmode80col(void);
 #define PETSCII_F7				0x88
 #define PETSCII_F8				0x8c
 
+enum ConioColors
+{
+	COLOR_BLACK,
+	COLOR_WHITE,
+	COLOR_RED,
+	COLOR_CYAN,
+	COLOR_PURPLE,
+	COLOR_GREEN,
+	COLOR_BLUE,
+	COLOR_YELLOW,
+
+	COLOR_ORANGE,
+	COLOR_BROWN,
+	COLOR_LT_RED,
+	COLOR_DARK_GREY,
+	COLOR_MED_GREY,
+	COLOR_LT_GREEN,
+	COLOR_LT_BLUE,
+	COLOR_LT_GREY
+};
 // Lowlevel console in/out
 
 // using petscii translation
@@ -73,6 +93,12 @@ void clrscr(void);
 void gotoxy(char x, char y);
 
 inline void textcolor(char c);
+
+inline void bgcolor(char c);
+
+inline void bordercolor(char c);
+
+inline void revers(char r);
 
 inline char wherex(void);
 

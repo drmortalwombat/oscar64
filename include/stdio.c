@@ -417,7 +417,7 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 				si.precision = i;		
 			}
 
-			if (c == 'd' || c == p'd')
+			if (c == 'd' || c == p'd' || c == 'i' || c == p'i')
 			{
 				bi = nformi(&si, bp, *fps++, true);
 			}
