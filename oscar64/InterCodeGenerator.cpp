@@ -434,6 +434,27 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 		v.mTemp = cins->mDst.mTemp;
 		v.mType = type;
 	}
+	else if (type->mType == DT_TYPE_BOOL && v.mType->IsIntegerType() && v.mType->mType != DT_TYPE_BOOL)
+	{
+		InterInstruction* zins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+		zins->mDst.mType = InterTypeOf(v.mType);
+		zins->mDst.mTemp = proc->AddTemporary(zins->mDst.mType);
+		zins->mConst.mType = zins->mDst.mType;
+		zins->mConst.mIntConst = 0;
+		block->Append(zins);
+
+		InterInstruction* cins = new InterInstruction(MapLocation(exp, inlineMapper), IC_RELATIONAL_OPERATOR);
+		cins->mOperator = IA_CMPNE;
+		cins->mSrc[0].mType = zins->mDst.mType;
+		cins->mSrc[0].mTemp = v.mTemp;
+		cins->mSrc[1].mType = zins->mDst.mType;
+		cins->mSrc[1].mTemp = zins->mDst.mTemp;
+		cins->mDst.mType = IT_BOOL;
+		cins->mDst.mTemp = proc->AddTemporary(IT_BOOL);
+		block->Append(cins);
+		v.mTemp = cins->mDst.mTemp;
+		v.mType = type;
+	}
 	else if (v.mType->mSize < type->mSize)
 	{
 		if (v.mType->mSize == 1 && type->mSize == 2)
