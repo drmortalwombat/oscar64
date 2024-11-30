@@ -591,7 +591,7 @@ void rirq_wait(void)
 	npos++;
 }
 
-void rirq_sort(void)
+void rirq_sort(bool inirq)
 {
 #if 1
 	byte maxr = rasterIRQRows[rasterIRQIndex[1]];
@@ -641,10 +641,15 @@ void rirq_sort(void)
 #endif
 
 	npos++;
-	nextIRQ = 0;
-	byte	yp = rasterIRQNext[nextIRQ];
-	if (yp != 0xff)
-		vic.raster = yp - 1;
+	if (inirq)
+		nextIRQ = NUM_IRQS - 1;
+	else
+	{
+		nextIRQ = 0;
+		byte	yp = rasterIRQNext[nextIRQ];
+		if (yp != 0xff)
+			vic.raster = yp - 1;
+	}
 }
 
 void rirq_start(void)

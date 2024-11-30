@@ -180,7 +180,8 @@ void rirq_stop(void);
 
 // Sort the raster IRQ, must be performed at the end of the frame after changing 
 // the vertical position of one of the interrupt operatins.
-void rirq_sort(void);
+// Set the inirq flag to true when calling this from an interrupt
+void rirq_sort(bool inirq = false);
 
 // Wait for the last raster IRQ op to have completed.  Must be called before a
 // sort if the raster IRQ system is active
