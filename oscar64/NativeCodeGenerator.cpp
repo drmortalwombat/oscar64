@@ -40185,11 +40185,13 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 				lblock->mBranch = head->mBranch;
 				lblock->mTrueJump = head->mTrueJump;
 				lblock->mFalseJump = head->mFalseJump;
+				lblock->mEntryRequiredRegs = tail->mTrueJump->mEntryRequiredRegs;
 
 				eblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_STX, ASMIM_ZERO_PAGE, zreg));
 				eblock->mBranch = ASMIT_JMP;
 				eblock->mTrueJump = tail->mFalseJump;
 				eblock->mFalseJump = nullptr;
+				eblock->mEntryRequiredRegs = tail->mFalseJump->mEntryRequiredRegs;
 
 				tail->mTrueJump = lblock;
 				tail->mFalseJump = eblock;
@@ -51789,7 +51791,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "diggers_vacate_room");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
