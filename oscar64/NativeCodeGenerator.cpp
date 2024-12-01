@@ -14021,6 +14021,11 @@ NativeCodeInstruction NativeCodeBasicBlock::DecodeNative(const InterInstruction*
 		address = lobj->mData[offset++];
 		if (lref && (lref->mFlags & LREF_TEMPORARY))
 			address += lobj->mTemporaries[lref->mRefOffset];
+		else if (lref)
+		{
+			linkerObject = lref->mRefObject;
+			address = lref->mRefOffset;
+		}
 		else if (address >= BC_REG_TMP)
 			flags |= NCIF_VOLATILE;
 		break;
@@ -14124,6 +14129,11 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 
 				if (dins.mMode == ASMIM_ZERO_PAGE && dins.mAddress >= BC_REG_WORK && dins.mAddress < BC_REG_WORK + 8)
 					uflags |= NICF_USE_WORKREGS;
+
+				// Make sure we are not aliasing zeropage globals
+				if (dins.mMode == ASMIM_ZERO_PAGE && dins.mLinkerObject)
+					dins.mMode = ASMIM_ABSOLUTE;
+
 				if (dins.ChangesAccu())
 					uflags |= NCIF_USE_CPU_REG_A;
 				if (dins.ChangesXReg())

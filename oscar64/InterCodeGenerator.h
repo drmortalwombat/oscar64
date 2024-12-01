@@ -45,7 +45,7 @@ public:
 	uint64		mCompilerOptions;
 
 	InterCodeProcedure* TranslateProcedure(InterCodeModule* mod, Expression* exp, Declaration * dec);
-	void TranslateAssembler(InterCodeModule* mod, Expression * exp, GrowingArray<Declaration *>	* refvars);
+	void TranslateAssembler(InterCodeModule* mod, Declaration* adec,GrowingArray<Declaration *>	* refvars);
 	void InitGlobalVariable(InterCodeModule* mod, Declaration* dec);
 	void InitLocalVariable(InterCodeProcedure* proc, Declaration* dec, int index);
 	void InitParameter(InterCodeProcedure* proc, Declaration* dec, int index);
