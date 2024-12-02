@@ -238,7 +238,8 @@ enum ExpressionType
 	EX_PACK,
 	EX_PACK_TYPE,
 	EX_LABEL,
-	EX_GOTO
+	EX_GOTO,
+	EX_AGGREGATE
 };
 
 class Expression

@@ -152,7 +152,7 @@ protected:
 	Expression* ParseRExpression(void);
 	
 	Expression* ExpandArgumentPack(Expression * exp, Declaration* dec);
-	Expression* ParseListExpression(bool lhs);
+	Expression* ParseListExpression(bool lhs, Declaration * params = nullptr);
 
 	Expression* ParseParenthesisExpression(void);
 

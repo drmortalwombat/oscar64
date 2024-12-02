@@ -1246,7 +1246,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 		cexp = cexp->mRight;
 	}
 
-	assert(offset < osize);
+	assert(offset == osize);
 }
 
 void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock* block, InlineMapper * inlineMapper, ExValue v, const SwitchNodeArray& nodes, int left, int right, int vleft, int vright, InterCodeBasicBlock* dblock)
@@ -5441,6 +5441,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			gotos = g;
 			return ExValue(TheVoidTypeDeclaration);
 		}
+
+		case EX_AGGREGATE:
+			mErrors->Error(exp->mLocation, EERR_INVALID_INITIALIZER, "Unexpected aggreate");
+			return ExValue(TheVoidTypeDeclaration);
 
 		case EX_SWITCH:
 		{

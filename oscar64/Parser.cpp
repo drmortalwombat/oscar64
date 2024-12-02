@@ -2503,7 +2503,7 @@ Expression* Parser::BuildMemberInitializer(Expression* vexp)
 		mScanner->NextToken();
 		if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 		{
-			fexp->mRight = ParseListExpression(false);
+			fexp->mRight = ParseListExpression(false, fcons->mBase->mParams->mNext);
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
 		else
@@ -4496,6 +4496,8 @@ Expression * Parser::BuildVariableInit(Expression* vexp, Expression* pexp)
 
 void Parser::ParseVariableInit(Declaration* ndec, Expression* pexp)
 {
+	Declaration* fcons = ndec->mBase->mScope ? ndec->mBase->mScope->Lookup(ndec->mBase->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
+
 	if (!pexp)
 	{
 		Token	ctoken = mScanner->mToken == TK_OPEN_BRACE ? TK_CLOSE_BRACE : TK_CLOSE_PARENTHESIS;
@@ -4503,14 +4505,12 @@ void Parser::ParseVariableInit(Declaration* ndec, Expression* pexp)
 		mScanner->NextToken();
 		if (mScanner->mToken != ctoken)
 		{
-			pexp = ParseListExpression(false);
+			pexp = ParseListExpression(false, fcons ? fcons->mBase->mParams->mNext : nullptr);
 			ConsumeToken(ctoken);
 		}
 		else
 			mScanner->NextToken();
 	}
-
-	Declaration* fcons = ndec->mBase->mScope ? ndec->mBase->mScope->Lookup(ndec->mBase->mIdent->PreMangle("+"), SLEVEL_CLASS) : nullptr;
 
 	if (ndec->mBase->mFlags & DTF_PURE_VIRTUAL)
 		mErrors->Error(ndec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", ndec->mIdent);
@@ -6616,18 +6616,25 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 			{
 				if ((dec->mType == DT_ELEMENT || dec->mType == DT_CONST_FUNCTION) && !(dec->mFlags & DTF_STATIC))
 				{
-					Expression* texp = new Expression(mScanner->mLocation, EX_VARIABLE);
-					texp->mDecType = mThisPointer->mBase;
-					texp->mDecValue = mThisPointer;
+					if (mThisPointer->mType == DT_TYPE_POINTER)
+					{
+						mErrors->Error(mScanner->mLocation, ERRO_THIS_OUTSIDE_OF_METHOD, "Invalid non static member");
+					}
+					else
+					{
+						Expression* texp = new Expression(mScanner->mLocation, EX_VARIABLE);
+						texp->mDecType = mThisPointer->mBase;
+						texp->mDecValue = mThisPointer;
 
-					Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
-					dexp->mToken = TK_MUL;
-					dexp->mDecType = texp->mDecType->mBase;
-					dexp->mLeft = texp;
+						Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
+						dexp->mToken = TK_MUL;
+						dexp->mDecType = texp->mDecType->mBase;
+						dexp->mLeft = texp;
 
-					dexp = dexp->ConstantFold(mErrors, mDataSection);
+						dexp = dexp->ConstantFold(mErrors, mDataSection);
 
-					exp = ParseQualify(dexp);
+						exp = ParseQualify(dexp);
+					}
 				}
 				else
 					mScanner->NextToken();
@@ -6805,6 +6812,13 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 			mScanner->NextToken();
 		}
 		break;
+	case TK_OPEN_BRACE:
+		mScanner->NextToken();
+		exp = new Expression(mScanner->mLocation, EX_AGGREGATE);
+		exp->mLeft = ParseListExpression(false);
+		exp->mDecType = TheConstVoidTypeDeclaration;
+		ConsumeToken(TK_CLOSE_BRACE);
+		break;
 	case TK_ASM:
 		mScanner->NextToken();
 		if (mScanner->mToken == TK_OPEN_BRACE)
@@ -6981,7 +6995,7 @@ Expression* Parser::ParseQualify(Expression* exp)
 							nexp->mRight = nullptr;
 						else
 						{
-							nexp->mRight = ParseListExpression(false);
+							nexp->mRight = ParseListExpression(false, mdec->mBase->mParams->mNext);
 							ConsumeToken(TK_CLOSE_PARENTHESIS);
 						}
 
@@ -7712,6 +7726,10 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				nexp->mDecType = TheVoidTypeDeclaration;
 			exp = nexp->ConstantFold(mErrors, mDataSection, mCompilationUnits->mLinker);
 		}
+		else if (mScanner->mToken == TK_OPEN_BRACE)
+		{
+			exp = ParseCastExpression(exp);
+		}
 		else if (mScanner->mToken == TK_OPEN_PARENTHESIS)
 		{
 			// Explicit constructor invocation
@@ -7732,10 +7750,12 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 					exp->mDecType = TheConstVoidTypeDeclaration;
 				}
 
+				Declaration* fcons = exp->mDecType->mScope ? exp->mDecType->mScope->Lookup(exp->mDecType->mIdent->PreMangle("+")) : nullptr;
+
 				mScanner->NextToken();
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 				{
-					pexp = ParseListExpression(false);
+					pexp = ParseListExpression(false, fcons ? fcons->mBase->mParams->mNext : nullptr);
 					ConsumeToken(TK_CLOSE_PARENTHESIS);
 				}
 				else
@@ -7748,7 +7768,6 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				}
 				else
 				{
-					Declaration* fcons = exp->mDecType->mScope ? exp->mDecType->mScope->Lookup(exp->mDecType->mIdent->PreMangle("+")) : nullptr;
 					if (fcons)
 					{
 						Declaration* tdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
@@ -7894,7 +7913,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				nexp->mLeft = exp;
 				if (mScanner->mToken != TK_CLOSE_PARENTHESIS)
 				{
-					nexp->mRight = ParseListExpression(false);
+					nexp->mRight = ParseListExpression(false, exp->mDecType->mParams);
 					ConsumeToken(TK_CLOSE_PARENTHESIS);
 				}
 				else
@@ -9555,7 +9574,7 @@ Expression* Parser::ExpandArgumentPack(Expression* exp, Declaration* dec)
 		return vex;
 }
 
-Expression* Parser::ParseListExpression(bool lhs)
+Expression* Parser::ParseListExpression(bool lhs, Declaration* params)
 {
 	if (ConsumeTokenIf(TK_ELLIPSIS))
 	{
@@ -9606,7 +9625,17 @@ Expression* Parser::ParseListExpression(bool lhs)
 		return ParseBinaryFoldExpression(nexp);
 	}
 
-	Expression* exp = ParseExpression(lhs);
+	Expression* exp;
+	
+	if ((mCompilerOptions & COPT_CPLUSPLUS) && mScanner->mToken == TK_OPEN_BRACE && params)
+	{
+		exp = new Expression(mScanner->mLocation, EX_TYPE);
+		exp->mDecType = params->mBase->NonRefBase();
+		exp = ParseCastExpression(exp);
+	}
+	else
+		exp = ParseExpression(lhs);
+
 	if (exp->mType == EX_PACK)
 	{
 		if (ConsumeTokenIf(TK_ELLIPSIS))
@@ -9627,7 +9656,7 @@ Expression* Parser::ParseListExpression(bool lhs)
 		if (ConsumeTokenIf(TK_ELLIPSIS))
 			return ParseBinaryFoldExpression(nexp);
 
-		nexp->mRight = ParseListExpression(false);
+		nexp->mRight = ParseListExpression(false, params ? params->mNext : nullptr);
 		nexp->mDecType = nexp->mRight->mDecType;
 		exp = nexp;
 	}

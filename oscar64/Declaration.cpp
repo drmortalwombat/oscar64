@@ -335,6 +335,9 @@ void Expression::Dump(int ident) const
 	case EX_LABEL:
 		printf("LABEL %s", mDecValue->mIdent->mString);
 		break;
+	case EX_AGGREGATE:
+		printf("AGGREGATE");
+		break;
 	}
 	printf("\n");
 
