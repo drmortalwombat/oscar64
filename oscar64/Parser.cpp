@@ -6813,11 +6813,19 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		}
 		break;
 	case TK_OPEN_BRACE:
-		mScanner->NextToken();
-		exp = new Expression(mScanner->mLocation, EX_AGGREGATE);
-		exp->mLeft = ParseListExpression(false);
-		exp->mDecType = TheConstVoidTypeDeclaration;
-		ConsumeToken(TK_CLOSE_BRACE);
+		if (!lhs)
+		{
+			mScanner->NextToken();
+			exp = new Expression(mScanner->mLocation, EX_AGGREGATE);
+			exp->mLeft = ParseListExpression(false);
+			exp->mDecType = TheConstVoidTypeDeclaration;
+			ConsumeToken(TK_CLOSE_BRACE);
+		}
+		else
+		{
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Term starts with invalid token", TokenNames[mScanner->mToken]);
+			mScanner->NextToken();
+		}
 		break;
 	case TK_ASM:
 		mScanner->NextToken();
@@ -7726,7 +7734,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				nexp->mDecType = TheVoidTypeDeclaration;
 			exp = nexp->ConstantFold(mErrors, mDataSection, mCompilationUnits->mLinker);
 		}
-		else if (mScanner->mToken == TK_OPEN_BRACE)
+		else if (mScanner->mToken == TK_OPEN_BRACE && exp->mType == EX_TYPE)
 		{
 			exp = ParseCastExpression(exp);
 		}
