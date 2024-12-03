@@ -1447,7 +1447,7 @@ Declaration * Parser::ParseFunctionDeclaration(Declaration* bdec)
 
 					adec->mSize = adec->mBase->mSize;
 
-					if ((mCompilerOptions & COPT_CPLUSPLUS) && ConsumeTokenIf(TK_ASSIGN))
+					if (((mCompilerOptions & COPT_CPLUSPLUS) || !(mCompilerOptions & COPT_STRICT)) && ConsumeTokenIf(TK_ASSIGN))
 					{
 						adec->mValue = ParseExpression(false);
 					}

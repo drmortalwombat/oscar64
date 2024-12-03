@@ -42,6 +42,7 @@ static const uint64 COPT_PETSCII = 1ULL << 53;
 static const uint64 COPT_ERROR_FILES = 1ULL << 54;
 
 static const uint64 COPT_PROFILEINFO = 1ULL << 55;
+static const uint64 COPT_STRICT = 1ULL << 56;
 
 
 

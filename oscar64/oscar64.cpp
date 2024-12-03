@@ -321,7 +321,13 @@ int main2(int argc, const char** argv)
 				{
 					compiler->mCompilerOptions |= COPT_CPLUSPLUS;
 					compiler->AddDefine(Ident::Unique("__cplusplus"), "1");
+					compiler->AddDefine(Ident::Unique("__cplusplus__"), "1");
 				}
+				else if (arg[1] == 's' && arg[2] == 't' && arg[3] == 'r' && arg[4] == 'i' && arg[5] == 'c' && arg[6] == 't' && !arg[7])
+				{
+					compiler->mCompilerOptions |= COPT_STRICT;
+					compiler->AddDefine(Ident::Unique("__strict__"), "1");
+					}
 				else if (arg[1] == 'r' && arg[2] == 'm' && arg[3] == 'p' && !arg[4])
 				{
 					compiler->mCompilerOptions |= COPT_ERROR_FILES;
@@ -339,6 +345,7 @@ int main2(int argc, const char** argv)
 				{
 					compiler->mCompilerOptions |= COPT_CPLUSPLUS;
 					compiler->AddDefine(Ident::Unique("__cplusplus"), "1");
+					compiler->AddDefine(Ident::Unique("__cplusplus__"), "1");
 				}
 
 				compiler->mCompilationUnits->AddUnit(loc, argv[i], nullptr);
