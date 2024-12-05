@@ -522,11 +522,11 @@ NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmIns
 	}
 	if (mode == ASMIM_IMMEDIATE)
 	{
-		assert(address >= 0 && address < 256);
+		assert(linkerObject || (address >= 0 && address < 256));
 	}
 	if (mode == ASMIM_ZERO_PAGE)
 	{
-		assert(address >= 1 && address < 256);
+		assert(linkerObject || (address >= 1 && address < 256));
 	}
 }
 
