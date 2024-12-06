@@ -1291,6 +1291,14 @@ void NativeCodeInstruction::BuildCollisionTable(NumberSet& liveTemps, NumberSet*
 				for (int i = BC_REG_TMP; i < BC_REG_TMP + mLinkerObject->mProc->mCallerSavedTemps; i++)
 					UpdateCollisionSet(liveTemps, collisionSets, i);
 			}
+			else if (mLinkerObject && mLinkerObject->mNumTemporaries)
+			{
+				for (int i = 0; i < mLinkerObject->mNumTemporaries; i++)
+				{
+					for (int j = 0; j < mLinkerObject->mTempSizes[i]; j++)
+						UpdateCollisionSet(liveTemps, collisionSets, mLinkerObject->mTemporaries[i] + j);
+				}
+			}
 			else
 			{
 				for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
@@ -1409,6 +1417,8 @@ bool NativeCodeInstruction::ChangesZeroPage(int address) const
 		return mType == ASMIT_INC || mType == ASMIT_DEC || mType == ASMIT_ASL || mType == ASMIT_LSR || mType == ASMIT_ROL || mType == ASMIT_ROR || mType == ASMIT_STA || mType == ASMIT_STX || mType == ASMIT_STY;
 	else if (mType == ASMIT_JSR)
 	{
+		if (address == BC_REG_WORK_Y)
+			return true;
 		if (address >= BC_REG_ACCU && address < BC_REG_ACCU + 4)
 			return true;
 		if (address >= BC_REG_WORK && address < BC_REG_WORK + 8)
@@ -51801,7 +51811,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "diggers_vacate_room");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "bmmcu_line");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -53636,6 +53646,7 @@ void NativeCodeProcedure::Optimize(void)
 	ResetVisited();
 	mEntryBlock->CombineAlternateLoads();
 #endif
+
 #if 1
 	ResetVisited();
 	mEntryBlock->ReduceLocalYPressure();
@@ -53649,6 +53660,7 @@ void NativeCodeProcedure::Optimize(void)
 	BuildDataFlowSets();
 	CompressTemporaries(true);
 #endif
+
 
 	do {
 		ResetVisited();

@@ -434,6 +434,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 		v.mTemp = cins->mDst.mTemp;
 		v.mType = type;
 	}
+#if 1
 	else if (type->mType == DT_TYPE_BOOL && v.mType->IsIntegerType() && v.mType->mType != DT_TYPE_BOOL)
 	{
 		InterInstruction* zins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
@@ -455,6 +456,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::CoerceType(InterCodeProcedure* p
 		v.mTemp = cins->mDst.mTemp;
 		v.mType = type;
 	}
+#endif
 	else if (v.mType->mSize < type->mSize)
 	{
 		if (v.mType->mSize == 1 && type->mSize == 2)
