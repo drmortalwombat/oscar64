@@ -3072,7 +3072,7 @@ __asm inp_binop_sub_f32
 
 #pragma	bytecode(BC_BINOP_SUB_F32, inp_binop_sub_f32)
 		
-__asm fmul8
+__asm crt_fmul8
 {
 		sec
 		ror
@@ -3106,7 +3106,7 @@ W1:
 		rts
 }
 
-__asm fmul
+__asm crt_fmul
 {
 		lda	accu
 		ora	accu + 1
@@ -3147,13 +3147,13 @@ W2:
 		beq W5
 		bne W6
 W4:
-		jsr	fmul8
+		jsr	crt_fmul8
 		lda	tmp + 1
 W6:		
-		jsr	fmul8
+		jsr	crt_fmul8
 W5:		
 		lda	tmp + 2
-		jsr	fmul8
+		jsr	crt_fmul8
 		
 		sec
 		lda	tmp + 8
@@ -3210,12 +3210,12 @@ __asm inp_binop_mul_f32
 {
 		jsr	freg.split_exp
 		sty tmpy
-		jsr fmul
+		jsr crt_fmul
 		ldy tmpy
 		jmp	startup.exec
 }
 
-__asm fdiv
+__asm crt_fdiv
 {
 		lda	accu
 		ora	accu + 1
@@ -3337,13 +3337,13 @@ ZERO:
 __asm inp_binop_div_f32
 {
 		jsr	freg.split_exp
-		jsr fdiv
+		jsr crt_fdiv
 		jmp	startup.exec
 }
 
 #pragma	bytecode(BC_BINOP_DIV_F32, inp_binop_div_f32)
 
-__asm fcmp
+__asm crt_fcmp
 {
 		lda	accu + 3
 		eor	tmp + 3
@@ -4058,9 +4058,9 @@ __asm load32
 #pragma runtime(fmergea, freg.merge_aexp)
 #pragma runtime(fadd, faddsub.fadd)
 #pragma runtime(fsub, faddsub.fsub)
-#pragma runtime(fmul, fmul)
-#pragma runtime(fdiv, fdiv)
-#pragma runtime(fcmp, fcmp)
+#pragma runtime(fmul, crt_fmul)
+#pragma runtime(fdiv, crt_fdiv)
+#pragma runtime(fcmp, crt_fcmp)
 #pragma runtime(ffromi, sint16_to_float)
 #pragma runtime(ffromu, uint16_to_float)
 #pragma runtime(ftoi, f32_to_i16)
@@ -4558,7 +4558,7 @@ struct Heap {
 
 #pragma section(heap, 0x0000, HeapStart, HeapEnd)
 
-__asm malloc
+__asm crt_malloc
 {
 		// make room for two additional bytes
 		// to store pointer to end of used memory
@@ -4785,14 +4785,14 @@ hc2:
 __asm inp_malloc
 {
 		sty tmpy
-		jsr malloc
+		jsr crt_malloc
 		ldy tmpy
 		jmp	startup.exec
 }
 
 #pragma bytecode(BC_MALLOC, inp_malloc)
 
-__asm free
+__asm crt_free
 {
 
 		// check nullptr free
@@ -5009,21 +5009,21 @@ nostart:
 __asm inp_free
 {
 		sty tmpy
-		jsr free
+		jsr crt_free
 		ldy tmpy
 		jmp	startup.exec
 }
 
 #pragma bytecode(BC_FREE, inp_free)
 
-__asm breakpoint
+__asm crt_breakpoint
 {
 		rts
 }
 
-#pragma runtime(malloc, malloc)
-#pragma runtime(free, free)
-#pragma runtime(breakpoint, breakpoint)
+#pragma runtime(malloc, crt_malloc)
+#pragma runtime(free, crt_free)
+#pragma runtime(breakpoint, crt_breakpoint)
 
 #if 0
 

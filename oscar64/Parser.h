@@ -82,7 +82,7 @@ protected:
 	Declaration* ReverseDeclaration(Declaration* odec, Declaration* bdec);
 
 	Expression* ParseFunction(Declaration* dec);
-	Expression* ParseAssembler(void);
+	Expression* ParseAssembler(Declaration * vdassm = nullptr);
 
 	Expression* ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerMulOperand(Declaration* pcasm, int pcoffset);

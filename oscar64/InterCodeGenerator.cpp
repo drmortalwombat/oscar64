@@ -830,6 +830,14 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * adec,GrowingArray<Declaration*> * refvars)
 {
 	Expression* exp = adec->mValue;
+	if (!adec->mValue)
+	{
+		mErrors->Error(adec->mLocation, EERR_UNDEFINED_OBJECT, "Call of undefined assembler function", adec->mIdent);
+		if (!adec->mLinkerObject)
+			adec->mLinkerObject = mLinker->AddObject(adec->mLocation, adec->mQualIdent, adec->mSection, LOT_NATIVE_CODE, adec->mAlignment);
+
+		return;
+	}
 
 	GrowingArray<int>	offsetMap(-1);
 

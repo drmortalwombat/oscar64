@@ -11813,8 +11813,17 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 						exp->mDecValue = ldec;
 						exp->mDecType = TheUnsignedIntTypeDeclaration;
 					}
-					else
+					else if (exp->mDecValue->mFlags & DTF_DEFINED)
 						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Assembler label not found", mScanner->mTokenIdent);
+					else
+					{
+						Declaration * ldec = new Declaration(mScanner->mLocation, DT_LABEL);
+						ldec->mIdent = mScanner->mTokenIdent;
+						ldec->mQualIdent = mScanner->mTokenIdent;
+						exp->mDecType = TheUnsignedIntTypeDeclaration;
+						exp->mDecValue->mBase->mScope->Insert(ldec->mIdent, ldec);
+						exp->mDecValue = ldec;
+					}
 				}
 				mScanner->NextToken();
 			}
@@ -12126,9 +12135,24 @@ void Parser::AddAssemblerRegister(const Ident* ident, int value)
 	mScope->Insert(decaccu->mIdent, decaccu);
 }
 
-Expression* Parser::ParseAssembler(void)
+Expression* Parser::ParseAssembler(Declaration* vdasm)
 {
-	DeclarationScope* scope = new DeclarationScope(mScope, SLEVEL_LOCAL);
+	Declaration* dasm;
+	if (!vdasm)
+	{
+		dasm = new Declaration(mScanner->mLocation, DT_TYPE_ASSEMBLER);
+		dasm->mScope = new DeclarationScope(mScope, SLEVEL_LOCAL);
+
+		vdasm = new Declaration(mScanner->mLocation, DT_CONST_ASSEMBLER);
+		vdasm->mVarIndex = -1;
+		vdasm->mSection = mCodeSection;
+
+		vdasm->mBase = dasm;
+	}
+	else
+		dasm = vdasm->mBase;
+
+	DeclarationScope* scope = dasm->mScope;
 	mScope = scope;
 
 	mScanner->SetAssemblerMode(true);
@@ -12153,21 +12177,13 @@ Expression* Parser::ParseAssembler(void)
 	decaccu->mInteger = BC_REG_ACCU;
 	mScope->Insert(decaccu->mIdent, decaccu);
 
-	Declaration* dassm = new Declaration(mScanner->mLocation, DT_TYPE_ASSEMBLER);
-	dassm->mScope = scope;
-
-	Declaration* vdasm = new Declaration(mScanner->mLocation, DT_CONST_ASSEMBLER);
-	vdasm->mVarIndex = -1;
-	vdasm->mSection = mCodeSection;
-
-	vdasm->mBase = dassm;
 
 	Expression* ifirst = new Expression(mScanner->mLocation, EX_ASSEMBLER);
 	Expression* ilast = ifirst, * ifinal = ifirst;
 
 	bool		exitLabel = false;
 
-	ifirst->mDecType = dassm;
+	ifirst->mDecType = dasm;
 	ifirst->mDecValue = vdasm;
 	vdasm->mValue = ifirst;
 
@@ -12438,10 +12454,12 @@ Expression* Parser::ParseAssembler(void)
 
 	mScope->End(mScanner->mLocation);
 	mScope = mScope->mParent;
-	dassm->mSize = offset;
-	dassm->mScope->mParent = nullptr;
+	dasm->mSize = offset;
+	dasm->mScope->mParent = nullptr;
 
 	mScanner->SetAssemblerMode(false);
+
+	vdasm->mFlags |= DTF_DEFINED;
 
 	return ifirst;
 }
@@ -12785,7 +12803,7 @@ void Parser::ParsePragma(void)
 				}
 				else
 				{
-					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Runtime function not found");
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Runtime function not found", rtident);
 					mScanner->NextToken();
 				}
 
@@ -13553,16 +13571,34 @@ void Parser::Parse(void)
 				const Ident* ident = mScanner->mTokenIdent;
 				mScanner->NextToken();
 
+				Declaration* vdasm = mScope->Lookup(ident);
+				if (vdasm)
+				{
+					if (vdasm->mType != DT_CONST_ASSEMBLER || (vdasm->mFlags & DTF_DEFINED))
+					{
+						mErrors->Error(mScanner->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate definition", ident);
+						mErrors->Error(vdasm->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+					}
+				}
+				else
+				{
+					Declaration	*	dasm = new Declaration(mScanner->mLocation, DT_TYPE_ASSEMBLER);
+					dasm->mScope = new DeclarationScope(mScope, SLEVEL_LOCAL);
+
+					vdasm = new Declaration(mScanner->mLocation, DT_CONST_ASSEMBLER);
+					vdasm->mVarIndex = -1;
+					vdasm->mSection = mCodeSection;
+					vdasm->mBase = dasm;
+					vdasm->mIdent = ident;
+					vdasm->mQualIdent = ident;
+					mScope->Insert(ident, vdasm);
+				}
+
 				if (mScanner->mToken == TK_OPEN_BRACE)
 				{
 					mScanner->NextToken();
 
-					Expression* exp = ParseAssembler();
-
-					exp->mDecValue->mIdent = ident;
-					exp->mDecValue->mQualIdent = ident;
-
-					mScope->Insert(ident, exp->mDecValue);
+					Expression* exp = ParseAssembler(vdasm);
 
 					if (mScanner->mToken == TK_CLOSE_BRACE)
 						mScanner->NextToken();
