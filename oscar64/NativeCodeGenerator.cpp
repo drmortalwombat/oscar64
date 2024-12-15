@@ -37694,7 +37694,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	while (ai < mIns.Size() && !mIns[ai].ChangesAccu())
 		ai++;
 
-	if (ai < mIns.Size() && !(mIns[ai].mLive & LIVE_CPU_REG_Z))
+	if (ai < mIns.Size() && !(mIns[ai].mLive & LIVE_CPU_REG_Z) && !mEntryRequiredRegs[CPU_REG_A])
 	{
 		if (mIns[ai].mType == ASMIT_LDA && mIns[ai].mMode == ASMIM_IMMEDIATE)
 		{
@@ -51811,7 +51811,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "bmmcu_line");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

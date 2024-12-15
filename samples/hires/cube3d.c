@@ -48,7 +48,7 @@ struct Point
 };
 
 
-Point	tcorners[8], pcorners[8];
+__striped	Point	tcorners[8], pcorners[8];
 
 void drawCube(void)
 {
@@ -75,6 +75,45 @@ void hideCube(void)
 		if (!(i & 4))
 			bm_line(&Screen, &cr, pcorners[i].x, pcorners[i].y, pcorners[i | 4].x, pcorners[i | 4].y, 0xff, LINOP_AND);
 	}
+}
+
+void xorCube(void)
+{
+	for(char i=0; i<8; i++)
+	{
+		if (!(i & 1))
+			bm_line(&Screen, &cr, tcorners[i].x, tcorners[i].y, tcorners[i | 1].x, tcorners[i | 1].y, 0xff, LINOP_XOR);
+		if (!(i & 2))
+			bm_line(&Screen, &cr, tcorners[i].x, tcorners[i].y, tcorners[i | 2].x, tcorners[i | 2].y, 0xff, LINOP_XOR);
+		if (!(i & 4))
+			bm_line(&Screen, &cr, tcorners[i].x, tcorners[i].y, tcorners[i | 4].x, tcorners[i | 4].y, 0xff, LINOP_XOR);
+		pcorners[i] = tcorners[i];
+	}
+}
+
+void xor2Cube(void)
+{
+	for(char i=0; i<8; i++)
+	{
+		if (!(i & 1))
+		{
+			bm_line(&Screen, &cr, pcorners[i].x, pcorners[i].y, pcorners[i | 1].x, pcorners[i | 1].y, 0xff, LINOP_XOR);
+			bm_line(&Screen, &cr, tcorners[i].x, tcorners[i].y, tcorners[i | 1].x, tcorners[i | 1].y, 0xff, LINOP_XOR);
+		}
+		if (!(i & 2))
+		{
+			bm_line(&Screen, &cr, pcorners[i].x, pcorners[i].y, pcorners[i | 2].x, pcorners[i | 2].y, 0xff, LINOP_XOR);
+			bm_line(&Screen, &cr, tcorners[i].x, tcorners[i].y, tcorners[i | 2].x, tcorners[i | 2].y, 0xff, LINOP_XOR);
+		}
+		if (!(i & 4))
+		{
+			bm_line(&Screen, &cr, pcorners[i].x, pcorners[i].y, pcorners[i | 4].x, pcorners[i | 4].y, 0xff, LINOP_XOR);
+			bm_line(&Screen, &cr, tcorners[i].x, tcorners[i].y, tcorners[i | 4].x, tcorners[i | 4].y, 0xff, LINOP_XOR);
+		}
+	}
+
+	for(char i=0; i<8; i++)
+		pcorners[i] = tcorners[i];
 }
 
 #if 1
@@ -112,8 +151,15 @@ int main(void)
 			tcorners[i].y = lmuldiv16s(vd.v[1], 140, vd.v[2] + 4 * FIX12_ONE) + 100;
 		}
 
+#if 1
+		if (k)
+			xor2Cube();
+		else
+			xorCube();
+#else
 		hideCube();
 		drawCube();
+#endif
 
 	}
 

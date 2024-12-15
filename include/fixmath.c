@@ -123,8 +123,9 @@ int lmul4f12s(int x, int y)
 
 		lda #0
 		sta	accu + 1
-L2:		
+
 		bcc	W4
+L2:		
 		tay
 		clc
 		lda	accu + 1
@@ -165,7 +166,7 @@ W1:
 		bcc W2
 
 		tay
-		sec
+//		sec 		; we know it is set here
 		lda accu + 1
 		sbc y
 		sta accu + 1

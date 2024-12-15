@@ -525,7 +525,7 @@ void bm_polygon_nc_fill(const Bitmap * bm, const ClipRect * clip, int * px, int 
 static inline void buildline(char ly, char lx, int dx, int dy, int stride, bool left, bool up, char pattern, LineOp op)
 {
 	char	ip = 0;
-	bool	delta16 = ((dx | dy) & 0xff80) != 0;
+	bool	delta16 =((dx | dy) & 0xff80) != 0;
 
 	// ylow
 	ip += asm_im(BLIT_CODE + ip, ASM_LDY, ly);
@@ -579,82 +579,105 @@ static inline void buildline(char ly, char lx, int dx, int dy, int stride, bool 
 		break;
 	}
 
-	if (dx && dy)
-	{
-		// m >= 0
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + delta16);
-		ip += asm_rl(BLIT_CODE + ip, ASM_BMI, delta16 ? 5 + 15 + 13 + 2 : 5 + 15 + 7 + 2);
-	}
-
 	if (dy)
 	{
-		ip += asm_np(BLIT_CODE + ip, up ? ASM_DEY : ASM_INY);
-		ip += asm_im(BLIT_CODE + ip, ASM_CPY, up ? 0xff : 0x08);
-		ip += asm_rl(BLIT_CODE + ip, ASM_BNE, 15);
+		bool	delta8 = false;
 
-		ip += asm_np(BLIT_CODE + ip, ASM_CLC);
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
-		ip += asm_im(BLIT_CODE + ip, ASM_ADC, stride & 0xff);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP + 1);
-		ip += asm_im(BLIT_CODE + ip, ASM_ADC, stride >> 8);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP + 1);
-		ip += asm_im(BLIT_CODE + ip, ASM_LDY, up ? 0x07 : 0x00);
-	}
-
-	if (dx && dy)
-	{
-		ip += asm_np(BLIT_CODE + ip, ASM_SEC);
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
-		ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx & 0xff);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
-
-		if (delta16)
+		if (dx)
 		{
-			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
-			ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx >> 8);
-			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+			// m >= 0
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + delta16);
+			char n = delta16 ? 18 + 13 + 2 : 18 + 7 + 2;
+			if (!up) n++;
+			ip += asm_rl(BLIT_CODE + ip, ASM_BMI, n);
+			delta8 = !delta16;
+		}
+
+		if (up)
+		{
+			ip += asm_np(BLIT_CODE + ip, ASM_DEY);
+			ip += asm_rl(BLIT_CODE + ip, ASM_BPL, delta8 ? 17 : 15);
+			ip += asm_np(BLIT_CODE + ip, ASM_CLC);
+			ip += asm_im(BLIT_CODE + ip, ASM_LDY, 0x07);
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
+			ip += asm_im(BLIT_CODE + ip, ASM_ADC, stride & 0xff);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP + 1);
+			ip += asm_im(BLIT_CODE + ip, ASM_ADC, stride >> 8);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP + 1);
+		}
+		else
+		{
+			ip += asm_np(BLIT_CODE + ip, ASM_INY);
+			ip += asm_im(BLIT_CODE + ip, ASM_CPY, 0x08);
+			ip += asm_rl(BLIT_CODE + ip, ASM_BNE, delta8 ? 16 : 14);
+			ip += asm_im(BLIT_CODE + ip, ASM_LDY, 0x00);
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
+			ip += asm_im(BLIT_CODE + ip, ASM_ADC, (stride - 1) & 0xff);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP + 1);
+			ip += asm_im(BLIT_CODE + ip, ASM_ADC, (stride - 1) >> 8);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP + 1);
+		}
+
+		if (dx)
+		{
+			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
+			ip += asm_np(BLIT_CODE + ip, ASM_SEC);
+			ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx & 0xff);
+			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
+
+			if (delta16)
+			{
+				ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
+				ip += asm_im(BLIT_CODE + ip, ASM_SBC, dx >> 8);
+				ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+				ip += asm_rl(BLIT_CODE + ip, ASM_BPL, 13 + 4 + 12);
+
+				ip += asm_np(BLIT_CODE + ip, ASM_CLC);
+				ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
+				ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy & 0xff);
+				ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
+				ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
+				ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy >> 8);
+				ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
+			}
+			else
+			{
+				// We know regdp to be in the accu at this point
+				ip += asm_rl(BLIT_CODE + ip, ASM_BPL, 5 + 4 + 12);
+				ip += asm_np(BLIT_CODE + ip, ASM_CLC);
+				ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy & 0xff);
+				ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
+			}
 		}
 
 		// m < 0
-		ip += asm_rl(BLIT_CODE + ip, ASM_BPL, delta16 ? 4 + 13 + 13 : 4 + 13 + 7);
 	}
 
 	if (dx)
 	{
 		ip += asm_zp(BLIT_CODE + ip, left ? ASM_ASL : ASM_LSR, REG_D0);
-		ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 13);
+		ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 12);
 
 		ip += asm_zp(BLIT_CODE + ip, left ? ASM_ROL : ASM_ROR, REG_D0);
-		ip += asm_np(BLIT_CODE + ip, ASM_CLC);
+
 		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_SP);
-		ip += asm_im(BLIT_CODE + ip, ASM_ADC, left ? 0xf8 : 0x08);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
 
 		if (left)
 		{
+			ip += asm_im(BLIT_CODE + ip, ASM_ADC, 0xf8);
 			ip += asm_rl(BLIT_CODE + ip, ASM_BCS, 2);
 			ip += asm_zp(BLIT_CODE + ip, ASM_DEC, REG_SP + 1);
 		}
 		else
 		{
+			ip += asm_im(BLIT_CODE + ip, ASM_ADC, 0x08);
 			ip += asm_rl(BLIT_CODE + ip, ASM_BCC, 2);
 			ip += asm_zp(BLIT_CODE + ip, ASM_INC, REG_SP + 1);
 		}
-	}
 
-	if (dx && dy)
-	{
-		ip += asm_np(BLIT_CODE + ip, ASM_CLC);
-		ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP);
-		ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy & 0xff);
-		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP);
-		if (delta16)
-		{
-			ip += asm_zp(BLIT_CODE + ip, ASM_LDA, REG_DP + 1);
-			ip += asm_im(BLIT_CODE + ip, ASM_ADC, dy >> 8);
-			ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_DP + 1);
-		}
+		ip += asm_zp(BLIT_CODE + ip, ASM_STA, REG_SP);
 	}
 
 	// l --

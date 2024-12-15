@@ -13613,7 +13613,7 @@ bool InterCodeBasicBlock::MoveTrainCrossBlock(void)
 						FastNumberSet	nset(mEntryRequiredTemps.Size());
 
 						InterInstruction* ins(mInstructions[i]);
-						if (ins->mCode == IC_STORE)
+						if (ins->mCode == IC_STORE && ins->mSrc[0].mFinal)
 						{
 							for (int k = 0; k < ins->mNumOperands; k++)
 							{
@@ -22996,7 +22996,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
