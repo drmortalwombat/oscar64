@@ -271,9 +271,8 @@ char kbhit(void)
 #if defined(__CBMPET__)
 	return __asm
 	{
-		ldx $97
-		inx
-		stx	accu
+		lda $9e
+		sta	accu
 	};
 #else
 	return __asm
