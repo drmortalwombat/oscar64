@@ -268,11 +268,20 @@ char getpch(void)
 
 char kbhit(void)
 {
+#if defined(__CBMPET__)
+	return __asm
+	{
+		ldx $97
+		inx
+		stx	accu
+	};
+#else
 	return __asm
 	{
 		lda $c6
 		sta	accu
 	};
+#endif
 }
 
 char getche(void)
