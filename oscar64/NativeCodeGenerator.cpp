@@ -46787,6 +46787,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		return true;
 	}
 	else if (
+		mIns[i + 0].mType == ASMIT_CLC &&
+		mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
+		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress >= 0xfe &&
+		mIns[i + 3].mType == ASMIT_TAY && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+	{
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+		mIns[i + 2].mType = ASMIT_DEY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+		if (mIns[i + 2].mAddress == 0xfe)
+			mIns[i + 3].mType = ASMIT_DEY;
+		else
+			mIns[i + 3].mType = ASMIT_NOP;
+		mIns[i + 3].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+	else if (
 		mIns[i + 0].mType == ASMIT_SEC &&
 		mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
 		mIns[i + 2].mType == ASMIT_SBC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress <= 2 &&
@@ -46813,6 +46829,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 2].mType = ASMIT_INX; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
 		if (mIns[i + 2].mAddress == 2)
 			mIns[i + 3].mType = ASMIT_INX;
+		else
+			mIns[i + 3].mType = ASMIT_NOP;
+		mIns[i + 3].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+	else if (
+		mIns[i + 0].mType == ASMIT_CLC &&
+		mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
+		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress >= 0xfe &&
+		mIns[i + 3].mType == ASMIT_TAX && !(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z | LIVE_CPU_REG_C)))
+	{
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+		mIns[i + 2].mType = ASMIT_DEX; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_X;
+		if (mIns[i + 2].mAddress == 0xfe)
+			mIns[i + 3].mType = ASMIT_DEX;
 		else
 			mIns[i + 3].mType = ASMIT_NOP;
 		mIns[i + 3].mMode = ASMIM_IMPLIED;
@@ -49149,6 +49181,42 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 					{
 						mIns[i + j].mType = ASMIT_NOP; mIns[i + j].mMode = ASMIM_IMPLIED;
 					}
+
+					mProc->ResetPatched();
+					if (PatchForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval))
+					{
+						if (mTrueJump)
+							mTrueJump->CheckLive();
+						if (mFalseJump)
+							mFalseJump->CheckLive();
+						return true;
+					}
+				}
+			}
+		}
+#endif
+#if 1
+		if (
+			mIns[i + 0].mType == ASMIT_CLC &&
+			mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 1].mAddress &&
+			mIns[i + 3].mType == ASMIT_LDA && (mIns[i + 3].mMode == ASMIM_ABSOLUTE_X || mIns[i + 3].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+			mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
+			mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1)
+		{
+			int yval = RetrieveYValue(i);
+			int reg = FindFreeAccu(i);
+			if (reg >= 0)
+			{
+				NativeCodeInstruction	iins(mIns[i + 0].mIns, ASMIT_STA, ASMIM_ZERO_PAGE, reg);
+
+				mProc->ResetPatched();
+				if (CheckForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval, 3))
+				{
+					mIns[i + 0] = iins;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 
 					mProc->ResetPatched();
 					if (PatchForwardSumYPointer(this, mIns[i + 1].mAddress, mIns[i + 1].mAddress, iins, i + 6, yval))
