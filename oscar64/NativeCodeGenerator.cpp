@@ -13777,7 +13777,7 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 			{
 				// Negative index, small global
 
-				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[1].mIntConst) & 0xff));
 				mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
 
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC));
