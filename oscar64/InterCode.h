@@ -480,6 +480,8 @@ public:
 
 	bool CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64 & nloop);
 
+	bool TempIsUnsigned(int temp);
+
 	void RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
 	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);

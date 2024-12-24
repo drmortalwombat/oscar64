@@ -9170,6 +9170,21 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(const GrowingVaria
 	}
 }
 
+bool InterCodeBasicBlock::TempIsUnsigned(int temp)
+{
+	for (int i = 0; i < mInstructions.Size(); i++)
+	{
+		InterInstruction* ins = mInstructions[i];
+		if (ins->UsesTemp(temp))
+		{
+			if (ins->mCode == IC_CONVERSION_OPERATOR && (ins->mOperator == IA_EXT8TO16U || ins->mOperator == IA_EXT8TO32U))
+				return true;
+		}
+	}
+
+	return false;
+}
+
 void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
 {
 	mProc->mLocalValueRange = mEntryValueRange;
@@ -9533,7 +9548,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
 					mTrueValueRange[s1].LimitMin(0);
 
-					if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
+					if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && 
+						mFalseValueRange[s1].mMinValue >= 0 || mFalseJump->TempIsUnsigned(s1))
 					{
 						mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
 					}
