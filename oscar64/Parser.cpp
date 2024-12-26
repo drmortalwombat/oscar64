@@ -869,6 +869,14 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		mScanner->NextToken();
 		break;
 
+	case TK_DECLTYPE:
+	{
+		mScanner->NextToken();
+		Expression* exp = ParseExpression(true);
+		dec = exp->mDecType;
+	}
+		break;
+
 	case TK_IDENT:
 		pident = mScanner->mTokenIdent;
 		mScanner->NextToken();
@@ -5321,7 +5329,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 							if (pdec)
 							{
-								if (!ndec->mBase->IsSame(pdec->mBase))
+								if (!ndec->mBase->IsSame(pdec->mBase) && !(ndec->mBase->mBase->mType == DT_TYPE_AUTO && ndec->mBase->IsSameParams(pdec->mBase)))
 								{
 									ndec->mBase->IsSameParams(pdec->mBase);
 									ndec->mBase->IsSame(pdec->mBase);
@@ -6384,6 +6392,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 	case TK_STATIC:
 	case TK_AUTO:
 	case TK_STRIPED:
+	case TK_DECLTYPE:
 		exp = ParseDeclarationExpression(nullptr);
 		break;
 
@@ -7461,6 +7470,7 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 				nexp->mLeft->mDecType = fexp->mBase;
 				nexp->mLeft->mDecValue = fexp;
 				nexp->mRight = aexp;
+				nexp->mDecType = fexp->mBase->mBase;
 
 				return nexp;
 			}
@@ -9349,6 +9359,9 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 				Declaration* tdec = exp->mLeft->mDecType;
 				while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 					tdec = tdec->mBase;
+				Declaration* rtdec = exp->mRight->mDecType;
+				while (rtdec->mType == DT_TYPE_REFERENCE || rtdec->mType == DT_TYPE_RVALUEREF)
+					rtdec = rtdec->mBase;
 
 				if (tdec->mType == DT_TYPE_STRUCT)
 				{
@@ -9381,6 +9394,18 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						nexp->mDecType = nexp->mLeft->mDecType->mBase;
 
 						exp = nexp;
+					}
+				}
+
+				if (exp->mType != EX_CALL && !nexp2 && (tdec->mType == DT_TYPE_STRUCT || rtdec->mType == DT_TYPE_STRUCT))
+				{
+					if ((exp->mLeft->mDecType->IsIntegerType() || CanCoerceExpression(exp->mLeft, TheSignedIntTypeDeclaration)) && 
+						(exp->mRight->mDecType->IsIntegerType() || CanCoerceExpression(exp->mRight, TheSignedIntTypeDeclaration)))
+					{
+						exp->mLeft = CoerceExpression(exp->mLeft, TheSignedIntTypeDeclaration);
+						exp->mRight = CoerceExpression(exp->mRight, TheSignedIntTypeDeclaration);
+						if (exp->mType == EX_BINARY)
+							exp->mDecType = TheSignedIntTypeDeclaration;
 					}
 				}
 			}
@@ -9780,6 +9805,12 @@ void Parser::SkipStatement(void)
 			else
 				mScanner->NextToken();
 		}
+	}
+	else if (ConsumeTokenIf(TK_IF))
+	{
+		SkipStatement();
+		if (ConsumeTokenIf(TK_ELSE))
+			SkipStatement();
 	}
 	else
 	{
@@ -12540,6 +12571,7 @@ bool Parser::IsTypeToken(void)
 	case TK_STATIC:
 	case TK_AUTO:
 	case TK_STRIPED:
+	case TK_DECLTYPE:
 		return true;
 	case TK_IDENT:
 	{

@@ -754,6 +754,9 @@ bool ConstexprInterpreter::AddParam(int& pos, Expression* pex, Declaration* dec)
 
 Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 {
+	if (!exp->mLeft->mDecValue || !exp->mLeft->mDecValue->mValue)
+		return exp;
+
 	mProcType = exp->mLeft->mDecType;
 
 	Expression* pex = exp->mRight;

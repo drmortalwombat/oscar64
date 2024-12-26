@@ -264,12 +264,14 @@ public:
 	Expression* ConstantDereference(Errors* errors, LinkerSection* dataSection);
 	bool HasSideEffects(void) const;
 	Expression* ListAppend(Expression* lexp);
+	Expression* ToAlternateThis(Declaration* pthis, Declaration* nthis);
 
 	bool IsSame(const Expression* exp) const;
 	bool IsRValue(void) const;
 	bool IsLValue(void) const;
 	bool IsConstRef(void) const;
 	bool IsVolatile(void) const;
+
 
 	void Dump(int ident) const;
 };
@@ -335,6 +337,7 @@ public:
 	Declaration* ToConstType(void);
 	Declaration* ToMutableType(void);
 	Declaration* ToVolatileType(void);
+	Declaration* ToAlternateThis(Declaration* pthis, int nthis = 1);
 
 	Declaration* ToStriped(int stripe);
 	Declaration* ToStriped(Errors* errors);

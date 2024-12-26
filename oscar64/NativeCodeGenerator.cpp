@@ -46584,6 +46584,32 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		return true;
 	}
 	else if (
+		mIns[i + 0].mType == ASMIT_STA &&
+		mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
+		mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 2].mMode) &&
+		mIns[i + 3].mType == ASMIT_LDX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+	{
+		mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+		mIns[i + 2].mType = ASMIT_STX; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 3].mType = ASMIT_TAX; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+		return true;
+	}
+	else if (
+		mIns[i + 0].mType == ASMIT_STA &&
+		mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
+		mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 2].mMode) &&
+		mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+	{
+		mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+		mIns[i + 2].mType = ASMIT_STY; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 3].mType = ASMIT_TAY; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+		return true;
+	}
+	else if (
 		mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 		mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
 		mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y &&

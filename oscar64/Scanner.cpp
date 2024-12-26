@@ -173,6 +173,7 @@ const char* TokenNames[] =
 	"'friend'",
 	"'constexpr'",
 	"'typename'",
+	"'decltype'",
 };
 
 
@@ -355,7 +356,7 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	mToken = TK_NONE;
 	mUngetToken = TK_NONE;
 	mReplay = nullptr;
-	mRecord = mRecordLast = nullptr;
+	mRecord = mRecordLast = mRecordPrev = nullptr;
 
 	mOnceDict = new MacroDict();
 
@@ -372,13 +373,13 @@ Scanner::~Scanner(void)
 
 void Scanner::BeginRecord(void)
 {
-	mRecord = mRecordLast = new TokenSequence(this);
+	mRecord = mRecordLast = mRecordPrev = new TokenSequence(this);
 }
 
 TokenSequence* Scanner::CompleteRecord(void)
 {
 	TokenSequence* seq = mRecord;
-	mRecord = mRecordLast = nullptr;
+	mRecord = mRecordLast = mRecordPrev = nullptr;
 	return seq;
 }
 
@@ -483,6 +484,8 @@ void Scanner::UngetToken(Token token)
 {
 	mUngetToken = mToken;
 	mToken = token;
+	if (mRecord)
+		mRecordLast = mRecordPrev;
 }
 
 void Scanner::NextToken(void)
@@ -491,10 +494,8 @@ void Scanner::NextToken(void)
 	{
 		mToken = mUngetToken;
 		mUngetToken = TK_NONE;
-		return;
 	}
-
-	if (mReplay)
+	else if (mReplay)
 	{
 		mLocation = mReplay->mLocation;
 		mToken = mReplay->mToken;
@@ -515,6 +516,7 @@ void Scanner::NextToken(void)
 
 	if (mRecord)
 	{
+		mRecordPrev = mRecordLast;
 		mRecordLast->mNext = new TokenSequence(this);
 		mRecordLast = mRecordLast->mNext;			
 	}
@@ -1846,6 +1848,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_CONSTEXPR;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "typename"))
 					mToken = TK_TYPENAME;
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "decltype"))
+					mToken = TK_DECLTYPE;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "operator"))
 				{
 					NextRawToken();

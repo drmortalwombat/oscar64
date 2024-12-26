@@ -491,6 +491,47 @@ Expression* Expression::LogicInvertExpression(void)
 	}
 }
 
+Expression* Expression::ToAlternateThis(Declaration* pthis, Declaration* nthis)
+{
+	Expression* left = mLeft ? mLeft->ToAlternateThis(pthis, nthis) : nullptr;
+	Expression* right = mRight ? mRight->ToAlternateThis(pthis, nthis) : nullptr;
+	Declaration* decType = mDecType, * decValue = mDecValue;
+
+	if (decType == pthis->mBase)
+		decType = nthis->mBase;
+	else if (decType == pthis->mBase->mBase)
+		decType = nthis->mBase->mBase;
+	if (decValue == pthis)
+		decValue = nthis;
+
+	if (mType == EX_QUALIFY && mLeft->mDecType != left->mDecType)
+	{
+		Declaration* pe = mLeft->mDecType->mParams, * ne = left->mDecType->mParams;
+		while (pe && ne && pe != mDecValue)
+		{
+			pe = pe->mNext;
+			ne = ne->mNext;
+		}
+		decValue = ne;
+		decType = ne->mBase;
+	}
+
+	if (left == mLeft && right == mRight && decType == mDecType && decValue == mDecValue)
+		return this;
+	else
+	{
+		Expression* nexp = new Expression(mLocation, mType);
+		nexp->mLeft = left;
+		nexp->mRight = right;
+		nexp->mDecType = decType;
+		nexp->mDecValue = decValue;
+		nexp->mToken = mToken;
+		nexp->mConst = mConst;
+
+		return nexp;
+	}
+}
+
 Expression* Expression::ConstantDereference(Errors* errors, LinkerSection* dataSection)
 {
 	if (mType == EX_VARIABLE)
@@ -1032,6 +1073,26 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			exp->mDecType = dec->mBase;
 			return exp;
 
+		}
+	}
+	else if (mType == EX_LOGICAL_AND && mLeft->mType == EX_CONSTANT)
+	{
+		if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
+		{
+			if (mLeft->mDecValue->mInteger == 0)
+				return mLeft;
+			else
+				return mRight->ConstantFold(errors, dataSection);
+		}
+	}
+	else if (mType == EX_LOGICAL_OR && mLeft->mType == EX_CONSTANT)
+	{
+		if (mLeft->mDecValue->mType == DT_CONST_INTEGER)
+		{
+			if (mLeft->mDecValue->mInteger != 0)
+				return mLeft;
+			else
+				return mRight->ConstantFold(errors, dataSection);
 		}
 	}
 	else if (mType == EX_CONDITIONAL && mLeft->mType == EX_CONSTANT)
@@ -2058,6 +2119,7 @@ Declaration* Declaration::Clone(void)
 	ndec->mMaxValue = mMaxValue;
 	ndec->mCompilerOptions = mCompilerOptions;
 	ndec->mParser = mParser;
+	ndec->mNumVars = mNumVars;
 
 	return ndec;
 }
@@ -2135,7 +2197,24 @@ Declaration* Declaration::ToStriped(int stripe)
 				ndec->mParams = pnec;
 			prev = pnec;
 			p = p->mNext;
-		}		
+		}
+
+		Declaration* pndec = ndec->BuildPointer(mLocation);
+
+		mScope->Iterate([=](const Ident* ident, Declaration* vdec) {
+			if (vdec->mType == DT_CONST_FUNCTION)
+			{
+				ndec->mScope->Insert(ident, vdec->ToAlternateThis(pndec));
+			}
+		});
+
+		ndec->mDestructor = mDestructor ? mDestructor->ToAlternateThis(pndec) : nullptr;
+		ndec->mDefaultConstructor = mDefaultConstructor ? mDefaultConstructor->ToAlternateThis(pndec) : nullptr;
+		ndec->mCopyConstructor = mCopyConstructor ? mCopyConstructor->ToAlternateThis(pndec) : nullptr;
+		ndec->mMoveConstructor = mMoveConstructor ? mMoveConstructor->ToAlternateThis(pndec) : nullptr;
+		ndec->mVectorConstructor = mVectorConstructor ? mVectorConstructor->ToAlternateThis(pndec, 2) : nullptr;
+		ndec->mVectorDestructor = mVectorDestructor ? mVectorDestructor->ToAlternateThis(pndec, 2) : nullptr;
+		ndec->mVectorCopyConstructor = mVectorCopyConstructor ? mVectorCopyConstructor->ToAlternateThis(pndec, 2) : nullptr;
 	}
 	else if (mType == DT_TYPE_FUNCTION)
 	{
@@ -2242,6 +2321,34 @@ Declaration* Declaration::ToConstType(void)
 	}
 	
 	return mConst;
+}
+
+Declaration* Declaration::ToAlternateThis(Declaration* pthis, int nthis)
+{
+	Declaration* ndec = this->Clone();
+
+	if (mType == DT_CONST_FUNCTION)
+	{
+		ndec->mBase = mBase->ToAlternateThis(pthis, nthis);
+		if (mValue)
+			ndec->mValue = mValue->ToAlternateThis(mBase->mParams, ndec->mBase->mParams);
+	}
+	else
+	{
+		Declaration* nparam = ndec->mParams->Clone();
+		nparam->mBase = pthis;
+		if (nthis == 2)
+		{
+			Declaration* nparam2 = ndec->mParams->mNext->Clone();
+			nparam2->mBase = pthis;
+			nparam->mNext = nparam2;
+			nparam2->mNext = ndec->mParams->mNext->mNext;
+		}
+		else
+			nparam->mNext = ndec->mParams->mNext;
+		ndec->mParams = nparam;
+	}
+	return ndec;
 }
 
 Declaration* Declaration::ToMutableType(void)

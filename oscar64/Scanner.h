@@ -172,6 +172,7 @@ enum Token
 	TK_FRIEND,
 	TK_CONSTEXPR,
 	TK_TYPENAME,
+	TK_DECLTYPE,
 
 	NUM_TOKENS
 };
@@ -315,7 +316,7 @@ protected:
 	Token		mUngetToken;
 
 	const TokenSequence* mReplay;
-	TokenSequence* mRecord, * mRecordLast;
+	TokenSequence* mRecord, * mRecordLast, * mRecordPrev;
 
 	void StringToken(char terminator, char mode);
 	void CharToken(char mode);

@@ -54,7 +54,7 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char
 		else
 			fprintf(stderr, "oscar64: %s %d: %s '%s' != '%s'\n", level, eid, msg, info1, info2);
 	}
-
+	
 	if (mErrorCount > 10 || eid >= EFATAL_GENERIC)
 		exit(20);
 }
