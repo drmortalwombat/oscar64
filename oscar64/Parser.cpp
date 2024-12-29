@@ -2452,7 +2452,7 @@ Expression* Parser::ParseConstInitExpression(Declaration* dtype, bool inner)
 			}
 			else if (dtype->mType == DT_TYPE_POINTER)
 			{
-				if (exp->mDecValue->mType == DT_CONST_ADDRESS || exp->mDecValue->mType == DT_CONST_POINTER)
+				if (exp->mDecValue->mType == DT_CONST_ADDRESS || exp->mDecValue->mType == DT_CONST_POINTER || exp->mDecValue->mType == DT_CONST_ASSEMBLER || exp->mDecValue->mType == DT_LABEL)
 					;
 				else if (exp->mDecValue->mType == DT_CONST_FUNCTION)
 				{
@@ -7113,7 +7113,6 @@ Expression* Parser::ParseQualify(Expression* exp)
 			if (ldec)
 			{
 				exp->mDecValue = ldec;
-				exp->mDecType = TheUnsignedIntTypeDeclaration;
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Assembler label not found", mScanner->mTokenIdent);

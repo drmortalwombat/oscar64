@@ -2933,6 +2933,10 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 		{
 			return true;
 		}
+		else if (mBase->mType == DT_TYPE_FUNCTION && fromType->mType == DT_TYPE_ASSEMBLER)
+		{
+			return (mBase->mBase->mType == DT_TYPE_VOID && !mBase->mBase->mParams);
+		}
 	}
 
 	return false;

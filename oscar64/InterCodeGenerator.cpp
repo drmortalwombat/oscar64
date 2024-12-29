@@ -2318,6 +2318,23 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				return ExValue(TheVoidPointerTypeDeclaration, ins->mDst.mTemp);
 			}
 
+			case DT_LABEL_REF:
+			{
+				if (!dec->mBase->mBase->mLinkerObject)
+					TranslateAssembler(proc->mModule, dec->mBase->mBase, nullptr);
+
+				InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+				ins->mDst.mType = IT_POINTER;
+				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mConst.mType = IT_POINTER;
+				ins->mConst.mVarIndex = dec->mBase->mBase->mVarIndex;
+				ins->mConst.mLinkerObject = dec->mBase->mBase->mLinkerObject;
+				ins->mConst.mMemory = IM_PROCEDURE;
+				ins->mConst.mIntConst = dec->mInteger + dec->mBase->mInteger;
+				block->Append(ins);
+				return ExValue(TheVoidPointerTypeDeclaration, ins->mDst.mTemp);
+			}
+
 			case DT_CONST_POINTER:
 			{
 				vl = TranslateExpression(procType, proc, block, dec->mValue, destack, gotos, breakBlock, continueBlock, inlineMapper);
@@ -5692,6 +5709,19 @@ void InterCodeGenerator::BuildInitializer(InterCodeModule * mod, uint8* dp, int 
 		ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
 		ref.mRefObject = data->mLinkerObject;
 		ref.mRefOffset = 0;
+		variable->mLinkerObject->AddReference(ref);
+	}
+	else if (data->mType == DT_LABEL)
+	{
+		if (!data->mBase->mLinkerObject)
+			TranslateAssembler(mod, data->mBase, nullptr);
+
+		LinkerReference	ref;
+		ref.mObject = variable->mLinkerObject;
+		ref.mOffset = offset;
+		ref.mFlags = LREF_LOWBYTE | LREF_HIGHBYTE;
+		ref.mRefObject = data->mBase->mLinkerObject;
+		ref.mRefOffset = int(data->mInteger);
 		variable->mLinkerObject->AddReference(ref);
 	}
 	else if (data->mType == DT_CONST_FUNCTION)
