@@ -38503,6 +38503,54 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		}
 	}
 #endif
+
+	if (!changed && !mEntryRequiredRegs[CPU_REG_Y] && !mExitRequiredRegs[CPU_REG_Y] && !mEntryRequiredRegs[CPU_REG_A])
+	{
+		int firsty = 0;
+		while (firsty + 2 < mIns.Size() && !mIns[firsty].ReferencesYReg())
+			firsty++;
+		if (firsty + 2 < mIns.Size() && mIns[firsty].mType == ASMIT_LDY && mIns[firsty].mMode == ASMIM_IMMEDIATE && mIns[firsty].mAddress == 0 && mIns[firsty + 1].mMode == ASMIM_INDIRECT_Y && !(mIns[firsty + 1].mLive & LIVE_CPU_REG_Y))
+		{
+			int reg = mIns[firsty + 1].mAddress;
+			int lastz = mIns.Size() - 1;
+			while (lastz > firsty && !mIns[lastz].ReferencesZeroPage(reg))
+				lastz--;
+			if (lastz > firsty && mIns[lastz].mType == ASMIT_STA && mIns[lastz].mMode == ASMIM_ZERO_PAGE && !ReferencesYReg(lastz))
+			{
+				int i = firsty + 2;
+				while (i < lastz && !((mIns[i].ReferencesZeroPage(reg) || mIns[i].ChangesYReg()) && (mIns[i].mType != ASMIT_LDY || mIns[i].mMode != ASMIM_ZERO_PAGE || mIns[i].mAddress != reg)))
+					i++;
+
+				if (i == lastz)
+				{
+					if (!prevBlock)
+						return OptimizeSimpleLoopInvariant(proc, full);
+
+					prevBlock->mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDY, ASMIM_ZERO_PAGE, reg));
+					prevBlock->mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+					prevBlock->mIns.Push(NativeCodeInstruction(mBranchIns, ASMIT_STA, ASMIM_ZERO_PAGE, reg));
+
+					mIns[firsty].mType = ASMIT_NOP; mIns[firsty].mMode = ASMIM_IMPLIED;
+					for (int i = firsty + 2; i < lastz; i++)
+					{
+						if (mIns[i].mType == ASMIT_LDY)
+						{
+							mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
+						}
+					}
+					mIns[lastz].mType = ASMIT_TAY; mIns[lastz].mMode = ASMIM_IMPLIED;
+					for (int i = 0; i < mIns.Size(); i++)
+						mIns[i].mLive |= LIVE_CPU_REG_Y;
+					mEntryRequiredRegs += CPU_REG_Y;
+					mExitRequiredRegs += CPU_REG_Y;
+					exitBlock->mEntryRequiredRegs += CPU_REG_Y;
+					exitBlock->mIns.Insert(0, NativeCodeInstruction(mBranchIns, ASMIT_STY, ASMIM_ZERO_PAGE, reg));
+					changed = true;
+				}
+			}
+		}
+	}
+
 	return changed;
 }
 
@@ -51905,7 +51953,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	mInterProc = proc;
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "main");
+	CheckFunc = !strcmp(mInterProc->mIdent->mString, "belt_copy_column");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
