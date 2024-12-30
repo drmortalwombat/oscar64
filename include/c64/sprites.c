@@ -171,6 +171,12 @@ void vspr_init(char * screen)
 	}
 }
 
+void vspr_shutdown(void)
+{
+	for(int i=0; i<VSPRITES_MAX - 7; i++)
+		rirq_clear(i);
+}
+
 void vspr_screen(char * screen)
 {	
 	vspriteScreen = screen + 0x3f8;	

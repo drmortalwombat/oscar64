@@ -18427,7 +18427,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					}
 				}
 			}
-
+#endif
+#if 1
 			if (!hasCall && (mProc->mCompilerOptions & COPT_OPTIMIZE_BASIC))
 			{
 				// Check forwarding globals
@@ -18438,7 +18439,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 					InterInstruction* ins = mInstructions[i];
 
 					// A global load
-					if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp < 0 && (ins->mSrc[0].mMemory == IM_GLOBAL || ins->mSrc[0].mMemory == IM_FPARAM))
+					if (ins->mCode == IC_LOAD && !ins->mVolatile && ins->mSrc[0].mTemp < 0 && (ins->mSrc[0].mMemory == IM_GLOBAL || ins->mSrc[0].mMemory == IM_FPARAM))
 					{
 						// Find the last store that overlaps the load
 						int	j = mInstructions.Size() - 1;
@@ -18450,7 +18451,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							InterInstruction* sins = mInstructions[j];
 
 							// Does a full store
-							if (SameMem(ins->mSrc[0], sins->mSrc[1]) && !AliasingMem(this, ins, 0, mInstructions.Size()))
+							if (SameMem(ins->mSrc[0], sins->mSrc[1]) && !AliasingMem(this, ins, 0, mInstructions.Size()) && !DestroyingMem(this, ins, 0, j))
 							{
 								if (sins->mSrc[0].mTemp >= 0)
 								{
@@ -23012,7 +23013,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "drawAllRows");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

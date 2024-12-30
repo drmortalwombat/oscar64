@@ -669,7 +669,7 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 
 	if (mFlags & NCIF_VOLATILE)
 	{
-		if (mMode != ASMIM_IMPLIED && mMode != ASMIM_ZERO_PAGE)
+		if (mMode != ASMIM_IMPLIED && mMode != ASMIM_ZERO_PAGE && !(mMode == ASMIM_ABSOLUTE && mLinkerObject && (mLinkerObject->mFlags & LOBJF_ZEROPAGE)))
 			used = true;
 	}
 
