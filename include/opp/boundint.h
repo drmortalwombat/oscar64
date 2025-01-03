@@ -32,6 +32,13 @@ namespace opp {
 			v = k;
 		}
 
+		void operator+=(int k)
+		{
+			k += v;
+			__assume(k >= tmin && k <= tmax);
+			v = k;
+		}
+
 		operator int() const
 		{
 			int k = v;

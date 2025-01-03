@@ -8775,7 +8775,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 							{
 								vr.mMinState = IntegerValueRange::S_BOUND;
 								vr.mMinValue = 0;
-								vr.LimitMax(ins->mSrc[0].mIntConst);
+								vr.LimitMax(ins->mSrc[0].mIntConst & BuildLowerBitsMask(ins->mSrc[1].mRange.mMaxValue));
 							}
 							else
 							{
@@ -8794,7 +8794,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 							{
 								vr.mMinState = IntegerValueRange::S_BOUND;
 								vr.mMinValue = 0;
-								vr.LimitMax(ins->mSrc[1].mIntConst);
+								vr.LimitMax(ins->mSrc[1].mIntConst & BuildLowerBitsMask(ins->mSrc[0].mRange.mMaxValue));
 							}
 							else
 							{
