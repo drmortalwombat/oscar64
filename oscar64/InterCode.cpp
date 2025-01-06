@@ -19462,7 +19462,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			else if (mInstructions[i + 0]->mCode == IC_LOAD &&
 				mInstructions[i + 1]->mCode == IC_LOAD &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
-				mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst)
+				mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst &&
+				mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp)
 			{
 				SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
 				InterInstruction* ins(mInstructions[i + 0]);
@@ -23033,8 +23034,8 @@ void InterCodeProcedure::BuildLocalAliasTable(void)
 void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
-
-	CheckFunc = !strcmp(mIdent->mString, "enemies_iterate");
+	
+	CheckFunc = !strcmp(mIdent->mString, "getActor");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
