@@ -724,7 +724,7 @@ public:
 	bool CanGlobalSwapXY(void);
 	bool GlobalSwapXY(void);
 	bool LocalSwapXY(void);
-	bool UntangleXYUsage(void);
+	bool UntangleXYUsage(bool final);
 	bool AlternateXXUsage(void);
 
 	bool IsSimpleSubExpression(int at, NativeSimpleSubExpression & ex);

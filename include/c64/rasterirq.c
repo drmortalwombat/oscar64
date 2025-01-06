@@ -24,11 +24,9 @@ byte		nextIRQ;
 
 __asm irq0
 {	
-    pha
-    txa
-    pha
-    tya
-    pha
+	sta plra + 1
+	stx plrx + 1
+	sty plry + 1
 kentry:
 	asl $d019
 
@@ -66,11 +64,12 @@ exd:
 ex:
 	sty	$d012
 
-    pla
-    tay
-    pla
-    tax
-    pla
+plry:
+	ldy #0
+plrx:
+	ldx #0
+plra:
+	lda #0
     rti
 
 e2:
