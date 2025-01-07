@@ -48630,6 +48630,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate6(int i, int pass)
 		mIns[i + 5].mLive |= (mIns[i + 4].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z));
 		mIns[i + 0].mLive |= livexy;
 		mIns[i + 1].mLive |= livexy;
+		mIns[i + 2].mLive |= LIVE_CPU_REG_C | livexy;
+		mIns[i + 3].mLive |= LIVE_CPU_REG_C;
 		return true;
 	}
 

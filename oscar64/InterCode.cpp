@@ -23035,7 +23035,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "getActor");
+	CheckFunc = !strcmp(mIdent->mString, "enemies_iterate");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -24279,6 +24279,16 @@ bool InterCodeBasicBlock::SameExitCode(const InterCodeBasicBlock* block) const
 						}
 					}
 				}
+				else if (j0 >= 0)
+				{
+					if (mInstructions[j0]->mCode == IC_LEA && mInstructions[j0]->mSrc[1].mTemp < 0 && mInstructions[j0]->mSrc[0].IsUByte())
+						return false;
+				}
+				else if (j1 >= 0)
+				{
+					if (block->mInstructions[j1]->mCode == IC_LEA && block->mInstructions[j1]->mSrc[1].mTemp < 0 && block->mInstructions[j1]->mSrc[0].IsUByte())
+						return false;
+				}
 
 				if (InterTypeSize[ins0->mSrc[0].mType] == 4)
 				{
@@ -24359,6 +24369,8 @@ bool PartitionSameExitCode(GrowingArray<InterCodeBasicBlock* > & eblocks, Growin
 
 bool InterCodeProcedure::ShortLeaMerge(FastNumberSet& activeSet)
 {
+	DisassembleDebug("PreShortLeaMerge");
+
 	int		silvused = mTemporaries.Size();
 
 	int		n = 0;
