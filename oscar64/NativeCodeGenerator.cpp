@@ -50667,7 +50667,6 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 		}
 	}
 
-
 	else if (sz >= 4 &&
 		mIns[sz - 4].mType == ASMIT_EOR && mIns[sz - 4].mMode == ASMIM_IMMEDIATE && mIns[sz - 4].mAddress == 0x80 &&
 		mIns[sz - 3].mType == ASMIT_STA && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
@@ -51029,6 +51028,57 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 					mFalseJump->AddEntryBlock(this);
 					changed = true;
 				}
+			}
+		}
+	}
+#endif
+
+#if 1
+	if (sz >= 1 && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_Z))
+	{
+		if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
+		{
+			AsmInsType	ty = ASMIT_INV;
+			NativeCodeBasicBlock* nblock;
+			int tr;
+
+			if (mTrueJump->mIns.Size() > 0 && mTrueJump->mIns[0].mType == ASMIT_TAY && !(mTrueJump->mIns[0].mLive & LIVE_CPU_REG_A) && !mFalseJump->mEntryRequiredRegs[CPU_REG_A] && !mFalseJump->mEntryRequiredRegs[CPU_REG_Y])
+			{
+				ty = ASMIT_TAY;
+				tr = CPU_REG_Y;
+				nblock = mTrueJump;
+			}
+			else if (mTrueJump->mIns.Size() > 0 && mTrueJump->mIns[0].mType == ASMIT_TAX && !(mTrueJump->mIns[0].mLive & LIVE_CPU_REG_A) && !mFalseJump->mEntryRequiredRegs[CPU_REG_A] && !mFalseJump->mEntryRequiredRegs[CPU_REG_X])
+			{
+				ty = ASMIT_TAX;
+				tr = CPU_REG_X;
+				nblock = mTrueJump;
+			}
+			else if (mFalseJump->mIns.Size() > 0 && mFalseJump->mIns[0].mType == ASMIT_TAY && !(mFalseJump->mIns[0].mLive & LIVE_CPU_REG_A) && !mTrueJump->mEntryRequiredRegs[CPU_REG_A] && !mTrueJump->mEntryRequiredRegs[CPU_REG_Y])
+			{
+				ty = ASMIT_TAY;
+				tr = CPU_REG_Y;
+				nblock = mFalseJump;
+			}
+			else if (mFalseJump->mIns.Size() > 0 && mFalseJump->mIns[0].mType == ASMIT_TAX && !(mFalseJump->mIns[0].mLive & LIVE_CPU_REG_A) && !mTrueJump->mEntryRequiredRegs[CPU_REG_A] && !mTrueJump->mEntryRequiredRegs[CPU_REG_X])
+			{
+				ty = ASMIT_TAX;
+				tr = CPU_REG_X;
+				nblock = mFalseJump;
+			}
+
+			if (ty != ASMIT_INV)
+			{
+				mIns[sz - 1].mType = ty;
+				mIns[sz - 1].mMode = ASMIM_IMPLIED;
+				nblock->mIns.Remove(0);
+				mExitRequiredRegs += tr;
+				nblock->mEntryRequiredRegs += tr;
+				if (mBranch == ASMIT_BCC)
+					mBranch = ASMIT_BPL;
+				else
+					mBranch = ASMIT_BMI;
+				changed = true;
 			}
 		}
 	}
