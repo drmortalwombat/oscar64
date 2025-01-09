@@ -625,11 +625,13 @@ public:
 	void SingleBlockLoopUnrolling(void);
 	bool SingleBlockLoopPointerSplit(int& spareTemps);
 	bool SingleBlockLoopPointerToByte(int& spareTemps);
+	bool SingleBlockLoopSinking(int& spareTemps);
 	bool CollectLoopBody(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*> & body);
 	bool CollectLoopBodyRecursive(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*>& body);
 	void CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
 	void ConstLoopOptimization(void);
+	bool EmptyLoopOptimization(void);
 	void EliminateDoubleLoopCounter(void);
 	void PushMoveOutOfLoop(void);
 	bool MoveConditionOutOfLoop(void);
@@ -776,6 +778,7 @@ protected:
 	void SimplifyIntegerNumeric(FastNumberSet& activeSet);
 	void SingleBlockLoopPointerSplit(FastNumberSet& activeSet);
 	void SingleBlockLoopPointerToByte(FastNumberSet& activeSet);
+	void SingleBlockLoopSinking(FastNumberSet& activeSet);
 	void MergeIndexedLoadStore(void);
 	void EliminateAliasValues();
 	void LoadStoreForwarding(InterMemory paramMemory);
