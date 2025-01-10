@@ -21011,6 +21011,71 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					mBranchIns = iins;
 					break;
 				}
+				else if (mIns[i + 0].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 0].mMode) &&
+					mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
+					mIns[i + 2].mType == ASMIT_TAY &&
+					!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				{
+					changed = true;
+
+					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+
+					fblock->mTrueJump = mTrueJump;
+					fblock->mFalseJump = mFalseJump;
+					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
+
+					const InterInstruction* iins(mIns[i].mIns);
+
+					for (int j = i + 3; j < mIns.Size(); j++)
+						fblock->mIns.Push(mIns[j]);
+					mIns[i].mType = ASMIT_LDY; 
+					mIns.SetSize(i + 1);
+
+					iblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_INY));
+					iblock->mTrueJump = fblock;
+					iblock->mBranch = ASMIT_JMP;
+
+					mTrueJump = fblock;
+					mFalseJump = iblock;
+					mBranch = ASMIT_BCC;
+					mBranchIns = iins;
+					break;
+				}
+				else if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && 
+					mIns[i + 1].mType == ASMIT_ADC && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
+					mIns[i + 2].mType == ASMIT_TAY &&
+					!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+				{
+					changed = true;
+
+					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+
+					fblock->mTrueJump = mTrueJump;
+					fblock->mFalseJump = mFalseJump;
+					fblock->mBranch = mBranch;
+					fblock->mBranchIns = mBranchIns;
+
+					const InterInstruction* iins(mIns[i].mIns);
+
+					for (int j = i + 3; j < mIns.Size(); j++)
+						fblock->mIns.Push(mIns[j]);
+					mIns[i] = mIns[i + 1];
+					mIns[i].mType = ASMIT_LDY;
+					mIns.SetSize(i + 1);
+
+					iblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_INY));
+					iblock->mTrueJump = fblock;
+					iblock->mBranch = ASMIT_JMP;
+
+					mTrueJump = fblock;
+					mFalseJump = iblock;
+					mBranch = ASMIT_BCC;
+					mBranchIns = iins;
+					break;
+				}
 				else if (mIns[i + 0].mType == ASMIT_LDA &&
 					mIns[i + 1].mType == ASMIT_SBC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
 					mIns[i + 2].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) &&
@@ -48758,6 +48823,31 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 		}
 	}
 
+	if (i + 7 < mIns.Size() &&
+		mIns[i + 0].mType == ASMIT_CLC &&
+		mIns[i + 1].mType == ASMIT_LDA && 
+		mIns[i + 2].mType == ASMIT_ADC && 
+		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 4].mType == ASMIT_LDA && !mIns[i + 4].SameEffectiveAddress(mIns[i + 3]) &&
+		mIns[i + 5].mType == ASMIT_AND && mIns[i + 5].mMode == ASMIM_IMMEDIATE &&
+		mIns[i + 6].mType == ASMIT_CLC && 
+		mIns[i + 7].mType == ASMIT_ADC && mIns[i + 7].SameEffectiveAddress(mIns[i + 3]) && !(mIns[i + 7].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
+	{
+		NativeCodeInstruction	i4(mIns[i + 4]);
+		NativeCodeInstruction	i5(mIns[i + 5]);
+		NativeCodeInstruction	i6(mIns[i + 6]);
+
+		i4.mLive |= LIVE_CPU_REG_C;
+		i5.mLive |= LIVE_CPU_REG_C;
+
+		mIns.Remove(i + 3, 5);
+		mIns.Insert(i + 1, i4);
+		mIns.Insert(i + 2, i5);
+		mIns[i + 3].mType = ASMIT_ADC;
+		mIns.Insert(i + 4, i6);
+		return true;
+	}
+
 	if (i + 6 < mIns.Size())
 	{
 		if (
@@ -51039,7 +51129,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 		if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
 		{
 			AsmInsType	ty = ASMIT_INV;
-			NativeCodeBasicBlock* nblock;
+			NativeCodeBasicBlock* nblock = nullptr;
 			int tr;
 
 			if (mTrueJump->mIns.Size() > 0 && mTrueJump->mIns[0].mType == ASMIT_TAY && !(mTrueJump->mIns[0].mLive & LIVE_CPU_REG_A) && !mFalseJump->mEntryRequiredRegs[CPU_REG_A] && !mFalseJump->mEntryRequiredRegs[CPU_REG_Y])
@@ -51067,10 +51157,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 				nblock = mFalseJump;
 			}
 
-			if (ty != ASMIT_INV)
+			if (nblock)
 			{
 				mIns[sz - 1].mType = ty;
 				mIns[sz - 1].mMode = ASMIM_IMPLIED;
+				if (tr == CPU_REG_Y)
+					mIns[sz - 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+				else
+					mIns[sz - 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
 				nblock->mIns.Remove(0);
 				mExitRequiredRegs += tr;
 				nblock->mEntryRequiredRegs += tr;
