@@ -7457,6 +7457,13 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 		{
 			while (fexp && !fexp->mBase->mBase->IsSame(type))
 				fexp = fexp->mNext;
+			if (!fexp && type->mType == DT_TYPE_INTEGER)
+			{
+				fexp = tdec->mScope->Lookup(Ident::Unique("(cast)"));
+				while (fexp && !fexp->mBase->mBase->IsSame(TheSignedIntTypeDeclaration))
+					fexp = fexp->mNext;
+			}
+
 			if (fexp)
 			{
 				Expression* aexp = new Expression(exp->mLocation, EX_PREFIX);
@@ -7734,6 +7741,9 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 			}
 			else if (exp->mDecType->mType == DT_TYPE_ARRAY || exp->mDecType->mType == DT_TYPE_POINTER)
 			{
+				if (!nexp->mRight->mDecType->IsIntegerType())
+					nexp->mRight = CoerceExpression(nexp->mRight, TheSignedIntTypeDeclaration);
+				
 				nexp->mDecType = exp->mDecType->mBase;
 			}
 			else
