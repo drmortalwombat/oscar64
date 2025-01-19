@@ -9,6 +9,9 @@ class NativeCodeBasicBlock;
 class NativeCodeGenerator;
 class NativeCodeInstruction;
 
+class NativeCodeMapper;
+class SuffixTree;
+
 enum NativeRegisterDataMode
 {
 	NRDM_UNKNOWN,
@@ -154,6 +157,9 @@ public:
 	LinkerObject		*	mLinkerObject;
 	const InterInstruction	*	mIns;
 
+	void Disassemble(FILE* file) const;
+	void DisassembleAddress(FILE* file) const;
+
 	void CopyMode(const NativeCodeInstruction& ins);
 
 	void Assemble(NativeCodeBasicBlock* block);
@@ -216,6 +222,12 @@ public:
 	void BuildCollisionTable(NumberSet& liveTemps, NumberSet* collisionSets);
 
 	uint32 NeedsLive(void) const;
+
+	uint32 CodeHash(void) const;
+	bool CodeSame(const NativeCodeInstruction& ins);
+
+protected:
+	const char* AddrName(char* buffer) const;
 };
 
 struct NativeCodeLoadStorePair
@@ -263,6 +275,8 @@ public:
 	ExpandingArray<NativeRegisterSum16Info>	mRSumInfos;
 
 	NativeCodeInstruction		mALSIns, mXLSIns, mYLSIns;
+
+	void Disassemble(FILE* file);
 
 	NativeCodeInstruction DecodeNative(const InterInstruction* ins, LinkerObject * lobj, int& offset) const;
 
@@ -817,6 +831,9 @@ public:
 	void CheckBlocks(bool sequence = false);
 	void CheckAsmCode(void);
 	void CheckVisited(void);
+
+	int* mSuffixString;
+	void AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree * tree);
 };
 
 class NativeCodeProcedure
@@ -831,6 +848,10 @@ class NativeCodeProcedure
 		NativeCodeGenerator* mGenerator;
 
 		InterCodeProcedure* mInterProc;
+		LinkerObject* mLinkerObject;
+		const Ident* mIdent;
+		Location	mLocation;
+		uint64				mCompilerOptions;
 
 		int		mProgStart, mProgSize, mIndex, mFrameOffset, mStackExpand;
 		int		mFastCallBase;
@@ -842,9 +863,13 @@ class NativeCodeProcedure
 		ExpandingArray<CodeLocation>		mCodeLocations;
 
 
+		void Disassemble(FILE* file);
+
 		void Compile(InterCodeProcedure* proc);
 		void Optimize(void);
 		void Assemble(void);
+
+		void AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree* tree);
 
 		NativeCodeBasicBlock* CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* block);
 		NativeCodeBasicBlock* AllocateBlock(void);
@@ -911,6 +936,8 @@ public:
 	Linker* mLinker;
 	LinkerSection* mRuntimeSection;
 
+	ExpandingArray<NativeCodeProcedure*>	mProcedures;
+
 	ExpandingArray<Runtime>		mRuntime;
 	ExpandingArray<MulTable>	mMulTables;
 	ExpandingArray<FloatTable>	mFloatTables;
@@ -928,6 +955,8 @@ public:
 	};
 
 	FunctionCall* mFunctionCalls;
+
+	void OutlineFunctions(void);
 
 	void RegisterFunctionCall(NativeCodeBasicBlock* block, int at);
 	void BuildFunctionProxies(void);

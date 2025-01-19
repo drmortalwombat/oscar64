@@ -31,7 +31,9 @@ enum AsmInsMode
 
 	NUM_ASM_INS_MODES,
 
-	ASMIM_IMMEDIATE_ADDRESS
+	ASMIM_IMMEDIATE_ADDRESS,
+
+	NUM_ASM_INS_MODES_X,
 };
 
 struct AsmInsData
@@ -44,6 +46,8 @@ struct AsmInsData
 extern AsmInsData	DecInsData[256];
 
 extern short AsmInsOpcodes[NUM_ASM_INS_TYPES][NUM_ASM_INS_MODES];
+
+extern int AsmInsModeSize[NUM_ASM_INS_MODES_X];
 
 extern const char* AsmInstructionNames[NUM_ASM_INS_TYPES];
 

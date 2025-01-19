@@ -29,7 +29,6 @@ public:
 	GlobalOptimizer* mGlobalOptimizer;
 
 	GrowingArray<ByteCodeProcedure*>	mByteCodeFunctions;
-	ExpandingArray<NativeCodeProcedure*>	mNativeProcedures;
 
 	TargetMachine	mTargetMachine;
 	uint64			mCompilerOptions;

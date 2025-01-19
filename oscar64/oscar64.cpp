@@ -261,6 +261,8 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_GLOBAL;
 					else if (arg[2] == 'm' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_MERGE_CALLS;
+					else if (arg[2] == 'o' && !arg[3])
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_OUTLINE;
 					else
 						compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
 				}

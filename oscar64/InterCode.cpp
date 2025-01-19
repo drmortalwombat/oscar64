@@ -9533,7 +9533,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 							else
 								mTrueValueRange[s1].LimitMinWeak(0);
 
-							if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
+							if (mInstructions[sz - 2]->mSrc[1].mType == IT_INT8)
+							{
+								mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
+								mFalseValueRange[s1].LimitMax(255);
+							}
+							else if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
 							{
 								mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
 							}
@@ -19507,7 +19512,7 @@ void InterCodeBasicBlock::CheckFinalLocal(void)
 		{
 			if (ins->mSrc[j].mTemp >= 0 && !provided[ins->mSrc[j].mTemp])
 			{
-				printf("Use of potentially undefined temp %d\n", ins->mSrc[j].mTemp);
+//				printf("Use of potentially undefined temp %d\n", ins->mSrc[j].mTemp);
 			}
 		}
 
@@ -23211,7 +23216,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "enemies_iterate");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

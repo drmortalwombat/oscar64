@@ -1,5 +1,6 @@
 #include "NativeCodeGenerator.h"
 #include "CompilerTypes.h"
+#include "NativeCodeOutliner.h"
 
 #define JUMP_TO_BRANCH	1
 #define CHECK_NULLPTR	0
@@ -539,6 +540,67 @@ NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmIns
 	}
 }
 
+const char* NativeCodeInstruction::AddrName(char* buffer) const
+{
+	if (mLinkerObject)
+	{
+		if (mLinkerObject->mIdent)
+			sprintf_s(buffer, 160, "%s + %d", mLinkerObject->mIdent->mString, mAddress);
+		else
+			sprintf_s(buffer, 160, "_lobj%d + %d", mLinkerObject->mID, mAddress);
+	}
+	else if (mAddress < 256)
+		sprintf_s(buffer, 160, "%02x", mAddress);
+	else
+		sprintf_s(buffer, 160, "%04x", mAddress);
+
+	return buffer;
+}
+
+void NativeCodeInstruction::Disassemble(FILE* file) const
+{
+	char	buffer[160];
+
+	switch (mMode)
+	{
+	case ASMIM_IMPLIED:
+		fprintf(file, "%s", AsmInstructionNames[mType]);
+		break;
+	case ASMIM_IMMEDIATE:
+		fprintf(file, "%s #$%02x", AsmInstructionNames[mType], mAddress);
+		break;
+	case ASMIM_ZERO_PAGE:
+		fprintf(file, "%s %s", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_ZERO_PAGE_X:
+		fprintf(file, "%s %s, x", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_ZERO_PAGE_Y:
+		fprintf(file, "%s %s, y", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_ABSOLUTE:
+		fprintf(file, "%s %s", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_ABSOLUTE_X:
+		fprintf(file, "%s %s, x", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_ABSOLUTE_Y:
+		fprintf(file, "%s %s, y", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_INDIRECT:
+		fprintf(file, "%s (%s)", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_INDIRECT_X:
+		fprintf(file, "%s (%s, x)", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_INDIRECT_Y:
+		fprintf(file, "%s (%s), y", AsmInstructionNames[mType], AddrName(buffer));
+		break;
+	case ASMIM_RELATIVE:
+		fprintf(file, "%s %d", AsmInstructionNames[mType], mAddress);
+		break;
+	}
+}
 
 bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 {
@@ -4951,6 +5013,28 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 	}
 }
 
+uint32 NativeCodeInstruction::CodeHash(void) const
+{
+	uint32	hash = mType + 0x20 * mMode + 0x100 * mAddress;
+	if (mLinkerObject)
+		hash += mLinkerObject->mID * 0x1000;
+	return hash;
+}
+
+bool NativeCodeInstruction::CodeSame(const NativeCodeInstruction& ins)
+{
+	if (mType != ins.mType || mMode != ins.mMode)
+		return false;
+	if (mMode != ASMIM_IMPLIED && (mAddress != ins.mAddress || mLinkerObject != ins.mLinkerObject))
+		return false;
+	if (mMode == ASMIM_IMMEDIATE_ADDRESS && (mFlags & (NCIF_LOWER | NCIF_UPPER)) != (ins.mFlags & (NCIF_LOWER | NCIF_UPPER)))
+		return false;
+	if ((mFlags & NCIF_USE_ZP_32_X) && mParam != ins.mParam)
+		return false;
+
+	return true;
+}
+
 void NativeCodeInstruction::CopyMode(const NativeCodeInstruction& ins)
 {
 	mMode = ins.mMode;
@@ -5019,7 +5103,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 	}
 	else
 	{
-		if (mType == ASMIT_JSR && (mFlags & NCIF_USE_ZP_32_X))
+		if ((mType == ASMIT_JSR || mType == ASMIT_JMP) && (mFlags & NCIF_USE_ZP_32_X))
 		{
 			block->PutOpcode(AsmInsOpcodes[ASMIT_LDX][ASMIM_IMMEDIATE]);
 			block->PutByte(mParam);
@@ -7818,9 +7902,9 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 
 	if (sstride > 1 || dstride > 1)
 		msize = 32;
-	else if (nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
+	else if (nproc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
 		msize = 8;
-	else if (nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
+	else if (nproc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
 		msize = 2;
 #if 1
 	if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp < 0)
@@ -8314,9 +8398,9 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::FillValue(InterCodeProcedure* proc, 
 
 	if (dstride > 1)
 		msize = 32;
-	else if (nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
+	else if (nproc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
 		msize = 8;
-	else if (nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
+	else if (nproc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
 		msize = 2;
 #if 1
 	if (ins->mSrc[1].mTemp < 0)
@@ -10604,8 +10688,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					int lcost = 8 + 2 * (nbytes - 1);
 					int	ucost = shift * (1 + 2 * nbytes);
 
-					if ((nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)   && lcost < ucost ||
-						!(nproc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL) && 2 * lcost < ucost)
+					if ((nproc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)   && lcost < ucost ||
+						!(nproc->mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL) && 2 * lcost < ucost)
 					{
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDX, ASMIM_IMMEDIATE, shift));
 						this->Close(ins, lblock, nullptr, ASMIT_JMP);
@@ -14014,6 +14098,35 @@ void NativeCodeBasicBlock::CallFunction(InterCodeProcedure* proc, NativeCodeProc
 		}
 	}
 }
+
+
+void NativeCodeBasicBlock::Disassemble(FILE* file)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		fprintf(file, "L%d:\n", mIndex);
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			fprintf(file, "%03d ", i);
+			mIns[i].Disassemble(file);
+			fprintf(file, "\n");
+		}
+		fprintf(file, "%03d %s", mIns.Size(), AsmInstructionNames[mBranch]);
+		if (mTrueJump)
+		{
+			fprintf(file, " L%d", mTrueJump->mIndex);
+			if (mFalseJump)
+				fprintf(file, ", L%d", mFalseJump->mIndex);
+		}
+		fprintf(file, "\n");
+
+		if (mTrueJump) mTrueJump->Disassemble(file);
+		if (mFalseJump) mFalseJump->Disassemble(file);
+	}
+}
+
 
 NativeCodeInstruction NativeCodeBasicBlock::DecodeNative(const InterInstruction* ins, LinkerObject* lobj, int& offset) const
 {
@@ -41554,7 +41667,7 @@ static bool CheckBlockCopySequence(const ExpandingArray<NativeCodeInstruction>& 
 
 bool NativeCodeBasicBlock::BlockSizeCopyReduction(NativeCodeProcedure* proc, int& si, int& di) 
 {
-	if ((proc->mInterProc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE))
+	if ((proc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE))
 	{
 		if (si + 1 < mIns.Size() &&
 			mIns[si + 0].mType == ASMIT_LDA && (mIns[si + 0].mMode == ASMIM_ZERO_PAGE || mIns[si + 0].mMode == ASMIM_ABSOLUTE) &&
@@ -51378,6 +51491,32 @@ bool NativeCodeBasicBlock::PeepHoleOptimizer(int pass)
 	return false;
 }
 
+void NativeCodeBasicBlock::AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree * tree)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mSuffixString)
+			mSuffixString = new int[mIns.Size() + 100];
+
+		bool rel = false;
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (mIns[i].mMode == ASMIM_RELATIVE)
+				rel = true;
+			mSuffixString[i] = mapper.MapInstruction(mIns[i], mProc->mLinkerObject->mSection);
+		}
+		mSuffixString[mIns.Size()] = mapper.MapBasicBlock(this);
+
+		if (!rel)
+			tree->AddString(mSuffixString);
+
+		if (mTrueJump) mTrueJump->AddToSuffixTree(mapper, tree);
+		if (mFalseJump) mFalseJump->AddToSuffixTree(mapper, tree);
+	}
+}
+
 void NativeCodeBasicBlock::CheckVisited(void)
 {
 #if _DEBUG
@@ -52063,6 +52202,7 @@ NativeCodeBasicBlock::NativeCodeBasicBlock(NativeCodeProcedure* proc)
 	mDominator = nullptr;
 	mLoopHeadBlock = nullptr;
 	mLoopTailBlock = nullptr;
+	mSuffixString = nullptr;
 	mEntryRegA = false;
 	mEntryRegX = false;
 	mEntryRegY = false;
@@ -52087,6 +52227,22 @@ NativeCodeProcedure::NativeCodeProcedure(NativeCodeGenerator* generator)
 NativeCodeProcedure::~NativeCodeProcedure(void)
 {
 
+}
+
+
+void NativeCodeProcedure::Disassemble(FILE* file)
+{
+	fprintf(file, "--------------------------------------------------------------------\n");
+	fprintf(file, "%s: %s:%d\n", mIdent->mString, mLocation.mFileName, mLocation.mLine);
+
+	ResetVisited();
+	mEntryBlock->Disassemble(file);
+}
+
+void NativeCodeProcedure::AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree* tree)
+{
+	ResetVisited();
+	mEntryBlock->AddToSuffixTree(mapper, tree);
 }
 
 void NativeCodeProcedure::CompressTemporaries(bool singles)
@@ -52286,9 +52442,14 @@ void NativeCodeProcedure::LoadTempsFromStack(int tempSave)
 void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 {
 	mInterProc = proc;
+	mLinkerObject = proc->mLinkerObject;
+	mIdent = proc->mIdent;
+	mLocation = proc->mLocation;
+	mCompilerOptions = proc->mCompilerOptions;
+
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "rirq_sort");
+	CheckFunc = !strcmp(mIdent->mString, "rirq_sort");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -52417,14 +52578,14 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 	if (mInterProc->mInterrupt)
 	{
 		if (!mNoFrame || mStackExpand > 0 || commonFrameSize > 0)
-			mGenerator->mErrors->Error(mInterProc->mLocation, ERRR_INTERRUPT_TO_COMPLEX, "Function to complex for interrupt");
+			mGenerator->mErrors->Error(mLocation, ERRR_INTERRUPT_TO_COMPLEX, "Function to complex for interrupt");
 
 		ZeroPageSet	zpLocal, zpGlobal;
 		ResetVisited();
 		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal, true))
 			zpLocal |= zpGlobal;
 		else
-			mGenerator->mErrors->Error(mInterProc->mLocation, ERRR_INTERRUPT_TO_COMPLEX, "No recursive functions in interrupt");
+			mGenerator->mErrors->Error(mLocation, ERRR_INTERRUPT_TO_COMPLEX, "No recursive functions in interrupt");
 
 		if (proc->mHardwareInterrupt)
 		{
@@ -52830,7 +52991,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		}
 	}
 
-	if (mInterProc->mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS)
+	if (mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS)
 	{
 		ResetVisited();
 		mEntryBlock->RegisterFunctionCalls();
@@ -52839,9 +53000,9 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 void NativeCodeProcedure::Assemble(void)
 {
-	CheckFunc = !strcmp(mInterProc->mIdent->mString, "fighter_ai");
+	CheckFunc = !strcmp(mIdent->mString, "fighter_ai");
 
-	if (mInterProc->mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS)
+	if (mCompilerOptions & COPT_OPTIMIZE_MERGE_CALLS)
 	{
 		ResetVisited();
 		mEntryBlock->MergeFunctionCalls();
@@ -52891,7 +53052,7 @@ void NativeCodeProcedure::Assemble(void)
 	for (int i = 0; i < placement.Size(); i++)
 		placement[i]->mAsmFromJump = -1;
 
-	uint8* data = mInterProc->mLinkerObject->AddSpace(total);
+	uint8* data = mLinkerObject->AddSpace(total);
 
 	for (int i = 0; i < placement.Size(); i++)
 	{
@@ -52905,7 +53066,7 @@ void NativeCodeProcedure::Assemble(void)
 		range.mIdent = Ident::Unique(buffer);
 		range.mOffset = placement[i]->mOffset;
 		range.mSize = placement[i]->mSize;
-		mInterProc->mLinkerObject->mRanges.Push(range);
+		mLinkerObject->mRanges.Push(range);
 		placement[i]->CopyCode(this, data);
 	}
 
@@ -52913,10 +53074,10 @@ void NativeCodeProcedure::Assemble(void)
 	for (int i = 0; i < mRelocations.Size(); i++)
 	{
 		LinkerReference& rl(mRelocations[i]);
-		rl.mObject = mInterProc->mLinkerObject;
+		rl.mObject = mLinkerObject;
 		if (!rl.mRefObject)
-			rl.mRefObject = mInterProc->mLinkerObject;
-		mInterProc->mLinkerObject->AddReference(rl);
+			rl.mRefObject = mLinkerObject;
+		mLinkerObject->AddReference(rl);
 	}
 
 	if (mGenerator->mCompilerOptions & (COPT_DEBUGINFO | COPT_PROFILEINFO))
@@ -52937,7 +53098,7 @@ void NativeCodeProcedure::Assemble(void)
 			}
 			mCodeLocations.SetSize(j + 1);
 
-			mInterProc->mLinkerObject->AddLocations(mCodeLocations);
+			mLinkerObject->AddLocations(mCodeLocations);
 		}
 	}
 }
@@ -53947,7 +54108,7 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 #if 1
-		if (step == 10 && (mInterProc->mCompilerOptions & COPT_OPTIMIZE_BASIC))
+		if (step == 10 && (mCompilerOptions & COPT_OPTIMIZE_BASIC))
 		{
 			ResetVisited();
 			mEntryBlock->MarkLocalUsedLinkerObjects();
@@ -54051,7 +54212,7 @@ void NativeCodeProcedure::Optimize(void)
 
 		if (step == 16)
 		{
-			if (mInterProc->mCompilerOptions & COPT_OPTIMIZE_INLINE)
+			if (mCompilerOptions & COPT_OPTIMIZE_INLINE)
 			{
 				ResetVisited();
 				if (mEntryBlock->SimpleInlineCalls())
@@ -54061,7 +54222,7 @@ void NativeCodeProcedure::Optimize(void)
 
 		if (step == 17)
 		{
-			if (!(mInterProc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE))
+			if (!(mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE))
 			{
 				ResetVisited();
 				if (mEntryBlock->Expand16BitLoopBranch())
@@ -54100,7 +54261,7 @@ void NativeCodeProcedure::Optimize(void)
 		if (cnt > 200)
 		{
 			changed = false;
-			mGenerator->mErrors->Error(mInterProc->mLocation, EWARN_OPTIMIZER_LOCKED, "Optimizer locked in infinite loop", mInterProc->mIdent);
+			mGenerator->mErrors->Error(mLocation, EWARN_OPTIMIZER_LOCKED, "Optimizer locked in infinite loop", mIdent);
 		}
 
 #if 1
@@ -55314,6 +55475,144 @@ bool NativeCodeGenerator::MergeFunctionCall(NativeCodeBasicBlock* block, int at)
 		}
 	}
 	return false;
+}
+
+void NativeCodeGenerator::OutlineFunctions(void)
+{
+	NativeCodeMapper	mapper;
+
+	bool	progress;
+
+	int k = 0;
+
+	int numOutlines = 0;
+	do {
+		progress = false;
+
+		SuffixTree* tree = new SuffixTree(nullptr, 0, nullptr);
+
+		for (int i = 0; i < mProcedures.Size(); i++)
+		{
+			if (mProcedures[i]->mCompilerOptions & COPT_OPTIMIZE_OUTLINE)
+				mProcedures[i]->AddToSuffixTree(mapper, tree);
+		}
+		tree->AddParents(nullptr);
+
+#if 0
+		FILE* f;
+
+		if (!fopen_s(&f, "r:\\suffix.txt", "w"))
+		{
+			tree->Print(f, mapper, 0);
+			fclose(f);
+		}
+#endif
+
+		SuffixTree* ltree = nullptr;
+		int lsize = 6;
+
+		tree->LongestMatch(mapper, 0, 0, lsize, ltree);
+		if (lsize > 6)
+		{
+			SuffixTree* leaf = ltree;
+			while (leaf->mFirst)
+				leaf = leaf->mFirst;
+			NativeCodeBasicBlock* block = mapper.mBlocks[-(1 + leaf->mSeg[leaf->mSize - 1])];
+
+			NativeCodeProcedure* nproc = new NativeCodeProcedure(this);
+
+			NativeCodeBasicBlock* nblock = nproc->AllocateBlock();
+
+//			printf("Suffix %s,%d:%s\n", block->mProc->mIdent->mString, block->mIndex, block->mProc->mLinkerObject->mSection->mIdent->mString);
+
+			nproc->mLocation = block->mIns[0].mIns ? block->mIns[0].mIns->mLocation : block->mProc->mLocation;
+			nproc->mCompilerOptions = block->mProc->mCompilerOptions;
+			nproc->mIdent = Ident::Unique("$outline", numOutlines);
+			nproc->mLinkerObject = mLinker->AddObject(nproc->mLocation, nproc->mIdent, block->mProc->mLinkerObject->mSection, LOT_NATIVE_CODE);
+			nproc->mEntryBlock = nblock;
+
+			bool dojmp = false;
+
+			ltree->ParentCollect(mapper, nblock);
+			if (nblock->mIns[nblock->mIns.Size() - 1].mType == ASMIT_JSR)
+				nblock->mIns[nblock->mIns.Size() - 1].mType = ASMIT_JMP;
+			else if (nblock->mIns[nblock->mIns.Size() - 1].mType == ASMIT_RTS || nblock->mIns[nblock->mIns.Size() - 1].mType == ASMIT_JMP)
+				dojmp = true;
+			else
+				nblock->mIns.Push(NativeCodeInstruction(nblock->mIns[nblock->mIns.Size() - 1].mIns, ASMIT_RTS));
+
+			ExpandingArray<SuffixSegment>	segs;
+			ltree->ReplaceCalls(mapper, segs);
+
+			segs.Sort([](const SuffixSegment& l, const SuffixSegment& r)->bool {
+				return l.mBlock == r.mBlock ? l.mStart > r.mStart : ptrdiff_t(l.mBlock) < ptrdiff_t(r.mBlock);
+			});
+
+			// Check for complete loop block replacement
+			int k = 0;
+			while (k < segs.Size() && segs[k].mStart == 0 && segs[k].mEnd == segs[k].mBlock->mIns.Size() && segs[k].mBlock->mTrueJump == segs[k].mBlock && segs[k].mBlock->mBranch == segs[0].mBlock->mBranch)
+				k++;
+
+			if (k == segs.Size())
+			{
+				NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+
+				nblock->mTrueJump = nblock;
+				nblock->mFalseJump = eblock;
+				nblock->mBranch = segs[0].mBlock->mBranch;
+
+				for (int i = 0; i < segs.Size(); i++)
+				{
+					SuffixSegment& s(segs[i]);
+					segs[i].mBlock->mTrueJump = segs[i].mBlock->mFalseJump;
+					segs[i].mBlock->mFalseJump = nullptr;
+					segs[i].mBlock->mBranch = ASMIT_JMP;
+					segs[i].mBlock->mNumEntries = 1;
+				}
+
+				eblock->mIns.Push(NativeCodeInstruction(nblock->mIns[nblock->mIns.Size() - 1].mIns, ASMIT_RTS));
+				if (nblock->mIns[nblock->mIns.Size() - 1].mType == ASMIT_JMP)
+					nblock->mIns[nblock->mIns.Size() - 1].mType = ASMIT_JSR;
+				else
+					nblock->mIns.Remove(nblock->mIns.Size() - 1);
+			}
+
+			NativeCodeBasicBlock* pblock = nullptr;
+			int							pstart;
+			for (int i = 0; i < segs.Size(); i++)
+			{
+				SuffixSegment& s(segs[i]);
+//				printf("Seg %s,%d\n", segs[i].mBlock->mProc->mIdent->mString, segs[i].mBlock->mIndex);
+				if (s.mBlock != pblock || s.mEnd <= pstart)
+				{
+					s.mBlock->mIns.Remove(s.mStart + 1, s.mEnd - s.mStart - 1);
+					s.mBlock->mIns[s.mStart] = NativeCodeInstruction(s.mBlock->mIns[s.mStart].mIns, dojmp ? ASMIT_JMP : ASMIT_JSR, ASMIM_ABSOLUTE, 0, nproc->mLinkerObject);
+					pblock = s.mBlock;
+					pstart = s.mStart;
+				}
+			}
+
+			mProcedures.Push(nproc);
+
+			numOutlines++;
+			progress = true;
+		}
+#if 0
+		if (!fopen_s(&f, "r:\\lsuffix.txt", "w"))
+		{
+			ltree->ParentPrint(f, mapper);
+			fclose(f);
+		}
+#endif
+		delete tree;
+		mapper.Reset();
+
+#if 0
+		k++;
+		if (k == 2)
+			break;
+#endif
+	} while (progress);
 }
 
 void NativeCodeGenerator::BuildFunctionProxies(void)

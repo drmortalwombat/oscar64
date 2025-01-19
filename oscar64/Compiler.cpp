@@ -466,7 +466,7 @@ void Compiler::CompileProcedure(InterCodeProcedure* proc)
 				printf("Generate native code <%s>\n", proc->mIdent->mString);
 
 			ncproc->Compile(proc);
-			mNativeProcedures.Push(ncproc);
+			mNativeCodeGenerator->mProcedures.Push(ncproc);
 		}
 		else
 		{
@@ -1036,13 +1036,15 @@ bool Compiler::GenerateCode(void)
 			mCompilationUnits->mSectionStack->mSections.Push(proc->mLinkerObject->mStackSection);
 	}
 
+	mNativeCodeGenerator->OutlineFunctions();
+
 	mNativeCodeGenerator->BuildFunctionProxies();
 
-	for (int i = 0; i < mNativeProcedures.Size(); i++)
+	for (int i = 0; i < mNativeCodeGenerator->mProcedures.Size(); i++)
 	{
 		if (mCompilerOptions & COPT_VERBOSE2)
-			printf("Assemble native code <%s>\n", mNativeProcedures[i]->mInterProc->mIdent->mString);
-		mNativeProcedures[i]->Assemble();
+			printf("Assemble native code <%s>\n", mNativeCodeGenerator->mProcedures[i]->mInterProc->mIdent->mString);
+		mNativeCodeGenerator->mProcedures[i]->Assemble();
 	}
 
 	LinkerObject* byteCodeObject = nullptr;

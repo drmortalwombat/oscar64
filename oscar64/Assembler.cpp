@@ -293,7 +293,7 @@ const char* AsmInstructionNames[NUM_ASM_INS_TYPES] = {
 	"INV", "BYT"
 };
 
-int AsmInsModeSize[NUM_ASM_INS_MODES] = {
+int AsmInsModeSize[NUM_ASM_INS_MODES_X] = {
 	1,
 	2,
 	2,
@@ -306,6 +306,8 @@ int AsmInsModeSize[NUM_ASM_INS_MODES] = {
 	2,
 	2,
 	2,
+	0,
+	2
 };
 
 void InitAssembler(void)

@@ -13478,6 +13478,10 @@ void Parser::ParsePragma(void)
 						mCompilerOptions |= COPT_OPTIMIZE_CONST_PARAMS;
 					else if (ConsumeIdentIf("noconstparams"))
 						mCompilerOptions &= ~COPT_OPTIMIZE_CONST_PARAMS;
+					else if (ConsumeIdentIf("outline"))
+						mCompilerOptions |= COPT_OPTIMIZE_OUTLINE;
+					else if (ConsumeIdentIf("nooutline"))
+						mCompilerOptions &= ~COPT_OPTIMIZE_OUTLINE;
 					else
 						mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid option");
 

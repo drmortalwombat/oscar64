@@ -87,6 +87,9 @@
     <ClCompile Include="Compression.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="NativeCodeOutliner.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h">
@@ -168,6 +171,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Compression.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NativeCodeOutliner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
