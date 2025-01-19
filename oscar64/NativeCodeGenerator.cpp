@@ -5015,9 +5015,12 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 
 uint32 NativeCodeInstruction::CodeHash(void) const
 {
-	uint32	hash = mType + 0x20 * mMode + 0x100 * mAddress;
+	uint32	hash = mType + 137 * mMode + 4111 * mAddress;
 	if (mLinkerObject)
-		hash += mLinkerObject->mID * 0x1000;
+		hash += mLinkerObject->mID * 135123;
+	hash ^= hash >> 13;
+	hash ^= hash << 11;
+	hash ^= hash >> 23;
 	return hash;
 }
 
@@ -55514,10 +55517,10 @@ void NativeCodeGenerator::OutlineFunctions(void)
 		tree->LongestMatch(mapper, 0, 0, lsize, ltree);
 		if (lsize > 6)
 		{
-			SuffixTree* leaf = ltree;
-			while (leaf->mFirst)
-				leaf = leaf->mFirst;
-			NativeCodeBasicBlock* block = mapper.mBlocks[-(1 + leaf->mSeg[leaf->mSize - 1])];
+			ExpandingArray<SuffixSegment>	segs;
+			ltree->ReplaceCalls(mapper, segs);
+
+			NativeCodeBasicBlock* block = segs[0].mBlock;
 
 			NativeCodeProcedure* nproc = new NativeCodeProcedure(this);
 
@@ -55540,9 +55543,6 @@ void NativeCodeGenerator::OutlineFunctions(void)
 				dojmp = true;
 			else
 				nblock->mIns.Push(NativeCodeInstruction(nblock->mIns[nblock->mIns.Size() - 1].mIns, ASMIT_RTS));
-
-			ExpandingArray<SuffixSegment>	segs;
-			ltree->ReplaceCalls(mapper, segs);
 
 			segs.Sort([](const SuffixSegment& l, const SuffixSegment& r)->bool {
 				return l.mBlock == r.mBlock ? l.mStart > r.mStart : ptrdiff_t(l.mBlock) < ptrdiff_t(r.mBlock);

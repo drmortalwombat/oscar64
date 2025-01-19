@@ -41,9 +41,13 @@ public:
 	const int	*	mSeg;
 	int				mSize;
 
-	SuffixTree* mNext, * mParent, * mFirst;
+	static const int HashSize = 32;
+
+	SuffixTree* mNext, * mParent, ** mFirst;
 
 	SuffixTree(const int* str, int s, SuffixTree* n);
+	~SuffixTree(void);
+
 	void AddParents(SuffixTree* parent);
 
 	void AddSuffix(const int* str, int s);

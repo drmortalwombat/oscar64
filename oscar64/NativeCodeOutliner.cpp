@@ -62,20 +62,32 @@ SuffixTree::SuffixTree(const int* str, int s, SuffixTree* n)
 	mFirst = nullptr;
 }
 
+SuffixTree::~SuffixTree(void)
+{
+	delete[] mFirst;
+}
+
 void SuffixTree::AddParents(SuffixTree* parent)
 {
 	mParent = parent;
-	SuffixTree* n = mFirst;
-	while (n)
+	if (mFirst)
 	{
-		n->AddParents(this);
-		n = n->mNext;
+		for (int i = 0; i < HashSize; i++)
+		{
+			SuffixTree* n = mFirst[i];
+			while (n)
+			{
+				n->AddParents(this);
+				n = n->mNext;
+			}
+		}
 	}
 }
 
 void SuffixTree::AddSuffix(const int* str, int s)
 {
-	SuffixTree* c = mFirst;
+	int hi = str[0] & (HashSize - 1);
+	SuffixTree* c = mFirst ? mFirst[hi] : nullptr;
 	while (c && c->mSeg[0] != str[0])
 		c = c->mNext;
 
@@ -88,15 +100,39 @@ void SuffixTree::AddSuffix(const int* str, int s)
 			c->AddSuffix(str + k, s - k);
 		else
 		{
-			SuffixTree* t = c->mFirst;
-			c->mFirst = new SuffixTree(c->mSeg + k, c->mSize - k, nullptr);
-			c->mFirst->mFirst = t;
-			c->mFirst = new SuffixTree(str + k, s - k, c->mFirst);
+			SuffixTree * n = new SuffixTree(c->mSeg + k, c->mSize - k, nullptr);
+			if (c->mFirst)
+			{
+				n->mFirst = new SuffixTree * [HashSize];
+				for (int i = 0; i < HashSize; i++)
+				{
+					n->mFirst[i] = c->mFirst[i];
+					c->mFirst[i] = nullptr;
+				}
+			}
+			else
+			{
+				c->mFirst = new SuffixTree * [HashSize];
+				for (int i = 0; i < HashSize; i++)
+					c->mFirst[i] = nullptr;
+			}
+			c->mFirst[c->mSeg[k] & (HashSize - 1)] = n;
+			int hk = str[k] & (HashSize - 1);
+			c->mFirst[hk] = new SuffixTree(str + k, s - k, c->mFirst[hk]);
 			c->mSize = k;
 		}
 	}
 	else
-		mFirst = new SuffixTree(str, s, mFirst);
+	{
+		if (!mFirst)
+		{
+			mFirst = new SuffixTree * [HashSize];
+			for (int i = 0; i < HashSize; i++)
+				mFirst[i] = nullptr;
+		}
+
+		mFirst[hi] = new SuffixTree(str, s, mFirst[hi]);
+	}
 }
 
 void SuffixTree::AddString(const int* str)
@@ -120,11 +156,15 @@ void SuffixTree::CollectSuffix(NativeCodeMapper& map, int offset, ExpandingArray
 	offset += mSize;
 	if (mFirst)
 	{
-		SuffixTree* t = mFirst;
-		while (t)
+		for (int i = 0; i < HashSize; i++)
 		{
-			t->CollectSuffix(map, offset, segs);
-			t = t->mNext;
+			SuffixTree* t = mFirst[i];
+
+			while (t)
+			{
+				t->CollectSuffix(map, offset, segs);
+				t = t->mNext;
+			}
 		}
 	}
 	else
@@ -154,22 +194,28 @@ int SuffixTree::LongestMatch(NativeCodeMapper& map, int size, int isize, int& ms
 		assert(size < 10000);
 
 		int cnt = 0;
-		SuffixTree* t = mFirst;
-		while (t)
+		for (int i = 0; i < HashSize; i++)
 		{
-			cnt += t->LongestMatch(map, size, isize, msize, mtree);
-			t = t->mNext;
+			SuffixTree* t = mFirst[i];
+			while (t)
+			{
+				cnt += t->LongestMatch(map, size, isize, msize, mtree);
+				t = t->mNext;
+			}
 		}
 
 		if (size >= 6 && (size - 3) * (cnt - 1) > msize)
 		{
 			// Second run to cross check for overlaps
 			ExpandingArray<SuffixSegment>	segs;
-			SuffixTree* t = mFirst;
-			while (t)
+			for (int i = 0; i < HashSize; i++)
 			{
-				t->CollectSuffix(map, 0, segs);
-				t = t->mNext;
+				SuffixTree* t = mFirst[i];
+				while (t)
+				{
+					t->CollectSuffix(map, 0, segs);
+					t = t->mNext;
+				}
 			}
 			segs.Sort([](const SuffixSegment& l, const SuffixSegment& r)->bool {
 				return l.mBlock == r.mBlock ? l.mStart < r.mStart : ptrdiff_t(l.mBlock) < ptrdiff_t(r.mBlock);
@@ -214,13 +260,18 @@ void SuffixTree::Print(FILE * file, NativeCodeMapper& map, int depth)
 	}
 	fprintf(file, "\n");
 
-	SuffixTree* n = mFirst;
-	while (n)
+	if (mFirst)
 	{
-		n->Print(file, map, depth + 1);
-		n = n->mNext;
+		for (int i = 0; i < HashSize; i++)
+		{
+			SuffixTree* n = mFirst[i];
+			while (n)
+			{
+				n->Print(file, map, depth + 1);
+				n = n->mNext;
+			}
+		}
 	}
-
 }
 
 void SuffixTree::ParentPrint(FILE* file, NativeCodeMapper& map)
@@ -265,11 +316,17 @@ void SuffixTree::ParentCollect(NativeCodeMapper& map, NativeCodeBasicBlock* bloc
 
 void SuffixTree::ReplaceCalls(NativeCodeMapper& map, ExpandingArray<SuffixSegment>& segs)
 {
-	SuffixTree* n = mFirst;
-	while (n)
+	if (mFirst)
 	{
-		n->ChildReplaceCalls(map, this, 0, segs);
-		n = n->mNext;
+		for (int i = 0; i < HashSize; i++)
+		{
+			SuffixTree* n = mFirst[i];
+			while (n)
+			{
+				n->ChildReplaceCalls(map, this, 0, segs);
+				n = n->mNext;
+			}
+		}
 	}
 }
 
@@ -283,11 +340,14 @@ void SuffixTree::ChildReplaceCalls(NativeCodeMapper& map, SuffixTree* tree, int 
 
 	if (mFirst)
 	{
-		SuffixTree* n = mFirst;
-		while (n)
+		for (int i = 0; i < HashSize; i++)
 		{
-			n->ChildReplaceCalls(map, tree, offset, segs);
-			n = n->mNext;
+			SuffixTree* n = mFirst[i];
+			while (n)
+			{
+				n->ChildReplaceCalls(map, tree, offset, segs);
+				n = n->mNext;
+			}
 		}
 	}
 	else
