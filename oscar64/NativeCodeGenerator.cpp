@@ -7197,7 +7197,7 @@ bool NativeCodeBasicBlock::LoadUnopStoreIndirectValue(InterCodeProcedure* proc, 
 
 bool NativeCodeBasicBlock::LoadOpStoreIndirectValue(InterCodeProcedure* proc, const InterInstruction* rins, const InterInstruction* oins, int oindex, const InterInstruction* wins)
 {
-	int size = InterTypeSize[oins->mDst.mType];
+	int size = InterTypeSize[wins->mSrc[0].mType];
 
 	AsmInsType	at = ASMIT_ADC, an = ASMIT_ADC;
 	AsmInsMode  am = oins->mSrc[oindex].mTemp < 0 ? ASMIM_IMMEDIATE : ASMIM_ZERO_PAGE, ram = ASMIM_INDIRECT_Y, wam = ASMIM_INDIRECT_Y;
