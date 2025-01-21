@@ -378,13 +378,13 @@ The #embed preprocessor can also import components from spritepad and charpad fi
 The component to extract (e.g. chars or tiles) is added as a further specifier.
 
 	const char FloorChars[] = {
-		#embed ctm_chars lzo "floortiles.ctm"
+		#embed ctm_chars "floortiles.ctm"
 	};
 
 Imports the character data and compresses it using lzo compression.
 
 	const char CardsTiles[] = {
-		#embed ctm_tiles8 "cards.ctm"
+		#embed ctm_tiles8 lzo "cards.ctm"
 	};
 
 Imports the tiles in 8 bit form and builds byte constants
@@ -424,13 +424,13 @@ Imports the map (screen) in 16 bit form and builds word constants
 Imports the attribute data
 
 	const char SpriteData[] = {
-		#embed spd_sprites lzo "sprites.spd"
+		#embed spd_sprites "sprites.spd"
 	};
 
 Imports the sprite data and compresses it using lzo compression
 
 	const char SpriteTiles[] = {
-		#embed spd_tiles "sprites.spd"
+		#embed spd_tiles lzo "sprites.spd"
 	};
 
 Imports the sprite tile index table in byte form
