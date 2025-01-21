@@ -25136,6 +25136,39 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				}
 			}
 		}
+#if 1
+		if (mTrueJump && mFalseJump && mIns.Size() >= 2 && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE))
+		{
+			int nins = mIns.Size();
+			if (mIns[nins - 2].mType == ASMIT_LDA && mIns[nins - 1].mType == ASMIT_CMP && !(mIns[nins - 1].mLive & LIVE_CPU_REG_A) && !mTrueJump->mEntryRequiredRegs[CPU_REG_C] && !mFalseJump->mEntryRequiredRegs[CPU_REG_C])
+			{
+				if (mTrueJump->mIns.Size() > 0 && mTrueJump->mIns[0].mType == ASMIT_LDA && mTrueJump->mNumEntries == 1 && mTrueJump->mIns[0].SameEffectiveAddress(mIns[nins - 1]))
+				{
+					mIns[nins - 1].CopyMode(mIns[nins - 2]);
+					mIns[nins - 2].CopyMode(mTrueJump->mIns[0]);
+					mIns[nins - 1].mLive |= LIVE_CPU_REG_A;
+					mExitRequiredRegs += CPU_REG_A;
+					mTrueJump->mEntryRequiredRegs += CPU_REG_A;
+					mTrueJump->mIns.Remove(0);
+					changed = true;
+
+					CheckLive();
+				}
+				else if (mFalseJump->mIns.Size() > 0 && mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mNumEntries == 1 && mFalseJump->mIns[0].SameEffectiveAddress(mIns[nins - 1]))
+				{
+					mIns[nins - 1].CopyMode(mIns[nins - 2]);
+					mIns[nins - 2].CopyMode(mFalseJump->mIns[0]);
+					mIns[nins - 1].mLive |= LIVE_CPU_REG_A;
+					mExitRequiredRegs += CPU_REG_A;
+					mFalseJump->mEntryRequiredRegs += CPU_REG_A;
+					mFalseJump->mIns.Remove(0);
+					changed = true;
+
+					CheckLive();
+				}
+			}
+		}
+#endif
 
 		if (mTrueJump) mTrueJump->CheckLive();
 		if (mFalseJump) mFalseJump->CheckLive();
@@ -52452,7 +52485,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "rirq_sort");
+	CheckFunc = !strcmp(mIdent->mString, "f");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
