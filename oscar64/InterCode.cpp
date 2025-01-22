@@ -8360,7 +8360,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 				case IA_EXT8TO16U:
 				case IA_EXT8TO32U:
 					vr = ins->mSrc[0].mRange;
-					if (vr.mMaxState != IntegerValueRange::S_UNKNOWN && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue > 0)
+					if (vr.mMaxState != IntegerValueRange::S_BOUND && vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue > 0)
 					{
 						vr.mMaxState = IntegerValueRange::S_BOUND;
 						vr.mMaxValue = 255;
@@ -23216,7 +23216,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "runner_entering");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
