@@ -6,35 +6,13 @@ project(oscar64 VERSION 1.0 LANGUAGES CXX)
 # Define the executable
 add_executable(oscar64)
 
-# Add source files
-target_sources(oscar64 PRIVATE
-    oscar64/Assembler.cpp
-    oscar64/ByteCodeGenerator.cpp
-    oscar64/CompilationUnits.cpp
-    oscar64/Compiler.cpp
-    oscar64/Compression.cpp
-    oscar64/Constexpr.cpp
-    oscar64/Declaration.cpp
-    oscar64/Disassembler.cpp
-    oscar64/DiskImage.cpp
-    oscar64/Emulator.cpp
-    oscar64/Errors.cpp
-    oscar64/GlobalAnalyzer.cpp
-    oscar64/GlobalOptimizer.cpp
-    oscar64/Ident.cpp
-    oscar64/InterCode.cpp
-    oscar64/InterCodeGenerator.cpp
-    oscar64/Linker.cpp
-    oscar64/MachineTypes.cpp
-    oscar64/NativeCodeGenerator.cpp
-    oscar64/NativeCodeOutliner.cpp
-    oscar64/NumberSet.cpp
-    oscar64/oscar64.cpp
-    oscar64/Parser.cpp
-    oscar64/Preprocessor.cpp
-    oscar64/Scanner.cpp
-    oscar64/oscar64.rc
-)
+
+# Glob all source files in the oscar64/ directory
+file(GLOB OSCAR64_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/oscar64/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/oscar64/*.h")
+
+# Add the sources to the target
+target_sources(${PROJECT_NAME} PRIVATE ${OSCAR64_SOURCES})
+
 
 # Add header files
 target_include_directories(oscar64 PRIVATE
