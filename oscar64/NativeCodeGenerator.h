@@ -211,7 +211,7 @@ public:
 	bool IsShift(void) const;
 	bool IsShiftOrInc(void) const;
 	bool IsSimpleJSR(void) const;
-	bool MayBeMovedBefore(const NativeCodeInstruction& ins);
+	bool MayBeMovedBefore(const NativeCodeInstruction& ins) const;
 
 	bool ReplaceYRegWithXReg(void);
 	bool ReplaceXRegWithYReg(void);
@@ -603,6 +603,7 @@ public:
 	bool HasTailSTAX16(int& addr, int& index0) const;
 
 	bool MayBeMovedBeforeBlock(int at);
+	bool MayBeMovedBeforeBlock(int at, const NativeCodeInstruction & ins);
 	bool MayBeMovedBeforeBlock(int start, int end);
 	bool SafeInjectSequenceFromBack(NativeCodeBasicBlock* block, int start, int end);
 	bool JoinCommonBranchCodeSequences(void);
@@ -706,6 +707,7 @@ public:
 	bool EliminateDeadLoops(void);
 	bool LoopRegisterWrapAround(void);
 	bool CrossBlockFlagsForwarding(void);
+	bool MoveStoresBeforeDiamond(void);
 
 	bool SinglePathRegisterForwardY(NativeCodeBasicBlock* path, int yreg);
 	bool SinglePathRegisterForward(void);

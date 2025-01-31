@@ -14056,6 +14056,9 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 					{
 						if (mTrueJump->mNumEntries == 1 && trueExitRequiredTemps[dtemp] && !falseExitRequiredTems[dtemp])
 						{
+							if (ins->mDst.mTemp >= 0 && mTrueJump->mEntryValueRange.Size() > ins->mDst.mTemp)
+								mTrueJump->mEntryValueRange[ins->mDst.mTemp].Reset();
+
 							for (int j = 0; j < ins->mNumOperands; j++)
 							{
 								if (ins->mSrc[j].mTemp >= 0)
@@ -14073,6 +14076,9 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 						}
 						else if (mFalseJump->mNumEntries == 1 && !trueExitRequiredTemps[dtemp] && falseExitRequiredTems[dtemp])
 						{
+							if (ins->mDst.mTemp >= 0 && mFalseJump->mEntryValueRange.Size() > ins->mDst.mTemp)
+								mFalseJump->mEntryValueRange[ins->mDst.mTemp].Reset();
+
 							for (int j = 0; j < ins->mNumOperands; j++)
 							{
 								if (ins->mSrc[j].mTemp >= 0)
@@ -14116,6 +14122,9 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 
 									if (ins->mCode != IC_LOAD || j == mFalseJump->mInstructions.Size())
 									{
+										if (ins->mDst.mTemp >= 0 && joinedBlock->mEntryValueRange.Size() > ins->mDst.mTemp)
+											joinedBlock->mEntryValueRange[ins->mDst.mTemp].Reset();
+
 										for (int j = 0; j < ins->mNumOperands; j++)
 										{
 											if (ins->mSrc[j].mTemp >= 0)
@@ -19673,6 +19682,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[0].mIntConst >>= shift;
 				mInstructions[i + 0]->mOperator = IA_AND;
 				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
+				mInstructions[i + 0]->mDst.mRange.Reset();
 				changed = true;
 			}
 			else if (
@@ -19685,6 +19695,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1].mIntConst >>= shift;
 				mInstructions[i + 0]->mOperator = IA_AND;
 				mInstructions[i + 0]->mSrc[0].mIntConst = ~((1LL << shift) - 1);
+				mInstructions[i + 0]->mDst.mRange.Reset();
 				changed = true;
 			}
 			else if (
@@ -23216,7 +23227,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "runner_entering");
+	CheckFunc = !strcmp(mIdent->mString, "player_move");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

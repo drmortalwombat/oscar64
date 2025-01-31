@@ -1793,7 +1793,7 @@ bool NativeCodeInstruction::IsSameLS(const NativeCodeInstruction& ins) const
 		return false;
 }
 
-bool NativeCodeInstruction::MayBeMovedBefore(const NativeCodeInstruction& ins)
+bool NativeCodeInstruction::MayBeMovedBefore(const NativeCodeInstruction& ins) const
 {
 	if ((ChangesAddress() || ins.ChangesAddress()) && MayBeSameAddress(ins))
 		return false;
@@ -19196,6 +19196,83 @@ bool NativeCodeBasicBlock::Split16BitLoopCount(NativeCodeProcedure* proc)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::MoveStoresBeforeDiamond(void)
+{
+	bool changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+		if (mTrueJump && mFalseJump)
+		{
+			NativeCodeBasicBlock* dblock = nullptr, * eblock = nullptr;
+
+			if (mTrueJump->mTrueJump == mFalseJump && !mTrueJump->mFalseJump && mFalseJump->mNumEntries == 2 && mTrueJump->mNumEntries == 1)
+			{
+				dblock = mTrueJump;
+				eblock = mFalseJump;
+			}
+			else if (mFalseJump->mTrueJump == mTrueJump && !mFalseJump->mFalseJump && mTrueJump->mNumEntries == 2 && mFalseJump->mNumEntries == 1)
+			{
+				dblock = mFalseJump;
+				eblock = mTrueJump;
+			}
+
+			if (eblock)
+			{
+				bool	avalid = eblock->mEntryRequiredRegs[CPU_REG_A] && !dblock->ChangesAccu();
+				bool	xvalid = eblock->mEntryRequiredRegs[CPU_REG_X] && !dblock->ChangesXReg();
+				bool	yvalid = eblock->mEntryRequiredRegs[CPU_REG_Y] && !dblock->ChangesYReg();
+
+				int i = 0;
+				while (i < eblock->mIns.Size())
+				{
+					NativeCodeInstruction& ins(eblock->mIns[i]);
+
+					bool	move = false;
+					if (avalid)
+					{
+						if (ins.mType == ASMIT_STA)
+							move = true;
+						else if (ins.ChangesAccu())
+							avalid = false;
+					}
+					else if (xvalid)
+					{
+						if (ins.mType == ASMIT_STX)
+							move = true;
+						else if (ins.ChangesXReg())
+							xvalid = false;
+					}
+					else if (yvalid)
+					{
+						if (ins.mType == ASMIT_STY)
+							move = true;
+						else if (ins.ChangesYReg())
+							yvalid = false;
+					}
+					else
+						break;
+
+					if (move && eblock->MayBeMovedBeforeBlock(i, ins) && dblock->MayBeMovedBeforeBlock(dblock->mIns.Size(), ins))
+					{
+						ins.mLive = LIVE_ALL;
+						mIns.Push(ins);
+						eblock->mIns.Remove(i);
+						changed = true;
+					}
+					else
+						i++;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->MoveStoresBeforeDiamond()) changed = true;
+		if (mFalseJump && mFalseJump->MoveStoresBeforeDiamond()) changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::CrossBlockFlagsForwarding(void)
 {
 	bool changed = false;
@@ -26341,6 +26418,19 @@ bool NativeCodeBasicBlock::MayBeMovedBeforeBlock(int at)
 		i--;
 		if (!mIns[at].MayBeMovedBefore(mIns[i]))
 			return false;		
+	}
+
+	return true;
+}
+
+bool NativeCodeBasicBlock::MayBeMovedBeforeBlock(int at, const NativeCodeInstruction& ins)
+{
+	int i = at;
+	while (i > 0)
+	{
+		i--;
+		if (!ins.MayBeMovedBefore(mIns[i]))
+			return false;
 	}
 
 	return true;
@@ -38734,12 +38824,13 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 		if (rind >= 0)
 		{
+			bool	found = false;
 			for (int i = 0; i < mIns.Size(); i++)
 			{
 				if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == rind)
 				{
 					if (mIns[i].mType == ASMIT_LDA || mIns[i].mType == ASMIT_STA)
-						;
+						found = true;
 					else
 					{
 						rind = -2;
@@ -38755,7 +38846,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				}
 			}
 
-			if (rind >= 0)
+			if (rind >= 0 && found)
 			{
 				if (!prevBlock)
 					return OptimizeSimpleLoopInvariant(proc, full);
@@ -52485,7 +52576,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "f");
+	CheckFunc = !strcmp(mIdent->mString, "player_move");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -54280,6 +54371,13 @@ void NativeCodeProcedure::Optimize(void)
 					changed = true;
 			}
 
+		}
+
+		if (step == 19)
+		{
+			ResetVisited();
+			if (mEntryBlock->MoveStoresBeforeDiamond())
+				changed = true;
 		}
 
 #if _DEBUG
