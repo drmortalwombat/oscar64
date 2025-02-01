@@ -5409,7 +5409,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							ndec = pdec;
 						}
 						else if ((mCompilerOptions & COPT_CPLUSPLUS) || mScope->mLevel >= SLEVEL_FUNCTION)
+						{
 							mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate variable declaration", ndec->mIdent);
+							mErrors->Error(pdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+						}
 						else
 						{
 							if (!ndec->mBase->IsSame(pdec->mBase))
@@ -5421,7 +5424,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 									pdec->mBase = ndec->mBase;
 								}
 								else
+								{
 									mErrors->Error(ndec->mLocation, EERR_DECLARATION_DIFFERS, "Variable declaration differs", ndec->mIdent);
+									mErrors->Error(pdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+								}
+
 							}
 
 							pdec->mSection = ndec->mSection;
@@ -5429,7 +5436,10 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							pdec->mFlags |= ndec->mFlags & DTF_ZEROPAGE;
 
 							if (pdec->mValue)
+							{
 								mErrors->Error(ndec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate variable declaration", ndec->mIdent);
+								mErrors->Error(pdec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+							}
 
 							ndec = pdec;
 

@@ -422,6 +422,7 @@ public:
 	int ShortSignedDivide(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins, const InterInstruction* sins, int mul);
 
 	bool CheckPredAccuStore(int reg);
+	bool CheckIsInAccu(int reg);
 
 	NumberSet		mLocalRequiredRegs, mLocalProvidedRegs;
 	NumberSet		mEntryRequiredRegs, mEntryProvidedRegs;
@@ -865,6 +866,7 @@ class NativeCodeProcedure
 		ExpandingArray<CodeLocation>		mCodeLocations;
 
 
+		void DisassembleDebug(const char* name);
 		void Disassemble(FILE* file);
 
 		void Compile(InterCodeProcedure* proc);

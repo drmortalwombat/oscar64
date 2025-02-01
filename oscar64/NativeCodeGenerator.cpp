@@ -2008,6 +2008,8 @@ bool NativeCodeInstruction::UsesMemoryOf(const NativeCodeInstruction& ins) const
 		else
 			return false;
 	}
+	else if (mType == ASMIT_JSR)
+		return true;
 	else
 		return false;
 		
@@ -8821,6 +8823,22 @@ bool NativeCodeBasicBlock::CheckPredAccuStore(int reg)
 	return true;
 }
 
+bool NativeCodeBasicBlock::CheckIsInAccu(int reg)
+{
+	int i = mIns.Size() - 1;
+	while (i > 0)
+	{
+		if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == reg &&
+			mIns[i - 1].mType == ASMIT_LDA && mIns[i - 1].mMode == ASMIM_ZERO_PAGE && mIns[i - 1].mAddress == BC_REG_ACCU)
+			return true;
+		if (mIns[i].ReferencesZeroPage(reg) || mIns[i].ReferencesZeroPage(BC_REG_ACCU))
+			return false;
+
+		i--;
+	}
+	return false;
+}
+
 void NativeCodeBasicBlock::ShiftRegisterRight(const InterInstruction* ins, int reg, int shift)
 {
 	if (shift == 0)
@@ -10851,9 +10869,18 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					{
 						if (ins->mOperator == IA_ADD)
 							mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
-						mIns.Push(insl);
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
+						if (treg == BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] &&
+							((ins->mOperator == IA_AND && (ins->mSrc[1].mIntConst & 0xff) == 0xff) ||
+								(ins->mOperator == IA_OR && (ins->mSrc[1].mIntConst & 0xff) == 0x00)))
+						{
+
+						}
+						else
+						{
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+							mIns.Push(insl);
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
+						}
 						if (InterTypeSize[ins->mDst.mType] > 1)
 						{
 							if (ins->mDst.IsUByte())
@@ -10885,9 +10912,18 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 					{
 						if (ins->mOperator == IA_ADD)
 							mIns.Push(NativeCodeInstruction(ins, ASMIT_CLC, ASMIM_IMPLIED));
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
-						mIns.Push(insl);
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
+						if (treg == BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] &&
+							((ins->mOperator == IA_AND && (ins->mSrc[0].mIntConst & 0xff) == 0xff) ||
+								(ins->mOperator == IA_OR && (ins->mSrc[0].mIntConst & 0xff) == 0x00)))
+						{
+
+						}
+						else
+						{
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
+							mIns.Push(insl);
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, treg));
+						}
 						if (InterTypeSize[ins->mDst.mType] > 1)
 						{
 							if (ins->mDst.IsUByte())
@@ -11174,23 +11210,34 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 			}
 			else if (ins->mOperator == IA_MUL && ins->mSrc[0].IsUByte())
 			{
-				if (sins1)
-					LoadValueToReg(proc, sins1, BC_REG_ACCU, nullptr, nullptr);
-				else
+				if (!sins0 && !sins1 && ins->mSrc[1].IsUByte() && CheckIsInAccu(BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]))
 				{
-					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
-					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
-					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
-					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
-				}
-
-				if (sins0)
-				{
-					LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
-					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
-				}
-				else
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
+				}
+				else
+				{
+					if (sins1)
+						LoadValueToReg(proc, sins1, BC_REG_ACCU, nullptr, nullptr);
+					else
+					{
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp]));
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 1));
+					}
+
+					if (sins0)
+					{
+						LoadValueToReg(proc, sins0, BC_REG_WORK, nullptr, nullptr);
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_WORK + 0));
+					}
+					else
+						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
+				}
 
 				NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("mul16by8")));
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER | NCIF_USE_CPU_REG_A));
@@ -52356,6 +52403,40 @@ NativeCodeProcedure::~NativeCodeProcedure(void)
 
 }
 
+void NativeCodeProcedure::DisassembleDebug(const char* name)
+{
+#if 0
+#ifdef _WIN32
+	FILE* file;
+	static bool	initial = true;
+
+	if (!CheckFunc)
+		return;
+
+	if (!initial)
+	{
+		fopen_s(&file, "r:\\ntivdiss.txt", "a");
+	}
+	else
+	{
+		fopen_s(&file, "r:\\ntivdiss.txt", "w");
+		initial = false;
+	}
+
+	if (file)
+	{
+		fprintf(file, "--------------------------------------------------------------------\n");
+		fprintf(file, "%s : %s:%d\n", name, mLocation.mFileName, mLocation.mLine);
+		fprintf(file, "\n");
+
+		ResetVisited();
+		mEntryBlock->Disassemble(file);
+
+		fclose(file);
+	}
+#endif
+#endif
+}
 
 void NativeCodeProcedure::Disassemble(FILE* file)
 {
@@ -52576,7 +52657,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "player_move");
+	CheckFunc = !strcmp(mIdent->mString, "renderTileScroll");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -53546,12 +53627,10 @@ void NativeCodeProcedure::Optimize(void)
 
 		CheckBlocks();
 
-
 #if 1
 		ResetVisited();
 		if (mEntryBlock->PeepHoleOptimizer(step))
 			changed = true;
-
 #endif
 		if (step == 2)
 		{
@@ -54383,6 +54462,12 @@ void NativeCodeProcedure::Optimize(void)
 #if _DEBUG
 	ResetVisited();
 	mEntryBlock->CheckAsmCode();
+#endif
+
+#if 0
+	char fname[100];
+	sprintf_s(fname, "Optimize %d, %d", step, cnt);
+	DisassembleDebug(fname);
 #endif
 
 #if 1
