@@ -72,7 +72,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 		ins->mSrc[0].mStride = v.mReference == 1 ? v.mType->mStripe : 1;
 
 
-		if (v.mReference == 1 && v.mType->mType == DT_TYPE_ENUM)
+		if (v.mReference == 1 && v.mType->mType == DT_TYPE_ENUM && !v.mBits)
 		{
 			ins->mDst.mRange.LimitMin(v.mType->mMinValue);
 			ins->mDst.mRange.LimitMax(v.mType->mMaxValue);
@@ -128,6 +128,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 			srins->mNumOperands = 2;
 			block->Append(srins);
 			
+			if (v.mType->mType == DT_TYPE_ENUM)
+			{
+				srins->mDst.mRange.LimitMin(v.mType->mMinValue);
+				srins->mDst.mRange.LimitMax(v.mType->mMaxValue);
+			}
+
 			// Promote unsigned bitfields that fit into a signed int to signed int
 			Declaration* vtype = v.mType;
 			if (vtype->mSize == 2 && v.mBits < 16 && !(vtype->mFlags & DTF_SIGNED))
