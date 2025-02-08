@@ -899,6 +899,10 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		{
 			return TheUnsignedCharTypeDeclaration;
 		}
+		else if (exp->mToken == TK_SIZEOF)
+		{
+			return TheUnsignedIntTypeDeclaration;
+		}
 		else
 		{
 			procDec->mComplexity += 10 * exp->mLeft->mDecType->mSize;

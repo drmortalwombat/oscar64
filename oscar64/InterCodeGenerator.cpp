@@ -3439,6 +3439,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				mErrors->Error(exp->mLocation, ERRR_CANNOT_FIND_BANK_OF_EXPRESSION, "Cannot find bank of expressiohn");
 			}	break;
 
+			case TK_SIZEOF:
+			{
+				ins->mCode = IC_CONSTANT;
+				ins->mNumOperands = 0;
+				ins->mConst.mType = IT_INT16;
+				ins->mConst.mIntConst = exp->mLeft->mDecType->mSize;
+				ins->mDst.mType = IT_INT16;
+				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				block->Append(ins);
+				return ExValue(TheUnsignedIntTypeDeclaration, ins->mDst.mTemp, vl.mReference - 1);
+			}
+
 			case TK_NEW:
 			{
 				ins->mCode = IC_MALLOC;
@@ -5628,6 +5640,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			return ExValue(TheVoidTypeDeclaration);
 		}
+		case EX_TYPE:
+			return ExValue(exp->mDecType);
+
 		default:
 			mErrors->Error(exp->mLocation, EERR_UNIMPLEMENTED, "Unimplemented expression");
 			return ExValue(TheVoidTypeDeclaration);

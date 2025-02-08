@@ -4786,6 +4786,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
 			ctdec->mFlags |= storageFlags & (DTF_REQUEST_INLINE | DTF_CONSTEXPR | DTF_VIRTUAL);
+			cdec->mFlags |= storageFlags & (DTF_PREVENT_INLINE);
 
 			cdec->mSection = mCodeSection;
 			cdec->mBase->mFlags |= typeFlags;
@@ -4836,6 +4837,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
 			ctdec->mFlags |= storageFlags & (DTF_REQUEST_INLINE | DTF_CONSTEXPR | DTF_VIRTUAL);
+			cdec->mFlags |= storageFlags & (DTF_PREVENT_INLINE);
 
 			cdec->mSection = mCodeSection;
 			cdec->mBase->mFlags |= typeFlags;
@@ -4880,7 +4882,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			cdec->mBase = ctdec;
 
 			cdec->mFlags |= cdec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
-			cdec->mFlags |= storageFlags & (DTF_INLINE | DTF_CONSTEXPR);
+			cdec->mFlags |= storageFlags & (DTF_INLINE | DTF_CONSTEXPR | DTF_PREVENT_INLINE);
 
 			cdec->mSection = mCodeSection;
 			cdec->mBase->mFlags |= typeFlags;
@@ -6785,6 +6787,10 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 		dec->mBase = TheSignedIntTypeDeclaration;
 
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+
 		if (ConsumeTokenIf(TK_ELLIPSIS))
 		{
 			rexp = ParseParenthesisExpression();
@@ -6805,14 +6811,24 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		else
 		{
 			rexp = ParseParenthesisExpression();
+			Declaration* btype;
 			if (rexp->mDecType->IsReference())
-				dec->mInteger = rexp->mDecType->mBase->mSize;
+				btype = rexp->mDecType->mBase;
 			else
-				dec->mInteger = rexp->mDecType->mSize;
+				btype = rexp->mDecType;
+
+			if (btype->mFlags & DTF_DEFINED)
+				dec->mInteger = btype->mSize;
+			else
+			{
+				exp->mType = EX_PREFIX;
+				exp->mToken = TK_SIZEOF;
+				exp->mLeft = new Expression(mScanner->mLocation, EX_TYPE);
+				exp->mLeft->mDecType = btype;
+				exp->mLeft->mDecValue = nullptr;
+			}
 		}
-		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
-		exp->mDecValue = dec;
-		exp->mDecType = dec->mBase;
+
 		break;
 
 	case TK_OPEN_PARENTHESIS:

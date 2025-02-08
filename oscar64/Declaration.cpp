@@ -649,6 +649,19 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 
 		return this;
 	}
+	else if (mType == EX_PREFIX && mToken == TK_SIZEOF)
+	{
+		if (mLeft->mDecType->mFlags & DTF_DEFINED)
+		{
+			Expression* ex = new Expression(mLocation, EX_CONSTANT);
+			Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
+			dec->mBase = TheSignedIntTypeDeclaration;
+			dec->mInteger = mLeft->mDecType->mSize;
+			ex->mDecValue = dec;
+			ex->mDecType = dec->mBase;
+			return ex;
+		}
+	}
 	else if (mType == EX_PREFIX && mLeft->mType == EX_CONSTANT)
 	{
 

@@ -1023,6 +1023,9 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalUnary(Expression* exp, con
 			break;
 		case TK_MUL:
 			return vl.GetPtr();
+		case TK_SIZEOF:
+			v.PutInt(vl.mDecType->mSize);
+			break;
 		default:
 			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible operator", TokenNames[exp->mToken]);
 		}
