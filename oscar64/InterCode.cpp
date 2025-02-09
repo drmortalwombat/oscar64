@@ -23226,7 +23226,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "reuref<struct Node>::(cast)");
+	CheckFunc = !strcmp(mIdent->mString, "shipyard_navigate");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
