@@ -11,7 +11,7 @@ int CompressLZO(uint8* dst, const uint8* source, int size)
 		while (pi < 127 && pos < size)
 		{
 			int	bi = pi, bj = 0;
-			for (int i = 1; i < (pos < 255 ? pos : 255); i++)
+			for (int i = 1; i <= (pos < 255 ? pos : 255); i++)
 			{
 				int j = 0;
 				while (j < 127 && pos + j < size && source[pos - i + j] == source[pos + j])

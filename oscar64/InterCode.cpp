@@ -21227,6 +21227,43 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		CheckFinalLocal();
 #endif
 
+		// Bubble up unrelated instructions
+		i = mInstructions.Size() - 2;
+		while (i >= 0)
+		{
+			if (mInstructions[i]->mCode == IC_LOAD ||
+				mInstructions[i]->mCode == IC_UNARY_OPERATOR ||
+				mInstructions[i]->mCode == IC_CONVERSION_OPERATOR ||
+				mInstructions[i]->mCode == IC_BINARY_OPERATOR && (mInstructions[i]->mSrc[0].mTemp < 0 || mInstructions[i]->mSrc[1].mTemp < 0))
+			{
+				InterInstruction* ins(mInstructions[i]);
+
+				if (mInstructions[i + 1]->mCode == IC_CONSTANT && CanSwapInstructions(ins, mInstructions[i + 1]))
+				{
+					if (mInstructions[i + 2]->mNumOperands >= 1 && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal ||
+						mInstructions[i + 2]->mNumOperands == 2 && mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[1].mFinal)
+					{ 
+						SwapInstructions(ins, mInstructions[i + 1]);
+						mInstructions[i] = mInstructions[i + 1];
+						mInstructions[i + 1] = ins;
+					}
+				}
+			}
+			i--;
+		}
+
+#if 1
+		do {} while (PeepholeReplaceOptimization(staticVars, staticProcs));
+#endif
+
+		limit = mInstructions.Size() - 1;
+		if (limit >= 0 && mInstructions[limit]->mCode == IC_BRANCH)
+		{
+			limit--;
+			if (limit > 0 && mInstructions[limit]->mCode == IC_RELATIONAL_OPERATOR)
+				limit--;
+		}
+
 #if 1
 		i = limit;
 		while (i >= 0)
@@ -23226,7 +23263,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "shipyard_navigate");
+	CheckFunc = !strcmp(mIdent->mString, "test_char_fit");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

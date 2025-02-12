@@ -44,7 +44,7 @@ bool SourceFile::ReadLineLZO(char* line, ptrdiff_t limit)
 		while (pi < 127 && mPos < mFill)
 		{
 			int	bi = pi, bj = 0;
-			for (int i = 1; i < mPos; i++)
+			for (int i = 1; i <= (mPos < 255 ? mPos : 255); i++)
 			{
 				int j = 0;
 				while (j < 127 && mPos + j < mFill && mBuffer[mPos - i + j] == mBuffer[mPos + j])
