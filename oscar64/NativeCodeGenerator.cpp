@@ -33044,6 +33044,8 @@ bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to, bool
 
 bool NativeCodeBasicBlock::CanZeroPageCopyUp(int at, int from, int to, bool diamond)
 {
+	bool full = at == mIns.Size();
+
 	mPatchChecked = true;
 
 	while (at > 0)
@@ -33097,7 +33099,7 @@ bool NativeCodeBasicBlock::CanZeroPageCopyUp(int at, int from, int to, bool diam
 		}
 	}
 
-	if (mLoopHead)
+	if (mLoopHead && (mTrueJump != this && mFalseJump != this || !full))
 		return false;
 
 	if (mEntryBlocks.Size() == 1)
@@ -33120,11 +33122,17 @@ bool NativeCodeBasicBlock::CanZeroPageCopyUp(int at, int from, int to, bool diam
 	}
 	else if (mEntryBlocks.Size() == 2)
 	{
-		if (mEntryBlocks[0]->mTrueJump == this && mEntryBlocks[0]->mFalseJump == mEntryBlocks[1] && !mEntryBlocks[1]->mFalseJump ||
-			mEntryBlocks[0]->mFalseJump == this && mEntryBlocks[0]->mTrueJump == mEntryBlocks[1] && !mEntryBlocks[1]->mFalseJump)
+		if (mEntryBlocks[0] == this)
+			return mEntryBlocks[1]->CanZeroPageCopyUp(mEntryBlocks[1]->mIns.Size(), from, to, false);
+		else if (mEntryBlocks[1] == this)
+			return mEntryBlocks[0]->CanZeroPageCopyUp(mEntryBlocks[0]->mIns.Size(), from, to, false);
+		else if (
+			mEntryBlocks[0]->mTrueJump == this && mEntryBlocks[0]->mFalseJump == mEntryBlocks[1] && (!mEntryBlocks[1]->mFalseJump || mEntryBlocks[1]->mFalseJump == mEntryBlocks[1] || mEntryBlocks[1]->mTrueJump == mEntryBlocks[1]) ||
+			mEntryBlocks[0]->mFalseJump == this && mEntryBlocks[0]->mTrueJump == mEntryBlocks[1] && (!mEntryBlocks[1]->mFalseJump || mEntryBlocks[1]->mFalseJump == mEntryBlocks[1] || mEntryBlocks[1]->mTrueJump == mEntryBlocks[1]))
 			return mEntryBlocks[1]->CanZeroPageCopyUp(mEntryBlocks[1]->mIns.Size(), from, to, true);
-		else if (mEntryBlocks[1]->mTrueJump == this && mEntryBlocks[1]->mFalseJump == mEntryBlocks[0] && !mEntryBlocks[0]->mFalseJump ||
-				mEntryBlocks[1]->mFalseJump == this && mEntryBlocks[1]->mTrueJump == mEntryBlocks[0] && !mEntryBlocks[0]->mFalseJump)
+		else if (
+			mEntryBlocks[1]->mTrueJump == this && mEntryBlocks[1]->mFalseJump == mEntryBlocks[0] && (!mEntryBlocks[0]->mFalseJump || mEntryBlocks[0]->mFalseJump == mEntryBlocks[0] || mEntryBlocks[0]->mTrueJump == mEntryBlocks[0]) ||
+			mEntryBlocks[1]->mFalseJump == this && mEntryBlocks[1]->mTrueJump == mEntryBlocks[0] && (!mEntryBlocks[0]->mFalseJump || mEntryBlocks[0]->mFalseJump == mEntryBlocks[0] || mEntryBlocks[0]->mTrueJump == mEntryBlocks[0]))
 			return mEntryBlocks[0]->CanZeroPageCopyUp(mEntryBlocks[0]->mIns.Size(), from, to, true);
 	}
 
@@ -33463,14 +33471,14 @@ bool NativeCodeBasicBlock::BackwardReplaceZeroPage(int at, int from, int to, boo
 			}
 			else if (mEntryBlocks.Size() == 2)
 			{
-				if (mEntryBlocks[0]->mTrueJump == this && mEntryBlocks[0]->mFalseJump == mEntryBlocks[1] && !mEntryBlocks[1]->mFalseJump ||
-					mEntryBlocks[0]->mFalseJump == this && mEntryBlocks[0]->mTrueJump == mEntryBlocks[1] && !mEntryBlocks[1]->mFalseJump)
+				if (mEntryBlocks[0]->mTrueJump == this && mEntryBlocks[0]->mFalseJump == mEntryBlocks[1] && (!mEntryBlocks[1]->mFalseJump || mEntryBlocks[1]->mFalseJump == mEntryBlocks[1] || mEntryBlocks[1]->mTrueJump == mEntryBlocks[1]) ||
+					mEntryBlocks[0]->mFalseJump == this && mEntryBlocks[0]->mTrueJump == mEntryBlocks[1] && (!mEntryBlocks[1]->mFalseJump || mEntryBlocks[1]->mFalseJump == mEntryBlocks[1] || mEntryBlocks[1]->mTrueJump == mEntryBlocks[1]))
 				{
 					if (mEntryBlocks[1]->BackwardReplaceZeroPage(mEntryBlocks[1]->mIns.Size(), from, to, true))
 						changed = true;
 				}
-				else if (mEntryBlocks[1]->mTrueJump == this && mEntryBlocks[1]->mFalseJump == mEntryBlocks[0] && !mEntryBlocks[0]->mFalseJump ||
-					mEntryBlocks[1]->mFalseJump == this && mEntryBlocks[1]->mTrueJump == mEntryBlocks[0] && !mEntryBlocks[0]->mFalseJump)
+				else if (mEntryBlocks[1]->mTrueJump == this && mEntryBlocks[1]->mFalseJump == mEntryBlocks[0] && (!mEntryBlocks[0]->mFalseJump || mEntryBlocks[0]->mFalseJump == mEntryBlocks[0] || mEntryBlocks[0]->mTrueJump == mEntryBlocks[0]) ||
+					mEntryBlocks[1]->mFalseJump == this && mEntryBlocks[1]->mTrueJump == mEntryBlocks[0] && (!mEntryBlocks[0]->mFalseJump || mEntryBlocks[0]->mFalseJump == mEntryBlocks[0] || mEntryBlocks[0]->mTrueJump == mEntryBlocks[0]))
 				{
 					if (mEntryBlocks[0]->BackwardReplaceZeroPage(mEntryBlocks[0]->mIns.Size(), from, to, true))
 						changed = true;
@@ -52693,7 +52701,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "bar");
+	CheckFunc = !strcmp(mIdent->mString, "equipment_cost");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
