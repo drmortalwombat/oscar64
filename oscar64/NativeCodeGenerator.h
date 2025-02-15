@@ -603,6 +603,10 @@ public:
 	bool HasTailSTY(int& addr, int& index) const;
 	bool HasTailSTAX16(int& addr, int& index0) const;
 
+	bool HasTailSTAInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
+	bool HasTailSTXInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
+	bool HasTailSTYInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
+
 	bool MayBeMovedBeforeBlock(int at);
 	bool MayBeMovedBeforeBlock(int at, const NativeCodeInstruction & ins);
 	bool MayBeMovedBeforeBlock(int start, int end);
@@ -709,6 +713,7 @@ public:
 	bool LoopRegisterWrapAround(void);
 	bool CrossBlockFlagsForwarding(void);
 	bool MoveStoresBeforeDiamond(void);
+	bool MoveStoresBehindCondition(void);
 
 	bool SinglePathRegisterForwardY(NativeCodeBasicBlock* path, int yreg);
 	bool SinglePathRegisterForward(void);
@@ -743,6 +748,7 @@ public:
 	bool LocalSwapXY(void);
 	bool UntangleXYUsage(bool final);
 	bool AlternateXXUsage(void);
+	bool ShortSwapXY(void);
 
 	bool IsSimpleSubExpression(int at, NativeSimpleSubExpression & ex);
 	bool PropagateCommonSubExpression(void);
