@@ -36972,6 +36972,15 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 	mTrueJump = lblock;
 	mFalseJump = nullptr;
 
+	mNumEntries -= mEntryBlocks.RemoveAll(this);
+
+	lblock->mEntryBlocks.Push(this);
+	lblock->mEntryBlocks.Push(lblock);
+	lblock->mNumEntries = 2;
+
+	eblock->mEntryBlocks.Push(this);
+	eblock->mNumEntries = 1;
+
 	return lblock->OptimizeSimpleLoopInvariant(proc, this, eblock, full);
 }
 
@@ -39188,6 +39197,36 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				}
 			}
 		}
+	}
+
+	if (!changed && mIns.Size() >= 3)
+	{
+		int sz = mIns.Size();
+		if (mIns[sz - 3].mType == ASMIT_INC && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
+			mIns[sz - 2].mType == ASMIT_LDX && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && mIns[sz - 2].mAddress == mIns[sz - 3].mAddress &&
+			mIns[sz - 1].mType == ASMIT_CPX)
+		{
+			int reg = mIns[sz - 3].mAddress;
+			int index;
+			NativeCodeBasicBlock* xblock = mEntryBlocks[0] == this ? mEntryBlocks[1] : mEntryBlocks[0];
+			if (!ReferencesZeroPage(reg, 0, sz - 3) && !ChangesXReg(0, sz - 3) && xblock->IsExitXRegZP(reg, index, xblock))
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc, full);
+
+				exitBlock->mIns.Insert(0, NativeCodeInstruction(mBranchIns, ASMIT_STX, ASMIM_ZERO_PAGE, reg));
+				mIns[sz - 3].mType = ASMIT_NOP; mIns[sz - 3].mMode = ASMIM_IMPLIED;
+				mIns[sz - 2].mType = ASMIT_INX; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+
+				for (int i = 0; i < mIns.Size(); i++)
+					mIns[i].mLive |= LIVE_CPU_REG_X;
+				mEntryRequiredRegs += CPU_REG_X;
+				mExitRequiredRegs += CPU_REG_X;
+				exitBlock->mEntryRequiredRegs += CPU_REG_X;
+				changed = true;
+			}
+		}
+
 	}
 
 	return changed;
@@ -52932,7 +52971,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "equipment_cost");
+	CheckFunc = !strcmp(mIdent->mString, "station_slider");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
