@@ -648,8 +648,12 @@ public:
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	bool MergeLoopTails(void);
 
+	bool ChangeTrueJump(InterCodeBasicBlock* block);
+	bool ChangeFalseJump(InterCodeBasicBlock* block);
+
 	InterCodeBasicBlock* CheckIsConstBranch(const GrowingInstructionPtrArray& cins);
 	bool ShortcutConstBranches(const GrowingInstructionPtrArray& cins);
+	bool ShortcutDuplicateBranches(void);
 
 	InterCodeBasicBlock* BuildLoopPrefix(void);
 	void BuildLoopSuffix(void);
@@ -802,6 +806,7 @@ protected:
 	void PropagateMemoryAliasingInfo(void);
 	void MoveConditionsOutOfLoop(void);
 	void ShortcutConstBranches(void);
+	void ShortcutDuplicateBranches(void);
 	void EliminateDoubleLoopCounter(void);
 	void StructReturnPropagation(void);
 

@@ -15379,6 +15379,96 @@ InterCodeBasicBlock* InterCodeBasicBlock::CheckIsConstBranch(const GrowingInstru
 	return nullptr;
 }
 
+bool InterCodeBasicBlock::ChangeTrueJump(InterCodeBasicBlock* block)
+{
+	if (block != mTrueJump)
+	{
+		mTrueJump->mEntryBlocks.RemoveAll(this);
+		mTrueJump->mNumEntries--;
+		block->mEntryBlocks.Push(this);
+		block->mNumEntries++;
+		mTrueJump = block;
+		return true;
+	}
+
+	return false;
+}
+
+bool InterCodeBasicBlock::ChangeFalseJump(InterCodeBasicBlock* block)
+{
+	if (block != mFalseJump)
+	{
+		mFalseJump->mEntryBlocks.RemoveAll(this);
+		mFalseJump->mNumEntries--;
+		block->mEntryBlocks.Push(this);
+		block->mNumEntries++;
+		mFalseJump = block;
+		return true;
+	}
+
+	return false;
+}
+
+bool InterCodeBasicBlock::ShortcutDuplicateBranches(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int sz = mInstructions.Size();
+		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp)
+		{
+			InterInstruction* cins = mInstructions[sz - 2];
+
+			if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp)
+			{
+				InterInstruction* tcins = mTrueJump->mInstructions[0];
+
+				if (cins->mSrc[0].IsEqual(tcins->mSrc[0]) && cins->mSrc[1].IsEqual(tcins->mSrc[1]))
+				{
+					if (cins->mOperator == tcins->mOperator)
+					{
+						if (ChangeTrueJump(mTrueJump->mTrueJump))
+							changed = true;
+					}
+					else if (cins->mOperator == InvertRelational(tcins->mOperator))
+					{
+						if (ChangeTrueJump(mTrueJump->mFalseJump))
+							changed = true;
+					}
+				}
+			}
+			if (mFalseJump->mInstructions.Size() == 2 && mFalseJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mFalseJump->mInstructions[1]->mCode == IC_BRANCH && mFalseJump->mInstructions[0]->mDst.mTemp == mFalseJump->mInstructions[1]->mSrc[0].mTemp)
+			{
+				InterInstruction* tcins = mFalseJump->mInstructions[0];
+
+				if (cins->mSrc[0].IsEqual(tcins->mSrc[0]) && cins->mSrc[1].IsEqual(tcins->mSrc[1]))
+				{
+					if (cins->mOperator == tcins->mOperator)
+					{
+						if (ChangeFalseJump(mFalseJump->mFalseJump))
+							changed = true;
+					}
+					else if (cins->mOperator == InvertRelational(tcins->mOperator))
+					{
+						if (ChangeFalseJump(mFalseJump->mTrueJump))
+							changed = true;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ShortcutDuplicateBranches())
+			changed = true;
+		if (mFalseJump && mFalseJump->ShortcutDuplicateBranches())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::ShortcutConstBranches(const GrowingInstructionPtrArray& cins)
 {
 	bool	changed = false;
@@ -22508,6 +22598,19 @@ void InterCodeProcedure::ShortcutConstBranches(void)
 	Disassemble("ShortcutConstBranches");
 }
 
+void InterCodeProcedure::ShortcutDuplicateBranches(void)
+{
+	BuildDataFlowSets();
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	do {
+		ResetVisited();
+	} while (mEntryBlock->ShortcutDuplicateBranches());
+
+	Disassemble("ShortcutDuplicateBranches");
+}
+
 
 void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 {
@@ -24044,6 +24147,8 @@ void InterCodeProcedure::Close(void)
 	RemoveUnusedInstructions();
 
 	ShortcutConstBranches();
+
+	ShortcutDuplicateBranches();
 
 	DisassembleDebug("Global Constant Prop 1");
 
