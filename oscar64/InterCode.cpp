@@ -19557,6 +19557,73 @@ bool InterCodeBasicBlock::ShortLeaMerge(int& spareTemps)
 	return changed;
 }
 
+bool InterCodeBasicBlock::ShortLeaCleanup(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (!mLoopHead && mEntryBlocks.Size() > 1)
+		{
+			int k = 0;
+			while (k < mEntryBlocks.Size() && !mEntryBlocks[k]->mFalseJump)
+				k++;
+
+			if (k == mEntryBlocks.Size())
+			{
+				GrowingInstructionArray	iins(nullptr);
+
+				for (int i = 0; i < mInstructions.Size(); i++)
+				{
+					InterInstruction* ins = mInstructions[i];
+
+					int	ttemp = -1;
+					if (ins->mCode == IC_STORE && ins->mSrc[1].mTemp >= 0)
+						ttemp = ins->mSrc[1].mTemp;
+					else if (ins->mCode == IC_LOAD && ins->mSrc[0].mTemp >= 0)
+						ttemp = ins->mSrc[0].mTemp;
+
+					if (ttemp >= 0 && !IsTempModifiedInRange(0, i, ttemp))
+					{
+						bool	found = true;
+						bool	shortlea = false, noshortlea = false;
+
+						iins.SetSize(0);
+						for (int k = 0; k < mEntryBlocks.Size(); k++)
+						{
+							InterInstruction* sins = mEntryBlocks[k]->FindTempOrigin(ttemp);
+							if (ins->mCode == IC_STORE && sins && sins->mCode == IC_LEA && sins->mSrc[1].mTemp < 0 && sins->mSrc[0].IsUByte() && CanMoveInstructionBeforeBlock(i) && !mEntryBlocks[k]->mFalseJump)
+								shortlea = true;
+							else
+								noshortlea = true;
+						}
+
+						if (shortlea && !noshortlea)
+						{
+							for (int k = 0; k < mEntryBlocks.Size(); k++)
+							{
+								mEntryBlocks[k]->AppendBeforeBranch(ins->Clone());
+								if (ins->mDst.mTemp >= 0)
+									mEntryBlocks[k]->mExitRequiredTemps += ins->mDst.mTemp;
+							}
+							if (ins->mDst.mTemp >= 0)
+								mEntryRequiredTemps += ins->mDst.mTemp;
+							ins->mCode = IC_NONE; ins->mNumOperands = 0;
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ShortLeaCleanup()) changed = true;
+		if (mFalseJump && mFalseJump->ShortLeaCleanup()) changed = true;
+	}
+
+	return changed;
+}
 
 void InterCodeBasicBlock::CompactInstructions(void)
 {
@@ -23366,7 +23433,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test_char_fit");
+	CheckFunc = !strcmp(mIdent->mString, "moveBy");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -24740,6 +24807,11 @@ bool InterCodeProcedure::ShortLeaMerge(FastNumberSet& activeSet)
 	assert(silvused == mTemporaries.Size());
 
 	DisassembleDebug("ShortLeaMerge");
+
+	ResetVisited();
+	mEntryBlock->ShortLeaCleanup();
+
+	DisassembleDebug("ShortLeaCleanup");
 
 	return n > 1;
 }

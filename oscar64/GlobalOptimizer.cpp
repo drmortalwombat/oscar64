@@ -954,7 +954,9 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		break;
 	case EX_BREAK:
 	case EX_CONTINUE:
+		break;
 	case EX_ASSUME:
+		return Analyze(exp->mLeft, procDec, ANAFL_RHS);
 		break;
 	case EX_TYPE:
 		break;

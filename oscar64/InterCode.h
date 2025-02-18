@@ -664,6 +664,7 @@ public:
 	void FollowJumps(void);
 
 	bool ShortLeaMerge(int& spareTemps);
+	bool ShortLeaCleanup(void);
 
 	bool IsEqual(const InterCodeBasicBlock* block) const;
 

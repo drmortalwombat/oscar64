@@ -497,12 +497,19 @@ Expression* Expression::ToAlternateThis(Declaration* pthis, Declaration* nthis)
 	Expression* right = mRight ? mRight->ToAlternateThis(pthis, nthis) : nullptr;
 	Declaration* decType = mDecType, * decValue = mDecValue;
 
-	if (decType == pthis->mBase)
-		decType = nthis->mBase;
-	else if (decType == pthis->mBase->mBase)
-		decType = nthis->mBase->mBase;
-	if (decValue == pthis)
-		decValue = nthis;
+	Declaration* lp = pthis, * np = nthis;
+	while (lp)
+	{
+		if (decType == lp->mBase)
+			decType = np->mBase;
+		else if (decType == lp->mBase->mBase)
+			decType = np->mBase->mBase;
+		if (decValue == lp)
+			decValue = np;
+
+		lp = lp->mNext;
+		np = np->mNext;
+	}
 
 	if (mType == EX_QUALIFY && mLeft->mDecType != left->mDecType)
 	{
@@ -745,14 +752,29 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		ex->mDecType = mDecType;
 		return ex;
 	}
-	else if (mType == EX_PREFIX && mToken == TK_BINARY_AND && mLeft->mType == EX_INDEX && mLeft->mLeft->mType == EX_VARIABLE && (mLeft->mLeft->mDecValue->mFlags & (DTF_STATIC | DTF_GLOBAL)) && mLeft->mRight->mType == EX_CONSTANT)
+	else if (mType == EX_PREFIX && mToken == TK_BINARY_AND && mLeft->mType == EX_INDEX && 
+			 mLeft->mLeft->mType == EX_VARIABLE && mLeft->mLeft->mDecType->mType == DT_TYPE_ARRAY &&
+			 (mLeft->mLeft->mDecValue->mFlags & (DTF_STATIC | DTF_GLOBAL)) && mLeft->mRight->mType == EX_CONSTANT)
 	{
+		Declaration* vdec = mLeft->mLeft->mDecValue;
+
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);
 		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
-		dec->mFlags = mLeft->mLeft->mDecValue->mFlags;
-		dec->mBase = mLeft->mLeft->mDecValue;
-		dec->mSize = mLeft->mLeft->mDecType->mBase->mSize - int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
-		dec->mOffset = int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
+		
+		if (vdec->mType == DT_VARIABLE_REF)
+		{
+			dec->mFlags = vdec->mFlags;
+			dec->mBase = vdec->mBase;
+			dec->mSize = mLeft->mLeft->mDecType->mBase->mSize - int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
+			dec->mOffset = int(mLeft->mRight->mDecValue->mInteger) * dec->mSize + vdec->mOffset;
+		}
+		else
+		{
+			dec->mFlags = vdec->mFlags;
+			dec->mBase = vdec;
+			dec->mSize = mLeft->mLeft->mDecType->mBase->mSize - int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
+			dec->mOffset = int(mLeft->mRight->mDecValue->mInteger) * dec->mSize;
+		}
 		ex->mDecValue = dec;
 		ex->mDecType = mLeft->mLeft->mDecType;
 		return ex;
@@ -2353,16 +2375,17 @@ Declaration* Declaration::ToAlternateThis(Declaration* pthis, int nthis)
 	else
 	{
 		Declaration* nparam = ndec->mParams->Clone();
+		Declaration* npp = nparam;
+		Declaration* kpp = ndec->mParams->mNext;
+		while (kpp)
+		{
+			npp->mNext = kpp->Clone();
+			npp = npp->mNext;
+			kpp = npp->mNext;
+		}
 		nparam->mBase = pthis;
 		if (nthis == 2)
-		{
-			Declaration* nparam2 = ndec->mParams->mNext->Clone();
-			nparam2->mBase = pthis;
-			nparam->mNext = nparam2;
-			nparam2->mNext = ndec->mParams->mNext->mNext;
-		}
-		else
-			nparam->mNext = ndec->mParams->mNext;
+			nparam->mNext->mBase = pthis;
 		ndec->mParams = nparam;
 	}
 	return ndec;
