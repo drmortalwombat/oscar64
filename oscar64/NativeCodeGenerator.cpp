@@ -47197,6 +47197,17 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		}
 	}
 
+	if (mIns[i + 0].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_CLC &&
+		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+		!(mIns[i + 2].mLive & LIVE_CPU_REG_A))
+	{
+		mIns[i + 0].mType = ASMIT_NOP;
+		mIns[i + 1].mType = ASMIT_NOP;
+		mIns[i + 2].mType = ASMIT_CPX; mIns[i + 2].mAddress = (256 - mIns[i + 2].mAddress) & 255;
+
+		return true;
+	}
+
 	return false;
 }
 
