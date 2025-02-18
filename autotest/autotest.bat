@@ -331,6 +331,9 @@ exit /b %errorlevel%
 ..\bin\oscar64 -e -O2 -xz -Oz -n %~1
 @if %errorlevel% neq 0 goto :error
 
+..\bin\oscar64 -e -O2 -Oo -n %~1
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :testb
@@ -368,6 +371,9 @@ exit /b %errorlevel%
 @if %errorlevel% neq 0 goto :error
 
 ..\bin\oscar64 -e -O2 -xz -Oz -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -e -O2 -Oo -n %~1
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

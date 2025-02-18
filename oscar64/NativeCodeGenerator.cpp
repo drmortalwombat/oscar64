@@ -56112,11 +56112,24 @@ void NativeCodeGenerator::OutlineFunctions(void)
 			});
 
 			// Check for complete loop block replacement
+			bool	trueLoop = false, falseLoop = false;
+
 			int k = 0;
 			while (k < segs.Size() && segs[k].mStart == 0 && segs[k].mEnd == segs[k].mBlock->mIns.Size() && segs[k].mBlock->mTrueJump == segs[k].mBlock && segs[k].mBlock->mBranch == segs[0].mBlock->mBranch)
 				k++;
 
 			if (k == segs.Size())
+				trueLoop = true;
+			else if (k == 0)
+			{
+				while (k < segs.Size() && segs[k].mStart == 0 && segs[k].mEnd == segs[k].mBlock->mIns.Size() && segs[k].mBlock->mFalseJump == segs[k].mBlock && segs[k].mBlock->mBranch == segs[0].mBlock->mBranch)
+					k++;
+				if (k == segs.Size())
+					falseLoop = true;
+			}
+
+
+			if (trueLoop || falseLoop)
 			{
 				NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
 
@@ -56127,7 +56140,8 @@ void NativeCodeGenerator::OutlineFunctions(void)
 				for (int i = 0; i < segs.Size(); i++)
 				{
 					SuffixSegment& s(segs[i]);
-					segs[i].mBlock->mTrueJump = segs[i].mBlock->mFalseJump;
+					if (trueLoop)
+						segs[i].mBlock->mTrueJump = segs[i].mBlock->mFalseJump;
 					segs[i].mBlock->mFalseJump = nullptr;
 					segs[i].mBlock->mBranch = ASMIT_JMP;
 					segs[i].mBlock->mNumEntries = 1;
@@ -56156,6 +56170,23 @@ void NativeCodeGenerator::OutlineFunctions(void)
 			}
 
 			mProcedures.Push(nproc);
+
+			if (trueLoop || falseLoop)
+			{
+				ExpandingArray<NativeCodeProcedure *>	procs;
+
+				for (int i = 0; i < segs.Size(); i++)
+				{
+					SuffixSegment& s(segs[i]);
+					NativeCodeProcedure* p = s.mBlock->mProc;
+					if (!procs.Contains(p))
+					{
+						procs.Push(p);
+						p->ResetVisited();
+						p->mEntryBlock->MergeBasicBlocks();
+					}			
+				}
+			}
 
 			numOutlines++;
 			progress = true;
