@@ -1315,7 +1315,7 @@ int Declaration::Stride(void) const
 {
 	if (mStride > 0)
 		return mStride;
-	else if (mBase)
+	else if (mBase && mBase->mType != DT_TYPE_VOID)
 		return mBase->mSize;
 	else
 		return 1;
@@ -3028,9 +3028,11 @@ void InitDeclarations(void)
 {
 	static Location	noloc;
 	TheVoidTypeDeclaration = new Declaration(noloc, DT_TYPE_VOID);
+	TheVoidTypeDeclaration->mSize = 0;
 	TheVoidTypeDeclaration->mFlags = DTF_DEFINED;
 
 	TheConstVoidTypeDeclaration = new Declaration(noloc, DT_TYPE_VOID);
+	TheConstVoidTypeDeclaration->mSize = 0;
 	TheConstVoidTypeDeclaration->mFlags = DTF_DEFINED | DTF_CONST;
 
 	TheVoidPointerTypeDeclaration = new Declaration(noloc, DT_TYPE_POINTER);

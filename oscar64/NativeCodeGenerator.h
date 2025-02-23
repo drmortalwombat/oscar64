@@ -341,6 +341,7 @@ public:
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock, bool full);
 	bool RemoveSimpleLoopUnusedIndex(void);
 	bool OptimizeLoopCarryOver(void);
+	bool OptimizeLoopRegisterWrapAround(void);
 
 	bool OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeSingleEntryLoop(NativeCodeProcedure* proc);

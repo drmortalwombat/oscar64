@@ -8762,9 +8762,27 @@ Expression* Parser::ParseAddExpression(bool lhs)
 
 		nexp->mRight = ParseMulExpression(false);
 		if (nexp->mLeft->mDecType->mType == DT_TYPE_POINTER && nexp->mRight->mDecType->IsIntegerType())
+		{
+			if (nexp->mLeft->mDecType->mBase->mType == DT_TYPE_VOID)
+			{
+				if (mCompilerOptions & COPT_CPLUSPLUS)
+					mErrors->Error(mScanner->mLocation, ERRR_INVALID_VOID_POINTER_ARITHMETIC, "Invalid arithmetic on void pointer");
+				else
+					mErrors->Error(mScanner->mLocation, EWARN_INVALID_VOID_POINTER_ARITHMETIC, "Invalid arithmetic on void pointer");				
+			}
 			nexp->mDecType = nexp->mLeft->mDecType;
+		}
 		else if (nexp->mRight->mDecType->mType == DT_TYPE_POINTER && nexp->mLeft->mDecType->IsIntegerType())
+		{
+			if (nexp->mRight->mDecType->mBase->mType == DT_TYPE_VOID)
+			{
+				if (mCompilerOptions & COPT_CPLUSPLUS)
+					mErrors->Error(mScanner->mLocation, ERRR_INVALID_VOID_POINTER_ARITHMETIC, "Invalid arithmetic on void pointer");
+				else
+					mErrors->Error(mScanner->mLocation, EWARN_INVALID_VOID_POINTER_ARITHMETIC, "Invalid arithmetic on void pointer");
+			}
 			nexp->mDecType = nexp->mRight->mDecType;
+		}
 		else if (nexp->mLeft->mDecType->mType == DT_TYPE_ARRAY && nexp->mRight->mDecType->IsIntegerType())
 		{
 			Declaration* dec = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
