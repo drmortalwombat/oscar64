@@ -15,7 +15,7 @@ When I started this project, I was under the assumption that the 6502 would make
 
 The original plan was thus to compile to an intermediate language that would be interpreted, offering the 16bit support without the added code cost.  This turned out to work great from a code size perspective, but the performance was poor.  So I decided to give compiling to native code a shot.
 
-Most of the 6502 limitations can be overcome by carefull code analysis and optimizations.  
+Most of the 6502 limitations can be overcome by careful code analysis and optimizations.  
 
 * A second data stack relieves the CPU stack. 
 * Static call graph analysis removes the need for a stack completely
@@ -744,7 +744,7 @@ Additional bss sections can be defined on request.
 	#pragma section( mybss, 0, , , bss )
 	#pragma region( mybssregion, 0xc000, 0xd000, , , {mybss} )
 	
-They will not be cleared on startup, so all variables placed in these segments will be unitialized.  A common use for these sections is overlapping runtime variables with compressed load time assests that get expanded to their actual location during startup.
+They will not be cleared on startup, so all variables placed in these segments will be uninitialized.  A common use for these sections is overlapping runtime variables with compressed load time assests that get expanded to their actual location during startup.
 	
 ### Heap and Stack sections
 
@@ -811,7 +811,7 @@ With NROM mappers, the prg and chr code is put into cartridge bank zero.
 
 	#pragma data(data)
 
-The 32KByte of prg code starts at 0x8000 and goes upto 0xff80.  A startup section from 0xff80 to 0xfff9 is taken from the crt.c.
+The 32KByte of prg code starts at 0x8000 and goes up to 0xff80.  A startup section from 0xff80 to 0xfff9 is taken from the crt.c.
 
 A six byte boot section is placed from 0xfffa to 0xffff in all modes, which has to be populated by the game code with the appropriate pointers.
 
