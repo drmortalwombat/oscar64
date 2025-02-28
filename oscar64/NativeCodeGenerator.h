@@ -445,7 +445,7 @@ public:
 	void CountEntries(NativeCodeBasicBlock* fromJump);
 	NativeCodeBasicBlock * ForwardAccuBranch(bool eq, bool ne, bool pl, bool mi, int limit);
 	bool MergeBasicBlocks(void);
-	void RemoveJumpToBranch(void);
+	bool RemoveJumpToBranch(void);
 
 	void MarkLoopHead(void);
 
@@ -575,6 +575,13 @@ public:
 	int FindFreeAccu(int at) const;
 
 	bool ReverseReplaceTAX(int at);
+	
+	bool CanReplaceExitAccuWithX(NativeCodeBasicBlock * target);
+	bool CanReplaceExitAccuWithY(NativeCodeBasicBlock* target);
+	void ReplaceExitAccuWithX(NativeCodeBasicBlock* target);
+	void ReplaceExitAccuWithY(NativeCodeBasicBlock* target);
+
+	bool ReverseLoadAccuToRegXY(void);
 
 	void ResetModifiedDataSet(NativeRegisterDataSet& data);
 
