@@ -4178,7 +4178,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							vr = CoerceType(proc, texp, block, inlineMapper, vr, pdec->mBase);
 						}
 						else if (pdec && (pdec->mBase->IsReference() && !vr.mType->IsReference()))
+						{
 							vr = Dereference(proc, texp, block, inlineMapper, vr, 1);
+						}
 						else if (vr.mType->IsReference() && !(pdec && pdec->mBase->IsReference()))
 						{
 							vr.mReference++;

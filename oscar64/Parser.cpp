@@ -4303,7 +4303,7 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 					if (pex->mDecValue->mType == DT_CONST_INTEGER || pex->mDecValue->mType == DT_CONST_FLOAT || pex->mDecValue->mType == DT_CONST_POINTER || pex->mDecValue->mType == DT_CONST_ADDRESS)
 					{
 						if (pdec->mType == DT_TYPE_REFERENCE && !(pdec->mBase->mFlags & DTF_CONST))
-							mErrors->Error(pex->mLocation, EERR_INCOMPATIBLE_TYPES, "Can't pass constant as non constante reference");
+							mErrors->Error(pex->mLocation, EERR_INCOMPATIBLE_TYPES, "Can't pass constant as non constant reference");
 
 						Declaration* vdec = AllocTempVar(pdec->mBase->mBase);
 
@@ -4328,6 +4328,9 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 				}
 				else if ((pdec->mBase->mType == DT_TYPE_REFERENCE && !pex->IsConstRef()) || (pdec->mBase->mType == DT_TYPE_RVALUEREF && !pex->IsLValue()))
 				{
+					if (pdec->mBase->mType == DT_TYPE_REFERENCE && !(pdec->mBase->mBase->mFlags & DTF_CONST))
+						mErrors->Error(pex->mLocation, EERR_NOT_AN_LVALUE, "Can't pass rvalue as non constant reference");
+					
 					Declaration* vdec = AllocTempVar(pex->mDecType);
 
 					Expression* vexp = new Expression(pex->mLocation, EX_VARIABLE);
@@ -8059,11 +8062,11 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				}
 			}
 
-			if (exp->mDecType->mType == DT_TYPE_POINTER || exp->mDecType->mType == DT_TYPE_ARRAY)
+			if (exp->mDecType->NonRefBase()->mType == DT_TYPE_POINTER || exp->mDecType->NonRefBase()->mType == DT_TYPE_ARRAY)
 			{
 				Expression * dexp = new Expression(mScanner->mLocation, EX_PREFIX);
 				dexp->mToken = TK_MUL;
-				dexp->mDecType = exp->mDecType->mBase;
+				dexp->mDecType = exp->mDecType->NonRefBase()->mBase;
 				dexp->mLeft = exp;
 
 				exp = ParseQualify(dexp);
@@ -8547,7 +8550,7 @@ Expression* Parser::ParseMulExpression(bool lhs)
 
 		nexp->mRight = ParsePrefixExpression(false);
 
-		if (nexp->mLeft->mDecType->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->mType == DT_TYPE_FLOAT)
+		if (nexp->mLeft->mDecType->NonRefBase()->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->NonRefBase()->mType == DT_TYPE_FLOAT)
 			nexp->mDecType = TheFloatTypeDeclaration;
 		else
 			nexp->mDecType = exp->mDecType;
