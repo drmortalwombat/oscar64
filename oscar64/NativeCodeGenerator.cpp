@@ -25625,7 +25625,14 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					mIns[nins - 1].mLive |= LIVE_CPU_REG_A;
 					mExitRequiredRegs += CPU_REG_A;
 					mTrueJump->mEntryRequiredRegs += CPU_REG_A;
-					mTrueJump->mIns.Remove(0);
+					if (mTrueJump->mIns[0].mLive & LIVE_CPU_REG_Z)
+					{
+						mTrueJump->mIns[0].mType = ASMIT_ORA;
+						mTrueJump->mIns[0].mMode = ASMIM_IMMEDIATE;
+						mTrueJump->mIns[0].mAddress = 0;
+					}
+					else
+						mTrueJump->mIns.Remove(0);
 					changed = true;
 
 					CheckLive();
@@ -25637,7 +25644,14 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 					mIns[nins - 1].mLive |= LIVE_CPU_REG_A;
 					mExitRequiredRegs += CPU_REG_A;
 					mFalseJump->mEntryRequiredRegs += CPU_REG_A;
-					mFalseJump->mIns.Remove(0);
+					if (mFalseJump->mIns[0].mLive & LIVE_CPU_REG_Z)
+					{
+						mFalseJump->mIns[0].mType = ASMIT_ORA;
+						mFalseJump->mIns[0].mMode = ASMIM_IMMEDIATE;
+						mFalseJump->mIns[0].mAddress = 0;
+					}
+					else
+						mFalseJump->mIns.Remove(0);
 					changed = true;
 
 					CheckLive();
@@ -53253,7 +53267,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "shots_hide");
+	CheckFunc = !strcmp(mIdent->mString, "doScroll");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
