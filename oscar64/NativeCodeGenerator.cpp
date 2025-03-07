@@ -14838,7 +14838,7 @@ bool NativeCodeBasicBlock::RemoveJumpToBranch(void)
 		if (mTrueJump && mTrueJump->RemoveJumpToBranch()) changed = true;
 		if (mFalseJump && mFalseJump->RemoveJumpToBranch()) changed = true;
 
-		if (mTrueJump && !mFalseJump && mTrueJump != this && mTrueJump->mIns.Size() == 0)
+		if (mTrueJump && !mFalseJump && mTrueJump != this && mTrueJump->mIns.Size() == 0 && (mTrueJump->mFalseJump || mTrueJump->mTrueJump != mTrueJump))
 		{
 			mTrueJump->mEntryBlocks.RemoveAll(this);
 			mTrueJump->mNumEntries--;
@@ -45138,6 +45138,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 			mIns[i + 0].mLive |= LIVE_CPU_REG_X;
 		if (mIns[i + 1].RequiresYReg())
 			mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+		mIns[i + 0].mLive |= mIns[i + 1].mLive & LIVE_MEM;
 		return true;
 	}
 	else if (
@@ -53267,7 +53268,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "doScroll");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
