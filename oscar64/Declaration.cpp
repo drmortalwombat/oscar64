@@ -2136,6 +2136,7 @@ Declaration* Declaration::Clone(void)
 	ndec->mStride = mStride;
 	ndec->mStripe = mStripe;
 	ndec->mBits = mBits;
+	ndec->mShift = mShift;
 	ndec->mBase = mBase;
 	ndec->mFlags = mFlags;
 	ndec->mScope = mScope;
@@ -2208,6 +2209,7 @@ Declaration* Declaration::ToStriped(int stripe)
 	ndec->mStride = mStride;
 	ndec->mStripe = stripe;
 	ndec->mBits = mBits;
+	ndec->mShift = mShift;
 	ndec->mFlags = mFlags;
 	ndec->mIdent = mIdent;
 	ndec->mQualIdent = mQualIdent;
@@ -2283,6 +2285,7 @@ Declaration* Declaration::ToVolatileType(void)
 		ndec->mStride = mStride;
 		ndec->mBase = mBase;
 		ndec->mBits = mBits;
+		ndec->mShift = mShift;
 		ndec->mFlags = mFlags | DTF_VOLATILE;
 		ndec->mScope = mScope;
 		ndec->mParams = mParams;
@@ -2339,6 +2342,7 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mStripe = mStripe;
 		ndec->mBase = mBase;
 		ndec->mBits = mBits;
+		ndec->mShift = mShift;
 		ndec->mFlags = mFlags | DTF_CONST;
 		ndec->mScope = mScope;
 		ndec->mParams = mParams;
@@ -2404,6 +2408,7 @@ Declaration* Declaration::ToMutableType(void)
 		ndec->mStripe = mStripe;
 		ndec->mBase = mBase;
 		ndec->mBits = mBits;
+		ndec->mShift = mShift;
 		ndec->mFlags = mFlags | DTF_CONST;
 		ndec->mScope = mScope;
 		ndec->mParams = mParams;

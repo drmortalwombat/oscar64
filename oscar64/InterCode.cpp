@@ -23433,7 +23433,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "moveBy");
+	CheckFunc = !strcmp(mIdent->mString, "shipyard_close");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
