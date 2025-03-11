@@ -175,7 +175,7 @@ void petplot(char cx, char cy)
         {
             /* BASIC4 80-col */
             ldx cx
-            ldx cy
+            ldy cy
             stx $e2
             sty $e0
             jsr 0xe05f
@@ -186,7 +186,7 @@ void petplot(char cx, char cy)
         {
             /* BASIC4 40-col */
             ldx cx
-            ldx cy
+            ldy cy
             stx $c6
             sty $d8
             jsr 0xe07f
@@ -197,7 +197,7 @@ void petplot(char cx, char cy)
         {
             /* BASIC2 */
             ldx cx
-            ldx cy
+            ldy cy
             stx $c6
             sty $d8
             jsr 0xe25d
@@ -208,7 +208,7 @@ void petplot(char cx, char cy)
         {
             /* BASIC1 */
             ldx cx
-            ldx cy
+            ldy cy
             stx $e2
             sty $f5
             jsr 0xe5db
