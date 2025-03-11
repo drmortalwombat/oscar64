@@ -569,6 +569,12 @@ void NativeCodeInstruction::Disassemble(FILE* file) const
 	case ASMIM_IMMEDIATE:
 		fprintf(file, "%s #$%02x", AsmInstructionNames[mType], mAddress);
 		break;
+	case ASMIM_IMMEDIATE_ADDRESS:
+		if (mFlags & NCIF_LOWER)
+			fprintf(file, "%s #<%s", AsmInstructionNames[mType], AddrName(buffer));
+		else
+			fprintf(file, "%s #>%s", AsmInstructionNames[mType], AddrName(buffer));
+		break;
 	case ASMIM_ZERO_PAGE:
 		fprintf(file, "%s %s", AsmInstructionNames[mType], AddrName(buffer));
 		break;
@@ -53268,7 +53274,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "shipyard_close");
+	CheckFunc = !strcmp(mIdent->mString, "equipment_random");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

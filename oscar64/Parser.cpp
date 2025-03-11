@@ -10337,6 +10337,7 @@ Expression* Parser::ParseStatement(void)
 								bexp = bexp->mRight;
 								bexp->mLeft = dexp;
 
+								conditionExp->mRight->mDecValue = conditionExp->mRight->mDecValue->Clone();
 								conditionExp->mRight->mDecValue->mInteger = numIterations;
 
 								if (remain)
@@ -10364,6 +10365,7 @@ Expression* Parser::ParseStatement(void)
 								int	remain = numSteps % unrollLoop;
 								endValue -= remain * stepValue;
 
+								conditionExp->mRight->mDecValue = conditionExp->mRight->mDecValue->Clone();
 								conditionExp->mRight->mDecValue->mInteger = endValue;
 
 								Expression* unrollBody = new Expression(mScanner->mLocation, EX_SEQUENCE);
