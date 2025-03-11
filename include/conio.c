@@ -131,6 +131,97 @@ __asm bsinit
 	lda #147
 	jmp $ffd2	
 }
+#elif defined(__CBMPET__)
+#define bsout	0xffd2
+#define bsin	0xffe4
+
+char detect_basic()
+{
+    static const char basicV4[] = p"*** commodore basic 4.0 ***";
+    static const char basicV2[] = p"### commodore basic ###";
+    static const char basicV1[] = p"*** commodore basic ***";
+    static const char editor[] = {0x4C,0x4B,0xE0,0x4C,0xA7,0xE0,0x4C,0x16,0xE1};
+
+    if( memcmp( (const void*)0xdea4, basicV4, 27 ) == 0 ) {
+        if( memcmp( (const void*)0xe000, editor, 8 ) == 0)
+            return 48;
+        else 
+            return 44;
+    } else if( memcmp( (const void*)0xe180, basicV1, 23 ) == 1 ) {
+        return 1;
+    } else if( memcmp( (const void*)0xe1c4, basicV2, 23 ) == 1 ) {
+        return 2;
+    } else {
+        printf("unknown basic rom!\n");
+    }
+    return 0;
+}
+
+static char basic_version = 0;
+
+char get_basic_version()
+{
+    if(basic_version == 0)
+        basic_version = detect_basic();
+    return basic_version;
+}
+
+void petplot(char cx, char cy)
+{
+    switch( get_basic_version() )
+    {
+    case 48:
+        __asm
+        {
+            /* BASIC4 80-col */
+            ldx cx
+            ldx cy
+            stx $e2
+            sty $e0
+            jsr 0xe05f
+        }
+        break;
+    case 44:
+        __asm
+        {
+            /* BASIC4 40-col */
+            ldx cx
+            ldx cy
+            stx $c6
+            sty $d8
+            jsr 0xe07f
+        }
+        break;
+    case 2:
+        __asm
+        {
+            /* BASIC2 */
+            ldx cx
+            ldx cy
+            stx $c6
+            sty $d8
+            jsr 0xe25d
+        }
+        break;
+    default:
+        __asm
+        {
+            /* BASIC1 */
+            ldx cx
+            ldx cy
+            stx $e2
+            sty $f5
+            jsr 0xe5db
+        }
+        break;
+    }
+}
+
+__asm bsinit
+{
+    /* no equivalent on PET */
+}
+#define bsget	0xffcf
 #else
 #define bsout	0xffd2
 #define bsin	0xffe4
@@ -341,13 +432,17 @@ void textcursor(bool show)
 
 void gotoxy(char cx, char cy)
 {
+#ifdef __CBMPET__
+    petplot(cx, cy);
+#else
 	__asm
 	{
 		ldx	cy
 		ldy	cx
 		clc
 		jsr bsplot
-	}	
+	}
+#endif
 }
 
 void textcolor(char c)
