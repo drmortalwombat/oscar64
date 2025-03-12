@@ -642,6 +642,8 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 			requiredTemps += CPU_REG_X;
 		if (mFlags & NCIF_USE_CPU_REG_Y)
 			requiredTemps += CPU_REG_Y;
+		if (mFlags & NCIF_USE_CPU_REG_C)
+			requiredTemps += CPU_REG_C;
 
 		if (mFlags & NCIF_RUNTIME)
 		{
@@ -1611,9 +1613,17 @@ bool NativeCodeInstruction::ChangesGlobalMemory(void) const
 
 bool NativeCodeInstruction::RequiresCarry(void) const
 {
-	return
-		mType == ASMIT_ADC || mType == ASMIT_SBC ||
-		mType == ASMIT_ROL || mType == ASMIT_ROR;
+	if (mType == ASMIT_ADC || mType == ASMIT_SBC ||
+		mType == ASMIT_ROL || mType == ASMIT_ROR)
+	{
+		return true;
+	}
+	else if (mType == ASMIT_JSR)
+	{
+		return mFlags & NCIF_USE_CPU_REG_C;
+	}
+	else
+		return false;
 }
 
 bool NativeCodeInstruction::ChangesZFlag(void) const
@@ -4705,6 +4715,11 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 		{
 			if (!providedTemps[CPU_REG_Y])
 				requiredTemps += CPU_REG_Y;
+		}
+		if (mFlags & NCIF_USE_CPU_REG_C)
+		{
+			if (!providedTemps[CPU_REG_C])
+				requiredTemps += CPU_REG_C;
 		}
 
 		if (mFlags & NCIF_RUNTIME)
@@ -14297,7 +14312,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 
 		assert(ins->mSrc[0].mLinkerObject);
 
-		if (ins->mCode == IC_ASSEMBLER && (proc->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER) && ins->mSrc[0].mLinkerObject->mSection == proc->mLinkerObject->mSection)
+		if (ins->mCode == IC_ASSEMBLER && (proc->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER) && ins->mSrc[0].mLinkerObject->mSection == proc->mLinkerObject->mSection && !ins->mVolatile)
 		{
 			ExpandingArray<NativeCodeInstruction>	tains;
 
@@ -14339,6 +14354,8 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 					uflags |= NCIF_USE_CPU_REG_X;
 				if (dins.ChangesYReg())
 					uflags |= NCIF_USE_CPU_REG_Y;
+				if (dins.ChangesCarry())
+					uflags |= NCIF_USE_CPU_REG_C;
 				tains.Push(dins);
 			}
 			

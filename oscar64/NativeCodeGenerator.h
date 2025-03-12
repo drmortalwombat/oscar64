@@ -133,13 +133,14 @@ static const uint32 NCIF_ALIASING = 0x00000800;
 static const uint32 NCIF_USE_CPU_REG_A = 0x00001000;
 static const uint32 NCIF_USE_CPU_REG_X = 0x00002000;
 static const uint32 NCIF_USE_CPU_REG_Y = 0x00004000;
+static const uint32 NCIF_USE_CPU_REG_C = 0x00008000;
 
 // use a 32bit zero page register indexed by X for JSR
-static const uint32 NCIF_USE_ZP_32_X = 0x00008000;
-static const uint32 NICF_USE_ZP_ADDR = 0x00010000;
-static const uint32 NICF_USE_WORKREGS = 0x00020000;
+static const uint32 NCIF_USE_ZP_32_X = 0x00010000;
+static const uint32 NICF_USE_ZP_ADDR = 0x00020000;
+static const uint32 NICF_USE_WORKREGS = 0x00040000;
 
-static const uint32 NCIF_BREAKPOINT = 0x00040000;
+static const uint32 NCIF_BREAKPOINT = 0x00080000;
 
 class NativeCodeInstruction
 {

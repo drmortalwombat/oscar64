@@ -935,6 +935,11 @@ The compiler provides two levels of interrupt safe functions.  The specifier __i
 		return 0
 	}
 	
+### Assembler optimizer
+
+The compiler uses various optimizations on inline assembler that may not have the expected result in all cases.  The optimizer can be disabled for a range of code with e.g. #pragma optimize(noasm) or for an individual __asm statement by using __asm volatile {}.
+The assembler optimizer is enabled with optimization levels O2 and up.
+	
 # Helping the compiler optimizing
 
 The compiler does various optimization when compiling the code, but there are some rules to follow, things to avoid and hints to place to help the compiler to generate optimal code.

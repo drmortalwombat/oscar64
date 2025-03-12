@@ -4335,6 +4335,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				jins->mDst.mTemp = proc->AddTemporary(IT_INT32);
 				jins->mDst.mType = IT_INT32;
 
+				if (dec->mFlags & DTF_VOLATILE)
+					jins->mVolatile = true;
+
 				jins->mSrc[0].mType = IT_POINTER;
 				jins->mSrc[0].mTemp = ins->mDst.mTemp;
 				jins->mNumOperands = 1;

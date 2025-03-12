@@ -6866,11 +6866,18 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		}
 		break;
 	case TK_ASM:
+	{
+
 		mScanner->NextToken();
+
+		bool	vol = ConsumeTokenIf(TK_VOLATILE);
 		if (mScanner->mToken == TK_OPEN_BRACE)
 		{
 			mScanner->NextToken();
 			exp = ParseAssembler();
+			if (vol)
+				exp->mDecValue->mFlags |= DTF_VOLATILE;
+
 			exp->mDecType = TheSignedLongTypeDeclaration;
 			if (mScanner->mToken == TK_CLOSE_BRACE)
 				mScanner->NextToken();
@@ -6882,7 +6889,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
 			exp = new Expression(mScanner->mLocation, EX_VOID);
 		}
-		break;
+	}	break;
 	default:
 		mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Term starts with invalid token", TokenNames[mScanner->mToken]);
 		mScanner->NextToken();
@@ -9885,6 +9892,8 @@ Expression* Parser::ParseStatement(void)
 	{
 		mScanner->NextToken();
 		ParsePragma();
+		if (mScanner->mToken == TK_CLOSE_BRACE)
+			return nullptr;
 	}
 	
 	if (mScanner->mToken == TK_OPEN_BRACE)
@@ -9901,21 +9910,24 @@ Expression* Parser::ParseStatement(void)
 			do
 			{
 				Expression* nexp = ParseStatement();
-				if (exp)
+				if (nexp)
 				{
-					if (!pexp)
+					if (exp)
 					{
-						pexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
-						pexp->mLeft = exp;
-						exp = pexp;
+						if (!pexp)
+						{
+							pexp = new Expression(mScanner->mLocation, EX_SEQUENCE);
+							pexp->mLeft = exp;
+							exp = pexp;
+						}
+
+						pexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+						pexp = pexp->mRight;
+						pexp->mLeft = nexp;
 					}
-					
-					pexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
-					pexp = pexp->mRight;
-					pexp->mLeft = nexp;
+					else
+						exp = nexp;
 				}
-				else
-					exp = nexp;
 
 			} while (mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_EOF);
 
@@ -10488,11 +10500,16 @@ Expression* Parser::ParseStatement(void)
 			mScanner->NextToken();
 			break;
 		case TK_ASM:
+		{
 			mScanner->NextToken();
+			bool	vol = ConsumeTokenIf(TK_VOLATILE);
 			if (mScanner->mToken == TK_OPEN_BRACE)
 			{
 				mScanner->NextToken();
 				exp = ParseAssembler();
+				if (vol)
+					exp->mDecValue->mFlags |= DTF_VOLATILE;
+
 				if (mScanner->mToken == TK_CLOSE_BRACE)
 					mScanner->NextToken();
 				else
@@ -10503,7 +10520,7 @@ Expression* Parser::ParseStatement(void)
 				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
 				exp = new Expression(mScanner->mLocation, EX_VOID);
 			}
-			break;
+		}	break;
 		case TK_ASSUME:
 			mScanner->NextToken();
 			exp = new Expression(mScanner->mLocation, EX_ASSUME);
@@ -12241,6 +12258,9 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 	else
 		dasm = vdasm->mBase;
 
+	if (!(mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER))
+		vdasm->mFlags |= DTF_VOLATILE;
+
 	DeclarationScope* scope = dasm->mScope;
 	mScope = scope;
 
@@ -13482,7 +13502,7 @@ void Parser::ParsePragma(void)
 					else if (ConsumeIdentIf("pop"))
 					{
 						if (mCompilerOptionSP > 0)
-							mCompilerOptions = mCompilerOptionStack[--mCompilerOptionSP] = mCompilerOptions;
+							mCompilerOptions = mCompilerOptionStack[--mCompilerOptionSP];
 						else
 							mErrors->Error(mScanner->mLocation, ERRR_STACK_OVERFLOW, "Stack underflow");
 					}
@@ -13687,6 +13707,9 @@ void Parser::Parse(void)
 					vdasm->mQualIdent = ident;
 					mScope->Insert(ident, vdasm);
 				}
+
+				if (ConsumeTokenIf(TK_VOLATILE))
+					vdasm->mFlags |= DTF_VOLATILE;
 
 				if (mScanner->mToken == TK_OPEN_BRACE)
 				{
