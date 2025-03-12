@@ -12,8 +12,8 @@ export OSCAR64_CFLAGS =
 export OSCAR64_CXX = $(project_dir)/bin/oscar64
 MKDIR_PARENT = /bin/mkdir -p -m 755
 INSTALL = /usr/bin/install
-INSTALL_PROGRAM = $(INSTALL) --mode=755
-INSTALL_DATA = $(INSTALL) --mode=644
+INSTALL_PROGRAM = $(INSTALL) -m 755
+INSTALL_DATA = $(INSTALL) -m 644
 DESTDIR =
 prefix = /usr/local
 exec_prefix = $(prefix)
