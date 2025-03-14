@@ -131,6 +131,17 @@ __asm bsinit
 	lda #147
 	jmp $ffd2	
 }
+#elif defined(__CBMPET__)
+#define bsout	0xffd2
+#define bsin	0xffe4
+__asm bsplot{
+    /* no equivalent on PET */
+}
+__asm bsinit
+{
+    /* no equivalent on PET */
+}
+#define bsget	0xffcf
 #else
 #define bsout	0xffd2
 #define bsin	0xffe4
@@ -341,13 +352,48 @@ void textcursor(bool show)
 
 void gotoxy(char cx, char cy)
 {
+#ifdef __CBMPET__
+    /* This is inspired by the cc65 source code from pet/cputc.s */    
+#define CURS_X $c6
+#define CURS_Y $d8
+#define SCREEN_PTR $c4
+#define SCR_LINELEN $d5
+
+    static const char ScrLo[] = { 0x00, 0x28, 0x50, 0x78, 0xA0, 0xC8, 0xF0, 0x18,
+                                  0x40, 0x68, 0x90, 0xB8, 0xE0, 0x08, 0x30, 0x58,
+                                  0x80, 0xA8, 0xD0, 0xF8, 0x20, 0x48, 0x70, 0x98,
+                                  0xC0 };
+
+    static const char ScrHi[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+                                  0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02,
+                                  0x02, 0x02, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03,
+                                  0x03 };
+    __asm {
+            lda     cx
+            sta     CURS_X
+            lda     cy
+            sta     CURS_Y
+            ldy     CURS_Y
+            lda     ScrLo,y
+            sta     SCREEN_PTR
+            lda     ScrHi,y
+            ldy     SCR_LINELEN
+            cpy     #40+1
+            bcc     col80
+            asl     SCREEN_PTR                     /* 80 column mode */
+            rol
+    col80:  ora     #$80                    /* Screen at $8000 */
+            sta     SCREEN_PTR+1
+    }
+#else
 	__asm
 	{
 		ldx	cy
 		ldy	cx
 		clc
 		jsr bsplot
-	}	
+	}
+#endif
 }
 
 void textcolor(char c)
