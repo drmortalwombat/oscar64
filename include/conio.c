@@ -134,89 +134,9 @@ __asm bsinit
 #elif defined(__CBMPET__)
 #define bsout	0xffd2
 #define bsin	0xffe4
-
-char detect_basic()
-{
-    static const char basicV4[] = p"*** commodore basic 4.0 ***";
-    static const char basicV2[] = p"### commodore basic ###";
-    static const char basicV1[] = p"*** commodore basic ***";
-    static const char editor[] = {0x4C,0x4B,0xE0,0x4C,0xA7,0xE0,0x4C,0x16,0xE1};
-
-    if( memcmp( (const void*)0xdea4, basicV4, 27 ) == 0 ) {
-        if( memcmp( (const void*)0xe000, editor, 8 ) == 0)
-            return 48;
-        else 
-            return 44;
-    } else if( memcmp( (const void*)0xe180, basicV1, 23 ) == 1 ) {
-        return 1;
-    } else if( memcmp( (const void*)0xe1c4, basicV2, 23 ) == 1 ) {
-        return 2;
-    } else {
-        printf("unknown basic rom!\n");
-    }
-    return 0;
+__asm bsplot{
+    /* no equivalent on PET */
 }
-
-static char basic_version = 0;
-
-char get_basic_version()
-{
-    if(basic_version == 0)
-        basic_version = detect_basic();
-    return basic_version;
-}
-
-void petplot(char cx, char cy)
-{
-    switch( get_basic_version() )
-    {
-    case 48:
-        __asm
-        {
-            /* BASIC4 80-col */
-            ldx cx
-            ldy cy
-            stx $e2
-            sty $e0
-            jsr 0xe05f
-        }
-        break;
-    case 44:
-        __asm
-        {
-            /* BASIC4 40-col */
-            ldx cx
-            ldy cy
-            stx $c6
-            sty $d8
-            jsr 0xe07f
-        }
-        break;
-    case 2:
-        __asm
-        {
-            /* BASIC2 */
-            ldx cx
-            ldy cy
-            stx $c6
-            sty $d8
-            jsr 0xe25d
-        }
-        break;
-    default:
-        __asm
-        {
-            /* BASIC1 */
-            ldx cx
-            ldy cy
-            stx $e2
-            sty $f5
-            jsr 0xe5db
-        }
-        break;
-    }
-}
-
 __asm bsinit
 {
     /* no equivalent on PET */
@@ -433,7 +353,37 @@ void textcursor(bool show)
 void gotoxy(char cx, char cy)
 {
 #ifdef __CBMPET__
-    petplot(cx, cy);
+#define CURS_X $c6
+#define CURS_Y $d8
+#define SCREEN_PTR $c4
+#define SCR_LINELEN $d5
+
+    static const char ScrLo[] = { 0x00, 0x28, 0x50, 0x78, 0xA0, 0xC8, 0xF0, 0x18,
+                                  0x40, 0x68, 0x90, 0xB8, 0xE0, 0x08, 0x30, 0x58,
+                                  0x80, 0xA8, 0xD0, 0xF8, 0x20, 0x48, 0x70, 0x98,
+                                  0xC0 };
+
+    static const char ScrHi[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+                                  0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02,
+                                  0x02, 0x02, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03,
+                                  0x03 };
+    __asm {
+            lda     cx
+            sta     CURS_X
+            lda     cy
+            sta     CURS_Y
+            ldy     CURS_Y
+            lda     ScrLo,y
+            sta     SCREEN_PTR
+            lda     ScrHi,y
+            ldy     SCR_LINELEN
+            cpy     #40+1
+            bcc     col80
+            asl     SCREEN_PTR                     /* 80 column mode */
+            rol
+    col80:  ora     #$80                    /* Screen at $8000 */
+            sta     SCREEN_PTR+1
+    }
 #else
 	__asm
 	{
