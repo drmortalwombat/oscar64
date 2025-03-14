@@ -353,6 +353,7 @@ void textcursor(bool show)
 void gotoxy(char cx, char cy)
 {
 #ifdef __CBMPET__
+    /* This is inspired by the cc65 source code from pet/cputc.s */    
 #define CURS_X $c6
 #define CURS_Y $d8
 #define SCREEN_PTR $c4
