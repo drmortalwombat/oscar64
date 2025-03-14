@@ -5935,12 +5935,12 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 }
 
 
-void InterCodeBasicBlock::AppendBeforeBranch(InterInstruction* code)
+void InterCodeBasicBlock::AppendBeforeBranch(InterInstruction* code, bool loopindex)
 {
 	int ti = mInstructions.Size() - 1;
 	if (mInstructions[ti]->mCode == IC_BRANCH)
 	{
-		if (ti > 0 && mInstructions[ti - 1]->mDst.mTemp == mInstructions[ti]->mSrc[0].mTemp && CanBypassUp(code, mInstructions[ti - 1]))
+		if (ti > 0 && mInstructions[ti - 1]->mDst.mTemp == mInstructions[ti]->mSrc[0].mTemp && loopindex || CanBypassUp(code, mInstructions[ti - 1]))
 		{
 			ti--;
 			if (ti > 0 && mInstructions[ti]->UsesTemp(mInstructions[ti - 1]->mDst.mTemp) && CanBypassUp(code, mInstructions[ti - 1]))
@@ -16014,7 +16014,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								ains->mSrc[0].mType = lins->mDst.mType;
 								ains->mSrc[0].mTemp = -1;
 								ains->mSrc[0].mIntConst = s;
-								tail->AppendBeforeBranch(ains);
+								tail->AppendBeforeBranch(ains, true);
 								ains->mDst.mRange.AddConstValue(ains->mDst.mType, s);
 
 								indexScale[ains->mDst.mTemp] = s;
@@ -23433,7 +23433,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "shipyard_close");
+	CheckFunc = !strcmp(mIdent->mString, "close_op");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

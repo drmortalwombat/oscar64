@@ -423,7 +423,7 @@ public:
 	InterCodeBasicBlock* Clone(void);
 
 	void Append(InterInstruction * code);
-	void AppendBeforeBranch(InterInstruction* code);
+	void AppendBeforeBranch(InterInstruction* code, bool loopindex = false);
 	const InterInstruction* FindByDst(int dst) const;
 	void Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump);
 

@@ -19444,7 +19444,7 @@ bool NativeCodeBasicBlock::MoveStoresBeforeDiamond(void)
 				eblock = mTrueJump;
 			}
 
-			if (eblock)
+			if (eblock && eblock->mEntryRequiredRegs.Size() > 0)
 			{
 				bool	avalid = eblock->mEntryRequiredRegs[CPU_REG_A] && !dblock->ChangesAccu();
 				bool	xvalid = eblock->mEntryRequiredRegs[CPU_REG_X] && !dblock->ChangesXReg();
@@ -53745,7 +53745,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		{
 			NativeCodeBasicBlock* eblock = mExitBlock->mEntryBlocks[0];
 			int sz = eblock->mIns.Size();
-			if (sz >= 0 && eblock->mIns[sz - 1].mType == ASMIT_STA && eblock->mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && eblock->mIns[sz - 1].mAddress == BC_REG_ACCU)
+			if (sz > 0 && eblock->mIns[sz - 1].mType == ASMIT_STA && eblock->mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && eblock->mIns[sz - 1].mAddress == BC_REG_ACCU)
 			{
 				mExitBlock->mExitRegA = true;
 				eblock->mIns.Remove(sz - 1);
