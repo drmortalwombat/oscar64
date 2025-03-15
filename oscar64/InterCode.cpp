@@ -15996,7 +15996,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 							else if (nins->mCode == IC_BINARY_OPERATOR && nins->mOperator == IA_ADD && nins->mSrc[0].mTemp == lins->mDst.mTemp && !nins->mDst.IsNotUByte())
 							{
 							}
-							else
+							else if (lins->mSrc[0].IsUByte()) // ensure no overflow
 							{
 								int s = indexScale[lins->mSrc[0].mTemp];
 
@@ -23433,7 +23433,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "close_op");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
