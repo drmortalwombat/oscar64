@@ -15915,6 +15915,11 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 									ains->mSrc[0].mIntConst = s;
 									tail->AppendBeforeBranch(ains);
 
+									if (s > 0)
+										ains->mDst.mRange.mMaxValue += s;
+									else
+										ains->mDst.mRange.mMinValue += s;
+
 									indexScale[ains->mDst.mTemp] = s;
 
 									modified = true;
