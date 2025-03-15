@@ -21669,7 +21669,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			}
 		}
 
-		if (mIns.Size() >= 2 && !mFalseJump && mTrueJump && mTrueJump->mTrueJump && mTrueJump->mIns.Size() > 0)
+		if (mIns.Size() >= 2 && !mFalseJump && mTrueJump && mTrueJump->mTrueJump && mTrueJump->mIns.Size() > 0 && mTrueJump != this)
 		{
 			int	sz = mIns.Size();
 			if (mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE &&
