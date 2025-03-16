@@ -212,6 +212,8 @@ public:
 	LinkerObject(void);
 	~LinkerObject(void);
 
+	LinkerObject* CloneAssembler(Linker * linker) const;
+
 	void AddData(const uint8* data, int size);
 	void AddLocations(const ExpandingArray<CodeLocation>& locations);
 	uint8* AddSpace(int size);

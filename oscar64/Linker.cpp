@@ -54,6 +54,23 @@ LinkerObject::~LinkerObject(void)
 
 }
 
+LinkerObject* LinkerObject::CloneAssembler(Linker* linker) const
+{
+	LinkerObject* lo = linker->AddObject(mLocation, mIdent, mSection, mType, mAlignment);
+	lo->AddData(mData, mSize);
+	lo->mFlags = mFlags;
+
+	for (int i = 0; i < mReferences.Size(); i++)
+	{
+		LinkerReference		ref = *(mReferences[i]);
+		if (ref.mObject == this) ref.mObject = lo;
+		if (ref.mRefObject == this) ref.mRefObject = lo;
+		lo->AddReference(ref);
+	}
+
+	return lo;
+}
+
 void LinkerObject::AddReference(const LinkerReference& ref)
 {
 	LinkerReference* nref = new LinkerReference(ref);

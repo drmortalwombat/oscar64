@@ -14281,6 +14281,11 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 {
 	if (ins->mCode == IC_ASSEMBLER)
 	{
+		if (ins->mNumOperands > 1 && ins->mSrc[0].mLinkerObject->mNumTemporaries)
+		{
+			ins->mSrc[0].mLinkerObject = ins->mSrc[0].mLinkerObject->CloneAssembler(proc->mModule->mLinker);
+		}
+
 		for (int i = 1; i < ins->mNumOperands; i++)
 		{
 			if (ins->mSrc[i].mTemp < 0)
@@ -53291,7 +53296,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "equipment_random");
+	CheckFunc = !strcmp(mIdent->mString, "putpch");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
