@@ -898,11 +898,19 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		{
 			int64	ival = 0, ileft = mLeft->mDecValue->mInteger, iright = mRight->mDecValue->mInteger;
 
-			bool	signop =
-				(mLeft->mDecValue->mBase->mSize < 2 || (mLeft->mDecValue->mBase->mFlags & DTF_SIGNED)) &&
-				(mRight->mDecValue->mBase->mSize < 2 || (mRight->mDecValue->mBase->mFlags & DTF_SIGNED));
+			Declaration* dtype = TheSignedIntTypeDeclaration;
+			if (mLeft->mDecValue->mBase->mSize > mRight->mDecValue->mBase->mSize)
+				dtype = mLeft->mDecValue->mBase;
+			else if (mLeft->mDecValue->mBase->mSize < mRight->mDecValue->mBase->mSize)
+				dtype = mRight->mDecValue->mBase;
+			else if (mLeft->mDecValue->mBase->mSize > 1)
+			{
+				if ((mLeft->mDecValue->mBase->mFlags & DTF_SIGNED) && !(mRight->mDecValue->mBase->mFlags & DTF_SIGNED))
+					dtype = mRight->mDecValue->mBase;
+				else
+					dtype = mLeft->mDecValue->mBase;
+			}
 
-			bool	promote = true;
 			switch (mToken)
 			{
 			case TK_ADD:
@@ -916,27 +924,25 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 				break;
 			case TK_DIV:
 				if (iright == 0)
-					errors->Error(mLocation, EERR_INVALID_VALUE, "Constant division by zero");
-				else if (signop)
+					return this;
+				else if (dtype->mFlags & DTF_SIGNED)
 					ival = ileft / iright;
 				else
 					ival = (uint64)ileft / (uint64)iright;
 				break;
 			case TK_MOD:
 				if (iright == 0)
-					errors->Error(mLocation, EERR_INVALID_VALUE, "Constant division by zero");
-				else if (signop)
+					return this;
+				else if (dtype->mFlags & DTF_SIGNED)
 					ival = ileft % iright;
 				else
 					ival = (uint64)ileft % (uint64)iright;
 				break;
 			case TK_LEFT_SHIFT:
 				ival = ileft << iright;
-				promote = false;
 				break;
 			case TK_RIGHT_SHIFT:
 				ival = ileft >> iright;
-				promote = false;
 				break;
 			case TK_BINARY_AND:
 				ival = ileft & iright;
@@ -953,29 +959,14 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 
 			Expression* ex = new Expression(mLocation, EX_CONSTANT);
 			Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
-			if (promote)
-			{
-				if (mLeft->mDecValue->mBase->mSize <= 2 && mRight->mDecValue->mBase->mSize <= 2)
-					dec->mBase = ival < 32768 ? TheSignedIntTypeDeclaration : TheUnsignedIntTypeDeclaration;
-				else
-					dec->mBase = ival < 2147483648 ? TheSignedLongTypeDeclaration : TheUnsignedLongTypeDeclaration;
-			}
-			else
-			{
-				if (mLeft->mDecValue->mBase->mSize < 2)
-					dec->mBase = TheSignedIntTypeDeclaration;
-				else
-					dec->mBase = mLeft->mDecValue->mBase;
-			}
-
-			dec->mInteger = ival;
+			dec->mBase = dtype;
+			dec->mInteger = signextend(ival, dec->mBase);
 			ex->mDecValue = dec;
 			ex->mDecType = dec->mBase;
 			return ex;
 		}
 		else if ((mLeft->mDecValue->mType == DT_CONST_INTEGER || mLeft->mDecValue->mType == DT_CONST_FLOAT) && (mRight->mDecValue->mType == DT_CONST_INTEGER || mRight->mDecValue->mType == DT_CONST_FLOAT))
 		{
-
 			double	dval;
 			double	dleft = mLeft->mDecValue->mType == DT_CONST_INTEGER ? mLeft->mDecValue->mInteger : mLeft->mDecValue->mNumber;
 			double	dright = mRight->mDecValue->mType == DT_CONST_INTEGER ? mRight->mDecValue->mInteger : mRight->mDecValue->mNumber;

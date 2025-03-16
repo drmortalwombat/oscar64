@@ -243,6 +243,19 @@ bool GlobalOptimizer::ReplaceParamConst(Expression* exp, Declaration* param)
 	bool	changed = false;
 	if (exp)
 	{
+		if (ReplaceParamConst(exp->mLeft, param))
+			changed = true;
+		if (ReplaceParamConst(exp->mRight, param))
+			changed = true;
+
+		if (changed)
+		{
+			if (exp->mLeft)
+				exp->mLeft = exp->mLeft->ConstantFold(mErrors, nullptr);
+			if (exp->mRight)
+				exp->mRight = exp->mRight->ConstantFold(mErrors, nullptr);
+		}
+
 		if (exp->mType == EX_VARIABLE && exp->mDecValue == param)
 		{
 			exp->mType = EX_CONSTANT;
@@ -251,10 +264,6 @@ bool GlobalOptimizer::ReplaceParamConst(Expression* exp, Declaration* param)
 			changed = true;
 		}
 
-		if (ReplaceParamConst(exp->mLeft, param))
-			changed = true;
-		if (ReplaceParamConst(exp->mRight, param))
-			changed = true;
 	}
 	return changed;
 }
@@ -382,6 +391,7 @@ bool GlobalOptimizer::Optimize(void)
 						{
 							if (ReplaceParamConst(func->mValue, pdec))
 							{
+								func->mValue = func->mValue->ConstantFold(mErrors, nullptr);
 #if DUMP_OPTS
 								printf("Const parameter %s\n", pdec->mIdent ? pdec->mIdent->mString : "_");
 #endif

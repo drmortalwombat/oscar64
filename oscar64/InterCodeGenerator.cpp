@@ -3181,9 +3181,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					break;
 				case TK_DIV:
 					ins->mOperator = signedOP ? IA_DIVS : IA_DIVU;
+					if (exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecValue->mType == DT_CONST_INTEGER && exp->mRight->mDecValue->mInteger == 0)
+						mErrors->Error(exp->mLocation, EWARN_DIVISION_BY_ZERO, "Constant division by zero");
 					break;
 				case TK_MOD:
 					ins->mOperator = signedOP ? IA_MODS : IA_MODU;
+					if (exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecValue->mType == DT_CONST_INTEGER && exp->mRight->mDecValue->mInteger == 0)
+						mErrors->Error(exp->mLocation, EWARN_DIVISION_BY_ZERO, "Constant division by zero");
 					break;
 				case TK_LEFT_SHIFT:
 					ins->mOperator = IA_SHL;
@@ -5349,19 +5353,36 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			TranslateLogic(procType, proc, block, tblock, fblock, exp->mLeft, destack, gotos, inlineMapper);
 
 			DestructStack* itdestack = destack;
+			ErrorID	eid;
+			
+			bool	alwaysTrue = false, alwaysFalse = false;
+			if (exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecValue->mType == DT_CONST_INTEGER)
+			{
+				alwaysTrue = exp->mLeft->mDecValue->mInteger != 0;
+				alwaysFalse = exp->mLeft->mDecValue->mInteger == 0;
+			}
+			
+			if (alwaysFalse)
+				eid = mErrors->SetMinLevel(EERR_GENERIC);
 			vr = TranslateExpression(procType, proc, tblock, exp->mRight->mLeft, destack, gotos, breakBlock, continueBlock, inlineMapper);
 			UnwindDestructStack(procType, proc, tblock, destack, itdestack, inlineMapper);
 			destack = itdestack;
+			if (alwaysFalse)
+				mErrors->SetMinLevel(eid);
 
 			tblock->Append(jins0);
 			tblock->Close(eblock, nullptr);
 
 			if (exp->mRight->mRight)
 			{
+				if (alwaysTrue)
+					eid = mErrors->SetMinLevel(EERR_GENERIC);
 				DestructStack* ifdestack = destack;
 				vr = TranslateExpression(procType, proc, fblock, exp->mRight->mRight, destack, gotos, breakBlock, continueBlock, inlineMapper);
 				UnwindDestructStack(procType, proc, fblock, destack, ifdestack, inlineMapper);
 				destack = ifdestack;
+				if (alwaysTrue)
+					mErrors->SetMinLevel(eid);
 			}
 			fblock->Append(jins1);
 			fblock->Close(eblock, nullptr);
