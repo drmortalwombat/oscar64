@@ -110,12 +110,12 @@ float atan2(float p, float q)
 	return s;
 }
 
-#define F_EXP_0 	1.0000003
-#define F_EXP_1 	0.693147059
-#define F_EXP_2 	0.240173099
-#define F_EXP_3 	0.055816392
-#define F_EXP_4 	0.008965036
-#define F_EXP_5 	0.001898429
+#define F_EXP_0 	1.0
+#define F_EXP_1 	0.69315668
+#define F_EXP_2 	0.240132068
+#define F_EXP_3 	0.055876024
+#define F_EXP_4 	0.008940801
+#define F_EXP_5 	0.001894414
 
 float exp(float f)
 {
@@ -143,12 +143,12 @@ float exp(float f)
 	return s * x.f;
 }
 
-#define F_LOG_0 	-3.78712618	
-#define F_LOG_1		10.0957081
-#define F_LOG_2		-13.9747486
-#define F_LOG_3		12.7568806
-#define F_LOG_4		-6.48114552
-#define F_LOG_5		1.39045416
+#define F_LOG_0 	-3.78717706
+#define F_LOG_1 	10.0960498
+#define F_LOG_2 	-13.975654
+#define F_LOG_3 	12.7580616
+#define F_LOG_4 	-6.48190725
+#define F_LOG_5 	1.39064767
 
 float log(float f)
 {

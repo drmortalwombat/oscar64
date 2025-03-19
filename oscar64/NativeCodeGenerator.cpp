@@ -5,6 +5,7 @@
 #define JUMP_TO_BRANCH	1
 #define CHECK_NULLPTR	0
 #define REYCLE_JUMPS	1
+#define DISASSEMBLE_OPT	0
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -47657,7 +47658,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 0].mType == ASMIT_STA &&
 		mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i + 1].mMode) &&
 		mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[i + 2].mMode) &&
-		mIns[i + 3].mType == ASMIT_LDX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+		mIns[i + 3].mType == ASMIT_LDX && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
 	{
 		mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 		mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
@@ -47670,7 +47671,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 0].mType == ASMIT_STA &&
 		mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
 		mIns[i + 2].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 2].mMode) &&
-		mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]))
+		mIns[i + 3].mType == ASMIT_LDY && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
 	{
 		mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 		mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
@@ -53044,7 +53045,7 @@ NativeCodeProcedure::~NativeCodeProcedure(void)
 
 void NativeCodeProcedure::DisassembleDebug(const char* name)
 {
-#if 0
+#if DISASSEMBLE_OPT
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;
@@ -53296,7 +53297,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "putpch");
+	CheckFunc = !strcmp(mIdent->mString, "isinf");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -54074,6 +54075,10 @@ void NativeCodeProcedure::Optimize(void)
 	bool	swappedXY = false;
 
 	CheckCase = false;
+
+#if DISASSEMBLE_OPT
+	DisassembleDebug("Preoptimize");
+#endif
 
 	CheckBlocks();
 
@@ -55139,7 +55144,7 @@ void NativeCodeProcedure::Optimize(void)
 	mEntryBlock->CheckAsmCode();
 #endif
 
-#if 0
+#if DISASSEMBLE_OPT
 	char fname[100];
 	sprintf_s(fname, "Optimize %d, %d", step, cnt);
 	DisassembleDebug(fname);

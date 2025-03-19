@@ -5617,7 +5617,9 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 	}
 	else if (mType == IT_FLOAT)
 	{
-		fprintf(file, "C%c:%f", typechars[mType], mFloatConst);
+		union { float f; uint32 u; } u;
+		u.f = (float)mFloatConst;
+		fprintf(file, "C%c:%f (%08x)", typechars[mType], mFloatConst, u.u);
 	}
 }
 
