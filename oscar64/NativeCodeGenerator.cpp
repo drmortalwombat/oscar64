@@ -14347,12 +14347,13 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 				if (dins.mFlags & NCIF_VOLATILE)
 					simple = false;
 
-				if (dins.mMode == ASMIM_ZERO_PAGE && dins.mAddress >= BC_REG_WORK && dins.mAddress < BC_REG_WORK + 8)
-					uflags |= NICF_USE_WORKREGS;
-
-				// Make sure we are not aliasing zeropage globals
-				if (dins.mMode == ASMIM_ZERO_PAGE && dins.mLinkerObject)
-					dins.mMode = ASMIM_ABSOLUTE;
+				if (dins.mMode == ASMIM_ZERO_PAGE)
+				{
+					if (dins.mAddress >= BC_REG_WORK && dins.mAddress < BC_REG_WORK + 8)
+						uflags |= NICF_USE_WORKREGS;
+					else if (dins.mLinkerObject)
+						dins.mMode = ASMIM_ABSOLUTE;				// Make sure we are not aliasing zeropage globals
+				}
 
 				if (dins.ChangesAccu())
 					uflags |= NCIF_USE_CPU_REG_A;

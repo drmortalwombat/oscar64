@@ -508,6 +508,8 @@ bool Compiler::GenerateCode(void)
 			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x00e0, 0x00ff);
 		else if (mCompilerOptions & (COPT_EXTENDED_ZERO_PAGE | COPT_TARGET_NES))
 			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x0080, 0x00ff);
+		else if (mTargetMachine == TMACH_PET_8K || mTargetMachine == TMACH_PET_16K || mTargetMachine == TMACH_PET_32K)
+			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x00ed, 0x00f7);
 		else
 			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x00f7, 0x00ff);
 	}
