@@ -134,77 +134,9 @@ __asm bsinit
 #elif defined(__CBMPET__)
 #define bsout	0xffd2
 #define bsin	0xffe4
-/* This is inspired by the cc65 source code from pet/cputc.s */    
-#define CURS_X $c6
-#define CURS_Y $d8
-#define SCREEN_PTR $c4
-#define SCR_LINELEN $d5
 __asm bsplot
 {
-	sty CURS_X
-	stx CURS_Y
-plot:	ldy CURS_Y
-	lda ScrLo,y
-	sta SCREEN_PTR
-	lda ScrHi,y
-	ldy SCR_LINELEN
-	cpy #40+1
-	bcc col80
-	asl SCREEN_PTR              /* 80 column mode */
-	rol
-col80:	ora #$80                    /* Screen at $8000 */
-	sta SCREEN_PTR+1
-	rts
-ScrLo:	byt 0x00
-	byt 0x28
-	byt 0x50
-	byt 0x78
-	byt 0xA0
-	byt 0xC8
-	byt 0xF0
-	byt 0x18
-	byt 0x40
-	byt 0x68
-	byt 0x90
-	byt 0xB8
-	byt 0xE0
-	byt 0x08
-	byt 0x30
-	byt 0x58
-	byt 0x80
-	byt 0xA8
-	byt 0xD0
-	byt 0xF8
-	byt 0x20
-	byt 0x48
-	byt 0x70
-	byt 0x98
-	byt 0xC0
-ScrHi:	byt 0x00
-	byt 0x00
-	byt 0x00
-	byt 0x00
-	byt 0x00
-	byt 0x00
-	byt 0x00
-	byt 0x01
-	byt 0x01
-	byt 0x01
-	byt 0x01
-	byt 0x01
-	byt 0x01
-	byt 0x02
-	byt 0x02
-	byt 0x02
-	byt 0x02
-	byt 0x02
-	byt 0x02
-	byt 0x02
-	byt 0x03
-	byt 0x03
-	byt 0x03
-	byt 0x03
-	byt 0x03
+    /* no equivalent on PET */
 }
 __asm bsinit
 {
@@ -421,6 +353,24 @@ void textcursor(bool show)
 
 void gotoxy(char cx, char cy)
 {
+#if defined(__CBMPET__)
+#define CURS_X 0xc6
+#define CURS_Y 0xd8
+#define SCREEN_PTR 0xc4
+#define SCR_LINELEN 0xd5
+
+	__assume(cy < 25);
+
+	*(volatile char *)CURS_X = cx;
+	*(volatile char *)CURS_Y = cy;
+
+	if (*(volatile char *)SCR_LINELEN > 40)
+		cy <<= 1;
+
+	const unsigned	off = cy * 40;
+
+	* (volatile unsigned *)SCREEN_PTR = off + 0x8000;
+#else
 	__asm
 	{
 		ldx	cy
@@ -428,6 +378,7 @@ void gotoxy(char cx, char cy)
 		clc
 		jsr bsplot
 	}
+#endif
 }
 
 void textcolor(char c)
