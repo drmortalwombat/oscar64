@@ -131,6 +131,18 @@ __asm bsinit
 	lda #147
 	jmp $ffd2	
 }
+#elif defined(__CBMPET__)
+#define bsout	0xffd2
+#define bsin	0xffe4
+__asm bsplot
+{
+    /* no equivalent on PET */
+}
+__asm bsinit
+{
+    /* no equivalent on PET */
+}
+#define bsget	0xffcf
 #else
 #define bsout	0xffd2
 #define bsin	0xffe4
@@ -341,13 +353,32 @@ void textcursor(bool show)
 
 void gotoxy(char cx, char cy)
 {
+#if defined(__CBMPET__)
+#define CURS_X 0xc6
+#define CURS_Y 0xd8
+#define SCREEN_PTR 0xc4
+#define SCR_LINELEN 0xd5
+
+	__assume(cy < 25);
+
+	*(volatile char *)CURS_X = cx;
+	*(volatile char *)CURS_Y = cy;
+
+	if (*(volatile char *)SCR_LINELEN > 40)
+		cy <<= 1;
+
+	const unsigned	off = cy * 40;
+
+	* (volatile unsigned *)SCREEN_PTR = off + 0x8000;
+#else
 	__asm
 	{
 		ldx	cy
 		ldy	cx
 		clc
 		jsr bsplot
-	}	
+	}
+#endif
 }
 
 void textcolor(char c)
