@@ -39511,7 +39511,6 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				changed = true;
 			}
 		}
-
 	}
 
 	return changed;
@@ -40130,6 +40129,47 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 							xother = true;
 						else if (mIns[i].mType != ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
 							xother = true;
+					}
+					if (yindex && yother)
+					{
+						for (int i = 0; i < sz - 3; i++)
+						{
+							if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+								;
+							else if (mIns[i].mType == ASMIT_TAY && !(mIns[i].mLive & LIVE_CPU_REG_X) && mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y && HasAsmInstructionMode(mIns[i + 1].mType, ASMIM_ABSOLUTE_X) && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+							{
+								mIns[i].mType = ASMIT_TAX; mIns[i].mLive |= LIVE_CPU_REG_X; mIns[i].mLive &= ~LIVE_CPU_REG_Y;
+								mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;
+								changed = true;
+							}
+							else if (mIns[i].mType == ASMIT_LDY && HasAsmInstructionMode(ASMIT_LDX, mIns[i].mMode) && !(mIns[i].mLive & LIVE_CPU_REG_X) && mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y && HasAsmInstructionMode(mIns[i + 1].mType, ASMIM_ABSOLUTE_X) && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
+							{
+								mIns[i].mType = ASMIT_LDX; mIns[i].mLive |= LIVE_CPU_REG_X; mIns[i].mLive &= ~LIVE_CPU_REG_Y;
+								mIns[i + 1].mMode = ASMIM_ABSOLUTE_X;
+								changed = true;
+							}
+						}
+					}
+
+					else if (xindex && xother)
+					{
+						for (int i = 0; i < sz-3; i++)
+						{
+							if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == zreg)
+								;
+							else if (mIns[i].mType == ASMIT_TAX && !(mIns[i].mLive & LIVE_CPU_REG_Y) && mIns[i + 1].mMode == ASMIM_ABSOLUTE_X && HasAsmInstructionMode(mIns[i + 1].mType, ASMIM_ABSOLUTE_Y) && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+							{
+								mIns[i].mType = ASMIT_TAY; mIns[i].mLive |= LIVE_CPU_REG_Y; mIns[i].mLive &= ~LIVE_CPU_REG_X;
+								mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
+								changed = true;
+							}
+							else if (mIns[i].mType == ASMIT_LDX && HasAsmInstructionMode(ASMIT_LDY, mIns[i].mMode) && !(mIns[i].mLive & LIVE_CPU_REG_Y) && mIns[i + 1].mMode == ASMIM_ABSOLUTE_X && HasAsmInstructionMode(mIns[i + 1].mType, ASMIM_ABSOLUTE_Y) && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+							{
+								mIns[i].mType = ASMIT_LDY; mIns[i].mLive |= LIVE_CPU_REG_Y; mIns[i].mLive &= ~LIVE_CPU_REG_X;
+								mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
+								changed = true;
+							}
+						}
 					}
 
 					if (!yother)
@@ -53298,7 +53338,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "isinf");
+	CheckFunc = !strcmp(mIdent->mString, "equipment_scroll_down");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
