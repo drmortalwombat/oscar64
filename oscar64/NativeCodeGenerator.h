@@ -840,6 +840,10 @@ public:
 
 	void PropagateAddGlobalCarry(void);
 
+	bool EliminateNonAliasedLocalStores(void);
+	bool CheckNonAliasedLocalStore(int at, const NativeCodeInstruction& sins);
+
+
 	void RegisterFunctionCalls(void);
 	bool MergeFunctionCalls(void);
 
