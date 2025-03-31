@@ -284,7 +284,8 @@ public:
 	int PutBranch(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, AsmInsType code, int from, int to);
 	int PutJump(NativeCodeProcedure* proc, NativeCodeBasicBlock* target, int from, int to, AsmInsType code = ASMIT_INV);
 	int JumpByteSize(NativeCodeBasicBlock * target, int from, int to, bool second, bool final);
-	int BranchByteSize(NativeCodeBasicBlock* target, int from, int to, bool final);
+	int CheckFinalBranchByteSize(NativeCodeBasicBlock* target, int from, int to) const;
+	int BranchByteSize(NativeCodeBasicBlock* target, int from, int to, bool final) const;
 
 	NativeCodeBasicBlock* SplitAt(int at);
 
