@@ -667,21 +667,19 @@ L1:		rol	accu
 		sbc	tmp + 1
 		lda	tmp + 6
 		sbc	tmp + 2
+		tax
 		lda	tmp + 7
 		sbc	tmp + 3
 		bcc	W1
+		stx tmp + 6
+		sta tmp + 7
 		lda	tmp + 4
 		sbc	tmp + 0
 		sta tmp + 4
 		lda	tmp + 5
 		sbc	tmp + 1
 		sta tmp + 5
-		lda	tmp + 6
-		sbc	tmp + 2
-		sta tmp + 6
-		lda	tmp + 7
-		sbc	tmp + 3
-		sta tmp + 7
+		sec
 W1:		dey
 		bne	L1
 		rol	accu
