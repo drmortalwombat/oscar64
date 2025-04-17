@@ -224,11 +224,10 @@ void putpch(char c)
 						c ^= 0xa0;
 					c ^= 0x20;
 #else
-					if (c >= 97)
-						c ^= 0x20;
+					c ^= 0x20;
 #endif				
 
-					if (giocharmap == IOCHM_PETSCII_2)
+					if (giocharmap == IOCHM_PETSCII_1)
 						c &= 0xdf;
 				}
 			}
