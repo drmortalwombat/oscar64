@@ -6083,7 +6083,7 @@ static bool IsInfiniteLoop(InterCodeBasicBlock* head, InterCodeBasicBlock* block
 	return false;
 }
 
-void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
+void InterCodeBasicBlock::GenerateTraces(int expand, bool compact)
 {
 	if (mInPath)
 		mLoopHead = true;
@@ -6185,7 +6185,7 @@ void InterCodeBasicBlock::GenerateTraces(bool expand, bool compact)
 				mInstructions[ns - 1]->mCode = IC_JUMP;
 				mInstructions[ns - 1]->mNumOperands = 0;
 			}
-			else if (mTrueJump && !mFalseJump && ((expand && mTrueJump->mInstructions.Size() < 10 && mTrueJump->mInstructions.Size() > 1 && !mLoopHead) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
+			else if (mTrueJump && !mFalseJump && ((mTrueJump->mInstructions.Size() < expand && mTrueJump->mInstructions.Size() > 1 && !mLoopHead) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
 			{
 				mTrueJump->mNumEntries--;
 				int	n = mTrueJump->mNumEntries;
@@ -14692,7 +14692,8 @@ bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
 			if (mInstructions[sz - 2]->mOperator == IA_CMPGES && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
 			{
 				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
-					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp)
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp &&
+					mTrueJump->mInstructions[1]->mSrc[0].mFinal)
 				{
 					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
 					{
@@ -14720,7 +14721,8 @@ bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPLS && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
 			{
 				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
-					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp)
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp &&
+					mTrueJump->mInstructions[1]->mSrc[0].mFinal)
 				{
 					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
 					{
@@ -14738,7 +14740,8 @@ bool InterCodeBasicBlock::OptimizeIntervalCompare(void)
 			else if (mInstructions[sz - 2]->mOperator == IA_CMPLES && mInstructions[sz - 2]->mSrc[0].mTemp == -1)
 			{
 				if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mFalseJump == mFalseJump &&
-					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp)
+					mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp &&
+					mTrueJump->mInstructions[1]->mSrc[0].mFinal)
 				{
 					if (mTrueJump->mInstructions[0]->mSrc[0].mTemp == -1 && mTrueJump->mInstructions[0]->mSrc[1].mTemp == mInstructions[sz - 2]->mSrc[1].mTemp)
 					{
@@ -22427,12 +22430,12 @@ void InterCodeProcedure::EarlyBranchElimination(void)
 	ResetVisited();
 	while (mEntryBlock->EarlyBranchElimination(ctemps))
 	{
-		BuildTraces(true);
+		BuildTraces(10);
 		TrimBlocks();
 	}
 }
 
-void InterCodeProcedure::BuildTraces(bool expand, bool dominators, bool compact)
+void InterCodeProcedure::BuildTraces(int expand, bool dominators, bool compact)
 {
 	// Count number of entries
 	//
@@ -22688,7 +22691,7 @@ void InterCodeProcedure::ShortcutDuplicateBranches(void)
 
 void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 {
-	BuildTraces(false);
+	BuildTraces(0);
 	BuildLoopPrefix();
 	ResetEntryBlocks();
 	ResetVisited();
@@ -22701,13 +22704,13 @@ void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 	{
 		Disassemble("MoveConditionOutOfLoop");
 
-		BuildTraces(false);
+		BuildTraces(0);
 
 		BuildDataFlowSets();
 		TempForwarding();
 		RemoveUnusedInstructions();
 
-		BuildTraces(false);
+		BuildTraces(0);
 		BuildLoopPrefix();
 		ResetEntryBlocks();
 		ResetVisited();
@@ -22724,7 +22727,7 @@ void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 
 void InterCodeProcedure::EliminateDoubleLoopCounter(void)
 {
-	BuildTraces(false);
+	BuildTraces(0);
 	BuildLoopPrefix();
 	ResetEntryBlocks();
 	ResetVisited();
@@ -23033,7 +23036,7 @@ void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int 
 
 		DisassembleDebug("local variables to temps");
 
-		BuildTraces(false);
+		BuildTraces(0);
 
 		BuildDataFlowSets();
 
@@ -23329,7 +23332,7 @@ void InterCodeProcedure::ReduceRecursionTempSpilling(InterMemory paramMemory)
 
 void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
 {
-	BuildTraces(false);
+	BuildTraces(0);
 
 	DisassembleDebug("Load/Store forwardingY");
 
@@ -23440,14 +23443,16 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "testint0");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
 
 	DisassembleDebug("start");
 
-	BuildTraces(true);
+	BuildTraces(10);
+
+	DisassembleDebug("traces");
 
 	EarlyBranchElimination();
 
@@ -23510,7 +23515,7 @@ void InterCodeProcedure::Close(void)
 		eliminated = mEntryBlock->EliminateDeadBranches();
 		if (eliminated)
 		{
-			BuildTraces(false);
+			BuildTraces(0);
 			/*
 			ResetVisited();
 			for (int i = 0; i < mBlocks.Size(); i++)
@@ -23749,7 +23754,7 @@ void InterCodeProcedure::Close(void)
 	Disassemble("gcp-");
 #endif
 
-	BuildTraces(false);
+	BuildTraces(0);
 	DisassembleDebug("Rebuilt traces");
 
 	BuildDataFlowSets();
@@ -23792,7 +23797,7 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Simplified range limited relational ops 1");
 #endif
 
-	BuildTraces(false);
+	BuildTraces(0);
 	DisassembleDebug("Rebuilt traces");
 
 #if 1
@@ -23881,7 +23886,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->CollectEntryBlocks(nullptr);
 #endif
 
-	BuildTraces(false);
+	BuildTraces(0);
 
 #if 1
 	SingleBlockLoopPointerSplit(activeSet);
@@ -23910,7 +23915,7 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
-	BuildTraces(false);
+	BuildTraces(0);
 #endif
 
 	SingleTailLoopOptimization(paramMemory);
@@ -23925,7 +23930,7 @@ void InterCodeProcedure::Close(void)
 #endif
 
 #if 1
-	BuildTraces(false);
+	BuildTraces(0);
 
 	PushSinglePathResultInstructions();
 
@@ -23992,7 +23997,7 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 	DisassembleDebug("Removed unreachable branches");
 
-	BuildTraces(false);
+	BuildTraces(0);
 	DisassembleDebug("Rebuilt traces");
 
 	BuildDataFlowSets();
@@ -24030,7 +24035,7 @@ void InterCodeProcedure::Close(void)
 
 	BuildDataFlowSets();
 
-	BuildTraces(false);
+	BuildTraces(0);
 	DisassembleDebug("Rebuilt traces");
 #endif
 
@@ -24057,7 +24062,7 @@ void InterCodeProcedure::Close(void)
 
 	BuildDataFlowSets();
 
-	BuildTraces(false);
+	BuildTraces(0);
 	DisassembleDebug("Rebuilt traces");
 #endif
 
@@ -24082,9 +24087,9 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
-	BuildTraces(false);
+	BuildTraces(0);
 	BuildDataFlowSets();
-	BuildTraces(false);
+	BuildTraces(0);
 #endif
 
 	PropagateConstOperationsUp();
@@ -24100,7 +24105,7 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	if (mEntryBlock->MergeLoopTails())
 	{
-		BuildTraces(false);
+		BuildTraces(0);
 		BuildDataFlowSets();
 	}
 
@@ -24180,7 +24185,7 @@ void InterCodeProcedure::Close(void)
 
 		BuildDataFlowSets();
 
-		BuildTraces(false);
+		BuildTraces(0);
 		DisassembleDebug("Rebuilt traces");
 #endif
 	}
@@ -24212,7 +24217,7 @@ void InterCodeProcedure::Close(void)
 		TempForwarding();
 	} while (GlobalConstantPropagation());
 
-	BuildTraces(false);
+	BuildTraces(0);
 	DisassembleDebug("Rebuilt traces");
 
 
@@ -24263,7 +24268,7 @@ void InterCodeProcedure::Close(void)
 #if 1
 	for (int i = 0; i < 8; i++)
 	{
-		BuildTraces(false);
+		BuildTraces(0);
 
 		LoadStoreForwarding(paramMemory);
 
@@ -24390,7 +24395,7 @@ void InterCodeProcedure::Close(void)
 	// Optimize for size
 
 	MergeBasicBlocks(activeSet);
-	BuildTraces(false, false, true);
+	BuildTraces(0, false, true);
 	DisassembleDebug("Final Merged basic blocks");
 
 	WarnInvalidValueRanges();
@@ -24606,7 +24611,7 @@ void InterCodeProcedure::SingleTailLoopOptimization(InterMemory paramMemory)
 			RemoveUnusedStoreInstructions(paramMemory);
 		}
 
-		BuildTraces(false);
+		BuildTraces(0);
 		DisassembleDebug("Rebuilt traces");
 
 	} while (changed);
@@ -25113,7 +25118,7 @@ void InterCodeProcedure::RecheckLocalAliased(void)
 
 void InterCodeProcedure::ConstLoopOptimization(void)
 {
-	BuildTraces(false);
+	BuildTraces(0);
 	BuildLoopPrefix();
 	ResetEntryBlocks();
 	ResetVisited();

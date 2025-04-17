@@ -429,7 +429,7 @@ public:
 
 	void CollectEntries(void);
 	void CollectEntryBlocks(InterCodeBasicBlock* from);
-	void GenerateTraces(bool expand, bool compact);
+	void GenerateTraces(int expand, bool compact);
 	void BuildDominatorTree(InterCodeBasicBlock * from);
 
 	bool MergeSameConditionTraces(void);
@@ -762,7 +762,7 @@ public:
 	void Disassemble(const char* name, bool dumpSets = false);
 protected:
 	void BuildLocalAliasTable(void);
-	void BuildTraces(bool expand, bool dominators = true, bool compact = false);
+	void BuildTraces(int expand, bool dominators = true, bool compact = false);
 	void TrimBlocks(void);
 	void EarlyBranchElimination(void);
 	void BuildDataFlowSets(void);

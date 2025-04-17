@@ -253,6 +253,8 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_ASSEMBLER;
 					else if (arg[2] == 'i' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE;
+					else if (arg[2] == 'i' && arg[3] == 'i' && !arg[4])
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE_ALL;
 					else if (arg[2] == 'z' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_AUTO_ZEROPAGE;
 					else if (arg[2] == 'p' && !arg[3])

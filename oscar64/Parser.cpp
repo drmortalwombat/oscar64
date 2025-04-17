@@ -13540,7 +13540,7 @@ void Parser::ParsePragma(void)
 					else if (ConsumeTokenIf(TK_INLINE))
 						mCompilerOptions |= COPT_OPTIMIZE_INLINE;
 					else if (ConsumeIdentIf("autoinline"))
-						mCompilerOptions |= COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE;
+						mCompilerOptions |= COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_AUTO_INLINE;
 					else if (ConsumeIdentIf("maxinline"))
 						mCompilerOptions |= COPT_OPTIMIZE_INLINE | COPT_OPTIMIZE_AUTO_INLINE | COPT_OPTIMIZE_AUTO_INLINE_ALL;
 					else if (ConsumeIdentIf("constparams"))
