@@ -278,6 +278,7 @@ public:
 	NativeCodeInstruction		mALSIns, mXLSIns, mYLSIns;
 
 	void Disassemble(FILE* file);
+	void DisassembleBody(FILE* file);
 
 	NativeCodeInstruction DecodeNative(const InterInstruction* ins, LinkerObject * lobj, int& offset) const;
 
@@ -349,6 +350,7 @@ public:
 	bool OptimizeSingleEntryLoop(NativeCodeProcedure* proc);
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);
+	bool OptimizeSimpleForLoop(void);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeXYSimpleLoop(void);

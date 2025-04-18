@@ -10268,29 +10268,42 @@ Expression* Parser::ParseStatement(void)
 					if ((initExp->mType == EX_ASSIGNMENT || initExp->mType == EX_INITIALIZATION) && initExp->mLeft->mType == EX_VARIABLE && initExp->mRight->mType == EX_CONSTANT &&
 						(iterateExp->mType == EX_POSTINCDEC || iterateExp->mType == EX_PREINCDEC || iterateExp->mType == EX_ASSIGNMENT && iterateExp->mToken == TK_ASSIGN_ADD && iterateExp->mRight->mType == EX_CONSTANT) && 
 						iterateExp->mLeft->IsSame(initExp->mLeft) &&
-						conditionExp->mType == EX_RELATIONAL && (conditionExp->mToken == TK_LESS_THAN || conditionExp->mToken == TK_GREATER_THAN || conditionExp->mToken == TK_LESS_EQUAL || conditionExp->mToken == TK_GREATER_EQUAL) && conditionExp->mLeft->IsSame(initExp->mLeft) && conditionExp->mRight->mType == EX_CONSTANT)
+						(conditionExp->mType == EX_RELATIONAL && 
+							(conditionExp->mToken == TK_LESS_THAN || conditionExp->mToken == TK_GREATER_THAN || conditionExp->mToken == TK_LESS_EQUAL || conditionExp->mToken == TK_GREATER_EQUAL) && 
+							conditionExp->mLeft->IsSame(initExp->mLeft) && 
+							conditionExp->mRight->mType == EX_CONSTANT ||
+						 conditionExp->IsSame(initExp->mLeft)))
 					{
-						if (initExp->mRight->mDecValue->mType == DT_CONST_INTEGER && conditionExp->mRight->mDecValue->mType == DT_CONST_INTEGER)
+						if (initExp->mRight->mDecValue->mType == DT_CONST_INTEGER && (conditionExp->mType == EX_VARIABLE || conditionExp->mRight->mDecValue->mType == DT_CONST_INTEGER))
 						{
 							int	startValue = int(initExp->mRight->mDecValue->mInteger);
-							int	endValue = int(conditionExp->mRight->mDecValue->mInteger);
+							int	endValue = 0;
 							int	stepValue = 1;
-
-							if (conditionExp->mToken == TK_LESS_EQUAL)
-							{
-								endValue++;
-								conditionExp->mToken = TK_LESS_THAN;
-							}
-							else if (conditionExp->mToken == TK_GREATER_EQUAL)
-							{
-								endValue--;
-								conditionExp->mToken = TK_GREATER_THAN;
-							}
 
 							if (iterateExp->mType == EX_ASSIGNMENT)
 								stepValue = int(iterateExp->mRight->mDecValue->mInteger);
 							else if (iterateExp->mToken == TK_DEC)
 								stepValue = -1;
+
+							if (conditionExp->mType == EX_RELATIONAL)
+							{
+								endValue = int(conditionExp->mRight->mDecValue->mInteger);
+
+								if (conditionExp->mToken == TK_LESS_EQUAL)
+								{
+									endValue++;
+									conditionExp->mToken = TK_LESS_THAN;
+								}
+								else if (conditionExp->mToken == TK_GREATER_EQUAL)
+								{
+									endValue--;
+									conditionExp->mToken = TK_GREATER_THAN;
+								}
+							}
+							else if (stepValue > 0 && startValue >= 0)
+							{
+								endValue = 1 << (initExp->mLeft->mDecValue->mSize * 8);
+							}
 
 							if (unrollPage)
 							{
@@ -10349,7 +10362,22 @@ Expression* Parser::ParseStatement(void)
 								bexp = bexp->mRight;
 								bexp->mLeft = dexp;
 
-								conditionExp->mRight->mDecValue = conditionExp->mRight->mDecValue->Clone();
+								if (conditionExp->mType == EX_RELATIONAL)
+								{
+									conditionExp->mRight->mDecValue = conditionExp->mRight->mDecValue->Clone();
+								}
+								else
+								{
+									conditionExp = new Expression(conditionExp->mLocation, EX_RELATIONAL);
+									conditionExp->mDecType = TheBoolTypeDeclaration;
+									conditionExp->mToken = stepValue < 0 ? TK_GREATER_THAN : TK_LESS_THAN;
+									conditionExp->mLeft = initExp->mLeft;
+									conditionExp->mRight = new Expression(conditionExp->mLocation, EX_CONSTANT);
+									conditionExp->mRight->mDecType = conditionExp->mDecType;
+									conditionExp->mRight->mDecValue = new Declaration(conditionExp->mLocation, DT_CONST_INTEGER);
+									conditionExp->mRight->mDecValue->mBase = conditionExp->mRight->mDecType;
+								}
+
 								conditionExp->mRight->mDecValue->mInteger = numIterations;
 
 								if (remain)
@@ -10377,7 +10405,21 @@ Expression* Parser::ParseStatement(void)
 								int	remain = numSteps % unrollLoop;
 								endValue -= remain * stepValue;
 
-								conditionExp->mRight->mDecValue = conditionExp->mRight->mDecValue->Clone();
+								if (conditionExp->mType == EX_RELATIONAL)
+								{
+									conditionExp->mRight->mDecValue = conditionExp->mRight->mDecValue->Clone();
+								}
+								else
+								{
+									conditionExp = new Expression(conditionExp->mLocation, EX_RELATIONAL);
+									conditionExp->mDecType = TheBoolTypeDeclaration;
+									conditionExp->mToken = stepValue < 0 ? TK_GREATER_THAN : TK_LESS_THAN;
+									conditionExp->mLeft = initExp->mLeft;
+									conditionExp->mRight = new Expression(conditionExp->mLocation, EX_CONSTANT);
+									conditionExp->mRight->mDecType = conditionExp->mDecType;
+									conditionExp->mRight->mDecValue = new Declaration(conditionExp->mLocation, DT_CONST_INTEGER);
+									conditionExp->mRight->mDecValue->mBase = conditionExp->mRight->mDecType;
+								}
 								conditionExp->mRight->mDecValue->mInteger = endValue;
 
 								Expression* unrollBody = new Expression(mScanner->mLocation, EX_SEQUENCE);
