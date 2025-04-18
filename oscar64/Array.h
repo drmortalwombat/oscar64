@@ -421,11 +421,13 @@ protected:
 			array = a2;
 		}
 
+		for (int i = size; i < to; i++) array[i] = T{};
+
 		size = to;
 	}
 
 	template<typename F>
-	void Parition(const F & f, int l, int r)
+	void Partition(const F & f, int l, int r)
 	{
 		if (r > l + 1)
 		{
@@ -442,8 +444,8 @@ protected:
 			}
 			array[pi] = p;
 
-			Parition(f, l, pi);
-			Parition(f, pi + 1, r);
+			Partition(f, l, pi);
+			Partition(f, pi + 1, r);
 		}
 	}
 public:
@@ -618,10 +620,22 @@ public:
 		return false;
 	}
 
+	void Fill(const T& t)
+	{
+		for (int i = 0; i < size; i++)
+			array[i] = t;
+	}
+
+	void Clear(void)
+	{
+		for (int i = 0; i < size; i++)
+			array[i] = T{};
+	}
+
 	template<typename F>
 	void Sort(const F & f)
 	{
-		Parition(f, 0, size);
+		Partition(f, 0, size);
 	}
 
 	__forceinline T& operator[](int n)

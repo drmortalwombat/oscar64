@@ -5872,8 +5872,6 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 InterCodeBasicBlock::InterCodeBasicBlock(InterCodeProcedure * proc)
 	: mProc(proc),
 	mInstructions(nullptr), mEntryRenameTable(-1), mExitRenameTable(-1), mMergeTValues(nullptr), mMergeAValues(nullptr), mTrueJump(nullptr), mFalseJump(nullptr), mLoopPrefix(nullptr), mDominator(nullptr),
-	mEntryValueRange(IntegerValueRange()), mTrueValueRange(IntegerValueRange()), mFalseValueRange(IntegerValueRange()), 
-	mEntryParamValueRange(IntegerValueRange()), mTrueParamValueRange(IntegerValueRange()), mFalseParamValueRange(IntegerValueRange()), mLocalParamValueRange(IntegerValueRange()),
 	mLoadStoreInstructions(nullptr), mMemoryValueSize(0), mEntryMemoryValueSize(0)
 {
 	mVisited = false;
@@ -7980,9 +7978,6 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 	if (!mLoopHead && mNumEntered < mEntryBlocks.Size())
 		return false;
 
-	mProc->mLocalValueRange.Clear();
-	mLocalParamValueRange.Clear();
-
 	assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
 	assert(mLocalParamValueRange.Size() == paramVars.Size());
 
@@ -8013,6 +8008,12 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 					mLocalParamValueRange[i].Merge(prange[i], mLoopHead, initial);
 			}
 		}
+	}
+
+	if (firstEntry)
+	{
+		mProc->mLocalValueRange.Clear();
+		mLocalParamValueRange.Clear();
 	}
 
 	assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
@@ -22178,12 +22179,15 @@ void InterCodeBasicBlock::RemapActiveTemporaries(const FastNumberSet& set)
 		for (int i = 0; i < set.Num(); i++)
 		{
 			int j = set.Element(i);
-			mEntryValueRange[i] = entryValueRange[j];
-			mTrueValueRange[i] = trueValueRange[j];
-			mFalseValueRange[i] = falseValueRange[j];
-//			mLocalValueRange[i] = localValueRange[j];
-//			mReverseValueRange[i] = reverseValueRange[j];
-			mMemoryValueSize[i] = memoryValueSize[j];
+			if (j < entryValueRange.Size())
+			{
+				mEntryValueRange[i] = entryValueRange[j];
+				mTrueValueRange[i] = trueValueRange[j];
+				mFalseValueRange[i] = falseValueRange[j];
+				//			mLocalValueRange[i] = localValueRange[j];
+				//			mReverseValueRange[i] = reverseValueRange[j];
+				mMemoryValueSize[i] = memoryValueSize[j];
+			}
 		}
 
 		if (mTrueJump) mTrueJump->RemapActiveTemporaries(set);
@@ -22289,8 +22293,7 @@ InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & l
 	mSaveTempsLinkerObject(nullptr), mValueReturn(false), mFramePointer(false),
 	mCheckUnreachable(true), mReturnType(IT_NONE), mCheapInline(false), mNoInline(false),
 	mDeclaration(nullptr), mGlobalsChecked(false), mDispatchedCall(false),
-	mNumRestricted(1),
-	mReverseValueRange(IntegerValueRange()), mLocalValueRange(IntegerValueRange())
+	mNumRestricted(1)
 {
 	mID = mModule->mProcedures.Size();
 	mModule->mProcedures.Push(this);

@@ -47447,6 +47447,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 		mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 		mIns.Insert(i, ins);
+		if (mIns[i + 1].RequiresCarry())
+			mIns[i + 0].mLive |= LIVE_CPU_REG_C;
 		return true;
 	}
 	else if (

@@ -198,7 +198,7 @@ public:
 
 
 
-typedef GrowingArray<IntegerValueRange>		GrowingIntegerValueRangeArray;
+typedef ExpandingArray<IntegerValueRange>		GrowingIntegerValueRangeArray;
 
 class ValueSet
 {
