@@ -877,7 +877,19 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 	}
 		break;
 
+	case TK_COLCOLON:
 	case TK_IDENT:
+	{
+		DeclarationScope* scope = mScope;
+		if (mScanner->mToken == TK_COLCOLON)
+		{
+			mScanner->NextToken();
+			while (scope->mLevel > SLEVEL_STATIC)
+				scope = scope->mParent;
+			if (!ExpectToken(TK_IDENT))
+				break;
+		}
+
 		pident = mScanner->mTokenIdent;
 		mScanner->NextToken();
 
@@ -964,6 +976,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 			mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Identifier not defined", pident);
 
 		break;
+	}
 
 	case TK_ENUM:
 	{

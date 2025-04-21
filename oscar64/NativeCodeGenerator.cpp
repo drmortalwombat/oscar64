@@ -697,13 +697,17 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 		}
 		else
 		{
-#if 0
-			for (int i = 0; i < 4; i++)
+			if (mLinkerObject)
 			{
-				requiredTemps -= BC_REG_ACCU + i;
-				requiredTemps -= BC_REG_WORK + i;
+				for (int i = 0; i < 4; i++)
+				{
+					if (mLinkerObject->mZeroPageSet[BC_REG_ACCU + i])
+						requiredTemps -= BC_REG_ACCU + i;
+					if (mLinkerObject->mZeroPageSet[BC_REG_WORK + i])
+						requiredTemps -= BC_REG_WORK + i;
+				}
 			}
-#endif
+
 			if (mFlags & NICF_USE_WORKREGS)
 			{
 				for (int i = 0; i < 10; i++)
