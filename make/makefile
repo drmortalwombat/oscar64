@@ -85,7 +85,7 @@ samples: compiler
 	@$(MAKE) -C $(project_dir)/samples all
 
 
-tests: compiler
+check: compiler
 	@$(MAKE) -C $(project_dir)/autotest all
 
 install: compiler
