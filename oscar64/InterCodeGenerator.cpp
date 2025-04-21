@@ -770,7 +770,10 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 			decb = decb->mBase;
 
 		if (decb && decb->mStripe != 1)
+		{
 			AddGlobalVariableRanges(var->mLinkerObject, decb, 0, nullptr);
+			var->mLinkerObject->mStripe = decb->mStripe;
+		}
 
 		Declaration* type = dec->mBase;
 		while (type->mType == DT_TYPE_ARRAY)

@@ -198,6 +198,7 @@ public:
 	bool UsesZeroPage(int address) const;
 	bool ReferencesZeroPage(int address) const;
 
+	bool SameLinkerObjectVariableRange(const NativeCodeInstruction& ins, bool sameXY = false) const;
 
 	bool ChangesGlobalMemory(void) const;
 	bool UsesMemoryOf(const NativeCodeInstruction& ins) const;
@@ -259,7 +260,7 @@ public:
 	ExpandingArray<NativeCodeBasicBlock*>	mEntryBlocks;
 
 	int							mOffset, mSize, mPlace, mNumEntries, mNumEntered, mFrameOffset, mTemp;
-	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked, mPatchStart, mPatchLoop, mPatchLoopChanged, mPatchExit;
+	bool						mPlaced, mCopied, mKnownShortBranch, mBypassed, mAssembled, mNoFrame, mVisited, mLoopHead, mVisiting, mLocked, mPatched, mPatchFail, mPatchChecked, mPatchUsed, mPatchStart, mPatchLoop, mPatchLoopChanged, mPatchExit;
 	bool						mEntryRegA, mEntryRegX, mEntryRegY, mExitRegA, mExitRegX, mChecked;
 	NativeCodeBasicBlock	*	mDominator, * mSameBlock;
 
@@ -798,8 +799,19 @@ public:
 	bool CheckGlobalAddressSumYPointer(const NativeCodeBasicBlock * block, int reg, int index, int at, int yval);
 	bool PatchGlobalAddressSumYPointer(const NativeCodeBasicBlock* block, int reg, int index, int at, int yval, LinkerObject * lobj, int address, uint32 flags = NCIF_LOWER | NCIF_UPPER);
 
+	// reg : register to replace
+	// at : start position in block
+	// ains : instruction loading original data
+	// cycles : max number of cycles saving
 	bool CheckSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains, int cycles);
 	bool PatchSingleUseGlobalLoad(const NativeCodeBasicBlock* block, int reg, int at, const NativeCodeInstruction& ains);
+
+	// rins : instruction storing the data
+	// at : start position in block
+	// ains : instruction loading original data
+	// cycles : max number of cycles saving
+	bool CheckSingleUseGlobalLoadStruct(const NativeCodeBasicBlock* block, const NativeCodeInstruction& rins, int at, const NativeCodeInstruction& ains, bool cleared, bool poisoned);
+	bool PatchSingleUseGlobalLoadStruct(const NativeCodeBasicBlock* block, const NativeCodeInstruction& rins, int at, const NativeCodeInstruction& ains);
 
 	// reg : base register pair to replace
 	// base: new base register
