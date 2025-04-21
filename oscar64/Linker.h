@@ -190,7 +190,7 @@ public:
 	LinkerObjectType					mType;
 	int									mID, mMapID;
 	int									mAddress, mRefAddress;
-	int									mSize, mAlignment, mStartUsed, mEndUsed;
+	int									mSize, mAlignment, mStripe, mStartUsed, mEndUsed;
 	LinkerSection					*	mSection;
 	LinkerRegion					*	mRegion;
 	uint8							*	mData, * mMemory;

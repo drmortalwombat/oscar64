@@ -5935,13 +5935,33 @@ Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 Declaration* Parser::ParseQualIdent(bool lhs)
 {
 	Declaration* dec = nullptr;
-	if (mTemplateScope)
-	{
-		dec = mTemplateScope->Lookup(mScanner->mTokenIdent);
-	}
 
-	if (!dec)
-		dec = mScope->Lookup(mScanner->mTokenIdent);
+	if (mScanner->mToken == TK_COLCOLON)
+	{
+		mScanner->NextToken();
+		if (mScanner->mToken == TK_IDENT)
+		{
+			DeclarationScope* scope = mScope;
+			while (scope->mLevel > SLEVEL_STATIC)
+				scope = scope->mParent;
+			dec = scope->Lookup(mScanner->mTokenIdent);
+		}
+		else
+		{
+			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
+			return nullptr;
+		}
+	}
+	else
+	{
+		if (mTemplateScope)
+		{
+			dec = mTemplateScope->Lookup(mScanner->mTokenIdent);
+		}
+
+		if (!dec)
+			dec = mScope->Lookup(mScanner->mTokenIdent);
+	}
 
 	if (dec)
 	{
@@ -6370,6 +6390,123 @@ Expression* Parser::ParseCastExpression(Expression* exp)
 	return exp;
 }
 
+Expression* Parser::ParseIdentExpression(const Location & eloc, Declaration* dec, bool lhs, bool tid)
+{
+	Expression* exp = nullptr;
+
+	if (dec->mTemplate && mScanner->mToken == TK_LESS_THAN)
+	{
+		dec = ParseTemplateExpansion(dec->mTemplate, nullptr);
+		while (ConsumeTokenIf(TK_COLCOLON))
+		{
+			if (mScanner->mToken == TK_IDENT)
+			{
+				if (dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_STRUCT || dec->mType == DT_TYPE_ENUM)
+				{
+					Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_USING);
+
+					if (ndec)
+						dec = ndec;
+					else
+						mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent);
+				}
+				else
+					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a class or namespace");
+
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
+
+			mScanner->NextToken();
+		}
+	}
+
+	if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
+	{
+		exp = new Expression(eloc, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+		exp->mConst = true;
+	}
+	else if (dec->mType == DT_VARIABLE || dec->mType == DT_ARGUMENT)
+	{
+		if (/*(dec->mFlags & DTF_STATIC) &&*/ (dec->mFlags & DTF_CONST) && dec->mValue)
+		{
+			if (dec->mBase->IsNumericType())
+			{
+				if (dec->mValue->mType == EX_CONSTANT)
+				{
+					exp = dec->mValue;
+				}
+			}
+			else if (dec->mBase->mType == DT_TYPE_POINTER)
+			{
+				if (dec->mValue->mType == EX_CONSTANT)
+				{
+					if (dec->mValue->mDecValue->mType == DT_CONST_ADDRESS || dec->mValue->mDecValue->mType == DT_CONST_POINTER)
+						exp = dec->mValue;
+				}
+			}
+		}
+
+		if (!exp)
+		{
+			exp = new Expression(eloc, EX_VARIABLE);
+			exp->mDecValue = dec;
+			exp->mDecType = dec->mBase;
+		}
+	}
+	else if (dec->mType == DT_PACK_ARGUMENT)
+	{
+		exp = new Expression(mScanner->mLocation, EX_PACK);
+		exp->mDecValue = dec;
+		exp->mDecType = dec->mBase;
+	}
+	else if (dec->mType == DT_PACK_TYPE)
+	{
+		exp = new Expression(mScanner->mLocation, EX_PACK_TYPE);
+		exp->mDecValue = nullptr;
+		exp->mDecType = dec;
+	}
+	else if (dec->mType <= DT_TYPE_FUNCTION)
+	{
+		if (lhs)
+			exp = ParseDeclarationExpression(dec);
+		else
+		{
+			exp = new Expression(mScanner->mLocation, EX_TYPE);
+			exp->mDecValue = nullptr;
+			exp->mDecType = ParseTypeID(tid, dec);
+		}
+	}
+	else if (dec->mType == DT_CONST_TEMPLATE)
+	{
+		exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+		exp->mDecValue = dec;
+		exp->mDecType = TheSignedIntTypeDeclaration;
+	}
+	else if (dec->mType == DT_PACK_TEMPLATE)
+	{
+		exp = new Expression(mScanner->mLocation, EX_PACK_TYPE);
+		exp->mDecType = dec;
+	}
+	else if (dec->mType == DT_ELEMENT)
+	{
+		mErrors->Error(mScanner->mLocation, EERR_NON_STATIC_MEMBER, "Non static member access", mScanner->mTokenIdent);
+	}
+	else if (dec->mType == DT_CLABEL)
+	{
+		exp = new Expression(dec->mLocation, EX_LABEL);
+		exp->mDecValue = dec;
+	}
+	else
+	{
+		mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid identifier", mScanner->mTokenIdent);
+	}
+
+	return exp;
+}
+
 Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 {
 	Declaration* dec = nullptr;
@@ -6596,6 +6733,12 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 
 		mScanner->NextToken();
 		break;
+	case TK_COLCOLON:
+		dec = ParseQualIdent(lhs);
+		if (dec)
+			exp = ParseIdentExpression(eloc, dec, lhs);
+		break;
+
 	case TK_IDENT:
 		if (mLambda && mCaptureToken != TK_NONE && !mScope->Lookup(mScanner->mTokenIdent, SLEVEL_CLASS) && !mLambda->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_CLASS))
 		{
@@ -6670,117 +6813,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 			if (!dec)
 				dec = ParseQualIdent(lhs);
 			if (dec)
-			{
-				if (dec->mTemplate && mScanner->mToken == TK_LESS_THAN)
-				{
-					dec = ParseTemplateExpansion(dec->mTemplate, nullptr);
-					while (ConsumeTokenIf(TK_COLCOLON))
-					{
-						if (mScanner->mToken == TK_IDENT)
-						{
-							if (dec->mType == DT_NAMESPACE || dec->mType == DT_TYPE_STRUCT || dec->mType == DT_TYPE_ENUM)
-							{
-								Declaration* ndec = dec->mScope->Lookup(mScanner->mTokenIdent, SLEVEL_USING);
-
-								if (ndec)
-									dec = ndec;
-								else
-									mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown identifier", mScanner->mTokenIdent);
-							}
-							else
-								mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a class or namespace");
-
-						}
-						else
-							mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
-
-						mScanner->NextToken();
-					}
-				}
-
-				if (dec->mType == DT_CONST_INTEGER || dec->mType == DT_CONST_FLOAT || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER || dec->mType == DT_LABEL || dec->mType == DT_LABEL_REF)
-				{
-					exp = new Expression(eloc, EX_CONSTANT);
-					exp->mDecValue = dec;
-					exp->mDecType = dec->mBase;
-					exp->mConst = true;
-				}
-				else if (dec->mType == DT_VARIABLE || dec->mType == DT_ARGUMENT)
-				{
-					if (/*(dec->mFlags & DTF_STATIC) &&*/ (dec->mFlags & DTF_CONST) && dec->mValue)
-					{
-						if (dec->mBase->IsNumericType())
-						{
-							if (dec->mValue->mType == EX_CONSTANT)
-							{
-								exp = dec->mValue;
-							}
-						}
-						else if (dec->mBase->mType == DT_TYPE_POINTER)
-						{
-							if (dec->mValue->mType == EX_CONSTANT)
-							{
-								if (dec->mValue->mDecValue->mType == DT_CONST_ADDRESS || dec->mValue->mDecValue->mType == DT_CONST_POINTER)
-									exp = dec->mValue;
-							}
-						}
-					}
-
-					if (!exp)
-					{
-						exp = new Expression(eloc, EX_VARIABLE);
-						exp->mDecValue = dec;
-						exp->mDecType = dec->mBase;
-					}
-				}
-				else if (dec->mType == DT_PACK_ARGUMENT)
-				{
-					exp = new Expression(mScanner->mLocation, EX_PACK);
-					exp->mDecValue = dec;
-					exp->mDecType = dec->mBase;
-				}
-				else if (dec->mType == DT_PACK_TYPE)
-				{
-					exp = new Expression(mScanner->mLocation, EX_PACK_TYPE);
-					exp->mDecValue = nullptr;
-					exp->mDecType = dec;
-				}
-				else if (dec->mType <= DT_TYPE_FUNCTION)
-				{
-					if (lhs)
-						exp = ParseDeclarationExpression(dec);
-					else
-					{
-						exp = new Expression(mScanner->mLocation, EX_TYPE);
-						exp->mDecValue = nullptr;
-						exp->mDecType = ParseTypeID(tid, dec);
-					}
-				}
-				else if (dec->mType == DT_CONST_TEMPLATE)
-				{
-					exp = new Expression(mScanner->mLocation, EX_CONSTANT);
-					exp->mDecValue = dec;
-					exp->mDecType = TheSignedIntTypeDeclaration;
-				}
-				else if (dec->mType == DT_PACK_TEMPLATE)
-				{
-					exp = new Expression(mScanner->mLocation, EX_PACK_TYPE);
-					exp->mDecType = dec;
-				}
-				else if (dec->mType == DT_ELEMENT)
-				{
-					mErrors->Error(mScanner->mLocation, EERR_NON_STATIC_MEMBER, "Non static member access", mScanner->mTokenIdent);
-				}
-				else if (dec->mType == DT_CLABEL)
-				{
-					exp = new Expression(dec->mLocation, EX_LABEL);
-					exp->mDecValue = dec;
-				}
-				else
-				{
-					mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid identifier", mScanner->mTokenIdent);
-				}
-			}
+				exp = ParseIdentExpression(eloc, dec, lhs, tid);
 		}
 
 		break;

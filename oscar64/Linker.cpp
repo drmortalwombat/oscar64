@@ -45,7 +45,7 @@ bool LinkerReference::operator!=(const LinkerReference& ref)
 }
 
 LinkerObject::LinkerObject(void)
-	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mAlignment(1), mStackSection(nullptr), mIdent(nullptr), mFullIdent(nullptr), mStartUsed(0x10000), mEndUsed(0x00000), mMemory(nullptr)
+	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mStripe(0), mAlignment(1), mStackSection(nullptr), mIdent(nullptr), mFullIdent(nullptr), mStartUsed(0x10000), mEndUsed(0x00000), mMemory(nullptr)
 	, mPrefix(nullptr), mSuffix(nullptr), mProc(nullptr), mNativeProc(nullptr)
 {}
 
