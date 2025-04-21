@@ -446,6 +446,12 @@ int main2(int argc, const char** argv)
 			compiler->mTargetMachine = TMACH_PLUS4;
 			compiler->AddDefine(Ident::Unique("__PLUS4__"), "1");
 		}
+		else if (!strcmp(targetMachine, "mega65"))
+		{
+			strcpy_s(basicStart, "0x2001");		
+			compiler->mTargetMachine = TMACH_MEGA65;
+			compiler->AddDefine(Ident::Unique("__MEGA65__"), "1");
+		}
 		else if (!strcmp(targetMachine, "x16"))
 		{
 			strcpy_s(basicStart, "0x0801");
