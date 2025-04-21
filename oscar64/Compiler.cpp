@@ -523,6 +523,12 @@ bool Compiler::GenerateCode(void)
 		{
 			switch (mTargetMachine)
 			{
+			case TMACH_MEGA65:
+				if (mCompilerOptions & COPT_NATIVE)
+					regionStartup = mLinker->AddRegion(identStartup, 0x2001, 0x2080);
+				else
+					regionStartup = mLinker->AddRegion(identStartup, 0x2001, 0x2100);
+				break;
 			case TMACH_C64:
 			case TMACH_X16:
 				if (mCompilerOptions & COPT_NATIVE)
@@ -625,6 +631,9 @@ bool Compiler::GenerateCode(void)
 		{
 			switch (mTargetMachine)
 			{
+			case TMACH_MEGA65:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x2100, 0x2200);
+				break;
 			case TMACH_C64:
 			case TMACH_X16:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
@@ -686,6 +695,9 @@ bool Compiler::GenerateCode(void)
 			{
 				switch (mTargetMachine)
 				{
+				case TMACH_MEGA65:
+					regionMain = mLinker->AddRegion(identMain, 0x2300, 0xe000);
+					break;
 				case TMACH_C64:
 					regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
 					break;
@@ -737,6 +749,14 @@ bool Compiler::GenerateCode(void)
 			{
 				switch (mTargetMachine)
 				{
+				case TMACH_MEGA65:
+					// TODO: Disable M65 cartridges for now.
+					//
+					// if (mCompilerOptions & (COPT_TARGET_CRT8 | COPT_TARGET_CRT16))
+					// 	regionMain = mLinker->AddRegion(identMain, 0x2666, 0xff00);
+					// else
+					regionMain = mLinker->AddRegion(identMain, 0x2080, 0xe000);
+					break;
 				case TMACH_C64:
 
 					if (mCompilerOptions & (COPT_TARGET_CRT8 | COPT_TARGET_CRT16))
