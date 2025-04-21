@@ -134,6 +134,7 @@ protected:
 	Declaration* ParseTypeID(bool tid, Declaration * bdec = nullptr);
 
 	Expression* ParseCastExpression(Expression* exp);
+	Expression* ParseIdentExpression(const Location & eloc, Declaration* dec, bool lhs, bool tid = false);
 	Expression* ParseSimpleExpression(bool lhs, bool tid = false);
 	Expression* ParsePrefixExpression(bool lhs);
 	Expression* ParsePostfixExpression(bool lhs);
