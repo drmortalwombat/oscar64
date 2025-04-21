@@ -696,7 +696,7 @@ bool Compiler::GenerateCode(void)
 				switch (mTargetMachine)
 				{
 				case TMACH_MEGA65:
-					regionMain = mLinker->AddRegion(identMain, 0x2300, 0xff00);
+					regionMain = mLinker->AddRegion(identMain, 0x2300, 0xe000);
 					break;
 				case TMACH_C64:
 					regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
@@ -755,7 +755,7 @@ bool Compiler::GenerateCode(void)
 					// if (mCompilerOptions & (COPT_TARGET_CRT8 | COPT_TARGET_CRT16))
 					// 	regionMain = mLinker->AddRegion(identMain, 0x2666, 0xff00);
 					// else
-					regionMain = mLinker->AddRegion(identMain, 0x2080, 0xff00);
+					regionMain = mLinker->AddRegion(identMain, 0x2080, 0xe000);
 					break;
 				case TMACH_C64:
 
