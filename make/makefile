@@ -38,7 +38,7 @@ else
 endif
 
 
-all: --prep-build-dir compiler samples tests
+all: --prep-build-dir compiler samples check
 
 
 $(srcdir)/%.o: $(project_dir)/oscar64/%.cpp
