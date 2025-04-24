@@ -60,7 +60,7 @@ void GlobalOptimizer::Reset(void)
 	mFunctions.SetSize(0);
 	mGlobalVariables.SetSize(0);
 	mCalledFunctions.SetSize(0);
-	mCalledFunctions.SetSize(0);
+	mCallingFunctions.SetSize(0);
 }
 
 void GlobalOptimizer::PropagateParamCommas(Expression*& fexp, Expression*& exp)

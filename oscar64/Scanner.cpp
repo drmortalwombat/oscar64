@@ -1116,46 +1116,70 @@ void Scanner::NextPreToken(void)
 				while (mTokenChar == ' ')
 					NextChar();
 
-				while (mTokenChar == '#' && mLine[mOffset] == '#')
+				if (mTokenChar == '#' && mLine[mOffset] == '#')
 				{
-					mOffset++;
-					NextChar();
-
 					char	tkbase[256];
 					strcpy_s(tkbase, mTokenIdent->mString);
 
-					ptrdiff_t	n = 0;
-					char		tkident[256];
-					while (IsIdentChar(mTokenChar))
-					{
-						if (n < 255)
-							tkident[n++] = mTokenChar;
+					do {
+						mOffset++;
 						NextChar();
-					}
-					tkident[n] = 0;
 
-					const Ident* ntkident = Ident::Unique(tkident);
+						ptrdiff_t	n = 0;
+						char		tkident[256];
+						while (IsIdentChar(mTokenChar))
+						{
+							if (n < 255)
+								tkident[n++] = mTokenChar;
+							NextChar();
+						}
+						tkident[n] = 0;
 
-					Macro* def = nullptr;
-					if (mDefineArguments)
-						def = mDefineArguments->Lookup(ntkident);
-					if (!def)
-						def = mDefines->Lookup(ntkident);
+						const Ident* ntkident = Ident::Unique(tkident);
 
-					if (def)
-						strcat_s(tkbase, def->mString);
-					else
-						strcat_s(tkbase, tkident);
+						Macro* def = nullptr;
+						if (mDefineArguments)
+							def = mDefineArguments->Lookup(ntkident);
+						if (!def)
+							def = mDefines->Lookup(ntkident);
 
-					n = strlen(tkbase);
-					while (n > 0 && tkbase[n - 1] == ' ')
-						n--;
-					tkbase[n] = 0;
+						if (def)
+							strcat_s(tkbase, def->mString);
+						else
+							strcat_s(tkbase, tkident);
 
-					mTokenIdent = Ident::Unique(tkbase);
+						n = strlen(tkbase);
+						while (n > 0 && tkbase[n - 1] == ' ')
+							n--;
+						tkbase[n] = 0;
+
+						while (mTokenChar == ' ')
+							NextChar();
+
+					} while (mTokenChar == '#' && mLine[mOffset] == '#');
+
+					ptrdiff_t n = strlen(tkbase);
+					char* str = new char[n + 1];
+					strcpy_s(str, n + 1, tkbase);
+
+					MacroExpansion* ex = new MacroExpansion();
+					ex->mDefinedArguments = mDefineArguments;
+
+					ex->mLine = mLine;
+					ex->mOffset = mOffset;
+					ex->mLink = mMacroExpansion;
+					ex->mChar = mTokenChar;
+
+					mMacroExpansion = ex;
+					mMacroExpansionDepth++;
+					if (mMacroExpansionDepth > 1024)
+						mErrors->Error(mLocation, EFATAL_MACRO_EXPANSION_DEPTH, "Maximum macro expansion depth exceeded", mTokenIdent);
+					mLine = str;
+					mOffset = 0;
+					NextChar();
 				}
-
-				return;
+				else
+					return;
 			}
 		}
 		else

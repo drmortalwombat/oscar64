@@ -12799,6 +12799,34 @@ void Parser::ParsePragma(void)
 			}
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "warning"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+			if (ConsumeIdentIf("disable"))
+			{
+				ConsumeToken(TK_COLON);
+				do {
+					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
+					{
+						mErrors->mDisabled += int(mScanner->mTokenInteger);
+						mScanner->NextToken();
+					}
+				} while (ConsumeTokenIf(TK_COMMA));
+			}
+			else if (ConsumeToken(TK_DEFAULT))
+			{
+				ConsumeToken(TK_COLON);
+				do {
+					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
+					{
+						mErrors->mDisabled -= int(mScanner->mTokenInteger);
+						mScanner->NextToken();
+					}
+				} while (ConsumeTokenIf(TK_COMMA));
+			}
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else if (!strcmp(mScanner->mTokenIdent->mString, "once"))
 		{
 			mScanner->MarkSourceOnce();

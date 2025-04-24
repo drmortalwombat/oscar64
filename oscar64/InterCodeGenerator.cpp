@@ -4357,6 +4357,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					vins->mDst.mType = IT_POINTER;
 					vins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 
+					bool	reference = false;
+
 					Declaration* vdec = refvars[i];
 					if (vdec->mType == DT_ARGUMENT)
 					{
@@ -4390,18 +4392,28 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						vins->mConst.mIntConst = vdec->mOffset;
 						if (inlineMapper)
 							vins->mConst.mVarIndex += inlineMapper->mVarIndex;
+
+						if (vdec->mBase->mType == DT_TYPE_ARRAY || vdec->mBase->mType == DT_TYPE_STRUCT)
+							reference = true;
 					}
 
 					block->Append(vins);
 
-					InterInstruction* lins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD);
-					lins->mSrc[0].mMemory = IM_INDIRECT;
-					lins->mSrc[0].mType = IT_POINTER;
-					lins->mSrc[0].mTemp = vins->mDst.mTemp;
-					lins->mDst.mType = InterTypeOf(vdec->mBase);
-					lins->mDst.mTemp = proc->AddTemporary(lins->mDst.mType);
-					lins->mSrc[0].mOperandSize = vdec->mSize;
-					block->Append(lins);
+					InterInstruction* lins;
+					if (reference)
+						lins = vins;
+					else
+					{
+						lins = new InterInstruction(MapLocation(exp, inlineMapper), IC_LOAD);
+						lins->mDst.mType = InterTypeOf(vdec->mBase);
+						lins->mNumOperands = 1;
+						lins->mSrc[0].mMemory = IM_INDIRECT;
+						lins->mSrc[0].mType = IT_POINTER;
+						lins->mSrc[0].mTemp = vins->mDst.mTemp;
+						lins->mDst.mTemp = proc->AddTemporary(lins->mDst.mType);
+						lins->mSrc[0].mOperandSize = vdec->mSize;
+						block->Append(lins);
+					}
 
 					if (jins->mNumOperands >= 32)
 						mErrors->Error(exp->mLocation, EERR_ASSEMBLER_LIMIT, "Maximum number of variables in assembler block exceeded", vdec->mIdent);

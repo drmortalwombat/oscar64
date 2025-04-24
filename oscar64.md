@@ -334,6 +334,17 @@ The .asm file is a great resource when debugging from within e.g. the VICE monit
 
 The compiler has various extensions to simplify developing for the C64.
 
+## Pragmas
+
+Warnings can be turned on or off using the warning pragma.  The scope of the pragma is currently global in most cases, so if it is turned off at some place, it is off everywhere.
+
+	#pragma warning(disable: 2000,2001)
+
+A message can be displayed during compilation with the message pragma
+
+	#pragma message("Hello User")
+	
+
 ## Embedding binary data
 
 The compiler supports the #embed preprocessor directive to import binary data.  It converts a section of an external binary file into a sequence of numbers that can be placed into an initializer of an array.
@@ -737,6 +748,11 @@ Regions can also be used to place assets such as character sets at fixed locatio
 
 The #pragma data(), #pragma code() and #pragma bss() control the placement of the generated objects into sections other than the default sections.
 
+A global variable or function can be aligned on a given power of two start with the align pragma.  This is most usefull if a page crossing is problematic.  The compiler may also be able to generate more efficient code, if a larger variable is page aligned.
+
+	#pragma align(myvar, 8)
+	#pragma align(myfunc, 256)
+		
 ### Additional BSS sections
 
 Additional bss sections can be defined on request.

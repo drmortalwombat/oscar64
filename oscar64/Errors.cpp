@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 Errors::Errors(void)
-	: mErrorCount(0), mMinLevel(EINFO_GENERIC)
+	: mErrorCount(0), mMinLevel(EINFO_GENERIC), mDisabled(2000)
 {
 
 }
@@ -29,7 +29,7 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const Iden
 
 void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char* info1, const char * info2) 
 {
-	if (eid >= mMinLevel)
+	if (eid >= mMinLevel && !(eid < EERR_GENERIC && mDisabled[eid]))
 	{
 		const char* level = "info";
 		if (eid >= EERR_GENERIC)
