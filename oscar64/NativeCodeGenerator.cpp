@@ -5234,7 +5234,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			}
 			else
 			{
-				if (mAddress == 0)
+				if (mAddress == 0 && !(mFlags & NCIF_VOLATILE))
 					block->mProc->mGenerator->mErrors->Error(mIns->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
 				block->PutByte(uint8(mAddress));
 			}
@@ -5302,7 +5302,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 			}
 			else
 			{
-				if (mAddress == 0)
+				if (mAddress == 0 && !(mFlags & NCIF_VOLATILE))
 					block->mProc->mGenerator->mErrors->Error(mIns->mLocation, EWARN_NULL_POINTER_DEREFERENCED, "nullptr dereferenced");
 				block->PutWord(uint16(mAddress));
 			}
