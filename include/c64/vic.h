@@ -118,6 +118,9 @@ void vic_waitLine(int line);
 // wait for beam to be below a line
 void vic_waitBelow(int line);
 
+// wait for beam to be in a given range on screen
+void vic_waitRange(char below, char above);
+
 // reference to the VIC chip
 #define vic	(*((struct VIC *)0xd000))
 

@@ -146,22 +146,24 @@ class NativeCodeInstruction
 {
 public:
 	NativeCodeInstruction(void);
-	NativeCodeInstruction(const InterInstruction * ins, AsmInsType type, AsmInsMode mode = ASMIM_IMPLIED, int64 address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER, int param = 0);
+	NativeCodeInstruction(const InterInstruction * ins, AsmInsType type, AsmInsMode mode = ASMIM_IMPLIED, int64 address = 0, LinkerObject * linkerObject = nullptr, uint32 flags = NCIF_LOWER | NCIF_UPPER, int param = 0, int minv = 0, int maxv = 255);
 	NativeCodeInstruction(const InterInstruction* ins, AsmInsType type, const NativeCodeInstruction & addr);
 
-	AsmInsType				mType;
-	AsmInsMode				mMode;
+	AsmInsType					mType;
+	AsmInsMode					mMode;
 
-	int						mAddress, mParam;
-	uint32					mFlags;
-	uint32					mLive;
-	LinkerObject		*	mLinkerObject;
+	int							mAddress, mParam;
+	uint32						mFlags;
+	uint32						mLive;
+	LinkerObject			*	mLinkerObject;
 	const InterInstruction	*	mIns;
+	uint8						mMinVal, mMaxVal;
 
 	void Disassemble(FILE* file) const;
 	void DisassembleAddress(FILE* file) const;
 
 	void CopyMode(const NativeCodeInstruction& ins);
+	void CopyModeAndRange(const NativeCodeInstruction& ins);
 
 	void Assemble(NativeCodeBasicBlock* block);
 	void FilterRegUsage(NumberSet& requiredTemps, NumberSet& providedTemps);

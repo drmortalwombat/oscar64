@@ -8232,6 +8232,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 					vr.LimitMin(-32768);
 					vr.LimitMax(65535);
 				}
+				else if (ins->mDst.mType == IT_BOOL)
+				{
+					vr.LimitMin(0);
+					vr.LimitMax(1);
+				}
 #endif
 				{
 					LinkerObject* lo = mInstructions[i]->mSrc[0].mLinkerObject;
@@ -9209,6 +9214,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 	struct TempChain
 	{
 		int		mBaseTemp;
+		bool	mConstant;
 		int64	mOffset;
 	};
 
@@ -9222,6 +9228,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 		{
 			tempChain[i].mBaseTemp = i;
 			tempChain[i].mOffset = 0;
+			tempChain[i].mConstant = true;
 		}
 		
 		for (int i = 0; i < sz; i++)
@@ -9233,6 +9240,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			{
 				tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[1].mTemp].mBaseTemp;
 				tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[1].mTemp].mOffset + ins->mSrc[0].mIntConst;
+				tempChain[ins->mDst.mTemp].mConstant = tempChain[ins->mSrc[1].mTemp].mConstant;
 			}
 			else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
 				ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst > 0 &&
@@ -9240,9 +9248,28 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			{
 				tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[0].mTemp].mBaseTemp;
 				tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[0].mTemp].mOffset + ins->mSrc[1].mIntConst;
+				tempChain[ins->mDst.mTemp].mConstant = tempChain[ins->mSrc[0].mTemp].mConstant;
+			}
+			else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+				ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mRange.IsBound() && ins->mSrc[0].IsUnsigned() &&
+				tempChain[ins->mSrc[1].mTemp].mBaseTemp >= 0)
+			{
+				tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[1].mTemp].mBaseTemp;
+				tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[1].mTemp].mOffset + ins->mSrc[0].mRange.mMaxValue;
+				tempChain[ins->mDst.mTemp].mConstant = false;
+			}
+			else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
+				ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp >= 0 && ins->mSrc[1].mRange.IsBound() && ins->mSrc[1].IsUnsigned() &&
+				tempChain[ins->mSrc[0].mTemp].mBaseTemp >= 0)
+			{
+				tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[0].mTemp].mBaseTemp;
+				tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[0].mTemp].mOffset + ins->mSrc[1].mRange.mMaxValue;
+				tempChain[ins->mDst.mTemp].mConstant = false;
 			}
 			else if (ins->mCode == IC_CONVERSION_OPERATOR && ins->mOperator == IA_EXT8TO16U && ins->mSrc[0].mTemp >= 0)
+			{
 				tempChain[ins->mDst.mTemp] = tempChain[ins->mSrc[0].mTemp];
+			}
 			else if (ins->mDst.mTemp >= 0)
 			{
 				tempChain[ins->mDst.mTemp].mBaseTemp = -1;
@@ -9302,7 +9329,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 	{
 		for (int i = 0; i < tempChain.Size(); i++)
 		{
-			if (tempChain[i].mBaseTemp == i)
+			if (tempChain[i].mBaseTemp == i && tempChain[i].mConstant)
 			{
 				IntegerValueRange& r(pblock->mTrueValueRange[i]);
 				if (r.IsConstant())
@@ -19733,6 +19760,16 @@ void InterCodeBasicBlock::CheckBlocks(void)
 #endif
 }
 
+static int64 BinMask(int64 n)
+{
+	n |= n >> 32;
+	n |= n >> 16;
+	n |= n >> 8;
+	n |= n >> 4;
+	n |= n >> 2;
+	n |= n >> 1;
+	return n;
+}
 
 bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
 {
@@ -19760,6 +19797,15 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 		{
 			LoadConstantFold(mInstructions[i], nullptr, staticVars, staticProcs);
 			changed = true;
+		}
+
+		if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_AND && mInstructions[i]->mSrc[1].mTemp < 0 && mInstructions[i]->mSrc[0].IsUnsigned())
+		{
+			mInstructions[i]->mSrc[1].mIntConst &= BinMask(mInstructions[i]->mSrc[0].mRange.mMaxValue);
+		}
+		if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_AND && mInstructions[i]->mSrc[0].mTemp < 0 && mInstructions[i]->mSrc[1].IsUnsigned())
+		{
+			mInstructions[i]->mSrc[0].mIntConst &= BinMask(mInstructions[i]->mSrc[1].mRange.mMaxValue);
 		}
 
 		if (i + 2 < mInstructions.Size())
@@ -23446,7 +23492,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "testint0");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

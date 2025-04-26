@@ -114,4 +114,21 @@ void vic_waitBelow(int line)
 	}
 }
 
+void vic_waitRange(char below, char above)
+{
+	while (vic.ctrl1 & VIC_CTRL1_RST8)
+		;
+
+	if (vic.raster >= above)
+	{
+		while (!(vic.ctrl1 & VIC_CTRL1_RST8))					
+			;
+		while (vic.ctrl1 & VIC_CTRL1_RST8)
+			;
+	}
+
+	while (vic.raster < below)
+		;
+}
+
 #pragma native(vic_waitLine)
