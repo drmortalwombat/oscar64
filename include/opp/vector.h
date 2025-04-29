@@ -21,7 +21,7 @@ public:
 	vector(size_t n) : _data((T*)malloc(n * sizeof(T))), _size(n), _capacity(n) 
 	{
 		for(size_t i=0; i<n; i++)
-			new (_data + i) T;
+			new (_data + i) T();
 	}
 
 	vector(const vector & v)
@@ -232,7 +232,7 @@ void vector<T>::resize(size_t n)
 	else if (n < _capacity)
 	{
 		for(size_t i=_size; i<n; i++)
-			new(_data + i)T;
+			new(_data + i)T();
 		_size = n;
 	}
 	else
@@ -291,7 +291,7 @@ void vector<T>::insert(size_t at, const T & t)
 {
 	if (_size == _capacity)
 		reserve(_size + 1 + (_size >> 1));
-	new (_data + _size)T;
+	new (_data + _size)T();
 	for(size_t i=_size; i>at; i--)
 		_data[i] = move(_data[i - 1]);
 	_data[at] = t;
@@ -318,7 +318,7 @@ T * vector<T>::insert(T * at, const T & t)
 		at = (T *)(f + unsigned(_data));
 	}
 	T * dp = _data + _size;
-	new (dp)T;
+	new (dp)T();
 	while (dp != at)
 	{
 		dp--;

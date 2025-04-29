@@ -7950,6 +7950,28 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 						nexp = CheckOperatorOverload(nexp);
 						exp = nexp->ConstantFold(mErrors, mDataSection);
 					}
+					else if (exp->mDecType->IsSimpleType())
+					{
+						Expression* nexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+
+						if (exp->mDecType->IsIntegerType())
+						{
+							nexp->mDecType = exp->mDecType;
+							nexp->mDecValue = TheZeroIntegerConstDeclaration;
+						}
+						else if (exp->mDecType->mType == DT_TYPE_FLOAT)
+						{
+							nexp->mDecType = TheFloatTypeDeclaration;
+							nexp->mDecValue = TheZeroFloatConstDeclaration;
+						}
+						else // Pointer
+						{
+							nexp->mDecType = TheNullPointerTypeDeclaration;
+							nexp->mDecValue = TheNullptrConstDeclaration;
+						}
+
+						exp = nexp;
+					}
 					else
 					{
 						Declaration* tdec = new Declaration(mScanner->mLocation, DT_VARIABLE);
@@ -8398,12 +8420,48 @@ Expression* Parser::ParseNewOperator(void)
 
 				nexp = new Expression(mScanner->mLocation, EX_PREFIX);
 				nexp->mToken = TK_BINARY_AND;
-				nexp->mDecType = nexp->mDecType;
+				nexp->mDecType = iexp->mDecType;
 				nexp->mLeft = iexp;
 			}
 			else if (pexp)
 			{
 				mErrors->Error(mScanner->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching constructor", dec->mIdent);
+			}
+			else if (nexp->mDecType->IsSimpleType())
+			{
+				Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+
+				if (nexp->mDecType->mBase->IsIntegerType())
+				{
+					cexp->mDecType = TheSignedIntTypeDeclaration;
+					cexp->mDecValue = TheZeroIntegerConstDeclaration;
+				}
+				else if (nexp->mDecType->mBase->mType == DT_TYPE_FLOAT)
+				{
+					cexp->mDecType = TheFloatTypeDeclaration;
+					cexp->mDecValue = TheZeroFloatConstDeclaration;
+				}
+				else // Pointer
+				{
+					cexp->mDecType = TheNullPointerTypeDeclaration;
+					cexp->mDecValue = TheNullptrConstDeclaration;
+				}
+
+				Expression* dexp = new Expression(mScanner->mLocation, EX_PREFIX);
+				dexp->mToken = TK_MUL;
+				dexp->mLeft = nexp;
+				dexp->mDecType = nexp->mDecType->mBase;
+
+				Expression* iexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+				iexp->mToken = TK_ASSIGN;
+				iexp->mLeft = dexp;
+				iexp->mRight = cexp;
+				iexp->mDecType = nexp->mDecType;
+
+				nexp = new Expression(mScanner->mLocation, EX_PREFIX);
+				nexp->mToken = TK_BINARY_AND;
+				nexp->mDecType = iexp->mDecType;
+				nexp->mLeft = iexp;
 			}
 		}
 	}
