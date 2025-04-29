@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 Errors::Errors(void)
-	: mErrorCount(0), mMinLevel(EINFO_GENERIC), mDisabled(2000)
+	: mErrorCount(0), mMinLevel(EINFO_GENERIC), mDisabled(EERR_GENERIC)
 {
 
 }
