@@ -175,6 +175,7 @@ A list of source files can be provided.
 * nes_mmc3 : Nintendo entertainment system, MMC3, 512K PROM, 256K CROM
 * atari : Atari 8bit systems, (0x2000..0xbc00)
 * x16 : Commander X16, (0x0800..0x9f00)
+* mega65 : Mega 65, (0x2000..0xc000)
 
 ### C64 Cartridge formats
 
