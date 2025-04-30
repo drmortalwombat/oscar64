@@ -6996,7 +6996,7 @@ Expression* Parser::ParseQualify(Expression* exp)
 
 	exp = exp->ConstantFold(mErrors, mDataSection);
 
-	if (dtype->mType == DT_TYPE_REFERENCE || dtype->mType == DT_TYPE_RVALUEREF)
+	if (dtype->IsReference())
 		dtype = dtype->mBase;
 
 	if (dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION)
@@ -7103,7 +7103,7 @@ Expression* Parser::ParseQualify(Expression* exp)
 						texp->mLeft = exp;
 						texp->mDecType = new Declaration(nexp->mLocation, DT_TYPE_POINTER);
 						texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
-						if (exp->mDecType->mType == DT_TYPE_REFERENCE)
+						if (exp->mDecType->IsReference())
 							texp->mDecType->mBase = exp->mDecType->mBase;
 						else
 							texp->mDecType->mBase = exp->mDecType;
