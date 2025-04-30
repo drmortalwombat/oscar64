@@ -8427,7 +8427,7 @@ Expression* Parser::ParseNewOperator(void)
 			{
 				mErrors->Error(mScanner->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching constructor", dec->mIdent);
 			}
-			else if (nexp->mDecType->IsSimpleType())
+			else if (nexp->mDecType->mBase->IsSimpleType())
 			{
 				Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
 
