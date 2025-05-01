@@ -9558,6 +9558,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 						{
 							mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
 
+							if (s1c >= 0 && s1o == IA_EXT8TO16U)
+							{
+								mTrueValueRange[s1c].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
+								mFalseValueRange[s1c].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
+							}
+
 							if (mInstructions[sz - 2]->mSrc[0].mIntConst > 0 && mInstructions[sz - 2]->mSrc[0].mIntConst < SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType))
 								mTrueValueRange[s1].LimitMin(0);
 							else
