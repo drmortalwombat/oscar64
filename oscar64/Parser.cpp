@@ -10845,10 +10845,10 @@ int Parser::ExpansionDistance(Declaration* tdec, Declaration* spec, Declaration*
 		{
 			if (ptdec->mBase)
 			{
-				if (!xtdec->ResolveTemplate(psdec->mBase, ptdec->mBase))
+				if (!xtdec->ResolveTemplate(psdec->mBase, ptdec->mBase, true, false))
 					return NOOVERLOAD;
 			}
-			else if (!xtdec->ResolveTemplate(psdec->mBase, ptdec))
+			else if (!xtdec->ResolveTemplate(psdec->mBase, ptdec, true, false))
 				return NOOVERLOAD;
 			else
 				cost += 100;
@@ -10872,7 +10872,7 @@ int Parser::ExpansionDistance(Declaration* tdec, Declaration* spec, Declaration*
 			}
 			else if (psdec->mBase)
 			{
-				if (!xtdec->ResolveTemplate(psdec->mBase, ptdec))
+				if (!xtdec->ResolveTemplate(psdec->mBase, ptdec, true, false))
 					return NOOVERLOAD;
 
 				Declaration* dec = psdec->mBase->mParams;
@@ -10892,7 +10892,7 @@ int Parser::ExpansionDistance(Declaration* tdec, Declaration* spec, Declaration*
 			}
 			else if (psdec->mBase)
 			{
-				if (!xtdec->ResolveTemplate(psdec->mBase, ptdec))
+				if (!xtdec->ResolveTemplate(psdec->mBase, ptdec, true, false))
 					return NOOVERLOAD;
 				psdec = psdec->mNext;
 				cost += 200;

@@ -361,8 +361,9 @@ public:
 	DecType ValueType(void) const;
 
 	bool CanResolveTemplate(Expression* pexp, Declaration* tdec);
-	bool ResolveTemplate(Declaration* fdec, Declaration * tdec);
+	bool ResolveTemplate(Declaration* fdec, Declaration * tdec, bool same, bool preliminary);
 	bool ResolveTemplate(Expression* pexp, Declaration* tdec);
+	bool ResolveTemplateParameterList(Expression* pexp, Declaration* pdec, bool preliminary);
 
 	Declaration* ExpandTemplate(DeclarationScope* scope);
 

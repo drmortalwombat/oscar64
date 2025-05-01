@@ -1554,7 +1554,8 @@ const Ident* Declaration::FullIdent(void)
 		Declaration* dec = mBase->mParams;
 		while (dec)
 		{
-			tident = tident->Mangle(dec->mBase->MangleIdent()->mString);
+			if (dec->mBase->mIdent)
+				tident = tident->Mangle(dec->mBase->MangleIdent()->mString);
 			dec = dec->mNext;
 			if (dec)
 				tident = tident->Mangle(",");
@@ -1697,8 +1698,10 @@ const Ident* Declaration::MangleIdent(void)
 			else
 				mMangleIdent = Ident::Unique("void");
 		}
-		else
+		else if (mQualIdent)
 			mMangleIdent = mQualIdent;
+		else
+			mMangleIdent = mIdent;
 
 		if (mTemplate)
 		{
@@ -1769,19 +1772,8 @@ Declaration* Declaration::ExpandTemplate(DeclarationScope* scope)
 	return this;
 }
 
-bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
+bool Declaration::ResolveTemplateParameterList(Expression* pexp, Declaration* pdec, bool preliminary)
 {
-	Declaration* pdec = tdec->mBase->mParams;
-
-	// Insert partially resolved templates
-	Declaration* ptdec = tdec->mTemplate->mParams;
-	while (ptdec)
-	{
-		if (ptdec->mBase)
-			mScope->Insert(ptdec->mIdent, ptdec->mBase);
-		ptdec = ptdec->mNext;
-	}
-
 	Declaration* phead = nullptr, * ptail = nullptr;
 	int	pcnt = 0;
 
@@ -1817,7 +1809,7 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 			}
 			else
 			{
-				if (!ResolveTemplate(ex->mDecType, pdec->mBase))
+				if (!ResolveTemplate(ex->mDecType, pdec->mBase, false, preliminary))
 					return false;
 
 				pdec = pdec->mNext;
@@ -1843,6 +1835,25 @@ bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
 		else
 			return false;
 	}
+
+	return true;
+}
+
+bool Declaration::ResolveTemplate(Expression* pexp, Declaration* tdec)
+{
+	Declaration* pdec = tdec->mBase->mParams;
+
+	// Insert partially resolved templates
+	Declaration* ptdec = tdec->mTemplate->mParams;
+	while (ptdec)
+	{
+		if (ptdec->mBase)
+			mScope->Insert(ptdec->mIdent, ptdec->mBase);
+		ptdec = ptdec->mNext;
+	}
+
+	if (!ResolveTemplateParameterList(pexp, pdec, true) || !ResolveTemplateParameterList(pexp, pdec, false))
+		return false;
 
 	Declaration* ppdec = nullptr;
 	ptdec = tdec->mTemplate->mParams;
@@ -1886,7 +1897,7 @@ bool Declaration::CanResolveTemplate(Expression* pexp, Declaration* tdec)
 
 		if (pdec)
 		{
-			if (!ResolveTemplate(ex->mDecType, pdec->mBase))
+			if (!ResolveTemplate(ex->mDecType, pdec->mBase, false, false))
 				return false;
 
 			if (pdec->mType != DT_PACK_ARGUMENT)
@@ -1902,19 +1913,19 @@ bool Declaration::CanResolveTemplate(Expression* pexp, Declaration* tdec)
 		return true;
 }
 
-bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
+bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec, bool same, bool preliminary)
 {
 	if (tdec->IsSame(fdec))
 		return true;
 	else if (fdec->IsReference())
-		return ResolveTemplate(fdec->mBase, tdec);
+		return ResolveTemplate(fdec->mBase, tdec, same, preliminary);
 	else if (tdec->mType == DT_TYPE_FUNCTION)
 	{
 		if (fdec->mType == DT_TYPE_FUNCTION)
 		{
 			if (fdec->mBase)
 			{
-				if (!tdec->mBase || !ResolveTemplate(fdec->mBase, tdec->mBase))
+				if (!tdec->mBase || !ResolveTemplate(fdec->mBase, tdec->mBase, true, preliminary))
 					return false;
 			}
 			else if (tdec->mBase)
@@ -1953,7 +1964,7 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 				if (!fpdec)
 					return false;
 
-				if (!ResolveTemplate(fpdec->mBase, tpdec->mBase))
+				if (!ResolveTemplate(fpdec->mBase, tpdec->mBase, true, preliminary))
 					return false;
 
 				fpdec = fpdec->mNext;
@@ -1969,16 +1980,16 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 	}
 	else if (tdec->mType == DT_TYPE_REFERENCE)
 	{
-		return ResolveTemplate(fdec, tdec->mBase);
+		return ResolveTemplate(fdec, tdec->mBase, true, preliminary);
 	}
 	else if (tdec->mType == DT_TYPE_RVALUEREF)
 	{
-		return ResolveTemplate(fdec, tdec->mBase);
+		return ResolveTemplate(fdec, tdec->mBase, true, preliminary);
 	}
 	else if (tdec->mType == DT_TYPE_POINTER)
 	{
 		if (fdec->mType == DT_TYPE_POINTER || fdec->mType == DT_TYPE_ARRAY)
-			return ResolveTemplate(fdec->mBase, tdec->mBase);
+			return ResolveTemplate(fdec->mBase, tdec->mBase, true, preliminary);
 		else
 			return false;
 	}
@@ -1998,10 +2009,12 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec)
 			if (pdec->mType == DT_TYPE_STRUCT)
 				pdec = pdec->mScope->Lookup(tdec->mIdent);
 		}
+		else if (preliminary && !same)
+			return true;
 		else
 			pdec = mScope->Insert(tdec->mIdent, fdec);
 
-		if (pdec && !pdec->IsSame(fdec))
+		if (pdec && !(same ? pdec->IsSame(fdec) : pdec->CanAssign(fdec)))
 			return false;
 
 		return true;
