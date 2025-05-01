@@ -23229,7 +23229,15 @@ bool NativeCodeBasicBlock::LoopRegisterXYMap(void)
 									{
 										pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mini));
 										if (pblock->mExitRequiredRegs[CPU_REG_Z])
+										{
+											int i = pblock->mIns.Size() - 1;
+											while (i >= 0 && !(pblock->mIns[i].ChangesAccu()))
+											{
+												pblock->mIns[i].mLive |= LIVE_CPU_REG_A;
+												i--;
+											}
 											pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+										}
 
 										pblock->mExitRequiredRegs += CPU_REG_X;
 										for (int i = 0; i < eblocks.Size(); i++)
@@ -55417,6 +55425,9 @@ void NativeCodeProcedure::Optimize(void)
 				if (!changed && mEntryBlock->LoopRegisterXYMap())
 					changed = true;
 #endif
+
+				CheckBlocks(true);
+
 				ResetVisited();
 				if (!changed && mEntryBlock->OptimizeGenericLoop(this))
 					changed = true;
