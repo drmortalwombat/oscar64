@@ -22457,7 +22457,7 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 	mEntryBlock->RestartLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars, mParamVars);
 
 	// No need to re-init the loop specific parts, we are restarting.
-	// Would lead to inifinte pumping weak - bound in some cases
+	// Would lead to infinite pumping weak - bound in some cases
 #if 1
 	int limit = 10;
 	do {
