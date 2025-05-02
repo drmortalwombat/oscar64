@@ -13864,7 +13864,7 @@ void Parser::ParseNamespace(void)
 	}
 	else
 	{
-		// Annonymous namespace
+		// Anonymous namespace
 	}
 }
 
