@@ -359,6 +359,29 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 									mdec->mVarIndex = -1;
 									mdec->mQualIdent = mScope->Mangle(mdec->mIdent);
 
+									if (mdec->mValue && (mdec->mBase->mFlags & DTF_CONST))
+									{
+										if (mdec->mBase->IsNumericType())
+										{
+											if (mdec->mValue->mType == EX_CONSTANT)
+											{
+												mdec->mType = mdec->mValue->mDecValue->mType;
+												mdec->mInteger = mdec->mValue->mDecValue->mInteger;
+											}
+										}
+										else if (dec->mBase->mType == DT_TYPE_POINTER)
+										{
+											if (dec->mValue->mType == EX_CONSTANT)
+											{
+												if (dec->mValue->mDecValue->mType == DT_CONST_ADDRESS || dec->mValue->mDecValue->mType == DT_CONST_POINTER)
+												{
+													mdec->mType = mdec->mValue->mDecValue->mType;
+													mdec->mInteger = mdec->mValue->mDecValue->mInteger;
+												}
+											}
+										}
+									}
+
 									Declaration * pdec = mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec);
 
 									if (pdec)
@@ -5479,6 +5502,11 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			else if (pthis)
 			{
 				ndec->mFlags |= storageFlags & (DTF_STATIC | DTF_PREVENT_INLINE | DTF_FORCE_INLINE);
+				if (storageFlags & DTF_CONSTEXPR)
+				{
+					ndec->mFlags |= DTF_CONSTEXPR;
+					ndec->mBase = ndec->mBase->ToConstType();
+				}
 			}
 
 			ndec->mOffset = 0;
