@@ -27,7 +27,7 @@ ScreenRow * const color = (ScreenRow *)0xd800;
 // Move the screen one character to the left
 void scrollLeft(void)
 {
-	// Loop horizontaly
+	// Loop horizontally
 	for(char x=0; x<39; x++)
 	{
 		// Unroll vertical loop 16 times
