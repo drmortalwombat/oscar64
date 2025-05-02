@@ -2003,7 +2003,7 @@ void Scanner::NextRawToken(void)
 
 					default:
 						// dirty little hack to implement token preview, got to fix
-						// this with an infinit preview sequence at one point
+						// this with an infinite preview sequence at one point
 						mUngetToken = mToken;
 						mToken = TK_OPERATOR;
 						return;
