@@ -45502,7 +45502,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 #if 1
 	if (pass > 1)
 	{
-		// move high byte load down, if low byte is immediatedly needed afterwards
+		// move high byte load down, if low byte is immediately needed afterwards
 
 		for (int i = 0; i + 4 < mIns.Size(); i++)
 		{
