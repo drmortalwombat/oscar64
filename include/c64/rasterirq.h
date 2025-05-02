@@ -179,7 +179,7 @@ void rirq_start(void);
 void rirq_stop(void);
 
 // Sort the raster IRQ, must be performed at the end of the frame after changing 
-// the vertical position of one of the interrupt operatins.
+// the vertical position of one of the interrupt operations.
 // Set the inirq flag to true when calling this from an interrupt
 void rirq_sort(bool inirq = false);
 
