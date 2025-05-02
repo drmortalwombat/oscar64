@@ -875,7 +875,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 		cexp = cexp->mRight;
 	}
 
-	// Check if remapping of lables due to operand address size change
+	// Check if remapping of labels due to operand address size change
 	if (osize != rsize)
 	{
 		adec->mBase->mScope->Iterate([=](const Ident* ident, Declaration* dec) {
