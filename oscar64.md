@@ -749,7 +749,7 @@ Regions can also be used to place assets such as character sets at fixed locatio
 
 The #pragma data(), #pragma code() and #pragma bss() control the placement of the generated objects into sections other than the default sections.
 
-A global variable or function can be aligned on a given power of two start with the align pragma.  This is most usefull if a page crossing is problematic.  The compiler may also be able to generate more efficient code, if a larger variable is page aligned.
+A global variable or function can be aligned on a given power of two start with the align pragma.  This is most useful if a page crossing is problematic.  The compiler may also be able to generate more efficient code, if a larger variable is page aligned.
 
 	#pragma align(myvar, 8)
 	#pragma align(myfunc, 256)
