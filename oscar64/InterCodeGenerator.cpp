@@ -5529,7 +5529,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		}
 
 		case EX_AGGREGATE:
-			mErrors->Error(exp->mLocation, EERR_INVALID_INITIALIZER, "Unexpected aggreate");
+			mErrors->Error(exp->mLocation, EERR_INVALID_INITIALIZER, "Unexpected aggregate");
 			return ExValue(TheVoidTypeDeclaration);
 
 		case EX_SWITCH:
