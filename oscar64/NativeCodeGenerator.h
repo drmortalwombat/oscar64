@@ -788,9 +788,13 @@ public:
 	bool CheckPatchFailUse(void);
 
 	bool CheckPatchFailLoop(const NativeCodeBasicBlock* block, const NativeCodeBasicBlock* head, int reg, bool changed);
+	bool CheckPatchFailLoopPair(const NativeCodeBasicBlock* block, const NativeCodeBasicBlock* head, int reg, bool changed);
 
 	bool JoinSameBranch(NativeCodeBasicBlock* block);
 	bool MergeSameBranch(void);
+
+	bool CheckBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);
+	bool PatchBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);
 
 	// reg : base register pair to replace
 	// index: index register

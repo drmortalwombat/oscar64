@@ -8326,8 +8326,10 @@ Expression* Parser::ParseNewOperator(void)
 			coexp->mLeft->mLeft = vexp;
 			coexp->mLeft->mRight = nuexp;
 			coexp->mRight = new Expression(mScanner->mLocation, EX_LIST);
+			coexp->mRight->mDecType = vexp->mDecType;
 			coexp->mRight->mLeft = vexp;
 			coexp->mRight->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+			coexp->mRight->mRight->mDecType = vexp->mDecType;
 			coexp->mRight->mRight->mLeft = dexp;
 			coexp->mRight->mRight->mRight = vexp;
 			coexp->mDecType = vexp->mDecType;
@@ -9137,6 +9139,7 @@ Expression* Parser::ParseConditionalExpression(bool lhs)
 		ConsumeToken(TK_COLON);
 		texp->mRight = ParseConditionalExpression(false);
 		
+		texp->mDecType = texp->mLeft->mDecType;
 		nexp->mDecType = texp->mLeft->mDecType;
 		exp = nexp->ConstantFold(mErrors, mDataSection);
 	}
