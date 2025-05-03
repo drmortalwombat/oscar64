@@ -333,7 +333,7 @@ bool GlobalOptimizer::Optimize(void)
 
 			if (!(func->mOptFlags & OPTF_FUNC_VARIABLE) && !(func->mBase->mFlags & DTF_VIRTUAL))
 			{
-				if (!(func->mOptFlags & OPTF_VAR_USED) && func->mBase->mBase && (func->mBase->mBase->IsSimpleType() || func->mBase->mBase->IsReference()))
+				if (!(func->mOptFlags & (OPTF_VAR_USED | OPTF_VAR_ADDRESS)) && func->mBase->mBase && (func->mBase->mBase->IsSimpleType() || func->mBase->mBase->IsReference()))
 				{
 #if DUMP_OPTS
 					printf("Remove return value\n");

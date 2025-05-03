@@ -10967,11 +10967,17 @@ void Parser::ParseTemplateArguments(Declaration* tmpld, Declaration* tdec)
 {
 	ConsumeToken(TK_LESS_THAN);
 
-	Declaration* tparm = tmpld->mParams;
 	Declaration* ppdec = nullptr;
 
 	if (!ConsumeTokenIf(TK_GREATER_THAN))
 	{
+		Declaration* tparm = tmpld->mParams;
+		while (tmpld->mNext && !tparm)
+		{
+			tmpld = tmpld->mNext;
+			tparm = tmpld->mParams;
+		}
+
 		do
 		{
 			Expression* exp;
@@ -11094,6 +11100,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 		ParseTemplateArguments(tmpld, tdec);
 	}
 
+	Declaration* tmplpd = tmpld;
 	while (!tmpld->mTokens)
 		tmpld = tmpld->mNext;
 
@@ -11112,7 +11119,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 		tdec->mQualIdent = tmpld->mQualIdent;
 		tdec->mScope->mName = tdec->mIdent;
 		tdec->mNext = tmpld;
-		bdec->mIdent = tdec->MangleIdent();
+		bdec->mIdent = tdec->mIdent->Mangle(tdec->MangleIdent()->mString);
 
 		return bdec;
 	}
@@ -11159,6 +11166,18 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 			{
 				rdec = new Declaration(tdec->mLocation, DT_PACK_TYPE);
 			}
+			else if (!dec)
+			{
+				Declaration* packd = new Declaration(tdec->mLocation, DT_PACK_TEMPLATE);
+				packd->mBase = new Declaration(tdec->mLocation, DT_PACK_TYPE);
+				if (ppdec)
+					ppdec->mNext = packd;
+				else
+					tdec->mParams = packd;
+
+				ppdec = nullptr;
+				dec = packd;
+			}
 			else if (dec->mType != DT_PACK_TEMPLATE)
 			{
 				Declaration* packd = new Declaration(dec->mLocation, DT_PACK_TEMPLATE);
@@ -11185,6 +11204,11 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 
 				dec = packd;
 			}
+		}
+		else
+		{
+			ppdec = dec;
+			dec = dec->mNext;
 		}
 
 		if (rdec)
@@ -11335,6 +11359,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 
 	p->mScanner->Replay(tmpld->mTokens);
 
+	tdec->mIdent = tmpld->mIdent;
 	tdec->mScope->mName = tdec->MangleIdent();
 	tdec->mNext = tmpld->mNext;
 	tmpld->mNext = tdec;

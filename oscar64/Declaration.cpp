@@ -1823,6 +1823,9 @@ bool Declaration::ResolveTemplateParameterList(Expression* pexp, Declaration* pd
 	{
 		if (pdec->mType == DT_PACK_ARGUMENT)
 		{
+			if (preliminary)
+				return true;
+
 			Declaration* tpdec = new Declaration(pdec->mLocation, DT_PACK_TYPE);
 			if (pdec->mBase->mType == DT_TYPE_REFERENCE)
 				tpdec->mIdent = pdec->mBase->mBase->mIdent;
@@ -2120,7 +2123,19 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec, bool sam
 					tpdec = tpdec->mNext;
 				}
 
-				return !fpdec && !tpdec;
+				if (fpdec)
+					return false;
+				else if (!tpdec)
+					return true;
+				else if (tpdec->mBase->mType == DT_PACK_TEMPLATE)
+				{
+					Declaration*tppack = new Declaration(tpdec->mLocation, DT_PACK_TYPE);
+					Declaration* pdec = mScope->Insert(tpdec->mBase->mIdent, tppack);
+
+					return true;
+				}
+				else
+					return false;
 			}
 			
 			ftdec = ftdec->mNext;
