@@ -53089,7 +53089,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 			mIns[sz - 3] = mIns[sz - 1];
 			mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
 
-			mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
+			mIns[sz - 2].mLive |= LIVE_CPU_REG_Z | LIVE_CPU_REG_X;
 			if (mIns[sz - 2].ReferencesYReg()) mIns[sz - 3].mLive |= LIVE_CPU_REG_Y;
 			if (mBranch == ASMIT_BCC)
 				mBranch = ASMIT_BPL;

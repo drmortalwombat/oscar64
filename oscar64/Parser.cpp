@@ -8973,7 +8973,7 @@ Expression* Parser::ParseAddExpression(bool lhs)
 				if (mCompilerOptions & COPT_CPLUSPLUS)
 					mErrors->Error(mScanner->mLocation, ERRR_INVALID_VOID_POINTER_ARITHMETIC, "Invalid arithmetic on void pointer");
 				else
-					mErrors->Error(mScanner->mLocation, EWARN_INVALID_VOID_POINTER_ARITHMETIC, "Invalid arithmetic on void pointer");				
+					mErrors->Error(mScanner->mLocation, EWARN_INVALID_VOID_POINTER_ARITHMETIC, "Invalid arithmetic on void pointer");
 			}
 			nexp->mDecType = nexp->mLeft->mDecType;
 		}
@@ -9010,6 +9010,10 @@ Expression* Parser::ParseAddExpression(bool lhs)
 		}
 		else if (nexp->mLeft->mDecType->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->mType == DT_TYPE_FLOAT)
 			nexp->mDecType = TheFloatTypeDeclaration;
+		else if (nexp->mToken == TK_SUB &&
+			(nexp->mLeft->mDecType->mType == DT_TYPE_POINTER || nexp->mLeft->mDecType->mType == DT_TYPE_ARRAY) &&
+			(nexp->mRight->mDecType->mType == DT_TYPE_POINTER || nexp->mRight->mDecType->mType == DT_TYPE_ARRAY))
+			nexp->mDecType = TheSignedIntTypeDeclaration;
 		else
 			nexp->mDecType = exp->mDecType;
 
@@ -10710,7 +10714,7 @@ Expression* Parser::ParseStatement(void)
 					if (mFunctionType->mBase->mType == DT_TYPE_AUTO || mFunctionType->mBase->IsReference() && mFunctionType->mBase->mBase->mType == DT_TYPE_AUTO)
 					{
 						mFunctionType->mBase = mFunctionType->mBase->DeduceAuto(exp->mLeft->mDecType);
-						;
+
 						if (mFunctionType->mBase->mType == DT_TYPE_STRUCT)
 						{
 							// Make room for value struct return

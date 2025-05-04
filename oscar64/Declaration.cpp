@@ -2428,7 +2428,7 @@ Declaration* Declaration::ToMutableType(void)
 		ndec->mBase = mBase;
 		ndec->mBits = mBits;
 		ndec->mShift = mShift;
-		ndec->mFlags = mFlags | DTF_CONST;
+		ndec->mFlags = mFlags & ~DTF_CONST;
 		ndec->mScope = mScope;
 		ndec->mParams = mParams;
 		ndec->mIdent = mIdent;
