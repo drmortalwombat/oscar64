@@ -7858,7 +7858,17 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 				mErrors->Error(exp->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching function call", exp->mLeft->mDecValue->mQualIdent);
 			}
 			else if (nbest > 1)
+			{
+#if _DEBUG
+				fdec = exp->mLeft->mDecValue;
+				while (fdec)
+				{
+					int d = OverloadDistance(fdec, exp->mRight);
+					fdec = fdec->mNext;
+				}
+#endif
 				mErrors->Error(exp->mLocation, ERRO_AMBIGUOUS_FUNCTION_CALL, "Ambiguous function call", exp->mLeft->mDecValue->mQualIdent);
+			}
 			else
 			{
 				assert(dbest);

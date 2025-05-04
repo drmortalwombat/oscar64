@@ -2771,15 +2771,15 @@ bool Declaration::IsSame(const Declaration* dec) const
 	if (mType != dec->mType)
 		return false;
 
+	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dec->mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
+		return false;
+
 	if (!(mFlags & dec->mFlags & DTF_DEFINED) && mType == DT_TYPE_STRUCT)
 		return mIdent == dec->mIdent;
 
 	if (mSize != dec->mSize)
 		return false;
 	if (mStripe != dec->mStripe)
-		return false;
-
-	if ((mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)) != (dec->mFlags & (DTF_SIGNED | DTF_CONST | DTF_VOLATILE)))
 		return false;
 
 	if (mType == DT_CONST_INTEGER)
