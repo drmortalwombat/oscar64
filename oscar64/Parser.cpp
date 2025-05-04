@@ -8104,7 +8104,7 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 							thisExp = new Expression(exp->mLocation, EX_PREFIX);
 							thisExp->mToken = TK_BINARY_AND;
 							thisExp->mLeft = exp;
-							thisExp->mDecType = exp->mDecType->BuildPointer(exp->mLocation);
+							thisExp->mDecType = tdec->BuildPointer(exp->mLocation);
 
 							exp = new Expression(exp->mLocation, EX_CONSTANT);
 							exp->mDecValue = mdec;
