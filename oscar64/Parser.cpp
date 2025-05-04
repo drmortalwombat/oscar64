@@ -1993,7 +1993,49 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			Expression* nexp = ParseVarInitExpression(qexp, true);
 			if (nexp->mType != EX_INITIALIZATION || nexp->mRight->mType != EX_CONSTANT)
 				isconst = false;
-			exp = nexp->ListAppend(exp);
+			if (nexp->mRight->mType == EX_PACK)
+			{
+				ConsumeToken(TK_ELLIPSIS);
+				Declaration* pdec = nexp->mRight->mDecValue->mParams;
+				nexp->mRight = new Expression(mScanner->mLocation, EX_VARIABLE);
+				nexp->mRight->mDecType = pdec->mBase;
+				nexp->mRight->mDecValue = pdec;
+				exp = nexp->ListAppend(exp);
+			
+				pdec = pdec->mNext;
+				while (pdec)
+				{
+					index++;
+
+					if (index > mindex)
+						mindex = index;
+					if (index < size)
+						fset += index;
+
+					Expression* qexp = new Expression(mScanner->mLocation, EX_INDEX);
+					qexp->mLeft = vexp;
+					qexp->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+					qexp->mRight->mDecType = TheUnsignedIntTypeDeclaration;
+					qexp->mRight->mDecValue = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+					qexp->mRight->mDecValue->mSize = 2;
+					qexp->mRight->mDecValue->mInteger = index;
+					qexp->mRight->mDecValue->mBase = TheUnsignedIntTypeDeclaration;
+					qexp->mDecType = dtype->mBase;
+
+					nexp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+					nexp->mToken = TK_ASSIGN;
+					nexp->mLeft = qexp;
+					nexp->mRight = new Expression(mScanner->mLocation, EX_VARIABLE);
+					nexp->mRight->mDecType = pdec->mBase;
+					nexp->mRight->mDecValue = pdec;
+					nexp->mDecType = dtype->mBase;
+
+					exp = nexp->ListAppend(exp);
+					pdec = pdec->mNext;
+				}
+			}
+			else
+				exp = nexp->ListAppend(exp);
 
 			index++;
 
@@ -2574,6 +2616,10 @@ Expression* Parser::BuildMemberInitializer(Expression* vexp)
 		fexp = ResolveOverloadCall(fexp);
 
 		return fexp;
+	}
+	else if (mScanner->mToken == TK_OPEN_BRACE)
+	{
+		return ParseVarInitExpression(vexp);
 	}
 	else
 	{
@@ -7407,6 +7453,8 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 						return NOOVERLOAD;
 				}
 			}
+			else if (ptype->mType == DT_TYPE_POINTER && etype->mType == DT_TYPE_POINTER && ptype->mBase->IsSame(etype->mBase))
+				;
 			else if (ptype->mType == DT_TYPE_POINTER && (etype->mType == DT_TYPE_ARRAY || etype->mType == DT_TYPE_POINTER) && ptype->mBase->IsSameMutable(etype->mBase))
 				dist += 2;
 			else if (ptype->mType == DT_TYPE_POINTER && etype->mType == DT_TYPE_FUNCTION && ptype->mBase->IsSame(etype))
@@ -10272,6 +10320,29 @@ Expression* Parser::ParseStatement(void)
 								cexp->mDecType = containerExp->mDecType->BuildPointer(mScanner->mLocation);
 								cexp->mLeft = containerExp;
 
+								Expression* cbegin = new Expression(mScanner->mLocation, EX_CALL);
+								cbegin->mDecType = fbegin->mBase->mBase;
+								cbegin->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+								cbegin->mLeft->mDecType = fbegin->mBase;
+								cbegin->mLeft->mDecValue = fbegin;
+								cbegin->mRight = cexp;
+
+								Expression* cend = new Expression(mScanner->mLocation, EX_CALL);
+								cend->mDecType = fend->mBase->mBase;
+								cend->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+								cend->mLeft->mDecType = fend->mBase;
+								cend->mLeft->mDecValue = fend;
+								cend->mRight = cexp;
+
+								ResolveOverloadCall(cbegin);
+								ResolveOverloadCall(cend);
+
+								fbegin = cbegin->mLeft->mDecValue;
+								fend = cend->mLeft->mDecValue;
+
+								cbegin->mDecType = fbegin->mBase->mBase;
+								cend->mDecType = fend->mBase->mBase;
+
 								Declaration* iterVarDec = new Declaration(mScanner->mLocation, DT_VARIABLE);
 								iterVarDec->mBase = fbegin->mBase->mBase->NonRefBase();
 								iterVarDec->mVarIndex = mLocalIndex++;
@@ -10292,24 +10363,14 @@ Expression* Parser::ParseStatement(void)
 								initExp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
 								initExp->mLeft->mLeft->mDecType = iterVarDec->mBase;
 								initExp->mLeft->mLeft->mDecValue = iterVarDec;
-								initExp->mLeft->mRight = new Expression(mScanner->mLocation, EX_CALL);
-								initExp->mLeft->mRight->mDecType = fbegin->mBase->mBase;
-								initExp->mLeft->mRight->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
-								initExp->mLeft->mRight->mLeft->mDecType = fbegin->mBase;
-								initExp->mLeft->mRight->mLeft->mDecValue = fbegin;
-								initExp->mLeft->mRight->mRight = cexp;
+								initExp->mLeft->mRight = cbegin;
 
 								initExp->mRight = new Expression(mScanner->mLocation, EX_INITIALIZATION);
 								initExp->mRight->mToken = TK_ASSIGN;
 								initExp->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
 								initExp->mRight->mLeft->mDecType = endVarDec->mBase;
 								initExp->mRight->mLeft->mDecValue = endVarDec;
-								initExp->mRight->mRight = new Expression(mScanner->mLocation, EX_CALL);
-								initExp->mRight->mRight->mDecType = fend->mBase->mBase;
-								initExp->mRight->mRight->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
-								initExp->mRight->mRight->mLeft->mDecType = fend->mBase;
-								initExp->mRight->mRight->mLeft->mDecValue = fend;
-								initExp->mRight->mRight->mRight = cexp;
+								initExp->mRight->mRight = cend;
 
 								iterateExp = new Expression(mScanner->mLocation, EX_PREINCDEC);
 								iterateExp->mToken = TK_INC;
@@ -11796,8 +11857,29 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 
 				if (ConsumeTokenIf(TK_COLON))
 				{
-					while (mScanner->mToken != TK_OPEN_BRACE)
-						mScanner->NextToken();
+					do {
+						ConsumeToken(TK_IDENT);
+						if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
+						{
+							while (mScanner->mToken != TK_OPEN_PARENTHESIS)
+								mScanner->NextToken();
+							mScanner->NextToken();
+						}
+						else if (ConsumeTokenIf(TK_OPEN_BRACE))
+						{
+							int	qdepth = 1;
+							while (qdepth)
+							{
+								if (ConsumeTokenIf(TK_OPEN_BRACE))
+									qdepth++;
+								else if (ConsumeTokenIf(TK_CLOSE_BRACE))
+									qdepth--;
+								else
+									mScanner->NextToken();
+							}
+						}
+
+					} while (ConsumeTokenIf(TK_COMMA));
 				}
 
 			}

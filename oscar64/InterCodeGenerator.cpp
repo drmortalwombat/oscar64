@@ -1652,6 +1652,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 			else if (vr.mType->IsReference() && !(pdec && pdec->mBase->IsReference()))
 			{
 				vr.mReference++;
+				vr.mType = vr.mType->mBase;
 				vr = Dereference(proc, texp, block, inlineMapper, vr);
 			}
 			else
