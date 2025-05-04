@@ -4644,6 +4644,9 @@ void Parser::ParseVariableInit(Declaration* ndec, Expression* pexp)
 
 		fexp = ResolveOverloadCall(fexp);
 
+		if ((fexp->mLeft->mDecValue->mFlags & DTF_CONSTEXPR) && ndec->mSection == mBSSection)
+			ndec->mSection = mDataSection;
+
 		Expression* dexp = nullptr;
 		if (ndec->mBase->mDestructor)
 		{

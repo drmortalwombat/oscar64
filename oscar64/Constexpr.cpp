@@ -651,6 +651,7 @@ Expression* ConstexprInterpreter::EvalConstructor(Expression* exp)
 {
 	mProcType = exp->mLeft->mDecType;
 
+	Expression* pex = exp->mRight;
 	Declaration* cdec = exp->mLeft->mDecType->mParams;
 
 	int	pos = 0;
@@ -658,6 +659,28 @@ Expression* ConstexprInterpreter::EvalConstructor(Expression* exp)
 	mParams[pos] = Value(exp->mLocation, cdec->mBase);
 	mParams[pos].PutPtr(Value(&mResult));
 	pos = 2;
+
+	if (pex->mType == EX_LIST)
+		pex = pex->mRight;
+	else
+		pex = nullptr;
+	cdec = cdec->mNext;
+
+	while (pex && pex->mType == EX_LIST)
+	{
+		if (!AddParam(pos, pex->mLeft, cdec))
+			return exp;
+
+		pex = pex->mRight;
+		if (cdec)
+			cdec = cdec->mNext;
+	}
+
+	if (pex)
+	{
+		if (!AddParam(pos, pex, cdec))
+			return exp;
+	}
 
 	mHeap = new ExpandingArray<Value*>();
 

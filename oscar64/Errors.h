@@ -2,6 +2,7 @@
 
 #include "NumberSet.h"
 
+
 class Location
 {
 public:
@@ -12,7 +13,11 @@ public:
 	Location() : mFileName(nullptr), mLine(0), mColumn(0), mFrom(nullptr) {}
 	Location(const Location& loc, const Location* from)
 		: mFileName(loc.mFileName), mLine(loc.mLine), mColumn(loc.mColumn), mFrom(from)
-	{}
+	{
+		static volatile int k;
+		if (from)
+			k = from->mLine;
+	}
 };
 
 class Ident;

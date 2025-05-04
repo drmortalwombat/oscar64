@@ -1912,6 +1912,7 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 			nmapper.mReturn = new InterCodeBasicBlock(proc);
 			nmapper.mVarIndex = proc->mNumLocals;
 			nmapper.mConstExpr = false;
+			nmapper.mLocation = new Location(MapLocation(exp, inlineMapper));
 			proc->mNumLocals += ccdec->mNumVars;
 			if (inlineMapper)
 				nmapper.mDepth = inlineMapper->mDepth + 1;
