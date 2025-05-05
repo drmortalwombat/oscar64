@@ -7654,6 +7654,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 	if (!mVisited)
 	{
 		mVisited = true;
+
 #if 1
 		int sz = mInstructions.Size();
 		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp)
@@ -9638,6 +9639,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPGEU:
 				if (s0 < 0)
 				{
+					if (mInstructions[sz - 2]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[sz - 2]->mSrc[1].mRange.mMinValue < 0)
+						mTrueValueRange[s1].mMaxState = IntegerValueRange::S_UNBOUND;
+
 					mTrueValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
 					mFalseValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
 					mFalseValueRange[s1].LimitMin(0);
@@ -13433,6 +13437,10 @@ bool InterCodeBasicBlock::MergeCommonPathInstructions(void)
 									tindex++;
 									if (tins->mDst.mTemp != -1)
 									{
+										for (int i = 0; i < tins->mNumOperands; i++)
+											tins->mSrc[i].mRange.Union(fins->mSrc[i].mRange);
+										tins->mDst.mRange.Union(fins->mDst.mRange);
+
 										if (fins->mDst.mTemp != tins->mDst.mTemp)
 										{
 											InterInstruction* nins = new InterInstruction(tins->mLocation, IC_LOAD_TEMPORARY);
@@ -23498,7 +23506,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "dijkstra");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -24328,6 +24336,9 @@ void InterCodeProcedure::Close(void)
 		LoadStoreForwarding(paramMemory);
 
 		RebuildIntegerRangeSet();
+
+		ResetVisited();
+		mEntryBlock->SimplifyIntegerRangeRelops();
 
 		PeepholeOptimization();
 
