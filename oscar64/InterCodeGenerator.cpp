@@ -2910,7 +2910,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ptype->mSize = 2;
 					ptype->mStride = vl.mType->mStride;
 					vl.mReference = 0;
-					vl.mType = exp->mDecType; // ptype;
+					vl.mType = ptype;
 				}
 
 				if (vr.mType->mType == DT_TYPE_POINTER)
@@ -2972,7 +2972,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 					block->Append(ins);
 				}
-				else if (vr.mType->mType == DT_TYPE_POINTER && vr.mType->mBase->IsConstSame(vl.mType->mBase))
+				else if ((vr.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_ARRAY) && (vl.mType->mType == DT_TYPE_POINTER || vl.mType->mType == DT_TYPE_ARRAY) && vr.mType->mBase->IsConstSame(vl.mType->mBase))
 				{
 					if (exp->mToken == TK_SUB)
 					{
@@ -3035,6 +3035,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else
 					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Invalid pointer operation");
+
+				vl.mType = exp->mDecType;
 			}
 			else if (vr.mType->mType == DT_TYPE_POINTER || vr.mType->mType == DT_TYPE_ARRAY)
 			{

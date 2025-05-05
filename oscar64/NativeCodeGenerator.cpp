@@ -34496,7 +34496,10 @@ bool NativeCodeBasicBlock::Propagate16BitSum(const ExpandingArray<NativeRegister
 							if (!info.mLinkerObject && !mRSumInfos[j].mLinkerObject)
 							{
 								info.mAddress += mRSumInfos[j].mAddress;
-								info.mAddL->mType = ASMIT_ADC;
+								if (info.mSrcL->mType == ASMIT_LDA)
+									info.mAddL->mType = ASMIT_ADC;
+								else
+									info.mSrcL->mType = ASMIT_ADC;
 								info.mAddL->mAddress = info.mAddress & 0xff;
 								info.mAddH->mAddress = info.mAddress >> 8;
 								info.mSrcL->mAddress = mRSumInfos[j].mSrcL->mAddress;
@@ -34507,7 +34510,10 @@ bool NativeCodeBasicBlock::Propagate16BitSum(const ExpandingArray<NativeRegister
 							else if (!mRSumInfos[j].mLinkerObject)
 							{
 								info.mAddress += mRSumInfos[j].mAddress;
-								info.mAddL->mType = ASMIT_ADC;
+								if (info.mSrcL->mType == ASMIT_LDA)
+									info.mAddL->mType = ASMIT_ADC;
+								else
+									info.mSrcL->mType = ASMIT_ADC;
 								info.mAddL->mAddress = info.mAddress;
 								info.mAddH->mAddress = info.mAddress;
 								info.mSrcL->mAddress = mRSumInfos[j].mSrcL->mAddress;
@@ -34519,7 +34525,10 @@ bool NativeCodeBasicBlock::Propagate16BitSum(const ExpandingArray<NativeRegister
 							{
 								info.mAddress += mRSumInfos[j].mAddress;
 								info.mLinkerObject = mRSumInfos[j].mLinkerObject;
-								info.mAddL->mType = ASMIT_ADC;
+								if (info.mSrcL->mType == ASMIT_LDA)
+									info.mAddL->mType = ASMIT_ADC;
+								else
+									info.mSrcL->mType = ASMIT_ADC;
 								info.mAddL->mAddress = info.mAddress;
 								info.mAddL->mLinkerObject = info.mLinkerObject;
 								info.mAddL->mMode = ASMIM_IMMEDIATE_ADDRESS;
@@ -54464,7 +54473,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "midc<u8>");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
