@@ -5111,12 +5111,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			break;
 		}
-
+		
 		case EX_TYPECAST:
 		{
 			vr = TranslateExpression(procType, proc, block, exp->mLeft, destack, gotos, breakBlock, continueBlock, inlineMapper);
 
 			InterInstruction	*	ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONVERSION_OPERATOR);
+
+			if (vr.mType->IsReference() && !exp->mDecType->IsReference())
+				vr = ToValue(proc, exp, block, inlineMapper, vr);
 
 			if (exp->mDecType->mType == DT_TYPE_FLOAT && vr.mType->IsIntegerType())
 			{
