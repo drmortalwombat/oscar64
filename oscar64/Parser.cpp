@@ -8431,7 +8431,7 @@ Expression* Parser::ParseNewOperator(void)
 				{
 					if (pexp->mDecType->IsSame(dec))
 						mdec = dec->mCopyConstructor;
-					else if (pexp->mDecType->mType == DT_TYPE_REFERENCE && pexp->mDecType->mBase->IsSame(dec))
+					else if (pexp->mDecType->mType == DT_TYPE_REFERENCE && pexp->mDecType->mBase->IsConstSame(dec))
 						mdec = dec->mCopyConstructor;
 					else if (pexp->mDecType->mType == DT_TYPE_RVALUEREF && pexp->mDecType->mBase->IsSame(dec))
 						mdec = dec->mMoveConstructor;
