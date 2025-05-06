@@ -3019,8 +3019,17 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 	case ASMIT_LDA:
 		if (mMode == ASMIM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_A].mMask = 0xff;
-			data.mRegs[CPU_REG_A].mValue = mAddress & 0xff;
+			if (data.mRegs[CPU_REG_A].mMask == 0xff && data.mRegs[CPU_REG_A].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			{
+				mType = ASMIT_NOP;
+				mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+			else
+			{
+				data.mRegs[CPU_REG_A].mMask = 0xff;
+				data.mRegs[CPU_REG_A].mValue = mAddress & 0xff;
+			}
 		}
 		else
 		{
@@ -36940,6 +36949,12 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 								mNDataSet.mRegs[lins.mAddress].mMask = 0xff;
 								mNDataSet.mRegs[lins.mAddress].mValue = 0x00;
 							}
+
+							if (mFDataSet.mRegs[CPU_REG_A].mMask == 0xfe)
+							{
+								mFDataSet.mRegs[CPU_REG_A].mMask = 0xff;
+								mFDataSet.mRegs[CPU_REG_A].mValue = 0x01;
+							}
 						}
 						break;
 					case ASMIT_BNE:
@@ -36968,6 +36983,12 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 							{
 								mFDataSet.mRegs[lins.mAddress].mMask = 0xff;
 								mFDataSet.mRegs[lins.mAddress].mValue = 0x00;
+							}
+
+							if (mNDataSet.mRegs[CPU_REG_A].mMask == 0xfe)
+							{
+								mNDataSet.mRegs[CPU_REG_A].mMask = 0xff;
+								mNDataSet.mRegs[CPU_REG_A].mValue = 0x01;
 							}
 						}
 						break;
@@ -45190,6 +45211,39 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 
 	CheckLive();
 #endif
+
+	// Combine and shift
+	for (int i = 1; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x01 &&
+			mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == mIns[i + 2].mAddress &&
+			!(mIns[i + 2].mLive & LIVE_CPU_REG_C))
+		{
+			int j = i - 1;
+			while (j >= 0 && !mIns[j].ReferencesZeroPage(mIns[i + 1].mAddress))
+				j--;
+			if (j >= 0 && mIns[j].IsShift() && !(mIns[j].mLive & LIVE_CPU_REG_C))
+			{
+				if (mIns[j].mType == ASMIT_ASL)
+				{
+					mIns[i + 0].mType = ASMIT_LSR; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_ROL;
+					mIns[i + 2].mType = ASMIT_LDA;
+					mIns[j + 0].mType = ASMIT_NOP; mIns[j + 0].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else if (mIns[j].mType == ASMIT_LSR)
+				{
+					mIns[i + 0].mType = ASMIT_LSR; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 1].mType = ASMIT_ROR;
+					mIns[i + 2].mType = ASMIT_LDA;
+					mIns[j + 0].mType = ASMIT_NOP; mIns[j + 0].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+			}
+		}
+	}
 
 #if 1
 	for (int i = 0; i < mIns.Size(); i++)
