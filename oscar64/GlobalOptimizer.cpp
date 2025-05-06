@@ -606,8 +606,9 @@ void GlobalOptimizer::RegisterProc(Declaration* to)
 	}
 }
 
-static const uint32 ANAFL_LHS	=	(1U << 0);
-static const uint32 ANAFL_RHS	= (1U << 1);
+static const uint32 ANAFL_LHS		=	(1U << 0);
+static const uint32 ANAFL_RHS		=	(1U << 1);
+static const uint32 ANAFL_ASSIGN	=	(1U << 2);
 
 Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uint32 flags)
 {
@@ -654,6 +655,8 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			exp->mDecValue->mOptFlags |= OPTF_VAR_USED;
 		if (flags & ANAFL_LHS)
 			exp->mDecValue->mOptFlags |= OPTF_VAR_ADDRESS;
+		if (exp->mDecValue->mBase->IsReference() && (flags & ANAFL_ASSIGN))
+			exp->mDecValue->mOptFlags |= OPTF_VAR_USED;
 
 		if (exp->mDecValue->mType == DT_ARGUMENT && (flags & ANAFL_LHS))
 		{
@@ -665,7 +668,12 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
 		if (exp->mToken == TK_ASSIGN)
-			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | flags);
+		{
+			if (exp->mType == EX_ASSIGNMENT)
+				ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_ASSIGN | flags);
+			else
+				ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | flags);
+		}
 		else
 			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS | flags);
 
