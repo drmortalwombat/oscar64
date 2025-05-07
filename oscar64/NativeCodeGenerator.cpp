@@ -54527,7 +54527,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "growvoid");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -56171,7 +56171,10 @@ void NativeCodeProcedure::Optimize(void)
 
 			ResetVisited();
 			if (mEntryBlock->ExpandADCToBranch(this))
+			{
 				changed = true;
+				BuildDataFlowSets();
+			}
 		}
 #endif
 
