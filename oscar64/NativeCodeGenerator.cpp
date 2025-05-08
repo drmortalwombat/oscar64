@@ -161,6 +161,8 @@ void NativeRegisterDataSet::ResetCall(const NativeCodeInstruction& ins, int fast
 						else
 							mRegs[i].Reset();
 					}
+					else if (var->mAliased && ins.mLinkerObject->mProc->mStoresIndirect)
+						mRegs[i].Reset();
 				}
 				else if (var->mAliased)
 					mRegs[i].Reset();
@@ -54527,7 +54529,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "growvoid");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
