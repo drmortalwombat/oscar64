@@ -94,6 +94,8 @@ public:
 		return _capacity;
 	}
 
+	void clear(void);
+
 	void resize(size_t n);
 
 	void reserve(size_t n);
@@ -218,6 +220,14 @@ void vector<T>::reserve(size_t n)
 		free(_data);
 		_data = d;
 	}
+}
+
+template <class T>
+void vector<T>::clear(void)
+{
+	for(size_t i=0; i<_size; i++)
+		_data[i].~T();			
+	_size = 0;
 }
 
 template <class T>

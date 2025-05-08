@@ -22,7 +22,7 @@ public:
 	{
 		T *	data = (T*)_space;
 		for(size_t i=0; i<n; i++)
-			new (data + i) T;
+			new (data + i) T();
 	}
 
 	static_vector(const static_vector & v)
@@ -75,6 +75,8 @@ public:
 	}
 
 	void resize(size_t n);
+
+	void clear(void);
 
 	T & at(size_t at)
 	{
@@ -177,6 +179,14 @@ public:
 };
 
 
+template <class T, int N>
+void static_vector<T, N>::clear(void)
+{
+	T *	data = (T*)_space;
+	for(size_t i=0; i<_size; i++)
+		data[i].~T();			
+	_size = 0;
+}
 
 template <class T, int N>
 void static_vector<T, N>::resize(size_t n)
@@ -186,14 +196,13 @@ void static_vector<T, N>::resize(size_t n)
 	{
 		for(size_t i=n; i<_size; i++)
 			data[i].~T();			
-		_size = n;
 	}
-	else
+	else if (n > 0)
 	{
 		for(size_t i=_size; i<n; i++)
-			new(data + i)T;
-		_size = n;
+			new(data + i)T();
 	}
+	_size = n;
 }
 
 template <class T, int N>
@@ -219,7 +228,7 @@ template <class T, int N>
 void static_vector<T, N>::insert(size_t at, const T & t)
 {
 	T *	data = (T*)_space;
-	new (data + _size)T;
+	new (data + _size)T();
 	for(size_t i=_size; i>at; i--)
 		data[i] = move(data[i - 1]);
 	data[at] = t;
@@ -242,7 +251,7 @@ T * static_vector<T, N>::insert(T * at, const T & t)
 {
 	T *	data = (T*)_space;
 	T * dp = data + _size;
-	new (dp)T;
+	new (dp)T();
 	while (dp != at)
 	{
 		dp--;
