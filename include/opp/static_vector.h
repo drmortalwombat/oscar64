@@ -69,6 +69,11 @@ public:
 		return _size == 0;
 	}
 
+	bool full(void) const
+	{
+		return _size == N;
+	}
+
 	size_t capacity(void) const
 	{
 		return N;
