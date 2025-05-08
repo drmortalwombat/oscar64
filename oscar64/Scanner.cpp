@@ -822,28 +822,36 @@ void Scanner::NextPreToken(void)
 		}
 		else if (mToken == TK_PREP_IDENT)
 		{
-			Macro* def = nullptr;
-			if (mDefineArguments)
-				def = mDefineArguments->Lookup(mTokenIdent);
-			if (!def)
-				def = mDefines->Lookup(mTokenIdent);
-
-			if (def)
+			if (mTokenIdent->mString[0])
 			{
-				if (def->mNumArguments == -1)
+				Macro* def = nullptr;
+				if (mDefineArguments)
+					def = mDefineArguments->Lookup(mTokenIdent);
+				if (!def)
+					def = mDefines->Lookup(mTokenIdent);
+
+				if (def)
 				{
-					mToken = TK_STRING;
-					int i = 0;
-					while ((mTokenString[i] = def->mString[i]))
-						i++;
-					mTokenStringSize = i;
-					return;
+					if (def->mNumArguments == -1)
+					{
+						mToken = TK_STRING;
+						int i = 0;
+						while ((mTokenString[i] = def->mString[i]))
+							i++;
+						mTokenStringSize = i;
+						return;
+					}
+					else
+						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", mTokenIdent);
 				}
 				else
 					mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", mTokenIdent);
 			}
 			else
-				mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid preprocessor command", mTokenIdent);
+			{
+				mToken = TK_HASH;
+				return;
+			}
 		}
 		else if (mToken == TK_PREP_UNDEF)
 		{

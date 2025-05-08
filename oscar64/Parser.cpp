@@ -12691,7 +12691,7 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 							break;
 					}
 				}
-				else if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_CLOSE_BRACE)
+				else if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_CLOSE_BRACE || mScanner->mToken == TK_SEMICOLON)
 					ilast->mAsmInsMode = ASMIM_IMPLIED;
 				else if (mScanner->mToken == TK_HASH)
 				{
@@ -12799,12 +12799,12 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 					}
 				}
 
-				if (mScanner->mToken != TK_EOL && mScanner->mToken != TK_CLOSE_BRACE)
+				if (mScanner->mToken != TK_EOL && mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_SEMICOLON)
 				{
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "End of line expected");
 				}
 
-				while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_EOF && mScanner->mToken != TK_CLOSE_BRACE)
+				while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_EOF && mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_SEMICOLON)
 					mScanner->NextToken();
 
 				offset += AsmInsSize(ilast->mAsmInsType, ilast->mAsmInsMode);
@@ -12815,7 +12815,7 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 				ilast = ilast->mRight;
 			}
 		}
-		else if (mScanner->mToken == TK_EOL)
+		else if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_SEMICOLON)
 		{
 			mScanner->NextToken();
 		}
@@ -12823,7 +12823,7 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 		{
 			mErrors->Error(mScanner->mLocation, EERR_ASM_INVALID_INSTRUCTION, "Invalid assembler token");
 
-			while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_EOF)
+			while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_SEMICOLON && mScanner->mToken != TK_EOF)
 				mScanner->NextToken();
 		 }
 	}
