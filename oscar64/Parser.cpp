@@ -6,7 +6,7 @@
 #include "NumberSet.h"
 
 Parser::Parser(Errors* errors, Scanner* scanner, CompilationUnits* compilationUnits)
-	: mErrors(errors), mScanner(scanner), mCompilationUnits(compilationUnits)
+	: mErrors(errors), mScanner(scanner), mCompilationUnits(compilationUnits), mParent(nullptr)
 {
 	mGlobals = new DeclarationScope(compilationUnits->mScope, SLEVEL_STATIC);
 	mScope = mGlobals;
@@ -5295,6 +5295,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 			if (variable)
 			{
+				if (storageFlags & DTF_CONSTEXPR)
+					ndec->mBase = ndec->mBase->ToConstType();
+
 				ndec->mFlags |= storageFlags;
 				ndec->mFlags |= ndec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
 
@@ -7483,6 +7486,8 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 			{
 				dist += 32;
 			}
+			else if (ptype->IsSimpleType() && etype->IsSimpleType() && ptype->IsConstSame(etype))
+				dist += 2;
 			else if (ptype->mType == DT_TYPE_STRUCT && etype->mType == DT_TYPE_STRUCT)
 			{
 				int	ncast = 0;
@@ -7870,7 +7875,7 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 					fdec = fdec->mNext;
 				}
 #endif
-				mErrors->Error(exp->mLocation, ERRO_NO_MATCHING_FUNCTION_CALL, "No matching function call", exp->mLeft->mDecValue->mQualIdent);
+				mErrors->Error(FullLocation(exp->mLocation), ERRO_NO_MATCHING_FUNCTION_CALL, "No matching function call", exp->mLeft->mDecValue->mQualIdent);
 			}
 			else if (nbest > 1)
 			{
@@ -7882,7 +7887,7 @@ Expression * Parser::ResolveOverloadCall(Expression* exp, Expression* exp2)
 					fdec = fdec->mNext;
 				}
 #endif
-				mErrors->Error(exp->mLocation, ERRO_AMBIGUOUS_FUNCTION_CALL, "Ambiguous function call", exp->mLeft->mDecValue->mQualIdent);
+				mErrors->Error(FullLocation(exp->mLocation), ERRO_AMBIGUOUS_FUNCTION_CALL, "Ambiguous function call", exp->mLeft->mDecValue->mQualIdent);
 			}
 			else
 			{
@@ -11160,6 +11165,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 		if (tmpld->mBase->mType == DT_TEMPLATE)
 		{
 			Parser* p = tmpld->mBase->mParser->Clone();
+			p->mParent = this;
 
 			p->mScanner->Replay(tmpld->mBase->mTokens);
 
@@ -11450,6 +11456,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 #endif
 
 	Parser* p = tmpld->mParser->Clone();
+	p->mParent = this;
 
 	p->mScanner->Replay(tmpld->mTokens);
 
@@ -14009,6 +14016,14 @@ void Parser::ParseNamespace(void)
 	{
 		// Anonymous namespace
 	}
+}
+
+Location Parser::FullLocation(const Location& loc)
+{
+	if (mParent)
+		return mParent->FullLocation(Location(loc, &mParent->mScanner->mLocation));
+	else
+		return loc;
 }
 
 void Parser::Parse(void)

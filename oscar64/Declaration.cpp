@@ -2370,7 +2370,10 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mSize = mSize;
 		ndec->mStride = mStride;
 		ndec->mStripe = mStripe;
-		ndec->mBase = mBase;
+		if (mType == DT_TYPE_ARRAY)
+			ndec->mBase = mBase->ToConstType();
+		else
+			ndec->mBase = mBase;
 		ndec->mBits = mBits;
 		ndec->mShift = mShift;
 		ndec->mFlags = mFlags | DTF_CONST;

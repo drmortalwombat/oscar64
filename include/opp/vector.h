@@ -206,7 +206,7 @@ protected:
 
 
 template <class T>
-void vector<T>::reserve(size_t n)
+__noinline void vector<T>::reserve(size_t n)
 {
 	if (n > _capacity)
 	{
@@ -231,7 +231,7 @@ void vector<T>::clear(void)
 }
 
 template <class T>
-void vector<T>::resize(size_t n)
+__noinline void vector<T>::resize(size_t n)
 {
 	if (n < _size)
 	{

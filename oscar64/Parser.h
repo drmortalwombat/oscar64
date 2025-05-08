@@ -11,6 +11,7 @@ public:
 	~Parser(void);
 
 	Parser* Clone(void);
+	Parser				*	mParent;
 
 	DeclarationScope	*	mGlobals, * mScope, * mTemplateScope, * mCaptureScope;
 	int						mLocalIndex;
@@ -23,6 +24,8 @@ public:
 	uint64			mCompilerOptions;
 	uint64			mCompilerOptionStack[32];
 	int				mCompilerOptionSP;
+
+	Location FullLocation(const Location& loc);
 
 	void Parse(void);
 protected:
