@@ -31,6 +31,17 @@ DeclarationScope::~DeclarationScope(void)
 	delete[] mHash;
 }
 
+DeclarationScope* DeclarationScope::Clone(void) const
+{
+	DeclarationScope* scope = new DeclarationScope(mParent, mLevel, mName);
+	for (int i = 0; i < mHashSize; i++)
+	{
+		if (mHash[i].mIdent)
+			scope->Insert(mHash[i].mIdent, mHash[i].mDec);
+	}
+	return scope;
+}
+
 const Ident* DeclarationScope::Mangle(const Ident* ident) const
 {
 	if (mName && ident)

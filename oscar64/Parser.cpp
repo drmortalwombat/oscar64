@@ -7483,6 +7483,21 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 			{
 				dist += 32;
 			}
+			else if (ptype->mType == DT_TYPE_STRUCT && etype->mType == DT_TYPE_STRUCT)
+			{
+				int	ncast = 0;
+				Declaration* ext = ex->mDecType;
+				while (ext && !ext->IsConstSame(ptype))
+				{
+					ncast++;
+					ext = ext->mBase;
+				}
+
+				if (ext)
+					dist += 32 * ncast;
+				else
+					return NOOVERLOAD;
+			}
 			else
 				return NOOVERLOAD;
 
@@ -11149,6 +11164,7 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 			p->mScanner->Replay(tmpld->mBase->mTokens);
 
 			tdec = tmpld->mBase->Clone();
+			tdec->mScope = tdec->mScope->Clone();
 			tdec->mScope->mName = expd->mScope->mName;
 			tdec->mScope->mParent = expd->mScope;
 

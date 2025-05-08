@@ -166,6 +166,8 @@ public:
 	ScopeLevel		mLevel;
 	const Ident	*	mName;
 
+	DeclarationScope* Clone(void) const;
+
 	DeclarationScope* mParent;
 protected:
 	struct Entry
