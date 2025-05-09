@@ -418,6 +418,7 @@ public:
 
 	void LoadByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* rins);
 	void StoreByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* rins);
+	void CopyByteIndexedValue(InterCodeProcedure* proc, const InterInstruction* riins, const InterInstruction* wiins, const InterInstruction* rins, const InterInstruction* wins);
 
 	void CallAssembler(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void CallFunction(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
