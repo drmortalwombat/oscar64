@@ -11271,7 +11271,10 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 	if (mindist == 0)
 		return etdec->mBase;
 	else if (mindist == NOOVERLOAD)
-		mErrors->Error(tdec->mLocation, EERR_TEMPLATE_PARAMS, "No matching template parameters");
+	{
+		mErrors->Error(FullLocation(tmpld->mLocation), EERR_TEMPLATE_PARAMS, "No matching template parameters", tmpld->mQualIdent);
+		return tdec;
+	}
 	else
 		tmpld = etdec;
 

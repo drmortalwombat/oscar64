@@ -192,6 +192,8 @@ public:
 		_data[_size].~T();
 	}
 
+	void assign(size_t count, const T & t);
+
 	void insert(size_t at, const T & t);
 
 	void erase(size_t at, size_t n = 1);
@@ -294,6 +296,21 @@ template <typename ...P>
 void vector<T>::emplace_back(const P&... p)
 {
 	new (add_back())T(p...);
+}
+
+template <class T>
+void vector<T>::assign(size_t count, const T & t)
+{
+	for(size_t i=0; i<_size; i++)
+		_data[i].~T();
+	if (count > _capacity)
+	{
+		_size = 0;
+		reserve(count);		
+	}
+	for(size_t i=0; i<count; i++)
+		new (_data + i)T(t);
+	_size = count;
 }
 
 template <class T>

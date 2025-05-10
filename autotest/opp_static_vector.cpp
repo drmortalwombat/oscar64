@@ -1,11 +1,11 @@
-#include <opp/vector.h>
+#include <opp/static_vector.h>
 #include <opp/algorithm.h>
 #include <assert.h>
 #include <opp/iostream.h>
 
 int main(void)
 {
-	opp::vector<int>		a;
+	opp::static_vector<int, 20>		a;
 
 	for(int i=0; i<10; i++)
 		a.push_back(i);
@@ -25,7 +25,7 @@ int main(void)
 
 	assert(s == 1 + 3 + 5 + 7 + 9);
 
-	opp::vector<int>	v;
+	opp::static_vector<int, 100>	v;
 
 	for(int i=0; i<10; i++)
 		v.push_back(i);

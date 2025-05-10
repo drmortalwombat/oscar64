@@ -173,6 +173,8 @@ public:
 		((T*)_space)[_size].~T();
 	}
 
+	void assign(size_t count, const T & t);
+
 	void insert(size_t at, const T & t);
 
 	void erase(size_t at, size_t n = 1);
@@ -227,6 +229,17 @@ template <typename ...P>
 void static_vector<T, N>::emplace_back(const P&... p)
 {
 	new ((T*)_space + _size++)T(p...);
+}
+
+template <class T, int N>
+void static_vector<T, N>::assign(size_t count, const T & t)
+{
+	T *	data = (T*)_space;
+	for(size_t i=0; i<_size; i++)
+		data[i].~T();
+	for(size_t i=0; i<count; i++)
+		new (data + i)T(t);
+	_size = count;
 }
 
 template <class T, int N>
