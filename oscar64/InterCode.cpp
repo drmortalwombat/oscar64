@@ -10752,15 +10752,15 @@ bool InterCodeBasicBlock::RemoveUnusedArgumentStoreInstructions(void)
 			{
 				mEntryRequiredArgs.Fill();
 			}
-			else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_FFRAME && ins->mSrc[1].mVarIndex + InterTypeSize[ins->mSrc[0].mType] < 64)
+			else if (ins->mCode == IC_STORE && ins->mSrc[1].mMemory == IM_FFRAME && ins->mSrc[1].mVarIndex + int(ins->mSrc[1].mIntConst) + InterTypeSize[ins->mSrc[0].mType] < 64)
 			{
-				if (mEntryRequiredArgs.RangeClear(ins->mSrc[1].mVarIndex, InterTypeSize[ins->mSrc[0].mType]))
+				if (mEntryRequiredArgs.RangeClear(ins->mSrc[1].mVarIndex + int(ins->mSrc[1].mIntConst), InterTypeSize[ins->mSrc[0].mType]))
 				{
 					mInstructions.Remove(i);
 					changed = true;
 				}
 				else
-					mEntryRequiredArgs.SubRange(ins->mSrc[1].mVarIndex, InterTypeSize[ins->mSrc[0].mType]);
+					mEntryRequiredArgs.SubRange(ins->mSrc[1].mVarIndex + int(ins->mSrc[1].mIntConst), InterTypeSize[ins->mSrc[0].mType]);
 			}
 			i--;
 		}
@@ -23506,7 +23506,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "mbox::show");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
