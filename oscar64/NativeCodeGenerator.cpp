@@ -8462,10 +8462,20 @@ NativeCodeBasicBlock * NativeCodeBasicBlock::CopyValue(InterCodeProcedure* proc,
 	{
 		for (int i = 0; i < size; i++)
 		{
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, si));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_INDIRECT_Y, sreg));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, di));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_INDIRECT_Y, dreg));
+			if (ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mMemory == IM_FPARAM)
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[0].mVarIndex + ins->mSrc[0].mIntConst + i));
+			else
+			{
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, si));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_INDIRECT_Y, sreg));
+			}
+			if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_FFRAME)
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + i));
+			else
+			{
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, di));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_INDIRECT_Y, dreg));
+			}
 
 			si += sstride;
 			di += dstride;
@@ -54640,7 +54650,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "mbox::configure_animations");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

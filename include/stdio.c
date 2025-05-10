@@ -556,6 +556,17 @@ int sprintf(char * str, const char * fmt, ...)
 	return d - str;
 }
 
+void vprintf(const char * fmt, va_list vlist)
+{
+	char	buff[50];
+	sformat(buff, fmt, (int *)vlist, true);
+}
+
+int vsprintf(char * str, const char * fmt, va_list vlist)
+{
+	char * d = sformat(str, fmt, (int *)vlist, false);
+	return d - str;
+}
 
 static inline bool isspace(char c)
 {
