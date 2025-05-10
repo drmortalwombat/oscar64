@@ -2168,12 +2168,14 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 		if (dtype->mFlags & DTF_PURE_VIRTUAL)
 			mErrors->Error(mScanner->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", dtype->mIdent);
 
+		Declaration* mtype = dtype->ToMutableType();
+
+		Expression* rexp = ParseRExpression();
+		if (rexp->mDecType->IsSame(dtype))
+			fcons = dtype->mCopyConstructor;
+
 		if (fcons)
 		{
-			Declaration* mtype = dtype->ToMutableType();
-
-			Expression* rexp = ParseRExpression();
-
 			Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
 			cexp->mDecValue = fcons;
 			cexp->mDecType = cexp->mDecValue->mBase;
@@ -2224,6 +2226,15 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			nexp->mDecType = vexp->mDecType;
 
 			exp = nexp;
+		}
+		else
+		{
+			rexp = CoerceExpression(rexp, dtype);
+			exp = new Expression(rexp->mLocation, EX_INITIALIZATION);
+			exp->mToken = TK_ASSIGN;
+			exp->mLeft = vexp;
+			exp->mRight = rexp;
+			exp->mDecType = dtype;
 		}
 	}
 	else		
@@ -4607,6 +4618,12 @@ void Parser::ParseVariableInit(Declaration* ndec, Expression* pexp)
 
 	if (ndec->mBase->mFlags & DTF_PURE_VIRTUAL)
 		mErrors->Error(ndec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", ndec->mIdent);
+
+	if (pexp && pexp->mType != EX_LIST)
+	{
+		if (pexp->mDecType->IsSame(ndec->mBase))
+			fcons = ndec->mBase->mCopyConstructor;
+	}
 
 	if (fcons)
 	{
