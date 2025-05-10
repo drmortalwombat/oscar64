@@ -5,7 +5,7 @@
 #define JUMP_TO_BRANCH	1
 #define CHECK_NULLPTR	0
 #define REYCLE_JUMPS	1
-#define DISASSEMBLE_OPT	1
+#define DISASSEMBLE_OPT	0
 
 static bool CheckFunc;
 static bool CheckCase;
