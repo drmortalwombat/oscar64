@@ -5,7 +5,7 @@
 #define JUMP_TO_BRANCH	1
 #define CHECK_NULLPTR	0
 #define REYCLE_JUMPS	1
-#define DISASSEMBLE_OPT	0
+#define DISASSEMBLE_OPT	1
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -54650,7 +54650,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "mbox::configure_animations");
+	CheckFunc = !strcmp(mIdent->mString, "mbox::show");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -57092,7 +57092,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].IsUByte() && ins->mSrc[0].mTemp >= 0 &&
 				iblock->mInstructions[i + 1]->mCode == IC_LEA && iblock->mInstructions[i + 1]->mDst.mTemp != ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mTemp != ins->mDst.mTemp &&
 				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mSrc[0].mTemp && iblock->mInstructions[i + 1]->mSrc[1].mTemp >= 0 &&
-				iblock->mInstructions[i + 2]->mCode == IC_LOAD && iblock->mInstructions[i + 2]->mSrc[0].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
+				iblock->mInstructions[i + 2]->mCode == IC_LOAD && iblock->mInstructions[i + 2]->mSrc[0].mTemp == iblock->mInstructions[i + 1]->mDst.mTemp && iblock->mInstructions[i + 2]->mSrc[0].mFinal &&
 				iblock->mInstructions[i + 3]->mCode == IC_STORE && iblock->mInstructions[i + 3]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 3]->mSrc[1].mFinal &&
 				iblock->mInstructions[i + 3]->mSrc[0].mTemp == iblock->mInstructions[i + 2]->mDst.mTemp && iblock->mInstructions[i + 3]->mSrc[0].mFinal &&
 				iblock->mInstructions[i + 2]->mSrc[0].mStride == iblock->mInstructions[i + 3]->mSrc[1].mStride)
