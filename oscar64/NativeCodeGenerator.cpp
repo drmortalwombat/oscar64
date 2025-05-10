@@ -1248,7 +1248,7 @@ bool NativeCodeInstruction::CanSwapXYReg(void)
 		return mType == ASMIT_LDY || HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y);
 	else if (mMode == ASMIM_ABSOLUTE_Y)
 		return mType == ASMIT_LDX || HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X);
-	else if (mType == ASMIT_JSR && (mFlags & (NCIF_USE_CPU_REG_X | NCIF_USE_CPU_REG_Y)))
+	else if (mType == ASMIT_JSR && (mFlags & (NCIF_USE_CPU_REG_X | NCIF_USE_CPU_REG_Y | NCIF_PROVIDE_CPU_REG_X | NCIF_PROVIDE_CPU_REG_Y)))
 		return false;
 	else
 		return true;
@@ -14470,7 +14470,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 			ExpandingArray<NativeCodeInstruction>	tains;
 
 			uint32	uflags = 0;
-			bool	simple = true;
+			bool	simple = true, jsrs = false;
 			int i = 0;
 			while (i < ins->mSrc[0].mLinkerObject->mSize)
 			{
@@ -14484,6 +14484,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 				if (dins.mType == ASMIT_JSR)
 				{
 					dins.mFlags |= uflags | NCIF_JSRFLAGS;
+					jsrs = true;
 				}
 
 				if (dins.mType == ASMIT_BRK || dins.mMode == ASMIM_INDIRECT_X || dins.mMode == ASMIM_INDIRECT || 
@@ -14515,6 +14516,39 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 			
 			if (simple)
 			{
+				if (jsrs && (uflags & (NCIF_USE_CPU_REG_A | NCIF_USE_CPU_REG_X | NCIF_USE_CPU_REG_Y)))
+				{
+					int	live = 0;
+					for (int i = tains.Size() - 1; i >= 0; i--)
+					{
+						if (tains[i].mType == ASMIT_JSR)
+						{
+							if (live & LIVE_CPU_REG_A)
+								tains[i].mFlags |= NCIF_PROVIDE_CPU_REG_A;
+							if (live & LIVE_CPU_REG_X)
+								tains[i].mFlags |= NCIF_PROVIDE_CPU_REG_X;
+							if (live & LIVE_CPU_REG_Y)
+								tains[i].mFlags |= NCIF_PROVIDE_CPU_REG_Y;
+							live = 0;
+						}
+						else
+						{
+							if (tains[i].ChangesAccu())
+								live &= ~LIVE_CPU_REG_A;
+							if (tains[i].ChangesXReg())
+								live &= ~LIVE_CPU_REG_X;
+							if (tains[i].ChangesYReg())
+								live &= ~LIVE_CPU_REG_Y;
+							if (tains[i].RequiresAccu())
+								live |= LIVE_CPU_REG_A;
+							if (tains[i].RequiresXReg())
+								live |= LIVE_CPU_REG_X;
+							if (tains[i].RequiresYReg())
+								live |= LIVE_CPU_REG_Y;
+						}
+					}
+				}
+
 				for (int i = 0; i + 1 < tains.Size(); i++)
 					mIns.Push(tains[i]);
 			}
@@ -53751,7 +53785,8 @@ void NativeCodeBasicBlock::CheckLive(void)
 
 			if (mIns[j].mType == ASMIT_JSR)
 			{
-				assert(!(live & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)));
+				assert((mIns[j].mFlags & NCIF_PROVIDE_CPU_REG_X) || !(live & LIVE_CPU_REG_X));
+				assert((mIns[j].mFlags & NCIF_PROVIDE_CPU_REG_Y) || !(live & LIVE_CPU_REG_Y));
 				if (!(mIns[j].mFlags & NCIF_JSRFLAGS))
 					assert(!(live & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)));
 			}
@@ -54605,7 +54640,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "chests");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
