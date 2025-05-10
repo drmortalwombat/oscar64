@@ -46032,6 +46032,16 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 
 bool NativeCodeBasicBlock::PeepHoleOptimizerIterate1(int i, int pass)
 {
+	if (mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_CONST) && 
+		mIns[i].mLinkerObject->mReferences.Size() == 0 &&
+		!mIns[i].ChangesAddress() && HasAsmInstructionMode(mIns[i].mType, ASMIM_IMMEDIATE))
+	{
+		mIns[i].mMode = ASMIM_IMMEDIATE;
+		mIns[i].mAddress = mIns[i].mLinkerObject->mData[mIns[i].mAddress];
+		mIns[i].mLinkerObject = nullptr;
+		return true;
+	}
+
 	if (mIns[i].mType == ASMIT_AND && mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == 0)
 	{
 		mIns[i].mType = ASMIT_LDA;
