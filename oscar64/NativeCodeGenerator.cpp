@@ -27606,7 +27606,7 @@ bool NativeCodeBasicBlock::CrossBlockYAliasProgpagation(const int* yalias)
 			}
 			else if (ins.mType == ASMIT_LDA && ins.mMode == ASMIM_ZERO_PAGE && mYAlias[ins.mAddress] != -1 && i + 1 < mIns.Size())
 			{
-				if (mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE)
+				if (mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && (mYAlias[ins.mAddress] == yoffset || !(mIns[i + 1].mLive & LIVE_CPU_REG_C)))
 				{
 					ins.mType = ASMIT_TYA;
 					ins.mMode = ASMIM_IMPLIED;
@@ -47974,6 +47974,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		mIns[i + 0].mType = ASMIT_TXA; mIns[i + 0].mMode = ASMIM_IMPLIED;
 		mIns[i + 0].mLive |= LIVE_CPU_REG_A;
 		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+		if (mIns[i + 1].ReferencesYReg()) mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
 		return true;
 	}
 	else if (
@@ -54594,7 +54595,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "chests");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
