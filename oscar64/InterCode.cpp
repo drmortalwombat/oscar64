@@ -17506,7 +17506,7 @@ void InterCodeBasicBlock::RemoveUnusedMallocs(void)
 	}
 }
 
-void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue)
+void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue, bool loops)
 {
 	if (!mVisited)
 	{
@@ -17530,6 +17530,57 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 								{
 									ltvalue[i] = nullptr;
 									break;
+								}
+							}
+						}
+					}
+				}
+			}
+			else if (loops && mNumEntries == 2)
+			{
+				InterCodeBasicBlock* tail, * post;
+
+				if (mEntryBlocks[0] == mLoopPrefix)
+					tail = mEntryBlocks[1];
+				else
+					tail = mEntryBlocks[0];
+
+				if (tail->mTrueJump == this)
+					post = tail->mFalseJump;
+				else
+					post = tail->mTrueJump;
+
+				if (post && post->mNumEntries == 1)
+				{
+					GrowingArray<InterCodeBasicBlock*> body(nullptr);
+
+					if (tail->CollectSingleHeadLoopBody(this, tail, body))
+					{
+						for (int i = 0; i < ltvalue.Size(); i++)
+						{
+							if (ltvalue[i])
+							{
+								bool	fail = false;
+
+								for (int k = 0; k < body.Size() && !fail; k++)
+								{
+									InterCodeBasicBlock* b = body[k];
+									for (int j = 0; j < b->mInstructions.Size() && !fail; j++)
+									{
+										InterInstruction* ins = b->mInstructions[j];
+										if (ins->mDst.mTemp == i)
+										{
+											if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp == i)
+												;
+											else
+												fail = true;
+										}
+									}
+								}
+
+								if (fail)
+								{
+									ltvalue[i] = nullptr;
 								}
 							}
 						}
@@ -17567,18 +17618,22 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 
 			for (int j = 0; j < ins->mNumOperands; j++)
 			{
-				if (ins->mSrc[j].mTemp > 0 && ltvalue[ins->mSrc[j].mTemp] && ins->mSrc[j].mType == IT_POINTER)
+				if (ins->mSrc[j].mTemp >= 0 && ltvalue[ins->mSrc[j].mTemp] && ins->mSrc[j].mType == IT_POINTER)
 				{
 					ins->mSrc[j].mRestricted = ltvalue[ins->mSrc[j].mTemp]->mDst.mRestricted;
 					ins->mSrc[j].mMemoryBase = ltvalue[ins->mSrc[j].mTemp]->mDst.mMemoryBase;
 					ins->mSrc[j].mVarIndex = ltvalue[ins->mSrc[j].mTemp]->mDst.mVarIndex;
 					ins->mSrc[j].mLinkerObject = ltvalue[ins->mSrc[j].mTemp]->mDst.mLinkerObject;
+					if (ins->mSrc[j].mMemory == IM_NONE && ins->mSrc[j].mMemoryBase != IM_NONE)
+						ins->mSrc[j].mMemory = IM_INDIRECT;
+
 					assert(ins->mSrc[j].mMemoryBase != IM_LOCAL || ins->mSrc[j].mVarIndex >= 0);
 				}
 			}
 
 			if (ins->mCode == IC_LEA)
 			{
+				ins->mDst.mMemory = ins->mSrc[1].mMemory;
 				ins->mDst.mRestricted = ins->mSrc[1].mRestricted;
 				if (ins->mSrc[1].mMemory != IM_INDIRECT)
 					ins->mSrc[1].mMemoryBase = ins->mSrc[1].mMemory;
@@ -17588,6 +17643,7 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 			}
 			else if (ins->mCode == IC_LOAD_TEMPORARY)
 			{
+				ins->mDst.mMemory = ins->mSrc[0].mMemory;
 				ins->mDst.mRestricted = ins->mSrc[0].mRestricted;
 				ins->mDst.mMemoryBase = ins->mSrc[0].mMemoryBase;
 				ins->mDst.mVarIndex = ins->mSrc[0].mVarIndex;
@@ -17595,6 +17651,7 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 			}
 			else if (ins->mCode == IC_CONSTANT)
 			{
+				ins->mDst.mMemory = ins->mConst.mMemory;
 				ins->mDst.mRestricted = ins->mConst.mRestricted;
 				ins->mDst.mMemoryBase = ins->mConst.mMemory;
 				ins->mDst.mVarIndex = ins->mConst.mVarIndex;
@@ -17611,8 +17668,8 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 		}
 
 
-		if (mTrueJump) mTrueJump->PropagateMemoryAliasingInfo(ltvalue);
-		if (mFalseJump) mFalseJump->PropagateMemoryAliasingInfo(ltvalue);
+		if (mTrueJump) mTrueJump->PropagateMemoryAliasingInfo(ltvalue, loops);
+		if (mFalseJump) mFalseJump->PropagateMemoryAliasingInfo(ltvalue, loops);
 	}
 }
 
@@ -22801,12 +22858,21 @@ void InterCodeProcedure::EliminateDoubleLoopCounter(void)
 }
 
 
-void InterCodeProcedure::PropagateMemoryAliasingInfo(void)
+void InterCodeProcedure::PropagateMemoryAliasingInfo(bool loops)
 {
 	GrowingInstructionPtrArray	tvalue(nullptr);
 
+	if (loops)
+	{
+		BuildTraces(0);
+		BuildLoopPrefix();
+		ResetEntryBlocks();
+		ResetVisited();
+		mEntryBlock->CollectEntryBlocks(nullptr);
+	}
+
 	ResetVisited();
-	mEntryBlock->PropagateMemoryAliasingInfo(tvalue);
+	mEntryBlock->PropagateMemoryAliasingInfo(tvalue, loops);
 
 	Disassemble("PropagateMemoryAliasingInfo");
 }
@@ -23401,7 +23467,7 @@ void InterCodeProcedure::LoadStoreForwarding(InterMemory paramMemory)
 
 	bool changed;
 	do {
-		PropagateMemoryAliasingInfo();
+		PropagateMemoryAliasingInfo(false);
 
 		GrowingInstructionPtrArray	gipa(nullptr);
 		ResetVisited();
@@ -23506,7 +23572,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "mbox::show");
+	CheckFunc = !strcmp(mIdent->mString, "mbox::configure_animations");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -23984,6 +24050,8 @@ void InterCodeProcedure::Close(void)
 	SingleTailLoopOptimization(paramMemory);
 	BuildDataFlowSets();
 
+	PropagateMemoryAliasingInfo(true);
+
 #if 1
 	ExpandSelect();
 
@@ -24178,6 +24246,8 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 #endif
+
+	PropagateMemoryAliasingInfo(true);
 
 	ResetVisited();
 	mEntryBlock->SimplifyIntegerRangeRelops();

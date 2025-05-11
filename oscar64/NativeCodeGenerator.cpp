@@ -3617,6 +3617,62 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
 			data.mRegs[CPU_REG_C].mValue = data.mRegs[CPU_REG_A].mValue >= mAddress;
 		}
+		else if (mMode == ASMIM_IMMEDIATE_ADDRESS && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS)
+		{
+			if (mLinkerObject == data.mRegs[CPU_REG_A].mLinkerObject)
+			{
+				if (mLinkerObject)
+				{
+					if (mLinkerObject->mFlags & LOBJF_NEVER_CROSS)
+					{
+						if (mFlags & NCIF_LOWER)
+						{
+							data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+							data.mRegs[CPU_REG_Z].mValue = (data.mRegs[CPU_REG_A].mValue - mAddress) & 0xff;
+						}
+						else
+						{
+							data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+							data.mRegs[CPU_REG_Z].mValue = 0;
+						}
+					}
+					else
+					{
+						if (mFlags & NCIF_LOWER)
+						{
+							data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+							data.mRegs[CPU_REG_Z].mValue = (data.mRegs[CPU_REG_A].mValue & 0xff) == (mAddress & 0xff) ? 0 : 1;
+						}
+						else if (data.mRegs[CPU_REG_A].mValue == mAddress)
+						{
+							data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+							data.mRegs[CPU_REG_Z].mValue = 0;
+						}
+						else
+							data.mRegs[CPU_REG_Z].Reset();
+					}
+				}
+				else
+				{
+					if (mFlags & NCIF_LOWER)
+					{
+						data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+						data.mRegs[CPU_REG_Z].mValue = (data.mRegs[CPU_REG_A].mValue - mAddress) & 0xff;
+					}
+					else
+					{
+						data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+						data.mRegs[CPU_REG_Z].mValue = ((data.mRegs[CPU_REG_A].mValue - mAddress) >> 8) & 0xff;
+					}
+				}
+			}
+			else
+			{
+				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				data.mRegs[CPU_REG_Z].mValue = 1;
+			}
+			data.mRegs[CPU_REG_C].Reset();
+		}
 		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
 		{
 			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
@@ -14223,6 +14279,10 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 	}
 	else
 	{
+		bool	crossing = true;
+		if (ins->mSrc[1].mMemoryBase == IM_GLOBAL && ins->mSrc[1].mLinkerObject && (ins->mSrc[1].mLinkerObject->mFlags & LOBJF_NEVER_CROSS))
+			crossing = false;
+
 		if (ins->mSrc[0].mTemp >= 0 || ins->mSrc[0].mIntConst != 0)
 			mIns.Push(NativeCodeInstruction(ins, isub ? ASMIT_SEC : ASMIT_CLC, ASMIM_IMPLIED));
 
@@ -14240,15 +14300,18 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp] + 1));
 
-		if (ins->mSrc[0].mTemp < 0)
+		if (crossing)
 		{
-			if (ins->mSrc[0].mIntConst)
-				mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
+			if (ins->mSrc[0].mTemp < 0)
+			{
+				if (ins->mSrc[0].mIntConst)
+					mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff));
+			}
+			else if (ins->mSrc[0].IsUByte())
+				mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_IMMEDIATE, 0));
+			else
+				mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
 		}
-		else if (ins->mSrc[0].IsUByte())
-			mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_IMMEDIATE, 0));
-		else
-			mIns.Push(NativeCodeInstruction(ins, iop, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg] + 1));
 
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mDst.mTemp] + 1));
 	}
@@ -50945,6 +51008,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 		}
 	}
 
+	if (i + 6 < mIns.Size() && pass > 3 &&
+		mIns[i + 0].mType == ASMIT_CLC &&
+		mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS && mIns[i + 1].mLinkerObject &&
+		mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].mMode == ASMIM_IMMEDIATE_ADDRESS && mIns[i + 1].mLinkerObject == mIns[i + 3].mLinkerObject &&
+		mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
+		mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1)
+	{
+		if (mIns[i + 1].mLinkerObject->mFlags & LOBJF_NEVER_CROSS)
+		{
+			mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+			return true;
+		}
+
+	}
+
 	if (i + 7 < mIns.Size() && pass > 3 &&
 		mIns[i + 0].mType == ASMIT_CLC &&
 		mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
@@ -54650,7 +54729,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "mbox::show");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

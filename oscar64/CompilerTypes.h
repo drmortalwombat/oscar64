@@ -15,6 +15,7 @@ static const uint64 COPT_OPTIMIZE_CONST_PARAMS = 1ULL << 9;
 static const uint64 COPT_OPTIMIZE_MERGE_CALLS = 1ULL << 10;
 static const uint64 COPT_OPTIMIZE_GLOBAL = 1ULL << 11;
 static const uint64 COPT_OPTIMIZE_OUTLINE = 1ULL << 12;
+static const uint64 COPT_OPTIMIZE_PAGE_CROSSING = 1ULL << 13;
 
 static const uint64 COPT_OPTIMIZE_CODE_SIZE = 1ULL << 16;
 static const uint64 COPT_NATIVE = 1ULL << 17;

@@ -13728,6 +13728,27 @@ void Parser::ParsePragma(void)
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (!strcmp(mScanner->mTokenIdent->mString, "nocross"))
+		{
+			mScanner->NextToken();
+			ConsumeToken(TK_OPEN_PARENTHESIS);
+
+			if (mScanner->mToken == TK_IDENT)
+			{
+				Declaration* dec = mGlobals->Lookup(mScanner->mTokenIdent);
+				if (dec && dec->mType == DT_VARIABLE && (dec->mFlags & DTF_GLOBAL))
+					dec->mFlags |= DTF_NO_PAGE_CROSS;
+				else if (dec && dec->mType == DT_CONST_FUNCTION)
+					dec->mFlags |= DTF_NO_PAGE_CROSS;
+				else
+					mErrors->Error(mScanner->mLocation, EERR_OBJECT_NOT_FOUND, "Variable not found");
+				mScanner->NextToken();
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Variable name expected");
+
+			ConsumeToken(TK_CLOSE_PARENTHESIS);
+		}
 		else if (!strcmp(mScanner->mTokenIdent->mString, "align"))
 		{
 			mScanner->NextToken();

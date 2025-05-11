@@ -782,6 +782,16 @@ void InterCodeGenerator::InitGlobalVariable(InterCodeModule * mod, Declaration* 
 			var->mLinkerObject->mFlags |= LOBJF_CONST;
 		if (dec->mFlags & DTF_ZEROPAGE)
 			var->mLinkerObject->mFlags |= LOBJF_ZEROPAGE;
+		if (dec->mFlags & DTF_NO_PAGE_CROSS)
+			var->mLinkerObject->mFlags |= LOBJF_NEVER_CROSS | LOBJF_NO_CROSS;
+		if (mCompilerOptions & COPT_OPTIMIZE_PAGE_CROSSING)
+		{
+			if (dec->mSize <= 256 && dec->mSize > 1)
+			{
+				if (dec->mBase->ContainsArray())
+					var->mLinkerObject->mFlags |= LOBJF_NEVER_CROSS | LOBJF_NO_CROSS;
+			}
+		}
 
 		var->mIndex = mod->mGlobalVars.Size();
 		var->mDeclaration = dec;

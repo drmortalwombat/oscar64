@@ -127,6 +127,7 @@ static const uint64 DTF_FPARAM_UNUSED	= (1ULL << 49);
 static const uint64 DTF_DEPRECATED		= (1ULL << 50);
 static const uint64 DTF_FUNC_NO_RETURN	= (1ULL << 51);
 static const uint64 DTF_PLACED			= (1ULL << 52);
+static const uint64 DTF_NO_PAGE_CROSS	= (1ULL << 53);
 
 
 
@@ -333,6 +334,7 @@ public:
 	bool IsSimpleType(void) const;
 	bool IsReference(void) const;
 	bool IsIndexed(void) const;
+	bool ContainsArray(void) const;
 
 	void SetDefined(void);
 

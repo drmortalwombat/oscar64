@@ -638,7 +638,7 @@ public:
 	void SingleLoopCountZeroCheck(void);
 	bool PostDecLoopOptimization(void);
 
-	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue);
+	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue, bool loops);
 	void RemoveUnusedMallocs(void);
 
 	bool PullStoreUpToConstAddress(void);
@@ -804,7 +804,7 @@ protected:
 	void CheckUsedDefinedTemps(void);
 	void WarnUsedUndefinedVariables(void);
 	void WarnInvalidValueRanges(void);
-	void PropagateMemoryAliasingInfo(void);
+	void PropagateMemoryAliasingInfo(bool loops);
 	void MoveConditionsOutOfLoop(void);
 	void ShortcutConstBranches(void);
 	void ShortcutDuplicateBranches(void);

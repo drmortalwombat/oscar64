@@ -3042,6 +3042,22 @@ bool Declaration::IsIndexed(void) const
 	return mType == DT_TYPE_ARRAY || mType == DT_TYPE_POINTER;
 }
 
+bool Declaration::ContainsArray(void) const
+{
+	if (mType == DT_TYPE_ARRAY)
+		return true;
+	else if (mType == DT_TYPE_STRUCT)
+	{
+		Declaration* p = mParams;
+		while (p)
+		{
+			if (p->mType == DT_ELEMENT && p->mBase->ContainsArray())
+				return true;
+			p = p->mNext;
+		}
+	}
+	return false;
+}
 
 bool Declaration::IsSimpleType(void) const
 {
