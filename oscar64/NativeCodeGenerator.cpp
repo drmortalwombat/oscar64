@@ -5,7 +5,7 @@
 #define JUMP_TO_BRANCH	1
 #define CHECK_NULLPTR	0
 #define REYCLE_JUMPS	1
-#define DISASSEMBLE_OPT	0
+#define DISASSEMBLE_OPT	1
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -37490,7 +37490,7 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 				mIns.Insert(i, NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, reg));
 				mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
 				mIns[i + 1].mLinkerObject = mNDataSet.mRegs[reg + 1].mLinkerObject;
-				mIns[i + 1].mAddress = mNDataSet.mRegs[reg + 1].mValue + mNDataSet.mRegs[CPU_REG_Y].mValue;
+				mIns[i + 1].mAddress = (mNDataSet.mRegs[reg + 1].mValue & 0xff00) + mNDataSet.mRegs[CPU_REG_Y].mValue;
 				mIns[i + 1].mFlags &= ~NCIF_LOWER;
 				mIns.Insert(i + 2, NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, mNDataSet.mRegs[CPU_REG_Y].mValue));
 				mIns.Insert(i + 3, NativeCodeInstruction(mIns[i].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
