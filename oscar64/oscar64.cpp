@@ -111,38 +111,12 @@ int main2(int argc, const char** argv)
 		GrowingArray<const char*>	dataFiles(nullptr);
 		GrowingArray<bool>			dataFileCompressed(false);
 
+		bool		emulate = false, profile = false, customCRT = false;
+		int			trace = 0;
+
 		compiler->mPreprocessor->AddPath(basePath);
 		strcpy_s(includePath, basePath);
-		{
-			FILE* crtFile;
-			char crtFileNamePath[FILENAME_MAX];
-			crtFileNamePath[FILENAME_MAX - 1] = '\0';
-			strcpy_s(crtFileNamePath, basePath);
-			strcat_s(crtFileNamePath, "include/crt.h");
-
-			if (!fopen_s(&crtFile, crtFileNamePath, "r"))
-				strcat_s(includePath, "include/");
-			else
-			{
-				strcpy_s(crtFileNamePath, basePath);
-				strcat_s(crtFileNamePath, "include/oscar64/crt.h");
-
-				if (!fopen_s(&crtFile, crtFileNamePath, "r"))
-					strcat_s(includePath, "include/oscar64/");
-				else
-				{
-					printf("Could not locate Oscar64 includes under %s\n", basePath);
-					return 20;
-				}
-			}
-			fclose(crtFile);
-		}
-		compiler->mPreprocessor->AddPath(includePath);
-		strcpy_s(crtPath, includePath);
-		strcat_s(crtPath, "crt.c");
-
-		bool		emulate = false, profile = false;
-		int			trace = 0;
+		strcat_s(includePath, "include");
 
 		targetPath[0] = 0;
 		diskPath[0] = 0;
@@ -184,6 +158,10 @@ int main2(int argc, const char** argv)
 				if (arg[1] == 'i' && arg[2] == '=')
 				{
 					compiler->mPreprocessor->AddPath(arg + 3);
+				}
+				else if (arg[1] == 'i' && arg[2] == 'i' && arg[3] == '=')
+				{
+					strcpy_s(includePath, arg + 4);
 				}
 				else if (arg[1] == 'f' && arg[2] == '=')
 				{
@@ -577,6 +555,35 @@ int main2(int argc, const char** argv)
 			}
 
 			// Add runtime module
+
+			compiler->mPreprocessor->AddPath(includePath);
+
+			if (!customCRT)
+			{
+				FILE* crtFile;
+				char crtFileNamePath[FILENAME_MAX];
+				crtFileNamePath[FILENAME_MAX - 1] = '\0';
+				strcpy_s(crtFileNamePath, includePath);
+				strcat_s(crtFileNamePath, "/crt.h");
+
+				if (fopen_s(&crtFile, crtFileNamePath, "r"))
+				{
+					strcpy_s(crtFileNamePath, basePath);
+					strcat_s(crtFileNamePath, "include/oscar64/crt.h");
+
+					if (!fopen_s(&crtFile, crtFileNamePath, "r"))
+						strcat_s(includePath, "include/oscar64/");
+					else
+					{
+						printf("Could not locate Oscar64 includes under %s\n", basePath);
+						return 20;
+					}
+				}
+				fclose(crtFile);
+
+				strcpy_s(crtPath, includePath);
+				strcat_s(crtPath, "/crt.c");
+			}
 
 			if (crtPath[0])
 				compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);

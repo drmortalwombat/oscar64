@@ -110,6 +110,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -v : verbose output for diagnostics
 * -v2 : more verbose output
 * -i : additional include paths
+* -ii : set default include path
 * -o : optional output file name
 * -rt : alternative runtime library, replaces the crt.c (or empty for none)
 * -e : execute the result in the integrated emulator
@@ -129,6 +130,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Oz : enable auto placement of global variables in zero page (part of O3)
 * -Op : optimize constant parameters
 * -Oo : optimize size using "outliner" (extract repeated code sequences into functions)
+* -Ox : optimize pointer arithmetic by blocking shorter arrays to not cross page boundaries
 * -g : create source level debug info and add source line numbers to asm listing
 * -gp : create source level debug info and add source line numbers to asm listing and static profile data
 * -tf : target format, may be prg, crt or bin
