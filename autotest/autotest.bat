@@ -1,5 +1,8 @@
 rem @echo off
 
+@call :test rolrortest.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test bitfields.cpp
 @if %errorlevel% neq 0 goto :error
 

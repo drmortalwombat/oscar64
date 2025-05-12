@@ -1065,7 +1065,10 @@ bool Compiler::GenerateCode(void)
 	for (int i = 0; i < mNativeCodeGenerator->mProcedures.Size(); i++)
 	{
 		if (mCompilerOptions & COPT_VERBOSE2)
-			printf("Assemble native code <%s>\n", mNativeCodeGenerator->mProcedures[i]->mInterProc->mIdent->mString);
+		{
+			if (mNativeCodeGenerator->mProcedures[i]->mInterProc)
+				printf("Assemble native code <%s>\n", mNativeCodeGenerator->mProcedures[i]->mInterProc->mIdent->mString);
+		}
 		mNativeCodeGenerator->mProcedures[i]->Assemble();
 	}
 
