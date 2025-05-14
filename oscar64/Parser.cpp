@@ -12051,7 +12051,12 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 				pdec = pdec->mNext;
 			}
 
-			if (pdec && pdec->mTemplate)
+			if (!pdec)
+			{
+				ppdec->mNext = tdec->mBase;
+				tdec->mBase->mNext = nullptr;
+			}
+			else if (pdec->mTemplate)
 			{
 				tdec->mNext = pdec->mTemplate->mNext;
 				pdec->mTemplate->mNext = tdec;
