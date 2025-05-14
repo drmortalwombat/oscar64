@@ -2211,13 +2211,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (dec->mBase->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -128 || dec->mInteger > 127)
-							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+							mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
 						ins->mConst.mIntConst = int8(dec->mInteger);
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 255)
-							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
+							mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
 						ins->mConst.mIntConst = uint8(dec->mInteger);
 					}
 				}
@@ -2226,13 +2226,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (dec->mBase->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -32768 || dec->mInteger > 32767)
-							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+							mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
 						ins->mConst.mIntConst = int16(dec->mInteger);
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 65535)
-							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
+							mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
 						ins->mConst.mIntConst = uint16(dec->mInteger);
 					}
 				}
@@ -2241,13 +2241,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (dec->mBase->mFlags & DTF_SIGNED)
 					{
 						if (dec->mInteger < -2147483648LL || dec->mInteger > 2147483647LL)
-							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
+							mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Integer constant truncated");
 						ins->mConst.mIntConst = int32(dec->mInteger);
 					}
 					else
 					{
 						if (dec->mInteger < 0 || dec->mInteger > 4294967296LL)
-							mErrors->Error(dec->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
+							mErrors->Error(exp->mLocation, EWARN_CONSTANT_TRUNCATED, "Unsigned integer constant truncated");
 						ins->mConst.mIntConst = uint32(dec->mInteger);
 					}
 				}
