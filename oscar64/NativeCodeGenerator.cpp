@@ -3486,7 +3486,13 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				data.mRegs[CPU_REG_A].mValue = mAddress;
 				data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
 				data.mRegs[CPU_REG_A].mFlags = mFlags;
-				data.mRegs[CPU_REG_Z].Reset();
+				if (mLinkerObject)
+				{
+					data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+					data.mRegs[CPU_REG_Z].mValue = 1;
+				}
+				else
+					data.mRegs[CPU_REG_Z].Reset();
 			}
 		}
 		else
