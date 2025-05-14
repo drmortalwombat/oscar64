@@ -1903,6 +1903,8 @@ bool Linker::WriteDbjFile(FILE* file)
 	return true;
 }
 
+static const char hexchars[] = "0123456789abcdef";
+
 bool Linker::WriteLblFile(const char* filename)
 {
 	FILE* file;
@@ -1916,7 +1918,28 @@ bool Linker::WriteLblFile(const char* filename)
 			if (obj->mFlags & LOBJF_REFERENCED)
 			{
 				if (obj->mIdent)
-					fprintf(file, "al %04x .%s\n", obj->mAddress, obj->mIdent->mString);
+				{
+					char buffer[400];
+					char nbuffer[500];
+
+					strcpy_s(buffer, obj->mIdent->mString);
+					int i = 0, j = 0;
+					while (buffer[i])
+					{
+						if (buffer[i] >= '0' && buffer[i] <= '9' || buffer[i] >= 'a' && buffer[i] <= 'z' || buffer[i] >= 'A' && buffer[i] <= 'Z' || buffer[i] == '_' || buffer[i] == ':')
+							nbuffer[j++] = buffer[i];
+						else
+						{
+							nbuffer[j++] = '?';
+							nbuffer[j++] = hexchars[(buffer[i] >> 4) & 0x0f];
+							nbuffer[j++] = hexchars[buffer[i] & 0x0f];
+
+						}
+						i++;
+					}
+					nbuffer[j] = 0;
+					fprintf(file, "al %04x .%s\n", obj->mAddress, nbuffer);
+				}
 			}
 		}
 

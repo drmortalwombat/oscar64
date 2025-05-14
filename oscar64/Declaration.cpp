@@ -2842,7 +2842,7 @@ bool Declaration::IsSame(const Declaration* dec) const
 
 		return true;
 	}
-	else if (mType == DT_TYPE_TEMPLATE)
+	else if (mType == DT_TYPE_TEMPLATE || mType == DT_PACK_TEMPLATE)
 	{
 		return mIdent == dec->mIdent;
 	}
