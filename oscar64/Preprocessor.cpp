@@ -327,6 +327,16 @@ struct CTMHeader9
 	uint8	mColors[7];
 };
 
+struct CTTHeader9
+{
+	uint8	mDispMode;
+	uint8	mColorMethod;
+	uint8	mFlags;
+	uint8	mFgridWidth[2], mFGridHeight[2];
+	char	mFGridConfig;
+	uint8	mColors[6];
+};
+
 #if 0
 #pragma pack(push, 1)
 struct SPDHeader5
@@ -486,6 +496,7 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 	CTMHeader	ctmHeader;
 	CTMHeader8	ctmHeader8;
 	CTMHeader9	ctmHeader9;
+	CTTHeader9	cttHeader9;
 	uint16		ctmMarker, numChars, numTiles;
 	char		tileWidth, tileHeight;
 
@@ -496,10 +507,20 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 		fread(&ctmHeader8, sizeof(CTMHeader8), 1, mFile);
 		break;
 	case 9:
-		fread(&ctmHeader9, sizeof(CTMHeader9), 1, mFile);
-		ctmHeader8.mDispMode = ctmHeader9.mDispMode;
-		ctmHeader8.mColorMethod = ctmHeader9.mColorMethod;
-		ctmHeader8.mFlags = ctmHeader9.mFlags;
+		if (ctmHeader.mID[2] == 'T')
+		{
+			fread(&cttHeader9, sizeof(CTTHeader9), 1, mFile);
+			ctmHeader8.mDispMode = cttHeader9.mDispMode;
+			ctmHeader8.mColorMethod = cttHeader9.mColorMethod;
+			ctmHeader8.mFlags = cttHeader9.mFlags;
+		}
+		else
+		{
+			fread(&ctmHeader9, sizeof(CTMHeader9), 1, mFile);
+			ctmHeader8.mDispMode = ctmHeader9.mDispMode;
+			ctmHeader8.mColorMethod = ctmHeader9.mColorMethod;
+			ctmHeader8.mFlags = ctmHeader9.mFlags;
+		}
 
 		break;
 	}

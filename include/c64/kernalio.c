@@ -422,7 +422,7 @@ int krnio_gets(char fnum, char * data, int num)
 
 	if (krnio_chkin(fnum))
 	{
-		krnioerr err;
+		krnioerr err = KRNIO_OK;
 		int i = 0;
 		int ch;
 		while (i + 1 < num)
