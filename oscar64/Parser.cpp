@@ -1008,7 +1008,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		dec->mSize = 1;
 		dec->mScope = new DeclarationScope(nullptr, SLEVEL_CLASS);
 
-		bool	classTemplate = false;
+		bool	classTemplate = false, baseClass = false;
 
 		mScanner->NextToken();
 
@@ -1041,6 +1041,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 				{
 					dec->mSize = pdec->mSize;
 					dec->mFlags |= pdec->mFlags & DTF_SIGNED;
+					baseClass = true;
 				}
 				else
 					mErrors->Error(pdec->mLocation, EERR_INCOMPATIBLE_TYPES, "Integer base type expected");
@@ -1096,7 +1097,11 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 					dec->mParams = cdec;
 
 					if (mScanner->mToken == TK_COMMA)
+					{
 						mScanner->NextToken();
+						if (mScanner->mToken == TK_CLOSE_BRACE)
+							break;
+					}
 					else
 						break;
 				}
@@ -1106,13 +1111,33 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 
 				if (minValue < 0)
 				{
-					dec->mFlags |= DTF_SIGNED;
-					if (minValue < -128 || maxValue > 127)
-						dec->mSize = 2;
+					if (baseClass)
+					{
+						if (dec->mFlags & DTF_SIGNED)
+						{
+							if (minValue < -128 && dec->mSize == 1)
+								mErrors->Error(mScanner->mLocation, EWARN_INVALID_VALUE_RANGE, "Enum constant out of bounds");
+						}
+						else
+							mErrors->Error(mScanner->mLocation, EWARN_INVALID_VALUE_RANGE, "Enum constant out of bounds");
+					}
+					else
+					{
+						dec->mFlags |= DTF_SIGNED;
+						if (minValue < -128 || maxValue > 127)
+							dec->mSize = 2;
+					}
 				}
 				else if (maxValue > 255)
-					dec->mSize = 2;
-
+				{
+					if (baseClass)
+					{
+						if (dec->mSize == 1)
+							mErrors->Error(mScanner->mLocation, EWARN_INVALID_VALUE_RANGE, "Enum constant out of bounds");
+					}
+					else
+						dec->mSize = 2;
+				}
 			}
 
 			if (mScanner->mToken == TK_CLOSE_BRACE)
