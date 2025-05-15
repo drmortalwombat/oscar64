@@ -1032,6 +1032,20 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			ex->mDecType = dec->mBase;
 			return ex;
 		}
+		else if (mLeft->mDecValue->mType == DT_CONST_ADDRESS && mRight->mDecValue->mType == DT_CONST_ADDRESS && mToken == TK_SUB)
+		{
+			if (mLeft->mDecType->mType == DT_TYPE_POINTER && mRight->mDecType->mType == DT_TYPE_POINTER &&
+				mLeft->mDecType->mBase->IsConstSame(mRight->mDecType->mBase))
+			{
+				Expression* ex = new Expression(mLocation, EX_CONSTANT);
+				Declaration* dec = new Declaration(mLocation, DT_CONST_INTEGER);
+				dec->mBase = TheSignedIntTypeDeclaration;
+				dec->mInteger = (mLeft->mDecValue->mInteger - mRight->mDecValue->mInteger) / mLeft->mDecType->mBase->mSize;
+				ex->mDecValue = dec;
+				ex->mDecType = dec->mBase;
+				return ex;
+			}
+		}
 #if 0
 		else if (mLeft->mDecValue->mType == DT_CONST_POINTER && mRight->mDecValue->mType == DT_CONST_INTEGER && (mToken == TK_ADD || mToken == TK_SUB))
 		{
