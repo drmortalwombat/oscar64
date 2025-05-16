@@ -57174,6 +57174,81 @@ void NativeCodeProcedure::ResetVisited(void)
 
 void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* iblock, NativeCodeBasicBlock* block)
 {
+	// Detect copy loop
+	if (iblock->mInstructions.Size() == 7)
+	{
+		// 0000 (34)		LOADI2	R6(I)[-32768..65535] < -R0(P) + 0	{}
+		// 0001 (34)		STOREI2 < -R3(P) + 0 {V(175 'rooms' A)}, R6(IF)[-32768..65535]	{}
+		// 0002 (34)		LEAI	R0(P) + 0 < -R0(PF) + 0, CI:2	{}
+		// 0003 (34)		LEAI	R3(P) + 0 {V(175 'rooms' A)} < -R3(PF) + 0 {V(175 'rooms' A)}, CI : 2	{}
+		// 0004 (33)		BINOP2	R5(I)[0..35] < -R5(IF)[1..36], CI : 1	{}
+		// 0005 (33)		RELOP27	R6(B)[0..1] < -R5(I)[0..35], CI : 0	{}
+		// 0006 (33)		BRANCH < -R6(BF)[0..1]	{}
+		
+		if (iblock->mTrueJump == iblock && iblock->mEntryBlocks.Size() == 2)
+		{ 
+			if (iblock->mInstructions[0]->mCode == IC_LOAD && 
+					iblock->mInstructions[0]->mSrc[0].mTemp >= 0 &&
+				iblock->mInstructions[1]->mCode == IC_STORE && 
+					iblock->mInstructions[1]->mSrc[0].mTemp == iblock->mInstructions[0]->mDst.mTemp && iblock->mInstructions[1]->mSrc[1].mTemp >= 0 &&
+					iblock->mInstructions[1]->mSrc[0].mType == iblock->mInstructions[0]->mDst.mType &&
+				iblock->mInstructions[2]->mCode == IC_LEA && 
+					iblock->mInstructions[2]->mSrc[1].mTemp == iblock->mInstructions[0]->mSrc[0].mTemp &&
+					iblock->mInstructions[2]->mDst.mTemp == iblock->mInstructions[2]->mSrc[1].mTemp && 
+					iblock->mInstructions[2]->mSrc[0].mTemp < 0 && iblock->mInstructions[2]->mSrc[0].mIntConst == InterTypeSize[iblock->mInstructions[0]->mDst.mType] &&
+				iblock->mInstructions[3]->mCode == IC_LEA && 
+					iblock->mInstructions[3]->mSrc[1].mTemp == iblock->mInstructions[1]->mSrc[1].mTemp &&
+					iblock->mInstructions[3]->mDst.mTemp == iblock->mInstructions[3]->mSrc[1].mTemp &&
+					iblock->mInstructions[3]->mSrc[0].mTemp < 0 && iblock->mInstructions[3]->mSrc[0].mIntConst == InterTypeSize[iblock->mInstructions[0]->mDst.mType] &&
+				iblock->mInstructions[4]->mCode == IC_BINARY_OPERATOR && iblock->mInstructions[4]->mOperator == IA_SUB &&
+					iblock->mInstructions[4]->mDst.mTemp == iblock->mInstructions[4]->mSrc[1].mTemp &&
+					iblock->mInstructions[4]->mSrc[0].mTemp < 0 && iblock->mInstructions[4]->mSrc[0].mIntConst == 1 &&
+				iblock->mInstructions[5]->mCode == IC_RELATIONAL_OPERATOR && iblock->mInstructions[5]->mOperator == IA_CMPGU &&
+					iblock->mInstructions[4]->mDst.mTemp == iblock->mInstructions[5]->mSrc[1].mTemp &&
+					iblock->mInstructions[5]->mSrc[0].mTemp < 0 && iblock->mInstructions[5]->mSrc[0].mIntConst == 0 &&
+				iblock->mInstructions[6]->mCode == IC_BRANCH &&
+					iblock->mInstructions[5]->mDst.mTemp == iblock->mInstructions[6]->mSrc[0].mTemp
+				)
+			{
+				if (!iblock->mFalseJump->mEntryRequiredTemps[iblock->mInstructions[0]->mSrc[0].mTemp] && 
+					!iblock->mFalseJump->mEntryRequiredTemps[iblock->mInstructions[1]->mSrc[1].mTemp] &&
+					iblock->mInstructions[4]->mSrc[1].IsUByte() && iblock->mInstructions[4]->mSrc[1].mRange.mMaxValue * InterTypeSize[iblock->mInstructions[0]->mDst.mType] < 256)
+				{
+					int	ireg = BC_REG_TMP + iproc->mTempOffset[iblock->mInstructions[4]->mDst.mTemp];
+					int	sreg = BC_REG_TMP + iproc->mTempOffset[iblock->mInstructions[0]->mSrc[0].mTemp];
+					int	dreg = BC_REG_TMP + iproc->mTempOffset[iblock->mInstructions[1]->mSrc[1].mTemp];
+
+					InterInstruction* ins = iblock->mInstructions[0];
+
+					int sz = InterTypeSize[iblock->mInstructions[0]->mDst.mType];
+					if (sz == 1)
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDX, ASMIM_ZERO_PAGE, ireg));
+					else
+					{
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, ireg));
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_ASL));
+						if (sz == 4)
+							block->mIns.Push(NativeCodeInstruction(ins, ASMIT_ASL));
+						block->mIns.Push(NativeCodeInstruction(ins, ASMIT_TAX));
+					}
+					block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+
+					NativeCodeBasicBlock* lblock = AllocateBlock();
+
+					block->Close(ins, lblock, nullptr, ASMIT_JMP);
+					lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_INDIRECT_Y, sreg));
+					lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_INDIRECT_Y, dreg));
+					lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_INY));
+					lblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_DEX));
+
+					lblock->Close(ins, lblock, CompileBlock(iproc, iblock->mFalseJump), ASMIT_BNE);
+
+					return;
+				}
+			}
+		}
+	}
+
 	int	i = 0;
 	while (i < iblock->mInstructions.Size())
 	{

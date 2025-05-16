@@ -28,15 +28,17 @@ public:
 	static_vector(const static_vector & v)
 		: _size(v._size) 
 	{
+		size_t n = _size;
 		T *	data = (T*)_space, * vdata = (T*)(v._space);
-		for(size_t i=0; i<_size; i++)
+		for(size_t i=0; i<n; i++)
 			new (data + i)T(vdata[i]);
 	}
 
 	~static_vector(void)
 	{
 		T *	data = (T*)_space;
-		for(size_t i=0; i<_size; i++)
+		size_t n = _size;
+		for(size_t i=0; i<n; i++)
 			data[i].~T();
 	}
 
@@ -45,10 +47,12 @@ public:
 		if (this != &v)
 		{
 			T *	data = (T*)_space, * vdata = (T*)(v._space);
-			for(size_t i=0; i<_size; i++)
+			size_t n = _size;
+			for(size_t i=0; i<n; i++)
 				data[i].~T();
 			_size = v._size; 
-			for(size_t i=0; i<_size; i++)
+			n = _size;
+			for(size_t i=0; i<n; i++)
 				new (data + i)T(vdata[i]);
 		}
 		return *this;
