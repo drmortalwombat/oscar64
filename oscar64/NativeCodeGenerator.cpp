@@ -5243,6 +5243,7 @@ void NativeCodeInstruction::Assemble(NativeCodeBasicBlock* block)
 		rl.mFlags = LREF_BREAKPOINT;
 
 		block->mRelocations.Push(rl);
+		block->PutByte(0xEA);
 	}
 	else if (mType == ASMIT_JSR && mLinkerObject && (mLinkerObject->mFlags & LOBJF_INLINE))
 	{
