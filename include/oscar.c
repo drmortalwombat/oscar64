@@ -129,3 +129,10 @@ __native const char * oscar_expand_lzo_buf(char * dp, const char * sp)
 
 	return sp + 1;
 }
+
+void debugcrash(void)
+{
+	__asm volatile {
+		byt $02
+	}
+}

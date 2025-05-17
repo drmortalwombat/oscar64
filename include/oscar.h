@@ -18,6 +18,8 @@ void breakpoint(void);
 
 #pragma intrinsic(breakpoint)
 
+void debugcrash(void);
+
 #pragma compile("oscar.c")
 
 #endif

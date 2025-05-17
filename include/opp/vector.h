@@ -27,7 +27,8 @@ public:
 	vector(const vector & v)
 		: _data((T*)malloc(v._size * sizeof(T))), _size(v._size), _capacity(v._size) 
 	{
-		for(size_t i=0; i<_size; i++)
+		size_t n = _size;
+		for(size_t i=0; i<n; i++)
 			new (_data + i)T(v._data[i]);
 	}
 
@@ -50,14 +51,16 @@ public:
 	{
 		if (this != &v)
 		{
-			for(size_t i=0; i<_size; i++)
+			size_t n = _size;
+			for(size_t i=0; i<n; i++)
 				_data[i].~T();
 			free(_data);
 
 			_data = (T*)malloc(v._size * sizeof(T));
 			_size = v._size; 
 			_capacity = v._size; 
-			for(size_t i=0; i<_size; i++)
+			n = _size;
+			for(size_t i=0; i<n; i++)
 				new (_data + i)T(v._data[i]);		
 		}
 		return *this;
