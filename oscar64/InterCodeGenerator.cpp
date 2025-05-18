@@ -5455,6 +5455,37 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			return ExValue(TheVoidTypeDeclaration);
 		}
 
+		case EX_FORBODY:
+		{
+			DestructStack* odestack = destack;
+
+			InterInstruction* jins0 = new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP);
+			InterInstruction* jins1 = new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP);
+
+			InterCodeBasicBlock* lblock = new InterCodeBasicBlock(proc);
+			InterCodeBasicBlock* cblock = new InterCodeBasicBlock(proc);
+
+			block->Append(jins0);
+			block->Close(lblock, nullptr);
+
+			DestructStack* idestack = destack;
+
+			vr = TranslateExpression(procType, proc, lblock, exp->mLeft, destack, gotos, breakBlock, BranchTarget(cblock, idestack), inlineMapper);
+
+			lblock->Append(jins1);
+			lblock->Close(cblock, nullptr);
+
+			UnwindDestructStack(procType, proc, cblock, destack, idestack, inlineMapper);
+			destack = idestack;
+
+			block = cblock;
+
+			exp = exp->mRight;
+			if (!exp)
+				return ExValue(TheVoidTypeDeclaration);
+
+		} break;
+
 		case EX_FOR:
 		{
 			DestructStack* odestack = destack;

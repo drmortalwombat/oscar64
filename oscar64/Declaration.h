@@ -218,6 +218,7 @@ enum ExpressionType
 	EX_IF,
 	EX_ELSE,
 	EX_FOR,
+	EX_FORBODY,
 	EX_DO,
 	EX_SCOPE,
 	EX_BREAK,
@@ -385,5 +386,6 @@ extern Declaration* TheBoolTypeDeclaration, * TheFloatTypeDeclaration, * TheVoid
 extern Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 extern Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
 extern Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration, * TheNullPointerTypeDeclaration;
+extern Declaration* TheTrueConstDeclaration, * TheFalseConstDeclaration;
 extern Expression* TheVoidExpression;
 

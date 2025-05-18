@@ -974,6 +974,11 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		if (exp->mLeft->mLeft->mRight)
 			ldec = Analyze(exp->mLeft->mLeft->mRight, procDec, 0);
 		break;
+	case EX_FORBODY:
+		ldec = Analyze(exp->mLeft, procDec, 0);
+		if (exp->mRight)
+			rdec = Analyze(exp->mRight, procDec, 0);
+		break;
 	case EX_DO:
 		ldec = Analyze(exp->mRight, procDec, 0);
 		rdec = Analyze(exp->mLeft, procDec, ANAFL_RHS);

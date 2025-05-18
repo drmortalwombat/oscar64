@@ -10712,7 +10712,7 @@ Expression* Parser::ParseStatement(void)
 								}
 								conditionExp->mRight->mDecValue->mInteger = endValue;
 
-								Expression* unrollBody = new Expression(mScanner->mLocation, EX_SEQUENCE);
+								Expression* unrollBody = new Expression(mScanner->mLocation, EX_FORBODY);
 								unrollBody->mLeft = bodyExp;
 								Expression* bexp = unrollBody;
 								if ((endValue - startValue) * stepValue > 0)
@@ -10722,7 +10722,7 @@ Expression* Parser::ParseStatement(void)
 										bexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
 										bexp = bexp->mRight;
 										bexp->mLeft = iterateExp;
-										bexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+										bexp->mRight = new Expression(mScanner->mLocation, EX_FORBODY);
 										bexp = bexp->mRight;
 										bexp->mLeft = bodyExp;
 									}
@@ -10732,16 +10732,21 @@ Expression* Parser::ParseStatement(void)
 
 								if (remain)
 								{
-									finalExp = new Expression(mScanner->mLocation, EX_SEQUENCE);
-									finalExp->mLeft = bodyExp;
-									Expression* bexp = finalExp;
+									finalExp = new Expression(mScanner->mLocation, EX_DO);
+									finalExp->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+									finalExp->mLeft->mDecType = TheBoolTypeDeclaration;
+									finalExp->mLeft->mDecValue = TheFalseConstDeclaration;
+
+									finalExp->mRight = new Expression(mScanner->mLocation, EX_FORBODY);
+									finalExp->mRight->mLeft = bodyExp;
+									Expression* bexp = finalExp->mRight;
 
 									for (int i = 1; i < remain; i++)
 									{
 										bexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
 										bexp = bexp->mRight;
 										bexp->mLeft = iterateExp;
-										bexp->mRight = new Expression(mScanner->mLocation, EX_SEQUENCE);
+										bexp->mRight = new Expression(mScanner->mLocation, EX_FORBODY);
 										bexp = bexp->mRight;
 										bexp->mLeft = bodyExp;
 									}

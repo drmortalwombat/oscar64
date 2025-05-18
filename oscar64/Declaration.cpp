@@ -274,6 +274,9 @@ void Expression::Dump(int ident) const
 	case EX_FOR:
 		printf("FOR");
 		break;
+	case EX_FORBODY:
+		printf("FORBODY");
+		break;
 	case EX_DO:
 		printf("DO");
 		break;
@@ -3106,6 +3109,7 @@ Declaration* TheVoidFunctionTypeDeclaration, * TheConstVoidValueDeclaration;
 Declaration* TheCharPointerTypeDeclaration, * TheConstCharPointerTypeDeclaration;
 Expression* TheVoidExpression;
 Declaration* TheNullptrConstDeclaration, * TheZeroIntegerConstDeclaration, * TheZeroFloatConstDeclaration, * TheNullPointerTypeDeclaration;
+Declaration* TheTrueConstDeclaration, * TheFalseConstDeclaration;
 
 void InitDeclarations(void)
 {
@@ -3207,4 +3211,13 @@ void InitDeclarations(void)
 	TheZeroFloatConstDeclaration->mBase = TheFloatTypeDeclaration;
 	TheZeroFloatConstDeclaration->mSize = 4;
 
+	TheTrueConstDeclaration = new Declaration(noloc, DT_CONST_INTEGER);
+	TheTrueConstDeclaration->mBase = TheBoolTypeDeclaration;
+	TheTrueConstDeclaration->mSize = 1;
+	TheTrueConstDeclaration->mInteger = 1;
+
+	TheFalseConstDeclaration = new Declaration(noloc, DT_CONST_INTEGER);
+	TheFalseConstDeclaration->mBase = TheBoolTypeDeclaration;
+	TheFalseConstDeclaration->mSize = 1;
+	TheFalseConstDeclaration->mInteger = 0;
 }

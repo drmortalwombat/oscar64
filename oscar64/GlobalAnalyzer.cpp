@@ -1141,6 +1141,11 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, boo
 		if (exp->mLeft->mLeft->mRight)
 			ldec = Analyze(exp->mLeft->mLeft->mRight, procDec, false, false);
 		break;
+	case EX_FORBODY:
+		ldec = Analyze(exp->mLeft, procDec, false, false);
+		if (exp->mRight)
+			Analyze(exp->mRight, procDec, false, false);
+		break;
 	case EX_DO:
 		procDec->mComplexity += 20;
 
