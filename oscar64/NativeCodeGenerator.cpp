@@ -14291,7 +14291,7 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 				index += ins->mSrc[1].mVarIndex + proc->mLocalSize + 2;
 			index += mFrameOffset;
 
-			if (ins->mSrc[0].IsUByte() && ins->mSrc[0].mRange.mMaxValue + index < 256 && !isub)
+			if (ins->mSrc[0].IsUByte() && ins->mSrc[0].mRange.mMaxValue + index < 256 && !isub && index >= 0)
 			{
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ireg]));
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_ADC, ASMIM_IMMEDIATE, index));
@@ -39522,6 +39522,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				mExitRequiredRegs += CPU_REG_A;
 				prevBlock->mExitRequiredRegs += CPU_REG_A;
 
+				if (mEntryRequiredRegs[CPU_REG_X])
+					mIns[ai].mLive |= LIVE_CPU_REG_X;
+				if (mEntryRequiredRegs[CPU_REG_Y])
+					mIns[ai].mLive |= LIVE_CPU_REG_Y;
 				prevBlock->mIns.Push(mIns[ai]);
 				mIns.Remove(ai);
 
@@ -55017,7 +55021,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "rollright32");
+	CheckFunc = !strcmp(mIdent->mString, "show_floor");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
