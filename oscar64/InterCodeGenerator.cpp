@@ -4994,64 +4994,92 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = TranslateExpression(procType, proc, tblock, exp->mRight->mLeft, destack, gotos, breakBlock, continueBlock, inlineMapper);
 				vr = TranslateExpression(procType, proc, fblock, exp->mRight->mRight, destack, gotos, breakBlock, continueBlock, inlineMapper);
 
-				int			ttemp;
-				InterType	ttype, stypel, styper;
+				int			ttemp, tref = 0;
+				InterType	ttype;
 
-				stypel = InterTypeOf(vl.mType);
-				styper = InterTypeOf(vr.mType);
+				Declaration* dtype = exp->mDecType;
 
-				Declaration* dtype;
-				if (stypel == IT_POINTER || styper == IT_POINTER)
+				if (dtype->IsReference())
 				{
-					if (vl.mType->mType == DT_TYPE_ARRAY)
-						vl = Dereference(proc, exp, tblock, inlineMapper, vl, 1);
-					else
-						vl = Dereference(proc, exp, tblock, inlineMapper, vl);
+					vl = Dereference(proc, exp, block, inlineMapper, vl, 1);
+					vr = Dereference(proc, exp, block, inlineMapper, vr, 1);
+					tref = 1;
 
-					if (vr.mType->mType == DT_TYPE_ARRAY)
-						vr = Dereference(proc, exp, fblock, inlineMapper, vr, 1);
-					else
-						vr = Dereference(proc, exp, fblock, inlineMapper, vr);
-
-					if (vl.mType->mBase->IsSubType(vr.mType->mBase))
-						dtype = vr.mType;
-					else if (vr.mType->mBase->IsSubType(vl.mType->mBase))
-						dtype = vl.mType;
-					else
-					{
-						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible conditional types");
-						dtype = vl.mType;
-					}
-
-					Declaration* ntype = new Declaration(dtype->mLocation, DT_TYPE_POINTER);
-					ntype->mBase = dtype->mBase;
-					dtype = ntype;
-
+					dtype = dtype->mBase;
 					ttype = IT_POINTER;
 				}
 				else
 				{
-					vl = Dereference(proc, exp, tblock, inlineMapper, vl);
-					vr = Dereference(proc, exp, fblock, inlineMapper, vr);
+					InterType	stypel, styper;
 
-					if (stypel == styper)
-					{
-						ttype = stypel;
-						dtype = vl.mType;
-					}
-					else if (stypel > styper)
-					{
-						ttype = stypel;
-						dtype = vl.mType;
+					if (vl.mType->IsReference())
+						vl = ToValue(proc, exp, block, inlineMapper, vl);
+					if (vr.mType->IsReference())
+						vr = ToValue(proc, exp, block, inlineMapper, vr);
 
-						vr = CoerceType(proc, exp, fblock, inlineMapper, vr, dtype);
+					stypel = InterTypeOf(vl.mType);
+					styper = InterTypeOf(vr.mType);
+
+					if (stypel == IT_POINTER || styper == IT_POINTER)
+					{
+						if (vl.mType->mType == DT_TYPE_ARRAY)
+							vl = Dereference(proc, exp, tblock, inlineMapper, vl, 1);
+						else
+							vl = Dereference(proc, exp, tblock, inlineMapper, vl);
+
+						if (vr.mType->mType == DT_TYPE_ARRAY)
+							vr = Dereference(proc, exp, fblock, inlineMapper, vr, 1);
+						else
+							vr = Dereference(proc, exp, fblock, inlineMapper, vr);
+
+						if (vl.mType->mBase && vr.mType->mBase)
+						{
+							if (vl.mType->mBase->IsSubType(vr.mType->mBase))
+								dtype = vr.mType;
+							else if (vr.mType->mBase->IsSubType(vl.mType->mBase))
+								dtype = vl.mType;
+							else
+							{
+								mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible conditional types");
+								dtype = vl.mType;
+							}
+						}
+						else
+						{
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible conditional types");
+							dtype = vl.mType;
+						}
+
+						Declaration* ntype = new Declaration(dtype->mLocation, DT_TYPE_POINTER);
+						ntype->mBase = dtype->mBase;
+						dtype = ntype;
+
+						ttype = IT_POINTER;
 					}
 					else
 					{
-						ttype = styper;
-						dtype = vr.mType;
+						vl = Dereference(proc, exp, tblock, inlineMapper, vl);
+						vr = Dereference(proc, exp, fblock, inlineMapper, vr);
 
-						vl = CoerceType(proc, exp, tblock, inlineMapper, vl, dtype);
+						if (stypel == styper)
+						{
+							ttype = stypel;
+							dtype = vl.mType;
+						}
+						else if (stypel > styper)
+						{
+							ttype = stypel;
+							dtype = vl.mType;
+
+							vr = CoerceType(proc, exp, fblock, inlineMapper, vr, dtype);
+						}
+						else
+						{
+							ttype = styper;
+							dtype = vr.mType;
+
+							vl = CoerceType(proc, exp, tblock, inlineMapper, vl, dtype);
+						}
 					}
 				}
 
@@ -5103,7 +5131,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 					block = eblock;
 
-					return ExValue(dtype, ttemp);
+					return ExValue(dtype, ttemp, tref);
 				}
 				else
 				{
