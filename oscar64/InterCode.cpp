@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <math.h>
 
+#define DISASSEMBLE_OPT	0
+
 static bool CheckFunc;
 static bool CheckCase;
 
@@ -26,6 +28,44 @@ static bool IsIntegerType(InterType type)
 {
 	return type >= IT_INT8 && type <= IT_INT32;
 }
+
+static int64 SignedTypeMin(InterType type)
+{
+	switch (type)
+	{
+	case IT_INT8:
+		return -128;
+	case IT_INT16:
+		return -32768;
+	default:
+		return -0x80000000LL;
+	}
+}
+
+static int64 SignedTypeMax(InterType type)
+{
+	switch (type)
+	{
+	case IT_INT8:
+		return 127;
+	case IT_INT16:
+		return 32767;
+	default:
+		return 0x7fffffff;
+	}
+}
+
+static int64 BuildLowerBitsMask(int64 v)
+{
+	v |= v >> 32;
+	v |= v >> 16;
+	v |= v >> 8;
+	v |= v >> 4;
+	v |= v >> 2;
+	v |= v >> 1;
+	return v;
+}
+
 
 IntegerValueRange::IntegerValueRange(void)
 	: mMinState(S_UNKNOWN), mMaxState(S_UNKNOWN)
@@ -1224,7 +1264,10 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 		}
 		break;
 	case IA_SHL:
-		return ToTypedUnsigned(val1 << val2, type);
+		if (val1 < 0 && val2 < 16 && val1 << val2 >= SignedTypeMin(type))
+			return ToTypedSigned(val1 << val2, type);
+		else
+			return ToTypedUnsigned(val1 << val2, type);
 	case IA_SHR:
 		return ToTypedUnsigned(val1, type) >> val2;
 	case IA_SAR:
@@ -6562,11 +6605,13 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					if (iins->mSrc[0].mTemp >= 0 && iins->mSrc[1].mTemp < 0)
 					{
 						ins->mSrc[0].mTemp = iins->mSrc[0].mTemp;
+						ins->mSrc[0].mRange.AddConstValue(IT_INT16, -iins->mSrc[1].mIntConst);
 						ins->mSrc[1].mIntConst += iins->mSrc[1].mIntConst;
 					}
 					else if (iins->mSrc[0].mTemp < 0 && iins->mSrc[1].mTemp >= 0)
 					{
 						ins->mSrc[0].mTemp = iins->mSrc[1].mTemp;
+						ins->mSrc[0].mRange.AddConstValue(IT_INT16, -iins->mSrc[0].mIntConst);
 						ins->mSrc[1].mIntConst += iins->mSrc[0].mIntConst;
 					}
 					else
@@ -6577,6 +6622,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 					if (iins->mSrc[0].mTemp < 0 && iins->mSrc[1].mTemp >= 0)
 					{
 						ins->mSrc[0].mTemp = iins->mSrc[1].mTemp;
+						ins->mSrc[0].mRange.AddConstValue(IT_INT16, iins->mSrc[0].mIntConst);
 						ins->mSrc[1].mIntConst -= iins->mSrc[0].mIntConst;
 					}
 					else
@@ -8065,43 +8111,6 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 	}
 
 	return changed;
-}
-
-static int64 SignedTypeMin(InterType type)
-{
-	switch (type)
-	{
-	case IT_INT8:
-		return -128;
-	case IT_INT16:
-		return -32768;
-	default:
-		return -0x80000000LL;
-	}
-}
-
-static int64 SignedTypeMax(InterType type)
-{
-	switch (type)
-	{
-	case IT_INT8:
-		return 127;
-	case IT_INT16:
-		return 32767;
-	default:
-		return 0x7fffffff;
-	}
-}
-
-static int64 BuildLowerBitsMask(int64 v)
-{
-	v |= v >> 32;
-	v |= v >> 16;
-	v |= v >> 8;
-	v |= v >> 4;
-	v |= v >> 2;
-	v |= v >> 1;
-	return v;
 }
 
 void InterCodeBasicBlock::UnionIntegerRanges(const InterCodeBasicBlock* block)
@@ -23572,7 +23581,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "mbox::configure_animations");
+	CheckFunc = !strcmp(mIdent->mString, "check_mulli");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -25523,7 +25532,7 @@ void InterCodeProcedure::Disassemble(FILE* file)
 
 void InterCodeProcedure::Disassemble(const char* name, bool dumpSets)
 {
-#if 0
+#if DISASSEMBLE_OPT
 #ifdef _WIN32
 	FILE* file;
 	static bool	initial = true;

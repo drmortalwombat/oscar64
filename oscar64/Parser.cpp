@@ -516,8 +516,19 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 									}
 									else
 									{
+										int alignment = mdec->mBase->mAlignment;
+										if (alignment == 0)
+											alignment = 1;
+
 										bitsleft = 0;
+										if (mdec->mBase->mType == DT_TYPE_ARRAY && mdec->mBase->mBase->IsSimpleType() && mdec->mBase->mBase->mSize > 1)
+											alignment = mdec->mBase->mBase->mSize;
+
+										offset = (offset + alignment - 1) & ~(alignment - 1);
 										offset += mdec->mBase->mSize;
+
+										if (alignment > dec->mAlignment)
+											dec->mAlignment = alignment;
 									}
 
 									if (offset > dec->mSize)

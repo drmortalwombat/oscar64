@@ -246,6 +246,12 @@ enum ExpressionType
 	EX_AGGREGATE
 };
 
+static const uint32 ANAFL_LHS = (1U << 0);
+static const uint32 ANAFL_RHS = (1U << 1);
+static const uint32 ANAFL_ASSIGN = (1U << 2);
+static const uint32 ANAFL_ALIAS = (1U << 3);
+
+
 class Expression
 {
 public:
@@ -262,6 +268,7 @@ public:
 	AsmInsType				mAsmInsType;
 	AsmInsMode				mAsmInsMode;
 	bool					mConst;
+	uint32					mFlags;
 
 	Expression* LogicInvertExpression(void);
 	Expression* ConstantFold(Errors * errors, LinkerSection* dataSection, Linker * linker = nullptr);

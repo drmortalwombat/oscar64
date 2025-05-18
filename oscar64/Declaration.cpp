@@ -156,7 +156,7 @@ void DeclarationScope::End(const Location& loc)
 }
 
 Expression::Expression(const Location& loc, ExpressionType type)
-	:	mLocation(loc), mEndLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false), mDecType(nullptr), mDecValue(nullptr), mToken(TK_NONE)
+	:	mLocation(loc), mEndLocation(loc), mType(type), mLeft(nullptr), mRight(nullptr), mConst(false), mDecType(nullptr), mDecValue(nullptr), mToken(TK_NONE), mFlags(0)
 {
 	static uint32	gUID = 0;
 	mUID = gUID++;

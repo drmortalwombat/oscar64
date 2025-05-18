@@ -35,7 +35,7 @@ protected:
 	int CallerInvokes(Declaration* called);
 	int CallerInvokes(Declaration* caller, Declaration* called);
 
-	Declaration* Analyze(Expression* exp, Declaration* procDec, bool lhs, bool aliasing);
+	Declaration* Analyze(Expression* exp, Declaration* procDec, uint32 flags);
 
 	bool IsStackParam(const Declaration* pdec) const;
 	bool MarkCycle(Declaration* rootDec, Declaration* procDec);

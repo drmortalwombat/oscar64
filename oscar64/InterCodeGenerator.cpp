@@ -51,7 +51,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::ToValue(InterCodeProcedure* proc
 	return v;
 }
 
-InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, InlineMapper* inlineMapper, ExValue v, int level)
+InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, InlineMapper* inlineMapper, ExValue v, int level, int limit)
 {
 	while (v.mReference > level)
 	{
@@ -72,10 +72,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 		ins->mSrc[0].mStride = v.mReference == 1 ? v.mType->mStripe : 1;
 
 
-		if (v.mReference == 1 && v.mType->mType == DT_TYPE_ENUM && !v.mBits)
+		if (v.mReference == 1)
 		{
-			ins->mDst.mRange.LimitMin(v.mType->mMinValue);
-			ins->mDst.mRange.LimitMax(v.mType->mMaxValue);
+			if (v.mType->mType == DT_TYPE_ENUM && !v.mBits)
+			{
+				ins->mDst.mRange.LimitMin(v.mType->mMinValue);
+				ins->mDst.mRange.LimitMax(v.mType->mMaxValue);
+			}
+			else if (v.mType->mType == DT_TYPE_INTEGER && !v.mBits && limit > 0)
+			{
+				ins->mDst.mRange.LimitMin(0);
+				ins->mDst.mRange.LimitMax(limit - 1);
+			}
 		}
 
 		if (v.mType->mFlags & DTF_VOLATILE)
@@ -2820,6 +2828,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			}
 
 			vl = Dereference(proc, exp, block, inlineMapper, vl, vl.mType->mType == DT_TYPE_POINTER ? 0 : 1);
+
 			vr = Dereference(proc, exp, block, inlineMapper, vr);
 
 			if (vl.mType->mType != DT_TYPE_ARRAY && vl.mType->mType != DT_TYPE_POINTER)
@@ -2854,6 +2863,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			ains->mSrc[1].mMemory = IM_INDIRECT;
 			ains->mSrc[0].mType = IT_INT16;
 			ains->mSrc[0].mTemp = mins->mDst.mTemp;
+			if (vl.mType->mType == DT_TYPE_ARRAY && vl.mType->mSize > vl.mType->mBase->mSize && (exp->mFlags & ANAFL_RHS))
+			{
+				ains->mSrc[0].mRange.LimitMin(0);
+				ains->mSrc[0].mRange.LimitMax(vl.mType->mSize);
+			}
 			ains->mSrc[1].mType = IT_POINTER;
 			ains->mSrc[1].mTemp = vl.mTemp;
 			ains->mDst.mType = IT_POINTER;

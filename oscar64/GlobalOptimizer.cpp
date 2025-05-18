@@ -614,10 +614,6 @@ void GlobalOptimizer::RegisterProc(Declaration* to)
 	}
 }
 
-static const uint32 ANAFL_LHS		=	(1U << 0);
-static const uint32 ANAFL_RHS		=	(1U << 1);
-static const uint32 ANAFL_ASSIGN	=	(1U << 2);
-
 Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uint32 flags)
 {
 	Declaration* ldec, * rdec;

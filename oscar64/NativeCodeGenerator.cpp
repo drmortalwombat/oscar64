@@ -55021,7 +55021,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "show_floor");
+	CheckFunc = !strcmp(mIdent->mString, "Test::run");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

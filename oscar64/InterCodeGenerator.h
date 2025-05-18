@@ -94,7 +94,7 @@ protected:
 	void BuildSwitchTree(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock* block, InlineMapper * inlineMapper, ExValue v, const SwitchNodeArray& nodes, int left, int right, int vleft, int vright, InterCodeBasicBlock* dblock);
 
 	ExValue ToValue(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, InlineMapper* inlineMapper, ExValue v);
-	ExValue Dereference(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, InlineMapper* inlineMapper, ExValue v, int level = 0);
+	ExValue Dereference(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, InlineMapper* inlineMapper, ExValue v, int level = 0, int limit = 0);
 	ExValue CoerceType(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock*& block, InlineMapper* inlineMapper, ExValue v, Declaration * type, bool checkTrunc = true);
 	ExValue TranslateExpression(Declaration * procType, InterCodeProcedure * proc, InterCodeBasicBlock*& block, Expression* exp, DestructStack*& destack, GotoNode*& gotos, const BranchTarget & breakBlock, const BranchTarget& continueBlock, InlineMapper * inlineMapper, ExValue * lrexp = nullptr);
 	void TranslateLogic(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock* block, InterCodeBasicBlock* tblock, InterCodeBasicBlock* fblock, Expression* exp, DestructStack*& destack, GotoNode*& gotos, InlineMapper* inlineMapper);
