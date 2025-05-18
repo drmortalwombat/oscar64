@@ -25083,6 +25083,7 @@ void NativeCodeBasicBlock::ChangeTailZPStoreToX(int addr)
 
 	if (mEntryBlocks.Size() == 1)
 	{
+		mEntryRequiredRegs += CPU_REG_X;
 		mEntryBlocks[0]->ChangeTailZPStoreToX(addr);
 		return;
 	}
@@ -42377,6 +42378,7 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 				head->mTrueJump = lblock;
 				head->mFalseJump = nullptr;
 
+				eblock->mEntryRequiredRegs += CPU_REG_X;
 				tail->mEntryRequiredRegs += CPU_REG_X;
 				tail->mExitRequiredRegs += CPU_REG_X;
 				head->mExitRequiredRegs += CPU_REG_X;
@@ -42489,7 +42491,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BuildSingleExit(NativeCodeProcedure*
 		nblock->mTrueJump = this;
 
 		nblock->mEntryRequiredRegs = this->mEntryRequiredRegs;
-		nblock->mExitRequiredRegs = this->mExitRequiredRegs;
+		nblock->mExitRequiredRegs = this->mEntryRequiredRegs;
 
 		int k = mEntryBlocks.IndexOf(block);
 		mEntryBlocks[k] = nblock;
@@ -46236,6 +46238,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate1(int i, int pass)
 {
 	if (mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_CONST) && 
 		mIns[i].mLinkerObject->mReferences.Size() == 0 &&
+		mIns[i].mAddress < mIns[i].mLinkerObject->mSize &&
 		!mIns[i].ChangesAddress() && HasAsmInstructionMode(mIns[i].mType, ASMIM_IMMEDIATE))
 	{
 		mIns[i].mMode = ASMIM_IMMEDIATE;
@@ -55021,7 +55024,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "Test::run");
+	CheckFunc = !strcmp(mIdent->mString, "Ball::hasCollision");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
