@@ -2084,6 +2084,21 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec, bool sam
 
 		return true;
 	}
+	else if (tdec->mType == DT_TYPE_ARRAY && fdec->mType == DT_TYPE_ARRAY && tdec->mTemplate && tdec->mBase->IsConstSame(fdec->mBase))
+	{
+		Declaration* ifdec = new Declaration(fdec->mLocation, DT_CONST_INTEGER);
+		ifdec->mBase = TheSignedIntTypeDeclaration;
+		ifdec->mSize = 2;
+		ifdec->mInteger = fdec->mSize / fdec->mBase->mSize;
+
+		Declaration * ipdec = mScope->Insert(tdec->mTemplate->mIdent, ifdec);
+		if (ipdec && !ipdec->IsSame(ifdec))
+			return false;
+
+		return true;
+
+
+	}
 	else if (tdec->mType == DT_TYPE_STRUCT && fdec->mType == DT_TYPE_STRUCT && tdec->mTemplate)
 	{
 		Declaration	*ftdec = tdec->mTemplate;

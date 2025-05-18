@@ -1367,8 +1367,18 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 			if (mScanner->mToken != TK_CLOSE_BRACKET)
 			{
 				Expression* exp = ParseRExpression();
-				if (exp->mType == EX_CONSTANT && exp->mDecType->IsIntegerType() && exp->mDecValue->mType == DT_CONST_INTEGER)
-					ndec->mSize = int(exp->mDecValue->mInteger);
+				if (exp->mType == EX_CONSTANT && exp->mDecType->IsIntegerType())
+				{
+					if (exp->mDecValue->mType == DT_CONST_INTEGER)
+						ndec->mSize = int(exp->mDecValue->mInteger);
+					else if (exp->mDecValue->mType == DT_CONST_TEMPLATE)
+					{
+						ndec->mSize = 0;
+						ndec->mTemplate = exp->mDecValue;
+					}
+					else
+						mErrors->Error(exp->mLocation, EERR_CONSTANT_TYPE, "Constant integer expression expected");
+				}
 				else
 					mErrors->Error(exp->mLocation, EERR_CONSTANT_TYPE, "Constant integer expression expected");
 				ndec->mFlags |= DTF_DEFINED;
@@ -1505,7 +1515,7 @@ Declaration * Parser::ParseFunctionDeclaration(Declaration* bdec)
 					adec->mType = DT_ARGUMENT;
 					adec->mVarIndex = vi;
 					adec->mOffset = 0;
-					if (adec->mBase->mType == DT_TYPE_ARRAY)
+					if (adec->mBase->mType == DT_TYPE_ARRAY && !adec->mBase->mTemplate)
 					{
 						Declaration* ndec = new Declaration(adec->mBase->mLocation, DT_TYPE_POINTER);
 						ndec->mBase = adec->mBase->mBase;
