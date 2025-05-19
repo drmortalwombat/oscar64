@@ -1610,8 +1610,9 @@ const Ident* Declaration::FullIdent(void)
 		Declaration* dec = mBase->mParams;
 		while (dec)
 		{
-			if (dec->mBase->mIdent)
-				tident = tident->Mangle(dec->mBase->MangleIdent()->mString);
+			const Ident* mident = dec->mBase->MangleIdent();
+			if (mident)
+				tident = tident->Mangle(mident->mString);
 			dec = dec->mNext;
 			if (dec)
 				tident = tident->Mangle(",");
@@ -1747,7 +1748,7 @@ const Ident* Declaration::MangleIdent(void)
 					}
 
 					dec = dec->mNext;
-					if (dec)
+					if (mMangleIdent && dec)
 						mMangleIdent = mMangleIdent->Mangle(",");
 				}
 			}
@@ -1764,10 +1765,13 @@ const Ident* Declaration::MangleIdent(void)
 
 		}
 
-		if (mFlags & DTF_CONST)
-			mMangleIdent = mMangleIdent->PreMangle("const ");
-		if (mFlags & DTF_VOLATILE)
-			mMangleIdent = mMangleIdent->PreMangle("volatile ");
+		if (mMangleIdent)
+		{
+			if (mFlags & DTF_CONST)
+				mMangleIdent = mMangleIdent->PreMangle("const ");
+			if (mFlags & DTF_VOLATILE)
+				mMangleIdent = mMangleIdent->PreMangle("volatile ");
+		}
 	}
 
 	return mMangleIdent;

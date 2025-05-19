@@ -20739,6 +20739,24 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 
 			if (i + 3 < mInstructions.Size() &&
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 0]->mDst.IsUByte() && mInstructions[i + 0]->mSrc[1].IsUByte() &&
+				mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mOperator == IA_EXT8TO16U &&
+				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+				mInstructions[i + 2]->mCode == IC_LEA && mInstructions[i + 2]->mSrc[1].mTemp >= 0 &&
+				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+				mInstructions[i + 3]->mCode == IC_STORE &&
+				mInstructions[i + 3]->mSrc[1].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[1].mFinal)
+			{
+				mInstructions[i + 3]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 1]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
+				mInstructions[i + 2]->mSrc[0].mRange = mInstructions[i + 0]->mSrc[1].mRange;
+				changed = true;
+			}
+
+
+			if (i + 3 < mInstructions.Size() &&
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR &&
 				mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 
@@ -23581,7 +23599,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "fill");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
