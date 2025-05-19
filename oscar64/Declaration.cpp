@@ -1437,6 +1437,34 @@ Declaration* Declaration::ConstCast(Declaration* ntype)
 			pdec->mSize = 2;
 			return pdec;
 		}
+		else if (mType == DT_VARIABLE && mBase->mType == DT_TYPE_ARRAY)
+		{
+			Expression* ex = new Expression(mLocation, EX_VARIABLE);
+			ex->mDecType = mBase;
+			ex->mDecValue = this;
+
+			Declaration* pdec = this->Clone();
+			pdec->mType = DT_CONST_POINTER;
+			pdec->mValue = ex;
+			pdec->mBase = ntype;
+			pdec->mSize = 2;
+
+			return pdec;
+		}
+		else if (mType == DT_VARIABLE_REF && mBase->mBase->mType == DT_TYPE_ARRAY)
+		{
+			Expression* ex = new Expression(mLocation, EX_VARIABLE);
+			ex->mDecType = mBase->mBase;
+			ex->mDecValue = this;
+
+			Declaration* pdec = this->Clone();
+			pdec->mType = DT_CONST_POINTER;
+			pdec->mValue = ex;
+			pdec->mBase = ntype;
+			pdec->mSize = 2;
+
+			return pdec;
+		}
 		else
 			return this;
 	}
@@ -2185,6 +2213,8 @@ bool Declaration::ResolveTemplate(Declaration* fdec, Declaration* tdec, bool sam
 		}
 		return false;
 	}
+	else if (!same && tdec->CanAssign(fdec))
+		return true;
 	else
 		return tdec->IsSame(fdec);
 }

@@ -825,6 +825,22 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 								pdec->mOptFlags |= OPTF_VAR_CONST;
 							}
 						}
+						else if (pex->mType == EX_VARIABLE && pdec->mBase->mType == DT_TYPE_POINTER && pex->mDecType->mType == DT_TYPE_ARRAY && (pex->mDecValue->mFlags & (DTF_GLOBAL | DTF_STATIC)) && pdec->mBase->CanAssign(pex->mDecType))
+						{
+							if (pdec->mOptFlags & OPTF_VAR_CONST)
+							{
+								if (pdec->mValue->mType != EX_VARIABLE || pdec->mValue->mDecValue != pex->mDecValue)
+								{
+									pdec->mOptFlags |= OPTF_VAR_NOCONST;
+									pdec->mOptFlags &= ~OPTF_VAR_CONST;
+								}
+							}
+							else
+							{
+								pdec->mValue = pex;
+								pdec->mOptFlags |= OPTF_VAR_CONST;
+							}
+						}
 						else
 						{
 							pdec->mOptFlags |= OPTF_VAR_NOCONST;

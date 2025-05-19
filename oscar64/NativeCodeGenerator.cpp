@@ -45469,6 +45469,37 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 		}
 	}
 
+	int shifti = -1, shiftr = -1;
+	for (int i = 0; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+			mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+			!(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+		{
+			shifti = i;
+			shiftr = mIns[i + 1].mAddress;
+			i++;
+		}
+		else if (shiftr >= 0)
+		{
+			if (shiftr >= 0 && mIns[i].ReferencesZeroPage(shiftr))
+				shiftr = -1;
+			else if (
+				mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 1 &&
+				mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress == shiftr &&
+				!(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
+			{
+				mIns[shifti].mType = ASMIT_NOP; mIns[shifti].mMode = ASMIM_IMPLIED;
+				mIns[i + 0].mType = ASMIT_LSR; mIns[i + 0].mMode = ASMIM_IMPLIED;
+				mIns[i + 1].mType = ASMIT_LDA;
+				mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_ROL));
+				shiftr = -1;
+				changed = true;
+			}
+		}
+	}
+
+
 #if 1
 	for (int i = 0; i < mIns.Size(); i++)
 	{
@@ -51273,6 +51304,64 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate6(int i, int pass)
 		return true;
 	}
 
+	// 20c7 : b1 10 __ LDA(P3), y; (marr + 0)
+	// 20c9 : 05 0d __ ORA P0; (sig + 0)
+	// 20cb : 85 1b __ STA ACCU + 0
+	// 20cd : b1 0e __ LDA(P1), y; (arr + 0)
+	// 20cf : 11 10 __ ORA(P3), y; (marr + 0)
+	// 20d1 : c5 1b __ CMP ACCU + 0
+
+	if (
+		mIns[i + 0].mType == ASMIT_LDA &&
+		mIns[i + 1].mType == ASMIT_ORA &&
+		mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 3].mType == ASMIT_LDA && 
+		mIns[i + 4].mType == ASMIT_ORA && mIns[i + 4].SameEffectiveAddress(mIns[i + 0]) &&
+		mIns[i + 5].mType == ASMIT_CMP && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress &&
+		!(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
+	{
+		mIns[i + 0].CopyMode(mIns[i + 3]);
+		mIns[i + 5].CopyMode(mIns[i + 4]);
+		mIns[i + 1].mType = ASMIT_EOR;
+
+		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+		mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+		mIns[i + 1].mLive |= (mIns[i + 0].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y));
+		mIns[i + 4].mLive |= (mIns[i + 0].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y));
+
+		return true;
+	}
+
+	// 20d5 : b1 10 __ LDA(P3), y; (marr + 0)
+	// 20d7 : 11 0e __ ORA(P1), y; (arr + 0)
+	// 20d9 : 85 1b __ STA ACCU + 0
+	// 20db : b1 10 __ LDA(P3), y; (marr + 0)
+	// 20dd : 05 0d __ ORA P0; (sig + 0)
+	// 20df : c5 1b __ CMP ACCU + 0
+
+	if (
+		mIns[i + 0].mType == ASMIT_LDA &&
+		mIns[i + 1].mType == ASMIT_ORA &&
+		mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 3].mType == ASMIT_LDA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) &&
+		mIns[i + 4].mType == ASMIT_ORA && 
+		mIns[i + 5].mType == ASMIT_CMP && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress &&
+		!(mIns[i + 5].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
+	{
+		mIns[i + 0].CopyMode(mIns[i + 4]);
+		mIns[i + 4].CopyMode(mIns[i + 3]);
+		mIns[i + 5].CopyMode(mIns[i + 3]);
+		mIns[i + 1].mType = ASMIT_EOR;
+
+		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+		mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+		mIns[i + 1].mLive |= (mIns[i + 0].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y));
+		mIns[i + 4].mLive |= (mIns[i + 0].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y));
+
+		return true;
+	}
 
 	return false;
 }
