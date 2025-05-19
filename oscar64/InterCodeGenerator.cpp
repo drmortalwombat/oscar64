@@ -3586,6 +3586,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				else
 					dtype = TheSignedIntTypeDeclaration;
 			}
+			else if (vl.mType->mSize == 1 && vr.mType->mSize == 1 && ((vr.mType->mFlags & DTF_SIGNED) || (vl.mType->mFlags & DTF_SIGNED)))
+				dtype = TheSignedIntTypeDeclaration;
 			else
 			{
 				if (vl.mType->mSize == 4 || vr.mType->mSize == 4)
