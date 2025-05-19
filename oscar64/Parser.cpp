@@ -7279,6 +7279,13 @@ Expression* Parser::ParseQualify(Expression* exp)
 						exp = nexp;
 					}
 				}
+				else if (mdec->mType == DT_CONST_INTEGER || mdec->mType == DT_CONST_FLOAT || mdec->mType == DT_CONST_POINTER || mdec->mType == DT_CONST_ADDRESS)
+				{
+					nexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+					nexp->mDecValue = mdec;
+					nexp->mDecType = mdec->mBase;
+					exp = nexp;
+				}
 			}
 			else if (destructor)
 			{
