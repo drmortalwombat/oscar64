@@ -662,6 +662,7 @@ void rirq_start(void)
         lda #100
         sta $d012
 
+        asl $d019
         cli
     }
 }

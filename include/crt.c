@@ -756,6 +756,11 @@ __asm mul32
 		sta	tmp + 6
 		sta	tmp + 7
 
+		lda tmp + 3
+		ora tmp + 2
+		ora tmp + 1
+		beq WB
+
 		lda	tmp + 0
 		jsr WM
 		lda	tmp + 1
@@ -773,6 +778,7 @@ WM:
 		stx accu + 1
 		sta accu
 		rts
+WB:		lda tmp + 0
 W0:
 		sec
 		ror
