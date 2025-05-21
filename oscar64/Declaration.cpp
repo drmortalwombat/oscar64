@@ -1237,19 +1237,19 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 	else if (mType == EX_INDEX && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE_REF && (mLeft->mDecValue->mFlags & DTF_GLOBAL) &&
 		mLeft->mDecType->mType == DT_TYPE_ARRAY && mLeft->mDecType->mStride == 0 &&
 		mRight->mType == EX_CONSTANT && mRight->mDecValue->mType == DT_CONST_INTEGER)
-		{
-			int offset = mLeft->mDecValue->mOffset + int(mDecType->mSize * mRight->mDecValue->mInteger);
+	{
+		int offset = mLeft->mDecValue->mOffset + int(mDecType->mSize * mRight->mDecValue->mInteger);
 
-			Expression* ex = new Expression(mLocation, EX_VARIABLE);
-			Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
-			dec->mFlags = mLeft->mDecValue->mFlags;
-			dec->mBase = mLeft->mDecValue->mBase;
-			dec->mOffset = offset;
-			dec->mSize = mDecType->mSize;
-			ex->mDecValue = dec;
-			ex->mDecType = mDecType;
-			return ex;
-			}
+		Expression* ex = new Expression(mLocation, EX_VARIABLE);
+		Declaration* dec = new Declaration(mLocation, DT_VARIABLE_REF);
+		dec->mFlags = mLeft->mDecValue->mFlags;
+		dec->mBase = mLeft->mDecValue->mBase;
+		dec->mOffset = offset;
+		dec->mSize = mDecType->mSize;
+		ex->mDecValue = dec;
+		ex->mDecType = mDecType;
+		return ex;
+	}
 	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight && mRight->mType == EX_CONSTANT)
 	{
 		Declaration* decf = mLeft->mDecValue, * decp = mRight->mDecValue;
@@ -1258,6 +1258,7 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		if (decp->mType == DT_CONST_FLOAT || decp->mType == DT_CONST_INTEGER)
 		{
 			double d = decp->mType == DT_CONST_FLOAT ? decp->mNumber : decp->mInteger;
+			double e = 0.0;
 
 			bool	check = false;
 
@@ -1277,6 +1278,10 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 				d = log(d);
 			else if (!strcmp(iname->mString, "exp"))
 				d = exp(d);
+			else if (!strcmp(iname->mString, "sqrt"))
+				d = sqrt(d);
+			else if (!strcmp(iname->mString, "atan"))
+				d = atan(d);
 			else
 				return this;
 
@@ -1284,6 +1289,36 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 			Declaration* dec = new Declaration(mLocation, DT_CONST_FLOAT);
 			dec->mBase = TheFloatTypeDeclaration;
 			dec->mNumber = d;
+			ex->mDecValue = dec;
+			ex->mDecType = dec->mBase;
+			return ex;
+		}
+	}
+	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight && 
+		mRight->mType == EX_LIST && mRight->mLeft->mType == EX_CONSTANT && mRight->mRight->mType == EX_CONSTANT)
+	{
+		Declaration* decf = mLeft->mDecValue, * decp1 = mRight->mLeft->mDecValue, * decp2 = mRight->mRight->mDecValue;
+		const Ident* iname = decf->mQualIdent;
+
+		if ((decp1->mType == DT_CONST_FLOAT || decp1->mType == DT_CONST_INTEGER) &&
+			(decp2->mType == DT_CONST_FLOAT || decp2->mType == DT_CONST_INTEGER))
+		{
+			double d1 = decp1->mType == DT_CONST_FLOAT ? decp1->mNumber : decp1->mInteger;
+			double d2 = decp2->mType == DT_CONST_FLOAT ? decp2->mNumber : decp2->mInteger;
+
+			bool	check = false;
+
+			if (!strcmp(iname->mString, "pow"))
+				d1 = pow(d1, d2);
+			else if (!strcmp(iname->mString, "atan2"))
+				d1 = atan2(d1, d2);
+			else
+				return this;
+
+			Expression* ex = new Expression(mLocation, EX_CONSTANT);
+			Declaration* dec = new Declaration(mLocation, DT_CONST_FLOAT);
+			dec->mBase = TheFloatTypeDeclaration;
+			dec->mNumber = d1;
 			ex->mDecValue = dec;
 			ex->mDecType = dec->mBase;
 			return ex;

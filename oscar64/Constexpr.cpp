@@ -1197,6 +1197,26 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
 			mResult.PutFloat(::exp(mParams[0].GetFloat()));
 		}
+		else if (!strcmp(iname->mString, "sqrt"))
+		{
+			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
+			mResult.PutFloat(::sqrt(mParams[0].GetFloat()));
+		}
+		else if (!strcmp(iname->mString, "atan"))
+		{
+			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
+			mResult.PutFloat(::atan(mParams[0].GetFloat()));
+		}
+		else if (!strcmp(iname->mString, "atan2"))
+		{
+			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
+			mResult.PutFloat(::atan2(mParams[0].GetFloat(), mParams[1].GetFloat()));
+		}
+		else if (!strcmp(iname->mString, "pow"))
+		{
+			mResult = Value(exp->mLocation, TheFloatTypeDeclaration);
+			mResult.PutFloat(::pow(mParams[0].GetFloat(), mParams[1].GetFloat()));
+		}
 		else
 			mErrors->Error(exp->mLeft->mDecValue->mLocation, EERR_OBJECT_NOT_FOUND, "Unknown intrinsic function", iname);
 	}

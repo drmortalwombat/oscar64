@@ -3715,6 +3715,18 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				else if (!strcmp(iname->mString, "exp"))
 				{
 				}
+				else if (!strcmp(iname->mString, "sqrt"))
+				{
+				}
+				else if (!strcmp(iname->mString, "atan"))
+				{
+				}
+				else if (!strcmp(iname->mString, "pow"))
+				{
+				}
+				else if (!strcmp(iname->mString, "atan2"))
+				{
+				}
 				else if (!strcmp(iname->mString, "breakpoint"))
 				{
 					InterInstruction* ins = new InterInstruction(MapLocation(exp, inlineMapper), IC_BREAKPOINT);
@@ -6219,7 +6231,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		}
 	}
 	else
-		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent->mString);
+		mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->FullIdent());
 
 	if (strcmp(proc->mIdent->mString, "main"))
 	{

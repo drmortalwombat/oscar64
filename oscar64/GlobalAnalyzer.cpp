@@ -685,7 +685,7 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* cexp, Expression* exp, Declara
 		}
 		else
 		{
-			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->mQualIdent);
+			mErrors->Error(dec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", dec->FullIdent());
 			if (cexp)
 				mErrors->Error(cexp->mLocation, EINFO_CALLED_FROM, "Called from here");
 

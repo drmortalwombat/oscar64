@@ -462,7 +462,7 @@ void GlobalOptimizer::AnalyzeProcedure(Expression* exp, Declaration* procDec)
 			Analyze(exp, procDec, false);
 		}
 		else
-			mErrors->Error(procDec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", procDec->mQualIdent);
+			mErrors->Error(procDec->mLocation, EERR_UNDEFINED_OBJECT, "Calling undefined function", procDec->FullIdent());
 
 		procDec->mOptFlags &= ~OPTF_ANALYZING;
 	}
