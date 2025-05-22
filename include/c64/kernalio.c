@@ -69,7 +69,7 @@ BANKINLINE bool krnio_open(char fnum, char device, char channel)
 {
 	krnio_pstatus[fnum] = KRNIO_OK;
 
-	return __asm
+	return char(__asm
 	{
 		lda	#0
 		sta accu
@@ -94,8 +94,7 @@ BANKINLINE bool krnio_open(char fnum, char device, char channel)
 
 		BANKOUT
 	E2:
-	};
-
+	});
 }
 
 #pragma native(krnio_open)
@@ -131,7 +130,7 @@ BANKINLINE krnioerr krnio_status(void)
 
 BANKINLINE bool krnio_load(char fnum, char device, char channel)
 {
-	return __asm
+	return char(__asm
 	{
 		BANKIN
 		lda	fnum
@@ -149,14 +148,14 @@ BANKINLINE bool krnio_load(char fnum, char device, char channel)
 		rol
 		eor #1
 		sta accu
-	};
+	});
 }
 
 #pragma native(krnio_load)
 
 BANKINLINE bool krnio_save(char device, const char* start, const char* end)
 {
-	return __asm
+	return char(__asm
 	{
 		BANKIN
 		lda	#0
@@ -175,14 +174,14 @@ BANKINLINE bool krnio_save(char device, const char* start, const char* end)
 		rol
 		eor #1
 		sta accu
-	};
+	});
 }
 
 #pragma native(krnio_save)
 
 BANKINLINE bool krnio_chkout(char fnum)
 {
-	return __asm
+	return char(__asm
 	{
 		BANKIN
 		ldx fnum
@@ -193,14 +192,14 @@ BANKINLINE bool krnio_chkout(char fnum)
 		rol
 		eor #1
 		sta accu
-	};
+	});
 }
 
 #pragma native(krnio_chkout)
 
 BANKINLINE bool krnio_chkin(char fnum)
 {
-	return __asm
+	return char(__asm
 	{
 		BANKIN
 		ldx fnum
@@ -211,7 +210,7 @@ BANKINLINE bool krnio_chkin(char fnum)
 		rol
 		eor #1
 		sta accu
-	};
+	});
 }
 
 #pragma native(krnio_chkin)
@@ -230,14 +229,14 @@ BANKINLINE void krnio_clrchn(void)
 
 BANKINLINE bool krnio_chrout(char ch)
 {
-	return __asm
+	return char(__asm
 	{
 		BANKIN
 		lda ch
 		jsr $ffd2		// chrout
 		sta accu
 		BANKOUT
-	};
+	});
 }
 
 #pragma native(krnio_chrout)
