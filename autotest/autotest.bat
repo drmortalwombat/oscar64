@@ -57,7 +57,7 @@ rem @echo off
 @call :testh constructortest.cpp
 @if %errorlevel% neq 0 goto :error
 
-@call :testh copyconstructor.cpp
+@call :testn copyconstructor.cpp
 @if %errorlevel% neq 0 goto :error
 
 @call :testh copyassign.cpp

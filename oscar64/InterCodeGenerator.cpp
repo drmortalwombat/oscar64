@@ -1659,7 +1659,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 				mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 			if (vp.mTemp != vr.mTemp)
-				CopyStructSimple(proc, exp, block, inlineMapper, vp, vr);
+				CopyStruct(proc, exp, block, vp, vr, inlineMapper, false);
 		}
 		else
 		{

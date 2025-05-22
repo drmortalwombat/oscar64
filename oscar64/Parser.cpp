@@ -4371,22 +4371,57 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 
 				rexp = ConcatExpression(rexp, AddFunctionCallRefReturned(pex));
 
-				if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && 
+				if (pdec->mBase->mType == DT_TYPE_STRUCT && pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT)
+				{
+					Declaration* vdec = AllocTempVar(pex->mDecType);
+
+					Expression* vexp = new Expression(pex->mLocation, EX_VARIABLE);
+					vexp->mDecType = pex->mDecType;
+					vexp->mDecValue = vdec;
+
+					Expression* cexp = new Expression(pex->mLocation, pex->mType);
+					cexp->mDecType = pex->mDecType;
+					cexp->mDecValue = pex->mDecValue;
+					cexp->mLeft = pex->mLeft;
+					cexp->mRight = pex->mRight;
+					cexp->mToken = pex->mToken;
+
+					pex->mType = EX_INITIALIZATION;
+					pex->mToken = TK_ASSIGN;
+					pex->mLeft = vexp;
+					pex->mRight = cexp;
+					pex->mDecValue = nullptr;
+					pex->mDecType = vdec->mBase;
+
+					if (vdec->mBase->mDestructor)
+					{
+						Expression* texp = new Expression(mScanner->mLocation, EX_PREFIX);
+						texp->mToken = TK_BINARY_AND;
+						texp->mLeft = vexp;
+						texp->mDecType = new Declaration(mScanner->mLocation, DT_TYPE_POINTER);
+						texp->mDecType->mFlags |= DTF_CONST | DTF_DEFINED;
+						texp->mDecType->mBase = vdec->mBase;
+						texp->mDecType->mSize = 2;
+
+						Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
+						cexp->mDecValue = vdec->mBase->mDestructor;
+						cexp->mDecType = cexp->mDecValue->mBase;
+
+						Expression* dexp = new Expression(mScanner->mLocation, EX_CALL);
+						dexp->mLeft = cexp;
+						dexp->mRight = texp;
+
+						rexp = ConcatExpression(rexp, dexp);
+					}
+				}
+				else if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && 
 					(pex->mDecType->mType != DT_TYPE_REFERENCE && pex->mDecType->mType != DT_TYPE_RVALUEREF) && pex->mType == EX_CALL)
 				{
 					// Returning a value object for pass as reference
 					// add a temporary variable
 
 					Declaration* vdec = AllocTempVar(pex->mDecType);
-#if 0
-					int	nindex = mLocalIndex++;
 
-					Declaration* vdec = new Declaration(exp->mLocation, DT_VARIABLE);
-
-					vdec->mVarIndex = nindex;
-					vdec->mBase = pex->mDecType;
-					vdec->mSize = pex->mDecType->mSize;
-#endif
 					Expression* vexp = new Expression(pex->mLocation, EX_VARIABLE);
 					vexp->mDecType = pex->mDecType;
 					vexp->mDecValue = vdec;

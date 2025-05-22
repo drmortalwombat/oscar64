@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 
 int t, n;
 
@@ -161,7 +162,7 @@ void test_return_value(void)
 		C2 c(test_ret_v());
 	}
 
-	assert(n == 4 && t == 0);
+	assert(n == 6 && t == 0);
 }
 
 void test_return_reference(void)
@@ -184,7 +185,7 @@ void test_retparam_value(void)
 		test_param_fv(test_ret_v());
 	}
 
-	assert(n == 4 && t == 0);	
+	assert(n == 6 && t == 0);	
 }
 
 void test_retparam_reference(void)
@@ -200,7 +201,6 @@ void test_retparam_reference(void)
 
 int main(void)
 {
-#if 0
 	test_dcopy_init();
 	test_copy_init();
 	test_minit();
@@ -208,9 +208,8 @@ int main(void)
 	test_param_value();
 	test_param_ref();
 	test_return_value();
-#endif
 	test_retparam_value();
-//	test_retparam_reference();
+	test_retparam_reference();
 
 	return 0;
 }
