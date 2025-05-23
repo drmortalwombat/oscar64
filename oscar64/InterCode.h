@@ -637,6 +637,7 @@ public:
 	bool MoveConditionOutOfLoop(void);
 	void SingleLoopCountZeroCheck(void);
 	bool PostDecLoopOptimization(void);
+	bool Flatten2DLoop(void);
 
 	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue, bool loops);
 	void RemoveUnusedMallocs(void);

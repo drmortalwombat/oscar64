@@ -481,7 +481,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 					fplimit += 256;
 			}
 
-			if (procDec->mBase->mBase->mType == DT_TYPE_STRUCT)
+			if (procDec->mBase->mBase->IsComplexStruct())
 			{
 				if (nbase < numfpzero && nbase + 2 > numfpzero)
 					nbase = numfpzero;

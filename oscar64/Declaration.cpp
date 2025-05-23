@@ -3160,6 +3160,31 @@ bool Declaration::ContainsArray(void) const
 	return false;
 }
 
+bool Declaration::IsShortIntStruct(void) const
+{
+	if (mType == DT_TYPE_STRUCT && mSize <= 4 && !mDestructor && !mCopyConstructor)
+	{
+		Declaration* em = mParams;
+		while (em)
+		{
+			if (em->mType == DT_ELEMENT && em->mBase->IsIntegerType() && em->mBits == 0)
+				em = em->mNext;
+			else
+				return false;
+		}
+
+//		if (strcmp(mIdent->mString, "connection")) return false;
+		return true;
+	}
+
+	return false;
+}
+
+bool Declaration::IsComplexStruct(void) const
+{
+	return mType == DT_TYPE_STRUCT && !IsShortIntStruct();
+}
+
 bool Declaration::IsSimpleType(void) const
 {
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM || mType == DT_TYPE_POINTER;

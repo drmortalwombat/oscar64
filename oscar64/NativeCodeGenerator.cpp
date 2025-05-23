@@ -55261,7 +55261,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "xtime");
+	CheckFunc = !strcmp(mIdent->mString, "carvedoors");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

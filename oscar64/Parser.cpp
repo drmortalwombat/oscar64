@@ -4371,7 +4371,7 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 
 				rexp = ConcatExpression(rexp, AddFunctionCallRefReturned(pex));
 
-				if (pdec->mBase->mType == DT_TYPE_STRUCT && pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT)
+				if (pdec->mBase->IsComplexStruct() && pex->mType == EX_CALL && pex->mDecType->mType == DT_TYPE_STRUCT)
 				{
 					Declaration* vdec = AllocTempVar(pex->mDecType);
 
@@ -5340,7 +5340,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			npdec = npdec->mBase;
 
 		// Make room for return value pointer on struct return
-		if (npdec->mBase->mType == DT_TYPE_FUNCTION && npdec->mBase->mBase->mType == DT_TYPE_STRUCT)
+		if (npdec->mBase->mType == DT_TYPE_FUNCTION && npdec->mBase->mBase->IsComplexStruct())
 		{
 			Declaration* pdec = npdec->mBase->mParams;
 			while (pdec)
@@ -10850,7 +10850,7 @@ Expression* Parser::ParseStatement(void)
 					{
 						mFunctionType->mBase = mFunctionType->mBase->DeduceAuto(exp->mLeft->mDecType);
 
-						if (mFunctionType->mBase->mType == DT_TYPE_STRUCT)
+						if (mFunctionType->mBase->IsComplexStruct())
 						{
 							// Make room for value struct return
 							Declaration* p = mFunctionType->mParams;
@@ -10864,7 +10864,7 @@ Expression* Parser::ParseStatement(void)
 					exp->mLeft = CoerceExpression(exp->mLeft, mFunctionType->mBase);
 				}
 				exp->mLeft = CleanupExpression(exp->mLeft);
-				if (exp->mLeft->mType == EX_CONSTRUCT && mFunctionType && mFunctionType->mBase && mFunctionType->mBase->mType == DT_TYPE_STRUCT)
+				if (exp->mLeft->mType == EX_CONSTRUCT && mFunctionType && mFunctionType->mBase && mFunctionType->mBase->IsComplexStruct())
 				{
 					Expression* cexp = exp->mLeft->mLeft->mLeft;
 

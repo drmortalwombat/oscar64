@@ -343,6 +343,8 @@ public:
 	bool IsReference(void) const;
 	bool IsIndexed(void) const;
 	bool ContainsArray(void) const;
+	bool IsShortIntStruct(void) const;
+	bool IsComplexStruct(void) const;
 
 	void SetDefined(void);
 

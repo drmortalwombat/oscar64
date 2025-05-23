@@ -184,6 +184,7 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 'r' && arg[2] == 't' && arg[3] == '=')
 				{
 					strcpy_s(crtPath, arg + 4);
+					customCRT = true;
 				}
 				else if (arg[1] == 'd' && arg[2] == '6' && arg[3] == '4' && arg[4] == '=')
 				{
