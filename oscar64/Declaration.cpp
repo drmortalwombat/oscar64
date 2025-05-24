@@ -1486,19 +1486,36 @@ Declaration* Declaration::ConstCast(Declaration* ntype)
 
 			return pdec;
 		}
-		else if (mType == DT_VARIABLE_REF && mBase->mBase->mType == DT_TYPE_ARRAY)
+		else if (mType == DT_VARIABLE_REF)
 		{
-			Expression* ex = new Expression(mLocation, EX_VARIABLE);
-			ex->mDecType = mBase->mBase;
-			ex->mDecValue = this;
+			Declaration* vtype = mBase->mBase;
+			while (vtype && vtype->mType == DT_TYPE_STRUCT)
+			{
+				Declaration* dec = vtype->mParams;
+				while (dec && dec->mOffset != mOffset)
+					dec = dec->mNext;
+				if (dec)
+					vtype = dec->mBase;
+				else
+					vtype = nullptr;
+			}
 
-			Declaration* pdec = this->Clone();
-			pdec->mType = DT_CONST_POINTER;
-			pdec->mValue = ex;
-			pdec->mBase = ntype;
-			pdec->mSize = 2;
+			if (vtype && vtype->mType == DT_TYPE_ARRAY)
+			{
+				Expression* ex = new Expression(mLocation, EX_VARIABLE);
+				ex->mDecType = mBase->mBase;
+				ex->mDecValue = this;
 
-			return pdec;
+				Declaration* pdec = this->Clone();
+				pdec->mType = DT_CONST_POINTER;
+				pdec->mValue = ex;
+				pdec->mBase = ntype;
+				pdec->mSize = 2;
+
+				return pdec;
+			}
+			else
+				return this;
 		}
 		else
 			return this;
