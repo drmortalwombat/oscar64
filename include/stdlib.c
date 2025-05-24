@@ -667,6 +667,97 @@ void * calloc(int num, int size)
 	return p;
 }
 
+void * realloc(void * ptr, unsigned size)
+{
+	if (ptr)
+	{
+#ifdef HEAPCHECK
+		Heap	*	pheap = (Heap *)((char *)ptr - 6);
+		Heap	*	eheap = pheap->next;
+
+		unsigned	psize = (char *)eheap - (char *)pheap;
+
+		void * nptr = malloc(size);
+		memcpy(nptr, ptr, psize - 6);
+		free(ptr);
+		return nptr;
+#else
+		unsigned	nsize = (size + 5) & ~3;
+
+		// Get heap info
+		Heap	*	pheap = (Heap *)((char *)ptr - 2);
+		Heap	*	eheap = pheap->next;
+
+		unsigned	psize = (char *)eheap - (char *)pheap;
+
+		Heap	*	h = HeapNode.next;
+		Heap	*	hp = &HeapNode;
+		while (h && h < pheap)
+		{
+			hp = h;
+			h = h->next;
+		}		
+
+		if (nsize <= psize)
+		{
+			// check if we should free some memory
+			if (nsize + sizeof(HeapNode) < psize)
+			{
+				Heap	*	nheap = (Heap *)((char *)pheap + nsize);
+				pheap->next = nheap;
+
+				if (h == eheap)
+				{
+					nheap->end = h->end;
+					nheap->next = h->next;
+				}
+				else 
+				{
+					nheap->end = eheap;
+					nheap->next = h;
+				}
+
+				hp->next = nheap;
+			}
+
+			return ptr;
+		}
+		else if (h == eheap)
+		{
+			// Free space after this
+
+			// Check if enough space if extending
+			unsigned	xsize = (char *)h->end - (char *)pheap;
+			if (xsize >= nsize)
+			{
+				if (xsize > nsize + sizeof(HeapNode))
+				{
+					Heap	*	nheap = (Heap *)((char *)pheap + nsize);
+					pheap->next = nheap;
+					nheap->end = h->end;
+					nheap->next = h->next;
+					hp->next = nheap;
+				}
+				else
+				{
+					pheap->next = h->end;
+					hp->next = h->next;
+				}
+
+				return ptr;
+			}
+		}
+
+		void * nptr = malloc(size);
+		memcpy(nptr, ptr, psize - 2);
+		free(ptr);
+		return nptr;
+#endif		
+	}
+	else
+		return malloc(size);
+}
+
 static unsigned seed = 31232;
 
 unsigned int rand(void)

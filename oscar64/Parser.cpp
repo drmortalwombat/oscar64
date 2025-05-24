@@ -3458,7 +3458,7 @@ void Parser::AddDefaultConstructors(Declaration* pthis)
 			adec->mOffset = 0;
 			adec->mBase = new Declaration(mScanner->mLocation, DT_TYPE_REFERENCE);
 			adec->mBase->mSize = 2;
-			adec->mBase->mBase = pthis->mBase;
+			adec->mBase->mBase = pthis->mBase->ToConstType();
 			adec->mBase->mFlags |= DTF_CONST | DTF_DEFINED;
 			adec->mSize = adec->mBase->mSize;
 			adec->mIdent = adec->mQualIdent = Ident::Unique("_");

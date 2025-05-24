@@ -45,6 +45,8 @@ void free(void * ptr);
 
 void * calloc(int num, int size);
 
+void * realloc(void * ptr, unsigned size);
+
 unsigned heapfree(void);
 
 unsigned int rand(void);
