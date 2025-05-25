@@ -8007,6 +8007,38 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			}
 
 #endif
+#if 1
+			// Check shortcut double jump
+			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_BRANCH && 
+				mTrueJump->mInstructions[0]->mSrc[0].mTemp >= 0 && 
+				mTrueJump->mInstructions[0]->mSrc[0].mTemp < mTrueValueRange.Size() &&
+				mTrueValueRange[mTrueJump->mInstructions[0]->mSrc[0].mTemp].IsConstant())
+			{
+				mTrueJump->mNumEntries--;
+				mTrueJump->mEntryBlocks.RemoveAll(this);
+				if (mTrueValueRange[mTrueJump->mInstructions[0]->mSrc[0].mTemp].mMaxValue == 0)
+					mTrueJump = mTrueJump->mFalseJump;
+				else
+					mTrueJump = mTrueJump->mTrueJump;
+				mTrueJump->mNumEntries++;
+				mTrueJump->mEntryBlocks.Push(this);
+			}
+
+			if (mFalseJump && mFalseJump->mInstructions.Size() == 1 && mFalseJump->mInstructions[0]->mCode == IC_BRANCH && 
+				mFalseJump->mInstructions[0]->mSrc[0].mTemp >= 0 && 
+				mFalseJump->mInstructions[0]->mSrc[0].mTemp < mFalseValueRange.Size() &&
+				mFalseValueRange[mFalseJump->mInstructions[0]->mSrc[0].mTemp].IsConstant())
+			{
+				mFalseJump->mNumEntries--;
+				mFalseJump->mEntryBlocks.RemoveAll(this);
+				if (mFalseValueRange[mFalseJump->mInstructions[0]->mSrc[0].mTemp].mMaxValue == 0)
+					mFalseJump = mFalseJump->mFalseJump;
+				else
+					mFalseJump = mFalseJump->mTrueJump;
+				mFalseJump->mNumEntries++;
+				mFalseJump->mEntryBlocks.Push(this);
+			}
+#endif
 		}
 #endif
 		if (mTrueJump)

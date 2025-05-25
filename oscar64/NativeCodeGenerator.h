@@ -345,7 +345,7 @@ public:
 	bool PeepHoleOptimizerIterate(int pass);
 	bool PeepHoleOptimizerExits(int pass);
 
-	void BlockSizeReduction(NativeCodeProcedure* proc, int xenter, int yenter);
+	void BlockSizeReduction(NativeCodeProcedure* proc, int xenter, int yenter, int center);
 	bool BlockSizeCopyReduction(NativeCodeProcedure* proc, int & si, int & di);
 
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, bool full);
