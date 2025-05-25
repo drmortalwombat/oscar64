@@ -303,6 +303,10 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 				{
 					Declaration	*	tdec = ParseTemplateDeclaration(pthis);
 				}
+				else if (ConsumeTokenIf(TK_STATIC_ASSERT))
+				{
+					ParseStaticAssert();
+				}
 				else
 				{
 					Declaration* mdec = ParseDeclaration(nullptr, false, false, true, pthis);
@@ -9541,6 +9545,32 @@ Expression* Parser::ParseParenthesisExpression(void)
 	return exp;
 }
 
+void Parser::ParseStaticAssert(void)
+{
+	if (ConsumeToken(TK_OPEN_PARENTHESIS))
+	{
+		Expression* exp = ParseExpression(false);
+		exp = exp->ConstantFold(mErrors, mDataSection);
+		if (exp->mType == EX_CONSTANT && exp->mDecType->IsIntegerType() && exp->mDecValue->mInteger)
+		{
+			if (ConsumeTokenIf(TK_COMMA))
+				mScanner->NextToken();
+		}
+		else
+		{
+			if (ConsumeTokenIf(TK_COMMA) && mScanner->mToken == TK_STRING)
+			{
+				mErrors->Error(mScanner->mLocation, EERR_STATIC_ASSERT, "static assertion failed: ", (const char*)mScanner->mTokenString);
+				mScanner->NextToken();
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_STATIC_ASSERT, "static assertion failed");
+		}
+
+		ConsumeToken(TK_CLOSE_PARENTHESIS);
+	}
+}
+
 Expression* Parser::CheckOperatorOverload(Expression* exp)
 {
 	if (mCompilerOptions & COPT_CPLUSPLUS)
@@ -11093,6 +11123,10 @@ Expression* Parser::ParseStatement(void)
 			exp = new Expression(mScanner->mLocation, EX_ASSUME);
 			exp->mLeft = ParseParenthesisExpression();
 			ConsumeToken(TK_SEMICOLON);
+			break;
+		case TK_STATIC_ASSERT:
+			mScanner->NextToken();
+			ParseStaticAssert();
 			break;
 		case TK_GOTO:
 #if 1
@@ -14304,6 +14338,11 @@ void Parser::ParseNamespace(void)
 					mScanner->NextToken();
 					ParseNamespace();
 				}
+				else if (mScanner->mToken == TK_STATIC_ASSERT)
+				{
+					mScanner->NextToken();
+					ParseStaticAssert();
+				}
 				else
 					ParseDeclaration(nullptr, true, false, false);
 			}
@@ -14418,6 +14457,11 @@ void Parser::Parse(void)
 		{
 			mScanner->NextToken();
 			ParseNamespace();
+		}
+		else if (mScanner->mToken == TK_STATIC_ASSERT)
+		{
+			mScanner->NextToken();
+			ParseStaticAssert();
 		}
 		else
 			ParseDeclaration(nullptr, true, false, false);

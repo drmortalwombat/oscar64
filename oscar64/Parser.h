@@ -159,6 +159,7 @@ protected:
 	Expression* ParseListExpression(bool lhs, Declaration * params = nullptr);
 
 	Expression* ParseParenthesisExpression(void);
+	void ParseStaticAssert(void);
 
 	Errors* mErrors;
 	Scanner* mScanner;

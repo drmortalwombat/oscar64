@@ -50,5 +50,11 @@ autorefreturn: autorefreturn.cpp
 	$(OSCAR64_CC) -e -Os -n $<
 	$(OSCAR64_CC) -e -O3 -n $<
 
+copyconstructor: copyconstructor.cpp
+	$(OSCAR64_CC) -e -O2 -n $<
+	$(OSCAR64_CC) -e -O0 -n $<
+	$(OSCAR64_CC) -e -Os -n $<
+	$(OSCAR64_CC) -e -O3 -n $<
+
 clean:
 	@$(RM) *.asm *.bcs *.int *.lbl *.map *.prg

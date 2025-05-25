@@ -51,6 +51,7 @@ const char* TokenNames[] =
 	"'extern'",
 	"'inline'",
 	"'__assume'",
+	"'static_assert'",
 
 	"__asm",
 	"__interrupt",
@@ -1832,6 +1833,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_ASM;
 				else if (!strcmp(tkident, "__assume"))
 					mToken = TK_ASSUME;
+				else if (!strcmp(tkident, "static_assert"))
+					mToken = TK_STATIC_ASSERT;
 				else if (!strcmp(tkident, "__interrupt"))
 					mToken = TK_INTERRUPT;
 				else if (!strcmp(tkident, "__hwinterrupt"))

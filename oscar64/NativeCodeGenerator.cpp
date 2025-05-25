@@ -58519,7 +58519,7 @@ void NativeCodeGenerator::OutlineFunctions(void)
 
 		for (int i = 0; i < mProcedures.Size(); i++)
 		{
-			if (mProcedures[i]->mCompilerOptions & COPT_OPTIMIZE_OUTLINE)
+			if ((mProcedures[i]->mCompilerOptions & COPT_OPTIMIZE_OUTLINE))
 				mProcedures[i]->AddToSuffixTree(mapper, tree);
 		}
 		tree->AddParents(nullptr);

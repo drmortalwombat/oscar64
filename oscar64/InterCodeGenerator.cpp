@@ -6231,7 +6231,10 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		proc->mNativeProcedure = true;
 
 	if (dec->mFlags & DTF_INTERRUPT)
+	{
 		proc->mInterrupt = true;
+		proc->mCompilerOptions &= ~COPT_OPTIMIZE_OUTLINE;
+	}
 
 	if (dec->mFlags & DTF_HWINTERRUPT)
 		proc->mHardwareInterrupt = true;
