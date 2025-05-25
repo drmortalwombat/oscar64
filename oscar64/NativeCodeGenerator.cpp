@@ -17465,7 +17465,7 @@ bool NativeCodeBasicBlock::GlobalLoadStoreForwarding(bool zpage, const NativeCod
 						mYLSIns.mType = ASMIT_INV;
 					if (mALSIns.mType != ASMIT_INV && mALSIns.mMode == ASMIM_ABSOLUTE_Y)
 						mALSIns.mType = ASMIT_INV;
-					if (mXLSIns.mType != ASMIT_INV && mYLSIns.mMode == ASMIM_ABSOLUTE_Y)
+					if (mXLSIns.mType != ASMIT_INV && mXLSIns.mMode == ASMIM_ABSOLUTE_Y)
 						mXLSIns.mType = ASMIT_INV;
 				}
 			}
@@ -45599,6 +45599,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 		}
 	}
 
+	CheckLive();
+
 	int shifti = -1, shiftr = -1;
 	for (int i = 0; i + 2 < mIns.Size(); i++)
 	{
@@ -45620,8 +45622,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 				!(mIns[i + 1].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
 			{
 				mIns[shifti].mType = ASMIT_NOP; mIns[shifti].mMode = ASMIM_IMPLIED;
-				mIns[i + 0].mType = ASMIT_LSR; mIns[i + 0].mMode = ASMIM_IMPLIED;
-				mIns[i + 1].mType = ASMIT_LDA;
+				mIns[i + 0].mType = ASMIT_LSR; mIns[i + 0].mMode = ASMIM_IMPLIED; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+				mIns[i + 1].mType = ASMIT_LDA; mIns[i + 1].mLive |= LIVE_CPU_REG_C;
 				mIns.Insert(i + 2, NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_ROL));
 				shiftr = -1;
 				changed = true;
@@ -45629,6 +45631,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 		}
 	}
 
+	CheckLive();
 
 #if 1
 	for (int i = 0; i < mIns.Size(); i++)
@@ -45645,6 +45648,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 	// 
 	// shorten x/y register lifetime
 
+	CheckLive();
 #if 1
 		//
 		// move ldx/y down
@@ -55272,7 +55276,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "carvedoors");
+	CheckFunc = !strcmp(mIdent->mString, "floaters_update");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
