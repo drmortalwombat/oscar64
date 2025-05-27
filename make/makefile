@@ -38,7 +38,7 @@ else
 endif
 
 
-all: --prep-build-dir compiler samples check
+all: compiler samples check
 
 
 $(srcdir)/%.o: $(project_dir)/oscar64/%.cpp
@@ -56,7 +56,7 @@ $(srcdir)/%.d: $(project_dir)/oscar64/%.cpp
 	$(RM) $@.$$$$
 
 
-compiler: $(objects)
+compiler: --prep-build-dir $(objects)
 	@$(MKDIR_PARENT) $(srcdir)
 	@echo "Linking compiler..."
 	$(CXX) $(CPPFLAGS) $(objects) $(linklibs) -o $(project_dir)/bin/oscar64
