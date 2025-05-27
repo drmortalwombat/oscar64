@@ -1250,6 +1250,10 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		ex->mDecType = mDecType;
 		return ex;
 	}
+	else if (mType == EX_VARIABLE && mDecType->IsSimpleType() && (mDecValue->mFlags & DTF_CONST) && mDecValue->mValue && mDecValue->mValue->mType == EX_INITIALIZATION && mDecValue->mValue->mRight->mType == EX_CONSTANT)
+	{
+		return mDecValue->mValue->mRight;
+	}
 	else if (mType == EX_CALL && mLeft->mType == EX_CONSTANT && (mLeft->mDecValue->mFlags & DTF_INTRINSIC) && mRight && mRight->mType == EX_CONSTANT)
 	{
 		Declaration* decf = mLeft->mDecValue, * decp = mRight->mDecValue;

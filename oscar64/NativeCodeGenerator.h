@@ -327,6 +327,8 @@ public:
 	bool UsesZeroPage(int address, int from = 0, int to = 65536) const;
 	bool ReferencesZeroPage(int address, int from = 0, int to = 65536) const;
 
+	bool ChangesMemory(const NativeCodeInstruction& ins, int from = 0, int to = 65536) const;
+	bool ReferencesMemory(const NativeCodeInstruction& ins, int from = 0, int to = 65536) const;
 
 	bool RemoveNops(void);
 	bool PeepHoleOptimizer(int pass);
@@ -628,6 +630,8 @@ public:
 	bool HasTailSTAInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
 	bool HasTailSTXInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
 	bool HasTailSTYInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
+
+	bool HasTailSTAGlobal(NativeCodeInstruction & ins, int& index) const;
 
 	bool MayBeMovedBeforeBlock(int at);
 	bool MayBeMovedBeforeBlock(int at, const NativeCodeInstruction & ins);

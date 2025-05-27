@@ -19767,6 +19767,7 @@ bool NativeCodeBasicBlock::MoveStoresBehindCondition(void)
 			NativeCodeBasicBlock* eb = mEntryBlocks[0];
 
 			int addr, index, taddr, tindex;
+			NativeCodeInstruction	ains;
 
 			if (eb->HasTailSTAInto(addr, index, this))
 			{
@@ -19838,6 +19839,60 @@ bool NativeCodeBasicBlock::MoveStoresBehindCondition(void)
 						b->mIns.Remove(tindex);
 					}
 					changed = true;
+				}
+			}
+		}
+		
+		if (mFalseJump && mTrueJump)
+		{
+			NativeCodeBasicBlock* eblock = nullptr, * cblock = nullptr;
+			if (mTrueJump->mTrueJump == mFalseJump && !mTrueJump->mFalseJump && mFalseJump->mNumEntries == 2 && mTrueJump->mNumEntries == 1)
+			{
+				cblock = mTrueJump;
+				eblock = mFalseJump;
+			}
+			if (mFalseJump->mTrueJump == mTrueJump && !mFalseJump->mFalseJump && mTrueJump->mNumEntries == 2 && mFalseJump->mNumEntries == 1)
+			{
+				cblock = mFalseJump;
+				eblock = mTrueJump;
+			}
+
+			if (eblock && eblock != this)
+			{
+				NativeCodeInstruction	ins, cins;
+				int						index, cindex;
+
+				if (HasTailSTAGlobal(ins, index) && cblock->HasTailSTAGlobal(cins, cindex) && ins.SameEffectiveAddress(cins))
+				{
+					if (!cblock->ReferencesMemory(ins, 0, cindex))
+					{
+						mExitRequiredRegs += CPU_REG_A;
+						cblock->mExitRequiredRegs += CPU_REG_A;
+						eblock->mEntryRequiredRegs += CPU_REG_A;
+
+						uint32	live = LIVE_CPU_REG_A;
+						if (ins.ReferencesXReg())
+						{
+							live += LIVE_CPU_REG_X;
+							mExitRequiredRegs += CPU_REG_X;
+							cblock->mExitRequiredRegs += CPU_REG_X;
+						}
+						if (ins.ReferencesYReg())
+						{
+							live += LIVE_CPU_REG_Y;
+							mExitRequiredRegs += CPU_REG_Y;
+							cblock->mExitRequiredRegs += CPU_REG_Y;
+						}
+
+						eblock->mIns.Insert(0, ins);
+						for (int i = index; i < mIns.Size(); i++)
+							mIns[i].mLive |= live;
+						for (int i = cindex; i < cblock->mIns.Size(); i++)
+							cblock->mIns[i].mLive |= live;
+						mIns.Remove(index);
+						cblock->mIns.Remove(cindex);
+						changed = true;
+					}
 				}
 			}
 		}
@@ -24085,6 +24140,35 @@ bool NativeCodeBasicBlock::HasTailSTYInto(int& addr, int& index, NativeCodeBasic
 
 }
 
+bool NativeCodeBasicBlock::HasTailSTAGlobal(NativeCodeInstruction & ins, int& index) const
+{
+	int i = mIns.Size();
+	while (i > 0)
+	{
+		i--;
+		if (mIns[i].ChangesAccu())
+			return false;
+		if (mIns[i].mType == ASMIT_STA && mIns[i].mMode != ASMIM_ZERO_PAGE)
+		{
+			index = i;
+			ins = mIns[i];
+
+			i++;
+			while (i < mIns.Size())
+			{
+				if (mIns[i].MayReference(ins, true))
+					return false;
+				else if (ins.ReferencesXReg() && mIns[i].ChangesXReg())
+					return false;
+				else if (ins.ReferencesYReg() && mIns[i].ChangesYReg())
+					return false;
+				i++;
+			}
+			return true;
+		}
+	}
+	return false;
+}
 
 void NativeCodeBasicBlock::AddEntryBlock(NativeCodeBasicBlock* block)
 {
@@ -45206,6 +45290,23 @@ bool NativeCodeBasicBlock::ReferencesZeroPage(int address, int from, int to) con
 	return false;
 }
 
+bool NativeCodeBasicBlock::ChangesMemory(const NativeCodeInstruction& ins, int from, int to) const
+{
+	if (to > mIns.Size()) to = mIns.Size();
+	for (int i = from; i < to; i++)
+		if (ins.MayBeChangedOnAddress(mIns[i]))
+			return true;
+	return false;
+}
+
+bool NativeCodeBasicBlock::ReferencesMemory(const NativeCodeInstruction& ins, int from, int to) const
+{
+	if (to > mIns.Size()) to = mIns.Size();
+	for (int i = from; i < to; i++)
+		if (mIns[i].MayReference(ins))
+		return true;
+	return false;
+}
 
 
 
