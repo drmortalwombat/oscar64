@@ -300,7 +300,7 @@ public:
 	Token				mToken;
 	Declaration		*	mBase, * mParams, * mParamPack, * mNext, * mPrev, * mConst, * mMutable, * mVolatile;
 	Declaration		*	mDefaultConstructor, * mDestructor, * mCopyConstructor, * mCopyAssignment, * mMoveConstructor, * mMoveAssignment;
-	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment;
+	Declaration		*	mVectorConstructor, * mVectorDestructor, * mVectorCopyConstructor, * mVectorCopyAssignment, * mVectorMoveConstructor, * mVectorMoveAssignment;
 	Declaration		*	mVTable, * mClass, * mTemplate;
 	Declaration		*	mForwardParam, * mForwardCall;
 

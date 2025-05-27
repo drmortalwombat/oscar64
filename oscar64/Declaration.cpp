@@ -1352,6 +1352,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	mConst(nullptr), mMutable(nullptr), mVolatile(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
+	mVectorMoveConstructor(nullptr), mVectorMoveAssignment(nullptr),
 	mVTable(nullptr), mTemplate(nullptr), mForwardParam(nullptr), mForwardCall(nullptr),
 	mVarIndex(-1), mLinkerObject(nullptr), mCallers(nullptr), mCalled(nullptr), mAlignment(1), mFriends(nullptr),
 	mInteger(0), mNumber(0), mMinValue(-0x80000000LL), mMaxValue(0x7fffffffLL), mFastCallBase(0), mFastCallSize(0), mStride(0), mStripe(1),
@@ -2406,6 +2407,7 @@ Declaration* Declaration::ToStriped(int stripe)
 		ndec->mVectorConstructor = mVectorConstructor ? mVectorConstructor->ToAlternateThis(pndec, 2) : nullptr;
 		ndec->mVectorDestructor = mVectorDestructor ? mVectorDestructor->ToAlternateThis(pndec, 2) : nullptr;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor ? mVectorCopyConstructor->ToAlternateThis(pndec, 2) : nullptr;
+		ndec->mVectorMoveConstructor = mVectorMoveConstructor ? mVectorMoveConstructor->ToAlternateThis(pndec, 2) : nullptr;
 	}
 	else if (mType == DT_TYPE_FUNCTION)
 	{
@@ -2473,6 +2475,7 @@ Declaration* Declaration::ToVolatileType(void)
 		ndec->mVectorConstructor = mVectorConstructor;
 		ndec->mVectorDestructor = mVectorDestructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+		ndec->mVectorMoveConstructor = mVectorMoveConstructor;
 		ndec->mVTable = mVTable;
 
 		mVolatile = ndec;
@@ -2512,6 +2515,7 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mVectorConstructor = mVectorConstructor;
 		ndec->mVectorDestructor = mVectorDestructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+		ndec->mVectorMoveConstructor = mVectorMoveConstructor;
 		ndec->mVTable = mVTable;
 
 		ndec->mMutable = this;
@@ -2578,6 +2582,7 @@ Declaration* Declaration::ToMutableType(void)
 		ndec->mVectorConstructor = mVectorConstructor;
 		ndec->mVectorDestructor = mVectorDestructor;
 		ndec->mVectorCopyConstructor = mVectorCopyConstructor;
+		ndec->mVectorMoveConstructor = mVectorMoveConstructor;
 		ndec->mVTable = mVTable;
 
 		ndec->mConst = this;
@@ -3097,7 +3102,7 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 		if (mScope == fromType->mScope || (mIdent == fromType->mIdent && mSize == fromType->mSize))
 			return true;
 		if (fromType->mBase)
-			return this->CanAssign(fromType->mBase);
+			return this->CanAssign(fromType->mBase->mBase);
 		return false;
 	}
 	else if (mType == DT_TYPE_ARRAY && fromType->mType == DT_TYPE_ARRAY)
