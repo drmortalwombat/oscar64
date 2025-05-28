@@ -505,6 +505,15 @@ Expression* Expression::LogicInvertExpression(void)
 	}
 }
 
+void Expression::ReplaceVariable(Declaration* pvar, Declaration* nvar)
+{
+	if (mLeft) mLeft->ReplaceVariable(pvar, nvar);
+	if (mRight) mRight->ReplaceVariable(pvar, nvar);
+
+	if (mType == EX_VARIABLE && mDecValue == pvar)
+		mDecValue = nvar;
+}
+
 Expression* Expression::ToAlternateThis(Declaration* pthis, Declaration* nthis)
 {
 	Expression* left = mLeft ? mLeft->ToAlternateThis(pthis, nthis) : nullptr;
@@ -3204,6 +3213,11 @@ bool Declaration::IsShortIntStruct(void) const
 	}
 
 	return false;
+}
+
+bool Declaration::HasConstructor(void) const
+{
+	return mType == DT_TYPE_STRUCT && mScope && mScope->Lookup(mIdent->PreMangle("+"));
 }
 
 bool Declaration::IsComplexStruct(void) const

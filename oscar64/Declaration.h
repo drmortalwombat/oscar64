@@ -277,6 +277,8 @@ public:
 	Expression* ListAppend(Expression* lexp);
 	Expression* ToAlternateThis(Declaration* pthis, Declaration* nthis);
 
+	void ReplaceVariable(Declaration* pvar, Declaration* nvar);
+
 	bool IsSame(const Expression* exp) const;
 	bool IsRValue(void) const;
 	bool IsLValue(void) const;
@@ -345,6 +347,7 @@ public:
 	bool ContainsArray(void) const;
 	bool IsShortIntStruct(void) const;
 	bool IsComplexStruct(void) const;
+	bool HasConstructor(void) const;
 
 	void SetDefined(void);
 

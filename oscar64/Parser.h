@@ -80,6 +80,7 @@ protected:
 	Expression* DefaultInitExpression(Expression* vexp);
 	Expression* ParseVarInitExpression(Expression* lexp, bool inner = false);
 	Expression* CloneVarInitExpression(Expression* vexp, Expression* iexp, Expression * qexp);
+	Expression* CopyElision(Expression* vexp, Expression* rexp);
 
 	Declaration* ParsePostfixDeclaration(void);
 	Declaration* ReverseDeclaration(Declaration* odec, Declaration* bdec);
@@ -135,6 +136,8 @@ protected:
 	Expression* ParseBinaryFoldExpression(Expression * exp);
 
 	Declaration* ParseTypeID(bool tid, Declaration * bdec = nullptr);
+
+	Expression* ParseConstruction(Declaration* type);
 
 	Expression* ParseCastExpression(Expression* exp);
 	Expression* ParseIdentExpression(const Location & eloc, Declaration* dec, bool lhs, bool tid = false);

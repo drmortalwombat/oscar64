@@ -1686,7 +1686,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 			else
 				vr = Dereference(proc, texp, block, inlineMapper, vr);
 
-			if (pdec)
+			if (pdec && (pdec->mFlags & DTF_FPARAM_UNUSED) && vr.mType->mType == DT_TYPE_VOID)
+				;
+			else if (pdec)
 			{
 				if (pdec->mBase->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_INTEGER)
 				{
