@@ -303,6 +303,7 @@ public:
 	int LeadsInto(NativeCodeBasicBlock* block, int dist);
 	NativeCodeBasicBlock* PlaceSequence(ExpandingArray<NativeCodeBasicBlock*>& placement, NativeCodeBasicBlock* block);
 	void BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>& placement);
+	void OptimizePlacement(void);
 	void InitialOffset(int& total);
 	bool CalculateOffset(int& total, bool final);
 

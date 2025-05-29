@@ -54908,6 +54908,31 @@ void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>&
 	}
 }
 
+void NativeCodeBasicBlock::OptimizePlacement(void)
+{
+	if (!mFalseJump && mTrueJump && !mTrueJump->mFalseJump && mTrueJump->mTrueJump && mTrueJump->mTrueJump->mPlace == mPlace + 1 && mTrueJump->mCode.Size() <= 3)
+	{
+		for (int i = 0; i < mTrueJump->mRelocations.Size(); i++)
+		{
+			LinkerReference	rl = mTrueJump->mRelocations[i];
+			rl.mOffset += mCode.Size();
+			if (rl.mFlags & LREF_INBLOCK)
+			{
+				rl.mRefOffset += mCode.Size();
+				rl.mFlags &= ~LREF_INBLOCK;
+			}
+			mRelocations.Push(rl);
+		}
+		for (int i = 0; i < mTrueJump->mCode.Size(); i++)
+			mCode.Push(mTrueJump->mCode[i]);
+		mTrueJump->mEntryBlocks.RemoveAll(this);
+		mTrueJump->mNumEntries--;
+		mTrueJump = mTrueJump->mTrueJump;
+		mTrueJump->mEntryBlocks.Push(this);
+		mTrueJump->mNumEntries++;
+	}
+}
+
 void NativeCodeBasicBlock::InitialOffset(int& total)
 {
 	mAsmFromJump = -1;
@@ -56063,6 +56088,9 @@ void NativeCodeProcedure::Assemble(void)
 	total = 0;
 
 	mEntryBlock->BuildPlacement(placement);
+
+	for (int i = 0; i < placement.Size(); i++)
+		placement[i]->OptimizePlacement();;
 
 	for (int i = 0; i < placement.Size(); i++)
 		placement[i]->InitialOffset(total);
