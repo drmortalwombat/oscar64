@@ -18488,10 +18488,24 @@ bool NativeCodeBasicBlock::OptimizeXYPairUsage(void)
 				if (ins.mType == ASMIT_LDY && ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == xreg ||
 					ins.mType == ASMIT_LDX && ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == yreg)
 				{
+					bool	checkx = ins.mType == ASMIT_LDY && (ins.mLive & LIVE_CPU_REG_X);
+					bool	checky = ins.mType == ASMIT_LDX && (ins.mLive & LIVE_CPU_REG_Y);
+					bool	fail = false;
+
 					int	j = i;
-					while (j + 1 < mIns.Size() && (mIns[j].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)) && mIns[j + 1].CanSwapXYReg())
+					while (j + 1 < mIns.Size() && (mIns[j].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)) && mIns[j + 1].CanSwapXYReg() && !fail)
+					{
+						if (checkx && (mIns[j].mType == ASMIT_INX || mIns[j].mType == ASMIT_DEX) ||
+							checky && (mIns[j].mType == ASMIT_INY || mIns[j].mType == ASMIT_DEY))
+							fail = true;
+						if (checkx && mIns[j].ChangesXReg())
+							checkx = false;
+						if (checky && mIns[j].ChangesYReg())
+							checky = false;
+
 						j++;
-					if (j + 1 == mIns.Size() || !(mIns[j].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)))
+					}
+					if (!fail && (j + 1 == mIns.Size() || !(mIns[j].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y))))
 					{
 						bool	tox = ins.mType == ASMIT_LDY, toy = ins.mType == ASMIT_LDX;
 						for (int k = i; k <= j; k++)

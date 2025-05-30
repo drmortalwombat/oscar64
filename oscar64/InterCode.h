@@ -517,6 +517,8 @@ public:
 	void PerformMachineSpecificValueUsageCheck(const GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs, FastNumberSet& fsingle);
 	bool EliminateDeadBranches(void);
 
+	bool EliminateIntegerSumAliasTemps(const GrowingInstructionPtrArray& tvalue);
+
 	bool MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue);
 	bool SimplifyIntegerNumeric(const GrowingInstructionPtrArray& tvalue, int& spareTemps);
 	bool SimplifyPointerOffsets(void);
@@ -636,6 +638,7 @@ public:
 	void PushMoveOutOfLoop(void);
 	bool MoveConditionOutOfLoop(void);
 	void SingleLoopCountZeroCheck(void);
+	void InnerLoopCountZeroCheck(void);
 	bool PostDecLoopOptimization(void);
 	bool Flatten2DLoop(void);
 
@@ -786,6 +789,7 @@ protected:
 	void SingleBlockLoopPointerToByte(FastNumberSet& activeSet);
 	void SingleBlockLoopSinking(FastNumberSet& activeSet);
 	void MergeIndexedLoadStore(void);
+	void EliminateIntegerSumAliasTemps(void);
 	void EliminateAliasValues();
 	void LoadStoreForwarding(InterMemory paramMemory);
 	void ReduceRecursionTempSpilling(InterMemory paramMemory);

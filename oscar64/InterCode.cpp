@@ -10966,6 +10966,93 @@ bool InterCodeBasicBlock::EliminateAliasValues(const GrowingInstructionPtrArray&
 	return changed;
 }
 
+bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstructionPtrArray& tvalue)
+{
+	bool	changed = false;
+	if (!mVisited)
+	{
+		GrowingInstructionPtrArray	ltvalue(tvalue);
+
+		if (mLoopHead)
+		{
+			ltvalue.Clear();
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (mMergeTValues[i] != ltvalue[i])
+						ltvalue[i] = nullptr;
+				}
+			}
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mMergeTValues = ltvalue;
+				return false;
+			}
+		}
+
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			int dtemp = ins->mDst.mTemp;
+			int stemp = -1;
+
+			if (ins->mCode == IC_BINARY_OPERATOR &&
+				ins->mOperator == IA_ADD &&
+				ins->mSrc[0].mTemp < 0 &&
+				ins->mSrc[1].mTemp >= 0)
+			{
+				stemp = ins->mSrc[1].mTemp;
+
+				if (ins->mSrc[1].mFinal && ltvalue[stemp])
+				{
+					InterInstruction* sins = ltvalue[stemp];
+					int64 diff = ins->mSrc[0].mIntConst - sins->mSrc[0].mIntConst;
+					if (diff >= -128 && diff < 256 || ins->mSrc[0].mIntConst < -128 || ins->mSrc[0].mIntConst >= 256)
+					{
+						ins->mSrc[1] = sins->mDst;
+						ins->mSrc[0].mIntConst = diff;
+						changed = true;
+					}
+
+					stemp = -1;
+				}
+				else if (ins->mSrc[1].mFinal)
+					stemp = -1;					
+			}
+
+			if (dtemp >= 0)
+			{
+				for (int i = 0; i < ltvalue.Size(); i++)
+				{
+					if (ltvalue[i] && ltvalue[i]->ReferencesTemp(dtemp))
+						ltvalue[i] = nullptr;
+				}
+			}
+			if (stemp >= 0)
+				ltvalue[stemp] = ins;
+		}
+
+
+		if (mTrueJump && mTrueJump->EliminateIntegerSumAliasTemps(ltvalue))
+			changed = true;
+
+		if (mFalseJump && mFalseJump->EliminateIntegerSumAliasTemps(ltvalue))
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool  InterCodeBasicBlock::MergeIndexedLoadStore(const GrowingInstructionPtrArray& tvalue)
 {
 	bool	changed = false;
@@ -17761,6 +17848,117 @@ static bool IsInsSrcModifiedInBlocks(const ExpandingArray<InterCodeBasicBlock*>&
 	return false;
 }
 
+void InterCodeBasicBlock::InnerLoopCountZeroCheck(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2)
+		{
+			ExpandingArray<InterCodeBasicBlock*> body, path;
+			body.Push(this);
+			bool	innerLoop = true;
+
+			InterCodeBasicBlock* lblock = nullptr;
+			InterCodeBasicBlock* pblock = mLoopPrefix;
+
+			while (pblock->mInstructions.Size() == 1 && pblock->mInstructions[0]->mCode == IC_JUMP && pblock->mEntryBlocks.Size() == 1)
+				pblock = pblock->mEntryBlocks[0];
+
+			for (int i = 0; i < mEntryBlocks.Size(); i++)
+			{
+				if (mEntryBlocks[i] != mLoopPrefix)
+				{
+					lblock = mEntryBlocks[i];
+					if (!mEntryBlocks[i]->CollectLoopBody(this, body))
+						innerLoop = false;
+				}
+			}
+
+			if (pblock && this != lblock && innerLoop && lblock && lblock->mInstructions.Size() > 2)
+			{
+				int sz = lblock->mInstructions.Size();
+
+				if (lblock->mInstructions[sz - 1]->mCode == IC_BRANCH &&
+					lblock->mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+					lblock->mInstructions[sz - 3]->mCode == IC_BINARY_OPERATOR && lblock->mInstructions[sz - 3]->mOperator == IA_ADD)
+				{
+					InterInstruction* ains = lblock->mInstructions[sz - 3];
+					InterInstruction* cins = lblock->mInstructions[sz - 2];
+					InterInstruction* bins = lblock->mInstructions[sz - 1];
+
+					if (bins->mSrc[0].mTemp == cins->mDst.mTemp &&
+						cins->mSrc[1].mTemp == ains->mDst.mTemp &&
+						cins->mSrc[0].mTemp < 0 &&
+						ains->mSrc[1].mTemp == ains->mDst.mTemp &&
+						ains->mSrc[0].mTemp < 0 &&
+						cins->mOperator == IA_CMPLU &&
+						ains->mSrc[0].mIntConst >= 1 &&
+						cins->mSrc[0].mIntConst > 0)
+					{
+						int ctemp = ains->mDst.mTemp;
+
+						bool fail = false;
+						for (int i = 0; i < body.Size(); i++)
+						{
+							int sz = body[i]->mInstructions.Size();
+							if (body[i] == lblock)
+								sz -= 3;
+							if (body[i]->IsTempReferencedInRange(0, sz, ains->mDst.mTemp))
+							{
+								fail = true;
+								break;
+							}
+							else if (
+								body[i]->mTrueJump && !body.Contains(body[i]->mTrueJump) && body[i]->mTrueJump->mEntryRequiredTemps[ctemp] ||
+								body[i]->mFalseJump && !body.Contains(body[i]->mFalseJump) && body[i]->mFalseJump->mEntryRequiredTemps[ctemp])
+							{
+								fail = true;
+								break;
+							}
+						}
+
+						if (!fail)
+						{
+							int pi = pblock->mInstructions.Size() - 1;
+							while (pi >= 0 && pblock->mInstructions[pi]->mDst.mTemp != ctemp)
+								pi--;
+							if (pi >= 0 && pblock->mInstructions[pi]->mCode == IC_CONSTANT)
+							{
+								int64	istart = pblock->mInstructions[pi]->mConst.mIntConst;
+								if (istart >= 0)
+								{
+									int64	icount = (cins->mSrc[0].mIntConst - istart) / ains->mSrc[0].mIntConst;
+
+									if (icount > 0 && icount < 256)
+									{
+										ains->mSrc[0].mIntConst = -1;
+										cins->mSrc[0].mIntConst = 0;
+										pblock->mInstructions[pi]->mConst.mIntConst = icount;										
+
+										ains->mSrc[1].mRange.SetLimit(1, icount);
+										ains->mDst.mRange.SetLimit(0, icount - 1);
+										cins->mSrc[1].mRange.SetLimit(0, icount - 1);
+										cins->mOperator = IA_CMPNE;
+
+										for (int i = 0; i < body.Size(); i++)
+											body[i]->mEntryValueRange[ains->mSrc[1].mTemp] = ains->mSrc[1].mRange;
+									}
+								}
+							}
+						}
+					}
+				}
+
+			}
+		}
+
+		if (mTrueJump) mTrueJump->InnerLoopCountZeroCheck();
+		if (mFalseJump) mFalseJump->InnerLoopCountZeroCheck();
+	}
+}
+
 void InterCodeBasicBlock::SingleLoopCountZeroCheck(void)
 {
 	if (!mVisited)
@@ -20187,6 +20385,23 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mOperator = IA_MUL;
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				changed = true;
+			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_ADD && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+				mInstructions[i + 0]->mSrc[1].IsUByte() && !mInstructions[i + 1]->mSrc[1].IsUByte() &&
+				mInstructions[i + 0]->mSrc[1].mRange.mMaxValue + (mInstructions[i + 1]->mSrc[0].mIntConst >> mInstructions[i + 0]->mSrc[0].mIntConst) < 256 &&
+				(mInstructions[i + 1]->mSrc[0].mIntConst & ((1 << mInstructions[i + 0]->mSrc[0].mIntConst) - 1)) == 0)
+			{
+				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst, add = mInstructions[i + 1]->mSrc[0].mIntConst;
+
+				mInstructions[i + 0]->mOperator = IA_ADD; mInstructions[i + 0]->mSrc[0].mIntConst = add >> shift;
+				mInstructions[i + 1]->mOperator = IA_SHL; mInstructions[i + 1]->mSrc[0].mIntConst = shift;
+				mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
+				mInstructions[i + 0]->mDst.mRange.AddConstValue(mInstructions[i + 0]->mDst.mType, add >> shift);
+				mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
 				changed = true;
 			}
 #if 1
@@ -23631,6 +23846,20 @@ void InterCodeProcedure::ExpandSelect(void)
 #endif
 }
 
+void InterCodeProcedure::EliminateIntegerSumAliasTemps(void)
+{
+	GrowingInstructionPtrArray	eivalues(nullptr);
+	do {
+		RemoveUnusedInstructions();
+
+		eivalues.SetSize(mTemporaries.Size(), true);
+
+		ResetVisited();
+	} while (mEntryBlock->EliminateIntegerSumAliasTemps(eivalues));
+
+	DisassembleDebug("EliminateIntegerSumAliasTemps");
+}
+
 void InterCodeProcedure::EliminateAliasValues()
 {
 	assert(mTemporaries.Size() == mLocalValueRange.Size());
@@ -24726,9 +24955,14 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->SingleLoopCountZeroCheck();
 
+	ResetVisited();
+	mEntryBlock->InnerLoopCountZeroCheck();
+
 	RemoveUnusedPartialStoreInstructions();
 
 	PeepholeOptimization();
+
+	EliminateIntegerSumAliasTemps();
 
 	ResetVisited();
 	if (mEntryBlock->Flatten2DLoop())
