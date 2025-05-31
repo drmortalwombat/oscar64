@@ -7566,6 +7566,54 @@ bool InterCodeBasicBlock::EarlyBranchElimination(const GrowingInstructionPtrArra
 	return changed;
 }
 
+bool InterCodeBasicBlock::PropagateConstCompareResults(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int sz = mInstructions.Size();
+		if (sz >= 2 && mFalseJump &&
+			mInstructions[sz - 1]->mCode == IC_BRANCH &&
+			mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[sz - 2]->mOperator == IA_CMPEQ || mInstructions[sz - 2]->mOperator == IA_CMPNE) &&
+			mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp)
+		{
+			InterCodeBasicBlock* cblock = mTrueJump;
+			if (mInstructions[sz - 2]->mOperator == IA_CMPNE)
+				cblock = mFalseJump;
+
+			if (cblock->mNumEntries == 1)
+			{
+				if (mInstructions[sz - 2]->mSrc[1].mTemp < 0 && mInstructions[sz - 2]->mSrc[0].mTemp >= 0 && cblock->mEntryRequiredTemps[mInstructions[sz - 2]->mSrc[0].mTemp])
+				{
+					InterInstruction* cins = new InterInstruction(mInstructions[sz - 2]->mLocation, IC_CONSTANT);
+					cins->mDst = mInstructions[sz - 2]->mSrc[0];
+					cins->mConst = mInstructions[sz - 2]->mSrc[1];
+					cblock->mInstructions.Insert(0, cins);
+					changed = true;						
+				}
+				else if (mInstructions[sz - 2]->mSrc[0].mTemp < 0 && mInstructions[sz - 2]->mSrc[1].mTemp >= 0 && cblock->mEntryRequiredTemps[mInstructions[sz - 2]->mSrc[1].mTemp])
+				{
+					InterInstruction* cins = new InterInstruction(mInstructions[sz - 2]->mLocation, IC_CONSTANT);
+					cins->mDst = mInstructions[sz - 2]->mSrc[1];
+					cins->mConst = mInstructions[sz - 2]->mSrc[0];
+					cblock->mInstructions.Insert(0, cins);
+					changed = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PropagateConstCompareResults())
+			changed = true;
+		if (mFalseJump && mFalseJump->PropagateConstCompareResults())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::ForwardConstTemps(const GrowingInstructionPtrArray& ctemps)
 {
 	bool	changed = false;
@@ -7576,26 +7624,55 @@ bool InterCodeBasicBlock::ForwardConstTemps(const GrowingInstructionPtrArray& ct
 	{
 		mVisited = true;
 
-		GrowingInstructionPtrArray	temps(ctemps);
-		if (mEntryBlocks.Size() > 1)
-			temps.Clear();
+		GrowingInstructionPtrArray	ltemps(ctemps);
+
+		if (mLoopHead)
+		{
+			if (mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
+			{
+				for (i = 0; i < mInstructions.Size(); i++)
+					if (mInstructions[i]->mDst.mTemp >= 0)
+						ltemps[mInstructions[i]->mDst.mTemp] = nullptr;
+			}
+			else
+				ltemps.Clear();
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				for (int i = 0; i < ltemps.Size(); i++)
+				{
+					if (mMergeTValues[i] != ltemps[i])
+						ltemps[i] = nullptr;
+				}
+			}
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mMergeTValues = ltemps;
+				return false;
+			}
+		}
 
 		for (i = 0; i < mInstructions.Size(); i++)
 		{
-			if (mInstructions[i]->PropagateConstTemps(temps))
+			if (mInstructions[i]->PropagateConstTemps(ltemps))
 				changed = true;
 			if (mInstructions[i]->mDst.mTemp >= 0)
 			{
 				if (mInstructions[i]->mCode == IC_CONSTANT)
-					temps[mInstructions[i]->mDst.mTemp] = mInstructions[i];
+					ltemps[mInstructions[i]->mDst.mTemp] = mInstructions[i];
 				else
-					temps[mInstructions[i]->mDst.mTemp] = nullptr;
+					ltemps[mInstructions[i]->mDst.mTemp] = nullptr;
 			}
 		}
 
-		if (mTrueJump && mTrueJump->ForwardConstTemps(temps))
+		if (mTrueJump && mTrueJump->ForwardConstTemps(ltemps))
 			changed = true;
-		if (mFalseJump && mFalseJump->ForwardConstTemps(temps))
+		if (mFalseJump && mFalseJump->ForwardConstTemps(ltemps))
 			changed = true;
 	}
 
@@ -24000,7 +24077,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "equipment_init_display");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -24934,6 +25011,9 @@ void InterCodeProcedure::Close(void)
 
 	BuildDataFlowSets();
 
+	ResetVisited();
+	mEntryBlock->PropagateConstCompareResults();
+
 	GrowingInstructionPtrArray	ptemps(nullptr);
 	ptemps.SetSize(mTemporaries.Size());
 	ResetVisited();
@@ -24951,6 +25031,15 @@ void InterCodeProcedure::Close(void)
 	EliminateDoubleLoopCounter();
 	DisassembleDebug("EliminateDoubleLoopCounter");
 
+
+	BuildDataFlowSets();
+
+	ResetVisited();
+	mEntryBlock->PropagateConstCompareResults();
+
+	ptemps.SetSize(mTemporaries.Size(), true);
+	ResetVisited();
+	mEntryBlock->ForwardConstTemps(ptemps);
 
 	ResetVisited();
 	mEntryBlock->SingleLoopCountZeroCheck();

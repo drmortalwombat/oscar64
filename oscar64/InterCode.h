@@ -448,6 +448,7 @@ public:
 	void CollectConstTemps(GrowingInstructionPtrArray& ctemps, NumberSet& assignedTemps);
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 	bool ForwardConstTemps(const GrowingInstructionPtrArray& ctemps);
+	bool PropagateConstCompareResults(void);
 
 	bool EarlyBranchElimination(const GrowingInstructionPtrArray& ctemps);
 

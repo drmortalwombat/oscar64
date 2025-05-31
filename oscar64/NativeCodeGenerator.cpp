@@ -40837,7 +40837,9 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 						int finalx = lb->mIns[lbs - 1].mAddress;
 						int	a = lb->mIns[lbs - 1].mAddress - mIns[li].mAddress;
 
-						if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_ABSOLUTE_X && lb->mIns[0].mLinkerObject && a < 128)
+						if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_ABSOLUTE_X && 
+							((lb->mIns[0].mLinkerObject && a < 128) ||
+							 (!lb->mIns[0].mLinkerObject && !(lb->mIns[0].mFlags & NCIF_VOLATILE) && a <= 40)))
 						{
 							lb->mIns[0].mAddress += mIns[li].mAddress;
 							mIns[li].mAddress = a - 1;
@@ -40875,11 +40877,11 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 				while (li >= 0 && !mIns[li].ReferencesYReg())
 					li--;
 
-				if (li >= 0 && lb->mIns[lbs - 2].mType == ASMIT_INY && mIns[li].mType == ASMIT_LDY && mIns[li].mMode == ASMIM_IMMEDIATE && mIns[li].mAddress == 0)
+				if (li >= 0 && lb->mIns[lbs - 2].mType == ASMIT_INY && mIns[li].mType == ASMIT_LDY && mIns[li].mMode == ASMIM_IMMEDIATE)
 				{
 					if (lb->mIns[lbs - 1].mMode == ASMIM_ZERO_PAGE)
 					{
-						int	a = lb->mIns[lbs - 1].mAddress;
+						int	a = lb->mIns[lbs - 1].mAddress - mIns[li].mAddress;
 
 						int	i = 0;
 						while (i + 2 < lbs && !(lb->mIns[i].RequiresYReg() || lb->mIns[i].ChangesZeroPage(a)))
@@ -40895,7 +40897,6 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 							changed = true;
 
 							CheckLive();
-
 						}
 					}
 					else if (lb->mIns[lbs - 1].mMode == ASMIM_IMMEDIATE)
@@ -40903,7 +40904,9 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 						int finaly = lb->mIns[lbs - 1].mAddress;
 						int	a = lb->mIns[lbs - 1].mAddress - mIns[li].mAddress;
 
-						if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_ABSOLUTE_Y && lb->mIns[0].mLinkerObject && a < 128)
+						if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_ABSOLUTE_Y &&
+							((lb->mIns[0].mLinkerObject && a < 128) ||
+							 (!lb->mIns[0].mLinkerObject && !(lb->mIns[0].mFlags & NCIF_VOLATILE) && a <= 40)))
 						{
 							lb->mIns[0].mAddress += mIns[li].mAddress;
 							mIns[li].mAddress = a - 1;
@@ -40914,7 +40917,29 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 							changed = true;
 
 							CheckLive();
+							
+						}
+						else if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_INDIRECT_Y && !(lb->mIns[0].mFlags & NCIF_VOLATILE) && a <= 40 && mIns[li].mAddress == 0)
+						{
+							mIns[li].mAddress = a - 1;
+							lb->mIns[1].mType = ASMIT_DEY; lb->mIns[1].mLive |= LIVE_CPU_REG_Z;
+							lb->mIns[2].mType = ASMIT_NOP; lb->mIns[2].mMode = ASMIM_IMPLIED;
+							lb->mBranch = ASMIT_BPL;
+							eb->mIns.Insert(0, NativeCodeInstruction(lb->mIns[lbs - 1].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, finaly));
+							changed = true;
 
+							CheckLive();
+						}
+						else if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_INDIRECT_Y && !(lb->mIns[0].mFlags & NCIF_VOLATILE) && a <= 40 && mIns[li].mAddress == 1)
+						{
+							mIns[li].mAddress = a - 1;
+							lb->mIns[1].mType = ASMIT_DEY; lb->mIns[1].mLive |= LIVE_CPU_REG_Z;
+							lb->mIns[2].mType = ASMIT_NOP; lb->mIns[2].mMode = ASMIM_IMPLIED;
+							lb->mBranch = ASMIT_BNE;
+							eb->mIns.Insert(0, NativeCodeInstruction(lb->mIns[lbs - 1].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, finaly));
+							changed = true;
+
+							CheckLive();
 						}
 						else
 						{
@@ -47001,6 +47026,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 
 		mIns[i].mAddress = (mIns[i].mAddress << 1) & 255;
 		mIns[i].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 1].mLive |= mIns[i].mLive & LIVE_CPU_REG_Z;
 		return true;
 	}
 	
@@ -47012,6 +47038,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 
 		mIns[i].mAddress = (mIns[i].mAddress >> 1) & 255;
 		mIns[i].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 1].mLive |= mIns[i].mLive & LIVE_CPU_REG_Z;
 		return true;
 	}
 
@@ -48222,7 +48249,19 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 		return true;
 	}
-	
+#if 1
+	if (
+		pass >= 6 &&
+		mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+		mIns[i + 1].mType == ASMIT_STA &&
+		mIns[i + 2].mType == ASMIT_INC && mIns[i + 2].SameEffectiveAddress(mIns[i + 1]))
+	{
+		mIns[i + 0].mType = ASMIT_SEC; mIns[i + 0].mLive |= LIVE_CPU_REG_C;
+		mIns[i + 1].mType = ASMIT_ROL; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 2].mType = ASMIT_STA; 
+		return true;
+	}
+#endif
 	if (
 		mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
 		mIns[i + 2].mType == ASMIT_STA && mIns[i + 0].SameEffectiveAddress(mIns[i + 2]) &&
@@ -50328,6 +50367,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		return true;
 	}
 #endif
+
+	if (pass >= 6 &&
+		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+		mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 3].mLive & LIVE_CPU_REG_A))
+	{
+
+		mIns[i + 1].CopyMode(mIns[i + 0]);
+		mIns[i + 2].CopyMode(mIns[i + 0]);
+
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+
+		return true;
+	}
 
 	if (
 		mIns[i + 0].mType == ASMIT_STA && !(mIns[i + 0].mLive & LIVE_CPU_REG_A) &&
@@ -53114,6 +53169,10 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 				}
 			}
 
+#if _DEBUG
+			NativeCodeInstruction	h0(mIns[i + 0]);
+			NativeCodeInstruction	h1(mIns[i + 1 < mIns.Size() ? i + 1 : 0]);
+#endif
 			if (i + 1 < mIns.Size() && PeepHoleOptimizerIterate2(i, pass)) progress = true;
 			CheckLive();
 #if _DEBUG
