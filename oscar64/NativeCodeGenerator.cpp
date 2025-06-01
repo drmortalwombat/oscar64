@@ -40932,7 +40932,7 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 						}
 						else if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_INDIRECT_Y && !(lb->mIns[0].mFlags & NCIF_VOLATILE) && a <= 40 && mIns[li].mAddress == 1)
 						{
-							mIns[li].mAddress = a - 1;
+							mIns[li].mAddress = a;
 							lb->mIns[1].mType = ASMIT_DEY; lb->mIns[1].mLive |= LIVE_CPU_REG_Z;
 							lb->mIns[2].mType = ASMIT_NOP; lb->mIns[2].mMode = ASMIM_IMPLIED;
 							lb->mBranch = ASMIT_BNE;
