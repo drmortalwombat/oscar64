@@ -2728,6 +2728,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else
 					{
 						Declaration	*	otype = vll.mType;
+						if (vll.mType->mType == DT_TYPE_BOOL && vr.mType->mType == DT_TYPE_BOOL)
+							otype = TheUnsignedCharTypeDeclaration;
+
 #if 1
 						if ((exp->mRight->mType != EX_CONSTANT || (exp->mToken != TK_ASSIGN_ADD && exp->mToken != TK_ASSIGN_SUB && exp->mToken != TK_ASSIGN_AND && exp->mToken != TK_ASSIGN_OR)) && otype->mSize < 2)
 #else

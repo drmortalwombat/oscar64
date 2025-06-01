@@ -29,6 +29,11 @@ static bool IsIntegerType(InterType type)
 	return type >= IT_INT8 && type <= IT_INT32;
 }
 
+static bool IsScalarType(InterType type)
+{
+	return type >= IT_INT8 && type <= IT_INT32 || type == IT_BOOL;
+}
+
 static int64 SignedTypeMin(InterType type)
 {
 	switch (type)
@@ -5573,6 +5578,10 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 					aliased = proc->mModule->mGlobalVars[mVarIndex]->mAliased;
 				}
 			}
+			else if (mMemoryBase == IM_ABSOLUTE)
+			{
+				vname = "ABS";
+			}
 
 			if (aliased)
 				fprintf(file, " {V(%d '%s' A)} ", mVarIndex, vname);
@@ -7780,7 +7789,9 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 
 #if 1
 		int sz = mInstructions.Size();
-		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp)
+		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+			mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp &&
+			IsScalarType(mInstructions[sz - 2]->mSrc[0].mType) && IsScalarType(mInstructions[sz - 2]->mSrc[1].mType))
 		{
 			InterInstruction* cins = mInstructions[sz - 2];
 
@@ -8089,6 +8100,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			if (mTrueJump && mTrueJump->mInstructions.Size() == 1 && mTrueJump->mInstructions[0]->mCode == IC_BRANCH && 
 				mTrueJump->mInstructions[0]->mSrc[0].mTemp >= 0 && 
 				mTrueJump->mInstructions[0]->mSrc[0].mTemp < mTrueValueRange.Size() &&
+				IsScalarType(mTrueJump->mInstructions[0]->mSrc[0].mType) &&
 				mTrueValueRange[mTrueJump->mInstructions[0]->mSrc[0].mTemp].IsConstant())
 			{
 				mTrueJump->mNumEntries--;
@@ -8104,6 +8116,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			if (mFalseJump && mFalseJump->mInstructions.Size() == 1 && mFalseJump->mInstructions[0]->mCode == IC_BRANCH && 
 				mFalseJump->mInstructions[0]->mSrc[0].mTemp >= 0 && 
 				mFalseJump->mInstructions[0]->mSrc[0].mTemp < mFalseValueRange.Size() &&
+				IsScalarType(mFalseJump->mInstructions[0]->mSrc[0].mType) &&
 				mFalseValueRange[mFalseJump->mInstructions[0]->mSrc[0].mTemp].IsConstant())
 			{
 				mFalseJump->mNumEntries--;
@@ -8296,13 +8309,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 
 		for (int i = 0; i < ins->mNumOperands; i++)
 		{
-			if (IsIntegerType(ins->mSrc[i].mType) || ins->mSrc[i].mType == IT_BOOL)
+			if (IsIntegerType(ins->mSrc[i].mType) || ins->mSrc[i].mType == IT_BOOL || ins->mSrc[i].mType == IT_POINTER)
 			{
 				if (ins->mSrc[i].mTemp >= 0)
 				{
 					ins->mSrc[i].mRange.MergeUnknown(mProc->mLocalValueRange[ins->mSrc[i].mTemp]);
 #if 1
-					if (ins->mCode != IC_ASSEMBLER && ins->mSrc[i].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[i].mRange.mMinValue == ins->mSrc[i].mRange.mMaxValue)
+					if (ins->mCode != IC_ASSEMBLER && ins->mSrc[i].mType != IT_POINTER &&
+						ins->mSrc[i].mRange.mMinState == IntegerValueRange::S_BOUND && 
+						ins->mSrc[i].mRange.mMaxState == IntegerValueRange::S_BOUND && 
+						ins->mSrc[i].mRange.mMinValue == ins->mSrc[i].mRange.mMaxValue)
 					{
 						if (ins->mCode == IC_LOAD_TEMPORARY)
 						{
@@ -9047,6 +9063,68 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 			}
 #endif
 		}
+		else if (ins->mDst.mTemp >= 0 && ins->mDst.mType == IT_POINTER)
+		{
+			IntegerValueRange& vr(mProc->mLocalValueRange[ins->mDst.mTemp]);
+
+			switch (ins->mCode)
+			{
+			case IC_CONSTANT:
+				vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
+				vr.mMinValue = vr.mMaxValue = ins->mConst.mIntConst;
+				break;
+			case IC_LOAD_TEMPORARY:
+				vr = ins->mSrc[0].mRange;
+				break;
+			case IC_LEA:
+				if (ins->mSrc[0].mTemp < 0)
+				{
+					vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
+					if (ins->mSrc[0].mIntConst > 0 && vr.mMaxState == IntegerValueRange::S_WEAK)
+						vr.mMaxState = IntegerValueRange::S_UNBOUND;
+					else if (ins->mSrc[0].mIntConst < 0 && vr.mMinState == IntegerValueRange::S_WEAK)
+						vr.mMinState = IntegerValueRange::S_UNBOUND;
+
+					vr.mMaxValue += ins->mSrc[0].mIntConst;
+					vr.mMinValue += ins->mSrc[0].mIntConst;
+				}
+				else if (ins->mSrc[1].mTemp < 0)
+				{
+					vr = mProc->mLocalValueRange[ins->mSrc[0].mTemp];
+					if (ins->mSrc[1].mIntConst > 0 && vr.mMaxState == IntegerValueRange::S_WEAK)
+						vr.mMaxState = IntegerValueRange::S_UNBOUND;
+					else if (ins->mSrc[1].mIntConst < 0 && vr.mMinState == IntegerValueRange::S_WEAK)
+						vr.mMinState = IntegerValueRange::S_UNBOUND;
+					vr.mMaxValue += ins->mSrc[1].mIntConst;
+					vr.mMinValue += ins->mSrc[1].mIntConst;
+				}
+				else
+				{
+					if (ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND)
+					{
+						vr.mMaxState = IntegerValueRange::S_BOUND;
+						vr.mMaxValue = ins->mSrc[0].mRange.mMaxValue + ins->mSrc[1].mRange.mMaxValue;
+					}
+					else
+						vr.mMaxState = IntegerValueRange::S_UNBOUND;
+
+					if (ins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND && ins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND)
+					{
+						vr.mMinState = IntegerValueRange::S_BOUND;
+						vr.mMinValue = ins->mSrc[0].mRange.mMinValue + ins->mSrc[1].mRange.mMinValue;
+					}
+					else
+						vr.mMinState = IntegerValueRange::S_UNBOUND;
+				}
+
+				break;
+
+			default:
+				vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
+			}
+
+			ins->mDst.mRange.MergeUnknown(vr);
+		}
 		else if (ins->mCode == IC_STORE)
 		{
 			if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_FPARAM && ins->mSrc[0].mIntConst == 0)
@@ -9482,10 +9560,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 
 	if (sz >= 2)
 	{
-		if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR &&
-			mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp && IsIntegerType(mInstructions[sz - 2]->mSrc[0].mType))
+		InterInstruction* cins = mInstructions[sz - 2];
+
+		if (mInstructions[sz - 1]->mCode == IC_BRANCH && cins->mCode == IC_RELATIONAL_OPERATOR &&
+			mInstructions[sz - 1]->mSrc[0].mTemp == cins->mDst.mTemp && IsIntegerType(cins->mSrc[0].mType))
 		{
-			int	s1 = mInstructions[sz - 2]->mSrc[1].mTemp, s0 = mInstructions[sz - 2]->mSrc[0].mTemp;
+			int	s1 = cins->mSrc[1].mTemp, s0 = cins->mSrc[0].mTemp;
 			int s1c = -1, s0c = -1;
 			InterOperator	s1o, s0o;
 
@@ -9510,13 +9590,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				}
 			}
 
-			switch (mInstructions[sz - 2]->mOperator)
+			switch (cins->mOperator)
 			{
 #if 1
 			case IA_CMPEQ:
 				if (s0 < 0)
 				{
-					MarkIntegerRangeBoundUp(s1, mInstructions[sz - 2]->mSrc[0].mIntConst, mTrueValueRange);
+					MarkIntegerRangeBoundUp(s1, cins->mSrc[0].mIntConst, mTrueValueRange);
 #if 0
 					mTrueValueRange[s1].mMinState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s1].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
@@ -9526,7 +9606,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				}
 				else if (s1 < 0)
 				{
-					MarkIntegerRangeBoundUp(s0, mInstructions[sz - 2]->mSrc[1].mIntConst, mTrueValueRange);
+					MarkIntegerRangeBoundUp(s0, cins->mSrc[1].mIntConst, mTrueValueRange);
 #if 0
 					mTrueValueRange[s0].mMinState = IntegerValueRange::S_BOUND;
 					mTrueValueRange[s0].mMinValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
@@ -9539,7 +9619,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPNE:
 				if (s0 < 0)
 				{
-					MarkIntegerRangeBoundUp(s1, mInstructions[sz - 2]->mSrc[0].mIntConst, mFalseValueRange);
+					MarkIntegerRangeBoundUp(s1, cins->mSrc[0].mIntConst, mFalseValueRange);
 #if 0
 					mFalseValueRange[s1].mMinState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s1].mMinValue = mInstructions[sz - 2]->mSrc[0].mIntConst;
@@ -9549,7 +9629,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				}
 				else if (s1 < 0)
 				{
-					MarkIntegerRangeBoundUp(s0, mInstructions[sz - 2]->mSrc[1].mIntConst, mFalseValueRange);
+					MarkIntegerRangeBoundUp(s0, cins->mSrc[1].mIntConst, mFalseValueRange);
 #if 0
 					mFalseValueRange[s0].mMinState = IntegerValueRange::S_BOUND;
 					mFalseValueRange[s0].mMinValue = mInstructions[sz - 2]->mSrc[1].mIntConst;
@@ -9562,36 +9642,36 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPLS:
 				if (s0 < 0)
 				{
-					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
-					mTrueValueRange[s1].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
+					mTrueValueRange[s1].LimitMax(cins->mSrc[0].mIntConst - 1);
+					mTrueValueRange[s1].LimitMinWeak(SignedTypeMin(cins->mSrc[1].mType));
 
-					mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
-					mFalseValueRange[s1].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
+					mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
+					mFalseValueRange[s1].LimitMaxWeak(SignedTypeMax(cins->mSrc[1].mType));
 
 					if (s1c >= 0 && s1o == IA_EXT8TO16S)
 					{
-						mTrueValueRange[s1c].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
-						mTrueValueRange[s1c].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
+						mTrueValueRange[s1c].LimitMax(cins->mSrc[0].mIntConst - 1);
+						mTrueValueRange[s1c].LimitMinWeak(SignedTypeMin(cins->mSrc[1].mType));
 
-						mFalseValueRange[s1c].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
-						mFalseValueRange[s1c].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
+						mFalseValueRange[s1c].LimitMin(cins->mSrc[0].mIntConst);
+						mFalseValueRange[s1c].LimitMaxWeak(SignedTypeMax(cins->mSrc[1].mType));
 					}
 				}
 				else if (s1 < 0)
 				{
-					mTrueValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst + 1);
-					mTrueValueRange[s0].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
+					mTrueValueRange[s0].LimitMin(cins->mSrc[1].mIntConst + 1);
+					mTrueValueRange[s0].LimitMaxWeak(SignedTypeMax(cins->mSrc[0].mType));
 
-					mFalseValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst);
-					mFalseValueRange[s0].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
+					mFalseValueRange[s0].LimitMax(cins->mSrc[1].mIntConst);
+					mFalseValueRange[s0].LimitMinWeak(SignedTypeMin(cins->mSrc[0].mType));
 
 					if (s0c >= 0 && s0o == IA_EXT8TO16S)
 					{
-						mTrueValueRange[s0c].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst + 1);
-						mTrueValueRange[s0c].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
+						mTrueValueRange[s0c].LimitMin(cins->mSrc[1].mIntConst + 1);
+						mTrueValueRange[s0c].LimitMaxWeak(SignedTypeMax(cins->mSrc[0].mType));
 
-						mFalseValueRange[s0c].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst);
-						mFalseValueRange[s0c].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
+						mFalseValueRange[s0c].LimitMax(cins->mSrc[1].mIntConst);
+						mFalseValueRange[s0c].LimitMinWeak(SignedTypeMin(cins->mSrc[0].mType));
 					}
 				}
 				else
@@ -9605,17 +9685,17 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPLES:
 				if (s0 < 0)
 				{
-					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
-					mTrueValueRange[s1].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
-					mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
-					mFalseValueRange[s1].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
+					mTrueValueRange[s1].LimitMax(cins->mSrc[0].mIntConst);
+					mTrueValueRange[s1].LimitMinWeak(SignedTypeMin(cins->mSrc[1].mType));
+					mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst + 1);
+					mFalseValueRange[s1].LimitMaxWeak(SignedTypeMax(cins->mSrc[1].mType));
 				}
 				else if (s1 < 0)
 				{
-					mTrueValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst);
-					mTrueValueRange[s0].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
-					mFalseValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst - 1);
-					mFalseValueRange[s0].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
+					mTrueValueRange[s0].LimitMin(cins->mSrc[1].mIntConst);
+					mTrueValueRange[s0].LimitMaxWeak(SignedTypeMax(cins->mSrc[0].mType));
+					mFalseValueRange[s0].LimitMax(cins->mSrc[1].mIntConst - 1);
+					mFalseValueRange[s0].LimitMinWeak(SignedTypeMin(cins->mSrc[0].mType));
 				}
 				else
 				{
@@ -9633,17 +9713,17 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPGS:
 				if (s0 < 0)
 				{
-					mTrueValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
-					mTrueValueRange[s1].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
-					mFalseValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
-					mFalseValueRange[s1].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
+					mTrueValueRange[s1].LimitMin(cins->mSrc[0].mIntConst + 1);
+					mTrueValueRange[s1].LimitMaxWeak(SignedTypeMax(cins->mSrc[1].mType));
+					mFalseValueRange[s1].LimitMax(cins->mSrc[0].mIntConst);
+					mFalseValueRange[s1].LimitMinWeak(SignedTypeMin(cins->mSrc[1].mType));
 				}
 				else if (s1 < 0)
 				{
-					mTrueValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst - 1);
-					mTrueValueRange[s0].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[0].mType));
-					mFalseValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst);
-					mFalseValueRange[s0].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[0].mType));
+					mTrueValueRange[s0].LimitMax(cins->mSrc[1].mIntConst - 1);
+					mTrueValueRange[s0].LimitMinWeak(SignedTypeMin(cins->mSrc[0].mType));
+					mFalseValueRange[s0].LimitMin(cins->mSrc[1].mIntConst);
+					mFalseValueRange[s0].LimitMaxWeak(SignedTypeMax(cins->mSrc[0].mType));
 				}
 				else
 				{
@@ -9661,10 +9741,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPGES:
 				if (s0 < 0)
 				{
-					mTrueValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
-					mTrueValueRange[s1].LimitMaxWeak(SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType));
-					mFalseValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
-					mFalseValueRange[s1].LimitMinWeak(SignedTypeMin(mInstructions[sz - 2]->mSrc[1].mType));
+					mTrueValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
+					mTrueValueRange[s1].LimitMaxWeak(SignedTypeMax(cins->mSrc[1].mType));
+					mFalseValueRange[s1].LimitMax(cins->mSrc[0].mIntConst - 1);
+					mFalseValueRange[s1].LimitMinWeak(SignedTypeMin(cins->mSrc[1].mType));
 				}
 				break;
 
@@ -9673,82 +9753,82 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				{
 					if (s0 < 0)
 					{
-						if (mInstructions[sz - 2]->mSrc[0].mIntConst > 0)
+						if (cins->mSrc[0].mIntConst > 0)
 						{
-							mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
+							mTrueValueRange[s1].LimitMax(cins->mSrc[0].mIntConst - 1);
 
 							if (s1c >= 0 && s1o == IA_EXT8TO16U)
 							{
-								mTrueValueRange[s1c].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
-								mFalseValueRange[s1c].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
+								mTrueValueRange[s1c].LimitMax(cins->mSrc[0].mIntConst - 1);
+								mFalseValueRange[s1c].LimitMin(cins->mSrc[0].mIntConst);
 							}
 
-							if (mInstructions[sz - 2]->mSrc[0].mIntConst > 0 && mInstructions[sz - 2]->mSrc[0].mIntConst < SignedTypeMax(mInstructions[sz - 2]->mSrc[1].mType))
+							if (cins->mSrc[0].mIntConst > 0 && cins->mSrc[0].mIntConst < SignedTypeMax(cins->mSrc[1].mType))
 								mTrueValueRange[s1].LimitMin(0);
 							else
 								mTrueValueRange[s1].LimitMinWeak(0);
 
-							if (mInstructions[sz - 2]->mSrc[1].mType == IT_INT8)
+							if (cins->mSrc[1].mType == IT_INT8)
 							{
-								mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
+								mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
 								mFalseValueRange[s1].LimitMax(255);
 							}
 							else if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
 							{
-								mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
+								mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
 							}
 						}
 					}
-					else if (mInstructions[sz - 2]->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
+					else if (cins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
 					{
-						mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mRange.mMaxValue - 1);
+						mTrueValueRange[s1].LimitMax(cins->mSrc[0].mRange.mMaxValue - 1);
 						mTrueValueRange[s1].LimitMinWeak(0);
 
 						if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
 						{
-							mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mRange.mMinValue);
+							mFalseValueRange[s1].LimitMin(cins->mSrc[0].mRange.mMinValue);
 						}
 					}
 				}
 				else if (s0 >= 0)
 				{
-					mTrueValueRange[s0].LimitMin(mInstructions[sz - 2]->mSrc[1].mIntConst + 1);
-					mFalseValueRange[s0].LimitMax(mInstructions[sz - 2]->mSrc[1].mIntConst);
+					mTrueValueRange[s0].LimitMin(cins->mSrc[1].mIntConst + 1);
+					mFalseValueRange[s0].LimitMax(cins->mSrc[1].mIntConst);
 				}
 				break;
 			case IA_CMPLEU:
 				if (s0 < 0)
 				{
-					mTrueValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+					mTrueValueRange[s1].LimitMax(cins->mSrc[0].mIntConst);
 					mTrueValueRange[s1].LimitMin(0);
 					if (s1c >= 0)
 					{
-						mTrueValueRange[s1c].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+						mTrueValueRange[s1c].LimitMax(cins->mSrc[0].mIntConst);
 						mTrueValueRange[s1c].LimitMin(0);
 					}
 
 					if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && 
 						mFalseValueRange[s1].mMinValue >= 0 || mFalseJump->TempIsUnsigned(s1))
 					{
-						mFalseValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
+						mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst + 1);
 					}
 					if (s1c >= 0 && s1o == IA_EXT8TO16U)
-						mFalseValueRange[s1c].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
+						mFalseValueRange[s1c].LimitMin(cins->mSrc[0].mIntConst + 1);
 				}
 				break;
 			case IA_CMPGU:
 				if (s1 >= 0)
 				{
-					if (mInstructions[sz - 2]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[sz - 2]->mSrc[1].mRange.mMinValue < 0)
+					if (cins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && cins->mSrc[1].mRange.mMinValue < 0)
 						mTrueValueRange[s1].mMaxState = IntegerValueRange::S_UNBOUND;
 
 					mTrueValueRange[s1].LimitMin(1);
 					if (s0 < 0)
 					{
-						if (mInstructions[sz - 2]->mSrc[0].mIntConst >= 0)
+						if (cins->mSrc[0].mIntConst >= 0)
 						{
-							mTrueValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst + 1);
-							mFalseValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst);
+							mTrueValueRange[s1].LimitMin(cins->mSrc[0].mIntConst + 1);
+							mFalseValueRange[s1].LimitMax(cins->mSrc[0].mIntConst);
 							mFalseValueRange[s1].LimitMin(0);
 						}
 					}
@@ -9757,11 +9837,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			case IA_CMPGEU:
 				if (s0 < 0)
 				{
-					if (mInstructions[sz - 2]->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && mInstructions[sz - 2]->mSrc[1].mRange.mMinValue < 0)
+					if (cins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND && cins->mSrc[1].mRange.mMinValue < 0)
 						mTrueValueRange[s1].mMaxState = IntegerValueRange::S_UNBOUND;
 
-					mTrueValueRange[s1].LimitMin(mInstructions[sz - 2]->mSrc[0].mIntConst);
-					mFalseValueRange[s1].LimitMax(mInstructions[sz - 2]->mSrc[0].mIntConst - 1);
+					mTrueValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
+					mFalseValueRange[s1].LimitMax(cins->mSrc[0].mIntConst - 1);
 					mFalseValueRange[s1].LimitMin(0);
 				}
 				else
@@ -9786,6 +9866,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 				}
 			}
 		}
+		else if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR &&
+			mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp && 
+			cins->mSrc[0].mType == IT_POINTER && cins->mSrc[1].mType == IT_POINTER)
+		{
+
+
+			int	s1 = cins->mSrc[1].mTemp, s0 = cins->mSrc[0].mTemp;
+
+		}
+
 	}
 
 	for (int i = 0; i < mProc->mLocalValueRange.Size(); i++)
@@ -11194,8 +11284,11 @@ bool  InterCodeBasicBlock::MergeIndexedLoadStore(const GrowingInstructionPtrArra
 
 							if (bins != lins && ins->mSrc[pi].mIntConst + lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst < 252 && ins->mSrc[pi].mIntConst + lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst >= 0)
 							{
+								int64 diff = lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst;
+
 								ins->mSrc[pi].mTemp = bins->mDst.mTemp;
-								ins->mSrc[pi].mIntConst += lins->mSrc[1].mIntConst - bins->mSrc[1].mIntConst;
+								ins->mSrc[pi].mIntConst += diff;
+								ins->mSrc[pi].mRange.AddConstValue(IT_INT16, -diff);
 								changed = true;
 							}
 						}
@@ -11696,6 +11789,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						ins->mSrc[0] = pins->mSrc[1];
 						ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst;
+						ins->mSrc[1].mRange.AddConstValue(IT_INT16, -pins->mSrc[0].mIntConst);
 						changed = true;
 					}
 #if 1
@@ -11703,6 +11797,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						ins->mSrc[0] = pins->mSrc[0];
 						ins->mSrc[1].mIntConst += pins->mSrc[1].mIntConst;
+						ins->mSrc[1].mRange.AddConstValue(IT_INT16, -pins->mSrc[1].mIntConst);
 						changed = true;
 					}
 #endif
@@ -11717,6 +11812,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							{
 								ins->mSrc[0] = ains->mSrc[1];
 								ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
+								ins->mSrc[1].mRange.AddConstValue(IT_INT16, -ains->mSrc[0].mIntConst);
 								changed = true;
 							}
 							else if (ains->mSrc[1].mType == IT_INT8)
@@ -11734,6 +11830,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 
 								ins->mSrc[0] = nins->mDst;
 								ins->mSrc[1].mIntConst += ains->mSrc[0].mIntConst;
+								ins->mSrc[1].mRange.AddConstValue(IT_INT16, -ains->mSrc[0].mIntConst);
 								changed = true;
 							}
 						}
@@ -11756,6 +11853,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 					{
 						ins->mSrc[1].ForwardMem(pins->mSrc[1]);
 						ins->mSrc[1].mIntConst += ins->mSrc[0].mIntConst;
+						ins->mSrc[1].mRange.AddConstValue(IT_INT16, -ins->mSrc[0].mIntConst);
 						ins->mSrc[0].Forward(pins->mSrc[0]);
 						changed = true;
 					}
@@ -11805,7 +11903,10 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							ins->mSrc[1].mMemory = pins->mSrc[1].mMemory;
 							ins->mSrc[1].ForwardTemp(pins->mSrc[1]);
 							pins->mSrc[1].mFinal = false;
-							ins->mSrc[1].mIntConst += pins->mSrc[0].mIntConst + pins->mSrc[1].mIntConst;
+
+							int64 diff = pins->mSrc[0].mIntConst + pins->mSrc[1].mIntConst;
+							ins->mSrc[1].mIntConst += diff;
+							ins->mSrc[1].mRange = pins->mSrc[1].mRange;
 							changed = true;
 						}
 #if 1
@@ -11824,6 +11925,8 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mDst.mTemp = spareTemps++;
 								nins->mDst.mType = IT_POINTER;
 								nins->mDst.mRange = ins->mDst.mRange;
+
+								ins->mSrc[1].mRange.Reset();
 								ins->mSrc[1].mIntConst = 0;
 								ins->mSrc[1].mTemp = nins->mDst.mTemp;
 
@@ -11856,6 +11959,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 							ins->mSrc[0].Forward(pins->mSrc[1]);
 							pins->mSrc[1].mFinal = false;
 							ins->mSrc[0].mIntConst += offset;
+							ins->mSrc[0].mRange = pins->mSrc[1].mRange;
 							changed = true;
 						}
 						else if (pins->mSrc[1].mTemp < 0 && pins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mIntConst && (ins->mSrc[0].mIntConst >= 256 || pins->mSrc[0].IsUByte()))
@@ -11873,6 +11977,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mDst.mTemp = spareTemps++;
 								nins->mDst.mType = IT_POINTER;
 								nins->mDst.mRange = ins->mDst.mRange;
+								ins->mSrc[0].mRange.Reset();
 								ins->mSrc[0].mIntConst = 0;
 								ins->mSrc[0].mTemp = nins->mDst.mTemp;
 
@@ -16891,6 +16996,12 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 
 							if (j < lcs.Size())
 							{
+								if (lcs[j].mInc->mCode == IC_LEA)
+								{
+									lcs[j].mInc->mDst.mRange.LimitMax(lcs[j].mStart + lcs[j].mStep * loop);
+									lcs[j].mInc->mSrc[1].mRange.LimitMax(lcs[j].mStart + lcs[j].mStep * (loop - 1));
+								}
+
 								int ci = 0, ti = 1;
 								if (lcs[k].mCmp->mSrc[1].mTemp < 0)
 								{
@@ -18925,12 +19036,14 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 								InterInstruction* mins = pins->Clone();
 								mins->mDst.mTemp = spareTemps++;
 								mins->mDst.mMemory = IM_INDIRECT;								
+								mins->mDst.mRange.Reset();
 								mins->mSrc[1] = nins->mDst;
 								mInstructions.Insert(i, mins);
 
 								
 								lins->mSrc[1].mTemp = mins->mDst.mTemp;
 								lins->mSrc[1].mIntConst = 0;
+								lins->mSrc[1].mRange.Reset();
 
 								changed = true;
 							}
@@ -18954,12 +19067,14 @@ bool InterCodeBasicBlock::SingleBlockLoopPointerSplit(int& spareTemps)
 								InterInstruction* mins = pins->Clone();
 								mins->mDst.mTemp = spareTemps++;
 								mins->mDst.mMemory = IM_INDIRECT;
+								mins->mDst.mRange.Reset();
 								mins->mSrc[1] = nins->mDst;
 								mInstructions.Insert(i, mins);
 
 
 								lins->mSrc[0].mTemp = mins->mDst.mTemp;
 								lins->mSrc[0].mIntConst = 0;
+								lins->mSrc[0].mRange.Reset();
 
 								changed = true;
 							}
@@ -24077,7 +24192,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "equipment_init_display");
+	CheckFunc = !strcmp(mIdent->mString, "trench_init");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

@@ -14406,6 +14406,8 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 		bool	crossing = true;
 		if (ins->mSrc[1].mMemoryBase == IM_GLOBAL && ins->mSrc[1].mLinkerObject && (ins->mSrc[1].mLinkerObject->mFlags & LOBJF_NEVER_CROSS))
 			crossing = false;
+		else if (ins->mSrc[1].mMemoryBase == IM_ABSOLUTE && ins->mSrc[1].mRange.IsBound() && ins->mDst.mRange.IsBound() && ((ins->mSrc[1].mRange.mMinValue ^ ins->mDst.mRange.mMaxValue) & ~0xff) == 0)
+			crossing = false;
 
 		if (ins->mSrc[0].mTemp >= 0 || ins->mSrc[0].mIntConst != 0)
 			mIns.Push(NativeCodeInstruction(ins, isub ? ASMIT_SEC : ASMIT_CLC, ASMIM_IMPLIED));
@@ -58235,6 +58237,16 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 			{
 				block->RelationalOperator(iproc, ins, this, CompileBlock(iproc, iblock->mTrueJump), CompileBlock(iproc, iblock->mFalseJump));
 				return;
+			}
+			else if (ins->mSrc[0].mType >= IT_INT8 && ins->mSrc[0].mType <= IT_INT32 && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 0 && ins->mSrc[1].IsInRange(0, 1) && ins->mOperator == IA_CMPNE)
+			{
+				block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[1].mTemp]));
+				block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp]));
+			}
+			else if (ins->mSrc[1].mType >= IT_INT8 && ins->mSrc[1].mType <= IT_INT32 && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst == 0 && ins->mSrc[0].IsInRange(0, 1) && ins->mOperator == IA_CMPNE)
+			{
+				block->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mSrc[0].mTemp]));
+				block->mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + iproc->mTempOffset[ins->mDst.mTemp]));
 			}
 			else
 			{
