@@ -20,6 +20,8 @@ inline void sidfx_play(byte chn, const SIDFX * fx, byte cnt);
 
 void sidfx_stop(byte chn);
 
+char sidfx_cnt(byte chn);
+
 void sidfx_loop(void);
 
 void sidfx_loop_2(void);

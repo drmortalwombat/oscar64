@@ -35,6 +35,11 @@ bool sidfx_idle(byte chn)
 	return channels[chn].state == SIDFX_IDLE;
 }
 
+char sidfx_cnt(byte chn)
+{
+	return channels[chn].cnt;	
+}
+
 void sidfx_play(byte chn, const SIDFX * fx, byte cnt)
 {
 	SIDFXState		ns = channels[chn].state;
@@ -158,7 +163,7 @@ inline void sidfx_loop_ch(byte ch)
 					channels[ch].cnt--;
 					channels[ch].com = com;
 					channels[ch].priority = com->priority;
-					if (com->time0)
+					if (com->time1)
 						channels[ch].state = SIDFX_RESET_0;
 					else
 						channels[ch].state = SIDFX_READY;
