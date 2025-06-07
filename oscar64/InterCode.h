@@ -656,6 +656,7 @@ public:
 	bool ChangeTrueJump(InterCodeBasicBlock* block);
 	bool ChangeFalseJump(InterCodeBasicBlock* block);
 
+	InterCodeBasicBlock* CheckIsSimpleIntRangeBranch(const GrowingIntegerValueRangeArray & irange);
 	InterCodeBasicBlock* CheckIsConstBranch(const GrowingInstructionPtrArray& cins);
 	bool ShortcutConstBranches(const GrowingInstructionPtrArray& cins);
 	bool ShortcutDuplicateBranches(void);

@@ -32239,7 +32239,40 @@ bool NativeCodeBasicBlock::JoinTAYARange(int from, int to)
 			return true;
 		}
 	}
+#if 1
+	if (to + 2 < mIns.Size() &&
+		!(mIns[from].mLive & LIVE_CPU_REG_A) &&
+		mIns[to + 1].mType == ASMIT_LDY &&
+		mIns[to + 2].mType == ASMIT_STA && !(mIns[to + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+	{
+		bool	usesX = mIns[to + 1].ReferencesXReg() || mIns[to + 2].ReferencesXReg();
+		uint32	vflag = (mIns[to + 1].mFlags | mIns[to + 2].mFlags) & NCIF_VOLATILE;
+		int i = to - 1;
+		while (i > from && 
+			!mIns[i].MayBeChangedOnAddress(mIns[to + 2]) && 
+			!mIns[to + 1].MayBeChangedOnAddress(mIns[i]) && 
+			!mIns[i].ReferencesYReg() &&
+			!(mIns[i].mFlags & vflag) &&
+			!(usesX && mIns[i].ChangesXReg()))
+		{
+			i--;
+		}
+		if (i == from)
+		{
+			NativeCodeInstruction	i0 = mIns[to + 1];
+			NativeCodeInstruction	i1 = mIns[to + 2];
 
+			i0.mLive |= mIns[from].mLive;
+			i1.mLive |= mIns[from].mLive;
+
+			mIns.Remove(to, 3);
+			mIns.Remove(from);
+			mIns.Insert(from, i0);
+			mIns.Insert(from + 1, i1);
+			return true;
+		}
+	}
+#endif
 	return false;
 }
 
@@ -37623,7 +37656,7 @@ bool NativeCodeBasicBlock::GlobalValueForwarding(NativeCodeProcedure* proc, bool
 					mDataSet.Intersect(mEntryBlocks[i]->mFDataSet);
 			}
 		}
-
+			
 		for (int i = 0; i < mIns.Size(); i++)
 		{
 			AsmInsType	carryop;
@@ -37797,6 +37830,45 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 					ResetModifiedDataSet(mNDataSet);
 					lblock->ResetModifiedDataSet(mNDataSet);
 				}
+#if 1
+				else if (final)
+				{
+					ExpandingArray<NativeCodeBasicBlock*> lblocks;
+
+					if (CollectSingleEntryGenericLoop(lblocks))
+					{
+						mNDataSet.mRegs[CPU_REG_C].Reset();
+						mNDataSet.mRegs[CPU_REG_Z].Reset();
+						for (int i = 0; i < lblocks.Size(); i++)
+							lblocks[i]->ResetModifiedDataSet(mNDataSet);
+					}
+					else
+						mNDataSet.Reset();
+				}
+#endif
+				else
+					mNDataSet.Reset();
+			}
+			else if (global && final)
+			{
+				ExpandingArray<NativeCodeBasicBlock*> lblocks;
+
+				if (CollectSingleEntryGenericLoop(lblocks))
+				{
+					int k = 0;
+					for (int i = 0; i < mEntryBlocks.Size(); i++)
+						if (lblocks.Contains(mEntryBlocks[i]))
+							k++;
+					if (k + 1 == mEntryBlocks.Size())
+					{
+						mNDataSet.mRegs[CPU_REG_C].Reset();
+						mNDataSet.mRegs[CPU_REG_Z].Reset();
+						for (int i = 0; i < lblocks.Size(); i++)
+							lblocks[i]->ResetModifiedDataSet(mNDataSet);
+					}
+					else
+						mNDataSet.Reset();
+				}
 				else
 					mNDataSet.Reset();
 			}
@@ -37836,6 +37908,7 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 
 #if 1
 			if (mIns[i].mMode == ASMIM_INDIRECT_Y && HasAsmInstructionMode(mIns[i].mType, ASMIM_ABSOLUTE_Y) &&
+				!(mIns[i].mType == ASMIT_CMP && (mIns[i].mLive & LIVE_CPU_REG_Y)) &&
 				mNDataSet.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE &&
 				mNDataSet.mRegs[mIns[i].mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && (mNDataSet.mRegs[mIns[i].mAddress + 1].mFlags & NCIF_UPPER) &&
 				mNDataSet.mRegs[mIns[i].mAddress].mMode != NRDM_IMMEDIATE_ADDRESS)
@@ -37846,8 +37919,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 				mIns[i + 1].mLinkerObject = mNDataSet.mRegs[reg + 1].mLinkerObject;
 				mIns[i + 1].mAddress = (mNDataSet.mRegs[reg + 1].mValue & 0xff00) + mNDataSet.mRegs[CPU_REG_Y].mValue;
 				mIns[i + 1].mFlags &= ~NCIF_LOWER;
-				mIns.Insert(i + 2, NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, mNDataSet.mRegs[CPU_REG_Y].mValue));
-				mIns.Insert(i + 3, NativeCodeInstruction(mIns[i].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+				if (mIns[i + 1].mLive & LIVE_CPU_REG_Y)
+				{
+					mIns.Insert(i + 2, NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, mNDataSet.mRegs[CPU_REG_Y].mValue));
+					mIns.Insert(i + 3, NativeCodeInstruction(mIns[i].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+				}
 				changed = true;
 			}
 #endif
@@ -38963,6 +39039,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			if (!prevBlock)
 				return OptimizeSimpleLoopInvariant(proc, full);
 
+			mIns[i].mLive |= mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Y);
 			prevBlock->mIns.Push(mIns[i]);
 			prevBlock->mExitRequiredRegs += CPU_REG_C;
 			for (int j = 0; j < i; j++)
@@ -42831,7 +42908,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BuildSingleExit(NativeCodeProcedure*
 }
 
 
-bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
+bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 {
 	bool	changed = false;
 
@@ -42841,8 +42918,8 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 		{
 			ExpandingArray<NativeCodeBasicBlock*>	 lblocks;
 
-			proc->ResetPatched();
-			if (CollectSingleEntryGenericLoop(proc, lblocks))
+			mProc->ResetPatched();
+			if (CollectSingleEntryGenericLoop(lblocks))
 			{
 				int		yreg = -1, xreg = -1, areg = -1;
 				int		zyreg[NUM_REGS], zxreg[NUM_REGS], zareg[NUM_REGS];
@@ -43213,7 +43290,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 						{
 							if (!lblocks.Contains(block->mEntryBlocks[j]))
 							{
-								block->mEntryBlocks[j] = block->BuildSingleExit(proc, block->mEntryBlocks[j]);
+								block->mEntryBlocks[j] = block->BuildSingleExit(mProc, block->mEntryBlocks[j]);
 								if (areg >= 0 && mEntryRequiredRegs[areg])
 								{
 									if (areg == CPU_REG_X)
@@ -43417,7 +43494,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 
 						if (block->mTrueJump && !lblocks.Contains(block->mTrueJump))
 						{
-							block->mTrueJump = block->BuildSingleEntry(proc, block->mTrueJump);
+							block->mTrueJump = block->BuildSingleEntry(mProc, block->mTrueJump);
 							if (areg >= 0 && block->mTrueJump->mEntryRequiredRegs[areg])
 							{
 								if (areg < 256)
@@ -43440,7 +43517,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 						}
 						if (block->mFalseJump && !lblocks.Contains(block->mFalseJump))
 						{
-							block->mFalseJump = block->BuildSingleEntry(proc, block->mFalseJump);
+							block->mFalseJump = block->BuildSingleEntry(mProc, block->mFalseJump);
 							if (areg >= 0 && block->mFalseJump->mEntryRequiredRegs[areg])
 							{
 								if (areg < 256)
@@ -43474,9 +43551,9 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(NativeCodeProcedure* proc)
 
 		mVisited = true;
 
-		if (mTrueJump && mTrueJump->OptimizeGenericLoop(proc))
+		if (mTrueJump && mTrueJump->OptimizeGenericLoop())
 			changed = true;
-		if (mFalseJump && mFalseJump->OptimizeGenericLoop(proc))
+		if (mFalseJump && mFalseJump->OptimizeGenericLoop())
 			changed = true;
 	}
 
@@ -43495,14 +43572,14 @@ void NativeCodeBasicBlock::CollectReachable(ExpandingArray<NativeCodeBasicBlock*
 	}
 }
 
-bool NativeCodeBasicBlock::CollectGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks)
+bool NativeCodeBasicBlock::CollectGenericLoop(ExpandingArray<NativeCodeBasicBlock*>& lblocks)
 {
 	ExpandingArray<NativeCodeBasicBlock*>	 rblocks;
 	
-	proc->ResetPatched();
+	mProc->ResetPatched();
 	CollectReachable(rblocks);
 	
-	proc->ResetPatched();
+	mProc->ResetPatched();
 	
 	bool	changed;
 	do
@@ -43528,9 +43605,9 @@ bool NativeCodeBasicBlock::CollectGenericLoop(NativeCodeProcedure* proc, Expandi
 	return lblocks.Size() > 0;
 }
 
-bool NativeCodeBasicBlock::CollectSingleEntryGenericLoop(NativeCodeProcedure* proc, ExpandingArray<NativeCodeBasicBlock*>& lblocks)
+bool NativeCodeBasicBlock::CollectSingleEntryGenericLoop(ExpandingArray<NativeCodeBasicBlock*>& lblocks)
 {
-	if (CollectGenericLoop(proc, lblocks))
+	if (CollectGenericLoop(lblocks))
 	{
 		for (int i = 0; i < lblocks.Size(); i++)
 		{
@@ -55568,7 +55645,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "sprite_mobs_update_slide");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -56819,7 +56896,7 @@ void NativeCodeProcedure::Optimize(void)
 				CheckBlocks(true);
 
 				ResetVisited();
-				if (!changed && mEntryBlock->OptimizeGenericLoop(this))
+				if (!changed && mEntryBlock->OptimizeGenericLoop())
 					changed = true;
 			}
 #endif

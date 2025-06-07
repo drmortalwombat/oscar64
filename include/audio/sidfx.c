@@ -10,7 +10,7 @@ enum SIDFXState
 	SIDFX_WAIT
 };
 
-static struct SIDFXChannel
+__striped static struct SIDFXChannel
 {
 	const SIDFX	* volatile 		com;
 	byte						delay, priority;
@@ -27,6 +27,7 @@ void sidfx_init(void)
 		channels[i].com = nullptr;
 		channels[i].state = SIDFX_IDLE;
 		channels[i].priority = 0;
+		channels[i].delay = 1;
 	}
 }
 
@@ -52,6 +53,7 @@ void sidfx_play(byte chn, const SIDFX * fx, byte cnt)
 		return;
 
 	channels[chn].state = SIDFX_IDLE;
+	channels[chn].delay = 1;
 
 	channels[chn].com = fx;
 	channels[chn].cnt = cnt - 1;
@@ -64,71 +66,92 @@ void sidfx_stop(byte chn)
 {
 	channels[chn].com = nullptr;
 	if (channels[chn].state != SIDFX_IDLE)
+	{
 		channels[chn].state = SIDFX_RESET_0;
+		channels[chn].delay = 1;
+	}
 }
 
 inline void sidfx_loop_ch(byte ch)
 {
-	switch (channels[ch].state)
+	if (channels[ch].state)
 	{
-		case SIDFX_IDLE:
-			break;
-		case SIDFX_RESET_0:
-			sid.voices[ch].ctrl = 0;
-			sid.voices[ch].attdec = 0;
-			sid.voices[ch].susrel = 0;
-			channels[ch].state = SIDFX_READY;
-			break;
-		case SIDFX_RESET_1:
-			sid.voices[ch].ctrl = SID_CTRL_TEST;
-			channels[ch].state = SIDFX_READY;
-			break;
-		case SIDFX_READY:
+		const SIDFX	*	com = channels[ch].com;
+
+		channels[ch].delay--;
+		if (channels[ch].delay)
+		{
+			if (com->dfreq)
 			{
-				const SIDFX	*	com = channels[ch].com;
+				channels[ch].freq += com->dfreq;
+				sid.voices[ch].freq = channels[ch].freq;
+			}
+			if (com->dpwm)
+			{
+				channels[ch].pwm += com->dpwm;
+				sid.voices[ch].pwm = channels[ch].pwm;
+			}
+		}
+
+		while (!channels[ch].delay)
+		{
+			switch (channels[ch].state)
+			{
+			case SIDFX_IDLE:
+				channels[ch].delay = 1;
+				break;
+			case SIDFX_RESET_0:
+				sid.voices[ch].ctrl = 0;
+				sid.voices[ch].attdec = 0;
+				sid.voices[ch].susrel = 0;
 				if (com)
+					channels[ch].state = SIDFX_READY;
+				else
+					channels[ch].state = SIDFX_IDLE;
+				channels[ch].delay = 1;
+				break;
+			case SIDFX_RESET_1:
+				sid.voices[ch].ctrl = SID_CTRL_TEST;
+				channels[ch].state = SIDFX_READY;
+				break;
+			case SIDFX_READY:
+				channels[ch].freq = com->freq;
+				channels[ch].pwm = com->pwm;
+
+				sid.voices[ch].freq = com->freq;
+				sid.voices[ch].pwm = com->pwm;
+				sid.voices[ch].attdec = com->attdec;
+				sid.voices[ch].susrel = com->susrel;
+				sid.voices[ch].ctrl = com->ctrl;
+
+				if (com->ctrl & SID_CTRL_GATE)
 				{
-					channels[ch].freq = com->freq;
-					channels[ch].pwm = com->pwm;
-
-					sid.voices[ch].freq = com->freq;
-					sid.voices[ch].pwm = com->pwm;
-					sid.voices[ch].attdec = com->attdec;
-					sid.voices[ch].susrel = com->susrel;
-					sid.voices[ch].ctrl = com->ctrl;
-
 					channels[ch].delay = com->time1;
 					channels[ch].state = SIDFX_PLAY;
 				}
 				else
-					channels[ch].state = SIDFX_IDLE;
-			}
-			break;
-		case SIDFX_PLAY:
-			{
-				const SIDFX	*	com = channels[ch].com;
-				if (com->dfreq)
 				{
-					channels[ch].freq += com->dfreq;
-					sid.voices[ch].freq = channels[ch].freq;
+					channels[ch].delay = com->time0;
+					channels[ch].state = SIDFX_PLAY;
 				}
-				if (com->dpwm)
-				{
-					channels[ch].pwm += com->dpwm;
-					sid.voices[ch].pwm = channels[ch].pwm;
-				}
-
-				if (channels[ch].delay)
-					channels[ch].delay--;
-				else if (com->time0)
+				break;
+			case SIDFX_PLAY:
+				if (com->time0)
 				{
 					sid.voices[ch].ctrl = com->ctrl & ~SID_CTRL_GATE;
-					channels[ch].delay = com->time0;
+					channels[ch].delay = com->time0 - 1;
 					channels[ch].state = SIDFX_WAIT;
 				}
 				else if (channels[ch].cnt)
 				{
+					char sr = com->susrel & 0xf0;
 					com++;
+					char ctrl = com->ctrl;
+					if (com->attdec == 0 && (ctrl & SID_CTRL_GATE) && (com->susrel & 0xf0) > sr)
+					{
+						sid.voices[ch].ctrl = ctrl & ~SID_CTRL_GATE;
+						sid.voices[ch].ctrl = ctrl |  SID_CTRL_GATE;
+					}
 					channels[ch].cnt--;
 					channels[ch].com = com;
 					channels[ch].priority = com->priority;
@@ -137,33 +160,17 @@ inline void sidfx_loop_ch(byte ch)
 				else
 				{
 					channels[ch].com = nullptr;
-					channels[ch].state = SIDFX_RESET_0;						
+					channels[ch].state = SIDFX_RESET_0;					
 				}
-			}
-			break;
-		case SIDFX_WAIT:
-			{
-				const SIDFX	*	com = channels[ch].com;			
-				if (com->dfreq)
-				{
-					channels[ch].freq += com->dfreq;
-					sid.voices[ch].freq = channels[ch].freq;
-				}
-				if (com->dpwm)
-				{
-					channels[ch].pwm += com->dpwm;
-					sid.voices[ch].pwm = channels[ch].pwm;
-				}
-
-				if (channels[ch].delay)
-					channels[ch].delay--;
-				else if (channels[ch].cnt)
+				break;
+			case SIDFX_WAIT:
+				if (channels[ch].cnt)
 				{
 					com++;
 					channels[ch].cnt--;
 					channels[ch].com = com;
 					channels[ch].priority = com->priority;
-					if (com->time1)
+					if (com->ctrl & SID_CTRL_GATE)
 						channels[ch].state = SIDFX_RESET_0;
 					else
 						channels[ch].state = SIDFX_READY;
@@ -173,8 +180,9 @@ inline void sidfx_loop_ch(byte ch)
 					channels[ch].com = nullptr;
 					channels[ch].state = SIDFX_RESET_0;					
 				}
+				break;
 			}
-			break;
+		}
 	}
 }
 

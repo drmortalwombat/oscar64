@@ -15638,6 +15638,48 @@ bool SameExitCondition(InterCodeBasicBlock* b1, InterCodeBasicBlock* b2)
 	return false;
 }
 
+InterCodeBasicBlock* InterCodeBasicBlock::CheckIsSimpleIntRangeBranch(const GrowingIntegerValueRangeArray& irange)
+{
+	int sz = mInstructions.Size();
+	if (irange.Size() > 0 &&
+		mTrueJump && mFalseJump && mInstructions.Size() == 2 &&
+		mInstructions[sz - 1]->mCode == IC_BRANCH && 
+		mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+		IsScalarType(mInstructions[sz - 2]->mSrc[0].mType) &&
+		IsScalarType(mInstructions[sz - 2]->mSrc[1].mType) &&
+		mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp && mInstructions[sz - 1]->mSrc[0].mFinal)
+	{
+		const InterInstruction* cins = mInstructions[sz - 2];
+		if ((cins->mSrc[0].mTemp < 0 || irange[cins->mSrc[0].mTemp].IsBound()) &&
+			(cins->mSrc[1].mTemp < 0 || irange[cins->mSrc[1].mTemp].IsBound()))
+		{
+			IntegerValueRange	r0, r1;
+			if (cins->mSrc[0].mTemp < 0)
+				r0.SetConstant(cins->mSrc[0].mIntConst);
+			else
+				r0 = irange[cins->mSrc[0].mTemp];
+			if (cins->mSrc[1].mTemp < 0)
+				r1.SetConstant(cins->mSrc[1].mIntConst);
+			else
+				r1 = irange[cins->mSrc[1].mTemp];
+
+			switch (mInstructions[sz - 2]->mOperator)
+			{
+			case IA_CMPEQ:
+				if (r0.mMinValue > r1.mMaxValue || r0.mMaxValue < r1.mMinValue)
+					return mFalseJump;
+				break;
+			case IA_CMPNE:
+				if (r0.mMinValue > r1.mMaxValue || r0.mMaxValue < r1.mMinValue)
+					return mTrueJump;
+				break;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
 InterCodeBasicBlock* InterCodeBasicBlock::CheckIsConstBranch(const GrowingInstructionPtrArray& cins)
 {
 	if (!mFalseJump || mInstructions.Size() < 1 || mInstructions[mInstructions.Size() - 1]->mCode != IC_BRANCH)
@@ -15911,6 +15953,8 @@ bool InterCodeBasicBlock::ShortcutConstBranches(const GrowingInstructionPtrArray
 		if (mTrueJump)
 		{
 			InterCodeBasicBlock* tblock = mTrueJump->CheckIsConstBranch(tins);
+			if (!tblock) tblock = mTrueJump->CheckIsSimpleIntRangeBranch(mTrueValueRange);
+
 			if (tblock)
 			{
 				mTrueJump->mEntryBlocks.RemoveAll(this);
@@ -15925,6 +15969,8 @@ bool InterCodeBasicBlock::ShortcutConstBranches(const GrowingInstructionPtrArray
 		if (mFalseJump)
 		{
 			InterCodeBasicBlock* tblock = mFalseJump->CheckIsConstBranch(tins);
+			if (!tblock) tblock = mFalseJump->CheckIsSimpleIntRangeBranch(mFalseValueRange);
+
 			if (tblock)
 			{
 				mFalseJump->mEntryBlocks.RemoveAll(this);
