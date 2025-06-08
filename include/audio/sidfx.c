@@ -112,6 +112,9 @@ inline void sidfx_loop_ch(byte ch)
 				break;
 			case SIDFX_RESET_1:
 				sid.voices[ch].ctrl = SID_CTRL_TEST;
+				sid.voices[ch].ctrl = 0;
+				sid.voices[ch].attdec = 0;
+				sid.voices[ch].susrel = 0;
 				channels[ch].state = SIDFX_READY;
 				break;
 			case SIDFX_READY:
@@ -147,7 +150,7 @@ inline void sidfx_loop_ch(byte ch)
 					char sr = com->susrel & 0xf0;
 					com++;
 					char ctrl = com->ctrl;
-					if (com->attdec == 0 && (ctrl & SID_CTRL_GATE) && (com->susrel & 0xf0) > sr)
+					if ((com->attdec & 0xef) == 0 && (ctrl & SID_CTRL_GATE) && (com->susrel & 0xf0) > sr)
 					{
 						sid.voices[ch].ctrl = ctrl & ~SID_CTRL_GATE;
 						sid.voices[ch].ctrl = ctrl |  SID_CTRL_GATE;
