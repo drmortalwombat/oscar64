@@ -162,7 +162,7 @@ inline void sidfx_loop_ch(byte ch)
 				}
 				else
 				{
-					channels[ch].com = nullptr;
+					com = nullptr;
 					channels[ch].state = SIDFX_RESET_0;					
 				}
 				break;
@@ -180,7 +180,7 @@ inline void sidfx_loop_ch(byte ch)
 				}
 				else
 				{
-					channels[ch].com = nullptr;
+					com = nullptr;
 					channels[ch].state = SIDFX_RESET_0;					
 				}
 				break;
