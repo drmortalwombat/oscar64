@@ -373,6 +373,8 @@ public:
 	bool OptimizeInnerLoops(NativeCodeProcedure* proc);
 	NativeCodeBasicBlock* CollectInnerLoop(NativeCodeBasicBlock* head, ExpandingArray<NativeCodeBasicBlock*>& lblocks);
 
+	int CorrectXOffset(const InterInstruction * ins, int yoffset, int at);
+	int CorrectYOffset(const InterInstruction * ins, int yoffset, int at);
 	bool OptimizeGenericLoop(void);
 	bool CollectGenericLoop(ExpandingArray<NativeCodeBasicBlock*>& lblocks);
 	bool CollectSingleEntryGenericLoop(ExpandingArray<NativeCodeBasicBlock*>& lblocks);

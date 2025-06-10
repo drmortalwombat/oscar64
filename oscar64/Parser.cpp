@@ -515,6 +515,12 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 											}
 										}
 
+										if (mdec->mBits == 24 && mdec->mOffset > 0 && mdec->mShift == 0)
+										{
+											mdec->mOffset--;
+											mdec->mShift = 8;
+										}
+
 										if (mdec->mShift == 0 && mdec->mBits == 8 * mdec->mSize)
 											mdec->mBits = 0;
 									}

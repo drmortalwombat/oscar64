@@ -169,6 +169,7 @@ public:
 	}			mMinState, mMaxState;
 
 	bool Same(const IntegerValueRange& range) const;
+	bool Weaker(const IntegerValueRange& range) const;
 	bool Merge(const IntegerValueRange& range, bool head, bool initial);
 	void Expand(const IntegerValueRange& range);
 	void Union(const IntegerValueRange& range);
@@ -380,7 +381,7 @@ public:
 	InterCodeBasicBlock			*	mTrueJump, * mFalseJump, * mLoopPrefix, * mDominator;
 	GrowingInstructionArray			mInstructions;
 
-	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable, mLoopPath, mValueRangeValid;
+	bool							mVisited, mInPath, mLoopHead, mChecked, mConditionBlockTrue, mUnreachable, mLoopPath, mValueRangeValid, mPatched, mLoopDebug;
 	mutable int						mMark;
 
 	NumberSet						mLocalUsedTemps, mLocalModifiedTemps;
@@ -431,6 +432,7 @@ public:
 	void CollectEntryBlocks(InterCodeBasicBlock* from);
 	void GenerateTraces(int expand, bool compact);
 	void BuildDominatorTree(InterCodeBasicBlock * from);
+	bool StripLoopHead(void);
 
 	bool MergeSameConditionTraces(void);
 
@@ -648,7 +650,11 @@ public:
 
 	bool PullStoreUpToConstAddress(void);
 
-	bool CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body);
+	bool CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, ExpandingArray<InterCodeBasicBlock*>& body);
+
+	bool CollectGenericLoop(ExpandingArray<InterCodeBasicBlock*>& lblocks);
+	bool CollectSingleEntryGenericLoop(ExpandingArray<InterCodeBasicBlock*>& lblocks);
+	void CollectReachable(ExpandingArray<InterCodeBasicBlock*>& lblock);
 
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	bool MergeLoopTails(void);
@@ -707,6 +713,7 @@ protected:
 	GrowingIntegerValueRangeArray		mLocalValueRange, mReverseValueRange;
 
 	void ResetVisited(void);
+	void ResetPatched(void);
 	void ResetEntryBlocks(void);
 public:
 	InterCodeBasicBlock				*	mEntryBlock;

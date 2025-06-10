@@ -99,6 +99,61 @@ void IntegerValueRange::Restart(void)
 }
 
 
+bool IntegerValueRange::Weaker(const IntegerValueRange& range) const
+{
+	bool	minWeak = false, maxWeak = false;
+
+	if (range.mMinState == S_UNKNOWN)
+		minWeak = false;
+	else if (mMinState == S_UNKNOWN)
+		minWeak = true;
+	else if (mMinState == S_BOUND)
+	{
+		if (range.mMinState >= S_WEAK && mMinValue < range.mMinValue)
+			minWeak = true;
+	}
+	else if (mMinState == S_WEAK)
+	{
+		if (range.mMinState == S_BOUND)
+			minWeak = true;
+		if (range.mMinState == S_WEAK && mMinValue != range.mMinValue)
+			minWeak = true;
+	}
+	else if (mMinState == S_UNBOUND)
+	{
+		if (mMinExpanded >= 32 && range.mMinState == S_WEAK)
+			;
+		else if (range.mMinState != S_UNBOUND)
+			minWeak = true;
+	}
+
+	if (range.mMaxState == S_UNKNOWN)
+		maxWeak = false;
+	else if (mMaxState == S_UNKNOWN)
+		maxWeak = true;
+	else if (mMaxState == S_BOUND)
+	{
+		if (range.mMaxState >= S_WEAK && mMaxValue > range.mMaxValue)
+			maxWeak = true;
+	}
+	else if (mMaxState == S_WEAK)
+	{
+		if (range.mMaxState == S_BOUND)
+			maxWeak = true;
+		if (range.mMaxState == S_WEAK && mMaxValue != range.mMaxValue)
+			maxWeak = true;
+	}
+	else if (mMaxState == S_UNBOUND)
+	{
+		if (mMaxExpanded >= 32 && range.mMaxState == S_WEAK)
+			;
+		else if (range.mMaxState != S_UNBOUND)
+			maxWeak = true;
+	}
+
+	return minWeak || maxWeak;
+}
+
 bool IntegerValueRange::Same(const IntegerValueRange& range) const
 {
 	if (mMinState == range.mMinState && mMaxState == range.mMaxState)
@@ -266,6 +321,91 @@ void IntegerValueRange::SetBounds(State minState, int64 minValue, State maxState
 
 void IntegerValueRange::Expand(const IntegerValueRange& range)
 {
+	if (mMinState == S_BOUND)
+	{
+		if (range.mMinState == S_BOUND)
+		{
+			if (range.mMinValue > mMinValue)
+				mMinValue = range.mMinValue;
+		}
+		else if (range.mMinState == S_WEAK)
+		{
+			if (range.mMinValue > mMinValue)
+			{
+				mMinValue = range.mMinValue;
+				mMinState = S_WEAK;
+			}
+		}
+	}
+	else if (mMinState == S_WEAK)
+	{
+		if (range.mMinState == S_BOUND)
+		{
+			mMinState = range.mMinState;
+			mMinValue = range.mMinValue;
+		}
+		else if (range.mMinState == S_WEAK)
+		{
+			if (range.mMinValue != mMinValue)
+			{
+				mMinExpanded++;
+				mMinValue = range.mMinValue;
+				if (mMinExpanded >= 32)
+					mMinState = S_UNBOUND;
+			}
+		}
+		else if (range.mMinState == S_UNBOUND)
+			mMinState = S_UNBOUND;
+	}
+	else if (mMinState == S_UNKNOWN || range.mMinState != S_UNKNOWN)
+	{
+		mMinState = range.mMinState;
+		mMinValue = range.mMinValue;
+	}
+
+	if (mMaxState == S_BOUND)
+	{
+		if (range.mMaxState == S_BOUND)
+		{
+			if (range.mMaxValue < mMaxValue)
+				mMaxValue = range.mMaxValue;
+		}
+		else if (range.mMaxState == S_WEAK)
+		{
+			if (range.mMaxValue < mMaxValue)
+			{
+				mMaxValue = range.mMaxValue;
+				mMaxState = S_WEAK;
+			}
+		}
+	}
+	else if (mMaxState == S_WEAK)
+	{
+		if (range.mMaxState == S_BOUND)
+		{
+			mMaxValue = range.mMaxValue;
+			mMaxState = S_BOUND;
+		}
+		else if (range.mMaxState == S_WEAK)
+		{
+			if (range.mMaxValue != mMaxValue)
+			{
+				mMaxExpanded++;
+				mMaxValue = range.mMaxValue;
+				if (mMaxExpanded >= 32)
+					mMaxState = S_UNBOUND;
+			}
+		}
+		else if (range.mMaxState == S_UNBOUND)
+			mMaxState = S_UNBOUND;
+	}
+	else if (mMaxState == S_UNKNOWN || range.mMaxState != S_UNKNOWN)
+	{
+		mMaxState = range.mMaxState;
+		mMaxValue = range.mMaxValue;
+	}
+
+#if 0
 	if (range.mMinState == S_BOUND && mMinState == S_BOUND && range.mMinValue < mMinValue)
 	{
 		mMinValue = range.mMinValue;
@@ -292,6 +432,7 @@ void IntegerValueRange::Expand(const IntegerValueRange& range)
 		mMaxState = range.mMaxState;
 		mMaxValue = range.mMaxValue;
 	}
+#endif
 }
 
 void IntegerValueRange::Union(const IntegerValueRange& range)
@@ -6103,13 +6244,20 @@ bool InterCodeBasicBlock::IsDominator(InterCodeBasicBlock* block)
 
 void InterCodeBasicBlock::CollectEntries(void)
 {
+	if (mInPath)
+	{
+		mLoopDebug = true;
+		mLoopHead = true;
+	}
 	mNumEntries++;
 	if (!mVisited)
 	{
 		mVisited = true;
 
+		mInPath = true;
 		if (mTrueJump) mTrueJump->CollectEntries();
 		if (mFalseJump) mFalseJump->CollectEntries();
+		mInPath = false;
 	}
 }
 
@@ -6131,6 +6279,61 @@ static bool IsInfiniteLoop(InterCodeBasicBlock* head, InterCodeBasicBlock* block
 	}
 	
 	return false;
+}
+
+bool InterCodeBasicBlock::StripLoopHead(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		if (mLoopHead && mFalseJump && mTrueJump != this && mFalseJump != this && mLoopPrefix && mInstructions.Size() < 10)
+		{
+//			printf("StripA %s %d\n", mProc->mIdent->mString, mIndex);
+
+			ExpandingArray<InterCodeBasicBlock*>	lblocks;
+			if (CollectSingleEntryGenericLoop(lblocks))
+			{
+//				printf("StripB %s %d\n", mProc->mIdent->mString, mIndex);
+
+				mLoopPrefix->mInstructions.SetSize(0);
+				for (int i = 0; i < mInstructions.Size(); i++)
+					mLoopPrefix->mInstructions.Push(mInstructions[i]->Clone());
+
+				mLoopPrefix->mFalseJump = mFalseJump;
+				mLoopPrefix->mTrueJump = mTrueJump;
+
+				mEntryBlocks.RemoveAll(mLoopPrefix);
+				mNumEntries--;
+				mLoopHead = false;
+
+				mTrueJump->mEntryBlocks.Push(mLoopPrefix);
+				mTrueJump->mNumEntries++;
+				mFalseJump->mEntryBlocks.Push(mLoopPrefix);
+				mFalseJump->mNumEntries++;
+
+				if (!lblocks.Contains(mTrueJump))
+				{
+					mFalseJump->mLoopHead = true;
+				}
+				else if (!lblocks.Contains(mFalseJump))
+				{
+					mTrueJump->mLoopHead = true;
+				}
+
+				changed = true;
+			}
+		}
+
+		mVisited = true;
+
+		if (mTrueJump && mTrueJump->StripLoopHead()) 
+			changed = true;
+		if (mFalseJump && mFalseJump->StripLoopHead())
+			changed = true;
+	}
+
+	return changed;
 }
 
 void InterCodeBasicBlock::GenerateTraces(int expand, bool compact)
@@ -6237,6 +6440,9 @@ void InterCodeBasicBlock::GenerateTraces(int expand, bool compact)
 			}
 			else if (mTrueJump && !mFalseJump && ((mTrueJump->mInstructions.Size() < expand && mTrueJump->mInstructions.Size() > 1 && !mLoopHead) || mTrueJump->mNumEntries == 1) && !mTrueJump->mLoopHead && !IsInfiniteLoop(mTrueJump, mTrueJump))
 			{
+//				if (mLoopDebug)
+//					printf("StripC %s %d %d\n", mProc->mIdent->mString, mTrueJump->mIndex, mTrueJump->mInstructions.Size());
+
 				mTrueJump->mNumEntries--;
 				int	n = mTrueJump->mNumEntries;
 
@@ -8189,11 +8395,11 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 	assert(mLocalParamValueRange.Size() == paramVars.Size());
 
 	for (int i = 0; i < mProc->mLocalValueRange.Size(); i++)
-		if (!mProc->mLocalValueRange[i].Same(mEntryValueRange[i]))
+		if (mEntryValueRange[i].Weaker(mProc->mLocalValueRange[i]))
 			changed = true;
 
 	for (int i = 0; i < mLocalParamValueRange.Size(); i++)
-		if (!mLocalParamValueRange[i].Same(mEntryParamValueRange[i]))
+		if (mEntryParamValueRange[i].Weaker(mLocalParamValueRange[i]))
 			changed = true;
 
 	if (mVisited && mNumEntered >= 2 * mEntryBlocks.Size())
@@ -9550,6 +9756,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			mTrueValueRange[s].mMinValue = 1;
 			mTrueValueRange[s].mMaxState = IntegerValueRange::S_BOUND;
 			mTrueValueRange[s].mMaxValue = 1;
+
+			mFalseValueRange[s].mMinState = IntegerValueRange::S_BOUND;
+			mFalseValueRange[s].mMinValue = 0;
+			mFalseValueRange[s].mMaxState = IntegerValueRange::S_BOUND;
+			mFalseValueRange[s].mMaxValue = 0;
+		}
+		else if (mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 1]->mSrc[0].mTemp >= 0 && IsIntegerType(mInstructions[sz - 1]->mSrc[0].mType))
+		{
+			int s = mInstructions[sz - 1]->mSrc[0].mTemp;
 
 			mFalseValueRange[s].mMinState = IntegerValueRange::S_BOUND;
 			mFalseValueRange[s].mMinValue = 0;
@@ -15520,8 +15735,76 @@ bool InterCodeBasicBlock::InvalidatedBy(const InterInstruction* ins, const Inter
 		return CollidingMem(by, ins);
 }
 
+void InterCodeBasicBlock::CollectReachable(ExpandingArray<InterCodeBasicBlock*>& lblock)
+{
+	if (!mVisited && !mPatched)
+	{
+		lblock.Push(this);
+		mPatched = true;
 
-bool InterCodeBasicBlock::CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, GrowingArray<InterCodeBasicBlock*>& body)
+		if (mTrueJump) mTrueJump->CollectReachable(lblock);
+		if (mFalseJump) mFalseJump->CollectReachable(lblock);
+	}
+}
+
+bool InterCodeBasicBlock::CollectGenericLoop(ExpandingArray<InterCodeBasicBlock*>& lblocks)
+{
+	ExpandingArray<InterCodeBasicBlock*>	 rblocks;
+
+	mProc->ResetPatched();
+	CollectReachable(rblocks);
+
+	mProc->ResetPatched();
+
+	bool	changed;
+	do
+	{
+		changed = false;
+
+		for (int i = 0; i < rblocks.Size(); i++)
+		{
+			InterCodeBasicBlock* block(rblocks[i]);
+
+			if (!block->mPatched &&
+				(block->mTrueJump && (block->mTrueJump->mPatched || block->mTrueJump == this) ||
+					block->mFalseJump && (block->mFalseJump->mPatched || block->mFalseJump == this)))
+			{
+				lblocks.Push(block);
+				block->mPatched = true;
+				changed = true;
+			}
+		}
+
+	} while (changed);
+
+	return lblocks.Size() > 0;
+}
+
+bool InterCodeBasicBlock::CollectSingleEntryGenericLoop(ExpandingArray<InterCodeBasicBlock*>& lblocks)
+{
+	if (CollectGenericLoop(lblocks))
+	{
+		for (int i = 0; i < lblocks.Size(); i++)
+		{
+			InterCodeBasicBlock* block = lblocks[i];
+
+			if (block != this)
+			{
+				for (int j = 0; j < block->mEntryBlocks.Size(); j++)
+					if (!lblocks.Contains(block->mEntryBlocks[j]))
+						return false;
+			}
+		}
+
+		return true;
+	}
+	else
+		return false;
+}
+
+
+
+bool InterCodeBasicBlock::CollectSingleHeadLoopBody(InterCodeBasicBlock* head, InterCodeBasicBlock* tail, ExpandingArray<InterCodeBasicBlock*>& body)
 {
 	int i = 0;
 	body.Push(head);
@@ -16063,7 +16346,7 @@ bool InterCodeBasicBlock::MergeLoopTails(void)
 	return modified;
 }
 
-bool IsSingleLoopAssign(int at, InterCodeBasicBlock* block, const GrowingArray<InterCodeBasicBlock*>& body)
+bool IsSingleLoopAssign(int at, InterCodeBasicBlock* block, const ExpandingArray<InterCodeBasicBlock*>& body)
 {
 	InterInstruction* ai = block->mInstructions[at];
 	if (ai->mDst.mTemp < 0)
@@ -16078,7 +16361,7 @@ bool IsSingleLoopAssign(int at, InterCodeBasicBlock* block, const GrowingArray<I
 	return true;
 }
 
-bool IsLoopInvariantTemp(int tmp, const GrowingArray<InterCodeBasicBlock*>& body)
+bool IsLoopInvariantTemp(int tmp, const ExpandingArray<InterCodeBasicBlock*>& body)
 {
 	if (tmp < 0)
 		return true;
@@ -16118,7 +16401,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 			if (post && post->mNumEntries == 1)
 			{
-				GrowingArray<InterCodeBasicBlock*> body(nullptr);
+				ExpandingArray<InterCodeBasicBlock*> body;
 
 				if (tail->CollectSingleHeadLoopBody(this, tail, body))
 				{
@@ -17927,6 +18210,44 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 					}
 				}
 			}
+#if 1
+			else if (loops)
+			{
+				ExpandingArray<InterCodeBasicBlock*> lblocks;
+
+				if (CollectSingleEntryGenericLoop(lblocks))
+				{
+					for (int i = 0; i < ltvalue.Size(); i++)
+					{
+						if (ltvalue[i])
+						{
+							bool	fail = false;
+
+							for (int k = 0; k < lblocks.Size() && !fail; k++)
+							{
+								InterCodeBasicBlock* b = lblocks[k];
+								for (int j = 0; j < b->mInstructions.Size() && !fail; j++)
+								{
+									InterInstruction* ins = b->mInstructions[j];
+									if (ins->mDst.mTemp == i)
+									{
+										if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp == i)
+											;
+										else
+											fail = true;
+									}
+								}
+							}
+
+							if (fail)
+								ltvalue[i] = nullptr;
+						}
+					}
+				}
+				else
+					ltvalue.Clear();
+			}
+#else
 			else if (loops && mNumEntries == 2)
 			{
 				InterCodeBasicBlock* tail, * post;
@@ -17943,7 +18264,7 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 
 				if (post && post->mNumEntries == 1)
 				{
-					GrowingArray<InterCodeBasicBlock*> body(nullptr);
+					ExpandingArray<InterCodeBasicBlock*> body;
 
 					if (tail->CollectSingleHeadLoopBody(this, tail, body))
 					{
@@ -17978,6 +18299,7 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 					}
 				}
 			}
+#endif
 			else
 				ltvalue.Clear();
 		}
@@ -18387,7 +18709,7 @@ bool InterCodeBasicBlock::MoveConditionOutOfLoop(void)
 
 					if (post && post->mNumEntries == 1)
 					{
-						GrowingArray<InterCodeBasicBlock*> lbody(nullptr);
+						ExpandingArray<InterCodeBasicBlock*> lbody;
 
 						if (tail->CollectSingleHeadLoopBody(this, tail, lbody))
 						{
@@ -21255,6 +21577,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 				mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst;
+				mInstructions[i + 2]->mSrc[0].mRange.AddConstValue(IT_INT16, - (mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst));
 
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
 				changed = true;
@@ -23081,6 +23404,12 @@ void InterCodeProcedure::ResetEntryBlocks(void)
 		mBlocks[i]->mEntryBlocks.SetSize(0);
 }
 
+void InterCodeProcedure::ResetPatched(void)
+{
+	for (int i = 0; i < mBlocks.Size(); i++)
+		mBlocks[i]->mPatched = false;
+}
+
 void InterCodeProcedure::ResetVisited(void)
 {
 	int i;
@@ -23216,6 +23545,7 @@ void InterCodeProcedure::BuildTraces(int expand, bool dominators, bool compact)
 	{
 		mBlocks[i]->mNumEntries = 0;
 		mBlocks[i]->mLoopHead = false;
+		mBlocks[i]->mLoopDebug = false;
 		mBlocks[i]->mTraceIndex = -1;
 	}
 	mEntryBlock->CollectEntries();
@@ -24238,7 +24568,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "trench_init");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -24246,12 +24576,28 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("start");
 
 	BuildTraces(10);
-
 	DisassembleDebug("traces");
 
 	EarlyBranchElimination();
+	BuildTraces(0);
+
+	do {
+		BuildLoopPrefix();
+		ResetVisited();
+	} while (mEntryBlock->StripLoopHead());
+	DisassembleDebug("Loop Head");
+	BuildTraces(0);
+
 
 	DisassembleDebug("branch elimination");
+#if 0
+	do {
+		BuildLoopPrefix();
+		ResetVisited();
+	} while (mEntryBlock->StripLoopHead());
+	DisassembleDebug("Loop Head");
+	BuildTraces(0);
+#endif
 
 	ResetVisited();
 	mLeafProcedure = mEntryBlock->IsLeafProcedure();
