@@ -154,7 +154,7 @@ void rirq_init_kernal(void);
 
 // Raster IRQ through kernal, with IO range not always enabled
 // calls kernal continuation
-void rirq_init_kernal_io(void);
+void rirq_init_kernal_noio(void);
 
 // Raster IRQ through RAM and ROM vector, with ROM disabled or not and IO range always enabled
 // does not call kernal continuation
@@ -162,7 +162,7 @@ void rirq_init_crt(void);
 
 // Raster IRQ through RAM and ROM vector, with ROM disabled or not and IO range not always enabled
 // does not call kernal continuation
-void rirq_init_crt_io(void);
+void rirq_init_crt_noio(void);
 
 // Raster IRQ through RAM vector, with ROM disabled and IO range always enabled
 // does not call kernal continuation

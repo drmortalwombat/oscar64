@@ -5,16 +5,16 @@
 #include <c64/asm6502.h>
 #include <stdlib.h>
 
-volatile char npos = 1, tpos = 0;
 volatile byte rirq_count;
+static byte rirq_pcount;
 
-byte		rasterIRQRows[NUM_IRQS + 1];
-byte		rasterIRQIndex[NUM_IRQS + 1];
+byte		rasterIRQRows[NUM_IRQS + 1];	
+byte		rasterIRQIndex[NUM_IRQS + 1];	// Sort order of interrupt index, offset by one
 #ifdef ZPAGE_IRQS
 __zeropage
 #endif
-byte		rasterIRQNext[NUM_IRQS + 1];
-byte		rasterIRQLow[NUM_IRQS];
+byte		rasterIRQNext[NUM_IRQS + 1];	// Rasterline of interrupt, terminated by 0xff
+byte		rasterIRQLow[NUM_IRQS];			// Address of interrupt code
 byte		rasterIRQHigh[NUM_IRQS];
 
 #ifdef ZPAGE_IRQS
@@ -22,26 +22,25 @@ __zeropage
 #endif
 byte		nextIRQ;
 
-__asm irq0
+// nextIRQ is the index of the next expected IRQ, or $ff if no IRQ is scheduled
+
+__asm rirq_isr_ram_io
 {	
-	sta plra + 1
 	stx plrx + 1
-	sty plry + 1
-kentry:
-	asl $d019
 
 	ldx	nextIRQ
-l1:
-	lda	rasterIRQNext, x
-	cmp	#$ff
-	beq	e1
+	bmi	exi
 
+	sta plra + 1
+	sty plry + 1
+
+l1:	
+	lda	rasterIRQNext, x
 	ldy rasterIRQIndex + 1, x
-	tax
-	lda	rasterIRQLow, y
-	sta ji + 1
-	lda	rasterIRQHigh, y
-	sta ji + 2
+	ldx	rasterIRQLow, y
+	stx ji + 1
+	ldx	rasterIRQHigh, y
+	stx ji + 2
 
 ji:	
 	jsr $0000
@@ -49,48 +48,105 @@ ji:
 	inc	nextIRQ
 	ldx nextIRQ
 
-	lda	rasterIRQNext, x
-	cmp #$ff
+	ldy	rasterIRQNext, x
+
+	asl $d019
+
+	cpy #$ff
 	beq e2
-	// carry is cleared at this point
 
-	tay
-	sbc #2
-	cmp $d012
-	bcc	l1
-
-exd:
 	dey
-ex:
 	sty	$d012
+	dey
+	cpy $d012
+	bcc l1
 
 plry:
 	ldy #0
-plrx:
-	ldx #0
 plra:
 	lda #0
+plrx:
+	ldx #0
     rti
 
+exi:
+	asl $d019
+	jmp plrx
+
+    // No more interrupts to service
 e2:
-
-	ldx npos
-	stx tpos
 	inc rirq_count
-	tay
 
-	bit	$d011
-	bpl ex
-
-e1:
+	ldy	rasterIRQNext
+	dey
+	sty	$d012
 	ldx	#0
 	stx nextIRQ
-	ldy	rasterIRQNext
-	jmp	exd
-
+	beq	plry
 }
 
-__asm irq2
+__asm rirq_isr_io
+{	
+    pha
+    txa
+    pha
+    tya
+    pha
+kentry:
+
+	ldx	nextIRQ
+	bmi	exi
+l1:
+	lda	rasterIRQNext, x
+	ldy rasterIRQIndex + 1, x
+	ldx	rasterIRQLow, y
+	stx ji + 1
+	ldx	rasterIRQHigh, y
+	stx ji + 2
+
+ji:	
+	jsr $0000
+
+	inc	nextIRQ
+	ldx nextIRQ
+
+	ldy	rasterIRQNext, x
+
+	asl $d019
+
+	cpy #$ff
+	beq e2
+
+	dey
+	sty	$d012
+	dey
+	cpy $d012
+	bcc l1
+
+exd:
+    pla
+    tay
+    pla
+    tax
+    pla
+    rti
+
+exi:
+	asl $d019
+	jmp exd
+
+e2:
+	inc rirq_count
+
+	ldy	rasterIRQNext
+	dey
+	sty	$d012
+	ldx	#0
+	stx nextIRQ
+	beq	exd
+}
+
+__asm rirq_isr_noio
 {	
     pha
     txa
@@ -104,20 +160,15 @@ kentry:
     lda #$35
     sta $01
 
-	asl $d019
-
 	ldx	nextIRQ
+	bmi	exi
 l1:
 	lda	rasterIRQNext, x
-	cmp	#$ff
-	beq	e1
-
 	ldy rasterIRQIndex + 1, x
-	tax
-	lda	rasterIRQLow, y
-	sta ji + 1
-	lda	rasterIRQHigh, y
-	sta ji + 2
+	ldx	rasterIRQLow, y
+	stx ji + 1
+	ldx	rasterIRQHigh, y
+	stx ji + 2
 
 ji:	
 	jsr $0000
@@ -125,21 +176,20 @@ ji:
 	inc	nextIRQ
 	ldx nextIRQ
 
-	lda	rasterIRQNext, x
-	cmp #$ff
+	ldy	rasterIRQNext, x
+
+	asl $d019
+
+	cpy #$ff
 	beq e2
-	// carry is cleared at this point
 
-	tay
 	dey
-	sbc #2
-	cmp $d012
-	bcc	l1
-
 	sty	$d012
+	dey
+	cpy $d012
+	bcc l1
 
-ex:
-
+exd:
 	pla
 	sta $01
 
@@ -150,45 +200,35 @@ ex:
     pla
     rti
 
-e2:
+exi:
+	asl $d019
+	jmp exd
 
-	ldx npos
-	stx tpos
+e2:
 	inc rirq_count
 
-	bit	$d011
-	bmi e1
-
-	sta	$d012
-	jmp ex
-
-e1:
-	ldx	#0
-	stx nextIRQ
 	ldy	rasterIRQNext
 	dey
 	sty	$d012
-	jmp	ex
-
+	ldx	#0
+	stx nextIRQ
+	beq	exd
 }
 
-__asm irq1
+__asm rirq_isr_kernal_io
 {	
 	lda $d019
 	bpl ex2
 	
 	ldx	nextIRQ
+	bmi exi
 l1:
 	lda	rasterIRQNext, x
-	cmp	#$ff
-	beq	e1
-
 	ldy rasterIRQIndex + 1, x
-	tax
-	lda	rasterIRQLow, y
-	sta ji + 1
-	lda	rasterIRQHigh, y
-	sta ji + 2
+	ldx	rasterIRQLow, y
+	stx ji + 1
+	ldx	rasterIRQHigh, y
+	stx ji + 2
 
 ji:	
 	jsr $0000
@@ -197,45 +237,36 @@ jx:
 	inc	nextIRQ
 	ldx nextIRQ
 
-	lda	rasterIRQNext, x
-	cmp #$ff
-	beq e2
+	ldy	rasterIRQNext, x
 
-	tay
-
-	sec
-	sbc	#4
-	cmp	$d012
-	bcc l1
-
-	dey
-	sty	$d012
-w1:
-	jmp ex
-
-e2:
-	ldx npos
-	stx tpos
-	inc rirq_count
-
-	bit	$d011
-	bmi e1
-
-	sta $d012
-
-	jmp ex
-
-e1:
-	ldx	#0
-	stx nextIRQ
-	lda	rasterIRQNext, x
-	sec
-	sbc	#1
-	sta $d012
-	
-ex:
 	asl $d019
 
+	cpy #$ff
+	beq e2
+
+	dey
+	dey
+	sty	$d012
+	dey
+	cpy $d012
+	bcc l1
+
+exd:
+	jmp $ea81
+
+exi:
+	asl $d019
+	jmp $ea81
+
+e2:
+	inc rirq_count
+
+	ldy	rasterIRQNext
+	dey
+	dey
+	sty	$d012
+	ldx	#0
+	stx nextIRQ
 	jmp $ea81
 
 ex2:
@@ -244,7 +275,7 @@ ex2:
 	jmp $ea31
 }
 
-__asm irq3
+__asm rirq_isr_kernal_noio
 {	
 	lda $01
 	pha
@@ -255,17 +286,14 @@ __asm irq3
 	bpl ex2
 	
 	ldx	nextIRQ
+	bmi exi
 l1:
 	lda	rasterIRQNext, x
-	cmp	#$ff
-	beq	e1
-
 	ldy rasterIRQIndex + 1, x
-	tax
-	lda	rasterIRQLow, y
-	sta ji + 1
-	lda	rasterIRQHigh, y
-	sta ji + 2
+	ldx	rasterIRQLow, y
+	stx ji + 1
+	ldx	rasterIRQHigh, y
+	stx ji + 2
 
 ji:	
 	jsr $0000
@@ -274,48 +302,39 @@ jx:
 	inc	nextIRQ
 	ldx nextIRQ
 
-	lda	rasterIRQNext, x
-	cmp #$ff
+	ldy	rasterIRQNext, x
+
+	asl $d019
+
+	cpy #$ff
 	beq e2
 
-	tay
-
-	sec
-	sbc	#4
-	cmp	$d012
-	bcc l1
-
+	dey
 	dey
 	sty	$d012
-w1:
-	jmp ex
-
-e2:
-	ldx npos
-	stx tpos
-	inc rirq_count
-
-	bit	$d011
-	bmi e1
-
-	sta $d012
-
-	jmp ex
-
-e1:
-	ldx	#0
-	stx nextIRQ
-	lda	rasterIRQNext, x
-	sec
-	sbc	#1
-	sta $d012
-	
-ex:
-	asl $d019
+	dey
+	cpy $d012
+	bcc l1
+exd:
 	pla
 	sta $01
 
 	jmp $ea81
+
+exi:
+	asl $d019
+	jmp exd
+
+e2:
+	inc rirq_count
+
+	ldy	rasterIRQNext
+	dey
+	dey
+	sty	$d012
+	ldx	#0
+	stx nextIRQ
+	beq	exd
 
 ex2:
 	LDA $DC0D
@@ -346,8 +365,8 @@ void rirq_build(RIRQCode * ic, byte size)
 	ic->size = size;
 
 	asm_im(ic->code + 0, ASM_LDY, 0);
-	asm_im(ic->code + 2, ASM_LDA, 0);
-	asm_ab(ic->code + 4, ASM_CPX, 0xd012);
+	asm_im(ic->code + 2, ASM_LDX, 0);
+	asm_ab(ic->code + 4, ASM_CMP, 0xd012);
 	asm_rl(ic->code + 7, ASM_BCS, -5);
 	asm_ab(ic->code + 9, ASM_STY, 0x0000);
 
@@ -361,7 +380,7 @@ void rirq_build(RIRQCode * ic, byte size)
 	}
 	else
 	{
-		asm_ab(ic->code + 12, ASM_STA, 0x0000);
+		asm_ab(ic->code + 12, ASM_STX, 0x0000);
 
 		byte p = 15;
 		for(byte i=2; i<size; i++)
@@ -481,7 +500,7 @@ void rirq_init_kernal(void)
         sei
     }
 
-   	*(void **)0x0314 = irq1;
+   	*(void **)0x0314 = rirq_isr_kernal_io;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;
@@ -489,7 +508,7 @@ void rirq_init_kernal(void)
 
 }
 
-void rirq_init_kernal_io(void)
+void rirq_init_kernal_noio(void)
 {
 	rirq_init_tables();
 
@@ -498,7 +517,7 @@ void rirq_init_kernal_io(void)
         sei
     }
 
-   	*(void **)0x0314 = irq3;
+   	*(void **)0x0314 = rirq_isr_kernal_noio;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;
@@ -515,8 +534,8 @@ void rirq_init_crt(void)
         sei
     }
 
-   	*(void **)0x0314 = irq0.kentry;
-   	*(void **)0xfffe = irq0;
+   	*(void **)0x0314 = rirq_isr_io.kentry;
+   	*(void **)0xfffe = rirq_isr_io;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;
@@ -524,7 +543,7 @@ void rirq_init_crt(void)
 
 }
 
-void rirq_init_crt_io(void)
+void rirq_init_crt_noio(void)
 {
 	rirq_init_tables();
 
@@ -533,8 +552,8 @@ void rirq_init_crt_io(void)
         sei
     }
 
-   	*(void **)0x0314 = irq2.kentry;
-   	*(void **)0xfffe = irq2;
+   	*(void **)0x0314 = rirq_isr_noio.kentry;
+   	*(void **)0xfffe = rirq_isr_noio;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;
@@ -551,7 +570,7 @@ void rirq_init_io(void)
         sei
     }
 
-   	*(void **)0xfffe = irq0;
+   	*(void **)0xfffe = rirq_isr_ram_io;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;
@@ -568,7 +587,7 @@ void rirq_init_memmap(void)
         sei
     }
 
-   	*(void **)0xfffe = irq2;
+   	*(void **)0xfffe = rirq_isr_noio;
 
 	vic.intr_enable = 1;
 	vic.ctrl1 &= 0x7f;
@@ -586,12 +605,18 @@ void rirq_init(bool kernalIRQ)
 
 void rirq_wait(void)
 {
-	while (tpos != npos) ;
-	npos++;
+	char i0 = rirq_pcount;
+	char i1;
+	do {
+		i1 = rirq_count;
+	} while (i0 == i1);
+	rirq_pcount = i1;
 }
 
 void rirq_sort(bool inirq)
 {
+	// disable raster interrupts while sorting
+	nextIRQ = 0xff;
 #if 1
 	byte maxr = rasterIRQRows[rasterIRQIndex[1]];
 	for(byte i = 2; i<NUM_IRQS + 1; i++)
@@ -639,15 +664,17 @@ void rirq_sort(bool inirq)
 	}
 #endif
 
-	npos++;
+	rirq_pcount = rirq_count;
 	if (inirq)
 		nextIRQ = NUM_IRQS - 1;
 	else
 	{
-		nextIRQ = 0;
-		byte	yp = rasterIRQNext[nextIRQ];
+		byte	yp = rasterIRQNext[0];
 		if (yp != 0xff)
+		{
 			vic.raster = yp - 1;
+			nextIRQ = 0;
+		}
 	}
 }
 

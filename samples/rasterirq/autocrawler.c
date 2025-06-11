@@ -22,7 +22,7 @@ __interrupt void doscroll(void)
 	vic.color_border++;
 
 	// Update raster IRQ for scroll line with new horizontal scroll offset		
-	rirq_data(&scroll, 0, 7 - (x & 7));
+	rirq_data(&scroll, 1, 7 - (x & 7));
 	// Copy scrolled version of text when switching over char border
 	if ((x & 7) == 0)
 		memcpy((char *)0x0400 + 40 * 24, Text + ((x >> 3) & 255), 40);
@@ -37,11 +37,13 @@ int main(void)
 	rirq_init(true);
 
 	// Build switch to scroll line IRQ
-	rirq_build(&scroll, 1);
+	rirq_build(&scroll, 2);
+	// Delay for one line to get to right border
+	rirq_delay(&scroll, 11);
 	// Change control register two with this IRQ
-	rirq_write(&scroll, 0, &vic.ctrl2, 0);
+	rirq_write(&scroll, 1, &vic.ctrl2, 0);
 	// Put it onto the scroll line
-	rirq_set(0, 50 + 24 * 8, &scroll);
+	rirq_set(0, 49 + 24 * 8, &scroll);
 
 	// Build the switch to normal IRQ
 	rirq_build(&restore, 2);
