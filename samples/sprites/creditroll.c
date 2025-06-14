@@ -64,6 +64,7 @@ const char * scrolltext[] = {
 "",
 "",
 "",
+""
 };
 
 
@@ -198,7 +199,7 @@ int main(void)
 		// Update interrupt position
 		for(char i=0; i<5; i++)
 		{
-			int ty = 48 * i + 46 + oy;
+			int ty = 48 * i + 45 + oy;
 
 			// No interrupts below screen bottom
 			if (ty < 250)
@@ -246,7 +247,7 @@ int main(void)
 		case 42:
 			readline(line, lpos);
 			lpos++;
-			if (lpos == 28)
+			if (lpos == 27)
 				lpos = 0;
 			break;
 		case 45:

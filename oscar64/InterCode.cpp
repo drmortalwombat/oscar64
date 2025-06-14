@@ -114,7 +114,7 @@ bool IntegerValueRange::Weaker(const IntegerValueRange& range) const
 	}
 	else if (mMinState == S_WEAK)
 	{
-		if (range.mMinState == S_BOUND)
+		if (range.mMinState == S_BOUND || range.mMinState == S_UNBOUND)
 			minWeak = true;
 		if (range.mMinState == S_WEAK && mMinValue != range.mMinValue)
 			minWeak = true;
@@ -138,7 +138,7 @@ bool IntegerValueRange::Weaker(const IntegerValueRange& range) const
 	}
 	else if (mMaxState == S_WEAK)
 	{
-		if (range.mMaxState == S_BOUND)
+		if (range.mMaxState == S_BOUND || range.mMaxState == S_UNBOUND)
 			maxWeak = true;
 		if (range.mMaxState == S_WEAK && mMaxValue != range.mMaxValue)
 			maxWeak = true;
@@ -6294,34 +6294,37 @@ bool InterCodeBasicBlock::StripLoopHead(void)
 			ExpandingArray<InterCodeBasicBlock*>	lblocks;
 			if (CollectSingleEntryGenericLoop(lblocks))
 			{
-//				printf("StripB %s %d\n", mProc->mIdent->mString, mIndex);
-
-				mLoopPrefix->mInstructions.SetSize(0);
-				for (int i = 0; i < mInstructions.Size(); i++)
-					mLoopPrefix->mInstructions.Push(mInstructions[i]->Clone());
-
-				mLoopPrefix->mFalseJump = mFalseJump;
-				mLoopPrefix->mTrueJump = mTrueJump;
-
-				mEntryBlocks.RemoveAll(mLoopPrefix);
-				mNumEntries--;
-				mLoopHead = false;
-
-				mTrueJump->mEntryBlocks.Push(mLoopPrefix);
-				mTrueJump->mNumEntries++;
-				mFalseJump->mEntryBlocks.Push(mLoopPrefix);
-				mFalseJump->mNumEntries++;
-
-				if (!lblocks.Contains(mTrueJump))
+				if (!lblocks.Contains(mTrueJump) || !lblocks.Contains(mFalseJump))
 				{
-					mFalseJump->mLoopHead = true;
-				}
-				else if (!lblocks.Contains(mFalseJump))
-				{
-					mTrueJump->mLoopHead = true;
-				}
+					//				printf("StripB %s %d\n", mProc->mIdent->mString, mIndex);
 
-				changed = true;
+					mLoopPrefix->mInstructions.SetSize(0);
+					for (int i = 0; i < mInstructions.Size(); i++)
+						mLoopPrefix->mInstructions.Push(mInstructions[i]->Clone());
+
+					mLoopPrefix->mFalseJump = mFalseJump;
+					mLoopPrefix->mTrueJump = mTrueJump;
+
+					mEntryBlocks.RemoveAll(mLoopPrefix);
+					mNumEntries--;
+					mLoopHead = false;
+
+					mTrueJump->mEntryBlocks.Push(mLoopPrefix);
+					mTrueJump->mNumEntries++;
+					mFalseJump->mEntryBlocks.Push(mLoopPrefix);
+					mFalseJump->mNumEntries++;
+
+					if (!lblocks.Contains(mTrueJump))
+					{
+						mFalseJump->mLoopHead = true;
+					}
+					else if (!lblocks.Contains(mFalseJump))
+					{
+						mTrueJump->mLoopHead = true;
+					}
+
+					changed = true;
+				}
 			}
 		}
 
@@ -21528,6 +21531,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[0].mIntConst + mInstructions[i + 0]->mSrc[0].mIntConst < 256)
 			{
 				mInstructions[i + 1]->mSrc[0].mTemp = mInstructions[i + 0]->mSrc[1].mTemp;
+				mInstructions[i + 1]->mSrc[0].mRange = mInstructions[i + 0]->mSrc[1].mRange;
 				mInstructions[i + 1]->mSrc[0].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
 				mInstructions[i + 1]->mSrc[0].mFinal = mInstructions[i + 0]->mSrc[1].mFinal;
 				mInstructions[i + 0]->mCode = IC_NONE;
