@@ -4,7 +4,7 @@ Oscar64 is a C/C++ cross compiler running on a modern system (such as a Windows 
 
 The purpose of this compiler is to eliminate the need to write 6502 assembler code to achieve high code density and fast execution speed.  It continues to improve with all the games, demos and tools written by it.  It supports disk overlays and banked cartridges for larger projects.
 
-The C64 executes 418 dhrystone V2.2 iteration per second, when compiled with Oscar64 and -O3 (which shows that the ancient dhrystone benchmark is no match to an optimizing compiler).
+The C64 executes 442 dhrystone V2.2 iteration per second, when compiled with Oscar64 and -O3 (which shows that the ancient dhrystone benchmark is no match to an optimizing compiler).
 
 [Full reference manual](oscar64.md)
 [Additional samples and tutorials](https://github.com/drmortalwombat/OscarTutorials)
