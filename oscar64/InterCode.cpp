@@ -16135,40 +16135,99 @@ bool InterCodeBasicBlock::ShortcutDuplicateBranches(void)
 		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp)
 		{
 			InterInstruction* cins = mInstructions[sz - 2];
+			InterInstruction* bins = mInstructions[sz - 1];
 
 			if (mTrueJump->mInstructions.Size() == 2 && mTrueJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mTrueJump->mInstructions[1]->mCode == IC_BRANCH && mTrueJump->mInstructions[0]->mDst.mTemp == mTrueJump->mInstructions[1]->mSrc[0].mTemp)
 			{
 				InterInstruction* tcins = mTrueJump->mInstructions[0];
+				InterInstruction* tbins = mTrueJump->mInstructions[1];
 
 				if (cins->mSrc[0].IsEqual(tcins->mSrc[0]) && cins->mSrc[1].IsEqual(tcins->mSrc[1]))
 				{
-					if (cins->mOperator == tcins->mOperator)
+					if (tbins->mSrc[0].mFinal)
 					{
-						if (ChangeTrueJump(mTrueJump->mTrueJump))
-							changed = true;
+						if (cins->mOperator == tcins->mOperator)
+						{
+							if (ChangeTrueJump(mTrueJump->mTrueJump))
+								changed = true;
+						}
+						else if (cins->mOperator == InvertRelational(tcins->mOperator))
+						{
+							if (ChangeTrueJump(mTrueJump->mFalseJump))
+								changed = true;
+						}
 					}
-					else if (cins->mOperator == InvertRelational(tcins->mOperator))
+					else if (bins->mSrc[0].mFinal)
 					{
-						if (ChangeTrueJump(mTrueJump->mFalseJump))
-							changed = true;
+						if (cins->mOperator == tcins->mOperator)
+						{
+							if (ChangeTrueJump(mTrueJump->mTrueJump))
+							{
+								bins->mSrc[0].mTemp = cins->mDst.mTemp = tcins->mDst.mTemp;
+								bins->mSrc[0].mFinal = false;
+								mExitRequiredTemps += bins->mSrc[0].mTemp;
+								changed = true;
+							}
+						}
+						else if (cins->mOperator == InvertRelational(tcins->mOperator))
+						{
+							if (ChangeTrueJump(mTrueJump->mFalseJump))
+							{
+								bins->mSrc[0].mTemp = cins->mDst.mTemp = tcins->mDst.mTemp;
+								bins->mSrc[0].mFinal = false;
+								cins->mOperator = tcins->mOperator;
+								mExitRequiredTemps += bins->mSrc[0].mTemp;
+								InterCodeBasicBlock* t = mTrueJump; mTrueJump = mFalseJump; mFalseJump = t;
+								changed = true;
+							}
+						}
 					}
 				}
 			}
 			if (mFalseJump->mInstructions.Size() == 2 && mFalseJump->mInstructions[0]->mCode == IC_RELATIONAL_OPERATOR && mFalseJump->mInstructions[1]->mCode == IC_BRANCH && mFalseJump->mInstructions[0]->mDst.mTemp == mFalseJump->mInstructions[1]->mSrc[0].mTemp)
 			{
 				InterInstruction* tcins = mFalseJump->mInstructions[0];
+				InterInstruction* tbins = mFalseJump->mInstructions[1];
 
 				if (cins->mSrc[0].IsEqual(tcins->mSrc[0]) && cins->mSrc[1].IsEqual(tcins->mSrc[1]))
 				{
-					if (cins->mOperator == tcins->mOperator)
+					if (tbins->mSrc[0].mFinal)
 					{
-						if (ChangeFalseJump(mFalseJump->mFalseJump))
-							changed = true;
+						if (cins->mOperator == tcins->mOperator)
+						{
+							if (ChangeFalseJump(mFalseJump->mFalseJump))
+								changed = true;
+						}
+						else if (cins->mOperator == InvertRelational(tcins->mOperator))
+						{
+							if (ChangeFalseJump(mFalseJump->mTrueJump))
+								changed = true;
+						}
 					}
-					else if (cins->mOperator == InvertRelational(tcins->mOperator))
+					else if (bins->mSrc[0].mFinal)
 					{
-						if (ChangeFalseJump(mFalseJump->mTrueJump))
-							changed = true;
+						if (cins->mOperator == tcins->mOperator)
+						{
+							if (ChangeFalseJump(mFalseJump->mFalseJump))
+							{
+								bins->mSrc[0].mTemp = cins->mDst.mTemp = tcins->mDst.mTemp;
+								bins->mSrc[0].mFinal = false;
+								mExitRequiredTemps += bins->mSrc[0].mTemp;
+								changed = true;
+							}
+						}
+						else if (cins->mOperator == InvertRelational(tcins->mOperator))
+						{
+							if (ChangeFalseJump(mFalseJump->mTrueJump))
+							{
+								bins->mSrc[0].mTemp = cins->mDst.mTemp = tcins->mDst.mTemp;
+								bins->mSrc[0].mFinal = false;
+								cins->mOperator = tcins->mOperator;
+								mExitRequiredTemps += bins->mSrc[0].mTemp;
+								InterCodeBasicBlock* t = mTrueJump; mTrueJump = mFalseJump; mFalseJump = t;
+								changed = true;
+							}
+						}
 					}
 				}
 			}
@@ -24572,7 +24631,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "edit_line");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

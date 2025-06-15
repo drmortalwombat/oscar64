@@ -29,7 +29,7 @@ const char MissileChars[] = {
 #define Charset ((char *)0xd800)
 
 // Joystick and crosshair control
-int		CrossX = 160, CrossY = 100;
+volatile int		CrossX = 160, CrossY = 100;
 bool	CrossP = false;
 char	CrossDelay = 0;
 
@@ -553,20 +553,22 @@ __interrupt void joy_interrupt()
 	joy_poll(0);
 
 	// Move crosshair coordinates
-	CrossX += 2 * joyx[0]; CrossY += 2 * joyy[0];
+	int cx = CrossX + 2 * joyx[0], cy = CrossY + 2 * joyy[0];
 
 	// Stop at edges of screen
-	if (CrossX < 8)
-		CrossX = 8;
-	else if (CrossX > 312)
-		CrossX = 312;
-	if (CrossY < 20)
-		CrossY = 20;
-	else if (CrossY > 172)
-		CrossY = 172;
+	if (cx < 8)
+		cx = 8;
+	else if (cx > 312)
+		cx = 312;
+	if (cy < 20)
+		cy = 20;
+	else if (cy > 172)
+		cy = 172;
 
 	// Move crosshair sprite
-	spr_move(0, CrossX + 14, CrossY + 40);	
+	spr_move(0, cx + 14, cy + 40);	
+	CrossX = cx;
+	CrossY = cy;
 
 	// Check button
 	if (joyb[0])
@@ -697,15 +699,17 @@ void game_play(void)
 	// Check if fire request
 	if (CrossP)
 	{
+		int cx = CrossX, cy = CrossY;
+
 		// Find launch site
 		int	sx = 160;
-		if (CrossX < 120)
+		if (cx < 120)
 			sx = 24;
-		else if (CrossX > 200)
+		else if (cx > 200)
 			sx = 296;
 
 		// Fire missile
-		missile_start(sx, 184, CrossX, CrossY);
+		missile_start(sx, 184, cx, cy);
 
 		// Reset request
 		CrossP = false;
