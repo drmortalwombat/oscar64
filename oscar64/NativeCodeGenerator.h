@@ -465,8 +465,6 @@ public:
 	bool MergeBasicBlocks(void);
 	bool RemoveJumpToBranch(void);
 
-	void MarkLoopHead(void);
-
 	struct DominatorStacks
 	{
 		ExpandingArray< NativeCodeBasicBlock* >	d1, d2;
@@ -811,6 +809,12 @@ public:
 
 	bool CheckBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);
 	bool PatchBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);
+
+	bool CollectRegBoolInstructionsForward(int reg, ExpandingArray<NativeCodeBasicBlock*>& cblocks, ExpandingArray<NativeCodeInstruction*>& lins);
+	bool CollectRegBoolInstructionsBackward(int reg, ExpandingArray<NativeCodeBasicBlock*>& cblocks, ExpandingArray<NativeCodeInstruction*>& lins);
+
+	bool CollectCheckRegOriginBlocks(int at, int reg, ExpandingArray<NativeCodeBasicBlock*>& lblocks, ExpandingArray<NativeCodeInstruction*>& lins);
+	bool PatchBitBoolConstOrigin(void);
 
 	// reg : base register pair to replace
 	// index: index register
