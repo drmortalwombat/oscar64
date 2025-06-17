@@ -2889,21 +2889,45 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		opmask = data.mRegs[mAddress].mMask;
 		opvalue = data.mRegs[mAddress].mValue;
 	}
+	else if (mMode == ASMIM_ABSOLUTE && mLinkerObject && (mLinkerObject->mFlags & LOBJF_CONST) && mLinkerObject->mReferences.Size() == 0 && mType != ASMIT_JSR)
+	{
+		opmask = 0xff;
+		opvalue = mLinkerObject->mData[mAddress];
+	}
 #if 1
-	else if ((mMode == ASMIM_ABSOLUTE || mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y) && mLinkerObject && (mLinkerObject->mFlags & LOBJF_CONST) && mLinkerObject->mSize <= 256 && mLinkerObject->mReferences.Size() == 0 && mType != ASMIT_JSR)
+	else if ((mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y) && mLinkerObject && (mLinkerObject->mFlags & LOBJF_CONST) && mLinkerObject->mSize <= 256 && mLinkerObject->mReferences.Size() == 0)
 	{
 		int mor = 0;
 		int mand = 0xff;
-		for (int i = 0; i < mLinkerObject->mSize; i++)
+		int ior = 0;
+		int iand = 0xff;
+
+		if (mMode == ASMIM_ABSOLUTE_X)
 		{
-			mor |= mLinkerObject->mData[i];
-			mand &= mLinkerObject->mData[i];
+			ior = data.mRegs[CPU_REG_X].mMask & data.mRegs[CPU_REG_X].mValue;
+			iand = (~data.mRegs[CPU_REG_X].mMask | data.mRegs[CPU_REG_X].mValue) & 0xff;
+		}
+		else if (mMode == ASMIM_ABSOLUTE_Y)
+		{
+			ior = data.mRegs[CPU_REG_Y].mMask & data.mRegs[CPU_REG_Y].mValue;
+			iand = (~data.mRegs[CPU_REG_Y].mMask | data.mRegs[CPU_REG_Y].mValue) & 0xff;
+		}
+
+		for (int i = 0; i < mLinkerObject->mSize - mAddress; i++)
+		{
+			if ((i & ~iand) == 0 && (i & ior) == ior)
+			{
+				mor |= mLinkerObject->mData[mAddress + i];
+				mand &= mLinkerObject->mData[mAddress + i];
+			}
 		}
 		opmask = (mand | ~mor) & 0xff;
 		opvalue = mand;
+
 #if 0
-		if (opmask)
-			printf("Check %s, %02x %02x\n", mLinkerObject->mIdent->mString, opmask, opvalue);
+		if (CheckFunc)
+			printf("Check %s + %d (%02x, %02x), %02x %02x\n", mLinkerObject->mIdent->mString, mAddress, ior, iand, opmask, opvalue);
+
 #endif
 	}
 #endif
@@ -26580,6 +26604,40 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 #endif
 		CheckLive();
 
+		if (mEntryBlocks.Size() == 1 && mIns.Size() >= 1 && mIns[0].mType == ASMIT_LDA && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_Z))
+		{
+			NativeCodeBasicBlock* eb = mEntryBlocks[0];
+			int index, addr;
+			if (eb->HasTailSTA(addr, index) && addr == mIns[0].mAddress)
+			{
+				for (int i = index; i < eb->mIns.Size(); i++)
+					eb->mIns[i].mLive |= LIVE_CPU_REG_A;
+				eb->mExitRequiredRegs += CPU_REG_A;
+				mEntryRequiredRegs += CPU_REG_A;
+				mIns.Remove(0);
+				changed = true;
+			}
+			else if (eb->HasTailSTY(addr, index) && addr == mIns[0].mAddress)
+			{
+				for (int i = index; i < eb->mIns.Size(); i++)
+					eb->mIns[i].mLive |= LIVE_CPU_REG_Y;
+				eb->mExitRequiredRegs += CPU_REG_Y;
+				mEntryRequiredRegs += CPU_REG_Y;
+				mIns[0].mType = ASMIT_TYA;
+				mIns[0].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+			else if (eb->HasTailSTX(addr, index) && addr == mIns[0].mAddress)
+			{
+				for (int i = index; i < eb->mIns.Size(); i++)
+					eb->mIns[i].mLive |= LIVE_CPU_REG_X;
+				eb->mExitRequiredRegs += CPU_REG_X;
+				mEntryRequiredRegs += CPU_REG_X;
+				mIns[0].mType = ASMIT_TXA;
+				mIns[0].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+		}
 #if 1
 		if (mIns.Size() >= 1 && mIns[0].mType == ASMIT_TAX && !(mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) && !mEntryRegA)
 		{
@@ -45411,7 +45469,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 
 		i = 0;
 		j = 0;
-		int	accuVal = 0, accuMask = 0;
+		int	accuVal = 0, accuMask = 0, xregVal = 0, xregMask = 0, yregVal = 0, yregMask = 0;
 		bool	accuFlags = false;
 		while (i < mIns.Size())
 		{
@@ -45557,12 +45615,74 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 					accuFlags = true;
 				}
 				break;
+			case ASMIT_LDX:
+				if (mIns[i].mMode == ASMIM_IMMEDIATE)
+				{
+					xregVal = mIns[i].mAddress;
+					xregMask = 0xff;
+				}
+				else
+					xregMask = 0;
+				accuFlags = false;
+				break;
+			case ASMIT_LDY:
+				if (mIns[i].mMode == ASMIM_IMMEDIATE)
+				{
+					yregVal = mIns[i].mAddress;
+					yregMask = 0xff;
+				}
+				else
+					yregMask = 0;
+				accuFlags = false;
+				break;
+
 			case ASMIT_LDA:
 				if (mIns[i].mMode == ASMIM_IMMEDIATE)
 				{
 					accuVal = mIns[i].mAddress;
 					accuMask = 0xff;
 				}
+				else if (mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_CONST) && mIns[i].mLinkerObject->mReferences.Size() == 0)
+				{
+					accuVal = mIns[i].mLinkerObject->mData[mIns[i].mAddress];
+					accuMask = 0xff;
+				}
+#if 1
+				else if ((mIns[i].mMode == ASMIM_ABSOLUTE_X || mIns[i].mMode == ASMIM_ABSOLUTE_Y) && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_CONST) && mIns[i].mLinkerObject->mSize <= 256 && mIns[i].mLinkerObject->mReferences.Size() == 0)
+				{
+					int mor = 0;
+					int mand = 0xff;
+					int ior = 0;
+					int iand = 0xff;
+
+					if (mIns[i].mMode == ASMIM_ABSOLUTE_X)
+					{
+						ior = xregMask & xregVal;
+						iand = (~xregMask | xregVal) & 0xff;
+					}
+					else if (mIns[i].mMode == ASMIM_ABSOLUTE_Y)
+					{
+						ior = yregMask & yregVal;
+						iand = (~yregMask | yregVal) & 0xff;
+					}
+
+					for (int j = 0; j < mIns[i].mLinkerObject->mSize - mIns[i].mAddress; j++)
+					{
+						if ((j & ~iand) == 0 && (j & ior) == ior)
+						{
+							mor |= mIns[i].mLinkerObject->mData[mIns[i].mAddress + j];
+							mand &= mIns[i].mLinkerObject->mData[mIns[i].mAddress + j];
+						}
+					}
+
+					accuMask = (mand | ~mor) & 0xff;
+					accuVal = mand;
+#if 0
+					if (CheckFunc)
+						printf("Check %s + %d (%02x, %02x), %02x %02x\n", mLinkerObject->mIdent->mString, mAddress, ior, iand, opmask, opvalue);
+#endif
+				}
+#endif
 				else
 				{
 					accuVal = 0;
@@ -45705,7 +45825,23 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				accuFlags = mIns[i].mMode == ASMIM_IMPLIED;
 				break;
 			case ASMIT_TAX:
+				xregMask = accuMask;
+				xregVal = accuVal;
+				accuFlags = true;
+				break;
 			case ASMIT_TAY:
+				yregMask = accuMask;
+				yregVal = accuVal;
+				accuFlags = true;
+				break;
+			case ASMIT_TXA:
+				accuMask = xregMask;
+				accuVal = xregVal;
+				accuFlags = true;
+				break;
+			case ASMIT_TYA:
+				accuMask = yregMask;
+				accuVal = yregVal;
 				accuFlags = true;
 				break;
 			default:
@@ -45714,6 +45850,10 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 					carryClear = false;
 					carrySet = false;
 				}
+				if (mIns[i].ChangesXReg())
+					xregMask = 0;
+				if (mIns[i].ChangesYReg())
+					yregMask = 0;
 
 				if (mIns[i].ChangesAccu())
 				{
@@ -56089,7 +56229,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "opp::istream::getnumf");
+	CheckFunc = !strcmp(mIdent->mString, "map::unfog_tile");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
