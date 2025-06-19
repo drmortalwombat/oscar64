@@ -12,8 +12,8 @@ template <class T, int N>
 class static_vector
 {
 protected:
-	char	_space[N * sizeof(T)];
 	enum { m = N }	_size;
+	char	_space[N * sizeof(T)];
 public:
 	typedef T 	element_type;
 

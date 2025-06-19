@@ -573,6 +573,7 @@ public:
 	bool CombineSameYtoX(int xpos, int ypos, int end);
 
 	bool FindImmediateStore(int at, int reg, const NativeCodeInstruction*& ains);
+	int FindImmediateGlobalStore(int at, const NativeCodeInstruction& ins);
 
 	bool JoinXYCrossBlock(void);
 	bool CanCombineSameXtoYCrossBlock(int from);
