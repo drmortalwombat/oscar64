@@ -45423,6 +45423,43 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 		}
 #endif
 
+		// Check for small condition block
+		if (mFalseJump)
+		{
+			NativeCodeBasicBlock* cblock = nullptr, * eblock = nullptr;
+
+			if (mTrueJump == mFalseJump->mTrueJump && !mFalseJump->mFalseJump && mTrueJump->mNumEntries == 2 && mFalseJump->mNumEntries == 1)
+			{
+				cblock = mFalseJump;
+				eblock = mTrueJump;
+			}
+			else if (mFalseJump == mTrueJump->mTrueJump && !mTrueJump->mFalseJump && mFalseJump->mNumEntries == 2 && mTrueJump->mNumEntries == 1)
+			{
+				cblock = mTrueJump;
+				eblock = mFalseJump;
+			}
+
+			if (eblock && cblock->mIns.Size() == 1 && cblock->mIns[0].mType == ASMIT_INC)
+			{
+				int i = 0;
+				while (i < eblock->mIns.Size() && !eblock->mIns[i].ReferencesCarry())
+					i++;
+				if (i < eblock->mIns.Size() && eblock->mIns[i].mType == ASMIT_CLC)
+				{
+					if (mBranch == ASMIT_BCC && eblock == mTrueJump || mBranch == ASMIT_BCS && eblock == mFalseJump)
+					{
+						cblock->mIns.Push(NativeCodeInstruction(eblock->mIns[i].mIns, ASMIT_CLC));
+						eblock->mIns.Remove(i);
+						mExitRequiredRegs += CPU_REG_C;
+						cblock->mExitRequiredRegs += CPU_REG_C;
+						eblock->mEntryRequiredRegs += CPU_REG_C;
+						for (int j = 0; j < i; j++)
+							eblock->mIns[j].mLive |= LIVE_CPU_REG_C;
+					}
+				}
+			}
+		}
+
 		bool	carrySet = false, carryClear = false;
 		if (mEntryBlocks.Size() == 1 && center >= 0)
 		{
