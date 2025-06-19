@@ -4616,7 +4616,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 				InterType	t = mSrc[i].mType;
 				InterInstruction* ains = ctemps[mSrc[i].mTemp];
 
-				if (t != IT_POINTER || ains->mConst.mMemory == IM_ABSOLUTE)
+				if (t != IT_POINTER || ains->mConst.mMemory == IM_ABSOLUTE || ains->mConst.mMemory == IM_GLOBAL)
 				{
 					mSrc[i] = ains->mConst;
 					mSrc[i].mType = t;
@@ -24631,7 +24631,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "edit_line");
+	CheckFunc = !strcmp(mIdent->mString, "test_copy_ainit");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

@@ -3462,94 +3462,151 @@ ByteCode ByteCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const 
 	{
 		if (ins->mSrc[1].mTemp < 0)
 		{
-			ByteCodeInstruction	lins(BC_LOAD_REG_16);
-			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
-			lins.mRegisterFinal = ins->mSrc[0].mFinal;
-			mIns.Push(lins);
-			if (csigned)
+			if (ins->mSrc[1].mType == IT_INT16 || ins->mSrc[1].mMemory == IM_ABSOLUTE)
 			{
-				ByteCodeInstruction	cins(BC_BINOP_CMPSI_16);
-				cins.mValue = int(ins->mSrc[1].mIntConst);
-				mIns.Push(cins);
-			}
-			else
-			{
-				ByteCodeInstruction	cins(BC_BINOP_CMPUI_16);
-				cins.mValue = int(ins->mSrc[1].mIntConst);
-				mIns.Push(cins);
-			}
-		}
-		else if (ins->mSrc[0].mTemp < 0)
-		{
-			ByteCodeInstruction	lins(BC_LOAD_REG_16);
-			lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
-			lins.mRegisterFinal = ins->mSrc[1].mFinal;
-			mIns.Push(lins);
-			if (csigned)
-			{
-				if (optzero && ins->mSrc[0].mIntConst == 0)
-				{
-					switch (ins->mOperator)
-					{
-					case IA_CMPEQ:
-						return BC_BRANCHS_EQ;
-					case IA_CMPNE:
-						return BC_BRANCHS_NE;
-					case IA_CMPLES:
-						return BC_BRANCHS_LE;
-					case IA_CMPGS:
-						return BC_BRANCHS_GT;
-					case IA_CMPGES:
-						return BC_BRANCHS_GE;
-					case IA_CMPLS:
-						return BC_BRANCHS_LT;
-					}
-				}
-				else if (ins->mSrc[1].IsUByte())
-				{
-					ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
-					cins.mValue = int(ins->mSrc[0].mIntConst);
-					mIns.Push(cins);
-				}
-				else
+				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+				lins.mRegisterFinal = ins->mSrc[0].mFinal;
+				mIns.Push(lins);
+
+				if (csigned)
 				{
 					ByteCodeInstruction	cins(BC_BINOP_CMPSI_16);
-					cins.mValue = int(ins->mSrc[0].mIntConst);
-					mIns.Push(cins);
-				}
-			}
-			else
-			{
-				if (optzero && ins->mSrc[0].mIntConst == 0)
-				{
-					switch (ins->mOperator)
-					{
-					case IA_CMPEQ:
-					case IA_CMPLEU:
-						return BC_BRANCHS_EQ;
-					case IA_CMPNE:
-					case IA_CMPGU:
-						return BC_BRANCHS_NE;
-					case IA_CMPGEU:
-						return BC_JUMPS;
-					case IA_CMPLU:
-						return BC_NOP;
-					}
-				}
-				else if (ins->mSrc[1].IsUByte())
-				{
-					ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
-					cins.mValue = int(ins->mSrc[0].mIntConst);
+					cins.mValue = int(ins->mSrc[1].mIntConst);
 					mIns.Push(cins);
 				}
 				else
 				{
 					ByteCodeInstruction	cins(BC_BINOP_CMPUI_16);
-					cins.mValue = int(ins->mSrc[0].mIntConst);
+					cins.mValue = int(ins->mSrc[1].mIntConst);
 					mIns.Push(cins);
 				}
 			}
-			code = TransposeBranchCondition(code);
+			else
+			{
+				ByteCodeInstruction	bins(BC_LEA_ABS);
+				bins.mRegister = BC_REG_ACCU;
+				bins.mLinkerObject = ins->mSrc[1].mLinkerObject;
+				bins.mValue = int(ins->mSrc[1].mIntConst);
+				bins.mRelocate = true;
+				mIns.Push(bins);
+
+				if (csigned)
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPSR_16);
+					cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+					cins.mRegisterFinal = ins->mSrc[0].mFinal;
+					mIns.Push(cins);
+				}
+				else
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPUR_16);
+					cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp];
+					cins.mRegisterFinal = ins->mSrc[0].mFinal;
+					mIns.Push(cins);
+				}
+
+				code = TransposeBranchCondition(code);
+			}
+		}
+		else if (ins->mSrc[0].mTemp < 0)
+		{
+			if (ins->mSrc[0].mType == IT_INT16 || ins->mSrc[0].mMemory == IM_ABSOLUTE)
+			{
+				ByteCodeInstruction	lins(BC_LOAD_REG_16);
+				lins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+				lins.mRegisterFinal = ins->mSrc[1].mFinal;
+				mIns.Push(lins);
+				if (csigned)
+				{
+					if (optzero && ins->mSrc[0].mIntConst == 0)
+					{
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+							return BC_BRANCHS_EQ;
+						case IA_CMPNE:
+							return BC_BRANCHS_NE;
+						case IA_CMPLES:
+							return BC_BRANCHS_LE;
+						case IA_CMPGS:
+							return BC_BRANCHS_GT;
+						case IA_CMPGES:
+							return BC_BRANCHS_GE;
+						case IA_CMPLS:
+							return BC_BRANCHS_LT;
+						}
+					}
+					else if (ins->mSrc[1].IsUByte())
+					{
+						ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
+						cins.mValue = int(ins->mSrc[0].mIntConst);
+						mIns.Push(cins);
+					}
+					else
+					{
+						ByteCodeInstruction	cins(BC_BINOP_CMPSI_16);
+						cins.mValue = int(ins->mSrc[0].mIntConst);
+						mIns.Push(cins);
+					}
+				}
+				else
+				{
+					if (optzero && ins->mSrc[0].mIntConst == 0)
+					{
+						switch (ins->mOperator)
+						{
+						case IA_CMPEQ:
+						case IA_CMPLEU:
+							return BC_BRANCHS_EQ;
+						case IA_CMPNE:
+						case IA_CMPGU:
+							return BC_BRANCHS_NE;
+						case IA_CMPGEU:
+							return BC_JUMPS;
+						case IA_CMPLU:
+							return BC_NOP;
+						}
+					}
+					else if (ins->mSrc[1].IsUByte())
+					{
+						ByteCodeInstruction	cins(BC_BINOP_CMPUI_8);
+						cins.mValue = int(ins->mSrc[0].mIntConst);
+						mIns.Push(cins);
+					}
+					else
+					{
+						ByteCodeInstruction	cins(BC_BINOP_CMPUI_16);
+						cins.mValue = int(ins->mSrc[0].mIntConst);
+						mIns.Push(cins);
+					}
+				}
+				code = TransposeBranchCondition(code);
+			}
+			else
+			{
+				ByteCodeInstruction	bins(BC_LEA_ABS);
+				bins.mRegister = BC_REG_ACCU;
+				bins.mLinkerObject = ins->mSrc[0].mLinkerObject;
+				bins.mValue = int(ins->mSrc[0].mIntConst);
+				bins.mRelocate = true;
+				mIns.Push(bins);
+
+				if (csigned)
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPSR_16);
+					cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+					cins.mRegisterFinal = ins->mSrc[1].mFinal;
+					mIns.Push(cins);
+				}
+				else
+				{
+					ByteCodeInstruction	cins(BC_BINOP_CMPUR_16);
+					cins.mRegister = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
+					cins.mRegisterFinal = ins->mSrc[1].mFinal;
+					mIns.Push(cins);
+				}
+			}
 		}
 		else
 		{
