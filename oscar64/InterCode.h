@@ -432,7 +432,7 @@ public:
 	void CollectEntryBlocks(InterCodeBasicBlock* from);
 	void GenerateTraces(int expand, bool compact);
 	void BuildDominatorTree(InterCodeBasicBlock * from);
-	bool StripLoopHead(void);
+	bool StripLoopHead(int size);
 
 	bool MergeSameConditionTraces(void);
 
@@ -551,6 +551,7 @@ public:
 	
 	void CollectOuterFrame(int level, int& size, bool& inner, bool& inlineAssembler, bool& byteCodeCall);
 	bool RecheckOuterFrame(void);
+	void CollectParamVarsSize(int& size);
 
 	bool IsLeafProcedure(void);
 	bool PreventsCallerStaticStack(void);
@@ -733,7 +734,7 @@ public:
 	InterCodeModule					*	mModule;
 	int									mID;
 
-	int									mLocalSize, mNumLocals, mNumParams;
+	int									mLocalSize, mNumLocals, mNumParams, mParamVarsSize;
 	GrowingVariableArray				mLocalVars, mParamVars;
 	NumberSet							mLocalAliasedSet, mParamAliasedSet;
 

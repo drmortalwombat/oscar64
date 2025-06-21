@@ -56387,7 +56387,12 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		commonFrameSize += 2;
 
 	mFrameOffset = 0;
-	mNoFrame = (mStackExpand + proc->mCommonFrameSize) < 64 && !proc->mHasDynamicStack;// && !(proc->mHasInlineAssembler && !proc->mLeafProcedure);
+	if (proc->mHasDynamicStack)
+		mNoFrame = false;
+	else if (mStackExpand + proc->mCommonFrameSize + proc->mParamVarsSize < 256)
+		mNoFrame = true;
+	else
+		mNoFrame = false;
 
 #if 0
 	if (!(proc->mCompilerOptions & COPT_OPTIMIZE_BASIC) && (proc->mCompilerOptions & COPT_DEBUGINFO))

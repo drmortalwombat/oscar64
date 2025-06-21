@@ -3470,23 +3470,28 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (section)
 					{
 						LinkerRegion* rgn = mLinker->FindRegionOfSection(section);
-						uint64	i = 0;
-						while (i < 64 && rgn->mCartridgeBanks != (1ULL << i))
-							i++;
-						if (i == 64)
-							i = 255;
+						if (rgn)
+						{
+							uint64	i = 0;
+							while (i < 64 && rgn->mCartridgeBanks != (1ULL << i))
+								i++;
+							if (i == 64)
+								i = 255;
 
-						ins->mCode = IC_CONSTANT;
-						ins->mNumOperands = 0;
-						ins->mConst.mType = IT_INT16;
-						ins->mConst.mIntConst = i;
-						ins->mDst.mType = IT_INT16;
-						ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
-						block->Append(ins);
-						return ExValue(TheSignedIntTypeDeclaration, ins->mDst.mTemp, vl.mReference - 1);
+							ins->mCode = IC_CONSTANT;
+							ins->mNumOperands = 0;
+							ins->mConst.mType = IT_INT16;
+							ins->mConst.mIntConst = i;
+							ins->mDst.mType = IT_INT16;
+							ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+							block->Append(ins);
+							return ExValue(TheSignedIntTypeDeclaration, ins->mDst.mTemp, vl.mReference - 1);
+						}
+						else
+							mErrors->Error(exp->mLocation, EERR_SECTION_ON_IN_REGION, "Section not in single banked region", section->mIdent);
 					}
 				}
-				mErrors->Error(exp->mLocation, ERRR_CANNOT_FIND_BANK_OF_EXPRESSION, "Cannot find bank of expressiohn");
+				mErrors->Error(exp->mLocation, ERRR_CANNOT_FIND_BANK_OF_EXPRESSION, "Cannot find bank of expression");
 			}	break;
 
 			case TK_SIZEOF:

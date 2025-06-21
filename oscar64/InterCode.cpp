@@ -6281,13 +6281,13 @@ static bool IsInfiniteLoop(InterCodeBasicBlock* head, InterCodeBasicBlock* block
 	return false;
 }
 
-bool InterCodeBasicBlock::StripLoopHead(void)
+bool InterCodeBasicBlock::StripLoopHead(int size)
 {
 	bool	changed = false;
 
 	if (!mVisited)
 	{
-		if (mLoopHead && mFalseJump && mTrueJump != this && mFalseJump != this && mLoopPrefix && mInstructions.Size() < 10)
+		if (mLoopHead && mFalseJump && mTrueJump != this && mFalseJump != this && mLoopPrefix && mInstructions.Size() < size)
 		{
 //			printf("StripA %s %d\n", mProc->mIdent->mString, mIndex);
 
@@ -6330,9 +6330,9 @@ bool InterCodeBasicBlock::StripLoopHead(void)
 
 		mVisited = true;
 
-		if (mTrueJump && mTrueJump->StripLoopHead()) 
+		if (mTrueJump && mTrueJump->StripLoopHead(size)) 
 			changed = true;
-		if (mFalseJump && mFalseJump->StripLoopHead())
+		if (mFalseJump && mFalseJump->StripLoopHead(size))
 			changed = true;
 	}
 
@@ -14847,6 +14847,68 @@ bool InterCodeBasicBlock::RecheckOuterFrame(void)
 	return false;
 }
 
+void InterCodeBasicBlock::CollectParamVarsSize(int& size)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins(mInstructions[i]);
+			if (ins->mCode == IC_LOAD)
+			{
+				if (ins->mSrc[0].mMemory == IM_PARAM)
+				{
+					if (ins->mSrc[0].mVarIndex + InterTypeSize[ins->mDst.mType] > size)
+						size = ins->mSrc[0].mVarIndex + InterTypeSize[ins->mDst.mType];
+				}
+			}
+			else if (ins->mCode == IC_STORE)
+			{
+				if (ins->mSrc[1].mMemory == IM_PARAM)
+				{
+					if (ins->mSrc[1].mVarIndex + InterTypeSize[ins->mSrc[0].mType] > size)
+						size = ins->mSrc[1].mVarIndex + InterTypeSize[ins->mSrc[0].mType];
+				}
+			}
+			else if (ins->mCode == IC_LEA)
+			{
+				if (ins->mSrc[1].mMemory == IM_PARAM)
+				{
+					if (ins->mSrc[1].mVarIndex + mProc->mParamVars[ins->mSrc[1].mVarIndex]->mSize > size)
+						size = ins->mSrc[1].mVarIndex + mProc->mParamVars[ins->mSrc[1].mVarIndex]->mSize;
+				}
+			}
+			else if (ins->mCode == IC_COPY)
+			{
+				if (ins->mSrc[0].mMemory == IM_PARAM)
+				{
+					if (ins->mSrc[0].mVarIndex + mProc->mParamVars[ins->mSrc[0].mVarIndex]->mSize > size)
+						size = ins->mSrc[0].mVarIndex + mProc->mParamVars[ins->mSrc[0].mVarIndex]->mSize;
+				}
+				if (ins->mSrc[1].mMemory == IM_PARAM)
+				{
+					if (ins->mSrc[1].mVarIndex + mProc->mParamVars[ins->mSrc[1].mVarIndex]->mSize > size)
+						size = ins->mSrc[1].mVarIndex + mProc->mParamVars[ins->mSrc[1].mVarIndex]->mSize;
+				}
+			}
+			else if (ins->mCode == IC_CONSTANT)
+			{
+				if (ins->mConst.mType == IT_POINTER && ins->mConst.mMemory == IM_PARAM)
+				{
+					if (ins->mConst.mVarIndex + mProc->mParamVars[ins->mConst.mVarIndex]->mSize > size)
+						size = ins->mConst.mVarIndex + mProc->mParamVars[ins->mConst.mVarIndex]->mSize;
+
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CollectParamVarsSize(size);
+		if (mFalseJump) mFalseJump->CollectParamVarsSize(size);
+	}
+}
+
 void InterCodeBasicBlock::CollectOuterFrame(int level, int& size, bool &inner, bool &inlineAssembler, bool &byteCodeCall)
 {
 	int i;
@@ -22807,6 +22869,63 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			}
 		}
 
+		// Check complex comparison, that may be simpler when using operands
+		if (mFalseJump && mInstructions.Size() >= 3)
+		{
+			int nins = mInstructions.Size();
+			if (mInstructions[nins - 1]->mCode == IC_BRANCH && mInstructions[nins - 1]->mSrc[0].mFinal &&
+				mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+				(mInstructions[nins - 2]->mOperator == IA_CMPEQ || mInstructions[nins - 2]->mOperator == IA_CMPNE))
+			{
+				InterInstruction* rins = mInstructions[nins - 2];
+				InterInstruction* ains = mInstructions[nins - 3];
+
+				if (rins->mSrc[0].mTemp < 0 && ains->mDst.mTemp == rins->mSrc[1].mTemp)
+				{
+					if (rins->mSrc[0].mType == IT_POINTER && rins->mSrc[1].mType == IT_POINTER &&
+						rins->mSrc[0].mMemory == rins->mSrc[1].mMemoryBase &&
+						ains->mCode == IC_LEA &&
+						ains->mSrc[1].mTemp < 0 && SameMem(ains->mSrc[1], rins->mSrc[0]))
+					{
+						rins->mSrc[1] = ains->mSrc[1];
+						ains->mSrc[1].mFinal = false;
+						rins->mSrc[0].mType = IT_INT16;
+						rins->mSrc[0].mIntConst = 0;
+					}
+				}
+				else if (rins->mSrc[1].mTemp < 0 && ains->mDst.mTemp == rins->mSrc[0].mTemp)
+				{
+					if (rins->mSrc[0].mType == IT_POINTER && rins->mSrc[1].mType == IT_POINTER &&
+						rins->mSrc[1].mMemory == rins->mSrc[0].mMemoryBase &&
+						ains->mCode == IC_LEA &&
+						ains->mSrc[1].mTemp < 0 && SameMem(ains->mSrc[1], rins->mSrc[1]))
+					{
+						rins->mSrc[0] = ains->mSrc[0];
+						ains->mSrc[0].mFinal = false;
+						rins->mSrc[1].mType = IT_INT16;
+						rins->mSrc[1].mIntConst = 0;
+					}
+					else if (rins->mSrc[0].mType == IT_INT16 &&
+						rins->mSrc[0].IsInRange(0, 65534) &&
+						ains->mCode == IC_BINARY_OPERATOR && ains->mOperator == IA_MUL)
+					{
+						if (ains->mSrc[0].mTemp < 0 && rins->mSrc[1].mIntConst % ains->mSrc[0].mIntConst == 0)
+						{
+							rins->mSrc[0] = ains->mSrc[1];
+							ains->mSrc[1].mFinal = false;
+							rins->mSrc[1].mIntConst /= ains->mSrc[0].mIntConst;
+						}
+						else if (ains->mSrc[1].mTemp < 0 && rins->mSrc[1].mIntConst % ains->mSrc[1].mIntConst == 0)
+						{
+							rins->mSrc[0] = ains->mSrc[0];
+							ains->mSrc[0].mFinal = false;
+							rins->mSrc[1].mIntConst /= ains->mSrc[1].mIntConst;
+						}
+					}
+				}
+			}
+		}
+
 		// Check case of cmp signed immediate
 		if (mFalseJump && mInstructions.Size() > 3)
 		{
@@ -24631,7 +24750,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test_copy_ainit");
+	CheckFunc = !strcmp(mIdent->mString, "sum");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -24647,7 +24766,7 @@ void InterCodeProcedure::Close(void)
 	do {
 		BuildLoopPrefix();
 		ResetVisited();
-	} while (mEntryBlock->StripLoopHead());
+	} while (mEntryBlock->StripLoopHead(10));
 	DisassembleDebug("Loop Head");
 	BuildTraces(0);
 
@@ -24869,6 +24988,16 @@ void InterCodeProcedure::Close(void)
 
 	BuildDataFlowSets();
 #endif
+	CheckUsedDefinedTemps();
+
+	do {
+		BuildLoopPrefix();
+		ResetVisited();
+	} while (mEntryBlock->StripLoopHead(4));
+	DisassembleDebug("Loop Head 2");
+	BuildTraces(0);
+
+	BuildDataFlowSets();
 	CheckUsedDefinedTemps();
 
 #if 0
@@ -25797,6 +25926,11 @@ void InterCodeProcedure::Close(void)
 		if (!mEntryBlock->RecheckOuterFrame())
 			mCommonFrameSize = 0;
 	}
+
+	mParamVarsSize = 0;
+	ResetVisited();
+	mEntryBlock->CollectParamVarsSize(mParamVarsSize);
+
 #endif
 	ResetVisited();
 	mEntryBlock->CollectGlobalReferences(mReferencedGlobals, mModifiedGlobals, mStoresIndirect, mLoadsIndirect, mGlobalsChecked);
