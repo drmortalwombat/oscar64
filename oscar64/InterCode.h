@@ -556,6 +556,7 @@ public:
 	bool IsLeafProcedure(void);
 	bool PreventsCallerStaticStack(void);
 
+	void UnionEntryValueRange(const GrowingIntegerValueRangeArray & range, const GrowingIntegerValueRangeArray& paramRange);
 	bool ForwardDiamondMovedTemp(void);
 	bool ForwardLoopMovedTemp(void);
 

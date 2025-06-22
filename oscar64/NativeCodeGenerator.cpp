@@ -31346,6 +31346,19 @@ bool NativeCodeBasicBlock::CollectRegBoolInstructionsBackward(int reg, Expanding
 				lins.Push(&(mIns[i - 1]));
 				found = true;
 			}
+			else if (i == 0 && mIns[0].mType == ASMIT_STA && !(mIns[0].mLive & LIVE_CPU_REG_A))
+			{
+				for (int k = 0; k < mEntryBlocks.Size(); k++) 
+				{
+					NativeCodeBasicBlock* eb = mEntryBlocks[k];
+					int es = eb->mIns.Size();
+					if (!eb->mFalseJump && es > 0 && eb->mIns[es - 1].mType == ASMIT_LDA && eb->mIns[es - 1].mMode == ASMIM_IMMEDIATE)
+						lins.Push(&(eb->mIns[es - 1]));
+					else
+						return false;
+				}
+				found = true;
+			}
 			else
 				return false;
 		}
@@ -56368,7 +56381,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "deco");
+	CheckFunc = !strcmp(mIdent->mString, "Player::run");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

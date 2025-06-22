@@ -14350,6 +14350,14 @@ bool InterCodeBasicBlock::ForwardLoopMovedTemp(void)
 	return changed;
 }
 
+void InterCodeBasicBlock::UnionEntryValueRange(const GrowingIntegerValueRangeArray&range, const GrowingIntegerValueRangeArray& paramRange)
+{
+	for (int i = 0; i < mEntryValueRange.Size(); i++)
+		mEntryValueRange[i].Union(range[i]);
+	for (int i = 0; i < mEntryParamValueRange.Size(); i++)
+		mEntryParamValueRange[i].Union(paramRange[i]);
+}
+
 bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 {
 	bool changed = false;
@@ -14369,7 +14377,7 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 
 		if (mTrueJump && mFalseJump)
 		{
-			InterCodeBasicBlock* tblock = nullptr, * fblock = nullptr;
+			InterCodeBasicBlock* tblock = nullptr, * fblock = nullptr, * sblock = nullptr;
 
 			if (mTrueJump != mFalseJump && mTrueJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump && mTrueJump->mFalseJump == mFalseJump->mFalseJump)
 			{
@@ -14388,6 +14396,9 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 				{
 					if (tblock->mInstructions[0]->IsEqual(fblock->mInstructions.Last()) && (tblock->mInstructions[0]->mSrc[0].mTemp < 0 || !fblock->mLocalModifiedTemps[tblock->mInstructions[0]->mSrc[0].mTemp]))
 					{
+						tblock->UnionEntryValueRange(fblock->mTrueValueRange, fblock->mTrueParamValueRange);
+						tblock->UnionEntryValueRange(fblock->mFalseValueRange, fblock->mFalseParamValueRange);
+
 						fblock->mTrueJump = tblock;
 						fblock->mFalseJump = nullptr;
 						fblock->mInstructions[fblock->mInstructions.Size() - 1]->mCode = IC_JUMP;
@@ -24750,7 +24761,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "sum");
+	CheckFunc = !strcmp(mIdent->mString, "Player::run");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
