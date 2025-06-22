@@ -534,7 +534,12 @@ public:
 	bool CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory);
 	bool SingleAssignmentTempForwarding(const GrowingInstructionPtrArray& tunified, const GrowingInstructionPtrArray& tvalues);
 
+	void CollectSingleAssignmentBools(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue);
+	void CheckSingleAssignmentBools(GrowingInstructionPtrArray& tvalue);
+	void MapSingleAssignmentBools(const GrowingInstructionPtrArray& tvalue);
+
 	void BuildCollisionTable(NumberSet* collisionSets);
+	void BuildFriendsTable(GrowingIntArray& friendsMap);
 	void ReduceTemporaries(const GrowingIntArray& renameTable, GrowingTypeArray& temporaries);
 
 	void CollectSimpleLocals(FastNumberSet& complexLocals, FastNumberSet& simpleLocals, GrowingTypeArray & localTypes, FastNumberSet& complexParams, FastNumberSet& simpleParams, GrowingTypeArray& paramTypes);
@@ -826,6 +831,7 @@ protected:
 	void ShortcutDuplicateBranches(void);
 	void EliminateDoubleLoopCounter(void);
 	void StructReturnPropagation(void);
+	void ForwardSingleAssignmentBools(void);
 
 	void CollapseDispatch(void);
 

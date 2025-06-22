@@ -10508,6 +10508,86 @@ void InterCodeBasicBlock::CalculateSingleUsedTemps(FastNumberSet& fused, FastNum
 	}
 }
 
+void InterCodeBasicBlock::CheckSingleAssignmentBools(GrowingInstructionPtrArray& tvalue)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			for (int k = 0; k < ins->mNumOperands; k++)
+			{
+				if (ins->mCode != IC_BRANCH && ins->mSrc[k].mTemp >= 0 && tvalue[ins->mSrc[k].mTemp])
+					tvalue[ins->mSrc[k].mTemp] = nullptr;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CheckSingleAssignmentBools(tvalue);
+		if (mFalseJump) mFalseJump->CheckSingleAssignmentBools(tvalue);
+	}
+}
+
+void InterCodeBasicBlock::MapSingleAssignmentBools(const GrowingInstructionPtrArray& tvalue)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int sz = mInstructions.Size();
+		if (sz > 0 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 1]->mSrc[0].mTemp >= 0 && tvalue[mInstructions[sz - 1]->mSrc[0].mTemp])
+		{
+			if (tvalue[mInstructions[sz - 1]->mSrc[0].mTemp]->mOperator == IA_CMPEQ)
+			{
+				InterCodeBasicBlock* tb = mTrueJump; mTrueJump = mFalseJump; mFalseJump = tb;
+			}
+
+			mInstructions[sz - 1]->mSrc[0] = tvalue[mInstructions[sz - 1]->mSrc[0].mTemp]->mDst;
+		}
+
+		if (mTrueJump) mTrueJump->MapSingleAssignmentBools(tvalue);
+		if (mFalseJump) mFalseJump->MapSingleAssignmentBools(tvalue);
+	}
+}
+
+void InterCodeBasicBlock::CollectSingleAssignmentBools(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+
+			int	t = ins->mDst.mTemp;
+			if (t >= 0)
+			{
+				if (!tassigned[t])
+				{
+					tassigned += t;
+
+					if (ins->mCode == IC_RELATIONAL_OPERATOR && 
+						(ins->mOperator == IA_CMPEQ || ins->mOperator == IA_CMPNE) &&
+						(ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 0 && ins->mSrc[1].IsUByte() || ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst == 0 && ins->mSrc[0].IsUByte()))
+					{
+						if (i + 2 == mInstructions.Size() && mInstructions[i + 1]->mCode == IC_BRANCH && mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp)
+							;
+						else
+							tvalue[t] = ins;
+					}
+				}
+				else
+					tvalue[t] = nullptr;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CollectSingleAssignmentBools(tassigned, tvalue);
+		if (mFalseJump) mFalseJump->CollectSingleAssignmentBools(tassigned, tvalue);
+	}
+}
 
 bool InterCodeBasicBlock::CalculateSingleAssignmentTemps(FastNumberSet& tassigned, GrowingInstructionPtrArray& tvalue, NumberSet& modifiedParams, InterMemory paramMemory)
 {
@@ -13598,6 +13678,48 @@ void InterCodeBasicBlock::RenameValueRanges(const GrowingIntArray& renameTable, 
 				mMemoryValueSize[renameTable[i]] = int64min(mMemoryValueSize[renameTable[i]], memoryValueSize[i]);
 			}				
 		}
+	}
+}
+
+void InterCodeBasicBlock::BuildFriendsTable(GrowingIntArray& friendsMap)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			int di = ins->mDst.mTemp, si = -1;
+
+			if (di >= 0)
+			{
+				if (ins->mCode == IC_LOAD_TEMPORARY)
+					si = ins->mSrc[0].mTemp;
+				else if (ins->mCode == IC_LEA && ins->mSrc[1].mFinal)
+					si = ins->mSrc[1].mTemp;
+				else if (ins->mCode == IC_UNARY_OPERATOR && ins->mSrc[0].mFinal)
+					si = ins->mSrc[0].mTemp;
+				else if (ins->mCode == IC_BINARY_OPERATOR)
+				{
+					if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mFinal)
+						si = ins->mSrc[1].mTemp;
+					else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mFinal)
+						si = ins->mSrc[0].mTemp;
+				}
+
+				if (si != di)
+				{
+					if (si >= 0 && friendsMap[di] == -1)
+						friendsMap[di] = si;
+					else
+						friendsMap[di] = -2;
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->BuildFriendsTable(friendsMap);
+		if (mFalseJump) mFalseJump->BuildFriendsTable(friendsMap);
 	}
 }
 
@@ -18634,7 +18756,10 @@ void InterCodeBasicBlock::InnerLoopCountZeroCheck(void)
 										cins->mOperator = IA_CMPNE;
 
 										for (int i = 0; i < body.Size(); i++)
-											body[i]->mEntryValueRange[ains->mSrc[1].mTemp] = ains->mSrc[1].mRange;
+										{
+											if (body[i]->mEntryValueRange.Size() > 0)
+												body[i]->mEntryValueRange[ains->mSrc[1].mTemp] = ains->mSrc[1].mRange;
+										}
 									}
 								}
 							}
@@ -23661,6 +23786,49 @@ void InterCodeProcedure::CheckBlocks(void)
 	mEntryBlock->CheckBlocks();
 }
 
+void InterCodeProcedure::ForwardSingleAssignmentBools(void)
+{
+	int	numTemps = mTemporaries.Size();
+
+	FastNumberSet					tassigned(numTemps);
+	GrowingInstructionPtrArray		tvalues(nullptr);
+
+	tvalues.SetSize(numTemps);
+
+	ResetVisited();
+	mEntryBlock->CollectSingleAssignmentBools(tassigned, tvalues);
+
+	ResetVisited();
+	mEntryBlock->CheckSingleAssignmentBools(tvalues);
+
+	for (int i = 0; i < tassigned.Num(); i++)
+	{
+		int t = tassigned.Element(i);
+		if (tvalues[t])
+		{
+			tvalues[t]->mCode = IC_LOAD_TEMPORARY;
+			tvalues[t]->mNumOperands = 1;
+			if (tvalues[t]->mSrc[0].mTemp >= 0)
+				tvalues[t]->mDst = tvalues[t]->mSrc[0];
+			else
+			{
+				tvalues[t]->mDst = tvalues[t]->mSrc[1];
+				tvalues[t]->mSrc[0] = tvalues[t]->mSrc[1];
+			}
+			tvalues[t]->mDst.mTemp = t;
+		}
+	}
+
+	ResetVisited();
+	mEntryBlock->MapSingleAssignmentBools(tvalues);
+
+	DisassembleDebug("ForwardSingleAssignmentBools");
+
+	BuildDataFlowSets();
+	TempForwarding();
+	RemoveUnusedInstructions();
+}
+
 void InterCodeProcedure::StructReturnPropagation(void)
 {
 	if (!mEntryBlock->mTrueJump)
@@ -25622,6 +25790,8 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->EmptyLoopOptimization();
 
+	ForwardSingleAssignmentBools();
+
 //	CollapseDispatch();
 //	DisassembleDebug("CollapseDispatch");
 
@@ -26556,6 +26726,8 @@ void InterCodeProcedure::ReduceTemporaries(bool final)
 	int i, j, numRenamedTemps;
 	int numTemps = mTemporaries.Size();
 
+	GrowingIntArray	friendsMap(-1);
+
 	NumberSet	callerSaved(numTemps);
 
 	if (final)
@@ -26579,7 +26751,7 @@ void InterCodeProcedure::ReduceTemporaries(bool final)
 	ResetVisited();
 	mEntryBlock->PruneUnusedIntegerRangeSets();
 
-	collisionSet = new NumberSet[numTemps];
+	collisionSet = new NumberSet[numTemps]; 
 
 	for (i = 0; i < numTemps; i++)
 		collisionSet[i].Reset(numTemps);
@@ -26588,6 +26760,11 @@ void InterCodeProcedure::ReduceTemporaries(bool final)
 
 	ResetVisited();
 	mEntryBlock->BuildCollisionTable(collisionSet);
+
+	friendsMap.SetSize(numTemps, true);
+
+	ResetVisited();
+	mEntryBlock->BuildFriendsTable(friendsMap);
 
 	mRenameTable.SetSize(numTemps, true);
 
@@ -26610,10 +26787,15 @@ void InterCodeProcedure::ReduceTemporaries(bool final)
 						if (mRenameTable[j] >= 0 && collisionSet[i][j])
 							usedTemps += mRenameTable[j];
 					}
-
-					j = 0;
-					while (usedTemps[j])
-						j++;
+					
+					if (friendsMap[i] >= 0 && mRenameTable[friendsMap[i]] >= 0 && !usedTemps[mRenameTable[friendsMap[i]]])
+						j = mRenameTable[friendsMap[i]];
+					else
+					{
+						j = 0;
+						while (usedTemps[j])
+							j++;
+					}
 
 					mRenameTable[i] = j;
 					if (j >= numRenamedTemps) numRenamedTemps = j + 1;
@@ -26631,9 +26813,14 @@ void InterCodeProcedure::ReduceTemporaries(bool final)
 							usedTemps += mRenameTable[j];
 					}
 
-					j = 0;
-					while (usedTemps[j])
-						j++;
+					if (friendsMap[i] >= 0 && mRenameTable[friendsMap[i]] >= 0 && !usedTemps[mRenameTable[friendsMap[i]]])
+						j = mRenameTable[friendsMap[i]];
+					else
+					{
+						j = 0;
+						while (usedTemps[j])
+							j++;
+					}
 
 					mRenameTable[i] = j;
 					if (j >= numRenamedTemps) numRenamedTemps = j + 1;
