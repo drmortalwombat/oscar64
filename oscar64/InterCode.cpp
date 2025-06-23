@@ -20233,7 +20233,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 						if (ins0->mCode == IC_BINARY_OPERATOR && ins0->mOperator == IA_ADD && ins1->mCode == IC_LEA && ins1->mSrc[1].mTemp >= 0)
 						{
-							if (ins1->mSrc[0].mTemp == ins0->mDst.mTemp && ins1->mSrc[0].mFinal && ins0->mSrc[0].mTemp >= 0 && ins0->mSrc[1].mTemp)
+							if (ins1->mSrc[0].mTemp == ins0->mDst.mTemp && ins1->mSrc[0].mFinal && ins0->mSrc[0].mTemp >= 0 && ins0->mSrc[1].mTemp >= 0)
 							{
 								if (dep[ins1->mSrc[1].mTemp] == DEP_UNKNOWN && dep[ins0->mSrc[0].mTemp] == DEP_UNKNOWN && dep[ins0->mSrc[1].mTemp] == DEP_INDEX_EXTENDED)
 								{
@@ -20478,6 +20478,17 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						indexBase[ins->mDst.mTemp] = 0;
 
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
+						if (indexBase[ins->mSrc[1].mTemp])
+						{
+							InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							bins->mOperator = IA_ADD;
+							bins->mDst = ins->mDst;
+							bins->mSrc[0] = ins->mDst;
+							bins->mSrc[1].mType = ins->mDst.mType;
+							bins->mSrc[1].mTemp = -1;
+							bins->mSrc[1].mIntConst = indexBase[ins->mSrc[1].mTemp];
+							mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
+						}
 
 						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						ains->mOperator = IA_ADD;
@@ -20497,6 +20508,17 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						indexBase[ins->mDst.mTemp] = 0;
 
 						mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, ins);
+						if (indexBase[ins->mSrc[0].mTemp])
+						{
+							InterInstruction* bins = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
+							bins->mOperator = IA_ADD;
+							bins->mDst = ins->mDst;
+							bins->mSrc[0] = ins->mDst;
+							bins->mSrc[1].mType = ins->mDst.mType;
+							bins->mSrc[1].mTemp = -1;
+							bins->mSrc[1].mIntConst = indexBase[ins->mSrc[0].mTemp];
+							mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, bins);
+						}
 
 						InterInstruction* ains = new InterInstruction(ins->mLocation, IC_BINARY_OPERATOR);
 						ains->mOperator = IA_ADD;
@@ -24929,7 +24951,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "Player::run");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
