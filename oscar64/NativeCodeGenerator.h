@@ -147,6 +147,8 @@ static const uint32 NICF_USE_WORKREGS = 0x00400000;
 
 static const uint32 NCIF_BREAKPOINT = 0x00800000;
 
+static const uint32 NCIF_IMMADDR_FLAGS = NCIF_LOWER | NCIF_UPPER;
+
 class NativeCodeInstruction
 {
 public:
@@ -522,6 +524,8 @@ public:
 	bool FindPageStartAddress(int at, int reg, int& addr);
 	bool FindBypassAddressSumY(int at, int reg, int& apos, int& breg);
 	bool PatchBypassAddressSumY(int at, int reg, int apos, int breg);
+	bool FindAbsoluteAddressSumY(int at, int reg, int& apos, int &offset);
+	bool PatchAbsoluteAddressSumY(int at, int reg, int apos);
 	bool MoveStoreXUp(int at);
 	bool MoveLoadXUp(int at);
 	bool MoveStoreYUp(int at);
