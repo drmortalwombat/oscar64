@@ -96,6 +96,27 @@ Declaration * Parser::AddMemberFunction(Declaration* dec, Declaration* mdec)
 	if (pmdec)
 		mdec->mBase->mFlags |= pmdec->mBase->mFlags & DTF_VIRTUAL;
 
+	const Ident* dtorident = dec->mIdent->PreMangle("~");;
+	const Ident* ctorident = dec->mIdent->PreMangle("+");;
+
+	if (mdec->mIdent == ctorident)
+	{
+		// Check constructors
+		Declaration* ctdec = mdec->mBase;
+		Declaration* tparam = ctdec->mParams->mNext;
+
+		if (!tparam && !dec->mDefaultConstructor)
+			dec->mDefaultConstructor = mdec;
+		else if (!tparam->mNext && tparam->mBase->mType == DT_TYPE_REFERENCE && dec->IsConstSame(tparam->mBase->mBase) && !dec->mCopyConstructor)
+			dec->mCopyConstructor = mdec;
+		else if (!tparam->mNext && tparam->mBase->mType == DT_TYPE_RVALUEREF && dec->IsConstSame(tparam->mBase->mBase) && !dec->mMoveConstructor)
+			dec->mMoveConstructor = mdec;
+	}
+	else if (mdec->mIdent == dtorident && !dec->mDestructor)
+	{
+		dec->mDestructor = mdec;
+	}
+
 	Declaration* gdec = mCompilationUnits->mScope->Insert(mdec->mQualIdent, mdec);
 	if (gdec)
 	{

@@ -7667,7 +7667,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + 3 * stride, nullptr, flags));
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg + 3));
 			}
-			else if (ins->mSrc[0].mMemory == IM_FPARAM)
+			else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 			{
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[0].mVarIndex + ins->mSrc[0].mIntConst, nullptr, flags));
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg));
@@ -7792,7 +7792,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				if (ainsh) mIns.Push(*ainsh);
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
 			}
-			else if (ins->mSrc[0].mMemory == IM_FPARAM)
+			else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 			{
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[0].mVarIndex + ins->mSrc[0].mIntConst, nullptr, flags));
 				if (ainsl)
@@ -7889,7 +7889,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 				{
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, nullptr, flags));
 				}
-				else if (ins->mSrc[0].mMemory == IM_FPARAM)
+				else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 				{
 					if (ins->mDst.IsUByte())
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[0].mVarIndex + ins->mSrc[0].mIntConst, nullptr, flags, 0, uint8(ins->mDst.mRange.mMinValue), uint8(ins->mDst.mRange.mMaxValue)));
@@ -7964,7 +7964,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 					if (ainsh) mIns.Push(*ainsh);
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
 				}
-				else if (ins->mSrc[0].mMemory == IM_FPARAM)
+				else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 				{
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[0].mVarIndex + ins->mSrc[0].mIntConst, nullptr, flags));
 					if (ainsl)
@@ -8034,7 +8034,7 @@ void NativeCodeBasicBlock::LoadValueToReg(InterCodeProcedure* proc, const InterI
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst + 3 * stride, nullptr, flags));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg + 3));
 				}
-				else if (ins->mSrc[0].mMemory == IM_FPARAM)
+				else if (ins->mSrc[0].mMemory == IM_FPARAM || ins->mSrc[0].mMemory == IM_FFRAME)
 				{
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[0].mVarIndex + ins->mSrc[0].mIntConst, nullptr, flags));
 					mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg));
@@ -56447,7 +56447,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "Game::run");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
