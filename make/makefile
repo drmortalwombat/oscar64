@@ -22,18 +22,22 @@ includedir = $(prefix)/include
 
  
 ifdef WINDIR
-	linklibs = -lpthread
+	UNAME_S := $(shell uname -s 2>/dev/null || echo "Windows")
+
+	ifneq ($(findstring MINGW,$(UNAME_S)),)
+		# MinGW
+		linklibs = -lversion -lpthread
+	else
+		# Native Windows (MSVC or other)
+		linklibs = -lpthread
+	endif
 else
 	UNAME_S := $(shell uname -s)
 	
 	ifeq ($(UNAME_S), Darwin)
-
 		linklibs = -lpthread
 	else
-		# MSVC
 		linklibs = -lrt -lpthread
-		# MinGW
-		#linklibs = -lversion -lpthread
 	endif
 endif
 
