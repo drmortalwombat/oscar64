@@ -45600,6 +45600,8 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 						eblock->mEntryRequiredRegs += CPU_REG_C;
 						for (int j = 0; j < i; j++)
 							eblock->mIns[j].mLive |= LIVE_CPU_REG_C;
+						cblock->mNDataSet.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
+						cblock->mNDataSet.mRegs[CPU_REG_C].mValue = 0;
 					}
 				}
 			}
@@ -54864,6 +54866,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 		CheckLive();
 	}
 
+	sz = mIns.Size();
 	if (sz >= 1 &&
 		mIns[sz - 1].mType == ASMIT_AND && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) &&
 		(mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE))

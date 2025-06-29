@@ -3513,6 +3513,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				ins->mSrc[0].mTemp = vl.mTemp;
 				ins->mDst.mType = IT_POINTER;
 				ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
+				ins->mDst.mMemory = IM_INDIRECT;
 				ins->mDst.mRestricted = proc->AddRestricted();
 				block->Append(ins);
 				return ExValue(exp->mDecType, ins->mDst.mTemp, 0);
@@ -3769,6 +3770,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					ins->mSrc[0].mTemp = vr.mTemp;
 					ins->mNumOperands = 1;
 					ins->mDst.mType = IT_POINTER;
+					ins->mDst.mMemory = IM_INDIRECT;
 					ins->mDst.mTemp = proc->AddTemporary(ins->mDst.mType);
 					ins->mDst.mRestricted = proc->AddRestricted();
 					block->Append(ins);
@@ -6245,6 +6247,9 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		proc->mInterrupt = true;
 		proc->mCompilerOptions &= ~COPT_OPTIMIZE_OUTLINE;
 	}
+
+	if (dec->mFlags & DTF_INTRINSIC)
+		proc->mIntrinsicFunction = true;
 
 	if (dec->mFlags & DTF_HWINTERRUPT)
 		proc->mHardwareInterrupt = true;

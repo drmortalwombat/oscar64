@@ -436,8 +436,10 @@ public:
 
 	bool MergeSameConditionTraces(void);
 
+
 	void LocalToTemp(int vindex, int temp);
 	void LoadConstantFold(InterInstruction* ins, InterInstruction* ains, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
+	InterOperand LoadConstantOperand(const InterInstruction* ins, const InterOperand& op, InterType type, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 
 	void CollectAllUsedDefinedTemps(NumberSet& defined, NumberSet& used);
 
@@ -472,6 +474,9 @@ public:
 	bool RemoveUnusedIndirectStoreInstructions(void);
 
 	bool RemoveUnusedArgumentStoreInstructions(void);
+
+	void CollectUnusedRestricted(NumberSet& restrictSet);
+	bool RemoveUnusedRestricted(const NumberSet& restrictSet);
 
 	void BuildStaticVariableSet(const GrowingVariableArray& staticVars);
 	void BuildGlobalProvidedStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet fromProvidedVars);
@@ -620,6 +625,7 @@ public:
 	bool CheapInlining(int & numTemps);
 	bool CollapseDispatch();
 	bool StructReturnPropagation(void);
+	bool MapLateIntrinsics(void);
 
 	void CheckFinalLocal(void);
 	void CheckFinal(void);
@@ -654,6 +660,8 @@ public:
 
 	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue, bool loops);
 	void RemoveUnusedMallocs(void);
+
+	void ReduceTempLivetimes(void);
 
 	bool PullStoreUpToConstAddress(void);
 
@@ -732,7 +740,7 @@ public:
 	bool								mLeafProcedure, mNativeProcedure, mCallsFunctionPointer, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode, mFastCallProcedure;
 	bool								mInterrupt, mHardwareInterrupt, mCompiled, mInterruptCalled, mValueReturn, mFramePointer, mDynamicStack, mAssembled;
 	bool								mDispatchedCall;
-	bool								mCheckUnreachable;
+	bool								mCheckUnreachable, mIntrinsicFunction;
 	GrowingInterCodeProcedurePtrArray	mCalledFunctions;
 	bool								mCheapInline;
 	bool								mNoInline;
