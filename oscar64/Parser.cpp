@@ -13077,6 +13077,12 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 		ConsumeToken(TK_CLOSE_BRACKET);
 		break;
 
+	case TK_OPEN_PARENTHESIS:
+		mScanner->NextToken();
+		exp = ParseAssemblerOperand(pcasm, pcoffset);
+		ConsumeToken(TK_CLOSE_PARENTHESIS);
+		break;
+
 	case TK_IDENT:
 		dec = mScope->Lookup(mScanner->mTokenIdent);
 		if (!dec)

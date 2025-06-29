@@ -62,6 +62,36 @@ int qsum(int a, int (* c)(int))
 	return b;
 }
 
+#define ASMTEST_ZP (0x00 | 0xf0)
+#define ASMTEST_TARGET (0x1000 * 0x0c)
+
+int opPrecedenceAndParenthesis() {
+	return __asm volatile {
+		lda #(1 + 2 * (1 + 2)) // = #7
+		sta [ASMTEST_TARGET + 1] // = $c001
+
+		lda #<ASMTEST_TARGET // = #$c0
+		sta [ASMTEST_ZP] + 2 // = $f2
+
+		lda #>ASMTEST_TARGET + 1 // = #$01
+		sta [ASMTEST_ZP + 1] // = $f1
+		ldx #1 
+		lda (ASMTEST_ZP, x) // = (0xf0, 1)
+		pha
+
+		lda #<ASMTEST_TARGET // = #$00
+		sta [ASMTEST_ZP + 1] // = $f1
+		ldy #1 
+		pla
+		sta ASMTEST_ZP, y // = ($f1), 1
+
+		lda [([ASMTEST_TARGET])] + 1 // = $c001
+		sta accu
+		lda #(1 & 2) // = 0
+		sta accu + 1
+	};
+}
+
 int main(void)
 {
 	int	x = asum(7007, 8008);
@@ -70,6 +100,8 @@ int main(void)
 	assert(x == 7007 + 8008 && y == 4004 + 9009);
 	assert(qsum(10, bsome) == 45);
 	assert(qsum(200, bsome) == 19900);
+
+	assert(opPrecedenceAndParenthesis() == 7);
 
 	return 0;
 }
