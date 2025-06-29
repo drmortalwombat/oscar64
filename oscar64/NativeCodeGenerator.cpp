@@ -31339,9 +31339,9 @@ bool NativeCodeBasicBlock::CollectRegBoolInstructionsBackward(int reg, Expanding
 		if (i >= 0)
 		{
 			if (i > 0 &&
-				mIns[i].mType == ASMIT_STA && mIns[i - 1].mType == ASMIT_LDA && mIns[i - 1].mMode == ASMIM_IMMEDIATE && !(mIns[i].mLive & LIVE_CPU_REG_A) ||
-				mIns[i].mType == ASMIT_STX && mIns[i - 1].mType == ASMIT_LDX && mIns[i - 1].mMode == ASMIM_IMMEDIATE && !(mIns[i].mLive & LIVE_CPU_REG_X) ||
-				mIns[i].mType == ASMIT_STY && mIns[i - 1].mType == ASMIT_LDY && mIns[i - 1].mMode == ASMIM_IMMEDIATE && !(mIns[i].mLive & LIVE_CPU_REG_Y))
+				(mIns[i].mType == ASMIT_STA && mIns[i - 1].mType == ASMIT_LDA && mIns[i - 1].mMode == ASMIM_IMMEDIATE && !(mIns[i].mLive & LIVE_CPU_REG_A) ||
+				 mIns[i].mType == ASMIT_STX && mIns[i - 1].mType == ASMIT_LDX && mIns[i - 1].mMode == ASMIM_IMMEDIATE && !(mIns[i].mLive & LIVE_CPU_REG_X) ||
+				 mIns[i].mType == ASMIT_STY && mIns[i - 1].mType == ASMIT_LDY && mIns[i - 1].mMode == ASMIM_IMMEDIATE && !(mIns[i].mLive & LIVE_CPU_REG_Y)))
 			{
 				lins.Push(&(mIns[i - 1]));
 				found = true;
