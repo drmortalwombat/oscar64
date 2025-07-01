@@ -4726,6 +4726,13 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 					mSrc[i].mType = t;
 					changed = true;
 				}
+				else if (t == IT_POINTER && ains->mConst.mType == IT_INT16)
+				{
+					mSrc[i] = ains->mConst;
+					mSrc[i].mMemory = IM_ABSOLUTE;
+					mSrc[i].mType = IT_POINTER;
+					changed = true;
+				}
 			}
 		}
 
