@@ -1,0 +1,121 @@
+.TH oscar64 1 "June 18, 2025" "Version 1.31" "User Commands"
+.SH NAME
+oscar64 \- optimizing C/C++ cross-compiler for 6502 systems
+.SH SYNOPSIS
+.B oscar64
+{ \fB\-i=\fIincludePath\fR }
+[
+.BR \-o= \fIoutput.prg\fR ]
+[
+.BR \-rt= \fIruntime.c\fR ]
+[
+.BR \-tf= \fItarget\fR ]
+[
+.BR \-tm= \fImachine\fR ]
+[
+.B \-e
+] [
+.B \-n
+] [
+.B \-g
+] [
+.BR \-O (0|1|2|3) ]
+[
+.B \-pp
+] {
+.BR \-d \fISYMBOL\fR[=\fIvalue\fR] }
+[
+.BR \-v ]
+[
+.BR \-d64= \fIdiskname\fR ]
+{
+.BR \-f [z]= \fIfile.xxx\fR }
+{
+.I source.c
+}
+
+.SH DESCRIPTION
+\fBoscar64\fR is a C/C++ compiler for the 6502 processor family. It is designed to generate high-performance 8-bit code targeting platforms such as the Commodore 64, VIC-20, PET, and Commander X16.
+
+.SH OPTIONS
+.TP
+.BI \-i= includePath
+Set the include file search path.
+.TP
+.BI \-o= output.prg
+Specify output file name.
+.TP
+.BI \-rt= runtime.c
+Use a custom runtime startup source.
+.TP
+.BI \-tf= target
+Set the output target format (e.g., \fIprg\fR, \fIcrt\fR).
+.TP
+.BI \-tm= machine
+Specify the machine target (e.g., \fIc64\fR, \fIvic20\fR, \fIpet\fR).
+.TP
+.B \-e
+Enable overlays.
+.TP
+.B \-n
+Disable CRT.
+.TP
+.B \-g
+Enable debug output.
+.TP
+.BI \-O0
+Disable optimizations.
+.TP
+.BI \-O1
+Enable minimal optimizations.
+.TP
+.BI \-O2
+Enable aggressive optimizations.
+.TP
+.BI \-O3
+Enable maximum optimization level.
+.TP
+.B \-pp
+Enable preprocessor output only.
+.TP
+.BI \-d SYMBOL[=value]
+Define a symbol optionally with a value (like \fB\-D\fR in other compilers).
+.TP
+.B \-v
+Enable verbose mode.
+.TP
+.BI \-d64= diskname
+Create a .d64 disk image with the specified name.
+.TP
+.BI \-f[z]= file.xxx
+Add a file to output (optionally compress with \fBz\fR modifier).
+.TP
+.I source.c
+Input source code file(s) to compile.
+
+.SH EXAMPLES
+Compile a program with optimizations:
+.nf
+  oscar64 -i=include -O2 -o=demo.prg demo.c
+.fi
+
+Compile with overlay and custom runtime:
+.nf
+  oscar64 -e -rt=startup.c -f=assets.dat game.c
+.fi
+
+Create a disk image with compiled output:
+.nf
+  oscar64 -d64=mydisk.d64 -f=demo.prg demo.c
+.fi
+
+.SH FILES
+.TP
+.B /usr/local/bin/oscar64
+Main compiler executable.
+.TP
+.B /usr/local/share/oscar64/
+Headers and startup runtime source
+
+.SH SEE ALSO
+.BR llvm-mos (1)
