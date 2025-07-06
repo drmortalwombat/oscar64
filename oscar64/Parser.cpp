@@ -13038,6 +13038,7 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 		break;
 
 	case TK_INTEGER:
+	case TK_INTEGERL:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 		dec->mInteger = mScanner->mTokenInteger;
 		if (dec->mInteger < 32768)
@@ -13051,6 +13052,7 @@ Expression* Parser::ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset)
 		mScanner->NextToken();
 		break;
 	case TK_INTEGERU:
+	case TK_INTEGERUL:
 		dec = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 		dec->mInteger = mScanner->mTokenInteger;
 		dec->mBase = TheUnsignedIntTypeDeclaration;
@@ -13745,7 +13747,7 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 
 				if (ilast->mLeft && ilast->mLeft->mDecValue)
 				{
-					if ((ilast->mLeft->mDecValue->mType == DT_CONST_INTEGER && ilast->mLeft->mDecValue->mInteger < 256) ||
+					if ((ilast->mLeft->mDecValue->mType == DT_CONST_INTEGER && ilast->mLeft->mDecValue->mInteger >= 0 && ilast->mLeft->mDecValue->mInteger < 256) ||
 						(ilast->mLeft->mDecValue->mType == DT_VARIABLE_REF && !(ilast->mLeft->mDecValue->mBase->mFlags & DTF_GLOBAL)) ||
 						(ilast->mLeft->mDecValue->mType == DT_VARIABLE && !(ilast->mLeft->mDecValue->mFlags & DTF_GLOBAL)) ||
 						(ilast->mLeft->mDecValue->mType == DT_VARIABLE && (ilast->mLeft->mDecValue->mFlags & DTF_ZEROPAGE)) ||

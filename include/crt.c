@@ -745,45 +745,64 @@ L4:
 
 __asm mul32by8
 {
+		ldy #0
+		sty tmp + 4
+		sty tmp + 5
+		sty tmp + 6
 
+		lsr
+		bcs W3
+		beq E0
+L1:
+		asl	accu
+		rol	accu + 1
+		rol	accu + 2
+		rol	accu + 3
+W2:
+		lsr
+		bcc L1
+W3:
+		tax
+		clc
+		lda	tmp + 4
+		adc	accu
+		sta	tmp + 4
+		lda	tmp + 5
+		adc	accu + 1
+		sta	tmp + 5
+		lda tmp + 6
+		adc	accu + 2
+		sta tmp + 6
+		tya
+		adc	accu + 3
+		tay
+		txa
+		bne L1
+E0:
+		sty tmp + 7
+		rts
 }
 
 __asm mul32
 {
-		lda	#0
-		sta	tmp + 4
-		sta	tmp + 5
-		sta	tmp + 6
-		sta	tmp + 7
-
-		lda tmp + 3
+		lda tmp + 1
 		ora tmp + 2
-		ora tmp + 1
-		beq WB
+		ora tmp + 3
+		bne WW
+		lda tmp + 0
+		jmp mul32by8
+WW:
+		ldy #0
+		sty tmp + 4
+		sty tmp + 5
+		tya
 
-		lda	tmp + 0
-		jsr WM
-		lda	tmp + 1
-		jsr WM
-		lda	tmp + 2
-		jsr WM
-		lda	tmp + 3
-WM:
-		bne W0
-		ldx accu + 2
-		stx accu + 3
-		ldx accu + 1
-		stx accu + 2
-		ldx accu
-		stx accu + 1
-		sta accu
-		rts
-WB:		lda tmp + 0
-W0:
 		sec
-		ror
+		ror tmp + 0
+
 		bcc W1
-L1:		tax
+L1:
+		tax
 		clc
 		lda	tmp + 4
 		adc	accu
@@ -791,50 +810,52 @@ L1:		tax
 		lda	tmp + 5
 		adc	accu + 1
 		sta	tmp + 5
-		lda	tmp + 6
+		tya
 		adc	accu + 2
-		sta	tmp + 6
-		lda	tmp + 7
-		adc	accu + 3
-		sta	tmp + 7
+		tay
 		txa
-W1:		asl	accu
+		adc	accu + 3
+W1:
+		lsr tmp + 1
+		bcc W2
+		tax
+		clc
+		lda	tmp + 5
+		adc	accu + 0
+		sta	tmp + 5
+		tya
+		adc	accu + 1
+		tay
+		txa
+		adc	accu + 2
+W2:
+		lsr tmp + 2
+		bcc W3
+		tax
+		clc
+		tya
+		adc	accu + 0
+		tay
+		txa
+		adc	accu + 1
+W3:
+		lsr tmp + 3
+		bcc W4
+		clc
+		adc	accu + 0
+W4:
+		asl	accu
 		rol	accu + 1
 		rol	accu + 2
 		rol	accu + 3
-		lsr
+
+		lsr tmp + 0
 		bcc W1
 		bne L1
-		rts
 
-#if 0
-		ldx	#32
-L1:		lsr	tmp + 3
-		ror	tmp + 2
-		ror	tmp + 1
-		ror	tmp + 0
-		bcc	W1
-		clc
-		lda	tmp + 4
-		adc	accu
-		sta	tmp + 4
-		lda	tmp + 5
-		adc	accu + 1
-		sta	tmp + 5
-		lda	tmp + 6
-		adc	accu + 2
-		sta	tmp + 6
-		lda	tmp + 7
-		adc	accu + 3
-		sta	tmp + 7
-W1:		asl	accu
-		rol	accu + 1
-		rol	accu + 2
-		rol	accu + 3
-		dex
-		bne	L1
+		sty tmp + 6
+		sta tmp + 7		 
 		rts
-#endif
 }
 
 #if 1
@@ -1007,6 +1028,7 @@ L2:		jsr	divmod32
 #pragma runtime(mods16, mods16);
 		
 #pragma runtime(mul32, mul32);
+#pragma runtime(mul32by8, mul32by8);
 #pragma runtime(divu32, divmod32);
 #pragma runtime(modu32, divmod32);
 #pragma runtime(divs32, divs32);

@@ -962,6 +962,7 @@ bool Compiler::GenerateCode(void)
 	if (mInterCodeModule->mProcedures.Size() > 0)
 	{
 		RegisterRuntime(loc, Ident::Unique("mul16by8"));
+		RegisterRuntime(loc, Ident::Unique("mul32by8"));
 		RegisterRuntime(loc, Ident::Unique("fsplitt"));
 		RegisterRuntime(loc, Ident::Unique("fsplitx"));
 		RegisterRuntime(loc, Ident::Unique("fsplita"));

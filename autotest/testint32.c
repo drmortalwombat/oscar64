@@ -10,6 +10,18 @@ void testmulu(unsigned long a, unsigned long b, unsigned long ab)
 	assert (a * b == ab);
 }
 
+void testmulub(unsigned long a, unsigned char b, unsigned long ab)
+{
+	assert (a * b == ab);
+	assert (b * a == ab);
+}
+
+void testmulbu(unsigned char a, unsigned long b, unsigned long ab)
+{
+	assert (a * b == ab);
+	assert (b * a == ab);
+}
+
 void testdivi(long a, long b, long ab)
 {
 	assert (a / b == ab);
@@ -23,6 +35,21 @@ void shltesti(long a, long b, long ab)
 void shrtesti(long a, long b, long ab)
 {
 	assert (a >> b == ab);
+}
+
+void testmuldiv(unsigned long a, unsigned long b)
+{
+	unsigned long c = a * b;
+	if (a != 0)
+	{
+		assert(c / a == b);
+		assert(c % a == 0);
+	}
+	if (b != 0)
+	{
+		assert(c / b == a);
+		assert(c % b == 0);
+	}
 }
 
 long sieve(long size)
@@ -105,6 +132,26 @@ int main(void)
 	testmulu(0x0000003c, 0x004b0000, 0x11940000);
 	testmulu(0x0000003c, 0x4b000000, 0x94000000);
 
+	testmulub(0x00000001, 0x3c, 0x0000003c);
+	testmulub(0x00000100, 0x3c, 0x00003c00);
+	testmulub(0x00010000, 0x3c, 0x003c0000);
+	testmulub(0x01000000, 0x3c, 0x3c000000);
+
+	testmulbu(0x3c, 0x00000001, 0x0000003c);
+	testmulbu(0x3c, 0x00000100, 0x00003c00);
+	testmulbu(0x3c, 0x00010000, 0x003c0000);
+	testmulbu(0x3c, 0x01000000, 0x3c000000);
+
+	testmulub(0x0000004b, 0x3c, 0x00001194);
+	testmulub(0x00004b00, 0x3c, 0x00119400);
+	testmulub(0x004b0000, 0x3c, 0x11940000);
+	testmulub(0x4b000000, 0x3c, 0x94000000);
+
+	testmulbu(0x3c, 0x0000004b, 0x00001194);
+	testmulbu(0x3c, 0x00004b00, 0x00119400);
+	testmulbu(0x3c, 0x004b0000, 0x11940000);
+	testmulbu(0x3c, 0x4b000000, 0x94000000);
+
 	testdivi( 1,  1,  1);
 	testdivi(-1,  1, -1);
 	testdivi( 1, -1, -1);
@@ -160,6 +207,13 @@ int main(void)
 		assert(-1024 * i == f);
 		e += 1024000l;
 		f -= 1024000l;
+	}
+
+	unsigned long p = 0x34578121, q = 0xfab34851;
+	for(int i=0; i<32; i++)
+	{
+		testmuldiv(p >> i, q >> (31 - i));
+		testmuldiv(q >> i, p >> (31 - i));
 	}
 
 	return 0;

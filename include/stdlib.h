@@ -53,6 +53,10 @@ unsigned int rand(void);
 
 void srand(unsigned int seed);
 
+unsigned long lrand(void);
+
+void lsrand(unsigned long seed);
+
 #pragma intrinsic(malloc)
 
 #pragma intrinsic(free)

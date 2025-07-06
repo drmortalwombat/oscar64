@@ -555,6 +555,10 @@ int main2(int argc, const char** argv)
 				compiler->AddDefine(Ident::Unique("__TIME__"), _strdup(tstring));
 			}
 
+			if (compiler->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
+				compiler->AddDefine(Ident::Unique("OSCAR_OPTIMIZE_SIZE"), "1");
+
+
 			// Add runtime module
 
 			compiler->mPreprocessor->AddPath(includePath);

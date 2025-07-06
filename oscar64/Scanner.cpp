@@ -2396,8 +2396,10 @@ void Scanner::ParseNumberToken(void)
 				NextChar();
 				mToken = TK_INTEGERUL;
 			}
-			else
+			else if (mant < 0x10000)
 				mToken = TK_INTEGERU;
+			else
+				mToken = TK_INTEGERUL;
 		}
 		else
 		{
@@ -2414,14 +2416,14 @@ void Scanner::ParseNumberToken(void)
 				else
 					mToken = TK_INTEGERUL;
 			}
-			else if (mant < 65536)
-			{
+			else if (mant < 0x8000)
+				mToken = TK_INTEGER;
+			else if (mant < 0x10000)
 				mToken = TK_INTEGERU;
-			}
+			else if (mant < 0x80000000)
+				mToken = TK_INTEGERL;
 			else
-			{
 				mToken = TK_INTEGERUL;
-			}
 		}
 
 		mTokenInteger = mant;
@@ -2449,8 +2451,10 @@ void Scanner::ParseNumberToken(void)
 				NextChar();
 				mToken = TK_INTEGERUL;
 			}
-			else
+			else if (mant < 0x10000)
 				mToken = TK_INTEGERU;
+			else
+				mToken = TK_INTEGERUL;
 		}
 		else
 		{
@@ -2465,9 +2469,9 @@ void Scanner::ParseNumberToken(void)
 				else
 					mToken = TK_INTEGERL;
 			}
-			else if (mant < 32768)
+			else if (mant < 0x8000)
 				mToken = TK_INTEGER;
-			else if (mant < 65536)
+			else if (mant < 0x10000)
 				mToken = TK_INTEGERU;
 			else if (mant < 0x80000000)
 				mToken = TK_INTEGERL;
@@ -2512,8 +2516,10 @@ void Scanner::ParseNumberToken(void)
 					NextChar();
 					mToken = TK_INTEGERUL;
 				}
-				else
+				else if (mant < 0x10000)
 					mToken = TK_INTEGERU;
+				else
+					mToken = TK_INTEGERUL;
 			}
 			else
 			{
@@ -2528,7 +2534,7 @@ void Scanner::ParseNumberToken(void)
 					else
 						mToken = TK_INTEGERL;
 				}
-				else if (mant < 32768)
+				else if (mant < 0x8000)
 					mToken = TK_INTEGER;
 				else
 					mToken = TK_INTEGERL;

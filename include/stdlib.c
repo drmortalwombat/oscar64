@@ -759,6 +759,7 @@ void * realloc(void * ptr, unsigned size)
 }
 
 static unsigned seed = 31232;
+static unsigned seedl = 321432142412;
 
 unsigned int rand(void)
 {
@@ -771,4 +772,17 @@ unsigned int rand(void)
 void srand(unsigned int s)
 {
 	seed = s;
+}
+
+unsigned long lrand(void)
+{
+	seedl ^= seedl << 13;
+	seedl ^= seedl >> 17;
+	seedl ^= seedl << 5;
+	return seedl;
+}
+
+void lsrand(unsigned long s)
+{
+	seedl = s;
 }
