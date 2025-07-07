@@ -9471,7 +9471,8 @@ Expression* Parser::ParseNewOperator(void)
 
 Expression* Parser::ParsePrefixExpression(bool lhs)
 {
-	if (mScanner->mToken == TK_SUB || mScanner->mToken == TK_BINARY_NOT || mScanner->mToken == TK_LOGICAL_NOT || 
+	if (mScanner->mToken == TK_SUB || mScanner->mToken == TK_ADD ||
+		mScanner->mToken == TK_BINARY_NOT || mScanner->mToken == TK_LOGICAL_NOT || 
 		mScanner->mToken == TK_MUL || mScanner->mToken == TK_INC || mScanner->mToken == TK_DEC || mScanner->mToken == TK_BINARY_AND ||
 		mScanner->mToken == TK_BANKOF || mScanner->mToken == TK_NEW || mScanner->mToken == TK_DELETE)
 	{

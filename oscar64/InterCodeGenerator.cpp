@@ -3413,7 +3413,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			{
 			case TK_ADD:
 				vl = Dereference(proc, exp, block, inlineMapper, vl);
-				ins->mOperator = IA_NONE;
+				if (!vl.mType->IsNumericType())
+					mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Not a numeric type");
+				else if (vl.mType->mType == DT_TYPE_INTEGER && vl.mType->mSize < 2)
+					vl = CoerceType(proc, exp, block, inlineMapper, vl, TheSignedIntTypeDeclaration);
+				ins->mCode = IC_LOAD_TEMPORARY;
 				break;
 			case TK_SUB:
 				vl = Dereference(proc, exp, block, inlineMapper, vl);
