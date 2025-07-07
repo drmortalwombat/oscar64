@@ -7829,6 +7829,8 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 		exp = ParseListExpression(true);
 		ConsumeToken(TK_CLOSE_PARENTHESIS);
 
+		if (exp->mType == EX_LIST)
+			exp->mType = EX_COMMA;
 		exp = ParseCastExpression(exp);
 		break;
 	case TK_OPEN_BRACKET:
