@@ -18467,7 +18467,8 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 
 			if (ins->mCode == IC_CALL_NATIVE && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject->mProc && ins->mSrc[0].mLinkerObject->mProc->mCheapInline)
 			{
-				InterCodeBasicBlock* block = ins->mSrc[0].mLinkerObject->mProc->mEntryBlock;
+				InterCodeProcedure* proc = ins->mSrc[0].mLinkerObject->mProc;
+				InterCodeBasicBlock* block = proc->mEntryBlock;
 
 				int	ntemps = numTemps;
 				GrowingArray<int>	tmap(-1);
@@ -18487,6 +18488,15 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 
 					mInstructions.Remove(i);
 					changed = true;
+
+					if (proc->mCommonFrameSize)
+					{
+						InterInstruction* fins = new InterInstruction(ins->mLocation, IC_PUSH_FRAME);
+						fins->mNumOperands = 0;
+						fins->mConst.mIntConst = proc->mCommonFrameSize;
+						mInstructions.Insert(i, fins);
+						i++;
+					}
 
 					for (int j = 0; j < block->mInstructions.Size(); j++)
 					{
@@ -18584,6 +18594,15 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 					}
 
 					numTemps = ntemps;
+
+					if (proc->mCommonFrameSize)
+					{
+						InterInstruction* fins = new InterInstruction(ins->mLocation, IC_POP_FRAME);
+						fins->mNumOperands = 0;
+						fins->mConst.mIntConst = proc->mCommonFrameSize;
+						mInstructions.Insert(i, fins);
+						i++;
+					}
 
 					for (int j = 0; j < i; j++)
 					{
@@ -25459,6 +25478,15 @@ void InterCodeProcedure::Close(void)
 			DisassembleDebug("Cheap Inlining");
 
 			BuildDataFlowSets();
+
+			if (mCommonFrameSize == 0)
+			{
+				int		size = 0;
+
+				ResetVisited();
+				mEntryBlock->CollectOuterFrame(0, size, mHasDynamicStack, mHasInlineAssembler, mCallsByteCode);
+				mCommonFrameSize = size;
+			}
 		}
 	}
 
