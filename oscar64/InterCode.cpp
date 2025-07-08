@@ -988,11 +988,12 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 	switch (op1.mMemory)
 	{
 	case IM_LOCAL:
-	case IM_FPARAM:
 	case IM_PARAM:
 	case IM_FRAME:
-	case IM_FFRAME:
 		return op1.mVarIndex == op2.mVarIndex && op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
+	case IM_FPARAM:
+	case IM_FFRAME:
+		return op1.mVarIndex + op1.mIntConst < op2.mVarIndex + op2.mIntConst + op2.mOperandSize && op2.mVarIndex + op2.mIntConst < op1.mVarIndex + op1.mIntConst + op1.mOperandSize;
 	case IM_ABSOLUTE:
 		return op1.mIntConst < op2.mIntConst + op2.mOperandSize && op2.mIntConst < op1.mIntConst + op1.mOperandSize;
 	case IM_GLOBAL:
@@ -1329,6 +1330,19 @@ static int64 ToTypedUnsigned(int64 val, InterType type)
 	}
 }
 
+static int64 TypeShiftMask(InterType type, int64 val)
+{
+	switch (InterTypeSize[type])
+	{
+	case 1:
+		return val & 7;
+	default:
+	case 2:
+		return val & 15;
+	case 4:
+		return val & 31;
+	}
+}
 
 static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int64 val2 = 0)
 {
@@ -1410,14 +1424,17 @@ static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int
 		}
 		break;
 	case IA_SHL:
-		if (val1 < 0 && val2 < 16 && val1 << val2 >= SignedTypeMin(type))
-			return ToTypedSigned(val1 << val2, type);
+	{
+		int64 shift = TypeShiftMask(type, val2);
+		if (val1 < 0 && shift < 16 && val1 << shift >= SignedTypeMin(type))
+			return ToTypedSigned(val1 << shift, type);
 		else
-			return ToTypedUnsigned(val1 << val2, type);
+			return ToTypedUnsigned(val1 << shift, type);
+	}
 	case IA_SHR:
-		return ToTypedUnsigned(val1, type) >> val2;
+		return ToTypedUnsigned(val1, type) >> TypeShiftMask(type, val2);
 	case IA_SAR:
-		return ToTypedSigned(val1, type) >> val2;
+		return ToTypedSigned(val1, type) >> TypeShiftMask(type, val2);
 	case IA_CMPEQ:
 		return ToTypedUnsigned(val1, type) == ToTypedUnsigned(val2, type) ? 1 : 0;
 		break;
@@ -1981,15 +1998,15 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 		break;
 	case IA_SHL:
 		dop.mType = op1.mType;
-		dop.mIntConst = ToTypedUnsigned(op1.mIntConst << op2.mIntConst, op1.mType);
+		dop.mIntConst = ToTypedUnsigned(op1.mIntConst << TypeShiftMask(op1.mType, op2.mIntConst), op1.mType);
 		break;
 	case IA_SHR:
 		dop.mType = op1.mType;
-		dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) >> op2.mIntConst;
+		dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) >> TypeShiftMask(op1.mType, op2.mIntConst);
 		break;
 	case IA_SAR:
 		dop.mType = op1.mType;
-		dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) >> op2.mIntConst;
+		dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) >> TypeShiftMask(op1.mType, op2.mIntConst);
 		break;
 	}
 
@@ -2598,7 +2615,7 @@ static bool CanBypassStore(const InterInstruction* sins, const InterInstruction*
 			;
 		else if (sm == IM_FPARAM)
 		{
-			if (bi == si)
+			if (bm == IM_FPARAM && bi + bz > si && si + bz > bi)
 				return false;
 		}
 		else if (sm == IM_INDIRECT && bm == IM_INDIRECT)
@@ -9064,8 +9081,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 						else if (vr.mMinState == IntegerValueRange::S_WEAK)
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 
-						vr.mMaxValue <<= ins->mSrc[0].mIntConst;
-						vr.mMinValue <<= ins->mSrc[0].mIntConst;
+						vr.mMaxValue <<= TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+						vr.mMinValue <<= TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 
 						if (ins->mDst.mType == IT_INT8 && vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > 255)
 						{
@@ -9118,16 +9135,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 								switch (ins->mSrc[1].mType)
 								{
 								case IT_INT16:
-									vr.mMaxValue = (unsigned short)(int64min(65535, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (unsigned short)(int64max(0, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (unsigned short)(int64min(65535, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (unsigned short)(int64max(0, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT8:
-									vr.mMaxValue = (unsigned char)(int64min(255, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (unsigned char)(int64max(0, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (unsigned char)(int64min(255, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (unsigned char)(int64max(0, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT32:
-									vr.mMaxValue = (unsigned)(vr.mMaxValue) >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (unsigned)(vr.mMinValue) >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (unsigned)(vr.mMaxValue) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (unsigned)(vr.mMinValue) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								}
 							}
@@ -9136,15 +9153,15 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 								switch (ins->mSrc[1].mType)
 								{
 								case IT_INT16:
-									vr.mMaxValue = 65535 >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = 65535 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									vr.mMinValue = 0;
 									break;
 								case IT_INT8:
-									vr.mMaxValue = 255 >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = 255 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									vr.mMinValue = 0;
 									break;
 								case IT_INT32:
-									vr.mMaxValue = 0x100000000ULL >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = 0x100000000ULL >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									vr.mMinValue = 0;
 									break;
 								}
@@ -9174,16 +9191,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 								switch (ins->mSrc[1].mType)
 								{
 								case IT_INT16:
-									vr.mMaxValue = (short)(int64min(32767, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (short)(int64max(-32768, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (short)(int64min(32767, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (short)(int64max(-32768, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT8:
-									vr.mMaxValue = (char)(int64min(127, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (char)(int64max(-128, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (char)(int64min(127, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (char)(int64max(-128, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT32:
-									vr.mMaxValue = (int)(int64min(2147483647, vr.mMaxValue)) >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (int)(int64max(-2147483648, vr.mMinValue)) >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (int)(int64min(2147483647, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (int)(int64max(-2147483648, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								}
 							}
@@ -9192,16 +9209,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 								switch (ins->mSrc[1].mType)
 								{
 								case IT_INT16:
-									vr.mMaxValue = (short) 32767 >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (short)-32768 >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (short) 32767 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (short)-32768 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT8:
-									vr.mMaxValue = (char) 127 >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (char)-128 >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (char) 127 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (char)-128 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT32:
-									vr.mMaxValue = (int) 2147483647 >> ins->mSrc[0].mIntConst;
-									vr.mMinValue = (int)-2147483648 >> ins->mSrc[0].mIntConst;
+									vr.mMaxValue = (int) 2147483647 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (int)-2147483648 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								}
 								vr.mMinState = IntegerValueRange::S_BOUND;
@@ -18483,6 +18500,8 @@ bool InterCodeBasicBlock::CheapInlining(int & numTemps)
 
 				if (!fail)
 				{
+//					printf("Cheap Inline %s into %s\n", proc->mIdent->mString, mProc->mIdent->mString);
+
 					for (int j = 0; j < i; j++)
 						mInstructions[j]->mRemove = false;
 
@@ -23314,7 +23333,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			{
 				if (mInstructions[i + 0]->mCode == IC_STORE && mInstructions[i + 1]->mCode == IC_STORE && 
 					!mInstructions[i + 0]->mVolatile && !mInstructions[i + 1]->mVolatile &&
-//					!CollidingMem(mInstructions[i + 0]->mSrc[1], mInstructions[i + 1]->mSrc[1]) &&
+					!CollidingMem(mInstructions[i + 0], mInstructions[i + 1]) &&
 					SameMemRegion(mInstructions[i + 0]->mSrc[1], mInstructions[i + 1]->mSrc[1]) &&
 
 					(mInstructions[i + 0]->mSrc[1].mVarIndex > mInstructions[i + 1]->mSrc[1].mVarIndex ||
@@ -25337,7 +25356,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "func_7");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -25466,7 +25485,7 @@ void InterCodeProcedure::Close(void)
 
 	// Check for cheap inlining
 	// 
-
+#if 1
 	if (mCompilerOptions & COPT_OPTIMIZE_INLINE)
 	{
 		ResetVisited();
@@ -25489,7 +25508,7 @@ void InterCodeProcedure::Close(void)
 			}
 		}
 	}
-
+#endif
 	ResetVisited();
 	mEntryBlock->RemoveUnusedArgumentStoreInstructions();
 
