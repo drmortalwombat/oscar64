@@ -2903,7 +2903,27 @@ bool InterInstruction::IsEqualSource(const InterInstruction* ins) const
 	return true;
 }
 
-
+static int64 LimitIntConstValue(InterType type, int64 v)
+{
+	switch (type)
+	{
+	case IT_INT8:
+		if (v >= -128 && v < 256)
+			return v;
+		else
+			return v & 255;
+		break;
+	case IT_INT16:
+		if (v >= -32768 && v < 65536)
+			return v;
+		else
+			return v & 65535;
+		break;
+	default:
+	case IT_INT32:
+		return v;
+	}
+}
 
 void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
 {
@@ -2974,7 +2994,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 					ins->mCode = IC_CONSTANT;
 					ins->mSrc[0].mTemp = -1;
 					ins->mConst.mType = mInstructions[i]->mSrc[0].mType;
-					ins->mConst.mIntConst = mInstructions[i]->mSrc[0].mIntConst;
+					ins->mConst.mIntConst = LimitIntConstValue(mInstructions[i]->mDst.mType, mInstructions[i]->mSrc[0].mIntConst);
 					ins->mNumOperands = 0;
 				}
 				else
@@ -3184,7 +3204,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 				ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mIntConst = LimitIntConstValue(ins->mDst.mType, ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst));
 				ins->mConst.mType = ins->mDst.mType;
 				ins->mSrc[0].mTemp = -1;
 				ins->mSrc[1].mTemp = -1;
@@ -3475,7 +3495,7 @@ void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, 
 			if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
 				ins->mCode = IC_CONSTANT;
-				ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+				ins->mConst.mIntConst = LimitIntConstValue(ins->mDst.mType, ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst));
 				ins->mConst.mType = ins->mDst.mType;
 				ins->mSrc[0].mTemp = -1;
 				ins->mNumOperands = 0;
@@ -4688,7 +4708,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 		if (mSrc[0].mTemp >= 0 && ctemps[mSrc[0].mTemp] && IsIntegerType(mSrc[0].mType))
 		{
 			InterInstruction* ains = ctemps[mSrc[0].mTemp];
-			mSrc[0].mIntConst = ains->mConst.mIntConst;
+			mSrc[0].mIntConst = LimitIntConstValue(mSrc[0].mType, ains->mConst.mIntConst);
 			mSrc[0].mTemp = -1;
 			return true;
 		}
@@ -6230,6 +6250,8 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 	if (code->mCode == IC_CONSTANT)
 	{
 		assert(code->mDst.mType == code->mConst.mType);
+		if (code->mDst.mType == IT_INT8) assert(code->mConst.mIntConst >= -128 && code->mConst.mIntConst <= 255);
+		if (code->mDst.mType == IT_INT16) assert(code->mConst.mIntConst >= -32768 && code->mConst.mIntConst <= 65535);
 	}
 	if (code->mCode == IC_CONSTANT && code->mConst.mType == IT_POINTER && code->mConst.mMemory == IM_GLOBAL && code->mConst.mVarIndex >= 0)
 	{
@@ -7152,7 +7174,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 				{
 					ins->mCode = IC_CONSTANT;
-					ins->mConst.mIntConst = ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
+					ins->mConst.mIntConst = LimitIntConstValue(ins->mDst.mType, ConstantFolding(ins->mOperator, ins->mDst.mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst));
 					ins->mConst.mType = ins->mDst.mType;
 					ins->mSrc[0].mTemp = -1;
 					ins->mSrc[1].mTemp = -1;
@@ -7160,7 +7182,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 				}
 				else
 				{
-					ins->mSrc[1].mIntConst = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
+					ins->mSrc[1].mIntConst = LimitIntConstValue(ins->mSrc[1].mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst);
 					ins->mSrc[1].mTemp = -1;
 #if 1
 					if (ins->mOperator == IA_ADD && ins->mSrc[1].mIntConst == 0)
@@ -7222,7 +7244,7 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			}
 			else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 			{
-				ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+				ins->mSrc[0].mIntConst = LimitIntConstValue(ins->mSrc[0].mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 				ins->mSrc[0].mTemp = -1;
 
 				if (ins->mOperator == IA_ADD && ins->mSrc[0].mIntConst == 0)
@@ -7447,12 +7469,12 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			{
 				if (ins->mSrc[1].mTemp >= 0 && tvalue[ins->mSrc[1].mTemp] && tvalue[ins->mSrc[1].mTemp]->mCode == IC_CONSTANT)
 				{
-					ins->mSrc[1].mIntConst = tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst;
+					ins->mSrc[1].mIntConst = LimitIntConstValue(ins->mSrc[1].mType, tvalue[ins->mSrc[1].mTemp]->mConst.mIntConst);
 					ins->mSrc[1].mTemp = -1;
 				}
 				else if (ins->mSrc[0].mTemp >= 0 && tvalue[ins->mSrc[0].mTemp] && tvalue[ins->mSrc[0].mTemp]->mCode == IC_CONSTANT)
 				{
-					ins->mSrc[0].mIntConst = tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
+					ins->mSrc[0].mIntConst = LimitIntConstValue(ins->mSrc[0].mType, tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst);
 					ins->mSrc[0].mTemp = -1;
 				}
 			}
@@ -25356,7 +25378,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_7");
+	CheckFunc = !strcmp(mIdent->mString, "func_1");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
