@@ -1550,6 +1550,19 @@ Declaration* Declaration::ConstCast(Declaration* ntype)
 			Declaration* pdec = this->Clone();
 			pdec->mBase = ntype;
 			pdec->mSize = ntype->mSize;
+
+			pdec->mInteger &= (1ULL << (8 * mBase->mSize)) - 1;
+			if (mBase->mFlags & DTF_SIGNED)
+			{
+				if (pdec->mInteger >= 1LL << (8 * mBase->mSize - 1))
+					pdec->mInteger -= 1LL << (8 * mBase->mSize);
+			}
+			pdec->mInteger &= (1ULL << (8 * pdec->mBase->mSize)) - 1;
+			if (pdec->mBase->mFlags & DTF_SIGNED)
+			{
+				if (pdec->mInteger >= 1LL << (8 * pdec->mBase->mSize - 1))
+					pdec->mInteger -= 1LL << (8 * pdec->mBase->mSize);
+			}
 			return pdec;
 		}
 	}
