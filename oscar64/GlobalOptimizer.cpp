@@ -113,6 +113,38 @@ void GlobalOptimizer::PropagateCommas(Expression*& exp)
 
 }
 
+bool GlobalOptimizer::CheckUnusedReturns(Expression*& exp)
+{
+	bool	changed = false;
+
+	if (exp->mType == EX_CALL && exp->mDecType && exp->mDecType->mType != DT_TYPE_VOID)
+	{
+		if (exp->mLeft->mType == EX_CONSTANT)
+		{
+			Declaration* pcall = exp->mLeft->mDecValue;
+			if (pcall->mBase->mBase->mType == DT_TYPE_VOID)
+			{
+				Expression* lexp = new Expression(exp->mLocation, EX_COMMA);
+				lexp->mLeft = exp;
+				lexp->mRight = new Expression(exp->mLocation, EX_CONSTANT);
+				lexp->mRight->mDecValue = TheZeroIntegerConstDeclaration->ConstCast(exp->mDecType);
+				lexp->mRight->mDecType = exp->mDecType;
+				lexp->mDecType = exp->mDecType;
+				exp->mDecType = TheVoidTypeDeclaration;
+				exp = lexp;
+				return true;
+			}
+		}
+	}
+
+	if (exp->mLeft && CheckUnusedReturns(exp->mLeft))
+		changed = true;
+	if (exp->mRight && CheckUnusedReturns(exp->mRight))
+		changed = true;
+
+	return changed;
+}
+
 bool GlobalOptimizer::CheckConstReturns(Expression*& exp)
 {
 	bool	changed = false;
@@ -323,6 +355,9 @@ bool GlobalOptimizer::Optimize(void)
 				changed = true;
 
 			if (CheckConstReturns(func->mValue))
+				changed = true;
+
+			if (CheckUnusedReturns(func->mValue))
 				changed = true;
 
 			if (ReplaceGlobalConst(func->mValue))

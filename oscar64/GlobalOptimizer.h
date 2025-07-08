@@ -33,6 +33,7 @@ protected:
 	void RegisterProc(Declaration* to);
 
 	void RemoveValueReturn(Expression* exp);
+	bool CheckUnusedReturns(Expression*& exp);
 	bool CheckConstReturns(Expression*& exp);
 	bool CheckUnusedLocals(Expression*& exp);
 	void UndoParamReference(Expression* exp, Declaration* param);
