@@ -2927,12 +2927,6 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		}
 		opmask = (mand | ~mor) & 0xff;
 		opvalue = mand;
-
-#if 0
-		if (CheckFunc)
-			printf("Check %s + %d (%02x, %02x), %02x %02x\n", mLinkerObject->mIdent->mString, mAddress, ior, iand, opmask, opvalue);
-
-#endif
 	}
 #endif
 	else
@@ -22873,6 +22867,14 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			}
 		}
 #endif
+
+		if (changed && this == mProc->mExitBlock && mTrueJump)
+		{
+			mLocked = false;
+			mProc->mExitBlock = mTrueJump;
+			mProc->mExitBlock->mLocked = true;
+		}
+
 		if (mTrueJump && mTrueJump->ExpandADCToBranch(proc))
 			changed = true;
 		if (mFalseJump && mFalseJump->ExpandADCToBranch(proc))
@@ -45947,10 +45949,6 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 
 					accuMask = (mand | ~mor) & 0xff;
 					accuVal = mand;
-#if 0
-					if (CheckFunc)
-						printf("Check %s + %d (%02x, %02x), %02x %02x\n", mLinkerObject->mIdent->mString, mAddress, ior, iand, opmask, opvalue);
-#endif
 				}
 #endif
 				else
@@ -56537,7 +56535,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "func_11");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
