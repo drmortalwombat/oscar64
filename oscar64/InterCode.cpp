@@ -20473,7 +20473,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 												if (ti->mCode == IC_LOAD && SameMem(ti->mSrc[0], ins->mSrc[0]))
 												{
 													ti->mCode = IC_LOAD_TEMPORARY;
-													ti->mSrc[0].mTemp = ins->mDst.mTemp;
+													ti->mSrc[0] = ins->mDst;
 												}
 											}
 
@@ -25378,7 +25378,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_1");
+	CheckFunc = !strcmp(mIdent->mString, "func_21");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
