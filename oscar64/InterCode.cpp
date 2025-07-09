@@ -4734,7 +4734,9 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			{
 				InterInstruction* ains = ctemps[mSrc[i].mTemp];
 				mSrc[i] = ains->mConst;
-				mSrc[i].mType = ains->mDst.mType;
+				mSrc[i].mType = mDst.mType;
+				if (IsIntegerType(mSrc[i].mType))
+					mSrc[i].mIntConst = LimitIntConstValue(mSrc[i].mType, mSrc[i].mIntConst);
 				changed = true;
 			}
 		}
@@ -24709,6 +24711,8 @@ void InterCodeProcedure::TempForwarding(bool reverse, bool checkloops)
 		mEntryBlock->CollectEntryBlocks(nullptr);
 	}
 
+	DisassembleDebug("pre temp forwarding");
+
 	//
 	// Now remove needless temporary moves, that appear due to
 	// stack evaluation
@@ -24965,13 +24969,19 @@ void InterCodeProcedure::PromoteSimpleLocalsToTemp(InterMemory paramMemory, int 
 
 		RenameTemporaries();
 
+		DisassembleDebug("PreGlobalConstantPropagation");
+
 		do {
 			BuildDataFlowSets();
 
 			WarnUsedUndefinedVariables();
 
+			DisassembleDebug("WarnUsedUndefinedVariables");
+
 			TempForwarding();
 		} while (GlobalConstantPropagation());
+
+		DisassembleDebug("GlobalConstantPropagation");
 
 		//
 		// Now remove unused instructions
@@ -25378,7 +25388,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "draw_grid");
+	CheckFunc = !strcmp(mIdent->mString, "func_120");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
