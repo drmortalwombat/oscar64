@@ -7954,7 +7954,7 @@ bool InterCodeBasicBlock::PropagateConstCompareResults(void)
 
 			if (cblock->mNumEntries == 1)
 			{
-				if (mInstructions[sz - 2]->mSrc[1].mTemp < 0 && mInstructions[sz - 2]->mSrc[0].mTemp >= 0 && cblock->mEntryRequiredTemps[mInstructions[sz - 2]->mSrc[0].mTemp])
+				if (mInstructions[sz - 2]->mSrc[1].mTemp < 0 && mInstructions[sz - 2]->mSrc[0].mTemp >= 0 && cblock->mEntryRequiredTemps[mInstructions[sz - 2]->mSrc[0].mTemp] && mInstructions[sz - 2]->mSrc[0].mTemp != mInstructions[sz - 2]->mDst.mTemp)
 				{
 					InterInstruction* cins = new InterInstruction(mInstructions[sz - 2]->mLocation, IC_CONSTANT);
 					cins->mDst = mInstructions[sz - 2]->mSrc[0];
@@ -7962,7 +7962,7 @@ bool InterCodeBasicBlock::PropagateConstCompareResults(void)
 					cblock->mInstructions.Insert(0, cins);
 					changed = true;						
 				}
-				else if (mInstructions[sz - 2]->mSrc[0].mTemp < 0 && mInstructions[sz - 2]->mSrc[1].mTemp >= 0 && cblock->mEntryRequiredTemps[mInstructions[sz - 2]->mSrc[1].mTemp])
+				else if (mInstructions[sz - 2]->mSrc[0].mTemp < 0 && mInstructions[sz - 2]->mSrc[1].mTemp >= 0 && cblock->mEntryRequiredTemps[mInstructions[sz - 2]->mSrc[1].mTemp] && mInstructions[sz - 2]->mSrc[1].mTemp != mInstructions[sz - 2]->mDst.mTemp)
 				{
 					InterInstruction* cins = new InterInstruction(mInstructions[sz - 2]->mLocation, IC_CONSTANT);
 					cins->mDst = mInstructions[sz - 2]->mSrc[1];
@@ -25378,7 +25378,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_21");
+	CheckFunc = !strcmp(mIdent->mString, "draw_grid");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
