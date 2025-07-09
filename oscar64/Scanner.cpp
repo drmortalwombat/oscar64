@@ -711,7 +711,6 @@ void Scanner::NextPreToken(void)
 									mErrors->Error(mLocation, EFATAL_MACRO_EXPANSION_DEPTH, "Maximum macro expansion depth exceeded", mTokenIdent);
 								mLine = macro->mString;
 								mOffset = 0;
-								NextChar();
 							}
 						}
 						else
@@ -2328,9 +2327,13 @@ bool Scanner::NextChar(void)
 					char	buffer[20];
 					sprintf_s(buffer, "%d", int(mMacroExpansion->mLoopCount));
 					mMacroExpansion->mLoopIndex->SetString(buffer);
+					mTokenChar = mMacroExpansion->mChar;
 					mOffset = 0;
-					continue;
+
+					return true;
 				}
+				else
+					mMacroExpansion->mChar = ' ';
 			}
 
 			MacroExpansion* mac = mMacroExpansion->mLink;
