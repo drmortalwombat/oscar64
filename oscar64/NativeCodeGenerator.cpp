@@ -32744,7 +32744,7 @@ int NativeCodeBasicBlock::FindFreeAccu(int at) const
 	return -1;
 }
 
-int NativeCodeBasicBlock::RetrieveZPValue(int reg, int at) const
+int NativeCodeBasicBlock::RetrieveZPValue(int reg, int at, int depth) const
 {
 	while (at >= 0 && !mIns[at].ChangesZeroPage(reg))
 		at--;
@@ -32760,13 +32760,13 @@ int NativeCodeBasicBlock::RetrieveZPValue(int reg, int at) const
 		else
 			return -1;
 	}
-	else if (mEntryBlocks.Size() == 1)
-		return mEntryBlocks[0]->RetrieveZPValue(reg, mEntryBlocks[0]->mIns.Size() - 1);
+	else if (mEntryBlocks.Size() == 1 && depth < 20)
+		return mEntryBlocks[0]->RetrieveZPValue(reg, mEntryBlocks[0]->mIns.Size() - 1, depth + 1);
 	else
 		return -1;
 }
 
-int NativeCodeBasicBlock::RetrieveYValue(int at) const
+int NativeCodeBasicBlock::RetrieveYValue(int at, int depth) const
 {
 	while (at >= 0 && !mIns[at].ChangesYReg())
 		at--;
@@ -32777,13 +32777,13 @@ int NativeCodeBasicBlock::RetrieveYValue(int at) const
 		else
 			return -1;
 	}
-	else if (mEntryBlocks.Size() == 1)
-		return mEntryBlocks[0]->RetrieveYValue(mEntryBlocks[0]->mIns.Size() - 1);
+	else if (mEntryBlocks.Size() == 1 && depth < 20)
+		return mEntryBlocks[0]->RetrieveYValue(mEntryBlocks[0]->mIns.Size() - 1, depth + 1);
 	else
 		return -1;
 }
 
-int NativeCodeBasicBlock::RetrieveXValue(int at) const
+int NativeCodeBasicBlock::RetrieveXValue(int at, int depth) const
 {
 	while (at >= 0 && !mIns[at].ChangesXReg())
 		at--;
@@ -32794,13 +32794,13 @@ int NativeCodeBasicBlock::RetrieveXValue(int at) const
 		else
 			return -1;
 	}
-	else if (mEntryBlocks.Size() == 1)
-		return mEntryBlocks[0]->RetrieveXValue(mEntryBlocks[0]->mIns.Size() - 1);
+	else if (mEntryBlocks.Size() == 1 && depth < 20)
+		return mEntryBlocks[0]->RetrieveXValue(mEntryBlocks[0]->mIns.Size() - 1, depth + 1);
 	else
 		return -1;
 }
 
-int NativeCodeBasicBlock::RetrieveAValue(int at) const
+int NativeCodeBasicBlock::RetrieveAValue(int at, int depth) const
 {
 	while (at >= 0 && !mIns[at].ChangesAccu())
 		at--;
@@ -32811,8 +32811,8 @@ int NativeCodeBasicBlock::RetrieveAValue(int at) const
 		else
 			return -1;
 	}
-	else if (mEntryBlocks.Size() == 1)
-		return mEntryBlocks[0]->RetrieveAValue(mEntryBlocks[0]->mIns.Size() - 1);
+	else if (mEntryBlocks.Size() == 1 && depth < 20)
+		return mEntryBlocks[0]->RetrieveAValue(mEntryBlocks[0]->mIns.Size() - 1, depth + 1);
 	else
 		return -1;
 }
@@ -39870,6 +39870,49 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		return true;
 	}
 
+	if (sz >= 5 && full &&
+		mIns[sz - 5].mType == ASMIT_TYA && mIns[sz - 4].mType == ASMIT_CLC && mIns[sz - 3].mType == ASMIT_ADC && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mType == ASMIT_TAY && 
+		mIns[sz - 1].mType == ASMIT_CPY && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mBranch == ASMIT_BNE &&
+		!ChangesYReg(0, sz - 5) && !ChangesCarry(0, sz - 5))
+	{
+		NativeCodeBasicBlock* pblock = prevBlock;
+		if (!pblock && mEntryBlocks.Size() == 2)
+		{
+			if (mEntryBlocks[0] == this)
+				pblock = mEntryBlocks[1];
+			else
+				pblock = mEntryBlocks[0];
+		}
+
+		if (pblock)
+		{
+			int yend = mIns[sz - 1].mAddress;
+			int ystart = pblock->RetrieveYValue(pblock->mIns.Size() - 1);
+			int ystep = mIns[sz - 3].mAddress;
+			if (ystart >= 0 && yend > ystart && (yend - ystart) % ystep == 0)
+			{
+				mIns[sz - 1].mLive |= LIVE_CPU_REG_C;
+				mBranch = ASMIT_BCC;
+				changed = true;
+#if 0
+				prevBlock->mIns.Push(mIns[sz - 4]);
+				mIns.Remove(sz - 4);
+				for (int i = 0; i < sz - 4; i++)
+					mIns[i].mLive |= LIVE_CPU_REG_C;
+
+				mExitRequiredRegs += CPU_REG_C;
+				mEntryRequiredRegs += CPU_REG_C;
+				prevBlock->mExitRequiredRegs += CPU_REG_C;
+
+				prevBlock->CheckLive();
+				CheckLive();
+
+				return true;
+#endif
+			}
+		}
+	}
+
 
 	if (sz >= 3 && mIns[0].mType == ASMIT_LDX && mIns[sz - 2].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 2]) &&
 		mIns[sz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, mIns[sz - 1].mMode) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
@@ -46219,6 +46262,15 @@ bool NativeCodeBasicBlock::ChangesXReg(int from, int to) const
 	if (to > mIns.Size()) to = mIns.Size();
 	for (int i = from; i < to; i++)
 		if (mIns[i].ChangesXReg())
+			return true;
+	return false;
+}
+
+bool NativeCodeBasicBlock::ChangesCarry(int from, int to) const
+{
+	if (to > mIns.Size()) to = mIns.Size();
+	for (int i = from; i < to; i++)
+		if (mIns[i].ChangesCarry())
 			return true;
 	return false;
 }

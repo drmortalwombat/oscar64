@@ -325,6 +325,7 @@ public:
 	bool ChangesAccu(int from = 0, int to = 65536) const;
 	bool ChangesYReg(int from = 0, int to = 65536) const;
 	bool ChangesXReg(int from = 0, int to = 65536) const;
+	bool ChangesCarry(int from = 0, int to = 65536) const;
 
 	bool ChangesZeroPage(int address, int from = 0, int to = 65536) const;
 	bool UsesZeroPage(int address, int from = 0, int to = 65536) const;
@@ -590,10 +591,10 @@ public:
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
 	bool MergeXYSameValue(int from);
 	void RepairLoadYImmediate(int at, int val);
-	int RetrieveAValue(int at) const;
-	int RetrieveXValue(int at) const;
-	int RetrieveYValue(int at) const;
-	int RetrieveZPValue(int reg, int at) const;
+	int RetrieveAValue(int at, int depth = 0) const;
+	int RetrieveXValue(int at, int depth = 0) const;
+	int RetrieveYValue(int at, int depth = 0) const;
+	int RetrieveZPValue(int reg, int at, int depth = 0) const;
 	int FindFreeAccu(int at) const;
 
 	bool ReverseReplaceTAX(int at);
