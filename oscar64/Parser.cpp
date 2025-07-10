@@ -11251,7 +11251,10 @@ Expression* Parser::ParseStatement(void)
 							conditionExp->mRight->mDecType = endVarDec->mBase;
 							conditionExp->mRight->mDecValue = endVarDec;
 
-							bodyExp = new Expression(mScanner->mLocation, EX_ASSIGNMENT);
+							if (valueVarDec->mBase->IsReference())
+								bodyExp = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+							else
+								bodyExp = new Expression(mScanner->mLocation, EX_ASSIGNMENT);
 							bodyExp->mToken = TK_ASSIGN;
 							bodyExp->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
 							bodyExp->mLeft->mDecType = valueVarDec->mBase;
