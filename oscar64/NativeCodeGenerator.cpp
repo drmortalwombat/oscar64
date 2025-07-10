@@ -2899,7 +2899,7 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		opvalue = mLinkerObject->mData[mAddress];
 	}
 #if 1
-	else if ((mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y) && mLinkerObject && (mLinkerObject->mFlags & LOBJF_CONST) && mLinkerObject->mSize <= 256 && mLinkerObject->mReferences.Size() == 0)
+	else if ((mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y) && mLinkerObject && (mLinkerObject->mFlags & LOBJF_CONST) && mLinkerObject->mReferences.Size() == 0)
 	{
 		int mor = 0;
 		int mand = 0xff;
@@ -2917,7 +2917,13 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 			iand = (~data.mRegs[CPU_REG_Y].mMask | data.mRegs[CPU_REG_Y].mValue) & 0xff;
 		}
 
-		for (int i = 0; i < mLinkerObject->mSize - mAddress; i++)
+		int size = mLinkerObject->mSize - mAddress;
+		if (mLinkerObject->mStripe > 1)
+			size = mLinkerObject->mStripe - mAddress % mLinkerObject->mStripe;
+		if (size > 256)
+			size = 256;
+
+		for (int i = 0; i < size; i++)
 		{
 			if ((i & ~iand) == 0 && (i & ior) == ior)
 			{
@@ -45920,7 +45926,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 					accuMask = 0xff;
 				}
 #if 1
-				else if ((mIns[i].mMode == ASMIM_ABSOLUTE_X || mIns[i].mMode == ASMIM_ABSOLUTE_Y) && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_CONST) && mIns[i].mLinkerObject->mSize <= 256 && mIns[i].mLinkerObject->mReferences.Size() == 0)
+				else if ((mIns[i].mMode == ASMIM_ABSOLUTE_X || mIns[i].mMode == ASMIM_ABSOLUTE_Y) && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_CONST) && mIns[i].mLinkerObject->mReferences.Size() == 0)
 				{
 					int mor = 0;
 					int mand = 0xff;
@@ -45938,7 +45944,13 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 						iand = (~yregMask | yregVal) & 0xff;
 					}
 
-					for (int j = 0; j < mIns[i].mLinkerObject->mSize - mIns[i].mAddress; j++)
+					int size = mIns[i].mLinkerObject->mSize - mIns[i].mAddress;
+					if (mIns[i].mLinkerObject->mStripe > 1)
+						size = mIns[i].mLinkerObject->mStripe - mIns[i].mAddress % mIns[i].mLinkerObject->mStripe;
+					if (size > 256)
+						size = 256;
+
+					for (int j = 0; j < size; j++)
 					{
 						if ((j & ~iand) == 0 && (j & ior) == ior)
 						{
