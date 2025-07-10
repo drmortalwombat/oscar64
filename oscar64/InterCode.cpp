@@ -18287,7 +18287,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 									end++;
 
 								int64	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
-								int	count = int((end - start) / step);
+								int	count = int((end - start + step - 1) / step);
 
 								if (count < 5 && (nins - 3) * count < 20)
 								{
@@ -25388,7 +25388,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_120");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

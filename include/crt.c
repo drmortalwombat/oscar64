@@ -958,11 +958,7 @@ __asm mods16
 		bpl	L1
 		jsr	negaccu
 		bit	tmp + 1
-		bpl	L2
-		jsr	negtmp
-L3:		jmp	divmod
-L1:		bit	tmp + 1
-		bpl	L3
+		bpl L2
 		jsr	negtmp
 L2:		jsr	divmod
 		sec
@@ -972,6 +968,11 @@ L2:		jsr	divmod
 		lda	#0
 		sbc	tmp + 3
 		sta	tmp + 3
+		rts
+L1:		bit	tmp + 1
+		bpl	L3
+		jsr	negtmp
+L3:		jmp	divmod
 		rts
 }
 
@@ -999,10 +1000,6 @@ __asm mods32
 		bit	tmp + 3
 		bpl	L2
 		jsr	negtmp32
-L3:		jmp	divmod32
-L1:		bit	tmp + 3
-		bpl	L3
-		jsr	negtmp32
 L2:		jsr	divmod32
 		sec
 		lda	#0
@@ -1018,6 +1015,12 @@ L2:		jsr	divmod32
 		sbc	tmp + 7
 		sta	tmp + 7
 		rts
+L3:		jmp	divmod32
+L1:		bit	tmp + 3
+		bpl	L3
+		jsr	negtmp32
+		jmp	divmod32
+
 }
 
 #pragma runtime(mul16, mul16);
@@ -2079,23 +2082,23 @@ __asm inp_binop_modr_s16
 		bpl	L1
 		jsr	negaccu
 		bit	tmp + 1
-		bpl	L2
+		bpl	L3
 		jsr	negtmp
 L3:		jsr	divmod
 		lda	tmp + 2
 		sta	accu
 		lda	tmp + 3
 		sta	accu + 1
+		jsr	negaccu
 		jmp	startup.yexec		
 L1:		bit	tmp + 1
-		bpl	L3
+		bpl	L2
 		jsr	negtmp
 L2:		jsr	divmod
 		lda	tmp + 2
 		sta	accu
 		lda	tmp + 3
 		sta	accu + 1
-		jsr	negaccu
 		jmp	startup.yexec
 }
 
@@ -4413,7 +4416,7 @@ __asm inp_binop_mod_s32
 		bpl	L1
 		jsr	negaccu32
 		bit	tmp + 3
-		bpl	L2
+		bpl	L3
 		jsr	negtmp32
 L3:		jsr	divmod32
 		lda	tmp + 4
@@ -4424,9 +4427,9 @@ L3:		jsr	divmod32
 		sta	accu + 2
 		lda	tmp + 7
 		sta	accu + 3
-		rts
+		jmp	negaccu32
 L1:		bit	tmp + 3
-		bpl	L3
+		bpl	L2
 		jsr	negtmp32
 L2:		jsr	divmod32
 		lda	tmp + 4
@@ -4437,7 +4440,6 @@ L2:		jsr	divmod32
 		sta	accu + 2
 		lda	tmp + 7
 		sta	accu + 3
-		jsr	negaccu32
 }
 
 #pragma	bytecode(BC_BINOP_MOD_I32, inp_binop_mod_s32)

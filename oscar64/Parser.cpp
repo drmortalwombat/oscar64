@@ -11417,7 +11417,7 @@ Expression* Parser::ParseStatement(void)
 				if (unrollLoop > 1 && initExp && iterateExp && conditionExp)
 				{
 					if ((initExp->mType == EX_ASSIGNMENT || initExp->mType == EX_INITIALIZATION) && initExp->mLeft->mType == EX_VARIABLE && initExp->mRight->mType == EX_CONSTANT &&
-						(iterateExp->mType == EX_POSTINCDEC || iterateExp->mType == EX_PREINCDEC || iterateExp->mType == EX_ASSIGNMENT && iterateExp->mToken == TK_ASSIGN_ADD && iterateExp->mRight->mType == EX_CONSTANT) && 
+						(iterateExp->mType == EX_POSTINCDEC || iterateExp->mType == EX_PREINCDEC || iterateExp->mType == EX_ASSIGNMENT && (iterateExp->mToken == TK_ASSIGN_ADD || iterateExp->mToken == TK_ASSIGN_SUB) && iterateExp->mRight->mType == EX_CONSTANT) && 
 						iterateExp->mLeft->IsSame(initExp->mLeft) &&
 						(conditionExp->mType == EX_RELATIONAL && 
 							(conditionExp->mToken == TK_LESS_THAN || conditionExp->mToken == TK_GREATER_THAN || conditionExp->mToken == TK_LESS_EQUAL || conditionExp->mToken == TK_GREATER_EQUAL) && 
@@ -11432,7 +11432,12 @@ Expression* Parser::ParseStatement(void)
 							int	stepValue = 1;
 
 							if (iterateExp->mType == EX_ASSIGNMENT)
-								stepValue = int(iterateExp->mRight->mDecValue->mInteger);
+							{
+								if (iterateExp->mToken == TK_ASSIGN_ADD)
+									stepValue = int(iterateExp->mRight->mDecValue->mInteger);
+								else
+									stepValue = - int(iterateExp->mRight->mDecValue->mInteger);
+							}
 							else if (iterateExp->mToken == TK_DEC)
 								stepValue = -1;
 
@@ -11552,7 +11557,7 @@ Expression* Parser::ParseStatement(void)
 							}
 							else
 							{
-								int	numSteps = (endValue - startValue) / stepValue;
+								int	numSteps = stepValue > 0 ? (endValue - startValue + stepValue - 1) / stepValue : (endValue - startValue + stepValue + 1) / stepValue;
 								int	remain = numSteps % unrollLoop;
 								endValue -= remain * stepValue;
 
