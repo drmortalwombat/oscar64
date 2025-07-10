@@ -11234,7 +11234,7 @@ Expression* Parser::ParseStatement(void)
 							initExp->mRight->mRight->mRight->mDecValue = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
 							initExp->mRight->mRight->mRight->mDecValue->mBase = TheSignedIntTypeDeclaration;
 							initExp->mRight->mRight->mRight->mDecValue->mSize = 2;
-							initExp->mRight->mRight->mRight->mDecValue->mInteger = containerExp->mDecType->mSize;
+							initExp->mRight->mRight->mRight->mDecValue->mInteger = containerExp->mDecType->mSize / containerExp->mDecType->mBase->mSize;
 
 							iterateExp = new Expression(mScanner->mLocation, EX_PREINCDEC);
 							iterateExp->mToken = TK_INC;
