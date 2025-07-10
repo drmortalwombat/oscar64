@@ -19,6 +19,7 @@ prefix = /usr/local
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 includedir = $(prefix)/include
+mandir = $(prefix)/man/man1
 
  
 ifdef WINDIR
@@ -107,7 +108,7 @@ install: compiler
 	$(INSTALL_DATA) $(wildcard $(project_dir)/include/opp/*.h $(project_dir)/include/opp/*.cpp) $(DESTDIR)$(includedir)/oscar64/opp
 	$(INSTALL_DATA) $(wildcard $(project_dir)/include/plus4/*.h $(project_dir)/include/plus4/*.c) $(DESTDIR)$(includedir)/oscar64/plus4
 	$(INSTALL_DATA) $(wildcard $(project_dir)/include/vic20/*.h $(project_dir)/include/vic20/*.c) $(DESTDIR)$(includedir)/oscar64/vic20
-
+	$(INSTALL_DATA) $(project_dir)/oscar64.1 $(mandir)
 
 uninstall:
 	@echo "Uninstalling..."
