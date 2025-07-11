@@ -12529,7 +12529,7 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 								nins->mSrc[1].mIntConst += ins->mSrc[0].mIntConst;
 								nins->mDst.mTemp = spareTemps++;
 								nins->mDst.mType = IT_POINTER;
-								nins->mDst.mRange = ins->mDst.mRange;
+								nins->mDst.mRange.Reset();
 								ins->mSrc[0].mRange.Reset();
 								ins->mSrc[0].mIntConst = 0;
 								ins->mSrc[0].mTemp = nins->mDst.mTemp;
@@ -25414,7 +25414,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "clone<0>");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
