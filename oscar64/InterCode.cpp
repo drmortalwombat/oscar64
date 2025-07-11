@@ -71,6 +71,29 @@ static int64 BuildLowerBitsMask(int64 v)
 	return v;
 }
 
+static int64 LimitIntConstValue(InterType type, int64 v)
+{
+	switch (type)
+	{
+	case IT_INT8:
+		if (v >= -128 && v < 256)
+			return v;
+		else
+			return v & 255;
+		break;
+	case IT_INT16:
+		if (v >= -32768 && v < 65536)
+			return v;
+		else
+			return v & 65535;
+		break;
+	default:
+	case IT_INT32:
+		return v;
+	}
+}
+
+
 
 IntegerValueRange::IntegerValueRange(void)
 	: mMinState(S_UNKNOWN), mMaxState(S_UNKNOWN)
@@ -1892,56 +1915,55 @@ static InterOperand OperandConstantFolding(InterOperator oper, InterOperand op1,
 		if (op1.mType == IT_FLOAT)
 			dop.mFloatConst = op1.mFloatConst + op2.mFloatConst;
 		else
-			dop.mIntConst = op1.mIntConst + op2.mIntConst;
+			dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst + op2.mIntConst);
 		break;
 	case IA_SUB:
 		dop.mType = op1.mType;
 		if (op1.mType == IT_FLOAT)
 			dop.mFloatConst = op1.mFloatConst - op2.mFloatConst;
 		else
-			dop.mIntConst = op1.mIntConst - op2.mIntConst;
+			dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst - op2.mIntConst);
 		break;
 	case IA_MUL:
 		dop.mType = op1.mType;
 		if (op1.mType == IT_FLOAT)
 			dop.mFloatConst = op1.mFloatConst * op2.mFloatConst;
 		else
-			dop.mIntConst = op1.mIntConst * op2.mIntConst;
+			dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst * op2.mIntConst);
 		break;
 	case IA_DIVU:
 		dop.mType = op1.mType;
 		if (op1.mType == IT_FLOAT)
 			dop.mFloatConst = op1.mFloatConst / op2.mFloatConst;
 		else
-			dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) / ToTypedUnsigned(op2.mIntConst, op1.mType);
-		dop.mIntConst = op1.mIntConst / op2.mIntConst;
+			dop.mIntConst = LimitIntConstValue(dop.mType, ToTypedUnsigned(op1.mIntConst, op1.mType) / ToTypedUnsigned(op2.mIntConst, op1.mType));
 		break;
 	case IA_DIVS:
 		dop.mType = op1.mType;
 		if (op1.mType == IT_FLOAT)
 			dop.mFloatConst = op1.mFloatConst / op2.mFloatConst;
 		else
-			dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) / ToTypedSigned(op2.mIntConst, op1.mType);
+			dop.mIntConst = LimitIntConstValue(dop.mType, ToTypedSigned(op1.mIntConst, op1.mType) / ToTypedSigned(op2.mIntConst, op1.mType));
 		break;
 	case IA_MODU:
 		dop.mType = op1.mType;
-		dop.mIntConst = ToTypedUnsigned(op1.mIntConst, op1.mType) % ToTypedUnsigned(op2.mIntConst, op1.mType);
+		dop.mIntConst = LimitIntConstValue(dop.mType, ToTypedUnsigned(op1.mIntConst, op1.mType) % ToTypedUnsigned(op2.mIntConst, op1.mType));
 		break;
 	case IA_MODS:
 		dop.mType = op1.mType;
-		dop.mIntConst = ToTypedSigned(op1.mIntConst, op1.mType) % ToTypedSigned(op2.mIntConst, op1.mType);
+		dop.mIntConst = LimitIntConstValue(dop.mType, ToTypedSigned(op1.mIntConst, op1.mType) % ToTypedSigned(op2.mIntConst, op1.mType));
 		break;
 	case IA_OR:
 		dop.mType = op1.mType;
-		dop.mIntConst = op1.mIntConst | op2.mIntConst;
+		dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst | op2.mIntConst);
 		break;
 	case IA_AND:
 		dop.mType = op1.mType;
-		dop.mIntConst = op1.mIntConst & op2.mIntConst;
+		dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst & op2.mIntConst);
 		break;
 	case IA_XOR:
 		dop.mType = op1.mType;
-		dop.mIntConst = op1.mIntConst ^ op2.mIntConst;
+		dop.mIntConst = LimitIntConstValue(dop.mType, op1.mIntConst ^ op2.mIntConst);
 		break;
 	case IA_NEG:
 		dop.mType = op1.mType;
@@ -2901,28 +2923,6 @@ bool InterInstruction::IsEqualSource(const InterInstruction* ins) const
 		return false;
 
 	return true;
-}
-
-static int64 LimitIntConstValue(InterType type, int64 v)
-{
-	switch (type)
-	{
-	case IT_INT8:
-		if (v >= -128 && v < 256)
-			return v;
-		else
-			return v & 255;
-		break;
-	case IT_INT16:
-		if (v >= -32768 && v < 65536)
-			return v;
-		else
-			return v & 65535;
-		break;
-	default:
-	case IT_INT32:
-		return v;
-	}
 }
 
 void ValueSet::UpdateValue(InterCodeBasicBlock * block, InterInstruction * ins, const GrowingInstructionPtrArray& tvalue, const NumberSet& aliasedLocals, const NumberSet& aliasedParams, const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
@@ -21528,6 +21528,31 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			mInstructions[i]->mSrc[0].mIntConst &= BinMask(mInstructions[i]->mSrc[1].mRange.mMaxValue);
 		}
 
+		if (i + 1 < mInstructions.Size())
+		{
+#if 1
+			if (mInstructions[i + 0]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[i + 1]->mCode == IC_BRANCH && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal &&
+				(mInstructions[i + 0]->mOperator == IA_CMPEQ || mInstructions[i + 0]->mOperator == IA_CMPNE) &&
+				(mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mType == IT_INT8 && mInstructions[i + 0]->mSrc[0].mIntConst == 0 ||
+					mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mType == IT_INT8 && mInstructions[i + 0]->mSrc[1].mIntConst == 0))
+			{
+				if (mInstructions[i + 0]->mSrc[0].mTemp < 0)
+					mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[1];
+				else
+					mInstructions[i + 1]->mSrc[0] = mInstructions[i + 0]->mSrc[0];
+				if (mInstructions[i + 0]->mOperator == IA_CMPEQ)
+				{
+					InterCodeBasicBlock* b = mTrueJump; mTrueJump = mFalseJump; mFalseJump = b;
+				}
+				mInstructions[i + 0]->mCode = IC_NONE;
+				mInstructions[i + 0]->mNumOperands = 0;
+				changed = true;
+			}
+#endif
+
+		}
+
 		if (i + 2 < mInstructions.Size())
 		{
 			if (mInstructions[i + 0]->mCode == IC_NONE)
@@ -21927,10 +21952,12 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				{
 				case IA_CMPEQ:
 					flip = v == 0;
+					istrue = false;
 					isfalse = (v != 0 && v != 1);
 					break;
 				case IA_CMPNE:
 					flip = v != 0;
+					isfalse = false;
 					istrue = (v != 0 && v != 1);
 					break;
 				case IA_CMPGEU:
@@ -22960,7 +22987,6 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			}
 		}
 		mInstructions.SetSize(j);
-
 
 		// shorten lifespan
 

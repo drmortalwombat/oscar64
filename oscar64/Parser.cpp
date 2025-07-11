@@ -8628,6 +8628,32 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 		}
 	}
 	
+#if 1
+	if (type->mType == DT_TYPE_BOOL && tdec->mType == DT_TYPE_INTEGER)
+	{
+		Expression* ex;
+		if (exp->mType == EX_CONSTANT)
+		{
+			ex = new Expression(exp->mLocation, EX_CONSTANT);
+			if (exp->mDecValue->mInteger)
+				ex->mDecValue = TheTrueConstDeclaration;
+			else
+				ex->mDecValue = TheFalseConstDeclaration;
+		}
+		else
+		{
+			ex = new Expression(exp->mLocation, EX_RELATIONAL);
+			ex->mToken = TK_NOT_EQUAL;
+			ex->mLeft = exp;
+			ex->mRight = new Expression(exp->mLocation, EX_CONSTANT);
+			ex->mRight->mDecType = TheSignedIntTypeDeclaration;
+			ex->mRight->mDecValue =	TheZeroIntegerConstDeclaration;
+		}
+		ex->mDecType = type;
+		return ex;
+	}
+#endif
+
 	return exp;
 }
 
