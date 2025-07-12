@@ -60,6 +60,19 @@ static int64 SignedTypeMax(InterType type)
 	}
 }
 
+static int64 UnsignedTypeMax(InterType type)
+{
+	switch (type)
+	{
+	case IT_INT8:
+		return 255;
+	case IT_INT16:
+		return 65535;
+	default:
+		return 0xffffffff;
+	}
+}
+
 static int64 BuildLowerBitsMask(int64 v)
 {
 	v |= v >> 32;
@@ -69,6 +82,17 @@ static int64 BuildLowerBitsMask(int64 v)
 	v |= v >> 2;
 	v |= v >> 1;
 	return v;
+}
+
+static int64 BinMask(int64 n)
+{
+	n |= n >> 32;
+	n |= n >> 16;
+	n |= n >> 8;
+	n |= n >> 4;
+	n |= n >> 2;
+	n |= n >> 1;
+	return n;
 }
 
 static int64 LimitIntConstValue(InterType type, int64 v)
@@ -9367,7 +9391,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 				case IA_DIVU:
 
 					if (ins->mSrc[1].mTemp >= 0)
+					{
 						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
+						if (vr.mMaxState != IntegerValueRange::S_BOUND || vr.mMinState < IntegerValueRange::S_WEAK || vr.mMinValue < 0)
+						{
+							vr.mMaxValue = IntegerValueRange::S_BOUND;
+							vr.mMaxValue = UnsignedTypeMax(ins->mSrc[1].mType);
+						}
+					}
 					else
 						vr.LimitMax(ins->mSrc[1].mIntConst);
 
@@ -21429,14 +21460,14 @@ void InterCodeBasicBlock::CheckFinalLocal(void)
 
 	NumberSet	provided(mEntryProvidedTemps);
 
-	for (int i = 0; i< mInstructions.Size(); i++)
+	for (int i = 0; i < mInstructions.Size(); i++)
 	{
 		const InterInstruction* ins(mInstructions[i]);
 		for (int j = 0; j < ins->mNumOperands; j++)
 		{
 			if (ins->mSrc[j].mTemp >= 0 && !provided[ins->mSrc[j].mTemp])
 			{
-//				printf("Use of potentially undefined temp %d\n", ins->mSrc[j].mTemp);
+				//				printf("Use of potentially undefined temp %d\n", ins->mSrc[j].mTemp);
 			}
 		}
 
@@ -21480,17 +21511,6 @@ void InterCodeBasicBlock::CheckBlocks(void)
 #endif
 }
 
-static int64 BinMask(int64 n)
-{
-	n |= n >> 32;
-	n |= n >> 16;
-	n |= n >> 8;
-	n |= n >> 4;
-	n |= n >> 2;
-	n |= n >> 1;
-	return n;
-}
-
 bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs)
 {
 	int	j = 0;
@@ -21522,10 +21542,24 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 		if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_AND && mInstructions[i]->mSrc[1].mTemp < 0 && mInstructions[i]->mSrc[0].IsUnsigned())
 		{
 			mInstructions[i]->mSrc[1].mIntConst &= BinMask(mInstructions[i]->mSrc[0].mRange.mMaxValue);
+			if (mInstructions[i]->mSrc[1].mIntConst == BinMask(mInstructions[i]->mSrc[1].mIntConst) && mInstructions[i]->mSrc[0].mRange.mMaxValue <= mInstructions[i]->mSrc[1].mIntConst)
+			{
+				mInstructions[i]->mCode = IC_LOAD_TEMPORARY;
+				mInstructions[i]->mNumOperands = 1;
+				changed = true;
+			}
+				
 		}
 		if (mInstructions[i]->mCode == IC_BINARY_OPERATOR && mInstructions[i]->mOperator == IA_AND && mInstructions[i]->mSrc[0].mTemp < 0 && mInstructions[i]->mSrc[1].IsUnsigned())
 		{
 			mInstructions[i]->mSrc[0].mIntConst &= BinMask(mInstructions[i]->mSrc[1].mRange.mMaxValue);
+			if (mInstructions[i]->mSrc[0].mIntConst == BinMask(mInstructions[i]->mSrc[0].mIntConst) && mInstructions[i]->mSrc[1].mRange.mMaxValue <= mInstructions[i]->mSrc[0].mIntConst)
+			{
+				mInstructions[i]->mCode = IC_LOAD_TEMPORARY;
+				mInstructions[i]->mSrc[0] = mInstructions[i]->mSrc[1];
+				mInstructions[i]->mNumOperands = 1;
+				changed = true;
+			}
 		}
 
 		if (i + 1 < mInstructions.Size())
@@ -25414,7 +25448,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "clone<0>");
+	CheckFunc = !strcmp(mIdent->mString, "func_1");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
