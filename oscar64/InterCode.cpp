@@ -12540,7 +12540,9 @@ bool InterCodeBasicBlock::SimplifyIntegerNumeric(const GrowingInstructionPtrArra
 						if (pins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst >= 0)
 						{
 							int64 offset = ins->mSrc[0].mIntConst + pins->mSrc[0].mIntConst;
-							ins->mSrc[0].Forward(pins->mSrc[1]);
+							int osize = ins->mSrc[0].mOperandSize;
+							ins->mSrc[0].ForwardMem(pins->mSrc[1]);
+							ins->mSrc[0].mOperandSize = osize;
 							pins->mSrc[1].mFinal = false;
 							ins->mSrc[0].mIntConst += offset;
 							ins->mSrc[0].mRange = pins->mSrc[1].mRange;
@@ -25448,7 +25450,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_1");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
