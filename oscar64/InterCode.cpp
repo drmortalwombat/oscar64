@@ -118,6 +118,46 @@ static int64 LimitIntConstValue(InterType type, int64 v)
 }
 
 
+static int64 ToTypedSigned(int64 val, InterType type)
+{
+	switch (InterTypeSize[type])
+	{
+	case 1:
+		return int64(int8(val));
+	case 4:
+		return int64(int32(val));
+	default:
+		return int64(int16(val));
+	}
+}
+
+static int64 ToTypedUnsigned(int64 val, InterType type)
+{
+	switch (InterTypeSize[type])
+	{
+	case 1:
+		return int64(uint8(val));
+	case 4:
+		return int64(uint32(val));
+	default:
+		return int64(uint16(val));
+	}
+}
+
+static int64 TypeShiftMask(InterType type, int64 val)
+{
+	switch (InterTypeSize[type])
+	{
+	case 1:
+		return val & 7;
+	default:
+	case 2:
+		return val & 15;
+	case 4:
+		return val & 31;
+	}
+}
+
 
 IntegerValueRange::IntegerValueRange(void)
 	: mMinState(S_UNKNOWN), mMaxState(S_UNKNOWN)
@@ -1350,46 +1390,6 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	return true;
 }
 
-
-static int64 ToTypedSigned(int64 val, InterType type)
-{
-	switch (InterTypeSize[type])
-	{
-	case 1:
-		return int64(int8(val));
-	case 4:
-		return int64(int32(val));
-	default:
-		return int64(int16(val));
-	}
-}
-
-static int64 ToTypedUnsigned(int64 val, InterType type)
-{
-	switch (InterTypeSize[type])
-	{
-	case 1:
-		return int64(uint8(val));
-	case 4:
-		return int64(uint32(val));
-	default:
-		return int64(uint16(val));
-	}
-}
-
-static int64 TypeShiftMask(InterType type, int64 val)
-{
-	switch (InterTypeSize[type])
-	{
-	case 1:
-		return val & 7;
-	default:
-	case 2:
-		return val & 15;
-	case 4:
-		return val & 31;
-	}
-}
 
 static int64 ConstantFolding(InterOperator oper, InterType type, int64 val1, int64 val2 = 0)
 {
@@ -9132,7 +9132,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 						vr.mMaxValue <<= TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 						vr.mMinValue <<= TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 
-						if (ins->mDst.mType == IT_INT8 && vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > 255)
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType))
 						{
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 							vr.mMaxState = IntegerValueRange::S_UNBOUND;
@@ -25450,7 +25450,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "func_1");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
