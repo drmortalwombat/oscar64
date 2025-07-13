@@ -22283,13 +22283,14 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			}
 		}
 #endif
-		if (mIns.Size() >= 2)
+		if (mIns.Size() >= 2 && mTrueJump && mFalseJump && mTrueJump->mEntryRequiredRegs.Size() > 0 && mFalseJump->mEntryRequiredRegs.Size() > 0)
 		{
 			int	sz = mIns.Size();
 
 			if (mIns[sz - 2].mType == ASMIT_EOR && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
 				mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)) &&
-				(mBranch == ASMIT_BCC || mBranch == ASMIT_BCS))
+				(mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) &&
+				!mTrueJump->mEntryRequiredRegs[CPU_REG_C] && !mFalseJump->mEntryRequiredRegs[CPU_REG_C])
 			{
 				changed = true;
 
@@ -56642,7 +56643,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "func_50");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -57454,7 +57455,7 @@ void NativeCodeProcedure::Optimize(void)
 #if DISASSEMBLE_OPT
 	DisassembleDebug("Preoptimize");
 #endif
-
+	
 	CheckBlocks();
 
 	bool	changed, xmapped = false, ymapped = false;

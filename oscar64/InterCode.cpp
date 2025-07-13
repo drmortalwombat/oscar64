@@ -20629,7 +20629,6 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						dep[t] = DEP_VARIABLE;
 					else if (dep[t] == DEP_UNKNOWN)
 					{
-#if 1
 						if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp == t)// && ins->mSrc[0].mIntConst > 0)
 						{
 							indexStep[t] = ins->mSrc[0].mIntConst;
@@ -20638,7 +20637,6 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							ins->mInvariant = false;
 						}
 						else
-#endif
 							dep[t] = DEP_DEFINED;
 					}
 					else if (dep[t] == DEP_DEFINED || dep[t] == DEP_INDEX)
@@ -20812,6 +20810,22 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						for (int j = 0; j < ins->mNumOperands; j++)
 							if (ins->mSrc[j].mTemp >= 0 && dep[ins->mSrc[j].mTemp] == DEP_VARIABLE)
 								ins->mInvariant = false;
+					}
+				}
+				else
+				{
+					if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_AND || ins->mOperator == IA_OR) && !IsTempReferencedInRange(0, i, ins->mDst.mTemp))
+					{
+						if (ins->mDst.mTemp == ins->mSrc[0].mTemp && ins->mSrc[1].mTemp < 0)
+						{
+							if (!IsTempModifiedInRange(i + 1, mInstructions.Size(), ins->mDst.mTemp))
+								ins->mInvariant = true;
+						}
+						else if (ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
+						{
+							if (!IsTempModifiedInRange(i + 1, mInstructions.Size(), ins->mDst.mTemp))
+								ins->mInvariant = true;
+						}
 					}
 				}
 
@@ -25450,7 +25464,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_1");
+	CheckFunc = !strcmp(mIdent->mString, "func_50");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
