@@ -20,7 +20,7 @@ ConstexprInterpreter::Value::Value(Expression* exp)
 	: mLocation(exp->mLocation), 
 	mDecType(exp->mDecType), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
-	mDataSize(exp->mDecType->mSize)
+	mDataSize(exp->mDecValue->mBase->mSize)
 {
 	assert(exp->mType == EX_CONSTANT);
 
