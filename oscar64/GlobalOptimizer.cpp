@@ -21,6 +21,7 @@ static const uint64 OPTF_MULTI_RETURN = (1ULL << 12);
 static const uint64 OPTF_VAR_NO_FORWARD = (1UL << 13);
 static const uint64 OPTF_SINGLE_CALL = (1ULL << 14);
 static const uint64 OPTF_MULTI_CALL = (1ULL << 15);
+static const uint64 OPTF_CONST_FUNCTION = (1ULL << 16);
 
 GlobalOptimizer::GlobalOptimizer(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker)
@@ -113,6 +114,33 @@ void GlobalOptimizer::PropagateCommas(Expression*& exp)
 
 }
 
+bool GlobalOptimizer::CheckConstFunction(Expression* exp)
+{
+	if (exp->mType == EX_CALL || exp->mType == EX_INLINE)
+	{
+		if (exp->mLeft->mType == EX_CONSTANT)
+		{
+			Declaration* pcall = exp->mLeft->mDecValue;
+			if (!(pcall->mOptFlags & OPTF_CONST_FUNCTION))
+				return false;
+		}
+		else
+			return false;
+	}
+	else if (exp->mType == EX_DISPATCH)
+		return false;
+	else if (exp->mType == EX_RETURN && !exp->mLeft)
+		return false;
+
+	if (exp->mLeft && !CheckConstFunction(exp->mLeft))
+		return false;
+	if (exp->mRight && !CheckConstFunction(exp->mRight))
+		return false;
+
+	return true;
+
+}
+
 bool GlobalOptimizer::CheckUnusedReturns(Expression*& exp)
 {
 	bool	changed = false;
@@ -144,6 +172,343 @@ bool GlobalOptimizer::CheckUnusedReturns(Expression*& exp)
 
 	return changed;
 }
+
+bool GlobalOptimizer::ReplaceConstCalls(Expression*& exp) 
+{
+	bool	changed = false;
+
+	if (exp->mType == EX_CALL && exp->mDecType && exp->mDecType->mType != DT_TYPE_VOID)
+	{
+		if (exp->mLeft->mType == EX_CONSTANT)
+		{
+			Declaration* pcall = exp->mLeft->mDecValue;
+			if (pcall->mOptFlags & OPTF_CONST_FUNCTION)
+			{
+				Expression* args = exp->mRight;
+				bool	constargs = true;
+				while (args && constargs)
+				{
+					if (args->mType == EX_LIST)
+					{
+						if (args->mLeft->mType != EX_CONSTANT)
+							constargs = false;
+						else
+							args = args->mRight;
+					}
+					else if (args->mType != EX_CONSTANT)
+						constargs = false;
+					else
+						args = nullptr;
+
+				}
+
+				if (constargs)
+				{
+					ConstexprInterpreter	cinter(exp->mLocation, mErrors, pcall->mSection);
+					Expression * nexp = cinter.EvalCall(exp);
+
+					if (nexp && nexp != exp)
+					{
+						exp = nexp;
+						changed = true;
+					}
+				}
+			}
+		}
+	}
+
+	if (exp->mLeft && ReplaceConstCalls(exp->mLeft))
+		changed = true;
+	if (exp->mRight && ReplaceConstCalls(exp->mRight))
+		changed = true;
+
+	return changed;
+}
+
+
+bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& cycles, int64& bytes)
+{
+	cycles = 0;
+	bytes = 0;
+
+	if (exp)
+	{
+		int64 lcycles, lbytes, rcycles, rbytes;
+
+		switch (exp->mType)
+		{
+		case EX_CONSTANT:
+			return true;
+
+		case EX_VARIABLE:
+			if (exp->mDecValue != vindex)
+			{
+				cycles = 2;
+				bytes = 4;
+			}
+			return true;
+
+		case EX_ASSIGNMENT:
+		case EX_INITIALIZATION:
+			if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue == vindex)
+				return false;
+
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes) && EstimateCost(exp->mRight, vindex, rcycles, rbytes))
+			{
+				cycles = lcycles + rcycles + exp->mDecType->mSize * (exp->mToken == TK_ASSIGN ? 1 : 3);
+				bytes = lbytes + rbytes + exp->mDecType->mSize * (exp->mToken == TK_ASSIGN ? 2 : 5);
+				return true;
+			}
+			break;
+		case EX_BINARY:
+		case EX_RELATIONAL:
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes) && EstimateCost(exp->mRight, vindex, rcycles, rbytes))
+			{
+				if (lcycles > 0 || rcycles > 0)
+				{
+					bytes = lbytes + rbytes + 2 * exp->mDecType->mSize;
+					cycles = lcycles + rcycles;
+					if (exp->mToken == TK_MUL && lcycles > 0 && rcycles > 0)
+						cycles += exp->mDecType->mSize * exp->mDecType->mSize * 25;
+					else if (exp->mToken == TK_DIV || exp->mToken == TK_MOD)
+						cycles += exp->mDecType->mSize * exp->mDecType->mSize * 40;
+					else
+						cycles += exp->mDecType->mSize;
+				}
+
+				return true;
+			}
+
+			break;
+		case EX_POSTINCDEC:
+		case EX_PREINCDEC:
+			if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue == vindex)
+				return false;
+
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes))
+			{
+				bytes = lbytes + 2 * exp->mDecType->mSize;
+				cycles = lcycles + exp->mDecType->mSize;
+
+				return true;
+			}
+			break;
+
+		case EX_PREFIX:
+			if (exp->mToken == TK_ADD || exp->mToken == TK_SUB)
+			{
+				if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes))
+				{
+					if (lcycles > 0)
+					{
+						bytes = lbytes + exp->mDecType->mSize;
+						cycles = lcycles + exp->mDecType->mSize;
+					}
+
+					return true;
+				}
+			}
+			else if (exp->mToken == TK_BINARY_AND || exp->mToken == TK_MUL)
+			{
+				if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue == vindex)
+					return false;
+
+				return EstimateCost(exp->mLeft, vindex, cycles, bytes);
+			}
+			break;
+
+		case EX_QUALIFY:
+			return EstimateCost(exp->mLeft, vindex, cycles, bytes);
+
+		case EX_INDEX:
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes) && EstimateCost(exp->mRight, vindex, rcycles, rbytes))
+			{
+				cycles = lcycles + rcycles;
+				bytes = lbytes + rbytes;
+				if (rcycles)
+				{
+					bytes += 5;
+					cycles += exp->mDecType->mSize == 1 ? 4 : 8;
+				}
+				return true;
+			}
+			break;
+
+		case EX_SEQUENCE:
+		case EX_COMMA:
+		case EX_SCOPE:
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes) && EstimateCost(exp->mRight, vindex, rcycles, rbytes))
+			{
+				cycles = lcycles + rcycles;
+				bytes = lbytes + rbytes;
+				return true;
+			}
+			break;
+		case EX_CALL:
+			if (exp->mDecType && exp->mDecType->mType != DT_TYPE_VOID && exp->mLeft->mType == EX_CONSTANT)
+			{
+				Declaration* pcall = exp->mLeft->mDecValue;
+				if (pcall->mOptFlags & OPTF_CONST_FUNCTION)
+				{
+					if (exp->mRight && exp->mRight->mType == EX_VARIABLE && exp->mRight->mDecValue == vindex)
+					{
+						cycles = 0;
+						bytes = 0;
+
+						return true;
+					}
+
+					if (pcall->mFlags & OPTF_RECURSIVE)
+						cycles = 500;
+					else
+						cycles = 100;
+					bytes = 3;
+
+					Expression* lexp = exp->mRight;
+					while (lexp)
+					{
+						Expression* pexp = lexp;
+						if (lexp->mType == EX_LIST)
+						{
+							pexp = lexp->mLeft;
+							lexp = lexp->mRight;
+						}
+						else
+							lexp = nullptr;
+
+						if (!EstimateCost(lexp, vindex, lcycles, lbytes))
+							return false;
+
+						if (lcycles > 0)
+						{
+							bytes += lbytes + 2 * exp->mDecType->mSize;
+							cycles += lcycles + exp->mDecType->mSize;
+						}
+					}
+
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		return false;
+	}
+
+	return true;
+
+}
+
+
+bool GlobalOptimizer::UnrollLoops(Expression*& exp)
+{
+	bool	changed = false;
+
+	if (exp->mType == EX_FOR)
+	{
+		Expression* assignment = exp->mLeft->mRight;
+		Expression* condition = exp->mLeft->mLeft->mLeft;
+		Expression* body = exp->mRight;
+		Expression* increment = exp->mLeft->mLeft->mRight;
+
+		if (assignment && condition && body && increment)
+		{
+			if ((assignment->mType == EX_INITIALIZATION || assignment->mType == EX_ASSIGNMENT) &&
+				assignment->mRight->mType == EX_CONSTANT &&
+				assignment->mLeft->mType == EX_VARIABLE &&
+				assignment->mLeft->mDecType->IsIntegerType() &&
+				!(assignment->mLeft->mDecValue->mFlags & (DTF_GLOBAL | DTF_STATIC)))
+			{
+				Declaration* ivdec = assignment->mLeft->mDecValue;
+
+				if (condition->mType == EX_RELATIONAL &&
+					condition->mToken == TK_LESS_THAN &&
+					condition->mLeft->mType == EX_VARIABLE &&
+					condition->mLeft->mDecValue == ivdec &&
+					condition->mRight->mType == EX_CONSTANT)
+				{
+					if ((increment->mType == EX_POSTINCDEC || increment->mType == EX_PREINCDEC) &&
+						increment->mToken == TK_INC &&
+						increment->mLeft->mType == EX_VARIABLE &&
+						increment->mLeft->mDecValue == ivdec)
+					{
+						int64 start = assignment->mRight->mDecValue->mInteger;
+						int64 end = condition->mRight->mDecValue->mInteger;
+						int64 step = 1;
+
+						if (end > start && (end + step - 1 - start) / step < 20)
+						{
+							int64 count = (end + step - 1 - start) / step;
+
+							int64 pcycles, pbytes, ucycles, ubytes;
+
+							if (EstimateCost(body, nullptr, pcycles, pbytes) && EstimateCost(body, ivdec, ucycles, ubytes))
+							{
+								int64	byteLimit = 20;
+
+								int64 gcycles = (pcycles - ucycles) * count;
+
+								if (mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE)
+									byteLimit = 0;
+								else if (mCompilerOptions & COPT_OPTIMIZE_AUTO_INLINE_ALL)
+								{
+									byteLimit += 80;
+									byteLimit += gcycles / 20;
+									if (byteLimit > 400)
+										byteLimit = 400;
+								}
+								else
+								{
+									byteLimit += gcycles / 100;
+									if (byteLimit > 100)
+										byteLimit = 100;
+								}
+
+								if (ubytes * count < pbytes + 4 + 4 * ivdec->mSize + byteLimit)
+								{
+									Expression* seq = nullptr;
+									for (int64 i = start; i < end; i += step)
+									{
+										Declaration* icdec = assignment->mRight->mDecValue->Clone();
+										icdec->mInteger = i;
+										Expression* bexp = body->ToVarConst(ivdec, icdec);
+										if (seq)
+										{
+											Expression* nseq = new Expression(exp->mLocation, EX_SEQUENCE);
+											nseq->mLeft = seq;
+											nseq->mRight = bexp;
+											seq = nseq;
+										}
+										else
+											seq = bexp;
+									}
+									Declaration* ficdec = assignment->mRight->mDecValue->Clone();
+									ficdec->mInteger = start + count * step;
+
+									exp = new Expression(exp->mLocation, EX_SEQUENCE);
+									exp->mLeft = seq;
+									exp->mRight = assignment;
+									assignment->mRight->mDecValue = ficdec;
+
+									return true;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (exp->mLeft && UnrollLoops(exp->mLeft))
+		changed = true;
+	if (exp->mRight && UnrollLoops(exp->mRight))
+		changed = true;
+
+	return changed;
+}
+
 
 bool GlobalOptimizer::CheckConstReturns(Expression*& exp)
 {
@@ -338,6 +703,20 @@ bool GlobalOptimizer::Optimize(void)
 {
 	bool	changed = false;
 
+	do {
+		changed = false;
+		for (int i = 0; i < mFunctions.Size(); i++)
+		{
+			Declaration* func = mFunctions[i];
+			if ((func->mOptFlags & OPTF_CONST_FUNCTION) && !(func->mValue && CheckConstFunction(func->mValue)))
+			{
+				func->mOptFlags &= ~OPTF_CONST_FUNCTION;
+				changed = true;
+			}
+		}
+
+	} while (changed);
+
 #if DUMP_OPTS
 	printf("OPT---\n");
 #endif
@@ -345,6 +724,13 @@ bool GlobalOptimizer::Optimize(void)
 	{
 		Declaration* func = mFunctions[i];
 		Declaration* ftype = func->mBase;
+
+#if DUMP_OPTS
+		if (func->mOptFlags & OPTF_CONST_FUNCTION)
+		{
+			printf("%s const function\n", mFunctions[i]->mQualIdent->mString);
+		}
+#endif
 
 		if (func->mValue && func->mValue->mType != EX_DISPATCH)
 		{
@@ -362,7 +748,16 @@ bool GlobalOptimizer::Optimize(void)
 
 			if (ReplaceGlobalConst(func->mValue))
 				changed = true;
+#if 1
+			if (ReplaceConstCalls(func->mValue))
+				changed = true;
 
+			if (mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
+			{
+				if (UnrollLoops(func->mValue))
+					changed = true;
+			}
+#endif
 			if (func->mOptFlags & OPTF_MULTI_CALL)
 			{
 				Declaration* pdata = ftype->mParams;
@@ -486,7 +881,10 @@ void GlobalOptimizer::AnalyzeProcedure(Expression* exp, Declaration* procDec)
 	}
 	else if (!(procDec->mOptFlags & OPTF_ANALYZED))
 	{
-		procDec->mOptFlags |= OPTF_ANALYZING | OPTF_ANALYZED;
+		procDec->mOptFlags |= OPTF_ANALYZING | OPTF_ANALYZED | OPTF_CONST_FUNCTION;
+
+		if (procDec->mFlags & DTF_PREVENT_INLINE)
+			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 
 		mFunctions.Push(procDec);
 
@@ -658,6 +1056,9 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 	case EX_ERROR:
 	case EX_VOID:
 		break;
+	case EX_GOTO:
+		procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
+		break;
 	case EX_CONSTANT:
 		if (exp->mDecValue->mType == DT_CONST_FUNCTION)
 		{
@@ -682,28 +1083,39 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 
 		return exp->mDecValue;
 	case EX_VARIABLE:
-		if ((exp->mDecValue->mFlags & DTF_STATIC) || (exp->mDecValue->mFlags & DTF_GLOBAL))
+	{
+		Declaration* vdec = exp->mDecValue;
+		if (vdec->mType == DT_VARIABLE_REF)
+			vdec = vdec->mBase;
+
+		if ((vdec->mFlags & DTF_STATIC) || (vdec->mFlags & DTF_GLOBAL))
 		{
-			Declaration* type = exp->mDecValue->mBase;
+			Declaration* type = vdec->mBase;
 			while (type->mType == DT_TYPE_ARRAY)
 				type = type->mBase;
 
-			AnalyzeGlobalVariable(exp->mDecValue);
+			AnalyzeGlobalVariable(vdec);
+			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 		}
 		if (flags & ANAFL_RHS)
-			exp->mDecValue->mOptFlags |= OPTF_VAR_USED;
+			vdec->mOptFlags |= OPTF_VAR_USED;
 		if (flags & ANAFL_LHS)
-			exp->mDecValue->mOptFlags |= OPTF_VAR_ADDRESS;
-		if (exp->mDecValue->mBase->IsReference() && (flags & ANAFL_ASSIGN))
-			exp->mDecValue->mOptFlags |= OPTF_VAR_USED;
+			vdec->mOptFlags |= OPTF_VAR_ADDRESS;
+		if (vdec->mBase->IsReference() && (flags & ANAFL_ASSIGN))
+			vdec->mOptFlags |= OPTF_VAR_USED;
 
-		if (exp->mDecValue->mType == DT_ARGUMENT && (flags & ANAFL_LHS))
+		if (vdec->mType == DT_ARGUMENT && (flags & ANAFL_LHS))
 		{
-			exp->mDecValue->mOptFlags |= OPTF_VAR_NO_FORWARD;
-			exp->mDecValue->mForwardParam = nullptr;
-			exp->mDecValue->mForwardCall = nullptr;
+			vdec->mOptFlags |= OPTF_VAR_NO_FORWARD;
+			vdec->mForwardParam = nullptr;
+			vdec->mForwardCall = nullptr;
 		}
-		return exp->mDecValue;
+
+		if (vdec->mBase->mFlags & DTF_VOLATILE)
+			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
+
+		return vdec;
+	}
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
 		if (exp->mToken == TK_ASSIGN)
@@ -741,6 +1153,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS);
 		else if (exp->mToken == TK_MUL)
 		{
+			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 			ldec = Analyze(exp->mLeft, procDec, ANAFL_RHS);
 			return exp->mDecType;
 		}
@@ -752,6 +1165,10 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 	case EX_POSTINCDEC:
 		return Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS);
 	case EX_INDEX:
+		if (exp->mDecType->mFlags & DTF_VOLATILE)
+			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
+
+		procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 		ldec = Analyze(exp->mLeft, procDec, ANAFL_RHS);
 		if (ldec->mType == DT_VARIABLE || ldec->mType == DT_ARGUMENT)
 			ldec = ldec->mBase;
@@ -760,9 +1177,13 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			return ldec->mBase;
 		break;
 	case EX_QUALIFY:
+		if (exp->mDecType->mFlags & DTF_VOLATILE)
+			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
+
 		Analyze(exp->mLeft, procDec, flags);
 		return exp->mDecValue->mBase;
 	case EX_DISPATCH:
+		procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 		Analyze(exp->mLeft, procDec, flags);
 		break;
 	case EX_VCALL:
@@ -988,6 +1409,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		break;
 
 	case EX_CONSTRUCT:
+		procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 		if (exp->mLeft->mLeft)
 			Analyze(exp->mLeft->mLeft, procDec, 0);
 		if (exp->mLeft->mRight)
@@ -1053,6 +1475,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		ldec = Analyze(exp->mLeft, procDec, ANAFL_RHS);
 		break;
 	case EX_ASSEMBLER:
+		procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 		AnalyzeAssembler(exp, procDec);
 		break;
 	case EX_UNDEFINED:

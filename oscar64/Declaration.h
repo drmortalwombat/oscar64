@@ -276,6 +276,8 @@ public:
 	bool HasSideEffects(void) const;
 	Expression* ListAppend(Expression* lexp);
 	Expression* ToAlternateThis(Declaration* pthis, Declaration* nthis);
+	Expression* Clone(void) const;
+	Expression* ToVarConst(Declaration* pvar, Declaration* pconst) const;
 
 	void ReplaceVariable(Declaration* pvar, Declaration* nvar);
 
@@ -284,7 +286,6 @@ public:
 	bool IsLValue(void) const;
 	bool IsConstRef(void) const;
 	bool IsVolatile(void) const;
-
 
 	void Dump(int ident) const;
 };
@@ -348,6 +349,7 @@ public:
 	bool IsShortIntStruct(void) const;
 	bool IsComplexStruct(void) const;
 	bool HasConstructor(void) const;
+	bool IsPointerType(void) const;
 
 	void SetDefined(void);
 

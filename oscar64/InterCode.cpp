@@ -17632,7 +17632,7 @@ void InterCodeBasicBlock::ConstLoopOptimization(void)
 				int n = 0;
 
 				mset.Clear();
-				while (n < 10000 && !done)
+				while (n < 20000 && !done)
 				{
 					for (int i = 0; i < mInstructions.Size(); i++)
 					{
@@ -18297,7 +18297,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 			if (nins > 3 && nins < 20)
 			{
 				if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
-					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU) && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU || mInstructions[nins - 2]->mOperator == IA_CMPNE) && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
 					mInstructions[nins - 2]->mSrc[0].mTemp < 0 &&
 					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
 				{
@@ -18322,25 +18322,28 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 								int64	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
 								int	count = int((end - start + step - 1) / step);
 
-								if (count < 5 && (nins - 3) * count < 20)
+								if (mInstructions[nins - 2]->mOperator != IA_CMPNE || end == start + count * step)
 								{
-									mInstructions.SetSize(nins - 2);
-									nins -= 2;
-									for (int i = 1; i < count; i++)
+									if (count < 5 && (nins - 3) * count < 20)
 									{
-										for (int j = 0; j < nins; j++)
+										mInstructions.SetSize(nins - 2);
+										nins -= 2;
+										for (int i = 1; i < count; i++)
 										{
-											mInstructions.Push(mInstructions[j]->Clone());
+											for (int j = 0; j < nins; j++)
+											{
+												mInstructions.Push(mInstructions[j]->Clone());
+											}
 										}
+
+										mNumEntries--;
+										mLoopHead = false;
+										mTrueJump = mFalseJump;
+										mFalseJump = nullptr;
+
+										InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
+										mInstructions.Push(jins);
 									}
-
-									mNumEntries--;
-									mLoopHead = false;
-									mTrueJump = mFalseJump;
-									mFalseJump = nullptr;
-
-									InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
-									mInstructions.Push(jins);
 								}
 							}
 						}
@@ -18399,6 +18402,79 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 
 			}
 		}
+
+#if 1
+		if (mLoopHead && mNumEntries == 2 && mTrueJump == this && mFalseJump && mFalseJump->mNumEntries == 1)
+		{
+			int	nins = mInstructions.Size();
+
+			if (nins > 3)
+			{
+				if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
+					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU || mInstructions[nins - 2]->mOperator == IA_CMPNE) && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+					mInstructions[nins - 2]->mSrc[0].mTemp < 0 &&
+					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
+				{
+					int	ireg = mInstructions[nins - 3]->mDst.mTemp;
+
+					if (ireg == mInstructions[nins - 3]->mSrc[0].mTemp && mInstructions[nins - 3]->mSrc[1].mTemp < 0 ||
+						ireg == mInstructions[nins - 3]->mSrc[1].mTemp && mInstructions[nins - 3]->mSrc[0].mTemp < 0)
+					{
+
+						int	i = 0;
+						while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ireg)
+							i++;
+						if (i == nins - 3)
+						{
+							if (mDominator->mTrueValueRange[ireg].IsConstant())
+							{
+								int64	start = mDominator->mTrueValueRange[ireg].mMinValue;
+								int64	end = mInstructions[nins - 2]->mSrc[0].mIntConst;
+								if (mInstructions[nins - 2]->mOperator == IA_CMPLEU)
+									end++;
+
+								int64	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
+								int	count = int((end - start + step - 1) / step);
+
+								if (mInstructions[nins - 2]->mOperator != IA_CMPNE || end == start + count * step)
+								{
+									int i = 0;
+									while (i < mInstructions.Size())
+									{
+										InterInstruction* ins = mInstructions[i];
+
+										if (ins->mCode == IC_BINARY_OPERATOR &&
+											(ins->mOperator == IA_ADD || ins->mOperator == IA_SUB) &&
+											(ins->mDst.mTemp == ins->mSrc[0].mTemp && ins->mSrc[1].mTemp < 0 || ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0) &&
+											!IsTempReferencedInRange(0, i, ins->mDst.mTemp) && !IsTempReferencedInRange(i + 1, mInstructions.Size(), ins->mDst.mTemp))
+										{
+//											printf("Extract %s : %s,%d (%d) : %d, %d\n", mProc->mIdent->mString, ins->mLocation.mFileName, ins->mLocation.mLine, mIndex, ins->mSrc[0].mTemp, ins->mSrc[1].mTemp);
+
+											if (mTrueValueRange.Size())
+											{
+												mTrueValueRange[ins->mDst.mTemp].Reset();
+												mFalseValueRange[ins->mDst.mTemp].Reset();
+												mFalseJump->mEntryValueRange[ins->mDst.mTemp].Reset();
+											}
+
+											if (ins->mSrc[0].mTemp < 0)
+												ins->mSrc[0].mIntConst *= count;
+											else
+												ins->mSrc[1].mIntConst *= count;
+											mFalseJump->mInstructions.Insert(0, ins);
+											mInstructions.Remove(i);
+										}
+										else
+											i++;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+#endif
 
 		if (mTrueJump)
 			mTrueJump->SingleBlockLoopUnrolling();
@@ -25464,7 +25540,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_50");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

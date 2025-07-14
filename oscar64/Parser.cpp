@@ -9674,6 +9674,20 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 		return ParsePostfixExpression(lhs);
 }
 
+static Declaration* CombinedIntType(Declaration* ld, Declaration* rd)
+{
+	if (ld->mSize < 2 && rd->mSize < 2)
+		return TheSignedIntTypeDeclaration;
+	else if (ld->mSize > rd->mSize)
+		return ld;
+	else if (rd->mSize > ld->mSize)
+		return rd;
+	else if (!(rd->mFlags & DTF_SIGNED))
+		return rd;
+	else
+		return ld;
+}
+
 Expression* Parser::ParseMulExpression(bool lhs)
 {
 	Expression* exp = ParsePrefixExpression(lhs);
@@ -9692,6 +9706,8 @@ Expression* Parser::ParseMulExpression(bool lhs)
 
 		if (nexp->mLeft->mDecType->NonRefBase()->mType == DT_TYPE_FLOAT || nexp->mRight->mDecType->NonRefBase()->mType == DT_TYPE_FLOAT)
 			nexp->mDecType = TheFloatTypeDeclaration;
+		else if (exp->mDecType->IsIntegerType() && nexp->mRight->mDecType->IsIntegerType())
+			nexp->mDecType = CombinedIntType(exp->mDecType, nexp->mRight->mDecType);
 		else
 			nexp->mDecType = exp->mDecType;
 
@@ -9699,7 +9715,7 @@ Expression* Parser::ParseMulExpression(bool lhs)
 
 		exp = exp->ConstantFold(mErrors, mDataSection);
 	}
-
+	
 	return exp;
 }
 
@@ -9952,6 +9968,8 @@ Expression* Parser::ParseAddExpression(bool lhs)
 			(nexp->mLeft->mDecType->mType == DT_TYPE_POINTER || nexp->mLeft->mDecType->mType == DT_TYPE_ARRAY) &&
 			(nexp->mRight->mDecType->mType == DT_TYPE_POINTER || nexp->mRight->mDecType->mType == DT_TYPE_ARRAY))
 			nexp->mDecType = TheSignedIntTypeDeclaration;
+		else if (exp->mDecType->IsIntegerType() && nexp->mRight->mDecType->IsIntegerType())
+			nexp->mDecType = CombinedIntType(exp->mDecType, nexp->mRight->mDecType);
 		else
 			nexp->mDecType = exp->mDecType;
 

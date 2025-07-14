@@ -817,23 +817,25 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 
 		return exp->mDecValue;
 	case EX_VARIABLE:
+	{
+		Declaration* vdec = exp->mDecValue;
+		while (vdec->mType == DT_VARIABLE_REF)
+			vdec = vdec->mBase;
+
 		if (exp->mDecType->IsSimpleType())
 			procDec->mComplexity += 5 * exp->mDecType->mSize;
 		else
 			procDec->mComplexity += 10;
 
 		if (mCompilerOptions & COPT_DEBUGINFO)
-			exp->mDecValue->mReferences.Push(exp);
+			vdec->mReferences.Push(exp);
 
 		if (flags & ANAFL_ALIAS)
 		{
-			Declaration* dec = exp->mDecValue;
-			while (dec->mType == DT_VARIABLE_REF)
-				dec = dec->mBase;
-			dec->mFlags |= DTF_VAR_ALIASING;
+			vdec->mFlags |= DTF_VAR_ALIASING;
 		}
 
-		if ((exp->mDecValue->mFlags & DTF_STATIC) || (exp->mDecValue->mFlags & DTF_GLOBAL))
+		if ((vdec->mFlags & DTF_STATIC) || (vdec->mFlags & DTF_GLOBAL))
 		{
 			Declaration* type = exp->mDecValue->mBase;
 			while (type->mType == DT_TYPE_ARRAY)
@@ -845,20 +847,21 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 			if (flags & ANAFL_LHS)
 				procDec->mFlags &= ~DTF_FUNC_PURE;
 
-			AnalyzeGlobalVariable(exp->mDecValue);
+			AnalyzeGlobalVariable(vdec);
 		}
 		else
 		{
 			if (flags & ANAFL_LHS)
-				exp->mDecValue->mFlags |= DTF_VAR_ADDRESS;
+				vdec->mFlags |= DTF_VAR_ADDRESS;
 
-			if (!(exp->mDecValue->mFlags & DTF_ANALYZED))
+			if (!(vdec->mFlags & DTF_ANALYZED))
 			{
-				procDec->mLocalSize += exp->mDecValue->mSize;
-				exp->mDecValue->mFlags |= DTF_ANALYZED;
+				procDec->mLocalSize += vdec->mSize;
+				vdec->mFlags |= DTF_ANALYZED;
 			}
 		}
-		return exp->mDecValue;
+		return vdec;
+	}
 	case EX_INITIALIZATION:
 	case EX_ASSIGNMENT:
 		procDec->mComplexity += 5 * exp->mLeft->mDecType->mSize;

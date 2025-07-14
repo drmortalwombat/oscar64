@@ -124,7 +124,7 @@ ConstexprInterpreter::Value::Value(Value* value)
 {
 }
 
-ConstexprInterpreter::Value::Value(const Location& location, Value* value, Declaration* type, int offset)
+ConstexprInterpreter::Value::Value(const Location& location, const Value* value, Declaration* type, int offset)
 	: mLocation(location),
 	mDecType(type), mDecValue(nullptr),
 	mBaseValue(value), mOffset(offset),
@@ -255,6 +255,18 @@ int64 ConstexprInterpreter::Value::GetInt(void) const
 	return GetIntAt(0, mDecType);
 }
 
+int64 ConstexprInterpreter::Value::GetInt(Declaration* type) const
+{
+	int64	val = GetInt();
+	val &= 0xffffffffll >> (8 * (4 - type->mSize));
+	if (type->mFlags & DTF_SIGNED)
+	{
+		if (val & (0x80000000ll >> (8 * (4 - type->mSize))))
+			val -= 0x100000000ll >> (8 * (4 - type->mSize));
+	}
+	return val;
+}
+
 double ConstexprInterpreter::Value::GetFloat(void) const
 {
 	return GetFloatAt(0, mDecType);
@@ -263,6 +275,22 @@ double ConstexprInterpreter::Value::GetFloat(void) const
 ConstexprInterpreter::Value ConstexprInterpreter::Value::GetPtr(void) const
 {
 	return GetPtrAt(0, mDecType->mBase);
+}
+
+bool ConstexprInterpreter::Value::GetBool(void) const
+{
+	bool	check = false;
+	if (mDecType->IsIntegerType())
+		return GetInt() != 0;
+	else if (mDecType->IsPointerType())
+	{
+		Value	p = GetPtr();
+		return p.mBaseValue != nullptr || p.mOffset != 0;
+	}
+	else if (mDecType->mType == DT_TYPE_FLOAT)
+		return GetFloat() != 0;
+
+	return false;
 }
 
 void ConstexprInterpreter::Value::PutInt(int64 v)
@@ -418,7 +446,16 @@ void ConstexprInterpreter::Value::PutPtrAt(const Value& v, int at, Declaration* 
 ConstexprInterpreter::Value ConstexprInterpreter::Value::ToRValue(void) const
 {
 	if (mBaseValue)
-		return Value(mLocation, GetAddr(), mDecType);
+	{
+		if (mDecType->mType == DT_TYPE_ARRAY)
+		{
+			Value	v(mBaseValue->mLocation, mDecType->BuildArrayPointer());
+			v.PutPtr(*this);
+			return v;
+		}
+		else
+			return Value(mLocation, GetAddr(), mDecType);
+	}
 	else
 		return *this;
 }
@@ -557,7 +594,7 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 
 				target->mOffset += vp.mOffset;
 
-				dec->mValue = new Expression(mLocation, EX_CONSTANT);
+				dec->mValue = new Expression(mLocation, EX_VARIABLE);
 				dec->mValue->mDecType = type;
 				dec->mValue->mDecValue = target;
 				return dec;
@@ -573,6 +610,20 @@ Declaration* ConstexprInterpreter::Value::GetConst(int offset, Declaration* type
 				for (int i = 0; i < target->mSize; i++)
 					buffer[i] = uint8(vp.mBaseValue->GetIntAt(i, TheUnsignedCharTypeDeclaration));
 				target->mData = buffer;
+
+				dec->mOffset = vp.mOffset;
+#if 0
+				if (vp.mOffset)
+				{
+					Declaration* tt = new Declaration(mLocation, DT_CONST_POINTER);
+					tt->mBase = target->mBase;
+					tt->mValue = new Expression(mLocation, EX_CONSTANT);
+					tt->mValue->mDecType = target->mBase;
+					tt->mValue->mDecValue = target;
+					tt->mOffset = vp.mOffset;
+					target = tt;
+				}
+#endif
 			}
 			else
 				target = vp.mBaseValue->GetConst(0, vp.mBaseValue->mDecType, dataSection);
@@ -635,7 +686,7 @@ ConstexprInterpreter::Value* ConstexprInterpreter::NewValue(Expression* exp, Dec
 	return v;
 }
 
-void ConstexprInterpreter::DeleteValue(Value* v)
+void ConstexprInterpreter::DeleteValue(const Value* v)
 {
 	int i = mHeap->IndexOf(v);
 	if (i >= 0)
@@ -682,7 +733,7 @@ Expression* ConstexprInterpreter::EvalConstructor(Expression* exp)
 			return exp;
 	}
 
-	mHeap = new ExpandingArray<Value*>();
+	mHeap = new ExpandingArray<const Value*>();
 
 	Execute(exp->mLeft->mDecValue->mValue);
 
@@ -730,7 +781,7 @@ Expression* ConstexprInterpreter::EvalTempConstructor(Expression* exp)
 			return exp;
 	}
 
-	mHeap = new ExpandingArray<Value*>();
+	mHeap = new ExpandingArray<const Value*>();
 
 	Execute(cexp->mLeft->mDecValue->mValue);
 
@@ -809,7 +860,7 @@ Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 			return exp;
 	}
 
-	mHeap = new ExpandingArray<Value*>();
+	mHeap = new ExpandingArray<const Value*>();
 
 	Execute(exp->mLeft->mDecValue->mValue);
 
@@ -819,6 +870,21 @@ Expression* ConstexprInterpreter::EvalCall(Expression* exp)
 
 	return mResult.ToExpression(mDataSection);
 }
+
+static Declaration* CombinedIntType(Declaration* ld, Declaration* rd)
+{
+	if (ld->mSize < 2 && rd->mSize < 2)
+		return TheSignedIntTypeDeclaration;
+	else if (ld->mSize > rd->mSize)
+		return ld;
+	else if (rd->mSize > ld->mSize)
+		return rd;
+	else if (!(rd->mFlags & DTF_SIGNED))
+		return rd;
+	else
+		return ld;
+}
+
 
 ConstexprInterpreter::Value ConstexprInterpreter::EvalBinary(Expression * exp, const Value& vl, const Value& vr)
 {
@@ -853,39 +919,51 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalBinary(Expression * exp, c
 	}
 	else if (exp->mDecType->mType == DT_TYPE_POINTER)
 	{
-		Value	vlp = vl.GetPtr();
-		vlp.mOffset += int(vr.GetInt() * vl.mDecType->mBase->mSize);
-		v.PutPtr(vlp);
+		if (exp->mLeft->mDecType->IsPointerType())
+		{
+			Value	vlp = vl.GetPtr();
+			vlp.mOffset += int(vr.GetInt() * vl.mDecType->mBase->mSize);
+			v.PutPtr(vlp);
+		}
+		else if (exp->mRight->mDecType->IsPointerType())
+		{
+			Value	vrp = vr.GetPtr();
+			vrp.mOffset += int(vl.GetInt() * vr.mDecType->mBase->mSize);
+			v.PutPtr(vrp);
+		}
+		else
+			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible operator", TokenNames[exp->mToken]);
 	}
 	else
 	{
+		Declaration* ctype = CombinedIntType(vl.mDecType, vr.mDecType);
 		switch (exp->mToken)
 		{
 		case TK_ADD:
 		case TK_ASSIGN_ADD:
-			v.PutInt(vl.GetInt() + vr.GetInt());
+			v.PutInt(vl.GetInt(ctype) + vr.GetInt(ctype));
 			break;
 		case TK_SUB:
 		case TK_ASSIGN_SUB:
-			v.PutInt(vl.GetInt() - vr.GetInt());
+			v.PutInt(vl.GetInt(ctype) - vr.GetInt(ctype));
 			break;
 		case TK_MUL:
 		case TK_ASSIGN_MUL:
-			v.PutInt(vl.GetInt() * vr.GetInt());
+			v.PutInt(vl.GetInt(ctype) * vr.GetInt(ctype));
 			break;
 		case TK_DIV:
 		case TK_ASSIGN_DIV:
-			if (vr.GetInt() == 0)
+			if (vr.GetInt(ctype) == 0)
 				mErrors->Error(exp->mLocation, EERR_INVALID_VALUE, "Constant division by zero");
 			else
-				v.PutInt(vl.GetInt() / vr.GetInt());
+				v.PutInt(vl.GetInt(ctype) / vr.GetInt(ctype));
 			break;
 		case TK_MOD:
 		case TK_ASSIGN_MOD:
-			if (vr.GetInt() == 0)
+			if (vr.GetInt(ctype) == 0)
 				mErrors->Error(exp->mLocation, EERR_INVALID_VALUE, "Constant division by zero");
 			else
-				v.PutInt(vl.GetInt() % vr.GetInt());
+				v.PutInt(vl.GetInt(ctype) % vr.GetInt(ctype));
 			break;
 		case TK_LEFT_SHIFT:
 		case TK_ASSIGN_SHL:
@@ -897,15 +975,15 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalBinary(Expression * exp, c
 			break;
 		case TK_BINARY_AND:
 		case TK_ASSIGN_AND:
-			v.PutInt(vl.GetInt() & vr.GetInt());
+			v.PutInt(vl.GetInt(ctype) & vr.GetInt(ctype));
 			break;
 		case TK_BINARY_OR:
 		case TK_ASSIGN_OR:
-			v.PutInt(vl.GetInt() | vr.GetInt());
+			v.PutInt(vl.GetInt(ctype) | vr.GetInt(ctype));
 			break;
 		case TK_BINARY_XOR:
 		case TK_ASSIGN_XOR:
-			v.PutInt(vl.GetInt() ^ vr.GetInt());
+			v.PutInt(vl.GetInt(ctype) ^ vr.GetInt(ctype));
 			break;
 		default:
 			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible operator", TokenNames[exp->mToken]);
@@ -994,25 +1072,26 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalRelational(Expression* exp
 	}
 	else
 	{
+		Declaration* ctype = CombinedIntType(vl.mDecType, vr.mDecType);
 		switch (exp->mToken)
 		{
 		case TK_EQUAL:
-			check = vl.GetInt() == vr.GetInt();
+			check = vl.GetInt(ctype) == vr.GetInt(ctype);
 			break;
 		case TK_NOT_EQUAL:
-			check = vl.GetInt() != vr.GetInt();
+			check = vl.GetInt(ctype) != vr.GetInt(ctype);
 			break;
 		case TK_GREATER_THAN:
-			check = vl.GetInt() > vr.GetInt();
+			check = vl.GetInt(ctype) > vr.GetInt(ctype);
 			break;
 		case TK_GREATER_EQUAL:
-			check = vl.GetInt() >= vr.GetInt();
+			check = vl.GetInt(ctype) >= vr.GetInt(ctype);
 			break;
 		case TK_LESS_THAN:
-			check = vl.GetInt() < vr.GetInt();
+			check = vl.GetInt(ctype) < vr.GetInt(ctype);
 			break;
 		case TK_LESS_EQUAL:
-			check = vl.GetInt() <= vr.GetInt();
+			check = vl.GetInt(ctype) <= vr.GetInt(ctype);
 			break;
 		default:
 			mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible operator", TokenNames[exp->mToken]);
@@ -1251,6 +1330,20 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCoerce(Expression* exp, co
 			vf.PutInt(v.GetInt());
 			v = vf;
 		}
+		else if (v.mDecType->IsIntegerType() && type->IsIntegerType() && v.mDecType != type)
+		{
+			int64	val = vl.GetInt();
+			val &= 0xffffffffll >> (8 * (4 - type->mSize));
+			if (type->mFlags & DTF_SIGNED)
+			{
+				if (val & (0x80000000ll >> (8 * (4 - type->mSize))))
+					val -= 0x100000000ll >> (8 * (4 - type->mSize));
+			}
+
+			Value	vf(exp->mLocation, type);
+			vf.PutInt(val);
+			v = vf;
+		}
 
 		return v;
 	}
@@ -1263,7 +1356,14 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	case EX_SCOPE:
 		return Eval(exp->mLeft);
 	case EX_CONSTANT:
-		return Value(exp);
+		if (exp->mDecType->mSize < 4)
+			return Value(exp);
+		else
+		{
+			Value* tmp = new Value(exp);
+			mTemps.Push(tmp);
+			return Value(tmp);
+		}
 	case EX_VARIABLE:
 		if (exp->mDecValue->mType == DT_ARGUMENT)
 		{
@@ -1314,7 +1414,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	case EX_CONDITIONAL:
 	{
 		Value v = REval(exp->mLeft);
-		if (v.GetInt())
+		if (v.GetBool())
 			return Eval(exp->mRight->mLeft);
 		else
 			return Eval(exp->mRight->mRight);
@@ -1322,27 +1422,48 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 
 	case EX_LOGICAL_AND:
 	{
-		Value v = REval(exp->mLeft);
-		if (!v.GetInt())
+		Value v(exp->mLocation, TheBoolTypeDeclaration);
+		Value vl = REval(exp->mLeft);
+		if (!vl.GetBool())
+		{
+			v.PutInt(0);
 			return v;
-		else
-			return REval(exp->mRight);
+		}
+		Value vr = REval(exp->mRight);
+		if (!vr.GetBool())
+		{
+			v.PutInt(0);
+			return v;
+		}
+		v.PutInt(1);
+		return v;
 	}
 
 	case EX_LOGICAL_OR:
 	{
-		Value v = REval(exp->mLeft);
-		if (v.GetInt())
+		Value v(exp->mLocation, TheBoolTypeDeclaration);
+		Value vl = REval(exp->mLeft);
+		if (vl.GetBool())
+		{
+			v.PutInt(1);
 			return v;
-		else
-			return REval(exp->mRight);
+		}
+		Value vr = REval(exp->mRight);
+		if (vr.GetBool())
+		{
+			v.PutInt(1);
+			return v;
+		}
+		v.PutInt(0);
+		return v;
 	}
 
 	case EX_LOGICAL_NOT:
 	{
 		Value v(exp->mLocation, TheBoolTypeDeclaration);
 		Value vr = REval(exp->mLeft);
-		if (v.GetInt())
+
+		if (vr.GetBool())
 			v.PutInt(0);
 		else
 			v.PutInt(1);

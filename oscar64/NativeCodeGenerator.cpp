@@ -39290,9 +39290,13 @@ bool NativeCodeBasicBlock::OptimizeLoopRegisterWrapAround(void)
 
 					if (!pblock->mFalseJump)
 					{
-						if (hblock->mIns[0].mType == ASMIT_TAX && mIns[sz - 1].mType == ASMIT_TXA && !(hblock->mIns[0].mLive & LIVE_CPU_REG_Z))
+						int k = pblock->mIns.Size();
+						while (k > 0 && (pblock->mIns[k - 1].mLive & LIVE_CPU_REG_Z))
+							k--;
+
+						if (k > 0 && hblock->mIns[0].mType == ASMIT_TAX && mIns[sz - 1].mType == ASMIT_TXA && !(hblock->mIns[0].mLive & LIVE_CPU_REG_Z))
 						{
-							pblock->mIns.Push(NativeCodeInstruction(hblock->mIns[0].mIns, ASMIT_TAX));
+							pblock->mIns.Insert(k, NativeCodeInstruction(hblock->mIns[0].mIns, ASMIT_TAX));
 							hblock->mIns.Remove(0);
 
 							pblock->mExitRequiredRegs += CPU_REG_X;
@@ -39300,9 +39304,9 @@ bool NativeCodeBasicBlock::OptimizeLoopRegisterWrapAround(void)
 							mExitRequiredRegs += CPU_REG_X;
 							changed = true;
 						}
-						else if (hblock->mIns[0].mType == ASMIT_TAY && mIns[sz - 1].mType == ASMIT_TYA && !(hblock->mIns[0].mLive & LIVE_CPU_REG_Z))
+						else if (k > 0 && hblock->mIns[0].mType == ASMIT_TAY && mIns[sz - 1].mType == ASMIT_TYA && !(hblock->mIns[0].mLive & LIVE_CPU_REG_Z))
 						{
-							pblock->mIns.Push(NativeCodeInstruction(hblock->mIns[0].mIns, ASMIT_TAY));
+							pblock->mIns.Insert(k, NativeCodeInstruction(hblock->mIns[0].mIns, ASMIT_TAY));
 							hblock->mIns.Remove(0);
 
 							pblock->mExitRequiredRegs += CPU_REG_Y;
@@ -39310,10 +39314,10 @@ bool NativeCodeBasicBlock::OptimizeLoopRegisterWrapAround(void)
 							mExitRequiredRegs += CPU_REG_Y;
 							changed = true;
 						}
-						else if (sz > 1 && hblock->mIns[0].mType == ASMIT_LDA && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 2].mType == ASMIT_LDA
+						else if (k > 0 && sz > 1 && hblock->mIns[0].mType == ASMIT_LDA && mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 2].mType == ASMIT_LDA
 							&& hblock->mIns[0].SameEffectiveAddress(mIns[sz - 2]) && !(hblock->mIns[0].mLive & LIVE_CPU_REG_Z) && !(hblock->mIns[0].mFlags & NCIF_VOLATILE))
 						{
-							pblock->mIns.Push(hblock->mIns[0]);
+							pblock->mIns.Insert(k, hblock->mIns[0]);
 							hblock->mIns.Remove(0);
 
 							pblock->mExitRequiredRegs += CPU_REG_A;
@@ -39351,7 +39355,7 @@ bool NativeCodeBasicBlock::OptimizeLoopRegisterWrapAround(void)
 									if (ins.mAddress == finalA && !mExitRequiredRegs[CPU_REG_X])
 									{
 										int k = sz - 1;
-										if (mIns[k].mType == ASMIT_CMP || mIns[k].mType == ASMIT_CPX || mIns[k].mType == ASMIT_CPY)
+										if (mIns[k].mType == ASMIT_CMP || mIns[k].mType == ASMIT_CPX || mIns[k].mType == ASMIT_CPY || mIns[k].mType == ASMIT_INC || mIns[k].mType == ASMIT_DEC)
 											k--;
 										if (!(mIns[k].mLive & LIVE_CPU_REG_X))
 										{
@@ -56643,7 +56647,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "func_50");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

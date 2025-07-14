@@ -20,8 +20,8 @@ public:
 	uint64		mCompilerOptions;
 
 protected:
-	Errors* mErrors;
-	Linker* mLinker;
+	Errors			*	mErrors;
+	Linker			*	mLinker;
 
 	ExpandingArray<Declaration*>		mCalledFunctions, mCallingFunctions, mVariableFunctions, mFunctions;
 	ExpandingArray<Declaration*>		mGlobalVariables;
@@ -32,6 +32,9 @@ protected:
 	void RegisterCall(Declaration* from, Declaration* to);
 	void RegisterProc(Declaration* to);
 
+	bool EstimateCost(Expression* exp, Declaration* vindex, int64& cycles, int64& bytes);
+
+	bool CheckConstFunction(Expression* exp);
 	void RemoveValueReturn(Expression* exp);
 	bool CheckUnusedReturns(Expression*& exp);
 	bool CheckConstReturns(Expression*& exp);
@@ -41,5 +44,7 @@ protected:
 	void PropagateCommas(Expression*& exp);
 	void PropagateParamCommas(Expression *& fexp, Expression*& exp);
 	bool ReplaceGlobalConst(Expression* exp);
+	bool ReplaceConstCalls(Expression*& exp);
+	bool UnrollLoops(Expression*& exp);
 
 };

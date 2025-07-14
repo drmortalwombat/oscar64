@@ -514,6 +514,41 @@ void Expression::ReplaceVariable(Declaration* pvar, Declaration* nvar)
 		mDecValue = nvar;
 }
 
+Expression* Expression::ToVarConst(Declaration* pvar, Declaration* pconst) const
+{
+	if (mType == EX_VARIABLE && mDecValue == pvar)
+	{
+		Expression* exp = new Expression(mLocation, EX_CONSTANT);
+		exp->mDecType = mDecType;
+		exp->mDecValue = pconst;
+		exp->mConst = true;
+		return exp;
+	}
+	else
+	{
+		Expression* exp = new Expression(mLocation, mType);
+		exp->mToken = mToken;
+		exp->mDecType = mDecType;
+		exp->mDecValue = mDecValue;
+		exp->mConst = mConst;
+		if (mLeft) exp->mLeft = mLeft->ToVarConst(pvar, pconst);
+		if (mRight) exp->mRight = mRight->ToVarConst(pvar, pconst);
+		return exp;
+	}
+}
+
+Expression* Expression::Clone(void) const
+{
+	Expression* exp = new Expression(mLocation, mType);
+	exp->mToken = mToken;
+	exp->mDecType = mDecType;
+	exp->mDecValue = mDecValue;
+	exp->mConst = mConst;
+	if (mLeft) exp->mLeft = mLeft->Clone();
+	if (mRight) exp->mRight = mRight->Clone();
+	return exp;
+}
+
 Expression* Expression::ToAlternateThis(Declaration* pthis, Declaration* nthis)
 {
 	Expression* left = mLeft ? mLeft->ToAlternateThis(pthis, nthis) : nullptr;
@@ -1525,6 +1560,7 @@ Declaration* Declaration::ConstCast(Declaration* ntype)
 				pdec->mValue = ex;
 				pdec->mBase = ntype;
 				pdec->mSize = 2;
+				pdec->mOffset = 0;
 
 				return pdec;
 			}
@@ -3168,6 +3204,11 @@ bool Declaration::CanAssign(const Declaration* fromType) const
 	}
 
 	return false;
+}
+
+bool Declaration::IsPointerType(void) const
+{
+	return mType == DT_TYPE_ARRAY || mType == DT_TYPE_POINTER;
 }
 
 bool Declaration::IsIntegerType(void) const

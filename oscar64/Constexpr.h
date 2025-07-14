@@ -20,7 +20,7 @@ protected:
 	struct ValueItem
 	{
 		uint8			mByte;
-		Value		*	mBaseValue;
+		const Value	*	mBaseValue;
 
 		ValueItem(void);
 	};
@@ -34,7 +34,7 @@ protected:
 		Value(const Location& location, Declaration* dec, int count);
 		Value(const Value& value);
 		Value(Value&& value);
-		Value(const Location& location, Value * value, Declaration * type, int offset);
+		Value(const Location& location, const Value * value, Declaration * type, int offset);
 		Value(const Location& location, Declaration * value, Declaration* type, int offset);
 		Value(Value* value);
 		Value(const Location& location, const uint8 * data, Declaration* type);
@@ -50,7 +50,7 @@ protected:
 
 		Location		mLocation;
 		Declaration	*	mDecType, * mDecValue;
-		Value		*	mBaseValue;
+		const Value	*	mBaseValue;
 		int				mOffset;
 		ValueItem	*	mData;
 		int				mDataSize;
@@ -60,8 +60,11 @@ protected:
 		const ValueItem* GetAddr(void) const;
 
 		int64 GetInt(void) const;
+		int64 GetInt(Declaration * type) const;
 		double GetFloat(void) const;
 		Value GetPtr(void) const;
+		bool GetBool(void) const;
+
 		void PutInt(int64 v);
 		void PutFloat(double v);
 		void PutPtr(const Value& v);
@@ -76,10 +79,11 @@ protected:
 
 		void PutConst(int offset, Declaration * dec);
 		Declaration* GetConst(int offset, Declaration* type, LinkerSection* dataSection) const;
+
 	};
 
 	Value * NewValue(Expression* exp, Declaration* type, int size);
-	void DeleteValue(Value* v);
+	void DeleteValue(const Value* v);
 
 	Value EvalCall(Expression* exp, ConstexprInterpreter* caller);
 	Value EvalBinary(Expression* exp, const Value& vl, const Value& vr);
@@ -107,7 +111,7 @@ protected:
 	LinkerSection* mDataSection;
 	GrowingArray<Value>	mParams, mLocals;
 	ExpandingArray<Expression*>	mDestructStack;
-	ExpandingArray<Value *>	*	mHeap;
+	ExpandingArray<const Value *>	*	mHeap;
 	ExpandingArray<Value*>		mTemps;
 
 	Errors	* mErrors;

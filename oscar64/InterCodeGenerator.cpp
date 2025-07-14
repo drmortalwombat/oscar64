@@ -2381,6 +2381,29 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vl = TranslateExpression(procType, proc, block, dec->mValue, destack, gotos, breakBlock, continueBlock, inlineMapper);
 				vl.mReference--;
 				vl.mType = exp->mDecType;
+				if (dec->mOffset)
+				{
+					vl = Dereference(proc, exp, block, inlineMapper, vl, 0);
+
+					InterInstruction* cins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
+					cins->mConst.mType = IT_INT16;
+					cins->mConst.mIntConst = dec->mOffset;
+					cins->mDst.mType = IT_INT16;
+					cins->mDst.mTemp = proc->AddTemporary(cins->mDst.mType);
+					block->Append(cins);
+
+					InterInstruction* ains = new InterInstruction(MapLocation(exp, inlineMapper), IC_LEA);
+					ains->mSrc[1].mMemory = IM_INDIRECT;
+					ains->mSrc[0].mType = IT_INT16;
+					ains->mSrc[0].mTemp = cins->mDst.mTemp;
+					ains->mSrc[1].mType = IT_POINTER;
+					ains->mSrc[1].mTemp = vl.mTemp;
+					ains->mDst.mType = IT_POINTER;
+					ains->mDst.mTemp = proc->AddTemporary(ains->mDst.mType);
+					block->Append(ains);
+
+					vl.mTemp = ains->mDst.mTemp;
+				}
 				return vl;
 			}
 			case DT_CONST_DATA:
