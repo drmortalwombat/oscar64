@@ -22859,7 +22859,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					mInstructions[i + 1]->mSrc[0].mIntConst > 0 &&
 					mInstructions[i + 2]->mSrc[0].mIntConst + mInstructions[i + 1]->mSrc[0].mIntConst < SignedTypeMax(mInstructions[i + 2]->mSrc[0].mType))
 				{
-					mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
+					mInstructions[i + 2]->mSrc[1] = mInstructions[i + 1]->mDst;
 					mInstructions[i + 2]->mSrc[1].mFinal = false;
 					mInstructions[i + 2]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
 					changed = true;
