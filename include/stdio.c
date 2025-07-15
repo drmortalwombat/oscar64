@@ -2,6 +2,7 @@
 #include "conio.h"
 #include "stdlib.h"
 
+
 void putchar(char c)
 {
 	putpch(c);
@@ -993,5 +994,180 @@ int scanf(const char * fmt, ...)
 	return fpscanf(fmt, scanf_func, nullptr, (void **)((&fmt) + 1));
 }
 
+#if defined(__CBM__)
+#include <c64/kernalio.h>
 
+
+#define FNUM_BASE	2
+
+struct FILE
+{
+	signed char	fnum;
+};
+
+FILE	files[FOPEN_MAX];
+FILE 	stdio_file = {-1};
+
+FILE * stdin = &stdio_file;
+FILE * stdout = &stdio_file;
+
+FILE * fopen(const char * fname, const char * mode)
+{
+	char i = 0;
+	while (i < FOPEN_MAX && files[i].fnum)
+		i++;
+
+	if (i < FOPEN_MAX)
+	{
+		char cbmname[32];
+		char j = 0, rj = 0;
+		char pdrive = 0, pdevice = 8, t = 0;
+
+		while (fname[j] >= '0' && fname[j] <= '9')
+			t = t * 10 + (fname[j++] - '0');
+		if (fname[j] == ':')
+		{
+			j++;
+			pdrive = t;
+
+			rj = j;
+			t = 0;
+			while (fname[j] >= '0' && fname[j] <= '9')
+				t = t * 10 + (fname[j++] - '0');
+			if (fname[j] == ':')
+			{
+				j++;
+				pdevice = pdrive;
+				pdrive = t;
+			}
+			else
+				j = rj;
+		}
+		else
+			j = rj;
+
+		char k = 1, s = 1;
+		cbmname[k++] = pdrive + '0';
+		cbmname[k++] = ':';
+		while (fname[j])
+			cbmname[k++] = fname[j++];
+		cbmname[k++] = ',';
+		cbmname[k++] = p's';
+		cbmname[k++] = ',';
+		if (mode[0] == 'w' || mode[0] == 'W')
+		{
+			cbmname[k++] = p'w';
+			cbmname[--s] = p'@';
+		}
+		else if (mode[0] == 'r' || mode[0] == 'R')
+			cbmname[k++] = p'r';
+		else if (mode[0] == 'a' || mode[0] == 'A')
+			cbmname[k++] = p'a';
+		cbmname[k++] = 0;
+
+		krnio_setnam(cbmname + s);
+		if (krnio_open(i + FNUM_BASE, pdevice, i + FNUM_BASE))
+		{
+			files[i].fnum = i + FNUM_BASE;
+			return files + i;
+		}
+	}
+
+	return nullptr;
+}
+
+int fclose(FILE * fp)
+{
+	krnio_close(fp->fnum);
+	fp->fnum = 0;
+	return 0;
+}
+
+int fgetc(FILE* stream)
+{
+	if (stream->fnum >= 0)
+		return krnio_getch(stream->fnum);
+	else
+		return getpch();
+}
+
+char* fgets(char* s, int n, FILE* stream)
+{
+	if (krnio_gets(stream->fnum, s, n) >= 0)
+		return s;
+	return nullptr;
+}
+
+int fputc(int c, FILE* stream)
+{
+	if (stream->fnum >= 0)
+		return krnio_putch(stream->fnum);
+	else
+	{
+		putpch(c);
+		return 0;
+	}
+
+}
+
+int fputs(const char* s, FILE* stream)
+{
+	if (stream->fnum >= 0)
+		return krnio_puts(stream->fnum, s);	
+	else
+	{
+		puts(s);
+		return 0;
+	}
+}
+
+int feof(FILE * stream)
+{
+	return stream->fnum >= 0 && krnio_pstatus[stream->fnum] == KRNIO_EOF;
+}
+
+size_t fread( void * buffer, size_t size, size_t count, FILE * stream )
+{
+	return krnio_read(stream->fnum, (char *)buffer, size * count) / size;
+}
+
+size_t fwrite( const void* buffer, size_t size, size_t count, FILE* stream )
+{
+	return krnio_write(stream->fnum, (const char *)buffer, size * count) / size;	
+}
+
+int fprintf( FILE * stream, const char* format, ... )
+{
+	char	buff[50];
+	if (stream->fnum < 0 || krnio_chkout(stream->fnum))
+	{
+		sformat(buff, format, (int *)&format + 1, true);
+		krnio_clrchn();
+		return 0;
+	}
+	else
+		return -1;
+}
+
+int fscanf_func(void * fparam)
+{
+	char ch = krnio_chrin();
+	return ch;
+}
+
+int fscanf( FILE *stream, const char *format, ... )
+{
+	if (stream->fnum < 0 || krnio_chkin	(stream->fnum))
+	{
+		int res = fpscanf(format, fscanf_func, nullptr, (void **)((&format) + 1));
+		krnioerr err = krnio_status();
+		krnio_pstatus[stream->fnum] = err;
+		krnio_clrchn();
+		return res;
+	}
+	else
+		return -1;
+}
+
+#endif
 

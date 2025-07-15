@@ -354,78 +354,91 @@ int main2(int argc, const char** argv)
 		{
 			compiler->mTargetMachine = TMACH_C64;
 			compiler->AddDefine(Ident::Unique("__C64__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "c128"))
 		{
 			strcpy_s(basicStart, "0x1c01");
 			compiler->mTargetMachine = TMACH_C128;
 			compiler->AddDefine(Ident::Unique("__C128__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "c128b"))
 		{
 			strcpy_s(basicStart, "0x1c01");
 			compiler->mTargetMachine = TMACH_C128B;
 			compiler->AddDefine(Ident::Unique("__C128B__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "c128e"))
 		{
 			strcpy_s(basicStart, "0x1c01");
 			compiler->mTargetMachine = TMACH_C128E;
 			compiler->AddDefine(Ident::Unique("__C128E__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "vic20"))
 		{
 			strcpy_s(basicStart, "0x1001");
 			compiler->mTargetMachine = TMACH_VIC20;
 			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "vic20+3"))
 		{
 			strcpy_s(basicStart, "0x0401");
 			compiler->mTargetMachine = TMACH_VIC20_3K;
 			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "vic20+8"))
 		{
 			strcpy_s(basicStart, "0x1201");
 			compiler->mTargetMachine = TMACH_VIC20_8K;
 			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "vic20+16"))
 		{
 			strcpy_s(basicStart, "0x1201");
 			compiler->mTargetMachine = TMACH_VIC20_16K;
 			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "vic20+24"))
 		{
 			strcpy_s(basicStart, "0x1201");
 			compiler->mTargetMachine = TMACH_VIC20_24K;
 			compiler->AddDefine(Ident::Unique("__VIC20__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "pet"))
 		{
 			strcpy_s(basicStart, "0x0401");
 			compiler->mTargetMachine = TMACH_PET_8K;
 			compiler->AddDefine(Ident::Unique("__CBMPET__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "pet16"))
 		{
 			strcpy_s(basicStart, "0x0401");
 			compiler->mTargetMachine = TMACH_PET_16K;
 			compiler->AddDefine(Ident::Unique("__CBMPET__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "pet32"))
 		{
 			strcpy_s(basicStart, "0x0401");
 			compiler->mTargetMachine = TMACH_PET_32K;
 			compiler->AddDefine(Ident::Unique("__CBMPET__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "plus4"))
 		{
 			strcpy_s(basicStart, "0x1001");
 			compiler->mTargetMachine = TMACH_PLUS4;
 			compiler->AddDefine(Ident::Unique("__PLUS4__"), "1");
+			compiler->AddDefine(Ident::Unique("__CBM__"), "1");
 		}
 		else if (!strcmp(targetMachine, "mega65"))
 		{

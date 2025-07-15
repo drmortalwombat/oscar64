@@ -6295,6 +6295,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 											ppdec->mIdent = npdec->mIdent;
 											ppdec->mQualIdent = npdec->mQualIdent;
 										}
+										ppdec->mBase = npdec->mBase;
+
 										npdec = npdec->mNext;
 										ppdec = ppdec->mNext;
 									}
