@@ -26304,6 +26304,7 @@ void InterCodeProcedure::Close(void)
 			if (var && !var->mTemp && !var->mLinkerObject)
 			{
 				var->mLinkerObject = mModule->mLinker->AddObject(mLocation, var->mIdent, mLinkerObject->mStackSection, LOT_BSS);
+				var->mLinkerObject->mOwnerProc = this;
 				var->mLinkerObject->mVariable = var;
 				var->mLinkerObject->mFlags |= LOBJF_LOCAL_VAR;
 				var->mLinkerObject->AddSpace(var->mSize);
@@ -26313,6 +26314,7 @@ void InterCodeProcedure::Close(void)
 		}
 
 		mSaveTempsLinkerObject = mModule->mLinker->AddObject(mLocation, mIdent->Mangle("@stack"), mLinkerObject->mStackSection, LOT_BSS);
+		mSaveTempsLinkerObject->mOwnerProc = this;
 
 		ResetVisited();
 		mEntryBlock->CollectStaticStack(mLinkerObject, mLocalVars);

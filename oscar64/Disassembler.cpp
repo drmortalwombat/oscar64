@@ -815,7 +815,7 @@ const char* NativeCodeDisassembler::AddrName(int bank, int addr, char* buffer, I
 		if (proc && proc->mLinkerObject && addr >= proc->mLinkerObject->mAddress && addr < proc->mLinkerObject->mAddress + proc->mLinkerObject->mSize)
 			obj = proc->mLinkerObject;
 		else
-			obj = linker->FindObjectByAddr(bank, addr);
+			obj = linker->FindObjectByAddr(bank, addr, proc);
 
 		if (obj && obj->mIdent)
 		{

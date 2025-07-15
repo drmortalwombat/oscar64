@@ -196,7 +196,7 @@ public:
 	LinkerSection					*	mSection;
 	LinkerRegion					*	mRegion;
 	uint8							*	mData, * mMemory;
-	InterCodeProcedure				*	mProc;
+	InterCodeProcedure				*	mProc, * mOwnerProc;
 	NativeCodeProcedure				*	mNativeProc;
 	InterVariable					*	mVariable;
 	uint32								mFlags;
@@ -262,8 +262,8 @@ public:
 
 	LinkerRegion* FindRegionOfSection(LinkerSection* section);
 
-	LinkerObject* FindObjectByAddr(int addr);
-	LinkerObject* FindObjectByAddr(int bank, int addr);
+	LinkerObject* FindObjectByAddr(int addr, InterCodeProcedure* proc = nullptr);
+	LinkerObject* FindObjectByAddr(int bank, int addr, InterCodeProcedure * proc = nullptr);
 
 	bool IsSectionPlaced(LinkerSection* section);
 

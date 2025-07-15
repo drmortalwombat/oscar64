@@ -44200,38 +44200,48 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 
 							if (yoffset && yreg >= 0 && !(ins.mLive & LIVE_CPU_REG_Y))
 							{
-								if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.mType == ASMIT_CMP)
-								{
-									printf("oopsie Y\n");
-								}
+								if (j + 1 == block->mIns.Size() && !block->mExitRequiredRegs[yreg])
+									yoffset = 0;
 								else
 								{
-									j = block->CorrectYOffset(ins.mIns, yoffset, j + 1) - 1;
-									yoffset = 0;
-
-									if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.ChangesAccuAndFlag())
+									if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.mType == ASMIT_CMP)
 									{
-										ins.mLive |= LIVE_CPU_REG_A;
-										block->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+										printf("oopsie Y\n");
+									}
+									else
+									{
+										j = block->CorrectYOffset(ins.mIns, yoffset, j + 1) - 1;
+										yoffset = 0;
+
+										if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.ChangesAccuAndFlag())
+										{
+											ins.mLive |= LIVE_CPU_REG_A;
+											block->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+										}
 									}
 								}
 							}
 
 							if (xoffset && xreg >= 0 && !(ins.mLive & LIVE_CPU_REG_X))
 							{
-								if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.mType == ASMIT_CMP)
-								{
-									printf("oopsie X\n");
-								}
+								if (j + 1 == block->mIns.Size() && !block->mExitRequiredRegs[xreg])
+									xoffset = 0;
 								else
 								{
-									j = block->CorrectXOffset(ins.mIns, xoffset, j + 1) - 1;
-									xoffset = 0;
-
-									if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.ChangesAccuAndFlag())
+									if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.mType == ASMIT_CMP)
 									{
-										ins.mLive |= LIVE_CPU_REG_A;
-										block->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+										printf("oopsie X\n");
+									}
+									else
+									{
+										j = block->CorrectXOffset(ins.mIns, xoffset, j + 1) - 1;
+										xoffset = 0;
+
+										if (j + 1 == block->mIns.Size() && (ins.mLive & LIVE_CPU_REG_Z) && ins.ChangesAccuAndFlag())
+										{
+											ins.mLive |= LIVE_CPU_REG_A;
+											block->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+										}
 									}
 								}
 							}
@@ -56647,7 +56657,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "func_1");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

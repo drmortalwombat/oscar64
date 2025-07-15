@@ -46,7 +46,7 @@ bool LinkerReference::operator!=(const LinkerReference& ref)
 
 LinkerObject::LinkerObject(void)
 	: mReferences(nullptr), mNumTemporaries(0), mSize(0), mStripe(0), mAlignment(1), mStackSection(nullptr), mIdent(nullptr), mFullIdent(nullptr), mStartUsed(0x10000), mEndUsed(0x00000), mMemory(nullptr)
-	, mPrefix(nullptr), mSuffix(nullptr), mProc(nullptr), mNativeProc(nullptr)
+	, mPrefix(nullptr), mSuffix(nullptr), mProc(nullptr), mNativeProc(nullptr), mOwnerProc(nullptr)
 {}
 
 LinkerObject::~LinkerObject(void)
@@ -260,8 +260,21 @@ bool Linker::IsSectionPlaced(LinkerSection* section)
 	return false;
 }
 
-LinkerObject* Linker::FindObjectByAddr(int addr)
+LinkerObject* Linker::FindObjectByAddr(int addr, InterCodeProcedure* proc)
 {
+	if (proc)
+	{
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* lobj = mObjects[i];
+			if (lobj->mFlags & LOBJF_PLACED)
+			{
+				if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize && lobj->mOwnerProc == proc)
+					return lobj;
+			}
+		}
+	}
+
 	for (int i = 0; i < mObjects.Size(); i++)
 	{
 		LinkerObject* lobj = mObjects[i];
@@ -275,8 +288,24 @@ LinkerObject* Linker::FindObjectByAddr(int addr)
 	return nullptr;
 }
 
-LinkerObject* Linker::FindObjectByAddr(int bank, int addr)
+LinkerObject* Linker::FindObjectByAddr(int bank, int addr, InterCodeProcedure* proc)
 {
+	if (proc)
+	{
+		for (int i = 0; i < mObjects.Size(); i++)
+		{
+			LinkerObject* lobj = mObjects[i];
+			if (lobj->mFlags & LOBJF_PLACED)
+			{
+				if (lobj->mRegion && ((1ULL << bank) & lobj->mRegion->mCartridgeBanks))
+				{
+					if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize && proc == lobj->mOwnerProc)
+						return lobj;
+				}
+			}
+		}
+	}
+
 	for (int i = 0; i < mObjects.Size(); i++)
 	{
 		LinkerObject* lobj = mObjects[i];
@@ -290,7 +319,7 @@ LinkerObject* Linker::FindObjectByAddr(int bank, int addr)
 		}
 	}
 
-	return FindObjectByAddr(addr);
+	return FindObjectByAddr(addr, proc);
 }
 
 LinkerObject* Linker::FindSame(LinkerObject* obj)
