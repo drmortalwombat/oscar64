@@ -18411,7 +18411,9 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 			if (nins > 3)
 			{
 				if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
-					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU || mInstructions[nins - 2]->mOperator == IA_CMPNE) && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+					(mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU || mInstructions[nins - 2]->mOperator == IA_CMPLS || mInstructions[nins - 2]->mOperator == IA_CMPLES || mInstructions[nins - 2]->mOperator == IA_CMPNE) &&
+					mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
 					mInstructions[nins - 2]->mSrc[0].mTemp < 0 &&
 					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
 				{
@@ -18430,7 +18432,7 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 							{
 								int64	start = mDominator->mTrueValueRange[ireg].mMinValue;
 								int64	end = mInstructions[nins - 2]->mSrc[0].mIntConst;
-								if (mInstructions[nins - 2]->mOperator == IA_CMPLEU)
+								if (mInstructions[nins - 2]->mOperator == IA_CMPLEU || mInstructions[nins - 2]->mOperator == IA_CMPLES)
 									end++;
 
 								int64	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
@@ -20589,12 +20591,27 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 											}
 
 											// Move store behind loop
+											if (sins->mSrc[0].mTemp >= 0)
+												tailBlock->mEntryRequiredTemps += sins->mSrc[0].mTemp;
 											tailBlock->mInstructions.Insert(0, sins);
 											mInstructions.Remove(j);
 										}
 									}
 								}
 							}
+						}
+					}
+					else if (ins->mCode == IC_STORE && !ins->mVolatile && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mTemp < 0 && (ins->mSrc[1].mMemory == IM_GLOBAL || ins->mSrc[1].mMemory == IM_FPARAM))
+					{
+						int j = 0;
+						while (j < mInstructions.Size() && (j == i || !CollidingMem(ins, mInstructions[j])))
+							j++;
+
+						if (j == mInstructions.Size())
+						{
+							tailBlock->mInstructions.Insert(0, ins);
+							mInstructions.Remove(i);
+							i--;
 						}
 					}
 				}
@@ -22770,32 +22787,86 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 #if 1
 			// Postincrement artifact
-			if (mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
-				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
-				mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 1]->mSrc[1].mTemp &&
-				mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp)
+			if (mInstructions[i]->mCode == IC_LOAD_TEMPORARY)
 			{
-				InterInstruction* ins = mInstructions[i + 1];
-				int		ttemp = mInstructions[i + 1]->mDst.mTemp;
-				int	k = i + 1;
-				while (k + 2 < mInstructions.Size() &&
-					mInstructions[k + 1]->mCode != IC_RELATIONAL_OPERATOR &&
-					!mInstructions[k + 1]->ReferencesTemp(ttemp))
+				InterInstruction* mins = mInstructions[i];
+
+				int j = i + 1;
+				while (j + 1 < mInstructions.Size() &&
+					!mInstructions[j]->ReferencesTemp(mins->mDst.mTemp) &&
+					!mInstructions[j]->ReferencesTemp(mins->mSrc[0].mTemp))
+					j++;
+
+				if (j + 1 < mInstructions.Size())
 				{
-					mInstructions[k] = mInstructions[k + 1];
-					k++;
-				}
-				if (k > i + 1)
-				{
-					mInstructions[k] = ins;
-					changed = true;
+					InterInstruction* bins = mInstructions[j];
+					if (bins->mCode == IC_BINARY_OPERATOR &&
+						bins->mSrc[0].mTemp < 0 &&
+						mins->mSrc[0].mTemp == bins->mSrc[1].mTemp &&
+						mins->mSrc[0].mTemp == bins->mDst.mTemp)
+					{
+						int		ttemp = bins->mDst.mTemp;
+						int	k = j;
+						while (k + 2 < mInstructions.Size() &&
+							mInstructions[k + 1]->mCode != IC_RELATIONAL_OPERATOR &&
+							!mInstructions[k + 1]->ReferencesTemp(ttemp))
+						{
+							mInstructions[k] = mInstructions[k + 1];
+							k++;
+						}
+						if (k > j)
+						{
+							mInstructions[k] = bins;
+							changed = true;
+						}
+
+						j = i;
+						while (j + 1 < mInstructions.Size() &&
+							!mInstructions[j + 1]->ReferencesTemp(mins->mDst.mTemp) &&
+							!mInstructions[j + 1]->ReferencesTemp(mins->mSrc[0].mTemp))
+						{
+							mInstructions[j] = mInstructions[j + 1];
+							j++;
+						}
+						if (j > i)
+						{
+							mInstructions[j] = mins;
+							changed = true;
+						}
+					}
 				}
 			}
 
 			CheckFinalLocal();
 #endif
 		}
-
+#if 1
+		if (i + 2 < mInstructions.Size())
+		{
+			if (mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
+				IsIntegerType(mInstructions[i + 0]->mDst.mType) &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 1]->mSrc[1].mTemp &&
+				mInstructions[i + 0]->mSrc[0].mTemp == mInstructions[i + 1]->mDst.mTemp &&
+				mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+				mInstructions[i + 2]->mSrc[0].mTemp < 0)
+			{
+				if (
+					mInstructions[i + 1]->mOperator == IA_ADD &&
+					(mInstructions[i + 2]->mOperator == IA_CMPLES || mInstructions[i + 2]->mOperator == IA_CMPLS) &&
+					mInstructions[i + 1]->mSrc[0].mIntConst > 0 &&
+					mInstructions[i + 2]->mSrc[0].mIntConst + mInstructions[i + 1]->mSrc[0].mIntConst < SignedTypeMax(mInstructions[i + 2]->mSrc[0].mType))
+				{
+					mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
+					mInstructions[i + 2]->mSrc[1].mFinal = false;
+					mInstructions[i + 2]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+					changed = true;
+				}
+			}
+		}
+#endif
 		if (i + 3 < mInstructions.Size())
 		{
 			if (
@@ -22869,6 +22940,25 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 						changed = true;
 					}
 				}
+			}
+		}
+#endif
+#if 1
+		if (i + 1 < mInstructions.Size())
+		{
+			if (mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_ADD &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal &&
+				mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				IsIntegerType(mInstructions[i + 0]->mDst.mType))
+			{
+				mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+
+				mInstructions[i + 1]->mCode = IC_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
+
+				changed = true;
 			}
 		}
 #endif
@@ -25540,7 +25630,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "func_1");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -26105,6 +26195,8 @@ void InterCodeProcedure::Close(void)
 	} while (GlobalConstantPropagation());
 	Disassemble("gcp-");
 #endif
+
+	LoadStoreForwarding(paramMemory);
 
 #if 1
 	RebuildIntegerRangeSet();
