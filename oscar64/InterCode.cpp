@@ -26216,6 +26216,12 @@ void InterCodeProcedure::Close(void)
 		mEntryBlock->SingleBlockLoopUnrolling();
 
 		DisassembleDebug("Single Block loop unrolling");
+
+		RemoveUnusedInstructions();
+
+		BuildDataFlowSets();
+
+		RenameTemporaries();
 	}
 #endif
 
