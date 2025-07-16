@@ -1047,6 +1047,11 @@ FILE * fopen(const char * fname, const char * mode)
 			j = rj;
 
 		char k = 1, s = 1;
+		if (pdrive >= 10)
+		{
+			cbmname[k++] = pdrive / 10 + '0';
+			pdrive %= 10;
+		}
 		cbmname[k++] = pdrive + '0';
 		cbmname[k++] = ':';
 		while (fname[j])
