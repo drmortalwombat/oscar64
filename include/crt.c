@@ -411,6 +411,18 @@ __asm negtmp
 		rts
 }
 
+__asm negtmpb
+{
+		sec
+		lda	#0
+		sbc	tmp + 2
+		sta	tmp + 2
+		lda	#0
+		sbc	tmp + 3
+		sta	tmp + 3
+		rts
+}
+
 __asm negaccu32
 {
 		sec
@@ -444,6 +456,24 @@ __asm negtmp32
 		lda	#0
 		sbc	tmp + 3
 		sta	tmp + 3
+		rts
+}
+
+__asm negtmp32b
+{
+		sec
+		lda	#0
+		sbc	tmp + 4
+		sta	tmp + 4
+		lda	#0
+		sbc	tmp + 5
+		sta	tmp + 5
+		lda	#0
+		sbc	tmp + 6
+		sta	tmp + 6
+		lda	#0
+		sbc	tmp + 7
+		sta	tmp + 7
 		rts
 }
 
@@ -961,19 +991,36 @@ __asm mods16
 		bpl L2
 		jsr	negtmp
 L2:		jsr	divmod
-		sec
-		lda	#0
-		sbc	tmp + 2
-		sta	tmp + 2
-		lda	#0
-		sbc	tmp + 3
-		sta	tmp + 3
-		rts
+		jmp negtmpb
 L1:		bit	tmp + 1
 		bpl	L3
 		jsr	negtmp
 L3:		jmp	divmod
 		rts
+}
+
+__asm divmods16
+{
+		bit	accu + 1
+		bmi	L1
+		bit	tmp + 1
+		bmi L2
+		jmp divmod
+L2:
+		jsr negtmp
+		jsr divmod
+		jmp	negaccu
+L1:
+		jsr negaccu
+		bit tmp + 3
+		bmi L3
+		jsr divmod
+		jsr negtmpb
+		jmp negaccu
+L3:
+		jsr negtmp
+		jsr divmod
+		jmp negtmpb
 }
 
 __asm divs32
@@ -1001,20 +1048,7 @@ __asm mods32
 		bpl	L2
 		jsr	negtmp32
 L2:		jsr	divmod32
-		sec
-		lda	#0
-		sbc	tmp + 4
-		sta	tmp + 4
-		lda	#0
-		sbc	tmp + 5
-		sta	tmp + 5
-		lda	#0
-		sbc	tmp + 6
-		sta	tmp + 6
-		lda	#0
-		sbc	tmp + 7
-		sta	tmp + 7
-		rts
+		jmp negtmp32b
 L3:		jmp	divmod32
 L1:		bit	tmp + 3
 		bpl	L3
@@ -1023,12 +1057,37 @@ L1:		bit	tmp + 3
 
 }
 
+__asm divmods32
+{
+		bit	accu + 3
+		bmi	L1
+		bit	tmp + 3
+		bmi L2
+		jmp divmod32
+L2:
+		jsr negtmp32
+		jsr divmod32
+		jmp	negaccu32
+L1:
+		jsr negaccu32
+		bit tmp + 3
+		bmi L3
+		jsr divmod32
+		jsr negtmp32b
+		jmp negaccu32
+L3:
+		jsr negtmp32
+		jsr divmod32
+		jmp negtmp32b
+}
+
 #pragma runtime(mul16, mul16);
 #pragma runtime(mul16by8, mul16by8);
 #pragma runtime(divu16, divmod);
 #pragma runtime(modu16, divmod);
 #pragma runtime(divs16, divs16);
 #pragma runtime(mods16, mods16);
+#pragma runtime(divmods16, divmods16);
 		
 #pragma runtime(mul32, mul32);
 #pragma runtime(mul32by8, mul32by8);
@@ -1036,6 +1095,7 @@ L1:		bit	tmp + 3
 #pragma runtime(modu32, divmod32);
 #pragma runtime(divs32, divs32);
 #pragma runtime(mods32, mods32);
+#pragma runtime(divmods32, divmods32);
 
 	
 

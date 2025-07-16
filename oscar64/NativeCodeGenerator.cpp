@@ -9958,7 +9958,7 @@ void NativeCodeBasicBlock::AddAsrSignedByte(InterCodeProcedure* proc, const Inte
 
 }
 
-void NativeCodeBasicBlock::BinaryDivModPair(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins1, const InterInstruction* ins2)
+void NativeCodeBasicBlock::BinaryDivModPair(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins1, const InterInstruction* ins2, bool sign)
 {
 	if (ins1->mSrc[1].mTemp < 0)
 	{
@@ -10018,15 +10018,31 @@ void NativeCodeBasicBlock::BinaryDivModPair(InterCodeProcedure* proc, NativeCode
 		}
 	}
 
-	if (ins1->mDst.mType == IT_INT32)
+	if (sign)
 	{
-		NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("divu32")));
-		mIns.Push(NativeCodeInstruction(ins1, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+		if (ins1->mDst.mType == IT_INT32)
+		{
+			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("divmods32")));
+			mIns.Push(NativeCodeInstruction(ins1, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+		}
+		else
+		{
+			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("divmods16")));
+			mIns.Push(NativeCodeInstruction(ins1, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+		}
 	}
 	else
 	{
-		NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("divu16")));
-		mIns.Push(NativeCodeInstruction(ins1, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+		if (ins1->mDst.mType == IT_INT32)
+		{
+			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("divu32")));
+			mIns.Push(NativeCodeInstruction(ins1, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+		}
+		else
+		{
+			NativeCodeGenerator::Runtime& frt(nproc->mGenerator->ResolveRuntime(Ident::Unique("divu16")));
+			mIns.Push(NativeCodeInstruction(ins1, ASMIT_JSR, ASMIM_ABSOLUTE, frt.mOffset, frt.mLinkerObject, NCIF_RUNTIME | NCIF_LOWER | NCIF_UPPER));
+		}
 	}
 
 	mIns.Push(NativeCodeInstruction(ins1, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_ACCU + 0));
@@ -59144,7 +59160,7 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				ins->mSrc[1].IsEqual(iblock->mInstructions[i + 1]->mSrc[1]) &&
 				ins->mSrc[0].mTemp != ins->mDst.mTemp && ins->mSrc[1].mTemp != ins->mDst.mTemp)
 			{
-				block->BinaryDivModPair(iproc, this, ins, iblock->mInstructions[i + 1]);
+				block->BinaryDivModPair(iproc, this, ins, iblock->mInstructions[i + 1], false);
 				i++;
 			}
 			else if (i + 1 < iblock->mInstructions.Size() &&
@@ -59154,7 +59170,27 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				ins->mSrc[1].IsEqual(iblock->mInstructions[i + 1]->mSrc[1]) &&
 				ins->mSrc[0].mTemp != ins->mDst.mTemp && ins->mSrc[1].mTemp != ins->mDst.mTemp)
 			{
-				block->BinaryDivModPair(iproc, this, iblock->mInstructions[i + 1], ins);
+				block->BinaryDivModPair(iproc, this, iblock->mInstructions[i + 1], ins, false);
+				i++;
+			}
+			else if (i + 1 < iblock->mInstructions.Size() &&
+				ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_DIVS &&
+				iblock->mInstructions[i + 1]->mOperator == IA_MODS &&
+				ins->mSrc[0].IsEqual(iblock->mInstructions[i + 1]->mSrc[0]) &&
+				ins->mSrc[1].IsEqual(iblock->mInstructions[i + 1]->mSrc[1]) &&
+				ins->mSrc[0].mTemp != ins->mDst.mTemp && ins->mSrc[1].mTemp != ins->mDst.mTemp)
+			{
+				block->BinaryDivModPair(iproc, this, ins, iblock->mInstructions[i + 1], true);
+				i++;
+			}
+			else if (i + 1 < iblock->mInstructions.Size() &&
+				ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MODS &&
+				iblock->mInstructions[i + 1]->mOperator == IA_DIVS &&
+				ins->mSrc[0].IsEqual(iblock->mInstructions[i + 1]->mSrc[0]) &&
+				ins->mSrc[1].IsEqual(iblock->mInstructions[i + 1]->mSrc[1]) &&
+				ins->mSrc[0].mTemp != ins->mDst.mTemp && ins->mSrc[1].mTemp != ins->mDst.mTemp)
+			{
+				block->BinaryDivModPair(iproc, this, iblock->mInstructions[i + 1], ins, true);
 				i++;
 			}
 			else

@@ -975,6 +975,7 @@ bool Compiler::GenerateCode(void)
 		RegisterRuntime(loc, Ident::Unique("mods16"));
 		RegisterRuntime(loc, Ident::Unique("divu16"));
 		RegisterRuntime(loc, Ident::Unique("modu16"));
+		RegisterRuntime(loc, Ident::Unique("divmods16"));
 		RegisterRuntime(loc, Ident::Unique("bitshift"));
 		RegisterRuntime(loc, Ident::Unique("ffloor"));
 		RegisterRuntime(loc, Ident::Unique("fceil"));
@@ -994,6 +995,7 @@ bool Compiler::GenerateCode(void)
 		RegisterRuntime(loc, Ident::Unique("mods32"));
 		RegisterRuntime(loc, Ident::Unique("divu32"));
 		RegisterRuntime(loc, Ident::Unique("modu32"));
+		RegisterRuntime(loc, Ident::Unique("divmods32"));
 
 		RegisterRuntime(loc, Ident::Unique("store32"));
 		RegisterRuntime(loc, Ident::Unique("load32"));
