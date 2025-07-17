@@ -1900,8 +1900,14 @@ bool NativeCodeInstruction::MayBeSameAddress(const NativeCodeInstruction& ins, b
 			return mLinkerObject == ins.mLinkerObject && mAddress == ins.mAddress;
 		else if (mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y)
 			return mLinkerObject == ins.mLinkerObject && mAddress <= ins.mAddress && mAddress + 256 > ins.mAddress;
+		else if (mMode == ASMIM_INDIRECT_Y || mMode == ASMIM_INDIRECT_X)
+		{
+			if (ins.mLinkerObject && ins.mLinkerObject->mVariable && !ins.mLinkerObject->mVariable->mAliased)
+				return false;
+			return true;
+		}
 		else
-			return mMode == ASMIM_INDIRECT_Y || mMode == ASMIM_INDIRECT_X;
+			return false;
 	}
 	else if (ins.mMode == ASMIM_ABSOLUTE_X || ins.mMode == ASMIM_ABSOLUTE_Y)
 	{
@@ -1916,11 +1922,26 @@ bool NativeCodeInstruction::MayBeSameAddress(const NativeCodeInstruction& ins, b
 			else
 				return mMode != ins.mMode || !sameXY || mAddress == ins.mAddress;
 		}
+		else if (mMode == ASMIM_INDIRECT_Y || mMode == ASMIM_INDIRECT_X)
+		{
+			if (ins.mLinkerObject && ins.mLinkerObject->mVariable && !ins.mLinkerObject->mVariable->mAliased)
+				return false;
+			return true;
+		}
+		else
+			return false;
+	}
+	else if (ins.mMode == ASMIM_INDIRECT_Y || ins.mMode == ASMIM_INDIRECT_X)
+	{
+		if (mMode == ASMIM_ABSOLUTE || mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y)
+		{
+			if (mLinkerObject && mLinkerObject->mVariable && !mLinkerObject->mVariable->mAliased)
+				return false;
+			return true;
+		}
 		else
 			return mMode == ASMIM_INDIRECT_Y || mMode == ASMIM_INDIRECT_X;
 	}
-	else if (ins.mMode == ASMIM_INDIRECT_Y || ins.mMode == ASMIM_INDIRECT_X)
-		return mMode == ASMIM_ABSOLUTE || mMode == ASMIM_ABSOLUTE_X || mMode == ASMIM_ABSOLUTE_Y || mMode == ASMIM_INDIRECT_Y || mMode == ASMIM_INDIRECT_X;
 	else
 		return false;
 }
@@ -35875,13 +35896,8 @@ bool NativeCodeBasicBlock::MoveStoreYUp(int at)
 			if (mIns[at - 1].mMode == ASMIM_INDIRECT_Y && mIns[at - 1].mAddress + 1 == mIns[at].mAddress)
 				return done;
 		}
-		else
-		{
-			if (mIns[at - 1].mMode == ASMIM_ABSOLUTE && mIns[at - 1].mLinkerObject == mIns[at].mLinkerObject && mIns[at - 1].mAddress == mIns[at].mAddress)
-				return done;
-			else if ((mIns[at - 1].mMode == ASMIM_ABSOLUTE_X || mIns[at - 1].mMode == ASMIM_ABSOLUTE_Y) && mIns[at - 1].mLinkerObject == mIns[at].mLinkerObject)
-				return done;
-		}
+		else if (mIns[at - 1].MayBeSameAddress(mIns[at], true))
+			return done;
 
 		mIns[at].mLive |= mIns[at - 1].mLive;
 		mIns[at].mLive |= LIVE_CPU_REG_Y;
