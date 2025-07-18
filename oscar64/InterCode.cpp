@@ -2260,6 +2260,7 @@ void InterCodeBasicBlock::LoadConstantFold(InterInstruction* ins, InterInstructi
 
 	ins->mCode = IC_CONSTANT;
 	ins->mConst.mType = ins->mDst.mType;
+	ins->mDst.mMemory = ins->mConst.mMemory;
 	ins->mSrc[0].mTemp = -1;
 	ins->mNumOperands = 0;
 }
@@ -15643,7 +15644,10 @@ void InterCodeBasicBlock::CollectStaticStack(LinkerObject* lobj, const GrowingVa
 			else if (mInstructions[i]->mCode == IC_STORE || mInstructions[i]->mCode == IC_LEA || mInstructions[i]->mCode == IC_FILL)
 				ApplyStaticStack(mInstructions[i]->mSrc[1], localVars);
 			else if (mInstructions[i]->mCode == IC_CONSTANT && mInstructions[i]->mDst.mType == IT_POINTER)
+			{
 				ApplyStaticStack(mInstructions[i]->mConst, localVars);
+				mInstructions[i]->mDst.mMemory = mInstructions[i]->mDst.mMemoryBase = mInstructions[i]->mConst.mMemory;
+			}
 			else if (mInstructions[i]->mCode == IC_COPY)
 			{
 				ApplyStaticStack(mInstructions[i]->mSrc[0], localVars);
@@ -15697,6 +15701,182 @@ void InterCodeBasicBlock::PromoteStaticStackParams(LinkerObject* paramlobj)
 		if (mFalseJump) mFalseJump->PromoteStaticStackParams(paramlobj);
 	}
 }
+
+
+void InterCodeBasicBlock::CollectByteIndexPointers(NumberSet& invtemps, NumberSet& inctemps, GrowingIntArray& vartemps)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			const InterInstruction* ins = mInstructions[i];
+			if (ins->mDst.mTemp >= 0 && !invtemps[ins->mDst.mTemp])
+			{
+				if (ins->mDst.mType == IT_POINTER && ins->mDst.mMemoryBase == IM_GLOBAL && ins->mDst.mVarIndex >= 0 && mProc->mModule->mGlobalVars[ins->mDst.mVarIndex]->mSize < 256)
+				{
+					if (vartemps[ins->mDst.mTemp] == -1 || vartemps[ins->mDst.mTemp] == ins->mDst.mVarIndex)
+					{
+						vartemps[ins->mDst.mTemp] = ins->mDst.mVarIndex;
+						if (ins->mCode == IC_LEA)
+						{
+							if (ins->mSrc[1].mTemp == ins->mDst.mTemp)
+								inctemps += ins->mDst.mTemp;
+							else
+								invtemps += ins->mDst.mTemp;
+						}
+						else if (ins->mCode == IC_CONSTANT)
+						{
+
+						}
+						else
+							invtemps += ins->mDst.mTemp;
+					}
+					else
+						invtemps += ins->mDst.mTemp;
+				}
+				else
+					invtemps += ins->mDst.mTemp;
+			}
+
+			if (ins->mCode == IC_STORE)
+			{
+				if (ins->mSrc[0].mTemp >= 0)
+					invtemps += ins->mSrc[0].mTemp;
+			}
+			else if (ins->mCode == IC_LEA)
+			{
+				if (ins->mSrc[1].mTemp >= 0 && ins->mSrc[1].mTemp != ins->mDst.mTemp)
+					invtemps += ins->mSrc[1].mTemp;
+				if (ins->mSrc[0].mTemp >= 0)
+					invtemps += ins->mSrc[0].mTemp;
+			}
+			else if (ins->mCode == IC_LOAD)
+			{
+			}
+			else if (ins->mCode == IC_CONSTANT)
+			{
+			}
+			else if (ins->mCode == IC_RELATIONAL_OPERATOR && (ins->mSrc[0].mType == IT_POINTER || ins->mSrc[1].mType == IT_POINTER))
+			{
+				int ic = 0, ir = 1;
+				if (ins->mSrc[0].mTemp > 0)
+				{
+					ic = 1; ir = 0;
+				}
+
+				if (ins->mSrc[ic].mTemp < 0 && ins->mSrc[ir].mTemp >= 0 && !invtemps[ins->mSrc[ir].mTemp])
+				{
+					int treg = ins->mSrc[ir].mTemp;
+					int vidx = ins->mSrc[ic].mVarIndex;
+
+					if (ins->mSrc[ic].mMemory == IM_GLOBAL && vidx >= 0 && mProc->mModule->mGlobalVars[vidx]->mSize < 256)
+					{
+						if (vartemps[treg] == -1 || vartemps[treg] == vidx)
+						{
+							vartemps[treg] = vidx;
+						}
+						else
+							invtemps += treg;
+					}
+					else
+						invtemps += treg;
+				}
+				else
+				{
+					if (ins->mSrc[1].mTemp >= 0)
+						invtemps += ins->mSrc[1].mTemp;
+					if (ins->mSrc[0].mTemp >= 0)
+						invtemps += ins->mSrc[0].mTemp;
+				}
+			}
+			else
+			{
+				for (int i = 0; i < ins->mNumOperands; i++)
+					if (ins->mSrc[i].mTemp >= 0)
+						invtemps += ins->mSrc[i].mTemp;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->CollectByteIndexPointers(invtemps, inctemps, vartemps);
+		if (mFalseJump) mFalseJump->CollectByteIndexPointers(invtemps, inctemps, vartemps);
+	}
+}
+
+bool InterCodeBasicBlock::ReplaceByteIndexPointers(const NumberSet& inctemps, const GrowingIntArray& vartemps, int& spareTemps)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		InterType	itype = mProc->mNativeProcedure ? IT_INT8 : IT_INT16;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			switch (ins->mCode)
+			{
+			case IC_CONSTANT:
+				if (inctemps[ins->mDst.mTemp])
+				{
+					ins->mDst.mType = itype;
+				}
+				break;
+			case IC_LOAD:
+			case IC_STORE:
+			{
+				int pi = ins->mCode == IC_STORE ? 1 : 0;
+				if (ins->mSrc[pi].mTemp >= 0 && inctemps[ins->mSrc[pi].mTemp])
+				{
+					int ireg = ins->mSrc[pi].mTemp;
+
+					InterInstruction* nins = new InterInstruction(ins->mLocation, IC_LEA);
+					nins->mSrc[0].mType = itype;
+					nins->mSrc[0].mTemp = ireg;
+					nins->mSrc[1].mTemp = -1;
+					nins->mSrc[1].mMemory = IM_GLOBAL;
+					nins->mSrc[1].mVarIndex = vartemps[ireg];
+					nins->mSrc[1].mLinkerObject = mProc->mModule->mGlobalVars[vartemps[ireg]]->mLinkerObject;
+					mInstructions.Insert(i, nins);
+					nins->mDst = ins->mSrc[pi];
+					ins->mSrc[pi].mTemp = nins->mDst.mTemp = spareTemps++;
+					ins->mSrc[pi].mFinal = true;
+					i++;
+					changed = true;
+				}
+			}	break;
+			case IC_RELATIONAL_OPERATOR:
+				if (ins->mSrc[0].mTemp >= 0 && inctemps[ins->mSrc[0].mTemp] || ins->mSrc[1].mTemp >= 0 && inctemps[ins->mSrc[1].mTemp])
+				{
+					ins->mSrc[0].mType = itype;
+					ins->mSrc[1].mType = itype;
+					changed = true;
+				}
+				break;
+			case IC_LEA:
+				if (inctemps[ins->mDst.mTemp])
+				{
+					ins->mCode = IC_BINARY_OPERATOR;
+					ins->mOperator = IA_ADD;
+					ins->mDst.mType = itype;
+					ins->mSrc[1].mType = itype;
+					changed = true;
+				}
+				break;
+			}
+
+		}
+
+		if (mTrueJump && mTrueJump->ReplaceByteIndexPointers(inctemps, vartemps, spareTemps)) changed = true;
+		if (mFalseJump && mFalseJump->ReplaceByteIndexPointers(inctemps, vartemps, spareTemps)) changed = true;
+	}
+
+	return changed;
+}
+
 
 bool InterCodeBasicBlock::DropUnreachable(void)
 {
@@ -24479,6 +24659,71 @@ void InterCodeProcedure::CheckBlocks(void)
 	mEntryBlock->CheckBlocks();
 }
 
+bool InterCodeProcedure::ReplaceByteIndexPointers(FastNumberSet& activeSet)
+{
+	activeSet.Clear();
+
+	ResetVisited();
+	mEntryBlock->CollectActiveTemporaries(activeSet);
+
+	int		silvused = activeSet.Num();
+	if (silvused != mTemporaries.Size())
+	{
+		mTemporaries.SetSize(silvused, true);
+
+		ResetVisited();
+		mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
+
+		mLocalValueRange.SetSize(silvused, true);
+
+		ResetVisited();
+		mEntryBlock->RemapActiveTemporaries(activeSet);
+	}
+
+	NumberSet			invtemps(silvused), inctemps(silvused);
+	GrowingIntArray		vartemps(-1);
+
+	ResetVisited();
+	mEntryBlock->CollectByteIndexPointers(invtemps, inctemps, vartemps);
+	inctemps -= invtemps;
+#if 0
+	for (int i = 0; i < silvused; i++)
+	{
+		if (inctemps[i])
+		{
+			if (mModule->mGlobalVars[vartemps[i]]->mIdent)
+				printf("Inctemp %d, %s[%d]\n", i, mModule->mGlobalVars[vartemps[i]]->mIdent->mString, mModule->mGlobalVars[vartemps[i]]->mSize);
+			else
+				printf("Inctemp %d, V%d[%d]\n", i, vartemps[i], mModule->mGlobalVars[vartemps[i]]->mSize);
+		}
+	}
+#endif
+	ResetVisited();
+	if (mEntryBlock->ReplaceByteIndexPointers(inctemps, vartemps, silvused))
+	{
+		activeSet.Clear();
+
+		ResetVisited();
+		mEntryBlock->CollectActiveTemporaries(activeSet);
+
+		silvused = activeSet.Num();
+		if (silvused != mTemporaries.Size())
+		{
+			mTemporaries.SetSize(activeSet.Num(), true);
+
+			ResetVisited();
+			mEntryBlock->ShrinkActiveTemporaries(activeSet, mTemporaries);
+
+			mLocalValueRange.SetSize(activeSet.Num(), true);
+
+			ResetVisited();
+			mEntryBlock->RemapActiveTemporaries(activeSet);
+		}
+	}
+
+	return false;
+}
+
 void InterCodeProcedure::ForwardSingleAssignmentBools(void)
 {
 	int	numTemps = mTemporaries.Size();
@@ -25630,7 +25875,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_1");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -26543,6 +26788,13 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("Copy forwarding 2");
 
 	}
+
+	PropagateMemoryAliasingInfo(true);
+
+	ReplaceByteIndexPointers(activeSet);
+
+	DisassembleDebug("ReplaceByteIndexPointers");
+
 #endif
 	ForwardSingleAssignmentBools();
 #if 1

@@ -41670,6 +41670,11 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 					{
 						int finalx = lb->mIns[lbs - 1].mAddress;
 						int	a = lb->mIns[lbs - 1].mAddress - mIns[li].mAddress;
+						if (a <= 0)
+						{
+							finalx = mIns[li].mAddress + 1;
+							a = 1;
+						}
 
 						if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_ABSOLUTE_X && 
 							((lb->mIns[0].mLinkerObject && a < 128) ||
@@ -41700,6 +41705,15 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 								CheckLive();
 
 							}
+						}
+
+						if (a == 1 && changed)
+						{
+							lb->mBranch = ASMIT_JMP;
+							lb->mTrueJump->mEntryBlocks.RemoveAll(lb);
+							lb->mTrueJump->mNumEntries--;
+							lb->mTrueJump = lb->mFalseJump;
+							lb->mFalseJump = nullptr;
 						}
 					}
 				}
@@ -41737,6 +41751,12 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 					{
 						int finaly = lb->mIns[lbs - 1].mAddress;
 						int	a = lb->mIns[lbs - 1].mAddress - mIns[li].mAddress;
+
+						if (a <= 0)
+						{
+							finaly = mIns[li].mAddress + 1;
+							a = 1;
+						}
 
 						if (lbs == 3 && lb->mIns[0].mType == ASMIT_STA && lb->mIns[0].mMode == ASMIM_ABSOLUTE_Y &&
 							((lb->mIns[0].mLinkerObject && a < 128) ||
@@ -41792,6 +41812,15 @@ bool NativeCodeBasicBlock::SimpleLoopReversal(NativeCodeProcedure* proc)
 								CheckLive();
 
 							}
+						}
+
+						if (a == 1 && changed)
+						{
+							lb->mBranch = ASMIT_JMP;
+							lb->mTrueJump->mEntryBlocks.RemoveAll(lb);
+							lb->mTrueJump->mNumEntries--;
+							lb->mTrueJump = lb->mFalseJump;
+							lb->mFalseJump = nullptr;
 						}
 					}
 				}

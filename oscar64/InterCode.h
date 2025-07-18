@@ -700,6 +700,9 @@ public:
 
 	bool DropUnreachable(void);
 	
+	void CollectByteIndexPointers(NumberSet& invtemps, NumberSet& inctemps, GrowingIntArray	& vartemps);
+	bool ReplaceByteIndexPointers(const NumberSet& inctemps, const GrowingIntArray& vartemps, int& spareTemps);
+
 	bool CheckStaticStack(void);
 	void ApplyStaticStack(InterOperand& iop, const GrowingVariableArray& localVars);
 	void CollectStaticStack(LinkerObject * lobj, const GrowingVariableArray& localVars);
@@ -840,6 +843,8 @@ protected:
 	void EliminateDoubleLoopCounter(void);
 	void StructReturnPropagation(void);
 	void ForwardSingleAssignmentBools(void);
+
+	bool ReplaceByteIndexPointers(FastNumberSet& activeSet);
 
 	void CollapseDispatch(void);
 
