@@ -9348,17 +9348,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 					else if (ins->mSrc[0].mTemp < 0)
 					{
 						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
-						int64	v = vr.mMaxValue;
-						v |= v >> 16;
-						v |= v >> 8;
-						v |= v >> 4;
-						v |= v >> 2;
-						v |= v >> 1;
 
-						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mIntConst >= 0)
+						if (ins->mSrc[0].mIntConst >= 0)
 							vr.mMaxValue = BuildLowerBitsMask(vr.mMaxValue) | ins->mSrc[0].mIntConst;
 						else if (ins->mSrc[0].mIntConst < 0)
 						{
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
 							if (vr.mMinState == IntegerValueRange::S_BOUND)
 								vr.mMinValue = int64min(vr.mMinValue, ins->mSrc[0].mIntConst);
 							else
@@ -9372,16 +9367,17 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 					{
 						vr = mProc->mLocalValueRange[ins->mSrc[0].mTemp];
 
-						if (vr.mMaxState == IntegerValueRange::S_BOUND && ins->mSrc[0].mIntConst >= 0)
-							vr.mMaxValue = BuildLowerBitsMask(vr.mMaxValue) | ins->mSrc[0].mIntConst;
+						if (ins->mSrc[1].mIntConst >= 0)
+							vr.mMaxValue = BuildLowerBitsMask(vr.mMaxValue) | ins->mSrc[1].mIntConst;
 						else if (ins->mSrc[1].mIntConst < 0)
 						{
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
 							if (vr.mMinState == IntegerValueRange::S_BOUND)
 								vr.mMinValue = int64min(vr.mMinValue, ins->mSrc[1].mIntConst);
 							else
 							{
 								vr.mMinState = IntegerValueRange::S_BOUND;
-								vr.mMinValue = ins->mSrc[0].mIntConst;
+								vr.mMinValue = ins->mSrc[1].mIntConst;
 							}
 						}
 					}
@@ -25875,7 +25871,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "func_1");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
