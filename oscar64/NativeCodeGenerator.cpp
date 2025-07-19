@@ -14593,7 +14593,9 @@ void NativeCodeBasicBlock::LoadEffectiveAddress(InterCodeProcedure* proc, const 
 		bool	crossing = true;
 		if (ins->mSrc[1].mMemoryBase == IM_GLOBAL && ins->mSrc[1].mLinkerObject && (ins->mSrc[1].mLinkerObject->mFlags & LOBJF_NEVER_CROSS))
 			crossing = false;
-		else if (ins->mSrc[1].mMemoryBase == IM_ABSOLUTE && ins->mSrc[1].mRange.IsBound() && ins->mDst.mRange.IsBound() && ((ins->mSrc[1].mRange.mMinValue ^ ins->mDst.mRange.mMaxValue) & ~0xff) == 0)
+		else if (ins->mSrc[1].mMemoryBase == IM_ABSOLUTE && ins->mSrc[1].mRange.IsBound() && ins->mDst.mRange.IsBound() && 
+			((ins->mSrc[1].mRange.mMinValue ^ ins->mDst.mRange.mMaxValue) & ~0xff) == 0 &&
+			((ins->mSrc[1].mRange.mMaxValue ^ ins->mDst.mRange.mMinValue) & ~0xff) == 0)
 			crossing = false;
 
 		if (ins->mSrc[0].mTemp >= 0 || ins->mSrc[0].mIntConst != 0)
@@ -56718,7 +56720,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "func_1");
+	CheckFunc = !strcmp(mIdent->mString, "trench_init");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
