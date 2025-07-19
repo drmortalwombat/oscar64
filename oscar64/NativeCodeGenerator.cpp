@@ -35790,13 +35790,8 @@ bool NativeCodeBasicBlock::MoveStoreXUp(int at)
 				if (mIns[at - 1].mMode == ASMIM_INDIRECT_Y && mIns[at - 1].mAddress + 1 == reg)
 					return done;
 			}
-			else
-			{
-				if (mIns[at - 1].mMode == ASMIM_ABSOLUTE && mIns[at - 1].mLinkerObject == mIns[at + n].mLinkerObject && mIns[at - 1].mAddress == mIns[at + n].mAddress)
-					return done;
-				else if ((mIns[at - 1].mMode == ASMIM_ABSOLUTE_X || mIns[at - 1].mMode == ASMIM_ABSOLUTE_Y) && mIns[at - 1].mLinkerObject == mIns[at + n].mLinkerObject)
-					return done;
-			}
+			else if (mIns[at - 1].MayBeSameAddress(mIns[at + n], true))
+				return done;
 
 			if (mIns[at - 1].mMode == ASMIM_ABSOLUTE_X && inc)
 			{
@@ -56720,7 +56715,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "trench_init");
+	CheckFunc = !strcmp(mIdent->mString, "func_1");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -58692,6 +58687,9 @@ void NativeCodeProcedure::Optimize(void)
 	CompressTemporaries(true);
 #endif
 
+#if DISASSEMBLE_OPT
+	DisassembleDebug("Post Op 1");
+#endif
 
 	do {
 		ResetVisited();
@@ -58704,6 +58702,10 @@ void NativeCodeProcedure::Optimize(void)
 	do {
 		ResetVisited();
 	} while (mEntryBlock->EliminateMicroBlocks());
+
+#if DISASSEMBLE_OPT
+	DisassembleDebug("Post Op 2");
+#endif
 
 #if 1
 	do
@@ -58742,25 +58744,43 @@ void NativeCodeProcedure::Optimize(void)
 
 		CheckBlocks();
 
+#if DISASSEMBLE_OPT
+		DisassembleDebug("Post Op 3a");
+#endif
+
 		if (!changed)
 		{
 			ResetVisited();
 			changed = mEntryBlock->PeepHoleOptimizer(20);
 		}
 
+#if DISASSEMBLE_OPT
+		DisassembleDebug("Post Op 3b");
+#endif
+
 		if (!changed)
 		{
 			ResetVisited();
 			changed = mEntryBlock->JoinTailCodeSequences(this, true);
 		}
+#if DISASSEMBLE_OPT
+		DisassembleDebug("Post Op 3c");
+#endif
 
 		if (!changed)
 		{
 			ResetVisited();
 			changed = mEntryBlock->UntangleXYUsage(true);
 		}
+#if DISASSEMBLE_OPT
+		DisassembleDebug("Post Op 3d");
+#endif
 
 	} while (changed);
+#endif
+
+#if DISASSEMBLE_OPT
+	DisassembleDebug("Post Op 3");
 #endif
 
 	ResetVisited();
@@ -58799,6 +58819,10 @@ void NativeCodeProcedure::Optimize(void)
 	if (mEntryBlock->ApplyEntryDataSet())
 		changed = true;
 #endif
+#if DISASSEMBLE_OPT
+	DisassembleDebug("Post Op 4");
+#endif
+
 #if 1
 
 	ResetVisited();
