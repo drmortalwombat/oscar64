@@ -209,6 +209,7 @@ public:
 
 	bool SameLinkerObjectVariableRange(const NativeCodeInstruction& ins, bool sameXY = false) const;
 
+	bool IsPure(void) const;
 	bool ChangesGlobalMemory(void) const;
 	bool UsesMemoryOf(const NativeCodeInstruction& ins) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;

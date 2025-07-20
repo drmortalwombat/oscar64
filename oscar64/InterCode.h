@@ -671,6 +671,7 @@ public:
 	bool CollectSingleEntryGenericLoop(ExpandingArray<InterCodeBasicBlock*>& lblocks);
 	void CollectReachable(ExpandingArray<InterCodeBasicBlock*>& lblock);
 
+	void LimitLoopIndexRanges(void);
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	bool MergeLoopTails(void);
 
@@ -825,6 +826,7 @@ protected:
 	void RebuildIntegerRangeSet(void);
 	void CombineIndirectAddressing(void);
 	void SingleTailLoopOptimization(InterMemory paramMemory);
+	void LimitLoopIndexRanges(void);
 	void HoistCommonConditionalPath(void);
 	void RemoveUnusedMallocs(void);
 	void RecheckLocalAliased(void);

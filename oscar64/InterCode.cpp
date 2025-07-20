@@ -17098,6 +17098,71 @@ static bool IsSimpleFactor(int64 val)
 	return (val == 1 || val == 2 || val == 4 || val == 8);
 }
 
+void InterCodeBasicBlock::LimitLoopIndexRanges(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2)
+		{
+			InterCodeBasicBlock* tail, * post;
+
+			if (mEntryBlocks[0] == mLoopPrefix)
+				tail = mEntryBlocks[1];
+			else
+				tail = mEntryBlocks[0];
+
+			if (tail->mTrueJump == this)
+				post = tail->mFalseJump;
+			else
+				post = tail->mTrueJump;
+
+			if (post && post->mNumEntries == 1)
+			{
+				ExpandingArray<InterCodeBasicBlock*> body;
+
+				if (tail->CollectSingleHeadLoopBody(this, tail, body))
+				{
+					int tz = tail->mInstructions.Size();
+					if (tz > 2)
+					{
+						InterInstruction* ai = tail->mInstructions[tz - 3];
+						InterInstruction* ci = tail->mInstructions[tz - 2];
+						InterInstruction* bi = tail->mInstructions[tz - 1];
+
+						if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst > 1 && IsIntegerType(ai->mDst.mType) &&
+							ci->mCode == IC_RELATIONAL_OPERATOR && ci->mOperator == IA_CMPLU && ci->mSrc[0].mTemp < 0 && ci->mSrc[1].mTemp == ai->mDst.mTemp &&
+							bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp && !post->mEntryRequiredTemps[ai->mDst.mTemp] &&
+							!tail->IsTempModifiedInRange(0, tz - 3, ai->mDst.mTemp))
+						{
+							int i = 0;
+							while (i + 1 < body.Size() && !body[i]->IsTempModifiedInRange(0, body[i]->mInstructions.Size(), ai->mDst.mTemp))
+								i++;
+							if (i + 1 == body.Size())
+							{
+								InterInstruction* si = FindSourceInstruction(mLoopPrefix, ai->mDst.mTemp);
+								if (si && si->mCode == IC_CONSTANT && si->mConst.mIntConst < ci->mSrc[0].mIntConst)
+								{
+									int64	climit = ((ci->mSrc[0].mIntConst - si->mConst.mIntConst + ai->mSrc[0].mIntConst - 1) / ai->mSrc[0].mIntConst - 1) * ai->mSrc[0].mIntConst + si->mConst.mIntConst;
+									if (climit + 1 != ci->mSrc[0].mIntConst)
+									{
+										ci->mSrc[0].mIntConst = climit + 1;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->LimitLoopIndexRanges();
+		if (mFalseJump) mFalseJump->LimitLoopIndexRanges();
+	}
+
+}
+
 bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars)
 {
 	bool	modified = false;
@@ -17265,6 +17330,8 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 
 					if (!modified)
 					{
+
+
 						int tz = tail->mInstructions.Size();
 						for (int i = 0; i < tz; i++)
 						{
@@ -23071,6 +23138,40 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 		if (i + 1 < mInstructions.Size())
 		{
 			if (
+				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
+				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mIntConst < 0)
+			{
+				InterOperand	t0 = mInstructions[i + 0]->mDst;
+				InterOperand	t1 = mInstructions[i + 1]->mDst;
+
+				mInstructions[i + 0]->mDst = t1;
+				mInstructions[i + 1]->mDst = t0;
+				mInstructions[i + 1]->mSrc[1] = t1;
+				mInstructions[i + 0]->mSrc[1].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[0].mIntConst = -mInstructions[i + 1]->mSrc[0].mIntConst;
+				changed = true;
+			}
+			if (
+				mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
+				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[0].mIntConst < 0)
+			{
+				InterOperand	t0 = mInstructions[i + 0]->mDst;
+				InterOperand	t1 = mInstructions[i + 1]->mDst;
+
+				mInstructions[i + 0]->mDst = t1;
+				mInstructions[i + 1]->mDst = t0;
+				mInstructions[i + 1]->mSrc[1] = t1;
+				mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[0].mIntConst = -mInstructions[i + 1]->mSrc[0].mIntConst;
+				changed = true;
+			}
+		}
+
+#endif
+#if 1
+		if (i + 1 < mInstructions.Size())
+		{
+			if (
 				mInstructions[i + 0]->mCode == IC_LOAD_TEMPORARY &&
 				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp && mInstructions[i + 1]->mSrc[0].mFinal
 				)
@@ -23872,7 +23973,31 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 					idiv = i;
 			}
 		}
+#if 1
+		// move lea to load/store down
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mCode == IC_LEA && ((ins->mSrc[0].mTemp < 0 || !ins->mSrc[0].mFinal) || (ins->mSrc[1].mTemp < 0 || !ins->mSrc[1].mFinal)))
+			{
+				int j = i + 1;
+				while (j < mInstructions.Size() && CanSwapInstructions(ins, mInstructions[j]))
+					j++;
+				if (j > i + 1 && j < mInstructions.Size() &&
+					(mInstructions[j]->mCode == IC_LOAD && mInstructions[j]->mSrc[0].mTemp == ins->mDst.mTemp ||
+						mInstructions[j]->mCode == IC_STORE && mInstructions[j]->mSrc[1].mTemp == ins->mDst.mTemp))
+				{
+					for (int k = i; k < j - 1; k++)
+					{
+						SwapInstructions(ins, mInstructions[k + 1]);
+						mInstructions[k] = mInstructions[k + 1];
+					}
+					mInstructions[j - 1] = ins;
+				}
+			}
 
+		}
+#endif
 		// Check complex comparison, that may be simpler when using operands
 		if (mFalseJump && mInstructions.Size() >= 3)
 		{
@@ -25871,7 +25996,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "func_1");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -26224,6 +26349,9 @@ void InterCodeProcedure::Close(void)
 
 	TempForwarding();
 	RemoveUnusedInstructions();
+
+	LimitLoopIndexRanges();
+	DisassembleDebug("LimitLoopIndexRanges");
 
 #if 1
 	ResetVisited();
@@ -27169,6 +27297,19 @@ void InterCodeProcedure::RemoveNonRelevantStatics(void)
 	}
 }
 
+
+void InterCodeProcedure::LimitLoopIndexRanges(void)
+{
+	BuildLoopPrefix();
+	DisassembleDebug("added dominators");
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	ResetVisited();
+	mEntryBlock->LimitLoopIndexRanges();
+}
 
 void InterCodeProcedure::SingleTailLoopOptimization(InterMemory paramMemory)
 {
