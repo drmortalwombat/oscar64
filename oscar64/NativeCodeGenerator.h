@@ -183,6 +183,7 @@ public:
 
 	bool LoadsAccu(void) const;
 	bool ChangesAccuAndFlag(void) const;
+	bool ChangesFlagToAccu(void) const;
 	bool ChangesAddress(void) const;
 	bool UsesAddress(void) const;
 	bool ChangesAccu(void) const;
@@ -801,6 +802,9 @@ public:
 	bool ShortcutIndirectLoadStore(void);
 	bool MoveIndirectLoadZeroStoreDown(int at);
 	bool MoveLoadZeroStoreIndirectUp(int at);
+
+	bool SortIndirectStoreDown(int at);
+	bool SortIndirectStores(void);
 
 	bool CommonSubExpressionElimination(void);
 

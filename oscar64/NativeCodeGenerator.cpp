@@ -1142,6 +1142,19 @@ bool NativeCodeInstruction::ChangesAccuAndFlag(void) const
 		return false;
 }
 
+bool NativeCodeInstruction::ChangesFlagToAccu(void) const
+{
+	if (mType == ASMIT_LDA || mType == ASMIT_TXA || mType == ASMIT_TYA ||
+		mType == ASMIT_ORA || mType == ASMIT_AND || mType == ASMIT_EOR ||
+		mType == ASMIT_SBC || mType == ASMIT_ADC ||
+		mType == ASMIT_TAX || mType == ASMIT_TAY)
+		return true;
+	else if (mType == ASMIT_LSR || mType == ASMIT_ASL || mType == ASMIT_ROR || mType == ASMIT_ROL)
+		return mMode == ASMIM_IMPLIED;
+	else
+		return false;
+}
+
 uint32 NativeCodeInstruction::NeedsLive(void) const
 {
 	uint32 live = mLive;
@@ -25283,6 +25296,80 @@ bool NativeCodeBasicBlock::MoveIndirectLoadZeroStoreDown(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::SortIndirectStoreDown(int at)
+{
+	int i = at + 3;
+	while (i + 1 < mIns.Size())
+	{
+		if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+			mIns[i + 1].mMode == ASMIM_INDIRECT_Y &&
+			mIns[i + 1].mAddress == mIns[at + 2].mAddress &&
+			!(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+		{
+			if (mIns[i + 0].mAddress < mIns[at + 1].mAddress)
+			{
+				mIns.Insert(i + 2, mIns[at + 0]);
+				mIns.Insert(i + 3, mIns[at + 1]);
+				mIns.Insert(i + 4, mIns[at + 2]);
+				mIns[i + 2].mLive |= mIns[i + 1].mLive;
+				mIns[i + 3].mLive |= mIns[i + 1].mLive;
+				mIns[i + 4].mLive |= mIns[i + 1].mLive;
+				if (mIns[at + 2].mLive & LIVE_CPU_REG_A)
+					mIns.Remove(at + 1, 2);
+				else
+					mIns.Remove(at, 3);
+				return true;
+			}
+			else if (mIns[i].mAddress == mIns[at + 1].mAddress)
+				return false;
+			else
+				i += 2;
+		}
+		else
+		{
+			if (mIns[i].MayBeSameAddress(mIns[at + 2]))
+				return false;
+			else if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].ChangesAddress() && (mIns[i].mAddress == mIns[at + 2].mAddress || mIns[i].mAddress == mIns[at + 2].mAddress + 1))
+				return false;
+
+			i++;
+		}
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::SortIndirectStores(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int i = 0;
+		while (i + 2 < mIns.Size())
+		{
+			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_INDIRECT_Y)
+			{
+				if (SortIndirectStoreDown(i))
+					changed = true;
+				else
+					i++;
+			}
+			else
+				i++;
+		}
+
+		if (mTrueJump && mTrueJump->SortIndirectStores()) changed = true;
+		if (mFalseJump && mFalseJump->SortIndirectStores()) changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::MoveLoadZeroStoreIndirectUp(int at)
 {
 	int i = at - 1;
@@ -49049,6 +49136,30 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 	}
 	
 	if (
+		mIns[i + 0].mType == ASMIT_TAX &&
+		mIns[i + 1].mType == ASMIT_LDY && !mIns[i + 1].RequiresXReg() &&
+		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
+	{
+		mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 2] = mIns[i + 0];
+		mIns[i + 2].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+
+	if (
+		mIns[i + 0].mType == ASMIT_TAY &&
+		mIns[i + 1].mType == ASMIT_LDX && !mIns[i + 1].RequiresYReg() &&
+		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
+	{
+		mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 2] = mIns[i + 0];
+		mIns[i + 2].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+
+	if (
 		mIns[i + 0].ChangesAccuAndFlag() && (mIns[i + 0].mMode == ASMIM_IMMEDIATE || mIns[i + 0].mMode == ASMIM_ZERO_PAGE) &&
 		mIns[i + 1].mType == ASMIT_LDY &&
 		mIns[i + 2].mType == ASMIT_ORA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0)
@@ -58722,6 +58833,13 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+		if (step == 24)
+		{
+			ResetVisited();
+			if (mEntryBlock->SortIndirectStores())
+				changed = true;
+		}
+
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
@@ -58747,7 +58865,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 #if 1
-		if (!changed && step < 24)
+		if (!changed && step < 25)
 		{
 			ResetIndexFlipped();
 
