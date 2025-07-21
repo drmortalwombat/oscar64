@@ -161,6 +161,7 @@ A list of source files can be provided.
 * c64 : Commodore C64, (0x0800..0xa000)
 * c128 : Commodore C128, memory range (0x1c00..0xfc00)
 * c128b : Commodore C128, first 16KB only (0x1c00..0x4000)
+* c128e : Commodore C128, first 48KB only (0x1c00..0xc000)
 * plus4 : Commodore PLUS4, (0x1000..0xfc00)
 * vic20: Commodore VIC20, no extra memory (0x1000..0x1e00)
 * vic20+3 : Commodore VIC20, 3K RAM expansion (0x0400..0x1e00)

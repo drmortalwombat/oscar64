@@ -17147,6 +17147,7 @@ void InterCodeBasicBlock::LimitLoopIndexRanges(void)
 									int64	climit = ((ci->mSrc[0].mIntConst - si->mConst.mIntConst + ai->mSrc[0].mIntConst - 1) / ai->mSrc[0].mIntConst - 1) * ai->mSrc[0].mIntConst + si->mConst.mIntConst;
 									if (climit + 1 != ci->mSrc[0].mIntConst)
 									{
+//										printf("LimitLoopIndex %s:%d, %d..%d by %d to %d\n", mProc->mIdent->mString, mIndex, int(si->mConst.mIntConst), int(ci->mSrc[0].mIntConst), int(ai->mSrc[0].mIntConst), int(climit + 1));
 										ci->mSrc[0].mIntConst = climit + 1;
 									}
 								}
@@ -17213,7 +17214,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								InterInstruction* si = FindSourceInstruction(mLoopPrefix, ai->mDst.mTemp);
 								if (si && si->mCode == IC_CONSTANT)
 								{
-									int64	num = (ci->mSrc[0].mIntConst - si->mConst.mIntConst) / ai->mSrc[0].mIntConst;
+									int64	num = (ci->mSrc[0].mIntConst - si->mConst.mIntConst + ai->mSrc[0].mIntConst - 1) / ai->mSrc[0].mIntConst;
 									if (num > 255 && num < 32768)
 									{
 										ai->mSrc[0].mIntConst = 1;
@@ -19524,7 +19525,7 @@ void InterCodeBasicBlock::InnerLoopCountZeroCheck(void)
 								int64	istart = pblock->mInstructions[pi]->mConst.mIntConst;
 								if (istart >= 0)
 								{
-									int64	icount = (cins->mSrc[0].mIntConst - istart) / ains->mSrc[0].mIntConst;
+									int64	icount = (cins->mSrc[0].mIntConst - istart + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
 
 									if (icount > 0 && icount < 256)
 									{
@@ -25996,7 +25997,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "AES_CBC_encrypt_buffer");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
