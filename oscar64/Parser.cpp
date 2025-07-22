@@ -7864,13 +7864,13 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 
 		mScanner->NextToken();
 
-		bool	vol = ConsumeTokenIf(TK_VOLATILE);
+		uint64	aflags = ParseAssemblerFlags();
+
 		if (mScanner->mToken == TK_OPEN_BRACE)
 		{
 			mScanner->NextToken();
 			exp = ParseAssembler();
-			if (vol)
-				exp->mDecValue->mFlags |= DTF_VOLATILE;
+			exp->mDecValue->mFlags |= aflags;
 
 			exp->mDecType = TheSignedLongTypeDeclaration;
 			if (mScanner->mToken == TK_CLOSE_BRACE)
@@ -7937,6 +7937,47 @@ Declaration* Parser::MemberLookup(Declaration* dtype, const Ident* ident, int & 
 	return mdec;
 }
 
+uint64 Parser::ParseAssemblerFlags(void)
+{
+	uint64	flags = 0;
+
+	if (ConsumeTokenIf(TK_VOLATILE))
+		flags |= DTF_VOLATILE;
+
+	if (ConsumeTokenIf(TK_PRESERVES))
+	{
+		ConsumeToken(TK_OPEN_PARENTHESIS);
+		if (mScanner->mToken == TK_IDENT)
+		{
+			char* cp = mScanner->mTokenIdent->mString;
+			while (*cp)
+			{
+				switch (*cp)
+				{
+				case 'a':
+				case 'A':
+					flags |= DTF_ASM_PRESERVE_A;
+					break;
+				case 'x':
+				case 'X':
+					flags |= DTF_ASM_PRESERVE_X;
+					break;
+				case 'y':
+				case 'Y':
+					flags |= DTF_ASM_PRESERVE_Y;
+					break;
+				default:
+					mErrors->Error(mScanner->mLocation, EERR_ASM_INVALID_REGISTER, "Invalid register specified", mScanner->mTokenIdent);
+				}
+				cp++;
+			}
+			mScanner->NextToken();
+		}
+		ConsumeToken(TK_CLOSE_PARENTHESIS);
+	}
+
+	return flags;
+}
 
 Expression* Parser::ParseQualify(Expression* exp)
 {
@@ -11754,13 +11795,14 @@ Expression* Parser::ParseStatement(void)
 		case TK_ASM:
 		{
 			mScanner->NextToken();
-			bool	vol = ConsumeTokenIf(TK_VOLATILE);
+
+			uint64	aflags = ParseAssemblerFlags();
+
 			if (mScanner->mToken == TK_OPEN_BRACE)
 			{
 				mScanner->NextToken();
 				exp = ParseAssembler();
-				if (vol)
-					exp->mDecValue->mFlags |= DTF_VOLATILE;
+				exp->mDecValue->mFlags |= aflags;
 
 				if (mScanner->mToken == TK_CLOSE_BRACE)
 					mScanner->NextToken();
@@ -13579,8 +13621,12 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 	else
 		dasm = vdasm->mBase;
 
+
 	if (!(mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER))
 		vdasm->mFlags |= DTF_VOLATILE;
+
+	if (!(vdasm->mFlags & DTF_VOLATILE))
+		vdasm->mFlags |= DTF_ASM_PRESERVE_A | DTF_ASM_PRESERVE_X | DTF_ASM_PRESERVE_Y;
 
 	DeclarationScope* scope = dasm->mScope;
 	mScope = scope;
@@ -13711,7 +13757,7 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 							break;
 					}
 				}
-				else if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_CLOSE_BRACE || mScanner->mToken == TK_SEMICOLON)
+				else if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_CLOSE_BRACE || mScanner->mToken == TK_SEMICOLON || mScanner->mToken == TK_COLON)
 					ilast->mAsmInsMode = ASMIM_IMPLIED;
 				else if (mScanner->mToken == TK_HASH)
 				{
@@ -13819,6 +13865,77 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 					}
 				}
 
+				offset += AsmInsSize(ilast->mAsmInsType, ilast->mAsmInsMode);
+
+				uint32 flags = AsmInsFlags(ilast->mAsmInsType, ilast->mAsmInsMode);
+				if (ConsumeTokenIf(TK_COLON))
+				{
+					flags &= ~(ASMIFLG_USES_ACCU | ASMIFLG_USES_XREG | ASMIFLG_USES_YREG | ASMIFLG_CHANGES_ACCU | ASMIFLG_CHANGES_XREG | ASMIFLG_CHANGES_YREG);
+
+					if (mScanner->mToken == TK_IDENT)
+					{
+						char* cp = mScanner->mTokenIdent->mString;
+						while (*cp)
+						{
+							switch (*cp)
+							{
+							case 'a':
+							case 'A':
+								flags |= ASMIFLG_USES_ACCU;
+								break;
+							case 'x':
+							case 'X':
+								flags |= ASMIFLG_USES_XREG;
+								break;
+							case 'y':
+							case 'Y':
+								flags |= ASMIFLG_USES_YREG;
+								break;
+							default:
+								mErrors->Error(mScanner->mLocation, EERR_ASM_INVALID_REGISTER, "Invalid register specified", mScanner->mTokenIdent);
+							}
+							cp++;
+						}
+						mScanner->NextToken();
+					}
+					ConsumeToken(TK_ARROW);
+					if (mScanner->mToken == TK_IDENT)
+					{
+						char* cp = mScanner->mTokenIdent->mString;
+						while (*cp)
+						{
+							switch (*cp)
+							{
+							case 'a':
+							case 'A':
+								flags |= ASMIFLG_CHANGES_ACCU;
+								break;
+							case 'x':
+							case 'X':
+								flags |= ASMIFLG_CHANGES_XREG;
+								break;
+							case 'y':
+							case 'Y':
+								flags |= ASMIFLG_CHANGES_YREG;
+								break;
+							default:
+								mErrors->Error(mScanner->mLocation, EERR_ASM_INVALID_REGISTER, "Invalid register specified", mScanner->mTokenIdent);
+							}
+							cp++;
+						}
+						mScanner->NextToken();
+					}
+				}
+
+				if (flags & ASMIFLG_CHANGES_ACCU) 	vdasm->mFlags &= ~DTF_ASM_PRESERVE_A;
+				if (flags & ASMIFLG_CHANGES_XREG) 	vdasm->mFlags &= ~DTF_ASM_PRESERVE_X;
+				if (flags & ASMIFLG_CHANGES_YREG) 	vdasm->mFlags &= ~DTF_ASM_PRESERVE_Y;
+
+				ifinal = ilast;
+
+				ilast->mRight = new Expression(mScanner->mLocation, EX_ASSEMBLER);
+				ilast = ilast->mRight;
+
 				if (mScanner->mToken != TK_EOL && mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_SEMICOLON)
 				{
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "End of line expected");
@@ -13826,13 +13943,6 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 
 				while (mScanner->mToken != TK_EOL && mScanner->mToken != TK_EOF && mScanner->mToken != TK_CLOSE_BRACE && mScanner->mToken != TK_SEMICOLON)
 					mScanner->NextToken();
-
-				offset += AsmInsSize(ilast->mAsmInsType, ilast->mAsmInsMode);
-
-				ifinal = ilast;
-
-				ilast->mRight = new Expression(mScanner->mLocation, EX_ASSEMBLER);
-				ilast = ilast->mRight;
 			}
 		}
 		else if (mScanner->mToken == TK_EOL || mScanner->mToken == TK_SEMICOLON)
@@ -15091,8 +15201,7 @@ void Parser::Parse(void)
 					mScope->Insert(ident, vdasm);
 				}
 
-				if (ConsumeTokenIf(TK_VOLATILE))
-					vdasm->mFlags |= DTF_VOLATILE;
+				vdasm->mFlags |= ParseAssemblerFlags();
 
 				if (mScanner->mToken == TK_OPEN_BRACE)
 				{

@@ -117,7 +117,7 @@ BANKINLINE krnioerr krnio_status(void)
 	return __asm
 	{
 		BANKIN
-		jsr $ffb7			// readst
+		jsr $ffb7	: ->a		// readst
 		BANKOUT
 		sta accu
 		lda #0
@@ -185,7 +185,7 @@ BANKINLINE bool krnio_chkout(char fnum)
 	{
 		BANKIN
 		ldx fnum
-		jsr	$ffc9			// chkout
+		jsr	$ffc9	: x->ax		// chkout
 		BANKOUT
 
 		lda #0
@@ -203,7 +203,7 @@ BANKINLINE bool krnio_chkin(char fnum)
 	{
 		BANKIN
 		ldx fnum
-		jsr	$ffc6			// chkin
+		jsr	$ffc6	: x->axy	// chkin
 		BANKOUT
 
 		lda #0
@@ -220,7 +220,7 @@ BANKINLINE void krnio_clrchn(void)
 	__asm
 	{
 		BANKIN
-		jsr $ffcc		// clrchn
+		jsr $ffcc	: ->ax	// clrchn
 		BANKOUT
 	}
 }
@@ -233,7 +233,7 @@ BANKINLINE bool krnio_chrout(char ch)
 	{
 		BANKIN
 		lda ch
-		jsr $ffd2		// chrout
+		jsr $ffd2	: a->a	// chrout
 		sta accu
 		BANKOUT
 	});
@@ -246,7 +246,7 @@ BANKINLINE char krnio_chrin(void)
 	return __asm
 	{
 		BANKIN
-		jsr $ffcf		// chrin
+		jsr $ffcf	: a->a	// chrin
 		sta accu
 		BANKOUT
 	};

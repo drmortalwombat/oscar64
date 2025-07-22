@@ -129,7 +129,9 @@ static const uint64 DTF_FUNC_NO_RETURN	= (1ULL << 51);
 static const uint64 DTF_PLACED			= (1ULL << 52);
 static const uint64 DTF_NO_PAGE_CROSS	= (1ULL << 53);
 
-
+static const uint64 DTF_ASM_PRESERVE_A	= (1ULL << 54);
+static const uint64 DTF_ASM_PRESERVE_X	= (1ULL << 55);
+static const uint64 DTF_ASM_PRESERVE_Y	= (1ULL << 56);
 
 class Declaration;
 

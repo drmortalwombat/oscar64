@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Ident.h"
+#include "MachineTypes.h"
 
 enum AsmInsType
 {
@@ -42,6 +43,26 @@ struct AsmInsData
 	AsmInsMode	mMode;
 };
 
+static const uint32 ASMIFLG_USES_ACCU		= 0x00000001;
+static const uint32 ASMIFLG_USES_XREG		= 0x00000002;
+static const uint32 ASMIFLG_USES_YREG		= 0x00000004;
+static const uint32 ASMIFLG_USES_CFLAG		= 0x00000008;
+static const uint32 ASMIFLG_USES_ZFLAG		= 0x00000010;
+static const uint32 ASMIFLG_USES_MEMORY		= 0x00000020;
+static const uint32 ASMIFLG_USES_STACK		= 0x00000040;
+static const uint32 ASMIFLG_USES_ALL		= 0x000000ff;
+
+static const uint32 ASMIFLG_CHANGES_ACCU	= 0x00000100;
+static const uint32 ASMIFLG_CHANGES_XREG	= 0x00000200;
+static const uint32 ASMIFLG_CHANGES_YREG	= 0x00000400;
+static const uint32 ASMIFLG_CHANGES_CFLAG	= 0x00000800;
+static const uint32 ASMIFLG_CHANGES_ZFLAG	= 0x00001000;
+static const uint32 ASMIFLG_CHANGES_MEMORY	= 0x00002000;
+static const uint32 ASMIFLG_CHANGES_STACK	= 0x00004000;
+static const uint32 ASMIFLG_CHANGES_ALL		= 0x0000ff00;
+
+static const uint32 ASMIFLG_CONTROL_FLOW	= 0x00010000;
+
 
 extern AsmInsData	DecInsData[256];
 
@@ -56,5 +77,7 @@ AsmInsType FindAsmInstruction(const char * ins);
 bool HasAsmInstructionMode(AsmInsType type, AsmInsMode mode);
 
 int AsmInsSize(AsmInsType type, AsmInsMode mode);
+
+uint32 AsmInsFlags(AsmInsType type, AsmInsMode mode);
 
 void InitAssembler(void);

@@ -133,11 +133,15 @@ void NativeRegisterDataSet::ResetMask(void)
 
 void NativeRegisterDataSet::ResetCall(const NativeCodeInstruction& ins, int fastCallBase)
 {
+	if (!(ins.mFlags & NCIF_PRESERVE_CPU_REG_A))
+		mRegs[CPU_REG_A].Reset();
+	if (!(ins.mFlags & NCIF_PRESERVE_CPU_REG_X))
+		mRegs[CPU_REG_X].Reset();
+	if (!(ins.mFlags & NCIF_PRESERVE_CPU_REG_Y))
+		mRegs[CPU_REG_Y].Reset();
+
 	mRegs[CPU_REG_C].Reset();
 	mRegs[CPU_REG_Z].Reset();
-	mRegs[CPU_REG_A].Reset();
-	mRegs[CPU_REG_X].Reset();
-	mRegs[CPU_REG_Y].Reset();
 
 	for (int i = 0; i < NUM_REGS; i++)
 	{
@@ -674,9 +678,12 @@ bool NativeCodeInstruction::IsUsedResultInstructions(NumberSet& requiredTemps)
 	{
 		requiredTemps -= CPU_REG_C;
 		requiredTemps -= CPU_REG_Z;
-		requiredTemps -= CPU_REG_A;
-		requiredTemps -= CPU_REG_X;
-		requiredTemps -= CPU_REG_Y;
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_A))
+			requiredTemps -= CPU_REG_A;
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_X))
+			requiredTemps -= CPU_REG_X;
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_Y))
+			requiredTemps -= CPU_REG_Y;
 
 		if (mFlags & NCIF_USE_CPU_REG_A)
 			requiredTemps += CPU_REG_A;
@@ -1507,12 +1514,18 @@ bool NativeCodeInstruction::ReplaceXRegWithYReg(void)
 
 bool NativeCodeInstruction::ChangesYReg(void) const
 {
-	return mType == ASMIT_TAY || mType == ASMIT_LDY || mType == ASMIT_INY || mType == ASMIT_DEY || mType == ASMIT_JSR;
+	if (mType == ASMIT_JSR)
+		return !(mFlags & NCIF_PRESERVE_CPU_REG_Y);
+	else
+		return mType == ASMIT_TAY || mType == ASMIT_LDY || mType == ASMIT_INY || mType == ASMIT_DEY;
 }
 
 bool NativeCodeInstruction::ChangesXReg(void) const
 {
-	return mType == ASMIT_TAX || mType == ASMIT_LDX || mType == ASMIT_INX || mType == ASMIT_DEX || mType == ASMIT_JSR;
+	if (mType == ASMIT_JSR)
+		return !(mFlags & NCIF_PRESERVE_CPU_REG_X);
+	else
+		return mType == ASMIT_TAX || mType == ASMIT_LDX || mType == ASMIT_INX || mType == ASMIT_DEX;
 }
 
 bool NativeCodeInstruction::ReferencesCarry(void) const
@@ -1753,10 +1766,11 @@ bool NativeCodeInstruction::ChangesAccu(void) const
 			mType == ASMIT_TXA || mType == ASMIT_TYA ||
 			mType == ASMIT_ASL || mType == ASMIT_LSR || mType == ASMIT_ROL || mType == ASMIT_ROR;
 	}
+	else if (mType == ASMIT_JSR)
+		return !(mFlags & NCIF_PRESERVE_CPU_REG_A);
 	else
 	{
 		return
-			mType == ASMIT_JSR ||
 			mType == ASMIT_LDA || 
 			mType == ASMIT_ORA || mType == ASMIT_AND || mType == ASMIT_EOR ||
 			mType == ASMIT_SBC || mType == ASMIT_ADC;
@@ -2985,9 +2999,12 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 	case ASMIT_JSR:
 		data.mRegs[CPU_REG_C].ResetMask();
 		data.mRegs[CPU_REG_Z].ResetMask();
-		data.mRegs[CPU_REG_A].ResetMask();
-		data.mRegs[CPU_REG_X].ResetMask();
-		data.mRegs[CPU_REG_Y].ResetMask();
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_A))
+			data.mRegs[CPU_REG_A].ResetMask();
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_X))
+			data.mRegs[CPU_REG_X].ResetMask();
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_Y))
+			data.mRegs[CPU_REG_Y].ResetMask();
 
 		data.ResetWorkMasks();
 
@@ -4984,9 +5001,12 @@ void NativeCodeInstruction::FilterRegUsage(NumberSet& requiredTemps, NumberSet& 
 		for (int i = 0; i < 8; i++)
 			providedTemps += BC_REG_WORK + i;
 
-		providedTemps += CPU_REG_A;
-		providedTemps += CPU_REG_X;
-		providedTemps += CPU_REG_Y;
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_A))
+			providedTemps += CPU_REG_A;
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_X))
+			providedTemps += CPU_REG_X;
+		if (!(mFlags & NCIF_PRESERVE_CPU_REG_Y))
+			providedTemps += CPU_REG_Y;
 		providedTemps += CPU_REG_C;
 		providedTemps += CPU_REG_Z;
 		return;
@@ -14869,6 +14889,14 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_ARG_REG_Y)
 			flags |= NCIF_USE_CPU_REG_Y;
 
+		uint32	pflags = 0;
+		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_A)
+			pflags |= NCIF_PRESERVE_CPU_REG_A;
+		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_X)
+			pflags |= NCIF_PRESERVE_CPU_REG_X;
+		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_Y)
+			pflags |= NCIF_PRESERVE_CPU_REG_Y;
+
 		assert(ins->mSrc[0].mLinkerObject);
 
 		if (ins->mCode == IC_ASSEMBLER && (proc->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER) && ins->mSrc[0].mLinkerObject->mSection == proc->mLinkerObject->mSection && !ins->mVolatile)
@@ -14876,6 +14904,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 			ExpandingArray<NativeCodeInstruction>	tains;
 
 			uint32	uflags = 0;
+
 			bool	simple = true, jsrs = false;
 			int i = 0;
 			while (i < ins->mSrc[0].mLinkerObject->mSize)
@@ -14935,6 +14964,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 								tains[i].mFlags |= NCIF_PROVIDE_CPU_REG_X;
 							if (live & LIVE_CPU_REG_Y)
 								tains[i].mFlags |= NCIF_PROVIDE_CPU_REG_Y;
+							tains[i].mFlags |= pflags;
 							live = 0;
 						}
 						else
@@ -47323,8 +47353,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 			}
 			else if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y)
 			{
+				int cy = RetrieveYValue(i - 1, 2);
 				if (mIns[i].mType == ASMIT_INY)
-					mIns[i + 1].mAddress++;
+				{
+					if (cy == 255)
+						mIns[i + 1].mMode = ASMIM_ABSOLUTE;
+					else
+						mIns[i + 1].mAddress++;
+				}
 				else
 					mIns[i + 1].mAddress--;
 				NativeCodeInstruction	pins = mIns[i];
@@ -47348,8 +47384,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 			}
 			else if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_X)
 			{
+				int cx = RetrieveXValue(i - 1, 2);
 				if (mIns[i].mType == ASMIT_INX)
-					mIns[i + 1].mAddress++;
+				{
+					if (cx == 255)
+						mIns[i + 1].mMode = ASMIM_ABSOLUTE;
+					else
+						mIns[i + 1].mAddress++;
+				}
 				else
 					mIns[i + 1].mAddress--;
 				NativeCodeInstruction	pins = mIns[i];
@@ -56040,8 +56082,8 @@ void NativeCodeBasicBlock::CheckLive(void)
 
 			if (mIns[j].mType == ASMIT_JSR)
 			{
-				assert((mIns[j].mFlags & NCIF_PROVIDE_CPU_REG_X) || !(live & LIVE_CPU_REG_X));
-				assert((mIns[j].mFlags & NCIF_PROVIDE_CPU_REG_Y) || !(live & LIVE_CPU_REG_Y));
+				assert((mIns[j].mFlags & NCIF_PROVIDE_CPU_REG_X) || (mIns[j].mFlags & NCIF_PRESERVE_CPU_REG_X) || !(live & LIVE_CPU_REG_X));
+				assert((mIns[j].mFlags & NCIF_PROVIDE_CPU_REG_Y) || (mIns[j].mFlags & NCIF_PRESERVE_CPU_REG_Y) || !(live & LIVE_CPU_REG_Y));
 				if (!(mIns[j].mFlags & NCIF_JSRFLAGS))
 					assert(!(live & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)));
 			}
@@ -56920,7 +56962,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "epic_init_ring");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

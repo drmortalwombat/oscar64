@@ -916,6 +916,13 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 
 	dec->mLinkerObject = mLinker->AddObject(dec->mLocation, dec->mQualIdent, dec->mSection, LOT_NATIVE_CODE, dec->mAlignment);
 
+	if (dec->mFlags & DTF_ASM_PRESERVE_A)
+		dec->mLinkerObject->mFlags |= LOBJF_PRESERVE_REG_A;
+	if (dec->mFlags & DTF_ASM_PRESERVE_X)
+		dec->mLinkerObject->mFlags |= LOBJF_PRESERVE_REG_X;
+	if (dec->mFlags & DTF_ASM_PRESERVE_Y)
+		dec->mLinkerObject->mFlags |= LOBJF_PRESERVE_REG_Y;
+
 	uint8* d = dec->mLinkerObject->AddSpace(osize);
 
 	GrowingArray<Declaration*>		refVars(nullptr);

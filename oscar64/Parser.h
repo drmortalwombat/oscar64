@@ -88,6 +88,8 @@ protected:
 	Expression* ParseFunction(Declaration* dec);
 	Expression* ParseAssembler(Declaration * vdassm = nullptr);
 
+	uint64 ParseAssemblerFlags(void);
+
 	Expression* ParseAssemblerBaseOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerMulOperand(Declaration* pcasm, int pcoffset);
 	Expression* ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset);

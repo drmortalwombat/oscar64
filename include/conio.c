@@ -48,9 +48,9 @@ __asm dswap
 #pragma code(code)
 #elif defined(__C128B__) || defined(__C128E__)
 #define dswap 	0xff5f
-#define bsout	0xffd2
+#define bsout	0xffd2 : a->a
 #define bsin	0xffe4
-#define bsget	0xffcf
+#define bsget	0xffcf : a->a
 #define bsplot	0xfff0
 #define bsinit	0xff81
 #elif defined(__PLUS4__)
@@ -122,17 +122,17 @@ __asm bsinit
 
 }
 #elif defined(__VIC20__)
-#define bsout	0xffd2
+#define bsout	0xffd2 : a->a
 #define bsin	0xffe4
 #define bsplot	0xfff0
-#define bsget	0xffcf
+#define bsget	0xffcf : a->a
 __asm bsinit
 {
 	lda #147
 	jmp $ffd2	
 }
 #elif defined(__CBMPET__)
-#define bsout	0xffd2
+#define bsout	0xffd2 : a->a
 #define bsin	0xffe4
 __asm bsplot
 {
@@ -144,11 +144,11 @@ __asm bsinit
 }
 #define bsget	0xffcf
 #else
-#define bsout	0xffd2
+#define bsout	0xffd2 : a->a
 #define bsin	0xffe4
 #define bsplot	0xfff0
 #define bsinit	0xff81
-#define bsget	0xffcf
+#define bsget	0xffcf : a->a
 #endif
 
 #if defined(__C128__) || defined(__C128B__) || defined(__C128E__)

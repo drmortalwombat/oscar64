@@ -341,6 +341,217 @@ int AsmInsSize(AsmInsType type, AsmInsMode mode)
 		return 1;
 }
 
+uint32 AsmInsFlags(AsmInsType type, AsmInsMode mode)
+{
+	uint32	flags = 0;
+
+	// Accu
+	switch (type)
+	{
+	case ASMIT_LDA:
+		flags |= ASMIFLG_CHANGES_ACCU | ASMIFLG_CHANGES_ZFLAG;
+		if (mode != ASMIM_IMMEDIATE)
+			flags |= ASMIFLG_USES_MEMORY;
+		break;
+
+	case ASMIT_LDX:
+		flags |= ASMIFLG_CHANGES_XREG | ASMIFLG_CHANGES_ZFLAG;
+		if (mode != ASMIM_IMMEDIATE)
+			flags |= ASMIFLG_USES_MEMORY;
+		break;
+
+	case ASMIT_LDY:
+		flags |= ASMIFLG_CHANGES_YREG | ASMIFLG_CHANGES_ZFLAG;
+		if (mode != ASMIM_IMMEDIATE)
+			flags |= ASMIFLG_USES_MEMORY;
+		break;
+
+	case ASMIT_STA:
+		flags |= ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_MEMORY;
+		break;
+
+	case ASMIT_STX:
+		flags |= ASMIFLG_USES_XREG | ASMIFLG_CHANGES_MEMORY;
+		break;
+
+	case ASMIT_STY:
+		flags |= ASMIFLG_USES_YREG | ASMIFLG_CHANGES_MEMORY;
+		break;
+
+	case ASMIT_ADC:
+	case ASMIT_SBC:
+		flags |= ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_ACCU | ASMIFLG_CHANGES_ZFLAG | ASMIFLG_USES_CFLAG | ASMIFLG_CHANGES_CFLAG;
+		if (mode != ASMIM_IMMEDIATE)
+			flags |= ASMIFLG_USES_MEMORY;
+		break;
+
+	case ASMIT_AND:
+	case ASMIT_ORA:
+	case ASMIT_EOR:
+		flags |= ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_ACCU | ASMIFLG_CHANGES_ZFLAG;
+		if (mode != ASMIM_IMMEDIATE)
+			flags |= ASMIFLG_USES_MEMORY;
+		break;
+
+	case ASMIT_ASL:
+	case ASMIT_LSR:
+		flags |= ASMIFLG_CHANGES_CFLAG | ASMIFLG_CHANGES_ZFLAG;
+		if (mode == ASMIM_IMPLIED)
+			flags |= ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_ACCU;
+		else
+			flags |= ASMIFLG_USES_MEMORY | ASMIFLG_CHANGES_MEMORY;
+		break;
+
+	case ASMIT_ROL:
+	case ASMIT_ROR:
+		flags |= ASMIFLG_USES_CFLAG | ASMIFLG_CHANGES_CFLAG | ASMIFLG_CHANGES_ZFLAG;
+		if (mode == ASMIM_IMPLIED)
+			flags |= ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_ACCU;
+		else
+			flags |= ASMIFLG_USES_MEMORY | ASMIFLG_CHANGES_MEMORY;
+		break;
+
+	case ASMIT_CMP:
+		flags |= ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_ZFLAG | ASMIFLG_CHANGES_CFLAG;
+		if (mode != ASMIM_IMMEDIATE)
+			flags |= ASMIFLG_USES_MEMORY;
+		break;
+	case ASMIT_CPX:
+		flags |= ASMIFLG_USES_XREG | ASMIFLG_CHANGES_ZFLAG | ASMIFLG_CHANGES_CFLAG;
+		if (mode != ASMIM_IMMEDIATE)
+			flags |= ASMIFLG_USES_MEMORY;
+		break;
+	case ASMIT_CPY:
+		flags |= ASMIFLG_USES_YREG | ASMIFLG_CHANGES_ZFLAG | ASMIFLG_CHANGES_CFLAG;
+		if (mode != ASMIM_IMMEDIATE)
+			flags |= ASMIFLG_USES_MEMORY;
+		break;
+
+	case ASMIT_DEX:
+	case ASMIT_INX:
+		flags |= ASMIFLG_USES_XREG | ASMIFLG_CHANGES_ZFLAG | ASMIFLG_CHANGES_XREG;
+		break;
+
+	case ASMIT_DEY:
+	case ASMIT_INY:
+		flags |= ASMIFLG_USES_YREG | ASMIFLG_CHANGES_ZFLAG | ASMIFLG_CHANGES_YREG;
+		break;
+
+	case ASMIT_DEC:
+	case ASMIT_INC:
+		flags |= ASMIFLG_USES_MEMORY | ASMIFLG_CHANGES_MEMORY | ASMIFLG_CHANGES_ZFLAG;
+		break;
+
+	case ASMIT_BCC:
+	case ASMIT_BCS:
+		flags |= ASMIFLG_USES_CFLAG | ASMIFLG_CONTROL_FLOW;
+		break;
+
+	case ASMIT_BEQ:
+	case ASMIT_BMI:
+	case ASMIT_BNE:
+	case ASMIT_BPL:
+	case ASMIT_BVC:
+	case ASMIT_BVS:
+		flags |= ASMIFLG_USES_ZFLAG | ASMIFLG_CONTROL_FLOW;
+		break;
+
+	case ASMIT_JMP:
+		flags |= ASMIFLG_CONTROL_FLOW;
+		break;
+
+	case ASMIT_CLC:
+	case ASMIT_SEC:
+		flags |= ASMIFLG_CHANGES_CFLAG;
+		break;
+
+	case ASMIT_BIT:
+		flags |= ASMIFLG_USES_MEMORY | ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_ZFLAG;
+		break;
+
+	case ASMIT_CLV:
+		flags |= ASMIFLG_CHANGES_ZFLAG;
+		break;
+
+	case ASMIT_TAX:
+		flags |= ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_XREG | ASMIFLG_CHANGES_ZFLAG;
+		break;
+	case ASMIT_TAY:
+		flags |= ASMIFLG_USES_ACCU | ASMIFLG_CHANGES_YREG | ASMIFLG_CHANGES_ZFLAG;
+		break;
+	case ASMIT_TSX:
+		flags |= ASMIFLG_USES_STACK | ASMIFLG_CHANGES_XREG | ASMIFLG_CHANGES_ZFLAG;
+		break;
+	case ASMIT_TXA:
+		flags |= ASMIFLG_USES_XREG | ASMIFLG_CHANGES_ACCU | ASMIFLG_CHANGES_ZFLAG;
+		break;
+	case ASMIT_TXS:
+		flags |= ASMIFLG_USES_XREG | ASMIFLG_CHANGES_STACK | ASMIFLG_CHANGES_ZFLAG;
+		break;
+	case ASMIT_TYA:
+		flags |= ASMIFLG_USES_YREG | ASMIFLG_CHANGES_ACCU | ASMIFLG_CHANGES_ZFLAG;
+		break;
+
+	case ASMIT_PLA:
+		flags |= ASMIFLG_USES_STACK | ASMIFLG_CHANGES_STACK | ASMIFLG_CHANGES_ACCU | ASMIFLG_CHANGES_ZFLAG;
+		break;
+
+	case ASMIT_PHA:
+		flags |= ASMIFLG_USES_STACK | ASMIFLG_CHANGES_STACK | ASMIFLG_USES_ACCU;
+		break;
+
+	case ASMIT_PLP:
+		flags |= ASMIFLG_USES_STACK | ASMIFLG_CHANGES_STACK | ASMIFLG_CHANGES_CFLAG | ASMIFLG_CHANGES_ZFLAG;
+		break;
+
+	case ASMIT_PHP:
+		flags |= ASMIFLG_USES_STACK | ASMIFLG_CHANGES_STACK | ASMIFLG_USES_CFLAG | ASMIFLG_USES_ZFLAG;
+		break;
+
+	case ASMIT_JSR:
+		flags |= ASMIFLG_USES_ALL | ASMIFLG_CHANGES_ALL | ASMIFLG_CONTROL_FLOW;
+		break;
+
+	case ASMIT_RTS:
+	case ASMIT_RTI:
+		flags |= ASMIFLG_CONTROL_FLOW;
+		break;
+
+	case ASMIT_BRK:
+		flags |= ASMIFLG_CONTROL_FLOW;
+		break;
+
+	case ASMIT_CLI:
+	case ASMIT_SEI:
+	case ASMIT_CLD:
+	case ASMIT_SED:
+		break;
+
+	case ASMIT_NOP:
+		break;
+	}
+
+	switch (mode)
+	{
+	case ASMIM_ABSOLUTE_X:
+	case ASMIM_ZERO_PAGE_X:
+		flags |= ASMIFLG_USES_XREG;
+		break;
+	case ASMIM_INDIRECT_X:
+		flags |= ASMIFLG_USES_XREG | ASMIFLG_USES_MEMORY;
+		break;
+
+	case ASMIM_ABSOLUTE_Y:
+	case ASMIM_ZERO_PAGE_Y:
+		flags |= ASMIFLG_USES_YREG;
+		break;
+	case ASMIM_INDIRECT_Y:
+		flags |= ASMIFLG_USES_YREG | ASMIFLG_USES_MEMORY;
+		break;
+	}
+	return flags;
+}
+
 static inline char toupper(char ch)
 {
 	if (ch >= 'a' && ch <= 'z')
