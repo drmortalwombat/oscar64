@@ -1121,7 +1121,7 @@ char* fgets(char* s, int n, FILE* stream)
 int fputc(int c, FILE* stream)
 {
 	if (stream->fnum >= 0)
-		return krnio_putch(stream->fnum);
+		return krnio_putch(stream->fnum, c);
 	else
 	{
 		putpch(c);
