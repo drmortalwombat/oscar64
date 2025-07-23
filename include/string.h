@@ -3,11 +3,23 @@
 
 char * strcpy(char * dst, const char * src);
 
+char * strncpy(char * dst, const char * src, int n);
+
 int strcmp(const char * ptr1, const char * ptr2);
+
+int strncmp(const char * ptr1, const char * ptr2, int n);
 
 int strlen(const char * str);
 
 char * strcat(char * dst, const char * src);
+
+char * strncat(char * dst, const char * src, int n);
+
+char * strchr(const char * str, int ch);
+
+char * strrchr(const char * str, int ch);
+
+char * strstr(const char * str, const char * substr);
 
 char * cpycat(char * dst, const char * src);
 
@@ -21,7 +33,7 @@ int memcmp(const void * ptr1, const void * ptr2, int size);
 
 void * memmove(void * dst, const void * src, int size);
 
-char* strchr( const char* str, int ch );
+void * memchr(const void * ptr, int ch, int size);
 
 #pragma intrinsic(strcpy)
 
@@ -34,4 +46,3 @@ char* strchr( const char* str, int ch );
 #pragma compile("string.c")
 
 #endif
-
