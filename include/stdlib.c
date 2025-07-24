@@ -504,6 +504,42 @@ long labs(long n)
 	return n < 0 ? - n : n;	
 }
 
+div_t div(int numer, int denom)
+{
+	div_t result;
+
+	if (denom == 0)
+	{
+		result.quot = 0;
+		result.rem = 0;
+	}
+	else
+	{
+		result.quot = numer / denom;
+		result.rem = numer % denom;
+	}
+	
+	return result;
+}
+
+ldiv_t ldiv(long int numer, long int denom)
+{
+	ldiv_t result;
+
+	if (denom == 0)
+	{
+		result.quot = 0;
+		result.rem = 0;
+	}
+	else
+	{
+		result.quot = numer / denom;
+		result.rem = numer % denom;
+	}
+	
+	return result;
+}
+
 void exit(int status)
 {
 	__asm

@@ -64,10 +64,68 @@ void heapcheck(void)
 	}
 }
 
+void callocckeck(void) {
+	const int ALLOC_COUNT = 4;
+	const int MAX_SIZE = 8;
+
+    int i, j;
+    int sizes[ALLOC_COUNT];
+    char str[ALLOC_COUNT][MAX_SIZE];
+    void *ptr[ALLOC_COUNT];
+
+    for (i = 0; i < ALLOC_COUNT; i++)
+    {
+        sizes[i] = abs(rand() % ALLOC_COUNT) * 2;
+
+		for (j=0; j < sizes[i]-1; j++) {
+			str[i][j] = 'a' + (abs(rand()) % 26);
+		}
+
+		str[i][sizes[i]-1] = '\0'; 
+	}
+
+    for (i = 0; i < ALLOC_COUNT; i++)
+    {
+        ptr[i] = calloc(sizes[i] / 2, 2);
+
+        if (ptr[i] == NULL)
+        {
+			exit(-4);
+		}
+
+        strcpy(ptr[i], str[i]);
+    }
+
+    for (i = 0; i < ALLOC_COUNT; i++)
+    {
+        if (strcmp(ptr[i], str[i]) != 0)
+        {
+			exit(-5);
+        }
+    }
+
+    for (i = 0; i < ALLOC_COUNT; i++)
+    {
+        free(ptr[i]);
+    }
+}
+
+void divcheck(void) {
+	div_t d = div(10, 3);
+	if (d.quot != 3 || d.rem != 1)
+		exit(-6);
+
+	ldiv_t ld = ldiv(10, 3);
+	if (ld.quot != 3 || ld.rem != 1)
+		exit(-7);
+}
+
 int main(void)
 {
 	numchecks();
 	heapcheck();
+	callocckeck();
+	divcheck();
 	
 	return 0;
 }
