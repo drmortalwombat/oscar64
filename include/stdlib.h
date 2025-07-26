@@ -3,6 +3,18 @@
 
 #define RAND_MAX	65535u
 
+typedef struct
+{
+	int quot;
+	int rem;
+} div_t;
+
+typedef struct
+{
+	long int quot;
+	long int rem;
+} ldiv_t;
+
 extern const float tpow10[7];
 
 void itoa(int n, char * s, unsigned radix);
@@ -35,6 +47,9 @@ int abs(int n);
 
 long labs(long n);
 
+div_t div(int numer, int denom);
+
+ldiv_t ldiv(long int numer, long int denom);
 
 void exit(int status);
 

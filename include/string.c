@@ -43,6 +43,24 @@ char * strcpy(char * dst, const char * src)
 
 #pragma native(strcpy)
 
+char * strncpy(char * dst, const char * src, int n)
+{
+	char * d = dst;
+	const char * s = src;
+
+	do {} while (n-- && (*d++ = *s++));
+
+	// If, after copying the terminating null character from src, count is not reached, 
+	// additional null characters are written to dest until the total of count characters 
+	// have been written.
+	while (n-- > 0)
+		*d++ = '\0';
+
+	return dst;
+}
+
+#pragma native(strncpy)
+
 #if 1
 
 int strcmp(const char * ptr1, const char * ptr2)
@@ -101,6 +119,31 @@ int strcmp(const char * ptr1, const char * ptr2)
 
 #pragma native(strcmp)
 
+int strncmp(const char * ptr1, const char * ptr2, int size)
+{
+	const char *p = ptr1, *q = ptr2;
+	char c = 0, d = 0;
+
+	while (size-- && (c = *p++) == (d = *q++))
+	{
+		if (!c)
+			return 0;
+	}
+
+	if (size < 0)
+		return 0; // equal up to size
+
+	if (c < d)
+		return -1;
+
+	if (c > d)
+		return 1;
+
+	return 0; // equal
+}
+
+#pragma native(strncmp)
+
 int strlen(const char * str)
 {
 	const char	*	s = str;
@@ -128,6 +171,33 @@ char * strcat(char * dst, const char * src)
 
 #pragma native(strcat)
 
+char * strncat(char * dst, const char * src, int n)
+{
+	char * d = dst;
+	const char * s = src;
+
+	while (*d)
+		d++;
+
+	while (1) {
+		if (!n--) {
+			// The terminating null character is always appended in the end
+			if (*d) {
+				*d = '\0'; 
+			}
+
+			return dst;
+		}
+
+		// stopping if the null character is found
+		if (!(*d++ = *s++)) {
+			return dst;
+		}
+	}
+}
+
+#pragma native(strncat)
+
 char * cpycat(char * dst, const char * src)
 {
 	while (*dst = *src++)
@@ -138,7 +208,7 @@ char * cpycat(char * dst, const char * src)
 
 #pragma native(cpycat)
 
-char* strchr( const char* str, int ch )
+char * strchr( const char * str, int ch )
 {
 	char * p = (char *)str;
 
@@ -151,6 +221,49 @@ char* strchr( const char* str, int ch )
 	return p;
 }
 
+char * strrchr(const char * str, int ch)
+{
+	const char * p = str;
+	const char * last = nullptr;
+
+	while (*p)
+	{
+		if (*p == (char)ch)
+			last = p;
+		p++;
+	}
+
+	// The terminating null character is considered to be a part of the string and can be found if searching for '\0'
+	return ch == '\0' ? (char *)p : (char *)last;
+}
+
+char * strstr(const char * str, const char * substr)
+{
+	const char * p = str;
+	const char * q = substr;
+
+	if (!*q)
+		return (char *)str; // empty substring matches at the start
+
+	while (*p)
+	{
+		const char * start = p;
+		q = substr;
+
+		while (*p && *q && *p == *q)
+		{
+			p++;
+			q++;
+		}
+
+		if (!*q) // reached end of substring
+			return (char *)start;
+
+		p = start + 1; // move to next character in str
+	}
+
+	return nullptr; // substring not found
+}
 
 void * memset(void * dst, int value, int size)
 {
@@ -252,7 +365,7 @@ void * memmove(void * dst, const void * src, int size)
 			do {
 				*--d = *--s;
 			} while (--sz);
-		}	
+		}
 	}
 	return dst;
 }
@@ -274,6 +387,18 @@ int memcmp(const void * ptr1, const void * ptr2, int size)
 	
 	return 0;
 }
-	
 
+void * memchr(const void * ptr, int ch, int size)
+{
+	const unsigned char * p = (const unsigned char *)ptr;
 
+	while (size--)
+	{
+		if (*p == (unsigned char)ch)
+			return (void *)p;
+
+		p++;
+	}
+
+	return nullptr; // not found
+}
