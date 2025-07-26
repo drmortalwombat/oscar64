@@ -180,14 +180,14 @@ const char* TokenNames[] =
 
 
 Macro::Macro(const Ident* ident, MacroDict * scope)
-	: mIdent(ident), mString(nullptr), mNumArguments(-1), mScope(scope), mVariadic(false)
+	: mIdent(ident), mString(nullptr), mBuffer(nullptr), mSize(0), mNumArguments(-1), mScope(scope), mVariadic(false)
 {
 
 }
 
 Macro::~Macro(void)
 {
-
+	delete[] mBuffer;
 }
 
 void Macro::SetString(const char* str)
@@ -198,8 +198,6 @@ void Macro::SetString(const char* str)
 
 void Macro::SetString(const char* str, ptrdiff_t length)
 {
-	char* nstr = new char[length + 2];
-
 	while (*str != 0 && *str <= ' ')
 	{
 		length--;
@@ -208,12 +206,19 @@ void Macro::SetString(const char* str, ptrdiff_t length)
 	while (length > 0 && str[length - 1] <= ' ')
 		length--;
 
-	if (length > 0)
-		memcpy(nstr, str, length);
+	if (length + 2 > mSize)
+	{
+		delete[] mBuffer;
+		mSize = (length + 9) & ~7;
+		mBuffer = new char[mSize];
+	}
 
-	nstr[length] = ' ';
-	nstr[length + 1] = 0;
-	mString = nstr;
+	if (length > 0)
+		memcpy(mBuffer, str, length);
+
+	mBuffer[length] = ' ';
+	mBuffer[length + 1] = 0;
+	mString = mBuffer;
 }
 
 
@@ -361,6 +366,12 @@ Scanner::Scanner(Errors* errors, Preprocessor* preprocessor)
 	mRecord = mRecordLast = mRecordPrev = nullptr;
 
 	mOnceDict = new MacroDict();
+
+	mFileMacro = new Macro(Ident::Unique("__FILE__"), nullptr);
+	mDefines->Insert(mFileMacro);
+
+	mLineMacro = new Macro(Ident::Unique("__LINE__"), nullptr);
+	mDefines->Insert(mLineMacro);
 
 	NextChar();
 
@@ -1106,6 +1117,19 @@ void Scanner::NextPreToken(void)
 				}
 				else
 					mDefineArguments = def->mScope;
+
+				if (def == mFileMacro) 
+				{
+					char fileName[256];
+					sprintf_s(fileName, "\"%s\"", mPreprocessor->mSource->mFileName);
+					def->SetString(fileName);
+				}
+				else if (def == mLineMacro) 
+				{
+					char lineNumber[16];
+					sprintf_s(lineNumber, "%d", mPreprocessor->mLocation.mLine);
+					def->SetString(lineNumber);
+				}
 
 				ex->mLine = mLine;
 				ex->mOffset = mOffset;

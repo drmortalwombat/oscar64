@@ -195,6 +195,8 @@ public:
 
 	const Ident	*	mIdent;
 	const char	*	mString;
+	char		*	mBuffer;
+	int				mSize;
 	int				mNumArguments;
 	const Ident	*	mArguments[32];
 	MacroDict	*	mScope;
@@ -314,6 +316,7 @@ protected:
 	int			mMacroExpansionDepth;
 
 	MacroDict* mDefines, * mDefineArguments, * mOnceDict;
+	Macro* mFileMacro, * mLineMacro;
 
 	Token		mUngetToken;
 

@@ -5,56 +5,56 @@ EXES:=$(patsubst %.cpp,%,$(EXES))
 all: $(EXES)
 
 %: %.c
-	$(OSCAR64_CC) -e -bc $<
-	$(OSCAR64_CC) -e -n $<
-	$(OSCAR64_CC) -e -O2 -bc $<
-	$(OSCAR64_CC) -e -O2 -n $<
-	$(OSCAR64_CC) -e -O0 -bc $<
-	$(OSCAR64_CC) -e -O0 -n $<
-	$(OSCAR64_CC) -e -Os -bc $<
-	$(OSCAR64_CC) -e -Os -n $<
-	$(OSCAR64_CC) -e -O3 -bc $<
-	$(OSCAR64_CC) -e -O3 -n $<
+	$(OSCAR64_CC) -ea -g -bc $<
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -bc $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -bc $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -bc $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -bc $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
 
 %: %.cpp
-	$(OSCAR64_CXX) -e -bc $<
-	$(OSCAR64_CXX) -e -n $<
-	$(OSCAR64_CXX) -e -O2 -bc $<
-	$(OSCAR64_CXX) -e -O2 -n $<
-	$(OSCAR64_CXX) -e -O0 -bc $<
-	$(OSCAR64_CXX) -e -O0 -n $<
-	$(OSCAR64_CXX) -e -Os -bc $<
-	$(OSCAR64_CXX) -e -Os -n $<
-	$(OSCAR64_CXX) -e -O3 -bc $<
-	$(OSCAR64_CXX) -e -O3 -n $<
+	$(OSCAR64_CXX) -ea -g -bc $<
+	$(OSCAR64_CXX) -ea -g -n $<
+	$(OSCAR64_CXX) -ea -g -O2 -bc $<
+	$(OSCAR64_CXX) -ea -g -O2 -n $<
+	$(OSCAR64_CXX) -ea -g -O0 -bc $<
+	$(OSCAR64_CXX) -ea -g -O0 -n $<
+	$(OSCAR64_CXX) -ea -g -Os -bc $<
+	$(OSCAR64_CXX) -ea -g -Os -n $<
+	$(OSCAR64_CXX) -ea -g -O3 -bc $<
+	$(OSCAR64_CXX) -ea -g -O3 -n $<
 
 # testb
 bitshifttest: bitshifttest.c
-	$(OSCAR64_CC) -e -bc $<
-	$(OSCAR64_CC) -e -bc -O2 $<
-	$(OSCAR64_CC) -e -bc -O0 $<
-	$(OSCAR64_CC) -e -bc -Os $<
-	$(OSCAR64_CC) -e -bc -O3 $<
-	$(OSCAR64_CC) -e -n $<
+	$(OSCAR64_CC) -ea -g -bc $<
+	$(OSCAR64_CC) -ea -g -bc -O2 $<
+	$(OSCAR64_CC) -ea -g -bc -O0 $<
+	$(OSCAR64_CC) -ea -g -bc -Os $<
+	$(OSCAR64_CC) -ea -g -bc -O3 $<
+	$(OSCAR64_CC) -ea -g -n $<
 
 # testn
 stripedarraytest: stripedarraytest.c
-	$(OSCAR64_CC) -e -O2 -n $<
-	$(OSCAR64_CC) -e -O0 -n $<
-	$(OSCAR64_CC) -e -Os -n $<
-	$(OSCAR64_CC) -e -O3 -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
 
 autorefreturn: autorefreturn.cpp
-	$(OSCAR64_CC) -e -O2 -n $<
-	$(OSCAR64_CC) -e -O0 -n $<
-	$(OSCAR64_CC) -e -Os -n $<
-	$(OSCAR64_CC) -e -O3 -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
 
 copyconstructor: copyconstructor.cpp
-	$(OSCAR64_CC) -e -O2 -n $<
-	$(OSCAR64_CC) -e -O0 -n $<
-	$(OSCAR64_CC) -e -Os -n $<
-	$(OSCAR64_CC) -e -O3 -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
 
 clean:
 	@$(RM) *.asm *.bcs *.int *.lbl *.map *.prg

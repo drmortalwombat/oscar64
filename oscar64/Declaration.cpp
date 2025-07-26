@@ -1393,7 +1393,7 @@ Declaration::Declaration(const Location& loc, DecType type)
 	: mLocation(loc), mEndLocation(loc), mType(type), mScope(nullptr), mData(nullptr), mIdent(nullptr), mQualIdent(nullptr), mMangleIdent(nullptr),
 	mSize(0), mOffset(0), mFlags(0), mComplexity(0), mLocalSize(0), mNumVars(0),
 	mBase(nullptr), mParams(nullptr), mParamPack(nullptr), mValue(nullptr), mReturn(nullptr), mNext(nullptr), mPrev(nullptr),
-	mConst(nullptr), mMutable(nullptr), mVolatile(nullptr),
+	mConst(nullptr), mMutable(nullptr), mVolatile(nullptr), mClass(nullptr),
 	mDefaultConstructor(nullptr), mDestructor(nullptr), mCopyConstructor(nullptr), mCopyAssignment(nullptr), mMoveConstructor(nullptr), mMoveAssignment(nullptr),
 	mVectorConstructor(nullptr), mVectorDestructor(nullptr), mVectorCopyConstructor(nullptr), mVectorCopyAssignment(nullptr),
 	mVectorMoveConstructor(nullptr), mVectorMoveAssignment(nullptr),

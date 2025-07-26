@@ -1,6 +1,7 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
+#define RAND_MAX	65535u
 
 extern const float tpow10[7];
 

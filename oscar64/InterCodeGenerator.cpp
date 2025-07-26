@@ -687,6 +687,7 @@ void InterCodeGenerator::InitLocalVariable(InterCodeProcedure* proc, Declaration
 		proc->mLocalVars[index] = new InterVariable();
 		proc->mLocalVars[index]->mIdent = dec->mIdent;
 		proc->mLocalVars[index]->mDeclaration = dec;
+		proc->mLocalVars[index]->mAlignment = dec->mBase->Alignment();
 	}
 	else
 	{

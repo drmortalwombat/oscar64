@@ -264,14 +264,14 @@ class InterVariable
 {
 public:
 	bool							mUsed, mAliased, mTemp, mNotAliased;
-	int								mIndex, mSize, mOffset, mTempIndex, mByteIndex;
+	int								mIndex, mSize, mOffset, mAlignment, mTempIndex, mByteIndex;
 	int								mNumReferences;
 	const Ident					*	mIdent;
 	LinkerObject				*	mLinkerObject;
 	Declaration					*	mDeclaration;
 
 	InterVariable(void)
-		: mUsed(false), mAliased(false), mTemp(false), mNotAliased(false), mIndex(-1), mSize(0), mOffset(0), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1), mDeclaration(nullptr)
+		: mUsed(false), mAliased(false), mTemp(false), mNotAliased(false), mIndex(-1), mSize(0), mOffset(0), mAlignment(1), mIdent(nullptr), mLinkerObject(nullptr), mTempIndex(-1), mDeclaration(nullptr)
 	{
 	}
 };

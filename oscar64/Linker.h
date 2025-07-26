@@ -268,6 +268,7 @@ public:
 
 	LinkerObject* FindObjectByAddr(int addr, InterCodeProcedure* proc = nullptr);
 	LinkerObject* FindObjectByAddr(int bank, int addr, InterCodeProcedure * proc = nullptr);
+	LinkerObject* FindObjectByName(const char* name);
 
 	bool IsSectionPlaced(LinkerSection* section);
 

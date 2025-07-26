@@ -26771,7 +26771,7 @@ void InterCodeProcedure::Close(void)
 			InterVariable* var(mLocalVars[i]);
 			if (var && !var->mTemp && !var->mLinkerObject)
 			{
-				var->mLinkerObject = mModule->mLinker->AddObject(mLocation, var->mIdent, mLinkerObject->mStackSection, LOT_BSS);
+				var->mLinkerObject = mModule->mLinker->AddObject(mLocation, var->mIdent, mLinkerObject->mStackSection, LOT_BSS, var->mAlignment);
 				var->mLinkerObject->mOwnerProc = this;
 				var->mLinkerObject->mVariable = var;
 				var->mLinkerObject->mFlags |= LOBJF_LOCAL_VAR;

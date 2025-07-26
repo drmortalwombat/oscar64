@@ -4,7 +4,7 @@
 struct CharWin
 {
 	char		sx, sy, wx, wy;
-	char		cx, cy;
+	char		cx, cy, lx, ly;
 
 	char	*	sp, * cp;
 };
@@ -136,7 +136,9 @@ void cwin_get_rect(CharWin * win, char x, char y, char w, char h, char * chars);
 
 // Insert one space character at the cursor position
 //
-void cwin_insert_char(CharWin * win);
+void cwin_insert_char_raw(CharWin * win, char ch, char color);
+
+void cwin_insert_char(CharWin * win, char ch, char color);
 
 // Delete the character at the cursor position
 //
@@ -171,6 +173,37 @@ inline void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char c
 //
 void cwin_fill_rect_raw(CharWin * win, char x, char y, char w, char h, char ch, char color);
 
+
+void cwin_console_newline(CharWin * win);
+
+void cwin_console_scroll_up(CharWin * win);
+
+void cwin_console_write_char(CharWin * win, char ch, char color);
+
+void cwin_console_write_string(CharWin * win, const char * chars, char color);
+
+void cwin_console_clear(CharWin * win);
+
+bool cwin_console_cursor_left(CharWin * win);
+bool cwin_console_cursor_right(CharWin * win);
+bool cwin_console_cursor_up(CharWin * win);
+bool cwin_console_cursor_down(CharWin * win);
+
+// Insert one space character at the cursor position
+//
+bool cwin_console_insert_char(CharWin * win, char ch, char color);
+
+// Delete the character at the cursor position
+//
+void cwin_console_delete_char(CharWin * win);
+
+bool cwin_console_edit_char(CharWin * win, char ch, char color);
+
+char cwin_console_edit_string(CharWin * win, char color);
+
+void cwin_console_get_string(CharWin * win, char * chars, char size);
+
+void cwin_console_printf(CharWin * win, char color, const char * fmt, ...);
 
 #pragma compile("charwin.c")
 

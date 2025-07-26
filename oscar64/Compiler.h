@@ -49,7 +49,7 @@ public:
 	bool WriteOutputFile(const char* targetPath, DiskImage * d64);
 	bool WriteErrorFile(const char* targetPath);
 	bool RemoveErrorFile(const char* targetPath);
-	int ExecuteCode(bool profile, int trace);
+	int ExecuteCode(bool profile, int trace, bool asserts);
 
 	void AddDefine(const Ident* ident, const char* value);
 

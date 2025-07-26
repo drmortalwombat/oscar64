@@ -11,6 +11,11 @@
 #include "DiskImage.h"
 #include <time.h>
 
+#ifdef _WIN64
+#include <Dbghelp.h>
+#include <psapi.h>
+#endif
+
 #ifdef _WIN32
 bool GetProductAndVersion(char* strProductName, char* strProductVersion)
 {
@@ -111,7 +116,7 @@ int main2(int argc, const char** argv)
 		GrowingArray<const char*>	dataFiles(nullptr);
 		GrowingArray<bool>			dataFileCompressed(false);
 
-		bool		emulate = false, profile = false, customCRT = false;
+		bool		emulate = false, profile = false, customCRT = false, asserts = false;
 		int			trace = 0;
 
 		compiler->mPreprocessor->AddPath(basePath);
@@ -215,6 +220,7 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 'p' && arg[2] == 's' && arg[3] == 'c' && arg[4] == 'i' && arg[5] == 0)
 				{
 					compiler->mCompilerOptions |= COPT_PETSCII;
+					compiler->AddDefine(Ident::Unique("__PETSCII__"), "1");
 				}
 				else if (arg[1] == 'O')
 				{
@@ -258,6 +264,8 @@ int main2(int argc, const char** argv)
 						trace = 2;
 					else if (arg[2] == 'b')
 						trace = 1;
+					else if (arg[2] == 'a')
+						asserts = true;
 				}
 				else if (arg[1] == 'D' && !arg[2])
 				{
@@ -637,7 +645,7 @@ int main2(int argc, const char** argv)
 				}
 
 				if (emulate)
-					compiler->ExecuteCode(profile, trace);
+					compiler->ExecuteCode(profile, trace, asserts);
 			}
 			else if (compiler->mCompilerOptions & COPT_ERROR_FILES)
 			{
@@ -663,8 +671,183 @@ int main2(int argc, const char** argv)
 #ifndef _DEBUG
 int seh_filter(unsigned int code, struct _EXCEPTION_POINTERS* info)
 {
+
 #ifdef _WIN64
-	printf("oscar64 crashed. %08x %08llx", info->ExceptionRecord->ExceptionCode, (uint64)(info->ExceptionRecord->ExceptionAddress));
+
+#pragma warning( push )
+#pragma warning( disable : 4996)
+
+	char buff[256];
+	switch (info->ExceptionRecord->ExceptionCode)
+	{
+	case EXCEPTION_ACCESS_VIOLATION:
+		sprintf(buff, "Addressing Error[Permissions do not allow this access]");
+		break;
+
+	case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+		sprintf(buff, "Addressing Error[Array Bounds Exceeded]");
+		break;
+
+	case EXCEPTION_BREAKPOINT:
+		sprintf(buff, "Breakpoint Instruction Encountered");
+		break;
+
+	case EXCEPTION_DATATYPE_MISALIGNMENT:
+		sprintf(buff, "Addressing Error[Data Access Misaligned]");
+		break;
+
+	case EXCEPTION_FLT_DENORMAL_OPERAND:
+		sprintf(buff, "Arithmetic Exception[Float Denormal Operand]");
+		break;
+
+	case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+		sprintf(buff, "Arithmetic Exception[Float Divide-by-zero]");
+		break;
+
+	case EXCEPTION_FLT_INEXACT_RESULT:
+		sprintf(buff, "Arithmetic Exception[Float Inexact Result]");
+		break;
+
+	case EXCEPTION_FLT_INVALID_OPERATION:
+		sprintf(buff, "Arithmetic Exception[Float Invalid Operation]");
+		break;
+
+	case EXCEPTION_FLT_OVERFLOW:
+		sprintf(buff, "Arithmetic Exception[Float Overflow]");
+		break;
+
+	case EXCEPTION_FLT_STACK_CHECK:
+		sprintf(buff, "Arithmetic Exception[Float Stack Check]");
+		break;
+
+	case EXCEPTION_FLT_UNDERFLOW:
+		sprintf(buff, "Arithmetic Exception[Float Underflow]");
+		break;
+
+	case EXCEPTION_ILLEGAL_INSTRUCTION:
+		sprintf(buff, "Illegal Instruction");
+		break;
+
+	case EXCEPTION_IN_PAGE_ERROR:
+		sprintf(buff, "Memory Paging Error");
+		break;
+
+	case EXCEPTION_INT_DIVIDE_BY_ZERO:
+		sprintf(buff, "Arithmetic Exception[Integer Divide-by-zero]");
+		break;
+
+	case EXCEPTION_INT_OVERFLOW:
+		sprintf(buff, "Arithmetic Exception[Integer Overflow]");
+		break;
+
+	case EXCEPTION_INVALID_DISPOSITION:
+		sprintf(buff, "Exception Handler Invalid Disposition");
+		break;
+
+	case EXCEPTION_NONCONTINUABLE_EXCEPTION:
+		sprintf(buff, "Thread Attempted To Continue When Not Allowed");
+		break;
+
+	case EXCEPTION_PRIV_INSTRUCTION:
+		sprintf(buff, "Illegal Instruction[Privileged Op code]");
+		break;
+
+	case EXCEPTION_SINGLE_STEP:
+		sprintf(buff, "Single Step Executed");
+		break;
+
+	case EXCEPTION_STACK_OVERFLOW:
+		sprintf(buff, "Stack Fault[overfolow]");
+		break;
+
+	default:
+		sprintf(buff, "Unknown code 0x%-8.8lx", info->ExceptionRecord->ExceptionCode);
+		break;
+	}
+
+	printf("%s at location 0x%016llx\n", buff, info->ContextRecord->Rip);
+
+	DWORD  err;
+	HANDLE hProcess;
+	ULONG64	buffer[(sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR) + sizeof(ULONG64) - 1) / sizeof(ULONG64) + 20];
+	PSYMBOL_INFO		pSymbol = (PSYMBOL_INFO)buffer;
+	IMAGEHLP_LINE64		line = { sizeof(IMAGEHLP_LINE64) };
+	DWORD64 displacement;
+	DWORD	loffset;
+
+	SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
+	hProcess = GetCurrentProcess();
+
+	BOOL printSymbols = SymInitialize(hProcess, NULL, TRUE);
+	if (!printSymbols)
+	{
+		// SymInitialize failed
+		err = GetLastError();
+		printf("SymInitialize returned error : %d\n", err);
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+
+	STACKFRAME64 stackFrame = { 0 };
+	CONTEXT context = *info->ContextRecord;
+	stackFrame.AddrPC.Offset = info->ContextRecord->Rip;
+	stackFrame.AddrPC.Segment = 0;
+	stackFrame.AddrPC.Mode = AddrModeFlat;
+	stackFrame.AddrFrame.Offset = info->ContextRecord->Rbp;
+	stackFrame.AddrFrame.Segment = 0;
+	stackFrame.AddrFrame.Mode = AddrModeFlat;
+	stackFrame.AddrFrame.Offset = info->ContextRecord->Rsp;
+	stackFrame.AddrStack.Mode = AddrModeFlat;
+	stackFrame.AddrStack.Segment = 0;
+
+	while (StackWalk64(IMAGE_FILE_MACHINE_AMD64,
+		GetCurrentProcess(),
+		GetCurrentThread(),
+		&stackFrame,
+		&context,
+		NULL, /* PREAD_PROCESS_MEMORY_ROUTINE64 ReadMemoryRoutine */
+		SymFunctionTableAccess64,
+		SymGetModuleBase64,
+		NULL /* PTRANSLATE_ADDRESS_ROUTINE64 TranslateAddress */
+	))
+	{
+		if (true)
+		{
+			printf("...StackFrame\n");
+			printf("......PC address 0x%016llx\n", stackFrame.AddrPC.Offset);
+			printf("......Module address 0x%016llx\n", SymGetModuleBase64(GetCurrentProcess(), stackFrame.AddrPC.Offset));
+			printf("......Return address 0x%016llx\n", stackFrame.AddrReturn.Offset);
+			printf("......Frame address 0x%016llx\n", stackFrame.AddrFrame.Offset);
+			printf("......Stack address 0x%016llx\n", stackFrame.AddrStack.Offset);
+			printf("......Param[0] 0x%016llx\n", stackFrame.Params[0]);
+			printf("......Param[1] 0x%016llx\n", stackFrame.Params[1]);
+			printf("......Param[2] 0x%016llx\n", stackFrame.Params[2]);
+			printf("......Param[3] 0x%016llx\n", stackFrame.Params[3]);
+		}
+		pSymbol->MaxNameLen = MAX_SYM_NAME;
+		pSymbol->SizeOfStruct = sizeof(SYMBOL_INFO);;
+
+		if (SymFromAddr(hProcess, stackFrame.AddrPC.Offset, &displacement, pSymbol))
+		{
+			if (SymGetLineFromAddr64(hProcess, stackFrame.AddrPC.Offset, &loffset, &line))
+			{
+				printf("...Procedure %s:0x%-8.8lx LINE %s.%d\n", pSymbol->Name, (DWORD)displacement, line.FileName, line.LineNumber);
+			}
+			else
+			{
+				printf("...Procedure %s:0x%-8.8lx\n", pSymbol->Name, (DWORD)displacement);
+			}
+		}
+		else
+		{
+			err = GetLastError();
+			printf("Call to SymEnumSymbolsForAddr failed, error = %d (0x%-8.8x)\n", err, err);
+		}
+	}
+	printf("...Returning EXCEPTION_EXECUTE_HANDLER\n");
+
+#pragma warning( pop )
+
+//	printf("oscar64 crashed. %08x %08llx", info->ExceptionRecord->ExceptionCode, (uint64)(info->ExceptionRecord->ExceptionAddress));
 #else
 	printf("oscar64 crashed. %08x %08x", info->ExceptionRecord->ExceptionCode, (uint32)(info->ExceptionRecord->ExceptionAddress));
 #endif

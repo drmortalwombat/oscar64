@@ -288,6 +288,21 @@ LinkerObject* Linker::FindObjectByAddr(int addr, InterCodeProcedure* proc)
 	return nullptr;
 }
 
+LinkerObject* Linker::FindObjectByName(const char* name)
+{
+	for (int i = 0; i < mObjects.Size(); i++)
+	{
+		LinkerObject* lobj = mObjects[i];
+		if (lobj->mFlags & LOBJF_PLACED)
+		{
+			if (lobj->mIdent && !strcmp(lobj->mIdent->mString, name))
+				return lobj;
+		}
+	}
+
+	return nullptr;
+}
+
 LinkerObject* Linker::FindObjectByAddr(int bank, int addr, InterCodeProcedure* proc)
 {
 	if (proc)
@@ -801,8 +816,9 @@ void LinkerRegion::PlaceStackSection(LinkerSection* stackSection, LinkerSection*
 			LinkerObject* lobj = section->mObjects[i];
 			if (lobj->mFlags & LOBJF_REFERENCED)
 			{
-				section->mStart -= lobj->mSize;
-				section->mSize += lobj->mSize;
+				int start = (section->mStart - lobj->mSize) & ~(lobj->mAlignment - 1);
+				section->mSize += section->mStart - start;
+				section->mStart = start;
 
 				lobj->mFlags |= LOBJF_PLACED;
 				lobj->mAddress = section->mStart;

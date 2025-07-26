@@ -1,5 +1,5 @@
 #include "charwin.h"
-
+#include <stdio.h>
 
 static const unsigned mul40[25] = {
 	  0,  40,  80, 120, 160,
@@ -528,7 +528,7 @@ void cwin_get_rect(CharWin * win, char x, char y, char w, char h, char * chars)
 
 #pragma native(cwin_getat_chars_raw)
 
-void cwin_insert_char(CharWin * win)
+void cwin_insert_char_raw(CharWin * win, char ch, char color)
 {
 	char y = win->wy - 1, rx = win->wx - 1;
 
@@ -552,7 +552,13 @@ void cwin_insert_char(CharWin * win)
 
 	copy_bwd(sp + 1, sp, cp + 1, cp, rx);
 
-	sp[0] = ' ';
+	sp[0] = ch;
+	cp[0] = color;
+}
+
+void cwin_insert_char(CharWin * win, char ch, char color)
+{
+	cwin_insert_char_raw(win, p2s(ch), color);
 }
 
 void cwin_delete_char(CharWin * win)
@@ -652,8 +658,8 @@ bool cwin_edit_char(CharWin * win, char ch)
 		{
 			if (win->cy + 1 < win->wy || win->cx + 1 < win->wx)
 			{
-				cwin_insert_char(win);
-				cwin_put_char(win, ch, 1);
+				cwin_insert_char(win, ch, 1);
+				cwin_cursor_forward(win);
 			}
 		}
 		return false;
@@ -730,7 +736,7 @@ void cwin_scroll_down(CharWin * win, char by)
 	{
 		sp -= 40;
 		cp -= 40;
-		copy_fwd(sp, sp - dst, cp, cp - dst, rx);
+		copy_bwd(sp, sp - dst, cp, cp - dst, rx);
 	}	
 }
 
@@ -753,4 +759,227 @@ void cwin_fill_rect_raw(CharWin * win, char x, char y, char w, char h, char ch, 
 void cwin_fill_rect(CharWin * win, char x, char y, char w, char h, char ch, char color)
 {
 	cwin_fill_rect_raw(win, x, y, w, h, p2s(ch), color);
+}
+
+void cwin_console_scroll_up(CharWin * win)
+{
+	win->cy--;
+	win->ly--;
+	cwin_scroll_up(win, 1);
+	cwin_fill_rect(win, 0, win->wy - 1, win->wx, 1, ' ', 1);	
+}
+
+void cwin_console_newline(CharWin * win)
+{
+	win->cx = 0;
+	win->cy++;
+	if (win->cy == win->wy)
+		cwin_console_scroll_up(win);
+}
+
+void cwin_console_write_char(CharWin * win, char ch, char color)
+{
+	if (win->cx == win->wx)
+		cwin_console_newline(win);
+
+	int	offset = mul40[win->cy] + win->cx;
+
+	win->sp[offset] = p2s(ch);
+	win->cp[offset] = color;
+	win->cx++;
+}
+
+void cwin_console_write_string(CharWin * win, const char * chars, char color)
+{
+	win->ly = win->cy;
+	win->lx = win->cx;
+
+	char i = 0;
+	while (char ch = chars[i])
+	{
+		if (ch == '\n')
+			cwin_console_newline(win);
+		else
+			cwin_console_write_char(win, ch, color);
+		i++;
+	}
+}
+
+void cwin_console_clear(CharWin * win)
+{
+	cwin_fill_rect(win, win->lx, win->ly, win->wx - win->lx, 1, ' ', 1);
+	cwin_fill_rect(win, 0, win->ly + 1, win->wx, win->wy - win->ly - 1, ' ', 1);
+}
+
+bool cwin_console_cursor_left(CharWin * win)
+{
+	if (win->cy == win->ly)
+	{
+		if (win->cx > win->lx)
+		{
+			win->cx--;
+			return true;
+		}
+	}
+	else if (win->cx > 0)
+	{
+		win->cx--;
+		return true;
+	}
+	else
+	{
+		win->cy--;
+		win->cx = win->wx - 1;
+		return true;
+	}
+	return false;
+}
+
+bool cwin_console_cursor_right(CharWin * win)
+{
+	if (win->cx + 1 < win->wx)
+	{
+		win->cx++;
+		return true;
+	}
+	else if (win->cy + 1 < win->wy)
+	{
+		win->cy++;
+		win->cx = 0;
+		return true;
+	}
+	else if (win->ly > 0)
+	{
+		win->cx = 0;
+		win->cy++;
+		cwin_console_scroll_up(win);
+		return true;
+	}
+
+	return false;
+}
+
+void cwin_console_delete_char(CharWin * win)
+{
+	cwin_delete_char(win);
+}
+
+bool cwin_console_insert_char(CharWin * win, char ch, char color)
+{
+	if (win->sp[mul40[win->wy - 1] + win->wx - 1] != ' ')
+	{
+		if (win->ly == 0)
+			return false;
+		cwin_console_scroll_up(win);
+	}
+
+	cwin_insert_char(win, ch, color);
+	return true;
+}
+
+bool cwin_console_edit_char(CharWin * win, char ch, char color)
+{
+	switch (ch)
+	{
+	case 13:
+	case 3:
+	case 17:
+	case 145: // CRSR_UP
+		return true;
+	
+	case 19:
+		win->cx = win->lx;
+		win->cy = win->ly;
+		return false;
+		
+	case 147:		
+		cwin_console_clear(win);
+		win->cx = win->lx;;
+		win->cy = win->ly;
+		return false;
+	
+	case 29:
+		cwin_console_cursor_right(win);
+		return false;
+
+	case 157:
+		cwin_console_cursor_left(win);
+		return false;
+
+	case 20:
+		if (cwin_console_cursor_left(win))
+			cwin_console_delete_char(win);
+		return false;
+
+	default:
+		if (ch >= 32 && ch < 128 || ch >= 160)
+		{
+			if (cwin_console_insert_char(win, ch, color))
+				cwin_console_cursor_right(win);
+		}
+		return false;
+	}
+}
+
+char cwin_console_edit_string(CharWin * win, char color)
+{
+	for(;;)
+	{
+		cwin_cursor_show(win, true);
+		char ch = cwin_getch();
+		cwin_cursor_show(win, false);
+
+		if (cwin_console_edit_char(win, ch, color))
+		{
+			win->cx = win->lx;
+			win->cy = win->ly;
+			return ch;
+		}
+	}	
+}
+
+void cwin_console_get_string(CharWin * win, char * chars, char size)
+{
+	char i = 0;
+	char y = win->ly, x = win->lx;
+	char * cp = win->sp + mul40[y];
+
+	while (i < size)
+	{
+		chars[i++] = s2p(cp[x++]);
+		if (x == win->wx)
+		{
+			if (y + 1 == win->wy)
+				break;
+			x = 0;
+			cp += 40;
+			y++;
+		}
+	}
+
+	while (i > 0 && chars[i - 1] == ' ')
+	{
+		i--;
+		if (x == 0)
+		{
+			y--;
+			x = win->wx;
+		}
+		else
+			x--;
+	}
+
+	win->cx = x;
+	win->cy = y;
+
+	chars[i] = 0;	
+}
+
+char * sformat(char * buff, const char * fmt, int * fps, bool print);
+
+void cwin_console_printf(CharWin * win, char color, const char * fmt, ...)
+{
+	char	buff[200];
+	sformat(buff, fmt, (int *)&fmt + 1, false);
+	cwin_console_write_string(win, buff, color);
 }

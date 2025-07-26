@@ -689,6 +689,9 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 				
 				switch (fc)
 				{
+#ifndef __PETSCII__
+					case p'n':
+#endif
 					case 'n':
 						*(unsigned *)*params = nch;
 						params++;					
@@ -696,15 +699,21 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 						break;
 
 					case 'x':
+#ifndef __PETSCII__
 					case p'x':
+#endif
 						base = 16;
 					case 'u':
+#ifndef __PETSCII__
 					case p'u':
+#endif
 						issigned = false;
 					case 'i':
 					case 'd':
+#ifndef __PETSCII__
 					case p'i':
 					case p'd':
+#endif
 					{
 						bool	sign = false;
 						if (cs == '-')
@@ -785,9 +794,11 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					case 'f':
 					case 'e':
 					case 'g':
+#ifndef __PETSCII__
 					case p'f':
 					case p'e':
 					case p'g':
+#endif
 					{
 						bool	sign = false;
 						if (cs == '-')
@@ -894,7 +905,9 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					} break;
 #endif
 					case 's':
+#ifndef __PETSCII__
 					case p's':
+#endif
 					{
 						char	*	pch = (char *)*params;
 						while (width > 0 && cs > 0 && !isspace(cs))
@@ -937,7 +950,9 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					}	break;
 
 					case 'c':
+#ifndef __PETSCII__
 					case p'c':
+#endif
 					{
 						char	*	pch = (char *)*params;
 						if (!ignore)
