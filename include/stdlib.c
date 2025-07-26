@@ -218,6 +218,34 @@ int atoi(const char * s)
 	return v;		
 }
 
+long atol(const char * s)
+{
+	char	c;
+	while ((c = *s++) <= ' ')
+		if (!c) return 0;
+	
+	bool neg = false;
+	if (c == '-')
+	{
+		neg = true;
+		c = *s++;
+	}
+	else if (c == '+')
+		c = *s++;
+	
+	long	v = 0;
+	while (c >= '0' && c <= '9')
+	{
+		v = v * 10 + (c - '0');
+		c = *s++;
+	}
+	
+	if (neg)
+		v = -v;
+	
+	return v;		
+}
+
 const float tpow10[7] = {1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0};
 
 float atof(const char * s)

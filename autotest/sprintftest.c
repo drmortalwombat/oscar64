@@ -182,8 +182,10 @@ int main(void)
 	testu("%u", 32768, "32768");
 	testu("%u", 65535, "65535");
 	testu("%x", 0, "0");
-	testu("%x", 0x49bf, "49BF");
-	testu("%x", 0xffff, "FFFF");
+	testu("%x", 0x49bf, "49bf");
+	testu("%x", 0xffff, "ffff");
+	testu("%X", 0x49bf, "49BF");
+	testu("%X", 0xffff, "FFFF");
 
 	testu("%3u",  0, "  0");
 	testu("%3u",  1, "  1");
@@ -195,8 +197,10 @@ int main(void)
 	testu("%3u", 32768, "32768");
 	testu("%3u", 65535, "65535");
 	testu("%3x", 0, "  0");
-	testu("%3x", 0x49bf, "49BF");
-	testu("%3x", 0xffff, "FFFF");
+	testu("%3x", 0x49bf, "49bf");
+	testu("%3x", 0xffff, "ffff");
+	testu("%3X", 0x49bf, "49BF");
+	testu("%3X", 0xffff, "FFFF");
 
 	testu("%03u",  0, "000");
 	testu("%03u",  1, "001");
@@ -208,8 +212,10 @@ int main(void)
 	testu("%03u", 32768, "32768");
 	testu("%03u", 65535, "65535");
 	testu("%03x", 0, "000");
-	testu("%03x", 0x49bf, "49BF");
-	testu("%03x", 0xffff, "FFFF");
+	testu("%03x", 0x49bf, "49bf");
+	testu("%03x", 0xffff, "ffff");
+	testu("%03X", 0x49bf, "49BF");
+	testu("%03X", 0xffff, "FFFF");
 
 	testu("%-4u",  0, "0   ");
 	testu("%-4u",  1, "1   ");
@@ -221,8 +227,10 @@ int main(void)
 	testu("%-4u", 32768, "32768");
 	testu("%-4u", 65535, "65535");
 	testu("%-4x", 0, "0   ");
-	testu("%-4x", 0x49bf, "49BF");
-	testu("%-4x", 0xffff, "FFFF");
+	testu("%-4x", 0x49bf, "49bf");
+	testu("%-4x", 0xffff, "ffff");
+	testu("%-4X", 0x49bf, "49BF");
+	testu("%-4X", 0xffff, "FFFF");
 
 	testul("%3lu",  0l, "  0");
 	testul("%3lu",  1l, "  1");
@@ -234,8 +242,10 @@ int main(void)
 	testul("%3lu", 2147483647l, "2147483647");
 	testul("%3lu", 4294967295l, "4294967295");
 	testul("%3lx", 0, "  0");
-	testul("%3lx", 0x3576fbcdl, "3576FBCD");
-	testul("%3lx", 0xffffffffl, "FFFFFFFF");
+	testul("%3lx", 0x3576fbcdl, "3576fbcd");
+	testul("%3lx", 0xffffffffl, "ffffffff");
+	testul("%3lX", 0x3576fbcdl, "3576FBCD");
+	testul("%3lX", 0xffffffffl, "FFFFFFFF");
 
 	testul("%03lu",  0l, "000");
 	testul("%03lu",  1l, "001");
@@ -247,8 +257,10 @@ int main(void)
 	testul("%03lu", 2147483647l, "2147483647");
 	testul("%03lu", 4294967295l, "4294967295");
 	testul("%03lx", 0, "000");
-	testul("%03lx", 0x3576fbcdl, "3576FBCD");
-	testul("%03lx", 0xffffffffl, "FFFFFFFF");
+	testul("%03lx", 0x3576fbcdl, "3576fbcd");
+	testul("%03lx", 0xffffffffl, "ffffffff");
+	testul("%03lX", 0x3576fbcdl, "3576FBCD");
+	testul("%03lX", 0xffffffffl, "FFFFFFFF");
 
 	testul("%-4lu",  0l, "0   ");
 	testul("%-4lu",  1l, "1   ");
@@ -260,8 +272,10 @@ int main(void)
 	testul("%-4lu", 2147483647l, "2147483647");
 	testul("%-4lu", 4294967295l, "4294967295");
 	testul("%-4lx", 0, "0   ");
-	testul("%-4lx", 0x3576fbcdl, "3576FBCD");
-	testul("%-4lx", 0xffffffffl, "FFFFFFFF");
+	testul("%-4lx", 0x3576fbcdl, "3576fbcd");
+	testul("%-4lx", 0xffffffffl, "ffffffff");
+	testul("%-4lX", 0x3576fbcdl, "3576FBCD");
+	testul("%-4lX", 0xffffffffl, "FFFFFFFF");
 
 	testul("%+lu",  0l, "+0");
 	testul("%+lu",  1l, "+1");

@@ -16177,6 +16177,8 @@ bool NativeCodeBasicBlock::ReduceLocalYPressure(void)
 						changed = true;
 						break;
 					}
+					else if (eins.mType == ASMIT_JSR && (eins.mFlags & LOBJF_ARG_REG_Y))
+						break;
 					else if (eins.ChangesXReg() || eins.mMode == ASMIM_INDIRECT_Y)
 					{
 						break;
@@ -23017,6 +23019,8 @@ bool NativeCodeBasicBlock::ReduceLocalXPressure(void)
 						changed = true;
 						break;
 					}
+					else if (eins.mType == ASMIT_JSR && (eins.mFlags & LOBJF_ARG_REG_X))
+						break;
 					else if (eins.ChangesYReg() || (eins.mMode == ASMIM_ABSOLUTE_X && !HasAsmInstructionMode(eins.mType, ASMIM_ABSOLUTE_Y)))
 					{
 						break;
@@ -56962,7 +56966,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "krnio_chkout");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

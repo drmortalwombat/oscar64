@@ -71,7 +71,7 @@ void * putstrstr(void * handle, const char * str)
 struct sinfo
 {
 	char		fill;
-	char		width, precision;
+	char		width, precision, cha;
 	unsigned	base;
 	bool		sign, left, prefix;
 };
@@ -93,7 +93,7 @@ int nformi(const sinfo * si, char * str, int v, bool s)
 	while (u > 0)
 	{
 		int	c = u % si->base;
-		c += c >= 10 ? 'A' - 10 : '0';
+		c += c >= 10 ? si->cha - 10 : '0';
 		buffer[--i] = c;
 		u /= si->base;
 	}
@@ -105,7 +105,7 @@ int nformi(const sinfo * si, char * str, int v, bool s)
 
 	if (si->prefix && si->base == 16)
 	{
-		buffer[--i] = 'X';
+		buffer[--i] = si->cha + ('x' - 'a');
 		buffer[--i] = '0';
 	}
 
@@ -151,7 +151,7 @@ int nforml(const sinfo * si, char * str, long v, bool s)
 	while (u > 0)
 	{
 		int	c = u % si->base;
-		c += c >= 10 ? 'A' - 10 : '0';
+		c += c >= 10 ? si->cha - 10 : '0';
 		buffer[--i] = c;
 		u /= si->base;
 	}
@@ -163,7 +163,7 @@ int nforml(const sinfo * si, char * str, long v, bool s)
 
 	if (si->prefix && si->base == 16)
 	{
-		buffer[--i] = 'X';
+		buffer[--i] = si->cha + ('x' - 'a');
 		buffer[--i] = '0';
 	}
 
@@ -211,9 +211,9 @@ int nformf(const sinfo * si, char * str, float f, char type)
 		
 	if (isinf(f))
 	{
-		sp[d++] = 'I';
-		sp[d++] = 'N';
-		sp[d++] = 'F';
+		sp[d++] = si->cha + ('i' - 'a');
+		sp[d++] = si->cha + ('n' - 'a');
+		sp[d++] = si->cha + ('f' - 'a');
 	}
 	else
 	{
@@ -313,7 +313,7 @@ int nformf(const sinfo * si, char * str, float f, char type)
 
 		if (fexp)
 		{
-			sp[d++] = 'E';
+			sp[d++] = si->cha + ('e' - 'a');
 			if (exp < 0)
 			{
 				sp[d++] = '-';
@@ -426,8 +426,9 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 			{
 				bi = nformi(&si, bp, *fps++, false);
 			}
-			else if (c == 'x' || c == p'x')
+			else if (c == 'x' || c == p'x' || c == 'X')
 			{
+				si.cha = (c & 0xe0) | 1;
 				si.base = 16;
 				bi = nformi(&si, bp, *fps++, false);
 			}
@@ -439,7 +440,7 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 				fps ++;
 
 				c = *p++;
-				if (c == 'd' || c == p'd')
+				if (c == 'd' || c == p'd' || c == 'i' || c == p'i')
 				{
 					bi = nforml(&si, bp, l, true);
 				}
@@ -447,17 +448,22 @@ char * sformat(char * buff, const char * fmt, int * fps, bool print)
 				{
 					bi = nforml(&si, bp, l, false);
 				}
-				else if (c == 'x' || c == p'x')
+				else if (c == 'x' || c == p'x' || c == 'X')
 				{
+					si.cha = (c & 0xe0) | 1;
 					si.base = 16;
 					bi = nforml(&si, bp, l, false);
 				}
 			}
 #endif
 #ifndef NOFLOAT
-			else if (c == 'f' || c == 'g' || c == 'e' || c == p'f' || c == p'g' || c == p'e')
+			else if (
+				c == 'f' || c == 'g' || c == 'e' || 
+				c == p'f' || c == p'g' || c == p'e' ||
+				c == 'F' || c == 'G' || c == 'E')
 			{
-				bi = nformf(&si, bp, *(float *)fps, c);
+				si.cha = (c & 0xe0) | 1;
+				bi = nformf(&si, bp, *(float *)fps, c - si.cha + 'a');
 				fps ++;
 				fps ++;
 			}
@@ -701,6 +707,8 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					case 'x':
 #ifndef __PETSCII__
 					case p'x':
+#else
+					case 'X':
 #endif
 						base = 16;
 					case 'u':
@@ -798,6 +806,10 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 					case p'f':
 					case p'e':
 					case p'g':
+#else
+					case 'F':
+					case 'E':
+					case 'G':
 #endif
 					{
 						bool	sign = false;
@@ -955,14 +967,21 @@ int fpscanf(const char * fmt, int (* ffunc)(void * p), void * fparam, void ** pa
 #endif
 					{
 						char	*	pch = (char *)*params;
+						if (width == 0x7fff)
+							width = 1;
+						while (width > 0 && cs > 0)
+						{
+							if (!ignore)
+								*pch++ = cs;
+							cs = ffunc(fparam);
+							nch++;
+							width--;
+						}
 						if (!ignore)
 						{
-							*pch = cs;
 							params++;					
 							nv++;
 						}
-						cs = ffunc(fparam);
-						nch++;
 					} break;
 				}
 				
@@ -1113,7 +1132,7 @@ int fgetc(FILE* stream)
 
 char* fgets(char* s, int n, FILE* stream)
 {
-	if (krnio_gets(stream->fnum, s, n) >= 0)
+	if (krnio_gets(stream->fnum, s, n) > 0)
 		return s;
 	return nullptr;
 }
