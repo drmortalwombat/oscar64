@@ -3,17 +3,17 @@
 
 #define RAND_MAX	65535u
 
-typedef struct
+struct div_t
 {
 	int quot;
 	int rem;
-} div_t;
+};
 
-typedef struct
+struct ldiv_t
 {
 	long int quot;
 	long int rem;
-} ldiv_t;
+};
 
 extern const float tpow10[7];
 
