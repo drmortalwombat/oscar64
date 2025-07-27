@@ -26133,6 +26133,16 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 							mIns[0].mType = ASMIT_STX;
 							mIns[0].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
 							mIns[1].mLive |= LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Y;
+							if (mEntryRequiredRegs[CPU_REG_C])
+							{
+								mIns[0].mLive |= LIVE_CPU_REG_C;
+								mIns[1].mLive |= LIVE_CPU_REG_C;
+							}
+							if (mEntryRequiredRegs[CPU_REG_Z])
+							{
+								mIns[0].mLive |= LIVE_CPU_REG_Z;
+								mIns[1].mLive |= LIVE_CPU_REG_Z;
+							}
 							for (int i = 0; i < mEntryBlocks.Size(); i++)
 							{
 								NativeCodeBasicBlock* b = mEntryBlocks[i];
@@ -55930,8 +55940,16 @@ void NativeCodeBasicBlock::AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree 
 	{
 		mVisited = true;
 
+		if (mSuffixString && mIns.Size() + 50 > mSuffixStringLength)
+		{
+			delete[] mSuffixString;
+			mSuffixString = nullptr;
+		}
 		if (!mSuffixString)
-			mSuffixString = new int[mIns.Size() + 100];
+		{
+			mSuffixStringLength = mIns.Size() + 100;
+			mSuffixString = new int[mSuffixStringLength];
+		}
 
 		bool rel = false;
 		for (int i = 0; i < mIns.Size(); i++)
@@ -55941,6 +55959,7 @@ void NativeCodeBasicBlock::AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree 
 			mSuffixString[i] = mapper.MapInstruction(mIns[i], mProc->mLinkerObject->mSection);
 		}
 		mSuffixString[mIns.Size()] = mapper.MapBasicBlock(this);
+		mSuffixString[mIns.Size() + 1] = -1;
 
 		if (!rel)
 			tree->AddString(mSuffixString);
@@ -56686,6 +56705,7 @@ NativeCodeBasicBlock::NativeCodeBasicBlock(NativeCodeProcedure* proc)
 	mLoopHeadBlock = nullptr;
 	mLoopTailBlock = nullptr;
 	mSuffixString = nullptr;
+	mSuffixStringLength = 0;
 	mEntryRegA = false;
 	mEntryRegX = false;
 	mEntryRegY = false;

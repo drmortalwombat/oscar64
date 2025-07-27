@@ -911,6 +911,7 @@ public:
 	void CheckAsmCode(void);
 	void CheckVisited(void);
 
+	int mSuffixStringLength;
 	int* mSuffixString;
 	void AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree * tree);
 };
