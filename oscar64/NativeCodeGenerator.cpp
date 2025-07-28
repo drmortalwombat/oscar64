@@ -39686,7 +39686,7 @@ bool NativeCodeBasicBlock::OptimizeLoopRegisterWrapAround(void)
 									if (ins.mAddress == finalA && !mExitRequiredRegs[CPU_REG_X])
 									{
 										int k = sz - 1;
-										if (mIns[k].mType == ASMIT_CMP || mIns[k].mType == ASMIT_CPX || mIns[k].mType == ASMIT_CPY || mIns[k].mType == ASMIT_INC || mIns[k].mType == ASMIT_DEC)
+										if (mIns[k].mType == ASMIT_CMP || mIns[k].mType == ASMIT_CPX || mIns[k].mType == ASMIT_CPY || mIns[k].mType == ASMIT_INC || mIns[k].mType == ASMIT_DEC || mIns[k].mType == ASMIT_INY || mIns[k].mType == ASMIT_DEY)
 											k--;
 										if (!(mIns[k].mLive & LIVE_CPU_REG_X))
 										{
@@ -41896,7 +41896,6 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			changed = true;
 		}
 	}
-
 
 #if 1
 	// Check X and Y same increment
@@ -57146,7 +57145,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "strlen");
+	CheckFunc = !strcmp(mIdent->mString, "brick_animate");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -59077,6 +59076,7 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
 #endif
+
 
 #if DISASSEMBLE_OPT
 		char fname[100];
