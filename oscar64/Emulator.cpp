@@ -782,7 +782,11 @@ int Emulator::Emulate(int startIP, int exitIP, int trace)
 		}
 
 		if (!EmulateInstruction(d.mType, d.mMode, addr, icycles, cross, indexed))
+		{
+			if (exitIP)
+				DumpCallstack();
 			return -1;
+		}
 
 		mCycles[ip] += icycles;
 		cycles += icycles;

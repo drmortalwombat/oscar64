@@ -563,6 +563,8 @@ public:
 	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);
 	bool ShortcutCrossBlockCondition(void);
 
+	bool MergeDuplicateCondition(void);
+
 	bool CanReplaceYRegWithXReg(int start, int end);
 	bool CanReplaceXRegWithYReg(int start, int end);
 

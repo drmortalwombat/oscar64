@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <algorithm>
 
 #define DISASSEMBLE_OPT	0
 
@@ -14759,9 +14760,11 @@ bool InterCodeBasicBlock::ForwardLoopMovedTemp(void)
 
 void InterCodeBasicBlock::UnionEntryValueRange(const GrowingIntegerValueRangeArray&range, const GrowingIntegerValueRangeArray& paramRange)
 {
-	for (int i = 0; i < mEntryValueRange.Size(); i++)
+	int ni = intmin(mEntryValueRange.Size(), range.Size());
+	for (int i = 0; i < ni; i++)
 		mEntryValueRange[i].Union(range[i]);
-	for (int i = 0; i < mEntryParamValueRange.Size(); i++)
+	ni = intmin(mEntryParamValueRange.Size(), paramRange.Size());
+	for (int i = 0; i < ni; i++)
 		mEntryParamValueRange[i].Union(paramRange[i]);
 }
 
@@ -15475,21 +15478,28 @@ void InterCodeBasicBlock::SplitBranches(void)
 	{
 		mVisited = true;
 
-		if (mTrueJump && mFalseJump && (mInstructions.Size() > 2 || mInstructions.Size() == 2 && mInstructions[0]->mCode != IC_RELATIONAL_OPERATOR))
+		int sz = mInstructions.Size();
+
+		int nsplit = 0;
+
+		if (mTrueJump && mFalseJump && sz > 1)
+		{
+			if (mLoopHead && mNumEntries == 2 && (mTrueJump == this || mFalseJump == this) && sz < 5)
+				nsplit = 0;
+			else if (sz >= 2 && mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR)
+				nsplit = 2;
+			else
+				nsplit = 1;
+		}
+
+		if (nsplit > 0 && nsplit < sz)
 		{
 			InterCodeBasicBlock* block = new InterCodeBasicBlock(mProc);
 			InterInstruction* ins = mInstructions.Last();
 
-			if (mInstructions[mInstructions.Size() - 2]->mCode == IC_RELATIONAL_OPERATOR)
-			{
-				block->mInstructions.Push(mInstructions[mInstructions.Size() - 2]);
-				block->mInstructions.Push(mInstructions[mInstructions.Size() - 1]);
-				mInstructions.SetSize(mInstructions.Size() - 2);
-			}
-			else
-			{
-				block->mInstructions.Push(mInstructions.Pop());
-			}
+			for(int i=0; i<nsplit; i++)
+				block->mInstructions.Push(mInstructions[sz - nsplit + i]);
+			mInstructions.SetSize(sz - nsplit);
 
 			InterInstruction* jins = new InterInstruction(ins->mLocation, IC_JUMP);
 			mInstructions.Push(jins);
@@ -21081,6 +21091,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SHL && IsIntegerType(ins->mDst.mType) && ins->mSrc[0].mTemp < 0 && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED) ||
 										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED ||
 										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[1].mTemp < 0 || dep[ins->mSrc[1].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[1].mTemp] == DEP_DEFINED) && dep[ins->mSrc[0].mTemp] == DEP_INDEX_DERIVED ||
+										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED ||
 										ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
 										IsIntegerType(ins->mDst.mType) &&
 										(ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].IsNotUByte() && (dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED)) &&
@@ -21284,7 +21295,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 
 						indexins.Push(ins);
 					}
-					else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED))
+					else if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_ADD || ins->mOperator == IA_SUB) && IsIntegerType(ins->mDst.mType) && (ins->mSrc[0].mTemp < 0 || dep[ins->mSrc[0].mTemp] == DEP_UNKNOWN || dep[ins->mSrc[0].mTemp] == DEP_DEFINED) && (dep[ins->mSrc[1].mTemp] == DEP_INDEX || dep[ins->mSrc[1].mTemp] == DEP_INDEX_EXTENDED || dep[ins->mSrc[1].mTemp] == DEP_INDEX_DERIVED))
 					{
 						indexStep[ins->mDst.mTemp] = indexStep[ins->mSrc[1].mTemp];
 						indexBase[ins->mDst.mTemp] = 0;
@@ -25997,7 +26008,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "AES_CBC_encrypt_buffer");
+	CheckFunc = !strcmp(mIdent->mString, "strlen");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

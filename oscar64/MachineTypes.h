@@ -129,3 +129,13 @@ inline int64 int64min(int64 a, int64 b)
 {
 	return a < b ? a : b;
 }
+
+inline int intmax(int a, int b)
+{
+	return a > b ? a : b;
+}
+
+inline int intmin(int a, int b)
+{
+	return a < b ? a : b;
+}
