@@ -2912,7 +2912,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 			if (vl.mType->mType == DT_TYPE_ARRAY && vl.mType->mSize > vl.mType->mBase->mSize && (exp->mFlags & ANAFL_RHS))
 			{
 				ains->mSrc[0].mRange.LimitMin(0);
-				ains->mSrc[0].mRange.LimitMax(vl.mType->mSize);
+				if (stride == 1)
+					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize / vl.mType->mBase->mSize);
+				else
+					ains->mSrc[0].mRange.LimitMax(vl.mType->mSize);
 			}
 			ains->mSrc[1].mType = IT_POINTER;
 			ains->mSrc[1].mTemp = vl.mTemp;

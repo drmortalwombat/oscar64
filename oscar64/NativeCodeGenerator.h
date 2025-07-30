@@ -626,6 +626,7 @@ public:
 	bool ReduceIndexXYZeroShuffle(NativeCodeBasicBlock* from, int xreg, int yreg);
 	bool CheckLoopIndexXRegisters(NativeCodeBasicBlock* head, int xreg);
 	bool CheckLoopIndexYRegisters(NativeCodeBasicBlock* head, int yreg);
+	bool AbsoluteLocalRegisterValueReuse(void);
 
 	void MarkLocalUsedLinkerObjects(void);
 	bool RemoveLocalUnusedLinkerObjects(void);

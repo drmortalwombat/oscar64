@@ -1049,7 +1049,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 				if (pex->mType == EX_CALL && IsStackParam(pex->mDecType) && !(pdec && (pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF)))
 					ldec->mBase->mFlags |= DTF_STACKCALL;
 
-				RegisterProc(Analyze(pex, procDec, (pdec && pdec->mBase->IsReference()) ? ANAFL_LHS : 0));
+				RegisterProc(Analyze(pex, procDec, (pdec && pdec->mBase->IsReference()) ? ANAFL_LHS : ANAFL_RHS));
 
 				if (pdec)
 					pdec = pdec->mNext;
@@ -1068,7 +1068,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 	case EX_RETURN:
 		if (exp->mLeft)
 		{
-			RegisterProc(Analyze(exp->mLeft, procDec, procDec->mBase->mBase->IsReference() ? ANAFL_LHS : 0));
+			RegisterProc(Analyze(exp->mLeft, procDec, procDec->mBase->mBase->IsReference() ? ANAFL_LHS : ANAFL_RHS));
 			if (procDec->mBase->mBase && procDec->mBase->mBase->mType == DT_TYPE_STRUCT && procDec->mBase->mBase->mCopyConstructor)
 			{
 				if (procDec->mBase->mBase->mMoveConstructor)

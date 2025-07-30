@@ -21949,6 +21949,16 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 #endif
 
+			if (mInstructions[i + 0]->mCode == IC_LOAD && mInstructions[i + 0]->mSrc[0].mTemp >= 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[0].mTemp &&
+				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mDst.mTemp == mInstructions[i + 0]->mSrc[0].mTemp && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
+				mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst)
+			{
+				InterInstruction* ins(mInstructions[i + 0]);
+				mInstructions[i + 0] = mInstructions[i + 1];
+				mInstructions[i + 1] = ins;
+				mInstructions[i + 1]->mSrc[0].mIntConst = 0;
+				changed = true;
+			}
 		}
 
 		if (i + 2 < mInstructions.Size())
@@ -23592,7 +23602,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 				if (i != j)
 					mInstructions[j] = ins;
 			}
-			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR || mInstructions[i]->mCode == IC_UNARY_OPERATOR || mInstructions[i]->mCode == IC_CONVERSION_OPERATOR || mInstructions[i]->mCode == IC_CONSTANT)
+			else if (mInstructions[i]->mCode == IC_BINARY_OPERATOR || mInstructions[i]->mCode == IC_UNARY_OPERATOR || mInstructions[i]->mCode == IC_CONVERSION_OPERATOR || mInstructions[i]->mCode == IC_CONSTANT || mInstructions[i]->mCode == IC_LOAD_TEMPORARY && !mInstructions[i]->mSrc[0].mFinal)
 			{
 				InterInstruction* ins(mInstructions[i]);
 
@@ -26008,7 +26018,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "strlen");
+	CheckFunc = !strcmp(mIdent->mString, "logo_exec");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

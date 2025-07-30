@@ -29848,7 +29848,10 @@ bool NativeCodeBasicBlock::PatchForwardSumYPointer(const NativeCodeBasicBlock* b
 				{
 					mIns.Insert(at + 1, NativeCodeInstruction(inins, ASMIT_LDY, ASMIM_IMMEDIATE, yval));
 					if (mIns[at].mLive & LIVE_CPU_REG_Z)
+					{
+						mIns[at].mLive |= LIVE_CPU_REG_A;
 						mIns.Insert(at + 2, NativeCodeInstruction(inins, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+					}
 				}
 
 				mIns.Insert(at, NativeCodeInstruction(inins, ASMIT_LDY, iins));
@@ -31902,10 +31905,10 @@ bool NativeCodeBasicBlock::PatchGlobalAddressSumYPointer(const NativeCodeBasicBl
 					if (ins.mLive & LIVE_CPU_REG_Y)
 					{
 						mIns.Insert(at + 1, NativeCodeInstruction(iins, ASMIT_LDY, ASMIM_IMMEDIATE, yval));
-						if (ins.mLive & LIVE_CPU_REG_Z)
+						if (mIns[at].mLive & LIVE_CPU_REG_Z)
 						{
 							mIns.Insert(at + 2, NativeCodeInstruction(iins, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
-							ins.mLive |= LIVE_CPU_REG_A;
+							mIns[at].mLive |= LIVE_CPU_REG_A;
 						}
 					}
 					mIns.Insert(at, NativeCodeInstruction(iins, ASMIT_LDY, ASMIM_ZERO_PAGE, index));
@@ -37792,6 +37795,77 @@ bool NativeCodeBasicBlock::CheckLoopIndexXRegisters(NativeCodeBasicBlock* head, 
 
 	return true;
 }
+
+bool NativeCodeBasicBlock::AbsoluteLocalRegisterValueReuse(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int ains = -1, xins = -1, yins = -1;
+		
+		mIns.Reserve(mIns.Size() + 10);
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+
+			if ((ins.mType == ASMIT_INC || ins.mType == ASMIT_DEC) && i + 1 < mIns.Size() && mIns[i + 1].mType == ins.mType && mIns[i + 1].SameEffectiveAddress(ins))
+			{
+				if (xins >= 0 && ins.SameEffectiveAddress(mIns[xins]) && !(ins.mLive & LIVE_CPU_REG_X))
+				{
+					AsmInsType	itype = ins.mType == ASMIT_INC ? ASMIT_INX : ASMIT_DEX;
+					ins.mType = ASMIT_STX;
+					mIns.Remove(i + 1, 1);
+					mIns.Insert(i, NativeCodeInstruction(ins.mIns, itype));
+					mIns.Insert(i, NativeCodeInstruction(ins.mIns, itype));
+					for (int j = 0; j < i; j++)
+						mIns[j].mLive |= LIVE_CPU_REG_X;
+					changed = true;
+				}
+			}
+
+			if (ains >= 0 && mIns[ains].MayBeChangedOnAddress(ins)) ains = -1;
+			if (xins >= 0 && mIns[xins].MayBeChangedOnAddress(ins)) xins = -1;
+			if (yins >= 0 && mIns[yins].MayBeChangedOnAddress(ins)) yins = -1;
+
+			if (ins.ChangesAccu())
+			{
+				ains = -1;
+			}
+
+			if (ins.ChangesXReg())
+			{
+				xins = -1;
+				if (ains >= 0 && mIns[ains].RequiresXReg()) ains = -1;
+				if (yins >= 0 && mIns[yins].RequiresXReg()) yins = -1;
+			}
+
+			if (ins.ChangesYReg())
+			{
+				yins = -1;
+				if (ains >= 0 && mIns[ains].RequiresYReg()) ains = -1;
+				if (xins >= 0 && mIns[xins].RequiresYReg()) xins = -1;
+			}
+
+			if (ins.mType == ASMIT_LDA || ins.mType == ASMIT_STA)
+				ains = i;
+			else if (ins.mType == ASMIT_LDX || ins.mType == ASMIT_STX)
+				xins = i;
+			else if (ins.mType == ASMIT_LDY || ins.mType == ASMIT_STY)
+				yins = i;
+		}
+
+		if (mTrueJump && mTrueJump->AbsoluteLocalRegisterValueReuse())
+			changed = true;
+		if (mFalseJump && mFalseJump->AbsoluteLocalRegisterValueReuse())
+			changed = true;
+	}
+
+	return changed;
+}
+
 
 bool NativeCodeBasicBlock::CheckLoopIndexYRegisters(NativeCodeBasicBlock* head, int yreg)
 {
@@ -57145,7 +57219,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "brick_animate");
+	CheckFunc = !strcmp(mIdent->mString, "logo_edit");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -58875,6 +58949,14 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->ForwardAXYReg())
 				changed = true;			
 		}
+
+		if (step == 14)
+		{
+			ResetVisited();
+			if (mEntryBlock->AbsoluteLocalRegisterValueReuse())
+				changed = true;
+		}
+
 #if 1
 #if _DEBUG
 		ResetVisited();
