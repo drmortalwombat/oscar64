@@ -568,6 +568,7 @@ public:
 
 	void UnionEntryValueRange(const GrowingIntegerValueRangeArray & range, const GrowingIntegerValueRangeArray& paramRange);
 	bool ForwardDiamondMovedTemp(void);
+	bool ForwardRealDiamondMovedTemp(void);
 	bool ForwardLoopMovedTemp(void);
 
 	bool MoveTrainCrossBlock(void);
@@ -585,7 +586,7 @@ public:
 
 	// The memory referenced by lins may be writtne by sind
 	bool DestroyingMem(const InterInstruction* lins, const InterInstruction* sins) const;
-	bool DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+	bool DestroyingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from , int to) const;
 
 	// The two memory operations may have overlapping reads/writs and writes
 	bool CollidingMem(const InterInstruction* ins1, const InterInstruction* ins2) const;

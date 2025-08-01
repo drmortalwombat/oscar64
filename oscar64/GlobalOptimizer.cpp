@@ -789,12 +789,15 @@ bool GlobalOptimizer::Optimize(void)
 					changed = true;
 				}
 
-				if (!(ftype->mFlags & DTF_VARIADIC))
+//				if (!(ftype->mFlags & DTF_VARIADIC))
 				{
 					Declaration* pdec = ftype->mParams;
 					int vi = 0;
 					while (pdec)
 					{
+						if ((ftype->mFlags & DTF_VARIADIC) && !pdec->mNext)
+							break;
+
 						pdec->mVarIndex += vi;
 						if (!(pdec->mOptFlags & OPTF_VAR_USED) && !(pdec->mFlags & DTF_FPARAM_UNUSED))
 						{

@@ -1278,11 +1278,14 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 				if (mProc->mParamAliasedSet[ins0->mSrc[0].mVarIndex])
 					return false;
 			}
-			else
+			else if (!ins1->mNoSideEffects)
 				return false;
 		}
 		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY || ins0->mCode == IC_FILL)
-			return false;
+		{
+			if (!ins1->mNoSideEffects || !ins1->mConstExpr)
+				return false;
+		}
 	}
 	if (ins0->mCode == IC_CALL || ins0->mCode == IC_CALL_NATIVE || ins0->mCode == IC_ASSEMBLER)
 	{
@@ -1368,8 +1371,22 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	if ((ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY || ins0->mCode == IC_FILL) &&
 		(ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL))
 	{
-		if (ins0->mVolatile || ins1->mVolatile)
+		if (ins0->mVolatile && ins1->mVolatile)
 			return false;
+		if (ins1->mVolatile && ins0->mCode == IC_LOAD)
+		{
+			if (ins1->mCode == IC_LOAD)
+				;
+			else if (ins1->mCode == IC_STORE)
+			{
+				if (ins1->mSrc[1].mMemory == IM_ABSOLUTE && (ins0->mSrc[0].mMemory != IM_ABSOLUTE && ins0->mSrc[0].mMemory != IM_INDIRECT))
+					;
+				else
+					return false;
+			}
+			else
+				return false;
+		}
 
 		if (ins0->mCode == IC_LOAD)
 		{
@@ -14768,6 +14785,93 @@ void InterCodeBasicBlock::UnionEntryValueRange(const GrowingIntegerValueRangeArr
 		mEntryParamValueRange[i].Union(paramRange[i]);
 }
 
+bool InterCodeBasicBlock::ForwardRealDiamondMovedTemp(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (CheckFunc && mIndex == 0)
+			printf("doopsie");
+
+		if (mTrueJump && mFalseJump && mTrueJump->mTrueJump &&
+			mTrueJump->mNumEntries == 1 && !mTrueJump->mFalseJump &&
+			mFalseJump->mNumEntries == 1 && !mFalseJump->mFalseJump &&
+			mTrueJump->mTrueJump == mFalseJump->mTrueJump && mTrueJump->mTrueJump->mNumEntries == 2)
+		{
+			InterCodeBasicBlock* eblock = mTrueJump->mTrueJump;
+
+			for (int i = mInstructions.Size() - 1; i >= 0; i--)
+			{
+				InterInstruction* mins = mInstructions[i];
+
+				if ((mins->mCode == IC_BINARY_OPERATOR || mins->mCode == IC_LEA) && (mins->mSrc[1].mTemp < 0 || mins->mSrc[0].mTemp < 0) || mins->mCode == IC_UNARY_OPERATOR || mins->mCode == IC_CONVERSION_OPERATOR || mins->mCode == IC_LOAD_TEMPORARY)
+				{
+					int	ttemp = mins->mDst.mTemp;
+					int stemp = ((mins->mCode == IC_BINARY_OPERATOR || mins->mCode == IC_LEA) && mins->mSrc[0].mTemp < 0) ? mins->mSrc[1].mTemp : mins->mSrc[0].mTemp;
+
+					if (!mTrueJump->mLocalRequiredTemps[ttemp] && !mTrueJump->mLocalModifiedTemps[stemp] && !mTrueJump->mLocalModifiedTemps[ttemp] &&
+						!mFalseJump->mLocalRequiredTemps[ttemp] && !mFalseJump->mLocalModifiedTemps[stemp] && !mFalseJump->mLocalModifiedTemps[ttemp] &&
+						!IsTempReferencedOnPath(ttemp, i + 1) && !IsTempModifiedOnPath(stemp, i + 1))
+					{
+						mTrueJump->mEntryRequiredTemps += stemp;
+						mTrueJump->mExitRequiredTemps += stemp;
+
+						mFalseJump->mEntryRequiredTemps += stemp;
+						mFalseJump->mExitRequiredTemps += stemp;
+
+						eblock->mEntryRequiredTemps += stemp;
+						mExitRequiredTemps += stemp;
+
+						eblock->mInstructions.Insert(0, mins);
+						mInstructions.Remove(i);
+
+						changed = true;
+					}
+				}
+				else if (mins->mCode == IC_LOAD)
+				{
+					int	ttemp = mins->mDst.mTemp;
+					int stemp = mins->mSrc[0].mTemp;
+
+					if (!mTrueJump->mLocalRequiredTemps[ttemp] && (stemp < 0 || !mTrueJump->mLocalModifiedTemps[stemp]) && !mTrueJump->mLocalModifiedTemps[ttemp] &&
+						!mFalseJump->mLocalRequiredTemps[ttemp] && (stemp < 0 || !mFalseJump->mLocalModifiedTemps[stemp]) && !mFalseJump->mLocalModifiedTemps[ttemp] &&
+						!IsTempReferencedOnPath(ttemp, i + 1) && (stemp < 0 || !IsTempModifiedOnPath(stemp, i + 1)) &&
+						CanMoveInstructionBehindBlock(i) &&
+						!DestroyingMem(mTrueJump, mins, 0, mTrueJump->mInstructions.Size()) && !DestroyingMem(mFalseJump, mins, 0, mFalseJump->mInstructions.Size()))
+					{
+						if (stemp >= 0)
+						{
+							mTrueJump->mEntryRequiredTemps += stemp;
+							mTrueJump->mExitRequiredTemps += stemp;
+
+							mFalseJump->mEntryRequiredTemps += stemp;
+							mFalseJump->mExitRequiredTemps += stemp;
+
+							eblock->mEntryRequiredTemps += stemp;
+							mExitRequiredTemps += stemp;
+						}
+
+						eblock->mInstructions.Insert(0, mins);
+						mInstructions.Remove(i);
+
+						changed = true;
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ForwardRealDiamondMovedTemp())
+			changed = true;
+		if (mFalseJump && mFalseJump->ForwardRealDiamondMovedTemp())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 {
 	bool changed = false;
@@ -26018,7 +26122,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "logo_exec");
+	CheckFunc = !strcmp(mIdent->mString, "turtle_show");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -26626,6 +26730,10 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->ForwardDiamondMovedTemp();
 	DisassembleDebug("Diamond move forwarding");
 
+	ResetVisited();
+	mEntryBlock->ForwardRealDiamondMovedTemp();
+	DisassembleDebug("Real Diamond move forwarding");
+
 	ResetEntryBlocks();
 	ResetVisited();
 	mEntryBlock->CollectEntryBlocks(nullptr);
@@ -26765,6 +26873,10 @@ void InterCodeProcedure::Close(void)
 	ResetVisited();
 	mEntryBlock->ForwardDiamondMovedTemp();
 	DisassembleDebug("Diamond move forwarding 2");
+
+	ResetVisited();
+	mEntryBlock->ForwardRealDiamondMovedTemp();
+	DisassembleDebug("Real Diamond move forwarding 2");
 
 	TempForwarding();
 
