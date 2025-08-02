@@ -18639,6 +18639,51 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 	}
 }
 
+int InterCodeBasicBlock::NumUnrollInstructions(int ireg)
+{
+	FastNumberSet	ffree(mLocalUsedTemps.Size());
+	ffree += ireg;
+
+	int	nins = 0;
+	for (int i = 0; i + 3 < mInstructions.Size(); i++)
+	{
+		const InterInstruction* ins(mInstructions[i]);
+		switch (ins->mCode)
+		{
+		case IC_BINARY_OPERATOR:
+		case IC_RELATIONAL_OPERATOR:
+		case IC_LEA:
+			if (ins->mSrc[0].mTemp >= 0 && ffree[ins->mSrc[0].mTemp] && ins->mSrc[1].mTemp < 0 || 
+				ins->mSrc[1].mTemp >= 0 && ffree[ins->mSrc[1].mTemp] && ins->mSrc[0].mTemp < 0)
+				ffree += ins->mDst.mTemp;
+			else
+				nins++;
+			break;
+		case IC_UNARY_OPERATOR:
+			if (ffree[ins->mSrc[0].mTemp])
+				ffree += ins->mDst.mTemp;
+			else
+				nins++;
+			break;
+		case IC_CONSTANT:
+			ffree += ins->mDst.mTemp;
+			break;
+		case IC_CONVERSION_OPERATOR:
+			if (ffree[ins->mSrc[0].mTemp])
+				ffree += ins->mDst.mTemp;
+			else if (ins->mOperator == IA_EXT8TO16U || ins->mOperator == IA_EXT8TO32U || ins->mOperator == IA_EXT16TO32U || ins->mOperator == IA_EXT8TO16S)
+				;
+			else
+				nins++;
+			break;
+		default:
+			nins++;
+		}
+	}
+
+	return nins;
+}
+
 void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 {
 	if (!mVisited)
@@ -18679,8 +18724,12 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 
 								if (mInstructions[nins - 2]->mOperator != IA_CMPNE || end == start + count * step)
 								{
-									if (count < 5 && (nins - 3) * count < 20)
+									int cins = NumUnrollInstructions(ireg);
+
+									if (count < 5 && (cins - 3) * count < 20)
 									{
+//										printf("Unrolling %s,%d\n", mProc->mIdent->mString, mIndex);
+
 										mInstructions.SetSize(nins - 2);
 										nins -= 2;
 										for (int i = 1; i < count; i++)
@@ -21475,7 +21524,7 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 						{
 							ins->mSrc[0].mTemp = -1;
 							ins->mSrc[0].mIntConst = ins->mSrc[1].mIntConst - pindexins[k]->mSrc[1].mIntConst;
-							ins->mSrc[1].mTemp = pindexins[k]->mDst.mTemp;
+							ins->mSrc[1] = pindexins[k]->mDst;
 							ins->mSrc[1].mMemory = IM_INDIRECT;
 							ins->mSrc[1].mIntConst = 0;
 							mInstructions[j++] = ins;
@@ -22059,6 +22108,17 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1] = ins;
 				mInstructions[i + 1]->mSrc[0].mIntConst = 0;
 				changed = true;
+			}
+
+			if (mInstructions[i + 0]->mCode == IC_LEA && mInstructions[i + 0]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mTemp >= 0 && mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
+				mInstructions[i + 1]->mCode == IC_LEA && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mSrc[1].mTemp && mInstructions[i + 1]->mDst.mTemp != mInstructions[i + 1]->mSrc[1].mTemp &&
+				mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst &&
+				!mInstructions[i + 2]->ReferencesTemp(mInstructions[i + 1]->mDst.mTemp))
+			{
+				SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
+				InterInstruction* ins(mInstructions[i + 0]);
+				mInstructions[i + 0] = mInstructions[i + 1];
+				mInstructions[i + 1] = ins;
 			}
 		}
 
@@ -26119,7 +26179,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "turtle_show");
+	CheckFunc = !strcmp(mIdent->mString, "benchmark");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

@@ -639,6 +639,8 @@ public:
 	void PeepholeOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 	bool PeepholeReplaceOptimization(const GrowingVariableArray& staticVars, const GrowingInterCodeProcedurePtrArray& staticProcs);
 
+	int NumUnrollInstructions(int ireg);
+
 	bool MoveLoopHeadCheckToTail(void);
 	void SingleBlockLoopOptimisation(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	void SingleBlockLoopUnrolling(void);

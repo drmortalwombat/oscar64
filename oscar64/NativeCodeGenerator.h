@@ -473,6 +473,8 @@ public:
 	NativeCodeBasicBlock * ForwardAccuBranch(bool eq, bool ne, bool pl, bool mi, int limit);
 	bool MergeBasicBlocks(void);
 	bool RemoveJumpToBranch(void);
+	NativeCodeBasicBlock* SplitBlock(int at);
+
 
 	struct DominatorStacks
 	{
@@ -557,7 +559,6 @@ public:
 
 	bool MoveSimpleADCToINCDECDown(int at);
 	bool MoveTAXADCSTADown(int at);
-
 
 	bool MoveZeroPageCrossBlockUp(int at, const NativeCodeInstruction & lins, const NativeCodeInstruction & sins);
 	bool ShortcutCrossBlockMoves(NativeCodeProcedure* proc);
@@ -747,6 +748,7 @@ public:
 	bool RemoveDoubleZPStore(void);
 
 	bool ExpandADCToBranch(NativeCodeProcedure* proc);
+	bool ExpandADCShortCascadeToBranch(void);
 	bool Expand16BitLoopBranch(void);
 	bool SimpleInlineCalls(void);
 
