@@ -14793,9 +14793,6 @@ bool InterCodeBasicBlock::ForwardRealDiamondMovedTemp(void)
 	{
 		mVisited = true;
 
-		if (CheckFunc && mIndex == 0)
-			printf("doopsie");
-
 		if (mTrueJump && mFalseJump && mTrueJump->mTrueJump &&
 			mTrueJump->mNumEntries == 1 && !mTrueJump->mFalseJump &&
 			mFalseJump->mNumEntries == 1 && !mFalseJump->mFalseJump &&

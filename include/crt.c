@@ -3598,7 +3598,7 @@ L1:
 		rol
 		bpl	L1
 W2:
-		and	#$7f
+		asl
 		sta	accu + 2
 		lda	accu
 		sta	accu + 1
@@ -3607,9 +3607,7 @@ W2:
 		sta	accu + 3
 		lda	#0
 		sta	accu
-		ror
-		ora	accu + 2
-		sta	accu + 2
+		ror	accu + 2
 		rts
 }
 
@@ -3757,7 +3755,7 @@ __asm f32_to_i16
 		sta	accu + 1
 		rts
 W1:
-		sec
+//		sec				// carry is set
 		sbc	#$8e
 		bcc	W2
 		bit	accu + 3
@@ -3775,9 +3773,10 @@ W5:
 		rts
 W2:
 		tax
+		lda accu + 1
 L1:
 		lsr	accu + 2
-		ror	accu + 1
+		ror
 		inx
 		bne	L1
 W3:
@@ -3785,15 +3784,14 @@ W3:
 		bpl	W4
 		
 		sec
-		lda	#0
-		sbc	accu + 1
+		eor #$ff
+		adc	#0
 		sta	accu
 		lda	#0
 		sbc	accu + 2
 		sta	accu + 1
 		rts
 W4:
-		lda	accu + 1
 		sta	accu
 		lda	accu + 2
 		sta	accu + 1
@@ -3815,32 +3813,34 @@ __asm f32_to_u16
 		cmp	#$7f
 		bcs	W1
 		lda	#0
+W0:
 		sta	accu
 		sta	accu + 1
 		rts
 W1:
-		sec
+//		sec				// carry is set
 		sbc	#$8e
-		beq	W2
 		bcc	W3
+		beq	W4
 		lda	#$ff
-		sta	accu
-		sta	accu + 1
-		rts
+		bne W0
 W3:
 		tax
+		lda accu + 1
 L1:
 		lsr	accu + 2
-		ror	accu + 1
+		ror
 		inx
 		bne	L1
 W2:
-		lda	accu + 1
 		sta	accu
 		lda	accu + 2
 		sta	accu + 1
 
 		rts
+W4:
+		lda accu + 1
+		bcs W2
 }
 
 __asm inp_conv_f32_u16

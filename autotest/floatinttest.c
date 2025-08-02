@@ -32,6 +32,19 @@ int main(void)
 	}
 
 	a = 1.0;
+	i = 1;	
+	for(int j=0; j<15; j++)
+	{
+		assert(i == (int)a);
+		assert(a == (float)i);
+		a *= 2.0;
+		a += 1.0;
+		i <<= 1;
+		i += 1;
+	}
+
+
+	a = 1.0;
 	u = 1;	
 	for(int j=0; j<16; j++)
 	{
@@ -39,6 +52,18 @@ int main(void)
 		assert(a == (float)u);
 		a *= 2.0;
 		u <<= 1;
+	}
+
+	a = 1.0;
+	u = 1;	
+	for(int j=0; j<16; j++)
+	{
+		assert(u == (unsigned)a);
+		assert(a == (float)u);
+		a *= 2.0;
+		a += 1;
+		u <<= 1;
+		u += 1;
 	}
 
 	a = 1.0;
