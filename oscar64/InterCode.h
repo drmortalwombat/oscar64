@@ -503,6 +503,8 @@ public:
 	void UnionIntegerRanges(const InterCodeBasicBlock* block);
 	void PruneUnusedIntegerRangeSets(void);
 
+	void LimitLoopIndexIntegerRangeSets(void);
+
 	bool CombineIndirectAddressing(void);
 
 	void WarnUnreachable(void);
@@ -660,6 +662,8 @@ public:
 	void InnerLoopCountZeroCheck(void);
 	bool PostDecLoopOptimization(void);
 	bool Flatten2DLoop(void);
+
+	bool UntangleLoadStoreSequence(void);
 
 	void PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue, bool loops);
 	void RemoveUnusedMallocs(void);
@@ -834,6 +838,7 @@ protected:
 	void RemoveUnusedMallocs(void);
 	void RecheckLocalAliased(void);
 	void ConstLoopOptimization(void);
+	void UntangleLoadStoreSequence(void);
 
 	bool ShortLeaMerge(FastNumberSet& activeSet);
 
@@ -848,6 +853,8 @@ protected:
 	void EliminateDoubleLoopCounter(void);
 	void StructReturnPropagation(void);
 	void ForwardSingleAssignmentBools(void);
+	void LimitLoopIndexIntegerRangeSets(void);
+
 
 	bool ReplaceByteIndexPointers(FastNumberSet& activeSet);
 

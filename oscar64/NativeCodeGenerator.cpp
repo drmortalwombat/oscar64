@@ -13242,6 +13242,38 @@ void NativeCodeBasicBlock::NumericConversion(InterCodeProcedure* proc, NativeCod
 	}
 }
 
+static const bool NearMemCompare(const InterInstruction* ins)
+{
+	if (ins->mSrc[0].mMemoryBase == ins->mSrc[1].mMemoryBase && ins->mSrc[0].mType == IT_POINTER)
+	{
+		if (ins->mSrc[0].mMemoryBase == IM_LOCAL || ins->mSrc[0].mMemoryBase == IM_GLOBAL)
+		{
+			if (ins->mSrc[0].mLinkerObject && ins->mSrc[0].mLinkerObject == ins->mSrc[1].mLinkerObject)
+			{
+				if (ins->mSrc[0].mLinkerObject->mSize < 256)
+					return true;
+				else if (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mRange.IsBound())
+				{
+					if (ins->mSrc[1].mRange.mMaxValue - ins->mSrc[1].mRange.mMinValue < 256 &&
+						ins->mSrc[0].mIntConst >= ins->mSrc[1].mRange.mMinValue &&
+						ins->mSrc[0].mIntConst <= ins->mSrc[1].mRange.mMaxValue)
+						return true;
+				}
+				else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mRange.IsBound())
+				{
+					if (ins->mSrc[0].mRange.mMaxValue - ins->mSrc[0].mRange.mMinValue < 256 &&
+						ins->mSrc[1].mIntConst >= ins->mSrc[0].mRange.mMinValue &&
+						ins->mSrc[1].mIntConst <= ins->mSrc[0].mRange.mMaxValue)
+						return true;
+				}
+			}
+		}
+	}
+
+	return false;
+
+}
+
 void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure* nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump)
 {
 	InterOperator	op = ins->mOperator;
@@ -13524,59 +13556,68 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		else
 			rreg = BC_REG_TMP + proc->mTempOffset[rreg];
 
-		NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-		NativeCodeBasicBlock* nblock = nproc->AllocateBlock();
-
-
-		if (op == IA_CMPEQ || op == IA_CMPNE)
+		if ((op == IA_CMPEQ || op == IA_CMPNE) && NearMemCompare(ins))
 		{
-			// Lower byte compare more likely to miss on not equal with first
-			// compare
-
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg));			
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_CMP, ASMIM_ZERO_PAGE, rreg));
 
-			Close(ins, nblock, eblock, ASMIT_BNE);
-
-			eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg + 1));
-			eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_CMP, ASMIM_ZERO_PAGE, rreg + 1));
+			Close(ins, trueJump, falseJump, op == IA_CMPEQ ? ASMIT_BEQ : ASMIT_BNE);
 		}
 		else
 		{
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg + 1));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_CMP, ASMIM_ZERO_PAGE, rreg + 1));
+			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
+			NativeCodeBasicBlock* nblock = nproc->AllocateBlock();
 
-			Close(ins, nblock, eblock, ASMIT_BNE);
+			if (op == IA_CMPEQ || op == IA_CMPNE)
+			{
+				// Lower byte compare more likely to miss on not equal with first
+				// compare
 
-			eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg));
-			eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_CMP, ASMIM_ZERO_PAGE, rreg));
-		}
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_CMP, ASMIM_ZERO_PAGE, rreg));
 
-		switch (op)
-		{
-		case IA_CMPEQ:
-			nblock->Close(ins, falseJump, nullptr, ASMIT_JMP);
-			eblock->Close(ins, trueJump, falseJump, ASMIT_BEQ);
-			break;
-		case IA_CMPNE:
-			nblock->Close(ins, trueJump, nullptr, ASMIT_JMP);
-			eblock->Close(ins, falseJump, trueJump, ASMIT_BEQ);
-			break;
-		case IA_CMPLU:
-		case IA_CMPLS:
-		case IA_CMPGU:
-		case IA_CMPGS:
-			eblock->Close(ins, nblock, nullptr, ASMIT_JMP);
-			nblock->Close(ins, trueJump, falseJump, ASMIT_BCC);
-			break;
-		case IA_CMPLEU:
-		case IA_CMPLES:
-		case IA_CMPGEU:
-		case IA_CMPGES:
-			eblock->Close(ins, nblock, nullptr, ASMIT_JMP);
-			nblock->Close(ins, falseJump, trueJump, ASMIT_BCC);
-			break;
+				Close(ins, nblock, eblock, ASMIT_BNE);
 
+				eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg + 1));
+				eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_CMP, ASMIM_ZERO_PAGE, rreg + 1));
+			}
+			else
+			{
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg + 1));
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_CMP, ASMIM_ZERO_PAGE, rreg + 1));
+
+				Close(ins, nblock, eblock, ASMIT_BNE);
+
+				eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, lreg));
+				eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_CMP, ASMIM_ZERO_PAGE, rreg));
+			}
+
+			switch (op)
+			{
+			case IA_CMPEQ:
+				nblock->Close(ins, falseJump, nullptr, ASMIT_JMP);
+				eblock->Close(ins, trueJump, falseJump, ASMIT_BEQ);
+				break;
+			case IA_CMPNE:
+				nblock->Close(ins, trueJump, nullptr, ASMIT_JMP);
+				eblock->Close(ins, falseJump, trueJump, ASMIT_BEQ);
+				break;
+			case IA_CMPLU:
+			case IA_CMPLS:
+			case IA_CMPGU:
+			case IA_CMPGS:
+				eblock->Close(ins, nblock, nullptr, ASMIT_JMP);
+				nblock->Close(ins, trueJump, falseJump, ASMIT_BCC);
+				break;
+			case IA_CMPLEU:
+			case IA_CMPLES:
+			case IA_CMPGEU:
+			case IA_CMPGES:
+				eblock->Close(ins, nblock, nullptr, ASMIT_JMP);
+				nblock->Close(ins, falseJump, trueJump, ASMIT_BCC);
+				break;
+
+			}
 		}
 	}
 	else if (ins->mSrc[0].mType == IT_INT32)
@@ -46362,7 +46403,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				eblock = mFalseJump;
 			}
 
-			if (eblock && cblock->mIns.Size() == 1 && cblock->mIns[0].mType == ASMIT_INC)
+			if (eblock && cblock->mIns.Size() == 1 && (cblock->mIns[0].mType == ASMIT_INC || cblock->mIns[0].mType == ASMIT_INX || cblock->mIns[0].mType == ASMIT_INY))
 			{
 				int i = 0;
 				while (i < eblock->mIns.Size() && !eblock->mIns[i].ReferencesCarry())
@@ -57322,7 +57363,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "logo_edit");
+	CheckFunc = !strcmp(mIdent->mString, "benchmark");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

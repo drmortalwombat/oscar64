@@ -15712,7 +15712,7 @@ void InterCodeBasicBlock::ApplyStaticStack(InterOperand & iop, const GrowingVari
 	{
 		assert(localVars[iop.mVarIndex]->mIndex < mProc->mModule->mGlobalVars.Size());
 
-		iop.mMemory = IM_GLOBAL;
+		iop.mMemory = iop.mMemoryBase = IM_GLOBAL;
 		iop.mLinkerObject = localVars[iop.mVarIndex]->mLinkerObject;
 		iop.mVarIndex = localVars[iop.mVarIndex]->mIndex;
 	}	
@@ -17209,6 +17209,122 @@ static bool IsSimpleFactor(int64 val)
 	return (val == 1 || val == 2 || val == 4 || val == 8);
 }
 
+
+void InterCodeBasicBlock::LimitLoopIndexIntegerRangeSets(void)
+{
+	if (!mVisited)
+	{
+		if (mLoopHead && mEntryBlocks.Size() == 2)
+		{
+			InterCodeBasicBlock* tail;
+
+			if (mEntryBlocks[0] == mLoopPrefix)
+				tail = mEntryBlocks[1];
+			else
+				tail = mEntryBlocks[0];
+
+			// Inner exit loop
+			ExpandingArray<InterCodeBasicBlock*> body;
+
+			if (CollectSingleEntryGenericLoop(body))
+			{
+				ExpandingArray<InterCodeBasicBlock*> exits;
+				for (int i = 0; i < body.Size(); i++)
+				{
+					if (body[i]->mTrueJump && !body.Contains(body[i]->mTrueJump) || body[i]->mFalseJump && !(body.Contains(body[i]->mFalseJump)))
+						exits.Push(body[i]);
+				}
+
+				if (exits.Size() == 1)
+				{
+					InterCodeBasicBlock* eblock = exits[0];
+
+					int esz = eblock->mInstructions.Size();
+					if (esz >= 2)
+					{
+						InterInstruction* ci = eblock->mInstructions[esz - 2];
+						InterInstruction* bi = eblock->mInstructions[esz - 1];
+
+						if (ci->mCode == IC_RELATIONAL_OPERATOR && (
+							ci->mSrc[0].mTemp < 0 && ci->mSrc[1].mTemp >= 0 && IsIntegerType(ci->mSrc[1].mType) ||
+							ci->mSrc[1].mTemp < 0 && ci->mSrc[0].mTemp >= 0 && IsIntegerType(ci->mSrc[0].mType)) &&
+							bi->mCode == IC_BRANCH && bi->mSrc[0].mTemp == ci->mDst.mTemp)
+						{
+							// single compare
+							int icsrc = ci->mSrc[0].mTemp >= 0 ? 0 : 1;							
+							int itemp = ci->mSrc[icsrc].mTemp;
+
+							if (mDominator->mTrueValueRange[itemp].IsConstant())
+							{
+								// Find increment in tail
+								int i = 0;
+								while (i < tail->mInstructions.Size() && tail->mInstructions[i]->mDst.mTemp != itemp)
+									i++;
+								if (i < tail->mInstructions.Size())
+								{
+									InterInstruction* ai = tail->mInstructions[i];
+									if ((ai->mOperator == IA_ADD || ai->mOperator == IA_SUB) && (ai->mSrc[0].mTemp == itemp && ai->mSrc[1].mTemp < 0 || ai->mSrc[1].mTemp == itemp && ai->mSrc[0].mTemp < 0))
+									{
+										int j = 0;
+										while (j < body.Size() && (body[j] == tail || !body[j]->IsTempModified(itemp)))
+											j++;
+										if (j == body.Size() && !tail->IsTempModifiedInRange(0, i, itemp) && !tail->IsTempModifiedInRange(i + 1, tail->mInstructions.Size(), itemp))
+										{
+											int iasrc = ai->mSrc[0].mTemp >= 0 ? 0 : 1;
+
+											int64 istart = mDominator->mTrueValueRange[itemp].mMaxValue;
+											int64 iinc, iend;
+											if (ai->mOperator == IA_ADD)
+												iinc = ai->mSrc[1 - iasrc].mIntConst;
+											else
+												iinc = -ai->mSrc[1 - iasrc].mIntConst;
+
+											InterOperator	op;
+											if (ci->mSrc[0].mTemp < 0)
+											{
+												iend = ci->mSrc[0].mIntConst;
+												op = ci->mOperator;
+											}
+											else
+											{
+												iend = ci->mSrc[1].mIntConst;
+												op = MirrorRelational(ci->mOperator);
+											}
+
+											if (body.Contains(eblock->mFalseJump))
+												op = InvertRelational(op);
+
+//											printf("Collected loop %s:%d, %d, %d, %d, [%d %d+%d!=%d] %d (%d..%d)\n", mProc->mIdent->mString, mIndex, body.Size(), eblock->mIndex, tail->mIndex, itemp, int(istart), int(iinc), int(iend), op, int(ai->mSrc[iasrc].mRange.mMinValue), int(ai->mSrc[iasrc].mRange.mMaxValue));
+
+											if (istart < iend && iinc > 0) // counting up
+											{
+												if (op == IA_CMPNE)
+												{
+													if ((iend - istart) % iinc == 0)
+													{
+														ai->mSrc[iasrc].mRange.LimitMin(istart);
+														ai->mSrc[iasrc].mRange.LimitMax(iend - iinc);
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+		}
+
+		mVisited = true;
+
+		if (mTrueJump) mTrueJump->LimitLoopIndexIntegerRangeSets();
+		if (mFalseJump) mFalseJump->LimitLoopIndexIntegerRangeSets();
+	}
+}
+
 void InterCodeBasicBlock::LimitLoopIndexRanges(void)
 {
 	if (!mVisited)
@@ -17267,6 +17383,7 @@ void InterCodeBasicBlock::LimitLoopIndexRanges(void)
 					}
 				}
 			}
+
 		}
 
 		if (mTrueJump) mTrueJump->LimitLoopIndexRanges();
@@ -19376,6 +19493,71 @@ void InterCodeBasicBlock::RemoveUnusedMallocs(void)
 	}
 }
 
+bool InterCodeBasicBlock::UntangleLoadStoreSequence(void)
+{
+	bool changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mInstructions.Size(); i++)
+		{
+			if (i + 2 < mInstructions.Size())
+			{
+				if (mInstructions[i + 0]->mCode == IC_LOAD &&
+					mInstructions[i + 1]->mCode == IC_STORE &&
+					mInstructions[i + 2]->mCode == IC_STORE &&
+					mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp &&
+					mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal &&
+					CanSwapInstructions(mInstructions[i + 1], mInstructions[i + 2]))
+				{
+					SwapInstructions(mInstructions[i + 1], mInstructions[i + 2]);
+					InterInstruction* ins = mInstructions[i + 1];
+					mInstructions[i + 1] = mInstructions[i + 2];
+					mInstructions[i + 2] = ins;
+					changed = true;
+				}
+			}
+			if (i + 3 < mInstructions.Size())
+			{
+				if (mInstructions[i + 0]->mCode == IC_LOAD &&
+					mInstructions[i + 1]->mCode == IC_STORE &&
+					mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp &&
+					mInstructions[i + 2]->mCode == IC_LOAD &&
+					mInstructions[i + 3]->mCode == IC_STORE &&
+					mInstructions[i + 3]->mSrc[0].mTemp == mInstructions[i + 2]->mDst.mTemp && mInstructions[i + 3]->mSrc[0].mFinal &&
+					CanSwapInstructions(mInstructions[i + 1], mInstructions[i + 2]) &&
+					CanSwapInstructions(mInstructions[i + 1], mInstructions[i + 3]) &&
+					CanSwapInstructions(mInstructions[i + 0], mInstructions[i + 2]) &&
+					CanSwapInstructions(mInstructions[i + 0], mInstructions[i + 3]))
+				{
+					SwapInstructions(mInstructions[i + 1], mInstructions[i + 2]);
+					SwapInstructions(mInstructions[i + 1], mInstructions[i + 3]);
+					SwapInstructions(mInstructions[i + 0], mInstructions[i + 2]);
+					SwapInstructions(mInstructions[i + 0], mInstructions[i + 3]);
+
+					InterInstruction* ins = mInstructions[i + 0];
+					mInstructions[i + 0] = mInstructions[i + 2];
+					mInstructions[i + 2] = ins;
+					ins = mInstructions[i + 1];
+					mInstructions[i + 1] = mInstructions[i + 3];
+					mInstructions[i + 3] = ins;
+
+					changed = true;
+				}
+			}
+		}
+	
+		if (mTrueJump && mTrueJump->UntangleLoadStoreSequence())
+			changed = true;
+		if (mFalseJump && mFalseJump->UntangleLoadStoreSequence())
+			changed = true;
+	}
+
+	return changed;
+}
+
 void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPtrArray& tvalue, bool loops)
 {
 	if (!mVisited)
@@ -19538,6 +19720,8 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 
 					assert(ins->mSrc[j].mMemoryBase != IM_LOCAL || ins->mSrc[j].mVarIndex >= 0);
 				}
+				else if (ins->mSrc[j].mTemp < 0 && ins->mSrc[j].mType == IT_POINTER)
+					ins->mSrc[j].mMemoryBase = ins->mSrc[j].mMemory;
 			}
 
 			if (ins->mCode == IC_LEA)
@@ -21545,6 +21729,8 @@ void InterCodeBasicBlock::SingleBlockLoopOptimisation(const NumberSet& aliasedPa
 							ains->mSrc[0].mType = IT_INT16;
 							ains->mSrc[0].mTemp = -1;
 							ains->mSrc[0].mIntConst = indexStep[ins->mSrc[0].mTemp];
+							if (ains->mDst.mRange.mMaxState == IntegerValueRange::S_BOUND)
+								ains->mDst.mRange.mMaxValue += ains->mSrc[0].mIntConst;
 
 							if (tailBlock->mEntryRequiredTemps[ains->mDst.mTemp])
 							{
@@ -25442,6 +25628,17 @@ void InterCodeProcedure::EliminateDoubleLoopCounter(void)
 	mEntryBlock->EliminateDoubleLoopCounter();
 }
 
+void InterCodeProcedure::LimitLoopIndexIntegerRangeSets(void)
+{
+	BuildTraces(0);
+	BuildLoopPrefix();
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	ResetVisited();
+	mEntryBlock->LimitLoopIndexIntegerRangeSets();
+}
 
 void InterCodeProcedure::PropagateMemoryAliasingInfo(bool loops)
 {
@@ -26760,6 +26957,9 @@ void InterCodeProcedure::Close(void)
 
 	DisassembleDebug("Simplified range limited relational ops 2");
 #endif
+	
+	LimitLoopIndexIntegerRangeSets();
+	DisassembleDebug("LimitLoopIndexIntegerRangeSets");
 
 #if 1
 	if (mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
@@ -27279,6 +27479,8 @@ void InterCodeProcedure::Close(void)
 
 		PeepholeOptimization();
 	}
+
+	UntangleLoadStoreSequence();
 
 	ResetVisited();
 	mEntryBlock->ReduceTempLivetimes();
@@ -28036,6 +28238,14 @@ void InterCodeProcedure::RecheckLocalAliased(void)
 	DisassembleDebug("RecheckLocalAliased");
 }
 
+void InterCodeProcedure::UntangleLoadStoreSequence(void)
+{
+	do {
+		ResetVisited();
+	} while (mEntryBlock->UntangleLoadStoreSequence());
+
+	DisassembleDebug("UntangleLoadStoreSequence");
+}
 
 void InterCodeProcedure::ConstLoopOptimization(void)
 {
