@@ -597,8 +597,11 @@ int main2(int argc, const char** argv)
 					strcpy_s(crtFileNamePath, basePath);
 					strcat_s(crtFileNamePath, "include/oscar64/crt.h");
 
-					if (!fopen_s(&crtFile, crtFileNamePath, "r"))
+					if (!fopen_s(&crtFile, crtFileNamePath, "r")) {
+						strcpy_s(includePath, basePath);
 						strcat_s(includePath, "include/oscar64/");
+						compiler->mPreprocessor->AddPath(includePath);
+					}
 					else
 					{
 						printf("Could not locate Oscar64 includes under %s\n", basePath);
