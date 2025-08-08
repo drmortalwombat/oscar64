@@ -5,9 +5,9 @@ char * strcpy(char * dst, const char * src);
 
 char * strncpy(char * dst, const char * src, int n);
 
-int strcmp(const char * ptr1, const char * ptr2);
+signed char strcmp(const char * ptr1, const char * ptr2);
 
-int strncmp(const char * ptr1, const char * ptr2, int n);
+signed char strncmp(const char * ptr1, const char * ptr2, int n);
 
 int strlen(const char * str);
 
@@ -29,7 +29,7 @@ void * memset(void * dst, int value, int size);
 
 void * memcpy(void * dst, const void * src, int size);
 
-int memcmp(const void * ptr1, const void * ptr2, int size);
+signed char memcmp(const void * ptr1, const void * ptr2, int size);
 
 void * memmove(void * dst, const void * src, int size);
 

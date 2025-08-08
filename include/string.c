@@ -63,12 +63,11 @@ char * strncpy(char * dst, const char * src, int n)
 
 #if 1
 
-int strcmp(const char * ptr1, const char * ptr2)
+signed char strcmp(const char * ptr1, const char * ptr2)
 {
 	__asm 
 	{
 		ldy #0
-		sty accu + 1
 	L1: lda (ptr1), y
 		beq W1
 		cmp (ptr2), y
@@ -90,7 +89,6 @@ int strcmp(const char * ptr1, const char * ptr2)
 	W2:	bcs W3
 
 		lda #$ff
-		sta accu + 1
 		bmi E
 
 	W3: lda #$01
@@ -119,7 +117,7 @@ int strcmp(const char * ptr1, const char * ptr2)
 
 #pragma native(strcmp)
 
-int strncmp(const char * ptr1, const char * ptr2, int size)
+signed char strncmp(const char * ptr1, const char * ptr2, int size)
 {
 	const char *p = ptr1, *q = ptr2;
 	char c = 0, d = 0;
@@ -370,7 +368,7 @@ void * memmove(void * dst, const void * src, int size)
 	return dst;
 }
 
-int memcmp(const void * ptr1, const void * ptr2, int size)
+signed char memcmp(const void * ptr1, const void * ptr2, int size)
 {
 	const char	*	p = (const char *)ptr1, * q = (const char *)ptr2;
 	char		c, d;
