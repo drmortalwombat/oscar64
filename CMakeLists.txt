@@ -70,3 +70,4 @@ set_target_properties(oscar64 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
 )
 
+install(TARGETS oscar64 RUNTIME DESTINATION bin)
