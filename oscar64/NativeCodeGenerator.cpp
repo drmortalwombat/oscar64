@@ -29911,6 +29911,7 @@ bool NativeCodeBasicBlock::CheckForwardSumYPointer(const NativeCodeBasicBlock* b
 			{
 				if (iins.mMode == ASMIM_IMMEDIATE && yval + iins.mAddress > 255)
 					return false;
+				if (yval < 0) yval = RetrieveYValue(at, 2);
 				if (yval < 0 || yval > ymax)
 					return false;
 				else if (!(ins.mLive & LIVE_MEM))
@@ -33105,8 +33106,19 @@ int NativeCodeBasicBlock::RetrieveYValue(int at, int depth) const
 		else
 			return -1;
 	}
-	else if (mEntryBlocks.Size() == 1 && depth < 20)
-		return mEntryBlocks[0]->RetrieveYValue(mEntryBlocks[0]->mIns.Size() - 1, depth + 1);
+	else if (mEntryBlocks.Size() >= 1 && depth < 20)
+	{
+		int yval = mEntryBlocks[0]->RetrieveYValue(mEntryBlocks[0]->mIns.Size() - 1, depth + 1);
+		if (yval >= 0)
+		{
+			for (int i = 1; i < mEntryBlocks.Size(); i++)
+			{
+				if (yval != mEntryBlocks[i]->RetrieveYValue(mEntryBlocks[i]->mIns.Size() - 1, depth + 5))
+					return -1;
+			}
+		}
+		return yval;
+	}
 	else
 		return -1;
 }
@@ -54287,6 +54299,36 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterateN(int i, int pass)
 #if 1
 		if (
 			mIns[i + 0].mType == ASMIT_CLC &&
+			mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+			mIns[i + 3].mType == ASMIT_LDA && (mIns[i + 3].mMode == ASMIM_ABSOLUTE_X || mIns[i + 3].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
+			mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0 &&
+			mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 2].mAddress + 1 &&
+			mIns[i + 1].mAddress != mIns[i + 2].mAddress && mIns[i + 1].mAddress != mIns[i + 5].mAddress)
+		{
+			int yval = RetrieveYValue(i);
+			mProc->ResetPatched();
+			if (CheckForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 6, yval, 3))
+			{
+				mProc->ResetPatched();
+				if (PatchForwardSumYPointer(this, mIns[i + 2].mAddress, mIns[i + 2].mAddress, mIns[i + 1], i + 6, yval))
+				{
+					mIns[i + 0].mType = ASMIT_NOP;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+
+					if (mTrueJump)
+						mTrueJump->CheckLive();
+					if (mFalseJump)
+						mFalseJump->CheckLive();
+					return true;
+				}
+			}
+		}
+#endif
+#if 1
+		if (
+			mIns[i + 0].mType == ASMIT_CLC &&
 			mIns[i + 1].mType == ASMIT_ADC && (mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
 			mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
 			mIns[i + 3].mType == ASMIT_LDA && (mIns[i + 3].mMode == ASMIM_ABSOLUTE_X || mIns[i + 3].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
@@ -57363,7 +57405,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "benchmark");
+	CheckFunc = !strcmp(mIdent->mString, "gfx_plot");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

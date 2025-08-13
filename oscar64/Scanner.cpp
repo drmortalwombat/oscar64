@@ -2701,7 +2701,11 @@ int64 Scanner::PrepParseSimple(bool skip)
 			v = 0;
 		}
 		else
-			mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor symbol", mTokenIdent);
+		{
+			mErrors->Error(mLocation, EWARN_EXPAND_UNDEFINED_MACRO_IDENT, "Expand undefined identifier in condition to 0", mTokenIdent);
+			NextPreToken();
+			v = 0;
+		}
 		break;
 	default:
 		mErrors->Error(mLocation, ERRR_PREPROCESSOR, "Invalid preprocessor token", TokenName(mToken));
