@@ -5643,6 +5643,14 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 		}
 #endif
 	}
+	
+	if (target->mCode.Size() == 2 && target->mRelocations.Size() == 0 && !target->mFalseJump && target->mTrueJump && target->mTrueJump->mIns.Size() == 1 && target->mTrueJump->mIns[0].mType == ASMIT_RTS)
+	{
+		PutByte(target->mCode[0]);
+		PutByte(target->mCode[1]);
+		PutByte(0x60);
+		return 3;
+	}
 
 	target->mAsmFromJump = from;
 
