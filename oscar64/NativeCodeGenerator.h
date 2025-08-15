@@ -973,6 +973,7 @@ class NativeCodeProcedure
 		void RebuildEntry(void);
 		void ResetIndexFlipped(void);
 		void CheckBlocks(bool sequence = false);
+		void TrimBlocks(void);
 
 		void SaveTempsToStack(int tempSave);
 		void LoadTempsFromStack(int tempSave);

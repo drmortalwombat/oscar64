@@ -25369,6 +25369,11 @@ void InterCodeProcedure::TrimBlocks(void)
 		InterCodeBasicBlock* block = mBlocks[i];
 		if (block->mNumEntries > 0)
 		{
+			if (block->mLoopPrefix && block->mLoopPrefix->mNumEntries == 0)
+				block->mLoopPrefix = nullptr;
+			if (block->mDominator && block->mDominator->mNumEntries == 0)
+				block->mDominator = nullptr;
+
 			block->mIndex = j;
 			mBlocks[j++] = block;
 		}
@@ -26632,6 +26637,8 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Loop Head 2");
 	BuildTraces(0);
 
+	TrimBlocks();
+
 	BuildDataFlowSets();
 	CheckUsedDefinedTemps();
 
@@ -26723,7 +26730,10 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	BuildTraces(0);
+	TrimBlocks();
+
 	DisassembleDebug("Rebuilt traces");
+
 
 	BuildDataFlowSets();
 
@@ -26769,6 +26779,7 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	BuildTraces(0);
+	TrimBlocks();
 	DisassembleDebug("Rebuilt traces");
 
 #if 1
@@ -26871,6 +26882,7 @@ void InterCodeProcedure::Close(void)
 #endif
 
 	BuildTraces(0);
+	TrimBlocks();
 
 #if 1
 	SingleBlockLoopPointerSplit(activeSet);
@@ -26900,6 +26912,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	BuildTraces(0);
+	TrimBlocks();
 #endif
 
 	SingleTailLoopOptimization(paramMemory);
@@ -26917,6 +26930,7 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 	BuildTraces(0);
+	TrimBlocks();
 
 	PushSinglePathResultInstructions();
 
@@ -26999,6 +27013,7 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("Removed unreachable branches");
 
 	BuildTraces(0);
+	TrimBlocks();
 	DisassembleDebug("Rebuilt traces");
 
 	BuildDataFlowSets();
@@ -27037,6 +27052,7 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 	BuildTraces(0);
+	TrimBlocks();
 	DisassembleDebug("Rebuilt traces");
 #endif
 
@@ -27064,6 +27080,7 @@ void InterCodeProcedure::Close(void)
 	BuildDataFlowSets();
 
 	BuildTraces(0);
+	TrimBlocks();
 	DisassembleDebug("Rebuilt traces");
 #endif
 
@@ -27334,6 +27351,7 @@ void InterCodeProcedure::Close(void)
 	for (int i = 0; i < 8; i++)
 	{
 		BuildTraces(0);
+		TrimBlocks();
 
 		LoadStoreForwarding(paramMemory);
 
@@ -27501,6 +27519,8 @@ void InterCodeProcedure::Close(void)
 
 	MergeBasicBlocks(activeSet);
 	BuildTraces(0, false, true);
+	TrimBlocks();
+
 	DisassembleDebug("Final Merged basic blocks");
 
 	WarnInvalidValueRanges();

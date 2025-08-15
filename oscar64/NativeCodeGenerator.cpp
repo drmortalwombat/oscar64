@@ -59546,6 +59546,8 @@ void NativeCodeProcedure::Optimize(void)
 	DisassembleDebug("Post Op 4");
 #endif
 
+	TrimBlocks();
+
 #if 1
 
 	ResetVisited();
@@ -59592,6 +59594,23 @@ NativeCodeBasicBlock* NativeCodeProcedure::AllocateBlock(void)
 	mBlocks.Push(block);
 
 	return block;
+}
+
+void NativeCodeProcedure::TrimBlocks(void)
+{
+	int j = 1;
+	for (int i = 1; i < mBlocks.Size(); i++)
+	{
+		NativeCodeBasicBlock* block = mBlocks[i];
+		if (block->mNumEntries > 0 || block->mLocked)
+		{
+			block->mIndex = j;
+			mBlocks[j++] = block;
+		}
+		else
+			delete block;
+	}
+	mBlocks.SetSize(j, false);
 }
 
 NativeCodeBasicBlock* NativeCodeProcedure::CompileBlock(InterCodeProcedure* iproc, InterCodeBasicBlock* sblock)
