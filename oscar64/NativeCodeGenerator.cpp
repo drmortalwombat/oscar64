@@ -14863,7 +14863,7 @@ NativeCodeInstruction NativeCodeBasicBlock::DecodeNative(const InterInstruction*
 			linkerObject = lref->mRefObject;
 			address = lref->mRefOffset;
 		}
-		else if (address >= BC_REG_TMP)
+		else if (address >= BC_REG_TMP || d.mMode == ASMIM_ZERO_PAGE && address <= 0x01)
 			flags |= NCIF_VOLATILE;
 		break;
 	case ASMIM_RELATIVE:
@@ -53314,7 +53314,24 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate6(int i, int pass)
 		mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
 		return true;
 	}
-	
+
+	if (pass > 0 &&
+		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 2].IsShift() && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+		mIns[i + 3].IsShift() && mIns[i + 3].mMode == ASMIM_IMPLIED &&
+		mIns[i + 4].mType == ASMIT_STA && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress &&
+		mIns[i + 5].mType == ASMIT_LDA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress == mIns[i + 1].mAddress && !(mIns[i + 5].mLive & LIVE_MEM))
+	{
+		mIns[i + 2].CopyMode(mIns[i + 0]); mIns[i + 2].mLive |= LIVE_MEM;
+		mIns[i + 3].CopyMode(mIns[i + 0]); mIns[i + 3].mLive |= LIVE_MEM;
+
+		mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+		mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+		mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+
 	if (
 		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
 		mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
