@@ -133,6 +133,8 @@ static const uint64 DTF_ASM_PRESERVE_A	= (1ULL << 54);
 static const uint64 DTF_ASM_PRESERVE_X	= (1ULL << 55);
 static const uint64 DTF_ASM_PRESERVE_Y	= (1ULL << 56);
 
+static const uint64	DTF_MEMMAP			= (1ULL << 57);
+
 class Declaration;
 
 enum ScopeLevel

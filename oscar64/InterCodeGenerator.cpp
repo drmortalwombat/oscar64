@@ -300,6 +300,7 @@ void InterCodeGenerator::StoreValue(InterCodeProcedure* proc, Expression* exp, I
 		ins->mSrc[1].mTemp = vl.mTemp;
 		ins->mSrc[1].mOperandSize = InterTypeSize[itype];
 		ins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
+		ins->mMemmap = vl.mType->mFlags & DTF_MEMMAP;
 		ins->mNumOperands = 2;
 		block->Append(ins);
 	}
@@ -315,6 +316,7 @@ void InterCodeGenerator::StoreValue(InterCodeProcedure* proc, Expression* exp, I
 		ins->mSrc[1].mOperandSize = vl.mType->mSize;
 		ins->mSrc[1].mStride = vl.mType->mStripe;
 		ins->mVolatile = vl.mType->mFlags & DTF_VOLATILE;
+		ins->mMemmap = vl.mType->mFlags & DTF_MEMMAP;
 		ins->mNumOperands = 2;
 		block->Append(ins);
 	}

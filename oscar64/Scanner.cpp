@@ -65,6 +65,7 @@ const char* TokenNames[] =
 	"__striped",
 	"__dynstack",
 	"__preserves",
+	"__memmap",
 
 	"number",
 	"char",
@@ -1881,6 +1882,8 @@ void Scanner::NextRawToken(void)
 					mToken = TK_DYNSTACK;
 				else if (!strcmp(tkident, "__preserves"))
 					mToken = TK_PRESERVES;
+				else if (!strcmp(tkident, "__memmap"))
+					mToken = TK_MEMMAP;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "namespace"))
 					mToken = TK_NAMESPACE;
 				else if ((mCompilerOptions & COPT_CPLUSPLUS) && !strcmp(tkident, "using"))

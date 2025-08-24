@@ -867,6 +867,10 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		mScanner->NextToken();
 		return ParseBaseTypeDeclaration(flags | DTF_VOLATILE, qualified);
 
+	case TK_MEMMAP:
+		mScanner->NextToken();
+		return ParseBaseTypeDeclaration(flags | DTF_MEMMAP, qualified);
+
 	case TK_LONG:
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
 		dec->mSize = 4;
@@ -1250,6 +1254,11 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				ndec->mFlags |= DTF_VOLATILE;
 				mScanner->NextToken();
 			}
+			else if (mScanner->mToken == TK_MEMMAP)
+			{
+				ndec->mFlags |= DTF_MEMMAP;
+				mScanner->NextToken();
+			}
 			else
 				break;
 		}
@@ -1278,6 +1287,11 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				ndec->mFlags |= DTF_VOLATILE;
 				mScanner->NextToken();
 			}
+			else if (mScanner->mToken == TK_MEMMAP)
+			{
+				ndec->mFlags |= DTF_MEMMAP;
+				mScanner->NextToken();
+			}
 			else
 				break;
 		}
@@ -1302,6 +1316,11 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				mScanner->NextToken();
 			}
 			else if (mScanner->mToken == TK_VOLATILE)
+			{
+				ndec->mFlags |= DTF_VOLATILE;
+				mScanner->NextToken();
+			}
+			else if (mScanner->mToken == TK_MEMMAP)
 			{
 				ndec->mFlags |= DTF_VOLATILE;
 				mScanner->NextToken();
@@ -7504,6 +7523,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 	case TK_AUTO:
 	case TK_STRIPED:
 	case TK_DECLTYPE:
+	case TK_MEMMAP:
 		exp = ParseDeclarationExpression(nullptr);
 		break;
 
@@ -7943,6 +7963,9 @@ uint64 Parser::ParseAssemblerFlags(void)
 
 	if (ConsumeTokenIf(TK_VOLATILE))
 		flags |= DTF_VOLATILE;
+
+	if (ConsumeTokenIf(TK_MEMMAP))
+		flags |= DTF_MEMMAP;
 
 	if (ConsumeTokenIf(TK_PRESERVES))
 	{
@@ -14081,6 +14104,7 @@ bool Parser::IsTypeToken(void)
 	case TK_AUTO:
 	case TK_STRIPED:
 	case TK_DECLTYPE:
+	case TK_MEMMAP:
 		return true;
 	case TK_IDENT:
 	{

@@ -5,11 +5,11 @@
 
 struct MMU
 {
-	volatile byte	cr;
-	volatile byte	bank0;
-	volatile byte	bank1;
-	volatile byte	bank14;
-	volatile byte	bankx;
+	volatile __memmap byte	cr;
+	volatile __memmap byte	bank0;
+	volatile __memmap byte	bank1;
+	volatile __memmap byte	bank14;
+	volatile __memmap byte	bankx;
 };
 
 struct XMMU

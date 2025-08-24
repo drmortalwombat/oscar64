@@ -77,6 +77,6 @@ void mmap_trampoline(void)
 char mmap_set(char pla)
 {
 	char ppla = *((char *)0x01);
-	*((volatile char *)0x01) = pla;
+	*((volatile __memmap char *)0x01) = pla;
 	return ppla;
 }

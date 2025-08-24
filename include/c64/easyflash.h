@@ -5,9 +5,9 @@
 
 struct EasyFlash
 {
-	volatile byte	bank;
-	byte			pad1;
-	volatile byte	control;
+	volatile  __memmap	byte	bank;
+	byte						pad1;
+	volatile byte				control;
 };
 
 #define EFCTRL_GAME		0x01

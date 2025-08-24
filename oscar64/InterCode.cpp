@@ -1371,8 +1371,12 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 	if ((ins0->mCode == IC_LOAD || ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY || ins0->mCode == IC_FILL) &&
 		(ins1->mCode == IC_LOAD || ins1->mCode == IC_STORE || ins1->mCode == IC_COPY || ins1->mCode == IC_STRCPY || ins1->mCode == IC_FILL))
 	{
+		if (ins0->mMemmap || ins1->mMemmap)
+			return false;
+
 		if (ins0->mVolatile && ins1->mVolatile)
 			return false;
+
 		if (ins1->mVolatile && ins0->mCode == IC_LOAD)
 		{
 			if (ins1->mCode == IC_LOAD)
@@ -2393,7 +2397,7 @@ static bool CanBypassStoreDown(const InterInstruction* sins, const InterInstruct
 
 	if (bins->mCode == IC_STORE)
 	{
-		if (sins->mVolatile)
+		if (sins->mVolatile || sins->mMemmap)
 			return false;
 		else if (sins->mSrc[1].mMemory == IM_INDIRECT && bins->mSrc[1].mMemory == IM_INDIRECT)
 		{
@@ -2427,7 +2431,7 @@ static bool CanBypassStoreDown(const InterInstruction* sins, const InterInstruct
 
 	if (bins->mCode == IC_LOAD)
 	{
-		if (sins->mVolatile)
+		if (sins->mVolatile || sins->mMemmap)
 			return false;
 		else if (sins->mSrc[1].mMemory == IM_INDIRECT && bins->mSrc[0].mMemory == IM_INDIRECT)
 		{
@@ -2913,6 +2917,7 @@ InterInstruction* InterInstruction::Clone(void) const
 	ins->mInUse = mInUse;
 	ins->mInvariant = mInvariant;
 	ins->mVolatile = mVolatile;
+	ins->mMemmap = mMemmap;
 	ins->mExpensive = mExpensive;
 	ins->mSingleAssignment = mSingleAssignment;
 	ins->mNoSideEffects = mNoSideEffects;
@@ -4346,6 +4351,7 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	mNoSideEffects = false;
 	mConstExpr = false;
 	mAliasing = false;
+	mMemmap = false;
 }
 
 static bool TypeInteger(InterType t)
@@ -6243,6 +6249,8 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 			fprintf(file, "I");
 		if (mVolatile)
 			fprintf(file, "V");
+		if (mMemmap)
+			fprintf(file, "M");
 		if (mNoSideEffects)
 			fprintf(file, "E");
 		if (mConstExpr)
