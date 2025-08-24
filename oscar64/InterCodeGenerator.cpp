@@ -222,7 +222,7 @@ void InterCodeGenerator::StoreValue(InterCodeProcedure* proc, Expression* exp, I
 		cmsins->mDst.mType = itype;
 		cmsins->mDst.mTemp = proc->AddTemporary(cmsins->mDst.mType);
 		cmsins->mConst.mType = itype;
-		cmsins->mConst.mIntConst = ((1 << vl.mBits) - 1) << vl.mShift;
+		cmsins->mConst.mIntConst = ((1LL << vl.mBits) - 1) << vl.mShift;
 		cmsins->mNumOperands = 0;
 		block->Append(cmsins);
 
@@ -230,7 +230,7 @@ void InterCodeGenerator::StoreValue(InterCodeProcedure* proc, Expression* exp, I
 		cmlins->mDst.mType = itype;
 		cmlins->mDst.mTemp = proc->AddTemporary(cmlins->mDst.mType);
 		cmlins->mConst.mType = itype;
-		cmlins->mConst.mIntConst = ~cmsins->mConst.mIntConst;
+		cmlins->mConst.mIntConst = ~cmsins->mConst.mIntConst & ((1LL << nbits) - 1);
 		cmlins->mNumOperands = 0;
 		block->Append(cmlins);
 
