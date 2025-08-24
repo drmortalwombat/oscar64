@@ -9266,16 +9266,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 								switch (ins->mSrc[1].mType)
 								{
 								case IT_INT16:
-									vr.mMaxValue = (short)(int64min(32767, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
-									vr.mMinValue = (short)(int64max(-32768, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMaxValue = (int16)(int64min(32767, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (int16)(int64max(-32768, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT8:
-									vr.mMaxValue = (char)(int64min(127, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
-									vr.mMinValue = (char)(int64max(-128, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMaxValue = (int8)(int64min(127, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (int8)(int64max(-128, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT32:
-									vr.mMaxValue = (int)(int64min(2147483647, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
-									vr.mMinValue = (int)(int64max(-2147483648, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMaxValue = (int32)(int64min(2147483647, vr.mMaxValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (int32)(int64max(-2147483648, vr.mMinValue)) >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								}
 							}
@@ -9284,16 +9284,16 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 								switch (ins->mSrc[1].mType)
 								{
 								case IT_INT16:
-									vr.mMaxValue = (short) 32767 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
-									vr.mMinValue = (short)-32768 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMaxValue = (int16) 32767 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (int16)-32768 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT8:
-									vr.mMaxValue = (char) 127 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
-									vr.mMinValue = (char)-128 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMaxValue = (int8) 127 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (int8)-128 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								case IT_INT32:
-									vr.mMaxValue = (int) 2147483647 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
-									vr.mMinValue = (int)-2147483648 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMaxValue = (int32) 2147483647 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
+									vr.mMinValue = (int32)-2147483648 >> TypeShiftMask(ins->mDst.mType, ins->mSrc[0].mIntConst);
 									break;
 								}
 								vr.mMinState = IntegerValueRange::S_BOUND;
@@ -26389,7 +26389,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "benchmark");
+	CheckFunc = !strcmp(mIdent->mString, "test_char_signed");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
