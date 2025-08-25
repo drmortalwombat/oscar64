@@ -13928,7 +13928,8 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 	}
 	else if (InterTypeSize[ins->mSrc[0].mType] == 1 || 
 			scmp && ins->mSrc[0].IsSByte() && ins->mSrc[1].IsSByte() || 
-			ucmp && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte())
+			ucmp && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte() ||
+			op == IA_CMPLU && ins->mSrc[1].IsSByte() && ins->mSrc[0].IsSByte() && ins->mSrc[0].IsPositive())
 	{
 		int	li = 1, ri = 0;
 		if (op == IA_CMPLEU || op == IA_CMPGU || op == IA_CMPLES || op == IA_CMPGS)
