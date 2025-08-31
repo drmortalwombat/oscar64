@@ -14792,7 +14792,23 @@ void NativeCodeBasicBlock::CallFunction(InterCodeProcedure* proc, NativeCodeProc
 
 void NativeCodeBasicBlock::DisassembleBody(FILE* file)
 {
-	fprintf(file, "L%d:\n", mIndex);
+	fprintf(file, "L%d: (", mIndex);
+	bool	first = true;
+	if (mEntryRequiredRegs.Size() > 0)
+	{
+		for (int i = 0; i < 256; i++)
+		{
+			if (mEntryRequiredRegs[i])
+			{
+				fprintf(file, "%02x", i);
+				if (!first)
+					fprintf(file, ", ");
+				first = false;
+			}
+		}
+	}
+	fprintf(file, ")\n");
+
 	for (int i = 0; i < mIns.Size(); i++)
 	{
 		fprintf(file, "%03d ", i);
@@ -35071,10 +35087,156 @@ bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block,
 	return true;
 }
 
+bool NativeCodeBasicBlock::BackwardFindLiveRange(const NativeCodeBasicBlock* block, int reg, bool pair, ExpandingArray<CodeRange>& ranges)
+{
+	if (mVisited)
+		return false;
+
+	if (!mPatchExit)
+	{
+		mPatchExit = true;
+
+		if (mTrueJump && !mTrueJump->ForwardFindLiveRange(block, 0, reg, pair, ranges))
+			return false;
+		if (mFalseJump && !mFalseJump->ForwardFindLiveRange(block, 0, reg, pair, ranges))
+			return false;
+
+		CodeRange	cr;
+		cr.mBlock = this;
+		cr.mEnd = mIns.Size();
+
+		for (int i = mIns.Size() - 1; i >= 0; i--)
+		{
+			if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == reg)
+			{
+				if (mIns[i].mType == ASMIT_STA || mIns[i].mType == ASMIT_STX || mIns[i].mType == ASMIT_STY)
+				{
+					cr.mStart = i;
+					ranges.Push(cr);
+					return true;
+				}
+			}
+		}
+
+		cr.mStart = 0;
+		ranges.Push(cr);
+
+		for (int i = 0; i < mEntryBlocks.Size(); i++)
+		{
+			if (!mEntryBlocks[i]->BackwardFindLiveRange(block, reg, pair, ranges))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+bool NativeCodeBasicBlock::CanReplaceRegInLiveRange(const ExpandingArray<CodeRange>& range, int reg, int with, bool pair)
+{
+	for (int i = 0; i < range.Size(); i++)
+	{
+		if (range[i].mStart == 0 && range[i].mBlock->mEntryRequiredRegs[with])
+			return false;
+		if (range[i].mBlock->ReferencesZeroPage(with, range[i].mStart, range[i].mEnd))
+			return false;
+		if (!pair)
+		{
+			for (int j = range[i].mStart; j < range[i].mEnd; j++)
+			{
+				const NativeCodeInstruction& ins(range[i].mBlock->mIns[j]);
+				if (ins.mMode == ASMIM_INDIRECT_Y && (ins.mAddress == reg || ins.mAddress + 1 == reg))
+					return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool NativeCodeBasicBlock::ReplaceRegInLiveRange(const ExpandingArray<CodeRange>& range, int reg, int with, bool pair)
+{
+	bool	changed = false;
+	for (int i = 0; i < range.Size(); i++)
+	{
+		for (int j = range[i].mStart; j < range[i].mEnd; j++)
+		{
+			NativeCodeInstruction& ins(range[i].mBlock->mIns[j]);
+			if (ins.mMode == ASMIM_ZERO_PAGE || ins.mMode == ASMIM_INDIRECT_Y)
+			{
+				if (ins.mAddress == reg)
+				{
+					ins.mAddress = with;
+					changed = true;
+				}
+			}
+		}
+		if (range[i].mBlock->mEntryRequiredRegs[reg])
+			range[i].mBlock->mEntryRequiredRegs += with;
+	}
+	return changed;
+}
+
+bool NativeCodeBasicBlock::ForwardFindLiveRange(const NativeCodeBasicBlock* block, int at, int reg, bool pair, ExpandingArray<CodeRange>& ranges)
+{
+	if (!mPatched)
+	{
+		mPatched = true;
+		if (at > 0 || mEntryRequiredRegs[reg] || (pair && mEntryRequiredRegs[reg + 1]))
+		{
+			if (at == 0)
+			{
+				if (mNumEntries > 1)
+				{
+					for (int i = 0; i < mEntryBlocks.Size(); i++)
+					{
+						if (mEntryBlocks[i] != block)
+						{
+							if (!mEntryBlocks[i]->IsDominatedBy(block))
+								return false;
+							if (!mEntryBlocks[i]->BackwardFindLiveRange(block, reg, pair, ranges))
+								return false;
+						}
+					}
+				}
+			}
+
+			CodeRange	cr;
+			cr.mBlock = this;
+			cr.mStart = at;
+
+			for (int i = at; i < mIns.Size(); i++)
+			{
+				if (mIns[i].mMode == ASMIM_ZERO_PAGE || mIns[i].mMode == ASMIM_INDIRECT_Y)
+				{
+					if (mIns[i].mAddress == reg && !(mIns[i].mLive & LIVE_MEM))
+					{
+						cr.mEnd = i + 1;
+						ranges.Push(cr);
+						return true;
+					}
+				}
+
+				if (mIns[i].mType == ASMIT_JSR)
+					return false;
+			}
+
+			cr.mEnd = mIns.Size();
+			mPatchExit = true;
+			ranges.Push(cr);
+
+			if (mTrueJump && !mTrueJump->ForwardFindLiveRange(block, 0, reg, pair, ranges))
+				return false;
+			if (mFalseJump && !mFalseJump->ForwardFindLiveRange(block, 0, reg, pair, ranges))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+
 bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 {
 //	return false;
-
 	bool	changed = false;
 
 	if (!mVisited)
@@ -35177,6 +35339,83 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				}
 			}
 
+		}
+
+		if (!changed)
+		{
+			for (int i = 0; i < mIns.Size(); i++)
+			{
+				if (i + 1 < mIns.Size() &&
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM) &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 0].mAddress >= BC_REG_FPARAMS && mIns[i + 0].mAddress < BC_REG_FPARAMS_END &&
+					mIns[i + 1].mAddress >= BC_REG_TMP)
+				{
+					ExpandingArray<CodeRange>	ranges;
+
+					nproc->ResetPatched();
+					if (ForwardFindLiveRange(this, i + 2, mIns[i + 1].mAddress, false, ranges))
+					{
+						if (CanReplaceRegInLiveRange(ranges, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false))
+						{
+#if 0
+							printf("Replace %s, %d, %d, %02x <- %02x)\n", mProc->mIdent->mString, mIndex, i, mIns[i + 1].mAddress, mIns[i + 0].mAddress);
+							printf("LiveRange %s (%d, %d, %02x)\n", mProc->mIdent->mString, mIndex, i, mIns[i + 1].mAddress);
+							for (int i = 0; i < ranges.Size(); i++)
+							{
+								printf(" %d, %d..%d\n", ranges[i].mBlock->mIndex, ranges[i].mStart, ranges[i].mEnd);
+							}
+#endif
+							if (ReplaceRegInLiveRange(ranges, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false))
+							{
+								mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+								changed = true;
+							}
+						}
+					}
+				}
+				if (i + 3 < mIns.Size() &&
+					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM) &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mIns[i + 2].mAddress == mIns[i + 0].mAddress + 1 && !(mIns[i + 2].mLive & LIVE_MEM) &&
+					mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress + 1 &&
+					mIns[i + 0].mAddress >= BC_REG_FPARAMS && mIns[i + 0].mAddress < BC_REG_FPARAMS_END &&
+					mIns[i + 1].mAddress >= BC_REG_TMP)
+				{
+					ExpandingArray<CodeRange>	ranges1, ranges2;
+
+					nproc->ResetPatched();
+					if (ForwardFindLiveRange(this, i + 2, mIns[i + 1].mAddress, true, ranges1))
+					{
+						nproc->ResetPatched();
+						if (ForwardFindLiveRange(this, i + 4, mIns[i + 3].mAddress, true, ranges2))
+						{
+							if (CanReplaceRegInLiveRange(ranges1, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true) &&
+								CanReplaceRegInLiveRange(ranges2, mIns[i + 3].mAddress, mIns[i + 2].mAddress, true))
+							{
+#if 0
+								printf("ReplacePair %s, %d\n", mProc->mIdent->mString, mIndex);
+								printf("LivePairRange %s (%d, %d, %02x)\n", mProc->mIdent->mString, mIndex, i, mIns[i + 1].mAddress);
+								for (int i = 0; i < ranges1.Size(); i++)
+								{
+									printf(" L %d, %d..%d\n", ranges1[i].mBlock->mIndex, ranges1[i].mStart, ranges1[i].mEnd);
+								}
+								for (int i = 0; i < ranges2.Size(); i++)
+								{
+									printf(" H %d, %d..%d\n", ranges2[i].mBlock->mIndex, ranges2[i].mStart, ranges2[i].mEnd);
+								}
+#endif
+
+								ReplaceRegInLiveRange(ranges1, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true);
+								ReplaceRegInLiveRange(ranges2, mIns[i + 3].mAddress, mIns[i + 2].mAddress, true);
+								mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+								mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+								changed = true;
+							}
+						}
+					}
+				}
+			}
 		}
 
 		if (mTrueJump && mTrueJump->ReplaceFinalZeroPageUse(nproc))
@@ -35334,8 +35573,6 @@ bool NativeCodeBasicBlock::Propagate16BitHighSum(void)
 	return changed;
 }
 
-
-
 bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to, bool pair)
 {
 	bool	changed = false;
@@ -35367,6 +35604,7 @@ bool NativeCodeBasicBlock::ForwardReplaceZeroPage(int at, int from, int to, bool
 
 	return changed;
 }
+
 
 
 bool NativeCodeBasicBlock::CanZeroPageCopyUp(int at, int from, int to, bool diamond)
@@ -57431,7 +57669,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "gfx_plot");
+	CheckFunc = !strcmp(mIdent->mString, "shl32b");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

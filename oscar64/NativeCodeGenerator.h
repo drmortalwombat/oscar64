@@ -708,6 +708,17 @@ public:
 	bool Check16BitSum(const NativeCodeBasicBlock* block, int origin, int at, int reg);
 	bool EliminateUpper16BitSum(NativeCodeProcedure* nproc);
 
+	struct CodeRange
+	{
+		NativeCodeBasicBlock	*	mBlock;
+		int							mStart, mEnd;
+	};
+
+	bool BackwardFindLiveRange(const NativeCodeBasicBlock* block, int reg, bool pair, ExpandingArray<CodeRange>& ranges);
+	bool ForwardFindLiveRange(const NativeCodeBasicBlock* block, int at, int reg, bool pair, ExpandingArray<CodeRange> & ranges);
+	bool CanReplaceRegInLiveRange(const ExpandingArray<CodeRange>& range, int reg, int with, bool pair);
+	bool ReplaceRegInLiveRange(const ExpandingArray<CodeRange>& range, int reg, int with, bool pair);
+
 	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair, bool fchanged);
 	bool IsFinalZeroPageUseTail(const NativeCodeBasicBlock* block, int from, int to, bool pair);
 	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
