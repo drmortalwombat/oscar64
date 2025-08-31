@@ -209,6 +209,16 @@ int main2(int argc, const char** argv)
 					strcpy_s(cid, arg + 5);
 					compiler->mCartridgeID = atoi(cid);
 				}
+				else if (arg[1] == 'c' && arg[2] == 's' && arg[3] == 'u' && arg[4] == 'b' && arg[5] == '=')
+				{
+					char	cid[10];
+					strcpy_s(cid, arg + 6);
+					compiler->mCartridgeSubType = atoi(cid);
+				}
+				else if (arg[1] == 'c' && arg[2] == 'n' && arg[3] == 'a' && arg[4] == 'm' && arg[5] == 'e' && arg[6] == '=')
+				{
+					strcpy_s(compiler->mCartridgeName, arg + 7);
+				}
 				else if (arg[1] == 'n' && arg[2] == 0)
 				{
 					compiler->mCompilerOptions |= COPT_NATIVE;

@@ -287,7 +287,7 @@ public:
 	bool WriteMapFile(const char* filename);
 	bool WriteAsmFile(const char* filename, const char * version);
 	bool WriteLblFile(const char* filename);
-	bool WriteCrtFile(const char* filename, uint16 id);
+	bool WriteCrtFile(const char* filename, uint16 id, uint8 subtype, const char * cname);
 	bool WriteBinFile(const char* filename);
 	bool WriteNesFile(const char* filename, TargetMachine machine);
 	bool WriteMlbFile(const char* filename, TargetMachine machine);

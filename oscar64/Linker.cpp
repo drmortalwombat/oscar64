@@ -1518,7 +1518,7 @@ static uint32 flip32(uint32 d)
 	return uint32(flip16(uint16(d >> 16))) | (uint32(flip16(uint16(d))) << 16);
 }
 
-bool Linker::WriteCrtFile(const char* filename, uint16 id)
+bool Linker::WriteCrtFile(const char* filename, uint16 id, uint8 subtype, const char* cname)
 {
 	FILE* file;
 	fopen_s(&file, filename, "wb");
@@ -1531,7 +1531,8 @@ bool Linker::WriteCrtFile(const char* filename, uint16 id)
 			uint16	mVersion;
 			uint8	mIDHi, mIDLo;
 			uint8	mExrom, mGameLine;
-			uint8	mPad[6];
+			uint8	mSubType;
+			uint8	mPad[5];
 			char	mName[32];
 		}	criHeader = { 0 };
 
@@ -1540,6 +1541,7 @@ bool Linker::WriteCrtFile(const char* filename, uint16 id)
 		criHeader.mVersion = 0x0001;
 		criHeader.mIDHi = uint8(id >> 8);
 		criHeader.mIDLo = uint8(id & 0xff);
+		criHeader.mSubType = subtype;
 
 		if (mCompilerOptions & COPT_TARGET_CRT8)
 		{
@@ -1558,7 +1560,7 @@ bool Linker::WriteCrtFile(const char* filename, uint16 id)
 		}
 
 		memset(criHeader.mName, 0, 32);
-		strcpy_s(criHeader.mName, "OSCAR");
+		strcpy_s(criHeader.mName, cname);
 
 		fwrite(&criHeader, sizeof(CRIHeader), 1, file);
 

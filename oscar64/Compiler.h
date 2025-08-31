@@ -33,6 +33,8 @@ public:
 	TargetMachine	mTargetMachine;
 	uint64			mCompilerOptions;
 	uint16			mCartridgeID;
+	uint8			mCartridgeSubType;
+	char			mCartridgeName[32];
 	char			mVersion[32];
 
 	struct Define

@@ -36,6 +36,8 @@ Compiler::Compiler(void)
 	mGlobalOptimizer = new GlobalOptimizer(mErrors, mLinker);
 
 	mCartridgeID = 0x0000;
+	mCartridgeSubType = 0x00;
+	strcpy_s(mCartridgeName, "OSCAR");
 }
 
 Compiler::~Compiler(void)
@@ -1355,7 +1357,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 		strcat_s(prgPath, "crt");
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("Writing <%s>\n", prgPath);
-		mLinker->WriteCrtFile(prgPath, mCartridgeID);
+		mLinker->WriteCrtFile(prgPath, mCartridgeID, mCartridgeSubType, mCartridgeName);
 	}
 	else if (mCompilerOptions & COPT_TARGET_BIN)
 	{

@@ -141,6 +141,8 @@ The compiler is command line driven, and creates an executable .prg file.
 * -fi : sector skip for data files on disk image
 * -xz : extended zero page usage, more zero page space, but no return to basic
 * -cid : cartridge type ID, used by vice emulator
+* -csub : cartridge sub type
+* -cname : cartridge name
 * -pp : compile in C++ mode
 * -strict : use strict ANSI C parsing (no C++ goodies)
 * -psci : use PETSCII encoding for all strings without prefix
