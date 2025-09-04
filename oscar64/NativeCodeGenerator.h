@@ -600,6 +600,7 @@ public:
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
 	bool MergeXYSameValue(int from);
 	void RepairLoadYImmediate(int at, int val);
+	int RetrieveCValue(int at, int depth = 0) const;
 	int RetrieveAValue(int at, int depth = 0) const;
 	int RetrieveXValue(int at, int depth = 0) const;
 	int RetrieveYValue(int at, int depth = 0) const;
@@ -652,6 +653,7 @@ public:
 	bool HasTailSTYInto(int& addr, int& index, NativeCodeBasicBlock* tblock) const;
 
 	bool HasTailSTAGlobal(NativeCodeInstruction & ins, int& index) const;
+	bool HasTailAccuReg(int addr) const;
 
 	bool MayBeMovedBeforeBlock(int at);
 	bool MayBeMovedBeforeBlock(int at, const NativeCodeInstruction & ins);
