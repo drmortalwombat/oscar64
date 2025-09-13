@@ -841,7 +841,7 @@ public:
 	bool MergeSameBranch(void);
 
 	bool CheckBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);
-	bool PatchBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);
+	bool PatchBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg, bool inverse);
 
 	bool CollectRegBoolInstructionsForward(int reg, ExpandingArray<NativeCodeBasicBlock*>& cblocks, ExpandingArray<NativeCodeInstruction*>& lins);
 	bool CollectRegBoolInstructionsBackward(int reg, ExpandingArray<NativeCodeBasicBlock*>& cblocks, ExpandingArray<NativeCodeInstruction*>& lins);

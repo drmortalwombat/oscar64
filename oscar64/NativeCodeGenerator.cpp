@@ -606,6 +606,11 @@ const char* NativeCodeInstruction::AddrName(char* buffer) const
 void NativeCodeInstruction::Disassemble(FILE* file) const
 {
 	char	buffer[160];
+	char	flags[4];
+	char	i = 0;
+	if (mFlags & NCIF_VOLATILE)
+		flags[i++] = 'V';
+	flags[i++] = 0;
 
 	switch (mMode)
 	{
@@ -631,22 +636,22 @@ void NativeCodeInstruction::Disassemble(FILE* file) const
 		fprintf(file, "%s %s, y\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
 		break;
 	case ASMIM_ABSOLUTE:
-		fprintf(file, "%s %s\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+		fprintf(file, "%s %s\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
 		break;
 	case ASMIM_ABSOLUTE_X:
-		fprintf(file, "%s %s, x\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+		fprintf(file, "%s %s, x\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
 		break;
 	case ASMIM_ABSOLUTE_Y:
-		fprintf(file, "%s %s, y\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+		fprintf(file, "%s %s, y\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
 		break;
 	case ASMIM_INDIRECT:
 		fprintf(file, "%s (%s)", AsmInstructionNames[mType], AddrName(buffer));
 		break;
 	case ASMIM_INDIRECT_X:
-		fprintf(file, "%s (%s, x)\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+		fprintf(file, "%s (%s, x)\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
 		break;
 	case ASMIM_INDIRECT_Y:
-		fprintf(file, "%s (%s), y\t[%02x-%02x]", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal);
+		fprintf(file, "%s (%s), y\t[%02x-%02x] {%s}", AsmInstructionNames[mType], AddrName(buffer), mMinVal, mMaxVal, flags);
 		break;
 	case ASMIM_RELATIVE:
 		fprintf(file, "%s %d", AsmInstructionNames[mType], mAddress);
@@ -31631,6 +31636,9 @@ bool NativeCodeBasicBlock::CheckBoolBitPropagation(const NativeCodeBasicBlock* b
 			if (!mEntryRequiredRegs[reg])
 				return CheckPatchFailUse();
 
+			if (mPatchFail)
+				return false;
+
 			if (mLoopHead && !CheckPatchFailLoop(block, this, reg, false))
 				return false;
 
@@ -31653,6 +31661,7 @@ bool NativeCodeBasicBlock::CheckBoolBitPropagation(const NativeCodeBasicBlock* b
 			{
 				if (at + 1 == mIns.Size() && (mIns[at].mType == ASMIT_LDA) && !(mIns[at].mLive & LIVE_CPU_REG_A))
 				{
+					mPatchChecked = true;
 					if ((mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) && !mExitRequiredRegs[CPU_REG_Z])
 						;
 					else if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
@@ -31675,7 +31684,11 @@ bool NativeCodeBasicBlock::CheckBoolBitPropagation(const NativeCodeBasicBlock* b
 					return false;
 			}
 			if (mIns[at].ChangesZeroPage(reg))
+			{
+				if (mTrueJump && !mTrueJump->CheckPatchFailUse() || mFalseJump && !mFalseJump->CheckPatchFailUse())
+					return false;
 				return true;
+			}
 
 			at++;
 		}
@@ -31689,7 +31702,7 @@ bool NativeCodeBasicBlock::CheckBoolBitPropagation(const NativeCodeBasicBlock* b
 	return true;
 }
 
-bool NativeCodeBasicBlock::PatchBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg)
+bool NativeCodeBasicBlock::PatchBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg, bool inverse)
 {
 	bool	changed = false;
 
@@ -31708,12 +31721,18 @@ bool NativeCodeBasicBlock::PatchBoolBitPropagation(const NativeCodeBasicBlock* b
 				{
 					if (mBranch == ASMIT_BEQ)
 					{
-						mBranch = ASMIT_BMI;
+						if (inverse)
+							mBranch = ASMIT_BMI;
+						else
+							mBranch = ASMIT_BPL;
 						changed = true;
 					}
 					else if (mBranch == ASMIT_BNE)
 					{
-						mBranch = ASMIT_BPL;
+						if (inverse)
+							mBranch = ASMIT_BPL;
+						else
+							mBranch = ASMIT_BMI;
 						changed = true;
 					}
 					else if (mBranch == ASMIT_BCC || mBranch == ASMIT_BCS)
@@ -31724,12 +31743,18 @@ bool NativeCodeBasicBlock::PatchBoolBitPropagation(const NativeCodeBasicBlock* b
 							{
 								if (mTrueJump->mBranch == ASMIT_BEQ)
 								{
-									mTrueJump->mBranch = ASMIT_BMI;
+									if (inverse)
+										mBranch = ASMIT_BMI;
+									else
+										mBranch = ASMIT_BPL;
 									changed = true;
 								}
 								else if (mTrueJump->mBranch == ASMIT_BNE)
 								{
-									mTrueJump->mBranch = ASMIT_BPL;
+									if (inverse)
+										mBranch = ASMIT_BPL;
+									else
+										mBranch = ASMIT_BMI;
 									changed = true;
 								}
 							}
@@ -31740,12 +31765,18 @@ bool NativeCodeBasicBlock::PatchBoolBitPropagation(const NativeCodeBasicBlock* b
 							{
 								if (mFalseJump->mBranch == ASMIT_BEQ)
 								{
-									mFalseJump->mBranch = ASMIT_BMI;
+									if (inverse)
+										mBranch = ASMIT_BMI;
+									else
+										mBranch = ASMIT_BPL;
 									changed = true;
 								}
 								else if (mFalseJump->mBranch == ASMIT_BNE)
 								{
-									mFalseJump->mBranch = ASMIT_BPL;
+									if (inverse)
+										mBranch = ASMIT_BPL;
+									else
+										mBranch = ASMIT_BMI;
 									changed = true;
 								}
 							}
@@ -31759,9 +31790,9 @@ bool NativeCodeBasicBlock::PatchBoolBitPropagation(const NativeCodeBasicBlock* b
 			at++;
 		}
 
-		if (mTrueJump && mTrueJump->PatchBoolBitPropagation(block, 0, reg))
+		if (mTrueJump && mTrueJump->PatchBoolBitPropagation(block, 0, reg, inverse))
 			changed = true;
-		if (mFalseJump && mFalseJump->PatchBoolBitPropagation(block, 0, reg))
+		if (mFalseJump && mFalseJump->PatchBoolBitPropagation(block, 0, reg, inverse))
 			changed = true;
 	}
 
@@ -51613,6 +51644,23 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		return true;
 	}
 
+#if 1
+	if (pass == 4 &&
+		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
+		mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+		mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE &&
+		!(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+	{
+		mProc->ResetPatched();
+		if (CheckBoolBitPropagation(this, i + 3, mIns[i + 2].mAddress))
+		{
+			mIns[i + 1].mType = ASMIT_ROR;
+			mProc->ResetPatched();
+			if (PatchBoolBitPropagation(this, i + 3, mIns[i + 2].mAddress, false))
+				return true;
+		}
+	}
+#endif
 
 	return false;
 }
@@ -52917,7 +52965,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 			mIns[i + 1].mType = ASMIT_ROR;
 			mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 			mProc->ResetPatched();
-			if (PatchBoolBitPropagation(this, i + 4, mIns[i + 3].mAddress))
+			if (PatchBoolBitPropagation(this, i + 4, mIns[i + 3].mAddress, true))
 				return true;
 		}
 	}
@@ -55542,6 +55590,13 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 									mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
 									mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
 								}
+
+								if (mIns[i + 0].mFlags & NCIF_VOLATILE)
+								{
+									mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+									mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+								}
+
 								progress = true;
 							}
 							CheckLive();
@@ -57903,7 +57958,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "test_ab256");
+	CheckFunc = !strcmp(mIdent->mString, "uii_readdata");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

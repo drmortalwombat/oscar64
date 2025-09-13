@@ -22513,6 +22513,24 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				changed = true;
 			}
 #endif
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[0].mTemp < 0 && ispow2(mInstructions[i + 0]->mSrc[0].mIntConst) &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[i + 1]->mOperator == IA_CMPEQ || mInstructions[i + 1]->mOperator == IA_CMPNE) && mInstructions[i + 1]->mSrc[0].mTemp < 0 && mInstructions[i + 0]->mSrc[0].mIntConst == mInstructions[i + 1]->mSrc[0].mIntConst &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp)
+			{
+				mInstructions[i + 1]->mSrc[0].mIntConst = 0;
+				mInstructions[i + 1]->mOperator = InvertRelational(mInstructions[i + 1]->mOperator);
+				changed = true;
+			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_AND && mInstructions[i + 0]->mSrc[1].mTemp < 0 && ispow2(mInstructions[i + 0]->mSrc[1].mIntConst) &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[i + 1]->mOperator == IA_CMPEQ || mInstructions[i + 1]->mOperator == IA_CMPNE) && mInstructions[i + 1]->mSrc[1].mTemp < 0 && mInstructions[i + 0]->mSrc[1].mIntConst == mInstructions[i + 1]->mSrc[1].mIntConst &&
+				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp)
+			{
+				mInstructions[i + 1]->mSrc[1].mIntConst = 0;
+				mInstructions[i + 1]->mOperator = InvertRelational(mInstructions[i + 1]->mOperator);
+				changed = true;
+			}
 
 #if 1
 			else if (
