@@ -774,6 +774,7 @@ public:
 	bool CrossBlockFlagsForwarding(void);
 	bool MoveStoresBeforeDiamond(void);
 	bool MoveStoresBehindCondition(void);
+	bool JoinDiamondArithmetic(void);
 
 	bool SinglePathRegisterForwardY(NativeCodeBasicBlock* path, int yreg);
 	bool SinglePathRegisterForward(void);
