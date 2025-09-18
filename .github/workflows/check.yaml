@@ -1,0 +1,60 @@
+name: Run checks
+
+on:
+  push:
+    branches: 
+      - main
+  pull_request:
+    branches: 
+      - main
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-24.04-arm
+          - ubuntu-latest
+          - windows-latest
+
+    runs-on: "${{ matrix.os }}"
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Start sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+        env:
+          SCCACHE_GHA_ENABLED: true
+
+      - name: Set CXX var
+        run: |
+          case "$RUNNER_OS" in
+            "Linux") echo "CXX=g++" >> "$GITHUB_ENV" ;;
+            "macOS") echo "CXX=clang++" >> "$GITHUB_ENV" ;;
+            "Windows") echo "CXX=g++" >> "$GITHUB_ENV" ;;
+          esac
+
+      - name: Determine number of cores
+        run: |
+          CORES=2
+          case "$RUNNER_OS" in
+            "Linux") CORES="$(nproc)" ;;
+            "macOS") CORES="$(sysctl -n hw.ncpu)" ;;
+            "Windows") CORES="$NUMBER_OF_PROCESSORS" ;;
+            *) echo "Unknown OS, using default." ;;
+          esac
+          echo "NUMBER_OF_CORES=$CORES" >> "$GITHUB_ENV"
+          echo "Using $CORES cores"
+
+      - name: make compiler
+        run: make -C make -j "$NUMBER_OF_CORES" compiler CXX="sccache ${CXX}"
+
+      - name: make check
+        run: make -C make -j "$NUMBER_OF_CORES" check

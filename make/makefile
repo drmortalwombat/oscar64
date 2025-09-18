@@ -5,13 +5,13 @@ objects = $(patsubst $(project_dir)/oscar64/%.cpp,$(srcdir)/%.o,$(sources))
 
 CXX = c++
 CPPFLAGS = -g -O2 -std=c++11 -Wno-switch
-SED = /usr/bin/sed
+SED = sed
 REMOVE_FORCE_ALL = $(RM) --recursive --dir
 export OSCAR64_CC = $(project_dir)/bin/oscar64
 export OSCAR64_CFLAGS =
 export OSCAR64_CXX = $(project_dir)/bin/oscar64
-MKDIR_PARENT = /bin/mkdir -p -m 755
-INSTALL = /usr/bin/install
+MKDIR_PARENT = mkdir -p -m 755
+INSTALL = install
 INSTALL_PROGRAM = $(INSTALL) -m 755
 INSTALL_DATA = $(INSTALL) -m 644
 DESTDIR =
@@ -27,10 +27,10 @@ ifdef WINDIR
 
 	ifneq ($(findstring MINGW,$(UNAME_S)),)
 		# MinGW
-		linklibs = -lversion -lpthread
+		linklibs = -lversion -lpthread -ldbghelp
 	else
 		# Native Windows (MSVC or other)
-		linklibs = -lpthread
+		linklibs = -lpthread -ldbghelp
 	endif
 else
 	UNAME_S := $(shell uname -s)
@@ -108,6 +108,7 @@ install: compiler
 	$(INSTALL_DATA) $(wildcard $(project_dir)/include/opp/*.h $(project_dir)/include/opp/*.cpp) $(DESTDIR)$(includedir)/oscar64/opp
 	$(INSTALL_DATA) $(wildcard $(project_dir)/include/plus4/*.h $(project_dir)/include/plus4/*.c) $(DESTDIR)$(includedir)/oscar64/plus4
 	$(INSTALL_DATA) $(wildcard $(project_dir)/include/vic20/*.h $(project_dir)/include/vic20/*.c) $(DESTDIR)$(includedir)/oscar64/vic20
+	@$(MKDIR_PARENT) $(mandir)
 	$(INSTALL_DATA) $(project_dir)/oscar64.1 $(mandir)
 
 uninstall:
