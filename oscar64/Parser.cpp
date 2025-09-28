@@ -10286,7 +10286,9 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 {
 	if (mCompilerOptions & COPT_CPLUSPLUS)
 	{
-		if (exp->mType == EX_ASSIGNMENT)
+		if (!exp->mLeft || !exp->mLeft->mDecType)
+			;
+		else if (exp->mType == EX_ASSIGNMENT)
 		{
 			Declaration* tdec = exp->mLeft->mDecType;
 			while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)

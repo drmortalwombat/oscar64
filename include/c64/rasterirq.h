@@ -46,6 +46,8 @@ enum RIRQCodeIndex
 	RIRQ_DATA_10 = 56,
 	RIRQ_ADDR_10 = 58,
 
+	RIRQ_SIZE_10 = 61,
+	
 	RIRQ_DATA_11 = 61,
 	RIRQ_ADDR_11 = 63,
 
@@ -101,6 +103,12 @@ typedef struct RIRQCode
 	byte		size;
 	byte		code[RIRQ_SIZE];
 } RIRQCode;
+
+typedef struct RIRQCode10
+{	
+	RIRQCode	c;
+	byte		code[RIRQ_SIZE_10 - RIRQ_SIZE];
+} RIRQCode10;
 
 typedef struct RQIRCode20
 {

@@ -512,6 +512,8 @@ public:
 	bool MoveLoadShiftStoreUp(int at);
 	bool MoveTYADCStoreDown(int at);
 	bool MoveShiftZeroPageUp(int at);
+	bool MoveImmOpBeforeStore(int at);
+	bool MoveLoadOrZPUp(int at);
 
 	bool MoveLoadLogicStoreAbsUp(int at);
 
