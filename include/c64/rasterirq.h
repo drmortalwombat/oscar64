@@ -47,7 +47,7 @@ enum RIRQCodeIndex
 	RIRQ_ADDR_10 = 58,
 
 	RIRQ_SIZE_10 = 61,
-	
+
 	RIRQ_DATA_11 = 61,
 	RIRQ_ADDR_11 = 63,
 
@@ -193,6 +193,8 @@ void rirq_sort(bool inirq = false);
 
 // Wait for the last raster IRQ op to have completed.  Must be called before a
 // sort if the raster IRQ system is active
+void rirq_wait_done(void);
+
 void rirq_wait(void);
 
 #pragma compile("rasterirq.c")

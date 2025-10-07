@@ -475,6 +475,7 @@ public:
 	bool RemoveJumpToBranch(void);
 	NativeCodeBasicBlock* SplitBlock(int at);
 
+	bool RemoveUnusedBitOps(void);
 
 	struct DominatorStacks
 	{

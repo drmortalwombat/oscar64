@@ -15285,6 +15285,218 @@ bool NativeCodeBasicBlock::RemoveUnusedResultInstructions(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::RemoveUnusedBitOps(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		bool			usesC = false, usesZ = false;
+		int				usesA = mExitRequiredRegs[CPU_REG_A] ? 0xff : 0x0;
+		int				usesX = mExitRequiredRegs[CPU_REG_X] ? 0xff : 0x0;
+		int				usesY = mExitRequiredRegs[CPU_REG_Y] ? 0xff : 0x0;
+
+		if (mExitRequiredRegs[CPU_REG_C])
+			usesC = true;
+		if (mExitRequiredRegs[CPU_REG_Z])
+			usesZ = true;
+
+		switch (mBranch)
+		{
+		case ASMIT_BCC:
+		case ASMIT_BCS:
+			usesC = true;
+			break;
+		case ASMIT_BEQ:
+		case ASMIT_BNE:
+		case ASMIT_BMI:
+		case ASMIT_BPL:
+			usesZ = true;
+			break;
+		}
+
+		for (int i = mIns.Size() - 1; i >= 0; i--)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+
+			switch (ins.mType)
+			{
+			case ASMIT_TAX:
+				usesA = usesX;
+				usesX = 0;
+				usesZ = false;
+				break;
+			case ASMIT_TXA:
+				usesX = usesA;
+				usesA = 0;
+				usesZ = false;
+				break;
+			case ASMIT_TAY:
+				usesA = usesY;
+				usesY = 0;
+				usesZ = false;
+				break;
+			case ASMIT_TYA:
+				usesY = usesA;
+				usesA = 0;
+				usesZ = false;
+				break;
+			case ASMIT_LDA:
+				usesA = 0;
+				usesZ = false;
+				break;
+			case ASMIT_LDX:
+				usesX = 0;
+				usesZ = false;
+				break;
+			case ASMIT_LDY:
+				usesY = 0;
+				usesZ = false;
+				break;
+			case ASMIT_JSR:
+				usesA = usesX = usesY = 0xff;
+				usesZ = false;
+				usesC = false;
+				break;
+			case ASMIT_AND:
+				if (ins.mMode == ASMIM_IMMEDIATE)
+					usesA = ins.mAddress;
+				else
+					usesA = 0xff;
+				usesZ = false;
+				break;
+			case ASMIT_ORA:
+				if (ins.mMode == ASMIM_IMMEDIATE)
+					usesA = ins.mAddress ^ 255;
+				else
+					usesA = 0xff;
+				break;
+				usesZ = false;
+			case ASMIT_ASL:
+				if (ins.mMode == ASMIM_IMPLIED)
+				{
+					if (usesZ) usesA = 0xff;
+					usesA = (usesA >> 1);
+					if (usesC)
+						usesA |= 0x80;
+				}
+				usesC = false;
+				usesZ = false;
+				break;
+			case ASMIT_LSR:
+				if (ins.mMode == ASMIM_IMPLIED)
+				{
+					if (usesZ) usesA = 0xff;
+					usesA = (usesA << 1) & 0xff;
+					if (usesC)
+						usesA |= 0x01;
+				}
+				usesC = false;
+				usesZ = false;
+				break;
+			case ASMIT_ROL:
+				if (ins.mMode == ASMIM_IMPLIED)
+				{
+					if (usesZ) usesA = 0xff;
+					if (usesA || usesC)
+					{
+						bool	nc = usesA & 0x01;
+						usesA = (usesA >> 1);
+						if (usesC)
+							usesA |= 0x80;
+						usesC = nc;
+					}
+					else
+					{
+						ins.mType = ASMIT_NOP;
+						changed = true;
+					}
+				}
+				else
+					usesC = true;
+				usesZ = false;
+				break;
+			case ASMIT_ROR:
+			{
+				if (ins.mMode == ASMIM_IMPLIED)
+				{
+					if (usesZ) usesA = 0xff;
+					if (usesA || usesC)
+					{
+						bool	nc = usesA & 0x80;
+						usesA = (usesA << 1) & 0xff;
+						if (usesC)
+							usesA |= 0x01;
+						usesC = nc;
+					}
+					else
+					{
+						ins.mType = ASMIT_NOP;
+						changed = true;
+					}
+				}
+				else
+					usesC = true;
+				usesZ = false;
+			}	break;
+			case ASMIT_ADC:
+				if (ins.mMode == ASMIM_IMMEDIATE && ins.mAddress == 0)
+				{
+					if (usesC || usesZ)
+						usesA = 0xff;
+					else
+						usesA = BinMask(usesA);
+				}
+				else
+					usesA = 0xff;
+				usesC = true;
+				usesZ = false;
+				break;
+			case ASMIT_CLC:
+			case ASMIT_SEC:
+				usesC = false;
+				break;
+			default:
+				if (ins.ReferencesAccu())
+					usesA = 0xff;
+				if (ins.ReferencesXReg())
+					usesX = 0xff;
+				if (ins.ReferencesYReg())
+					usesY = 0xff;
+				if (ins.ReferencesCarry())
+					usesC = true;
+				if (ins.ChangesZFlag())
+					usesC = false;
+				break;
+			}
+
+			switch (ins.mMode)
+			{
+			case ASMIM_ABSOLUTE_X:
+			case ASMIM_ZERO_PAGE_X:
+			case ASMIM_INDIRECT_X:
+				usesX = 0xff;
+				break;
+			case ASMIM_ABSOLUTE_Y:
+			case ASMIM_ZERO_PAGE_Y:
+			case ASMIM_INDIRECT_Y:
+				usesY = 0xff;
+				break;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->RemoveUnusedBitOps())
+			changed = true;
+		if (mFalseJump && mFalseJump->RemoveUnusedBitOps())
+			changed = true;
+	}
+
+	return changed;
+}
+
+
 void NativeCodeBasicBlock::BuildCollisionTable(NumberSet* collisionSets)
 {
 	if (!mVisited)
@@ -58154,7 +58366,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "uii_readdata");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -59470,6 +59682,12 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+		if (step == 12)
+		{
+			ResetVisited();
+			if (mEntryBlock->RemoveUnusedBitOps())
+				changed = true;
+		}
 
 #if 1
 		if (!changed && (step == 5 || step == 6 || step == 19))

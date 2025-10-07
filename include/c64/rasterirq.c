@@ -20,7 +20,7 @@ byte		rasterIRQHigh[NUM_IRQS];
 #ifdef ZPAGE_IRQS
 __zeropage
 #endif
-byte		nextIRQ;
+volatile byte		nextIRQ;
 
 // nextIRQ is the index of the next expected IRQ, or $ff if no IRQ is scheduled
 
@@ -611,6 +611,13 @@ void rirq_wait(void)
 		i1 = rirq_count;
 	} while (i0 == i1);
 	rirq_pcount = i1;
+}
+
+void rirq_wait_done(void)
+{
+	do {
+
+	} while (nextIRQ != 0);
 }
 
 void rirq_sort(bool inirq)
