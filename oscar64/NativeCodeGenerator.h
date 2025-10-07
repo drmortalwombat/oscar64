@@ -664,6 +664,8 @@ public:
 	bool SafeInjectSequenceFromBack(NativeCodeBasicBlock* block, int start, int end);
 	bool JoinCommonBranchCodeSequences(void);
 
+	bool JoinConditionSequence(void);
+
 	bool CanJoinEntryLoadStoreZP(int saddr, int daddr);
 	bool DoJoinEntryLoadStoreZP(int saddr, int daddr);
 	bool JoinEntryLoadStoreZP(void);
