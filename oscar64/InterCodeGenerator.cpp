@@ -89,10 +89,20 @@ InterCodeGenerator::ExValue InterCodeGenerator::Dereference(InterCodeProcedure* 
 				ins->mDst.mRange.LimitMin(v.mType->mMinValue);
 				ins->mDst.mRange.LimitMax(v.mType->mMaxValue);
 			}
-			else if (v.mType->mType == DT_TYPE_INTEGER && !v.mBits && limit > 0)
+			else if (v.mType->mType == DT_TYPE_INTEGER && !v.mBits)
 			{
-				ins->mDst.mRange.LimitMin(0);
-				ins->mDst.mRange.LimitMax(limit - 1);
+				if (limit > 0)
+				{
+					ins->mDst.mRange.LimitMin(0);
+					ins->mDst.mRange.LimitMax(limit - 1);
+				}
+#if 1
+				else
+				{
+					ins->mDst.mRange.LimitMin(v.mType->MinInteger());
+					ins->mDst.mRange.LimitMax(v.mType->MaxInteger());
+				}
+#endif
 			}
 		}
 

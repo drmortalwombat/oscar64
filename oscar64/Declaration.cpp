@@ -1498,6 +1498,22 @@ bool Declaration::IsNullConst(void) const
 		return false;
 }
 
+int64 Declaration::MinInteger(void) const
+{
+	if (mFlags & DTF_SIGNED)
+		return -int64(1ULL << (8 * mSize - 1));
+	else
+		return 0;
+}
+
+int64 Declaration::MaxInteger(void) const
+{
+	if (mFlags & DTF_SIGNED)
+		return (1ULL << (8 * mSize - 1)) - 1;
+	else
+		return (1ULL << (8 * mSize)) - 1;
+}
+
 Declaration* Declaration::ConstCast(Declaration* ntype)
 {
 	if (ntype == mBase)

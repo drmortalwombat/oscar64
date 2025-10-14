@@ -4235,7 +4235,7 @@ bool InterOperand::IsUnsigned(void) const
 		case IT_INT16:
 			return mRange.mMaxValue < 32768;
 		case IT_INT32:
-			return true;
+			return mRange.mMaxValue < 0x80000000ll;
 		}
 	}
 
@@ -5933,16 +5933,16 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 		{
 			fprintf(file, "[");
 			if (mRange.mMinState == IntegerValueRange::S_WEAK)
-				fprintf(file, "~%d", int(mRange.mMinValue));
+				fprintf(file, "~%lld", mRange.mMinValue);
 			else if (mRange.mMinState == IntegerValueRange::S_BOUND)
-				fprintf(file, "%d", int(mRange.mMinValue));
+				fprintf(file, "%lld", mRange.mMinValue);
 			else if (mRange.mMinState == IntegerValueRange::S_UNKNOWN)
 				fprintf(file, "?");
 			fprintf(file, "..");
 			if (mRange.mMaxState == IntegerValueRange::S_WEAK)
-				fprintf(file, "~%d", int(mRange.mMaxValue));
+				fprintf(file, "~%lld", mRange.mMaxValue);
 			else if (mRange.mMaxState == IntegerValueRange::S_BOUND)
-				fprintf(file, "%d", int(mRange.mMaxValue));
+				fprintf(file, "%lld", mRange.mMaxValue);
 			else if (mRange.mMaxState == IntegerValueRange::S_UNKNOWN)
 				fprintf(file, "?");
 			fprintf(file, "]");
@@ -6005,7 +6005,7 @@ void InterOperand::Disassemble(FILE* file, InterCodeProcedure* proc)
 	}
 	else if (IsIntegerType(mType) || mType == IT_BOOL)
 	{
-		fprintf(file, "C%c:%d", typechars[mType], int(mIntConst));
+		fprintf(file, "C%c:%lld", typechars[mType], mIntConst);
 	}
 	else if (mType == IT_FLOAT)
 	{
@@ -6221,11 +6221,7 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 				fprintf(file, "CF:%f", mConst.mFloatConst);
 			else
 			{
-#ifdef _WIN32
-				fprintf(file, "CI:%I64d", mConst.mIntConst);
-#else
 				fprintf(file, "CI:%lld", mConst.mIntConst);
-#endif
 			}
 		}
 		else
@@ -8212,6 +8208,9 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			if ((cins->mSrc[1].mTemp < 0 || (cins->mSrc[1].mRange.mMaxState == IntegerValueRange::S_BOUND && cins->mSrc[1].mRange.mMinState == IntegerValueRange::S_BOUND)) &&
 				(cins->mSrc[0].mTemp < 0 || (cins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND && cins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)))
 			{
+				bool	signedvalid = cins->mSrc[0].mRange.mMaxValue <= SignedTypeMax(cins->mSrc[0].mType) && 
+									  cins->mSrc[1].mRange.mMaxValue <= SignedTypeMax(cins->mSrc[1].mType);
+
 				switch (cins->mOperator)
 				{
 				case IA_CMPEQ:
@@ -8247,10 +8246,13 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 						constTrue = true;
 					break;
 				case IA_CMPLS:
-					if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
-						constTrue = true;
-					else if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
-						constFalse = true;
+					if (signedvalid)
+					{
+						if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+							constTrue = true;
+						else if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+							constFalse = true;
+					}
 					break;
 				case IA_CMPLU:
 					if (cins->mSrc[0].mTemp < 0 && cins->mSrc[0].mIntConst == 0)
@@ -8266,10 +8268,13 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					}
 					break;
 				case IA_CMPLES:
-					if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
-						constTrue = true;
-					else if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
-						constFalse = true;
+					if (signedvalid)
+					{
+						if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
+							constTrue = true;
+						else if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+							constFalse = true;
+					}
 					break;
 				case IA_CMPLEU:
 					if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
@@ -8281,10 +8286,13 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					}
 					break;
 				case IA_CMPGS:
-					if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
-						constTrue = true;
-					else if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
-						constFalse = true;
+					if (signedvalid)
+					{
+						if (cins->mSrc[1].mRange.mMinValue > cins->mSrc[0].mRange.mMaxValue)
+							constTrue = true;
+						else if (cins->mSrc[1].mRange.mMaxValue <= cins->mSrc[0].mRange.mMinValue)
+							constFalse = true;
+					}
 					break;
 				case IA_CMPGU:
 					if (cins->mSrc[1].mTemp < 0 && cins->mSrc[1].mIntConst == 0)
@@ -8304,10 +8312,13 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 					}
 					break;
 				case IA_CMPGES:
-					if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
-						constTrue = true;
-					else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
-						constFalse = true;
+					if (signedvalid)
+					{
+						if (cins->mSrc[1].mRange.mMinValue >= cins->mSrc[0].mRange.mMaxValue)
+							constTrue = true;
+						else if (cins->mSrc[1].mRange.mMaxValue < cins->mSrc[0].mRange.mMinValue)
+							constFalse = true;
+					}
 					break;
 				case IA_CMPGEU:
 					if (cins->mSrc[1].IsPositive() && cins->mSrc[0].IsPositive())
@@ -8989,6 +9000,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 
 							vr.mMaxValue += ins->mSrc[0].mIntConst;
 							vr.mMinValue += ins->mSrc[0].mIntConst;
+
+							if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
+								vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
+							{
+								vr.mMinState = IntegerValueRange::S_UNBOUND;
+								vr.mMaxState = IntegerValueRange::S_UNBOUND;
+							}
 						}
 					}
 					else if (ins->mSrc[1].mTemp < 0)
@@ -9000,6 +9018,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 						vr.mMaxValue += ins->mSrc[1].mIntConst;
 						vr.mMinValue += ins->mSrc[1].mIntConst;
+
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
+							vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
+						{
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
 					}
 					else
 					{
@@ -9018,6 +9043,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 						}
 						else
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
+
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
+							vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
+						{
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
 					}
 
 #if 1
@@ -9041,6 +9073,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 						vr.mMaxValue -= ins->mSrc[0].mIntConst;
 						vr.mMinValue -= ins->mSrc[0].mIntConst;
+
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
+							vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
+						{
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
 					}
 					else if (ins->mSrc[1].mTemp < 0)
 					{
@@ -9113,6 +9152,14 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 							vr.mMaxValue = ins->mSrc[0].mIntConst * minv;
 							vr.mMinValue = ins->mSrc[0].mIntConst * maxv;
 						}
+
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) || 
+							vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
+						{
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
+						}
+
 					}
 					else if (ins->mSrc[1].mTemp < 0)
 					{
@@ -9141,6 +9188,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 							int64	maxv = vr.mMaxValue, minv = vr.mMinValue;
 							vr.mMaxValue = ins->mSrc[1].mIntConst * minv;
 							vr.mMinValue = ins->mSrc[1].mIntConst * maxv;
+						}
+
+						if (vr.mMaxState == IntegerValueRange::S_BOUND && vr.mMaxValue > UnsignedTypeMax(ins->mDst.mType) ||
+							vr.mMinState == IntegerValueRange::S_BOUND && vr.mMinValue < SignedTypeMin(ins->mDst.mType))
+						{
+							vr.mMinState = IntegerValueRange::S_UNBOUND;
+							vr.mMaxState = IntegerValueRange::S_UNBOUND;
 						}
 					}
 					else
@@ -10192,12 +10246,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 							else
 								mTrueValueRange[s1].LimitMinWeak(0);
 
-							if (cins->mSrc[1].mType == IT_INT8)
+/*							if (cins->mSrc[1].mType == IT_INT8)
 							{
 								mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
 								mFalseValueRange[s1].LimitMax(255);
 							}
-							else if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
+							else*/ if (mFalseValueRange[s1].mMinState == IntegerValueRange::S_BOUND && mFalseValueRange[s1].mMinValue >= 0)
 							{
 								mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
 							}
@@ -16713,6 +16767,8 @@ InterCodeBasicBlock* InterCodeBasicBlock::CheckIsSimpleIntRangeBranch(const Grow
 		IsScalarType(mInstructions[sz - 2]->mSrc[1].mType) &&
 		mInstructions[sz - 1]->mSrc[0].mTemp == mInstructions[sz - 2]->mDst.mTemp && mInstructions[sz - 1]->mSrc[0].mFinal)
 	{
+		InterType	it = mInstructions[sz - 2]->mSrc[0].mType;
+
 		const InterInstruction* cins = mInstructions[sz - 2];
 		if ((cins->mSrc[0].mTemp < 0 || irange[cins->mSrc[0].mTemp].IsBound()) &&
 			(cins->mSrc[1].mTemp < 0 || irange[cins->mSrc[1].mTemp].IsBound()))
@@ -16727,16 +16783,19 @@ InterCodeBasicBlock* InterCodeBasicBlock::CheckIsSimpleIntRangeBranch(const Grow
 			else
 				r1 = irange[cins->mSrc[1].mTemp];
 
-			switch (mInstructions[sz - 2]->mOperator)
+			if (r0.mMaxValue <= SignedTypeMax(it) && r1.mMaxValue <= SignedTypeMax(it) || r0.mMinValue >= 0 && r1.mMinValue >= 0)
 			{
-			case IA_CMPEQ:
-				if (r0.mMinValue > r1.mMaxValue || r0.mMaxValue < r1.mMinValue)
-					return mFalseJump;
-				break;
-			case IA_CMPNE:
-				if (r0.mMinValue > r1.mMaxValue || r0.mMaxValue < r1.mMinValue)
-					return mTrueJump;
-				break;
+				switch (mInstructions[sz - 2]->mOperator)
+				{
+				case IA_CMPEQ:
+					if (r0.mMinValue > r1.mMaxValue || r0.mMaxValue < r1.mMinValue)
+						return mFalseJump;
+					break;
+				case IA_CMPNE:
+					if (r0.mMinValue > r1.mMaxValue || r0.mMaxValue < r1.mMinValue)
+						return mTrueJump;
+					break;
+				}
 			}
 		}
 	}
@@ -16809,7 +16868,7 @@ InterCodeBasicBlock* InterCodeBasicBlock::CheckIsConstBranch(const GrowingInstru
 							nins->mConst.mType = IT_BOOL;
 							nins->mConst.mIntConst = 1;
 						}
-						else if (v0.mMinValue > v1.mMaxValue || v1.mMinValue > v0.mMaxValue)
+						else if ((v0.mMaxValue <= SignedTypeMax(ins->mSrc[0].mType) && v1.mMaxValue <= SignedTypeMax(ins->mSrc[0].mType) || v0.mMinValue >= 0 && v1.mMinValue >= 0) && (v0.mMinValue > v1.mMaxValue || v1.mMinValue > v0.mMaxValue))
 						{
 							nins = new InterInstruction(ins->mLocation, IC_CONSTANT);
 							nins->mDst = ins->mDst;
@@ -22624,20 +22683,14 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					int64	mshift = mInstructions[i + 1]->mSrc[0].mIntConst;
 
 					mInstructions[i + 0]->mOperator = IA_AND;
-					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 1]->mSrc[0].mType;
+					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 0]->mSrc[1].mType;
 
-					switch (mInstructions[i + 0]->mSrc[1].mType)
-					{
-					case IT_INT8:
-						mInstructions[i + 0]->mSrc[0].mIntConst = (0xffu >> shift) << shift;
-						break;
-					case IT_INT16:
-						mInstructions[i + 0]->mSrc[0].mIntConst = (0xffffu >> shift) << shift;
-						break;
-					case IT_INT32:
-						mInstructions[i + 0]->mSrc[0].mIntConst = (0xffffffffu >> shift) << shift;
-						break;
-					}
+					mInstructions[i + 0]->mSrc[0].mIntConst = (UnsignedTypeMax(mInstructions[i + 0]->mSrc[1].mType) >> shift) << shift;
+					mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
+					mInstructions[i + 0]->mDst.mRange.LimitMax(mInstructions[i + 0]->mSrc[0].mIntConst);
+					mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+					mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
+					mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
 
 					if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
 					{
@@ -25622,6 +25675,7 @@ void InterCodeProcedure::ShortcutConstBranches(void)
 	RemoveUnusedInstructions();
 
 	do {
+		Disassemble("PreShortcutConstBranches");
 		ResetVisited();
 	} while (mEntryBlock->ShortcutConstBranches(cins));
 
@@ -26438,7 +26492,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test_char_signed");
+	CheckFunc = !strcmp(mIdent->mString, "bar");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

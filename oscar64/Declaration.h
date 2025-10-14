@@ -327,6 +327,9 @@ public:
 	TokenSequence	*	mTokens;
 	Parser			*	mParser;
 
+	int64 MinInteger(void) const;
+	int64 MaxInteger(void) const;
+
 	GrowingArray<Declaration*>	mCallers, mCalled, mFriends;
 	GrowingArray<Expression*>	mReferences;
 
