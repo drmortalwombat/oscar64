@@ -62,19 +62,34 @@ static unsigned BinMask(unsigned n)
 NativeRegisterData::NativeRegisterData(void)
 	: mMode(NRDM_UNKNOWN), mValue(GlobalValueNumber++), mMask(0)
 {
+	mUnique = mValue;
+}
 
+void NativeRegisterData::Set(NativeRegisterDataMode mode, int value, LinkerObject* lo, int flags)
+{
+	mMode = mode;
+	mValue = value;
+	mLinkerObject = lo;
+	mFlags = flags;
+	mUnique = GlobalValueNumber++;
 }
 
 void NativeRegisterData::Reset(void)
 {
 	mFlags = 0;
 	mMode = NRDM_UNKNOWN;
-	mValue = GlobalValueNumber++;
+	mValue = mUnique = GlobalValueNumber++;
 }
 
 void NativeRegisterData::ResetMask(void)
 {
 	mMask = 0;
+}
+
+void NativeRegisterData::SetMask(int mask, int value)
+{
+	mMask = mask;
+	mValue = value;
 }
 
 void NativeRegisterData::ResetAliasing(void)
@@ -117,6 +132,46 @@ bool NativeRegisterData::SameData(const NativeRegisterData& d) const
 	default:
 		return false;
 	}
+}
+
+const NativeRegisterData& NativeRegisterDataSet::operator[](int reg) const
+{
+	return mRegs[reg];
+}
+
+void NativeRegisterDataSet::Set(int reg, NativeRegisterDataMode mode, int value, LinkerObject* lo, int flags)
+{
+	mRegs[reg].Set(mode, value, lo, flags);
+}
+
+void NativeRegisterDataSet::Set(int reg, const NativeRegisterData& data)
+{
+	mRegs[reg] = data;
+}
+
+void NativeRegisterDataSet::Reset(int reg)
+{
+	mRegs[reg].Reset();
+}
+
+void NativeRegisterDataSet::ResetMask(int reg)
+{
+	mRegs[reg].ResetMask();
+}
+
+void NativeRegisterDataSet::SetMask(int reg, int mask, int value)
+{
+	mRegs[reg].SetMask(mask, value);
+}
+
+void NativeRegisterDataSet::SetMask(int reg, const NativeRegisterData& data)
+{
+	mRegs[reg].SetMask(data.mMask, data.mValue);
+}
+
+void NativeRegisterDataSet::ResetAliasing(int reg)
+{
+	mRegs[reg].ResetAliasing();
 }
 
 void NativeRegisterDataSet::Reset(void)
@@ -261,7 +316,10 @@ void NativeRegisterDataSet::ResetZeroPage(int addr)
 		if (mRegs[i].mMode == NRDM_ZERO_PAGE && mRegs[i].mValue == addr)
 			mRegs[i].Reset();
 		else if (mRegs[i].mMode == NRDM_INDIRECT_Y && (mRegs[i].mValue == addr || mRegs[i].mValue + 1 == addr))
-			mRegs[i].Reset();
+		{
+			mRegs[i].mValue = mRegs[i].mUnique;
+			mRegs[i].mMode = NRDM_UNKNOWN;	// Is not the memory pointed to, but still the same value
+		}
 	}
 }
 
@@ -274,7 +332,10 @@ void NativeRegisterDataSet::ResetZeroPageRange(int addr, int num)
 		if (mRegs[i].mMode == NRDM_ZERO_PAGE && mRegs[i].mValue >= addr && mRegs[i].mValue < addr + num)
 			mRegs[i].Reset();
 		else if (mRegs[i].mMode == NRDM_INDIRECT_Y && mRegs[i].mValue + 1 >= addr && mRegs[i].mValue < addr + num)
-			mRegs[i].Reset();
+		{
+			mRegs[i].mValue = mRegs[i].mUnique;
+			mRegs[i].mMode = NRDM_UNKNOWN;	// Is not the memory pointed to, but still the same value
+		}
 	}
 }
 
@@ -326,7 +387,10 @@ void NativeRegisterDataSet::ResetX(void)
 	for (int i = 0; i < NUM_REGS; i++)
 	{
 		if (mRegs[i].mMode == NRDM_ABSOLUTE_X)
-			mRegs[i].Reset();
+		{
+			mRegs[i].mValue = mRegs[i].mUnique;
+			mRegs[i].mMode = NRDM_UNKNOWN;	// Is not the memory pointed to, but still the same value
+		}
 	}
 }
 
@@ -335,7 +399,10 @@ void NativeRegisterDataSet::ResetY(void)
 	for (int i = 0; i < NUM_REGS; i++)
 	{
 		if (mRegs[i].mMode == NRDM_ABSOLUTE_Y || mRegs[i].mMode == NRDM_INDIRECT_Y )
-			mRegs[i].Reset();
+		{
+			mRegs[i].mValue = mRegs[i].mUnique;
+			mRegs[i].mMode = NRDM_UNKNOWN;	// Is not the memory pointed to, but still the same value
+		}
 	}
 }
 
@@ -2190,35 +2257,35 @@ bool NativeCodeInstruction::ApplySimulation(const NativeRegisterDataSet& data)
 	case ASMIT_AND:
 	case ASMIT_ORA:
 	case ASMIT_EOR:
-		if (mMode == ASMIM_ZERO_PAGE && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
+		if (mMode == ASMIM_ZERO_PAGE && data[mAddress].mMode == NRDM_IMMEDIATE)
 		{
 			mMode = ASMIM_IMMEDIATE;
-			mAddress = data.mRegs[mAddress].mValue;
+			mAddress = data[mAddress].mValue;
 			return true;
 		}
-		else if (mMode == ASMIM_ZERO_PAGE && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS)
+		else if (mMode == ASMIM_ZERO_PAGE && data[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS)
 		{
 			mMode = ASMIM_IMMEDIATE_ADDRESS;
-			mLinkerObject = data.mRegs[mAddress].mLinkerObject;
-			mFlags = data.mRegs[mAddress].mFlags;
-			mAddress = data.mRegs[mAddress].mValue;
+			mLinkerObject = data[mAddress].mLinkerObject;
+			mFlags = data[mAddress].mFlags;
+			mAddress = data[mAddress].mValue;
 			assert((mFlags & (NCIF_LOWER | NCIF_UPPER)) != (NCIF_LOWER | NCIF_UPPER));
 			return true;
 		}
 		break;
 	}
 
-	if (mMode == ASMIM_INDIRECT_Y && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE && data.mRegs[mAddress + 1].mMode == NRDM_IMMEDIATE)
+	if (mMode == ASMIM_INDIRECT_Y && data[mAddress].mMode == NRDM_IMMEDIATE && data[mAddress + 1].mMode == NRDM_IMMEDIATE)
 	{
 		mMode = ASMIM_ABSOLUTE_Y;
-		mAddress = data.mRegs[mAddress].mValue + 256 * data.mRegs[mAddress + 1].mValue;
+		mAddress = data[mAddress].mValue + 256 * data[mAddress + 1].mValue;
 		mLinkerObject = nullptr;
 	}
-	else if (mMode == ASMIM_INDIRECT_Y && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS && data.mRegs[mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && data.mRegs[mAddress].mLinkerObject == data.mRegs[mAddress + 1].mLinkerObject)
+	else if (mMode == ASMIM_INDIRECT_Y && data[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS && data[mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && data[mAddress].mLinkerObject == data[mAddress + 1].mLinkerObject)
 	{
 		mMode = ASMIM_ABSOLUTE_Y;
-		mLinkerObject = data.mRegs[mAddress].mLinkerObject;
-		mAddress = data.mRegs[mAddress].mValue;
+		mLinkerObject = data[mAddress].mLinkerObject;
+		mAddress = data[mAddress].mValue;
 	}
 
 	return false;
@@ -2235,30 +2302,30 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 	switch (mType)
 	{
 	case ASMIT_JSR:
-		data.mRegs[CPU_REG_C].Reset();
-		data.mRegs[CPU_REG_Z].Reset();
-		data.mRegs[CPU_REG_A].Reset();
-		data.mRegs[CPU_REG_X].Reset();
-		data.mRegs[CPU_REG_Y].Reset();
+		data.Reset(CPU_REG_C);
+		data.Reset(CPU_REG_Z);
+		data.Reset(CPU_REG_A);
+		data.Reset(CPU_REG_X);
+		data.Reset(CPU_REG_Y);
 
 		data.ResetWorkRegs();
 
 		if (mFlags & NCIF_FEXEC)
 		{
 			for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
-				data.mRegs[i].Reset();
+				data.Reset(i);
 		}
 		else if (!(mFlags & NCIF_RUNTIME))
 		{
 			if (mLinkerObject && mLinkerObject->mProc)
 			{
 				for (int i = BC_REG_TMP; i < BC_REG_TMP + mLinkerObject->mProc->mCallerSavedTemps; i++)
-					data.mRegs[i].Reset();
+					data.Reset(i);
 			}
 			else
 			{
 				for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
-					data.mRegs[i].Reset();
+					data.Reset(i);
 			}
 		}
 		break;
@@ -2266,665 +2333,591 @@ void NativeCodeInstruction::Simulate(NativeRegisterDataSet& data)
 	case ASMIT_ROL:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (data.mRegs[reg].mValue << 1) | data.mRegs[CPU_REG_C].mValue;
-				data.mRegs[CPU_REG_C].mValue = t >= 256;
-				data.mRegs[reg].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = (data[reg].mValue << 1) | data[CPU_REG_C].mValue;
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, t >= 256);
+				data.Set(reg, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
-			else if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			else if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[CPU_REG_Z].Reset();
-				data.mRegs[CPU_REG_C].mValue = data.mRegs[reg].mValue >= 128;
-				data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-				data.mRegs[reg].Reset();
+				data.Reset(CPU_REG_Z);
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, data[reg].mValue >= 128);
+				data.Reset(reg);
 			}
 			else
 			{
-				data.mRegs[reg].Reset();
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(reg);
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_ROR:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (data.mRegs[reg].mValue >> 1) | (data.mRegs[CPU_REG_C].mValue << 7);
-				data.mRegs[CPU_REG_C].mValue = data.mRegs[reg].mValue & 1;
-				data.mRegs[reg].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = (data[reg].mValue >> 1) | (data[CPU_REG_C].mValue << 7);
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, data[reg].mValue & 1);
+				data.Set(reg, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
-			else if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			else if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[CPU_REG_Z].Reset();
-				data.mRegs[CPU_REG_C].mValue = data.mRegs[reg].mValue & 1;
-				data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-				data.mRegs[reg].Reset();
+				data.Reset(CPU_REG_Z);
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, data[reg].mValue & 1);
+				data.Reset(reg);
 			}
 			else
 			{
-				data.mRegs[reg].Reset();
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(reg);
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_ASL:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (data.mRegs[reg].mValue << 1);
-				data.mRegs[CPU_REG_C].mValue = t >= 256;
-				data.mRegs[reg].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = (data[reg].mValue << 1);
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, t >= 256);
+				data.Set(reg, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
 			else
 			{
-				data.mRegs[reg].Reset();
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(reg);
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_LSR:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (data.mRegs[reg].mValue >> 1);
-				data.mRegs[CPU_REG_C].mValue = data.mRegs[reg].mValue & 1;
-				data.mRegs[reg].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = (data[reg].mValue >> 1);
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, data[reg].mValue & 1);
+				data.Set(reg, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
 			else
 			{
-				data.mRegs[reg].Reset();
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(reg);
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_INC:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[reg].mValue = (data.mRegs[reg].mValue + 1) & 255;
-				data.mRegs[CPU_REG_Z].mValue = data.mRegs[reg].mValue;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				data.Set(reg, NRDM_IMMEDIATE, (data[reg].mValue + 1) & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[reg].mValue);
 			}
 			else
 			{
-				data.mRegs[reg].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(reg);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_Z);
 		break;
 
 	case ASMIT_DEC:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[reg].mValue = (data.mRegs[reg].mValue - 1) & 255;
-				data.mRegs[CPU_REG_Z].mValue = data.mRegs[reg].mValue;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				data.Set(reg, NRDM_IMMEDIATE, (data[reg].mValue - 1) & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[reg].mValue);
 			}
 			else
 			{
-				data.mRegs[reg].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(reg);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_Z);
 		break;
 
 	case ASMIT_ADC:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = data.mRegs[reg].mValue + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
-				data.mRegs[CPU_REG_C].mValue = t >= 256;
-				data.mRegs[CPU_REG_A].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = data[reg].mValue + data[CPU_REG_A].mValue + data[CPU_REG_C].mValue;
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, t >= 256);
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].Reset();
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_A);
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_A);
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_SBC:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (data.mRegs[reg].mValue ^ 0xff) + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
-				data.mRegs[CPU_REG_C].mValue = t >= 256;
-				data.mRegs[CPU_REG_A].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = (data[reg].mValue ^ 0xff) + data[CPU_REG_A].mValue + data[CPU_REG_C].mValue;
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, t >= 256);
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].Reset();
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_A);
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_A);
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_AND:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = data.mRegs[reg].mValue & data.mRegs[CPU_REG_A].mValue;
-				data.mRegs[CPU_REG_A].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = data[reg].mValue & data[CPU_REG_A].mValue;
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
-			else if ((data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[reg].mValue == 0) || (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mValue == 0))
+			else if ((data[reg].mMode == NRDM_IMMEDIATE && data[reg].mValue == 0) || (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mValue == 0))
 			{
-				data.mRegs[CPU_REG_A].mValue = 0;
-				data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = 0;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_A);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_A);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_ORA:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = data.mRegs[reg].mValue | data.mRegs[CPU_REG_A].mValue;
-				data.mRegs[CPU_REG_A].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = data[reg].mValue | data[CPU_REG_A].mValue;
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
-			else if ((data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[reg].mValue == 0xff) || (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mValue == 0xff))
+			else if ((data[reg].mMode == NRDM_IMMEDIATE && data[reg].mValue == 0xff) || (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mValue == 0xff))
 			{
-				data.mRegs[CPU_REG_A].mValue = 0xff;
-				data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = 0xff;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE, 0xff);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0xff);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_A);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_A);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_EOR:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = data.mRegs[reg].mValue | data.mRegs[CPU_REG_A].mValue;
-				data.mRegs[CPU_REG_A].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = data[reg].mValue ^ data[CPU_REG_A].mValue;
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE, t & 255);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_A);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_A);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_INX:
-		if (data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_X].mValue = (data.mRegs[CPU_REG_X].mValue + 1) & 255;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_X].mValue;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_X, NRDM_IMMEDIATE, (data[CPU_REG_X].mValue + 1) & 255);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_X].mValue);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_X);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_DEX:
-		if (data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_X].mValue = (data.mRegs[CPU_REG_X].mValue - 1) & 255;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_X].mValue;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_X, NRDM_IMMEDIATE, (data[CPU_REG_X].mValue - 1) & 255);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_X].mValue);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_X);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_INY:
-		if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_Y].mValue = (data.mRegs[CPU_REG_Y].mValue + 1) & 255;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_Y].mValue;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_Y, NRDM_IMMEDIATE, (data[CPU_REG_Y].mValue + 1) & 255);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_Y);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_DEY:
-		if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_Y].mValue = (data.mRegs[CPU_REG_Y].mValue - 1) & 255;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_Y].mValue;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_Y, NRDM_IMMEDIATE, (data[CPU_REG_Y].mValue - 1) & 255);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_Y);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_TXA:
-		if (data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_A].mValue = data.mRegs[CPU_REG_X].mValue;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_X].mValue;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_A, NRDM_IMMEDIATE, data[CPU_REG_X].mValue);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_X].mValue);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_A, data[CPU_REG_X]);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_TYA:
-		if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_A].mValue = data.mRegs[CPU_REG_Y].mValue;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_Y].mValue;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_A, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_A, data[CPU_REG_Y]);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_TAX:
-		if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_X].mValue = data.mRegs[CPU_REG_A].mValue;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_X, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_X].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_X, data[CPU_REG_A]);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_TAY:
-		if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_Y].mValue = data.mRegs[CPU_REG_A].mValue;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_Y, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_Y].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_Y, data[CPU_REG_A]);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_CMP:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (data.mRegs[reg].mValue ^ 0xff) + data.mRegs[CPU_REG_A].mValue + 1;
-				data.mRegs[CPU_REG_C].mValue = t >= 256;
-				data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = (data[reg].mValue ^ 0xff) + data[CPU_REG_A].mValue + 1;
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, t >= 256);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
 		{
-			data.mRegs[CPU_REG_C].mValue = 1;
-			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
+			data.Reset(CPU_REG_Z);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_CPX:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_X].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (data.mRegs[reg].mValue ^ 0xff) + data.mRegs[CPU_REG_X].mValue + 1;
-				data.mRegs[CPU_REG_C].mValue = t >= 256;
-				data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = (data[reg].mValue ^ 0xff) + data[CPU_REG_X].mValue + 1;
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, t >= 256);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
 		{
-			data.mRegs[CPU_REG_C].mValue = 1;
-			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
+			data.Reset(CPU_REG_Z);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_CPY:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE && data[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (data.mRegs[reg].mValue ^ 0xff) + data.mRegs[CPU_REG_Y].mValue + 1;
-				data.mRegs[CPU_REG_C].mValue = t >= 256;
-				data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = t & 255;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				int	t = (data[reg].mValue ^ 0xff) + data[CPU_REG_Y].mValue + 1;
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, t >= 256);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, t & 255);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
 		{
-			data.mRegs[CPU_REG_C].mValue = 1;
-			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
+			data.Reset(CPU_REG_Z);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_BIT:
-		data.mRegs[CPU_REG_Z].Reset();
+		data.Reset(CPU_REG_Z);
 		break;
 
 	case ASMIT_LDA:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = data.mRegs[reg].mValue;
-				data.mRegs[CPU_REG_A].mValue = t;
-				data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = t;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				data.Set(CPU_REG_A, data[reg]);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Set(CPU_REG_A, data[reg]);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_A].mValue = mAddress;
-			data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = mAddress;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_A, NRDM_IMMEDIATE, mAddress);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
 		}
 		else if (mMode == ASMIM_IMMEDIATE_ADDRESS)
 		{
-			data.mRegs[CPU_REG_A].mValue = mAddress;
-			data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
-			data.mRegs[CPU_REG_A].mFlags = mFlags;
-			data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE_ADDRESS;
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_A, NRDM_IMMEDIATE_ADDRESS, mAddress, mLinkerObject, mFlags);
+			data.Reset(CPU_REG_Z);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_A);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_LDX:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = data.mRegs[reg].mValue;
-				data.mRegs[CPU_REG_X].mValue = t;
-				data.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = t;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				data.Set(CPU_REG_X, data[reg]);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_X].mValue);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_X].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Set(CPU_REG_X, data[reg]);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_X].mValue = mAddress;
-			data.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = mAddress;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_X, NRDM_IMMEDIATE, mAddress);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
 		}
 		else if (mMode == ASMIM_IMMEDIATE_ADDRESS)
 		{
-			data.mRegs[CPU_REG_X].mValue = mAddress;
-			data.mRegs[CPU_REG_X].mLinkerObject = mLinkerObject;
-			data.mRegs[CPU_REG_X].mFlags = mFlags;
-			data.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE_ADDRESS;
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_X, NRDM_IMMEDIATE_ADDRESS, mAddress, mLinkerObject, mFlags);
+			data.Reset(CPU_REG_Z);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_X].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_X);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_LDY:
 		if (reg >= 0)
 		{
-			if (data.mRegs[reg].mMode == NRDM_IMMEDIATE)
+			if (data[reg].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = data.mRegs[reg].mValue;
-				data.mRegs[CPU_REG_Y].mValue = t;
-				data.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = t;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+				data.Set(CPU_REG_Y, data[reg]);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_Y].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Set(CPU_REG_Y, data[reg]);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_Y].mValue = mAddress;
-			data.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = mAddress;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
+			data.Set(CPU_REG_Y, NRDM_IMMEDIATE, mAddress);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
 		}
 		else if (mMode == ASMIM_IMMEDIATE_ADDRESS)
 		{
-			data.mRegs[CPU_REG_Y].mValue = mAddress;
-			data.mRegs[CPU_REG_Y].mLinkerObject = mLinkerObject;
-			data.mRegs[CPU_REG_Y].mFlags = mFlags;
-			data.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE_ADDRESS;
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_Y, NRDM_IMMEDIATE_ADDRESS, mAddress, mLinkerObject, mFlags);
+			data.Reset(CPU_REG_Z);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_Y].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_Y);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_STA:
 		if (reg >= 0)
 		{
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE || data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS)
-			{
-				data.mRegs[reg] = data.mRegs[CPU_REG_A];
-			}
+			if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE || data[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS)
+				data.Set(reg, data[CPU_REG_A]);
 			else
-			{
-				data.mRegs[reg].Reset();
-			}
+				data.Reset(reg);
 		}
 		break;
 
 	case ASMIT_STX:
 		if (reg >= 0)
 		{
-			if (data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE)
-			{
-				data.mRegs[reg].mValue = data.mRegs[CPU_REG_X].mValue;
-				data.mRegs[reg].mMode = NRDM_IMMEDIATE;
-			}
+			if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE || data[CPU_REG_X].mMode == NRDM_IMMEDIATE_ADDRESS)
+				data.Set(reg, data[CPU_REG_X]);
 			else
-			{
-				data.mRegs[reg].Reset();
-			}
+				data.Reset(reg);
 		}
 		break;
 
 	case ASMIT_STY:
 		if (reg >= 0)
 		{
-			if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
-			{
-				data.mRegs[reg].mValue = data.mRegs[CPU_REG_Y].mValue;
-				data.mRegs[reg].mMode = NRDM_IMMEDIATE;
-			}
+			if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE || data[CPU_REG_Y].mMode == NRDM_IMMEDIATE_ADDRESS)
+				data.Set(reg, data[CPU_REG_Y]);
 			else
-			{
-				data.mRegs[reg].Reset();
-			}
+				data.Reset(reg);
 		}
 		break;
 
 	case ASMIT_CLC:
-		data.mRegs[CPU_REG_C].mValue = 0;
-		data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
+		data.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
 		break;
 
 	case ASMIT_SEC:
-		data.mRegs[CPU_REG_C].mValue = 1;
-		data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
+		data.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
 		break;
 	}
 }
@@ -2948,8 +2941,8 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 	}
 	else if (mMode == ASMIM_ZERO_PAGE)
 	{
-		opmask = data.mRegs[mAddress].mMask;
-		opvalue = data.mRegs[mAddress].mValue;
+		opmask = data[mAddress].mMask;
+		opvalue = data[mAddress].mValue;
 	}
 	else if (mMode == ASMIM_ABSOLUTE && mLinkerObject && (mLinkerObject->mFlags & LOBJF_CONST) && mLinkerObject->mReferences.Size() == 0 && mType != ASMIT_JSR)
 	{
@@ -2966,13 +2959,13 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 
 		if (mMode == ASMIM_ABSOLUTE_X)
 		{
-			ior = data.mRegs[CPU_REG_X].mMask & data.mRegs[CPU_REG_X].mValue;
-			iand = (~data.mRegs[CPU_REG_X].mMask | data.mRegs[CPU_REG_X].mValue) & 0xff;
+			ior = data[CPU_REG_X].mMask & data[CPU_REG_X].mValue;
+			iand = (~data[CPU_REG_X].mMask | data[CPU_REG_X].mValue) & 0xff;
 		}
 		else if (mMode == ASMIM_ABSOLUTE_Y)
 		{
-			ior = data.mRegs[CPU_REG_Y].mMask & data.mRegs[CPU_REG_Y].mValue;
-			iand = (~data.mRegs[CPU_REG_Y].mMask | data.mRegs[CPU_REG_Y].mValue) & 0xff;
+			ior = data[CPU_REG_Y].mMask & data[CPU_REG_Y].mValue;
+			iand = (~data[CPU_REG_Y].mMask | data[CPU_REG_Y].mValue) & 0xff;
 		}
 
 		int size = mLinkerObject->mSize - mAddress;
@@ -3002,14 +2995,14 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 	switch (mType)
 	{
 	case ASMIT_JSR:
-		data.mRegs[CPU_REG_C].ResetMask();
-		data.mRegs[CPU_REG_Z].ResetMask();
+		data.ResetMask(CPU_REG_C);
+		data.ResetMask(CPU_REG_Z);
 		if (!(mFlags & NCIF_PRESERVE_CPU_REG_A))
-			data.mRegs[CPU_REG_A].ResetMask();
+			data.ResetMask(CPU_REG_A);
 		if (!(mFlags & NCIF_PRESERVE_CPU_REG_X))
-			data.mRegs[CPU_REG_X].ResetMask();
+			data.ResetMask(CPU_REG_X);
 		if (!(mFlags & NCIF_PRESERVE_CPU_REG_Y))
-			data.mRegs[CPU_REG_Y].ResetMask();
+			data.ResetMask(CPU_REG_Y);
 
 		data.ResetWorkMasks();
 
@@ -3018,65 +3011,61 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 			if (mLinkerObject && mLinkerObject->mProc)
 			{
 				for (int i = BC_REG_TMP; i < BC_REG_TMP + mLinkerObject->mProc->mCallerSavedTemps; i++)
-					data.mRegs[i].ResetMask();
+					data.ResetMask(i);
 			}
 			else
 			{
 				for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
-					data.mRegs[i].ResetMask();
+					data.ResetMask(i);
 			}
 
 			for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
-				data.mRegs[i].ResetMask();
+				data.ResetMask(i);
 		}
 		break;
 	case ASMIT_CLC:
-		data.mRegs[CPU_REG_C].mMask = 1;
-		data.mRegs[CPU_REG_C].mValue = 0;
+		data.SetMask(CPU_REG_C, 1, 0);
 		break;
 	case ASMIT_SEC:
-		data.mRegs[CPU_REG_C].mMask = 1;
-		data.mRegs[CPU_REG_C].mValue = 1;
+		data.SetMask(CPU_REG_C, 1, 1);
 		break;
 
 	case ASMIT_CMP:
 	case ASMIT_CPX:
 	case ASMIT_CPY:
-		data.mRegs[CPU_REG_C].mMask = 0;
+		data.ResetMask(CPU_REG_C);
 		break;
 
 	case ASMIT_ADC:
-		if (mMode == ASMIM_IMMEDIATE && data.mRegs[CPU_REG_C].mMask == 1 && data.mRegs[CPU_REG_C].mValue == 0)
+		if (mMode == ASMIM_IMMEDIATE && data[CPU_REG_C].mMask == 1 && data[CPU_REG_C].mValue == 0)
 		{
-			if ((mAddress & ~data.mRegs[CPU_REG_A].mMask) == 0 && (mAddress & data.mRegs[CPU_REG_A].mValue) == 0)
+			if ((mAddress & ~data[CPU_REG_A].mMask) == 0 && (mAddress & data[CPU_REG_A].mValue) == 0)
 			{
 				mType = ASMIT_ORA;
-				data.mRegs[CPU_REG_A].mValue |= mAddress;
+				data.SetMask(CPU_REG_A, data[CPU_REG_A].mMask, data[CPU_REG_A].mValue | mAddress);
 				changed = true;
 			}
-			else if (mAddress == 1 && (data.mRegs[CPU_REG_A].mMask & 3) == 3 && (data.mRegs[CPU_REG_A].mValue & 3) == 1)
+			else if (mAddress == 1 && (data[CPU_REG_A].mMask & 3) == 3 && (data[CPU_REG_A].mValue & 3) == 1)
 			{
 				mType = ASMIT_EOR;
 				mAddress = 3;
-				data.mRegs[CPU_REG_A].mValue ^= 3;
+				data.SetMask(CPU_REG_A, data[CPU_REG_A].mMask, data[CPU_REG_A].mValue ^ 3);
 				changed = true;
 			}
-			else if (mMode == ASMIM_IMMEDIATE && mAddress + ((data.mRegs[CPU_REG_A].mValue & data.mRegs[CPU_REG_A].mMask) | (~data.mRegs[CPU_REG_A].mMask & 255)) < 256)
+			else if (mMode == ASMIM_IMMEDIATE && mAddress + ((data[CPU_REG_A].mValue & data[CPU_REG_A].mMask) | (~data[CPU_REG_A].mMask & 255)) < 256)
 			{
-				data.mRegs[CPU_REG_C].mMask = 1;
-				data.mRegs[CPU_REG_C].mValue = 0;
-				data.mRegs[CPU_REG_A].mMask = ~BinMask(mAddress + ((data.mRegs[CPU_REG_A].mValue & data.mRegs[CPU_REG_A].mMask) | (~data.mRegs[CPU_REG_A].mMask & 255))) & 255;
-				data.mRegs[CPU_REG_A].mValue = 0;
+				data.SetMask(CPU_REG_C, 1, 0);
+				data.SetMask(CPU_REG_A, ~BinMask(mAddress + ((data[CPU_REG_A].mValue & data[CPU_REG_A].mMask) | (~data[CPU_REG_A].mMask & 255))) & 255, 0);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_C].mMask = 0;
-				data.mRegs[CPU_REG_A].mMask = 0;
+				data.ResetMask(CPU_REG_C);
+				data.ResetMask(CPU_REG_A);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
 		{
-			int zeros = data.mRegs[CPU_REG_A].mMask & ~data.mRegs[CPU_REG_A].mValue;
+			int zeros = data[CPU_REG_A].mMask & ~data[CPU_REG_A].mValue;
 
 			int fzero = 0x01;
 			while (fzero < 0x100 && (fzero & zeros) == 0)
@@ -3084,62 +3073,54 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 
 			fzero |= (fzero - 1);
 
-			data.mRegs[CPU_REG_A].mMask &= ~fzero;
+			data.SetMask(CPU_REG_A, data[CPU_REG_A].mMask & ~fzero, data[CPU_REG_A].mValue);
 
 			if (fzero >= 0x100)
-				data.mRegs[CPU_REG_C].mMask = 0;
+				data.ResetMask(CPU_REG_C);
 			else
-			{
-				data.mRegs[CPU_REG_C].mMask = 1;
-				data.mRegs[CPU_REG_C].mValue = 0;
-			}
+				data.SetMask(CPU_REG_C, 1, 0);
 		}
-		else if (data.mRegs[CPU_REG_C].mMask == 1 && data.mRegs[CPU_REG_C].mValue == 0)
+		else if (data[CPU_REG_C].mMask == 1 && data[CPU_REG_C].mValue == 0)
 		{
-			if ((((~opmask | opvalue) & (~data.mRegs[CPU_REG_A].mMask | data.mRegs[CPU_REG_A].mValue)) & 0xff) == 0)
+			if ((((~opmask | opvalue) & (~data[CPU_REG_A].mMask | data[CPU_REG_A].mValue)) & 0xff) == 0)
 			{
 				mType = ASMIT_ORA;
-				data.mRegs[CPU_REG_A].mValue |= opvalue;
-				data.mRegs[CPU_REG_A].mMask &= opmask;
+				data.SetMask(CPU_REG_A, data[CPU_REG_A].mMask & opmask, data[CPU_REG_A].mValue | opvalue);
 				changed = true;
 			}
 			else
 			{
-				data.mRegs[CPU_REG_C].mMask = 0;
-				data.mRegs[CPU_REG_A].mMask = 0;
+				data.ResetMask(CPU_REG_C);
+				data.ResetMask(CPU_REG_A);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].mMask = 0;
-			data.mRegs[CPU_REG_A].mMask = 0;
+			data.ResetMask(CPU_REG_C);
+			data.ResetMask(CPU_REG_A);
 		}
 
 		break;
 	case ASMIT_SBC:
-		data.mRegs[CPU_REG_C].mMask = 0;
-		data.mRegs[CPU_REG_A].mMask = 0;
+		data.ResetMask(CPU_REG_C);
+		data.ResetMask(CPU_REG_A);
 		break;
 
 	case ASMIT_LDA:
 		if (mMode == ASMIM_IMMEDIATE)
 		{
-			if (data.mRegs[CPU_REG_A].mMask == 0xff && data.mRegs[CPU_REG_A].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_A].mMask == 0xff && data[CPU_REG_A].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
 			else
-			{
-				data.mRegs[CPU_REG_A].mMask = 0xff;
-				data.mRegs[CPU_REG_A].mValue = mAddress & 0xff;
-			}
+				data.SetMask(CPU_REG_A, 0xff, mAddress & 0xff);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].mMask = opmask;
-			data.mRegs[CPU_REG_A].mValue = opvalue;
+			data.SetMask(CPU_REG_A, opmask, opvalue);
 			if (opmask == 0xff)
 			{
 				mType = ASMIT_LDA;
@@ -3151,22 +3132,15 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		break;
 	case ASMIT_STA:
 		if (mMode == ASMIM_ZERO_PAGE)
-		{
-			data.mRegs[mAddress].mMask = data.mRegs[CPU_REG_A].mMask;
-			data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_A].mValue;
-		}
+			data.SetMask(mAddress, data[CPU_REG_A]);
 		break;
 
 	case ASMIT_LDX:
 		if (mMode == ASMIM_IMMEDIATE)
-		{
-			data.mRegs[CPU_REG_X].mMask = 0xff;
-			data.mRegs[CPU_REG_X].mValue = mAddress & 0xff;
-		}
+			data.SetMask(CPU_REG_X, 0xff, mAddress & 0xff);
 		else
 		{
-			data.mRegs[CPU_REG_X].mMask = opmask;
-			data.mRegs[CPU_REG_X].mValue = opvalue;
+			data.SetMask(CPU_REG_X, opmask, opvalue);
 			if (opmask == 0xff)
 			{
 				mType = ASMIT_LDX;
@@ -3178,22 +3152,15 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		break;
 	case ASMIT_STX:
 		if (mMode == ASMIM_ZERO_PAGE)
-		{
-			data.mRegs[mAddress].mMask = data.mRegs[CPU_REG_X].mMask;
-			data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_X].mValue;
-		}
+			data.Set(mAddress, data[CPU_REG_X]);
 		break;
 
 	case ASMIT_LDY:
 		if (mMode == ASMIM_IMMEDIATE)
-		{
-			data.mRegs[CPU_REG_Y].mMask = 0xff;
-			data.mRegs[CPU_REG_Y].mValue = mAddress & 0xff;
-		}
+			data.SetMask(CPU_REG_Y, 0xff, mAddress & 0xff);
 		else
 		{
-			data.mRegs[CPU_REG_Y].mMask = opmask;
-			data.mRegs[CPU_REG_Y].mValue = opvalue;
+			data.SetMask(CPU_REG_Y, opmask, opvalue);
 			if (opmask == 0xff)
 			{
 				mType = ASMIT_LDY;
@@ -3205,25 +3172,22 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		break;
 	case ASMIT_STY:
 		if (mMode == ASMIM_ZERO_PAGE)
-		{
-			data.mRegs[mAddress].mMask = data.mRegs[CPU_REG_Y].mMask;
-			data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_Y].mValue;
-		}
+			data.SetMask(mAddress, data[CPU_REG_Y]);
 		break;
 
 	case ASMIT_AND:
 	{
 		int	zeros =
 			(opmask & ~opvalue) |
-			(data.mRegs[CPU_REG_A].mMask & ~data.mRegs[CPU_REG_A].mValue);
+			(data[CPU_REG_A].mMask & ~data[CPU_REG_A].mValue);
 
 		int	ones =
 			(opmask & opvalue) &
-			(data.mRegs[CPU_REG_A].mMask & data.mRegs[CPU_REG_A].mValue);
+			(data[CPU_REG_A].mMask & data[CPU_REG_A].mValue);
 
-		int changed = (~data.mRegs[CPU_REG_A].mMask | data.mRegs[CPU_REG_A].mValue) & (~opmask | ~opvalue) & 0xff;
+		int cbits = (~data[CPU_REG_A].mMask | data[CPU_REG_A].mValue) & (~opmask | ~opvalue) & 0xff;
 
-		if (changed == 0)
+		if (cbits == 0)
 		{
 			if (mMode != ASMIM_IMMEDIATE || mAddress != 0xff)
 			{
@@ -3234,14 +3198,13 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].mMask = (ones | zeros) & 0xff;
-			data.mRegs[CPU_REG_A].mValue = ones & 0xff;
+			data.SetMask(CPU_REG_A, (ones | zeros) & 0xff, ones & 0xff);
 
-			if (data.mRegs[CPU_REG_A].mMask == 0xff)
+			if (data[CPU_REG_A].mMask == 0xff)
 			{
 				mType = ASMIT_LDA;
 				mMode = ASMIM_IMMEDIATE;
-				mAddress = data.mRegs[CPU_REG_A].mValue;
+				mAddress = data[CPU_REG_A].mValue;
 				changed = true;
 			}
 		}
@@ -3252,201 +3215,183 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 	{
 		int	ones =
 			(opmask & opvalue) |
-			(data.mRegs[CPU_REG_A].mMask & data.mRegs[CPU_REG_A].mValue);
+			(data[CPU_REG_A].mMask & data[CPU_REG_A].mValue);
 
 		int	zeros =
 			(opmask & ~opvalue) &
-			(data.mRegs[CPU_REG_A].mMask & ~data.mRegs[CPU_REG_A].mValue);
+			(data[CPU_REG_A].mMask & ~data[CPU_REG_A].mValue);
 
-		data.mRegs[CPU_REG_A].mMask = (ones | zeros) & 0xff;
-		data.mRegs[CPU_REG_A].mValue = ones & 0xff;
+		data.SetMask(CPU_REG_A, (ones | zeros) & 0xff, ones & 0xff);
 
-		if (data.mRegs[CPU_REG_A].mMask == 0xff)
+		if (data[CPU_REG_A].mMask == 0xff)
 		{
 			mType = ASMIT_LDA;
 			mMode = ASMIM_IMMEDIATE;
-			mAddress = data.mRegs[CPU_REG_A].mValue;
+			mAddress = data[CPU_REG_A].mValue;
 			changed = true;
 		}
 	}	break;
 
 	case ASMIT_EOR:
-		data.mRegs[CPU_REG_A].mMask = 0;
+		data.ResetMask(CPU_REG_A);
 		break;
 
 	case ASMIT_TAX:
-		data.mRegs[CPU_REG_X].mMask = data.mRegs[CPU_REG_A].mMask;
-		data.mRegs[CPU_REG_X].mValue = data.mRegs[CPU_REG_A].mValue;
+		data.SetMask(CPU_REG_X, data[CPU_REG_A]);
 		break;
 	case ASMIT_TAY:
-		data.mRegs[CPU_REG_Y].mMask = data.mRegs[CPU_REG_A].mMask;
-		data.mRegs[CPU_REG_Y].mValue = data.mRegs[CPU_REG_A].mValue;
+		data.SetMask(CPU_REG_Y, data[CPU_REG_A]);
 		break;
 
 	case ASMIT_TXA:
-		data.mRegs[CPU_REG_A].mMask = data.mRegs[CPU_REG_X].mMask;
-		data.mRegs[CPU_REG_A].mValue = data.mRegs[CPU_REG_X].mValue;
+		data.SetMask(CPU_REG_A, data[CPU_REG_X]);
 		break;
 
 	case ASMIT_TYA:
-		data.mRegs[CPU_REG_A].mMask = data.mRegs[CPU_REG_Y].mMask;
-		data.mRegs[CPU_REG_A].mValue = data.mRegs[CPU_REG_Y].mValue;
+		data.SetMask(CPU_REG_A, data[CPU_REG_Y]);
 		break;
 
 	case ASMIT_INX:
 	case ASMIT_DEX:
-		data.mRegs[CPU_REG_X].mMask = 0;
+		data.ResetMask(CPU_REG_X);
 		break;
 
 	case ASMIT_INY:
 	case ASMIT_DEY:
-		data.mRegs[CPU_REG_Y].mMask = 0;
+		data.ResetMask(CPU_REG_Y);
 		break;
 
 	case ASMIT_INC:
 	case ASMIT_DEC:
 		if (mMode == ASMIM_ZERO_PAGE)
-			data.mRegs[mAddress].mMask = 0;
+			data.ResetMask(mAddress);
 		break;
 
 	case ASMIT_ASL:
 		if (iaddr >= 0)
 		{
-			int	mask = data.mRegs[iaddr].mMask, value = data.mRegs[iaddr].mValue;
+			int	mask = data[iaddr].mMask, value = data[iaddr].mValue;
 
-			data.mRegs[iaddr].mMask = ((mask << 1) & 0xff) | 0x01;
-			data.mRegs[iaddr].mValue = ((value << 1) & 0xff);
+			data.SetMask(iaddr, ((mask << 1) & 0xff) | 0x01, (value << 1) & 0xff);
 			
 			if (mask & 0x80)
-			{
-				data.mRegs[CPU_REG_C].mMask = 1;
-				data.mRegs[CPU_REG_C].mValue = value >> 7;
-			}
+				data.SetMask(CPU_REG_C, 1, value >> 7);
 			else
-				data.mRegs[CPU_REG_C].mMask = 0;
+				data.ResetMask(CPU_REG_C);
 
-			if (mMode == ASMIM_IMPLIED && data.mRegs[CPU_REG_A].mMask == 0xff && data.mRegs[CPU_REG_C].mMask)
+			if (mMode == ASMIM_IMPLIED && data[CPU_REG_A].mMask == 0xff && data[CPU_REG_C].mMask)
 			{
-				carryop = data.mRegs[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
+				carryop = data[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
 				mType = ASMIT_LDA;
 				mMode = ASMIM_IMMEDIATE;
-				mAddress = data.mRegs[CPU_REG_A].mValue;
+				mAddress = data[CPU_REG_A].mValue;
 				changed = true;
 			}
 		}
 		else
-			data.mRegs[CPU_REG_C].mMask = 0;
+			data.ResetMask(CPU_REG_C);
 		break;
 
 	case ASMIT_LSR:
 		if (iaddr >= 0)
 		{
-			int	mask = data.mRegs[iaddr].mMask, value = data.mRegs[iaddr].mValue;
+			int	mask = data[iaddr].mMask, value = data[iaddr].mValue;
 
 			if (mask == 0xff && value == 0x00)
 			{
 				mType = ASMIT_CLC;
 				mMode = ASMIM_IMPLIED;
-				data.mRegs[CPU_REG_C].mMask = 1;
-				data.mRegs[CPU_REG_C].mValue = 0;
-
+				data.SetMask(CPU_REG_C, 1, 0);
 				changed = true;
 			}
 			else
 			{
-				data.mRegs[iaddr].mMask = ((mask >> 1) & 0xff) | 0x80;
-				data.mRegs[iaddr].mValue = ((value >> 1) & 0x7f);
+				data.SetMask(iaddr, ((mask >> 1) & 0xff) | 0x80, (value >> 1) & 0x7f);
 
 				if (mask & 0x01)
-				{
-					data.mRegs[CPU_REG_C].mMask = 1;
-					data.mRegs[CPU_REG_C].mValue = value & 1;
-				}
+					data.SetMask(CPU_REG_C, 1, value & 1);
 				else
-					data.mRegs[CPU_REG_C].mMask = 0;
+					data.ResetMask(CPU_REG_C);
 
-				if (mMode == ASMIM_IMPLIED && data.mRegs[CPU_REG_A].mMask == 0xff && data.mRegs[CPU_REG_C].mMask)
+				if (mMode == ASMIM_IMPLIED && data[CPU_REG_A].mMask == 0xff && data[CPU_REG_C].mMask)
 				{
-					carryop = data.mRegs[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
+					carryop = data[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
 					mType = ASMIT_LDA;
 					mMode = ASMIM_IMMEDIATE;
-					mAddress = data.mRegs[CPU_REG_A].mValue;
+					mAddress = data[CPU_REG_A].mValue;
 					changed = true;
 				}
 			}
 		}
 		else
-			data.mRegs[CPU_REG_C].mMask = 0;
+			data.ResetMask(CPU_REG_C);
 		break;
 
 	case ASMIT_ROL:
 		if (iaddr >= 0)
 		{
-			int	mask = data.mRegs[iaddr].mMask, value = data.mRegs[iaddr].mValue;
+			int	mask = data[iaddr].mMask, value = data[iaddr].mValue;
 
-			data.mRegs[iaddr].mMask = (mask << 1) & 0xff;
-			data.mRegs[iaddr].mValue = (value << 1) & 0xff;
+			int nmask = (mask << 1) & 0xff, nvalue = (value << 1) & 0xff;
 
-			if (data.mRegs[CPU_REG_C].mMask & 1)
+
+			if (data[CPU_REG_C].mMask & 1)
 			{
-				data.mRegs[iaddr].mMask |= 1;
-				data.mRegs[iaddr].mValue |= data.mRegs[CPU_REG_C].mValue & 1;
+				nmask |= 1;
+				nvalue |= data[CPU_REG_C].mValue & 1;
 			}
+
+			data.SetMask(iaddr, nmask, nvalue);
 
 			if (mask & 0x80)
-			{
-				data.mRegs[CPU_REG_C].mMask = 1;
-				data.mRegs[CPU_REG_C].mValue = value >> 7;
-			}
+				data.SetMask(CPU_REG_C, 1, value >> 7);
 			else
-				data.mRegs[CPU_REG_C].mMask = 0;
+				data.ResetMask(CPU_REG_C);
 
-			if (mMode == ASMIM_IMPLIED && data.mRegs[CPU_REG_A].mMask == 0xff && data.mRegs[CPU_REG_C].mMask)
+			if (mMode == ASMIM_IMPLIED && data[CPU_REG_A].mMask == 0xff && data[CPU_REG_C].mMask)
 			{
-				carryop = data.mRegs[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
+				carryop = data[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
 				mType = ASMIT_LDA;
 				mMode = ASMIM_IMMEDIATE;
-				mAddress = data.mRegs[CPU_REG_A].mValue;
+				mAddress = data[CPU_REG_A].mValue;
 				changed = true;
 			}
 		}
 		else
-			data.mRegs[CPU_REG_C].mMask = 0;
+			data.ResetMask(CPU_REG_C);
 		break;
 
 	case ASMIT_ROR:
 		if (iaddr >= 0)
 		{
-			int	mask = data.mRegs[iaddr].mMask, value = data.mRegs[iaddr].mValue;
+			int	mask = data[iaddr].mMask, value = data[iaddr].mValue;
 
-			data.mRegs[iaddr].mMask = (mask >> 1) & 0x7f;
-			data.mRegs[iaddr].mValue = (value >> 1) & 0x7f;
+			int nmask = (mask >> 1) & 0x7f, nvalue = (value >> 1) & 0x7f;
 
-			if (data.mRegs[CPU_REG_C].mMask & 1)
+			if (data[CPU_REG_C].mMask & 1)
 			{
-				data.mRegs[iaddr].mMask |= 0x80;
-				data.mRegs[iaddr].mValue |= (data.mRegs[CPU_REG_C].mValue << 7) & 0x80;
+				nmask |= 0x80;
+				nvalue |= (data[CPU_REG_C].mValue << 7) & 0x80;
 			}
+
+			data.SetMask(iaddr, nmask, nvalue);
 
 			if (mask & 0x01)
-			{
-				data.mRegs[CPU_REG_C].mMask = 1;
-				data.mRegs[CPU_REG_C].mValue = value & 1;
-			}
+				data.SetMask(CPU_REG_C, 1, value & 1);
 			else
-				data.mRegs[CPU_REG_C].mMask = 0;
+				data.ResetMask(CPU_REG_C);
 
-			if (mMode == ASMIM_IMPLIED && data.mRegs[CPU_REG_A].mMask == 0xff && data.mRegs[CPU_REG_C].mMask)
+			if (mMode == ASMIM_IMPLIED && data[CPU_REG_A].mMask == 0xff && data[CPU_REG_C].mMask)
 			{
-				carryop = data.mRegs[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
+				carryop = data[CPU_REG_C].mValue ? ASMIT_SEC : ASMIT_CLC;
 				mType = ASMIT_LDA;
 				mMode = ASMIM_IMMEDIATE;
-				mAddress = data.mRegs[CPU_REG_A].mValue;
+				mAddress = data[CPU_REG_A].mValue;
 				changed = true;
 			}
 		}
 		else
-			data.mRegs[CPU_REG_C].mMask = 0;
+			data.ResetMask(CPU_REG_C);
 		break;
 	}
 
@@ -3468,7 +3413,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 
 	mFlags &= ~NCIF_YZERO;
 
-	if ((data.mRegs[CPU_REG_Y].mMode & NRDM_IMMEDIATE) && (data.mRegs[CPU_REG_Y].mValue == 0))
+	if ((data[CPU_REG_Y].mMode & NRDM_IMMEDIATE) && (data[CPU_REG_Y].mValue == 0))
 		mFlags |= NCIF_YZERO;
 
 	if (mType == ASMIT_JSR)
@@ -3478,7 +3423,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		return false;
 	}
 
-	if (data.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_C].mValue == 0)
+	if (data[CPU_REG_C].mMode == NRDM_IMMEDIATE && data[CPU_REG_C].mValue == 0)
 	{
 		switch (mType)
 		{
@@ -3496,56 +3441,53 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 	switch (mType)
 	{
 	case ASMIT_CLC:
-		data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-		data.mRegs[CPU_REG_C].mValue = 0;
+		data.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
 		break;
 	case ASMIT_SEC:
-		data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-		data.mRegs[CPU_REG_C].mValue = 1;
+		data.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
 		break;
 
 	case ASMIT_ROL:
 	case ASMIT_ROR:
 		if (mMode == ASMIM_IMPLIED)
-			data.mRegs[CPU_REG_A].Reset();
-		data.mRegs[CPU_REG_C].Reset();
-		data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_A);
+		data.Reset(CPU_REG_C);
+		data.Reset(CPU_REG_Z);
 		break;
 
 	case ASMIT_ASL:
 	case ASMIT_LSR:
 		if (mMode == ASMIM_IMPLIED)
 		{
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mValue == 0 && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mValue == 0 && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_CLC;				
-				data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_C].mValue = 0;
+				data.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
 				changed = true;
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].Reset();
-				data.mRegs[CPU_REG_C].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_A);
+				data.Reset(CPU_REG_C);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_INC:
 	case ASMIT_DEC:
-		data.mRegs[CPU_REG_Z].Reset();
+		data.Reset(CPU_REG_Z);
 		break;
 
 	case ASMIT_LDA:
 		if (mMode == ASMIM_IMMEDIATE)
 		{
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
@@ -3553,19 +3495,16 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_A].mValue = mAddress;
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE, mAddress);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
 			}
-
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = mAddress;
 		}
 		else if (mMode == ASMIM_IMMEDIATE_ADDRESS)
 		{
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS &&
-				data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject &&
-				data.mRegs[CPU_REG_A].mFlags == mFlags &&
-				data.mRegs[CPU_REG_A].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS &&
+				data[CPU_REG_A].mLinkerObject == mLinkerObject &&
+				data[CPU_REG_A].mFlags == mFlags &&
+				data[CPU_REG_A].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
@@ -3573,29 +3512,23 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE_ADDRESS;
-				data.mRegs[CPU_REG_A].mValue = mAddress;
-				data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
-				data.mRegs[CPU_REG_A].mFlags = mFlags;
+				data.Set(CPU_REG_A, NRDM_IMMEDIATE_ADDRESS, mAddress, mLinkerObject, mFlags);
 				if (mLinkerObject)
-				{
-					data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-					data.mRegs[CPU_REG_Z].mValue = 1;
-				}
+					data.Set(CPU_REG_Z, NRDM_IMMEDIATE, 1);
 				else
-					data.mRegs[CPU_REG_Z].Reset();
+					data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
 			if (mMode != ASMIM_ZERO_PAGE && mMode != ASMIM_ABSOLUTE && mMode != ASMIM_INDIRECT_Y && mMode != ASMIM_ABSOLUTE_X && mMode != ASMIM_ABSOLUTE_Y)
-				data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_A);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_STA:
-		if (mMode == ASMIM_ZERO_PAGE && data.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mAddress == data.mRegs[CPU_REG_A].mValue)
+		if (mMode == ASMIM_ZERO_PAGE && data[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mAddress == data[CPU_REG_A].mValue)
 		{
 			mType = ASMIT_NOP;
 			mMode = ASMIM_IMPLIED;
@@ -3603,7 +3536,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		}
 		break;
 	case ASMIT_STX:
-		if (mMode == ASMIM_ZERO_PAGE && data.mRegs[CPU_REG_X].mMode == NRDM_ZERO_PAGE && mAddress == data.mRegs[CPU_REG_X].mValue)
+		if (mMode == ASMIM_ZERO_PAGE && data[CPU_REG_X].mMode == NRDM_ZERO_PAGE && mAddress == data[CPU_REG_X].mValue)
 		{
 			mType = ASMIT_NOP;
 			mMode = ASMIM_IMPLIED;
@@ -3611,7 +3544,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		}
 		break;
 	case ASMIT_STY:
-		if (mMode == ASMIM_ZERO_PAGE && data.mRegs[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && mAddress == data.mRegs[CPU_REG_Y].mValue)
+		if (mMode == ASMIM_ZERO_PAGE && data[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && mAddress == data[CPU_REG_Y].mValue)
 		{
 			mType = ASMIT_NOP;
 			mMode = ASMIM_IMPLIED;
@@ -3620,72 +3553,72 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		break;
 
 	case ASMIT_ADC:
-		if (data.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 		{
-			if (mMode == ASMIM_IMMEDIATE && mAddress == 0 && data.mRegs[CPU_REG_C].mValue == 0)
+			if (mMode == ASMIM_IMMEDIATE && mAddress == 0 && data[CPU_REG_C].mValue == 0)
 			{
 				mType = ASMIT_ORA;
 				changed = true;
 			}
-			else if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mValue == 0 && data.mRegs[CPU_REG_C].mValue == 0)
+			else if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mValue == 0 && data[CPU_REG_C].mValue == 0)
 			{
 				mType = ASMIT_LDA;
 				changed = true;
 			}
-			else if (mMode == ASMIM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			else if (mMode == ASMIM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = mAddress + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
+				int	t = mAddress + data[CPU_REG_A].mValue + data[CPU_REG_C].mValue;
 
 				mType = ASMIT_LDA;
 				mAddress = t & 0xff;
 
 				int c = t >= 256;
 
-				if (c && !data.mRegs[CPU_REG_C].mValue)
+				if (c && !data[CPU_REG_C].mValue)
 					carryop = ASMIT_SEC;
-				else if (!c && data.mRegs[CPU_REG_C].mValue)
+				else if (!c && data[CPU_REG_C].mValue)
 					carryop = ASMIT_CLC;
 
 				changed = true;
 			}
 		}
 
-		data.mRegs[CPU_REG_A].Reset();
-		data.mRegs[CPU_REG_C].Reset();
-		data.mRegs[CPU_REG_Z].Reset();
+		data.Reset(CPU_REG_A);
+		data.Reset(CPU_REG_C);
+		data.Reset(CPU_REG_Z);
 		break;
 
 	case ASMIT_SBC:
-		if (data.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+		if (data[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 		{
-			if (mMode == ASMIM_IMMEDIATE && mAddress == 0 && data.mRegs[CPU_REG_C].mValue == 1)
+			if (mMode == ASMIM_IMMEDIATE && mAddress == 0 && data[CPU_REG_C].mValue == 1)
 			{
 				mType = ASMIT_ORA;
 				changed = true;
 			}
-			else if (mMode == ASMIM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			else if (mMode == ASMIM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 			{
-				int	t = (mAddress ^ 0xff) + data.mRegs[CPU_REG_A].mValue + data.mRegs[CPU_REG_C].mValue;
+				int	t = (mAddress ^ 0xff) + data[CPU_REG_A].mValue + data[CPU_REG_C].mValue;
 
 				mType = ASMIT_LDA;
 				mAddress = t & 0xff;
 
 				int c = t >= 256;
 
-				if (c && !data.mRegs[CPU_REG_C].mValue)
+				if (c && !data[CPU_REG_C].mValue)
 					carryop = ASMIT_SEC;
-				else if (!c && data.mRegs[CPU_REG_C].mValue)
+				else if (!c && data[CPU_REG_C].mValue)
 					carryop = ASMIT_CLC;
 
 				changed = true;
 			}
-			else if (mMode == ASMIM_IMMEDIATE_ADDRESS && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS && mLinkerObject == data.mRegs[CPU_REG_A].mLinkerObject)
+			else if (mMode == ASMIM_IMMEDIATE_ADDRESS && data[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS && mLinkerObject == data[CPU_REG_A].mLinkerObject)
 			{
 				int	t;
 				if (mFlags & NCIF_LOWER)
-					t = ((mAddress ^ 0xffff) & 0xff) + (data.mRegs[CPU_REG_A].mValue & 0xff) + data.mRegs[CPU_REG_C].mValue;
+					t = ((mAddress ^ 0xffff) & 0xff) + (data[CPU_REG_A].mValue & 0xff) + data[CPU_REG_C].mValue;
 				else
-					t = ((mAddress ^ 0xffff) >> 8) + (data.mRegs[CPU_REG_A].mValue >> 8) + data.mRegs[CPU_REG_C].mValue;
+					t = ((mAddress ^ 0xffff) >> 8) + (data[CPU_REG_A].mValue >> 8) + data[CPU_REG_C].mValue;
 
 				mType = ASMIT_LDA;
 				mMode = ASMIM_IMMEDIATE;
@@ -3693,148 +3626,127 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 
 				int c = t >= 256;
 
-				if (c && !data.mRegs[CPU_REG_C].mValue)
+				if (c && !data[CPU_REG_C].mValue)
 					carryop = ASMIT_SEC;
-				else if (!c && data.mRegs[CPU_REG_C].mValue)
+				else if (!c && data[CPU_REG_C].mValue)
 					carryop = ASMIT_CLC;
 
 				changed = true;
 			}
 		}
 
-		data.mRegs[CPU_REG_A].Reset();
-		data.mRegs[CPU_REG_C].Reset();
-		data.mRegs[CPU_REG_Z].Reset();
+		data.Reset(CPU_REG_A);
+		data.Reset(CPU_REG_C);
+		data.Reset(CPU_REG_Z);
 		break;
 	case ASMIT_CMP:
-		if (mMode == ASMIM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+		if (mMode == ASMIM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue - mAddress;
-			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_C].mValue = data.mRegs[CPU_REG_A].mValue >= mAddress;
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, (data[CPU_REG_A].mValue - mAddress) & 0xff);
+			data.Set(CPU_REG_C, NRDM_IMMEDIATE, data[CPU_REG_A].mValue >= mAddress);
 		}
-		else if (mMode == ASMIM_IMMEDIATE_ADDRESS && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS)
+		else if (mMode == ASMIM_IMMEDIATE_ADDRESS && data[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS)
 		{
-			if (mLinkerObject == data.mRegs[CPU_REG_A].mLinkerObject)
+			if (mLinkerObject == data[CPU_REG_A].mLinkerObject)
 			{
 				if (mLinkerObject)
 				{
 					if (mLinkerObject->mFlags & LOBJF_NEVER_CROSS)
 					{
 						if (mFlags & NCIF_LOWER)
-						{
-							data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-							data.mRegs[CPU_REG_Z].mValue = (data.mRegs[CPU_REG_A].mValue - mAddress) & 0xff;
-						}
+							data.Set(CPU_REG_Z, NRDM_IMMEDIATE, (data[CPU_REG_A].mValue - mAddress) & 0xff);
 						else
-						{
-							data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-							data.mRegs[CPU_REG_Z].mValue = 0;
-						}
+							data.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0);
 					}
 					else
 					{
 						if (mFlags & NCIF_LOWER)
 						{
-							data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-							data.mRegs[CPU_REG_Z].mValue = (data.mRegs[CPU_REG_A].mValue & 0xff) == (mAddress & 0xff) ? 0 : 1;
+							data.Set(CPU_REG_Z, NRDM_IMMEDIATE, (data[CPU_REG_A].mValue & 0xff) == (mAddress & 0xff) ? 0 : 1);
 						}
-						else if (data.mRegs[CPU_REG_A].mValue == mAddress)
+						else if (data[CPU_REG_A].mValue == mAddress)
 						{
-							data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-							data.mRegs[CPU_REG_Z].mValue = 0;
+							data.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0);
 						}
 						else
-							data.mRegs[CPU_REG_Z].Reset();
+							data.Reset(CPU_REG_Z);
 					}
 				}
 				else
 				{
 					if (mFlags & NCIF_LOWER)
 					{
-						data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-						data.mRegs[CPU_REG_Z].mValue = (data.mRegs[CPU_REG_A].mValue - mAddress) & 0xff;
+						data.Set(CPU_REG_Z, NRDM_IMMEDIATE, (data[CPU_REG_A].mValue - mAddress) & 0xff);
 					}
 					else
 					{
-						data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-						data.mRegs[CPU_REG_Z].mValue = ((data.mRegs[CPU_REG_A].mValue - mAddress) >> 8) & 0xff;
+						data.Set(CPU_REG_Z, NRDM_IMMEDIATE, ((data[CPU_REG_A].mValue - mAddress) >> 8) & 0xff);
 					}
 				}
 			}
 			else
-			{
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = 1;
-			}
-			data.mRegs[CPU_REG_C].Reset();
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, 1);
+			data.Reset(CPU_REG_C);
 		}
 		else if (mMode == ASMIM_IMMEDIATE && mAddress == 0)
 		{
-			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_C].mValue = 1;			
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
+			data.Reset(CPU_REG_Z);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 	case ASMIT_CPX:
-		if (mMode == ASMIM_IMMEDIATE && data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+		if (mMode == ASMIM_IMMEDIATE && data[CPU_REG_X].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_X].mValue - mAddress;
-			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_C].mValue = data.mRegs[CPU_REG_X].mValue >= mAddress;
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, (data[CPU_REG_X].mValue - mAddress) & 0xff);
+			data.Set(CPU_REG_C, NRDM_IMMEDIATE, data[CPU_REG_X].mValue >= mAddress);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 	case ASMIT_CPY:
-		if (mMode == ASMIM_IMMEDIATE && data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+		if (mMode == ASMIM_IMMEDIATE && data[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
 		{
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_Y].mValue - mAddress;
-			data.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_C].mValue = data.mRegs[CPU_REG_Y].mValue >= mAddress;
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, (data[CPU_REG_Y].mValue - mAddress) & 0xff);
+			data.Set(CPU_REG_C, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue >= mAddress);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_C].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_C);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 
 	case ASMIT_ORA:
 	case ASMIT_EOR:
 	case ASMIT_AND:
-		if (mMode == ASMIM_IMMEDIATE && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+		if (mMode == ASMIM_IMMEDIATE && data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 		{
 			if (mType == ASMIT_ORA)
-				mAddress |= data.mRegs[CPU_REG_A].mValue;
+				mAddress |= data[CPU_REG_A].mValue;
 			else if (mType == ASMIT_AND)
-				mAddress &= data.mRegs[CPU_REG_A].mValue;
+				mAddress &= data[CPU_REG_A].mValue;
 			else if (mType == ASMIT_EOR)
-				mAddress ^= data.mRegs[CPU_REG_A].mValue;
+				mAddress ^= data[CPU_REG_A].mValue;
 			mType = ASMIT_LDA;
-			data.mRegs[CPU_REG_A].mValue = mAddress;
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = mAddress;
+			data.Set(CPU_REG_A, NRDM_IMMEDIATE, mAddress);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
 			changed = true;
 		}
-		else if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mValue == 0)
+		else if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mValue == 0)
 		{
 			if (mType == ASMIT_ORA || mType == ASMIT_EOR)
 			{
 				mType = ASMIT_LDA;
-				data.mRegs[CPU_REG_A].Reset();
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_A);
+				data.Reset(CPU_REG_Z);
 			}
 			else
 			{
@@ -3842,32 +3754,30 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				mMode = ASMIM_IMMEDIATE;
 				mAddress = 0;
 
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = 0;
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0);
 			}
 			changed = true;
 		}
 		else if (mMode == ASMIM_IMMEDIATE && mType == ASMIT_ORA && mAddress != 0x00)
 		{
-			data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-			data.mRegs[CPU_REG_Z].mValue = mAddress;
-			data.mRegs[CPU_REG_A].Reset();
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
+			data.Reset(CPU_REG_A);
 		}
 		else if (mMode == ASMIM_IMMEDIATE && ((mAddress == 0 && (mType == ASMIT_ORA || mType == ASMIT_EOR)) || (mAddress == 0xff && mType == ASMIT_AND)))
 		{
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_Z);
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+			data.Reset(CPU_REG_A);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 	case ASMIT_LDX:
 		data.ResetX();
 		if (mMode == ASMIM_IMMEDIATE)
 		{
-			if (data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE && data[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
@@ -3875,18 +3785,16 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			else
 			{
-				data.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_X].mValue = mAddress;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = mAddress;
+				data.Set(CPU_REG_X, NRDM_IMMEDIATE, mAddress);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE_ADDRESS)
 		{
-			if (data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE_ADDRESS &&
-				data.mRegs[CPU_REG_X].mLinkerObject == mLinkerObject &&
-				data.mRegs[CPU_REG_X].mFlags == mFlags &&
-				data.mRegs[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE_ADDRESS &&
+				data[CPU_REG_X].mLinkerObject == mLinkerObject &&
+				data[CPU_REG_X].mFlags == mFlags &&
+				data[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
@@ -3894,34 +3802,31 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			else
 			{
-				data.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE_ADDRESS;
-				data.mRegs[CPU_REG_X].mValue = mAddress;
-				data.mRegs[CPU_REG_X].mLinkerObject = mLinkerObject;
-				data.mRegs[CPU_REG_X].mFlags = mFlags;
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Set(CPU_REG_X, NRDM_IMMEDIATE_ADDRESS, mAddress, mLinkerObject, mFlags);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
 			if (mMode != ASMIM_ZERO_PAGE && mMode != ASMIM_ABSOLUTE && mMode != ASMIM_ABSOLUTE_Y)
-				data.mRegs[CPU_REG_X].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_X);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 	case ASMIT_BIT:
-		data.mRegs[CPU_REG_Z].Reset();
+		data.Reset(CPU_REG_Z);
 		break;
 	case ASMIT_INX:
 	case ASMIT_DEX:
 		data.ResetX();
-		data.mRegs[CPU_REG_X].Reset();
-		data.mRegs[CPU_REG_Z].Reset();
+		data.Reset(CPU_REG_X);
+		data.Reset(CPU_REG_Z);
 		break;
 	case ASMIT_LDY:
 		data.ResetY();
 		if (mMode == ASMIM_IMMEDIATE)
 		{
-			if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE && data[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
@@ -3929,18 +3834,16 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			else
 			{
-				data.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Y].mValue = mAddress;
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = mAddress;
+				data.Set(CPU_REG_Y, NRDM_IMMEDIATE, mAddress);
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, mAddress);
 			}
 		}
 		else if (mMode == ASMIM_IMMEDIATE_ADDRESS)
 		{
-			if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE_ADDRESS &&
-				data.mRegs[CPU_REG_Y].mLinkerObject == mLinkerObject &&
-				data.mRegs[CPU_REG_Y].mFlags == mFlags &&
-				data.mRegs[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE_ADDRESS &&
+				data[CPU_REG_Y].mLinkerObject == mLinkerObject &&
+				data[CPU_REG_Y].mFlags == mFlags &&
+				data[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
@@ -3948,29 +3851,26 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			else
 			{
-				data.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE_ADDRESS;
-				data.mRegs[CPU_REG_Y].mValue = mAddress;
-				data.mRegs[CPU_REG_Y].mLinkerObject = mLinkerObject;
-				data.mRegs[CPU_REG_Y].mFlags = mFlags;
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Set(CPU_REG_Y, NRDM_IMMEDIATE_ADDRESS, mAddress, mLinkerObject, mFlags);
+				data.Reset(CPU_REG_Z);
 			}
 		}
 		else
 		{
 			if (mMode != ASMIM_ZERO_PAGE && mMode != ASMIM_ABSOLUTE && mMode != ASMIM_ABSOLUTE_X)
-				data.mRegs[CPU_REG_Y].Reset();
-			data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_Y);
+			data.Reset(CPU_REG_Z);
 		}
 		break;
 	case ASMIT_INY:
 	case ASMIT_DEY:
 		data.ResetY();
-		data.mRegs[CPU_REG_Y].Reset();
-		data.mRegs[CPU_REG_Z].Reset();
+		data.Reset(CPU_REG_Y);
+		data.Reset(CPU_REG_Z);
 		break;
 
 	case ASMIT_TXA:
-		if (data.mRegs[CPU_REG_A].SameData(data.mRegs[CPU_REG_X]) && !(mLive & LIVE_CPU_REG_Z))
+		if (data[CPU_REG_A].SameData(data[CPU_REG_X]) && !(mLive & LIVE_CPU_REG_Z))
 		{
 			mType = ASMIT_NOP;
 			mMode = ASMIM_IMPLIED;
@@ -3978,25 +3878,24 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_X];
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			data.Set(CPU_REG_A, data[CPU_REG_X]);
+			if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 			{
 				if (!final)
 				{
 					mType = ASMIT_LDA;
 					mMode = ASMIM_IMMEDIATE;
-					mAddress = data.mRegs[CPU_REG_A].mValue;
+					mAddress = data[CPU_REG_A].mValue;
 				}
 
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue;
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
 			}
 			else
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_Z);
 		}
 		break;
 	case ASMIT_TYA:
-		if (data.mRegs[CPU_REG_A].SameData(data.mRegs[CPU_REG_Y]) && !(mLive & LIVE_CPU_REG_Z))
+		if (data[CPU_REG_A].SameData(data[CPU_REG_Y]) && !(mLive & LIVE_CPU_REG_Z))
 		{
 			mType = ASMIT_NOP;
 			mMode = ASMIM_IMPLIED;
@@ -4004,25 +3903,24 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		}
 		else
 		{
-			data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_Y];
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			data.Set(CPU_REG_A, data[CPU_REG_Y]);
+			if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 			{
 				if (!final)
 				{
 					mType = ASMIT_LDA;
 					mMode = ASMIM_IMMEDIATE;
-					mAddress = data.mRegs[CPU_REG_A].mValue;
+					mAddress = data[CPU_REG_A].mValue;
 				}
 
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue;
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
 			}
 			else
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_Z);
 		}
 		break;
 	case ASMIT_TAX:
-		if (data.mRegs[CPU_REG_X].SameData(data.mRegs[CPU_REG_A]) && !(mLive & LIVE_CPU_REG_Z))
+		if (data[CPU_REG_X].SameData(data[CPU_REG_A]) && !(mLive & LIVE_CPU_REG_Z))
 		{
 			mType = ASMIT_NOP;
 			mMode = ASMIM_IMPLIED;
@@ -4031,18 +3929,15 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		else
 		{
 			data.ResetX();
-			data.mRegs[CPU_REG_X] = data.mRegs[CPU_REG_A];
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
-			{
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue;
-			}
+			data.Set(CPU_REG_X, data[CPU_REG_A]);
+			if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_X].mValue);
 			else
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_Z);
 		}
 		break;
 	case ASMIT_TAY:
-		if (data.mRegs[CPU_REG_Y].SameData(data.mRegs[CPU_REG_A]) && !(mLive & LIVE_CPU_REG_Z))
+		if (data[CPU_REG_Y].SameData(data[CPU_REG_A]) && !(mLive & LIVE_CPU_REG_Z))
 		{
 			mType = ASMIT_NOP;
 			mMode = ASMIM_IMPLIED;
@@ -4051,41 +3946,38 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		else
 		{
 			data.ResetY();
-			data.mRegs[CPU_REG_Y] = data.mRegs[CPU_REG_A];
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
-			{
-				data.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-				data.mRegs[CPU_REG_Z].mValue = data.mRegs[CPU_REG_A].mValue;
-			}
+			data.Set(CPU_REG_Y, data[CPU_REG_A]);
+			if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+				data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue);
 			else
-				data.mRegs[CPU_REG_Z].Reset();
+				data.Reset(CPU_REG_Z);
 		}
 		break;
 	}
 
 #if 1
-	if (mMode == ASMIM_ABSOLUTE_X && data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+	if (mMode == ASMIM_ABSOLUTE_X && data[CPU_REG_X].mMode == NRDM_IMMEDIATE)
 	{
 		mMode = ASMIM_ABSOLUTE;
-		mAddress += data.mRegs[CPU_REG_X].mValue;
+		mAddress += data[CPU_REG_X].mValue;
 		changed = true;
 	}
-	else if (mMode == ASMIM_ABSOLUTE_Y && data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+	else if (mMode == ASMIM_ABSOLUTE_Y && data[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
 	{
 		mMode = ASMIM_ABSOLUTE;
-		mAddress += data.mRegs[CPU_REG_Y].mValue;
+		mAddress += data[CPU_REG_Y].mValue;
 		changed = true;
 	}
 #endif
 
 #if 1
-	if (mMode == ASMIM_ABSOLUTE_X && data.mRegs[CPU_REG_X].SameData(data.mRegs[CPU_REG_Y]) && HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y) && !(mFlags & NICT_INDEXFLIPPED))
+	if (mMode == ASMIM_ABSOLUTE_X && data[CPU_REG_X].SameData(data[CPU_REG_Y]) && HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_Y) && !(mFlags & NICT_INDEXFLIPPED))
 	{
 		mFlags |= NICT_INDEXFLIPPED;
 		mMode = ASMIM_ABSOLUTE_Y;
 		changed = true;
 	}
-	else if (final && mMode == ASMIM_ABSOLUTE_Y && data.mRegs[CPU_REG_X].SameData(data.mRegs[CPU_REG_Y]) && HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X) && !(mFlags & NICT_INDEXFLIPPED))
+	else if (final && mMode == ASMIM_ABSOLUTE_Y && data[CPU_REG_X].SameData(data[CPU_REG_Y]) && HasAsmInstructionMode(mType, ASMIM_ABSOLUTE_X) && !(mFlags & NICT_INDEXFLIPPED))
 	{
 		mFlags |= NICT_INDEXFLIPPED;
 		mMode = ASMIM_ABSOLUTE_X;
@@ -4113,12 +4005,12 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 	}
 #endif
 #if 1
-	if (final && mType == ASMIT_STX && data.mRegs[CPU_REG_A].SameData(data.mRegs[CPU_REG_X]))
+	if (final && mType == ASMIT_STX && data[CPU_REG_A].SameData(data[CPU_REG_X]))
 	{
 		mType = ASMIT_STA;
 		changed = true;
 	}
-	else if (final && mType == ASMIT_STY && data.mRegs[CPU_REG_A].SameData(data.mRegs[CPU_REG_Y]))
+	else if (final && mType == ASMIT_STY && data[CPU_REG_A].SameData(data[CPU_REG_Y]))
 	{
 		mType = ASMIT_STA;
 		changed = true;
@@ -4129,7 +4021,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		switch (mType)
 		{
 		case ASMIT_LDA:
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_A].mValue == mAddress)
+			if (data[CPU_REG_A].mMode == NRDM_ZERO_PAGE && data[CPU_REG_A].mValue == mAddress)
 			{
 				if (mLive & LIVE_CPU_REG_Z)
 				{
@@ -4144,23 +4036,23 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				}
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
+			else if (data[mAddress].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[CPU_REG_A] = data.mRegs[mAddress];
-				mAddress = data.mRegs[CPU_REG_A].mValue;
+				data.Set(CPU_REG_A, data[mAddress]);
+				mAddress = data[CPU_REG_A].mValue;
 				mMode = ASMIM_IMMEDIATE;
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS)
+			else if (data[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS)
 			{
-				data.mRegs[CPU_REG_A] = data.mRegs[mAddress];
-				mAddress = data.mRegs[CPU_REG_A].mValue;
-				mLinkerObject = data.mRegs[CPU_REG_A].mLinkerObject;
-				mFlags = (mFlags & ~(NCIF_LOWER | NCIF_UPPER)) | (data.mRegs[CPU_REG_A].mFlags & (NCIF_LOWER | NCIF_UPPER));
+				data.Set(CPU_REG_A, data[mAddress]);
+				mAddress = data[CPU_REG_A].mValue;
+				mLinkerObject = data[CPU_REG_A].mLinkerObject;
+				mFlags = (mFlags & ~(NCIF_LOWER | NCIF_UPPER)) | (data[CPU_REG_A].mFlags & (NCIF_LOWER | NCIF_UPPER));
 				mMode = ASMIM_IMMEDIATE_ADDRESS;
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].SameData(data.mRegs[CPU_REG_A]))
+			else if (data[mAddress].SameData(data[CPU_REG_A]))
 			{
 				if (mLive & LIVE_CPU_REG_Z)
 				{
@@ -4175,25 +4067,25 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				}
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE && (mAddress < BC_REG_FPARAMS || mAddress >= BC_REG_FPARAMS_END))
+			else if (data[mAddress].mMode == NRDM_ZERO_PAGE && (mAddress < BC_REG_FPARAMS || mAddress >= BC_REG_FPARAMS_END))
 			{
-				data.mRegs[CPU_REG_A] = data.mRegs[mAddress];
-				mAddress = data.mRegs[CPU_REG_A].mValue;
+				data.Set(CPU_REG_A, data[mAddress]);
+				mAddress = data[CPU_REG_A].mValue;
 				changed = true;
 			}
 #if 1
-			else if (data.mRegs[CPU_REG_X].SameData(*this))
+			else if (data[CPU_REG_X].SameData(*this))
 			{
 				mType = ASMIT_TXA;
 				mMode = ASMIM_IMPLIED;
-				data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_X];
+				data.Set(CPU_REG_A, data[CPU_REG_X]);
 				changed = true;
 			}
-			else if (data.mRegs[CPU_REG_Y].SameData(*this))
+			else if (data[CPU_REG_Y].SameData(*this))
 			{
 				mType = ASMIT_TYA;
 				mMode = ASMIM_IMPLIED;
-				data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_Y];
+				data.Set(CPU_REG_A, data[CPU_REG_Y]);
 				changed = true;
 			}
 #else
@@ -4212,156 +4104,147 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				changed = true;
 			}
 #endif
-			else if (final && data.mRegs[mAddress].mMode == NRDM_ABSOLUTE && data.mRegs[mAddress].mLinkerObject && (data.mRegs[mAddress].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+			else if (final && data[mAddress].mMode == NRDM_ABSOLUTE && data[mAddress].mLinkerObject && (data[mAddress].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
-				data.mRegs[CPU_REG_A] = data.mRegs[mAddress];
+				data.Set(CPU_REG_A, data[mAddress]);
 				mMode = ASMIM_ABSOLUTE;
-				mFlags |= data.mRegs[mAddress].mFlags;
-				mLinkerObject = data.mRegs[mAddress].mLinkerObject;
-				mAddress = data.mRegs[mAddress].mValue;
+				mFlags |= data[mAddress].mFlags;
+				mLinkerObject = data[mAddress].mLinkerObject;
+				mAddress = data[mAddress].mValue;
 				changed = true;
 			}
 			else
 			{
-				data.mRegs[CPU_REG_A].Reset();
-				if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
+				data.Reset(CPU_REG_A);
+				if (data[mAddress].mMode == NRDM_IMMEDIATE)
 				{
-					data.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-					data.mRegs[CPU_REG_A].mValue = data.mRegs[mAddress].mValue;
+					data.Set(CPU_REG_A, NRDM_IMMEDIATE, data[mAddress].mValue);
 				}
 				else if (initial && mAddress == BC_REG_WORK_Y)
 				{
-					data.mRegs[CPU_REG_A].Reset();
+					data.Reset(CPU_REG_A);
 				}
 				else
 				{
-					data.mRegs[CPU_REG_A].mMode = NRDM_ZERO_PAGE;
-					data.mRegs[CPU_REG_A].mValue = mAddress;
-					data.mRegs[CPU_REG_A].mFlags = mFlags;
+					data.Set(CPU_REG_A, NRDM_ZERO_PAGE, mAddress, nullptr, mFlags);
 				}
 			}
 			break;
 
 		case ASMIT_LDX:
-			if (data.mRegs[CPU_REG_X].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_X].mMode == NRDM_ZERO_PAGE && data[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
+			else if (data[mAddress].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[CPU_REG_X] = data.mRegs[mAddress];
-				mAddress = data.mRegs[CPU_REG_X].mValue;
+				data.Set(CPU_REG_X, data[mAddress]);
+				mAddress = data[CPU_REG_X].mValue;
 				mMode = ASMIM_IMMEDIATE;
 				changed = true;
 			}
-			else if (data.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_A].mValue == mAddress)
+			else if (data[CPU_REG_A].mMode == NRDM_ZERO_PAGE && data[CPU_REG_A].mValue == mAddress)
 			{
 				mType = ASMIT_TAX;
 				mMode = ASMIM_IMPLIED;
-				data.mRegs[CPU_REG_X] = data.mRegs[CPU_REG_A];
+				data.Set(CPU_REG_X, data[CPU_REG_A]);
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].SameData(data.mRegs[CPU_REG_A]))
+			else if (data[mAddress].SameData(data[CPU_REG_A]))
 			{
 				mType = ASMIT_TAX;
 				mMode = ASMIM_IMPLIED;
-				data.mRegs[CPU_REG_X] = data.mRegs[CPU_REG_A];
+				data.Set(CPU_REG_X, data[CPU_REG_A]);
 				changed = true;
 			}
 #if 1
-			else if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE)
+			else if (data[mAddress].mMode == NRDM_ZERO_PAGE)
 			{
-				data.mRegs[CPU_REG_X] = data.mRegs[mAddress];
-				mAddress = data.mRegs[CPU_REG_X].mValue;
+				data.Set(CPU_REG_X, data[mAddress]);
+				mAddress = data[CPU_REG_X].mValue;
 				changed = true;
 			}
 #endif
-			else if (final && data.mRegs[mAddress].mMode == NRDM_ABSOLUTE && data.mRegs[mAddress].mLinkerObject && (data.mRegs[mAddress].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+			else if (final && data[mAddress].mMode == NRDM_ABSOLUTE && data[mAddress].mLinkerObject && (data[mAddress].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
-				data.mRegs[CPU_REG_X] = data.mRegs[mAddress];
+				data.Set(CPU_REG_X, data[mAddress]);
 				mMode = ASMIM_ABSOLUTE;
-				mFlags |= data.mRegs[mAddress].mFlags;
-				mLinkerObject = data.mRegs[mAddress].mLinkerObject;
-				mAddress = data.mRegs[mAddress].mValue;
+				mFlags |= data[mAddress].mFlags;
+				mLinkerObject = data[mAddress].mLinkerObject;
+				mAddress = data[mAddress].mValue;
 				changed = true;
 			}
 			else
 			{
-				data.mRegs[CPU_REG_X].Reset();
-				if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
+				data.Reset(CPU_REG_X);
+				if (data[mAddress].mMode == NRDM_IMMEDIATE)
 				{
-					data.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-					data.mRegs[CPU_REG_X].mValue = data.mRegs[mAddress].mValue;
+					data.Set(CPU_REG_X, NRDM_IMMEDIATE, data[mAddress].mValue);
 				}
 				else
 				{
-					data.mRegs[CPU_REG_X].mMode = NRDM_ZERO_PAGE;
-					data.mRegs[CPU_REG_X].mValue = mAddress;
-					data.mRegs[CPU_REG_X].mFlags = mFlags;
+					data.Set(CPU_REG_X, NRDM_ZERO_PAGE, mAddress, nullptr, mFlags);
 				}
 			}
 			break;
 
 		case ASMIT_LDY:
-			if (data.mRegs[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+			if (data[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && data[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
+			else if (data[mAddress].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[CPU_REG_Y] = data.mRegs[mAddress];
-				mAddress = data.mRegs[CPU_REG_Y].mValue;
+				data.Set(CPU_REG_Y, data[mAddress]);
+				mAddress = data[CPU_REG_Y].mValue;
 				mMode = ASMIM_IMMEDIATE;
 				changed = true;
 			}
-			else if (final && data.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_A].mValue == mAddress)
+			else if (final && data[CPU_REG_A].mMode == NRDM_ZERO_PAGE && data[CPU_REG_A].mValue == mAddress)
 			{
 				mType = ASMIT_TAY;
 				mMode = ASMIM_IMPLIED;
-				data.mRegs[CPU_REG_Y] = data.mRegs[CPU_REG_A];
+				data.Set(CPU_REG_Y, data[CPU_REG_A]);
 				changed = true;
 			}
-			else if (final && data.mRegs[mAddress].SameData(data.mRegs[CPU_REG_A]))
+			else if (final && data[mAddress].SameData(data[CPU_REG_A]))
 			{
 				mType = ASMIT_TAY;
 				mMode = ASMIM_IMPLIED;
-				data.mRegs[CPU_REG_Y] = data.mRegs[CPU_REG_A];
+				data.Set(CPU_REG_Y, data[CPU_REG_A]);
 				changed = true;
 			}
 #if 1
-			else if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE)
+			else if (data[mAddress].mMode == NRDM_ZERO_PAGE)
 			{
-				data.mRegs[CPU_REG_Y] = data.mRegs[mAddress];
-				mAddress = data.mRegs[CPU_REG_Y].mValue;
+				data.Set(CPU_REG_Y, data[mAddress]);
+				mAddress = data[CPU_REG_Y].mValue;
 				changed = true;
 			}
 #endif
-			else if (final && data.mRegs[mAddress].mMode == NRDM_ABSOLUTE && data.mRegs[mAddress].mLinkerObject && (data.mRegs[mAddress].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
+			else if (final && data[mAddress].mMode == NRDM_ABSOLUTE && data[mAddress].mLinkerObject && (data[mAddress].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
-				data.mRegs[CPU_REG_Y] = data.mRegs[mAddress];
+				data.Set(CPU_REG_Y, data[mAddress]);
 				mMode = ASMIM_ABSOLUTE;
-				mFlags |= data.mRegs[mAddress].mFlags;
-				mLinkerObject = data.mRegs[mAddress].mLinkerObject;
-				mAddress = data.mRegs[mAddress].mValue;
+				mFlags |= data[mAddress].mFlags;
+				mLinkerObject = data[mAddress].mLinkerObject;
+				mAddress = data[mAddress].mValue;
 				changed = true;
 			}
 			else
 			{
-				data.mRegs[CPU_REG_Y].Reset();
-				if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
+				data.Reset(CPU_REG_Y);
+				if (data[mAddress].mMode == NRDM_IMMEDIATE)
 				{
-					data.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-					data.mRegs[CPU_REG_Y].mValue = data.mRegs[mAddress].mValue;
+					data.Set(CPU_REG_Y, NRDM_IMMEDIATE, data[mAddress].mValue);
 				}
 				else
 				{
-					data.mRegs[CPU_REG_Y].mMode = NRDM_ZERO_PAGE;
-					data.mRegs[CPU_REG_Y].mValue = mAddress;
-					data.mRegs[CPU_REG_Y].mFlags = mFlags;
+					data.Set(CPU_REG_Y, NRDM_ZERO_PAGE, mAddress, nullptr, mFlags);
 				}
 			}
 			break;
@@ -4374,131 +4257,117 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		case ASMIT_CMP:
 		case ASMIT_CPX:
 		case ASMIT_CPY:
-			if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE)
+			if (data[mAddress].mMode == NRDM_IMMEDIATE)
 			{
-				mAddress = data.mRegs[mAddress].mValue;
+				mAddress = data[mAddress].mValue;
 				mMode = ASMIM_IMMEDIATE;
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE)
+			else if (data[mAddress].mMode == NRDM_ZERO_PAGE)
 			{
-				mAddress = data.mRegs[mAddress].mValue;
+				mAddress = data[mAddress].mValue;
 				changed = true;
 			}
-			else if (data.mRegs[mAddress].mMode == NRDM_ABSOLUTE && !final)
+			else if (data[mAddress].mMode == NRDM_ABSOLUTE && !final)
 			{
 				mMode = ASMIM_ABSOLUTE;
-				mLinkerObject = data.mRegs[mAddress].mLinkerObject;
-				mAddress = data.mRegs[mAddress].mValue;
+				mLinkerObject = data[mAddress].mLinkerObject;
+				mAddress = data[mAddress].mValue;
 				changed = true;
 			}
 			break;
 
 		case ASMIT_STA:
-			if (data.mRegs[mAddress].SameData(data.mRegs[CPU_REG_A]) || data.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && data.mRegs[CPU_REG_A].mValue == mAddress)
+			if (data[mAddress].SameData(data[CPU_REG_A]) || data[CPU_REG_A].mMode == NRDM_ZERO_PAGE && data[CPU_REG_A].mValue == mAddress)
 			{
 				mType = ASMIT_NOP;
 				mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
-			else if (final && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE &&
-				data.mRegs[mAddress].mValue == ((data.mRegs[CPU_REG_A].mValue - 1) & 255))
+			else if (final && data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[mAddress].mMode == NRDM_IMMEDIATE &&
+				data[mAddress].mValue == ((data[CPU_REG_A].mValue - 1) & 255))
 			{
 				mType = ASMIT_INC;
-				data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_A].mValue;
+				data.Set(mAddress, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
 				changed = true;
 			}
-			else if (final && data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[mAddress].mMode == NRDM_IMMEDIATE &&
-				data.mRegs[mAddress].mValue == ((data.mRegs[CPU_REG_A].mValue + 1) & 255))
+			else if (final && data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[mAddress].mMode == NRDM_IMMEDIATE &&
+				data[mAddress].mValue == ((data[CPU_REG_A].mValue + 1) & 255))
 			{
 				mType = ASMIT_DEC;
-				data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_A].mValue;
+				data.Set(mAddress, NRDM_IMMEDIATE, data[CPU_REG_A].mValue);
 				changed = true;
 			}
 			else
 			{
 				data.ResetZeroPage(mAddress);
-				if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE || data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS)
+				if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE || data[CPU_REG_A].mMode == NRDM_IMMEDIATE_ADDRESS)
 				{
-					data.mRegs[mAddress] = data.mRegs[CPU_REG_A];
+					data.Set(mAddress, data[CPU_REG_A]);
 				}
-				else if (data.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE)
+				else if (data[CPU_REG_A].mMode == NRDM_ZERO_PAGE)
 				{
 #if 1
-					if (data.mRegs[data.mRegs[CPU_REG_A].mValue].mMode == NRDM_UNKNOWN &&
+					if (data[data[CPU_REG_A].mValue].mMode == NRDM_UNKNOWN &&
 						(mAddress >= BC_REG_FPARAMS && mAddress < BC_REG_FPARAMS_END) &&
-						!(data.mRegs[CPU_REG_A].mValue >= BC_REG_FPARAMS && data.mRegs[CPU_REG_A].mValue < BC_REG_FPARAMS_END))
+						!(data[CPU_REG_A].mValue >= BC_REG_FPARAMS && data[CPU_REG_A].mValue < BC_REG_FPARAMS_END))
 					{
-						data.mRegs[data.mRegs[CPU_REG_A].mValue].mMode = NRDM_ZERO_PAGE;
-						data.mRegs[data.mRegs[CPU_REG_A].mValue].mValue = mAddress;
-						data.mRegs[data.mRegs[CPU_REG_A].mValue].mFlags = mFlags;
-						data.mRegs[mAddress].Reset();
+						data.Set(data[CPU_REG_A].mValue, NRDM_ZERO_PAGE, mAddress, nullptr, mFlags);
+						data.Reset(mAddress);
 					}
 					else
 #endif	
 					{
-						data.mRegs[mAddress].mMode = NRDM_ZERO_PAGE;
-						data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_A].mValue;
-						data.mRegs[mAddress].mFlags = data.mRegs[CPU_REG_A].mFlags;
+						data.Set(mAddress, NRDM_ZERO_PAGE, data[CPU_REG_A].mValue, nullptr,  data[CPU_REG_A].mFlags);
 					}
 
 				}
-				else if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE)
+				else if (data[CPU_REG_A].mMode == NRDM_ABSOLUTE)
 				{
-					data.mRegs[mAddress] = data.mRegs[CPU_REG_A];
+					data.Set(mAddress, data[CPU_REG_A]);
 				}
 				else
 				{
-					data.mRegs[CPU_REG_A].mMode = NRDM_ZERO_PAGE;
-					data.mRegs[CPU_REG_A].mValue = mAddress;
+					data.Set(CPU_REG_A, NRDM_ZERO_PAGE, mAddress);
 				}
 			}
 			break;
 		case ASMIT_STX:
 			data.ResetZeroPage(mAddress);
-			if (data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+			if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[mAddress].mMode = NRDM_IMMEDIATE;
-				data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_X].mValue;
+				data.Set(mAddress, NRDM_IMMEDIATE, data[CPU_REG_X].mValue);
 			}
-			else if (data.mRegs[CPU_REG_X].mMode == NRDM_ZERO_PAGE)
+			else if (data[CPU_REG_X].mMode == NRDM_ZERO_PAGE)
 			{
-				data.mRegs[mAddress].mMode = NRDM_ZERO_PAGE;
-				data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_X].mValue;
-				data.mRegs[mAddress].mFlags = data.mRegs[CPU_REG_X].mFlags;
+				data.Set(mAddress, NRDM_ZERO_PAGE, data[CPU_REG_X].mValue, nullptr, data[CPU_REG_X].mFlags);
 			}
-			else if (data.mRegs[CPU_REG_X].mMode == NRDM_ABSOLUTE)
+			else if (data[CPU_REG_X].mMode == NRDM_ABSOLUTE)
 			{
-				data.mRegs[mAddress] = data.mRegs[CPU_REG_X];
+				data.Set(mAddress, data[CPU_REG_X]);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_X].mMode = NRDM_ZERO_PAGE;
-				data.mRegs[CPU_REG_X].mValue = mAddress;
-				data.mRegs[CPU_REG_X].mFlags = mFlags;
+				data.Set(CPU_REG_X, NRDM_ZERO_PAGE, mAddress, nullptr, mFlags);
 			}
 			break;
 		case ASMIT_STY:
 			data.ResetZeroPage(mAddress);
-			if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+			if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
 			{
-				data.mRegs[mAddress].mMode = NRDM_IMMEDIATE;
-				data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_Y].mValue;
+				data.Set(mAddress, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue);
 			}
-			else if (data.mRegs[CPU_REG_Y].mMode == NRDM_ZERO_PAGE)
+			else if (data[CPU_REG_Y].mMode == NRDM_ZERO_PAGE)
 			{
-				data.mRegs[mAddress].mMode = NRDM_ZERO_PAGE;
-				data.mRegs[mAddress].mValue = data.mRegs[CPU_REG_Y].mValue;
-				data.mRegs[mAddress].mFlags = data.mRegs[CPU_REG_Y].mFlags;
+				data.Set(mAddress, NRDM_ZERO_PAGE, data[CPU_REG_Y].mValue, nullptr, data[CPU_REG_Y].mFlags);
 			}
-			else if (data.mRegs[CPU_REG_Y].mMode == NRDM_ABSOLUTE)
+			else if (data[CPU_REG_Y].mMode == NRDM_ABSOLUTE)
 			{
-				data.mRegs[mAddress] = data.mRegs[CPU_REG_Y];
+				data.Set(mAddress, data[CPU_REG_Y]);
 			}
 			else
 			{
-				data.mRegs[CPU_REG_Y].mMode = NRDM_ZERO_PAGE;
-				data.mRegs[CPU_REG_Y].mValue = mAddress;
+				data.Set(CPU_REG_Y, NRDM_ZERO_PAGE, mAddress, nullptr, mFlags);
 			}
 			break;
 		case ASMIT_INC:
@@ -4517,34 +4386,34 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		switch (mType)
 		{
 		case ASMIT_LDA:
-			if (data.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_Y].mValue == mAddress)
+			if (data[CPU_REG_Y].mMode == NRDM_IMMEDIATE && data[CPU_REG_Y].mValue == mAddress)
 			{
-				data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_Y];
+				data.Set(CPU_REG_A, data[CPU_REG_Y]);
 				mType = ASMIT_TYA;
 				mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
-			else if (data.mRegs[CPU_REG_X].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_X].mValue == mAddress)
+			else if (data[CPU_REG_X].mMode == NRDM_IMMEDIATE && data[CPU_REG_X].mValue == mAddress)
 			{
-				data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_X];
+				data.Set(CPU_REG_A, data[CPU_REG_X]);
 				mType = ASMIT_TXA;
 				mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
 			break;
 		case ASMIT_LDX:
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mValue == mAddress)
+			if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mValue == mAddress)
 			{
-				data.mRegs[CPU_REG_X] = data.mRegs[CPU_REG_A];
+				data.Set(CPU_REG_X, data[CPU_REG_A]);
 				mType = ASMIT_TAX;
 				mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
 			break;
 		case ASMIT_LDY:
-			if (data.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE && data.mRegs[CPU_REG_A].mValue == mAddress)
+			if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && data[CPU_REG_A].mValue == mAddress)
 			{
-				data.mRegs[CPU_REG_Y] = data.mRegs[CPU_REG_A];
+				data.Set(CPU_REG_Y, data[CPU_REG_A]);
 				mType = ASMIT_TAY;
 				mMode = ASMIM_IMPLIED;
 				changed = true;
@@ -4555,26 +4424,26 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 	}
 	else if (mMode == ASMIM_INDIRECT_Y)
 	{
-		if (data.mRegs[mAddress].mMode == NRDM_ZERO_PAGE && data.mRegs[mAddress + 1].mMode == NRDM_ZERO_PAGE && data.mRegs[mAddress].mValue + 1 == data.mRegs[mAddress + 1].mValue)
+		if (data[mAddress].mMode == NRDM_ZERO_PAGE && data[mAddress + 1].mMode == NRDM_ZERO_PAGE && data[mAddress].mValue + 1 == data[mAddress + 1].mValue)
 		{
 			mFlags |= NICT_ZPFLIPPED;
-			mAddress = data.mRegs[mAddress].mValue;
+			mAddress = data[mAddress].mValue;
 			if (mType == ASMIT_LDA)
-				data.mRegs[CPU_REG_A].Reset();
+				data.Reset(CPU_REG_A);
 		}
-		else if (data.mRegs[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS && data.mRegs[mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && data.mRegs[mAddress].mLinkerObject == data.mRegs[mAddress + 1].mLinkerObject)
+		else if (data[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS && data[mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && data[mAddress].mLinkerObject == data[mAddress + 1].mLinkerObject)
 		{
 			mMode = ASMIM_ABSOLUTE_Y;
-			mLinkerObject = data.mRegs[mAddress].mLinkerObject;
-			mAddress = data.mRegs[mAddress + 1].mValue;
+			mLinkerObject = data[mAddress].mLinkerObject;
+			mAddress = data[mAddress + 1].mValue;
 			if (mType == ASMIT_LDA)
-				data.mRegs[CPU_REG_A].Reset();
+				data.Reset(CPU_REG_A);
 		}
 		else if (mType == ASMIT_LDA)
 		{
 			if (!(mFlags & NCIF_VOLATILE))
 			{
-				if (data.mRegs[CPU_REG_A].mMode == NRDM_INDIRECT_Y && data.mRegs[CPU_REG_A].mValue == mAddress)
+				if (data[CPU_REG_A].mMode == NRDM_INDIRECT_Y && data[CPU_REG_A].mValue == mAddress)
 				{
 					if (mLive & LIVE_CPU_REG_Z)
 					{
@@ -4589,29 +4458,27 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 					}
 					changed = true;
 				}
-				else if (data.mRegs[CPU_REG_X].SameData(*this))
+				else if (data[CPU_REG_X].SameData(*this))
 				{
 					mType = ASMIT_TXA;
 					mMode = ASMIM_IMPLIED;
-					data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_X];
+					data.Set(CPU_REG_A, data[CPU_REG_X]);
 					changed = true;
 				}
-				else if (data.mRegs[CPU_REG_Y].SameData(*this))
+				else if (data[CPU_REG_Y].SameData(*this))
 				{
 					mType = ASMIT_TYA;
 					mMode = ASMIM_IMPLIED;
-					data.mRegs[CPU_REG_A] = data.mRegs[CPU_REG_Y];
+					data.Set(CPU_REG_A, data[CPU_REG_Y]);
 					changed = true;
 				}
 				else
 				{
-					data.mRegs[CPU_REG_A].mMode = NRDM_INDIRECT_Y;
-					data.mRegs[CPU_REG_A].mValue = mAddress;
-					data.mRegs[CPU_REG_A].mFlags = mFlags;
+					data.Set(CPU_REG_A, NRDM_INDIRECT_Y, mAddress, nullptr, mFlags);
 				}
 			}
 			else
-				data.mRegs[CPU_REG_A].Reset();
+				data.Reset(CPU_REG_A);
 		}
 
 		if (ChangesAddress())
@@ -4623,7 +4490,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		{
 			if (!(mFlags & NCIF_VOLATILE))
 			{
-				if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE_X && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				if (data[CPU_REG_A].mMode == NRDM_ABSOLUTE_X && data[CPU_REG_A].mLinkerObject == mLinkerObject && data[CPU_REG_A].mValue == mAddress)
 				{
 					if (mLive & LIVE_CPU_REG_Z)
 					{
@@ -4640,42 +4507,36 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				}
 				else
 				{
-					data.mRegs[CPU_REG_A].mMode = NRDM_ABSOLUTE_X;
-					data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_A].mValue = mAddress;
-					data.mRegs[CPU_REG_A].mFlags = mFlags;
+					data.Set(CPU_REG_A, NRDM_ABSOLUTE_X, mAddress, mLinkerObject, mFlags);
 				}
 			}
 			else
-				data.mRegs[CPU_REG_A].Reset();
+				data.Reset(CPU_REG_A);
 		}
 		else if (mType == ASMIT_LDY)
 		{
 			if (!(mFlags & NCIF_VOLATILE))
 			{
-				if (data.mRegs[CPU_REG_Y].mMode == NRDM_ABSOLUTE_X && data.mRegs[CPU_REG_Y].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+				if (data[CPU_REG_Y].mMode == NRDM_ABSOLUTE_X && data[CPU_REG_Y].mLinkerObject == mLinkerObject && data[CPU_REG_Y].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 				{
 					mType = ASMIT_NOP;
 					mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
-				else if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE_X && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				else if (data[CPU_REG_A].mMode == NRDM_ABSOLUTE_X && data[CPU_REG_A].mLinkerObject == mLinkerObject && data[CPU_REG_A].mValue == mAddress)
 				{
 					mType = ASMIT_TAY;
 					mMode = ASMIM_IMPLIED;
-					data.mRegs[CPU_REG_Y] = data.mRegs[CPU_REG_A];
+					data.Set(CPU_REG_Y, data[CPU_REG_A]);
 					changed = true;
 				}
 				else
 				{
-					data.mRegs[CPU_REG_Y].mMode = NRDM_ABSOLUTE_X;
-					data.mRegs[CPU_REG_Y].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_Y].mValue = mAddress;
-					data.mRegs[CPU_REG_Y].mFlags = mFlags;
+					data.Set(CPU_REG_Y, NRDM_ABSOLUTE_X, mAddress, mLinkerObject, mFlags);
 				}
 			}
 			else
-				data.mRegs[CPU_REG_Y].Reset();
+				data.Reset(CPU_REG_Y);
 		}
 
 		if (ChangesAddress())
@@ -4687,7 +4548,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		{
 			if (!(mFlags & NCIF_VOLATILE))
 			{
-				if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE_Y && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				if (data[CPU_REG_A].mMode == NRDM_ABSOLUTE_Y && data[CPU_REG_A].mLinkerObject == mLinkerObject && data[CPU_REG_A].mValue == mAddress)
 				{
 					if (mLive & LIVE_CPU_REG_Z)
 					{
@@ -4704,42 +4565,36 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				}
 				else
 				{
-					data.mRegs[CPU_REG_A].mMode = NRDM_ABSOLUTE_Y;
-					data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_A].mValue = mAddress;
-					data.mRegs[CPU_REG_A].mFlags = mFlags;
+					data.Set(CPU_REG_A, NRDM_ABSOLUTE_Y, mAddress, mLinkerObject, mFlags);
 				}
 			}
 			else
-				data.mRegs[CPU_REG_A].Reset();
+				data.Reset(CPU_REG_A);
 		}
 		else if (mType == ASMIT_LDX)
 		{
 			if (!(mFlags & NCIF_VOLATILE))
 			{
-				if (data.mRegs[CPU_REG_X].mMode == NRDM_ABSOLUTE_Y && data.mRegs[CPU_REG_X].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
+				if (data[CPU_REG_X].mMode == NRDM_ABSOLUTE_Y && data[CPU_REG_X].mLinkerObject == mLinkerObject && data[CPU_REG_X].mValue == mAddress && !(mLive & LIVE_CPU_REG_Z))
 				{
 					mType = ASMIT_NOP;
 					mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
-				else if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE_Y && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				else if (data[CPU_REG_A].mMode == NRDM_ABSOLUTE_Y && data[CPU_REG_A].mLinkerObject == mLinkerObject && data[CPU_REG_A].mValue == mAddress)
 				{
 					mType = ASMIT_TAX;
 					mMode = ASMIM_IMPLIED;
-					data.mRegs[CPU_REG_X] = data.mRegs[CPU_REG_A];
+					data.Set(CPU_REG_X, data[CPU_REG_A]);
 					changed = true;
 				}
 				else
 				{
-					data.mRegs[CPU_REG_X].mMode = NRDM_ABSOLUTE_Y;
-					data.mRegs[CPU_REG_X].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_X].mValue = mAddress;
-					data.mRegs[CPU_REG_X].mFlags = mFlags;
+					data.Set(CPU_REG_X, NRDM_ABSOLUTE_Y, mAddress, mLinkerObject, mFlags);
 				}
 			}
 			else
-				data.mRegs[CPU_REG_X].Reset();
+				data.Reset(CPU_REG_X);
 		}
 
 		if (ChangesAddress())
@@ -4752,7 +4607,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		case ASMIT_LDA:
 			if (!(mFlags & NCIF_VOLATILE))
 			{
-				if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				if (data[CPU_REG_A].mMode == NRDM_ABSOLUTE && data[CPU_REG_A].mLinkerObject == mLinkerObject && data[CPU_REG_A].mValue == mAddress)
 				{
 					if (mLive & LIVE_CPU_REG_Z)
 					{
@@ -4769,32 +4624,26 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				}
 				else
 				{
-					data.mRegs[CPU_REG_A].mMode = NRDM_ABSOLUTE;
-					data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_A].mValue = mAddress;
-					data.mRegs[CPU_REG_A].mFlags = mFlags;
+					data.Set(CPU_REG_A, NRDM_ABSOLUTE, mAddress, mLinkerObject, mFlags);
 				}
 			}
 			else
-				data.mRegs[CPU_REG_A].Reset();
+				data.Reset(CPU_REG_A);
 			break;
 #if 1
 		case ASMIT_STA:
 			if (!(mFlags & NCIF_VOLATILE) && mLinkerObject)
 			{
-				if (data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				if (data[CPU_REG_A].mMode == NRDM_ABSOLUTE && data[CPU_REG_A].mLinkerObject == mLinkerObject && data[CPU_REG_A].mValue == mAddress)
 				{
 					mType = ASMIT_NOP;
 					mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
-				else if (final || data.mRegs[CPU_REG_A].mMode == NRDM_UNKNOWN)
+				else if (final || data[CPU_REG_A].mMode == NRDM_UNKNOWN)
 				{
 					data.ResetAbsolute(mLinkerObject, mAddress);
-					data.mRegs[CPU_REG_A].mMode = NRDM_ABSOLUTE;
-					data.mRegs[CPU_REG_A].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_A].mValue = mAddress;
-					data.mRegs[CPU_REG_A].mFlags = mFlags;
+					data.Set(CPU_REG_A, NRDM_ABSOLUTE, mAddress, mLinkerObject, mFlags);
 				}
 				else
 					data.ResetAbsolute(mLinkerObject, mAddress);
@@ -4806,7 +4655,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		case ASMIT_LDY:
 			if (!(mFlags & NCIF_VOLATILE))
 			{
-				if (data.mRegs[CPU_REG_Y].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_Y].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_Y].mValue == mAddress)
+				if (data[CPU_REG_Y].mMode == NRDM_ABSOLUTE && data[CPU_REG_Y].mLinkerObject == mLinkerObject && data[CPU_REG_Y].mValue == mAddress)
 				{
 					if (!(mLive & LIVE_CPU_REG_Z))
 					{
@@ -4815,42 +4664,36 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 						changed = true;
 					}
 				}
-				else if (final && data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				else if (final && data[CPU_REG_A].mMode == NRDM_ABSOLUTE && data[CPU_REG_A].mLinkerObject == mLinkerObject && data[CPU_REG_A].mValue == mAddress)
 				{
 					mType = ASMIT_TAY;
 					mMode = ASMIM_IMPLIED;
 
-					data.mRegs[CPU_REG_Y] = data.mRegs[CPU_REG_A];
+					data.Set(CPU_REG_Y, data[CPU_REG_A]);
 					changed = true;
 				}
 				else
 				{
-					data.mRegs[CPU_REG_Y].mMode = NRDM_ABSOLUTE;
-					data.mRegs[CPU_REG_Y].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_Y].mValue = mAddress;
-					data.mRegs[CPU_REG_Y].mFlags = mFlags;
+					data.Set(CPU_REG_Y, NRDM_ABSOLUTE, mAddress, mLinkerObject,mFlags);
 				}
 			}
 			else
-				data.mRegs[CPU_REG_Y].Reset();
+				data.Reset(CPU_REG_Y);
 			break;
 
 		case ASMIT_STY:
 			if (!(mFlags & NCIF_VOLATILE) && mLinkerObject)
 			{
-				if (data.mRegs[CPU_REG_Y].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_Y].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_Y].mValue == mAddress)
+				if (data[CPU_REG_Y].mMode == NRDM_ABSOLUTE && data[CPU_REG_Y].mLinkerObject == mLinkerObject && data[CPU_REG_Y].mValue == mAddress)
 				{
 					mType = ASMIT_NOP;
 					mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
-				else if (data.mRegs[CPU_REG_Y].mMode == NRDM_UNKNOWN)
+				else if (data[CPU_REG_Y].mMode == NRDM_UNKNOWN)
 				{
 					data.ResetAbsolute(mLinkerObject, mAddress);
-					data.mRegs[CPU_REG_Y].mMode = NRDM_ABSOLUTE;
-					data.mRegs[CPU_REG_Y].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_Y].mValue = mAddress;
-					data.mRegs[CPU_REG_Y].mFlags = mFlags;
+					data.Set(CPU_REG_Y, NRDM_ABSOLUTE, mAddress, mLinkerObject, mFlags);
 				}
 				else
 					data.ResetAbsolute(mLinkerObject, mAddress);
@@ -4862,7 +4705,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		case ASMIT_LDX:
 			if (!(mFlags & NCIF_VOLATILE))
 			{
-				if (data.mRegs[CPU_REG_X].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_X].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_X].mValue == mAddress)
+				if (data[CPU_REG_X].mMode == NRDM_ABSOLUTE && data[CPU_REG_X].mLinkerObject == mLinkerObject && data[CPU_REG_X].mValue == mAddress)
 				{
 					if (!(mLive & LIVE_CPU_REG_Z))
 					{
@@ -4871,42 +4714,36 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 						changed = true;
 					}
 				}
-				else if (final && data.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_A].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_A].mValue == mAddress)
+				else if (final && data[CPU_REG_A].mMode == NRDM_ABSOLUTE && data[CPU_REG_A].mLinkerObject == mLinkerObject && data[CPU_REG_A].mValue == mAddress)
 				{
 					mType = ASMIT_TAX;
 					mMode = ASMIM_IMPLIED;
 
-					data.mRegs[CPU_REG_X] = data.mRegs[CPU_REG_A];
+					data.Set(CPU_REG_X, data[CPU_REG_A]);
 					changed = true;
 				}
 				else
 				{
-					data.mRegs[CPU_REG_X].mMode = NRDM_ABSOLUTE;
-					data.mRegs[CPU_REG_X].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_X].mValue = mAddress;
-					data.mRegs[CPU_REG_X].mFlags = mFlags;
+					data.Set(CPU_REG_X, NRDM_ABSOLUTE, mAddress, mLinkerObject, mFlags);
 				}
 			}
 			else
-				data.mRegs[CPU_REG_X].Reset();
+				data.Reset(CPU_REG_X);
 			break;
 
 		case ASMIT_STX:
 			if (!(mFlags & NCIF_VOLATILE) && mLinkerObject)
 			{
-				if (data.mRegs[CPU_REG_X].mMode == NRDM_ABSOLUTE && data.mRegs[CPU_REG_X].mLinkerObject == mLinkerObject && data.mRegs[CPU_REG_X].mValue == mAddress)
+				if (data[CPU_REG_X].mMode == NRDM_ABSOLUTE && data[CPU_REG_X].mLinkerObject == mLinkerObject && data[CPU_REG_X].mValue == mAddress)
 				{
 					mType = ASMIT_NOP;
 					mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
-				else if (data.mRegs[CPU_REG_X].mMode == NRDM_UNKNOWN)
+				else if (data[CPU_REG_X].mMode == NRDM_UNKNOWN)
 				{
 					data.ResetAbsolute(mLinkerObject, mAddress);
-					data.mRegs[CPU_REG_X].mMode = NRDM_ABSOLUTE;
-					data.mRegs[CPU_REG_X].mLinkerObject = mLinkerObject;
-					data.mRegs[CPU_REG_X].mValue = mAddress;
-					data.mRegs[CPU_REG_X].mFlags = mFlags;
+					data.Set(CPU_REG_X, NRDM_ABSOLUTE, mAddress, mLinkerObject, mFlags);
 				}
 				else
 					data.ResetAbsolute(mLinkerObject, mAddress);
@@ -5626,9 +5463,9 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 			return 2;
 		}
 #if JUMP_TO_BRANCH
-		else if (mNDataSet.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+		else if (mNDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 		{
-			if (mNDataSet.mRegs[CPU_REG_C].mValue)
+			if (mNDataSet[CPU_REG_C].mValue)
 				PutOpcode(AsmInsOpcodes[ASMIT_BCS][ASMIM_RELATIVE]);
 			else
 				PutOpcode(AsmInsOpcodes[ASMIT_BCC][ASMIM_RELATIVE]);
@@ -5636,9 +5473,9 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 			PutByte(to - from - 2);
 			return 2;
 		}
-		else if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+		else if (mNDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 		{
-			if (mNDataSet.mRegs[CPU_REG_Z].mValue)
+			if (mNDataSet[CPU_REG_Z].mValue)
 				PutOpcode(AsmInsOpcodes[ASMIT_BNE][ASMIM_RELATIVE]);
 			else
 				PutOpcode(AsmInsOpcodes[ASMIT_BEQ][ASMIM_RELATIVE]);
@@ -5731,9 +5568,9 @@ int NativeCodeBasicBlock::JumpByteSize(NativeCodeBasicBlock* target, int from, i
 		if (second)
 			return 2;
 #if JUMP_TO_BRANCH
-		else if (mNDataSet.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+		else if (mNDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 			return 2;
-		else if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+		else if (mNDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 			return 2;
 #endif
 		else
@@ -16012,34 +15849,35 @@ void NativeCodeBasicBlock::BuildEntryDataSet(const NativeRegisterDataSet& set)
 		bool	changed = false;
 		for (int i = 0; i < NUM_REGS; i++)
 		{
-			if (set.mRegs[i].mMode == NRDM_IMMEDIATE)
+			// TODO CHECK for uniqueID
+			if (set[i].mMode == NRDM_IMMEDIATE)
 			{
-				if (mEntryRegisterDataSet.mRegs[i].mMode == NRDM_IMMEDIATE && set.mRegs[i].mValue == mEntryRegisterDataSet.mRegs[i].mValue)
+				if (mEntryRegisterDataSet[i].mMode == NRDM_IMMEDIATE && set[i].mValue == mEntryRegisterDataSet[i].mValue)
 				{
 				}
-				else if (mEntryRegisterDataSet.mRegs[i].mMode != NRDM_UNKNOWN)
+				else if (mEntryRegisterDataSet[i].mMode != NRDM_UNKNOWN)
 				{
-					mEntryRegisterDataSet.mRegs[i].Reset();
+					mEntryRegisterDataSet.Reset(i);
 					mVisited = false;
 				}
 			}
-			else if (set.mRegs[i].mMode == NRDM_IMMEDIATE_ADDRESS)
+			else if (set[i].mMode == NRDM_IMMEDIATE_ADDRESS)
 			{
-				if (mEntryRegisterDataSet.mRegs[i].mMode == NRDM_IMMEDIATE_ADDRESS &&
-					set.mRegs[i].mValue == mEntryRegisterDataSet.mRegs[i].mValue &&
-					set.mRegs[i].mLinkerObject == mEntryRegisterDataSet.mRegs[i].mLinkerObject &&
-					set.mRegs[i].mFlags == mEntryRegisterDataSet.mRegs[i].mFlags)
+				if (mEntryRegisterDataSet[i].mMode == NRDM_IMMEDIATE_ADDRESS &&
+					set[i].mValue == mEntryRegisterDataSet[i].mValue &&
+					set[i].mLinkerObject == mEntryRegisterDataSet[i].mLinkerObject &&
+					set[i].mFlags == mEntryRegisterDataSet[i].mFlags)
 				{
 				}
-				else if (mEntryRegisterDataSet.mRegs[i].mMode != NRDM_UNKNOWN)
+				else if (mEntryRegisterDataSet[i].mMode != NRDM_UNKNOWN)
 				{
-					mEntryRegisterDataSet.mRegs[i].Reset();
+					mEntryRegisterDataSet.Reset(i);
 					mVisited = false;
 				}
 			}
-			else if (mEntryRegisterDataSet.mRegs[i].mMode != NRDM_UNKNOWN)
+			else if (mEntryRegisterDataSet[i].mMode != NRDM_UNKNOWN)
 			{
-				mEntryRegisterDataSet.mRegs[i].Reset();
+				mEntryRegisterDataSet.Reset(i);
 				mVisited = false;
 			}
 		}
@@ -16057,17 +15895,13 @@ void NativeCodeBasicBlock::BuildEntryDataSet(const NativeRegisterDataSet& set)
 		mFDataSet = mNDataSet;
 		if (mBranch == ASMIT_BCC)
 		{
-			mNDataSet.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			mNDataSet.mRegs[CPU_REG_C].mValue = 0;
-			mFDataSet.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			mFDataSet.mRegs[CPU_REG_C].mValue = 1;
+			mNDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
+			mFDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
 		}
 		else if (mBranch == ASMIT_BCS)
 		{
-			mNDataSet.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			mNDataSet.mRegs[CPU_REG_C].mValue = 1;
-			mFDataSet.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-			mFDataSet.mRegs[CPU_REG_C].mValue = 0;
+			mNDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
+			mFDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
 		}
 
 		if (mTrueJump)
@@ -21292,8 +21126,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 		mVisited = true;
 
 		int	carry = -1;
-		if (mEntryRegisterDataSet.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
-			carry = mEntryRegisterDataSet.mRegs[CPU_REG_C].mValue;
+		if (mEntryRegisterDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+			carry = mEntryRegisterDataSet[CPU_REG_C].mValue;
 
 		for (int i = 0; i < mIns.Size(); i++)
 		{
@@ -31692,55 +31526,37 @@ void NativeCodeBasicBlock::PropagateZPAbsolute(const NativeRegisterDataSet& data
 		{
 			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
-				mDataSet.mRegs[CPU_REG_A].mMode = NRDM_ABSOLUTE;
-				mDataSet.mRegs[CPU_REG_A].mLinkerObject = mIns[i].mLinkerObject;
-				mDataSet.mRegs[CPU_REG_A].mValue = mIns[i].mAddress;
-				mDataSet.mRegs[CPU_REG_A].mFlags = mIns[i].mFlags;
+				mDataSet.Set(CPU_REG_A, NRDM_ABSOLUTE, mIns[i].mAddress, mIns[i].mLinkerObject, mIns[i].mFlags);
 			}
 			else if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
-				mDataSet.mRegs[CPU_REG_X].mMode = NRDM_ABSOLUTE;
-				mDataSet.mRegs[CPU_REG_X].mLinkerObject = mIns[i].mLinkerObject;
-				mDataSet.mRegs[CPU_REG_X].mValue = mIns[i].mAddress;
-				mDataSet.mRegs[CPU_REG_X].mFlags = mIns[i].mFlags;
+				mDataSet.Set(CPU_REG_X, NRDM_ABSOLUTE, mIns[i].mAddress, mIns[i].mLinkerObject, mIns[i].mFlags);
 			}
 			else if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
-				mDataSet.mRegs[CPU_REG_Y].mMode = NRDM_ABSOLUTE;
-				mDataSet.mRegs[CPU_REG_Y].mLinkerObject = mIns[i].mLinkerObject;
-				mDataSet.mRegs[CPU_REG_Y].mValue = mIns[i].mAddress;
-				mDataSet.mRegs[CPU_REG_Y].mFlags = mIns[i].mFlags;
+				mDataSet.Set(CPU_REG_Y, NRDM_ABSOLUTE, mIns[i].mAddress, mIns[i].mLinkerObject, mIns[i].mFlags);
 			}
 			else if (mIns[i].mType == ASMIT_STA && mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
 				mDataSet.ResetAbsolute(mIns[i].mLinkerObject, mIns[i].mAddress);
-				mDataSet.mRegs[CPU_REG_A].mMode = NRDM_ABSOLUTE;
-				mDataSet.mRegs[CPU_REG_A].mLinkerObject = mIns[i].mLinkerObject;
-				mDataSet.mRegs[CPU_REG_A].mValue = mIns[i].mAddress;
-				mDataSet.mRegs[CPU_REG_A].mFlags = mIns[i].mFlags;
+				mDataSet.Set(CPU_REG_A, NRDM_ABSOLUTE, mIns[i].mAddress, mIns[i].mLinkerObject, mIns[i].mFlags);
 			}
 			else if (mIns[i].mType == ASMIT_STX && mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
 				mDataSet.ResetAbsolute(mIns[i].mLinkerObject, mIns[i].mAddress);
-				mDataSet.mRegs[CPU_REG_X].mMode = NRDM_ABSOLUTE;
-				mDataSet.mRegs[CPU_REG_X].mLinkerObject = mIns[i].mLinkerObject;
-				mDataSet.mRegs[CPU_REG_X].mValue = mIns[i].mAddress;
-				mDataSet.mRegs[CPU_REG_X].mFlags = mIns[i].mFlags;
+				mDataSet.Set(CPU_REG_X, NRDM_ABSOLUTE, mIns[i].mAddress, mIns[i].mLinkerObject, mIns[i].mFlags);
 			}
 			else if (mIns[i].mType == ASMIT_STY && mIns[i].mMode == ASMIM_ABSOLUTE && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
 			{
 				mDataSet.ResetAbsolute(mIns[i].mLinkerObject, mIns[i].mAddress);
-				mDataSet.mRegs[CPU_REG_Y].mMode = NRDM_ABSOLUTE;
-				mDataSet.mRegs[CPU_REG_Y].mLinkerObject = mIns[i].mLinkerObject;
-				mDataSet.mRegs[CPU_REG_Y].mValue = mIns[i].mAddress;
-				mDataSet.mRegs[CPU_REG_Y].mFlags = mIns[i].mFlags;
+				mDataSet.Set(CPU_REG_Y, NRDM_ABSOLUTE, mIns[i].mAddress, mIns[i].mLinkerObject, mIns[i].mFlags);
 			}
 			else if (mIns[i].mType == ASMIT_STA && mIns[i].mMode == ASMIM_ZERO_PAGE)
-				mDataSet.mRegs[mIns[i].mAddress] = mDataSet.mRegs[CPU_REG_A];
+				mDataSet.Set(mIns[i].mAddress, mDataSet[CPU_REG_A]);
 			else if (mIns[i].mType == ASMIT_STX && mIns[i].mMode == ASMIM_ZERO_PAGE)
-				mDataSet.mRegs[mIns[i].mAddress] = mDataSet.mRegs[CPU_REG_X];
+				mDataSet.Set(mIns[i].mAddress, mDataSet[CPU_REG_X]);
 			else if (mIns[i].mType == ASMIT_STY && mIns[i].mMode == ASMIM_ZERO_PAGE)
-				mDataSet.mRegs[mIns[i].mAddress] = mDataSet.mRegs[CPU_REG_Y];
+				mDataSet.Set(mIns[i].mAddress, mDataSet[CPU_REG_Y]);
 			else if (mIns[i].mType == ASMIT_JSR)
 			{
 				mDataSet.ResetCall(mIns[i], mProc->mFastCallBase);
@@ -31754,11 +31570,11 @@ void NativeCodeBasicBlock::PropagateZPAbsolute(const NativeRegisterDataSet& data
 
 					if (mIns[i].ChangesAddress())
 						mDataSet.ResetZeroPage(r);
-					else if (mDataSet.mRegs[r].mMode == NRDM_ABSOLUTE)
+					else if (mDataSet[r].mMode == NRDM_ABSOLUTE)
 					{
 						mIns[i].mMode = ASMIM_ABSOLUTE;
-						mIns[i].mLinkerObject = mDataSet.mRegs[r].mLinkerObject;
-						mIns[i].mAddress = mDataSet.mRegs[r].mValue;
+						mIns[i].mLinkerObject = mDataSet[r].mLinkerObject;
+						mIns[i].mAddress = mDataSet[r].mValue;
 					}
 				}
 				else if (mIns[i].mMode == ASMIM_ABSOLUTE)
@@ -31775,21 +31591,21 @@ void NativeCodeBasicBlock::PropagateZPAbsolute(const NativeRegisterDataSet& data
 				{
 					int r = mIns[i].mAddress;
 
-					if (mDataSet.mRegs[r].mMode == NRDM_ABSOLUTE && mDataSet.mRegs[r + 1].mMode == NRDM_ABSOLUTE &&
-						mDataSet.mRegs[r].mLinkerObject == mDataSet.mRegs[r + 1].mLinkerObject &&
-						mDataSet.mRegs[r].mValue + 1 == mDataSet.mRegs[r + 1].mValue)
+					if (mDataSet[r].mMode == NRDM_ABSOLUTE && mDataSet[r + 1].mMode == NRDM_ABSOLUTE &&
+						mDataSet[r].mLinkerObject == mDataSet[r + 1].mLinkerObject &&
+						mDataSet[r].mValue + 1 == mDataSet[r + 1].mValue)
 					{
-						mIns[i].mLinkerObject = mDataSet.mRegs[r].mLinkerObject;
-						mIns[i].mAddress = mDataSet.mRegs[r].mValue;
+						mIns[i].mLinkerObject = mDataSet[r].mLinkerObject;
+						mIns[i].mAddress = mDataSet[r].mValue;
 					}
 				}
 
 				if (mIns[i].ChangesAccu())
-					mDataSet.mRegs[CPU_REG_A].Reset();
+					mDataSet.Reset(CPU_REG_A);
 				if (mIns[i].ChangesXReg())
-					mDataSet.mRegs[CPU_REG_X].Reset();
+					mDataSet.Reset(CPU_REG_X);
 				if (mIns[i].ChangesYReg())
-					mDataSet.mRegs[CPU_REG_Y].Reset();
+					mDataSet.Reset(CPU_REG_Y);
 			}
 		}
 
@@ -39334,8 +39150,8 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
 				mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
 				mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 0].mAddress &&
-				(mNDataSet.mRegs[CPU_REG_A].mMask & mIns[i + 2].mAddress) == mIns[i + 2].mAddress &&
-				(mNDataSet.mRegs[CPU_REG_A].mValue & mIns[i + 2].mAddress) == 0)
+				(mNDataSet[CPU_REG_A].mMask & mIns[i + 2].mAddress) == mIns[i + 2].mAddress &&
+				(mNDataSet[CPU_REG_A].mValue & mIns[i + 2].mAddress) == 0)
 			{
 
 				mIns[i + 1].mType = ASMIT_EOR;
@@ -39350,7 +39166,7 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 				mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
 				mIns[i + 3].mType == ASMIT_EOR && mIns[i + 3].mMode == ASMIM_ZERO_PAGE && mIns[i + 3].mAddress == mIns[i + 1].mAddress)
 			{
-				int	z0 = mNDataSet.mRegs[mIns[i + 0].mAddress].mMask & ~mNDataSet.mRegs[mIns[i + 0].mAddress].mValue;
+				int	z0 = mNDataSet[mIns[i + 0].mAddress].mMask & ~mNDataSet[mIns[i + 0].mAddress].mValue;
 				if (!((~z0 & ~mIns[i + 2].mAddress) & 0xff))
 				{
 					mIns[i + 3].CopyMode(mIns[i + 0]);
@@ -39364,9 +39180,9 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 			if (i + 2 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mType == ASMIT_TAX)
 			{
-				if (mIns[i + 1].mAddress == 1 && (mNDataSet.mRegs[CPU_REG_X].mMask & 1))
+				if (mIns[i + 1].mAddress == 1 && (mNDataSet[CPU_REG_X].mMask & 1))
 				{
-					if (mNDataSet.mRegs[CPU_REG_X].mValue & 1)
+					if (mNDataSet[CPU_REG_X].mValue & 1)
 					{
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 					}
@@ -39378,9 +39194,9 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 					mIns[i + 2].mType = ASMIT_TXA; mIns[i + 2].mMode = ASMIM_IMPLIED;
 				}
-				else if (mIns[i + 1].mAddress == 2 && (mNDataSet.mRegs[CPU_REG_X].mMask & 2))
+				else if (mIns[i + 1].mAddress == 2 && (mNDataSet[CPU_REG_X].mMask & 2))
 				{
-					if (mNDataSet.mRegs[CPU_REG_X].mValue & 2)
+					if (mNDataSet[CPU_REG_X].mValue & 2)
 					{
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
@@ -39399,9 +39215,9 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 				mIns[i + 0].mType == ASMIT_TXA && !(mIns[i + 0].mLive & LIVE_CPU_REG_X) &&
 				mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 1)
 			{
-				if (mNDataSet.mRegs[CPU_REG_X].mMask & 1)
+				if (mNDataSet[CPU_REG_X].mMask & 1)
 				{
-					if (mNDataSet.mRegs[CPU_REG_X].mValue & 1)
+					if (mNDataSet[CPU_REG_X].mValue & 1)
 					{
 						mIns[i + 1].mAddress = 0;
 						changed = true;
@@ -39423,10 +39239,10 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 				mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
 				mIns[i + 2].mType == ASMIT_EOR && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]))
 			{
-				if (mNDataSet.mRegs[mIns[i + 0].mAddress].mMask == 0)
+				if (mNDataSet[mIns[i + 0].mAddress].mMask == 0)
 				{
-					mNDataSet.mRegs[CPU_REG_A].mMask &= mIns[i + 1].mAddress;
-					mNDataSet.mRegs[CPU_REG_Z].ResetMask();
+					mNDataSet.SetMask(CPU_REG_A, mNDataSet[CPU_REG_A].mMask & mIns[i + 1].mAddress, mNDataSet[CPU_REG_A].mValue);
+					mNDataSet.ResetMask(CPU_REG_Z);
 					i += 2;
 					skip = true;
 				}
@@ -39455,9 +39271,9 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 					switch (mBranch)
 					{
 					case ASMIT_BEQ:
-						if (mNDataSet.mRegs[CPU_REG_A].mMask == 0xff)
+						if (mNDataSet[CPU_REG_A].mMask == 0xff)
 						{
-							if (mNDataSet.mRegs[CPU_REG_A].mValue != 0)
+							if (mNDataSet[CPU_REG_A].mValue != 0)
 							{
 								mTrueJump->RemEntryBlock(this);
 								mTrueJump = mFalseJump;
@@ -39473,26 +39289,23 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 						}
 						else
 						{
-							mNDataSet.mRegs[CPU_REG_A].mMask = 0xff;
-							mNDataSet.mRegs[CPU_REG_A].mValue = 0x00;
+							mNDataSet.SetMask(CPU_REG_A, 0xff, 0x00);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
 							{
-								mNDataSet.mRegs[lins.mAddress].mMask = 0xff;
-								mNDataSet.mRegs[lins.mAddress].mValue = 0x00;
+								mNDataSet.SetMask(lins.mAddress, 0xff, 0x00);
 							}
 
-							if (mFDataSet.mRegs[CPU_REG_A].mMask == 0xfe)
+							if (mFDataSet[CPU_REG_A].mMask == 0xfe)
 							{
-								mFDataSet.mRegs[CPU_REG_A].mMask = 0xff;
-								mFDataSet.mRegs[CPU_REG_A].mValue = 0x01;
+								mFDataSet.SetMask(CPU_REG_A, 0xff, 0x01);
 							}
 						}
 						break;
 					case ASMIT_BNE:
-						if (mNDataSet.mRegs[CPU_REG_A].mMask == 0xff)
+						if (mNDataSet[CPU_REG_A].mMask == 0xff)
 						{
-							if (mNDataSet.mRegs[CPU_REG_A].mValue == 0)
+							if (mNDataSet[CPU_REG_A].mValue == 0)
 							{
 								mTrueJump->RemEntryBlock(this);
 								mTrueJump = mFalseJump;
@@ -39508,26 +39321,23 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 						}
 						else
 						{
-							mFDataSet.mRegs[CPU_REG_A].mMask = 0xff;
-							mFDataSet.mRegs[CPU_REG_A].mValue = 0x00;
+							mFDataSet.SetMask(CPU_REG_A, 0xff, 0x00);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
 							{
-								mFDataSet.mRegs[lins.mAddress].mMask = 0xff;
-								mFDataSet.mRegs[lins.mAddress].mValue = 0x00;
+								mFDataSet.SetMask(lins.mAddress, 0xff, 0x00);
 							}
 
-							if (mNDataSet.mRegs[CPU_REG_A].mMask == 0xfe)
+							if (mNDataSet[CPU_REG_A].mMask == 0xfe)
 							{
-								mNDataSet.mRegs[CPU_REG_A].mMask = 0xff;
-								mNDataSet.mRegs[CPU_REG_A].mValue = 0x01;
+								mNDataSet.SetMask(CPU_REG_A, 0xff, 0x01);
 							}
 						}
 						break;
 					case ASMIT_BPL:
-						if (mNDataSet.mRegs[CPU_REG_A].mMask & 0x80)
+						if (mNDataSet[CPU_REG_A].mMask & 0x80)
 						{
-							if (mNDataSet.mRegs[CPU_REG_A].mValue & 0x80)
+							if (mNDataSet[CPU_REG_A].mValue & 0x80)
 							{
 								mTrueJump->RemEntryBlock(this);
 								mTrueJump = mFalseJump;
@@ -39543,24 +39353,20 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 						}
 						else
 						{
-							mNDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
-							mNDataSet.mRegs[CPU_REG_A].mValue &= 0x7f;
-							mFDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
-							mFDataSet.mRegs[CPU_REG_A].mValue |= 0x80;
+							mNDataSet.SetMask(CPU_REG_A, mNDataSet[CPU_REG_A].mMask | 0x80, mNDataSet[CPU_REG_A].mValue & 0x7f);
+							mFDataSet.SetMask(CPU_REG_A, mFDataSet[CPU_REG_A].mMask | 0x80, mFDataSet[CPU_REG_A].mValue | 0x80);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
 							{
-								mNDataSet.mRegs[lins.mAddress].mMask |= 0x80;
-								mNDataSet.mRegs[lins.mAddress].mValue &= 0x7f;
-								mFDataSet.mRegs[lins.mAddress].mMask |= 0x80;
-								mFDataSet.mRegs[lins.mAddress].mValue |= 0x80;
+								mNDataSet.SetMask(lins.mAddress, mNDataSet[lins.mAddress].mMask | 0x80, mNDataSet[lins.mAddress].mValue & 0x7f);
+								mFDataSet.SetMask(lins.mAddress, mFDataSet[lins.mAddress].mMask | 0x80, mFDataSet[lins.mAddress].mValue | 0x80);
 							}
 						}
 						break;
 					case ASMIT_BMI:
-						if (mNDataSet.mRegs[CPU_REG_A].mMask & 0x80)
+						if (mNDataSet[CPU_REG_A].mMask & 0x80)
 						{
-							if (!(mNDataSet.mRegs[CPU_REG_A].mValue & 0x80))
+							if (!(mNDataSet[CPU_REG_A].mValue & 0x80))
 							{
 								mTrueJump->RemEntryBlock(this);
 								mTrueJump = mFalseJump;
@@ -39576,17 +39382,13 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 						}
 						else
 						{
-							mFDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
-							mFDataSet.mRegs[CPU_REG_A].mValue &= 0x7f;
-							mNDataSet.mRegs[CPU_REG_A].mMask |= 0x80;
-							mNDataSet.mRegs[CPU_REG_A].mValue |= 0x80;
+							mFDataSet.SetMask(CPU_REG_A, mNDataSet[CPU_REG_A].mMask | 0x80, mNDataSet[CPU_REG_A].mValue & 0x7f);
+							mNDataSet.SetMask(CPU_REG_A, mFDataSet[CPU_REG_A].mMask | 0x80, mFDataSet[CPU_REG_A].mValue | 0x80);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE && lins.mType == ASMIT_LDA)
 							{
-								mFDataSet.mRegs[lins.mAddress].mMask |= 0x80;
-								mFDataSet.mRegs[lins.mAddress].mValue &= 0x7f;
-								mNDataSet.mRegs[lins.mAddress].mMask |= 0x80;
-								mNDataSet.mRegs[lins.mAddress].mValue |= 0x80;
+								mFDataSet.SetMask(lins.mAddress, mNDataSet[lins.mAddress].mMask | 0x80, mNDataSet[lins.mAddress].mValue & 0x7f);
+								mNDataSet.SetMask(lins.mAddress, mFDataSet[lins.mAddress].mMask | 0x80, mFDataSet[lins.mAddress].mValue | 0x80);
 							}
 						}
 						break;
@@ -39599,21 +39401,17 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 						case ASMIT_BCS:
 						{
 							unsigned m = ~BinMask(lins.mAddress - 1) & 0xff;
-							mFDataSet.mRegs[CPU_REG_A].mMask |= m;
-							mFDataSet.mRegs[CPU_REG_A].mValue &= ~m;
+							mFDataSet.SetMask(CPU_REG_A, mFDataSet[CPU_REG_A].mMask | m, mFDataSet[CPU_REG_A].mValue & ~m);
 							m = ~BinMask(~lins.mAddress & 0xff) & 0xff;
-							mNDataSet.mRegs[CPU_REG_A].mMask |= m;
-							mNDataSet.mRegs[CPU_REG_A].mValue |= m;
+							mNDataSet.SetMask(CPU_REG_A, mNDataSet[CPU_REG_A].mMask | m, mNDataSet[CPU_REG_A].mValue | m);
 						}
 							break;
 						case ASMIT_BCC:
 						{
 							unsigned m = ~BinMask(lins.mAddress - 1) & 0xff;
-							mNDataSet.mRegs[CPU_REG_A].mMask |= m;
-							mNDataSet.mRegs[CPU_REG_A].mValue &= ~m;
+							mNDataSet.SetMask(CPU_REG_A, mNDataSet[CPU_REG_A].mMask | m, mNDataSet[CPU_REG_A].mValue & ~m);
 							m = ~BinMask(~lins.mAddress & 0xff) & 0xff;
-							mFDataSet.mRegs[CPU_REG_A].mMask |= m;
-							mFDataSet.mRegs[CPU_REG_A].mValue |= m;
+							mFDataSet.SetMask(CPU_REG_A, mFDataSet[CPU_REG_A].mMask | m, mFDataSet[CPU_REG_A].mValue | m);
 						}
 							break;
 					}
@@ -39665,9 +39463,9 @@ bool NativeCodeBasicBlock::GlobalValueForwarding(NativeCodeProcedure* proc, bool
 			if (i + 1 < mIns.Size() &&
 				mIns[i].mType == ASMIT_INC && mIns[i].mMode == ASMIM_ABSOLUTE &&
 				mIns[i + 1].mType == ASMIT_LDA && mIns[i].SameEffectiveAddress(mIns[i + 1]) &&
-				mDataSet.mRegs[CPU_REG_A].mMode == NRDM_ABSOLUTE &&
-				mDataSet.mRegs[CPU_REG_A].mLinkerObject == mIns[i].mLinkerObject &&
-				mDataSet.mRegs[CPU_REG_A].mValue == mIns[i].mAddress)
+				mDataSet[CPU_REG_A].mMode == NRDM_ABSOLUTE &&
+				mDataSet[CPU_REG_A].mLinkerObject == mIns[i].mLinkerObject &&
+				mDataSet[CPU_REG_A].mValue == mIns[i].mAddress)
 			{
 				mIns[i + 1].mType = ASMIT_STA;
 				mIns[i + 0].mType = ASMIT_ADC; mIns[i + 0].mMode = ASMIM_IMMEDIATE; mIns[i + 0].mAddress = 1;
@@ -39699,11 +39497,11 @@ void NativeCodeBasicBlock::ResetModifiedDataSet(NativeRegisterDataSet& data)
 	{
 		NativeCodeInstruction& ins(mIns[i]);
 		if (ins.ChangesAccu())
-			data.mRegs[CPU_REG_A].Reset();
+			data.Reset(CPU_REG_A);
 		if (ins.ChangesXReg())
-			data.mRegs[CPU_REG_X].Reset();
+			data.Reset(CPU_REG_X);
 		if (ins.ChangesYReg())
-			data.mRegs[CPU_REG_Y].Reset();
+			data.Reset(CPU_REG_Y);
 
 		if (ins.mMode == ASMIM_ZERO_PAGE && ins.ChangesAddress())
 			data.ResetZeroPage(ins.mAddress);
@@ -39749,14 +39547,14 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 #if 1
 			if (mNumEntries == 2 && (mTrueJump == this || mFalseJump == this))
 			{
-				mNDataSet.mRegs[CPU_REG_C].Reset();
-				mNDataSet.mRegs[CPU_REG_Z].Reset();
+				mNDataSet.Reset(CPU_REG_C);
+				mNDataSet.Reset(CPU_REG_Z);
 
 				if (final)
 				{
 					for (int i = 0; i < mIns.Size(); i++)
 					{
-						if ((mIns[i].mType == ASMIT_ASL || mIns[i].mType == ASMIT_LSR) && mIns[i].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[mIns[i].mAddress].mMode == NRDM_IMMEDIATE && mNDataSet.mRegs[mIns[i].mAddress].mValue == 0)
+						if ((mIns[i].mType == ASMIT_ASL || mIns[i].mType == ASMIT_LSR) && mIns[i].mMode == ASMIM_ZERO_PAGE && mNDataSet[mIns[i].mAddress].mMode == NRDM_IMMEDIATE && mNDataSet[mIns[i].mAddress].mValue == 0)
 						{
 							if (!ChangesZeroPage(mIns[i].mAddress, 0, i - 1) && !ChangesZeroPage(mIns[i].mAddress, i + 1))
 							{
@@ -39775,8 +39573,8 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 
 					if ((mIns[sz - 2].mType == ASMIT_LDY || mIns[sz - 2].mType == ASMIT_STY) && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE)
 					{
-						if (mNDataSet.mRegs[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && mIns[sz - 2].mAddress == mNDataSet.mRegs[CPU_REG_Y].mValue ||
-							mNDataSet.mRegs[CPU_REG_Y].SameData(mNDataSet.mRegs[mIns[sz - 2].mAddress]))
+						if (mNDataSet[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && mIns[sz - 2].mAddress == mNDataSet[CPU_REG_Y].mValue ||
+							mNDataSet[CPU_REG_Y].SameData(mNDataSet[mIns[sz - 2].mAddress]))
 						{
 							loopya = mIns[sz - 2].mAddress;
 							loopy = true;
@@ -39784,8 +39582,8 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 					}
 					else if ((mIns[sz - 2].mType == ASMIT_LDX || mIns[sz - 2].mType == ASMIT_STX) && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE)
 					{
-						if (mNDataSet.mRegs[CPU_REG_X].mMode == NRDM_ZERO_PAGE && mIns[sz - 2].mAddress == mNDataSet.mRegs[CPU_REG_X].mValue ||
-							mNDataSet.mRegs[CPU_REG_X].SameData(mNDataSet.mRegs[mIns[sz - 2].mAddress]))
+						if (mNDataSet[CPU_REG_X].mMode == NRDM_ZERO_PAGE && mIns[sz - 2].mAddress == mNDataSet[CPU_REG_X].mValue ||
+							mNDataSet[CPU_REG_X].SameData(mNDataSet[mIns[sz - 2].mAddress]))
 						{
 							loopxa = mIns[sz - 2].mAddress;
 							loopx = true;
@@ -39797,13 +39595,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 
 				if (loopy)
 				{
-					mNDataSet.mRegs[CPU_REG_Y].mMode = NRDM_ZERO_PAGE;
-					mNDataSet.mRegs[CPU_REG_Y].mValue = loopya;
+					mNDataSet.Set(CPU_REG_Y, NRDM_ZERO_PAGE, loopya);
 				}
 				if (loopx)
 				{
-					mNDataSet.mRegs[CPU_REG_X].mMode = NRDM_ZERO_PAGE;
-					mNDataSet.mRegs[CPU_REG_X].mValue = loopxa;
+					mNDataSet.Set(CPU_REG_X, NRDM_ZERO_PAGE, loopxa);
 				}
 			}
 			else if (mNumEntries == 2 && global)
@@ -39826,8 +39622,8 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 
 				if (lblock)
 				{
-					mNDataSet.mRegs[CPU_REG_C].Reset();
-					mNDataSet.mRegs[CPU_REG_Z].Reset();
+					mNDataSet.Reset(CPU_REG_C);
+					mNDataSet.Reset(CPU_REG_Z);
 					ResetModifiedDataSet(mNDataSet);
 					lblock->ResetModifiedDataSet(mNDataSet);
 				}
@@ -39838,8 +39634,8 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 
 					if (CollectSingleEntryGenericLoop(lblocks))
 					{
-						mNDataSet.mRegs[CPU_REG_C].Reset();
-						mNDataSet.mRegs[CPU_REG_Z].Reset();
+						mNDataSet.Reset(CPU_REG_C);
+						mNDataSet.Reset(CPU_REG_Z);
 						for (int i = 0; i < lblocks.Size(); i++)
 							lblocks[i]->ResetModifiedDataSet(mNDataSet);
 					}
@@ -39862,8 +39658,8 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 							k++;
 					if (k + 1 == mEntryBlocks.Size())
 					{
-						mNDataSet.mRegs[CPU_REG_C].Reset();
-						mNDataSet.mRegs[CPU_REG_Z].Reset();
+						mNDataSet.Reset(CPU_REG_C);
+						mNDataSet.Reset(CPU_REG_Z);
 						for (int i = 0; i < lblocks.Size(); i++)
 							lblocks[i]->ResetModifiedDataSet(mNDataSet);
 					}
@@ -39910,19 +39706,19 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 #if 1
 			if (mIns[i].mMode == ASMIM_INDIRECT_Y && HasAsmInstructionMode(mIns[i].mType, ASMIM_ABSOLUTE_Y) &&
 				!(mIns[i].mType == ASMIT_CMP && (mIns[i].mLive & LIVE_CPU_REG_Y)) &&
-				mNDataSet.mRegs[CPU_REG_Y].mMode == NRDM_IMMEDIATE &&
-				mNDataSet.mRegs[mIns[i].mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && (mNDataSet.mRegs[mIns[i].mAddress + 1].mFlags & NCIF_UPPER) &&
-				mNDataSet.mRegs[mIns[i].mAddress].mMode != NRDM_IMMEDIATE_ADDRESS)
+				mNDataSet[CPU_REG_Y].mMode == NRDM_IMMEDIATE &&
+				mNDataSet[mIns[i].mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && (mNDataSet[mIns[i].mAddress + 1].mFlags & NCIF_UPPER) &&
+				mNDataSet[mIns[i].mAddress].mMode != NRDM_IMMEDIATE_ADDRESS)
 			{
 				int	reg = mIns[i].mAddress;
 				mIns.Insert(i, NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, reg));
 				mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y;
-				mIns[i + 1].mLinkerObject = mNDataSet.mRegs[reg + 1].mLinkerObject;
-				mIns[i + 1].mAddress = (mNDataSet.mRegs[reg + 1].mValue & 0xff00) + mNDataSet.mRegs[CPU_REG_Y].mValue;
+				mIns[i + 1].mLinkerObject = mNDataSet[reg + 1].mLinkerObject;
+				mIns[i + 1].mAddress = (mNDataSet[reg + 1].mValue & 0xff00) + mNDataSet[CPU_REG_Y].mValue;
 				mIns[i + 1].mFlags &= ~NCIF_LOWER;
 				if (mIns[i + 1].mLive & LIVE_CPU_REG_Y)
 				{
-					mIns.Insert(i + 2, NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, mNDataSet.mRegs[CPU_REG_Y].mValue));
+					mIns.Insert(i + 2, NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_IMMEDIATE, mNDataSet[CPU_REG_Y].mValue));
 					mIns.Insert(i + 3, NativeCodeInstruction(mIns[i].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
 				}
 				changed = true;
@@ -39931,7 +39727,7 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 			// Check load and commutative with current accu value
 #if 1
 			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA &&
-				mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 1].mAddress)
+				mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet[CPU_REG_A].mValue == mIns[i + 1].mAddress)
 			{
 				mIns[i].mType = mIns[i + 1].mType;
 				mIns[i + 1].mType = ASMIT_NOP;	mIns[i + 1].mMode = ASMIM_IMPLIED;
@@ -39939,14 +39735,14 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 			}
 #endif
 			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && !mIns[i].RequiresYReg() &&
-				mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet[CPU_REG_A].mValue == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
 			{
 				mIns[i + 1] = mIns[i];
 				mIns[i].mType = ASMIT_TAY; mIns[i].mMode = ASMIM_IMPLIED;
 				changed = true;
 			}
 			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && !mIns[i].RequiresXReg() &&
-				mIns[i + 1].mType == ASMIT_LDX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
+				mIns[i + 1].mType == ASMIT_LDX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet[CPU_REG_A].mValue == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
 			{
 				mIns[i + 1] = mIns[i];
 				mIns[i].mType = ASMIT_TAX; mIns[i].mMode = ASMIM_IMPLIED;
@@ -39954,7 +39750,7 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 			}
 #if 1
 			if (i + 2 < mIns.Size() && mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_CLC && 
-				mIns[i + 2].IsCommutative() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet.mRegs[CPU_REG_A].mValue == mIns[i + 2].mAddress)
+				mIns[i + 2].IsCommutative() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && mNDataSet[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet[CPU_REG_A].mValue == mIns[i + 2].mAddress)
 			{
 				mIns[i + 2].CopyMode(mIns[i + 0]);
 				mIns[i].mType = ASMIT_NOP;	mIns[i].mMode = ASMIM_IMPLIED;
@@ -39990,12 +39786,12 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 				switch (fork->mBranch)
 				{
 				case ASMIT_BCS:
-					if (mNDataSet.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+					if (mNDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 					{
 						mBranch = ASMIT_JMP;
 						mTrueJump->mNumEntries--;
 						mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
-						if (!mNDataSet.mRegs[CPU_REG_C].mValue)
+						if (!mNDataSet[CPU_REG_C].mValue)
 							mTrueJump = fork->mFalseJump;
 						else
 							mTrueJump = fork->mTrueJump;
@@ -40016,10 +39812,8 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 							n--;
 						if (n > 0 && mIns[n - 1].mType == ASMIT_CLC && mIns[n].mType == ASMIT_ADC && mIns[n].mMode == ASMIM_IMMEDIATE && mIns[n].mAddress == 1)
 						{
-							mDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mDataSet.mRegs[CPU_REG_A].mValue = 0;
-							mDataSet.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-							mDataSet.mRegs[CPU_REG_Z].mValue = 0;
+							mDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+							mDataSet.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0);
 #if 1
 							if (mFalseJump->mIns.Size() == 0 && mFalseJump->mFalseJump)
 							{
@@ -40050,12 +39844,12 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 					}
 					break;
 				case ASMIT_BCC:
-					if (mNDataSet.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+					if (mNDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 					{
 						mBranch = ASMIT_JMP;
 						mTrueJump->mNumEntries--;
 						mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
-						if (mNDataSet.mRegs[CPU_REG_C].mValue)
+						if (mNDataSet[CPU_REG_C].mValue)
 							mTrueJump = fork->mFalseJump;
 						else
 							mTrueJump = fork->mTrueJump;
@@ -40076,10 +39870,9 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 							n--;
 						if (n > 0 && mIns[n - 1].mType == ASMIT_CLC && mIns[n].mType == ASMIT_ADC && mIns[n].mMode == ASMIM_IMMEDIATE && mIns[n].mAddress == 1)
 						{
-							mFDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_A].mValue = 0;
-							mFDataSet.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_Z].mValue = 0;
+							mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+							mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+
 							if (mTrueJump->mIns.Size() == 0 && mTrueJump->mFalseJump)
 							{
 								if (mTrueJump->mBranch == ASMIT_BEQ)
@@ -40105,12 +39898,12 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 					}
 					break;
 				case ASMIT_BNE:
-					if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+					if (mNDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 					{
 						mBranch = ASMIT_JMP;
 						mTrueJump->mNumEntries--;
 						mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
-						if (!mNDataSet.mRegs[CPU_REG_Z].mValue)
+						if (!mNDataSet[CPU_REG_Z].mValue)
 							mTrueJump = fork->mFalseJump;
 						else
 							mTrueJump = fork->mTrueJump;
@@ -40130,91 +39923,74 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 
 						if (lins.mType == ASMIT_LDY)
 						{
-							mFDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_Y].mValue = 0;
+							mFDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, 0);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
-								mFDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
-								mFDataSet.mRegs[lins.mAddress].mValue = 0;
-
+								mFDataSet.Set(lins.mAddress, NRDM_IMMEDIATE, 0);
 							}
 						}
 						else if (lins.mType == ASMIT_LDX)
 						{
-							mFDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_X].mValue = 0;
+							mFDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, 0);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
-								mFDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
-								mFDataSet.mRegs[lins.mAddress].mValue = 0;
-
+								mFDataSet.Set(lins.mAddress, NRDM_IMMEDIATE, 0);
 							}
 						}
 						else if (lins.mType == ASMIT_LDA)
 						{
-							mFDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_A].mValue = 0;
+							mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
-								mFDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
-								mFDataSet.mRegs[lins.mAddress].mValue = 0;
+								mFDataSet.Set(lins.mAddress, NRDM_IMMEDIATE, 0);
 
 							}
 						}
 						else if (lins.mType == ASMIT_CPY && lins.mMode == ASMIM_IMMEDIATE)
 						{
-							mFDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_Y].mValue = lins.mAddress;
+							mFDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, lins.mAddress);
 						}
 						else if (lins.mType == ASMIT_CPX && lins.mMode == ASMIM_IMMEDIATE)
 						{
-							mFDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_X].mValue = lins.mAddress;
+							mFDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, lins.mAddress);
 						}
 						else if (lins.mType == ASMIT_CMP && lins.mMode == ASMIM_IMMEDIATE)
 						{
-							mFDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_A].mValue = lins.mAddress;
+							mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, lins.mAddress);
 						}
 						else if (lins.mType == ASMIT_ORA || lins.mType == ASMIT_AND || lins.mType == ASMIT_EOR || lins.mType == ASMIT_ADC || lins.mType == ASMIT_SBC)
 						{
-							mFDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_A].mValue = 0;
+							mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
 						}
 						else if (lins.mType == ASMIT_TXA || lins.mType == ASMIT_TAX)
 						{
-							mFDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_A].mValue = 0;
-							mFDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_X].mValue = 0;
+							mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+							mFDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, 0);
 						}
 						else if (lins.mType == ASMIT_INX || lins.mType == ASMIT_DEX)
 						{
-							mFDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_X].mValue = 0;
+							mFDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, 0);
 						}
 						else if (lins.mType == ASMIT_INY || lins.mType == ASMIT_DEY)
 						{
-							mFDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[CPU_REG_Y].mValue = 0;
+							mFDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, 0);
 						}
 						else if ((lins.mType == ASMIT_INC || lins.mType == ASMIT_DEC) && lins.mMode == ASMIM_ZERO_PAGE)
 						{
-							mFDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
-							mFDataSet.mRegs[lins.mAddress].mValue = 0;
+							mFDataSet.Set(lins.mAddress, NRDM_IMMEDIATE, 0);
 						}
 					}
 					break;
 				case ASMIT_BEQ:
-					if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+					if (mNDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 					{
 						mBranch = ASMIT_JMP;
 						mTrueJump->mNumEntries--;
 						mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
-						if (mNDataSet.mRegs[CPU_REG_Z].mValue)
+						if (mNDataSet[CPU_REG_Z].mValue)
 							mTrueJump = fork->mFalseJump;
 						else
 							mTrueJump = fork->mTrueJump;
@@ -40234,90 +40010,73 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 
 						if (lins.mType == ASMIT_LDY)
 						{
-							mNDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_Y].mValue = 0;
+							mNDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, 0);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
-								mNDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
-								mNDataSet.mRegs[lins.mAddress].mValue = 0;
-
+								mNDataSet.Set(lins.mAddress, NRDM_IMMEDIATE, 0);
 							}
 						}
 						else if (lins.mType == ASMIT_LDX)
 						{
-							mNDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_X].mValue = 0;
+							mNDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, 0);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
-								mNDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
-								mNDataSet.mRegs[lins.mAddress].mValue = 0;
-
+								mNDataSet.Set(lins.mAddress, NRDM_IMMEDIATE, 0);
 							}
 						}
 						else if (lins.mType == ASMIT_LDA)
 						{
-							mNDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_A].mValue = 0;
+							mNDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
 
 							if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
-								mNDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
-								mNDataSet.mRegs[lins.mAddress].mValue = 0;
+								mNDataSet.Set(lins.mAddress, NRDM_IMMEDIATE, 0);
 							}
 						}
 						else if (lins.mType == ASMIT_CPY && lins.mMode == ASMIM_IMMEDIATE)
 						{
-							mNDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_Y].mValue = lins.mAddress;
+							mNDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, lins.mAddress);
 						}
 						else if (lins.mType == ASMIT_CPX && lins.mMode == ASMIM_IMMEDIATE)
 						{
-							mNDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_X].mValue = lins.mAddress;
+							mNDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, lins.mAddress);
 						}
 						else if (lins.mType == ASMIT_CMP && lins.mMode == ASMIM_IMMEDIATE)
 						{
-							mNDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_A].mValue = lins.mAddress;
+							mNDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, lins.mAddress);
 						}
 						else if (lins.mType == ASMIT_ORA || lins.mType == ASMIT_AND || lins.mType == ASMIT_EOR || lins.mType == ASMIT_ADC || lins.mType == ASMIT_SBC)
 						{
-							mNDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_A].mValue = 0;
+							mNDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
 						}
 						else if (lins.mType == ASMIT_TXA || lins.mType == ASMIT_TAX)
 						{
-							mNDataSet.mRegs[CPU_REG_A].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_A].mValue = 0;
-							mNDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_X].mValue = 0;
+							mNDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+							mNDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, 0);
 						}
 						else if (lins.mType == ASMIT_INX || lins.mType == ASMIT_DEX)
 						{
-							mNDataSet.mRegs[CPU_REG_X].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_X].mValue = 0;
+							mNDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, 0);
 						}
 						else if (lins.mType == ASMIT_INY || lins.mType == ASMIT_DEY)
 						{
-							mNDataSet.mRegs[CPU_REG_Y].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[CPU_REG_Y].mValue = 0;
+							mNDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, 0);
 						}
 						else if ((lins.mType == ASMIT_INC || lins.mType == ASMIT_DEC) && lins.mMode == ASMIM_ZERO_PAGE)
 						{
-							mNDataSet.mRegs[lins.mAddress].mMode = NRDM_IMMEDIATE;
-							mNDataSet.mRegs[lins.mAddress].mValue = 0;
+							mNDataSet.Set(lins.mAddress, NRDM_IMMEDIATE, 0);
 						}
 					}
 					break;
 				case ASMIT_BPL:
-					if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+					if (mNDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 					{
 						mBranch = ASMIT_JMP;
 						mTrueJump->mNumEntries--;
 						mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
-						if ((mNDataSet.mRegs[CPU_REG_Z].mValue & 0x80))
+						if ((mNDataSet[CPU_REG_Z].mValue & 0x80))
 							mTrueJump = fork->mFalseJump;
 						else
 							mTrueJump = fork->mTrueJump;
@@ -40333,12 +40092,12 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 					}
 					break;
 				case ASMIT_BMI:
-					if (mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+					if (mNDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 					{
 						mBranch = ASMIT_JMP;
 						mTrueJump->mEntryBlocks.Remove(mTrueJump->mEntryBlocks.IndexOf(this));
 						mTrueJump->mNumEntries--;
-						if (!(mNDataSet.mRegs[CPU_REG_Z].mValue & 0x80))
+						if (!(mNDataSet[CPU_REG_Z].mValue & 0x80))
 							mTrueJump = fork->mFalseJump;
 						else
 							mTrueJump = fork->mTrueJump;
@@ -40361,7 +40120,7 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 		{
 			if (mTrueJump->mIns[0].mType == ASMIT_LDY && mTrueJump->mIns[0].mMode == ASMIM_ZERO_PAGE)
 			{
-				if (mNDataSet.mRegs[CPU_REG_Y].SameData(mNDataSet.mRegs[mTrueJump->mIns[0].mAddress]))
+				if (mNDataSet[CPU_REG_Y].SameData(mNDataSet[mTrueJump->mIns[0].mAddress]))
 				{
 					mTrueJump = mTrueJump->mTrueJump;
 					changed = true;
@@ -40372,7 +40131,7 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 		{
 			if (mFalseJump->mIns[0].mType == ASMIT_LDY && mFalseJump->mIns[0].mMode == ASMIM_ZERO_PAGE)
 			{
-				if (mFDataSet.mRegs[CPU_REG_Y].SameData(mFDataSet.mRegs[mFalseJump->mIns[0].mAddress]))
+				if (mFDataSet[CPU_REG_Y].SameData(mFDataSet[mFalseJump->mIns[0].mAddress]))
 				{
 					mFalseJump = mFalseJump->mTrueJump;
 					changed = true;
@@ -40384,11 +40143,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 		{
 			if (mTrueJump->mIns[0].mType == ASMIT_CMP)
 			{
-				if (mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+				if (mNDataSet[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 				{
 					NativeCodeBasicBlock* target;
 
-					if (mNDataSet.mRegs[CPU_REG_A].mValue == mTrueJump->mIns[0].mAddress)
+					if (mNDataSet[CPU_REG_A].mValue == mTrueJump->mIns[0].mAddress)
 					{
 						if (mTrueJump->mBranch == ASMIT_BEQ)
 							target = mTrueJump->mTrueJump;
@@ -40417,11 +40176,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 			}
 			else if (mTrueJump->mIns[0].mType == ASMIT_ORA && mTrueJump->mIns[0].mAddress == 0)
 			{
-				if (mNDataSet.mRegs[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+				if (mNDataSet[CPU_REG_A].mMode == NRDM_IMMEDIATE)
 				{
 					NativeCodeBasicBlock* target;
 
-					if (mNDataSet.mRegs[CPU_REG_A].mValue == 0)
+					if (mNDataSet[CPU_REG_A].mValue == 0)
 					{
 						if (mTrueJump->mBranch == ASMIT_BEQ)
 							target = mTrueJump->mTrueJump;
@@ -46628,10 +46387,8 @@ bool NativeCodeBasicBlock::BlockSizeCopyReduction(NativeCodeProcedure* proc, int
 				si += 2 * i;
 				if (si == mIns.Size())
 				{
-					mNDataSet.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-					mNDataSet.mRegs[CPU_REG_C].mValue = 1;
-					mNDataSet.mRegs[CPU_REG_Z].mMode = NRDM_IMMEDIATE;
-					mNDataSet.mRegs[CPU_REG_Z].mValue = 0;
+					mNDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
+					mNDataSet.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0);
 				}
 				return true;
 			}
@@ -47505,8 +47262,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 						eblock->mEntryRequiredRegs += CPU_REG_C;
 						for (int j = 0; j < i; j++)
 							eblock->mIns[j].mLive |= LIVE_CPU_REG_C;
-						cblock->mNDataSet.mRegs[CPU_REG_C].mMode = NRDM_IMMEDIATE;
-						cblock->mNDataSet.mRegs[CPU_REG_C].mValue = 0;
+						cblock->mNDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
 					}
 				}
 			}
@@ -57436,6 +57192,37 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 	if (mFalseJump)
 		mFalseJump->CheckLive();
 
+	if (sz >= 9 && mFalseJump && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE || mBranch == ASMIT_BPL || mBranch == ASMIT_BMI) &&
+		mIns[sz - 9].mType == ASMIT_TAY &&
+		mIns[sz - 8].mType == ASMIT_CLC &&
+		mIns[sz - 7].mType == ASMIT_LDA && mIns[sz - 7].mMode == ASMIM_ZERO_PAGE &&
+		mIns[sz - 6].mType == ASMIT_ADC && mIns[sz - 6].mMode == ASMIM_IMMEDIATE &&
+		mIns[sz - 5].mType == ASMIT_STA && mIns[sz - 5].mMode == ASMIM_ZERO_PAGE && mIns[sz - 5].mAddress == mIns[sz - 7].mAddress &&
+		mIns[sz - 4].mType == ASMIT_LDA && mIns[sz - 4].mMode == ASMIM_ZERO_PAGE &&
+		mIns[sz - 3].mType == ASMIT_ADC && mIns[sz - 3].mMode == ASMIM_IMMEDIATE &&
+		mIns[sz - 2].mType == ASMIT_STA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && mIns[sz - 2].mAddress == mIns[sz - 4].mAddress &&
+		mIns[sz - 1].mType == ASMIT_TYA && !(mIns[sz - 1].mLive & LIVE_CPU_REG_C))
+	{
+		NativeCodeBasicBlock* ublock = nullptr;
+		if (mTrueJump->mEntryBlocks.Size() == 1 && !mFalseJump->mEntryRequiredRegs[mIns[sz - 5].mAddress] && !mFalseJump->mEntryRequiredRegs[mIns[sz - 2].mAddress])
+			ublock = mTrueJump;
+		else if (mFalseJump->mEntryBlocks.Size() == 1 && !mTrueJump->mEntryRequiredRegs[mIns[sz - 5].mAddress] && !mTrueJump->mEntryRequiredRegs[mIns[sz - 2].mAddress])
+			ublock = mFalseJump;
+
+		if (ublock)
+		{
+			mIns[sz - 9].mLive |= LIVE_CPU_REG_Z | LIVE_CPU_REG_A;
+			mExitProvidedRegs += CPU_REG_Y;
+			mExitProvidedRegs += CPU_REG_A;
+			ublock->mEntryRequiredRegs += CPU_REG_Y;
+			for (int i = 0; i < 8; i++)
+				ublock->mIns.Insert(i, mIns[sz - 8 + i]);
+			mIns.Remove(sz - 8, 8);
+			changed = true;
+		}
+	}
+
+
 #if 1
 	if (mTrueJump && mFalseJump && !mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump &&
 		mTrueJump->mIns.Size() == 1 && mFalseJump->mIns.Size() == 1 &&
@@ -57902,7 +57689,7 @@ void NativeCodeBasicBlock::BuildPlacement(ExpandingArray<NativeCodeBasicBlock*>&
 				mFalseJump->BuildPlacement(placement);
 			else if (!mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump)
 			{
-				if (mTrueJump->mNDataSet.mRegs[CPU_REG_C].mMode == NRDM_IMMEDIATE || mTrueJump->mNDataSet.mRegs[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+				if (mTrueJump->mNDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE || mTrueJump->mNDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
 				{
 					mTrueJump->mPlaced = true;
 					mTrueJump->mPlace = placement.Size();
@@ -58630,7 +58417,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "view_scan_0");
+	CheckFunc = !strcmp(mIdent->mString, "puts");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

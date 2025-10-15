@@ -27,12 +27,14 @@ enum NativeRegisterDataMode
 struct NativeRegisterData
 {
 	NativeRegisterDataMode	mMode;
-	int						mValue, mMask;
+	int						mValue, mMask, mUnique;
 	uint32					mFlags;
 	LinkerObject		*	mLinkerObject;
 
 	NativeRegisterData(void);
 
+	void Set(NativeRegisterDataMode mode, int value = 0, LinkerObject * lo = nullptr, int flags = 0);
+	void SetMask(int mask, int value);
 	void Reset(void);
 	void ResetMask(void);
 	void ResetAliasing(void);
@@ -43,7 +45,15 @@ struct NativeRegisterData
 
 struct NativeRegisterDataSet
 {
-	NativeRegisterData		mRegs[261];
+	const NativeRegisterData& operator[](int reg) const;
+
+	void Set(int reg, NativeRegisterDataMode mode, int value = 0, LinkerObject* lo = nullptr, int flags = 0);
+	void Set(int reg, const NativeRegisterData& data);
+	void SetMask(int reg, int mask, int value);
+	void SetMask(int reg, const NativeRegisterData& data);
+	void Reset(int reg);
+	void ResetMask(int reg);
+	void ResetAliasing(int reg);
 
 	void Reset(void);
 	void ResetMask(void);
@@ -62,6 +72,9 @@ struct NativeRegisterDataSet
 	void Intersect(const NativeRegisterDataSet& set);
 	void IntersectMask(const NativeRegisterDataSet& set);
 	void ResetAliasing(void);
+
+protected:
+	NativeRegisterData		mRegs[261];
 };
 
 struct ValueNumberingData
