@@ -15595,6 +15595,26 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::ForwardAccuBranch(bool eq, bool ne, 
 }
 
 
+NativeCodeBasicBlock* NativeCodeBasicBlock::PrefixLoopBlock(NativeCodeBasicBlock* prefix)
+{
+	NativeCodeBasicBlock* block = mProc->AllocateBlock();
+	
+	block->mTrueJump = this;
+	block->mBranch = ASMIT_JMP;
+	if (this == prefix->mTrueJump)
+		prefix->mTrueJump = block;
+	else
+		prefix->mFalseJump = block;
+	block->mEntryBlocks.Push(prefix);
+	block->mNumEntries = 1;
+	mEntryBlocks.RemoveAll(prefix);
+	mEntryBlocks.Push(block);
+
+	block->mEntryRequiredRegs = block->mExitRequiredRegs = mEntryRequiredRegs;
+
+	return block;
+}
+
 NativeCodeBasicBlock* NativeCodeBasicBlock::SplitBlock(int at)
 {
 	NativeCodeBasicBlock* block = mProc->AllocateBlock();
@@ -45041,7 +45061,7 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 		}
 	}
 #if 1
-	else if (CheckFunc && head->mEntryBlocks.Size() == 2)
+	else if (head->mEntryBlocks.Size() == 2)
 	{
 		bool	changed = false;
 
@@ -45057,7 +45077,7 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 		else
 			prefixBlock = head->mEntryBlocks[0];
 		
-		if (!prefixBlock->mFalseJump && !prefixBlock->mExitRequiredRegs[CPU_REG_A])
+		if (!prefixBlock->mExitRequiredRegs[CPU_REG_A])
 		{
 			for (int i = 0; i + 1 < head->mIns.Size(); i++)
 			{
@@ -45067,6 +45087,9 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 					if (!head->ChangesZeroPage(mIns[i + 0].mAddress, 0, i) && !head->ReferencesZeroPage(mIns[i + 1].mAddress, 0, i) && 
 						tail->IsSameZPValue(mIns[i + 0].mAddress, mIns[i + 1].mAddress))
 					{
+						if (prefixBlock->mFalseJump)
+							prefixBlock = PrefixLoopBlock(prefixBlock);
+
 						prefixBlock->mIns.Push(head->mIns[i + 0]);
 						prefixBlock->mIns.Push(head->mIns[i + 1]);
 						prefixBlock->mExitRequiredRegs += head->mIns[i + 1].mAddress;
@@ -49848,7 +49871,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 	}
 	if (
 		mIns[i + 0].mType == ASMIT_TXA &&
-		mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
+		mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
 	{
 		mIns[i + 1].mType = ASMIT_CPX;
 		mIns[i + 0].mLive |= LIVE_CPU_REG_X;
@@ -49856,7 +49879,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 	}
 	if (
 		mIns[i + 0].mType == ASMIT_TYA &&
-		mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
+		mIns[i + 1].mType == ASMIT_CMP && (mIns[i + 1].mMode == ASMIM_IMMEDIATE || mIns[i + 1].mMode == ASMIM_IMMEDIATE_ADDRESS || mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE))
 	{
 		mIns[i + 1].mType = ASMIT_CPY;
 		mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
@@ -58496,7 +58519,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "itoa");
+	CheckFunc = !strcmp(mIdent->mString, "nformi");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

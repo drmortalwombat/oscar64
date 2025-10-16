@@ -487,6 +487,7 @@ public:
 	bool MergeBasicBlocks(void);
 	bool RemoveJumpToBranch(void);
 	NativeCodeBasicBlock* SplitBlock(int at);
+	NativeCodeBasicBlock* PrefixLoopBlock(NativeCodeBasicBlock * prefix);
 
 	bool RemoveUnusedBitOps(void);
 
