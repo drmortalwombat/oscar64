@@ -3398,7 +3398,7 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 #if _DEBUG
 	for (int i = 0; i < NUM_REGS; i++)
 	{
-		assert(!(data.mRegs[i].mMask & 0xff00));
+		assert(!(data[i].mMask & 0xff00));
 	}
 #endif
 
@@ -4067,7 +4067,8 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				}
 				changed = true;
 			}
-			else if (data[mAddress].mMode == NRDM_ZERO_PAGE && (mAddress < BC_REG_FPARAMS || mAddress >= BC_REG_FPARAMS_END))
+//			else if (data[mAddress].mMode == NRDM_ZERO_PAGE && ((mAddress < BC_REG_FPARAMS || mAddress >= BC_REG_FPARAMS_END)))// && (final || mAddress != BC_REG_ACCU)))
+			else if (data[mAddress].mMode == NRDM_ZERO_PAGE && ((mAddress < BC_REG_FPARAMS || mAddress >= BC_REG_FPARAMS_END) && (final || mAddress != BC_REG_ACCU)))
 			{
 				data.Set(CPU_REG_A, data[mAddress]);
 				mAddress = data[CPU_REG_A].mValue;
@@ -33395,6 +33396,36 @@ int NativeCodeBasicBlock::FindFreeAccu(int at) const
 	return -1;
 }
 
+bool NativeCodeBasicBlock::IsSameZPValue(int reg1, int reg2, int depth) const
+{
+	if (depth < 10)
+	{
+		int i = mIns.Size() - 1;
+		while (i >= 0 && !mIns[i].ChangesZeroPage(reg1) && !mIns[i].ChangesZeroPage(reg2))
+			i--;
+
+		if (i < 0)
+		{
+			for (int j = 0; j < mEntryBlocks.Size(); j++)
+				if (!mEntryBlocks[j]->IsSameZPValue(reg1, reg2, depth + 1))
+					return false;
+			return true;
+		}
+		else if (i > 0)
+		{
+			i--;
+			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				(mIns[i + 0].mAddress == reg1 && mIns[i + 1].mAddress == reg2 || mIns[i + 0].mAddress == reg2 && mIns[i + 1].mAddress == reg1))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;		
+}
+
 int NativeCodeBasicBlock::RetrieveZPValue(int reg, int at, int depth) const
 {
 	while (at >= 0 && !mIns[at].ChangesZeroPage(reg))
@@ -45008,9 +45039,57 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 				return true;
 			}
 		}
-
 	}
+#if 1
+	else if (CheckFunc && head->mEntryBlocks.Size() == 2)
+	{
+		bool	changed = false;
 
+		NativeCodeBasicBlock* exitBlock, * prefixBlock;
+
+		if (tail->mTrueJump == this)
+			exitBlock = tail->mFalseJump;
+		else
+			exitBlock = tail->mTrueJump;
+
+		if (head->mEntryBlocks[0] == this)
+			prefixBlock = head->mEntryBlocks[1];
+		else
+			prefixBlock = head->mEntryBlocks[0];
+		
+		if (!prefixBlock->mFalseJump && !prefixBlock->mExitRequiredRegs[CPU_REG_A])
+		{
+			for (int i = 0; i + 1 < head->mIns.Size(); i++)
+			{
+				if (head->mIns[i + 0].mType == ASMIT_LDA && head->mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					head->mIns[i + 1].mType == ASMIT_STA && head->mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(head->mIns[1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+				{
+					if (!head->ChangesZeroPage(mIns[i + 0].mAddress, 0, i) && !head->ReferencesZeroPage(mIns[i + 1].mAddress, 0, i) && 
+						tail->IsSameZPValue(mIns[i + 0].mAddress, mIns[i + 1].mAddress))
+					{
+						prefixBlock->mIns.Push(head->mIns[i + 0]);
+						prefixBlock->mIns.Push(head->mIns[i + 1]);
+						prefixBlock->mExitRequiredRegs += head->mIns[i + 1].mAddress;
+						for (int i = 0; i < lblocks.Size(); i++)
+						{
+							lblocks[i]->mExitRequiredRegs += head->mIns[i + 1].mAddress;
+							lblocks[i]->mEntryProvidedRegs += head->mIns[i + 1].mAddress;
+							lblocks[i]->mExitRequiredRegs += head->mIns[i + 0].mAddress;
+							lblocks[i]->mEntryProvidedRegs += head->mIns[i + 0].mAddress;
+						}
+							
+						head->mIns[i + 0].mType = ASMIT_NOP; head->mIns[i + 0].mMode = ASMIM_IMPLIED;
+						head->mIns[i + 1].mType = ASMIT_NOP; head->mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+						changed = true;
+					}
+				}
+			}
+		}
+
+		return changed;
+	}
+#endif
 	return false;
 }
 
@@ -47990,7 +48069,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 	for (int i = 2; i + 1 < mIns.Size(); i++)
 	{
 		if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) &&
-			mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i].mLive & LIVE_CPU_REG_Z))
+			mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
 
 		{
 			if (MoveImmOpBeforeStore(i))
@@ -48007,7 +48086,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 	for (int i = 2; i + 1 < mIns.Size(); i++)
 	{
 		if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM) &&
-			mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i].mLive & LIVE_MEM))
+			mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 1].mLive & LIVE_MEM))
 
 		{
 			if (MoveLoadOrZPUp(i))
@@ -58417,7 +58496,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "puts");
+	CheckFunc = !strcmp(mIdent->mString, "itoa");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

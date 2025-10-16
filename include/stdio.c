@@ -72,13 +72,14 @@ struct sinfo
 {
 	char		fill;
 	char		width, precision, cha;
-	unsigned	base;
+	char		base;
 	bool		sign, left, prefix;
 };
 
-int nformi(const sinfo * si, char * str, int v, bool s)
+char nformi(const sinfo * si, char * str, int v, bool s)
 {
 	char	buffer[16];
+	char	base = si->base;
 
 	unsigned int u = v;
 	bool	neg = false;
@@ -92,10 +93,10 @@ int nformi(const sinfo * si, char * str, int v, bool s)
 	char	i = 16;
 	while (u > 0)
 	{
-		int	c = u % si->base;
+		char	c = u % base;
 		c += c >= 10 ? si->cha - 10 : '0';
 		buffer[--i] = c;
-		u /= si->base;
+		u /= base;
 	}
 
 	char	digits = si->precision != 255 ? 16 - si->precision : 15;
@@ -103,7 +104,7 @@ int nformi(const sinfo * si, char * str, int v, bool s)
 	while (i > digits)
 		buffer[--i] = '0';
 
-	if (si->prefix && si->base == 16)
+	if (si->prefix && base == 16)
 	{
 		buffer[--i] = si->cha + ('x' - 'a');
 		buffer[--i] = '0';
@@ -133,7 +134,7 @@ int nformi(const sinfo * si, char * str, int v, bool s)
 	return j;
 }
 
-int nforml(const sinfo * si, char * str, long v, bool s)
+char nforml(const sinfo * si, char * str, long v, bool s)
 {
 	char	buffer[16];
 
@@ -195,7 +196,7 @@ static float fround5[] = {
 	0.5e-0, 0.5e-1, 0.5e-2, 0.5e-3, 0.5e-4, 0.5e-5, 0.5e-6
 };
 
-int nformf(const sinfo * si, char * str, float f, char type)
+char nformf(const sinfo * si, char * str, float f, char type)
 {
 	char 	* 	sp = str;
 

@@ -622,6 +622,7 @@ public:
 	int RetrieveYValue(int at, int depth = 0) const;
 	int RetrieveZPValue(int reg, int at, int depth = 0) const;
 	int FindFreeAccu(int at) const;
+	bool IsSameZPValue(int reg1, int reg2, int depth = 0) const;
 
 	bool ReverseReplaceTAX(int at);
 	
