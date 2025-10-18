@@ -26492,7 +26492,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "bar");
+	CheckFunc = !strcmp(mIdent->mString, "display_bar");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

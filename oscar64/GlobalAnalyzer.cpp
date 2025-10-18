@@ -298,6 +298,46 @@ void GlobalAnalyzer::AutoInline(void)
 				lexp->mRight = dec->mValue;
 				dec->mValue = lexp;
 			}
+			else if (pdec->mFlags & DTF_FPARAM_RANGE_LIMITED)
+			{
+//				printf("LimitRange %s::%s to %lld..%lld\n", dec->mQualIdent->mString, pdec->mIdent->mString, pdec->mMinValue, pdec->mMaxValue);
+
+				Expression* pexp = new Expression(pdec->mLocation, EX_VARIABLE);
+				pexp->mDecType = pdec->mBase;
+				pexp->mDecValue = pdec;
+
+				Expression* assumeExp = new Expression(pdec->mLocation, EX_ASSUME);
+				Expression* andExp = new Expression(pdec->mLocation, EX_LOGICAL_AND);
+				assumeExp->mLeft = andExp;
+				andExp->mDecType = TheBoolTypeDeclaration;
+				
+				Expression* minExp = new Expression(pdec->mLocation, EX_RELATIONAL);
+				andExp->mLeft = minExp;
+				minExp->mDecType = TheBoolTypeDeclaration;
+				minExp->mToken = TK_GREATER_EQUAL;
+				minExp->mLeft = pexp;
+				minExp->mRight = new Expression(pdec->mLocation, EX_CONSTANT);
+				minExp->mRight->mDecType = pdec->mBase;
+				minExp->mRight->mDecValue = new Declaration(pdec->mLocation, DT_CONST_INTEGER);
+				minExp->mRight->mDecValue->mBase = pdec->mBase;
+				minExp->mRight->mDecValue->mInteger = pdec->mMinValue;
+
+				Expression* maxExp = new Expression(pdec->mLocation, EX_RELATIONAL);
+				andExp->mRight = maxExp;
+				maxExp->mDecType = TheBoolTypeDeclaration;
+				maxExp->mToken = TK_LESS_EQUAL;
+				maxExp->mLeft = pexp;
+				maxExp->mRight = new Expression(pdec->mLocation, EX_CONSTANT);
+				maxExp->mRight->mDecType = pdec->mBase;
+				maxExp->mRight->mDecValue = new Declaration(pdec->mLocation, DT_CONST_INTEGER);
+				maxExp->mRight->mDecValue->mBase = pdec->mBase;
+				maxExp->mRight->mDecValue->mInteger = pdec->mMaxValue;
+
+				Expression* lexp = new Expression(dec->mLocation, EX_SEQUENCE);
+				lexp->mLeft = assumeExp;
+				lexp->mRight = dec->mValue;
+				dec->mValue = lexp;
+			}
 
 			pdec = pdec->mNext;
 		}

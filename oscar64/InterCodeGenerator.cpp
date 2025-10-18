@@ -6398,6 +6398,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	{
 		if (mCompilerOptions & COPT_VERBOSE2)
 			printf("Generate intermediate code <%s>\n", proc->mIdent->mString);
+
 #if 0
 		Declaration* pdec = dec->mBase->mParams;
 		while (pdec)

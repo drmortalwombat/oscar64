@@ -30,10 +30,11 @@ struct NativeRegisterData
 	int						mValue, mMask, mUnique;
 	uint32					mFlags;
 	LinkerObject		*	mLinkerObject;
+	uint8					mMinVal, mMaxVal;
 
 	NativeRegisterData(void);
 
-	void Set(NativeRegisterDataMode mode, int value = 0, LinkerObject * lo = nullptr, int flags = 0);
+	void Set(NativeRegisterDataMode mode, int value = 0, LinkerObject * lo = nullptr, int flags = 0, int minv = 0, int maxv = 255);
 	void SetMask(int mask, int value);
 	void Reset(void);
 	void ResetMask(void);
@@ -47,7 +48,7 @@ struct NativeRegisterDataSet
 {
 	const NativeRegisterData& operator[](int reg) const;
 
-	void Set(int reg, NativeRegisterDataMode mode, int value = 0, LinkerObject* lo = nullptr, int flags = 0);
+	void Set(int reg, NativeRegisterDataMode mode, int value = 0, LinkerObject* lo = nullptr, int flags = 0, int minv = 0, int maxv = 255);
 	void Set(int reg, const NativeRegisterData& data);
 	void SetMask(int reg, int mask, int value);
 	void SetMask(int reg, const NativeRegisterData& data);
@@ -90,6 +91,8 @@ struct ValueNumberingData
 struct ValueNumberingDataSet
 {
 	ValueNumberingData	mRegs[261];
+
+	int Find(const ValueNumberingData & data) const;
 
 	void Reset(void);
 	void ResetWorkRegs(void);
@@ -729,6 +732,7 @@ public:
 
 	bool Check16BitSum(const NativeCodeBasicBlock* block, int origin, int at, int reg);
 	bool EliminateUpper16BitSum(NativeCodeProcedure* nproc);
+	bool Simplify16BitSum8BitRange(void);
 
 	struct CodeRange
 	{

@@ -22,6 +22,7 @@ static const uint64 OPTF_VAR_NO_FORWARD = (1UL << 13);
 static const uint64 OPTF_SINGLE_CALL = (1ULL << 14);
 static const uint64 OPTF_MULTI_CALL = (1ULL << 15);
 static const uint64 OPTF_CONST_FUNCTION = (1ULL << 16);
+static const uint64 OPTF_VAR_RANGE_LIMITED = (1ULL << 17);
 
 GlobalOptimizer::GlobalOptimizer(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker)
@@ -840,6 +841,9 @@ bool GlobalOptimizer::Optimize(void)
 							}
 						}
 
+						if (pdec->mOptFlags & OPTF_VAR_RANGE_LIMITED)
+							pdec->mFlags |= DTF_FPARAM_RANGE_LIMITED;
+
 						pdec->mOptFlags = 0;
 						pdec = pdec->mNext;
 					}
@@ -1276,6 +1280,12 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 								{
 									pdec->mOptFlags |= OPTF_VAR_NOCONST;
 									pdec->mOptFlags &= ~OPTF_VAR_CONST;
+									if (pdec->mBase->IsIntegerType())
+									{
+										pdec->mOptFlags |= OPTF_VAR_RANGE_LIMITED;
+										pdec->mMinValue = int64min(pex->mDecValue->mInteger, pdec->mValue->mDecValue->mInteger);
+										pdec->mMaxValue = int64max(pex->mDecValue->mInteger, pdec->mValue->mDecValue->mInteger);
+									}
 								}
 							}
 							else
@@ -1305,6 +1315,16 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 							pdec->mOptFlags |= OPTF_VAR_NOCONST;
 							pdec->mOptFlags &= ~OPTF_VAR_CONST;
 						}
+					}
+					else if (!(pdec->mFlags & DTF_FPARAM_UNUSED) && (pdec->mOptFlags & OPTF_VAR_RANGE_LIMITED))
+					{
+						if (pex->mType == EX_CONSTANT && pdec->mBase->IsIntegerType() && pdec->mBase->CanAssign(pex->mDecType))
+						{
+							pdec->mMinValue = int64min(pex->mDecValue->mInteger, pdec->mMinValue);
+							pdec->mMaxValue = int64max(pex->mDecValue->mInteger, pdec->mMaxValue);
+						}
+						else
+							pdec->mOptFlags &= ~OPTF_VAR_RANGE_LIMITED;
 					}
 
 					if (pdec->mBase->mType == DT_TYPE_STRUCT && pdec->mBase->mCopyConstructor)

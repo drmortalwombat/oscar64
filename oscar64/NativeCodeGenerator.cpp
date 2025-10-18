@@ -60,18 +60,20 @@ static unsigned BinMask(unsigned n)
 }
 
 NativeRegisterData::NativeRegisterData(void)
-	: mMode(NRDM_UNKNOWN), mValue(GlobalValueNumber++), mMask(0)
+	: mMode(NRDM_UNKNOWN), mValue(GlobalValueNumber++), mMask(0), mMinVal(0), mMaxVal(255)
 {
 	mUnique = mValue;
 }
 
-void NativeRegisterData::Set(NativeRegisterDataMode mode, int value, LinkerObject* lo, int flags)
+void NativeRegisterData::Set(NativeRegisterDataMode mode, int value, LinkerObject* lo, int flags, int minv, int maxv)
 {
 	mMode = mode;
 	mValue = value;
 	mLinkerObject = lo;
 	mFlags = flags;
 	mUnique = GlobalValueNumber++;
+	mMinVal = minv;
+	mMaxVal = maxv;
 }
 
 void NativeRegisterData::Reset(void)
@@ -79,6 +81,8 @@ void NativeRegisterData::Reset(void)
 	mFlags = 0;
 	mMode = NRDM_UNKNOWN;
 	mValue = mUnique = GlobalValueNumber++;
+	mMinVal = 0;
+	mMaxVal = 255;
 }
 
 void NativeRegisterData::ResetMask(void)
@@ -139,9 +143,9 @@ const NativeRegisterData& NativeRegisterDataSet::operator[](int reg) const
 	return mRegs[reg];
 }
 
-void NativeRegisterDataSet::Set(int reg, NativeRegisterDataMode mode, int value, LinkerObject* lo, int flags)
+void NativeRegisterDataSet::Set(int reg, NativeRegisterDataMode mode, int value, LinkerObject* lo, int flags, int minv, int maxv)
 {
-	mRegs[reg].Set(mode, value, lo, flags);
+	mRegs[reg].Set(mode, value, lo, flags, minv, maxv);
 }
 
 void NativeRegisterDataSet::Set(int reg, const NativeRegisterData& data)
@@ -545,6 +549,16 @@ void ValueNumberingData::Reset(void)
 bool ValueNumberingData::SameBase(const  ValueNumberingData& d) const
 {
 	return mIndex == d.mIndex;
+}
+
+int ValueNumberingDataSet::Find(const ValueNumberingData& data) const
+{
+	for (int i = 0; i < 256; i++)
+	{
+		if (mRegs[i].mIndex == data.mIndex && mRegs[i].mOffset == data.mOffset)
+			return i;
+	}
+	return -1;
 }
 
 void ValueNumberingDataSet::Reset(void)
@@ -4127,7 +4141,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 				}
 				else
 				{
-					data.Set(CPU_REG_A, NRDM_ZERO_PAGE, mAddress, nullptr, mFlags);
+					data.Set(CPU_REG_A, NRDM_ZERO_PAGE, mAddress, nullptr, mFlags, mMinVal, mMaxVal);
 				}
 			}
 			break;
@@ -4266,6 +4280,8 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			}
 			else if (data[mAddress].mMode == NRDM_ZERO_PAGE)
 			{
+				mMinVal = data[mAddress].mMinVal;
+				mMaxVal = data[mAddress].mMaxVal;
 				mAddress = data[mAddress].mValue;
 				changed = true;
 			}
@@ -4319,7 +4335,7 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 					else
 #endif	
 					{
-						data.Set(mAddress, NRDM_ZERO_PAGE, data[CPU_REG_A].mValue, nullptr,  data[CPU_REG_A].mFlags);
+						data.Set(mAddress, data[CPU_REG_A]);
 					}
 
 				}
@@ -35883,6 +35899,44 @@ bool NativeCodeBasicBlock::Check16BitSum(const NativeCodeBasicBlock* block, int 
 	return true;
 }
 
+bool NativeCodeBasicBlock::Simplify16BitSum8BitRange(void)
+{
+	bool	changed = false;
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i + 5 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_CLC &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 4].mType == ASMIT_LDA && 
+				mIns[i + 5].mType == ASMIT_ADC &&
+				mIns[i + 1].mMaxVal + mIns[i + 2].mAddress < 256)
+			{
+				if (mIns[i + 5].mMode == ASMIM_IMMEDIATE && mIns[i + 5].mAddress == 0)
+				{
+					mIns[i + 5].mType = ASMIT_NOP; mIns[i + 5].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+				else if (mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0)
+				{					
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					mIns[i + 5].mType = ASMIT_LDA;
+					changed = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->Simplify16BitSum8BitRange()) changed = true;
+		if (mFalseJump && mFalseJump->Simplify16BitSum8BitRange()) changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::EliminateUpper16BitSum(NativeCodeProcedure* nproc)
 {
 	bool	changed = false;
@@ -36555,7 +36609,11 @@ bool NativeCodeBasicBlock::Propagate16BitSum(const ExpandingArray<NativeRegister
 								info.mAddL->mAddress = info.mAddress & 0xff;
 								info.mAddH->mAddress = info.mAddress >> 8;
 								info.mSrcL->mAddress = mRSumInfos[j].mSrcL->mAddress;
+								info.mSrcL->mMinVal = mRSumInfos[j].mSrcL->mMinVal;
+								info.mSrcL->mMaxVal = mRSumInfos[j].mSrcL->mMaxVal;
 								info.mSrcH->mAddress = mRSumInfos[j].mSrcH->mAddress;
+								info.mSrcH->mMinVal = mRSumInfos[j].mSrcH->mMinVal;
+								info.mSrcH->mMaxVal = mRSumInfos[j].mSrcH->mMaxVal;
 								info.mSrcH->mMode = mRSumInfos[j].mSrcH->mMode;
 								changed = true;
 							}
@@ -38644,9 +38702,35 @@ bool NativeCodeBasicBlock::OffsetValueForwarding(const ValueNumberingDataSet& da
 				mNNumDataSet.mRegs[reg] = mNNumDataSet.mRegs[CPU_REG_A];
 			}
 			else if (ins.mType == ASMIT_ADC && ins.mMode == ASMIM_IMMEDIATE && carry != -1)
+			{
 				mNNumDataSet.mRegs[CPU_REG_A].mOffset += ins.mAddress + carry;
+				if (!(ins.mLive & LIVE_CPU_REG_C))
+				{
+					int k = mNNumDataSet.Find(mNNumDataSet.mRegs[CPU_REG_A]);
+					if (k >= 0)
+					{
+						ins.mType = ASMIT_LDA;
+						ins.mMode = ASMIM_ZERO_PAGE;
+						ins.mAddress = k;
+						changed = true;
+					}
+				}
+			}
 			else if (ins.mType == ASMIT_SBC && ins.mMode == ASMIM_IMMEDIATE && carry != -1)
+			{
 				mNNumDataSet.mRegs[CPU_REG_A].mOffset -= ins.mAddress + 1 - carry;
+				if (!(ins.mLive & LIVE_CPU_REG_C))
+				{
+					int k = mNNumDataSet.Find(mNNumDataSet.mRegs[CPU_REG_A]);
+					if (k >= 0)
+					{
+						ins.mType = ASMIT_LDA;
+						ins.mMode = ASMIM_ZERO_PAGE;
+						ins.mAddress = k;
+						changed = true;
+					}
+				}
+			}
 			else if (ins.ChangesAccu())
 				mNNumDataSet.mRegs[CPU_REG_A].Reset();
 			else if (ins.mMode == ASMIM_ZERO_PAGE && ins.ChangesAddress())
@@ -47463,22 +47547,34 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 			{
 				if (mIns[i].mMode == ASMIM_IMMEDIATE)
 				{
-					int	amax = ((accuVal & accuMask) | (~accuMask & 255)) + mIns[i].mAddress;
-					if (!carryClear)
-						amax++;
-					if (amax < 256)
+					if (carryClear && mIns[i].mAddress == 0 && !(mIns[i].mLive & LIVE_CPU_REG_Z))
 					{
-						carryClear = true;
-						carrySet = false;
-						accuMask = ~BinMask(amax) & 255;
-						accuVal = 0;
+						skip = true;
+					}
+					else if (carryClear && accuMask == 0xff && accuVal == 0x00 && j > 0 && mIns[j - 1].mType == ASMIT_LDA && mIns[j - 1].mMode == ASMIM_IMMEDIATE)
+					{
+						mIns[j - 1].mAddress = mIns[i].mAddress;
+						skip = true;
 					}
 					else
 					{
-						accuMask = 0;
-						accuFlags = true;
-						carryClear = false;
-						carrySet = false;
+						int	amax = ((accuVal & accuMask) | (~accuMask & 255)) + mIns[i].mAddress;
+						if (!carryClear)
+							amax++;
+						if (amax < 256)
+						{
+							carryClear = true;
+							carrySet = false;
+							accuMask = ~BinMask(amax) & 255;
+							accuVal = 0;
+						}
+						else
+						{
+							accuMask = 0;
+							accuFlags = true;
+							carryClear = false;
+							carrySet = false;
+						}
 					}
 				}
 				else if (mIns[i].mMaxVal < 255)
@@ -50185,6 +50281,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 	{
 		int v = mIns[i + 0].mAddress;
 		mIns[i + 0].CopyMode(mIns[i + 1]);
+		mIns[i + 0].mMinVal = mIns[i + 1].mMinVal;
+		mIns[i + 0].mMaxVal = mIns[i + 1].mMaxVal;
 		mIns[i + 1].mMode = ASMIM_IMMEDIATE; mIns[i + 1].mAddress = v;
 		return true;
 	}
@@ -52801,11 +52899,16 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 	if (
 		mIns[i + 0].mType == ASMIT_TYA &&
 		mIns[i + 1].mType == ASMIT_CLC &&
-		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
+		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress >= 0xfe &&
 		mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
 		!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_C)))
 	{
-		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		if (mIns[i + 2].mAddress == 0xfe)
+			mIns[i + 0].mType = ASMIT_DEY;
+		else
+			mIns[i + 0].mType = ASMIT_NOP;
+		mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+
 		mIns[i + 1].mType = ASMIT_DEY; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_Y | LIVE_CPU_REG_Z;
 		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 		mIns[i + 3].mType = ASMIT_STY;
@@ -52814,11 +52917,16 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 	if (
 		mIns[i + 0].mType == ASMIT_TXA &&
 		mIns[i + 1].mType == ASMIT_CLC &&
-		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0xff &&
+		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress >= 0xfe &&
 		mIns[i + 3].mType == ASMIT_STA && (mIns[i + 3].mMode == ASMIM_ZERO_PAGE || mIns[i + 3].mMode == ASMIM_ABSOLUTE) &&
 		!(mIns[i + 3].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_C)))
 	{
-		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+		if (mIns[i + 2].mAddress == 0xfe)
+			mIns[i + 0].mType = ASMIT_DEX;
+		else
+			mIns[i + 0].mType = ASMIT_NOP;
+		mIns[i + 0].mLive |= LIVE_CPU_REG_X;
+
 		mIns[i + 1].mType = ASMIT_DEX; mIns[i + 1].mMode = ASMIM_IMPLIED; mIns[i + 1].mLive |= LIVE_CPU_REG_X | LIVE_CPU_REG_Z;
 		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
 		mIns[i + 3].mType = ASMIT_STX;
@@ -58519,7 +58627,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "nformi");
+	CheckFunc = !strcmp(mIdent->mString, "display_bar");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -59488,7 +59596,7 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->RemoveUnusedResultInstructions();
 
-		if (step == 8)
+		if (step == 8 || step == 25)
 		{
 			ResetVisited();
 			ValueNumberingDataSet	data;
@@ -60483,6 +60591,14 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+		if (step == 25)
+		{
+			ResetVisited();
+			if (mEntryBlock->Simplify16BitSum8BitRange())
+				changed = true;
+		}
+
+
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
@@ -60509,7 +60625,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 #if 1
-		if (!changed && step < 25)
+		if (!changed && step < 26)
 		{
 			ResetIndexFlipped();
 
