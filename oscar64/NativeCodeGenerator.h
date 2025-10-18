@@ -781,6 +781,13 @@ public:
 	bool ReduceLocalXPressure(void);
 	bool LocalZeroPageValueNumbering(void);
 
+	bool CanReverseCrossBlockChangeAToY(const NativeCodeBasicBlock * block, int depth = 0);
+	void ReverseCrossBlockChangeAToY(void);
+	bool CanReverseCrossBlockChangeAToX(const NativeCodeBasicBlock* block, int depth = 0);
+	void ReverseCrossBlockChangeAToX(void);
+
+	bool ReverseCrossBlockRegisterUnification(void);
+
 	bool CombineZPPair(int at, int r0, int r1, bool use0, bool use1, bool & swap);
 	bool RemoveDoubleZPStore(void);
 

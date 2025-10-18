@@ -23774,6 +23774,213 @@ bool NativeCodeBasicBlock::LocalZeroPageValueNumbering(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::CanReverseCrossBlockChangeAToY(const NativeCodeBasicBlock* block, int depth)
+{
+	if (mFalseJump)
+	{
+		if (block == mTrueJump && (mFalseJump->mEntryRequiredRegs[CPU_REG_A] || mFalseJump->mEntryRequiredRegs[CPU_REG_Y]))
+			return false;
+		if (block == mFalseJump && (mTrueJump->mEntryRequiredRegs[CPU_REG_A] || mTrueJump->mEntryRequiredRegs[CPU_REG_Y]))
+			return false;
+	}
+
+	if (depth > 10)
+		return false;
+
+	for (int i = mIns.Size() - 1; i >= 0; i--)
+	{
+		if (mIns[i].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i].mMode))
+			return true;
+		else if (mIns[i].mType == ASMIT_TYA)
+			return true;
+		else if (mIns[i].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[i].mMode))
+			;
+		else if (mIns[i].ReferencesAccu() || mIns[i].ReferencesYReg())
+			return false;
+	}
+
+	if (!mEntryBlocks.Size())
+		return false;
+
+	for (int i = 0; i < mEntryBlocks.Size(); i++)
+		if (!mEntryBlocks[i]->CanReverseCrossBlockChangeAToY(this, depth + 1))
+			return false;
+
+	return true;
+}
+
+void NativeCodeBasicBlock::ReverseCrossBlockChangeAToY(void)
+{
+	if (!mPatched)
+	{
+		mPatched = true;
+
+		mExitRequiredRegs += CPU_REG_Y;
+
+		for (int i = mIns.Size() - 1; i >= 0; i--)
+		{
+			mIns[i].mLive |= LIVE_CPU_REG_Y;
+			if (mIns[i].mType == ASMIT_LDA)
+			{
+				mIns[i].mType = ASMIT_LDY;
+				return;
+			}
+			if (mIns[i].mType == ASMIT_TYA)
+			{
+				mIns[i].mType = ASMIT_NOP;
+				return;
+			}
+			else if (mIns[i].mType == ASMIT_CMP)
+			{
+				mIns[i].mType = ASMIT_CPY;
+			}
+		}
+
+		mEntryRequiredRegs += CPU_REG_Y;
+
+		for (int i = 0; i < mEntryBlocks.Size(); i++)
+			mEntryBlocks[i]->ReverseCrossBlockChangeAToY();
+	}
+}
+
+bool NativeCodeBasicBlock::CanReverseCrossBlockChangeAToX(const NativeCodeBasicBlock* block, int depth)
+{
+	if (mFalseJump)
+	{
+		if (block == mTrueJump && (mFalseJump->mEntryRequiredRegs[CPU_REG_A] || mFalseJump->mEntryRequiredRegs[CPU_REG_X]))
+			return false;
+		if (block == mFalseJump && (mTrueJump->mEntryRequiredRegs[CPU_REG_A] || mTrueJump->mEntryRequiredRegs[CPU_REG_X]))
+			return false;
+	}
+
+	if (depth > 10)
+		return false;
+
+	for (int i = mIns.Size() - 1; i >= 0; i--)
+	{
+		if (mIns[i].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[i].mMode))
+			return true;
+		else if (mIns[i].mType == ASMIT_TXA)
+			return true;
+		else if (mIns[i].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, mIns[i].mMode))
+			;
+		else if (mIns[i].ReferencesAccu() || mIns[i].ReferencesXReg())
+			return false;
+	}
+
+	if (!mEntryBlocks.Size())
+		return false;
+
+	for (int i = 0; i < mEntryBlocks.Size(); i++)
+		if (!mEntryBlocks[i]->CanReverseCrossBlockChangeAToX(this, depth + 1))
+			return false;
+
+	return true;
+}
+
+void NativeCodeBasicBlock::ReverseCrossBlockChangeAToX(void)
+{
+	if (!mPatched)
+	{
+		mPatched = true;
+
+		mExitRequiredRegs += CPU_REG_X;
+
+		for (int i = mIns.Size() - 1; i >= 0; i--)
+		{
+			mIns[i].mLive |= LIVE_CPU_REG_X;
+			if (mIns[i].mType == ASMIT_LDA)
+			{
+				mIns[i].mType = ASMIT_LDX;
+				return;
+			}
+			if (mIns[i].mType == ASMIT_TXA)
+			{
+				mIns[i].mType = ASMIT_NOP;
+				return;
+			}
+			else if (mIns[i].mType == ASMIT_CMP)
+			{
+				mIns[i].mType = ASMIT_CPX;
+			}
+		}
+
+		mEntryRequiredRegs += CPU_REG_X;
+
+		for (int i = 0; i < mEntryBlocks.Size(); i++)
+			mEntryBlocks[i]->ReverseCrossBlockChangeAToX();
+	}
+}
+
+bool NativeCodeBasicBlock::ReverseCrossBlockRegisterUnification(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		bool	refx = false, refy = false;
+		int i = 0;
+		while (i < mIns.Size() && !(refx && refy))
+		{
+			if (!refy && mIns[i].mType == ASMIT_TAY && !(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				int k = 0;
+				while (k < mEntryBlocks.Size() && mEntryBlocks[k]->CanReverseCrossBlockChangeAToY(this))
+					k++;
+				if (k == mEntryBlocks.Size())
+				{
+					mProc->ResetPatched();
+					for (k = 0; k < mEntryBlocks.Size(); k++)
+						mEntryBlocks[k]->ReverseCrossBlockChangeAToY();
+					for (k = 0; k < i; k++)
+						mIns[k].mLive |= LIVE_CPU_REG_Y;
+					mEntryRequiredRegs += CPU_REG_Y;
+					mIns[i].mType = ASMIT_NOP;
+					changed = true;
+					break;
+				}
+			}
+			else if (!refx && mIns[i].mType == ASMIT_TAX && !(mIns[i].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+			{
+				int k = 0;
+				while (k < mEntryBlocks.Size() && mEntryBlocks[k]->CanReverseCrossBlockChangeAToX(this))
+					k++;
+				if (k == mEntryBlocks.Size())
+				{
+					mProc->ResetPatched();
+					for (k = 0; k < mEntryBlocks.Size(); k++)
+						mEntryBlocks[k]->ReverseCrossBlockChangeAToX();
+					for (k = 0; k < i; k++)
+						mIns[k].mLive |= LIVE_CPU_REG_X;
+					mEntryRequiredRegs += CPU_REG_X;
+					mIns[i].mType = ASMIT_NOP;
+					changed = true;
+					break;
+				}
+			}
+
+			if (mIns[i].ReferencesAccu())
+				break;
+			if (mIns[i].ReferencesXReg())
+				refx = true;
+			if (mIns[i].ReferencesYReg())
+				refy = true;
+
+			i++;
+		}
+
+		if (mTrueJump && mTrueJump->ReverseCrossBlockRegisterUnification())
+			changed = true;
+
+		if (mFalseJump && mFalseJump->ReverseCrossBlockRegisterUnification())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::LocalRegisterXYMap(void)
 {
 	bool	changed = false;
@@ -60598,6 +60805,13 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+		if (step == 26)
+		{
+			ResetVisited();
+			if (mEntryBlock->ReverseCrossBlockRegisterUnification())
+				changed = true;
+		}
+
 
 #if _DEBUG
 		ResetVisited();
@@ -60625,7 +60839,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 #if 1
-		if (!changed && step < 26)
+		if (!changed && step < 27)
 		{
 			ResetIndexFlipped();
 
