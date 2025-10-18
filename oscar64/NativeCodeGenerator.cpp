@@ -33535,6 +33535,58 @@ bool NativeCodeBasicBlock::JoinTAYARange(int from, int to)
 		}
 	}
 #endif
+
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::JoinTAYARangeLive(int from, int to)
+{
+	int k = from + 1;
+	while (k < to &&
+		(mIns[k].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[k].mMode) ||
+			mIns[k].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[k].mMode)))
+		k++;
+	if (k == to)
+	{
+		for (int i = from + 1; i < to; i++)
+		{
+			if (mIns[i].mType == ASMIT_LDA)
+				mIns[i].mType = ASMIT_LDY;
+			else if (mIns[i].mType == ASMIT_STA)
+				mIns[i].mType = ASMIT_STY;
+			mIns[i].mLive |= LIVE_CPU_REG_A;
+		}
+		mIns[from].mType = ASMIT_NOP;
+		mIns[to].mType = ASMIT_TAY;
+		return true;
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::JoinTAXARangeLive(int from, int to)
+{
+	int k = from + 1;
+	while (k < to &&
+		(mIns[k].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[k].mMode) ||
+			mIns[k].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STX, mIns[k].mMode)))
+		k++;
+	if (k == to)
+	{
+		for (int i = from + 1; i < to; i++)
+		{
+			if (mIns[i].mType == ASMIT_LDA)
+				mIns[i].mType = ASMIT_LDX;
+			else if (mIns[i].mType == ASMIT_STA)
+				mIns[i].mType = ASMIT_STX;
+			mIns[i].mLive |= LIVE_CPU_REG_A;
+		}
+		mIns[from].mType = ASMIT_NOP;
+		mIns[to].mType = ASMIT_TAX;
+		return true;
+	}
+
 	return false;
 }
 
@@ -49279,20 +49331,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 			tayPos = -1;
 		else if (mIns[i].mType == ASMIT_TXA)
 		{
-			if (taxPos >= 0 && !(mIns[i].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+			if (taxPos >= 0)
 			{
-				if (JoinTAXARange(taxPos, i))
+				if (!(mIns[i].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)) && JoinTAXARange(taxPos, i) || JoinTAXARangeLive(taxPos, i))
 					changed = true;
 				taxPos = -1; tayPos = -1;
 			}
 			else
 				taxPos = -1;
+
 		}
 		else if (mIns[i].mType == ASMIT_TYA)
 		{
-			if (tayPos >= 0 && !(mIns[i].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)))
+			if (tayPos >= 0)
 			{
-				if (JoinTAYARange(tayPos, i))
+				if (!(mIns[i].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)) && JoinTAYARange(tayPos, i) || JoinTAYARangeLive(tayPos, i))
 					changed = true;
 				taxPos = -1; tayPos = -1;
 			}
@@ -52425,6 +52478,27 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		mIns.Insert(i, NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_INY));
 		mIns[i + 1].mAddress--;
 		mIns.Remove(i + 2);
+		return true;
+	}
+
+	if (
+		mIns[i + 0].mType == ASMIT_LDX &&
+		mIns[i + 1].mType == ASMIT_STX &&
+		mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X)))
+	{
+		mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 2].mType = ASMIT_STA;
+		return true;
+	}
+	if (
+		mIns[i + 0].mType == ASMIT_LDY &&
+		mIns[i + 1].mType == ASMIT_STY &&
+		mIns[i + 2].mType == ASMIT_STY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Y)))
+	{
+		mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 2].mType = ASMIT_STA;
 		return true;
 	}
 
@@ -58834,7 +58908,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "display_bar");
+	CheckFunc = !strcmp(mIdent->mString, "foo");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
