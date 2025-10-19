@@ -101,6 +101,28 @@ struct ValueNumberingDataSet
 	void Intersect(const ValueNumberingDataSet& set);
 };
 
+struct ValueReuseData
+{
+	NativeCodeBasicBlock	*	mBlock;
+	int							mIndex;
+
+	ValueReuseData(void);
+	void Reset(void);
+};
+
+struct ValueReuseDataSet
+{
+	ValueReuseData	mRegs[256];
+
+	void Reset(void);
+	void ResetWorkRegs(void);
+	void ResetCall(const NativeCodeInstruction& ins);
+
+	void Intersect(const ValueReuseDataSet& set);
+};
+
+
+
 struct NativeRegisterSum16Info
 {
 	NativeCodeInstruction	*	mSrcL, * mSrcH, * mDstL, * mDstH, * mAddL, * mAddH;
@@ -301,6 +323,7 @@ public:
 
 	NativeRegisterDataSet	mDataSet, mNDataSet, mFDataSet;
 	ValueNumberingDataSet	mNumDataSet, mNNumDataSet, mFNumDataSet;
+	ValueReuseDataSet		mReuseDataSet, mNReuseDataSet, mFReuseDataSet;
 
 	int						mYAlias[256];
 	int						mYReg, mYOffset, mYValue, mXReg, mXOffset, mXValue;
@@ -640,6 +663,8 @@ public:
 	bool ReverseLoadAccuToRegXY(void);
 
 	void ResetModifiedDataSet(NativeRegisterDataSet& data);
+
+	bool CrossBlockShiftForwarding(const ValueReuseDataSet & data);
 
 	bool ValueForwarding(NativeCodeProcedure* proc, const NativeRegisterDataSet& data, bool global, bool final);
 	bool GlobalValueForwarding(NativeCodeProcedure* proc, bool final);

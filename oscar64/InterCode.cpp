@@ -22406,6 +22406,28 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			}
 		}
 
+		if (mInstructions[i]->mCode == IC_LEA && mInstructions[i]->mSrc[1].mFinal && mInstructions[i]->mSrc[0].mTemp < 0)
+		{
+			int k = i;
+			while (k + 1 < mInstructions.Size() && 
+				mInstructions[k + 1]->mCode == IC_STORE && mInstructions[k + 1]->mSrc[1].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[k + 1]->mSrc[0].mTemp != mInstructions[i]->mDst.mTemp &&
+				mInstructions[k + 1]->mSrc[1].mIntConst + mInstructions[i]->mSrc[0].mIntConst < 128)
+				k++;
+			if (k > i && mInstructions[k]->mSrc[1].mFinal)
+			{
+				while (k > i)
+				{
+					mInstructions[k]->mSrc[1].mTemp = mInstructions[i]->mSrc[1].mTemp;
+					mInstructions[k]->mSrc[1].mIntConst += mInstructions[i]->mSrc[0].mIntConst;
+					k--;
+				}
+				mInstructions[i + 0]->mCode = IC_NONE;
+				mInstructions[i + 0]->mNumOperands = 0;
+				changed = true;
+			}
+
+		}
+
 		if (i + 2 < mInstructions.Size())
 		{
 			if (mInstructions[i + 0]->mCode == IC_NONE)
@@ -26492,7 +26514,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "display_bar");
+	CheckFunc = !strcmp(mIdent->mString, "rirq_build");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

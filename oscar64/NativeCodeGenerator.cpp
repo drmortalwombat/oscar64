@@ -616,7 +616,6 @@ void ValueNumberingDataSet::ResetCall(const NativeCodeInstruction& ins)
 
 }
 
-
 void ValueNumberingDataSet::Intersect(const ValueNumberingDataSet& set)
 {
 	for (int i = 0; i < 261; i++)
@@ -626,6 +625,74 @@ void ValueNumberingDataSet::Intersect(const ValueNumberingDataSet& set)
 	}
 }
 
+ValueReuseData::ValueReuseData(void)
+	: mBlock(nullptr)
+{
+
+}
+
+void ValueReuseData::Reset(void)
+{
+	mBlock = nullptr;
+}
+
+
+void ValueReuseDataSet::Reset(void)
+{
+	for (int i = 0; i < 256; i++)
+		mRegs[i].Reset();
+}
+
+void ValueReuseDataSet::ResetWorkRegs(void) 
+{
+	mRegs[BC_REG_WORK_Y].Reset();
+	mRegs[BC_REG_ADDR].Reset();
+	mRegs[BC_REG_ADDR + 1].Reset();
+
+	for (int i = 0; i < 4; i++)
+		mRegs[BC_REG_ACCU + i].Reset();
+	for (int i = 0; i < 8; i++)
+		mRegs[BC_REG_WORK + i].Reset();
+}
+
+void ValueReuseDataSet::ResetCall(const NativeCodeInstruction& ins)
+{
+	ResetWorkRegs();
+
+	if (!(ins.mFlags & NCIF_RUNTIME) || (ins.mFlags & NCIF_FEXEC))
+	{
+		if (ins.mLinkerObject && ins.mLinkerObject->mProc)
+		{
+			if (!(ins.mFlags & NCIF_FEXEC) && (ins.mLinkerObject->mFlags & LOBJF_ZEROPAGESET))
+			{
+				for (int i = 0; i < 256; i++)
+					if (ins.mLinkerObject->mZeroPageSet[i])
+						mRegs[i].Reset();
+				return;
+			}
+
+			for (int i = BC_REG_TMP; i < BC_REG_TMP + ins.mLinkerObject->mProc->mCallerSavedTemps; i++)
+				mRegs[i].Reset();
+		}
+		else
+		{
+			for (int i = BC_REG_TMP; i < BC_REG_TMP_SAVED; i++)
+				mRegs[i].Reset();
+		}
+
+		for (int i = BC_REG_FPARAMS; i < BC_REG_FPARAMS_END; i++)
+			mRegs[i].Reset();
+	}
+}
+
+void ValueReuseDataSet::Intersect(const ValueReuseDataSet& set)
+{
+	for (int i = 0; i < 261; i++)
+	{
+		if (!set.mRegs[i].mBlock || set.mRegs[i].mBlock != mRegs[i].mBlock || set.mRegs[i].mIndex != mRegs[i].mIndex)
+			mRegs[i].mBlock = nullptr;
+	}
+}
 
 
 NativeCodeInstruction::NativeCodeInstruction(void)
@@ -38875,6 +38942,89 @@ bool NativeCodeBasicBlock::AbsoluteValueForwarding(const ExpandingArray<NativeCo
 	return changed;
 }
 
+bool NativeCodeBasicBlock::CrossBlockShiftForwarding(const ValueReuseDataSet& data)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mNReuseDataSet = data;
+
+		assert(mIndex == 1000 || mNumEntries == mEntryBlocks.Size());
+
+		if (mLoopHead)
+		{
+			mNReuseDataSet.Reset();
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+				mNReuseDataSet.Intersect(mReuseDataSet);
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+			{
+				mReuseDataSet = mNReuseDataSet;
+				return false;
+			}
+		}
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (mIns[i].mMode == ASMIM_ZERO_PAGE)
+			{
+				int		reg = mIns[i].mAddress;
+
+				if (i + 1 < mIns.Size() &&
+					mIns[i].mType == ASMIT_LDA && 
+					mIns[i + 1].IsShift() && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & LIVE_CPU_REG_A))
+				{
+					mNReuseDataSet.mRegs[reg].mBlock = this;
+					mNReuseDataSet.mRegs[reg].mIndex = i;
+				}
+				else if (mNReuseDataSet.mRegs[reg].mBlock)
+				{
+					NativeCodeBasicBlock* block = mNReuseDataSet.mRegs[reg].mBlock;
+					int	index = mNReuseDataSet.mRegs[reg].mIndex;
+
+					if (mIns[i].mType == block->mIns[index + 1].mType && !(mIns[i].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+					{
+						block->mIns[index].mType = mIns[i].mType;
+						block->mIns[index + 1].mType = ASMIT_NOP;
+						mIns[i].mType = ASMIT_NOP;
+						mIns[i].mMode = ASMIM_IMPLIED;
+						changed = true;
+					}
+
+					mNReuseDataSet.mRegs[reg].mBlock = nullptr;
+				}
+			}
+			else if (mIns[i].mType == ASMIT_JSR)
+			{
+				mNReuseDataSet.ResetCall(mIns[i]);
+			}
+			else if (mIns[i].mMode == ASMIM_INDIRECT_Y)
+			{
+				int		reg = mIns[i].mAddress;
+				mNReuseDataSet.mRegs[reg].mBlock = nullptr;
+				mNReuseDataSet.mRegs[reg + 1].mBlock = nullptr;
+			}
+		}
+
+		mVisited = true;
+
+		mFReuseDataSet = mNReuseDataSet;
+
+		if (this->mTrueJump && this->mTrueJump->CrossBlockShiftForwarding(mNReuseDataSet))
+			changed = true;
+		if (this->mFalseJump && this->mFalseJump->CrossBlockShiftForwarding(mFReuseDataSet))
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::OffsetValueForwarding(const ValueNumberingDataSet& data)
 {
 	bool	changed = false;
@@ -45143,6 +45293,33 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 					tail->mExitRequiredRegs += CPU_REG_X;
 					changed = true;
 				}
+			}
+		}
+	}
+
+	if (!changed)
+	{
+		int iy = 0;
+		while (iy < mIns.Size() && !mIns[iy].ReferencesYReg())
+			iy++;
+
+		if (iy < mIns.Size() && mIns[iy].mType == ASMIT_LDY && mIns[iy].mMode == ASMIM_ZERO_PAGE && !ChangesZeroPage(mIns[iy].mAddress, 0, iy) && !ChangesAccu(0, iy))
+		{
+			int tz = tail->mIns.Size();
+			if (tz >= 2 &&
+				tail->mIns[tz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, tail->mIns[tz - 1].mMode) && !(tail->mIns[tz - 1].mLive & LIVE_CPU_REG_A) &&
+				tail->mIns[tz - 2].mType == ASMIT_LDA && tail->mIns[tz - 2].mMode == ASMIM_ZERO_PAGE && tail->mIns[tz - 2].mAddress == mIns[iy].mAddress)
+			{
+				prev->mIns.Push(mIns[iy]);
+				tail->mIns[tz - 1].mType = ASMIT_CPY; tail->mIns[tz - 1].mLive |= LIVE_CPU_REG_Y;
+				tail->mIns[tz - 2].mType = ASMIT_LDY; tail->mIns[tz - 2].mLive |= LIVE_CPU_REG_Y;
+				tail->mExitRequiredRegs += CPU_REG_Y;
+				mEntryRequiredRegs += CPU_REG_Y;
+				prev->mExitRequiredRegs += CPU_REG_Y;
+				for (int i = 0; i < iy; i++)
+					mIns[i].mLive |= LIVE_CPU_REG_Y;
+				mIns.Remove(iy);
+				changed = true;
 			}
 		}
 	}
@@ -59889,6 +60066,17 @@ void NativeCodeProcedure::Optimize(void)
 				ResetVisited();
 				mEntryBlock->RemoveUnusedResultInstructions();
 			}
+
+			ResetVisited();
+			ValueReuseDataSet	rdata;
+			if (mEntryBlock->CrossBlockShiftForwarding(rdata))
+			{
+				changed = true;
+
+				BuildDataFlowSets();
+				ResetVisited();
+				mEntryBlock->RemoveUnusedResultInstructions();
+			}
 		}
 
 		CheckBlocks();
@@ -60617,7 +60805,7 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->CheckAsmCode();
 #endif
 #if 1
-		if (step == 9)
+		if (step == 9 || step == 26)
 		{
 			RebuildEntry();
 			ResetVisited();
