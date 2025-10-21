@@ -140,6 +140,9 @@ typedef GrowingArray<InterCodeBasicBlockPtr>	GrowingInterCodeBasicBlockPtrArray;
 typedef GrowingArray<InterInstruction *>		GrowingInstructionArray;
 typedef GrowingArray<InterCodeProcedurePtr	>	GrowingInterCodeProcedurePtrArray;
 
+typedef ExpandingArray<InterInstructionPtr>		ExpandingInstructionPtrArray;
+
+
 
 typedef GrowingArray<InterVariable * >			GrowingVariableArray;
 
@@ -406,6 +409,7 @@ public:
 	NumberSet						mEntryRequiredArgs;
 
 	GrowingInstructionArray			mLoadStoreInstructions;
+	ExpandingInstructionPtrArray	mExitConversionInstructions;
 
 	GrowingIntegerValueRangeArray	mEntryValueRange, mTrueValueRange, mFalseValueRange;
 	GrowingIntegerValueRangeArray	mEntryParamValueRange, mTrueParamValueRange, mFalseParamValueRange, mLocalParamValueRange;
@@ -490,18 +494,20 @@ public:
 
 	bool TempIsUnsigned(int temp);
 
-	void RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
-	void BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
-	void UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
+	void RestartLocalIntegerRangeSets(int num);
+	void BuildLocalIntegerRangeSets(int num);
+	void UpdateLocalIntegerRangeSets(void);
 
-	void UpdateLocalIntegerRangeSetsForward(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
-	void UpdateLocalIntegerRangeSetsBackward(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
+	void UpdateLocalIntegerRangeSetsForward(void);
+	void UpdateLocalIntegerRangeSetsBackward(void);
 
-	bool BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars);
+	bool BuildGlobalIntegerRangeSets(bool initial);
 	void SimplifyIntegerRangeRelops(void);
 	void MarkIntegerRangeBoundUp(int temp, int64 value, GrowingIntegerValueRangeArray& range);
 	void UnionIntegerRanges(const InterCodeBasicBlock* block);
 	void PruneUnusedIntegerRangeSets(void);
+
+	void PropagateValueRangeSetConversions(const ExpandingInstructionPtrArray& tvalue);
 
 	void LimitLoopIndexIntegerRangeSets(void);
 

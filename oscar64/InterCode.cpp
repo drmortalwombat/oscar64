@@ -8562,7 +8562,7 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 }
 
 
-bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
+bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial)
 {
 	bool	changed = false;
 
@@ -8571,7 +8571,7 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 		return false;
 
 	assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
-	assert(mLocalParamValueRange.Size() == paramVars.Size());
+	assert(mLocalParamValueRange.Size() == mProc->mParamVars.Size());
 
 	bool	firstEntry = true;
 
@@ -8609,7 +8609,7 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 	}
 
 	assert(mProc->mLocalValueRange.Size() == mExitRequiredTemps.Size());
-	assert(mLocalParamValueRange.Size() == paramVars.Size());
+	assert(mLocalParamValueRange.Size() == mProc->mParamVars.Size());
 
 	for (int i = 0; i < mProc->mLocalValueRange.Size(); i++)
 		if (mEntryValueRange[i].Weaker(mProc->mLocalValueRange[i]))
@@ -8645,13 +8645,13 @@ bool InterCodeBasicBlock::BuildGlobalIntegerRangeSets(bool initial, const Growin
 //			mEntryValueRange = mLocalValueRange;
 //			mEntryParamValueRange = mLocalParamValueRange;
 
-			UpdateLocalIntegerRangeSets(localVars, paramVars);
+			UpdateLocalIntegerRangeSets();
 
 		}
 
-		if (mTrueJump && mTrueJump->BuildGlobalIntegerRangeSets(initial, localVars, paramVars))
+		if (mTrueJump && mTrueJump->BuildGlobalIntegerRangeSets(initial))
 			changed = true;
-		if (mFalseJump && mFalseJump->BuildGlobalIntegerRangeSets(initial, localVars, paramVars))
+		if (mFalseJump && mFalseJump->BuildGlobalIntegerRangeSets(initial))
 			changed = true;
 	}
 
@@ -8722,7 +8722,7 @@ void InterCodeBasicBlock::MarkIntegerRangeBoundUp(int temp, int64 value, Growing
 	}
 }
 
-void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
+void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 {
 	int sz = mInstructions.Size();
 
@@ -9604,7 +9604,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(const GrowingVariab
 	}
 }
 
-void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars) 
+void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(void) 
 {
 	mProc->mReverseValueRange.SetSize(mProc->mLocalValueRange.Size());
 
@@ -9647,7 +9647,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsBackward(const GrowingVaria
 			if (ins->mSrc[1].mMemory == IM_GLOBAL)
 				asize = ins->mSrc[1].mLinkerObject->mSize;
 			else if (ins->mSrc[1].mMemory == IM_LOCAL)
-				asize = localVars[ins->mSrc[1].mVarIndex]->mSize;
+				asize = mProc->mLocalVars[ins->mSrc[1].mVarIndex]->mSize;
 
 			if (asize > 0)
 			{
@@ -9859,7 +9859,7 @@ bool InterCodeBasicBlock::TempIsUnsigned(int temp)
 	return false;
 }
 
-void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
+void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 {
 	mProc->mLocalValueRange = mEntryValueRange;
 	mLocalParamValueRange = mEntryParamValueRange;
@@ -9955,10 +9955,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 		}
 	}
 
-	UpdateLocalIntegerRangeSetsForward(localVars, paramVars);
+	UpdateLocalIntegerRangeSetsForward();
 #if 1
 
-	UpdateLocalIntegerRangeSetsBackward(localVars, paramVars);
+	UpdateLocalIntegerRangeSetsBackward();
 #if 1
 	mProc->mLocalValueRange = mEntryValueRange;
 	for (int i = 0; i < mProc->mLocalValueRange.Size(); i++)
@@ -9980,8 +9980,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 		}
 	}
 
-	UpdateLocalIntegerRangeSetsForward(localVars, paramVars);
-	UpdateLocalIntegerRangeSetsBackward(localVars, paramVars);
+	UpdateLocalIntegerRangeSetsForward();
+	UpdateLocalIntegerRangeSetsBackward();
 #endif
 
 #endif
@@ -10047,6 +10047,24 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 			int s1c = -1, s0c = -1;
 			InterOperator	s1o, s0o;
 
+#if 1
+			for (int si = 0; si < mExitConversionInstructions.Size(); si++)
+			{
+				if (mExitConversionInstructions[si]->mCode == IC_CONVERSION_OPERATOR && (mExitConversionInstructions[si]->mOperator == IA_EXT8TO16S || mExitConversionInstructions[si]->mOperator == IA_EXT8TO16U))
+				{
+					if (s1 == mExitConversionInstructions[si]->mSrc[0].mTemp)
+					{
+						s1c = mExitConversionInstructions[si]->mDst.mTemp;
+						s1o = mExitConversionInstructions[si]->mOperator;
+					}
+					if (s0 == mExitConversionInstructions[si]->mSrc[0].mTemp)
+					{
+						s0c = mExitConversionInstructions[si]->mDst.mTemp;
+						s0o = mExitConversionInstructions[si]->mOperator;
+					}
+				}
+			}
+#else
 			for(int si=0; si<sz-2; si++)
 			{
 				if (mInstructions[si]->mDst.mTemp == s0 || mInstructions[si]->mDst.mTemp == s0c)
@@ -10067,7 +10085,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(const GrowingVariableArray
 					}
 				}
 			}
-
+#endif
 			switch (cins->mOperator)
 			{
 #if 1
@@ -10388,7 +10406,7 @@ void InterCodeBasicBlock::PruneUnusedIntegerRangeSets(void)
 	}
 }
 
-void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
+void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num)
 {
 	if (!mVisited)
 	{
@@ -10408,10 +10426,10 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVar
 		if (mFalseJump && !mFalseJump->mVisited)
 			mFalseJump->mMemoryValueSize.SetSize(num, true);
 #endif
-		mEntryParamValueRange.SetSize(paramVars.Size(), false);
-		mTrueParamValueRange.SetSize(paramVars.Size(), false);
-		mFalseParamValueRange.SetSize(paramVars.Size(), false);
-		mLocalParamValueRange.SetSize(paramVars.Size(), false);
+		mEntryParamValueRange.SetSize(mProc->mParamVars.Size(), false);
+		mTrueParamValueRange.SetSize(mProc->mParamVars.Size(), false);
+		mFalseParamValueRange.SetSize(mProc->mParamVars.Size(), false);
+		mLocalParamValueRange.SetSize(mProc->mParamVars.Size(), false);
 
 		for (int i = 0; i < mEntryValueRange.Size(); i++)
 			mEntryValueRange[i].Restart();
@@ -10426,14 +10444,14 @@ void InterCodeBasicBlock::RestartLocalIntegerRangeSets(int num, const GrowingVar
 				mInstructions[i]->mSrc[j].mRange.Restart();
 		}
 
-		UpdateLocalIntegerRangeSets(localVars, paramVars);
+		UpdateLocalIntegerRangeSets();
 
-		if (mTrueJump) mTrueJump->RestartLocalIntegerRangeSets(num, localVars, paramVars);
-		if (mFalseJump) mFalseJump->RestartLocalIntegerRangeSets(num, localVars, paramVars);
+		if (mTrueJump) mTrueJump->RestartLocalIntegerRangeSets(num);
+		if (mFalseJump) mFalseJump->RestartLocalIntegerRangeSets(num);
 	}
 }
 
-void InterCodeBasicBlock::BuildLocalIntegerRangeSets(int num, const GrowingVariableArray& localVars, const GrowingVariableArray& paramVars)
+void InterCodeBasicBlock::BuildLocalIntegerRangeSets(int num)
 {
 	if (!mVisited)
 	{
@@ -10446,15 +10464,74 @@ void InterCodeBasicBlock::BuildLocalIntegerRangeSets(int num, const GrowingVaria
 		mMemoryValueSize.SetSize(num, true);
 		mEntryMemoryValueSize.SetSize(num, true);
 
-		mEntryParamValueRange.SetSize(paramVars.Size(), true);
-		mTrueParamValueRange.SetSize(paramVars.Size(), true);
-		mFalseParamValueRange.SetSize(paramVars.Size(), true);
-		mLocalParamValueRange.SetSize(paramVars.Size(), true);
+		mEntryParamValueRange.SetSize(mProc->mParamVars.Size(), true);
+		mTrueParamValueRange.SetSize(mProc->mParamVars.Size(), true);
+		mFalseParamValueRange.SetSize(mProc->mParamVars.Size(), true);
+		mLocalParamValueRange.SetSize(mProc->mParamVars.Size(), true);
 
-		UpdateLocalIntegerRangeSets(localVars, paramVars);
+		UpdateLocalIntegerRangeSets();
 
-		if (mTrueJump) mTrueJump->BuildLocalIntegerRangeSets(num, localVars, paramVars);
-		if (mFalseJump) mFalseJump->BuildLocalIntegerRangeSets(num, localVars, paramVars);
+		if (mTrueJump) mTrueJump->BuildLocalIntegerRangeSets(num);
+		if (mFalseJump) mFalseJump->BuildLocalIntegerRangeSets(num);
+	}
+}
+
+void InterCodeBasicBlock::PropagateValueRangeSetConversions(const ExpandingInstructionPtrArray& tvalue)
+{
+	if (!mVisited)
+	{
+		if (mLoopHead)
+		{
+			mExitConversionInstructions.SetSize(0);
+		}
+		else if (mNumEntries > 0)
+		{
+			if (mNumEntered > 0)
+			{
+				int i = 0, j = 0;
+				while (i < mExitConversionInstructions.Size())
+				{
+					if (tvalue.Contains(mExitConversionInstructions[i]))
+						mExitConversionInstructions[j++] = mExitConversionInstructions[i++];
+					else
+						i++;
+				}
+				mExitConversionInstructions.SetSize(j);
+			}
+			else
+				mExitConversionInstructions = tvalue;
+
+			mNumEntered++;
+
+			if (mNumEntered < mNumEntries)
+				return;
+		}
+
+		for (int k = 0; k < mInstructions.Size(); k++)
+		{
+			InterInstruction* ins = mInstructions[k];
+
+			int reg = ins->mDst.mTemp;
+			if (reg >= 0)
+			{
+				int i = 0, j = 0;
+				while (i < mExitConversionInstructions.Size())
+				{
+					if (mExitConversionInstructions[i]->ReferencesTemp(reg))
+						i++;
+					else
+						mExitConversionInstructions[j++] = mExitConversionInstructions[i++];
+				}
+				mExitConversionInstructions.SetSize(j);
+				if (ins->mCode == IC_CONVERSION_OPERATOR || ins->mCode == IC_LOAD_TEMPORARY)
+					mExitConversionInstructions.Push(ins);
+			}
+		}
+
+		mVisited = true;
+
+		if (mTrueJump) mTrueJump->PropagateValueRangeSetConversions(mExitConversionInstructions);
+		if (mFalseJump) mFalseJump->PropagateValueRangeSetConversions(mExitConversionInstructions);
 	}
 }
 
@@ -17881,7 +17958,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 							}
 #endif
 						}
-						else if (lins->mCode == IC_LOAD && !lins->mVolatile && lins->mSrc[0].mTemp < 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
+						else if (lins->mCode == IC_LOAD && !lins->mVolatile && lins->mSrc[0].mTemp < 0)
 						{
 							if (CanMoveInstructionBeforeBlock(i))
 							{
@@ -17889,7 +17966,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								while (j >= 0 && !IsMatchingStore(lins, tail->mInstructions[j]))
 									j--;
 
-								if (j >= 0)
+								if (j >= 0 && !tail->mExitRequiredTemps[lins->mDst.mTemp])
 								{
 									InterInstruction* sins = tail->mInstructions[j];
 
@@ -25418,10 +25495,14 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 {
 	mLocalValueRange.SetSize(mTemporaries.Size(), false);
 
+	ExpandingInstructionPtrArray	tarr;
+	ResetVisited();
+	mEntryBlock->PropagateValueRangeSetConversions(tarr);
+
 	DisassembleDebug("BeforeRebuildIntegerRangeSet");
 
 	ResetVisited();
-	mEntryBlock->RestartLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars, mParamVars);
+	mEntryBlock->RestartLocalIntegerRangeSets(mTemporaries.Size());
 
 	// No need to re-init the loop specific parts, we are restarting.
 	// Would lead to infinite pumping weak - bound in some cases
@@ -25432,13 +25513,13 @@ void InterCodeProcedure::RebuildIntegerRangeSet(void)
 
 		limit--;
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars, mParamVars) && limit > 0);
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true) && limit > 0);
 #endif
 	do {
 		DisassembleDebug("tr1");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars, mParamVars));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false));
 
 	assert(mTemporaries.Size() == mLocalValueRange.Size());
 
@@ -26514,7 +26595,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "rirq_build");
+	CheckFunc = !strcmp(mIdent->mString, "levels_navigate");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -26877,14 +26958,18 @@ void InterCodeProcedure::Close(void)
 	DisassembleDebug("LimitLoopIndexRanges");
 
 #if 1
+	ExpandingInstructionPtrArray	tarr;
 	ResetVisited();
-	mEntryBlock->BuildLocalIntegerRangeSets(mTemporaries.Size(), mLocalVars, mParamVars);
+	mEntryBlock->PropagateValueRangeSetConversions(tarr);
+
+	ResetVisited();
+	mEntryBlock->BuildLocalIntegerRangeSets(mTemporaries.Size());
 
 	do {
 		DisassembleDebug("tt");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true, mLocalVars, mParamVars));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(true));
 
 	TempForwarding();
 	RemoveUnusedInstructions();
@@ -26893,7 +26978,7 @@ void InterCodeProcedure::Close(void)
 		DisassembleDebug("tq");
 
 		ResetVisited();
-	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false, mLocalVars, mParamVars));
+	} while (mEntryBlock->BuildGlobalIntegerRangeSets(false));
 
 
 	DisassembleDebug("Estimated value range");
