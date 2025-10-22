@@ -18958,16 +18958,20 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 			if (nins > 3 && nins < 20)
 			{
 				if (mInstructions[nins - 1]->mCode == IC_BRANCH &&
-					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && (mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU || mInstructions[nins - 2]->mOperator == IA_CMPNE) && mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
+					mInstructions[nins - 2]->mCode == IC_RELATIONAL_OPERATOR && 
+						(mInstructions[nins - 2]->mOperator == IA_CMPLS || mInstructions[nins - 2]->mOperator == IA_CMPLES || 
+						 mInstructions[nins - 2]->mOperator == IA_CMPGS || mInstructions[nins - 2]->mOperator == IA_CMPGES ||
+						 mInstructions[nins - 2]->mOperator == IA_CMPLU || mInstructions[nins - 2]->mOperator == IA_CMPLEU  || 
+						 mInstructions[nins - 2]->mOperator == IA_CMPGU || mInstructions[nins - 2]->mOperator == IA_CMPGEU ||
+						 mInstructions[nins - 2]->mOperator == IA_CMPNE) &&
+						mInstructions[nins - 2]->mDst.mTemp == mInstructions[nins - 1]->mSrc[0].mTemp &&
 					mInstructions[nins - 2]->mSrc[0].mTemp < 0 &&
-					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[nins - 3]->mOperator == IA_ADD && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
+					mInstructions[nins - 3]->mCode == IC_BINARY_OPERATOR && (mInstructions[nins - 3]->mOperator == IA_ADD || mInstructions[nins - 3]->mOperator == IA_SUB) && mInstructions[nins - 3]->mDst.mTemp == mInstructions[nins - 2]->mSrc[1].mTemp)
 				{
 					int	ireg = mInstructions[nins - 3]->mDst.mTemp;
-
 					if (ireg == mInstructions[nins - 3]->mSrc[0].mTemp && mInstructions[nins - 3]->mSrc[1].mTemp < 0 ||
 						ireg == mInstructions[nins - 3]->mSrc[1].mTemp && mInstructions[nins - 3]->mSrc[0].mTemp < 0)
 					{
-
 						int	i = 0;
 						while (i < nins - 3 && mInstructions[i]->mDst.mTemp != ireg)
 							i++;
@@ -18977,19 +18981,28 @@ void InterCodeBasicBlock::SingleBlockLoopUnrolling(void)
 							{
 								int64	start = mDominator->mTrueValueRange[ireg].mMinValue;
 								int64	end = mInstructions[nins - 2]->mSrc[0].mIntConst;
-								if (mInstructions[nins - 2]->mOperator == IA_CMPLEU)
+								if (mInstructions[nins - 2]->mOperator == IA_CMPLEU || mInstructions[nins - 2]->mOperator == IA_CMPLES)
 									end++;
+								else if (mInstructions[nins - 2]->mOperator == IA_CMPGEU || mInstructions[nins - 2]->mOperator == IA_CMPGES)
+									end--;
 
 								int64	step = mInstructions[nins - 3]->mSrc[0].mTemp < 0 ? mInstructions[nins - 3]->mSrc[0].mIntConst : mInstructions[nins - 3]->mSrc[1].mIntConst;
-								int	count = int((end - start + step - 1) / step);
+								if (mInstructions[nins - 3]->mOperator == IA_SUB)
+									step = -step;
 
-								if (mInstructions[nins - 2]->mOperator != IA_CMPNE || end == start + count * step)
+								int	count = step > 0 ? int((end - start + step - 1) / step) : int((start - end - step - 1) / -step);
+
+//								if (CheckFunc && mIndex == 10) printf("Unroll %lld %lld %lld %d\n", start, end, step, count);
+
+								if (count > 0 && 
+									!( mInstructions[nins - 2]->mOperator == IA_CMPNE && end != start + count * step) &&
+									!((mInstructions[nins - 2]->mOperator == IA_CMPGU || mInstructions[nins - 2]->mOperator == IA_CMPGEU) && (end < 0 || start < 0)))
 								{
 									int cins = NumUnrollInstructions(ireg);
 
 									if (count < 5 && (cins - 3) * count < 20)
 									{
-//										printf("Unrolling %s,%d\n", mProc->mIdent->mString, mIndex);
+										//										printf("Unrolling %s,%d\n", mProc->mIdent->mString, mIndex);
 
 										mInstructions.SetSize(nins - 2);
 										nins -= 2;
