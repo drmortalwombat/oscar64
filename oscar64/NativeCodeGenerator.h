@@ -12,7 +12,7 @@ class NativeCodeInstruction;
 class NativeCodeMapper;
 class SuffixTree;
 
-enum NativeRegisterDataMode
+enum NativeRegisterDataMode : uint8
 {
 	NRDM_UNKNOWN,
 	NRDM_IMMEDIATE,
@@ -26,11 +26,11 @@ enum NativeRegisterDataMode
 
 struct NativeRegisterData
 {
-	NativeRegisterDataMode	mMode;
-	int						mValue, mMask, mUnique;
-	uint32					mFlags;
-	LinkerObject		*	mLinkerObject;
-	uint8					mMinVal, mMaxVal;
+	LinkerObject			*	mLinkerObject;
+	int							mValue, mUnique;
+	uint32						mFlags;
+	NativeRegisterDataMode		mMode;
+	uint8						mMinVal, mMaxVal, mMask;
 
 	NativeRegisterData(void);
 

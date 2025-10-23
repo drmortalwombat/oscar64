@@ -426,14 +426,14 @@ static const byte irqdi[26] = {
 void rirq_addr(RIRQCode * ic, byte n, void * addr)
 {
 	byte p = irqai[n];
-	ic->code[p + 0] = (unsigned)addr & 0xff;
-	ic->code[p + 1] = (unsigned)addr >> 8;
+	((byte *)ic->code)[p + 0] = (unsigned)addr & 0xff;
+	((byte *)ic->code)[p + 1] = (unsigned)addr >> 8;
 }
 
 void rirq_addrhi(RIRQCode * ic, byte n, byte hi)
 {
 	byte p = irqai[n];
-	ic->code[p + 1] = hi;	
+	((byte *)ic->code)[p + 1] = hi;	
 }
 
 void rirq_data(RIRQCode * ic, byte n, byte data)
@@ -446,18 +446,18 @@ void rirq_data(RIRQCode * ic, byte n, byte data)
 void rirq_write(RIRQCode * ic, byte n, void * addr, byte data)
 {
 	byte p = irqai[n];
-	ic->code[p + 0] = (unsigned)addr & 0xff;
-	ic->code[p + 1] = (unsigned)addr >> 8;
+	((byte *)ic->code)[p + 0] = (unsigned)addr & 0xff;
+	((byte *)ic->code)[p + 1] = (unsigned)addr >> 8;
 	p = irqdi[n];
-	ic->code[p] = data;
+	((byte *)ic->code)[p] = data;
 }
 
 void rirq_call(RIRQCode * ic, byte n, void * addr)
 {
 	byte p = irqai[n];
-	ic->code[p - 1] = 0x20;
-	ic->code[p + 0] = (unsigned)addr & 0xff;
-	ic->code[p + 1] = (unsigned)addr >> 8;
+	((byte *)ic->code)[p - 1] = 0x20;
+	((byte *)ic->code)[p + 0] = (unsigned)addr & 0xff;
+	((byte *)ic->code)[p + 1] = (unsigned)addr >> 8;
 }
 
 void rirq_delay(RIRQCode * ic, byte cycles)

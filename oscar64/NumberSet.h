@@ -7,7 +7,7 @@
 class NumberSet
 {
 protected:
-	uint32				* bits;
+	uint64				* bits;
 	int					size, dwsize;
 public:
 	NumberSet(void);
@@ -46,7 +46,7 @@ public:
 inline NumberSet& NumberSet::operator+=(int elem)
 {
 	assert(elem >= 0 && elem < size);
-	bits[elem >> 5] |= (1UL << (elem & 31));
+	bits[elem >> 6] |= (1ULL << (elem & 63));
 
 	return *this;
 }
@@ -54,7 +54,7 @@ inline NumberSet& NumberSet::operator+=(int elem)
 inline NumberSet& NumberSet::operator-=(int elem)
 {
 	assert(elem >= 0 && elem < size);
-	bits[elem >> 5] &= ~(1UL << (elem & 31));
+	bits[elem >> 6] &= ~(1ULL << (elem & 63));
 
 	return *this;
 }
@@ -62,7 +62,7 @@ inline NumberSet& NumberSet::operator-=(int elem)
 inline bool NumberSet::operator[](int elem) const
 {
 	assert(elem >= 0 && elem < size);
-	return (bits[elem >> 5] & (1UL << (elem & 31))) != 0;
+	return (bits[elem >> 6] & (1ULL << (elem & 63))) != 0;
 }
 
 

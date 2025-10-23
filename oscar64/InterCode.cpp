@@ -8817,12 +8817,37 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 									isSigned = true;
 							}
 
+							int	start = 0, end = lo->mSize;
+#if 1
+							if (ins->mSrc[0].mTemp < 0)
+							{
+								start = int(ins->mSrc[0].mIntConst);
+								end = start + 1;
+							}
+							else
+							{
+								if (ins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)
+								{
+									start = int(ins->mSrc[0].mRange.mMinValue + ins->mSrc[0].mIntConst);
+								}
+								if (ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
+								{
+									end = int(ins->mSrc[0].mRange.mMaxValue + ins->mSrc[0].mIntConst + 1);
+								}
+							}
+
+							if (start < 0)
+								start = 0;
+							if (end > lo->mSize)
+								end = lo->mSize;
+#endif
+
 							int	mi = 255, ma = 0;
 
 							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxState == IntegerValueRange::S_BOUND &&
 								vr.mMinValue >= -128 && vr.mMaxValue <= 127)
 							{
-								for (int j = 0; j < lo->mSize; j++)
+								for (int j = start; j < end; j++)
 								{
 									int v = isUnsigned ? lo->mData[j] : (int8)(lo->mData[j]);
 									if (v < mi)
@@ -8833,7 +8858,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							}
 							else
 							{
-								for (int j = 0; j < lo->mSize; j++)
+								for (int j = start; j < end; j++)
 								{
 									int v = lo->mData[j];
 									if (isUnsigned)
@@ -8849,6 +8874,8 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 										ma = v;
 								}
 							}
+
+//							printf("LCheck %s:%d %d..%d (0..%d + %d) -> %d..%d\n", ins->mLocation.mFileName, ins->mLocation.mLine, start, end, lo->mSize, (int)(ins->mSrc[0].mIntConst), mi, ma);
 
 							vr.LimitMax(ma);
 							vr.LimitMin(mi);
@@ -18290,6 +18317,7 @@ void InterCodeBasicBlock::ConstLoopOptimization(void)
 
 							op.mIntConst = index;
 							vars[ins->mDst.mTemp] = op;
+							mset += ins->mDst.mTemp;
 						}	break;
 						case IC_LOAD:
 						{
@@ -18303,6 +18331,7 @@ void InterCodeBasicBlock::ConstLoopOptimization(void)
 							}
 
 							vars[ins->mDst.mTemp] = LoadConstantOperand(ins, op, ins->mDst.mType, mProc->mModule->mGlobalVars, mProc->mModule->mProcedures);
+							mset += ins->mDst.mTemp;
 
 						}	break;
 
@@ -26608,7 +26637,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "levels_navigate");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

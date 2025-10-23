@@ -14,14 +14,14 @@ NumberSet::NumberSet(int size, bool set)
 	int i;
 
 	this->size = size;
-	dwsize = (size + 31) >> 5;
+	dwsize = (size + 63) >> 6;
 
-	bits = new uint32[dwsize];
+	bits = new uint64[dwsize];
 
 	if (set)
 	{
 		for (i = 0; i < dwsize; i++)
-			bits[i] = 0xffffffff;
+			bits[i] = ~0ull;
 	}
 	else
 	{
@@ -36,7 +36,7 @@ NumberSet::NumberSet(const NumberSet& set)
 
 	this->size = set.size;
 	this->dwsize = set.dwsize;
-	this->bits = new uint32[dwsize];
+	this->bits = new uint64[dwsize];
 
 	for (i = 0; i < dwsize; i++)
 		bits[i] = set.bits[i];
@@ -51,10 +51,10 @@ void NumberSet::Expand(int size, bool set)
 {
 	if (size > this->size)
 	{
-		int ndwsize = (size + 31) >> 5;
+		int ndwsize = (size + 63) >> 6;
 		if (dwsize != ndwsize)
 		{
-			uint32	*	nbits = new uint32[ndwsize];
+			uint64	*	nbits = new uint64[ndwsize];
 			for (int i = 0; i < dwsize; i++)
 				nbits[i] = bits[i];
 			for (int i = dwsize; i < ndwsize; i++)
@@ -71,12 +71,12 @@ void NumberSet::Reset(int size, bool set)
 {
 	int i;
 
-	int ndwsize = (size + 31) >> 5;
+	int ndwsize = (size + 63) >> 6;
 	if (this->dwsize != ndwsize)
 	{
 		delete[] bits;
 		dwsize = ndwsize;
-		bits = new uint32[dwsize];
+		bits = new uint64[dwsize];
 	}
 
 	this->size = size;
@@ -84,7 +84,7 @@ void NumberSet::Reset(int size, bool set)
 	if (set)
 	{
 		for (i = 0; i < dwsize; i++)
-			bits[i] = 0xffffffff;
+			bits[i] = ~0ull;
 	}
 	else
 	{
@@ -126,7 +126,7 @@ void NumberSet::Fill(void)
 	int i;
 
 	for (i = 0; i < dwsize; i++)
-		bits[i] = 0xffffffff;
+		bits[i] = ~0ull;
 }
 
 void NumberSet::OrNot(const NumberSet& set)
@@ -153,12 +153,12 @@ NumberSet& NumberSet::operator=(const NumberSet& set)
 	{
 		delete[] bits;
 		this->dwsize = set.dwsize;
-		this->bits = new uint32[dwsize];
+		this->bits = new uint64[dwsize];
 	}
 
 	int	size = dwsize;
-	const uint32* sbits = set.bits;
-	uint32* dbits = bits;
+	const uint64* sbits = set.bits;
+	uint64* dbits = bits;
 
 	for (int i = 0; i < size; i++)
 		dbits[i] = sbits[i];
@@ -171,8 +171,8 @@ NumberSet& NumberSet::operator&=(const NumberSet& set)
 	assert(dwsize == set.dwsize);
 
 	int	size = dwsize;
-	const uint32* sbits = set.bits;
-	uint32* dbits = bits;
+	const uint64* sbits = set.bits;
+	uint64* dbits = bits;
 
 	for (int i = 0; i < size; i++)
 		dbits[i] &= sbits[i];
@@ -185,8 +185,8 @@ NumberSet& NumberSet::operator|=(const NumberSet& set)
 	assert(dwsize >= set.dwsize);
 
 	int	size = dwsize < set.dwsize ? dwsize : set.dwsize;
-	const uint32* sbits = set.bits;
-	uint32* dbits = bits;
+	const uint64* sbits = set.bits;
+	uint64* dbits = bits;
 
 	for (int i = 0; i < size; i++)
 		dbits[i] |= sbits[i];

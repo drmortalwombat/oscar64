@@ -110,7 +110,7 @@ typedef struct RIRQCode10
 	byte		code[RIRQ_SIZE_10 - RIRQ_SIZE];
 } RIRQCode10;
 
-typedef struct RQIRCode20
+typedef struct RIRQCode20
 {
 	RIRQCode	c;
 	byte		code[RIRQ_SIZE_20 - RIRQ_SIZE];	
