@@ -19107,21 +19107,24 @@ bool NativeCodeBasicBlock::MoveImmediateStoreUp(int at)
 		i--;
 		if (mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == val)
 		{
-			if (mIns[i].mType == ASMIT_LDA)
+			if (mIns[i].mType == ASMIT_LDA && (mIns[i].mLive & LIVE_CPU_REG_A))
 			{
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[at + 1].mIns, ASMIT_STA, mIns[at + 1]));
+				mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 				mIns.Remove(at + 1, 2);
 				return true;
 			}
 			else if (mIns[i].mType == ASMIT_LDX && HasAsmInstructionMode(ASMIT_STX, mIns[at + 1].mMode))
 			{
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[at + 1].mIns, ASMIT_STX, mIns[at + 1]));
+				mIns[i + 1].mLive |= LIVE_CPU_REG_X;
 				mIns.Remove(at + 1, 2);
 				return true;
 			}
 			else if (mIns[i].mType == ASMIT_LDY && HasAsmInstructionMode(ASMIT_STY, mIns[at + 1].mMode))
 			{
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[at + 1].mIns, ASMIT_STY, mIns[at + 1]));
+				mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
 				mIns.Remove(at + 1, 2);
 				return true;
 			}
@@ -19153,7 +19156,7 @@ bool NativeCodeBasicBlock::MoveImmediateStoreDown(int at)
 	{
 		if (mIns[i].mMode == ASMIM_IMMEDIATE && mIns[i].mAddress == val)
 		{
-			if (mIns[i].mType == ASMIT_LDA)
+			if (mIns[i].mType == ASMIT_LDA && (mIns[i].mLive & LIVE_CPU_REG_A))
 			{
 				if (usex)
 				{
@@ -19167,6 +19170,7 @@ bool NativeCodeBasicBlock::MoveImmediateStoreDown(int at)
 				}
 
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[at + 1].mIns, ASMIT_STA, mIns[at + 1]));
+				mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 				mIns.Remove(at, 2);
 				return true;
 			}
@@ -19178,6 +19182,7 @@ bool NativeCodeBasicBlock::MoveImmediateStoreDown(int at)
 						mIns[j].mLive |= LIVE_CPU_REG_Y;
 				}
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[at + 1].mIns, ASMIT_STX, mIns[at + 1]));
+				mIns[i + 1].mLive |= LIVE_CPU_REG_X;
 				mIns.Remove(at, 2);
 				return true;
 			}
@@ -19189,6 +19194,7 @@ bool NativeCodeBasicBlock::MoveImmediateStoreDown(int at)
 						mIns[j].mLive |= LIVE_CPU_REG_X;
 				}
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[at + 1].mIns, ASMIT_STY, mIns[at + 1]));
+				mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
 				mIns.Remove(at, 2);
 				return true;
 			}
@@ -19230,7 +19236,10 @@ bool NativeCodeBasicBlock::RecycleImmediates(void)
 				    (mIns[i].mType == ASMIT_LDY && mIns[i + 1].mType == ASMIT_STY && !(mIns[i + 1].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z))))
 				{
 					if (MoveImmediateStoreDown(i) || MoveImmediateStoreUp(i))
+					{
+						CheckLive();
 						changed = true;
+					}
 				}
 			}
 		}
