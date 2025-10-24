@@ -60785,6 +60785,7 @@ void NativeCodeProcedure::Optimize(void)
 
 		if (step == 7 || step == 14)
 		{
+			RebuildEntry();
 			ResetVisited();
 			if (mEntryBlock->CrossBlockRegisterAlias(false, false))
 			{
