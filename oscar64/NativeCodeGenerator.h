@@ -327,6 +327,7 @@ public:
 
 	int						mYAlias[256];
 	int						mYReg, mYOffset, mYValue, mXReg, mXOffset, mXValue;
+	bool					mSameAX, mSameAY;
 
 	ExpandingArray<NativeRegisterSum16Info>	mRSumInfos;
 

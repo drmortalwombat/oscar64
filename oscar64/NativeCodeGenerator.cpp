@@ -718,7 +718,7 @@ NativeCodeInstruction::NativeCodeInstruction(const InterInstruction* ins, AsmIns
 
 	if (mode == ASMIM_IMMEDIATE_ADDRESS)
 	{
-#if _DEBUG
+#if 0
 		assert(address >= 0);
 #endif
 		assert((mFlags & (NCIF_LOWER | NCIF_UPPER)) != (NCIF_LOWER | NCIF_UPPER));
@@ -8746,7 +8746,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::FillValue(InterCodeProcedure* proc, 
 				return eblock;
 			}
 		}
-		else if (ins->mSrc[1].mMemory == IM_GLOBAL || ins->mSrc[1].mMemory == IM_ABSOLUTE)
+		else if ((ins->mSrc[1].mMemory == IM_GLOBAL || ins->mSrc[1].mMemory == IM_ABSOLUTE) && size <= 256 * msize)
 		{
 			NativeCodeBasicBlock* block = this;
 
@@ -8844,23 +8844,29 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::FillValue(InterCodeProcedure* proc, 
 #endif
 
 	int	dreg;
-	int di = 0;
+	int di = 0, ioffset = 0;
 
 	if (ins->mSrc[1].mTemp < 0)
 	{
 		if (ins->mSrc[1].mMemory == IM_GLOBAL)
 		{
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
+			if ((size > 256) && (size & 255) != 0)
+				ioffset = 256 - (size & 255);
+
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst - ioffset, ins->mSrc[1].mLinkerObject, NCIF_LOWER));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 0));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE_ADDRESS, ins->mSrc[1].mIntConst - ioffset, ins->mSrc[1].mLinkerObject, NCIF_UPPER));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
 			dreg = BC_REG_ADDR;
 		}
 		else if (ins->mSrc[1].mMemory == IM_ABSOLUTE)
 		{
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst & 0xff));
+			if ((size > 256) && (size & 255) != 0)
+				ioffset = 256 - (size & 255);
+
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[1].mIntConst - ioffset) & 0xff));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 0));
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, (ins->mSrc[1].mIntConst >> 8) & 0xff));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, ((ins->mSrc[1].mIntConst - ioffset) >> 8) & 0xff));
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_ADDR + 1));
 			dreg = BC_REG_ADDR;
 		}
@@ -8930,6 +8936,8 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::FillValue(InterCodeProcedure* proc, 
 		dreg = BC_REG_TMP + proc->mTempOffset[ins->mSrc[1].mTemp];
 	}
 
+	size += ioffset;
+
 	if (size <= msize)
 	{
 		if (ins->mSrc[0].mTemp < 0)
@@ -8977,7 +8985,7 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::FillValue(InterCodeProcedure* proc, 
 			NativeCodeBasicBlock* lblock = nproc->AllocateBlock();
 			NativeCodeBasicBlock* lblock2 = nproc->AllocateBlock();
 
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, 0));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, ioffset));
 			if (size >= 512)
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDX, ASMIM_IMMEDIATE, size >> 8));
 			this->Close(ins, lblock, nullptr, ASMIT_JMP);
@@ -29040,13 +29048,35 @@ bool NativeCodeBasicBlock::CrossBlockRegisterAlias(bool sameAX, bool sameAY)
 	bool	changed = false;
 	if (!mVisited)
 	{
-		mVisited = true;
+		assert(mLocked || mNumEntries == mEntryBlocks.Size());
 
-		if (mNumEntries > 1)
+		if (mLoopHead)
 		{
 			sameAX = false;
 			sameAY = false;
 		}
+		else
+		{
+			if (mNumEntered == 0)
+			{
+				mSameAX = sameAX;
+				mSameAY = sameAY;
+			}
+			else
+			{
+				if (!sameAX)
+					mSameAX = false;
+				if (!sameAY)
+					mSameAY = false;
+			}
+			mNumEntered++;
+			if (mNumEntered != mNumEntries)
+				return false;
+			sameAX = mSameAX;
+			sameAY = mSameAY;
+		}
+
+		mVisited = true;
 
 		bool	direct = false;
 		for (int i = 0; i < mIns.Size(); i++)
@@ -29055,17 +29085,37 @@ bool NativeCodeBasicBlock::CrossBlockRegisterAlias(bool sameAX, bool sameAY)
 			switch (ins.mType)
 			{
 			case ASMIT_TAY:
+				if (sameAY && !(ins.mLive & LIVE_CPU_REG_Z))
+				{
+					ins.mType = ASMIT_NOP; ins.mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
 				sameAY = true;
 				break;
 			case ASMIT_TAX:
+				if (sameAX && !(ins.mLive & LIVE_CPU_REG_Z))
+				{
+					ins.mType = ASMIT_NOP; ins.mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
 				sameAX = true;
 				break;
 			case ASMIT_TYA:
+				if (sameAY && !(ins.mLive & LIVE_CPU_REG_Z))
+				{
+					ins.mType = ASMIT_NOP; ins.mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
 				sameAY = true;
 				sameAX = false;
 				direct = true;
 				break;
 			case ASMIT_TXA:
+				if (sameAX && !(ins.mLive & LIVE_CPU_REG_Z))
+				{
+					ins.mType = ASMIT_NOP; ins.mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
 				sameAY = false;
 				sameAX = true;
 				direct = true;
@@ -48397,11 +48447,23 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 			cval = 1;
 		else if (carryClear)
 			cval = 0;
+
 #endif
+		int tcval = cval, fcval = cval;
+
+		if (mBranch == ASMIT_BCC)
+		{
+			tcval = 0; fcval = 1;
+		}
+		else if (mBranch == ASMIT_BCS)
+		{
+			tcval = 1; fcval = 0;
+		}
+
 		if (mTrueJump)
-			mTrueJump->BlockSizeReduction(proc, ximm ? xval : -1, yimm ? yval: -1, cval);
+			mTrueJump->BlockSizeReduction(proc, ximm ? xval : -1, yimm ? yval : -1, tcval);
 		if (mFalseJump)
-			mFalseJump->BlockSizeReduction(proc, ximm ? xval : -1, yimm ? yval : -1, cval);
+			mFalseJump->BlockSizeReduction(proc, ximm ? xval : -1, yimm ? yval : -1, fcval);
 	}
 }
 
@@ -59212,7 +59274,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "levels_navigate");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -60712,11 +60774,14 @@ void NativeCodeProcedure::Optimize(void)
 
 		CheckBlocks();
 
-		if (step == 7)
+		if (step == 7 || step == 14)
 		{
 			ResetVisited();
 			if (mEntryBlock->CrossBlockRegisterAlias(false, false))
+			{
+				BuildDataFlowSets();
 				changed = true;
+			}
 		}
 
 
@@ -61405,6 +61470,8 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 #if 1
+
+	RebuildEntry();
 
 	ResetVisited();
 	mEntryBlock->BlockSizeReduction(this, -1, -1, -1);

@@ -429,7 +429,7 @@ public:
 
 	void Append(InterInstruction * code);
 	void AppendBeforeBranch(InterInstruction* code, bool loopindex = false);
-	const InterInstruction* FindByDst(int dst) const;
+	const InterInstruction* FindByDst(int dst, int depth = 0) const;
 	void Close(InterCodeBasicBlock* trueJump, InterCodeBasicBlock* falseJump);
 
 	void CollectEntries(void);
@@ -687,6 +687,8 @@ public:
 	void LimitLoopIndexRanges(void);
 	bool SingleTailLoopOptimization(const NumberSet& aliasedParams, const GrowingVariableArray& staticVars);
 	bool MergeLoopTails(void);
+
+	void ReplaceCopyFill(void);
 
 	bool ChangeTrueJump(InterCodeBasicBlock* block);
 	bool ChangeFalseJump(InterCodeBasicBlock* block);

@@ -6062,21 +6062,21 @@ void InterInstruction::Disassemble(FILE* file, InterCodeProcedure* proc)
 			if (mSrc[1].mStride != 1)
 			{
 				if (mSrc[0].mStride != 1)
-					fprintf(file, "COPY%d:%c%d%c%d", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory], mSrc[1].mStride);
+					fprintf(file, "COPY%d:%c%d%c%d", mConst.mOperandSize, memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory], mSrc[1].mStride);
 				else
-					fprintf(file, "COPY%d:%c%c%d", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory], mSrc[1].mStride);
+					fprintf(file, "COPY%d:%c%c%d", mConst.mOperandSize, memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory], mSrc[1].mStride);
 			}
 			else if (mSrc[0].mStride != 1)
-				fprintf(file, "COPY%d:%c%d%c", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory]);
+				fprintf(file, "COPY%d:%c%d%c", mConst.mOperandSize, memchars[mSrc[0].mMemory], mSrc[0].mStride, memchars[mSrc[1].mMemory]);
 			else
-				fprintf(file, "COPY%d:%c%c", mSrc[0].mOperandSize, memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
+				fprintf(file, "COPY%d:%c%c", mConst.mOperandSize, memchars[mSrc[0].mMemory], memchars[mSrc[1].mMemory]);
 			break;
 		case IC_FILL:
 			assert(mNumOperands == 2);
 			if (mSrc[1].mStride != 1)
-				fprintf(file, "FILL%c%d:%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize, mSrc[1].mStride);
+				fprintf(file, "FILL%c%d:%d", memchars[mSrc[1].mMemory], mConst.mOperandSize, mSrc[1].mStride);
 			else
-				fprintf(file, "FILL%c%d", memchars[mSrc[1].mMemory], mSrc[1].mOperandSize);
+				fprintf(file, "FILL%c%d", memchars[mSrc[1].mMemory], mConst.mOperandSize);
 			break;
 
 		case IC_MALLOC:
@@ -6343,13 +6343,15 @@ void InterCodeBasicBlock::AppendBeforeBranch(InterInstruction* code, bool loopin
 	mInstructions.Insert(ti, code);
 }
 
-const InterInstruction* InterCodeBasicBlock::FindByDst(int dst) const
+const InterInstruction* InterCodeBasicBlock::FindByDst(int dst, int depth) const
 {
 	int n = mInstructions.Size() - 1;
 	while (n >= 0 && mInstructions[n]->mDst.mTemp != dst)
 		n--;
 	if (n >= 0)
 		return mInstructions[n];
+	else if (depth < 10 && mEntryBlocks.Size() == 1)
+		return mEntryBlocks[0]->FindByDst(dst, depth + 1);
 	else
 		return nullptr;
 }
@@ -17274,6 +17276,71 @@ bool InterCodeBasicBlock::ShortcutConstBranches(const GrowingInstructionPtrArray
 }
 
 
+void InterCodeBasicBlock::ReplaceCopyFill(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mLoopHead && mEntryBlocks.Size() == 2 && mTrueJump == this)
+		{
+			if (mInstructions.Size() == 4 &&
+				mInstructions[0]->mCode == IC_STORE &&
+					mInstructions[0]->mSrc[0].mTemp < 0 && 
+					mInstructions[0]->mSrc[0].mType == IT_INT8 && 
+					mInstructions[0]->mSrc[1].mTemp >= 0 &&
+				mInstructions[1]->mCode == IC_LEA &&
+					mInstructions[1]->mDst.mTemp == mInstructions[0]->mSrc[1].mTemp &&
+					mInstructions[1]->mSrc[1].mTemp == mInstructions[0]->mSrc[1].mTemp &&
+					mInstructions[1]->mSrc[0].mTemp < 0 &&
+					mInstructions[1]->mSrc[0].mIntConst == 1 &&
+				mInstructions[2]->mCode == IC_RELATIONAL_OPERATOR &&
+					mInstructions[2]->mSrc[1].mTemp == mInstructions[1]->mDst.mTemp &&
+					mInstructions[2]->mSrc[0].mTemp < 0 &&
+				mInstructions[3]->mCode == IC_BRANCH &&
+					mInstructions[3]->mSrc[0].mTemp == mInstructions[2]->mDst.mTemp
+				)
+			{
+				int reg = mInstructions[0]->mSrc[1].mTemp;
+
+				InterCodeBasicBlock* pblock = mEntryBlocks[0];
+				if (pblock == this)
+					pblock = mEntryBlocks[1];
+
+				const InterInstruction* cins = mInstructions[2];
+				const InterInstruction* bins = pblock->FindByDst(reg);
+
+				if (bins && bins->mCode == IC_CONSTANT)
+				{
+					if (bins->mConst.mMemory == cins->mSrc[0].mMemory)
+					{
+						int64	size = cins->mSrc[0].mIntConst - bins->mConst.mIntConst;
+						if (size > 0)
+						{
+							mInstructions[0]->mCode = IC_FILL;
+							mInstructions[0]->mConst.mOperandSize = int(size);
+							mInstructions[0]->mSrc[1] = bins->mConst;
+							mInstructions[1]->mSrc[0].mIntConst = size;
+							mInstructions[2]->mCode = IC_NONE; 
+							mInstructions[2]->mNumOperands = 0;
+							mInstructions[3]->mCode = IC_JUMP;
+							mInstructions[3]->mNumOperands = 0;
+
+							mNumEntries--;
+							mEntryBlocks.RemoveAll(this);
+							mTrueJump = mFalseJump;
+							mFalseJump = nullptr;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->ReplaceCopyFill();
+		if (mFalseJump) mFalseJump->ReplaceCopyFill();
+	}
+}
+
 bool InterCodeBasicBlock::MergeLoopTails(void)
 {
 	bool	modified = false;
@@ -27723,8 +27790,12 @@ void InterCodeProcedure::Close(void)
 	EliminateDoubleLoopCounter();
 	DisassembleDebug("EliminateDoubleLoopCounter");
 
-
 	BuildDataFlowSets();
+
+	PeepholeOptimization();
+
+	ResetVisited();
+	mEntryBlock->ReplaceCopyFill();
 
 	ResetVisited();
 	mEntryBlock->PropagateConstCompareResults();
