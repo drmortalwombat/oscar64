@@ -8392,6 +8392,18 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 			}
 		}
 
+		if (sz >= 1 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 1]->mSrc[0].mRange.IsBound() && mInstructions[sz - 1]->mSrc[0].mRange.mMinValue > 0 && mInstructions[sz - 1]->mSrc[0].mRange.mMaxValue < 255)
+		{
+			InterInstruction* bins = mInstructions[sz - 1];
+
+			mFalseJump->mNumEntries--;
+			mFalseJump->WarnUnreachable();
+			mFalseJump = nullptr;
+			bins->mCode = IC_JUMP;
+			bins->mSrc[0].mTemp = -1;
+			bins->mNumOperands = 0;
+		}
+
 		if (sz >= 2 && mInstructions[sz - 1]->mCode == IC_BRANCH && mInstructions[sz - 2]->mCode == IC_CONSTANT && mInstructions[sz - 2]->mDst.mTemp == mInstructions[sz - 1]->mSrc[0].mTemp)
 		{
 			InterInstruction* bins = mInstructions[sz - 1];
