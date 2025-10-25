@@ -9899,8 +9899,9 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 
 	InterCodeBasicBlock	*	pblock;
 	int64					nloop;
+	bool					nfixed;
 
-	bool singleLoop = CheckSingleBlockLimitedLoop(pblock, nloop);
+	bool singleLoop = CheckSingleBlockLimitedLoop(pblock, nloop, nfixed);
 
 #if 0
 	FastNumberSet		dependTemps(mExitRequiredTemps.Size());
@@ -10020,7 +10021,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 	mTrueParamValueRange = mLocalParamValueRange;
 	mFalseParamValueRange = mLocalParamValueRange;
 
-	if (singleLoop)
+	if (singleLoop && nfixed)
 	{
 		for (int i = 0; i < tempChain.Size(); i++)
 		{
@@ -20520,7 +20521,7 @@ void InterCodeBasicBlock::PushMoveOutOfLoop(void)
 	}
 }
 
-bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64& nloop)
+bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64& nloop, bool& nfixed)
 {
 	if (mLoopHead && mEntryBlocks.Size() == 2 && mFalseJump && (mTrueJump == this || mFalseJump == this) && mInstructions.Size() > 3)
 	{
@@ -20562,6 +20563,7 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 						if (cins->mOperator == IA_CMPLEU)
 							nloop++;
 						nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
+						nfixed = true;
 
 						return true;
 					}
@@ -20591,6 +20593,7 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 						if (cins->mOperator == IA_CMPLEU)
 							nloop++;
 						nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
+						nfixed = false;
 
 						return true;
 					}
@@ -20628,6 +20631,7 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 						if (cins->mOperator == IA_CMPGEU)
 							nloop++;
 						nloop = (nloop + ains->mSrc[0].mIntConst - 1) / ains->mSrc[0].mIntConst;
+						nfixed = true;
 
 						return true;
 					}
@@ -20662,6 +20666,7 @@ bool  InterCodeBasicBlock::CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pbl
 						mProc->mLocalValueRange[ains->mDst.mTemp].LimitMin(1);
 						mProc->mLocalValueRange[ains->mDst.mTemp].LimitMax(pblock->mInstructions[pi]->mConst.mIntConst);
 
+						nfixed = false;
 						return true;
 					}
 				}
@@ -26704,7 +26709,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "rirq_build");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

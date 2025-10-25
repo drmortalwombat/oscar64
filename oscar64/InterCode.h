@@ -490,7 +490,7 @@ public:
 	void BuildStaticVariableByteSet(const GrowingVariableArray& staticVars, int bsize);
 	bool RemoveUnusedStaticStoreByteInstructions(const GrowingVariableArray& staticVars, int bsize);
 
-	bool CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64 & nloop);
+	bool CheckSingleBlockLimitedLoop(InterCodeBasicBlock*& pblock, int64 & nloop, bool & nfixed);
 
 	bool TempIsUnsigned(int temp);
 
