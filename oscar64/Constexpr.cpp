@@ -1310,7 +1310,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, Cons
 
 ConstexprInterpreter::Value ConstexprInterpreter::EvalCoerce(Expression* exp, const Value& vl, Declaration* type)
 {
-	if (type->IsReference())
+	if (type->IsReference() || vl.mDecType->mType == DT_TYPE_ARRAY && type->mType == DT_TYPE_ARRAY)
 		return vl;
 	else
 	{
@@ -1471,6 +1471,13 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	}
 
 	case EX_INITIALIZATION:
+	{
+		Value	lexp = Eval(exp->mLeft);
+		Value	rexp = Eval(exp->mRight);
+		lexp.Assign(EvalCoerce(exp, rexp, lexp.mDecType));
+		return lexp;
+	}
+
 	case EX_ASSIGNMENT:
 	{
 		Value	lexp = Eval(exp->mLeft);
