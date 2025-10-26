@@ -411,6 +411,7 @@ public:
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);
 	bool OptimizeSimpleForLoop(void);
+	bool OptimizeSimpleFixLoop(void);
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeXYSimpleLoop(void);
