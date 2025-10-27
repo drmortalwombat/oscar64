@@ -47,4 +47,6 @@ protected:
 	bool ReplaceConstCalls(Expression*& exp);
 	bool UnrollLoops(Expression*& exp);
 
+	bool CheckSplitAggregates(Declaration* func, Expression* exp);
+	void SplitLocalAggregate(Expression* exp, Declaration* var, ExpandingArray<Declaration *> & evars);
 };

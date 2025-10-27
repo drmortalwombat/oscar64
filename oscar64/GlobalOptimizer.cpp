@@ -23,6 +23,8 @@ static const uint64 OPTF_SINGLE_CALL = (1ULL << 14);
 static const uint64 OPTF_MULTI_CALL = (1ULL << 15);
 static const uint64 OPTF_CONST_FUNCTION = (1ULL << 16);
 static const uint64 OPTF_VAR_RANGE_LIMITED = (1ULL << 17);
+static const uint64 OPTF_VAR_COPY = (1ULL << 18);
+static const uint64 OPTF_VAR_INDEXED = (1ULL << 19);
 
 GlobalOptimizer::GlobalOptimizer(Errors* errors, Linker* linker)
 	: mErrors(errors), mLinker(linker)
@@ -113,6 +115,115 @@ void GlobalOptimizer::PropagateCommas(Expression*& exp)
 			PropagateCommas(exp->mRight);
 	}
 
+}
+
+bool GlobalOptimizer::CheckSplitAggregates(Declaration* func, Expression* exp)
+{
+	bool	changed = false;
+
+	if (exp->mType == EX_VARIABLE)
+	{
+#if 1
+		Declaration* dvar = exp->mDecValue;
+		if (dvar->mType == DT_VARIABLE && dvar->mIdent && !(dvar->mFlags & (DTF_GLOBAL | DTF_STATIC)))
+		{
+			if (exp->mDecType->mType == DT_TYPE_ARRAY && exp->mDecType->mSize <= 16)
+			{
+				if (!(dvar->mOptFlags & OPTF_VAR_ADDRESS) && !(dvar->mOptFlags & OPTF_VAR_COPY) && (dvar->mOptFlags & OPTF_VAR_USED))
+				{
+//					printf("Split %s\n", exp->mDecValue->mIdent->mString);
+					ExpandingArray<Declaration*> evars;
+					int num = exp->mDecType->mSize / exp->mDecType->mBase->mSize;
+					for (int i = 0; i < num; i++)
+					{
+						Declaration* dec = new Declaration(dvar->mLocation, DT_VARIABLE);
+						char str[8];
+						sprintf_s(str, "[%d]", i);
+						dec->mIdent = dvar->mIdent->Mangle(str);
+						dec->mBase = exp->mDecType->mBase;
+						dec->mSize = dec->mSize;
+						dec->mVarIndex = func->mNumVars++;
+						evars.Push(dec);
+					}
+
+					SplitLocalAggregate(func->mValue, dvar, evars);
+					changed = true;
+				}
+			}
+			else if (exp->mDecType->mType == DT_TYPE_STRUCT && exp->mDecType->mSize <= 16)
+			{
+				if (!(dvar->mOptFlags & OPTF_VAR_ADDRESS) && !(dvar->mOptFlags & OPTF_VAR_COPY) && (dvar->mOptFlags & OPTF_VAR_USED))
+				{
+					Declaration* edec = exp->mDecType->mParams;
+					while (edec && !edec->mBits)
+						edec = edec->mNext;
+						if (!edec)
+						{
+//							printf("Split %s in %s\n", exp->mDecValue->mIdent->mString, func->mQualIdent->mString);
+							ExpandingArray<Declaration*> evars;
+							evars.SetSize(exp->mDecType->mSize);
+							Declaration* edec = exp->mDecType->mParams;
+							while (edec)
+							{
+								Declaration* dec = new Declaration(dvar->mLocation, DT_VARIABLE);
+								char str[240];
+								sprintf_s(str, ".%s", edec->mIdent->mString);
+								dec->mIdent = dvar->mIdent->Mangle(str);
+								dec->mBase = edec->mBase;
+								dec->mSize = dec->mSize;
+								dec->mVarIndex = func->mNumVars++;
+								evars[edec->mOffset] = dec;
+								edec = edec->mNext;
+							}
+
+							SplitLocalAggregate(func->mValue, dvar, evars);
+							changed = true;
+						}
+				}
+			}
+		}
+#endif
+	}
+	else
+	{
+		if (exp->mLeft && CheckSplitAggregates(func, exp->mLeft)) changed = true;
+		if (exp->mRight && CheckSplitAggregates(func, exp->mRight)) changed = true;
+	}
+
+	return changed;
+}
+
+void GlobalOptimizer::SplitLocalAggregate(Expression* exp, Declaration* var, ExpandingArray<Declaration*>& evars)
+{
+	if (exp->mType == EX_INDEX)
+	{
+		if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue == var)
+		{
+			exp->mType = EX_VARIABLE;
+			exp->mDecValue = evars[int(exp->mRight->mDecValue->mInteger)];
+			exp->mLeft = nullptr;
+			exp->mRight = nullptr;
+		}
+	}
+	else if (exp->mType == EX_QUALIFY)
+	{
+		if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue == var)
+		{
+			exp->mType = EX_VARIABLE;
+			exp->mDecValue = evars[int(exp->mDecValue->mOffset)];
+			exp->mLeft = nullptr;
+			exp->mRight = nullptr;
+		}
+	}
+	else if (exp->mType == EX_VARIABLE && exp->mDecValue == var)
+	{
+		exp->mType = EX_VOID;
+	}
+
+	if (exp->mLeft)
+		SplitLocalAggregate(exp->mLeft, var, evars);
+	if (exp->mRight)
+		SplitLocalAggregate(exp->mRight, var, evars);
 }
 
 bool GlobalOptimizer::CheckConstFunction(Expression* exp)
@@ -753,6 +864,9 @@ bool GlobalOptimizer::Optimize(void)
 			if (ReplaceConstCalls(func->mValue))
 				changed = true;
 
+			if (CheckSplitAggregates(func, func->mValue))
+				changed = true;
+
 			if (mCompilerOptions & COPT_OPTIMIZE_AUTO_UNROLL)
 			{
 				if (UnrollLoops(func->mValue))
@@ -1104,6 +1218,8 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			AnalyzeGlobalVariable(vdec);
 			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 		}
+		if (flags & ANAFL_COPY)
+			vdec->mOptFlags |= OPTF_VAR_COPY;
 		if (flags & ANAFL_RHS)
 			vdec->mOptFlags |= OPTF_VAR_USED;
 		if (flags & ANAFL_LHS)
@@ -1128,17 +1244,17 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		if (exp->mToken == TK_ASSIGN)
 		{
 			if (exp->mType == EX_ASSIGNMENT)
-				ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_ASSIGN | flags);
+				ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_ASSIGN | ANAFL_COPY | flags);
 			else
-				ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | flags);
+				ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_COPY | flags);
 		}
 		else
-			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS | flags);
+			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS | ANAFL_COPY | flags);
 
 		if (exp->mLeft->mDecType->IsReference())
-			rdec = Analyze(exp->mRight, procDec, ANAFL_LHS | ANAFL_RHS);
+			rdec = Analyze(exp->mRight, procDec, ANAFL_LHS | ANAFL_RHS | ANAFL_COPY);
 		else
-			rdec = Analyze(exp->mRight, procDec, ANAFL_RHS);
+			rdec = Analyze(exp->mRight, procDec, ANAFL_RHS | ANAFL_COPY);
 
 		RegisterProc(rdec);
 		return ldec;
@@ -1157,7 +1273,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		return Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS);
 	case EX_PREFIX:
 		if (exp->mToken == TK_BINARY_AND)
-			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS);
+			ldec = Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS | ANAFL_ADDRESS);
 		else if (exp->mToken == TK_MUL)
 		{
 			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
@@ -1176,7 +1292,18 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 
 		procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
+#if 0
 		ldec = Analyze(exp->mLeft, procDec, ANAFL_RHS);
+#else
+		if (exp->mLeft->mDecType->mType == DT_TYPE_POINTER)
+			ldec = Analyze(exp->mLeft, procDec, ANAFL_RHS);
+		else if (exp->mRight->mType != EX_CONSTANT)
+			ldec = Analyze(exp->mLeft, procDec, ANAFL_RHS | ANAFL_LHS);
+		else if (flags & ANAFL_ADDRESS)
+			ldec = Analyze(exp->mLeft, procDec, flags);
+		else
+			ldec = Analyze(exp->mLeft, procDec, ANAFL_RHS);
+#endif
 		if (ldec->mType == DT_VARIABLE || ldec->mType == DT_ARGUMENT)
 			ldec = ldec->mBase;
 		rdec = Analyze(exp->mRight, procDec, ANAFL_RHS);
@@ -1187,7 +1314,10 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 		if (exp->mDecType->mFlags & DTF_VOLATILE)
 			procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
 
-		Analyze(exp->mLeft, procDec, flags);
+		if (flags & ANAFL_ADDRESS)
+			Analyze(exp->mLeft, procDec, flags);
+		else
+			Analyze(exp->mLeft, procDec, ANAFL_RHS);
 		return exp->mDecValue->mBase;
 	case EX_DISPATCH:
 		procDec->mOptFlags &= ~OPTF_CONST_FUNCTION;
@@ -1350,7 +1480,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 						pex->mDecValue->mForwardCall = ldec;
 					}
 					else
-						RegisterProc(Analyze(pex, procDec, ANAFL_LHS | ANAFL_RHS));
+						RegisterProc(Analyze(pex, procDec, ANAFL_LHS | ANAFL_RHS | ANAFL_COPY));
 				}
 				else if (!(procDec->mBase->mFlags & DTF_VIRTUAL) && pdec && pex && pex->mType == EX_VARIABLE && pex->mDecValue->mType == DT_ARGUMENT && !pex->mDecValue->mForwardParam && !(pex->mDecValue->mOptFlags & OPTF_VAR_NO_FORWARD))
 				{
@@ -1359,7 +1489,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 					pex->mDecValue->mForwardCall = ldec;
 				}
 				else
-					RegisterProc(Analyze(pex, procDec, ANAFL_RHS));
+					RegisterProc(Analyze(pex, procDec, ANAFL_RHS | ANAFL_COPY));
 
 				if (pdec)
 					pdec = pdec->mNext;
@@ -1398,7 +1528,7 @@ Declaration* GlobalOptimizer::Analyze(Expression* exp, Declaration* procDec, uin
 			if (procDec->mBase->mBase->IsReference())
 				RegisterProc(Analyze(exp->mLeft, procDec, ANAFL_LHS | ANAFL_RHS));
 			else
-				RegisterProc(Analyze(exp->mLeft, procDec, ANAFL_RHS));
+				RegisterProc(Analyze(exp->mLeft, procDec, ANAFL_RHS | ANAFL_COPY));
 
 			if (procDec->mBase->mBase && procDec->mBase->mBase->mType == DT_TYPE_STRUCT && procDec->mBase->mBase->mCopyConstructor)
 			{

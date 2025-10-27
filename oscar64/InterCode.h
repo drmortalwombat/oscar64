@@ -337,6 +337,7 @@ public:
 	bool ReferencesTemp(int temp) const;
 	bool UsesTemp(int temp) const;
 	int NumUsedTemps(void) const;
+	void ReplaceTemp(int from, int to);
 
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable, int& nlocals, int& nparams);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);

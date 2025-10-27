@@ -216,6 +216,9 @@ rem @echo off
 @call :test structoffsettest2.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test structsplittest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test funcvartest.c
 @if %errorlevel% neq 0 goto :error
 

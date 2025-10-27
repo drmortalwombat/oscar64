@@ -2905,6 +2905,14 @@ bool InterInstruction::ReferencesTemp(int temp) const
 	return false;
 }
 
+void InterInstruction::ReplaceTemp(int from, int to)
+{
+	if (mDst.mTemp == from) mDst.mTemp = to;
+	for (int i = 0; i < mNumOperands; i++)
+		if (mSrc[i].mTemp == from)
+			mSrc[i].mTemp = to;
+}
+
 InterInstruction* InterInstruction::Clone(void) const
 {
 	InterInstruction* ins = new InterInstruction(mLocation, mCode);
@@ -18600,6 +18608,68 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 
 				if (lcs.Size() >= 2)
 				{
+#if 0
+					for (int i = 0; i < lcs.Size(); i++)
+					{
+						printf("LCS[%d] %lld + %lld -> %lld {%d, %d}\n", i, lcs[i].mStart, lcs[i].mStep, lcs[i].mEnd, lcs[i].mInc->mDst.mTemp, lcs[i].mInc->mCode);
+					}
+#endif
+					int i = 0;
+					while (i < lcs.Size())
+					{
+						if (lcs[i].mReferenced)
+						{
+							int j = i + 1;
+							while (j < lcs.Size() && !(lcs[j].mReferenced && 
+								lcs[i].mStart == lcs[j].mStart && 
+								lcs[i].mStep == lcs[j].mStep && 
+								lcs[i].mInc->mCode == lcs[j].mInc->mCode &&
+								(lcs[i].mInc->mCode != IC_LEA || SameMem(lcs[i].mInc->mDst, lcs[j].mInc->mDst))))
+								j++;
+							if (j < lcs.Size())
+							{
+//								printf("Found Same %s : %d-%d\n", mProc->mIdent->mString, i, j);
+								int ki = mInstructions.IndexOf(lcs[i].mInc);
+								int kj = mInstructions.IndexOf(lcs[j].mInc);
+								int tmpi = lcs[i].mInc->mDst.mTemp;
+								int tmpj = lcs[j].mInc->mDst.mTemp;
+
+								if (ki < kj && !IsTempReferencedInRange(ki + 1, kj, tmpi))
+								{
+									lcs[i].mInc->mCode = IC_NONE; lcs[i].mInc->mNumOperands = 0;
+								}
+								else if (kj < ki && !IsTempReferencedInRange(kj + 1, ki, tmpj))
+								{
+									lcs[j].mInc->mCode = IC_NONE; lcs[j].mInc->mNumOperands = 0;
+								}
+								else
+								{
+									i++;
+									continue;
+								}
+
+								if (lcs[i].mCmp)
+								{
+									for (int k = 0; k < mInstructions.Size(); k++)
+										mInstructions[k]->ReplaceTemp(tmpj, tmpi);
+									lcs[j].mReferenced = false;
+								}
+								else
+								{
+									for (int k = 0; k < mInstructions.Size(); k++)
+										mInstructions[k]->ReplaceTemp(tmpi, tmpj);
+									lcs[i].mReferenced = false;
+								}
+							}
+							else
+								i++;
+						}
+						else
+							i++;
+					}
+				}
+				if (lcs.Size() >= 2)
+				{
 					int64	loop = -1;
 					int k = 0;
 					while (k < lcs.Size() && !lcs[k].mCmp)
@@ -26721,7 +26791,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "rirq_build");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

@@ -1979,7 +1979,8 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			if (!edec)
 				break;
 
-			fset += edec->mOffset;
+			if (edec->mSize)
+				fset += edec->mOffset;
 
 			Expression* qexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 			qexp->mLeft = vexp;
@@ -2057,7 +2058,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			edec = dtype->mParams;
 			while (edec)
 			{
-				if (!fset[edec->mOffset])
+				if (edec->mSize && !fset[edec->mOffset])
 				{
 					fset += edec->mOffset;
 

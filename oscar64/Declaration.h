@@ -255,6 +255,8 @@ static const uint32 ANAFL_LHS = (1U << 0);
 static const uint32 ANAFL_RHS = (1U << 1);
 static const uint32 ANAFL_ASSIGN = (1U << 2);
 static const uint32 ANAFL_ALIAS = (1U << 3);
+static const uint32 ANAFL_COPY = (1U << 4);
+static const uint32 ANAFL_ADDRESS = (1U << 5);
 
 
 class Expression
