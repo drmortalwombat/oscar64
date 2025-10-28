@@ -1703,6 +1703,26 @@ Declaration* Declaration::DeduceAuto(Declaration * dec)
 		return this;
 }
 
+Declaration* Declaration::DeduceAutoInit(Declaration* dec)
+{
+	if (mType == DT_TYPE_AUTO || IsReference() && mBase->mType == DT_TYPE_AUTO)
+	{
+		dec = dec->NonRefBase();
+
+		if ((IsReference() ? mBase->mFlags : mFlags) & DTF_CONST)
+			dec = dec->ToConstType();
+		else
+			dec = dec->ToMutableType();
+
+		if (IsReference())
+			dec = dec->BuildReference(mLocation, mType);
+
+		return dec;
+	}
+	else
+		return this;
+}
+
 
 Declaration* Declaration::BuildConstRValueRef(const Location& loc)
 {

@@ -69,6 +69,8 @@ protected:
 	Expression * AddFunctionCallRefReturned(Expression * exp);
 	Expression* CleanupExpression(Expression* exp);
 
+	void ExpandStructuredBinding(Declaration* dec);
+
 	Declaration* ParseBaseTypeQualify(bool qualified, Declaration* dec, const Ident *& pident);
 	Declaration* ParseBaseTypeDeclaration(uint64 flags, bool qualified, Declaration* ptempl = nullptr);
 	Declaration* ParseDeclaration(Declaration* pdec, bool variable, bool expression, bool member, Declaration * pthis = nullptr, Declaration * ptempl = nullptr);
@@ -82,7 +84,7 @@ protected:
 	Expression* CloneVarInitExpression(Expression* vexp, Expression* iexp, Expression * qexp);
 	Expression* CopyElision(Expression* vexp, Expression* rexp);
 
-	Declaration* ParsePostfixDeclaration(void);
+	Declaration* ParsePostfixDeclaration(bool autoBase);
 	Declaration* ReverseDeclaration(Declaration* odec, Declaration* bdec);
 
 	Expression* ParseFunction(Declaration* dec);

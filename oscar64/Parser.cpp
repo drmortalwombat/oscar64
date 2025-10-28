@@ -1229,7 +1229,7 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 
 }
 
-Declaration* Parser::ParsePostfixDeclaration(void)
+Declaration* Parser::ParsePostfixDeclaration(bool autoBase)
 {
 	Declaration* dec;
 
@@ -1263,7 +1263,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				break;
 		}
 
-		Declaration* dec = ParsePostfixDeclaration();
+		Declaration* dec = ParsePostfixDeclaration(false);
 		ndec->mBase = dec;
 		return ndec;
 	}
@@ -1296,7 +1296,7 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				break;
 		}
 
-		Declaration* dec = ParsePostfixDeclaration();
+		Declaration* dec = ParsePostfixDeclaration(autoBase);
 		ndec->mBase = dec;
 		return ndec;
 	}
@@ -1329,13 +1329,13 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				break;
 		}
 
-		Declaration* dec = ParsePostfixDeclaration();
+		Declaration* dec = ParsePostfixDeclaration(autoBase);
 		ndec->mBase = dec;
 		return ndec;
 	}
 	else if (ConsumeTokenIf(TK_OPEN_PARENTHESIS))
 	{
-		Declaration* vdec = ParsePostfixDeclaration();
+		Declaration* vdec = ParsePostfixDeclaration(false);
 		if (mScanner->mToken == TK_CLOSE_PARENTHESIS)
 			mScanner->NextToken();
 		else
@@ -1411,6 +1411,31 @@ Declaration* Parser::ParsePostfixDeclaration(void)
 				mScanner->NextToken();
 			}
 		}
+	}
+	else if (autoBase && mScanner->mToken == TK_OPEN_BRACKET)
+	{ 
+		dec = new Declaration(mScanner->mLocation, DT_VARIABLE);
+		dec->mSection = mBSSection;
+		dec->mBase = nullptr;
+
+		mScanner->NextToken();
+		Declaration* sbind = nullptr, * spp = nullptr;
+		while (mScanner->mToken == TK_IDENT)
+		{
+			Declaration* sp = new Declaration(mScanner->mLocation, DT_BINDING);
+			sp->mBase = dec;
+			sp->mIdent = mScanner->mTokenIdent;
+			if (spp)
+				spp->mNext = sp;
+			else
+				sbind = sp;
+			spp = sp;
+			mScanner->NextToken();
+			if (!ConsumeTokenIf(TK_COMMA))
+				break;
+		}
+		ConsumeToken(TK_CLOSE_BRACKET);
+		dec->mParams = sbind;
 	}
 	else
 	{
@@ -1492,7 +1517,7 @@ Declaration * Parser::ParseFunctionDeclaration(Declaration* bdec)
 //			if (bdec->mType == DT_PACK_TEMPLATE)
 //				ConsumeToken(TK_ELLIPSIS);
 
-			Declaration* adec = ParsePostfixDeclaration();
+			Declaration* adec = ParsePostfixDeclaration(false);
 			adec = ReverseDeclaration(adec, bdec);
 
 			if (adec->mBase->mType == DT_TYPE_VOID)
@@ -5542,14 +5567,92 @@ void Parser::ParseVariableInit(Declaration* ndec, Expression* pexp)
 
 		ndec->mValue = nexp;
 	}
-	else if (pexp && pexp->mType != EX_LIST && ndec->mBase->CanAssign(pexp->mDecType))
+	else if (pexp && pexp->mType != EX_LIST)
 	{
-		ndec->mValue = pexp;
+		ndec->mBase = ndec->mBase->DeduceAutoInit(pexp->mDecType);
+		if (ndec->mBase->CanAssign(pexp->mDecType))
+			ndec->mValue = pexp;
+		else
+			mErrors->Error(pexp->mLocation, EERR_INCOMPATIBLE_TYPES, "Can not initialize variable with expression", ndec->mIdent);
 	}
 	else if (pexp)
 		mErrors->Error(pexp->mLocation, EERR_INCOMPATIBLE_TYPES, "Can not initialize variable with expression", ndec->mIdent);
 	else
 		mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_TYPES, "Can not initialize variable with expression", ndec->mIdent);
+}
+
+void Parser::ExpandStructuredBinding(Declaration* dec)
+{
+	if (dec->mParams && dec->mParams->mType == DT_BINDING)
+	{
+		Declaration* pdec = dec->mBase->NonRefBase();
+		if (pdec->mType != DT_TYPE_AUTO)
+		{
+			Expression* vex = new Expression(dec->mLocation, EX_VARIABLE);
+			vex->mDecType = dec->mBase;
+			vex->mDecValue = dec;
+
+			Declaration* bdec = dec->mParams;
+			if (pdec->mType == DT_TYPE_STRUCT)
+			{
+				Declaration* sdec = pdec->mParams;
+				while (bdec)
+				{
+					if (sdec)
+					{
+						if (sdec->mType == DT_ELEMENT)
+						{
+							Expression* ex = new Expression(bdec->mLocation, EX_QUALIFY);
+							ex->mLeft = vex;
+							ex->mDecType = sdec->mBase;
+							ex->mDecValue = sdec;
+							bdec->mValue = ex;
+
+							if (mScope->Insert(bdec->mIdent, bdec))
+								mErrors->Error(dec->mLocation, ERRR_INVALID_STRUCT_BINDING_TYPE, "Duplicate struct binding identifier");
+
+							bdec = bdec->mNext;
+						}
+
+						sdec = sdec->mNext;
+					}
+					else
+					{
+						mErrors->Error(dec->mLocation, ERRR_INVALID_STRUCT_BINDING_TYPE, "Too many elements in structured binding");
+						break;
+					}
+				}
+			}
+			else if (pdec->mType == DT_TYPE_ARRAY)
+			{
+				int	index = 0;
+				while (bdec)
+				{
+					if (index * pdec->mBase->mSize > pdec->mSize)
+						mErrors->Error(dec->mLocation, ERRR_INVALID_STRUCT_BINDING_TYPE, "Too many elements in structured binding");
+
+					Expression* ex = new Expression(bdec->mLocation, EX_INDEX);
+					ex->mLeft = vex;
+					ex->mRight = new Expression(bdec->mLocation, EX_CONSTANT);
+					ex->mRight->mDecType = TheSignedIntTypeDeclaration;
+					ex->mRight->mDecValue = new Declaration(bdec->mLocation, DT_CONST_INTEGER);
+					ex->mRight->mDecValue->mBase = TheSignedIntTypeDeclaration;
+					ex->mRight->mDecValue->mSize = 2;
+					ex->mRight->mDecValue->mInteger = index;
+					ex->mDecType = pdec->mBase;
+					bdec->mValue = ex;
+					index++;
+
+					if (mScope->Insert(bdec->mIdent, bdec))
+						mErrors->Error(dec->mLocation, ERRR_INVALID_STRUCT_BINDING_TYPE, "Duplicate struct binding identifier");
+
+					bdec = bdec->mNext;
+				}
+			}
+			else
+				mErrors->Error(dec->mLocation, ERRR_INVALID_STRUCT_BINDING_TYPE, "Invalid structured binding type");
+		}
+	}
 }
 
 Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool expression, bool member, Declaration* pthis, Declaration* ptempl)
@@ -6101,7 +6204,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 	for (;;)
 	{
-		Declaration* ndec = ParsePostfixDeclaration();
+		Declaration* ndec = ParsePostfixDeclaration(bdec->IsAuto());
 
 		ndec = ReverseDeclaration(ndec, bdec);
 
@@ -6424,6 +6527,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				}
 				else
 					ndec->mVarIndex = mLocalIndex++;
+
 			}
 			else if (pthis)
 			{
@@ -6493,7 +6597,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 							if (ndec->mBase->mType == DT_TYPE_AUTO)
 							{
-								ndec->mBase = ndec->mBase->DeduceAuto(ndec->mValue->mDecType);
+								ndec->mBase = ndec->mBase->DeduceAutoInit(ndec->mValue->mDecType);
 								if (ndec->mValue->mDecType->IsSame(ndec->mBase))
 								{
 									vexp->mDecType = ndec->mBase;
@@ -6504,7 +6608,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 							}
 						}
 
-						ndec->mBase = ndec->mBase->DeduceAuto(ndec->mValue->mDecType);
+						ndec->mBase = ndec->mBase->DeduceAutoInit(ndec->mValue->mDecType);
 
 						if (ndec->mFlags & (DTF_GLOBAL | DTF_STATIC))
 						{
@@ -6724,6 +6828,8 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 					}
 				}
 			}
+
+			ExpandStructuredBinding(ndec);
 
 			if (storageFlags & DTF_EXPORT)
 			{
@@ -7434,6 +7540,10 @@ Expression* Parser::ParseIdentExpression(const Location & eloc, Declaration* dec
 			exp->mDecValue = dec;
 			exp->mDecType = dec->mBase;
 		}
+	}
+	else if (dec->mType == DT_BINDING)
+	{
+		return dec->mValue;
 	}
 	else if (dec->mType == DT_PACK_ARGUMENT)
 	{
@@ -11323,6 +11433,8 @@ Expression* Parser::ParseStatement(void)
 							valueVarDec->mBase = valueVarDec->mBase->DeduceAuto(containerExp->mDecType->mBase);
 							valueVarDec->mSize = valueVarDec->mBase->mSize;
 
+							ExpandStructuredBinding(valueVarDec);
+
 							initExp = new Expression(mScanner->mLocation, EX_LIST);
 							initExp->mLeft = new Expression(mScanner->mLocation, EX_INITIALIZATION);
 							initExp->mLeft->mToken = TK_ASSIGN;
@@ -11477,6 +11589,8 @@ Expression* Parser::ParseStatement(void)
 
 								valueVarDec->mBase = valueVarDec->mBase->DeduceAuto(bodyExp->mRight->mDecType);
 								valueVarDec->mSize = valueVarDec->mBase->mSize;
+
+								ExpandStructuredBinding(valueVarDec);
 
 								bodyExp->mLeft->mDecType = valueVarDec->mBase;
 								bodyExp->mLeft->mDecValue = valueVarDec;
@@ -12977,7 +13091,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 			}
 			else
 			{
-				adec = ParsePostfixDeclaration();
+				adec = ParsePostfixDeclaration(false);
 				adec = ReverseDeclaration(adec, bdec);
 			}
 		}

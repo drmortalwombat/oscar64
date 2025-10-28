@@ -329,6 +329,8 @@ public:
 	InterInstruction(const InterInstruction&) = delete;
 	InterInstruction& operator=(const InterInstruction&) = delete;
 
+	void Reset(void);
+
 	bool IsEqual(const InterInstruction* ins) const;
 	bool IsEqualSource(const InterInstruction* ins) const;
 

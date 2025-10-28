@@ -4362,6 +4362,13 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	mMemmap = false;
 }
 
+void InterInstruction::Reset(void)
+{
+	mCode = IC_NONE;
+	mNumOperands = 0;
+	mDst.mTemp = -1;
+}
+
 static bool TypeInteger(InterType t)
 {
 	return t == IT_INT8 || t == IT_INT16 || t == IT_INT32 || t == IT_BOOL || t == IT_POINTER;
@@ -4869,6 +4876,7 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			if (ains->mConst.mMemory == IM_ABSOLUTE && ains->mConst.mIntConst == 0)
 			{
 				mCode = IC_NONE;
+				mDst.mTemp = -1;
 				mNumOperands = 0;
 				return true;
 			}
@@ -4976,6 +4984,7 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 		mSrc[0].mVarIndex == mSrc[1].mVarIndex && mSrc[0].mLinkerObject == mSrc[1].mLinkerObject && mSrc[0].mIntConst == mSrc[1].mIntConst)
 	{
 		mNumOperands = 0;
+		mDst.mTemp = -1;
 		mCode = IC_NONE;
 		changed = true;
 	}
@@ -4992,6 +5001,7 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 				mDst.mTemp = -1;
 				for (int i = 0; i < mNumOperands; i++)
 					mSrc[i].mTemp = -1;
+				mNumOperands = 0;
 
 				changed = true;
 			}
@@ -5059,6 +5069,7 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 			}
 			else
 			{
+				mNumOperands = 0;
 				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
@@ -5075,6 +5086,7 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 			}
 			else
 			{
+				mNumOperands = 0;
 				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
@@ -5128,6 +5140,7 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 		if (!mVolatile && mSrc[0].mTemp < 0 && mSrc[1].mTemp < 0 && mSrc[0].mMemory == mSrc[1].mMemory &&
 			mSrc[0].mVarIndex == mSrc[1].mVarIndex && mSrc[0].mLinkerObject == mSrc[1].mLinkerObject && mSrc[0].mIntConst == mSrc[1].mIntConst)
 		{
+			mNumOperands = 0;
 			mSrc[0].mTemp = -1;
 			mCode = IC_NONE;
 			changed = true;
@@ -5143,6 +5156,7 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 			}
 			else
 			{
+				mNumOperands = 0;
 				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
@@ -5159,6 +5173,7 @@ bool InterInstruction::RemoveUnusedStoreInstructions(const GrowingVariableArray&
 			}
 			else
 			{
+				mNumOperands = 0;
 				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
@@ -5218,6 +5233,7 @@ bool InterInstruction::RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock* 
 			}
 			else if (!mVolatile)
 			{
+				mNumOperands = 0;
 				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
@@ -5323,6 +5339,7 @@ bool InterInstruction::RemoveUnusedStaticStoreByteInstructions(InterCodeBasicBlo
 			}
 			else if (!mVolatile)
 			{
+				mNumOperands = 0;
 				mSrc[0].mTemp = -1;
 				mCode = IC_NONE;
 				changed = true;
@@ -5780,6 +5797,7 @@ bool InterInstruction::ConstantFolding(void)
 			mDst.mTemp = -1;
 			for (int i = 0; i < mNumOperands; i++)
 				mSrc[i].mTemp = -1;
+			mNumOperands = 0;
 			return true;
 		}
 		break;
@@ -11678,6 +11696,7 @@ bool InterCodeBasicBlock::RemoveUnusedRestricted(const NumberSet& restrictSet)
 				if (ins->mDst.mRestricted && restrictSet[ins->mDst.mRestricted])
 				{
 					ins->mCode = IC_NONE;
+					ins->mDst.mTemp = -1;
 					ins->mNumOperands = 0;
 					changed = true;
 				}
@@ -15503,6 +15522,7 @@ void InterCodeBasicBlock::RemoveNonRelevantStatics(void)
 					if (!(ins->mSrc[1].mLinkerObject->mFlags & LOBJF_RELEVANT) && (ins->mSrc[1].mLinkerObject->mType == LOT_BSS || ins->mSrc[1].mLinkerObject->mType == LOT_DATA))
 					{
 						ins->mSrc[0].mTemp = -1;
+						ins->mNumOperands = 0;
 						ins->mCode = IC_NONE;
 					}
 				}
@@ -17343,8 +17363,10 @@ void InterCodeBasicBlock::ReplaceCopyFill(void)
 							mInstructions[0]->mSrc[1] = bins->mConst;
 							mInstructions[1]->mSrc[0].mIntConst = size;
 							mInstructions[2]->mCode = IC_NONE; 
+							mInstructions[2]->mDst.mTemp = -1;
 							mInstructions[2]->mNumOperands = 0;
 							mInstructions[3]->mCode = IC_JUMP;
+							mInstructions[3]->mDst.mTemp = -1;
 							mInstructions[3]->mNumOperands = 0;
 
 							mNumEntries--;
@@ -18636,11 +18658,11 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 
 								if (ki < kj && !IsTempReferencedInRange(ki + 1, kj, tmpi))
 								{
-									lcs[i].mInc->mCode = IC_NONE; lcs[i].mInc->mNumOperands = 0;
+									lcs[i].mInc->mCode = IC_NONE; lcs[i].mInc->mNumOperands = 0; lcs[i].mInc->mDst.mTemp = -1;
 								}
 								else if (kj < ki && !IsTempReferencedInRange(kj + 1, ki, tmpj))
 								{
-									lcs[j].mInc->mCode = IC_NONE; lcs[j].mInc->mNumOperands = 0;
+									lcs[j].mInc->mCode = IC_NONE; lcs[j].mInc->mNumOperands = 0; lcs[j].mInc->mDst.mTemp = -1;
 								}
 								else
 								{
@@ -18731,6 +18753,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 								mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, iins);							
 
 								lcs[k].mInc->mCode = IC_NONE;
+								lcs[k].mInc->mDst.mTemp = -1;
 								lcs[k].mInc->mNumOperands = 0;
 							}
 						}
@@ -19405,8 +19428,8 @@ bool InterCodeBasicBlock::StructReturnPropagation(void)
 					mInstructions[match]->mSrc[0] = mInstructions[sz - 3]->mSrc[0];
 					mInstructions[match]->mNumOperands = 1;
 
-					mInstructions[sz - 3]->mCode = IC_NONE; mInstructions[sz - 3]->mNumOperands = 0;
-					mInstructions[sz - 2]->mCode = IC_NONE; mInstructions[sz - 2]->mNumOperands = 0;
+					mInstructions[sz - 3]->mCode = IC_NONE; mInstructions[sz - 3]->mNumOperands = 0; mInstructions[sz - 3]->mDst.mTemp = -1;
+					mInstructions[sz - 2]->mCode = IC_NONE; mInstructions[sz - 2]->mNumOperands = 0; mInstructions[sz - 2]->mDst.mTemp = -1;
 
 					return true;
 				}
@@ -19680,9 +19703,9 @@ bool InterCodeBasicBlock::MapLateIntrinsics(void)
 					ins->mSrc[0].mOperandSize = ins->mSrc[1].mOperandSize = ins->mConst.mOperandSize = int(mInstructions[ops[2]]->mSrc[0].mIntConst);
 					ins->mNumOperands = 2;
 
-					mInstructions[ops[0]]->mCode = IC_NONE; mInstructions[ops[0]]->mNumOperands = 0;
-					mInstructions[ops[1]]->mCode = IC_NONE; mInstructions[ops[1]]->mNumOperands = 0;
-					mInstructions[ops[2]]->mCode = IC_NONE; mInstructions[ops[2]]->mNumOperands = 0;
+					mInstructions[ops[0]]->mCode = IC_NONE; mInstructions[ops[0]]->mNumOperands = 0; mInstructions[ops[0]]->mDst.mTemp = -1;
+					mInstructions[ops[1]]->mCode = IC_NONE; mInstructions[ops[1]]->mNumOperands = 0; mInstructions[ops[1]]->mDst.mTemp = -1;
+					mInstructions[ops[2]]->mCode = IC_NONE; mInstructions[ops[2]]->mNumOperands = 0; mInstructions[ops[2]]->mDst.mTemp = -1;
 
 					changed = true;
 				}
@@ -19817,6 +19840,7 @@ void InterCodeBasicBlock::RemoveUnusedMallocs(void)
 						if (lins->UsesTemp(mtemp))
 						{
 							lins->mCode = IC_NONE;
+							lins->mDst.mTemp = -1;
 							lins->mNumOperands = 0;
 						}
 					}
@@ -22470,7 +22494,7 @@ bool InterCodeBasicBlock::ShortLeaCleanup(void)
 							}
 							if (ins->mDst.mTemp >= 0)
 								mEntryRequiredTemps += ins->mDst.mTemp;
-							ins->mCode = IC_NONE; ins->mNumOperands = 0;
+							ins->mCode = IC_NONE; ins->mNumOperands = 0; ins->mDst.mTemp = -1;
 							changed = true;
 						}
 					}
@@ -22516,6 +22540,9 @@ void InterCodeBasicBlock::CheckFinalLocal(void)
 	for (int i = mInstructions.Size() - 1; i >= 0; i--)
 	{
 		const InterInstruction* ins(mInstructions[i]);
+		if (ins->mCode == IC_NONE)
+			assert(ins->mDst.mTemp < 0 && ins->mNumOperands == 0);
+
 		if (ins->mDst.mTemp >= 0)
 			required -= ins->mDst.mTemp;
 		for (int j = 0; j < ins->mNumOperands; j++)
@@ -22602,6 +22629,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 		{
 			mInstructions[i]->mCode = IC_NONE;
 			mInstructions[i]->mNumOperands = 0;
+			mInstructions[i]->mDst.mTemp = -1;
 			changed = true;
 		}
 		if (mInstructions[i]->mCode == IC_LOAD && mInstructions[i]->mSrc[0].mMemory == IM_GLOBAL && (mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
@@ -22652,6 +22680,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				}
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 #endif
@@ -22696,6 +22725,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				}
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 
@@ -22730,8 +22760,6 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 				int	t = mInstructions[i + 0]->mDst.mTemp;
 				mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mNumOperands = 0;
 				mInstructions[i + 2]->mSrc[0].mTemp = mInstructions[i + 1]->mDst.mTemp;
 				mInstructions[i + 2]->mSrc[0].mFinal = false;
 				if (mInstructions[i + 2]->mSrc[1].mTemp == t)
@@ -22739,6 +22767,9 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 					mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
 					mInstructions[i + 2]->mSrc[1].mFinal = false;
 				}
+				mInstructions[i + 1]->mCode = IC_NONE;
+				mInstructions[i + 1]->mDst.mTemp = -1;
+				mInstructions[i + 1]->mNumOperands = 0;
 				changed = true;
 			}
 			else if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
@@ -22751,10 +22782,11 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 #endif
 
 				mInstructions[i + 0]->mDst.mTemp = mInstructions[i + 1]->mDst.mTemp;
-				mInstructions[i + 1]->mCode = IC_NONE;
-				mInstructions[i + 1]->mNumOperands = 0;
 				mInstructions[i + 2]->mSrc[1].mTemp = mInstructions[i + 1]->mDst.mTemp;
 				mInstructions[i + 2]->mSrc[1].mFinal = false;
+				mInstructions[i + 1]->mCode = IC_NONE;
+				mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -22777,6 +22809,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 		
 				mInstructions[i + 1]->mCode = IC_NONE;
 				mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -22815,6 +22848,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -22828,6 +22862,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mOperator = IA_MUL;
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -22873,6 +22908,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
 				mInstructions[i + 1]->mCode = IC_NONE;
 				mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -22884,6 +22920,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
 				mInstructions[i + 1]->mCode = IC_NONE;
 				mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -23008,6 +23045,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
 						mInstructions[i + 1]->mCode = IC_NONE;
 						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mDst.mTemp = -1;
 					}
 
 					changed = true;
@@ -23062,6 +23100,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
 						mInstructions[i + 1]->mCode = IC_NONE;
 						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mDst.mTemp = -1;
 					}
 
 					changed = true;
@@ -23076,6 +23115,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				mInstructions[i + 1]->mSrc[0].ForwardTemp(mInstructions[i + 0]->mSrc[0]);
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 #endif
@@ -23087,6 +23127,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				mInstructions[i + 1]->mSrc[0].ForwardTemp(mInstructions[i + 0]->mSrc[0]);
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 #endif
@@ -23170,6 +23211,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				{
 					mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
 					mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+					mInstructions[i + 1]->mDst.mTemp = -1;
 					if (flip)
 						mInstructions[i + 0]->mOperator = InvertRelational(mInstructions[i + 0]->mOperator);
 				}
@@ -23267,6 +23309,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[1].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
 
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 #endif
@@ -23280,6 +23323,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 0]->mSrc[0].mIntConst += mInstructions[i + 1]->mSrc[0].mIntConst;
 
 				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 #endif
@@ -23316,7 +23360,9 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[1].mIntConst;
 
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -23331,7 +23377,9 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[1].mIntConst += mInstructions[i + 0]->mSrc[0].mIntConst;
 
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -23346,7 +23394,9 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[1].mIntConst -= mInstructions[i + 0]->mSrc[0].mIntConst;
 
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				mInstructions[i + 1]->mCode = IC_NONE; mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -23430,6 +23480,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mSrc[0].mFinal = mInstructions[i + 0]->mSrc[1].mFinal;
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -23478,6 +23529,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[0].mRange.AddConstValue(IT_INT16, - (mInstructions[i + 0]->mSrc[0].mIntConst << mInstructions[i + 1]->mSrc[0].mIntConst));
 
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -23526,6 +23578,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 			else if (
@@ -23565,6 +23618,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mSrc[1] = mInstructions[i + 0]->mDst;
 				mInstructions[i + 1]->mCode = IC_NONE;
 				mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 				changed = true;
 			}
 
@@ -23628,8 +23682,10 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				mInstructions[i + 2]->mCode = IC_NONE;
 				mInstructions[i + 2]->mNumOperands = 0;
+				mInstructions[i + 2]->mDst.mTemp = -1;
 				changed = true;
 			}
 			if (i + 2 < mInstructions.Size() &&
@@ -23652,6 +23708,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 				mInstructions[i + 0]->mCode = IC_NONE;
 				mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 #endif
@@ -23903,6 +23960,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 2]->mDst.mRange.mMinValue -= d; mInstructions[i + 2]->mDst.mRange.mMaxValue -= d;
 				mInstructions[i + 3]->mSrc[0].mRange.mMinValue -= d; mInstructions[i + 3]->mSrc[0].mRange.mMaxValue -= d;
 				mInstructions[i + 0]->mCode = IC_NONE; mInstructions[i + 0]->mNumOperands = 0;
+				mInstructions[i + 0]->mDst.mTemp = -1;
 				changed = true;
 			}
 		}
@@ -24008,6 +24066,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 
 				mInstructions[i + 1]->mCode = IC_NONE;
 				mInstructions[i + 1]->mNumOperands = 0;
+				mInstructions[i + 1]->mDst.mTemp = -1;
 
 				changed = true;
 			}
@@ -26791,7 +26850,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "nformf");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

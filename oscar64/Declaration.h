@@ -61,6 +61,8 @@ enum DecType
 	DT_BASECLASS,
 	DT_CLABEL,
 
+	DT_BINDING,
+
 	DT_TEMPLATE,
 
 	DT_VTABLE
@@ -383,6 +385,7 @@ public:
 	Declaration* BuildArrayPointer(void);
 	Declaration* BuildAddressOfPointer(void);
 	Declaration* DeduceAuto(Declaration* dec);
+	Declaration* DeduceAutoInit(Declaration* dec);
 	Declaration* ConstCast(Declaration* ntype);
 	bool IsNullConst(void) const;
 	bool IsAuto(void) const;
