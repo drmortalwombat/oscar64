@@ -38838,6 +38838,44 @@ bool NativeCodeBasicBlock::MoveLoadAddZPStoreUp(int at)
 	return false;
 }
 
+bool NativeCodeBasicBlock::MoveZpImmTAYDown(int at)
+{
+	int reg = mIns[at].mAddress;
+	int j = at + 3;
+	while (j < mIns.Size())
+	{
+		if (mIns[j].RequiresYReg())
+		{
+			while (j > at + 3 && (mIns[j - 1].mLive & LIVE_CPU_REG_A))
+				j--;
+			if (j > at + 3)
+			{
+				mIns.Insert(j + 0, mIns[at + 0]);
+				mIns.Insert(j + 1, mIns[at + 1]);
+				mIns.Insert(j + 2, mIns[at + 2]);
+
+				mIns[j + 0].mLive |= mIns[j - 1].mLive;
+				mIns[j + 1].mLive |= mIns[j - 1].mLive;
+				mIns[j + 2].mLive |= mIns[j - 1].mLive;
+
+				mIns[at + 0].mType = ASMIT_NOP; mIns[at + 0].mMode = ASMIM_IMPLIED;
+				mIns[at + 1].mType = ASMIT_NOP; mIns[at + 1].mMode = ASMIM_IMPLIED;
+				mIns[at + 2].mType = ASMIT_NOP; mIns[at + 2].mMode = ASMIM_IMPLIED;
+				return true;
+			}
+
+			return false;
+		}
+
+		if (mIns[j].ChangesYReg())
+			return false;
+		if (mIns[j].ChangesZeroPage(reg))
+			return false;
+		j++;
+	}
+	return false;
+}
+
 bool NativeCodeBasicBlock::MoveCLCLoadAddZPStoreDown(int at)
 {
 	int	j = at + 4;
@@ -49790,6 +49828,20 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 	CheckLive();
 
 #endif
+
+#if 1
+	// move lda zp/and/tay down
+	for (int i = 0; i + 2 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].IsLogic() && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mType == ASMIT_TAY && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+		{
+			if (MoveZpImmTAYDown(i))
+				changed = true;
+		}
+	}
+	CheckLive();
+#endif
+
 #if 1
 	// move tya/clc/adc/tay down
 	for (int i = 0; i + 5 < mIns.Size(); i++)

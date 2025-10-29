@@ -558,11 +558,11 @@ public:
 	bool MoveShiftZeroPageUp(int at);
 	bool MoveImmOpBeforeStore(int at);
 	bool MoveLoadOrZPUp(int at);
-
 	bool MoveLoadLogicStoreAbsUp(int at);
 
 	bool MoveLDSTXOutOfRange(int at);
 
+	bool MoveZpImmTAYDown(int at);
 	bool MoveCLCLoadAddZPStoreDown(int at);
 	bool FindDirectAddressSumY(int at, int reg, int& apos, int& breg);
 	bool PatchDirectAddressSumY(int at, int reg, int apos, int breg);

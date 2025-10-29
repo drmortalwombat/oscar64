@@ -56,5 +56,11 @@ copyconstructor: copyconstructor.cpp
 	$(OSCAR64_CC) -ea -g -Os -n $<
 	$(OSCAR64_CC) -ea -g -O3 -n $<
 
+andmultest: andmultest.cpp
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+
 clean:
 	@$(RM) *.asm *.bcs *.int *.lbl *.map *.prg
