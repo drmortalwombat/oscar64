@@ -9482,6 +9482,17 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					}
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
+
+					if (vr.mMaxState == IntegerValueRange::S_BOUND)
+					{
+						int64 lowmask = -1;
+						if (ins->mSrc[0].mTemp < 0)
+							lowmask &= ins->mSrc[0].mIntConst;
+						if (ins->mSrc[1].mTemp < 0)
+							lowmask &= ins->mSrc[1].mIntConst;
+						for (int i = 0; i < 32 && !(lowmask & (1LL << i)); i++)
+							vr.mMaxValue &= ~(1LL << i);
+					}
 					break;
 
 				case IA_OR:

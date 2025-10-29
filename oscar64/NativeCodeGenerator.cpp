@@ -11268,8 +11268,16 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 
 				if (ins->mSrc[1].mTemp < 0)
 				{
-					insl = NativeCodeInstruction(ins, atype, ASMIM_IMMEDIATE, ins->mSrc[1].mIntConst & 0xff);
-					insh = NativeCodeInstruction(ins, atype, ASMIM_IMMEDIATE, (ins->mSrc[1].mIntConst >> 8) & 0xff);
+					int64	ci = ins->mSrc[1].mIntConst;
+					if (ins->mOperator == IA_AND && ins->mSrc[0].IsUnsigned())
+					{
+						unsigned uci = unsigned(ci >> 8);
+						if (uci == BinMask(uci) && (ins->mSrc[0].mRange.mMaxValue >> 8) <= uci)
+							ci |= 0xff00;
+					}
+
+					insl = NativeCodeInstruction(ins, atype, ASMIM_IMMEDIATE, ci & 0xff);
+					insh = NativeCodeInstruction(ins, atype, ASMIM_IMMEDIATE, (ci >> 8) & 0xff);
 					if (sins0)
 					{
 						if (ins->mDst.IsUByte())
@@ -11311,8 +11319,17 @@ NativeCodeBasicBlock* NativeCodeBasicBlock::BinaryOperator(InterCodeProcedure* p
 				}
 				else if (ins->mSrc[0].mTemp < 0)
 				{
-					insl = NativeCodeInstruction(ins, atype, ASMIM_IMMEDIATE, ins->mSrc[0].mIntConst & 0xff);
-					insh = NativeCodeInstruction(ins, atype, ASMIM_IMMEDIATE, (ins->mSrc[0].mIntConst >> 8) & 0xff);
+					int64	ci = ins->mSrc[0].mIntConst;
+					if (ins->mOperator == IA_AND && ins->mSrc[1].IsUnsigned())
+					{
+						unsigned uci = unsigned(ci >> 8);
+						if (uci == BinMask(uci) && (ins->mSrc[1].mRange.mMaxValue >> 8) <= uci)
+							ci |= 0xff00;
+					}
+
+					insl = NativeCodeInstruction(ins, atype, ASMIM_IMMEDIATE, ci & 0xff);
+					insh = NativeCodeInstruction(ins, atype, ASMIM_IMMEDIATE, (ci >> 8) & 0xff);
+
 					if (sins1)
 					{
 						if (ins->mDst.IsUByte())

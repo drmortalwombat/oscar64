@@ -107,9 +107,9 @@ Declaration * Parser::AddMemberFunction(Declaration* dec, Declaration* mdec)
 
 		if (!tparam && !dec->mDefaultConstructor)
 			dec->mDefaultConstructor = mdec;
-		else if (!tparam->mNext && tparam->mBase->mType == DT_TYPE_REFERENCE && dec->IsConstSame(tparam->mBase->mBase) && !dec->mCopyConstructor)
+		else if (tparam && !tparam->mNext && tparam->mBase->mType == DT_TYPE_REFERENCE && dec->IsConstSame(tparam->mBase->mBase) && !dec->mCopyConstructor)
 			dec->mCopyConstructor = mdec;
-		else if (!tparam->mNext && tparam->mBase->mType == DT_TYPE_RVALUEREF && dec->IsConstSame(tparam->mBase->mBase) && !dec->mMoveConstructor)
+		else if (tparam && !tparam->mNext && tparam->mBase->mType == DT_TYPE_RVALUEREF && dec->IsConstSame(tparam->mBase->mBase) && !dec->mMoveConstructor)
 			dec->mMoveConstructor = mdec;
 	}
 	else if (mdec->mIdent == dtorident && !dec->mDestructor)
@@ -9414,6 +9414,8 @@ Expression* Parser::ParseNewOperator(void)
 	}
 
 	Declaration* dec = ParseBaseTypeDeclaration(0, true);
+	while (ConsumeTokenIf(TK_MUL))
+		dec = dec->BuildPointer(mScanner->mLocation);
 
 	if (dec->mFlags & DTF_PURE_VIRTUAL)
 		mErrors->Error(dec->mLocation, ERRR_INSTANTIATE_ABSTRACT_CLASS, "Cannot instantiate abstract class", dec->mIdent);
@@ -11965,6 +11967,10 @@ Expression* Parser::ParseStatement(void)
 			mScanner->NextToken();
 			ParseStaticAssert();
 			break;
+		case TK_TYPEDEF:
+			ParseDeclaration(nullptr, false, false, false);
+			exp = new Expression(mScanner->mLocation, EX_VOID);
+			break;
 		case TK_GOTO:
 #if 1
 			exp = new Expression(mScanner->mLocation, EX_GOTO);
@@ -12993,6 +12999,8 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 						mScanner->NextToken();
 				}
 			}
+
+			mTemplateScope = tdec->mScope->mParent;
 		}			
 		else
 			mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Class template expected");
