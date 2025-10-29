@@ -466,6 +466,7 @@ public:
 	void SignExtendAddImmediate(InterCodeProcedure* proc, const InterInstruction* xins, const InterInstruction* ains);
 	void BinaryDivModPair(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction* ins1, const InterInstruction* ins2, bool sign);
 	void BinaryFloatOperatorLookup(InterCodeProcedure* proc, const InterInstruction* cins, const InterInstruction* ins);
+	void BinaryAndMulConst(InterCodeProcedure* proc, const InterInstruction* ains, const InterInstruction* mins);
 
 	void NumericConversion(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	NativeCodeBasicBlock * FillValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);
