@@ -59,6 +59,18 @@ static unsigned BinMask(unsigned n)
 	return n;
 }
 
+static unsigned LowBinMask(unsigned n)
+{
+	n = ~n;
+	n |= n << 16;
+	n |= n << 8;
+	n |= n << 4;
+	n |= n << 2;
+	n |= n << 1;
+	n = ~n;
+	return n;
+}
+
 NativeRegisterData::NativeRegisterData(void)
 	: mMode(NRDM_UNKNOWN), mValue(GlobalValueNumber++), mMask(0), mMinVal(0), mMaxVal(255)
 {
@@ -39969,6 +39981,30 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 					changed = true;
 				}
 			}
+			if (i + 4 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mAddress != mIns[i + 0].mAddress &&
+				mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE &&
+				mIns[i + 3].mType == ASMIT_CLC &&
+				mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_ZERO_PAGE && mIns[i + 4].mAddress == mIns[i + 0].mAddress &&
+				!(mIns[i + 4].mLive & (LIVE_MEM | LIVE_CPU_REG_Z))
+				)
+			{
+				uint8	zeroa = mNDataSet[CPU_REG_A].mMask & ~mNDataSet[CPU_REG_A].mValue;
+				uint8	zeroi = ~mIns[i + 2].mAddress & 255;
+
+				if (zeroi == LowBinMask(zeroi) && (zeroa & zeroi) == zeroi)
+				{
+					mIns[i + 0] = mIns[i + 3];
+					mIns[i + 0].mLive |= LIVE_CPU_REG_C | LIVE_CPU_REG_A;
+					mIns[i + 1].mType = ASMIT_ADC;
+					mIns[i + 1].mLive |= LIVE_CPU_REG_C;
+					mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
+					mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+			}
+
 			if (i + 2 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mType == ASMIT_TAX)
 			{
