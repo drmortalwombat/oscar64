@@ -54682,6 +54682,21 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		}
 	}
 
+	if (
+		mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE &&
+		mIns[i + 1].mType == ASMIT_ADC &&
+		mIns[i + 2].mType == ASMIT_CLC &&
+		mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE &&
+		(mIns[i + 0].mAddress & mIns[i + 3].mAddress) == 0 &&
+		!(mIns[i + 3].mLive & LIVE_CPU_REG_C))
+	{
+		mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+		int	mask = mIns[i + 3].mAddress;
+		mIns[i + 3] = mIns[i + 1];
+		mIns[i + 1] = NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, mask);
+		return true;
+	}
+
 	if (pass == 4 &&
 		mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 &&
 		mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
@@ -55238,6 +55253,23 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate5(int i, int pass)
 		mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
 		mIns[i + 4].mType = ASMIT_NOP; mIns[i + 4].mMode = ASMIM_IMPLIED;
 
+		return true;
+	}
+
+	if (
+		mIns[i + 0].mType == ASMIT_AND && mIns[i + 0].mMode == ASMIM_IMMEDIATE && 
+		mIns[i + 1].mType == ASMIT_CLC && 
+		mIns[i + 2].mType == ASMIT_ADC && 
+		mIns[i + 3].mType == ASMIT_CLC && 
+		mIns[i + 4].mType == ASMIT_ADC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && 
+		(mIns[i + 0].mAddress & mIns[i + 4].mAddress) == 0 &&
+		!(mIns[i + 4].mLive & LIVE_CPU_REG_C))
+	{
+		mIns[i + 3] = mIns[i + 1];
+		mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+		int	mask = mIns[i + 4].mAddress;
+		mIns[i + 4] = mIns[i + 2];
+		mIns[i + 2] = NativeCodeInstruction(mIns[i + 2].mIns, ASMIT_ORA, ASMIM_IMMEDIATE, mask);
 		return true;
 	}
 
@@ -59783,7 +59815,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "benchmark");
+	CheckFunc = !strcmp(mIdent->mString, "setpix");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
