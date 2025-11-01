@@ -2,10 +2,10 @@ name: Run checks
 
 on:
   push:
-    branches: 
+    branches:
       - main
   pull_request:
-    branches: 
+    branches:
       - main
 
 jobs:
@@ -25,13 +25,14 @@ jobs:
       run:
         shell: bash
 
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+
     steps:
       - uses: actions/checkout@v5
 
       - name: Start sccache
         uses: mozilla-actions/sccache-action@v0.0.9
-        env:
-          SCCACHE_GHA_ENABLED: true
 
       - name: Set CXX var
         run: |
