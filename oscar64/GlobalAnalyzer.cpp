@@ -1044,7 +1044,7 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 					{
 						if (!(pdec->mFlags & DTF_FPARAM_NOCONST))
 						{
-							if (pex->mType == EX_CONSTANT)
+							if (pex->mType == EX_CONSTANT || pex->mType == EX_VARIABLE && pex->mDecValue->mBase->mType == DT_TYPE_ARRAY && pdec->mBase->mType == DT_TYPE_POINTER && (pex->mDecValue->mFlags & (DTF_GLOBAL | DTF_STATIC)))
 							{
 								if (pdec->mFlags & DTF_FPARAM_CONST)
 								{

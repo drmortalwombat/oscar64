@@ -338,26 +338,39 @@ bool GlobalOptimizer::ReplaceConstCalls(Expression*& exp)
 }
 
 
-bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& cycles, int64& bytes)
+bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& cycles, int64& bytes, bool &cconst)
 {
 	cycles = 0;
 	bytes = 0;
+	cconst = false;
 
 	if (exp)
 	{
-		int64 lcycles, lbytes, rcycles, rbytes;
+		int64	lcycles, lbytes, rcycles, rbytes;
+		bool	lconst, rconst;
 
 		switch (exp->mType)
 		{
 		case EX_CONSTANT:
+			cconst = true;
 			return true;
 
 		case EX_VARIABLE:
 			if (exp->mDecValue != vindex)
 			{
-				cycles = 2;
-				bytes = 4;
+				if (exp->mDecValue->mSize > 1 || (exp->mDecValue->mFlags & (DTF_GLOBAL | DTF_STATIC)))
+				{
+					cycles = 2;
+					bytes = 4;
+				}
+				else if (!vindex)
+				{
+					cycles = 1;
+					bytes = 1;
+				}
 			}
+			else
+				cconst = true;
 			return true;
 
 		case EX_ASSIGNMENT:
@@ -365,28 +378,41 @@ bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& 
 			if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue == vindex)
 				return false;
 
-			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes) && EstimateCost(exp->mRight, vindex, rcycles, rbytes))
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes, lconst) && EstimateCost(exp->mRight, vindex, rcycles, rbytes, rconst))
 			{
 				cycles = lcycles + rcycles + exp->mDecType->mSize * (exp->mToken == TK_ASSIGN ? 1 : 3);
 				bytes = lbytes + rbytes + exp->mDecType->mSize * (exp->mToken == TK_ASSIGN ? 2 : 5);
+				cconst = rconst;
 				return true;
 			}
 			break;
 		case EX_BINARY:
 		case EX_RELATIONAL:
-			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes) && EstimateCost(exp->mRight, vindex, rcycles, rbytes))
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes, lconst) && EstimateCost(exp->mRight, vindex, rcycles, rbytes, rconst))
 			{
-				if (lcycles > 0 || rcycles > 0)
+				if (!lconst || !rconst)
 				{
-					bytes = lbytes + rbytes + 2 * exp->mDecType->mSize;
-					cycles = lcycles + rcycles;
-					if (exp->mToken == TK_MUL && lcycles > 0 && rcycles > 0)
-						cycles += exp->mDecType->mSize * exp->mDecType->mSize * 25;
-					else if (exp->mToken == TK_DIV || exp->mToken == TK_MOD)
-						cycles += exp->mDecType->mSize * exp->mDecType->mSize * 40;
+					if (exp->mType == EX_RELATIONAL &&
+						(exp->mLeft->mType == EX_CONSTANT && exp->mLeft->mDecType->mType == DT_TYPE_INTEGER && exp->mLeft->mDecType->mSize <= 2 && exp->mLeft->mDecValue->mInteger == 0 ||
+							exp->mRight->mType == EX_CONSTANT && exp->mRight->mDecType->mType == DT_TYPE_INTEGER && exp->mRight->mDecType->mSize <= 2 && exp->mRight->mDecValue->mInteger == 0))
+					{
+						bytes += lbytes + rbytes;
+						cycles += lcycles + rcycles;
+					}
 					else
-						cycles += exp->mDecType->mSize;
+					{
+						bytes = lbytes + rbytes + 2 * exp->mDecType->mSize;
+						cycles = lcycles + rcycles;
+						if (exp->mToken == TK_MUL && lcycles > 0 && rcycles > 0)
+							cycles += exp->mDecType->mSize * exp->mDecType->mSize * 25;
+						else if (exp->mToken == TK_DIV || exp->mToken == TK_MOD)
+							cycles += exp->mDecType->mSize * exp->mDecType->mSize * 40;
+						else
+							cycles += exp->mDecType->mSize;
+					}
 				}
+				else
+					cconst = true;
 
 				return true;
 			}
@@ -397,10 +423,11 @@ bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& 
 			if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue == vindex)
 				return false;
 
-			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes))
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes, lconst))
 			{
 				bytes = lbytes + 2 * exp->mDecType->mSize;
 				cycles = lcycles + exp->mDecType->mSize;
+				cconst = lconst;
 
 				return true;
 			}
@@ -409,13 +436,15 @@ bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& 
 		case EX_PREFIX:
 			if (exp->mToken == TK_ADD || exp->mToken == TK_SUB)
 			{
-				if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes))
+				if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes, lconst))
 				{
-					if (lcycles > 0)
+					if (!lconst)
 					{
 						bytes = lbytes + exp->mDecType->mSize;
 						cycles = lcycles + exp->mDecType->mSize;
 					}
+					else
+						cconst = true;
 
 					return true;
 				}
@@ -425,19 +454,19 @@ bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& 
 				if (exp->mLeft->mType == EX_VARIABLE && exp->mLeft->mDecValue == vindex)
 					return false;
 
-				return EstimateCost(exp->mLeft, vindex, cycles, bytes);
+				return EstimateCost(exp->mLeft, vindex, cycles, bytes, cconst);
 			}
 			break;
 
 		case EX_QUALIFY:
-			return EstimateCost(exp->mLeft, vindex, cycles, bytes);
+			return EstimateCost(exp->mLeft, vindex, cycles, bytes, cconst);
 
 		case EX_INDEX:
-			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes) && EstimateCost(exp->mRight, vindex, rcycles, rbytes))
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes, lconst) && EstimateCost(exp->mRight, vindex, rcycles, rbytes, rconst))
 			{
 				cycles = lcycles + rcycles;
 				bytes = lbytes + rbytes;
-				if (rcycles)
+				if (!rconst)
 				{
 					bytes += 5;
 					cycles += exp->mDecType->mSize == 1 ? 4 : 8;
@@ -449,13 +478,33 @@ bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& 
 		case EX_SEQUENCE:
 		case EX_COMMA:
 		case EX_SCOPE:
-			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes) && EstimateCost(exp->mRight, vindex, rcycles, rbytes))
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes, lconst) && EstimateCost(exp->mRight, vindex, rcycles, rbytes, rconst))
 			{
 				cycles = lcycles + rcycles;
 				bytes = lbytes + rbytes;
+				cconst = lconst && rconst;
 				return true;
 			}
 			break;
+		case EX_IF:
+			if (EstimateCost(exp->mLeft, vindex, lcycles, lbytes, lconst))
+			{
+				int64	tcycles, tbytes, fcycles, fbytes;
+				bool	tconst, fconst;
+				if (EstimateCost(exp->mRight->mLeft, vindex, tcycles, tbytes, tconst) && EstimateCost(exp->mRight->mRight, vindex, fcycles, fbytes, fconst))
+				{
+					cycles = lcycles + (tcycles + fcycles + 1) / 2;
+					bytes = lbytes + tbytes + fbytes;
+					if (!lconst)
+					{
+						cycles += 2;
+						bytes += 2;
+					}
+				}
+				return true;
+			}
+			break;
+
 		case EX_CALL:
 			if (exp->mDecType && exp->mDecType->mType != DT_TYPE_VOID && exp->mLeft->mType == EX_CONSTANT)
 			{
@@ -466,6 +515,7 @@ bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& 
 					{
 						cycles = 0;
 						bytes = 0;
+						cconst = true;
 
 						return true;
 					}
@@ -488,10 +538,10 @@ bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& 
 						else
 							lexp = nullptr;
 
-						if (!EstimateCost(lexp, vindex, lcycles, lbytes))
+						if (!EstimateCost(lexp, vindex, lcycles, lbytes, lconst))
 							return false;
 
-						if (lcycles > 0)
+						if (!lconst)
 						{
 							bytes += lbytes + 2 * exp->mDecType->mSize;
 							cycles += lcycles + exp->mDecType->mSize;
@@ -534,28 +584,70 @@ bool GlobalOptimizer::UnrollLoops(Expression*& exp)
 			{
 				Declaration* ivdec = assignment->mLeft->mDecValue;
 
-				if (condition->mType == EX_RELATIONAL &&
-					condition->mToken == TK_LESS_THAN &&
+				if (condition->mType == EX_VARIABLE && condition->mDecValue == ivdec ||
+
+					condition->mType == EX_RELATIONAL &&
 					condition->mLeft->mType == EX_VARIABLE &&
 					condition->mLeft->mDecValue == ivdec &&
 					condition->mRight->mType == EX_CONSTANT)
 				{
 					if ((increment->mType == EX_POSTINCDEC || increment->mType == EX_PREINCDEC) &&
-						increment->mToken == TK_INC &&
 						increment->mLeft->mType == EX_VARIABLE &&
 						increment->mLeft->mDecValue == ivdec)
 					{
-						int64 start = assignment->mRight->mDecValue->mInteger;
-						int64 end = condition->mRight->mDecValue->mInteger;
-						int64 step = 1;
+						int64	start = assignment->mRight->mDecValue->mInteger;
+						int64	end;
+						Token	cmp;
 
-						if (end > start && (end + step - 1 - start) / step < 20)
+						if (condition->mType == EX_RELATIONAL)
 						{
-							int64 count = (end + step - 1 - start) / step;
+							end = condition->mRight->mDecValue->mInteger;
+							cmp = condition->mToken;
+						}
+						else
+						{
+							end = 0;
+							cmp = TK_NOT_EQUAL;
+						}
 
-							int64 pcycles, pbytes, ucycles, ubytes;
+						int64	step = 1;
+						int64	count = 0;
 
-							if (EstimateCost(body, nullptr, pcycles, pbytes) && EstimateCost(body, ivdec, ucycles, ubytes))
+						if (increment->mType == EX_POSTINCDEC || increment->mType == EX_PREINCDEC)
+						{
+							if (increment->mToken == TK_INC)
+								step = 1;
+							else
+								step = -1;
+						}
+
+						if (step > 0)
+						{
+							if (end > start)
+							{
+								if (cmp == TK_LESS_THAN || cmp == TK_NOT_EQUAL)
+									count = (end + step - 1 - start) / step;
+								else if (cmp == TK_LESS_EQUAL)
+									count = (end + step - start) / step;
+							}
+						}
+						else
+						{
+							if (end < start)
+							{
+								if (cmp == TK_GREATER_THAN || cmp == TK_NOT_EQUAL)
+									count = (-end - step - 1 + start) / - step;
+								else if (cmp == TK_GREATER_EQUAL)
+									count = (-end - step + start) / - step;
+							}
+						}
+
+						if (count > 0 && count < 20)
+						{
+							int64	pcycles, pbytes, ucycles, ubytes;
+							bool	pconst, uconst;
+
+							if (EstimateCost(body, nullptr, pcycles, pbytes, pconst) && EstimateCost(body, ivdec, ucycles, ubytes, uconst))
 							{
 								int64	byteLimit = 20;
 
@@ -580,10 +672,11 @@ bool GlobalOptimizer::UnrollLoops(Expression*& exp)
 								if (ubytes * count < pbytes + 4 + 4 * ivdec->mSize + byteLimit)
 								{
 									Expression* seq = nullptr;
-									for (int64 i = start; i < end; i += step)
+									for (int64 i = 0; i<count; i++)
 									{
 										Declaration* icdec = assignment->mRight->mDecValue->Clone();
-										icdec->mInteger = i;
+										icdec->mBase = ivdec->mBase;
+										icdec->mInteger = ivdec->mBase->CastInteger(start + i * step);
 										Expression* bexp = body->ToVarConst(ivdec, icdec);
 										if (seq)
 										{

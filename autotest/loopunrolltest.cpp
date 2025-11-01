@@ -339,10 +339,40 @@ void unrolld100(void)
 }
 
 
+char glob[20];
 
+void autounroll(void)
+{
+	char sum0 = 0;
+	char sum1 = 0;
+	char sum2 = 0;
+	char sum3 = 0;
+	char sum4 = 0;
+
+	for(int i=0; i<10; i++)
+		sum0 += glob[i];
+//	for(int i=10; i<20; i++)
+//		sum1 += glob[i - 10];
+	for(int i=10; i>0; i--)
+		sum2 += glob[i - 1];
+	for(int i=9; i>=0; i--)
+		sum3 += glob[i];
+//	for(int i=0; i<=9; i++)
+//		sum4 += glob[i];
+
+//	assert(sum1 == sum0);
+	assert(sum2 == sum0);
+#if 0
+	assert(sum3 == sum0);
+	assert(sum4 == sum0);
+#endif
+}
 
 int main(void)
 {
+	for(int i=0; i<20; i++)
+		glob[i] = i;
+#if 0
 	unroll1();
 	unroll2();
 	unroll3();
@@ -355,4 +385,6 @@ int main(void)
 	unrolld50();
 	unrolld50e();
 	unrolld100();
+#endif
+	autounroll();
 }

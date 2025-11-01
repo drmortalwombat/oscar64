@@ -1514,6 +1514,17 @@ int64 Declaration::MaxInteger(void) const
 		return (1ULL << (8 * mSize)) - 1;
 }
 
+int64 Declaration::CastInteger(int64 v) const
+{
+	v &= (1ULL << (8 * mSize)) - 1;
+	if (mFlags & DTF_SIGNED)
+	{
+		if (v & (1ULL << (8 * mSize - 1)))
+			v -= 1ULL << (8 * mSize);
+	}
+	return v;
+}
+
 Declaration* Declaration::ConstCast(Declaration* ntype)
 {
 	if (ntype == mBase)

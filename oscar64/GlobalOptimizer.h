@@ -32,7 +32,7 @@ protected:
 	void RegisterCall(Declaration* from, Declaration* to);
 	void RegisterProc(Declaration* to);
 
-	bool EstimateCost(Expression* exp, Declaration* vindex, int64& cycles, int64& bytes);
+	bool EstimateCost(Expression* exp, Declaration* vindex, int64& cycles, int64& bytes, bool& cconst);
 
 	bool CheckConstFunction(Expression* exp);
 	void RemoveValueReturn(Expression* exp);

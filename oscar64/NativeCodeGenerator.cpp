@@ -41865,7 +41865,10 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			if (!prevBlock)
 				return OptimizeSimpleLoopInvariant(proc, full);
 
-			mIns[i].mLive |= mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Y);
+			if (mEntryRequiredRegs[CPU_REG_A]) mIns[i].mLive |= LIVE_CPU_REG_A;
+			if (mEntryRequiredRegs[CPU_REG_X]) mIns[i].mLive |= LIVE_CPU_REG_X;
+			if (mEntryRequiredRegs[CPU_REG_Y]) mIns[i].mLive |= LIVE_CPU_REG_Y;
+
 			prevBlock->mIns.Push(mIns[i]);
 			prevBlock->mExitRequiredRegs += CPU_REG_C;
 			for (int j = 0; j < i; j++)
@@ -42008,7 +42011,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		return true;
 	}
 
-	if (sz >= 2 && mIns[0].mType == ASMIT_LDY && mIns[sz - 1].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 1]) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
+	if (sz >= 2 && mIns[0].mType == ASMIT_LDY && mIns[sz - 1].mType == ASMIT_LDA && mIns[0].SameEffectiveAddress(mIns[sz - 1]) && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_Y])
 	{
 		if (!prevBlock)
 			return OptimizeSimpleLoopInvariant(proc, full);
@@ -59851,7 +59854,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "setpix");
+	CheckFunc = !strcmp(mIdent->mString, "autounroll");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

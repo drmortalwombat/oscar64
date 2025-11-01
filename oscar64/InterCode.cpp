@@ -18590,6 +18590,7 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 								if (ci->mOperator == IA_CMPEQ && eblock->mFalseJump == this ||
 									ci->mOperator == IA_CMPNE && eblock->mTrueJump == this ||
 									ci->mOperator == IA_CMPGU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 && ci->mSrc[0].mIntConst == 0 ||
+									ci->mOperator == IA_CMPLU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 ||
 									ci->mOperator == IA_CMPLEU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0)
 								{
 									if (ci->mSrc[0].mTemp < 0)
@@ -18639,14 +18640,11 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 					}
 				}
 
+//				printf("EDLC %d, %d\n", mIndex, lcs.Size());
+
+
 				if (lcs.Size() >= 2)
 				{
-#if 0
-					for (int i = 0; i < lcs.Size(); i++)
-					{
-						printf("LCS[%d] %lld + %lld -> %lld {%d, %d}\n", i, lcs[i].mStart, lcs[i].mStep, lcs[i].mEnd, lcs[i].mInc->mDst.mTemp, lcs[i].mInc->mCode);
-					}
-#endif
 					int i = 0;
 					while (i < lcs.Size())
 					{
@@ -18720,6 +18718,13 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 							loop = (end - start) / step;
 					}
 
+#if 0
+					for (int i = 0; i < lcs.Size(); i++)
+					{
+						printf("LCS[%d] %lld + %lld -> %lld {%d, %d, %d}\n", i, lcs[i].mStart, lcs[i].mStep, lcs[i].mEnd, lcs[i].mInc->mDst.mTemp, lcs[i].mInc->mCode, lcs[i].mReferenced);
+					}
+#endif
+
 					if (loop > 0)
 					{
 						if (!lcs[k].mReferenced)
@@ -18733,9 +18738,11 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 							{
 								j = 0;
 								while (j < lcs.Size() && !(lcs[j].mReferenced && lcs[j].mInc->mCode == IC_LEA && (lcs[j].mInit->mConst.mMemory == IM_GLOBAL || lcs[j].mInit->mConst.mMemory == IM_ABSOLUTE) && 
-									lcs[j].mStart + lcs[j].mStep * loop < 65536))
+									lcs[j].mStart + lcs[j].mStep * loop <= 65536))
 									j++;
 							}
+
+//							printf("Found %d, %d\n", j, k);
 
 							if (j < lcs.Size())
 							{
@@ -26861,7 +26868,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "nformf");
+	CheckFunc = !strcmp(mIdent->mString, "CRC8");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

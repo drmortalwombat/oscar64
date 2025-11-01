@@ -334,6 +334,7 @@ public:
 
 	int64 MinInteger(void) const;
 	int64 MaxInteger(void) const;
+	int64 CastInteger(int64 v) const;
 
 	GrowingArray<Declaration*>	mCallers, mCalled, mFriends;
 	GrowingArray<Expression*>	mReferences;
