@@ -500,8 +500,8 @@ bool GlobalOptimizer::EstimateCost(Expression* exp, Declaration* vindex, int64& 
 						cycles += 2;
 						bytes += 2;
 					}
+					return true;
 				}
-				return true;
 			}
 			break;
 

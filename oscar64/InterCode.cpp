@@ -23072,6 +23072,56 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 #endif
 #if 1
 			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MUL && mInstructions[i + 1]->mSrc[0].mTemp < 0 && ispow2(mInstructions[i + 1]->mSrc[0].mIntConst) &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)
+			{
+
+				int64	shift = mInstructions[i + 0]->mSrc[0].mIntConst;
+				if (shift & 7)
+				{
+					int64	mshift = binlog(mInstructions[i + 1]->mSrc[0].mIntConst);
+
+					mInstructions[i + 0]->mOperator = IA_AND;
+					mInstructions[i + 0]->mSrc[0].mType = mInstructions[i + 0]->mSrc[1].mType;
+
+					mInstructions[i + 0]->mSrc[0].mIntConst = (UnsignedTypeMax(mInstructions[i + 0]->mSrc[1].mType) >> shift) << shift;
+					mInstructions[i + 0]->mDst.mRange = mInstructions[i + 0]->mSrc[1].mRange;
+					mInstructions[i + 0]->mDst.mRange.LimitMax(mInstructions[i + 0]->mSrc[0].mIntConst);
+					mInstructions[i + 0]->mDst.mRange.mMinState = IntegerValueRange::S_BOUND;
+					mInstructions[i + 0]->mDst.mRange.mMinValue = 0;
+					mInstructions[i + 1]->mSrc[1].mRange = mInstructions[i + 0]->mDst.mRange;
+
+					if (shift > mshift && mInstructions[i + 0]->mDst.mType > mInstructions[i + 1]->mSrc[1].mType)
+					{
+						mInstructions[i + 1]->mSrc[1].mType = mInstructions[i + 0]->mDst.mType;
+						mInstructions[i + 1]->mDst.mType = mInstructions[i + 0]->mDst.mType;
+					}
+
+					if (shift > mshift)
+					{
+						mInstructions[i + 1]->mOperator = IA_SHR;
+						mInstructions[i + 1]->mSrc[0].mIntConst = shift - mshift;
+					}
+					else if (shift < mshift)
+					{
+						mInstructions[i + 1]->mOperator = IA_SHL;
+						mInstructions[i + 1]->mSrc[0].mIntConst = mshift - shift;
+					}
+					else
+					{
+						mInstructions[i + 0]->mDst = mInstructions[i + 1]->mDst;
+						mInstructions[i + 1]->mCode = IC_NONE;
+						mInstructions[i + 1]->mNumOperands = 0;
+						mInstructions[i + 1]->mDst.mTemp = -1;
+					}
+
+					changed = true;
+				}
+			}
+#endif
+#if 1
+			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHL && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_SHR && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
 				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal)

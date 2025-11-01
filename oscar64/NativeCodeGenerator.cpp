@@ -9294,7 +9294,7 @@ void NativeCodeBasicBlock::ShiftRegisterLeftFromByte(InterCodeProcedure* proc, c
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_ROL, ASMIM_IMPLIED));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
 	}
-	else if (shift >= 5 && shift < 8 && (max << shift) >= 512)
+	else if (shift >= 5 && (max << shift) >= 512)
 	{
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, reg));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_LSR, ASMIM_IMPLIED));
@@ -9306,6 +9306,16 @@ void NativeCodeBasicBlock::ShiftRegisterLeftFromByte(InterCodeProcedure* proc, c
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_TXA));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_AND, ASMIM_IMMEDIATE, (0xff >> (8 - shift)) & 0xff));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
+	}
+	else if (shift >= 5 && (max << shift) < 256)
+	{
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, reg));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LSR, ASMIM_IMPLIED));
+		for (int i = shift; i < 8; i++)
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_ROR, ASMIM_IMPLIED));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg));
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
 		mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, reg + 1));
 	}
 	else if (shift == 4 && max >= 128)
