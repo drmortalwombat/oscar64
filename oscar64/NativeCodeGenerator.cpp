@@ -57774,6 +57774,27 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 	}
 
 	if (sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 1 &&
+		mIns[sz - 1].mType == ASMIT_SBC && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0 &&
+		!(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+	{
+		if (mBranch == ASMIT_BNE)
+		{
+			mBranch = ASMIT_BCS;
+			mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+			mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BEQ)
+		{
+			mBranch = ASMIT_BCC;
+			mIns[sz - 2].mType = ASMIT_NOP; mIns[sz - 2].mMode = ASMIM_IMPLIED;
+			mIns[sz - 1].mType = ASMIT_NOP; mIns[sz - 1].mMode = ASMIM_IMPLIED;
+			changed = true;
+		}
+	}
+
+	if (sz >= 2 &&
 		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0 &&
 		mIns[sz - 1].mType == ASMIT_CMP)
 	{
