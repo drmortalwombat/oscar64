@@ -1373,8 +1373,15 @@ Declaration* Parser::ParsePostfixDeclaration(bool autoBase)
 			if (tdec && tdec->mTemplate)
 			{
 				// for now just skip over template stuff
-				while (!ConsumeTokenIf(TK_GREATER_THAN))
-					mScanner->NextToken();
+				int depth = 0;				
+				do	{
+					if (ConsumeTokenIf(TK_GREATER_THAN))
+						depth--;
+					else if (ConsumeTokenIf(TK_LESS_THAN))
+						depth++;
+					else
+						mScanner->NextToken();
+				} while (depth);
 
 				if (mTemplateScope->mParent)
 				{
@@ -8034,7 +8041,7 @@ Declaration* Parser::MemberLookup(Declaration* dtype, const Ident* ident, int & 
 	if ((mCompilerOptions & COPT_CPLUSPLUS) && ident == dtype->mIdent)
 		return nullptr;
 
-	Declaration* mdec = dtype->mScope->Lookup(ident, SLEVEL_CLASS);
+	Declaration* mdec = dtype->mScope ? dtype->mScope->Lookup(ident, SLEVEL_CLASS) : nullptr;
 	offset = 0;
 	flags = 0;
 
@@ -8683,7 +8690,7 @@ Expression* Parser::CoerceExpression(Expression* exp, Declaration* type)
 
 	if (tdec->mType == DT_TYPE_STRUCT)
 	{
-		Declaration* fexp = tdec->mScope->Lookup(Ident::Unique("(cast)"));
+		Declaration* fexp = tdec->mScope ? tdec->mScope->Lookup(Ident::Unique("(cast)")) : nullptr;
 		if (fexp)
 		{
 			while (fexp && !fexp->mBase->mBase->IsSame(type))
@@ -9474,14 +9481,11 @@ Expression* Parser::ParseNewOperator(void)
 
 			Expression* pexp = new Expression(mScanner->mLocation, EX_LIST);
 			pexp->mLeft = vexp;
-			pexp->mRight = new Expression(mScanner->mLocation, EX_INDEX);
+			pexp->mRight = new Expression(mScanner->mLocation, EX_BINARY);
+			pexp->mRight->mToken = TK_ADD;
 			pexp->mRight->mDecType = pexp->mLeft->mDecType;
 			pexp->mRight->mLeft = csexp;
-			pexp->mRight->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
-			pexp->mRight->mRight->mDecType = TheSignedIntTypeDeclaration;
-			pexp->mRight->mRight->mDecValue = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
-			pexp->mRight->mRight->mDecValue->mBase = TheSignedIntTypeDeclaration;
-			pexp->mRight->mRight->mDecValue->mInteger = -1;
+			pexp->mRight->mRight = mexp->mRight;
 
 			Expression* cexp = new Expression(mScanner->mLocation, EX_CONSTANT);
 			cexp->mDecValue = mdec;
@@ -10466,7 +10470,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						nexp2->mRight->mRight = exp->mRight;
 					}
 
-					Declaration* mdec = tdec->mScope->Lookup(opident);
+					Declaration* mdec = tdec->mScope ? tdec->mScope->Lookup(opident) : nullptr;
 					if (mdec)
 					{
 						Expression * nexp = new Expression(mScanner->mLocation, EX_CALL);
@@ -12374,8 +12378,15 @@ Declaration* Parser::ParseTemplateExpansion(Declaration* tmpld, Declaration* exp
 		tmpld = tmpld->mNext;
 
 	Declaration* epdec = tdec->mParams;
-	while (epdec && epdec->mBase && epdec->mBase->mType != DT_TYPE_TEMPLATE && epdec->mBase->mType != DT_CONST_TEMPLATE && epdec->mBase->mType != DT_PACK_TEMPLATE)
+	while (epdec && 
+		epdec->mBase &&
+		epdec->mBase->mType != DT_TYPE_TEMPLATE &&
+		epdec->mBase->mType != DT_CONST_TEMPLATE &&
+		epdec->mBase->mType != DT_PACK_TEMPLATE &&
+		!(epdec->mBase->mType == DT_TYPE_STRUCT && epdec->mBase->mTemplate))
+	{
 		epdec = epdec->mNext;
+	}
 
 	if (epdec)
 	{
@@ -13037,7 +13048,7 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 				strcat_s(buffer, adec->mIdent->mString);
 				adec->mQualIdent = Ident::Unique(buffer);
 			}
-			else if (ConsumeToken(TK_BINARY_NOT) && mScanner->mToken == TK_IDENT && mScanner->mTokenIdent == bdec->mTemplate->mIdent)
+			else if (ConsumeTokenIf(TK_BINARY_NOT) && mScanner->mToken == TK_IDENT && mScanner->mTokenIdent == bdec->mTemplate->mIdent)
 			{
 				mScanner->NextToken();
 
@@ -13053,6 +13064,13 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 				strcat_s(buffer, "::");
 				strcat_s(buffer, adec->mIdent->mString);
 				adec->mQualIdent = Ident::Unique(buffer);
+			}
+			else if (mScanner->mToken == TK_IDENT)
+			{
+				bdec = TheVoidTypeDeclaration;
+				mScanner->NextToken();
+				adec = ParsePostfixDeclaration(false);
+				adec = ReverseDeclaration(adec, bdec);
 			}
 			else
 				mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Constructor or destructor expected");
@@ -14257,7 +14275,7 @@ bool Parser::IsTypeToken(void)
 		if (!dec)
 			return true;
 
-		if (dec->mType <= DT_TYPE_AUTO)
+		if (dec->mType <= DT_TYPE_AUTO || dec->mType == DT_NAMESPACE)
 			return true;
 
 	

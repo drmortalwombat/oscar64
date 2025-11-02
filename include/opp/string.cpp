@@ -372,13 +372,13 @@ string string::operator>>(char n) const
 static int scmp(const char * s1, const char * s2)
 {
 	char n = 0;
-	while (s1[n])
+	while (s2[n])
 	{
 		if (s1[n] != s2[n])
 			return s1[n] - s2[n];
 		n++;
 	}
-	return 0;
+	return s1[n];
 }
 
 inline bool string::operator==(const string & s) const
@@ -630,10 +630,11 @@ string to_string(int val)
 
 	char i = 10;
 
-	while (val)
+	unsigned	u = val;
+	while (u)
 	{
-		char d = val % 10;
-		val /= 10;
+		char d = u % 10;
+		u /= 10;
 		buffer[--i] = d + '0';
 	}
 
@@ -658,10 +659,11 @@ string to_string(long val)
 
 	char i = 12;
 
-	while (val)
+	unsigned long	u = val;
+	while (u)
 	{
-		char d = val % 10;
-		val /= 10;
+		char d = u % 10;
+		u /= 10;
 		buffer[--i] = d + '0';
 	}
 

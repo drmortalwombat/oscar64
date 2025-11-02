@@ -3052,7 +3052,7 @@ bool Declaration::IsSame(const Declaration* dec) const
 	else if (IsReference())
 		return mBase->IsSame(dec->mBase);
 	else if (mType == DT_TYPE_STRUCT)
-		return mScope == dec->mScope || (mIdent == dec->mIdent && mSize == dec->mSize);
+		return mScope == dec->mScope || (mQualIdent == dec->mQualIdent && mSize == dec->mSize);
 	else if (mType == DT_TYPE_FUNCTION)
 	{
 		if (!mBase->IsSame(dec->mBase))

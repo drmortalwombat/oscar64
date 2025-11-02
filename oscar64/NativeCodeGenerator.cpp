@@ -42719,7 +42719,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		mIns[1].mType == ASMIT_STA && mIns[1].mMode == ASMIM_ZERO_PAGE && !(mIns[1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 	{
 		int	i = mIns.Size() - 1;
-		while (i > 1 && !mIns[i].ReferencesZeroPage(mIns[1].mAddress) && !mIns[i].ReferencesZeroPage(mIns[0].mAddress))
+		while (i > 1 && !mIns[i].ChangesZeroPage(mIns[1].mAddress) && !mIns[i].ReferencesZeroPage(mIns[0].mAddress))
 			i--;
 
 		if (i > 1)

@@ -1189,6 +1189,30 @@ bool InterCodeBasicBlock::DestroyingMem(const InterInstruction* lins, const Inte
 		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
 	else if (sins->mCode == IC_COPY || sins->mCode == IC_STRCPY)
 		return CollidingMem(sins->mSrc[1], IT_NONE, lins);
+	else if (sins->mCode == IC_FREE)
+	{
+		int	opmask = 0;
+		if (lins->mCode == IC_LOAD)
+			opmask = 1;
+		else if (lins->mCode == IC_STORE)
+			opmask = 2;
+		else if (lins->mCode == IC_FILL)
+			opmask = 2;
+		else if (lins->mCode == IC_COPY)
+			opmask = 3;
+
+		for (int k = 0; k < lins->mNumOperands; k++)
+		{
+			if ((1 << k) & opmask)
+			{
+				const InterOperand& op(lins->mSrc[k]);
+				if (op.mMemory == IM_INDIRECT)
+					return true;
+			}
+		}
+
+		return false;
+	}
 	else if (sins->mCode == IC_CALL || sins->mCode == IC_CALL_NATIVE)
 	{
 		if (sins->mSrc[0].mTemp < 0 && sins->mSrc[0].mLinkerObject)
@@ -15272,6 +15296,7 @@ bool InterCodeBasicBlock::ForwardDiamondMovedTemp(void)
 
 							if (!tblock->mLocalRequiredTemps[ttemp] && (stemp < 0 || !tblock->mLocalModifiedTemps[stemp]) && 
 								!tblock->mLocalModifiedTemps[ttemp] && !IsTempReferencedOnPath(ttemp, i + 1) && (stemp < 0 || !IsTempModifiedOnPath(stemp, i + 1)) &&
+								!DestroyingMem(tblock, mins, 0, tblock->mInstructions.Size()) &&
 								CanMoveInstructionBehindBlock(i))
 							{
 								if (stemp >= 0)
@@ -26918,7 +26943,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "CRC8");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
