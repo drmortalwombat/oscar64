@@ -4384,6 +4384,7 @@ InterInstruction::InterInstruction(const Location& loc, InterCode code)
 	mConstExpr = false;
 	mAliasing = false;
 	mMemmap = false;
+	mLockOrder = false;
 }
 
 void InterInstruction::Reset(void)
@@ -24551,6 +24552,44 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 #endif
 
 #if 1
+		if (CheckFunc)
+		{
+			i = 0;
+			while (i <= limit)
+			{
+				InterInstruction* ins(mInstructions[i]);
+
+				if (ins->mDst.mTemp >= 0 && (ins->mDst.mType == IT_FLOAT /* || ins->mDst.mType == IT_INT32*/))
+				{
+					if ((ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_CONVERSION_OPERATOR) && ins->mSrc[0].mFinal ||
+						(ins->mCode == IC_BINARY_OPERATOR && (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mFinal || ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mFinal)))
+					{
+						int reg = ins->mSrc[0].mTemp;
+						if (ins->mCode == IC_BINARY_OPERATOR && reg < 0)
+							reg = ins->mSrc[1].mTemp;
+
+						int j = i - 1;
+						while (j >= 0 && CanSwapInstructions(mInstructions[j], ins))
+							j--;
+						if (j >= 0 && j < i - 1 && mInstructions[j]->mDst.mTemp == reg)
+						{
+							int k = i - 1;
+							while (k > j)
+							{
+								SwapInstructions(mInstructions[k], ins);
+								mInstructions[k + 1] = mInstructions[k];
+								k--;
+							}
+							mInstructions[k + 1] = ins;
+						}
+					}
+				}
+				i++;
+			}
+		}
+#endif
+
+#if 1
 		// move indirect load/store pairs up
 		i = 0;
 		while (i + 1 < mInstructions.Size())
@@ -25028,6 +25067,40 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			}
 		}
 
+#if 1
+		// Check orientation of float loop around
+		if (mLoopHead && (mTrueJump == this || mFalseJump == this))
+		{
+			int fi = 0;
+			while (fi < mInstructions.Size() && !(mInstructions[fi]->mDst.mTemp >= 0 && mInstructions[fi]->mDst.mType == IT_FLOAT))
+				fi++;
+			if (fi < mInstructions.Size() && mInstructions[fi]->mCode == IC_BINARY_OPERATOR &&
+				(mInstructions[fi]->mOperator == IA_ADD || mInstructions[fi]->mOperator == IA_MUL) &&
+				mInstructions[fi]->mSrc[0].mTemp >= 0 && mInstructions[fi]->mSrc[1].mTemp >= 0)
+			{
+				int fj = mInstructions.Size() - 1;
+				while (fj >= fi && !(mInstructions[fj]->mDst.mTemp >= 0 && mInstructions[fj]->mDst.mType == IT_FLOAT))
+					fj--;
+
+				if (fj >= fi)
+				{
+					if (mInstructions[fi]->mSrc[1].mTemp == mInstructions[fj]->mDst.mTemp)
+					{
+						mInstructions[fi]->mLockOrder = true;
+					}
+					else if (mInstructions[fi]->mSrc[0].mTemp == mInstructions[fj]->mDst.mTemp)
+					{
+						mInstructions[fi]->mLockOrder = true;
+						InterOperand	op = mInstructions[fi]->mSrc[0];
+						mInstructions[fi]->mSrc[0] = mInstructions[fi]->mSrc[1];
+						mInstructions[fi]->mSrc[1] = op;
+					}
+					else
+						mInstructions[fi]->mLockOrder = false;
+				}
+			}
+		}
+#endif
 		CheckFinalLocal();
 
 		do {} while (PeepholeReplaceOptimization(staticVars, staticProcs));
@@ -26943,7 +27016,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "fdist");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

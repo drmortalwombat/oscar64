@@ -323,7 +323,7 @@ public:
 	InterOperand						mOps[4];
 	int									mNumOperands;
 
-	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr, mRemove, mAliasing, mMemmap;
+	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr, mRemove, mAliasing, mMemmap, mLockOrder;
 
 	InterInstruction(const Location& loc, InterCode code);
 	InterInstruction(const InterInstruction&) = delete;
