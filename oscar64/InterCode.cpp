@@ -16187,8 +16187,10 @@ bool InterCodeBasicBlock::ReplaceByteIndexPointers(const NumberSet& inctemps, co
 					int ireg = ins->mSrc[pi].mTemp;
 
 					InterInstruction* nins = new InterInstruction(ins->mLocation, IC_LEA);
+					nins->mNumOperands = 2;
 					nins->mSrc[0].mType = itype;
 					nins->mSrc[0].mTemp = ireg;
+					nins->mSrc[1].mType = IT_POINTER;
 					nins->mSrc[1].mTemp = -1;
 					nins->mSrc[1].mMemory = IM_GLOBAL;
 					nins->mSrc[1].mVarIndex = vartemps[ireg];
@@ -27016,7 +27018,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "fdist");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

@@ -299,7 +299,7 @@ public:
 
 	NativeCodeProcedure				*	mProc;
 	ExpandingArray<uint8>				mCode;
-	ExpandingArray<CodeLocation>		mCodeLocations;
+	ExpandingArray<CodeLocation>		mCodeLocations, mCodeOrigins;
 
 	int									mIndex;
 
@@ -1020,7 +1020,7 @@ class NativeCodeProcedure
 
 		ExpandingArray<LinkerReference>	mRelocations;
 		ExpandingArray< NativeCodeBasicBlock*>	 mBlocks;
-		ExpandingArray<CodeLocation>		mCodeLocations;
+		ExpandingArray<CodeLocation>		mCodeLocations, mCodeOrigins;
 
 
 		void DisassembleDebug(const char* name);

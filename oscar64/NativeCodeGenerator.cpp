@@ -5479,6 +5479,21 @@ void NativeCodeBasicBlock::PutLocation(const Location& location, bool weak)
 		loc.mWeak = weak;
 		mCodeLocations.Push(loc);
 	}
+
+	sz = mCodeOrigins.Size();
+	if (sz > 0 &&
+		mCodeOrigins[sz - 1].mLocation.mFileName == location.mFileName &&
+		mCodeOrigins[sz - 1].mLocation.mLine == location.mLine)
+	{
+		mCodeOrigins[sz - 1].mEnd = this->mCode.Size();
+	}
+	else
+	{
+		CodeLocation	loc;
+		loc.mLocation = location;
+		loc.mStart = loc.mEnd = this->mCode.Size();
+		mCodeOrigins.Push(loc);
+	}
 }
 
 void NativeCodeBasicBlock::PutOpcode(short opcode)
@@ -14897,11 +14912,11 @@ void NativeCodeBasicBlock::DisassembleBody(FILE* file)
 
 	for (int i = 0; i < mIns.Size(); i++)
 	{
-		fprintf(file, "%03d ", i);
+		fprintf(file, "%03d (%4d) ", i, mIns[i].mIns ? mIns[i].mIns->mLocation.mLine : 0);
 		mIns[i].Disassemble(file);
 		fprintf(file, "\n");
 	}
-	fprintf(file, "%03d %s", mIns.Size(), AsmInstructionNames[mBranch]);
+	fprintf(file, "%03d (%4d) %s", mIns.Size(), mBranchIns ? mBranchIns->mLocation.mLine : 0, AsmInstructionNames[mBranch]);
 	if (mTrueJump)
 	{
 		fprintf(file, " L%d", mTrueJump->mIndex);
@@ -24703,6 +24718,7 @@ bool NativeCodeBasicBlock::LoopRegisterXYMap(void)
 							int	iregs[256];
 							for (int i = 0; i < 256; i++)
 								iregs[i] = 0;
+							const InterInstruction* iins[256];
 
 
 							for (int i = 0; i < lblocks.Size(); i++)
@@ -24725,11 +24741,20 @@ bool NativeCodeBasicBlock::LoopRegisterXYMap(void)
 									else if (ins.mMode == ASMIM_ZERO_PAGE && iregs[ins.mAddress] >= 0)
 									{
 										if (ins.mType == ASMIT_INC || ins.mType == ASMIT_DEC)
+										{
+											iins[ins.mAddress] = ins.mIns;
 											iregs[ins.mAddress] += 5;
+										}
 										else if (ins.mType == ASMIT_LDA || ins.mType == ASMIT_STA)
+										{
+											iins[ins.mAddress] = ins.mIns;
 											iregs[ins.mAddress] += 3;
+										}
 										else if (ins.IsCommutative() && j > 0 && b->mIns[j - 1].mType == ASMIT_LDA && (b->mIns[j - 1].mMode == ASMIM_IMMEDIATE || b->mIns[j - 1].mMode == ASMIM_IMMEDIATE_ADDRESS))
+										{
+											iins[ins.mAddress] = ins.mIns;
 											iregs[ins.mAddress] += 3;
+										}
 										else
 											iregs[ins.mAddress] = -1;
 									}
@@ -24753,7 +24778,7 @@ bool NativeCodeBasicBlock::LoopRegisterXYMap(void)
 								{
 									if (xfree)
 									{
-										pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_LDX, ASMIM_ZERO_PAGE, mini));
+										pblock->mIns.Push(NativeCodeInstruction(iins[mini], ASMIT_LDX, ASMIM_ZERO_PAGE, mini));
 										if (pblock->mExitRequiredRegs[CPU_REG_Z])
 										{
 											int i = pblock->mIns.Size() - 1;
@@ -24762,26 +24787,26 @@ bool NativeCodeBasicBlock::LoopRegisterXYMap(void)
 												pblock->mIns[i].mLive |= LIVE_CPU_REG_A;
 												i--;
 											}
-											pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+											pblock->mIns.Push(NativeCodeInstruction(iins[mini], ASMIT_ORA, ASMIM_IMMEDIATE, 0));
 										}
 
 										pblock->mExitRequiredRegs += CPU_REG_X;
 										for (int i = 0; i < eblocks.Size(); i++)
 										{
-											eblocks[i]->mIns.Insert(0, NativeCodeInstruction(pblock->mBranchIns, ASMIT_STX, ASMIM_ZERO_PAGE, mini));
+											eblocks[i]->mIns.Insert(0, NativeCodeInstruction(iins[mini], ASMIT_STX, ASMIM_ZERO_PAGE, mini));
 											eblocks[i]->mEntryRequiredRegs += CPU_REG_X;
 										}
 									}
 									else
 									{
-										pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_LDY, ASMIM_ZERO_PAGE, mini));
+										pblock->mIns.Push(NativeCodeInstruction(iins[mini], ASMIT_LDY, ASMIM_ZERO_PAGE, mini));
 										if (pblock->mExitRequiredRegs[CPU_REG_Z])
-											pblock->mIns.Push(NativeCodeInstruction(pblock->mBranchIns, ASMIT_ORA, ASMIM_IMMEDIATE, 0));
+											pblock->mIns.Push(NativeCodeInstruction(iins[mini], ASMIT_ORA, ASMIM_IMMEDIATE, 0));
 
 										pblock->mExitRequiredRegs += CPU_REG_Y;
 										for (int i = 0; i < eblocks.Size(); i++)
 										{
-											eblocks[i]->mIns.Insert(0, NativeCodeInstruction(pblock->mBranchIns, ASMIT_STY, ASMIM_ZERO_PAGE, mini));
+											eblocks[i]->mIns.Insert(0, NativeCodeInstruction(iins[mini], ASMIT_STY, ASMIM_ZERO_PAGE, mini));
 											eblocks[i]->mEntryRequiredRegs += CPU_REG_Y;
 										}
 									}
@@ -59594,6 +59619,14 @@ void NativeCodeBasicBlock::CopyCode(NativeCodeProcedure * proc, uint8* target)
 		proc->mCodeLocations.Push(loc);
 	}
 
+	for (int i = 0; i < mCodeOrigins.Size(); i++)
+	{
+		CodeLocation	loc(mCodeOrigins[i]);
+		loc.mStart += mOffset;
+		loc.mEnd += mOffset;
+		proc->mCodeOrigins.Push(loc);
+	}
+
 	for (i = 0; i < mCode.Size(); i++)
 	{
 		target[i + mOffset] = mCode[i];
@@ -59898,7 +59931,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "fdist");
+	CheckFunc = !strcmp(mIdent->mString, "CRC8");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -60578,6 +60611,24 @@ void NativeCodeProcedure::Assemble(void)
 			mCodeLocations.SetSize(j + 1);
 
 			mLinkerObject->AddLocations(mCodeLocations);
+		}
+		if (mCodeOrigins.Size() > 0)
+		{
+			int i = 1, j = 0;
+			while (i < mCodeOrigins.Size())
+			{
+				if (mCodeOrigins[j].mEnd == mCodeOrigins[i].mStart &&
+					mCodeOrigins[j].mLocation.mFileName == mCodeOrigins[i].mLocation.mFileName &&
+					mCodeOrigins[j].mLocation.mLine == mCodeOrigins[i].mLocation.mLine)
+					mCodeOrigins[j].mEnd = mCodeOrigins[i].mEnd;
+				else
+					mCodeOrigins[++j] = mCodeOrigins[i];
+
+				i++;
+			}
+			mCodeOrigins.SetSize(j + 1);
+
+			mLinkerObject->AddOrigins(mCodeOrigins);
 		}
 	}
 }

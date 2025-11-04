@@ -125,6 +125,12 @@ void LinkerObject::AddLocations(const ExpandingArray<CodeLocation>& locations)
 		mCodeLocations.Push(locations[i]);
 }
 
+void LinkerObject::AddOrigins(const ExpandingArray<CodeLocation>& locations)
+{
+	for (int i = 0; i < locations.Size(); i++)
+		mCodeOrigins.Push(locations[i]);
+}
+
 
 void LinkerObject::EnsureSpace(int offset, int size)
 {

@@ -1511,9 +1511,9 @@ bool Compiler::WriteCszFile(const char* filename)
 
 				ExpandingArray<SourceCount>	ea;
 
-				for (int j = 0; j < lo->mCodeLocations.Size(); j++)
+				for (int j = 0; j < lo->mCodeOrigins.Size(); j++)
 				{
-					const CodeLocation& co(lo->mCodeLocations[j]);
+					const CodeLocation& co(lo->mCodeOrigins[j]);
 					const Location* ls = &(co.mLocation);
 					while (ls->mFrom)
 						ls = ls->mFrom;
@@ -1657,6 +1657,21 @@ bool Compiler::WriteDbjFile(const char* filename)
 						lo->mCodeLocations[j].mLocation.mFileName,
 						lo->mCodeLocations[j].mLocation.mLine);
 				}
+				fprintf(file, "], \n\t\t\t\"origins\":[\n");
+				lfirst = true;
+
+				for (int j = 0; j < lo->mCodeOrigins.Size(); j++)
+				{
+					if (!lfirst)
+						fprintf(file, ",\n");
+					lfirst = false;
+
+					fprintf(file, "\t\t\t{\"start\": %d, \"end\": %d, \"source\": \"%s\", \"line\": %d}",
+						lo->mCodeOrigins[j].mStart + lo->mAddress,
+						lo->mCodeOrigins[j].mEnd + lo->mAddress,
+						lo->mCodeOrigins[j].mLocation.mFileName,
+						lo->mCodeOrigins[j].mLocation.mLine);
+				}
 
 				fprintf(file, "], \n\t\t\t\"variables\":[\n");
 
@@ -1774,13 +1789,13 @@ bool Compiler::WriteDbjFile(const char* filename)
 				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"array\", \"eid\": %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_POINTER:
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ptr\", eid: %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ptr\", \"eid\": %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_REFERENCE:
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ref\", eid: %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"ref\", \"eid\": %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_RVALUEREF:
-				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"rref\", eid: %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
+				fprintf(file, "\t\t{\"name\": \"%s\", \"typeid\": %d, \"size\": %d, \"type\": \"rref\", \"eid\": %d}", dec->mQualIdent ? dec->mQualIdent->mString : "", i, dec->mSize, types.IndexOrPush(dec->mBase));
 				break;
 			case DT_TYPE_ENUM:
 			{

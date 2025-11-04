@@ -212,7 +212,7 @@ public:
 	int									mSuffixReference;
 
 	ExpandingArray<LinkerObjectRange>	mRanges;
-	ExpandingArray<CodeLocation>		mCodeLocations;
+	ExpandingArray<CodeLocation>		mCodeLocations, mCodeOrigins;
 	ExpandingArray<LinkerObjectRange>	mZeroPageRanges;
 
 	LinkerObject(void);
@@ -222,6 +222,7 @@ public:
 
 	void AddData(const uint8* data, int size);
 	void AddLocations(const ExpandingArray<CodeLocation>& locations);
+	void AddOrigins(const ExpandingArray<CodeLocation>& locations);
 	uint8* AddSpace(int size);
 	void EnsureSpace(int offset, int size);
 

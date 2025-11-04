@@ -719,10 +719,10 @@ void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int ba
 				fprintf(file, ".%s:\n", proc->mLinkerObject->mRanges[i].mIdent->mString);
 
 			i = 0;
-			while (i < proc->mLinkerObject->mCodeLocations.Size() && iip - start != proc->mLinkerObject->mCodeLocations[i].mStart)
+			while (i < proc->mLinkerObject->mCodeOrigins.Size() && iip - start != proc->mLinkerObject->mCodeOrigins[i].mStart)
 				i++;
-			if (i < proc->mLinkerObject->mCodeLocations.Size())
-				fprintf(file, ";%4d, \"%s\"\n", proc->mLinkerObject->mCodeLocations[i].mLocation.mLine, proc->mLinkerObject->mCodeLocations[i].mLocation.mFileName);
+			if (i < proc->mLinkerObject->mCodeOrigins.Size())
+				fprintf(file, ";%4d, \"%s\"\n", proc->mLinkerObject->mCodeOrigins[i].mLocation.mLine, proc->mLinkerObject->mCodeOrigins[i].mLocation.mFileName);
 		}
 
 		if (bank >= 0)
