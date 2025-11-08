@@ -13987,7 +13987,44 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 						changed = true;
 					}
 					else
-						nins = ins;
+					{
+						if (i + 1 < mInstructions.Size() &&
+							(mInstructions[i + 1]->mCode == IC_STORE && mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && mInstructions[i + 1]->mSrc[1].mFinal ||
+								mInstructions[i + 1]->mCode == IC_LOAD && mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal))
+						{
+							int64 loffset = (mInstructions[i + 1]->mCode == IC_STORE ? mInstructions[i + 1]->mSrc[1].mIntConst : mInstructions[i + 1]->mSrc[0].mIntConst) + offset;
+
+							j = 0;
+							while (j < mLoadStoreInstructions.Size() && !(
+								mLoadStoreInstructions[j]->mCode == IC_LEA && mLoadStoreInstructions[j]->mSrc[1].mTemp < 0 && mLoadStoreInstructions[j]->mSrc[1].mMemory == IM_ABSOLUTE &&
+								mLoadStoreInstructions[j]->mSrc[0].mTemp == ins->mSrc[0].mTemp &&
+								loffset - mLoadStoreInstructions[j]->mSrc[0].mIntConst - mLoadStoreInstructions[j]->mSrc[1].mIntConst >= 0 &&
+								loffset - mLoadStoreInstructions[j]->mSrc[0].mIntConst - mLoadStoreInstructions[j]->mSrc[1].mIntConst < 255))
+								j++;
+
+							if (j < mLoadStoreInstructions.Size())
+							{
+								InterInstruction* lins = mLoadStoreInstructions[j];
+								assert(lins->mDst.mTemp >= 0);
+								ins->mCode = IC_LOAD_TEMPORARY;
+								ins->mSrc[0] = lins->mDst;
+								ins->mSrc[0].mRestricted = ins->mDst.mRestricted = lins->mDst.mRestricted;
+								ins->mDst.mRange.Limit(ins->mSrc[0].mRange);
+								ins->mNumOperands = 1;
+
+								if (mInstructions[i + 1]->mCode == IC_STORE)
+									mInstructions[i + 1]->mSrc[1].mIntConst = loffset - mLoadStoreInstructions[j]->mSrc[0].mIntConst - mLoadStoreInstructions[j]->mSrc[1].mIntConst;
+								else
+									mInstructions[i + 1]->mSrc[0].mIntConst = loffset - mLoadStoreInstructions[j]->mSrc[0].mIntConst - mLoadStoreInstructions[j]->mSrc[1].mIntConst;
+
+								changed = true;
+							}
+							else
+								nins = ins;
+						}
+						else
+							nins = ins;
+					}
 				}
 				else
 					nins = ins;
