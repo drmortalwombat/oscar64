@@ -3,6 +3,7 @@
 #include "Assembler.h"
 #include "InterCode.h"
 #include "Linker.h"
+#include "Declaration.h"
 
 ByteCodeDisassembler::ByteCodeDisassembler(void)
 {
@@ -695,10 +696,14 @@ void NativeCodeDisassembler::DumpMemory(FILE* file, const uint8* memory, int ban
 void NativeCodeDisassembler::Disassemble(FILE* file, const uint8* memory, int bank, int start, int size, InterCodeProcedure* proc, const Ident * ident, Linker* linker, const Ident * fident)
 {
 	fprintf(file, "--------------------------------------------------------------------\n");
+
 	if (proc && proc->mIdent)
 		fprintf(file, "%s: ; %s\n", proc->mIdent->mString, fident->mString);
 	else if (ident)
 		fprintf(file, "%s: ; %s\n", ident->mString, fident->mString);
+
+	if (proc)
+		fprintf(file, ";%4d, \"%s\"\n", proc->mLocation.mLine, proc->mLocation.mFileName);
 
 	char	tbuffer[160], abuffer[160];
 
@@ -819,13 +824,89 @@ const char* NativeCodeDisassembler::AddrName(int bank, int addr, char* buffer, I
 
 		if (obj && obj->mIdent)
 		{
-			int i = 0;
-			while (i < obj->mRanges.Size() && (addr - obj->mAddress < obj->mRanges[i].mOffset || addr - obj->mAddress - obj->mRanges[i].mOffset >= obj->mRanges[i].mSize))
-				i++;
-			if (i < obj->mRanges.Size() && obj->mRanges[i].mIdent)
-				sprintf_s(buffer, 160, "; (%s.%s + %d)", obj->mIdent->mString, obj->mRanges[i].mIdent->mString, addr - obj->mAddress - obj->mRanges[i].mOffset);
+			if (obj->mVariable && obj->mVariable->mDeclaration)
+			{
+				int offset = addr - obj->mAddress;
+				char vname[160];
+				strcpy_s(vname, obj->mVariable->mIdent->mString);
+				const Declaration* dt = obj->mVariable->mDeclaration->mBase;
+
+				for (;;)
+				{
+					if (dt->mType == DT_TYPE_ARRAY)
+					{
+						int index;
+
+						if (dt->mBase->mStripe)
+						{
+							index = offset % dt->mBase->mStripe;
+							offset -= index;
+						}
+						else
+						{
+							index = offset / dt->mBase->mSize;
+							offset -= index * dt->mBase->mSize;
+						}
+						char vindex[10];
+						sprintf_s(vindex, "[%d]", index);
+						strcat_s(vname, vindex);
+						dt = dt->mBase;
+					}
+					else if (dt->mType == DT_TYPE_STRUCT)
+					{
+						if (dt->mStripe)
+						{
+							const Declaration* de = dt->mParams;
+							while (de && (de->mOffset > offset || de->mOffset + de->mSize * dt->mStripe <= offset))
+								de = de->mNext;
+							if (de)
+							{
+								offset -= de->mOffset;
+								offset /= dt->mStripe;
+								strcat_s(vname, ".");
+								strcat_s(vname, de->mIdent->mString);
+								dt = de->mBase;
+							}
+							else
+								break;
+						}
+						else
+						{
+							const Declaration* de = dt->mParams;
+							while (de && (de->mOffset > offset || de->mOffset + de->mSize <= offset))
+								de = de->mNext;
+							if (de)
+							{
+								offset -= de->mOffset;
+								strcat_s(vname, ".");
+								strcat_s(vname, de->mIdent->mString);
+								dt = de->mBase;
+							}
+							else
+								break;
+						}
+					}
+					else if (dt->mStripe)
+					{
+						offset /= dt->mStripe;
+						break;
+					}
+					else
+						break;
+				}
+
+				sprintf_s(buffer, 160, "; (%s + %d)", vname, offset);
+			}
 			else
-				sprintf_s(buffer, 160, "; (%s + %d)", obj->mIdent->mString, addr - obj->mAddress);
+			{
+				int i = 0;
+				while (i < obj->mRanges.Size() && (addr - obj->mAddress < obj->mRanges[i].mOffset || addr - obj->mAddress - obj->mRanges[i].mOffset >= obj->mRanges[i].mSize))
+					i++;
+				if (i < obj->mRanges.Size() && obj->mRanges[i].mIdent)
+					sprintf_s(buffer, 160, "; (%s.%s + %d)", obj->mIdent->mString, obj->mRanges[i].mIdent->mString, addr - obj->mAddress - obj->mRanges[i].mOffset);
+				else
+					sprintf_s(buffer, 160, "; (%s + %d)", obj->mIdent->mString, addr - obj->mAddress);
+			}
 			return buffer;
 		}
 	}

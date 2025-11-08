@@ -599,6 +599,7 @@ public:
 	bool MoveTXALogicTAXDown(int at);
 	bool FoldShiftORAIntoLoadImmUp(int at);
 	bool ReverseShiftByteOrder(int at);
+	bool MoveZeroPageSignToCarryDown(int at);
 
 	bool FindAccuExitValue(int& at);
 	bool MoveLoadXAbsUpCrossBlock(int at);

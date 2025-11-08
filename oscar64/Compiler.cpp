@@ -1661,16 +1661,21 @@ bool Compiler::WriteDbjFile(const char* filename)
 				lfirst = true;
 
 				for (int j = 0; j < lo->mCodeOrigins.Size(); j++)
-				{
-					if (!lfirst)
-						fprintf(file, ",\n");
-					lfirst = false;
+				{				
+					const Location* loc = &(lo->mCodeOrigins[j].mLocation);
+					while (loc)
+					{
+						if (!lfirst)
+							fprintf(file, ",\n");
+						lfirst = false;
 
-					fprintf(file, "\t\t\t{\"start\": %d, \"end\": %d, \"source\": \"%s\", \"line\": %d}",
-						lo->mCodeOrigins[j].mStart + lo->mAddress,
-						lo->mCodeOrigins[j].mEnd + lo->mAddress,
-						lo->mCodeOrigins[j].mLocation.mFileName,
-						lo->mCodeOrigins[j].mLocation.mLine);
+						fprintf(file, "\t\t\t{\"start\": %d, \"end\": %d, \"source\": \"%s\", \"line\": %d}",
+							lo->mCodeOrigins[j].mStart + lo->mAddress,
+							lo->mCodeOrigins[j].mEnd + lo->mAddress,
+							loc->mFileName,
+							loc->mLine);
+						loc = loc->mFrom;
+					}
 				}
 
 				fprintf(file, "], \n\t\t\t\"variables\":[\n");
