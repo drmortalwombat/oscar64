@@ -14009,13 +14009,19 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 								ins->mCode = IC_LOAD_TEMPORARY;
 								ins->mSrc[0] = lins->mDst;
 								ins->mSrc[0].mRestricted = ins->mDst.mRestricted = lins->mDst.mRestricted;
-								ins->mDst.mRange.Limit(ins->mSrc[0].mRange);
+								ins->mDst.mRange = lins->mDst.mRange;
 								ins->mNumOperands = 1;
 
 								if (mInstructions[i + 1]->mCode == IC_STORE)
+								{
+									mInstructions[i + 1]->mSrc[1].mRange = ins->mDst.mRange;
 									mInstructions[i + 1]->mSrc[1].mIntConst = loffset - mLoadStoreInstructions[j]->mSrc[0].mIntConst - mLoadStoreInstructions[j]->mSrc[1].mIntConst;
+								}
 								else
+								{
+									mInstructions[i + 1]->mSrc[0].mRange = ins->mDst.mRange;
 									mInstructions[i + 1]->mSrc[0].mIntConst = loffset - mLoadStoreInstructions[j]->mSrc[0].mIntConst - mLoadStoreInstructions[j]->mSrc[1].mIntConst;
+								}
 
 								changed = true;
 							}
@@ -22802,6 +22808,7 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 			{
 				while (k > i)
 				{
+					mInstructions[k]->mSrc[1].mRange = mInstructions[i]->mSrc[1].mRange;
 					mInstructions[k]->mSrc[1].mTemp = mInstructions[i]->mSrc[1].mTemp;
 					mInstructions[k]->mSrc[1].mIntConst += mInstructions[i]->mSrc[0].mIntConst;
 					k--;
@@ -27055,7 +27062,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "display_status_box");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
