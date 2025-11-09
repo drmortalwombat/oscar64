@@ -415,6 +415,7 @@ public:
 	bool SimpleLoopReversal(NativeCodeProcedure* proc);
 	bool OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCodeBasicBlock* head, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeXYSimpleLoop(void);
+	bool SimplifyLoopExitCondition(void);
 
 	bool OptimizeXYSpilling(void);
 
@@ -651,8 +652,8 @@ public:
 	void RepairLoadYImmediate(int at, int val);
 	int RetrieveCValue(int at, int depth = 0) const;
 	int RetrieveAValue(int at, int depth = 0) const;
-	int RetrieveXValue(int at, int depth = 0) const;
-	int RetrieveYValue(int at, int depth = 0) const;
+	int RetrieveXValue(int at = 65536, int depth = 0) const;
+	int RetrieveYValue(int at = 65536, int depth = 0) const;
 	int RetrieveZPValue(int reg, int at, int depth = 0) const;
 	int FindFreeAccu(int at) const;
 	bool IsSameZPValue(int reg1, int reg2, int depth = 0) const;
