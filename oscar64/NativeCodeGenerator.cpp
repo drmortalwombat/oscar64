@@ -22951,6 +22951,41 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			}
 		}
 #endif
+
+#if 1
+		if (mIns.Size() >= 4 && mTrueJump && mFalseJump && mTrueJump->mEntryRequiredRegs.Size() > 0 && mFalseJump->mEntryRequiredRegs.Size() > 0)
+		{
+			int	sz = mIns.Size();
+
+			if (mIns[sz - 4].mType == ASMIT_LDA && mIns[sz - 4].mMode == ASMIM_ZERO_PAGE &&
+				mIns[sz - 3].mType == ASMIT_ADC && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
+				mIns[sz - 2].mType == ASMIT_STA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && mIns[sz - 2].mAddress == mIns[sz - 4].mAddress &&
+				mIns[sz - 1].mType == ASMIT_CPY &&
+				(mBranch == ASMIT_BNE || mBranch == ASMIT_BEQ) &&
+				!mTrueJump->mEntryRequiredRegs[CPU_REG_C] && !mFalseJump->mEntryRequiredRegs[CPU_REG_C])
+			{
+				if (mBranch == ASMIT_BNE && !mTrueJump->mEntryRequiredRegs[CPU_REG_A] ||
+					mBranch == ASMIT_BEQ && !mFalseJump->mEntryRequiredRegs[CPU_REG_A])
+				{
+					NativeCodeBasicBlock* iblock = SplitAt(sz - 4);
+					iblock->mIns[0].mType = ASMIT_INC;
+					iblock->mIns[1].mType = ASMIT_NOP; iblock->mIns[1].mMode = ASMIM_IMPLIED;
+					iblock->mIns[2].mType = ASMIT_LDA;
+					NativeCodeBasicBlock* eblock = iblock->SplitAt(2);
+
+					mBranch = ASMIT_BCC;
+					mFalseJump = mTrueJump;
+					mTrueJump = eblock;
+					eblock->mEntryBlocks.Push(this);
+					eblock->mNumEntries++;
+
+					changed = true;
+				}
+			}
+		}
+#endif
+
+
 		if (mIns.Size() >= 2 && mTrueJump && mFalseJump && mTrueJump->mEntryRequiredRegs.Size() > 0 && mFalseJump->mEntryRequiredRegs.Size() > 0)
 		{
 			int	sz = mIns.Size();
