@@ -18378,7 +18378,251 @@ bool InterCodeBasicBlock::EmptyLoopOptimization(void)
 	return modified;
 }
 
-void InterCodeBasicBlock::ConstLoopOptimization(void)
+void InterCodeBasicBlock::ConstInnerLoopOptimization(void)
+{
+	if (!mVisited)
+	{
+		if (mLoopHead && mEntryBlocks.Size() == 2)
+		{
+			InterCodeBasicBlock* tail;
+
+			if (mEntryBlocks[0] == mLoopPrefix)
+				tail = mEntryBlocks[1];
+			else
+				tail = mEntryBlocks[0];
+
+			// Inner exit loop
+			ExpandingArray<InterCodeBasicBlock*> body;
+
+			if (CollectSingleEntryGenericLoop(body))
+			{
+				ExpandingArray<InterCodeBasicBlock*> exits;
+				for (int i = 0; i < body.Size(); i++)
+				{
+					if (body[i]->mTrueJump && !body.Contains(body[i]->mTrueJump) || body[i]->mFalseJump && !(body.Contains(body[i]->mFalseJump)))
+						exits.Push(body[i]);
+				}
+
+				if (exits.Size() == 1)
+				{
+					InterCodeBasicBlock* eblock = exits[0];
+					NumberSet	cset(mEntryRequiredTemps.Size()), mset(mEntryRequiredTemps.Size());
+
+					InterCodeBasicBlock* pblock = mLoopPrefix;
+					while (pblock)
+					{
+						for (int i = pblock->mInstructions.Size() - 1; i >= 0; i--)
+						{
+							const InterInstruction* ins(pblock->mInstructions[i]);
+							if (ins->mDst.mTemp >= 0)
+							{
+								if (ins->mCode == IC_CONSTANT && !mset[ins->mDst.mTemp])
+									cset += ins->mDst.mTemp;
+								mset += ins->mDst.mTemp;
+							}
+						}
+						if (pblock->mEntryBlocks.Size() == 1)
+							pblock = pblock->mEntryBlocks[0];
+						else
+							pblock = nullptr;
+					}
+
+					bool	isconst = true;
+					for (int j = 0; isconst && j < body.Size(); j++)
+					{
+						InterCodeBasicBlock* block = body[j];
+
+						for (int i = 0; isconst && i < block->mInstructions.Size(); i++)
+						{
+							const InterInstruction* ins(block->mInstructions[i]);
+
+							if (ins->mCode == IC_CONSTANT || ins->mCode == IC_BRANCH ||
+								ins->mCode == IC_BINARY_OPERATOR || ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_RELATIONAL_OPERATOR || ins->mCode == IC_LEA ||
+								ins->mCode == IC_CONVERSION_OPERATOR)
+							{
+								int j = 0;
+								while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || cset[ins->mSrc[j].mTemp]))
+									j++;
+								if (j == ins->mNumOperands)
+								{
+									if (ins->mDst.mTemp >= 0)
+										cset += ins->mDst.mTemp;
+								}
+								else
+									isconst = false;
+							}
+							else if (ins->mCode == IC_LOAD && (ins->mSrc[0].mTemp < 0 || cset[ins->mSrc[0].mTemp]) &&
+								ins->mSrc[0].mMemoryBase == IM_GLOBAL && ins->mSrc[0].mLinkerObject && (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
+							{
+								cset += ins->mDst.mTemp;
+							}
+							else if (ins->mCode == IC_JUMP)
+								;
+							else
+								isconst = false;
+						}
+					}
+
+					if (isconst)
+					{
+						ExpandingArray<InterOperand>	vars;
+						vars.SetSize(cset.Size());
+						mset.Clear();
+
+						InterCodeBasicBlock* pblock = mLoopPrefix;
+						while (pblock)
+						{
+							for (int i = pblock->mInstructions.Size() - 1; i >= 0; i--)
+							{
+								const InterInstruction* ins(pblock->mInstructions[i]);
+								if (ins->mDst.mTemp >= 0)
+								{
+									if (ins->mCode == IC_CONSTANT && !mset[ins->mDst.mTemp])
+									{
+										assert(ins->mConst.mType != IT_NONE);
+										vars[ins->mDst.mTemp] = ins->mConst;
+									}
+									mset += ins->mDst.mTemp;
+								}
+							}
+							if (pblock->mEntryBlocks.Size() == 1)
+								pblock = pblock->mEntryBlocks[0];
+							else
+								pblock = nullptr;
+						}
+
+						bool	done = false;
+						int n = 0;
+
+						mset.Clear();
+						int ni = 0;
+						InterCodeBasicBlock* block = this;
+
+						while (n < 20000 && !done)
+						{
+							n++;
+							const InterInstruction* ins(block->mInstructions[ni++]);
+
+							switch (ins->mCode)
+							{
+							case IC_CONSTANT:
+								assert(ins->mConst.mType != IT_NONE);
+								vars[ins->mDst.mTemp] = ins->mConst;
+								mset += ins->mDst.mTemp;
+								break;
+							case IC_BINARY_OPERATOR:
+							case IC_RELATIONAL_OPERATOR:
+								vars[ins->mDst.mTemp] =
+									OperandConstantFolding(ins->mOperator,
+										ins->mSrc[1].mTemp < 0 ? ins->mSrc[1] : vars[ins->mSrc[1].mTemp],
+										ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp]);
+								mset += ins->mDst.mTemp;
+								break;
+							case IC_UNARY_OPERATOR:
+							case IC_CONVERSION_OPERATOR:
+								vars[ins->mDst.mTemp] =
+									OperandConstantFolding(ins->mOperator,
+										ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp],
+										ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp]);
+								mset += ins->mDst.mTemp;
+								break;
+
+							case IC_LEA:
+							{
+								InterOperand	op;
+								int64			index = ins->mSrc[1].mIntConst;
+								if (ins->mSrc[0].mTemp < 0)
+									index += ins->mSrc[0].mIntConst;
+								else
+									index += vars[ins->mSrc[0].mTemp].mIntConst;
+
+								if (ins->mSrc[1].mTemp < 0)
+									op = ins->mSrc[1];
+								else
+								{
+									op = vars[ins->mSrc[1].mTemp];
+									index += op.mIntConst;
+								}
+
+								op.mIntConst = index;
+								vars[ins->mDst.mTemp] = op;
+								mset += ins->mDst.mTemp;
+							}	break;
+							case IC_LOAD:
+							{
+								InterOperand	op;
+								if (ins->mSrc[0].mTemp < 0)
+									op = ins->mSrc[0];
+								else
+								{
+									op = vars[ins->mSrc[0].mTemp];
+									op.mIntConst += ins->mSrc[0].mIntConst;
+								}
+
+								vars[ins->mDst.mTemp] = LoadConstantOperand(ins, op, ins->mDst.mType, mProc->mModule->mGlobalVars, mProc->mModule->mProcedures);
+								mset += ins->mDst.mTemp;
+
+							}	break;
+
+							case IC_JUMP:
+								block = block->mTrueJump;								
+								ni = 0;
+								break;
+
+							case IC_BRANCH:
+								block = vars[ins->mSrc[0].mTemp].mIntConst ? block->mTrueJump : block->mFalseJump;
+								ni = 0;
+								if (!body.Contains(block))
+									done = true;
+								break;
+							}
+						}
+
+						if (done)
+						{
+							block->mEntryBlocks.RemoveAll(eblock);
+							block->mEntryBlocks.Push(this);
+							mTrueJump = block;
+							mFalseJump = nullptr;
+							mLoopHead = false;
+							mNumEntries = 1;
+							mEntryBlocks.SetSize(0);
+							mEntryBlocks.Push(mLoopPrefix);
+
+							InterInstruction* last = mInstructions.Last();
+							mInstructions.SetSize(0);
+							for (int i = 0; i < mset.Size(); i++)
+							{
+								if (mset[i])
+								{
+									InterInstruction* ins = new InterInstruction(last->mLocation, IC_CONSTANT);
+									ins->mCode = IC_CONSTANT;
+									ins->mDst.mTemp = i;
+									ins->mConst = vars[i];
+									ins->mDst.mType = ins->mConst.mType;
+									mInstructions.Push(ins);
+								}
+							}
+
+							InterInstruction* ins = new InterInstruction(last->mLocation, IC_JUMP);
+							mInstructions.Push(ins);
+						}
+					}
+				}
+			}
+		}
+
+		mVisited = true;
+
+		if (mTrueJump)
+			mTrueJump->ConstInnerLoopOptimization();
+		if (mFalseJump)
+			mFalseJump->ConstInnerLoopOptimization();
+	}
+
+}
+
+void InterCodeBasicBlock::ConstSingleLoopOptimization(void)
 {
 	if (!mVisited)
 	{
@@ -18567,9 +18811,9 @@ void InterCodeBasicBlock::ConstLoopOptimization(void)
 		}
 
 		if (mTrueJump)
-			mTrueJump->ConstLoopOptimization();
+			mTrueJump->ConstSingleLoopOptimization();
 		if (mFalseJump)
-			mFalseJump->ConstLoopOptimization();
+			mFalseJump->ConstSingleLoopOptimization();
 	}
 }
 
@@ -27062,7 +27306,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "display_status_box");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -27969,7 +28213,7 @@ void InterCodeProcedure::Close(void)
 
 	PeepholeOptimization();
 
-	ConstLoopOptimization();
+	ConstSingleLoopOptimization();
 
 	BuildTraces(0);
 
@@ -28140,7 +28384,7 @@ void InterCodeProcedure::Close(void)
 	mEntryBlock->PullStoreUpToConstAddress();
 	DisassembleDebug("PullStoreUpToConstAddress");
 
-	ConstLoopOptimization();
+	ConstSingleLoopOptimization();
 
 	BuildDataFlowSets();
 	TempForwarding(false, true);
@@ -28179,7 +28423,7 @@ void InterCodeProcedure::Close(void)
 	{
 		DisassembleDebug("Flatten2DLoop");
 
-		ConstLoopOptimization();
+		ConstSingleLoopOptimization();
 
 		BuildDataFlowSets();
 		TempForwarding(false, true);
@@ -28188,6 +28432,23 @@ void InterCodeProcedure::Close(void)
 	}
 
 	UntangleLoadStoreSequence();
+
+	ConstInnerLoopOptimization();
+
+	BuildTraces(0);
+
+	BuildDataFlowSets();
+	TempForwarding(false, true);
+
+	ResetVisited();
+	mEntryBlock->EmptyLoopOptimization();
+
+#if 1
+	BuildDataFlowSets();
+	do {
+		TempForwarding();
+	} while (GlobalConstantPropagation());
+#endif
 
 	ResetVisited();
 	mEntryBlock->ReduceTempLivetimes();
@@ -28956,7 +29217,7 @@ void InterCodeProcedure::UntangleLoadStoreSequence(void)
 	DisassembleDebug("UntangleLoadStoreSequence");
 }
 
-void InterCodeProcedure::ConstLoopOptimization(void)
+void InterCodeProcedure::ConstSingleLoopOptimization(void)
 {
 	BuildTraces(0);
 	BuildLoopPrefix();
@@ -28970,10 +29231,30 @@ void InterCodeProcedure::ConstLoopOptimization(void)
 	ResetVisited();
 	mEntryBlock->ForwardConstTemps(ptemps);
 
-	Disassemble("PreConstLoopOptimization");
+	Disassemble("PreConstSingleLoopOptimization");
 	ResetVisited();
-	mEntryBlock->ConstLoopOptimization();
-	Disassemble("PostConstLoopOptimization");
+	mEntryBlock->ConstSingleLoopOptimization();
+	Disassemble("PostConstSingleLoopOptimization");
+}
+
+void InterCodeProcedure::ConstInnerLoopOptimization(void)
+{
+	BuildTraces(0);
+	BuildLoopPrefix();
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
+
+	GrowingInstructionPtrArray	ptemps(nullptr);
+	ptemps.SetSize(mTemporaries.Size());
+
+	ResetVisited();
+	mEntryBlock->ForwardConstTemps(ptemps);
+
+	Disassemble("PreConstInnerLoopOptimization");
+	ResetVisited();
+	mEntryBlock->ConstInnerLoopOptimization();
+	Disassemble("PostConstInnerLoopOptimization");
 }
 
 void InterCodeProcedure::HoistCommonConditionalPath(void)

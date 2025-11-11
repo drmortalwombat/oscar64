@@ -662,7 +662,8 @@ public:
 	bool CollectLoopBodyRecursive(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*>& body);
 	void CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path);
 	void InnerLoopOptimization(const NumberSet& aliasedParams);
-	void ConstLoopOptimization(void);
+	void ConstSingleLoopOptimization(void);
+	void ConstInnerLoopOptimization(void);
 	bool EmptyLoopOptimization(void);
 	void EliminateDoubleLoopCounter(void);
 	void PushMoveOutOfLoop(void);
@@ -848,7 +849,8 @@ protected:
 	void HoistCommonConditionalPath(void);
 	void RemoveUnusedMallocs(void);
 	void RecheckLocalAliased(void);
-	void ConstLoopOptimization(void);
+	void ConstSingleLoopOptimization(void);
+	void ConstInnerLoopOptimization(void);
 	void UntangleLoadStoreSequence(void);
 
 	bool ShortLeaMerge(FastNumberSet& activeSet);
