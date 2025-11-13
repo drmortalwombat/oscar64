@@ -1828,7 +1828,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 		return ExValue(TheVoidTypeDeclaration);
 }
 
-void InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression * exp, InterCodeBasicBlock* block, InlineMapper * inlineMapper, ExValue vl, ExValue vr)
+InterInstruction* InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression * exp, InterCodeBasicBlock* block, InlineMapper * inlineMapper, ExValue vl, ExValue vr)
 {
 	int		ne = 0;
 	Declaration* mdec = nullptr;
@@ -1893,7 +1893,8 @@ void InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression *
 		sins->mSrc[1].mStride = mdec->mStripe;
 
 		sins->mSrc[0] = lins->mDst;
-		block->Append(sins);
+		
+		return sins;
 	}
 	else
 	{
@@ -1914,7 +1915,8 @@ void InterCodeGenerator::CopyStructSimple(InterCodeProcedure* proc, Expression *
 
 		cins->mConst.mOperandSize = vl.mType->mSize;
 		cins->mVolatile = cvol;
-		block->Append(cins);
+		
+		return cins;
 	}
 }
 
@@ -2123,7 +2125,9 @@ void InterCodeGenerator::CopyStruct(InterCodeProcedure* proc, Expression* exp, I
 		}
 	}
 	else
-		CopyStructSimple(proc, exp, block, inlineMapper, vl, vr);
+	{
+		block->Append(CopyStructSimple(proc, exp, block, inlineMapper, vl, vr));
+	}
 }
 
 InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, DestructStack*& destack, GotoNode*& gotos, const BranchTarget& breakBlock, const BranchTarget& continueBlock, InlineMapper* inlineMapper, ExValue* lrexp)
@@ -2210,7 +2214,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (procType->mFlags & DTF_FASTCALL)
 				{
 					pins->mConst.mMemory = IM_FPARAM;
-					pins->mConst.mVarIndex += procType->mFastCallBase;
+					if (procType->mFastCallBase + 2 <= BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+						pins->mConst.mVarIndex += procType->mFastCallBase;
+					else
+						pins->mConst.mVarIndex += BC_REG_FPARAMS_END - BC_REG_FPARAMS + procType->mFastCallBase2;
 				}
 				else
 					pins->mConst.mMemory = IM_PARAM;
@@ -2696,7 +2703,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					mErrors->Error(exp->mLeft->mLocation, EERR_NOT_AN_LVALUE, "Not an addressable expression");
 
 				if (vr.mTemp != vl.mTemp)
-					CopyStructSimple(proc, exp, block, inlineMapper, vl, vr);
+					block->Append(CopyStructSimple(proc, exp, block, inlineMapper, vl, vr));
 			}
 			else
 			{
@@ -4143,7 +4150,10 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					if (ftype->mFlags & DTF_FASTCALL) 
 					{
 						ains->mConst.mMemory = IM_FFRAME;
-						ains->mConst.mVarIndex += ftype->mFastCallBase;
+						if (ftype->mFastCallBase + 2 <= BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+							ains->mConst.mVarIndex += ftype->mFastCallBase;
+						else
+							ains->mConst.mVarIndex += BC_REG_FPARAMS_END - BC_REG_FPARAMS + ftype->mFastCallBase2;
 					}
 					else
 						ains->mConst.mMemory = IM_FRAME;
@@ -4269,7 +4279,17 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 						if (vp.mTemp != vr.mTemp)
 						{
-							CopyStruct(proc, exp, block, vp, vr, inlineMapper, false);
+							if (vr.mType->mDestructor || vr.mType->mCopyConstructor)
+								CopyStruct(proc, exp, block, vp, vr, inlineMapper, false);
+							else
+							{
+								InterInstruction* cins = CopyStructSimple(proc, exp, block, inlineMapper, vp, vr);
+								if (ftype->mFlags & DTF_FASTCALL)
+									defins.Push(cins);
+								else
+									block->Append(cins);
+							}
+
 #if 0
 							InterInstruction* cins = new InterInstruction(texp->mLocation, IC_COPY);
 							cins->mSrc[0].mType = IT_POINTER;
@@ -6320,7 +6340,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 		if (dec->mFastCallSize > 0)
 		{
 			proc->mFastCallBase = dec->mFastCallBase;
-			
+
 			if (dec->mFastCallBase < BC_REG_FPARAMS_END - BC_REG_FPARAMS && dec->mFastCallSize > dec->mFastCallBase)
 			{
 				dec->mLinkerObject->mNumTemporaries = 1;

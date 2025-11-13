@@ -318,7 +318,7 @@ public:
 
 	Expression*			mValue, * mReturn;
 	DeclarationScope*	mScope;
-	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mStride, mStripe;
+	int					mOffset, mSize, mVarIndex, mNumVars, mComplexity, mLocalSize, mAlignment, mFastCallBase, mFastCallSize, mFastCallBase2, mFastCallSize2, mStride, mStripe;
 	uint8				mShift, mBits;
 	int64				mInteger, mMinValue, mMaxValue;
 	double				mNumber;

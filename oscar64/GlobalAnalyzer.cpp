@@ -391,7 +391,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 //		printf("CheckFastcall1 %s %08llx %08llx\n", procDec->mQualIdent->mString, procDec->mFlags, procDec->mBase->mFlags);
 
 		procDec->mFlags |= DTF_FUNC_ANALYZING;
-		int	nbase = 0;
+		int	nbase = 0, nbase2 = 0;
 		for (int i = 0; i < procDec->mCalled.Size(); i++)
 		{
 			Declaration* cf = procDec->mCalled[i];
@@ -409,6 +409,9 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 						int n = vf->mBase->mFastCallSize;
 						if (n > nbase)
 							nbase = n;
+						int n2 = vf->mBase->mFastCallSize2;
+						if (n2 > nbase2)
+							nbase2 = n2;
 					}
 
 				}
@@ -427,13 +430,16 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			int n = cf->mFastCallSize;
 			if (n > nbase)
 				nbase = n;
+			int n2 = cf->mFastCallSize2;
+			if (n2 > nbase2)
+				nbase2 = n2;
 		}
 
 //		printf("CheckFastcall2 %s %08llx %08llx\n", procDec->mQualIdent->mString, procDec->mFlags, procDec->mBase->mFlags);
 
 		if (procDec->mValue && procDec->mValue->mType == EX_DISPATCH)
 		{
-			Declaration* maxf = nullptr, * reff = nullptr;
+			Declaration* maxf = nullptr, * maxf2 = nullptr, * reff = nullptr;
 
 			bool	stackCall = false;
 
@@ -451,6 +457,11 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 					maxf = cf;
 				else if (cf->mBase->mFastCallBase > maxf->mBase->mFastCallBase)
 					maxf = cf;
+
+				if (!maxf2)
+					maxf2 = cf;
+				else if (cf->mBase->mFastCallBase2 > maxf2->mBase->mFastCallBase2)
+					maxf2 = cf;
 			}
 
 			if (!reff)
@@ -482,10 +493,14 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 
 				if (cf != maxf)
 					cf->mBase->mFastCallBase = cf->mFastCallBase = maxf->mBase->mFastCallBase;
+				if (cf != maxf2)
+					cf->mBase->mFastCallBase2 = cf->mFastCallBase2 = maxf->mBase->mFastCallBase2;
 			}
 
 			procDec->mFastCallBase = procDec->mBase->mFastCallBase;
 			procDec->mFastCallSize = procDec->mBase->mFastCallSize;
+			procDec->mFastCallBase2 = procDec->mBase->mFastCallBase2;
+			procDec->mFastCallSize2 = procDec->mBase->mFastCallSize2;
 			procDec->mFlags &= ~DTF_FUNC_ANALYZING;
 
 			return;
@@ -495,6 +510,10 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 		procDec->mFastCallSize = nbase;
 		procDec->mBase->mFastCallBase = nbase;
 		procDec->mBase->mFastCallSize = nbase;
+		procDec->mFastCallBase2 = nbase2;
+		procDec->mFastCallSize2 = nbase2;
+		procDec->mBase->mFastCallBase2 = nbase2;
+		procDec->mBase->mFastCallSize2 = nbase2;
 
 		procDec->mFlags &= ~DTF_FUNC_ANALYZING;
 
@@ -511,43 +530,34 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 		}
 		else if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_DYNSTACK))
 		{
-			int		nparams = nbase, npalign = 0;
+			int		nparams = nbase, nparams2 = nbase2;
 			int		numfpzero = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
-			int		fplimit = numfpzero;
-
-			if ((procDec->mFlags & DTF_NATIVE) || (mCompilerOptions & COPT_NATIVE))
-			{
-				if (!(procDec->mFlags & DTF_FUNC_INTRCALLED))
-					fplimit += 256;
-			}
 
 			if (procDec->mBase->mBase->IsComplexStruct())
 			{
-				if (nbase < numfpzero && nbase + 2 > numfpzero)
-					nbase = numfpzero;
-				nparams += 2;
+				if (nbase + 2 <= numfpzero)
+					nparams += 2;
+				else
+					nparams2 += 2;
 			}
 
-			int		cnparams = nparams;
+			int		cnparams = nparams, cnparams2 = nparams2;
 			Declaration* dec = procDec->mBase->mParams;
 			while (dec)
 			{
 				if (!(dec->mFlags & DTF_FPARAM_UNUSED))
 				{
 					// Check for parameter crossing boundary
-					if (cnparams < numfpzero && cnparams + dec->mBase->mSize > numfpzero)
-					{
-						npalign = numfpzero - nparams;
-						cnparams += npalign;
-					}
-					cnparams += dec->mBase->mSize;
+					if (!dec->mBase->IsComplexStruct() && cnparams + dec->mBase->mSize <= numfpzero)
+						cnparams += dec->mBase->mSize;
+					else
+						cnparams2 += dec->mBase->mSize;
 				}
 				dec = dec->mNext;
 			}
 
-			if (cnparams <= fplimit)
+			if (cnparams2 == 0 || ((procDec->mFlags & DTF_NATIVE) || (mCompilerOptions & COPT_NATIVE)) && !(procDec->mFlags & DTF_FUNC_INTRCALLED))
 			{
-				npalign = 0;
 				dec = procDec->mBase->mParams;
 				while (dec)
 				{
@@ -562,14 +572,16 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 					else
 					{
 						dec->mForwardParam = nullptr;
-						// Check for parameter crossing boundary
-						if (nparams < numfpzero && nparams + dec->mBase->mSize > numfpzero)
+						if (!dec->mBase->IsComplexStruct() && nparams + dec->mBase->mSize <= numfpzero)
 						{
-							npalign = numfpzero - nparams;
-							nparams += npalign;
+							dec->mVarIndex = nparams;
+							nparams += dec->mBase->mSize;
 						}
-						dec->mVarIndex = nparams;
-						nparams += dec->mBase->mSize;
+						else
+						{
+							dec->mVarIndex = nparams2 + numfpzero;
+							nparams2 += dec->mBase->mSize;
+						}
 					}
 					dec = dec->mNext;
 				}
@@ -578,6 +590,10 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 				procDec->mFastCallSize = nparams;
 				procDec->mBase->mFastCallBase = nbase;
 				procDec->mBase->mFastCallSize = nparams;
+				procDec->mFastCallBase2 = nbase2;
+				procDec->mFastCallSize2 = nparams2;
+				procDec->mBase->mFastCallBase2 = nbase2;
+				procDec->mBase->mFastCallSize2 = nparams2;
 
 				procDec->mBase->mFlags |= DTF_FASTCALL;
 //				printf("FASTCALL %s\n", procDec->mQualIdent->mString);
@@ -627,7 +643,7 @@ bool GlobalAnalyzer::IsStackParam(const Declaration* pdec) const
 {
 	if (pdec->mType == DT_TYPE_STRUCT)
 	{
-		if (pdec->mSize > 4)
+		if (pdec->mSize > 16)
 			return true;
 		if (pdec->mCopyConstructor)
 		{
