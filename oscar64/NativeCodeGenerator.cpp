@@ -45522,7 +45522,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoop(NativeCodeProcedure * proc, bool f
 						assert(mIns.Size() == 0 || mIns[0].mType != ASMIT_INV);
 					}
 				}
-				else if (mIns[sz - 1].mType == ASMIT_DEC && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && mBranch == ASMIT_BNE)
+				else if (mIns[sz - 1].mType == ASMIT_DEC && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && (mBranch == ASMIT_BNE || mBranch == ASMIT_BPL))
 				{
 					// check for usage of Y register
 
@@ -60273,7 +60273,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "testi");
+	CheckFunc = !strcmp(mIdent->mString, "scroll_right");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
