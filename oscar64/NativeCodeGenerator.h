@@ -181,13 +181,13 @@ static const uint32 NCIF_PROVIDE_CPU_REG_C = 0x00080000;
 static const uint32 NCIF_PRESERVE_CPU_REG_A = 0x00100000;
 static const uint32 NCIF_PRESERVE_CPU_REG_X = 0x00200000;
 static const uint32 NCIF_PRESERVE_CPU_REG_Y = 0x00400000;
+static const uint32 NCIF_BREAKPOINT = 0x00800000;
 
 // use a 32bit zero page register indexed by X for JSR
 static const uint32 NCIF_USE_ZP_32_X = 0x01000000;
 static const uint32 NICF_USE_ZP_ADDR = 0x02000000;
 static const uint32 NICF_USE_WORKREGS = 0x04000000;
 
-static const uint32 NCIF_BREAKPOINT = 0x00800000;
 
 static const uint32 NCIF_IMMADDR_FLAGS = NCIF_LOWER | NCIF_UPPER;
 

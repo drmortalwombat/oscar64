@@ -4374,9 +4374,13 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 								defins.Push(wins);
 							else
 								block->Append(wins);
-						}
 
-						atotal += wins->mSrc[1].mOperandSize;
+							if (pdec && (ftype->mFlags & DTF_FASTCALL))
+								atotal = pdec->mVarIndex;
+							atotal += wins->mSrc[1].mOperandSize;
+						}
+						else if (!(ftype->mFlags & DTF_FASTCALL))
+							atotal += wins->mSrc[1].mOperandSize;
 					}
 
 					if (pdec)

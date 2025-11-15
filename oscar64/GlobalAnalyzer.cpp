@@ -528,7 +528,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 //			if (head)
 				procDec->mBase->mFlags |= DTF_STACKCALL;
 		}
-		else if (!(procDec->mBase->mFlags & DTF_VARIADIC) && !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_DYNSTACK))
+		else if (/*!(procDec->mBase->mFlags & DTF_VARIADIC) &&*/ !(procDec->mFlags & DTF_FUNC_VARIABLE) && !(procDec->mFlags & DTF_DYNSTACK))
 		{
 			int		nparams = nbase, nparams2 = nbase2;
 			int		numfpzero = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
@@ -542,19 +542,25 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			}
 
 			int		cnparams = nparams, cnparams2 = nparams2;
+
 			Declaration* dec = procDec->mBase->mParams;
 			while (dec)
 			{
 				if (!(dec->mFlags & DTF_FPARAM_UNUSED))
 				{
 					// Check for parameter crossing boundary
-					if (!dec->mBase->IsComplexStruct() && cnparams + dec->mBase->mSize <= numfpzero)
+					if ((procDec->mBase->mFlags & DTF_VARIADIC) && !dec->mNext)
+						cnparams2 += dec->mBase->mSize;
+					else if (!dec->mBase->IsComplexStruct() && cnparams + dec->mBase->mSize <= numfpzero)
 						cnparams += dec->mBase->mSize;
 					else
 						cnparams2 += dec->mBase->mSize;
 				}
 				dec = dec->mNext;
 			}
+
+			if (procDec->mBase->mFlags & DTF_VARIADIC)
+				cnparams2 += procDec->mVariadicSize;
 
 			if (cnparams2 == 0 || ((procDec->mFlags & DTF_NATIVE) || (mCompilerOptions & COPT_NATIVE)) && !(procDec->mFlags & DTF_FUNC_INTRCALLED))
 			{
@@ -565,14 +571,19 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 					{
 
 					}
-					else if (dec->mForwardParam && (dec->mForwardCall->mBase->mFlags & DTF_FASTCALL) && !(dec->mForwardCall->mFlags & DTF_INLINE))
+					else if (dec->mForwardParam && !(procDec->mBase->mFlags & DTF_VARIADIC) && (dec->mForwardCall->mBase->mFlags & DTF_FASTCALL) && !(dec->mForwardCall->mFlags & DTF_INLINE))
 					{
 						dec->mVarIndex = dec->mForwardParam->mVarIndex;
 					}
 					else
 					{
 						dec->mForwardParam = nullptr;
-						if (!dec->mBase->IsComplexStruct() && nparams + dec->mBase->mSize <= numfpzero)
+						if ((procDec->mBase->mFlags & DTF_VARIADIC) && !dec->mNext)
+						{
+							dec->mVarIndex = nparams2 + numfpzero;
+							nparams2 += dec->mBase->mSize;
+						}
+						else if (!dec->mBase->IsComplexStruct() && nparams + dec->mBase->mSize <= numfpzero)
 						{
 							dec->mVarIndex = nparams;
 							nparams += dec->mBase->mSize;
@@ -585,6 +596,9 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 					}
 					dec = dec->mNext;
 				}
+
+				if (procDec->mBase->mFlags & DTF_VARIADIC)
+					nparams2 += procDec->mVariadicSize;
 
 				procDec->mFastCallBase = nbase;
 				procDec->mFastCallSize = nparams;
@@ -1044,6 +1058,8 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 
 		if (exp->mRight)
 		{
+			int	variadicSize = 0;
+
 			// Check for struct to struct forwarding
 			Expression* rex = exp->mRight;
 			Declaration* pdec = ldec->mBase->mParams;
@@ -1107,6 +1123,16 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 
 				RegisterProc(Analyze(pex, procDec, (pdec && pdec->mBase->IsReference()) ? ANAFL_LHS : ANAFL_RHS));
 
+				if (!pdec && (ldec->mBase->mFlags & DTF_VARIADIC))
+				{
+					if (pex->mDecType->IsIntegerType() && pex->mDecType->mSize < 2)
+						variadicSize += 2;
+					else if (pex->mDecType->mType == DT_TYPE_ARRAY)
+						variadicSize += 2;
+					else
+						variadicSize += pex->mDecType->mSize;
+				}
+
 				if (pdec)
 					pdec = pdec->mNext;
 
@@ -1114,6 +1140,12 @@ Declaration * GlobalAnalyzer::Analyze(Expression* exp, Declaration* procDec, uin
 					rex = rex->mRight;
 				else
 					rex = nullptr;
+			}
+
+			if (ldec->mType == DT_CONST_FUNCTION)
+			{
+				if (variadicSize > ldec->mVariadicSize)
+					ldec->mVariadicSize = variadicSize;
 			}
 		}
 		break;
