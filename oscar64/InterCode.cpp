@@ -4317,7 +4317,7 @@ bool InterOperand::IsEqual(const InterOperand& op) const
 	if (mType != op.mType || mTemp != op.mTemp)
 		return false;
 
-	if (mMemory != op.mMemory)
+	if (mTemp < 0 && mMemory != op.mMemory)
 		return false;
 
 	if (mIntConst != op.mIntConst || mFloatConst != op.mFloatConst)
@@ -17928,7 +17928,7 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 						for (int i = 0; i < tz; i++)
 						{
 							InterInstruction* ai = tail->mInstructions[i];
-							if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst > 0 && IsIntegerType(ai->mDst.mType) &&
+							if (ai->mCode == IC_BINARY_OPERATOR && ai->mOperator == IA_ADD && ai->mSrc[0].mTemp < 0 && ai->mDst.mTemp == ai->mSrc[1].mTemp && ai->mSrc[0].mIntConst != 0 && IsIntegerType(ai->mDst.mType) &&
 								!tail->IsTempModifiedInRange(i + 1, tz, ai->mDst.mTemp) &&
 								!tail->IsTempModifiedInRange(0, i - 1, ai->mDst.mTemp))
 							{
@@ -24842,40 +24842,37 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 #endif
 
 #if 1
-		if (CheckFunc)
+		i = 0;
+		while (i <= limit)
 		{
-			i = 0;
-			while (i <= limit)
+			InterInstruction* ins(mInstructions[i]);
+
+			if (ins->mDst.mTemp >= 0 && (ins->mDst.mType == IT_FLOAT /* || ins->mDst.mType == IT_INT32*/))
 			{
-				InterInstruction* ins(mInstructions[i]);
-
-				if (ins->mDst.mTemp >= 0 && (ins->mDst.mType == IT_FLOAT /* || ins->mDst.mType == IT_INT32*/))
+				if ((ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_CONVERSION_OPERATOR) && ins->mSrc[0].mFinal ||
+					(ins->mCode == IC_BINARY_OPERATOR && (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mFinal || ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mFinal)))
 				{
-					if ((ins->mCode == IC_UNARY_OPERATOR || ins->mCode == IC_CONVERSION_OPERATOR) && ins->mSrc[0].mFinal ||
-						(ins->mCode == IC_BINARY_OPERATOR && (ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mFinal || ins->mSrc[1].mTemp < 0 && ins->mSrc[0].mFinal)))
-					{
-						int reg = ins->mSrc[0].mTemp;
-						if (ins->mCode == IC_BINARY_OPERATOR && reg < 0)
-							reg = ins->mSrc[1].mTemp;
+					int reg = ins->mSrc[0].mTemp;
+					if (ins->mCode == IC_BINARY_OPERATOR && reg < 0)
+						reg = ins->mSrc[1].mTemp;
 
-						int j = i - 1;
-						while (j >= 0 && CanSwapInstructions(mInstructions[j], ins))
-							j--;
-						if (j >= 0 && j < i - 1 && mInstructions[j]->mDst.mTemp == reg)
+					int j = i - 1;
+					while (j >= 0 && CanSwapInstructions(mInstructions[j], ins))
+						j--;
+					if (j >= 0 && j < i - 1 && mInstructions[j]->mDst.mTemp == reg)
+					{
+						int k = i - 1;
+						while (k > j)
 						{
-							int k = i - 1;
-							while (k > j)
-							{
-								SwapInstructions(mInstructions[k], ins);
-								mInstructions[k + 1] = mInstructions[k];
-								k--;
-							}
-							mInstructions[k + 1] = ins;
+							SwapInstructions(mInstructions[k], ins);
+							mInstructions[k + 1] = mInstructions[k];
+							k--;
 						}
+						mInstructions[k + 1] = ins;
 					}
 				}
-				i++;
 			}
+			i++;
 		}
 #endif
 
@@ -27306,7 +27303,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "scroll_down");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
