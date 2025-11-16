@@ -16103,6 +16103,143 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::ShortcutBranchSequence(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mFalseJump && mIns.Size() && mIns.Last().ChangesFlagToAccu())
+		{
+			NativeCodeBasicBlock* eblock = nullptr, * nblock = nullptr;
+
+			if (mBranch == ASMIT_BEQ)
+			{
+				eblock = mTrueJump;
+				nblock = mFalseJump;
+			}
+			else if (mBranch == ASMIT_BNE)
+			{
+				eblock = mFalseJump;
+				nblock = mTrueJump;
+			}
+
+			if (eblock && nblock)
+			{
+				int reg = -1;
+				if (mIns.Last().mType == ASMIT_LDA && mIns.Last().mMode == ASMIM_ZERO_PAGE)
+					reg = mIns.Last().mAddress;
+
+				if (nblock && nblock->mIns.Size() == 1 && nblock->mIns[0].mType == ASMIT_ORA && nblock->mIns[0].mMode == ASMIM_IMMEDIATE && nblock->mIns[0].mAddress == 0)
+				{
+					NativeCodeBasicBlock* block = mProc->AllocateBlock();
+					block->mBranch = nblock->mBranch;
+					block->mTrueJump = nblock->mTrueJump;
+					block->mFalseJump = nblock->mFalseJump;
+
+					nblock->mEntryBlocks.RemoveAll(this);
+					nblock->mNumEntries--;
+					
+					block->mTrueJump->mEntryBlocks.Push(this);
+					block->mTrueJump->mNumEntries++;
+					block->mFalseJump->mEntryBlocks.Push(this);
+					block->mFalseJump->mNumEntries++;
+
+					block->mNumEntries++;
+					block->mEntryBlocks.Push(this);
+					if (mTrueJump == nblock)
+						mTrueJump = block;
+					else
+						mFalseJump = block;
+					changed = true;
+				}
+				else if (nblock && nblock->mIns.Size() == 0 && nblock->mNumEntries == 1)
+				{
+					if (nblock->mBranch == ASMIT_BPL || nblock->mBranch == ASMIT_BMI)
+					{
+						NativeCodeBasicBlock* tblock = nblock->mTrueJump;
+						if (tblock->mFalseJump)
+						{
+							if (tblock->mIns.Size() == 0 ||
+								tblock->mIns.Size() == 1 && tblock->mIns[0].mType == ASMIT_LDA && tblock->mIns[0].mMode == ASMIM_ZERO_PAGE && tblock->mIns[0].mAddress == reg)
+							{
+								if (tblock->mBranch == ASMIT_BEQ)
+								{
+									tblock->mNumEntries--;
+									tblock->mEntryBlocks.RemoveAll(nblock);
+									nblock->mTrueJump = tblock->mFalseJump;
+									nblock->mTrueJump->mNumEntries++;
+									nblock->mTrueJump->mEntryBlocks.Push(nblock);
+									changed = true;
+								}
+								else if (tblock->mBranch == ASMIT_BNE)
+								{
+									tblock->mNumEntries--;
+									tblock->mEntryBlocks.RemoveAll(nblock);
+									nblock->mTrueJump = tblock->mTrueJump;
+									nblock->mTrueJump->mNumEntries++;
+									nblock->mTrueJump->mEntryBlocks.Push(nblock);
+									changed = true;
+								}
+							}
+						}
+
+						NativeCodeBasicBlock* fblock = nblock->mFalseJump;
+						if (fblock->mFalseJump)
+						{
+							if (fblock->mIns.Size() == 0 ||
+								fblock->mIns.Size() == 1 && fblock->mIns[0].mType == ASMIT_LDA && fblock->mIns[0].mMode == ASMIM_ZERO_PAGE && fblock->mIns[0].mAddress == reg)
+							{
+								if (fblock->mBranch == ASMIT_BEQ)
+								{
+									fblock->mNumEntries--;
+									fblock->mEntryBlocks.RemoveAll(nblock);
+									nblock->mFalseJump = fblock->mFalseJump;
+									nblock->mFalseJump->mNumEntries++;
+									nblock->mFalseJump->mEntryBlocks.Push(nblock);
+									changed = true;
+								}
+								else if (fblock->mBranch == ASMIT_BNE)
+								{
+									fblock->mNumEntries--;
+									fblock->mEntryBlocks.RemoveAll(nblock);
+									nblock->mFalseJump = fblock->mTrueJump;
+									nblock->mFalseJump->mNumEntries++;
+									nblock->mFalseJump->mEntryBlocks.Push(nblock);
+									changed = true;
+								}
+							}
+						}
+					}
+				}
+
+				if (!changed && mIns.Last().mType == ASMIT_LDA && mIns.Last().mMode == ASMIM_ZERO_PAGE)
+				{
+					int reg = mIns.Last().mAddress;
+
+					if (nblock && nblock->mIns.Size() == 0 && nblock->mNumEntries == 1)
+					{
+						if (nblock->mBranch == ASMIT_BPL || nblock->mBranch == ASMIT_BMI)
+						{
+
+						}
+					}
+
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ShortcutBranchSequence())
+			changed = true;
+		if (mFalseJump && mFalseJump->ShortcutBranchSequence())
+			changed = true;
+	}
+
+	return changed;
+}
+
 void NativeCodeBasicBlock::CollectEntryBlocks(NativeCodeBasicBlock* block)
 {
 	if (block)
@@ -60311,7 +60448,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "scroll_right");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -62333,6 +62470,13 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
+		if (step == 28)
+		{
+			ResetVisited();
+			if (mEntryBlock->ShortcutBranchSequence())
+				changed = true;
+		}
+
 
 #if _DEBUG
 		ResetVisited();
@@ -62360,7 +62504,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 #if 1
-		if (!changed && step < 28)
+		if (!changed && step < 29)
 		{
 			ResetIndexFlipped();
 

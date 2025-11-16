@@ -518,6 +518,7 @@ public:
 	bool RemoveJumpToBranch(void);
 	NativeCodeBasicBlock* SplitBlock(int at);
 	NativeCodeBasicBlock* PrefixLoopBlock(NativeCodeBasicBlock * prefix);
+	bool ShortcutBranchSequence(void);
 
 	bool RemoveUnusedBitOps(void);
 
