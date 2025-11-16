@@ -1316,7 +1316,7 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 	assert(offset == osize);
 }
 
-void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock* block, InlineMapper * inlineMapper, ExValue v, const SwitchNodeArray& nodes, int left, int right, int vleft, int vright, InterCodeBasicBlock* dblock)
+void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* exp, InterCodeBasicBlock* block, InlineMapper * inlineMapper, ExValue v, const SwitchNodeArray& nodes, int left, int right, int vleft, int vright, bool csigned, InterCodeBasicBlock* dblock)
 {
 	if (right - left < 3)
 	{
@@ -1363,7 +1363,7 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 					InterCodeBasicBlock* tblock = new InterCodeBasicBlock(proc);
 
 					InterInstruction* cins = new InterInstruction(MapLocation(exp, inlineMapper), IC_RELATIONAL_OPERATOR);
-					cins->mOperator = IA_CMPLS;
+					cins->mOperator = csigned ? IA_CMPLS : IA_CMPLU;
 					cins->mSrc[0].mType = vins->mDst.mType;
 					cins->mSrc[0].mTemp = vins->mDst.mTemp;
 					cins->mSrc[1].mType = vins->mDst.mType;
@@ -1389,7 +1389,7 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 					block->Append(vins);
 					
 					cins = new InterInstruction(MapLocation(exp, inlineMapper), IC_RELATIONAL_OPERATOR);
-					cins->mOperator = IA_CMPLES;
+					cins->mOperator = csigned ? IA_CMPLES : IA_CMPLEU;
 					cins->mSrc[0].mType = vins->mDst.mType;
 					cins->mSrc[0].mTemp = vins->mDst.mTemp;
 					cins->mSrc[1].mType = vins->mDst.mType;
@@ -1456,7 +1456,7 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 			block->Close(nodes[center].mBlock, cblock);
 
 			InterInstruction* rins = new InterInstruction(MapLocation(exp, inlineMapper), IC_RELATIONAL_OPERATOR);
-			rins->mOperator = IA_CMPLS;
+			rins->mOperator = csigned ? IA_CMPLS : IA_CMPLU;
 			rins->mSrc[0].mType = vins->mDst.mType;
 			rins->mSrc[0].mTemp = vins->mDst.mTemp;
 			rins->mSrc[1].mType = vins->mDst.mType;
@@ -1473,8 +1473,8 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 
 			cblock->Close(lblock, rblock);
 
-			BuildSwitchTree(proc, exp, lblock, inlineMapper, v, nodes, left, center, vleft, vcenter - 1, dblock);
-			BuildSwitchTree(proc, exp, rblock, inlineMapper, v, nodes, center + 1, right, vcenter + 1, vright, dblock);
+			BuildSwitchTree(proc, exp, lblock, inlineMapper, v, nodes, left, center, vleft, vcenter - 1, csigned, dblock);
+			BuildSwitchTree(proc, exp, rblock, inlineMapper, v, nodes, center + 1, right, vcenter + 1, vright, csigned, dblock);
 		}
 		else
 		{
@@ -1488,7 +1488,7 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 			block->Append(vins);
 
 			InterInstruction* cins = new InterInstruction(MapLocation(exp, inlineMapper), IC_RELATIONAL_OPERATOR);
-			cins->mOperator = IA_CMPLS;
+			cins->mOperator = csigned ? IA_CMPLS : IA_CMPLU;
 			cins->mSrc[0].mType = vins->mDst.mType;
 			cins->mSrc[0].mTemp = vins->mDst.mTemp;
 			cins->mSrc[1].mType = vins->mDst.mType;
@@ -1512,7 +1512,7 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 			cblock->Append(vins);
 
 			cins = new InterInstruction(MapLocation(exp, inlineMapper), IC_RELATIONAL_OPERATOR);
-			cins->mOperator = IA_CMPLES;
+			cins->mOperator = csigned ? IA_CMPLES : IA_CMPLEU;
 			cins->mSrc[0].mType = vins->mDst.mType;
 			cins->mSrc[0].mTemp = vins->mDst.mTemp;
 			cins->mSrc[1].mType = vins->mDst.mType;
@@ -1528,8 +1528,8 @@ void InterCodeGenerator::BuildSwitchTree(InterCodeProcedure* proc, Expression* e
 
 			cblock->Close(nodes[center].mBlock, rblock);
 
-			BuildSwitchTree(proc, exp, lblock, inlineMapper, v, nodes, left, center, vleft, vlower - 1, dblock);
-			BuildSwitchTree(proc, exp, rblock, inlineMapper, v, nodes, center + 1, right, vupper + 1, vright, dblock);
+			BuildSwitchTree(proc, exp, lblock, inlineMapper, v, nodes, left, center, vleft, vlower - 1, csigned, dblock);
+			BuildSwitchTree(proc, exp, rblock, inlineMapper, v, nodes, center + 1, right, vupper + 1, vright, csigned, dblock);
 		}
 
 	}
@@ -5880,6 +5880,8 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			int vleft = 0, vright = 65535;
 
+			Declaration* ttype = vl.mType;
+
 			if (vl.mType->mSize == 1)
 			{
 				if (vl.mType->mFlags & DTF_SIGNED)
@@ -5889,6 +5891,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				}
 				else
 					vright = 255;
+				ttype = TheSignedIntTypeDeclaration;
 			}
 			else if (vl.mType->mFlags & DTF_SIGNED)
 			{
@@ -5896,7 +5899,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				vright = 32767;
 			}
 
-			vl = CoerceType(proc, exp, block, inlineMapper, vl, TheSignedIntTypeDeclaration);
+			vl = CoerceType(proc, exp, block, inlineMapper, vl, ttype);
 
 			InterCodeBasicBlock	* dblock = nullptr;
 			InterCodeBasicBlock* sblock = block;
@@ -6002,7 +6005,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				switchNodes.SetSize(j);
 			}
 
-			BuildSwitchTree(proc, exp, sblock, inlineMapper, vl, switchNodes, 0, switchNodes.Size(), vleft, vright,  dblock ? dblock : eblock);
+			BuildSwitchTree(proc, exp, sblock, inlineMapper, vl, switchNodes, 0, switchNodes.Size(), vleft, vright, ttype->mFlags & DTF_SIGNED, dblock ? dblock : eblock);
 
 			if (block)
 			{
