@@ -36740,7 +36740,7 @@ bool NativeCodeBasicBlock::Check16BitSum(const NativeCodeBasicBlock* block, int 
 		{
 			if (block == this && i == origin)
 				return true;
-			if (mIns[i].mType == ASMIT_JSR)
+			if (mIns[i].mType == ASMIT_JSR && mIns[i].mLinkerObject && !mIns[i].mLinkerObject->mProc)
 				return false;
 			if (mIns[i].UsesZeroPage(reg))
 				return false;
@@ -36804,10 +36804,11 @@ bool NativeCodeBasicBlock::EliminateUpper16BitSum(NativeCodeProcedure* nproc)
 		mVisited = true;
 
 		CheckLive();
-
-		for (int i = 0; i + 2 < mIns.Size(); i++)
+		
+		for (int i = 0; i < mIns.Size(); i++)
 		{
-			if (mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+			if (i + 2 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 				(mIns[i + 1].mType == ASMIT_ADC || mIns[i + 1].mType == ASMIT_SBC) &&
 				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].SameEffectiveAddress(mIns[i + 0]) && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C | LIVE_CPU_REG_Z)) &&
 				mIns[i + 2].mAddress != BC_REG_LOCALS + 1 && mIns[i + 2].mAddress != BC_REG_STACK + 1)
@@ -36818,6 +36819,17 @@ bool NativeCodeBasicBlock::EliminateUpper16BitSum(NativeCodeProcedure* nproc)
 					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 					mIns[i + 2].mType = ASMIT_NOP; mIns[i + 2].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+			}
+			else if ((mIns[i + 0].mType == ASMIT_INC || mIns[i + 0].mType == ASMIT_DEC) && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				!(mIns[i + 0].mLive & LIVE_CPU_REG_Z) &&
+				mIns[i + 0].mAddress != BC_REG_LOCALS + 1 && mIns[i + 0].mAddress != BC_REG_STACK + 1)
+			{
+				nproc->ResetPatched();
+				if (Check16BitSum(this, i, i + 1, mIns[i + 0].mAddress))
+				{
+					mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
 			}
@@ -60502,7 +60514,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "bsum");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
