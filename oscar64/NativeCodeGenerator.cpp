@@ -6571,21 +6571,30 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 					{
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst, ins->mSrc[1].mLinkerObject, flags));
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+						if (ins->mSrc[0].IsUByte())
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+						else
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + stride, ins->mSrc[1].mLinkerObject, flags));
 					}
 					else if (ins->mSrc[1].mMemory == IM_ABSOLUTE)
 					{
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst, nullptr, flags));
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+						if (ins->mSrc[0].IsUByte())
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+						else
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ABSOLUTE, ins->mSrc[1].mIntConst + stride, nullptr, flags));
 					}
 					else if (ins->mSrc[1].mMemory == IM_FPARAM || ins->mSrc[1].mMemory == IM_FFRAME)
 					{
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst));
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+						if (ins->mSrc[0].IsUByte())
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+						else
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS + ins->mSrc[1].mVarIndex + ins->mSrc[1].mIntConst + stride));
 					}
 					else if (ins->mSrc[1].mMemory == IM_LOCAL || ins->mSrc[1].mMemory == IM_PARAM)
@@ -6604,7 +6613,10 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_INDIRECT_Y, reg));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index + stride));
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+						if (ins->mSrc[0].IsUByte())
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+						else
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_INDIRECT_Y, reg));
 					}
 					else if (ins->mSrc[1].mMemory == IM_FRAME)
@@ -6615,7 +6627,10 @@ void NativeCodeBasicBlock::StoreValue(InterCodeProcedure* proc, const InterInstr
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp]));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_STACK));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDY, ASMIM_IMMEDIATE, index + stride));
-						mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
+						if (ins->mSrc[0].IsUByte())
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+						else
+							mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ins->mSrc[0].mTemp] + 1));
 						mIns.Push(NativeCodeInstruction(ins, ASMIT_STA, ASMIM_INDIRECT_Y, BC_REG_STACK));
 					}
 				}
@@ -13930,9 +13945,11 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 	else if (ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst == 0 || ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst == 0)
 	{
 		int	rt = ins->mSrc[1].mTemp;
+		int ri = 1;
 		if (rt < 0)
 		{
 			rt = ins->mSrc[0].mTemp;
+			ri = 0;
 			switch (op)
 			{
 			case IA_CMPLEU:
@@ -13967,14 +13984,14 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		case IA_CMPEQ:
 		case IA_CMPLEU:
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
-			if (InterTypeSize[ins->mSrc[0].mType] > 1)
+			if (InterTypeSize[ins->mSrc[0].mType] > 1 && !ins->mSrc[ri].IsUByte() && !ins->mSrc[ri].IsSByte())
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(ins, trueJump, falseJump, ASMIT_BEQ);
 			break;
 		case IA_CMPNE:
 		case IA_CMPGU:
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
-			if (InterTypeSize[ins->mSrc[0].mType] > 1)
+			if (InterTypeSize[ins->mSrc[0].mType] > 1 && !ins->mSrc[ri].IsUByte() && !ins->mSrc[ri].IsSByte())
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(ins, trueJump, falseJump, ASMIT_BNE);
 			break;
@@ -13985,14 +14002,14 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 			this->Close(ins, falseJump, nullptr, ASMIT_JMP);
 			break;
 		case IA_CMPGES:
-			if (InterTypeSize[ins->mSrc[0].mType] == 1)
+			if (InterTypeSize[ins->mSrc[0].mType] == 1 || ins->mSrc[ri].IsSByte())
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt]));
 			else
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(ins, trueJump, falseJump, ASMIT_BPL);
 			break;
 		case IA_CMPLS:
-			if (InterTypeSize[ins->mSrc[0].mType] == 1)
+			if (InterTypeSize[ins->mSrc[0].mType] == 1 || ins->mSrc[ri].IsSByte())
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt]));
 			else
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
@@ -14001,12 +14018,12 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		case IA_CMPGS:
 		{
 			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			if (InterTypeSize[ins->mSrc[0].mType] == 1)
+			if (InterTypeSize[ins->mSrc[0].mType] == 1 || ins->mSrc[ri].IsSByte())
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt]));
 			else
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(ins, eblock, falseJump, ASMIT_BPL);
-			if (InterTypeSize[ins->mSrc[0].mType] != 1)
+			if (InterTypeSize[ins->mSrc[0].mType] != 1 && !ins->mSrc[ri].IsSByte())
 				eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
 			eblock->Close(ins, trueJump, falseJump, ASMIT_BNE);
 			break;
@@ -14014,12 +14031,12 @@ void NativeCodeBasicBlock::RelationalOperator(InterCodeProcedure* proc, const In
 		case IA_CMPLES:
 		{
 			NativeCodeBasicBlock* eblock = nproc->AllocateBlock();
-			if (InterTypeSize[ins->mSrc[0].mType] == 1)
+			if (InterTypeSize[ins->mSrc[0].mType] == 1 || ins->mSrc[ri].IsSByte())
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt]));
 			else
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 1));
 			this->Close(ins, eblock, trueJump, ASMIT_BPL);
-			if (InterTypeSize[ins->mSrc[0].mType] != 1)
+			if (InterTypeSize[ins->mSrc[0].mType] != 1 && !ins->mSrc[ri].IsSByte())
 				eblock->mIns.Push(NativeCodeInstruction(ins, ASMIT_ORA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[rt] + 0));
 			eblock->Close(ins, trueJump, falseJump, ASMIT_BEQ);
 			break;
@@ -21675,6 +21692,43 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				eblock->Close(iins, rblock, nullptr, ASMIT_JMP);
 				break;
 			}
+			if (i + 4 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_TAX &&
+				mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
+				mIns[i + 2].mType == ASMIT_ROL && mIns[i + 2].mMode == ASMIM_IMPLIED &&
+				mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 4].mType == ASMIT_TXA && !(mIns[i + 4].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
+			{
+				changed = true;
+
+				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+
+				rblock->mTrueJump = mTrueJump;
+				rblock->mFalseJump = mFalseJump;
+				rblock->mBranch = mBranch;
+
+				mIns[i + 0].mType = ASMIT_NOP;
+				mIns[i + 1].mType = ASMIT_LDX;
+				mIns[i + 2].mType = ASMIT_NOP;
+				mIns[i + 3].mType = ASMIT_STX;
+				mIns[i + 4].mType = ASMIT_NOP;
+
+				const InterInstruction* iins(mIns[i].mIns);
+
+				eblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_INX));
+				for (int j = i + 3; j < mIns.Size(); j++)
+					rblock->mIns.Push(mIns[j]);
+				mIns.SetSize(i + 2);
+
+				mTrueJump = rblock;
+				mFalseJump = eblock;
+				mBranch = ASMIT_BCC;
+
+				eblock->Close(iins, rblock, nullptr, ASMIT_JMP);
+				break;
+			}
+
 #if 1
 			if (i + 4 == mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_CLC &&

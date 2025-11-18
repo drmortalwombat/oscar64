@@ -2832,6 +2832,30 @@ Expression* Parser::BuildMemberInitializer(Expression* vexp)
 			nexp->mRight = ParseRExpression();
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
+		else if (nexp->mDecType->IsIntegerType())
+		{
+			nexp->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+			nexp->mRight->mDecType = nexp->mDecType;
+			nexp->mRight->mDecValue = new Declaration(mScanner->mLocation, DT_CONST_INTEGER);
+			nexp->mRight->mDecValue->mBase = nexp->mDecType;
+			nexp->mRight->mDecValue->mSize = nexp->mDecType->mSize;
+			nexp->mRight->mDecValue->mInteger = 0;
+		}
+		else if (nexp->mDecType->mType == DT_TYPE_FLOAT)
+		{
+			nexp->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+			nexp->mRight->mDecType = nexp->mDecType;
+			nexp->mRight->mDecValue = new Declaration(mScanner->mLocation, DT_CONST_FLOAT);
+			nexp->mRight->mDecValue->mBase = nexp->mDecType;
+			nexp->mRight->mDecValue->mSize = nexp->mDecType->mSize;
+			nexp->mRight->mDecValue->mNumber = 0;
+		}
+		else if (nexp->mDecType->mType == DT_TYPE_POINTER)
+		{
+			nexp->mRight = new Expression(mScanner->mLocation, EX_CONSTANT);
+			nexp->mRight->mDecType = nexp->mDecType;
+			nexp->mRight->mDecValue = TheNullptrConstDeclaration;
+		}
 
 		return nexp;
 	}
@@ -11424,7 +11448,6 @@ Expression* Parser::ParseStatement(void)
 						{
 							Declaration* iterVarDec = new Declaration(mScanner->mLocation, DT_VARIABLE);
 							iterVarDec->mBase = containerExp->mDecType->mBase->BuildPointer(mScanner->mLocation);
-							iterVarDec->mBase = containerExp->mDecType->mBase->BuildPointer(mScanner->mLocation);
 							iterVarDec->mVarIndex = mLocalIndex++;
 							iterVarDec->mSize = iterVarDec->mBase->mSize;
 							iterVarDec->mFlags |= DTF_DEFINED;
@@ -11504,10 +11527,22 @@ Expression* Parser::ParseStatement(void)
 
 							if (fbegin && fend)
 							{
-								Expression* cexp = new Expression(mScanner->mLocation, EX_PREFIX);
-								cexp->mToken = TK_BINARY_AND;
-								cexp->mDecType = containerExp->mDecType->BuildPointer(mScanner->mLocation);
-								cexp->mLeft = containerExp;
+								Expression* cpexp = new Expression(mScanner->mLocation, EX_PREFIX);
+								cpexp->mToken = TK_BINARY_AND;
+								cpexp->mDecType = containerExp->mDecType->BuildPointer(mScanner->mLocation);
+								cpexp->mLeft = containerExp;
+
+								Declaration* cpvar = AllocTempVar(cpexp->mDecType);
+
+								Expression* cexp = new Expression(exp->mLocation, EX_VARIABLE);
+								cexp->mDecType = cpexp->mDecType;
+								cexp->mDecValue = cpvar;
+
+								Expression* cinitexp = new Expression(exp->mLocation, EX_INITIALIZATION);
+								cinitexp->mToken = TK_ASSIGN;
+								cinitexp->mLeft = cexp;
+								cinitexp->mRight = cpexp;
+								cinitexp->mDecType = exp->mDecType;
 
 								Expression* cbegin = new Expression(mScanner->mLocation, EX_CALL);
 								cbegin->mDecType = fbegin->mBase->mBase;
@@ -11547,19 +11582,26 @@ Expression* Parser::ParseStatement(void)
 								Declaration* valueVarDec = initExp->mDecValue;
 
 								initExp = new Expression(mScanner->mLocation, EX_LIST);
-								initExp->mLeft = new Expression(mScanner->mLocation, EX_INITIALIZATION);
-								initExp->mLeft->mToken = TK_ASSIGN;
-								initExp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
-								initExp->mLeft->mLeft->mDecType = iterVarDec->mBase;
-								initExp->mLeft->mLeft->mDecValue = iterVarDec;
-								initExp->mLeft->mRight = cbegin;
+								initExp->mLeft = cinitexp;
 
-								initExp->mRight = new Expression(mScanner->mLocation, EX_INITIALIZATION);
-								initExp->mRight->mToken = TK_ASSIGN;
-								initExp->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
-								initExp->mRight->mLeft->mDecType = endVarDec->mBase;
-								initExp->mRight->mLeft->mDecValue = endVarDec;
-								initExp->mRight->mRight = cend;
+								Expression* iinitExp;
+
+								iinitExp = new Expression(mScanner->mLocation, EX_LIST);
+								iinitExp->mLeft = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+								iinitExp->mLeft->mToken = TK_ASSIGN;
+								iinitExp->mLeft->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+								iinitExp->mLeft->mLeft->mDecType = iterVarDec->mBase;
+								iinitExp->mLeft->mLeft->mDecValue = iterVarDec;
+								iinitExp->mLeft->mRight = cbegin;
+
+								iinitExp->mRight = new Expression(mScanner->mLocation, EX_INITIALIZATION);
+								iinitExp->mRight->mToken = TK_ASSIGN;
+								iinitExp->mRight->mLeft = new Expression(mScanner->mLocation, EX_VARIABLE);
+								iinitExp->mRight->mLeft->mDecType = endVarDec->mBase;
+								iinitExp->mRight->mLeft->mDecValue = endVarDec;
+								iinitExp->mRight->mRight = cend;
+
+								initExp->mRight = iinitExp;
 
 								iterateExp = new Expression(mScanner->mLocation, EX_PREINCDEC);
 								iterateExp->mToken = TK_INC;

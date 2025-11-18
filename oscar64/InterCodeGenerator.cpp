@@ -4822,7 +4822,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 									InterInstruction* xins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONVERSION_OPERATOR);
 									xins->mOperator = dec->mSize == 1 ? IA_EXT8TO32U : IA_EXT16TO32U;
 									xins->mSrc[0] = lins->mDst;
-									xins->mDst.mType = InterTypeOf(dec->mBase);
+									xins->mDst.mType = IT_INT32;
 									xins->mDst.mTemp = proc->AddTemporary(pins->mDst.mType);
 									xins->mNumOperands = 1;
 									block->Append(xins);
@@ -4836,7 +4836,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 									InterInstruction* xins = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONVERSION_OPERATOR);
 									xins->mOperator = IA_EXT8TO16U;
 									xins->mSrc[0] = lins->mDst;
-									xins->mDst.mType = InterTypeOf(dec->mBase);
+									xins->mDst.mType = IT_INT16;
 									xins->mDst.mTemp = proc->AddTemporary(pins->mDst.mType);
 									xins->mNumOperands = 1;
 									block->Append(xins);
