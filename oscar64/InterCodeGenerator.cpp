@@ -1600,9 +1600,8 @@ Location InterCodeGenerator::MapLocation(Expression* exp, InlineMapper* inlineMa
 		return exp->mLocation;
 }
 
-InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, const BranchTarget& breakBlock, const BranchTarget& continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr, ExValue* lrexp)
+InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* procType, InterCodeProcedure* proc, InterCodeBasicBlock*& block, Expression* exp, DestructStack*& destack, const BranchTarget& breakBlock, const BranchTarget& continueBlock, InlineMapper* inlineMapper, bool inlineConstexpr, ExValue* lrexp)
 {
-	DestructStack* destack = nullptr;
 	GotoNode* gotos = nullptr;
 
 	ExValue	vl, vr;
@@ -1800,7 +1799,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateInline(Declaration* pro
 	UnwindDestructStack(ftype, proc, block, idestack, nullptr, &nmapper);
 
 	// Uwind parameter passing stack
-	UnwindDestructStack(ftype, proc, block, destack, nullptr, inlineMapper);
+	// UnwindDestructStack(ftype, proc, block, destack, nullptr, inlineMapper);
 
 	if (rdec)
 	{
@@ -4069,7 +4068,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			if (doInline)
 			{
-				return TranslateInline(procType, proc, block, exp, breakBlock, continueBlock, inlineMapper, inlineConstexpr, lrexp);
+				return TranslateInline(procType, proc, block, exp, destack, breakBlock, continueBlock, inlineMapper, inlineConstexpr, lrexp);
 			}
 			else
 			{
@@ -5648,15 +5647,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 			vr = TranslateExpression(procType, proc, bblock, exp->mRight, destack, gotos, BranchTarget(eblock, odestack), BranchTarget(lblock, idestack), inlineMapper);
 
-			UnwindDestructStack(procType, proc, bblock, destack, idestack, inlineMapper);
-			destack = idestack;
+			UnwindDestructStack(procType, proc, bblock, destack, odestack, inlineMapper);
+//			destack = odestack;
 
 			bblock->Append(jins1);
 			bblock->Close(lblock, nullptr);
 
 			block = eblock;
 
-			UnwindDestructStack(procType, proc, block, destack, odestack, inlineMapper);
+			UnwindDestructStack(procType, proc, block, idestack, odestack, inlineMapper);
 			destack = odestack;
 
 			return ExValue(TheVoidTypeDeclaration);

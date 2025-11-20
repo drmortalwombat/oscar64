@@ -5359,7 +5359,16 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 				{
 					pex->mLeft->mRight = nullptr;
 				}
-
+#if 1
+				else if (pex->mType == EX_PREFIX && pex->mToken == TK_BINARY_AND && pex->mLeft->mType == EX_CONSTRUCT)
+				{
+					if (pex->mLeft->mRight && pex->mLeft->mRight->mType == EX_VARIABLE && (pex->mLeft->mRight->mDecValue->mFlags & DTF_TEMPORARY))
+					{
+						rexp = ConcatExpression(rexp, pex->mLeft->mLeft->mRight);
+						pex->mLeft->mLeft->mRight = nullptr;
+					}
+				}
+#endif
 				pdec = pdec->mNext;
 			}
 		}
@@ -11377,7 +11386,7 @@ Expression* Parser::ParseStatement(void)
 			else
 			{
 				exp = new Expression(mScanner->mLocation, EX_IF);
-				exp->mLeft = CoerceExpression(CleanupExpression(ParseParenthesisExpression()), TheBoolTypeDeclaration);
+				exp->mLeft = CleanupExpression(CoerceExpression(ParseParenthesisExpression(), TheBoolTypeDeclaration));
 				exp->mRight = new Expression(mScanner->mLocation, EX_ELSE);
 				exp->mRight->mLeft = ParseStatement();
 				if (mScanner->mToken == TK_ELSE)
@@ -11398,7 +11407,7 @@ Expression* Parser::ParseStatement(void)
 			mScope = scope;
 
 			exp = new Expression(mScanner->mLocation, EX_WHILE);
-			exp->mLeft = CoerceExpression(CleanupExpression(ParseParenthesisExpression()), TheBoolTypeDeclaration);
+			exp->mLeft = CleanupExpression(CoerceExpression(ParseParenthesisExpression(), TheBoolTypeDeclaration));
 			exp->mRight = ParseStatement();
 
 			mScope->End(mScanner->mLocation);
@@ -11412,7 +11421,7 @@ Expression* Parser::ParseStatement(void)
 			if (mScanner->mToken == TK_WHILE)
 			{
 				mScanner->NextToken();
-				exp->mLeft = CoerceExpression(CleanupExpression(ParseParenthesisExpression()), TheBoolTypeDeclaration);
+				exp->mLeft = CleanupExpression(CoerceExpression(ParseParenthesisExpression(), TheBoolTypeDeclaration));
 				ConsumeToken(TK_SEMICOLON);
 			}
 			else
@@ -11662,7 +11671,7 @@ Expression* Parser::ParseStatement(void)
 
 					// Condition
 					if (mScanner->mToken != TK_SEMICOLON)
-						conditionExp = CoerceExpression(CleanupExpression(ParseListExpression(false)), TheBoolTypeDeclaration);
+						conditionExp = CleanupExpression(CoerceExpression(ParseListExpression(false), TheBoolTypeDeclaration));
 
 					if (mScanner->mToken == TK_SEMICOLON)
 						mScanner->NextToken();
