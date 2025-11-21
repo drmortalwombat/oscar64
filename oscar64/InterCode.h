@@ -424,6 +424,7 @@ public:
 	GrowingInstructionPtrArray		mMergeTValues, mMergeAValues;
 	ValueSet						mMergeValues;
 	TempForwardingTable				mMergeForwardingTable;
+	NumberSet						mMergeTemps;
 
 	InterCodeBasicBlock(InterCodeProcedure * proc);
 	~InterCodeBasicBlock(void);
@@ -460,6 +461,7 @@ public:
 	bool PropagateConstTemps(const GrowingInstructionPtrArray& ctemps);
 	bool ForwardConstTemps(const GrowingInstructionPtrArray& ctemps);
 	bool PropagateConstCompareResults(void);
+	bool PropagateNonNullPointers(const NumberSet& vtemps);
 
 	bool EarlyBranchElimination(const GrowingInstructionPtrArray& ctemps);
 

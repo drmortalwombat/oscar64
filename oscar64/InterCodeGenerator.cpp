@@ -2236,7 +2236,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		}
 		case EX_CLEANUP:
 		{
-			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, gotos, breakBlock, continueBlock, inlineMapper);
+			vl = TranslateExpression(procType, proc, block, exp->mLeft, destack, gotos, breakBlock, continueBlock, inlineMapper, lrexp);
 			TranslateExpression(procType, proc, block, exp->mRight, destack, gotos, breakBlock, continueBlock, inlineMapper);
 			return vl;
 		}

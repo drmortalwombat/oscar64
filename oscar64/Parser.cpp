@@ -11964,13 +11964,17 @@ Expression* Parser::ParseStatement(void)
 					exp->mLeft = CoerceExpression(exp->mLeft, mFunctionType->mBase);
 				}
 				exp->mLeft = CleanupExpression(exp->mLeft);
-				if (exp->mLeft->mType == EX_CONSTRUCT && mFunctionType && mFunctionType->mBase && mFunctionType->mBase->IsComplexStruct())
+				Expression* rexp = exp->mLeft;
+				if (rexp->mType == EX_CLEANUP)
+					rexp = rexp->mLeft;
+
+				if (rexp->mType == EX_CONSTRUCT && mFunctionType && mFunctionType->mBase && mFunctionType->mBase->IsComplexStruct())
 				{
-					Expression* cexp = exp->mLeft->mLeft->mLeft;
+					Expression* cexp = rexp->mLeft->mLeft;
 
-					exp->mLeft->mLeft->mRight = nullptr;
+					rexp->mLeft->mRight = nullptr;
 
-					exp->mLeft->mRight->mType = EX_RESULT;
+					rexp->mRight->mType = EX_RESULT;
 				}
 			}
 			ConsumeToken(TK_SEMICOLON);

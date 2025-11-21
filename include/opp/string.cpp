@@ -39,7 +39,7 @@ string::string(const string & s)
 		cstr = nullptr;
 }
 
-string::string(string && s)
+inline string::string(string && s)
 	: cstr(s.cstr)
 {
 	s.cstr = nullptr;
