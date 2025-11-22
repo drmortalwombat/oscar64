@@ -270,6 +270,9 @@ BANKINLINE bool krnio_chkout(char fnum)
 		BANKIN
 		ldx fnum
 		jsr	$ffc9	: x->ax		// chkout
+#if defined(__CBMPET__)
+		jsr k_checkst
+#endif
 		BANKOUT
 
 		lda #0
@@ -288,6 +291,9 @@ BANKINLINE bool krnio_chkin(char fnum)
 		BANKIN
 		ldx fnum
 		jsr	$ffc6	: x->axy	// chkin
+#if defined(__CBMPET__)
+		jsr k_checkst
+#endif
 		BANKOUT
 
 		lda #0
