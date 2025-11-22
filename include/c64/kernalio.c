@@ -27,6 +27,14 @@ void krnio_setbnk(char filebank, char namebank)
 #define BANKINLINE
 #endif
 
+#if defined(__CBMPET__)
+#define FNLEN	0xD1 // Length of filename
+#define LFN	0xD2 // Current Logical File Number
+#define SECADR	0xD3 // Secondary address
+#define DEVNUM	0xD4 // Device number
+#define FNADR	0xDA // Pointer to file name
+#endif
+
 BANKINLINE void krnio_setnam(const char * name)
 {
 	__asm
@@ -43,7 +51,13 @@ BANKINLINE void krnio_setnam(const char * name)
 	W1: ldx name
 		ldy	name + 1
 		BANKIN
+#if defined(__CBMPET__)
+		sta	FNLEN
+		stx	FNADR
+		sty	FNADR+1
+#else
 		jsr	$ffbd			// setnam
+#endif
 		BANKOUT
 	}
 }
@@ -72,16 +86,22 @@ BANKINLINE bool krnio_open(char fnum, char device, char channel)
 	return char(__asm
 	{
 		lda	#0
-		sta accu
+		sta	accu
 		sta	accu + 1
 
 		BANKIN
 
 		lda	fnum
 		ldx	device
-		ldy channel		
+		ldy	channel
+#if defined(__CBMPET__)
+		sta	LFN
+		stx	DEVNUM
+		sty	SECADR
+#else
 		jsr	$ffba			// setlfs
-		
+#endif
+
 		jsr	$ffc0			// open
 		bcc	W1
 
