@@ -200,9 +200,13 @@ BANKINLINE krnioerr krnio_status(void)
 {
 	return __asm
 	{
+#if defined(__CBMPET__)
+		lda ST
+#else
 		BANKIN
 		jsr $ffb7	: ->a		// readst
 		BANKOUT
+#endif
 		sta accu
 		lda #0
 		sta accu + 1
@@ -439,7 +443,7 @@ int krnio_read(char fnum, char * data, int num)
 		return i;
 	}
 	else
-		return -1;	
+		return -1;
 }
 
 #pragma native(krnio_read)
