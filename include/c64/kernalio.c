@@ -33,7 +33,7 @@ void krnio_setbnk(char filebank, char namebank)
 #define SECADR		0xD3 // Secondary address
 #define DEVNUM		0xD4 // Device number
 #define FNADR		0xDA // Pointer to file name
-#define ST		0x90 // IEC status byte
+#define ST		0x96 // IEC status byte
 
 // PET ROM Detection
 #define PET_DETECT	0xFFFB	// Distinction V2 vs V4 BASIC
@@ -63,8 +63,8 @@ __asm k_setlfs
 
 __asm k_open
 {
-	lda PET_DETECT
-	cmp #PET_4000
+	lda	PET_DETECT
+	cmp	#PET_4000
 	bne	V2
 	jsr	$f563
 	jmp	k_checkst
