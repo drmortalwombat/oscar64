@@ -41,66 +41,47 @@ void krnio_setbnk(char filebank, char namebank)
 #define PET_3000	0xFC
 #define PET_4000	0xFD
 
-inline void k_checkst()
+__asm k_checkst
 {
-	__asm
-	{
-		lda	ST
-		beq	l1
-		lda	#5	// Device not present
-		sec
-		rts
-	l1:
-		clc
-	};
+	lda	ST
+	beq	l1
+	lda	#5	// Device not present
+	sec
+	rts
+l1:
+	clc
+	rts
 }
 
-#pragma native(k_checkst)
-
-inline void k_setlfs()
+__asm k_setlfs
 {
-	__asm
-	{
-		sta	LFN			// setlfs replacement
-		stx	DEVNUM
-		sty	SECADR
-	};
+	sta	LFN			// setlfs replacement
+	stx	DEVNUM
+	sty	SECADR
+	rts
 }
 
-#pragma native(k_setlfs)
-
-inline void k_open()
+__asm k_open
 {
-	__asm
-	{
-		lda PET_DETECT
-		cmp #PET_4000
-		bne	V2
-		jsr	$f563
-		jsr	k_checkst
-		rts
-	V2:
-		jsr	$f524
-		jsr	k_checkst
-	};
+	lda PET_DETECT
+	cmp #PET_4000
+	bne	V2
+	jsr	$f563
+	jmp	k_checkst
+V2:
+	jsr	$f524
+	jmp	k_checkst
 }
 
-#pragma native(k_open)
-
-inline void k_close()
+__asm k_close
 {
-	__asm
-	{
-		ldx	PET_DETECT
-		cpx	#PET_4000
-		bne	l1
-		jmp	$F2E2			// BASIC 4
-	l1:
-		jmp	$F2AE			//BASIC 2&3
-	};
+	ldx	PET_DETECT
+	cpx	#PET_4000
+	bne	l1
+	jmp	$F2E2			// BASIC 4
+l1:
+	jmp	$F2AE			//BASIC 2&3
 }
-
-#pragma native(k_open)
 
 #endif
 
@@ -178,7 +159,6 @@ BANKINLINE bool krnio_open(char fnum, char device, char channel)
 
 		jsr	$ffc0			// open
 #endif
-	W3:
 		bcc	W1
 
 		lda	fnum
