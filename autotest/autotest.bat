@@ -33,6 +33,9 @@ rem @echo off
 @call :testh opp_string_init.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :testh opp_optional.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :testh opp_streamtest.cpp
 @if %errorlevel% neq 0 goto :error
 

@@ -1282,7 +1282,7 @@ bool InterCodeBasicBlock::DestroyingMem(InterCodeBasicBlock* block, InterInstruc
 bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const
 {
 	// Cannot swap branches
-	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH || ins1->mCode == IC_DISPATCH)
+	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH || ins1->mCode == IC_DISPATCH || ins1->mCode == IC_RETURN || ins1->mCode == IC_RETURN_STRUCT)
 		return false;
 
 	// Check function call
@@ -27476,7 +27476,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test_store_ccp");
+	CheckFunc = !strcmp(mIdent->mString, "cia_init");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

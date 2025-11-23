@@ -37312,7 +37312,7 @@ bool NativeCodeBasicBlock::PartialBackwardValuePropagation(void)
 #if 1
 		for (int i = 0; i < mIns.Size(); i++)
 		{
-			if ((mIns[i].mType == ASMIT_LDA || mIns[i].mType == ASMIT_LDX || mIns[i].mType == ASMIT_LDY) && mIns[i].mMode == ASMIM_ABSOLUTE)
+			if ((mIns[i].mType == ASMIT_LDA || mIns[i].mType == ASMIT_LDX || mIns[i].mType == ASMIT_LDY) && mIns[i].mMode == ASMIM_ABSOLUTE && !(mIns[i].mFlags & NCIF_VOLATILE))
 			{
 				int val = FindImmediateGlobalStore(i, mIns[i]);
 				if (val >= 0)
@@ -60514,7 +60514,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "bsum");
+	CheckFunc = !strcmp(mIdent->mString, "cia_init");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
