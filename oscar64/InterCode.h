@@ -187,6 +187,7 @@ public:
 	bool IsBound(void) const;
 	bool IsConstant(void) const;
 	bool IsInvalid(void) const;
+	bool IsRange(int64 minVal, int64 maxVal) const;
 
 	void LimitMin(int64 value);
 	void LimitMax(int64 value);

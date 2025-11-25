@@ -10020,6 +10020,22 @@ void NativeCodeBasicBlock::AddAsrSignedByte(InterCodeProcedure* proc, const Inte
 
 }
 
+void NativeCodeBasicBlock::BinaryAddCarry(InterCodeProcedure* proc, const InterInstruction* ains, const InterInstruction* cins)
+{
+	if (cins->mSrc[0].mTemp == ains->mDst.mTemp)
+		mIns.Push(NativeCodeInstruction(cins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[cins->mSrc[1].mTemp]));
+	else
+		mIns.Push(NativeCodeInstruction(cins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[cins->mSrc[0].mTemp]));
+	mIns.Push(NativeCodeInstruction(cins, ASMIT_LSR));
+
+	mIns.Push(NativeCodeInstruction(ains, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ains->mSrc[0].mTemp]));
+	mIns.Push(NativeCodeInstruction(ains, ASMIT_ADC, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ains->mSrc[1].mTemp]));
+	mIns.Push(NativeCodeInstruction(ains, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[cins->mDst.mTemp]));
+	mIns.Push(NativeCodeInstruction(ains, ASMIT_LDA, ASMIM_IMMEDIATE, 0));
+	mIns.Push(NativeCodeInstruction(ains, ASMIT_ROL));
+	mIns.Push(NativeCodeInstruction(ains, ASMIT_STA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[cins->mDst.mTemp] + 1));
+}
+
 void NativeCodeBasicBlock::BinaryAndMulConst(InterCodeProcedure* proc, const InterInstruction* ains, const InterInstruction* mins)
 {
 	unsigned	mask = ains->mSrc[0].mIntConst & 0xff;
@@ -32644,10 +32660,10 @@ bool NativeCodeBasicBlock::CheckBoolBitPropagation(const NativeCodeBasicBlock* b
 {
 	if (!mPatched)
 	{
-		mPatched = true;
-
 		if (at == 0)
 		{
+			mPatched = true;
+
 			if (!mEntryRequiredRegs[reg])
 				return CheckPatchFailUse();
 
@@ -44275,6 +44291,37 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			}
 		}
 	}
+
+	ai = mIns.Size() - 1;
+	while (ai >= 0 && !(mIns[ai].ChangesAccu() || mIns[ai].mType == ASMIT_STA && mIns[ai].mMode == ASMIM_ZERO_PAGE))
+		ai--;
+	if (ai >= 0 && mIns[ai].mType == ASMIT_STA && !ChangesZeroPage(mIns[ai].mAddress, ai + 1))
+	{
+		int reg = mIns[ai].mAddress;
+		int zi = 0;
+		while (zi < mIns.Size() && !(mIns[zi].ChangesAccu() || mIns[zi].ReferencesZeroPage(reg)))
+			zi++;
+		if (zi < mIns.Size())
+		{
+			if (mIns[zi].IsShift() && mIns[zi].mMode == ASMIM_ZERO_PAGE && !(mIns[zi].mLive & (LIVE_CPU_REG_A | LIVE_MEM)))
+			{
+				if (!prevBlock)
+					return OptimizeSimpleLoopInvariant(proc, full);
+
+				prevBlock->mIns.Push(NativeCodeInstruction(mIns[zi].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, reg));
+				mIns[zi].mMode = ASMIM_IMPLIED;
+				for (int i = 0; i < zi; i++)
+					mIns[i].mLive |= LIVE_CPU_REG_A;
+				for (int i = ai; i < mIns.Size(); i++)
+					mIns[i].mLive |= LIVE_CPU_REG_A;
+				mExitRequiredRegs += CPU_REG_A;
+				mEntryRequiredRegs += CPU_REG_A;
+				prevBlock->mExitRequiredRegs += CPU_REG_A;
+				changed = true;
+			}
+		}
+	}
+
 #if 1
 	// Check X and Y same increment
 	if (sz >= 6)
@@ -60514,7 +60561,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "cia_init");
+	CheckFunc = !strcmp(mIdent->mString, "longsum");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -63221,7 +63268,26 @@ void NativeCodeProcedure::CompileInterBlock(InterCodeProcedure* iproc, InterCode
 				block->BinaryAndMulConst(iproc, ins, iblock->mInstructions[i + 1]);
 				i++;
 			}
+			else if (i + 1 < iblock->mInstructions.Size() &&
+				ins->mDst.mType == IT_INT16 && ins->mOperator == IA_ADD && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte() &&
 
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && iblock->mInstructions[i + 1]->mOperator == IA_ADD &&
+				iblock->mInstructions[i + 1]->mSrc[0].mRange.IsRange(0, 1) && iblock->mInstructions[i + 1]->mSrc[0].mFinal &&
+				iblock->mInstructions[i + 1]->mSrc[1].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[1].mFinal)
+			{
+				block->BinaryAddCarry(iproc, ins, iblock->mInstructions[i + 1]);
+				i++;
+			}
+			else if (i + 1 < iblock->mInstructions.Size() &&
+				ins->mDst.mType == IT_INT16 && ins->mOperator == IA_ADD && ins->mSrc[0].IsUByte() && ins->mSrc[1].IsUByte() &&
+
+				iblock->mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && iblock->mInstructions[i + 1]->mOperator == IA_ADD &&
+				iblock->mInstructions[i + 1]->mSrc[1].mRange.IsRange(0, 1) && iblock->mInstructions[i + 1]->mSrc[1].mFinal &&
+				iblock->mInstructions[i + 1]->mSrc[0].mTemp == ins->mDst.mTemp && iblock->mInstructions[i + 1]->mSrc[0].mFinal)
+			{
+				block->BinaryAddCarry(iproc, ins, iblock->mInstructions[i + 1]);
+				i++;
+			}
 			else
 				block = block->BinaryOperator(iproc, this, ins, nullptr, nullptr);
 			break;

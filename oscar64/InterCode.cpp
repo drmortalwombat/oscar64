@@ -340,6 +340,14 @@ bool IntegerValueRange::IsBound(void) const
 	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue <= mMaxValue;
 }
 
+bool IntegerValueRange::IsRange(int64 minval, int64 maxval) const
+{
+	return 
+		mMinState == S_BOUND && mMinValue >= minval &&
+		mMaxState == S_BOUND && mMaxValue <= maxval &&
+		mMinValue <= mMaxValue;
+}
+
 bool IntegerValueRange::IsConstant(void) const
 {
 	return mMinState == S_BOUND && mMaxState == S_BOUND && mMinValue == mMaxValue;
@@ -10081,7 +10089,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 
 	struct TempChain
 	{
-		int		mBaseTemp;
+		int		mBaseTemp, mReadIns, mWriteIns;
 		bool	mConstant;
 		int64	mOffset;
 	};
@@ -10111,11 +10119,19 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				tempChain[i].mBaseTemp = i;
 				tempChain[i].mOffset = 0;
 				tempChain[i].mConstant = true;
+				tempChain[i].mReadIns = -1;
+				tempChain[i].mWriteIns = -1;
 			}
 
 			for (int i = 0; i < sz; i++)
 			{
 				InterInstruction* ins(mInstructions[i]);
+
+				for (int j = 0; j < ins->mNumOperands; j++)
+				{
+					if (ins->mSrc[j].mTemp >= 0)
+						tempChain[ins->mSrc[j].mTemp].mReadIns = i;
+				}
 				if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
 					ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 0 &&
 					tempChain[ins->mSrc[1].mTemp].mBaseTemp >= 0)
@@ -10155,6 +10171,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				else if (ins->mDst.mTemp >= 0)
 				{
 					tempChain[ins->mDst.mTemp].mBaseTemp = -1;
+					tempChain[ins->mDst.mTemp].mWriteIns = i;
 				}
 			}
 
@@ -10166,6 +10183,28 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					if (r.IsConstant())
 					{
 						mProc->mLocalValueRange[i].LimitMax(r.mMinValue + (nloop - 1) * tempChain[i].mOffset);
+					}
+				}
+				else if (tempChain[i].mReadIns >= 0 && tempChain[i].mWriteIns > tempChain[i].mReadIns)
+				{
+					InterInstruction* rins(mInstructions[tempChain[i].mReadIns]);
+					InterInstruction* wins(mInstructions[tempChain[i].mWriteIns]);
+
+					if (rins->mCode == IC_BINARY_OPERATOR &&
+						wins->mCode == IC_BINARY_OPERATOR && wins->mSrc[1].mTemp == rins->mDst.mTemp)
+					{
+						IntegerValueRange& r(pblock->mTrueValueRange[i]);
+						if (r.IsConstant())
+						{
+							if (rins->mOperator == IA_ADD && wins->mOperator == IA_SHR && wins->mSrc[0].mTemp < 0 && wins->mSrc[0].mIntConst == 8 && r.IsRange(0, 1))
+							{
+								if (rins->mSrc[0].mTemp == i && rins->mSrc[1].mRange.IsRange(0, 510) ||
+									rins->mSrc[1].mTemp == i && rins->mSrc[0].mRange.IsRange(0, 510))
+								{
+									mProc->mLocalValueRange[i].LimitMax(1);
+								}
+							}
+						}
 					}
 				}
 			}
@@ -23256,6 +23295,22 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1] = ins;
 				changed = true;
 			}
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_ADD && 
+				mInstructions[i + 0]->mSrc[0].IsUByte() && mInstructions[i + 0]->mSrc[1].IsUByte() &&
+
+				mInstructions[i + 1]->mDst.mRange.IsRange(0, 1) && CanSwapInstructions(mInstructions[i + 0], mInstructions[i + 1]) &&
+
+				mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 2]->mOperator == IA_ADD &&
+				mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+				mInstructions[i + 2]->mSrc[1].mTemp == mInstructions[i + 1]->mDst.mTemp)
+			{
+				SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
+				InterInstruction* ins(mInstructions[i + 0]);
+				mInstructions[i + 0] = mInstructions[i + 1];
+				mInstructions[i + 1] = ins;
+				changed = true;
+			}
 			else if (mInstructions[i + 0]->mDst.mTemp >= 0 &&
 				mInstructions[i + 1]->mCode == IC_LOAD_TEMPORARY && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp &&
 				(mInstructions[i + 2]->mCode == IC_RELATIONAL_OPERATOR || mInstructions[i + 2]->mCode == IC_BINARY_OPERATOR) && mInstructions[i + 2]->mSrc[0].mTemp == mInstructions[i]->mDst.mTemp && mInstructions[i + 2]->mSrc[0].mFinal)
@@ -27476,7 +27531,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "cia_init");
+	CheckFunc = !strcmp(mIdent->mString, "longsum");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
