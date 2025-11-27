@@ -4536,6 +4536,15 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			if (mType == ASMIT_LDA)
 				data.Reset(CPU_REG_A);
 		}
+		else if (data[mAddress + 0].mMode == NRDM_ZERO_PAGE && data[mAddress + 1].mMode == NRDM_ZERO_PAGE && 
+				 data[data[mAddress + 1].mValue - 1].mMode == NRDM_ZERO_PAGE &&
+				 data[mAddress + 0].mValue == data[data[mAddress + 1].mValue - 1].mValue)
+		{
+			mFlags |= NICT_ZPFLIPPED;
+			mAddress = data[mAddress + 1].mValue - 1;
+			if (mType == ASMIT_LDA)
+				data.Reset(CPU_REG_A);
+		}
 		else if (data[mAddress].mMode == NRDM_IMMEDIATE_ADDRESS && data[mAddress + 1].mMode == NRDM_IMMEDIATE_ADDRESS && data[mAddress].mLinkerObject == data[mAddress + 1].mLinkerObject)
 		{
 			mMode = ASMIM_ABSOLUTE_Y;
@@ -36397,7 +36406,7 @@ bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block,
 bool NativeCodeBasicBlock::BackwardFindLiveRange(const NativeCodeBasicBlock* block, int reg, bool pair, ExpandingArray<CodeRange>& ranges)
 {
 	if (mVisited)
-		return false;
+		return mPatchExit;
 
 	if (!mPatchExit)
 	{
@@ -36722,6 +36731,82 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 						}
 					}
 				}
+
+#if 0
+				if (i + 3 < mIns.Size() &&
+					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+				{
+					int reg1 = mIns[i + 0].mAddress, reg2 = mIns[i + 1].mAddress;
+
+					int j = i + 2;
+					while (j < mIns.Size() &&
+						!mIns[j].ReferencesZeroPage(reg1) && !mIns[j].ChangesZeroPage(reg1 + 1) &&
+						!mIns[j].ReferencesZeroPage(reg2) && !mIns[j].ChangesZeroPage(reg2 + 1))
+						j++;
+					if (j + 1 < mIns.Size() &&
+						mIns[j + 0].mType == ASMIT_STA && mIns[j + 0].mMode == ASMIM_ZERO_PAGE && 
+						mIns[j + 1].mType == ASMIT_STA && mIns[j + 1].mMode == ASMIM_ZERO_PAGE)
+					{
+						int j1 = -1, j2 = -1;
+
+						if (mIns[j + 0].mAddress == reg1 + 1 && mIns[j + 1].mAddress == reg2 + 1)
+						{
+							j1 = j + 0; j2 = j + 1;
+						}
+						else if (mIns[j + 0].mAddress == reg2 + 1 && mIns[j + 1].mAddress == reg1 + 1)
+						{
+							j1 = j + 1; j2 = j + 0;
+						}
+
+						if (j1 >= 0)
+						{
+							ExpandingArray<CodeRange>	ranges1, ranges2;
+
+							nproc->ResetPatched();
+							if (ForwardFindLiveRange(this, j + 2, reg1, true, ranges1))
+							{
+								nproc->ResetPatched();
+								if (ForwardFindLiveRange(this, j + 2, reg1 + 1, true, ranges2))
+								{
+									if (CanReplaceRegInLiveRange(ranges1, reg1,     reg2,     true) &&
+										CanReplaceRegInLiveRange(ranges2, reg1 + 1, reg2 + 1, true))
+									{
+										ReplaceRegInLiveRange(ranges1, reg1,     reg2,     true);
+										ReplaceRegInLiveRange(ranges2, reg1 + 1, reg2 + 1, true);
+										mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+										mIns[j1   ].mType = ASMIT_NOP; mIns[j1   ].mMode = ASMIM_IMPLIED;
+										changed = true;
+									}
+								}
+							}
+
+							if (!changed)
+							{
+								ExpandingArray<CodeRange>	ranges1, ranges2;
+
+								nproc->ResetPatched();
+								if (ForwardFindLiveRange(this, j + 2, reg2, true, ranges1))
+								{
+									nproc->ResetPatched();
+									if (ForwardFindLiveRange(this, j + 2, reg2 + 1, true, ranges2))
+									{
+										if (CanReplaceRegInLiveRange(ranges1, reg2, reg1, true) &&
+											CanReplaceRegInLiveRange(ranges2, reg2 + 1, reg1 + 1, true))
+										{
+											ReplaceRegInLiveRange(ranges1, reg2, reg1, true);
+											ReplaceRegInLiveRange(ranges2, reg2 + 1, reg1 + 1, true);
+											mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+											mIns[j2   ].mType = ASMIT_NOP; mIns[j2   ].mMode = ASMIM_IMPLIED;
+											changed = true;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+#endif
 			}
 		}
 
@@ -43572,7 +43657,7 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 				int j = mIns.Size() - 1;
 				while (j >= 0 && !mIns[j].ReferencesZeroPage(mIns[i + 1].mAddress))
 					j--;
-				if (j >= 0 &&
+				if (j >= 0 && j + 1 < mIns.Size() &&
 					mIns[j + 0].mType == ASMIT_LDA && mIns[j + 0].mMode == ASMIM_ZERO_PAGE && mIns[j + 0].mAddress == mIns[i + 1].mAddress &&
 					mIns[j + 1].mType == ASMIT_STA && mIns[j + 1].mMode == ASMIM_ZERO_PAGE && mIns[j + 1].mAddress == mIns[i + 0].mAddress)
 				{
@@ -59648,10 +59733,8 @@ void NativeCodeBasicBlock::CheckLive(void)
 				live |= LIVE_CPU_REG_Z;
 		}
 	}
-	if (mExitRequiredRegs.Size() > 0 && mExitRequiredRegs[CPU_REG_C] && (mFalseJump || mTrueJump->mEntryRequiredRegs[CPU_REG_C]))
+	if (mExitRequiredRegs.Size() > 0 && mTrueJump && mTrueJump->mEntryRequiredRegs.Size() > 0 && mExitRequiredRegs[CPU_REG_C] && (mFalseJump || mTrueJump->mEntryRequiredRegs[CPU_REG_C]))
 		live |= LIVE_CPU_REG_C;
-
-
 
 	for (int j = mIns.Size() - 1; j >= 0; j--)
 	{
@@ -60561,7 +60644,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "longsum");
+	CheckFunc = !strcmp(mIdent->mString, "rpcheck");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
