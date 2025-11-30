@@ -60644,7 +60644,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "rpcheck");
+	CheckFunc = !strcmp(mIdent->mString, "draw");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -61095,6 +61095,9 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		if (mEntryBlock->CollectZeroPageSet(zpLocal, zpGlobal, false))
 		{
 			zpLocal |= zpGlobal;
+
+			for (int i = BC_REG_TMP_SAVED; i < BC_REG_TMP_SAVED + tempSave; i++)
+				zpLocal -= i;
 
 			proc->mLinkerObject->mZeroPageSet = zpLocal;
 			proc->mLinkerObject->mFlags |= LOBJF_ZEROPAGESET;
@@ -61983,6 +61986,9 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->EliminateUpper16BitSum(this))
 				changed = true;
 		}
+
+		if (step == 3)
+			DisassembleDebug("test3");
 
 		CheckBlocks();
 

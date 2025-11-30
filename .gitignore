@@ -355,3 +355,4 @@ make/oscar64
 oscar64/Releasex64/oscar64.vcxproj.FileListAbsolute.txt
 /oscar64/Debugx64
 .clang-format
+*.csz

@@ -10133,7 +10133,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 						tempChain[ins->mSrc[j].mTemp].mReadIns = i;
 				}
 				if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
-					ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && ins->mSrc[0].mIntConst > 0 &&
+					ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && 
 					tempChain[ins->mSrc[1].mTemp].mBaseTemp >= 0)
 				{
 					tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[1].mTemp].mBaseTemp;
@@ -10141,12 +10141,20 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					tempChain[ins->mDst.mTemp].mConstant = tempChain[ins->mSrc[1].mTemp].mConstant;
 				}
 				else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
-					ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mIntConst > 0 &&
+					ins->mSrc[0].mTemp >= 0 && ins->mSrc[1].mTemp < 0 && 
 					tempChain[ins->mSrc[0].mTemp].mBaseTemp >= 0)
 				{
 					tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[0].mTemp].mBaseTemp;
 					tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[0].mTemp].mOffset + ins->mSrc[1].mIntConst;
 					tempChain[ins->mDst.mTemp].mConstant = tempChain[ins->mSrc[0].mTemp].mConstant;
+				}
+				else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB &&
+					ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp < 0 && 
+					tempChain[ins->mSrc[1].mTemp].mBaseTemp >= 0)
+				{
+					tempChain[ins->mDst.mTemp].mBaseTemp = tempChain[ins->mSrc[1].mTemp].mBaseTemp;
+					tempChain[ins->mDst.mTemp].mOffset = tempChain[ins->mSrc[1].mTemp].mOffset - ins->mSrc[0].mIntConst;
+					tempChain[ins->mDst.mTemp].mConstant = tempChain[ins->mSrc[1].mTemp].mConstant;
 				}
 				else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD &&
 					ins->mSrc[1].mTemp >= 0 && ins->mSrc[0].mTemp >= 0 && ins->mSrc[0].mRange.IsBound() && ins->mSrc[0].IsUnsigned() &&
@@ -10182,7 +10190,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 					IntegerValueRange& r(pblock->mTrueValueRange[i]);
 					if (r.IsConstant())
 					{
-						mProc->mLocalValueRange[i].LimitMax(r.mMinValue + (nloop - 1) * tempChain[i].mOffset);
+						if (tempChain[i].mOffset >= 0)
+							mProc->mLocalValueRange[i].LimitMax(r.mMinValue + (nloop - 1) * tempChain[i].mOffset);
+						if (tempChain[i].mOffset <= 0)
+							mProc->mLocalValueRange[i].LimitMin(r.mMaxValue + (nloop - 1) * tempChain[i].mOffset);
 					}
 				}
 				else if (tempChain[i].mReadIns >= 0 && tempChain[i].mWriteIns > tempChain[i].mReadIns)
@@ -10230,7 +10241,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 				IntegerValueRange& r(pblock->mTrueValueRange[i]);
 				if (r.IsConstant())
 				{
-					mProc->mLocalValueRange[i].LimitMax(r.mMinValue + (nloop - 1) * tempChain[i].mOffset);
+					if (tempChain[i].mOffset >= 0)
+						mProc->mLocalValueRange[i].LimitMax(r.mMinValue + (nloop - 1) * tempChain[i].mOffset);
+					if (tempChain[i].mOffset <= 0)
+						mProc->mLocalValueRange[i].LimitMin(r.mMaxValue + (nloop - 1) * tempChain[i].mOffset);
 				}
 			}
 		}
@@ -27531,7 +27545,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "longsum");
+	CheckFunc = !strcmp(mIdent->mString, "draw");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
