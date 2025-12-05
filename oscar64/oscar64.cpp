@@ -7,6 +7,10 @@
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
+#ifdef __FreeBSD__
+  #include <sys/types.h>
+  #include <sys/sysctl.h>
+#endif
 #include "Compiler.h"
 #include "DiskImage.h"
 #include <time.h>
@@ -89,10 +93,18 @@ int main2(int argc, const char** argv)
 		_NSGetExecutablePath(basePath, &length);
 		length = strlen(basePath);
 #else
+#ifdef __FreeBSD__
+		size_t length = 200;
+		int oid[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1};
+		if (sysctl((const int *)&oid[0], 4, basePath, &length, NULL, 0) < 0) {
+		  length = 0;
+		}
+#else
 		int length = readlink("/proc/self/exe", basePath, sizeof(basePath));
 
 		//		strcpy(basePath, argv[0]);
 		//		int length = strlen(basePath);
+#endif
 #endif
 #endif
 		while (length > 0 && basePath[length - 1] != '/' && basePath[length - 1] != '\\')
