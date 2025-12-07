@@ -1,38 +1,24 @@
-.TH oscar64 1 "June 18, 2025" "Version 1.31" "User Commands"
+.TH oscar64 1 "December 7, 2025" "Version 1.32" "User Commands"
 .SH NAME
 oscar64 \- optimizing C/C++ cross-compiler for 6502 systems
+
 .SH SYNOPSIS
 .B oscar64
-{ \fB\-i=\fIincludePath\fR }
-[
-.BR \-o= \fIoutput.prg\fR ]
-[
-.BR \-rt= \fIruntime.c\fR ]
-[
-.BR \-tf= \fItarget\fR ]
-[
-.BR \-tm= \fImachine\fR ]
-[
-.B \-e
-] [
-.B \-n
-] [
-.B \-g
-] [
-.BR \-O (0|1|2|3) ]
-[
-.B \-pp
-] {
-.BR \-d \fISYMBOL\fR[=\fIvalue\fR] }
-[
-.BR \-v ]
-[
-.BR \-d64= \fIdiskname\fR ]
-{
-.BR \-f [z]= \fIfile.xxx\fR }
-{
-.I source.c
-}
+.RB { \-i= "\fIincludePath\fR}"
+.RB [ \-o= "\fIoutput.prg\fR]"
+.RB [ \-rt= "\fIruntime.c\fR]"
+.RB [ \-tf= "\fItarget\fR]"
+.RB [ \-tm= "\fImachine\fR]"
+.RB [ \-e ]
+.RB [ \-n ]
+.RB [ \-g ]
+.RB [ \-O ( 0 | 1 | 2 | 3 )]
+.RB [ \-pp ]
+.RB { \-d "\fISYMBOL\fR[=\fIvalue\fR]}"
+.RB [ \-v ]
+.RB [ \-d64= "\fIdiskname\fR]"
+.RB { \-f [z]= \fIfile.xxx\fR }
+.RI { source.c }
 
 .SH DESCRIPTION
 \fBoscar64\fR is a C/C++ compiler for the 6502 processor family. It is designed to generate high-performance 8-bit code targeting platforms such as the Commodore 64, VIC-20, PET, and Commander X16.
