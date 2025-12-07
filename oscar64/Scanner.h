@@ -249,6 +249,7 @@ public:
 
 	void NextToken(void);
 	void UngetToken(Token token);
+	void UngetToken(Token token, const Ident * ident);
 
 	void BeginRecord(void);
 	TokenSequence* CompleteRecord(void);

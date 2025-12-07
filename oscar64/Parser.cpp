@@ -5757,6 +5757,23 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 				Declaration* dec;
 
 				do {
+					if (mScanner->mToken == TK_IDENT && !mScope->Lookup(mScanner->mTokenIdent, SLEVEL_SCOPE))
+					{
+						const Ident* ident = mScanner->mTokenIdent;
+						mScanner->NextToken();
+						if (ConsumeTokenIf(TK_ASSIGN))
+						{
+							Expression	* texp = ParseSimpleExpression(false, true);
+							if (texp && texp->mType == EX_TYPE)
+							{
+								mScope->Insert(ident, texp->mDecType);
+								dec = texp->mDecType;
+								continue;
+							}
+						}
+						else
+							mScanner->UngetToken(TK_IDENT, ident);
+					}
 					dec = ParseQualIdent(false);
 					if (dec)
 					{

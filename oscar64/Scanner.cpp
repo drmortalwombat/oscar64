@@ -502,6 +502,15 @@ void Scanner::UngetToken(Token token)
 		mRecordLast = mRecordPrev;
 }
 
+void Scanner::UngetToken(Token token, const Ident* ident)
+{
+	mUngetToken = mToken;
+	mToken = token;
+	mTokenIdent = ident;
+	if (mRecord)
+		mRecordLast = mRecordPrev;
+}
+
 void Scanner::NextToken(void)
 {
 	if (mUngetToken)
