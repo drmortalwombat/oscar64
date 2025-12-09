@@ -871,6 +871,10 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		mScanner->NextToken();
 		return ParseBaseTypeDeclaration(flags | DTF_MEMMAP, qualified);
 
+	case TK_TYPENAME:
+		mScanner->NextToken();
+		return ParseBaseTypeDeclaration(flags, qualified);
+
 	case TK_LONG:
 		dec = new Declaration(mScanner->mLocation, DT_TYPE_INTEGER);
 		dec->mSize = 4;
@@ -7692,6 +7696,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 	case TK_STRIPED:
 	case TK_DECLTYPE:
 	case TK_MEMMAP:
+	case TK_TYPENAME:
 		exp = ParseDeclarationExpression(nullptr);
 		break;
 
@@ -14320,6 +14325,7 @@ bool Parser::IsTypeToken(void)
 	case TK_STRIPED:
 	case TK_DECLTYPE:
 	case TK_MEMMAP:
+	case TK_TYPENAME:
 		return true;
 	case TK_IDENT:
 	{
