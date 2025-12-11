@@ -217,7 +217,8 @@ __noinline void vector<T>::reserve(size_t n)
 	{
 		_capacity = n;
 		T * d = (T *)malloc(_capacity * sizeof(T));
-		for(size_t i=0; i<_size; i++)
+		size_t s = _size;
+		for(size_t i=0; i<s; i++)
 		{
 			new (d + i)T(move(_data[i]));
 			_data[i].~T();

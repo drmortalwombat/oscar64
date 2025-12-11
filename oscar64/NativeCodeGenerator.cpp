@@ -21599,6 +21599,88 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 		if (mEntryRegisterDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
 			carry = mEntryRegisterDataSet[CPU_REG_C].mValue;
 
+#if 1
+		if (mIns.Size() >= 8 && mTrueJump && mFalseJump &&
+			(mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE))
+		{
+			int	sz = mIns.Size();
+
+			if (mIns[sz - 8].mType == ASMIT_SEC &&
+				mIns[sz - 7].mType == ASMIT_LDA && mIns[sz - 7].mMode == ASMIM_ZERO_PAGE &&
+				mIns[sz - 6].mType == ASMIT_SBC && mIns[sz - 6].mMode == ASMIM_IMMEDIATE && mIns[sz - 6].mAddress == 1 &&
+				mIns[sz - 5].mType == ASMIT_STA && mIns[sz - 5].mMode == ASMIM_ZERO_PAGE && mIns[sz - 5].mAddress == mIns[sz - 7].mAddress &&
+				mIns[sz - 3].mType == ASMIT_SBC && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0 &&
+				mIns[sz - 1].mType == ASMIT_ORA && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && mIns[sz - 1].mAddress == mIns[sz - 7].mAddress &&
+				!(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
+			{
+				if (mIns[sz - 4].mType == ASMIT_TXA && mIns[sz - 2].mType == ASMIT_TAX ||
+					mIns[sz - 4].mType == ASMIT_TYA && mIns[sz - 2].mType == ASMIT_TAY || 
+					mIns[sz - 4].mType == ASMIT_LDA && mIns[sz - 4].mMode == ASMIM_ZERO_PAGE &&
+					mIns[sz - 2].mType == ASMIT_STA && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && mIns[sz - 2].mAddress == mIns[sz - 4].mAddress)
+				{
+					NativeCodeBasicBlock* dhblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* dlblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* chblock = mProc->AllocateBlock();
+
+					dhblock->mBranch = ASMIT_JMP; dhblock->mTrueJump = dlblock;
+					dlblock->mBranch = ASMIT_BNE; dlblock->mFalseJump = chblock;
+					chblock->mBranch = ASMIT_BNE;
+
+					if (mBranch == ASMIT_BEQ)
+					{
+						dlblock->mTrueJump = mFalseJump;
+						chblock->mTrueJump = mFalseJump;
+						chblock->mFalseJump = mTrueJump;
+					}
+					else
+					{
+						dlblock->mTrueJump = mTrueJump;
+						chblock->mTrueJump = mTrueJump;
+						chblock->mFalseJump = mFalseJump;
+					}
+
+					mBranch = ASMIT_BNE;
+					mTrueJump->RemEntryBlock(this);
+					mFalseJump->RemEntryBlock(this);
+
+					mTrueJump = dlblock;
+					mFalseJump = dhblock;
+
+					dlblock->AddEntryBlock(this);
+					dhblock->AddEntryBlock(this);
+					dlblock->AddEntryBlock(dhblock);
+					chblock->AddEntryBlock(dlblock);
+
+					dlblock->mTrueJump->AddEntryBlock(dlblock);
+					chblock->mTrueJump->AddEntryBlock(chblock);
+					chblock->mFalseJump->AddEntryBlock(chblock);
+
+					dlblock->mIns.Push(NativeCodeInstruction(mIns[sz - 7].mIns, ASMIT_DEC, mIns[sz - 7]));
+					switch (mIns[sz - 4].mType)
+					{
+					case ASMIT_TXA:
+						dhblock->mIns.Push(NativeCodeInstruction(mIns[sz - 4].mIns, ASMIT_DEX));
+						chblock->mIns.Push(NativeCodeInstruction(mIns[sz - 4].mIns, ASMIT_TXA));
+						break;
+					case ASMIT_TYA:
+						dhblock->mIns.Push(NativeCodeInstruction(mIns[sz - 4].mIns, ASMIT_DEY));
+						chblock->mIns.Push(NativeCodeInstruction(mIns[sz - 4].mIns, ASMIT_TYA));
+						break;
+					case ASMIT_LDA:
+						dhblock->mIns.Push(NativeCodeInstruction(mIns[sz - 4].mIns, ASMIT_DEC, mIns[sz - 4]));
+						chblock->mIns.Push(NativeCodeInstruction(mIns[sz - 4].mIns, ASMIT_LDA, mIns[sz - 4]));
+						break;
+					}
+
+					mIns[sz - 8] = mIns[sz - 7];
+					mIns.SetSize(sz - 7);
+
+					changed = true;
+				}
+			}
+		}
+#endif
+
 		for (int i = 0; i < mIns.Size(); i++)
 		{
 			if (i + 2 < mIns.Size() &&
@@ -60644,7 +60726,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "draw");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
