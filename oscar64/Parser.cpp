@@ -7339,6 +7339,7 @@ Expression* Parser::ParseLambdaExpression(void)
 
 
 	int	li = mLocalIndex;
+	Declaration* tvars = mTempVars;
 
 	DeclarationScope * oscope = mCaptureScope;
 	mCaptureScope = mScope;
@@ -7444,6 +7445,7 @@ Expression* Parser::ParseLambdaExpression(void)
 	fdec->mNumVars = mLocalIndex;
 
 	mLocalIndex = li;
+	mTempVars = tvars;
 
 	vdec->mBase = cdec;
 	vdec->mVarIndex = mLocalIndex++;
@@ -11237,6 +11239,8 @@ Expression* Parser::ParseFunction(Declaration * dec)
 	}
 	if (dec->mParamPack)
 		mScope->Insert(dec->mParamPack->mIdent, dec->mParamPack);
+
+	int localIndex = mLocalIndex;
 	mLocalIndex = 0;
 	mTempVars = nullptr;
 

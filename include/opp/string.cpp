@@ -109,7 +109,7 @@ void string::copyseg(char * p, char at, char num) const
 
 string & string::operator=(const string & s)
 {
-	if (cstr != s.cstr)	
+	if (this != &s)	
 	{
 		free(cstr);
 		if (s.cstr)
@@ -127,12 +127,9 @@ string & string::operator=(const string & s)
 
 string & string::operator=(string && s)
 {
-	if (cstr != s.cstr)	
-	{
-		free(cstr);
-		cstr = s.cstr;
-		s.cstr = nullptr;
-	}
+	char * tstr = cstr;
+	cstr = s.cstr;
+	s.cstr = tstr;
 
 	return *this;
 }

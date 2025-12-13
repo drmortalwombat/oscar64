@@ -4919,7 +4919,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						if (procType->mFlags & DTF_FASTCALL)
 						{
 							pins->mConst.mMemory = IM_FPARAM;
-							pins->mConst.mVarIndex += procType->mFastCallBase;
+
+							if (procType->mFastCallBase + 2 <= BC_REG_FPARAMS_END - BC_REG_FPARAMS)
+								pins->mConst.mVarIndex += procType->mFastCallBase;
+							else
+								pins->mConst.mVarIndex += BC_REG_FPARAMS_END - BC_REG_FPARAMS + procType->mFastCallBase2;
 						}
 						else
 							pins->mConst.mMemory = IM_PARAM;
