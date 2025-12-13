@@ -4,7 +4,7 @@
 namespace opp {
 
 template <class T>
-inline T && move(T & m)
+inline T && move(T && m)
 {
 	return (T &&)m;
 }

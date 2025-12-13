@@ -134,4 +134,26 @@ insert_iterator<CT> inserter (CT & c, const CT::iterator_type & i)
 	return insert_iterator<CT>(c, i);
 }
 
+template <class CT>  
+CT next(CT it, int n = 1)
+{
+	while (n > 0)
+	{
+		it++;
+		n--;
+	}
+	return it;
+}
+
+template <class CT>  
+CT prev(CT it, int n = 1)
+{
+	while (n > 0)
+	{
+		it--;
+		n--;
+	}
+	return it;
+}
+
 }

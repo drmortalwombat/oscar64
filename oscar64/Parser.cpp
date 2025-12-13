@@ -5305,12 +5305,39 @@ Expression* Parser::AddFunctionCallRefReturned(Expression* exp)
 						pex->mLeft->mRight = nullptr;
 					}					
 				}
+				else if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && pdec->mBase->mBase->mType == DT_TYPE_POINTER && pex->mDecType->mType == DT_TYPE_ARRAY)
+				{
+					// An array is passed by const ref to a pointer
+
+					if (pdec->mBase->mType == DT_TYPE_REFERENCE && !(pdec->mBase->mBase->mFlags & DTF_CONST))
+						mErrors->Error(pex->mLocation, EERR_INCOMPATIBLE_TYPES, "Can't pass constant as non constant reference");
+
+					Declaration* vdec = AllocTempVar(pdec->mBase->mBase);
+
+					Expression* vexp = new Expression(pex->mLocation, EX_VARIABLE);
+					vexp->mDecType = pdec->mBase->mBase;
+					vexp->mDecValue = vdec;
+
+					Expression* cexp = new Expression(pex->mLocation, pex->mType);
+					cexp->mDecType = pex->mDecType;
+					cexp->mDecValue = pex->mDecValue;
+					cexp->mLeft = pex->mLeft;
+					cexp->mRight = pex->mRight;
+					cexp->mToken = pex->mToken;
+
+					pex->mType = EX_INITIALIZATION;
+					pex->mToken = TK_ASSIGN;
+					pex->mLeft = vexp;
+					pex->mRight = cexp;
+					pex->mDecValue = nullptr;
+					pex->mDecType = vdec->mBase;
+				}
 				else if ((pdec->mBase->mType == DT_TYPE_REFERENCE || pdec->mBase->mType == DT_TYPE_RVALUEREF) && pex->mType == EX_CONSTANT)
 				{
 					// A simple constant is passed by const ref
 					if (pex->mDecValue->mType == DT_CONST_INTEGER || pex->mDecValue->mType == DT_CONST_FLOAT || pex->mDecValue->mType == DT_CONST_POINTER || pex->mDecValue->mType == DT_CONST_ADDRESS)
 					{
-						if (pdec->mType == DT_TYPE_REFERENCE && !(pdec->mBase->mFlags & DTF_CONST))
+						if (pdec->mBase->mType == DT_TYPE_REFERENCE && !(pdec->mBase->mBase->mFlags & DTF_CONST))
 							mErrors->Error(pex->mLocation, EERR_INCOMPATIBLE_TYPES, "Can't pass constant as non constant reference");
 
 						Declaration* vdec = AllocTempVar(pdec->mBase->mBase);
@@ -8446,7 +8473,7 @@ int Parser::OverloadDistance(Declaration* fdec, Expression* pexp)
 		{
 			Declaration* ptype = pdec->mBase;
 			Declaration* etype = ex->mDecType;
-			if (etype->mType == DT_TYPE_REFERENCE)
+			if (etype->mType == DT_TYPE_REFERENCE || etype->mType == DT_TYPE_RVALUEREF)
 				etype = etype->mBase;
 
 			if (ptype->mType == DT_PACK_TEMPLATE || ptype->mType == DT_TYPE_REFERENCE && ptype->mBase->mType == DT_PACK_TEMPLATE)
@@ -9208,12 +9235,12 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 				if (nexp->mType == EX_INDEX)
 					mErrors->Error(mScanner->mLocation, EERR_INVALID_INDEX, "No indexing operator found");
 			}
-			else if (exp->mDecType->mType == DT_TYPE_ARRAY || exp->mDecType->mType == DT_TYPE_POINTER)
+			else if (exp->mDecType->NonRefBase()->mType == DT_TYPE_ARRAY || exp->mDecType->NonRefBase()->mType == DT_TYPE_POINTER)
 			{
 				if (!nexp->mRight->mDecType->IsIntegerType())
 					nexp->mRight = CoerceExpression(nexp->mRight, TheSignedIntTypeDeclaration);
 				
-				nexp->mDecType = exp->mDecType->mBase;
+				nexp->mDecType = exp->mDecType->NonRefBase()->mBase;
 			}
 			else
 				mErrors->Error(mScanner->mLocation, EERR_INVALID_INDEX, "Array expected for indexing");

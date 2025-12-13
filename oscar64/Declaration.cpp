@@ -2044,6 +2044,14 @@ bool Declaration::ResolveTemplateParameterList(Expression* pexp, Declaration* pd
 			return false;
 	}
 
+	while (pdec && pdec->mType != DT_PACK_ARGUMENT && pdec->mValue)
+	{
+		if (!ResolveTemplate(pdec->mValue->mDecType, pdec->mBase, false, preliminary))
+			return false;
+
+		pdec = pdec->mNext;
+	}
+
 	if (pdec)
 	{
 		if (pdec->mType == DT_PACK_ARGUMENT)

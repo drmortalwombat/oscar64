@@ -4311,8 +4311,12 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					}
 					else
 					{
-						if (vr.mType->mType == DT_TYPE_ARRAY)// || vr.mType->mType == DT_TYPE_FUNCTION)
+						if (vr.mType->mType == DT_TYPE_ARRAY)
+						{
+							if (pdec && pdec->mBase->IsReference())
+								mErrors->Error(texp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", pdec->mBase->MangleIdent(), vr.mType->MangleIdent());
 							vr = Dereference(proc, texp, block, inlineMapper, vr, 1);
+						}
 						else if (pdec && pdec->mBase->mType == DT_TYPE_POINTER && vr.mType->mType == DT_TYPE_INTEGER && texp->mType == EX_CONSTANT && texp->mDecValue->mType == DT_CONST_INTEGER && texp->mDecValue->mInteger == 0)
 						{
 							mErrors->Error(texp->mLocation, EWARN_NUMERIC_0_USED_AS_NULLPTR, "Numeric 0 used for nullptr");
