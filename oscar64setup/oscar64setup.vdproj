@@ -268,6 +268,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_2DB9B0614EAC452A96802454D1BE5ACA"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_315C94A7D90D4CF5BF95F3B57482CADA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -2301,6 +2307,26 @@
             "TargetName" = "8:tunnel.c"
             "Tag" = "8:"
             "Folder" = "8:_AB905F99C1D249A080D01FB8FC118C9E"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_2DB9B0614EAC452A96802454D1BE5ACA"
+            {
+            "SourcePath" = "8:..\\include\\opp\\numeric.h"
+            "TargetName" = "8:numeric.h"
+            "Tag" = "8:"
+            "Folder" = "8:_D76A1802AFD04C48A519C9F8700E53CC"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"

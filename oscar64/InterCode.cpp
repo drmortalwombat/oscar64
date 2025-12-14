@@ -20951,12 +20951,14 @@ bool InterCodeBasicBlock::MoveConditionOutOfLoop(void)
 								for (int i = 0; i < ncins; i++)
 									mLoopPrefix->mInstructions.Push(block->mInstructions[nins - ncins + i]->Clone());
 
+								block->mInstructions[nins - 1]->mSrc[0].mType = IT_BOOL;
 								block->mInstructions[nins - 1]->mSrc[0].mTemp = -1;
 								block->mInstructions[nins - 1]->mSrc[0].mIntConst = 1;
 
 								mLoopPrefix->mFalseJump = copies[mLoopPrefix->mTrueJump->mIndex];
 
 								InterCodeBasicBlock* nblock = copies[block->mIndex];
+								nblock->mInstructions[nins - 1]->mSrc[0].mType = IT_BOOL;
 								nblock->mInstructions[nins - 1]->mSrc[0].mTemp = -1;
 								nblock->mInstructions[nins - 1]->mSrc[0].mIntConst = 0;
 
@@ -27545,7 +27547,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "inclusive_scan<i16*,struct opp::ostream_iterator<i16>>");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

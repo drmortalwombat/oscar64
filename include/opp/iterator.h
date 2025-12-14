@@ -116,6 +116,48 @@ public:
 	}
 };
 
+template <class T>
+class ostream_iterator
+{
+protected:
+	ostream		&	stream;
+	const char	*	str;
+public:
+	ostream_iterator(ostream & stream_, const char * str_)
+		: stream(stream_), str(str_) {}
+
+	ostream_iterator & operator= (const T & t)
+	{
+		stream << t;
+		if (str)
+			stream << str;
+		return *this; 
+	}
+
+	ostream_iterator & operator= (T && t)
+	{
+		stream << t;
+		if (str)
+			stream << str;
+		return *this; 
+	}
+
+	ostream_iterator & operator* (void)
+	{
+		return *this; 
+	}
+
+	ostream_iterator & operator++ (void)
+	{
+		return *this;
+	}
+
+	ostream_iterator operator++ (int)
+	{
+		return *this;
+	}
+};
+
 template <class CT>  
 front_insert_iterator<CT> front_inserter (CT & c)
 {

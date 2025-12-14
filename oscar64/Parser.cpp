@@ -9892,18 +9892,20 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 			nexp->mToken = mScanner->mToken;
 			mScanner->NextToken();
 			nexp->mLeft = ParsePrefixExpression(false);
+			Declaration* ttype = nexp->mLeft->mDecType->NonRefBase();
+
 			if (nexp->mToken == TK_MUL)
 			{
-				if (nexp->mLeft->mDecType->mType == DT_TYPE_POINTER || nexp->mLeft->mDecType->mType == DT_TYPE_ARRAY)
+				if (ttype->mType == DT_TYPE_POINTER || ttype->mType == DT_TYPE_ARRAY)
 				{
 					// no pointer to function dereferencing
-					if (nexp->mLeft->mDecType->mBase->mType == DT_TYPE_FUNCTION)
+					if (ttype->mBase->mType == DT_TYPE_FUNCTION)
 						return nexp->mLeft;
-					nexp->mDecType = nexp->mLeft->mDecType->mBase;
+					nexp->mDecType = ttype->mBase;
 				}
-				else if ((mCompilerOptions & COPT_CPLUSPLUS) && nexp->mLeft->mDecType->mType == DT_TYPE_STRUCT)
+				else if ((mCompilerOptions & COPT_CPLUSPLUS) && ttype->mType == DT_TYPE_STRUCT)
 				{
-					nexp->mDecType = nexp->mLeft->mDecType;
+					nexp->mDecType = ttype;
 				}
 				else
 				{
@@ -9913,23 +9915,23 @@ Expression* Parser::ParsePrefixExpression(bool lhs)
 			}
 			else if (nexp->mToken == TK_BINARY_AND)
 			{
-				nexp->mDecType = nexp->mLeft->mDecType->BuildAddressOfPointer();
+				nexp->mDecType = ttype->BuildAddressOfPointer();
 			}
 			else if (nexp->mToken == TK_BANKOF)
 			{
 				nexp->mDecType = TheSignedIntTypeDeclaration;
 			}
-			else if (nexp->mToken == TK_BINARY_AND)
+			else if (nexp->mToken == TK_BINARY_NOT)
 			{
-				if (nexp->mDecType->mFlags & DTF_SIGNED)
+				if (ttype->IsIntegerType() && ttype->mFlags & DTF_SIGNED)
 				{
-					if (nexp->mDecType->mSize == 4)
+					if (ttype->mSize == 4)
 						nexp->mDecType = TheUnsignedLongTypeDeclaration;
 					else
 						nexp->mDecType = TheUnsignedIntTypeDeclaration;
 				}
 				else
-					nexp->mDecType = nexp->mLeft->mDecType;
+					nexp->mDecType = ttype;
 			}
 			else
 				nexp->mDecType = nexp->mLeft->mDecType;
