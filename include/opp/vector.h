@@ -77,12 +77,12 @@ public:
 		return *this;
 	}
 
-	int size(void) const
+	size_t size(void) const
 	{
 		return _size;
 	}
 
-	int max_size(void) const
+	size_t max_size(void) const
 	{
 		return 32767;
 	}
@@ -92,7 +92,7 @@ public:
 		return _size == 0;
 	}
 
-	int capacity(void) const
+	size_t capacity(void) const
 	{
 		return _capacity;
 	}

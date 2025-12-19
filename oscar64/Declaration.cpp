@@ -3342,6 +3342,27 @@ bool Declaration::IsSimpleType(void) const
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM || mType == DT_TYPE_POINTER;
 }
 
+bool Declaration::IsValueType(void) const
+{
+	if (IsSimpleType())
+		return true;
+
+	if (mType == DT_TYPE_STRUCT && mSize <= 4 && !mDestructor && !mCopyConstructor)
+	{
+		Declaration* em = mParams;
+		while (em)
+		{
+			if (em->mType == DT_ELEMENT && em->mBase->IsValueType())
+				em = em->mNext;
+			else
+				return false;
+		}
+		return true;
+	}
+
+	return false;
+}
+
 void Declaration::SetDefined(void)
 {
 	mFlags |= DTF_DEFINED;

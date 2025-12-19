@@ -742,7 +742,7 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* cexp, Expression* exp, Declara
 			while (pdec)
 			{
 				pdec->mVarIndex += vi;
-				if (pdec->mBase->mType == DT_TYPE_REFERENCE && pdec->mBase->mBase->IsSimpleType() && !(pdec->mFlags & DTF_VAR_ADDRESS) && (pdec->mBase->mBase->mFlags & DTF_CONST))
+				if (pdec->mBase->mType == DT_TYPE_REFERENCE && pdec->mBase->mBase->IsValueType() && !(pdec->mFlags & DTF_VAR_ADDRESS) && (pdec->mBase->mBase->mFlags & DTF_CONST))
 				{
 					pdec->mBase = pdec->mBase->mBase;
 					pdec->mSize = pdec->mBase->mSize;
@@ -750,7 +750,7 @@ void GlobalAnalyzer::AnalyzeProcedure(Expression* cexp, Expression* exp, Declara
 
 					UndoParamReference(exp, pdec);
 				}
-				else if (pdec->mBase->mType == DT_TYPE_RVALUEREF && pdec->mBase->mBase->IsSimpleType() && !(pdec->mFlags & DTF_VAR_ADDRESS))
+				else if (pdec->mBase->mType == DT_TYPE_RVALUEREF && pdec->mBase->mBase->IsValueType() && !(pdec->mFlags & DTF_VAR_ADDRESS))
 				{
 					pdec->mBase = pdec->mBase->mBase;
 					pdec->mSize = pdec->mBase->mSize;

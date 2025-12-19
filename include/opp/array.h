@@ -1,6 +1,8 @@
 #ifndef OPP_ARRAY_H
 #define OPP_ARRAY_H
 
+#include <stddef.h>
+
 namespace opp {
 
 template <class T, int n>
@@ -11,12 +13,12 @@ protected:
 public:
 	typedef T 	element_type;
 
-	int size(void) const
+	size_t size(void) const
 	{
 		return n;
 	}
 
-	int max_size(void) const
+	size_t max_size(void) const
 	{
 		return n;
 	}
@@ -26,22 +28,22 @@ public:
 		return n == 0;
 	}
 
-	const T & at(int at) const
+	const T & at(size_t at) const
 	{
 		return _data[at];
 	}
 
-	T & at(int at)
+	T & at(size_t at)
 	{
 		return _data[at];
 	}
 
-	T & operator[] (int at)
+	T & operator[] (size_t at)
 	{
 		return _data[at];
 	}
 
-	const T & operator[] (int at) const
+	const T & operator[] (size_t at) const
 	{
 		return _data[at];
 	}

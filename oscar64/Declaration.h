@@ -363,6 +363,7 @@ public:
 	bool IsComplexStruct(void) const;
 	bool HasConstructor(void) const;
 	bool IsPointerType(void) const;
+	bool IsValueType(void) const;
 
 	void SetDefined(void);
 

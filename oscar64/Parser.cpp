@@ -12434,6 +12434,42 @@ void Parser::ParseTemplateArguments(Declaration* tmpld, Declaration* tdec)
 		} while (ConsumeTokenIf(TK_COMMA));
 
 		ConsumeToken(TK_GREATER_THAN);
+
+		while (tparm && tparm->mValue)
+		{
+			Declaration* pdec = nullptr;
+			Expression* exp = tparm->mValue;
+
+			if (exp->mType == EX_TYPE)
+			{
+				pdec = new Declaration(exp->mLocation, DT_TYPE_TEMPLATE);
+				pdec->mBase = exp->mDecType;
+			}
+			else if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_FUNCTION)
+			{
+				pdec = new Declaration(exp->mLocation, DT_TYPE_TEMPLATE);
+				pdec->mBase = exp->mDecValue;
+			}
+			else if (exp->mType == EX_CONSTANT && (exp->mDecValue->mType == DT_CONST_INTEGER || exp->mDecValue->mType == DT_CONST_TEMPLATE))
+			{
+				pdec = new Declaration(exp->mLocation, DT_CONST_TEMPLATE);
+				pdec->mBase = exp->mDecValue;
+			}
+			else
+				mErrors->Error(exp->mLocation, EERR_TEMPLATE_PARAMS, "Template specification expected");
+
+			if (pdec)
+			{
+				if (ppdec)
+					ppdec->mNext = pdec;
+				else
+					tdec->mParams = pdec;
+				ppdec = pdec;
+			}
+
+			if (tparm)
+				tparm = tparm->mNext;
+		}
 	}
 }
 
@@ -13034,6 +13070,15 @@ Declaration * Parser::ParseTemplateDeclaration(Declaration* pthis)
 					pdec = new Declaration(mScanner->mLocation, DT_CONST_TEMPLATE);
 					pdec->mIdent = mScanner->mTokenIdent;
 					mScanner->NextToken();
+
+					if (ConsumeTokenIf(TK_ASSIGN))
+					{
+						Expression* exp = ParseShiftExpression(false);
+						if (exp->mType == EX_CONSTANT && exp->mDecValue->mType == DT_CONST_INTEGER)
+							pdec->mValue = exp;
+						else
+							mErrors->Error(exp->mLocation, EERR_CONSTANT_TYPE, "Constant integer expression expected");
+					}
 				}
 				else
 					mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "Identifier expected");
