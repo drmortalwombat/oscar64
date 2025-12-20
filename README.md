@@ -35,6 +35,15 @@ This is a list of the games written with Oscar64, have a look if you are not con
 
 [Shallow Domains](https://drmortalwombat.itch.io/shallow-domains)
 
+[Soiled Iron](https://drmortalwombat.itch.io/soiled-iron)
+
+[Terminal Walker](https://drmortalwombat.itch.io/terminal-walker)
+
 [Veggies vs Undead](https://drmortalwombat.itch.io/veggies-vs-undead)
 
 
+# Third Party Projects
+
+This is a link to third party projects using Oscar64 or providing libaries to use.  These links are being provided as a convenience and for informational purposes only.
+
+[]()

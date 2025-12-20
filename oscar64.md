@@ -1363,6 +1363,93 @@ The shots usd dynamic created characters to overlay on the background.
 
 
 
+# Compiler Targets
+
+The compiler supports various target machines and formats.  The selection is done on the command line with the -tm and -tf options.
+
+## Adding a new target
+
+Adding a new target and format requires several changes.
+
+### Defines "CompilerOptions.h"
+
+Here we have two major elements, a flag set **COPT_** and an enum **TargetMachine**.  The enum is easy to expand but the flagset requires some consideration, whether is is realy necessary to consume one of the rare flags.
+
+### Command Line Parser "oscar64.cpp"
+
+Look for the rather long if statment that checks for the targetMachine string and sets appropriate flags and defines, e.g.:
+
+	else if (!strcmp(targetMachine, "plus4"))
+	{
+		strcpy_s(basicStart, "0x1001");
+		compiler->mTargetMachine = TMACH_PLUS4;
+		compiler->AddDefine(Ident::Unique("__PLUS4__"), "1");
+		compiler->AddDefine(Ident::Unique("__CBM__"), "1");
+	}
+
+
+### Setting up memory regions "Compiler.cpp"
+
+The *Compipler::GenerateCode* method sets up the default sections and regions based on the target machine and format.
+
+The compiler zero page usage is right at the begining of this method.
+
+*		BC_REG_WORK_Y	1 Byte
+*		BC_REG_WORK		10 Bytes
+*		BC_REG_IP	2 Bytes
+*		BC_REG_ACCU 4 Bytes
+*		BC_REG_ADDR 2 Bytes
+*		BC_REG_STACK 2 Bytes
+*		BC_REG_LOCALS 2 Bytes
+
+Zero page registes for fast parameter passing
+
+*		BC_REG_FPARAMS..BC_REG_FPARAMS_END	12 Bytes to 24 Bytes
+
+The next two are the compiler work registers and have to follow each other.
+
+*		BC_REG_TMP 16 Bytes to 32 Bytes
+*		BC_REG_TMP_SAVED 16 Bytes to whatever
+
+The zero page region is created if none is provided in the compiled source using an if cascade that checks for the targetMachine, add your own case here:
+
+		else if (mTargetMachine == TMACH_PET_8K || mTargetMachine == TMACH_PET_16K || mTargetMachine == TMACH_PET_32K)
+			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x00ed, 0x00f7);
+
+Next the startup region that is either used for the basic startup or the rom reset vectors is created if none is provided.  If you create a prg type format look for the commodore targets, for rom targets the NES types might be a good example.  You may also need a boot section for rom code.
+
+Finaly the main region that covers your code and data.  Again for rom targets, have a look at the NES machine types or the COPT_TARGET_CRT16.
+
+### Generating the output files "Compiler.cpp" and "Linker.cpp"
+
+The *Compiler::WriteOutputFile* selects and triggers the files to generate.  This again depends on the target machine and format.  If you add a new prg type target follow the TMACH_ATARI for a ROM based one, you can either look at the NES or the CRT version.  Add a new WriteXXXFile() function to the linker.
+
+The linker contains various methods to write the actual binary file for the system or drive emulators (or EPROM burners).  Take a look at e.g. *Linker::WriteXexFile* for prg files and *Linker::Linker::WriteNesFile* for rom formats.
+
+### The startup code "library/crt.h"
+
+The startup stub will have to be adapted to your new target machine:
+
+	__asm startup
+	
+Look for the "__ATARI__" or "OSCAR_TARGET_NES" defines where your code might go.  Some targets may need an additional set of boot vectors in the rom e.g.:
+
+	#pragma data(boot)
+	__export struct Boot
+	{
+		void * nmi, * reset, * irq;
+	}	boot = {
+		nmi,
+		(void *)0xff80,
+		nullptr
+	};
+	#pragma data(data)
+
+
+
+
+
+
 
 
 # Implementation Details
