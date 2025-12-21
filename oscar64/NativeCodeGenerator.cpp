@@ -53382,7 +53382,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 	if (
 		mIns[i + 0].mType == ASMIT_LDA && !mIns[i + 0].RequiresXReg() &&
 		mIns[i + 1].mType == ASMIT_LDX &&
-		mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X) && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]))
+		mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X) && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]) &&
+		!(mIns[i + 0].mFlags & mIns[i + 1].mFlags & NCIF_VOLATILE))
 	{
 		NativeCodeInstruction	ins = mIns[i + 0];
 		mIns[i + 0] = mIns[i + 1];
@@ -53395,8 +53396,9 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 	
 	if (
 		mIns[i + 0].mType == ASMIT_LDX &&
-		mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
-		mIns[i + 2].mType == ASMIT_STA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) && !(mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+		mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) &&
+		mIns[i + 2].mType == ASMIT_STA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
+		!(mIns[i + 1].mFlags & mIns[i + 2].mFlags & NCIF_VOLATILE) &&
 		!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]) &&
 		!mIns[i + 1].MayBeChangedOnAddress(mIns[i + 2]))
 	{

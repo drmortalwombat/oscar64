@@ -1290,7 +1290,8 @@ bool InterCodeBasicBlock::DestroyingMem(InterCodeBasicBlock* block, InterInstruc
 bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, const InterInstruction* ins1) const
 {
 	// Cannot swap branches
-	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH || ins1->mCode == IC_DISPATCH || ins1->mCode == IC_RETURN || ins1->mCode == IC_RETURN_STRUCT)
+	if (ins1->mCode == IC_JUMP || ins1->mCode == IC_BRANCH || ins1->mCode == IC_DISPATCH || ins1->mCode == IC_RETURN || ins1->mCode == IC_RETURN_STRUCT || 
+		ins1->mCode == IC_RETURN || ins1->mCode == IC_RETURN_STRUCT || ins1->mCode == IC_RETURN_VALUE)
 		return false;
 
 	// Check function call
@@ -23303,7 +23304,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mCode == IC_LOAD &&
 				mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mSrc[0].mTemp &&
 				mInstructions[i + 0]->mSrc[0].mIntConst > mInstructions[i + 1]->mSrc[0].mIntConst &&
-				mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp)
+				mInstructions[i + 1]->mSrc[0].mTemp != mInstructions[i + 0]->mDst.mTemp &&
+				!(mInstructions[i + 0]->mVolatile && mInstructions[i + 1]->mVolatile))
 			{
 				SwapInstructions(mInstructions[i + 0], mInstructions[i + 1]);
 				InterInstruction* ins(mInstructions[i + 0]);
@@ -27547,7 +27549,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "inclusive_scan<i16*,struct opp::ostream_iterator<i16>>");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
