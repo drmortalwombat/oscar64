@@ -39,28 +39,40 @@ bitshifttest: bitshifttest.c
 
 # testn
 stripedarraytest: stripedarraytest.c
+	$(OSCAR64_CC) -ea -g -n $<
 	$(OSCAR64_CC) -ea -g -O2 -n $<
 	$(OSCAR64_CC) -ea -g -O0 -n $<
 	$(OSCAR64_CC) -ea -g -Os -n $<
 	$(OSCAR64_CC) -ea -g -O3 -n $<
 
 autorefreturn: autorefreturn.cpp
+	$(OSCAR64_CC) -ea -g -n $<
 	$(OSCAR64_CC) -ea -g -O2 -n $<
 	$(OSCAR64_CC) -ea -g -O0 -n $<
 	$(OSCAR64_CC) -ea -g -Os -n $<
 	$(OSCAR64_CC) -ea -g -O3 -n $<
 
 copyconstructor: copyconstructor.cpp
+	$(OSCAR64_CC) -ea -g -n $<
 	$(OSCAR64_CC) -ea -g -O2 -n $<
 	$(OSCAR64_CC) -ea -g -O0 -n $<
 	$(OSCAR64_CC) -ea -g -Os -n $<
 	$(OSCAR64_CC) -ea -g -O3 -n $<
 
 andmultest: andmultest.cpp
+	$(OSCAR64_CC) -ea -g -n $<
 	$(OSCAR64_CC) -ea -g -O2 -n $<
 	$(OSCAR64_CC) -ea -g -O0 -n $<
 	$(OSCAR64_CC) -ea -g -Os -n $<
 	$(OSCAR64_CC) -ea -g -O3 -n $<
+
+# testi
+volatiletest: volatiletest.c
+	$(OSCAR64_CC) -eai -g -n $<
+	$(OSCAR64_CC) -eai -g -O2 -n $<
+	$(OSCAR64_CC) -eai -g -O0 -n $<
+	$(OSCAR64_CC) -eai -g -Os -n $<
+	$(OSCAR64_CC) -eai -g -O3 -n $<
 
 clean:
 	@$(RM) *.asm *.bcs *.int *.lbl *.map *.prg

@@ -123,7 +123,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 	{
 	case ASMIT_ADC:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		t = mRegA + addr + (mRegP & STATUS_CARRY);
 
 		mRegP = 0;
@@ -138,7 +138,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_AND:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		mRegA &= addr;
 		UpdateStatus(mRegA);
 		if (cross) cycles++;
@@ -152,8 +152,8 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		}
 		else
 		{
-			t = mMemory[addr] << 1;
-			mMemory[addr] = t & 255;
+			t = ReadMemory(addr) << 1;
+			WriteMemory(addr, t & 255);
 			UpdateStatusCarry(t & 255, t >= 256);
 			cycles += 2;
 			if (indexed) cycles++;
@@ -181,7 +181,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		}
 		break;
 	case ASMIT_BIT:
-		t = mMemory[addr];
+		t = ReadMemory(addr);
 		mRegP &= ~(STATUS_ZERO | STATUS_SIGN | STATUS_OVERFLOW);
 		if (t & 0x80) mRegP |= STATUS_SIGN;
 		if (t & 0x40) mRegP |= STATUS_OVERFLOW;
@@ -237,7 +237,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_CMP:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		t = mRegA + (addr ^ 0xff) + 1;
 
 		mRegP = 0;
@@ -251,7 +251,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_CPX:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		t = mRegX + (addr ^ 0xff) + 1;
 
 		mRegP = 0;
@@ -264,7 +264,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_CPY:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		t = mRegY + (addr ^ 0xff) + 1;
 
 		mRegP = 0;
@@ -284,8 +284,8 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		}
 		else
 		{
-			t = mMemory[addr] - 1;
-			mMemory[addr] = t & 255;
+			t = ReadMemory(addr) - 1;
+			WriteMemory(addr, t & 255);
 			UpdateStatus(t & 255);
 			cycles += 2;
 			if (indexed) cycles++;
@@ -303,7 +303,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_EOR:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		mRegA ^= addr;
 		UpdateStatus(mRegA);
 		if (cross) cycles++;
@@ -317,8 +317,8 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		}
 		else
 		{
-			t = mMemory[addr] + 1;
-			mMemory[addr] = t & 255;
+			t = ReadMemory(addr) + 1;
+			WriteMemory(addr, t & 255);
 			UpdateStatus(t & 255);
 			cycles += 2;
 			if (indexed) cycles++;
@@ -348,21 +348,21 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_LDA:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		mRegA = addr;
 		UpdateStatus(mRegA);
 		if (cross) cycles++;
 		break;
 	case ASMIT_LDX:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		mRegX = addr;
 		UpdateStatus(mRegX);
 		if (cross) cycles++;
 		break;
 	case ASMIT_LDY:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		mRegY = addr;
 		UpdateStatus(mRegY);
 		if (cross) cycles++;
@@ -377,9 +377,10 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		}
 		else
 		{
-			int	c = mMemory[addr] & 1;
-			t = mMemory[addr] >> 1;
-			mMemory[addr] = t & 255;
+			t = ReadMemory(addr);
+			int	c = t & 1;
+			t >>= 1;
+			WriteMemory(addr, t & 255);
 			UpdateStatusCarry(t & 255, c != 0);
 			cycles += 2;
 			if (indexed) cycles++;
@@ -389,7 +390,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_ORA:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		mRegA |= addr;
 		UpdateStatus(mRegA);
 		if (cross) cycles++;
@@ -425,8 +426,8 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		}
 		else
 		{
-			t = (mMemory[addr] << 1) | (mRegP & STATUS_CARRY);;
-			mMemory[addr] = t & 255;
+			t = (ReadMemory(addr) << 1) | (mRegP & STATUS_CARRY);;
+			WriteMemory(addr, t & 255);
 			UpdateStatusCarry(t & 255, t >= 256);
 			cycles+=2;
 			if (indexed) cycles++;
@@ -442,9 +443,10 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		}
 		else
 		{
-			int	c = mMemory[addr] & 1;
-			t = (mMemory[addr] >> 1) | ((mRegP & STATUS_CARRY) << 7);
-			mMemory[addr] = t & 255;
+			t = ReadMemory(addr);
+			int	c = t & 1;
+			t = (t >> 1) | ((mRegP & STATUS_CARRY) << 7);
+			WriteMemory(addr, t & 255);
 			UpdateStatusCarry(t & 255, c != 0);
 			cycles += 2;
 			if (indexed) cycles++;
@@ -459,7 +461,7 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		break;
 	case ASMIT_SBC:
 		if (mode != ASMIM_IMMEDIATE)
-			addr = mMemory[addr];
+			addr = ReadMemory(addr);
 		t = mRegA + (addr ^ 0xff) + (mRegP & STATUS_CARRY);
 
 		mRegP = 0;
@@ -480,14 +482,14 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 	case ASMIT_SEI:
 		break;
 	case ASMIT_STA:
-		mMemory[addr] = mRegA;
+		WriteMemory(addr, mRegA);
 		if (indexed) cycles++;
 		break;
 	case ASMIT_STX:
-		mMemory[addr] = mRegX;
+		WriteMemory(addr, mRegX);
 		break;
 	case ASMIT_STY:
-		mMemory[addr] = mRegY;
+		WriteMemory(addr, mRegY);
 		break;
 	case ASMIT_TAX:
 		mRegX = mRegA;
@@ -568,8 +570,96 @@ void Emulator::DumpCallstack(void)
 	}
 }
 
-int Emulator::Emulate(int startIP, int exitIP, int trace)
+uint8 Emulator::ReadMemory(uint16 addr)
 {
+	if (mUseIORange && addr >= 0xdd80 && addr < 0xde00)
+	{
+		switch (addr & 15)
+		{
+		case 0:
+			return mIORange.mCount0++;
+		case 1:
+			return mIORange.mCount1++;
+		case 2:
+			return mIORange.mDMAAddress & 0xff;
+		case 3:
+			return mIORange.mDMAAddress >> 8;
+		case 4:
+			return mMemory[mIORange.mDMAAddress++];
+		case 5:
+		case 6:
+		case 7:
+			return mIORange.mMirror;
+		case 8:
+		case 9:
+		case 10:
+		case 11:
+			return mIORange.mCycleCount >> 8 * (addr & 3);
+		case 12:
+		case 13:
+		case 14:
+		case 15:
+			return mIORange.mScratch[addr & 3];
+		default:
+			return 0;
+		}
+	}
+	else
+		return mMemory[addr];
+}
+
+void Emulator::WriteMemory(uint16 addr, uint8 data)
+{
+	if (mUseIORange && addr >= 0xdd80 && addr < 0xde00)
+	{
+		switch (addr & 15)
+		{
+		case 0:
+			mIORange.mCount0++;
+			break;
+		case 1:
+			mIORange.mCount1++;
+			break;
+		case 2:
+			mIORange.mDMAAddress = (mIORange.mDMAAddress & 0xff00) | data;
+			break;
+		case 3:
+			mIORange.mDMAAddress = (mIORange.mDMAAddress & 0x00ff) | (data << 8);
+			break;
+		case 4:
+			mMemory[mIORange.mDMAAddress++] = data;
+			break;
+		case 5:
+		case 6:
+		case 7:
+			mIORange.mMirror = data;;
+			break;
+		case 8:
+		case 9:
+		case 10:
+		case 11:
+			mIORange.mCycleCount = mCycleCount;
+			break;
+		case 12:
+		case 13:
+		case 14:
+		case 15:
+			mIORange.mScratch[addr & 3] = data;
+			break;
+		}
+	}
+	else
+		mMemory[addr] = data;
+}
+
+int Emulator::Emulate(int startIP, int exitIP, int trace, bool iorange)
+{
+	mUseIORange = iorange;
+	mIORange.mCount0 = mIORange.mCount1 = 0;
+	mIORange.mMirror = 0;
+	mIORange.mScratch[0] = mIORange.mScratch[1] = mIORange.mScratch[2] =mIORange.mScratch[3] = 0;
+
+	mCycleCount = 0;
 	for (int i = 0; i < 0x10000; i++)
 		mCycles[i] = 0;
 	for (int i = 0; i < 0x100; i++)
@@ -592,13 +682,15 @@ int Emulator::Emulate(int startIP, int exitIP, int trace)
 	mMemory[0x1fe] = 0xff;
 	mMemory[0x1ff] = 0xff;
 
-	int		tcycles = 0, cycles = 0;
+	mCycleCount = 0;
+
+	int		tcycles = 0;
 	int		iip = 0;
 	while (mIP != 0)
 	{
 		if (mJiffies)
 		{
-			if (cycles >= tcycles + 16667)
+			if (mCycleCount >= tcycles + 16667)
 			{
 				mMemory[0xa2]++;
 				if (!mMemory[0xa2])
@@ -789,7 +881,7 @@ int Emulator::Emulate(int startIP, int exitIP, int trace)
 		}
 
 		mCycles[ip] += icycles;
-		cycles += icycles;
+		mCycleCount += icycles;
 	}
 
 	if (mRegS == 0xff)

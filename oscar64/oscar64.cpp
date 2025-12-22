@@ -128,7 +128,7 @@ int main2(int argc, const char** argv)
 		GrowingArray<const char*>	dataFiles(nullptr);
 		GrowingArray<bool>			dataFileCompressed(false);
 
-		bool		emulate = false, profile = false, customCRT = false, asserts = false;
+		bool		emulate = false, profile = false, customCRT = false, asserts = false, iorange = false;
 		int			trace = 0;
 
 		compiler->mPreprocessor->AddPath(basePath);
@@ -280,14 +280,21 @@ int main2(int argc, const char** argv)
 				else if (arg[1] == 'e')
 				{
 					emulate = true;
-					if (arg[2] == 'p')
-						profile = true;
-					else if (arg[2] == 't')
-						trace = 2;
-					else if (arg[2] == 'b')
-						trace = 1;
-					else if (arg[2] == 'a')
-						asserts = true;
+					int i = 2;
+					while (arg[i])
+					{
+						if (arg[i] == 'p')
+							profile = true;
+						else if (arg[i] == 't')
+							trace = 2;
+						else if (arg[i] == 'b')
+							trace = 1;
+						else if (arg[i] == 'a')
+							asserts = true;
+						else if (arg[i] == 'i')
+							iorange = true;
+						i++;
+					}
 				}
 				else if (arg[1] == 'D' && !arg[2])
 				{
@@ -670,7 +677,7 @@ int main2(int argc, const char** argv)
 				}
 
 				if (emulate)
-					compiler->ExecuteCode(profile, trace, asserts);
+					compiler->ExecuteCode(profile, trace, asserts, iorange);
 			}
 			else if (compiler->mCompilerOptions & COPT_ERROR_FILES)
 			{

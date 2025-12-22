@@ -51,7 +51,7 @@ public:
 	bool WriteOutputFile(const char* targetPath, DiskImage * d64);
 	bool WriteErrorFile(const char* targetPath);
 	bool RemoveErrorFile(const char* targetPath);
-	int ExecuteCode(bool profile, int trace, bool asserts);
+	int ExecuteCode(bool profile, int trace, bool asserts, bool iorange);
 
 	void AddDefine(const Ident* ident, const char* value);
 

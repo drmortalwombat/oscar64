@@ -1429,7 +1429,7 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 	return true;
 }
 
-int Compiler::ExecuteCode(bool profile, int trace, bool asserts)
+int Compiler::ExecuteCode(bool profile, int trace, bool asserts, bool iorange)
 {
 	Location	loc;
 
@@ -1449,12 +1449,12 @@ int Compiler::ExecuteCode(bool profile, int trace, bool asserts)
 		if (asserts)
 			oexit = mLinker->FindObjectByName("exit");
 
-		ecode = emu->Emulate(2061, (oexit ? oexit->mAddress : 0x0000),  trace);
+		ecode = emu->Emulate(2061, (oexit ? oexit->mAddress : 0x0000),  trace, iorange);
 	}
 	else if (mCompilerOptions & COPT_TARGET_CRT)
 	{
 		memcpy(emu->mMemory + 0x8000, mLinker->mMemory + 0x0800, 0x4000);
-		ecode = emu->Emulate(0x8009, 0x0000, trace);
+		ecode = emu->Emulate(0x8009, 0x0000, trace, iorange);
 	}
 
 	printf("Emulation result %d\n", ecode);

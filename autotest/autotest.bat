@@ -279,6 +279,10 @@ rem @echo off
 @call :test tileexpand.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :testi volatiletest.c
+@if %errorlevel% neq 0 goto :error
+
+
 @exit /b 0
 
 :error
@@ -416,6 +420,31 @@ exit /b %errorlevel%
 @if %errorlevel% neq 0 goto :error
 
 ..\bin\oscar64 -ea -g -O2 -Ox -n %~1
+@if %errorlevel% neq 0 goto :error
+
+:testi
+..\bin\oscar64 -eai -g -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -eai -g -O2 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -eai -g -O0 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -eai -g -Os -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -eai -g -O3 -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -eai -g -O2 -xz -Oz -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -eai -g -O2 -Oo -n %~1
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -eai -g -O2 -Ox -n %~1
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0
