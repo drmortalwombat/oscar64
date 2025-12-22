@@ -1304,7 +1304,7 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 
 		if (ins0->mCode == IC_LOAD)
 		{
-			if (ins0->mSrc[0].mTemp >= 0)
+			if (ins0->mSrc[0].mTemp >= 0 || ins0->mVolatile)
 				return false;
 			if (ins0->mSrc[0].mMemory == IM_PARAM || ins0->mSrc[0].mMemory == IM_FPARAM)
 			{
@@ -27549,7 +27549,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test_writeorder");
+	CheckFunc = !strcmp(mIdent->mString, "test_readsmallfunc");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

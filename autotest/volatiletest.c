@@ -107,9 +107,37 @@ void test_dma(void)
 	assert(tbuffer[15] == 3);
 }
 
+char read_cnt0(void)
+{
+	return testio.cnt0;
+}
+
+void test_unusedread(void)
+{
+	char base0 = testio.cnt0;
+	read_cnt0();
+	char end0 = testio.cnt0;
+
+	assert(udiff(base0, end0) == 2);
+}
+
+void test_readsmallfunc(void)
+{
+	char base0 = testio.cnt0;
+	char u0 = read_cnt0();
+	char u1 = read_cnt0();
+	char end0 = testio.cnt0;
+
+	assert(udiff(base0, u0) == 1);
+	assert(udiff(u0, u1) == 1);
+	assert(udiff(u1, end0) == 1);
+}
+
 int main(void)
 {
 	test_readorder();
 	test_writeorder();
 	test_dma();
+	test_unusedread();
+	test_readsmallfunc();
 }
