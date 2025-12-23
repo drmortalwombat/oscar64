@@ -3072,7 +3072,13 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 
 		int size = mLinkerObject->mSize - mAddress;
 		if (mLinkerObject->mStripe > 1)
-			size = mLinkerObject->mStripe - mAddress % mLinkerObject->mStripe;
+		{
+			int ssize = mLinkerObject->mStripe - mAddress % mLinkerObject->mStripe;
+			if (ssize == 1 && size > mLinkerObject->mStripe)
+				size = mLinkerObject->mStripe + 1;
+			else
+				size = ssize;
+		}
 		if (size > 256)
 			size = 256;
 
@@ -60733,7 +60739,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "test_dma");
+	CheckFunc = !strcmp(mIdent->mString, "window_draw");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

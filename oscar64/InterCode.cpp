@@ -19378,6 +19378,10 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 							{
 								ins->mInvariant = false;
 							}
+							else if (ins->mSrc[0].mMemory == IM_ABSOLUTE && hasCall)
+							{
+								ins->mInvariant = false;
+							}
 							else if (ins->mSrc[0].mMemory == IM_LOCAL && hasCall)
 							{
 								ins->mInvariant = false;
@@ -27549,7 +27553,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test_readsmallfunc");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
