@@ -59,7 +59,13 @@ public:
 
 	void CompileProcedure(InterCodeProcedure* proc);
 	void BuildVTables(void);
+	void CheckOperatorNew(void);
 	void CompleteTemplateExpansion(void);
+
+	Declaration* mGlobalNew, * mGlobalDelete;
+
+	void PreCompileExpression(Expression* exp);
+	void PreCompileDeclaration(Declaration* dec);
 
 	bool WriteDbjFile(const char* filename);
 	bool WriteCszFile(const char* filename);

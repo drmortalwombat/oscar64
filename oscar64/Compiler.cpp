@@ -262,6 +262,70 @@ bool IsSimpleConstReturn(Declaration * mdec)
 	return false;
 }
 
+void Compiler::PreCompileExpression(Expression* exp)
+{
+	switch (exp->mType)
+	{
+	case EX_CONSTANT:
+	case EX_VARIABLE:
+	case EX_ASSEMBLER:
+		if (exp->mDecValue)
+			PreCompileDeclaration(exp->mDecValue);
+		break;
+	case EX_PREFIX:
+		if (exp->mToken == TK_NEW)
+		{
+			if (mGlobalNew)
+			{
+				exp->mType = EX_CALL;
+				exp->mRight = exp->mLeft;
+				exp->mLeft = new Expression(exp->mLocation, EX_CONSTANT);
+				exp->mLeft->mDecType = mGlobalNew->mBase;
+				exp->mLeft->mDecValue = mGlobalNew;
+			}
+		}
+		else if (exp->mToken == TK_DELETE)
+		{
+			if (mGlobalDelete)
+			{
+				exp->mType = EX_CALL;
+				exp->mRight = exp->mLeft;
+				exp->mLeft = new Expression(exp->mLocation, EX_CONSTANT);
+				exp->mLeft->mDecType = mGlobalDelete->mBase;
+				exp->mLeft->mDecValue = mGlobalDelete;
+			}
+		}
+		break;
+	}
+
+	if (exp->mLeft)
+		PreCompileExpression(exp->mLeft);
+	if (exp->mRight)
+		PreCompileExpression(exp->mRight);
+}
+
+void Compiler::PreCompileDeclaration(Declaration* dec)
+{
+	while (dec->mType == DT_VARIABLE_REF || dec->mType == DT_FUNCTION_REF)
+		dec = dec->mBase;
+
+	if (dec->mType == DT_VARIABLE || dec->mType == DT_CONST_FUNCTION || dec->mType == DT_CONST_ASSEMBLER)
+	{
+		if (!(dec->mFlags & DTF_PRECOMPILED))
+		{
+			dec->mFlags |= DTF_PRECOMPILED;
+			if (dec->mValue)
+				PreCompileExpression(dec->mValue);
+		}
+	}
+}
+
+void Compiler::CheckOperatorNew(void)
+{
+	mGlobalNew = mCompilationUnits->mScope->Lookup(Ident::Unique("operator-new"));
+	mGlobalDelete = mCompilationUnits->mScope->Lookup(Ident::Unique("operator-delete"));
+}
+
 void Compiler::BuildVTables(void)
 {
 	// Connect vdecs with parents
@@ -878,6 +942,9 @@ bool Compiler::GenerateCode(void)
 			printf("Build VTables\n");
 
 		BuildVTables();
+		CheckOperatorNew();
+
+		PreCompileDeclaration(dcrtstart);
 	}
 
 	if (mCompilerOptions & COPT_OPTIMIZE_GLOBAL)
