@@ -53394,7 +53394,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		mIns[i + 0].mType == ASMIT_LDA && !mIns[i + 0].RequiresXReg() &&
 		mIns[i + 1].mType == ASMIT_LDX &&
 		mIns[i + 2].mType == ASMIT_STX && !(mIns[i + 2].mLive & LIVE_CPU_REG_X) && !mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]) &&
-		!(mIns[i + 0].mFlags & mIns[i + 1].mFlags & NCIF_VOLATILE))
+		!(mIns[i + 0].mFlags & (mIns[i + 1].mFlags | mIns[i + 2].mFlags) & NCIF_VOLATILE))
 	{
 		NativeCodeInstruction	ins = mIns[i + 0];
 		mIns[i + 0] = mIns[i + 1];
@@ -53409,7 +53409,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		mIns[i + 0].mType == ASMIT_LDX &&
 		mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) &&
 		mIns[i + 2].mType == ASMIT_STA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
-		!(mIns[i + 1].mFlags & mIns[i + 2].mFlags & NCIF_VOLATILE) &&
+		!(mIns[i + 2].mFlags & (mIns[i + 0].mFlags | mIns[i + 1].mFlags) & NCIF_VOLATILE) &&
 		!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]) &&
 		!mIns[i + 1].MayBeChangedOnAddress(mIns[i + 2]))
 	{
@@ -54966,7 +54966,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 		mIns[i + 3].mType == ASMIT_TXA && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))
 	{
 		mIns[i + 0].mType = ASMIT_LDX; mIns[i + 0].mLive |= LIVE_CPU_REG_X;
-		mIns[i + 1].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A;
+		mIns[i + 1].mType = ASMIT_LDA; mIns[i + 1].mLive |= LIVE_CPU_REG_A;
 		mIns[i + 2].mType = ASMIT_STX; mIns[i + 2].mLive |= LIVE_CPU_REG_A;
 		mIns[i + 3].mType = ASMIT_NOP; mIns[i + 3].mMode = ASMIM_IMPLIED;
 		return true;
@@ -60739,7 +60739,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "window_draw");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
