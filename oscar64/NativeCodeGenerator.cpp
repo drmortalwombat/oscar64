@@ -53411,7 +53411,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		mIns[i + 2].mType == ASMIT_STA && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
 		!(mIns[i + 2].mFlags & (mIns[i + 0].mFlags | mIns[i + 1].mFlags) & NCIF_VOLATILE) &&
 		!mIns[i + 0].MayBeChangedOnAddress(mIns[i + 2]) &&
-		!mIns[i + 1].MayBeChangedOnAddress(mIns[i + 2]))
+		!mIns[i + 1].MayBeChangedOnAddress(mIns[i + 2]) &&
+		!mIns[i + 2].MayBeChangedOnAddress(mIns[i + 1]))
 	{
 		NativeCodeInstruction	ins = mIns[i + 2];
 		mIns[i + 2] = mIns[i + 1];
@@ -60739,7 +60740,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "enemies_iterate");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -62955,6 +62956,18 @@ void NativeCodeProcedure::Optimize(void)
 
 	ResetVisited();
 	mEntryBlock->MergeSameBranch();
+
+#if 1
+	CheckBlocks();
+
+	ResetVisited();
+	if (mEntryBlock->MergeBasicBlocks())
+	{
+		BuildDataFlowSets();
+		CheckBlocks();
+	}
+
+#endif
 
 #if 1
 	ResetVisited();
