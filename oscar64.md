@@ -1373,11 +1373,11 @@ Adding a new target and format requires several changes.
 
 ### Defines "CompilerOptions.h"
 
-Here we have two major elements, a flag set **COPT_** and an enum **TargetMachine**.  The enum is easy to expand but the flagset requires some consideration, whether is is realy necessary to consume one of the rare flags.
+Here we have two major elements, a flag set **COPT_** and an enum **TargetMachine**.  The enum is easy to expand but the flagset requires some consideration, whether is is really necessary to consume one of the rare flags.
 
 ### Command Line Parser "oscar64.cpp"
 
-Look for the rather long if statment that checks for the targetMachine string and sets appropriate flags and defines, e.g.:
+Look for the rather long if statement that checks for the targetMachine string and sets appropriate flags and defines, e.g.:
 
 	else if (!strcmp(targetMachine, "plus4"))
 	{
@@ -1392,7 +1392,7 @@ Look for the rather long if statment that checks for the targetMachine string an
 
 The *Compipler::GenerateCode* method sets up the default sections and regions based on the target machine and format.
 
-The compiler zero page usage is right at the begining of this method.
+The compiler zero page usage is right at the beginning of this method.
 
 *		BC_REG_WORK_Y	1 Byte
 *		BC_REG_WORK		10 Bytes
@@ -1402,7 +1402,7 @@ The compiler zero page usage is right at the begining of this method.
 *		BC_REG_STACK 2 Bytes
 *		BC_REG_LOCALS 2 Bytes
 
-Zero page registes for fast parameter passing
+Zero page registers for fast parameter passing
 
 *		BC_REG_FPARAMS..BC_REG_FPARAMS_END	12 Bytes to 24 Bytes
 
@@ -1418,7 +1418,7 @@ The zero page region is created if none is provided in the compiled source using
 
 Next the startup region that is either used for the basic startup or the rom reset vectors is created if none is provided.  If you create a prg type format look for the commodore targets, for rom targets the NES types might be a good example.  You may also need a boot section for rom code.
 
-Finaly the main region that covers your code and data.  Again for rom targets, have a look at the NES machine types or the COPT_TARGET_CRT16.
+Finally the main region that covers your code and data.  Again for rom targets, have a look at the NES machine types or the COPT_TARGET_CRT16.
 
 ### Generating the output files "Compiler.cpp" and "Linker.cpp"
 
