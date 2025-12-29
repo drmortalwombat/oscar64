@@ -7096,6 +7096,7 @@ Expression* Parser::ParseDeclarationExpression(Declaration * pdec)
 				rexp->mRight = new Expression(nexp->mLocation, EX_SEQUENCE);
 				rexp = rexp->mRight;
 				rexp->mLeft = nexp;
+				exp->mDecType = nexp->mDecType;
 			}
 
 			dec = dec->mNext;

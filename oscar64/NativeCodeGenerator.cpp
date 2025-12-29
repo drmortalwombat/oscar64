@@ -10039,8 +10039,10 @@ void NativeCodeBasicBlock::BinaryAddCarry(InterCodeProcedure* proc, const InterI
 {
 	if (cins->mSrc[0].mTemp == ains->mDst.mTemp)
 		mIns.Push(NativeCodeInstruction(cins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[cins->mSrc[1].mTemp]));
-	else
+	else if (cins->mSrc[0].mTemp >= 0)
 		mIns.Push(NativeCodeInstruction(cins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[cins->mSrc[0].mTemp]));
+	else
+		mIns.Push(NativeCodeInstruction(cins, ASMIT_LDA, ASMIM_IMMEDIATE, cins->mSrc[0].mIntConst));
 	mIns.Push(NativeCodeInstruction(cins, ASMIT_LSR));
 
 	mIns.Push(NativeCodeInstruction(ains, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_TMP + proc->mTempOffset[ains->mSrc[0].mTemp]));
@@ -47433,6 +47435,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 							}
 							if (ins.ChangesAccu())
 								aoffset = 1;
+							break;
 						}
 
 						if (xreg >= 0 && ins.mMode == ASMIM_ABSOLUTE_X && xskew != xoffset)
@@ -47444,8 +47447,8 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 							yoffset = 0;
 						if (!(ins.mLive & LIVE_CPU_REG_X))
 							xoffset = 0;
-						if (!(ins.mLive & LIVE_CPU_REG_A))
-							aoffset = 0;
+//						if (!(ins.mLive & LIVE_CPU_REG_A))
+//							aoffset = 0;
 
 						if (ins.mMode == ASMIM_INDIRECT_Y)
 						{
@@ -47462,7 +47465,7 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 						yreg = -2;
 					if (xoffset && block->mExitRequiredRegs[CPU_REG_X])
 						xreg = -2;
-					if (aoffset && block->mExitRequiredRegs[CPU_REG_A])
+					if (aoffset) // && block->mExitRequiredRegs[CPU_REG_A])
 						areg = -2;
 #endif
 				}
@@ -60740,7 +60743,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "enemies_iterate");
+	CheckFunc = !strcmp(mIdent->mString, "uatan");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
