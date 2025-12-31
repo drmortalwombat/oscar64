@@ -37739,8 +37739,11 @@ bool NativeCodeBasicBlock::Propagate16BitSum(const ExpandingArray<NativeRegister
 								info.mSrcL->mMode = mRSumInfos[j].mDstL->mMode;
 								info.mSrcH->mAddress = mRSumInfos[j].mDstH->mAddress;
 								info.mSrcH->mMode = mRSumInfos[j].mDstH->mMode;
+								info.mSrcL->mType = ASMIT_LDA; 
+								info.mSrcH->mType = ASMIT_LDA;
 								info.mAddL->mType = ASMIT_NOP; info.mAddL->mMode = ASMIM_IMPLIED;
 								info.mAddH->mType = ASMIT_NOP; info.mAddH->mMode = ASMIM_IMPLIED;
+								info.mAddress = 0;
 								changed = true;
 							}
 						}
@@ -60743,7 +60746,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "uatan");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -61728,7 +61731,6 @@ void NativeCodeProcedure::Optimize(void)
 
 		} while (changed && t < 20);
 #endif
-
 		BuildDataFlowSets();
 		ResetVisited();
 		mEntryBlock->RemoveUnusedResultInstructions();
@@ -61757,6 +61759,7 @@ void NativeCodeProcedure::Optimize(void)
 				mEntryBlock->RemoveUnusedResultInstructions();
 			}
 		}
+
 
 		CheckBlocks();
 
@@ -62085,9 +62088,6 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->EliminateUpper16BitSum(this))
 				changed = true;
 		}
-
-		if (step == 3)
-			DisassembleDebug("test3");
 
 		CheckBlocks();
 
