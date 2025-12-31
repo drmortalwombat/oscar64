@@ -150,8 +150,9 @@ uint8* LinkerObject::AddSpace(int size)
 }
 
 LinkerOverlay::LinkerOverlay(void)
+	: mCompressed(false)
 {
-
+	
 }
 
 LinkerOverlay::~LinkerOverlay(void)
@@ -1367,10 +1368,20 @@ bool Linker::WritePrgFile(DiskImage* image, const char* filename)
 				int	b = mOverlays[i]->mBank;
 				int	s = mCartridgeBankStart[b];
 
-				mCartridge[b][s - 2] = s & 0xff;
-				mCartridge[b][s - 1] = s >> 8;
-
-				image->WriteBytes(mCartridge[b] + s - 2, mCartridgeBankEnd[b] - s + 2);
+				if (mOverlays[i]->mCompressed)
+				{
+					uint8	tbuffer[65536];
+					tbuffer[0] = s & 0xff;
+					tbuffer[1] = s >> 8;
+					int tsize = CompressLZO(tbuffer + 2, mCartridge[b] + s, mCartridgeBankEnd[b] - s);
+					image->WriteBytes(tbuffer, tsize + 2);
+				}
+				else
+				{
+					mCartridge[b][s - 2] = s & 0xff;
+					mCartridge[b][s - 1] = s >> 8;
+					image->WriteBytes(mCartridge[b] + s - 2, mCartridgeBankEnd[b] - s + 2);
+				}
 
 				image->CloseFile();
 			}
@@ -1441,10 +1452,21 @@ bool Linker::WritePrgFile(const char* filename, const char* pathname)
 					int	b = mOverlays[i]->mBank;
 					int	s = mCartridgeBankStart[b];
 
-					mCartridge[b][s - 2] = s & 0xff;
-					mCartridge[b][s - 1] = s >> 8;
 
-					fwrite(mCartridge[b] + s - 2, 1, mCartridgeBankEnd[b] - s + 2, file);
+					if (mOverlays[i]->mCompressed)
+					{
+						uint8	tbuffer[65536];
+						tbuffer[0] = s & 0xff;
+						tbuffer[1] = s >> 8;
+						int tsize = CompressLZO(tbuffer + 2, mCartridge[b] + s, mCartridgeBankEnd[b] - s);
+						fwrite(tbuffer, 1, tsize + 2, file);
+					}
+					else
+					{
+						mCartridge[b][s - 2] = s & 0xff;
+						mCartridge[b][s - 1] = s >> 8;
+						fwrite(mCartridge[b] + s - 2, 1, mCartridgeBankEnd[b] - s + 2, file);
+					}
 					fclose(file);
 				}
 				else

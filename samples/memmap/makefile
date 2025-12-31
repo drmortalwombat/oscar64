@@ -23,5 +23,8 @@ tsr.prg: tsr.c
 overlay.prg: overlay.c
 	@$(OSCAR64_CC) $(OSCAR64_CFLAGS) $< -n -d64=overlay.d64
 
+overlay.prg: overlaylzo.c
+	@$(OSCAR64_CC) $(OSCAR64_CFLAGS) $< -n -d64=overlaylzo.d64
+
 clean:
 	@$(RM) *.asm *.int *.lbl *.map *.prg *.bcs *.d64 *.crt

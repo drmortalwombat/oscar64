@@ -14932,6 +14932,20 @@ void Parser::ParsePragma(void)
 					mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Integer number for bank expected");
 
 				LinkerOverlay* lovl = mCompilationUnits->mLinker->AddOverlay(mScanner->mLocation, overlayIdent, bank);
+
+				while (ConsumeTokenIf(TK_COMMA))
+				{
+					if (mScanner->mToken == TK_IDENT)
+					{
+						if (!strcmp(mScanner->mTokenIdent->mString, "lzo"))
+							lovl->mCompressed = true;
+						else
+							mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Overlay type specifier expected");
+						mScanner->NextToken();
+					}
+					else
+						mErrors->Error(mScanner->mLocation, EERR_PRAGMA_PARAMETER, "Overlay type specifier expected");
+				}
 			}
 
 			ConsumeToken(TK_CLOSE_PARENTHESIS);

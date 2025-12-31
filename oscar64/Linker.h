@@ -251,6 +251,7 @@ public:
 	Location						mLocation;
 	const Ident					*	mIdent;
 	int								mBank;
+	bool							mCompressed;
 };
 
 class Linker
