@@ -1234,6 +1234,13 @@ Expression* Expression::ConstantFold(Errors * errors, LinkerSection * dataSectio
 		mLeft = mLeft->mDecValue->mValue;
 		return this->ConstantFold(errors, dataSection);
 	}
+	else if (mType == EX_BINARY && mToken == TK_ADD && mLeft->mType == EX_CONSTANT && mLeft->mDecValue->mType == DT_CONST_ADDRESS && mLeft->mDecValue->mInteger == 0)
+	{
+		Expression* ex = new Expression(mLocation, EX_TYPECAST);
+		ex->mLeft = mRight;
+		ex->mDecType = mDecType;
+		return ex->ConstantFold(errors, dataSection);
+	}
 	else if (mType == EX_QUALIFY && mLeft->mType == EX_VARIABLE && mLeft->mDecValue->mType == DT_VARIABLE && (mLeft->mDecValue->mFlags & DTF_GLOBAL) && mLeft->mDecType->mType == DT_TYPE_STRUCT)
 	{
 		Expression* ex = new Expression(mLocation, EX_VARIABLE);

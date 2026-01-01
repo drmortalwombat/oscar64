@@ -400,6 +400,7 @@ public:
 	void BlockSizeReduction(NativeCodeProcedure* proc, int xenter, int yenter, int center);
 	bool BlockSizeCopyReduction(NativeCodeProcedure* proc, int & si, int & di);
 
+	bool OptimizeSimpleYIndexedLoop(NativeCodeBasicBlock* prevBlock, NativeCodeBasicBlock* exitBlock);
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, bool full);
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock * prevBlock, NativeCodeBasicBlock* exitBlock, bool full);
 	bool RemoveSimpleLoopUnusedIndex(void);
