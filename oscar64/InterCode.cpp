@@ -1104,6 +1104,8 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 			return false;
 		else if (op1.mRestricted && op2.mRestricted && op1.mRestricted != op2.mRestricted)
 			return false;
+		else if (op1.mMemoryBase != op2.mMemoryBase && op1.mMemoryBase != IM_INDIRECT && op1.mMemoryBase != IM_NONE && op2.mMemoryBase != IM_INDIRECT && op2.mMemoryBase != IM_NONE)
+			return false;
 		else
 			return CollidingMemType(type1, type2);
 	default:
@@ -7043,9 +7045,9 @@ void InterCodeBasicBlock::CheckValueUsage(InterInstruction * ins, const GrowingI
 			else if (ins->mSrc[1].mTemp >= 0 && fsingle[ins->mSrc[1].mTemp])
 			{
 				InterInstruction* lins = tvalue[ins->mSrc[1].mTemp];
-				while (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp >= 0 && fsingle[lins->mSrc[1].mTemp])
+				while (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp >= 0 && fsingle[lins->mSrc[1].mTemp] && fsingle[tvalue[lins->mSrc[1].mTemp]->mDst.mTemp])
 					lins = tvalue[lins->mSrc[1].mTemp];
-				if (lins && lins->mSrc[1].mTemp < 0 && (lins->mSrc[1].mMemory == IM_ABSOLUTE || lins->mSrc[1].mMemory == IM_GLOBAL))
+				if (lins && lins->mCode == IC_LEA && lins->mSrc[1].mTemp < 0 && (lins->mSrc[1].mMemory == IM_ABSOLUTE || lins->mSrc[1].mMemory == IM_GLOBAL))
 				{
 					lins->mSrc[1].mIntConst += tvalue[ins->mSrc[0].mTemp]->mConst.mIntConst;
 					ins->mCode = IC_LOAD_TEMPORARY;
@@ -9751,6 +9753,10 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 			case IC_CONSTANT:
 				vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
 				vr.mMinValue = vr.mMaxValue = ins->mConst.mIntConst;
+				break;
+			case IC_LOAD:
+				if (ins->mDst.mRange.IsBound())
+					vr = ins->mDst.mRange;
 				break;
 			case IC_LOAD_TEMPORARY:
 				vr = ins->mSrc[0].mRange;
@@ -20631,6 +20637,48 @@ void InterCodeBasicBlock::PropagateMemoryAliasingInfo(const GrowingInstructionPt
 				ins->mDst.mVarIndex = ins->mSrc[1].mVarIndex;
 				ins->mDst.mLinkerObject = ins->mSrc[1].mLinkerObject;
 			}
+			else if (ins->mCode == IC_LOAD && ins->mDst.mType == IT_POINTER)
+			{
+				if (ins->mSrc[0].mMemoryBase == IM_GLOBAL && (mInstructions[i]->mSrc[0].mLinkerObject->mFlags & LOBJF_CONST))
+				{
+					LinkerObject* lobj = mInstructions[i]->mSrc[0].mLinkerObject;
+					if (lobj->mReferences.Size() == 0)
+					{
+						ins->mDst.mMemory = IM_ABSOLUTE;
+						ins->mDst.mMemoryBase = IM_ABSOLUTE;
+						ins->mDst.mVarIndex = -1;
+						ins->mDst.mLinkerObject = nullptr;
+
+						if (ins->mSrc[0].mRange.IsBound())
+						{
+							int	minval = int(ins->mSrc[0].mRange.mMinValue), maxval = int(ins->mSrc[0].mRange.mMaxValue);
+							if (minval >= 0 && maxval > minval && maxval + ins->mSrc[0].mStride < lobj->mSize)
+							{
+								int	minptr = 0xffff, maxptr = 0x0000;
+								if (ins->mSrc[0].mStride == 1)
+								{
+									for (int i = minval; i <= maxval; i+=2)
+									{
+										int iptr = lobj->mData[i] + 256 * lobj->mData[i + 1];
+										if (iptr < minptr) minptr = iptr;
+										if (iptr > maxptr) maxptr = iptr;
+									}
+								}
+								else
+								{
+									for (int i = minval; i <= maxval; i++)
+									{
+										int iptr = lobj->mData[i] + 256 * lobj->mData[i + ins->mSrc[0].mStride];
+										if (iptr < minptr) minptr = iptr;
+										if (iptr > maxptr) maxptr = iptr;
+									}
+								}
+								ins->mDst.mRange.SetLimit(minptr, maxptr);
+							}
+						}
+					}
+				}
+			}
 			else if (ins->mCode == IC_LOAD_TEMPORARY)
 			{
 				ins->mDst.mMemory = ins->mSrc[0].mMemory;
@@ -27557,7 +27605,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "number_format");
+	CheckFunc = !strcmp(mIdent->mString, "enemies_iterate");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
