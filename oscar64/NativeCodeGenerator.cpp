@@ -40560,7 +40560,7 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 					mIns[i + 3].mType = ASMIT_ORA;
 					mIns[i + 0].CopyMode(mIns[i + 1]);
 					mIns[i + 2].mAddress = ~mIns[i + 2].mAddress & 0xff;
-					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mAddress = ASMIM_IMPLIED;
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 					changed = true;
 				}
 			}
@@ -40658,7 +40658,6 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 					skip = true;
 				}
 			}
-
 
 			if (!skip)
 			{
@@ -61718,17 +61717,32 @@ void NativeCodeProcedure::Optimize(void)
 		RebuildEntry();
 		assert(mEntryBlock->mNumEntries < 2);
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
+
 		if (step == 4)
 		{
 			ResetVisited();
 			mEntryBlock->Split16BitLoopCount(this);
 		}
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
+
 		if (step >= 6)
 		{
 			ResetVisited();
 			mEntryBlock->CrossBlockYAliasProgpagation(nullptr);
 		}
+
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 
 		RebuildEntry();
 		assert(mEntryBlock->mNumEntries < 2);
@@ -61755,6 +61769,10 @@ void NativeCodeProcedure::Optimize(void)
 			} while (bchanged);
 		}
 #endif
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 
 		if (step >= 3)
 		{
@@ -61762,6 +61780,10 @@ void NativeCodeProcedure::Optimize(void)
 			mEntryBlock->RegisterValueForwarding();
 		}
 
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
+#endif
 #if 1
 		if (step == 2)
 		{
@@ -61769,6 +61791,11 @@ void NativeCodeProcedure::Optimize(void)
 			ResetVisited();
 			mEntryBlock->ReplaceFinalZeroPageUse(this);
 		}
+#endif
+
+#if _DEBUG
+		ResetVisited();
+		mEntryBlock->CheckAsmCode();
 #endif
 		if (step > 1)
 		{
