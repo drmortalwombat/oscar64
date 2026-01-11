@@ -3,12 +3,19 @@
 
 #include "types.h"
 
-#define MMAP_ROM        0x37	// BASIC + I/O + KERNAL -> default power on config
-#define MMAP_NO_BASIC   0x36	//         I/O + KERNAL -> easy extra chunk of contiguous RAM
-#define MMAP_NO_ROM     0x35	//         I/O          -> I/O and COLOR RAM in $d000-$dfff block, rest is RAM
-#define MMAP_RAM        0x30	//                      -> ALL RAM, you'll need to manage some state switching...
-#define MMAP_CHAR_ROM   0x31	//        CHAR          -> no BASIC or KERNAL or I/O, but can copy CHAR ROM
-#define MMAP_ALL_ROM    0x33	// BASIC +CHAR + KERNAL -> All ROM functions available, but no I/O
+// MMAP_ROM        : BASIC + I/O  + KERNAL -> default power on config
+// MMAP_NO_BASIC   :         I/O  + KERNAL -> easy extra chunk of contiguous RAM
+// MMAP_NO_ROM     :         I/O           -> I/O and COLOR RAM in $d000-$dfff block, rest is RAM
+// MMAP_RAM        :                       -> ALL RAM, you'll need to manage some state switching...
+// MMAP_CHAR_ROM   :         CHAR          -> no BASIC or KERNAL or I/O, but can copy CHAR ROM
+// MMAP_ALL_ROM    : BASIC + CHAR + KERNAL -> All ROM functions available, but no I/O
+
+#define MMAP_ROM        0x37
+#define MMAP_NO_BASIC   0x36
+#define MMAP_NO_ROM     0x35
+#define MMAP_RAM        0x30
+#define MMAP_CHAR_ROM   0x31
+#define MMAP_ALL_ROM    0x33
 
 // Install an IRQ an NMI trampoline, that routes the kernal interrupts
 // through an intermediate trampoline when the kernal ROM is not paged
