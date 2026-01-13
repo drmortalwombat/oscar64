@@ -26113,7 +26113,6 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 				}
 			}
 
-
 			if (mTrueJump->mEntryRequiredRegs[CPU_REG_Y] && !mFalseJump->mEntryRequiredRegs[CPU_REG_Y] && mTrueJump->mNumEntries == 1 && !mTrueJump->mEntryRequiredRegs[CPU_REG_Z] ||
 				mFalseJump->mEntryRequiredRegs[CPU_REG_Y] && !mTrueJump->mEntryRequiredRegs[CPU_REG_Y] && mFalseJump->mNumEntries == 1 && !mFalseJump->mEntryRequiredRegs[CPU_REG_Z])
 			{
@@ -60859,7 +60858,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "enemy_burn");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -63039,6 +63038,12 @@ void NativeCodeProcedure::Optimize(void)
 #if DISASSEMBLE_OPT
 		DisassembleDebug("Post Op 3a");
 #endif
+
+		if (!changed)
+		{
+			ResetVisited();
+			changed = mEntryBlock->PropagateSinglePath();
+		}
 
 		if (!changed)
 		{
