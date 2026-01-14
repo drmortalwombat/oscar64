@@ -470,6 +470,7 @@ public:
 	void BinaryFloatOperatorLookup(InterCodeProcedure* proc, const InterInstruction* cins, const InterInstruction* ins);
 	void BinaryAndMulConst(InterCodeProcedure* proc, const InterInstruction* ains, const InterInstruction* mins);
 	void BinaryAddCarry(InterCodeProcedure* proc, const InterInstruction* ains, const InterInstruction* mins);
+	void BinaryShlAddConstPair(InterCodeProcedure* proc, const InterInstruction* sins, const InterInstruction* ains);
 
 	void NumericConversion(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	NativeCodeBasicBlock * FillValue(InterCodeProcedure* proc, const InterInstruction* ins, NativeCodeProcedure* nproc);

@@ -1,5 +1,8 @@
 rem @echo off
 
+@call :test shiftbyteaddconst.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :test loopunrolltest.cpp
 @if %errorlevel% neq 0 goto :error
 
