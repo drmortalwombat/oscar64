@@ -19411,6 +19411,9 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 										InterInstruction* sins = blockj->mInstructions[j];
 										if (sins->mCode == IC_STORE)
 										{
+											if (CollidingMem(ins, sins))
+												ins->mInvariant = false;
+#if 0
 											if (sins->mSrc[1].mTemp >= 0)
 											{
 												if ((ins->mSrc[0].mMemory != IM_PARAM && ins->mSrc[0].mMemory != IM_FPARAM) || aliasedParams[ins->mSrc[0].mVarIndex])
@@ -19420,6 +19423,7 @@ void InterCodeBasicBlock::InnerLoopOptimization(const NumberSet& aliasedParams)
 											{
 												ins->mInvariant = false;
 											}
+#endif
 										}
 										else if (sins->mCode == IC_COPY || sins->mCode == IC_FILL)
 										{
@@ -27605,7 +27609,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "enemies_iterate");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
