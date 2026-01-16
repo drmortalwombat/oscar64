@@ -605,6 +605,7 @@ public:
 	bool FoldShiftORAIntoLoadImmUp(int at);
 	bool ReverseShiftByteOrder(int at);
 	bool MoveZeroPageSignToCarryDown(int at);
+	bool Move16BitShiftUp(int at);
 
 	bool FindAccuExitValue(int& at);
 	bool MoveLoadXAbsUpCrossBlock(int at);
