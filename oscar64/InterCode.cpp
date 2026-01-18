@@ -9579,39 +9579,36 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 					else if (ins->mSrc[0].mTemp < 0)
 					{
 						vr = mProc->mLocalValueRange[ins->mSrc[1].mTemp];
-						if (ins->mSrc[0].mIntConst >= 0)
+						int64	mask = UnsignedTypeMax(ins->mSrc[1].mType) & ins->mSrc[0].mIntConst;					
+						if (ins->mSrc[1].IsUnsigned())
 						{
-							if (ins->mSrc[1].IsUnsigned())
-							{
-								vr.mMinState = IntegerValueRange::S_BOUND;
-								vr.mMinValue = 0;
-								vr.LimitMax(ins->mSrc[0].mIntConst & BuildLowerBitsMask(ins->mSrc[1].mRange.mMaxValue));
-							}
-							else
-							{
-								vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
-								vr.mMaxValue = ins->mSrc[0].mIntConst;
-								vr.mMinValue = 0;
-							}
+							vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMinValue = 0;
+							vr.LimitMax(mask & BuildLowerBitsMask(ins->mSrc[1].mRange.mMaxValue));
+						}
+						else if (mask <= SignedTypeMax(ins->mSrc[1].mType))
+						{
+							vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMaxValue = mask;
+							vr.mMinValue = 0;
 						}
 					}
 					else if (ins->mSrc[1].mTemp < 0)
 					{
 						vr = mProc->mLocalValueRange[ins->mSrc[0].mTemp];
-						if (ins->mSrc[1].mIntConst >= 0)
+						int64	mask = UnsignedTypeMax(ins->mSrc[0].mType) & ins->mSrc[1].mIntConst;
+
+						if (ins->mSrc[0].IsUnsigned())
 						{
-							if (ins->mSrc[0].IsUnsigned())
-							{
-								vr.mMinState = IntegerValueRange::S_BOUND;
-								vr.mMinValue = 0;
-								vr.LimitMax(ins->mSrc[1].mIntConst & BuildLowerBitsMask(ins->mSrc[0].mRange.mMaxValue));
-							}
-							else
-							{
-								vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
-								vr.mMaxValue = ins->mSrc[1].mIntConst;
-								vr.mMinValue = 0;
-							}
+							vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMinValue = 0;
+							vr.LimitMax(mask& BuildLowerBitsMask(ins->mSrc[0].mRange.mMaxValue));
+						}
+						else if (mask <= SignedTypeMax(ins->mSrc[0].mType))
+						{
+							vr.mMaxState = vr.mMinState = IntegerValueRange::S_BOUND;
+							vr.mMaxValue = mask;
+							vr.mMinValue = 0;
 						}
 					}
 					else
@@ -27609,7 +27606,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "screen_init");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
