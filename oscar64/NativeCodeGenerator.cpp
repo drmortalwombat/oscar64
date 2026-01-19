@@ -17238,10 +17238,23 @@ bool NativeCodeBasicBlock::ForwardZpYIndex(bool full)
 			{
 				if (yreg == mIns[i].mAddress)
 				{
-					if (yoffset == 0)
+					bool	zfail = false;
+					int live = LIVE_CPU_REG_Y;
+
+					if (mIns[i].mLive & LIVE_CPU_REG_Z)
+					{
+						int k = i - 1;
+						while (k > ypred && !mIns[k].ChangesZFlag())
+							k--;
+						if (k != ypred)
+							zfail = true;
+						live |= LIVE_CPU_REG_Z;
+					}
+
+					if (yoffset == 0 && !zfail)
 					{
 						for (int j = ypred; j < i; j++)
-							mIns[j].mLive |= LIVE_CPU_REG_Y;
+							mIns[j].mLive |= live;
 
 						mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
 						changed = true;
@@ -17249,7 +17262,7 @@ bool NativeCodeBasicBlock::ForwardZpYIndex(bool full)
 					else if (yoffset == 1 && i + 1 < mIns.Size() && mIns[i + 1].mType == ASMIT_INY)
 					{
 						for (int j = ypred; j < i; j++)
-							mIns[j].mLive |= LIVE_CPU_REG_Y;
+							mIns[j].mLive |= live;
 
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
@@ -17258,7 +17271,7 @@ bool NativeCodeBasicBlock::ForwardZpYIndex(bool full)
 					else if (yoffset == 1)
 					{
 						for (int j = ypred; j < i; j++)
-							mIns[j].mLive |= LIVE_CPU_REG_Y;
+							mIns[j].mLive |= live;
 
 						mIns[i + 0].mType = ASMIT_DEY; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						yoffset = 0;
@@ -17267,7 +17280,7 @@ bool NativeCodeBasicBlock::ForwardZpYIndex(bool full)
 					else if (yoffset == 2 && i + 2 < mIns.Size() && mIns[i + 1].mType == ASMIT_INY && mIns[i + 2].mType == ASMIT_INY)
 					{
 						for (int j = ypred; j < i; j++)
-							mIns[j].mLive |= LIVE_CPU_REG_Y;
+							mIns[j].mLive |= live;
 
 						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
 						mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
@@ -28001,7 +28014,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 			if (ls >= 2)
 			{
-				if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_A))
+				if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 				{
 					if (lblock->mIns[ls - 2].mType == ASMIT_LDA && lblock->mIns[ls - 2].mMode == ASMIM_ZERO_PAGE && lblock->mIns[ls - 2].mAddress == mIns[0].mAddress &&
 						lblock->mIns[ls - 1].mType == ASMIT_CMP && !(lblock->mIns[ls - 1].mLive & LIVE_CPU_REG_A))
@@ -28039,7 +28052,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 						changed = true;
 					}
 				}
-				else if (mIns[0].mType == ASMIT_LDX && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_A))
+				else if (mIns[0].mType == ASMIT_LDX && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 				{
 					if (lblock->mIns[ls - 2].mType == ASMIT_LDA && lblock->mIns[ls - 2].mMode == ASMIM_ZERO_PAGE && lblock->mIns[ls - 2].mAddress == mIns[0].mAddress &&
 						lblock->mIns[ls - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, lblock->mIns[ls - 1].mMode) && !(lblock->mIns[ls - 1].mLive & LIVE_CPU_REG_A))
@@ -53683,6 +53696,11 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate3(int i, int pass)
 		mIns[i + 2] = ins;
 		mIns[i + 0].mType = ASMIT_LDA; mIns[i + 0].mLive |= LIVE_CPU_REG_A | mIns[i + 2].mLive;
 		mIns[i + 1].mType = ASMIT_STA; mIns[i + 1].mLive |= mIns[i + 2].mLive;
+		if (mIns[i + 2].RequiresYReg())
+		{
+			mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
+			mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+		}
 		return true;
 	}
 	
@@ -61044,7 +61062,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "reverse_bits");
+	CheckFunc = !strcmp(mIdent->mString, "techtree_numb");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
