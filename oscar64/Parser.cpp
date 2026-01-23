@@ -10882,7 +10882,32 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 
 				if (tdec->mType == DT_TYPE_STRUCT)
 				{
-					Declaration* mdec = tdec->mScope->Lookup(opident);
+					if (!mdec2)
+					{
+						DeclarationScope* scope = tdec->mScope;
+						while (scope && scope->mLevel == SLEVEL_CLASS)
+							scope = scope->mParent;
+
+						if (scope)
+						{
+							Declaration* mdec2 = scope->Lookup(opident);
+							if (mdec2)
+							{
+								nexp2 = new Expression(mScanner->mLocation, EX_CALL);
+
+								nexp2->mLeft = new Expression(mScanner->mLocation, EX_CONSTANT);
+								nexp2->mLeft->mDecType = mdec2->mBase;
+								nexp2->mLeft->mDecValue = mdec2;
+
+								nexp2->mDecType = mdec2->mBase;
+								nexp2->mRight = new Expression(mScanner->mLocation, EX_LIST);
+								nexp2->mRight->mLeft = exp->mLeft;
+								nexp2->mRight->mRight = exp->mRight;
+							}
+						}
+					}
+
+					Declaration* mdec = tdec->mScope->Lookup(opident, SLEVEL_CLASS);
 					if (mdec)
 					{
 						Expression* nexp = new Expression(mScanner->mLocation, EX_CALL);
@@ -10911,6 +10936,11 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 						nexp->mDecType = nexp->mLeft->mDecType->mBase;
 
 						exp = nexp;
+					}
+					else if (nexp2)
+					{
+						exp = ResolveOverloadCall(nexp2);
+						exp->mDecType = exp->mLeft->mDecType->mBase;
 					}
 				}
 
