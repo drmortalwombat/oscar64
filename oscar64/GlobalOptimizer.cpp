@@ -997,7 +997,7 @@ bool GlobalOptimizer::Optimize(void)
 					changed = true;
 				}
 
-//				if (!(ftype->mFlags & DTF_VARIADIC))
+				if (!(func->mFlags & DTF_INTRINSIC))
 				{
 					Declaration* pdec = ftype->mParams;
 					int vi = 0;
@@ -1005,6 +1005,7 @@ bool GlobalOptimizer::Optimize(void)
 					{
 						if ((ftype->mFlags & DTF_VARIADIC) && !pdec->mNext)
 							break;
+
 
 						pdec->mVarIndex += vi;
 						if (!(pdec->mOptFlags & OPTF_VAR_USED) && !(pdec->mFlags & DTF_FPARAM_UNUSED))
