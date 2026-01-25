@@ -1318,6 +1318,8 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 		}
 		else if (ins0->mCode == IC_STORE || ins0->mCode == IC_COPY || ins0->mCode == IC_STRCPY || ins0->mCode == IC_FILL)
 		{
+			if (ins0->mSrc[1].mMemory == IM_FRAME || ins0->mSrc[1].mMemory == IM_FFRAME)
+				return false;
 			if (!ins1->mNoSideEffects || !ins1->mConstExpr)
 				return false;
 		}
@@ -27606,7 +27608,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "screen_init");
+	CheckFunc = !strcmp(mIdent->mString, "towers_iterate");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

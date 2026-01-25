@@ -29478,7 +29478,20 @@ bool NativeCodeBasicBlock::JoinConditionSequence(void)
 		{
 			if (mBranch == ASMIT_BPL && mTrueJump == mFalseJump->mTrueJump && mFalseJump->mNumEntries == 1 && !mFalseJump->mFalseJump)
 			{
-				printf("doopsie F");
+				if (mFalseJump->mIns.Size() == 3 &&
+					mFalseJump->mIns[0].mType == ASMIT_LDA &&
+					mFalseJump->mIns[1].mType == ASMIT_ORA && mFalseJump->mIns[1].mMode == ASMIM_IMMEDIATE && mFalseJump->mIns[1].mAddress == 0x80 &&
+					mFalseJump->mIns[2].mType == ASMIT_STA && mFalseJump->mIns[2].SameEffectiveAddress(mFalseJump->mIns[0]) &&
+					!(mFalseJump->mIns[2].mLive & LIVE_CPU_REG_A))
+				{
+					mIns[sz - 1].mType = ASMIT_LDA; mIns[sz - 1].mLive |= LIVE_CPU_REG_A;
+					mIns.Push(NativeCodeInstruction(mFalseJump->mIns[0].mIns, ASMIT_AND, ASMIM_IMMEDIATE, 0x80));
+					mIns.Push(NativeCodeInstruction(mFalseJump->mIns[0].mIns, ASMIT_ORA, mFalseJump->mIns[0]));
+					mIns.Push(NativeCodeInstruction(mFalseJump->mIns[0].mIns, ASMIT_STA, mFalseJump->mIns[0]));
+					mBranch = ASMIT_JMP;
+					mFalseJump = nullptr;
+					changed = true;
+				}
 			}
 			else if (mBranch == ASMIT_BMI && mFalseJump == mTrueJump->mTrueJump && mTrueJump->mNumEntries == 1 && !mTrueJump->mFalseJump)
 			{
