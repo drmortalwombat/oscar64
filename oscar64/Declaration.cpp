@@ -537,9 +537,15 @@ Expression* Expression::ToVarConst(Declaration* pvar, Declaration* pconst) const
 	}
 }
 
+
 Expression* Expression::Clone(void) const
 {
-	Expression* exp = new Expression(mLocation, mType);
+	return this->Clone(mLocation);
+}
+
+Expression* Expression::Clone(const Location& loc) const
+{
+	Expression* exp = new Expression(loc, mType);
 	exp->mToken = mToken;
 	exp->mDecType = mDecType;
 	exp->mDecValue = mDecValue;

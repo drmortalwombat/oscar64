@@ -7612,7 +7612,7 @@ Expression* Parser::ParseIdentExpression(const Location & eloc, Declaration* dec
 			{
 				if (dec->mValue->mType == EX_CONSTANT)
 				{
-					exp = dec->mValue;
+					exp = dec->mValue->Clone(eloc);
 				}
 			}
 			else if (dec->mBase->mType == DT_TYPE_POINTER)
@@ -7620,7 +7620,7 @@ Expression* Parser::ParseIdentExpression(const Location & eloc, Declaration* dec
 				if (dec->mValue->mType == EX_CONSTANT)
 				{
 					if (dec->mValue->mDecValue->mType == DT_CONST_ADDRESS || dec->mValue->mDecValue->mType == DT_CONST_POINTER)
-						exp = dec->mValue;
+						exp = dec->mValue->Clone(eloc);
 				}
 			}
 		}

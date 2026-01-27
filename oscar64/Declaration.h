@@ -287,6 +287,7 @@ public:
 	Expression* ListAppend(Expression* lexp);
 	Expression* ToAlternateThis(Declaration* pthis, Declaration* nthis);
 	Expression* Clone(void) const;
+	Expression* Clone(const Location & loc) const;
 	Expression* ToVarConst(Declaration* pvar, Declaration* pconst) const;
 
 	void ReplaceVariable(Declaration* pvar, Declaration* nvar);
