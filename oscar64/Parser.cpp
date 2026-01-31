@@ -12399,6 +12399,8 @@ void Parser::ParseTemplateArguments(Declaration* tmpld, Declaration* tdec)
 			else
 				exp = ParseShiftExpression(false);
 
+			exp = exp->ConstantFold(mErrors, mDataSection, mCompilationUnits->mLinker);
+
 			Declaration* pdec = nullptr;
 
 			if (exp->mType == EX_TYPE)

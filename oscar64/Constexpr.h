@@ -35,6 +35,7 @@ protected:
 		Value(const Value& value);
 		Value(Value&& value);
 		Value(const Location& location, const Value * value, Declaration * type, int offset);
+		Value(const Location& location, const Value* value, Declaration* type, int offset, int shift, int bits);
 		Value(const Location& location, Declaration * value, Declaration* type, int offset);
 		Value(Value* value);
 		Value(const Location& location, const uint8 * data, Declaration* type);
@@ -44,17 +45,19 @@ protected:
 		Value& operator=(const Value& v);
 		Value& operator=(Value&& v);
 
-		Value ToRValue(void) const;
+		Value ToRValue(Errors* err) const;
 		Expression* ToExpression(LinkerSection* dataSection) const;
-		void Assign(const Value& v);
+		void Assign(const Value& v, Errors* err);
 
 		Location		mLocation;
 		Declaration	*	mDecType, * mDecValue;
 		const Value	*	mBaseValue;
-		int				mOffset;
+		int				mOffset, mShift, mBits;
 		ValueItem	*	mData;
 		int				mDataSize;
 		ValueItem		mShortData[4];
+
+		bool CheckSpace(int at, int size) const;
 
 		ValueItem* GetAddr(void);
 		const ValueItem* GetAddr(void) const;

@@ -46949,14 +46949,18 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 				ei--;
 			if (ei >= 0 && tail->mIns[ei].mType == ASMIT_STX && tail->mIns[ei].mMode == ASMIM_ZERO_PAGE)
 			{
+				int reg = tail->mIns[ei].mAddress;
+
 				int si = 0;
 				while (si < mIns.Size() && !mIns[si].ChangesXReg())
 					si++;
 				if (si < mIns.Size() && mIns[si].mType == ASMIT_LDX && mIns[si].SameEffectiveAddress(tail->mIns[ei]))
 				{
+					if (!tail->ReferencesZeroPage(reg, ei + 1) && !ReferencesZeroPage(reg, 0, si) && !ReferencesZeroPage(reg, si + 1))
+						tail->mIns.Remove(ei);
+
 					prev->mIns.Push(mIns[si]);
 					mIns.Remove(si);
-					tail->mIns.Remove(ei);
 
 					for (int i = 0; i < si; i++)
 						mIns[i].mLive |= LIVE_CPU_REG_X;
@@ -61075,7 +61079,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "techtree_numb");
+	CheckFunc = !strcmp(mIdent->mString, "expand");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

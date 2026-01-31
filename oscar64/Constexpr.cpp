@@ -4,7 +4,8 @@
 ConstexprInterpreter::Value::Value(void)
 	: mDecType(TheVoidTypeDeclaration), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
-	mData(mShortData), mDataSize(0)
+	mData(mShortData), mDataSize(0),
+	mShift(0), mBits(0)
 {
 }
 
@@ -12,7 +13,8 @@ ConstexprInterpreter::Value::Value(const Location & location)
 	: mLocation(location), 
 	mDecType(TheVoidTypeDeclaration), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
-	mData(mShortData), mDataSize(0)
+	mData(mShortData), mDataSize(0),
+	mShift(0), mBits(0)
 {
 }
 
@@ -20,7 +22,8 @@ ConstexprInterpreter::Value::Value(Expression* exp)
 	: mLocation(exp->mLocation), 
 	mDecType(exp->mDecType), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
-	mDataSize(exp->mDecValue->mBase->mSize)
+	mDataSize(exp->mDecValue->mBase->mSize),
+	mShift(0), mBits(0)
 {
 	assert(exp->mType == EX_CONSTANT);
 
@@ -61,7 +64,8 @@ ConstexprInterpreter::Value::Value(const Location& location, Declaration* dec)
 	: mLocation(location),
 	mDecType(dec), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
-	mDataSize(dec->mSize)
+	mDataSize(dec->mSize),
+	mShift(0), mBits(0)
 {
 	if (mDataSize <= 4)
 		mData = mShortData;
@@ -73,7 +77,8 @@ ConstexprInterpreter::Value::Value(const Location& location, Declaration* dec, i
 	: mLocation(location),
 	mDecType(dec), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
-	mDataSize(size)
+	mDataSize(size),
+	mShift(0), mBits(0)
 {
 	if (mDataSize <= 4)
 		mData = mShortData;
@@ -85,8 +90,8 @@ ConstexprInterpreter::Value::Value(const Value& value)
 	: mLocation(value.mLocation),
 	mDecType(value.mDecType), mDecValue(nullptr),
 	mBaseValue(value.mBaseValue), mOffset(value.mOffset),
-	mDataSize(value.mDataSize)
-	  
+	mDataSize(value.mDataSize),
+	mShift(value.mShift), mBits(value.mBits)	  
 {
 	if (mDataSize <= 4)
 		mData = mShortData;
@@ -101,7 +106,8 @@ ConstexprInterpreter::Value::Value(Value&& value)
 	: mLocation(value.mLocation),
 	mDecType(value.mDecType), mDecValue(nullptr),
 	mBaseValue(value.mBaseValue), mOffset(value.mOffset),
-	mDataSize(value.mDataSize)
+	mDataSize(value.mDataSize),
+	mShift(value.mShift), mBits(value.mBits)
 {
 	if (mDataSize <= 4)
 	{
@@ -120,7 +126,8 @@ ConstexprInterpreter::Value::Value(Value* value)
 	: mLocation(value->mLocation),
 	mDecType(value->mDecType), mDecValue(value->mDecValue),
 	mBaseValue(value), mOffset(0),
-	mDataSize(0), mData(mShortData)
+	mDataSize(0), mData(mShortData),
+	mShift(0), mBits(0)
 {
 }
 
@@ -128,23 +135,46 @@ ConstexprInterpreter::Value::Value(const Location& location, const Value* value,
 	: mLocation(location),
 	mDecType(type), mDecValue(nullptr),
 	mBaseValue(value), mOffset(offset),
-	mDataSize(0), mData(mShortData)
+	mDataSize(0), mData(mShortData),
+	mShift(0), mBits(0)
 {
 }
+
+ConstexprInterpreter::Value::Value(const Location& location, const Value* value, Declaration* type, int offset, int shift, int bits)
+	: mLocation(location),
+	mDecType(type), mDecValue(nullptr),
+	mBaseValue(value), mOffset(offset),
+	mDataSize(0), mData(mShortData),
+	mShift(shift), mBits(bits)
+{
+}
+
 
 ConstexprInterpreter::Value::Value(const Location& location, Declaration* value, Declaration* type, int offset)
 	: mLocation(location),
 	mDecType(type), mDecValue(value),
 	mBaseValue(nullptr), mOffset(offset),
-	mDataSize(0), mData(mShortData)
+	mDataSize(0), mData(mShortData),
+	mShift(0), mBits(0)
 {
+	if (value->mValue && value->mValue->mType == EX_CONSTANT)
+	{
+		mDataSize = value->mSize;
+		if (mDataSize <= 4)
+			mData = mShortData;
+		else
+			mData = new ValueItem[mDataSize];
+
+		PutConst(0, value->mValue->mDecValue);
+	}
 }
 
 ConstexprInterpreter::Value::Value(const Location& location, const uint8* data, Declaration* type)
 	: mLocation(location),
 	mDecType(type), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
-	mDataSize(type->mSize)
+	mDataSize(type->mSize),
+	mShift(0), mBits(0)
 {
 	if (mDataSize <= 4)
 		mData = mShortData;
@@ -159,7 +189,8 @@ ConstexprInterpreter::Value::Value(const Location& location, const ValueItem* da
 	: mLocation(location),
 	mDecType(type), mDecValue(nullptr),
 	mBaseValue(nullptr), mOffset(0),
-	mDataSize(type->mSize)
+	mDataSize(type->mSize),
+	mShift(0), mBits(0)
 {
 	if (mDataSize <= 4)
 		mData = mShortData;
@@ -192,6 +223,8 @@ ConstexprInterpreter::Value& ConstexprInterpreter::Value::operator=(const Value&
 	mBaseValue = v.mBaseValue;
 	mDataSize = v.mDataSize;
 	mOffset = v.mOffset;
+	mBits = v.mBits;
+	mShift = v.mShift;
 
 	if (mDataSize <= 4)
 		mData = mShortData;
@@ -217,6 +250,8 @@ ConstexprInterpreter::Value& ConstexprInterpreter::Value::operator=(Value&& v)
 	mBaseValue = v.mBaseValue;
 	mDataSize = v.mDataSize;
 	mOffset = v.mOffset;
+	mBits = v.mBits;
+	mShift = v.mShift;
 
 	if (mDataSize <= 4)
 	{
@@ -233,6 +268,14 @@ ConstexprInterpreter::Value& ConstexprInterpreter::Value::operator=(Value&& v)
 	return *this;
 }
 
+
+bool ConstexprInterpreter::Value::CheckSpace(int at, int size) const
+{
+	if (mBaseValue)
+		return mBaseValue->CheckSpace(mOffset + at, size);
+	else
+		return at + size <= mDataSize;
+}
 
 ConstexprInterpreter::ValueItem* ConstexprInterpreter::Value::GetAddr(void)
 {
@@ -319,7 +362,33 @@ int64 ConstexprInterpreter::Value::GetIntAt(int at, Declaration* type) const
 	{
 		const ValueItem* dp = GetAddr() + at;
 
-		if (type->mFlags & DTF_SIGNED)
+		if (mBits)
+		{
+			int nbytes = (mShift + mBits + 7) >> 3;
+
+			assert(CheckSpace(at, nbytes));
+
+			uint64 vv = 0;
+			switch (nbytes)
+			{
+			case 4:
+				vv |= (uint64(dp[3].mByte) << 24);
+			case 3:
+				vv |= (uint64(dp[2].mByte) << 24);
+			case 2:
+				vv |= uint64(dp[1].mByte) << 8;
+			case 1:
+				vv |= dp[0].mByte;
+			}
+
+			uint64	mask = ((1LL << mBits) - 1);
+			vv = (vv >> mShift) & mask;
+			if (type->mFlags & DTF_SIGNED)
+				return (int64)(vv << (64 - mBits)) >> (64 - mBits);
+			else
+				return vv;
+		}
+		else if (type->mFlags & DTF_SIGNED)
 		{
 			switch (type->mSize)
 			{
@@ -380,6 +449,8 @@ ConstexprInterpreter::Value ConstexprInterpreter::Value::GetPtrAt(int at, Declar
 
 void ConstexprInterpreter::Value::PutVarAt(Declaration* var, int64 v, int at, Declaration* type)
 {
+	assert(CheckSpace(at, 2));
+
 	ValueItem* dp = GetAddr() + at;
 	dp[0].mByte = uint8(v & 0xff);
 	dp[1].mByte = uint8((v >> 8) & 0xff);
@@ -395,16 +466,54 @@ void ConstexprInterpreter::Value::PutIntAt(int64 v, int at, Declaration* type)
 	else
 	{
 		ValueItem* dp = GetAddr() + at;
-
-		switch (type->mSize)
+		if (mBits)
 		{
-		case 4:
-			dp[3].mByte = uint8((v >> 24) & 0xff);
-			dp[2].mByte = uint8((v >> 16) & 0xff);
-		case 2:
-			dp[1].mByte = uint8((v >> 8) & 0xff);
-		case 1:
-			dp[0].mByte = uint8(v & 0xff);
+			int nbytes = (mShift + mBits + 7) >> 3;
+
+			assert(CheckSpace(at, nbytes));
+
+			uint64 vv = 0;
+			switch (nbytes)
+			{
+			case 4:
+				vv |= (uint64(dp[3].mByte) << 24);
+			case 3:
+				vv |= (uint64(dp[2].mByte) << 24);
+			case 2:
+				vv |= uint64(dp[1].mByte) << 8;
+			case 1:
+				vv |= dp[0].mByte;
+			}
+
+			uint64	mask = ((1LL << mBits) - 1) << mShift;
+			vv = (vv & ~mask) | (v << mShift) & mask;
+
+			switch (nbytes)
+			{
+			case 4:
+				dp[3].mByte = uint8((vv >> 24) & 0xff);
+			case 3:
+				dp[2].mByte = uint8((vv >> 16) & 0xff);
+			case 2:
+				dp[1].mByte = uint8((vv >> 8) & 0xff);
+			case 1:
+				dp[0].mByte = uint8(vv & 0xff);
+			}
+		}
+		else
+		{
+			assert(CheckSpace(at, type->mSize));
+
+			switch (type->mSize)
+			{
+			case 4:
+				dp[3].mByte = uint8((v >> 24) & 0xff);
+				dp[2].mByte = uint8((v >> 16) & 0xff);
+			case 2:
+				dp[1].mByte = uint8((v >> 8) & 0xff);
+			case 1:
+				dp[0].mByte = uint8(v & 0xff);
+			}
 		}
 	}
 }
@@ -413,6 +522,8 @@ void ConstexprInterpreter::Value::PutFloatAt(double v, int at, Declaration* type
 {
 	if (type->mType == DT_TYPE_FLOAT)
 	{
+		assert(CheckSpace(at, 4));
+
 		ValueItem* dp = GetAddr() + at;
 
 		union
@@ -436,6 +547,8 @@ void ConstexprInterpreter::Value::PutFloatAt(double v, int at, Declaration* type
 
 void ConstexprInterpreter::Value::PutPtrAt(const Value& v, int at, Declaration* type)
 {
+	assert(CheckSpace(at, 2));
+
 	ValueItem* dp = GetAddr() + at;
 
 	dp[0].mBaseValue = v.mBaseValue;
@@ -443,7 +556,7 @@ void ConstexprInterpreter::Value::PutPtrAt(const Value& v, int at, Declaration* 
 	dp[0].mByte = uint8(v.mOffset & 0xff);
 }
 
-ConstexprInterpreter::Value ConstexprInterpreter::Value::ToRValue(void) const
+ConstexprInterpreter::Value ConstexprInterpreter::Value::ToRValue(Errors * errors) const
 {
 	if (mBaseValue)
 	{
@@ -460,29 +573,46 @@ ConstexprInterpreter::Value ConstexprInterpreter::Value::ToRValue(void) const
 		return *this;
 }
 
-void ConstexprInterpreter::Value::Assign(const Value& v)
+void ConstexprInterpreter::Value::Assign(const Value& v, Errors* errors)
 {
 	switch (mDecType->mType)
 	{
 	case DT_TYPE_INTEGER:
 	case DT_TYPE_BOOL:
-		PutInt(v.GetInt());
+	case DT_TYPE_ENUM:
+		if (mBits)
+			PutInt(v.GetInt());
+		else if (CheckSpace(0, mDecType->mSize))
+			PutInt(v.GetInt());
+		else
+			errors->Error(v.mLocation, EERR_INVALID_CONSTEXPR, "invalid constexpression store address");
 		break;
 	case DT_TYPE_FLOAT:
-		PutFloat(v.GetFloat());
+		if (CheckSpace(0, 4))
+			PutFloat(v.GetFloat());
+		else
+			errors->Error(v.mLocation, EERR_INVALID_CONSTEXPR, "invalid constexpression store address");
 		break;
 	case DT_TYPE_STRUCT:
 	case DT_TYPE_UNION:
 	case DT_TYPE_ARRAY:
 	{
-		const ConstexprInterpreter::ValueItem* sp = v.GetAddr();
-		ConstexprInterpreter::ValueItem* dp = GetAddr();
+		if (CheckSpace(0, mDecType->mSize))
+		{
+			const ConstexprInterpreter::ValueItem* sp = v.GetAddr();
+			ConstexprInterpreter::ValueItem* dp = GetAddr();
 
-		for (int i = 0; i < mDecType->mSize; i++)
-			dp[i] = sp[i];
+			for (int i = 0; i < mDecType->mSize; i++)
+				dp[i] = sp[i];
+		}
+		else
+			errors->Error(v.mLocation, EERR_INVALID_CONSTEXPR, "invalid constexpression store address");
 	}	break;
 	case DT_TYPE_POINTER:
-		PutPtr(v.GetPtr());
+		if (CheckSpace(0, 2))
+			PutPtr(v.GetPtr());
+		else
+			errors->Error(v.mLocation, EERR_INVALID_CONSTEXPR, "invalid constexpression store address");
 		break;
 	}
 }
@@ -794,6 +924,8 @@ Expression* ConstexprInterpreter::EvalTempConstructor(Expression* exp)
 
 bool ConstexprInterpreter::AddParam(int& pos, Expression* pex, Declaration* dec)
 {
+	pex = pex->ConstantFold(mErrors, mDataSection);
+
 	if (dec)
 		pos = dec->mVarIndex;
 
@@ -1187,7 +1319,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalTypeCast(Expression* exp, 
 
 ConstexprInterpreter::Value ConstexprInterpreter::REval(Expression* exp)
 {
-	return Eval(exp).ToRValue();
+	return Eval(exp).ToRValue(mErrors);
 }
 
 ConstexprInterpreter::Value ConstexprInterpreter::EvalCall(Expression* exp, ConstexprInterpreter* caller)
@@ -1314,7 +1446,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalCoerce(Expression* exp, co
 		return vl;
 	else
 	{
-		Value	v = vl.ToRValue();
+		Value	v = vl.ToRValue(mErrors);
 		while (v.mDecType->IsReference())
 			v.mDecType = v.mDecType->mBase;
 
@@ -1474,7 +1606,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	{
 		Value	lexp = Eval(exp->mLeft);
 		Value	rexp = Eval(exp->mRight);
-		lexp.Assign(EvalCoerce(exp, rexp, lexp.mDecType));
+		lexp.Assign(EvalCoerce(exp, rexp, lexp.mDecType), mErrors);
 		return lexp;
 	}
 
@@ -1484,23 +1616,23 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 		Value	rexp = REval(exp->mRight);
 
 		if (exp->mToken != TK_ASSIGN)
-			rexp = EvalBinary(exp, lexp.ToRValue(), rexp);
-		lexp.Assign(EvalCoerce(exp, rexp, lexp.mDecType));
+			rexp = EvalBinary(exp, lexp.ToRValue(mErrors), rexp);
+		lexp.Assign(EvalCoerce(exp, rexp, lexp.mDecType), mErrors);
 		return lexp;
 	}
 
 	case EX_POSTINCDEC:
 	{
 		Value vl = Eval(exp->mLeft);
-		Value vr = vl.ToRValue();
-		vl.Assign(EvalUnary(exp, vr));
+		Value vr = vl.ToRValue(mErrors);
+		vl.Assign(EvalUnary(exp, vr), mErrors);
 		return vr;
 	}
 
 	case EX_PREINCDEC:
 	{
 		Value vl = Eval(exp->mLeft);
-		vl.Assign(EvalUnary(exp, vl.ToRValue()));
+		vl.Assign(EvalUnary(exp, vl.ToRValue(mErrors)), mErrors);
 		return vl;
 	}
 
@@ -1508,7 +1640,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::Eval(Expression* exp)
 	{
 		Value	v = Eval(exp->mLeft);
 		if (v.mBaseValue)
-			return Value(exp->mLocation, v.mBaseValue, exp->mDecType, v.mOffset + exp->mDecValue->mOffset);
+			return Value(exp->mLocation, v.mBaseValue, exp->mDecType, v.mOffset + exp->mDecValue->mOffset, exp->mDecValue->mShift, exp->mDecValue->mBits);
 		break;
 	}
 

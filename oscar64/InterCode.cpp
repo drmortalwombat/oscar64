@@ -18337,7 +18337,20 @@ bool InterCodeBasicBlock::SingleTailLoopOptimization(const NumberSet& aliasedPar
 								if (IsTempModifiedInRange(0, i, lins->mSrc[0].mTemp))
 									mInstructions.Insert(i, ains);
 								else
+								{
 									tail->AppendBeforeBranch(ains);
+									if (post->mEntryRequiredTemps[lins->mDst.mTemp])
+									{
+										InterInstruction* rains = new InterInstruction(lins->mLocation, IC_LEA);
+										rains->mDst = lins->mDst;
+										rains->mSrc[1] = lins->mDst;
+										rains->mSrc[0].mTemp = -1;
+										rains->mSrc[0].mType = IT_INT16;
+										rains->mSrc[0].mIntConst = -indexScale[lins->mSrc[0].mTemp];
+
+										post->mInstructions.Insert(0, rains);
+									}
+								}
 
 								modified = true;
 								continue;
@@ -27608,7 +27621,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "towers_iterate");
+	CheckFunc = !strcmp(mIdent->mString, "expand");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
