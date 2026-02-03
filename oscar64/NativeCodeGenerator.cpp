@@ -19369,7 +19369,7 @@ bool NativeCodeBasicBlock::UntangleXYUsage(bool final)
 			{
 				if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y) &&
 					mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ABSOLUTE_X &&
-					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 0].mLive & LIVE_CPU_REG_A))
+					mIns[i + 2].mType == ASMIT_TAX && !(mIns[i + 2].mLive & LIVE_CPU_REG_A))
 				{
 					mIns[i + 0].mType = ASMIT_LDY; mIns[i + 0].mLive |= LIVE_CPU_REG_Y;
 					mIns[i + 1].mType = ASMIT_LDX; mIns[i + 1].mMode = ASMIM_ABSOLUTE_Y; mIns[i + 1].mLive |= LIVE_CPU_REG_X;
@@ -61079,7 +61079,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "expand");
+	CheckFunc = !strcmp(mIdent->mString, "playfield_init");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
