@@ -11164,6 +11164,19 @@ void InterCodeBasicBlock::MapSingleAssignmentBools(const GrowingInstructionPtrAr
 			mInstructions[sz - 1]->mSrc[0] = tvalue[mInstructions[sz - 1]->mSrc[0].mTemp]->mDst;
 		}
 
+		if (mTrueValueRange.Size())
+		{
+			for (int i = 0; i < tvalue.Size(); i++)
+			{
+				if (tvalue[i])
+				{
+					mEntryValueRange[i].Reset();
+					mTrueValueRange[i].Reset();
+					mFalseValueRange[i].Reset();
+				}
+			}
+		}
+
 		if (mTrueJump) mTrueJump->MapSingleAssignmentBools(tvalue);
 		if (mFalseJump) mFalseJump->MapSingleAssignmentBools(tvalue);
 	}
@@ -27621,7 +27634,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "expand");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
