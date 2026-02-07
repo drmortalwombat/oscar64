@@ -19990,8 +19990,6 @@ bool NativeCodeBasicBlock::MoveAccuTrainsDown(void)
 
 					for (int j = 0; j < 256; j++)
 						apos[j] = -1;
-
-
 				}
 			}
 			else if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ZERO_PAGE && apos[mIns[i].mAddress] >= 0)
@@ -20011,8 +20009,30 @@ bool NativeCodeBasicBlock::MoveAccuTrainsDown(void)
 
 					for (int j = 0; j < 256; j++)
 						apos[j] = -1;
-
 				}
+				else
+					apos[mIns[i].mAddress] = -1;
+			}
+			else if (i + 1  < mIns.Size() && mIns[i].mType == ASMIT_CLC && mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && apos[mIns[i + 1].mAddress] >= 0)
+			{
+				int addr = mIns[i + 1].mAddress;
+
+				CheckLive();
+				if (MoveAccuTrainDown(apos[addr], i))
+				{
+					if (mIns[i + 1].RequiresXReg())
+						mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+					if (mIns[i + 1].RequiresYReg())
+						mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+
+					changed = true;
+					CheckLive();
+
+					for (int j = 0; j < 256; j++)
+						apos[j] = -1;
+				}
+				else
+					apos[mIns[i + 1].mAddress] = -1;
 			}
 			else if (i + 2 < mIns.Size() && mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_CLC &&
 						mIns[i + 2].IsCommutative() && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && apos[mIns[i + 2].mAddress] >= 0 && HasAsmInstructionMode(mIns[i + 2].mType, mIns[i].mMode))
@@ -61079,7 +61099,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "playfield_init");
+	CheckFunc = !strcmp(mIdent->mString, "towers_animate");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
