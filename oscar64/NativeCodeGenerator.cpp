@@ -16691,6 +16691,16 @@ void NativeCodeBasicBlock::CollectZeroPageUsage(NumberSet& used, NumberSet &modi
 							for (int j = 0; j < lo->mTempSizes[i]; j++)
 								used += lo->mTemporaries[i] + j;
 						}
+
+						if (lo->mProc)
+						{
+							if (!(mIns[i].mFlags & NCIF_FEXEC) && (lo->mFlags & LOBJF_ZEROPAGESET))
+							{
+								for (int i = 0; i < 256; i++)
+									if (lo->mZeroPageSet[i])
+										modified += i;
+							}
+						}
 					}
 				}
 				break;
@@ -29688,6 +29698,8 @@ bool NativeCodeBasicBlock::CanCrossBlockXShortcut(int addr)
 	if (mExitRequiredRegs[CPU_REG_X])
 		return false;
 
+	bool	xref = false;
+
 	int i = mIns.Size();
 	while (i > 0)
 	{
@@ -29697,10 +29709,12 @@ bool NativeCodeBasicBlock::CanCrossBlockXShortcut(int addr)
 		if (mIns[i].mType == ASMIT_STX && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == addr)
 			return true;
 		if (mIns[i].mType == ASMIT_STA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == addr && !(mIns[i].mLive & LIVE_CPU_REG_Z))
-			return true;		
+			return !xref;		
 			
 		if (mIns[i].ReferencesZeroPage(addr))
 			return false;
+		if (mIns[i].ReferencesXReg())
+			xref = true;
 	}
 
 	return false;
@@ -29729,6 +29743,8 @@ bool NativeCodeBasicBlock::CanCrossBlockYShortcut(int addr)
 	if (mExitRequiredRegs[CPU_REG_Y])
 		return false;
 
+	bool	yref = false;
+
 	int i = mIns.Size();
 	while (i > 0)
 	{
@@ -29738,10 +29754,12 @@ bool NativeCodeBasicBlock::CanCrossBlockYShortcut(int addr)
 		if (mIns[i].mType == ASMIT_STY && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == addr)
 			return true;
 		if (mIns[i].mType == ASMIT_STA && mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == addr && !(mIns[i].mLive & LIVE_CPU_REG_Z))
-			return true;
+			return !yref;
 
 		if (mIns[i].ReferencesZeroPage(addr))
 			return false;
+		if (mIns[i].ReferencesYReg())
+			yref = true;
 	}
 
 	return false;
@@ -36656,6 +36674,9 @@ bool NativeCodeBasicBlock::IsFinalZeroPageUse(const NativeCodeBasicBlock* block,
 								return false;
 						}
 					}
+
+					if (mIns[at].ChangesZeroPage(from) || mIns[at].ChangesZeroPage(to))
+						return false;
 
 					if (mIns[at].mFlags & NCIF_USE_ZP_32_X)
 					{
@@ -61109,7 +61130,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "towers_animate");
+	CheckFunc = !strcmp(mIdent->mString, "cube_clear_seg");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -61873,7 +61894,8 @@ bool NativeCodeProcedure::MapFastParamsToTemps(void)
 		for (int i = 0; i + 1 < block->mIns.Size(); i++)
 		{
 			if (block->mIns[i + 0].mType == ASMIT_LDA && block->mIns[i + 0].mMode == ASMIM_ZERO_PAGE && block->mIns[i + 0].mAddress >= BC_REG_FPARAMS && block->mIns[i + 0].mAddress < BC_REG_FPARAMS_END &&
-				block->mIns[i + 1].mType == ASMIT_STA && block->mIns[i + 1].mMode == ASMIM_ZERO_PAGE && block->mIns[i + 1].mAddress > BC_REG_TMP && !used[block->mIns[i + 0].mAddress] &&
+				block->mIns[i + 1].mType == ASMIT_STA && block->mIns[i + 1].mMode == ASMIM_ZERO_PAGE && block->mIns[i + 1].mAddress > BC_REG_TMP && 
+				!used[block->mIns[i + 0].mAddress] && !modified[block->mIns[i + 0].mAddress] &&
 				!aliased[block->mIns[i + 0].mAddress])
 			{
 				if (!block->ReferencesZeroPage(block->mIns[i + 0].mAddress, i + 1) && !block->ReferencesZeroPage(block->mIns[i + 1].mAddress, 0, i))
@@ -62034,6 +62056,7 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
 #endif
+
 #if 1
 		if (step == 2)
 		{
@@ -62183,6 +62206,7 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->ShortcutIndirectLoadStore())
 				changed = true;
 		}
+
 
 #if 1
 		if (step >= 3)
