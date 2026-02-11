@@ -15566,22 +15566,22 @@ bool NativeCodeBasicBlock::RemoveUnusedBitOps(void)
 			switch (ins.mType)
 			{
 			case ASMIT_TAX:
-				usesA = usesX;
+				usesA |= usesX;
 				usesX = 0;
 				usesZ = false;
 				break;
 			case ASMIT_TXA:
-				usesX = usesA;
+				usesX |= usesA;
 				usesA = 0;
 				usesZ = false;
 				break;
 			case ASMIT_TAY:
-				usesA = usesY;
+				usesA |= usesY;
 				usesY = 0;
 				usesZ = false;
 				break;
 			case ASMIT_TYA:
-				usesY = usesA;
+				usesY |= usesA;
 				usesA = 0;
 				usesZ = false;
 				break;
@@ -61130,7 +61130,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "cube_clear_seg");
+	CheckFunc = !strcmp(mIdent->mString, "cube_find");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
