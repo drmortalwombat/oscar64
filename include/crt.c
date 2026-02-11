@@ -192,6 +192,13 @@ w0:
 
 #elif defined(__ATARI__)
 
+#elif defined(__F256K__)
+		sei
+		cld
+		// Set I/O page 0
+		lda #$00
+		sta $01
+
 #elif defined(OSCAR_TARGET_NES)
 		sei
 		cld
@@ -324,7 +331,7 @@ bcode:
 #endif
 
 spexit:
-#if defined(__ATARI__) || defined(OSCAR_TARGET_NES)
+#if defined(__ATARI__) || defined(OSCAR_TARGET_NES) || defined(__F256K__)
 		jmp spexit
 #else
 		lda	#$4c

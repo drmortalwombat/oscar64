@@ -178,8 +178,8 @@ void dispmode80col(void)
 
 void iocharmap(IOCharMap chmap)
 {
-	giocharmap = chmap;	
-#if !defined(__ATARI__)
+	giocharmap = chmap;
+#if !defined(__ATARI__) && !defined(__F256K__)
 	if (chmap == IOCHM_PETSCII_1)
 		putrch(128 + 14);
 	else if (chmap == IOCHM_PETSCII_2)
@@ -187,6 +187,94 @@ void iocharmap(IOCharMap chmap)
 #endif
 }
 
+#if defined(__F256K__)
+// F256K: Direct VRAM text output — no kernel dependency.
+// Reads/writes hardware cursor registers (0xD014/0xD016) for sync
+// with f256lib's textGotoXY().  Default 80x30 (textReset defaults).
+
+static char __f256k_color = (char)0xF0;
+
+static void __f256k_scroll(void)
+{
+	volatile char *vram = (volatile char *)0xC000;
+	unsigned i;
+
+	*(volatile char *)0x0001 = 0x02;
+	for (i = 0; i < 80u * 29u; i++)
+		vram[i] = vram[i + 80];
+	for (i = 80u * 29u; i < 80u * 30u; i++)
+		vram[i] = 32;
+
+	*(volatile char *)0x0001 = 0x03;
+	vram = (volatile char *)0xC000;
+	for (i = 0; i < 80u * 29u; i++)
+		vram[i] = vram[i + 80];
+	for (i = 80u * 29u; i < 80u * 30u; i++)
+		vram[i] = __f256k_color;
+
+	*(volatile char *)0x0001 = 0x00;
+}
+
+void putrch(char c)
+{
+	char saved_io = *(volatile char *)0x0001;
+
+	*(volatile char *)0x0001 = 0x00;
+	unsigned cx = *(volatile char *)0xD014;
+	unsigned cy = *(volatile char *)0xD016;
+	unsigned pos = cy * 80 + cx;
+
+	volatile char *vram = (volatile char *)0xC000;
+	*(volatile char *)0x0001 = 0x03;
+	vram[pos] = __f256k_color;
+	*(volatile char *)0x0001 = 0x02;
+	vram[pos] = c;
+
+	cx++;
+	if (cx >= 80) {
+		cx = 0;
+		cy++;
+		if (cy >= 30) {
+			__f256k_scroll();
+			cy = 29;
+		}
+	}
+
+	*(volatile char *)0x0001 = 0x00;
+	*(volatile char *)0xD014 = (char)cx;
+	*(volatile char *)0xD015 = 0;
+	*(volatile char *)0xD016 = (char)cy;
+	*(volatile char *)0xD017 = 0;
+
+	*(volatile char *)0x0001 = saved_io;
+}
+
+void putpch(char c)
+{
+	if (c == '\n' || c == 13) {
+		char saved_io = *(volatile char *)0x0001;
+		*(volatile char *)0x0001 = 0x00;
+		unsigned cy = *(volatile char *)0xD016;
+		cy++;
+		if (cy >= 30) {
+			__f256k_scroll();
+			cy = 29;
+		}
+		*(volatile char *)0xD014 = 0;
+		*(volatile char *)0xD015 = 0;
+		*(volatile char *)0xD016 = (char)cy;
+		*(volatile char *)0xD017 = 0;
+		*(volatile char *)0x0001 = saved_io;
+	} else if (c == '\t') {
+		char n = wherex() & 3;
+		do {
+			putrch(' ');
+		} while (++n < 4);
+	} else {
+		putrch(c);
+	}
+}
+#else
 void putrch(char c)
 {
 	__asm {
@@ -225,7 +313,7 @@ void putpch(char c)
 					c ^= 0x20;
 #else
 					c ^= 0x20;
-#endif				
+#endif
 
 					if (giocharmap == IOCHM_PETSCII_1)
 						c &= 0xdf;
@@ -238,6 +326,7 @@ void putpch(char c)
 
 	putrch(c);
 }
+#endif
 
 static char convch(char ch)
 {
@@ -342,7 +431,24 @@ void putch(char c)
 
 void clrscr(void)
 {
+#if defined(__F256K__)
+	volatile char *vram = (volatile char *)0xC000;
+	unsigned i;
+	*(volatile char *)0x0001 = 0x02;
+	for (i = 0; i < 80u * 30u; i++)
+		vram[i] = 32;
+	*(volatile char *)0x0001 = 0x03;
+	vram = (volatile char *)0xC000;
+	for (i = 0; i < 80u * 30u; i++)
+		vram[i] = __f256k_color;
+	*(volatile char *)0x0001 = 0x00;
+	*(volatile char *)0xD014 = 0;
+	*(volatile char *)0xD015 = 0;
+	*(volatile char *)0xD016 = 0;
+	*(volatile char *)0xD017 = 0;
+#else
 	putrch(147);
+#endif
 }
 
 void textcursor(bool show)
@@ -369,6 +475,11 @@ void gotoxy(char cx, char cy)
 	const unsigned	off = cy * 40;
 
 	* (volatile unsigned *)SCREEN_PTR = off + 0x8000;
+#elif defined(__F256K__)
+	*(volatile char *)0xD014 = cx;
+	*(volatile char *)0xD015 = 0;
+	*(volatile char *)0xD016 = cy;
+	*(volatile char *)0xD017 = 0;
 #else
 	__asm
 	{
@@ -408,7 +519,9 @@ char wherex(void)
 #if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
 	return *(volatile char *)0xec;
 #elif defined(__PLUS4__)
-	return *(volatile char *)0xca;	
+	return *(volatile char *)0xca;
+#elif defined(__F256K__)
+	return *(volatile char *)0xD014;
 #else
 	return *(volatile char *)0xd3;
 #endif
@@ -419,7 +532,9 @@ char wherey(void)
 #if defined(__C128__) || defined(__C128B__) || defined(__C128E__)
 	return *(volatile char *)0xeb;
 #elif defined(__PLUS4__)
-	return *(volatile char *)0xcd;	
+	return *(volatile char *)0xcd;
+#elif defined(__F256K__)
+	return *(volatile char *)0xD016;
 #else
 	return *(volatile char *)0xd6;
 #endif
