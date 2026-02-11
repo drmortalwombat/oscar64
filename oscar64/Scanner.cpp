@@ -1002,6 +1002,8 @@ void Scanner::NextPreToken(void)
 					mode = SFM_BINARY_WORD;
 				else if (!strcmp(mTokenIdent->mString, "ctm_chars"))
 					decoder = SFD_CTM_CHARS;
+				else if (!strcmp(mTokenIdent->mString, "ctm_material"))
+					decoder = SFD_CTM_CHAR_MATERIAL;
 				else if (!strcmp(mTokenIdent->mString, "ctm_attr1"))
 					decoder = SFD_CTM_CHAR_ATTRIB_1;
 				else if (!strcmp(mTokenIdent->mString, "ctm_attr2"))

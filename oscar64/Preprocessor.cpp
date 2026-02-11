@@ -541,7 +541,7 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 
 	fread(&ctmMarker, 2, 1, mFile);
 
-	if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2)
+	if (decoder == SFD_CTM_CHAR_ATTRIB_1 || decoder == SFD_CTM_CHAR_ATTRIB_2 || decoder == SFD_CTM_CHAR_MATERIAL)
 	{
 		mMemSize = numChars;
 		mLimit = mMemSize;
@@ -549,7 +549,12 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 		mMemData = new uint8[mMemSize];
 	}
 
-	if (decoder == SFD_CTM_CHAR_ATTRIB_1)
+	if (decoder == SFD_CTM_CHAR_MATERIAL)
+	{
+		fread(mMemData, 1, mMemSize, mFile);
+		return;
+	}
+	else if (decoder == SFD_CTM_CHAR_ATTRIB_1)
 	{
 		for (int i = 0; i < mMemSize; i++)
 		{
@@ -605,10 +610,6 @@ void SourceFile::ReadCharPad(Errors* errors, const Location& location, SourceFil
 			else
 				fseek(mFile, numChars, SEEK_CUR);
 		}
-	}
-	else if (decoder == SFD_CTM_CHAR_ATTRIB_1)
-	{
-		return;
 	}
 
 	if (ctmHeader8.mFlags & 1)
