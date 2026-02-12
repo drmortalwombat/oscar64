@@ -67,6 +67,51 @@ bool GetProductAndVersion(char* strProductName, char* strProductVersion)
 }
 #endif
 
+void writeHelp(void)
+{
+	printf("-v  : verbose output for diagnostics\n");
+	printf("-v2 : more verbose output\n");
+	printf("-h  : print help\n");
+	printf("-i  : additional include paths\n");
+	printf("-ii : set default include path\n");
+	printf("-o  : optional output file name\n");
+	printf("-rt : alternative runtime library, replaces the crt.c(or empty for none)\n");
+	printf("-e  : execute the result in the integrated emulator\n");
+	printf("-ep : execute and profile the result in the integrated emulator\n");
+	printf("-bc : create byte code for all functions\n");
+	printf("-n  : create pure native code for all functions(now default)\n");
+	printf("-d  : define a symbol(e.g.NOFLOAT or NOLONG to avoid float / long code in printf)\n");
+	printf("-D  : define a symbol in a gcc compliant way(e.g. - D NAME = VALUE)\n");
+	printf("-O1 or -O : default optimizations\n");
+	printf("-O0 : disable optimizations\n");
+	printf("-O2 : more aggressive speed optimizations including auto inline of small functions\n");
+	printf("-O3 : aggressive optimization for speed\n");
+	printf("-Os : optimize for size\n");
+	printf("-Oi : enable auto inline of small functions(part of O2 / O3)\n");
+	printf("-Oa : optimize inline assembler(part of O2 / O3)\n");
+	printf("-Oa : optimize inline assembler(part of O2 / O3)\n");
+	printf("-Oz : enable auto placement of global variables in zero page(part of O3)\n");
+	printf("-Op : optimize constant parameters\n");
+	printf("-Oo : optimize size using \"outliner\" (extract repeated code sequences into functions)\n");
+	printf("-Ox : optimize pointer arithmetic by blocking shorter arrays to not cross page boundaries\n");
+	printf("-g  : create source level debug info and add source line numbers to asm listing\n");
+	printf("-gp : create source level debug info and add source line numbers to asm listing and static profile data\n");
+	printf("-tf : target format, may be prg, crt or bin\n");
+	printf("-tm : target machine\n");
+	printf("-d64 : create a d64 disk image\n");
+	printf("-f  : add a binary file to the disk image\n");
+	printf("-fz : add a compressed binary file to the disk image\n");
+	printf("-fi : sector skip for data files on disk image\n");
+	printf("-xz : extended zero page usage, more zero page space, but no return to basic\n");
+	printf("-cid : cartridge type ID, used by vice emulator\n");
+	printf("-csub : cartridge sub type\n");
+	printf("-cname : cartridge name\n");
+	printf("-pp : compile in C++ mode\n");
+	printf("-strict : use strict ANSI C parsing(no C++ goodies)\n");
+	printf("-psci : use PETSCII encoding for all strings without prefix\n");
+	printf("-rmp : generate error files.error.map, .error.asm when linker fails\n");
+}
+
 int main2(int argc, const char** argv)
 {
 	InitDeclarations();
@@ -128,7 +173,7 @@ int main2(int argc, const char** argv)
 		GrowingArray<const char*>	dataFiles(nullptr);
 		GrowingArray<bool>			dataFileCompressed(false);
 
-		bool		emulate = false, profile = false, customCRT = false, asserts = false, iorange = false;
+		bool		emulate = false, profile = false, customCRT = false, asserts = false, iorange = false, showHelp = false, hasSources = false;
 		int			trace = 0;
 
 		compiler->mPreprocessor->AddPath(basePath);
@@ -323,6 +368,10 @@ int main2(int argc, const char** argv)
 				{
 					compiler->mCompilerOptions |= COPT_DEBUGINFO | COPT_PROFILEINFO;
 				}
+				else if (arg[1] == 'h' && !arg[2])
+				{
+					showHelp = true;
+				}
 				else if (arg[1] == 'v')
 				{
 					compiler->mCompilerOptions |= COPT_VERBOSE;
@@ -371,6 +420,8 @@ int main2(int argc, const char** argv)
 				}
 
 				compiler->mCompilationUnits->AddUnit(loc, argv[i], nullptr);
+
+				hasSources = true;
 			}
 		}
 
@@ -577,15 +628,18 @@ int main2(int argc, const char** argv)
 		else
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target format option", targetFormat);
 
-		if (compiler->mErrors->mErrorCount == 0)
+		if (showHelp)
+			writeHelp();
+
+		strcpy_s(compiler->mVersion, strProductVersion);
+
+		if (compiler->mCompilerOptions & COPT_VERBOSE)
 		{
-			strcpy_s(compiler->mVersion, strProductVersion);
+			printf("Starting %s %s\n", strProductName, strProductVersion);
+		}
 
-			if (compiler->mCompilerOptions & COPT_VERBOSE)
-			{
-				printf("Starting %s %s\n", strProductName, strProductVersion);
-			}
-
+		if (compiler->mErrors->mErrorCount == 0 && (customCRT || hasSources))
+		{
 			compiler->RemoveErrorFile(targetPath);
 
 			{
@@ -690,7 +744,7 @@ int main2(int argc, const char** argv)
 	}
 	else
 	{
-		printf("oscar64 {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] [-pp] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
+		printf("oscar64 [-h] {-i=includePath} [-o=output.prg] [-rt=runtime.c] [-tf=target] [-tm=machine] [-e] [-n] [-g] [-O(0|1|2|3)] [-pp] {-dSYMBOL[=value]} [-v] [-d64=diskname] {-f[z]=file.xxx} {source.c}\n");
 
 		return 0;
 	}
