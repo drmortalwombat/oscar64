@@ -218,7 +218,7 @@ static char __f256k_color = (char)0xF0;
 
 static void __f256k_scroll(void)
 {
-	volatile char *vram = VKY_TEXT_MEM;
+	char *vram = VKY_TEXT_MEM;
 	unsigned i;
 
 	mmu.io_ctrl = MMU_IO_PAGE2;
@@ -246,7 +246,7 @@ void putrch(char c)
 	unsigned cy = vky.crsr_y;
 	unsigned pos = cy * 80 + cx;
 
-	volatile char *vram = VKY_TEXT_MEM;
+	char *vram = VKY_TEXT_MEM;
 	mmu.io_ctrl = MMU_IO_PAGE3;
 	vram[pos] = __f256k_color;
 	mmu.io_ctrl = MMU_IO_PAGE2;
@@ -452,7 +452,7 @@ void putch(char c)
 void clrscr(void)
 {
 #if defined(__F256K__)
-	volatile char *vram = VKY_TEXT_MEM;
+	char *vram = VKY_TEXT_MEM;
 	unsigned i;
 	mmu.io_ctrl = MMU_IO_PAGE2;
 	for (i = 0; i < 80u * 30u; i++)

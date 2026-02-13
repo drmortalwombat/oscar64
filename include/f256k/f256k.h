@@ -16,8 +16,8 @@ typedef signed char	sbyte;
 
 struct MMU
 {
-	volatile byte	mem_ctrl;
-	volatile byte	io_ctrl;
+	volatile __memmap byte	mem_ctrl;
+	volatile __memmap byte	io_ctrl;
 };
 
 #define mmu	(*((struct MMU *)0x0000))
@@ -41,7 +41,7 @@ struct MMU
 #define MMU_IO_PAGE3    0x03    // I/O page 3 (text color matrix)
 
 // MLUT editing registers (visible when MMU_EDIT_EN set)
-#define MMU_LUT         ((volatile char *)0x0008)
+#define MMU_LUT         ((volatile __memmap char *)0x0008)
 
 // ============================================================
 // VICKY (TinyVicky) Master Control Registers
@@ -90,18 +90,18 @@ struct VKY
 #define VKY_FON_SET     0x20    // Font set selection (0 or 1)
 
 // Text display memory (I/O page 2)
-#define VKY_TEXT_MEM    ((volatile char *)0xc000)
+#define VKY_TEXT_MEM    ((char *)0xc000)
 
 // Text color memory (I/O page 3)
-#define VKY_COLOR_MEM   ((volatile char *)0xc000)
+#define VKY_COLOR_MEM   ((char *)0xc000)
 
 // Text color LUTs (I/O page 0)
-#define VKY_TXT_FG_LUT  ((volatile char *)0xd800)
-#define VKY_TXT_BG_LUT  ((volatile char *)0xd840)
+#define VKY_TXT_FG_LUT  ((char *)0xd800)
+#define VKY_TXT_BG_LUT  ((char *)0xd840)
 
 // Font memory (I/O page 1)
-#define VKY_FONT0       ((volatile char *)0xc000)
-#define VKY_FONT1       ((volatile char *)0xc800)
+#define VKY_FONT0       ((char *)0xc000)
+#define VKY_FONT1       ((char *)0xc800)
 
 // ============================================================
 // Interrupt Controller
