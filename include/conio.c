@@ -1,5 +1,9 @@
 #include "conio.h"
 
+#if defined(__F256K__)
+#include "f256k/f256k.h"
+#endif
+
 static IOCharMap		giocharmap = IOCHM_ASCII;
 
 #if defined(__C128__)
@@ -129,7 +133,7 @@ __asm bsinit
 __asm bsinit
 {
 	lda #147
-	jmp $ffd2	
+	jmp $ffd2
 }
 #elif defined(__CBMPET__)
 #define bsout	0xffd2 : a->a
@@ -143,6 +147,24 @@ __asm bsinit
     /* no equivalent on PET */
 }
 #define bsget	0xffcf
+#elif defined(__F256K__)
+__asm bsout
+{
+}
+__asm bsin
+{
+	lda #0
+}
+__asm bsget
+{
+	lda #0
+}
+__asm bsplot
+{
+}
+__asm bsinit
+{
+}
 #else
 #define bsout	0xffd2 : a->a
 #define bsin	0xffe4
@@ -196,38 +218,38 @@ static char __f256k_color = (char)0xF0;
 
 static void __f256k_scroll(void)
 {
-	volatile char *vram = (volatile char *)0xC000;
+	volatile char *vram = VKY_TEXT_MEM;
 	unsigned i;
 
-	*(volatile char *)0x0001 = 0x02;
+	mmu.io_ctrl = MMU_IO_PAGE2;
 	for (i = 0; i < 80u * 29u; i++)
 		vram[i] = vram[i + 80];
 	for (i = 80u * 29u; i < 80u * 30u; i++)
 		vram[i] = 32;
 
-	*(volatile char *)0x0001 = 0x03;
-	vram = (volatile char *)0xC000;
+	mmu.io_ctrl = MMU_IO_PAGE3;
+	vram = VKY_COLOR_MEM;
 	for (i = 0; i < 80u * 29u; i++)
 		vram[i] = vram[i + 80];
 	for (i = 80u * 29u; i < 80u * 30u; i++)
 		vram[i] = __f256k_color;
 
-	*(volatile char *)0x0001 = 0x00;
+	mmu.io_ctrl = MMU_IO_PAGE0;
 }
 
 void putrch(char c)
 {
-	char saved_io = *(volatile char *)0x0001;
+	char saved_io = mmu.io_ctrl;
 
-	*(volatile char *)0x0001 = 0x00;
-	unsigned cx = *(volatile char *)0xD014;
-	unsigned cy = *(volatile char *)0xD016;
+	mmu.io_ctrl = MMU_IO_PAGE0;
+	unsigned cx = vky.crsr_x;
+	unsigned cy = vky.crsr_y;
 	unsigned pos = cy * 80 + cx;
 
-	volatile char *vram = (volatile char *)0xC000;
-	*(volatile char *)0x0001 = 0x03;
+	volatile char *vram = VKY_TEXT_MEM;
+	mmu.io_ctrl = MMU_IO_PAGE3;
 	vram[pos] = __f256k_color;
-	*(volatile char *)0x0001 = 0x02;
+	mmu.io_ctrl = MMU_IO_PAGE2;
 	vram[pos] = c;
 
 	cx++;
@@ -240,31 +262,27 @@ void putrch(char c)
 		}
 	}
 
-	*(volatile char *)0x0001 = 0x00;
-	*(volatile char *)0xD014 = (char)cx;
-	*(volatile char *)0xD015 = 0;
-	*(volatile char *)0xD016 = (char)cy;
-	*(volatile char *)0xD017 = 0;
+	mmu.io_ctrl = MMU_IO_PAGE0;
+	vky.crsr_x = cx;
+	vky.crsr_y = cy;
 
-	*(volatile char *)0x0001 = saved_io;
+	mmu.io_ctrl = saved_io;
 }
 
 void putpch(char c)
 {
 	if (c == '\n' || c == 13) {
-		char saved_io = *(volatile char *)0x0001;
-		*(volatile char *)0x0001 = 0x00;
-		unsigned cy = *(volatile char *)0xD016;
+		char saved_io = mmu.io_ctrl;
+		mmu.io_ctrl = MMU_IO_PAGE0;
+		unsigned cy = vky.crsr_y;
 		cy++;
 		if (cy >= 30) {
 			__f256k_scroll();
 			cy = 29;
 		}
-		*(volatile char *)0xD014 = 0;
-		*(volatile char *)0xD015 = 0;
-		*(volatile char *)0xD016 = (char)cy;
-		*(volatile char *)0xD017 = 0;
-		*(volatile char *)0x0001 = saved_io;
+		vky.crsr_x = 0;
+		vky.crsr_y = cy;
+		mmu.io_ctrl = saved_io;
 	} else if (c == '\t') {
 		char n = wherex() & 3;
 		do {
@@ -368,7 +386,9 @@ char getpch(void)
 
 char kbhit(void)
 {
-#if defined(__CBMPET__)
+#if defined(__F256K__)
+	return 0;
+#elif defined(__CBMPET__)
 	return __asm
 	{
 		lda $9e
@@ -432,20 +452,18 @@ void putch(char c)
 void clrscr(void)
 {
 #if defined(__F256K__)
-	volatile char *vram = (volatile char *)0xC000;
+	volatile char *vram = VKY_TEXT_MEM;
 	unsigned i;
-	*(volatile char *)0x0001 = 0x02;
+	mmu.io_ctrl = MMU_IO_PAGE2;
 	for (i = 0; i < 80u * 30u; i++)
 		vram[i] = 32;
-	*(volatile char *)0x0001 = 0x03;
-	vram = (volatile char *)0xC000;
+	mmu.io_ctrl = MMU_IO_PAGE3;
+	vram = VKY_COLOR_MEM;
 	for (i = 0; i < 80u * 30u; i++)
 		vram[i] = __f256k_color;
-	*(volatile char *)0x0001 = 0x00;
-	*(volatile char *)0xD014 = 0;
-	*(volatile char *)0xD015 = 0;
-	*(volatile char *)0xD016 = 0;
-	*(volatile char *)0xD017 = 0;
+	mmu.io_ctrl = MMU_IO_PAGE0;
+	vky.crsr_x = 0;
+	vky.crsr_y = 0;
 #else
 	putrch(147);
 #endif
@@ -453,7 +471,14 @@ void clrscr(void)
 
 void textcursor(bool show)
 {
+#if defined(__F256K__)
+	if (show)
+		vky.crsr_ctrl |= 0x01;
+	else
+		vky.crsr_ctrl &= ~0x01;
+#else
 	*(volatile char *)0xcc = show ? 0 : 1;
+#endif
 }
 
 void gotoxy(char cx, char cy)
@@ -476,10 +501,8 @@ void gotoxy(char cx, char cy)
 
 	* (volatile unsigned *)SCREEN_PTR = off + 0x8000;
 #elif defined(__F256K__)
-	*(volatile char *)0xD014 = cx;
-	*(volatile char *)0xD015 = 0;
-	*(volatile char *)0xD016 = cy;
-	*(volatile char *)0xD017 = 0;
+	vky.crsr_x = cx;
+	vky.crsr_y = cy;
 #else
 	__asm
 	{
@@ -493,25 +516,44 @@ void gotoxy(char cx, char cy)
 
 void textcolor(char c)
 {
+#if defined(__F256K__)
+	__f256k_color = (__f256k_color & 0x0F) | (c << 4);
+#else
 	*(volatile char *)0x0286 = c;
+#endif
 }
 
 void bgcolor(char c)
 {
+#if defined(__F256K__)
+	__f256k_color = (__f256k_color & 0xF0) | (c & 0x0F);
+#else
 	*(volatile char *)0xd021 = c;
+#endif
 }
 
 void bordercolor(char c)
 {
+#if defined(__F256K__)
+	vky.brd_color_b = VKY_TXT_FG_LUT[c * 4];
+	vky.brd_color_g = VKY_TXT_FG_LUT[c * 4 + 1];
+	vky.brd_color_r = VKY_TXT_FG_LUT[c * 4 + 2];
+#else
 	*(volatile char *)0xd020 = c;
+#endif
 }
 
 void revers(char r)
 {
-	if (r) 
+#if defined(__F256K__)
+	if (r)
+		__f256k_color = (__f256k_color >> 4) | (__f256k_color << 4);
+#else
+	if (r)
 		putrch(18);
 	else
 		putrch(18 + 128);
+#endif
 }
 
 char wherex(void)
@@ -521,7 +563,7 @@ char wherex(void)
 #elif defined(__PLUS4__)
 	return *(volatile char *)0xca;
 #elif defined(__F256K__)
-	return *(volatile char *)0xD014;
+	return (char)(vky.crsr_x);
 #else
 	return *(volatile char *)0xd3;
 #endif
@@ -534,7 +576,7 @@ char wherey(void)
 #elif defined(__PLUS4__)
 	return *(volatile char *)0xcd;
 #elif defined(__F256K__)
-	return *(volatile char *)0xD016;
+	return (char)(vky.crsr_y);
 #else
 	return *(volatile char *)0xd6;
 #endif

@@ -4,12 +4,23 @@
 // F256K Hardware Register Definitions for oscar64
 // Based on the F256 Hardware Reference Manual
 
+typedef unsigned char	byte;
+typedef unsigned int	word;
+typedef unsigned long	dword;
+
+typedef signed char	sbyte;
+
 // ============================================================
 // MMU Registers
 // ============================================================
 
-#define MMU_MEM_CTRL    (*(volatile char *)0x0000)
-#define MMU_IO_CTRL     (*(volatile char *)0x0001)
+struct MMU
+{
+	volatile byte	mem_ctrl;
+	volatile byte	io_ctrl;
+};
+
+#define mmu	(*((struct MMU *)0x0000))
 
 // MMU_MEM_CTRL bits
 #define MMU_EDIT_EN     0x80    // Enable MLUT editing
@@ -36,8 +47,30 @@
 // VICKY (TinyVicky) Master Control Registers
 // ============================================================
 
-#define VKY_MSTR_CTRL_0 (*(volatile char *)0xd000)
-#define VKY_MSTR_CTRL_1 (*(volatile char *)0xd001)
+struct VKY
+{
+	volatile byte	ctrl0;          // 0xD000
+	volatile byte	ctrl1;          // 0xD001
+	byte		_pad0[2];       // 0xD002-0xD003
+	volatile byte	brd_ctrl;       // 0xD004
+	volatile byte	brd_color_b;    // 0xD005
+	volatile byte	brd_color_g;    // 0xD006
+	volatile byte	brd_color_r;    // 0xD007
+	volatile byte	brd_x_size;     // 0xD008
+	volatile byte	brd_y_size;     // 0xD009
+	byte		_pad1[3];       // 0xD00A-0xD00C
+	volatile byte	bkg_color_b;    // 0xD00D
+	volatile byte	bkg_color_g;    // 0xD00E
+	volatile byte	bkg_color_r;    // 0xD00F
+	volatile byte	crsr_ctrl;      // 0xD010
+	byte		_pad2;          // 0xD011
+	volatile byte	crsr_char;      // 0xD012
+	volatile byte	crsr_color;     // 0xD013
+	volatile word	crsr_x;         // 0xD014-0xD015
+	volatile word	crsr_y;         // 0xD016-0xD017
+};
+
+#define vky	(*((struct VKY *)0xd000))
 
 // VKY_MSTR_CTRL_0 bits
 #define VKY_TEXT        0x01    // Enable text display
@@ -55,28 +88,6 @@
 #define VKY_MON_SLP     0x08    // Monitor sleep
 #define VKY_FON_OVLY    0x10    // Font overlay mode
 #define VKY_FON_SET     0x20    // Font set selection (0 or 1)
-
-// Border control
-#define VKY_BRD_CTRL    (*(volatile char *)0xd004)
-#define VKY_BRD_COLOR_B (*(volatile char *)0xd005)
-#define VKY_BRD_COLOR_G (*(volatile char *)0xd006)
-#define VKY_BRD_COLOR_R (*(volatile char *)0xd007)
-#define VKY_BRD_X_SIZE  (*(volatile char *)0xd008)
-#define VKY_BRD_Y_SIZE  (*(volatile char *)0xd009)
-
-// Background color
-#define VKY_BKG_COLOR_B (*(volatile char *)0xd00d)
-#define VKY_BKG_COLOR_G (*(volatile char *)0xd00e)
-#define VKY_BKG_COLOR_R (*(volatile char *)0xd00f)
-
-// Cursor control
-#define VKY_CRSR_CTRL   (*(volatile char *)0xd010)
-#define VKY_CRSR_CHAR   (*(volatile char *)0xd012)
-#define VKY_CRSR_COLOR  (*(volatile char *)0xd013)
-#define VKY_CRSR_X_L    (*(volatile char *)0xd014)
-#define VKY_CRSR_X_H    (*(volatile char *)0xd015)
-#define VKY_CRSR_Y_L    (*(volatile char *)0xd016)
-#define VKY_CRSR_Y_H    (*(volatile char *)0xd017)
 
 // Text display memory (I/O page 2)
 #define VKY_TEXT_MEM    ((volatile char *)0xc000)
@@ -96,21 +107,18 @@
 // Interrupt Controller
 // ============================================================
 
-#define INT_PENDING_0   (*(volatile char *)0xd660)
-#define INT_PENDING_1   (*(volatile char *)0xd661)
-#define INT_PENDING_2   (*(volatile char *)0xd662)
+struct IntCtrl
+{
+	volatile byte	pending[3];     // 0xD660-0xD662
+	byte		_pad0;          // 0xD663
+	volatile byte	polarity[3];    // 0xD664-0xD666
+	byte		_pad1;          // 0xD667
+	volatile byte	edge[3];        // 0xD668-0xD66A
+	byte		_pad2;          // 0xD66B
+	volatile byte	mask[3];        // 0xD66C-0xD66E
+};
 
-#define INT_POLARITY_0  (*(volatile char *)0xd664)
-#define INT_POLARITY_1  (*(volatile char *)0xd665)
-#define INT_POLARITY_2  (*(volatile char *)0xd666)
-
-#define INT_EDGE_0      (*(volatile char *)0xd668)
-#define INT_EDGE_1      (*(volatile char *)0xd669)
-#define INT_EDGE_2      (*(volatile char *)0xd66a)
-
-#define INT_MASK_0      (*(volatile char *)0xd66c)
-#define INT_MASK_1      (*(volatile char *)0xd66d)
-#define INT_MASK_2      (*(volatile char *)0xd66e)
+#define intctrl	(*((struct IntCtrl *)0xd660))
 
 // Interrupt Group 0 bits
 #define INT_VKY_SOF     0x01    // Start Of Frame
@@ -132,19 +140,24 @@
 // PS/2 Interface
 // ============================================================
 
-#define PS2_CTRL        (*(volatile char *)0xd640)
-#define PS2_OUT         (*(volatile char *)0xd641)
-#define KBD_IN          (*(volatile char *)0xd642)
-#define MS_IN           (*(volatile char *)0xd643)
-#define PS2_STAT        (*(volatile char *)0xd644)
+struct PS2
+{
+	volatile byte	ctrl;           // 0xD640
+	volatile byte	out;            // 0xD641
+	volatile byte	kbd_in;         // 0xD642
+	volatile byte	ms_in;          // 0xD643
+	volatile byte	stat;           // 0xD644
+};
 
-// PS2_CTRL bits
+#define ps2	(*((struct PS2 *)0xd640))
+
+// PS2 ctrl bits
 #define PS2_K_WR        0x01    // Keyboard write
 #define PS2_M_WR        0x02    // Mouse write
 #define PS2_KCLR        0x04    // Clear keyboard FIFO
 #define PS2_MCLR        0x08    // Clear mouse FIFO
 
-// PS2_STAT bits
+// PS2 stat bits
 #define PS2_KEMP        0x01    // Keyboard FIFO empty
 #define PS2_MEMP        0x02    // Mouse FIFO empty
 
@@ -152,13 +165,16 @@
 // Timers
 // ============================================================
 
-#define TIMER0_CTRL     (*(volatile char *)0xd650)
-#define TIMER0_VALUE    ((volatile char *)0xd651)
-#define TIMER0_CMP      ((volatile char *)0xd654)
+struct Timer
+{
+	volatile byte	ctrl;           // +0x00
+	volatile byte	value[3];       // +0x01-0x03
+	volatile byte	cmp[3];         // +0x04-0x06
+	byte		_pad;           // +0x07
+};
 
-#define TIMER1_CTRL     (*(volatile char *)0xd658)
-#define TIMER1_VALUE    ((volatile char *)0xd659)
-#define TIMER1_CMP      ((volatile char *)0xd65c)
+#define timer0	(*((struct Timer *)0xd650))
+#define timer1	(*((struct Timer *)0xd658))
 
 // Timer control bits
 #define TIMER_EN        0x01    // Enable timer
@@ -171,20 +187,19 @@
 // UART (16750-compatible)
 // ============================================================
 
-#define UART_RXD        (*(volatile char *)0xd630)
-#define UART_TXR        (*(volatile char *)0xd630)
-#define UART_IER        (*(volatile char *)0xd631)
-#define UART_ISR        (*(volatile char *)0xd632)
-#define UART_FCR        (*(volatile char *)0xd632)
-#define UART_LCR        (*(volatile char *)0xd633)
-#define UART_MCR        (*(volatile char *)0xd634)
-#define UART_LSR        (*(volatile char *)0xd635)
-#define UART_MSR        (*(volatile char *)0xd636)
-#define UART_SPR        (*(volatile char *)0xd637)
+struct UART
+{
+	volatile byte	data;           // 0xD630 (RXD/TXR, or DLL when DLAB=1)
+	volatile byte	ier;            // 0xD631 (IER, or DLH when DLAB=1)
+	volatile byte	isr;            // 0xD632 (ISR read / FCR write)
+	volatile byte	lcr;            // 0xD633
+	volatile byte	mcr;            // 0xD634
+	volatile byte	lsr;            // 0xD635
+	volatile byte	msr;            // 0xD636
+	volatile byte	spr;            // 0xD637
+};
 
-// Baud rate divisor (DLAB=1)
-#define UART_DLL        (*(volatile char *)0xd630)
-#define UART_DLH        (*(volatile char *)0xd631)
+#define uart	(*((struct UART *)0xd630))
 
 // LSR bits
 #define UART_LSR_DR     0x01    // Data ready
@@ -194,16 +209,24 @@
 // DMA Controller
 // ============================================================
 
-#define DMA_CTRL        (*(volatile char *)0xdf00)
-#define DMA_FILL_BYTE   (*(volatile char *)0xdf01)
-#define DMA_SRC_ADDR    ((volatile char *)0xdf04)
-#define DMA_DST_ADDR    ((volatile char *)0xdf08)
-#define DMA_COUNT       ((volatile char *)0xdf0c)
-#define DMA_HEIGHT      ((volatile char *)0xdf0e)
-#define DMA_SRC_STRIDE  ((volatile char *)0xdf10)
-#define DMA_DST_STRIDE  ((volatile char *)0xdf12)
+struct DMA
+{
+	volatile byte	ctrl;           // 0xDF00
+	volatile byte	fill_byte;      // 0xDF01
+	byte		_pad0[2];       // 0xDF02-0xDF03
+	volatile byte	src_addr[3];    // 0xDF04-0xDF06
+	byte		_pad1;          // 0xDF07
+	volatile byte	dst_addr[3];    // 0xDF08-0xDF0A
+	byte		_pad2;          // 0xDF0B
+	volatile word	count;          // 0xDF0C-0xDF0D
+	volatile word	height;         // 0xDF0E-0xDF0F
+	volatile word	src_stride;     // 0xDF10-0xDF11
+	volatile word	dst_stride;     // 0xDF12-0xDF13
+};
 
-// DMA_CTRL bits
+#define dma	(*((struct DMA *)0xdf00))
+
+// DMA ctrl bits
 #define DMA_ENABLE      0x01    // Enable DMA
 #define DMA_2D          0x02    // 2D operation
 #define DMA_FILL        0x04    // Fill (vs copy)
@@ -214,14 +237,19 @@
 // System Control
 // ============================================================
 
-#define SYS0            (*(volatile char *)0xd6a0)
-#define SYS1            (*(volatile char *)0xd6a1)
-#define SYS_RST0        (*(volatile char *)0xd6a2)
-#define SYS_RST1        (*(volatile char *)0xd6a3)
-#define SYS_RNDL        (*(volatile char *)0xd6a4)
-#define SYS_RNDH        (*(volatile char *)0xd6a5)
-#define SYS_RND_CTRL    (*(volatile char *)0xd6a6)
-#define SYS_MID         (*(volatile char *)0xd6a7)
+struct SysCtrl
+{
+	volatile byte	sys0;           // 0xD6A0
+	volatile byte	sys1;           // 0xD6A1
+	volatile byte	rst0;           // 0xD6A2
+	volatile byte	rst1;           // 0xD6A3
+	volatile byte	rnd_lo;         // 0xD6A4
+	volatile byte	rnd_hi;         // 0xD6A5
+	volatile byte	rnd_ctrl;       // 0xD6A6
+	volatile byte	mid;            // 0xD6A7
+};
+
+#define sysctl	(*((struct SysCtrl *)0xd6a0))
 
 // SYS0 bits
 #define SYS_PWR_LED     0x01    // Power LED
@@ -242,41 +270,28 @@
 // VIA (65C22) Registers
 // ============================================================
 
+struct VIA
+{
+	volatile byte	iorb;           // +0x00
+	volatile byte	iora;           // +0x01
+	volatile byte	ddrb;           // +0x02
+	volatile byte	ddra;           // +0x03
+	volatile word	t1c;            // +0x04-0x05
+	volatile word	t1l;            // +0x06-0x07
+	volatile word	t2c;            // +0x08-0x09
+	volatile byte	sdr;            // +0x0A
+	volatile byte	acr;            // +0x0B
+	volatile byte	pcr;            // +0x0C
+	volatile byte	ifr;            // +0x0D
+	volatile byte	ier;            // +0x0E
+	volatile byte	iora2;          // +0x0F
+};
+
 // VIA 0 (auxiliary I/O)
-#define VIA0_IORB       (*(volatile char *)0xdc00)
-#define VIA0_IORA       (*(volatile char *)0xdc01)
-#define VIA0_DDRB       (*(volatile char *)0xdc02)
-#define VIA0_DDRA       (*(volatile char *)0xdc03)
-#define VIA0_T1C_L      (*(volatile char *)0xdc04)
-#define VIA0_T1C_H      (*(volatile char *)0xdc05)
-#define VIA0_T1L_L      (*(volatile char *)0xdc06)
-#define VIA0_T1L_H      (*(volatile char *)0xdc07)
-#define VIA0_T2C_L      (*(volatile char *)0xdc08)
-#define VIA0_T2C_H      (*(volatile char *)0xdc09)
-#define VIA0_SDR        (*(volatile char *)0xdc0a)
-#define VIA0_ACR        (*(volatile char *)0xdc0b)
-#define VIA0_PCR        (*(volatile char *)0xdc0c)
-#define VIA0_IFR        (*(volatile char *)0xdc0d)
-#define VIA0_IER        (*(volatile char *)0xdc0e)
-#define VIA0_IORA2      (*(volatile char *)0xdc0f)
+#define via0	(*((struct VIA *)0xdc00))
 
 // VIA 1 (keyboard, F256K only)
-#define VIA1_IORB       (*(volatile char *)0xdb00)
-#define VIA1_IORA       (*(volatile char *)0xdb01)
-#define VIA1_DDRB       (*(volatile char *)0xdb02)
-#define VIA1_DDRA       (*(volatile char *)0xdb03)
-#define VIA1_T1C_L      (*(volatile char *)0xdb04)
-#define VIA1_T1C_H      (*(volatile char *)0xdb05)
-#define VIA1_T1L_L      (*(volatile char *)0xdb06)
-#define VIA1_T1L_H      (*(volatile char *)0xdb07)
-#define VIA1_T2C_L      (*(volatile char *)0xdb08)
-#define VIA1_T2C_H      (*(volatile char *)0xdb09)
-#define VIA1_SDR        (*(volatile char *)0xdb0a)
-#define VIA1_ACR        (*(volatile char *)0xdb0b)
-#define VIA1_PCR        (*(volatile char *)0xdb0c)
-#define VIA1_IFR        (*(volatile char *)0xdb0d)
-#define VIA1_IER        (*(volatile char *)0xdb0e)
-#define VIA1_IORA2      (*(volatile char *)0xdb0f)
+#define via1	(*((struct VIA *)0xdb00))
 
 // ============================================================
 // SD Card Controller
