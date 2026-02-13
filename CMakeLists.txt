@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.15)
 # Project name and version
 project(oscar64 VERSION 1.0 LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 # Define the executable
 add_executable(oscar64)
 
@@ -70,4 +72,18 @@ set_target_properties(oscar64 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release
 )
 
-install(TARGETS oscar64 RUNTIME DESTINATION bin)
+install(TARGETS oscar64 RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Install oscar64 runtime include files to <prefix>/include/oscar64/
+# The compiler resolves this at runtime via fallback: basePath + "include/oscar64/crt.h"
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/oscar64
+    FILES_MATCHING
+    PATTERN "*.h"
+    PATTERN "*.c"
+    PATTERN "*.cpp"
+)
+
+install(FILES oscar64.1
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+)
