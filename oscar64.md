@@ -605,6 +605,26 @@ The compiler uses basic zero page space for temporaries, local variables and fun
 
     __zeropage int a;
 
+## Memory consistency
+
+The C use of volatile requires memory accesses with this type qualifier to not be reordered regarding other volatile memory accesses, cached or optimized away.  This is on one hand too strong a limitiation (for e.g. video memory) on the other side a too weak ordering mechanism when using banked memory.  The change of a memory bank may not be reordered with any other memory access that would fall into the banked region.
+
+To provide this additional memory fence the compiler adds the __memmap type qualifier that prevents any memory access to be reordered around an access to a memory location with this qualifier:
+
+	char mmap_set(char pla)
+	{
+		char ppla = *((char *)0x01);
+		*((volatile __memmap char *)0x01) = pla;
+		return ppla;
+	}
+
+So the following recommendations for volatile and __memmap should be used:
+
+* volatile : for hardware registers or variables that are shared with interrupts
+* __memmap  : hardware registers that change the memory layout (e.g. bank registers or mmu)
+* no qualifier for accesses that may be reordered or cached such as video or sprite memory
+
+
 ## Prevent inlining
 
 With compiler option O2 and greater the compiler will try to inline small functions.  This may not always be desirable, so the __noinline qualifier can be added to a function to prevent this.
