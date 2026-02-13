@@ -13722,6 +13722,19 @@ Expression* Parser::ParseAssemblerAddOperand(Declaration* pcasm, int pcoffset)
 			else
 				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Integer offset expected");
 		}
+		else if (nexp->mLeft->mDecValue->mType == DT_VARIABLE_REF)
+		{
+			if (nexp->mRight->mDecValue->mType == DT_CONST_INTEGER)
+			{
+				Declaration* ndec = new Declaration(mScanner->mLocation, DT_VARIABLE_REF);
+				ndec->mBase = nexp->mLeft->mDecValue->mBase;
+				ndec->mOffset = nexp->mLeft->mDecValue->mOffset + (nexp->mToken == TK_SUB ? -int(nexp->mRight->mDecValue->mInteger) : int(nexp->mRight->mDecValue->mInteger));
+				exp = new Expression(mScanner->mLocation, EX_CONSTANT);
+				exp->mDecValue = ndec;
+			}
+			else
+				mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Integer offset expected");
+		}
 		else if (nexp->mLeft->mDecValue->mType == DT_CONST_FUNCTION)
 		{
 			if (nexp->mRight->mDecValue->mType == DT_CONST_INTEGER)

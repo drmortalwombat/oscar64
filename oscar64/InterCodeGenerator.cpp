@@ -902,13 +902,16 @@ void InterCodeGenerator::TranslateAssembler(InterCodeModule* mod, Declaration * 
 		if (cexp->mLeft)
 			aexp = cexp->mLeft->mDecValue;
 
-		if (cexp->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(cexp->mAsmInsType, ASMIM_ZERO_PAGE) && aexp->mType == DT_VARIABLE && (aexp->mFlags & DTF_GLOBAL) && (aexp->mFlags & DTF_ZEROPAGE))
+		if (aexp)
 		{
-			cexp->mAsmInsMode = ASMIM_ZERO_PAGE;
-		}
-		else if (cexp->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(cexp->mAsmInsType, ASMIM_ZERO_PAGE) && aexp->mType == DT_VARIABLE_REF && (aexp->mBase->mFlags & DTF_GLOBAL) && (aexp->mBase->mFlags & DTF_ZEROPAGE))
-		{
-			cexp->mAsmInsMode = ASMIM_ZERO_PAGE;
+			if (cexp->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(cexp->mAsmInsType, ASMIM_ZERO_PAGE) && aexp->mType == DT_VARIABLE && (aexp->mFlags & DTF_GLOBAL) && (aexp->mFlags & DTF_ZEROPAGE))
+			{
+				cexp->mAsmInsMode = ASMIM_ZERO_PAGE;
+			}
+			else if (cexp->mAsmInsMode == ASMIM_ABSOLUTE && HasAsmInstructionMode(cexp->mAsmInsType, ASMIM_ZERO_PAGE) && aexp->mType == DT_VARIABLE_REF && (aexp->mBase->mFlags & DTF_GLOBAL) && (aexp->mBase->mFlags & DTF_ZEROPAGE))
+			{
+				cexp->mAsmInsMode = ASMIM_ZERO_PAGE;
+			}
 		}
 #endif
 
