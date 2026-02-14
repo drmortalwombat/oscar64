@@ -214,9 +214,9 @@ void iocharmap(IOCharMap chmap)
 // Reads/writes hardware cursor registers (0xD014/0xD016) for sync
 // with f256lib's textGotoXY().  Default 80x30 (textReset defaults).
 
-static char __f256k_color = (char)0xF0;
+static char f256k_color = (char)0xF0;
 
-static void __f256k_scroll(void)
+static void f256k_scroll(void)
 {
 	char *vram = VKY_TEXT_MEM;
 	unsigned i;
@@ -232,7 +232,7 @@ static void __f256k_scroll(void)
 	for (i = 0; i < 80u * 29u; i++)
 		vram[i] = vram[i + 80];
 	for (i = 80u * 29u; i < 80u * 30u; i++)
-		vram[i] = __f256k_color;
+		vram[i] = f256k_color;
 
 	mmu.io_ctrl = MMU_IO_PAGE0;
 }
@@ -248,7 +248,7 @@ void putrch(char c)
 
 	char *vram = VKY_TEXT_MEM;
 	mmu.io_ctrl = MMU_IO_PAGE3;
-	vram[pos] = __f256k_color;
+	vram[pos] = f256k_color;
 	mmu.io_ctrl = MMU_IO_PAGE2;
 	vram[pos] = c;
 
@@ -257,7 +257,7 @@ void putrch(char c)
 		cx = 0;
 		cy++;
 		if (cy >= 30) {
-			__f256k_scroll();
+			f256k_scroll();
 			cy = 29;
 		}
 	}
@@ -277,7 +277,7 @@ void putpch(char c)
 		unsigned cy = vky.crsr_y;
 		cy++;
 		if (cy >= 30) {
-			__f256k_scroll();
+			f256k_scroll();
 			cy = 29;
 		}
 		vky.crsr_x = 0;
@@ -460,7 +460,7 @@ void clrscr(void)
 	mmu.io_ctrl = MMU_IO_PAGE3;
 	vram = VKY_COLOR_MEM;
 	for (i = 0; i < 80u * 30u; i++)
-		vram[i] = __f256k_color;
+		vram[i] = f256k_color;
 	mmu.io_ctrl = MMU_IO_PAGE0;
 	vky.crsr_x = 0;
 	vky.crsr_y = 0;
@@ -517,7 +517,7 @@ void gotoxy(char cx, char cy)
 void textcolor(char c)
 {
 #if defined(__F256K__)
-	__f256k_color = (__f256k_color & 0x0F) | (c << 4);
+	f256k_color = (f256k_color & 0x0F) | (c << 4);
 #else
 	*(volatile char *)0x0286 = c;
 #endif
@@ -526,7 +526,7 @@ void textcolor(char c)
 void bgcolor(char c)
 {
 #if defined(__F256K__)
-	__f256k_color = (__f256k_color & 0xF0) | (c & 0x0F);
+	f256k_color = (f256k_color & 0xF0) | (c & 0x0F);
 #else
 	*(volatile char *)0xd021 = c;
 #endif
@@ -547,7 +547,7 @@ void revers(char r)
 {
 #if defined(__F256K__)
 	if (r)
-		__f256k_color = (__f256k_color >> 4) | (__f256k_color << 4);
+		f256k_color = (f256k_color >> 4) | (f256k_color << 4);
 #else
 	if (r)
 		putrch(18);
