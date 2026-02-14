@@ -291,6 +291,7 @@ public:
 	bool WriteLblFile(const char* filename);
 	bool WriteCrtFile(const char* filename, uint16 id, uint8 subtype, const char * cname);
 	bool WriteBinFile(const char* filename);
+	bool WritePgzFile(const char* filename);
 	bool WriteNesFile(const char* filename, TargetMachine machine);
 	bool WriteMlbFile(const char* filename, TargetMachine machine);
 	bool WriteDbjFile(FILE * file);
@@ -306,7 +307,7 @@ public:
 	GrowingArray<LinkerOverlay*>	mOverlays;
 	GrowingArray<uint32>			mBreakpoints;
 
-	uint8	mMemory[0x10000], mWorkspace[0x10000];
+	uint8	mMemory[0x80000], mWorkspace[0x10000];
 	uint8	mCartridge[64][0x10000];
 
 	bool	mCartridgeBankUsed[64];
