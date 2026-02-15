@@ -18957,11 +18957,18 @@ void InterCodeBasicBlock::ConstSingleLoopOptimization(void)
 							mset += ins->mDst.mTemp;
 							break;
 						case IC_BINARY_OPERATOR:
-						case IC_UNARY_OPERATOR:
 						case IC_RELATIONAL_OPERATOR:
 							vars[ins->mDst.mTemp] =
 								OperandConstantFolding(ins->mOperator,
 									ins->mSrc[1].mTemp < 0 ? ins->mSrc[1] : vars[ins->mSrc[1].mTemp],
+									ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp]);
+							mset += ins->mDst.mTemp;
+							break;
+						case IC_UNARY_OPERATOR:
+						case IC_CONVERSION_OPERATOR:
+							vars[ins->mDst.mTemp] =
+								OperandConstantFolding(ins->mOperator,
+									ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp],
 									ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp]);
 							mset += ins->mDst.mTemp;
 							break;

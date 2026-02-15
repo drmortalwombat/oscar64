@@ -848,6 +848,8 @@ public:
 	bool SinglePathRegisterForward(void);
 	bool SinglePathStoreForward(void);
 
+	bool CrossBlockRegZPForward(int areg, int xreg, int yreg);
+
 	bool CanBytepassLoad(const NativeCodeInstruction& ains, int from = 0) const;
 	bool CanHoistStore(const NativeCodeInstruction& ains) const;
 
