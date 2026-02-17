@@ -41493,6 +41493,26 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 				changed = true;
 			}
 #endif
+
+#if 1
+			if (final &&
+				i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet[CPU_REG_Y].mMode == NRDM_ZERO_PAGE && mNDataSet[CPU_REG_Y].mValue == mIns[i + 1].mAddress)
+			{
+				mIns[i + 1].CopyMode(mIns[i]);
+				mIns[i].mType = ASMIT_TYA; mIns[i].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+			if (final &&
+				i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_ABSOLUTE &&
+				mIns[i + 1].IsCommutative() && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet[CPU_REG_X].mMode == NRDM_ZERO_PAGE && mNDataSet[CPU_REG_X].mValue == mIns[i + 1].mAddress)
+			{
+				mIns[i + 1].CopyMode(mIns[i]);
+				mIns[i].mType = ASMIT_TXA; mIns[i].mMode = ASMIM_IMPLIED;
+				changed = true;
+			}
+#endif
+
 			if (i + 1 < mIns.Size() && mIns[i].mType == ASMIT_LDA && !mIns[i].RequiresYReg() &&
 				mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mNDataSet[CPU_REG_A].mMode == NRDM_ZERO_PAGE && mNDataSet[CPU_REG_A].mValue == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_CPU_REG_Z))
 			{
@@ -54908,6 +54928,22 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate4(int i, int pass)
 
 		return true;
 	}
+#if 1
+	if (
+		mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_ABSOLUTE_X &&
+		mIns[i + 1].mType == ASMIT_TAX &&
+		mIns[i + 2].mType == ASMIT_TYA &&
+		mIns[i + 3].IsCommutative() && mIns[i + 3].mMode == ASMIM_ABSOLUTE_X && !(mIns[i + 3].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Y)))
+	{
+		mIns[i + 2] = mIns[i + 0];
+		mIns[i + 1].mType = ASMIT_TAY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+		mIns[i + 2].mType = ASMIT_LDA; 
+		mIns[i + 3].mMode = ASMIM_ABSOLUTE_Y;
+		mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+
+		return true;
+	}
+#endif
 	if (
 		mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 		mIns[i + 1].mType == ASMIT_LDY && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
@@ -61260,7 +61296,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "techtree_loop");
+	CheckFunc = !strcmp(mIdent->mString, "spr_set");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
