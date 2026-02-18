@@ -1013,13 +1013,20 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 				return false;
 			else if (op2.mMemory == IM_GLOBAL)
 			{
-				if (op1.mMemoryBase == IM_GLOBAL)
-					return op1.mVarIndex == op2.mVarIndex && (
-						mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type1] ||
-						mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type2] ||
-						CollidingMemType(type1, type2));
+				if (op2.mVarIndex >= 0)
+				{
+					if (op1.mMemoryBase == IM_GLOBAL)
+						return op1.mVarIndex == op2.mVarIndex && (
+							mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type1] ||
+							mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type2] ||
+							CollidingMemType(type1, type2));
+					else
+						return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
+				}
+				else if (op1.mVarIndex >= 0)
+					return false;
 				else
-					return mProc->mModule->mGlobalVars[op2.mVarIndex]->mAliased;
+					return op1.mLinkerObject == op2.mLinkerObject;
 			}
 			else if (op2.mMemory == IM_FPARAM || op2.mMemory == IM_FFRAME)
 				return false;
@@ -1054,13 +1061,20 @@ bool InterCodeBasicBlock::CollidingMem(const InterOperand& op1, InterType type1,
 				return false;
 			else if (op1.mMemory == IM_GLOBAL)
 			{
-				if (op2.mMemoryBase == IM_GLOBAL)
-					return op1.mVarIndex == op2.mVarIndex && (
-						mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type1] ||
-						mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type2] ||
-						CollidingMemType(type1, type2));
+				if (op1.mVarIndex >= 0)
+				{
+					if (op2.mMemoryBase == IM_GLOBAL)
+						return op1.mVarIndex == op2.mVarIndex && (
+							mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type1] ||
+							mProc->mModule->mGlobalVars[op2.mVarIndex]->mSize == InterTypeSize[type2] ||
+							CollidingMemType(type1, type2));
+					else
+						return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
+				}
+				else if (op2.mVarIndex >= 0)
+					return false;
 				else
-					return mProc->mModule->mGlobalVars[op1.mVarIndex]->mAliased;
+					return op1.mLinkerObject == op2.mLinkerObject;
 			}
 			else if (op1.mMemory == IM_FPARAM || op1.mMemory == IM_FFRAME)
 				return false;
@@ -18943,11 +18957,18 @@ void InterCodeBasicBlock::ConstSingleLoopOptimization(void)
 							mset += ins->mDst.mTemp;
 							break;
 						case IC_BINARY_OPERATOR:
-						case IC_UNARY_OPERATOR:
 						case IC_RELATIONAL_OPERATOR:
 							vars[ins->mDst.mTemp] =
 								OperandConstantFolding(ins->mOperator,
 									ins->mSrc[1].mTemp < 0 ? ins->mSrc[1] : vars[ins->mSrc[1].mTemp],
+									ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp]);
+							mset += ins->mDst.mTemp;
+							break;
+						case IC_UNARY_OPERATOR:
+						case IC_CONVERSION_OPERATOR:
+							vars[ins->mDst.mTemp] =
+								OperandConstantFolding(ins->mOperator,
+									ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp],
 									ins->mSrc[0].mTemp < 0 ? ins->mSrc[0] : vars[ins->mSrc[0].mTemp]);
 							mset += ins->mDst.mTemp;
 							break;
@@ -27634,7 +27655,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "success");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -28814,8 +28835,13 @@ void InterCodeProcedure::Close(void)
 
 	MapCallerSavedTemps();
 
+	DisassembleDebug("MapCallerSavedTemps");
+
 	ResetVisited();
 	mEntryBlock->PromoteStaticStackParams(mModule->mParamLinkerObject);
+
+	DisassembleDebug("PromoteStaticStackParams");
+
 
 	if (mValueReturn)
 	{
