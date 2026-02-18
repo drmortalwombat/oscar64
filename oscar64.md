@@ -607,7 +607,7 @@ The compiler uses basic zero page space for temporaries, local variables and fun
 
 ## Memory consistency
 
-The C use of volatile requires memory accesses with this type qualifier to not be reordered regarding other volatile memory accesses, cached or optimized away.  This is on one hand too strong a limitiation (for e.g. video memory) on the other side a too weak ordering mechanism when using banked memory.  The change of a memory bank may not be reordered with any other memory access that would fall into the banked region.
+The C use of volatile requires memory accesses with this type qualifier to not be reordered regarding other volatile memory accesses, cached or optimized away.  This is on one hand too strong a limitation (for e.g. video memory) on the other side a too weak ordering mechanism when using banked memory.  The change of a memory bank may not be reordered with any other memory access that would fall into the banked region.
 
 To provide this additional memory fence the compiler adds the __memmap type qualifier that prevents any memory access to be reordered around an access to a memory location with this qualifier:
 
