@@ -7560,6 +7560,11 @@ Expression* Parser::ParseCastExpression(Expression* exp)
 				nexp->mLeft = ParsePrefixExpression(false);
 			nexp = CheckOperatorOverload(nexp);
 			exp = nexp->ConstantFold(mErrors, mDataSection);
+			if (exp->mType == EX_TYPECAST && exp->mLeft->mType == EX_TYPE)
+			{
+				mErrors->Error(nexp->mLocation, EERR_INVALID_VALUE, "Invalid cast of type as a value", exp->mLeft->mDecType->mIdent);
+				exp = nullptr;
+			}
 		}
 	}
 

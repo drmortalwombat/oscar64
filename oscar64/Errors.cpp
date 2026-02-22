@@ -34,6 +34,7 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char
 		const char* level = "info";
 		if (eid >= EERR_GENERIC)
 		{
+
 			level = "error";
 			mErrorCount++;
 		}

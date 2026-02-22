@@ -6372,6 +6372,9 @@ void InterCodeBasicBlock::Append(InterInstruction * code)
 #if _DEBUG
 	if (code->mCode == IC_BINARY_OPERATOR)
 	{
+		assert(code->mSrc[0].mTemp >= 0);
+		assert(code->mSrc[1].mTemp >= 0);
+
 		assert(code->mSrc[1].mType != IT_POINTER);
 	}
 	if (code->mCode == IC_CONSTANT)
