@@ -25,8 +25,8 @@ LANGUAGE LANG_ENGLISH, SUBLANG_NEUTRAL
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,32,267,0
- PRODUCTVERSION 1,32,267,0
+ FILEVERSION 1,32,268,0
+ PRODUCTVERSION 1,32,268,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -43,12 +43,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "oscar64"
             VALUE "FileDescription", "oscar64 compiler"
-            VALUE "FileVersion", "1.32.267.0"
+            VALUE "FileVersion", "1.32.268.0"
             VALUE "InternalName", "oscar64.exe"
             VALUE "LegalCopyright", "Copyright (C) 2021"
             VALUE "OriginalFilename", "oscar64.exe"
             VALUE "ProductName", "oscar64"
-            VALUE "ProductVersion", "1.32.267.0"
+            VALUE "ProductVersion", "1.32.268.0"
         END
     END
     BLOCK "VarFileInfo"
