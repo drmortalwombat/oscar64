@@ -39243,7 +39243,8 @@ bool NativeCodeBasicBlock::MoveLoadOrZPUp(int at)
 				mIns[at + 1].mAddress = mIns[at].mAddress;
 				mIns[at].mAddress = mIns[j].mAddress;
 			}
-			mIns[at + 1].mLive |= mIns[j].mLive;
+			mIns[at].mLive |= mIns[at + 1].mLive & LIVE_CPU_REG_Z;
+			mIns[at + 1].mLive |= mIns[j].mLive | LIVE_CPU_REG_A;
 			mIns.Insert(j, mIns[at + 1]);
 
 			mIns[at + 2].mType = ASMIT_NOP; mIns[at + 2].mMode = ASMIM_IMPLIED;

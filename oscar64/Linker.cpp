@@ -691,7 +691,7 @@ bool LinkerRegion::Allocate(Linker * linker, LinkerObject* lobj, bool merge, boo
 				return true;
 		}
 
-		if (AllocateAppend(linker, lobj))
+		if (AllocateAppend(linker, lobj) || (lobj->mFlags & LOBJF_PLACED))
 			return true;
 	}	
 		
