@@ -170,7 +170,7 @@ Linker::Linker(Errors* errors)
 		mCartridgeBankEnd[i] = 0x00000;
 		memset(mCartridge[i], 0, 0x10000);
 	}
-	memset(mMemory, 0, 0x10000);
+	memset(mMemory, 0, sizeof(mMemory));
 }
 
 Linker::~Linker(void)
@@ -1282,6 +1282,53 @@ bool Linker::WriteBinFile(const char* filename)
 		ptrdiff_t	done = fwrite(mMemory + mProgramStart, 1, mProgramEnd - mProgramStart, file);
 		fclose(file);
 		return done == mProgramEnd - mProgramStart;
+	}
+	else
+		return false;
+}
+
+bool Linker::WritePgzFile(const char* filename)
+{
+	FILE* file;
+	fopen_s(&file, filename, "wb");
+	if (file)
+	{
+		fputc(0x5a, file); // PGZ magic
+
+		// Write one segment per non-empty region
+		for (int i = 0; i < mRegions.Size(); i++)
+		{
+			LinkerRegion* lrgn = mRegions[i];
+			if (lrgn->mNonzero && lrgn->mCartridgeBanks == 0 && !lrgn->mInlayObject)
+			{
+				int addr = lrgn->mStart;
+				int size = lrgn->mNonzero - lrgn->mStart;
+				if (size > 0)
+				{
+					// 24-bit load address
+					fputc(addr & 0xff, file);
+					fputc((addr >> 8) & 0xff, file);
+					fputc((addr >> 16) & 0xff, file);
+					// 24-bit segment size
+					fputc(size & 0xff, file);
+					fputc((size >> 8) & 0xff, file);
+					fputc((size >> 16) & 0xff, file);
+					// Segment data
+					fwrite(mMemory + addr, 1, size, file);
+				}
+			}
+		}
+
+		// Execute entry (24-bit address, size=0)
+		fputc(mProgramStart & 0xff, file);
+		fputc((mProgramStart >> 8) & 0xff, file);
+		fputc((mProgramStart >> 16) & 0xff, file);
+		fputc(0x00, file);
+		fputc(0x00, file);
+		fputc(0x00, file);
+
+		fclose(file);
+		return true;
 	}
 	else
 		return false;

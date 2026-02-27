@@ -15192,27 +15192,29 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 	if (ins->mSrc[0].mTemp < 0)
 	{
 		uint32	flags = NCIF_LOWER | NCIF_UPPER;
-		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_ARG_REG_A)
-		{
-			flags |= NCIF_USE_CPU_REG_A;
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS));
-		}
-		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_ARG_REG_X)
-			flags |= NCIF_USE_CPU_REG_X;
-		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_ARG_REG_Y)
-			flags |= NCIF_USE_CPU_REG_Y;
-
 		uint32	pflags = 0;
-		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_A)
-			pflags |= NCIF_PRESERVE_CPU_REG_A;
-		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_X)
-			pflags |= NCIF_PRESERVE_CPU_REG_X;
-		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_Y)
-			pflags |= NCIF_PRESERVE_CPU_REG_Y;
 
-		assert(ins->mSrc[0].mLinkerObject);
+		if (ins->mSrc[0].mLinkerObject)
+		{
+			if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_ARG_REG_A)
+			{
+				flags |= NCIF_USE_CPU_REG_A;
+				mIns.Push(NativeCodeInstruction(ins, ASMIT_LDA, ASMIM_ZERO_PAGE, BC_REG_FPARAMS));
+			}
+			if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_ARG_REG_X)
+				flags |= NCIF_USE_CPU_REG_X;
+			if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_ARG_REG_Y)
+				flags |= NCIF_USE_CPU_REG_Y;
 
-		if (ins->mCode == IC_ASSEMBLER && (proc->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER) && ins->mSrc[0].mLinkerObject->mSection == proc->mLinkerObject->mSection && !ins->mVolatile)
+			if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_A)
+				pflags |= NCIF_PRESERVE_CPU_REG_A;
+			if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_X)
+				pflags |= NCIF_PRESERVE_CPU_REG_X;
+			if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_PRESERVE_REG_Y)
+				pflags |= NCIF_PRESERVE_CPU_REG_Y;
+		}
+
+		if (ins->mCode == IC_ASSEMBLER && ins->mSrc[0].mLinkerObject && (proc->mCompilerOptions & COPT_OPTIMIZE_ASSEMBLER) && ins->mSrc[0].mLinkerObject->mSection == proc->mLinkerObject->mSection && !ins->mVolatile)
 		{
 			ExpandingArray<NativeCodeInstruction>	tains;
 
@@ -15307,7 +15309,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 		else
 			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, flags));
 
-		lf = ins->mSrc[0].mLinkerObject->mFlags;
+		lf = ins->mSrc[0].mLinkerObject ? ins->mSrc[0].mLinkerObject->mFlags : 0;
 	}
 	else
 	{
