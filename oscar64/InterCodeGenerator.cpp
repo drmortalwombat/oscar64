@@ -3929,8 +3929,11 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							ins->mSrc[0].mOperandSize = int(nex->mDecValue->mInteger);
 							ins->mSrc[1].mOperandSize = int(nex->mDecValue->mInteger);
 							ins->mConst.mOperandSize = int(nex->mDecValue->mInteger);
-							if ((vl.mType->mBase->mFlags & DTF_VOLATILE) || (vr.mType->mBase->mFlags & DTF_VOLATILE))
-								ins->mVolatile = true;
+							if (vl.mType->mBase && vr.mType->mBase)
+							{
+								if ((vl.mType->mBase->mFlags & DTF_VOLATILE) || (vr.mType->mBase->mFlags & DTF_VOLATILE))
+									ins->mVolatile = true;
+							}
 							block->Append(ins);
 
 							return vl;
