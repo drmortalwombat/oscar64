@@ -407,7 +407,7 @@ public:
 	bool OptimizeLoopCarryOver(void);
 	bool OptimizeLoopRegisterWrapAround(void);
 
-	bool OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, NativeCodeBasicBlock* tail, ExpandingArray<NativeCodeBasicBlock*>& blocks);
+	bool OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, const ExpandingArray<NativeCodeBasicBlock*>& tails, const ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeSingleEntryLoop(NativeCodeProcedure* proc);
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);
@@ -808,6 +808,8 @@ public:
 	void CollectZeroPageUsage(NumberSet& used, NumberSet& modified, NumberSet& pairs);
 	void FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias, int accu);
 	bool RemapZeroPage(const uint8* remap);
+	
+	void CheckGlobalAliasing(bool& globalStores, bool& globalLoads);
 
 	bool LoopRegisterXYMap(void);
 	void GlobalRegisterXYCheck(int* xregs, int * yregs);

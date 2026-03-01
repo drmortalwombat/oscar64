@@ -173,6 +173,9 @@ static const uint32 LOBJF_PRESERVE_REG_Y	= 0x00400000;
 static const uint32 LOBJF_LOCAL_VAR = 0x01000000;
 static const uint32 LOBJF_LOCAL_USED = 0x02000000;
 
+static const uint32 LOBJF_NO_GLOBAL_STORES = 0x04000000;
+static const uint32 LOBJF_NO_GLOBAL_LOADS = 0x08000000;
+
 class LinkerObjectRange
 {
 public:
