@@ -257,22 +257,26 @@ bool IntegerValueRange::Same(const IntegerValueRange& range) const
 	return false;
 }
 
-void IntegerValueRange::LimitMin(int64 value)
+bool IntegerValueRange::LimitMin(int64 value)
 {
 	if (mMinState != S_BOUND || mMinValue < value)
 	{
 		mMinState = S_BOUND;
 		mMinValue = value;
+		return true;
 	}
+	return false;
 }
 
-void IntegerValueRange::LimitMax(int64 value)
+bool IntegerValueRange::LimitMax(int64 value)
 {
 	if (mMaxState != S_BOUND || mMaxValue > value)
 	{
 		mMaxState = S_BOUND;
 		mMaxValue = value;
+		return true;
 	}
+	return false;
 }
 
 void IntegerValueRange::LimitMinBound(int64 value)
@@ -381,12 +385,16 @@ void IntegerValueRange::LimitWeak(const IntegerValueRange& range)
 		LimitMaxWeak(range.mMaxValue);
 }
 
-void IntegerValueRange::Limit(const IntegerValueRange& range)
+bool IntegerValueRange::Limit(const IntegerValueRange& range)
 {
-	if (range.mMinState == S_BOUND)
-		LimitMin(range.mMinValue);
-	if (range.mMaxState == S_BOUND)
-		LimitMax(range.mMaxValue);
+	bool changed = false;
+	if (range.mMinState == S_BOUND && LimitMin(range.mMinValue))
+		changed = true;
+
+	if (range.mMaxState == S_BOUND && LimitMax(range.mMaxValue))
+		changed = true;
+
+	return changed;
 }
 
 
@@ -6576,9 +6584,14 @@ bool InterCodeBasicBlock::StripLoopHead(int size)
 			ExpandingArray<InterCodeBasicBlock*>	lblocks;
 			if (CollectSingleEntryGenericLoop(lblocks))
 			{
-				if (!lblocks.Contains(mTrueJump) || !lblocks.Contains(mFalseJump))
+				bool	branched = false;
+				for (int i = 0; i < mEntryBlocks.Size(); i++)
+					if (mEntryBlocks[i]->mFalseJump)
+						branched = true;
+
+				if (!branched && (!lblocks.Contains(mTrueJump) || !lblocks.Contains(mFalseJump)))
 				{
-					//				printf("StripB %s %d\n", mProc->mIdent->mString, mIndex);
+//					printf("StripB %s %d\n", mProc->mIdent->mString, mIndex);
 
 					mLoopPrefix->mInstructions.SetSize(0);
 					for (int i = 0; i < mInstructions.Size(); i++)
@@ -8752,6 +8765,104 @@ void InterCodeBasicBlock::SimplifyIntegerRangeRelops(void)
 		if (mFalseJump)
 			mFalseJump->SimplifyIntegerRangeRelops();
 	}
+}
+
+
+bool InterCodeBasicBlock::InnerLoopIntegerRangeUpdate(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		if (mLoopHead)
+		{
+			ExpandingArray<InterCodeBasicBlock*> body;
+			body.Push(this);
+			bool	innerLoop = true;
+
+			for (int i = 0; i < mEntryBlocks.Size(); i++)
+			{
+				if (mEntryBlocks[i] != mLoopPrefix)
+				{
+					if (!mEntryBlocks[i]->CollectLoopBodyRecursive(this, body))
+						innerLoop = false;
+				}
+			}
+
+			NumberSet	loopModifiedTemps(mEntryRequiredTemps.Size()), loopUsedTemps(mEntryRequiredTemps.Size());
+			for (int i = 0; i < body.Size(); i++)
+			{
+				InterCodeBasicBlock* block = body[i];
+				for (int j = 0; j < block->mInstructions.Size(); j++)
+				{
+					InterInstruction* ins = block->mInstructions[j];
+
+					if (ins->mDst.mTemp >= 0)
+						loopModifiedTemps += ins->mDst.mTemp;
+					for (int k = 0; k < ins->mNumOperands; k++)
+						if (ins->mSrc[k].mTemp >= 0)
+							loopUsedTemps += ins->mSrc[k].mTemp;
+				}
+			}
+
+			loopUsedTemps -= loopModifiedTemps;
+
+			bool firstEntry = true;
+
+			for (int j = 0; j < mEntryBlocks.Size(); j++)
+			{
+				InterCodeBasicBlock* from = mEntryBlocks[j];
+
+				if (!body.Contains(from))
+				{
+					GrowingIntegerValueRangeArray& range(this == from->mTrueJump ? from->mTrueValueRange : from->mFalseValueRange);
+					GrowingIntegerValueRangeArray& prange(this == from->mTrueJump ? from->mTrueParamValueRange : from->mFalseParamValueRange);
+
+					if (range.Size())
+					{
+						if (firstEntry)
+						{
+							firstEntry = false;
+							mProc->mLocalValueRange = range;
+						}
+						else
+						{
+							for (int i = 0; i < mProc->mLocalValueRange.Size(); i++)
+								mProc->mLocalValueRange[i].Merge(range[i], false, false);
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < body.Size(); i++)
+			{
+				InterCodeBasicBlock* block = body[i];
+				for (int j = 0; j < block->mInstructions.Size(); j++)
+				{
+					InterInstruction* ins = block->mInstructions[j];
+
+					for (int k = 0; k < ins->mNumOperands; k++)
+					{
+						int t = ins->mSrc[k].mTemp;
+						if (t >= 0 && !loopModifiedTemps[t])
+						{
+							if (ins->mSrc[k].mRange.Limit(mProc->mLocalValueRange[t]))
+								changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		mVisited = true;
+
+		if (mTrueJump && mTrueJump->InnerLoopIntegerRangeUpdate())
+			changed = true;
+		if (mFalseJump && mFalseJump->InnerLoopIntegerRangeUpdate())
+			changed = true;
+	}
+
+	return changed;
 }
 
 
@@ -26866,9 +26977,6 @@ void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 {
 	BuildTraces(0);
 	BuildLoopPrefix();
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	Disassemble("PreMoveConditionOutOfLoop");
 
@@ -26885,9 +26993,6 @@ void InterCodeProcedure::MoveConditionsOutOfLoop(void)
 
 		BuildTraces(0);
 		BuildLoopPrefix();
-		ResetEntryBlocks();
-		ResetVisited();
-		mEntryBlock->CollectEntryBlocks(nullptr);
 
 		ResetVisited();
 		mEntryBlock->InnerLoopOptimization(mParamAliasedSet);
@@ -26902,9 +27007,6 @@ void InterCodeProcedure::EliminateDoubleLoopCounter(void)
 {
 	BuildTraces(0);
 	BuildLoopPrefix();
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	ResetVisited();
 	mEntryBlock->EliminateDoubleLoopCounter();
@@ -26914,9 +27016,6 @@ void InterCodeProcedure::LimitLoopIndexIntegerRangeSets(void)
 {
 	BuildTraces(0);
 	BuildLoopPrefix();
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	ResetVisited();
 	mEntryBlock->LimitLoopIndexIntegerRangeSets();
@@ -26930,9 +27029,6 @@ void InterCodeProcedure::PropagateMemoryAliasingInfo(bool loops)
 	{
 		BuildTraces(0);
 		BuildLoopPrefix();
-		ResetEntryBlocks();
-		ResetVisited();
-		mEntryBlock->CollectEntryBlocks(nullptr);
 	}
 
 	ResetVisited();
@@ -26975,10 +27071,6 @@ void InterCodeProcedure::TempForwarding(bool reverse, bool checkloops)
 	if (checkloops)
 	{
 		BuildLoopPrefix();
-
-		ResetEntryBlocks();
-		ResetVisited();
-		mEntryBlock->CollectEntryBlocks(nullptr);
 	}
 
 	DisassembleDebug("pre temp forwarding");
@@ -27658,7 +27750,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "success");
+	CheckFunc = !strcmp(mIdent->mString, "opp::istream::doskipws");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -28132,6 +28224,14 @@ void InterCodeProcedure::Close(void)
 
 	BuildDataFlowSets();
 
+	RebuildIntegerRangeSet();
+
+	ResetVisited();
+	mEntryBlock->InnerLoopIntegerRangeUpdate();
+	DisassembleDebug("InnerLoopIntegerRangeUpdate");
+
+	RebuildIntegerRangeSet();
+
 	ResetVisited();
 	mEntryBlock->Flatten2DLoop();
 
@@ -28174,10 +28274,6 @@ void InterCodeProcedure::Close(void)
 #if 1
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
-
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	BuildDataFlowSets();
 
@@ -28369,10 +28465,6 @@ void InterCodeProcedure::Close(void)
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
 
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
-
 	BuildDataFlowSets();
 
 	ResetVisited();
@@ -28395,9 +28487,6 @@ void InterCodeProcedure::Close(void)
 
 #if 1
 	BuildLoopPrefix();
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	DisassembleDebug("Pre MergeLoopTails");
 
@@ -29043,10 +29132,6 @@ void InterCodeProcedure::LimitLoopIndexRanges(void)
 	BuildLoopPrefix();
 	DisassembleDebug("added dominators");
 
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
-
 	ResetVisited();
 	mEntryBlock->LimitLoopIndexRanges();
 }
@@ -29060,10 +29145,6 @@ void InterCodeProcedure::SingleTailLoopOptimization(InterMemory paramMemory)
 
 		BuildLoopPrefix();
 		DisassembleDebug("added dominators");
-
-		ResetEntryBlocks();
-		ResetVisited();
-		mEntryBlock->CollectEntryBlocks(nullptr);
 
 		BuildDataFlowSets();
 
@@ -29526,6 +29607,10 @@ void InterCodeProcedure::BuildLoopPrefix(void)
 
 	ResetVisited();
 	mEntryBlock->BuildLoopSuffix();
+
+	ResetEntryBlocks();
+	ResetVisited();
+	mEntryBlock->CollectEntryBlocks(nullptr);
 }
 
 bool InterCodeProcedure::PropagateNonLocalUsedTemps(void)
@@ -29598,9 +29683,6 @@ void InterCodeProcedure::ConstSingleLoopOptimization(void)
 {
 	BuildTraces(0);
 	BuildLoopPrefix();
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	GrowingInstructionPtrArray	ptemps(nullptr);
 	ptemps.SetSize(mTemporaries.Size());
@@ -29618,9 +29700,6 @@ void InterCodeProcedure::ConstInnerLoopOptimization(void)
 {
 	BuildTraces(0);
 	BuildLoopPrefix();
-	ResetEntryBlocks();
-	ResetVisited();
-	mEntryBlock->CollectEntryBlocks(nullptr);
 
 	GrowingInstructionPtrArray	ptemps(nullptr);
 	ptemps.SetSize(mTemporaries.Size());

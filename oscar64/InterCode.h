@@ -177,7 +177,7 @@ public:
 	void Expand(const IntegerValueRange& range);
 	void Union(const IntegerValueRange& range);
 
-	void Limit(const IntegerValueRange& range);
+	bool Limit(const IntegerValueRange& range);
 	void LimitWeak(const IntegerValueRange& range);
 	void MergeUnknown(const IntegerValueRange& range);
 	void SetLimit(int64 minValue, int64 maxValue);
@@ -189,8 +189,8 @@ public:
 	bool IsInvalid(void) const;
 	bool IsRange(int64 minVal, int64 maxVal) const;
 
-	void LimitMin(int64 value);
-	void LimitMax(int64 value);
+	bool LimitMin(int64 value);
+	bool LimitMax(int64 value);
 
 	void LimitMinBound(int64 value);
 	void LimitMaxBound(int64 value);
@@ -512,6 +512,8 @@ public:
 	void MarkIntegerRangeBoundUp(int temp, int64 value, GrowingIntegerValueRangeArray& range);
 	void UnionIntegerRanges(const InterCodeBasicBlock* block);
 	void PruneUnusedIntegerRangeSets(void);
+
+	bool InnerLoopIntegerRangeUpdate(void);
 
 	void PropagateValueRangeSetConversions(const ExpandingInstructionPtrArray& tvalue);
 

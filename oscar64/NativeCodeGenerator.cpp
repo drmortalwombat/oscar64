@@ -23942,8 +23942,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 		{
 			int sz = mIns.Size();
 			if (mIns[sz - 4].mType == ASMIT_STA && mIns[sz - 4].mMode == ASMIM_ZERO_PAGE &&
-				mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
-				mIns[sz - 2].mType == ASMIT_AND && mIns[sz - 2].mMode == ASMIM_ZERO_PAGE &&
+				mIns[sz - 3].mType == ASMIT_LDA && !(mIns[sz - 3].mFlags & NCIF_VOLATILE) &&
+				mIns[sz - 2].mType == ASMIT_AND && !(mIns[sz - 2].mFlags & NCIF_VOLATILE) && !mIns[sz - 2].SameEffectiveAddress(mIns[sz - 4]) &&
 				mIns[sz - 1].mType == ASMIT_ORA && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && mIns[sz - 1].mAddress == mIns[sz - 4].mAddress &&
 				!(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_MEM)) && !mExitRequiredRegs[CPU_REG_Z])
 			{
@@ -49700,6 +49700,18 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				i += 5;
 			}
 #endif
+			else if (i + 3 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_TAY &&
+				mIns[i + 1].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDY, mIns[i + 1].mMode) &&
+				mIns[i + 2].mType == ASMIT_STA && mIns[i + 2].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 2].mLive & LIVE_CPU_REG_A) &&
+				mIns[i + 3].mMode == ASMIM_INDIRECT_Y && !(mIns[i + 3].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z | LIVE_MEM)))
+			{
+				mIns[j + 0] = mIns[i + 2];
+				mIns[j + 1] = mIns[i + 1]; mIns[j + 1].mType = ASMIT_LDY;
+				mIns[j + 2] = mIns[i + 3];
+				j += 3;
+				i += 4;			
+			}
 			else if (mIns[i + 0].mType == ASMIT_ORA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0 && !(mIns[i + 0].mLive & LIVE_CPU_REG_X))
 			{
 				mIns[j + 0] = NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TAX);
@@ -59565,7 +59577,26 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 			changed = true;
 		}
 	}
-
+	else if (sz >= 3 &&
+		mIns[sz - 3].mType == ASMIT_LDA && mIns[sz - 3].mMode == ASMIM_IMMEDIATE && mIns[sz - 3].mAddress == 0x00 &&
+		mIns[sz - 2].mType == ASMIT_ADC && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0xff &&
+		mIns[sz - 1].mType == ASMIT_EOR && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0xff && !(mIns[sz - 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		if (mBranch == ASMIT_BNE)
+		{
+			mBranch = ASMIT_BCS;
+			mIns.SetSize(sz - 3);
+			sz -= 3;
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BEQ)
+		{
+			mBranch = ASMIT_BCC;
+			mIns.SetSize(sz - 3);
+			sz -= 3;
+			changed = true;
+		}
+	}
 	else if (sz >= 2 &&
 		mIns[sz - 2].mType == ASMIT_EOR && mIns[sz - 2].mMode == ASMIM_IMMEDIATE && mIns[sz - 2].mAddress == 0x80 &&
 		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && !mExitRequiredRegs[CPU_REG_Z])

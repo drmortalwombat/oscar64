@@ -1069,17 +1069,14 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 				classTemplate = true;
 		}
 		
+		Declaration* odec = nullptr;
+
 		if (mScanner->mToken == TK_IDENT)
 		{
 			dec->mIdent = mScanner->mTokenIdent;
 			dec->mQualIdent = mScope->Mangle(dec->mIdent);
 			
-			Declaration* odec = mScope->Insert(dec->mIdent, dec);
-			if (odec)
-			{
-				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name", dec->mIdent);
-				mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
-			}
+			odec = mScope->Insert(dec->mIdent, dec);
 			mScanner->NextToken();
 		}
 
@@ -1102,6 +1099,12 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 		int	nitem = 0;
 		if (mScanner->mToken == TK_OPEN_BRACE)
 		{
+			if (odec)
+			{
+				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name", dec->mIdent);
+				mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+			}
+
 			mScanner->NextToken();
 			if (mScanner->mToken == TK_IDENT)
 			{
@@ -1195,6 +1198,14 @@ Declaration* Parser::ParseBaseTypeDeclaration(uint64 flags, bool qualified, Decl
 				mScanner->NextToken();
 			else
 				mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'}' expected");
+		}
+		else if (odec)
+		{
+			if (odec->mType != DT_TYPE_ENUM)
+			{
+				mErrors->Error(dec->mLocation, EERR_DUPLICATE_DEFINITION, "Duplicate name", dec->mIdent);
+				mErrors->Error(odec->mLocation, EINFO_ORIGINAL_DEFINITION, "Original definition");
+			}
 		}
 		else
 			mErrors->Error(mScanner->mLocation, EERR_SYNTAX, "'{' expected");
@@ -7725,6 +7736,7 @@ Expression* Parser::ParseSimpleExpression(bool lhs, bool tid)
 	case TK_STRUCT:
 	case TK_CLASS:
 	case TK_UNION:
+	case TK_ENUM:
 	case TK_TYPEDEF:
 	case TK_STATIC:
 	case TK_AUTO:
