@@ -29229,7 +29229,11 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 #if 1
 		if (mEntryBlocks.Size() > 1 && mIns.Size() > 0)
 		{
-			if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_Z))
+			int fi = 0;
+			while (fi < mIns.Size() && !mIns[fi].ReferencesYReg())
+				fi++;
+
+			if (fi < mIns.Size() && mIns[fi].mType == ASMIT_LDY && mIns[fi].mMode == ASMIM_ZERO_PAGE && !(mIns[fi].mLive & LIVE_CPU_REG_Z) && !ChangesZeroPage(mIns[fi].mAddress, 0, fi))
 			{
 				int		ei = 0;
 				int		index;
@@ -29238,7 +29242,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 				for (int i = 0; i < mEntryBlocks.Size(); i++)
 				{
-					if (mEntryBlocks[i]->IsExitYRegZP(mIns[0].mAddress, index, block))
+					if (mEntryBlocks[i]->IsExitYRegZP(mIns[fi].mAddress, index, block))
 						found = true;
 					else if (mEntryBlocks[i]->mFalseJump)
 						fail = true;
@@ -29246,25 +29250,33 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 				if (found && !fail)
 				{
+					for (int i = 0; i < fi; i++)
+						mIns[i].mLive |= LIVE_CPU_REG_Y;
+
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
 					{
-						if (mEntryBlocks[i]->IsExitYRegZP(mIns[0].mAddress, index, block))
+						if (mEntryBlocks[i]->IsExitYRegZP(mIns[fi].mAddress, index, block))
 						{
 							mEntryBlocks[i]->MarkLiveBlockChain(index, block, LIVE_CPU_REG_Y, CPU_REG_Y);
 						}
 						else
 						{
-							mEntryBlocks[i]->mIns.Push(mIns[0]);
+							mEntryBlocks[i]->mIns.Push(mIns[fi]);
 							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_Y;
 						}
 					}
 
 					mEntryRequiredRegs += CPU_REG_Y;
-					mIns.Remove(0);
+					mIns.Remove(fi);
 					changed = true;
 				}
 			}
-			else if (mIns[0].mType == ASMIT_LDX && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_Z))
+
+			fi = 0;
+			while (fi < mIns.Size() && !mIns[fi].ReferencesXReg())
+				fi++;
+
+			if (fi < mIns.Size() && mIns[fi].mType == ASMIT_LDX && mIns[fi].mMode == ASMIM_ZERO_PAGE && !(mIns[fi].mLive & LIVE_CPU_REG_Z) && !ChangesZeroPage(mIns[fi].mAddress, 0, fi))
 			{
 				int		ei = 0;
 				int		index;
@@ -29273,7 +29285,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 				for (int i = 0; i < mEntryBlocks.Size(); i++)
 				{
-					if (mEntryBlocks[i]->IsExitXRegZP(mIns[0].mAddress, index, block))
+					if (mEntryBlocks[i]->IsExitXRegZP(mIns[fi].mAddress, index, block))
 						found = true;
 					else if (mEntryBlocks[i]->mFalseJump)
 						fail = true;
@@ -29281,15 +29293,18 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 				if (found && !fail)
 				{
+					for (int i = 0; i < fi; i++)
+						mIns[i].mLive |= LIVE_CPU_REG_X;
+
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
 					{
-						if (mEntryBlocks[i]->IsExitXRegZP(mIns[0].mAddress, index, block))
+						if (mEntryBlocks[i]->IsExitXRegZP(mIns[fi].mAddress, index, block))
 						{
 							mEntryBlocks[i]->MarkLiveBlockChain(index, block, LIVE_CPU_REG_X, CPU_REG_X);
 						}
 						else
 						{
-							mEntryBlocks[i]->mIns.Push(mIns[0]);
+							mEntryBlocks[i]->mIns.Push(mIns[fi]);
 							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_X;
 							mEntryBlocks[i]->mExitRequiredRegs -= CPU_REG_Z;
 						}
@@ -29297,11 +29312,16 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 					mEntryRequiredRegs -= CPU_REG_Z;
 					mEntryRequiredRegs += CPU_REG_X;
-					mIns.Remove(0);
+					mIns.Remove(fi);
 					changed = true;
 				}
 			}
-			else if (mIns[0].mType == ASMIT_LDA && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & LIVE_CPU_REG_Z))
+			
+			fi = 0;
+			while (fi < mIns.Size() && !mIns[fi].ReferencesAccu())
+				fi++;
+
+			if (fi < mIns.Size() && mIns[fi].mType == ASMIT_LDA && mIns[fi].mMode == ASMIM_ZERO_PAGE && !(mIns[fi].mLive & LIVE_CPU_REG_Z) && !ChangesZeroPage(mIns[fi].mAddress, 0, fi))
 			{
 				int		ei = 0;
 				int		index;
@@ -29310,7 +29330,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 				for (int i = 0; i < mEntryBlocks.Size(); i++)
 				{
-					if (mEntryBlocks[i]->IsExitARegZP(mIns[0].mAddress, index, block))
+					if (mEntryBlocks[i]->IsExitARegZP(mIns[fi].mAddress, index, block))
 						found = true;
 					else if (mEntryBlocks[i]->mFalseJump)
 						fail = true;
@@ -29318,21 +29338,24 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 				if (found && !fail)
 				{
+					for (int i = 0; i < fi; i++)
+						mIns[i].mLive |= LIVE_CPU_REG_A;
+
 					for (int i = 0; i < mEntryBlocks.Size(); i++)
 					{
-						if (mEntryBlocks[i]->IsExitARegZP(mIns[0].mAddress, index, block))
+						if (mEntryBlocks[i]->IsExitARegZP(mIns[fi].mAddress, index, block))
 						{
 							mEntryBlocks[i]->MarkLiveBlockChain(index, block, LIVE_CPU_REG_A, CPU_REG_A);
 						}
 						else
 						{
-							mEntryBlocks[i]->mIns.Push(mIns[0]);
+							mEntryBlocks[i]->mIns.Push(mIns[fi]);
 							mEntryBlocks[i]->mExitRequiredRegs += CPU_REG_A;
 						}
 					}
 
 					mEntryRequiredRegs += CPU_REG_A;
-					mIns.Remove(0);
+					mIns.Remove(fi);
 					changed = true;
 				}
 			}
@@ -32639,6 +32662,8 @@ bool NativeCodeBasicBlock::CheckCrossBlockY2XFloodExit(const NativeCodeBasicBloc
 	if (!mPatchExit)
 	{
 		mPatchExit = true;
+
+		if (mExitRequiredRegs[CPU_REG_X]) return false;
 
 		if (mTrueJump && !mTrueJump->CheckCrossBlockY2XFlood(block, 0))
 			return false;
@@ -61518,7 +61543,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "check_free");
+	CheckFunc = !strcmp(mIdent->mString, "loop2");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -62573,7 +62598,6 @@ void NativeCodeProcedure::Optimize(void)
 			}
 		}
 
-
 		CheckBlocks();
 
 		if (step == 9)
@@ -63104,7 +63128,6 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 
-
 #if 1
 		if (step == 9 && cnt < 10)
 		{
@@ -63170,7 +63193,6 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 		CheckBlocks();
-
 #if 1
 		if (step == 6)
 		{
