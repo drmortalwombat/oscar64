@@ -24674,8 +24674,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 									(o1 == IA_ADD ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) -
 									(o0 == IA_ADD ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
 
-								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0];
-								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1];
+								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0]; mInstructions[s0]->mSrc[1 - c0].mFinal = false;
+								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1]; mInstructions[s1]->mSrc[1 - c1].mFinal = false;
 								mInstructions[s0]->mDst.mRange.Reset();
 								mInstructions[s0]->mOperator = IA_SUB;
 								mInstructions[s2]->mOperator = IA_ADD;
@@ -24693,8 +24693,8 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 									(o1 == IA_ADD ? mInstructions[s1]->mSrc[c1].mIntConst : -mInstructions[s1]->mSrc[c1].mIntConst) +
 									(o0 == IA_ADD ? mInstructions[s0]->mSrc[c0].mIntConst : -mInstructions[s0]->mSrc[c0].mIntConst);
 
-								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0];
-								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1];
+								mInstructions[s0]->mSrc[0] = mInstructions[s0]->mSrc[1 - c0]; mInstructions[s0]->mSrc[1 - c0].mFinal = false;
+								mInstructions[s0]->mSrc[1] = mInstructions[s1]->mSrc[1 - c1]; mInstructions[s1]->mSrc[1 - c1].mFinal = false;
 								mInstructions[s0]->mDst.mRange.Reset();
 								mInstructions[s0]->mOperator = IA_ADD;
 								mInstructions[s2]->mOperator = IA_ADD;
@@ -27750,7 +27750,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "opp::istream::doskipws");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

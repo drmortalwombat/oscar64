@@ -5203,7 +5203,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					else
 					{
 						mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Incompatible conditional types");
-						dtype = vl.mType;
+						dtype = vl.mType->mBase ? vl.mType : vr.mType;
 					}
 
 					Declaration* ntype = new Declaration(dtype->mLocation, DT_TYPE_POINTER);
