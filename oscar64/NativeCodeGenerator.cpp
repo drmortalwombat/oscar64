@@ -31623,9 +31623,17 @@ bool NativeCodeBasicBlock::CheckForwardSumYPointer(const NativeCodeBasicBlock* b
 					return false;
 				else if (!(ins.mLive & LIVE_MEM))
 					return true;
-				if (yval == 0) ymax = 3;
+				if (yval == 0)
+				{
+					if (ins.mIns)
+					{
+						if (ins.mIns->mCode == IC_LOAD)
+							ymax = InterTypeSize[ins.mIns->mDst.mType] - 1;
+						else if (ins.mIns->mCode == IC_STORE)
+							ymax = InterTypeSize[ins.mIns->mSrc[0].mType] - 1;
+					}
+				}
 			}
-
 			if (ins.mType == ASMIT_LDY && ins.mMode == ASMIM_IMMEDIATE)
 				yval = ins.mAddress;
 			else if (ins.mType == ASMIT_INY && yval >= 0)
@@ -61543,7 +61551,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "loop2");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

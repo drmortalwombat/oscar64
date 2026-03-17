@@ -14298,13 +14298,13 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 					ins->mNumOperands = 1;
 					changed = true;
 				}
-				else if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mMemory == IM_ABSOLUTE && ins->mSrc[0].mTemp >= 0)
+				else if (ins->mCode == IC_LEA && ins->mSrc[1].mTemp < 0 && (ins->mSrc[1].mMemory == IM_ABSOLUTE || ins->mSrc[1].mMemory == IM_GLOBAL) && ins->mSrc[0].mTemp >= 0)
 				{
 					int	offset = int(ins->mSrc[1].mIntConst);
 
 					j = 0;
 					while (j < mLoadStoreInstructions.Size() && !(
-						mLoadStoreInstructions[j]->mCode == IC_LEA && mLoadStoreInstructions[j]->mSrc[1].mTemp < 0 && mLoadStoreInstructions[j]->mSrc[1].mMemory == IM_ABSOLUTE &&
+						mLoadStoreInstructions[j]->mCode == IC_LEA && mLoadStoreInstructions[j]->mSrc[1].mTemp < 0 && SameMemRegion(mLoadStoreInstructions[j]->mSrc[1], ins->mSrc[1]) &&
 						mLoadStoreInstructions[j]->mSrc[0].mTemp == ins->mSrc[0].mTemp &&
 						(((mLoadStoreInstructions[j]->mSrc[0].mIntConst + mLoadStoreInstructions[j]->mSrc[1].mIntConst - offset) & 255) == 0)))
 						j++;
@@ -14328,7 +14328,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 
 							j = 0;
 							while (j < mLoadStoreInstructions.Size() && !(
-								mLoadStoreInstructions[j]->mCode == IC_LEA && mLoadStoreInstructions[j]->mSrc[1].mTemp < 0 && mLoadStoreInstructions[j]->mSrc[1].mMemory == IM_ABSOLUTE &&
+								mLoadStoreInstructions[j]->mCode == IC_LEA && mLoadStoreInstructions[j]->mSrc[1].mTemp < 0 && SameMemRegion(mLoadStoreInstructions[j]->mSrc[1], ins->mSrc[1]) &&
 								mLoadStoreInstructions[j]->mSrc[0].mTemp == ins->mSrc[0].mTemp &&
 								loffset - mLoadStoreInstructions[j]->mSrc[0].mIntConst - mLoadStoreInstructions[j]->mSrc[1].mIntConst >= 0 &&
 								loffset - mLoadStoreInstructions[j]->mSrc[0].mIntConst - mLoadStoreInstructions[j]->mSrc[1].mIntConst < 255))
