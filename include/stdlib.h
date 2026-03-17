@@ -67,6 +67,9 @@ unsigned heapfree(void);
 
 unsigned int rand(void);
 
+// This library uses the xorshift random algorithm, so it will not work with a
+// seed value of 0.  All other values are fine, and the algorithm will also generate
+// any number from 1 to 65535 regardless of seed (except 0).
 void srand(unsigned int seed);
 
 unsigned long lrand(void);
