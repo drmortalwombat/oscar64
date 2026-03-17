@@ -9115,13 +9115,13 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							bool	isUnsigned = false, isSigned = false;
 							if (i + 1 < mInstructions.Size() && mInstructions[i + 1]->mCode == IC_CONVERSION_OPERATOR && mInstructions[i + 1]->mSrc[0].mTemp == mInstructions[i + 0]->mDst.mTemp && mInstructions[i + 1]->mSrc[0].mFinal)
 							{
-								if (mInstructions[i + 1]->mOperator == IA_EXT8TO16U)
+								if (mInstructions[i + 1]->mOperator == IA_EXT8TO16U || mInstructions[i + 1]->mOperator == IA_EXT8TO32U)
 									isUnsigned = true;
-								else if (mInstructions[i + 1]->mOperator == IA_EXT8TO16S)
+								else if (mInstructions[i + 1]->mOperator == IA_EXT8TO16S || mInstructions[i + 1]->mOperator == IA_EXT8TO32S)
 									isSigned = true;
 							}
 
-							int	start = 0, end = lo->mSize;
+							int64	start = 0, end = lo->mSize;
 #if 1
 							if (ins->mSrc[0].mTemp < 0)
 							{
@@ -9132,11 +9132,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							{
 								if (ins->mSrc[0].mRange.mMinState == IntegerValueRange::S_BOUND)
 								{
-									start = int(ins->mSrc[0].mRange.mMinValue + ins->mSrc[0].mIntConst);
+									start = ins->mSrc[0].mRange.mMinValue + ins->mSrc[0].mIntConst;
 								}
 								if (ins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
 								{
-									end = int(ins->mSrc[0].mRange.mMaxValue + ins->mSrc[0].mIntConst + 1);
+									end = ins->mSrc[0].mRange.mMaxValue + ins->mSrc[0].mIntConst + 1;
 								}
 							}
 
@@ -9151,7 +9151,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							if (vr.mMinState == IntegerValueRange::S_BOUND && vr.mMaxState == IntegerValueRange::S_BOUND &&
 								vr.mMinValue >= -128 && vr.mMaxValue <= 127)
 							{
-								for (int j = start; j < end; j++)
+								for (int64 j = start; j < end; j++)
 								{
 									int v = isUnsigned ? lo->mData[j] : (int8)(lo->mData[j]);
 									if (v < mi)
@@ -9162,7 +9162,7 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							}
 							else
 							{
-								for (int j = start; j < end; j++)
+								for (int64 j = start; j < end; j++)
 								{
 									int v = lo->mData[j];
 									if (isUnsigned)
