@@ -1487,7 +1487,7 @@ int bmu_text(const Bitmap * bm, char lx, const char * str, char len)
 
 #pragma native(bmu_text)
 
-int bm_text_size(const char * str, char len)
+int bmu_text_size(const char * str, char len)
 {
 	int tw = 0;
 
