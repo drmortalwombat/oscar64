@@ -88,6 +88,22 @@ bool Compiler::ParseSource(void)
 		BC_REG_TMP = 0x47;
 		BC_REG_TMP_SAVED = 0x67;
 	}
+	else if (mTargetMachine == TMACH_F256K)
+	{
+		BC_REG_WORK_Y = 0x10;
+		BC_REG_WORK = 0x11;
+		BC_REG_FPARAMS = 0x1b;
+		BC_REG_FPARAMS_END = 0x27;
+
+		BC_REG_IP = 0x27;
+		BC_REG_ACCU = 0x29;
+		BC_REG_ADDR = 0x2d;
+		BC_REG_STACK = 0x31;
+		BC_REG_LOCALS = 0x33;
+
+		BC_REG_TMP = 0x35;
+		BC_REG_TMP_SAVED = 0x55;
+	}
 	else if (mCompilerOptions & COPT_EXTENDED_ZERO_PAGE)
 	{
 		BC_REG_FPARAMS = 0x0d;
@@ -572,6 +588,8 @@ bool Compiler::GenerateCode(void)
 	{
 		if (mTargetMachine == TMACH_ATARI)
 			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x00e0, 0x00ff);
+		else if (mTargetMachine == TMACH_F256K)
+			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x0080, 0x00ef);
 		else if (mCompilerOptions & (COPT_EXTENDED_ZERO_PAGE | COPT_TARGET_NES))
 			regionZeroPage = mLinker->AddRegion(identZeroPage, 0x0080, 0x00ff);
 		else if (mTargetMachine == TMACH_PET_8K || mTargetMachine == TMACH_PET_16K || mTargetMachine == TMACH_PET_32K)
@@ -585,10 +603,16 @@ bool Compiler::GenerateCode(void)
 
 	if (!regionStartup)
 	{
-		if (mCompilerOptions & (COPT_TARGET_PRG | COPT_TARGET_NES))
+		if (mCompilerOptions & (COPT_TARGET_PRG | COPT_TARGET_NES | COPT_TARGET_PGZ))
 		{
 			switch (mTargetMachine)
 			{
+			case TMACH_F256K:
+				if (mCompilerOptions & COPT_NATIVE)
+					regionStartup = mLinker->AddRegion(identStartup, 0x0200, 0x0280);
+				else
+					regionStartup = mLinker->AddRegion(identStartup, 0x0200, 0x0300);
+				break;
 			case TMACH_MEGA65:
 				if (mCompilerOptions & COPT_NATIVE)
 					regionStartup = mLinker->AddRegion(identStartup, 0x2001, 0x2080);
@@ -700,6 +724,9 @@ bool Compiler::GenerateCode(void)
 			case TMACH_MEGA65:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x2100, 0x2200);
 				break;
+			case TMACH_F256K:
+				regionBytecode = mLinker->AddRegion(identBytecode, 0x0300, 0x0400);
+				break;
 			case TMACH_C64:
 			case TMACH_X16:
 				regionBytecode = mLinker->AddRegion(identBytecode, 0x0900, 0x0a00);
@@ -755,7 +782,7 @@ bool Compiler::GenerateCode(void)
 	{
 		if (!regionMain)
 		{
-			if (!(mCompilerOptions & (COPT_TARGET_PRG | COPT_TARGET_NES)))
+			if (!(mCompilerOptions & (COPT_TARGET_PRG | COPT_TARGET_NES | COPT_TARGET_PGZ)))
 				regionMain = mLinker->AddRegion(identMain, 0x0900, 0x4700);
 			else if (regionBytecode)
 			{
@@ -763,6 +790,9 @@ bool Compiler::GenerateCode(void)
 				{
 				case TMACH_MEGA65:
 					regionMain = mLinker->AddRegion(identMain, 0x2300, 0xc000);
+					break;
+				case TMACH_F256K:
+					regionMain = mLinker->AddRegion(identMain, 0x0400, 0xa000);
 					break;
 				case TMACH_C64:
 					regionMain = mLinker->AddRegion(identMain, 0x0a00, 0xa000);
@@ -822,6 +852,9 @@ bool Compiler::GenerateCode(void)
 					// 	regionMain = mLinker->AddRegion(identMain, 0x2666, 0xff00);
 					// else
 					regionMain = mLinker->AddRegion(identMain, 0x2080, 0xc000);
+					break;
+				case TMACH_F256K:
+					regionMain = mLinker->AddRegion(identMain, 0x0280, 0xa000);
 					break;
 				case TMACH_C64:
 
@@ -1432,6 +1465,27 @@ bool Compiler::WriteOutputFile(const char* targetPath, DiskImage * d64)
 		if (mCompilerOptions & COPT_VERBOSE)
 			printf("Writing <%s>\n", prgPath);
 		mLinker->WriteBinFile(prgPath);
+	}
+	else if (mCompilerOptions & COPT_TARGET_PGZ)
+	{
+		strcat_s(prgPath, "pgz");
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Writing <%s>\n", prgPath);
+		mLinker->WritePgzFile(prgPath);
+
+		// Also write a raw .bin file alongside the .pgz
+		char binPath[200];
+		strcpy_s(binPath, prgPath);
+		ptrdiff_t blen = strlen(binPath);
+		if (blen >= 3)
+		{
+			binPath[blen - 3] = 'b';
+			binPath[blen - 2] = 'i';
+			binPath[blen - 1] = 'n';
+		}
+		if (mCompilerOptions & COPT_VERBOSE)
+			printf("Writing <%s>\n", binPath);
+		mLinker->WriteBinFile(binPath);
 	}
 	else if (mCompilerOptions & COPT_TARGET_NES)
 	{
