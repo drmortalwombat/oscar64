@@ -63781,11 +63781,11 @@ void NativeCodeProcedure::Optimize(void)
 			{
 				if (pblock->mIns[sz - 8].mType == ASMIT_LDA && pblock->mIns[sz - 8].mMode == ASMIM_ZERO_PAGE &&
 					pblock->mIns[sz - 7].mType == ASMIT_STA && pblock->mIns[sz - 7].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 7].mAddress == BC_REG_ACCU &&
-					pblock->mIns[sz - 6].mType == ASMIT_LDA && pblock->mIns[sz - 6].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 6].mAddress == pblock->mIns[sz - 0].mAddress + 1 &&
+					pblock->mIns[sz - 6].mType == ASMIT_LDA && pblock->mIns[sz - 6].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 6].mAddress == pblock->mIns[sz - 8].mAddress + 1 &&
 					pblock->mIns[sz - 5].mType == ASMIT_STA && pblock->mIns[sz - 5].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 5].mAddress == BC_REG_ACCU + 1 &&
-					pblock->mIns[sz - 4].mType == ASMIT_LDA && pblock->mIns[sz - 4].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 4].mAddress == pblock->mIns[sz - 0].mAddress + 2 &&
+					pblock->mIns[sz - 4].mType == ASMIT_LDA && pblock->mIns[sz - 4].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 4].mAddress == pblock->mIns[sz - 8].mAddress + 2 &&
 					pblock->mIns[sz - 3].mType == ASMIT_STA && pblock->mIns[sz - 3].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 3].mAddress == BC_REG_ACCU + 2 &&
-					pblock->mIns[sz - 2].mType == ASMIT_LDA && pblock->mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 2].mAddress == pblock->mIns[sz - 0].mAddress + 3 &&
+					pblock->mIns[sz - 2].mType == ASMIT_LDA && pblock->mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 2].mAddress == pblock->mIns[sz - 8].mAddress + 3 &&
 					pblock->mIns[sz - 1].mType == ASMIT_STA && pblock->mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 1].mAddress == BC_REG_ACCU + 3)
 					{
 					reg = pblock->mIns[sz - 8].mAddress;
