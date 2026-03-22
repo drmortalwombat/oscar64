@@ -20682,7 +20682,7 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 				int sz = mIns.Size();
 				if (mIns[sz - 3].mType == ASMIT_TAX &&
 					mIns[sz - 2].mType == ASMIT_LDA && HasAsmInstructionMode(ASMIT_LDX, mIns[sz - 2].mMode) &&
-					mIns[sz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[sz - 1].mMode) &&
+					mIns[sz - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPX, mIns[sz - 1].mMode) &&
 					!(mIns[sz - 1].mLive & LIVE_CPU_REG_A))
 				{
 					if ((mTrueJump->mNumEntries == 1 && mTrueJump->mIns.Size() > 0 && mTrueJump->mIns[0].mType == ASMIT_TXA && !(mTrueJump->mIns[0].mLive & LIVE_CPU_REG_X) || !(mTrueJump->mEntryRequiredRegs[CPU_REG_X])) &&
@@ -20695,12 +20695,18 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 
 						if (mTrueJump->mIns.Size() > 0 && mTrueJump->mIns[0].mType == ASMIT_TXA)
 						{
-							mTrueJump->mIns[0].mType = ASMIT_NOP;
+							mTrueJump->mIns[0].mType = ASMIT_ORA;
+							mTrueJump->mIns[0].mMode = ASMIM_IMMEDIATE;
+							mTrueJump->mIns[0].mAddress = 0;
+
 							mTrueJump->mEntryRequiredRegs += CPU_REG_A;
 						}
 						if (mFalseJump->mIns.Size() > 0 && mFalseJump->mIns[0].mType == ASMIT_TXA)
 						{
-							mFalseJump->mIns[0].mType = ASMIT_NOP;
+							mFalseJump->mIns[0].mType = ASMIT_ORA;
+							mFalseJump->mIns[0].mMode = ASMIM_IMMEDIATE;
+							mFalseJump->mIns[0].mAddress = 0;
+
 							mFalseJump->mEntryRequiredRegs += CPU_REG_A;
 						}
 
@@ -61611,7 +61617,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "rotw3");
+	CheckFunc = !strcmp(mIdent->mString, "input_interrupt");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
