@@ -991,6 +991,8 @@ public:
 	bool EliminateNonAliasedLocalStores(void);
 	bool CheckNonAliasedLocalStore(int at, const NativeCodeInstruction& sins);
 
+	bool CanSwapAccuZP(int reg, int size);
+	void SwapAccuZP(int reg, int size);
 
 	void RegisterFunctionCalls(void);
 	bool MergeFunctionCalls(void);

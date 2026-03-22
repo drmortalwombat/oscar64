@@ -32787,6 +32787,66 @@ bool NativeCodeBasicBlock::PatchCrossBlockY2XFloodExit(const NativeCodeBasicBloc
 	return false;
 }
 
+bool NativeCodeBasicBlock::CanSwapAccuZP(int reg, int size)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			const NativeCodeInstruction& ins(mIns[i]);
+			if (ins.mType == ASMIT_JSR)
+				return false;
+			if (ins.mMode == ASMIM_INDIRECT_Y)
+			{
+				if (reg == ins.mAddress + 1) return false;
+				if (reg == ins.mAddress && size < 2) return false;
+				if (ins.mAddress > reg && ins.mAddress < reg + size) return false;
+			}
+			else if (ins.mMode == ASMIM_ZERO_PAGE_X || ins.mMode == ASMIM_ZERO_PAGE_Y)
+				return false;
+		}
+
+		if (mTrueJump && !mTrueJump->CanSwapAccuZP(reg, size)) return false;
+		if (mFalseJump && !mFalseJump->CanSwapAccuZP(reg, size)) return false;
+	}
+
+	return true;
+}
+
+void NativeCodeBasicBlock::SwapAccuZP(int reg, int size)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+
+			if (ins.mMode == ASMIM_INDIRECT_Y)
+			{
+				if (ins.mAddress >= BC_REG_ACCU && ins.mAddress < BC_REG_ACCU + size)
+					ins.mAddress += reg - BC_REG_ACCU;
+				else if (ins.mAddress >= reg && ins.mAddress < reg + size)
+					ins.mAddress += BC_REG_ACCU - reg;
+			}
+			else if (ins.mMode == ASMIM_ZERO_PAGE)
+			{
+				if (ins.mAddress >= BC_REG_ACCU && ins.mAddress < BC_REG_ACCU + size)
+					ins.mAddress += reg - BC_REG_ACCU;
+				else if (ins.mAddress >= reg && ins.mAddress < reg + size)
+					ins.mAddress += BC_REG_ACCU - reg;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->SwapAccuZP(reg, size);
+		if (mFalseJump) mFalseJump->SwapAccuZP(reg, size);
+	}
+}
+
+
 bool NativeCodeBasicBlock::CheckNonAliasedLocalStore(int at, const NativeCodeInstruction& sins)
 {
 	if (mPatched)
@@ -61551,7 +61611,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "rotw3");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -63708,6 +63768,68 @@ void NativeCodeProcedure::Optimize(void)
 	DisassembleDebug("Post Op 2");
 #endif
 
+	if (mExitBlock && mExitBlock->mIns.Size() == 1 && mExitBlock->mIns[0].mType == ASMIT_RTS && mExitBlock->mEntryBlocks.Size() == 1)
+	{
+		const NativeCodeInstruction& rins(mExitBlock->mIns[0]);
+		NativeCodeBasicBlock* pblock = mExitBlock->mEntryBlocks[0];
+		int sz = pblock->mIns.Size();
+
+		int size = 0, reg = 0;
+		if (rins.mFlags & NCIF_LONG)
+		{
+			if (sz >= 8)
+			{
+				if (pblock->mIns[sz - 8].mType == ASMIT_LDA && pblock->mIns[sz - 8].mMode == ASMIM_ZERO_PAGE &&
+					pblock->mIns[sz - 7].mType == ASMIT_STA && pblock->mIns[sz - 7].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 7].mAddress == BC_REG_ACCU &&
+					pblock->mIns[sz - 6].mType == ASMIT_LDA && pblock->mIns[sz - 6].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 6].mAddress == pblock->mIns[sz - 0].mAddress + 1 &&
+					pblock->mIns[sz - 5].mType == ASMIT_STA && pblock->mIns[sz - 5].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 5].mAddress == BC_REG_ACCU + 1 &&
+					pblock->mIns[sz - 4].mType == ASMIT_LDA && pblock->mIns[sz - 4].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 4].mAddress == pblock->mIns[sz - 0].mAddress + 2 &&
+					pblock->mIns[sz - 3].mType == ASMIT_STA && pblock->mIns[sz - 3].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 3].mAddress == BC_REG_ACCU + 2 &&
+					pblock->mIns[sz - 2].mType == ASMIT_LDA && pblock->mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 2].mAddress == pblock->mIns[sz - 0].mAddress + 3 &&
+					pblock->mIns[sz - 1].mType == ASMIT_STA && pblock->mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 1].mAddress == BC_REG_ACCU + 3)
+					{
+					reg = pblock->mIns[sz - 8].mAddress;
+					size = 4;
+				}
+			}
+		}
+		else if (rins.mFlags & NCIF_UPPER)
+		{
+			if (sz >= 4)
+			{
+				if (pblock->mIns[sz - 4].mType == ASMIT_LDA && pblock->mIns[sz - 4].mMode == ASMIM_ZERO_PAGE &&
+					pblock->mIns[sz - 3].mType == ASMIT_STA && pblock->mIns[sz - 3].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 3].mAddress == BC_REG_ACCU &&
+					pblock->mIns[sz - 2].mType == ASMIT_LDA && pblock->mIns[sz - 2].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 2].mAddress == pblock->mIns[sz - 4].mAddress + 1 &&
+					pblock->mIns[sz - 1].mType == ASMIT_STA && pblock->mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 1].mAddress == BC_REG_ACCU + 1)
+				{
+					reg = pblock->mIns[sz - 4].mAddress;
+					size = 2;
+				}
+			}
+		}
+		else
+		{
+			if (sz >= 4)
+			{
+				if (pblock->mIns[sz - 2].mType == ASMIT_LDA && pblock->mIns[sz - 2].mMode == ASMIM_ZERO_PAGE &&
+					pblock->mIns[sz - 1].mType == ASMIT_STA && pblock->mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && pblock->mIns[sz - 1].mAddress == BC_REG_ACCU)
+				{
+					reg = pblock->mIns[sz - 1].mAddress;
+					size = 2;
+				}
+			}
+		}
+
+		if (size > 0 && (reg < BC_REG_FPARAMS || reg >= BC_REG_FPARAMS_END))
+		{
+			ResetVisited();
+			if (mEntryBlock->CanSwapAccuZP(reg, size))
+			{
+				ResetVisited();
+				mEntryBlock->SwapAccuZP(reg, size);
+			}
+		}
+	}
 #if 1
 	do
 	{
