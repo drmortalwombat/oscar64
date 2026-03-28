@@ -32,6 +32,7 @@ static const uint64 COPT_TARGET_COPY = 1ULL << 36;
 static const uint64 COPT_TARGET_BIN = 1ULL << 37;
 static const uint64 COPT_TARGET_LZO = 1ULL << 38;
 static const uint64 COPT_TARGET_NES = 1ULL << 39;
+static const uint64 COPT_TARGET_PGZ = 1ULL << 40;
 
 static const uint64 COPT_VERBOSE = 1ULL << 48;
 static const uint64 COPT_VERBOSE2 = 1ULL << 49;
@@ -80,7 +81,8 @@ enum TargetMachine
 	TMACH_NES_MMC3,
 	TMACH_ATARI,
 	TMACH_X16,
-	TMACH_MEGA65
+	TMACH_MEGA65,
+	TMACH_F256K
 };
 
 
