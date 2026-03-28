@@ -20756,6 +20756,69 @@ bool NativeCodeBasicBlock::SimplifyDiamond(NativeCodeProcedure* proc)
 			}
 		}
 #endif
+#if 0
+		if (mTrueJump && mFalseJump && !mTrueJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump && mTrueJump->mEntryBlocks.Size() == 1)
+		{
+			int sz = mIns.Size(), tsz = mTrueJump->mIns.Size();
+			if (sz > 0 && mIns[sz - 1].mType == ASMIT_ORA && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0)
+				sz--;
+
+			if (sz > 0 && tsz > 0)
+			{
+				if (mIns[sz - 1].mType == ASMIT_STA && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && mTrueJump->mIns[tsz - 1].IsSame(mIns[sz - 1]))
+				{
+					if (!mTrueJump->ReferencesZeroPage(mIns[sz - 1].mAddress, 0, tsz - 1))
+					{
+						printf("DoopsieT %d\n", mFalseJump->mEntryBlocks.Size());
+					}
+				}
+			}
+		}
+#endif
+		if (mTrueJump && mFalseJump && !mFalseJump->mFalseJump && mFalseJump->mTrueJump == mTrueJump && mFalseJump->mEntryBlocks.Size() == 1)
+		{
+			int sz = mIns.Size(), tsz = mFalseJump->mIns.Size();
+			if (sz > 0 && mIns[sz - 1].mType == ASMIT_ORA && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0)
+				sz--;
+
+			if (sz > 0 && tsz > 0)
+			{
+				if (mIns[sz - 1].mType == ASMIT_STA && mIns[sz - 1].mMode == ASMIM_ZERO_PAGE && mFalseJump->mIns[tsz - 1].IsSame(mIns[sz - 1]))
+				{
+					if (!mFalseJump->ReferencesZeroPage(mIns[sz - 1].mAddress, 0, tsz - 1))
+					{
+						if (mTrueJump->mEntryBlocks.Size() <= 3 || mTrueJump->mLoopHead)
+						{
+							if (mTrueJump->mEntryBlocks.Size() > 2)
+							{
+								NativeCodeBasicBlock* pblock = proc->AllocateBlock();
+								pblock->mEntryRequiredRegs = mTrueJump->mEntryRequiredRegs;
+								pblock->mExitRequiredRegs = mTrueJump->mEntryRequiredRegs;
+								pblock->mTrueJump = mTrueJump;
+								mTrueJump->mEntryBlocks.RemoveAll(this);
+								mTrueJump->mEntryBlocks.RemoveAll(mFalseJump);
+								mTrueJump->mNumEntries -= 2;
+								pblock->mEntryBlocks.Push(this);
+								pblock->mEntryBlocks.Push(mFalseJump);
+								pblock->mNumEntries = 2;
+								mTrueJump = pblock;
+								mFalseJump->mTrueJump = pblock;
+							}
+							if (sz < mIns.Size())
+								mIns[sz - 1].mLive |= LIVE_CPU_REG_A;
+							mTrueJump->mIns.Push(mIns[sz - 1]);
+							mIns.Remove(sz - 1);
+							mFalseJump->mIns.Remove(tsz - 1);
+							mTrueJump->mEntryRequiredRegs += CPU_REG_A;
+							mExitRequiredRegs += CPU_REG_A;
+							mFalseJump->mExitRequiredRegs += CPU_REG_A;
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
 		if (mTrueJump && mTrueJump->SimplifyDiamond(proc))
 			changed = true;
 		if (mFalseJump && mFalseJump->SimplifyDiamond(proc))
@@ -61617,7 +61680,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "input_interrupt");
+	CheckFunc = !strcmp(mIdent->mString, "cubes_draw_seg");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

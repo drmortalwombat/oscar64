@@ -27750,7 +27750,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "strtol");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -28909,6 +28909,8 @@ void InterCodeProcedure::Close(void)
 	ReduceTemporaries(true);
 
 	DisassembleDebug("Reduced Temporaries");
+
+	MergeCommonPathInstructions();
 
 	if (!mFastCallProcedure)
 		ReduceRecursionTempSpilling(paramMemory);
