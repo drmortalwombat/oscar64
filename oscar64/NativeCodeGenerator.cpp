@@ -56595,13 +56595,33 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate5(int i, int pass)
 		mIns[i + 0].mType == ASMIT_CLC &&
 		mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
 		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
-		mIns[i + 3].mType == ASMIT_STA && mIns[i + 3].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 3].mType == ASMIT_STA && HasAsmInstructionMode(ASMIT_STY, mIns[i + 3].mMode) &&
 		mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)))
 	{
 		mIns[i + 0].mType = ASMIT_NOP;
 		mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
 		mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
 		mIns[i + 3].mType = ASMIT_STY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
+		mIns[i + 4].mType = ASMIT_NOP;
+		if (mIns[i + 2].mAddress == 2)
+		{
+			mIns.Insert(i + 3, mIns[i + 2]);
+		}
+
+		return true;
+	}
+
+	if (
+		mIns[i + 0].mType == ASMIT_CLC &&
+		mIns[i + 1].mType == ASMIT_LDA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && (mIns[i + 2].mAddress == 1 || mIns[i + 2].mAddress == 2) &&
+		mIns[i + 3].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, mIns[i + 3].mMode) &&
+		mIns[i + 4].mType == ASMIT_TAY && !(mIns[i + 4].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+	{
+		mIns[i + 0].mType = ASMIT_NOP;
+		mIns[i + 1].mType = ASMIT_LDY; mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+		mIns[i + 2].mType = ASMIT_INY; mIns[i + 2].mMode = ASMIM_IMPLIED; mIns[i + 2].mLive |= LIVE_CPU_REG_Y;
+		mIns[i + 3].mType = ASMIT_CPY; mIns[i + 3].mLive |= LIVE_CPU_REG_Y;
 		mIns[i + 4].mType = ASMIT_NOP;
 		if (mIns[i + 2].mAddress == 2)
 		{

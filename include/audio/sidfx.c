@@ -48,7 +48,7 @@ void sidfx_play(byte chn, const SIDFX * fx, byte cnt)
 	if (ns == SIDFX_IDLE)
 		ns = SIDFX_READY;
 	else if (channels[chn].priority <= fx->priority)
-		ns = SIDFX_RESET_0;
+		ns = SIDFX_RESET_1;
 	else
 		return;
 
