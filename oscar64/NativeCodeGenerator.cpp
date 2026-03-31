@@ -44886,33 +44886,39 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		int aj = mIns[0].mAddress;
 
 		int i = 1;
-		while (i < sz - 2 && mIns[i].mMode == ASMIM_ZERO_PAGE || !mIns[i].ReferencesZeroPage(ai))
+		while (i < sz - 2 && (mIns[i].mMode == ASMIM_ZERO_PAGE || !mIns[i].ReferencesZeroPage(ai)))
 			i++;
 		if (i == sz - 2)
 		{
-			int index;
-			NativeCodeBasicBlock* block = this;
-
-			if (IsExitARegZP(ai, index, block))
+			int i = 0;
+			while (i < sz - 2 && !mIns[i].ChangesZeroPage(ai))
+				i++;
+			if (!ReferencesZeroPage(aj, i + 1, sz - 2))
 			{
-				if (!prevBlock)
-					return OptimizeSimpleLoopInvariant(proc, full);
+				int index;
+				NativeCodeBasicBlock* block = this;
 
-				for (int i = 1; i < sz; i++)
+				if (IsExitARegZP(ai, index, block))
 				{
-					if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == ai)
-						mIns[i].mAddress = aj;
+					if (!prevBlock)
+						return OptimizeSimpleLoopInvariant(proc, full);
+
+					for (int i = 1; i < sz; i++)
+					{
+						if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == ai)
+							mIns[i].mAddress = aj;
+					}
+
+					prevBlock->mIns.Push(mIns[0]);
+					mIns.Remove(0);
+
+					mExitRequiredRegs += aj;
+					mEntryRequiredRegs += aj;
+
+					CheckLive();
+
+					return true;
 				}
-
-				prevBlock->mIns.Push(mIns[0]);
-				mIns.Remove(0);
-
-				mExitRequiredRegs += aj;
-				mEntryRequiredRegs += aj;
-
-				CheckLive();
-
-				return true;
 			}
 		}
 
@@ -61700,7 +61706,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "cubes_draw_seg");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -63487,6 +63493,7 @@ void NativeCodeProcedure::Optimize(void)
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
 #endif
+
 #if 1
 		if (step == 9 || step == 26)
 		{
