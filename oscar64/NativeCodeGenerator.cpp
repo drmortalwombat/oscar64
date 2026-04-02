@@ -38589,7 +38589,7 @@ bool NativeCodeBasicBlock::MoveStoreXUp(int at)
 
 			if (mIns[at - 1].mMode == ASMIM_ABSOLUTE_X && inc)
 			{
-				if (!mIns[at - 1].mLinkerObject || mIns[at - 1].mLinkerObject->mSize > 255)
+				if (inc < 0 || !mIns[at - 1].mLinkerObject || mIns[at - 1].mLinkerObject->mSize > 255)
 					return done;
 			}
 
@@ -39383,6 +39383,9 @@ bool NativeCodeBasicBlock::MoveLoadAddImmStoreAbsXUp(int at)
 			top = j;
 		j--;
 	}
+
+	while (top < at && mIns[top].mType == ASMIT_STX)
+		top++;
 
 	if (top < at)
 	{
@@ -61706,7 +61709,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "rirq_sort");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -63584,6 +63587,7 @@ void NativeCodeProcedure::Optimize(void)
 				swappedXY = true;
 			}
 		}
+
 #if 1
 		if (step == 13)
 		{
@@ -63927,6 +63931,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 	}
 #if 1
+	cnt = 0;
 	do
 	{
 		RebuildEntry();
@@ -64001,7 +64006,8 @@ void NativeCodeProcedure::Optimize(void)
 		DisassembleDebug("Post Op 3d");
 #endif
 
-	} while (changed);
+		cnt++;
+	} while (changed && cnt < 100);
 #endif
 
 #if DISASSEMBLE_OPT
