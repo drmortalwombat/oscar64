@@ -791,8 +791,9 @@ public:
 	bool ShortcutZeroPageCopyUp(NativeCodeProcedure* nproc);
 	bool BackwardReplaceZeroPage(int at, int from, int to, bool diamond);
 
-	bool IsSameRegisterSource(const NativeCodeInstruction& rins) const;
+	bool IsSameRegisterSource(const NativeCodeInstruction& rins, int nloops = 0) const;
 	bool PartialBackwardValuePropagation(void);
+	bool BackwardValuePropagation(void);
 	bool HoistCommonLoads(void);
 
 	bool FindInitialLoadA(NativeCodeInstruction *& ins);

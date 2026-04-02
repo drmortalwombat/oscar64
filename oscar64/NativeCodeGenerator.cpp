@@ -37892,13 +37892,21 @@ bool NativeCodeBasicBlock::ShortcutZeroPageCopyUp(NativeCodeProcedure* nproc)
 	return changed;
 }
 
-bool NativeCodeBasicBlock::IsSameRegisterSource(const NativeCodeInstruction& rins) const
+bool NativeCodeBasicBlock::IsSameRegisterSource(const NativeCodeInstruction& rins, int nloops) const
 {
 	for (int i = mIns.Size() - 1; i >= 0; i--)
 	{
 		const NativeCodeInstruction& ins(mIns[i]);
 		if (rins.IsSame(ins))
 			return true;
+#if 1
+		if (rins.mType == ASMIT_LDY && ins.mType == ASMIT_STY && rins.SameEffectiveAddress(ins))
+			return true;
+		if (rins.mType == ASMIT_LDX && ins.mType == ASMIT_STX && rins.SameEffectiveAddress(ins))
+			return true;
+		if (rins.mType == ASMIT_LDA && ins.mType == ASMIT_STA && rins.SameEffectiveAddress(ins))
+			return true;
+#endif
 		if (rins.mType == ASMIT_LDY && ins.ChangesYReg())
 			return false;
 		if (rins.mType == ASMIT_LDX && ins.ChangesXReg())
@@ -37908,12 +37916,20 @@ bool NativeCodeBasicBlock::IsSameRegisterSource(const NativeCodeInstruction& rin
 		if (rins.MayBeChangedOnAddress(ins))
 			return false;
 	}
-	
-	if (mLoopHead || mEntryBlocks.Size() == 0)
+
+	if (mEntryBlocks.Size() == 0)
 		return false;
 
+	if (mLoopHead)
+	{
+		if (nloops)
+			nloops--;
+		else
+			return false;
+	}
+
 	for (int i = 0; i < mEntryBlocks.Size(); i++)
-		if (!mEntryBlocks[i]->IsSameRegisterSource(rins))
+		if (!mEntryBlocks[i]->IsSameRegisterSource(rins, nloops))
 			return false;
 	return true;
 }
@@ -38037,6 +38053,63 @@ bool NativeCodeBasicBlock::HoistCommonLoads(void)
 	return changed;
 }
 
+bool NativeCodeBasicBlock::BackwardValuePropagation(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		bool achanged = false, xchanged = false, ychanged = false;
+
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			NativeCodeInstruction& ins(mIns[i]);
+
+			if (i + 1 < mIns.Size())
+			{
+				NativeCodeInstruction& nins(mIns[i + 1]);
+
+				if (i + 1 < mIns.Size() && (ins.mType == ASMIT_INC || ins.mType == ASMIT_DEC) && ins.mMode == ASMIM_ZERO_PAGE && !xchanged && nins.mType == ASMIT_LDX && nins.SameEffectiveAddress(ins))
+				{
+					if (!ChangesZeroPage(ins.mAddress, 0, i))
+					{
+
+						int j = 0;
+						while (j < mEntryBlocks.Size() && mEntryBlocks[j]->IsSameRegisterSource(nins, 2))
+							j++;
+						if (j == mEntryBlocks.Size())
+						{
+							if (ins.mType = ASMIT_INC)
+								ins.mType = ASMIT_INX;
+							else
+								ins.mType = ASMIT_DEX;
+							ins.mMode = ASMIM_IMPLIED;
+							nins.mType = ASMIT_STX;
+							changed = true;
+						}
+					}
+				}
+			}
+
+			if (ins.ChangesYReg())
+				ychanged = true;
+			if (ins.ChangesXReg())
+				xchanged = true;
+			if (ins.ChangesAccu())
+				achanged = true;
+		}
+
+		if (mTrueJump && mTrueJump->BackwardValuePropagation())
+			changed = true;
+		if (mFalseJump && mFalseJump->BackwardValuePropagation())
+			changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::PartialBackwardValuePropagation(void)
 {
 	bool	changed = false;
@@ -38103,6 +38176,14 @@ bool NativeCodeBasicBlock::PartialBackwardValuePropagation(void)
 									pblock->mNumEntries++;
 								}
 							}
+
+							if (ins.mType == ASMIT_LDA)
+								afail = true;
+							if (ins.mType == ASMIT_LDX)
+								xfail = true;
+							if (ins.mType == ASMIT_LDY)
+								yfail = true;
+
 							ins.mType = ASMIT_NOP;
 							ins.mMode = ASMIM_IMPLIED;
 							mEntryBlocks.Push(pblock);
@@ -61709,7 +61790,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "rirq_sort");
+	CheckFunc = !strcmp(mIdent->mString, "check_strtof");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -63678,6 +63759,16 @@ void NativeCodeProcedure::Optimize(void)
 					changed = true;
 
 			}			
+		}
+
+		if (step == 18)
+		{
+			ResetVisited();
+			if (mEntryBlock->BackwardValuePropagation())
+			{
+				changed = true;
+				BuildDataFlowSets();
+			}
 		}
 
 		if (step == 18)

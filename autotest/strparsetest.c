@@ -55,7 +55,6 @@ int main(void)
 	check_strtou("123", 10, 123, '\0');
 	check_strtou("123x", 10, 123, 'x');
 	check_strtou(" 123x", 10, 123, 'x');
-
 	check_strtof("123", 123, '\0');
 	check_strtof("123x", 123, 'x');
 	check_strtof(" 123x", 123, 'x');
@@ -72,6 +71,5 @@ int main(void)
 	check_strtof("123.5e2x", 12350, 'x');
 	check_strtof(" 123.5e2x", 12350, 'x');
 	check_strtof("-123.5e2x", -12350, 'x');
-
 	return 0;
 }
