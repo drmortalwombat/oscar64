@@ -565,6 +565,8 @@ public:
 	bool MoveLoadOrZPUp(int at);
 	bool MoveLoadLogicStoreAbsUp(int at);
 
+	bool MoveLoadAddStoreDown(int at);
+
 	bool MoveLDSTXOutOfRange(int at);
 
 	bool MoveZpImmTAYDown(int at);
@@ -736,6 +738,7 @@ public:
 
 	bool ShortcutBlockExit(void);
 	bool PropagateSinglePath(void);
+	bool SplitSinglePath(void);
 	bool ShortcutORACascade(void);
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;

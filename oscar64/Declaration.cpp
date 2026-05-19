@@ -406,7 +406,7 @@ bool Expression::IsRValue(void) const
 
 bool Expression::IsVolatile(void) const
 {
-	if (mDecType->mFlags & DTF_VOLATILE)
+	if (mDecType && mDecType->mFlags & DTF_VOLATILE)
 		return true;
 	if (mLeft && mLeft->IsVolatile())
 		return true;
