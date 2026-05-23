@@ -2595,7 +2595,7 @@ Declaration* Declaration::ToVolatileType(void)
 		ndec->mQualIdent = mQualIdent;
 		ndec->mTemplate = mTemplate;
 
-		if (mType == DT_TYPE_STRUCT)
+		if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_UNION)
 		{
 			ndec->mScope = new DeclarationScope(nullptr, mScope->mLevel);
 			Declaration* p = mParams;

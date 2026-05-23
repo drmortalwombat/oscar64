@@ -336,8 +336,6 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 						mdec->mQualIdent = dec->mScope->Mangle(mdec->mIdent);
 
 						int	offset = dec->mSize;
-						if (dt == DT_TYPE_UNION)
-							offset = 0;
 
 						if (mdec->mBase->mType == DT_TYPE_FUNCTION)
 						{
@@ -421,6 +419,9 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 								}
 								else
 								{
+									if (dt == DT_TYPE_UNION)
+										offset = 0;
+
 									mdec->mType = DT_ELEMENT;
 									mdec->mOffset = offset;
 
