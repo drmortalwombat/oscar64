@@ -14581,11 +14581,30 @@ void Parser::ParsePragma(void)
 		{
 			mScanner->NextToken();
 			ConsumeToken(TK_OPEN_PARENTHESIS);
-			if (mScanner->mToken == TK_STRING)
-			{
-				printf("%s\n", mScanner->mTokenString);
-				mScanner->NextToken();
-			}
+			do {
+				if (mScanner->mToken == TK_STRING)
+				{
+					printf("%s", mScanner->mTokenString);
+					mScanner->NextToken();
+				}
+				else
+				{
+					Expression* exp = ParseRExpression();
+					if (exp->mType == EX_CONSTANT)
+					{
+						switch (exp->mDecValue->mType)
+						{
+						case DT_CONST_INTEGER:
+							printf("%lld", exp->mDecValue->mInteger);
+							break;
+						case DT_CONST_FLOAT:
+							printf("%g", exp->mDecValue->mNumber);
+							break;
+						}
+					}
+				}
+			} while (ConsumeTokenIf(TK_COMMA));
+			printf("\n");
 			ConsumeToken(TK_CLOSE_PARENTHESIS);
 		}
 		else if (!strcmp(mScanner->mTokenIdent->mString, "warning"))
