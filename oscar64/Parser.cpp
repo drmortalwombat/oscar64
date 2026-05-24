@@ -10517,7 +10517,7 @@ Expression* Parser::ParseConditionalExpression(bool lhs)
 
 Expression* Parser::ParseRExpression(void)
 {
-	return ParseConditionalExpression(false)->ConstantFold(mErrors, mDataSection);
+	return ParseConditionalExpression(false)->ConstantFold(mErrors, mDataSection)->ConstantDereference(mErrors, mDataSection);
 }
 
 Expression* Parser::ParseParenthesisExpression(void)
@@ -10542,7 +10542,7 @@ void Parser::ParseStaticAssert(void)
 	if (ConsumeToken(TK_OPEN_PARENTHESIS))
 	{
 		Expression* exp = ParseExpression(false);
-		exp = exp->ConstantFold(mErrors, mDataSection);
+		exp = exp->ConstantFold(mErrors, mDataSection)->ConstantDereference(mErrors, mDataSection);
 		if (exp->mType == EX_CONSTANT && exp->mDecType->IsIntegerType() && exp->mDecValue->mInteger)
 		{
 			if (ConsumeTokenIf(TK_COMMA))

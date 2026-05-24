@@ -640,17 +640,29 @@ Expression* Expression::ConstantDereference(Errors* errors, LinkerSection* dataS
 			}
 		}
 	}
-	else if (mType == EX_BINARY)
+	else if (mType == EX_BINARY || mType == EX_RELATIONAL)
 	{
 		Expression* lexp = mLeft->ConstantDereference(errors, dataSection);
 		Expression* rexp = mRight->ConstantDereference(errors, dataSection);
 		if (lexp != mLeft || rexp != mRight)
 		{
-			Expression* nexp = new Expression(mLocation, EX_BINARY);
+			Expression* nexp = new Expression(mLocation, mType);
 			nexp->mToken = mToken;
 			nexp->mDecType = mDecType;
 			nexp->mLeft = lexp;
 			nexp->mRight = rexp;
+			return nexp->ConstantFold(errors, dataSection)->ConstantDereference(errors, dataSection);
+		}
+	}
+	else if (mType == EX_PREFIX)
+	{
+		Expression* lexp = mLeft->ConstantDereference(errors, dataSection);
+		if (lexp != mLeft)
+		{
+			Expression* nexp = new Expression(mLocation, mType);
+			nexp->mToken = mToken;
+			nexp->mDecType = mDecType;
+			nexp->mLeft = lexp;
 			return nexp->ConstantFold(errors, dataSection)->ConstantDereference(errors, dataSection);
 		}
 	}
