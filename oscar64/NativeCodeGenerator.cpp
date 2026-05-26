@@ -47971,7 +47971,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 				if (tails.Size() == 1 && !ReferencesZeroPage(addr, 0, i) && !ChangesZeroPage(addr, i + 2))
 				{
 					int j = 0;
-					while (j < lblocks.Size() && (lblocks[i] == tails[0] || !lblocks[j]->ChangesZeroPage(addr)))
+					while (j < lblocks.Size() && (lblocks[j] == tails[0] || !lblocks[j]->ChangesZeroPage(addr)))
 						j++;
 					if (j == lblocks.Size())
 					{
