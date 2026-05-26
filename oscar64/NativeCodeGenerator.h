@@ -263,6 +263,7 @@ public:
 	bool IsSameLS(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
 	bool IsLogic(void) const;
+	bool IsArithmetic(void) const;
 	bool IsShift(void) const;
 	bool IsShiftOrInc(void) const;
 	bool IsSimpleJSR(void) const;
