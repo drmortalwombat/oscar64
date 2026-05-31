@@ -60658,6 +60658,39 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 		mIns[sz - 2].mLive |= LIVE_CPU_REG_Z;
 		changed = true;
 	}
+	else if (sz >= 2 &&
+		mIns[sz - 2].mType == ASMIT_LDA && mIns[sz - 2].mMode == ASMIM_IMMEDIATE &&
+		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode != ASMIM_IMMEDIATE && !(mIns[sz - 1].mLive & LIVE_CPU_REG_A) && 
+		!mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_Z])
+	{
+		int v = mIns[sz - 2].mAddress;
+		if (mBranch == ASMIT_BNE || mBranch == ASMIT_BEQ)
+		{
+			mIns[sz - 2].CopyMode(mIns[sz - 1]);
+			mIns[sz - 1].mMode = ASMIM_IMMEDIATE; mIns[sz - 1].mAddress = v;
+			changed = true;
+		}
+		else if (mBranch == ASMIT_BCC)
+		{
+			if (v < 255)
+			{
+				mIns[sz - 2].CopyMode(mIns[sz - 1]);
+				mBranch = ASMIT_BCS;
+				mIns[sz - 1].mMode = ASMIM_IMMEDIATE; mIns[sz - 1].mAddress = v + 1;
+				changed = true;
+			}
+		}
+		else if (mBranch == ASMIT_BCS)
+		{
+			if (v < 255)
+			{
+				mIns[sz - 2].CopyMode(mIns[sz - 1]);
+				mBranch = ASMIT_BCC;
+				mIns[sz - 1].mMode = ASMIM_IMMEDIATE; mIns[sz - 1].mAddress = v + 1;
+				changed = true;
+			}
+		}
+	}
 #if 1
 	else if (sz >= 2 &&
 		mIns[sz - 2].ChangesAccuAndFlag() &&
@@ -62706,7 +62739,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "window_color");
+	CheckFunc = !strcmp(mIdent->mString, "gamestate_save");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
