@@ -734,6 +734,7 @@ public:
 	bool IsExitYRegZP(int addr, int& index, NativeCodeBasicBlock * & block);
 	bool IsExitXRegZP(int addr, int& index, NativeCodeBasicBlock * & block);
 	bool IsExitARegZP(int addr, int& index, NativeCodeBasicBlock * & block);
+	bool IsARegZP(int at, int addr, int& index, NativeCodeBasicBlock*& block);
 
 	void MarkLiveBlockChain(int index, NativeCodeBasicBlock* block, uint32 live, uint32 reg);
 
