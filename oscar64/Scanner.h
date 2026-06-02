@@ -4,7 +4,7 @@
 #include "Errors.h"
 #include "Preprocessor.h"
 
-enum Token
+enum Token : uint8
 {
 	TK_NONE,
 	TK_EOF,

@@ -411,6 +411,9 @@ protected:
 			else
 				range = range * 2;
 
+			if (range < 4)
+				range = 4;
+
 			a2 = new T[range];
 			if (to > size)
 				for (i = 0; i < size; i++) a2[i] = array[i];
@@ -452,8 +455,8 @@ public:
 	ExpandingArray(void)
 	{
 		size = 0;
-		range = 4;
-		array = new T[range];
+		range = 0;
+		array = nullptr;
 	}
 
 	ExpandingArray(const ExpandingArray& a)

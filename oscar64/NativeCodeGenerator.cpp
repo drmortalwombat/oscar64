@@ -15664,7 +15664,15 @@ bool NativeCodeBasicBlock::RemoveUnusedBitOps(void)
 				break;
 			case ASMIT_AND:
 				if (ins.mMode == ASMIM_IMMEDIATE)
-					usesA = ins.mAddress;
+				{
+					if (!usesZ && ins.mAddress == usesA)
+					{
+						ins.mType = ASMIT_NOP;
+						ins.mMode = ASMIM_IMPLIED;
+					}
+					else
+						usesA = ins.mAddress;
+				}
 				else
 					usesA = 0xff;
 				usesZ = 0x00;
@@ -41709,7 +41717,7 @@ bool NativeCodeBasicBlock::IndexXYValueForwarding(int xreg, int xoffset, int xva
 						else if (xoffset >= 253)
 						{
 							mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
-							for (int j = xoffset; j <= 256; j++)
+							for (int j = xoffset; j < 256; j++)
 								mIns.Insert(i + 1, NativeCodeInstruction(mIns[i].mIns, ASMIT_INX));
 							changed = true;
 						}
@@ -41763,7 +41771,7 @@ bool NativeCodeBasicBlock::IndexXYValueForwarding(int xreg, int xoffset, int xva
 						else if (yoffset >= 253)
 						{
 							mIns[i].mType = ASMIT_NOP; mIns[i].mMode = ASMIM_IMPLIED;
-							for (int j = yoffset; j <= 256; j++)
+							for (int j = yoffset; j < 256; j++)
 								mIns.Insert(i + 1, NativeCodeInstruction(mIns[i].mIns, ASMIT_INY));
 							changed = true;
 						}
@@ -62873,7 +62881,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "balls_collisions");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -65312,6 +65320,7 @@ NativeCodeBasicBlock* NativeCodeProcedure::AllocateBlock(void)
 
 void NativeCodeProcedure::TrimBlocks(void)
 {
+	int n = 0;
 	int j = 1;
 	for (int i = 1; i < mBlocks.Size(); i++)
 	{
@@ -65322,7 +65331,10 @@ void NativeCodeProcedure::TrimBlocks(void)
 			mBlocks[j++] = block;
 		}
 		else
+		{
 			delete block;
+			n++;
+		}
 	}
 	mBlocks.SetSize(j, false);
 }

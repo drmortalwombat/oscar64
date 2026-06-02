@@ -11,7 +11,7 @@
 
 class Declaration;
 
-enum InterCode
+enum InterCode : uint8
 {
 	IC_NONE,
 	IC_LOAD_TEMPORARY,
@@ -46,7 +46,7 @@ enum InterCode
 	IC_BREAKPOINT
 };
 
-enum InterType
+enum InterType : uint8
 {
 	IT_NONE,
 	IT_BOOL,
@@ -59,7 +59,7 @@ enum InterType
 
 extern int InterTypeSize[];
 
-enum InterMemory
+enum InterMemory : uint8
 {
 	IM_NONE,
 	IM_PARAM,		// Memory used to access parameters on stack
@@ -74,7 +74,7 @@ enum InterMemory
 	IM_FFRAME,		// Memory used to pass parameters in zp
 };
 
-enum InterOperator
+enum InterOperator : uint8
 {
 	IA_NONE,
 	IA_ADD,
@@ -283,15 +283,15 @@ public:
 class InterOperand
 {
 public:
-	int					mTemp;
-	InterType			mType;
-	bool				mFinal;
 	int64				mIntConst;
 	double				mFloatConst;
-	int					mVarIndex, mOperandSize, mStride, mRestricted;
 	LinkerObject	*	mLinkerObject;
-	InterMemory			mMemory, mMemoryBase;
 	IntegerValueRange	mRange;
+	int					mTemp;
+	int					mVarIndex, mOperandSize, mStride, mRestricted;
+	bool				mFinal;
+	InterType			mType;
+	InterMemory			mMemory, mMemoryBase;
 
 	void Forward(const InterOperand& op);
 	void ForwardTemp(const InterOperand& op);
@@ -316,13 +316,15 @@ class InterInstruction
 {
 public:
 	Location							mLocation;
-	InterCode							mCode;
 	InterOperand					*	mSrc;
 	InterOperand						mDst;
 	InterOperand						mConst;
+	InterOperand						mOps[3];
+	
+	short								mNumOperands;
+
+	InterCode							mCode;
 	InterOperator						mOperator;
-	InterOperand						mOps[4];
-	int									mNumOperands;
 
 	bool								mInUse, mInvariant, mVolatile, mExpensive, mSingleAssignment, mNoSideEffects, mConstExpr, mRemove, mAliasing, mMemmap, mLockOrder;
 

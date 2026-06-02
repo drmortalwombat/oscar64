@@ -199,7 +199,7 @@ template<typename F> void DeclarationScope::Iterate(F&& f)
 	}
 }
 
-enum ExpressionType
+enum ExpressionType : uint8
 {
 	EX_ERROR,
 	EX_VOID,
@@ -269,17 +269,19 @@ public:
 	Expression(const Location& loc, ExpressionType type);
 	~Expression(void);
 
-	uint32					mUID;
 
 	Location				mLocation, mEndLocation;
-	ExpressionType			mType;
 	Expression			*	mLeft, * mRight;
-	Token					mToken;
 	Declaration			*	mDecValue, * mDecType;
+
+	uint32					mUID;
+
+	Token					mToken;
+	ExpressionType			mType;
 	AsmInsType				mAsmInsType;
 	AsmInsMode				mAsmInsMode;
 	bool					mConst;
-	uint32					mFlags;
+	uint8					mFlags;
 
 	Expression* LogicInvertExpression(void);
 	Expression* ConstantFold(Errors * errors, LinkerSection* dataSection, Linker * linker = nullptr);
