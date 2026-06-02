@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <assert.h>
-
+#include <stdio.h>
 
 bool feq(float a, float b)
 {
@@ -60,11 +60,14 @@ inline void cmpflt(float a, float b, bool eq, bool lt, bool gt)
 
 int main(void)
 {
+	printf("fcmp1\n");
+
 	cmpflt( 0.0,  1.0, false, true, false);
 	cmpflt( 0.0, -1.0, false, false, true);
 	cmpflt( 1.0,  0.0, false, false, true);
 	cmpflt(-1.0,  0.0, false, true, false);
 
+	printf("fcmp2\n");
 
 	cmpflt( 1.0,  1.0, true, false, false);
 	cmpflt( 1.0,  2.0, false, true, false);
@@ -87,6 +90,8 @@ int main(void)
 	cmpflt( 0.0,  -0.0, true, false, false);
 	cmpflt(-0.0,  -0.0, true, false, false);
 
+	printf("fcmp3\n");
+
 	cmpflt( 1.0,  1.000001,     false, true, false);
 	cmpflt( 1.000001, 1.0,      false, false, true);
 	cmpflt( 1.000001, 1.000001, true, false, false);
@@ -95,5 +100,7 @@ int main(void)
 	cmpflt( -1.000001, -1.0,      false, true, false);
 	cmpflt( -1.000001, -1.000001, true, false, false);
 	
+	printf("fcmp4\n");
+
 	return 0;
 }
