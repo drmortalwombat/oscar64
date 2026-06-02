@@ -58,17 +58,16 @@ inline void cmpflt(float a, float b, bool eq, bool lt, bool gt)
 	assert(fge(a, f) == ge);
 }
 
-int main(void)
+void test1(void)
 {
-	printf("fcmp1\n");
-
 	cmpflt( 0.0,  1.0, false, true, false);
 	cmpflt( 0.0, -1.0, false, false, true);
 	cmpflt( 1.0,  0.0, false, false, true);
-	cmpflt(-1.0,  0.0, false, true, false);
+	cmpflt(-1.0,  0.0, false, true, false);	
+}
 
-	printf("fcmp2\n");
-
+void test2(void)
+{
 	cmpflt( 1.0,  1.0, true, false, false);
 	cmpflt( 1.0,  2.0, false, true, false);
 	cmpflt( 2.0,  1.0, false, false, true);
@@ -84,23 +83,33 @@ int main(void)
 	cmpflt(-1.0,  1.0, false, true, false);
 	cmpflt(-1.0,  2.0, false, true, false);
 	cmpflt(-2.0,  1.0, false, true, false);
+}
 
+void test3(void)
+{
 	cmpflt( 0.0,   0.0, true, false, false);
 	cmpflt(-0.0,   0.0, true, false, false);
 	cmpflt( 0.0,  -0.0, true, false, false);
-	cmpflt(-0.0,  -0.0, true, false, false);
+	cmpflt(-0.0,  -0.0, true, false, false);	
+}
 
-	printf("fcmp3\n");
-
+void test4(void)
+{
 	cmpflt( 1.0,  1.000001,     false, true, false);
 	cmpflt( 1.000001, 1.0,      false, false, true);
 	cmpflt( 1.000001, 1.000001, true, false, false);
 
 	cmpflt( -1.0,  -1.000001,     false, false, true);
 	cmpflt( -1.000001, -1.0,      false, true, false);
-	cmpflt( -1.000001, -1.000001, true, false, false);
-	
-	printf("fcmp4\n");
+	cmpflt( -1.000001, -1.000001, true, false, false);	
+}
+
+int main(void)
+{
+	test1();
+	test2();
+	test3();
+	test4();
 
 	return 0;
 }
