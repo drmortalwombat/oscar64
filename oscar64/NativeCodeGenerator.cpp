@@ -28358,12 +28358,18 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 
 								if (!mEntryRequiredRegs[CPU_REG_A])
 								{
+									for (int j = 0; j < mEntryBlocks.Size(); j++)
+										mEntryBlocks[j]->mIns[mEntryBlocks[j]->mTemp].mLive |= LIVE_MEM;
+
 									mIns.Insert(0, NativeCodeInstruction(iins, ASMIT_LDA, ASMIM_ZERO_PAGE, saddr));
 									mIns.Insert(1, NativeCodeInstruction(iins, ASMIT_STA, ASMIM_ZERO_PAGE, daddr));
 									changed = true;
 								}
 								else if (!mEntryRequiredRegs[CPU_REG_X])
 								{
+									for (int j = 0; j < mEntryBlocks.Size(); j++)
+										mEntryBlocks[j]->mIns[mEntryBlocks[j]->mTemp].mLive |= LIVE_MEM;
+
 									mIns.Insert(0, NativeCodeInstruction(iins, ASMIT_LDX, ASMIM_ZERO_PAGE, saddr));
 									mIns.Insert(1, NativeCodeInstruction(iins, ASMIT_STX, ASMIM_ZERO_PAGE, daddr));
 									changed = true;
@@ -62881,7 +62887,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "putpch");
+	CheckFunc = !strcmp(mIdent->mString, "buggy");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -63966,7 +63972,6 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->ShortcutIndirectLoadStore())
 				changed = true;
 		}
-
 
 #if 1
 		if (step >= 3)
