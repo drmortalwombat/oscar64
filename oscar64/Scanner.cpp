@@ -1119,9 +1119,6 @@ void Scanner::NextPreToken(void)
 						NextRawToken();
 					if (mToken != TK_CLOSE_PARENTHESIS)
 						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Missing ')' for macro expansion");
-					else
-						NextRawToken();
-
 				}
 				else if (def->mNumArguments > 0)
 				{
