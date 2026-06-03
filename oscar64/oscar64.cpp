@@ -109,7 +109,7 @@ void writeHelp(void)
 	printf("-pp : compile in C++ mode\n");
 	printf("-strict : use strict ANSI C parsing(no C++ goodies)\n");
 	printf("-psci : use PETSCII encoding for all strings without prefix\n");
-	printf("-rmp : generate error files.error.map, .error.asm when linker fails\n");
+	printf("-rmp : generate error files: .error.map and .error.asm when linker fails\n");
 }
 
 int main2(int argc, const char** argv)
@@ -130,7 +130,7 @@ int main2(int argc, const char** argv)
 
 #else
 		strcpy(strProductName, "oscar64");
-		strcpy(strProductVersion, "1.32.271");
+		strcpy(strProductVersion, "1.32.272");
 
 #ifdef __APPLE__
 		uint32_t length = sizeof(basePath);
