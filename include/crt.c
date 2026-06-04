@@ -549,7 +549,6 @@ WW:
 		sta	tmp + 2
 		sta	tmp + 3
 
-		sty	tmpy
 		ldy	#16
 		clc
 L1:		rol	accu
@@ -569,7 +568,6 @@ W1:		dey
 		bne	L1
 		rol	accu
 		rol	accu + 1
-		ldy	tmpy
 		rts	
 }
 
@@ -577,9 +575,6 @@ W1:		dey
 
 __asm divmod32
 {
-		sty	tmpy
-		ldy	#32
-
 		lda	#0
 		sta	tmp + 4
 		sta	tmp + 5
@@ -588,12 +583,78 @@ __asm divmod32
 
 		lda tmp + 2
 		ora tmp + 3
-		bne W32
+		beq W32N
+
+W32:
+// upper 16 bit are not zero, so ignore first 16 div steps
+
+		ldy #16
+		lda accu + 3
+		sta tmp + 5
+		lda accu + 2
+		sta tmp + 4
+		lda #0
+		sta accu + 2
+		sta accu + 3
+
+		clc
+L1:		rol	accu
+		rol	accu + 1
+		rol	tmp + 4
+		rol	tmp + 5
+		rol	tmp + 6
+		rol	tmp + 7
+		
+		lda	tmp + 4
+		cmp	tmp + 0
+		lda	tmp + 5
+		sbc	tmp + 1
+		lda	tmp + 6
+		sbc	tmp + 2
+		tax
+		lda	tmp + 7
+		sbc	tmp + 3
+		bcc	W1
+		stx tmp + 6
+		sta tmp + 7
+		lda	tmp + 4
+		sbc	tmp + 0
+		sta tmp + 4
+		lda	tmp + 5
+		sbc	tmp + 1
+		sta tmp + 5
+		sec
+W1:		dey
+		bne	L1
+		rol	accu
+		rol	accu + 1
+		ldy	tmpy
+		rts	
+
+W32N:
 
 // divide 32 by 16 bit
 
+		lda	accu + 2
+		ora accu + 3
+		bne LB0
+
+// divide 16 by 16 bit
+
+		jsr	divmod
+		lda tmp + 2
+		sta tmp + 4
+		lda tmp + 3
+		sta tmp + 5
+		rts
+
+LB0:
+		ldy	#32
+
 		lda	tmp + 1
 		bne W16
+
+// divide 32 by 8
 
 // a is zero
 		clc
@@ -671,51 +732,6 @@ WS1:	dey
 		ldy	tmpy
 		rts	
 
-W32:
-// upper 16 bit are not zero, so ignore first 16 div steps
-
-		ldy #16
-		lda accu + 3
-		sta tmp + 5
-		lda accu + 2
-		sta tmp + 4
-		lda #0
-		sta accu + 2
-		sta accu + 3
-
-		clc
-L1:		rol	accu
-		rol	accu + 1
-		rol	tmp + 4
-		rol	tmp + 5
-		rol	tmp + 6
-		rol	tmp + 7
-		
-		lda	tmp + 4
-		cmp	tmp + 0
-		lda	tmp + 5
-		sbc	tmp + 1
-		lda	tmp + 6
-		sbc	tmp + 2
-		tax
-		lda	tmp + 7
-		sbc	tmp + 3
-		bcc	W1
-		stx tmp + 6
-		sta tmp + 7
-		lda	tmp + 4
-		sbc	tmp + 0
-		sta tmp + 4
-		lda	tmp + 5
-		sbc	tmp + 1
-		sta tmp + 5
-		sec
-W1:		dey
-		bne	L1
-		rol	accu
-		rol	accu + 1
-		ldy	tmpy
-		rts	
 }
 
 // Multiply accu by tmp result in tmp + 2
@@ -2080,8 +2096,9 @@ __asm inp_binop_divr_u16
 		sta	tmp + 0
 		lda	$01, x
 		sta	tmp + 1
+		sty	tmpy
 		jsr	divmod
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_BINOP_DIVR_U16, inp_binop_divr_u16)
@@ -2094,12 +2111,13 @@ __asm inp_binop_modr_u16
 		sta	tmp + 0
 		lda	$01, x
 		sta	tmp + 1
+		sty	tmpy
 		jsr	divmod
 		lda	tmp + 2
 		sta	accu
 		lda	tmp + 3
 		sta	accu + 1
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_BINOP_MODR_U16, inp_binop_modr_u16)
@@ -2107,6 +2125,8 @@ __asm inp_binop_modr_u16
 __asm inp_binop_divr_s16
 {
 		lda	(ip), y
+		sty	tmpy
+
 		tax
 		lda	$00, x
 		sta	tmp + 0
@@ -2119,13 +2139,13 @@ __asm inp_binop_divr_s16
 		bpl	L2
 		jsr	negtmp
 L3:		jsr	divmod
-		jmp	startup.yexec		
+		jmp	startup.tyexec		
 L1:		bit	tmp + 1
 		bpl	L3
 		jsr	negtmp
 L2:		jsr	divmod
 		jsr	negaccu
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_BINOP_DIVR_I16, inp_binop_divr_s16)
@@ -2133,6 +2153,7 @@ L2:		jsr	divmod
 __asm inp_binop_modr_s16
 {
 		lda	(ip), y
+		sty tmpy
 		tax
 		lda	$00, x
 		sta	tmp + 0
@@ -2150,7 +2171,7 @@ L3:		jsr	divmod
 		lda	tmp + 3
 		sta	accu + 1
 		jsr	negaccu
-		jmp	startup.yexec		
+		jmp	startup.tyexec		
 L1:		bit	tmp + 1
 		bpl	L2
 		jsr	negtmp
@@ -2159,7 +2180,7 @@ L2:		jsr	divmod
 		sta	accu
 		lda	tmp + 3
 		sta	accu + 1
-		jmp	startup.yexec
+		jmp	startup.tyexec
 }
 
 #pragma	bytecode(BC_BINOP_MODR_I16, inp_binop_modr_s16)
@@ -4201,7 +4222,9 @@ __asm inp_op_extrt
 		lda	(ip), y
 		iny
 		tax
+		sty	tmpy
 _c1:	jsr $0000
+		ldy tmpy
 		jmp	startup.exec		
 }
 

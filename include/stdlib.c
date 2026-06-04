@@ -841,7 +841,7 @@ void * realloc(void * ptr, unsigned size)
 }
 
 static unsigned seed = 31232;
-static unsigned seedl = 321432142412;
+static unsigned long seedl = 321432142412;
 
 unsigned int rand(void)
 {

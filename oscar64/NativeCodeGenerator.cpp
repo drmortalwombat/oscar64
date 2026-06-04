@@ -19512,9 +19512,17 @@ bool NativeCodeBasicBlock::UntangleXYUsage(bool final)
 			{				
 				if (yins >= 0 && mIns[yins].SameEffectiveAddress(ins) && nins.mMode == ASMIM_ABSOLUTE_X && HasAsmInstructionMode(nins.mType, ASMIM_ABSOLUTE_Y))
 				{
-					mIns.Insert(i, NativeCodeInstruction(nins.mIns, nins.mType, ASMIM_ABSOLUTE_Y, nins.mAddress, nins.mLinkerObject, nins.mFlags));
-					mIns[i + 1].mLive |= mIns[i].mLive;
-					mIns.Remove(i + 2);
+					if (nins.mLive & LIVE_CPU_REG_Z)
+					{
+						ins.mLive |= LIVE_CPU_REG_Y;
+						nins.mMode = ASMIM_ABSOLUTE_Y;
+					}
+					else
+					{
+						mIns.Insert(i, NativeCodeInstruction(nins.mIns, nins.mType, ASMIM_ABSOLUTE_Y, nins.mAddress, nins.mLinkerObject, nins.mFlags));
+						mIns[i + 1].mLive |= mIns[i].mLive;
+						mIns.Remove(i + 2);
+					}
 					for (int j = yins; j < i; j++)
 						mIns[j].mLive |= LIVE_CPU_REG_Y;
 					changed = true;
@@ -19526,9 +19534,17 @@ bool NativeCodeBasicBlock::UntangleXYUsage(bool final)
 			{
 				if (xins >= 0 && mIns[xins].SameEffectiveAddress(ins) && nins.mMode == ASMIM_ABSOLUTE_Y && HasAsmInstructionMode(nins.mType, ASMIM_ABSOLUTE_X))
 				{
-					mIns.Insert(i, NativeCodeInstruction(nins.mIns, nins.mType, ASMIM_ABSOLUTE_X, nins.mAddress, nins.mLinkerObject, nins.mFlags));
-					mIns[i + 1].mLive |= mIns[i].mLive;
-					mIns.Remove(i + 2);
+					if (nins.mLive & LIVE_CPU_REG_Z)
+					{
+						ins.mLive = LIVE_CPU_REG_X;
+						nins.mMode = ASMIM_ABSOLUTE_X;
+					}
+					else
+					{
+						mIns.Insert(i, NativeCodeInstruction(nins.mIns, nins.mType, ASMIM_ABSOLUTE_X, nins.mAddress, nins.mLinkerObject, nins.mFlags));
+						mIns[i + 1].mLive |= mIns[i].mLive;
+						mIns.Remove(i + 2);
+					}
 					for (int j = xins; j < i; j++)
 						mIns[j].mLive |= LIVE_CPU_REG_X;
 					changed = true;
@@ -48152,7 +48168,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 				if (tails.Size() == 1 && !ReferencesZeroPage(addr, 0, i) && !ChangesZeroPage(addr, i + 2))
 				{
 					int j = 0;
-					while (j < lblocks.Size() && (lblocks[j] == tails[0] || !lblocks[j]->ChangesZeroPage(addr)))
+					while (j < lblocks.Size() && (lblocks[j] == tails[0] || lblocks[j] == this || !lblocks[j]->ChangesZeroPage(addr)))
 						j++;
 					if (j == lblocks.Size())
 					{
@@ -62887,7 +62903,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "buggy");
+	CheckFunc = !strcmp(mIdent->mString, "expand");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
