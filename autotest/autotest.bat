@@ -243,6 +243,9 @@ rem @echo off
 @call :test funcvartest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test variadic_macros.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test funcarraycall.c
 @if %errorlevel% neq 0 goto :error
 
