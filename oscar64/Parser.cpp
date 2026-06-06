@@ -9363,19 +9363,16 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 			{
 				Expression* thisExp = nullptr;
 
-			if (exp->mDecType != nullptr && exp->mDecType->mType == DT_TYPE_POINTER && exp->mDecType->mBase->mType == DT_TYPE_FUNCTION)
+			if (exp->mDecType == nullptr)
+				;
+			else if (exp->mDecType->mType == DT_TYPE_POINTER && exp->mDecType->mBase->mType == DT_TYPE_FUNCTION)
 			{
 			}
-			else if (exp->mDecType != nullptr && exp->mDecType->mType == DT_TYPE_FUNCTION)
-				{
-				}
+			else if (exp->mDecType->mType == DT_TYPE_FUNCTION)
+			{
+			}
 			else
 			{
-				if (exp->mDecType != nullptr)
-				{
-					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected");
-					exp->mDecType = TheVoidFunctionTypeDeclaration;
-				}
 				Declaration* tdec = exp->mDecType;
 				while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
 					tdec = tdec->mBase;
