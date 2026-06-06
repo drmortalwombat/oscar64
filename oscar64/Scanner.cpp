@@ -785,6 +785,13 @@ void Scanner::NextPreToken(void)
 									break;
 								}
 							}
+							else if (mToken == TK_ELLIPSIS)
+							{
+								macro->AddArgument(Ident::Unique("__VA_ARGS__"));
+								macro->mVariadic = true;
+								NextRawToken();
+								break;
+							}
 							else
 								mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define argument");
 
@@ -1154,6 +1161,14 @@ void Scanner::NextPreToken(void)
 							Macro* arg = new Macro(def->mArguments[i], scope);
 							arg->SetString(mLine + mOffset, offset - mOffset);
 							mDefineArguments->Insert(arg);
+
+							if (def->mVariadic && i + 1 == def->mNumArguments)
+							{
+								Macro* vaarg = new Macro(Ident::Unique("__VA_ARGS__"), scope);
+								vaarg->SetString(mLine + mOffset, offset - mOffset);
+								mDefineArguments->Insert(vaarg);
+							}
+
 							mOffset = offset;
 
 							if (i + 1 != def->mNumArguments)
@@ -2695,6 +2710,9 @@ void Scanner::ParseNumberToken(void)
 
 			mTokenNumber = facc;
 			mToken = TK_NUMBER;
+
+			if (mTokenChar == 'f' || mTokenChar == 'F')
+				NextChar();
 		}
 	}
 }

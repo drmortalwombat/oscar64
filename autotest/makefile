@@ -74,5 +74,12 @@ volatiletest: volatiletest.c
 	$(OSCAR64_CC) -eai -g -Os -n $<
 	$(OSCAR64_CC) -eai -g -O3 -n $<
 
+variadic-functions: variadic-functions.c
+	$(OSCAR64_CC) -eai -g -n $<
+	$(OSCAR64_CC) -eai -g -O2 -n $<
+	$(OSCAR64_CC) -eai -g -O0 -n $<
+	$(OSCAR64_CC) -eai -g -Os -n $<
+	$(OSCAR64_CC) -eai -g -O3 -n $<
+
 clean:
 	@$(RM) *.asm *.bcs *.int *.lbl *.map *.prg

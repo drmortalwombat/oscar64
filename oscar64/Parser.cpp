@@ -9296,6 +9296,9 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 {
 	Expression* exp = ParseSimpleExpression(lhs);
 
+	if (exp->mType == EX_LABEL)
+		return exp;
+
 	for (;;)
 	{
 		if (ConsumeTokenIf(TK_COLCOLON))
@@ -9360,45 +9363,50 @@ Expression* Parser::ParsePostfixExpression(bool lhs)
 			{
 				Expression* thisExp = nullptr;
 
-				if (exp->mDecType->mType == DT_TYPE_POINTER && exp->mDecType->mBase->mType == DT_TYPE_FUNCTION)
+			if (exp->mDecType != nullptr && exp->mDecType->mType == DT_TYPE_POINTER && exp->mDecType->mBase->mType == DT_TYPE_FUNCTION)
+			{
+			}
+			else if (exp->mDecType != nullptr && exp->mDecType->mType == DT_TYPE_FUNCTION)
 				{
 				}
-				else if (exp->mDecType->mType == DT_TYPE_FUNCTION)
+			else
+			{
+				if (exp->mDecType != nullptr)
 				{
+					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected");
+					exp->mDecType = TheVoidFunctionTypeDeclaration;
 				}
-				else
-				{
-					Declaration* tdec = exp->mDecType;
-					while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
-						tdec = tdec->mBase;
+				Declaration* tdec = exp->mDecType;
+				while (tdec->mType == DT_TYPE_REFERENCE || tdec->mType == DT_TYPE_RVALUEREF)
+					tdec = tdec->mBase;
 
-					if (tdec->mType == DT_TYPE_STRUCT && tdec->mScope)
+				if (tdec->mType == DT_TYPE_STRUCT && tdec->mScope)
+				{
+					const Ident* opident = Ident::Unique("operator()");
+
+					Declaration* mdec = tdec->mScope->Lookup(opident);
+					if (mdec)
 					{
-						const Ident* opident = Ident::Unique("operator()");
+						thisExp = new Expression(exp->mLocation, EX_PREFIX);
+						thisExp->mToken = TK_BINARY_AND;
+						thisExp->mLeft = exp;
+						thisExp->mDecType = tdec->BuildPointer(exp->mLocation);
 
-						Declaration* mdec = tdec->mScope->Lookup(opident);
-						if (mdec)
-						{
-							thisExp = new Expression(exp->mLocation, EX_PREFIX);
-							thisExp->mToken = TK_BINARY_AND;
-							thisExp->mLeft = exp;
-							thisExp->mDecType = tdec->BuildPointer(exp->mLocation);
-
-							exp = new Expression(exp->mLocation, EX_CONSTANT);
-							exp->mDecValue = mdec;
-							exp->mDecType = mdec->mBase;
-						}
-						else
-						{
-							mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
-							exp->mDecType = TheVoidFunctionTypeDeclaration;
-						}
+						exp = new Expression(exp->mLocation, EX_CONSTANT);
+						exp->mDecValue = mdec;
+						exp->mDecType = mdec->mBase;
 					}
 					else
 					{
 						mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
 						exp->mDecType = TheVoidFunctionTypeDeclaration;
 					}
+				}
+				else
+				{
+					mErrors->Error(mScanner->mLocation, EERR_INCOMPATIBLE_OPERATOR, "Function expected for call");
+					exp->mDecType = TheVoidFunctionTypeDeclaration;
+				}
 
 				}
 
@@ -14371,9 +14379,9 @@ Expression* Parser::ParseAssembler(Declaration* vdasm)
 					}
 				}
 
-				if (flags & ASMIFLG_CHANGES_ACCU) 	vdasm->mFlags &= ~DTF_ASM_PRESERVE_A;
-				if (flags & ASMIFLG_CHANGES_XREG) 	vdasm->mFlags &= ~DTF_ASM_PRESERVE_X;
-				if (flags & ASMIFLG_CHANGES_YREG) 	vdasm->mFlags &= ~DTF_ASM_PRESERVE_Y;
+				if (flags & ASMIFLG_CHANGES_ACCU)	vdasm->mFlags &= ~DTF_ASM_PRESERVE_A;
+				if (flags & ASMIFLG_CHANGES_XREG)	vdasm->mFlags &= ~DTF_ASM_PRESERVE_X;
+				if (flags & ASMIFLG_CHANGES_YREG)	vdasm->mFlags &= ~DTF_ASM_PRESERVE_Y;
 
 				ifinal = ilast;
 
