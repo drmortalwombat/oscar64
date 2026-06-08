@@ -1,83 +1,306 @@
-.TH oscar64 1 "December 7, 2025" "Version 1.32" "User Commands"
+.TH oscar64 1 "June 2026" "Version 1.32" "User Commands"
 .SH NAME
 oscar64 \- optimizing C/C++ cross-compiler for 6502 systems
 
 .SH SYNOPSIS
 .B oscar64
+.RB [ \-h ]
+.RB [ \-v [ 1 | 2 | 3 ]]
 .RB { \-i= "\fIincludePath\fR}"
-.RB [ \-o= "\fIoutput.prg\fR]"
-.RB [ \-rt= "\fIruntime.c\fR]"
-.RB [ \-tf= "\fItarget\fR]"
-.RB [ \-tm= "\fImachine\fR]"
-.RB [ \-e ]
-.RB [ \-n ]
-.RB [ \-g ]
-.RB [ \-O ( 0 | 1 | 2 | 3 )]
+.RB [ \-ii= "\fIincludePath\fR" ]
+.RB [ \-o= "\fIoutput.prg\fR" ]
+.RB [ \-rt= "\fIruntime.c\fR" ]
+.RB [ \-tf= "\fIformat\fR" ]
+.RB [ \-tm= "\fImachine\fR" ]
 .RB [ \-pp ]
-.RB { \-d "\fISYMBOL\fR[=\fIvalue\fR]}"
-.RB [ \-v ]
-.RB [ \-d64= "\fIdiskname\fR]"
-.RB { \-f [z]= \fIfile.xxx\fR }
+.RB [ \-strict ]
+.RB [ \-psci ]
+.RB [ \-n | \-bc ]
+.RB [ \-e [ p | t | b | a | i ]]
+.RB [ \-g [ p ]]
+.RB [ \-O ( 0 | 1 | 2 | 3 | s )]
+.RB [ \-O ( i | ii | a | z | p | o | x | g | m )]
+.RB [ \-d \fISYMBOL\fR[=\fIvalue\fR] ]
+.RB [ \-D \fISYMBOL\fR[=\fIvalue\fR] ]
+.RB [ \-xz ]
+.RB [ \-rmp ]
+.RB [ \-d64= "\fIdiskname\fR" ]
+.RB [ \-f= "\fIfile\fR" ]
+.RB [ \-fz= "\fIfile\fR" ]
+.RB [ \-fi= "\fIn\fR" ]
+.RB [ \-cid= "\fIn\fR" ]
+.RB [ \-csub= "\fIn\fR" ]
+.RB [ \-cname= "\fIname\fR" ]
 .RI { source.c }
+.RI { source.cpp }
 
 .SH DESCRIPTION
-\fBoscar64\fR is a C/C++ compiler for the 6502 processor family. It is designed to generate high-performance 8-bit code targeting platforms such as the Commodore 64, VIC-20, PET, and Commander X16.
+\fBoscar64\fR is a C/C++ compiler for the 6502 processor family. It is designed to generate high-performance 8-bit code targeting platforms such as the Commodore 64, VIC-20, PET, Commander X16, NES, Atari 8-bit, and Mega65.
 
 .SH OPTIONS
+.SS "General Options"
+.TP
+.B \-h
+Print help text and exit.
 .TP
 .BI \-i= includePath
 Set the include file search path.
+.TP
+.BI \-ii= includePath
+Set the default include path (overrides built-in path).
 .TP
 .BI \-o= output.prg
 Specify output file name.
 .TP
 .BI \-rt= runtime.c
-Use a custom runtime startup source.
-.TP
-.BI \-tf= target
-Set the output target format (e.g., \fIprg\fR, \fIcrt\fR).
-.TP
-.BI \-tm= machine
-Specify the machine target (e.g., \fIc64\fR, \fIvic20\fR, \fIpet\fR).
-.TP
-.B \-e
-Enable overlays.
-.TP
-.B \-n
-Disable CRT.
-.TP
-.B \-g
-Enable debug output.
-.TP
-.BI \-O0
-Disable optimizations.
-.TP
-.BI \-O1
-Enable minimal optimizations.
-.TP
-.BI \-O2
-Enable aggressive optimizations.
-.TP
-.BI \-O3
-Enable maximum optimization level.
+Use a custom runtime startup source (or empty for none).
 .TP
 .B \-pp
-Enable preprocessor output only.
+Compile in C++ mode (automatically enabled for .cpp files).
+.TP
+.B \-strict
+Use strict ANSI C parsing (no C++ extensions).
+.TP
+.B \-psci
+Use PETSCII encoding for all string literals without prefix.
+.TP
+.B \-xz
+Extended zero page usage. Provides more zero page space but disables return to BASIC.
+.TP
+.B \-rmp
+Generate error files (.error.map and .error.asm) when the linker fails.
+
+.SS "Symbol Definitions"
 .TP
 .BI \-d SYMBOL[=value]
-Define a symbol optionally with a value (like \fB\-D\fR in other compilers).
+Define a preprocessor symbol (like \fB\-D\fR in other compilers).
+.TP
+.BI \-D SYMBOL[=value]
+Define a symbol in a gcc-compatible way (e.g., \fB\-D NAME=VALUE\fR as a separate argument).
+
+.SS "Code Generation"
+.TP
+.B \-n
+Create pure native code for all functions (now the default).
+.TP
+.B \-bc
+Create byte code for all functions (disables native code generation).
+.TP
+.B \-e
+Execute the result in the integrated emulator after compilation.
+.TP
+.B \-ep
+Execute and profile the result in the integrated emulator.
+.TP
+.B \-et
+Execute with trace output in the integrated emulator.
+.TP
+.B \-eb
+Execute with break trace in the integrated emulator.
+.TP
+.B \-ea
+Execute with asserts enabled in the integrated emulator.
+.TP
+.B \-ei
+Execute with I/O range checking in the integrated emulator.
+
+.SS "Optimization"
+.TP
+.B \-O0
+Disable all optimizations.
+.TP
+.B \-O1 "\fBor\fR" \-O
+Default optimizations.
+.TP
+.B \-O2
+Aggressive speed optimizations (includes auto-inline of small functions).
+.TP
+.B \-O3
+Aggressive optimization for speed (includes all sub-optimizations).
+.TP
+.B \-Os
+Optimize for code size.
+.TP
+.B \-Oi
+Enable auto-inline of small functions (part of O2/O3).
+.TP
+.B \-Oii
+Enable aggressive auto-inline of all suitable functions.
+.TP
+.B \-Oa
+Optimize inline assembler (part of O2/O3).
+.TP
+.B \-Oz
+Enable auto-placement of global variables in zero page (part of O3).
+.TP
+.B \-Op
+Optimize constant parameters.
+.TP
+.B \-Oo
+Optimize size using "outliner" (extract repeated code sequences into functions).
+.TP
+.B \-Ox
+Optimize pointer arithmetic by blocking shorter arrays from crossing page boundaries.
+.TP
+.B \-Og
+Enable global optimization.
+.TP
+.B \-Om
+Enable merge calls optimization.
+
+.SS "Debug and Diagnostics"
 .TP
 .B \-v
-Enable verbose mode.
+Enable verbose output for diagnostics.
+.TP
+.B \-v2
+More verbose output.
+.TP
+.B \-v3
+Even more verbose output (implies v2).
+.TP
+.B \-g
+Create source-level debug info and add source line numbers to .asm listing.
+.TP
+.B \-gp
+Create source-level debug info and static profile data.
+
+.SS "Target Format"
+.TP
+.BI \-tf= format
+Set the output target format.
+.RS
+.TP
+prg
+Standard Commodore PRG format (default).
+.TP
+crt
+EasyFlash cartridge format.
+.TP
+crt8
+Generic 8KB cartridge (0x8000\-0xa000).
+.TP
+crt16
+Generic 16KB cartridge (0x8000\-0xc000).
+.TP
+bin
+Raw binary format.
+.TP
+lzo
+LZO-compressed PRG output.
+.RE
+
+.SS "Target Machine"
+.TP
+.BI \-tm= machine
+Specify the target machine.
+.RS
+.TP
+c64
+Commodore C64 (0x0800..0xa000, default).
+.TP
+c128
+Commodore C128 (0x1c00..0xfc00).
+.TP
+c128b
+C128 first 16KB only (0x1c00..0x4000).
+.TP
+c128e
+C128 first 48KB only (0x1c00..0xc000).
+.TP
+plus4
+Commodore Plus/4 (0x1000..0xfc00).
+.TP
+vic20
+VIC-20, no expansion (0x1000..0x1e00).
+.TP
+vic20+3
+VIC-20 +3K RAM (0x0400..0x1e00).
+.TP
+vic20+8
+VIC-20 +8K RAM (0x1200..0x4000).
+.TP
+vic20+16
+VIC-20 +16K RAM (0x1200..0x6000).
+.TP
+vic20+24
+VIC-20 +24K RAM (0x1200..0x8000).
+.TP
+pet
+Commodore PET, 8K RAM (0x0400..0x2000).
+.TP
+pet16
+Commodore PET, 16K RAM (0x0400..0x4000).
+.TP
+pet32
+Commodore PET, 32K RAM (0x0400..0x8000).
+.TP
+nes
+NES NROM, 32K ROM, no mirror.
+.TP
+nes_nrom_h
+NES NROM, 32K ROM, horizontal mirror.
+.TP
+nes_nrom_v
+NES NROM, 32K ROM, vertical mirror.
+.TP
+nes_mmc1
+NES MMC1 mapper, 256K PROM, 128K CROM.
+.TP
+nes_mmc3
+NES MMC3 mapper, 512K PROM, 256K CROM.
+.TP
+atari
+Atari 8-bit systems (0x2000..0xbc00).
+.TP
+x16
+Commander X16 (0x0800..0x9f00).
+.TP
+mega65
+Mega65 (0x2000..0xc000).
+.RE
+
+.SS "Disk Image"
 .TP
 .BI \-d64= diskname
 Create a .d64 disk image with the specified name.
 .TP
-.BI \-f[z]= file.xxx
-Add a file to output (optionally compress with \fBz\fR modifier).
+.BI \-f= file.xxx
+Add a binary file to the disk image.
 .TP
-.I source.c
-Input source code file(s) to compile.
+.BI \-fz= file.xxx
+Add a compressed binary file to the disk image.
+.TP
+.BI \-fi= n
+Set sector interleave for data files on disk image (default: 10).
+
+.SS "Cartridge Options"
+.TP
+.BI \-cid= n
+Set cartridge type ID (used by VICE emulator).
+.TP
+.BI \-csub= n
+Set cartridge sub-type.
+.TP
+.BI \-cname= name
+Set cartridge name string.
+
+.SH "RUNTIME LIBRARY DEFINES"
+.TP
+.BI \-d NOLONG
+Disable support for long integers in printf.
+.TP
+.BI \-d NOFLOAT
+Disable floating-point support in printf.
+.TP
+.BI \-d HEAPCHECK
+Enable heap allocation/free checking; jam if heap is full or free out of range.
+.TP
+.BI \-d NOBSSCLEAR
+Do not clear BSS segment on startup.
+.TP
+.BI \-d NOZPCLEAR
+Do not clear zero-page BSS segment on startup.
 
 .SH EXAMPLES
 Compile a program with optimizations:
@@ -85,7 +308,7 @@ Compile a program with optimizations:
   oscar64 -i=include -O2 -o=demo.prg demo.c
 .fi
 
-Compile with overlay and custom runtime:
+Compile with emulator execution and custom runtime:
 .nf
   oscar64 -e -rt=startup.c -f=assets.dat game.c
 .fi
@@ -95,13 +318,18 @@ Create a disk image with compiled output:
   oscar64 -d64=mydisk.d64 -f=demo.prg demo.c
 .fi
 
+Compile in C++ mode with maximum optimization:
+.nf
+  oscar64 -pp -O3 -o=demo.prg demo.cpp
+.fi
+
 .SH FILES
 .TP
 .B /usr/local/bin/oscar64
 Main compiler executable.
 .TP
 .B /usr/local/share/oscar64/
-Headers and startup runtime source
+Headers and startup runtime source.
 
 .SH SEE ALSO
 .BR llvm-mos (1)
