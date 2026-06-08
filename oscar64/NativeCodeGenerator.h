@@ -401,6 +401,7 @@ public:
 
 	void BlockSizeReduction(NativeCodeProcedure* proc, int xenter, int yenter, int center);
 	bool BlockSizeCopyReduction(NativeCodeProcedure* proc, int & si, int & di);
+	void BranchAccuAlternativeElimination(void);
 
 	bool OptimizeSimpleYIndexedLoop(NativeCodeBasicBlock* prevBlock, NativeCodeBasicBlock* exitBlock);
 	bool OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc, bool full);
@@ -896,6 +897,9 @@ public:
 	bool IsSimpleSubExpression(int at, NativeSimpleSubExpression & ex);
 	bool PropagateCommonSubExpression(void);
 
+	bool PropagateCrossBlockAccuExpression(void);
+	void CollectAccuDominatedBlocks(ExpandingArray<NativeCodeBasicBlock*>& dblocks);
+
 	bool CanForwardZPMove(int saddr, int daddr, int & index) const;
 	bool CanForwardLoadStore(const NativeCodeInstruction & lins, const NativeCodeInstruction & sins, int& index) const;
 	bool Is16BitAddSubImmediate(int at, int& sreg, int &dreg, int& offset) const;
@@ -932,6 +936,7 @@ public:
 	bool CollectCheckRegOriginBlocks(int at, int reg, ExpandingArray<NativeCodeBasicBlock*>& lblocks, ExpandingArray<NativeCodeInstruction*>& lins);
 	bool PatchBitBoolConstOrigin(void);
 
+	// 
 	// reg : base register pair to replace
 	// index: index register
 	// at : start position in block

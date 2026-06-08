@@ -19185,7 +19185,6 @@ void NativeSimpleSubExpressions::Filter(const NativeCodeInstruction& ins)
 	}
 }
 
-
 bool NativeCodeBasicBlock::PropagateCommonSubExpression(void)
 {
 	bool changed = false;
@@ -19236,6 +19235,70 @@ bool NativeCodeBasicBlock::PropagateCommonSubExpression(void)
 		if (mTrueJump && mTrueJump->PropagateCommonSubExpression())
 			changed = true;
 		if (mFalseJump && mFalseJump->PropagateCommonSubExpression())
+			changed = true;
+	}
+
+	return changed;
+}
+
+void NativeCodeBasicBlock::CollectAccuDominatedBlocks(ExpandingArray<NativeCodeBasicBlock*>& dblocks)
+{
+	if (mPatched)
+		return;
+
+	for (int i = 0; i < mEntryBlocks.Size(); i++)
+		if (!mEntryBlocks[i]->mPatchChecked)
+			return;
+
+	mPatched = true;
+	dblocks.Push(this);
+
+	if (!ChangesAccu())
+	{
+		mPatchChecked = true;
+		if (mTrueJump) mTrueJump->CollectAccuDominatedBlocks(dblocks);
+		if (mFalseJump) mFalseJump->CollectAccuDominatedBlocks(dblocks);
+	}
+}
+
+bool NativeCodeBasicBlock::PropagateCrossBlockAccuExpression(void)
+{
+	bool changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int sz = mIns.Size();
+		if (sz >= 3 &&
+			(mIns[sz - 3].mType == ASMIT_LDA || mIns[sz - 3].mType == ASMIT_STA) && mIns[sz - 3].mMode == ASMIM_ZERO_PAGE &&
+			mIns[sz - 2].IsLogic() && mIns[sz - 2].mMode == ASMIM_IMMEDIATE &&
+			!mIns[sz - 1].ChangesAccu())
+		{
+			mProc->ResetPatched();
+			mPatchChecked = true;
+
+			ExpandingArray<NativeCodeBasicBlock*>	dblocks;
+			if (mTrueJump) mTrueJump->CollectAccuDominatedBlocks(dblocks);
+			if (mFalseJump) mFalseJump->CollectAccuDominatedBlocks(dblocks);
+
+			for (int i = 0; i < dblocks.Size(); i++)
+			{
+				NativeCodeBasicBlock* b = dblocks[i];
+				if (b->mIns.Size() >= 2 &&
+					b->mIns[0].mType == ASMIT_LDA && b->mIns[0].mMode == ASMIM_ZERO_PAGE && b->mIns[0].mAddress == mIns[sz - 3].mAddress &&
+					b->mIns[1].IsSame(mIns[sz - 2]) && !(b->mIns[1].mLive & LIVE_CPU_REG_Z))
+				{
+					b->mIns[0].mType = ASMIT_NOP; b->mIns[0].mMode = ASMIM_IMPLIED;
+					b->mIns[1].mType = ASMIT_NOP; b->mIns[1].mMode = ASMIM_IMPLIED;
+					changed = true;
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->PropagateCrossBlockAccuExpression())
+			changed = true;
+		if (mFalseJump && mFalseJump->PropagateCrossBlockAccuExpression())
 			changed = true;
 	}
 
@@ -31885,7 +31948,7 @@ bool NativeCodeBasicBlock::CheckSingleUseGlobalLoadStruct(const NativeCodeBasicB
 
 			if (ins.SameEffectiveAddress(rins))
 			{
-				if (ins.mType == ASMIT_LDA)
+				if ((ins.mType == ASMIT_LDA || ins.mType == ASMIT_LDX || ins.mType == ASMIT_LDY) && HasAsmInstructionMode(ins.mType, ains.mMode))
 				{
 					if (poisoned)
 						return false;
@@ -31946,7 +32009,7 @@ bool NativeCodeBasicBlock::PatchSingleUseGlobalLoadStruct(const NativeCodeBasicB
 
 			if (ins.SameEffectiveAddress(rins))
 			{
-				if (ins.mType == ASMIT_LDA)
+				if (ins.mType == ASMIT_LDA || ins.mType == ASMIT_LDX || ins.mType == ASMIT_LDY)
 				{
 					finat = i;
 					ins.CopyMode(ains);
@@ -50072,6 +50135,55 @@ static bool CheckBlockCopySequence(const ExpandingArray<NativeCodeInstruction>& 
 		return false;
 }
 
+void NativeCodeBasicBlock::BranchAccuAlternativeElimination(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+		if (mTrueJump && mFalseJump && (mBranch == ASMIT_BEQ || mBranch == ASMIT_BNE) &&
+			mTrueJump->mEntryBlocks.Size() == 1 && mFalseJump->mEntryBlocks.Size() == 1 && 
+			mIns.Size() > 0 && mIns[mIns.Size() - 1].ChangesAccuAndFlag() &&
+			!mTrueJump->mFalseJump && !mFalseJump->mFalseJump && mTrueJump->mTrueJump == mFalseJump->mTrueJump &&
+			mTrueJump->mIns.Size() == 1 && mFalseJump->mIns.Size() == 1 &&
+			mTrueJump->mIns[0].mType == ASMIT_LDA && mTrueJump->mIns[0].mMode == ASMIM_IMMEDIATE &&
+			mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[0].mMode == ASMIM_IMMEDIATE)
+		{
+			NativeCodeBasicBlock* eblock = mTrueJump->mTrueJump;
+			if (eblock->mEntryBlocks.Size() == 2)
+			{
+				if (mBranch == ASMIT_BEQ)
+				{
+					mTrueJump->mIns[0].mType = ASMIT_EOR;
+					mFalseJump->mIns[0].mAddress ^= mTrueJump->mIns[0].mAddress;
+					eblock->mEntryBlocks.RemoveAll(mFalseJump);
+					eblock->mNumEntries--;
+					mFalseJump->mTrueJump = mTrueJump;
+					mTrueJump->mNumEntries++;
+					mTrueJump->mEntryBlocks.Push(mFalseJump);
+					mTrueJump->mEntryRequiredRegs += CPU_REG_A;
+				}
+				else
+				{
+					mFalseJump->mIns[0].mType = ASMIT_EOR;
+					mTrueJump->mIns[0].mAddress ^= mFalseJump->mIns[0].mAddress;
+					eblock->mEntryBlocks.RemoveAll(mTrueJump);
+					eblock->mNumEntries--;
+					mTrueJump->mTrueJump = mFalseJump;
+					mFalseJump->mNumEntries++;
+					mFalseJump->mEntryBlocks.Push(mTrueJump);
+					mFalseJump->mEntryRequiredRegs += CPU_REG_A;
+				}
+
+				mIns[mIns.Size() - 1].mLive |= LIVE_CPU_REG_A;
+				mExitRequiredRegs += CPU_REG_A;
+			}
+		}
+
+		if (mTrueJump) mTrueJump->BranchAccuAlternativeElimination();
+		if (mFalseJump) mFalseJump->BranchAccuAlternativeElimination();
+	}
+}
+
 bool NativeCodeBasicBlock::BlockSizeCopyReduction(NativeCodeProcedure* proc, int& si, int& di) 
 {
 	if ((proc->mCompilerOptions & COPT_OPTIMIZE_CODE_SIZE))
@@ -62903,7 +63015,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "expand");
+	CheckFunc = !strcmp(mIdent->mString, "belt_sprite_xy");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -64819,7 +64931,6 @@ void NativeCodeProcedure::Optimize(void)
 		}
 #endif
 
-
 		if (step == 14 && cnt == 0)
 		{
 			ResetVisited();
@@ -64847,6 +64958,16 @@ void NativeCodeProcedure::Optimize(void)
 				changed = true;
 		}
 #endif
+
+		if (step == 16)
+		{
+			ResetVisited();
+			if (mEntryBlock->PropagateCrossBlockAccuExpression())
+			{
+				changed = true;
+				BuildDataFlowSets();
+			}
+		}
 
 		if (step == 16)
 		{
@@ -65288,6 +65409,9 @@ void NativeCodeProcedure::Optimize(void)
 #if 1
 
 	RebuildEntry();
+	
+	ResetVisited();
+	mEntryBlock->BranchAccuAlternativeElimination();
 
 	ResetVisited();
 	mEntryBlock->BlockSizeReduction(this, -1, -1, -1);
