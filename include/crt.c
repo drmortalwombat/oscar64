@@ -200,8 +200,8 @@ w0:
 		sta $8000
 #endif
 #else		
-		byt	0x0b
-		byt 0x08
+		byt	<[OSCAR_BASIC_START + 10]
+		byt >[OSCAR_BASIC_START + 10]
 		byt	<OSCAR_BASIC_LINE
 		byt	>OSCAR_BASIC_LINE
 		byt	0x9e
