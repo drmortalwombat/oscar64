@@ -14161,7 +14161,7 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 								int64	offset = ins->mSrc[0].mIntConst - cins->mSrc[1].mIntConst;
 								ins->mSrc[0] = cins->mSrc[0];
 								ins->mSrc[0].mOperandSize = InterTypeSize[ins->mDst.mType];
-								ins->mSrc[0].mIntConst += offset;
+								ins->mSrc[0].mIntConst += offset * cins->mSrc[0].mStride;
 								changed = true;
 							}
 						}
@@ -14253,6 +14253,8 @@ bool InterCodeBasicBlock::LoadStoreForwarding(const GrowingInstructionPtrArray& 
 						nins = ins;
 				}
 				else if (!ins->mVolatile && ins->mSrc[0].mStride == 1 && ins->mSrc[1].mStride == 1)
+					nins = ins;
+				else if (!ins->mVolatile && ins->mSrc[1].mTemp < 0 && ins->mSrc[1].mStride == 1)
 					nins = ins;
 #endif
 			}
@@ -27797,7 +27799,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "equipment_calc_space");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

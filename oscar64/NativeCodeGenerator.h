@@ -267,6 +267,7 @@ public:
 	bool IsArithmetic(void) const;
 	bool IsShift(void) const;
 	bool IsShiftOrInc(void) const;
+	bool IsShiftRotOrInc(void) const;
 	bool IsSimpleJSR(void) const;
 	bool MayBeMovedBefore(const NativeCodeInstruction& ins) const;
 

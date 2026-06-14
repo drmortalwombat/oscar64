@@ -285,6 +285,9 @@ rem @echo off
 @call :testn stripedarraytest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testn stripedstructtest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :testn mmultest.c
 @if %errorlevel% neq 0 goto :error
 

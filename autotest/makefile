@@ -45,6 +45,13 @@ stripedarraytest: stripedarraytest.c
 	$(OSCAR64_CC) -ea -g -Os -n $<
 	$(OSCAR64_CC) -ea -g -O3 -n $<
 
+stripedstructtest: stripedstructtest.c
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+
 autorefreturn: autorefreturn.cpp
 	$(OSCAR64_CC) -ea -g -n $<
 	$(OSCAR64_CC) -ea -g -O2 -n $<
