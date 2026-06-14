@@ -3,6 +3,10 @@
 
 #define RAND_MAX	65535u
 
+#define EXIT_SUCCESS 0
+
+#define EXIT_FAILURE -1
+
 struct div_t
 {
 	int quot;
