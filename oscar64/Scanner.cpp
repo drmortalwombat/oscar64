@@ -1143,6 +1143,7 @@ void Scanner::NextPreToken(void)
  						char	quoteChar = 0;  // 0=not in quote, '"'=double-quote, '\''=single-quote
  						char	argbuf[4096];
  						int		arglen = 0;
+ 						bool argEof = false;
 
  						for (;;)
  						{
@@ -1150,7 +1151,10 @@ void Scanner::NextPreToken(void)
  							while (!mLine[offset])
  							{
  								if (!mPreprocessor->NextLine())
+ 								{
+ 									argEof = true;
  									break;
+ 								}
  								offset = 0;
  							}
 
@@ -1182,13 +1186,27 @@ void Scanner::NextPreToken(void)
  							else if (ch == '(' || ch == '{')
  								level++;
  							else if (ch == ')' || ch == '}')
- 								level--;
+ 							{
+ 								if (level == 0)
+ 									mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Unbalanced closing bracket in macro argument");
+ 								else
+ 									level--;
+ 							}
 
- 							if (arglen < (int)sizeof(argbuf) - 1)
- 								argbuf[arglen++] = ch;
+ 							if (arglen >= (int)sizeof(argbuf) - 1)
+ 							{
+ 								mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Macro argument expansion exceeds buffer limit");
+ 								break;
+ 							}
+ 							argbuf[arglen++] = ch;
  							offset++;
  						}
  						argbuf[arglen] = 0;
+
+ 						if (argEof)
+ 							mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Unexpected end of file in macro argument");
+ 						else if (level != 0)
+ 							mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Unbalanced brackets in macro argument");
 
  						// trim leading/trailing whitespace from argument
  						int astart = 0;
