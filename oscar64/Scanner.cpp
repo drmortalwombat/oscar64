@@ -1,4 +1,5 @@
 #include "Scanner.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -1208,11 +1209,11 @@ void Scanner::NextPreToken(void)
  						else if (level != 0)
  							mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Unbalanced brackets in macro argument");
 
- 						// trim leading/trailing whitespace from argument
- 						int astart = 0;
- 						while (astart < arglen && argbuf[astart] == ' ') astart++;
- 						int aend = arglen;
- 						while (aend > astart && argbuf[aend - 1] == ' ') aend--;
+  					// trim leading/trailing whitespace from argument
+  					int astart = 0;
+  					while (astart < arglen && isspace(argbuf[astart])) astart++;
+  					int aend = arglen;
+  					while (aend > astart && isspace(argbuf[aend - 1])) aend--;
  						argbuf[aend] = 0;
 
  						Macro* arg = new Macro(def->mArguments[i], scope);
