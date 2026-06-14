@@ -1135,59 +1135,85 @@ void Scanner::NextPreToken(void)
 					NextRawToken();
 					if (mToken == TK_OPEN_PARENTHESIS)
 					{
-						mOffset--;
-						for (int i = 0; i < def->mNumArguments; i++)
-						{
-							int		offset = mOffset;
-							int		level = 0;
-							bool	quote = false;
+ 					mOffset--;
+ 					for (int i = 0; i < def->mNumArguments; i++)
+ 					{
+ 						int		offset = mOffset;
+ 						int		level = 0;
+ 						bool	quote = false;
+ 						char	argbuf[4096];
+ 						int		arglen = 0;
 
-							while (mLine[offset] && (quote || level > 0 || (!(!(def->mVariadic && i + 1 == def->mNumArguments) && mLine[offset] == ',') && mLine[offset] != ')')))
-							{
-								if (mLine[offset] == '"')
-								{
-									quote = !quote;
-								}
-								else if (mLine[offset] == '(')
-								{
-									level++;
-								}
-								else if (mLine[offset] == ')')
-								{
-									level--;
-								}
-								offset++;
-							}
-							Macro* arg = new Macro(def->mArguments[i], scope);
-							arg->SetString(mLine + mOffset, offset - mOffset);
-							mDefineArguments->Insert(arg);
+ 						for (;;)
+ 						{
+ 							// fetch next line if we've reached end of current line
+ 							while (!mLine[offset])
+ 							{
+ 								if (!mPreprocessor->NextLine())
+ 									break;
+ 								offset = 0;
+ 							}
 
-							if (def->mVariadic && i + 1 == def->mNumArguments)
-							{
-								Macro* vaarg = new Macro(Ident::Unique("__VA_ARGS__"), scope);
-								vaarg->SetString(mLine + mOffset, offset - mOffset);
-								mDefineArguments->Insert(vaarg);
-							}
+ 							char ch = mLine[offset];
+ 							if (!ch)
+ 								break;
 
-							mOffset = offset;
+ 							bool isLastArg = def->mVariadic && i + 1 == def->mNumArguments;
+ 							if (!quote && level == 0 && (!isLastArg && ch == ','))
+ 								break;
+ 							if (!quote && level == 0 && ch == ')')
+ 								break;
 
-							if (i + 1 != def->mNumArguments)
-							{
-								if (mLine[mOffset] == ',')
-									mOffset++;
-								else if (def->mVariadic && i + 2 == def->mNumArguments && mLine[mOffset] == ')')
-									;
-								else
-									mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define expansion argument");
-							}
-							else
-							{
-								if (mLine[mOffset] == ')')
-									mOffset++;
-								else
-									mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define expansion closing argument");
-							}
-						}
+ 							if (ch == '"')
+ 								quote = !quote;
+ 							else if (!quote && (ch == '(' || ch == '{'))
+ 								level++;
+ 							else if (!quote && (ch == ')' || ch == '}'))
+ 								level--;
+
+ 							if (arglen < (int)sizeof(argbuf) - 1)
+ 								argbuf[arglen++] = ch;
+ 							offset++;
+ 						}
+ 						argbuf[arglen] = 0;
+
+ 						// trim leading/trailing whitespace from argument
+ 						int astart = 0;
+ 						while (astart < arglen && argbuf[astart] == ' ') astart++;
+ 						int aend = arglen;
+ 						while (aend > astart && argbuf[aend - 1] == ' ') aend--;
+ 						argbuf[aend] = 0;
+
+ 						Macro* arg = new Macro(def->mArguments[i], scope);
+ 						arg->SetString(argbuf + astart);
+ 						mDefineArguments->Insert(arg);
+
+ 						if (def->mVariadic && i + 1 == def->mNumArguments)
+ 						{
+ 							Macro* vaarg = new Macro(Ident::Unique("__VA_ARGS__"), scope);
+ 							vaarg->SetString(argbuf + astart);
+ 							mDefineArguments->Insert(vaarg);
+ 						}
+
+ 						mOffset = offset;
+
+ 						if (i + 1 != def->mNumArguments)
+ 						{
+ 							if (mLine[mOffset] == ',')
+ 								mOffset++;
+ 							else if (def->mVariadic && i + 2 == def->mNumArguments && mLine[mOffset] == ')')
+ 								;
+ 							else
+ 								mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define expansion argument");
+ 						}
+ 						else
+ 						{
+ 							if (mLine[mOffset] == ')')
+ 								mOffset++;
+ 							else
+ 								mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Invalid define expansion closing argument");
+ 						}
+ 					}
 					}
 					else
 						mErrors->Error(mLocation, EERR_INVALID_PREPROCESSOR, "Missing arguments for macro expansion");
