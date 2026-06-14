@@ -150,5 +150,23 @@ int main(void)
     printf(p"simple_buf: %s\n", simple_buf);
     assert(strcmp(simple_buf, "3A3.14000042.500000") == 0);
 
+    // Test 7: Escaped quotes inside macro arguments
+    // Verify that \" inside a string arg and \' inside a char arg do not confuse
+    // the macro argument scanner (they must not toggle the quote state)
+    char eq_buf[64];
+    INVOKE(sprintf, eq_buf, "%s", p"hello\"world");
+    printf(p"eq_buf: %s\n", eq_buf);
+    assert(strcmp(eq_buf, p"hello\"world") == 0);
+
+    char sq_buf[64];
+    INVOKE(sprintf, sq_buf, "%c", p'\'');
+    printf(p"sq_buf: %s\n", sq_buf);
+    assert(sq_buf[0] == '\'' && sq_buf[1] == '\0');
+
+    char mixed_buf[64];
+    INVOKE(sprintf, mixed_buf, p"This \"%s\" '%c'orld values.", p"\"hello'\"", p'w');
+    printf(p"mixed_buf: %s\n", mixed_buf);
+    assert(strcmp(mixed_buf, p"This \"\"hello'\"\" 'w'orld values.") == 0);
+    
     return 0;
 }

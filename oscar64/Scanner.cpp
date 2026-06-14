@@ -1140,7 +1140,7 @@ void Scanner::NextPreToken(void)
  					{
  						int		offset = mOffset;
  						int		level = 0;
- 						bool	quote = false;
+ 						char	quoteChar = 0;  // 0=not in quote, '"'=double-quote, '\''=single-quote
  						char	argbuf[4096];
  						int		arglen = 0;
 
@@ -1159,16 +1159,29 @@ void Scanner::NextPreToken(void)
  								break;
 
  							bool isLastArg = def->mVariadic && i + 1 == def->mNumArguments;
- 							if (!quote && level == 0 && (!isLastArg && ch == ','))
+ 							if (!quoteChar && level == 0 && (!isLastArg && ch == ','))
  								break;
- 							if (!quote && level == 0 && ch == ')')
+ 							if (!quoteChar && level == 0 && ch == ')')
  								break;
 
- 							if (ch == '"')
- 								quote = !quote;
- 							else if (!quote && (ch == '(' || ch == '{'))
+ 							if (quoteChar)
+ 							{
+ 								// inside a quoted string/char: skip escaped characters
+ 								if (ch == '\\' && mLine[offset + 1])
+ 								{
+ 									if (arglen < (int)sizeof(argbuf) - 1)
+ 										argbuf[arglen++] = ch;
+ 									offset++;
+ 									ch = mLine[offset];
+ 								}
+ 								else if (ch == quoteChar)
+ 									quoteChar = 0;
+ 							}
+ 							else if (ch == '"' || ch == '\'')
+ 								quoteChar = ch;
+ 							else if (ch == '(' || ch == '{')
  								level++;
- 							else if (!quote && (ch == ')' || ch == '}'))
+ 							else if (ch == ')' || ch == '}')
  								level--;
 
  							if (arglen < (int)sizeof(argbuf) - 1)
