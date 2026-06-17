@@ -25634,10 +25634,11 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 		// sort stores up
 
 		bool	changed;
-
+		int		retries = 10;
 		do
 		{
 			changed = false;
+			retries--;
 
 			for (int i = 0; i + 1 < mInstructions.Size(); i++)
 			{
@@ -25680,7 +25681,7 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 #endif
 			}
 
-		} while (changed);
+		} while (changed && retries);
 
 		// Move conversion from float to int upwards
 		for (int i = 1; i < mInstructions.Size(); i++)
@@ -25699,47 +25700,72 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 			}
 		}
 
-		// move div up to mod
-		int imod = -1, idiv = -1;
-		for (int i = 0; i < mInstructions.Size(); i++)
-		{
-			InterInstruction* ins = mInstructions[i];
-			if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MODU)
-			{
-				imod = -1;
-				if (idiv >= 0 && ins->mSrc[0].IsEqual(mInstructions[idiv]->mSrc[0]) && ins->mSrc[1].IsEqual(mInstructions[idiv]->mSrc[1]))
-				{
-					int j = i - 1;
-					while (j > idiv && CanSwapInstructions(mInstructions[j], ins))
-					{
-						SwapInstructions(mInstructions[j], ins);
-						mInstructions[j + 1] = mInstructions[j];
-						j--;
-					}
-					mInstructions[j + 1] = ins;
-				}
-				else
-					imod = i;
-			}
-			else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_DIVU)
-			{
-				idiv = -1;
+		bool	moved = false;
+		do {
+			moved = false;
 
-				if (imod >= 0 && ins->mSrc[0].IsEqual(mInstructions[imod]->mSrc[0]) && ins->mSrc[1].IsEqual(mInstructions[imod]->mSrc[1]))
+			// move div up to mod
+			int imod = -1, idiv = -1;
+			for (int i = 0; i < mInstructions.Size(); i++)
+			{
+				InterInstruction* ins = mInstructions[i];
+				if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_MODU)
 				{
-					int j = i - 1;
-					while (j > imod && CanSwapInstructions(mInstructions[j], ins))
+					if (imod >= 0 && i + 1 < mInstructions.Size() &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_DIVU &&
+						ins->mSrc[0].IsEqual(mInstructions[i + 1]->mSrc[0]) && ins->mSrc[1].IsEqual(mInstructions[i + 1]->mSrc[1]))
 					{
-						SwapInstructions(mInstructions[j + 0], ins);
-						mInstructions[j + 1] = mInstructions[j];
-						j--;
 					}
-					mInstructions[j + 1] = ins;
+					else
+					{
+						imod = -1;
+						if (idiv >= 0 && ins->mSrc[0].IsEqual(mInstructions[idiv]->mSrc[0]) && ins->mSrc[1].IsEqual(mInstructions[idiv]->mSrc[1]))
+						{
+							int j = i - 1;
+							while (j > idiv && CanSwapInstructions(mInstructions[j], ins))
+							{
+								SwapInstructions(mInstructions[j], ins);
+								mInstructions[j + 1] = mInstructions[j];
+								j--;
+								moved = true;
+							}
+							mInstructions[j + 1] = ins;
+						}
+						else
+							imod = i;
+					}
 				}
-				else
-					idiv = i;
+				else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_DIVU)
+				{
+					if (idiv >= 0 && i + 1 < mInstructions.Size() &&
+						mInstructions[i + 1]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 1]->mOperator == IA_MODU &&
+						ins->mSrc[0].IsEqual(mInstructions[i + 1]->mSrc[0]) && ins->mSrc[1].IsEqual(mInstructions[i + 1]->mSrc[1]))
+					{
+					}
+					else
+					{
+						idiv = -1;
+
+						if (imod >= 0 && ins->mSrc[0].IsEqual(mInstructions[imod]->mSrc[0]) && ins->mSrc[1].IsEqual(mInstructions[imod]->mSrc[1]))
+						{
+							int j = i - 1;
+							while (j > imod && CanSwapInstructions(mInstructions[j], ins))
+							{
+								SwapInstructions(mInstructions[j + 0], ins);
+								mInstructions[j + 1] = mInstructions[j];
+								j--;
+								moved = true;
+							}
+							mInstructions[j + 1] = ins;
+						}
+						else
+							idiv = i;
+					}
+				}
 			}
-		}
+
+		} while (moved);
+
 #if 1
 		// move lea to load/store down
 		for (int i = 0; i < mInstructions.Size(); i++)
@@ -27799,7 +27825,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "equipment_calc_space");
+	CheckFunc = !strcmp(mIdent->mString, "currency_display");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];

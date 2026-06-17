@@ -1065,6 +1065,7 @@ bool Compiler::GenerateCode(void)
 		RegisterRuntime(loc, Ident::Unique("divu32"));
 		RegisterRuntime(loc, Ident::Unique("modu32"));
 		RegisterRuntime(loc, Ident::Unique("divmods32"));
+		RegisterRuntime(loc, Ident::Unique("divu16by8"));
 
 		RegisterRuntime(loc, Ident::Unique("store32"));
 		RegisterRuntime(loc, Ident::Unique("load32"));

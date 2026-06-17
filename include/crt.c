@@ -507,7 +507,7 @@ WBB2:	rol	accu
 		bne	LBB1
 		sta	tmp + 2
 		rts	
-	
+
 // byte / word -> 0
 BW: 
 		lda	accu
@@ -518,6 +518,13 @@ BW:
 		sta accu
 		sta accu + 1
 		rts
+
+DM8:
+		sta	tmp
+		lda #0
+		sta tmp + 1
+		lda accu + 1
+		beq BB
 
 WB:				
 		lda tmp + 1
@@ -1104,6 +1111,7 @@ L3:
 #pragma runtime(divs16, divs16);
 #pragma runtime(mods16, mods16);
 #pragma runtime(divmods16, divmods16);
+#pragma runtime(divu16by8, divmod.DM8)
 		
 #pragma runtime(mul32, mul32);
 #pragma runtime(mul32by8, mul32by8);
