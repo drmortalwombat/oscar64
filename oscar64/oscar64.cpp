@@ -565,6 +565,11 @@ int main2(int argc, const char** argv)
 			compiler->mTargetMachine = TMACH_ATARI;
 			compiler->AddDefine(Ident::Unique("__ATARI__"), "1");
 		}
+		else if (!strcmp(targetMachine, "f256k"))
+		{
+			compiler->mTargetMachine = TMACH_F256K;
+			compiler->AddDefine(Ident::Unique("__F256K__"), "1");
+		}
 		else
 			compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid target machine option", targetMachine);
 
@@ -590,6 +595,11 @@ int main2(int argc, const char** argv)
 				break;
 			}
 			compiler->AddDefine(Ident::Unique("__NES__"), "1");
+		}
+		else if (compiler->mTargetMachine == TMACH_F256K)
+		{
+			compiler->mCompilerOptions |= COPT_TARGET_PGZ;
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_PGZ"), "1");
 		}
 		else if (!strcmp(targetFormat, "prg"))
 		{
