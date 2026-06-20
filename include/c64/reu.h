@@ -28,17 +28,17 @@
 
 struct REU
 {
-	volatile byte	status;
-	volatile byte	cmd;
+	volatile byte			status;
+	volatile __memmap byte	cmd;
 
-	volatile word	laddr;
-	volatile word	raddr;
-	volatile byte	rbank;
+	volatile word			laddr;
+	volatile word			raddr;
+	volatile byte			rbank;
 
-	volatile word	length;
+	volatile word			length;
 
-	volatile byte	irqmask;
-	volatile byte	ctrl;
+	volatile byte			irqmask;
+	volatile byte			ctrl;
 };
 
 

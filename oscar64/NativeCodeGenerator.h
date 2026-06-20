@@ -66,6 +66,7 @@ struct NativeRegisterDataSet
 	void ResetAbsoluteXY(LinkerObject* linkerObject, int addr);
 	int FindAbsolute(LinkerObject* linkerObject, int addr);
 	void ResetIndirect(int reg);
+	void ResetGlobal(void);
 	void ResetX(void);
 	void ResetY(void);
 	void ResetWorkRegs(void);
@@ -188,6 +189,7 @@ static const uint32 NCIF_USE_ZP_32_X = 0x01000000;
 static const uint32 NICF_USE_ZP_ADDR = 0x02000000;
 static const uint32 NICF_USE_WORKREGS = 0x04000000;
 
+static const uint32 NCIF_MEMMAP = 0x08000000;
 
 static const uint32 NCIF_IMMADDR_FLAGS = NCIF_LOWER | NCIF_UPPER;
 
@@ -270,6 +272,7 @@ public:
 	bool IsShiftRotOrInc(void) const;
 	bool IsSimpleJSR(void) const;
 	bool MayBeMovedBefore(const NativeCodeInstruction& ins) const;
+	bool MayBeMovedBehind(const NativeCodeInstruction& ins) const;
 
 	bool ReplaceYRegWithXReg(void);
 	bool ReplaceXRegWithYReg(void);
@@ -613,6 +616,7 @@ public:
 	bool MoveZeroPageSignToCarryDown(int at);
 	bool Move16BitShiftUp(int at);
 	bool Move16BitShiftDown(int at);
+	bool Move16BitAddUp(int at);
 
 	bool FindAccuExitValue(int& at);
 	bool MoveLoadXAbsUpCrossBlock(int at);
@@ -927,6 +931,8 @@ public:
 
 	bool JoinSameBranch(NativeCodeBasicBlock* block);
 	bool MergeSameBranch(void);
+
+	bool FinalCheckedSizeReduction(void);
 
 	bool CheckBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg);
 	bool PatchBoolBitPropagation(const NativeCodeBasicBlock* block, int at, int reg, bool inverse);

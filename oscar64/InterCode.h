@@ -189,6 +189,8 @@ public:
 	bool IsInvalid(void) const;
 	bool IsRange(int64 minVal, int64 maxVal) const;
 
+	void SetMin(int64 value);
+
 	bool LimitMin(int64 value);
 	bool LimitMax(int64 value);
 
@@ -301,6 +303,7 @@ public:
 
 	bool IsEqual(const InterOperand & op) const;
 
+	bool IsValid(void) const;
 	bool IsUByte(void) const;
 	bool IsSByte(void) const;
 	bool IsUnsigned(void) const;
@@ -729,6 +732,7 @@ public:
 	
 	void CollectByteIndexPointers(NumberSet& invtemps, NumberSet& inctemps, GrowingIntArray	& vartemps);
 	bool ReplaceByteIndexPointers(const NumberSet& inctemps, const GrowingIntArray& vartemps, int& spareTemps);
+	bool PropagateByteIndexPointers(void);
 
 	bool CheckStaticStack(void);
 	void ApplyStaticStack(InterOperand& iop, const GrowingVariableArray& localVars);
@@ -875,7 +879,7 @@ protected:
 	void ForwardSingleAssignmentBools(void);
 	void LimitLoopIndexIntegerRangeSets(void);
 
-
+	bool PropagateByteIndexPointers(void);
 	bool ReplaceByteIndexPointers(FastNumberSet& activeSet);
 
 	void CollapseDispatch(void);

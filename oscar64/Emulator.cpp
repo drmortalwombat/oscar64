@@ -338,10 +338,10 @@ bool Emulator::EmulateInstruction(AsmInsType type, AsmInsMode mode, int addr, in
 		mIP = addr;
 		break;
 	case ASMIT_JSR:
-		mCalls[mRegS] = true;
 		mMemory[0x100 + mRegS] = (mIP - 1) >> 8;
 		mRegS--;
 		mMemory[0x100 + mRegS] = (mIP - 1) & 0xff;
+		mCalls[mRegS] = true;
 		mRegS--;
 		mIP = addr;
 		cycles += 2;
@@ -565,7 +565,7 @@ void Emulator::DumpCallstack(void)
 
 		while (sp < 0xfd && !mCalls[sp])
 			sp++;
-		ip = (mMemory[0x101 + sp] + 256 * mMemory[0x102 + sp] - 2) & 0xffff;
+		ip = (mMemory[0x100 + sp] + 256 * mMemory[0x101 + sp] - 2) & 0xffff;
 		sp += 2;
 	}
 }
