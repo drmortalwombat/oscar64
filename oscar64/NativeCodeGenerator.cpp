@@ -46094,6 +46094,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 
 				if (mEntryRequiredRegs[CPU_REG_X])
 					mIns[ai].mLive |= LIVE_CPU_REG_X;
+				if (mEntryRequiredRegs[CPU_REG_C])
+					mIns[ai].mLive |= LIVE_CPU_REG_C;
 
 				prevBlock->mIns.Push(mIns[ai]);
 				mIns.Remove(ai);
@@ -53249,7 +53251,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 
 	for (int i = mIns.Size() - 2; i >= 0; i--)
 	{
-		if (mIns[i].mType == ASMIT_LDX && (mIns[i].mMode == ASMIM_IMMEDIATE || mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS) && mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
+		if (mIns[i].mType == ASMIT_LDX && (mIns[i].mMode == ASMIM_IMMEDIATE || mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS) && 
+			mIns[i + 1].mType == ASMIT_STX && !(mIns[i + 1].mLive & LIVE_CPU_REG_X) && !(mIns[i + 1].mFlags & NCIF_MEMMAP))
 		{
 			if (MoveLDSTXOutOfRange(i))
 				changed = true;
@@ -64401,7 +64404,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "upgrade_select");
+	CheckFunc = !strcmp(mIdent->mString, "loadBlockAnim");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
