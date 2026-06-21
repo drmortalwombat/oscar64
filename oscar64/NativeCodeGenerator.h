@@ -257,6 +257,7 @@ public:
 
 	bool IsPure(void) const;
 	bool ChangesGlobalMemory(void) const;
+	bool ReferencesGlobalMemory(void) const;
 	bool UsesMemoryOf(const NativeCodeInstruction& ins) const;
 	bool SameEffectiveAddress(const NativeCodeInstruction& ins) const;
 	bool MayBeChangedOnAddress(const NativeCodeInstruction& ins, bool sameXY = false) const;
