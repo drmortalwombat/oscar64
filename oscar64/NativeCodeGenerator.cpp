@@ -50569,6 +50569,31 @@ bool NativeCodeBasicBlock::OptimizeGenericLoop(void)
 								}
 								break;
 							case ASMIT_LDX:
+								if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == xreg)
+								{
+									if (ins.mLive & LIVE_CPU_REG_Z)
+									{
+										if (!(ins.mLive & LIVE_CPU_REG_A))
+										{
+											ins.mType = ASMIT_TXA;
+											ins.mMode = ASMIM_IMPLIED;
+										}
+										else
+										{
+											ins.mType = ASMIT_CPX;
+											ins.mMode = ASMIM_IMMEDIATE;
+											ins.mAddress = 0;
+										}
+									}
+									else
+									{
+										ins.mType = ASMIT_NOP;
+										ins.mMode = ASMIM_IMPLIED;
+									}
+									xoffset = 0;
+									xskew = 0;
+								}
+								break;
 							case ASMIT_STX:
 								if (ins.mMode == ASMIM_ZERO_PAGE && ins.mAddress == xreg)
 								{
@@ -64405,7 +64430,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "loadBlockAnim");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
