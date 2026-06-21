@@ -46870,7 +46870,6 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 		if (rind >= 0)
 		{
 			bool	found = false, ptruse = false;
-			int yentry = pblock->RetrieveYValue(pblock->mIns.Size() - 1);
 			for (int i = 0; i < mIns.Size(); i++)
 			{
 				if (mIns[i].mMode == ASMIM_ZERO_PAGE && mIns[i].mAddress == rind)
@@ -46907,6 +46906,8 @@ bool NativeCodeBasicBlock::OptimizeSimpleLoopInvariant(NativeCodeProcedure* proc
 			{
 				if (!prevBlock)
 					return OptimizeSimpleLoopInvariant(proc, full);
+
+				int yentry = pblock->RetrieveYValue(pblock->mIns.Size() - 1);
 
 				// Need to have actual value if needed after loop, otherwise just keep counting from zero
 				if (ptruse || exitBlock->mEntryRequiredRegs[rind] || exitBlock->mEntryRequiredRegs[rind + 1] || yentry < 0 && exitBlock->mEntryRequiredRegs[CPU_REG_Y])
