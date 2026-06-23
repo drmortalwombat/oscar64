@@ -29133,7 +29133,7 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(NativeCodeProcedure* proc, bool
 				if (mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE && !(mIns[0].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
 				{
 					if (lblock->mIns[ls - 2].mType == ASMIT_LDA && lblock->mIns[ls - 2].mMode == ASMIM_ZERO_PAGE && lblock->mIns[ls - 2].mAddress == mIns[0].mAddress &&
-						lblock->mIns[ls - 1].mType == ASMIT_CMP && !(lblock->mIns[ls - 1].mLive & LIVE_CPU_REG_A))
+						lblock->mIns[ls - 1].mType == ASMIT_CMP && HasAsmInstructionMode(ASMIT_CPY, lblock->mIns[ls - 1].mMode) && !(lblock->mIns[ls - 1].mLive & LIVE_CPU_REG_A))
 					{
 						lblock->mIns[ls - 2].mType = ASMIT_LDY; lblock->mIns[ls - 2].mLive |= LIVE_CPU_REG_Y;
 						lblock->mIns[ls - 1].mType = ASMIT_CPY; lblock->mIns[ls - 1].mLive |= LIVE_CPU_REG_Y;
