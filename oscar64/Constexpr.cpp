@@ -1040,7 +1040,7 @@ ConstexprInterpreter::Value ConstexprInterpreter::EvalBinary(Expression * exp, c
 			break;
 		case TK_DIV:
 		case TK_ASSIGN_DIV:
-			if (vr.GetInt() == 0)
+			if (vr.GetFloat() == 0)
 				mErrors->Error(exp->mLocation, EERR_INVALID_VALUE, "Constant division by zero");
 			else
 				v.PutFloat(vl.GetFloat() / vr.GetFloat());
