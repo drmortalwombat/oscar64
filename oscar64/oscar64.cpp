@@ -319,6 +319,8 @@ int main2(int argc, const char** argv)
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_OUTLINE;
 					else if (arg[2] == 'x' && !arg[3])
 						compiler->mCompilerOptions |= COPT_OPTIMIZE_PAGE_CROSSING;
+					else if (arg[2] == 'M' && !arg[3])
+						compiler->mCompilerOptions |= COPT_OPTIMIZE_SELF_MOD;
 					else
 						compiler->mErrors->Error(loc, EERR_COMMAND_LINE, "Invalid command line argument", arg);
 				}

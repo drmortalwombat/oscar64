@@ -155,6 +155,12 @@ struct NativeSimpleSubExpressions
 	void Filter(const NativeCodeInstruction& ins);
 };
 
+struct SelfModReference
+{
+	NativeCodeBasicBlock	*	mBlock;
+	int							mOffset;
+};
+
 
 static const uint32 NCIF_LOWER = 0x00000001;
 static const uint32 NCIF_UPPER = 0x00000002;
@@ -190,6 +196,7 @@ static const uint32 NICF_USE_ZP_ADDR = 0x02000000;
 static const uint32 NICF_USE_WORKREGS = 0x04000000;
 
 static const uint32 NCIF_MEMMAP = 0x08000000;
+static const uint32 NCIF_SELFMOD = 0x10000000;
 
 static const uint32 NCIF_IMMADDR_FLAGS = NCIF_LOWER | NCIF_UPPER;
 
@@ -251,6 +258,7 @@ public:
 
 	bool ChangesZeroPage(int address) const;
 	bool UsesZeroPage(int address) const;
+	bool LoadsZeroPage(int address) const;
 	bool ReferencesZeroPage(int address) const;
 
 	bool SameLinkerObjectVariableRange(const NativeCodeInstruction& ins, bool sameXY = false) const;
@@ -266,6 +274,8 @@ public:
 	bool IsSame(const NativeCodeInstruction& ins) const;
 	bool IsSameLS(const NativeCodeInstruction& ins) const;
 	bool IsCommutative(void) const;
+	bool IsStore(void) const;
+	bool IsLoad(void) const;
 	bool IsLogic(void) const;
 	bool IsArithmetic(void) const;
 	bool IsShift(void) const;
@@ -382,6 +392,7 @@ public:
 
 	bool ChangesZeroPage(int address, int from = 0, int to = 65536) const;
 	bool UsesZeroPage(int address, int from = 0, int to = 65536) const;
+	bool LoadsZeroPage(int address, int from = 0, int to = 65536) const;
 	bool ReferencesZeroPage(int address, int from = 0, int to = 65536) const;
 
 	bool ChangesMemory(const NativeCodeInstruction& ins, int from = 0, int to = 65536) const;
@@ -449,6 +460,7 @@ public:
 	void PutOpcode(short opcode);
 	void PutByte(uint8 code);
 	void PutWord(uint16 code);
+	void PutSelfModSource(int id);
 
 	void CheckFrameIndex(const InterInstruction * ins, int & reg, int & index, int size, int treg = 0);
 	void LoadValueToReg(InterCodeProcedure* proc, const InterInstruction * ins, int reg, const NativeCodeInstruction * ainsl, const NativeCodeInstruction* ainsh);
@@ -713,7 +725,7 @@ public:
 	NativeCodeBasicBlock * SplitMatchingTails(NativeCodeProcedure* proc);
 
 	NativeCodeBasicBlock* AddDominatorBlock(NativeCodeProcedure* proc, NativeCodeBasicBlock* pblock);
-	bool JoinTailCodeSequences(NativeCodeProcedure* proc, bool loops);
+	bool JoinTailCodeSequences(bool loops);
 	bool SameTail(const NativeCodeInstruction& ins) const;
 	bool HasTailSTA(int& addr, int& index) const;
 	bool HasTailSTX(int& addr, int& index) const;
@@ -1011,6 +1023,14 @@ public:
 
 	void PropagateAddGlobalCarry(void);
 
+	int CalcBlockDiffY(void) const;
+	int CalcBlockDiffX(void) const;
+
+	int SimpleLoopNumIterations(void);
+
+	bool FindSelfModSource(NativeCodeBasicBlock * block, int reg, NativeCodeBasicBlock*& sblock, int & sat);
+	bool CollectSelfModTargets(void);
+
 	bool EliminateNonAliasedLocalStores(void);
 	bool CheckNonAliasedLocalStore(int at, const NativeCodeInstruction& sins);
 
@@ -1030,6 +1050,7 @@ public:
 	int mSuffixStringLength;
 	int* mSuffixString;
 	void AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree * tree);
+
 };
 
 class NativeCodeProcedure
@@ -1057,7 +1078,7 @@ class NativeCodeProcedure
 		ExpandingArray<LinkerReference>	mRelocations;
 		ExpandingArray< NativeCodeBasicBlock*>	 mBlocks;
 		ExpandingArray<CodeLocation>		mCodeLocations, mCodeOrigins;
-
+		ExpandingArray< SelfModReference>	mSelfModSources;
 
 		void DisassembleDebug(const char* name);
 		void Disassemble(FILE* file);

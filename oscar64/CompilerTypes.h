@@ -20,6 +20,7 @@ static const uint64 COPT_OPTIMIZE_PAGE_CROSSING = 1ULL << 13;
 static const uint64 COPT_OPTIMIZE_CODE_SIZE = 1ULL << 16;
 static const uint64 COPT_NATIVE = 1ULL << 17;
 static const uint64 COPT_EXTENDED_ZERO_PAGE = 1ULL << 20;
+static const uint64 COPT_OPTIMIZE_SELF_MOD = 1ULL << 21;
 
 static const uint64 COPT_TARGET_PRG = 1ULL << 32;
 static const uint64 COPT_TARGET_CRT8 = 1ULL << 33;

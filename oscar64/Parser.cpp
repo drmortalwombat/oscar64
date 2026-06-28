@@ -15524,6 +15524,10 @@ void Parser::ParsePragma(void)
 						mCompilerOptions |= COPT_OPTIMIZE_OUTLINE;
 					else if (ConsumeIdentIf("nooutline"))
 						mCompilerOptions &= ~COPT_OPTIMIZE_OUTLINE;
+					else if (ConsumeIdentIf("selfmod"))
+						mCompilerOptions |= COPT_OPTIMIZE_SELF_MOD;
+					else if (ConsumeIdentIf("noselfmod"))
+						mCompilerOptions &= ~COPT_OPTIMIZE_SELF_MOD;
 					else
 						mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid option");
 
