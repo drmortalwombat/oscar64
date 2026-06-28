@@ -1713,7 +1713,16 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 		}
 		else
 		{
-			if (dec->mType == DT_CONST_FLOAT)
+			if (dec->mType == DT_CONST_FUNCTION && dtype->mType == DT_TYPE_POINTER)
+			{
+				// Aggregate entries are linked through mNext, so do not reuse the function
+				// declaration itself as an initialiser entry.
+				Declaration* ndec = new Declaration(dec->mLocation, DT_CONST_POINTER);
+				ndec->mValue = exp;
+				ndec->mBase = dtype;
+				dec = ndec;
+			}
+			else if (dec->mType == DT_CONST_FLOAT)
 			{
 				if (dtype->IsIntegerType() || dtype->mType == DT_TYPE_POINTER)
 				{

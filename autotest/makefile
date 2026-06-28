@@ -1,4 +1,4 @@
-SRCS=$(filter-out opp_part1.cpp opp_part2.cpp, $(wildcard *.c *.cpp))
+SRCS=$(filter-out ambiguousoverload_trigger.c opp_part1.cpp opp_part2.cpp, $(wildcard *.c *.cpp))
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
