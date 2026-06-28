@@ -252,6 +252,9 @@ rem @echo off
 @call :test structassigntest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test structconditionaltest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test structmembertest.c
 @if %errorlevel% neq 0 goto :error
 

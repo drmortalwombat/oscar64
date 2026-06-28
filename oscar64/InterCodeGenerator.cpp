@@ -5156,7 +5156,92 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 		}
 
 		case EX_CONDITIONAL:
-		{			
+		{
+			// Aggregate values are represented by their address, not by an intermediate scalar
+			// type. Materialise both arms into the same destination so that only the selected arm
+			// is evaluated.
+			if (exp->mDecType->mType == DT_TYPE_STRUCT || exp->mDecType->mType == DT_TYPE_UNION)
+			{
+				ExValue result;
+
+				if (lrexp)
+					result = *lrexp;
+				else
+				{
+					int nindex = proc->mNumLocals++;
+
+					InterInstruction* instruction = new InterInstruction(
+						MapLocation(exp, inlineMapper),
+						IC_CONSTANT
+					);
+					instruction->mDst.mType = IT_POINTER;
+					instruction->mDst.mTemp = proc->AddTemporary(IT_POINTER);
+					instruction->mConst.mType = IT_POINTER;
+					instruction->mConst.mMemory = IM_LOCAL;
+					instruction->mConst.mVarIndex = nindex;
+					instruction->mConst.mOperandSize = exp->mDecType->mSize;
+					block->Append(instruction);
+
+					result = ExValue(exp->mDecType, instruction->mDst.mTemp, 1);
+				}
+
+				InterCodeBasicBlock* tblock = new InterCodeBasicBlock(proc);
+				InterCodeBasicBlock* fblock = new InterCodeBasicBlock(proc);
+				InterCodeBasicBlock* eblock = new InterCodeBasicBlock(proc);
+
+				TranslateLogic(
+					procType,
+					proc,
+					block,
+					tblock,
+					fblock,
+					exp->mLeft,
+					destack,
+					gotos,
+					inlineMapper
+				);
+				vl = TranslateExpression(
+					procType,
+					proc,
+					tblock,
+					exp->mRight->mLeft,
+					destack,
+					gotos,
+					breakBlock,
+					continueBlock,
+					inlineMapper,
+					&result
+				);
+				vl = Dereference(proc, exp, tblock, inlineMapper, vl, 1);
+
+				if (vl.mTemp != result.mTemp)
+					CopyStruct(proc, exp, tblock, result, vl, inlineMapper, false);
+
+				vr = TranslateExpression(
+					procType,
+					proc,
+					fblock,
+					exp->mRight->mRight,
+					destack,
+					gotos,
+					breakBlock,
+					continueBlock,
+					inlineMapper,
+					&result
+				);
+				vr = Dereference(proc, exp, fblock, inlineMapper, vr, 1);
+
+				if (vr.mTemp != result.mTemp)
+					CopyStruct(proc, exp, fblock, result, vr, inlineMapper, false);
+				tblock->Append(new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP));
+				tblock->Close(eblock, nullptr);
+				fblock->Append(new InterInstruction(MapLocation(exp, inlineMapper), IC_JUMP));
+				fblock->Close(eblock, nullptr);
+				block = eblock;
+
+				return result;
+			}
+
 #if 1
 			if (!exp->mRight->mLeft->HasSideEffects() && !exp->mRight->mRight->HasSideEffects())
 			{
