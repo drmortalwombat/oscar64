@@ -4125,6 +4125,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					int	ttemp;
 					if (lrexp)
 					{
+						if (!ftype->mBase->CanAssign(lrexp->mType))
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", ftype->mBase->MangleIdent(), lrexp->mType->MangleIdent());
+
 						ttemp = lrexp->mTemp;
 
 						decResult = lrexp->mType;
@@ -4458,6 +4461,9 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 					int	ttemp;
 					if (lrexp)
 					{
+						if (!ftype->mBase->CanAssign(lrexp->mType))
+							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", ftype->mBase->MangleIdent(), lrexp->mType->MangleIdent());
+
 						ttemp = lrexp->mTemp;
 
 						decResult = lrexp->mType;
@@ -5174,8 +5180,16 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				styper = InterTypeOf(vr.mType);
 
 				Declaration* dtype = exp->mDecType;
+				
+				if (dtype->IsStructOrUnion())
+				{
+					vl = Dereference(proc, exp, block, inlineMapper, vl, 1);
+					vr = Dereference(proc, exp, block, inlineMapper, vr, 1);
+					tref = 1;
 
-				if (dtype->IsReference())
+					ttype = IT_POINTER;
+				}
+				else if (dtype->IsReference())
 				{
 					vl = Dereference(proc, exp, block, inlineMapper, vl, 1);
 					vr = Dereference(proc, exp, block, inlineMapper, vr, 1);
@@ -5283,7 +5297,15 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 
 				Declaration* dtype = exp->mDecType;
 
-				if (dtype->IsReference())
+				if (dtype->IsStructOrUnion())
+				{
+					vl = Dereference(proc, exp, block, inlineMapper, vl, 1);
+					vr = Dereference(proc, exp, block, inlineMapper, vr, 1);
+					tref = 1;
+
+					ttype = IT_POINTER;
+				}
+				else if (dtype->IsReference())
 				{
 					vl = Dereference(proc, exp, block, inlineMapper, vl, 1);
 					vr = Dereference(proc, exp, block, inlineMapper, vr, 1);

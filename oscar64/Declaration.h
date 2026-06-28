@@ -369,6 +369,7 @@ public:
 	bool HasConstructor(void) const;
 	bool IsPointerType(void) const;
 	bool IsValueType(void) const;
+	bool IsStructOrUnion(void) const;
 
 	void SetDefined(void);
 

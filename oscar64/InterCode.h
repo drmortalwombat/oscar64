@@ -668,6 +668,7 @@ public:
 	bool SingleBlockLoopPointerSplit(int& spareTemps);
 	bool SingleBlockLoopPointerToByte(int& spareTemps);
 	bool SingleBlockLoopSinking(int& spareTemps);
+	bool SingleBlockLoopIndexReduction(int& spareTemps);
 	bool CollectLoopBody(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*> & body);
 	bool CollectLoopBodyRecursive(InterCodeBasicBlock* head, ExpandingArray<InterCodeBasicBlock*>& body);
 	void CollectLoopPath(const ExpandingArray<InterCodeBasicBlock*>& body, ExpandingArray<InterCodeBasicBlock*>& path);
@@ -846,6 +847,7 @@ protected:
 	void SingleBlockLoopPointerSplit(FastNumberSet& activeSet);
 	void SingleBlockLoopPointerToByte(FastNumberSet& activeSet);
 	void SingleBlockLoopSinking(FastNumberSet& activeSet);
+	void SingleBlockLoopIndexReduction(FastNumberSet& activeSet);
 	void MergeIndexedLoadStore(void);
 	void EliminateIntegerSumAliasTemps(void);
 	void EliminateAliasValues();
