@@ -609,7 +609,9 @@ Expression* Expression::ConstantDereference(Errors* errors, LinkerSection* dataS
 	{
 		if (mDecType->IsSimpleType())
 		{
-			if (mDecValue->mType == DT_VARIABLE && (mDecValue->mFlags & DTF_CONST) && mDecValue->mValue)
+			// A local initialization is executable code and must not be evaluated again at each use.
+			if (mDecValue->mType == DT_VARIABLE && (mDecValue->mFlags & DTF_CONST) &&
+				mDecValue->mValue && mDecValue->mValue->mType == EX_CONSTANT)
 				return mDecValue->mValue;
 			else if (mDecValue->mType == DT_VARIABLE_REF && (mDecValue->mFlags & DTF_CONST) && mDecValue->mBase->mValue && mDecValue->mBase->mValue->mType == EX_CONSTANT && mDecValue->mBase->mValue->mDecValue->mType == DT_CONST_STRUCT)
 			{
