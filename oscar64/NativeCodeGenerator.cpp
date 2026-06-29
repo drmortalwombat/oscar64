@@ -27374,6 +27374,46 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 					mIns.Remove(i - 1);
 					changed = true;
 				}
+				else if (i > 1 && mIns[i - 1].mType == ASMIT_EOR && mIns[i - 1].mMode == ASMIM_IMMEDIATE && (mBranch == ASMIT_BPL || mBranch == ASMIT_BMI) && mIns[i - 2].ChangesFlagToAccu())
+				{
+					if (mIns[i - 1].mAddress & 0x80)
+					{
+						if (mBranch == ASMIT_BPL)
+							mBranch = ASMIT_BMI;
+						else
+							mBranch = ASMIT_BPL;
+					}
+					mIns[i - 2].mLive |= LIVE_CPU_REG_Z;
+
+					if (mTrueJump->mEntryRequiredRegs[CPU_REG_A])
+						mTrueJump->PrependInstruction(mIns[i - 1]);
+					else
+						mFalseJump->PrependInstruction(mIns[i - 1]);
+					mIns.Remove(i - 1);
+					changed = true;
+				}
+				else if (i > 0 && mIns[i - 1].mType == ASMIT_ROR && mIns[i - 1].mMode == ASMIM_IMPLIED && (mBranch == ASMIT_BPL || mBranch == ASMIT_BMI))
+				{
+					if (mBranch == ASMIT_BPL)
+						mBranch = ASMIT_BCC;
+					else
+						mBranch = ASMIT_BCS;
+
+					mExitRequiredRegs += CPU_REG_C;
+
+					if (mTrueJump->mEntryRequiredRegs[CPU_REG_A])
+					{
+						mTrueJump->PrependInstruction(mIns[i - 1]);
+						mTrueJump->mEntryRequiredRegs += CPU_REG_C;
+					}
+					else
+					{
+						mFalseJump->PrependInstruction(mIns[i - 1]);
+						mFalseJump->mEntryRequiredRegs += CPU_REG_C;
+					}
+					mIns.Remove(i - 1);
+					changed = true;
+				}
 
 				int sz = mIns.Size();
 
@@ -44097,6 +44137,18 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 				changed = true;
 			}
 #endif
+#if 1
+			if (i + 1 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_ROR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+				mIns[i + 1].mType == ASMIT_EOR && mIns[i + 1].mMode == ASMIM_IMMEDIATE &&
+				mNDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+			{
+				mIns[i + 0].mType = ASMIT_LSR;
+				if (mNDataSet[CPU_REG_C].mValue)
+					mIns[i + 1].mAddress ^= 0x80;
+				changed = true;
+			}
+#endif
 
 #if 1
 			if (i + 1 < mIns.Size() && (mIns[i].mType == ASMIT_INC || mIns[i].mType == ASMIT_DEC) && mIns[i].mMode == ASMIM_ZERO_PAGE &&
@@ -44243,6 +44295,13 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 							}
 #endif
 						}
+						else if (final)
+						{
+							if (fork->mTrueJump->mIns.Size() > 0 && fork->mTrueJump->mIns[0].IsShift())
+								mNDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
+							if (fork->mFalseJump->mIns.Size() > 0 && fork->mFalseJump->mIns[0].IsShift())
+								mFDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
+						}
 					}
 					break;
 				case ASMIT_BCC:
@@ -44296,6 +44355,13 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 									changed = true;
 								}
 							}
+						}
+						else if (final)
+						{
+							if (fork->mTrueJump->mIns.Size() > 0 && fork->mTrueJump->mIns[0].IsShift())
+								mNDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
+							if (fork->mFalseJump->mIns.Size() > 0 && fork->mFalseJump->mIns[0].IsShift())
+								mFDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
 						}
 					}
 					break;
