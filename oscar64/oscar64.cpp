@@ -640,9 +640,12 @@ int main2(int argc, const char** argv)
 			printf("Starting %s %s\n", strProductName, strProductVersion);
 		}
 
-		if (compiler->mErrors->mErrorCount == 0 && (customCRT || hasSources))
+		const bool hasCompilationInput = customCRT || hasSources;
+
+		if (compiler->mErrors->mErrorCount == 0 && (hasCompilationInput || diskPath[0] != '\0'))
 		{
-			compiler->RemoveErrorFile(targetPath);
+			if (hasCompilationInput)
+				compiler->RemoveErrorFile(targetPath);
 
 			{
 				char dstring[100], tstring[100];
@@ -667,9 +670,10 @@ int main2(int argc, const char** argv)
 
 			// Add runtime module
 
-			compiler->mPreprocessor->AddPath(includePath);
+			if (hasCompilationInput)
+				compiler->mPreprocessor->AddPath(includePath);
 
-			if (!customCRT)
+			if (hasSources && !customCRT)
 			{
 				FILE* crtFile;
 				char crtFileNamePath[FILENAME_MAX];
@@ -699,23 +703,24 @@ int main2(int argc, const char** argv)
 				strcat_s(crtPath, "/crt.c");
 			}
 
-			if (crtPath[0])
+			if (hasCompilationInput && crtPath[0] != '\0')
 				compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
 
-			if (compiler->mCompilerOptions & COPT_TARGET_LZO)
+			if (hasCompilationInput && (compiler->mCompilerOptions & COPT_TARGET_LZO))
 			{
 				compiler->BuildLZO(targetPath);
 			}
-			else if (compiler->ParseSource() && compiler->GenerateCode())
+			else if (!hasCompilationInput || (compiler->ParseSource() && compiler->GenerateCode()))
 			{
 				DiskImage* d64 = nullptr;
 
-				if (diskPath[0])
+				if (diskPath[0] != '\0')
 					d64 = new DiskImage(diskPath);
 
-				compiler->WriteOutputFile(targetPath, d64);
+				if (hasCompilationInput)
+					compiler->WriteOutputFile(targetPath, d64);
 
-				if (d64)
+				if (d64 != nullptr)
 				{
 					for (int i = 0; i < dataFiles.Size(); i++)
 					{
@@ -732,7 +737,7 @@ int main2(int argc, const char** argv)
 					}
 				}
 
-				if (emulate)
+				if (hasCompilationInput && emulate)
 					compiler->ExecuteCode(profile, trace, asserts, iorange);
 			}
 			else if (compiler->mCompilerOptions & COPT_ERROR_FILES)
