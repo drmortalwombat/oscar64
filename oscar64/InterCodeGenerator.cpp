@@ -6336,7 +6336,7 @@ InterCodeProcedure* InterCodeGenerator::TranslateProcedure(InterCodeModule * mod
 	proc->mLinkerObject->mFullIdent = dec->FullIdent();
 
 #if 0
-	if (proc->mIdent && !strcmp(proc->mIdent->mString, "main"))
+	if (proc->mIdent && !strcmp(proc->mIdent->mString, "test"))
 		exp->Dump(0);
 #endif
 #if 0

@@ -354,11 +354,14 @@ public:
 	void FilterVarsUsage(const GrowingVariableArray& localVars, NumberSet& requiredVars, NumberSet& providedVars, const GrowingVariableArray& params, NumberSet& requiredParams, NumberSet& providedParams, InterMemory paramMemory);
 	void FilterStaticVarsUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars);
 	void FilterStaticVarsByteUsage(const GrowingVariableArray& staticVars, NumberSet& requiredVars, NumberSet& providedVars, Errors * errors);
+	void FilterLocalVarsByteUsage(const GrowingVariableArray& lovalVars, NumberSet& requiredVars, NumberSet& providedVars, Errors* errors);
 
 	bool RemoveUnusedResultInstructions(InterInstruction* pre, NumberSet& requiredTemps);
 	bool RemoveUnusedStoreInstructions(const GrowingVariableArray& localVars, NumberSet& requiredVars, const GrowingVariableArray& params, NumberSet& requiredParams, InterMemory paramMemory);
 	bool RemoveUnusedStaticStoreInstructions(InterCodeBasicBlock * block, const GrowingVariableArray& staticVars, NumberSet& requiredVars, GrowingInstructionPtrArray& storeIns);
 	bool RemoveUnusedStaticStoreByteInstructions(InterCodeBasicBlock* block, const GrowingVariableArray& staticVars, NumberSet& requiredVars);
+	bool RemoveUnusedLocalStoreByteInstructions(InterCodeBasicBlock* block, const GrowingVariableArray& localVars, NumberSet& requiredVars);
+	bool RemoveUndefinedLocalLoadByteInstructions(InterCodeBasicBlock* block, const GrowingVariableArray& localVars, NumberSet& providedVars);
 	void PerformValueForwarding(GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid);
 	void BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps);
 
@@ -498,6 +501,9 @@ public:
 	bool BuildGlobalRequiredStaticVariableSet(const GrowingVariableArray& staticVars, NumberSet& fromRequiredVars);
 	bool RemoveUnusedStaticStoreInstructions(const GrowingVariableArray& staticVars);
 
+	void BuildLocalVariableByteSet(const GrowingVariableArray& localVars, int bsize);
+	bool RemoveUndefinedPartialLocalInstructions(const GrowingVariableArray& localVars, int bsize);
+
 	void BuildStaticVariableByteSet(const GrowingVariableArray& staticVars, int bsize);
 	bool RemoveUnusedStaticStoreByteInstructions(const GrowingVariableArray& staticVars, int bsize);
 
@@ -511,6 +517,8 @@ public:
 
 	void UpdateLocalIntegerRangeSetsForward(void);
 	void UpdateLocalIntegerRangeSetsBackward(void);
+
+	bool UpdateLinearCombinations(void);
 
 	bool BuildGlobalIntegerRangeSets(bool initial);
 	void SimplifyIntegerRangeRelops(void);
@@ -839,6 +847,7 @@ protected:
 	void RemoveUnusedStoreInstructions(InterMemory	paramMemory);
 	void RemoveUnusedPartialStoreInstructions(void);
 	void RemoveUnusedLocalStoreInstructions(void);
+	void RemoveUndefinedPartialLocalInstructions(void);
 	void MergeCommonPathInstructions(void);
 	void PushSinglePathResultInstructions(void);
 	void CollectVariables(InterMemory paramMemory);
@@ -891,7 +900,7 @@ protected:
 	void CheckFinal(void);
 	void CheckBlocks(void);
 
-	void DisassembleDebug(const char* name);
+	void DisassembleDebug(const char* name, bool dumpSets = false);
 };
 
 class InterCodeModule

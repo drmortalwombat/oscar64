@@ -548,6 +548,20 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 									}
 									else
 									{
+										if (bitsleft && mlast)
+										{
+											Declaration* pdec = new Declaration(mdec->mLocation, DT_PADDING);
+											pdec->mIdent = Ident::Unique("__pad");
+											pdec->mBase = TheUnsignedCharTypeDeclaration;
+											pdec->mOffset = mlast->mOffset;
+											pdec->mBits = bitsleft;
+											pdec->mShift = 8 - bitsleft;
+											pdec->mSize = 1;
+											bitsleft = 0;
+											mlast->mNext = pdec;
+											mlast = pdec;
+										}
+
 										int alignment = mdec->mBase->mAlignment;
 										if (alignment == 0)
 											alignment = 1;
@@ -602,6 +616,20 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 						}
 					}
 				}
+			}
+
+			if (bitsleft && mlast)
+			{
+				Declaration* pdec = new Declaration(mlast->mLocation, DT_PADDING);
+				pdec->mIdent = Ident::Unique("__pad");
+				pdec->mBase = TheUnsignedCharTypeDeclaration;
+				pdec->mOffset = mlast->mOffset;
+				pdec->mBits = bitsleft;
+				pdec->mShift = 8 - bitsleft;
+				pdec->mSize = 1;
+				bitsleft = 0;
+				mlast->mNext = pdec;
+				mlast = pdec;
 			}
 
 			if (mlast)
@@ -2006,7 +2034,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 	}
 	else if ((dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION) && ConsumeTokenIf(TK_OPEN_BRACE))
 	{
-		NumberSet	fset(dtype->mSize);
+		NumberSet	fset(dtype->mSize * 8);
 
 		bool	isconst = true;
 		Declaration* edec = dtype->mParams;
@@ -2041,7 +2069,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 				break;
 
 			if (edec->mSize)
-				fset += edec->mOffset;
+				fset += edec->mOffset * 8 + edec->mShift;
 
 			Expression* qexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 			qexp->mLeft = vexp;
@@ -2057,7 +2085,9 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			if (dtype->mType == DT_TYPE_UNION)
 				break;
 
-			edec = edec->mNext;
+			do {
+				edec = edec->mNext;
+			} while (edec && edec->mType != DT_ELEMENT);
 
 			if (!ConsumeTokenIf(TK_COMMA))
 				break;
@@ -2119,9 +2149,9 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			edec = dtype->mParams;
 			while (edec)
 			{
-				if (edec->mSize && !fset[edec->mOffset])
+				if (edec->mSize && !fset[edec->mOffset * 8 + edec->mShift])
 				{
-					fset += edec->mOffset;
+					fset += edec->mOffset * 8 + edec->mShift;
 
 					Expression* qexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 					qexp->mLeft = vexp;
@@ -2661,7 +2691,10 @@ Expression* Parser::ParseConstInitExpression(Declaration* dtype, bool inner)
 							last = cdec;
 						}
 
-						mdec = mdec->mNext;
+						do {
+							mdec = mdec->mNext;
+						} while (mdec && mdec->mType != DT_ELEMENT);
+
 						while (!mdec && path.Size())
 							mdec = path.Pop()->mParams;
 
