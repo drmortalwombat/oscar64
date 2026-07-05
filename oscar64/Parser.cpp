@@ -11236,7 +11236,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 
 Expression* Parser::ParseAssignmentExpression(bool lhs)
 {
-	Expression* exp = ParseConditionalExpression(lhs)->ConstantFold(mErrors, mDataSection)->ConstantDereference(mErrors, mDataSection);;
+	Expression* exp = ParseConditionalExpression(lhs)->ConstantFold(mErrors, mDataSection);
 
 	if (mScanner->mToken >= TK_ASSIGN && mScanner->mToken <= TK_ASSIGN_OR)
 	{
@@ -11252,7 +11252,10 @@ Expression* Parser::ParseAssignmentExpression(bool lhs)
 		assert(exp->mDecType);
 	}
 
-	return exp;
+	if (lhs)
+		return exp;
+	else
+		return exp->ConstantDereference(mErrors, mDataSection);
 }
 
 Expression* Parser::ParseExpression(bool lhs)
