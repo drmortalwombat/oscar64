@@ -278,6 +278,7 @@ public:
 	bool IsLoad(void) const;
 	bool IsLogic(void) const;
 	bool IsArithmetic(void) const;
+	bool IsAddSub(void) const;
 	bool IsShift(void) const;
 	bool IsShiftOrInc(void) const;
 	bool IsShiftRotOrInc(void) const;
@@ -739,6 +740,10 @@ public:
 	bool HasTailSTAGlobal(NativeCodeInstruction & ins, int& index) const;
 	bool HasTailAccuReg(int addr) const;
 
+	bool CanMoveStoreUp(int addr, const NativeCodeInstruction& ins, int& at);
+	bool CanMovePairBefore(int at);
+	bool JoinCommonHeadSequence(void);
+
 	bool MayBeMovedBeforeBlock(int at);
 	bool MayBeMovedBeforeBlock(int at, const NativeCodeInstruction & ins);
 	bool MayBeMovedBeforeBlock(int start, int end);
@@ -1039,6 +1044,9 @@ public:
 
 	void RegisterFunctionCalls(void);
 	bool MergeFunctionCalls(void);
+
+	bool CheckAllAccuReturn(void);
+	void ReplaceAccuReturn(void);
 
 	bool IsDominatedBy(const NativeCodeBasicBlock* block) const;
 

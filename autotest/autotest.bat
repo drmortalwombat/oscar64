@@ -30,6 +30,9 @@ rem @echo off
 @call :testh opp_string.cpp
 @if %errorlevel% neq 0 goto :error
 
+@call :testh opp_hashmap.cpp
+@if %errorlevel% neq 0 goto :error
+
 @call :testh opp_array.cpp
 @if %errorlevel% neq 0 goto :error
 
