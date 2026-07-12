@@ -641,8 +641,12 @@ int main2(int argc, const char** argv)
 		}
 
 		const bool hasCompilationInput = customCRT || hasSources;
+		DiskImage* d64 = nullptr;
 
-		if (compiler->mErrors->mErrorCount == 0 && (hasCompilationInput || diskPath[0] != '\0'))
+		if (diskPath[0] != '\0')
+			d64 = new DiskImage(diskPath);
+
+		if (compiler->mErrors->mErrorCount == 0 && (hasCompilationInput || d64 != nullptr))
 		{
 			if (hasCompilationInput)
 				compiler->RemoveErrorFile(targetPath);
@@ -712,11 +716,6 @@ int main2(int argc, const char** argv)
 			}
 			else if (!hasCompilationInput || (compiler->ParseSource() && compiler->GenerateCode()))
 			{
-				DiskImage* d64 = nullptr;
-
-				if (diskPath[0] != '\0')
-					d64 = new DiskImage(diskPath);
-
 				if (hasCompilationInput)
 					compiler->WriteOutputFile(targetPath, d64);
 
