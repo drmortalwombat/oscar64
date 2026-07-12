@@ -716,23 +716,6 @@ int main2(int argc, const char** argv)
 			{
 				compiler->WriteOutputFile(targetPath, d64);
 
-				if (d64 != nullptr)
-				{
-					for (int i = 0; i < dataFiles.Size(); i++)
-					{
-						if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i], dataFileInterleave))
-						{
-							printf("Could not embed disk file %s\n", dataFiles[i]);
-							return 20;
-						}
-					}
-
-					if (!d64->WriteImage(diskPath))
-					{
-						printf("Could not write disk image %s\n", diskPath);
-						return 20;
-					}
-				}
 
 				if (emulate)
 					compiler->ExecuteCode(profile, trace, asserts, iorange);
@@ -740,6 +723,24 @@ int main2(int argc, const char** argv)
 			else if (compiler->mCompilerOptions & COPT_ERROR_FILES)
 			{
 				compiler->WriteErrorFile(targetPath);
+			}
+		}
+
+		if (compiler->mErrors->mErrorCount == 0 && d64 != nullptr)
+		{
+			for (int i = 0; i < dataFiles.Size(); i++)
+			{
+				if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i], dataFileInterleave))
+				{
+					printf("Could not embed disk file %s\n", dataFiles[i]);
+					return 20;
+				}
+			}
+
+			if (!d64->WriteImage(diskPath))
+			{
+				printf("Could not write disk image %s\n", diskPath);
+				return 20;
 			}
 		}
 
