@@ -548,6 +548,20 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 									}
 									else
 									{
+										if (bitsleft && mlast)
+										{
+											Declaration* pdec = new Declaration(mdec->mLocation, DT_PADDING);
+											pdec->mIdent = Ident::Unique("__pad");
+											pdec->mBase = TheUnsignedCharTypeDeclaration;
+											pdec->mOffset = mlast->mOffset;
+											pdec->mBits = bitsleft;
+											pdec->mShift = 8 - bitsleft;
+											pdec->mSize = 1;
+											bitsleft = 0;
+											mlast->mNext = pdec;
+											mlast = pdec;
+										}
+
 										int alignment = mdec->mBase->mAlignment;
 										if (alignment == 0)
 											alignment = 1;
@@ -602,6 +616,20 @@ Declaration* Parser::ParseStructDeclaration(uint64 flags, DecType dt, Declaratio
 						}
 					}
 				}
+			}
+
+			if (bitsleft && mlast)
+			{
+				Declaration* pdec = new Declaration(mlast->mLocation, DT_PADDING);
+				pdec->mIdent = Ident::Unique("__pad");
+				pdec->mBase = TheUnsignedCharTypeDeclaration;
+				pdec->mOffset = mlast->mOffset;
+				pdec->mBits = bitsleft;
+				pdec->mShift = 8 - bitsleft;
+				pdec->mSize = 1;
+				bitsleft = 0;
+				mlast->mNext = pdec;
+				mlast = pdec;
 			}
 
 			if (mlast)
@@ -1713,7 +1741,16 @@ Declaration * Parser::CopyConstantInitializer(int offset, Declaration* dtype, Ex
 		}
 		else
 		{
-			if (dec->mType == DT_CONST_FLOAT)
+			if (dec->mType == DT_CONST_FUNCTION && dtype->mType == DT_TYPE_POINTER)
+			{
+				// Aggregate entries are linked through mNext, so do not reuse the function
+				// declaration itself as an initialiser entry.
+				Declaration* ndec = new Declaration(dec->mLocation, DT_CONST_POINTER);
+				ndec->mValue = exp;
+				ndec->mBase = dtype;
+				dec = ndec;
+			}
+			else if (dec->mType == DT_CONST_FLOAT)
 			{
 				if (dtype->IsIntegerType() || dtype->mType == DT_TYPE_POINTER)
 				{
@@ -1997,7 +2034,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 	}
 	else if ((dtype->mType == DT_TYPE_STRUCT || dtype->mType == DT_TYPE_UNION) && ConsumeTokenIf(TK_OPEN_BRACE))
 	{
-		NumberSet	fset(dtype->mSize);
+		NumberSet	fset(dtype->mSize * 8);
 
 		bool	isconst = true;
 		Declaration* edec = dtype->mParams;
@@ -2032,7 +2069,7 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 				break;
 
 			if (edec->mSize)
-				fset += edec->mOffset;
+				fset += edec->mOffset * 8 + edec->mShift;
 
 			Expression* qexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 			qexp->mLeft = vexp;
@@ -2048,7 +2085,9 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			if (dtype->mType == DT_TYPE_UNION)
 				break;
 
-			edec = edec->mNext;
+			do {
+				edec = edec->mNext;
+			} while (edec && edec->mType != DT_ELEMENT);
 
 			if (!ConsumeTokenIf(TK_COMMA))
 				break;
@@ -2110,9 +2149,9 @@ Expression* Parser::ParseVarInitExpression(Expression* vexp, bool inner)
 			edec = dtype->mParams;
 			while (edec)
 			{
-				if (edec->mSize && !fset[edec->mOffset])
+				if (edec->mSize && !fset[edec->mOffset * 8 + edec->mShift])
 				{
-					fset += edec->mOffset;
+					fset += edec->mOffset * 8 + edec->mShift;
 
 					Expression* qexp = new Expression(mScanner->mLocation, EX_QUALIFY);
 					qexp->mLeft = vexp;
@@ -2652,7 +2691,10 @@ Expression* Parser::ParseConstInitExpression(Declaration* dtype, bool inner)
 							last = cdec;
 						}
 
-						mdec = mdec->mNext;
+						do {
+							mdec = mdec->mNext;
+						} while (mdec && mdec->mType != DT_ELEMENT);
+
 						while (!mdec && path.Size())
 							mdec = path.Pop()->mParams;
 
@@ -11194,7 +11236,7 @@ Expression* Parser::CheckOperatorOverload(Expression* exp)
 
 Expression* Parser::ParseAssignmentExpression(bool lhs)
 {
-	Expression* exp = ParseConditionalExpression(lhs);
+	Expression* exp = ParseConditionalExpression(lhs)->ConstantFold(mErrors, mDataSection);
 
 	if (mScanner->mToken >= TK_ASSIGN && mScanner->mToken <= TK_ASSIGN_OR)
 	{
@@ -11210,7 +11252,10 @@ Expression* Parser::ParseAssignmentExpression(bool lhs)
 		assert(exp->mDecType);
 	}
 
-	return exp;
+	if (lhs)
+		return exp;
+	else
+		return exp->ConstantDereference(mErrors, mDataSection);
 }
 
 Expression* Parser::ParseExpression(bool lhs)
@@ -15515,6 +15560,10 @@ void Parser::ParsePragma(void)
 						mCompilerOptions |= COPT_OPTIMIZE_OUTLINE;
 					else if (ConsumeIdentIf("nooutline"))
 						mCompilerOptions &= ~COPT_OPTIMIZE_OUTLINE;
+					else if (ConsumeIdentIf("selfmod"))
+						mCompilerOptions |= COPT_OPTIMIZE_SELF_MOD;
+					else if (ConsumeIdentIf("noselfmod"))
+						mCompilerOptions &= ~COPT_OPTIMIZE_SELF_MOD;
 					else
 						mErrors->Error(mScanner->mLocation, EERR_INVALID_IDENTIFIER, "Invalid option");
 

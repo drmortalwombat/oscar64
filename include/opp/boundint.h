@@ -23,7 +23,7 @@ namespace opp {
 		boundint(int i) 
 			: v(i) 
 		{
-
+			__assume(i >= tmin && i <= tmax);
 		}
 
 		void operator=(int k)

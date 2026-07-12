@@ -3383,6 +3383,11 @@ bool Declaration::IsComplexStruct(void) const
 	return mType == DT_TYPE_STRUCT && !IsShortIntStruct();
 }
 
+bool Declaration::IsStructOrUnion(void) const
+{
+	return mType == DT_TYPE_STRUCT || mType == DT_TYPE_UNION;
+}
+
 bool Declaration::IsSimpleType(void) const
 {
 	return mType == DT_TYPE_INTEGER || mType == DT_TYPE_BOOL || mType == DT_TYPE_FLOAT || mType == DT_TYPE_ENUM || mType == DT_TYPE_POINTER;

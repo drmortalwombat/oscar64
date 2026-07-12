@@ -111,6 +111,7 @@ static const uint32 LREF_TEMPORARY		=	0x00000004;
 static const uint32 LREF_INBLOCK		=	0x00000008;
 static const uint32	LREF_LOWBYTE_OFFSET	=	0x00000010;
 static const uint32 LREF_BREAKPOINT		=	0x00000020;
+static const uint32 LREF_SELFMOD		=	0x00000040;
 
 class LinkerReference
 {

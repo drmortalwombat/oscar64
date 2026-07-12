@@ -1,5 +1,8 @@
 rem @echo off
 
+@call :test ambiguousoverload.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test array2dtest.c
 @if %errorlevel% neq 0 goto :error
 
@@ -25,6 +28,9 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :testh opp_string.cpp
+@if %errorlevel% neq 0 goto :error
+
+@call :testh opp_hashmap.cpp
 @if %errorlevel% neq 0 goto :error
 
 @call :testh opp_array.cpp
@@ -297,6 +303,11 @@ rem @echo off
 @call :testi volatiletest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test constlocaltest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test structconditionaltest.c
+@if %errorlevel% neq 0 goto :error
 
 @exit /b 0
 

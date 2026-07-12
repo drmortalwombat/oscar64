@@ -52,6 +52,7 @@ enum DecType
 	DT_VARIABLE,
 	DT_ARGUMENT,
 	DT_ELEMENT,
+	DT_PADDING,
 	DT_ANON,
 	DT_LABEL,
 	DT_VARIABLE_REF,
@@ -369,6 +370,7 @@ public:
 	bool HasConstructor(void) const;
 	bool IsPointerType(void) const;
 	bool IsValueType(void) const;
+	bool IsStructOrUnion(void) const;
 
 	void SetDefined(void);
 

@@ -131,6 +131,7 @@ The compiler is command line driven, and creates an executable .prg file.
 * -Op : optimize constant parameters
 * -Oo : optimize size using "outliner" (extract repeated code sequences into functions)
 * -Ox : optimize pointer arithmetic by blocking shorter arrays to not cross page boundaries
+* -OM : enable generation of self modifying code
 * -g : create source level debug info and add source line numbers to asm listing
 * -gp : create source level debug info and add source line numbers to asm listing and static profile data
 * -tf : target format, may be prg, crt or bin
@@ -506,6 +507,8 @@ Set optimizer options that are active for the functions after it
 * noconstparams : disable constant parameter folding into called functions
 * outline : enable outliner
 * nooutline : disable outliner
+* selfmod : enable generation of self modifying code
+* noselfmod : disable generation of self modifying code
 * 0 : no optimization
 * 1 : default optimizations
 * 2 : aggressive optimizations
