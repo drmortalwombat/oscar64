@@ -639,6 +639,12 @@ int main2(int argc, const char** argv)
 		{
 			printf("Starting %s %s\n", strProductName, strProductVersion);
 		}
+		DiskImage* d64;
+
+		if (diskPath[0] != '\0')
+			d64 = new DiskImage(diskPath);
+		else
+			d64 = nullptr;
 
 		if (compiler->mErrors->mErrorCount == 0 && (customCRT || hasSources))
 		{
@@ -669,7 +675,7 @@ int main2(int argc, const char** argv)
 
 			compiler->mPreprocessor->AddPath(includePath);
 
-			if (!customCRT)
+			if (hasSources && !customCRT)
 			{
 				FILE* crtFile;
 				char crtFileNamePath[FILENAME_MAX];
@@ -699,7 +705,7 @@ int main2(int argc, const char** argv)
 				strcat_s(crtPath, "/crt.c");
 			}
 
-			if (crtPath[0])
+			if (crtPath[0] != '\0')
 				compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
 
 			if (compiler->mCompilerOptions & COPT_TARGET_LZO)
@@ -708,14 +714,9 @@ int main2(int argc, const char** argv)
 			}
 			else if (compiler->ParseSource() && compiler->GenerateCode())
 			{
-				DiskImage* d64 = nullptr;
-
-				if (diskPath[0])
-					d64 = new DiskImage(diskPath);
-
 				compiler->WriteOutputFile(targetPath, d64);
 
-				if (d64)
+				if (d64 != nullptr)
 				{
 					for (int i = 0; i < dataFiles.Size(); i++)
 					{
@@ -725,6 +726,7 @@ int main2(int argc, const char** argv)
 							return 20;
 						}
 					}
+
 					if (!d64->WriteImage(diskPath))
 					{
 						printf("Could not write disk image %s\n", diskPath);
