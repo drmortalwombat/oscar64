@@ -4123,7 +4123,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				if (ftype->mBase->IsComplexStruct())
 				{
 					int	ttemp;
-					if (lrexp)
+					if (lrexp && lrexp->mType->mStripe <= 1)
 					{
 						if (!ftype->mBase->CanAssign(lrexp->mType))
 							mErrors->Error(exp->mLocation, EERR_INCOMPATIBLE_TYPES, "Cannot assign incompatible types", ftype->mBase->MangleIdent(), lrexp->mType->MangleIdent());
@@ -4154,6 +4154,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 						block->Append(vins);
 
 						ttemp = vins->mDst.mTemp;
+						lrexp = nullptr;
 					}
 
 					InterInstruction* ains = new InterInstruction(MapLocation(exp, inlineMapper), IC_CONSTANT);
@@ -4502,7 +4503,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							oins->mDst.mType = IT_INT16;
 							oins->mDst.mTemp = proc->AddTemporary(IT_INT16);
 							oins->mConst.mType = IT_INT16;
-							oins->mConst.mIntConst = dec->mOffset;
+							oins->mConst.mIntConst = dec->mOffset * (decResult->mStripe ? decResult->mStripe : 1);
 							block->Append(oins);
 
 							InterInstruction* ains = new InterInstruction(MapLocation(exp, inlineMapper), IC_LEA);
@@ -4555,6 +4556,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 							sins->mSrc[0].mTemp = andins->mDst.mTemp;
 							sins->mSrc[0].mType = InterTypeOf(dec->mBase);
 							sins->mSrc[1] = ains->mDst;
+							sins->mSrc[1].mStride = decResult->mStripe ? decResult->mStripe : 1;
 							sins->mNumOperands = 2;
 							block->Append(sins);
 						}

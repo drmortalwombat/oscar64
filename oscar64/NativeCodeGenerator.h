@@ -542,6 +542,7 @@ public:
 	bool RemoveJumpToBranch(void);
 	NativeCodeBasicBlock* SplitBlock(int at);
 	NativeCodeBasicBlock* PrefixLoopBlock(NativeCodeBasicBlock * prefix);
+	NativeCodeBasicBlock* UniqueEntryBlock(NativeCodeBasicBlock* prefix);
 	bool ShortcutBranchSequence(void);
 
 	bool RemoveUnusedBitOps(void);
@@ -567,6 +568,7 @@ public:
 
 	bool MoveIndirectLoadStoreUp(int at);
 	bool MoveAbsoluteLoadStoreUp(int at);
+	bool MoveGenericLoadStoreUp(int at);
 	bool MoveLoadStoreOutOfXYRangeUp(int at);
 	bool MoveLoadIndirectTempStoreUp(int at);
 	bool MoveLoadIndirectBypassYUp(int at);
@@ -860,6 +862,7 @@ public:
 	void ReverseCrossBlockChangeAToX(void);
 
 	bool ReverseCrossBlockRegisterUnification(void);
+	bool ReverseZeroPageRecycling(void);
 
 	bool CombineZPPair(int at, int r0, int r1, bool use0, bool use1, bool & swap);
 	bool RemoveDoubleZPStore(void);

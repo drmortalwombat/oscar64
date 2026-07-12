@@ -9295,6 +9295,7 @@ void InterCodeBasicBlock::MarkIntegerRangeBoundUp(int temp, int64 value, Growing
 	}
 }
 
+
 void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 {
 	int sz = mInstructions.Size();
@@ -11060,6 +11061,12 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSets(void)
 							{
 								mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
 							}
+#if 0
+							else if (cins->mSrc[1].IsPositive())
+							{
+								mFalseValueRange[s1].LimitMin(cins->mSrc[0].mIntConst);
+							}
+#endif
 						}
 					}
 					else if (cins->mSrc[0].mRange.mMaxState == IntegerValueRange::S_BOUND)
@@ -28600,7 +28607,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "controlPlayer");
+	CheckFunc = !strcmp(mIdent->mString, "test");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
