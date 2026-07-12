@@ -639,17 +639,16 @@ int main2(int argc, const char** argv)
 		{
 			printf("Starting %s %s\n", strProductName, strProductVersion);
 		}
-
-		const bool hasCompilationInput = customCRT || hasSources;
-		DiskImage* d64 = nullptr;
+		DiskImage* d64;
 
 		if (diskPath[0] != '\0')
 			d64 = new DiskImage(diskPath);
+		else
+			d64 = nullptr;
 
-		if (compiler->mErrors->mErrorCount == 0 && (hasCompilationInput || d64 != nullptr))
+		if (compiler->mErrors->mErrorCount == 0 && (customCRT || hasSources))
 		{
-			if (hasCompilationInput)
-				compiler->RemoveErrorFile(targetPath);
+			compiler->RemoveErrorFile(targetPath);
 
 			{
 				char dstring[100], tstring[100];
@@ -674,8 +673,7 @@ int main2(int argc, const char** argv)
 
 			// Add runtime module
 
-			if (hasCompilationInput)
-				compiler->mPreprocessor->AddPath(includePath);
+			compiler->mPreprocessor->AddPath(includePath);
 
 			if (hasSources && !customCRT)
 			{
@@ -707,36 +705,35 @@ int main2(int argc, const char** argv)
 				strcat_s(crtPath, "/crt.c");
 			}
 
-			if (hasCompilationInput && crtPath[0] != '\0')
+			if (crtPath[0] != '\0')
 				compiler->mCompilationUnits->AddUnit(loc, crtPath, nullptr);
 
-			if (hasCompilationInput && (compiler->mCompilerOptions & COPT_TARGET_LZO))
+			if (compiler->mCompilerOptions & COPT_TARGET_LZO)
 			{
 				compiler->BuildLZO(targetPath);
 			}
-			else if (!hasCompilationInput || (compiler->ParseSource() && compiler->GenerateCode()))
+			else if (compiler->ParseSource() && compiler->GenerateCode())
 			{
-				if (hasCompilationInput)
-					compiler->WriteOutputFile(targetPath, d64);
+				compiler->WriteOutputFile(targetPath, d64);
 
 				if (d64 != nullptr)
+		{
+			for (int i = 0; i < dataFiles.Size(); i++)
+			{
+				if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i], dataFileInterleave))
 				{
-					for (int i = 0; i < dataFiles.Size(); i++)
-					{
-						if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i], dataFileInterleave))
-						{
-							printf("Could not embed disk file %s\n", dataFiles[i]);
-							return 20;
-						}
-					}
-					if (!d64->WriteImage(diskPath))
-					{
-						printf("Could not write disk image %s\n", diskPath);
-						return 20;
+					printf("Could not embed disk file %s\n", dataFiles[i]);
+					return 20;
+				}
+			}
+			if (!d64->WriteImage(diskPath))
+			{
+				printf("Could not write disk image %s\n", diskPath);
+				return 20;
 					}
 				}
 
-				if (hasCompilationInput && emulate)
+				if (emulate)
 					compiler->ExecuteCode(profile, trace, asserts, iorange);
 			}
 			else if (compiler->mCompilerOptions & COPT_ERROR_FILES)
