@@ -2528,6 +2528,8 @@ Declaration* Declaration::ToStriped(int stripe)
 	ndec->mFlags = mFlags;
 	ndec->mIdent = mIdent;
 	ndec->mQualIdent = mQualIdent;
+	ndec->mMinValue = mMinValue;
+	ndec->mMaxValue = mMaxValue;
 
 	if (mType == DT_ELEMENT)
 		ndec->mBase = mBase->ToStriped(stripe);
@@ -2608,6 +2610,8 @@ Declaration* Declaration::ToVolatileType(void)
 		ndec->mIdent = mIdent;
 		ndec->mQualIdent = mQualIdent;
 		ndec->mTemplate = mTemplate;
+		ndec->mMinValue = mMinValue;
+		ndec->mMaxValue = mMaxValue;
 
 		if (mType == DT_TYPE_STRUCT || mType == DT_TYPE_UNION)
 		{
@@ -2669,6 +2673,8 @@ Declaration* Declaration::ToConstType(void)
 		ndec->mIdent = mIdent;
 		ndec->mQualIdent = mQualIdent;
 		ndec->mTemplate = mTemplate;
+		ndec->mMinValue = mMinValue;
+		ndec->mMaxValue = mMaxValue;
 
 		ndec->mDestructor = mDestructor;
 		ndec->mDefaultConstructor = mDefaultConstructor;
@@ -2736,6 +2742,8 @@ Declaration* Declaration::ToMutableType(void)
 		ndec->mIdent = mIdent;
 		ndec->mQualIdent = mQualIdent;
 		ndec->mTemplate = mTemplate;
+		ndec->mMinValue = mMinValue;
+		ndec->mMaxValue = mMaxValue;
 
 		ndec->mDestructor = mDestructor;
 		ndec->mDefaultConstructor = mDefaultConstructor;

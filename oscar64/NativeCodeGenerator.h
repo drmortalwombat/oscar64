@@ -541,6 +541,7 @@ public:
 	bool MergeBasicBlocks(void);
 	bool RemoveJumpToBranch(void);
 	NativeCodeBasicBlock* SplitBlock(int at);
+	NativeCodeBasicBlock* CloneBlock(void);
 	NativeCodeBasicBlock* PrefixLoopBlock(NativeCodeBasicBlock * prefix);
 	NativeCodeBasicBlock* UniqueEntryBlock(NativeCodeBasicBlock* prefix);
 	bool ShortcutBranchSequence(void);
@@ -871,6 +872,8 @@ public:
 	bool ExpandADCShortCascadeToBranch(void);
 	bool Expand16BitLoopBranch(void);
 	bool SimpleInlineCalls(void);
+
+	bool CompressSwitchCascade(int lower, int upper, int cmp, AsmInsType branch);
 
 	bool Split16BitLoopCount(NativeCodeProcedure* proc);
 	bool SimplifyDiamond(NativeCodeProcedure* proc);

@@ -9834,8 +9834,11 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							}
 							else
 							{
-								vr.mMinValue = 0;
 								vr.mMaxValue = ins->mSrc[1].mIntConst << ins->mSrc[0].mRange.mMaxValue;
+								if (vr.mMaxValue <= 256)
+									vr.mMinValue = ins->mSrc[1].mIntConst;
+								else
+									vr.mMinValue = 0;
 							}
 						}
 						else
@@ -28607,7 +28610,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "equipment_random");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
