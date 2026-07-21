@@ -145,10 +145,15 @@ int main2(int argc, const char** argv)
 		  length = 0;
 		}
 #else
+#ifdef __amigaos__
+		int length = 0;
+		strcpy(basePath, "PROGDIR:");
+#else
 		int length = readlink("/proc/self/exe", basePath, sizeof(basePath));
 
 		//		strcpy(basePath, argv[0]);
 		//		int length = strlen(basePath);
+#endif
 #endif
 #endif
 #endif
