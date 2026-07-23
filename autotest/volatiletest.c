@@ -133,6 +133,22 @@ void test_readsmallfunc(void)
 	assert(udiff(u1, end0) == 1);
 }
 
+void test_loop_partial(void)
+{
+	char i, sink = 0;
+
+	char u0 = testio.cnt0;
+	for (i = 0; i < 100; i++) {
+		char v = testio.cnt0;	/* volatile: must be read 100 times */
+		if (i == 50)
+			sink = v;
+	}
+	char u1 = testio.cnt0;
+
+	assert(udiff(u0, sink) == 51);
+	assert(udiff(u0, u1) == 101);
+}
+
 int main(void)
 {
 	test_readorder();
@@ -140,4 +156,5 @@ int main(void)
 	test_dma();
 	test_unusedread();
 	test_readsmallfunc();
+	test_loop_partial();
 }

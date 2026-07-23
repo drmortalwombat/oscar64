@@ -427,6 +427,7 @@ public:
 	bool OptimizeLoopCarryOver(void);
 	bool OptimizeLoopRegisterWrapAround(void);
 
+	bool OptimizeSingleEntryLoopInvariantYLSB(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, const ExpandingArray<NativeCodeBasicBlock*>& tails, const ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, const ExpandingArray<NativeCodeBasicBlock*>& tails, const ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeSingleEntryLoop(NativeCodeProcedure* proc);
 
@@ -454,8 +455,8 @@ public:
 
 	bool OptimizeFindLoop(NativeCodeProcedure* proc);
 
-	NativeCodeBasicBlock* BuildSingleEntry(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
-	NativeCodeBasicBlock* BuildSingleExit(NativeCodeProcedure* proc, NativeCodeBasicBlock* block);
+	NativeCodeBasicBlock* BuildSingleEntry(NativeCodeBasicBlock* block);
+	NativeCodeBasicBlock* BuildSingleExit(NativeCodeBasicBlock* block);
 
 	void PutLocation(const Location& loc, bool weak);
 	void PutOpcode(short opcode);
@@ -484,6 +485,8 @@ public:
 	NativeCodeBasicBlock* BinaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0);
 	void UnaryOperator(InterCodeProcedure* proc, NativeCodeProcedure* nproc, const InterInstruction * ins);
 	void RelationalOperator(InterCodeProcedure* proc, const InterInstruction * ins, NativeCodeProcedure * nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock * falseJump);
+	void AddByteLoopTail(InterCodeProcedure* proc, const InterInstruction* iins, const InterInstruction* rins, NativeCodeProcedure* nproc, NativeCodeBasicBlock* trueJump, NativeCodeBasicBlock* falseJump);
+
 	void LoadEffectiveAddress(InterCodeProcedure* proc, const InterInstruction * ins, const InterInstruction* sins1, const InterInstruction* sins0, bool addrvalid, bool addrused = false);
 	void LoadStoreOpAbsolute2D(InterCodeProcedure* proc, const InterInstruction* lins1, const InterInstruction* lins2, const InterInstruction* mins);
 	void SignExtendAddImmediate(InterCodeProcedure* proc, const InterInstruction* xins, const InterInstruction* ains);
@@ -690,6 +693,7 @@ public:
 	int RetrieveXValue(int at = 65536, int depth = 0) const;
 	int RetrieveYValue(int at = 65536, int depth = 0) const;
 	int RetrieveZPValue(int reg, int at, int depth = 0) const;
+	int RetrieveAMax(int at) const;
 	int FindFreeAccu(int at) const;
 	bool IsSameZPValue(int reg1, int reg2, int depth = 0) const;
 
@@ -996,7 +1000,7 @@ public:
 	// iins : indexing instruction
 	// at : start position in block
 	// yval: known y immediate value of -1 if not known
-	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval, int ymax);
+	bool CheckForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval, int ymax, int ymask = 0);
 	bool PatchForwardSumYPointer(const NativeCodeBasicBlock* block, int reg, int base, const NativeCodeInstruction & iins, int at, int yval);
 
 	// reg : base register pair to replace LSB with zero

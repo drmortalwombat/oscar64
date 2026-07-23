@@ -16278,7 +16278,7 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 					while (j < ins->mNumOperands && (ins->mSrc[j].mTemp < 0 || !(providedTemps[ins->mSrc[j].mTemp] || IsTempModifiedOnPath(ins->mSrc[j].mTemp, i + 1))))
 						j++;
 
-					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && CanMoveInstructionBehindBlock(i))
+					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && CanMoveInstructionBehindBlock(i) && !ins->mVolatile)
 					{
 						if (mTrueJump->mNumEntries == 1 && trueExitRequiredTemps[dtemp] && !falseExitRequiredTems[dtemp])
 						{
@@ -28610,7 +28610,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "equipment_random");
+	CheckFunc = !strcmp(mIdent->mString, "main");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
