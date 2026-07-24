@@ -19739,11 +19739,15 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 
 			if (innerLoop)
 			{
-				InterCodeBasicBlock* eblock;
+				InterCodeBasicBlock* eblock, *xblock;
 				if (mEntryBlocks[0] == mLoopPrefix)
 					eblock = mEntryBlocks[1];
 				else
 					eblock = mEntryBlocks[0];
+				if (eblock->mTrueJump == this)
+					xblock = eblock->mFalseJump;
+				else
+					xblock = eblock->mTrueJump;
 
 				struct LoopCounter
 				{
@@ -19895,6 +19899,12 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 								if (lcs[i].mInc->mDst.mType > lcs[j].mInc->mDst.mType || 
 									lcs[i].mInc->mDst.mType == lcs[j].mInc->mDst.mType && lcs[i].mCmp)
 								{
+									InterInstruction* mins = new InterInstruction(lcs[j].mInc->mLocation, IC_LOAD_TEMPORARY);
+									mins->mDst = lcs[j].mInc->mDst;
+									mins->mSrc[0] = lcs[i].mInc->mDst;
+									mins->mNumOperands = 1;
+									xblock->mInstructions.Insert(0, mins);
+
 									lcs[j].mInc->mCode = IC_NONE; lcs[j].mInc->mNumOperands = 0; lcs[j].mInc->mDst.mTemp = -1;
 									for (int bi = 0; bi < body.Size(); bi++)
 									{
@@ -19906,6 +19916,12 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 								}
 								else
 								{
+									InterInstruction* mins = new InterInstruction(lcs[j].mInc->mLocation, IC_LOAD_TEMPORARY);
+									mins->mDst = lcs[i].mInc->mDst;
+									mins->mSrc[0] = lcs[j].mInc->mDst;
+									mins->mNumOperands = 1;
+									xblock->mInstructions.Insert(0, mins);
+
 									lcs[i].mInc->mCode = IC_NONE; lcs[i].mInc->mNumOperands = 0; lcs[i].mInc->mDst.mTemp = -1;
 
 									for (int bi = 0; bi < body.Size(); bi++)
