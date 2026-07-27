@@ -15636,7 +15636,14 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 
 	uint32	lf = 0;
 
-	if (ins->mSrc[0].mTemp < 0)
+	if (ins->mSrc[0].mTemp < 0 && !ins->mSrc[0].mLinkerObject)
+	{
+		// Call through a function pointer cast from a constant address,
+		// e.g. ((void (*)(void))0x8004)() - there is no linker object to
+		// consult, so emit a plain absolute JSR to the constant target
+		mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, nullptr, NCIF_LOWER | NCIF_UPPER));
+	}
+	else if (ins->mSrc[0].mTemp < 0)
 	{
 		uint32	flags = NCIF_LOWER | NCIF_UPPER;
 		if (ins->mSrc[0].mLinkerObject->mFlags & LOBJF_ARG_REG_A)
