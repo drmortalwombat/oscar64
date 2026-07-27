@@ -751,6 +751,10 @@ public:
 	bool CanMovePairBefore(int at);
 	bool JoinCommonHeadSequence(void);
 
+	int FindSafeMovePositionDown(int lat, int sat, int live);
+	int FindSafeMovePositionUp(int lat, int sat, int live);
+	bool UntangleAbsoluteMoves(bool final);
+
 	bool MayBeMovedBeforeBlock(int at);
 	bool MayBeMovedBeforeBlock(int at, const NativeCodeInstruction & ins);
 	bool MayBeMovedBeforeBlock(int start, int end);
