@@ -28182,6 +28182,128 @@ bool NativeCodeBasicBlock::ShortcutORACascade(void)
 	return changed;
 }
 
+
+bool NativeCodeBasicBlock::SplitBranchTargetRegBlock(NativeCodeBasicBlock* block, int ai, int xi, int yi)
+{
+	if (mEntryBlocks.Size() < 2)
+		return false;
+
+	int i = 0;
+	while ((ai >= 0 || xi >= 0 || yi >= 0) && i < mIns.Size())
+	{
+		const NativeCodeInstruction& ins(mIns[i]);
+		if (ai >= 0 && ins.mType == ASMIT_LDA && ins.SameEffectiveAddress(block->mIns[ai]) ||
+			xi >= 0 && ins.mType == ASMIT_LDX && ins.SameEffectiveAddress(block->mIns[xi]) ||
+			yi >= 0 && ins.mType == ASMIT_LDY && ins.SameEffectiveAddress(block->mIns[yi]))
+		{
+			if (!(ins.mLive & LIVE_CPU_REG_Z) && MayBeMovedBeforeBlock(i))
+			{
+				NativeCodeInstruction	lins(ins);
+				mIns.Remove(i);				
+
+				int live = 0;
+				int ireg, iat;
+				switch (lins.mType)
+				{
+				case ASMIT_LDA:
+					live = LIVE_CPU_REG_A;
+					ireg = CPU_REG_A;
+					iat = ai;
+					break;
+				case ASMIT_LDX:
+					live = LIVE_CPU_REG_X;
+					ireg = CPU_REG_X;
+					iat = xi;
+					break;
+				case ASMIT_LDY:
+					live = LIVE_CPU_REG_Y;
+					ireg = CPU_REG_Y;
+					iat = yi;
+					break;
+				}
+
+				for (int k = 0; k < i; k++)
+					mIns[k].mLive |= live;
+
+				NativeCodeBasicBlock* eblock = SplitAt(0);
+				mIns.Push(lins);
+				
+				eblock->mEntryRequiredRegs += ireg;
+				mExitRequiredRegs += ireg;
+				mExitProvidedRegs += ireg;
+				block->mExitRequiredRegs += ireg;
+				block->mExitProvidedRegs += ireg;
+
+				while (iat < block->mIns.Size())
+				{
+					block->mIns[iat].mLive |= live;
+					iat++;
+				}
+
+				if (block->mTrueJump == this)
+					block->mTrueJump = eblock;
+				else
+					block->mFalseJump = eblock;
+
+				mEntryBlocks.RemoveAll(block);
+				eblock->mEntryBlocks.Push(block);
+
+				return true;
+			}
+		}
+		
+		if (ai >= 0 && ins.ChangesAccu()) ai = -1;
+		if (xi >= 0 && ins.ChangesXReg()) xi = -1;
+		if (yi >= 0 && ins.ChangesYReg()) yi = -1;
+
+		i++;
+	}
+
+	return false;
+}
+
+bool NativeCodeBasicBlock::SplitBranchTargetReg(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int xi = -1, yi = -1, ai = -1;
+
+		int i = mIns.Size() - 1;
+		while (i >= 0 && (xi == -1 || yi == -1 || ai == -1))
+		{
+			const NativeCodeInstruction& ins(mIns[i]);
+			if (ai == -1 && (ins.mType == ASMIT_LDA || ins.mType == ASMIT_STA) && ins.mMode == ASMIM_ZERO_PAGE && !ChangesZeroPage(ins.mAddress, i + 1))
+				ai = i;
+			else if (xi == -1 && (ins.mType == ASMIT_LDX || ins.mType == ASMIT_STX) && ins.mMode == ASMIM_ZERO_PAGE && !ChangesZeroPage(ins.mAddress, i + 1))
+				xi = i;
+			else if (yi == -1 && (ins.mType == ASMIT_LDY || ins.mType == ASMIT_STY) && ins.mMode == ASMIM_ZERO_PAGE && !ChangesZeroPage(ins.mAddress, i + 1))
+				yi = i;
+			else
+			{
+				if (ai == -1 && ins.ChangesAccu()) ai = -2;
+				if (xi == -1 && ins.ChangesXReg()) xi = -2;
+				if (yi == -1 && ins.ChangesYReg()) yi = -2;
+			}
+			i--;
+		}
+
+		if (ai >= 0 || xi >= 0 || yi >= 0)
+		{
+			if (mTrueJump && mTrueJump->SplitBranchTargetRegBlock(this, ai, xi, yi)) changed = true;
+			if (mFalseJump && mFalseJump->SplitBranchTargetRegBlock(this, ai, xi, yi)) changed = true;
+		}
+
+		if (mTrueJump && mTrueJump->SplitBranchTargetReg()) changed = true;
+		if (mFalseJump && mFalseJump->SplitBranchTargetReg()) changed = true;
+	}
+
+	return changed;
+}
+
 bool NativeCodeBasicBlock::SplitSinglePath(void)
 {
 	bool	changed = false;
@@ -46471,9 +46593,6 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoop(NativeCodeProcedure* proc)
 			// eblocks : blocks exiting the loop
 			// cblocks : blocks returning to the head
 			// note: eblocks and cblocks may contains the same blocks
-
-			if (CheckFunc && mIndex == 13)
-				printf("doopsie");
 
 			bool	addprefix = false;
 			for(int i=0; i<mEntryBlocks.Size(); i++)
@@ -69395,6 +69514,11 @@ void NativeCodeProcedure::Optimize(void)
 			ResetVisited();
 			if (mEntryBlock->MoveStoresBeforeDiamond())
 				changed = true;
+#if 0
+			ResetVisited();
+			if (mEntryBlock->SplitBranchTargetReg())
+				changed = true;
+#endif
 		}
 
 		if (step == 20)

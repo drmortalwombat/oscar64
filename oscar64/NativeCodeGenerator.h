@@ -778,6 +778,9 @@ public:
 	bool PropagateSinglePath(void);
 	bool SplitSinglePath(void);
 	bool ShortcutORACascade(void);
+	
+	bool SplitBranchTargetRegBlock(NativeCodeBasicBlock* block, int ai, int xi, int yi);
+	bool SplitBranchTargetReg(void);
 
 	bool CanChangeTailZPStoreToX(int addr, const NativeCodeBasicBlock * nblock, const NativeCodeBasicBlock* fblock = nullptr) const;
 	void ChangeTailZPStoreToX(int addr);
