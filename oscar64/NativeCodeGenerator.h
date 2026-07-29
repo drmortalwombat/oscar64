@@ -428,7 +428,7 @@ public:
 	bool OptimizeLoopRegisterWrapAround(void);
 
 	bool OptimizeSingleEntryLoopInvariantYLSB(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, const ExpandingArray<NativeCodeBasicBlock*>& tails, const ExpandingArray<NativeCodeBasicBlock*>& blocks);
-	bool OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, const ExpandingArray<NativeCodeBasicBlock*>& tails, const ExpandingArray<NativeCodeBasicBlock*>& blocks);
+	bool OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, const ExpandingArray<NativeCodeBasicBlock*>& tails, const ExpandingArray<NativeCodeBasicBlock*>& loops, const ExpandingArray<NativeCodeBasicBlock*>& blocks);
 	bool OptimizeSingleEntryLoop(NativeCodeProcedure* proc);
 
 	bool OptimizeSimpleLoop(NativeCodeProcedure* proc, bool full);

@@ -46463,7 +46463,17 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoop(NativeCodeProcedure* proc)
 		if (mLoopHead && mEntryBlocks.Size() > 1)
 		{
 			NativeCodeBasicBlock* pblock = nullptr;
-			ExpandingArray<NativeCodeBasicBlock*>	 lblocks, pblocks, eblocks;
+			ExpandingArray<NativeCodeBasicBlock*>	 lblocks, pblocks, eblocks, cblocks;
+
+			// this    : the loop head
+			// lblocks : all blocks in loop
+			// pblocks : blocks leading into the loop
+			// eblocks : blocks exiting the loop
+			// cblocks : blocks returning to the head
+			// note: eblocks and cblocks may contains the same blocks
+
+			if (CheckFunc && mIndex == 13)
+				printf("doopsie");
 
 			bool	addprefix = false;
 			for(int i=0; i<mEntryBlocks.Size(); i++)
@@ -46542,7 +46552,11 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoop(NativeCodeProcedure* proc)
 				while (i < lblocks.Size())
 				{
 					NativeCodeBasicBlock* b = lblocks[i];
-					// !FIXME should be &&
+					// eblocks contains all blocks that either exit the loop or return directly to the loop head
+					if (b->mTrueJump == this || b->mFalseJump == this)
+					{
+						cblocks.Push(b);
+					}
 					if (b->mFalseJump && !(lblocks.Contains(b->mFalseJump) && lblocks.Contains(b->mTrueJump)))
 					{
 						eblocks.Push(b);
@@ -46709,7 +46723,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoop(NativeCodeProcedure* proc)
 
 					if (!changed)
 					{
-						changed = OptimizeSingleEntryLoopInvariant(proc, pblock, eblocks, lblocks);
+						changed = OptimizeSingleEntryLoopInvariant(proc, pblock, eblocks, cblocks, lblocks);
 					}
 				}
 			}
@@ -51579,7 +51593,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariantYLSB(NativeCodeProced
 	return true;
 }
 
-bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, const ExpandingArray<NativeCodeBasicBlock*>& tails, const ExpandingArray<NativeCodeBasicBlock*>& lblocks)
+bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure* proc, NativeCodeBasicBlock* prev, const ExpandingArray<NativeCodeBasicBlock*>& tails, const ExpandingArray<NativeCodeBasicBlock*>& loops, const ExpandingArray<NativeCodeBasicBlock*>& lblocks)
 {
 	bool	changed = false;
 
@@ -51730,7 +51744,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 			{
 				int addr = mIns[i + 1].mAddress;
 
-				if (tails.Size() == 1 && !ReferencesZeroPage(addr, 0, i) && !ChangesZeroPage(addr, i + 2))
+				if (tails.Size() == 1 && loops.Size() == 1 && tails[0] == loops[0] && !ReferencesZeroPage(addr, 0, i) && !ChangesZeroPage(addr, i + 2))
 				{
 					int j = 0;
 					while (j < lblocks.Size() && (lblocks[j] == tails[0] || lblocks[j] == this || !lblocks[j]->ChangesZeroPage(addr)))
@@ -51896,7 +51910,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 			}
 		}
 
-		if (tails.Size() == 1)
+		if (tails.Size() == 1 && loops.Size() == 1 && tails[0] == loops[0])
 		{
 			NativeCodeBasicBlock* tail = tails[0];
 			int tz = tail->mIns.Size();
@@ -51974,7 +51988,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 
 		if (!changed)
 		{
-			if (tails.Size() == 1 && mIns.Size() > 0 && mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE)
+			if (tails.Size() == 1 && loops.Size() == 1 && tails[0] == loops[0] && mIns.Size() > 0 && mIns[0].mType == ASMIT_LDY && mIns[0].mMode == ASMIM_ZERO_PAGE)
 			{
 				NativeCodeBasicBlock* tail = tails[0];
 				int k = 1;
@@ -52039,7 +52053,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 		}
 	}
 
-	if (mEntryBlocks.Size() == 2 && tails.Size() == 1)
+	if (mEntryBlocks.Size() == 2 && tails.Size() == 1 && loops.Size() == 1 && tails[0] == loops[0])
 	{
 		NativeCodeBasicBlock* tail = tails[0];
 		if (tail->mExitRequiredRegs.Size() && !tail->mExitRequiredRegs[CPU_REG_X] && !mEntryRequiredRegs[CPU_REG_X])
@@ -52076,7 +52090,7 @@ bool NativeCodeBasicBlock::OptimizeSingleEntryLoopInvariant(NativeCodeProcedure*
 
 	if (!changed)
 	{
-		if (tails.Size() == 1)
+		if (tails.Size() == 1 && loops.Size() == 1 && tails[0] == loops[0])
 		{
 			NativeCodeBasicBlock* tail = tails[0];
 			int iy = 0;
@@ -67283,7 +67297,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "main");
+	CheckFunc = !strcmp(mIdent->mString, "select_quota");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -69439,14 +69453,14 @@ void NativeCodeProcedure::Optimize(void)
 			if (mEntryBlock->Simplify16BitSum8BitRange())
 				changed = true;
 		}
-
+#if 1
 		if (step == 26)
 		{
 			ResetVisited();
 			if (mEntryBlock->SimplifyLoopExitCondition())
 				changed = true;			
 		}
-
+#endif
 		if (step == 27)
 		{
 			ResetVisited();
