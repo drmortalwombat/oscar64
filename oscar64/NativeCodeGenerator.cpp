@@ -28228,11 +28228,17 @@ bool NativeCodeBasicBlock::SplitBranchTargetRegBlock(NativeCodeBasicBlock* block
 				NativeCodeBasicBlock* eblock = SplitAt(0);
 				mIns.Push(lins);
 				
+				eblock->mEntryRequiredRegs = mEntryRequiredRegs;
 				eblock->mEntryRequiredRegs += ireg;
+				eblock->mExitProvidedRegs = mExitProvidedRegs;
+
 				mExitRequiredRegs += ireg;
 				mExitProvidedRegs += ireg;
-				block->mExitRequiredRegs += ireg;
-				block->mExitProvidedRegs += ireg;
+				if (block->mExitRequiredRegs.Size() > 0)
+				{
+					block->mExitRequiredRegs += ireg;
+					block->mExitProvidedRegs += ireg;
+				}
 
 				while (iat < block->mIns.Size())
 				{
@@ -46212,7 +46218,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 						else if (lins.mType == ASMIT_CPY)
 						{
 							if (lins.mMode == ASMIM_IMMEDIATE)
+							{
+								if (mFDataSet[CPU_REG_Y].mMode == NRDM_ZERO_PAGE)
+									mFDataSet.Set(mFDataSet[CPU_REG_Y].mValue, NRDM_IMMEDIATE, lins.mAddress);
 								mFDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, lins.mAddress);
+							}
 							else if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
 								if (mFDataSet[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
@@ -46224,7 +46234,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 						else if (lins.mType == ASMIT_CPX)
 						{
 							if (lins.mMode == ASMIM_IMMEDIATE)
+							{
+								if (mFDataSet[CPU_REG_X].mMode == NRDM_ZERO_PAGE)
+									mFDataSet.Set(mFDataSet[CPU_REG_X].mValue, NRDM_IMMEDIATE, lins.mAddress);
 								mFDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, lins.mAddress);
+							}
 							else if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
 								if (mFDataSet[CPU_REG_X].mMode == NRDM_IMMEDIATE)
@@ -46236,7 +46250,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 						else if (lins.mType == ASMIT_CMP)
 						{
 							if (lins.mMode == ASMIM_IMMEDIATE)
+							{
+								if (mFDataSet[CPU_REG_A].mMode == NRDM_ZERO_PAGE)
+									mFDataSet.Set(mFDataSet[CPU_REG_A].mValue, NRDM_IMMEDIATE, lins.mAddress);
 								mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, lins.mAddress);
+							}
 							else if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
 								if (mFDataSet[CPU_REG_A].mMode == NRDM_IMMEDIATE)
@@ -46322,7 +46340,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 						else if (lins.mType == ASMIT_CPY)
 						{
 							if (lins.mMode == ASMIM_IMMEDIATE)
+							{
+								if (mNDataSet[CPU_REG_Y].mMode == NRDM_ZERO_PAGE)
+									mNDataSet.Set(mFDataSet[CPU_REG_Y].mValue, NRDM_IMMEDIATE, lins.mAddress);
 								mNDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, lins.mAddress);
+							}
 							else if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
 								if (mNDataSet[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
@@ -46334,7 +46356,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 						else if (lins.mType == ASMIT_CPX)
 						{
 							if (lins.mMode == ASMIM_IMMEDIATE)
+							{
+								if (mNDataSet[CPU_REG_X].mMode == NRDM_ZERO_PAGE)
+									mNDataSet.Set(mFDataSet[CPU_REG_X].mValue, NRDM_IMMEDIATE, lins.mAddress);
 								mNDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, lins.mAddress);
+							}
 							else if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
 								if (mNDataSet[CPU_REG_X].mMode == NRDM_IMMEDIATE)
@@ -46346,7 +46372,11 @@ bool NativeCodeBasicBlock::ValueForwarding(NativeCodeProcedure* proc, const Nati
 						else if (lins.mType == ASMIT_CMP)
 						{
 							if (lins.mMode == ASMIM_IMMEDIATE)
+							{
+								if (mNDataSet[CPU_REG_A].mMode == NRDM_ZERO_PAGE)
+									mNDataSet.Set(mFDataSet[CPU_REG_A].mValue, NRDM_IMMEDIATE, lins.mAddress);
 								mNDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, lins.mAddress);
+							}
 							else if (lins.mMode == ASMIM_ZERO_PAGE)
 							{
 								if (mNDataSet[CPU_REG_A].mMode == NRDM_IMMEDIATE)
@@ -69514,7 +69544,11 @@ void NativeCodeProcedure::Optimize(void)
 			ResetVisited();
 			if (mEntryBlock->MoveStoresBeforeDiamond())
 				changed = true;
-#if 0
+#if 1
+		}
+
+		if (step == 10 || step == 18)
+		{
 			ResetVisited();
 			if (mEntryBlock->SplitBranchTargetReg())
 				changed = true;

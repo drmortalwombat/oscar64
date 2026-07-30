@@ -298,6 +298,10 @@ void GlobalAnalyzer::AutoInline(void)
 				lexp->mRight = dec->mValue;
 				dec->mValue = lexp;
 			}
+			else if (pdec->mFlags & DTF_FPARAM_UNUSED)
+			{
+				// just ignore this one
+			}
 			else if (pdec->mFlags & DTF_FPARAM_RANGE_LIMITED)
 			{
 //				printf("LimitRange %s::%s to %lld..%lld\n", dec->mQualIdent->mString, pdec->mIdent->mString, pdec->mMinValue, pdec->mMaxValue);

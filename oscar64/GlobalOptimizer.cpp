@@ -1006,14 +1006,13 @@ bool GlobalOptimizer::Optimize(void)
 						if ((ftype->mFlags & DTF_VARIADIC) && !pdec->mNext)
 							break;
 
-
 						pdec->mVarIndex += vi;
 						if (!(pdec->mOptFlags & OPTF_VAR_USED) && !(pdec->mFlags & DTF_FPARAM_UNUSED))
 						{
 							if (!pdec->mBase->IsReference() || !(pdec->mOptFlags & OPTF_VAR_ADDRESS))
 							{
 #if DUMP_OPTS
-								printf("Unused parameter %s\n", pdec->mIdent ? pdec->mIdent->mString : "_");
+								printf("Unused parameter %s (%d)\n", pdec->mIdent ? pdec->mIdent->mString : "_", pdec->mVarIndex);
 #endif
 								vi -= pdec->mSize;
 
