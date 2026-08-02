@@ -540,7 +540,7 @@ void GlobalAnalyzer::CheckFastcall(Declaration* procDec, bool head)
 			int		nparams = nbase, nparams2 = nbase2;
 			int		numfpzero = BC_REG_FPARAMS_END - BC_REG_FPARAMS;
 
-			if (procDec->mBase->mBase->IsComplexStruct())
+			if (procDec->mBase->mBase->IsRefReturnStruct())
 			{
 				if (nbase + 2 <= numfpzero)
 					nparams += 2;

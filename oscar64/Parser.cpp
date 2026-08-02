@@ -6389,7 +6389,7 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 			npdec = npdec->mBase;
 
 		// Make room for return value pointer on struct return
-		if (npdec->mBase->mType == DT_TYPE_FUNCTION && npdec->mBase->mBase->IsComplexStruct())
+		if (npdec->mBase->mType == DT_TYPE_FUNCTION && npdec->mBase->mBase->IsRefReturnStruct())
 		{
 			Declaration* pdec = npdec->mBase->mParams;
 			while (pdec)
@@ -12163,7 +12163,7 @@ Expression* Parser::ParseStatement(void)
 					{
 						mFunctionType->mBase = mFunctionType->mBase->DeduceAuto(exp->mLeft->mDecType);
 
-						if (mFunctionType->mBase->IsComplexStruct())
+						if (mFunctionType->mBase->IsRefReturnStruct())
 						{
 							// Make room for value struct return
 							Declaration* p = mFunctionType->mParams;

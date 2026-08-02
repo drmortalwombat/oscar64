@@ -879,7 +879,8 @@ public:
 	bool CombineZPPair(int at, int r0, int r1, bool use0, bool use1, bool & swap);
 	bool RemoveDoubleZPStore(void);
 
-	bool ExpandADCToBranch(NativeCodeProcedure* proc);
+	bool ExpandADCToBranch(void);
+	bool ExpandSignExtADCToBranch(void);
 	bool ExpandADCShortCascadeToBranch(void);
 	bool Expand16BitLoopBranch(void);
 	bool SimpleInlineCalls(void);
