@@ -1,11 +1,6 @@
 /*
  * Regression test for optimizer warning 2007 with fields of a by-value struct
  * forwarded to a variadic call.
- *
- * Run on POSIX with:
- *   make -C autotest optimizerstructvarargtest OSCAR64_CC=../bin/oscar64
- * The complete POSIX suite is run with: make -C make check
- * The Windows autotest.bat runner includes this test in its standard suite.
  */
 #include <assert.h>
 #include <stdint.h>
