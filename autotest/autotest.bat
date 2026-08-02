@@ -309,6 +309,9 @@ rem @echo off
 @call :test structconditionaltest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test signedbytestructreturn.c
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error
