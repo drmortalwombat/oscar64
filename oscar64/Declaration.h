@@ -366,6 +366,7 @@ public:
 	bool IsIndexed(void) const;
 	bool ContainsArray(void) const;
 	bool IsShortIntStruct(void) const;
+	bool IsRefReturnStruct(void) const;
 	bool IsComplexStruct(void) const;
 	bool HasConstructor(void) const;
 	bool IsPointerType(void) const;

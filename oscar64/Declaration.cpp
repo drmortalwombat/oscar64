@@ -3386,9 +3386,26 @@ bool Declaration::HasConstructor(void) const
 	return mType == DT_TYPE_STRUCT && mScope && mScope->Lookup(mIdent->PreMangle("+"));
 }
 
-bool Declaration::IsComplexStruct(void) const
+bool Declaration::IsRefReturnStruct(void) const
 {
 	return mType == DT_TYPE_STRUCT && !IsShortIntStruct();
+}
+
+bool Declaration::IsComplexStruct(void) const
+{
+#if 0
+	return mType == DT_TYPE_STRUCT && !IsShortIntStruct();
+#else
+	if (mType == DT_TYPE_STRUCT)
+	{
+		if (mSize <= 4 && !mDestructor && !mCopyConstructor)
+			return false;
+
+		return true;
+	}
+	else
+		return false;
+#endif
 }
 
 bool Declaration::IsStructOrUnion(void) const

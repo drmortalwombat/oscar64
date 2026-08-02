@@ -4120,7 +4120,7 @@ InterCodeGenerator::ExValue InterCodeGenerator::TranslateExpression(Declaration*
 				Declaration	* decResult = nullptr;
 				GrowingArray<InterInstruction*>	defins(nullptr);
 
-				if (ftype->mBase->IsComplexStruct())
+				if (ftype->mBase->IsRefReturnStruct())
 				{
 					int	ttemp;
 					if (lrexp && lrexp->mType->mStripe <= 1)

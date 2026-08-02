@@ -347,6 +347,8 @@ public:
 	int NumUsedTemps(void) const;
 	void ReplaceTemp(int from, int to);
 
+	bool IsExpensive(void) const;
+
 	void CollectLocalAddressTemps(GrowingIntArray& localTable, GrowingIntArray& paramTable, int& nlocals, int& nparams);
 	void MarkAliasedLocalTemps(const GrowingIntArray& localTable, NumberSet& aliasedLocals, const GrowingIntArray& paramTable, NumberSet& aliasedParams);
 
@@ -536,6 +538,10 @@ public:
 
 	void WarnUnreachable(void);
 
+	void SimplifyExtractCompareCascade(void);
+	bool CheckSimplifyExtractCompareCascade(int temp, int shift);
+	void DoSimplifyExtractCompareCascade(int temp, int shift);
+
 	GrowingIntArray			mEntryRenameTable;
 	GrowingIntArray			mExitRenameTable;
 
@@ -629,6 +635,8 @@ public:
 	bool AliasingMem(const InterOperand& op, InterType type, const InterInstruction* ins) const;
 	bool AliasingMem(const InterOperand& op1, InterType type1, const InterOperand& op2, InterType type2) const;
 	bool AliasingMem(InterCodeBasicBlock* block, InterInstruction* lins, int from, int to) const;
+
+	InterCodeBasicBlock* BuildPrefixBlock(InterCodeBasicBlock * from);
 
 	bool PushSinglePathResultInstructions(void);
 

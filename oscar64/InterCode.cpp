@@ -2422,7 +2422,6 @@ static bool IsMoveable(InterCode code)
 	return true;
 }
 
-
 static bool CanBypassLoad(const InterInstruction* lins, const InterInstruction* bins)
 {
 	// Check ambiguity
@@ -5729,6 +5728,30 @@ bool InterInstruction::UsesTemp(int temp) const
 			return true;
 	return false;
 }
+
+bool InterInstruction::IsExpensive(void) const
+{
+	switch (mCode)
+	{
+	case IC_BINARY_OPERATOR:
+	case IC_UNARY_OPERATOR:
+		if (mDst.mType == IT_INT32 || mDst.mType == IT_FLOAT)
+			return true;
+		if (mOperator == IA_MODS || mOperator == IA_MODU || mOperator == IA_DIVS || mOperator == IA_DIVU || mOperator == IA_MUL)
+			return true;
+		if (mOperator == IA_SHL || mOperator == IA_SAR || mOperator == IA_SHR)
+		{
+			if (mSrc[1].mTemp >= 0)
+				return true;
+			if (mSrc[0].mType == IT_INT16)
+				return true;
+		}
+		return false;
+	default:
+		return false;
+	}
+}
+
 
 static void DestroySourceValues(int temp, GrowingInstructionPtrArray& tvalue, FastNumberSet& tvalid)
 {
@@ -16217,6 +16240,33 @@ bool InterCodeBasicBlock::IsTempReferencedOnPath(int temp, int at) const
 	return false;
 }
 
+InterCodeBasicBlock* InterCodeBasicBlock::BuildPrefixBlock(InterCodeBasicBlock* from)
+{
+	if (mEntryBlocks.Size() > 1)
+	{
+		InterCodeBasicBlock* block = new InterCodeBasicBlock(mProc);
+		block->mEntryRequiredTemps = mEntryRequiredTemps;
+		block->mExitRequiredTemps = mEntryRequiredTemps;
+		block->mLocalModifiedTemps.Reset(mEntryRequiredTemps.Size());
+		block->mEntryValueRange = mEntryValueRange;
+		block->mLocalUsedTemps.Reset(mEntryRequiredTemps.Size());
+
+		InterInstruction* jins = new InterInstruction(mInstructions[0]->mLocation, IC_JUMP);
+		block->Append(jins);
+		block->Close(this, nullptr);
+
+		block->mTrueJump = this;
+		mEntryBlocks.RemoveAll(from);
+		mEntryBlocks.Push(block);
+		block->mEntryBlocks.Push(from);
+		block->mNumEntries = 1;
+
+		return block;
+	}
+	else
+		return this;
+}
+
 bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 {
 	bool changed = false;
@@ -16280,8 +16330,10 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 
 					if (j == ins->mNumOperands && IsMoveable(ins->mCode) && CanMoveInstructionBehindBlock(i) && !ins->mVolatile)
 					{
-						if (mTrueJump->mNumEntries == 1 && trueExitRequiredTemps[dtemp] && !falseExitRequiredTems[dtemp])
+						if ((mTrueJump->mNumEntries == 1 || ins->IsExpensive())  && trueExitRequiredTemps[dtemp] && !falseExitRequiredTems[dtemp])
 						{
+							mTrueJump = mTrueJump->BuildPrefixBlock(this);
+
 							if (ins->mDst.mTemp >= 0 && mTrueJump->mEntryValueRange.Size() > ins->mDst.mTemp)
 								mTrueJump->mEntryValueRange[ins->mDst.mTemp].Reset();
 
@@ -16300,8 +16352,10 @@ bool InterCodeBasicBlock::PushSinglePathResultInstructions(void)
 							moved = true;
 							changed = true;
 						}
-						else if (mFalseJump->mNumEntries == 1 && !trueExitRequiredTemps[dtemp] && falseExitRequiredTems[dtemp])
+						else if ((mFalseJump->mNumEntries == 1 || ins->IsExpensive()) && !trueExitRequiredTemps[dtemp] && falseExitRequiredTems[dtemp])
 						{
+							mFalseJump = mFalseJump->BuildPrefixBlock(this);
+
 							if (ins->mDst.mTemp >= 0 && mFalseJump->mEntryValueRange.Size() > ins->mDst.mTemp)
 								mFalseJump->mEntryValueRange[ins->mDst.mTemp].Reset();
 
@@ -19749,280 +19803,283 @@ void InterCodeBasicBlock::EliminateDoubleLoopCounter(void)
 				else
 					xblock = eblock->mTrueJump;
 
-				struct LoopCounter
+				if (xblock)
 				{
-					InterInstruction	*	mInit, * mInc, * mCmp;
-					int64					mStart, mEnd, mStep;
-					bool					mReferenced;
-				};
-
-				ExpandingArray<LoopCounter>	lcs;
-
-				for (int i = 0; i < eblock->mInstructions.Size(); i++)
-				{
-					InterInstruction* ins(eblock->mInstructions[i]);
-
-					LoopCounter	lc;
-					lc.mInc = nullptr;
-					lc.mInit = nullptr;
-					lc.mCmp = nullptr;
-					lc.mReferenced = false;
-					lc.mEnd = -1;
-
-					if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType))
+					struct LoopCounter
 					{
-						if (ins->mDst.mTemp == ins->mSrc[0].mTemp && ins->mSrc[1].mTemp < 0 ||
-							ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
+						InterInstruction* mInit, * mInc, * mCmp;
+						int64					mStart, mEnd, mStep;
+						bool					mReferenced;
+					};
+
+					ExpandingArray<LoopCounter>	lcs;
+
+					for (int i = 0; i < eblock->mInstructions.Size(); i++)
+					{
+						InterInstruction* ins(eblock->mInstructions[i]);
+
+						LoopCounter	lc;
+						lc.mInc = nullptr;
+						lc.mInit = nullptr;
+						lc.mCmp = nullptr;
+						lc.mReferenced = false;
+						lc.mEnd = -1;
+
+						if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_ADD && IsIntegerType(ins->mDst.mType))
 						{
-							lc.mInc = ins;
+							if (ins->mDst.mTemp == ins->mSrc[0].mTemp && ins->mSrc[1].mTemp < 0 ||
+								ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
+							{
+								lc.mInc = ins;
+							}
 						}
-					}
 #if 1
-					else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB && IsIntegerType(ins->mDst.mType))
-					{
-						if (ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
+						else if (ins->mCode == IC_BINARY_OPERATOR && ins->mOperator == IA_SUB && IsIntegerType(ins->mDst.mType))
+						{
+							if (ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
+							{
+								lc.mInc = ins;
+							}
+						}
+#endif
+						else if (ins->mCode == IC_LEA && ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
 						{
 							lc.mInc = ins;
 						}
-					}
-#endif
-					else if (ins->mCode == IC_LEA && ins->mDst.mTemp == ins->mSrc[1].mTemp && ins->mSrc[0].mTemp < 0)
-					{
-						lc.mInc = ins;
-					}
 
-					if (lc.mInc)
-					{
-						int temp = lc.mInc->mDst.mTemp;
-
-						if (!eblock->IsTempModifiedInRange(0, i, temp))
+						if (lc.mInc)
 						{
-							int sz = eblock->mInstructions.Size();
-							int rz = sz - 1;
-							if (eblock->mInstructions[sz - 1]->mCode == IC_BRANCH &&
-								eblock->mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && eblock->mInstructions[sz - 1]->mSrc[0].mTemp == eblock->mInstructions[sz - 2]->mDst.mTemp &&
-								((eblock->mInstructions[sz - 2]->mSrc[0].mTemp == temp && eblock->mInstructions[sz - 2]->mSrc[1].mTemp < 0) ||
-								 (eblock->mInstructions[sz - 2]->mSrc[1].mTemp == temp && eblock->mInstructions[sz - 2]->mSrc[0].mTemp < 0)))
+							int temp = lc.mInc->mDst.mTemp;
+
+							if (!eblock->IsTempModifiedInRange(0, i, temp))
 							{
-								InterInstruction* ci = eblock->mInstructions[sz - 2];
-
-								if (ci->mOperator == IA_CMPEQ && eblock->mFalseJump == this ||
-									ci->mOperator == IA_CMPNE && eblock->mTrueJump == this ||
-									ci->mOperator == IA_CMPGU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 && ci->mSrc[0].mIntConst == 0 ||
-									ci->mOperator == IA_CMPLU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 ||
-									ci->mOperator == IA_CMPLEU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0)
+								int sz = eblock->mInstructions.Size();
+								int rz = sz - 1;
+								if (eblock->mInstructions[sz - 1]->mCode == IC_BRANCH &&
+									eblock->mInstructions[sz - 2]->mCode == IC_RELATIONAL_OPERATOR && eblock->mInstructions[sz - 1]->mSrc[0].mTemp == eblock->mInstructions[sz - 2]->mDst.mTemp &&
+									((eblock->mInstructions[sz - 2]->mSrc[0].mTemp == temp && eblock->mInstructions[sz - 2]->mSrc[1].mTemp < 0) ||
+										(eblock->mInstructions[sz - 2]->mSrc[1].mTemp == temp && eblock->mInstructions[sz - 2]->mSrc[0].mTemp < 0)))
 								{
-									if (ci->mSrc[0].mTemp < 0)
-										lc.mEnd = ci->mSrc[0].mIntConst;
-									else
-										lc.mEnd = ci->mSrc[1].mIntConst;
-									lc.mCmp = eblock->mInstructions[sz - 2];
-									rz--;
-								}
-							}
+									InterInstruction* ci = eblock->mInstructions[sz - 2];
 
-							if (!eblock->IsTempModifiedInRange(i + 1, sz, temp))
-							{
-								if (eblock->IsTempReferencedInRange(0, i, temp) || eblock->IsTempReferencedInRange(i + 1, rz, temp))
-									lc.mReferenced = true;
-
-								for (int k = 0; k < body.Size(); k++)
-								{
-									if (body[k] != eblock && body[k]->IsTempReferenced(temp))
-										lc.mReferenced = true;
-								}
-
-								int k = 0;
-								while (k < body.Size() && (body[k] == eblock || !body[k]->IsTempModified(lc.mInc->mDst.mTemp)))
-									k++;
-
-								if (k == body.Size())
-								{
-									lc.mInit = mLoopPrefix->mEntryBlocks[0]->FindTempOrigin(lc.mInc->mDst.mTemp);
-									if (lc.mInit && lc.mInit->mCode == IC_CONSTANT)
+									if (ci->mOperator == IA_CMPEQ && eblock->mFalseJump == this ||
+										ci->mOperator == IA_CMPNE && eblock->mTrueJump == this ||
+										ci->mOperator == IA_CMPGU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 && ci->mSrc[0].mIntConst == 0 ||
+										ci->mOperator == IA_CMPLU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0 ||
+										ci->mOperator == IA_CMPLEU && eblock->mTrueJump == this && ci->mSrc[0].mTemp < 0)
 									{
-										lc.mStart = lc.mInit->mConst.mIntConst;
-										if (lc.mInc->mSrc[0].mTemp < 0)
-										{
-											if (lc.mInc->mOperator == IA_SUB)
-												lc.mStep = -lc.mInc->mSrc[0].mIntConst;
-											else
-												lc.mStep = lc.mInc->mSrc[0].mIntConst;
-										}
+										if (ci->mSrc[0].mTemp < 0)
+											lc.mEnd = ci->mSrc[0].mIntConst;
 										else
-											lc.mStep = lc.mInc->mSrc[1].mIntConst;
-										lcs.Push(lc);
+											lc.mEnd = ci->mSrc[1].mIntConst;
+										lc.mCmp = eblock->mInstructions[sz - 2];
+										rz--;
+									}
+								}
+
+								if (!eblock->IsTempModifiedInRange(i + 1, sz, temp))
+								{
+									if (eblock->IsTempReferencedInRange(0, i, temp) || eblock->IsTempReferencedInRange(i + 1, rz, temp))
+										lc.mReferenced = true;
+
+									for (int k = 0; k < body.Size(); k++)
+									{
+										if (body[k] != eblock && body[k]->IsTempReferenced(temp))
+											lc.mReferenced = true;
+									}
+
+									int k = 0;
+									while (k < body.Size() && (body[k] == eblock || !body[k]->IsTempModified(lc.mInc->mDst.mTemp)))
+										k++;
+
+									if (k == body.Size())
+									{
+										lc.mInit = mLoopPrefix->mEntryBlocks[0]->FindTempOrigin(lc.mInc->mDst.mTemp);
+										if (lc.mInit && lc.mInit->mCode == IC_CONSTANT)
+										{
+											lc.mStart = lc.mInit->mConst.mIntConst;
+											if (lc.mInc->mSrc[0].mTemp < 0)
+											{
+												if (lc.mInc->mOperator == IA_SUB)
+													lc.mStep = -lc.mInc->mSrc[0].mIntConst;
+												else
+													lc.mStep = lc.mInc->mSrc[0].mIntConst;
+											}
+											else
+												lc.mStep = lc.mInc->mSrc[1].mIntConst;
+											lcs.Push(lc);
+										}
 									}
 								}
 							}
 						}
 					}
-				}
 
-//				printf("EDLC %d, %d\n", mIndex, lcs.Size());
+					//				printf("EDLC %d, %d\n", mIndex, lcs.Size());
 
 
-				if (lcs.Size() >= 2)
-				{
-					int i = 0;
-					while (i < lcs.Size())
+					if (lcs.Size() >= 2)
 					{
-						if (lcs[i].mReferenced)
+						int i = 0;
+						while (i < lcs.Size())
 						{
-							int j = i + 1;
-							while (j < lcs.Size() && !(lcs[j].mReferenced && 
-								lcs[i].mStart == lcs[j].mStart && 
-								lcs[i].mStep == lcs[j].mStep && 
-								lcs[i].mInc->mCode == lcs[j].mInc->mCode &&
-								(lcs[i].mInc->mCode != IC_LEA || SameMem(lcs[i].mInc->mDst, lcs[j].mInc->mDst))))
-								j++;
-							if (j < lcs.Size())
+							if (lcs[i].mReferenced)
 							{
-//								printf("Found Same %s : %d-%d\n", mProc->mIdent->mString, i, j);
-								int ki = eblock->mInstructions.IndexOf(lcs[i].mInc);
-								int kj = eblock->mInstructions.IndexOf(lcs[j].mInc);
-								int tmpi = lcs[i].mInc->mDst.mTemp;
-								int tmpj = lcs[j].mInc->mDst.mTemp;
+								int j = i + 1;
+								while (j < lcs.Size() && !(lcs[j].mReferenced &&
+									lcs[i].mStart == lcs[j].mStart &&
+									lcs[i].mStep == lcs[j].mStep &&
+									lcs[i].mInc->mCode == lcs[j].mInc->mCode &&
+									(lcs[i].mInc->mCode != IC_LEA || SameMem(lcs[i].mInc->mDst, lcs[j].mInc->mDst))))
+									j++;
+								if (j < lcs.Size())
+								{
+									//								printf("Found Same %s : %d-%d\n", mProc->mIdent->mString, i, j);
+									int ki = eblock->mInstructions.IndexOf(lcs[i].mInc);
+									int kj = eblock->mInstructions.IndexOf(lcs[j].mInc);
+									int tmpi = lcs[i].mInc->mDst.mTemp;
+									int tmpj = lcs[j].mInc->mDst.mTemp;
 
-								if (ki < kj && !eblock->IsTempReferencedInRange(ki + 1, kj, tmpi))
-								{
-								}
-								else if (kj < ki && !eblock->IsTempReferencedInRange(kj + 1, ki, tmpj))
-								{
+									if (ki < kj && !eblock->IsTempReferencedInRange(ki + 1, kj, tmpi))
+									{
+									}
+									else if (kj < ki && !eblock->IsTempReferencedInRange(kj + 1, ki, tmpj))
+									{
+									}
+									else
+									{
+										i++;
+										continue;
+									}
+
+									if (lcs[i].mInc->mDst.mType > lcs[j].mInc->mDst.mType ||
+										lcs[i].mInc->mDst.mType == lcs[j].mInc->mDst.mType && lcs[i].mCmp)
+									{
+										InterInstruction* mins = new InterInstruction(lcs[j].mInc->mLocation, IC_LOAD_TEMPORARY);
+										mins->mDst = lcs[j].mInc->mDst;
+										mins->mSrc[0] = lcs[i].mInc->mDst;
+										mins->mNumOperands = 1;
+										xblock->mInstructions.Insert(0, mins);
+
+										lcs[j].mInc->mCode = IC_NONE; lcs[j].mInc->mNumOperands = 0; lcs[j].mInc->mDst.mTemp = -1;
+										for (int bi = 0; bi < body.Size(); bi++)
+										{
+											InterCodeBasicBlock* block = body[bi];
+											for (int k = 0; k < block->mInstructions.Size(); k++)
+												block->mInstructions[k]->ReplaceTemp(tmpj, tmpi);
+										}
+										lcs[j].mReferenced = false;
+									}
+									else
+									{
+										InterInstruction* mins = new InterInstruction(lcs[j].mInc->mLocation, IC_LOAD_TEMPORARY);
+										mins->mDst = lcs[i].mInc->mDst;
+										mins->mSrc[0] = lcs[j].mInc->mDst;
+										mins->mNumOperands = 1;
+										xblock->mInstructions.Insert(0, mins);
+
+										lcs[i].mInc->mCode = IC_NONE; lcs[i].mInc->mNumOperands = 0; lcs[i].mInc->mDst.mTemp = -1;
+
+										for (int bi = 0; bi < body.Size(); bi++)
+										{
+											InterCodeBasicBlock* block = body[bi];
+											for (int k = 0; k < block->mInstructions.Size(); k++)
+												block->mInstructions[k]->ReplaceTemp(tmpi, tmpj);
+										}
+
+										if (lcs[i].mCmp)
+										{
+											lcs[j].mCmp = lcs[i].mCmp;
+											lcs[j].mEnd = lcs[i].mEnd;
+											lcs[i].mCmp = nullptr;
+										}
+
+										lcs[i].mReferenced = false;
+									}
 								}
 								else
-								{
 									i++;
-									continue;
-								}
-
-								if (lcs[i].mInc->mDst.mType > lcs[j].mInc->mDst.mType || 
-									lcs[i].mInc->mDst.mType == lcs[j].mInc->mDst.mType && lcs[i].mCmp)
-								{
-									InterInstruction* mins = new InterInstruction(lcs[j].mInc->mLocation, IC_LOAD_TEMPORARY);
-									mins->mDst = lcs[j].mInc->mDst;
-									mins->mSrc[0] = lcs[i].mInc->mDst;
-									mins->mNumOperands = 1;
-									xblock->mInstructions.Insert(0, mins);
-
-									lcs[j].mInc->mCode = IC_NONE; lcs[j].mInc->mNumOperands = 0; lcs[j].mInc->mDst.mTemp = -1;
-									for (int bi = 0; bi < body.Size(); bi++)
-									{
-										InterCodeBasicBlock* block = body[bi];
-										for (int k = 0; k < block->mInstructions.Size(); k++)
-											block->mInstructions[k]->ReplaceTemp(tmpj, tmpi);
-									}
-									lcs[j].mReferenced = false;
-								}
-								else
-								{
-									InterInstruction* mins = new InterInstruction(lcs[j].mInc->mLocation, IC_LOAD_TEMPORARY);
-									mins->mDst = lcs[i].mInc->mDst;
-									mins->mSrc[0] = lcs[j].mInc->mDst;
-									mins->mNumOperands = 1;
-									xblock->mInstructions.Insert(0, mins);
-
-									lcs[i].mInc->mCode = IC_NONE; lcs[i].mInc->mNumOperands = 0; lcs[i].mInc->mDst.mTemp = -1;
-
-									for (int bi = 0; bi < body.Size(); bi++)
-									{
-										InterCodeBasicBlock* block = body[bi];
-										for (int k = 0; k < block->mInstructions.Size(); k++)
-											block->mInstructions[k]->ReplaceTemp(tmpi, tmpj);
-									}
-
-									if (lcs[i].mCmp)
-									{
-										lcs[j].mCmp = lcs[i].mCmp;
-										lcs[j].mEnd = lcs[i].mEnd;
-										lcs[i].mCmp = nullptr;
-									}
-
-									lcs[i].mReferenced = false;
-								}
 							}
 							else
 								i++;
 						}
-						else
-							i++;
 					}
-				}
-				if (lcs.Size() >= 2)
-				{
-					int64	loop = -1;
-					int k = 0;
-					while (k < lcs.Size() && !lcs[k].mCmp)
-						k++;
-					if (k < lcs.Size())
+					if (lcs.Size() >= 2)
 					{
-						int64	start = lcs[k].mStart;
-						int64	end = lcs[k].mEnd;
-						int64	step = lcs[k].mStep;
+						int64	loop = -1;
+						int k = 0;
+						while (k < lcs.Size() && !lcs[k].mCmp)
+							k++;
+						if (k < lcs.Size())
+						{
+							int64	start = lcs[k].mStart;
+							int64	end = lcs[k].mEnd;
+							int64	step = lcs[k].mStep;
 
-						if (lcs[k].mCmp->mOperator == IA_CMPLEU)
-							end += step;
+							if (lcs[k].mCmp->mOperator == IA_CMPLEU)
+								end += step;
 
-						if (step > 0 && end > start || step < 0 && end < start)
-							loop = (end - start) / step;
-					}
+							if (step > 0 && end > start || step < 0 && end < start)
+								loop = (end - start) / step;
+						}
 
-//					printf("Loop %lld, match %d\n", loop, k);
+						//					printf("Loop %lld, match %d\n", loop, k);
 #if 0
-					for (int i = 0; i < lcs.Size(); i++)
-					{
-						printf("LCS[%d] %lld + %lld -> %lld {%d, %d, %d}\n", i, lcs[i].mStart, lcs[i].mStep, lcs[i].mEnd, lcs[i].mInc->mDst.mTemp, lcs[i].mInc->mCode, lcs[i].mReferenced);
-					}
+						for (int i = 0; i < lcs.Size(); i++)
+						{
+							printf("LCS[%d] %lld + %lld -> %lld {%d, %d, %d}\n", i, lcs[i].mStart, lcs[i].mStep, lcs[i].mEnd, lcs[i].mInc->mDst.mTemp, lcs[i].mInc->mCode, lcs[i].mReferenced);
+						}
 #endif
 
-					if (loop > 0)
-					{
-						if (!lcs[k].mReferenced)
+						if (loop > 0)
 						{
-							int j = 0;
-							while (j < lcs.Size() && !(lcs[j].mReferenced && lcs[j].mInc->mCode == IC_BINARY_OPERATOR && lcs[j].mStart + lcs[j].mStep * loop < 65536))
-								j++;
-
-							// Pointer compare with constants only in native code path
-							if (j == lcs.Size() && mProc->mNativeProcedure)
+							if (!lcs[k].mReferenced)
 							{
-								j = 0;
-								while (j < lcs.Size() && !(lcs[j].mReferenced && lcs[j].mInc->mCode == IC_LEA && (lcs[j].mInit->mConst.mMemory == IM_GLOBAL || lcs[j].mInit->mConst.mMemory == IM_ABSOLUTE) && 
-									lcs[j].mStart + lcs[j].mStep * loop <= 65536))
+								int j = 0;
+								while (j < lcs.Size() && !(lcs[j].mReferenced && lcs[j].mInc->mCode == IC_BINARY_OPERATOR && lcs[j].mStart + lcs[j].mStep * loop < 65536))
 									j++;
-							}
 
-//							printf("Found %d, %d\n", j, k);
-
-							if (j < lcs.Size())
-							{
-								if (lcs[j].mInc->mCode == IC_LEA)
+								// Pointer compare with constants only in native code path
+								if (j == lcs.Size() && mProc->mNativeProcedure)
 								{
-									lcs[j].mInc->mDst.mRange.LimitMax(lcs[j].mStart + lcs[j].mStep * loop);
-									lcs[j].mInc->mSrc[1].mRange.LimitMax(lcs[j].mStart + lcs[j].mStep * (loop - 1));
+									j = 0;
+									while (j < lcs.Size() && !(lcs[j].mReferenced && lcs[j].mInc->mCode == IC_LEA && (lcs[j].mInit->mConst.mMemory == IM_GLOBAL || lcs[j].mInit->mConst.mMemory == IM_ABSOLUTE) &&
+										lcs[j].mStart + lcs[j].mStep * loop <= 65536))
+										j++;
 								}
 
-								int ci = 0, ti = 1;
-								if (lcs[k].mCmp->mSrc[1].mTemp < 0)
+								//							printf("Found %d, %d\n", j, k);
+
+								if (j < lcs.Size())
 								{
-									ci = 1;
-									ti = 0;
+									if (lcs[j].mInc->mCode == IC_LEA)
+									{
+										lcs[j].mInc->mDst.mRange.LimitMax(lcs[j].mStart + lcs[j].mStep * loop);
+										lcs[j].mInc->mSrc[1].mRange.LimitMax(lcs[j].mStart + lcs[j].mStep * (loop - 1));
+									}
+
+									int ci = 0, ti = 1;
+									if (lcs[k].mCmp->mSrc[1].mTemp < 0)
+									{
+										ci = 1;
+										ti = 0;
+									}
+
+									lcs[k].mCmp->mSrc[ti] = lcs[j].mInc->mDst;
+									lcs[k].mCmp->mSrc[ci] = lcs[j].mInit->mConst;
+									lcs[k].mCmp->mSrc[ci].mIntConst += loop * lcs[j].mStep;
+									if (lcs[k].mCmp->mOperator == IA_CMPGU || lcs[k].mCmp->mOperator == IA_CMPLEU)
+										lcs[k].mCmp->mOperator = IA_CMPNE;
+
+									InterInstruction* iins = lcs[k].mInit->Clone();
+									iins->mConst.mIntConst += loop * lcs[k].mStep;
+
+									mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, iins);
+
+									lcs[k].mInc->mCode = IC_NONE;
+									lcs[k].mInc->mDst.mTemp = -1;
+									lcs[k].mInc->mNumOperands = 0;
 								}
-
-								lcs[k].mCmp->mSrc[ti] = lcs[j].mInc->mDst;
-								lcs[k].mCmp->mSrc[ci] = lcs[j].mInit->mConst;
-								lcs[k].mCmp->mSrc[ci].mIntConst += loop * lcs[j].mStep;
-								if (lcs[k].mCmp->mOperator == IA_CMPGU || lcs[k].mCmp->mOperator == IA_CMPLEU)
-									lcs[k].mCmp->mOperator = IA_CMPNE;
-
-								InterInstruction* iins = lcs[k].mInit->Clone();
-								iins->mConst.mIntConst += loop * lcs[k].mStep;
-
-								mLoopPrefix->mInstructions.Insert(mLoopPrefix->mInstructions.Size() - 1, iins);							
-
-								lcs[k].mInc->mCode = IC_NONE;
-								lcs[k].mInc->mDst.mTemp = -1;
-								lcs[k].mInc->mNumOperands = 0;
 							}
 						}
 					}
@@ -24422,7 +24479,23 @@ bool InterCodeBasicBlock::PeepholeReplaceOptimization(const GrowingVariableArray
 				mInstructions[i + 1]->mOperator = InvertRelational(mInstructions[i + 1]->mOperator);
 				changed = true;
 			}
+#if 1
+			else if (
+				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 1]->mCode == IC_RELATIONAL_OPERATOR && mInstructions[i + 1]->mOperator == IA_CMPGEU && mInstructions[i + 1]->mSrc[0].mTemp < 0 &&
+				mInstructions[i + 0]->mSrc[1].mType == IT_INT16 &&
+				mInstructions[i + 1]->mSrc[1].mTemp == mInstructions[i + 0]->mDst.mTemp &&
+				mInstructions[i + 0]->mDst.mTemp != mInstructions[i + 0]->mSrc[1].mTemp &&
+				!((mInstructions[i + 1]->mSrc[0].mIntConst << mInstructions[i + 0]->mSrc[0].mIntConst) & 0xff))
+			{
+				mInstructions[i + 1]->mSrc[0].mIntConst <<= mInstructions[i + 0]->mSrc[0].mIntConst;
+				mInstructions[i + 1]->mSrc[0].mType = IT_INT16;
+				mInstructions[i + 1]->mSrc[1] = mInstructions[i + 0]->mSrc[1];
+				mInstructions[i + 0]->mSrc[1].mFinal = false;
+				changed = true;
+			}
 
+#endif
 #if 1
 			else if (
 				mInstructions[i + 0]->mCode == IC_BINARY_OPERATOR && mInstructions[i + 0]->mOperator == IA_SHR && mInstructions[i + 0]->mSrc[0].mTemp < 0 &&
@@ -27214,6 +27287,129 @@ void InterCodeBasicBlock::WarnUnreachable(void)
 }
 
 
+void InterCodeBasicBlock::SimplifyExtractCompareCascade(void)
+{
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		int ns = mInstructions.Size();
+		if (ns >= 3 && mInstructions[ns - 1]->mCode == IC_BRANCH)
+		{
+			if (mInstructions[ns - 3]->mCode == IC_BINARY_OPERATOR && mInstructions[ns - 3]->mOperator == IA_SHR && 
+				mInstructions[ns - 3]->mSrc[1].mType == IT_INT8 && mInstructions[ns - 3]->mSrc[0].mTemp < 0)
+			{
+				int temp = mInstructions[ns - 3]->mDst.mTemp;
+				int shift = int(mInstructions[ns - 3]->mSrc[0].mIntConst);
+
+//				printf("check %s : %d\n", mInstructions[ns - 2]->mLocation.mFileName, mInstructions[ns - 2]->mLocation.mLine);
+
+				if (mInstructions[ns - 2]->mCode == IC_RELATIONAL_OPERATOR && (
+					mInstructions[ns - 2]->mSrc[0].mTemp == temp && mInstructions[ns - 2]->mSrc[1].mTemp < 0 ||
+					mInstructions[ns - 2]->mSrc[1].mTemp == temp && mInstructions[ns - 2]->mSrc[0].mTemp < 0))
+				{
+					mProc->ResetPatched();
+					if (mTrueJump->CheckSimplifyExtractCompareCascade(temp, shift) &&
+						mFalseJump->CheckSimplifyExtractCompareCascade(temp, shift))
+					{
+						mInstructions[ns - 3]->mOperator = IA_AND;
+						mInstructions[ns - 3]->mSrc[0].mIntConst = ((1 << shift) - 1) ^ 0xff;
+						mInstructions[ns - 3]->mDst.mRange.Reset();
+
+						if (mInstructions[ns - 2]->mSrc[0].mTemp == temp && mInstructions[ns - 2]->mSrc[1].mTemp < 0)
+						{
+							mInstructions[ns - 2]->mSrc[0].mRange.Reset();
+							mInstructions[ns - 2]->mSrc[1].mIntConst <<= shift;
+						}
+						else if (mInstructions[ns - 2]->mSrc[1].mTemp == temp && mInstructions[ns - 2]->mSrc[0].mTemp < 0)
+						{
+							mInstructions[ns - 2]->mSrc[1].mRange.Reset();
+							mInstructions[ns - 2]->mSrc[0].mIntConst <<= shift;
+						}
+
+						mProc->ResetPatched();
+						mTrueJump->DoSimplifyExtractCompareCascade(temp, shift);
+						mFalseJump->DoSimplifyExtractCompareCascade(temp, shift);
+
+//						printf("patch %s : %d\n", mInstructions[ns - 2]->mLocation.mFileName, mInstructions[ns - 2]->mLocation.mLine);
+					}
+				}
+			}
+		}
+
+		if (mTrueJump) mTrueJump->SimplifyExtractCompareCascade();
+		if (mFalseJump) mFalseJump->SimplifyExtractCompareCascade();
+	}
+}
+
+bool InterCodeBasicBlock::InterCodeBasicBlock::CheckSimplifyExtractCompareCascade(int temp, int shift)
+{
+	if (mPatched)
+		return true;
+	mPatched = true;
+#
+	if (mEntryRequiredTemps[temp])
+	{
+		if (mEntryBlocks.Size() > 1)
+			return false;
+
+		int ns = mInstructions.Size();
+		if (ns == 1 && IsTempReferenced(temp))
+			return false;
+
+		if (ns >= 2 && IsTempReferencedInRange(0, ns - 2, temp))
+			return false;
+
+		if (ns >= 2 && IsTempReferencedInRange(ns - 2, ns, temp))
+		{
+			if (mInstructions[ns - 2]->mCode == IC_RELATIONAL_OPERATOR && (
+				mInstructions[ns - 2]->mSrc[0].mTemp == temp && mInstructions[ns - 2]->mSrc[1].mTemp < 0 ||
+				mInstructions[ns - 2]->mSrc[1].mTemp == temp && mInstructions[ns - 2]->mSrc[0].mTemp < 0))
+			{
+
+			}
+			else
+				return false;
+		}
+
+		if (mTrueJump && !mTrueJump->CheckSimplifyExtractCompareCascade(temp, shift)) return false;
+		if (mFalseJump && !mFalseJump->CheckSimplifyExtractCompareCascade(temp, shift)) return false;
+	}
+
+	return true;
+}
+
+void InterCodeBasicBlock::DoSimplifyExtractCompareCascade(int temp, int shift)
+{
+	if (!mPatched)
+	{
+		mPatched = true;
+
+		if (mEntryRequiredTemps[temp])
+		{
+			mEntryValueRange[temp].Reset();
+			int ns = mInstructions.Size();
+			if (ns >= 2 && mInstructions[ns - 2]->mCode == IC_RELATIONAL_OPERATOR)
+			{
+				if (mInstructions[ns - 2]->mSrc[0].mTemp == temp && mInstructions[ns - 2]->mSrc[1].mTemp < 0)
+				{
+					mInstructions[ns - 2]->mSrc[0].mRange.Reset();
+					mInstructions[ns - 2]->mSrc[1].mIntConst <<= shift;
+				}
+				else if (mInstructions[ns - 2]->mSrc[1].mTemp == temp && mInstructions[ns - 2]->mSrc[0].mTemp < 0)
+				{
+					mInstructions[ns - 2]->mSrc[1].mRange.Reset();
+					mInstructions[ns - 2]->mSrc[0].mIntConst <<= shift;
+				}
+			}
+
+			if (mTrueJump) mTrueJump->DoSimplifyExtractCompareCascade(temp, shift);
+			if (mFalseJump) mFalseJump->DoSimplifyExtractCompareCascade(temp, shift);
+		}
+	}
+}
+
+
 
 InterCodeProcedure::InterCodeProcedure(InterCodeModule * mod, const Location & location, const Ident* ident, LinkerObject * linkerObject)
 	: mTemporaries(IT_NONE), mBlocks(nullptr), mLocation(location), mTempOffset(-1), mTempSizes(0), mNumBlocks(0),
@@ -28626,7 +28822,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "host_world_builtin");
+	CheckFunc = !strcmp(mIdent->mString, "qlog2i");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -29556,6 +29752,12 @@ void InterCodeProcedure::Close(void)
 		TempForwarding();
 	} while (GlobalConstantPropagation());
 #endif
+
+	ResetVisited();
+	mEntryBlock->SimplifyExtractCompareCascade();
+
+	DisassembleDebug("SimplifyExtractCompareCascade");
+
 #if 1
 	ResetVisited();
 	if (mEntryBlock->MapLateIntrinsics())
