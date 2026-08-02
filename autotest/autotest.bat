@@ -294,6 +294,9 @@ rem @echo off
 @call :testn stripedstructtest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testn structreturncontrolflow.c
+@if %errorlevel% neq 0 goto :error
+
 @call :testn mmultest.c
 @if %errorlevel% neq 0 goto :error
 
@@ -310,6 +313,12 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :testoptimizerlock optimizerstructvarargtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test signedbytestructreturn.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test fixlogtest.c
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

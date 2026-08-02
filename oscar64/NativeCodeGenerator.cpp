@@ -5841,6 +5841,13 @@ int NativeCodeBasicBlock::PutJump(NativeCodeProcedure* proc, NativeCodeBasicBloc
 		PutByte(0x60);
 		return 3;
 	}
+	else if (target->mCode.Size() == 3 && target->mRelocations.Size() == 0 && !target->mFalseJump && !target->mTrueJump && target->mIns.Size() > 0 && target->mIns.Last().mType == ASMIT_RTS)
+	{
+		PutByte(target->mCode[0]);
+		PutByte(target->mCode[1]);
+		PutByte(0x60);
+		return 3;
+	}
 
 	PutByte(0x4c);
 
@@ -16678,6 +16685,7 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 				mBranch = mTrueJump->mBranch;
 				mFalseJump = mTrueJump->mFalseJump;
 				mTrueJump = mTrueJump->mTrueJump;
+				mNDataSet = mTrueJump->mNDataSet;
 				changed = true;
 			}
 
@@ -22896,7 +22904,108 @@ bool NativeCodeBasicBlock::ExpandADCShortCascadeToBranch(void)
 	return changed;
 }
 
-bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
+bool NativeCodeBasicBlock::ExpandSignExtADCToBranch(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		if (mEntryBlocks.Size() == 2)
+		{
+			bool yvalid = true, xvalid = true;
+			for (int i = 0; i + 2 < mIns.Size(); i++)
+			{
+				if (xvalid &&
+					mIns[i + 0].mType == ASMIT_TXA && !(mIns[i + 0].mLive & LIVE_CPU_REG_X) &&
+					mIns[i + 1].mType == ASMIT_ADC && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 2]) && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
+					!ReferencesMemory(mIns[i + 1], 0, i))
+				{
+					int x0 = mEntryBlocks[0]->RetrieveXValue(), x1 = mEntryBlocks[1]->RetrieveXValue();
+					if (x0 == 0x00 && x1 == 0xff && !mEntryBlocks[1]->mFalseJump ||
+						x0 == 0xff && x1 == 0x00 && !mEntryBlocks[0]->mFalseJump)
+					{
+						NativeCodeInstruction	ins(mIns[i + 1]);
+
+						if (x1 == 0xff)
+							mEntryBlocks[1]->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_DEC, ins));
+						else
+							mEntryBlocks[0]->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_DEC, ins));
+
+						NativeCodeBasicBlock* iblock = SplitAt(i + 3);
+						mIns.SetSize(i);
+
+						NativeCodeBasicBlock* cblock = mProc->AllocateBlock();
+						cblock->Close(ins.mIns, iblock, nullptr, ASMIT_JMP);
+
+						cblock->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_INC, ins));
+
+						mBranch = ASMIT_BCC;
+						mFalseJump = cblock;
+						cblock->mEntryBlocks.Push(this);
+						cblock->mNumEntries++;
+
+						iblock->mEntryBlocks.Push(cblock);
+						iblock->mNumEntries++;
+
+						changed = true;
+						break;
+					}
+				}
+
+				if (yvalid &&
+					mIns[i + 0].mType == ASMIT_TYA && !(mIns[i + 0].mLive & LIVE_CPU_REG_Y) &&
+					mIns[i + 1].mType == ASMIT_ADC && (mIns[i + 1].mMode == ASMIM_ZERO_PAGE || mIns[i + 1].mMode == ASMIM_ABSOLUTE) &&
+					mIns[i + 2].mType == ASMIT_STA && mIns[i + 1].SameEffectiveAddress(mIns[i + 2]) && !(mIns[i + 2].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_C)) &&
+					!ReferencesMemory(mIns[i + 1], 0, i))
+				{
+					int x0 = mEntryBlocks[0]->RetrieveYValue(), x1 = mEntryBlocks[1]->RetrieveYValue();
+					if (x0 == 0x00 && x1 == 0xff && !mEntryBlocks[1]->mFalseJump ||
+						x0 == 0xff && x1 == 0x00 && !mEntryBlocks[0]->mFalseJump)
+					{
+						NativeCodeInstruction	ins(mIns[i + 1]);
+
+						if (x1 == 0xff)
+							mEntryBlocks[1]->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_DEC, ins));
+						else
+							mEntryBlocks[0]->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_DEC, ins));
+
+						NativeCodeBasicBlock* iblock = SplitAt(i + 3);
+						mIns.SetSize(i);
+
+						NativeCodeBasicBlock* cblock = mProc->AllocateBlock();
+						cblock->Close(ins.mIns, iblock, nullptr, ASMIT_JMP);
+
+						cblock->mIns.Push(NativeCodeInstruction(ins.mIns, ASMIT_INC, ins));
+
+						mBranch = ASMIT_BCC;
+						mFalseJump = cblock;
+						cblock->mEntryBlocks.Push(this);
+						cblock->mNumEntries++;
+
+						iblock->mEntryBlocks.Push(cblock);
+						iblock->mNumEntries++;
+
+						changed = true;
+						break;
+					}
+				}
+
+				if (mIns[i].ReferencesXReg()) xvalid = false;
+				if (mIns[i].ReferencesYReg()) yvalid = false;
+			}
+		}
+
+		if (mTrueJump && mTrueJump->ExpandSignExtADCToBranch()) changed = true;
+		if (mFalseJump && mFalseJump->ExpandSignExtADCToBranch()) changed = true;
+	}
+
+	return changed;
+}
+
+bool NativeCodeBasicBlock::ExpandADCToBranch(void)
 {
 	bool	changed = false;
 
@@ -22999,8 +23108,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23028,8 +23137,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23057,8 +23166,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23086,8 +23195,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23118,8 +23227,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23155,8 +23264,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23193,8 +23302,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23230,8 +23339,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23320,8 +23429,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* mblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* mblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 					rblock->mTrueJump = mTrueJump;
 					rblock->mFalseJump = mFalseJump;
@@ -23354,8 +23463,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* mblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* mblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 					rblock->mTrueJump = mTrueJump;
 					rblock->mFalseJump = mFalseJump;
@@ -23392,9 +23501,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 					rblock->mTrueJump = mTrueJump;
 					rblock->mFalseJump = mFalseJump;
@@ -23426,8 +23535,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 					neblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, mIns[i + 4].mAddress));
 
@@ -23461,9 +23570,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 					rblock->mTrueJump = mTrueJump;
 					rblock->mFalseJump = mFalseJump;
@@ -23500,8 +23609,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* csblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* csblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				csblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_IMMEDIATE, mIns[i + 5].mAddress));
 
@@ -23538,8 +23647,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 
 					fblock->mTrueJump = mTrueJump;
@@ -23584,8 +23693,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -23625,8 +23734,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -23666,8 +23775,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -23709,8 +23818,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -23754,8 +23863,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -23798,8 +23907,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -23841,8 +23950,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -23919,9 +24028,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23957,8 +24066,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -23991,8 +24100,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -24027,9 +24136,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -24066,9 +24175,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -24107,9 +24216,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -24152,9 +24261,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -24190,9 +24299,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* eblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* neblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* neblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -24225,8 +24334,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -24263,8 +24372,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 
 				changed = true;
 
-				NativeCodeBasicBlock* ccblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* rblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* ccblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* rblock = mProc->AllocateBlock();
 
 				rblock->mTrueJump = mTrueJump;
 				rblock->mFalseJump = mFalseJump;
@@ -24318,10 +24427,10 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 									{
 										changed = true;
 
-										NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-										NativeCodeBasicBlock* dblock = proc->AllocateBlock();
-										NativeCodeBasicBlock* ablock = proc->AllocateBlock();
-										NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+										NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+										NativeCodeBasicBlock* dblock = mProc->AllocateBlock();
+										NativeCodeBasicBlock* ablock = mProc->AllocateBlock();
+										NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 										fblock->mTrueJump = mTrueJump;
 										fblock->mFalseJump = mFalseJump;
@@ -24363,10 +24472,10 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 										// Can't do direct inc, so fallback to x register
 										changed = true;
 
-										NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-										NativeCodeBasicBlock* dblock = proc->AllocateBlock();
-										NativeCodeBasicBlock* ablock = proc->AllocateBlock();
-										NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+										NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+										NativeCodeBasicBlock* dblock = mProc->AllocateBlock();
+										NativeCodeBasicBlock* ablock = mProc->AllocateBlock();
+										NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 										fblock->mTrueJump = mTrueJump;
 										fblock->mFalseJump = mFalseJump;
@@ -24424,8 +24533,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock	*	iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock	* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock	*	iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock	* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24456,8 +24565,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24488,8 +24597,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24519,8 +24628,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24550,8 +24659,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24583,8 +24692,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24616,8 +24725,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24647,8 +24756,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24679,8 +24788,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24713,8 +24822,8 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				{
 					changed = true;
 
-					NativeCodeBasicBlock* iblock = proc->AllocateBlock();
-					NativeCodeBasicBlock* fblock = proc->AllocateBlock();
+					NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+					NativeCodeBasicBlock* fblock = mProc->AllocateBlock();
 
 					fblock->mTrueJump = mTrueJump;
 					fblock->mFalseJump = mFalseJump;
@@ -24820,7 +24929,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 
 				const InterInstruction* iins(mIns[sz - 1].mIns);
 
-				NativeCodeBasicBlock* iblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
 				iblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_CMP, ASMIM_IMMEDIATE, addr));
 				mIns.SetSize(sz - 2);
 				mIns.Push(NativeCodeInstruction(iins, ASMIT_ORA, ASMIM_IMMEDIATE, 0x00));
@@ -24891,7 +25000,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* cblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* cblock = mProc->AllocateBlock();
 				cblock->Close(mBranchIns, mTrueJump, mFalseJump, mBranch);
 
 				mIns[sz - 3].mLive |= LIVE_CPU_REG_A;
@@ -24925,7 +25034,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 				mTrueJump->mNumEntries--;
 				mTrueJump->mEntryBlocks.RemoveAll(this);
 
-				NativeCodeBasicBlock* iblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
 				iblock->Close(mBranchIns, tblock, nullptr, ASMIT_JMP);
 				iblock->mIns.Push(NativeCodeInstruction(mIns[sz - 2].mIns, ASMIT_INC, mIns[sz - 2]));
 				mIns.SetSize(sz - 2);
@@ -25045,9 +25154,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					neblock = mTrueJump;
 				}
 
-				NativeCodeBasicBlock* hblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* lblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* oblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* hblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* lblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* oblock = mProc->AllocateBlock();
 
 				mBranch = ASMIT_BNE;
 				mTrueJump = lblock;
@@ -25124,7 +25233,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 					neblock = mTrueJump;
 				}
 
-				NativeCodeBasicBlock* hblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* hblock = mProc->AllocateBlock();
 
 				mBranch = ASMIT_BEQ;
 				mTrueJump = hblock;
@@ -25323,7 +25432,7 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 		{
 			if (mTrueJump->mBranch == ASMIT_BEQ && mFalseJump->mBranch == ASMIT_BNE && mTrueJump->mTrueJump == mFalseJump->mFalseJump)
 			{
-				NativeCodeBasicBlock* iblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
 				iblock->Close(mBranchIns, mTrueJump->mFalseJump, mFalseJump->mTrueJump, mBranch);
 				mBranch = ASMIT_BEQ;
 				
@@ -25385,9 +25494,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			{
 				changed = true;
 
-				NativeCodeBasicBlock* hiblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* loblock = proc->AllocateBlock();
-				NativeCodeBasicBlock* orblock = proc->AllocateBlock();
+				NativeCodeBasicBlock* hiblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* loblock = mProc->AllocateBlock();
+				NativeCodeBasicBlock* orblock = mProc->AllocateBlock();
 
 				NativeCodeBasicBlock* eqblock, * neblock;
 				if (mBranch == ASMIT_BEQ)
@@ -25460,9 +25569,9 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(NativeCodeProcedure* proc)
 			mProc->mExitBlock->mLocked = true;
 		}
 
-		if (mTrueJump && mTrueJump->ExpandADCToBranch(proc))
+		if (mTrueJump && mTrueJump->ExpandADCToBranch())
 			changed = true;
-		if (mFalseJump && mFalseJump->ExpandADCToBranch(proc))
+		if (mFalseJump && mFalseJump->ExpandADCToBranch())
 			changed = true;
 	}
 
@@ -38273,11 +38382,23 @@ bool NativeCodeBasicBlock::JoinTAYARange(int from, int to)
 	{
 		if (mIns[from - 1].mMode == ASMIM_IMMEDIATE && !mIns[from - 1].RequiresCarry())
 		{
-			mIns.Insert(to + 1, mIns[from - 1]);
-			mIns[to + 1].mLive |= mIns[to].mLive;
-			mIns.Remove(from - 1);
-			CheckLive();
-			return true;
+			// Check special case for building high byte of 16 bit number from single signed byte
+			if (from >= 4 &&
+				mIns[from - 4].mType == ASMIT_ASL && mIns[from - 4].mMode == ASMIM_IMPLIED &&
+				mIns[from - 3].mType == ASMIT_LDA && mIns[from - 3].mMode == ASMIM_IMMEDIATE && mIns[from - 3].mAddress == 0x00 &&
+				mIns[from - 2].mType == ASMIT_ADC && mIns[from - 2].mMode == ASMIM_IMMEDIATE && mIns[from - 2].mAddress == 0xff &&
+				mIns[from - 1].mAddress == 0xff)
+			{
+
+			}
+			else
+			{
+				mIns.Insert(to + 1, mIns[from - 1]);
+				mIns[to + 1].mLive |= mIns[to].mLive;
+				mIns.Remove(from - 1);
+				CheckLive();
+				return true;
+			}
 		}
 	}
 #if 1
@@ -57969,6 +58090,15 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 		}
 	}
 
+	if (pass == 7 &&
+		mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+		mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED && !(mIns[i + 1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z)))
+	{
+		mIns[i + 1].mType = ASMIT_CMP;
+		mIns[i + 1].mMode = ASMIM_IMMEDIATE;
+		mIns[i + 1].mAddress = 0x80;
+		return true;
+	}
 	if (
 		mIns[i + 0].mType == ASMIT_INC && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
 		mIns[i + 1].mType == ASMIT_LDX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE && mIns[i + 0].mAddress == mIns[i + 1].mAddress && !(mIns[i + 1].mLive & LIVE_MEM))
@@ -67452,7 +67582,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "select_quota");
+	CheckFunc = !strcmp(mIdent->mString, "processItem");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -69292,7 +69422,7 @@ void NativeCodeProcedure::Optimize(void)
 			mEntryBlock->BuildEntryDataSet(data);
 
 			ResetVisited();
-			if (mEntryBlock->ExpandADCToBranch(this))
+			if (mEntryBlock->ExpandADCToBranch())
 			{
 				changed = true;
 				BuildDataFlowSets();
@@ -69306,6 +69436,16 @@ void NativeCodeProcedure::Optimize(void)
 					changed = true;
 					BuildDataFlowSets();
 				}
+			}
+		}
+
+		if (step >= 12)
+		{
+			ResetVisited();
+			if (mEntryBlock->ExpandSignExtADCToBranch())
+			{
+				changed = true;
+				BuildDataFlowSets();
 			}
 		}
 #endif
@@ -69742,7 +69882,7 @@ void NativeCodeProcedure::Optimize(void)
 		mEntryBlock->BuildEntryDataSet(data);
 
 		ResetVisited();
-	} while (mEntryBlock->ExpandADCToBranch(this));
+	} while (mEntryBlock->ExpandADCToBranch());
 
 	do {
 		ResetVisited();
