@@ -70010,6 +70010,11 @@ void NativeCodeProcedure::Optimize(void)
 
 	ResetVisited();
 	mEntryBlock->MergeBasicBlocks();
+	// BlockSizeReduction rewrites instructions after the last data-flow pass. Rebuild the cached
+	// register and flag values used when selecting compact branch instructions for jumps.
+	ResetVisited();
+	NativeRegisterDataSet finalData;
+	mEntryBlock->BuildEntryDataSet(finalData);
 #endif
 
 #endif
