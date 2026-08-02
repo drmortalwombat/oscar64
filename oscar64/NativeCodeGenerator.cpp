@@ -16685,6 +16685,7 @@ bool NativeCodeBasicBlock::MergeBasicBlocks(void)
 				mBranch = mTrueJump->mBranch;
 				mFalseJump = mTrueJump->mFalseJump;
 				mTrueJump = mTrueJump->mTrueJump;
+				mNDataSet = mTrueJump->mNDataSet;
 				changed = true;
 			}
 
@@ -67575,7 +67576,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "add");
+	CheckFunc = !strcmp(mIdent->mString, "processItem");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
