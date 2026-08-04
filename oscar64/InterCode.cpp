@@ -5001,6 +5001,11 @@ bool InterInstruction::PropagateConstTemps(const GrowingInstructionPtrArray& cte
 			InterInstruction* ains = ctemps[mSrc[0].mTemp];
 			mCode = IC_CONSTANT;
 			mConst = ains->mConst;
+			if (mDst.mType == IT_POINTER && IsIntegerType(mConst.mType))
+			{
+				mConst.mType = IT_POINTER;
+				mConst.mMemory = mConst.mMemoryBase = IM_ABSOLUTE;
+			}
 			mSrc[0].mTemp = -1;
 			mNumOperands = 0;
 			return true;
@@ -28822,7 +28827,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "qlog2i");
+	CheckFunc = !strcmp(mIdent->mString, "run");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
