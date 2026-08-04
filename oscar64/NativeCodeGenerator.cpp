@@ -52776,13 +52776,13 @@ bool NativeCodeBasicBlock::OptimizeInnerLoop(NativeCodeProcedure* proc, NativeCo
 						head->mEntryRequiredRegs += mIns[i + 1].mAddress;
 						head->mExitRequiredRegs += mIns[i + 1].mAddress;
 
-						for (int i = 0; i < lblocks.Size(); i++)
+						for (int j = 0; j < lblocks.Size(); j++)
 						{
-							lblocks[i]->mExitRequiredRegs += head->mIns[i + 1].mAddress;
-							lblocks[i]->mEntryRequiredRegs += head->mIns[i + 1].mAddress;
-							lblocks[i]->mEntryProvidedRegs += head->mIns[i + 1].mAddress;
-							lblocks[i]->mExitRequiredRegs += head->mIns[i + 0].mAddress;
-							lblocks[i]->mEntryProvidedRegs += head->mIns[i + 0].mAddress;
+							lblocks[j]->mExitRequiredRegs += head->mIns[i + 1].mAddress;
+							lblocks[j]->mEntryRequiredRegs += head->mIns[i + 1].mAddress;
+							lblocks[j]->mEntryProvidedRegs += head->mIns[i + 1].mAddress;
+							lblocks[j]->mExitRequiredRegs += head->mIns[i + 0].mAddress;
+							lblocks[j]->mEntryProvidedRegs += head->mIns[i + 0].mAddress;
 						}
 
 						head->mIns[i + 0].mType = ASMIT_NOP; head->mIns[i + 0].mMode = ASMIM_IMPLIED;
