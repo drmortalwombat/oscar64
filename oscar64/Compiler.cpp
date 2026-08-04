@@ -1131,9 +1131,9 @@ bool Compiler::GenerateCode(void)
 			mCompilationUnits->mSectionStack->mSections.Push(proc->mLinkerObject->mStackSection);
 	}
 
-	mNativeCodeGenerator->OutlineFunctions();
-
 	mNativeCodeGenerator->BuildFunctionProxies();
+
+	mNativeCodeGenerator->OutlineFunctions();
 
 	for (int i = 0; i < mNativeCodeGenerator->mProcedures.Size(); i++)
 	{

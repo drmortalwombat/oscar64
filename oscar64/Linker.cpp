@@ -269,6 +269,8 @@ bool Linker::IsSectionPlaced(LinkerSection* section)
 
 LinkerObject* Linker::FindObjectByAddr(int addr, InterCodeProcedure* proc)
 {
+	LinkerObject* bobj = nullptr;
+
 	if (proc)
 	{
 		for (int i = 0; i < mObjects.Size(); i++)
@@ -277,9 +279,13 @@ LinkerObject* Linker::FindObjectByAddr(int addr, InterCodeProcedure* proc)
 			if (lobj->mFlags & LOBJF_PLACED)
 			{
 				if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize && lobj->mOwnerProc == proc)
-					return lobj;
+				{
+					if (!bobj || bobj->mAddress < lobj->mAddress)
+						bobj = lobj;
+				}
 			}
 		}
+		if (bobj) return bobj;
 	}
 
 	for (int i = 0; i < mObjects.Size(); i++)
@@ -288,11 +294,14 @@ LinkerObject* Linker::FindObjectByAddr(int addr, InterCodeProcedure* proc)
 		if (lobj->mFlags & LOBJF_PLACED)
 		{
 			if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize)
-				return lobj;
+			{
+				if (!bobj || bobj->mAddress < lobj->mAddress)
+					bobj = lobj;
+			}
 		}
 	}
 
-	return nullptr;
+	return bobj;
 }
 
 LinkerObject* Linker::FindObjectByName(const char* name)
@@ -312,6 +321,8 @@ LinkerObject* Linker::FindObjectByName(const char* name)
 
 LinkerObject* Linker::FindObjectByAddr(int bank, int addr, InterCodeProcedure* proc)
 {
+	LinkerObject* bobj = nullptr;
+
 	if (proc)
 	{
 		for (int i = 0; i < mObjects.Size(); i++)
@@ -322,10 +333,15 @@ LinkerObject* Linker::FindObjectByAddr(int bank, int addr, InterCodeProcedure* p
 				if (lobj->mRegion && ((1ULL << bank) & lobj->mRegion->mCartridgeBanks))
 				{
 					if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize && proc == lobj->mOwnerProc)
-						return lobj;
+					{
+						if (!bobj || bobj->mAddress < lobj->mAddress)
+							bobj = lobj;
+					}
 				}
 			}
 		}
+
+		if (bobj) return bobj;
 	}
 
 	for (int i = 0; i < mObjects.Size(); i++)
@@ -336,10 +352,15 @@ LinkerObject* Linker::FindObjectByAddr(int bank, int addr, InterCodeProcedure* p
 			if (lobj->mRegion && ((1ULL << bank) & lobj->mRegion->mCartridgeBanks))
 			{
 				if (addr >= lobj->mAddress && addr < lobj->mAddress + lobj->mSize)
-					return lobj;
+				{
+					if (!bobj || bobj->mAddress < lobj->mAddress)
+						bobj = lobj;
+				}
 			}
 		}
 	}
+
+	if (bobj) return bobj;
 
 	return FindObjectByAddr(addr, proc);
 }

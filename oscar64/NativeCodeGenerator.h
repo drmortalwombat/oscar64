@@ -852,7 +852,7 @@ public:
 	void BuildEntryDataSet(const NativeRegisterDataSet& set);
 	bool ApplyEntryDataSet(void);
 
-	bool CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global, bool ignorefcall);
+	bool CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global, bool & xreg, bool & yreg, bool ignorefcall);
 	void CollectZeroPageUsage(NumberSet& used, NumberSet& modified, NumberSet& pairs);
 	void FindZeroPageAlias(const NumberSet& statics, NumberSet& invalid, uint8* alias, int accu);
 	bool RemapZeroPage(const uint8* remap);
@@ -1111,6 +1111,7 @@ class NativeCodeProcedure
 
 		void Compile(InterCodeProcedure* proc);
 		void Optimize(void);
+		void MergeCalls(void);
 		void Assemble(void);
 
 		void AddToSuffixTree(NativeCodeMapper& mapper, SuffixTree* tree);
@@ -1195,6 +1196,7 @@ public:
 		int							mCount, mOffset;
 
 		bool IsSame(const FunctionCall* fc) const;
+		int ParentMatch(const FunctionCall* fc) const;
 		int Matches(const FunctionCall* fc) const;
 		int PotentialMatches(const FunctionCall* fc) const;
 	};
