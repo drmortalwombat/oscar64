@@ -27593,7 +27593,8 @@ bool NativeCodeBasicBlock::UntangleAbsoluteMoves(bool final)
 					}
 				}
 				else if (mIns[i + 0].mType == ASMIT_LDX && mIns[i + 0].mMode == ASMIM_ABSOLUTE && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
-					mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ABSOLUTE && !(mIns[i + 1].mFlags & NCIF_VOLATILE) && (mIns[i + 1].mLive & LIVE_CPU_REG_A))
+					mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ABSOLUTE && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
+					(mIns[i + 1].mLive & LIVE_CPU_REG_A) && !(mIns[i + 1].mLive & LIVE_CPU_REG_X))
 				{
 					int j = FindSafeMovePositionDown(i, i + 1, LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Z);
 					if (j > i + 2)
@@ -27614,6 +27615,7 @@ bool NativeCodeBasicBlock::UntangleAbsoluteMoves(bool final)
 					else
 					{
 						j = FindSafeMovePositionUp(i, i + 1, LIVE_CPU_REG_A | LIVE_CPU_REG_X | LIVE_CPU_REG_Z);
+
 						if (j > 0 && j < i)
 						{
 							NativeCodeInstruction	lins = mIns[i + 0], sins = mIns[i + 1];
@@ -27675,7 +27677,8 @@ bool NativeCodeBasicBlock::UntangleAbsoluteMoves(bool final)
 					}
 				}
 				else if (mIns[i + 0].mType == ASMIT_LDY && mIns[i + 0].mMode == ASMIM_ABSOLUTE && !(mIns[i + 0].mFlags & NCIF_VOLATILE) &&
-					mIns[i + 1].mType == ASMIT_STY && mIns[i + 1].mMode == ASMIM_ABSOLUTE && !(mIns[i + 1].mFlags & NCIF_VOLATILE) && (mIns[i + 1].mLive & LIVE_CPU_REG_A))
+					mIns[i + 1].mType == ASMIT_STY && mIns[i + 1].mMode == ASMIM_ABSOLUTE && !(mIns[i + 1].mFlags & NCIF_VOLATILE) &&
+					(mIns[i + 1].mLive & LIVE_CPU_REG_A) && !(mIns[i + 1].mLive & LIVE_CPU_REG_Y))
 				{
 					int j = FindSafeMovePositionDown(i, i + 1, LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z);
 					if (j > i + 2)
@@ -27696,6 +27699,7 @@ bool NativeCodeBasicBlock::UntangleAbsoluteMoves(bool final)
 					else
 					{
 						j = FindSafeMovePositionUp(i, i + 1, LIVE_CPU_REG_A | LIVE_CPU_REG_Y | LIVE_CPU_REG_Z);
+
 						if (j > 0 && j < i)
 						{
 							NativeCodeInstruction	lins = mIns[i + 0], sins = mIns[i + 1];
@@ -72168,4 +72172,3 @@ int  NativeCodeGenerator::FunctionCall::PotentialMatches(const FunctionCall* fc)
 
 	return match;
 }
-
