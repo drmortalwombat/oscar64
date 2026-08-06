@@ -637,6 +637,7 @@ public:
 	bool Move16BitShiftUp(int at);
 	bool Move16BitShiftDown(int at);
 	bool Move16BitAddUp(int at);
+	bool EliminateDoubleStore(int at);
 
 	bool FindAccuExitValue(int& at);
 	bool MoveLoadXAbsUpCrossBlock(int at);

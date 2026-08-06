@@ -28827,7 +28827,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "run");
+	CheckFunc = !strcmp(mIdent->mString, "runner_landing");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -29265,18 +29265,21 @@ void InterCodeProcedure::Close(void)
 
 	SingleBlockLoopIndexReduction(activeSet);
 
+	BuildTraces(0, true, false);
 #if 1
-	DisassembleDebug("PreMoveTrainCrossBlockA");
-
-	PeepholeOptimization();
 
 #if 1
-	DisassembleDebug("PreMoveTrainCrossBlockB");
+	do {
+		DisassembleDebug("PreMoveTrainCrossBlockA");
 
-	ResetVisited();
-	mEntryBlock->MoveTrainCrossBlock();
+		PeepholeOptimization();
+
+		DisassembleDebug("PreMoveTrainCrossBlockB");
+
+		ResetVisited();
+	} while (mEntryBlock->MoveTrainCrossBlock());
+
 #endif
-	PeepholeOptimization();
 
 	DisassembleDebug("MoveTrainCrossBlock");
 

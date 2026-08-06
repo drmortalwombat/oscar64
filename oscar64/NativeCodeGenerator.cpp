@@ -15785,7 +15785,7 @@ void NativeCodeBasicBlock::CallAssembler(InterCodeProcedure* proc, NativeCodePro
 				mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, flags));
 		}
 		else
-			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, flags));// | pflags));
+			mIns.Push(NativeCodeInstruction(ins, ASMIT_JSR, ASMIM_ABSOLUTE, ins->mSrc[0].mIntConst, ins->mSrc[0].mLinkerObject, flags | pflags));
 
 		lf = ins->mSrc[0].mLinkerObject->mFlags;
 	}
@@ -29175,7 +29175,7 @@ bool NativeCodeBasicBlock::PropagateSinglePath(void)
 			int i = sz - 1;
 			while (i >= 0 && !(mIns[i].ChangesYReg() || mIns[i].mType == ASMIT_STY && mIns[i].mMode == ASMIM_ZERO_PAGE))
 				i--;
-			if (i >= 0 && mIns[i].mType == ASMIT_STY && mIns[i].mMode == ASMIM_ZERO_PAGE)
+			if (i >= 0 && mIns[i].mType == ASMIT_STY && mIns[i].mMode == ASMIM_ZERO_PAGE && !ChangesZeroPage(mIns[i].mAddress, i + 1))
 			{
 				int addr = mIns[i].mAddress;
 
@@ -42902,6 +42902,36 @@ bool NativeCodeBasicBlock::Move16BitShiftUp(int at)
 	return false;
 }
 
+
+// [at + 0] STA zp0
+// [at + 1] STA zp 1
+bool NativeCodeBasicBlock::EliminateDoubleStore(int at)
+{
+	int i = at + 2;
+
+	int a0 = mIns[at + 0].mAddress, a1 = mIns[at + 1].mAddress;
+
+	while (i < mIns.Size() && !mIns[i].ReferencesZeroPage(a0) && !mIns[i].ReferencesZeroPage(a1))
+		i++;
+
+	if (i < mIns.Size() && mIns[i].mMode == ASMIM_ZERO_PAGE && !mIns[i].ChangesAddress() && !(mIns[i].mLive & LIVE_MEM))
+	{
+		if (mIns[i].mAddress == a0)
+		{
+			mIns[i].mAddress = a1;
+			return true;
+		}
+		if (mIns[i].mAddress == a1)
+		{
+			mIns[i].mAddress = a0;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 // [at + 0] CLC
 // [at + 1] LDA zp
 // [at + 2] ADC #
@@ -45505,6 +45535,19 @@ bool NativeCodeBasicBlock::BitFieldForwarding(const NativeRegisterDataSet& data)
 				}
 			}
 
+			if (i + 1 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_ROL && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+				mIns[i + 1].mType == ASMIT_AND && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0x01 &&
+				(mNDataSet[CPU_REG_A].mMask & 0x80) && !(mNDataSet[CPU_REG_A].mValue & 0x80))
+			{
+				mIns[i + 0] = mIns[i + 1];
+				mIns[i + 0].mType = ASMIT_LDA;
+				mIns[i + 0].mMode = ASMIM_IMMEDIATE;
+				mIns[i + 0].mAddress = 0x00;
+				changed = true;
+			}
+
+				
 			if (i + 2 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_TXA && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mType == ASMIT_TAX)
 			{
@@ -57152,6 +57195,19 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 
 	CheckLive();
 
+	for (int i = 0; i + 1 < mIns.Size(); i++)
+	{
+		if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE ||
+			mIns[i + 0].mType == ASMIT_STX && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STX && mIns[i + 1].mMode == ASMIM_ZERO_PAGE ||
+			mIns[i + 0].mType == ASMIT_STY && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && mIns[i + 1].mType == ASMIT_STY && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+		{
+			if (EliminateDoubleStore(i))
+				changed = true;
+		}
+	}
+
+	CheckLive();
+
 	for (int i = 0; i + 2 < mIns.Size(); i++)
 	{
 		if (mIns[i + 0].mType == ASMIT_ASL && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
@@ -67693,7 +67749,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "f");
+	CheckFunc = !strcmp(mIdent->mString, "vec_normalize");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
