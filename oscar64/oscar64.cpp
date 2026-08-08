@@ -611,6 +611,11 @@ int main2(int argc, const char** argv)
 
 			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_CRT_EASYFLASH"), "1");
 		}
+		else if (!strcmp(targetFormat, "crt32"))
+		{
+			compiler->mCompilerOptions |= COPT_TARGET_CRT32;
+			compiler->AddDefine(Ident::Unique("OSCAR_TARGET_CRT32"), "1");
+		}
 		else if (!strcmp(targetFormat, "crt16"))
 		{
 			compiler->mCompilerOptions |= COPT_TARGET_CRT16;

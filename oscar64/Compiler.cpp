@@ -137,6 +137,7 @@ bool Compiler::ParseSource(void)
 
 	mPreprocessor->mCompilerOptions = mCompilerOptions;
 	mLinker->mCompilerOptions = mCompilerOptions;
+	mLinker->mTargetMachine = mTargetMachine;
 
 	CompilationUnit* cunit;
 	while (mErrors->mErrorCount == 0 && (cunit = mCompilationUnits->PendingUnit()))
@@ -755,9 +756,7 @@ bool Compiler::GenerateCode(void)
 	{
 		if (!regionMain)
 		{
-			if (!(mCompilerOptions & (COPT_TARGET_PRG | COPT_TARGET_NES)))
-				regionMain = mLinker->AddRegion(identMain, 0x0900, 0x4700);
-			else if (regionBytecode)
+			if (regionBytecode)
 			{
 				switch (mTargetMachine)
 				{
@@ -771,13 +770,22 @@ bool Compiler::GenerateCode(void)
 					regionMain = mLinker->AddRegion(identMain, 0x0a00, 0x9f00);
 					break;
 				case TMACH_C128:
-					regionMain = mLinker->AddRegion(identMain, 0x1e00, 0xfe00);
+					if (mCompilerOptions & COPT_TARGET_CRT)
+						regionMain = mLinker->AddRegion(identMain, 0x1d00, 0x8000);
+					else
+						regionMain = mLinker->AddRegion(identMain, 0x1e00, 0xfe00);
 					break;
 				case TMACH_C128B:
-					regionMain = mLinker->AddRegion(identMain, 0x1e00, 0x4000);
+					if (mCompilerOptions & COPT_TARGET_CRT)
+						regionMain = mLinker->AddRegion(identMain, 0x1d00, 0x8000);
+					else
+						regionMain = mLinker->AddRegion(identMain, 0x1e00, 0x4000);
 					break;
 				case TMACH_C128E:
-					regionMain = mLinker->AddRegion(identMain, 0x1e00, 0xc000);
+					if (mCompilerOptions & COPT_TARGET_CRT)
+						regionMain = mLinker->AddRegion(identMain, 0x1d00, 0x8000);
+					else
+						regionMain = mLinker->AddRegion(identMain, 0x1e00, 0xc000);
 					break;
 				case TMACH_PLUS4:
 					regionMain = mLinker->AddRegion(identMain, 0x1300, 0xfc00);
@@ -824,7 +832,6 @@ bool Compiler::GenerateCode(void)
 					regionMain = mLinker->AddRegion(identMain, 0x2080, 0xc000);
 					break;
 				case TMACH_C64:
-
 					if (mCompilerOptions & (COPT_TARGET_CRT8 | COPT_TARGET_CRT16))
 						regionMain = mLinker->AddRegion(identMain, 0x0800, 0x8000);
 					else
@@ -834,13 +841,22 @@ bool Compiler::GenerateCode(void)
 					regionMain = mLinker->AddRegion(identMain, 0x0880, 0x9f00);
 					break;
 				case TMACH_C128:
-					regionMain = mLinker->AddRegion(identMain, 0x1d00, 0xfe00);
+					if (mCompilerOptions & COPT_TARGET_CRT)
+						regionMain = mLinker->AddRegion(identMain, 0x1d00, 0x8000);
+					else
+						regionMain = mLinker->AddRegion(identMain, 0x1d00, 0xfe00);
 					break;
 				case TMACH_C128B:
-					regionMain = mLinker->AddRegion(identMain, 0x1c80, 0x4000);
+					if (mCompilerOptions & COPT_TARGET_CRT)
+						regionMain = mLinker->AddRegion(identMain, 0x1d00, 0x8000);
+					else
+						regionMain = mLinker->AddRegion(identMain, 0x1c80, 0x4000);
 					break;
 				case TMACH_C128E:
-					regionMain = mLinker->AddRegion(identMain, 0x1c80, 0xc000);
+					if (mCompilerOptions & COPT_TARGET_CRT)
+						regionMain = mLinker->AddRegion(identMain, 0x1d00, 0x8000);
+					else
+						regionMain = mLinker->AddRegion(identMain, 0x1c80, 0xc000);
 					break;
 				case TMACH_PLUS4:
 					regionMain = mLinker->AddRegion(identMain, 0x1180, 0xfc00);
@@ -912,6 +928,11 @@ bool Compiler::GenerateCode(void)
 			else if (mCompilerOptions & COPT_TARGET_CRT16)
 			{
 				regionRom = mLinker->AddRegion(identRom, 0x8080, 0xc000);
+				regionRom->mCartridgeBanks = 1;
+			}
+			else if (mCompilerOptions & COPT_TARGET_CRT32)
+			{
+				regionRom = mLinker->AddRegion(identRom, 0x8080, 0xff00);
 				regionRom->mCartridgeBanks = 1;
 			}
 		}
@@ -1230,6 +1251,7 @@ bool Compiler::BuildLZO(const char* targetPath)
 {
 	mPreprocessor->mCompilerOptions = mCompilerOptions;
 	mLinker->mCompilerOptions = mCompilerOptions;
+	mLinker->mTargetMachine = mTargetMachine;
 
 	CompilationUnit* cunit;
 

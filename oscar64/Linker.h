@@ -302,6 +302,7 @@ public:
 	int TranslateMlbAddress(int address, int bank, TargetMachine machine);
 
 	uint64							mCompilerOptions;
+	TargetMachine					mTargetMachine;
 
 	GrowingArray<LinkerReference*>	mReferences;
 	GrowingArray<LinkerRegion*>		mRegions;

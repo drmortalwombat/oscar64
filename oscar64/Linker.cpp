@@ -1585,28 +1585,38 @@ bool Linker::WriteCrtFile(const char* filename, uint16 id, uint8 subtype, const 
 			char	mName[32];
 		}	criHeader = { 0 };
 
-		memcpy(criHeader.mSignature, "C64 CARTRIDGE   ", 16);
+		if (mTargetMachine == TMACH_C128)
+		{
+			memcpy(criHeader.mSignature, "C128 CARTRIDGE  ", 16);
+			criHeader.mVersion = 0x0002;
+		}
+		else
+		{
+			memcpy(criHeader.mSignature, "C64 CARTRIDGE   ", 16);
+			criHeader.mVersion = 0x0001;
+
+			if (mCompilerOptions & COPT_TARGET_CRT8)
+			{
+				criHeader.mExrom = 0;
+				criHeader.mGameLine = 1;
+			}
+			else if (mCompilerOptions & COPT_TARGET_CRT16)
+			{
+				criHeader.mExrom = 0;
+				criHeader.mGameLine = 0;
+			}
+			else
+			{
+				criHeader.mExrom = 0;
+				criHeader.mGameLine = 0;
+			}
+		}
+
 		criHeader.mHeaderLength = 0x40000000;
-		criHeader.mVersion = 0x0001;
 		criHeader.mIDHi = uint8(id >> 8);
 		criHeader.mIDLo = uint8(id & 0xff);
 		criHeader.mSubType = subtype;
 
-		if (mCompilerOptions & COPT_TARGET_CRT8)
-		{
-			criHeader.mExrom = 0;
-			criHeader.mGameLine = 1;
-		}
-		else if (mCompilerOptions & COPT_TARGET_CRT16)
-		{
-			criHeader.mExrom = 0;
-			criHeader.mGameLine = 0;
-		}
-		else
-		{
-			criHeader.mExrom = 0;
-			criHeader.mGameLine = 0;
-		}
 
 		memset(criHeader.mName, 0, 32);
 		strcpy_s(criHeader.mName, cname);
@@ -1748,6 +1758,34 @@ bool Linker::WriteCrtFile(const char* filename, uint16 id, uint8 subtype, const 
 					chipHeader.mLoadAddress = flip16(0x8000);
 					fwrite(&chipHeader, sizeof(chipHeader), 1, file);
 					fwrite(mCartridge[i] + 0x8000, 1, 0x4000, file);
+				}
+			}
+		}
+		else if (mCompilerOptions & COPT_TARGET_CRT32)
+		{
+			int	numBanks = 64;
+			while (numBanks > 1 && !mCartridgeBankUsed[numBanks - 1])
+				numBanks--;
+
+			memcpy(chipHeader.mSignature, "CHIP", 4);
+			chipHeader.mPacketLength = flip32(0x10 + 0x4000);
+			chipHeader.mChipType = 0;
+			chipHeader.mBankNumber = 0;
+			chipHeader.mImageSize = flip16(0x4000);
+
+			for (int i = 0; i < numBanks; i++)
+			{
+				if (mCartridgeBankUsed[i])
+				{
+					chipHeader.mBankNumber = flip16(uint16(i));
+
+					chipHeader.mLoadAddress = flip16(0x8000);
+					fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+					fwrite(mCartridge[i] + 0x8000, 1, 0x4000, file);
+
+					chipHeader.mLoadAddress = flip16(0xc000);
+					fwrite(&chipHeader, sizeof(chipHeader), 1, file);
+					fwrite(mCartridge[i] + 0xc000, 1, 0x4000, file);
 				}
 			}
 		}
