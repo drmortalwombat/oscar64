@@ -27066,9 +27066,15 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 					break;
 				case ASMIT_STA:
 					if (yreg == ins.mAddress && (ins.mLive & LIVE_CPU_REG_Y))
+					{
+						yregs[ins.mAddress] = -1;
 						yreg = -1;
+					}
 					if (xreg == ins.mAddress && (ins.mLive & LIVE_CPU_REG_X))
+					{
+						xregs[ins.mAddress] = -1;
 						xreg = -1;
+					}
 
 					if (ins.mLive & LIVE_CPU_REG_Z)
 					{
@@ -27086,9 +27092,15 @@ void NativeCodeBasicBlock::GlobalRegisterXYCheck(int* xregs, int* yregs)
 				case ASMIT_INC:
 				case ASMIT_DEC:
 					if (yreg == ins.mAddress && (ins.mLive & LIVE_CPU_REG_Y))
+					{
+						yregs[ins.mAddress] = -1;
 						yreg = -1;
+					}
 					if (xreg == ins.mAddress && (ins.mLive & LIVE_CPU_REG_X))
+					{
+						xregs[ins.mAddress] = -1;
 						xreg = -1;
+					}
 
 					if (yregs[ins.mAddress] >= 0)
 						yregs[ins.mAddress] += 3 * iinc;
@@ -67993,7 +68005,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "strxcopy");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -69551,6 +69563,7 @@ void NativeCodeProcedure::Optimize(void)
 						else
 							mEntryBlock->mTrueJump->mIns.Insert(0, NativeCodeInstruction(nullptr, ASMIT_LDY, ASMIM_ZERO_PAGE, j));
 					}
+
 					changed = true;
 					ymapped = true;
 					continue;
