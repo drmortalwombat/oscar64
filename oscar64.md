@@ -158,6 +158,7 @@ A list of source files can be provided.
 * -dHEAPCHECK : check heap allocate and free and jam if heap full or free out of range
 * -dNOBSSCLEAR : don't clear BSS segment on startup
 * -dNOZPCLEAR : don't clear zeropage BSS segment on startup
+* -dOSCAR_C128_CRT_BASIC : defer cartridge initialization in C128 mode until after system init
 
 ### Supported target machines
 
@@ -348,7 +349,6 @@ Warnings can be disabled, restored to their default level, or promoted to errors
 
 	#pragma warning(disable: 2000,2001)
 	#pragma warning(default: 2000,2001)
-	#pragma warning(error: 2007)
 
 Warnings can also be turned into errors using the warning pragma.
 

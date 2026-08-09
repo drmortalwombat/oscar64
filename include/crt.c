@@ -175,15 +175,23 @@ w0:
 #if defined(__C128__)
 		jmp $800a
 		jmp $800a
+#if defined(OSCAR_C128_CRT_BASIC)
 		byt 0xff
+#else
+		byt 0x01
+#endif
 		byt 0x43
 		byt 0x42
 		byt 0x4d
 
 		// immediately turn off interrupts, SR is kind of random here
-		
+
 		sei
 		cld
+		lda #$e3
+		sta $01
+		lda #$2f
+		sta $00
 #else
 		byt	0x09
 		byt	0x80
