@@ -285,6 +285,9 @@ rem @echo off
 @call :test ptrinittest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test memberpointerarray.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test ptrarraycmptest.c
 @if %errorlevel% neq 0 goto :error
 
@@ -315,6 +318,15 @@ rem @echo off
 @call :test structconditionaltest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test optimizerstructvarargtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test optimizerstructreturntest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test mixedwidthternary.c
+@if %errorlevel% neq 0 goto :error
+
 @call :testoptimizerlock optimizerstructvarargtest.c
 @if %errorlevel% neq 0 goto :error
 
@@ -322,6 +334,9 @@ rem @echo off
 @if %errorlevel% neq 0 goto :error
 
 @call :test fixlogtest.c
+@if %errorlevel% neq 0 goto :error
+
+@call :test strxcopy.c
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0
