@@ -41851,7 +41851,10 @@ bool NativeCodeBasicBlock::CanZeroPageCopyUp(int at, int from, int to, bool diam
 		at--;
 
 		if (mIns[at].mType == ASMIT_JSR)
-			return false;
+		{
+			if (mIns[at].ReferencesZeroPage(from) || mIns[at].ReferencesZeroPage(to))
+				return false;
+		}
 
 		if (mIns[at].mMode == ASMIM_ZERO_PAGE && mIns[at].mAddress == to)
 			return false;
