@@ -2,10 +2,12 @@
 
 #include "MachineTypes.h"
 
+class Errors;
+
 class DiskImage
 {
 public:
-	DiskImage(const char * name);
+	DiskImage(const char * name, Errors* errors);
 	~DiskImage(void);
 
 	bool WriteImage(const char* fname);
@@ -13,7 +15,7 @@ public:
 	bool OpenFile(const char* fname);
 	void CloseFile(void);
 
-	int WriteBytes(const uint8* data, ptrdiff_t size);
+	void WriteBytes(const uint8* data, ptrdiff_t size);
 	bool WriteFile(const char* fname, bool compressed, int interleave);
 
 protected:
@@ -22,7 +24,9 @@ protected:
 	void MarkBAMSector(int track, int sector);
 	int AllocBAMSector(int track, int sector);
 	int AllocBAMTrack(int track);
+	bool CapacityExceeded(void);
 
+	Errors*		mErrors;
 	uint8	*	mDirEntry;
 	int			mTrack, mSector, mBytes, mInterleave;
 

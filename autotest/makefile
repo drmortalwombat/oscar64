@@ -2,7 +2,20 @@ SRCS=$(filter-out ambiguousoverload_trigger.c opp_part1.cpp opp_part2.cpp, $(wil
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
-all: $(EXES)
+all: $(EXES) diskimagefulltest
+
+DISK_FULL_RESOURCE=../samples/resources/blumba2.bin
+DISK_FULL_FILES=$(foreach n,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18,-f=$(DISK_FULL_RESOURCE))
+
+.PHONY: diskimagefulltest
+diskimagefulltest:
+	@output="$$($(OSCAR64_CC) -d64=diskimagefulltest.d64 $(DISK_FULL_FILES) 2>&1)"; status=$$?; \
+	$(RM) diskimagefulltest.d64; \
+	if [ $$status -ne 20 ] || ! printf '%s\n' "$$output" | grep -Fq "oscar64: error" || ! printf '%s\n' "$$output" | grep -Fq "Disk image capacity exceeded"; then \
+		printf '%s\n' "$$output"; \
+		printf 'Expected disk-capacity error and exit status 20, got %s\n' "$$status"; \
+		exit 1; \
+	fi
 
 %: %.c
 	$(OSCAR64_CC) -ea -g -bc $<
@@ -96,4 +109,4 @@ variadic-macros: variadic_macros.c
 	$(OSCAR64_CC) -eai -g -O3 -n $<
 
 clean:
-	@$(RM) *.asm *.bcs *.int *.lbl *.map *.prg
+	@$(RM) *.asm *.bcs *.d64 *.int *.lbl *.map *.prg

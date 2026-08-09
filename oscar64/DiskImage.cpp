@@ -1,4 +1,5 @@
 #include "DiskImage.h"
+#include "Errors.h"
 
 static char SectorsPerTrack[] = {
 	0,
@@ -29,7 +30,8 @@ static char A2P(char ch)
 		return ch;
 }
 
-DiskImage::DiskImage(const char* fname)
+DiskImage::DiskImage(const char* fname, Errors* errors)
+	: mErrors(errors)
 {
 	mInterleave = 10;
 
@@ -100,6 +102,9 @@ void DiskImage::MarkBAMSector(int track, int sector)
 
 int DiskImage::AllocBAMSector(int track, int sector)
 {
+	if (track <= 0 || track >= 36)
+		return -1;
+
 	uint8* bam = mSectors[18][0];
 
 	uint8* dp = bam + 4 * track;
@@ -142,12 +147,18 @@ int DiskImage::AllocBAMTrack(int track)
 	while (track < 36 && bam[4 * track] == 0)
 		track++;
 
-	return track;
+	return track < 36 ? track : -1;
 }
 
 DiskImage::~DiskImage(void)
 {
 
+}
+
+bool DiskImage::CapacityExceeded(void)
+{
+	mErrors->Error(Location(), EERR_DISK_IMAGE_FULL, "Disk image capacity exceeded");
+	return false;
 }
 
 bool DiskImage::WriteImage(const char* fname)
@@ -188,6 +199,8 @@ bool DiskImage::OpenFile(const char* fname)
 				else
 				{
 					int ni = AllocBAMSector(18, si);
+					if (ni < 0)
+						return CapacityExceeded();
 					mSectors[18][si][0] = 18;
 					mSectors[18][si][1] = ni;
 					si = ni;
@@ -197,8 +210,13 @@ bool DiskImage::OpenFile(const char* fname)
 		}
 		else
 		{
-			mTrack = AllocBAMTrack(17);
-			mSector = AllocBAMSector(mTrack, 0);
+			int track = AllocBAMTrack(17);
+			int sector = AllocBAMSector(track, 0);
+			if (sector < 0)
+				return CapacityExceeded();
+
+			mTrack = track;
+			mSector = sector;
 
 			mDirEntry[2] = 0x82;
 			mDirEntry[3] = mTrack;
@@ -327,7 +345,7 @@ bool DiskImage::WriteFile(const char* fname, bool compressed, int interleave)
 		return false;
 }
 
-int DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
+void DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
 {
 	uint8* dp = mSectors[mTrack][mSector];
 	for (ptrdiff_t i = 0; i < size; i++)
@@ -337,8 +355,16 @@ int DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
 			mSector = AllocBAMSector(mTrack, mSector);
 			if (mSector < 0)
 			{
-				mTrack = AllocBAMTrack(mTrack);
-				mSector = AllocBAMSector(mTrack, 0);
+				int track = AllocBAMTrack(mTrack);
+				int sector = AllocBAMSector(track, 0);
+				if (sector < 0)
+				{
+					CapacityExceeded();
+					return;
+				}
+
+				mTrack = track;
+				mSector = sector;
 			}
 
 			dp[0] = mTrack;
@@ -355,5 +381,4 @@ int DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
 		dp[mBytes] = data[i];
 		mBytes++;
 	}
-	return 0;
 }

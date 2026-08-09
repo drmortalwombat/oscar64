@@ -1382,7 +1382,7 @@ bool Linker::WritePrgFile(DiskImage* image, const char* filename)
 		image->WriteBytes(mMemory + mProgramStart - 2, mProgramEnd - mProgramStart + 2);
 		image->CloseFile();
 
-		for (int i = 0; i < mOverlays.Size(); i++)
+		for (int i = 0; i < mOverlays.Size() && mErrors->mErrorCount == 0; i++)
 		{
 			if (image->OpenFile(mOverlays[i]->mIdent->mString))
 			{
@@ -2150,4 +2150,3 @@ bool Linker::WriteAsmFile(const char* filename, const char* version)
 	else
 		return false;
 }
-
