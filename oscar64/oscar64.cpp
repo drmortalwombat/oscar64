@@ -724,7 +724,11 @@ int main2(int argc, const char** argv)
 			}
 			else if (compiler->ParseSource() && compiler->GenerateCode())
 			{
-				compiler->WriteOutputFile(targetPath, d64);
+				if (!compiler->WriteOutputFile(targetPath, d64))
+				{
+					printf("Could not embed compiled output in disk image %s\n", diskPath);
+					return 20;
+				}
 
 
 				if (emulate)

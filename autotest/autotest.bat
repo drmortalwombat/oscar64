@@ -213,6 +213,9 @@ rem @echo off
 @call :testb bitshifttest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testdiskfull
+@if %errorlevel% neq 0 goto :error
+
 @call :test arrparam.c
 @if %errorlevel% neq 0 goto :error
 
@@ -326,6 +329,24 @@ rem @echo off
 :error
 echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
+
+:testdiskfull
+..\bin\oscar64 -d64=diskimagefulltest.d64 -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin -f=..\samples\resources\blumba2.bin > diskimagefulltest.log 2>&1
+@set compile_error=%errorlevel%
+@if exist diskimagefulltest.d64 @del diskimagefulltest.d64
+@if %compile_error% neq 20 (
+	@type diskimagefulltest.log
+	@del diskimagefulltest.log
+	@exit /b 1
+)
+@findstr /c:"Disk image capacity exceeded" diskimagefulltest.log > nul
+@if %errorlevel% neq 0 (
+	@type diskimagefulltest.log
+	@del diskimagefulltest.log
+	@exit /b 1
+)
+@del diskimagefulltest.log
+@exit /b 0
 
 :testoptimizerlock
 ..\bin\oscar64 -ea -g -n %~1 > optimizerstructvarargtest.log 2>&1
