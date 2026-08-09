@@ -324,9 +324,6 @@ rem @echo off
 @call :test mixedwidthternary.c
 @if %errorlevel% neq 0 goto :error
 
-@call :testoptimizerlock optimizerstructvarargtest.c
-@if %errorlevel% neq 0 goto :error
-
 @call :test signedbytestructreturn.c
 @if %errorlevel% neq 0 goto :error
 

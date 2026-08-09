@@ -38674,7 +38674,7 @@ bool NativeCodeBasicBlock::JoinTAXARange(int from, int to)
 	return false;
 }
 
-bool NativeCodeBasicBlock::JoinTAYARange(int from, int to)
+bool NativeCodeBasicBlock::JoinTAYARange(int from, int to, int pass)
 {
 	int	start = from;
 	if (from >= 2)
@@ -38708,7 +38708,7 @@ bool NativeCodeBasicBlock::JoinTAYARange(int from, int to)
 	if (from >= 1)
 	{
 		// Keep logic operations before transfer ranges so X/Y swapping cannot reverse this optimisation.
-		if (mIns[from - 1].mMode == ASMIM_IMMEDIATE && !mIns[from - 1].RequiresCarry() && !mIns[from - 1].IsLogic())
+		if (mIns[from - 1].mMode == ASMIM_IMMEDIATE && !mIns[from - 1].RequiresCarry() && (pass < 8 || !mIns[from - 1].IsLogic()))
 		{
 			// Check special case for building high byte of 16 bit number from single signed byte
 			if (from >= 4 &&
@@ -57326,7 +57326,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 		{
 			if (tayPos >= 0)
 			{
-				if (!(mIns[i].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)) && JoinTAYARange(tayPos, i) || JoinTAYARangeLive(tayPos, i))
+				if (!(mIns[i].mLive & (LIVE_CPU_REG_Y | LIVE_CPU_REG_Z)) && JoinTAYARange(tayPos, i, pass) || JoinTAYARangeLive(tayPos, i))
 					changed = true;
 				taxPos = -1; tayPos = -1;
 			}

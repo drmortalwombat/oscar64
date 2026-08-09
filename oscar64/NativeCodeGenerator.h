@@ -683,7 +683,7 @@ public:
 	bool CombineSameYtoXCrossBlock(int from);
 
 	bool JoinTAXARange(int from, int to);
-	bool JoinTAYARange(int from, int to);
+	bool JoinTAYARange(int from, int to, int pass);
 	bool JoinTAXARangeLive(int from, int to);
 	bool JoinTAYARangeLive(int from, int to);
 	bool PatchGlobalAdressSumYByX(int at, int reg, const NativeCodeInstruction& ains, int addr);
