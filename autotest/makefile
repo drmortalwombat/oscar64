@@ -28,6 +28,22 @@ all: $(EXES)
 	$(OSCAR64_CXX) -ea -g -O3 -bc $<
 	$(OSCAR64_CXX) -ea -g -O3 -n $<
 
+optimizerstructvarargtest: optimizerstructvarargtest.c
+	@output="$$($(OSCAR64_CC) -ea -g -n $< 2>&1)"; status=$$?; \
+	if [ $$status -ne 0 ] || printf '%s\n' "$$output" | grep -Eq "warning 2007:|Oops 31"; then \
+		printf '%s\n' "$$output"; exit 1; \
+	fi
+	$(OSCAR64_CC) -ea -g -bc $<
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -bc $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -bc $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -bc $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -bc $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+
 # testb
 bitshifttest: bitshifttest.c
 	$(OSCAR64_CC) -ea -g -bc $<
@@ -46,6 +62,13 @@ stripedarraytest: stripedarraytest.c
 	$(OSCAR64_CC) -ea -g -O3 -n $<
 
 stripedstructtest: stripedstructtest.c
+	$(OSCAR64_CC) -ea -g -n $<
+	$(OSCAR64_CC) -ea -g -O2 -n $<
+	$(OSCAR64_CC) -ea -g -O0 -n $<
+	$(OSCAR64_CC) -ea -g -Os -n $<
+	$(OSCAR64_CC) -ea -g -O3 -n $<
+
+structreturncontrolflow: structreturncontrolflow.c
 	$(OSCAR64_CC) -ea -g -n $<
 	$(OSCAR64_CC) -ea -g -O2 -n $<
 	$(OSCAR64_CC) -ea -g -O0 -n $<

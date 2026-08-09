@@ -25,14 +25,16 @@ static const uint64 COPT_OPTIMIZE_SELF_MOD = 1ULL << 21;
 static const uint64 COPT_TARGET_PRG = 1ULL << 32;
 static const uint64 COPT_TARGET_CRT8 = 1ULL << 33;
 static const uint64 COPT_TARGET_CRT16 = 1ULL << 34;
-static const uint64 COPT_TARGET_CRT_EASYFLASH = 1ULL << 35;
-
-static const uint64 COPT_TARGET_CRT = COPT_TARGET_CRT8 | COPT_TARGET_CRT16 | COPT_TARGET_CRT_EASYFLASH;
+static const uint64 COPT_TARGET_CRT32 = 1ULL << 35;
 
 static const uint64 COPT_TARGET_COPY = 1ULL << 36;
 static const uint64 COPT_TARGET_BIN = 1ULL << 37;
 static const uint64 COPT_TARGET_LZO = 1ULL << 38;
 static const uint64 COPT_TARGET_NES = 1ULL << 39;
+
+static const uint64 COPT_TARGET_CRT_EASYFLASH = 1ULL << 40;
+static const uint64 COPT_TARGET_CRT = COPT_TARGET_CRT8 | COPT_TARGET_CRT16 | COPT_TARGET_CRT32 | COPT_TARGET_CRT_EASYFLASH;
+
 
 static const uint64 COPT_VERBOSE = 1ULL << 48;
 static const uint64 COPT_VERBOSE2 = 1ULL << 49;

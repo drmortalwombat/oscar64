@@ -761,6 +761,9 @@ bool ByteCodeInstruction::UsesRegister(uint32 reg) const
 
 		if (mCode == BC_LOOP_U8)
 			return true;
+
+		if (mCode == BC_CONV_I8_I16)
+			return true;
 	}
 
 	if (reg == BC_REG_ACCU)
@@ -831,6 +834,9 @@ bool ByteCodeInstruction::ChangesRegister(uint32 reg) const
 		if (mCode == BC_BINOP_ADDA_16)
 			return true;
 		if (mCode == BC_LOOP_U8)
+			return true;
+
+		if (mCode == BC_CONV_I8_I16)
 			return true;
 	}
 

@@ -42,7 +42,7 @@ int main(void)
 	check_strtol("123x", 10, 123, 'x');
 	check_strtol(" 123x", 10, 123, 'x');
 	check_strtol("-123x", 10, -123, 'x');
-
+	
 	check_strtoul("123", 10, 123, '\0');
 	check_strtoul("123x", 10, 123, 'x');
 	check_strtoul(" 123x", 10, 123, 'x');
@@ -71,5 +71,6 @@ int main(void)
 	check_strtof("123.5e2x", 12350, 'x');
 	check_strtof(" 123.5e2x", 12350, 'x');
 	check_strtof("-123.5e2x", -12350, 'x');
+
 	return 0;
 }

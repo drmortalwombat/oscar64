@@ -183,13 +183,14 @@ A list of source files can be provided.
 * x16 : Commander X16, (0x0800..0x9f00)
 * mega65 : Mega 65, (0x2000..0xc000)
 
-### C64 Cartridge formats
+### C64/C128 Cartridge formats
 
-Three cartridge formats are supported
+Four cartridge formats are supported
 
 * -tf=crt : creates an easyflash cartridge with common code expanded from bank 0 into memory
 * -tf=crt8 : creates a generic 8KB cartridge from 0x8000-0xa000 with autostart header
 * -tf=crt16 : creates a generic 16KB cartridge from 0x8000-0xc000 with autostart header
+* -tf=crt32 : creates a generic 32KB cartridge from 0x8000-0xffff with autostart header (C128 only)
 * -cid=nnn : specifies the type ID, used by vice emul
 
 The easyflash format cartridge expands the first 16KB bank into memory to provide a

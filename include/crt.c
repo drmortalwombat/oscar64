@@ -169,10 +169,22 @@ w0:
 		lda #$36
 		sta $01
 
-#elif defined(OSCAR_TARGET_CRT8) || defined(OSCAR_TARGET_CRT16)
+#elif defined(OSCAR_TARGET_CRT8) || defined(OSCAR_TARGET_CRT16) || defined(OSCAR_TARGET_CRT32)
 
 // Start at 0x8000 autostart vectors
+#if defined(__C128__)
+		jmp $800a
+		jmp $800a
+		byt 0xff
+		byt 0x43
+		byt 0x42
+		byt 0x4d
 
+		// immediately turn off interrupts, SR is kind of random here
+		
+		sei
+		cld
+#else
 		byt	0x09
 		byt	0x80
 		byt	0x09
@@ -187,6 +199,7 @@ w0:
 		sta $01
 		lda #$2f
 		sta $00
+#endif
 
 #elif defined(OSCAR_TARGET_BIN)
 
@@ -226,7 +239,7 @@ w0:
 		sta $ff3f
 #endif
 
-#if !defined(OSCAR_TARGET_CRT8) && !defined(OSCAR_TARGET_CRT16)
+#if !defined(OSCAR_TARGET_CRT8) && !defined(OSCAR_TARGET_CRT16) && !defined(OSCAR_TARGET_CRT32)
 		tsx
 		stx spentry
 #endif
