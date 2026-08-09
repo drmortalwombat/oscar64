@@ -350,6 +350,10 @@ Warnings can be disabled, restored to their default level, or promoted to errors
 	#pragma warning(default: 2000,2001)
 	#pragma warning(error: 2007)
 
+Warnings can also be turned into errors using the warning pragma.
+
+	#pragma warning(error: 2000,2001)
+
 A message can be displayed during compilation with the message pragma.  The message can be a list of values, such as constant strings or numbers that can be compiled at compile time.
 
 	#pragma message("Hello User")
