@@ -14668,6 +14668,19 @@ void Parser::ParsePragma(void)
 					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
 					{
 						mErrors->mDisabled += int(mScanner->mTokenInteger);
+						mErrors->mAsErrors -= int(mScanner->mTokenInteger);
+						mScanner->NextToken();
+					}
+				} while (ConsumeTokenIf(TK_COMMA));
+			}
+			else if (ConsumeIdentIf("error"))
+			{
+				ConsumeToken(TK_COLON);
+				do {
+					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
+					{
+						mErrors->mDisabled -= int(mScanner->mTokenInteger);
+						mErrors->mAsErrors += int(mScanner->mTokenInteger);
 						mScanner->NextToken();
 					}
 				} while (ConsumeTokenIf(TK_COMMA));
@@ -14679,6 +14692,7 @@ void Parser::ParsePragma(void)
 					if (ExpectToken(TK_INTEGER) && mScanner->mTokenInteger < EERR_GENERIC)
 					{
 						mErrors->mDisabled -= int(mScanner->mTokenInteger);
+						mErrors->mAsErrors -= int(mScanner->mTokenInteger);
 						mScanner->NextToken();
 					}
 				} while (ConsumeTokenIf(TK_COMMA));

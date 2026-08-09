@@ -344,9 +344,11 @@ The compiler has various extensions to simplify developing for the C64.
 
 ## Pragmas
 
-Warnings can be turned on or off using the warning pragma.  The scope of the pragma is currently global in most cases, so if it is turned off at some place, it is off everywhere.
+Warnings can be disabled, restored to their default level, or promoted to errors using the warning pragma.  The scope of the pragma is currently global in most cases, so a change remains in effect everywhere that follows it.
 
 	#pragma warning(disable: 2000,2001)
+	#pragma warning(default: 2000,2001)
+	#pragma warning(error: 2007)
 
 A message can be displayed during compilation with the message pragma.  The message can be a list of values, such as constant strings or numbers that can be compiled at compile time.
 
@@ -1741,7 +1743,6 @@ The store is moved into the basic block that joins the two branches
 #### Peephole optimizations
 
 Various small and local optimizations are performed on the code on a per basic block level.
-
 
 
 
