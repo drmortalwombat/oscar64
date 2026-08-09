@@ -38581,7 +38581,8 @@ bool NativeCodeBasicBlock::JoinTAYARange(int from, int to)
 	}
 	if (from >= 1)
 	{
-		if (mIns[from - 1].mMode == ASMIM_IMMEDIATE && !mIns[from - 1].RequiresCarry())
+		// Keep logic operations before transfer ranges so X/Y swapping cannot reverse this optimisation.
+		if (mIns[from - 1].mMode == ASMIM_IMMEDIATE && !mIns[from - 1].RequiresCarry() && !mIns[from - 1].IsLogic())
 		{
 			// Check special case for building high byte of 16 bit number from single signed byte
 			if (from >= 4 &&

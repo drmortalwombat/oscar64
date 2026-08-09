@@ -315,6 +315,9 @@ rem @echo off
 @call :testoptimizerlock optimizerstructvarargtest.c
 @if %errorlevel% neq 0 goto :error
 
+@call :testoptimizerlock optimizerstructreturntest.c
+@if %errorlevel% neq 0 goto :error
+
 @call :test signedbytestructreturn.c
 @if %errorlevel% neq 0 goto :error
 
@@ -328,20 +331,21 @@ echo Failed with error #%errorlevel%.
 exit /b %errorlevel%
 
 :testoptimizerlock
-..\bin\oscar64 -ea -g -n %~1 > optimizerstructvarargtest.log 2>&1
+@set optimizer_lock_log=%~n1.log
+..\bin\oscar64 -ea -g -n %~1 > %optimizer_lock_log% 2>&1
 @set compile_error=%errorlevel%
 @if %compile_error% neq 0 (
-	@type optimizerstructvarargtest.log
-	@del optimizerstructvarargtest.log
+	@type %optimizer_lock_log%
+	@del %optimizer_lock_log%
 	@exit /b %compile_error%
 )
-@findstr /c:"warning 2007:" /c:"Oops 31" optimizerstructvarargtest.log > nul
+@findstr /c:"warning 2007:" /c:"Oops " %optimizer_lock_log% > nul
 @if %errorlevel% equ 0 (
-	@type optimizerstructvarargtest.log
-	@del optimizerstructvarargtest.log
+	@type %optimizer_lock_log%
+	@del %optimizer_lock_log%
 	@exit /b 1
 )
-@del optimizerstructvarargtest.log
+@del %optimizer_lock_log%
 @call :test %~1
 @exit /b %errorlevel%
 
