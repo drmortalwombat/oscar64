@@ -354,6 +354,12 @@ exit /b %errorlevel%
 	@del diskimagefulltest.log
 	@exit /b 1
 )
+@findstr /c:"oscar64: error" diskimagefulltest.log > nul
+@if %errorlevel% neq 0 (
+	@type diskimagefulltest.log
+	@del diskimagefulltest.log
+	@exit /b 1
+)
 @findstr /c:"Disk image capacity exceeded" diskimagefulltest.log > nul
 @if %errorlevel% neq 0 (
 	@type diskimagefulltest.log

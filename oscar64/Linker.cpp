@@ -1379,11 +1379,10 @@ bool Linker::WritePrgFile(DiskImage* image, const char* filename)
 		mMemory[mProgramStart - 2] = mProgramStart & 0xff;
 		mMemory[mProgramStart - 1] = mProgramStart >> 8;
 
-		if (!image->WriteBytes(mMemory + mProgramStart - 2, mProgramEnd - mProgramStart + 2))
-			return false;
+		image->WriteBytes(mMemory + mProgramStart - 2, mProgramEnd - mProgramStart + 2);
 		image->CloseFile();
 
-		for (int i = 0; i < mOverlays.Size(); i++)
+		for (int i = 0; i < mOverlays.Size() && mErrors->mErrorCount == 0; i++)
 		{
 			if (image->OpenFile(mOverlays[i]->mIdent->mString))
 			{
@@ -1396,15 +1395,13 @@ bool Linker::WritePrgFile(DiskImage* image, const char* filename)
 					tbuffer[0] = s & 0xff;
 					tbuffer[1] = s >> 8;
 					int tsize = CompressLZO(tbuffer + 2, mCartridge[b] + s, mCartridgeBankEnd[b] - s);
-					if (!image->WriteBytes(tbuffer, tsize + 2))
-						return false;
+					image->WriteBytes(tbuffer, tsize + 2);
 				}
 				else
 				{
 					mCartridge[b][s - 2] = s & 0xff;
 					mCartridge[b][s - 1] = s >> 8;
-					if (!image->WriteBytes(mCartridge[b] + s - 2, mCartridgeBankEnd[b] - s + 2))
-						return false;
+					image->WriteBytes(mCartridge[b] + s - 2, mCartridgeBankEnd[b] - s + 2);
 				}
 
 				image->CloseFile();

@@ -1,4 +1,5 @@
 #include "DiskImage.h"
+#include "Errors.h"
 
 static char SectorsPerTrack[] = {
 	0,
@@ -29,7 +30,8 @@ static char A2P(char ch)
 		return ch;
 }
 
-DiskImage::DiskImage(const char* fname)
+DiskImage::DiskImage(const char* fname, Errors* errors)
+	: mErrors(errors)
 {
 	mInterleave = 10;
 
@@ -153,6 +155,12 @@ DiskImage::~DiskImage(void)
 
 }
 
+bool DiskImage::CapacityExceeded(void)
+{
+	mErrors->Error(Location(), EERR_DISK_IMAGE_FULL, "Disk image capacity exceeded");
+	return false;
+}
+
 bool DiskImage::WriteImage(const char* fname)
 {
 	FILE* file;
@@ -192,10 +200,7 @@ bool DiskImage::OpenFile(const char* fname)
 				{
 					int ni = AllocBAMSector(18, si);
 					if (ni < 0)
-					{
-						printf("Disk image capacity exceeded\n");
-						return false;
-					}
+						return CapacityExceeded();
 					mSectors[18][si][0] = 18;
 					mSectors[18][si][1] = ni;
 					si = ni;
@@ -208,10 +213,7 @@ bool DiskImage::OpenFile(const char* fname)
 			int track = AllocBAMTrack(17);
 			int sector = AllocBAMSector(track, 0);
 			if (sector < 0)
-			{
-				printf("Disk image capacity exceeded\n");
-				return false;
-			}
+				return CapacityExceeded();
 
 			mTrack = track;
 			mSector = sector;
@@ -268,7 +270,6 @@ bool DiskImage::WriteFile(const char* fname, bool compressed, int interleave)
 		}
 		dname[j] = 0;
 
-		bool success = false;
 		if (OpenFile(dname))
 		{
 			uint8	* buffer = new uint8[65536], * cbuffer = new uint8[65536];
@@ -327,10 +328,10 @@ bool DiskImage::WriteFile(const char* fname, bool compressed, int interleave)
 				}
 
 				cbuffer[csize++] = 0;
-				success = WriteBytes(cbuffer, csize);
+				WriteBytes(cbuffer, csize);
 			}
 			else
-				success = WriteBytes(buffer, size);
+				WriteBytes(buffer, size);
 			CloseFile();
 
 			delete[] buffer;
@@ -338,13 +339,13 @@ bool DiskImage::WriteFile(const char* fname, bool compressed, int interleave)
 		}
 
 		fclose(file);
-		return success;
+		return true;
 	}
 	else
 		return false;
 }
 
-bool DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
+void DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
 {
 	uint8* dp = mSectors[mTrack][mSector];
 	for (ptrdiff_t i = 0; i < size; i++)
@@ -358,8 +359,8 @@ bool DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
 				int sector = AllocBAMSector(track, 0);
 				if (sector < 0)
 				{
-					printf("Disk image capacity exceeded\n");
-					return false;
+					CapacityExceeded();
+					return;
 				}
 
 				mTrack = track;
@@ -380,5 +381,4 @@ bool DiskImage::WriteBytes(const uint8* data, ptrdiff_t size)
 		dp[mBytes] = data[i];
 		mBytes++;
 	}
-	return true;
 }

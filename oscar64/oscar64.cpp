@@ -652,7 +652,7 @@ int main2(int argc, const char** argv)
 		DiskImage* d64;
 
 		if (diskPath[0] != '\0')
-			d64 = new DiskImage(diskPath);
+			d64 = new DiskImage(diskPath, compiler->mErrors);
 		else
 			d64 = nullptr;
 
@@ -724,11 +724,7 @@ int main2(int argc, const char** argv)
 			}
 			else if (compiler->ParseSource() && compiler->GenerateCode())
 			{
-				if (!compiler->WriteOutputFile(targetPath, d64))
-				{
-					printf("Could not embed compiled output in disk image %s\n", diskPath);
-					return 20;
-				}
+				compiler->WriteOutputFile(targetPath, d64);
 
 
 				if (emulate)
@@ -742,7 +738,7 @@ int main2(int argc, const char** argv)
 
 		if (compiler->mErrors->mErrorCount == 0 && d64 != nullptr)
 		{
-			for (int i = 0; i < dataFiles.Size(); i++)
+			for (int i = 0; i < dataFiles.Size() && compiler->mErrors->mErrorCount == 0; i++)
 			{
 				if (!d64->WriteFile(dataFiles[i], dataFileCompressed[i], dataFileInterleave))
 				{
@@ -751,7 +747,7 @@ int main2(int argc, const char** argv)
 				}
 			}
 
-			if (!d64->WriteImage(diskPath))
+			if (compiler->mErrors->mErrorCount == 0 && !d64->WriteImage(diskPath))
 			{
 				printf("Could not write disk image %s\n", diskPath);
 				return 20;
