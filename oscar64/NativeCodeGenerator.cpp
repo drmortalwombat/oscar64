@@ -4228,6 +4228,15 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 			mMode = ASMIM_IMPLIED;
 			changed = true;
 		}
+		else if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && !final)
+		{
+			mType = ASMIT_LDX;
+			mMode = ASMIM_IMMEDIATE;
+			mAddress = data[CPU_REG_A].mValue;
+			data.Set(CPU_REG_X, NRDM_IMMEDIATE, mAddress);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_X].mValue);
+			changed = true;
+		}
 		else
 		{
 			data.ResetX();
@@ -4243,6 +4252,15 @@ bool NativeCodeInstruction::ValueForwarding(NativeRegisterDataSet& data, AsmInsT
 		{
 			mType = ASMIT_NOP;
 			mMode = ASMIM_IMPLIED;
+			changed = true;
+		}
+		else if (data[CPU_REG_A].mMode == NRDM_IMMEDIATE && !final)
+		{
+			mType = ASMIT_LDY;
+			mMode = ASMIM_IMMEDIATE;
+			mAddress = data[CPU_REG_A].mValue;
+			data.Set(CPU_REG_Y, NRDM_IMMEDIATE, mAddress);
+			data.Set(CPU_REG_Z, NRDM_IMMEDIATE, data[CPU_REG_Y].mValue);
 			changed = true;
 		}
 		else
@@ -37085,6 +37103,50 @@ bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 
 		mIns.SetSize(j);
 
+		int aimm = -1, ximm = -1, yimm = -1;
+		for (int i = 0; i < mIns.Size(); i++)
+		{
+			if (aimm >= 0 && mIns[i].ChangesAccu()) aimm = -1;
+			if (ximm >= 0 && mIns[i].ChangesXReg()) ximm = -1;
+			if (yimm >= 0 && mIns[i].ChangesYReg()) yimm = -1;
+
+			if (mIns[i].mType == ASMIT_LDA && mIns[i].mMode == ASMIM_IMMEDIATE)
+			{
+				aimm = mIns[i].mAddress;
+			}
+			if (mIns[i].mType == ASMIT_LDX && mIns[i].mMode == ASMIM_IMMEDIATE)
+			{
+				if (aimm == mIns[i].mAddress)
+				{
+					mIns[i].mType = ASMIT_TAX;
+					mIns[i].mMode = ASMIM_IMPLIED;
+					int j = i - 1;
+					while (j >= 0 && !(mIns[j].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[j].mLive |= LIVE_CPU_REG_A;
+						j--;
+					}
+				}
+				ximm = mIns[i].mAddress;
+			}
+
+			if (mIns[i].mType == ASMIT_LDY && mIns[i].mMode == ASMIM_IMMEDIATE)
+			{
+				if (aimm == mIns[i].mAddress)
+				{
+					mIns[i].mType = ASMIT_TAY;
+					mIns[i].mMode = ASMIM_IMPLIED;
+					int j = i - 1;
+					while (j >= 0 && !(mIns[j].mLive & LIVE_CPU_REG_A))
+					{
+						mIns[j].mLive |= LIVE_CPU_REG_A;
+						j--;
+					}
+				}
+				yimm = mIns[i].mAddress;
+			}
+		}
+
 		if (mTrueJump && mTrueJump->FinalCheckedSizeReduction())
 			changed = true;
 		if (mFalseJump && mFalseJump->FinalCheckedSizeReduction())
@@ -68084,7 +68146,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "currency_display");
+	CheckFunc = !strcmp(mIdent->mString, "moveTest");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
