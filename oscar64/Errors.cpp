@@ -69,5 +69,3 @@ void Errors::Error(const Location& loc, ErrorID eid, const char* msg, const char
 			exit(20);
 	}
 }
-
-

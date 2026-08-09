@@ -2,6 +2,8 @@
  * Regression test for optimizer warning 2007 with fields of a by-value struct
  * forwarded to a variadic call.
  */
+#pragma warning(error: 2007)
+
 #include <assert.h>
 #include <stdint.h>
 
