@@ -15516,15 +15516,43 @@ void NativeCodeBasicBlock::DisassembleBody(FILE* file)
 
 	fprintf(file, ")");
 
+	fprintf(file, "(");
+	if (mEntryRegisterDataSet[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+		fprintf(file, ",A=%d", mEntryRegisterDataSet[CPU_REG_A].mValue);
+	if (mEntryRegisterDataSet[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+		fprintf(file, ",X=%d", mEntryRegisterDataSet[CPU_REG_X].mValue);
+	if (mEntryRegisterDataSet[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+		fprintf(file, ",Y=%d", mEntryRegisterDataSet[CPU_REG_Y].mValue);
+	if (mEntryRegisterDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+		fprintf(file, ",C=%d", mEntryRegisterDataSet[CPU_REG_C].mValue);
+	if (mEntryRegisterDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+		fprintf(file, ",Z=%d", mEntryRegisterDataSet[CPU_REG_Z].mValue);
+	fprintf(file, ")->(");
+	if (mNDataSet[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+		fprintf(file, ",A=%d", mNDataSet[CPU_REG_A].mValue);
+	if (mNDataSet[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+		fprintf(file, ",X=%d", mNDataSet[CPU_REG_X].mValue);
+	if (mNDataSet[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+		fprintf(file, ",Y=%d", mNDataSet[CPU_REG_Y].mValue);
 	if (mNDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
-	{
 		fprintf(file, ",C=%d", mNDataSet[CPU_REG_C].mValue);
-	}
 	if (mNDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
-	{
 		fprintf(file, ",Z=%d", mNDataSet[CPU_REG_Z].mValue);
+	if (mFalseJump)
+	{
+		fprintf(file, "):(");
+		if (mFDataSet[CPU_REG_A].mMode == NRDM_IMMEDIATE)
+			fprintf(file, ",A=%d", mFDataSet[CPU_REG_A].mValue);
+		if (mFDataSet[CPU_REG_X].mMode == NRDM_IMMEDIATE)
+			fprintf(file, ",X=%d", mFDataSet[CPU_REG_X].mValue);
+		if (mFDataSet[CPU_REG_Y].mMode == NRDM_IMMEDIATE)
+			fprintf(file, ",Y=%d", mFDataSet[CPU_REG_Y].mValue);
+		if (mFDataSet[CPU_REG_C].mMode == NRDM_IMMEDIATE)
+			fprintf(file, ",C=%d", mFDataSet[CPU_REG_C].mValue);
+		if (mFDataSet[CPU_REG_Z].mMode == NRDM_IMMEDIATE)
+			fprintf(file, ",Z=%d", mFDataSet[CPU_REG_Z].mValue);
 	}
-	fprintf(file, "\n");
+	fprintf(file, ")\n");
 
 	for (int i = 0; i < mIns.Size(); i++)
 	{
@@ -16939,7 +16967,7 @@ void NativeCodeBasicBlock::CollectEntryBlocks(NativeCodeBasicBlock* block)
 	}
 }
 
-void NativeCodeBasicBlock::BuildEntryDataSet(const NativeRegisterDataSet& set)
+void NativeCodeBasicBlock::BuildEntryDataSet(const NativeRegisterDataSet& set, bool final)
 {
 	if (!mVisited)
 		mEntryRegisterDataSet = set;
@@ -17002,11 +17030,47 @@ void NativeCodeBasicBlock::BuildEntryDataSet(const NativeRegisterDataSet& set)
 			mNDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 1);
 			mFDataSet.Set(CPU_REG_C, NRDM_IMMEDIATE, 0);
 		}
+		else if (mIns.Size() > 0)
+		{
+			NativeCodeInstruction& lins(mIns[mIns.Size() - 1]);
+			if (mBranch == ASMIT_BEQ)
+			{
+				mNDataSet.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0);
+				if (lins.ChangesAccuAndFlag())
+				{
+					mNDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+				}
+				else if (lins.mType == ASMIT_LDY)
+				{
+					mNDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, 0);
+				}
+				else if (lins.mType == ASMIT_LDX)
+				{
+					mNDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, 0);
+				}
+			}
+			else if (mBranch == ASMIT_BNE)
+			{
+				mFDataSet.Set(CPU_REG_Z, NRDM_IMMEDIATE, 0);
+				if (lins.ChangesAccuAndFlag())
+				{
+					mFDataSet.Set(CPU_REG_A, NRDM_IMMEDIATE, 0);
+				}
+				else if (lins.mType == ASMIT_LDY)
+				{
+					mFDataSet.Set(CPU_REG_Y, NRDM_IMMEDIATE, 0);
+				}
+				else if (lins.mType == ASMIT_LDX)
+				{
+					mFDataSet.Set(CPU_REG_X, NRDM_IMMEDIATE, 0);
+				}
+			}
+		}
 
 		if (mTrueJump)
-			mTrueJump->BuildEntryDataSet(mNDataSet);
+			mTrueJump->BuildEntryDataSet(mNDataSet, final);
 		if (mFalseJump)
-			mFalseJump->BuildEntryDataSet(mFDataSet);
+			mFalseJump->BuildEntryDataSet(mFDataSet, final);
 	}
 }
 
@@ -57708,6 +57772,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate2(int i, int pass)
 		mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
 		return true;
 	}
+#if 1
+	if (mIns[i].mType == ASMIT_ORA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x80 && mIns[i + 1].mType == ASMIT_ROL && mIns[i + 1].mMode == ASMIM_IMPLIED)
+	{
+		mIns[i + 0] = mIns[i + 1];
+		mIns[i + 1].mType = ASMIT_SEC; mIns[i + 1].mMode = ASMIM_IMPLIED;
+		return true;
+	}
+#endif
 	if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_ORA && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0)
 	{
 		mIns[i + 0].mLive |= (mIns[i + 1].mLive & LIVE_CPU_REG_Z);
@@ -68005,7 +68077,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "strxcopy");
+	CheckFunc = !strcmp(mIdent->mString, "currency_display");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -69593,7 +69665,7 @@ void NativeCodeProcedure::Optimize(void)
 #if 1
 		ResetVisited();
 		NativeRegisterDataSet	data;
-		mEntryBlock->BuildEntryDataSet(data);
+		mEntryBlock->BuildEntryDataSet(data, false);
 
 		ResetVisited();
 		if (mEntryBlock->ApplyEntryDataSet())
@@ -69864,7 +69936,7 @@ void NativeCodeProcedure::Optimize(void)
 		{
 			ResetVisited();
 			NativeRegisterDataSet	data;
-			mEntryBlock->BuildEntryDataSet(data);
+			mEntryBlock->BuildEntryDataSet(data, false);
 
 			ResetVisited();
 			if (mEntryBlock->ExpandADCToBranch())
@@ -70033,7 +70105,7 @@ void NativeCodeProcedure::Optimize(void)
 			{
 				ResetVisited();
 				NativeRegisterDataSet	data;
-				mEntryBlock->BuildEntryDataSet(data);
+				mEntryBlock->BuildEntryDataSet(data, false);
 				changed = true;
 			}
 		}
@@ -70324,7 +70396,7 @@ void NativeCodeProcedure::Optimize(void)
 	do {
 		ResetVisited();
 		NativeRegisterDataSet	data;
-		mEntryBlock->BuildEntryDataSet(data);
+		mEntryBlock->BuildEntryDataSet(data, true);
 
 		ResetVisited();
 	} while (mEntryBlock->ExpandADCToBranch());
@@ -70531,6 +70603,10 @@ void NativeCodeProcedure::Optimize(void)
 
 #endif
 
+#if DISASSEMBLE_OPT
+	DisassembleDebug("Post Op 4a");
+#endif
+
 	RebuildEntry();
 
 	if (mCompilerOptions & COPT_OPTIMIZE_SELF_MOD)
@@ -70565,11 +70641,14 @@ void NativeCodeProcedure::Optimize(void)
 		CheckBlocks();
 	}
 
+#if DISASSEMBLE_OPT
+	DisassembleDebug("Post Op 4b");
+#endif
 
 #if 1
 	ResetVisited();
 	data.Reset();
-	mEntryBlock->BuildEntryDataSet(data);
+	mEntryBlock->BuildEntryDataSet(data, true);
 
 	ResetVisited();
 	if (mEntryBlock->ApplyEntryDataSet())

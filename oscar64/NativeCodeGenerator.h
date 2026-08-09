@@ -850,7 +850,7 @@ public:
 
 	NativeRegisterDataSet	mEntryRegisterDataSet;
 
-	void BuildEntryDataSet(const NativeRegisterDataSet& set);
+	void BuildEntryDataSet(const NativeRegisterDataSet& set, bool final);
 	bool ApplyEntryDataSet(void);
 
 	bool CollectZeroPageSet(ZeroPageSet& locals, ZeroPageSet& global, bool & xreg, bool & yreg, bool ignorefcall);
