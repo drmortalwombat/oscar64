@@ -41448,6 +41448,10 @@ bool NativeCodeBasicBlock::CanZeroPageCopyUp(int at, int from, int to, bool diam
 {
 	bool full = at == mIns.Size();
 
+	// BackwardReplaceZeroPage follows only one predecessor for a diamond.
+	if (diamond && mEntryBlocks.Size() != 1)
+		return false;
+
 	mPatchChecked = true;
 
 	while (at > 0)
@@ -71770,4 +71774,3 @@ int  NativeCodeGenerator::FunctionCall::PotentialMatches(const FunctionCall* fc)
 
 	return match;
 }
-
