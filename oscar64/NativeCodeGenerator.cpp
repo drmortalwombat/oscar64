@@ -6,7 +6,7 @@
 #define JUMP_TO_BRANCH	1
 #define CHECK_NULLPTR	0
 #define REYCLE_JUMPS	1
-#define DISASSEMBLE_OPT	0
+#define DISASSEMBLE_OPT	1
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -36323,6 +36323,8 @@ bool NativeCodeBasicBlock::CollectSelfModTargets(void)
 								{
 									if (mIns[j].mMode == ASMIM_INDIRECT_Y && mIns[j].mAddress == addr)
 									{
+										LinkerObject* loaddr = mIns[j].mLinkerObject;
+
 										int	modID = mProc->mSelfModSources.Size();
 										mProc->mSelfModSources.Push(SelfModReference{ nullptr, 0 });
 
@@ -36357,17 +36359,17 @@ bool NativeCodeBasicBlock::CollectSelfModTargets(void)
 										}
 										else if (useA)
 										{
-											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, addr));
+											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, addr, loaddr));
 											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_STA, ASMIM_ABSOLUTE, 2 * modID + 0, mProc->mLinkerObject));
 										}
 										else if (useX)
 										{
-											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, addr));
+											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, addr, loaddr));
 											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_STX, ASMIM_ABSOLUTE, 2 * modID + 0, mProc->mLinkerObject));
 										}
 										else
 										{
-											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, addr));
+											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, addr, loaddr));
 											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_STY, ASMIM_ABSOLUTE, 2 * modID + 0, mProc->mLinkerObject));
 										}
 										if (FindSelfModSource(eblock, addr + 1, sblock, sat))
@@ -36393,17 +36395,17 @@ bool NativeCodeBasicBlock::CollectSelfModTargets(void)
 										}
 										else if (useA)
 										{
-											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, addr + 1));
+											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDA, ASMIM_ZERO_PAGE, addr + 1, loaddr));
 											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_STA, ASMIM_ABSOLUTE, 2 * modID + 1, mProc->mLinkerObject));
 										}
 										else if (useX)
 										{
-											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, addr + 1));
+											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDX, ASMIM_ZERO_PAGE, addr + 1, loaddr));
 											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_STX, ASMIM_ABSOLUTE, 2 * modID + 1, mProc->mLinkerObject));
 										}
 										else
 										{
-											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, addr + 1));
+											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_LDY, ASMIM_ZERO_PAGE, addr + 1, loaddr));
 											eblock->mIns.Push(NativeCodeInstruction(mIns[i].mIns, ASMIT_STY, ASMIM_ABSOLUTE, 2 * modID + 1, mProc->mLinkerObject));
 										}
 									}
@@ -36687,6 +36689,22 @@ bool NativeCodeBasicBlock::FinalCheckedSizeReduction(void)
 				mIns[j + 1] = mIns[i + 1];
 				mIns[j + 2] = mIns[i + 4];
 				j += 3;
+				i += 5;
+				changed = true;
+			}
+			else if (i + 4 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LSR && mIns[i + 0].mMode == ASMIM_IMPLIED &&
+				mIns[i + 1].mType == ASMIT_LSR && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+				mIns[i + 2].mType == ASMIT_EOR && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x20 &&
+				mIns[i + 3].mType == ASMIT_SEC &&
+				mIns[i + 4].mType == ASMIT_SBC && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0x20 &&
+				!(mIns[i + 4].mLive & LIVE_CPU_REG_C))
+			{
+				mIns[j + 0] = NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_CMP, ASMIM_IMMEDIATE, 0x80);
+				mIns[j + 1] = NativeCodeInstruction(mIns[i + 1].mIns, ASMIT_ROR);
+				mIns[j + 2] = NativeCodeInstruction(mIns[i + 2].mIns, ASMIT_CMP, ASMIM_IMMEDIATE, 0x80);
+				mIns[j + 3] = NativeCodeInstruction(mIns[i + 3].mIns, ASMIT_ROR);
+				j += 4;
 				i += 5;
 				changed = true;
 			}
@@ -68147,7 +68165,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "moveTest");
+	CheckFunc = !strcmp(mIdent->mString, "scroll_down");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

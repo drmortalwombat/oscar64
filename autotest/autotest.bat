@@ -366,24 +366,6 @@ exit /b %errorlevel%
 @del diskimagefulltest.log
 @exit /b 0
 
-:testoptimizerlock
-..\bin\oscar64 -ea -g -n %~1 > optimizerstructvarargtest.log 2>&1
-@set compile_error=%errorlevel%
-@if %compile_error% neq 0 (
-	@type optimizerstructvarargtest.log
-	@del optimizerstructvarargtest.log
-	@exit /b %compile_error%
-)
-@findstr /c:"warning 2007:" /c:"Oops 31" optimizerstructvarargtest.log > nul
-@if %errorlevel% equ 0 (
-	@type optimizerstructvarargtest.log
-	@del optimizerstructvarargtest.log
-	@exit /b 1
-)
-@del optimizerstructvarargtest.log
-@call :test %~1
-@exit /b %errorlevel%
-
 :testh
 ..\bin\oscar64 -ea -g -bc %~1
 @if %errorlevel% neq 0 goto :error
