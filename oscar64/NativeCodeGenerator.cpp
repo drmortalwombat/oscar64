@@ -6,7 +6,7 @@
 #define JUMP_TO_BRANCH	1
 #define CHECK_NULLPTR	0
 #define REYCLE_JUMPS	1
-#define DISASSEMBLE_OPT	1
+#define DISASSEMBLE_OPT	0
 
 static bool CheckFunc;
 static bool CheckCase;
@@ -32041,7 +32041,6 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 					((mFalseJump->mIns[0].mType == ASMIT_LDA && mFalseJump->mIns[1].mType == ASMIT_STA && !(mFalseJump->mIns[1].mLive & (LIVE_CPU_REG_A | LIVE_CPU_REG_Z))) ||
 						(mFalseJump->mIns[0].mType == ASMIT_LDX && mFalseJump->mIns[1].mType == ASMIT_STX && !(mFalseJump->mIns[1].mLive & (LIVE_CPU_REG_X | LIVE_CPU_REG_Z)))) &&
 					mTrueJump->mIns[0].SameEffectiveAddress(mFalseJump->mIns[0]) && mTrueJump->mIns[1].SameEffectiveAddress(mFalseJump->mIns[1]) &&
-					HasAsmInstructionMode(ASMIT_LDX, mTrueJump->mIns[0].mMode) && HasAsmInstructionMode(ASMIT_STX, mTrueJump->mIns[1].mMode) &&
 					!mIns[s - 1].MayBeChangedOnAddress(mTrueJump->mIns[1]))
 				{
 					uint32	live = mIns[s - 1].mLive;
@@ -32050,9 +32049,9 @@ bool NativeCodeBasicBlock::JoinTailCodeSequences(bool loops)
 					if (s >= 2)
 						live |= mIns[s - 2].mLive;
 
-					mTrueJump->mIns[0].mType = ASMIT_LDX;
-					mTrueJump->mIns[0].mLive |= LIVE_CPU_REG_X | live;
-					mTrueJump->mIns[1].mType = ASMIT_STX;
+					mTrueJump->mIns[0].mType = ASMIT_LDA;
+					mTrueJump->mIns[0].mLive |= LIVE_CPU_REG_A | live;
+					mTrueJump->mIns[1].mType = ASMIT_STA;
 					mTrueJump->mIns[1].mLive |= live;
 
 
@@ -68165,7 +68164,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "scroll_down");
+	CheckFunc = !strcmp(mIdent->mString, "toggle_draw");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
