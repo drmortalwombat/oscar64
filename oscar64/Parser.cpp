@@ -6363,6 +6363,9 @@ Declaration* Parser::ParseDeclaration(Declaration * pdec, bool variable, bool ex
 
 					fdec->mValue = ParseFunction(fdec->mBase);
 
+					if (pthis && !(storageFlags & DTF_PREVENT_INLINE))
+						fdec->mFlags |= DTF_REQUEST_INLINE;
+
 					fdec->mFlags |= DTF_DEFINED;
 					fdec->mNumVars = mLocalIndex;
 				}
@@ -13386,6 +13389,35 @@ void Parser::ParseTemplateDeclarationBody(Declaration * tdec, Declaration * pthi
 				mScanner->NextToken();
 				adec = ParsePostfixDeclaration(false);
 				adec = ReverseDeclaration(adec, bdec);
+			}
+			else if (mScanner->mToken == TK_OPERATOR)
+			{
+				mScanner->NextToken();
+				Declaration* rdec = ParseBaseTypeDeclaration(0, false);
+
+				Declaration* ctdec = ParseFunctionDeclaration(bdec);
+				ctdec->mBase = rdec;
+
+				if (ctdec->mParams)
+					mErrors->Error(ctdec->mLocation, EERR_WRONG_PARAMETER, "Cast operators can't have parameter");
+
+				adec = new Declaration(ctdec->mLocation, DT_CONST_FUNCTION);
+				adec->mBase = ctdec;
+				
+				adec->mFlags |= adec->mBase->mFlags & (DTF_CONST | DTF_VOLATILE);
+
+				adec->mSection = mCodeSection;
+
+				if (mCompilerOptions & COPT_NATIVE)
+					adec->mFlags |= DTF_NATIVE;
+
+				adec->mIdent = Ident::Unique("(cast)");
+
+				char	buffer[200];
+				strcpy_s(buffer, bdec->mTemplate->mQualIdent->mString);
+				strcat_s(buffer, "::");
+				strcat_s(buffer, adec->mIdent->mString);
+				adec->mQualIdent = Ident::Unique(buffer);
 			}
 			else
 				mErrors->Error(bdec->mLocation, EERR_FUNCTION_TEMPLATE, "Constructor or destructor expected");

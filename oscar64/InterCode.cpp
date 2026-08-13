@@ -5535,7 +5535,7 @@ bool InterInstruction::RemoveUndefinedLocalLoadByteInstructions(InterCodeBasicBl
 
 	if (mCode == IC_LOAD)
 	{
-		if (mSrc[0].mMemory == IM_LOCAL)
+		if (mSrc[0].mMemory == IM_LOCAL && !mVolatile)
 		{
 			if (providedVars.RangeClear(localVars[mSrc[0].mVarIndex]->mByteIndex + int(mSrc[0].mIntConst), InterTypeSize[mDst.mType]))
 			{
@@ -28843,7 +28843,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "test");
+	CheckFunc = !strcmp(mIdent->mString, "ReuRef<i16>::(cast)");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
