@@ -37,6 +37,11 @@ else ()
     target_compile_options(oscar64 PRIVATE -Wall)
 endif ()
 
+# give WASI builds a bigger stack, 1 MB is too small
+if (CMAKE_SYSTEM_NAME STREQUAL "WASI")
+    target_link_options(oscar64 PRIVATE -Wl,-z,stack-size=16777216)
+endif ()
+
 # Post-build steps (only for Release builds)
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     add_custom_command(TARGET oscar64 POST_BUILD
