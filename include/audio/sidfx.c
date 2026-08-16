@@ -118,11 +118,8 @@ inline void sidfx_loop_ch(byte ch)
 				channels[ch].state = SIDFX_READY;
 				break;
 			case SIDFX_READY:
-				channels[ch].freq = com->freq;
-				channels[ch].pwm = com->pwm;
-
-				sid.voices[ch].freq = com->freq;
-				sid.voices[ch].pwm = com->pwm;
+				sid.voices[ch].freq = channels[ch].freq = com->freq;
+				sid.voices[ch].pwm = channels[ch].pwm = com->pwm;
 				sid.voices[ch].attdec = com->attdec;
 				sid.voices[ch].susrel = com->susrel;
 				sid.voices[ch].ctrl = com->ctrl;

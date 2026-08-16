@@ -37922,13 +37922,8 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, bool direct, i
 			}
 			else
 			{
-				int	k = j + 7;
-				while (k < at)
-				{
-					if (mIns[k].mMode == ASMIM_ZERO_PAGE && mIns[k].mAddress == ireg && mIns[k].ChangesAddress())
-						return false;
-					k++;
-				}
+				if (ChangesZeroPage(ireg, j + 7, at))
+					return false;
 
 				return true;
 			}
@@ -37968,12 +37963,8 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, bool direct, i
 			else
 			{
 				int	k = j + 7;
-				while (k < at)
-				{
-					if (mIns[k].mMode == ASMIM_ZERO_PAGE && mIns[k].mAddress == ireg && mIns[k].ChangesAddress())
-						return false;
-					k++;
-				}
+				if (ChangesZeroPage(ireg, j + 7, at))
+					return false;
 
 				return true;
 			}
@@ -38013,13 +38004,8 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, bool direct, i
 			}
 			else
 			{
-				int	k = j + 7;
-				while (k < at)
-				{
-					if (mIns[k].mMode == ASMIM_ZERO_PAGE && mIns[k].mAddress == ireg && mIns[k].ChangesAddress())
-						return false;
-					k++;
-				}
+				if (ChangesZeroPage(ireg, j + 7, at))
+					return false;
 
 				return true;
 			}
@@ -38153,13 +38139,8 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, bool direct, i
 			}
 			else
 			{
-				int	k = j + 7;
-				while (k < at)
-				{
-					if (mIns[k].mMode == ASMIM_ZERO_PAGE && mIns[k].mAddress == ireg && mIns[k].ChangesAddress())
-						return false;
-					k++;
-				}
+				if (ChangesZeroPage(ireg, j + 7, at))
+					return false;
 
 				return true;
 			}
@@ -38200,13 +38181,8 @@ bool NativeCodeBasicBlock::FindGlobalAddressSumY(int at, int reg, bool direct, i
 			}
 			else
 			{
-				int	k = j + 7;
-				while (k < at)
-				{
-					if (mIns[k].mMode == ASMIM_ZERO_PAGE && mIns[k].mAddress == ireg && mIns[k].ChangesAddress())
-						return false;
-					k++;
-				}
+				if (ChangesZeroPage(ireg, j + 7, at))
+					return false;
 
 				return true;
 			}
@@ -40509,6 +40485,28 @@ bool NativeCodeBasicBlock::MoveGenericLoadStoreUp(int at)
 			}
 			else
 				return false;
+		}
+		else if (mIns[j].mType == ASMIT_LDY && mIns[j].SameEffectiveAddress(mIns[at]) && HasAsmInstructionMode(ASMIT_STY, mIns[at + 1].mMode))
+		{
+			mIns[j].mLive |= LIVE_CPU_REG_Y;
+			mIns.Insert(j + 1, mIns[at + 1]);
+			mIns[j + 1].mType = ASMIT_STY;
+			mIns[j + 1].mLive |= LIVE_CPU_REG_Y;
+			mIns[j + 1].mLive |= mIns[j].mLive;
+			mIns[at + 2].mType = ASMIT_NOP;
+			mIns[at + 2].mMode = ASMIM_IMPLIED;
+			return true;
+		}
+		else if (mIns[j].mType == ASMIT_LDX && mIns[j].SameEffectiveAddress(mIns[at]) && HasAsmInstructionMode(ASMIT_STX, mIns[at + 1].mMode))
+		{
+			mIns[j].mLive |= LIVE_CPU_REG_X;
+			mIns.Insert(j + 1, mIns[at + 1]);
+			mIns[j + 1].mType = ASMIT_STX;
+			mIns[j + 1].mLive |= LIVE_CPU_REG_X;
+			mIns[j + 1].mLive |= mIns[j].mLive;
+			mIns[at + 2].mType = ASMIT_NOP;
+			mIns[at + 2].mMode = ASMIM_IMPLIED;
+			return true;
 		}
 		if (mIns[at].MayBeChangedOnAddress(mIns[j]))
 			return false;
@@ -46192,6 +46190,47 @@ bool NativeCodeBasicBlock::GlobalValueForwarding(NativeCodeProcedure* proc, bool
 				mIns.Insert(i + 1, NativeCodeInstruction(mIns[i].mIns, carryop));
 		}
 
+		if (mTrueJump && mTrueJump->mIns.Size() == 1 && !mTrueJump->mFalseJump)
+		{
+			if (mDataSet[CPU_REG_A].mMode >= NRDM_ZERO_PAGE &&			
+				mTrueJump->mIns[0].mType == ASMIT_STA &&
+				mDataSet[CPU_REG_A].SameData(mTrueJump->mIns[0]) &&
+				!(mTrueJump->mIns[0].mLive & LIVE_CPU_REG_A))
+			{
+				mTrueJump->mEntryBlocks.RemoveAll(this);
+				mTrueJump->mNumEntries--;
+				mTrueJump = mTrueJump->mTrueJump;
+				mTrueJump->mEntryBlocks.Push(this);
+				mTrueJump->mNumEntries++;
+				changed = true;
+			}
+
+			if (mDataSet[CPU_REG_X].mMode >= NRDM_ZERO_PAGE &&
+				mTrueJump->mIns[0].mType == ASMIT_STX &&
+				mDataSet[CPU_REG_X].SameData(mTrueJump->mIns[0]) &&
+				!(mTrueJump->mIns[0].mLive & LIVE_CPU_REG_X))
+			{
+				mTrueJump->mEntryBlocks.RemoveAll(this);
+				mTrueJump->mNumEntries--;
+				mTrueJump = mTrueJump->mTrueJump;
+				mTrueJump->mEntryBlocks.Push(this);
+				mTrueJump->mNumEntries++;
+				changed = true;
+			}
+
+			if (mDataSet[CPU_REG_Y].mMode >= NRDM_ZERO_PAGE &&
+				mTrueJump->mIns[0].mType == ASMIT_STY &&
+				mDataSet[CPU_REG_Y].SameData(mTrueJump->mIns[0]) &&
+				!(mTrueJump->mIns[0].mLive & LIVE_CPU_REG_Y))
+			{
+				mTrueJump->mEntryBlocks.RemoveAll(this);
+				mTrueJump->mNumEntries--;
+				mTrueJump = mTrueJump->mTrueJump;
+				mTrueJump->mEntryBlocks.Push(this);
+				mTrueJump->mNumEntries++;
+				changed = true;
+			}
+		}
 
 		if (this->mTrueJump && this->mTrueJump->GlobalValueForwarding(proc, final))
 			changed = true;
@@ -54871,7 +54910,7 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				mIns[i + 1].mType == ASMIT_LDA && 
 				mIns[i + 2].mType == ASMIT_ADC && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x01 &&
 				mIns[i + 3].mType == ASMIT_CLC &&
-				mIns[i + 4].mType == ASMIT_ADC && !(mIns[i + 4].mLive & LIVE_CPU_REG_C | LIVE_CPU_REG_Z))
+				mIns[i + 4].mType == ASMIT_ADC && !(mIns[i + 4].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
 			{
 				mIns[j + 0] = mIns[i + 0]; mIns[j + 0].mType = ASMIT_SEC;
 				mIns[j + 1] = mIns[i + 1];
@@ -54879,6 +54918,21 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 				j += 3;
 				i += 5;
 			}
+#if 1
+			else if (i + 3 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_IMMEDIATE && mIns[i + 0].mAddress == 0x00 &&
+				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0xff &&
+				mIns[i + 2].mType == ASMIT_AND && mIns[i + 2].mMode == ASMIM_IMMEDIATE && 
+				mIns[i + 3].mType == ASMIT_ORA && mIns[i + 3].mMode == ASMIM_IMMEDIATE && !(mIns[i + 3].mLive & (LIVE_CPU_REG_C | LIVE_CPU_REG_Z)))
+			{
+				int v0 = mIns[i + 3].mAddress, v1 = v0 | mIns[i + 2].mAddress;
+				mIns[j + 0] = mIns[i + 0]; mIns[j + 0].mAddress = v1;
+				mIns[j + 1].mType = ASMIT_BCC; mIns[j + 1].mMode = ASMIM_RELATIVE; mIns[j + 1].mAddress = 2;
+				mIns[j + 2].mType = ASMIT_LDA; mIns[j + 2].mMode = ASMIM_IMMEDIATE; mIns[j + 2].mAddress = v0;
+				j += 3;
+				i += 4;
+			}
+#endif
 			else if (i + 2 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_LDX && HasAsmInstructionMode(ASMIT_INC, mIns[i + 0].mMode) &&
 				mIns[i + 1].mType == ASMIT_INX &&
@@ -56528,7 +56582,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerShuffle(int pass)
 		{
 			if (mIns[i].mType == ASMIT_LDA && mIns[i + 1].mType == ASMIT_STA &&
 				(mIns[i + 0].mMode == ASMIM_ABSOLUTE || mIns[i + 0].mMode == ASMIM_ABSOLUTE_X || mIns[i + 0].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 0].mMode == ASMIM_INDIRECT_Y) &&
-				(mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_INDIRECT_Y) &&
+				(mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y || mIns[i + 1].mMode == ASMIM_INDIRECT_Y || mIns[i + 1].mMode == ASMIM_ZERO_PAGE) &&
 				!(mIns[i + 0].mFlags & NCIF_VOLATILE) && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
 			{
 				if (MoveGenericLoadStoreUp(i))
@@ -65347,7 +65401,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 				}
 				else if (
 					mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
-					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ABSOLUTE && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
+					mIns[i + 1].mType == ASMIT_STA && (mIns[i + 1].mMode == ASMIM_ABSOLUTE || mIns[i + 1].mMode == ASMIM_ABSOLUTE_X || mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y) && !(mIns[i + 1].mFlags & NCIF_VOLATILE))
 				{
 					int	n = 2;
 					if (mIns[i + 1].mLinkerObject && (mIns[i + 1].mLinkerObject->mFlags & LOBJF_ZEROPAGE))
@@ -68164,7 +68218,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "toggle_draw");
+	CheckFunc = !strcmp(mIdent->mString, "initialiseItem");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];

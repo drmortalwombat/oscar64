@@ -336,6 +336,9 @@ rem @echo off
 @call :test strxcopy.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test calleroffsettest.c
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error

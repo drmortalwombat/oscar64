@@ -1469,6 +1469,8 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 		if (ins0->mVolatile && ins1->mVolatile)
 			return false;
 
+		// These should be caught by memmap
+#if 0
 		if (ins1->mVolatile && ins0->mCode == IC_LOAD)
 		{
 			if (ins1->mCode == IC_LOAD)
@@ -1484,6 +1486,21 @@ bool InterCodeBasicBlock::CanSwapInstructions(const InterInstruction* ins0, cons
 				return false;
 		}
 
+		if (ins0->mVolatile && ins1->mCode == IC_LOAD)
+		{
+			if (ins0->mCode == IC_LOAD)
+				;
+			else if (ins0->mCode == IC_STORE)
+			{
+				if (ins0->mSrc[1].mMemory == IM_ABSOLUTE && (ins1->mSrc[0].mMemory != IM_ABSOLUTE && ins1->mSrc[0].mMemory != IM_INDIRECT))
+					;
+				else
+					return false;
+			}
+			else
+				return false;
+		}
+#endif
 		if (ins0->mCode == IC_LOAD)
 		{
 			if (DestroyingMem(ins0, ins1))
@@ -9825,6 +9842,21 @@ void InterCodeBasicBlock::UpdateLocalIntegerRangeSetsForward(void)
 							vr.mMinState = IntegerValueRange::S_UNBOUND;
 							vr.mMaxState = IntegerValueRange::S_UNBOUND;
 						}
+					}
+					else if (ins->mSrc[0].mRange.IsBound() && ins->mSrc[1].mRange.IsBound())
+					{
+						int64	v0 = ins->mSrc[0].mRange.mMinValue * ins->mSrc[1].mRange.mMinValue;
+						int64	v1 = ins->mSrc[0].mRange.mMinValue * ins->mSrc[1].mRange.mMaxValue;
+						int64	v2 = ins->mSrc[0].mRange.mMaxValue * ins->mSrc[1].mRange.mMinValue;
+						int64	v3 = ins->mSrc[0].mRange.mMaxValue * ins->mSrc[1].mRange.mMaxValue;
+
+						int64	vmin = int64min(int64min(v0, v1), int64min(v2, v3));
+						int64	vmax = int64max(int64max(v0, v1), int64max(v2, v3));
+
+						if (vmin >= SignedTypeMin(ins->mDst.mType) && vmax <= UnsignedTypeMax(ins->mDst.mType))
+							vr.SetLimit(vmin, vmax);
+						else
+							vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
 					}
 					else
 						vr.mMaxState = vr.mMinState = IntegerValueRange::S_UNBOUND;
@@ -26558,8 +26590,29 @@ void InterCodeBasicBlock::PeepholeOptimization(const GrowingVariableArray& stati
 					mInstructions[j - 1] = ins;
 				}
 			}
-
 		}
+
+		// move load to store down
+		for (int i = mInstructions.Size() - 1; i >= 0; i--)
+		{
+			InterInstruction* ins = mInstructions[i];
+			if (ins->mCode == IC_LOAD && (ins->mSrc[0].mTemp < 0 || !ins->mSrc[0].mFinal))
+			{
+				int j = i + 1;
+				while (j < mInstructions.Size() && CanSwapInstructions(ins, mInstructions[j]))
+					j++;
+				if (j > i + 1 && j < mInstructions.Size() && mInstructions[j]->mCode == IC_STORE && mInstructions[j]->mSrc[0].mTemp == ins->mDst.mTemp)
+				{
+					for (int k = i; k < j - 1; k++)
+					{
+						SwapInstructions(ins, mInstructions[k + 1]);
+						mInstructions[k] = mInstructions[k + 1];
+					}
+					mInstructions[j - 1] = ins;
+				}
+			}
+		}
+
 #endif
 		// Check complex comparison, that may be simpler when using operands
 		if (mFalseJump && mInstructions.Size() >= 3)
@@ -28843,7 +28896,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "ReuRef<i16>::(cast)");
+	CheckFunc = !strcmp(mIdent->mString, "sidfx_loop_2");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
