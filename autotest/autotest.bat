@@ -336,6 +336,9 @@ rem @echo off
 @call :test strxcopy.c
 @if %errorlevel% neq 0 goto :error
 
+@call :test2 calleroffsettest.c calleroffsethelper.c
+@if %errorlevel% neq 0 goto :error
+
 @exit /b 0
 
 :error
@@ -452,6 +455,48 @@ exit /b %errorlevel%
 @if %errorlevel% neq 0 goto :error
 
 ..\bin\oscar64 -ea -g -O2 -Ox -n %~1
+@if %errorlevel% neq 0 goto :error
+
+@exit /b 0
+
+:test2
+..\bin\oscar64 -ea -g -bc %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -n %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -bc %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -n %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O0 -bc %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O0 -n %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -Os -bc %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -Os -n %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O3 -bc %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O3 -n %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -xz -Oz -n %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -Oo -n %~1 %~2
+@if %errorlevel% neq 0 goto :error
+
+..\bin\oscar64 -ea -g -O2 -Ox -n %~1 %~2
 @if %errorlevel% neq 0 goto :error
 
 @exit /b 0

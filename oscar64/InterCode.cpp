@@ -5254,6 +5254,14 @@ bool InterInstruction::RemoveUnusedResultInstructions(InterInstruction* pre, Num
 
 void InterInstruction::BuildCallerSaveTempSet(NumberSet& requiredTemps, NumberSet& callerSaveTemps)
 {
+	// Native address generation may retain an LEA index instead of its result.
+	// Preserve that index whenever the resulting address must survive a call.
+	if (mCode == IC_LEA && mDst.mTemp >= 0 && callerSaveTemps[mDst.mTemp])
+	{
+		for (int i = 0; i < mNumOperands; i++)
+			if (mSrc[i].mTemp >= 0) callerSaveTemps += mSrc[i].mTemp;
+	}
+
 	if (mDst.mTemp >= 0)
 		requiredTemps -= mDst.mTemp;
 

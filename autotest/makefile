@@ -1,4 +1,5 @@
-SRCS=$(filter-out ambiguousoverload_trigger.c opp_part1.cpp opp_part2.cpp, $(wildcard *.c *.cpp))
+CALLER_OFFSET_SRCS=calleroffsettest.c calleroffsethelper.c
+SRCS=$(filter-out ambiguousoverload_trigger.c calleroffsethelper.c opp_part1.cpp opp_part2.cpp, $(wildcard *.c *.cpp))
 EXES=$(patsubst %.c,%,$(SRCS))
 EXES:=$(patsubst %.cpp,%,$(EXES))
 
@@ -16,6 +17,18 @@ diskimagefulltest:
 		printf 'Expected disk-capacity error and exit status 20, got %s\n' "$$status"; \
 		exit 1; \
 	fi
+
+calleroffsettest: $(CALLER_OFFSET_SRCS) calleroffsethelper.h
+	$(OSCAR64_CC) -ea -g -bc $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -n $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -O2 -bc $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -O2 -n $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -O0 -bc $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -O0 -n $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -Os -bc $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -Os -n $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -O3 -bc $(CALLER_OFFSET_SRCS)
+	$(OSCAR64_CC) -ea -g -O3 -n $(CALLER_OFFSET_SRCS)
 
 %: %.c
 	$(OSCAR64_CC) -ea -g -bc $<
