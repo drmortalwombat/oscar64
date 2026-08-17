@@ -23222,6 +23222,62 @@ bool NativeCodeBasicBlock::ExpandADCToBranch(void)
 
 		for (int i = 0; i < mIns.Size(); i++)
 		{
+#if 0
+			if (i + 5 < mIns.Size() &&
+				mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_ASL && mIns[i + 1].mMode == ASMIM_IMPLIED &&
+				mIns[i + 2].mType == ASMIT_LDA && mIns[i + 2].mMode == ASMIM_IMMEDIATE && mIns[i + 2].mAddress == 0x00 &&
+				mIns[i + 3].mType == ASMIT_ADC && mIns[i + 3].mMode == ASMIM_IMMEDIATE && mIns[i + 3].mAddress == 0xff &&
+				mIns[i + 4].mType == ASMIT_EOR && mIns[i + 4].mMode == ASMIM_IMMEDIATE && mIns[i + 4].mAddress == 0xff &&
+				mIns[i + 5].mType == ASMIT_STA && mIns[i + 5].mMode == ASMIM_ZERO_PAGE && mIns[i + 5].mAddress != mIns[i + 0].mAddress)
+			{
+				if (i + 11 < mIns.Size() &&
+					mIns[i + 6].mType == ASMIT_LDA && !mIns[i + 6].SameEffectiveAddress(mIns[i + 5]) &&
+					mIns[i + 7].mType == ASMIT_CLC &&
+					mIns[i + 8].mType == ASMIT_ADC && mIns[i + 8].mMode == ASMIM_ZERO_PAGE && mIns[i + 8].mAddress == mIns[i + 0].mAddress &&
+					mIns[i + 9].mType == ASMIT_STA && !mIns[i + 9].SameEffectiveAddress(mIns[i + 5]) &&
+					mIns[i + 10].mType == ASMIT_LDA && (mIns[i + 10].mMode == ASMIM_ZERO_PAGE || mIns[i + 10].mMode == ASMIM_ABSOLUTE) && !mIns[i + 10].SameEffectiveAddress(mIns[i + 5]) &&
+					mIns[i + 11].mType == ASMIT_ADC && mIns[i + 11].mMode == ASMIM_ZERO_PAGE && mIns[i + 11].mAddress == mIns[i + 5].mAddress && !(mIns[i + 11].mLive & (LIVE_MEM | LIVE_CPU_REG_C)))
+				{
+					if (!(mIns[i + 0].mLive & LIVE_CPU_REG_X))
+					{
+						const InterInstruction* iins = mIns[i + 6].mIns;
+
+						mIns[i + 1] = mIns[i + 0];
+						mIns[i + 0] = mIns[i + 10]; mIns[i + 0].mType = ASMIT_LDX;
+
+						changed = true;
+
+						NativeCodeBasicBlock* eblock = mProc->AllocateBlock();
+
+						NativeCodeBasicBlock* dblock = mProc->AllocateBlock();
+						NativeCodeBasicBlock* ablock = mProc->AllocateBlock();
+						NativeCodeBasicBlock* iblock = mProc->AllocateBlock();
+
+						dblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_DEX));
+						dblock->Close(iins, ablock, nullptr, ASMIT_JMP);
+
+						iblock->mIns.Push(NativeCodeInstruction(iins, ASMIT_INX));
+						iblock->Close(iins, eblock, nullptr, ASMIT_JMP);
+
+						ablock->mIns.Push(mIns[i + 7]);
+						ablock->mIns.Push(mIns[i + 6]); ablock->mIns[1].mType = ASMIT_ADC;
+						ablock->mIns.Push(mIns[i + 9]);
+						ablock->Close(iins, eblock, iblock, ASMIT_BCC);
+
+						this->Close(iins, ablock, dblock, ASMIT_BPL);
+
+						eblock->mIns.Push(NativeCodeInstruction(mIns[i + 0].mIns, ASMIT_TXA));
+
+						for (int j = i + 12; j < mIns.Size(); j++)
+							eblock->mIns.Push(mIns[j]);
+						mIns.SetSize(i + 2);
+
+						break;
+					}
+				}
+			}
+#endif
 			if (i + 2 < mIns.Size() &&
 				mIns[i + 0].mType == ASMIT_TXA &&
 				mIns[i + 1].mType == ASMIT_ADC && mIns[i + 1].mMode == ASMIM_IMMEDIATE && mIns[i + 1].mAddress == 0 &&
@@ -35084,6 +35140,251 @@ bool NativeCodeBasicBlock::PatchCrossBlock16BitFloodExit(const NativeCodeBasicBl
 	return false;
 }
 
+
+
+bool NativeCodeBasicBlock::CrossBlockZPFlood(void)
+{
+	bool	changed = false;
+
+	if (!mVisited)
+	{
+		mVisited = true;
+
+		for (int i = 0; i + 1 < mIns.Size(); i++)
+		{
+			if (mIns[i + 0].mType == ASMIT_STA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE &&
+				mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE)
+			{
+				mProc->ResetPatched();
+				if (CheckCrossBlockZPFlood(this, mIns[i + 0].mAddress, mIns[i + 1].mAddress, i + 2, false))
+				{
+					mIns[i + 1].mType = ASMIT_NOP; mIns[i + 1].mMode = ASMIM_IMPLIED;
+
+					mProc->ResetPatched();
+					if (PatchCrossBlockZPFlood(this, mIns[i + 0].mAddress, mIns[i + 1].mAddress, i + 2))
+					{
+//						printf("Patched %s,%d %02x-%02x\n", mProc->mIdent->mString, mIndex, mIns[i + 0].mAddress, mIns[i + 1].mAddress);
+						changed = true;
+					}
+				}
+				if (!changed)
+				{
+					mProc->ResetPatched();
+					if (CheckCrossBlockZPFlood(this, mIns[i + 1].mAddress, mIns[i + 0].mAddress, i + 2, false))
+					{
+						mIns[i + 0].mType = ASMIT_NOP; mIns[i + 0].mMode = ASMIM_IMPLIED;
+
+						mProc->ResetPatched();
+						if (PatchCrossBlockZPFlood(this, mIns[i + 1].mAddress, mIns[i + 0].mAddress, i + 2))
+						{
+//							printf("Patched %s,%d %02x-%02x\n", mProc->mIdent->mString, mIndex, mIns[i + 1].mAddress, mIns[i + 0].mAddress);
+							changed = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (mTrueJump && mTrueJump->CrossBlockZPFlood())
+			changed = true;
+		if (mFalseJump && mFalseJump->CrossBlockZPFlood())
+			changed = true;
+	}
+
+	return changed;
+}
+
+bool NativeCodeBasicBlock::CheckCrossBlockZPFlood(const NativeCodeBasicBlock* block, int sreg, int dreg, int at, bool rvalid)
+{
+	if (at == 0 && this == block)
+		return false;
+
+	if (!mPatched)
+	{
+		mPatched = true;
+
+		if (at == 0)
+		{
+			if (!mEntryRequiredRegs[dreg])
+				return true;
+
+			if (mNumEntries > 1)
+			{
+				for (int i = 0; i < mEntryBlocks.Size(); i++)
+					if (!mEntryBlocks[i]->CheckCrossBlockZPFloodExit(block, sreg, dreg, rvalid))
+						return false;
+			}
+		}
+
+		while (at < mIns.Size())
+		{
+			NativeCodeInstruction& ins(mIns[at]);
+
+			if (ins.ChangesZeroPage(sreg))
+				return false;
+			else if ((ins.mType == ASMIT_JSR || ins.mType == ASMIT_RTS) && ins.ReferencesZeroPage(dreg))
+				return false;
+			else if (ins.mMode == ASMIM_INDIRECT_Y && (ins.mAddress + 1 == dreg || ins.mAddress == dreg))
+				return false;
+			else if (ins.ReferencesZeroPage(dreg) && !(ins.mLive & LIVE_MEM))
+				return true;
+			else if (ins.ChangesZeroPage(dreg))
+				return false;
+
+			at++;
+		}
+
+		mPatchExit = true;
+
+		if (mTrueJump && !mTrueJump->CheckCrossBlockZPFlood(block, sreg, dreg, 0, rvalid))
+			return false;
+		if (mFalseJump && !mFalseJump->CheckCrossBlockZPFlood(block, sreg, dreg, 0, rvalid))
+			return false;
+	}
+
+	return true;
+}
+
+bool NativeCodeBasicBlock::CheckCrossBlockZPFloodExit(const NativeCodeBasicBlock* block, int sreg, int dreg, bool rvalid)
+{
+	if (!mPatchExit)
+	{
+		mPatchExit = true;
+
+		if (mTrueJump && !mTrueJump->CheckCrossBlockZPFlood(block, sreg, dreg, 0, rvalid))
+			return false;
+		if (mFalseJump && !mFalseJump->CheckCrossBlockZPFlood(block, sreg, dreg, 0, rvalid))
+			return false;
+
+		int at = mIns.Size() - 1;
+		while (at >= 0)
+		{
+			NativeCodeInstruction& ins(mIns[at]);
+
+			if (ins.ChangesZeroPage(sreg) || ins.ChangesZeroPage(dreg))
+				return false;
+			else if ((ins.mType == ASMIT_JSR || ins.mType == ASMIT_RTS) && ins.ReferencesZeroPage(dreg))
+				return false;
+			else if (ins.mMode == ASMIM_INDIRECT_Y && (ins.mAddress + 1 == dreg || ins.mAddress == dreg))
+				return false;
+
+			at--;
+		}
+
+		mPatched = true;
+
+		if (mEntryBlocks.Size() == 0)
+			return false;
+
+		for (int i = 0; i < mEntryBlocks.Size(); i++)
+			if (!mEntryBlocks[i]->CheckCrossBlockZPFloodExit(block, sreg, dreg, rvalid))
+				return false;
+	}
+
+	return true;
+}
+
+bool NativeCodeBasicBlock::PatchCrossBlockZPFlood(const NativeCodeBasicBlock* block, int sreg, int dreg, int at)
+{
+	bool	changed = false;
+
+	if (!mPatched)
+	{
+		mPatched = true;
+
+		if (at == 0)
+		{
+			if (!mEntryRequiredRegs[dreg])
+				return false;
+
+			for (int i = 0; i < mEntryBlocks.Size(); i++)
+				if (mEntryBlocks[i]->PatchCrossBlockZPFloodExit(block, sreg, dreg))
+					changed = true;
+
+			mEntryRequiredRegs += sreg;
+		}
+
+		while (at < mIns.Size())
+		{
+			NativeCodeInstruction& ins(mIns[at]);
+
+			if (ins.mMode == ASMIM_ZERO_PAGE)
+			{
+				if (ins.mAddress == dreg)
+				{
+					ins.mAddress = sreg;
+					if (!(ins.mLive & LIVE_MEM))
+						return true;
+					changed = true;
+				}
+			}
+
+			at++;
+		}
+
+		mPatchExit = true;
+
+		mExitRequiredRegs += sreg;
+
+		if (mTrueJump && mTrueJump->PatchCrossBlockZPFlood(block, sreg, dreg, 0))
+			changed = true;
+		if (mFalseJump && mFalseJump->PatchCrossBlockZPFlood(block, sreg, dreg, 0))
+			changed = true;
+	}
+
+	return changed;
+
+}
+
+bool NativeCodeBasicBlock::PatchCrossBlockZPFloodExit(const NativeCodeBasicBlock* block, int sreg, int dreg)
+{
+	bool	changed = false;
+
+	if (!mPatchExit)
+	{
+		mPatchExit = true;
+
+		mExitRequiredRegs += sreg;
+
+		if (mTrueJump && mTrueJump->PatchCrossBlockZPFlood(block, sreg, dreg, 0))
+			changed = true;
+		if (mFalseJump && mFalseJump->PatchCrossBlockZPFlood(block, sreg, dreg, 0))
+			changed = true;
+
+		int at = mIns.Size() - 1;
+		while (at >= 0)
+		{
+			NativeCodeInstruction& ins(mIns[at]);
+
+			if (ins.mMode == ASMIM_ZERO_PAGE || ins.mMode == ASMIM_ZERO_PAGE_X || ins.mMode == ASMIM_ZERO_PAGE_Y)
+			{
+				if (ins.mAddress == dreg)
+				{
+					ins.mAddress = sreg;
+					changed = true;
+				}
+			}
+
+			at--;
+		}
+
+		if (mEntryRequiredRegs[dreg] || mEntryRequiredRegs[dreg + 1])
+		{
+			mPatched = true;
+			mEntryRequiredRegs += sreg;
+
+			for (int i = 0; i < mEntryBlocks.Size(); i++)
+				if (mEntryBlocks[i]->PatchCrossBlockZPFloodExit(block, sreg, dreg))
+					changed = true;
+		}
+
+		return changed;
+	}
+
+	return false;
+}
+
+
 bool NativeCodeBasicBlock::CrossBlockXYFlood(NativeCodeProcedure* proc)
 {
 	bool	changed = false;
@@ -41396,7 +41697,7 @@ bool NativeCodeBasicBlock::ForwardFindLiveRange(const NativeCodeBasicBlock* bloc
 }
 
 
-bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
+bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(bool final)
 {
 //	return false;
 	bool	changed = false;
@@ -41413,10 +41714,10 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 0].mAddress >= BC_REG_FPARAMS && mIns[i + 0].mAddress < BC_REG_FPARAMS_END && 
 				mIns[i + 1].mAddress >= BC_REG_TMP)
 			{
-				nproc->ResetPatched();
+				mProc->ResetPatched();
 				if (IsFinalZeroPageUse(this, i + 2, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false, false))
 				{
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 2, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false))
 						changed = true;
 
@@ -41432,13 +41733,13 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 0].mAddress >= BC_REG_FPARAMS && mIns[i + 0].mAddress < BC_REG_FPARAMS_END && 
 				mIns[i + 1].mAddress >= BC_REG_TMP)
 			{
-				nproc->ResetPatched();
+				mProc->ResetPatched();
 				if (IsFinalZeroPageUse(this, i + 4, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true, false))
 				{
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 4, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true))
 						changed = true;
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 4, mIns[i + 3].mAddress, mIns[i + 2].mAddress, false))
 						changed = true;
 
@@ -41459,13 +41760,13 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 0].mAddress >= BC_REG_FPARAMS && mIns[i + 0].mAddress < BC_REG_FPARAMS_END &&
 				mIns[i + 2].mAddress >= BC_REG_TMP)
 			{
-				nproc->ResetPatched();
+				mProc->ResetPatched();
 				if (IsFinalZeroPageUse(this, i + 6, mIns[i + 2].mAddress, mIns[i + 0].mAddress, true, true))
 				{
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 6, mIns[i + 2].mAddress, mIns[i + 0].mAddress, true))
 						changed = true;
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 6, mIns[i + 5].mAddress, mIns[i + 3].mAddress, false))
 						changed = true;
 
@@ -41485,13 +41786,13 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 0].mAddress >= BC_REG_FPARAMS && mIns[i + 0].mAddress < BC_REG_FPARAMS_END &&
 				mIns[i + 1].mAddress >= BC_REG_TMP)
 			{
-				nproc->ResetPatched();
+				mProc->ResetPatched();
 				if (IsFinalZeroPageUse(this, i + 5, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true, true))
 				{
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 5, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true))
 						changed = true;
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 5, mIns[i + 4].mAddress, mIns[i + 2].mAddress, false))
 						changed = true;
 
@@ -41509,10 +41810,10 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				mIns[i + 0].mAddress >= BC_REG_FPARAMS && mIns[i + 0].mAddress < BC_REG_FPARAMS_END &&
 				mIns[i + 2].mAddress >= BC_REG_TMP)
 			{
-				nproc->ResetPatched();
+				mProc->ResetPatched();
 				if (IsFinalZeroPageUse(this, i + 3, mIns[i + 2].mAddress, mIns[i + 0].mAddress, false, true))
 				{
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardReplaceZeroPage(i + 3, mIns[i + 2].mAddress, mIns[i + 0].mAddress, false))
 					{
 						mIns[i + 2].mAddress = mIns[i + 0].mAddress;
@@ -41534,7 +41835,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				{
 					ExpandingArray<CodeRange>	ranges;
 
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardFindLiveRange(this, i + 2, mIns[i + 1].mAddress, false, ranges))
 					{
 						if (CanReplaceRegInLiveRange(ranges, mIns[i + 1].mAddress, mIns[i + 0].mAddress, false))
@@ -41555,6 +41856,7 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 						}
 					}
 				}
+
 				if (i + 3 < mIns.Size() &&
 					mIns[i + 0].mType == ASMIT_LDA && mIns[i + 0].mMode == ASMIM_ZERO_PAGE && !(mIns[i + 0].mLive & LIVE_MEM) &&
 					mIns[i + 1].mType == ASMIT_STA && mIns[i + 1].mMode == ASMIM_ZERO_PAGE &&
@@ -41565,10 +41867,10 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 				{
 					ExpandingArray<CodeRange>	ranges1, ranges2;
 
-					nproc->ResetPatched();
+					mProc->ResetPatched();
 					if (ForwardFindLiveRange(this, i + 2, mIns[i + 1].mAddress, true, ranges1))
 					{
-						nproc->ResetPatched();
+						mProc->ResetPatched();
 						if (ForwardFindLiveRange(this, i + 4, mIns[i + 3].mAddress, true, ranges2))
 						{
 							if (CanReplaceRegInLiveRange(ranges1, mIns[i + 1].mAddress, mIns[i + 0].mAddress, true) &&
@@ -41675,9 +41977,9 @@ bool NativeCodeBasicBlock::ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc)
 			}
 		}
 
-		if (mTrueJump && mTrueJump->ReplaceFinalZeroPageUse(nproc))
+		if (mTrueJump && mTrueJump->ReplaceFinalZeroPageUse(final))
 			changed = true;
-		if (mFalseJump && mFalseJump->ReplaceFinalZeroPageUse(nproc))
+		if (mFalseJump && mFalseJump->ReplaceFinalZeroPageUse(final))
 			changed = true;
 	}
 
@@ -65412,7 +65714,13 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate(int pass)
 					{
 						mProc->ResetPatched();
 						if (PatchSingleUseGlobalLoad(this, mIns[i + 0].mAddress, i + 2, mIns[i + 1]))
+						{
 							progress = true;
+							if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_X)
+								mIns[i + 1].mLive |= LIVE_CPU_REG_X;
+							if (mIns[i + 1].mMode == ASMIM_ABSOLUTE_Y)
+								mIns[i + 1].mLive |= LIVE_CPU_REG_Y;
+						}
 						CheckLive();
 						if (mTrueJump)
 							mTrueJump->CheckLive();
@@ -66471,6 +66779,7 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 
 		changed = true;
 	}
+
 	if (pass >= 20 && sz >= 1 &&
 		mIns[sz - 1].mType == ASMIT_CMP && mIns[sz - 1].mMode == ASMIM_IMMEDIATE && mIns[sz - 1].mAddress == 0x80 &&
 		(mBranch == ASMIT_BCC || mBranch == ASMIT_BCS) && !mExitRequiredRegs[CPU_REG_C] && !mExitRequiredRegs[CPU_REG_Z])
@@ -66515,6 +66824,8 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerExits(int pass)
 
 #endif
 #endif
+
+	sz = mIns.Size();
 
 #if 1
 	if (sz >= 4 && (mBranch == ASMIT_BMI || mBranch == ASMIT_BPL) && !mExitRequiredRegs[CPU_REG_Z])
@@ -68218,7 +68529,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "initialiseItem");
+	CheckFunc = !strcmp(mIdent->mString, "facts");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
@@ -69217,11 +69528,11 @@ void NativeCodeProcedure::Optimize(void)
 #endif
 
 #if 1
-		if (step == 2)
+		if (step == 2 || step == 25)
 		{
 			BuildDataFlowSets();
 			ResetVisited();
-			mEntryBlock->ReplaceFinalZeroPageUse(this);
+			mEntryBlock->ReplaceFinalZeroPageUse(step == 24);
 		}
 #endif
 
@@ -70470,6 +70781,13 @@ void NativeCodeProcedure::Optimize(void)
 			}
 		}
 
+		if (step == 33)
+		{
+			ResetVisited();
+			if (mEntryBlock->CrossBlockZPFlood())
+				changed = true;
+		}
+
 #if _DEBUG
 		ResetVisited();
 		mEntryBlock->CheckAsmCode();
@@ -70496,7 +70814,7 @@ void NativeCodeProcedure::Optimize(void)
 		}
 
 #if 1
-		if (!changed && step < 33)
+		if (!changed && step < 34)
 		{
 			ResetIndexFlipped();
 

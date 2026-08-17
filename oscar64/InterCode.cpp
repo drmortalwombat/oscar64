@@ -10303,9 +10303,11 @@ bool InterCodeBasicBlock::UpdateLinearCombinations(void)
 
 			if (ins->mCode == IC_BINARY_OPERATOR && (ins->mOperator == IA_MUL || ins->mOperator == IA_SHL) && ins->mSrc[0].mTemp < 0 && ins->mSrc[1].mRange.IsBound())
 			{
+				int step = ins->mOperator == IA_MUL ? int(ins->mSrc[0].mIntConst) : 1 << int(ins->mSrc[0].mIntConst);
+
 				combos[ins->mDst.mTemp] = LinearCombo {
-					int(ins->mSrc[1].mRange.mMinValue),
-					int(ins->mSrc[0].mIntConst),
+					int(ins->mSrc[1].mRange.mMinValue * step),
+					step,
 					int(ins->mSrc[1].mRange.mMaxValue + 1 - ins->mSrc[1].mRange.mMinValue) };
 				checked = true;
 			}
@@ -12850,6 +12852,7 @@ bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstruction
 			int stemp = -1;
 
 			if (ins->mCode == IC_BINARY_OPERATOR &&
+				IsIntegerType(ins->mDst.mType) &&
 				ins->mOperator == IA_ADD &&
 				ins->mSrc[0].mTemp < 0 &&
 				ins->mSrc[1].mTemp >= 0)
@@ -12859,7 +12862,12 @@ bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstruction
 				if (ins->mSrc[1].mFinal && ltvalue[stemp])
 				{
 					InterInstruction* sins = ltvalue[stemp];
-					int64 diff = ins->mSrc[0].mIntConst - sins->mSrc[0].mIntConst;
+					int64 diff = ins->mSrc[0].mIntConst;
+					if (sins->mOperator == IA_ADD) 
+						diff -= sins->mSrc[0].mIntConst;
+					else
+						diff += sins->mSrc[0].mIntConst;
+
 					if (diff >= -128 && diff < 256 || ins->mSrc[0].mIntConst < -128 || ins->mSrc[0].mIntConst >= 256)
 					{
 						ins->mSrc[1] = sins->mDst;
@@ -12871,6 +12879,35 @@ bool InterCodeBasicBlock::EliminateIntegerSumAliasTemps(const GrowingInstruction
 				}
 				else if (ins->mSrc[1].mFinal)
 					stemp = -1;					
+			}
+			else if (ins->mCode == IC_BINARY_OPERATOR &&
+				IsIntegerType(ins->mDst.mType) &&
+				ins->mOperator == IA_SUB &&
+				ins->mSrc[0].mTemp < 0 &&
+				ins->mSrc[1].mTemp >= 0)
+			{
+				stemp = ins->mSrc[1].mTemp;
+
+				if (ins->mSrc[1].mFinal && ltvalue[stemp])
+				{
+					InterInstruction* sins = ltvalue[stemp];
+					int64 diff = ins->mSrc[0].mIntConst;
+					if (sins->mOperator == IA_SUB)
+						diff -= sins->mSrc[0].mIntConst;
+					else
+						diff += sins->mSrc[0].mIntConst;
+
+					if (diff >= -128 && diff < 256 || ins->mSrc[0].mIntConst < -128 || ins->mSrc[0].mIntConst >= 256)
+					{
+						ins->mSrc[1] = sins->mDst;
+						ins->mSrc[0].mIntConst = diff;
+						changed = true;
+					}
+
+					stemp = -1;
+				}
+				else if (ins->mSrc[1].mFinal)
+					stemp = -1;
 			}
 
 			if (dtemp >= 0)
@@ -28896,7 +28933,7 @@ void InterCodeProcedure::Close(void)
 {
 	GrowingTypeArray	tstack(IT_NONE);
 	
-	CheckFunc = !strcmp(mIdent->mString, "sidfx_loop_2");
+	CheckFunc = !strcmp(mIdent->mString, "case_b");
 	CheckCase = false;
 
 	mEntryBlock = mBlocks[0];
@@ -30035,6 +30072,12 @@ void InterCodeProcedure::Close(void)
 	PeepholeOptimization();
 
 	EliminateIntegerSumAliasTemps();
+
+	TempForwarding();
+	RemoveUnusedInstructions();
+
+	TempForwarding(true);
+	RemoveUnusedInstructions();
 
 	ResetVisited();
 	if (mEntryBlock->Flatten2DLoop())

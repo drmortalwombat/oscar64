@@ -61,9 +61,14 @@ void GlobalAnalyzer::DumpCallGraph(void)
 static int VarUseCountScale(Declaration* type)
 {
 	if (type->mType == DT_TYPE_BOOL || type->mType == DT_TYPE_INTEGER || type->mType == DT_TYPE_FLOAT || type->mType == DT_TYPE_ENUM)
-		return 0x100 / type->mSize;
+		return 0x100;
 	else if (type->mType == DT_TYPE_POINTER)
-		return 0x800;
+	{
+		if (type->mStripe > 1)
+			return 0x100;
+		else
+			return 0x800;
+	}
 	else if (type->mType == DT_TYPE_ARRAY)
 	{
 		if (type->mSize > 0)
@@ -117,7 +122,12 @@ void GlobalAnalyzer::AutoZeroPage(LinkerSection* lszp, int zpsize)
 				}
 			}
 		}
-
+#if 0
+		for (int i = 0; i < vars.Size(); i++)
+		{
+			printf("%s : %d, %d\n", vars[i]->mIdent->mString, vars[i]->mSize, vars[i]->mUseCount);
+		}
+#endif
 		int i = 0;
 		while (i < vars.Size() && zpsize > 0)
 		{

@@ -832,7 +832,7 @@ public:
 
 	bool IsFinalZeroPageUse(const NativeCodeBasicBlock* block, int at, int from, int to, bool pair, bool fchanged);
 	bool IsFinalZeroPageUseTail(const NativeCodeBasicBlock* block, int from, int to, bool pair);
-	bool ReplaceFinalZeroPageUse(NativeCodeProcedure* nproc);
+	bool ReplaceFinalZeroPageUse(bool final);
 	bool ForwardReplaceZeroPage(int at, int from, int to, bool pair);
 
 	bool CanZeroPageCopyUp(int at, int from, int to, bool diamond);
@@ -1024,6 +1024,12 @@ public:
 	bool CheckCrossBlock16BitFloodExit(const NativeCodeBasicBlock* block, int sreg, int dreg, bool rvalid);
 	bool PatchCrossBlock16BitFlood(const NativeCodeBasicBlock* block, int sreg, int dreg, int at);
 	bool PatchCrossBlock16BitFloodExit(const NativeCodeBasicBlock* block, int sreg, int dreg);
+
+	bool CrossBlockZPFlood(void);
+	bool CheckCrossBlockZPFlood(const NativeCodeBasicBlock* block, int sreg, int dreg, int at, bool rvalid);
+	bool CheckCrossBlockZPFloodExit(const NativeCodeBasicBlock* block, int sreg, int dreg, bool rvalid);
+	bool PatchCrossBlockZPFlood(const NativeCodeBasicBlock* block, int sreg, int dreg, int at);
+	bool PatchCrossBlockZPFloodExit(const NativeCodeBasicBlock* block, int sreg, int dreg);
 
 	bool CrossBlockXYFlood(NativeCodeProcedure * proc);
 
