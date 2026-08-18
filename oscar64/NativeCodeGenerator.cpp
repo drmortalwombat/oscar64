@@ -3233,10 +3233,16 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 			iand = (~data[CPU_REG_Y].mMask | data[CPU_REG_Y].mValue) & 0xff;
 		}
 
-		int size = mLinkerObject->mSize - mAddress;
+		int base = mAddress;
+		if (base >= mLinkerObject->mSize && base >= 0x8000)
+			base -= 0x10000;
+
+		// case of negative offset
+		int size = mLinkerObject->mSize - base;
+
 		if (mLinkerObject->mStripe > 1)
 		{
-			int ssize = mLinkerObject->mStripe - mAddress % mLinkerObject->mStripe;
+			int ssize = mLinkerObject->mStripe - base % mLinkerObject->mStripe;
 			if (ssize == 1 && size > mLinkerObject->mStripe)
 				size = mLinkerObject->mStripe + 1;
 			else
@@ -3247,10 +3253,10 @@ bool NativeCodeInstruction::BitFieldForwarding(NativeRegisterDataSet& data, AsmI
 
 		for (int i = 0; i < size; i++)
 		{
-			if ((i & ~iand) == 0 && (i & ior) == ior)
+			if (i + base >= 0 && (i & ~iand) == 0 && (i & ior) == ior)
 			{
-				mor |= mLinkerObject->mData[mAddress + i];
-				mand &= mLinkerObject->mData[mAddress + i];
+				mor |= mLinkerObject->mData[base + i];
+				mand &= mLinkerObject->mData[base + i];
 			}
 		}
 		opmask = (mand | ~mor) & 0xff;
@@ -39485,10 +39491,14 @@ int NativeCodeBasicBlock::RetrieveAMax(int at) const
 				}
 				else if (ins.mLinkerObject)
 				{
-					int size = ins.mLinkerObject->mSize - ins.mAddress;
+					int base = ins.mAddress;
+					if (base >= ins.mLinkerObject->mSize && base >= 0x8000)
+						base -= 0x10000;
+
+					int size = ins.mLinkerObject->mSize - base;
 					if (ins.mLinkerObject->mStripe > 1)
 					{
-						int ssize = ins.mLinkerObject->mStripe - ins.mAddress % ins.mLinkerObject->mStripe;
+						int ssize = ins.mLinkerObject->mStripe - base % ins.mLinkerObject->mStripe;
 						if (ssize == 1 && size > ins.mLinkerObject->mStripe)
 							size = ins.mLinkerObject->mStripe + 1;
 						else
@@ -39502,10 +39512,13 @@ int NativeCodeBasicBlock::RetrieveAMax(int at) const
 
 					for (int i = 0; i < size; i++)
 					{
-						int b = ins.mLinkerObject->mData[ins.mAddress + i];
-						if (b > amax)
-							amax = b;
-						azeros &= ~b;
+						if (i + base >= 0)
+						{
+							int b = ins.mLinkerObject->mData[base + i];
+							if (b > amax)
+								amax = b;
+							azeros &= ~b;
+						}
 					}
 				}
 				else
@@ -56197,18 +56210,22 @@ void NativeCodeBasicBlock::BlockSizeReduction(NativeCodeProcedure* proc, int xen
 						iand = (~yregMask | yregVal) & 0xff;
 					}
 
-					int size = mIns[i].mLinkerObject->mSize - mIns[i].mAddress;
+					int base = mIns[i].mAddress;
+					if (base >= mIns[i].mLinkerObject->mSize && base >= 0x8000)
+						base -= 0x10000;
+
+					int size = mIns[i].mLinkerObject->mSize - base;
 					if (mIns[i].mLinkerObject->mStripe > 1)
-						size = mIns[i].mLinkerObject->mStripe - mIns[i].mAddress % mIns[i].mLinkerObject->mStripe;
+						size = mIns[i].mLinkerObject->mStripe - base % mIns[i].mLinkerObject->mStripe;
 					if (size > 256)
 						size = 256;
 
 					for (int j = 0; j < size; j++)
 					{
-						if ((j & ~iand) == 0 && (j & ior) == ior)
+						if (base + j >= 0 && (j & ~iand) == 0 && (j & ior) == ior)
 						{
-							mor |= mIns[i].mLinkerObject->mData[mIns[i].mAddress + j];
-							mand &= mIns[i].mLinkerObject->mData[mIns[i].mAddress + j];
+							mor |= mIns[i].mLinkerObject->mData[base + j];
+							mand &= mIns[i].mLinkerObject->mData[base + j];
 						}
 					}
 
@@ -58100,6 +58117,14 @@ bool NativeCodeBasicBlock::PeepHoleOptimizerIterate1(int i, int pass)
 		mIns[i].mMode = ASMIM_IMMEDIATE;
 		mIns[i].mAddress = mIns[i].mLinkerObject->mData[mIns[i].mAddress];
 		mIns[i].mLinkerObject = nullptr;
+		return true;
+	}
+
+	if (pass == 30 && mIns[i].mMode == ASMIM_IMMEDIATE_ADDRESS && mIns[i].mLinkerObject && (mIns[i].mLinkerObject->mFlags & LOBJF_ZEROPAGE) && (mIns[i].mFlags & NCIF_UPPER))
+	{
+		mIns[i].mMode = ASMIM_IMMEDIATE;
+		mIns[i].mAddress = 0;
+		mIns[i].mFlags |= NCIF_LOWER;
 		return true;
 	}
 
@@ -68529,7 +68554,7 @@ void NativeCodeProcedure::Compile(InterCodeProcedure* proc)
 		
 	mInterProc->mLinkerObject->mNativeProc = this;
 
-	CheckFunc = !strcmp(mIdent->mString, "facts");
+	CheckFunc = !strcmp(mIdent->mString, "f");
 
 	int	nblocks = proc->mBlocks.Size();
 	tblocks = new NativeCodeBasicBlock * [nblocks];
