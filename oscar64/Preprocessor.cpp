@@ -821,7 +821,11 @@ bool SourceFile::Open(const char* name, const char* path, SourceFileMode mode)
 
 	if (!fopen_s(&mFile, fname, "rb"))
 	{
-		_fullpath(mFileName, fname, sizeof(mFileName));
+		char* fullPath = _fullpath(mFileName, fname, sizeof(mFileName));
+		// _fullpath might fail on WASI SDK which has no getcwd() except for "."
+		if (!fullPath || *fullPath == '\0') {
+			strcpy_s(mFileName, fname);
+		}
 		char* p = mFileName;
 		while (*p)
 		{
